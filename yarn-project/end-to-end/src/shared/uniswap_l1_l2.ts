@@ -12,7 +12,7 @@ import {
   deployL1Contract,
   extractEvent,
 } from '@aztec/ethereum';
-import { sha256ToField } from '@aztec/foundation/crypto/sha256';
+import { sha256ToField } from '@aztec/foundation/crypto';
 import { InboxAbi, UniswapPortalAbi, UniswapPortalBytecode } from '@aztec/l1-artifacts';
 import { UniswapContract } from '@aztec/noir-contracts.js/Uniswap';
 import { computeL2ToL1MessageHash } from '@aztec/stdlib/hash';

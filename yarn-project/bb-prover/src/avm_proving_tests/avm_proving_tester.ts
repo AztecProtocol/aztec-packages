@@ -94,7 +94,7 @@ const provingConfig: PublicSimulatorConfig = PublicSimulatorConfig.from({
   collectCallMetadata: true,
   collectDebugLogs: false,
   collectHints: true, // Required for proving!
-  collectPublicInputs: true, // Required for proving!
+  collectPublicInputs: true,
   collectStatistics: false,
 });
 

@@ -1,4 +1,4 @@
-import { sha256 } from '@aztec/foundation/crypto/sha256';
+import { sha256 } from '@aztec/foundation/crypto';
 import type { LogFn, Logger } from '@aztec/foundation/log';
 import {
   type FunctionArtifact,

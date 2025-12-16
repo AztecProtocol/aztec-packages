@@ -20,7 +20,7 @@ import {
 import { EthCheatCodesWithState, startAnvil } from '@aztec/ethereum/test';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { SecretValue } from '@aztec/foundation/config';
-import { randomBytes } from '@aztec/foundation/crypto/random';
+import { randomBytes } from '@aztec/foundation/crypto';
 import { tryRmDir } from '@aztec/foundation/fs';
 import { createLogger } from '@aztec/foundation/log';
 import { resolver, reviver } from '@aztec/foundation/serialize';

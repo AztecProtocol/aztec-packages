@@ -27,17 +27,19 @@ TEST_F(Sha256Tests, TestSha256Compression)
         sha256_compression.result[i] = static_cast<uint32_t>(i + 24);
     }
 
-    std::array<uint32_t, 16> input_block = { 0 };
+    std::vector<uint8_t> inputs_as_bits(64);
     std::array<uint32_t, 8> hash_values = { 0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
                                             0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19 };
-    std::array<uint32_t, 8> result = bb::crypto::sha256_block(hash_values, input_block);
+    std::array<uint8_t, 32> result = bb::crypto::sha256_block(inputs_as_bits);
 
     WitnessVector witness(32, 0);
     for (size_t idx = 16; idx < 24; idx++) {
         witness[idx] = hash_values[idx - 16];
     }
     for (size_t idx = 0; idx < 8; idx++) {
-        witness[24 + idx] = result[idx];
+        witness[24 + idx] =
+            (static_cast<uint32_t>(result[idx * 4]) << 24) | (static_cast<uint32_t>(result[idx * 4 + 1]) << 16) |
+            (static_cast<uint32_t>(result[idx * 4 + 2]) << 8) | static_cast<uint32_t>(result[idx * 4 + 3]);
     }
 
     AcirFormat constraint_system{

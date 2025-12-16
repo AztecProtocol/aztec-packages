@@ -29,7 +29,7 @@ use dep::aztec::{
 #[custom_note]
 pub struct UintNote {
     /// The number stored in the note.
-    pub value: u128,
+    value: u128,
 }
 // docs:end:uint_note_def
 
@@ -94,6 +94,14 @@ impl NoteHash for UintNote {
 }
 
 impl UintNote {
+    pub fn new(value: u128) -> Self {
+        Self { value }
+    }
+
+    pub fn get_value(self) -> u128 {
+        self.value
+    }
+
     /// Creates a partial note that will hide the owner and storage slot but not the value, since the note will be later
     /// completed in public. This is a powerful technique for scenarios in which the value cannot be known in private
     /// (e.g. because it depends on some public state, such as a DEX).

@@ -1,7 +1,6 @@
-import { INITIAL_CHECKPOINT_NUMBER, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
+import { INITIAL_L2_BLOCK_NUM, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
-import { CheckpointNumber } from '@aztec/foundation/branded-types';
-import { Fr } from '@aztec/foundation/curves/bn254';
+import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 export class InboxLeaf {
@@ -23,22 +22,22 @@ export class InboxLeaf {
     return new InboxLeaf(index, leaf);
   }
 
-  static smallestIndexForCheckpoint(checkpointNumber: CheckpointNumber): bigint {
-    return BigInt(checkpointNumber - INITIAL_CHECKPOINT_NUMBER) * BigInt(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
+  static smallestIndexFromL2Block(l2blockNumber: number): bigint {
+    return BigInt(l2blockNumber - INITIAL_L2_BLOCK_NUM) * BigInt(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
   }
 
   /**
-   * Returns the range of valid indices for a given checkpoint.
+   * Returns the range of valid indices for a given L2 block.
    * Start index is inclusive, end index is exclusive.
    */
-  static indexRangeForCheckpoint(checkpointNumber: CheckpointNumber): [bigint, bigint] {
-    const start = this.smallestIndexForCheckpoint(checkpointNumber);
+  static indexRangeFromL2Block(l2blockNumber: number): [bigint, bigint] {
+    const start = this.smallestIndexFromL2Block(l2blockNumber);
     const end = start + BigInt(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
     return [start, end];
   }
 
-  /** Returns the checkpoint number for a given leaf index */
-  static checkpointNumberFromIndex(index: bigint): CheckpointNumber {
-    return CheckpointNumber(Number(index / BigInt(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP)) + INITIAL_CHECKPOINT_NUMBER);
+  /** Returns the L2 block number for a given leaf index */
+  static l2BlockFromIndex(index: bigint): number {
+    return Number(index / BigInt(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP)) + INITIAL_L2_BLOCK_NUM;
   }
 }

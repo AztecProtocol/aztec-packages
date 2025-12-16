@@ -1,5 +1,5 @@
 import { CONTRACT_STORAGE_READ_LENGTH } from '@aztec/constants';
-import { randomInt } from '@aztec/foundation/crypto/random';
+import { randomInt } from '@aztec/foundation/crypto';
 
 import { makeContractStorageRead } from '../tests/factories.js';
 import { ContractStorageRead } from './contract_storage_read.js';

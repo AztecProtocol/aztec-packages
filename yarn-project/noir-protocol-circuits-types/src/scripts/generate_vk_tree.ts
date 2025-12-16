@@ -1,5 +1,5 @@
 import { AVM_VK_INDEX, VK_TREE_HEIGHT } from '@aztec/constants';
-import { poseidon2Hash } from '@aztec/foundation/crypto/poseidon';
+import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { createConsoleLogger } from '@aztec/foundation/log';
 import { MerkleTreeCalculator } from '@aztec/foundation/trees';
 import { fileURLToPath } from '@aztec/foundation/url';

@@ -13,7 +13,7 @@ import {
   RollupContract,
 } from '@aztec/ethereum';
 import { SecretValue } from '@aztec/foundation/config';
-import { Fr } from '@aztec/foundation/curves/bn254';
+import { Fr } from '@aztec/foundation/fields';
 import type { LogFn, Logger } from '@aztec/foundation/log';
 import type { NoirPackageConfig } from '@aztec/foundation/noir';
 import { protocolContractsHash } from '@aztec/protocol-contracts';

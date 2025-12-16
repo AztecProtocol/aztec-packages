@@ -18,8 +18,8 @@ use dep::std::mem::zeroed;
 #[derive(Eq, Packable)]
 #[custom_note]
 pub struct TransparentNote {
-    pub amount: u128,
-    pub secret_hash: Field,
+    amount: u128,
+    secret_hash: Field,
 }
 
 impl NoteHash for TransparentNote {
@@ -60,5 +60,12 @@ impl NoteHash for TransparentNote {
     ) -> Field {
         // compute_nullifier ignores context so we can reuse it here
         self.compute_nullifier(zeroed(), owner, note_hash_for_nullification)
+    }
+}
+
+impl TransparentNote {
+    // CONSTRUCTORS
+    pub fn new(amount: u128, secret_hash: Field) -> Self {
+        TransparentNote { amount, secret_hash }
     }
 }

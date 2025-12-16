@@ -6,9 +6,9 @@
 
 #pragma once
 
-#include "barretenberg/crypto/sha256/sha256.hpp"
 #include "barretenberg/ecc/groups/precomputed_generators_secp256r1_impl.hpp"
 #include "barretenberg/stdlib/encryption/ecdsa/ecdsa.hpp"
+#include "barretenberg/stdlib/hash/sha256/sha256.hpp"
 #include "barretenberg/stdlib/primitives/curves/secp256k1.hpp"
 
 namespace bb::stdlib {
@@ -206,9 +206,11 @@ template <typename Builder> void generate_ecdsa_verification_test_circuit(Builde
 
         ecdsa_signature<Builder> sig{ byte_array<Builder>(&builder, rr), byte_array<Builder>(&builder, ss) };
 
-        // Compute H(m) natively and pass as witness (mirrors ACIR which takes pre-hashed message)
-        auto hash_arr = crypto::sha256(std::vector<uint8_t>(message_string.begin(), message_string.end()));
-        stdlib::byte_array<Builder> hashed_message(&builder, std::vector<uint8_t>(hash_arr.begin(), hash_arr.end()));
+        byte_array<Builder> message(&builder, message_string);
+
+        // Compute H(m)
+        stdlib::byte_array<Builder> hashed_message =
+            static_cast<stdlib::byte_array<Builder>>(stdlib::SHA256<Builder>::hash(message));
 
         // Verify ecdsa signature
         bool_t<Builder> result =

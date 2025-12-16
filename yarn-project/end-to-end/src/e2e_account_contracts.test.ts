@@ -8,7 +8,7 @@ import { AztecAddress, CompleteAddress } from '@aztec/aztec.js/addresses';
 import { Fr, GrumpkinScalar } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
-import { randomBytes } from '@aztec/foundation/crypto/random';
+import { randomBytes } from '@aztec/foundation/crypto';
 import { ChildContract } from '@aztec/noir-test-contracts.js/Child';
 import { createPXE, getPXEConfig } from '@aztec/pxe/server';
 import { deriveSigningKey } from '@aztec/stdlib/keys';

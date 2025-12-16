@@ -1,5 +1,5 @@
-import { poseidon2Hash } from '@aztec/foundation/crypto/poseidon';
-import type { Fr } from '@aztec/foundation/curves/bn254';
+import { poseidon2Hash } from '@aztec/foundation/crypto';
+import type { Fr } from '@aztec/foundation/fields';
 import type { PreTag } from '@aztec/stdlib/logs';
 
 /**

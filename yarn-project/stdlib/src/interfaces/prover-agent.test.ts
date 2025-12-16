@@ -1,5 +1,5 @@
 import { EpochNumber } from '@aztec/foundation/branded-types';
-import { randomBytes } from '@aztec/foundation/crypto/random';
+import { randomBytes } from '@aztec/foundation/crypto';
 import { type JsonRpcTestContext, createJsonRpcTestSetup } from '@aztec/foundation/json-rpc/test';
 
 import { ProvingRequestType } from '../proofs/proving_request_type.js';

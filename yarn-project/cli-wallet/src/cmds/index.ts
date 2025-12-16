@@ -10,7 +10,7 @@ import {
   parseFieldFromHexString,
   parsePublicKey,
 } from '@aztec/cli/utils';
-import { randomBytes } from '@aztec/foundation/crypto/random';
+import { randomBytes } from '@aztec/foundation/crypto';
 import type { LogFn, Logger } from '@aztec/foundation/log';
 
 import { type Command, Option } from 'commander';

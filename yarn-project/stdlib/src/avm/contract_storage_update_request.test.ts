@@ -1,5 +1,5 @@
 import { CONTRACT_STORAGE_UPDATE_REQUEST_LENGTH } from '@aztec/constants';
-import { randomInt } from '@aztec/foundation/crypto/random';
+import { randomInt } from '@aztec/foundation/crypto';
 
 import { makeContractStorageUpdateRequest } from '../tests/factories.js';
 import { ContractStorageUpdateRequest } from './contract_storage_update_request.js';

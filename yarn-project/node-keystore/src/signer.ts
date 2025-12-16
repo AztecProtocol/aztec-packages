@@ -5,8 +5,7 @@
  */
 import type { EthSigner } from '@aztec/ethereum';
 import { Buffer32 } from '@aztec/foundation/buffer';
-import { randomBytes } from '@aztec/foundation/crypto/random';
-import { Secp256k1Signer, toRecoveryBit } from '@aztec/foundation/crypto/secp256k1-signer';
+import { Secp256k1Signer, randomBytes, toRecoveryBit } from '@aztec/foundation/crypto';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature, type ViemTransactionSignature } from '@aztec/foundation/eth-signature';
 import { jsonStringify } from '@aztec/foundation/json-rpc';

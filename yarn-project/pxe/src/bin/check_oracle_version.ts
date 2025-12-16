@@ -1,4 +1,4 @@
-import { keccak256String } from '@aztec/foundation/crypto/keccak';
+import { keccak256String } from '@aztec/foundation/crypto';
 
 import { Oracle } from '../contract_function_simulator/oracle/oracle.js';
 import { ORACLE_INTERFACE_HASH } from '../oracle_version.js';

@@ -4,7 +4,7 @@ import { computeAppNullifierSecretKey, deriveMasterNullifierSecretKey } from '@a
 import type { Logger } from '@aztec/aztec.js/log';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 import { toBufferLE } from '@aztec/foundation/bigint-buffer';
-import { sha256 } from '@aztec/foundation/crypto/sha256';
+import { sha256 } from '@aztec/foundation/crypto';
 import { CardGameContract } from '@aztec/noir-contracts.js/CardGame';
 
 import { jest } from '@jest/globals';

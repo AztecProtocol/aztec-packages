@@ -1,5 +1,4 @@
-import type { PrivateEventFilter } from '@aztec/aztec.js/wallet';
-import { Fr } from '@aztec/foundation/curves/bn254';
+import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
 import { Timer } from '@aztec/foundation/timer';
@@ -19,6 +18,7 @@ import {
 } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { L2BlockHash } from '@aztec/stdlib/block';
 import {
   CompleteAddress,
   type ContractClassWithId,
@@ -39,7 +39,6 @@ import type { NotesFilter } from '@aztec/stdlib/note';
 import { NoteDao } from '@aztec/stdlib/note';
 import {
   type ContractOverrides,
-  type InTx,
   PrivateExecutionResult,
   PrivateSimulationResult,
   type ProvingTimings,
@@ -48,6 +47,7 @@ import {
   type SimulationTimings,
   Tx,
   TxExecutionRequest,
+  TxHash,
   TxProfileResult,
   TxProvingResult,
   TxSimulationResult,
@@ -66,7 +66,6 @@ import { ProxiedContractDataProviderFactory } from './contract_function_simulato
 import { ProxiedNodeFactory } from './contract_function_simulator/proxied_node.js';
 import { PXEOracleInterface } from './contract_function_simulator/pxe_oracle_interface.js';
 import { enrichPublicSimulationError, enrichSimulationError } from './error_enriching.js';
-import { PrivateEventFilterValidator } from './events/private_event_filter_validator.js';
 import {
   PrivateKernelExecutionProver,
   type PrivateKernelExecutionProverConfig,
@@ -81,8 +80,12 @@ import { SyncDataProvider } from './storage/sync_data_provider/sync_data_provide
 import { TaggingDataProvider } from './storage/tagging_data_provider/tagging_data_provider.js';
 import { Synchronizer } from './synchronizer/index.js';
 
-export type PackedPrivateEvent = InTx & {
+export type PrivateEvent = {
   packedEvent: Fr[];
+  blockNumber: number;
+  blockHash: L2BlockHash;
+  txHash: TxHash;
+  recipient: AztecAddress;
   eventSelector: EventSelector;
 };
 
@@ -1046,32 +1049,31 @@ export class PXE {
 
   /**
    * Returns the private events given search parameters.
+   * @param contractAddress - The address of the contract to get events from.
    * @param eventSelector - Event selector to search for.
-   * @param filter
-   *  contractAddress - The address of the contract to get events from. Required.
-   *  scopes - One or more event scope addresses to filter by. Required.
-   *  fromBlock - The block number to search from (inclusive). Optional. If provided, it must be >= 0.
-   *    Defaults to 0.
-   *    If toBlock is defined but fromBlock is not, fromBlock defaults to toBlock - 1.
-   *  toBlock - The block number to search up to (exclusive). Optional. If provided, it must be > 0.
-   *    Defaults to the latest known block to PXE + 1.
+   * @param from - The block number to search from.
+   * @param numBlocks - The amount of blocks to search.
+   * @param recipients - The addresses that decrypted the logs.
    * @returns - The packed events with block and tx metadata.
    */
   public async getPrivateEvents(
+    contractAddress: AztecAddress,
     eventSelector: EventSelector,
-    filter: PrivateEventFilter,
-  ): Promise<PackedPrivateEvent[]> {
+    from: number,
+    numBlocks: number,
+    recipients: AztecAddress[],
+  ): Promise<PrivateEvent[]> {
+    if (recipients.length === 0) {
+      throw new Error('Recipients are required to get private events');
+    }
+
+    this.log.verbose(`Getting private events for ${contractAddress.toString()} from ${from} to ${from + numBlocks}`);
+
     // We need to manually trigger private state sync to have a guarantee that all the events are available.
-    const call = await this.#getFunctionCall('sync_private_state', [], filter.contractAddress);
+    const call = await this.#getFunctionCall('sync_private_state', [], contractAddress);
     await this.simulateUtility(call);
 
-    const sanitizedFilter = await new PrivateEventFilterValidator(this.syncDataProvider).validate(filter);
-
-    this.log.error(
-      `Getting private events for ${sanitizedFilter.contractAddress.toString()} from ${sanitizedFilter.fromBlock} to ${sanitizedFilter.toBlock}`,
-    );
-
-    return this.privateEventDataProvider.getPrivateEvents(eventSelector, sanitizedFilter);
+    return this.privateEventDataProvider.getPrivateEvents(contractAddress, from, numBlocks, recipients, eventSelector);
   }
 
   /**

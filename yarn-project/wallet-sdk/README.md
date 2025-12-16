@@ -385,7 +385,7 @@ If a user rejects an action:
 In a dApp using the Wallet SDK:
 
 ```typescript
-import { Fr } from '@aztec/foundation/curves/bn254';
+import { Fr } from '@aztec/foundation/fields';
 import { WalletManager } from '@aztec/wallet-sdk/manager';
 
 const manager = WalletManager.configure({

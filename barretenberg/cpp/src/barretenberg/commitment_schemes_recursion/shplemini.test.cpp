@@ -249,13 +249,13 @@ template <class PCS> class ShpleminiRecursionTest : public CommitmentTest<typena
             squashed_claim_batcher = claim_batcher;
         }
 
-        auto opening_claim = ShpleminiVerifier::compute_batch_opening_claim(padding_indicator_array,
-                                                                            squashed_claim_batcher,
-                                                                            u_challenge_in_circuit,
-                                                                            Commitment::one(&builder),
-                                                                            stdlib_verifier_transcript);
+        const auto opening_claim = ShpleminiVerifier::compute_batch_opening_claim(padding_indicator_array,
+                                                                                  squashed_claim_batcher,
+                                                                                  u_challenge_in_circuit,
+                                                                                  Commitment::one(&builder),
+                                                                                  stdlib_verifier_transcript);
         stdlib::recursion::PairingPoints<stdlib::bn254<Builder>> pairing_points(
-            KZG<Curve>::reduce_verify_batch_opening_claim(std::move(opening_claim), stdlib_verifier_transcript));
+            KZG<Curve>::reduce_verify_batch_opening_claim(opening_claim, stdlib_verifier_transcript));
         EXPECT_TRUE(CircuitChecker::check(builder));
 
         VerifierCommitmentKey<NativeCurve> vk;

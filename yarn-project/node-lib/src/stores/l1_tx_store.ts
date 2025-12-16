@@ -231,18 +231,11 @@ export class L1TxStore implements IL1TxStore {
    * @param account - The sender account address
    * @param stateId - The state ID to delete
    */
-  public async deleteState(account: string, ...stateIds: number[]): Promise<void> {
-    if (stateIds.length === 0) {
-      return;
-    }
-
-    await this.store.transactionAsync(async () => {
-      for (const stateId of stateIds) {
-        const key = this.makeKey(account, stateId);
-        await this.states.delete(key);
-        await this.blobs.delete(key);
-      }
-    });
+  public async deleteState(account: string, stateId: number): Promise<void> {
+    const key = this.makeKey(account, stateId);
+    await this.states.delete(key);
+    await this.blobs.delete(key);
+    this.log.debug(`Deleted state ${stateId} for account ${account}`);
   }
 
   /**
@@ -250,16 +243,14 @@ export class L1TxStore implements IL1TxStore {
    * @param account - The sender account address
    */
   public async clearStates(account: string): Promise<void> {
-    await this.store.transactionAsync(async () => {
-      const states = await this.loadStates(account);
+    const states = await this.loadStates(account);
 
-      for (const state of states) {
-        await this.deleteState(account, state.id);
-      }
+    for (const state of states) {
+      await this.deleteState(account, state.id);
+    }
 
-      await this.stateIdCounter.delete(account);
-      this.log.info(`Cleared all tx states for account ${account}`);
-    });
+    await this.stateIdCounter.delete(account);
+    this.log.info(`Cleared all tx states for account ${account}`);
   }
 
   /**

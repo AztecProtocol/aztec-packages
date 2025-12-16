@@ -1,9 +1,9 @@
 import { prettyPrintJSON } from '@aztec/cli/utils';
 import { GSEContract, createEthereumChain } from '@aztec/ethereum';
+import { computeBn254G1PublicKey, computeBn254G2PublicKey } from '@aztec/foundation/crypto';
 import { decryptBn254Keystore } from '@aztec/foundation/crypto/bls/bn254_keystore';
-import { computeBn254G1PublicKey, computeBn254G2PublicKey } from '@aztec/foundation/crypto/bn254';
-import { Fr } from '@aztec/foundation/curves/bn254';
 import type { EthAddress } from '@aztec/foundation/eth-address';
+import { Fr } from '@aztec/foundation/fields';
 import type { LogFn } from '@aztec/foundation/log';
 import { loadKeystoreFile } from '@aztec/node-keystore/loader';
 import type {

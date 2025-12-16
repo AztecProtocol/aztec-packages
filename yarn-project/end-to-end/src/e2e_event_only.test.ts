@@ -1,7 +1,6 @@
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Wallet } from '@aztec/aztec.js/wallet';
-import { BlockNumber } from '@aztec/foundation/branded-types';
 import { EventOnlyContract, type TestEvent } from '@aztec/noir-test-contracts.js/EventOnly';
 
 import { jest } from '@jest/globals';
@@ -38,14 +37,15 @@ describe('EventOnly', () => {
       .send({ from: defaultAccountAddress })
       .wait();
 
-    const events = await wallet.getPrivateEvents<TestEvent>(EventOnlyContract.events.TestEvent, {
-      contractAddress: eventOnlyContract.address,
-      fromBlock: BlockNumber(tx.blockNumber!),
-      toBlock: BlockNumber(tx.blockNumber! + 1),
-      scopes: [defaultAccountAddress],
-    });
+    const events = await wallet.getPrivateEvents<TestEvent>(
+      eventOnlyContract.address,
+      EventOnlyContract.events.TestEvent,
+      tx.blockNumber!,
+      1,
+      [defaultAccountAddress],
+    );
 
     expect(events.length).toBe(1);
-    expect(events[0].event.value).toBe(value.toBigInt());
+    expect(events[0].value).toBe(value.toBigInt());
   });
 });

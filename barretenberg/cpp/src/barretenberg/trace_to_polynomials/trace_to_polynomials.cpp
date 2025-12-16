@@ -68,7 +68,6 @@ std::vector<CyclicPermutation> TraceToPolynomials<Flavor>::populate_wires_and_se
                     // Insert the real witness values from this block into the wire polys at the correct offset
                     wires[wire_idx].at(trace_row_idx) = builder.get_variable(var_idx);
                     // Add the address of the witness value to its corresponding copy cycle
-                    // Note that the copy_cycles are indexed by real_variable_indices.
                     copy_cycles[real_var_idx].emplace_back(cycle_node{ wire_idx, trace_row_idx });
                 }
             }

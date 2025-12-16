@@ -63,6 +63,8 @@ class UltraFlavor {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 28;
     // The total number of witness entities not including shifts.
     static constexpr size_t NUM_WITNESS_ENTITIES = 8;
+    // Total number of folded polynomials, which is just all polynomials except the shifts
+    static constexpr size_t NUM_FOLDED_ENTITIES = NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES;
     // The number of shifted witness entities including derived witness entities
     static constexpr size_t NUM_SHIFTED_ENTITIES = 5;
     // The number of unshifted witness entities
@@ -71,14 +73,6 @@ class UltraFlavor {
     // A container to be fed to ShpleminiVerifier to avoid redundant scalar muls
     static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS = RepeatedCommitmentsData(
         NUM_PRECOMPUTED_ENTITIES, NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES, NUM_SHIFTED_ENTITIES);
-
-    // Size of the final PCS MSM after KZG adds quotient commitment:
-    // 1 (Shplonk Q) + NUM_UNSHIFTED + (log_n - 1) Gemini folds + 1 (G1 identity) + 1 (KZG W)
-    // (shifted commitments are removed as duplicates)
-    static constexpr size_t FINAL_PCS_MSM_SIZE(size_t log_n = VIRTUAL_LOG_N)
-    {
-        return NUM_UNSHIFTED_ENTITIES + log_n + 2;
-    }
 
     // define the tuple of Relations that comprise the Sumcheck relation
     // Note: made generic for use in MegaRecursive.

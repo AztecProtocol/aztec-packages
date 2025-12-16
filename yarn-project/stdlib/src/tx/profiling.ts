@@ -1,4 +1,4 @@
-import { Fr } from '@aztec/foundation/curves/bn254';
+import { Fr } from '@aztec/foundation/fields';
 import { type ZodFor, optional, schemas } from '@aztec/foundation/schemas';
 
 import { z } from 'zod';

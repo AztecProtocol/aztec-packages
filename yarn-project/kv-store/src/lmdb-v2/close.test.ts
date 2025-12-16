@@ -1,4 +1,4 @@
-import { randomBytes } from '@aztec/foundation/crypto/random';
+import { randomBytes } from '@aztec/foundation/crypto';
 
 import { expect } from 'chai';
 

@@ -1,5 +1,5 @@
 import { MAX_NOTE_HASHES_PER_TX, PRIVATE_LOG_CIPHERTEXT_LEN } from '@aztec/constants';
-import { Fr } from '@aztec/foundation/curves/bn254';
+import { Fr } from '@aztec/foundation/fields';
 import { TxHash } from '@aztec/stdlib/tx';
 
 // This is used as a response for PXE's custom getPublicLogByTag oracle.

@@ -1,5 +1,5 @@
 import { GLOBAL_VARIABLES_LENGTH } from '@aztec/constants';
-import { randomInt } from '@aztec/foundation/crypto/random';
+import { randomInt } from '@aztec/foundation/crypto';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 
 import { makeGlobalVariables } from '../tests/factories.js';

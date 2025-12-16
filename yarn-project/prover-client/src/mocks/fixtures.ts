@@ -1,7 +1,7 @@
 import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
-import { randomBytes } from '@aztec/foundation/crypto/random';
-import { Fr } from '@aztec/foundation/curves/bn254';
+import { randomBytes } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { Fr } from '@aztec/foundation/fields';
 import type { Logger } from '@aztec/foundation/log';
 import type { FieldsOf } from '@aztec/foundation/types';
 import { fileURLToPath } from '@aztec/foundation/url';

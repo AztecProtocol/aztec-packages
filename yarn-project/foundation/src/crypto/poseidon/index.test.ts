@@ -1,6 +1,6 @@
 import { BarretenbergSync } from '@aztec/bb.js';
 
-import { Fr } from '../../curves/bn254/field.js';
+import { Fr } from '../../fields/fields.js';
 import { poseidon2Permutation } from './index.js';
 
 describe('poseidon2Permutation', () => {

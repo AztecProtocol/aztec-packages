@@ -27,7 +27,7 @@ use dep::aztec::{
 #[custom_note]
 pub struct NFTNote {
     /// The ID of the token represented by this note.
-    pub token_id: Field,
+    token_id: Field,
 }
 
 impl NoteHash for NFTNote {
@@ -89,6 +89,14 @@ impl NoteHash for NFTNote {
 }
 
 impl NFTNote {
+    pub fn new(token_id: Field) -> Self {
+        Self { token_id }
+    }
+
+    pub fn get_token_id(self) -> Field {
+        self.token_id
+    }
+
     /// Creates a partial note that will hide the owner and storage slot but not the token id, since the note will be
     /// later completed in public. This is a powerful technique for scenarios in which the token id cannot be known in
     /// private (e.g. because it depends on some public state, such as a DEX).

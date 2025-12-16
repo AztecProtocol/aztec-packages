@@ -1,5 +1,5 @@
 import { EpochNumber } from '@aztec/foundation/branded-types';
-import { randomBytes } from '@aztec/foundation/crypto/random';
+import { randomBytes } from '@aztec/foundation/crypto';
 import { AbortError } from '@aztec/foundation/error';
 import { createLogger } from '@aztec/foundation/log';
 import type {

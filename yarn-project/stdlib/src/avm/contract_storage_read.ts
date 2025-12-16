@@ -1,5 +1,5 @@
 import { CONTRACT_STORAGE_READ_LENGTH } from '@aztec/constants';
-import { Fr } from '@aztec/foundation/curves/bn254';
+import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import type { AztecAddress } from '../aztec-address/index.js';

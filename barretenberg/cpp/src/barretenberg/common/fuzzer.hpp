@@ -110,78 +110,11 @@ uint256_t read_uint256(const uint8_t* data, size_t buffer_size = 32)
     uint64_t parts[4] = { 0, 0, 0, 0 };
 
     for (size_t i = 0; i < (buffer_size + 7) / 8; i++) {
-        size_t to_read = (buffer_size - (i * 8)) < 8 ? buffer_size - (i * 8) : 8;
-        std::memcpy(&parts[i], data + (i * 8), to_read);
+        size_t to_read = (buffer_size - i * 8) < 8 ? buffer_size - i * 8 : 8;
+        std::memcpy(&parts[i], data + i * 8, to_read);
     }
     return uint256_t(parts[0], parts[1], parts[2], parts[3]);
 }
-
-// Convert preprocessor flag to constexpr for cleaner call sites
-#ifdef FUZZING_SHOW_INFORMATION
-constexpr bool SHOW_FUZZING_INFO = true;
-#else
-constexpr bool SHOW_FUZZING_INFO = false;
-#endif
-
-/** @brief Compile-time debug logging helper */
-template <typename... Args> inline void debug_log(Args&&... args)
-{
-    if constexpr (SHOW_FUZZING_INFO) {
-        (std::cout << ... << std::forward<Args>(args));
-    }
-}
-
-#ifdef FUZZING_SHOW_INFORMATION
-/**
- * @brief Formatted strings for debugging output
- * Used to generate readable C++ code showing operation being performed
- */
-struct FormattedArgs {
-    std::string lhs;
-    std::string rhs;
-    std::string out;
-};
-
-/**
- * @brief Format a single-argument operation for debug output
- * @param stack The execution stack
- * @param first_index Index of the input argument
- * @param output_index Index where result will be written
- * @return FormattedArgs with rhs (input) and out (output) populated
- */
-template <typename Stack>
-inline FormattedArgs format_single_arg(const Stack& stack, size_t first_index, size_t output_index)
-{
-    std::string rhs = stack[first_index].cycle_group.is_constant() ? "c" : "w";
-    std::string out = rhs;
-    rhs += std::to_string(first_index);
-    out += std::to_string(output_index >= stack.size() ? stack.size() : output_index);
-    out = (output_index >= stack.size() ? "auto " : "") + out;
-    return FormattedArgs{ .lhs = "", .rhs = rhs, .out = out };
-}
-
-/**
- * @brief Format a two-argument operation for debug output
- * @param stack The execution stack
- * @param first_index Index of the first argument
- * @param second_index Index of the second argument
- * @param output_index Index where result will be written
- * @return FormattedArgs with lhs, rhs (inputs) and out (output) populated
- */
-template <typename Stack>
-inline FormattedArgs format_two_arg(const Stack& stack, size_t first_index, size_t second_index, size_t output_index)
-{
-    std::string lhs = stack[first_index].cycle_group.is_constant() ? "c" : "w";
-    std::string rhs = stack[second_index].cycle_group.is_constant() ? "c" : "w";
-    std::string out =
-        (stack[first_index].cycle_group.is_constant() && stack[second_index].cycle_group.is_constant()) ? "c" : "w";
-    lhs += std::to_string(first_index);
-    rhs += std::to_string(second_index);
-    out += std::to_string(output_index >= stack.size() ? stack.size() : output_index);
-    out = (output_index >= stack.size() ? "auto " : "") + out;
-    return FormattedArgs{ .lhs = lhs, .rhs = rhs, .out = out };
-}
-#endif
 
 /**
  * @brief Concept for a simple PRNG which returns a uint32_t when next is called

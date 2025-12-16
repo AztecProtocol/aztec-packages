@@ -24,7 +24,7 @@ pub contract NoteGetter {
     #[external("private")]
     fn insert_note(value: Field) {
         let owner = self.msg_sender().unwrap();
-        let note = FieldNote { value };
+        let note = FieldNote::new(value);
 
         self.storage.set.at(owner).insert(note).deliver(owner, MessageDelivery.CONSTRAINED_ONCHAIN);
     }
@@ -40,6 +40,6 @@ pub contract NoteGetter {
             comparator,
             value,
         ));
-        notes.map(|note| note.value)
+        notes.map(|note| note.value())
     }
 }

@@ -1,4 +1,4 @@
-import { randomBytes } from '@aztec/foundation/crypto/random';
+import { randomBytes } from '@aztec/foundation/crypto';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 
 import { mockTx } from '../tests/mocks.js';

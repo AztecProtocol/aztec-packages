@@ -181,7 +181,8 @@ void RomRamLogic_<ExecutionTrace>::process_ROM_array(CircuitBuilder* builder, co
     // however, incarnating this with copy constraints would make the circuit (i.e., the VK) _witness dependent_.
     const auto read_tag = builder->get_new_tag();        // current_tag + 1;
     const auto sorted_list_tag = builder->get_new_tag(); // current_tag + 2;
-    builder->set_tau_transposition(read_tag, sorted_list_tag);
+    builder->create_tag(read_tag, sorted_list_tag);
+    builder->create_tag(sorted_list_tag, read_tag);
 
     // Make sure that every cell has been initialized
     for (size_t i = 0; i < rom_array.state.size(); ++i) {
@@ -466,7 +467,8 @@ void RomRamLogic_<ExecutionTrace>::process_RAM_array(CircuitBuilder* builder, co
     // when we process a given RAM array, we apply a "multiset equality check" between the records of the gates and then
     // the records of the sorted gates. at the time of witness generation, the prover certainly knows the permutation;
     // however, incarnating this with copy constraints would make the circuit (i.e., the VK) _witness dependent_.
-    builder->set_tau_transposition(access_tag, sorted_list_tag);
+    builder->create_tag(access_tag, sorted_list_tag);
+    builder->create_tag(sorted_list_tag, access_tag);
 
     // NOTE: we simply assert that all cells have been initialized. The circuit should initialize all RAM elements to
     // prevent witness-dependent constraints. For example, if a RAM record is uninitialized but the index of that record

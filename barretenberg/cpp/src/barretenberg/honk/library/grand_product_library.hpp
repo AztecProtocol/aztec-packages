@@ -18,44 +18,29 @@
 
 namespace bb {
 
+// TODO(luke): This contains utilities for grand product computation and is not specific to the permutation grand
+// product. Update comments accordingly.
 /**
- * @brief Compute a grand product polynomial, `grand_product_polynomial`, which for historical reasons is sometimes also
- * called Z_perm(X). This polynomial will bear witness to some subset of: {copy constraints, multiset-equality, public
- * inputs}.
- *
- * @note The name Z_Perm(X) is historical, as the first use of the grand product polynomial was for the "permutation
- * argument", i.e., checking the correctness of copy-constraints. However, it may also be used for bare
- * multiset-equality checks (as it is in the ECCVM and in the Translator).
+ * @brief Compute a permutation grand product polynomial Z_perm(X)
  *
  * @details
- * Z_perm is a shiftable multilinear polynomial and hence is specified by its values on the boolean hypercube. As it is
- * shiftable, Z_perm[0] == 0. Then it is specified by Z_perm[1] = 1 and the following iterative definition:
- *
+ * Z_perm may be defined in terms of its values  on X_i = 0,1,...,n-1 as Z_perm[0] = 1 and for i = 1:n-1
  *                  relation::numerator(j)
  * Z_perm[i] = ∏ --------------------------------------------------------------------------------
  *                  relation::denominator(j)
  *
  * where ∏ := ∏_{j=0:i-1}
  *
- * (Note that Z_perm[1] may be thought of as the quotient of the empty product by the empty product, and hence setting
- * is 1 is consistent.)
+ * The specific algebraic relation used by Z_perm is defined by Flavor::GrandProductRelations
  *
- * The specific algebraic relation used by Z_perm is
- *      * specified by Flavor::GrandProductRelations, for Flavor in {ECCVM, Translator}; and
- *      * specified by `UltraPermutationRelation` for Ultra (and Mega).
- * This inhomogenity is due to the fact that for Ultra/Mega, the grand product computation _also_ involves computing
- * `public_input_delta`, which doesn't as cleanly fit into the `compute_grand_products` pattern. (This latter is an
- * optimization having to do with public inputs.)
- *
- * The multilinear polynomial Z_perm is designed to take into account copy-constraints, multiset equality checks, and
- * public inputs. The formula is given as below. Here, the sigma polynomials (wires) encode the permutation (and, in the
- * more general case, multiset tags.)
+ * For example, in Flavor::Standard the relation describes:
  *
  *                  (w_1(j) + β⋅id_1(j) + γ) ⋅ (w_2(j) + β⋅id_2(j) + γ) ⋅ (w_3(j) + β⋅id_3(j) + γ)
  * Z_perm[i] = ∏ --------------------------------------------------------------------------------
  *                  (w_1(j) + β⋅σ_1(j) + γ) ⋅ (w_2(j) + β⋅σ_2(j) + γ) ⋅ (w_3(j) + β⋅σ_3(j) + γ)
- * where ∏ := ∏_{j=0:i-1} and id_i(X) = id(X) + n*(i-1); here n is also called the SEPARATOR.
+ * where ∏ := ∏_{j=0:i-1} and id_i(X) = id(X) + n*(i-1)
  *
+ * For Flavor::Ultra both the UltraPermutation and Lookup grand products are computed by this method.
  *
  * The grand product is constructed over the course of three steps.
  *
@@ -66,10 +51,10 @@ namespace bb {
  *                B(h)
  *
  * Step 1) Compute 2 length-n polynomials A, B
- * Step 2) Compute 2 length-n polynomials numerator = ∏ A(j), denominator = ∏ B(j)
- * Step 3) Compute Z_perm[i + 1] = numerator[i] / denominator[i]
+ * Step 2) Compute 2 length-n polynomials numerator = ∏ A(j), nenominator = ∏ B(j)
+ * Step 3) Compute Z_perm[i + 1] = numerator[i] / denominator[i] (recall: Z_perm[0] = 1)
  *
- * Note: Step (3) utilizes Montgomery batch inversion, performed at the end of Step (2).
+ * Note: Step (3) utilizes Montgomery batch inversion to replace n-many inversions with
  *
  * @tparam Flavor
  * @tparam GrandProdRelation
@@ -97,7 +82,7 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
     const MultithreadData thread_data = calculate_thread_data(domain_size - 1);
 
     // Allocate numerator/denominator polynomials that will serve as scratch space
-    // OPTIMIZE(zac) we can re-use the permutation polynomial as the numerator polynomial. Reduces readability
+    // TODO(zac) we can re-use the permutation polynomial as the numerator polynomial. Reduces readability
     Polynomial numerator{ domain_size };
     Polynomial denominator{ domain_size };
 
@@ -108,7 +93,7 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
         const size_t end = thread_data.end[thread_idx];
         typename Flavor::AllValues row;
         for (size_t i = start; i < end; ++i) {
-            // OPTIMIZE(https://github.com/AztecProtocol/barretenberg/issues/940):consider avoiding get_row if possible.
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/940):consider avoiding get_row if possible.
             if constexpr (IsUltraOrMegaHonk<Flavor>) {
                 row = full_polynomials.get_row_for_permutation_arg(i);
             } else {
@@ -177,9 +162,9 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
     DEBUG_LOG_ALL(numerator.coeffs());
     DEBUG_LOG_ALL(denominator.coeffs());
 
-    // Step (3) Compute grand_product_polynomial[i] = numerator[i] / denominator[i]
+    // Step (3) Compute z_perm[i] = numerator[i] / denominator[i]
     auto& grand_product_polynomial = GrandProdRelation::get_grand_product_polynomial(full_polynomials);
-    // the `grand_product_polynomial` is shiftable, hence `start_index == 1`.
+    // the `grand_product_polynomial` (a.k.a. `z_perm`) is shiftable, hence `start_index == 1`.
     BB_ASSERT_EQ(grand_product_polynomial.start_index(), 1U);
     // Compute grand product values
     parallel_for(thread_data.num_threads, [&](size_t thread_idx) {

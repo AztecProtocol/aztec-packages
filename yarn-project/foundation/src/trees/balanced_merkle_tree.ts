@@ -1,6 +1,4 @@
-import { pedersenHash as pedersenHashArray } from '@aztec/foundation/crypto/pedersen';
-import { poseidon2Hash } from '@aztec/foundation/crypto/poseidon';
-import { sha256Trunc } from '@aztec/foundation/crypto/sha256';
+import { pedersenHash as pedersenHashArray, poseidon2Hash, sha256Trunc } from '@aztec/foundation/crypto';
 
 import type { AsyncHasher, Hasher } from './hasher.js';
 

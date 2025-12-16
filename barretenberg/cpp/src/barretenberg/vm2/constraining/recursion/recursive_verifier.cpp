@@ -224,10 +224,10 @@ AvmRecursiveVerifier::PairingPoints AvmRecursiveVerifier::verify_proof(
                                                                   .evaluations = RefVector(squashed_unshifted_eval) },
                                          .shifted = ClaimBatch{ .commitments = RefVector(squashed_shifted),
                                                                 .evaluations = RefVector(squashed_shifted_eval) } };
-    auto opening_claim = Shplemini::compute_batch_opening_claim(
+    const BatchOpeningClaim<Curve> opening_claim = Shplemini::compute_batch_opening_claim(
         padding_indicator_array, squashed_claim_batcher, output.challenge, Commitment::one(&builder), transcript);
 
-    PairingPoints pairing_points(PCS::reduce_verify_batch_opening_claim(std::move(opening_claim), transcript));
+    PairingPoints pairing_points(PCS::reduce_verify_batch_opening_claim(opening_claim, transcript));
 
     if (builder.failed()) {
         info("AVM Recursive verifier builder failed with error: ", builder.err());

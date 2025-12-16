@@ -6,5 +6,15 @@ use dep::aztec::{
 #[derive(Deserialize, Eq, Packable, Serialize)]
 #[note]
 pub struct AddressNote {
-    pub address: AztecAddress,
+    address: AztecAddress,
+}
+
+impl AddressNote {
+    pub fn new(address: AztecAddress) -> Self {
+        AddressNote { address }
+    }
+
+    pub fn get_address(self) -> AztecAddress {
+        self.address
+    }
 }

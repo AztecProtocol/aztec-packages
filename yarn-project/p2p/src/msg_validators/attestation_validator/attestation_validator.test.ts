@@ -1,6 +1,6 @@
 import type { EpochCache } from '@aztec/epoch-cache';
 import { SlotNumber } from '@aztec/foundation/branded-types';
-import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
+import { Secp256k1Signer } from '@aztec/foundation/crypto';
 import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import { makeBlockAttestation, makeL2BlockHeader } from '@aztec/stdlib/testing';
 

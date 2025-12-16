@@ -60,7 +60,7 @@ pub contract Crowdfunding {
 
         // 3) Create a value note for the donor so that he can later on claim a rewards token in the Claim
         // contract by proving that the hash of this note exists in the note hash tree.
-        let note = UintNote { value: amount };
+        let note = UintNote::new(amount);
 
         // We don't constrain encryption because the donor is sending the note to himself. And hence by performing
         // encryption incorrectly would harm himself only.

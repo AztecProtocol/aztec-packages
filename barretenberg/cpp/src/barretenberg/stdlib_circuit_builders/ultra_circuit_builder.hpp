@@ -215,9 +215,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
         : CircuitBuilderBase<FF>(size_hint, is_write_vk_mode)
     {
         this->set_zero_idx(put_constant_variable(FF::zero()));
-        this->_tau.insert(
-            { DUMMY_TAG, DUMMY_TAG }); // The identity permutation on the set `{DUMMY_TAG}`. We assume that the
-                                       // `DUMMY_TAG` is not involved in any non-trivial multiset-equality checks.
+        this->_tau.insert({ DUMMY_TAG, DUMMY_TAG }); // TODO(luke): explain this
     };
 
     /**
@@ -420,6 +418,9 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
         const uint32_t key_a_index,
         std::optional<uint32_t> key_b_index = std::nullopt);
 
+    /**
+     * Generalized Permutation Methods
+     **/
     std::vector<uint32_t> decompose_into_default_range(
         const uint32_t variable_index,
         const uint64_t num_bits,
@@ -450,16 +451,8 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
         this->increment_num_gates();
     }
     void create_unconstrained_gates(const std::vector<uint32_t>& variable_index);
-
-    /**
-     * sort constraints for (batched) range checks.
-     */
     void create_sort_constraint(const std::vector<uint32_t>& variable_index);
     void create_sort_constraint_with_edges(const std::vector<uint32_t>& variable_index, const FF&, const FF&);
-
-    /**
-     * Generalized Permutation Methods
-     **/
     void assign_tag(const uint32_t variable_index, const uint32_t tag)
     {
         BB_ASSERT_LTE(tag, this->current_tag);
@@ -471,28 +464,12 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
         BB_ASSERT_EQ(this->real_variable_tags[this->real_variable_index[variable_index]], DUMMY_TAG);
         this->real_variable_tags[this->real_variable_index[variable_index]] = tag;
     }
-    /**
-     * @brief Set the tau(tag_index) = tau_index
-     *
-     * @param tag_index
-     * @param tau_index
-     * @return uint32_t
-     */
-    void set_tau_at_index(const uint32_t tag_index, const uint32_t tau_index)
+
+    uint32_t create_tag(const uint32_t tag_index, const uint32_t tau_index)
     {
         this->_tau.insert({ tag_index, tau_index });
-    }
-    /**
-     * @brief Add a transposition to tau.
-     *
-     * @param tag_index_1
-     * @param tag_index_2
-     * @return uint32_t
-     */
-    void set_tau_transposition(const uint32_t tag_index_1, const uint32_t tag_index_2)
-    {
-        set_tau_at_index(tag_index_1, tag_index_2);
-        set_tau_at_index(tag_index_2, tag_index_1);
+        this->current_tag++; // Why exactly?
+        return this->current_tag;
     }
 
     uint32_t get_new_tag()

@@ -4,7 +4,7 @@ import {
   CHONK_PROOF_LENGTH,
   CHONK_VK_LENGTH_IN_FIELDS,
 } from '@aztec/constants';
-import { Fr } from '@aztec/foundation/curves/bn254';
+import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { mapAvmCircuitPublicInputsToNoir } from '@aztec/noir-protocol-circuits-types/server';
 import { AvmTestContractArtifact } from '@aztec/noir-test-contracts.js/AvmTest';

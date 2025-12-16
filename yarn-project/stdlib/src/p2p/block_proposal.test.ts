@@ -1,5 +1,5 @@
 // Serde test for the block proposal type
-import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
+import { Secp256k1Signer } from '@aztec/foundation/crypto';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 

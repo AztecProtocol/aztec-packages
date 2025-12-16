@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "stdint.h"
 #include <array>
 #include <iomanip>
@@ -16,10 +17,15 @@ namespace bb::crypto {
 
 using Sha256Hash = std::array<uint8_t, 32>;
 
-// SHA-256 compression function (FIPS 180-4 Section 6.2.2)
-std::array<uint32_t, 8> sha256_block(const std::array<uint32_t, 8>& h_init, const std::array<uint32_t, 16>& input);
+Sha256Hash sha256_block(const std::vector<uint8_t>& input);
 
 template <typename T> Sha256Hash sha256(const T& input);
+
+inline bb::fr sha256_to_field(std::vector<uint8_t> const& input)
+{
+    auto result = sha256(input);
+    return from_buffer<bb::fr>(&result[0]);
+}
 
 inline bool operator==(Sha256Hash const& lhs, std::vector<uint8_t> const& rhs)
 {

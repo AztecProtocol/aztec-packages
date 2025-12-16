@@ -1,5 +1,5 @@
 import type { AuthWitnessProvider, EntrypointInterface } from '@aztec/entrypoints/interfaces';
-import type { Fr } from '@aztec/foundation/curves/bn254';
+import type { Fr } from '@aztec/foundation/fields';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { CompleteAddress } from '@aztec/stdlib/contract';
 

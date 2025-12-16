@@ -1,4 +1,4 @@
-import { randomBytes } from '@aztec/foundation/crypto/random';
+import { randomBytes } from '@aztec/foundation/crypto';
 
 import { commitmentToFields } from './hash.js';
 import { BYTES_PER_COMMITMENT } from './kzg_context.js';

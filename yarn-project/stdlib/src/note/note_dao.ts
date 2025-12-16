@@ -1,7 +1,6 @@
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { BlockNumber } from '@aztec/foundation/branded-types';
-import { Fr } from '@aztec/foundation/curves/bn254';
-import { Point } from '@aztec/foundation/curves/grumpkin';
+import { Fr, Point } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { Note } from '@aztec/stdlib/note';

@@ -1,7 +1,7 @@
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
-import { BlockNumber, CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
-import { Fr } from '@aztec/foundation/curves/bn254';
+import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { TimeoutError } from '@aztec/foundation/error';
+import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import { DateProvider, Timer } from '@aztec/foundation/timer';
@@ -173,9 +173,7 @@ export class BlockProposalHandler {
     });
 
     // Check that I have the same set of l1ToL2Messages as the proposal
-    const l1ToL2Messages = await this.l1ToL2MessageSource.getL1ToL2Messages(
-      CheckpointNumber.fromBlockNumber(blockNumber),
-    );
+    const l1ToL2Messages = await this.l1ToL2MessageSource.getL1ToL2Messages(blockNumber);
     const computedInHash = computeInHashFromL1ToL2Messages(l1ToL2Messages);
     const proposalInHash = proposal.payload.header.contentCommitment.inHash;
     if (!computedInHash.equals(proposalInHash)) {

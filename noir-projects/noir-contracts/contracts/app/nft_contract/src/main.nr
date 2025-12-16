@@ -254,7 +254,7 @@ pub contract NFT {
             .set_limit(1));
         assert(notes.len() == 1, "NFT not found when transferring");
 
-        let new_note = NFTNote { token_id };
+        let new_note = NFTNote::new(token_id);
 
         nfts.at(to).insert(new_note).deliver(to, MessageDelivery.CONSTRAINED_ONCHAIN);
     }
@@ -304,7 +304,7 @@ pub contract NFT {
         let mut owned_nft_ids = [0; MAX_NOTES_PER_PAGE];
         for i in 0..options.limit {
             if i < notes.len() {
-                owned_nft_ids[i] = notes.get_unchecked(i).token_id;
+                owned_nft_ids[i] = notes.get_unchecked(i).get_token_id();
             }
         }
 

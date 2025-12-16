@@ -8,3 +8,9 @@ pub struct PublicKeyNote {
     pub x: Field,
     pub y: Field,
 }
+
+impl PublicKeyNote {
+    pub fn new(x: Field, y: Field) -> Self {
+        PublicKeyNote { x, y }
+    }
+}

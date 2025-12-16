@@ -1,5 +1,5 @@
 import { BBLazyPrivateKernelProver } from '@aztec/bb-prover/client/lazy';
-import { randomBytes } from '@aztec/foundation/crypto/random';
+import { randomBytes } from '@aztec/foundation/crypto';
 import { createLogger } from '@aztec/foundation/log';
 import { createStore } from '@aztec/kv-store/indexeddb';
 import { LazyProtocolContractsProvider } from '@aztec/protocol-contracts/providers/lazy';

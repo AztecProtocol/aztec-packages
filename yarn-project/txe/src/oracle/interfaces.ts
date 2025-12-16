@@ -3,7 +3,7 @@ import { CompleteAddress } from '@aztec/aztec.js/addresses';
 import type { ContractInstanceWithAddress } from '@aztec/aztec.js/contracts';
 import { TxHash } from '@aztec/aztec.js/tx';
 import { BlockNumber } from '@aztec/foundation/branded-types';
-import type { Fr } from '@aztec/foundation/curves/bn254';
+import type { Fr } from '@aztec/foundation/fields';
 import type { FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { UInt64 } from '@aztec/stdlib/types';

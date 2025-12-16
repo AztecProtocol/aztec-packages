@@ -1,7 +1,7 @@
 import { MerkleTreeId } from '@aztec/aztec.js/trees';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { merge, pick } from '@aztec/foundation/collection';
-import type { Fr } from '@aztec/foundation/curves/bn254';
+import type { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import { bufferToHex } from '@aztec/foundation/string';
@@ -12,8 +12,9 @@ import {
   GuardedMerkleTreeOperations,
   PublicContractsDB,
   PublicProcessor,
-  createPublicTxSimulatorForBlockBuilding,
+  TelemetryCppPublicTxSimulator,
 } from '@aztec/simulator/server';
+import { PublicSimulatorConfig } from '@aztec/stdlib/avm';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { type L1RollupConstants, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import { Gas } from '@aztec/stdlib/gas';
@@ -121,11 +122,18 @@ export class FullNodeBlockBuilder implements IFullNodeBlockBuilder {
     const contractsDB = new PublicContractsDB(this.contractDataSource);
     const guardedFork = new GuardedMerkleTreeOperations(fork);
 
-    const publicTxSimulator = createPublicTxSimulatorForBlockBuilding(
+    const publicTxSimulator = new TelemetryCppPublicTxSimulator(
       guardedFork,
       contractsDB,
       globalVariables,
       this.telemetryClient,
+      PublicSimulatorConfig.from({
+        skipFeeEnforcement: false,
+        collectDebugLogs: false,
+        collectHints: false,
+        collectStatistics: false,
+        collectCallMetadata: false,
+      }),
     );
 
     const processor = new PublicProcessor(

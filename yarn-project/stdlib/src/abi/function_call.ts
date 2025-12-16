@@ -1,4 +1,4 @@
-import type { Fr } from '@aztec/foundation/curves/bn254';
+import type { Fr } from '@aztec/foundation/fields';
 import type { FieldsOf } from '@aztec/foundation/types';
 
 import { AztecAddress } from '../aztec-address/index.js';

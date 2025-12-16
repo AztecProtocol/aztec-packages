@@ -120,5 +120,7 @@ template <typename Builder> class SHA256 {
                                                 const std::array<field_ct, 16>& input);
 
     static std::array<field_ct, 64> extend_witness(const std::array<field_ct, 16>& w_in);
+
+    static byte_array<Builder> hash(const byte_array_ct& input);
 };
 } // namespace bb::stdlib

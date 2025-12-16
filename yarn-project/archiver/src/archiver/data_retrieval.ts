@@ -14,11 +14,11 @@ import type {
   ViemPublicClient,
 } from '@aztec/ethereum';
 import { asyncPool } from '@aztec/foundation/async-pool';
-import { CheckpointNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import { Buffer16, Buffer32 } from '@aztec/foundation/buffer';
-import { Fr } from '@aztec/foundation/curves/bn254';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { ViemSignature } from '@aztec/foundation/eth-signature';
+import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { type InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 import { Body, CommitteeAttestation, L2BlockNew } from '@aztec/stdlib/block';
@@ -72,8 +72,8 @@ export async function retrievedToPublishedCheckpoint({
     .slice(1)
     .concat([archiveRoot]);
 
-  // An error will be thrown from `decodeCheckpointBlobDataFromBlobs` if it can't read a field for the
-  // `l1ToL2MessageRoot` of the first block. So below we can safely assume it exists:
+  // `blocksBlobData` is created from `decodeCheckpointBlobDataFromBlobs`. An error will be thrown if it can't read a
+  // field for the `l1ToL2MessageRoot` of the first block. So below we can safely assume it exists:
   const l1toL2MessageTreeRoot = blocksBlobData[0].l1ToL2MessageRoot!;
 
   const spongeBlob = SpongeBlob.init();
@@ -127,7 +127,7 @@ export async function retrievedToPublishedCheckpoint({
 
     const newArchive = new AppendOnlyTreeSnapshot(newArchiveRoots[i], l2BlockNumber + 1);
 
-    l2Blocks.push(new L2BlockNew(newArchive, header, body, checkpointNumber, i));
+    l2Blocks.push(new L2BlockNew(newArchive, header, body));
   }
 
   const lastBlock = l2Blocks.at(-1)!;
@@ -404,7 +404,6 @@ async function getCheckpointFromRollupTx(
     } else {
       logger.fatal('Unable to sync: failed to decode fetched blob, this blob was likely not created by us');
     }
-    // Throwing an error since this is most likely caused by a bug.
     throw err;
   }
 
@@ -471,7 +470,7 @@ function mapLogsInboxMessage(logs: GetContractEventsReturnType<typeof InboxAbi, 
       leaf: Fr.fromHexString(hash!),
       l1BlockNumber: log.blockNumber,
       l1BlockHash: Buffer32.fromString(log.blockHash),
-      checkpointNumber: CheckpointNumber.fromBigInt(checkpointNumber!),
+      l2BlockNumber: BlockNumber(Number(checkpointNumber!)),
       rollingHash: Buffer16.fromString(rollingHash!),
     };
   });

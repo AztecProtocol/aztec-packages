@@ -1,4 +1,4 @@
-import { Fq, Fr } from '../curves/bn254/field.js';
+import { Fq, Fr } from '../fields/fields.js';
 import { FieldReader } from './field_reader.js';
 
 const FIELDS = [new Fr(0), new Fr(1), new Fr(23), new Fr(45), new Fr(6789)];

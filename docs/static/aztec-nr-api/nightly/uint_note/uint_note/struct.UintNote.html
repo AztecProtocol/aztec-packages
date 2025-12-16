@@ -18,12 +18,10 @@
 <h2 id="crate-name"><a href="../index.html">uint_note</a></h2>
 <div id="crate-version">0.0.0</div>
 <h2><a href="#struct">Struct UintNote</a></h2>
-<h3>Fields</h3>
-<ul class="sidebar-list">
-<li><a href="#structfield.value">value</a></li>
-</ul>
 <h3>Methods</h3>
 <ul class="sidebar-list">
+<li><a href="#get_value">get_value</a></li>
+<li><a href="#new">new</a></li>
 <li><a href="#partial">partial</a></li>
 </ul>
 <h3>Trait implementations</h3>
@@ -46,22 +44,20 @@
 <main>
 <div><a href="../../index.html">aztec-nr</a> - <a href="../index.html">uint_note</a>::<a href="index.html">uint_note</a></div>
 <h1>Struct <span id="struct" class="struct">UintNote</span></h1>
-<pre><code>pub struct UintNote {
-    pub value: <a href="../../std/primitive.u128.html" class="primitive">u128</a>,
-}
+<pre><code>pub struct UintNote
+{ <span class="comment">/* private fields */</span> }
 </code></pre>
 <div class="comments">
 <p>A private note representing a numeric value associated to an account (e.g. a token balance).</p>
 </div>
-<h2>Fields</h2>
-<div id="structfield.value" class="struct-field"><code class="code-header">value: <a href="../../std/primitive.u128.html" class="primitive">u128</a></code></div>
-<div class="padded-description"><div class="comments">
-<p>The number stored in the note.</p>
-</div>
-</div><h2>Implementations</h2>
+<h2>Implementations</h2>
 <h3><code class="code-header">impl <a href="../../uint_note/uint_note/struct.UintNote.html" class="struct">UintNote</a></code></h3>
 
-<div class="padded-methods"><code id="partial" class="code-header">pub fn <a href="#partial"><span class="fn">partial</span></a>(
+<div class="padded-methods"><code id="new" class="code-header">pub fn <a href="#new"><span class="fn">new</span></a>(value: <a href="../../std/primitive.u128.html" class="primitive">u128</a>) -> Self</code>
+
+<code id="get_value" class="code-header">pub fn <a href="#get_value"><span class="fn">get_value</span></a>(self) -> <a href="../../std/primitive.u128.html" class="primitive">u128</a></code>
+
+<code id="partial" class="code-header">pub fn <a href="#partial"><span class="fn">partial</span></a>(
     owner: <a href="../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
     storage_slot: <a href="../../std/primitive.Field.html" class="primitive">Field</a>,
     context: &mut <a href="../../noir_aztec/context/private_context/struct.PrivateContext.html" class="struct">PrivateContext</a>,

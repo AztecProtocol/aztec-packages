@@ -1,8 +1,8 @@
 import { MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX } from '@aztec/constants';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { padArrayEnd } from '@aztec/foundation/collection';
-import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { L2Block } from '@aztec/stdlib/block';
 import { type IndexedTreeId, MerkleTreeId, type MerkleTreeReadOperations } from '@aztec/stdlib/trees';
@@ -74,7 +74,7 @@ describe('Native World State: benchmarks', () => {
     const startTime = performance.now();
 
     for (const { block, messages } of blocks) {
-      await worldState.handleL2BlockAndMessages(block, messages);
+      await worldState.handleL2BlockAndMessages(block, messages, true);
     }
 
     const endTime = performance.now();
@@ -251,7 +251,7 @@ describe('Native World State: benchmarks', () => {
     const treeInfo = await fork.getTreeInfo(MerkleTreeId.NULLIFIER_TREE);
     const startSize = Number(treeInfo.size);
     const { block, messages } = await mockBlock(BlockNumber(1), 32, fork, 64);
-    await worldState.handleL2BlockAndMessages(block, messages);
+    await worldState.handleL2BlockAndMessages(block, messages, true);
     await fork.close();
 
     const values = block.body.txEffects.flatMap(txEffect => txEffect.nullifiers.map(nullifier => nullifier.toBuffer()));
@@ -270,7 +270,7 @@ describe('Native World State: benchmarks', () => {
   it('Retrieves low leaves', async () => {
     const fork = await worldState.fork();
     const { block, messages } = await mockBlock(BlockNumber(1), 32, fork, 64);
-    await worldState.handleL2BlockAndMessages(block, messages);
+    await worldState.handleL2BlockAndMessages(block, messages, true);
 
     const treeInfo = await fork.getTreeInfo(MerkleTreeId.NULLIFIER_TREE);
     const startSize = Number(treeInfo.size);

@@ -1,7 +1,6 @@
 import type { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
 import { timesParallel } from '@aztec/foundation/collection';
-import { Fr } from '@aztec/foundation/curves/bn254';
-import { Point } from '@aztec/foundation/curves/grumpkin';
+import { Fr, Point } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import type { KeyStore } from '@aztec/key-store';
 import { EventSelector, type FunctionArtifactWithContractName, FunctionSelector } from '@aztec/stdlib/abi';
@@ -794,7 +793,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     content: Fr[],
     eventCommitment: Fr,
     txHash: TxHash,
-    scope: AztecAddress,
+    recipient: AztecAddress,
   ): Promise<void> {
     // While using 'latest' block number would be fine for private events since they cannot be accessed from Aztec.nr
     // (and thus we're less concerned about being ahead of the synced block), we use the synced block number to
@@ -832,16 +831,14 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     }
 
     return this.privateEventDataProvider.storePrivateEventLog(
+      contractAddress,
+      recipient,
       selector,
       content,
+      txHash,
       Number(nullifierIndex.data), // Index of the event commitment in the nullifier tree
-      {
-        contractAddress,
-        scope,
-        txHash,
-        l2BlockNumber: nullifierIndex.l2BlockNumber, // Block number in which the event was emitted
-        l2BlockHash: nullifierIndex.l2BlockHash, // Block hash in which the event was emitted
-      },
+      nullifierIndex.l2BlockNumber, // Block number in which the event was emitted
+      nullifierIndex.l2BlockHash, // Block hash in which the event was emitted
     );
   }
 

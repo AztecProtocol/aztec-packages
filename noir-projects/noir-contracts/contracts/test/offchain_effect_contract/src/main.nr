@@ -59,7 +59,7 @@ contract OffchainEffect {
 
     #[external("private")]
     fn emit_note_as_offchain_message(value: u128, owner: AztecAddress) {
-        let note = UintNote { value };
+        let note = UintNote::new(value);
 
         self.storage.balances.at(owner).insert(note).deliver(
             self.msg_sender().unwrap(),
@@ -76,6 +76,6 @@ contract OffchainEffect {
     unconstrained fn get_note_value(owner: AztecAddress) -> u128 {
         let notes = self.storage.balances.at(owner).view_notes(NoteViewerOptions::new());
         assert(notes.len() == 1, "No note found");
-        notes.get(0).value
+        notes.get(0).get_value()
     }
 }

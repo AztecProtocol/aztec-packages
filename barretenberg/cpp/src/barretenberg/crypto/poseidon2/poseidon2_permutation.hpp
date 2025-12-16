@@ -8,6 +8,8 @@
 
 #include "poseidon2_params.hpp"
 
+#include "barretenberg/common/throw_or_abort.hpp"
+
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -15,8 +17,8 @@
 namespace bb::crypto {
 
 /**
- * @brief Applies the Poseidon2 permutation function from https://eprint.iacr.org/2023/323.
- * @details This algorithm was implemented using https://github.com/HorizenLabs/poseidon2 as a reference.
+ * @brief Applies the Poseidon2 permutation function from https://eprint.iacr.org/2023/323 .
+ * This algorithm was implemented using https://github.com/HorizenLabs/poseidon2 as a reference.
  *
  * @tparam Params
  */
@@ -27,6 +29,11 @@ template <typename Params> class Poseidon2Permutation {
     // capacity = 1 field element (256 bits)
     // rate = number of field elements that can be compressed per permutation
     static constexpr size_t t = Params::t;
+    // d = degree of s-box polynomials. For a given field, `d` is the smallest element of `p` such that gdc(d, p - 1) =
+    // 1 (excluding 1) For bn254/grumpkin, d = 5
+    static constexpr size_t d = Params::d;
+    // sbox size = number of bits in p
+    static constexpr size_t sbox_size = Params::sbox_size;
     // number of full sbox rounds
     static constexpr size_t rounds_f = Params::rounds_f;
     // number of partial sbox rounds
@@ -97,18 +104,17 @@ template <typename Params> class Poseidon2Permutation {
 
     static constexpr void matrix_multiplication_external(State& input)
     {
-        static_assert(t == 4, "Only t=4 is supported");
-        matrix_multiplication_4x4(input);
+        if constexpr (t == 4) {
+            matrix_multiplication_4x4(input);
+        } else {
+            // erm panic
+            throw_or_abort("not supported");
+        }
     }
 
-    /**
-     * @brief S-box: x -> x^5
-     *
-     * @details For a given field, `d` is the smallest element of `p` such that gdc(d, p - 1) = 1 (excluding 1) For
-     * bn254/grumpkin, d = 5
-     */
     static constexpr void apply_single_sbox(FF& input)
     {
+        // hardcoded assumption that d = 5. should fix this or not make d configurable
         auto xx = input.sqr();
         auto xxxx = xx.sqr();
         input *= xxxx;

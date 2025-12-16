@@ -1,7 +1,7 @@
 import type { EpochCache } from '@aztec/epoch-cache';
 import { BlockNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { compactArray, times } from '@aztec/foundation/collection';
-import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
+import { Secp256k1Signer } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { AztecLMDBStoreV2, openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import type { P2PClient } from '@aztec/p2p';

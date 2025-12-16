@@ -5,7 +5,7 @@ import { MerkleTreeId } from '@aztec/aztec.js/trees';
 import { RollupContract } from '@aztec/ethereum';
 import { ChainMonitor } from '@aztec/ethereum/test';
 import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
-import { randomBytes } from '@aztec/foundation/crypto/random';
+import { randomBytes } from '@aztec/foundation/crypto';
 import { tryRmDir } from '@aztec/foundation/fs';
 import { logger, withLogNameSuffix } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';

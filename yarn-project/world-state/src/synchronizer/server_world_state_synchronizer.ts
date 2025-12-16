@@ -1,5 +1,5 @@
 import { BlockNumber } from '@aztec/foundation/branded-types';
-import type { Fr } from '@aztec/foundation/curves/bn254';
+import type { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { elapsed } from '@aztec/foundation/timer';
@@ -30,6 +30,7 @@ import type { WorldStateStatusFull } from '../native/message.js';
 import type { MerkleTreeAdminDatabase } from '../world-state-db/merkle_tree_db.js';
 import type { WorldStateConfig } from './config.js';
 import { WorldStateSynchronizerError } from './errors.js';
+import { findFirstBlocksInCheckpoints } from './utils.js';
 
 export type { SnapshotDataKeys };
 
@@ -289,22 +290,13 @@ export class ServerWorldStateSynchronizer
   private async handleL2Blocks(l2Blocks: L2BlockNew[]) {
     this.log.trace(`Handling L2 blocks ${l2Blocks[0].number} to ${l2Blocks.at(-1)!.number}`);
 
-    // Fetch the L1->L2 messages for the first block in a checkpoint.
-    const messagesForBlocks = new Map<BlockNumber, Fr[]>();
-    await Promise.all(
-      l2Blocks
-        .filter(b => b.indexWithinCheckpoint === 0)
-        .map(async block => {
-          const l1ToL2Messages = await this.l2BlockSource.getL1ToL2Messages(block.checkpointNumber);
-          messagesForBlocks.set(block.number, l1ToL2Messages);
-        }),
-    );
+    const firstBlocksInCheckpoints = await findFirstBlocksInCheckpoints(l2Blocks, this.l2BlockSource);
 
     let updateStatus: WorldStateStatusFull | undefined = undefined;
     for (const block of l2Blocks) {
-      const [duration, result] = await elapsed(() =>
-        this.handleL2Block(block, messagesForBlocks.get(block.number) ?? []),
-      );
+      const l1ToL2Messages = firstBlocksInCheckpoints.get(block.number) ?? [];
+      const isFirstBlock = firstBlocksInCheckpoints.has(block.number);
+      const [duration, result] = await elapsed(() => this.handleL2Block(block, l1ToL2Messages, isFirstBlock));
       this.log.info(`World state updated with L2 block ${block.number}`, {
         eventName: 'l2-block-handled',
         duration,
@@ -327,13 +319,18 @@ export class ServerWorldStateSynchronizer
    * @param l1ToL2Messages - The L1 to L2 messages for the block.
    * @returns Whether the block handled was produced by this same node.
    */
-  private async handleL2Block(l2Block: L2BlockNew, l1ToL2Messages: Fr[]): Promise<WorldStateStatusFull> {
+  private async handleL2Block(
+    l2Block: L2BlockNew,
+    l1ToL2Messages: Fr[],
+    isFirstBlock: boolean,
+  ): Promise<WorldStateStatusFull> {
+    // If the above check succeeds, we can proceed to handle the block.
     this.log.trace(`Pushing L2 block ${l2Block.number} to merkle tree db `, {
       blockNumber: l2Block.number,
       blockHash: await l2Block.hash().then(h => h.toString()),
       l1ToL2Messages: l1ToL2Messages.map(msg => msg.toString()),
     });
-    const result = await this.merkleTreeDb.handleL2BlockAndMessages(l2Block, l1ToL2Messages);
+    const result = await this.merkleTreeDb.handleL2BlockAndMessages(l2Block, l1ToL2Messages, isFirstBlock);
 
     if (this.currentState === WorldStateRunningState.SYNCHING && l2Block.number >= this.latestBlockNumberAtStart) {
       this.setCurrentState(WorldStateRunningState.RUNNING);

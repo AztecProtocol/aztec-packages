@@ -41,7 +41,7 @@ pub contract SchnorrAccount {
     #[external("private")]
     #[initializer]
     fn constructor(signing_pub_key_x: Field, signing_pub_key_y: Field) {
-        let pub_key_note = PublicKeyNote { x: signing_pub_key_x, y: signing_pub_key_y };
+        let pub_key_note = PublicKeyNote::new(signing_pub_key_x, signing_pub_key_y);
 
         // Safety: The sender for tags is only used to compute unconstrained shared secrets for emitting logs.
         // Since this value is only used for unconstrained tagging and not for any constrained logic,

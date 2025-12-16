@@ -1,5 +1,5 @@
 import { BlockNumber } from '@aztec/foundation/branded-types';
-import { Fr } from '@aztec/foundation/curves/bn254';
+import { Fr } from '@aztec/foundation/fields';
 import { updateInlineTestData } from '@aztec/foundation/testing/files';
 
 import { DelayedPublicMutableValues } from './delayed_public_mutable_values.js';

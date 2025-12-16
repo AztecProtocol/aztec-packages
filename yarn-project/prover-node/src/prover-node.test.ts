@@ -163,7 +163,7 @@ describe('prover-node', () => {
     );
 
     // L1 to L2 message source returns no messages
-    l1ToL2MessageSource.getL1ToL2Messages.mockResolvedValue([]);
+    l1ToL2MessageSource.getL1ToL2MessagesForCheckpoint.mockResolvedValue([]);
 
     // Tx provider plays along and returns a tx whenever requested
     txProvider.getTxsForBlock.mockImplementation(block =>

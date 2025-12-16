@@ -96,6 +96,9 @@ template <typename Builder> class cycle_group {
     {
         return _is_infinity.is_constant() && _is_infinity.get_value();
     }
+#ifdef FUZZING
+    void set_point_at_infinity(const bool_t& is_infinity);
+#endif
     void standardize();
     void validate_on_curve() const;
     cycle_group dbl(const std::optional<AffineElement> hint = std::nullopt) const;

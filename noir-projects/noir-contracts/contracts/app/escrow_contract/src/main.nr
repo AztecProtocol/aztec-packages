@@ -22,7 +22,7 @@ pub contract Escrow {
     #[external("private")]
     #[initializer]
     fn constructor(owner: AztecAddress) {
-        let note = AddressNote { address: owner };
+        let note = AddressNote::new(owner);
         self.storage.owner.at(owner).initialize(note).deliver(
             owner,
             MessageDelivery.CONSTRAINED_ONCHAIN,
@@ -35,7 +35,7 @@ pub contract Escrow {
         let sender = self.msg_sender().unwrap();
 
         let note = self.storage.owner.at(sender).get_note();
-        assert(note.address == sender);
+        assert(note.get_address() == sender);
         self.call(Token::at(token).transfer(recipient, amount));
     }
 }

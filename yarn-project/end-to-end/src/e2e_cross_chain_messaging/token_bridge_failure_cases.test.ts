@@ -2,7 +2,7 @@ import { EthAddress } from '@aztec/aztec.js/addresses';
 import { Fr } from '@aztec/aztec.js/fields';
 import { L1Actor, L1ToL2Message, L2Actor } from '@aztec/aztec.js/messaging';
 import { RollupContract } from '@aztec/ethereum';
-import { sha256ToField } from '@aztec/foundation/crypto/sha256';
+import { sha256ToField } from '@aztec/foundation/crypto';
 
 import { toFunctionSelector } from 'viem';
 

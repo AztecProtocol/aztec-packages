@@ -1,4 +1,4 @@
-import { Fr } from '@aztec/foundation/curves/bn254';
+import { Fr } from '@aztec/foundation/fields';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import { TxHash, type TxReceipt, TxStatus } from '@aztec/stdlib/tx';
 

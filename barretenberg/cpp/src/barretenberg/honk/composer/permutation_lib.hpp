@@ -47,13 +47,11 @@ struct cycle_node {
  *
  */
 struct Mapping {
-    std::shared_ptr<uint32_t[]> row_idx;     // row idx of next entry in copy cycle
-    std::shared_ptr<uint8_t[]> col_idx;      // column idx of next entry in copy cycle
-    std::shared_ptr<bool[]> is_public_input; // if we are a sigma polynomial, is the current row a public input row?
-                                             // (always false for id polynomials.)
-    std::shared_ptr<bool[]>
-        is_tag; // is this element a tag,  (N.B. For each permutation polynomial (i.e., id_i or
-                // sigma_j), only one element per cycle is a tag. This follows the generalized permutation argument.)
+    std::shared_ptr<uint32_t[]> row_idx; // row idx of next entry in copy cycle
+    std::shared_ptr<uint8_t[]> col_idx;  // column idx of next entry in copy cycle
+    std::shared_ptr<bool[]> is_public_input;
+    std::shared_ptr<bool[]> is_tag; // is this element a tag,  (N.B. For each permutation polynomial (i.e., id_i or
+                                    // sigma_j), only one element per cycle is a tag.)
     size_t _size = 0;
 
     Mapping() = default;
@@ -100,7 +98,7 @@ template <size_t NUM_WIRES> struct PermutationMapping {
                     // id polynomials
                     ids[col_idx].row_idx[idx] = row_idx;
                     ids[col_idx].col_idx[idx] = col_idx;
-                    ids[col_idx].is_public_input[idx] = false; // always false.
+                    ids[col_idx].is_public_input[idx] = false;
                     ids[col_idx].is_tag[idx] = false;
                 }
             }
@@ -112,21 +110,19 @@ using CyclicPermutation = std::vector<cycle_node>;
 
 namespace {
 
-constexpr size_t PERMUTATION_POLY_START_INDEX =
+static constexpr size_t PERMUTATION_POLY_START_INDEX =
     1; // start_index of the Sigma and ID polynomials, which are shiftable. (Note that they are never shifted.)
 
 /**
  * @brief Compute the permutation mapping
  *
- * @details Computes the mappings from which the sigma and ID polynomials can be computed, as specified by the
- * Generalized Permutation argument. The output is proving-system agnostic.
+ * @details Computes the mappings from which the sigma and ID polynomials can be computed. The output is proving-system
+ * agnostic.
  *
  * @param circuit_constructor
  * @param dyadic_size
  * @param wire_copy_cycles
  * @return PermutationMapping<Flavor::NUM_WIRES>
- * @note This does not take into account the optimization for public inputs, a.k.a. the "public inputs delta"; it purely
- * reflects the actual copy cycles.
  */
 template <typename Flavor>
 PermutationMapping<Flavor::NUM_WIRES> compute_permutation_mapping(
@@ -181,9 +177,7 @@ PermutationMapping<Flavor::NUM_WIRES> compute_permutation_mapping(
     }
 
     // Add information about public inputs so that the cycles can be altered later; See the construction of the
-    // permutation polynomials for details. This _only_ effects sigma_0, the 0th sigma polynomial, as the structure of
-    // the algorithm only requires modifying sigma_0(i) where i is a public input row. (Note that at such a row, the
-    // non-zero wire values are in w_l and w_r, and both of them contain the public input.)
+    // permutation polynomials for details.
     const auto num_public_inputs = static_cast<uint32_t>(circuit_constructor.num_public_inputs());
 
     auto pub_inputs_offset = circuit_constructor.blocks.pub_inputs.trace_offset();
@@ -238,29 +232,20 @@ void compute_honk_style_permutation_lagrange_polynomials_from_mapping(
                 const auto& current_row_idx = permutation_mappings[wire_idx].row_idx[idx];
                 const auto& current_col_idx = permutation_mappings[wire_idx].col_idx[idx];
                 const auto& current_is_tag = permutation_mappings[wire_idx].is_tag[idx];
-                const auto& current_is_public_input =
-                    permutation_mappings[wire_idx].is_public_input[idx]; // this is only `true` for sigma polynomials,
-                                                                         // it is always false for the ID polynomials.
+                const auto& current_is_public_input = permutation_mappings[wire_idx].is_public_input[idx];
                 if (current_is_public_input) {
-                    // We intentionally want to break the cycles of the public input variables as an optimization.
-                    // During the witness generation, both the left and right wire polynomials (w_l and w_r
-                    // respectively) at row idx i contain the i-th public input. Let n = SEPARATOR. The initial
-                    // CyclicPermutation created for these variables copy-constrained to the ith public input therefore
-                    // always starts with (i) -> (n+i), followed by the indices of the variables in the "real" gates
-                    // (i.e., the gates not merely present to set-up inputs).
-                    //
-                    // We change this and make i point to -(i+1). This choice "unbalances" the grand product argument,
-                    // so that the final result of the grand product is _not_ 1. These indices are chosen so they can
-                    // easily be computed by the verifier (just knowing the public inputs), and this algorithm
-                    // constitutes a specification of the "permutation argument with public inputs" optimization due to
-                    // Gabizon and Williamson. The verifier can expect the final product to be equal to the "public
-                    // input delta" that is computed in <honk/library/grand_product_delta.hpp>.
+                    // We intentionally want to break the cycles of the public input variables.
+                    // During the witness generation, the left and right wire polynomials at idx i contain the i-th
+                    // public input. Let n = SEPARATOR. The CyclicPermutation created for these variables
+                    // always starts with (i) -> (n+i), followed by the indices of the variables in the "real" gates. We
+                    // make i point to -(i+1), so that the only way of repairing the cycle is add the mapping
+                    //  -(i+1) -> (n+i)
+                    // These indices are chosen so they can easily be computed by the verifier. They can expect
+                    // the running product to be equal to the "public input delta" that is computed
+                    // in <honk/utils/grand_product_delta.hpp>
                     current_permutation_poly.at(poly_idx) = -FF(current_row_idx + 1 + SEPARATOR * current_col_idx);
                 } else if (current_is_tag) {
-                    // Set evaluations to (arbitrary) values disjoint from non-tag values. This is for the
-                    // multiset-equality part of the generalized permutation argument, which requires auxiliary values
-                    // which have not been used as indices. In particular, these are the actual tags assigned to the
-                    // cycle.
+                    // Set evaluations to (arbitrary) values disjoint from non-tag values
                     current_permutation_poly.at(poly_idx) = SEPARATOR * Flavor::NUM_WIRES + current_row_idx;
                 } else {
                     // For the regular permutation we simply point to the next location by setting the

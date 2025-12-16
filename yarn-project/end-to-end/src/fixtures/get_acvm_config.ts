@@ -1,6 +1,6 @@
 import type { Logger } from '@aztec/aztec.js/log';
 import { parseBooleanEnv } from '@aztec/foundation/config';
-import { randomBytes } from '@aztec/foundation/crypto/random';
+import { randomBytes } from '@aztec/foundation/crypto';
 import { tryRmDir } from '@aztec/foundation/fs';
 
 import { promises as fs } from 'fs';

@@ -63,8 +63,8 @@
 <div class="comments">
 <p>This represents an Aztec test run, and contains all the methods utilized during one to interact with the network and
 manipulate its state (e.g. create accounts, make contract calls, etc.). Each test is expected to have its own
-instance of <a href="../../../../noir_aztec/test/helpers/test_environment/struct.TestEnvironment.html">TestEnvironment</a>, as tests execute in parallel and so cannot share this object.</p>
-<p>Most tests will begin by creating a <a href="../../../../noir_aztec/test/helpers/test_environment/struct.TestEnvironment.html">TestEnvironment</a> variable, and then make multiple calls to its different
+instance of <code>TestEnvironment</code>, as tests execute in parallel and so cannot share this object.</p>
+<p>Most tests will begin by creating a <code>TestEnvironment</code> variable, and then make multiple calls to its different
 methods. E.g.:</p>
 <pre><code>#[test]
 <span class="kw">fn</span> sample_test() {
@@ -413,34 +413,33 @@ executable in a static context, and these produce no side effects).</p>
 <p>Unlike <code>call_public</code>, no transaction is created and no block is mined (since <code>#[view]</code> functions are only
 executable in a static context, and these produce no side effects).</p>
 </div>
-</div><code id="discover_note" class="code-header">pub unconstrained fn <a href="#discover_note"><span class="fn">discover_note</span></a>&lt;Note&gt;(self, note_message: <a href="../../../../noir_aztec/note/note_message/struct.NoteMessage.html" class="struct">NoteMessage</a>&lt;Note&gt;)
+</div><code id="discover_note" class="code-header">pub unconstrained fn <a href="#discover_note"><span class="fn">discover_note</span></a>&lt;Note&gt;(self, emission: <a href="../../../../noir_aztec/note/note_emission/struct.NoteEmission.html" class="struct">NoteEmission</a>&lt;Note&gt;)
 <div class="where-clause">where
     Note: <a href="../../../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>,
     Note: <a href="../../../../noir_aztec/note/note_interface/trait.NoteType.html" class="trait">NoteType</a>,
     Note: <a href="../../../../noir_aztec/note/note_interface/trait.NoteHash.html" class="trait">NoteHash</a></div></code>
 
 <div class="padded-description"><div class="comments">
-<p>Discovers a note from a [NewNoteMessage], which is expected to have been created in the last transaction
-(typically via <code>private_context()</code>) so that it can be retrieved in later transactions. This mimics the normal
-note discovery process that takes place automatically in contracts.</p>
-<p>[NewNoteMessage] values are typically returned by aztec-nr state variables that create notes and need to notify
-a recipient of their existence. Instead of going through the message encoding, encryption and delivery that
-would regularly take place in a contract, this function simply takes the [NewNoteMessage] and processes it as
-needed to discover the underlying note.</p>
-<p>See <a href="../../../../noir_aztec/test/helpers/test_environment/struct.TestEnvironment.html#discover_note_at">TestEnvironment::discover_note_at</a> for a variant that allows specifying the contract address the note
-belongs to.</p>
+<p>Discovers a note wrapped in a <code>NoteEmission</code> value, which is expected to have been created in the last
+transaction (typically via <code>private_context()</code>) so that it can be retrieved in later transactions. This mimics
+the normal note discovery process that takes places automatically in contracts.</p>
+<p><code>NoteEmission</code> values are typically returned by aztec-nr state variables that create notes and need to notify a
+recipient of their existence. Instead of going through the message encoding, encryption and emission that would
+regularly take place in a contract, <code>discover_note</code> simply takes the <code>NoteEmission</code> and processes it as needed
+to discover the underlying note.</p>
+<p>See <code>discover_note_at</code> for a variant that allows specifying the contract address the note belongs to.</p>
 <h4>Sample usage</h4>
-<p>The most common way to invoke this function is to obtain a note message created during the execution of a
+<p>The most common way to invoke this function is to obtain an emission created during the execution of a
 <code>private_context</code>:</p>
-<pre><code><span class="kw">let</span> note_message = env.private_context(|context| create_note(context, storage_slot, note));
+<pre><code><span class="kw">let</span> emission = env.private_context(|context| create_note(context, storage_slot, note));
 
-env.discover_note(note_message);
+env.discover_note(emission);
 
 env.private_context(|context| { <span class="kw">let</span> (retrieved_note, _) = get_note::&lt;MockNote&gt;(context, storage_slot); });</code></pre></div>
 </div><code id="discover_note_at" class="code-header">pub unconstrained fn <a href="#discover_note_at"><span class="fn">discover_note_at</span></a>&lt;Note&gt;(
     self,
     addr: <a href="../../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
-    note_message: <a href="../../../../noir_aztec/note/note_message/struct.NoteMessage.html" class="struct">NoteMessage</a>&lt;Note&gt;,
+    emission: <a href="../../../../noir_aztec/note/note_emission/struct.NoteEmission.html" class="struct">NoteEmission</a>&lt;Note&gt;,
 )
 <div class="where-clause">where
     Note: <a href="../../../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>,
@@ -450,11 +449,11 @@ env.private_context(|context| { <span class="kw">let</span> (retrieved_note, _) 
 <div class="padded-description"><div class="comments">
 <p>Variant of <code>discover_note</code> which allows specifying the contract address the note belongs to, which is required
 when the note was not emitted in the default address used by <code>private_context</code>.</p>
-<pre><code><span class="kw">let</span> note_message = env.private_context_at(contract_address, |context| {
+<pre><code><span class="kw">let</span> emission = env.private_context_at(contract_address, |context| {
     create_note(context, storage_slot, note)
 });
 
-env.discover_note_at(contract_address, note_message);
+env.discover_note_at(contract_address, emission);
 
 env.private_context_at(contract_address, |context| {
     <span class="kw">let</span> (retrieved_note, _) = get_note::&lt;MockNote&gt;(context, storage_slot);

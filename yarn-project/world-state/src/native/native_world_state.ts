@@ -1,8 +1,8 @@
 import { MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { fromEntries, padArrayEnd } from '@aztec/foundation/collection';
-import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { Fr } from '@aztec/foundation/fields';
 import { tryRmDir } from '@aztec/foundation/fs';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import type { L2BlockNew } from '@aztec/stdlib/block';
@@ -180,8 +180,11 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     return this.initialHeader!;
   }
 
-  public async handleL2BlockAndMessages(l2Block: L2BlockNew, l1ToL2Messages: Fr[]): Promise<WorldStateStatusFull> {
-    const isFirstBlock = l2Block.indexWithinCheckpoint === 0;
+  public async handleL2BlockAndMessages(
+    l2Block: L2BlockNew,
+    l1ToL2Messages: Fr[],
+    isFirstBlock: boolean,
+  ): Promise<WorldStateStatusFull> {
     if (!isFirstBlock && l1ToL2Messages.length > 0) {
       throw new Error(
         `L1 to L2 messages must be empty for non-first blocks, but got ${l1ToL2Messages.length} messages for block ${l2Block.number}.`,

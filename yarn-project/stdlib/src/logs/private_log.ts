@@ -1,7 +1,7 @@
 import { PRIVATE_LOG_LENGTH, PRIVATE_LOG_SIZE_IN_FIELDS } from '@aztec/constants';
 import { type FieldsOf, makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
-import { Fr } from '@aztec/foundation/curves/bn254';
+import { Fr } from '@aztec/foundation/fields';
 import { schemas } from '@aztec/foundation/schemas';
 import {
   BufferReader,

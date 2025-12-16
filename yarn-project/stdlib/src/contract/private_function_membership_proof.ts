@@ -1,5 +1,5 @@
-import { poseidon2Hash } from '@aztec/foundation/crypto/poseidon';
-import { Fr } from '@aztec/foundation/curves/bn254';
+import { poseidon2Hash } from '@aztec/foundation/crypto';
+import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { computeRootFromSiblingPath } from '@aztec/foundation/trees';
 

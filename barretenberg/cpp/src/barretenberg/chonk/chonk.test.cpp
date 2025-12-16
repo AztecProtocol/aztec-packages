@@ -231,7 +231,7 @@ TEST_F(ChonkTests, WrongProofComponentFailure)
     }
 
     {
-        // Replace Hiding kernel proof
+        // Replace hiding circuit proof
         Chonk::Proof tampered_proof = chonk_proof_1;
 
         tampered_proof.mega_proof = chonk_proof_2.mega_proof;

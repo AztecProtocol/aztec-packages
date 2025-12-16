@@ -592,7 +592,8 @@ typename UltraCircuitBuilder_<ExecutionTrace>::RangeList UltraCircuitBuilder_<Ex
     RangeList result;
     const auto range_tag = get_new_tag(); // current_tag + 1;
     const auto tau_tag = get_new_tag();   // current_tag + 2;
-    set_tau_transposition(range_tag, tau_tag);
+    create_tag(range_tag, tau_tag);
+    create_tag(tau_tag, range_tag);
     result.target_range = target_range;
     result.range_tag = range_tag;
     result.tau_tag = tau_tag;

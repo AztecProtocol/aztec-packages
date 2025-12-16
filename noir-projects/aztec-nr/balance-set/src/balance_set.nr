@@ -37,7 +37,7 @@ impl BalanceSet<UtilityContext> {
         let notes = self.set.view_notes(options.set_offset(offset));
         for i in 0..options.limit {
             if i < notes.len() {
-                balance = balance + notes.get_unchecked(i).value;
+                balance = balance + notes.get_unchecked(i).get_value();
             }
         }
         if (notes.len() == options.limit) {
@@ -53,7 +53,7 @@ impl BalanceSet<&mut PrivateContext> {
         let maybe_new_note = if addend == 0 as u128 {
             Option::none()
         } else {
-            let addend_note = UintNote { value: addend };
+            let addend_note = UintNote::new(addend);
 
             Option::some(self.set.insert(addend_note).get_new_note())
         };
@@ -94,7 +94,7 @@ impl BalanceSet<&mut PrivateContext> {
         for i in 0..options.limit {
             if i < notes.len() {
                 let note = notes.get_unchecked(i);
-                subtracted = subtracted + note.value;
+                subtracted = subtracted + note.get_value();
             }
         }
 
@@ -121,7 +121,7 @@ pub fn preprocess_notes_min_sum(
         if notes[i].is_some() & sum < min_sum {
             let retrieved_note = notes[i].unwrap_unchecked();
             selected[i] = Option::some(retrieved_note);
-            sum = sum.add(retrieved_note.note.value);
+            sum = sum.add(retrieved_note.note.get_value());
         }
     }
     selected

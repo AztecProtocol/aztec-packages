@@ -7,7 +7,6 @@
 #pragma once
 
 #include "barretenberg/common/assert.hpp"
-#include "barretenberg/constants.hpp"
 #include "barretenberg/flavor/ultra_flavor.hpp"
 
 namespace bb {
@@ -44,14 +43,6 @@ class UltraZKFlavor : public UltraFlavor {
     static constexpr size_t NUM_WITNESS_ENTITIES = UltraFlavor::NUM_WITNESS_ENTITIES + NUM_MASKING_POLYNOMIALS;
     // NUM_ALL_ENTITIES includes gemini_masking_poly
     static constexpr size_t NUM_ALL_ENTITIES = UltraFlavor::NUM_ALL_ENTITIES + NUM_MASKING_POLYNOMIALS;
-    // NUM_UNSHIFTED_ENTITIES includes gemini_masking_poly
-    static constexpr size_t NUM_UNSHIFTED_ENTITIES = UltraFlavor::NUM_UNSHIFTED_ENTITIES + NUM_MASKING_POLYNOMIALS;
-
-    // Size of the final PCS MSM for ZK = non-ZK size + NUM_LIBRA_COMMITMENTS (3)
-    static constexpr size_t FINAL_PCS_MSM_SIZE(size_t log_n = CONST_PROOF_SIZE_LOG_N)
-    {
-        return NUM_UNSHIFTED_ENTITIES + log_n + 2 + NUM_LIBRA_COMMITMENTS;
-    }
 
     // Override OINK_PROOF_LENGTH to include gemini_masking_poly commitment (sent via commit_to_masking_poly)
     static constexpr size_t OINK_PROOF_LENGTH_WITHOUT_PUB_INPUTS =

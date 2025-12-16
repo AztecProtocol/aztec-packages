@@ -1,12 +1,10 @@
 import type { ChainInfo } from '@aztec/entrypoints/interfaces';
-import { BlockNumber } from '@aztec/foundation/branded-types';
-import { Fr } from '@aztec/foundation/curves/bn254';
+import { Fr } from '@aztec/foundation/fields';
 import { type JsonRpcTestContext, createJsonRpcTestSetup } from '@aztec/foundation/json-rpc/test';
 import type { ContractArtifact, EventMetadataDefinition } from '@aztec/stdlib/abi';
 import { EventSelector, FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
 import { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { L2BlockHash } from '@aztec/stdlib/block';
 import type { ContractClassMetadata, ContractInstanceWithAddress, ContractMetadata } from '@aztec/stdlib/contract';
 import { PublicKeys } from '@aztec/stdlib/keys';
 import {
@@ -23,8 +21,6 @@ import type {
   BatchResults,
   BatchableMethods,
   BatchedMethod,
-  PrivateEvent,
-  PrivateEventFilter,
   ProfileOptions,
   SendOptions,
   SimulateOptions,
@@ -98,14 +94,9 @@ describe('WalletSchema', () => {
       abiType: { kind: 'field' },
       fieldNames: ['field1'],
     };
-
-    const result = await context.client.getPrivateEvents(eventMetadata, {
-      contractAddress: await AztecAddress.random(),
-      fromBlock: BlockNumber(1),
-      toBlock: BlockNumber(10),
-      scopes: [await AztecAddress.random()],
-    });
-
+    const result = await context.client.getPrivateEvents(await AztecAddress.random(), eventMetadata, 0, 10, [
+      await AztecAddress.random(),
+    ]);
     expect(result).toHaveLength(1);
     expect(result[0]).toBeDefined();
   });
@@ -343,21 +334,13 @@ class MockWallet implements Wallet {
   }
 
   getPrivateEvents<T>(
+    _contractAddress: AztecAddress,
     _eventMetadata: EventMetadataDefinition,
-    _filter: PrivateEventFilter,
-  ): Promise<PrivateEvent<T>[]> {
-    return Promise.resolve([
-      {
-        event: {
-          field1: Fr.random(),
-        },
-        metadata: {
-          l2BlockNumber: BlockNumber(1),
-          l2BlockHash: L2BlockHash.random(),
-          txHash: TxHash.random(),
-        },
-      },
-    ] as PrivateEvent<T>[]);
+    _from: number,
+    _numBlocks: number,
+    _recipients: AztecAddress[],
+  ): Promise<T[]> {
+    return Promise.resolve([{ field1: Fr.random() }] as T[]);
   }
 
   getTxReceipt(_txHash: TxHash): Promise<TxReceipt> {

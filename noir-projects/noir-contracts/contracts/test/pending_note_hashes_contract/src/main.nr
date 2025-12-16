@@ -43,7 +43,7 @@ pub contract PendingNoteHashes {
     ) -> Field {
         let owner_balance = self.storage.balances.at(owner);
 
-        let note = FieldNote { value: amount };
+        let note = FieldNote::new(amount);
 
         // Insert note
         owner_balance.insert(note).deliver(owner, MessageDelivery.CONSTRAINED_ONCHAIN);
@@ -53,10 +53,10 @@ pub contract PendingNoteHashes {
         let notes = owner_balance.pop_notes(options);
 
         let note0 = notes.get(0);
-        assert(note.value == note0.value);
+        assert(note.value() == note0.value());
         assert(notes.len() == 1);
 
-        note0.value
+        note0.value()
     }
 
     // Confirm cannot access note hashes inserted later in same function
@@ -71,7 +71,7 @@ pub contract PendingNoteHashes {
         assert(notes.len() == 0);
 
         // Insert note
-        let note = FieldNote { value: amount };
+        let note = FieldNote::new(amount);
         // Discard the message
         let _ = owner_balance.insert(note);
 
@@ -87,7 +87,7 @@ pub contract PendingNoteHashes {
     fn insert_note(amount: Field, owner: AztecAddress, sender: AztecAddress) {
         let owner_balance = self.storage.balances.at(owner);
 
-        let note = FieldNote { value: amount };
+        let note = FieldNote::new(amount);
 
         // Insert note
         owner_balance.insert(note).deliver(owner, MessageDelivery.CONSTRAINED_ONCHAIN);
@@ -114,7 +114,7 @@ pub contract PendingNoteHashes {
     fn insert_note_extra_emit(amount: Field, owner: AztecAddress, sender: AztecAddress) {
         let owner_balance = self.storage.balances.at(owner);
 
-        let note = FieldNote { value: amount };
+        let note = FieldNote::new(amount);
 
         // Insert note
         let message = owner_balance.insert(note);
@@ -134,7 +134,7 @@ pub contract PendingNoteHashes {
         options = options.set_limit(1);
         let note = owner_balance.pop_notes(options).get(0);
 
-        assert(expected_value == note.value);
+        assert(expected_value == note.value());
         expected_value
     }
 
@@ -328,7 +328,7 @@ pub contract PendingNoteHashes {
         let owner_balance = self.storage.balances.at(owner);
 
         for i in 0..self.internal.max_notes_per_call() {
-            let note = FieldNote { value: i as Field };
+            let note = FieldNote::new(i as Field);
             owner_balance.insert(note).deliver(owner, MessageDelivery.CONSTRAINED_ONCHAIN);
         }
     }

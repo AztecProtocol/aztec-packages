@@ -1,5 +1,5 @@
 import { PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH } from '@aztec/constants';
-import { randomInt } from '@aztec/foundation/crypto/random';
+import { randomInt } from '@aztec/foundation/crypto';
 import { setupCustomSnapshotSerializers } from '@aztec/foundation/testing';
 
 import { makePrivateCircuitPublicInputs } from '../tests/factories.js';

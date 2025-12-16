@@ -61,7 +61,7 @@ template <typename FF_> uint32_t CircuitBuilderBase<FF_>::add_variable(const FF&
     return index;
 }
 
-// Only used in SMT verification
+// AUDITTODO: is this used?
 template <typename FF_> void CircuitBuilderBase<FF_>::set_variable_name(uint32_t index, const std::string& name)
 {
     BB_ASSERT_DEBUG(variables.size() > index);

@@ -114,7 +114,7 @@ pub contract TokenBlacklist {
         let caller_roles = self.storage.roles.at(self.msg_sender().unwrap()).get_current_value();
         assert(caller_roles.is_minter, "caller is not minter");
 
-        let note = TransparentNote { amount, secret_hash };
+        let note = TransparentNote::new(amount, secret_hash);
         let supply = self.storage.total_supply.read().add(amount);
 
         self.storage.total_supply.write(supply);
@@ -139,7 +139,7 @@ pub contract TokenBlacklist {
         assert(!from_roles.is_blacklisted, "Blacklisted: Sender");
 
         let from_balance = self.storage.public_balances.at(from).read().sub(amount);
-        let note = TransparentNote { amount, secret_hash };
+        let note = TransparentNote::new(amount, secret_hash);
 
         self.storage.public_balances.at(from).write(from_balance);
 
@@ -282,7 +282,7 @@ pub contract TokenBlacklist {
         first_nullifier_in_tx: Field,
         recipient: AztecAddress,
     ) {
-        let note = TransparentNote { amount, secret_hash };
+        let note = TransparentNote::new(amount, secret_hash);
         let storage_slot = TokenBlacklist::storage_layout().pending_shields.slot;
         let note_type_id = TransparentNote::get_id();
         let packed_note = BoundedVec::from_array(note.pack());

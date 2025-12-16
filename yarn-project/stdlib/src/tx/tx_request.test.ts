@@ -1,6 +1,6 @@
 import { TX_REQUEST_LENGTH } from '@aztec/constants';
-import { randomInt } from '@aztec/foundation/crypto/random';
-import { Fr } from '@aztec/foundation/curves/bn254';
+import { randomInt } from '@aztec/foundation/crypto';
+import { Fr } from '@aztec/foundation/fields';
 import { setupCustomSnapshotSerializers } from '@aztec/foundation/testing';
 import { updateInlineTestData } from '@aztec/foundation/testing/files';
 

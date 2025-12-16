@@ -1,4 +1,4 @@
-import { deriveBlsPrivateKey } from '@aztec/foundation/crypto/bls';
+import { deriveBlsPrivateKey } from '@aztec/foundation/crypto';
 import { decryptBn254Keystore } from '@aztec/foundation/crypto/bls/bn254_keystore';
 import { loadKeystoreFile } from '@aztec/node-keystore/loader';
 import type { KeyStore } from '@aztec/node-keystore/types';

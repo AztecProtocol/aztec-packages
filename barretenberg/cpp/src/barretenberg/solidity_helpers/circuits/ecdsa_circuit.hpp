@@ -2,7 +2,6 @@
 #pragma once
 #include "barretenberg/crypto/ecdsa/ecdsa.hpp"
 #include "barretenberg/crypto/hashers/hashers.hpp"
-#include "barretenberg/crypto/sha256/sha256.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/stdlib/encryption/ecdsa/ecdsa.hpp"
 #include "barretenberg/stdlib/encryption/ecdsa/ecdsa_impl.hpp"
@@ -79,9 +78,8 @@ class EcdsaCircuit {
         stdlib::ecdsa_signature<Builder> sig{ typename curve::byte_array_ct(&builder, rr),
                                               typename curve::byte_array_ct(&builder, ss) };
 
-        // Compute H(m) natively and pass as witness (mirrors ACIR which takes pre-hashed message)
-        auto hash_arr = crypto::sha256(std::vector<uint8_t>(message_string.begin(), message_string.end()));
-        stdlib::byte_array<Builder> hashed_message(&builder, std::vector<uint8_t>(hash_arr.begin(), hash_arr.end()));
+        stdlib::byte_array<Builder> hashed_message =
+            static_cast<stdlib::byte_array<Builder>>(stdlib::SHA256<Builder>::hash(input_buffer));
 
         // IN CIRCUIT: verify the signature
         typename curve::bool_ct signature_result = stdlib::ecdsa_verify_signature<Builder,

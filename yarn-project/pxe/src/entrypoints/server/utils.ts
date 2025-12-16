@@ -1,5 +1,5 @@
 import { BBBundlePrivateKernelProver } from '@aztec/bb-prover/client/bundle';
-import { randomBytes } from '@aztec/foundation/crypto/random';
+import { randomBytes } from '@aztec/foundation/crypto';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { BundledProtocolContractsProvider } from '@aztec/protocol-contracts/providers/bundle';
 import {

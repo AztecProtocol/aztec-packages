@@ -1,7 +1,5 @@
-import { poseidon2Hash } from '@aztec/foundation/crypto/poseidon';
-import { sha256, sha256ToField } from '@aztec/foundation/crypto/sha256';
-import { BLS12Fr } from '@aztec/foundation/curves/bls12';
-import { Fr } from '@aztec/foundation/curves/bn254';
+import { poseidon2Hash, sha256, sha256ToField } from '@aztec/foundation/crypto';
+import { BLS12Fr, Fr } from '@aztec/foundation/fields';
 
 import { BYTES_PER_BLOB, BYTES_PER_COMMITMENT, getKzg } from './kzg_context.js';
 import { SpongeBlob } from './sponge_blob.js';

@@ -3,18 +3,18 @@ import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { L2BlockHash } from '../block/block_hash.js';
-import { type DataInBlock, dataInBlockSchemaFor, randomDataInBlock } from '../block/in_block.js';
+import { type DataInBlock, inBlockSchemaFor, randomInBlock } from '../block/in_block.js';
 import { TxEffect } from './tx_effect.js';
 
 export type IndexedTxEffect = DataInBlock<TxEffect> & { txIndexInBlock: number };
 
 export function indexedTxSchema() {
-  return dataInBlockSchemaFor(TxEffect.schema).extend({ txIndexInBlock: schemas.Integer });
+  return inBlockSchemaFor(TxEffect.schema).extend({ txIndexInBlock: schemas.Integer });
 }
 
 export async function randomIndexedTxEffect(): Promise<IndexedTxEffect> {
   return {
-    ...randomDataInBlock(await TxEffect.random({ numNullifiers: 1 + Math.floor(Math.random() * 64) })),
+    ...randomInBlock(await TxEffect.random({ numNullifiers: 1 + Math.floor(Math.random() * 64) })),
     txIndexInBlock: Math.floor(Math.random() * 1000),
   };
 }

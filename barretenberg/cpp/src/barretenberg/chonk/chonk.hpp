@@ -82,7 +82,7 @@ class Chonk : public IVCBase {
     using RecursiveVerifierAccumulator = RecursiveFoldingVerifier::Accumulator;
 
     /**
-     * @brief A full proof for the IVC scheme containing a Mega proof showing correctness of the Hiding kernel (which
+     * @brief A full proof for the IVC scheme containing a Mega proof showing correctness of the hiding circuit (which
      * recursive verified the last folding and decider proof) and a Goblin proof (translator VM, ECCVM and last merge
      * proof).
      *
@@ -249,7 +249,7 @@ class Chonk : public IVCBase {
     using StdlibVerificationQueue = std::deque<StdlibVerifierInputs>;
 
   private:
-    // Transcript for Chonk prover (shared between Hiding kernel, Merge, ECCVM, and Translator)
+    // Transcript for Chonk prover (shared between Hiding circuit, Merge, ECCVM, and Translator)
     std::shared_ptr<Transcript> transcript = std::make_shared<Transcript>();
 
     // Transcript to be shared across the folding of K_{i-1} (kernel), A_{i} (app)
@@ -261,7 +261,7 @@ class Chonk : public IVCBase {
 
     ProverAccumulator prover_accumulator; // current HN prover accumulator instance
 
-    HonkProof decider_proof; // decider proof to be verified in the Hiding kernel
+    HonkProof decider_proof; // decider proof to be verified in the hiding circuit
 
     VerifierAccumulator recursive_verifier_native_accum; // native verifier accumulator used in recursive folding
 #ifndef NDEBUG

@@ -207,7 +207,7 @@ typename MergeVerifier_<Curve>::VerificationResult MergeVerifier_<Curve>::verify
     BB_ASSERT(batch_opening_claim.scalars.size() == MERGE_BATCHED_CLAIM_SIZE);
 
     // KZG verifier - returns PairingPoints directly
-    PairingPoints pairing_points = PCS::reduce_verify_batch_opening_claim(std::move(batch_opening_claim), transcript);
+    PairingPoints pairing_points = PCS::reduce_verify_batch_opening_claim(batch_opening_claim, transcript);
 
     return { pairing_points, merged_table_commitments, degree_check_verified, concatenation_verified };
 }

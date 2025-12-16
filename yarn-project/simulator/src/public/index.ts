@@ -3,8 +3,6 @@ export { GuardedMerkleTreeOperations } from './public_processor/guarded_merkle_t
 export { PublicProcessor, PublicProcessorFactory } from './public_processor/public_processor.js';
 export {
   CppPublicTxSimulator,
-  createPublicTxSimulatorForBlockBuilding,
-  DumpingCppPublicTxSimulator,
   type PublicTxSimulatorInterface,
   TelemetryCppPublicTxSimulator,
 } from './public_tx_simulator/index.js';

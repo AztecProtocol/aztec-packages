@@ -1,4 +1,4 @@
-import { pedersenHash } from '@aztec/foundation/crypto/pedersen';
+import { pedersenHash } from '@aztec/foundation/crypto';
 
 import type { AsyncHasher } from './hasher.js';
 import { MerkleTree } from './merkle_tree.js';

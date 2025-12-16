@@ -6,7 +6,7 @@ import {
   VK_TREE_HEIGHT,
 } from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
-import { Fr } from '@aztec/foundation/curves/bn254';
+import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { MembershipWitness } from '@aztec/foundation/trees';
 import { FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';

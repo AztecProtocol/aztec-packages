@@ -1,5 +1,5 @@
 import type { AuthWitnessProvider } from '@aztec/aztec.js/account';
-import { Fr } from '@aztec/foundation/curves/bn254';
+import { Fr } from '@aztec/foundation/fields';
 import { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { CompleteAddress } from '@aztec/stdlib/contract';
 

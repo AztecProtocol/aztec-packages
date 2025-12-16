@@ -1,4 +1,4 @@
-import { deriveBlsPrivateKey } from '@aztec/foundation/crypto/bls';
+import { deriveBlsPrivateKey } from '@aztec/foundation/crypto';
 import type { LogFn } from '@aztec/foundation/log';
 
 import { writeFile } from 'fs/promises';
