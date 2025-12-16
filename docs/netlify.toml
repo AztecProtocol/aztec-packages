@@ -155,7 +155,11 @@
 # =============================================================================
 [[redirects]]
     from = "/run_node/*"
-    to = "/network/setup/running_a_node"
+    to = "/the_aztec_network/guides/run_nodes"
+
+[[redirects]]
+    from = "/the_aztec_network/guides/run_nodes/how_to_run_full_node"
+    to = "/the_aztec_network"
 
 [[redirects]]
     from = "/developers/tutorials/codealong/contract_tutorials/counter_contract"
@@ -369,49 +373,25 @@
     from = "/developers/tutorials/codealong/faceid_wallet"
     to = "/developers/docs/guides/local_env/advanced/faceid_wallet"
 
-# Legacy network paths - SPECIFIC PATHS MUST COME BEFORE WILDCARDS
-# (Netlify processes redirects top-to-bottom, first match wins)
 [[redirects]]
     from = "/the_aztec_network/guides/run_nodes/how_to_run_sequencer"
-    to = "/network/setup/sequencer_management"
+    to = "/the_aztec_network/setup/sequencer_management"
 
 [[redirects]]
     from = "/the_aztec_network/guides/run_nodes/how_to_run_prover"
-    to = "/network/setup/running_a_prover"
-
-[[redirects]]
-    from = "/the_aztec_network/guides/run_nodes/how_to_run_full_node"
-    to = "/network/setup/running_a_node"
+    to = "/the_aztec_network/setup/running_a_prover"
 
 [[redirects]]
     from = "/the_aztec_network/guides/run_nodes"
-    to = "/network/setup/running_a_node"
+    to = "/the_aztec_network/setup/running_a_node"
 
 [[redirects]]
     from = "/the_aztec_network/reference/operator_faq"
-    to = "/network/operation/operator_faq"
+    to = "/the_aztec_network/operation/operator_faq"
 
 [[redirects]]
     from = "/the_aztec_network/reference/useful_commands"
-    to = "/network/operation/sequencer_management/useful_commands"
-
-# Network docs wildcard redirect - catches remaining /the_aztec_network paths
-# This MUST come AFTER specific path redirects above
-[[redirects]]
-    from = "/the_aztec_network/*"
-    to = "/network/:splat"
-    status = 301
-
-# Versioned network docs redirects
-[[redirects]]
-    from = "/testnet/the_aztec_network/*"
-    to = "/network/testnet/:splat"
-    status = 301
-
-[[redirects]]
-    from = "/ignition/the_aztec_network/*"
-    to = "/network/:splat"
-    status = 301
+    to = "/the_aztec_network/operation/sequencer_management/useful_commands"
 
 # =============================================================================
 # DISABLED: Future Refactor Redirects
@@ -449,18 +429,6 @@
 #     to = "/resources/considerations/:splat"
 
 # =============================================================================
-# ACTIVE REDIRECTS: Version Path Redirects
-# Redirect old version paths to new split-docs structure
-# =============================================================================
-[[redirects]]
-    from = "/devnet/*"
-    to = "/developers/:splat"
-
-[[redirects]]
-    from = "/nightly/*"
-    to = "/developers/nightly/:splat"
-
-# =============================================================================
 # ACTIVE REDIRECTS: Catch-All Path Migrations
 # These handle broad path changes and legacy paths
 # =============================================================================
@@ -483,6 +451,7 @@
 [[redirects]]
     from = "/sdk/*"
     to = "/"
+
 
 [[redirects]]
     from = "/spec/*"

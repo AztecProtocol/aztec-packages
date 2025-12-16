@@ -122,32 +122,13 @@ async function run() {
   // await generateInstructionSet(); // Removed with protocol-specs
 
   const rootDir = path.join(__dirname, "../../../");
-  const baseDestDir = path.join(rootDir, "docs", "processed-docs");
-  const baseCachedDestDir = path.join(rootDir, "docs", "processed-docs-cache");
+  const docsDir = path.join(rootDir, "docs", "docs");
+  const destDir = path.join(rootDir, "docs", "processed-docs");
+  const cachedDestDir = path.join(rootDir, "docs", "processed-docs-cache");
 
-  // Process all docs directories that may contain macros
-  const docsDirs = [
-    path.join(rootDir, "docs", "docs"),
-    path.join(rootDir, "docs", "docs-developers"),
-    path.join(rootDir, "docs", "docs-network"),
-  ];
+  const content = await processMarkdownFilesInDir(rootDir, docsDir);
 
-  for (const docsDir of docsDirs) {
-    if (!fs.existsSync(docsDir)) {
-      console.log(`Skipping ${docsDir} (does not exist)`);
-      continue;
-    }
-
-    const dirName = path.basename(docsDir);
-    console.log(`Processing ${dirName}...`);
-
-    // Maintain directory separation: processed-docs/docs/, processed-docs/docs-developers/, etc.
-    const destDir = path.join(baseDestDir, dirName);
-    const cachedDestDir = path.join(baseCachedDestDir, dirName);
-
-    const content = await processMarkdownFilesInDir(rootDir, docsDir);
-    await writeProcessedFiles(docsDir, destDir, cachedDestDir, content);
-  }
+  await writeProcessedFiles(docsDir, destDir, cachedDestDir, content);
 
   console.log("Preprocessing complete.");
 }
