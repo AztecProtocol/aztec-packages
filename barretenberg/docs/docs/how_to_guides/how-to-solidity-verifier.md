@@ -36,13 +36,14 @@ Generating a Solidity Verifier with Barretenberg contract is actually a one-comm
 ## Step 1 - Generate a solidity contract
 
 ```sh
-# Generate the verification key. You need to pass the `--oracle_hash keccak` flag when generating vkey and proving
-# to instruct bb to use keccak as the hash function, which is more optimal in Solidity
-bb write_vk -b ./target/<noir_artifact_name>.json -o ./target --oracle_hash keccak
+# Generate the verification key for EVM verification (uses keccak hash, with ZK enabled)
+bb write_vk -b ./target/<noir_artifact_name>.json -o ./target --verifier_target evm
 
 # Generate the Solidity verifier from the vkey
 bb write_solidity_verifier -k ./target/vk -o ./target/Verifier.sol
 ```
+
+The `--verifier_target evm` flag configures the verification key for Ethereum/Solidity verification, which uses keccak as the hash function (optimal for EVM due to the keccak precompile). Use `--verifier_target evm-no-zk` if you don't need zero-knowledge and want slightly faster proving.
 
 replacing `<noir_artifact_name>` with the name of your Noir project. A `Verifier.sol` contract is now in the target folder and can be deployed to any EVM blockchain acting as a verifier smart contract.
 
@@ -60,7 +61,7 @@ You'll likely see a warning advising you to not trust pasted code. While it is a
 
 :::
 
-To compile our the verifier, we can navigate to the compilation tab:
+To compile the verifier, we can navigate to the compilation tab:
 
 ![Compilation Tab](@site/static/img/how-tos/solidity_verifier_2.png)
 
@@ -101,8 +102,10 @@ This will generate a `Prover.toml` you can fill with the values you want to prov
 
 ```bash
 nargo execute <witness-name>
-bb prove -b ./target/<circuit-name>.json -w ./target/<witness-name> -o ./target --oracle_hash keccak
+bb prove -b ./target/<circuit-name>.json -w ./target/<witness-name> -o ./target --verifier_target evm
 ```
+
+Make sure to use the same `--verifier_target` value (`evm` or `evm-no-zk`) that you used when generating the verification key.
 
 Binary Output Format
 
@@ -205,12 +208,12 @@ Some EVM chains manually tested to work with the Barretenberg verifier include:
 - Linea
 - Moonbeam
 
-Meanwhile, some EVM chains chains manually tested that failed to work with the Barretenberg verifier include:
+Meanwhile, some EVM chains manually tested that failed to work with the Barretenberg verifier include:
 
 - zkSync ERA
 - Polygon zkEVM
 
-Pull requests to update this section is welcome and appreciated if you have compatibility updates on existing / new chains to contribute: https://github.com/noir-lang/noir
+Pull requests to update this section are welcome and appreciated if you have compatibility updates on existing / new chains to contribute: https://github.com/noir-lang/noir
 
 ## What's next
 
