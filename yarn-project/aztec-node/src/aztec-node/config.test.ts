@@ -212,7 +212,7 @@ describe('createKeyStoreForValidator', () => {
     const config = createMockConfig([mockValidatorKey1]);
     const result = createKeyStoreForValidator(config);
 
-    expect(result?.validators?.[0]?.feeRecipient.equals(AztecAddress.ZERO)).toBeTruthy();
+    expect(result?.validators?.[0]?.feeRecipient!.equals(AztecAddress.ZERO)).toBeTruthy();
   });
 
   it('should create keystore with remote signer details', () => {
