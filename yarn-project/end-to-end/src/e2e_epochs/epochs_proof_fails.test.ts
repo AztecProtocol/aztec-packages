@@ -40,7 +40,6 @@ describe('e2e_epochs/epochs_proof_fails', () => {
       maxSpeedUpAttempts: 0, // No speed ups
       startProverNode: false, // Avoid early proving
       ethereumSlotDuration: 8,
-      aztecEpochDuration: 8, // Bump empoch duration so we can land at least one block in epoch 0
       cancelTxOnTimeout: false,
     });
     ({ sequencerDelayer, context, l1Client, rollup, constants, logger, monitor } = test);

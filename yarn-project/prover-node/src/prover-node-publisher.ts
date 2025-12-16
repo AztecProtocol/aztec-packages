@@ -105,7 +105,6 @@ export class ProverNodePublisher {
 
       const txReceipt = await this.sendSubmitEpochProofTx(args);
       if (!txReceipt) {
-        this.log.error(`Failed to mine submitEpochProof tx`, undefined, ctx);
         return false;
       }
 
@@ -138,7 +137,7 @@ export class ProverNodePublisher {
       }
 
       this.metrics.recordFailedTx();
-      this.log.error(`Rollup submitEpochProof tx reverted ${txReceipt.transactionHash}`, undefined, ctx);
+      this.log.error(`Rollup.submitEpochProof tx status failed ${txReceipt.transactionHash}`, undefined, ctx);
     }
 
     this.log.verbose('Checkpoint data syncing interrupted', ctx);
@@ -230,24 +229,21 @@ export class ProverNodePublisher {
     });
     try {
       const { receipt } = await this.l1TxUtils.sendAndMonitorTransaction({ to: this.rollupContract.address, data });
-      if (receipt.status !== 'success') {
-        const errorMsg = await this.l1TxUtils.tryGetErrorFromRevertedTx(
-          data,
-          {
-            args: [...txArgs],
-            functionName: 'submitEpochRootProof',
-            abi: RollupAbi,
-            address: this.rollupContract.address,
-          },
-          /*blobInputs*/ undefined,
-          /*stateOverride*/ [],
-        );
-        this.log.error(`Rollup submit epoch proof tx reverted with ${errorMsg ?? 'unknown error'}`);
-        return undefined;
-      }
       return receipt;
     } catch (err) {
       this.log.error(`Rollup submit epoch proof failed`, err);
+      const errorMsg = await this.l1TxUtils.tryGetErrorFromRevertedTx(
+        data,
+        {
+          args: [...txArgs],
+          functionName: 'submitEpochRootProof',
+          abi: RollupAbi,
+          address: this.rollupContract.address,
+        },
+        /*blobInputs*/ undefined,
+        /*stateOverride*/ [],
+      );
+      this.log.error(`Rollup submit epoch proof tx reverted. ${errorMsg}`);
       return undefined;
     }
   }

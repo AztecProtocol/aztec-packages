@@ -270,13 +270,13 @@ export class ServerWorldStateSynchronizer
         await this.handleL2Blocks(event.blocks.map(b => b.block.toL2Block()));
         break;
       case 'chain-pruned':
-        await this.handleChainPruned(event.block.number);
+        await this.handleChainPruned(BlockNumber(event.block.number));
         break;
       case 'chain-proven':
-        await this.handleChainProven(event.block.number);
+        await this.handleChainProven(BlockNumber(event.block.number));
         break;
       case 'chain-finalized':
-        await this.handleChainFinalized(event.block.number);
+        await this.handleChainFinalized(BlockNumber(event.block.number));
         break;
     }
   }
@@ -349,12 +349,12 @@ export class ServerWorldStateSynchronizer
     if (this.historyToKeep === undefined) {
       return;
     }
-    const newHistoricBlock = summary.finalizedBlockNumber - this.historyToKeep + 1;
-    if (newHistoricBlock <= 1) {
+    const newHistoricBlock = BlockNumber(summary.finalizedBlockNumber - this.historyToKeep + 1);
+    if (newHistoricBlock <= BlockNumber(1)) {
       return;
     }
     this.log.verbose(`Pruning historic blocks to ${newHistoricBlock}`);
-    const status = await this.merkleTreeDb.removeHistoricalBlocks(BlockNumber(newHistoricBlock));
+    const status = await this.merkleTreeDb.removeHistoricalBlocks(newHistoricBlock);
     this.log.debug(`World state summary `, status.summary);
   }
 

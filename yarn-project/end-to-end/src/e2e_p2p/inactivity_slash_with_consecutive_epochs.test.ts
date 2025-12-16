@@ -2,7 +2,6 @@ import type { EthAddress } from '@aztec/aztec.js/addresses';
 import { SlotNumber } from '@aztec/foundation/branded-types';
 import { unique } from '@aztec/foundation/collection';
 import { retryUntil } from '@aztec/foundation/retry';
-import { sleep } from '@aztec/foundation/sleep';
 import { OffenseType } from '@aztec/slasher';
 
 import { jest } from '@jest/globals';
@@ -67,24 +66,14 @@ describe('e2e_p2p_inactivity_slash_with_consecutive_epochs', () => {
       slashed.push(args.attester);
     });
 
-    // Wait until after the slashing would have executed for inactivity
-    // Note that this may take some time if the offline validator is elected as proposer enough times
-    // that we never get to collect enough votes in a round to trigger the slash
-    const attemptsInRounds = 3;
-    const delayInEpochs =
-      attemptsInRounds * slashingRoundSizeInEpochs + // How many rounds to wait until the slash is voted
-      (slashingExecutionDelayInRounds + slashingOffsetInRounds) * slashingRoundSizeInEpochs + // Wait for execution delay
-      4; // A bit extra
-
-    const timeout = delayInEpochs * aztecEpochDuration * aztecSlotDuration;
-    test.logger.warn(`Waiting ${timeout}s (${delayInEpochs} epochs) until for slash`);
-    await retryUntil(
-      () => slashed.length > 0,
-      'slash executed',
-      delayInEpochs * aztecEpochDuration * aztecSlotDuration * 2,
-    );
-
-    await sleep(1000); // Wait a bit to ensure no more slashes are recorded
+    // Wait until after the slashing would have executed for inactivity plus a bit for good measure
+    const targetEpoch =
+      initialEpoch +
+      slashInactivityConsecutiveEpochThreshold +
+      (slashingExecutionDelayInRounds + slashingOffsetInRounds) * slashingRoundSizeInEpochs +
+      5;
+    test.logger.warn(`Waiting until slot ${aztecEpochDuration * targetEpoch} (epoch ${targetEpoch}) for slash`);
+    await test.test.monitor.waitUntilL2Slot(SlotNumber(aztecEpochDuration * targetEpoch));
     expect(unique(slashed.map(addr => addr.toString()))).toEqual([offlineValidator.toString()]);
   });
 });
