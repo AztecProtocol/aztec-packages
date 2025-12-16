@@ -203,6 +203,7 @@ export async function deployAztecL1Contracts(
   privateKey: `0x${string}`,
   chainId: number,
   args: DeployAztecL1ContractsArgs,
+  verifyContracts = false,
 ): Promise<DeployAztecL1ContractsReturnType> {
   logger.info(`Deploying L1 contracts with config: ${jsonStringify(args)}`);
   if (args.initialValidators && args.initialValidators.length > 0 && args.existingTokenAddress) {
@@ -260,7 +261,8 @@ export async function deployAztecL1Contracts(
     '--rpc-url',
     rpcUrl,
     '--broadcast',
-    ...(chainId === foundry.id ? ['--batch-size', MAGIC_ANVIL_BATCH_SIZE.toString()] : ['--verify']),
+    ...(chainId === foundry.id ? ['--batch-size', MAGIC_ANVIL_BATCH_SIZE.toString()] : []),
+    ...(verifyContracts ? ['--verify'] : []),
   ];
   const forgeEnv = {
     // Protect against root leaving deployment files in docker that cannot be used later.
