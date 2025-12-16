@@ -5,14 +5,14 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import {
-  type CheckpointedL2Block,
-  type L2Block,
-  type L2BlockNew,
-  type L2BlockSource,
-  type L2Tips,
-  type PublishedL2Block,
-  type ValidateBlockResult,
+import type {
+  CheckpointedL2Block,
+  L2Block,
+  L2BlockNew,
+  L2BlockSource,
+  L2Tips,
+  PublishedL2Block,
+  ValidateBlockResult,
 } from '@aztec/stdlib/block';
 import type { Checkpoint, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
