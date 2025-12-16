@@ -9,21 +9,21 @@ import { randomPublishedL2Block } from '@aztec/stdlib/testing';
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
+import { AnchorBlockDataProvider } from '../storage/anchor_block_data_provider/anchor_block_data_provider.js';
 import { NoteDataProvider } from '../storage/note_data_provider/note_data_provider.js';
-import { SyncDataProvider } from '../storage/sync_data_provider/sync_data_provider.js';
 import { TaggingDataProvider } from '../storage/tagging_data_provider/tagging_data_provider.js';
-import { Synchronizer } from './synchronizer.js';
+import { BlockSynchronizer } from './block_synchronizer.js';
 
-describe('Synchronizer', () => {
-  let synchronizer: Synchronizer;
+describe('BlockSynchronizer', () => {
+  let synchronizer: BlockSynchronizer;
   let tipsStore: L2TipsKVStore;
-  let syncDataProvider: SyncDataProvider;
+  let anchorBlockDataProvider: AnchorBlockDataProvider;
   let noteDataProvider: NoteDataProvider;
   let taggingDataProvider: TaggingDataProvider;
   let aztecNode: MockProxy<AztecNode>;
   let blockStream: MockProxy<L2BlockStream>;
 
-  const TestSynchronizer = class extends Synchronizer {
+  const TestSynchronizer = class extends BlockSynchronizer {
     protected override createBlockStream(): L2BlockStream {
       return blockStream;
     }
@@ -34,17 +34,23 @@ describe('Synchronizer', () => {
     blockStream = mock<L2BlockStream>();
     aztecNode = mock<AztecNode>();
     tipsStore = new L2TipsKVStore(store, 'pxe');
-    syncDataProvider = new SyncDataProvider(store);
+    anchorBlockDataProvider = new AnchorBlockDataProvider(store);
     noteDataProvider = await NoteDataProvider.create(store);
     taggingDataProvider = new TaggingDataProvider(store);
-    synchronizer = new TestSynchronizer(aztecNode, syncDataProvider, noteDataProvider, taggingDataProvider, tipsStore);
+    synchronizer = new TestSynchronizer(
+      aztecNode,
+      anchorBlockDataProvider,
+      noteDataProvider,
+      taggingDataProvider,
+      tipsStore,
+    );
   });
 
   it('sets header from latest block', async () => {
     const block = await randomPublishedL2Block(1);
     await synchronizer.handleBlockStreamEvent({ type: 'blocks-added', blocks: [block] });
 
-    const obtainedHeader = await syncDataProvider.getBlockHeader();
+    const obtainedHeader = await anchorBlockDataProvider.getBlockHeader();
     expect(obtainedHeader).toEqual(block.block.getBlockHeader());
   });
 

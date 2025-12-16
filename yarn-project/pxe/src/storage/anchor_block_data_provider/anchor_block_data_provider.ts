@@ -1,8 +1,7 @@
-import type { BlockNumber } from '@aztec/foundation/branded-types';
 import type { AztecAsyncKVStore, AztecAsyncSingleton } from '@aztec/kv-store';
 import { BlockHeader } from '@aztec/stdlib/tx';
 
-export class SyncDataProvider {
+export class AnchorBlockDataProvider {
   #store: AztecAsyncKVStore;
   #synchronizedHeader: AztecAsyncSingleton<Buffer>;
 
@@ -15,19 +14,10 @@ export class SyncDataProvider {
     await this.#synchronizedHeader.set(header.toBuffer());
   }
 
-  async getBlockNumber(): Promise<BlockNumber> {
-    const headerBuffer = await this.#synchronizedHeader.getAsync();
-    if (!headerBuffer) {
-      throw new Error(`Trying to get block number with a not-yet-synchronized PXE - this should never happen`);
-    }
-
-    return BlockHeader.fromBuffer(headerBuffer).globalVariables.blockNumber;
-  }
-
   async getBlockHeader(): Promise<BlockHeader> {
     const headerBuffer = await this.#synchronizedHeader.getAsync();
     if (!headerBuffer) {
-      throw new Error(`Header not set`);
+      throw new Error(`Trying to get block header with a not-yet-synchronized PXE - this should never happen`);
     }
 
     return BlockHeader.fromBuffer(headerBuffer);

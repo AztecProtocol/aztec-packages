@@ -280,7 +280,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
 
     const txContext = new TxContext(this.chainId, this.version, gasSettings);
 
-    const blockHeader = await this.pxeOracleInterface.getAnchorBlockHeader();
+    const blockHeader = await this.stateMachine.anchorBlockDataProvider.getBlockHeader();
 
     const protocolNullifier = await computeProtocolNullifier(getSingleTxBlockRequestHash(blockNumber));
     const noteCache = new ExecutionNoteCache(protocolNullifier);
@@ -459,7 +459,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
 
     const txContext = new TxContext(this.chainId, this.version, gasSettings);
 
-    const anchorBlockHeader = await this.pxeOracleInterface.getAnchorBlockHeader();
+    const anchorBlockHeader = await this.stateMachine.anchorBlockDataProvider.getBlockHeader();
 
     const calldataHash = await computeCalldataHash(calldata);
     const calldataHashedValues = new HashedValues(calldata, calldataHash);
@@ -609,7 +609,8 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     });
 
     try {
-      const oracle = new UtilityExecutionOracle(call.to, [], [], this.pxeOracleInterface);
+      const anchorBlockHeader = await this.stateMachine.anchorBlockDataProvider.getBlockHeader();
+      const oracle = new UtilityExecutionOracle(call.to, [], [], anchorBlockHeader, this.pxeOracleInterface);
       const acirExecutionResult = await new WASMSimulator()
         .executeUserCircuit(toACVMWitness(0, args), entryPointArtifact, new Oracle(oracle).toACIRCallback())
         .catch((err: Error) => {

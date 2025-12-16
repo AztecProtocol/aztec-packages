@@ -56,6 +56,7 @@ import {
 
 import { inspect } from 'util';
 
+import { BlockSynchronizer } from './block_synchronizer/index.js';
 import type { PXEConfig } from './config/index.js';
 import {
   ContractFunctionSimulator,
@@ -73,13 +74,12 @@ import {
 } from './private_kernel/private_kernel_execution_prover.js';
 import { PrivateKernelOracleImpl } from './private_kernel/private_kernel_oracle_impl.js';
 import { AddressDataProvider } from './storage/address_data_provider/address_data_provider.js';
+import { AnchorBlockDataProvider } from './storage/anchor_block_data_provider/anchor_block_data_provider.js';
 import { CapsuleDataProvider } from './storage/capsule_data_provider/capsule_data_provider.js';
 import { ContractDataProvider } from './storage/contract_data_provider/contract_data_provider.js';
 import { NoteDataProvider } from './storage/note_data_provider/note_data_provider.js';
 import { PrivateEventDataProvider } from './storage/private_event_data_provider/private_event_data_provider.js';
-import { SyncDataProvider } from './storage/sync_data_provider/sync_data_provider.js';
 import { TaggingDataProvider } from './storage/tagging_data_provider/tagging_data_provider.js';
-import { Synchronizer } from './synchronizer/index.js';
 
 export type PackedPrivateEvent = InTx & {
   packedEvent: Fr[];
@@ -93,12 +93,12 @@ export type PackedPrivateEvent = InTx & {
 export class PXE {
   private constructor(
     private node: AztecNode,
-    private synchronizer: Synchronizer,
+    private blockStateSynchronizer: BlockSynchronizer,
     private keyStore: KeyStore,
     private contractDataProvider: ContractDataProvider,
     private noteDataProvider: NoteDataProvider,
     private capsuleDataProvider: CapsuleDataProvider,
-    private syncDataProvider: SyncDataProvider,
+    private anchorBlockDataProvider: AnchorBlockDataProvider,
     private taggingDataProvider: TaggingDataProvider,
     private addressDataProvider: AddressDataProvider,
     private privateEventDataProvider: PrivateEventDataProvider,
@@ -136,14 +136,14 @@ export class PXE {
     const privateEventDataProvider = new PrivateEventDataProvider(store);
     const contractDataProvider = new ContractDataProvider(store);
     const noteDataProvider = await NoteDataProvider.create(store);
-    const syncDataProvider = new SyncDataProvider(store);
+    const anchorBlockDataProvider = new AnchorBlockDataProvider(store);
     const taggingDataProvider = new TaggingDataProvider(store);
     const capsuleDataProvider = new CapsuleDataProvider(store);
     const keyStore = new KeyStore(store);
     const tipsStore = new L2TipsKVStore(store, 'pxe');
-    const synchronizer = new Synchronizer(
+    const synchronizer = new BlockSynchronizer(
       node,
-      syncDataProvider,
+      anchorBlockDataProvider,
       noteDataProvider,
       taggingDataProvider,
       tipsStore,
@@ -160,7 +160,7 @@ export class PXE {
       contractDataProvider,
       noteDataProvider,
       capsuleDataProvider,
-      syncDataProvider,
+      anchorBlockDataProvider,
       taggingDataProvider,
       addressDataProvider,
       privateEventDataProvider,
@@ -189,7 +189,7 @@ export class PXE {
       ProxiedContractDataProviderFactory.create(this.contractDataProvider, overrides?.contracts),
       this.noteDataProvider,
       this.capsuleDataProvider,
-      this.syncDataProvider,
+      this.anchorBlockDataProvider,
       this.taggingDataProvider,
       this.addressDataProvider,
       this.privateEventDataProvider,
@@ -289,11 +289,14 @@ export class PXE {
     const { origin: contractAddress, functionSelector } = txRequest;
 
     try {
+      const anchorBlockHeader = await this.anchorBlockDataProvider.getBlockHeader();
+
       const result = await contractFunctionSimulator.run(
         txRequest,
         contractAddress,
         functionSelector,
         undefined,
+        anchorBlockHeader,
         // The sender for tags is set by contracts, typically by an account
         // contract entrypoint
         undefined, // senderForTags
@@ -325,7 +328,8 @@ export class PXE {
     scopes?: AztecAddress[],
   ) {
     try {
-      return contractFunctionSimulator.runUtility(call, authWitnesses ?? [], scopes);
+      const anchorBlockHeader = await this.anchorBlockDataProvider.getBlockHeader();
+      return contractFunctionSimulator.runUtility(call, authWitnesses ?? [], anchorBlockHeader, scopes);
     } catch (err) {
       if (err instanceof SimulationError) {
         await enrichSimulationError(err, this.contractDataProvider, this.log);
@@ -623,9 +627,9 @@ export class PXE {
         throw new Error(`Instance not found when updating a contract. Contract address: ${contractAddress}.`);
       }
       const contractClass = await getContractClassFromArtifact(artifact);
-      await this.synchronizer.sync();
+      await this.blockStateSynchronizer.sync();
 
-      const header = await this.syncDataProvider.getBlockHeader();
+      const header = await this.anchorBlockDataProvider.getBlockHeader();
 
       const currentClassId = await readCurrentClassId(
         contractAddress,
@@ -695,7 +699,7 @@ export class PXE {
       const totalTimer = new Timer();
       try {
         const syncTimer = new Timer();
-        await this.synchronizer.sync();
+        await this.blockStateSynchronizer.sync();
         const syncTime = syncTimer.ms();
         const contractFunctionSimulator = this.#getSimulatorForTx();
         privateExecutionResult = await this.#executePrivate(contractFunctionSimulator, txRequest);
@@ -783,7 +787,7 @@ export class PXE {
           txInfo,
         );
         const syncTimer = new Timer();
-        await this.synchronizer.sync();
+        await this.blockStateSynchronizer.sync();
         const syncTime = syncTimer.ms();
 
         const contractFunctionSimulator = this.#getSimulatorForTx();
@@ -883,7 +887,7 @@ export class PXE {
           txInfo,
         );
         const syncTimer = new Timer();
-        await this.synchronizer.sync();
+        await this.blockStateSynchronizer.sync();
         const syncTime = syncTimer.ms();
 
         const contractFunctionSimulator = this.#getSimulatorForTx(overrides);
@@ -1012,7 +1016,7 @@ export class PXE {
       try {
         const totalTimer = new Timer();
         const syncTimer = new Timer();
-        await this.synchronizer.sync();
+        await this.blockStateSynchronizer.sync();
         const syncTime = syncTimer.ms();
         const functionTimer = new Timer();
         const contractFunctionSimulator = this.#getSimulatorForTx();
@@ -1065,7 +1069,7 @@ export class PXE {
     const call = await this.#getFunctionCall('sync_private_state', [], filter.contractAddress);
     await this.simulateUtility(call);
 
-    const sanitizedFilter = await new PrivateEventFilterValidator(this.syncDataProvider).validate(filter);
+    const sanitizedFilter = await new PrivateEventFilterValidator(this.anchorBlockDataProvider).validate(filter);
 
     this.log.error(
       `Getting private events for ${sanitizedFilter.contractAddress.toString()} from ${sanitizedFilter.fromBlock} to ${sanitizedFilter.toBlock}`,

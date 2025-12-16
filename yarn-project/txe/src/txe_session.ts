@@ -159,7 +159,7 @@ export class TXESession implements TXESessionStateHandler {
       contractDataProvider,
       noteDataProvider,
       capsuleDataProvider,
-      stateMachine.syncDataProvider,
+      stateMachine.anchorBlockDataProvider,
       taggingDataProvider,
       addressDataProvider,
       privateEventDataProvider,
@@ -353,7 +353,15 @@ export class TXESession implements TXESessionStateHandler {
     // TODO(#12553): make the synchronizer sync here instead and remove this
     await this.pxeOracleInterface.syncNoteNullifiers(contractAddress);
 
-    this.oracleHandler = new UtilityExecutionOracle(contractAddress, [], [], this.pxeOracleInterface);
+    const anchorBlockHeader = await this.stateMachine.anchorBlockDataProvider.getBlockHeader();
+
+    this.oracleHandler = new UtilityExecutionOracle(
+      contractAddress,
+      [],
+      [],
+      anchorBlockHeader,
+      this.pxeOracleInterface,
+    );
 
     this.state = { name: 'UTILITY' };
     this.logger.debug(`Entered state ${this.state.name}`);

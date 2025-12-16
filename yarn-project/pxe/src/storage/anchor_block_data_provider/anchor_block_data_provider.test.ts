@@ -4,24 +4,24 @@ import { randomInt } from '@aztec/foundation/crypto/random';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { makeBlockHeader } from '@aztec/stdlib/testing';
 
-import { SyncDataProvider } from './sync_data_provider.js';
+import { AnchorBlockDataProvider } from './anchor_block_data_provider.js';
 
 describe('block header', () => {
-  let syncDataProvider: SyncDataProvider;
+  let anchorBlockDataProvider: AnchorBlockDataProvider;
 
   beforeEach(async () => {
     const store = await openTmpStore('sync_data_provider_test');
-    syncDataProvider = new SyncDataProvider(store);
+    anchorBlockDataProvider = new AnchorBlockDataProvider(store);
   });
 
   it('stores and retrieves the block header', async () => {
     const header = makeBlockHeader(randomInt(1000), { blockNumber: BlockNumber(INITIAL_L2_BLOCK_NUM) });
 
-    await syncDataProvider.setHeader(header);
-    await expect(syncDataProvider.getBlockHeader()).resolves.toEqual(header);
+    await anchorBlockDataProvider.setHeader(header);
+    await expect(anchorBlockDataProvider.getBlockHeader()).resolves.toEqual(header);
   });
 
   it('rejects getting header if no block set', async () => {
-    await expect(() => syncDataProvider.getBlockHeader()).rejects.toThrow();
+    await expect(() => anchorBlockDataProvider.getBlockHeader()).rejects.toThrow();
   });
 });
