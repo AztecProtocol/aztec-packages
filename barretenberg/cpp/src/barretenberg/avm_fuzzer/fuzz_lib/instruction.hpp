@@ -541,6 +541,7 @@ struct CALL_Instruction {
                    da_gas,
                    da_gas_address,
                    arg_size_offset,
+                   args_offset,
                    args,
                    is_static_call);
 };
