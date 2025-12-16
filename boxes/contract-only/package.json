@@ -8,7 +8,7 @@
     "compile": "cd src && ${AZTEC:-aztec} compile",
     "codegen": "${AZTEC:-aztec} codegen target -o artifacts",
     "clean": "rm -rf ./dest .tsbuildinfo ./artifacts ./target",
-    "prep": "yarn clean && yarn compile && yarn codegen && yarn tsgo -b",
+    "prep": "yarn clean && yarn compile && yarn codegen && tsc -b",
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest) --runInBand",
     "formatting": "prettier --check ./src && eslint ./src",
     "formatting:fix": "prettier -w ./src"
@@ -44,7 +44,6 @@
     "stream-browserify": "^3.0.0",
     "ts-loader": "^9.5.1",
     "typescript": "^5.3.3",
-    "@typescript/native-preview": "7.0.0-dev.20251126.1",
     "util": "^0.12.5",
     "webpack": "^5.99.6",
     "webpack-cli": "^6.0.1",

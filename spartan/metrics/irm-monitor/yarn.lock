@@ -180,87 +180,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@typescript/native-preview-darwin-arm64@npm:7.0.0-dev.20251126.1":
-  version: 7.0.0-dev.20251126.1
-  resolution: "@typescript/native-preview-darwin-arm64@npm:7.0.0-dev.20251126.1"
-  conditions: os=darwin & cpu=arm64
-  languageName: node
-  linkType: hard
-
-"@typescript/native-preview-darwin-x64@npm:7.0.0-dev.20251126.1":
-  version: 7.0.0-dev.20251126.1
-  resolution: "@typescript/native-preview-darwin-x64@npm:7.0.0-dev.20251126.1"
-  conditions: os=darwin & cpu=x64
-  languageName: node
-  linkType: hard
-
-"@typescript/native-preview-linux-arm64@npm:7.0.0-dev.20251126.1":
-  version: 7.0.0-dev.20251126.1
-  resolution: "@typescript/native-preview-linux-arm64@npm:7.0.0-dev.20251126.1"
-  conditions: os=linux & cpu=arm64
-  languageName: node
-  linkType: hard
-
-"@typescript/native-preview-linux-arm@npm:7.0.0-dev.20251126.1":
-  version: 7.0.0-dev.20251126.1
-  resolution: "@typescript/native-preview-linux-arm@npm:7.0.0-dev.20251126.1"
-  conditions: os=linux & cpu=arm
-  languageName: node
-  linkType: hard
-
-"@typescript/native-preview-linux-x64@npm:7.0.0-dev.20251126.1":
-  version: 7.0.0-dev.20251126.1
-  resolution: "@typescript/native-preview-linux-x64@npm:7.0.0-dev.20251126.1"
-  conditions: os=linux & cpu=x64
-  languageName: node
-  linkType: hard
-
-"@typescript/native-preview-win32-arm64@npm:7.0.0-dev.20251126.1":
-  version: 7.0.0-dev.20251126.1
-  resolution: "@typescript/native-preview-win32-arm64@npm:7.0.0-dev.20251126.1"
-  conditions: os=win32 & cpu=arm64
-  languageName: node
-  linkType: hard
-
-"@typescript/native-preview-win32-x64@npm:7.0.0-dev.20251126.1":
-  version: 7.0.0-dev.20251126.1
-  resolution: "@typescript/native-preview-win32-x64@npm:7.0.0-dev.20251126.1"
-  conditions: os=win32 & cpu=x64
-  languageName: node
-  linkType: hard
-
-"@typescript/native-preview@npm:7.0.0-dev.20251126.1":
-  version: 7.0.0-dev.20251126.1
-  resolution: "@typescript/native-preview@npm:7.0.0-dev.20251126.1"
-  dependencies:
-    "@typescript/native-preview-darwin-arm64": "npm:7.0.0-dev.20251126.1"
-    "@typescript/native-preview-darwin-x64": "npm:7.0.0-dev.20251126.1"
-    "@typescript/native-preview-linux-arm": "npm:7.0.0-dev.20251126.1"
-    "@typescript/native-preview-linux-arm64": "npm:7.0.0-dev.20251126.1"
-    "@typescript/native-preview-linux-x64": "npm:7.0.0-dev.20251126.1"
-    "@typescript/native-preview-win32-arm64": "npm:7.0.0-dev.20251126.1"
-    "@typescript/native-preview-win32-x64": "npm:7.0.0-dev.20251126.1"
-  dependenciesMeta:
-    "@typescript/native-preview-darwin-arm64":
-      optional: true
-    "@typescript/native-preview-darwin-x64":
-      optional: true
-    "@typescript/native-preview-linux-arm":
-      optional: true
-    "@typescript/native-preview-linux-arm64":
-      optional: true
-    "@typescript/native-preview-linux-x64":
-      optional: true
-    "@typescript/native-preview-win32-arm64":
-      optional: true
-    "@typescript/native-preview-win32-x64":
-      optional: true
-  bin:
-    tsgo: bin/tsgo.js
-  checksum: 10c0/6101172e52b0220af9447f16e0afb26384d820fb82da56011904955fdb68f302120c8e9596c792ac86f2653d00af944987f04b584858e4cd341e56818417a92b
-  languageName: node
-  linkType: hard
-
 "abitype@npm:1.0.8, abitype@npm:^1.0.8":
   version: 1.0.8
   resolution: "abitype@npm:1.0.8"
@@ -285,6 +204,19 @@ __metadata:
   checksum: 10c0/3a35c5f5586cfb9a21163ca47a5f77ac34fa8ceb5d17d2fa2c0d81f41cbd7f8c6fa52c77e2c039acc0f4d09e71abdc51144246900f6bef5e3c4b333f77d89362
   languageName: node
   linkType: hard
+
+"testnet-monitor@workspace:.":
+  version: 0.0.0-use.local
+  resolution: "testnet-monitor@workspace:."
+  dependencies:
+    "@types/express": "npm:^4.17.21"
+    "@types/node": "npm:^20.11.30"
+    express: "npm:^4.19.2"
+    prom-client: "npm:^15.1.2"
+    typescript: "npm:^5.4.5"
+    viem: "npm:^2.13.3"
+  languageName: unknown
+  linkType: soft
 
 "array-flatten@npm:1.1.1":
   version: 1.1.1
@@ -637,20 +569,6 @@ __metadata:
   checksum: 10c0/0486e775047971d3fdb5fb4f063829bac45af299ae0b82dcf3afa2145338e08290563a2a70f34b732d795ecc8311902e541a8530eeb30d75860a78ff4e94ce2a
   languageName: node
   linkType: hard
-
-"irm-monitor@workspace:.":
-  version: 0.0.0-use.local
-  resolution: "irm-monitor@workspace:."
-  dependencies:
-    "@types/express": "npm:^4.17.21"
-    "@types/node": "npm:^20.11.30"
-    "@typescript/native-preview": "npm:7.0.0-dev.20251126.1"
-    express: "npm:^4.19.2"
-    prom-client: "npm:^15.1.2"
-    typescript: "npm:^5.4.5"
-    viem: "npm:^2.13.3"
-  languageName: unknown
-  linkType: soft
 
 "isows@npm:1.0.7":
   version: 1.0.7

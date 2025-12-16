@@ -15,12 +15,12 @@
     "tsconfig": "./tsconfig.json"
   },
   "scripts": {
-    "build": "yarn clean && tsgo -b",
+    "build": "yarn clean && tsc -b",
     "start": "node --no-warnings ./dest/bin",
     "start:debug": "node --inspect=0.0.0.0:9221 --no-warnings ./dest/bin",
     "start:local-network": "ETHEREUM_HOSTS=http://0.0.0.0:8545/ && yarn start start --local-network",
     "clean": "rm -rf ./dest .tsbuildinfo",
-    "build:dev": "tsgo -b --watch",
+    "build:dev": "tsc -b --watch",
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}",
     "run:example:token": "LOG_LEVEL='verbose' node ./dest/examples/token.js"
   },
@@ -77,7 +77,6 @@
     "@jest/globals": "^30.0.0",
     "@types/jest": "^30.0.0",
     "@types/koa": "^2.15.0",
-    "@typescript/native-preview": "7.0.0-dev.20251126.1",
     "jest": "^30.0.0",
     "ts-node": "^10.9.1",
     "typescript": "^5.3.3"

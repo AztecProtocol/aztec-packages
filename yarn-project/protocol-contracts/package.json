@@ -21,13 +21,13 @@
     "tsconfig": "./tsconfig.json"
   },
   "scripts": {
-    "build": "yarn clean && yarn generate && yarn generate:cleanup-artifacts && tsgo -b",
-    "build:keep-debug-symbols": "yarn clean && yarn generate && tsgo -b",
+    "build": "yarn clean && yarn generate && yarn generate:cleanup-artifacts && tsc -b",
+    "build:keep-debug-symbols": "yarn clean && yarn generate && tsc -b",
     "generate": "yarn generate:data",
     "generate:cleanup-artifacts": "node --no-warnings --loader @swc-node/register/esm src/scripts/cleanup_artifacts.ts",
     "generate:data": "node --no-warnings --loader @swc-node/register/esm src/scripts/generate_data.ts",
-    "build:dev": "tsgo -b --watch",
-    "build:ts": "tsgo -b",
+    "build:dev": "tsc -b --watch",
+    "build:ts": "tsc -b",
     "clean": "rm -rf ./dest .tsbuildinfo ./artifacts",
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}"
   },
@@ -86,7 +86,6 @@
     "@types/lodash.chunk": "^4.2.9",
     "@types/lodash.omit": "^4.5.9",
     "@types/node": "^22.15.17",
-    "@typescript/native-preview": "7.0.0-dev.20251126.1",
     "jest": "^30.0.0",
     "jest-mock-extended": "^4.0.0",
     "ts-loader": "^9.5.4",

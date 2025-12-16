@@ -22,8 +22,8 @@
     "./package.local.json"
   ],
   "scripts": {
-    "build": "yarn clean && tsgo -b",
-    "build:dev": "tsgo -b --watch",
+    "build": "yarn clean && tsc -b",
+    "build:dev": "tsc -b --watch",
     "clean": "rm -rf ./dest .tsbuildinfo",
     "bb": "node --no-warnings ./dest/bb/index.js",
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --testTimeout=3500000 --forceExit",
@@ -94,7 +94,6 @@
     "@types/jest": "^30.0.0",
     "@types/node": "^22.15.17",
     "@types/source-map-support": "^0.5.10",
-    "@typescript/native-preview": "7.0.0-dev.20251126.1",
     "get-port": "^7.1.0",
     "jest": "^30.0.0",
     "jest-mock-extended": "^4.0.0",

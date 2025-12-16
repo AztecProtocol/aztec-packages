@@ -15,10 +15,10 @@
     "tsconfig": "./tsconfig.json"
   },
   "scripts": {
-    "build": "yarn clean && tsgo -b",
-    "build:dev": "tsgo -b --watch",
+    "build": "yarn clean && tsc -b",
+    "build:dev": "tsc -b --watch",
     "clean": "rm -rf ./dest .tsbuildinfo",
-    "start:dev": "concurrently -k \"tsgo -b -w\" \"nodemon --watch dest --exec yarn start\"",
+    "start:dev": "tsc-watch -p tsconfig.json --onSuccess 'yarn start'",
     "start": "node ./dest/index.js",
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}"
   },
@@ -42,7 +42,6 @@
     "@jest/globals": "^30.0.0",
     "@types/jest": "^30.0.0",
     "@types/node": "^22.15.17",
-    "@typescript/native-preview": "7.0.0-dev.20251126.1",
     "jest": "^30.0.0",
     "ts-node": "^10.9.1",
     "typescript": "^5.3.3"

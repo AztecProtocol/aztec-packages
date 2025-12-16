@@ -13,8 +13,7 @@
     "importHelpers": true,
     "resolveJsonModule": true,
     "outDir": "dest",
-    "rootDir": "src",
-    "skipLibCheck": true
+    "rootDir": "src"
   },
   "include": ["src"]
 }

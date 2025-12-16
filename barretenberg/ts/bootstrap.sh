@@ -37,9 +37,6 @@ function build {
 function test_cmds {
   cd dest/node
   for test in **/*.test.js; do
-    # Skip benchmarks here.
-    [[ "$test" =~ \.bench\.test\.js$ ]] && continue
-
     local prefix=$hash
     # Extra resource.
     if [[ "$test" =~ ^examples/ ]]; then
@@ -47,10 +44,6 @@ function test_cmds {
     fi
     echo "$prefix barretenberg/ts/scripts/run_test.sh $test"
   done
-}
-
-function bench_cmds {
-  echo "$hash:CPUS=4 barretenberg/ts/scripts/run_test.sh poseidon.bench.test.js"
 }
 
 function test {

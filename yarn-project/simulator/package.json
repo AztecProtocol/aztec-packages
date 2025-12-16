@@ -17,11 +17,11 @@
     "tsconfig": "./tsconfig.json"
   },
   "scripts": {
-    "build": "yarn clean && tsgo -b",
-    "build:dev": "tsgo -b --watch",
+    "build": "yarn clean && tsc -b",
+    "build:dev": "tsc -b --watch",
     "clean": "rm -rf ./dest .tsbuildinfo",
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}",
-    "build:fuzzer": "tsgo scripts/fuzzing/avm_simulator_bin.ts --outDir dest/scripts/fuzzing --module commonjs --target es2022 --esModuleInterop --allowSyntheticDefaultImports --resolveJsonModule --skipLibCheck"
+    "build:fuzzer": "tsc scripts/fuzzing/avm_simulator_bin.ts --outDir dest/scripts/fuzzing --module commonjs --target es2022 --esModuleInterop --allowSyntheticDefaultImports --resolveJsonModule --skipLibCheck"
   },
   "inherits": [
     "../package.common.json"
@@ -89,7 +89,6 @@
     "@types/lodash.clonedeep": "^4.5.7",
     "@types/lodash.merge": "^4.6.9",
     "@types/node": "^22.15.17",
-    "@typescript/native-preview": "7.0.0-dev.20251126.1",
     "istanbul-lib-hook": "^3.0.0",
     "istanbul-lib-instrument": "^6.0.3",
     "jest": "^30.0.0",

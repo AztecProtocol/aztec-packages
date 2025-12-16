@@ -112,8 +112,6 @@ prometheus:
 # Enable and configure Grafana
 # https://artifacthub.io/packages/helm/grafana/grafana
 grafana:
-  image:
-    tag: "12.3"
   grafana.ini:
     server:
       domain:

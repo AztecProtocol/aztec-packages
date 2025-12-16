@@ -7,7 +7,7 @@
   "scripts": {
     "clean": "rm -rf ./dist .tsbuildinfo",
     "serve": "vite",
-    "build": "yarn tsgo -b && vite build",
+    "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
     "formatting": "run -T prettier --check ./src && run -T eslint ./src",
@@ -46,7 +46,6 @@
     "@types/node": "^22.15.17",
     "@types/react": "^19.0.6",
     "@types/react-dom": "^19.0.3",
-    "@typescript/native-preview": "7.0.0-dev.20251126.1",
     "@vitejs/plugin-react-swc": "^3.7.2",
     "eslint": "^9.26.0",
     "eslint-config-prettier": "^10.1.8",
