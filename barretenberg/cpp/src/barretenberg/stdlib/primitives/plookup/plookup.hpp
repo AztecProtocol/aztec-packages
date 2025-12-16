@@ -3,6 +3,20 @@
 // external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // =====================
+//
+// === CODE ROLE: Stdlib interface (conditionally modifies builder) ===
+// This file provides the stdlib (circuit) interface for plookup operations. The key function is
+// get_lookup_accumulators(), which has two code paths:
+//
+//   1. CONSTANT PATH (builder-agnostic): If all inputs are constants, wraps native values as
+//      field_t<Builder> constants. No witnesses or gates are created.
+//
+//   2. VARIABLE PATH (builder-modifying): If any input is a witness, calls
+//      builder->create_gates_from_plookup_accumulators() to create actual lookup gates.
+//
+// This is the main entry point for stdlib code that needs table lookups. It bridges the native
+// plookup_tables.cpp computation to circuit gate creation in ultra_circuit_builder.cpp.
+// =====================
 
 #pragma once
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
