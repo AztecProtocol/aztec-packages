@@ -87,6 +87,7 @@
 #include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/stdlib/hash/poseidon2/poseidon2.hpp"
 #include "barretenberg/stdlib/primitives/field/field_conversion.hpp"
+#include "barretenberg/stdlib/transcript/transcript.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
 #include <array>
@@ -180,6 +181,7 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
      */
     static size_t calc_num_data_types()
     {
+        using namespace bb::field_conversion;
         // Create a temporary instance to get the number of precomputed entities
         size_t commitments_size =
             PrecomputedCommitments::size() * Transcript::template calc_num_data_types<Commitment>();
@@ -199,6 +201,7 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
      */
     virtual std::vector<typename Transcript::DataType> to_field_elements() const
     {
+        using namespace bb::field_conversion;
 
         auto serialize = [](const auto& input, std::vector<typename Transcript::DataType>& buffer) {
             std::vector<typename Transcript::DataType> input_fields = Transcript::serialize(input);
@@ -229,6 +232,7 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
      */
     size_t from_field_elements(const std::span<const typename Transcript::DataType>& elements)
     {
+        using namespace bb::field_conversion;
 
         size_t idx = 0;
         auto deserialize = [&idx, &elements]<typename T>(T& target) {
@@ -305,7 +309,7 @@ class StdlibVerificationKey_ : public PrecomputedCommitments {
     using Builder = Builder_;
     using FF = stdlib::field_t<Builder>;
     using Commitment = typename PrecomputedCommitments::DataType;
-    using Transcript = StdlibTranscript<Builder>;
+    using Transcript = BaseTranscript<stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
     FF log_circuit_size;
     FF num_public_inputs;
     FF pub_inputs_offset = 0;
@@ -326,10 +330,10 @@ class StdlibVerificationKey_ : public PrecomputedCommitments {
      */
     virtual std::vector<FF> to_field_elements() const
     {
-        using Codec = stdlib::StdlibCodec<FF>;
+        using namespace bb::stdlib::field_conversion;
 
         auto serialize_to_field_buffer = []<typename T>(const T& input, std::vector<FF>& buffer) {
-            std::vector<FF> input_fields = Codec::template serialize_to_fields<T>(input);
+            std::vector<FF> input_fields = convert_to_bn254_frs<Builder, T>(input);
             buffer.insert(buffer.end(), input_fields.begin(), input_fields.end());
         };
 
@@ -490,18 +494,9 @@ template <typename RelationsTuple> constexpr auto create_sumcheck_tuple_of_tuple
 }
 
 /**
- * @brief Create a tuple of arrays
- *
- * @details This function is used to declare a type whose instances are containers for the evaluations of the Ultra/Mega
- * Honk subrelations. More precisely, the function returns a tuple of length equal to the number of relations defined by
- * RelationsTuple, where the element at index idx in the tuple is an array of FF elements of length equal to the number
- * of subrelations that made up the the relation at index idx in RelationsTuple.
- *
- * @example if RelationsTuple = UltraFlavor::Relations_, then the tuple returned by the function is a tuple of length 9,
- * where the first element of the tuple is an array of length 2 (as the first relation in UltraFlavor::Relations_ is the
- * UltraArithmeticRelation, which is made up by two subrelations).
- *
- * @tparam RelationsTuple
+ * @brief Construct tuple of arrays
+ * @details Container for storing value of each identity in each relation. Each Relation contributes an array of
+ * length num-identities.
  */
 template <typename RelationsTuple> constexpr auto create_tuple_of_arrays_of_values()
 {
@@ -532,7 +527,6 @@ class TranslatorFlavor;
 class ECCVMRecursiveFlavor;
 class TranslatorRecursiveFlavor;
 class AvmRecursiveFlavor;
-class MultilinearBatchingRecursiveFlavor;
 
 template <typename BuilderType> class UltraRecursiveFlavor_;
 template <typename BuilderType> class UltraZKRecursiveFlavor_;

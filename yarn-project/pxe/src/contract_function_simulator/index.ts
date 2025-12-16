@@ -1,5 +1,4 @@
 export { ExecutionNoteCache } from './execution_note_cache.js';
-export { ExecutionTaggingIndexCache } from './execution_tagging_index_cache.js';
 export { HashedValuesCache } from './hashed_values_cache.js';
 export { pickNotes } from './pick_notes.js';
 export type { NoteData, IMiscOracle, IUtilityExecutionOracle, IPrivateExecutionOracle } from './oracle/interfaces.js';

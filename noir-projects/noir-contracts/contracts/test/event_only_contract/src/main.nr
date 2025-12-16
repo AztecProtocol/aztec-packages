@@ -17,7 +17,7 @@ contract EventOnly {
 
     #[private]
     fn emit_event_for_msg_sender(value: Field) {
-        let sender = context.msg_sender().unwrap();
+        let sender = context.msg_sender();
         emit_event_in_private(
             TestEvent { value },
             &mut context,

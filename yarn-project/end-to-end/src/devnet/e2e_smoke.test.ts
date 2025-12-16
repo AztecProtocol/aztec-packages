@@ -15,7 +15,8 @@ import { FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
-import { TestWallet, registerInitialSandboxAccountsInWallet } from '@aztec/test-wallet/server';
+import { registerInitialSandboxAccountsInWallet } from '@aztec/test-wallet/server';
+import { TestWallet } from '@aztec/test-wallet/server';
 
 import { exec } from 'node:child_process';
 import { lookup } from 'node:dns/promises';

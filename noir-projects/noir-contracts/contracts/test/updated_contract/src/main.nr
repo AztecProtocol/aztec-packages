@@ -25,7 +25,7 @@ contract Updated {
 
     #[private]
     fn set_private_value() {
-        let owner = context.msg_sender().unwrap();
+        let owner = context.msg_sender();
 
         storage.private_value.replace(|_old| ValueNote::new(27, owner)).emit(
             &mut context,

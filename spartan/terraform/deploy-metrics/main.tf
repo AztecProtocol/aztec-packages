@@ -90,11 +90,6 @@ data "google_secret_manager_secret_version" "slack_webhook_next_scenario" {
   project = var.project
 }
 
-data "google_secret_manager_secret_version" "slack_webhook_next_net" {
-  secret  = var.SLACK_WEBHOOK_NEXT_NET_SECRET_NAME
-  project = var.project
-}
-
 data "google_secret_manager_secret_version" "slack_webhook_testnet" {
   secret  = var.SLACK_WEBHOOK_TESTNET_SECRET_NAME
   project = var.project
@@ -176,11 +171,6 @@ resource "helm_release" "aztec-gke-cluster" {
   set {
     name  = "grafana.env.SLACK_WEBHOOK_NEXT_SCENARIO_URL"
     value = data.google_secret_manager_secret_version.slack_webhook_next_scenario.secret_data
-  }
-
-  set {
-    name  = "grafana.env.SLACK_WEBHOOK_NEXT_NET_URL"
-    value = data.google_secret_manager_secret_version.slack_webhook_next_net.secret_data
   }
 
   set {

@@ -18,7 +18,6 @@ variable "AZTEC_DOCKER_IMAGE" {
 variable "L1_RPC_URLS" {
   description = "Comma-separated list of L1 RPC URLs"
   type        = string
-  sensitive   = true
 }
 
 variable "PRIVATE_KEY" {

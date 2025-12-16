@@ -91,7 +91,6 @@ describe('Oracle Version Check test suite', () => {
         selector: FunctionSelector.empty(),
         type: FunctionType.UTILITY,
         isStatic: false,
-        hideMsgSender: false,
         args: encodeArguments(utilityFunctionArtifact, []),
         returnTypes: utilityFunctionArtifact.returnTypes,
       };

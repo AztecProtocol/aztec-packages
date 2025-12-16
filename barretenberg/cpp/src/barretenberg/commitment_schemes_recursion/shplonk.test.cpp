@@ -4,6 +4,7 @@
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/primitives/curves/grumpkin.hpp"
 #include "barretenberg/stdlib/proof/proof.hpp"
+#include "barretenberg/stdlib/transcript/transcript.hpp"
 #include <gtest/gtest.h>
 
 using namespace bb;
@@ -71,7 +72,7 @@ TYPED_TEST(ShplonkRecursionTest, Simple)
     using ShplonkVerifier = ShplonkVerifier_<Curve>;
     using Fr = typename Curve::ScalarField;
     using Commitment = typename Curve::AffineElement;
-    using Transcript = StdlibTranscript<Builder>;
+    using Transcript = bb::BaseTranscript<stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
     using StdlibProof = stdlib::Proof<Builder>;
 
     // Prover transcript
@@ -115,7 +116,7 @@ TYPED_TEST(ShplonkRecursionTest, LinearlyDependent)
     using GroupElement = Curve::Element;
     using Commitment = typename Curve::AffineElement;
     using OpeningClaim = OpeningClaim<Curve>;
-    using Transcript = StdlibTranscript<Builder>;
+    using Transcript = bb::BaseTranscript<stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
     using StdlibProof = stdlib::Proof<Builder>;
 
     // Prover transcript

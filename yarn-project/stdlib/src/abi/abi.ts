@@ -195,7 +195,7 @@ export const FunctionAbiSchema = z.object({
   isInitializer: z.boolean(),
   parameters: z.array(z.object({ name: z.string(), type: AbiTypeSchema, visibility: z.enum(ABIParameterVisibility) })),
   returnTypes: z.array(AbiTypeSchema),
-  errorTypes: z.record(z.string(), AbiErrorTypeSchema.optional()),
+  errorTypes: z.record(AbiErrorTypeSchema),
 }) satisfies z.ZodType<FunctionAbi>;
 
 /** Debug metadata for a function. */

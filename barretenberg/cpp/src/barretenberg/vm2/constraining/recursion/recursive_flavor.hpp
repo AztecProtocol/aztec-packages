@@ -3,6 +3,7 @@
 #include <cstdint>
 
 #include "barretenberg/flavor/flavor.hpp"
+#include "barretenberg/stdlib/transcript/transcript.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include "barretenberg/vm2/constraining/flavor.hpp"
 #include "barretenberg/vm2/constraining/recursion/recursive_flavor_settings.hpp"
@@ -21,7 +22,7 @@ class AvmRecursiveFlavor {
 
     using NativeFlavor = avm2::AvmFlavor;
     using NativeVerificationKey = NativeFlavor::VerificationKey;
-    using Transcript = StdlibTranscript<CircuitBuilder>;
+    using Transcript = BaseTranscript<stdlib::recursion::honk::StdlibTranscriptParams<CircuitBuilder>>;
 
     // Native one is used!
     using VerifierCommitmentKey = NativeFlavor::VerifierCommitmentKey;
@@ -78,14 +79,12 @@ class AvmRecursiveFlavor {
          */
         VerificationKey(std::span<const FF> elements)
         {
-            using Codec = stdlib::StdlibCodec<FF>;
-
             size_t num_frs_read = 0;
-            size_t num_frs_Comm = Codec::template calc_num_fields<Commitment>();
+            size_t num_frs_Comm = stdlib::field_conversion::calc_num_bn254_frs<CircuitBuilder, Commitment>();
 
             for (Commitment& comm : this->get_all()) {
-                comm =
-                    Codec::template deserialize_from_fields<Commitment>(elements.subspan(num_frs_read, num_frs_Comm));
+                comm = stdlib::field_conversion::convert_from_bn254_frs<CircuitBuilder, Commitment>(
+                    elements.subspan(num_frs_read, num_frs_Comm));
                 num_frs_read += num_frs_Comm;
             }
         }

@@ -14,7 +14,6 @@ import { computeContractAddressFromInstance } from '../contract/contract_address
 import { getContractClassFromArtifact } from '../contract/contract_class.js';
 import { SerializableContractInstance } from '../contract/contract_instance.js';
 import type { ContractInstanceWithAddress } from '../contract/index.js';
-import { Gas } from '../gas/gas.js';
 import { GasFees } from '../gas/gas_fees.js';
 import { GasSettings } from '../gas/gas_settings.js';
 import { Nullifier } from '../kernel/nullifier.js';
@@ -85,7 +84,6 @@ export const mockTx = async (
     feePayer,
     clientIvcProof = ClientIvcProof.random(),
     maxPriorityFeesPerGas,
-    gasUsed = Gas.empty(),
     chainId = Fr.ZERO,
     version = Fr.ZERO,
     vkTreeRoot = Fr.ZERO,
@@ -99,7 +97,6 @@ export const mockTx = async (
     feePayer?: AztecAddress;
     clientIvcProof?: ClientIvcProof;
     maxPriorityFeesPerGas?: GasFees;
-    gasUsed?: Gas;
     chainId?: Fr;
     version?: Fr;
     vkTreeRoot?: Fr;
@@ -118,7 +115,6 @@ export const mockTx = async (
     maxPriorityFeesPerGas,
   });
   data.feePayer = feePayer ?? (await AztecAddress.random());
-  data.gasUsed = gasUsed;
   data.constants.txContext.chainId = chainId;
   data.constants.txContext.version = version;
   data.constants.vkTreeRoot = vkTreeRoot;
@@ -184,7 +180,6 @@ const emptyPrivateCallExecutionResult = () =>
     new Map(),
     [],
     new Map(),
-    [],
     [],
     [],
     [],

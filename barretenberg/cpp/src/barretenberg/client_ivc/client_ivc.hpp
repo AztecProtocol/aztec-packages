@@ -6,7 +6,6 @@
 
 #pragma once
 
-#include "barretenberg/client_ivc/client_ivc_base.hpp"
 #include "barretenberg/flavor/mega_zk_recursive_flavor.hpp"
 #include "barretenberg/goblin/goblin.hpp"
 #include "barretenberg/honk/execution_trace/execution_trace_usage_tracker.hpp"
@@ -36,7 +35,7 @@ namespace bb {
  * of circuits being accumulated is even.
  *
  */
-class ClientIVC : public IVCBase {
+class ClientIVC {
 
   public:
     using Flavor = MegaFlavor;
@@ -287,10 +286,6 @@ class ClientIVC : public IVCBase {
 
     size_t get_num_circuits() const { return num_circuits; }
 
-    // IVCBase interface
-    Goblin& get_goblin() override { return goblin; }
-    const Goblin& get_goblin() const override { return goblin; }
-
     ClientIVC(size_t num_circuits, TraceSettings trace_settings = {});
 
     void instantiate_stdlib_verification_queue(ClientCircuit& circuit,
@@ -316,7 +311,7 @@ class ClientIVC : public IVCBase {
      * set using the proving key produced from `circuit` in order to pass some assertions in the Oink prover.
      * @param mock_vk A boolean to say whether the precomputed vk should have its metadata set.
      */
-    void accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVerificationKey>& precomputed_vk) override;
+    void accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVerificationKey>& precomputed_vk);
 
     Proof prove();
 

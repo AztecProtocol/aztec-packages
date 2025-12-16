@@ -9,6 +9,7 @@
 #include "barretenberg/commitment_schemes/shplonk/shplonk.hpp"
 #include "barretenberg/stdlib/proof/proof.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
+#include "barretenberg/transcript/transcript.hpp"
 
 namespace bb {
 ECCVMRecursiveVerifier::ECCVMRecursiveVerifier(Builder* builder,

@@ -27,11 +27,11 @@ pub contract NoConstructor {
     /// no constructor/initializer.
     #[private]
     fn initialize_private_mutable(value: Field) {
-        let note = ValueNote::new(value, context.msg_sender().unwrap());
+        let note = ValueNote::new(value, context.msg_sender());
 
         storage.private_mutable.initialize(note).emit(
             &mut context,
-            context.msg_sender().unwrap(),
+            context.msg_sender(),
             MessageDelivery.CONSTRAINED_ONCHAIN,
         );
     }

@@ -74,7 +74,6 @@ describe('Private Kernel Sequencer', () => {
       new Map(),
       [],
       [],
-      [],
       (dependencies[fnName] || []).map(name => createCallExecutionResult(name)),
       [],
     );

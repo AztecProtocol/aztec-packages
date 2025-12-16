@@ -24,12 +24,11 @@ function build {
     return
   fi
   echo_header "build bb docs"
-  npm_install_deps
   if cache_download bb-docs-$hash.tar.gz; then
     echo "Skipping deployment - no bb doc changes compared to cache."
     return
   fi
-  denoise "yarn build"
+  denoise "yarn install && yarn build"
   cache_upload bb-docs-$hash.tar.gz build
 }
 
@@ -38,12 +37,9 @@ function test_cmds {
 }
 
 function test {
-  if [ "${CI:-0}" -eq 1 ] && [ $(arch) == arm64 ]; then
-    echo "Not testing bb docs for arm64 in CI."
-    return
-  fi
   echo_header "test docs"
 
+  denoise "yarn install"
   denoise "yarn test"
 }
 

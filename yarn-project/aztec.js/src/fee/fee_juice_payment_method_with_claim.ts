@@ -31,7 +31,6 @@ export class FeeJuicePaymentMethodWithClaim implements FeePaymentMethod {
           to: ProtocolContractAddress.FeeJuice,
           name: 'claim_and_end_setup',
           selector,
-          hideMsgSender: false,
           isStatic: false,
           args: [
             this.sender.toField(),
