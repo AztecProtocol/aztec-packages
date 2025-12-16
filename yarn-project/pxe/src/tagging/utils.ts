@@ -1,6 +1,7 @@
 import type { DirectionalAppTaggingSecret, PreTag } from '@aztec/stdlib/logs';
 
-// TODO(benesjan): Make this return tags instead - this will moves some complexity from syncTaggedLogs
+// TODO(#17775): If this does not get dropped when implementing the linked issue make this return tags instead. This
+// will move some complexity from syncTaggedLogs to here.
 export function getPreTagsForTheWindow(
   secretsAndWindows: { secret: DirectionalAppTaggingSecret; leftMostIndex: number; rightMostIndex: number }[],
 ): PreTag[] {
@@ -15,7 +16,7 @@ export function getPreTagsForTheWindow(
 
 /**
  * Creates a map from directional app tagging secret to initial index.
- * @param preTags - The pre tags to get the initial indexes map from.
+ * @param preTags - The pre-tags to get the initial indexes map from.
  * @returns The map from directional app tagging secret to initial index.
  */
 export function getInitialIndexesMap(preTags: { secret: DirectionalAppTaggingSecret; index: number | undefined }[]): {

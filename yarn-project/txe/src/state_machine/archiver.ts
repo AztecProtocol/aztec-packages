@@ -9,12 +9,13 @@ import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
   CommitteeAttestation,
   L2Block,
+  type L2BlockId,
   type L2BlockSource,
   type L2Tips,
   PublishedL2Block,
   type ValidateBlockResult,
 } from '@aztec/stdlib/block';
-import { Checkpoint, type PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
+import { Checkpoint, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import type { BlockHeader } from '@aztec/stdlib/tx';
@@ -187,8 +188,21 @@ export class TXEArchiver extends ArchiverStoreHelper implements L2BlockSource {
     throw new Error('TXE Archiver does not implement "isEpochComplete"');
   }
 
-  public getL2Tips(): Promise<L2Tips> {
-    throw new Error('TXE Archiver does not implement "getL2Tips"');
+  public async getL2Tips(): Promise<L2Tips> {
+    // In TXE there is no possibility of reorgs and no blocks are ever getting proven so we just set 'latest', 'proven'
+    // and 'finalized' to the latest block.
+    const blockHeader = await this.getBlockHeader('latest');
+    if (!blockHeader) {
+      throw new Error('L2Tips requested from TXE Archiver but no block header found');
+    }
+
+    const number = blockHeader.globalVariables.blockNumber;
+    const hash = (await blockHeader.hash()).toString();
+    return {
+      latest: { number, hash } as L2BlockId,
+      proven: { number, hash } as L2BlockId,
+      finalized: { number, hash } as L2BlockId,
+    };
   }
 
   public getL1Constants(): Promise<L1RollupConstants> {
