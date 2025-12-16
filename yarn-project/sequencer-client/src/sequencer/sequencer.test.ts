@@ -453,16 +453,20 @@ describe('sequencer', () => {
       p2p.getStatus.mockImplementation(() => Promise.resolve({ state: P2PClientState.IDLE, syncedToL2Block }));
       l2BlockSource.getL2Tips.mockImplementation(() =>
         Promise.resolve({
-          latest: syncedToL2Block,
-          proven: { number: BlockNumber.ZERO, hash: GENESIS_BLOCK_HEADER_HASH.toString() },
-          finalized: { number: BlockNumber.ZERO, hash: GENESIS_BLOCK_HEADER_HASH.toString() },
+          blocks: {
+            latest: syncedToL2Block,
+            proven: { number: BlockNumber.ZERO, hash: GENESIS_BLOCK_HEADER_HASH.toString() },
+            finalized: { number: BlockNumber.ZERO, hash: GENESIS_BLOCK_HEADER_HASH.toString() },
+          },
         }),
       );
       l1ToL2MessageSource.getL2Tips.mockImplementation(() =>
         Promise.resolve({
-          latest: syncedToL2Block,
-          proven: { number: BlockNumber.ZERO, hash: GENESIS_BLOCK_HEADER_HASH.toString() },
-          finalized: { number: BlockNumber.ZERO, hash: GENESIS_BLOCK_HEADER_HASH.toString() },
+          blocks: {
+            latest: syncedToL2Block,
+            proven: { number: BlockNumber.ZERO, hash: GENESIS_BLOCK_HEADER_HASH.toString() },
+            finalized: { number: BlockNumber.ZERO, hash: GENESIS_BLOCK_HEADER_HASH.toString() },
+          },
         }),
       );
 

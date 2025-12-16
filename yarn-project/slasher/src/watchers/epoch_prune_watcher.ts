@@ -5,6 +5,7 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import {
   EthAddress,
   L2Block,
+  L2BlockNew,
   type L2BlockPruneEvent,
   type L2BlockSourceEventEmitter,
   L2BlockSourceEvents,
@@ -95,10 +96,10 @@ export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter
     this.emit(WANT_TO_SLASH_EVENT, args);
   }
 
-  private async processPruneL2Blocks(blocks: L2Block[], epochNumber: EpochNumber): Promise<void> {
+  private async processPruneL2Blocks(blocks: L2BlockNew[], epochNumber: EpochNumber): Promise<void> {
     try {
       const l1Constants = this.epochCache.getL1Constants();
-      const epochBlocks = blocks.filter(b => getEpochAtSlot(b.slot, l1Constants) === epochNumber);
+      const epochBlocks = blocks.filter(b => getEpochAtSlot(b.header.getSlot(), l1Constants) === epochNumber);
       this.log.info(
         `Detected chain prune. Validating epoch ${epochNumber} with blocks ${epochBlocks[0]?.number} to ${epochBlocks[epochBlocks.length - 1]?.number}.`,
         { blocks: epochBlocks.map(b => b.toBlockInfo()) },
@@ -119,7 +120,7 @@ export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter
     }
   }
 
-  public async validateBlocks(blocks: L2Block[]): Promise<void> {
+  public async validateBlocks(blocks: L2BlockNew[]): Promise<void> {
     if (blocks.length === 0) {
       return;
     }
@@ -133,7 +134,7 @@ export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter
     }
   }
 
-  public async validateBlock(blockFromL1: L2Block, fork: MerkleTreeWriteOperations): Promise<void> {
+  public async validateBlock(blockFromL1: L2BlockNew, fork: MerkleTreeWriteOperations): Promise<void> {
     this.log.debug(`Validating pruned block ${blockFromL1.header.globalVariables.blockNumber}`);
     const txHashes = blockFromL1.body.txEffects.map(txEffect => txEffect.txHash);
     // We load txs from the mempool directly, since the TxCollector running in the background has already been

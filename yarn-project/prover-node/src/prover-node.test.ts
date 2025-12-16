@@ -150,13 +150,15 @@ describe('prover-node', () => {
     l2BlockSource.getCheckpointsForEpoch.mockResolvedValue(checkpoints);
     l2BlockSource.getPublishedCheckpoints.mockResolvedValue([lastPublishedCheckpoint]);
     l2BlockSource.getL2Tips.mockResolvedValue({
-      latest: {
-        number: BlockNumber.fromCheckpointNumber(checkpoints.at(-1)!.number),
-        // TODO: This should be the actual block hash
-        hash: checkpoints.at(-1)!.hash().toString(),
+      blocks: {
+        latest: {
+          number: BlockNumber.fromCheckpointNumber(checkpoints.at(-1)!.number),
+          // TODO: This should be the actual block hash
+          hash: checkpoints.at(-1)!.hash().toString(),
+        },
+        proven: { number: BlockNumber.ZERO, hash: GENESIS_BLOCK_HEADER_HASH.toString() },
+        finalized: { number: BlockNumber.ZERO, hash: GENESIS_BLOCK_HEADER_HASH.toString() },
       },
-      proven: { number: BlockNumber.ZERO, hash: GENESIS_BLOCK_HEADER_HASH.toString() },
-      finalized: { number: BlockNumber.ZERO, hash: GENESIS_BLOCK_HEADER_HASH.toString() },
     });
     l2BlockSource.getBlockHeader.mockImplementation(number =>
       Promise.resolve(number === checkpoints[0].blocks[0].number - 1 ? previousBlockHeader : undefined),

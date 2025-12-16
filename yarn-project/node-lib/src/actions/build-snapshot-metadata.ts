@@ -7,13 +7,13 @@ export async function buildSnapshotMetadata(
   archiver: Archiver,
   config: UploadSnapshotConfig,
 ): Promise<UploadSnapshotMetadata> {
-  const [rollupAddress, l1BlockNumber, { latest }] = await Promise.all([
+  const [rollupAddress, l1BlockNumber, { blocks }] = await Promise.all([
     archiver.getRollupAddress(),
     archiver.getL1BlockNumber(),
     archiver.getL2Tips(),
   ] as const);
 
-  const { number: l2BlockNumber, hash: l2BlockHash } = latest;
+  const { number: l2BlockNumber, hash: l2BlockHash } = blocks.latest;
   if (!l2BlockHash) {
     throw new Error(`Failed to get L2 block hash from archiver.`);
   }

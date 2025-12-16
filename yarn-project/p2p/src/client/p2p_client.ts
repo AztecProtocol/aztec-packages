@@ -206,9 +206,11 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     const genesisHash = GENESIS_BLOCK_HEADER_HASH.toString();
 
     return {
-      latest: { hash: latestBlockHash ?? genesisHash, number: latestBlockNumber },
-      proven: { hash: provenBlockHash ?? genesisHash, number: provenBlockNumber },
-      finalized: { hash: finalizedBlockHash ?? genesisHash, number: finalizedBlockNumber },
+      blocks: {
+        latest: { hash: latestBlockHash ?? genesisHash, number: latestBlockNumber },
+        proven: { hash: provenBlockHash ?? genesisHash, number: provenBlockNumber },
+        finalized: { hash: finalizedBlockHash ?? genesisHash, number: finalizedBlockNumber },
+      },
     };
   }
 
@@ -216,7 +218,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     this.log.debug(`Handling block stream event ${event.type}`);
     switch (event.type) {
       case 'blocks-added':
-        await this.handleLatestL2Blocks(event.blocks.map(b => b.block.toL2Block()));
+        await this.handleLatestL2Blocks(event.blocks);
         break;
       case 'chain-finalized': {
         // TODO (alexg): I think we can prune the block hashes map here
@@ -239,6 +241,8 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
         await this.setBlockHash(event.block);
         this.txCollection.stopCollectingForBlocksAfter(event.block.number);
         await this.handlePruneL2Blocks(event.block.number);
+        break;
+      case 'checkpoint-added':
         break;
       default: {
         const _: never = event;
@@ -274,9 +278,9 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
 
     // get the current latest block numbers
     const latestBlockNumbers = await this.l2BlockSource.getL2Tips();
-    this.latestBlockNumberAtStart = latestBlockNumbers.latest.number;
-    this.provenBlockNumberAtStart = latestBlockNumbers.proven.number;
-    this.finalizedBlockNumberAtStart = latestBlockNumbers.finalized.number;
+    this.latestBlockNumberAtStart = latestBlockNumbers.blocks.latest.number;
+    this.provenBlockNumberAtStart = latestBlockNumbers.blocks.proven.number;
+    this.finalizedBlockNumberAtStart = latestBlockNumbers.blocks.finalized.number;
 
     const syncedLatestBlock = (await this.getSyncedLatestBlockNum()) + 1;
     const syncedProvenBlock = (await this.getSyncedProvenBlockNum()) + 1;

@@ -955,9 +955,9 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
         number: syncSummary.latestBlockNumber,
         hash: syncSummary.latestBlockHash,
       })),
-      this.l2BlockSource.getL2Tips().then(t => t.latest),
+      this.l2BlockSource.getL2Tips().then(t => t.blocks.latest),
       this.p2pClient.getStatus().then(p2p => p2p.syncedToL2Block),
-      this.l1ToL2MessageSource.getL2Tips().then(t => t.latest),
+      this.l1ToL2MessageSource.getL2Tips().then(t => t.blocks.latest),
       this.l2BlockSource.getPendingChainValidationStatus(),
     ] as const);
 
