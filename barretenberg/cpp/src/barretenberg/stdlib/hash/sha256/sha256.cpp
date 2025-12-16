@@ -319,26 +319,36 @@ field_t<Builder> SHA256<Builder>::majority_with_sigma0(sparse_value& a, const sp
     return majority_result;
 }
 
+/**
+ * @brief Compute (a + b) mod 2^32 with circuit constraints.
+ *
+ * Used throughout SHA-256 to add 32-bit values and reduce modulo 2^32.
+ * Constrains: result = a + b - overflow * 2^32, where overflow is range-checked.
+ *
+ * @warning result is not explicitly range-constrained here because it is typically used downstream in lookup tables
+ * (e.g. in choose_with_sigma1, majority_with_sigma0) which implicitly validates the 32-bit range.
+ */
 template <typename Builder>
 field_t<Builder> SHA256<Builder>::add_normalize(const field_t<Builder>& a, const field_t<Builder>& b)
 {
-    typedef field_t<Builder> field_pt;
-    typedef witness_t<Builder> witness_pt;
+    using field_pt = field_t<Builder>;
+    using witness_pt = witness_t<Builder>;
 
     Builder* ctx = a.get_context() ? a.get_context() : b.get_context();
 
     uint256_t sum = a.get_value() + b.get_value();
-
-    uint256_t normalized_sum = static_cast<uint32_t>(sum.data[0]);
+    uint256_t normalized_sum = static_cast<uint32_t>(sum.data[0]); // lower 32 bits
 
     if (a.is_constant() && b.is_constant()) {
         return field_pt(ctx, normalized_sum);
     }
 
-    field_pt overflow = witness_pt(ctx, fr((sum - normalized_sum) >> 32));
+    fr overflow_value = fr((sum - normalized_sum) >> 32);
+    field_pt overflow = witness_pt(ctx, overflow_value);
 
-    field_pt result = a.add_two(b, overflow * field_pt(ctx, -fr((uint64_t)(1ULL << 32ULL))));
-    // Has to be a byte?
+    field_pt result = a.add_two(b, overflow * field_pt(ctx, -fr(1ULL << 32ULL)));
+    // AUDITTODO: 3-bit constraint allows overflow in [0,7], but max possible is 1 (sum of two 32-bit values).
+    // Could tighten to 1-bit, but would need to verify all call sites have 32-bit inputs.
     overflow.create_range_constraint(3);
     return result;
 }
@@ -419,12 +429,9 @@ std::array<field_t<Builder>, 8> SHA256<Builder>::sha256_block(const std::array<f
     output[6] = add_normalize(g.normal, h_init[6]);
     output[7] = add_normalize(h.normal, h_init[7]);
 
-    /**
-     * At this point, a malicious prover could tweak the add_normalize function and the result could be
-     * 'overflowed'. Thus, we need 32-bit range checks on the outputs. Note that we won't need range checks while
-     * applying the SHA-256 compression function because the outputs of the lookup table ensures that the output is
-     * constrained to 32 bits.
-     */
+    // The final add_normalize outputs are not consumed by lookup tables, so they must be
+    // explicitly range-constrained. (Within the compression loop, lookup tables provide
+    // implicit 32-bit constraints on add_normalize outputs.)
     for (size_t i = 0; i < 8; i++) {
         output[i].create_range_constraint(32);
     }
