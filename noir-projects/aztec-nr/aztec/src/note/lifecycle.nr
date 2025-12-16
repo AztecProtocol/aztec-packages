@@ -6,7 +6,6 @@ use crate::note::{
     utils::{compute_note_hash_for_nullification_from_note_hash_read, compute_note_hash_read},
 };
 use crate::oracle::notes::notify_created_note;
-use crate::oracle::random::random;
 use protocol_types::traits::Packable;
 
 pub fn create_note<Note>(
@@ -19,18 +18,11 @@ where
 {
     let note_hash_counter = context.side_effect_counter;
 
-    // Safety: We use the randomness to preserve the privacy of the note recipient by preventing brute-forcing,
-    // so a malicious sender could use non-random values to make the note less private. But they already know
-    // the full note pre-image anyway, and so the recipient already trusts them to not disclose this
-    // information. We can therefore assume that the sender will cooperate in the random value generation.
-    let randomness = unsafe { random() };
-
-    let note_hash = note.compute_note_hash(storage_slot, randomness);
+    let note_hash = note.compute_note_hash(storage_slot);
 
     let packed_note = Note::pack(note);
     notify_created_note(
         storage_slot,
-        randomness,
         Note::get_id(),
         packed_note,
         note_hash,
@@ -39,7 +31,7 @@ where
 
     context.push_note_hash(note_hash);
 
-    NoteEmission::new(note, storage_slot, randomness, note_hash_counter, context)
+    NoteEmission::new(note, storage_slot, note_hash_counter, context)
 }
 
 // Note: This function is currently totally unused.

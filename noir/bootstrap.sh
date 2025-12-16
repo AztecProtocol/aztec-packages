@@ -35,10 +35,6 @@ function build_native {
 function build_packages {
   set -euo pipefail
 
-  # Workaround to not need to install wasm-opt.
-  # It's cursed, llvm will use it without permission if it finds it in PATH.
-  export PATH=$PWD/scripts:$PATH
-
   if cache_download noir-packages-$hash.tar.gz; then
     cd noir-repo
     npm_install_deps
@@ -48,11 +44,11 @@ function build_packages {
   cd noir-repo
   npm_install_deps
 
-  yarn workspaces foreach -A --parallel --topological-dev --verbose $js_include run build
+  yarn workspaces foreach  -A --parallel --topological-dev --verbose $js_include run build
 
   # We create a folder called packages, that contains each package as it would be published to npm, named correctly.
   # These can be useful for testing, or to portal into other projects.
-  yarn workspaces foreach -A --parallel $js_include pack
+  yarn workspaces foreach  -A --parallel $js_include pack
 
   cd ..
   rm -rf packages && mkdir -p packages

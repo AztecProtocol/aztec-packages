@@ -22,8 +22,8 @@ pub struct TransparentNote {
 }
 
 impl NoteHash for TransparentNote {
-    fn compute_note_hash(self, storage_slot: Field, randomness: Field) -> Field {
-        let inputs = self.pack().concat([storage_slot, randomness]);
+    fn compute_note_hash(self, storage_slot: Field) -> Field {
+        let inputs = self.pack().concat([storage_slot]);
         poseidon2_hash_with_separator(inputs, GENERATOR_INDEX__NOTE_HASH)
     }
 

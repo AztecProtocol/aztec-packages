@@ -16,6 +16,8 @@ export class UniqueNote {
   constructor(
     /** The note as emitted from the Noir contract. */
     public note: Note,
+    /** The recipient whose public key was used to encrypt the note. */
+    public recipient: AztecAddress,
     /** The contract address this note is created in. */
     public contractAddress: AztecAddress,
     /** The specific storage location of the note on the contract. */
@@ -30,34 +32,50 @@ export class UniqueNote {
     return z
       .object({
         note: Note.schema,
+        recipient: schemas.AztecAddress,
         contractAddress: schemas.AztecAddress,
         storageSlot: schemas.Fr,
         txHash: TxHash.schema,
         noteNonce: schemas.Fr,
       })
-      .transform(({ note, contractAddress, storageSlot, txHash, noteNonce }) => {
-        return new UniqueNote(note, contractAddress, storageSlot, txHash, noteNonce);
+      .transform(({ note, recipient, contractAddress, storageSlot, txHash, noteNonce }) => {
+        return new UniqueNote(note, recipient, contractAddress, storageSlot, txHash, noteNonce);
       });
   }
 
   toBuffer(): Buffer {
-    return serializeToBuffer([this.note, this.contractAddress, this.storageSlot, this.txHash, this.noteNonce]);
+    return serializeToBuffer([
+      this.note,
+      this.recipient,
+      this.contractAddress,
+      this.storageSlot,
+      this.txHash,
+      this.noteNonce,
+    ]);
   }
 
   static async random() {
-    return new UniqueNote(Note.random(), await AztecAddress.random(), Fr.random(), TxHash.random(), Fr.random());
+    return new UniqueNote(
+      Note.random(),
+      await AztecAddress.random(),
+      await AztecAddress.random(),
+      Fr.random(),
+      TxHash.random(),
+      Fr.random(),
+    );
   }
 
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
 
     const note = reader.readObject(Note);
+    const recipient = reader.readObject(AztecAddress);
     const contractAddress = reader.readObject(AztecAddress);
     const storageSlot = reader.readObject(Fr);
     const txHash = reader.readObject(TxHash);
     const noteNonce = reader.readObject(Fr);
 
-    return new UniqueNote(note, contractAddress, storageSlot, txHash, noteNonce);
+    return new UniqueNote(note, recipient, contractAddress, storageSlot, txHash, noteNonce);
   }
 
   static fromString(str: string) {

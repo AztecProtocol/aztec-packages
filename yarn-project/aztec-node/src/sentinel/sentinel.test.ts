@@ -270,16 +270,6 @@ describe('sentinel', () => {
       expect(stats.totalSlots).toEqual(5);
       expect(stats.missedProposals.count).toEqual(5);
     });
-
-    it('filters history by toSlot parameter', () => {
-      const history = times(20, i => ({ slot: BigInt(i), status: 'block-missed' }) as const);
-      const stats = sentinel.computeStatsForValidator(validator, history, 5n, 10n);
-
-      expect(stats.address.toString()).toEqual(validator);
-      expect(stats.totalSlots).toEqual(6); // Slots 5-10 inclusive
-      expect(stats.missedProposals.count).toEqual(6);
-      expect(stats.missedProposals.rate).toEqual(1);
-    });
   });
 
   describe('slot range validation', () => {
@@ -561,20 +551,6 @@ describe('sentinel', () => {
         expect(result).toBe(false);
       });
 
-      it('should return false on first inactive epoch', async () => {
-        const mockPerformance = [
-          { epoch: 5n, missed: 8, total: 10 }, // 80% missed (inactive)
-          { epoch: 4n, missed: 9, total: 10 }, // 90% missed (inactive)
-        ];
-
-        jest.spyOn(store, 'getProvenPerformance').mockResolvedValue(mockPerformance);
-
-        // We are checking at epoch 4, so no past epochs
-        const result = await sentinel.checkPastInactivity(validator1, 4n, 2);
-
-        expect(result).toBe(false);
-      });
-
       it('should return true when there is a gap in epochs since validators are not chosen for every committee', async () => {
         // Mock performance data: gap in epoch 4
         const mockPerformance = [
@@ -713,9 +689,8 @@ class TestSentinel extends Sentinel {
     address: `0x${string}`,
     history: ValidatorStatusHistory,
     fromSlot?: bigint,
-    toSlot?: bigint,
   ): ValidatorStats {
-    return super.computeStatsForValidator(address, history, fromSlot, toSlot);
+    return super.computeStatsForValidator(address, history, fromSlot);
   }
 
   public override handleChainProven(event: L2BlockStreamEvent) {

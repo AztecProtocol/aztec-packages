@@ -194,12 +194,10 @@ export class NoteDataProvider {
         await this.#notes.set(noteIndex, dao.toBuffer());
         await this.#nullifierToNoteId.set(dao.siloedNullifier.toString(), noteIndex);
 
-        const scopes = await toArray(this.#nullifiedNotesToScope.getValuesAsync(noteIndex));
+        let scopes = (await toArray(this.#nullifiedNotesToScope.getValuesAsync(noteIndex))) ?? [];
 
         if (scopes.length === 0) {
-          // We should never run into this error because notes always have a scope assigned to them - either on initial
-          // insertion via `addNotes` or when removing their nullifiers.
-          throw new Error(`No scopes found for nullified note with index ${noteIndex}`);
+          scopes = [dao.recipient.toString()];
         }
 
         for (const scope of scopes) {
@@ -361,14 +359,7 @@ export class NoteDataProvider {
         if (!noteBuffer) {
           throw new Error('Note not found in applyNullifiers');
         }
-
-        const noteScopes = await toArray(this.#notesToScope.getValuesAsync(noteIndex));
-        if (noteScopes.length === 0) {
-          // We should never run into this error because notes always have a scope assigned to them - either on initial
-          // insertion via `addNotes` or when removing their nullifiers.
-          throw new Error('Note scopes are missing in applyNullifiers');
-        }
-
+        const noteScopes = (await toArray(this.#notesToScope.getValuesAsync(noteIndex))) ?? [];
         const note = NoteDao.fromBuffer(noteBuffer);
 
         nullifiedNotes.push(note);
@@ -383,8 +374,10 @@ export class NoteDataProvider {
           await this.#notesByStorageSlotAndScope.get(scope)!.deleteValue(note.storageSlot.toString(), noteIndex);
         }
 
-        for (const scope of noteScopes) {
-          await this.#nullifiedNotesToScope.set(noteIndex, scope);
+        if (noteScopes !== undefined) {
+          for (const scope of noteScopes) {
+            await this.#nullifiedNotesToScope.set(noteIndex, scope);
+          }
         }
         await this.#nullifiedNotes.set(noteIndex, note.toBuffer());
         await this.#nullifiersByBlockNumber.set(blockNumber, nullifier.toString());

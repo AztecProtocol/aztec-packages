@@ -10,7 +10,6 @@ import {
   type MetricsType,
   type ObservableGauge,
   type TelemetryClient,
-  type UpDownCounter,
 } from '@aztec/telemetry-client';
 
 export enum PoolName {
@@ -21,7 +20,6 @@ export enum PoolName {
 type MetricsLabels = {
   objectInMempool: MetricsType;
   objectSize: MetricsType;
-  itemsAdded: MetricsType;
 };
 
 /**
@@ -34,13 +32,11 @@ function getMetricsLabels(name: PoolName): MetricsLabels {
     return {
       objectInMempool: Metrics.MEMPOOL_TX_COUNT,
       objectSize: Metrics.MEMPOOL_TX_SIZE,
-      itemsAdded: Metrics.MEMPOOL_TX_ADDED_COUNT,
     };
   } else if (name === PoolName.ATTESTATION_POOL) {
     return {
       objectInMempool: Metrics.MEMPOOL_ATTESTATIONS_COUNT,
       objectSize: Metrics.MEMPOOL_ATTESTATIONS_SIZE,
-      itemsAdded: Metrics.MEMPOOL_ATTESTATIONS_ADDED_COUNT,
     };
   }
 
@@ -57,7 +53,6 @@ export type PoolStatsCallback = () => Promise<{
 export class PoolInstrumentation<PoolObject extends Gossipable> {
   /** The number of txs in the mempool */
   private objectsInMempool: ObservableGauge;
-  private addObjectCounter: UpDownCounter;
   /** Tracks tx size */
   private objectSize: Histogram;
 
@@ -94,19 +89,11 @@ export class PoolInstrumentation<PoolObject extends Gossipable> {
       dbStats,
     );
 
-    this.addObjectCounter = this.meter.createUpDownCounter(metricsLabels.itemsAdded, {
-      description: 'The number of transactions added to the mempool',
-    });
-
     this.meter.addBatchObservableCallback(this.observeStats, [this.objectsInMempool]);
   }
 
   public recordSize(poolObject: PoolObject) {
     this.objectSize.record(poolObject.getSize());
-  }
-
-  public incrementAddedObjects(count: number) {
-    this.addObjectCounter.add(count);
   }
 
   private observeStats = async (observer: BatchObservableResult) => {

@@ -15,10 +15,4 @@ variable "CHAOS_MESH_NAMESPACE" {
   default     = "chaos-mesh"
 }
 
-# https://chaos-mesh.org/docs/production-installation-using-helm/#how-can-i-disable-the-safe-mode
-variable "ENABLE_SAFE_MODE" {
-  description = "Whether safe mode is enabled"
-  type        = bool
-  default     = true
-}
 

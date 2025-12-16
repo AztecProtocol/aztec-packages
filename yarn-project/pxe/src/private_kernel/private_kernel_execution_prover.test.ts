@@ -50,14 +50,7 @@ describe('Private Kernel Sequencer', () => {
 
   const notesAndSlots: NoteAndSlot[] = Array(10)
     .fill(null)
-    .map(() =>
-      NoteAndSlot.from({
-        note: new Note([Fr.random(), Fr.random(), Fr.random()]),
-        storageSlot: Fr.random(),
-        randomness: Fr.random(),
-        noteTypeId: NoteSelector.random(),
-      }),
-    );
+    .map(() => new NoteAndSlot(new Note([Fr.random(), Fr.random(), Fr.random()]), Fr.random(), NoteSelector.random()));
 
   const createFakeSiloedCommitment = (commitment: Fr) => new Fr(commitment.value + 1n);
   const generateFakeCommitment = (noteAndSlot: NoteAndSlot) => noteAndSlot.note.items[0];

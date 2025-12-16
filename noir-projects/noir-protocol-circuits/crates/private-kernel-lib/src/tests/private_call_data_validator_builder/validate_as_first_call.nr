@@ -19,13 +19,6 @@ fn validate_as_first_call_msg_sender_fails() {
     builder.validate_as_first_call(0);
 }
 
-#[test(should_fail_with = "start_side_effect_counter must be greater than 1")]
-fn validate_as_first_call_start_side_effect_counter_1_fails() {
-    let mut builder = PrivateCallDataValidatorBuilder::new().is_first_call();
-    builder.private_call.counter_start = 1;
-    builder.validate_as_first_call(0);
-}
-
 #[test(should_fail_with = "Failed to validate expected non revertible side effect counter")]
 fn validate_against_previous_kernel_expected_non_revertible_side_effect_counter_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new().is_first_call();

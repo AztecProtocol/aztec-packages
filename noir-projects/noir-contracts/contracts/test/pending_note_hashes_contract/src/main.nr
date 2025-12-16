@@ -96,9 +96,10 @@ pub contract PendingNoteHashes {
     fn insert_note_static_randomness(amount: Field, owner: AztecAddress, sender: AztecAddress) {
         let owner_balance = self.storage.balances.at(owner);
 
+        let randomness = 2;
         // Note that the following is severely misusing the Packable trait as we should never be messing with internal
         // encoding. This is brittle but I don't care.
-        let note = ValueNote::unpack([amount.to_field(), owner.to_field()]);
+        let note = ValueNote::unpack([amount.to_field(), owner.to_field(), randomness.to_field()]);
 
         // Insert note
         owner_balance.insert(note).emit(owner, MessageDelivery.CONSTRAINED_ONCHAIN);
@@ -337,7 +338,6 @@ pub contract PendingNoteHashes {
         let bad_note_emission = NoteEmission::new(
             ValueNote::new(5, owner),
             good_note_emission.content.storage_slot,
-            good_note_emission.content.randomness,
             good_note_emission.content.note_hash_counter,
             self.context,
         );

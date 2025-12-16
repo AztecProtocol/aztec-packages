@@ -33,7 +33,7 @@ import { getSponsoredFPCAddress } from '../fixtures/utils.js';
 import {
   type TestAccounts,
   createWalletAndAztecNodeClient,
-  deploySponsoredTestAccountsWithTokens,
+  deploySponsoredTestAccounts,
 } from './setup_test_wallets.js';
 import { getSequencersConfig, setupEnvironment, startPortForwardForRPC, updateSequencersConfig } from './utils.js';
 
@@ -95,7 +95,7 @@ describe('mempool limiter test', () => {
     } catch {
       debugLogger.warn(`No block advance observed yet; continuing`);
     }
-    testAccounts = await deploySponsoredTestAccountsWithTokens(wallet, aztecNode, 1n, debugLogger);
+    testAccounts = await deploySponsoredTestAccounts(wallet, aztecNode, 1n, debugLogger);
 
     debugLogger.debug(`Calculating mempool limits`);
 

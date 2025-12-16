@@ -14,7 +14,7 @@ pub trait NoteHash {
     ///
     /// This should be a commitment to the packed note, including the storage slot (for indexing) and some random
     /// value (to prevent brute force trial-hashing attacks).
-    fn compute_note_hash(self, storage_slot: Field, randomness: Field) -> Field;
+    fn compute_note_hash(self, storage_slot: Field) -> Field;
 
     /// Returns the non-siloed nullifier (also called inner-nullifier), which will be later siloed by contract address
     /// by the kernels before being committed to the state tree.

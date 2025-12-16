@@ -16,10 +16,10 @@ pub struct TestNote {
 }
 
 impl NoteHash for TestNote {
-    fn compute_note_hash(self, storage_slot: Field, randomness: Field) -> Field {
+    fn compute_note_hash(self, storage_slot: Field) -> Field {
         // The note is inserted into the state in the Test contract so we provide a real compute_note_hash
         // implementation.
-        let inputs = self.pack().concat([storage_slot, randomness]);
+        let inputs = self.pack().concat([storage_slot]);
         poseidon2_hash_with_separator(inputs, GENERATOR_INDEX__NOTE_HASH)
     }
 

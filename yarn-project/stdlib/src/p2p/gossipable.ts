@@ -1,32 +1,23 @@
 import { Buffer32 } from '@aztec/foundation/buffer';
-import { BufferReader, bigintToUInt64BE, serializeToBuffer } from '@aztec/foundation/serialize';
+import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import type { TopicType } from './topic_type.js';
 
 export class P2PMessage {
-  constructor(
-    public readonly payload: Buffer,
-    public readonly timestamp?: Date,
-  ) {}
+  constructor(public readonly payload: Buffer) {}
 
-  static fromGossipable(message: Gossipable, instrumentMessages = false): P2PMessage {
-    return new P2PMessage(message.toBuffer(), instrumentMessages ? new Date() : undefined);
+  static fromGossipable(message: Gossipable): P2PMessage {
+    return new P2PMessage(message.toBuffer());
   }
 
-  static fromMessageData(messageData: Buffer, instrumentMessages = false): P2PMessage {
+  static fromMessageData(messageData: Buffer): P2PMessage {
     const reader = new BufferReader(messageData);
-    const timestamp = instrumentMessages ? new Date(Number(reader.readUInt64())) : undefined;
     const payload = reader.readBuffer();
-    return new P2PMessage(payload, timestamp);
+    return new P2PMessage(payload);
   }
 
   toMessageData(): Buffer {
-    const arr: Buffer[] = [];
-    if (this.timestamp) {
-      arr.push(bigintToUInt64BE(BigInt(this.timestamp.getTime())));
-    }
-    arr.push(serializeToBuffer(this.payload.length, this.payload));
-    return serializeToBuffer(arr);
+    return serializeToBuffer([serializeToBuffer(this.payload.length, this.payload)]);
   }
 }
 

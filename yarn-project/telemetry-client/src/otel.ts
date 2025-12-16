@@ -283,25 +283,11 @@ export class OpenTelemetryClient implements TelemetryClient {
 
       const exporters: PeriodicExportingMetricReaderOptions[] = [];
       if (config.metricsCollectorUrl) {
-        // Default to a blacklist that is empty (allow all metrics)
-        let filter: string[] = [];
-        let mode: 'allow' | 'deny' = 'deny';
-        if (config.otelExcludeMetrics.length > 0) {
-          // Implement a blacklist as specified in config
-          log.info(`Excluding metrics from export: ${config.otelExcludeMetrics}`);
-          filter = config.otelExcludeMetrics;
-          mode = 'deny';
-        } else if (config.otelIncludeMetrics.length > 0) {
-          // Implement a whitelist as specified in config
-          log.info(`Including only specified metrics for export: ${config.otelIncludeMetrics}`);
-          filter = config.otelIncludeMetrics;
-          mode = 'allow';
-        }
         exporters.push({
           exporter: new OtelFilterMetricExporter(
             new OTLPMetricExporter({ url: config.metricsCollectorUrl.href }),
-            filter,
-            mode,
+            config.otelExcludeMetrics,
+            'deny',
           ),
           exportTimeoutMillis: config.otelExportTimeoutMs,
           exportIntervalMillis: config.otelCollectIntervalMs,

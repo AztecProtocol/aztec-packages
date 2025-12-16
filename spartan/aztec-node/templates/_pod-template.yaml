@@ -260,14 +260,8 @@ spec:
         - name: TEST_ACCOUNTS
           value: {{ .Values.global.testAccounts | quote }}
         {{- if .Values.global.otelCollectorEndpoint }}
-        {{- if .Values.node.otelIncludeMetrics }}
-        - name: OTEL_INCLUDE_METRICS
-          value: {{ .Values.node.otelIncludeMetrics | quote }}
-        {{- end }}
-        {{- if .Values.node.otelExcludeMetrics }}
         - name: OTEL_EXCLUDE_METRICS
           value: {{ .Values.node.otelExcludeMetrics | quote }}
-        {{- end }}
         - name: OTEL_EXPORTER_OTLP_METRICS_ENDPOINT
           value: "{{ .Values.global.otelCollectorEndpoint }}/v1/metrics"
         - name: OTEL_EXPORTER_OTLP_TRACES_ENDPOINT

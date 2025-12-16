@@ -5,6 +5,11 @@
 // =====================
 
 #include "big_quad_constraints.hpp"
+#include "acir_format.hpp"
+#include "barretenberg/common/assert.hpp"
+#include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
+#include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 
 namespace acir_format {
 
@@ -45,12 +50,12 @@ using namespace bb;
 template <typename Builder>
 void create_big_quad_constraint(Builder& builder, std::vector<mul_quad_<typename Builder::FF>>& big_constraint)
 {
-    using FF = typename Builder::FF;
+    using fr = typename Builder::FF;
 
     // The index/value of the 4-th witness in the next gate (not used in the first gate)
     // It is result of the expression calculated on the current gate
     uint32_t next_w4_wire_idx = 0;
-    FF next_w4_wire_value = FF::zero();
+    fr next_w4_wire_value = fr::zero();
 
     for (size_t j = 0; j < big_constraint.size() - 1; ++j) {
         // Replace IS_CONSTANT indices with zero indices
@@ -67,18 +72,12 @@ void create_big_quad_constraint(Builder& builder, std::vector<mul_quad_<typename
                              big_constraint[j].const_scaling;
         next_w4_wire_value = -next_w4_wire_value;
         next_w4_wire_idx = builder.add_variable(next_w4_wire_value);
-        // Check if the gate is valid
-        check_mul_add_gate(builder, big_constraint[j], next_w4_wire_value);
         // Set the 4-th wire of the next gate
         big_constraint[j + 1].d = next_w4_wire_idx;
         big_constraint[j + 1].d_scaling = fr(-1);
     }
-    // Replace IS_CONSTANT indices with zero indices
     set_zero_idx(builder, big_constraint.back());
-    // Create final gate
     builder.create_big_mul_add_gate(big_constraint.back(), /*include_next_gate_w_4*/ false);
-    // Check if the gate is valid
-    check_mul_add_gate(builder, big_constraint.back());
 }
 
 template void create_big_quad_constraint<UltraCircuitBuilder>(

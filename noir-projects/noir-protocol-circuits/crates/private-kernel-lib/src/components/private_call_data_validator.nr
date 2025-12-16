@@ -16,7 +16,7 @@ use dep::types::{
     constants::NULL_MSG_SENDER_CONTRACT_ADDRESS,
 };
 use validate_contract_address::validate_contract_address;
-use validate_min_revertible_side_effect_counter::validate_no_phase_change_within_child_calls;
+use validate_min_revertible_side_effect_counter::validate_that_this_call_doesnt_try_to_set_a_phase_change_within_a_child_calls_execution_frame;
 
 pub struct PrivateCallDataValidator {
     data: PrivateCallData,
@@ -38,8 +38,6 @@ impl PrivateCallDataValidator {
     pub fn validate_common(self, protocol_contracts: ProtocolContracts) {
         // Validate that the vk exists within the called contract address:
         validate_contract_address(self.data, protocol_contracts);
-
-        self.validate_min_revertible_counter_within_range();
 
         self.restrict_side_effects();
         self.validate_claimed_lengths();
@@ -164,8 +162,8 @@ impl PrivateCallDataValidator {
         // TODO: When we introduce a dedicated static_call kernel, we might want to consider disallowing static_calls to come through this circuit at all.
         if call_context.is_static_call {
             // No state changes are allowed for static calls.
-            // By checking that the length is zero, we ensure we won't process any items in the arrays.
-            // Garbage items could be present in the arrays after the length, but they won't exit the private kernels on tail.
+            // Note: Although a EmptyRHSArray usually gives weak guarantees, if its
+            // length is 0, then the array is _guaranteed_ to be empty.
             assert_eq(
                 self.data.public_inputs.note_hashes.length,
                 0,
@@ -227,6 +225,7 @@ impl PrivateCallDataValidator {
         );
     }
 
+    // TODO: Maybe we should loop once over each array. This will be the 2nd time we iterate over this array (the first time being the length validation).
     fn validate_private_call_requests(self) {
         let public_inputs = self.data.public_inputs;
         let call_requests = public_inputs.private_call_requests;
@@ -251,7 +250,7 @@ impl PrivateCallDataValidator {
         }
 
         let min_revertible_side_effect_counter = public_inputs.min_revertible_side_effect_counter;
-        validate_no_phase_change_within_child_calls(
+        validate_that_this_call_doesnt_try_to_set_a_phase_change_within_a_child_calls_execution_frame(
             min_revertible_side_effect_counter,
             public_inputs.private_call_requests,
         );
@@ -354,7 +353,7 @@ impl PrivateCallDataValidator {
         );
     }
 
-    fn validate_expected_counters(self, claimed_revertible_counter: u32) {
+    pub fn validate_expected_counters(self, claimed_revertible_counter: u32) {
         let expected_non_revertible_side_effect_counter =
             self.data.public_inputs.expected_non_revertible_side_effect_counter;
         let expected_revertible_side_effect_counter =
@@ -374,22 +373,6 @@ impl PrivateCallDataValidator {
                     & (expected_revertible_side_effect_counter >= claimed_revertible_counter),
                 "Failed to validate expected revertible side effect counter",
             )
-        }
-    }
-
-    fn validate_min_revertible_counter_within_range(self) {
-        let public_inputs = self.data.public_inputs;
-        let min_revertible_side_effect_counter = public_inputs.min_revertible_side_effect_counter;
-        if min_revertible_side_effect_counter != 0 {
-            // Validate that the min revertible side effect counter is within the range of the call.
-            assert(
-                min_revertible_side_effect_counter >= public_inputs.start_side_effect_counter,
-                "min_revertible_side_effect_counter must be greater than or equal to start_side_effect_counter",
-            );
-            assert(
-                min_revertible_side_effect_counter <= public_inputs.end_side_effect_counter,
-                "min_revertible_side_effect_counter must be less than or equal to end_side_effect_counter",
-            );
         }
     }
 }

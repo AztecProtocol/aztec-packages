@@ -15,7 +15,7 @@ pub fn compute_note_hash_read<Note>(
 where
     Note: NoteHash,
 {
-    let note_hash = retrieved_note.note.compute_note_hash(storage_slot, retrieved_note.randomness);
+    let note_hash = retrieved_note.note.compute_note_hash(storage_slot);
 
     if retrieved_note.metadata.is_settled() {
         // Settled notes are read by siloing with contract address and nonce (resulting in the final unique note hash,

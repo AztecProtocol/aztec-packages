@@ -9,7 +9,7 @@ import { jest } from '@jest/globals';
 import type { ChildProcess } from 'child_process';
 
 import { getSponsoredFPCAddress } from '../fixtures/utils.js';
-import { createWalletAndAztecNodeClient, deploySponsoredTestAccountsWithTokens } from './setup_test_wallets.js';
+import { createWalletAndAztecNodeClient, deploySponsoredTestAccounts } from './setup_test_wallets.js';
 import type { TestAccounts } from './setup_test_wallets.js';
 import { type TestConfig, setValidatorTxDrop, setupEnvironment, startPortForwardForRPC } from './utils.js';
 
@@ -61,7 +61,7 @@ describe('reqresp effectiveness under tx drop', () => {
     cleanup = _cleanup;
     wallet = _wallet;
     aztecNode = _aztecNode;
-    testAccounts = await deploySponsoredTestAccountsWithTokens(wallet, aztecNode, MINT_AMOUNT, logger);
+    testAccounts = await deploySponsoredTestAccounts(wallet, aztecNode, MINT_AMOUNT, logger);
     recipient = testAccounts.recipientAddress;
     const name = readFieldCompressedString(
       await testAccounts.tokenContract.methods.private_get_name().simulate({ from: testAccounts.tokenAdminAddress }),

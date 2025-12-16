@@ -98,8 +98,6 @@ export const ProverAgentConfig = z.object({
   proverTestDelayMs: z.number(),
   /** If using realistic delays, what percentage of realistic times to apply. */
   proverTestDelayFactor: z.number(),
-  /** The delay (ms) to inject during fake proof verification */
-  proverTestVerificationDelayMs: z.number().optional(),
 });
 
 export type ProverAgentConfig = z.infer<typeof ProverAgentConfig>;
@@ -147,10 +145,5 @@ export const proverAgentConfigMappings: ConfigMappingsType<ProverAgentConfig> = 
     env: 'PROVER_TEST_DELAY_FACTOR',
     description: 'If using realistic delays, what percentage of realistic times to apply.',
     ...numberConfigHelper(1),
-  },
-  proverTestVerificationDelayMs: {
-    env: 'PROVER_TEST_VERIFICATION_DELAY_MS',
-    description: 'The delay (ms) to inject during fake proof verification',
-    ...numberConfigHelper(10),
   },
 };

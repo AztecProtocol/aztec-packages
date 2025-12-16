@@ -13,7 +13,7 @@ import type { ChildProcess } from 'child_process';
 import {
   type TestAccounts,
   createWalletAndAztecNodeClient,
-  deploySponsoredTestAccountsWithTokens,
+  deploySponsoredTestAccounts,
   performTransfers,
 } from './setup_test_wallets.js';
 import {
@@ -75,7 +75,7 @@ describe('reorg test', () => {
     spartanDir = `${getGitProjectRoot()}/spartan`;
 
     ({ wallet, aztecNode, cleanup } = await createWalletAndAztecNodeClient(rpcUrl, config.REAL_VERIFIER, debugLogger));
-    testAccounts = await deploySponsoredTestAccountsWithTokens(wallet, aztecNode, MINT_AMOUNT, debugLogger);
+    testAccounts = await deploySponsoredTestAccounts(wallet, aztecNode, MINT_AMOUNT, debugLogger);
   });
 
   it('survives a reorg', async () => {
@@ -121,7 +121,7 @@ describe('reorg test', () => {
     ({ wallet, aztecNode, cleanup } = await createWalletAndAztecNodeClient(rpcUrl, config.REAL_VERIFIER, debugLogger));
 
     await sleep(30 * 1000);
-    testAccounts = await deploySponsoredTestAccountsWithTokens(wallet, aztecNode, MINT_AMOUNT, debugLogger);
+    testAccounts = await deploySponsoredTestAccounts(wallet, aztecNode, MINT_AMOUNT, debugLogger);
     // TODO(#9327): end delete
 
     await performTransfers({

@@ -14,23 +14,21 @@ pub(crate) unconstrained fn create_note() -> (TestEnvironment, RetrievedNote<Moc
 
     // We create a note in block NOTE_CREATED_AT
     let retrieved_note = env.private_context(|context| {
-        let mut mock_note = MockNote::new(69);
-
-        let emitted_note =
-            lifecycle_create_note(context, NOTE_STORAGE_SLOT, mock_note.build_note());
-
         let contract_address = context.this_address();
 
         // The test environment doesn't yet supporting delivering settled notes, so we hardcode the nonce we know the
         // note will have if emitted as the only note in block NOTE_CREATED_AT.
-        mock_note
+        let retrieved_note = MockNote::new(69)
             .contract_address(contract_address)
             .note_metadata(NoteMetadata::from_raw_data(
                 false,
                 0x2426ed0754c755bbeaa3bc552819eab6339cdf25f64f5a5207c86dbb0f1add2d,
             ))
-            .randomness(emitted_note.content.randomness)
-            .build_retrieved_note()
+            .build_retrieved_note();
+
+        let _ = lifecycle_create_note(context, NOTE_STORAGE_SLOT, retrieved_note.note);
+
+        retrieved_note
     });
 
     // Verify the note was inserted in the correct block

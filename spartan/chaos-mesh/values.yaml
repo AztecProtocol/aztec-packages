@@ -1,0 +1,24 @@
+
+chaos-mesh:
+  dashboard:
+    persistentVolume:
+      enabled: true
+      size: 8Gi
+      storageClassName: standard
+      mountPath: /data
+      subPath: ""
+
+    # Disable security mode when running locally, DO NOT DEPLOY THIS CHART IN PRODUCTION
+    # We disable locally so the local dashboard does not require configuring authentication
+    securityMode: false
+
+  chaosDaemon:
+    privileged: true
+    runtime: "containerd"
+    socketPath: "/run/containerd/containerd.sock"
+
+  dnsServer:
+    create: true
+
+  podSecurityPolicy:
+    enabled: false

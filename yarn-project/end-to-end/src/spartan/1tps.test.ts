@@ -14,7 +14,7 @@ import { getSponsoredFPCAddress } from '../fixtures/utils.js';
 import {
   type TestAccounts,
   createWalletAndAztecNodeClient,
-  deploySponsoredTestAccountsWithTokens,
+  deploySponsoredTestAccounts,
 } from './setup_test_wallets.js';
 import { setupEnvironment, startPortForwardForRPC } from './utils.js';
 
@@ -52,7 +52,7 @@ describe('token transfer test', () => {
     wallet = _wallet;
 
     // Setup wallets
-    testAccounts = await deploySponsoredTestAccountsWithTokens(wallet, aztecNode, MINT_AMOUNT, logger);
+    testAccounts = await deploySponsoredTestAccounts(wallet, aztecNode, MINT_AMOUNT, logger);
 
     expect(ROUNDS).toBeLessThanOrEqual(MINT_AMOUNT);
   });

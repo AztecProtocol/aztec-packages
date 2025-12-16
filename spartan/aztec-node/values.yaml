@@ -36,7 +36,7 @@ global:
   aztecImage:
     repository: aztecprotocol/aztec
     tag: ""
-    pullPolicy: Always
+    pullPolicy: IfNotPresent
 
   # -- Collector endpoint - e.g. http://localhost:4318
   otelCollectorEndpoint: ""
@@ -98,8 +98,7 @@ node:
   coinbase:
 
   # -- Exclude metrics - comma separated list of metrics to exclude
-  otelExcludeMetrics: null
-  otelIncludeMetrics: null
+  otelExcludeMetrics: ""
 
   storage:
     # -- Data directory
@@ -118,7 +117,7 @@ node:
     periodSeconds: 30
     # -- Failure threshold
     # 10 minutes default but this might not be enough if the node has to download a lot of blocks.
-    failureThreshold: 20
+    failureThreshold: 20 
 
   resources: {}
 

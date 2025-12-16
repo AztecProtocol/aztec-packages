@@ -7,7 +7,6 @@ use protocol_types::{address::AztecAddress, traits::Serialize};
 pub(crate) struct NoteValidationRequest {
     pub contract_address: AztecAddress,
     pub storage_slot: Field,
-    pub randomness: Field,
     pub note_nonce: Field,
     pub packed_note: BoundedVec<Field, MAX_NOTE_PACKED_LEN>,
     pub note_hash: Field,
@@ -25,7 +24,6 @@ mod test {
         let request = NoteValidationRequest {
             contract_address: AztecAddress::from_field(1),
             storage_slot: 2,
-            randomness: 42,
             note_nonce: 3,
             packed_note: BoundedVec::from_array([4, 5]),
             note_hash: 6,
@@ -41,10 +39,10 @@ mod test {
         let expected_serialization = [
             0x0000000000000000000000000000000000000000000000000000000000000001,
             0x0000000000000000000000000000000000000000000000000000000000000002,
-            0x000000000000000000000000000000000000000000000000000000000000002a,
             0x0000000000000000000000000000000000000000000000000000000000000003,
             0x0000000000000000000000000000000000000000000000000000000000000004,
             0x0000000000000000000000000000000000000000000000000000000000000005,
+            0x0000000000000000000000000000000000000000000000000000000000000000,
             0x0000000000000000000000000000000000000000000000000000000000000000,
             0x0000000000000000000000000000000000000000000000000000000000000000,
             0x0000000000000000000000000000000000000000000000000000000000000000,

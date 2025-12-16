@@ -180,6 +180,7 @@ EXCLUDED_VARS_ARRAY=(
     "PUBLISHER_KEY_INDEX_START"
     "PUBLISHERS_PER_VALIDATOR_KEY"
     "PUBLISHERS_PER_PROVER"
+    "AGENT_COUNT"
 )
 
 # Join array elements with | for regex

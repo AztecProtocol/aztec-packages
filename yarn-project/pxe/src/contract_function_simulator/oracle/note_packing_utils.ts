@@ -24,7 +24,6 @@ function fromRawData(nonzeroNoteHashCounter: boolean, maybeNoteNonce: Fr): { sta
  * and only after that it packs the retrieved note. Hence it doesn't map one to one with `RetrievedNote::pack()`.
  *
  * @param contractAddress - The address of the contract that owns the note
- * @param randomness - The randomness injected into the note to get the hiding property of commitments
  * @param noteNonce - The nonce injected into the note hash preimage by kernels.
  * @param index - Optional index in the note hash tree. If undefined, indicates a transient note
  * @param note - The note content containing the actual note data
@@ -32,23 +31,22 @@ function fromRawData(nonzeroNoteHashCounter: boolean, maybeNoteNonce: Fr): { sta
  */
 export function packAsRetrievedNote({
   contractAddress,
-  randomness,
   noteNonce,
   index,
   note,
 }: {
   contractAddress: AztecAddress;
-  randomness: Fr;
   noteNonce: Fr;
   index?: bigint;
   note: Note;
 }) {
   // If index is undefined, the note is transient which implies that the nonzero_note_hash_counter has to be true
-  const nonzeroNoteHashCounter = index === undefined;
+  const noteIsTransient = index === undefined;
+  const nonzeroNoteHashCounter = noteIsTransient ? true : false;
 
   // To pack the note as retrieved note we first need to reconstruct the note metadata.
   const noteMetadata = fromRawData(nonzeroNoteHashCounter, noteNonce);
 
   // Pack metadata first (stage and maybe_note_nonce), followed by the rest
-  return [...note.items, contractAddress, randomness, new Fr(noteMetadata.stage), noteMetadata.maybeNoteNonce];
+  return [...note.items, contractAddress, new Fr(noteMetadata.stage), noteMetadata.maybeNoteNonce];
 }

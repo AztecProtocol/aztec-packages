@@ -737,7 +737,6 @@ impl TestEnvironment {
         let message_plaintext = BoundedVec::from_array(private_note_to_message_plaintext(
             emission.content.note,
             emission.content.storage_slot,
-            emission.content.randomness,
         ));
 
         // Then we fetch the transaction effects from the latest transaction, in which the note from the emission is
@@ -761,18 +760,17 @@ impl TestEnvironment {
         // We also need to provide an implementation for the `compute_note_hash_and_nullifier` function, which would
         // typically be created by the macros for the different notes in a given contract. Here we build one specialized
         // for `Note`.
-        let compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<_> = |packed_note, storage_slot, note_type_id, contract_address, randomness, note_nonce| {
+        let compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<_> = |packed_note, storage_slot, note_type_id, contract_address, note_nonce| {
             assert_eq(note_type_id, Note::get_id());
             assert_eq(packed_note.len(), <Note as Packable>::N);
 
             let note = Note::unpack(subarray(packed_note.storage(), 0));
 
-            let note_hash = note.compute_note_hash(storage_slot, randomness);
+            let note_hash = note.compute_note_hash(storage_slot);
             let note_hash_for_nullification = compute_note_hash_for_nullification(
                 RetrievedNote {
                     note,
                     contract_address,
-                    randomness,
                     metadata: SettledNoteMetadata::new(note_nonce).into(),
                 },
                 storage_slot,

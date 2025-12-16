@@ -175,19 +175,18 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
     // Get all historical performance for this validator
     const allPerformance = await this.store.getProvenPerformance(validator);
 
-    // Sort by epoch descending to get most recent first, keep only epochs strictly before the current one, and get the first N
-    const pastEpochs = allPerformance.sort((a, b) => Number(b.epoch - a.epoch)).filter(p => p.epoch < currentEpoch);
-
     // If we don't have enough historical data, don't slash
-    if (pastEpochs.length < requiredConsecutiveEpochs) {
+    if (allPerformance.length < requiredConsecutiveEpochs) {
       this.logger.debug(
         `Not enough historical data for slashing ${validator} for inactivity (${allPerformance.length} epochs < ${requiredConsecutiveEpochs} required)`,
       );
       return false;
     }
 
-    // Check that we have at least requiredConsecutiveEpochs and that all of them are above the inactivity threshold
-    return pastEpochs
+    // Sort by epoch descending to get most recent first, keep only epochs strictly before the current one, and get the first N
+    return allPerformance
+      .sort((a, b) => Number(b.epoch - a.epoch))
+      .filter(p => p.epoch < currentEpoch)
       .slice(0, requiredConsecutiveEpochs)
       .every(p => p.missed / p.total >= this.config.slashInactivityTargetPercentage);
   }

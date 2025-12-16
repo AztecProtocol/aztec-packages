@@ -15,5 +15,4 @@ environments/*
 !environments/next-net.env
 !environments/next-scenario.env
 !environments/ignition-fisherman.env
-!environments/tps-scenario.env
 *.tfvars

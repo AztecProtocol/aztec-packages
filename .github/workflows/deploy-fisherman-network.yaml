@@ -194,6 +194,6 @@ jobs:
     secrets: inherit
     with:
       network: mainnet
-      namespace: mainnet-irm
+      namespace: ignition-fisherman-mainnet
       l1_network: mainnet
       cluster: aztec-gke-private

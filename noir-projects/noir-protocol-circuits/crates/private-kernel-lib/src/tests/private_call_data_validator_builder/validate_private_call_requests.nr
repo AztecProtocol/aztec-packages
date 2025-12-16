@@ -176,7 +176,6 @@ fn validate_private_call_requests_split_private_calls_0_succeeds() {
 fn validate_private_call_requests_split_private_calls_no_private_calls_succeeds() {
     let mut builder = PrivateCallDataValidatorBuilder::new_first_call();
 
-    builder.private_call.counter = 50;
     builder.split_calls(50);
     // This private call doesn't not make any private call requests.
 

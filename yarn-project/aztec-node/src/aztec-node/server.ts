@@ -22,6 +22,7 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { BadRequestError } from '@aztec/foundation/json-rpc';
 import { type Logger, createLogger } from '@aztec/foundation/log';
+import { SerialQueue } from '@aztec/foundation/queue';
 import { count } from '@aztec/foundation/string';
 import { DateProvider, Timer } from '@aztec/foundation/timer';
 import { MembershipWitness, SiblingPath } from '@aztec/foundation/trees';
@@ -132,6 +133,9 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
   // Prevent two snapshot operations to happen simultaneously
   private isUploadingSnapshot = false;
 
+  // Serial queue to ensure that we only send one tx at a time
+  private txQueue: SerialQueue = new SerialQueue();
+
   public readonly tracer: Tracer;
 
   constructor(
@@ -157,6 +161,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
   ) {
     this.metrics = new NodeMetrics(telemetry, 'AztecNodeService');
     this.tracer = telemetry.getTracer('AztecNodeService');
+    this.txQueue.start();
 
     this.log.info(`Aztec Node version: ${this.packageVersion}`);
     this.log.info(`Aztec Node started on chain 0x${l1ChainId.toString(16)}`, config.l1Contracts);
@@ -283,9 +288,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       options.prefilledPublicData,
       telemetry,
     );
-    const circuitVerifier = config.realProofs
-      ? await BBCircuitVerifier.new(config)
-      : new TestCircuitVerifier(config.proverTestVerificationDelayMs);
+    const circuitVerifier = config.realProofs ? await BBCircuitVerifier.new(config) : new TestCircuitVerifier();
     if (!config.realProofs) {
       log.warn(`Aztec node is accepting fake proofs`);
     }
@@ -683,7 +686,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
    * @param tx - The transaction to be submitted.
    */
   public async sendTx(tx: Tx) {
-    await this.#sendTx(tx);
+    await this.txQueue.put(() => this.#sendTx(tx));
   }
 
   async #sendTx(tx: Tx) {
@@ -730,6 +733,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
    */
   public async stop() {
     this.log.info(`Stopping Aztec Node`);
+    await this.txQueue.end();
     await tryStop(this.validatorsSentinel);
     await tryStop(this.epochPruneWatcher);
     await tryStop(this.slasherClient);

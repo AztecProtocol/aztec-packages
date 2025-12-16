@@ -148,9 +148,7 @@ export async function createProverNode(
 
   const proofVerifier = new QueuedIVCVerifier(
     config,
-    config.realProofs
-      ? await BBCircuitVerifier.new(config)
-      : new TestCircuitVerifier(config.proverTestVerificationDelayMs),
+    config.realProofs ? await BBCircuitVerifier.new(config) : new TestCircuitVerifier(),
   );
 
   const p2pClient = await createP2PClient(

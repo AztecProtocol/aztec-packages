@@ -84,12 +84,20 @@ export const randomTxHash = (): TxHash => TxHash.random();
 
 export const randomUniqueNote = async ({
   note = Note.random(),
+  recipient = undefined,
   contractAddress = undefined,
   txHash = randomTxHash(),
   storageSlot = Fr.random(),
   noteNonce = Fr.random(),
 }: Partial<UniqueNote> = {}) => {
-  return new UniqueNote(note, contractAddress ?? (await AztecAddress.random()), storageSlot, txHash, noteNonce);
+  return new UniqueNote(
+    note,
+    recipient ?? (await AztecAddress.random()),
+    contractAddress ?? (await AztecAddress.random()),
+    storageSlot,
+    txHash,
+    noteNonce,
+  );
 };
 
 export const mockTx = async (

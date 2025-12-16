@@ -7,7 +7,6 @@ use protocol_types::{address::AztecAddress, traits::{Deserialize, Packable, Seri
 pub struct RetrievedNote<Note> {
     pub note: Note,
     pub contract_address: AztecAddress,
-    pub randomness: Field,
     pub metadata: NoteMetadata,
 }
 
@@ -31,7 +30,6 @@ mod test {
     unconstrained fn packing_retrieved_note_matches_typescript() {
         // The following 4 values are an input to the typescript function `packAsRetrievedNote`
         let contract_address = AztecAddress::from_field(1);
-        let randomness = 42;
         let note_nonce = 2;
         let index = Option::<Field>::none(); // Transient note
         let packed_note = [3, 4];
@@ -46,7 +44,6 @@ mod test {
         let retrieved_note = RetrievedNote {
             note: TestNote::unpack(packed_note),
             contract_address,
-            randomness,
             metadata: note_metadata,
         };
 
@@ -56,7 +53,6 @@ mod test {
             0x0000000000000000000000000000000000000000000000000000000000000003,
             0x0000000000000000000000000000000000000000000000000000000000000004,
             0x0000000000000000000000000000000000000000000000000000000000000001,
-            0x000000000000000000000000000000000000000000000000000000000000002a,
             0x0000000000000000000000000000000000000000000000000000000000000002,
             0x0000000000000000000000000000000000000000000000000000000000000002,
         ];

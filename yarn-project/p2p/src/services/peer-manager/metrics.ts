@@ -15,7 +15,6 @@ export class PeerManagerMetrics {
   private sentGoodbyes: UpDownCounter;
   private receivedGoodbyes: UpDownCounter;
   private peerCount: Gauge;
-  private lowScoreDisconnects: UpDownCounter;
 
   public readonly tracer: Tracer;
 
@@ -41,11 +40,6 @@ export class PeerManagerMetrics {
       unit: 'peers',
       valueType: ValueType.INT,
     });
-    this.lowScoreDisconnects = meter.createUpDownCounter(Metrics.PEER_MANAGER_LOW_SCORE_DISCONNECTS, {
-      description: 'Number of peers disconnected due to low score',
-      unit: 'peers',
-      valueType: ValueType.INT,
-    });
   }
 
   public recordGoodbyeSent(reason: GoodByeReason) {
@@ -58,9 +52,5 @@ export class PeerManagerMetrics {
 
   public recordPeerCount(count: number) {
     this.peerCount.record(count);
-  }
-
-  public recordLowScoreDisconnect(scoreState: 'Banned' | 'Disconnect') {
-    this.lowScoreDisconnects.add(1, { [Attributes.P2P_PEER_SCORE_STATE]: scoreState });
   }
 }

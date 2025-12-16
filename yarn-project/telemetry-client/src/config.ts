@@ -11,7 +11,6 @@ export interface TelemetryClientConfig {
   otelCollectIntervalMs: number;
   otelExportTimeoutMs: number;
   otelExcludeMetrics: string[];
-  otelIncludeMetrics: string[];
 }
 
 export const telemetryClientConfigMappings: ConfigMappingsType<TelemetryClientConfig> = {
@@ -45,18 +44,6 @@ export const telemetryClientConfigMappings: ConfigMappingsType<TelemetryClientCo
   otelExcludeMetrics: {
     env: 'OTEL_EXCLUDE_METRICS',
     description: 'A list of metric prefixes to exclude from export',
-    parseEnv: (val: string) =>
-      val
-        ? val
-            .split(',')
-            .map(s => s.trim())
-            .filter(s => s.length > 0)
-        : [],
-    defaultValue: [],
-  },
-  otelIncludeMetrics: {
-    env: 'OTEL_INCLUDE_METRICS',
-    description: 'A list of metric prefixes to include in export (ignored if OTEL_EXCLUDE_METRICS is set)',
     parseEnv: (val: string) =>
       val
         ? val

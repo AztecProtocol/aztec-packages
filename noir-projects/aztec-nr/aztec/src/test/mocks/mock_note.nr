@@ -27,8 +27,8 @@ impl NoteType for MockNote {
 }
 
 impl NoteHash for MockNote {
-    fn compute_note_hash(self, storage_slot: Field, randomness: Field) -> Field {
-        let input = self.pack().concat([storage_slot, randomness]);
+    fn compute_note_hash(self: Self, storage_slot: Field) -> Field {
+        let input = self.pack().concat([storage_slot]);
         poseidon2_hash_with_separator(input, GENERATOR_INDEX__NOTE_HASH)
     }
 
@@ -61,18 +61,12 @@ impl NoteHash for MockNote {
 pub(crate) struct MockNoteBuilder {
     value: Field,
     contract_address: Option<AztecAddress>,
-    randomness: Option<Field>,
     note_metadata: Option<NoteMetadata>,
 }
 
 impl MockNoteBuilder {
     pub(crate) fn new(value: Field) -> Self {
-        MockNoteBuilder {
-            value,
-            contract_address: Option::none(),
-            randomness: Option::none(),
-            note_metadata: Option::none(),
-        }
+        MockNoteBuilder { value, contract_address: Option::none(), note_metadata: Option::none() }
     }
 
     pub(crate) fn contract_address(&mut self, contract_address: AztecAddress) -> &mut Self {
@@ -85,11 +79,6 @@ impl MockNoteBuilder {
         self
     }
 
-    pub(crate) fn randomness(&mut self, randomness: Field) -> &mut Self {
-        self.randomness = Option::some(randomness);
-        self
-    }
-
     pub(crate) fn build_note(self) -> MockNote {
         MockNote { value: self.value }
     }
@@ -98,7 +87,6 @@ impl MockNoteBuilder {
         RetrievedNote {
             note: MockNote { value: self.value },
             contract_address: self.contract_address.unwrap_or(AztecAddress::zero()),
-            randomness: self.randomness.unwrap_or(0),
             // If the option is `None` for self.note_metadata, we fill it with invalid note metadata, which would result in the kernel
             // failing to prove note existence. Because our tests don't interact with the kernel this is not a problem.
             metadata: self.note_metadata.unwrap_or(std::mem::zeroed()),

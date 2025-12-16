@@ -71,8 +71,8 @@ comptime fn generate_note_hash_trait_impl(s: TypeDefinition) -> Quoted {
 
     quote {
         impl aztec::note::note_interface::NoteHash for $name {
-            fn compute_note_hash(self, storage_slot: Field, randomness: Field) -> Field {
-                let inputs = aztec::protocol_types::traits::Packable::pack(self).concat( [storage_slot, randomness]);
+            fn compute_note_hash(self, storage_slot: Field) -> Field {
+                let inputs = aztec::protocol_types::traits::Packable::pack(self).concat( [storage_slot]);
                 aztec::protocol_types::hash::poseidon2_hash_with_separator(inputs, aztec::protocol_types::constants::GENERATOR_INDEX__NOTE_HASH)
             }
 

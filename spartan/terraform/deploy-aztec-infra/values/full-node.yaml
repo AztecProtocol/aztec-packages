@@ -1,7 +1,0 @@
-node:
-  env:
-    OTEL_SERVICE_NAME: "full-node"
-
-  startCmd:
-    - --node
-    - --archiver
