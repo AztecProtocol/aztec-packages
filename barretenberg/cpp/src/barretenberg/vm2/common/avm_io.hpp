@@ -425,8 +425,29 @@ struct AvmProvingInputs {
     MSGPACK_FIELDS(publicInputs, hints);
 };
 
+struct PublicSimulatorConfig {
+    FF proverId = 0;
+    bool skipFeeEnforcement = false;
+    bool collectCallMetadata = false;
+    bool collectHints = false;
+    bool collectDebugLogs = false;
+    uint32_t maxDebugLogMemoryReads = 0;
+    bool collectStatistics = false;
+
+    bool operator==(const PublicSimulatorConfig& other) const = default;
+
+    MSGPACK_FIELDS(proverId,
+                   skipFeeEnforcement,
+                   collectCallMetadata,
+                   collectHints,
+                   collectDebugLogs,
+                   maxDebugLogMemoryReads,
+                   collectStatistics);
+};
+
 struct AvmFastSimulationInputs {
     world_state::WorldStateRevision wsRevision;
+    PublicSimulatorConfig config;
     Tx tx;
     GlobalVariables globalVariables;
     ProtocolContracts protocolContracts;
@@ -434,7 +455,7 @@ struct AvmFastSimulationInputs {
     static AvmFastSimulationInputs from(const std::vector<uint8_t>& data);
     bool operator==(const AvmFastSimulationInputs& other) const = default;
 
-    MSGPACK_FIELDS(wsRevision, tx, globalVariables, protocolContracts);
+    MSGPACK_FIELDS(wsRevision, config, tx, globalVariables, protocolContracts);
 };
 
 ////////////////////////////////////////////////////////////////////////////
@@ -454,7 +475,7 @@ struct TxSimulationResult {
     GasUsed gas_used;
     RevertCode revert_code;
     std::optional<DummyStructure> revert_reason;
-    // These are only guaranteed to be present in "client initiated simulation" mode.
+    // These are only guaranteed to be present if the simulator is configured to collect them.
     // TODO(fcarreiro): Sort these out.
     std::optional<std::vector<DummyStructure>> processed_phases;
     std::optional<std::vector<FF>> app_logic_return_value;

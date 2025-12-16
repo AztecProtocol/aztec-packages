@@ -184,7 +184,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     ExecutionTrace blocks;
 
     // The set of variables which have been constrained to a particular value via an arithmetic gate
-    std::map<FF, uint32_t> constant_variable_indices;
+    std::unordered_map<FF, uint32_t> constant_variable_indices;
 
     // The set of lookup tables used by the circuit, plus the gate data for the lookups from each table
     std::vector<plookup::BasicTable> lookup_tables;
@@ -198,11 +198,6 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     std::vector<uint32_t> memory_write_records;
     std::map<uint64_t, RangeList> range_lists; // DOCTODO: explain this.
 
-    // Witnesses that can be in one gate, but that's intentional (used in boomerang catcher)
-    std::vector<uint32_t> used_witnesses; // AUDITTODO: isolate these boomerang details?
-    // Witnesses that appear in finalize method (used in boomerang catcher). Need to check
-    // that all variables from some connected component were created after finalize method was called
-    std::unordered_set<uint32_t> finalize_witnesses;
     std::vector<cached_partial_non_native_field_multiplication> cached_partial_non_native_field_multiplications;
 
     bool circuit_finalized = false;
@@ -397,53 +392,6 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
         return std::max(get_tables_size(), num_filled_gates);
     }
 
-    std::vector<uint32_t> get_used_witnesses() const { return used_witnesses; }
-
-    /**
-     * @brief Add a witness index to the boomerang exclusion list
-     * @param var_idx Witness index to add to the boomerang exclusion list
-     * @details Barretenberg has special boomerang value detection logic that detects variables that are used in one
-     * gate However, there are some cases where we want to exclude certain variables from this detection (for example,
-     * when we show that x!=0 -> x*(x^-1) = 1).
-     */
-    void update_used_witnesses(uint32_t var_idx) { used_witnesses.emplace_back(var_idx); }
-
-    /**
-     * @brief Add a list of witness indices to the boomerang exclusion list
-     * @param used_indices List of witness indices to add to the boomerang exclusion list
-     * @details Barretenberg has special boomerang value detection logic that detects variables that are used in one
-     * gate However, there are some cases where we want to exclude certain variables from this detection (for example,
-     * when we show that x!=0 -> x*(x^-1) = 1).
-     */
-    void update_used_witnesses(const std::vector<uint32_t>& used_indices)
-    {
-        used_witnesses.reserve(used_witnesses.size() + used_indices.size());
-        for (const auto& it : used_indices) {
-            used_witnesses.emplace_back(it);
-        }
-    }
-    /**
-     * @brief Add a witness index to the finalize exclusion list
-     * @param var_idx Witness index to add to the finalize exclusion list
-     * @details Barretenberg has special isolated subcircuit detection logic that ensures that variables in the main
-     * circuit are all connected. However, during finalization we intentionally create some subcircuits that are only
-     * connected through the set permutation. We want to exclude these variables from this detection.
-     */
-    void update_finalize_witnesses(uint32_t var_idx) { finalize_witnesses.insert(var_idx); }
-    /**
-     * @brief Add a list of witness indices to the finalize exclusion list
-     * @param finalize_indices List of witness indices to add to the finalize exclusion list
-     * @details Barretenberg has special isolated subcircuit detection logic that ensures that variables in the main
-     * circuit are all connected. However, during finalization we intentionally create some subcircuits that are only
-     * connected through the set permutation. We want to exclude these variables from this detection.
-     */
-    void update_finalize_witnesses(const std::vector<uint32_t>& finalize_indices)
-    {
-        for (const auto& it : finalize_indices) {
-            finalize_witnesses.insert(it);
-        }
-    }
-
     void assert_equal_constant(const uint32_t a_idx, const FF& b, std::string const& msg = "assert equal constant")
     {
         if (this->get_variable(a_idx) != b && !this->failed()) {
@@ -582,6 +530,74 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
 
     void create_poseidon2_external_gate(const poseidon2_external_gate_<FF>& in);
     void create_poseidon2_internal_gate(const poseidon2_internal_gate_<FF>& in);
+
+    // ========================================================================================
+    // TOOLING: Boomerang Detection
+    // ========================================================================================
+    // The boomerang mechanism enables detection of variables used in only one gate, which may
+    // indicate bugs.
+    // Note: some patterns (like x*(x^-1)=1 for non-zero checks) intentionally employ single-use witnesses. These
+    // members and methods allow excluding such witnesses from boomerang detection.
+
+  private:
+    // Witnesses that can be in one gate, but that's intentional (used in boomerang catcher)
+    std::vector<uint32_t> used_witnesses;
+    // Witnesses that appear in finalize method (used in boomerang catcher). Need to check
+    // that all variables from some connected component were created after finalize method was called
+    std::unordered_set<uint32_t> finalize_witnesses;
+
+  public:
+    const std::vector<uint32_t>& get_used_witnesses() const { return used_witnesses; }
+    const std::unordered_set<uint32_t>& get_finalize_witnesses() const { return finalize_witnesses; }
+
+    /**
+     * @brief Add a witness index to the boomerang exclusion list
+     * @param var_idx Witness index to add to the boomerang exclusion list
+     * @details Barretenberg has special boomerang value detection logic that detects variables that are used in one
+     * gate However, there are some cases where we want to exclude certain variables from this detection (for example,
+     * when we show that x!=0 -> x*(x^-1) = 1).
+     */
+    void update_used_witnesses(uint32_t var_idx) { used_witnesses.emplace_back(var_idx); }
+
+    /**
+     * @brief Add a list of witness indices to the boomerang exclusion list
+     * @param used_indices List of witness indices to add to the boomerang exclusion list
+     * @details Barretenberg has special boomerang value detection logic that detects variables that are used in one
+     * gate However, there are some cases where we want to exclude certain variables from this detection (for example,
+     * when we show that x!=0 -> x*(x^-1) = 1).
+     */
+    void update_used_witnesses(const std::vector<uint32_t>& used_indices)
+    {
+        used_witnesses.reserve(used_witnesses.size() + used_indices.size());
+        for (const auto& it : used_indices) {
+            used_witnesses.emplace_back(it);
+        }
+    }
+
+    /**
+     * @brief Add a witness index to the finalize exclusion list
+     * @param var_idx Witness index to add to the finalize exclusion list
+     * @details Barretenberg has special isolated subcircuit detection logic that ensures that variables in the main
+     * circuit are all connected. However, during finalization we intentionally create some subcircuits that are only
+     * connected through the set permutation. We want to exclude these variables from this detection.
+     */
+    void update_finalize_witnesses(uint32_t var_idx) { finalize_witnesses.insert(var_idx); }
+
+    /**
+     * @brief Add a list of witness indices to the finalize exclusion list
+     * @param finalize_indices List of witness indices to add to the finalize exclusion list
+     * @details Barretenberg has special isolated subcircuit detection logic that ensures that variables in the main
+     * circuit are all connected. However, during finalization we intentionally create some subcircuits that are only
+     * connected through the set permutation. We want to exclude these variables from this detection.
+     */
+    void update_finalize_witnesses(const std::vector<uint32_t>& finalize_indices)
+    {
+        for (const auto& it : finalize_indices) {
+            finalize_witnesses.insert(it);
+        }
+    }
+
+    // ========================================================================================
 
     msgpack::sbuffer export_circuit() override;
 };

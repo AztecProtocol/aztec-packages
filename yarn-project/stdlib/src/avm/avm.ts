@@ -1,3 +1,4 @@
+import { DEFAULT_MAX_DEBUG_LOG_MEMORY_READS } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { jsonParseWithSchema, jsonStringify } from '@aztec/foundation/json-rpc';
 
@@ -1056,7 +1057,7 @@ export class PublicTxResult {
     public gasUsed: GasUsed,
     public revertCode: RevertCode,
     public revertReason: SimulationError | undefined, // Revert reason, if any
-    // These are only guaranteed to be present in "client initiated simulation" mode.
+    // These are only guaranteed to be present if the simulator is configured to collect them.
     public processedPhases: ProcessedPhase[] | undefined,
     public logs: DebugLog[] | undefined,
     // For the proving request.
@@ -1121,17 +1122,52 @@ export class PublicTxResult {
   }
 }
 
-export type PublicTxSimulatorConfig = {
-  proverId: Fr;
-  doMerkleOperations: boolean;
-  skipFeeEnforcement: boolean;
-  clientInitiatedSimulation: boolean;
-  maxDebugLogMemoryReads: number;
-};
+export class PublicSimulatorConfig {
+  constructor(
+    public readonly proverId: Fr,
+    public readonly skipFeeEnforcement: boolean,
+    public readonly collectCallMetadata: boolean, // processedPhases.
+    public readonly collectHints: boolean, // hints.
+    public readonly collectDebugLogs: boolean, // logs.
+    public readonly maxDebugLogMemoryReads: number,
+    public readonly collectStatistics: boolean, // timings etc.
+  ) {}
+
+  static from(obj: Partial<PublicSimulatorConfig>): PublicSimulatorConfig {
+    return new PublicSimulatorConfig(
+      obj.proverId ?? Fr.ZERO,
+      obj.skipFeeEnforcement ?? false,
+      obj.collectCallMetadata ?? false,
+      obj.collectHints ?? false,
+      obj.collectDebugLogs ?? false,
+      obj.maxDebugLogMemoryReads ?? DEFAULT_MAX_DEBUG_LOG_MEMORY_READS,
+      obj.collectStatistics ?? false,
+    );
+  }
+
+  static empty() {
+    return PublicSimulatorConfig.from({});
+  }
+
+  static get schema() {
+    return z
+      .object({
+        proverId: Fr.schema,
+        skipFeeEnforcement: z.boolean(),
+        collectCallMetadata: z.boolean(),
+        collectHints: z.boolean(),
+        collectDebugLogs: z.boolean(),
+        maxDebugLogMemoryReads: z.number(),
+        collectStatistics: z.boolean(),
+      })
+      .transform(PublicSimulatorConfig.from);
+  }
+}
 
 export class AvmFastSimulationInputs {
   constructor(
     public readonly wsRevision: WorldStateRevision,
+    public readonly config: PublicSimulatorConfig,
     public tx: AvmTxHint,
     public globalVariables: GlobalVariables,
     public protocolContracts: ProtocolContracts,
@@ -1140,6 +1176,7 @@ export class AvmFastSimulationInputs {
   static empty() {
     return new AvmFastSimulationInputs(
       WorldStateRevision.empty(),
+      PublicSimulatorConfig.empty(),
       AvmTxHint.empty(),
       GlobalVariables.empty(),
       ProtocolContracts.empty(),
@@ -1150,13 +1187,14 @@ export class AvmFastSimulationInputs {
     return z
       .object({
         wsRevision: WorldStateRevision.schema,
+        config: PublicSimulatorConfig.schema,
         tx: AvmTxHint.schema,
         globalVariables: GlobalVariables.schema,
         protocolContracts: ProtocolContracts.schema,
       })
       .transform(
-        ({ wsRevision, tx, globalVariables, protocolContracts }) =>
-          new AvmFastSimulationInputs(wsRevision, tx, globalVariables, protocolContracts),
+        ({ wsRevision, config, tx, globalVariables, protocolContracts }) =>
+          new AvmFastSimulationInputs(wsRevision, config, tx, globalVariables, protocolContracts),
       );
   }
 

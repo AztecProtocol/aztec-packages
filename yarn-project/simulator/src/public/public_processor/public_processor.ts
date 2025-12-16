@@ -13,6 +13,7 @@ import {
   AvmExecutionHints,
   type AvmProvingRequest,
   PublicDataWrite,
+  PublicSimulatorConfig,
 } from '@aztec/stdlib/avm';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
@@ -77,23 +78,12 @@ export class PublicProcessorFactory {
   public create(
     merkleTree: MerkleTreeWriteOperations,
     globalVariables: GlobalVariables,
-    config: {
-      skipFeeEnforcement: boolean;
-      clientInitiatedSimulation: boolean;
-      proverId?: Fr;
-      maxDebugLogMemoryReads?: number;
-    },
+    config: PublicSimulatorConfig,
   ): PublicProcessor {
     const contractsDB = new PublicContractsDB(this.contractDataSource);
 
     const guardedFork = new GuardedMerkleTreeOperations(merkleTree);
-    const publicTxSimulator = this.createPublicTxSimulator(guardedFork, contractsDB, globalVariables, {
-      proverId: config.proverId,
-      doMerkleOperations: true,
-      skipFeeEnforcement: config.skipFeeEnforcement,
-      clientInitiatedSimulation: config.clientInitiatedSimulation,
-      maxDebugLogMemoryReads: config.maxDebugLogMemoryReads,
-    });
+    const publicTxSimulator = this.createPublicTxSimulator(guardedFork, contractsDB, globalVariables, config);
 
     return new PublicProcessor(
       globalVariables,

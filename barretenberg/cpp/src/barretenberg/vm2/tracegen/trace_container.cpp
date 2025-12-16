@@ -1,6 +1,7 @@
 #include "barretenberg/vm2/tracegen/trace_container.hpp"
 
 #include <algorithm>
+#include <mutex>
 
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/common/ref_vector.hpp"

@@ -7,7 +7,6 @@
 #include "polynomial_arithmetic.hpp"
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/mem.hpp"
-#include "barretenberg/common/slab_allocator.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "iterate_over_domain.hpp"
@@ -21,19 +20,13 @@ namespace {
 
 template <typename Fr> std::shared_ptr<Fr[]> get_scratch_space(const size_t num_elements)
 {
-    // WASM needs to release slab so it can be reused elsewhere.
-    // But for native code it's more performant to hold onto it.
-#ifdef __wasm__
-    return std::static_pointer_cast<Fr[]>(get_mem_slab(num_elements * sizeof(Fr)));
-#else
     static std::shared_ptr<Fr[]> working_memory = nullptr;
     static size_t current_size = 0;
     if (num_elements > current_size) {
-        working_memory = std::static_pointer_cast<Fr[]>(get_mem_slab(num_elements * sizeof(Fr)));
+        working_memory = std::make_shared<Fr[]>(num_elements);
         current_size = num_elements;
     }
     return working_memory;
-#endif
 }
 
 } // namespace

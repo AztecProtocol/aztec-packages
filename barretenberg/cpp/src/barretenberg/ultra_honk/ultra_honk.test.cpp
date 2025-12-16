@@ -1,4 +1,5 @@
 #include "ultra_honk.test.hpp"
+#include "barretenberg/honk/relation_checker.hpp"
 
 #include <gtest/gtest.h>
 
@@ -18,9 +19,10 @@ using FlavorTypes = testing::Types<UltraFlavor,
 using FlavorTypes =
     testing::Types<UltraFlavor, UltraZKFlavor, UltraKeccakFlavor, UltraKeccakZKFlavor, UltraRollupFlavor>;
 #endif
-
 TYPED_TEST_SUITE(UltraHonkTests, FlavorTypes);
-
+using NonZKFlavorTypes = testing::Types<UltraFlavor, UltraKeccakFlavor, UltraRollupFlavor>;
+template <typename T> using UltraHonkNonZKTests = UltraHonkTests<T>;
+TYPED_TEST_SUITE(UltraHonkNonZKTests, NonZKFlavorTypes);
 /**
  * @brief Check that size of a ultra honk proof matches the corresponding constant
  * @details If this test FAILS, then the following (non-exhaustive) list should probably be updated as well:
@@ -446,6 +448,123 @@ TYPED_TEST(UltraHonkTests, BadTagPermutation)
 
         TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/true);
     }
+}
+// The failure tests for `z_perm` explicitly avoid the ZK flavors, as we are manually tampering with `z_perm`.
+TYPED_TEST(UltraHonkNonZKTests, ZPermZeroedOutFailure)
+{
+    using Flavor = TypeParam;
+    using Builder = typename Flavor::CircuitBuilder;
+
+    using ProverInstance = ProverInstance_<Flavor>;
+    using VerificationKey = Flavor::VerificationKey;
+
+    using Prover = TestFixture::Prover;
+
+    Builder builder;
+
+    auto a = fr::random_element();
+    auto b = fr::random_element();
+    auto c = a + b;
+
+    uint32_t a_idx = builder.add_variable(a);
+    uint32_t a_copy_idx = builder.add_variable(a);
+    uint32_t b_idx = builder.add_variable(b);
+    uint32_t c_idx = builder.add_variable(c);
+
+    builder.create_add_gate({ a_idx, b_idx, c_idx, 1, 1, -1, 0 });
+    builder.create_add_gate({ a_copy_idx, b_idx, c_idx, 1, 1, -1, 0 });
+    builder.assert_equal(a_copy_idx, a_idx);
+
+    TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(builder);
+
+    auto prover_instance = std::make_shared<ProverInstance>(builder);
+    auto verification_key = std::make_shared<VerificationKey>(prover_instance->get_precomputed());
+
+    Prover prover(prover_instance, verification_key);
+    auto proof = prover.construct_proof();
+    auto& z_perm = prover_instance->polynomials.z_perm;
+
+    // First verify that the Permutation relation holds.
+    auto permutation_relation_failures = RelationChecker<Flavor>::template check<UltraPermutationRelation<fr>>(
+        prover_instance->polynomials, prover_instance->relation_parameters, "UltraPermutation - Before Tampering");
+    EXPECT_TRUE(permutation_relation_failures.empty());
+
+    // Tamper: zero-out z_perm
+    for (size_t i = z_perm.start_index(); i < z_perm.end_index(); ++i) {
+        z_perm.at(i) = fr(0);
+    }
+    prover_instance->polynomials.set_shifted();
+    auto tampered_permutation_relation_failures = RelationChecker<Flavor>::template check<UltraPermutationRelation<fr>>(
+        prover_instance->polynomials,
+        prover_instance->relation_parameters,
+        "UltraPermutation - After zeroing out z_perm");
+    // Verify that the Permutation relation now fails
+    EXPECT_FALSE(tampered_permutation_relation_failures.empty());
+}
+
+TYPED_TEST(UltraHonkNonZKTests, ZPermShiftNotZeroAtLagrangeLastFailure)
+{
+    using Flavor = TypeParam;
+    using Builder = typename Flavor::CircuitBuilder;
+
+    using ProverInstance = ProverInstance_<Flavor>;
+    using VerificationKey = Flavor::VerificationKey;
+
+    using Prover = TestFixture::Prover;
+
+    Builder builder;
+
+    auto a = fr::random_element();
+    auto b = fr::random_element();
+    auto c = a + b;
+
+    uint32_t a_idx = builder.add_variable(a);
+    uint32_t a_copy_idx = builder.add_variable(a);
+    uint32_t b_idx = builder.add_variable(b);
+    uint32_t c_idx = builder.add_variable(c);
+
+    builder.create_add_gate({ a_idx, b_idx, c_idx, 1, 1, -1, 0 });
+    builder.create_add_gate({ a_copy_idx, b_idx, c_idx, 1, 1, -1, 0 });
+    builder.assert_equal(a_copy_idx, a_idx);
+
+    TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(builder);
+
+    auto prover_instance = std::make_shared<ProverInstance>(builder);
+    auto verification_key = std::make_shared<VerificationKey>(prover_instance->get_precomputed());
+
+    Prover prover(prover_instance, verification_key);
+    auto proof = prover.construct_proof();
+
+    // first verify that the Permutation relation holds.
+    auto permutation_relation_failures = RelationChecker<Flavor>::template check<UltraPermutationRelation<fr>>(
+        prover_instance->polynomials, prover_instance->relation_parameters, "UltraPermutation - Before Tampering");
+    EXPECT_TRUE(permutation_relation_failures.empty());
+    // we make z_perm and z_perm_shift full polynomials to tamper with values that are outside the usual allocated
+    // range. This allows us to failure test for the subrelation `z_perm_shift * lagrange_last == 0`.
+    auto& z_perm = prover_instance->polynomials.z_perm;
+    auto last_valid_index = z_perm.end_index();
+    auto& z_perm_shift = prover_instance->polynomials.z_perm_shift;
+    // make the polynomial full to tamper with a last value.
+    prover_instance->polynomials.z_perm = z_perm.full();
+    prover_instance->polynomials.z_perm_shift = z_perm_shift.full();
+
+    ASSERT_EQ(prover_instance->polynomials.lagrange_last.at(last_valid_index - 1), fr(1));
+    ASSERT_EQ(prover_instance->polynomials.z_perm.at(last_valid_index), fr(0));
+    ASSERT_EQ(prover_instance->polynomials.z_perm_shift.at(last_valid_index - 1), fr(0));
+    // Tamper: change `z_perm_shift` to something non-zero when `lagrange_last == 1`.
+    prover_instance->polynomials.z_perm_shift.at(last_valid_index - 1) += fr(1);
+    // Note that `z_perm_shift` and `z_perm` are no longer inextricably linked because we have replaced them by their
+    // full incarnations. Therefore, we still `z_perm.at(last_valid_index) == 0`. This does not effect the test we
+    // wish to check.
+
+    // Verify that the Permutation relation now fails.
+    auto tampered_permutation_relation_failures = RelationChecker<Flavor>::template check<UltraPermutationRelation<fr>>(
+        prover_instance->polynomials,
+        prover_instance->relation_parameters,
+        "UltraPermutation - After incrementing z_perm_shift where lagrange_last is 1");
+    EXPECT_FALSE(tampered_permutation_relation_failures.empty());
+    // the first subrelation first fails at `row_idx == last_valid_index - 1`.
+    ASSERT_EQ(tampered_permutation_relation_failures[1], last_valid_index - 1);
 }
 
 TYPED_TEST(UltraHonkTests, SortWidget)

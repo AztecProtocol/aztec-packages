@@ -9,6 +9,7 @@ import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractsHash } from '@aztec/protocol-contracts';
 import { buildFinalBlobChallenges } from '@aztec/prover-client/helpers';
 import type { PublicProcessor, PublicProcessorFactory } from '@aztec/simulator/server';
+import { PublicSimulatorConfig } from '@aztec/stdlib/avm';
 import type { L2Block, L2BlockSource } from '@aztec/stdlib/block';
 import {
   type EpochProver,
@@ -192,11 +193,15 @@ export class EpochProvingJob implements Traceable {
 
         // Process public fns
         const db = await this.createFork(block.number - 1, l1ToL2Messages);
-        const publicProcessor = this.publicProcessorFactory.create(db, globalVariables, {
-          skipFeeEnforcement: true,
-          clientInitiatedSimulation: false,
+        const config = PublicSimulatorConfig.from({
           proverId: this.prover.getProverId().toField(),
+          skipFeeEnforcement: false,
+          collectDebugLogs: false,
+          collectHints: true,
+          maxDebugLogMemoryReads: 0,
+          collectStatistics: false,
         });
+        const publicProcessor = this.publicProcessorFactory.create(db, globalVariables, config);
         const processed = await this.processTxs(publicProcessor, txs);
         await this.prover.addTxs(processed);
         await db.close();

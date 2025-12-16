@@ -1,4 +1,5 @@
 import { LogLevels } from '@aztec/foundation/log';
+import { PublicSimulatorConfig } from '@aztec/stdlib/avm';
 
 import { jest } from '@jest/globals';
 import { mock } from 'jest-mock-extended';
@@ -34,9 +35,9 @@ describe('Misc Instructions', () => {
       expect(inst.toBuffer()).toEqual(buf);
     });
 
-    it('Should execute DebugLog in client-initiated simulation mode', async () => {
+    it('Should execute DebugLog if asked to collect debug logs', async () => {
       const trace = mock<PublicSideEffectTraceInterface>();
-      const env = initExecutionEnvironment({ clientInitiatedSimulation: true });
+      const env = initExecutionEnvironment({ config: PublicSimulatorConfig.from({ collectDebugLogs: true }) });
       const context = initContext({ env, persistableState: initPersistableStateManager({ trace }) });
 
       // Set up memory with message and fields
@@ -88,9 +89,8 @@ describe('Misc Instructions', () => {
       }
     });
 
-    it('DebugLog should be a no-op when not in client-initiated simulation mode', async () => {
-      // NOT client-initiated simulation
-      const env = initExecutionEnvironment({ clientInitiatedSimulation: false });
+    it('DebugLog should be a no-op when not asked to collect debug logs', async () => {
+      const env = initExecutionEnvironment({ config: PublicSimulatorConfig.from({ collectDebugLogs: false }) });
       const context = initContext({ env });
       // Set up memory with message and fields
       const messageOffset = 10;
@@ -125,7 +125,9 @@ describe('Misc Instructions', () => {
 
     it('Should fail when max debug log memory reads is exceeded', async () => {
       const trace = mock<PublicSideEffectTraceInterface>();
-      const env = initExecutionEnvironment({ clientInitiatedSimulation: true, maxDebugLogMemoryReads: 1000 });
+      const env = initExecutionEnvironment({
+        config: PublicSimulatorConfig.from({ collectDebugLogs: true, maxDebugLogMemoryReads: 1000 }),
+      });
       const context = initContext({ env, persistableState: initPersistableStateManager({ trace }) });
 
       const levelOffset = 5;
@@ -160,7 +162,7 @@ describe('Misc Instructions', () => {
     });
 
     it('Should fail with invalid level', async () => {
-      const env = initExecutionEnvironment({ clientInitiatedSimulation: true });
+      const env = initExecutionEnvironment({ config: PublicSimulatorConfig.from({ collectDebugLogs: true }) });
       const context = initContext({ env });
 
       const levelOffset = 5;
