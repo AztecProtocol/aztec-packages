@@ -15,7 +15,7 @@
 #include "barretenberg/sumcheck/sumcheck_output.hpp"
 #include "barretenberg/sumcheck/zk_sumcheck_data.hpp"
 #include "barretenberg/transcript/transcript.hpp"
-#include "barretenberg/ultra_honk/decider_proving_key.hpp"
+#include "barretenberg/ultra_honk/prover_instance.hpp"
 
 namespace bb {
 
@@ -28,14 +28,14 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProver_ {
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     using CommitmentLabels = typename Flavor::CommitmentLabels;
     using PCS = typename Flavor::PCS;
-    using DeciderPK = DeciderProvingKey_<Flavor>;
+    using ProverInstance = ProverInstance_<Flavor>;
     using Transcript = typename Flavor::Transcript;
     using ZKData = ZKSumcheckData<Flavor>;
     using SmallSubgroupIPA = SmallSubgroupIPAProver<Flavor>;
     using Proof = typename Flavor::Transcript::Proof;
 
   public:
-    explicit DeciderProver_(const std::shared_ptr<DeciderPK>&,
+    explicit DeciderProver_(const std::shared_ptr<ProverInstance>&,
                             const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
 
     BB_PROFILE void execute_relation_check_rounds();
@@ -44,7 +44,7 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProver_ {
     Proof export_proof();
     void construct_proof();
 
-    std::shared_ptr<DeciderPK> proving_key;
+    std::shared_ptr<ProverInstance> prover_instance;
 
     std::shared_ptr<Transcript> transcript;
 

@@ -8,7 +8,7 @@
 
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
-#include "barretenberg/ultra_honk/decider_proving_key.hpp"
+#include "barretenberg/ultra_honk/prover_instance.hpp"
 namespace bb {
 /**
  * @brief Methods for managing the compututation of derived witness polynomials such as the permutation grand product,
@@ -38,7 +38,7 @@ template <IsUltraOrMegaHonk Flavor> class WitnessComputation {
                                                  RelationParameters<FF>& relation_parameters,
                                                  size_t size_override = 0);
 
-    static void complete_proving_key_for_test(const std::shared_ptr<DeciderProvingKey_<Flavor>>& decider_pk);
+    static void complete_prover_instance_for_test(const std::shared_ptr<ProverInstance_<Flavor>>& prover_inst);
 };
 
 } // namespace bb

@@ -10,9 +10,9 @@
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/honk/execution_trace/mega_execution_trace.hpp"
-#include "barretenberg/ultra_honk/decider_proving_key.hpp"
+#include "barretenberg/ultra_honk/prover_instance.hpp"
 
-namespace bb::proving_key_inspector {
+namespace bb::prover_instance_inspector {
 
 // Helper for extracting a native Flavor from either a native or recursive flavor.
 template <typename Flavor, bool = IsRecursiveFlavor<Flavor>> struct NativeFlavorHelper {
@@ -36,13 +36,13 @@ uint256_t compute_vk_hash(const Builder& circuit_in,
     requires(IsMegaFlavor<Flavor> && IsMegaBuilder<Builder>)
 {
     using NativeFlavor = typename NativeFlavorHelper<Flavor>::type;
-    using DeciderProvingKey = typename bb::DeciderProvingKey_<NativeFlavor>;
+    using ProverInstance = typename bb::ProverInstance_<NativeFlavor>;
     using VerificationKey = NativeFlavor::VerificationKey;
 
     Builder circuit = circuit_in; // Copy the circuit to avoid modifying the original
 
-    DeciderProvingKey proving_key{ circuit, trace_settings };
-    VerificationKey verification_key{ proving_key.get_precomputed() };
+    ProverInstance prover_instance{ circuit, trace_settings };
+    VerificationKey verification_key{ prover_instance.get_precomputed() };
 
     return verification_key.hash();
 }
@@ -70,11 +70,11 @@ bool is_non_zero(auto& polynomial)
 /**
  * @brief Utility for indicating which polynomials in a decider proving key are identically zero
  *
- * @param decider_proving_key
+ * @param prover_instance
  */
-void inspect_proving_key(auto& decider_proving_key)
+void inspect_prover_instance(auto& prover_instance)
 {
-    auto& prover_polys = decider_proving_key->prover_polynomials;
+    auto& prover_polys = prover_instance->prover_polynomials;
     std::vector<std::string> zero_polys;
     for (auto [label, poly] : zip_view(prover_polys.get_labels(), prover_polys.get_all())) {
         if (!is_non_zero(poly)) {
@@ -92,4 +92,4 @@ void inspect_proving_key(auto& decider_proving_key)
     info();
 }
 
-} // namespace bb::proving_key_inspector
+} // namespace bb::prover_instance_inspector

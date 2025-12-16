@@ -148,12 +148,12 @@ TEST_F(SumcheckTestsRealCircuit, Ultra)
 
     stdlib::recursion::PairingPoints<UltraCircuitBuilder>::add_default_to_public_inputs(builder);
     // Create a prover (it will compute proving key and witness)
-    auto decider_pk = std::make_shared<DeciderProvingKey_<Flavor>>(builder);
+    auto prover_inst = std::make_shared<ProverInstance_<Flavor>>(builder);
 
-    WitnessComputation<Flavor>::complete_proving_key_for_test(decider_pk);
+    WitnessComputation<Flavor>::complete_prover_instance_for_test(prover_inst);
 
     auto prover_transcript = Transcript::prover_init_empty();
-    auto circuit_size = decider_pk->dyadic_size();
+    auto circuit_size = prover_inst->dyadic_size();
     auto log_circuit_size = numeric::get_msb(circuit_size);
     const size_t virtual_log_n = log_circuit_size + 2; // arbitrary but larger than genuine log n
 
@@ -167,14 +167,14 @@ TEST_F(SumcheckTestsRealCircuit, Ultra)
         prover_gate_challenges[idx] =
             prover_transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
     }
-    decider_pk->gate_challenges = prover_gate_challenges;
+    prover_inst->gate_challenges = prover_gate_challenges;
 
     SumcheckProver<Flavor> sumcheck_prover(circuit_size,
-                                           decider_pk->polynomials,
+                                           prover_inst->polynomials,
                                            prover_transcript,
                                            prover_alphas,
                                            prover_gate_challenges,
-                                           decider_pk->relation_parameters,
+                                           prover_inst->relation_parameters,
                                            virtual_log_n);
 
     auto prover_output = sumcheck_prover.prove();
@@ -197,7 +197,7 @@ TEST_F(SumcheckTestsRealCircuit, Ultra)
         padding_indicator_array[idx] = 1;
     }
     auto verifier_output =
-        sumcheck_verifier.verify(decider_pk->relation_parameters, verifier_gate_challenges, padding_indicator_array);
+        sumcheck_verifier.verify(prover_inst->relation_parameters, verifier_gate_challenges, padding_indicator_array);
 
     auto verified = verifier_output.verified;
 

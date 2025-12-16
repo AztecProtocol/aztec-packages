@@ -11,7 +11,7 @@
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/sumcheck/sumcheck_output.hpp"
-#include "barretenberg/ultra_honk/decider_verification_key.hpp"
+#include "barretenberg/ultra_honk/verifier_instance.hpp"
 
 namespace bb {
 template <typename Flavor> class DeciderVerifier_ {
@@ -19,7 +19,7 @@ template <typename Flavor> class DeciderVerifier_ {
     using Commitment = typename Flavor::Commitment;
     using VerificationKey = typename Flavor::VerificationKey;
     using Transcript = typename Flavor::Transcript;
-    using DeciderVerificationKey = DeciderVerificationKey_<Flavor>;
+    using VerifierInstance = VerifierInstance_<Flavor>;
     using DeciderProof = typename Transcript::Proof;
 
   public:
@@ -45,13 +45,13 @@ template <typename Flavor> class DeciderVerifier_ {
      * when the decider is being used in the context of the larger Honk protocol.
      *
      */
-    explicit DeciderVerifier_(const std::shared_ptr<DeciderVerificationKey>& verification_key,
+    explicit DeciderVerifier_(const std::shared_ptr<VerifierInstance>& verification_key,
                               const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
 
     Output verify_proof(const DeciderProof&); // used when a decider proof is known explicitly
     Output verify();                          // used with a transcript that has been initialized with a proof
     std::shared_ptr<VerificationKey> key;
-    std::shared_ptr<DeciderVerificationKey> accumulator;
+    std::shared_ptr<VerifierInstance> accumulator;
     std::shared_ptr<Transcript> transcript;
 };
 
