@@ -225,8 +225,7 @@ export class NoteDataProvider {
    *
    * @param filter - Filter criteria including contractAddress (required), and optional
    *                 owner, storageSlot, status, scopes, and siloedNullifier.
-   * @returns Filtered and deduplicated notes (a note might be present in multiple scopes - we ensure it is only
-   * returned once if this is the case)
+   * @returns Promise resolving to array of NoteDao objects matching the filter
    * @throws If filtering by an empty scopes array. Scopes have to be set to undefined or to a non-empty array.
    */
   async getNotes(filter: NotesFilter): Promise<NoteDao[]> {
@@ -324,15 +323,7 @@ export class NoteDataProvider {
       }
     }
 
-    // A note might be present in multiple scopes - we ensure it is only returned once
-    const deduplicated: NoteDao[] = [];
-    for (const note of result) {
-      if (!deduplicated.some(existing => existing.equals(note))) {
-        deduplicated.push(note);
-      }
-    }
-
-    return deduplicated;
+    return result;
   }
 
   /**
