@@ -93,7 +93,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
 
   async getNotes(
     contractAddress: AztecAddress,
-    owner: AztecAddress | undefined,
+    owner: AztecAddress,
     storageSlot: Fr,
     status: NoteStatus,
     scopes?: AztecAddress[],

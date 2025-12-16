@@ -169,7 +169,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * Real notes coming from DB will have a leafIndex which
    * represents their index in the note hash tree.
    *
-   * @param owner - The owner of the notes. If undefined, returns notes for all owners.
+   * @param owner - The owner of the notes.
    * @param storageSlot - The storage slot.
    * @param numSelects - The number of valid selects in selectBy and selectValues.
    * @param selectBy - An array of indices of the fields to selects.
@@ -183,7 +183,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * @returns Array of note data.
    */
   public async utilityGetNotes(
-    owner: AztecAddress | undefined,
+    owner: AztecAddress,
     storageSlot: Fr,
     numSelects: number,
     selectByIndexes: number[],

@@ -1,6 +1,5 @@
 use crate::note::{note_interface::NoteType, retrieved_note::RetrievedNote};
 use dep::protocol_types::{
-    address::AztecAddress,
     constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
     traits::{Packable, ToField},
 };
@@ -68,7 +67,6 @@ pub struct NoteGetterOptions<Note, let N: u32, PreprocessorArgs, FilterArgs> {
     pub sorts: BoundedVec<Option<Sort>, N>,
     pub limit: u32,
     pub offset: u32,
-    pub owner: Option<AztecAddress>,
     // Preprocessor and filter functions are used to filter notes. The preprocessor is applied before the filter and
     // unlike filter it is applied in an unconstrained context.
     pub preprocessor: fn([Option<RetrievedNote<Note>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL], PreprocessorArgs) -> [Option<RetrievedNote<Note>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
@@ -133,13 +131,6 @@ impl<Note, let N: u32, PreprocessorArgs, FilterArgs> NoteGetterOptions<Note, N, 
         self.status = status;
         *self
     }
-
-    // This method sets the owner value, which determines which owner's notes to retrieve.
-    // If None, notes from all owners will be retrieved.
-    pub fn set_owner(&mut self, owner: AztecAddress) -> Self {
-        self.owner = Option::some(owner);
-        *self
-    }
 }
 
 impl<Note, let M: u32> NoteGetterOptions<Note, M, Field, Field>
@@ -153,7 +144,6 @@ where
             sorts: BoundedVec::<_, <Note as Packable>::N>::new(),
             limit: MAX_NOTE_HASH_READ_REQUESTS_PER_CALL as u32,
             offset: 0,
-            owner: Option::none(),
             preprocessor: return_all_notes,
             preprocessor_args: 0,
             filter: return_all_notes,
@@ -179,7 +169,6 @@ where
             sorts: BoundedVec::new(),
             limit: MAX_NOTE_HASH_READ_REQUESTS_PER_CALL as u32,
             offset: 0,
-            owner: Option::none(),
             preprocessor,
             preprocessor_args,
             filter: return_all_notes,
@@ -205,7 +194,6 @@ where
             sorts: BoundedVec::new(),
             limit: MAX_NOTE_HASH_READ_REQUESTS_PER_CALL as u32,
             offset: 0,
-            owner: Option::none(),
             preprocessor: return_all_notes,
             preprocessor_args: 0,
             filter,

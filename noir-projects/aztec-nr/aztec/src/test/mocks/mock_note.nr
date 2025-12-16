@@ -68,7 +68,6 @@ impl NoteHash for MockNote {
 pub(crate) struct MockNoteBuilder {
     value: Field,
     contract_address: Option<AztecAddress>,
-    owner: Option<AztecAddress>,
     randomness: Option<Field>,
     note_metadata: Option<NoteMetadata>,
 }
@@ -78,7 +77,6 @@ impl MockNoteBuilder {
         MockNoteBuilder {
             value,
             contract_address: Option::none(),
-            owner: Option::none(),
             randomness: Option::none(),
             note_metadata: Option::none(),
         }
@@ -86,11 +84,6 @@ impl MockNoteBuilder {
 
     pub(crate) fn contract_address(&mut self, contract_address: AztecAddress) -> &mut Self {
         self.contract_address = Option::some(contract_address);
-        self
-    }
-
-    pub(crate) fn owner(&mut self, owner: AztecAddress) -> &mut Self {
-        self.owner = Option::some(owner);
         self
     }
 
@@ -112,7 +105,6 @@ impl MockNoteBuilder {
         RetrievedNote {
             note: MockNote { value: self.value },
             contract_address: self.contract_address.unwrap_or(AztecAddress::zero()),
-            owner: self.owner.unwrap_or(AztecAddress::zero()),
             randomness: self.randomness.unwrap_or(0),
             // If the option is `None` for self.note_metadata, we fill it with invalid note metadata, which would result in the kernel
             // failing to prove note existence. Because our tests don't interact with the kernel this is not a problem.

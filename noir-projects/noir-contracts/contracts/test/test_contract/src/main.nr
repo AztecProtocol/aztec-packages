@@ -173,13 +173,13 @@ pub contract Test {
 
     #[external("private")]
     fn call_get_notes(owner: AztecAddress, storage_slot: Field, active_or_nullified: bool) -> u128 {
-        let mut options = NoteGetterOptions::new().set_owner(owner);
+        let mut options = NoteGetterOptions::new();
         if (active_or_nullified) {
             options = options.set_status(NoteStatus.ACTIVE_OR_NULLIFIED);
         }
 
         let (retrieved_notes, _): (BoundedVec<RetrievedNote<UintNote>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<NoteHashRead, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>) =
-            get_notes(self.context, storage_slot, options);
+            get_notes(self.context, owner, storage_slot, options);
 
         retrieved_notes.get(0).note.value
     }
@@ -190,13 +190,13 @@ pub contract Test {
         storage_slot: Field,
         active_or_nullified: bool,
     ) -> [u128; 2] {
-        let mut options = NoteGetterOptions::new().set_owner(owner);
+        let mut options = NoteGetterOptions::new();
         if (active_or_nullified) {
             options = options.set_status(NoteStatus.ACTIVE_OR_NULLIFIED);
         }
 
         let (retrieved_notes, _): (BoundedVec<RetrievedNote<UintNote>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<NoteHashRead, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>) =
-            get_notes(self.context, storage_slot, options);
+            get_notes(self.context, owner, storage_slot, options);
 
         [retrieved_notes.get(0).note.value, retrieved_notes.get(1).note.value]
     }
@@ -207,12 +207,13 @@ pub contract Test {
         storage_slot: Field,
         active_or_nullified: bool,
     ) -> u128 {
-        let mut options = NoteViewerOptions::new().set_owner(owner);
+        let mut options = NoteViewerOptions::new();
         if (active_or_nullified) {
             options = options.set_status(NoteStatus.ACTIVE_OR_NULLIFIED);
         }
 
-        let notes: BoundedVec<UintNote, MAX_NOTES_PER_PAGE> = view_notes(storage_slot, options);
+        let notes: BoundedVec<UintNote, MAX_NOTES_PER_PAGE> =
+            view_notes(owner, storage_slot, options);
 
         notes.get(0).value
     }
@@ -223,38 +224,40 @@ pub contract Test {
         storage_slot: Field,
         active_or_nullified: bool,
     ) -> [u128; 2] {
-        let mut options = NoteViewerOptions::new().set_owner(owner);
+        let mut options = NoteViewerOptions::new();
         if (active_or_nullified) {
             options = options.set_status(NoteStatus.ACTIVE_OR_NULLIFIED);
         }
 
-        let notes: BoundedVec<UintNote, MAX_NOTES_PER_PAGE> = view_notes(storage_slot, options);
+        let notes: BoundedVec<UintNote, MAX_NOTES_PER_PAGE> =
+            view_notes(owner, storage_slot, options);
 
         [notes.get(0).value, notes.get(1).value]
     }
 
     #[external("private")]
     fn call_destroy_note(owner: AztecAddress, storage_slot: Field) {
-        let options = NoteGetterOptions::new().set_owner(owner);
+        let options = NoteGetterOptions::new();
         let (retrieved_notes, note_hashes): (BoundedVec<RetrievedNote<UintNote>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<NoteHashRead, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>) =
-            get_notes(self.context, storage_slot, options);
+            get_notes(self.context, owner, storage_slot, options);
 
         let retrieved_note = retrieved_notes.get(0);
         let note_hash = note_hashes.get(0);
 
-        destroy_note_unsafe(self.context, retrieved_note, note_hash);
+        destroy_note_unsafe(self.context, retrieved_note, owner, note_hash);
     }
 
     #[external("private")]
     fn test_note_inclusion(owner: AztecAddress, storage_slot: Field) {
-        let options = NoteGetterOptions::new().set_owner(owner).set_limit(1);
+        let mut options = NoteGetterOptions::new();
+        options = options.set_limit(1);
 
         let (retrieved_notes, _): (BoundedVec<RetrievedNote<UintNote>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<NoteHashRead, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>) =
-            get_notes(self.context, storage_slot, options);
+            get_notes(self.context, owner, storage_slot, options);
 
         let header = self.context.get_anchor_block_header();
 
-        header.prove_note_inclusion(retrieved_notes.get(0), storage_slot);
+        header.prove_note_inclusion(retrieved_notes.get(0), owner, storage_slot);
     }
 
     #[external("private")]
