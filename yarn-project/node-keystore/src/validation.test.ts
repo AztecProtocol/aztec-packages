@@ -164,6 +164,107 @@ describe('Keystore Duplication Validation', () => {
     expect(signers).toHaveLength(3);
   });
 
+  it('should merge multiple top-level publisher configurations', () => {
+    const pub1 = '0x1111111111111111111111111111111111111111111111111111111111111111';
+    const pub2 = '0x2222222222222222222222222222222222222222222222222222222222222222';
+    const pub3 = '0x3333333333333333333333333333333333333333333333333333333333333333';
+    const feeRecipient = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef';
+    const attester1 = '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+    const attester2 = '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
+
+    const keystore1: KeyStore = {
+      schemaVersion: 2,
+      publisher: pub1 as any,
+      feeRecipient: feeRecipient as any,
+      validators: [
+        {
+          attester: attester1 as any,
+        },
+      ],
+    };
+
+    const keystore2: KeyStore = {
+      schemaVersion: 2,
+      publisher: [pub2, pub3] as any,
+      feeRecipient: feeRecipient as any,
+      validators: [
+        {
+          attester: attester2 as any,
+        },
+      ],
+    };
+
+    const merged = mergeKeystores([keystore1, keystore2]);
+
+    // Expect merged.publisher to be an array of all entries
+    expect(Array.isArray(merged.publisher)).toBe(true);
+    const publishers = merged.publisher as unknown[];
+    expect(publishers).toHaveLength(3);
+    expect(publishers).toEqual([pub1, pub2, pub3]);
+  });
+
+  it('should throw an error when merging v1 and v2 keystores', () => {
+    const v1Keystore: KeyStore = {
+      schemaVersion: 1,
+      validators: [
+        {
+          attester: '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' as any,
+          feeRecipient: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef' as any,
+        },
+      ],
+    };
+
+    const v2Keystore: KeyStore = {
+      schemaVersion: 2,
+      feeRecipient: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef' as any,
+      publisher: '0x1111111111111111111111111111111111111111111111111111111111111111' as any,
+      validators: [
+        {
+          attester: '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' as any,
+        },
+      ],
+    };
+
+    expect(() => mergeKeystores([v1Keystore, v2Keystore])).toThrow(KeyStoreLoadError);
+    expect(() => mergeKeystores([v1Keystore, v2Keystore])).toThrow(
+      /Cannot merge keystores with different schema versions/,
+    );
+    expect(() => mergeKeystores([v1Keystore, v2Keystore])).toThrow(/keystores\[0\].schemaVersion/);
+  });
+
+  it('should use last-one-wins for top-level publisher when mnemonics are involved', () => {
+    const publisherKey = '0x2222222222222222222222222222222222222222222222222222222222222222';
+    const keystore1: KeyStore = {
+      schemaVersion: 2,
+      publisher: {
+        mnemonic: 'test test test test test test test test test test test junk',
+        addressCount: 2,
+      } as any,
+      feeRecipient: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef' as any,
+      validators: [
+        {
+          attester: '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' as any,
+        },
+      ],
+    };
+
+    const keystore2: KeyStore = {
+      schemaVersion: 2,
+      publisher: publisherKey as any,
+      feeRecipient: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef' as any,
+      validators: [
+        {
+          attester: '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' as any,
+        },
+      ],
+    };
+
+    const merged = mergeKeystores([keystore1, keystore2]);
+
+    // Should use the second one (last-one-wins when mnemonic is involved)
+    expect(merged.publisher).toBe(publisherKey);
+  });
+
   it('should detect duplicate attester addresses across JSON V3 and private key after resolution', async () => {
     // Create a temp directory with one JSON V3 keystore whose address matches a given private key
     const { Wallet } = await import('@ethersproject/wallet');
@@ -206,7 +307,7 @@ describe('Keystore Duplication Validation', () => {
     const __dirname = dirname(__filename);
     const examplesDir = join(__dirname, '../examples');
 
-    const configExampleFiles = [
+    const v1ExampleFiles = [
       'simple-validator.json',
       'multiple-validators-remote.json',
       'simple-prover.json',
@@ -217,12 +318,23 @@ describe('Keystore Duplication Validation', () => {
       'everything.json',
     ];
 
-    for (const file of configExampleFiles) {
-      it(`should load and validate ${file}`, () => {
-        const path = join(examplesDir, file);
+    const v2ExampleFiles = ['validator-with-top-level-defaults.json'];
+
+    for (const file of v1ExampleFiles) {
+      it(`should load and validate v1/${file}`, () => {
+        const path = join(examplesDir, 'v1', file);
         expect(() => loadKeystoreFile(path)).not.toThrow();
         const ks = loadKeystoreFile(path);
         expect(ks.schemaVersion).toBe(1);
+      });
+    }
+
+    for (const file of v2ExampleFiles) {
+      it(`should load and validate v2/${file}`, () => {
+        const path = join(examplesDir, 'v2', file);
+        expect(() => loadKeystoreFile(path)).not.toThrow();
+        const ks = loadKeystoreFile(path);
+        expect(ks.schemaVersion).toBe(2);
       });
     }
   });
@@ -231,7 +343,7 @@ describe('Keystore Duplication Validation', () => {
     const __filename = fileURLToPath(import.meta.url);
     const __dirname = dirname(__filename);
     const examplesDir = join(__dirname, '../examples');
-    const path = join(examplesDir, 'everything.json');
+    const path = join(examplesDir, 'v1', 'everything.json');
 
     const ks = loadKeystoreFile(path);
 
