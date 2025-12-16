@@ -7,7 +7,7 @@
 namespace bb {
 
 /**
- * Save modified ivc-inputs.msgpack when VKs are rewritten.
+ * @brief Save modified ivc-inputs.msgpack when VKs are rewritten.
  */
 std::vector<uint8_t> compress(const std::vector<uint8_t>& input)
 {
@@ -31,7 +31,7 @@ std::vector<uint8_t> compress(const std::vector<uint8_t>& input)
 }
 
 /**
- * Decompress bytecode and witness fields from ivc-inputs.msgpack.
+ * @brief Decompress bytecode and witness fields from ivc-inputs.msgpack.
  */
 std::vector<uint8_t> decompress(const void* bytes, size_t size)
 {

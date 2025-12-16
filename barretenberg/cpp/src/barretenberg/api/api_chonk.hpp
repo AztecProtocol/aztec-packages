@@ -75,7 +75,7 @@ class ChonkAPI : public API {
      * @brief Compute and write a verification key.
      *
      * @details Two modes controlled by flags.verifier_type:
-     * - "standalone": VK for a single circuit (not part of IVC)
+     * - "standalone": VK for a single circuit to be accumulated by Chonk
      * - "ivc": VK for the Chonk hiding kernel (requires last circuit's bytecode to parameterize
      *   the hiding kernel with the correct public inputs count)
      *

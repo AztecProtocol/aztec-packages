@@ -55,8 +55,6 @@ struct PrivateExecutionStepRaw {
  *     → Chonk IVC proof
  *
  *
- * @note TODO(https://github.com/AztecProtocol/barretenberg/issues/1162) this should have a
- * common code path with the WASM folding stack code.
  */
 struct PrivateExecutionSteps {
     std::vector<acir_format::AcirProgram> folding_stack;                      ///< ACIR programs with witnesses
