@@ -2,7 +2,7 @@ import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 
 import { z } from 'zod';
 
-import { type ZodFor, schemas } from '../schemas/index.js';
+import { schemas, zodFor } from '../schemas/index.js';
 
 export type L1RollupConstants = {
   l1StartBlock: bigint;
@@ -22,14 +22,16 @@ export const EmptyL1RollupConstants: L1RollupConstants = {
   proofSubmissionEpochs: 1,
 };
 
-export const L1RollupConstantsSchema = z.object({
-  l1StartBlock: schemas.BigInt,
-  l1GenesisTime: schemas.BigInt,
-  slotDuration: z.number(),
-  epochDuration: z.number(),
-  ethereumSlotDuration: z.number(),
-  proofSubmissionEpochs: z.number(),
-}) satisfies ZodFor<L1RollupConstants>;
+export const L1RollupConstantsSchema = zodFor<L1RollupConstants>()(
+  z.object({
+    l1StartBlock: schemas.BigInt,
+    l1GenesisTime: schemas.BigInt,
+    slotDuration: z.number(),
+    epochDuration: z.number(),
+    ethereumSlotDuration: z.number(),
+    proofSubmissionEpochs: z.number(),
+  }),
+);
 
 /** Returns the timestamp for a given L2 slot. */
 export function getTimestampForSlot(
