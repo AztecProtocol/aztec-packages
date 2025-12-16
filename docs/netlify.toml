@@ -47,14 +47,6 @@
     from = "/v2.0.2/migration_notes"
     to = "/developers/migration_notes"
 
-  [[redirects]]
-      from = "/developers/docs/reference/environment_reference/cli_reference"
-      to = "/developers/docs/reference/environment_reference/cli_reference_autogen"
-
-  [[redirects]]
-      from = "/developers/docs/reference/environment_reference/cli_wallet_reference"
-      to = "/developers/docs/reference/environment_reference/cli_wallet_reference_autogen"
-
 [[redirects]]
     from = "/tutorials/contract_tutorials/crowdfunding_contract"
     to = "/developers/docs/tutorials/contract_tutorials/counter_contract"
