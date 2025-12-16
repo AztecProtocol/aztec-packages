@@ -195,7 +195,7 @@ export class PXE {
       this.privateEventDataProvider,
       this.log,
     );
-    return new ContractFunctionSimulator(pxeOracleInterface, this.simulator);
+    return new ContractFunctionSimulator(pxeOracleInterface, this.contractDataProvider, this.simulator);
   }
 
   #contextualizeError(err: Error, ...context: string[]): Error {

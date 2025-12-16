@@ -12,9 +12,11 @@ import type { NoteStatus } from '@aztec/stdlib/note';
 import { type MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import type { BlockHeader, Capsule } from '@aztec/stdlib/tx';
 
+import type { ContractDataProvider } from '../../storage/index.js';
 import type { ExecutionDataProvider } from '../execution_data_provider.js';
 import { UtilityContext } from '../noir-structs/utility_context.js';
 import { pickNotes } from '../pick_notes.js';
+import { getContractInstance } from './common.js';
 import type { IMiscOracle, IUtilityExecutionOracle, NoteData } from './interfaces.js';
 
 /**
@@ -33,6 +35,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     protected readonly capsules: Capsule[], // TODO(#12425): Rename to transientCapsules
     protected readonly anchorBlockHeader: BlockHeader,
     protected readonly executionDataProvider: ExecutionDataProvider,
+    protected readonly contractDataProvider: ContractDataProvider,
     protected log = createLogger('simulator:client_view_context'),
     protected readonly scopes?: AztecAddress[],
   ) {}
@@ -147,7 +150,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * @returns A contract instance.
    */
   public utilityGetContractInstance(address: AztecAddress): Promise<ContractInstance> {
-    return this.executionDataProvider.getContractInstance(address);
+    return getContractInstance(address, this.contractDataProvider);
   }
 
   /**

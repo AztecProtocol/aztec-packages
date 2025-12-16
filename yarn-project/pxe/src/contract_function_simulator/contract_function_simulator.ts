@@ -87,6 +87,7 @@ export class ContractFunctionSimulator {
 
   constructor(
     private executionDataProvider: ExecutionDataProvider,
+    private contractDataProvider: ContractDataProvider,
     private simulator: CircuitSimulator,
   ) {
     this.log = createLogger('simulator');
@@ -116,7 +117,12 @@ export class ContractFunctionSimulator {
   ): Promise<PrivateExecutionResult> {
     const simulatorSetupTimer = new Timer();
 
-    await verifyCurrentClassId(contractAddress, this.executionDataProvider, anchorBlockHeader);
+    await verifyCurrentClassId(
+      contractAddress,
+      this.executionDataProvider,
+      this.contractDataProvider,
+      anchorBlockHeader,
+    );
 
     const entryPointArtifact = await this.executionDataProvider.getFunctionArtifact(contractAddress, selector);
 
@@ -155,6 +161,7 @@ export class ContractFunctionSimulator {
       noteCache,
       taggingIndexCache,
       this.executionDataProvider,
+      this.contractDataProvider,
       0, // totalPublicArgsCount
       startSideEffectCounter,
       undefined, // log
@@ -226,7 +233,7 @@ export class ContractFunctionSimulator {
     anchorBlockHeader: BlockHeader,
     scopes?: AztecAddress[],
   ): Promise<Fr[]> {
-    await verifyCurrentClassId(call.to, this.executionDataProvider, anchorBlockHeader);
+    await verifyCurrentClassId(call.to, this.executionDataProvider, this.contractDataProvider, anchorBlockHeader);
 
     const entryPointArtifact = await this.executionDataProvider.getFunctionArtifact(call.to, call.selector);
 
@@ -240,6 +247,7 @@ export class ContractFunctionSimulator {
       [],
       anchorBlockHeader,
       this.executionDataProvider,
+      this.contractDataProvider,
       undefined,
       scopes,
     );

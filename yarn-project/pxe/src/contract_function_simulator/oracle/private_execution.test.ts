@@ -34,7 +34,7 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { BlockParameter } from '@aztec/stdlib/block';
 import {
   CompleteAddress,
-  type ContractInstance,
+  type ContractInstanceWithAddress,
   getContractClassFromArtifact,
   getContractInstanceFromInstantiationParams,
 } from '@aztec/stdlib/contract';
@@ -60,6 +60,7 @@ import { jest } from '@jest/globals';
 import { Matcher, type MatcherCreator, type MockProxy, mock } from 'jest-mock-extended';
 import { toFunctionSelector } from 'viem';
 
+import { ContractDataProvider } from '../../storage/index.js';
 import { ContractFunctionSimulator } from '../contract_function_simulator.js';
 import type { ExecutionDataProvider } from '../execution_data_provider.js';
 import type { NoteData } from './interfaces.js';
@@ -102,6 +103,7 @@ describe('Private Execution test suite', () => {
   const simulator = new WASMSimulator();
 
   let executionDataProvider: MockProxy<ExecutionDataProvider>;
+  let contractDataProvider: MockProxy<ContractDataProvider>;
   let acirSimulator: ContractFunctionSimulator;
 
   let anchorBlockHeader = BlockHeader.empty();
@@ -143,10 +145,11 @@ describe('Private Execution test suite', () => {
     contracts[address.toString()] = artifact;
     const contractClass = await getContractClassFromArtifact(artifact);
 
-    executionDataProvider.getContractInstance.calledWith(aztecAddressMatcher(address)).mockResolvedValue({
+    contractDataProvider.getContractInstance.calledWith(aztecAddressMatcher(address)).mockResolvedValue({
       currentContractClassId: contractClass.id,
       originalContractClassId: contractClass.id,
-    } as ContractInstance);
+      address,
+    } as ContractInstanceWithAddress);
   };
 
   const runSimulator = async ({
@@ -266,6 +269,7 @@ describe('Private Execution test suite', () => {
   beforeEach(async () => {
     trees = {};
     executionDataProvider = mock<ExecutionDataProvider>();
+    contractDataProvider = mock<ContractDataProvider>();
     contracts = {};
     executionDataProvider.getKeyValidationRequest.mockImplementation(
       async (pkMHash: Fr, contractAddress: AztecAddress) => {
@@ -334,7 +338,7 @@ describe('Private Execution test suite', () => {
       },
     );
 
-    acirSimulator = new ContractFunctionSimulator(executionDataProvider, simulator);
+    acirSimulator = new ContractFunctionSimulator(executionDataProvider, contractDataProvider, simulator);
   });
 
   describe('no constructor', () => {
@@ -398,7 +402,7 @@ describe('Private Execution test suite', () => {
         constructorArgs: initArgs,
         salt: Fr.random(),
       });
-      executionDataProvider.getContractInstance.mockResolvedValue(instance);
+      contractDataProvider.getContractInstance.mockResolvedValue(instance);
       const executionResult = await runSimulator({
         args: initArgs,
         artifact: StatefulTestContractArtifact,

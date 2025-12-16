@@ -302,6 +302,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       noteCache,
       taggingIndexCache,
       this.pxeOracleInterface,
+      this.contractDataProvider,
       0,
       1,
       undefined, // log
@@ -610,7 +611,14 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
 
     try {
       const anchorBlockHeader = await this.stateMachine.anchorBlockDataProvider.getBlockHeader();
-      const oracle = new UtilityExecutionOracle(call.to, [], [], anchorBlockHeader, this.pxeOracleInterface);
+      const oracle = new UtilityExecutionOracle(
+        call.to,
+        [],
+        [],
+        anchorBlockHeader,
+        this.pxeOracleInterface,
+        this.contractDataProvider,
+      );
       const acirExecutionResult = await new WASMSimulator()
         .executeUserCircuit(toACVMWitness(0, args), entryPointArtifact, new Oracle(oracle).toACIRCallback())
         .catch((err: Error) => {

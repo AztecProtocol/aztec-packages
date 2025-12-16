@@ -5,7 +5,7 @@ import type { Point } from '@aztec/foundation/curves/grumpkin';
 import type { FunctionArtifactWithContractName, FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2Block } from '@aztec/stdlib/block';
-import type { CompleteAddress, ContractInstance } from '@aztec/stdlib/contract';
+import type { CompleteAddress } from '@aztec/stdlib/contract';
 import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
 import type { DirectionalAppTaggingSecret } from '@aztec/stdlib/logs';
 import type { NoteStatus } from '@aztec/stdlib/note';
@@ -47,13 +47,6 @@ export type ExecutionStats = {
  * The interface for the data layer required to perform private and utility execution.
  */
 export interface ExecutionDataProvider {
-  /**
-   * Returns a contract instance associated with an address, if available.
-   * @param address - Address.
-   * @returns A contract instance.
-   */
-  getContractInstance(address: AztecAddress): Promise<ContractInstance>;
-
   /**
    * Retrieve the complete address associated to a given address.
    * @param account - The account address.

@@ -3,12 +3,13 @@ import { StatefulTestContractArtifact } from '@aztec/noir-test-contracts.js/Stat
 import { WASMSimulator } from '@aztec/simulator/client';
 import { FunctionCall, FunctionSelector, FunctionType, encodeArguments } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { CompleteAddress, type ContractInstance } from '@aztec/stdlib/contract';
+import { CompleteAddress, type ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { Note } from '@aztec/stdlib/note';
 import { BlockHeader } from '@aztec/stdlib/tx';
 
 import { mock } from 'jest-mock-extended';
 
+import { ContractDataProvider } from '../../storage/index.js';
 import { ContractFunctionSimulator } from '../contract_function_simulator.js';
 import type { ExecutionDataProvider } from '../execution_data_provider.js';
 
@@ -16,6 +17,7 @@ describe('Utility Execution test suite', () => {
   const simulator = new WASMSimulator();
 
   let executionDataProvider: ReturnType<typeof mock<ExecutionDataProvider>>;
+  let contractDataProvider: ReturnType<typeof mock<ContractDataProvider>>;
   let acirSimulator: ContractFunctionSimulator;
   let owner: AztecAddress;
   const ownerSecretKey = Fr.fromHexString('2dcc5485a58316776299be08c78fa3788a1a7961ae30dc747fb1be17692a8d32');
@@ -26,7 +28,8 @@ describe('Utility Execution test suite', () => {
 
   beforeEach(async () => {
     executionDataProvider = mock<ExecutionDataProvider>();
-    acirSimulator = new ContractFunctionSimulator(executionDataProvider, simulator);
+    contractDataProvider = mock<ContractDataProvider>();
+    acirSimulator = new ContractFunctionSimulator(executionDataProvider, contractDataProvider, simulator);
 
     const ownerCompleteAddress = await CompleteAddress.fromSecretKeyAndPartialAddress(ownerSecretKey, Fr.random());
     owner = ownerCompleteAddress.address;
@@ -50,10 +53,11 @@ describe('Utility Execution test suite', () => {
 
     executionDataProvider.getPublicStorageAt.mockResolvedValue(Fr.ZERO);
     executionDataProvider.getFunctionArtifact.mockResolvedValue(artifact);
-    executionDataProvider.getContractInstance.mockResolvedValue({
+    contractDataProvider.getContractInstance.mockResolvedValue({
       currentContractClassId: new Fr(42),
       originalContractClassId: new Fr(42),
-    } as ContractInstance);
+      address: contractAddress,
+    } as ContractInstanceWithAddress);
     executionDataProvider.getNotes.mockResolvedValue(
       notes.map((note, index) => ({
         contractAddress,

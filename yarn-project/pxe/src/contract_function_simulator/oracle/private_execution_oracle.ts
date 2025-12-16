@@ -26,6 +26,7 @@ import {
   type TxContext,
 } from '@aztec/stdlib/tx';
 
+import type { ContractDataProvider } from '../../storage/index.js';
 import { Tag } from '../../tagging/tag.js';
 import type { ExecutionDataProvider } from '../execution_data_provider.js';
 import type { ExecutionNoteCache } from '../execution_note_cache.js';
@@ -79,6 +80,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     private readonly noteCache: ExecutionNoteCache,
     private readonly taggingIndexCache: ExecutionTaggingIndexCache,
     executionDataProvider: ExecutionDataProvider,
+    contractDataProvider: ContractDataProvider,
     private totalPublicCalldataCount: number = 0,
     protected sideEffectCounter: number = 0,
     log = createLogger('simulator:client_execution_context'),
@@ -86,7 +88,16 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     private senderForTags?: AztecAddress,
     private simulator?: CircuitSimulator,
   ) {
-    super(callContext.contractAddress, authWitnesses, capsules, anchorBlockHeader, executionDataProvider, log, scopes);
+    super(
+      callContext.contractAddress,
+      authWitnesses,
+      capsules,
+      anchorBlockHeader,
+      executionDataProvider,
+      contractDataProvider,
+      log,
+      scopes,
+    );
   }
 
   public getPrivateContextInputs(): PrivateContextInputs {
@@ -494,7 +505,12 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
 
     isStaticCall = isStaticCall || this.callContext.isStaticCall;
 
-    await verifyCurrentClassId(targetContractAddress, this.executionDataProvider, this.anchorBlockHeader);
+    await verifyCurrentClassId(
+      targetContractAddress,
+      this.executionDataProvider,
+      this.contractDataProvider,
+      this.anchorBlockHeader,
+    );
 
     const targetArtifact = await this.executionDataProvider.getFunctionArtifact(
       targetContractAddress,
@@ -516,6 +532,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       this.noteCache,
       this.taggingIndexCache,
       this.executionDataProvider,
+      this.contractDataProvider,
       this.totalPublicCalldataCount,
       sideEffectCounter,
       this.log,

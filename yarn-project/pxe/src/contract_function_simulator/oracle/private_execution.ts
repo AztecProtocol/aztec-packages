@@ -27,7 +27,9 @@ import type { CircuitWitnessGenerationStats } from '@aztec/stdlib/stats';
 import { BlockHeader, PrivateCallExecutionResult } from '@aztec/stdlib/tx';
 import type { UInt64 } from '@aztec/stdlib/types';
 
+import { ContractDataProvider } from '../../storage/index.js';
 import type { ExecutionDataProvider } from '../execution_data_provider.js';
+import { getContractInstance } from './common.js';
 import { Oracle } from './oracle.js';
 import type { PrivateExecutionOracle } from './private_execution_oracle.js';
 
@@ -188,9 +190,10 @@ export async function readCurrentClassId(
 export async function verifyCurrentClassId(
   contractAddress: AztecAddress,
   executionDataProvider: ExecutionDataProvider,
+  contractDataProvider: ContractDataProvider,
   header: BlockHeader,
 ) {
-  const instance = await executionDataProvider.getContractInstance(contractAddress);
+  const instance = await getContractInstance(contractAddress, contractDataProvider);
   const currentClassId = await readCurrentClassId(
     contractAddress,
     instance,

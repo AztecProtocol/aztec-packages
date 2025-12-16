@@ -3,12 +3,13 @@ import { OracleVersionCheckContractArtifact } from '@aztec/noir-test-contracts.j
 import { WASMSimulator } from '@aztec/simulator/client';
 import { FunctionCall, FunctionSelector, FunctionType, encodeArguments } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { ContractInstance } from '@aztec/stdlib/contract';
+import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { GasFees, GasSettings } from '@aztec/stdlib/gas';
 import { BlockHeader, HashedValues, TxContext, TxExecutionRequest } from '@aztec/stdlib/tx';
 
 import { mock } from 'jest-mock-extended';
 
+import { ContractDataProvider } from '../../storage/index.js';
 import { ContractFunctionSimulator } from '../contract_function_simulator.js';
 import type { ExecutionDataProvider } from '../execution_data_provider.js';
 
@@ -16,22 +17,27 @@ describe('Oracle Version Check test suite', () => {
   const simulator = new WASMSimulator();
 
   let executionDataProvider: ReturnType<typeof mock<ExecutionDataProvider>>;
+  let contractDataProvider: ReturnType<typeof mock<ContractDataProvider>>;
   let acirSimulator: ContractFunctionSimulator;
   let contractAddress: AztecAddress;
 
   beforeEach(async () => {
     executionDataProvider = mock<ExecutionDataProvider>();
+    contractDataProvider = mock<ContractDataProvider>();
 
     // Mock basic oracle responses
     executionDataProvider.getPublicStorageAt.mockResolvedValue(Fr.ZERO);
     executionDataProvider.loadCapsule.mockImplementation((_, __) => Promise.resolve(null));
-    executionDataProvider.getContractInstance.mockResolvedValue({
+
+    contractAddress = await AztecAddress.random();
+
+    contractDataProvider.getContractInstance.mockResolvedValue({
       currentContractClassId: new Fr(42),
       originalContractClassId: new Fr(42),
-    } as ContractInstance);
+      address: contractAddress,
+    } as ContractInstanceWithAddress);
 
-    acirSimulator = new ContractFunctionSimulator(executionDataProvider, simulator);
-    contractAddress = await AztecAddress.random();
+    acirSimulator = new ContractFunctionSimulator(executionDataProvider, contractDataProvider, simulator);
   });
 
   describe('private function execution', () => {
