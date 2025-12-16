@@ -79,7 +79,6 @@
   },
   "devDependencies": {
     "@aztec/blob-lib": "workspace:^",
-    "@aztec/node-keystore": "workspace:^",
     "@jest/globals": "^30.0.0",
     "@types/jest": "^30.0.0",
     "@types/node": "^22.15.17",
@@ -87,8 +86,7 @@
     "jest": "^30.0.0",
     "jest-mock-extended": "^4.0.0",
     "ts-node": "^10.9.1",
-    "typescript": "^5.3.3",
-    "viem": "npm:@aztec/viem@2.38.2"
+    "typescript": "^5.3.3"
   },
   "files": [
     "dest",

@@ -46,7 +46,7 @@ export interface IL1TxStore {
    * @param account - The sender account address
    * @param stateId - The state ID to delete
    */
-  deleteState(account: string, ...stateId: number[]): Promise<void>;
+  deleteState(account: string, stateId: number): Promise<void>;
 
   /**
    * Clears all transaction states for a specific account.
