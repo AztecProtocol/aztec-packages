@@ -314,7 +314,7 @@ function bench {
   rm -rf bench-out
   mkdir -p bench-out
   bench_merge
-  cache_upload bench-$COMMIT_HASH.tar.gz bench-out/bench.json
+  cache_upload bench-$(git rev-parse HEAD^{tree}).tar.gz bench-out/bench.json
 }
 
 function release_github {

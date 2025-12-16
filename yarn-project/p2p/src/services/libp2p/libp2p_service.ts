@@ -170,7 +170,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     );
 
     this.attestationValidator = new AttestationValidator(epochCache);
-    this.blockProposalValidator = new BlockProposalValidator(epochCache);
+    this.blockProposalValidator = new BlockProposalValidator(epochCache, { txsPermitted: !config.disableTransactions });
 
     this.gossipSubEventHandler = this.handleGossipSubEvent.bind(this);
 

@@ -5,7 +5,7 @@ use aztec::macros::aztec;
 #[aztec]
 pub contract NoConstructor {
     use aztec::{
-        macros::{functions::{private, public, utility}, storage::storage},
+        macros::{functions::external, storage::storage},
         messages::message_delivery::MessageDelivery,
         state_vars::PrivateMutable,
     };
@@ -18,14 +18,14 @@ pub contract NoConstructor {
     }
 
     /// Arbitrary public method used to test that publishing for public execution works for a contract with no constructor.
-    #[public]
+    #[external("public")]
     fn emit_public(value: Field) {
         context.emit_public_log(/*message=*/ value);
     }
 
     /// Arbitrary function used to test that we can call private functions on a contract with
     /// no constructor/initializer.
-    #[private]
+    #[external("private")]
     fn initialize_private_mutable(value: Field) {
         let note = ValueNote::new(value, context.msg_sender().unwrap());
 
@@ -37,7 +37,7 @@ pub contract NoConstructor {
     }
 
     /// Helper function used to test that call to `initialize_private_mutable` was successful or not yet performed.
-    #[utility]
+    #[external("utility")]
     unconstrained fn is_private_mutable_initialized() -> bool {
         storage.private_mutable.is_initialized()
     }

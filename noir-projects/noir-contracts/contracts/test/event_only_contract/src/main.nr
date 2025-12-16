@@ -6,7 +6,7 @@ use aztec::macros::aztec;
 contract EventOnly {
     use aztec::{
         event::event_emission::emit_event_in_private,
-        macros::{events::event, functions::private},
+        macros::{events::event, functions::external},
         messages::message_delivery::MessageDelivery,
     };
 
@@ -15,7 +15,7 @@ contract EventOnly {
         value: Field,
     }
 
-    #[private]
+    #[external("private")]
     fn emit_event_for_msg_sender(value: Field) {
         let sender = context.msg_sender().unwrap();
         emit_event_in_private(
