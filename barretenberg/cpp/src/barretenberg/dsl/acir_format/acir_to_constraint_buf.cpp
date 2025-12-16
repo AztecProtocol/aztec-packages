@@ -285,10 +285,7 @@ T deserialize_any_format(std::vector<uint8_t>&& buf,
         // Once we remove support for legacy bincode format, we should expect to always
         // have a format marker corresponding to acir::serialization::Format::Msgpack,
         // but until then a match could be pure coincidence.
-        const uint8_t FORMAT_MSGPACK = 2;
-        const uint8_t FORMAT_MSGPACK_COMPACT = 3;
-        uint8_t format = buf[0];
-        if (format == FORMAT_MSGPACK || format == FORMAT_MSGPACK_COMPACT) {
+        if (buf[0] == 2) {
             // Skip the format marker to get the data.
             const char* buffer = &reinterpret_cast<const char*>(buf.data())[1];
             size_t size = buf.size() - 1;
@@ -298,9 +295,10 @@ T deserialize_any_format(std::vector<uint8_t>&& buf,
                 // This has to be on a separate line, see
                 // https://github.com/msgpack/msgpack-c/issues/695#issuecomment-393035172
                 auto o = oh.get();
-                // In experiments bincode data was parsed as 0, so a successful parse is not a guarnatee that it's
-                // msgpack. All the top level formats we look for are MAP or ARRAY types (depending on the format).
-                if (o.type == msgpack::type::MAP || o.type == msgpack::type::ARRAY) {
+                // In experiments bincode data was parsed as 0.
+                // All the top level formats we look for are MAP types.
+                if (o.type == msgpack::type::MAP) {
+                    BB_ASSERT(false, "acir_format::deserialize_any_format: Msgpack is not currently supported.");
                     return decode_msgpack(o);
                 }
             }
