@@ -51,7 +51,6 @@ struct GoblinStdlibProof {
         , ipa_proof(builder, goblin_proof.ipa_proof)
         , translator_proof(builder, goblin_proof.translator_proof)
     {}
-    MSGPACK_FIELDS(merge_proof, eccvm_proof, ipa_proof, translator_proof);
     bool operator==(const GoblinStdlibProof& other) const = default;
 };
 } // namespace bb
