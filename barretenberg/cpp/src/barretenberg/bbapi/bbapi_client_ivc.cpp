@@ -5,7 +5,7 @@
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp"
-#include "barretenberg/dsl/acir_format/ivc_recursion_constraint.hpp"
+#include "barretenberg/dsl/acir_format/pg_recursion_constraint.hpp"
 #include "barretenberg/dsl/acir_format/serde/witness_stack.hpp"
 #include "barretenberg/honk/execution_trace/execution_trace_usage_tracker.hpp"
 #include "barretenberg/serialize/msgpack_check_eq.hpp"
@@ -181,7 +181,7 @@ ClientIvcStats::Response ClientIvcStats::execute(BBApiRequest& request) &&
     acir_format::AcirProgram program{ constraint_system };
 
     // Get IVC constraints if any
-    const auto& ivc_constraints = constraint_system.ivc_recursion_constraints;
+    const auto& ivc_constraints = constraint_system.pg_recursion_constraints;
 
     // Create metadata with appropriate IVC context
     acir_format::ProgramMetadata metadata{

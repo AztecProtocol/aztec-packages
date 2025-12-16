@@ -611,6 +611,20 @@ size_t ClientIVC::Proof::size() const
     return mega_proof.size() + goblin_proof.size();
 }
 
+std::vector<ClientIVC::FF> ClientIVC::Proof::to_field_elements() const
+{
+    HonkProof proof;
+
+    proof.insert(proof.end(), mega_proof.begin(), mega_proof.end());
+    proof.insert(proof.end(), goblin_proof.merge_proof.begin(), goblin_proof.merge_proof.end());
+    proof.insert(
+        proof.end(), goblin_proof.eccvm_proof.pre_ipa_proof.begin(), goblin_proof.eccvm_proof.pre_ipa_proof.end());
+    proof.insert(proof.end(), goblin_proof.eccvm_proof.ipa_proof.begin(), goblin_proof.eccvm_proof.ipa_proof.end());
+    proof.insert(proof.end(), goblin_proof.translator_proof.begin(), goblin_proof.translator_proof.end());
+
+    return proof;
+};
+
 msgpack::sbuffer ClientIVC::Proof::to_msgpack_buffer() const
 {
     msgpack::sbuffer buffer;

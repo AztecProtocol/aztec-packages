@@ -1,4 +1,4 @@
-#include "barretenberg/dsl/acir_format/ivc_recursion_constraint.hpp"
+#include "barretenberg/dsl/acir_format/pg_recursion_constraint.hpp"
 #include "acir_format.hpp"
 #include "acir_format_mocks.hpp"
 #include "barretenberg/client_ivc/client_ivc.hpp"
@@ -222,16 +222,16 @@ class IvcRecursionConstraintTest : public ::testing::Test {
         AcirProgram program;
 
         // Construct recursion constraints based on the ivc verification queue; populate the witness along the way
-        std::vector<RecursionConstraint> ivc_recursion_constraints;
-        ivc_recursion_constraints.reserve(verification_queue.size());
+        std::vector<RecursionConstraint> pg_recursion_constraints;
+        pg_recursion_constraints.reserve(verification_queue.size());
         for (const auto& queue_entry : verification_queue) {
-            ivc_recursion_constraints.push_back(create_recursion_constraint(queue_entry, program.witness));
+            pg_recursion_constraints.push_back(create_recursion_constraint(queue_entry, program.witness));
         }
 
         // Construct a constraint system containing the business logic and ivc recursion constraints
         program.constraints.varnum = static_cast<uint32_t>(program.witness.size());
-        program.constraints.num_acir_opcodes = static_cast<uint32_t>(ivc_recursion_constraints.size());
-        program.constraints.ivc_recursion_constraints = ivc_recursion_constraints;
+        program.constraints.num_acir_opcodes = static_cast<uint32_t>(pg_recursion_constraints.size());
+        program.constraints.pg_recursion_constraints = pg_recursion_constraints;
         program.constraints.original_opcode_indices = create_empty_original_opcode_indices();
         mock_opcode_indices(program.constraints);
 

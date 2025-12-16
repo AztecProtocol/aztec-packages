@@ -119,26 +119,15 @@ HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recur
     // Construct an in-circuit representation of the verification key.
     // For now, the v-key is a circuit constant and is fixed for the circuit.
     // (We may need a separate recursion opcode for this to vary, or add more config witnesses to this opcode)
-    std::vector<field_ct<Builder>> key_fields;
-    key_fields.reserve(input.key.size());
-    for (const auto& idx : input.key) {
-        auto field = field_ct<Builder>::from_witness_index(&builder, idx);
-        key_fields.emplace_back(field);
-    }
+    std::vector<field_ct<Builder>> key_fields = RecursionConstraint::fields_from_witnesses(builder, input.key);
 
     // Create circuit type for vkey hash.
     auto vk_hash = field_ct<Builder>::from_witness_index(&builder, input.key_hash);
 
-    stdlib::Proof<Builder> proof_fields;
-
     // Create witness indices for the proof with public inputs reinserted
     std::vector<uint32_t> proof_indices =
         ProofSurgeon<uint256_t>::create_indices_for_reconstructed_proof(input.proof, input.public_inputs);
-    proof_fields.reserve(proof_indices.size());
-    for (const auto& idx : proof_indices) {
-        auto field = field_ct<Builder>::from_witness_index(&builder, idx);
-        proof_fields.emplace_back(field);
-    }
+    stdlib::Proof<Builder> proof_fields = RecursionConstraint::fields_from_witnesses(builder, proof_indices);
 
     // Populate the key fields and proof fields with dummy values to prevent issues (e.g. points must be on curve).
     if (!has_valid_witness_assignments) {

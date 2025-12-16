@@ -4,7 +4,7 @@
 // external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // =====================
 
-#include "ivc_recursion_constraint.hpp"
+#include "pg_recursion_constraint.hpp"
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/dsl/acir_format/mock_verifier_inputs.hpp"
