@@ -39,9 +39,7 @@ template <typename Builder> struct UltraRecursiveVerifierOutput {
 
     UltraRecursiveVerifierOutput() = default;
 
-    template <class IO>
-    UltraRecursiveVerifierOutput(IO& inputs)
-        : points_accumulator(inputs.pairing_inputs)
+    template <class IO> UltraRecursiveVerifierOutput(IO& inputs)
     {
         if constexpr (std::is_same_v<IO, RollupIO>) {
             ipa_claim = inputs.ipa_claim;
@@ -64,7 +62,7 @@ namespace bb {
 template <typename Flavor> struct UltraVerifierOutput {
   public:
     using Commitment = typename Flavor::Commitment;
-    bool result;
+    bool result = false;
     typename Flavor::Commitment kernel_return_data;
     std::array<Commitment, Flavor::NUM_WIRES> ecc_op_tables;
 };

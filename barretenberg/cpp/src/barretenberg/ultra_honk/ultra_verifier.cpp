@@ -167,7 +167,14 @@ typename UltraVerifier_<Flavor, IO>::Output UltraVerifier_<Flavor, IO>::verify_p
 {
     // Reduce to claims
     auto reduction_result = reduce_to_pairing_check(proof);
-    vinfo("UltraVerifier: reduction to pairing check succeeded ", reduction_result.reduction_succeeded);
+    vinfo("UltraVerifier: reduced to pairing check: ", reduction_result.reduction_succeeded ? "true" : "false");
+
+    if constexpr (!IsRecursive) {
+        if (!reduction_result.reduction_succeeded) {
+            info("UltraVerifier: verification failed at reduction step");
+            return Output{};
+        }
+    }
 
     // Reconstruct inputs
     IO inputs;
@@ -177,19 +184,23 @@ typename UltraVerifier_<Flavor, IO>::Output UltraVerifier_<Flavor, IO>::verify_p
     auto pairing_points = inputs.pairing_inputs;
     pairing_points.aggregate(reduction_result.pairing_points);
 
-    // Branch on recursive vs native
     if constexpr (IsRecursive) {
         // Recursive: Construct output and return for deferred verification
         Output output(inputs);
         output.points_accumulator = std::move(pairing_points);
         return output;
     } else {
-        // Native: Perform immediate pairing verification
+        // Perform immediate pairing verification
         bool pairing_verified = pairing_points.check();
-        vinfo("pairing_check_verified: ", pairing_verified);
+        vinfo("UltraVerifier: pairing check: ", pairing_verified ? "true" : "false");
+
+        if (!pairing_verified) {
+            info("UltraVerifier: verification failed at pairing check");
+            return Output{};
+        }
 
         Output output;
-        output.result = reduction_result.reduction_succeeded && pairing_verified;
+        output.result = true;
 
         // HidingKernelIO-specific: Extract kernel return data and ecc op tables
         if constexpr (std::is_same_v<IO, HidingKernelIO>) {
@@ -214,41 +225,53 @@ typename UltraVerifier_<Flavor, IO>::Output UltraVerifier_<Flavor, IO>::verify_p
     requires(HasIPAAccumulator<Flavor>)
 {
     // Reduce to claims
-    auto reduction_result = reduce_to_pairing_check(proof);
-    vinfo("UltraVerifier: reduction to pairing check succeeded ", reduction_result.reduction_succeeded);
+    auto [pairing_points, reduction_succeeded] = reduce_to_pairing_check(proof);
+    vinfo("UltraVerifier: reduced to pairing check: ", reduction_succeeded ? "true" : "false");
+
+    if constexpr (!IsRecursive) {
+        if (!reduction_succeeded) {
+            info("UltraVerifier: verification failed at reduction step");
+            return Output{};
+        }
+    }
 
     // Reconstruct inputs
     IO inputs;
     inputs.reconstruct_from_public(verifier_instance->public_inputs);
 
     // Aggregate pairing points (inputs first, then reduction)
-    auto pairing_points = inputs.pairing_inputs;
-    pairing_points.aggregate(reduction_result.pairing_points);
+    auto reconstructed_pairing_points = inputs.pairing_inputs;
+    reconstructed_pairing_points.aggregate(pairing_points);
 
-    // Branch on recursive vs native
     if constexpr (IsRecursive) {
-        // Recursive: Construct output and return for deferred verification
+        // Construct output for deferred verification
         Output output(inputs);
         output.points_accumulator = std::move(pairing_points);
         output.ipa_proof = ipa_proof;
         return output;
     } else {
-        // Native: Perform immediate pairing verification
+        // Perform immediate pairing verification
         bool pairing_verified = pairing_points.check();
-        vinfo("pairing_check_verified: ", pairing_verified);
+        vinfo("UltraVerifier: pairing check: ", pairing_verified ? "true" : "false");
 
-        Output output;
-        output.result = reduction_result.reduction_succeeded && pairing_verified;
+        if (!pairing_verified) {
+            info("UltraVerifier: verification failed at pairing check");
+            return Output{};
+        }
 
         // Perform IPA verification
         VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key(1 << CONST_ECCVM_LOG_N);
         ipa_transcript->load_proof(ipa_proof);
-        bool ipa_result = IPA<curve::Grumpkin>::reduce_verify(ipa_verification_key, inputs.ipa_claim, ipa_transcript);
-        if (!ipa_result) {
-            info("IPA verification failed!");
-        }
-        output.result &= ipa_result;
+        bool ipa_verified = IPA<curve::Grumpkin>::reduce_verify(ipa_verification_key, inputs.ipa_claim, ipa_transcript);
+        vinfo("UltraVerifier: IPA check: ", ipa_verified ? "true" : "false");
 
+        if (!ipa_verified) {
+            info("UltraVerifier: verification failed at IPA check");
+            return Output{};
+        }
+
+        Output output;
+        output.result = true;
         return output;
     }
 }
