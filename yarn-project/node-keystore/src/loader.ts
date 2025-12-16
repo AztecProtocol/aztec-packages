@@ -3,13 +3,10 @@
  *
  * Handles loading and parsing keystore configuration files.
  */
-import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
-import type { Hex } from '@aztec/foundation/string';
 
 import { readFileSync, readdirSync, statSync } from 'fs';
 import { extname, join } from 'path';
-import { privateKeyToAddress } from 'viem/accounts';
 
 import { keystoreSchema } from './schemas.js';
 import type { EthAccounts, KeyStore } from './types.js';
@@ -223,9 +220,8 @@ export function mergeKeystores(keystores: KeyStore[]): KeyStore {
     if (keystore.validators) {
       for (const validator of keystore.validators) {
         // Check for duplicate attester addresses
-        const attesterKeys = extractAttesterAddresses(validator.attester);
-        for (let key of attesterKeys) {
-          key = key.toLowerCase();
+        const attesterKeys = extractAttesterKeys(validator.attester);
+        for (const key of attesterKeys) {
           if (attesterAddresses.has(key)) {
             throw new KeyStoreLoadError(
               `Duplicate attester address ${key} found across keystore files`,
@@ -288,43 +284,38 @@ export function mergeKeystores(keystores: KeyStore[]): KeyStore {
  * @param attester The attester configuration in any supported shape.
  * @returns Array of string keys used to detect duplicates.
  */
-function extractAttesterAddresses(attester: unknown): string[] {
+function extractAttesterKeys(attester: unknown): string[] {
   // String forms (private key or other) - return as-is for coarse uniqueness
   if (typeof attester === 'string') {
-    if (attester.length === 66) {
-      return [privateKeyToAddress(attester as Hex<32>)];
-    } else {
-      return [attester];
-    }
+    return [attester];
   }
 
   // Arrays of attester items
   if (Array.isArray(attester)) {
     const keys: string[] = [];
     for (const item of attester) {
-      keys.push(...extractAttesterAddresses(item));
+      keys.push(...extractAttesterKeys(item));
     }
     return keys;
   }
 
   if (attester && typeof attester === 'object') {
-    if (attester instanceof EthAddress) {
-      return [attester.toString()];
-    }
-
     const obj = attester as Record<string, unknown>;
 
     // New shape: { eth: EthAccount, bls?: BLSAccount }
     if ('eth' in obj) {
-      return extractAttesterAddresses(obj.eth);
+      return extractAttesterKeys(obj.eth);
     }
 
     // Remote signer account object shape: { address, remoteSignerUrl?, ... }
     if ('address' in obj) {
       return [String((obj as any).address)];
     }
+
+    // Mnemonic or other object shapes: stringify
+    return [JSON.stringify(attester)];
   }
 
-  // mnemonic, encrypted file just disable early duplicates checking
-  return [];
+  // Fallback stringify for anything else (null/undefined)
+  return [JSON.stringify(attester)];
 }

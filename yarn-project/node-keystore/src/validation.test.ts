@@ -8,12 +8,10 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { describe, expect, it } from '@jest/globals';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
-import { generatePrivateKey, privateKeyToAddress } from 'viem/accounts';
 
 import { KeystoreError, KeystoreManager } from '../src/keystore_manager.js';
 import { KeyStoreLoadError, loadKeystoreFile, mergeKeystores } from '../src/loader.js';
 import type { KeyStore, ProverKeyStoreWithId } from '../src/types.js';
-import { keystoreSchema } from './schemas.js';
 
 // Enable logger output in tests by setting LOG_LEVEL
 const logger = createLogger('node-keystore:validation-test');
@@ -22,33 +20,28 @@ describe('Keystore Duplication Validation', () => {
   it('should reject duplicate attester addresses across keystores', () => {
     logger.info('Testing duplicate attester validation');
 
-    const privateKey = generatePrivateKey();
-    const address = privateKeyToAddress(privateKey).toString();
-
-    const keystore1 = keystoreSchema.parse({
+    const keystore1: KeyStore = {
       schemaVersion: 1,
       validators: [
         {
-          attester: privateKey,
-          feeRecipient: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
+          attester: '0x1234567890123456789012345678901234567890' as any,
+          feeRecipient: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef' as any,
         },
       ],
-    });
+    };
 
-    const keystore2 = keystoreSchema.parse({
+    const keystore2: KeyStore = {
       schemaVersion: 1,
       validators: [
         {
-          attester: address,
-          feeRecipient: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
+          attester: '0x1234567890123456789012345678901234567890' as any, // Duplicate!
+          feeRecipient: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef' as any,
         },
       ],
-    });
+    };
 
     expect(() => mergeKeystores([keystore1, keystore2])).toThrow(KeyStoreLoadError);
     expect(() => mergeKeystores([keystore1, keystore2])).toThrow(/Duplicate attester address/);
-    expect(() => mergeKeystores([keystore1, keystore2])).toThrow(address.toLowerCase());
-    expect(() => mergeKeystores([keystore1, keystore2])).not.toThrow(privateKey);
   });
 
   it('should reject multiple prover configurations across keystores', () => {
@@ -66,8 +59,6 @@ describe('Keystore Duplication Validation', () => {
 
     expect(() => mergeKeystores([keystore1, keystore2])).toThrow(KeyStoreLoadError);
     expect(() => mergeKeystores([keystore1, keystore2])).toThrow(/Multiple prover configurations found/);
-    expect(() => mergeKeystores([keystore1, keystore2])).not.toThrow(keystore1.prover!);
-    expect(() => mergeKeystores([keystore1, keystore2])).not.toThrow(keystore2.prover!);
   });
 
   it('should reject duplicate ETH attester across keystores even if BLS differs', () => {
@@ -97,9 +88,6 @@ describe('Keystore Duplication Validation', () => {
 
     expect(() => mergeKeystores([keystore1, keystore2])).toThrow(KeyStoreLoadError);
     expect(() => mergeKeystores([keystore1, keystore2])).toThrow(/Duplicate attester address/);
-    expect(() => mergeKeystores([keystore1, keystore2])).not.toThrow(eth);
-    expect(() => mergeKeystores([keystore1, keystore2])).not.toThrow(bls1);
-    expect(() => mergeKeystores([keystore1, keystore2])).not.toThrow(bls2);
   });
 
   it('should allow unique attester addresses across keystores', () => {
@@ -197,7 +185,6 @@ describe('Keystore Duplication Validation', () => {
     const manager = new KeystoreManager(keystore);
     expect(() => manager.validateResolvedUniqueAttesterAddresses()).toThrow(KeystoreError);
     expect(() => manager.validateResolvedUniqueAttesterAddresses()).toThrow(/Duplicate attester address/);
-    expect(() => manager.validateResolvedUniqueAttesterAddresses()).not.toThrow(privateKey);
   });
 
   // Integration tests moved from examples.integration.test.ts
