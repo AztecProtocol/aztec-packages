@@ -48,7 +48,8 @@ else
 fi
 
 # Update PR body
-new_body="
+new_body="See [merge-train-readme.md](https://github.com/${GITHUB_REPOSITORY}/blob/next/.github/workflows/merge-train-readme.md).
+
 BEGIN_COMMIT_OVERRIDE
 $formatted_commits
 END_COMMIT_OVERRIDE"
