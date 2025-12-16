@@ -4,9 +4,11 @@
 // external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // =====================
 
-#include "acir_format.hpp"
+#include "acir_format_mocks.hpp"
 
-acir_format::AcirFormatOriginalOpcodeIndices create_empty_original_opcode_indices()
+namespace acir_format {
+
+AcirFormatOriginalOpcodeIndices create_empty_original_opcode_indices()
 {
     return acir_format::AcirFormatOriginalOpcodeIndices{
         .logic_constraints = {},
@@ -25,7 +27,6 @@ acir_format::AcirFormatOriginalOpcodeIndices create_empty_original_opcode_indice
         .avm_recursion_constraints = {},
         .hn_recursion_constraints = {},
         .chonk_recursion_constraints = {},
-        .arithmetic_triple_constraints = {},
         .quad_constraints = {},
         .big_quad_constraints = {},
         .block_constraints = {},
@@ -99,3 +100,5 @@ void mock_opcode_indices(acir_format::AcirFormat& constraint_system)
 
     constraint_system.num_acir_opcodes = static_cast<uint32_t>(current_opcode);
 }
+
+} // namespace acir_format

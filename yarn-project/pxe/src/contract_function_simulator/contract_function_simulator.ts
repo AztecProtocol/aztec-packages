@@ -17,8 +17,8 @@ import {
   MAX_PRIVATE_LOGS_PER_TX,
 } from '@aztec/constants';
 import { arrayNonEmptyLength, padArrayEnd } from '@aztec/foundation/collection';
-import { poseidon2Hash } from '@aztec/foundation/crypto';
-import { Fr } from '@aztec/foundation/fields';
+import { poseidon2Hash } from '@aztec/foundation/crypto/poseidon';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
@@ -59,6 +59,7 @@ import { PrivateLog } from '@aztec/stdlib/logs';
 import { ScopedL2ToL1Message } from '@aztec/stdlib/messaging';
 import { ChonkProof } from '@aztec/stdlib/proofs';
 import {
+  BlockHeader,
   CallContext,
   HashedValues,
   PrivateExecutionResult,
@@ -98,6 +99,7 @@ export class ContractFunctionSimulator {
    * @param contractAddress - The address of the contract (should match request.origin)
    * @param msgSender - The address calling the function. This can be replaced to simulate a call from another contract
    * or a specific account.
+   * @param anchorBlockHeader - The block header to use as base state for this run.
    * @param senderForTags - The address that is used as a tagging sender when emitting private logs. Returned from
    * the `privateGetSenderForTags` oracle.
    * @param scopes - The accounts whose notes we can access in this call. Currently optional and will default to all.
@@ -108,13 +110,13 @@ export class ContractFunctionSimulator {
     contractAddress: AztecAddress,
     selector: FunctionSelector,
     msgSender = AztecAddress.fromField(Fr.MAX_FIELD_VALUE),
+    anchorBlockHeader: BlockHeader,
     senderForTags?: AztecAddress,
     scopes?: AztecAddress[],
   ): Promise<PrivateExecutionResult> {
     const simulatorSetupTimer = new Timer();
-    const anchorBlockHeader = await this.executionDataProvider.getAnchorBlockHeader();
 
-    await verifyCurrentClassId(contractAddress, this.executionDataProvider);
+    await verifyCurrentClassId(contractAddress, this.executionDataProvider, anchorBlockHeader);
 
     const entryPointArtifact = await this.executionDataProvider.getFunctionArtifact(contractAddress, selector);
 
@@ -213,12 +215,18 @@ export class ContractFunctionSimulator {
    * Runs a utility function.
    * @param call - The function call to execute.
    * @param authwits - Authentication witnesses required for the function call.
+   * @param anchorBlockHeader - The block header to use as base state for this run.
    * @param scopes - Optional array of account addresses whose notes can be accessed in this call. Defaults to all
    * accounts if not specified.
    * @returns A return value of the utility function in a form as returned by the simulator (Noir fields)
    */
-  public async runUtility(call: FunctionCall, authwits: AuthWitness[], scopes?: AztecAddress[]): Promise<Fr[]> {
-    await verifyCurrentClassId(call.to, this.executionDataProvider);
+  public async runUtility(
+    call: FunctionCall,
+    authwits: AuthWitness[],
+    anchorBlockHeader: BlockHeader,
+    scopes?: AztecAddress[],
+  ): Promise<Fr[]> {
+    await verifyCurrentClassId(call.to, this.executionDataProvider, anchorBlockHeader);
 
     const entryPointArtifact = await this.executionDataProvider.getFunctionArtifact(call.to, call.selector);
 
@@ -226,7 +234,15 @@ export class ContractFunctionSimulator {
       throw new Error(`Cannot run ${entryPointArtifact.functionType} function as utility`);
     }
 
-    const oracle = new UtilityExecutionOracle(call.to, authwits, [], this.executionDataProvider, undefined, scopes);
+    const oracle = new UtilityExecutionOracle(
+      call.to,
+      authwits,
+      [],
+      anchorBlockHeader,
+      this.executionDataProvider,
+      undefined,
+      scopes,
+    );
 
     try {
       this.log.verbose(`Executing utility function ${entryPointArtifact.name}`, {

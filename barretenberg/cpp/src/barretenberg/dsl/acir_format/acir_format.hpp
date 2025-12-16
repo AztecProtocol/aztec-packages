@@ -59,7 +59,6 @@ struct AcirFormatOriginalOpcodeIndices {
     std::vector<size_t> avm_recursion_constraints;
     std::vector<size_t> hn_recursion_constraints;
     std::vector<size_t> chonk_recursion_constraints;
-    std::vector<size_t> arithmetic_triple_constraints;
     std::vector<size_t> quad_constraints;
     std::vector<size_t> big_quad_constraints;
     // Multiple opcode indices per block:
@@ -69,6 +68,19 @@ struct AcirFormatOriginalOpcodeIndices {
                            AcirFormatOriginalOpcodeIndices const& rhs) = default;
 };
 
+/**
+ * @brief Barretenberg's representation of ACIR constraints
+ *
+ * @details ACIR constraints are deserialized from bytes and stored in this format before being passed to the function
+ * create_circuit, which constructs a circuit out of the constraints. An AcirFormat instance records all the constraints
+ * that have to be added, plus some metadata:
+ * 1. the maximum witness index (used in write_vk situations to fill the circuit with dummy variables)
+ * 2. the number of original acir opcodes
+ * 3. the indices of the public inputs
+ * 4. the number of gates added to the circuit by each opcode (if calculated)
+ * 5. the original indices of the opcodes (recording the order in which the opcodes were added to the struct)
+ *
+ */
 struct AcirFormat {
     uint32_t max_witness_index = 0;
     uint32_t num_acir_opcodes;
@@ -92,9 +104,9 @@ struct AcirFormat {
     std::vector<RecursionConstraint> hn_recursion_constraints;
     std::vector<RecursionConstraint> chonk_recursion_constraints;
     std::vector<QuadConstraints> quad_constraints; // Standard honk arithmetic constraint of width 4
-    // A vector of vector of mul_quad gates (i.e arithmetic constraints of width 4)
+    // A vector of vector of QuadConstraints gates (i.e arithmetic constraints of width 4)
     // Each vector of gates represente a 'big' expression (a polynomial of degree 1 or 2 which does not fit inside one
-    // mul_gate) that has been splitted into multiple mul_gates, using w4_shift (the 4th wire of the next gate), to
+    // mul_gate) that has been split into multiple mul_gates, using w4_shift (the 4th wire of the next gate), to
     // reduce the number of intermediate variables.
     std::vector<std::vector<QuadConstraints>> big_quad_constraints;
     std::vector<BlockConstraint> block_constraints;
@@ -131,11 +143,25 @@ struct AcirFormat {
     friend bool operator==(AcirFormat const& lhs, AcirFormat const& rhs) = default;
 };
 
+/**
+ * @brief Struct containing both the constraints to be added to the circuit and the witness vector
+ *
+ */
 struct AcirProgram {
     AcirFormat constraints;
     WitnessVector witness;
 };
 
+/**
+ * @brief Metadata required to create a circuit
+ *
+ * @details The metadata is required for three reasons:
+ * 1. When we add constraints to kernels, we need an IVC instance. The metadata contains a pointer to such
+ *    instance.
+ * 2. When we add constraints to rollup circuits, we need to know whether the circuit should propagate an IPA claim or
+ *    recursively verify it. The boolean has_ipa_claim specifies what the circuit should do with an IPA claim.
+ * 3. If we wish to collect the number of gates added by each opcode, we set collect_gates_per_opcode to true.
+ */
 struct ProgramMetadata {
     // An IVC instance; needed to construct a circuit from IVC recursion constraints
     std::shared_ptr<bb::IVCBase> ivc = nullptr;
@@ -145,48 +171,23 @@ struct ProgramMetadata {
                // should propagate an IPA claim. In our codebase, circuits that propagate IPA claims are the ones whose
                // proof is constructed/verified using Rollup flavors.
     bool collect_gates_per_opcode = false;
-    size_t size_hint = 0;
 };
 
-// TODO(https://github.com/AztecProtocol/barretenberg/issues/1161) Refactor this function
+/**
+ * @brief Create a circuit out of an ACIR program and metadata
+ *
+ * @details This function instantiates the builder, adds the required witnesses to it, and then calls build_constraints
+ * to add the required constraints to the builder.
+ *
+ */
 template <typename Builder>
 Builder create_circuit(AcirProgram& program, const ProgramMetadata& metadata = ProgramMetadata{});
 
+/**
+ * @brief Add to the builder the constraints contained in an AcirFormat instance
+ *
+ */
 template <typename Builder>
 void build_constraints(Builder& builder, AcirFormat& constraints, const ProgramMetadata& metadata);
 
-/**
- * @brief Utility class for tracking the gate count of acir constraints
- *
- */
-template <typename Builder> class GateCounter {
-  public:
-    GateCounter(Builder* builder, bool collect_gates_per_opcode)
-        : builder(builder)
-        , collect_gates_per_opcode(collect_gates_per_opcode)
-    {}
-
-    size_t compute_diff()
-    {
-        if (!collect_gates_per_opcode) {
-            return 0;
-        }
-        size_t new_gate_count = builder->get_num_finalized_gates_inefficient(/*ensure_nonzero=*/false);
-        size_t diff = new_gate_count - prev_gate_count;
-        prev_gate_count = new_gate_count;
-        return diff;
-    }
-
-    void track_diff(std::vector<size_t>& gates_per_opcode, size_t opcode_index)
-    {
-        if (collect_gates_per_opcode) {
-            gates_per_opcode[opcode_index] = compute_diff();
-        }
-    }
-
-  private:
-    Builder* builder;
-    bool collect_gates_per_opcode;
-    size_t prev_gate_count{};
-};
 } // namespace acir_format

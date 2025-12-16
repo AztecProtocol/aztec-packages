@@ -29,11 +29,11 @@ void validate_split_in_field_unsafe(const field_t<Builder>& lo,
             ? need_borrow
             : field_t<Builder>::from_witness(lo.get_context(), typename field_t<Builder>::native(need_borrow));
 
-    // directly call `create_new_range_constraint` to avoid creating an arithmetic gate
+    // directly call `create_small_range_constraint` to avoid creating an arithmetic gate
     if (!lo.is_constant()) {
         // We need to manually propagate the origin tag
         borrow.set_origin_tag(lo.get_origin_tag());
-        lo.get_context()->create_new_range_constraint(borrow.get_witness_index(), 1, "borrow");
+        lo.get_context()->create_small_range_constraint(borrow.get_witness_index(), 1, "borrow");
     }
 
     // Hi range check = r_hi - hi - borrow

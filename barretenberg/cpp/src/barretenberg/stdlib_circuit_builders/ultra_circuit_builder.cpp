@@ -583,29 +583,31 @@ plookup::ReadData<uint32_t> UltraCircuitBuilder_<ExecutionTrace>::create_gates_f
 }
 
 /**
- * Generalized Permutation Methods
+ * Range constraint methods
  **/
 template <typename ExecutionTrace>
 typename UltraCircuitBuilder_<ExecutionTrace>::RangeList UltraCircuitBuilder_<ExecutionTrace>::create_range_list(
     const uint64_t target_range)
 {
     RangeList result;
-    const auto range_tag = get_new_tag(); // current_tag + 1;
-    const auto tau_tag = get_new_tag();   // current_tag + 2;
+    const auto range_tag = get_new_tag();
+    const auto tau_tag = get_new_tag();
     set_tau_transposition(range_tag, tau_tag);
     result.target_range = target_range;
     result.range_tag = range_tag;
     result.tau_tag = tau_tag;
 
     uint64_t num_multiples_of_three = (target_range / DEFAULT_PLOOKUP_RANGE_STEP_SIZE);
-
-    // AUDITTODO: This is not reserving the correct amount of space. Ensure this isn't indicative of a larger issue.
-    result.variable_indices.reserve((uint32_t)num_multiples_of_three);
+    // allocate the minimum number of variable indices required for the range constraint. this function is only called
+    // when we are creating a range constraint on a witness index, which is responsible for the extra + 1. (note that
+    // the below loop goes from 0 to `num_multiples_of_three` inclusive.)
+    result.variable_indices.reserve(static_cast<uint32_t>(num_multiples_of_three + 3));
     for (uint64_t i = 0; i <= num_multiples_of_three; ++i) {
         const uint32_t index = this->add_variable(fr(i * DEFAULT_PLOOKUP_RANGE_STEP_SIZE));
         result.variable_indices.emplace_back(index);
         assign_tag(index, result.range_tag);
     }
+    // `target_range` may not be divisible by 3, so we explicitly add it also.
     {
         const uint32_t index = this->add_variable(fr(target_range));
         result.variable_indices.emplace_back(index);
@@ -617,15 +619,14 @@ typename UltraCircuitBuilder_<ExecutionTrace>::RangeList UltraCircuitBuilder_<Ex
     return result;
 }
 
-// range constraint a value by decomposing it into limbs whose size should be the default range constraint size
-
 template <typename ExecutionTrace>
-std::vector<uint32_t> UltraCircuitBuilder_<ExecutionTrace>::decompose_into_default_range(
+std::vector<uint32_t> UltraCircuitBuilder_<ExecutionTrace>::create_limbed_range_constraint(
     const uint32_t variable_index, const uint64_t num_bits, const uint64_t target_range_bitnum, std::string const& msg)
 {
     this->assert_valid_variables({ variable_index });
-
+    // make sure `num_bits` satisfies the correct bounds
     BB_ASSERT_GT(num_bits, 0U);
+    BB_ASSERT_GTE(MAX_NUM_BITS_RANGE_CONSTRAINT, num_bits);
 
     uint256_t val = (uint256_t)(this->get_variable(variable_index));
 
@@ -634,21 +635,9 @@ std::vector<uint32_t> UltraCircuitBuilder_<ExecutionTrace>::decompose_into_defau
         this->failure(msg);
     }
 
+    // compute limb structure
     const uint64_t sublimb_mask = (1ULL << target_range_bitnum) - 1;
 
-    /**
-     * TODO: Support this commented-out code!
-     * At the moment, `decompose_into_default_range` generates a minimum of 1 arithmetic gate.
-     * This is not strictly required iff num_bits <= target_range_bitnum.
-     * However, this produces an edge-case where a variable is range-constrained but NOT present in an arithmetic gate.
-     * This in turn produces an unsatisfiable circuit (see `create_new_range_constraint`). We would need to check for
-     * and accommodate/reject this edge case to support not adding addition gates here if not reqiured
-     * if (num_bits <= target_range_bitnum) {
-     *     const uint64_t expected_range = (1ULL << num_bits) - 1ULL;
-     *     create_new_range_constraint(variable_index, expected_range);
-     *     return { variable_index };
-     * }
-     **/
     std::vector<uint64_t> sublimbs;
     std::vector<uint32_t> sublimb_indices;
 
@@ -657,53 +646,78 @@ std::vector<uint32_t> UltraCircuitBuilder_<ExecutionTrace>::decompose_into_defau
     const uint64_t last_limb_size = num_bits - ((num_bits / target_range_bitnum) * target_range_bitnum);
     const uint64_t last_limb_range = ((uint64_t)1 << last_limb_size) - 1;
 
+    // extract limbs from the value
     uint256_t accumulator = val;
     for (size_t i = 0; i < num_limbs; ++i) {
         sublimbs.push_back(accumulator.data[0] & sublimb_mask);
         accumulator = accumulator >> target_range_bitnum;
     }
-    for (size_t i = 0; i < sublimbs.size(); ++i) {
+    // set the correct range constraint on each limb. note that when there are remainder bits, the last limb must be
+    // constrained to a smaller range.
+    const size_t num_full_limbs = has_remainder_bits ? sublimbs.size() - 1 : sublimbs.size();
+    for (size_t i = 0; i < num_full_limbs; ++i) {
         const auto limb_idx = this->add_variable(bb::fr(sublimbs[i]));
         sublimb_indices.emplace_back(limb_idx);
-        if ((i == sublimbs.size() - 1) && has_remainder_bits) {
-            create_new_range_constraint(limb_idx, last_limb_range);
-        } else {
-            create_new_range_constraint(limb_idx, sublimb_mask);
-        }
+        create_small_range_constraint(limb_idx, sublimb_mask);
+    }
+    if (has_remainder_bits) {
+        const auto limb_idx = this->add_variable(bb::fr(sublimbs.back()));
+        sublimb_indices.emplace_back(limb_idx);
+        create_small_range_constraint(limb_idx, last_limb_range);
     }
 
+    // Prove that the limbs reconstruct the original value by processing limbs in groups of 3.
+    // We constrain: value = sum_{j=0}^{num_limbs-1} limb[j] * 2^(j * target_range_bitnum)
+    //
+    // Each iteration subtracts 3 limbs' contributions from an accumulator (starting at `val`),
+    // and constrains that the accumulator updates correctly via an arithmetic gate.
     const uint64_t num_limb_triples = (num_limbs / 3) + ((num_limbs % 3) != 0);
+    // `leftovers` is the number of real limbs in the final triple (1, 2, or 3).
     const uint64_t leftovers = (num_limbs % 3) == 0 ? 3 : (num_limbs % 3);
 
     accumulator = val;
     uint32_t accumulator_idx = variable_index;
-
+    // loop goes from `i = 0` to `num_limb_triples`, but some special case must be taken for the last triple (`i ==
+    // num_limb_triples - 1`), hence some conditional logic.
     for (size_t i = 0; i < num_limb_triples; ++i) {
+        // `real_limbs` which limb positions in this triple contain actual limbs vs zero-padding.
+        // When `i == num_limb_triples - 1`, some positions may be unused if `num_limbs` isn't divisible by 3.
         const bool real_limbs[3]{
-            (i == (num_limb_triples - 1) && (leftovers < 1)) ? false : true,
-            (i == (num_limb_triples - 1) && (leftovers < 2)) ? false : true,
-            (i == (num_limb_triples - 1) && (leftovers < 3)) ? false : true,
+            !(i == (num_limb_triples - 1) && (leftovers < 1)),
+            !(i == (num_limb_triples - 1) && (leftovers < 2)),
+            !(i == (num_limb_triples - 1) && (leftovers < 3)),
         };
 
+        // The witness values of the 3 limbs in this triple (0 for padding positions).
         const uint64_t round_sublimbs[3]{
             real_limbs[0] ? sublimbs[3 * i] : 0,
             real_limbs[1] ? sublimbs[3 * i + 1] : 0,
             real_limbs[2] ? sublimbs[3 * i + 2] : 0,
         };
+        // The witnesss indices of the current 3 limbs (zero_idx for padding positions).
         const uint32_t new_limbs[3]{
             real_limbs[0] ? sublimb_indices[3 * i] : this->zero_idx(),
             real_limbs[1] ? sublimb_indices[3 * i + 1] : this->zero_idx(),
             real_limbs[2] ? sublimb_indices[3 * i + 2] : this->zero_idx(),
         };
+        // Bit-shifts for each limb: limb[3*i+k] contributes at bit position (3*i+k) * target_range_bitnum.
         const uint64_t shifts[3]{
             target_range_bitnum * (3 * i),
             target_range_bitnum * (3 * i + 1),
             target_range_bitnum * (3 * i + 2),
         };
+        // Compute the new accumulator after subtracting this triple's contribution.
+        // After the final iteration, accumulator should be 0.
         uint256_t new_accumulator = accumulator - (uint256_t(round_sublimbs[0]) << shifts[0]) -
                                     (uint256_t(round_sublimbs[1]) << shifts[1]) -
                                     (uint256_t(round_sublimbs[2]) << shifts[2]);
 
+        // This `big_add_gate` has differing behavior depending on whether or not `i == num_limb_triples - 1`.
+        // If `i != num_limb_triples - 1`, then the constraint will be limb[0]*2^shift[0] + limb[1]*2^shift[1] +
+        // limb[2]*2^shift[2] - acc = new_accumulator (the last argument to `create_big_add_gate` is `true`, means the
+        // sum is w_4-shift, which will be the witness corresponding to what is currently `new_accumulator`.).
+        // If `i == num_limb_triples - 1`, then the last argument to `create_big_add_gate` is false, so the constraint
+        // is limb[0]*2^shift[0] + limb[1]*2^shift[1] + limb[2]*2^shift[2] - acc = 0.
         create_big_add_gate(
             {
                 new_limbs[0],
@@ -716,29 +730,22 @@ std::vector<uint32_t> UltraCircuitBuilder_<ExecutionTrace>::decompose_into_defau
                 -1,
                 0,
             },
-            ((i == num_limb_triples - 1) ? false : true));
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1450): this is probably creating an unused
-        // wire/variable in the circuit, in the last iteration of the loop.
-        accumulator_idx = this->add_variable(fr(new_accumulator));
-        accumulator = new_accumulator;
+            (i != num_limb_triples - 1));
+        if (i != num_limb_triples - 1) {
+            accumulator_idx = this->add_variable(fr(new_accumulator));
+            accumulator = new_accumulator;
+        }
     }
     return sublimb_indices;
 }
 
-/**
- * @brief Constrain a variable to a range
- *
- * @details Checks if the range [0, target_range] already exists. If it doesn't, then creates a new range. Then tags
- * variable as belonging to this set.
- *
- * @param variable_index
- * @param target_range
- */
 template <typename ExecutionTrace>
-void UltraCircuitBuilder_<ExecutionTrace>::create_new_range_constraint(const uint32_t variable_index,
-                                                                       const uint64_t target_range,
-                                                                       std::string const msg)
+void UltraCircuitBuilder_<ExecutionTrace>::create_small_range_constraint(const uint32_t variable_index,
+                                                                         const uint64_t target_range,
+                                                                         std::string const msg)
 {
+    // make sure `target_range` is not too big.
+    BB_ASSERT_GTE(MAX_SMALL_RANGE_CONSTRAINT_VAL, target_range);
     const bool is_out_of_range = (uint256_t(this->get_variable(variable_index)).data[0] > target_range);
     if (is_out_of_range && !this->failed()) {
         this->failure(msg);
@@ -746,45 +753,55 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_new_range_constraint(const uin
     if (range_lists.count(target_range) == 0) {
         range_lists.insert({ target_range, create_range_list(target_range) });
     }
-
+    // The tag of `variable_index` is `DEFAULT_TAG` if it has never been range-constrained and a non-trivial value
+    // otherwise.
     const auto existing_tag = this->real_variable_tags[this->real_variable_index[variable_index]];
     auto& list = range_lists[target_range];
 
-    // If the variable's tag matches the target range list's tag, do nothing.
-    if (existing_tag != list.range_tag) {
-        // If the variable is 'untagged' (i.e., it has the dummy tag), assign it the appropriate tag.
-        // Otherwise, find the range for which the variable has already been tagged.
-        if (existing_tag != DUMMY_TAG) {
-            bool found_tag = false;
-            for (const auto& r : range_lists) {
-                if (r.second.range_tag == existing_tag) {
-                    found_tag = true;
-                    if (r.first < target_range) {
-                        // The variable already has a more restrictive range check, so do nothing.
-                        return;
-                    } else {
-                        // The range constraint we are trying to impose is more restrictive than the existing range
-                        // constraint. It would be difficult to remove an existing range check. Instead deep-copy the
-                        // variable and apply a range check to new variable
-                        const uint32_t copied_witness = this->add_variable(this->get_variable(variable_index));
-                        create_add_gate({ .a = variable_index,
-                                          .b = copied_witness,
-                                          .c = this->zero_idx(),
-                                          .a_scaling = 1,
-                                          .b_scaling = -1,
-                                          .c_scaling = 0,
-                                          .const_scaling = 0 });
-                        // Recurse with new witness that has no tag attached.
-                        create_new_range_constraint(copied_witness, target_range, msg);
-                        return;
-                    }
-                }
-            }
-            BB_ASSERT(found_tag);
-        }
+    // If the variable's tag matches the target range list's tag, do nothing; the variable has _already_ been
+    // constrained to this exact range (i.e., `create_new_range_constraint(variable_index, target_range)` has already
+    // been called).
+    if (existing_tag == list.range_tag) {
+        return;
+    }
+    // If the variable is 'untagged' (i.e., it has the dummy tag), assign it the appropriate tag, which amounts to
+    // setting the range-constraint.
+    if (existing_tag == DEFAULT_TAG) {
         assign_tag(variable_index, list.range_tag);
         list.variable_indices.emplace_back(variable_index);
+        return;
     }
+    // Otherwise, find the range for which the variable has already been tagged.
+    bool found_tag = false;
+    for (const auto& r : range_lists) {
+        if (r.second.range_tag == existing_tag) {
+            found_tag = true;
+            if (r.first < target_range) {
+                // The variable already has a more restrictive range check, so do nothing.
+                return;
+            }
+            // The range constraint we are trying to impose is more restrictive than the existing range
+            // constraint. It would be difficult to remove an existing range check. Instead, arithmetically copy the
+            // variable and apply a range check to new variable. We do _not_ simply create a
+            // copy-constraint, because that would copy the tag, which exactly corresponds to the old (less
+            // restrictive) range constraint. Instead, we use an arithmetic gate to constrain the value of
+            // the new variable and set the tag (a.k.a. range-constraint) via a new call to
+            // `create_new_range_constraint`.
+            const uint32_t copied_witness = this->add_variable(this->get_variable(variable_index));
+            create_add_gate({ .a = variable_index,
+                              .b = copied_witness,
+                              .c = this->zero_idx(),
+                              .a_scaling = 1,
+                              .b_scaling = -1,
+                              .c_scaling = 0,
+                              .const_scaling = 0 });
+            // Recurse with new witness that has no tag attached.
+            create_small_range_constraint(copied_witness, target_range, msg);
+            return;
+        }
+    }
+    // should never occur
+    BB_ASSERT(found_tag);
 }
 
 template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::process_range_list(RangeList& list)
@@ -793,23 +810,23 @@ template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::pr
 
     BB_ASSERT_GT(list.variable_indices.size(), 0U);
 
-    // replace witness index in variable_indices with the real variable index i.e. if a copy constraint has been
-    // applied on a variable after it was range constrained, this makes sure the indices in list point to the updated
-    // index in the range list so the set equivalence does not fail
+    // replace witness-index in variable_indices with the corresponding real-variable-index i.e., if a copy constraint
+    // has been applied on a variable after it was range constrained, this makes sure the indices in list point to the
+    // updated index in the range list so the set equivalence does not fail
     for (uint32_t& x : list.variable_indices) {
         x = this->real_variable_index[x];
     }
-    // remove duplicate witness indices to prevent the sorted list set size being wrong!
+    // Sort `variable_indices` and remove duplicate witness indices to prevent the sorted list set size being wrong!
     std::sort(list.variable_indices.begin(), list.variable_indices.end());
     auto back_iterator = std::unique(list.variable_indices.begin(), list.variable_indices.end());
     list.variable_indices.erase(back_iterator, list.variable_indices.end());
 
-    // go over variables
-    // iterate over each variable and create mirror variable with same value - with tau tag
-    // need to make sure that, in original list, increments of at most 3
+    // Extract the values of each (real) variable into a list to be sorted (in the sense of the range/plookup-style
+    // argument).
     std::vector<uint32_t> sorted_list;
     sorted_list.reserve(list.variable_indices.size());
     for (const auto variable_index : list.variable_indices) {
+        // note that `field_element` is < 32 bits as the corresponding witness has a non-trivial range-constraint.
         const auto& field_element = this->get_variable(variable_index);
         const uint32_t shrinked_value = (uint32_t)field_element.from_montgomery_form().data[0];
         sorted_list.emplace_back(shrinked_value);
@@ -833,11 +850,13 @@ template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::pr
     for (size_t i = 0; i < padding; ++i) {
         indices.emplace_back(this->zero_idx());
     }
+    // tag the elements in the sorted_list to apply the multiset-equality check implicit in range-constraints.
     for (const auto sorted_value : sorted_list) {
         const uint32_t index = this->add_variable(fr(sorted_value));
         assign_tag(index, list.tau_tag);
         indices.emplace_back(index);
     }
+    // constrain the _sorted_ list: starts at 0, ends at `target_range`, consecutive differences in {0, 1, 2, 3}.
     create_sort_constraint_with_edges(indices, 0, list.target_range);
 }
 
@@ -848,29 +867,16 @@ template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::pr
     }
 }
 
-/*
- * Create range constraint:
- * add variable index to a list of range constrained variables
- * data structures: vector of lists, each list contains:
- *    - the range size
- *    - the list of variables in the range
- *    - a generalized permutation tag
- *
- * create range constraint parameters: variable index && range size
- *
- * std::map<uint64_t, RangeList> range_lists;
- */
-// Check for a sequence of variables that neighboring differences are at most 3 (used for batched range checkj)
 template <typename ExecutionTrace>
-void UltraCircuitBuilder_<ExecutionTrace>::create_sort_constraint(const std::vector<uint32_t>& variable_index)
+void UltraCircuitBuilder_<ExecutionTrace>::enforce_small_deltas(const std::vector<uint32_t>& variable_indices)
 {
     constexpr size_t gate_width = NUM_WIRES;
-    BB_ASSERT_EQ(variable_index.size() % gate_width, 0U);
-    this->assert_valid_variables(variable_index);
+    BB_ASSERT_EQ(variable_indices.size() % gate_width, 0U);
+    this->assert_valid_variables(variable_indices);
 
-    for (size_t i = 0; i < variable_index.size(); i += gate_width) {
+    for (size_t i = 0; i < variable_indices.size(); i += gate_width) {
         blocks.delta_range.populate_wires(
-            variable_index[i], variable_index[i + 1], variable_index[i + 2], variable_index[i + 3]);
+            variable_indices[i], variable_indices[i + 1], variable_indices[i + 2], variable_indices[i + 3]);
 
         this->increment_num_gates();
         blocks.delta_range.q_m().emplace_back(0);
@@ -882,9 +888,9 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_sort_constraint(const std::vec
         blocks.delta_range.set_gate_selector(1);
         check_selector_length_consistency();
     }
-    // dummy gate needed because of sort widget's check of next row
+    // dummy gate needed because of widget's check of next row
     create_unconstrained_gate(blocks.delta_range,
-                              variable_index[variable_index.size() - 1],
+                              variable_indices[variable_indices.size() - 1],
                               this->zero_idx(),
                               this->zero_idx(),
                               this->zero_idx());
@@ -910,42 +916,28 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_unconstrained_gates(const std:
     }
 }
 
-// Check for a sequence of variables that neighboring differences are at most 3 (used for batched range checks)
 template <typename ExecutionTrace>
 void UltraCircuitBuilder_<ExecutionTrace>::create_sort_constraint_with_edges(
-    const std::vector<uint32_t>& variable_index, const FF& start, const FF& end)
+    const std::vector<uint32_t>& variable_indices, const FF& start, const FF& end)
 {
     // Convenient to assume size is at least 8 (gate_width = 4) for separate gates for start and end conditions
     constexpr size_t gate_width = NUM_WIRES;
-    BB_ASSERT_EQ(variable_index.size() % gate_width, 0U);
-    BB_ASSERT_GT(variable_index.size(), gate_width);
-    this->assert_valid_variables(variable_index);
-
+    BB_ASSERT_EQ(variable_indices.size() % gate_width, 0U);
+    BB_ASSERT_GT(variable_indices.size(), gate_width);
+    this->assert_valid_variables(variable_indices);
+    // only work with the delta_range block. this forces: `w_2 - w_1`, `w_3 - w_2`, `w_4 - w_3`, and `w_1_shift - w_4`
+    // to be in {0, 1, 2, 3}.
     auto& block = blocks.delta_range;
 
     // Add an arithmetic gate to ensure the first input is equal to the start value of the range being checked
-    create_add_gate({ variable_index[0], this->zero_idx(), this->zero_idx(), 1, 0, 0, -start });
+    create_add_gate({ variable_indices[0], this->zero_idx(), this->zero_idx(), 1, 0, 0, -start });
 
-    // enforce range check for all but the final row
-    for (size_t i = 0; i < variable_index.size() - gate_width; i += gate_width) {
+    // enforce delta range relation for all rows (there are `variabe_indices.size() / gate_width`). note that there are
+    // at least two rows.
+    for (size_t i = 0; i < variable_indices.size(); i += gate_width) {
 
-        block.populate_wires(variable_index[i], variable_index[i + 1], variable_index[i + 2], variable_index[i + 3]);
-        this->increment_num_gates();
-        block.q_m().emplace_back(0);
-        block.q_1().emplace_back(0);
-        block.q_2().emplace_back(0);
-        block.q_3().emplace_back(0);
-        block.q_c().emplace_back(0);
-        block.q_4().emplace_back(0);
-        block.set_gate_selector(1);
-        check_selector_length_consistency();
-    }
-    // enforce range checks of last row and ending at end
-    if (variable_index.size() > gate_width) {
-        block.populate_wires(variable_index[variable_index.size() - 4],
-                             variable_index[variable_index.size() - 3],
-                             variable_index[variable_index.size() - 2],
-                             variable_index[variable_index.size() - 1]);
+        block.populate_wires(
+            variable_indices[i], variable_indices[i + 1], variable_indices[i + 2], variable_indices[i + 3]);
         this->increment_num_gates();
         block.q_m().emplace_back(0);
         block.q_1().emplace_back(0);
@@ -957,13 +949,13 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_sort_constraint_with_edges(
         check_selector_length_consistency();
     }
 
-    // NOTE(https://github.com/AztecProtocol/barretenberg/issues/879): Optimisation opportunity to use a single gate
-    // (and remove dummy gate). This used to be a single gate before trace sorting based on gate types. The dummy gate
-    // has been added to allow the previous gate to access the required wire data via shifts, allowing the arithmetic
-    // gate to occur out of sequence. More details on the linked Github issue.
+    // the delta_range constraint has to have access to w_1-shift (it checks that w_1-shift - w_4 is in {0, 1, 2, 3}).
+    // Therefore, we repeat the last element in an unconstrained gate.
     create_unconstrained_gate(
-        block, variable_index[variable_index.size() - 1], this->zero_idx(), this->zero_idx(), this->zero_idx());
-    create_add_gate({ variable_index[variable_index.size() - 1], this->zero_idx(), this->zero_idx(), 1, 0, 0, -end });
+        block, variable_indices[variable_indices.size() - 1], this->zero_idx(), this->zero_idx(), this->zero_idx());
+    // arithmetic gate to constrain that `variable_indices[last] == end`, i.e., verify the boundary condition.
+    create_add_gate(
+        { variable_indices[variable_indices.size() - 1], this->zero_idx(), this->zero_idx(), 1, 0, 0, -end });
 }
 
 /**
@@ -1261,10 +1253,12 @@ void UltraCircuitBuilder_<ExecutionTrace>::range_constrain_two_limbs(const uint3
 
     for (size_t i = 0; i < 5; i++) {
         if (lo_masks[i] != 0) {
-            create_new_range_constraint(lo_sublimbs[i], lo_masks[i], "ultra_circuit_builder: sublimb of low too large");
+            create_small_range_constraint(
+                lo_sublimbs[i], lo_masks[i], "ultra_circuit_builder: sublimb of low too large");
         }
         if (hi_masks[i] != 0) {
-            create_new_range_constraint(hi_sublimbs[i], hi_masks[i], "ultra_circuit_builder: sublimb of hi too large");
+            create_small_range_constraint(
+                hi_sublimbs[i], hi_masks[i], "ultra_circuit_builder: sublimb of hi too large");
         }
     }
 };

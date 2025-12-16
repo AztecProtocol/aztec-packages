@@ -8,7 +8,7 @@ import {
   MEM_TAG_U128,
 } from '@aztec/constants';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import type { FunctionsOf } from '@aztec/foundation/types';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -416,7 +416,7 @@ const TAG_FOR_MEM_VAL = new Map<string, TypeTag>([
   ['Uint128', TypeTag.UINT128],
 ]);
 
-const VALID_TAGS = new Set([
+export const VALID_TAGS = new Set([
   TypeTag.FIELD,
   TypeTag.UINT1,
   TypeTag.UINT8,
@@ -426,7 +426,7 @@ const VALID_TAGS = new Set([
   TypeTag.UINT128,
 ]);
 
-const INTEGRAL_TAGS = new Set([
+export const INTEGRAL_TAGS = new Set([
   TypeTag.UINT1,
   TypeTag.UINT8,
   TypeTag.UINT16,

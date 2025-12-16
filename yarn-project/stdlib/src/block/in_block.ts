@@ -15,15 +15,21 @@ export type DataInBlock<T> = {
   data: T;
 } & InBlock;
 
-export function randomInBlock<T>(data: T): DataInBlock<T> {
+export function randomInBlock(): InBlock {
   return {
-    data,
     l2BlockNumber: BlockNumber(Math.floor(Math.random() * 1000)),
     l2BlockHash: L2BlockHash.random(),
   };
 }
 
-export async function wrapInBlock<T>(data: T, block: L2Block): Promise<DataInBlock<T>> {
+export function randomDataInBlock<T>(data: T): DataInBlock<T> {
+  return {
+    ...randomInBlock(),
+    data,
+  };
+}
+
+export async function wrapDataInBlock<T>(data: T, block: L2Block): Promise<DataInBlock<T>> {
   return {
     data,
     l2BlockNumber: block.number,
@@ -31,10 +37,13 @@ export async function wrapInBlock<T>(data: T, block: L2Block): Promise<DataInBlo
   };
 }
 
-export function inBlockSchemaFor<T extends ZodTypeAny>(schema: T) {
+export function inBlockSchema() {
   return z.object({
-    data: schema,
     l2BlockNumber: BlockNumberSchema,
     l2BlockHash: L2BlockHash.schema,
   });
+}
+
+export function dataInBlockSchemaFor<T extends ZodTypeAny>(schema: T) {
+  return inBlockSchema().extend({ data: schema });
 }

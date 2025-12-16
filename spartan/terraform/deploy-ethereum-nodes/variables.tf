@@ -48,7 +48,7 @@ variable "lighthouse_p2p_port" {
 variable "reth_image" {
   description = "Reth Docker image"
   type        = string
-  default     = "ghcr.io/paradigmxyz/reth:v1.8.2"
+  default     = "ghcr.io/paradigmxyz/reth:v1.9.3"
 }
 
 variable "reth_chart_version" {
@@ -66,7 +66,7 @@ variable "reth_storage" {
 variable "lighthouse_image" {
   description = "Lighthouse Docker image"
   type        = string
-  default     = "sigp/lighthouse:v8.0.0-rc.1"
+  default     = "sigp/lighthouse:v8.0.1"
 }
 
 variable "lighthouse_chart_version" {

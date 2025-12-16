@@ -1,6 +1,7 @@
 import type { BlockNumber } from '@aztec/foundation/branded-types';
-import { Aes128 } from '@aztec/foundation/crypto';
-import { Fr, Point } from '@aztec/foundation/fields';
+import { Aes128 } from '@aztec/foundation/crypto/aes128';
+import { Fr } from '@aztec/foundation/curves/bn254';
+import { Point } from '@aztec/foundation/curves/grumpkin';
 import { LogLevels, applyStringFormatting, createLogger } from '@aztec/foundation/log';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -30,6 +31,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     /** List of transient auth witnesses to be used during this simulation */
     protected readonly authWitnesses: AuthWitness[],
     protected readonly capsules: Capsule[], // TODO(#12425): Rename to transientCapsules
+    protected readonly anchorBlockHeader: BlockHeader,
     protected readonly executionDataProvider: ExecutionDataProvider,
     protected log = createLogger('simulator:client_view_context'),
     protected readonly scopes?: AztecAddress[],
@@ -43,14 +45,13 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     return Fr.random();
   }
 
-  public async utilityGetUtilityContext(): Promise<UtilityContext> {
-    const blockHeader = await this.executionDataProvider.getAnchorBlockHeader();
+  public utilityGetUtilityContext(): UtilityContext {
     return UtilityContext.from({
-      blockNumber: blockHeader.globalVariables.blockNumber,
-      timestamp: blockHeader.globalVariables.timestamp,
+      blockNumber: this.anchorBlockHeader.globalVariables.blockNumber,
+      timestamp: this.anchorBlockHeader.globalVariables.timestamp,
       contractAddress: this.contractAddress,
-      version: blockHeader.globalVariables.version,
-      chainId: blockHeader.globalVariables.chainId,
+      version: this.anchorBlockHeader.globalVariables.version,
+      chainId: this.anchorBlockHeader.globalVariables.chainId,
     });
   }
 
@@ -168,7 +169,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * Real notes coming from DB will have a leafIndex which
    * represents their index in the note hash tree.
    *
-   * @param owner - The owner of the notes.
+   * @param owner - The owner of the notes. If undefined, returns notes for all owners.
    * @param storageSlot - The storage slot.
    * @param numSelects - The number of valid selects in selectBy and selectValues.
    * @param selectBy - An array of indices of the fields to selects.
@@ -182,7 +183,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * @returns Array of note data.
    */
   public async utilityGetNotes(
-    owner: AztecAddress,
+    owner: AztecAddress | undefined,
     storageSlot: Fr,
     numSelects: number,
     selectByIndexes: number[],

@@ -1,4 +1,4 @@
-import type { Point } from '@aztec/foundation/fields';
+import type { Point } from '@aztec/foundation/curves/grumpkin';
 import type { FailingFunction, NoirCallStack } from '@aztec/stdlib/errors';
 
 import { ExecutionError } from '../../common/errors.js';

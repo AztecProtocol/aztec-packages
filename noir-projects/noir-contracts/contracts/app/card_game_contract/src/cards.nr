@@ -57,11 +57,11 @@ impl CardNote {
     }
 
     pub fn from_card(card: Card) -> CardNote {
-        CardNote { card, note: FieldNote::new(card.to_field()) }
+        CardNote { card, note: FieldNote { value: card.to_field() } }
     }
 
     pub fn from_note(note: FieldNote) -> CardNote {
-        CardNote { card: Card::from_field(note.value()), note }
+        CardNote { card: Card::from_field(note.value), note }
     }
 }
 
@@ -119,7 +119,6 @@ impl Deck<&mut PrivateContext> {
         for card in cards {
             let card_note = CardNote::from_card(card);
             self.owned_set.at(owner).insert(card_note.note).deliver(
-                owner,
                 MessageDelivery.CONSTRAINED_ONCHAIN,
             );
             inserted_cards = inserted_cards.push_back(card_note);
@@ -141,10 +140,10 @@ impl Deck<UtilityContext> {
         owner: AztecAddress,
         offset: u32,
     ) -> BoundedVec<Card, MAX_NOTES_PER_PAGE> {
-        let mut options = NoteViewerOptions::new();
-        let notes = self.owned_set.at(owner).view_notes(options.set_offset(offset));
+        let options = NoteViewerOptions::new().set_offset(offset);
+        let notes = self.owned_set.at(owner).view_notes(options);
 
-        notes.map(|note| Card::from_field(note.value()))
+        notes.map(|note| Card::from_field(note.value))
     }
 }
 

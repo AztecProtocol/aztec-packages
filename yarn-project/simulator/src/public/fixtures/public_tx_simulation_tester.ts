@@ -1,7 +1,7 @@
 import { DEFAULT_TEARDOWN_DA_GAS_LIMIT, DEFAULT_TEARDOWN_L2_GAS_LIMIT } from '@aztec/constants';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { BlockNumber } from '@aztec/foundation/branded-types';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { type ContractArtifact, encodeArguments } from '@aztec/stdlib/abi';
 import { PublicSimulatorConfig, type PublicTxResult } from '@aztec/stdlib/avm';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -31,7 +31,7 @@ const DEFAULT_GAS_FEES = new GasFees(2, 3);
 export type TestEnqueuedCall = {
   sender?: AztecAddress;
   address: AztecAddress;
-  fnName: string;
+  fnName?: string;
   args: any[];
   isStaticCall?: boolean;
   contractArtifact?: ContractArtifact;
@@ -42,6 +42,7 @@ const defaultConfig: PublicSimulatorConfig = PublicSimulatorConfig.from({
   collectCallMetadata: true,
   collectDebugLogs: true,
   collectHints: false,
+  collectPublicInputs: false,
   collectStatistics: false,
 });
 
@@ -234,10 +235,24 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
       throw new Error(`Contract artifact not found for address: ${address}`);
     }
 
-    const fnSelector = await getFunctionSelector(call.fnName, contractArtifact);
-    const fnAbi = getContractFunctionAbi(call.fnName, contractArtifact)!;
-    const encodedArgs = encodeArguments(fnAbi, call.args);
-    const calldata = [fnSelector.toField(), ...encodedArgs];
+    let calldata: Fr[] = [];
+    if (!call.fnName) {
+      this.logger.debug(
+        `No function name specified for call to contract ${call.address.toString()}. Assuming this is a custom bytecode with no public_dispatch function.`,
+      );
+      this.logger.debug(`Not using ABI to encode arguments. Not prepending fn selector to calldata.`);
+      try {
+        calldata = call.args.map(arg => new Fr(arg));
+      } catch (error) {
+        this.logger.warn(`Tried assuming that all arguments are Field-like. Failed. Error: ${error}`);
+        throw error;
+      }
+    } else {
+      const fnSelector = await getFunctionSelector(call.fnName, contractArtifact);
+      const fnAbi = getContractFunctionAbi(call.fnName, contractArtifact)!;
+      const encodedArgs = encodeArguments(fnAbi, call.args);
+      calldata = [fnSelector.toField(), ...encodedArgs];
+    }
     const isStaticCall = call.isStaticCall ?? false;
     const request = await PublicCallRequest.fromCalldata(sender, address, isStaticCall, calldata);
 

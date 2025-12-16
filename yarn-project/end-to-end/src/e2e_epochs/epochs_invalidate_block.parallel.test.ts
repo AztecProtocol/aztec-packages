@@ -1,7 +1,9 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
-import { type ExtendedViemWalletClient, type Operator, RollupContract } from '@aztec/ethereum';
+import { RollupContract } from '@aztec/ethereum/contracts';
+import type { Operator } from '@aztec/ethereum/deploy-aztec-l1-contracts';
+import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { times } from '@aztec/foundation/collection';

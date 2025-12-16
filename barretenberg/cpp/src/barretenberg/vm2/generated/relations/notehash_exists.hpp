@@ -14,7 +14,7 @@ template <typename FF_> class notehash_existsImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 4> SUBRELATION_PARTIAL_LENGTHS = { 3, 4, 3, 3 };
+    static constexpr std::array<size_t, 3> SUBRELATION_PARTIAL_LENGTHS = { 3, 4, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -37,7 +37,6 @@ template <typename FF> class notehash_exists : public Relation<notehash_existsIm
     // Subrelation indices constants, to be used in tests.
     static constexpr size_t SR_NOTE_HASH_EXISTS_OUT_OF_RANGE_FALSE = 1;
     static constexpr size_t SR_NOTEHASH_EXISTS_U1_OUTPUT_TAG = 2;
-    static constexpr size_t SR_NOTE_HASH_EXISTS_SUCCESS = 3;
 
     static std::string get_subrelation_label(size_t index)
     {
@@ -46,8 +45,6 @@ template <typename FF> class notehash_exists : public Relation<notehash_existsIm
             return "NOTE_HASH_EXISTS_OUT_OF_RANGE_FALSE";
         case SR_NOTEHASH_EXISTS_U1_OUTPUT_TAG:
             return "NOTEHASH_EXISTS_U1_OUTPUT_TAG";
-        case SR_NOTE_HASH_EXISTS_SUCCESS:
-            return "NOTE_HASH_EXISTS_SUCCESS";
         }
         return std::to_string(index);
     }

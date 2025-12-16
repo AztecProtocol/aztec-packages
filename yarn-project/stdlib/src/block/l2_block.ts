@@ -1,6 +1,6 @@
 import { type BlockBlobData, encodeBlockBlobData, encodeCheckpointBlobDataFromBlocks } from '@aztec/blob-lib/encoding';
 import { BlockNumber, CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 
@@ -152,7 +152,13 @@ export class L2Block {
   }
 
   public toL2Block() {
-    return new L2BlockNew(this.archive, this.getBlockHeader(), this.body);
+    return new L2BlockNew(
+      this.archive,
+      this.getBlockHeader(),
+      this.body,
+      CheckpointNumber.fromBlockNumber(this.number),
+      0, // indexWithinCheckpoint
+    );
   }
 
   public toCheckpoint() {
@@ -186,16 +192,18 @@ export class L2Block {
    * TODO(#17027): Remove this method from L2Block and create a dedicated Checkpoint class.
    */
   public getCheckpointBlobFields() {
-    const blockBlobData = this.toBlockBlobData(true);
+    const blockBlobData = this.toBlockBlobData();
     return encodeCheckpointBlobDataFromBlocks([blockBlobData]);
   }
 
-  public toBlobFields(isFirstBlock: boolean): Fr[] {
-    const blockBlobData = this.toBlockBlobData(isFirstBlock);
+  public toBlobFields(): Fr[] {
+    const blockBlobData = this.toBlockBlobData();
     return encodeBlockBlobData(blockBlobData);
   }
 
-  public toBlockBlobData(isFirstBlock: boolean): BlockBlobData {
+  public toBlockBlobData(): BlockBlobData {
+    // There's only one L2Block per checkpoint, so it's always the first block in the checkpoint.
+    const isFirstBlock = true;
     return {
       blockEndMarker: {
         numTxs: this.body.txEffects.length,

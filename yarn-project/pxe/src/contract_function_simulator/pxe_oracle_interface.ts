@@ -1,6 +1,7 @@
 import type { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
 import { timesParallel } from '@aztec/foundation/collection';
-import { Fr, Point } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
+import { Point } from '@aztec/foundation/curves/grumpkin';
 import { createLogger } from '@aztec/foundation/log';
 import type { KeyStore } from '@aztec/key-store';
 import { EventSelector, type FunctionArtifactWithContractName, FunctionSelector } from '@aztec/stdlib/abi';
@@ -23,18 +24,17 @@ import { getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
 import { Note, type NoteStatus } from '@aztec/stdlib/note';
 import { NoteDao } from '@aztec/stdlib/note';
 import { MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
-import type { BlockHeader } from '@aztec/stdlib/tx';
 import { TxHash } from '@aztec/stdlib/tx';
 
 import type { ExecutionDataProvider, ExecutionStats } from '../contract_function_simulator/execution_data_provider.js';
 import { MessageLoadOracleInputs } from '../contract_function_simulator/oracle/message_load_oracle_inputs.js';
 import { ORACLE_VERSION } from '../oracle_version.js';
 import type { AddressDataProvider } from '../storage/address_data_provider/address_data_provider.js';
+import type { AnchorBlockDataProvider } from '../storage/anchor_block_data_provider/anchor_block_data_provider.js';
 import type { CapsuleDataProvider } from '../storage/capsule_data_provider/capsule_data_provider.js';
 import type { ContractDataProvider } from '../storage/contract_data_provider/contract_data_provider.js';
 import type { NoteDataProvider } from '../storage/note_data_provider/note_data_provider.js';
 import type { PrivateEventDataProvider } from '../storage/private_event_data_provider/private_event_data_provider.js';
-import type { SyncDataProvider } from '../storage/sync_data_provider/sync_data_provider.js';
 import type { TaggingDataProvider } from '../storage/tagging_data_provider/tagging_data_provider.js';
 import {
   DirectionalAppTaggingSecret,
@@ -60,7 +60,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     private contractDataProvider: ContractDataProvider,
     private noteDataProvider: NoteDataProvider,
     private capsuleDataProvider: CapsuleDataProvider,
-    private syncDataProvider: SyncDataProvider,
+    private anchorBlockDataProvider: AnchorBlockDataProvider,
     private taggingDataProvider: TaggingDataProvider,
     private addressDataProvider: AddressDataProvider,
     private privateEventDataProvider: PrivateEventDataProvider,
@@ -92,7 +92,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
 
   async getNotes(
     contractAddress: AztecAddress,
-    owner: AztecAddress,
+    owner: AztecAddress | undefined,
     storageSlot: Fr,
     status: NoteStatus,
     scopes?: AztecAddress[],
@@ -196,7 +196,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
   }
 
   public async getNullifierMembershipWitnessAtLatestBlock(nullifier: Fr) {
-    const blockNumber = (await this.getAnchorBlockHeader()).globalVariables.blockNumber;
+    const blockNumber = (await this.anchorBlockDataProvider.getBlockHeader()).getBlockNumber();
     return this.getNullifierMembershipWitness(blockNumber, nullifier);
   }
 
@@ -211,39 +211,35 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     blockNumber: BlockParameter,
     nullifier: Fr,
   ): Promise<NullifierMembershipWitness | undefined> {
-    const header = await this.getAnchorBlockHeader();
-    if (blockNumber !== 'latest' && blockNumber > header.globalVariables.blockNumber) {
-      throw new Error(`Block number ${blockNumber} is higher than current block ${header.globalVariables.blockNumber}`);
+    const anchorBlockNumber = (await this.anchorBlockDataProvider.getBlockHeader()).getBlockNumber();
+    if (blockNumber !== 'latest' && blockNumber > anchorBlockNumber) {
+      throw new Error(`Block number ${blockNumber} is higher than current block ${anchorBlockNumber}`);
     }
     return this.aztecNode.getLowNullifierMembershipWitness(blockNumber, nullifier);
   }
 
   public async getBlock(blockNumber: BlockParameter): Promise<L2Block | undefined> {
-    const header = await this.getAnchorBlockHeader();
-    if (blockNumber !== 'latest' && blockNumber > header.globalVariables.blockNumber) {
-      throw new Error(`Block number ${blockNumber} is higher than current block ${header.globalVariables.blockNumber}`);
+    const anchorBlockNumber = (await this.anchorBlockDataProvider.getBlockHeader()).getBlockNumber();
+    if (blockNumber !== 'latest' && blockNumber > anchorBlockNumber) {
+      throw new Error(`Block number ${blockNumber} is higher than current block ${anchorBlockNumber}`);
     }
     return await this.aztecNode.getBlock(blockNumber);
   }
 
   public async getPublicDataWitness(blockNumber: BlockParameter, leafSlot: Fr): Promise<PublicDataWitness | undefined> {
-    const header = await this.getAnchorBlockHeader();
-    if (blockNumber !== 'latest' && blockNumber > header.globalVariables.blockNumber) {
-      throw new Error(`Block number ${blockNumber} is higher than current block ${header.globalVariables.blockNumber}`);
+    const anchorBlockNumber = (await this.anchorBlockDataProvider.getBlockHeader()).getBlockNumber();
+    if (blockNumber !== 'latest' && blockNumber > anchorBlockNumber) {
+      throw new Error(`Block number ${blockNumber} is higher than current block ${anchorBlockNumber}`);
     }
     return await this.aztecNode.getPublicDataWitness(blockNumber, leafSlot);
   }
 
   public async getPublicStorageAt(blockNumber: BlockParameter, contract: AztecAddress, slot: Fr): Promise<Fr> {
-    const header = await this.getAnchorBlockHeader();
-    if (blockNumber !== 'latest' && blockNumber > header.globalVariables.blockNumber) {
-      throw new Error(`Block number ${blockNumber} is higher than current block ${header.globalVariables.blockNumber}`);
+    const anchorBlockNumber = (await this.anchorBlockDataProvider.getBlockHeader()).getBlockNumber();
+    if (blockNumber !== 'latest' && blockNumber > anchorBlockNumber) {
+      throw new Error(`Block number ${blockNumber} is higher than current block ${anchorBlockNumber}`);
     }
     return await this.aztecNode.getPublicStorageAt(blockNumber, contract, slot);
-  }
-
-  getAnchorBlockHeader(): Promise<BlockHeader> {
-    return this.syncDataProvider.getBlockHeader();
   }
 
   public assertCompatibleOracleVersion(version: number): void {
@@ -415,7 +411,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
   ) {
     this.log.verbose('Searching for tagged logs', { contract: contractAddress });
 
-    const maxBlockNumber = await this.syncDataProvider.getBlockNumber();
+    const maxBlockNumber = (await this.anchorBlockDataProvider.getBlockHeader()).getBlockNumber();
 
     // Ideally this algorithm would be implemented in noir, exposing its building blocks as oracles.
     // However it is impossible at the moment due to the language not supporting nested slices.
@@ -672,12 +668,26 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     // number which *should* be recent enough to be available, even for non-archive nodes.
     // Also note that the note should never be ahead of the synced block here since `fetchTaggedLogs` only processes
     // logs up to the synced block making this only an additional safety check.
-    const syncedBlockNumber = await this.syncDataProvider.getBlockNumber();
+    const syncedBlockNumber = (await this.anchorBlockDataProvider.getBlockHeader()).getBlockNumber();
 
     // By computing siloed and unique note hashes ourselves we prevent contracts from interfering with the note storage
     // of other contracts, which would constitute a security breach.
     const uniqueNoteHash = await computeUniqueNoteHash(noteNonce, await siloNoteHash(contractAddress, noteHash));
     const siloedNullifier = await siloNullifier(contractAddress, nullifier);
+
+    const txEffect = await this.aztecNode.getTxEffect(txHash);
+    if (!txEffect) {
+      throw new Error(`Could not find tx effect for tx hash ${txHash}`);
+    }
+
+    if (txEffect.l2BlockNumber > syncedBlockNumber) {
+      throw new Error(`Could not find tx effect for tx hash ${txHash} as of block number ${syncedBlockNumber}`);
+    }
+
+    const noteInTx = txEffect.data.noteHashes.some(nh => nh.equals(uniqueNoteHash));
+    if (!noteInTx) {
+      throw new Error(`Note hash ${noteHash} (uniqued as ${uniqueNoteHash}) is not present in tx ${txHash}`);
+    }
 
     // We store notes by their index in the global note hash tree, which has the convenient side effect of validating
     // note existence in said tree. We concurrently also check if the note's nullifier exists, performing all node
@@ -793,17 +803,19 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     content: Fr[],
     eventCommitment: Fr,
     txHash: TxHash,
-    recipient: AztecAddress,
+    scope: AztecAddress,
   ): Promise<void> {
     // While using 'latest' block number would be fine for private events since they cannot be accessed from Aztec.nr
     // (and thus we're less concerned about being ahead of the synced block), we use the synced block number to
     // maintain consistent behavior in the PXE. Additionally, events should never be ahead of the synced block here
     // since `fetchTaggedLogs` only processes logs up to the synced block.
-    const [syncedBlockNumber, siloedEventCommitment, txEffect] = await Promise.all([
-      this.syncDataProvider.getBlockNumber(),
+    const [syncedBlockHeader, siloedEventCommitment, txEffect] = await Promise.all([
+      this.anchorBlockDataProvider.getBlockHeader(),
       siloNullifier(contractAddress, eventCommitment),
       this.aztecNode.getTxEffect(txHash),
     ]);
+
+    const syncedBlockNumber = syncedBlockHeader.getBlockNumber();
 
     if (!txEffect) {
       throw new Error(`Could not find tx effect for tx hash ${txHash}`);
@@ -813,7 +825,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
       throw new Error(`Could not find tx effect for tx hash ${txHash} as of block number ${syncedBlockNumber}`);
     }
 
-    const eventInTx = txEffect.data.nullifiers.some(nullifier => nullifier.equals(siloedEventCommitment));
+    const eventInTx = txEffect.data.nullifiers.some(n => n.equals(siloedEventCommitment));
     if (!eventInTx) {
       throw new Error(
         `Event commitment ${eventCommitment} (siloed as ${siloedEventCommitment}) is not present in tx ${txHash}`,
@@ -831,14 +843,16 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     }
 
     return this.privateEventDataProvider.storePrivateEventLog(
-      contractAddress,
-      recipient,
       selector,
       content,
-      txHash,
       Number(nullifierIndex.data), // Index of the event commitment in the nullifier tree
-      nullifierIndex.l2BlockNumber, // Block number in which the event was emitted
-      nullifierIndex.l2BlockHash, // Block hash in which the event was emitted
+      {
+        contractAddress,
+        scope,
+        txHash,
+        l2BlockNumber: nullifierIndex.l2BlockNumber, // Block number in which the event was emitted
+        l2BlockHash: nullifierIndex.l2BlockHash, // Block hash in which the event was emitted
+      },
     );
   }
 
@@ -925,7 +939,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
   public async syncNoteNullifiers(contractAddress: AztecAddress) {
     this.log.verbose('Searching for nullifiers of known notes', { contract: contractAddress });
 
-    const syncedBlockNumber = await this.syncDataProvider.getBlockNumber();
+    const syncedBlockNumber = (await this.anchorBlockDataProvider.getBlockHeader()).getBlockNumber();
 
     const contractNotes = await this.noteDataProvider.getNotes({ contractAddress });
 

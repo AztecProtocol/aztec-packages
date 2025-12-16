@@ -25,8 +25,8 @@ pub contract Benchmarking {
     // Creates a new value note for the target owner. Use this method to seed an initial set of notes.
     #[external("private")]
     fn create_note(owner: AztecAddress, value: Field) {
-        let note = FieldNote::new(value);
-        self.storage.notes.at(owner).insert(note).deliver(owner, MessageDelivery.CONSTRAINED_ONCHAIN);
+        let note = FieldNote { value };
+        self.storage.notes.at(owner).insert(note).deliver(MessageDelivery.CONSTRAINED_ONCHAIN);
     }
     // Deletes a note at a specific index in the set and creates a new one with the same value.
     // We explicitly pass in the note index so we can ensure we consume different notes when sending
@@ -39,7 +39,7 @@ pub contract Benchmarking {
         let mut getter_options = NoteGetterOptions::new();
         let notes = owner_notes.pop_notes(getter_options.set_limit(1).set_offset(index));
         let note = notes.get(0);
-        owner_notes.insert(note).deliver(owner, MessageDelivery.CONSTRAINED_ONCHAIN);
+        owner_notes.insert(note).deliver(MessageDelivery.CONSTRAINED_ONCHAIN);
     }
 
     // Reads and writes to public storage and enqueues a call to another public function.
@@ -59,6 +59,6 @@ pub contract Benchmarking {
     // Does a bunch of heavy compute
     #[external("public")]
     fn sha256_hash_1024(data: [u8; 1024]) -> [u8; 32] {
-        sha256::sha256_var(data, data.len() as u64)
+        sha256::sha256_var(data, data.len())
     }
 }

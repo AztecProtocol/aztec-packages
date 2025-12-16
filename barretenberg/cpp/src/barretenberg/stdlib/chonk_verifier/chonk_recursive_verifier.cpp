@@ -9,10 +9,14 @@
 namespace bb::stdlib::recursion::honk {
 
 /**
- * @brief Creates a circuit that executes the Chonk verification algorithm.
+ * @brief Creates a circuit that verifies a Chonk IVC proof.
+ * @details Performs:
+ *   1. MegaZK verification of the hiding kernel proof
+ *   2. Databus consistency check (kernel return data == calldata commitment)
+ *   3. Goblin verification using ECC op wire commitments from the kernel
  *
- * @param proof Stdlib proof
- * @return ChonkRecursiveVerifier::Output
+ * @param proof Stdlib Chonk proof containing mega_proof and goblin_proof
+ * @return Output containing deferred verification data (pairing points, IPA claim)
  */
 ChonkRecursiveVerifier::Output ChonkRecursiveVerifier::verify(const StdlibProof& proof)
 {
@@ -27,19 +31,21 @@ ChonkRecursiveVerifier::Output ChonkRecursiveVerifier::verify(const StdlibProof&
     mega_output.kernel_return_data.incomplete_assert_equal(verifier.verifier_instance->witness_commitments.calldata);
 
     // Perform Goblin recursive verification
-    GoblinVerificationKey goblin_verification_key{};
+    // Reduces Goblin proof to pairing points and IPA claim. In recursive mode, the all_checks_passed flag only includes
+    // reduction checks that should be viewed as debugging hints.
     MergeCommitments merge_commitments{
         .t_commitments = verifier.verifier_instance->witness_commitments.get_ecc_op_wires()
                              .get_copy(), // Commitments to subtables added by the hiding kernel
         .T_prev_commitments = std::move(mega_output.ecc_op_tables) // Commitments to the state of the ecc op_queue as
                                                                    // computed insided the hiding kernel
     };
-    GoblinVerifier goblin_verifier{ builder, goblin_verification_key, chonk_rec_verifier_transcript };
-    GoblinRecursiveVerifierOutput output =
-        goblin_verifier.verify(proof.goblin_proof, merge_commitments, MergeSettings::APPEND);
-    output.points_accumulator.aggregate(mega_output.points_accumulator);
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1396): State tracking in Chonk verifiers
-    return { output };
+    GoblinVerifier goblin_verifier{
+        chonk_rec_verifier_transcript, proof.goblin_proof, merge_commitments, MergeSettings::APPEND
+    };
+    GoblinVerifier::ReductionResult goblin_output = goblin_verifier.reduce_to_pairing_check_and_ipa_opening();
+    goblin_output.pairing_points.aggregate(mega_output.points_accumulator);
+
+    return { goblin_output };
 }
 
 } // namespace bb::stdlib::recursion::honk

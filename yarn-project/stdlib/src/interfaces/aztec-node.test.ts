@@ -9,10 +9,10 @@ import { type L1ContractAddresses, L1ContractsNames } from '@aztec/ethereum/l1-c
 import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { timesAsync } from '@aztec/foundation/collection';
-import { randomInt } from '@aztec/foundation/crypto';
+import { randomInt } from '@aztec/foundation/crypto/random';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { memoize } from '@aztec/foundation/decorators';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { Fr } from '@aztec/foundation/fields';
 import { type JsonRpcTestContext, createJsonRpcTestSetup } from '@aztec/foundation/json-rpc/test';
 import { MembershipWitness, SiblingPath } from '@aztec/foundation/trees';
 
@@ -21,11 +21,12 @@ import times from 'lodash.times';
 
 import type { ContractArtifact } from '../abi/abi.js';
 import { AztecAddress } from '../aztec-address/index.js';
+import { PublishedL2Block } from '../block/checkpointed_l2_block.js';
 import type { DataInBlock } from '../block/in_block.js';
 import { type BlockParameter, CommitteeAttestation, L2BlockHash } from '../block/index.js';
 import { L2Block } from '../block/l2_block.js';
 import type { L2Tips } from '../block/l2_block_source.js';
-import { PublishedL2Block } from '../block/published_l2_block.js';
+import { L1PublishedData } from '../checkpoint/published_checkpoint.js';
 import {
   type ContractClassPublic,
   type ContractInstanceWithAddress,
@@ -39,7 +40,6 @@ import { PublicKeys } from '../keys/public_keys.js';
 import { ExtendedContractClassLog } from '../logs/extended_contract_class_log.js';
 import { ExtendedPublicLog } from '../logs/extended_public_log.js';
 import type { LogFilter } from '../logs/log_filter.js';
-import { PrivateLog } from '../logs/private_log.js';
 import { TxScopedL2Log } from '../logs/tx_scoped_l2_log.js';
 import { getTokenContractArtifact } from '../tests/fixtures.js';
 import { MerkleTreeId } from '../trees/merkle_tree_id.js';
@@ -286,11 +286,6 @@ describe('AztecNodeApiSchema', () => {
 
   it('registerContractFunctionSignatures', async () => {
     await context.client.registerContractFunctionSignatures(['test()']);
-  });
-
-  it('getPrivateLogs', async () => {
-    const response = await context.client.getPrivateLogs(BlockNumber(1), BlockNumber(1));
-    expect(response).toEqual([expect.any(PrivateLog)]);
   });
 
   it('getPublicLogs', async () => {
@@ -681,7 +676,7 @@ class MockAztecNode implements AztecNode {
       PublishedL2Block.fromFields({
         block: await L2Block.random(BlockNumber(from + i)),
         attestations: [CommitteeAttestation.random()],
-        l1: { blockHash: Buffer32.random().toString(), blockNumber: 1n, timestamp: 1n },
+        l1: new L1PublishedData(1n, 1n, Buffer32.random().toString()),
       }),
     );
   }
@@ -709,9 +704,6 @@ class MockAztecNode implements AztecNode {
   }
   registerContractFunctionSignatures(_signatures: string[]): Promise<void> {
     return Promise.resolve();
-  }
-  getPrivateLogs(_from: number, _limit: number): Promise<PrivateLog[]> {
-    return Promise.resolve([PrivateLog.random()]);
   }
   async getPublicLogs(filter: LogFilter): Promise<GetPublicLogsResponse> {
     expect(filter.contractAddress).toBeInstanceOf(AztecAddress);

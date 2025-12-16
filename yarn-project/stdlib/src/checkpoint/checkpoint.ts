@@ -1,6 +1,6 @@
 import { encodeCheckpointBlobDataFromBlocks } from '@aztec/blob-lib/encoding';
 import { BlockNumber, CheckpointNumber, CheckpointNumberSchema } from '@aztec/foundation/branded-types';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import type { FieldsOf } from '@aztec/foundation/types';
 
@@ -56,7 +56,7 @@ export class Checkpoint {
   }
 
   public toBlobFields(): Fr[] {
-    const blocks = this.blocks.map((block, i) => block.toBlockBlobData(i === 0));
+    const blocks = this.blocks.map(block => block.toBlockBlobData());
     return encodeCheckpointBlobDataFromBlocks(blocks);
   }
 
@@ -73,15 +73,30 @@ export class Checkpoint {
     {
       numBlocks = 1,
       startBlockNumber = 1,
+      previousArchive,
       ...options
-    }: { numBlocks?: number; startBlockNumber?: number } & Partial<Parameters<typeof CheckpointHeader.random>[0]> &
+    }: {
+      numBlocks?: number;
+      startBlockNumber?: number;
+      previousArchive?: AppendOnlyTreeSnapshot;
+    } & Partial<Parameters<typeof CheckpointHeader.random>[0]> &
       Partial<Parameters<typeof L2BlockNew.random>[1]> = {},
   ) {
     const header = CheckpointHeader.random(options);
 
-    const blocks = await Promise.all(
-      Array.from({ length: numBlocks }, (_, i) => L2BlockNew.random(BlockNumber(startBlockNumber + i), options)),
-    );
+    // Create blocks sequentially to chain archive roots properly.
+    // Each block's header.lastArchive must equal the previous block's archive.
+    const blocks: L2BlockNew[] = [];
+    let lastArchive = previousArchive;
+    for (let i = 0; i < numBlocks; i++) {
+      const block = await L2BlockNew.random(BlockNumber(startBlockNumber + i), {
+        indexWithinCheckpoint: i,
+        ...options,
+        ...(lastArchive ? { lastArchive } : {}),
+      });
+      lastArchive = block.archive;
+      blocks.push(block);
+    }
 
     return new Checkpoint(AppendOnlyTreeSnapshot.random(), header, blocks, checkpointNumber);
   }

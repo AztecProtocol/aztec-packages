@@ -16,16 +16,24 @@ namespace acir_format {
 /// representations.
 
 /**
+ * @brief Deserialize an fr element from buffer. The function checks that the buffer is exactly 32 bytes long.
+ *
+ * @param buffer
+ * @return bb::fr
+ */
+bb::fr from_buffer_with_bound_checks(const std::vector<uint8_t>& buffer);
+
+/**
  * @brief Parse an Acir::FunctionInput (which can either be a witness or a constant) into a WitnessOrConstant.
  */
-WitnessOrConstant<bb::fr> parse_input(Acir::FunctionInput input);
+WitnessOrConstant<bb::fr> parse_input(const Acir::FunctionInput& input);
 
 /**
  * @brief Extract the witness index from an Acir::FunctionInput representing a witness.
  *
  * @note The function asserts that the input is indeed a witness variant.
  */
-uint32_t get_witness_from_function_input(Acir::FunctionInput input);
+uint32_t get_witness_from_function_input(const Acir::FunctionInput& input);
 
 /**
  * @brief Update the max_witness_index.
@@ -35,7 +43,7 @@ uint32_t get_witness_from_function_input(Acir::FunctionInput input);
  * minus one to avoid buffer overrides.
  *
  */
-void update_max_witness_index(uint32_t witness_idx, AcirFormat& af);
+void update_max_witness_index(const uint32_t witness_idx, AcirFormat& af);
 
 /**
  * @brief Update max_witness_index by processing all witnesses in an Acir::Expression.
@@ -65,7 +73,12 @@ void update_max_witness_index_from_opcode(Acir::Opcode const& opcode, AcirFormat
 ///   only bincode is supported.
 /// - The Acir::Circuit is transformed into AcirFormat, which is Barretenberg's internal representation of the Acir
 ///   constraints that have to be added to the Builder.
-/// - A buffer of bytes is deserialised into a WitnessVector, which is the list of witness values known at the time of
+/// - A buffer of bytes is deserialized according to either msgpack or bincode into an Acir::Circuit, which is just the
+///   representation of a function in terms of Acir::Opcodes, Acir::Witness, Acir::PublicInputs. Currently only
+///   bincode is supported.
+/// - The Acir::Circuit is transformed into AcirFormat, which is Barretenberg's internal representation of the Acir
+///   constraints that have to be added to the Builder.
+/// - A buffer of bytes is deserialized into a WitnessVector, which is the list of witness values known at the time of
 ///   noir program execution. This conversion takes a WitnessMap (which is a list of couples (witness_index,
 ///   witness_value)) and converts it to a vector of bb::fr elements. ACIR optimizes away some witnesses, so the
 ///   WitnessMap may have holes: witness indices go up, but not necessarily by one. The conversion accounts for these
@@ -79,7 +92,7 @@ void update_max_witness_index_from_opcode(Acir::Opcode const& opcode, AcirFormat
  * falling back to `bincode` if the format cannot be recognized. Currently only `bincode` is expected.
  *
  * @note The function is written so that it can deserialize either `msgpack` or `bincode` depending on the first byte
- * of the buffer. However, at the moment only `bincode` is supported, so we fail in case `msgpack` is encountered. Note
+ * of the buffer. However, currently only `bincode` is supported, so we fail in case `msgpack` is encountered. Note
  * that due to the lack of exception handling available in Wasm, the code cannot be structured to try `bincode` and
  * fall back to `msgpack` if that fails. Therefore, we look at the first byte and commit to a format based on that.
  */

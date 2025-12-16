@@ -1,5 +1,5 @@
 import { DEFAULT_MAX_DEBUG_LOG_MEMORY_READS } from '@aztec/constants';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { jsonParseWithSchema, jsonStringify } from '@aztec/foundation/json-rpc';
 
 import { z } from 'zod';
@@ -15,6 +15,7 @@ import { GasSettings } from '../gas/gas_settings.js';
 import { GasUsed } from '../gas/gas_used.js';
 import { PublicKeys } from '../keys/public_keys.js';
 import { DebugLog } from '../logs/debug_log.js';
+import { PublicLog } from '../logs/public_log.js';
 import { ScopedL2ToL1Message } from '../messaging/l2_to_l1_message.js';
 import { NullishToUndefined, type ZodFor, schemas } from '../schemas/schemas.js';
 import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
@@ -33,6 +34,7 @@ import { TxExecutionPhase } from '../tx/processed_tx.js';
 import { WorldStateRevision } from '../world-state/world_state_revision.js';
 import { AvmCircuitPublicInputs } from './avm_circuit_public_inputs.js';
 import { serializeWithMessagePack } from './message_pack.js';
+import { PublicDataWrite } from './public_data_write.js';
 import { RevertCode } from './revert_code.js';
 
 ////////////////////////////////////////////////////////////////////////////
@@ -1146,7 +1148,7 @@ export class CallStackMetadata {
     const { stack, leaf } = failingCall;
     const aztecCallStack = stack.map(call => ({
       contractAddress: AztecAddress.fromField(call.contractAddress),
-      functionSelector: call.calldata.length > 0 ? FunctionSelector.fromField(call.calldata[0]) : undefined,
+      functionSelector: call.calldata.length > 0 ? FunctionSelector.fromFieldOrUndefined(call.calldata[0]) : undefined,
     }));
 
     // The Noir call stack is the internal call stack at exit of the failing call
@@ -1160,17 +1162,103 @@ export class CallStackMetadata {
     );
   }
 
+  /**
+   * Finds the "rightmost deepest" revert in the call tree.
+   *
+   * At each level, we select the LAST (rightmost) reverted call, then recurse into its
+   * nested calls to find the deepest reverted leaf along that path. The chain stops
+   * when we encounter a non-reverted call (since you can choose not to rethrow).
+   *
+   * Examples (X = reverted, O = passed):
+   *
+   * 1. [X, X, X] at depth 1 -> returns the last X (rightmost)
+   *
+   * 2. [X(depth2), X, X] where first X has a nested revert -> returns the last X at depth 1,
+   *    NOT the deeper revert in the first X (rightmost takes priority over depth)
+   *
+   * 3. X -> X -> X -> O -> O -> X (nested chain)
+   *    Returns the 3rd X, because the O's break the reverted chain (they didn't rethrow)
+   *
+   * @param calls - Array of call metadata at the current level
+   * @param parentStack - Accumulated stack of parent calls (for building the result)
+   * @returns The deepest reverted call along the rightmost reverted path, or undefined if none
+   */
   private findDeepestRevert(
     calls: CallStackMetadata[],
     parentStack: CallStackMetadata[] = [],
   ): { stack: CallStackMetadata[]; leaf: CallStackMetadata } | undefined {
-    for (const call of calls) {
-      if (call.reverted) {
-        const nested = this.findDeepestRevert(call.nested, [...parentStack, call]);
-        return nested || { stack: [...parentStack, call], leaf: call };
-      }
+    const lastReverted = calls.findLast(call => call.reverted);
+    if (!lastReverted) {
+      return undefined;
     }
-    return undefined;
+    const currentStack = [...parentStack, lastReverted];
+    return this.findDeepestRevert(lastReverted.nested, currentStack) || { stack: currentStack, leaf: lastReverted };
+  }
+}
+
+export class PublicTxEffect {
+  constructor(
+    public transactionFee: Fr,
+    public noteHashes: Fr[],
+    public nullifiers: Fr[],
+    public l2ToL1Msgs: ScopedL2ToL1Message[],
+    public publicLogs: PublicLog[],
+    public publicDataWrites: PublicDataWrite[],
+  ) {}
+
+  static empty() {
+    return new PublicTxEffect(Fr.ZERO, [], [], [], [], []);
+  }
+
+  static get schema(): ZodFor<PublicTxEffect> {
+    return z
+      .object({
+        transactionFee: Fr.schema,
+        noteHashes: Fr.schema.array(),
+        nullifiers: Fr.schema.array(),
+        l2ToL1Msgs: ScopedL2ToL1Message.schema.array(),
+        publicLogs: PublicLog.schema.array(),
+        publicDataWrites: PublicDataWrite.schema.array(),
+      })
+      .transform(PublicTxEffect.from);
+  }
+
+  static from(obj: any): PublicTxEffect {
+    return new PublicTxEffect(
+      obj.transactionFee,
+      obj.noteHashes,
+      obj.nullifiers,
+      obj.l2ToL1Msgs,
+      obj.publicLogs,
+      obj.publicDataWrites,
+    );
+  }
+
+  static fromPlainObject(obj: any): PublicTxEffect {
+    return new PublicTxEffect(
+      Fr.fromPlainObject(obj.transactionFee),
+      obj.noteHashes.map((h: any) => Fr.fromPlainObject(h)),
+      obj.nullifiers.map((n: any) => Fr.fromPlainObject(n)),
+      obj.l2ToL1Msgs.map((m: any) => ScopedL2ToL1Message.fromPlainObject(m)),
+      obj.publicLogs.map((l: any) => PublicLog.fromPlainObject(l)),
+      obj.publicDataWrites.map((w: any) => PublicDataWrite.fromPlainObject(w)),
+    );
+  }
+
+  equals(other: PublicTxEffect): boolean {
+    return (
+      this.transactionFee.equals(other.transactionFee) &&
+      this.noteHashes.length === other.noteHashes.length &&
+      this.noteHashes.every((h, i) => h.equals(other.noteHashes[i])) &&
+      this.nullifiers.length === other.nullifiers.length &&
+      this.nullifiers.every((h, i) => h.equals(other.nullifiers[i])) &&
+      this.l2ToL1Msgs.length === other.l2ToL1Msgs.length &&
+      this.l2ToL1Msgs.every((m, i) => m.equals(other.l2ToL1Msgs[i])) &&
+      this.publicLogs.length === other.publicLogs.length &&
+      this.publicLogs.every((l, i) => l.equals(other.publicLogs[i])) &&
+      this.publicDataWrites.length === other.publicDataWrites.length &&
+      this.publicDataWrites.every((w, i) => w.equals(other.publicDataWrites[i]))
+    );
   }
 }
 
@@ -1179,6 +1267,7 @@ export class PublicTxResult {
     // Simulation result.
     public gasUsed: GasUsed,
     public revertCode: RevertCode,
+    public publicTxEffect: PublicTxEffect,
     // These are only guaranteed to be present if the simulator is configured to collect them.
     // TODO(fcarreiro): Remove NestedProcessReturnValues[] once we migrate to the C++ simulator.
     public callStackMetadata:
@@ -1187,7 +1276,7 @@ export class PublicTxResult {
     public logs: DebugLog[] | undefined,
     // For the proving request.
     public hints: AvmExecutionHints | undefined,
-    public publicInputs: AvmCircuitPublicInputs,
+    public publicInputs: AvmCircuitPublicInputs | undefined,
   ) {}
 
   static empty() {
@@ -1199,6 +1288,7 @@ export class PublicTxResult {
         billedGas: Gas.empty(),
       },
       RevertCode.OK,
+      PublicTxEffect.empty(),
       /*callStackMetadata=*/ [] as CallStackMetadata[],
       /*logs=*/ [],
       /*hints=*/ AvmExecutionHints.empty(),
@@ -1212,15 +1302,24 @@ export class PublicTxResult {
         gasUsed: schemas.GasUsed,
         revertCode: RevertCode.schema,
         revertReason: NullishToUndefined(SimulationError.schema),
+        publicTxEffect: PublicTxEffect.schema,
         callStackMetadata: z.union([CallStackMetadata.schema.array(), NestedProcessReturnValues.schema.array()]),
         logs: NullishToUndefined(DebugLog.schema.array()),
         // For the proving request.
-        publicInputs: AvmCircuitPublicInputs.schema,
+        publicInputs: NullishToUndefined(AvmCircuitPublicInputs.schema),
         hints: NullishToUndefined(AvmExecutionHints.schema),
       })
       .transform(
-        ({ gasUsed, revertCode, callStackMetadata, logs, hints, publicInputs }) =>
-          new PublicTxResult(gasUsed, revertCode as RevertCode, callStackMetadata, logs, hints, publicInputs),
+        ({ gasUsed, revertCode, publicTxEffect, callStackMetadata, logs, hints, publicInputs }) =>
+          new PublicTxResult(
+            gasUsed,
+            revertCode as RevertCode,
+            publicTxEffect,
+            callStackMetadata,
+            logs,
+            hints,
+            publicInputs,
+          ),
       );
   }
 
@@ -1235,10 +1334,11 @@ export class PublicTxResult {
     return new PublicTxResult(
       GasUsed.fromPlainObject(obj.gasUsed),
       RevertCode.fromPlainObject(obj.revertCode),
+      PublicTxEffect.fromPlainObject(obj.publicTxEffect),
       obj.callStackMetadata.map(CallStackMetadata.fromPlainObject), // Always CallStackMetadata[] from MessagePack.
       obj.logs?.map(DebugLog.fromPlainObject),
       obj.hints ? AvmExecutionHints.fromPlainObject(obj.hints) : undefined,
-      AvmCircuitPublicInputs.fromPlainObject(obj.publicInputs),
+      obj.publicInputs ? AvmCircuitPublicInputs.fromPlainObject(obj.publicInputs) : undefined,
     );
   }
 
@@ -1336,6 +1436,7 @@ export class PublicSimulatorConfig {
     public readonly skipFeeEnforcement: boolean,
     public readonly collectCallMetadata: boolean, // appLogicReturnValues.
     public readonly collectHints: boolean, // hints.
+    public readonly collectPublicInputs: boolean, // public inputs.
     public readonly collectDebugLogs: boolean, // logs.
     public readonly collectStatistics: boolean, // timings etc.
     public readonly collectionLimits: CollectionLimitsConfig,
@@ -1347,6 +1448,7 @@ export class PublicSimulatorConfig {
       obj.skipFeeEnforcement ?? false,
       obj.collectCallMetadata ?? false,
       obj.collectHints ?? false,
+      obj.collectPublicInputs ?? false,
       obj.collectDebugLogs ?? false,
       obj.collectStatistics ?? false,
       obj.collectionLimits ?? CollectionLimitsConfig.empty(),
@@ -1364,6 +1466,7 @@ export class PublicSimulatorConfig {
         skipFeeEnforcement: z.boolean(),
         collectCallMetadata: z.boolean(),
         collectHints: z.boolean(),
+        collectPublicInputs: z.boolean(),
         collectDebugLogs: z.boolean(),
         collectStatistics: z.boolean(),
         collectionLimits: CollectionLimitsConfig.schema,

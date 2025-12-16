@@ -1,19 +1,20 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
 import { EthAddress } from '@aztec/aztec.js/addresses';
 import { type Logger, createLogger } from '@aztec/aztec.js/log';
+import { createExtendedL1Client } from '@aztec/ethereum/client';
+import {
+  EmpireSlashingProposerContract,
+  RollupContract,
+  TallySlashingProposerContract,
+} from '@aztec/ethereum/contracts';
+import { L1Deployer } from '@aztec/ethereum/deploy-l1-contract';
 import {
   EmpireSlashingProposerArtifact,
-  EmpireSlashingProposerContract,
-  type ExtendedViemWalletClient,
-  L1Deployer,
-  L1TxUtils,
-  RollupContract,
   SlasherArtifact,
   TallySlashingProposerArtifact,
-  TallySlashingProposerContract,
-  createExtendedL1Client,
-  createL1TxUtilsFromViemWallet,
-} from '@aztec/ethereum';
+} from '@aztec/ethereum/l1-artifacts';
+import { L1TxUtils, createL1TxUtilsFromViemWallet } from '@aztec/ethereum/l1-tx-utils';
+import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
 import { tryJsonStringify } from '@aztec/foundation/json-rpc';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { retryUntil } from '@aztec/foundation/retry';

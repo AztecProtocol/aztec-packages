@@ -83,8 +83,14 @@ A Chonk proof (`Chonk::Proof`) consists of:
 2. **Goblin proof**: Contains sub-proofs for efficient EC operations:
    - **Merge proof**: Proves correct merging of op queue tables
    - **ECCVM proof**: Proves correctness of EC operations (see [ECCVM README](../eccvm/README.md))
-   - **IPA proof**: Inner product argument for ECCVM
+   - **IPA proof**: Inner product argument for ECCVM (Grumpkin curve)
    - **Translator proof**: Converts between BN254 and Grumpkin curves
+
+**Note on deferred verification**: IPA claims and pairing points are propagated through the rollup:
+- **IPA claims** (Grumpkin): originate from ECCVM verification when Chonk or AVM proofs are recursively verified. Carried in `RollupIO` public inputs through tx_merge → block_merge → checkpoint_root → checkpoint_merge. At each level, claims from child proofs are accumulated via `IPA::accumulate`. Finally verified **in-circuit in the root rollup** via `IPA::full_verify_recursive`.
+- **Pairing points** (BN254): aggregated at each rollup level, verified **on L1** via the EVM's ecPairing precompile
+
+This amortizes the cost of IPA verification across many proofs.
 
 ---
 
@@ -353,6 +359,26 @@ The op queue contains EC operations from all circuits and must be hidden:
 2. **`hide_op_queue_content_in_tail`**: Protects tail kernel op queue data
 3. **`hide_op_queue_content_in_hiding`**: Final ZK protection in Hiding kernel
 
+### Constant Merged Table Size for ZK
+
+**Problem**: The final merge step uses APPEND mode. If the merged table size varied with transaction complexity, an observer could infer information about the transaction from the proof structure.
+
+**Solution**: We always merge to a **uniform total size** = `OP_QUEUE_SIZE`. In the code, `shift_size` is set to `(OP_QUEUE_SIZE - |hiding_ops|) × NUM_ROWS_PER_OP`, which represents the total degree of the prepended table and places the hiding kernel's ops at fixed positions at the end of the table, regardless of how many ops the actual transaction used.
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  M_tail (transaction ops)  │  zero padding  │  hiding ops  │
+│  (variable size)           │                │  (fixed pos) │
+└─────────────────────────────────────────────────────────────┘
+                             ←─ padding_size ─→
+```
+
+**Security - Zero Padding is Enforced**: The soundness argument has two parts:
+1. The cumulative PREPEND degree checks throughout the kernel chain ensure $[M_{tail}]$ has bounded degree
+2. The public input chain ensures the correct $[M_{tail}]$ reaches the final APPEND merge
+
+See [Appendix: Zero Padding Security](#appendix-zero-padding-security) for the detailed M_tail lifecycle and full soundness argument.
+
 ### Hiding Kernel
 
 The hiding kernel:
@@ -504,11 +530,11 @@ The fold operation:
 1. **Convert instance to accumulator**: Run Sumcheck on the incoming instance to produce an incoming accumulator claim
 
 2. **Batch the two accumulators**: Use `MultilinearBatchingProver` to fold:
-   - Constructs a circuit with 4 witness columns and 2 "evaluation" columns:
-     - `w_non_shifted_accumulator`, `w_non_shifted_instance` - batched polynomials
-     - `w_shifted_accumulator`, `w_shifted_instance` - batched shifted polynomials
-     - `w_evaluations_accumulator` = $\text{eq}(X, r_{\text{acc}})$
-     - `w_evaluations_instance` = $\text{eq}(X, r_{\text{inst}})$
+   - Constructs a circuit with 4 batched polynomial columns and 2 eq polynomial columns:
+     - `batched_unshifted_accumulator`, `batched_unshifted_instance` - batched polynomials
+     - `batched_shifted_accumulator`, `batched_shifted_instance` - batched shifted polynomials
+     - `eq_accumulator` = $\text{eq}(X, r_{\text{acc}})$ - selects accumulator evaluation point
+     - `eq_instance` = $\text{eq}(X, r_{\text{inst}})$ - selects instance evaluation point
 
    - Runs Sumcheck on the batching relation which checks (sums are over the Boolean hypercube $\{0,1\}^n$):
 
@@ -563,18 +589,135 @@ The decider proof is verified recursively in the hiding kernel.
 
 ### Transcript Sharing
 
-Transcripts are shared at two levels to ensure Fiat-Shamir challenge binding:
+Transcripts are shared to ensure Fiat-Shamir challenge binding - challenges in later proofs depend on all prior proof elements, preventing a malicious prover from generating sub-proofs independently.
 
-1. **Accumulation transcript**: A transcript is shared across each (kernel, app) pair:
-   - Reset when accumulating a kernel $K_i$
-   - Shared between folding $K_i$ and folding $A_{i+1}$
-   - The decider proof (produced after the tail kernel) also uses this transcript
+**Prover-side transcript lifecycle**:
 
-   On the verifier side, the recursive verifier in kernel $K_{i+1}$ creates a matching transcript to verify the proofs of $K_i$ and $A_{i+1}$.
+1. **Accumulation transcript** (one per kernel-app pair):
+   - Created fresh when accumulating kernel $K_i$
+   - Shared across: folding proof for $K_i$, folding proof for $A_{i+1}$, Merge proof for $K_i$
+   - The decider proof (after tail kernel) also continues this transcript
 
-2. **Final proof transcript**: Shared between the Hiding kernel proof, Merge proof, ECCVM proof, and Translator proof. The native/recursive verifier uses a matching shared transcript.
+2. **Final proof transcript**:
+   - Shared across: Hiding kernel MegaZK proof, Merge proof, ECCVM proof, Translator proof
+   - This is the transcript serialized into the Chonk proof
 
-**Security**: Transcript sharing ensures that Fiat-Shamir challenges in later proofs depend on all prior proof elements, preventing a malicious prover from generating sub-proofs independently.
+**Verifier-side transcript matching**: The recursive verifier in kernel $K_{i+1}$ reconstructs the same transcript state by processing the same proof elements in the same order, ensuring challenges match.
+
+See [Soundness Mechanisms](#soundness-mechanisms) for how `OriginTag` enforces transcript isolation and prevents unsafe mixing of values.
+
+---
+
+## Soundness Mechanisms
+
+This section describes the key mechanisms that ensure Chonk's soundness: how transcripts bind components together via Fiat-Shamir, how public inputs flow between circuits, and how deferred verification works.
+
+### Transcript Isolation via OriginTag
+
+While [Transcript Sharing](#transcript-sharing) describes *which* components share transcripts, this section explains how we *enforce* that values from different transcripts don't accidentally mix.
+
+Each `BaseTranscript` instantiated in-circuit receives a unique index via an atomic counter (`unique_transcript_index`). Field elements derived from a transcript carry an `OriginTag` that records this index.
+
+**Why isolation matters**: If values from different transcripts were mixed (e.g., using a challenge from transcript A to batch commitments hashed into transcript B), an adversary could manipulate challenges by controlling which proof elements appear where.
+
+The `OriginTag` mechanism enforces several critical security invariants:
+1. **Transcript isolation**: Values from different transcript instances cannot interact
+2. **Free witness prohibition**: Free witness elements cannot interact with transcript-originated values (prevents adversarial witness construction)
+3. **Round separation**: Submitted values from different rounds cannot mix without challenges (enforces proper Fiat-Shamir sequencing)
+
+These checks are active in debug builds and catch bugs during development. For full details, see [Origin Tags Security](../transcript/Origin%20Tags%20Security.md).
+
+**Additional transcripts created per kernel** (beyond the shared accumulation transcript):
+- **Pairing points aggregation transcript**: Fresh transcript for `PairingPoints::aggregate_multiple` - generates independent Fiat-Shamir challenges for batching pairing points
+- **Hash transcript**: Used to compute `output_hn_accum_hash` which binds the accumulator state to public inputs
+
+### Public Input Structure: KernelIO and HidingKernelIO
+
+Kernel circuits output a structured public input block that carries cross-circuit verification data:
+
+```cpp
+// KernelIO (for non-hiding kernels)
+struct KernelIO {
+    PairingInputs pairing_inputs;      // Accumulated {P0, P1} for deferred pairing check
+    G1 kernel_return_data;             // Commitment to this kernel's return data
+    G1 app_return_data;                // Commitment to the app's return data
+    TableCommitments ecc_op_tables;    // [M_1]...[M_4] merged op queue tables from Merge
+    FF output_hn_accum_hash;           // Hash of the HyperNova accumulator state
+};
+
+// HidingKernelIO (for the final hiding kernel - no accumulator hash since folding terminates)
+struct HidingKernelIO {
+    PairingInputs pairing_inputs;
+    G1 kernel_return_data;
+    TableCommitments ecc_op_tables;
+};
+```
+
+**Security**: Public inputs are bound to the circuit via relations checked by HyperNova sumcheck. Tampering with any public input value in a proof causes the recursive sumcheck verification to fail - the relations won't hold for the modified values.
+
+### Accumulator Hash Chain
+
+Each kernel computes a hash of its verifier accumulator and outputs it as `output_hn_accum_hash`. The next kernel:
+1. Extracts `output_hn_accum_hash` from the previous kernel's public inputs
+2. Computes its own expected hash from the accumulator state
+3. Asserts equality in-circuit
+
+```cpp
+// In complete_kernel_circuit_logic()
+bool accum_hash_match = kernel_input.output_hn_accum_hash.get_value() == prev_accum_hash->get_value();
+BB_ASSERT(accum_hash_match);
+kernel_input.output_hn_accum_hash.assert_equal(*prev_accum_hash);  // In-circuit constraint
+```
+
+**Why this matters**: This creates an unbroken chain from the first kernel to the hiding kernel. If an adversary modifies any accumulator mid-chain, the hash mismatch is detected. The hash also includes `OriginTag` information via `hash_with_origin_tagging()`, binding it to the specific transcript that generated it.
+
+### Databus Consistency Checks
+
+The [Databus](#databus) section explains how circuits pass data via commitment equality checks. Here's the concrete enforcement in `complete_kernel_circuit_logic()`:
+
+```cpp
+// Kernel's calldata must match previous kernel's return_data
+kernel_input.kernel_return_data.incomplete_assert_equal(witness_commitments.calldata);
+
+// Kernel's secondary_calldata must match previous app's return_data
+kernel_input.app_return_data.incomplete_assert_equal(witness_commitments.secondary_calldata);
+```
+
+The `incomplete_assert_equal` (for non-native G1 points) adds in-circuit constraints that the commitments are equal. Combined with the HyperNova binding of public inputs to proofs, tampering with databus content invalidates the proof.
+
+### ECC Op Table Continuity
+
+The merged op queue table commitments `[M_1]...[M_4]` flow through `KernelIO.ecc_op_tables`:
+
+1. Each kernel runs a recursive Merge verifier that outputs `merged_table_commitments`
+2. These are placed in `kernel_output.ecc_op_tables` and become public inputs
+3. The next kernel extracts them and uses them as `T_prev_commitments` for its own Merge verification
+
+This chain ensures the op queue history is maintained correctly. The Merge protocol's degree check prevents injection of extra operations.
+
+### Verification Key Binding
+
+**Attack vector**: If the first Fiat-Shamir challenge doesn't depend on the verification key, a malicious prover could generate a valid proof for circuit A, then claim it's a proof for circuit B by presenting a different VK - the challenges would be identical since they don't bind to the VK.
+
+**Defense**: The VK hash is the first value added to the transcript via `add_to_hash_buffer("vk_hash", ...)` before any challenges are derived. This happens in `OinkVerifier::verify()`, which is called by `HypernovaFoldingVerifier` for each incoming instance. All subsequent Fiat-Shamir challenges depend on this hash, binding the proof to exactly one circuit.
+
+```cpp
+// In OinkVerifier::verify() (called by HypernovaFoldingVerifier for each instance)
+FF vk_hash = vk->hash_with_origin_tagging(domain_separator, *transcript);
+transcript->add_to_hash_buffer(domain_separator + "vk_hash", vk_hash);
+// All subsequent challenges now depend on this hash
+```
+
+### Summary: Security Properties
+
+| Property | Enforcement |
+|----------|-------------|
+| **VK binding** | VK hash first in transcript via `add_to_hash_buffer`; all challenges depend on it |
+| **Fiat-Shamir soundness** | `OriginTag` prevents mixing values from different transcripts (debug builds) |
+| **Public input integrity** | Bound via sumcheck relations; tampering fails recursive verification |
+| **Accumulator chain** | `output_hn_accum_hash` checked via `assert_equal` (value flows through public inputs) |
+| **Databus consistency** | Databus lookup relation + `assert_equal` on commitments (flow through public inputs) |
+| **ECC op continuity** | ECC op queue relations (copy constraints on subtables) + Merge protocol (degree/concatenation checks) + `ecc_op_tables` flow through public inputs |
 
 ---
 
@@ -593,17 +736,30 @@ Transcripts are shared at two levels to ensure Fiat-Shamir challenge binding:
 
 ### QUEUE_TYPE
 
-These types are used in two contexts with different meanings:
-- In `accumulate`: Indicates which circuit type is being accumulated (e.g., `HN_TAIL` means we are accumulating the tail circuit)
-- In `complete_kernel_circuit_logic`: Indicates which kernel's logic is being completed (e.g., `HN_TAIL` means we are completing the tail kernel's logic, not verifying it)
+This enum has **dual semantics** depending on context:
 
-| Type | Description |
-|------|-------------|
-| `OINK` | Witness commitments only (no sumcheck) - used for first circuit |
-| `HN` | HyperNova folding proof - standard accumulation |
-| `HN_FINAL` | Final HN verification in hiding kernel |
-| `HN_TAIL` | Tail kernel proof with special ZK handling |
-| `MEGA` | Full Mega/Honk proof |
+#### Prover Perspective (`accumulate`)
+The type is assigned to the circuit being accumulated based on its position:
+
+| Circuit Position | QUEUE_TYPE | Description |
+|-----------------|------------|-------------|
+| Circuit 0 | `OINK` | First app - no prior accumulator, just Oink verification |
+| Circuits 1..n-4 | `HN` | Apps, inner kernels, reset kernels - standard HyperNova folding |
+| Circuit n-3 | `HN_TAIL` | Pre-tail kernel - adds ZK masking at op queue start |
+| Circuit n-2 | `HN_FINAL` | Tail kernel - final folding + decider verification |
+| Circuit n-1 | `MEGA` | Hiding kernel - MegaZK proof, no folding |
+
+#### Verifier Perspective (`complete_kernel_circuit_logic`)
+The type indicates which proof is being verified BY the current kernel:
+
+| Verifying Proof Type | Current Kernel Is | Action |
+|---------------------|-------------------|---------|
+| `OINK` | Init kernel (circuit 1) | Verify first app's Oink proof |
+| `HN` | Inner/reset kernel | Verify standard HN folding proof |
+| `HN_TAIL` | **Tail kernel** (circuit n-2) | Verify pre-tail kernel's proof, add ZK ops |
+| `HN_FINAL` | **Hiding kernel** (circuit n-1) | Verify tail kernel's proof + decider |
+
+**Key Point**: `HN_TAIL` is the proof FROM circuit n-3, verified BY the tail kernel (n-2). Similarly, `HN_FINAL` is the proof FROM the tail kernel (n-2), verified BY the hiding kernel (n-1).
 
 ### Proof Size
 
@@ -641,3 +797,58 @@ In debug builds (`NDEBUG` not defined):
 - Native verifier accumulator is maintained alongside prover accumulator
 - `update_native_verifier_accumulator` tracks verification state
 - `debug_incoming_circuit` validates circuits before accumulation
+
+---
+
+## Appendix: Zero Padding Security
+
+This appendix provides the detailed soundness argument for why the merged op queue table cannot contain non-zero values in the padding region.
+
+### M_tail Lifecycle
+
+**Step 1: Tail kernel performs final PREPEND merge**
+- Recursive merge verifier runs in K_tail
+- Verifies: $M_{tail}(\kappa) = t_{tail}(\kappa) + \kappa^{\ell_{tail}} \cdot T_{prev}(\kappa)$ where $\ell_{tail} = |t_{tail}| \times 2$
+- Verifies: $\deg(t_{tail}) < \ell_{tail}$ (Thakur degree check)
+- Outputs: `merged_table_commitments` = $[M_{tail,1}], [M_{tail,2}], [M_{tail,3}], [M_{tail,4}]$
+- K_tail's public inputs contain these commitments via `kernel_output.ecc_op_tables`
+
+**Step 2: K_tail → Hiding kernel via HyperNova**
+- Hiding kernel verifies K_tail's HyperNova folding proof
+- This binds K_tail's public inputs (including $[M_{tail}]$) to the proof
+
+**Step 3: Hiding kernel extracts [M_tail] from K_tail's public inputs**
+```cpp
+KernelIO kernel_input;
+kernel_input.reconstruct_from_public(public_inputs);
+merge_commitments.T_prev_commitments = std::move(kernel_input.ecc_op_tables);
+```
+- HyperNova verification ensures `public_inputs` matches K_tail's proven computation
+- Result: `T_prev_commitments` contains $[M_{tail}]$ verified to match K_tail's output
+
+**Step 4: Hiding kernel recursively verifies K_tail**
+- Verifies K_tail's HyperNova folding proof
+- Verifies K_tail's decider proof
+- Recursively verifies K_tail's merge proof
+- Returns `merged_table_commitments` = $[M_{tail}]$
+- **Critical**: Hiding kernel's own ops are NOT merged here - they will be merged by Chonk Verifier
+- Public output: `HidingKernelIO{ ..., T_prev_commitments }` where `T_prev_commitments` = $[M_{tail}]$
+
+**Step 5: Chonk verifier extracts [M_tail] from hiding kernel**
+```cpp
+auto [mega_verified, kernel_return_data, T_prev_commitments] =
+    verifier.template verify_proof<bb::HidingKernelIO>(proof.mega_proof);
+```
+- Verifies hiding kernel's MegaZK proof (including its public inputs)
+- Extracts `T_prev_commitments` = $[M_{tail}]$ from `HidingKernelIO` public inputs
+- MegaZK verification ensures `T_prev_commitments` is bound to hiding kernel's proof
+
+**Step 6: Final merge (APPEND mode) - merges hiding kernel's ops with constant shift size**
+
+### Key Verifier Guarantees
+
+1. **Step 1**: K_tail outputs $[M_{tail}]$ via verified merge protocol with degree check
+2. **Step 2-3**: HyperNova ensures $[M_{tail}]$ from K_tail's public inputs matches proven computation
+3. **Step 4**: Hiding kernel uses verified $[M_{tail}]$ and outputs it in public inputs
+4. **Step 5**: MegaZK verification ensures hiding kernel's public outputs are bound to its proof
+5. **Step 6**: Final merge uses $[M_{tail}]$ from step 5, with degree check proving zero padding

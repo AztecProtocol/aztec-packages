@@ -6,6 +6,7 @@
     ".": "./dest/index.js",
     "./block-factory": "./dest/block-factory/index.js",
     "./broker": "./dest/proving_broker/index.js",
+    "./broker/config": "./dest/proving_broker/config.js",
     "./orchestrator": "./dest/orchestrator/index.js",
     "./helpers": "./dest/orchestrator/block-building-helpers.js",
     "./config": "./dest/config.js"

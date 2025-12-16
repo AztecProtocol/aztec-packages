@@ -1,5 +1,5 @@
 import { Blob } from '@aztec/blob-lib';
-import { randomBytes } from '@aztec/foundation/crypto';
+import { randomBytes } from '@aztec/foundation/crypto/random';
 import { TimeoutError } from '@aztec/foundation/error';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
@@ -420,34 +420,107 @@ describe('L1TxUtils', () => {
       expect(retryGasPrice.maxFeePerGas).toBe(expectedMaxFee);
     });
 
-    it('handles fixed priority fee with fractional part', async () => {
+    it('handles minimum priority fee with fractional part', async () => {
       await cheatCodes.setNextBlockBaseFeePerGas(WEI_CONST);
       await cheatCodes.evmMine();
 
-      // Test with a fractional priority fee (1.5 gwei)
-      gasUtils.updateConfig({
-        ...defaultL1TxUtilsConfig,
-        fixedPriorityFeePerGas: 1.5,
-      });
+      // Mock estimateMaxPriorityFeePerGas to return a very low value (0.1 gwei)
+      // so that the minimum takes effect
+      const originalEstimate = l1Client.estimateMaxPriorityFeePerGas;
+      const mockLowPriorityFee = WEI_CONST / 10n; // 0.1 gwei
+      l1Client.estimateMaxPriorityFeePerGas = () => Promise.resolve(mockLowPriorityFee);
 
-      const gasPrice = await gasUtils['getGasPrice']();
+      try {
+        // Test with a fractional minimum priority fee (1.5 gwei)
+        gasUtils.updateConfig({
+          ...defaultL1TxUtilsConfig,
+          minimumPriorityFeePerGas: 1.5,
+          priorityFeeBumpPercentage: 0, // No bump to make test clearer
+        });
 
-      // Priority fee should be 1.5 gwei = 1_500_000_000 wei
-      const expectedPriorityFee = BigInt(Math.trunc(1.5 * Number(WEI_CONST)));
-      expect(gasPrice.maxPriorityFeePerGas).toBe(expectedPriorityFee);
-      expect(gasPrice.maxPriorityFeePerGas).toBe(1_500_000_000n);
+        const gasPrice = await gasUtils['getGasPrice']();
 
-      // Test with full 9 decimal places (2.123456789 gwei)
-      gasUtils.updateConfig({
-        ...defaultL1TxUtilsConfig,
-        fixedPriorityFeePerGas: 2.123456789,
-      });
+        // Priority fee should be at least 1.5 gwei = 1_500_000_000 wei (the minimum)
+        const expectedMinimumFee = BigInt(Math.trunc(1.5 * Number(WEI_CONST)));
+        expect(gasPrice.maxPriorityFeePerGas).toBe(expectedMinimumFee);
+        expect(gasPrice.maxPriorityFeePerGas).toBe(1_500_000_000n);
 
-      const gasPrice2 = await gasUtils['getGasPrice']();
+        // Test with full 9 decimal places (2.123456789 gwei)
+        gasUtils.updateConfig({
+          ...defaultL1TxUtilsConfig,
+          minimumPriorityFeePerGas: 2.123456789,
+          priorityFeeBumpPercentage: 0, // No bump to make test clearer
+        });
 
-      const expectedPriorityFee2 = BigInt(Math.trunc(2.123456789 * Number(WEI_CONST)));
-      expect(gasPrice2.maxPriorityFeePerGas).toBe(expectedPriorityFee2);
-      expect(gasPrice2.maxPriorityFeePerGas).toBe(2_123_456_789n);
+        const gasPrice2 = await gasUtils['getGasPrice']();
+
+        const expectedMinimumFee2 = BigInt(Math.trunc(2.123456789 * Number(WEI_CONST)));
+        expect(gasPrice2.maxPriorityFeePerGas).toBe(expectedMinimumFee2);
+        expect(gasPrice2.maxPriorityFeePerGas).toBe(2_123_456_789n);
+      } finally {
+        // Restore original method
+        l1Client.estimateMaxPriorityFeePerGas = originalEstimate;
+      }
+    });
+
+    it('uses network fee when it exceeds minimum priority fee', async () => {
+      await cheatCodes.setNextBlockBaseFeePerGas(WEI_CONST);
+      await cheatCodes.evmMine();
+
+      // Mock estimateMaxPriorityFeePerGas to return a high value (5 gwei)
+      // that exceeds our minimum (1 gwei)
+      const originalEstimate = l1Client.estimateMaxPriorityFeePerGas;
+      const mockHighPriorityFee = WEI_CONST * 5n; // 5 gwei
+      l1Client.estimateMaxPriorityFeePerGas = () => Promise.resolve(mockHighPriorityFee);
+
+      try {
+        // Set a low minimum priority fee (1 gwei) - network fee (5 gwei) should be used instead
+        gasUtils.updateConfig({
+          ...defaultL1TxUtilsConfig,
+          minimumPriorityFeePerGas: 1, // 1 gwei minimum
+          priorityFeeBumpPercentage: 0, // No bump to make test clearer
+        });
+
+        const gasPrice = await gasUtils['getGasPrice']();
+
+        // Network fee (5 gwei) should be used since it exceeds the minimum (1 gwei)
+        const minimumFee = WEI_CONST; // 1 gwei
+        expect(gasPrice.maxPriorityFeePerGas).toBeGreaterThan(minimumFee);
+        expect(gasPrice.maxPriorityFeePerGas).toBe(mockHighPriorityFee);
+      } finally {
+        // Restore original method
+        l1Client.estimateMaxPriorityFeePerGas = originalEstimate;
+      }
+    });
+
+    it('uses network fee with bump when it exceeds minimum priority fee', async () => {
+      await cheatCodes.setNextBlockBaseFeePerGas(WEI_CONST);
+      await cheatCodes.evmMine();
+
+      // Mock estimateMaxPriorityFeePerGas to return a moderate value (3 gwei)
+      const originalEstimate = l1Client.estimateMaxPriorityFeePerGas;
+      const mockNetworkFee = WEI_CONST * 3n; // 3 gwei
+      l1Client.estimateMaxPriorityFeePerGas = () => Promise.resolve(mockNetworkFee);
+
+      try {
+        // Set a low minimum (1 gwei) and 20% bump
+        // Network fee (3 gwei) + 20% bump = 3.6 gwei should be used
+        gasUtils.updateConfig({
+          ...defaultL1TxUtilsConfig,
+          minimumPriorityFeePerGas: 1, // 1 gwei minimum
+          priorityFeeBumpPercentage: 20, // 20% bump
+        });
+
+        const gasPrice = await gasUtils['getGasPrice']();
+
+        // Expected: network fee (3 gwei) with 20% bump = 3.6 gwei
+        const expectedFee = (mockNetworkFee * 120n) / 100n;
+        expect(gasPrice.maxPriorityFeePerGas).toBe(expectedFee);
+        expect(gasPrice.maxPriorityFeePerGas).toBe(3_600_000_000n);
+      } finally {
+        // Restore original method
+        l1Client.estimateMaxPriorityFeePerGas = originalEstimate;
+      }
     });
 
     it('handles maxGwei with fractional part', async () => {

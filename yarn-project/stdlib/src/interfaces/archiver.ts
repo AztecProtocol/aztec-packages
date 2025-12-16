@@ -1,12 +1,12 @@
-import type { L1ContractAddresses } from '@aztec/ethereum';
+import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import { BlockNumberSchema, CheckpointNumberSchema, EpochNumberSchema } from '@aztec/foundation/branded-types';
 import type { ApiSchemaFor } from '@aztec/foundation/schemas';
 
 import { z } from 'zod';
 
+import { CheckpointedL2Block, PublishedL2Block } from '../block/checkpointed_l2_block.js';
 import { L2Block } from '../block/l2_block.js';
 import { type L2BlockSource, L2TipsSchema } from '../block/l2_block_source.js';
-import { PublishedL2Block } from '../block/published_l2_block.js';
 import { ValidateBlockResultSchema } from '../block/validate_block_result.js';
 import { Checkpoint } from '../checkpoint/checkpoint.js';
 import { PublishedCheckpoint } from '../checkpoint/published_checkpoint.js';
@@ -17,7 +17,6 @@ import {
 } from '../contract/index.js';
 import { L1RollupConstantsSchema } from '../epoch-helpers/index.js';
 import { LogFilterSchema } from '../logs/log_filter.js';
-import { PrivateLog } from '../logs/private_log.js';
 import { TxScopedL2Log } from '../logs/tx_scoped_l2_log.js';
 import type { L1ToL2MessageSource } from '../messaging/l1_to_l2_message_source.js';
 import { optional, schemas } from '../schemas/schemas.js';
@@ -55,6 +54,9 @@ export type ArchiverSpecificConfig = {
 
   /** Maximum allowed drift in seconds between the Ethereum client and current time. */
   maxAllowedEthClientDriftSeconds?: number;
+
+  /** Whether to allow starting the archiver without debug/trace method support on Ethereum hosts */
+  ethereumAllowNoDebugHosts?: boolean;
 };
 
 export const ArchiverSpecificConfigSchema = z.object({
@@ -65,6 +67,7 @@ export const ArchiverSpecificConfigSchema = z.object({
   archiverStoreMapSizeKb: schemas.Integer.optional(),
   skipValidateBlockAttestations: z.boolean().optional(),
   maxAllowedEthClientDriftSeconds: schemas.Integer.optional(),
+  ethereumAllowNoDebugHosts: z.boolean().optional(),
 });
 
 export type ArchiverApi = Omit<
@@ -82,6 +85,7 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
     .function()
     .args(z.union([BlockNumberSchema, z.literal('latest')]))
     .returns(BlockHeader.schema.optional()),
+  getCheckpointedBlock: z.function().args(BlockNumberSchema).returns(CheckpointedL2Block.schema.optional()),
   getBlocks: z
     .function()
     .args(BlockNumberSchema, schemas.Integer, optional(z.boolean()))
@@ -90,7 +94,6 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
     .function()
     .args(CheckpointNumberSchema, schemas.Integer)
     .returns(z.array(PublishedCheckpoint.schema)),
-  getCheckpointByArchive: z.function().args(schemas.Fr).returns(Checkpoint.schema.optional()),
   getPublishedBlocks: z
     .function()
     .args(BlockNumberSchema, schemas.Integer, optional(z.boolean()))
@@ -108,7 +111,6 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
   getBlockHeadersForEpoch: z.function().args(EpochNumberSchema).returns(z.array(BlockHeader.schema)),
   isEpochComplete: z.function().args(EpochNumberSchema).returns(z.boolean()),
   getL2Tips: z.function().args().returns(L2TipsSchema),
-  getPrivateLogs: z.function().args(BlockNumberSchema, z.number()).returns(z.array(PrivateLog.schema)),
   getLogsByTags: z
     .function()
     .args(z.array(schemas.Fr))
@@ -123,8 +125,7 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
     .returns(ContractInstanceWithAddressSchema.optional()),
   getContractClassIds: z.function().args().returns(z.array(schemas.Fr)),
   registerContractFunctionSignatures: z.function().args(z.array(z.string())).returns(z.void()),
-  getL1ToL2MessagesForCheckpoint: z.function().args(CheckpointNumberSchema).returns(z.array(schemas.Fr)),
-  getL1ToL2Messages: z.function().args(BlockNumberSchema).returns(z.array(schemas.Fr)),
+  getL1ToL2Messages: z.function().args(CheckpointNumberSchema).returns(z.array(schemas.Fr)),
   getL1ToL2MessageIndex: z.function().args(schemas.Fr).returns(schemas.BigInt.optional()),
   getDebugFunctionName: z.function().args(schemas.AztecAddress, schemas.FunctionSelector).returns(optional(z.string())),
   getL1Constants: z.function().args().returns(L1RollupConstantsSchema),

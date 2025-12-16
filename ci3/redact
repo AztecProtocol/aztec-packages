@@ -25,4 +25,5 @@ BEGIN { n = split(ENVIRON["__REDACT_PATTERNS"], p, "\n") }
     if (p[i] != "") while ((j = index($0, p[i])) > 0)
       $0 = substr($0, 1, j-1) "***" substr($0, j + length(p[i]))
   print
+  fflush()
 }'

@@ -1,13 +1,8 @@
-import {
-  GSEContract,
-  RollupContract,
-  createEthereumChain,
-  createExtendedL1Client,
-  createL1TxUtilsFromViemWallet,
-  getL1ContractsConfigEnvVars,
-  getPublicClient,
-  isAnvilTestChain,
-} from '@aztec/ethereum';
+import { createEthereumChain, isAnvilTestChain } from '@aztec/ethereum/chain';
+import { createExtendedL1Client, getPublicClient } from '@aztec/ethereum/client';
+import { getL1ContractsConfigEnvVars } from '@aztec/ethereum/config';
+import { GSEContract, RollupContract } from '@aztec/ethereum/contracts';
+import { createL1TxUtilsFromViemWallet } from '@aztec/ethereum/l1-tx-utils';
 import { EthCheatCodes } from '@aztec/ethereum/test';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { LogFn, Logger } from '@aztec/foundation/log';

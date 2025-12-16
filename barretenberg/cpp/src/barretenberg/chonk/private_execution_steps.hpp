@@ -40,14 +40,42 @@ struct PrivateExecutionStepRaw {
                                   const std::filesystem::path& output_path);
 };
 
-// TODO(https://github.com/AztecProtocol/barretenberg/issues/1162) this should have a common code path with
-// the WASM folding stack code.
+/**
+ * @brief Parsed private execution steps ready for Chonk accumulation.
+ *
+ * @details After deserializing from msgpack, this struct holds the decoded ACIR programs,
+ * their witnesses, precomputed VKs, and function names. The accumulate() method runs the
+ * complete IVC accumulation over all steps.
+ *
+ * Data flow:
+ *   TypeScript (Aztec client) → msgpack encode → ivc-inputs.msgpack
+ *     → PrivateExecutionStepRaw::load_and_decompress()
+ *     → PrivateExecutionSteps::parse()
+ *     → PrivateExecutionSteps::accumulate()
+ *     → Chonk IVC proof
+ *
+ *
+ */
 struct PrivateExecutionSteps {
-    std::vector<acir_format::AcirProgram> folding_stack;
-    std::vector<std::string> function_names;
-    std::vector<std::shared_ptr<Chonk::MegaVerificationKey>> precomputed_vks;
+    std::vector<acir_format::AcirProgram> folding_stack;                      ///< ACIR programs with witnesses
+    std::vector<std::string> function_names;                                  ///< Function names for logging
+    std::vector<std::shared_ptr<Chonk::MegaVerificationKey>> precomputed_vks; ///< Precomputed VKs (performance)
 
+    /**
+     * @brief Creates a Chonk instance and accumulates each circuit in the folding stack.
+     * Uses precomputed VKs when available for performance. The returned Chonk instance
+     * is ready to call prove() to generate the final IVC proof.
+     *
+     * @return Shared pointer to Chonk instance with accumulated state
+     */
     std::shared_ptr<Chonk> accumulate();
+
+    /**
+     * @brief Converts PrivateExecutionStepRaw entries (which contain raw bytecode/witness bytes)
+     * into structured AcirProgram objects ready for circuit construction.
+     *
+     * @param steps Raw execution steps (will be moved from)
+     */
     void parse(std::vector<PrivateExecutionStepRaw>&& steps);
 };
 } // namespace bb

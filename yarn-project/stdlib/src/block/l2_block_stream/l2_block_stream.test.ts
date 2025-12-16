@@ -1,14 +1,14 @@
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { compactArray } from '@aztec/foundation/collection';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 import times from 'lodash.times';
 
 import type { BlockHeader } from '../../tx/block_header.js';
+import type { PublishedL2Block } from '../checkpointed_l2_block.js';
 import type { L2Block } from '../l2_block.js';
 import type { L2BlockId, L2BlockSource, L2Tips } from '../l2_block_source.js';
-import type { PublishedL2Block } from '../published_l2_block.js';
 import type { L2BlockStreamEvent, L2BlockStreamEventHandler, L2BlockStreamLocalDataProvider } from './interfaces.js';
 import { L2BlockStream } from './l2_block_stream.js';
 import { L2TipsMemoryStore } from './l2_tips_memory_store.js';

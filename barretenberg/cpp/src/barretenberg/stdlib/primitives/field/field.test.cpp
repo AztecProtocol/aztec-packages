@@ -142,7 +142,8 @@ template <typename Builder> class stdlib_field : public testing::Test {
         // -1 has maximum bit length
         run_test(-1, fr::modulus.get_msb(), false);
         run_test(-1, 128, false);
-        run_test(-1, fr::modulus.get_msb() + 1, true);
+        // -1/2 has "second maximal" bit length
+        run_test(-1 / 2, fr::modulus.get_msb(), true);
     }
 
     static void test_bool_conversion()
@@ -169,13 +170,12 @@ template <typename Builder> class stdlib_field : public testing::Test {
         // Check that the conversion aborts in the case of random field elements.
         bool_ct invalid_bool;
         // Case 4: Invalid constant conversion
-        EXPECT_THROW_OR_ABORT(
-            invalid_bool = bool_ct(field_ct(input_array.back())),
-            "Assertion failed: (additive_constant == bb::fr::one() || additive_constant == bb::fr::zero())");
+        EXPECT_THROW_WITH_MESSAGE(invalid_bool = bool_ct(field_ct(input_array.back())),
+                                  "Attempting to create a bool_t from a witness_t not satisfying x\\^2 - x = 0");
         // Case 5: Invalid witness conversion
         Builder builder = Builder();
-        EXPECT_THROW_OR_ABORT(invalid_bool = bool_ct(field_ct(witness_ct(&builder, input_array.back()))),
-                              "Assertion failed: ((witness == bb::fr::zero()) || (witness == bb::fr::one()) == true)");
+        EXPECT_THROW_WITH_MESSAGE(invalid_bool = bool_ct(field_ct(witness_ct(&builder, input_array.back()))),
+                                  "Attempting to create a bool_t from a witness_t not satisfying x\\^2 - x = 0");
     }
     /**
      * @brief Test that bool is converted correctly
@@ -364,7 +364,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
         {
             field_ct a(&builder, 3);
             field_ct b(&builder, 7);
-            EXPECT_THROW_OR_ABORT(a.assert_equal(b), "field_t::assert_equal: constants are not equal");
+            EXPECT_THROW_WITH_MESSAGE(a.assert_equal(b), "field_t::assert_equal: constants are not equal");
         }
 
         // Constant == witness
@@ -483,13 +483,13 @@ template <typename Builder> class stdlib_field : public testing::Test {
         {
             // Case 1. Numerator = const, denominator = const 0. Check that the division is aborted
             b = 0;
-            EXPECT_THROW_OR_ABORT(a / b, ".*");
+            EXPECT_THROW(a / b, std::runtime_error);
         }
         { // Case 2. Numerator != const, denominator = const 0. Check that the division is aborted
             Builder builder = Builder();
             field_ct a = witness_ct(&builder, bb::fr::random_element());
             b = 0;
-            EXPECT_THROW_OR_ABORT(a / b, ".*");
+            EXPECT_THROW(a / b, std::runtime_error);
         }
         {
             // Case 3. Numerator != const, denominator = witness 0 . Check that the circuit fails.
@@ -539,7 +539,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
         }
 
         a = 0;
-        EXPECT_THROW_OR_ABORT(a.invert(), "field_t::invert denominator is constant 0");
+        EXPECT_THROW_WITH_MESSAGE(a.invert(), "field_t::invert denominator is constant 0");
     }
     static void test_postfix_increment()
     {
@@ -767,7 +767,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
         }
         { // a is a const 0
             a = field_ct(0);
-            EXPECT_THROW_OR_ABORT(a.assert_is_not_zero(), "assert_is_not_zero");
+            EXPECT_THROW_WITH_MESSAGE(a.assert_is_not_zero(), "assert_is_not_zero");
         }
     }
 
@@ -1105,10 +1105,10 @@ template <typename Builder> class stdlib_field : public testing::Test {
 
         [[maybe_unused]] field_ct base = witness_ct(&builder, base_val);
         field_ct exponent = witness_ct(&builder, exponent_val);
-        EXPECT_THROW_OR_ABORT(base.pow(exponent), "Assertion failed: \\(exponent_value.get_msb\\(\\) < 32\\)");
+        EXPECT_THROW_WITH_MESSAGE(base.pow(exponent), "Exponent too large in field_t::pow");
 
         exponent = field_ct(exponent_val);
-        EXPECT_THROW_OR_ABORT(base.pow(exponent), "Assertion failed: \\(exponent_value.get_msb\\(\\) < 32\\)");
+        EXPECT_THROW_WITH_MESSAGE(base.pow(exponent), "Exponent too large in field_t::pow");
     };
 
     static void test_copy_as_new_witness()
@@ -1142,7 +1142,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
         elt = bb::fr::random_element();
 
         if (elt.get_value() != 0) {
-            EXPECT_THROW_OR_ABORT(elt.assert_is_zero(), "field_t::assert_is_zero");
+            EXPECT_THROW_WITH_MESSAGE(elt.assert_is_zero(), "field_t::assert_is_zero");
         }
         // Create a witness 0
         Builder builder = Builder();
@@ -1489,14 +1489,14 @@ template <typename Builder> class stdlib_field : public testing::Test {
 
         // Case 6: Conflict between two different non-nullptrs
         {
-            EXPECT_THROW_OR_ABORT(validate_context(&builder1, &builder2),
-                                  "Pointers refer to different builder objects!");
+            EXPECT_THROW_WITH_MESSAGE(validate_context(&builder1, &builder2),
+                                      "Pointers refer to different builder objects!");
         }
 
         // Case 7: Conflict between first and last non-null
         {
-            EXPECT_THROW_OR_ABORT(validate_context(&builder1, null, null, &builder2),
-                                  "Pointers refer to different builder objects!");
+            EXPECT_THROW_WITH_MESSAGE(validate_context(&builder1, null, null, &builder2),
+                                      "Pointers refer to different builder objects!");
         }
 
         // Case 8: First null, two same non-null later
@@ -1555,7 +1555,8 @@ template <typename Builder> class stdlib_field : public testing::Test {
                 field_ct(&builder2, 2),
             };
 
-            EXPECT_THROW_OR_ABORT(validate_context<Builder>(fields), "Pointers refer to different builder objects!");
+            EXPECT_THROW_WITH_MESSAGE(validate_context<Builder>(fields),
+                                      "Pointers refer to different builder objects!");
         }
     }
 };

@@ -1,5 +1,5 @@
 import { getL1Config } from '@aztec/cli/config';
-import { getPublicClient } from '@aztec/ethereum';
+import { getPublicClient } from '@aztec/ethereum/client';
 import type { NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
 import type { LogFn } from '@aztec/foundation/log';
 import {
@@ -45,7 +45,7 @@ export async function startProverBroker(
   config.l1Contracts = addresses;
   config.rollupVersion = rollupConfig.rollupVersion;
 
-  const client = initTelemetryClient(getTelemetryClientConfig());
+  const client = await initTelemetryClient(getTelemetryClientConfig());
   const broker = await createAndStartProvingBroker(config, client);
 
   if (options.autoUpdate !== 'disabled' && options.autoUpdateUrl) {

@@ -103,7 +103,7 @@ Each variable in the circuit can be assigned a **tag**. Tags are organized into 
 - `set_tau_transposition(tag_a, tag_b)`: Sets $\tau(\text{tag\_a}) = \text{tag\_b}$ and $\tau(\text{tag\_b}) = \text{tag\_a}$
 - `assign_tag(variable_idx, tag)`: Associates a variable with a tag
 
-Variables without an explicit tag assignment receive `DUMMY_TAG`, and $\tau(\text{DUMMY\_TAG}) = \text{DUMMY\_TAG}$. We assume that the `DUMMY_TAG` is not part of any multiset-equality check.
+Variables without an explicit tag assignment receive `DEFAULT_TAG`, and $\tau(\text{DEFAULT\_TAG}) = \text{DEFAULT\_TAG}$. We assume that the `DEFAULT_TAG` is not part of any multiset-equality check.
 
 The extra constraint we wish to impose is: as multisets, variables with `tag_a` and variables with `tag_b` are equal.
 

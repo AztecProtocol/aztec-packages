@@ -767,6 +767,7 @@ __metadata:
     tslib: "npm:^2.5.0"
     typescript: "npm:^5.3.3"
     viem: "npm:@aztec/viem@2.38.2"
+    zod: "npm:^3.23.8"
   languageName: unknown
   linkType: soft
 
@@ -925,6 +926,7 @@ __metadata:
     "@aztec/prover-client": "workspace:^"
     "@aztec/prover-node": "workspace:^"
     "@aztec/pxe": "workspace:^"
+    "@aztec/sequencer-client": "workspace:^"
     "@aztec/stdlib": "workspace:^"
     "@aztec/telemetry-client": "workspace:^"
     "@aztec/test-wallet": "workspace:^"
@@ -1633,6 +1635,7 @@ __metadata:
     "@aztec/foundation": "workspace:^"
     "@aztec/kv-store": "workspace:^"
     "@aztec/merkle-tree": "workspace:^"
+    "@aztec/node-keystore": "workspace:^"
     "@aztec/p2p": "workspace:^"
     "@aztec/protocol-contracts": "workspace:^"
     "@aztec/prover-client": "workspace:^"
@@ -1651,6 +1654,7 @@ __metadata:
     ts-node: "npm:^10.9.1"
     tslib: "npm:^2.4.0"
     typescript: "npm:^5.3.3"
+    viem: "npm:@aztec/viem@2.38.2"
   languageName: unknown
   linkType: soft
 
@@ -2255,6 +2259,8 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/validator-client@workspace:validator-client"
   dependencies:
+    "@aztec/blob-lib": "workspace:^"
+    "@aztec/blob-sink": "workspace:^"
     "@aztec/constants": "workspace:^"
     "@aztec/epoch-cache": "workspace:^"
     "@aztec/ethereum": "workspace:^"

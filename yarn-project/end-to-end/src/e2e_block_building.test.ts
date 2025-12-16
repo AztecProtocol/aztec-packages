@@ -9,7 +9,7 @@ import { AnvilTestWatcher, CheatCodes } from '@aztec/aztec/testing';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { BlockNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { times, unique } from '@aztec/foundation/collection';
-import { poseidon2Hash } from '@aztec/foundation/crypto';
+import { poseidon2Hash } from '@aztec/foundation/crypto/poseidon';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
@@ -438,15 +438,15 @@ describe('e2e_block_building', () => {
       expect(privateLogs.length).toBe(3);
 
       // The first two logs are encrypted.
-      const events = await wallet.getPrivateEvents(
-        testContract.address,
-        TestContract.events.ExampleEvent,
-        rct.blockNumber!,
-        1,
-        [ownerAddress],
-      );
-      expect(events[0]).toEqual(values);
-      expect(events[1]).toEqual(nestedValues);
+      const events = await wallet.getPrivateEvents(TestContract.events.ExampleEvent, {
+        contractAddress: testContract.address,
+        fromBlock: BlockNumber(rct.blockNumber!),
+        toBlock: BlockNumber(rct.blockNumber! + 1),
+        scopes: [ownerAddress],
+      });
+
+      expect(events[0].event).toEqual(values);
+      expect(events[1].event).toEqual(nestedValues);
 
       // The last log is not encrypted.
       // The first field is the first value and is siloed with contract address by the kernel circuit.
@@ -469,7 +469,6 @@ describe('e2e_block_building', () => {
     it('publishes two empty blocks', async () => {
       ({ teardown, wallet, logger, aztecNode } = await setup(0, {
         minTxsPerBlock: 0,
-        skipProtocolContracts: true,
       }));
 
       await retryUntil(async () => (await aztecNode.getBlockNumber()) >= 3, 'wait-block', 10, 1);
@@ -479,7 +478,6 @@ describe('e2e_block_building', () => {
     it('sends a tx on the first block', async () => {
       const context = await setup(0, {
         minTxsPerBlock: 0,
-        skipProtocolContracts: true,
         numberOfInitialFundedAccounts: 1,
       });
       ({ teardown, logger, aztecNode, wallet } = context);
@@ -505,7 +503,6 @@ describe('e2e_block_building', () => {
         accounts: [ownerAddress],
       } = await setup(1, {
         minTxsPerBlock: 1,
-        skipProtocolContracts: true,
         ethereumSlotDuration: 6,
       }));
 
@@ -535,7 +532,6 @@ describe('e2e_block_building', () => {
     it('clears up all nullifiers if tx processing fails', async () => {
       const context = await setup(1, {
         minTxsPerBlock: 1,
-        skipProtocolContracts: true,
         numberOfInitialFundedAccounts: 1,
       });
       ({

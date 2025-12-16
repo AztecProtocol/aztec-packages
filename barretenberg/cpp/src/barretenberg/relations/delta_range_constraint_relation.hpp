@@ -69,6 +69,8 @@ template <typename FF_> class DeltaRangeConstraintRelationImpl {
         auto delta_3 = Accumulator(w_4 - w_3);
         auto delta_4 = Accumulator(w_1_shift - w_4);
 
+        // Polynomial trick: if T = (D - 3) * D, then T * (T + 2) == D * (D - 1) * (D - 2) * (D - 3)
+
         // Contribution (1)
         auto tmp_1 = (delta_1 - FF(3)) * delta_1;
         tmp_1 *= (tmp_1 + FF(2));

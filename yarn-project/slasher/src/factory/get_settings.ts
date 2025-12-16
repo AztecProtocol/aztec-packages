@@ -1,4 +1,4 @@
-import type { RollupContract, TallySlashingProposerContract } from '@aztec/ethereum';
+import type { RollupContract, TallySlashingProposerContract } from '@aztec/ethereum/contracts';
 
 import type { TallySlasherSettings } from '../tally_slasher_client.js';
 

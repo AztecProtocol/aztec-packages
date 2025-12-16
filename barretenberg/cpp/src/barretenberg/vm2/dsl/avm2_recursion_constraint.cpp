@@ -45,10 +45,7 @@ using PairingPoints = bb::stdlib::recursion::PairingPoints<Builder>;
  * @param key_fields
  * @param proof_fields
  */
-void create_dummy_vkey_and_proof(Builder& builder,
-                                 [[maybe_unused]] size_t proof_size,
-                                 const std::vector<field_ct>& key_fields,
-                                 const std::vector<field_ct>& proof_fields)
+void create_dummy_proof(Builder& builder, [[maybe_unused]] size_t proof_size, const std::vector<field_ct>& proof_fields)
 {
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1514): restructure this function to use functions from
     // mock_verifier_inputs
@@ -71,9 +68,6 @@ void create_dummy_vkey_and_proof(Builder& builder,
     };
 
     size_t offset = 0;
-    for (size_t i = 0; i < Flavor::NUM_PRECOMPUTED_ENTITIES; ++i) {
-        set_dummy_commitment(key_fields, offset);
-    }
 
     // This routine is adding some placeholders for avm proof and avm vk in the case where witnesses are not present.
     // TODO(#14234)[Unconditional PIs validation]: Remove next line and use offset == 0 for subsequent line.
@@ -132,18 +126,17 @@ HonkRecursionConstraintOutput<Builder> create_avm2_recursion_constraints_goblin(
 
     BB_ASSERT_EQ(input.proof_type, AVM);
 
-    // Construct in-circuit representations of the verification key, proof and public inputs
-    const auto key_fields = RecursionConstraint::fields_from_witnesses(builder, input.key);
-    const auto proof_fields = RecursionConstraint::fields_from_witnesses(builder, input.proof);
-    const auto public_inputs_flattened = RecursionConstraint::fields_from_witnesses(builder, input.public_inputs);
+    // Construct in-circuit representations of the proof and public inputs
+    const auto proof_fields = fields_from_witnesses(builder, input.proof);
+    const auto public_inputs_flattened = fields_from_witnesses(builder, input.public_inputs);
 
     // Populate the key fields and proof fields with dummy values to prevent issues (e.g. points must be on curve).
     if (builder.is_write_vk_mode()) {
-        create_dummy_vkey_and_proof(builder, input.proof.size(), key_fields, proof_fields);
+        create_dummy_proof(builder, input.proof.size(), proof_fields);
     }
 
     // Execute the Goblin AVM2 recursive verifier
-    RecursiveVerifier verifier(builder, key_fields);
+    RecursiveVerifier verifier(builder);
 
     bb::avm2::AvmGoblinRecursiveVerifier::RecursiveAvmGoblinOutput output =
         verifier.verify_proof(proof_fields, bb::avm2::PublicInputs::flat_to_columns(public_inputs_flattened));

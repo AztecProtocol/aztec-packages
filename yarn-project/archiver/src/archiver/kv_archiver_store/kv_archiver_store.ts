@@ -1,12 +1,13 @@
-import type { L1BlockId } from '@aztec/ethereum';
-import { BlockNumber } from '@aztec/foundation/branded-types';
-import type { Fr } from '@aztec/foundation/fields';
+import type { L1BlockId } from '@aztec/ethereum/l1-types';
+import type { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
+import type { Fr } from '@aztec/foundation/curves/bn254';
 import { toArray } from '@aztec/foundation/iterable';
 import { createLogger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore, CustomRange, StoreSize } from '@aztec/kv-store';
 import { FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { type L2Block, L2BlockHash, type ValidateBlockResult } from '@aztec/stdlib/block';
+import { CheckpointedL2Block, L2BlockHash, L2BlockNew, type ValidateBlockResult } from '@aztec/stdlib/block';
+import type { PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import type {
   ContractClassPublic,
   ContractDataSource,
@@ -16,7 +17,7 @@ import type {
   UtilityFunctionWithMembershipProof,
 } from '@aztec/stdlib/contract';
 import type { GetContractClassLogsResponse, GetPublicLogsResponse } from '@aztec/stdlib/interfaces/client';
-import { type LogFilter, PrivateLog, type TxScopedL2Log } from '@aztec/stdlib/logs';
+import type { LogFilter, TxScopedL2Log } from '@aztec/stdlib/logs';
 import type { BlockHeader, TxHash, TxReceipt } from '@aztec/stdlib/tx';
 import type { UInt64 } from '@aztec/stdlib/types';
 
@@ -24,14 +25,13 @@ import { join } from 'path';
 
 import type { ArchiverDataStore, ArchiverL1SynchPoint } from '../archiver_store.js';
 import type { InboxMessage } from '../structs/inbox_message.js';
-import type { PublishedL2Block } from '../structs/published.js';
-import { BlockStore } from './block_store.js';
+import { BlockStore, type CheckpointData } from './block_store.js';
 import { ContractClassStore } from './contract_class_store.js';
 import { ContractInstanceStore } from './contract_instance_store.js';
 import { LogStore } from './log_store.js';
 import { MessageStore } from './message_store.js';
 
-export const ARCHIVER_DB_VERSION = 3;
+export const ARCHIVER_DB_VERSION = 5;
 export const MAX_FUNCTION_SIGNATURES = 1000;
 export const MAX_FUNCTION_NAME_LEN = 256;
 
@@ -67,7 +67,7 @@ export class KVArchiverDataStore implements ArchiverDataStore, ContractDataSourc
   }
 
   public getBlockNumber(): Promise<BlockNumber> {
-    return this.getSynchedL2BlockNumber();
+    return this.#blockStore.getLatestL2BlockNumber();
   }
 
   public async getContract(
@@ -186,42 +186,52 @@ export class KVArchiverDataStore implements ArchiverDataStore, ContractDataSourc
    * @param blocks - The L2 blocks to be added to the store and the last processed L1 block.
    * @returns True if the operation is successful.
    */
-  addBlocks(blocks: PublishedL2Block[], opts: { force?: boolean } = {}): Promise<boolean> {
+  addBlocks(blocks: L2BlockNew[], opts: { force?: boolean; checkpointNumber?: number } = {}): Promise<boolean> {
     return this.#blockStore.addBlocks(blocks, opts);
   }
 
+  getRangeOfCheckpoints(from: CheckpointNumber, limit: number): Promise<CheckpointData[]> {
+    return this.#blockStore.getRangeOfCheckpoints(from, limit);
+  }
+  getLatestBlockNumber(): Promise<BlockNumber> {
+    return this.#blockStore.getLatestBlockNumber();
+  }
+
   /**
-   * Unwinds blocks from the database
+   * Unwinds checkpoints from the database
    * @param from -  The tip of the chain, passed for verification purposes,
    *                ensuring that we don't end up deleting something we did not intend
-   * @param blocksToUnwind - The number of blocks we are to unwind
+   * @param checkpointsToUnwind - The number of checkpoints we are to unwind
    * @returns True if the operation is successful
    */
-  unwindBlocks(from: BlockNumber, blocksToUnwind: number): Promise<boolean> {
-    return this.#blockStore.unwindBlocks(from, blocksToUnwind);
+  unwindCheckpoints(from: CheckpointNumber, checkpointsToUnwind: number): Promise<boolean> {
+    return this.#blockStore.unwindCheckpoints(from, checkpointsToUnwind);
   }
 
-  getPublishedBlock(number: BlockNumber): Promise<PublishedL2Block | undefined> {
+  addCheckpoints(checkpoints: PublishedCheckpoint[]): Promise<boolean> {
+    return this.#blockStore.addCheckpoints(checkpoints);
+  }
+
+  getCheckpointedBlock(number: BlockNumber): Promise<CheckpointedL2Block | undefined> {
+    return this.#blockStore.getCheckpointedBlock(number);
+  }
+  getCheckpointedBlockByHash(blockHash: Fr): Promise<CheckpointedL2Block | undefined> {
+    return this.#blockStore.getCheckpointedBlockByHash(blockHash);
+  }
+  getCheckpointedBlockByArchive(archive: Fr): Promise<CheckpointedL2Block | undefined> {
+    return this.#blockStore.getCheckpointedBlockByArchive(archive);
+  }
+  getBlock(number: BlockNumber): Promise<L2BlockNew | undefined> {
     return this.#blockStore.getBlock(number);
   }
-
-  getPublishedBlockByHash(blockHash: Fr): Promise<PublishedL2Block | undefined> {
+  getBlockByHash(blockHash: Fr): Promise<L2BlockNew | undefined> {
     return this.#blockStore.getBlockByHash(L2BlockHash.fromField(blockHash));
   }
-
-  getPublishedBlockByArchive(archive: Fr): Promise<PublishedL2Block | undefined> {
+  getBlockByArchive(archive: Fr): Promise<L2BlockNew | undefined> {
     return this.#blockStore.getBlockByArchive(archive);
   }
-
-  /**
-   * Gets up to `limit` amount of L2 blocks starting from `from`.
-   *
-   * @param start - Number of the first block to return (inclusive).
-   * @param limit - The number of blocks to return.
-   * @returns The requested L2 blocks
-   */
-  getPublishedBlocks(start: BlockNumber, limit: number): Promise<PublishedL2Block[]> {
-    return toArray(this.#blockStore.getBlocks(start, limit));
+  getBlocks(from: BlockNumber, limit: BlockNumber): Promise<L2BlockNew[]> {
+    return toArray(this.#blockStore.getBlocks(from, limit));
   }
 
   /**
@@ -266,11 +276,11 @@ export class KVArchiverDataStore implements ArchiverDataStore, ContractDataSourc
    * @param blocks - The blocks for which to add the logs.
    * @returns True if the operation is successful.
    */
-  addLogs(blocks: L2Block[]): Promise<boolean> {
+  addLogs(blocks: L2BlockNew[]): Promise<boolean> {
     return this.#logStore.addLogs(blocks);
   }
 
-  deleteLogs(blocks: L2Block[]): Promise<boolean> {
+  deleteLogs(blocks: L2BlockNew[]): Promise<boolean> {
     return this.#logStore.deleteLogs(blocks);
   }
 
@@ -300,22 +310,12 @@ export class KVArchiverDataStore implements ArchiverDataStore, ContractDataSourc
   }
 
   /**
-   * Gets L1 to L2 message (to be) included in a given block.
-   * @param blockNumber - L2 block number to get messages for.
+   * Gets L1 to L2 message (to be) included in a given checkpoint.
+   * @param checkpointNumber - Checkpoint number to get messages for.
    * @returns The L1 to L2 messages/leaves of the messages subtree (throws if not found).
    */
-  getL1ToL2Messages(blockNumber: BlockNumber): Promise<Fr[]> {
-    return this.#messageStore.getL1ToL2Messages(blockNumber);
-  }
-
-  /**
-   * Retrieves all private logs from up to `limit` blocks, starting from the block number `from`.
-   * @param from - The block number from which to begin retrieving logs.
-   * @param limit - The maximum number of blocks to retrieve logs from.
-   * @returns An array of private logs from the specified range of blocks.
-   */
-  getPrivateLogs(from: BlockNumber, limit: number): Promise<PrivateLog[]> {
-    return this.#logStore.getPrivateLogs(from, limit);
+  getL1ToL2Messages(checkpointNumber: CheckpointNumber): Promise<Fr[]> {
+    return this.#messageStore.getL1ToL2Messages(checkpointNumber);
   }
 
   /**
@@ -359,20 +359,12 @@ export class KVArchiverDataStore implements ArchiverDataStore, ContractDataSourc
     }
   }
 
-  /**
-   * Gets the number of the latest L2 block processed.
-   * @returns The number of the latest L2 block processed.
-   */
-  getSynchedL2BlockNumber(): Promise<BlockNumber> {
-    return this.#blockStore.getSynchedL2BlockNumber();
+  getProvenCheckpointNumber(): Promise<CheckpointNumber> {
+    return this.#blockStore.getProvenCheckpointNumber();
   }
 
-  getProvenL2BlockNumber(): Promise<BlockNumber> {
-    return this.#blockStore.getProvenL2BlockNumber();
-  }
-
-  async setProvenL2BlockNumber(blockNumber: BlockNumber) {
-    await this.#blockStore.setProvenL2BlockNumber(blockNumber);
+  async setProvenCheckpointNumber(checkpointNumber: CheckpointNumber) {
+    await this.#blockStore.setProvenCheckpointNumber(checkpointNumber);
   }
 
   async setBlockSynchedL1BlockNumber(l1BlockNumber: bigint) {
@@ -381,6 +373,10 @@ export class KVArchiverDataStore implements ArchiverDataStore, ContractDataSourc
 
   async setMessageSynchedL1Block(l1Block: L1BlockId) {
     await this.#messageStore.setSynchedL1Block(l1Block);
+  }
+
+  getProvenBlockNumber(): Promise<BlockNumber> {
+    return this.#blockStore.getProvenBlockNumber();
   }
 
   /**
@@ -401,8 +397,8 @@ export class KVArchiverDataStore implements ArchiverDataStore, ContractDataSourc
     return this.db.estimateSize();
   }
 
-  public rollbackL1ToL2MessagesToL2Block(targetBlockNumber: BlockNumber): Promise<void> {
-    return this.#messageStore.rollbackL1ToL2MessagesToL2Block(targetBlockNumber);
+  public rollbackL1ToL2MessagesToCheckpoint(targetCheckpointNumber: CheckpointNumber): Promise<void> {
+    return this.#messageStore.rollbackL1ToL2MessagesToCheckpoint(targetCheckpointNumber);
   }
 
   public iterateL1ToL2Messages(range: CustomRange<bigint> = {}): AsyncIterableIterator<InboxMessage> {
@@ -419,5 +415,23 @@ export class KVArchiverDataStore implements ArchiverDataStore, ContractDataSourc
 
   public setPendingChainValidationStatus(status: ValidateBlockResult | undefined): Promise<void> {
     return this.#blockStore.setPendingChainValidationStatus(status);
+  }
+
+  public getCheckpointedL2BlockNumber(): Promise<BlockNumber> {
+    return this.#blockStore.getCheckpointedL2BlockNumber();
+  }
+  public getSynchedCheckpointNumber(): Promise<CheckpointNumber> {
+    return this.#blockStore.getLatestCheckpointNumber();
+  }
+  async setCheckpointSynchedL1BlockNumber(l1BlockNumber: bigint): Promise<void> {
+    await this.#blockStore.setSynchedL1BlockNumber(l1BlockNumber);
+  }
+
+  getBlocksForCheckpoint(checkpointNumber: CheckpointNumber): Promise<L2BlockNew[] | undefined> {
+    return this.#blockStore.getBlocksForCheckpoint(checkpointNumber);
+  }
+
+  getCheckpointData(checkpointNumber: CheckpointNumber): Promise<CheckpointData | undefined> {
+    return this.#blockStore.getCheckpointData(checkpointNumber);
   }
 }

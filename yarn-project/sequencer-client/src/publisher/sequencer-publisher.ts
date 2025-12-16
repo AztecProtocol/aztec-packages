@@ -2,33 +2,33 @@ import { L2Block } from '@aztec/aztec.js/block';
 import { Blob, getBlobsPerL1Block, getPrefixedEthBlobCommitments } from '@aztec/blob-lib';
 import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-sink/client';
 import type { EpochCache } from '@aztec/epoch-cache';
+import type { L1ContractsConfig } from '@aztec/ethereum/config';
 import {
   type EmpireSlashingProposerContract,
-  FormattedViemError,
   type GovernanceProposerContract,
   type IEmpireBase,
-  type L1BlobInputs,
-  type L1ContractsConfig,
-  type L1TxConfig,
-  type L1TxRequest,
   MULTI_CALL_3_ADDRESS,
   Multicall3,
   RollupContract,
   type TallySlashingProposerContract,
-  type TransactionStats,
   type ViemCommitteeAttestations,
   type ViemHeader,
+} from '@aztec/ethereum/contracts';
+import {
+  type L1BlobInputs,
+  type L1TxConfig,
+  type L1TxRequest,
+  type TransactionStats,
   WEI_CONST,
-  formatViemError,
-  tryExtractEvent,
-} from '@aztec/ethereum';
+} from '@aztec/ethereum/l1-tx-utils';
 import type { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
+import { FormattedViemError, formatViemError, tryExtractEvent } from '@aztec/ethereum/utils';
 import { sumBigint } from '@aztec/foundation/bigint';
 import { toHex as toPaddedHex } from '@aztec/foundation/bigint-buffer';
 import { BlockNumber, CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import type { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature, type ViemSignature } from '@aztec/foundation/eth-signature';
-import type { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { bufferToHex } from '@aztec/foundation/string';
 import { DateProvider, Timer } from '@aztec/foundation/timer';
@@ -1127,9 +1127,11 @@ export class SequencerPublisher {
 
     // Send the blobs to the blob sink preemptively. This helps in tests where the sequencer mistakingly thinks that the propose
     // tx fails but it does get mined. We make sure that the blobs are sent to the blob sink regardless of the tx outcome.
-    void this.blobSinkClient.sendBlobsToBlobSink(encodedData.blobs).catch(_err => {
-      this.log.error('Failed to send blobs to blob sink');
-    });
+    void Promise.resolve().then(() =>
+      this.blobSinkClient.sendBlobsToBlobSink(encodedData.blobs).catch(_err => {
+        this.log.error('Failed to send blobs to blob sink');
+      }),
+    );
 
     return this.addRequest({
       action: 'propose',

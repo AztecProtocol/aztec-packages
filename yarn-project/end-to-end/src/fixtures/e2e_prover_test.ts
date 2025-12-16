@@ -13,7 +13,7 @@ import {
 import { BackendType, Barretenberg } from '@aztec/bb.js';
 import { createBlobSinkClient } from '@aztec/blob-sink/client';
 import type { BlobSinkServer } from '@aztec/blob-sink/server';
-import type { DeployL1ContractsReturnType } from '@aztec/ethereum';
+import type { DeployAztecL1ContractsReturnType } from '@aztec/ethereum/deploy-aztec-l1-contracts';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { SecretValue } from '@aztec/foundation/config';
 import { FeeAssetHandlerAbi } from '@aztec/l1-artifacts';
@@ -78,7 +78,7 @@ export class FullProverTest {
   private context!: SubsystemsContext;
   private proverNode!: ProverNode;
   private simulatedProverNode!: ProverNode;
-  public l1Contracts!: DeployL1ContractsReturnType;
+  public l1Contracts!: DeployAztecL1ContractsReturnType;
   public proverAddress!: EthAddress;
 
   constructor(
@@ -91,7 +91,7 @@ export class FullProverTest {
     this.snapshotManager = createSnapshotManager(
       `full_prover_integration/${testName}`,
       dataPath,
-      { startProverNode: true, fundRewardDistributor: true, coinbase },
+      { startProverNode: true, coinbase },
       {
         realVerifier: realProofs,
       },

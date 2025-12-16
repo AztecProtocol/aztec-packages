@@ -345,4 +345,5 @@ pol ADDRESSING_COLLECTION_EQ = ADDRESSING_COLLECTION_X * (ADDRESSING_COLLECTION_
 ADDRESSING_COLLECTION_EQ = 0;
 
 // If addressing should not be resolved, then sel_addressing_error should be 0.
+#[NO_ADDRESSING_ERROR_IF_NOT_RESOLVING]
 (1 - SEL_SHOULD_RESOLVE_ADDRESS) * sel_addressing_error = 0;

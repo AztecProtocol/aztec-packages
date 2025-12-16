@@ -7,8 +7,8 @@ import {
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
 } from '@aztec/constants';
 import { BlockNumber } from '@aztec/foundation/branded-types';
-import { Schnorr } from '@aztec/foundation/crypto';
-import { Fr } from '@aztec/foundation/fields';
+import { Schnorr } from '@aztec/foundation/crypto/schnorr';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { LogLevels, type Logger, applyStringFormatting, createLogger } from '@aztec/foundation/log';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import type { KeyStore } from '@aztec/key-store';
@@ -48,7 +48,6 @@ import { type ContractArtifact, FunctionSelector, FunctionType } from '@aztec/st
 import { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { PublicSimulatorConfig } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { Body, L2Block } from '@aztec/stdlib/block';
 import { type ContractInstanceWithAddress, computePartialAddress } from '@aztec/stdlib/contract';
 import { Gas, GasFees, GasSettings } from '@aztec/stdlib/gas';
 import { computeCalldataHash, computeProtocolNullifier, siloNullifier } from '@aztec/stdlib/hash';
@@ -59,7 +58,7 @@ import {
   PublicCallRequest,
 } from '@aztec/stdlib/kernel';
 import { ChonkProof } from '@aztec/stdlib/proofs';
-import { makeAppendOnlyTreeSnapshot, makeGlobalVariables } from '@aztec/stdlib/testing';
+import { makeGlobalVariables } from '@aztec/stdlib/testing';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import {
   CallContext,
@@ -80,11 +79,7 @@ import type { TXEStateMachine } from '../state_machine/index.js';
 import type { TXEAccountDataProvider } from '../util/txe_account_data_provider.js';
 import type { TXEContractDataProvider } from '../util/txe_contract_data_provider.js';
 import { TXEPublicContractDataSource } from '../util/txe_public_contract_data_source.js';
-import {
-  getSingleTxBlockRequestHash,
-  insertTxEffectIntoWorldTrees,
-  makeTXEBlockHeader,
-} from '../utils/block_creation.js';
+import { getSingleTxBlockRequestHash, insertTxEffectIntoWorldTrees, makeTXEBlock } from '../utils/block_creation.js';
 import type { ITxeExecutionOracle } from './interfaces.js';
 
 export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracle {
@@ -146,7 +141,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
   }
 
   async txeGetLastTxEffects() {
-    const block = await this.stateMachine.archiver.getBlock('latest');
+    const block = await this.stateMachine.archiver.getL2Block('latest');
 
     if (block!.body.txEffects.length != 1) {
       // Note that calls like env.mine() will result in blocks with no transactions, hitting this
@@ -238,19 +233,13 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     const forkedWorldTrees = await this.stateMachine.synchronizer.nativeWorldStateService.fork();
     await insertTxEffectIntoWorldTrees(txEffect, forkedWorldTrees);
 
-    const block = new L2Block(
-      makeAppendOnlyTreeSnapshot(),
-      await makeTXEBlockHeader(
-        forkedWorldTrees,
-        makeGlobalVariables(undefined, {
-          blockNumber,
-          timestamp: this.nextBlockTimestamp,
-          version: this.version,
-          chainId: this.chainId,
-        }),
-      ),
-      new Body([txEffect]),
-    );
+    const globals = makeGlobalVariables(undefined, {
+      blockNumber,
+      timestamp: this.nextBlockTimestamp,
+      version: this.version,
+      chainId: this.chainId,
+    });
+    const block = await makeTXEBlock(forkedWorldTrees, globals, [txEffect]);
 
     await forkedWorldTrees.close();
 
@@ -291,7 +280,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
 
     const txContext = new TxContext(this.chainId, this.version, gasSettings);
 
-    const blockHeader = await this.pxeOracleInterface.getAnchorBlockHeader();
+    const blockHeader = await this.stateMachine.anchorBlockDataProvider.getBlockHeader();
 
     const protocolNullifier = await computeProtocolNullifier(getSingleTxBlockRequestHash(blockNumber));
     const noteCache = new ExecutionNoteCache(protocolNullifier);
@@ -441,13 +430,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     const l1ToL2Messages = Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(0).map(Fr.zero);
     await forkedWorldTrees.appendLeaves(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, l1ToL2Messages);
 
-    const body = new Body([txEffect]);
-
-    const l2Block = new L2Block(
-      makeAppendOnlyTreeSnapshot(),
-      await makeTXEBlockHeader(forkedWorldTrees, globals),
-      body,
-    );
+    const l2Block = await makeTXEBlock(forkedWorldTrees, globals, [txEffect]);
 
     await this.stateMachine.handleL2Block(l2Block);
 
@@ -476,7 +459,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
 
     const txContext = new TxContext(this.chainId, this.version, gasSettings);
 
-    const anchorBlockHeader = await this.pxeOracleInterface.getAnchorBlockHeader();
+    const anchorBlockHeader = await this.stateMachine.anchorBlockDataProvider.getBlockHeader();
 
     const calldataHash = await computeCalldataHash(calldata);
     const calldataHashedValues = new HashedValues(calldata, calldataHash);
@@ -590,13 +573,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     const l1ToL2Messages = Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(0).map(Fr.zero);
     await forkedWorldTrees.appendLeaves(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, l1ToL2Messages);
 
-    const body = new Body([txEffect]);
-
-    const l2Block = new L2Block(
-      makeAppendOnlyTreeSnapshot(),
-      await makeTXEBlockHeader(forkedWorldTrees, globals),
-      body,
-    );
+    const l2Block = await makeTXEBlock(forkedWorldTrees, globals, [txEffect]);
 
     await this.stateMachine.handleL2Block(l2Block);
 
@@ -632,7 +609,8 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     });
 
     try {
-      const oracle = new UtilityExecutionOracle(call.to, [], [], this.pxeOracleInterface);
+      const anchorBlockHeader = await this.stateMachine.anchorBlockDataProvider.getBlockHeader();
+      const oracle = new UtilityExecutionOracle(call.to, [], [], anchorBlockHeader, this.pxeOracleInterface);
       const acirExecutionResult = await new WASMSimulator()
         .executeUserCircuit(toACVMWitness(0, args), entryPointArtifact, new Oracle(oracle).toACIRCallback())
         .catch((err: Error) => {

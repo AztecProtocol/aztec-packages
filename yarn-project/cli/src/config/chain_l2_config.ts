@@ -1,8 +1,9 @@
-import { DefaultL1ContractsConfig, type L1ContractsConfig, type L1TxUtilsConfig } from '@aztec/ethereum';
+import { DefaultL1ContractsConfig, type L1ContractsConfig } from '@aztec/ethereum/config';
+import type { L1TxUtilsConfig } from '@aztec/ethereum/l1-tx-utils/config';
 import type { NetworkNames } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { SharedNodeConfig } from '@aztec/node-lib/config';
-import type { P2PConfig } from '@aztec/p2p';
+import type { P2PConfig } from '@aztec/p2p/config';
 import type { SequencerConfig, SlasherConfig } from '@aztec/stdlib/interfaces/server';
 
 import path from 'path';

@@ -11,7 +11,7 @@ import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
 import { createExtendedL1Client } from '../client.js';
-import { deployL1Contract } from '../deploy_l1_contracts.js';
+import { deployL1Contract } from '../deploy_l1_contract.js';
 import type { ExtendedViemWalletClient } from '../types.js';
 import { EthCheatCodes } from './eth_cheat_codes.js';
 import { startAnvil } from './start_anvil.js';

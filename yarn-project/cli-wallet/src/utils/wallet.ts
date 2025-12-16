@@ -11,7 +11,7 @@ import {
 import type { AztecNode } from '@aztec/aztec.js/node';
 import { AccountManager, type Aliased, type SimulateOptions } from '@aztec/aztec.js/wallet';
 import type { DefaultAccountEntrypointOptions } from '@aztec/entrypoints/account';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import type { LogFn } from '@aztec/foundation/log';
 import type { PXEConfig } from '@aztec/pxe/config';
 import type { PXE } from '@aztec/pxe/server';
@@ -261,6 +261,6 @@ export class CLIWallet extends BaseWallet {
   // Exposed because of the `aztec-wallet get-tx` command. It has been decided that it's fine to keep around because
   // this is just a CLI wallet.
   getNotes(filter: NotesFilter): Promise<NoteDao[]> {
-    return this.pxe.getNotes(filter);
+    return this.pxe.debug.getNotes(filter);
   }
 }

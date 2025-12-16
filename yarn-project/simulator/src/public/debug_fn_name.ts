@@ -1,4 +1,4 @@
-import type { Fr } from '@aztec/foundation/fields';
+import type { Fr } from '@aztec/foundation/curves/bn254';
 import { FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 
@@ -13,8 +13,12 @@ export async function getPublicFunctionDebugName(
   if (!calldata[0]) {
     return `<calldata[0] undefined> (Contract Address: ${contractAddress})`;
   }
-  const selector = FunctionSelector.fromField(calldata[0]);
-  return (await db.getDebugFunctionName(contractAddress, selector)) ?? selector.toString();
+  const fallbackName = `<calldata[0]:${calldata[0].toString()}> (Contract Address: ${contractAddress})`;
+  const selector = FunctionSelector.fromFieldOrUndefined(calldata[0]);
+  if (!selector) {
+    return fallbackName;
+  }
+  return (await db.getDebugFunctionName(contractAddress, selector)) ?? fallbackName;
 }
 
 /**
@@ -34,7 +38,10 @@ export async function getPublicFunctionSelectorAndName(
   if (!calldata[0]) {
     return {};
   }
-  const selector = FunctionSelector.fromField(calldata[0]);
+  const selector = FunctionSelector.fromFieldOrUndefined(calldata[0]);
+  if (!selector) {
+    return {};
+  }
   const debugName = await db.getDebugFunctionName(contractAddress, selector);
   return {
     functionSelector: selector,
