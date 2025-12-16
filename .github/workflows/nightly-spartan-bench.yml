@@ -79,6 +79,9 @@ jobs:
           terraform_version: "1.7.5"
           terraform_wrapper: false
 
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
       - name: Setup spartan
         run: |
           ./spartan/scripts/install_deps.sh
