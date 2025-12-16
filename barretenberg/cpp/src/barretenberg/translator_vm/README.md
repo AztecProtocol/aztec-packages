@@ -1,6 +1,6 @@
 # The Translator Circuit
 
-> $\textcolor{orange}{\textsf{Warning}}$: This document provides a technical overview of the Translator Circuit used in the Goblin Plonk proving system. It is intended for understanding the design and optimizations. The code is the source of truth for implementation specifics.
+> **Warning**: This document provides a technical overview of the Translator Circuit used in the Goblin Plonk proving system. It is intended for understanding the design and optimizations. The code is the source of truth for implementation specifics.
 
 ## Table of Contents
 
@@ -176,8 +176,6 @@ This architecture exists because of how polynomial commitments work in the KZG s
 - Even row $2i$ accesses "previous" values from odd row $2i+1$ via shift columns
 - Odd row $2i+1$ stores the data that will become "previous" for the next computation at row $2i+2$
 
-The Translator circuit has **81 witness columns** organized into several categories:
-
 #### 1. EccOpQueue Transcript Columns (4 columns)
 
 These columns directly represent the EccOpQueue transcript:
@@ -300,7 +298,7 @@ Each limb is further decomposed into **14-bit microlimbs** for range checking. E
 | `QUOTIENT_HIGH_LIMBS_RANGE_CONSTRAINT_TAIL`    | $\textcolor{yellow}{q_{2}[\textsf{tail}]}$               | $c^{\text{hi}}[5]$ (reassigned)                           |
 |                                                |                                                          |                                                           |
 
-The tail microlimbs (shown in yellow) enforce tight range constraints by ensuring top limbs use exactly the required number of bits (explained in [Relation 3](#relation-3-decomposition-relation-48-subrelations)).
+The tail microlimbs (shown in yellow) enforce tight range constraints by ensuring top limbs use exactly the required number of bits (explained in the Decomposition Relation section of [RELATIONS.md](RELATIONS.md)).
 
 **Column reuse optimization:** Some columns are reassigned in odd rows to hold tail microlimbs for limbs that don't need all 5 microlimbs. For example, limb $P_{x, 3}$ is only 50 bits (= 3×14 + 8), requiring only 4 microlimbs. The 5th microlimb column `P_X_HIGH_LIMBS_RANGE_CONSTRAINT_4` at odd rows is therefore reassigned to hold the tail microlimb for $P_{x,3}$ (and carry values $c^{\text{lo}}[4]$, $c^{\text{hi}}[4]$, etc.).
 
@@ -403,8 +401,7 @@ For 64 microlimb columns, we have 4 groups of 16 columns each, resulting in four
 
 The permutation argument verifies that within each group, the interleaved values are a permutation of the ordered (sorted) values. Due to interleaving, the total circuit size increases 16×, requiring more zero-padding (enforced by Relation 7). Interleaving trades circuit size (inexpensive) for relation degree (expensive). The 16× size increase is acceptable given the 9× degree reduction.
 
-> $\textcolor{orange}{\textsf{Effect on Commitment Scheme}}$:
-> For polynomials $p_0, \dots, p_{15}$ of size $n$, the interleaved polynomial of size $16n$ is:
+> **Effect on Commitment Scheme**: For polynomials $p_0, \dots, p_{15}$ of size $n$, the interleaved polynomial of size $16n$ is:
 > $$p_{\textsf{interleaved}}(x) = \sum_{i=0}^{15} x^i \cdot p_{i}(x^{16})$$
 > The interleaved polynomials do not require separate commitments because they can be derived from the original polynomials' commitments. In the Gemini PCS phase, the prover sends only two additional field element evaluations $P_+(r^{16})$ and $P_-(r^{16})$ where $r$ is the Gemini challenge:
 > $$P_{\pm}(x) = \sum_{i=0}^{15} (\pm r)^i \cdot p_{i}(x)$$
