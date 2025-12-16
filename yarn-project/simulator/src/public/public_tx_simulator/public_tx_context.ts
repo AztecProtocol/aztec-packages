@@ -97,6 +97,7 @@ export class PublicTxContext {
     tx: Tx,
     globalVariables: GlobalVariables,
     protocolContracts: ProtocolContracts,
+    doMerkleOperations: boolean,
     proverId: Fr,
   ) {
     const contractDeploymentData = AllContractDeploymentData.fromTx(tx);
@@ -113,6 +114,7 @@ export class PublicTxContext {
       treesDB,
       contractsDB,
       trace,
+      doMerkleOperations,
       firstNullifier,
       globalVariables.timestamp,
     );

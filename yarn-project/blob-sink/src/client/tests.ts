@@ -1,4 +1,5 @@
-import { makeRandomBlob } from '@aztec/blob-lib/testing';
+import { FIELDS_PER_BLOB } from '@aztec/blob-lib';
+import { makeEncodedBlob, makeEncodedBlobs } from '@aztec/blob-lib/testing';
 
 import type { Hex } from 'viem';
 
@@ -28,7 +29,7 @@ export function runBlobSinkClientTests(
   });
 
   it('should send and retrieve blobs by hash', async () => {
-    const blob = makeRandomBlob(5);
+    const blob = makeEncodedBlob(5);
     const blobHash = blob.getEthVersionedBlobHash();
 
     await client.sendBlobsToBlobSink([blob]);
@@ -39,7 +40,7 @@ export function runBlobSinkClientTests(
   });
 
   it('should handle multiple blobs', async () => {
-    const blobs = Array.from({ length: 3 }, () => makeRandomBlob(7));
+    const blobs = makeEncodedBlobs(3 * FIELDS_PER_BLOB);
     const blobHashes = blobs.map(blob => blob.getEthVersionedBlobHash());
 
     await client.sendBlobsToBlobSink(blobs);
@@ -61,7 +62,7 @@ export function runBlobSinkClientTests(
   });
 
   it('should preserve blob indices', async () => {
-    const blobs = Array.from({ length: 3 }, () => makeRandomBlob(7));
+    const blobs = makeEncodedBlobs(3 * FIELDS_PER_BLOB);
     const blobHashes = blobs.map(blob => blob.getEthVersionedBlobHash());
 
     await client.sendBlobsToBlobSink(blobs);

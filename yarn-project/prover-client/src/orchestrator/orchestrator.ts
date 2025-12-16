@@ -16,7 +16,7 @@ import { pushTestData } from '@aztec/foundation/testing';
 import { elapsed } from '@aztec/foundation/timer';
 import type { TreeNodeLocation } from '@aztec/foundation/trees';
 import { readAvmMinimalPublicTxInputsFromFile } from '@aztec/simulator/public/fixtures';
-import { EthAddress } from '@aztec/stdlib/block';
+import { EthAddress, createBlockEndMarker } from '@aztec/stdlib/block';
 import type {
   EpochProver,
   ForkMerkleTreeOperations,
@@ -54,6 +54,7 @@ import {
 import { inspect } from 'util';
 
 import {
+  buildBlockHeaderFromTxs,
   buildHeaderFromCircuitOutputs,
   getLastSiblingPath,
   getPublicChonkVerifierPrivateInputsFromTx,
@@ -247,12 +248,8 @@ export class ProvingOrchestrator implements EpochProver {
     // Because `addTxs` won't be called for a block without txs, and that's where the sponge blob state is computed.
     // We need to set its end sponge blob here, which will become the start sponge blob for the next block.
     if (totalNumTxs === 0) {
-      const endState = await db.getStateReference();
-      blockProvingState.setEndState(endState);
-
       const endSpongeBlob = blockProvingState.getStartSpongeBlob().clone();
-      const blockEndBlobFields = blockProvingState.getBlockEndBlobFields();
-      await endSpongeBlob.absorb(blockEndBlobFields);
+      await endSpongeBlob.absorb([createBlockEndMarker(0)]);
       blockProvingState.setEndSpongeBlob(endSpongeBlob);
 
       // And also try to accumulate the blobs as far as we can:
@@ -344,11 +341,7 @@ export class ProvingOrchestrator implements EpochProver {
       }
     }
 
-    const endState = await db.getStateReference();
-    provingState.setEndState(endState);
-
-    const blockEndBlobFields = provingState.getBlockEndBlobFields();
-    await spongeBlobState.absorb(blockEndBlobFields);
+    await spongeBlobState.absorb([createBlockEndMarker(txs.length)]);
 
     provingState.setEndSpongeBlob(spongeBlobState);
 
@@ -415,25 +408,39 @@ export class ProvingOrchestrator implements EpochProver {
       );
     }
 
-    // Given we've applied every change from this block, now assemble the block header:
+    // And build the block header
     logger.verbose(`Block ${blockNumber} completed. Assembling header.`);
-    const header = await provingState.buildBlockHeader();
+    const header = await this.buildL2BlockHeader(provingState, expectedHeader);
+
+    await this.verifyBuiltBlockAgainstSyncedState(provingState);
+
+    return header;
+  }
+
+  private async buildL2BlockHeader(provingState: BlockProvingState, expectedHeader?: BlockHeader) {
+    // Collect all txs in this block to build the header. The function calling this has made sure that all txs have been added.
+    const txs = provingState.getProcessedTxs();
+
+    const startSpongeBlob = provingState.getStartSpongeBlob();
+
+    // Get db for this block
+    const db = this.dbs.get(provingState.blockNumber)!;
+
+    // Given we've applied every change from this block, now assemble the block header
+    // and update the archive tree, so we're ready to start processing the next block
+    const header = await buildBlockHeaderFromTxs(txs, provingState.getGlobalVariables(), startSpongeBlob, db);
 
     if (expectedHeader && !header.equals(expectedHeader)) {
       logger.error(`Block header mismatch: header=${header} expectedHeader=${expectedHeader}`);
       throw new Error('Block header mismatch');
     }
 
-    // Get db for this block
-    const db = this.dbs.get(provingState.blockNumber)!;
-
-    // Update the archive tree, so we're ready to start processing the next block:
     logger.verbose(
       `Updating archive tree with block ${provingState.blockNumber} header ${(await header.hash()).toString()}`,
     );
     await db.updateArchive(header);
 
-    await this.verifyBuiltBlockAgainstSyncedState(provingState);
+    provingState.setBuiltBlockHeader(header);
 
     return header;
   }

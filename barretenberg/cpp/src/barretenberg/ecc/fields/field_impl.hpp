@@ -7,6 +7,7 @@
 #pragma once
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/bb_bench.hpp"
+#include "barretenberg/common/slab_allocator.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
@@ -403,10 +404,10 @@ void field<T>::batch_invert(C& coeffs) noexcept
 {
     const size_t n = coeffs.size();
 
-    std::vector<field> temporaries;
-    std::vector<bool> skipped;
-    temporaries.reserve(n);
-    skipped.reserve(n);
+    auto temporaries_ptr = std::static_pointer_cast<field[]>(get_mem_slab(n * sizeof(field)));
+    auto skipped_ptr = std::static_pointer_cast<bool[]>(get_mem_slab(n));
+    auto temporaries = temporaries_ptr.get();
+    auto* skipped = skipped_ptr.get();
 
     field accumulator = one();
     for (size_t i = 0; i < n; ++i) {

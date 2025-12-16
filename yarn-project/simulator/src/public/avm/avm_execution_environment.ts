@@ -1,5 +1,5 @@
+import { DEFAULT_MAX_DEBUG_LOG_MEMORY_READS } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
-import type { PublicSimulatorConfig } from '@aztec/stdlib/avm';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { GlobalVariables } from '@aztec/stdlib/tx';
 
@@ -16,7 +16,8 @@ export class AvmExecutionEnvironment {
     public readonly globals: GlobalVariables,
     public readonly isStaticCall: boolean,
     public readonly calldata: Fr[],
-    public readonly config: PublicSimulatorConfig,
+    public readonly clientInitiatedSimulation: boolean = false,
+    public readonly maxDebugLogMemoryReads: number = DEFAULT_MAX_DEBUG_LOG_MEMORY_READS,
   ) {}
 
   private deriveEnvironmentForNestedCallInternal(
@@ -32,7 +33,8 @@ export class AvmExecutionEnvironment {
       this.globals,
       isStaticCall,
       calldata,
-      this.config,
+      this.clientInitiatedSimulation,
+      this.maxDebugLogMemoryReads,
     );
   }
 

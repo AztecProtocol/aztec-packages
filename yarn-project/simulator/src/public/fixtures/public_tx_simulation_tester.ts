@@ -1,7 +1,7 @@
 import { asyncMap } from '@aztec/foundation/async-map';
 import { Fr } from '@aztec/foundation/fields';
 import { type ContractArtifact, encodeArguments } from '@aztec/stdlib/abi';
-import { PublicSimulatorConfig, type PublicTxResult } from '@aztec/stdlib/avm';
+import type { PublicTxResult } from '@aztec/stdlib/avm';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { Gas, GasFees } from '@aztec/stdlib/gas';
 import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
@@ -55,12 +55,11 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
     super(contractDataSource, merkleTree);
 
     const contractsDB = new PublicContractsDB(contractDataSource);
-    const config = PublicSimulatorConfig.from({
+    const config = {
+      doMerkleOperations: true,
       skipFeeEnforcement: false,
-      collectDebugLogs: true,
-      collectHints: false,
-      collectStatistics: false,
-    });
+      clientInitiatedSimulation: true,
+    };
     this.simulator = useCppSimulator
       ? new MeasuredCppPublicTxSimulator(merkleTree, contractsDB, globals, this.metrics, config)
       : new MeasuredPublicTxSimulator(merkleTree, contractsDB, globals, this.metrics, config);

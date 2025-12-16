@@ -1,9 +1,4 @@
-import {
-  BatchedBlobAccumulator,
-  type FinalBlobBatchingChallenges,
-  SpongeBlob,
-  encodeCheckpointBlobData,
-} from '@aztec/blob-lib';
+import { BatchedBlobAccumulator, type FinalBlobBatchingChallenges, SpongeBlob } from '@aztec/blob-lib';
 import {
   type ARCHIVE_HEIGHT,
   BLOBS_PER_BLOCK,
@@ -16,6 +11,7 @@ import { padArrayEnd } from '@aztec/foundation/collection';
 import { BLS12Point, Fr } from '@aztec/foundation/fields';
 import type { Tuple } from '@aztec/foundation/serialize';
 import { type TreeNodeLocation, UnbalancedTreeStore } from '@aztec/foundation/trees';
+import { getCheckpointBlobFields } from '@aztec/stdlib/checkpoint';
 import type { PublicInputsAndRecursiveProof } from '@aztec/stdlib/interfaces/server';
 import { ParityBasePrivateInputs } from '@aztec/stdlib/parity';
 import {
@@ -196,15 +192,12 @@ export class CheckpointProvingState {
   }
 
   public async accumulateBlobs(startBlobAccumulator: BatchedBlobAccumulator) {
-    if (this.isAcceptingBlocks() || this.blocks.some(b => !b?.hasEndState())) {
+    if (this.isAcceptingBlocks() || this.blocks.some(b => b!.isAcceptingTxs())) {
       return;
     }
 
-    this.blobFields = encodeCheckpointBlobData({
-      totalNumBlobFields: this.totalNumBlobFields,
-      blocks: this.blocks.map(b => b!.getBlockBlobData()),
-    });
-    this.endBlobAccumulator = await accumulateBlobs(this.blobFields!, startBlobAccumulator);
+    this.blobFields = getCheckpointBlobFields(this.blocks.map(b => b!.getTxEffects()));
+    this.endBlobAccumulator = await accumulateBlobs(this.blobFields, startBlobAccumulator);
     this.startBlobAccumulator = startBlobAccumulator;
 
     this.onBlobAccumulatorSet(this);

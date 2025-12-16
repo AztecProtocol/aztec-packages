@@ -6,8 +6,8 @@ import {
   AvmCircuitInputs,
   AvmFastSimulationInputs,
   AvmTxHint,
-  type PublicSimulatorConfig,
   PublicTxResult,
+  type PublicTxSimulatorConfig,
   deserializeFromMessagePack,
 } from '@aztec/stdlib/avm';
 import { SimulationError } from '@aztec/stdlib/errors';
@@ -41,7 +41,7 @@ export class CppPublicTxSimulator extends PublicTxSimulator implements PublicTxS
     merkleTree: MerkleTreeWriteOperations,
     contractsDB: PublicContractsDB,
     globalVariables: GlobalVariables,
-    config?: Partial<PublicSimulatorConfig>,
+    config?: Partial<PublicTxSimulatorConfig>,
   ) {
     super(merkleTree, contractsDB, globalVariables, config);
     this.log = createLogger(`simulator:cpp_public_tx_simulator`);
@@ -100,13 +100,7 @@ export class CppPublicTxSimulator extends PublicTxSimulator implements PublicTxS
     // Create the fast simulation inputs
     const txHint = AvmTxHint.fromTx(tx, this.globalVariables.gasFees);
     const protocolContracts = ProtocolContractsList;
-    const fastSimInputs = new AvmFastSimulationInputs(
-      wsRevision,
-      this.config,
-      txHint,
-      this.globalVariables,
-      protocolContracts,
-    );
+    const fastSimInputs = new AvmFastSimulationInputs(wsRevision, txHint, this.globalVariables, protocolContracts);
 
     // Create contract provider for callbacks to TypeScript PublicContractsDB from C++
     const contractProvider = new ContractProviderForCpp(this.contractsDB, this.globalVariables);
@@ -169,7 +163,7 @@ export class MeasuredCppPublicTxSimulator extends CppPublicTxSimulator implement
     contractsDB: PublicContractsDB,
     globalVariables: GlobalVariables,
     protected readonly metrics: ExecutorMetricsInterface,
-    config?: Partial<PublicSimulatorConfig>,
+    config?: Partial<PublicTxSimulatorConfig>,
   ) {
     super(merkleTree, contractsDB, globalVariables, config);
   }
@@ -199,7 +193,7 @@ export class CppPublicTxSimulatorHintedDbs extends PublicTxSimulator implements 
     merkleTree: MerkleTreeWriteOperations,
     contractsDB: PublicContractsDB,
     globalVariables: GlobalVariables,
-    config?: Partial<PublicSimulatorConfig>,
+    config?: Partial<PublicTxSimulatorConfig>,
   ) {
     super(merkleTree, contractsDB, globalVariables, config);
     this.log = createLogger(`simulator:cpp_public_tx_simulator_hinted_dbs`);
@@ -280,7 +274,7 @@ export class MeasuredCppPublicTxSimulatorHintedDbs
     contractsDB: PublicContractsDB,
     globalVariables: GlobalVariables,
     protected readonly metrics: ExecutorMetricsInterface,
-    config?: Partial<PublicSimulatorConfig>,
+    config?: Partial<PublicTxSimulatorConfig>,
   ) {
     super(merkleTree, contractsDB, globalVariables, config);
   }

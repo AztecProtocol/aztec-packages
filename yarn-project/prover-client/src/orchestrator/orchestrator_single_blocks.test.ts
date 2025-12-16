@@ -1,7 +1,9 @@
 import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { createLogger } from '@aztec/foundation/log';
+import { getCheckpointBlobFields } from '@aztec/stdlib/checkpoint';
 
 import { TestContext } from '../mocks/test_context.js';
+import { buildBlobDataFromTxs, buildFinalBlobChallenges } from './block-building-helpers.js';
 
 const logger = createLogger('prover-client:test:orchestrator-single-blocks');
 
@@ -18,95 +20,77 @@ describe('prover/orchestrator/blocks', () => {
 
   describe('blocks', () => {
     it('builds an empty L2 block', async () => {
-      const {
-        constants,
-        blocks: [emptyBlock],
-        totalNumBlobFields,
-        previousBlockHeader,
-      } = await context.makeCheckpoint(1, { numTxsPerBlock: 0 });
-
-      const finalBlobChallenges = await context.getFinalBlobChallenges();
+      const blobFields = getCheckpointBlobFields([[]]);
+      const finalBlobChallenges = await buildFinalBlobChallenges([blobFields]);
       context.orchestrator.startNewEpoch(1, 1, finalBlobChallenges);
-
       await context.orchestrator.startNewCheckpoint(
         0, // checkpointIndex
-        constants,
+        context.getCheckpointConstants(),
         [],
-        1, // numBlocks
-        totalNumBlobFields,
-        previousBlockHeader,
+        1,
+        blobFields.length,
+        context.getPreviousBlockHeader(),
       );
+      await context.orchestrator.startNewBlock(context.blockNumber, context.globalVariables.timestamp, 0);
 
-      const { blockNumber, timestamp } = emptyBlock.header.globalVariables;
-      await context.orchestrator.startNewBlock(blockNumber, timestamp, 0 /* numTxs */);
-
-      const header = await context.orchestrator.setBlockCompleted(blockNumber, emptyBlock.header);
+      const header = await context.orchestrator.setBlockCompleted(context.blockNumber);
       await context.orchestrator.finalizeEpoch();
-      expect(header).toEqual(emptyBlock.header);
+      expect(header.getBlockNumber()).toEqual(context.blockNumber);
     });
 
     it('builds a block with 1 transaction', async () => {
+      const { txs } = await context.makePendingBlock(1);
+
       const {
-        constants,
-        blocks: [block],
-        totalNumBlobFields,
-        previousBlockHeader,
-      } = await context.makeCheckpoint(1, { numTxsPerBlock: 1 });
+        blobFieldsLengths: [blobFieldsLength],
+        finalBlobChallenges,
+      } = await buildBlobDataFromTxs([txs]);
 
-      const finalBlobChallenges = await context.getFinalBlobChallenges();
+      // This will need to be a 2 tx block
       context.orchestrator.startNewEpoch(1, 1, finalBlobChallenges);
-
       await context.orchestrator.startNewCheckpoint(
         0, // checkpointIndex
-        constants,
+        context.getCheckpointConstants(),
         [],
         1, // numBlocks
-        totalNumBlobFields,
-        previousBlockHeader,
+        blobFieldsLength,
+        context.getPreviousBlockHeader(),
       );
+      await context.orchestrator.startNewBlock(context.blockNumber, context.globalVariables.timestamp, txs.length);
 
-      const { blockNumber, timestamp } = block.header.globalVariables;
-      await context.orchestrator.startNewBlock(blockNumber, timestamp, block.txs.length);
-      await context.orchestrator.addTxs(block.txs);
+      await context.orchestrator.addTxs(txs);
 
-      const header = await context.orchestrator.setBlockCompleted(blockNumber, block.header);
+      const header = await context.orchestrator.setBlockCompleted(context.blockNumber);
       await context.orchestrator.finalizeEpoch();
-      expect(header).toEqual(block.header);
+      expect(header.getBlockNumber()).toEqual(context.blockNumber);
     });
 
     it('builds a block concurrently with transaction simulation', async () => {
-      const {
-        constants,
-        blocks: [block],
-        l1ToL2Messages,
-        totalNumBlobFields,
-        previousBlockHeader,
-      } = await context.makeCheckpoint(1, {
-        numTxsPerBlock: 4,
+      const { txs, l1ToL2Messages } = await context.makePendingBlock(4, {
         numL1ToL2Messages: NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
-        makeProcessedTxOpts: (_, txIndex) => ({ privateOnly: txIndex % 2 === 0 }),
       });
 
-      const finalBlobChallenges = await context.getFinalBlobChallenges();
-      context.orchestrator.startNewEpoch(1, 1, finalBlobChallenges);
+      const {
+        blobFieldsLengths: [blobFieldsLength],
+        finalBlobChallenges,
+      } = await buildBlobDataFromTxs([txs]);
 
+      context.orchestrator.startNewEpoch(1, 1, finalBlobChallenges);
       await context.orchestrator.startNewCheckpoint(
         0, // checkpointIndex
-        constants,
+        context.getCheckpointConstants(),
         l1ToL2Messages,
         1, // numBlocks
-        totalNumBlobFields,
-        previousBlockHeader,
+        blobFieldsLength,
+        context.getPreviousBlockHeader(),
       );
+      await context.orchestrator.startNewBlock(context.blockNumber, context.globalVariables.timestamp, txs.length);
 
-      const { blockNumber, timestamp } = block.header.globalVariables;
-      await context.orchestrator.startNewBlock(blockNumber, timestamp, block.txs.length);
+      await context.orchestrator.addTxs(txs);
 
-      await context.orchestrator.addTxs(block.txs);
-
-      const header = await context.orchestrator.setBlockCompleted(blockNumber, block.header);
+      const header = await context.orchestrator.setBlockCompleted(context.blockNumber);
       await context.orchestrator.finalizeEpoch();
-      expect(header).toEqual(block.header);
+      expect(header.getBlockNumber()).toEqual(context.blockNumber);
     });
   });
 });

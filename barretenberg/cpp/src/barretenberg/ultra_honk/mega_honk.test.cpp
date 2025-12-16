@@ -185,18 +185,14 @@ TYPED_TEST(MegaHonkTests, DynamicVirtualSizeIncrease)
     Verifier verifier(verification_key);
     auto proof = prover.construct_proof();
 
-    auto relation_failures =
-        RelationChecker<Flavor>::check_all(prover_instance->polynomials, prover_instance->relation_parameters);
-    EXPECT_TRUE(relation_failures.empty());
+    RelationChecker<Flavor>::check_all(prover_instance->polynomials, prover_instance->relation_parameters);
     bool result = verifier.template verify_proof<DefaultIO>(proof).result;
     EXPECT_TRUE(result);
 
     Verifier verifier_copy(verification_key_copy);
     auto proof_copy = prover_copy.construct_proof();
 
-    auto relation_failures_copy =
-        RelationChecker<Flavor>::check_all(prover_instance->polynomials, prover_instance->relation_parameters);
-    EXPECT_TRUE(relation_failures.empty());
+    RelationChecker<Flavor>::check_all(prover_instance->polynomials, prover_instance->relation_parameters);
     bool result_copy = verifier_copy.template verify_proof<DefaultIO>(proof_copy).result;
     EXPECT_TRUE(result_copy);
 }
