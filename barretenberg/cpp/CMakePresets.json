@@ -18,6 +18,7 @@
         "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
       },
       "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithAssert",
         "TARGET_ARCH": "skylake"
       }
     },
@@ -44,8 +45,8 @@
       "description": "Build with Clang installed via Homebrew",
       "inherits": "default",
       "environment": {
-        "CC": "$env{BREW_PREFIX}/opt/llvm@18/bin/clang",
-        "CXX": "$env{BREW_PREFIX}/opt/llvm@18/bin/clang++"
+        "CC": "$env{BREW_PREFIX}/opt/llvm@20/bin/clang",
+        "CXX": "$env{BREW_PREFIX}/opt/llvm@20/bin/clang++"
       }
     },
     {
@@ -80,60 +81,42 @@
       }
     },
     {
-      "name": "clang18",
-      "displayName": "Build with Clang-18",
-      "description": "Build with globally installed Clang-18",
+      "name": "clang20",
+      "displayName": "Build with Clang-20",
+      "description": "Build with globally installed Clang-20",
       "inherits": "default",
+      "binaryDir": "build",
       "environment": {
-        "CC": "clang-18",
-        "CXX": "clang++-18"
+        "CC": "clang-20",
+        "CXX": "clang++-20"
       }
     },
     {
-      "name": "clang16",
-      "displayName": "Build with Clang-16",
-      "description": "Build with globally installed Clang-16",
+      "name": "clang20-no-exceptions",
+      "displayName": "Build with Clang-20",
+      "description": "Build with globally installed Clang-20",
       "inherits": "default",
       "environment": {
-        "CC": "clang-16",
-        "CXX": "clang++-16"
-      }
-    },
-    {
-      "name": "clang16-no-exceptions",
-      "displayName": "Build with Clang-16",
-      "description": "Build with globally installed Clang-16",
-      "inherits": "default",
-      "environment": {
-        "CC": "clang-16",
-        "CXX": "clang++-16",
+        "CC": "clang-20",
+        "CXX": "clang++-20",
         "CMAKE_CXX_FLAGS": "-DBB_NO_EXCEPTIONS"
       }
     },
     {
-      "name": "clang16-pic",
+      "name": "clang20-pic",
       "displayName": "Release build with Position Independent Code",
-      "description": "Build with globally installed Clang-16 using Position Independent Code",
-      "inherits": "clang16",
+      "description": "Build with globally installed Clang-20 using Position Independent Code",
+      "inherits": "clang20",
       "binaryDir": "build-pic",
       "cacheVariables": {
         "ENABLE_PIC": "ON"
       }
     },
     {
-      "name": "clang16-pic-assert",
-      "displayName": "Release build with Position Independent Code and asserts",
-      "description": "Build with globally installed Clang-16 using Position Independent Code and asserts",
-      "inherits": "clang16-pic",
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "RelWithAssert"
-      }
-    },
-    {
-      "name": "clang16-dbg",
-      "displayName": "Debugging build with Clang-16",
-      "description": "Build with globally installed Clang-16 in debug mode",
-      "inherits": "clang16",
+      "name": "debug",
+      "displayName": "Debugging build with Clang-20",
+      "description": "Build with globally installed Clang-20 in debug mode",
+      "inherits": "clang20",
       "binaryDir": "build-debug",
       "environment": {
         "CMAKE_BUILD_TYPE": "Debug",
@@ -150,7 +133,7 @@
       "name": "tracy-memory",
       "displayName": "Release build with tracy with memory tracking",
       "description": "Release build with tracy with memory tracking",
-      "inherits": "clang16-assert",
+      "inherits": "clang20",
       "binaryDir": "build-tracy-memory",
       "cacheVariables": {
         "ENABLE_TRACY": "ON",
@@ -168,7 +151,7 @@
       "displayName": "Build for tracy time profiling via instrumentation",
       "description": "Build for tracy time profiling via instrumentation",
       "binaryDir": "build-tracy-time-instrumented",
-      "inherits": "clang16-assert",
+      "inherits": "clang20",
       "cacheVariables": {
         "ENABLE_TRACY_TIME_INSTRUMENTED": "ON"
       }
@@ -178,7 +161,7 @@
       "displayName": "Build for tracy time profiling via sampling",
       "description": "Build for tracy time profiling via sampling",
       "binaryDir": "build-tracy-time-sampled",
-      "inherits": "clang16-assert",
+      "inherits": "clang20",
       "environment": {
         "CMAKE_BUILD_TYPE": "RelWithDebInfo",
         "CFLAGS": "-g -fno-omit-frame-pointer",
@@ -193,7 +176,7 @@
       "name": "tracy-gates",
       "displayName": "Release build with tracy - but hacked for gate tracking",
       "description": "Release build with tracy - but hacker for gate tracking",
-      "inherits": "clang16",
+      "inherits": "clang20",
       "binaryDir": "build-tracy-gates",
       "cacheVariables": {
         "ENABLE_TRACY": "ON",
@@ -201,10 +184,10 @@
       }
     },
     {
-      "name": "clang16-dbg-fast",
-      "displayName": "Optimized debug build with Clang-16",
-      "description": "Build with globally installed Clang-16 in optimized debug mode",
-      "inherits": "clang16-dbg",
+      "name": "debug-fast",
+      "displayName": "Optimized debug build with Clang-20",
+      "description": "Build with globally installed Clang-20 in optimized debug mode",
+      "inherits": "debug",
       "binaryDir": "build-debug-fast",
       "environment": {
         "CMAKE_BUILD_TYPE": "Debug",
@@ -214,60 +197,40 @@
       }
     },
     {
-      "name": "clang16-no-avm",
-      "displayName": "Optimized build with Clang-16 (no AVM)",
-      "description": "Build with globally installed Clang-16 excluding the Aztec VM",
-      "inherits": "clang16",
+      "name": "clang20-no-avm",
+      "displayName": "Optimized build with Clang-20 (no AVM)",
+      "description": "Build with globally installed Clang-20 excluding the Aztec VM",
+      "inherits": "clang20",
       "binaryDir": "build-no-avm",
       "cacheVariables": {
         "DISABLE_AZTEC_VM": "ON"
       }
     },
     {
-      "name": "clang16-dbg-no-avm",
-      "displayName": "Optimized debug build with Clang-16 (no AVM)",
-      "description": "Build with globally installed Clang-16 in debug mode excluding the Aztec VM",
-      "inherits": "clang16-dbg",
+      "name": "debug-no-avm",
+      "displayName": "Optimized debug build with Clang-20 (no AVM)",
+      "description": "Build with globally installed Clang-20 in debug mode excluding the Aztec VM",
+      "inherits": "debug",
       "binaryDir": "build-debug-no-avm",
       "cacheVariables": {
         "DISABLE_AZTEC_VM": "ON"
       }
     },
     {
-      "name": "clang16-dbg-fast-circuit-check-traces",
-      "displayName": "Optimized debug build with Clang-16 with stack traces for failing circuit checks",
-      "description": "Build with globally installed Clang-16 in optimized debug mode with stack traces for failing circuit checks",
-      "inherits": "clang16-dbg-fast",
+      "name": "debug-fast-circuit-check-traces",
+      "displayName": "Optimized debug build with Clang-20 with stack traces for failing circuit checks",
+      "description": "Build with globally installed Clang-20 in optimized debug mode with stack traces for failing circuit checks",
+      "inherits": "debug-fast",
       "binaryDir": "build-debug-fast-circuit-check-traces",
       "cacheVariables": {
         "CHECK_CIRCUIT_STACKTRACES": "ON"
       }
     },
     {
-      "name": "clang18-assert",
-      "binaryDir": "build",
-      "displayName": "Build with Clang-18 using RelWithAssert",
-      "description": "Build with globally installed Clang-18 in release with ASSERTs mode",
-      "inherits": "clang18",
-      "environment": {
-        "CMAKE_BUILD_TYPE": "RelWithAssert"
-      }
-    },
-    {
-      "name": "clang16-assert",
-      "binaryDir": "build",
-      "displayName": "Build with Clang-16 using RelWithAssert",
-      "description": "Build with globally installed Clang-16 in release with ASSERTs mode",
-      "inherits": "clang16",
-      "environment": {
-        "CMAKE_BUILD_TYPE": "RelWithAssert"
-      }
-    },
-    {
       "name": "asan-fast",
-      "displayName": "Debugging build with address sanitizer on Clang-16 in optimized debug mode",
-      "description": "Build with address sanitizer on clang16 in optimized debug mode",
-      "inherits": "clang16-dbg-fast",
+      "displayName": "Debugging build with address sanitizer on Clang-20 in optimized debug mode",
+      "description": "Build with address sanitizer on clang20 in optimized debug mode",
+      "inherits": "debug-fast",
       "binaryDir": "build-asan-fast",
       "cacheVariables": {
         "ENABLE_ASAN": "ON",
@@ -277,9 +240,9 @@
     },
     {
       "name": "asan",
-      "displayName": "Debugging build with address sanitizer on Clang-16",
-      "description": "Build with address sanitizer on clang16 with debugging information",
-      "inherits": "clang16-dbg",
+      "displayName": "Debugging build with address sanitizer on Clang-20",
+      "description": "Build with address sanitizer on clang20 with debugging information",
+      "inherits": "debug",
       "binaryDir": "build-asan",
       "environment": {
         "CMAKE_BUILD_TYPE": "Debug"
@@ -302,39 +265,17 @@
       }
     },
     {
-      "name": "gcc10",
-      "displayName": "Build with GCC-10",
-      "description": "Build with globally installed GCC-10",
-      "inherits": "default",
-      "environment": {
-        "CC": "gcc-10",
-        "CXX": "g++-10",
-        "CXXFLAGS": "-Wno-missing-field-initializers"
-      }
-    },
-    {
-      "name": "gcc13",
-      "displayName": "Build with GCC-13",
-      "description": "Build with globally installed GCC-13",
-      "inherits": "default",
-      "environment": {
-        "CC": "gcc-13",
-        "CXX": "g++-13",
-        "CXXFLAGS": "-Wno-missing-field-initializers"
-      }
-    },
-    {
       "name": "bench",
       "displayName": "Build benchmarks",
       "description": "Build default preset but with a special benchmark directory",
-      "inherits": "clang16",
+      "inherits": "clang20",
       "binaryDir": "build-bench"
     },
     {
       "name": "fuzzing",
       "displayName": "Build with fuzzing",
       "description": "Build default preset but with fuzzing enabled",
-      "inherits": "clang16",
+      "inherits": "clang20",
       "binaryDir": "build-fuzzing",
       "cacheVariables": {
         "FUZZING": "ON",
@@ -348,7 +289,7 @@
       "name": "fuzzing-noasm",
       "displayName": "Build with fuzzing and ASM disabled",
       "description": "Build default preset but with fuzzing enabled and ASM disabled",
-      "inherits": "clang16",
+      "inherits": "clang20",
       "binaryDir": "build-fuzzing-noasm",
       "cacheVariables": {
         "FUZZING": "ON",
@@ -363,7 +304,7 @@
       "name": "fuzzing-asan",
       "displayName": "Build with fuzzing",
       "description": "Build default preset but with fuzzing and asan enabled",
-      "inherits": "clang16-dbg",
+      "inherits": "debug",
       "binaryDir": "build-fuzzing-asan",
       "cacheVariables": {
         "FUZZING": "ON",
@@ -380,7 +321,7 @@
       "name": "fuzzing-coverage",
       "displayName": "Build with coverage flags",
       "description": "Build default preset but with fuzzing and coverage enabled",
-      "inherits": "clang16",
+      "inherits": "clang20",
       "binaryDir": "build-fuzzing-cov",
       "cacheVariables": {
         "FUZZING": "ON",
@@ -396,7 +337,7 @@
       "name": "smt-verification",
       "displayName": "Build with smt verificaiton",
       "description": "Build default preset but with smt library included",
-      "inherits": "clang16",
+      "inherits": "clang20",
       "binaryDir": "build-smt",
       "cacheVariables": {
         "SMT": "ON"
@@ -404,9 +345,9 @@
     },
     {
       "name": "tsan",
-      "displayName": "Debugging build with thread sanitizer on Clang-16",
-      "description": "Build with thread sanitizer on clang16 with debugging information",
-      "inherits": "clang16-dbg",
+      "displayName": "Debugging build with thread sanitizer on Clang-20",
+      "description": "Build with thread sanitizer on clang20 with debugging information",
+      "inherits": "debug",
       "binaryDir": "build-tsan",
       "cacheVariables": {
         "HAVE_STD_REGEX": "ON"
@@ -419,9 +360,9 @@
     },
     {
       "name": "ubsan",
-      "displayName": "Debugging build with undefined behaviour sanitizer on Clang-16",
-      "description": "Build with undefined behaviour sanitizer on clang16 with debugging information",
-      "inherits": "clang16-dbg",
+      "displayName": "Debugging build with undefined behaviour sanitizer on Clang-20",
+      "description": "Build with undefined behaviour sanitizer on clang20 with debugging information",
+      "inherits": "debug",
       "binaryDir": "build-ubsan",
       "generator": "Unix Makefiles",
       "environment": {
@@ -432,9 +373,9 @@
     },
     {
       "name": "msan",
-      "displayName": "Debugging build with memory sanitizer on Clang-16",
-      "description": "Build with thread sanitizer on clang16 with debugging information",
-      "inherits": "clang16-dbg",
+      "displayName": "Debugging build with memory sanitizer on Clang-20",
+      "description": "Build with thread sanitizer on clang20 with debugging information",
+      "inherits": "debug",
       "binaryDir": "build-msan",
       "environment": {
         "CFLAGS": "-fsanitize=memory",
@@ -448,10 +389,10 @@
       }
     },
     {
-      "name": "clang16-coverage",
+      "name": "clang20-coverage",
       "displayName": "Build with coverage",
-      "description": "Build clang16 preset but with coverage enabled",
-      "inherits": "clang16",
+      "description": "Build clang20 preset but with coverage enabled",
+      "inherits": "clang20",
       "binaryDir": "build-coverage",
       "cacheVariables": {
         "COVERAGE": "ON",
@@ -461,9 +402,9 @@
     },
     {
       "name": "gperftools",
-      "displayName": "Debugging build with gperftools on Clang-16",
+      "displayName": "Debugging build with gperftools on Clang-20",
       "description": "Build with gperf",
-      "inherits": "clang16",
+      "inherits": "clang20",
       "binaryDir": "build-gperftools",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "RelWithDebInfo",
@@ -526,49 +467,17 @@
       }
     },
     {
-      "name": "wasm-threads-assert",
-      "displayName": "Build for WASM with multithreading and asserts",
-      "binaryDir": "build-wasm-threads-assert",
-      "description": "Build with wasi-sdk with asserts",
-      "inherits": "wasm-threads",
-      "environment": {
-        "CMAKE_BUILD_TYPE": "RelWithAssert"
-      }
-    },
-    {
       "name": "xray",
       "displayName": "Build with multi-threaded XRay Profiling",
       "description": "Build with Clang and enable multi-threaded LLVM XRay for profiling",
       "generator": "Unix Makefiles",
-      "inherits": "clang16",
+      "inherits": "clang20",
       "environment": {
         "CFLAGS": "-fxray-instrument",
         "CXXFLAGS": "-fxray-instrument -fxray-instruction-threshold=500 -DXRAY=1",
         "LDFLAGS": "-fxray-instrument -fxray-instruction-threshold=500 -DXRAY=1"
       },
       "binaryDir": "build-xray"
-    },
-    {
-      "name": "xray-verbose",
-      "displayName": "Build with detailed XRay Profiling",
-      "description": "Build with Clang and enable detailed LLVM XRay for profiling",
-      "inherits": "xray",
-      "environment": {
-        "CFLAGS": "-fxray-instrument -fxray-instruction-threshold=100 -finline-max-stacksize=150 -DXRAY=1",
-        "CXXFLAGS": "-fxray-instrument -fxray-instruction-threshold=100 -finline-max-stacksize=150 -DXRAY=1",
-        "LDFLAGS": "-fxray-instrument -fxray-instruction-threshold=100 -finline-max-stacksize=150 -DXRAY=1"
-      },
-      "binaryDir": "build-xray-verbose"
-    },
-    {
-      "name": "xray-1thread",
-      "displayName": "Build with single-threaded XRay Profiling",
-      "description": "Build with Clang and enable single-threaded LLVM XRay for profiling",
-      "inherits": "xray",
-      "cacheVariables": {
-        "MULTITHREADING": "OFF"
-      },
-      "binaryDir": "build-xray-1thread"
     }
   ],
   "buildPresets": [
@@ -584,14 +493,9 @@
       "configurePreset": "homebrew"
     },
     {
-      "name": "clang18",
+      "name": "clang20",
       "inherits": "default",
-      "configurePreset": "clang18"
-    },
-    {
-      "name": "clang16",
-      "inherits": "default",
-      "configurePreset": "clang16"
+      "configurePreset": "clang20"
     },
     {
       "name": "darwin-arm64",
@@ -604,19 +508,19 @@
       "configurePreset": "darwin-amd64"
     },
     {
-      "name": "clang16-dbg",
+      "name": "debug",
       "inherits": "default",
-      "configurePreset": "clang16-dbg"
+      "configurePreset": "debug"
     },
     {
-      "name": "clang16-no-avm",
+      "name": "clang20-no-avm",
       "inherits": "default",
-      "configurePreset": "clang16-no-avm"
+      "configurePreset": "clang20-no-avm"
     },
     {
-      "name": "clang16-dbg-no-avm",
+      "name": "debug-no-avm",
       "inherits": "default",
-      "configurePreset": "clang16-dbg-no-avm"
+      "configurePreset": "debug-no-avm"
     },
     {
       "name": "tracy-memory",
@@ -634,14 +538,9 @@
       "configurePreset": "tracy-time-sampled"
     },
     {
-      "name": "clang16-pic",
+      "name": "clang20-pic",
       "inherits": "default",
-      "configurePreset": "clang16-pic"
-    },
-    {
-      "name": "clang16-pic-assert",
-      "inherits": "default",
-      "configurePreset": "clang16-pic-assert"
+      "configurePreset": "clang20-pic"
     },
     {
       "name": "default-pic",
@@ -654,24 +553,14 @@
       "configurePreset": "tracy-gates"
     },
     {
-      "name": "clang16-dbg-fast",
+      "name": "debug-fast",
       "inherits": "default",
-      "configurePreset": "clang16-dbg-fast"
+      "configurePreset": "debug-fast"
     },
     {
-      "name": "clang16-dbg-fast-circuit-check-traces",
-      "inherits": "clang16-dbg-fast",
-      "configurePreset": "clang16-dbg-fast-circuit-check-traces"
-    },
-    {
-      "name": "clang18-assert",
-      "inherits": "default",
-      "configurePreset": "clang18-assert"
-    },
-    {
-      "name": "clang16-assert",
-      "inherits": "default",
-      "configurePreset": "clang16-assert"
+      "name": "debug-fast-circuit-check-traces",
+      "inherits": "debug-fast",
+      "configurePreset": "debug-fast-circuit-check-traces"
     },
     {
       "name": "asan-fast",
@@ -689,43 +578,33 @@
       "configurePreset": "gcc"
     },
     {
-      "name": "gcc10",
-      "inherits": "default",
-      "configurePreset": "gcc10"
-    },
-    {
-      "name": "gcc13",
-      "inherits": "default",
-      "configurePreset": "gcc13"
-    },
-    {
       "name": "bench",
-      "inherits": "clang16",
+      "inherits": "clang20",
       "configurePreset": "bench"
     },
     {
       "name": "fuzzing",
-      "inherits": "clang16",
+      "inherits": "clang20",
       "configurePreset": "fuzzing"
     },
     {
       "name": "fuzzing-asan",
-      "inherits": "clang16-dbg",
+      "inherits": "debug",
       "configurePreset": "fuzzing-asan"
     },
     {
       "name": "fuzzing-coverage",
-      "inherits": "clang16",
+      "inherits": "clang20",
       "configurePreset": "fuzzing-coverage"
     },
     {
       "name": "gperftools",
-      "inherits": "clang16",
+      "inherits": "clang20",
       "configurePreset": "gperftools"
     },
     {
       "name": "smt-verification",
-      "inherits": "clang16",
+      "inherits": "clang20",
       "configurePreset": "smt-verification"
     },
     {
@@ -744,9 +623,9 @@
       "configurePreset": "ubsan"
     },
     {
-      "name": "clang16-coverage",
-      "inherits": "clang16-dbg-fast",
-      "configurePreset": "clang16-coverage"
+      "name": "clang20-coverage",
+      "inherits": "debug-fast",
+      "configurePreset": "clang20-coverage"
     },
     {
       "name": "wasm",
@@ -769,13 +648,6 @@
       "targets": ["barretenberg.wasm", "bb"]
     },
     {
-      "name": "wasm-threads-assert",
-      "configurePreset": "wasm-threads-assert",
-      "inheritConfigureEnvironment": true,
-      "jobs": 0,
-      "targets": ["barretenberg.wasm", "bb"]
-    },
-    {
       "name": "wasm-threads",
       "configurePreset": "wasm-threads",
       "inheritConfigureEnvironment": true,
@@ -785,16 +657,6 @@
     {
       "name": "xray",
       "configurePreset": "xray",
-      "inherits": "default"
-    },
-    {
-      "name": "xray-verbose",
-      "configurePreset": "xray-verbose",
-      "inherits": "default"
-    },
-    {
-      "name": "xray-1thread",
-      "configurePreset": "xray-1thread",
       "inherits": "default"
     }
   ],
@@ -810,14 +672,14 @@
       "configurePreset": "homebrew"
     },
     {
-      "name": "clang16",
+      "name": "clang20",
       "inherits": "default",
-      "configurePreset": "clang16"
+      "configurePreset": "clang20"
     },
     {
-      "name": "clang16-dbg",
+      "name": "debug",
       "inherits": "default",
-      "configurePreset": "clang16-dbg"
+      "configurePreset": "debug"
     },
     {
       "name": "asan",
@@ -830,39 +692,29 @@
       "configurePreset": "gcc"
     },
     {
-      "name": "gcc10",
-      "inherits": "default",
-      "configurePreset": "gcc10"
-    },
-    {
-      "name": "gcc13",
-      "inherits": "default",
-      "configurePreset": "gcc13"
-    },
-    {
       "name": "bench",
-      "inherits": "clang16",
+      "inherits": "clang20",
       "configurePreset": "bench"
     },
     {
       "name": "fuzzing",
-      "inherits": "clang16",
+      "inherits": "clang20",
       "configurePreset": "fuzzing"
     },
     {
       "name": "fuzzing-asan",
-      "inherits": "clang16-dbg",
+      "inherits": "debug",
       "configurePreset": "fuzzing-asan"
     },
     {
       "name": "smt-verification",
-      "inherits": "clang16",
+      "inherits": "clang20",
       "configurePreset": "smt-verification"
     },
     {
-      "name": "clang16-coverage",
+      "name": "clang20-coverage",
       "inherits": "default",
-      "configurePreset": "clang16-coverage"
+      "configurePreset": "clang20-coverage"
     },
     {
       "name": "wasm",
