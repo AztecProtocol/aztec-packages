@@ -15,7 +15,7 @@ import {
 } from '@aztec/constants';
 import { type FieldsOf, makeTuple, makeTupleAsync } from '@aztec/foundation/array';
 import { randomInt } from '@aztec/foundation/crypto';
-import { Fr } from '@aztec/foundation/curves/bn254';
+import { Fr } from '@aztec/foundation/fields';
 import { type ZodFor, schemas } from '@aztec/foundation/schemas';
 import { BufferReader, serializeArrayOfBufferableToVector, serializeToBuffer } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';

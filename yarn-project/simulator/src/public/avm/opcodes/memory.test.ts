@@ -4,7 +4,7 @@ import {
   AVM_RETURNDATACOPY_BASE_L2_GAS,
   AVM_RETURNDATACOPY_DYN_L2_GAS,
 } from '@aztec/constants';
-import { Fr } from '@aztec/foundation/curves/bn254';
+import { Fr } from '@aztec/foundation/fields';
 
 import type { AvmContext } from '../avm_context.js';
 import { Field, TaggedMemory, TypeTag, Uint8, Uint16, Uint32, Uint64, Uint128 } from '../avm_memory_types.js';

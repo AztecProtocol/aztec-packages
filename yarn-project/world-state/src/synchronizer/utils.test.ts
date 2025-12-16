@@ -1,6 +1,6 @@
 import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import { timesParallel } from '@aztec/foundation/collection';
-import { Fr } from '@aztec/foundation/curves/bn254';
+import { Fr } from '@aztec/foundation/fields';
 import type { L2BlockSource } from '@aztec/stdlib/block';
 import type { Checkpoint } from '@aztec/stdlib/checkpoint';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';

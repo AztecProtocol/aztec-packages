@@ -1,6 +1,6 @@
 import { type BlockBlobData, encodeBlockBlobData } from '@aztec/blob-lib/encoding';
 import { BlockNumber } from '@aztec/foundation/branded-types';
-import { Fr } from '@aztec/foundation/curves/bn254';
+import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { z } from 'zod';

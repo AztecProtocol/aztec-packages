@@ -4,7 +4,7 @@ import {
   MEGA_VK_LENGTH_IN_FIELDS,
 } from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
-import { Fr } from '@aztec/foundation/curves/bn254';
+import { Fr } from '@aztec/foundation/fields';
 import { applyStringFormatting, createLogger } from '@aztec/foundation/log';
 import { type ForeignCallInput, type ForeignCallOutput, Noir } from '@aztec/noir-noir_js';
 import type { AvmCircuitPublicInputs } from '@aztec/stdlib/avm';

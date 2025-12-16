@@ -1,4 +1,4 @@
-import { Fr } from '@aztec/foundation/curves/bn254';
+import { Fr } from '@aztec/foundation/fields';
 import { encodeArguments } from '@aztec/stdlib/abi';
 import { PublicSimulatorConfig } from '@aztec/stdlib/avm';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';

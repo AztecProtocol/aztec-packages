@@ -1,5 +1,5 @@
 import { CONTRACT_INSTANCE_UPDATED_MAGIC_VALUE } from '@aztec/constants';
-import { Fr } from '@aztec/foundation/curves/bn254';
+import { Fr } from '@aztec/foundation/fields';
 import { FieldReader } from '@aztec/foundation/serialize';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstanceUpdateWithAddress } from '@aztec/stdlib/contract';

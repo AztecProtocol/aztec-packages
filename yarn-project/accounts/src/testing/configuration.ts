@@ -1,5 +1,4 @@
-import { Fr } from '@aztec/foundation/curves/bn254';
-import { GrumpkinScalar } from '@aztec/foundation/curves/grumpkin';
+import { Fr, GrumpkinScalar } from '@aztec/foundation/fields';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { deriveMasterIncomingViewingSecretKey } from '@aztec/stdlib/keys';
 

@@ -1,5 +1,5 @@
 import { sha256 } from '@aztec/foundation/crypto';
-import { Fr, reduceFn } from '@aztec/foundation/curves/bn254';
+import { Fr, reduceFn } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { numToUInt8 } from '@aztec/foundation/serialize';
 import { MerkleTree, MerkleTreeCalculator } from '@aztec/foundation/trees';

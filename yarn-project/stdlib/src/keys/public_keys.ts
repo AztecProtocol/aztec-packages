@@ -10,8 +10,7 @@ import {
   GeneratorIndex,
 } from '@aztec/constants';
 import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
-import { Fr } from '@aztec/foundation/curves/bn254';
-import { Point } from '@aztec/foundation/curves/grumpkin';
+import { Fr, Point } from '@aztec/foundation/fields';
 import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { bufferToHex, withoutHexPrefix } from '@aztec/foundation/string';

@@ -1,8 +1,8 @@
 import type { EpochCache } from '@aztec/epoch-cache';
 import { BlockNumber, EpochNumber } from '@aztec/foundation/branded-types';
-import { Fr } from '@aztec/foundation/curves/bn254';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { Signature } from '@aztec/foundation/eth-signature';
+import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { sleep } from '@aztec/foundation/sleep';

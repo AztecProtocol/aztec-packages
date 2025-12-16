@@ -1,4 +1,4 @@
-import { Fr } from '@aztec/foundation/curves/bn254';
+import { Fr } from '@aztec/foundation/fields';
 import { mockTx } from '@aztec/stdlib/testing';
 import { TxArray } from '@aztec/stdlib/tx';
 

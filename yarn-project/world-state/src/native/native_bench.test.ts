@@ -1,8 +1,8 @@
 import { MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX } from '@aztec/constants';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { padArrayEnd } from '@aztec/foundation/collection';
-import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { L2Block } from '@aztec/stdlib/block';
 import { type IndexedTreeId, MerkleTreeId, type MerkleTreeReadOperations } from '@aztec/stdlib/trees';

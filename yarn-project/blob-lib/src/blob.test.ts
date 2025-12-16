@@ -1,6 +1,6 @@
 import { FIELDS_PER_BLOB } from '@aztec/constants';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
-import { Fr } from '@aztec/foundation/curves/bn254';
+import { Fr } from '@aztec/foundation/fields';
 import { toInlineStrArray } from '@aztec/foundation/testing';
 import { updateInlineTestData } from '@aztec/foundation/testing/files';
 

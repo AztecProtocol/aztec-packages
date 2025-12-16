@@ -1,6 +1,6 @@
 import type { ChainInfo } from '@aztec/entrypoints/interfaces';
 import { BlockNumber } from '@aztec/foundation/branded-types';
-import { Fr } from '@aztec/foundation/curves/bn254';
+import { Fr } from '@aztec/foundation/fields';
 import { type JsonRpcTestContext, createJsonRpcTestSetup } from '@aztec/foundation/json-rpc/test';
 import type { ContractArtifact, EventMetadataDefinition } from '@aztec/stdlib/abi';
 import { EventSelector, FunctionSelector, FunctionType } from '@aztec/stdlib/abi';

@@ -1,6 +1,6 @@
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import type { L2AmountClaim } from '@aztec/aztec.js/ethereum';
-import { Fr } from '@aztec/foundation/curves/bn254';
+import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
 

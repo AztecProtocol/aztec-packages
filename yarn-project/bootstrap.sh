@@ -141,7 +141,7 @@ function test_cmds {
     local cmd_env=""
 
     # These need isolation due to network stack usage (p2p, anvil, etc).
-    if [[ "$test" =~ ^(prover-node|p2p|ethereum|aztec|prover-client/src/test|stdlib/src/l1-contracts|ivc-integration/src/chonk_browser|blob-sink/src/server) ]]; then
+    if [[ "$test" =~ ^(prover-node|p2p|ethereum|aztec|prover-client/src/test|stdlib/src/l1-contracts|ivc-integration/src/chonk_browser) ]]; then
       prefix+=":ISOLATE=1:NAME=$test"
     fi
 
@@ -185,7 +185,6 @@ function test_cmds {
 
   if [[ "${TARGET_BRANCH:-}" =~ ^v[0-9]+$ ]]; then
     echo "$hash yarn-project/scripts/run_test.sh aztec/src/testnet_compatibility.test.ts"
-    echo "$hash yarn-project/scripts/run_test.sh aztec/src/mainnet_compatibility.test.ts"
   fi
 }
 

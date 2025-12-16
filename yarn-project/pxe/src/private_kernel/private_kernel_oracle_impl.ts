@@ -1,6 +1,5 @@
 import { NOTE_HASH_TREE_HEIGHT, PUBLIC_DATA_TREE_HEIGHT, VK_TREE_HEIGHT } from '@aztec/constants';
-import type { Fr } from '@aztec/foundation/curves/bn254';
-import type { GrumpkinScalar, Point } from '@aztec/foundation/curves/grumpkin';
+import type { Fr, GrumpkinScalar, Point } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import type { Tuple } from '@aztec/foundation/serialize';
 import { MembershipWitness } from '@aztec/foundation/trees';

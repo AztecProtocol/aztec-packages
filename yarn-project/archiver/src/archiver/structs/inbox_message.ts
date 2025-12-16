@@ -1,7 +1,7 @@
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Buffer16, Buffer32 } from '@aztec/foundation/buffer';
 import { keccak256 } from '@aztec/foundation/crypto';
-import { Fr } from '@aztec/foundation/curves/bn254';
+import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, bigintToUInt64BE, numToUInt32BE, serializeToBuffer } from '@aztec/foundation/serialize';
 
 export type InboxMessage = {

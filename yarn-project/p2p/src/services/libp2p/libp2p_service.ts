@@ -1,7 +1,7 @@
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
 import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { randomInt } from '@aztec/foundation/crypto';
-import { Fr } from '@aztec/foundation/curves/bn254';
+import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLibp2pComponentLogger, createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { Timer } from '@aztec/foundation/timer';

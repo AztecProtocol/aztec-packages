@@ -9,9 +9,8 @@ import {
   PRIVATE_LOG_SIZE_IN_FIELDS,
 } from '@aztec/constants';
 import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
-import { Fr } from '@aztec/foundation/curves/bn254';
-import { GrumpkinScalar, Point } from '@aztec/foundation/curves/grumpkin';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { Fr, GrumpkinScalar, Point } from '@aztec/foundation/fields';
 import { type Serializable, type Tuple, assertLength, mapTuple } from '@aztec/foundation/serialize';
 import type { MembershipWitness } from '@aztec/foundation/trees';
 import { FunctionSelector } from '@aztec/stdlib/abi';

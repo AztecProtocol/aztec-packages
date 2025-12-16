@@ -1,4 +1,4 @@
-import type { Fr } from '@aztec/foundation/curves/bn254';
+import type { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { type AnyTx, TX_ERROR_BLOCK_HEADER, type TxValidationResult, type TxValidator } from '@aztec/stdlib/tx';
 

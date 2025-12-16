@@ -1,5 +1,4 @@
-import { Fr } from '@aztec/foundation/curves/bn254';
-import { Point } from '@aztec/foundation/curves/grumpkin';
+import { Fr, Point } from '@aztec/foundation/fields';
 import { jsonParseWithSchema, jsonStringify } from '@aztec/foundation/json-rpc';
 
 import { AztecAddress } from '../aztec-address/index.js';

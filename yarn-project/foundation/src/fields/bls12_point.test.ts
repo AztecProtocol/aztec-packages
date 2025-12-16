@@ -1,7 +1,7 @@
-import { jsonParseWithSchema, jsonStringify } from '../../json-rpc/convert.js';
-import { updateInlineTestData } from '../../testing/files/index.js';
-import { BLS12Fq, BLS12Fr } from './field.js';
-import { BLS12Point } from './point.js';
+import { jsonParseWithSchema, jsonStringify } from '../json-rpc/convert.js';
+import { updateInlineTestData } from '../testing/files/index.js';
+import { BLS12Fq, BLS12Fr } from './bls12_fields.js';
+import { BLS12Point } from './bls12_point.js';
 
 describe('BLS12Point', () => {
   describe('Random', () => {

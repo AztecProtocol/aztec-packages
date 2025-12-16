@@ -2,7 +2,7 @@ import type { Account } from '@aztec/aztec.js/account';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import type { Aliased, PrivateEvent } from '@aztec/aztec.js/wallet';
 import { BlockNumber } from '@aztec/foundation/branded-types';
-import { Fr } from '@aztec/foundation/curves/bn254';
+import { Fr } from '@aztec/foundation/fields';
 import { TokenContract, type Transfer } from '@aztec/noir-contracts.js/Token';
 import { PXE, type PackedPrivateEvent } from '@aztec/pxe/server';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';

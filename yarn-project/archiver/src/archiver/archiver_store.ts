@@ -1,6 +1,6 @@
 import type { L1BlockId } from '@aztec/ethereum';
 import { BlockNumber } from '@aztec/foundation/branded-types';
-import type { Fr } from '@aztec/foundation/curves/bn254';
+import type { Fr } from '@aztec/foundation/fields';
 import type { CustomRange } from '@aztec/kv-store';
 import type { FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';

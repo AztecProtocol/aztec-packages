@@ -1,4 +1,4 @@
-import { Fr } from '@aztec/foundation/curves/bn254';
+import { Fr } from '@aztec/foundation/fields';
 import { schemas } from '@aztec/foundation/schemas';
 import {
   BufferReader,

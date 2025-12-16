@@ -1,4 +1,4 @@
-import { Fr } from '../curves/bn254/index.js';
+import { Fr } from '../fields/index.js';
 import { computeBalancedMerkleTreeRoot, shaMerkleHash } from './balanced_merkle_tree.js';
 import { computeUnbalancedMerkleTreeRoot, findLeafLevelAndIndex } from './unbalanced_merkle_tree.js';
 

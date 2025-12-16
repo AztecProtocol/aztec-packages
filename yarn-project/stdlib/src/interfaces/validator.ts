@@ -1,7 +1,7 @@
 import type { SecretValue } from '@aztec/foundation/config';
-import { Fr } from '@aztec/foundation/curves/bn254';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { Signature } from '@aztec/foundation/eth-signature';
+import { Fr } from '@aztec/foundation/fields';
 import { type ZodFor, schemas } from '@aztec/foundation/schemas';
 import type { SequencerConfig, SlasherConfig } from '@aztec/stdlib/interfaces/server';
 import type { BlockAttestation, BlockProposal, BlockProposalOptions } from '@aztec/stdlib/p2p';

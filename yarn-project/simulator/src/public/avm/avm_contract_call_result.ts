@@ -1,4 +1,4 @@
-import type { Fr } from '@aztec/foundation/curves/bn254';
+import type { Fr } from '@aztec/foundation/fields';
 import type { SimulationError } from '@aztec/stdlib/errors';
 import { Gas } from '@aztec/stdlib/gas';
 

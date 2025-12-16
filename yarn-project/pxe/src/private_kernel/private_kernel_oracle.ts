@@ -1,6 +1,5 @@
 import { FUNCTION_TREE_HEIGHT, NOTE_HASH_TREE_HEIGHT, VK_TREE_HEIGHT } from '@aztec/constants';
-import type { Fr } from '@aztec/foundation/curves/bn254';
-import type { GrumpkinScalar, Point } from '@aztec/foundation/curves/grumpkin';
+import type { Fr, GrumpkinScalar, Point } from '@aztec/foundation/fields';
 import { MembershipWitness } from '@aztec/foundation/trees';
 import type { FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';

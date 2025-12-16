@@ -1,4 +1,4 @@
-import { Fr } from '@aztec/foundation/curves/bn254';
+import { Fr } from '@aztec/foundation/fields';
 import type { Logger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import type { ContractArtifact } from '@aztec/stdlib/abi';

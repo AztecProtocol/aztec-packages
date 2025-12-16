@@ -12,8 +12,8 @@ import {
   BlockNumberSchema,
   type SlotNumber,
 } from '@aztec/foundation/branded-types';
-import type { Fr } from '@aztec/foundation/curves/bn254';
 import type { EthAddress } from '@aztec/foundation/eth-address';
+import type { Fr } from '@aztec/foundation/fields';
 import { createSafeJsonRpcClient, makeFetch } from '@aztec/foundation/json-rpc/client';
 import { MembershipWitness, SiblingPath } from '@aztec/foundation/trees';
 

@@ -1,5 +1,5 @@
 import { Grumpkin } from '@aztec/foundation/crypto';
-import type { GrumpkinScalar } from '@aztec/foundation/curves/grumpkin';
+import type { GrumpkinScalar } from '@aztec/foundation/fields';
 import type { PublicKey } from '@aztec/stdlib/keys';
 
 /**

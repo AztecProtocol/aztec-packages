@@ -9,8 +9,8 @@ import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/f
 import { Buffer16, Buffer32 } from '@aztec/foundation/buffer';
 import { times } from '@aztec/foundation/collection';
 import { Secp256k1Signer } from '@aztec/foundation/crypto';
-import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';

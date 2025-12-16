@@ -1,4 +1,4 @@
-import type { Fr } from '@aztec/foundation/curves/bn254';
+import type { Fr } from '@aztec/foundation/fields';
 import { FieldReader } from '@aztec/foundation/serialize';
 import { AuthorizationSelector, FunctionSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';

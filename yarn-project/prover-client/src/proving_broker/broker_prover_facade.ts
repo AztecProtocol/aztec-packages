@@ -6,7 +6,7 @@ import type {
 } from '@aztec/constants';
 import { EpochNumber } from '@aztec/foundation/branded-types';
 import { sha256 } from '@aztec/foundation/crypto';
-import { Fr } from '@aztec/foundation/curves/bn254';
+import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { type PromiseWithResolvers, RunningPromise, promiseWithResolvers } from '@aztec/foundation/promise';
 import { truncate } from '@aztec/foundation/string';

@@ -1,6 +1,6 @@
 import { BarretenbergSync } from '@aztec/bb.js';
 
-import { Fr } from '../../curves/bn254/field.js';
+import { Fr } from '../../fields/fields.js';
 
 export async function vkAsFieldsMegaHonk(input: Buffer): Promise<Fr[]> {
   await BarretenbergSync.initSingleton();

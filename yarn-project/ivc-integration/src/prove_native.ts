@@ -18,7 +18,7 @@ import {
   NESTED_RECURSIVE_PROOF_LENGTH,
   RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
 } from '@aztec/constants';
-import { Fr } from '@aztec/foundation/curves/bn254';
+import { Fr } from '@aztec/foundation/fields';
 import type { Logger } from '@aztec/foundation/log';
 import { BufferReader } from '@aztec/foundation/serialize';
 import type { AvmCircuitInputs, AvmCircuitPublicInputs } from '@aztec/stdlib/avm';

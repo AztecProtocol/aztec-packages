@@ -1,4 +1,4 @@
-import { Fr } from '@aztec/foundation/curves/bn254';
+import { Fr } from '@aztec/foundation/fields';
 import type { ABIParameter, AbiType, StructType } from '@aztec/stdlib/abi';
 
 /**

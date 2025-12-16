@@ -1,4 +1,4 @@
-import { Fr } from '@aztec/foundation/curves/bn254';
+import { Fr } from '@aztec/foundation/fields';
 import { Comparator, type Note } from '@aztec/stdlib/note';
 
 export interface PropertySelector {
