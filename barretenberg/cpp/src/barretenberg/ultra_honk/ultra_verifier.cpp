@@ -65,7 +65,7 @@ typename UltraVerifier_<Flavor, IO>::PaddingData UltraVerifier_<Flavor, IO>::pro
 /**
  * @brief Reduce ultra proof to verification claims (works for both native and recursive)
  * @details Contains all shared verification logic: Oink, Sumcheck, Shplemini
- * @return ReductionResult with pairing points and IPA claim for deferred verification
+ * @return ReductionResult with pairing points and intermediate consistency checks
  */
 template <typename Flavor, class IO>
 typename UltraVerifier_<Flavor, IO>::ReductionResult UltraVerifier_<Flavor, IO>::reduce_to_pairing_check(
@@ -80,21 +80,16 @@ typename UltraVerifier_<Flavor, IO>::ReductionResult UltraVerifier_<Flavor, IO>:
     using ClaimBatch = ClaimBatcher::Batch;
 
     transcript->load_proof(proof);
-
     OinkVerifier<Flavor> oink_verifier{ verifier_instance, transcript };
     oink_verifier.verify();
 
     // Compute padding data (log_n and padding_indicator_array)
     auto [log_n, padding_indicator_array] = process_padding();
-
-    // Get VK pointer for commitments
-    auto vk_ptr = verifier_instance->get_vk();
-
     verifier_instance->gate_challenges =
         transcript->template get_dyadic_powers_of_challenge<FF>("Sumcheck:gate_challenge", log_n);
 
     // Get the witness commitments that the verifier needs to verify
-    VerifierCommitments commitments{ vk_ptr, verifier_instance->witness_commitments };
+    VerifierCommitments commitments{ verifier_instance->get_vk(), verifier_instance->witness_commitments };
     // For ZK flavors: set gemini_masking_poly commitment from accumulator
     if constexpr (Flavor::HasZK) {
         commitments.gemini_masking_poly = verifier_instance->gemini_masking_commitment;
@@ -122,8 +117,7 @@ typename UltraVerifier_<Flavor, IO>::ReductionResult UltraVerifier_<Flavor, IO>:
         .shifted = ClaimBatch{ commitments.get_to_be_shifted(), sumcheck_output.claimed_evaluations.get_shifted() }
     };
 
-    // Specialization point: Commitment::one()
-    auto one_commitment = [&]() {
+    const Commitment one_commitment = [&]() {
         if constexpr (IsRecursive) {
             return Commitment::one(builder);
         } else {
@@ -148,14 +142,16 @@ typename UltraVerifier_<Flavor, IO>::ReductionResult UltraVerifier_<Flavor, IO>:
     bool consistency_checked = true;
     if constexpr (Flavor::HasZK) {
         consistency_checked = shplemini_output.consistency_checked;
+        vinfo("Ultra Verifier (with ZK): Libra evals consistency checked ", consistency_checked ? "true" : "false");
     }
+    vinfo("Ultra Verifier sumcheck_verified: ", sumcheck_output.verified ? "true" : "false");
     result.reduction_succeeded = sumcheck_output.verified && consistency_checked;
 
     return result;
 }
 
 /**
- * @brief Perform ultra verification for non-IPA flavors
+ * @brief Perform ultra verification for non-Rollup flavors
  * @details
  * - Native: Performs immediate pairing verification
  * - Recursive: Returns pairing points for deferred verification
@@ -166,32 +162,32 @@ typename UltraVerifier_<Flavor, IO>::Output UltraVerifier_<Flavor, IO>::verify_p
     requires(!HasIPAAccumulator<Flavor>)
 {
     // Reduce to claims
-    auto reduction_result = reduce_to_pairing_check(proof);
-    vinfo("UltraVerifier: reduced to pairing check: ", reduction_result.reduction_succeeded ? "true" : "false");
+    auto [pcs_pairing_points, reduction_succeeded] = reduce_to_pairing_check(proof);
+    vinfo("UltraVerifier: reduced to pairing check: ", reduction_succeeded ? "true" : "false");
 
     if constexpr (!IsRecursive) {
-        if (!reduction_result.reduction_succeeded) {
+        if (!reduction_succeeded) {
             info("UltraVerifier: verification failed at reduction step");
             return Output{};
         }
     }
 
-    // Reconstruct inputs
+    // Reconstruct public inputs
     IO inputs;
     inputs.reconstruct_from_public(verifier_instance->public_inputs);
 
-    // Aggregate pairing points (inputs first, then reduction)
-    auto pairing_points = inputs.pairing_inputs;
-    pairing_points.aggregate(reduction_result.pairing_points);
+    // Aggregate pairing points
+    PairingPoints pi_pairing_points = inputs.pairing_inputs;
+    pi_pairing_points.aggregate(pcs_pairing_points);
 
     if constexpr (IsRecursive) {
-        // Recursive: Construct output and return for deferred verification
+        // Construct output and return for deferred verification
         Output output(inputs);
-        output.points_accumulator = std::move(pairing_points);
+        output.points_accumulator = std::move(pi_pairing_points);
         return output;
     } else {
         // Perform immediate pairing verification
-        bool pairing_verified = pairing_points.check();
+        bool pairing_verified = pi_pairing_points.check();
         vinfo("UltraVerifier: pairing check: ", pairing_verified ? "true" : "false");
 
         if (!pairing_verified) {
@@ -213,7 +209,7 @@ typename UltraVerifier_<Flavor, IO>::Output UltraVerifier_<Flavor, IO>::verify_p
 }
 
 /**
- * @brief Perform ultra verification for IPA flavors (rollup)
+ * @brief Perform ultra verification for Rollup flavors
  * @details
  * - Native: Performs immediate pairing verification + IPA verification
  * - Recursive: Returns pairing points and IPA proof for deferred verification
@@ -225,7 +221,7 @@ typename UltraVerifier_<Flavor, IO>::Output UltraVerifier_<Flavor, IO>::verify_p
     requires(HasIPAAccumulator<Flavor>)
 {
     // Reduce to claims
-    auto [pairing_points, reduction_succeeded] = reduce_to_pairing_check(proof);
+    auto [pcs_pairing_points, reduction_succeeded] = reduce_to_pairing_check(proof);
     vinfo("UltraVerifier: reduced to pairing check: ", reduction_succeeded ? "true" : "false");
 
     if constexpr (!IsRecursive) {
@@ -235,23 +231,23 @@ typename UltraVerifier_<Flavor, IO>::Output UltraVerifier_<Flavor, IO>::verify_p
         }
     }
 
-    // Reconstruct inputs
+    // Reconstruct public inputs
     IO inputs;
     inputs.reconstruct_from_public(verifier_instance->public_inputs);
 
-    // Aggregate pairing points (inputs first, then reduction)
-    auto reconstructed_pairing_points = inputs.pairing_inputs;
-    reconstructed_pairing_points.aggregate(pairing_points);
+    // Aggregate pairing points
+    PairingPoints pi_pairing_points = inputs.pairing_inputs;
+    pi_pairing_points.aggregate(pcs_pairing_points);
 
     if constexpr (IsRecursive) {
         // Construct output for deferred verification
         Output output(inputs);
-        output.points_accumulator = std::move(pairing_points);
+        output.points_accumulator = std::move(pi_pairing_points);
         output.ipa_proof = ipa_proof;
         return output;
     } else {
         // Perform immediate pairing verification
-        bool pairing_verified = pairing_points.check();
+        bool pairing_verified = pi_pairing_points.check();
         vinfo("UltraVerifier: pairing check: ", pairing_verified ? "true" : "false");
 
         if (!pairing_verified) {
