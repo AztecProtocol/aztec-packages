@@ -4,6 +4,22 @@
 // external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // =====================
 
+/**
+ * @file sha256.cpp
+ * @brief Circuit implementation of SHA-256 compression function using lookup tables.
+ *
+ * This implementation uses "sparse form" representations to efficiently compute SHA-256 operations:
+ * - XOR operations become additions in sparse form (one digit per bit)
+ * - Rotations become coefficient multiplications
+ * - Boolean functions (Choose, Majority) are computed via lookup tables
+ *
+ * Two sparse bases are used:
+ * - Base-28 for Choose + Σ₁: encodes 7*rotation + (e + 2f + 3g)
+ * - Base-16 for Majority + Σ₀: encodes 4*rotation + (a + b + c)
+ *
+ * See plookup_tables/sha256.hpp for the mathematical foundations of the lookup tables.
+ */
+
 #include "sha256.hpp"
 
 #include "barretenberg/stdlib/primitives/field/field.hpp"
@@ -17,26 +33,12 @@ namespace bb::stdlib {
 using namespace bb::plookup;
 
 /**
- * @brief Convert a 32-bit witness value to sparse limbs form for message schedule extension
+ * @brief Convert a 32-bit value to sparse limbs form for message schedule extension.
  *
- * This function decomposes a 32-bit value into base-16 sparse limbs and pre-computes
- * rotation offsets needed for the σ₀ and σ₁ functions in SHA-256 message schedule extension:
- *   σ₀(x) = (x >>> 7) ⊕ (x >>> 18) ⊕ (x >> 3)
- *   σ₁(x) = (x >>> 17) ⊕ (x >>> 19) ⊕ (x >> 10)
+ * Uses SHA256_WITNESS_INPUT lookup table to decompose input into sparse limbs and
+ * pre-rotated correction terms needed for σ₀/σ₁ computation.
  *
- * SHA256_WITNESS_INPUT Lookup Table Structure:
- * - Decomposes 32-bit input into 4 slices: [3, 7, 8, 14] bits (total 32 bits)
- * - Column 1 (C1): Accumulates normal form reconstruction (coefficients: 1, 2³, 2¹⁰, 2¹⁸)
- * - Column 2 (C2): Sparse limbs in base-16 (4 limbs covering the 32 bits)
- * - Column 3 (C3): Pre-rotated limbs for efficient rotation computation
- *
- * Limb Structure (base-16):
- * - Each limb represents multiple bits from the original value
- * - Limbs are sized to align with rotation boundaries where possible
- * - The specific slice sizes (3, 7, 8, 14) optimize for the rotation patterns in σ₀ and σ₁
- *
- * @param input The 32-bit field element to convert (typically W[i-15] or W[i-2])
- * @return sparse_witness_limbs
+ * See get_witness_extension_input_table() in plookup_tables/sha256.hpp for table structure.
  */
 template <typename Builder>
 SHA256<Builder>::sparse_witness_limbs SHA256<Builder>::convert_witness(const field_t<Builder>& input)
@@ -64,31 +66,13 @@ SHA256<Builder>::sparse_witness_limbs SHA256<Builder>::convert_witness(const fie
 }
 
 /**
- * @brief Extend the 16-word message block to 64 words per SHA-256 specification
+ * @brief Extend the 16-word message block to 64 words per SHA-256 specification.
  *
  * SHA-256 Spec (FIPS 180-4, Section 6.2.2):
- *   For i = 16 to 63:
- *       W[i] = σ₁(W[i-2]) + W[i-7] + σ₀(W[i-15]) + W[i-16]  (mod 2³²)
+ *   W[i] = σ₁(W[i-2]) + W[i-7] + σ₀(W[i-15]) + W[i-16]  (mod 2³²)  for i = 16..63
  *
- *   where:
- *       σ₀(x) = ROTR⁷(x) ⊕ ROTR¹⁸(x) ⊕ SHR³(x)
- *       σ₁(x) = ROTR¹⁷(x) ⊕ ROTR¹⁹(x) ⊕ SHR¹⁰(x)
- *
- * Circuit Implementation Strategy:
- *   Rather than computing rotations and XORs directly (expensive), we use base-16 sparse form with lookup tables:
- *
- *   1. For W[i-15] and W[i-2], use SHA256_WITNESS_INPUT lookup table to extract:
- *      - Decomposition of 32-bit value into 4 sparse limbs
- *      - Rotated limb correction terms (used in conjunction with rotation multipliers)
- *
- *   2. Compute σ₀ + σ₁ in sparse form:
- *      - Scale σ₀ contribution by 4 (shifts it to upper 2 bits of each base-16 digit)
- *      - Add σ₁ contribution (occupies lower 2 bits of each digit)
- *      - Each digit becomes: 4*σ₀_bit + σ₁_bit ∈ {0,1,...,15}
- *
- *   3. Normalize via SHA256_WITNESS_OUTPUT table: Maps sparse sum to σ₀ + σ₁
- *
- *   4. Add σ₀(W[i-15]) + σ₁(W[i-2]) + W[i-7] + W[i-16] and reduce mod 2³²
+ * Uses base-16 sparse form to compute σ₀ + σ₁ efficiently via lookup tables,
+ * then adds W[i-7] and W[i-16] and reduces mod 2³².
  *
  * @param w_in The 16 input message words (512 bits total)
  * @return 64 extended message schedule words
@@ -269,7 +253,7 @@ field_t<Builder> SHA256<Builder>::choose_with_sigma1(sparse_value& e, const spar
                               .add_two(e.sparse * (rotation_coefficients[0] * SPARSE_MULT + fr(1)),
                                        sparse_L2 * (rotation_coefficients[2] * SPARSE_MULT));
 
-    // Add 2f + 3g to get e + 7*Σ₁(e) + 2f + 3g (each digit in 0..27)
+    // Add 2f + 3g to get e + SPARSE_MULT*Σ₁(e) + 2f + 3g (each digit in 0..27)
     field_pt choose_result_sparse = xor_result.add_two(f.sparse + f.sparse, g.sparse + g.sparse + g.sparse);
 
     // Normalize via lookup: each digit maps to Σ₁(e)_i + Ch(e,f,g)_i
@@ -314,7 +298,7 @@ field_t<Builder> SHA256<Builder>::majority_with_sigma0(sparse_value& a, const sp
                               .add_two(a.sparse * (rotation_coefficients[0] * SPARSE_MULT + fr(1)),
                                        sparse_L1_acc * (rotation_coefficients[1] * SPARSE_MULT));
 
-    // Add b + c to get a + 4*Σ₀(a) + b + c (each digit in 0..15)
+    // Add b + c to get a + SPARSE_MULT*Σ₀(a) + b + c (each digit in 0..15)
     field_pt majority_result_sparse = xor_result.add_two(b.sparse, c.sparse);
 
     // Normalize via lookup: each digit maps to Σ₀(a)_i + Maj(a,b,c)_i
@@ -373,7 +357,7 @@ template <typename Builder>
 std::array<field_t<Builder>, 8> SHA256<Builder>::sha256_block(const std::array<field_t<Builder>, 8>& h_init,
                                                               const std::array<field_t<Builder>, 16>& input)
 {
-    typedef field_t<Builder> field_pt;
+    using field_pt = field_t<Builder>;
 
     /**
      * Initialize round variables with previous block output.
