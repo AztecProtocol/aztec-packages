@@ -1,6 +1,8 @@
 use crate::NFT;
 use crate::test::utils;
-use aztec::{oracle::random::random, test::helpers::authwit::add_private_authwit_from_call};
+use aztec::{
+    oracle::random::random, test::helpers::authwit::add_private_authwit_from_call_interface,
+};
 
 #[test]
 unconstrained fn transfer_in_private() {
@@ -58,12 +60,17 @@ unconstrained fn transfer_in_private_on_behalf_of_other() {
         utils::setup_mint_and_transfer_to_private(/* with_account_contracts */ true);
 
     // Transfer the NFT to the recipient
-    let transfer_in_private_call =
+    let transfer_in_private_call_interface =
         NFT::at(nft_contract_address).transfer_in_private(sender, recipient, token_id, 1);
-    add_private_authwit_from_call(env, sender, recipient, transfer_in_private_call);
+    add_private_authwit_from_call_interface(
+        env,
+        sender,
+        recipient,
+        transfer_in_private_call_interface,
+    );
 
     // Transfer the NFT to the recipient
-    env.call_private(recipient, transfer_in_private_call);
+    env.call_private(recipient, transfer_in_private_call_interface);
 
     // Recipient should be the private NFT owner
     utils::assert_owns_private_nft(env, nft_contract_address, recipient, token_id);
@@ -128,10 +135,15 @@ unconstrained fn transfer_in_private_failure_on_behalf_of_other_wrong_caller() {
     // We set random value for the token_id as the authwit nonce check is before we use the value.
     let token_id = random();
 
-    let transfer_in_private_from_call =
+    let transfer_in_private_from_call_interface =
         NFT::at(nft_contract_address).transfer_in_private(sender, recipient, token_id, 1);
-    add_private_authwit_from_call(env, sender, sender, transfer_in_private_from_call);
+    add_private_authwit_from_call_interface(
+        env,
+        sender,
+        sender,
+        transfer_in_private_from_call_interface,
+    );
 
     // Try transferring the NFT
-    env.call_private(recipient, transfer_in_private_from_call);
+    env.call_private(recipient, transfer_in_private_from_call_interface);
 }

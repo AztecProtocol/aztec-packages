@@ -2,6 +2,7 @@
 # Look at noir-contracts bootstrap.sh for some tips r.e. bash.
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
+cmd=${1:-}
 # entrypoint for mock circuits
 if [ -n "${NOIR_PROTOCOL_CIRCUITS_WORKING_DIR:-}" ]; then
   cd "$NOIR_PROTOCOL_CIRCUITS_WORKING_DIR"
@@ -257,13 +258,30 @@ function bench {
 }
 
 case "$cmd" in
+  "bench")
+    bench
+    ;;
+  "clean")
+    git clean -fdx
+    ;;
   "clean-keys")
     rm -rf $key_dir
     ;;
-  "")
+  "ci")
+    build
+    test
+    ;;
+  ""|"fast"|"full")
     build
     ;;
-  *)
-    default_cmd_handler "$@"
+  "compile")
+    shift
+    compile $1
     ;;
+  test|test_cmds|bench_cmds|format)
+    $cmd
+    ;;
+  *)
+    echo_stderr "Unknown command: $cmd"
+    exit 1
 esac

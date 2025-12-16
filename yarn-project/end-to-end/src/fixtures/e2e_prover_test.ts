@@ -10,7 +10,6 @@ import {
   QueuedIVCVerifier,
   TestCircuitVerifier,
 } from '@aztec/bb-prover';
-import { BackendType, Barretenberg } from '@aztec/bb.js';
 import { createBlobSinkClient } from '@aztec/blob-sink/client';
 import type { BlobSinkServer } from '@aztec/blob-sink/server';
 import type { DeployL1ContractsReturnType } from '@aztec/ethereum';
@@ -19,7 +18,6 @@ import { SecretValue } from '@aztec/foundation/config';
 import { FeeAssetHandlerAbi } from '@aztec/l1-artifacts';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { type ProverNode, type ProverNodeConfig, createProverNode } from '@aztec/prover-node';
-import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 import { TestWallet } from '@aztec/test-wallet/server';
 import { getGenesisValues } from '@aztec/world-state/testing';
@@ -64,7 +62,6 @@ export class FullProverTest {
   accounts: AztecAddress[] = [];
   deployedAccounts!: InitialAccountData[];
   fakeProofsAsset!: TokenContract;
-  fakeProofsAssetInstance!: ContractInstanceWithAddress;
   tokenSim!: TokenSimulator;
   aztecNode!: AztecNode;
   aztecNodeAdmin!: AztecNodeAdmin;
@@ -124,7 +121,7 @@ export class FullProverTest {
         await publicDeployAccounts(this.wallet, this.accounts.slice(0, 2));
 
         this.logger.verbose(`Deploying TokenContract...`);
-        const { contract: asset, instance } = await TokenContract.deploy(
+        const asset = await TokenContract.deploy(
           this.wallet,
           this.accounts[0],
           FullProverTest.TOKEN_NAME,
@@ -132,15 +129,14 @@ export class FullProverTest {
           FullProverTest.TOKEN_DECIMALS,
         )
           .send({ from: this.accounts[0] })
-          .wait();
+          .deployed();
         this.logger.verbose(`Token deployed to ${asset.address}`);
 
-        return { tokenContractAddress: asset.address, tokenContractInstance: instance };
+        return { tokenContractAddress: asset.address };
       },
-      async ({ tokenContractAddress, tokenContractInstance }) => {
+      async ({ tokenContractAddress }) => {
         // Restore the token contract state.
-        this.fakeProofsAsset = TokenContract.at(tokenContractAddress, this.wallet);
-        this.fakeProofsAssetInstance = tokenContractInstance;
+        this.fakeProofsAsset = await TokenContract.at(tokenContractAddress, this.wallet);
         this.logger.verbose(`Token contract address: ${this.fakeProofsAsset.address}`);
 
         this.tokenSim = new TokenSimulator(
@@ -187,7 +183,9 @@ export class FullProverTest {
       this.acvmConfigCleanup = acvmConfig.cleanup;
       this.bbConfigCleanup = bbConfig.cleanup;
 
-      await Barretenberg.initSingleton({ backend: BackendType.NativeUnixSocket });
+      if (!bbConfig?.bbWorkingDirectory || !bbConfig?.bbBinaryPath) {
+        throw new Error(`Test must be run with BB native configuration`);
+      }
 
       const verifier = await BBCircuitVerifier.new(bbConfig);
       this.circuitProofVerifier = new QueuedIVCVerifier(bbConfig, verifier);
@@ -214,19 +212,23 @@ export class FullProverTest {
     this.logger.verbose(`Main setup completed, initializing full prover PXE, Node, and Prover Node`);
     const { wallet: provenWallet, teardown: provenTeardown } = await setupPXEAndGetWallet(
       this.aztecNode,
-      { proverEnabled: this.realProofs },
+      {
+        proverEnabled: this.realProofs,
+        bbBinaryPath: bbConfig?.bbBinaryPath,
+        bbWorkingDirectory: bbConfig?.bbWorkingDirectory,
+      },
       undefined,
       true,
     );
     this.logger.debug(`Contract address ${this.fakeProofsAsset.address}`);
-    await provenWallet.registerContract(this.fakeProofsAssetInstance, TokenContract.artifact);
+    await provenWallet.registerContract(this.fakeProofsAsset);
 
     for (let i = 0; i < 2; i++) {
       await provenWallet.createSchnorrAccount(this.deployedAccounts[i].secret, this.deployedAccounts[i].salt);
       await this.wallet.createSchnorrAccount(this.deployedAccounts[i].secret, this.deployedAccounts[i].salt);
     }
 
-    const asset = TokenContract.at(this.fakeProofsAsset.address, provenWallet);
+    const asset = await TokenContract.at(this.fakeProofsAsset.address, provenWallet);
     this.provenComponents.push({
       wallet: provenWallet,
       teardown: provenTeardown,
@@ -319,7 +321,6 @@ export class FullProverTest {
     // clean up the full prover node
     await this.proverNode.stop();
 
-    await Barretenberg.destroySingleton();
     await this.bbConfigCleanup?.();
     await this.acvmConfigCleanup?.();
   }

@@ -77,9 +77,9 @@ struct WireInstructionSpec {
     bool operator==(const WireInstructionSpec& other) const = default;
 };
 
-// These are lazy-initialized functions to avoid expensive startup initialization.
+// These are "extern" because the definition is in a different file.
 // Note: in the circuit, we can choose to merge both tables.
-const std::unordered_map<ExecutionOpCode, ExecInstructionSpec>& get_exec_instruction_spec();
-const std::unordered_map<WireOpCode, WireInstructionSpec>& get_wire_instruction_spec();
+extern const std::unordered_map<ExecutionOpCode, ExecInstructionSpec> EXEC_INSTRUCTION_SPEC;
+extern const std::unordered_map<WireOpCode, WireInstructionSpec> WIRE_INSTRUCTION_SPEC;
 
 } // namespace bb::avm2

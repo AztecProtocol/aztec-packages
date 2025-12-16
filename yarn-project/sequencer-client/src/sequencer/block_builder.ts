@@ -13,7 +13,6 @@ import {
   PublicProcessor,
   TelemetryPublicTxSimulator,
 } from '@aztec/simulator/server';
-import { PublicSimulatorConfig } from '@aztec/stdlib/avm';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { type L1RollupConstants, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import { Gas } from '@aztec/stdlib/gas';
@@ -126,14 +125,11 @@ export class FullNodeBlockBuilder implements IFullNodeBlockBuilder {
       contractsDB,
       globalVariables,
       this.telemetryClient,
-      PublicSimulatorConfig.from({
-        skipFeeEnforcement: false,
-        collectDebugLogs: false,
-        collectHints: false,
-        maxDebugLogMemoryReads: 0,
-        collectStatistics: false,
-        collectCallMetadata: false,
-      }),
+      {
+        doMerkleOperations: true,
+        skipFeeEnforcement: true,
+        clientInitiatedSimulation: false,
+      },
     );
 
     const processor = new PublicProcessor(

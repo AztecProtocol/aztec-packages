@@ -104,7 +104,7 @@ export class PrivateKernelResetPrivateInputsBuilder {
     private previousKernelOutput: PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>,
     private executionStack: PrivateCallExecutionResult[],
     private noteHashNullifierCounterMap: Map<number, number>,
-    private splitCounter: number,
+    private validationRequestsSplitCounter: number,
   ) {
     this.previousKernel = previousKernelOutput.publicInputs;
     this.requestedDimensions = PrivateKernelResetDimensions.empty();
@@ -206,6 +206,7 @@ export class PrivateKernelResetPrivateInputsBuilder {
           oracle,
         ),
         this.transientDataSquashingHints,
+        this.validationRequestsSplitCounter,
       ),
       dimensions,
     );
@@ -402,7 +403,7 @@ export class PrivateKernelResetPrivateInputsBuilder {
       futureNoteHashReads,
       futureNullifierReads,
       this.noteHashNullifierCounterMap,
-      this.splitCounter,
+      this.validationRequestsSplitCounter,
     );
 
     if (this.nextIteration && !numTransientData) {

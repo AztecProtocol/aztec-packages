@@ -24,32 +24,21 @@ using EthAddress = FF;
 
 using FunctionSelector = FF; // really a 4-byte BE buffer in TS, but we use FF for simplicity
 
-// The Tx phases are executed in increasing order defined by these enum values.
-// Do not change the order of the enum values.
-// pil constraints rely on these constants being in consecutive order (increment by 1).
-enum class TransactionPhase : uint8_t {
-    NR_NULLIFIER_INSERTION = 0,
-    NR_NOTE_INSERTION = 1,
-    NR_L2_TO_L1_MESSAGE = 2,
-    SETUP = 3,
-    R_NULLIFIER_INSERTION = 4,
-    R_NOTE_INSERTION = 5,
-    R_L2_TO_L1_MESSAGE = 6,
-    APP_LOGIC = 7,
-    TEARDOWN = 8,
-    COLLECT_GAS_FEES = 9,
-    TREE_PADDING = 10,
-    CLEANUP = 11,
+enum class TransactionPhase {
+    NR_NULLIFIER_INSERTION = 1,
+    NR_NOTE_INSERTION = 2,
+    NR_L2_TO_L1_MESSAGE = 3,
+    SETUP = 4,
+    R_NULLIFIER_INSERTION = 5,
+    R_NOTE_INSERTION = 6,
+    R_L2_TO_L1_MESSAGE = 7,
+    APP_LOGIC = 8,
+    TEARDOWN = 9,
+    COLLECT_GAS_FEES = 10,
+    TREE_PADDING = 11,
+    CLEANUP = 12,
     LAST = CLEANUP,
 };
-
-// The three following constants are used in .pil files and need to match the enum counterpart.
-static_assert(static_cast<uint8_t>(TransactionPhase::SETUP) == AVM_TX_PHASE_VALUE_SETUP,
-              "TransactionPhase::LAST must match AVM_TX_PHASE_VALUE_SETUP");
-static_assert(static_cast<uint8_t>(TransactionPhase::NR_NULLIFIER_INSERTION) == AVM_TX_PHASE_VALUE_START,
-              "TransactionPhase::NR_NULLIFIER_INSERTION must match AVM_TX_PHASE_VALUE_START");
-static_assert(static_cast<uint8_t>(TransactionPhase::LAST) == AVM_TX_PHASE_VALUE_LAST,
-              "TransactionPhase::LAST must match AVM_TX_PHASE_VALUE_LAST");
 
 using InternalCallId = uint32_t;
 
@@ -57,23 +46,23 @@ using InternalCallId = uint32_t;
  * Enum for environment variables, representing the various environment values
  * that can be accessed by the AVM GETENVVAR opcode.
  */
-enum class EnvironmentVariable : uint8_t {
-    ADDRESS = 0,
-    SENDER = 1,
-    TRANSACTIONFEE = 2,
-    CHAINID = 3,
-    VERSION = 4,
-    BLOCKNUMBER = 5,
-    TIMESTAMP = 6,
-    BASEFEEPERL2GAS = 7,
-    BASEFEEPERDAGAS = 8,
-    ISSTATICCALL = 9,
-    L2GASLEFT = 10,
-    DAGASLEFT = 11,
+enum class EnvironmentVariable {
+    ADDRESS,
+    SENDER,
+    TRANSACTIONFEE,
+    CHAINID,
+    VERSION,
+    BLOCKNUMBER,
+    TIMESTAMP,
+    BASEFEEPERL2GAS,
+    BASEFEEPERDAGAS,
+    ISSTATICCALL,
+    L2GASLEFT,
+    DAGASLEFT,
     MAX = DAGASLEFT,
 };
 
-enum class ContractInstanceMember : uint8_t {
+enum class ContractInstanceMember {
     DEPLOYER = 0,
     CLASS_ID = 1,
     INIT_HASH = 2,
@@ -114,11 +103,11 @@ struct PublicKeys {
 };
 
 struct ContractInstance {
-    FF salt = 0;
-    AztecAddress deployer = 0;
-    ContractClassId current_contract_class_id = 0;
-    ContractClassId original_contract_class_id = 0;
-    FF initialization_hash = 0;
+    FF salt;
+    AztecAddress deployer;
+    ContractClassId current_contract_class_id;
+    ContractClassId original_contract_class_id;
+    FF initialization_hash;
     PublicKeys public_keys;
 
     bool operator==(const ContractInstance& other) const = default;
@@ -146,11 +135,11 @@ struct ContractInstance {
 // - privateFunctions[]
 // - utilityFunctions[]
 struct ContractClassWithCommitment {
-    FF id = 0;
-    FF artifact_hash = 0;
-    FF private_functions_root = 0;
+    FF id;
+    FF artifact_hash;
+    FF private_functions_root;
     std::vector<uint8_t> packed_bytecode;
-    FF public_bytecode_commitment = 0;
+    FF public_bytecode_commitment;
 
     bool operator==(const ContractClassWithCommitment& other) const = default;
 
@@ -175,9 +164,9 @@ struct ContractClassWithCommitment {
 // - privateFunctions[]
 // - utilityFunctions[]
 struct ContractClass {
-    FF id = 0;
-    FF artifact_hash = 0;
-    FF private_functions_root = 0;
+    FF id;
+    FF artifact_hash;
+    FF private_functions_root;
     std::vector<uint8_t> packed_bytecode;
 
     bool operator==(const ContractClass& other) const = default;
@@ -212,8 +201,8 @@ struct ContractClass {
 ////////////////////////////////////////////////////////////////////////////
 
 struct L2ToL1Message {
-    EthAddress recipient = 0;
-    FF content = 0;
+    EthAddress recipient;
+    FF content;
 
     bool operator==(const L2ToL1Message& other) const = default;
 
@@ -222,20 +211,20 @@ struct L2ToL1Message {
 
 struct ScopedL2ToL1Message {
     L2ToL1Message message;
-    AztecAddress contract_address = 0;
+    AztecAddress contractAddress;
 
     bool operator==(const ScopedL2ToL1Message& other) const = default;
 
-    MSGPACK_CAMEL_CASE_FIELDS(message, contract_address);
+    MSGPACK_FIELDS(message, contractAddress);
 };
 
 struct PublicLog {
     std::vector<FF> fields;
-    AztecAddress contract_address = 0;
+    AztecAddress contractAddress;
 
     bool operator==(const PublicLog& other) const = default;
 
-    MSGPACK_CAMEL_CASE_FIELDS(fields, contract_address);
+    MSGPACK_FIELDS(fields, contractAddress);
 };
 
 struct PublicLogs {
@@ -256,7 +245,7 @@ struct PublicLogs {
     {
         // Header
         payload[length] = log.fields.size();
-        payload[length + 1] = log.contract_address;
+        payload[length + 1] = log.contractAddress;
         // Payload
         for (size_t i = 0; i < log.fields.size(); ++i) {
             payload[length + PUBLIC_LOG_HEADER_LENGTH + i] = log.fields[i];
@@ -277,12 +266,12 @@ struct PublicLogs {
 };
 
 struct PublicDataWrite {
-    FF leaf_slot = 0;
-    FF value = 0;
+    FF leafSlot;
+    FF value;
 
     bool operator==(const PublicDataWrite& other) const = default;
 
-    MSGPACK_CAMEL_CASE_FIELDS(leaf_slot, value);
+    MSGPACK_FIELDS(leafSlot, value);
 };
 
 ////////////////////////////////////////////////////////////////////////////
@@ -290,24 +279,24 @@ struct PublicDataWrite {
 ////////////////////////////////////////////////////////////////////////////
 
 struct GasFees {
-    uint128_t fee_per_da_gas = 0;
-    uint128_t fee_per_l2_gas = 0;
+    uint128_t feePerDaGas;
+    uint128_t feePerL2Gas;
 
     bool operator==(const GasFees& other) const = default;
 
-    MSGPACK_CAMEL_CASE_FIELDS(fee_per_da_gas, fee_per_l2_gas);
+    MSGPACK_FIELDS(feePerDaGas, feePerL2Gas);
 };
 
 struct Gas {
-    uint32_t l2_gas = 0;
-    uint32_t da_gas = 0;
+    uint32_t l2Gas;
+    uint32_t daGas;
 
     bool operator==(const Gas& other) const = default;
 
-    Gas operator+(const Gas& other) const { return { l2_gas + other.l2_gas, da_gas + other.da_gas }; }
-    Gas operator-(const Gas& other) const { return { l2_gas - other.l2_gas, da_gas - other.da_gas }; }
+    Gas operator+(const Gas& other) const { return { l2Gas + other.l2Gas, daGas + other.daGas }; }
+    Gas operator-(const Gas& other) const { return { l2Gas - other.l2Gas, daGas - other.daGas }; }
 
-    MSGPACK_CAMEL_CASE_FIELDS(l2_gas, da_gas);
+    MSGPACK_FIELDS(l2Gas, daGas);
 };
 
 struct GasUsed {
@@ -321,14 +310,14 @@ struct GasUsed {
 };
 
 struct GasSettings {
-    Gas gas_limits;
-    Gas teardown_gas_limits;
-    GasFees max_fees_per_gas;
-    GasFees max_priority_fees_per_gas;
+    Gas gasLimits;
+    Gas teardownGasLimits;
+    GasFees maxFeesPerGas;
+    GasFees maxPriorityFeesPerGas;
 
     bool operator==(const GasSettings& other) const = default;
 
-    MSGPACK_CAMEL_CASE_FIELDS(gas_limits, teardown_gas_limits, max_fees_per_gas, max_priority_fees_per_gas);
+    MSGPACK_FIELDS(gasLimits, teardownGasLimits, maxFeesPerGas, maxPriorityFeesPerGas);
 };
 
 ////////////////////////////////////////////////////////////////////////////
@@ -336,35 +325,35 @@ struct GasSettings {
 ////////////////////////////////////////////////////////////////////////////
 
 struct PublicCallRequest {
-    AztecAddress msg_sender = 0;
-    AztecAddress contract_address = 0;
-    bool is_static_call = false;
-    FF calldata_hash = 0;
+    AztecAddress msgSender;
+    AztecAddress contractAddress;
+    bool isStaticCall;
+    FF calldataHash;
 
     bool operator==(const PublicCallRequest& other) const = default;
 
-    MSGPACK_CAMEL_CASE_FIELDS(msg_sender, contract_address, is_static_call, calldata_hash);
+    MSGPACK_FIELDS(msgSender, contractAddress, isStaticCall, calldataHash);
 };
 
 struct PublicCallRequestArrayLengths {
-    uint32_t setup_calls = 0;
-    uint32_t app_logic_calls = 0;
-    bool teardown_call = false;
+    uint32_t setupCalls;
+    uint32_t appLogicCalls;
+    bool teardownCall;
 
     bool operator==(const PublicCallRequestArrayLengths& other) const = default;
 
-    MSGPACK_CAMEL_CASE_FIELDS(setup_calls, app_logic_calls, teardown_call);
+    MSGPACK_FIELDS(setupCalls, appLogicCalls, teardownCall);
 };
 
 struct AvmAccumulatedDataArrayLengths {
-    uint32_t note_hashes = 0;
-    uint32_t nullifiers = 0;
-    uint32_t l2_to_l1_msgs = 0;
-    uint32_t public_data_writes = 0;
+    uint32_t noteHashes;
+    uint32_t nullifiers;
+    uint32_t l2ToL1Msgs;
+    uint32_t publicDataWrites;
 
     bool operator==(const AvmAccumulatedDataArrayLengths& other) const = default;
 
-    MSGPACK_CAMEL_CASE_FIELDS(note_hashes, nullifiers, l2_to_l1_msgs, public_data_writes);
+    MSGPACK_FIELDS(noteHashes, nullifiers, l2ToL1Msgs, publicDataWrites);
 };
 
 ////////////////////////////////////////////////////////////////////////////
@@ -380,31 +369,31 @@ struct ContractClassLogFields {
 };
 
 struct ContractClassLog {
-    AztecAddress contract_address = 0;
+    AztecAddress contractAddress;
     ContractClassLogFields fields;
-    uint32_t emitted_length = 0;
+    uint32_t emittedLength;
 
     bool operator==(const ContractClassLog& other) const = default;
 
-    MSGPACK_CAMEL_CASE_FIELDS(contract_address, fields, emitted_length);
+    MSGPACK_FIELDS(contractAddress, fields, emittedLength);
 };
 
 struct PrivateLog {
     std::vector<FF> fields;
-    uint32_t emitted_length = 0;
+    uint32_t emittedLength;
 
     bool operator==(const PrivateLog& other) const = default;
 
-    MSGPACK_CAMEL_CASE_FIELDS(fields, emitted_length);
+    MSGPACK_FIELDS(fields, emittedLength);
 };
 
 struct ContractDeploymentData {
-    std::vector<ContractClassLog> contract_class_logs;
-    std::vector<PrivateLog> private_logs;
+    std::vector<ContractClassLog> contractClassLogs;
+    std::vector<PrivateLog> privateLogs;
 
     bool operator==(const ContractDeploymentData& other) const = default;
 
-    MSGPACK_CAMEL_CASE_FIELDS(contract_class_logs, private_logs);
+    MSGPACK_FIELDS(contractClassLogs, privateLogs);
 };
 
 ////////////////////////////////////////////////////////////////////////////
@@ -412,35 +401,35 @@ struct ContractDeploymentData {
 ////////////////////////////////////////////////////////////////////////////
 
 struct PrivateToAvmAccumulatedDataArrayLengths {
-    uint32_t note_hashes = 0;
-    uint32_t nullifiers = 0;
-    uint32_t l2_to_l1_msgs = 0;
+    uint32_t noteHashes;
+    uint32_t nullifiers;
+    uint32_t l2ToL1Msgs;
 
     bool operator==(const PrivateToAvmAccumulatedDataArrayLengths& other) const = default;
 
-    MSGPACK_CAMEL_CASE_FIELDS(note_hashes, nullifiers, l2_to_l1_msgs);
+    MSGPACK_FIELDS(noteHashes, nullifiers, l2ToL1Msgs);
 };
 
 struct PrivateToAvmAccumulatedData {
-    std::array<FF, MAX_NOTE_HASHES_PER_TX> note_hashes{};
+    std::array<FF, MAX_NOTE_HASHES_PER_TX> noteHashes{};
     std::array<FF, MAX_NULLIFIERS_PER_TX> nullifiers{};
-    std::array<ScopedL2ToL1Message, MAX_L2_TO_L1_MSGS_PER_TX> l2_to_l1_msgs{};
+    std::array<ScopedL2ToL1Message, MAX_L2_TO_L1_MSGS_PER_TX> l2ToL1Msgs{};
 
     bool operator==(const PrivateToAvmAccumulatedData& other) const = default;
 
-    MSGPACK_CAMEL_CASE_FIELDS(note_hashes, nullifiers, l2_to_l1_msgs);
+    MSGPACK_FIELDS(noteHashes, nullifiers, l2ToL1Msgs);
 };
 
 struct AvmAccumulatedData {
-    std::array<FF, MAX_NOTE_HASHES_PER_TX> note_hashes{};
+    std::array<FF, MAX_NOTE_HASHES_PER_TX> noteHashes{};
     std::array<FF, MAX_NULLIFIERS_PER_TX> nullifiers{};
-    std::array<ScopedL2ToL1Message, MAX_L2_TO_L1_MSGS_PER_TX> l2_to_l1_msgs{};
-    PublicLogs public_logs;
-    std::array<PublicDataWrite, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX> public_data_writes{};
+    std::array<ScopedL2ToL1Message, MAX_L2_TO_L1_MSGS_PER_TX> l2ToL1Msgs{};
+    PublicLogs publicLogs;
+    std::array<PublicDataWrite, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX> publicDataWrites{};
 
     bool operator==(const AvmAccumulatedData& other) const = default;
 
-    MSGPACK_CAMEL_CASE_FIELDS(note_hashes, nullifiers, l2_to_l1_msgs, public_logs, public_data_writes);
+    MSGPACK_FIELDS(noteHashes, nullifiers, l2ToL1Msgs, publicLogs, publicDataWrites);
 };
 
 ////////////////////////////////////////////////////////////////////////////
@@ -448,19 +437,18 @@ struct AvmAccumulatedData {
 ////////////////////////////////////////////////////////////////////////////
 
 struct GlobalVariables {
-    FF chain_id = 0;
-    FF version = 0;
-    uint32_t block_number = 0;
-    FF slot_number = 0;
-    uint64_t timestamp = 0;
-    EthAddress coinbase = 0;
-    AztecAddress fee_recipient = 0;
-    GasFees gas_fees;
+    FF chainId;
+    FF version;
+    uint32_t blockNumber;
+    FF slotNumber;
+    uint64_t timestamp;
+    EthAddress coinbase;
+    AztecAddress feeRecipient;
+    GasFees gasFees;
 
     bool operator==(const GlobalVariables& other) const = default;
 
-    MSGPACK_CAMEL_CASE_FIELDS(
-        chain_id, version, block_number, slot_number, timestamp, coinbase, fee_recipient, gas_fees);
+    MSGPACK_FIELDS(chainId, version, blockNumber, slotNumber, timestamp, coinbase, feeRecipient, gasFees);
 };
 
 ////////////////////////////////////////////////////////////////////////////
@@ -468,56 +456,56 @@ struct GlobalVariables {
 ////////////////////////////////////////////////////////////////////////////
 
 struct AppendOnlyTreeSnapshot {
-    FF root = 0;
-    uint64_t next_available_leaf_index = 0;
+    FF root;
+    uint64_t nextAvailableLeafIndex;
 
-    std::size_t hash() const noexcept { return utils::hash_as_tuple(root, next_available_leaf_index); }
+    std::size_t hash() const noexcept { return utils::hash_as_tuple(root, nextAvailableLeafIndex); }
     bool operator==(const AppendOnlyTreeSnapshot& other) const = default;
 
-    MSGPACK_CAMEL_CASE_FIELDS(root, next_available_leaf_index);
+    MSGPACK_FIELDS(root, nextAvailableLeafIndex);
 };
 
 struct TreeSnapshots {
-    AppendOnlyTreeSnapshot l1_to_l2_message_tree;
-    AppendOnlyTreeSnapshot note_hash_tree;
-    AppendOnlyTreeSnapshot nullifier_tree;
-    AppendOnlyTreeSnapshot public_data_tree;
+    AppendOnlyTreeSnapshot l1ToL2MessageTree;
+    AppendOnlyTreeSnapshot noteHashTree;
+    AppendOnlyTreeSnapshot nullifierTree;
+    AppendOnlyTreeSnapshot publicDataTree;
 
     bool operator==(const TreeSnapshots& other) const = default;
 
-    MSGPACK_CAMEL_CASE_FIELDS(l1_to_l2_message_tree, note_hash_tree, nullifier_tree, public_data_tree);
+    MSGPACK_FIELDS(l1ToL2MessageTree, noteHashTree, nullifierTree, publicDataTree);
 };
 
 struct TreeState {
     AppendOnlyTreeSnapshot tree;
-    uint32_t counter = 0;
+    uint32_t counter;
 
     bool operator==(const TreeState& other) const = default;
     MSGPACK_FIELDS(tree, counter);
 };
 
 struct TreeStates {
-    TreeState note_hash_tree;
-    TreeState nullifier_tree;
-    TreeState l1_to_l2_message_tree;
-    TreeState public_data_tree;
+    TreeState noteHashTree;
+    TreeState nullifierTree;
+    TreeState l1ToL2MessageTree;
+    TreeState publicDataTree;
 
     bool operator==(const TreeStates& other) const = default;
-    MSGPACK_CAMEL_CASE_FIELDS(note_hash_tree, nullifier_tree, l1_to_l2_message_tree, public_data_tree);
+    MSGPACK_FIELDS(noteHashTree, nullifierTree, l1ToL2MessageTree, publicDataTree);
 };
 
 ////////////////////////////////////////////////////////////////////////////
 // Misc Types
 ////////////////////////////////////////////////////////////////////////////
 
-enum class RevertCode : uint8_t {
+enum RevertCode {
     OK,
     APP_LOGIC_REVERTED,
     TEARDOWN_REVERTED,
     BOTH_REVERTED,
 };
 
-enum class DebugLogLevel : uint8_t {
+enum class DebugLogLevel {
     SILENT = 0,
     FATAL = 1,
     ERROR = 2,
@@ -557,7 +545,7 @@ inline std::string debug_log_level_to_string(DebugLogLevel lvl)
 }
 
 struct DebugLog {
-    AztecAddress contract_address = 0;
+    AztecAddress contractAddress;
     // Level is a string since on the TS side is a union type of strings
     // We could make it a number but we'd need to/from validation and conversion on the TS side.
     // Consider doing that if it becomes a performance problem.
@@ -566,15 +554,15 @@ struct DebugLog {
     std::vector<FF> fields;
 
     bool operator==(const DebugLog& other) const = default;
-    MSGPACK_CAMEL_CASE_FIELDS(contract_address, level, message, fields);
+    MSGPACK_FIELDS(contractAddress, level, message, fields);
 };
 
 struct ProtocolContracts {
-    std::array<AztecAddress, MAX_PROTOCOL_CONTRACTS> derived_addresses{};
+    std::array<AztecAddress, MAX_PROTOCOL_CONTRACTS> derivedAddresses{};
 
     bool operator==(const ProtocolContracts& other) const = default;
 
-    MSGPACK_CAMEL_CASE_FIELDS(derived_addresses);
+    MSGPACK_FIELDS(derivedAddresses);
 };
 
 inline bool is_protocol_contract_address(const AztecAddress& address)
@@ -586,8 +574,7 @@ inline std::optional<AztecAddress> get_derived_address(const ProtocolContracts& 
                                                        const AztecAddress& canonical_address)
 {
     assert(is_protocol_contract_address(canonical_address) && "Protocol contract canonical address out of bounds");
-    AztecAddress derived_address =
-        protocol_contracts.derived_addresses.at(static_cast<uint32_t>(canonical_address) - 1);
+    AztecAddress derived_address = protocol_contracts.derivedAddresses.at(static_cast<uint32_t>(canonical_address) - 1);
     if (derived_address.is_zero()) {
         return std::nullopt;
     }

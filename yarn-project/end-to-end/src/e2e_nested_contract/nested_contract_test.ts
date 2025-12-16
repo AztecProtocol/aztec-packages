@@ -86,10 +86,9 @@ export class NestedContractTest {
           .deployed();
         return { parentContractAddress: parentContract.address, childContractAddress: childContract.address };
       },
-      ({ parentContractAddress, childContractAddress }) => {
-        this.parentContract = ParentContract.at(parentContractAddress, this.wallet);
-        this.childContract = ChildContract.at(childContractAddress, this.wallet);
-        return Promise.resolve();
+      async ({ parentContractAddress, childContractAddress }) => {
+        this.parentContract = await ParentContract.at(parentContractAddress, this.wallet);
+        this.childContract = await ChildContract.at(childContractAddress, this.wallet);
       },
     );
   }

@@ -2,7 +2,6 @@
 #include <cerrno>
 #include <cstdint>
 #include <cstring>
-#include <span>
 #include <string>
 #include <sys/socket.h>
 #include <sys/types.h>
@@ -23,9 +22,7 @@ SocketServer::SocketServer(std::string socket_path, int initial_max_clients)
     : socket_path_(std::move(socket_path))
     , initial_max_clients_(initial_max_clients)
 {
-    const size_t reserve_size = initial_max_clients > 0 ? static_cast<size_t>(initial_max_clients) : 10;
-    client_fds_.reserve(reserve_size);
-    recv_buffers_.reserve(reserve_size);
+    client_fds_.reserve(initial_max_clients > 0 ? static_cast<size_t>(initial_max_clients) : 10);
 }
 
 SocketServer::~SocketServer()
@@ -281,22 +278,17 @@ int SocketServer::wait_for_data(uint64_t timeout_ns)
 #endif
 }
 
-std::span<const uint8_t> SocketServer::receive(int client_id)
+ssize_t SocketServer::recv(int client_id, void* buffer, size_t max_len)
 {
     if (client_id < 0 || static_cast<size_t>(client_id) >= client_fds_.size() ||
         client_fds_[static_cast<size_t>(client_id)] < 0) {
-        return {};
+        errno = EINVAL;
+        return -1;
     }
 
     int fd = client_fds_[static_cast<size_t>(client_id)];
-    const auto client_idx = static_cast<size_t>(client_id);
 
-    // Ensure buffers are sized for this client
-    if (client_idx >= recv_buffers_.size()) {
-        recv_buffers_.resize(client_idx + 1);
-    }
-
-    // Read length prefix (4 bytes) atomically with data
+    // Read length prefix (4 bytes)
     uint32_t msg_len = 0;
     ssize_t n = ::recv(fd, &msg_len, sizeof(msg_len), MSG_WAITALL);
     if (n < 0 || static_cast<size_t>(n) != sizeof(msg_len)) {
@@ -304,38 +296,27 @@ std::span<const uint8_t> SocketServer::receive(int client_id)
             // Client disconnected
             disconnect_client(client_id);
         }
-        return {};
+        return -1;
     }
 
-    // Resize buffer if needed to fit length prefix + message
-    size_t total_size = sizeof(uint32_t) + msg_len;
-    if (recv_buffers_[client_idx].size() < total_size) {
-        recv_buffers_[client_idx].resize(total_size);
+    if (msg_len > max_len) {
+        errno = EMSGSIZE;
+        return -1;
     }
 
-    // Store length prefix in buffer
-    std::memcpy(recv_buffers_[client_idx].data(), &msg_len, sizeof(uint32_t));
-
-    // Read message data (skip length prefix in buffer)
-    n = ::recv(fd, recv_buffers_[client_idx].data() + sizeof(uint32_t), msg_len, MSG_WAITALL);
+    // Read message data
+    n = ::recv(fd, buffer, msg_len, MSG_WAITALL);
     if (n < 0) {
         disconnect_client(client_id);
-        return {};
+        return -1;
     }
     const auto bytes_received = static_cast<size_t>(n);
     if (bytes_received != msg_len) {
         disconnect_client(client_id);
-        return {};
+        return -1;
     }
 
-    return std::span<const uint8_t>(recv_buffers_[client_idx].data() + sizeof(uint32_t), msg_len);
-}
-
-void SocketServer::release(int client_id, size_t message_size)
-{
-    // No-op for sockets - message already consumed from kernel buffer during receive()
-    (void)client_id;
-    (void)message_size;
+    return n;
 }
 
 bool SocketServer::send(int client_id, const void* data, size_t len)

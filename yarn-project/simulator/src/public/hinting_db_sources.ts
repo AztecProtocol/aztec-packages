@@ -8,9 +8,9 @@ import {
   AvmBytecodeCommitmentHint,
   AvmCommitCheckpointHint,
   AvmContractClassHint,
-  AvmContractDbCommitCheckpointHint,
-  AvmContractDbCreateCheckpointHint,
-  AvmContractDbRevertCheckpointHint,
+  AvmContractDBCommitCheckpointHint,
+  AvmContractDBCreateCheckpointHint,
+  AvmContractDBRevertCheckpointHint,
   AvmContractInstanceHint,
   AvmCreateCheckpointHint,
   AvmDebugFunctionNameHint,
@@ -152,8 +152,8 @@ export class HintingPublicContractsDB implements PublicContractsDBInterface {
     const newCheckpointId = this.nextCheckpointId++;
     this.checkpointStack.push(newCheckpointId);
 
-    this.hints.contractDbCreateCheckpointHints.push(
-      new AvmContractDbCreateCheckpointHint(hintKey, oldCheckpointId, newCheckpointId),
+    this.hints.contractDBCreateCheckpointHints.push(
+      new AvmContractDBCreateCheckpointHint(hintKey, oldCheckpointId, newCheckpointId),
     );
 
     HintingPublicContractsDB.log.trace(
@@ -171,8 +171,8 @@ export class HintingPublicContractsDB implements PublicContractsDBInterface {
     this.checkpointStack.pop();
     const newCheckpointId = this.getCurrentCheckpointId();
 
-    this.hints.contractDbCommitCheckpointHints.push(
-      new AvmContractDbCommitCheckpointHint(hintKey, oldCheckpointId, newCheckpointId),
+    this.hints.contractDBCommitCheckpointHints.push(
+      new AvmContractDBCommitCheckpointHint(hintKey, oldCheckpointId, newCheckpointId),
     );
 
     HintingPublicContractsDB.log.trace(
@@ -190,8 +190,8 @@ export class HintingPublicContractsDB implements PublicContractsDBInterface {
     this.checkpointStack.pop();
     const newCheckpointId = this.getCurrentCheckpointId();
 
-    this.hints.contractDbRevertCheckpointHints.push(
-      new AvmContractDbRevertCheckpointHint(hintKey, oldCheckpointId, newCheckpointId),
+    this.hints.contractDBRevertCheckpointHints.push(
+      new AvmContractDBRevertCheckpointHint(hintKey, oldCheckpointId, newCheckpointId),
     );
 
     HintingPublicContractsDB.log.trace(

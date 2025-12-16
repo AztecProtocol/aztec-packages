@@ -20,6 +20,7 @@ import {
   ClaimedLengthArray,
   CountedLogHash,
   LogHash,
+  OptionalNumber,
   PrivateToPublicAccumulatedData,
   PrivateToPublicKernelCircuitPublicInputs,
   PrivateToRollupAccumulatedData,
@@ -74,6 +75,7 @@ import type {
   Field as NoirField,
   EmbeddedCurvePoint as NoirPoint,
   NullifierLeafPreimage as NullifierLeafPreimageNoir,
+  Option as OptionalNumberNoir,
   PartialStateReference as PartialStateReferenceNoir,
   Log as PrivateLogNoir,
   PrivateToPublicAccumulatedData as PrivateToPublicAccumulatedDataNoir,
@@ -409,6 +411,17 @@ export function mapBlockHeaderFromNoir(header: BlockHeaderNoir): BlockHeader {
     mapFieldFromNoir(header.total_fees),
     mapFieldFromNoir(header.total_mana_used),
   );
+}
+
+export function mapOptionalNumberToNoir(option: OptionalNumber): OptionalNumberNoir {
+  return {
+    _is_some: option.isSome,
+    _value: mapNumberToNoir(option.value),
+  };
+}
+
+export function mapOptionalNumberFromNoir(option: OptionalNumberNoir) {
+  return new OptionalNumber(option._is_some, mapNumberFromNoir(option._value));
 }
 
 /**

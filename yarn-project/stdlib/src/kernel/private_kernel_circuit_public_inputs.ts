@@ -50,10 +50,6 @@ export class PrivateKernelCircuitPublicInputs {
      * The nullifier that will be used for nonce generation
      */
     public claimedFirstNullifier: Fr,
-    /**
-     * A claim to the final min revertible side effect counter of a tx.
-     */
-    public claimedRevertibleCounter: number,
   ) {}
 
   static get schema() {
@@ -75,7 +71,6 @@ export class PrivateKernelCircuitPublicInputs {
       bigintToUInt64BE(this.includeByTimestamp),
       this.isPrivateOnly,
       this.claimedFirstNullifier,
-      this.claimedRevertibleCounter,
     );
   }
 
@@ -96,7 +91,6 @@ export class PrivateKernelCircuitPublicInputs {
       reader.readUInt64(),
       reader.readBoolean(),
       reader.readObject(Fr),
-      reader.readNumber(),
     );
   }
 
@@ -111,7 +105,6 @@ export class PrivateKernelCircuitPublicInputs {
       0n,
       false,
       Fr.zero(),
-      0,
     );
   }
 }

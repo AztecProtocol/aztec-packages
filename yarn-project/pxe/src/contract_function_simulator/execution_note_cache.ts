@@ -91,13 +91,6 @@ export class ExecutionNoteCache {
     updatedNotes.forEach(n => this.#addNote(n));
   }
 
-  public isSideEffectCounterRevertible(sideEffectCounter: number): boolean {
-    if (!this.inRevertiblePhase) {
-      return false;
-    }
-    return sideEffectCounter >= this.minRevertibleSideEffectCounter;
-  }
-
   public finish() {
     // If we never entered the revertible phase, we need to use the protocol nullifier to compute the nonces for the
     // notes if no nullifiers have been emitted.

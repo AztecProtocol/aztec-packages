@@ -21,7 +21,7 @@ class MegaTraceBlock : public ExecutionTraceBlock<fr, /*NUM_WIRES_ */ 4> {
     using SelectorType = Selector<fr>;
 
     virtual SelectorType& q_busread() { return this->zero_selectors[0]; };
-    virtual SelectorType& q_lookup() { return this->zero_selectors[1]; };
+    virtual SelectorType& q_lookup_type() { return this->zero_selectors[1]; };
     virtual SelectorType& q_arith() { return this->zero_selectors[2]; };
     virtual SelectorType& q_delta_range() { return this->zero_selectors[3]; };
     virtual SelectorType& q_elliptic() { return this->zero_selectors[4]; };
@@ -31,7 +31,7 @@ class MegaTraceBlock : public ExecutionTraceBlock<fr, /*NUM_WIRES_ */ 4> {
     virtual SelectorType& q_poseidon2_internal() { return this->zero_selectors[8]; };
 
     virtual const SelectorType& q_busread() const { return this->zero_selectors[0]; };
-    virtual const SelectorType& q_lookup() const { return this->zero_selectors[1]; };
+    virtual const SelectorType& q_lookup_type() const { return this->zero_selectors[1]; };
     virtual const SelectorType& q_arith() const { return this->zero_selectors[2]; };
     virtual const SelectorType& q_delta_range() const { return this->zero_selectors[3]; };
     virtual const SelectorType& q_elliptic() const { return this->zero_selectors[4]; };
@@ -43,15 +43,9 @@ class MegaTraceBlock : public ExecutionTraceBlock<fr, /*NUM_WIRES_ */ 4> {
     RefVector<SelectorType> get_gate_selectors()
     {
         return {
-            q_busread(),
-            q_lookup(),
-            q_arith(),
-            q_delta_range(),
-            q_elliptic(),
-            q_memory(),
-            q_nnf(),
-            q_poseidon2_external(),
-            q_poseidon2_internal(),
+            q_busread(),     q_lookup_type(),        q_arith(),
+            q_delta_range(), q_elliptic(),           q_memory(),
+            q_nnf(),         q_poseidon2_external(), q_poseidon2_internal(),
         };
     }
 
@@ -65,7 +59,7 @@ class MegaTraceBlock : public ExecutionTraceBlock<fr, /*NUM_WIRES_ */ 4> {
             q_3(),
             q_4(),
             q_busread(),
-            q_lookup(),
+            q_lookup_type(),
             q_arith(),
             q_delta_range(),
             q_elliptic(),
@@ -110,7 +104,7 @@ class MegaTraceBusReadBlock : public MegaTraceBlock {
     void set_gate_selector(const fr& value) override
     {
         gate_selector.emplace_back(value);
-        q_lookup().emplace_back(0);
+        q_lookup_type().emplace_back(0);
         q_arith().emplace_back(0);
         q_delta_range().emplace_back(0);
         q_elliptic().emplace_back(0);
@@ -126,7 +120,7 @@ class MegaTraceBusReadBlock : public MegaTraceBlock {
 
 class MegaTraceLookupBlock : public MegaTraceBlock {
   public:
-    SelectorType& q_lookup() override { return gate_selector; }
+    SelectorType& q_lookup_type() override { return gate_selector; }
 
     void set_gate_selector(const fr& value) override
     {
@@ -152,7 +146,7 @@ class MegaTraceArithmeticBlock : public MegaTraceBlock {
     void set_gate_selector(const fr& value) override
     {
         q_busread().emplace_back(0);
-        q_lookup().emplace_back(0);
+        q_lookup_type().emplace_back(0);
         gate_selector.emplace_back(value);
         q_delta_range().emplace_back(0);
         q_elliptic().emplace_back(0);
@@ -173,7 +167,7 @@ class MegaTraceDeltaRangeBlock : public MegaTraceBlock {
     void set_gate_selector(const fr& value) override
     {
         q_busread().emplace_back(0);
-        q_lookup().emplace_back(0);
+        q_lookup_type().emplace_back(0);
         q_arith().emplace_back(0);
         gate_selector.emplace_back(value);
         q_elliptic().emplace_back(0);
@@ -194,7 +188,7 @@ class MegaTraceEllipticBlock : public MegaTraceBlock {
     void set_gate_selector(const fr& value) override
     {
         q_busread().emplace_back(0);
-        q_lookup().emplace_back(0);
+        q_lookup_type().emplace_back(0);
         q_arith().emplace_back(0);
         q_delta_range().emplace_back(0);
         gate_selector.emplace_back(value);
@@ -215,7 +209,7 @@ class MegaTraceMemoryBlock : public MegaTraceBlock {
     void set_gate_selector(const fr& value) override
     {
         q_busread().emplace_back(0);
-        q_lookup().emplace_back(0);
+        q_lookup_type().emplace_back(0);
         q_arith().emplace_back(0);
         q_delta_range().emplace_back(0);
         q_elliptic().emplace_back(0);
@@ -236,7 +230,7 @@ class MegaTraceNonNativeFieldBlock : public MegaTraceBlock {
     void set_gate_selector(const fr& value) override
     {
         q_busread().emplace_back(0);
-        q_lookup().emplace_back(0);
+        q_lookup_type().emplace_back(0);
         q_arith().emplace_back(0);
         q_delta_range().emplace_back(0);
         q_elliptic().emplace_back(0);
@@ -257,7 +251,7 @@ class MegaTracePoseidon2ExternalBlock : public MegaTraceBlock {
     void set_gate_selector(const fr& value) override
     {
         q_busread().emplace_back(0);
-        q_lookup().emplace_back(0);
+        q_lookup_type().emplace_back(0);
         q_arith().emplace_back(0);
         q_delta_range().emplace_back(0);
         q_elliptic().emplace_back(0);
@@ -278,7 +272,7 @@ class MegaTracePoseidon2InternalBlock : public MegaTraceBlock {
     void set_gate_selector(const fr& value) override
     {
         q_busread().emplace_back(0);
-        q_lookup().emplace_back(0);
+        q_lookup_type().emplace_back(0);
         q_arith().emplace_back(0);
         q_delta_range().emplace_back(0);
         q_elliptic().emplace_back(0);

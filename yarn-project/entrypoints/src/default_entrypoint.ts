@@ -1,8 +1,9 @@
 import { FunctionType } from '@aztec/stdlib/abi';
 import type { GasSettings } from '@aztec/stdlib/gas';
-import { type ExecutionPayload, HashedValues, TxContext, TxExecutionRequest } from '@aztec/stdlib/tx';
+import { HashedValues, TxContext, TxExecutionRequest } from '@aztec/stdlib/tx';
 
 import type { EntrypointInterface } from './interfaces.js';
+import type { ExecutionPayload } from './payload.js';
 
 /**
  * Default implementation of the entrypoint interface. It calls a function on a contract directly

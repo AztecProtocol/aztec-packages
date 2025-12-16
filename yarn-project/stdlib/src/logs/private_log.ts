@@ -49,11 +49,12 @@ export class PrivateLog {
   }
 
   toBlobFields(): Fr[] {
-    return this.getEmittedFields();
+    return [new Fr(this.emittedLength)].concat(this.getEmittedFields());
   }
 
-  static fromBlobFields(emittedLength: number, fields: Fr[] | FieldReader) {
+  static fromBlobFields(fields: Fr[] | FieldReader) {
     const reader = FieldReader.asReader(fields);
+    const emittedLength = reader.readU32();
     const emittedFields = reader.readFieldArray(emittedLength);
     return new PrivateLog(padArrayEnd(emittedFields, Fr.ZERO, PRIVATE_LOG_SIZE_IN_FIELDS), emittedLength);
   }
@@ -89,23 +90,6 @@ export class PrivateLog {
       })
       .strict()
       .transform(({ fields, emittedLength }) => PrivateLog.fromFields(fields.concat(new Fr(emittedLength))));
-  }
-
-  /**
-   * Creates a PrivateLog from a plain object without Zod validation.
-   * This method is optimized for performance and skips validation, making it suitable
-   * for deserializing trusted data (e.g., from C++ via MessagePack).
-   * @param obj - Plain object containing PrivateLog fields
-   * @returns A PrivateLog instance
-   */
-  static fromPlainObject(obj: any): PrivateLog {
-    if (obj instanceof PrivateLog) {
-      return obj;
-    }
-    return new PrivateLog(
-      obj.fields.map((f: any) => Fr.fromPlainObject(f)),
-      obj.emittedLength,
-    );
   }
 
   equals(other: PrivateLog) {

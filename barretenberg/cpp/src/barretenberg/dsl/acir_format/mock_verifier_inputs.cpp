@@ -212,6 +212,12 @@ template <typename Flavor> HonkProof create_mock_decider_proof()
 
         // Libra quotient commitment
         populate_field_elements_for_mock_commitments<Curve>(proof, 1);
+
+        // Gemini masking commitment
+        populate_field_elements_for_mock_commitments<Curve>(proof, 1);
+
+        // Gemini masking evaluation
+        populate_field_elements<FF>(proof, 1);
     }
 
     // Gemini fold commitments
@@ -379,8 +385,8 @@ HonkProof create_mock_pre_ipa_proof()
     using FF = ECCVMFlavor::FF;
     HonkProof proof;
 
-    // 1. NUM_WITNESS_ENTITIES + 1 commitments (includes gemini_masking_poly)
-    populate_field_elements_for_mock_commitments<curve::Grumpkin>(proof, ECCVMFlavor::NUM_WITNESS_ENTITIES + 1);
+    // 1. NUM_WITNESS_ENTITIES commitments
+    populate_field_elements_for_mock_commitments<curve::Grumpkin>(proof, ECCVMFlavor::NUM_WITNESS_ENTITIES);
 
     // 2. Libra concatenation commitment
     populate_field_elements_for_mock_commitments<curve::Grumpkin>(proof, /*num_commitments*/ 1);
@@ -406,59 +412,65 @@ HonkProof create_mock_pre_ipa_proof()
     // 9. Libra quotient commitment
     populate_field_elements_for_mock_commitments<curve::Grumpkin>(proof, /*num_commitments=*/1);
 
-    // 10. Gemini fold commitments
+    // 10. Gemini masking commitment
+    populate_field_elements_for_mock_commitments<curve::Grumpkin>(proof, /*num_commitments=*/1);
+
+    // 11. Gemini masking evaluations
+    populate_field_elements<FF>(proof, 1);
+
+    // 12. Gemini fold commitments
     populate_field_elements_for_mock_commitments<curve::Grumpkin>(proof,
                                                                   /*num_commitments=*/CONST_ECCVM_LOG_N - 1);
 
-    // 11. Gemini evaluations
+    // 13. Gemini evaluations
     populate_field_elements<FF>(proof, CONST_ECCVM_LOG_N);
 
-    // 12. NUM_SMALL_IPA_EVALUATIONS libra evals
+    // 14. NUM_SMALL_IPA_EVALUATIONS libra evals
     populate_field_elements<FF>(proof, NUM_SMALL_IPA_EVALUATIONS);
 
-    // 13. Shplonk
+    // 15. Shplonk
     populate_field_elements_for_mock_commitments<curve::Grumpkin>(proof, /*num_commitments=*/1);
 
-    // 14. Translator concatenated masking term commitment
+    // 16. Translator concatenated masking term commitment
     populate_field_elements_for_mock_commitments<curve::Grumpkin>(proof, /*num_commitments=*/1);
 
-    // 15. Translator op evaluation
+    // 17. Translator op evaluation
     populate_field_elements<FF>(proof, 1);
 
-    // 16. Translator Px evaluation
+    // 18. Translator Px evaluation
     populate_field_elements<FF>(proof, 1);
 
-    // 17. Translator Py evaluation
+    // 19. Translator Py evaluation
     populate_field_elements<FF>(proof, 1);
 
-    // 18. Translator z1 evaluation
+    // 20. Translator z1 evaluation
     populate_field_elements<FF>(proof, 1);
 
-    // 19. Translator z2 evaluation
+    // 21. Translator z2 evaluation
     populate_field_elements<FF>(proof, 1);
 
-    // 20. Translator concatenated masking term evaluation
+    // 22. Translator concatenated masking term evaluation
     populate_field_elements<FF>(proof, 1);
 
-    // 21. Translator grand sum commitment
+    // 23. Translator grand sum commitment
     populate_field_elements_for_mock_commitments<curve::Grumpkin>(proof, /*num_commitments=*/1);
 
-    // 22. Translator quotient commitment
+    // 24. Translator quotient commitment
     populate_field_elements_for_mock_commitments<curve::Grumpkin>(proof, /*num_commitments=*/1);
 
-    // 23. Translator concatenation evaluation
+    // 25. Translator concatenation evaluation
     populate_field_elements<FF>(proof, 1);
 
-    // 24. Translator grand sum shift evaluation
+    // 26. Translator grand sum shift evaluation
     populate_field_elements<FF>(proof, 1);
 
-    // 25. Translator grand sum evaluation
+    // 27. Translator grand sum evaluation
     populate_field_elements<FF>(proof, 1);
 
-    // 26. Translator quotient evaluation
+    // 28. Translator quotient evaluation
     populate_field_elements<FF>(proof, 1);
 
-    // 27. Shplonk
+    // 29. Shplonk
     populate_field_elements_for_mock_commitments<curve::Grumpkin>(proof, /*num_commitments=*/1);
 
     BB_ASSERT_EQ(proof.size(), ECCVMFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS - IPA_PROOF_LENGTH);
@@ -503,17 +515,16 @@ HonkProof create_mock_translator_proof()
     using Curve = TranslatorFlavor::Curve;
 
     HonkProof proof;
+    HonkProof decider_proof = create_mock_decider_proof<TranslatorFlavor>();
 
     // 1. Accumulated result
     populate_field_elements<BF>(proof, 1);
 
-    // 2. NUM_WITNESS_ENTITIES commitments (includes gemini masking, wires, ordered range constraints, z_perm; excludes
-    // 4 interleaved)
+    // 2. NUM_WITNESS_ENTITIES commitments
     populate_field_elements_for_mock_commitments<Curve>(proof,
-                                                        /*num_commitments=*/TranslatorFlavor::NUM_WITNESS_ENTITIES - 3);
+                                                        /*num_commitments=*/TranslatorFlavor::NUM_WITNESS_ENTITIES - 4);
 
-    // 3. Decider proof (Libra + sumcheck + Gemini + PCS)
-    HonkProof decider_proof = create_mock_decider_proof<TranslatorFlavor>();
+    // Insert decider proof
     proof.insert(proof.end(), decider_proof.begin(), decider_proof.end());
 
     BB_ASSERT_EQ(proof.size(), TranslatorFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS);

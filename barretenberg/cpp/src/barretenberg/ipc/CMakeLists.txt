@@ -1,1 +1,1 @@
-barretenberg_module(ipc common)
+barretenberg_module(ipc)

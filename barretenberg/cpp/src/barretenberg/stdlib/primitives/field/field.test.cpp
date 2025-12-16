@@ -1,5 +1,6 @@
 #include "field.hpp"
 #include "../bool/bool.hpp"
+#include "array.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/streams.hpp"
 #include "barretenberg/numeric/random/engine.hpp"

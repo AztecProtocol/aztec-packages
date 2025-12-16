@@ -29,9 +29,16 @@ export async function inspectContract(contractArtifactFile: string, debugLogger:
   log(`\tpublic bytecode commitment: ${contractClass.publicBytecodeCommitment.toString()}`);
   log(`\tpublic bytecode length: ${contractClass.packedBytecode.length} bytes (${bytecodeLengthInFields} fields)`);
 
-  if (contractFns.length > 0) {
-    log(`\nExternal contract functions:`);
-    await Promise.all(contractFns.map(f => logFunction(f, log)));
+  const externalFunctions = contractFns.filter(f => !f.isInternal);
+  if (externalFunctions.length > 0) {
+    log(`\nExternal functions:`);
+    await Promise.all(externalFunctions.map(f => logFunction(f, log)));
+  }
+
+  const internalFunctions = contractFns.filter(f => f.isInternal);
+  if (internalFunctions.length > 0) {
+    log(`\nInternal functions:`);
+    await Promise.all(internalFunctions.map(f => logFunction(f, log)));
   }
 }
 

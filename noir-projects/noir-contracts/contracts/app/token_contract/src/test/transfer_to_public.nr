@@ -1,6 +1,8 @@
 use crate::test::utils;
 use crate::Token;
-use aztec::{oracle::random::random, test::helpers::authwit::add_private_authwit_from_call};
+use aztec::{
+    oracle::random::random, test::helpers::authwit::add_private_authwit_from_call_interface,
+};
 
 #[test]
 unconstrained fn transfer_to_public_on_behalf_of_self() {
@@ -38,15 +40,20 @@ unconstrained fn transfer_to_public_on_behalf_of_other() {
         utils::setup_and_mint_to_private(/* with_account_contracts */ true);
 
     let transfer_to_public_amount = mint_amount / (10 as u128);
-    let transfer_to_public_call = Token::at(token_contract_address).transfer_to_public(
+    let transfer_to_public_call_interface = Token::at(token_contract_address).transfer_to_public(
         owner,
         recipient,
         transfer_to_public_amount,
         0,
     );
-    add_private_authwit_from_call(env, owner, recipient, transfer_to_public_call);
+    add_private_authwit_from_call_interface(
+        env,
+        owner,
+        recipient,
+        transfer_to_public_call_interface,
+    );
     // transfer_to_public tokens
-    env.call_private(recipient, transfer_to_public_call);
+    env.call_private(recipient, transfer_to_public_call_interface);
     utils::check_private_balance(
         env,
         token_contract_address,
@@ -103,16 +110,21 @@ unconstrained fn transfer_to_public_failure_on_behalf_of_other_more_than_balance
         utils::setup_and_mint_to_private(/* with_account_contracts */ true);
 
     let transfer_to_public_amount = mint_amount + (1 as u128);
-    let transfer_to_public_call = Token::at(token_contract_address).transfer_to_public(
+    let transfer_to_public_call_interface = Token::at(token_contract_address).transfer_to_public(
         owner,
         recipient,
         transfer_to_public_amount,
         0,
     );
-    add_private_authwit_from_call(env, owner, recipient, transfer_to_public_call);
+    add_private_authwit_from_call_interface(
+        env,
+        owner,
+        recipient,
+        transfer_to_public_call_interface,
+    );
 
     // transfer_to_public tokens
-    env.call_private(recipient, transfer_to_public_call);
+    env.call_private(recipient, transfer_to_public_call_interface);
 }
 
 #[test(should_fail_with = "Unknown auth witness for message hash")]
@@ -121,16 +133,16 @@ unconstrained fn transfer_to_public_failure_on_behalf_of_other_invalid_designate
         utils::setup_and_mint_to_private(/* with_account_contracts */ true);
 
     let transfer_to_public_amount = mint_amount + (1 as u128);
-    let transfer_to_public_call = Token::at(token_contract_address).transfer_to_public(
+    let transfer_to_public_call_interface = Token::at(token_contract_address).transfer_to_public(
         owner,
         recipient,
         transfer_to_public_amount,
         0,
     );
-    add_private_authwit_from_call(env, owner, owner, transfer_to_public_call);
+    add_private_authwit_from_call_interface(env, owner, owner, transfer_to_public_call_interface);
 
     // transfer_to_public tokens
-    env.call_private(recipient, transfer_to_public_call);
+    env.call_private(recipient, transfer_to_public_call_interface);
 }
 
 #[test(should_fail_with = "Unknown auth witness for message hash")]
@@ -139,7 +151,7 @@ unconstrained fn transfer_to_public_failure_on_behalf_of_other_no_approval() {
         utils::setup_and_mint_to_private(/* with_account_contracts */ true);
 
     let transfer_to_public_amount = mint_amount + (1 as u128);
-    let transfer_to_public_call = Token::at(token_contract_address).transfer_to_public(
+    let transfer_to_public_call_interface = Token::at(token_contract_address).transfer_to_public(
         owner,
         recipient,
         transfer_to_public_amount,
@@ -147,5 +159,5 @@ unconstrained fn transfer_to_public_failure_on_behalf_of_other_no_approval() {
     );
 
     // transfer_to_public tokens
-    env.call_private(recipient, transfer_to_public_call);
+    env.call_private(recipient, transfer_to_public_call_interface);
 }

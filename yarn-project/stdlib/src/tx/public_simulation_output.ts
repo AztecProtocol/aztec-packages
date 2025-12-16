@@ -7,7 +7,6 @@ import { z } from 'zod';
 import { SimulationError } from '../errors/simulation_error.js';
 import { Gas } from '../gas/gas.js';
 import type { GasUsed } from '../gas/gas_used.js';
-import { NullishToUndefined } from '../schemas/schemas.js';
 import { TxEffect } from '../tx/tx_effect.js';
 import { GlobalVariables } from './global_variables.js';
 
@@ -24,29 +23,13 @@ export class NestedProcessReturnValues {
     this.nested = nested ?? [];
   }
 
-  equals(other: NestedProcessReturnValues): boolean {
-    return (
-      this.values?.length === other.values?.length &&
-      this.nested.length === other.nested.length &&
-      (this.values === undefined || this.values.every((v, i) => v.equals(other.values![i]))) &&
-      this.nested.every((n, i) => n.equals(other.nested[i]))
-    );
-  }
-
   static get schema(): ZodFor<NestedProcessReturnValues> {
     return z
       .object({
-        values: NullishToUndefined(z.array(schemas.Fr)),
+        values: z.array(schemas.Fr).optional(),
         nested: z.array(z.lazy(() => NestedProcessReturnValues.schema)),
       })
       .transform(({ values, nested }) => new NestedProcessReturnValues(values, nested));
-  }
-
-  static fromPlainObject(obj: any): NestedProcessReturnValues {
-    return new NestedProcessReturnValues(
-      obj.values?.map(Fr.fromPlainObject),
-      obj.nested?.map(NestedProcessReturnValues.fromPlainObject),
-    );
   }
 
   static empty() {

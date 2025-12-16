@@ -1,3 +1,5 @@
+import z from 'zod';
+
 import { toBigIntBE } from '../bigint-buffer/index.js';
 import { poseidon2Hash } from '../crypto/poseidon/index.js';
 import { randomBoolean } from '../crypto/random/index.js';
@@ -42,26 +44,17 @@ export class Point {
   }
 
   static get schema() {
-    // Serialization from hex string.
-    return hexSchemaFor(Point);
-  }
-
-  /**
-   * Creates a Point from a plain object without Zod validation.
-   * This method is optimized for performance and skips validation, making it suitable
-   * for deserializing trusted data (e.g., from C++ via MessagePack).
-   * Handles buffers, existing instances, or objects with x, y, and isInfinite fields.
-   * @param obj - Plain object, buffer, or Point instance
-   * @returns A Point instance
-   */
-  static fromPlainObject(obj: any): Point {
-    if (obj instanceof Point) {
-      return obj;
-    }
-    if (obj instanceof Buffer || Buffer.isBuffer(obj)) {
-      return Point.fromBuffer(obj);
-    }
-    return new Point(Fr.fromPlainObject(obj.x), Fr.fromPlainObject(obj.y), obj.isInfinite ?? false);
+    return z.union([
+      // Serialization from hex string.
+      hexSchemaFor(Point),
+      // Serialization from MessagePack.
+      z
+        .object({
+          x: Fr.schema,
+          y: Fr.schema,
+        })
+        .transform(({ x, y }) => new Point(x, y, false)),
+    ]);
   }
 
   /**

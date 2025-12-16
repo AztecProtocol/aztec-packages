@@ -8,12 +8,11 @@ import { enrichEthAddressVar, enrichVar } from './enrich_env.js';
 
 const DEFAULT_CONFIG_URL =
   'https://raw.githubusercontent.com/AztecProtocol/networks/refs/heads/main/network_config.json';
-const FALLBACK_CONFIG_URL = 'https://metadata.aztec.network/network_config.json';
 const NETWORK_CONFIG_CACHE_DURATION_MS = 60 * 60 * 1000; // 1 hour
 
 /**
  * Fetches remote network configuration from GitHub with caching support.
- * Uses the reusable cachedFetch utility. Falls back to metadata.aztec.network if the default URL fails.
+ * Uses the reusable cachedFetch utility.
  *
  * @param networkName - The network name to fetch config for
  * @param cacheDir - Optional cache directory for storing fetched config
@@ -23,33 +22,13 @@ export async function getNetworkConfig(
   networkName: NetworkNames,
   cacheDir?: string,
 ): Promise<NetworkConfig | undefined> {
-  // Try with the primary URL (env var or default)
+  let url: URL | undefined;
   const configLocation = process.env.NETWORK_CONFIG_LOCATION || DEFAULT_CONFIG_URL;
 
-  // First try the primary config location
-  let config = await fetchNetworkConfigFromUrl(configLocation, networkName, cacheDir);
-
-  // If primary fails and we were using the default URL, try the fallback
-  if (!config && configLocation === DEFAULT_CONFIG_URL) {
-    config = await fetchNetworkConfigFromUrl(FALLBACK_CONFIG_URL, networkName, cacheDir);
+  if (!configLocation) {
+    return undefined;
   }
 
-  return config;
-}
-
-/**
- * Helper function to fetch network config from a specific URL.
- * @param configLocation - The URL or file path to fetch from
- * @param networkName - The network name to fetch config for
- * @param cacheDir - Optional cache directory for storing fetched config
- * @returns Remote configuration for the specified network, or undefined if not found/error
- */
-async function fetchNetworkConfigFromUrl(
-  configLocation: string,
-  networkName: NetworkNames,
-  cacheDir?: string,
-): Promise<NetworkConfig | undefined> {
-  let url: URL | undefined;
   try {
     if (configLocation.includes('://')) {
       url = new URL(configLocation);

@@ -6,16 +6,15 @@
 
 #pragma once
 
+#include "barretenberg/common/thread_pool.hpp"
+#include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_tree_store.hpp"
+#include "barretenberg/ecc/curves/bn254/fr.hpp"
+#include "barretenberg/numeric/random/engine.hpp"
 #include <cstdint>
 #include <ostream>
 #include <sstream>
 #include <string>
 #include <vector>
-
-#include "barretenberg/common/thread_pool.hpp"
-#include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_tree_store.hpp"
-#include "barretenberg/ecc/curves/bn254/fr.hpp"
-#include "barretenberg/numeric/random/engine.hpp"
 
 namespace bb::crypto::merkle_tree {
 
@@ -31,7 +30,7 @@ static auto create_values = [](uint32_t num_values = NUM_VALUES) {
     return values;
 };
 
-const fr& get_value(size_t index);
+static std::vector<fr> VALUES = create_values();
 
 inline std::string random_string()
 {
@@ -76,5 +75,4 @@ void inline print_store_data(LMDBTreeStore::SharedPtr db, std::ostream& os)
 
     os << stats;
 }
-
 } // namespace bb::crypto::merkle_tree

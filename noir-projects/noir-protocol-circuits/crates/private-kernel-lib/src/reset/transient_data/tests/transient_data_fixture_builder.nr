@@ -28,7 +28,7 @@ pub struct TransientDataFixtureBuilder<let NoteHashesLen: u32, let NullifiersLen
     pub expected_kept_note_hashes: ClaimedLengthArray<Scoped<Counted<NoteHash>>, NoteHashesLen>,
     pub expected_kept_nullifiers: ClaimedLengthArray<Scoped<Counted<Nullifier>>, NullifiersLen>,
     pub expected_kept_logs: ClaimedLengthArray<Scoped<Counted<PrivateLogData>>, LogsLen>,
-    pub split_counter: u32,
+    pub min_revertible_side_effect_counter: u32,
     pub transient_data_squashing_hints: [TransientDataSquashingHint; SquashingHintsLen],
     num_transient_data_squashing_hints: u32,
 }
@@ -49,7 +49,7 @@ impl<let NoteHashesLen: u32, let NullifiersLen: u32, let LogsLen: u32, let Squas
             expected_kept_note_hashes: ClaimedLengthArray::empty(),
             expected_kept_nullifiers: ClaimedLengthArray::empty(),
             expected_kept_logs: ClaimedLengthArray::empty(),
-            split_counter: 0,
+            min_revertible_side_effect_counter: 0,
             transient_data_squashing_hints: [
                 TransientDataSquashingHint::skip(NoteHashesLen, NullifiersLen); SquashingHintsLen
             ],
@@ -126,7 +126,7 @@ impl<let NoteHashesLen: u32, let NullifiersLen: u32, let LogsLen: u32, let Squas
             self.expected_kept_note_hashes,
             self.expected_kept_nullifiers,
             self.expected_kept_logs,
-            self.split_counter,
+            self.min_revertible_side_effect_counter,
             self.transient_data_squashing_hints,
         )
             .validate();
@@ -143,7 +143,7 @@ impl<let NoteHashesLen: u32, let NullifiersLen: u32, let LogsLen: u32, let Squas
             expected_kept_note_hashes: self.expected_kept_note_hashes,
             expected_kept_nullifiers: self.expected_kept_nullifiers,
             expected_kept_logs: self.expected_kept_logs,
-            split_counter: self.split_counter,
+            min_revertible_side_effect_counter: self.min_revertible_side_effect_counter,
             transient_data_squashing_hints: self.transient_data_squashing_hints,
             derived_hints,
         }

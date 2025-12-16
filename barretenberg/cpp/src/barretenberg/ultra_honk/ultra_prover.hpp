@@ -5,7 +5,6 @@
 // =====================
 
 #pragma once
-#include "barretenberg/commitment_schemes/small_subgroup_ipa/small_subgroup_ipa.hpp"
 #include "barretenberg/flavor/mega_flavor.hpp"
 #include "barretenberg/flavor/ultra_flavor.hpp"
 #include "barretenberg/flavor/ultra_rollup_flavor.hpp"
@@ -24,17 +23,14 @@ template <IsUltraOrMegaHonk Flavor_> class UltraProver_ {
     using Builder = typename Flavor::CircuitBuilder;
     using Commitment = typename Flavor::Commitment;
     using CommitmentKey = typename Flavor::CommitmentKey;
-    using Curve = typename Flavor::Curve;
     using Polynomial = typename Flavor::Polynomial;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     using CommitmentLabels = typename Flavor::CommitmentLabels;
     using PCS = typename Flavor::PCS;
     using ProverInstance = ProverInstance_<Flavor>;
-    using SmallSubgroupIPA = SmallSubgroupIPAProver<Flavor>;
     using HonkVK = typename Flavor::VerificationKey;
     using Transcript = typename Flavor::Transcript;
     using Proof = typename Transcript::Proof;
-    using ZKData = ZKSumcheckData<Flavor>;
 
     std::shared_ptr<ProverInstance> prover_instance;
     std::shared_ptr<HonkVK> honk_vk;
@@ -61,16 +57,11 @@ template <IsUltraOrMegaHonk Flavor_> class UltraProver_ {
 
     explicit UltraProver_(Builder&&, const std::shared_ptr<HonkVK>&);
 
-    BB_PROFILE void execute_sumcheck_iop();
-    BB_PROFILE void execute_pcs();
-
     BB_PROFILE void generate_gate_challenges();
 
     Proof export_proof();
     Proof construct_proof();
     Proof prove() { return construct_proof(); };
-
-    ZKData zk_sumcheck_data;
 };
 
 using UltraProver = UltraProver_<UltraFlavor>;

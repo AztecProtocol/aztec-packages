@@ -38,6 +38,3 @@ blob-report/
 playwright/.cache/
 artifacts/*
 .env
-
-
-release-out

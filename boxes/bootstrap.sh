@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
+cmd=${1:-}
+
 # We set container name to "" to avoid container name collisions when building boxes
 export CONTAINER_NAME=""
 export AZTEC=$PWD/../aztec-up/bin/aztec
@@ -28,21 +30,15 @@ function test {
 }
 
 function test_cmds {
-  # Until we get these boxes stable again - just testing on chromium.
-  local browser=chromium
-  for box in react vite vanilla; do
-    echo "$hash:ONLY_TERM_PARENT=1 BOX=$box BROWSER=$browser run_compose_test $box-$browser box boxes"
+  for browser in chromium webkit firefox; do
+    for box in react vite; do
+      echo "$hash:ONLY_TERM_PARENT=1 BOX=$box BROWSER=$browser run_compose_test $box-$browser box boxes"
+    done
   done
 
-  # for browser in chromium webkit firefox; do
-  #   for box in react vite; do
-  #     echo "$hash:ONLY_TERM_PARENT=1 BOX=$box BROWSER=$browser run_compose_test $box-$browser box boxes"
-  #   done
-  # done
-
-  # # The vanilla app works with deployed contracts configured during the build.
-  # # To avoid building the app three times, we test it with one sandbox and multiple browsers.
-  # echo "$hash:ONLY_TERM_PARENT=1 BOX=vanilla BROWSER=* run_compose_test vanilla-all-browsers box boxes"
+  # The vanilla app works with deployed contracts configured during the build.
+  # To avoid building the app three times, we test it with one local network and multiple browsers.
+  echo "$hash:ONLY_TERM_PARENT=1 BOX=vanilla BROWSER=* run_compose_test vanilla-all-browsers box boxes"
 }
 
 # First argument is a branch name (e.g. master, or the latest version e.g. 1.2.3) to push to the head of.
@@ -59,14 +55,14 @@ function release_git_push {
   local branch_name=$1
   local tag_name=$2
   local version=$3
-  local mirrored_repo_url="https://github.com/AztecProtocol/aztec-starter-vanilla.git"
+  local mirrored_repo_url="https://github.com/AztecProtocol/l1-contracts.git"
 
   cd boxes/vanilla
   rm -rf release-out && mkdir release-out
   git archive HEAD | tar -x -C release-out
   cd release-out
 
-  release_prep_package_json $version
+  $root/ci3/npm/release_prep_package_json $version
 
   # CI needs to authenticate from GITHUB_TOKEN.
   gh auth setup-git &>/dev/null || true
@@ -110,13 +106,23 @@ function release {
 }
 
 case "$cmd" in
-  "")
+  "clean")
+    git clean -fdx
+    ;;
+  "ci")
     build
+    test
+    ;;
+  ""|"fast"|"full")
+    build
+    ;;
+  test|test_cmds|release)
+    $cmd
     ;;
   "hash")
     echo $hash
     ;;
   *)
-    default_cmd_handler "$@"
-    ;;
+    echo "Unknown command: $cmd"
+    exit 1
 esac

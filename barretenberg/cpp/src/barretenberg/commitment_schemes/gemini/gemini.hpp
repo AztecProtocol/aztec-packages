@@ -198,9 +198,8 @@ template <typename Curve> class GeminiProver_ {
          * @param running_scalar power of the batching challenge
          * @return Polynomial A₀
          */
-        Polynomial compute_batched(const Fr& challenge)
+        Polynomial compute_batched(const Fr& challenge, Fr& running_scalar)
         {
-            Fr running_scalar(1);
             BB_BENCH_NAME("compute_batched");
             // lambda for batching polynomials; updates the running scalar in place
             auto batch = [&](Polynomial& batched, const RefVector<Polynomial>& polynomials_to_batch) {

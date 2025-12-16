@@ -1,5 +1,4 @@
 **/dest
-**/dist
 **/node_modules
 **/.cache
 .env*

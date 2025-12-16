@@ -32,7 +32,6 @@ struct TxPhaseSpec {
     uint8_t next_phase_on_revert = 0;
 };
 
-// Lazy-initialized function to avoid expensive startup initialization
-const std::unordered_map<TransactionPhase, TxPhaseSpec>& get_tx_phase_spec_map();
+extern const std::unordered_map<TransactionPhase, TxPhaseSpec> TX_PHASE_SPEC_MAP;
 
 } // namespace bb::avm2::tracegen

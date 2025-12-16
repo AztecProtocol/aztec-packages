@@ -35,8 +35,7 @@ struct SubtraceInfo {
     uint128_t subtrace_operation_id;
 };
 
-// Lazy-initialized function to avoid expensive startup initialization
-const std::unordered_map<ExecutionOpCode, SubtraceInfo>& get_subtrace_info_map();
+extern const std::unordered_map<ExecutionOpCode, SubtraceInfo> SUBTRACE_INFO_MAP;
 
 /**
  * @brief Get the subtrace ID for a given subtrace enum.

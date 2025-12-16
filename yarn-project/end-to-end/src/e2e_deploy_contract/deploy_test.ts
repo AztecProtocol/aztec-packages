@@ -73,6 +73,6 @@ export class DeployTest {
 export type StatefulContractCtorArgs = Parameters<StatefulTestContract['methods']['constructor']>;
 
 export type ContractArtifactClass<T extends ContractBase> = {
-  at(address: AztecAddress, wallet: Wallet): T;
+  at(address: AztecAddress, wallet: Wallet): Promise<T>;
   artifact: ContractArtifact;
 };

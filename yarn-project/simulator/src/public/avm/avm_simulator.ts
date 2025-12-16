@@ -1,7 +1,6 @@
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
-import type { PublicSimulatorConfig } from '@aztec/stdlib/avm';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { GlobalVariables } from '@aztec/stdlib/tx';
 
@@ -76,7 +75,8 @@ export class AvmSimulator implements AvmSimulatorInterface {
     isStaticCall: boolean,
     calldata: Fr[],
     allocatedGas: Gas,
-    config: PublicSimulatorConfig,
+    clientInitiatedSimulation: boolean = false,
+    maxDebugLogMemoryReads?: number,
   ) {
     const avmExecutionEnv = new AvmExecutionEnvironment(
       address,
@@ -86,7 +86,8 @@ export class AvmSimulator implements AvmSimulatorInterface {
       globals,
       isStaticCall,
       calldata,
-      config,
+      clientInitiatedSimulation,
+      maxDebugLogMemoryReads,
     );
 
     const avmMachineState = new AvmMachineState(allocatedGas);

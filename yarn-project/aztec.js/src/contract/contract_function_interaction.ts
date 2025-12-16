@@ -1,8 +1,8 @@
+import { ExecutionPayload, mergeExecutionPayloads } from '@aztec/entrypoints/payload';
 import { type FunctionAbi, FunctionSelector, FunctionType, decodeFromAbi, encodeArguments } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { type Capsule, type HashedValues, type TxProfileResult, collectOffchainEffects } from '@aztec/stdlib/tx';
-import { ExecutionPayload, mergeExecutionPayloads } from '@aztec/stdlib/tx';
 
 import type { Wallet } from '../wallet/wallet.js';
 import { BaseContractInteraction } from './base_contract_interaction.js';
@@ -103,24 +103,25 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
   ): Promise<SimulationReturn<typeof options.includeMetadata>> {
     // docs:end:simulate
     if (this.functionDao.functionType == FunctionType.UTILITY) {
-      const call = await this.getFunctionCall();
-      const utilityResult = await this.wallet.simulateUtility(call, options.authWitnesses ?? []);
-
-      // Decode the raw field elements to the actual return type
-      const returnValue = utilityResult.result ? decodeFromAbi(this.functionDao.returnTypes, utilityResult.result) : [];
+      const utilityResult = await this.wallet.simulateUtility(
+        this.functionDao.name,
+        this.args,
+        this.contractAddress,
+        options.authWitnesses ?? [],
+      );
 
       if (options.includeMetadata) {
         return {
           stats: utilityResult.stats,
-          result: returnValue,
+          result: utilityResult.result,
         };
       } else {
-        return returnValue;
+        return utilityResult.result;
       }
     }
 
     const executionPayload = await this.request(options);
-    const simulatedTx = await this.wallet.simulateTx(executionPayload, toSimulateOptions(options));
+    const simulatedTx = await this.wallet.simulateTx(executionPayload, await toSimulateOptions(options));
 
     let rawReturnValues;
     if (this.functionDao.functionType == FunctionType.PRIVATE) {
@@ -167,7 +168,7 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
     }
 
     const executionPayload = await this.request(options);
-    return await this.wallet.profileTx(executionPayload, toProfileOptions(options));
+    return await this.wallet.profileTx(executionPayload, await toProfileOptions(options));
   }
 
   /**

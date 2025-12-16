@@ -31,7 +31,7 @@ export class Barretenberg extends AsyncApi {
    *
    * If options.backend is set: uses that specific backend (throws if unavailable)
    * If options.backend is unset: tries backends in order with fallback:
-   *   1. NativeUnixSocket (if bb binary available)
+   *   1. NativeSharedMemory (if bb binary available)
    *   2. WasmWorker (in browser) or Wasm (in Node.js)
    */
   static async new(options: BackendOptions = {}) {
@@ -39,28 +39,33 @@ export class Barretenberg extends AsyncApi {
 
     if (options.backend) {
       // Explicit backend required - no fallback
-      const backend = await createAsyncBackend(options.backend, options, logger);
-      if (options.backend === BackendType.Wasm || options.backend === BackendType.WasmWorker) {
-        await backend.initSRSChonk();
-      }
-      return backend;
+      return await createAsyncBackend(options.backend, options, logger);
     }
 
     if (typeof window === 'undefined') {
       try {
-        return await createAsyncBackend(BackendType.NativeUnixSocket, options, logger);
+        return await createAsyncBackend(BackendType.NativeSharedMemory, options, logger);
       } catch (err: any) {
-        logger(`Unix socket unavailable (${err.message}), falling back to WASM`);
-        const backend = await createAsyncBackend(BackendType.Wasm, options, logger);
-        await backend.initSRSChonk();
-        return backend;
+        logger(`Shared memory unavailable (${err.message}), falling back to other backends`);
+        try {
+          return await createAsyncBackend(BackendType.NativeUnixSocket, options, logger);
+        } catch (err: any) {
+          logger(`Unix socket unavailable (${err.message}), falling back to WASM`);
+          return await createAsyncBackend(BackendType.Wasm, options, logger);
+        }
       }
     } else {
       logger(`In browser, using WASM over worker backend.`);
-      const backend = await createAsyncBackend(BackendType.WasmWorker, options, logger);
-      await backend.initSRSChonk();
-      return backend;
+      return await createAsyncBackend(BackendType.WasmWorker, options, logger);
     }
+  }
+
+  async initSRSForCircuitSize(circuitSize: number): Promise<void> {
+    const minSRSSize = 2 ** 9; // 2**9 is the dyadic size for the SmallSubgroupIPA MSM.
+    const crs = await Crs.new(Math.max(circuitSize, minSRSSize) + 1, this.options.crsPath, this.options.logger);
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1129): Do slab allocator initialization?
+    // await this.commonInitSlabAllocator(circuitSize);
+    await this.srsInitSrs({ pointsBuf: crs.getG1Data(), numPoints: crs.numPoints, g2Point: crs.getG2Data() });
   }
 
   async initSRSChonk(srsSize = this.getDefaultSrsSize()): Promise<void> {
@@ -99,6 +104,11 @@ export class Barretenberg extends AsyncApi {
       },
     });
     return [response.numGates, response.numGatesDyadic];
+  }
+
+  async acirInitSRS(bytecode: Uint8Array, recursive: boolean, honkRecursion: boolean): Promise<void> {
+    const [_, subgroupSize] = await this.acirGetCircuitSizes(bytecode, recursive, honkRecursion);
+    return this.initSRSForCircuitSize(subgroupSize);
   }
 
   async destroy() {

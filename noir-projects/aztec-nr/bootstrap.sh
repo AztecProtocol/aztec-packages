@@ -1,10 +1,13 @@
 #!/usr/bin/env bash
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
+cmd=${1:-}
+
 export RAYON_NUM_THREADS=${RAYON_NUM_THREADS:-16}
 export HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16}
 export NARGO=${NARGO:-../../noir/noir-repo/target/release/nargo}
-hash=$(hash_str $(../../noir/bootstrap.sh hash) $(cache_content_hash "^noir-projects/aztec-nr"))
+export NOIR_HASH=${NOIR_HASH:- $(../../noir/bootstrap.sh hash)}
+hash=$(hash_str "$NOIR_HASH" $(cache_content_hash  "^noir-projects/aztec-nr"))
 
 function build {
   # Being a library, aztec-nr does not technically need to be built. But we can still run nargo check to find any type
@@ -109,13 +112,20 @@ function release_git_push {
 }
 
 case "$cmd" in
-  "")
+  ""|"fast"|"full")
     build
+    ;;
+  "ci")
+    build
+    test
+    ;;
+  test|test_cmds|format|release)
+    $cmd
     ;;
   "test-macro-compilation-failure")
     ./macro_compilation_failure_tests/assert_macro_compilation_failure.sh
     ;;
   *)
-    default_cmd_handler "$@"
-    ;;
+    echo_stderr "Unknown command: $cmd"
+    exit 1
 esac

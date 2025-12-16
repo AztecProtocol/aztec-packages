@@ -5,15 +5,8 @@ import { SponsoredFeePaymentMethod } from '@aztec/aztec.js/fee';
 import { Fr } from '@aztec/aztec.js/fields';
 import { createLogger } from '@aztec/aztec.js/log';
 import { createAztecNodeClient } from '@aztec/aztec.js/node';
-import {
-  type FeeOptions,
-  BaseWallet,
-  AccountManager,
-  DeployAccountOptions,
-  SimulateOptions,
-} from '@aztec/aztec.js/wallet';
+import { type UserFeeOptions, type FeeOptions, BaseWallet, AccountManager, DeployAccountOptions, SimulateOptions } from '@aztec/aztec.js/wallet';
 import { SPONSORED_FPC_SALT } from '@aztec/constants';
-import type { FieldsOf } from '@aztec/foundation/types';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { EcdsaRAccountContract } from '@aztec/accounts/ecdsa/lazy';
 import { SchnorrAccountContract } from '@aztec/accounts/schnorr/lazy';
@@ -25,7 +18,10 @@ import {
   getStubAccountContractArtifact,
   createStubAccount,
 } from '@aztec/accounts/stub/lazy';
-import { ExecutionPayload, mergeExecutionPayloads } from '@aztec/stdlib/tx';
+import {
+  ExecutionPayload,
+  mergeExecutionPayloads,
+} from '@aztec/entrypoints/payload';
 import { TxSimulationResult } from '@aztec/stdlib/tx';
 import { GasSettings } from '@aztec/stdlib/gas';
 import {
@@ -63,25 +59,25 @@ export class EmbeddedWallet extends BaseWallet {
   }
 
   /**
-   * Completes partial user-provided fee options with wallet defaults.
-   * This wallet will use the sponsoredFPC payment method unless otherwise stated.
+   * Returns default values for the transaction fee options
+   * if they were omitted by the user.
+   * This wallet will use the sponsoredFPC payment method
+   * unless otherwise stated
    * @param from - The address where the transaction is being sent from
-   * @param feePayer - The address paying for fees (if any fee payment method is embedded in the execution payload)
-   * @param gasSettings - User-provided partial gas settings
-   * @returns - Complete fee options that can be used to create a transaction execution request
+   * @param userFeeOptions - User-provided fee options, which might be incomplete
+   * @returns - Populated fee options that can be used to create a transaction execution request
    */
-  override async completeFeeOptions(
+  override async getDefaultFeeOptions(
     from: AztecAddress,
-    feePayer?: AztecAddress,
-    gasSettings?: Partial<FieldsOf<GasSettings>>
+    userFeeOptions: UserFeeOptions | undefined
   ): Promise<FeeOptions> {
     const maxFeesPerGas =
-      gasSettings?.maxFeesPerGas ??
+      userFeeOptions?.gasSettings?.maxFeesPerGas ??
       (await this.aztecNode.getCurrentBaseFees()).mul(1 + this.baseFeePadding);
     let walletFeePaymentMethod;
     let accountFeePaymentMethodOptions;
     // The transaction does not include a fee payment method, so we set a default
-    if (!feePayer) {
+    if (!userFeeOptions?.embeddedPaymentMethodFeePayer) {
       const sponsoredFPCContract =
         await EmbeddedWallet.#getSponsoredPFCContract();
       walletFeePaymentMethod = new SponsoredFeePaymentMethod(
@@ -91,17 +87,19 @@ export class EmbeddedWallet extends BaseWallet {
     } else {
       // The transaction includes fee payment method, so we check if we are the fee payer for it
       // (this can only happen if the embedded payment method is FeeJuiceWithClaim)
-      accountFeePaymentMethodOptions = from.equals(feePayer)
+      accountFeePaymentMethodOptions = from.equals(
+        userFeeOptions.embeddedPaymentMethodFeePayer
+      )
         ? AccountFeePaymentMethodOptions.FEE_JUICE_WITH_CLAIM
         : AccountFeePaymentMethodOptions.EXTERNAL;
     }
-    const fullGasSettings: GasSettings = GasSettings.default({
-      ...gasSettings,
+    const gasSettings: GasSettings = GasSettings.default({
+      ...userFeeOptions?.gasSettings,
       maxFeesPerGas,
     });
-    this.log.debug(`Using L2 gas settings`, fullGasSettings);
+    this.log.debug(`Using L2 gas settings`, gasSettings);
     return {
-      gasSettings: fullGasSettings,
+      gasSettings,
       walletFeePaymentMethod,
       accountFeePaymentMethodOptions,
     };
@@ -313,16 +311,8 @@ export class EmbeddedWallet extends BaseWallet {
     opts: SimulateOptions
   ): Promise<TxSimulationResult> {
     const feeOptions = opts.fee?.estimateGas
-      ? await this.completeFeeOptionsForEstimation(
-          opts.from,
-          executionPayload.feePayer,
-          opts.fee?.gasSettings
-        )
-      : await this.completeFeeOptions(
-          opts.from,
-          executionPayload.feePayer,
-          opts.fee?.gasSettings
-        );
+      ? await this.getFeeOptionsForGasEstimation(opts.from, opts.fee)
+      : await this.getDefaultFeeOptions(opts.from, opts.fee);
     const feeExecutionPayload =
       await feeOptions.walletFeePaymentMethod?.getExecutionPayload();
     const executionOptions: DefaultAccountEntrypointOptions = {

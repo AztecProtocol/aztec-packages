@@ -48,9 +48,8 @@ pub(crate) fn compile(parsed_opcodes: Vec<ParsedOpcode>) -> Result<CompiledProce
         instructions_size: 0,
     };
     for parsed_opcode in parsed_opcodes.into_iter() {
-        let mnemonic = parsed_opcode.mnemonic;
-        compile_opcode(parsed_opcode, &mut result)
-            .map_err(|err| format!("Error compiling opcode {:?}: {}", mnemonic, err))?;
+        compile_opcode(parsed_opcode.clone(), &mut result)
+            .map_err(|err| format!("Error compiling opcode {:?}: {}", parsed_opcode, err))?;
     }
 
     Ok(result)

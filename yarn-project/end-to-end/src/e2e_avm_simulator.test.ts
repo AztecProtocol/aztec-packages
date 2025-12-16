@@ -1,5 +1,5 @@
 import { AztecAddress } from '@aztec/aztec.js/addresses';
-import { BatchCall, type ContractInstanceWithAddress } from '@aztec/aztec.js/contracts';
+import { BatchCall } from '@aztec/aztec.js/contracts';
 import { Fr } from '@aztec/aztec.js/fields';
 import { TxStatus } from '@aztec/aztec.js/tx';
 import type { Wallet } from '@aztec/aztec.js/wallet';
@@ -32,13 +32,10 @@ describe('e2e_avm_simulator', () => {
 
   describe('AvmTestContract', () => {
     let avmContract: AvmTestContract;
-    let avmContractInstance: ContractInstanceWithAddress;
     let secondAvmContract: AvmTestContract;
 
     beforeEach(async () => {
-      ({ contract: avmContract, instance: avmContractInstance } = await AvmTestContract.deploy(wallet)
-        .send({ from: defaultAccountAddress })
-        .wait());
+      avmContract = await AvmTestContract.deploy(wallet).send({ from: defaultAccountAddress }).deployed();
       secondAvmContract = await AvmTestContract.deploy(wallet).send({ from: defaultAccountAddress }).deployed();
     });
 
@@ -149,9 +146,9 @@ describe('e2e_avm_simulator', () => {
         const tx = await avmContract.methods
           .test_get_contract_instance_matches(
             avmContract.address,
-            avmContractInstance.deployer,
-            avmContractInstance.currentContractClassId,
-            avmContractInstance.initializationHash,
+            avmContract.instance.deployer,
+            avmContract.instance.currentContractClassId,
+            avmContract.instance.initializationHash,
           )
           .send({ from: defaultAccountAddress })
           .wait();

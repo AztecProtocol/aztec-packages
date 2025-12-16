@@ -1,6 +1,8 @@
 use crate::test::utils;
 use crate::Token;
-use aztec::{oracle::random::random, test::helpers::authwit::add_private_authwit_from_call};
+use aztec::{
+    oracle::random::random, test::helpers::authwit::add_private_authwit_from_call_interface,
+};
 
 // Tests the typical scenario in which transfer_to_public_and_prepare_private_balance_increase is to be used:
 // 1. The liquidity provider calls private AMM::add_liquidity function,
@@ -16,7 +18,7 @@ unconstrained fn transfer_to_public_and_prepare_private_balance_increase_and_fin
         utils::setup_and_mint_to_private(/* with_account_contracts */ true);
 
     let deposit_amount: u128 = mint_amount / (10 as u128);
-    let transfer_call = Token::at(token_contract_address)
+    let transfer_call_interface = Token::at(token_contract_address)
         .transfer_to_public_and_prepare_private_balance_increase(
             liquidity_provider,
             amm_contract,
@@ -26,10 +28,15 @@ unconstrained fn transfer_to_public_and_prepare_private_balance_increase_and_fin
 
     // Add authwit such that the AMM can transfer the deposit amount of the liquidity provider to the public balance of
     // itself.
-    add_private_authwit_from_call(env, liquidity_provider, amm_contract, transfer_call);
+    add_private_authwit_from_call_interface(
+        env,
+        liquidity_provider,
+        amm_contract,
+        transfer_call_interface,
+    );
 
     // Impersonate the AMM and initiate the transfer
-    let partial_note = env.call_private(amm_contract, transfer_call);
+    let partial_note = env.call_private(amm_contract, transfer_call_interface);
 
     // Check balances before the partial note is finalized
     utils::check_private_balance(

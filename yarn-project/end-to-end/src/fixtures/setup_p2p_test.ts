@@ -2,7 +2,6 @@
  * Test fixtures and utilities to set up and run a test using multiple validators
  */
 import { type AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
-import { range } from '@aztec/foundation/array';
 import { SecretValue } from '@aztec/foundation/config';
 import { addLogNameHandler, removeLogNameHandler } from '@aztec/foundation/log';
 import { bufferToHex } from '@aztec/foundation/string';
@@ -41,7 +40,6 @@ export async function createNodes(
   dataDirectory?: string,
   metricsPort?: number,
   indexOffset = 0,
-  validatorsPerNode = 1,
 ): Promise<AztecNodeService[]> {
   const nodePromises: Promise<AztecNodeService>[] = [];
   const loggerIdStorage = new AsyncLocalStorage<string>();
@@ -54,18 +52,13 @@ export async function createNodes(
     // We run on ports from the bootnode upwards
     const port = bootNodePort + 1 + index;
 
-    // Determine validator indices for this node
-    const validatorIndices = validatorsPerNode === 1 ? index : range(validatorsPerNode, validatorsPerNode * index);
-
-    // Assign data directory
     const dataDir = dataDirectory ? `${dataDirectory}-${index}` : undefined;
-
     const nodePromise = createNode(
       config,
       dateProvider,
       port,
       bootstrapNodeEnr,
-      validatorIndices,
+      index,
       prefilledPublicData,
       dataDir,
       metricsPort,
@@ -91,7 +84,7 @@ export async function createNode(
   dateProvider: DateProvider,
   tcpPort: number,
   bootstrapNode: string | undefined,
-  addressIndex: number | number[],
+  addressIndex: number,
   prefilledPublicData?: PublicDataTreeLeaf[],
   dataDirectory?: string,
   metricsPort?: number,
@@ -195,23 +188,16 @@ export async function createValidatorConfig(
   config: AztecNodeConfig,
   bootstrapNodeEnr?: string,
   port?: number,
-  addressIndex: number | number[] = 1,
+  addressIndex: number = 1,
   dataDirectory?: string,
 ) {
-  const addressIndices = Array.isArray(addressIndex) ? addressIndex : [addressIndex];
-  if (addressIndices.length === 0) {
-    throw new Error('At least one address index must be provided to create a validator config');
-  }
-
-  const attesterPrivateKeys = addressIndices.map(index =>
-    bufferToHex(getPrivateKeyFromIndex(ATTESTER_PRIVATE_KEYS_START_INDEX + index)!),
-  );
+  const attesterPrivateKey = bufferToHex(getPrivateKeyFromIndex(ATTESTER_PRIVATE_KEYS_START_INDEX + addressIndex)!);
   const p2pConfig = await createP2PConfig(config, bootstrapNodeEnr, port, dataDirectory);
   const nodeConfig: AztecNodeConfig = {
     ...config,
     ...p2pConfig,
-    validatorPrivateKeys: new SecretValue(attesterPrivateKeys),
-    publisherPrivateKeys: [new SecretValue(attesterPrivateKeys[0])],
+    validatorPrivateKeys: new SecretValue([attesterPrivateKey]),
+    publisherPrivateKeys: [new SecretValue(attesterPrivateKey)],
   };
 
   return nodeConfig;

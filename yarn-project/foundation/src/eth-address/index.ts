@@ -1,4 +1,5 @@
 import { inspect } from 'util';
+import { z } from 'zod';
 
 import { keccak256String } from '../crypto/keccak/index.js';
 import { randomBytes } from '../crypto/random/index.js';
@@ -39,24 +40,6 @@ export class EthAddress {
       throw new Error(`Invalid address string: ${address}`);
     }
     return new EthAddress(Buffer.from(address.replace(/^0x/i, ''), 'hex'));
-  }
-
-  /**
-   * Creates an EthAddress from a plain object without Zod validation.
-   * This method is optimized for performance and skips validation, making it suitable
-   * for deserializing trusted data (e.g., from C++ via MessagePack).
-   * Handles buffers (20 or 32 bytes), strings, or existing instances.
-   * @param obj - Plain object, buffer, string, or EthAddress instance
-   * @returns An EthAddress instance
-   */
-  public static fromPlainObject(obj: any): EthAddress {
-    if (obj instanceof EthAddress) {
-      return obj;
-    }
-    if (obj instanceof Buffer || Buffer.isBuffer(obj)) {
-      return obj.length === 20 ? new EthAddress(obj) : EthAddress.fromField(new Fr(obj));
-    }
-    return EthAddress.fromString(obj);
   }
 
   /**
@@ -258,8 +241,12 @@ export class EthAddress {
   }
 
   static get schema() {
-    // Serialization from hex string.
-    return hexSchemaFor(EthAddress, EthAddress.isAddress);
+    return z.union([
+      // Serialization from hex string.
+      hexSchemaFor(EthAddress, EthAddress.isAddress),
+      // Serialization from buffer.
+      Fr.schema.transform(EthAddress.fromField),
+    ]);
   }
 }
 

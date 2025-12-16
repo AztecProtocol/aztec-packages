@@ -1,11 +1,5 @@
 import { AztecAddress } from '@aztec/aztec.js/addresses';
-import {
-  type ContractInstanceWithAddress,
-  type DeployOptions,
-  DeployMethod,
-  getContractInstanceFromInstantiationParams,
-  Contract,
-} from '@aztec/aztec.js/contracts';
+import { type ContractInstanceWithAddress, type DeployOptions, DeployMethod, getContractInstanceFromInstantiationParams, Contract } from '@aztec/aztec.js/contracts';
 import { Fr } from '@aztec/aztec.js/fields';
 import { PublicKeys } from '@aztec/aztec.js/keys';
 import type { Wallet } from '@aztec/aztec.js/wallet';
@@ -113,8 +107,8 @@ export function CreateContractDialog({
       let deployMethod: DeployMethod;
       let opts: DeployOptions;
       if (publiclyDeploy) {
-        const postDeployCtor = (instance: ContractInstanceWithAddress, wallet: Wallet) =>
-          Contract.at(instance.address, contractArtifact, wallet);
+        const postDeployCtor = (address: AztecAddress, wallet: Wallet) =>
+          Contract.at(address, contractArtifact, wallet);
         deployMethod = new DeployMethod(
           contract.publicKeys,
           wallet,

@@ -1,5 +1,4 @@
 import type { RevertCode } from '@aztec/stdlib/avm';
-import type { GasUsed } from '@aztec/stdlib/gas';
 import {
   Attributes,
   type Histogram,
@@ -71,7 +70,7 @@ export class ExecutorMetrics implements ExecutorMetricsInterface {
     // do nothing (unimplemented)
   }
 
-  stopRecordingTxSimulation(_txLabel: string, _gasUsed?: GasUsed, _revertedCode?: RevertCode) {
+  stopRecordingTxSimulation(_txLabel: string, _revertedCode?: RevertCode) {
     // do nothing (unimplemented)
   }
 

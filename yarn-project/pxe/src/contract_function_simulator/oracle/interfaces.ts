@@ -153,7 +153,6 @@ export interface IPrivateExecutionOracle {
     isStaticCall: boolean,
   ): Promise<void>;
   privateNotifySetMinRevertibleSideEffectCounter(minRevertibleSideEffectCounter: number): Promise<void>;
-  privateIsSideEffectCounterRevertible(sideEffectCounter: number): Promise<boolean>;
   privateGetSenderForTags(): Promise<AztecAddress | undefined>;
   privateSetSenderForTags(senderForTags: AztecAddress): Promise<void>;
   privateGetNextAppTagAsSender(sender: AztecAddress, recipient: AztecAddress): Promise<Tag>;

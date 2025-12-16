@@ -20,7 +20,7 @@ pub fn validate_note_hash_nullifier_squashing<let NoteHashesLen: u32, let Nullif
     nullifiers: ClaimedLengthArray<Scoped<Counted<Nullifier>>, NullifiersLen>,
     expected_kept_note_hashes: ClaimedLengthArray<Scoped<Counted<NoteHash>>, NoteHashesLen>,
     expected_kept_nullifiers: ClaimedLengthArray<Scoped<Counted<Nullifier>>, NullifiersLen>,
-    split_counter: u32,
+    min_revertible_side_effect_counter: u32,
     transient_data_squashing_hints: [TransientDataSquashingHint; SquashingHintsLen],
     num_active_squashing_hints: u32,
     note_hash_squash_flags: [bool; NoteHashesLen],
@@ -48,7 +48,11 @@ pub fn validate_note_hash_nullifier_squashing<let NoteHashesLen: u32, let Nullif
             let note_hash = note_hashes.array[hint.note_hash_index];
 
             // Ensure the (note hash, nullifier) pair can be squashed.
-            validate_squashable_note_hash_nullifier_pair(note_hash, nullifier, split_counter);
+            validate_squashable_note_hash_nullifier_pair(
+                note_hash,
+                nullifier,
+                min_revertible_side_effect_counter,
+            );
 
             // Validate the squash flags are correctly set.
             // They are used later to check that the kept note hashes and nullifiers are correctly propagated.

@@ -3,7 +3,6 @@
 #include "utilities.hpp"
 #include <atomic>
 #include <cerrno>
-#include <climits>
 #include <cstdint>
 #include <cstring>
 #include <fcntl.h>
@@ -147,7 +146,7 @@ bool MpscConsumer::unlink(const std::string& name, size_t num_producers)
     return true;
 }
 
-int MpscConsumer::wait_for_data(uint32_t timeout_ns)
+int MpscConsumer::wait_for_data(uint32_t spin_ns)
 {
     size_t num_rings = rings_.size();
 
@@ -160,13 +159,8 @@ int MpscConsumer::wait_for_data(uint32_t timeout_ns)
         }
     }
 
-    // Hardcoded 10ms spin phase
-    constexpr uint64_t SPIN_NS = 10000000; // 10ms
-    uint64_t spin_duration = (timeout_ns < SPIN_NS) ? timeout_ns : SPIN_NS;
-    uint64_t remaining_timeout = (timeout_ns > SPIN_NS) ? (timeout_ns - SPIN_NS) : 0;
-
     // Phase 2: Spin phase
-    if (spin_duration > 0) {
+    if (spin_ns > 0) {
         uint64_t start = mono_ns_now();
         // NOLINTNEXTLINE(cppcoreguidelines-avoid-do-while)
         do {
@@ -178,24 +172,10 @@ int MpscConsumer::wait_for_data(uint32_t timeout_ns)
                 }
             }
             IPC_PAUSE();
-        } while ((mono_ns_now() - start) < spin_duration);
+        } while ((mono_ns_now() - start) < spin_ns);
     }
 
-    // Check again after spin
-    for (size_t i = 0; i < num_rings; i++) {
-        size_t idx = (last_served_ + 1 + i) % num_rings;
-        if (rings_[idx].available() > 0) {
-            last_served_ = idx;
-            return static_cast<int>(idx);
-        }
-    }
-
-    // If timeout already expired during spin, return -1
-    if (remaining_timeout == 0) {
-        return -1;
-    }
-
-    // Phase 3: Sleep on doorbell with timeout for remaining duration
+    // Phase 3: Sleep on doorbell
     uint32_t seq = doorbell_->seq.load(std::memory_order_acquire);
 
     // Check again before sleeping to avoid race
@@ -207,7 +187,7 @@ int MpscConsumer::wait_for_data(uint32_t timeout_ns)
         }
     }
 
-    futex_wait_timeout(reinterpret_cast<volatile uint32_t*>(&doorbell_->seq), seq, remaining_timeout);
+    futex_wait(reinterpret_cast<volatile uint32_t*>(&doorbell_->seq), seq);
 
     // After waking, poll again
     for (size_t i = 0; i < num_rings; i++) {
@@ -218,7 +198,7 @@ int MpscConsumer::wait_for_data(uint32_t timeout_ns)
         }
     }
 
-    return -1; // No data available (timeout or spurious wakeup)
+    return -1; // No data available
 }
 
 void* MpscConsumer::peek(size_t ring_idx, size_t* n)
@@ -236,17 +216,6 @@ void MpscConsumer::release(size_t ring_idx, size_t n)
 {
     if (ring_idx < rings_.size()) {
         rings_[ring_idx].release(n);
-    }
-}
-
-void MpscConsumer::wakeup_all()
-{
-    // Wake consumer blocked on doorbell
-    futex_wake(reinterpret_cast<volatile uint32_t*>(&doorbell_->seq), INT_MAX);
-
-    // Wake all producers blocked on their rings
-    for (auto& ring : rings_) {
-        ring.wakeup_all();
     }
 }
 

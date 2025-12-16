@@ -1,4 +1,3 @@
-import { BlobDeserializationError } from '@aztec/blob-lib';
 import { Fr } from '@aztec/foundation/fields';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 
@@ -9,18 +8,6 @@ describe('TxEffect', () => {
     const txEffect = await TxEffect.random();
     const buf = txEffect.toBuffer();
     expect(TxEffect.fromBuffer(buf)).toEqual(txEffect);
-  });
-
-  it('convert to and from json', async () => {
-    const txEffect = await TxEffect.random();
-    const parsed = TxEffect.schema.parse(JSON.parse(jsonStringify(txEffect)));
-    expect(parsed).toEqual(txEffect);
-  });
-
-  it('converts to and from blob data', async () => {
-    const txEffect = await TxEffect.random();
-    const data = txEffect.toTxBlobData();
-    expect(TxEffect.fromTxBlobData(data)).toEqual(txEffect);
   });
 
   it('converts to and from blob fields', async () => {
@@ -35,19 +22,25 @@ describe('TxEffect', () => {
     expect(TxEffect.fromBlobFields(fields)).toEqual(txEffect);
   });
 
+  it('convert to and from json', async () => {
+    const txEffect = await TxEffect.random();
+    const parsed = TxEffect.schema.parse(JSON.parse(jsonStringify(txEffect)));
+    expect(parsed).toEqual(txEffect);
+  });
+
   it('fails with invalid blob fields', async () => {
     const txEffect = await TxEffect.random();
     const fields = txEffect.toBlobFields();
     // Replace the initial field with an invalid encoding
     fields[0] = new Fr(12);
-    expect(() => TxEffect.fromBlobFields(fields)).toThrow(BlobDeserializationError);
+    expect(() => TxEffect.fromBlobFields(fields)).toThrow('Invalid fields');
   });
 
   it('fails with too few remaining blob fields', async () => {
     const txEffect = await TxEffect.random();
     const fields = txEffect.toBlobFields();
     fields.pop();
-    expect(() => TxEffect.fromBlobFields(fields)).toThrow(BlobDeserializationError);
+    expect(() => TxEffect.fromBlobFields(fields)).toThrow('Not enough fields');
   });
 
   it('ignores extra blob fields', async () => {

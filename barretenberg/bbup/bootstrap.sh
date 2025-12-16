@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
+cmd=${1:-}
+[ -n "$cmd" ] && shift
+
 export hash=$(cache_content_hash .rebuild_patterns)
 
 # Print every individual test command. Can be fed into gnu parallel.
@@ -20,10 +23,21 @@ function test {
 }
 
 case "$cmd" in
+  "clean")
+    git clean -fdx
+    ;;
+  ""|fast|full|bench|bench_cmds)
+    ;;
+  "ci")
+    test
+    ;;
   "hash")
     echo $hash
     ;;
-  *)
-    default_cmd_handler "$@"
+  test|test_cmds)
+    $cmd "$@"
     ;;
+  *)
+    echo "Unknown command: $cmd"
+    exit 1
 esac

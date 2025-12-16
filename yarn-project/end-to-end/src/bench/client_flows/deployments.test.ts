@@ -1,9 +1,9 @@
 import { AztecAddress } from '@aztec/aztec.js/addresses';
-import type { ContractInstanceWithAddress, SimulateInteractionOptions } from '@aztec/aztec.js/contracts';
+import type { SimulateInteractionOptions } from '@aztec/aztec.js/contracts';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 import { PrivateVotingContract } from '@aztec/noir-contracts.js/PrivateVoting';
-import { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
+import type { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
 import { getContractClassFromArtifact } from '@aztec/stdlib/contract';
 
 import { jest } from '@jest/globals';
@@ -20,7 +20,7 @@ describe('Deployment benchmark', () => {
   // The wallet used by the user to interact
   let userWallet: Wallet;
   // Sponsored FPC contract
-  let sponsoredFPCInstance: ContractInstanceWithAddress;
+  let sponsoredFPC: SponsoredFPCContract;
   // Benchmarking configuration
   const config = t.config.deployments;
 
@@ -28,7 +28,7 @@ describe('Deployment benchmark', () => {
     await t.applyBaseSnapshots();
     await t.applyDeploySponsoredFPCSnapshot();
 
-    ({ aztecNode: node, userWallet, sponsoredFPCInstance } = await t.setup());
+    ({ aztecNode: node, sponsoredFPC, userWallet } = await t.setup());
   });
 
   afterAll(async () => {
@@ -46,7 +46,7 @@ describe('Deployment benchmark', () => {
 
       beforeAll(async () => {
         benchysAddress = await t.createAndFundBenchmarkingAccountOnUserWallet(accountType);
-        await userWallet.registerContract(sponsoredFPCInstance, SponsoredFPCContract.artifact);
+        await userWallet.registerContract(sponsoredFPC);
       });
 
       function deploymentTest(benchmarkingPaymentMethod: BenchmarkingFeePaymentMethod) {

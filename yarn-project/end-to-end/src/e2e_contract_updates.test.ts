@@ -12,7 +12,7 @@ import { UpdatedContract, UpdatedContractArtifact } from '@aztec/noir-test-contr
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import type { SequencerClient } from '@aztec/sequencer-client';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { type ContractInstanceWithAddress, getContractInstanceFromInstantiationParams } from '@aztec/stdlib/contract';
+import { getContractInstanceFromInstantiationParams } from '@aztec/stdlib/contract';
 import {
   DelayedPublicMutableValuesWithHash,
   ScheduledDelayChange,
@@ -37,7 +37,6 @@ describe('e2e_contract_updates', () => {
   let defaultAccountAddress: AztecAddress;
   let teardown: () => Promise<void>;
   let contract: UpdatableContract;
-  let instance: ContractInstanceWithAddress;
   let updatedContractClassId: Fr;
   let cheatCodes: CheatCodes;
   let sequencer: SequencerClient;
@@ -110,9 +109,9 @@ describe('e2e_contract_updates', () => {
     }
     sequencer = maybeSequencer;
 
-    ({ contract, instance } = await UpdatableContract.deploy(wallet, constructorArgs[0])
+    contract = await UpdatableContract.deploy(wallet, constructorArgs[0])
       .send({ from: defaultAccountAddress, contractAddressSalt: salt })
-      .wait());
+      .deployed();
 
     const registerMethod = await publishContractClass(wallet, UpdatedContractArtifact);
     await registerMethod.send({ from: defaultAccountAddress }).wait();
@@ -133,8 +132,7 @@ describe('e2e_contract_updates', () => {
     // Warp time to get past the timestamp of change where the update takes effect
     await cheatCodes.warpL2TimeAtLeastBy(sequencer, aztecNode, DEFAULT_TEST_UPDATE_DELAY);
     // Should be updated now
-    await wallet.registerContract(instance, UpdatedContract.artifact);
-    const updatedContract = UpdatedContract.at(contract.address, wallet);
+    const updatedContract = await UpdatedContract.at(contract.address, wallet);
     // Call a private method that wasn't available in the previous contract
     await updatedContract.methods.set_private_value().send({ from: defaultAccountAddress }).wait();
     // Read state that was changed by the previous tx
@@ -168,8 +166,7 @@ describe('e2e_contract_updates', () => {
     await cheatCodes.warpL2TimeAtLeastBy(sequencer, aztecNode, BigInt(MINIMUM_UPDATE_DELAY) + 1n);
 
     // Should be updated now
-    await wallet.registerContract(instance, UpdatedContract.artifact);
-    const updatedContract = UpdatedContract.at(contract.address, wallet);
+    const updatedContract = await UpdatedContract.at(contract.address, wallet);
     // Call a private method that wasn't available in the previous contract
     await updatedContract.methods.set_private_value().send({ from: defaultAccountAddress }).wait();
   });
@@ -181,7 +178,7 @@ describe('e2e_contract_updates', () => {
   });
 
   it('should not allow to instantiate a contract with an updated class before the update happens', async () => {
-    await expect(wallet.registerContract(instance, UpdatedContract.artifact)).rejects.toThrow(
+    await expect(UpdatedContract.at(contract.address, wallet)).rejects.toThrow(
       'Could not update contract to a class different from the current one',
     );
   });

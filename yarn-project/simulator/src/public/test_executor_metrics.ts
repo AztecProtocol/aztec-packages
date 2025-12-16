@@ -2,7 +2,6 @@ import { sum } from '@aztec/foundation/collection';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import type { RevertCode } from '@aztec/stdlib/avm';
-import type { GasUsed } from '@aztec/stdlib/gas';
 
 import { strict as assert } from 'assert';
 
@@ -19,7 +18,7 @@ export interface PublicEnqueuedCallMetrics {
 export interface PublicTxMetrics {
   // TS simulation
   totalDurationMs: number;
-  manaUsed: number | undefined;
+  manaUsed: number;
   totalInstructionsExecuted: number;
   nonRevertiblePrivateInsertionsUs: number | undefined;
   revertiblePrivateInsertionsUs: number | undefined;
@@ -100,7 +99,7 @@ export class TestExecutorMetrics implements ExecutorMetricsInterface {
     this.txTimer = new Timer();
   }
 
-  stopRecordingTxSimulation(txLabel: string, gasUsed?: GasUsed, revertedCode?: RevertCode) {
+  stopRecordingTxSimulation(txLabel: string, revertedCode?: RevertCode) {
     assert(this.currentTxLabel === txLabel, 'Cannot stop recording metrics for tx when another is live');
 
     const txMetrics = this.txMetrics.get(txLabel)!;
@@ -110,7 +109,7 @@ export class TestExecutorMetrics implements ExecutorMetricsInterface {
     this.logger.debug(`Public TX simulation of ${txLabel} took ${txMetrics.totalDurationMs}ms`);
 
     // add manaUsed across all enqueued calls
-    txMetrics.manaUsed = gasUsed?.publicGas.l2Gas;
+    txMetrics.manaUsed = sum(txMetrics.enqueuedCalls.map(call => call.manaUsed));
     // add totalInstructionsExecuted across all enqueued calls
     txMetrics.totalInstructionsExecuted = sum(txMetrics.enqueuedCalls.map(call => call.totalInstructionsExecuted));
     txMetrics.revertedCode = revertedCode;
@@ -203,9 +202,8 @@ export class TestExecutorMetrics implements ExecutorMetricsInterface {
         pretty += `${INDENT0}Total duration: ${fmtNum(txMetrics.totalDurationMs, 'ms')}\n`;
       }
       if (filter === PublicTxMetricsFilter.TOTALS || filter === PublicTxMetricsFilter.ALL) {
-        const manaUsed = txMetrics.manaUsed || 0;
-        pretty += `${INDENT0}Total mana used: ${fmtNum(manaUsed)}\n`;
-        const manaPerSecond = Math.round((manaUsed * 1000) / txMetrics.totalDurationMs);
+        pretty += `${INDENT0}Total mana used: ${fmtNum(txMetrics.manaUsed)}\n`;
+        const manaPerSecond = Math.round((txMetrics.manaUsed * 1000) / txMetrics.totalDurationMs);
         pretty += `${INDENT0}Mana per second: ${fmtNum(manaPerSecond)}\n`;
       }
 

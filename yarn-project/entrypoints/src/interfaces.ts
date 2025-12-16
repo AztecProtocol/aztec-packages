@@ -1,7 +1,9 @@
 import type { Fr } from '@aztec/foundation/fields';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import type { GasSettings } from '@aztec/stdlib/gas';
-import type { ExecutionPayload, TxExecutionRequest } from '@aztec/stdlib/tx';
+import type { TxExecutionRequest } from '@aztec/stdlib/tx';
+
+import type { ExecutionPayload } from './payload.js';
 
 /**
  * Information on the connected chain. Used by wallets when constructing transactions to protect against replay

@@ -32,8 +32,7 @@ AppendOnlyTreeSnapshot PureWrittenPublicDataSlotsTreeCheck::get_snapshot() const
 uint32_t PureWrittenPublicDataSlotsTreeCheck::size() const
 {
     // FIXME(fcarreiro): This shouldnt be in the interface.
-    const auto& set = written_public_data_slots_stack.top();
-    return static_cast<uint32_t>(set.size());
+    return 0;
 }
 
 void PureWrittenPublicDataSlotsTreeCheck::create_checkpoint()

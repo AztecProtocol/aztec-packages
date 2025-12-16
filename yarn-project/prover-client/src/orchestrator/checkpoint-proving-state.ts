@@ -1,12 +1,7 @@
-import {
-  BatchedBlobAccumulator,
-  type FinalBlobBatchingChallenges,
-  SpongeBlob,
-  encodeCheckpointBlobData,
-} from '@aztec/blob-lib';
+import { BatchedBlobAccumulator, type FinalBlobBatchingChallenges, SpongeBlob } from '@aztec/blob-lib';
 import {
   type ARCHIVE_HEIGHT,
-  BLOBS_PER_CHECKPOINT,
+  BLOBS_PER_BLOCK,
   FIELDS_PER_BLOB,
   type L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH,
   type NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
@@ -16,6 +11,7 @@ import { padArrayEnd } from '@aztec/foundation/collection';
 import { BLS12Point, Fr } from '@aztec/foundation/fields';
 import type { Tuple } from '@aztec/foundation/serialize';
 import { type TreeNodeLocation, UnbalancedTreeStore } from '@aztec/foundation/trees';
+import { getCheckpointBlobFields } from '@aztec/stdlib/checkpoint';
 import type { PublicInputsAndRecursiveProof } from '@aztec/stdlib/interfaces/server';
 import { ParityBasePrivateInputs } from '@aztec/stdlib/parity';
 import {
@@ -196,15 +192,12 @@ export class CheckpointProvingState {
   }
 
   public async accumulateBlobs(startBlobAccumulator: BatchedBlobAccumulator) {
-    if (this.isAcceptingBlocks() || this.blocks.some(b => !b?.hasEndState())) {
+    if (this.isAcceptingBlocks() || this.blocks.some(b => b!.isAcceptingTxs())) {
       return;
     }
 
-    this.blobFields = encodeCheckpointBlobData({
-      totalNumBlobFields: this.totalNumBlobFields,
-      blocks: this.blocks.map(b => b!.getBlockBlobData()),
-    });
-    this.endBlobAccumulator = await accumulateBlobs(this.blobFields!, startBlobAccumulator);
+    this.blobFields = getCheckpointBlobFields(this.blocks.map(b => b!.getTxEffects()));
+    this.endBlobAccumulator = await accumulateBlobs(this.blobFields, startBlobAccumulator);
     this.startBlobAccumulator = startBlobAccumulator;
 
     this.onBlobAccumulatorSet(this);
@@ -253,8 +246,8 @@ export class CheckpointProvingState {
       previousArchiveSiblingPath: this.lastArchiveSiblingPath,
       startBlobAccumulator: this.startBlobAccumulator.toBlobAccumulator(),
       finalBlobChallenges: this.finalBlobBatchingChallenges,
-      blobFields: padArrayEnd(blobFields, Fr.ZERO, FIELDS_PER_BLOB * BLOBS_PER_CHECKPOINT),
-      blobCommitments: padArrayEnd(blobCommitments, BLS12Point.ZERO, BLOBS_PER_CHECKPOINT),
+      blobFields: padArrayEnd(blobFields, Fr.ZERO, FIELDS_PER_BLOB * BLOBS_PER_BLOCK),
+      blobCommitments: padArrayEnd(blobCommitments, BLS12Point.ZERO, BLOBS_PER_BLOCK),
       blobsHash,
     });
 

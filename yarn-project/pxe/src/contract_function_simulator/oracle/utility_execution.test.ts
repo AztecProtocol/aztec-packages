@@ -83,6 +83,6 @@ describe('Utility Execution test suite', () => {
 
     const result = await acirSimulator.runUtility(execRequest, [], []);
 
-    expect(result).toEqual([new Fr(9)]);
+    expect(result).toEqual(9n);
   }, 30_000);
 });

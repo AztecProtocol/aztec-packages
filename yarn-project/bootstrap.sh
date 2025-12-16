@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
+cmd=${1:-}
+[ -n "$cmd" ] && shift
+
 function hash {
   hash_str \
     $(../noir/bootstrap.sh hash) \
@@ -93,6 +96,7 @@ function compile_all {
     stdlib \
     ivc-integration \
     l1-artifacts \
+    native \
     noir-contracts.js \
     noir-test-contracts.js \
     noir-protocol-circuits-types \
@@ -133,21 +137,24 @@ function build {
 
 function test_cmds {
   local hash=$(hash)
+  local avm_flag=$(../barretenberg/cpp/bootstrap.sh hash | grep -qE no-avm && echo "no-avm" || echo "avm")
 
   # Exclusions:
   # end-to-end: e2e tests handled separately with end-to-end/bootstrap.sh.
   # kv-store: Uses mocha so will need different treatment.
   for test in !(end-to-end|kv-store|aztec)/src/**/*.test.ts; do
+    # If AVM is disabled, filter out avm_proving_tests/*.test.ts and avm_integration.test.ts
+    # Also must filter out rollup_ivc_integration.test.ts as it includes AVM proving.
+    if [[ $avm_flag == "no-avm" && "$test" =~ (avm_proving_tests|avm_integration|rollup_ivc_integration) ]]; then
+      continue
+    fi
+
     local prefix=$hash
     local cmd_env=""
 
     # These need isolation due to network stack usage (p2p, anvil, etc).
-    if [[ "$test" =~ ^(prover-node|p2p|ethereum|aztec|prover-client/src/test|stdlib/src/l1-contracts|ivc-integration/src/chonk_browser) ]]; then
+    if [[ "$test" =~ ^(prover-node|p2p|ethereum|aztec|prover-client/src/test|stdlib/src/l1-contracts)/ ]]; then
       prefix+=":ISOLATE=1:NAME=$test"
-    fi
-
-    if [[ "$test" =~ ^ivc-integration/src/chonk_browser ]]; then
-      prefix+=":NET=1"
     fi
 
     # Boost some tests resources.
@@ -183,6 +190,7 @@ function test_cmds {
 
   # Uses mocha for browser tests, so we have to treat it differently.
   echo "$hash cd yarn-project/kv-store && yarn test"
+  echo "$hash cd yarn-project/ivc-integration && yarn test:browser"
 
   if [[ "${TARGET_BRANCH:-}" =~ ^v[0-9]+$ ]]; then
     echo "$hash yarn-project/scripts/run_test.sh aztec/src/testnet_compatibility.test.ts"
@@ -232,7 +240,7 @@ function release {
 
 case "$cmd" in
   "clean")
-    [ -n "${1:-}" ] && cd $1
+    [ -n "${2:-}" ] && cd $2
     git clean -fdx
     ;;
   "clean-lite")
@@ -241,8 +249,15 @@ case "$cmd" in
       echo "$files" | xargs rm -rf
     fi
     ;;
-  "")
+  "ci")
     build
+    test
+    ;;
+  ""|"fast")
+    build
+    ;;
+  "full")
+    TYPECHECK=1 build
     ;;
   "compile")
     if [ -n "${1:-}" ]; then
@@ -280,7 +295,14 @@ case "$cmd" in
     trap cleanup_instrumentation EXIT
     eval "$cmd"
     ;;
-  *)
-    default_cmd_handler "$@"
+  lint|format)
+    $cmd "$@"
     ;;
+  test|test_cmds|bench_cmds|hash|release|format)
+    $cmd
+    ;;
+  *)
+    echo "Unknown command: $cmd"
+    exit 1
+  ;;
 esac

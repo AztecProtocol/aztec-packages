@@ -10,6 +10,7 @@
 #include "barretenberg/common/mem.hpp"
 #include "barretenberg/common/net.hpp"
 #include "barretenberg/common/serialize.hpp"
+#include "barretenberg/common/slab_allocator.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/common/zip_view.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
@@ -39,7 +40,7 @@ WASM_EXPORT void acir_prove_and_verify_ultra_honk(uint8_t const* acir_vec, uint8
 {
     acir_format::AcirProgram program{
         acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec)),
-        acir_format::witness_buf_to_witness_vector(from_buffer<std::vector<uint8_t>>(witness_vec))
+        acir_format::witness_buf_to_witness_data(from_buffer<std::vector<uint8_t>>(witness_vec))
     };
 
     auto builder = acir_format::create_circuit<UltraCircuitBuilder>(program);
@@ -59,7 +60,7 @@ WASM_EXPORT void acir_prove_and_verify_mega_honk(uint8_t const* acir_vec, uint8_
 {
     acir_format::AcirProgram program{
         acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec)),
-        acir_format::witness_buf_to_witness_vector(from_buffer<std::vector<uint8_t>>(witness_vec))
+        acir_format::witness_buf_to_witness_data(from_buffer<std::vector<uint8_t>>(witness_vec))
     };
 
     auto builder = acir_format::create_circuit<MegaCircuitBuilder>(program);
@@ -123,7 +124,7 @@ WASM_EXPORT void acir_prove_ultra_zk_honk(uint8_t const* acir_vec,
     UltraZKProver prover = [&] {
         acir_format::AcirProgram program{
             acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec)),
-            acir_format::witness_buf_to_witness_vector(from_buffer<std::vector<uint8_t>>(witness_vec))
+            acir_format::witness_buf_to_witness_data(from_buffer<std::vector<uint8_t>>(witness_vec))
         };
         auto builder = acir_format::create_circuit<UltraCircuitBuilder>(program);
         auto prover_instance = std::make_shared<ProverInstance_<UltraZKFlavor>>(builder);
@@ -146,7 +147,7 @@ WASM_EXPORT void acir_prove_ultra_keccak_honk(uint8_t const* acir_vec,
     UltraKeccakProver prover = [&] {
         acir_format::AcirProgram program{
             acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec)),
-            acir_format::witness_buf_to_witness_vector(from_buffer<std::vector<uint8_t>>(witness_vec))
+            acir_format::witness_buf_to_witness_data(from_buffer<std::vector<uint8_t>>(witness_vec))
         };
         auto builder = acir_format::create_circuit<UltraCircuitBuilder>(program);
 
@@ -168,7 +169,7 @@ WASM_EXPORT void acir_prove_ultra_keccak_zk_honk(uint8_t const* acir_vec,
     UltraKeccakZKProver prover = [&] {
         acir_format::AcirProgram program{
             acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec)),
-            acir_format::witness_buf_to_witness_vector(from_buffer<std::vector<uint8_t>>(witness_vec))
+            acir_format::witness_buf_to_witness_data(from_buffer<std::vector<uint8_t>>(witness_vec))
         };
         auto builder = acir_format::create_circuit<UltraCircuitBuilder>(program);
 
@@ -191,7 +192,7 @@ WASM_EXPORT void acir_prove_ultra_starknet_honk([[maybe_unused]] uint8_t const* 
     UltraStarknetProver prover = [&] {
         acir_format::AcirProgram program{
             acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec)),
-            acir_format::witness_buf_to_witness_vector(from_buffer<std::vector<uint8_t>>(witness_vec))
+            acir_format::witness_buf_to_witness_data(from_buffer<std::vector<uint8_t>>(witness_vec))
         };
         auto builder = acir_format::create_circuit<UltraCircuitBuilder>(program);
 
@@ -214,7 +215,7 @@ WASM_EXPORT void acir_prove_ultra_starknet_zk_honk([[maybe_unused]] uint8_t cons
     UltraStarknetZKProver prover = [&] {
         acir_format::AcirProgram program{
             acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec)),
-            acir_format::witness_buf_to_witness_vector(from_buffer<std::vector<uint8_t>>(witness_vec))
+            acir_format::witness_buf_to_witness_data(from_buffer<std::vector<uint8_t>>(witness_vec))
         };
         auto builder = acir_format::create_circuit<UltraCircuitBuilder>(program);
 

@@ -35,8 +35,6 @@ export type PublisherConfig = L1TxUtilsConfig &
   BlobSinkConfig & {
     /** True to use publishers in invalid states (timed out, cancelled, etc) if no other is available */
     publisherAllowInvalidStates?: boolean;
-    /** Whether to run in fisherman mode: builds blocks on every slot for validation without publishing to L1 */
-    fishermanMode?: boolean;
   };
 
 export const getTxSenderConfigMappings: (
@@ -69,12 +67,6 @@ export const getPublisherConfigMappings: (
     description: 'True to use publishers in invalid states (timed out, cancelled, etc) if no other is available',
     env: scope === `PROVER` ? `PROVER_PUBLISHER_ALLOW_INVALID_STATES` : `SEQ_PUBLISHER_ALLOW_INVALID_STATES`,
     ...booleanConfigHelper(true),
-  },
-  fishermanMode: {
-    env: 'FISHERMAN_MODE',
-    description:
-      'Whether to run in fisherman mode: builds blocks on every slot for validation without publishing to L1',
-    ...booleanConfigHelper(false),
   },
   ...l1TxUtilsConfigMappings,
   ...blobSinkConfigMapping,

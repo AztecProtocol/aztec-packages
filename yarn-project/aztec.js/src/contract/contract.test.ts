@@ -1,4 +1,3 @@
-import { Fr } from '@aztec/foundation/fields';
 import { type ContractArtifact, FunctionType } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
@@ -31,7 +30,7 @@ describe('Contract Class', () => {
   const mockTxHash = { type: 'TxHash' } as any as TxHash;
   const mockTxReceipt = { type: 'TxReceipt' } as any as TxReceipt;
   const mockTxSimulationResult = { type: 'TxSimulationResult', result: 1n } as any as TxSimulationResult;
-  const mockUtilityResultValue = { result: [new Fr(42)] } as any as UtilitySimulationResult;
+  const mockUtilityResultValue = { type: 'UtilitySimulationResult' } as any as UtilitySimulationResult;
 
   const defaultArtifact: ContractArtifact = {
     name: 'FooContract',
@@ -40,7 +39,7 @@ describe('Contract Class', () => {
         name: 'bar',
         isInitializer: false,
         functionType: FunctionType.PRIVATE,
-        isOnlySelf: false,
+        isInternal: false,
         isStatic: false,
         debugSymbols: '',
         parameters: [
@@ -62,14 +61,14 @@ describe('Contract Class', () => {
         returnTypes: [],
         errorTypes: {},
         bytecode: Buffer.alloc(8, 0xfa),
-        verificationKey: Buffer.alloc(4064).toString('base64'),
+        verificationKey: 'fake-verification-key',
       },
       {
         name: 'public_dispatch',
         isInitializer: false,
         isStatic: false,
         functionType: FunctionType.PUBLIC,
-        isOnlySelf: false,
+        isInternal: false,
         parameters: [
           {
             name: 'selector',
@@ -89,7 +88,7 @@ describe('Contract Class', () => {
         isInitializer: false,
         isStatic: false,
         functionType: FunctionType.UTILITY,
-        isOnlySelf: false,
+        isInternal: false,
         parameters: [
           {
             name: 'value',
@@ -143,7 +142,7 @@ describe('Contract Class', () => {
   });
 
   it('should create and send a contract method tx', async () => {
-    const fooContract = Contract.at(contractAddress, defaultArtifact, wallet);
+    const fooContract = await Contract.at(contractAddress, defaultArtifact, wallet);
     const param0 = 12;
     const param1 = 345n;
     const sentTx = fooContract.methods.bar(param0, param1).send({ from: account.getAddress() });
@@ -156,13 +155,10 @@ describe('Contract Class', () => {
   });
 
   it('should call view on a utility function', async () => {
-    const fooContract = Contract.at(contractAddress, defaultArtifact, wallet);
+    const fooContract = await Contract.at(contractAddress, defaultArtifact, wallet);
     const result = await fooContract.methods.qux(123n).simulate({ from: account.getAddress() });
     expect(wallet.simulateUtility).toHaveBeenCalledTimes(1);
-    expect(wallet.simulateUtility).toHaveBeenCalledWith(
-      expect.objectContaining({ name: 'qux', to: contractAddress }),
-      [],
-    );
-    expect(result).toBe(42n);
+    expect(wallet.simulateUtility).toHaveBeenCalledWith('qux', [123n], contractAddress, []);
+    expect(result).toBe(mockUtilityResultValue.result);
   });
 });

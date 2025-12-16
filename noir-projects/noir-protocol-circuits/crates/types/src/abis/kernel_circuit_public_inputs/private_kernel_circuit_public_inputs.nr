@@ -17,7 +17,6 @@ pub struct PrivateKernelCircuitPublicInputs {
     pub include_by_timestamp: u64,
     pub is_private_only: bool, // What does this mean? Oh, only private functions?
     pub claimed_first_nullifier: Field,
-    pub claimed_revertible_counter: u32,
 }
 impl Eq for PrivateKernelCircuitPublicInputs {
     fn eq(self, other: Self) -> bool {
@@ -30,7 +29,6 @@ impl Eq for PrivateKernelCircuitPublicInputs {
             & (self.include_by_timestamp == other.include_by_timestamp)
             & (self.is_private_only == other.is_private_only)
             & (self.claimed_first_nullifier == other.claimed_first_nullifier)
-            & (self.claimed_revertible_counter == other.claimed_revertible_counter)
     }
 }
 
@@ -46,7 +44,6 @@ impl Empty for PrivateKernelCircuitPublicInputs {
             include_by_timestamp: 0,
             is_private_only: false,
             claimed_first_nullifier: 0,
-            claimed_revertible_counter: 0,
         }
     }
 }

@@ -1,6 +1,7 @@
 #include "./c_bind.hpp"
 #include "./mem.hpp"
 #include "./serialize.hpp"
+#include "./slab_allocator.hpp"
 #include "./timer.hpp"
 #include <algorithm>
 
@@ -79,4 +80,9 @@ WASM_EXPORT void test_stdout_stderr()
     // NOLINTEND(cppcoreguidelines-pro-type-vararg)
     std::cout << "c++: hello stdout!" << std::flush;
     std::cerr << "c++: hello stderr!";
+}
+
+WASM_EXPORT void common_init_slab_allocator(uint32_t const* circuit_size)
+{
+    bb::init_slab_allocator(ntohl(*circuit_size));
 }

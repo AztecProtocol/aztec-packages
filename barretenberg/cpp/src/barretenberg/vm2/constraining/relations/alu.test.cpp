@@ -38,7 +38,6 @@ using tracegen::TestTraceContainer;
 using FF = AvmFlavorSettings::FF;
 using C = Column;
 using alu = bb::avm2::alu<FF>;
-using simulation::RangeCheckEvent;
 using tracegen::AluTraceBuilder;
 using tracegen::ExecutionTraceBuilder;
 using tracegen::FieldGreaterThanTraceBuilder;
@@ -138,7 +137,7 @@ TEST_F(AluConstrainingTest, NegativeAluWrongOpId)
         },
     });
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace, alu::SR_DISPATCH_OPERATION), "DISPATCH_OPERATION");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace, alu::SR_OP_ID_CHECK), "OP_ID_CHECK");
 }
 
 // ADD TESTS
@@ -175,13 +174,6 @@ class AluAddConstrainingTest : public AluConstrainingTest,
                 { C::alu_op_id, AVM_EXEC_OP_ID_ALU_ADD },
                 { C::alu_sel, 1 },
                 { C::alu_sel_op_add, 1 },
-                { C::alu_sel_is_ff, tag == 0 ? 1 : 0 },
-                { C::alu_tag_ff_diff_inv, tag == 0 ? 0 : FF(tag).invert() },
-                { C::alu_sel_is_u128, tag == static_cast<uint8_t>(MemoryTag::U128) ? 1 : 0 },
-                { C::alu_tag_u128_diff_inv,
-                  tag == static_cast<uint8_t>(MemoryTag::U128)
-                      ? 0
-                      : FF(tag - static_cast<uint8_t>(MemoryTag::U128)).invert() },
                 { C::execution_mem_tag_reg_0_, tag },                           // = ia_tag
                 { C::execution_mem_tag_reg_1_, tag },                           // = ib_tag
                 { C::execution_mem_tag_reg_2_, tag },                           // = ic_tag
@@ -205,7 +197,11 @@ class AluAddConstrainingTest : public AluConstrainingTest,
 
         builder.process(
             {
-                { .operation = simulation::AluOperation::ADD, .a = a, .b = b, .c = c, .error = error },
+                { .operation = simulation::AluOperation::ADD,
+                  .a = a,
+                  .b = b,
+                  .c = c,
+                  .error = error ? std::make_optional(simulation::AluError::TAG_ERROR) : std::nullopt },
             },
             trace);
 
@@ -235,13 +231,6 @@ class AluAddConstrainingTest : public AluConstrainingTest,
                 { C::alu_op_id, AVM_EXEC_OP_ID_ALU_ADD },
                 { C::alu_sel, 1 },
                 { C::alu_sel_op_add, 1 },
-                { C::alu_sel_is_ff, tag == 0 ? 1 : 0 },
-                { C::alu_tag_ff_diff_inv, tag == 0 ? 0 : FF(tag).invert() },
-                { C::alu_sel_is_u128, tag == static_cast<uint8_t>(MemoryTag::U128) ? 1 : 0 },
-                { C::alu_tag_u128_diff_inv,
-                  tag == static_cast<uint8_t>(MemoryTag::U128)
-                      ? 0
-                      : FF(tag - static_cast<uint8_t>(MemoryTag::U128)).invert() },
                 { C::execution_mem_tag_reg_0_, tag },                           // = ia_tag
                 { C::execution_mem_tag_reg_1_, tag },                           // = ib_tag
                 { C::execution_mem_tag_reg_2_, tag },                           // = ic_tag
@@ -432,13 +421,6 @@ class AluSubConstrainingTest : public AluConstrainingTest,
                 { C::alu_op_id, AVM_EXEC_OP_ID_ALU_SUB },
                 { C::alu_sel, 1 },
                 { C::alu_sel_op_sub, 1 },
-                { C::alu_sel_is_ff, tag == 0 ? 1 : 0 },
-                { C::alu_tag_ff_diff_inv, tag == 0 ? 0 : FF(tag).invert() },
-                { C::alu_sel_is_u128, tag == static_cast<uint8_t>(MemoryTag::U128) ? 1 : 0 },
-                { C::alu_tag_u128_diff_inv,
-                  tag == static_cast<uint8_t>(MemoryTag::U128)
-                      ? 0
-                      : FF(tag - static_cast<uint8_t>(MemoryTag::U128)).invert() },
                 { C::execution_mem_tag_reg_0_, tag },                           // = ia_tag
                 { C::execution_mem_tag_reg_1_, tag },                           // = ib_tag
                 { C::execution_mem_tag_reg_2_, tag },                           // = ic_tag
@@ -540,11 +522,7 @@ class AluMulConstrainingTest : public AluConstrainingTest,
         auto is_u128 = mem_tag == MemoryTag::U128;
 
         auto c_int = static_cast<uint256_t>(a.as_ff()) * static_cast<uint256_t>(b.as_ff());
-
-        uint256_t c_hi = 0;
-        if (mem_tag != MemoryTag::FF && mem_tag != MemoryTag::U128) {
-            c_hi = c_int >> static_cast<uint256_t>(get_tag_bits(mem_tag));
-        }
+        auto c_hi = mem_tag == MemoryTag::FF ? 0 : c_int >> get_tag_bits(mem_tag);
 
         auto trace = TestTraceContainer({
             {
@@ -561,12 +539,10 @@ class AluMulConstrainingTest : public AluConstrainingTest,
                 { C::alu_op_id, AVM_EXEC_OP_ID_ALU_MUL },
                 { C::alu_sel, 1 },
                 { C::alu_sel_decompose_a, is_u128 ? 1 : 0 },
-                { C::alu_sel_is_ff, mem_tag == MemoryTag::FF ? 1 : 0 },
-                { C::alu_tag_ff_diff_inv, tag == 0 ? 0 : FF(tag).invert() },
                 { C::alu_sel_is_u128, is_u128 ? 1 : 0 },
                 { C::alu_sel_mul_div_u128, is_u128 ? 1 : 0 },
+                { C::alu_sel_mul_u128, is_u128 ? 1 : 0 },
                 { C::alu_sel_op_mul, 1 },
-                { C::alu_sel_mul_no_err_non_ff, mem_tag == MemoryTag::FF ? 0 : 1 },
                 { C::alu_tag_u128_diff_inv, is_u128 ? 0 : FF(tag - static_cast<uint8_t>(MemoryTag::U128)).invert() },
                 { C::execution_mem_tag_reg_0_, tag },                           // = ia_tag
                 { C::execution_mem_tag_reg_1_, tag },                           // = ib_tag
@@ -582,14 +558,12 @@ class AluMulConstrainingTest : public AluConstrainingTest,
         precomputed_builder.process_misc(trace, NUM_OF_TAGS);
         precomputed_builder.process_tag_parameters(trace);
 
-        std::vector<RangeCheckEvent> range_check_events;
-
         if (is_u128) {
-            auto a_decomp = simulation::decompose_128(a.as<uint128_t>());
-            auto b_decomp = simulation::decompose_128(b.as<uint128_t>());
-            // c_hi = (c_hi_full - a_hi * b_hi) % 2^64
+            auto a_decomp = simulation::decompose(a.as<uint128_t>());
+            auto b_decomp = simulation::decompose(b.as<uint128_t>());
+            // c_hi = old_c_hi - a_hi * b_hi % 2^64
             auto hi_operand = static_cast<uint256_t>(a_decomp.hi) * static_cast<uint256_t>(b_decomp.hi);
-            c_hi = ((c_int >> 128) - hi_operand) % (uint256_t(1) << 64);
+            c_hi = (c_hi - hi_operand) % (uint256_t(1) << 64);
             trace.set(0,
                       { { { Column::alu_a_lo, a_decomp.lo },
                           { Column::alu_a_lo_bits, 64 },
@@ -598,17 +572,15 @@ class AluMulConstrainingTest : public AluConstrainingTest,
                           { Column::alu_b_lo, b_decomp.lo },
                           { Column::alu_b_hi, b_decomp.hi },
                           { Column::alu_c_hi, c_hi },
-                          { Column::alu_cf, hi_operand > (uint256_t(1) << 64) ? 1 : 0 } } });
+                          { Column::alu_cf, hi_operand == 0 ? 0 : 1 } } });
 
-            range_check_events.insert(range_check_events.end(),
-                                      { { .value = a_decomp.lo, .num_bits = 64 },
-                                        { .value = a_decomp.hi, .num_bits = 64 },
-                                        { .value = b_decomp.lo, .num_bits = 64 },
-                                        { .value = b_decomp.hi, .num_bits = 64 } });
+            range_check_builder.process({ { .value = a_decomp.lo, .num_bits = 64 },
+                                          { .value = a_decomp.hi, .num_bits = 64 },
+                                          { .value = b_decomp.lo, .num_bits = 64 },
+                                          { .value = b_decomp.hi, .num_bits = 64 },
+                                          { .value = static_cast<uint128_t>(c_hi), .num_bits = 64 } },
+                                        trace);
         }
-
-        range_check_events.push_back({ .value = static_cast<uint128_t>(c_hi), .num_bits = 64 });
-        range_check_builder.process(range_check_events, trace);
 
         return trace;
     }
@@ -629,12 +601,11 @@ class AluMulConstrainingTest : public AluConstrainingTest,
         uint256_t b_int = static_cast<uint256_t>(b.as_ff());
         auto c_hi = mem_tag == MemoryTag::FF ? 0 : (a_int * b_int) >> get_tag_bits(mem_tag);
         if (mem_tag == MemoryTag::U128) {
-            auto a_decomp = simulation::decompose_128(a.as<uint128_t>());
-            auto b_decomp = simulation::decompose_128(b.as<uint128_t>());
-            // c_hi = (c_hi_full - a_hi * b_hi) % 2^64
-            auto c_hi_full = (a_int * b_int) >> 128;
+            auto a_decomp = simulation::decompose(a.as<uint128_t>());
+            auto b_decomp = simulation::decompose(b.as<uint128_t>());
+            // c_hi = old_c_hi - a_hi * b_hi % 2^64
             auto hi_operand = static_cast<uint256_t>(a_decomp.hi) * static_cast<uint256_t>(b_decomp.hi);
-            c_hi = (c_hi_full - hi_operand) % (uint256_t(1) << 64);
+            c_hi = (c_hi - hi_operand) % (uint256_t(1) << 64);
             range_check_builder.process({ { .value = a_decomp.lo, .num_bits = 64 },
                                           { .value = a_decomp.hi, .num_bits = 64 },
                                           { .value = b_decomp.lo, .num_bits = 64 },
@@ -677,14 +648,12 @@ TEST_F(AluConstrainingTest, AluMulU128Carry)
 
     auto tag = static_cast<uint8_t>(MemoryTag::U128);
 
-    auto a_decomp = simulation::decompose_128(a.as<uint128_t>());
-    auto b_decomp = simulation::decompose_128(b.as<uint128_t>());
+    auto a_decomp = simulation::decompose(a.as<uint128_t>());
+    auto b_decomp = simulation::decompose(b.as<uint128_t>());
 
     // c_hi = old_c_hi - a_hi * b_hi % 2^64
-    uint256_t hi_operand =
-        ((overflow_c_int >> 128) - static_cast<uint256_t>(a_decomp.hi) * static_cast<uint256_t>(b_decomp.hi));
-    auto c_hi = hi_operand % (uint256_t(1) << 64);
-    auto cf = hi_operand >> 64;
+    auto hi_operand = static_cast<uint256_t>(a_decomp.hi) * static_cast<uint256_t>(b_decomp.hi);
+    auto c_hi = ((overflow_c_int >> 128) - hi_operand) % (uint256_t(1) << 64);
     auto trace = TestTraceContainer({
         {
             { C::alu_a_hi, a_decomp.hi },
@@ -694,7 +663,7 @@ TEST_F(AluConstrainingTest, AluMulU128Carry)
             { C::alu_b_hi, b_decomp.hi },
             { C::alu_b_lo, b_decomp.lo },
             { C::alu_c_hi, c_hi },
-            { C::alu_cf, cf },
+            { C::alu_cf, 1 }, // a * b overflows
             { C::alu_constant_64, 64 },
             { C::alu_ia, a },
             { C::alu_ia_tag, tag },
@@ -709,10 +678,9 @@ TEST_F(AluConstrainingTest, AluMulU128Carry)
             { C::alu_sel_decompose_a, 1 },
             { C::alu_sel_is_u128, 1 },
             { C::alu_sel_mul_div_u128, 1 },
+            { C::alu_sel_mul_u128, 1 },
             { C::alu_sel_op_mul, 1 },
-            { C::alu_sel_mul_no_err_non_ff, 1 },
             { C::alu_tag_u128_diff_inv, 0 },
-            { C::alu_tag_ff_diff_inv, FF(tag).invert() },
             { C::execution_mem_tag_reg_0_, tag },                           // = ia_tag
             { C::execution_mem_tag_reg_1_, tag },                           // = ib_tag
             { C::execution_mem_tag_reg_2_, tag },                           // = ic_tag
@@ -796,11 +764,7 @@ class AluDivConstrainingTest : public AluConstrainingTest,
                 { C::alu_sel, 1 },
                 { C::alu_sel_decompose_a, is_u128 ? 1 : 0 },
                 { C::alu_sel_div_0_err, div_0_error ? 1 : 0 },
-                { C::alu_sel_div_no_err, div_0_error ? 0 : 1 },
-                { C::alu_sel_int_gt, div_0_error ? 0 : 1 },
-                { C::alu_gt_input_a, b.as_ff() },
-                { C::alu_gt_input_b, div_0_error ? 0 : remainder.as_ff() },
-                { C::alu_gt_result_c, div_0_error ? 0 : 1 },
+                { C::alu_sel_div_no_0_err, div_0_error ? 0 : 1 },
                 { C::alu_sel_err, div_0_error ? 1 : 0 },
                 { C::alu_sel_is_u128, is_u128 ? 1 : 0 },
                 { C::alu_sel_mul_div_u128, is_u128 ? 1 : 0 },
@@ -827,8 +791,8 @@ class AluDivConstrainingTest : public AluConstrainingTest,
                            trace);
 
         if (is_u128) {
-            auto c_decomp = simulation::decompose_128(c.as<uint128_t>());
-            auto b_decomp = simulation::decompose_128(b.as<uint128_t>());
+            auto c_decomp = simulation::decompose(c.as<uint128_t>());
+            auto b_decomp = simulation::decompose(b.as<uint128_t>());
 
             trace.set(0,
                       { { { Column::alu_a_lo, c_decomp.lo },
@@ -854,21 +818,21 @@ class AluDivConstrainingTest : public AluConstrainingTest,
         auto [a, b, c] = params;
         bool div_0_error = b.as_ff() == FF(0);
         auto mem_tag = a.get_tag();
-
-        MemoryValue remainder = MemoryValue::from_tag(MemoryTag::FF, 0);
-        if (!div_0_error && mem_tag == b.get_tag() && mem_tag != MemoryTag::FF) {
-            remainder = a - b * c;
-        }
+        auto remainder = a - b * c;
 
         builder.process(
             {
-                { .operation = simulation::AluOperation::DIV, .a = a, .b = b, .c = c, .error = div_0_error },
+                { .operation = simulation::AluOperation::DIV,
+                  .a = a,
+                  .b = b,
+                  .c = c,
+                  .error = div_0_error ? std::make_optional(simulation::AluError::DIV_0_ERROR) : std::nullopt },
             },
             trace);
 
         if (mem_tag == MemoryTag::U128) {
-            auto c_decomp = simulation::decompose_128(static_cast<uint128_t>(c.as_ff()));
-            auto b_decomp = simulation::decompose_128(static_cast<uint128_t>(b.as_ff()));
+            auto c_decomp = simulation::decompose(c.as<uint128_t>());
+            auto b_decomp = simulation::decompose(b.as<uint128_t>());
 
             range_check_builder.process({ { .value = c_decomp.lo, .num_bits = 64 },
                                           { .value = c_decomp.hi, .num_bits = 64 },
@@ -904,28 +868,6 @@ TEST_P(AluDivConstrainingTest, AluDivTraceGen)
     check_relation<alu>(trace);
 }
 
-TEST_F(AluDivConstrainingTest, AluDivByZeroMismatchTagsTraceGen)
-{
-    auto a = MemoryValue::from_tag(MemoryTag::U128, 2);
-    auto b = MemoryValue::from_tag(MemoryTag::U64, 0);
-    auto c = MemoryValue::from_tag(MemoryTag::FF, 0);
-
-    auto trace = process_div_with_tracegen({ a, b, c });
-    check_relation<alu>(trace);
-    check_all_interactions<AluTraceBuilder>(trace);
-}
-
-TEST_F(AluDivConstrainingTest, AluDivByZeroTagFFAndMismatchTagsTraceGen)
-{
-    auto a = MemoryValue::from_tag(MemoryTag::FF, 2);
-    auto b = MemoryValue::from_tag(MemoryTag::U32, 0);
-    auto c = MemoryValue::from_tag(MemoryTag::FF, 0);
-
-    auto trace = process_div_with_tracegen({ a, b, c });
-    check_relation<alu>(trace);
-    check_all_interactions<AluTraceBuilder>(trace);
-}
-
 TEST_F(AluDivConstrainingTest, NegativeAluDivUnderflow)
 {
     // Test that for a < b, the circuit does not accept c != 0
@@ -945,12 +887,11 @@ TEST_F(AluDivConstrainingTest, NegativeAluDivUnderflow)
 
     trace.set(Column::alu_ic, 0, c);
     trace.set(Column::alu_helper1, 0, wrong_remainder);
-    trace.set(Column::alu_gt_input_b, 0, wrong_remainder);
 
     // All relations will pass...
     check_relation<alu>(trace);
     // ... but now r > b, so the gt lookup will fail:
-    EXPECT_THROW_WITH_MESSAGE(check_all_interactions<AluTraceBuilder>(trace), "LOOKUP_ALU_INT_GT");
+    EXPECT_THROW_WITH_MESSAGE(check_all_interactions<AluTraceBuilder>(trace), "LOOKUP_ALU_GT_DIV_REMAINDER");
 }
 
 TEST_F(AluDivConstrainingTest, NegativeAluDivU128Carry)
@@ -979,7 +920,7 @@ TEST_F(AluDivConstrainingTest, NegativeAluDivU128Carry)
     // ...but we haven't provided a correct decomposition of the new bad c:
     EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "DECOMPOSITION");
 
-    auto c_decomp = simulation::decompose_128(c.as<uint128_t>());
+    auto c_decomp = simulation::decompose(c.as<uint128_t>());
     trace.set(Column::alu_a_lo, 0, c_decomp.lo);
     trace.set(Column::alu_a_hi, 0, c_decomp.hi);
 
@@ -1006,14 +947,10 @@ TEST_F(AluDivConstrainingTest, NegativeAluDivByZero)
         EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "DIV_0_ERR");
         // We need to set the div_0_err and...
         trace.set(Column::alu_sel_div_0_err, 0, 1);
-        trace.set(Column::alu_sel_div_no_err, 0, 0);
+        trace.set(Column::alu_sel_div_no_0_err, 0, 0);
         EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "ERR_CHECK");
         // ...the overall sel_err:
         trace.set(Column::alu_sel_err, 0, 1);
-        trace.set(Column::alu_sel_int_gt, 0, 0);
-        trace.set(Column::alu_gt_input_a, 0, 0);
-        trace.set(Column::alu_gt_input_b, 0, 0);
-        trace.set(Column::alu_gt_result_c, 0, 0);
         check_relation<alu>(trace);
 
         // If we try and have div_0_err on without doing a div, the below should fail:
@@ -1044,11 +981,6 @@ TEST_F(AluDivConstrainingTest, NegativeAluDivFF)
     // This case should be recoverable, so we set the tag err selectors:
     trace.set(Column::alu_sel_tag_err, 0, 1);
     trace.set(Column::alu_sel_err, 0, 1);
-    trace.set(Column::alu_sel_div_no_err, 0, 0);
-    trace.set(Column::alu_sel_int_gt, 0, 0);
-    trace.set(Column::alu_gt_input_a, 0, 0);
-    trace.set(Column::alu_gt_input_b, 0, 0);
-    trace.set(Column::alu_gt_result_c, 0, 0);
     check_relation<alu>(trace);
     check_all_interactions<AluTraceBuilder>(trace);
     check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_alu_settings>(trace);
@@ -1063,17 +995,13 @@ TEST_F(AluDivConstrainingTest, NegativeAluDivByZeroFF)
     auto trace = process_div_with_tracegen({ a, b, c });
     trace.set(Column::alu_sel_tag_err, 0, 1);
     trace.set(Column::alu_sel_err, 0, 1);
-    trace.set(Column::alu_sel_div_no_err, 0, 0);
-    trace.set(Column::alu_sel_int_gt, 0, 0);
-    trace.set(Column::alu_gt_input_a, 0, 0);
-    trace.set(Column::alu_gt_input_b, 0, 0);
-    trace.set(Column::alu_gt_result_c, 0, 0);
     check_relation<alu>(trace);
     // Set b, b_inv to 0 with dividing by 0 errors:
     trace.set(Column::alu_ib, 0, 0);
     trace.set(Column::alu_b_inv, 0, 0);
     EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "DIV_0_ERR");
     trace.set(Column::alu_sel_div_0_err, 0, 1);
+    trace.set(Column::alu_sel_div_no_0_err, 0, 0);
     check_relation<alu>(trace);
     check_all_interactions<AluTraceBuilder>(trace);
     check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_alu_settings>(trace);
@@ -1088,11 +1016,6 @@ TEST_F(AluDivConstrainingTest, NegativeAluDivByZeroFFTagMismatch)
     auto trace = process_div_with_tracegen({ a, b, c });
     trace.set(Column::alu_sel_tag_err, 0, 1);
     trace.set(Column::alu_sel_err, 0, 1);
-    trace.set(Column::alu_sel_div_no_err, 0, 0);
-    trace.set(Column::alu_sel_int_gt, 0, 0);
-    trace.set(Column::alu_gt_input_a, 0, 0);
-    trace.set(Column::alu_gt_input_b, 0, 0);
-    trace.set(Column::alu_gt_result_c, 0, 0);
     check_relation<alu>(trace);
     // Setting b to u8 also creates a tag mismatch:
     trace.set(Column::alu_ib_tag, 0, static_cast<uint8_t>(MemoryTag::U8));
@@ -1107,7 +1030,7 @@ TEST_F(AluDivConstrainingTest, NegativeAluDivByZeroFFTagMismatch)
     trace.set(Column::alu_b_inv, 0, 0);
     EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "DIV_0_ERR");
     trace.set(Column::alu_sel_div_0_err, 0, 1);
-    trace.set(Column::alu_sel_div_no_err, 0, 0);
+    trace.set(Column::alu_sel_div_no_0_err, 0, 0);
     check_relation<alu>(trace);
     check_all_interactions<AluTraceBuilder>(trace);
     check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_alu_settings>(trace);
@@ -1160,7 +1083,6 @@ class AluFDivConstrainingTest : public AluConstrainingTest,
                 { C::alu_sel_err, div_0_error ? 1 : 0 },
                 { C::alu_sel_is_ff, 1 },
                 { C::alu_sel_op_fdiv, 1 },
-                { C::alu_tag_u128_diff_inv, FF(-static_cast<uint8_t>(MemoryTag::U128)).invert() },
                 { C::execution_mem_tag_reg_0_, tag },                            // = ia_tag
                 { C::execution_mem_tag_reg_1_, tag },                            // = ib_tag
                 { C::execution_mem_tag_reg_2_, tag },                            // = ic_tag
@@ -1179,22 +1101,22 @@ class AluFDivConstrainingTest : public AluConstrainingTest,
         return trace;
     }
 
-    TestTraceContainer process_fdiv_with_tracegen(ThreeOperandTestParams params, bool upcast_to_ff = false)
+    TestTraceContainer process_fdiv_with_tracegen(ThreeOperandTestParams params)
     {
         TestTraceContainer trace;
         auto [a, b, c] = params;
-
-        if (upcast_to_ff) {
-            a = MemoryValue::from_tag(MemoryTag::FF, a);
-            b = MemoryValue::from_tag(MemoryTag::FF, b);
-            c = MemoryValue::from_tag(MemoryTag::FF, c);
-        }
-
+        a = MemoryValue::from_tag(MemoryTag::FF, a);
+        b = MemoryValue::from_tag(MemoryTag::FF, b);
+        c = MemoryValue::from_tag(MemoryTag::FF, c);
         bool div_0_error = b.as_ff() == FF(0);
 
         builder.process(
             {
-                { .operation = simulation::AluOperation::FDIV, .a = a, .b = b, .c = c, .error = div_0_error },
+                { .operation = simulation::AluOperation::FDIV,
+                  .a = a,
+                  .b = b,
+                  .c = c,
+                  .error = div_0_error ? std::make_optional(simulation::AluError::DIV_0_ERROR) : std::nullopt },
             },
             trace);
 
@@ -1217,33 +1139,10 @@ TEST_P(AluFDivConstrainingTest, AluFDiv)
 
 TEST_P(AluFDivConstrainingTest, AluFDivTraceGen)
 {
-    auto trace = process_fdiv_with_tracegen(GetParam(), true);
-    // InteractiveDebugger debugger(trace);
-    // debugger.run();
+    auto trace = process_fdiv_with_tracegen(GetParam());
     check_all_interactions<AluTraceBuilder>(trace);
     check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_alu_settings>(trace);
     check_relation<alu>(trace);
-}
-
-TEST_F(AluFDivConstrainingTest, AluFDivByZeroNonFFTagTraceGen)
-{
-    auto a = MemoryValue::from_tag(MemoryTag::U8, 2);
-    auto b = MemoryValue::from_tag(MemoryTag::U8, 0);
-    auto c = MemoryValue::from_tag(MemoryTag::FF, 0);
-
-    auto trace = process_fdiv_with_tracegen({ a, b, c });
-    check_relation<alu>(trace);
-    check_all_interactions<AluTraceBuilder>(trace);
-}
-
-TEST_F(AluFDivConstrainingTest, AluFDivByZeroNonFFTagMismatchTraceGen)
-{
-    auto a = MemoryValue::from_tag(MemoryTag::U8, 2);
-    auto b = MemoryValue::from_tag(MemoryTag::U16, 0);
-    auto c = MemoryValue::from_tag(MemoryTag::FF, 0);
-    auto trace = process_fdiv_with_tracegen({ a, b, c });
-    check_relation<alu>(trace);
-    check_all_interactions<AluTraceBuilder>(trace);
 }
 
 TEST_F(AluFDivConstrainingTest, NegativeAluFDivByZero)
@@ -1297,10 +1196,6 @@ TEST_F(AluFDivConstrainingTest, NegativeAluFDivByZeroNonFFTagMismatch)
             { C::alu_op_id, AVM_EXEC_OP_ID_ALU_FDIV },
             { C::alu_sel, 1 },
             { C::alu_sel_op_fdiv, 1 },
-            { C::alu_sel_tag_err, 1 },
-            { C::alu_sel_err, 1 },
-            { C::alu_tag_ff_diff_inv, (FF(tag) - FF(static_cast<uint8_t>(MemoryTag::FF))).invert() },
-            { C::alu_tag_u128_diff_inv, (FF(tag) - FF(static_cast<uint8_t>(MemoryTag::U128))).invert() },
             { C::execution_mem_tag_reg_0_, tag },                                 // = ia_tag
             { C::execution_mem_tag_reg_1_, tag },                                 // = ib_tag
             { C::execution_mem_tag_reg_2_, static_cast<uint8_t>(MemoryTag::FF) }, // = ic_tag
@@ -1309,33 +1204,22 @@ TEST_F(AluFDivConstrainingTest, NegativeAluFDivByZeroNonFFTagMismatch)
             { C::execution_register_2_, c },                                      // = ic
             { C::execution_sel_exec_dispatch_alu, 1 },                            // = sel
             { C::execution_subtrace_operation_id, AVM_EXEC_OP_ID_ALU_FDIV },      // = alu_op_id
-            { C::execution_sel_opcode_error, 1 },                                 // = sel_err
         },
     });
 
-    // Every column is set up correctly. All checks should pass:
     precomputed_builder.process_misc(trace, NUM_OF_TAGS);
     precomputed_builder.process_tag_parameters(trace);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "TAG_IS_FF");
+    // We check sel_is_ff for FDIV so must correctly set the tag diff inverse:
+    trace.set(Column::alu_tag_ff_diff_inv, 0, FF(FF(tag) - FF(static_cast<uint8_t>(MemoryTag::FF))).invert());
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "TAG_ERR_CHECK");
+    // This case should be recoverable, so we set the tag err selectors:
+    trace.set(Column::alu_sel_tag_err, 0, 1);
+    trace.set(Column::alu_sel_err, 0, 1);
+    trace.set(Column::execution_sel_opcode_error, 0, 1);
     check_relation<alu>(trace);
     check_all_interactions<AluTraceBuilder>(trace);
     check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_alu_settings>(trace);
-
-    // We un-toggle sel_tag_err and sel_err and expect the following failure:
-    trace.set(Column::alu_sel_tag_err, 0, 0);
-    trace.set(Column::alu_sel_err, 0, 0);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "TAG_ERR_CHECK");
-
-    // We try to cheat by setting the tag diff inverse to 0 and claiming a is FF, but expect the following failure:
-    trace.set(Column::alu_tag_ff_diff_inv, 0, 0);
-    trace.set(Column::alu_sel_is_ff, 0, 1);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "TAG_IS_FF");
-
-    // Reset to the correct values:
-    trace.set(Column::alu_tag_ff_diff_inv, 0, (FF(tag) - FF(static_cast<uint8_t>(MemoryTag::FF))).invert());
-    trace.set(Column::alu_sel_is_ff, 0, 0);
-    trace.set(Column::alu_sel_tag_err, 0, 1);
-    trace.set(Column::alu_sel_err, 0, 1);
-    check_relation<alu>(trace);
 
     // For FDIV, we can have both FF and dividing by zero errors:
     trace.set(Column::alu_ib, 0, 0);
@@ -1457,23 +1341,19 @@ class AluLTConstrainingTest : public AluConstrainingTest, public ::testing::With
                 { C::alu_ib_tag, tag },
                 { C::alu_ic, c },
                 { C::alu_ic_tag, static_cast<uint8_t>(MemoryTag::U1) },
-                { C::alu_gt_input_a, b },
-                { C::alu_gt_input_b, a },
-                { C::alu_gt_result_c, c },
+                { C::alu_lt_ops_input_a, b },
+                { C::alu_lt_ops_input_b, a },
+                { C::alu_lt_ops_result_c, c },
                 { C::alu_max_bits, get_tag_bits(mem_tag) },
                 { C::alu_max_value, get_tag_max_value(mem_tag) },
                 { C::alu_op_id, AVM_EXEC_OP_ID_ALU_LT },
                 { C::alu_sel, 1 },
-                { C::alu_sel_ff_gt, static_cast<uint8_t>(is_ff) },
-                { C::alu_sel_int_gt, static_cast<uint8_t>(!is_ff) },
+                { C::alu_sel_ff_lt_ops, static_cast<uint8_t>(is_ff) },
+                { C::alu_sel_int_lt_ops, static_cast<uint8_t>(!is_ff) },
                 { C::alu_sel_is_ff, static_cast<uint8_t>(is_ff) },
+                { C::alu_sel_lt_ops, 1 },
                 { C::alu_sel_op_lt, 1 },
                 { C::alu_tag_ff_diff_inv, is_ff ? 0 : FF(tag - static_cast<uint8_t>(MemoryTag::FF)).invert() },
-                { C::alu_sel_is_u128, tag == static_cast<uint8_t>(MemoryTag::U128) ? 1 : 0 },
-                { C::alu_tag_u128_diff_inv,
-                  tag == static_cast<uint8_t>(MemoryTag::U128)
-                      ? 0
-                      : FF(tag - static_cast<uint8_t>(MemoryTag::U128)).invert() },
                 { C::execution_mem_tag_reg_0_, tag },                                 // = ia_tag
                 { C::execution_mem_tag_reg_1_, tag },                                 // = ib_tag
                 { C::execution_mem_tag_reg_2_, static_cast<uint8_t>(MemoryTag::U1) }, // = ic_tag
@@ -1554,8 +1434,8 @@ TEST_P(AluLTConstrainingTest, NegativeAluLT)
     bool c = trace.get(Column::alu_ic, 0) == 1;
     // Swap the result bool:
     trace.set(Column::alu_ic, 0, static_cast<uint8_t>(!c));
-    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "GT_ASSIGN_RESULT_C");
-    trace.set(Column::alu_gt_result_c, 0, static_cast<uint8_t>(!c));
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "LTE_NEGATE_RESULT_C");
+    trace.set(Column::alu_lt_ops_result_c, 0, static_cast<uint8_t>(!c));
 
     if (is_ff) {
         EXPECT_THROW_WITH_MESSAGE((check_interaction<AluTraceBuilder, lookup_alu_ff_gt_settings>(trace)),
@@ -1590,23 +1470,19 @@ class AluLTEConstrainingTest : public AluConstrainingTest,
                 { C::alu_ib_tag, tag },
                 { C::alu_ic, c },
                 { C::alu_ic_tag, static_cast<uint8_t>(MemoryTag::U1) },
-                { C::alu_gt_input_a, a },
-                { C::alu_gt_input_b, b },
-                { C::alu_gt_result_c, c.as_ff() == 0 ? 1 : 0 },
+                { C::alu_lt_ops_input_a, a },
+                { C::alu_lt_ops_input_b, b },
+                { C::alu_lt_ops_result_c, c.as_ff() == 0 ? 1 : 0 },
                 { C::alu_max_bits, get_tag_bits(mem_tag) },
                 { C::alu_max_value, get_tag_max_value(mem_tag) },
                 { C::alu_op_id, AVM_EXEC_OP_ID_ALU_LTE },
                 { C::alu_sel, 1 },
-                { C::alu_sel_ff_gt, static_cast<uint8_t>(is_ff) },
-                { C::alu_sel_int_gt, static_cast<uint8_t>(!is_ff) },
+                { C::alu_sel_ff_lt_ops, static_cast<uint8_t>(is_ff) },
+                { C::alu_sel_int_lt_ops, static_cast<uint8_t>(!is_ff) },
                 { C::alu_sel_is_ff, static_cast<uint8_t>(is_ff) },
+                { C::alu_sel_lt_ops, 1 },
                 { C::alu_sel_op_lte, 1 },
                 { C::alu_tag_ff_diff_inv, is_ff ? 0 : FF(tag - static_cast<uint8_t>(MemoryTag::FF)).invert() },
-                { C::alu_sel_is_u128, tag == static_cast<uint8_t>(MemoryTag::U128) ? 1 : 0 },
-                { C::alu_tag_u128_diff_inv,
-                  tag == static_cast<uint8_t>(MemoryTag::U128)
-                      ? 0
-                      : FF(tag - static_cast<uint8_t>(MemoryTag::U128)).invert() },
                 { C::execution_mem_tag_reg_0_, tag },                                 // = ia_tag
                 { C::execution_mem_tag_reg_1_, tag },                                 // = ib_tag
                 { C::execution_mem_tag_reg_2_, static_cast<uint8_t>(MemoryTag::U1) }, // = ic_tag
@@ -1706,8 +1582,8 @@ TEST_P(AluLTEConstrainingTest, NegativeAluLTEResult)
         bool c = trace.get(Column::alu_ic, 0) == 1;
         // Swap the result bool:
         trace.set(Column::alu_ic, 0, static_cast<uint8_t>(!c));
-        EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "GT_ASSIGN_RESULT_C");
-        trace.set(Column::alu_gt_result_c, 0, static_cast<uint8_t>(c));
+        EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "LTE_NEGATE_RESULT_C");
+        trace.set(Column::alu_lt_ops_result_c, 0, static_cast<uint8_t>(c));
 
         if (is_ff) {
             EXPECT_THROW_WITH_MESSAGE((check_interaction<AluTraceBuilder, lookup_alu_ff_gt_settings>(trace)),
@@ -1733,7 +1609,7 @@ TEST_P(AluLTEConstrainingTest, NegativeAluLTEInput)
         auto a = trace.get(Column::alu_ia, 0);
         auto wrong_b = c ? a - 1 : a + 1;
         trace.set(Column::alu_ib, 0, wrong_b);
-        trace.set(Column::alu_gt_input_b, 0, wrong_b);
+        trace.set(Column::alu_lt_ops_input_b, 0, wrong_b);
         // We rely on lookups, so we expect the relations to still pass...
         check_relation<alu>(trace);
 
@@ -1773,7 +1649,10 @@ class AluNotConstrainingTest : public AluConstrainingTest, public ::testing::Wit
 
         builder.process(
             {
-                { .operation = simulation::AluOperation::NOT, .a = a, .b = b, .error = error || is_ff },
+                { .operation = simulation::AluOperation::NOT,
+                  .a = a,
+                  .b = b,
+                  .error = error || is_ff ? std::make_optional(simulation::AluError::TAG_ERROR) : std::nullopt },
             },
             trace);
 
@@ -1807,23 +1686,11 @@ TEST_P(AluNotConstrainingTest, NegativeAluNotTraceGen)
     }
 }
 
-// Unconditional check for AB_TAGS_CHECK error for NOT opcode. This cannot satsify the constraints.
 TEST_P(AluNotConstrainingTest, AluNotTraceGenTagError)
 {
     auto [a, b] = GetParam();
     auto trace = process_not_with_tracegen(
         TwoOperandTestParams{ a, MemoryValue::from_tag(TAG_ERROR_TEST_VALUES.at(b.get_tag()), b.as_ff()) }, true);
-    check_all_interactions<AluTraceBuilder>(trace);
-    check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_alu_settings>(trace);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "ONLY_RELEVANT_CHECK_AB_TAGS_ERROR");
-}
-
-// Supported TAG error when a is of FF type.
-TEST_F(AluNotConstrainingTest, AluNotTraceGenTagErrorFF)
-{
-    auto a = MemoryValue::from_tag(MemoryTag::FF, 2);
-    auto b = MemoryValue::from_tag(MemoryTag::FF, 253);
-    auto trace = process_not_with_tracegen(TwoOperandTestParams{ a, b }, true);
     check_all_interactions<AluTraceBuilder>(trace);
     check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_alu_settings>(trace);
     check_relation<alu>(trace);
@@ -1881,14 +1748,10 @@ class AluShlConstrainingTest : public AluConstrainingTest,
                 { C::alu_sel, 1 },
                 { C::alu_sel_decompose_a, 1 },
                 { C::alu_sel_op_shl, 1 },
+                { C::alu_sel_shift_ops, 1 },
                 { C::alu_sel_shift_ops_no_overflow, overflow ? 0 : 1 },
                 { C::alu_shift_lo_bits, shift_lo_bits },
                 { C::alu_tag_ff_diff_inv, FF(tag - static_cast<uint8_t>(MemoryTag::FF)).invert() },
-                { C::alu_sel_is_u128, tag == static_cast<uint8_t>(MemoryTag::U128) ? 1 : 0 },
-                { C::alu_tag_u128_diff_inv,
-                  tag == static_cast<uint8_t>(MemoryTag::U128)
-                      ? 0
-                      : FF(tag - static_cast<uint8_t>(MemoryTag::U128)).invert() },
                 { C::alu_two_pow_shift_lo_bits, two_pow_shift_lo_bits },
                 { C::execution_mem_tag_reg_0_, tag },                           // = ia_tag
                 { C::execution_mem_tag_reg_1_, tag },                           // = ib_tag
@@ -1912,7 +1775,7 @@ class AluShlConstrainingTest : public AluConstrainingTest,
         return trace;
     }
 
-    TestTraceContainer process_shl_with_tracegen(ThreeOperandTestParams params, bool error = false)
+    TestTraceContainer process_shl_with_tracegen(ThreeOperandTestParams params)
     {
         TestTraceContainer trace;
         auto [a, b, c] = params;
@@ -1925,7 +1788,7 @@ class AluShlConstrainingTest : public AluConstrainingTest,
 
         builder.process(
             {
-                { .operation = simulation::AluOperation::SHL, .a = a, .b = b, .c = c, .error = error },
+                { .operation = simulation::AluOperation::SHL, .a = a, .b = b, .c = c },
             },
             trace);
 
@@ -1963,19 +1826,19 @@ TEST_F(AluShlConstrainingTest, NegativeAluShlFF)
     auto a = MemoryValue::from_tag(MemoryTag::FF, 2);
     auto b = MemoryValue::from_tag(MemoryTag::FF, 5);
     auto c = MemoryValue::from_tag(MemoryTag::FF, 2 << 5);
-    auto trace = process_shl_with_tracegen({ a, b, c }, true);
+    auto trace = process_shl_with_tracegen({ a, b, c });
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "TAG_ERR_CHECK");
+    // This case should be recoverable, so we set the tag err selectors:
+    trace.set(Column::alu_sel_tag_err, 0, 1);
+    trace.set(Column::alu_sel_err, 0, 1);
     check_relation<alu>(trace);
     check_all_interactions<AluTraceBuilder>(trace);
-
+    check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_alu_settings>(trace);
     // Check the edge case of FF tag (=> max_bits = 0) and b = 0:
     trace.set(Column::alu_ib, 0, 0);
     check_relation<alu>(trace);
     check_all_interactions<AluTraceBuilder>(trace);
-
-    // Disable tag and error selectors:
-    trace.set(Column::alu_sel_tag_err, 0, 0);
-    trace.set(Column::alu_sel_err, 0, 0);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "TAG_ERR_CHECK");
+    check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_alu_settings>(trace);
 }
 
 TEST_F(AluShlConstrainingTest, NegativeAluShlTagMismatchOverflow)
@@ -1983,27 +1846,19 @@ TEST_F(AluShlConstrainingTest, NegativeAluShlTagMismatchOverflow)
     auto a = MemoryValue::from_tag(MemoryTag::U8, 2);
     auto b = MemoryValue::from_tag(MemoryTag::U32, 256);
     auto c = MemoryValue::from_tag(MemoryTag::U8, 0);
-    auto trace = process_shl_with_tracegen({ a, b, c }, true);
-    check_relation<alu>(trace);
-    check_all_interactions<AluTraceBuilder>(trace);
-
-    // Disable tag and error selectors:
-    trace.set(Column::alu_sel_tag_err, 0, 0);
-    trace.set(Column::alu_sel_err, 0, 0);
-    // Disable ab tag mismatch error:
-    trace.set(Column::alu_sel_ab_tag_mismatch, 0, 0);
+    auto trace = process_shl_with_tracegen({ a, b, c });
     EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "AB_TAGS_CHECK");
-
-    // Second attempt with setting the ab tags diff inverse to zero:
-    trace.set(Column::alu_ab_tags_diff_inv, 0, 0);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "AB_TAGS_CHECK");
-
-    // Reset only ab tag diff related columns:
+    trace.set(Column::alu_sel_ab_tag_mismatch, 0, 1);
     trace.set(Column::alu_ab_tags_diff_inv,
               0,
               (FF(static_cast<uint8_t>(MemoryTag::U8)) - FF(static_cast<uint8_t>(MemoryTag::U32))).invert());
-    trace.set(Column::alu_sel_ab_tag_mismatch, 0, 1);
     EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "TAG_ERR_CHECK");
+    // This case should be recoverable, so we set the tag err selectors:
+    trace.set(Column::alu_sel_tag_err, 0, 1);
+    trace.set(Column::alu_sel_err, 0, 1);
+    check_relation<alu>(trace);
+    check_all_interactions<AluTraceBuilder>(trace);
+    check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_alu_settings>(trace);
 }
 
 // SHR TESTS
@@ -2058,14 +1913,10 @@ class AluShrConstrainingTest : public AluConstrainingTest,
                 { C::alu_sel, 1 },
                 { C::alu_sel_decompose_a, 1 },
                 { C::alu_sel_op_shr, 1 },
+                { C::alu_sel_shift_ops, 1 },
                 { C::alu_sel_shift_ops_no_overflow, overflow ? 0 : 1 },
                 { C::alu_shift_lo_bits, shift_lo_bits },
                 { C::alu_tag_ff_diff_inv, FF(tag - static_cast<uint8_t>(MemoryTag::FF)).invert() },
-                { C::alu_sel_is_u128, tag == static_cast<uint8_t>(MemoryTag::U128) ? 1 : 0 },
-                { C::alu_tag_u128_diff_inv,
-                  tag == static_cast<uint8_t>(MemoryTag::U128)
-                      ? 0
-                      : FF(tag - static_cast<uint8_t>(MemoryTag::U128)).invert() },
                 { C::alu_two_pow_shift_lo_bits, two_pow_shift_lo_bits },
                 { C::execution_mem_tag_reg_0_, tag },                           // = ia_tag
                 { C::execution_mem_tag_reg_1_, tag },                           // = ib_tag
@@ -2089,7 +1940,7 @@ class AluShrConstrainingTest : public AluConstrainingTest,
         return trace;
     }
 
-    TestTraceContainer process_shr_with_tracegen(ThreeOperandTestParams params, bool error = false)
+    TestTraceContainer process_shr_with_tracegen(ThreeOperandTestParams params)
     {
         TestTraceContainer trace;
         auto [a, b, c] = params;
@@ -2102,7 +1953,7 @@ class AluShrConstrainingTest : public AluConstrainingTest,
 
         builder.process(
             {
-                { .operation = simulation::AluOperation::SHR, .a = a, .b = b, .c = c, .error = error },
+                { .operation = simulation::AluOperation::SHR, .a = a, .b = b, .c = c },
             },
             trace);
 
@@ -2140,19 +1991,19 @@ TEST_F(AluShrConstrainingTest, NegativeAluShrFF)
     auto a = MemoryValue::from_tag(MemoryTag::FF, 2);
     auto b = MemoryValue::from_tag(MemoryTag::FF, 5);
     auto c = MemoryValue::from_tag(MemoryTag::FF, 2 << 5);
-    auto trace = process_shr_with_tracegen({ a, b, c }, true);
+    auto trace = process_shr_with_tracegen({ a, b, c });
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "TAG_ERR_CHECK");
+    // This case should be recoverable, so we set the tag err selectors:
+    trace.set(Column::alu_sel_tag_err, 0, 1);
+    trace.set(Column::alu_sel_err, 0, 1);
     check_relation<alu>(trace);
     check_all_interactions<AluTraceBuilder>(trace);
-
+    check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_alu_settings>(trace);
     // Check the edge case of FF tag (=> max_bits = 0) and b = 0:
     trace.set(Column::alu_ib, 0, 0);
     check_relation<alu>(trace);
     check_all_interactions<AluTraceBuilder>(trace);
-
-    // Disable tag and error selectors:
-    trace.set(Column::alu_sel_tag_err, 0, 0);
-    trace.set(Column::alu_sel_err, 0, 0);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "TAG_ERR_CHECK");
+    check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_alu_settings>(trace);
 }
 
 TEST_F(AluShrConstrainingTest, NegativeAluShrTagMismatchOverflow)
@@ -2160,26 +2011,19 @@ TEST_F(AluShrConstrainingTest, NegativeAluShrTagMismatchOverflow)
     auto a = MemoryValue::from_tag(MemoryTag::U16, 2);
     auto b = MemoryValue::from_tag(MemoryTag::U64, 123456);
     auto c = MemoryValue::from_tag(MemoryTag::U16, 0);
-    auto trace = process_shr_with_tracegen({ a, b, c }, true);
-    check_relation<alu>(trace);
-    check_all_interactions<AluTraceBuilder>(trace);
-    // Disable tag and error selectors:
-    trace.set(Column::alu_sel_tag_err, 0, 0);
-    trace.set(Column::alu_sel_err, 0, 0);
-    // Disable ab tag mismatch error:
-    trace.set(Column::alu_sel_ab_tag_mismatch, 0, 0);
+    auto trace = process_shr_with_tracegen({ a, b, c });
     EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "AB_TAGS_CHECK");
-
-    // Second attempt with setting the ab tags diff inverse to zero:
-    trace.set(Column::alu_ab_tags_diff_inv, 0, 0);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "AB_TAGS_CHECK");
-
-    // Reset only ab tag diff related columns:
+    trace.set(Column::alu_sel_ab_tag_mismatch, 0, 1);
     trace.set(Column::alu_ab_tags_diff_inv,
               0,
               (FF(static_cast<uint8_t>(MemoryTag::U16)) - FF(static_cast<uint8_t>(MemoryTag::U64))).invert());
-    trace.set(Column::alu_sel_ab_tag_mismatch, 0, 1);
     EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "TAG_ERR_CHECK");
+    // This case should be recoverable, so we set the tag err selectors:
+    trace.set(Column::alu_sel_tag_err, 0, 1);
+    trace.set(Column::alu_sel_err, 0, 1);
+    check_relation<alu>(trace);
+    check_all_interactions<AluTraceBuilder>(trace);
+    check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_alu_settings>(trace);
 }
 
 // TRUNCATE operation (SET/CAST opcodes)
@@ -2264,7 +2108,7 @@ class AluTruncateConstrainingTest : public AluConstrainingTest,
         auto is_non_trivial = trace.get(Column::alu_sel_trunc_non_trivial, 0) == 1;
 
         if (is_non_trivial) {
-            auto a_decomp = simulation::decompose_256(static_cast<uint256_t>(a.as_ff()));
+            auto a_decomp = simulation::decompose(static_cast<uint256_t>(a.as_ff()));
             auto dst_tag = c.get_tag();
             uint8_t bits = get_tag_bits(dst_tag);
             range_check_builder.process({ { .value = dst_tag == MemoryTag::U128 ? 0 : a_decomp.lo >> bits,
@@ -2272,7 +2116,7 @@ class AluTruncateConstrainingTest : public AluConstrainingTest,
                                         trace);
             auto is_gte_128 = trace.get(Column::alu_sel_trunc_gte_128, 0) == 1;
             if (is_gte_128) {
-                auto p_limbs = simulation::decompose_256(FF::modulus);
+                auto p_limbs = simulation::decompose(FF::modulus);
                 simulation::LimbsComparisonWitness p_sub_a_witness = { .lo = p_limbs.lo - a_decomp.lo,
                                                                        .hi = p_limbs.hi - a_decomp.hi,
                                                                        .borrow = false };

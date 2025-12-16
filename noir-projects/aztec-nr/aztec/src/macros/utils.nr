@@ -33,10 +33,6 @@ pub(crate) comptime fn fn_has_noinitcheck(f: FunctionDefinition) -> bool {
     f.has_named_attribute("noinitcheck")
 }
 
-pub(crate) comptime fn fn_has_nophasecheck(f: FunctionDefinition) -> bool {
-    f.has_named_attribute("nophasecheck")
-}
-
 pub(crate) comptime fn fn_has_authorize_once(f: FunctionDefinition) -> bool {
     f.has_named_attribute("authorize_once")
 }

@@ -14,11 +14,11 @@ struct TxContextEvent {
     AppendOnlyTreeSnapshot retrieved_bytecodes_tree_snapshot;
 
     // Side Effect States
-    uint32_t numUnencryptedLogFields = 0;
-    uint32_t numL2ToL1Messages = 0;
+    uint32_t numUnencryptedLogFields;
+    uint32_t numL2ToL1Messages;
 
     // Execution context
-    uint32_t next_context_id = 0;
+    uint32_t next_context_id;
 };
 
 } // namespace bb::avm2::simulation

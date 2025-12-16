@@ -12,6 +12,7 @@ import type { AztecNode } from '@aztec/aztec.js/node';
 import { UniqueNote } from '@aztec/aztec.js/note';
 import { AccountManager, type Aliased, BaseWallet, type SimulateOptions } from '@aztec/aztec.js/wallet';
 import type { DefaultAccountEntrypointOptions } from '@aztec/entrypoints/account';
+import { ExecutionPayload, mergeExecutionPayloads } from '@aztec/entrypoints/payload';
 import { Fr } from '@aztec/foundation/fields';
 import type { LogFn } from '@aztec/foundation/log';
 import type { PXEConfig } from '@aztec/pxe/config';
@@ -21,7 +22,6 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
 import type { NotesFilter } from '@aztec/stdlib/note';
 import type { TxProvingResult, TxSimulationResult } from '@aztec/stdlib/tx';
-import { ExecutionPayload, mergeExecutionPayloads } from '@aztec/stdlib/tx';
 
 import type { WalletDB } from '../storage/wallet_db.js';
 import { extractECDSAPublicKeyFromBase64String } from './ecdsa.js';
@@ -66,8 +66,7 @@ export class CLIWallet extends BaseWallet {
     txNonce: Fr,
     increasedFee: InteractionFeeOptions,
   ) {
-    const executionPayload = ExecutionPayload.empty();
-    const feeOptions = await this.completeFeeOptions(from, executionPayload.feePayer, increasedFee.gasSettings);
+    const feeOptions = await this.getDefaultFeeOptions(from, increasedFee);
     const feeExecutionPayload = await feeOptions.walletFeePaymentMethod?.getExecutionPayload();
     const fromAccount = await this.getAccountFromAddress(from);
     const executionOptions: DefaultAccountEntrypointOptions = {
@@ -76,7 +75,7 @@ export class CLIWallet extends BaseWallet {
       feePaymentMethodOptions: feeOptions.accountFeePaymentMethodOptions,
     };
     return await fromAccount.createTxExecutionRequest(
-      feeExecutionPayload ?? executionPayload,
+      feeExecutionPayload ?? ExecutionPayload.empty(),
       feeOptions.gasSettings,
       executionOptions,
     );
@@ -201,8 +200,8 @@ export class CLIWallet extends BaseWallet {
   override async simulateTx(executionPayload: ExecutionPayload, opts: SimulateOptions): Promise<TxSimulationResult> {
     let simulationResults;
     const feeOptions = opts.fee?.estimateGas
-      ? await this.completeFeeOptionsForEstimation(opts.from, executionPayload.feePayer, opts.fee?.gasSettings)
-      : await this.completeFeeOptions(opts.from, executionPayload.feePayer, opts.fee?.gasSettings);
+      ? await this.getFeeOptionsForGasEstimation(opts.from, opts.fee)
+      : await this.getDefaultFeeOptions(opts.from, opts.fee);
     const feeExecutionPayload = await feeOptions.walletFeePaymentMethod?.getExecutionPayload();
     const executionOptions: DefaultAccountEntrypointOptions = {
       txNonce: Fr.random(),

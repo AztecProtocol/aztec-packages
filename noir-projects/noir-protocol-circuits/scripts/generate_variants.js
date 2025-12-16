@@ -12,7 +12,7 @@ const dimensionNames = Object.keys(config.dimensions);
 
 const aliases = {
   tiny: [4, 4, 4, 4, 4, 4, 4, 4, 4],
-  full: [64, 64, 64, 64, 64, 64, 64, 64, 64],
+  full: [64, 64, 64, 64, 64, 64, 64, 64, 32],
 };
 
 function getResetTag(dimensions) {

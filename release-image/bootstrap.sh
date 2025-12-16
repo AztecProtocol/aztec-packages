@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
+cmd=${1:-}
+
 hash=$(cache_content_hash ^release-image/Dockerfile ^build-images/src/Dockerfile ^yarn-project/yarn.lock)
 
 function build_image {
@@ -88,10 +90,10 @@ function push {
 }
 
 case "$cmd" in
-  "")
+  ""|"fast"|"full")
     build
     ;;
   *)
-    default_cmd_handler "$@"
+    $cmd "$@"
     ;;
 esac

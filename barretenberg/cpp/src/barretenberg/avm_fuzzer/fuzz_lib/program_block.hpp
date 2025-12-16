@@ -96,18 +96,15 @@ class ProgramBlock {
     /// @brief finalize the block with a jump
     /// NOTE: this method does not actually insert the jump instruction, it only sets the target block and the
     /// terminated flag
-    void finalize_with_jump(ProgramBlock* target_block, bool copy_memory_manager = true);
+    void finalize_with_jump(ProgramBlock* target_block);
 
     /// @brief finalize the block with a jump if
     /// NOTE: this method does not actually insert the jump if instruction, it only sets the target blocks and the
     /// terminated flag
     void finalize_with_jump_if(ProgramBlock* target_then_block,
                                ProgramBlock* target_else_block,
-                               uint16_t condition_offset,
-                               bool copy_memory_manager = true);
+                               uint16_t condition_offset);
 
     std::optional<uint16_t> get_terminating_condition_value();
     std::vector<bb::avm2::simulation::Instruction> get_instructions();
-
-    bool is_memory_address_set(uint16_t address);
 };

@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
+cmd=${1:-}
 export CRS_PATH="../cpp/srs_db"
 
 export hash=$(cache_content_hash \
@@ -111,14 +112,35 @@ function bench {
   fi
 }
 
+
 case "$cmd" in
-  "")
+  "clean")
+    git clean -fdx
+    ;;
+  "ci")
+    build
+    test
+    ;;
+  ""|"fast"|"full")
     build
     ;;
   "hash")
     echo $hash
     ;;
-  *)
-    default_cmd_handler "$@"
+  test|test_cmds)
+    $cmd
     ;;
+  "bench")
+    bench
+    ;;
+  "bench_cmds")
+    bench_cmds
+    ;;
+  "release")
+    # noop
+    exit 0
+    ;;
+  *)
+    echo "Unknown command: $cmd"
+    exit 1
 esac

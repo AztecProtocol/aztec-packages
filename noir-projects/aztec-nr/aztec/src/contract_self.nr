@@ -1,6 +1,9 @@
 use crate::{
     context::{
-        calls::{PrivateCall, PrivateStaticCall, PublicCall, PublicStaticCall},
+        call_interfaces::{
+            PrivateCallInterface, PrivateStaticCallInterface, PublicCallInterface,
+            PublicStaticCallInterface,
+        },
         private_context::PrivateContext,
         public_context::PublicContext,
     },
@@ -262,7 +265,7 @@ impl<Storage, CallSelf, EnqueueSelf, CallSelfStatic, EnqueueSelfStatic, CallInte
     /// * Side effects from the called function are included in this transaction
     /// * The call inherits the current transaction's context and gas limits
     ///
-    pub fn call<let M: u32, T>(&mut self, call: PrivateCall<M, T>) -> T
+    pub fn call<let M: u32, T>(&mut self, call: PrivateCallInterface<M, T>) -> T
     where
         T: Deserialize,
     {
@@ -285,7 +288,7 @@ impl<Storage, CallSelf, EnqueueSelf, CallSelfStatic, EnqueueSelfStatic, CallInte
     /// ```noir
     /// self.view(Token::at(address).balance_of_private(recipient));
     /// ```
-    pub fn view<let M: u32, T>(&mut self, call: PrivateStaticCall<M, T>) -> T
+    pub fn view<let M: u32, T>(&mut self, call: PrivateStaticCallInterface<M, T>) -> T
     where
         T: Deserialize,
     {
@@ -321,9 +324,9 @@ impl<Storage, CallSelf, EnqueueSelf, CallSelfStatic, EnqueueSelfStatic, CallInte
     /// * `call` - The interface representing the public function to enqueue.
     ///
     /// TODO(F-131): We should drop T from here because it is strange as there
-    /// is no return value. The PublicCall type seems to be defined
+    /// is no return value. The PublicCallInterface type seems to be defined
     /// incorrectly.
-    pub fn enqueue<let M: u32, T>(&mut self, call: PublicCall<M, T>)
+    pub fn enqueue<let M: u32, T>(&mut self, call: PublicCallInterface<M, T>)
     where
         T: Deserialize,
     {
@@ -345,9 +348,9 @@ impl<Storage, CallSelf, EnqueueSelf, CallSelfStatic, EnqueueSelfStatic, CallInte
     /// ```
     ///
     /// TODO(F-131): We should drop T from here because it is strange as there
-    /// is no return value. The PublicCall type seems to be defined
+    /// is no return value. The PublicCallInterface type seems to be defined
     /// incorrectly.
-    pub fn enqueue_view<let M: u32, T>(&mut self, call: PublicStaticCall<M, T>)
+    pub fn enqueue_view<let M: u32, T>(&mut self, call: PublicStaticCallInterface<M, T>)
     where
         T: Deserialize,
     {
@@ -398,9 +401,9 @@ impl<Storage, CallSelf, EnqueueSelf, CallSelfStatic, EnqueueSelfStatic, CallInte
     ///   `Option<AztecAddress>::none` for familiarity to devs.
     ///
     /// TODO(F-131): We should drop T from here because it is strange as there
-    /// is no return value. The PublicCall type seems to be defined
+    /// is no return value. The PublicCallInterface type seems to be defined
     /// incorrectly.
-    pub fn enqueue_incognito<let M: u32, T>(&mut self, call: PublicCall<M, T>)
+    pub fn enqueue_incognito<let M: u32, T>(&mut self, call: PublicCallInterface<M, T>)
     where
         T: Deserialize,
     {
@@ -423,9 +426,9 @@ impl<Storage, CallSelf, EnqueueSelf, CallSelfStatic, EnqueueSelfStatic, CallInte
     /// ```
     ///
     /// TODO(F-131): We should drop T from here because it is strange as there
-    /// is no return value. The PublicCall type seems to be defined
+    /// is no return value. The PublicCallInterface type seems to be defined
     /// incorrectly.
-    pub fn enqueue_view_incognito<let M: u32, T>(&mut self, call: PublicStaticCall<M, T>)
+    pub fn enqueue_view_incognito<let M: u32, T>(&mut self, call: PublicStaticCallInterface<M, T>)
     where
         T: Deserialize,
     {
@@ -462,9 +465,9 @@ impl<Storage, CallSelf, EnqueueSelf, CallSelfStatic, EnqueueSelfStatic, CallInte
     /// * `call` - The object representing the public function to designate as teardown.
     ///
     /// TODO(F-131): We should drop T from here because it is strange as there
-    /// is no return value. The PublicCall type seems to be defined
+    /// is no return value. The PublicCallInterface type seems to be defined
     /// incorrectly.
-    pub fn set_as_teardown<let M: u32, T>(&mut self, call: PublicCall<M, T>)
+    pub fn set_as_teardown<let M: u32, T>(&mut self, call: PublicCallInterface<M, T>)
     where
         T: Deserialize,
     {
@@ -481,9 +484,9 @@ impl<Storage, CallSelf, EnqueueSelf, CallSelfStatic, EnqueueSelfStatic, CallInte
     /// See `enqueue_incognito` for more details relating to hiding msg_sender.
     ///
     /// TODO(F-131): We should drop T from here because it is strange as there
-    /// is no return value. The PublicCall type seems to be defined
+    /// is no return value. The PublicCallInterface type seems to be defined
     /// incorrectly.
-    pub fn set_as_teardown_incognito<let M: u32, T>(&mut self, call: PublicCall<M, T>)
+    pub fn set_as_teardown_incognito<let M: u32, T>(&mut self, call: PublicCallInterface<M, T>)
     where
         T: Deserialize,
     {
@@ -584,7 +587,7 @@ impl<Storage, CallSelf, CallSelfStatic, CallInternal> ContractSelf<PublicContext
     /// self.call(Token::at(address).transfer_in_public(recipient, amount));
     /// ```
     ///
-    pub unconstrained fn call<let M: u32, T>(self, call: PublicCall<M, T>) -> T
+    pub unconstrained fn call<let M: u32, T>(self, call: PublicCallInterface<M, T>) -> T
     where
         T: Deserialize,
     {
@@ -610,7 +613,7 @@ impl<Storage, CallSelf, CallSelfStatic, CallInternal> ContractSelf<PublicContext
     /// self.view(Token::at(address).balance_of_public(recipient));
     /// ```
     ///
-    pub unconstrained fn view<let M: u32, T>(self, call: PublicStaticCall<M, T>) -> T
+    pub unconstrained fn view<let M: u32, T>(self, call: PublicStaticCallInterface<M, T>) -> T
     where
         T: Deserialize,
     {

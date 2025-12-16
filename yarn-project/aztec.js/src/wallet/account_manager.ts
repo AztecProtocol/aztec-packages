@@ -138,7 +138,7 @@ export class AccountManager {
       this.getPublicKeys(),
       this.wallet,
       artifact,
-      instance => Contract.at(instance.address, artifact, this.wallet),
+      address => Contract.at(address, artifact, this.wallet),
       new Fr(this.salt),
       constructorArgs,
       constructorName,

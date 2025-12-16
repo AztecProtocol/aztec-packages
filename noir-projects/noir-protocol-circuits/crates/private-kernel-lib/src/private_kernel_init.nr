@@ -19,7 +19,6 @@ pub struct PrivateKernelInitCircuitPrivateInputs {
     private_call: PrivateCallData,
     is_private_only: bool,
     first_nullifier_hint: Field,
-    revertible_counter_hint: u32,
 }
 
 impl PrivateKernelInitCircuitPrivateInputs {
@@ -31,7 +30,6 @@ impl PrivateKernelInitCircuitPrivateInputs {
         app_public_inputs: PrivateCircuitPublicInputs,
         is_private_only: bool,
         first_nullifier_hint: Field,
-        revertible_counter_hint: u32,
     ) -> Self {
         Self {
             tx_request,
@@ -40,7 +38,6 @@ impl PrivateKernelInitCircuitPrivateInputs {
             private_call: private_call.to_private_call_data(app_public_inputs),
             is_private_only,
             first_nullifier_hint,
-            revertible_counter_hint,
         }
     }
 
@@ -52,7 +49,6 @@ impl PrivateKernelInitCircuitPrivateInputs {
             self.protocol_contracts,
             self.is_private_only,
             self.first_nullifier_hint,
-            self.revertible_counter_hint,
         )
             .with_private_call(
                 // TODO: consider moving this call into `new_from_tx_request`?
@@ -70,7 +66,7 @@ impl PrivateKernelInitCircuitPrivateInputs {
 
         private_call_data_validator.validate_common(self.protocol_contracts);
 
-        private_call_data_validator.validate_as_first_call(self.revertible_counter_hint);
+        private_call_data_validator.validate_as_first_call();
 
         private_call_data_validator.validate_against_tx_request(self.tx_request);
         // Q: missing some checks that are included in `validate_against_call_request`?
@@ -89,7 +85,6 @@ impl PrivateKernelInitCircuitPrivateInputs {
                 self.protocol_contracts,
                 self.is_private_only,
                 self.first_nullifier_hint,
-                self.revertible_counter_hint,
             );
         }
         output
@@ -133,7 +128,6 @@ mod tests {
                 protocol_contracts: self.private_call.protocol_contracts,
                 is_private_only: false,
                 first_nullifier_hint: 0,
-                revertible_counter_hint: 0,
             }
                 .execute()
         }

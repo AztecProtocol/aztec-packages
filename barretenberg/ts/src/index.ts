@@ -39,5 +39,3 @@ export {
   SECP256R1_FQ_MODULUS,
   SECP256R1_G1_GENERATOR,
 } from './cbind/generated/curve_constants.js';
-
-export { findNapiBinary } from './bb_backends/node/platform.js';

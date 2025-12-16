@@ -1,12 +1,7 @@
+import { ExecutionPayload, mergeExecutionPayloads } from '@aztec/entrypoints/payload';
 import { type FunctionCall, FunctionType, decodeFromAbi } from '@aztec/stdlib/abi';
-import {
-  ExecutionPayload,
-  TxSimulationResult,
-  UtilitySimulationResult,
-  mergeExecutionPayloads,
-} from '@aztec/stdlib/tx';
 
-import type { BatchedMethod, Wallet } from '../wallet/wallet.js';
+import type { Wallet } from '../wallet/wallet.js';
 import { BaseContractInteraction } from './base_contract_interaction.js';
 import {
   type RequestInteractionOptions,
@@ -40,12 +35,13 @@ export class BatchCall extends BaseContractInteraction {
   }
 
   /**
-   * Simulates the batch, supporting private, public and utility functions. Although this is a single
-   * interaction with the wallet, private and public functions will be grouped into a single ExecutionPayload
-   * that the wallet will simulate as a single transaction. Utility function calls will simply be executed
-   * one by one.
-   * @param options - An optional object containing additional configuration for the interaction.
-   * @returns The results of all the interactions that make up the batch
+   * Simulate a transaction and get its return values
+   * Differs from prove in a few important ways:
+   * 1. It returns the values of the function execution
+   * 2. It supports `utility`, `private` and `public` functions
+   *
+   * @param options - An optional object containing additional configuration for the transaction.
+   * @returns The result of the transaction as returned by the contract function.
    */
   public async simulate(options: SimulateInteractionOptions): Promise<any> {
     const { indexedExecutionPayloads, utility } = (await this.getExecutionPayloads()).reduce<{
@@ -74,65 +70,52 @@ export class BatchCall extends BaseContractInteraction {
       { indexedExecutionPayloads: [], utility: [], publicIndex: 0, privateIndex: 0 },
     );
 
-    const batchRequests: Array<BatchedMethod<'simulateUtility'> | BatchedMethod<'simulateTx'>> = [];
+    const payloads = indexedExecutionPayloads.map(([request]) => request);
+    const combinedPayload = mergeExecutionPayloads(payloads);
+    const executionPayload = new ExecutionPayload(
+      combinedPayload.calls,
+      combinedPayload.authWitnesses.concat(options.authWitnesses ?? []),
+      combinedPayload.capsules.concat(options.capsules ?? []),
+      combinedPayload.extraHashedArgs,
+    );
 
-    // Add utility calls to batch
-    for (const [call] of utility) {
-      batchRequests.push({
-        name: 'simulateUtility' as const,
-        args: [call, options?.authWitnesses] as const,
-      });
-    }
+    const utilityBatchPromise =
+      utility.length > 0
+        ? this.wallet.batch(
+            utility.map(([call]) => ({
+              name: 'simulateUtility' as const,
+              args: [call.name, call.args, call.to, options?.authWitnesses] as const,
+            })),
+          )
+        : Promise.resolve([]);
 
-    // Add tx simulation to batch if there are any private/public calls
-    if (indexedExecutionPayloads.length > 0) {
-      const payloads = indexedExecutionPayloads.map(([request]) => request);
-      const combinedPayload = mergeExecutionPayloads(payloads);
-      const executionPayload = new ExecutionPayload(
-        combinedPayload.calls,
-        combinedPayload.authWitnesses.concat(options.authWitnesses ?? []),
-        combinedPayload.capsules.concat(options.capsules ?? []),
-        combinedPayload.extraHashedArgs,
-      );
-
-      batchRequests.push({
-        name: 'simulateTx' as const,
-        args: [executionPayload, toSimulateOptions(options)],
-      });
-    }
-
-    const batchResults = batchRequests.length > 0 ? await this.wallet.batch(batchRequests) : [];
+    const [utilityBatchResults, simulatedTx] = await Promise.all([
+      utilityBatchPromise,
+      indexedExecutionPayloads.length > 0
+        ? this.wallet.simulateTx(executionPayload, await toSimulateOptions(options))
+        : Promise.resolve(),
+    ]);
 
     const results: any[] = [];
 
-    // Process utility results (they come first in batch results)
-    for (let i = 0; i < utility.length; i++) {
-      const [call, resultIndex] = utility[i];
-      const wrappedResult = batchResults[i];
-      if (wrappedResult.name === 'simulateUtility') {
-        const rawReturnValues = (wrappedResult.result as UtilitySimulationResult).result;
-        results[resultIndex] = rawReturnValues ? decodeFromAbi(call.returnTypes, rawReturnValues) : [];
-      }
-    }
+    utilityBatchResults.forEach((wrappedResult, utilityIndex) => {
+      const [, originalIndex] = utility[utilityIndex];
+      results[originalIndex] = wrappedResult.result.result;
+    });
 
-    // Process tx simulation result (it comes last if present)
-    if (indexedExecutionPayloads.length > 0) {
-      const txResultWrapper = batchResults[utility.length];
-      if (txResultWrapper.name === 'simulateTx') {
-        const simulatedTx = txResultWrapper.result as TxSimulationResult;
-        indexedExecutionPayloads.forEach(([request, callIndex, resultIndex]) => {
-          const call = request.calls[0];
-          // As account entrypoints are private, for private functions we retrieve the return values from the first nested call
-          // since we're interested in the first set of values AFTER the account entrypoint
-          // For public functions we retrieve the first values directly from the public output.
-          const rawReturnValues =
-            call.type == FunctionType.PRIVATE
-              ? simulatedTx.getPrivateReturnValues()?.nested?.[resultIndex].values
-              : simulatedTx.getPublicReturnValues()?.[resultIndex].values;
+    if (simulatedTx) {
+      indexedExecutionPayloads.forEach(([request, callIndex, resultIndex]) => {
+        const call = request.calls[0];
+        // As account entrypoints are private, for private functions we retrieve the return values from the first nested call
+        // since we're interested in the first set of values AFTER the account entrypoint
+        // For public functions we retrieve the first values directly from the public output.
+        const rawReturnValues =
+          call.type == FunctionType.PRIVATE
+            ? simulatedTx.getPrivateReturnValues()?.nested?.[resultIndex].values
+            : simulatedTx.getPublicReturnValues()?.[resultIndex].values;
 
-          results[callIndex] = rawReturnValues ? decodeFromAbi(call.returnTypes, rawReturnValues) : [];
-        });
-      }
+        results[callIndex] = rawReturnValues ? decodeFromAbi(call.returnTypes, rawReturnValues) : [];
+      });
     }
 
     return results;

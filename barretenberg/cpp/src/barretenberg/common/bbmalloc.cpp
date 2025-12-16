@@ -1,13 +1,12 @@
 #include "./bbmalloc.hpp"
-#include "barretenberg/common/mem.hpp"
-#include <cstdlib>
+#include "./slab_allocator.hpp"
 
 WASM_EXPORT void* bbmalloc(size_t size)
 {
-    return aligned_alloc(32, size);
+    return bb::get_mem_slab_raw(size);
 }
 
 WASM_EXPORT void bbfree(void* ptr)
 {
-    aligned_free(ptr);
+    bb::free_mem_slab_raw(ptr);
 }

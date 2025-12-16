@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
+cmd=${1:-}
+
 hash=$(../bootstrap.sh hash)
 
 function bench {
@@ -15,10 +17,14 @@ function bench {
 }
 
 case "$cmd" in
+  "clean")
+    git clean -fdx
+    ;;
   bench)
-    bench > /dev/null
+    $cmd > /dev/null
     ;;
   *)
-    default_cmd_handler "$@"
-    ;;
+    echo "Unknown command: $cmd"
+    exit 1
+  ;;
 esac

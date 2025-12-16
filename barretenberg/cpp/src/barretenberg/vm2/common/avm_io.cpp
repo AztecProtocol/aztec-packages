@@ -16,29 +16,29 @@ namespace {
 void set_snapshot_in_cols(const AppendOnlyTreeSnapshot& snapshot, std::vector<std::vector<FF>>& cols, size_t row_idx)
 {
     cols[0][row_idx] = snapshot.root;
-    cols[1][row_idx] = snapshot.next_available_leaf_index;
+    cols[1][row_idx] = snapshot.nextAvailableLeafIndex;
 }
 
 void set_gas_in_cols(const Gas& gas, std::vector<std::vector<FF>>& cols, size_t row_idx)
 {
-    cols[0][row_idx] = gas.da_gas;
-    cols[1][row_idx] = gas.l2_gas;
+    cols[0][row_idx] = gas.daGas;
+    cols[1][row_idx] = gas.l2Gas;
 }
 
 void set_gas_fees_in_cols(const GasFees& gas_fees, std::vector<std::vector<FF>>& cols, size_t row_idx)
 {
-    cols[0][row_idx] = gas_fees.fee_per_da_gas;
-    cols[1][row_idx] = gas_fees.fee_per_l2_gas;
+    cols[0][row_idx] = gas_fees.feePerDaGas;
+    cols[1][row_idx] = gas_fees.feePerL2Gas;
 }
 
 void set_public_call_request_in_cols(const PublicCallRequest& request,
                                      std::vector<std::vector<FF>>& cols,
                                      size_t row_idx)
 {
-    cols[0][row_idx] = request.msg_sender;
-    cols[1][row_idx] = request.contract_address;
-    cols[2][row_idx] = static_cast<uint8_t>(request.is_static_call);
-    cols[3][row_idx] = request.calldata_hash;
+    cols[0][row_idx] = request.msgSender;
+    cols[1][row_idx] = request.contractAddress;
+    cols[2][row_idx] = static_cast<uint8_t>(request.isStaticCall);
+    cols[3][row_idx] = request.calldataHash;
 }
 
 void set_public_call_request_array_in_cols(const std::array<PublicCallRequest, MAX_ENQUEUED_CALLS_PER_TX>& requests,
@@ -71,7 +71,7 @@ void set_l2_to_l1_msg_array_in_cols(const std::array<ScopedL2ToL1Message, SIZE>&
         size_t row = array_start_row_idx + i;
         cols[0][row] = arr[i].message.recipient;
         cols[1][row] = arr[i].message.content;
-        cols[2][row] = arr[i].contract_address;
+        cols[2][row] = arr[i].contractAddress;
     }
 }
 
@@ -94,7 +94,7 @@ void set_public_data_writes_in_cols(const std::array<PublicDataWrite, SIZE>& wri
 {
     for (size_t i = 0; i < writes.size(); ++i) {
         size_t row = array_start_row_idx + i;
-        cols[0][row] = writes[i].leaf_slot;
+        cols[0][row] = writes[i].leafSlot;
         cols[1][row] = writes[i].value;
     }
 }
@@ -103,7 +103,7 @@ void set_protocol_contracts_in_cols(const ProtocolContracts& protocol_contracts,
                                     std::vector<std::vector<FF>>& cols,
                                     size_t protocol_contracts_start_row_idx)
 {
-    set_field_array_in_cols(protocol_contracts.derived_addresses, cols, protocol_contracts_start_row_idx);
+    set_field_array_in_cols(protocol_contracts.derivedAddresses, cols, protocol_contracts_start_row_idx);
 }
 
 } // anonymous namespace
@@ -145,140 +145,139 @@ std::vector<std::vector<FF>> PublicInputs::to_columns() const
                                       std::vector<FF>(AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH, FF(0)));
 
     // Global variables
-    cols[0][AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_CHAIN_ID_ROW_IDX] = global_variables.chain_id;
-    cols[0][AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_VERSION_ROW_IDX] = global_variables.version;
-    cols[0][AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_BLOCK_NUMBER_ROW_IDX] = global_variables.block_number;
-    cols[0][AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_SLOT_NUMBER_ROW_IDX] = global_variables.slot_number;
-    cols[0][AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_TIMESTAMP_ROW_IDX] = global_variables.timestamp;
-    cols[0][AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_COINBASE_ROW_IDX] = global_variables.coinbase;
-    cols[0][AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_FEE_RECIPIENT_ROW_IDX] = global_variables.fee_recipient;
-    set_gas_fees_in_cols(global_variables.gas_fees, cols, AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_GAS_FEES_ROW_IDX);
+    cols[0][AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_CHAIN_ID_ROW_IDX] = globalVariables.chainId;
+    cols[0][AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_VERSION_ROW_IDX] = globalVariables.version;
+    cols[0][AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_BLOCK_NUMBER_ROW_IDX] = globalVariables.blockNumber;
+    cols[0][AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_SLOT_NUMBER_ROW_IDX] = globalVariables.slotNumber;
+    cols[0][AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_TIMESTAMP_ROW_IDX] = globalVariables.timestamp;
+    cols[0][AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_COINBASE_ROW_IDX] = globalVariables.coinbase;
+    cols[0][AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_FEE_RECIPIENT_ROW_IDX] = globalVariables.feeRecipient;
+    set_gas_fees_in_cols(globalVariables.gasFees, cols, AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_GAS_FEES_ROW_IDX);
 
     // Protocol contracts
-    set_protocol_contracts_in_cols(protocol_contracts, cols, AVM_PUBLIC_INPUTS_PROTOCOL_CONTRACTS_ROW_IDX);
+    set_protocol_contracts_in_cols(protocolContracts, cols, AVM_PUBLIC_INPUTS_PROTOCOL_CONTRACTS_ROW_IDX);
 
     // Start tree snapshots
-    set_snapshot_in_cols(start_tree_snapshots.l1_to_l2_message_tree,
+    set_snapshot_in_cols(startTreeSnapshots.l1ToL2MessageTree,
                          cols,
                          AVM_PUBLIC_INPUTS_START_TREE_SNAPSHOTS_L1_TO_L2_MESSAGE_TREE_ROW_IDX);
     set_snapshot_in_cols(
-        start_tree_snapshots.note_hash_tree, cols, AVM_PUBLIC_INPUTS_START_TREE_SNAPSHOTS_NOTE_HASH_TREE_ROW_IDX);
+        startTreeSnapshots.noteHashTree, cols, AVM_PUBLIC_INPUTS_START_TREE_SNAPSHOTS_NOTE_HASH_TREE_ROW_IDX);
     set_snapshot_in_cols(
-        start_tree_snapshots.nullifier_tree, cols, AVM_PUBLIC_INPUTS_START_TREE_SNAPSHOTS_NULLIFIER_TREE_ROW_IDX);
+        startTreeSnapshots.nullifierTree, cols, AVM_PUBLIC_INPUTS_START_TREE_SNAPSHOTS_NULLIFIER_TREE_ROW_IDX);
     set_snapshot_in_cols(
-        start_tree_snapshots.public_data_tree, cols, AVM_PUBLIC_INPUTS_START_TREE_SNAPSHOTS_PUBLIC_DATA_TREE_ROW_IDX);
+        startTreeSnapshots.publicDataTree, cols, AVM_PUBLIC_INPUTS_START_TREE_SNAPSHOTS_PUBLIC_DATA_TREE_ROW_IDX);
 
     // Start gas used
-    set_gas_in_cols(start_gas_used, cols, AVM_PUBLIC_INPUTS_START_GAS_USED_ROW_IDX);
+    set_gas_in_cols(startGasUsed, cols, AVM_PUBLIC_INPUTS_START_GAS_USED_ROW_IDX);
 
     // Gas settings
-    set_gas_in_cols(gas_settings.gas_limits, cols, AVM_PUBLIC_INPUTS_GAS_SETTINGS_GAS_LIMITS_ROW_IDX);
-    set_gas_in_cols(gas_settings.teardown_gas_limits, cols, AVM_PUBLIC_INPUTS_GAS_SETTINGS_TEARDOWN_GAS_LIMITS_ROW_IDX);
-    set_gas_fees_in_cols(gas_settings.max_fees_per_gas, cols, AVM_PUBLIC_INPUTS_GAS_SETTINGS_MAX_FEES_PER_GAS_ROW_IDX);
+    set_gas_in_cols(gasSettings.gasLimits, cols, AVM_PUBLIC_INPUTS_GAS_SETTINGS_GAS_LIMITS_ROW_IDX);
+    set_gas_in_cols(gasSettings.teardownGasLimits, cols, AVM_PUBLIC_INPUTS_GAS_SETTINGS_TEARDOWN_GAS_LIMITS_ROW_IDX);
+    set_gas_fees_in_cols(gasSettings.maxFeesPerGas, cols, AVM_PUBLIC_INPUTS_GAS_SETTINGS_MAX_FEES_PER_GAS_ROW_IDX);
     set_gas_fees_in_cols(
-        gas_settings.max_priority_fees_per_gas, cols, AVM_PUBLIC_INPUTS_GAS_SETTINGS_MAX_PRIORITY_FEES_PER_GAS_ROW_IDX);
+        gasSettings.maxPriorityFeesPerGas, cols, AVM_PUBLIC_INPUTS_GAS_SETTINGS_MAX_PRIORITY_FEES_PER_GAS_ROW_IDX);
 
     // Effective gas fees
-    set_gas_fees_in_cols(effective_gas_fees, cols, AVM_PUBLIC_INPUTS_EFFECTIVE_GAS_FEES_ROW_IDX);
+    set_gas_fees_in_cols(effectiveGasFees, cols, AVM_PUBLIC_INPUTS_EFFECTIVE_GAS_FEES_ROW_IDX);
 
     // Fee payer
-    cols[0][AVM_PUBLIC_INPUTS_FEE_PAYER_ROW_IDX] = fee_payer;
+    cols[0][AVM_PUBLIC_INPUTS_FEE_PAYER_ROW_IDX] = feePayer;
 
     // Prover id
-    cols[0][AVM_PUBLIC_INPUTS_PROVER_ID_ROW_IDX] = prover_id;
+    cols[0][AVM_PUBLIC_INPUTS_PROVER_ID_ROW_IDX] = proverId;
 
     // Public Call Request Array Lengths
     cols[0][AVM_PUBLIC_INPUTS_PUBLIC_CALL_REQUEST_ARRAY_LENGTHS_SETUP_CALLS_ROW_IDX] =
-        public_call_request_array_lengths.setup_calls;
+        publicCallRequestArrayLengths.setupCalls;
     cols[0][AVM_PUBLIC_INPUTS_PUBLIC_CALL_REQUEST_ARRAY_LENGTHS_APP_LOGIC_CALLS_ROW_IDX] =
-        public_call_request_array_lengths.app_logic_calls;
+        publicCallRequestArrayLengths.appLogicCalls;
     cols[0][AVM_PUBLIC_INPUTS_PUBLIC_CALL_REQUEST_ARRAY_LENGTHS_TEARDOWN_CALL_ROW_IDX] =
-        static_cast<uint8_t>(public_call_request_array_lengths.teardown_call);
+        static_cast<uint8_t>(publicCallRequestArrayLengths.teardownCall);
 
     // Setup, app logic, and teardown call requests
     set_public_call_request_array_in_cols(
-        public_setup_call_requests, cols, AVM_PUBLIC_INPUTS_PUBLIC_SETUP_CALL_REQUESTS_ROW_IDX);
+        publicSetupCallRequests, cols, AVM_PUBLIC_INPUTS_PUBLIC_SETUP_CALL_REQUESTS_ROW_IDX);
     set_public_call_request_array_in_cols(
-        public_app_logic_call_requests, cols, AVM_PUBLIC_INPUTS_PUBLIC_APP_LOGIC_CALL_REQUESTS_ROW_IDX);
+        publicAppLogicCallRequests, cols, AVM_PUBLIC_INPUTS_PUBLIC_APP_LOGIC_CALL_REQUESTS_ROW_IDX);
     set_public_call_request_in_cols(
-        public_teardown_call_request, cols, AVM_PUBLIC_INPUTS_PUBLIC_TEARDOWN_CALL_REQUEST_ROW_IDX);
+        publicTeardownCallRequest, cols, AVM_PUBLIC_INPUTS_PUBLIC_TEARDOWN_CALL_REQUEST_ROW_IDX);
 
     // Previous non-revertible accumulated data array lengths
     cols[0][AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_NOTE_HASHES_ROW_IDX] =
-        previous_non_revertible_accumulated_data_array_lengths.note_hashes;
+        previousNonRevertibleAccumulatedDataArrayLengths.noteHashes;
     cols[0][AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_NULLIFIERS_ROW_IDX] =
-        previous_non_revertible_accumulated_data_array_lengths.nullifiers;
+        previousNonRevertibleAccumulatedDataArrayLengths.nullifiers;
     cols[0][AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_L2_TO_L1_MSGS_ROW_IDX] =
-        previous_non_revertible_accumulated_data_array_lengths.l2_to_l1_msgs;
+        previousNonRevertibleAccumulatedDataArrayLengths.l2ToL1Msgs;
 
     // Previous revertible accumulated data array lengths
     cols[0][AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_NOTE_HASHES_ROW_IDX] =
-        previous_revertible_accumulated_data_array_lengths.note_hashes;
+        previousRevertibleAccumulatedDataArrayLengths.noteHashes;
     cols[0][AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_NULLIFIERS_ROW_IDX] =
-        previous_revertible_accumulated_data_array_lengths.nullifiers;
+        previousRevertibleAccumulatedDataArrayLengths.nullifiers;
     cols[0][AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_L2_TO_L1_MSGS_ROW_IDX] =
-        previous_revertible_accumulated_data_array_lengths.l2_to_l1_msgs;
+        previousRevertibleAccumulatedDataArrayLengths.l2ToL1Msgs;
 
     // Previous non-revertible accumulated data
-    set_field_array_in_cols(previous_non_revertible_accumulated_data.note_hashes,
+    set_field_array_in_cols(previousNonRevertibleAccumulatedData.noteHashes,
                             cols,
                             AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX);
-    set_field_array_in_cols(previous_non_revertible_accumulated_data.nullifiers,
+    set_field_array_in_cols(previousNonRevertibleAccumulatedData.nullifiers,
                             cols,
                             AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX);
-    set_l2_to_l1_msg_array_in_cols(previous_non_revertible_accumulated_data.l2_to_l1_msgs,
+    set_l2_to_l1_msg_array_in_cols(previousNonRevertibleAccumulatedData.l2ToL1Msgs,
                                    cols,
                                    AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX);
 
     // Previous revertible accumulated data
-    set_field_array_in_cols(previous_revertible_accumulated_data.note_hashes,
+    set_field_array_in_cols(previousRevertibleAccumulatedData.noteHashes,
                             cols,
                             AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX);
-    set_field_array_in_cols(previous_revertible_accumulated_data.nullifiers,
+    set_field_array_in_cols(previousRevertibleAccumulatedData.nullifiers,
                             cols,
                             AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX);
-    set_l2_to_l1_msg_array_in_cols(previous_revertible_accumulated_data.l2_to_l1_msgs,
+    set_l2_to_l1_msg_array_in_cols(previousRevertibleAccumulatedData.l2ToL1Msgs,
                                    cols,
                                    AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX);
 
     // End tree snapshots
-    set_snapshot_in_cols(end_tree_snapshots.l1_to_l2_message_tree,
-                         cols,
-                         AVM_PUBLIC_INPUTS_END_TREE_SNAPSHOTS_L1_TO_L2_MESSAGE_TREE_ROW_IDX);
     set_snapshot_in_cols(
-        end_tree_snapshots.note_hash_tree, cols, AVM_PUBLIC_INPUTS_END_TREE_SNAPSHOTS_NOTE_HASH_TREE_ROW_IDX);
+        endTreeSnapshots.l1ToL2MessageTree, cols, AVM_PUBLIC_INPUTS_END_TREE_SNAPSHOTS_L1_TO_L2_MESSAGE_TREE_ROW_IDX);
     set_snapshot_in_cols(
-        end_tree_snapshots.nullifier_tree, cols, AVM_PUBLIC_INPUTS_END_TREE_SNAPSHOTS_NULLIFIER_TREE_ROW_IDX);
+        endTreeSnapshots.noteHashTree, cols, AVM_PUBLIC_INPUTS_END_TREE_SNAPSHOTS_NOTE_HASH_TREE_ROW_IDX);
     set_snapshot_in_cols(
-        end_tree_snapshots.public_data_tree, cols, AVM_PUBLIC_INPUTS_END_TREE_SNAPSHOTS_PUBLIC_DATA_TREE_ROW_IDX);
+        endTreeSnapshots.nullifierTree, cols, AVM_PUBLIC_INPUTS_END_TREE_SNAPSHOTS_NULLIFIER_TREE_ROW_IDX);
+    set_snapshot_in_cols(
+        endTreeSnapshots.publicDataTree, cols, AVM_PUBLIC_INPUTS_END_TREE_SNAPSHOTS_PUBLIC_DATA_TREE_ROW_IDX);
 
     // End gas used
-    set_gas_in_cols(end_gas_used, cols, AVM_PUBLIC_INPUTS_END_GAS_USED_ROW_IDX);
+    set_gas_in_cols(endGasUsed, cols, AVM_PUBLIC_INPUTS_END_GAS_USED_ROW_IDX);
 
     // Accumulated Data Array Lengths
     cols[0][AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_NOTE_HASHES_ROW_IDX] =
-        accumulated_data_array_lengths.note_hashes;
+        accumulatedDataArrayLengths.noteHashes;
     cols[0][AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_NULLIFIERS_ROW_IDX] =
-        accumulated_data_array_lengths.nullifiers;
+        accumulatedDataArrayLengths.nullifiers;
     cols[0][AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_L2_TO_L1_MSGS_ROW_IDX] =
-        accumulated_data_array_lengths.l2_to_l1_msgs;
+        accumulatedDataArrayLengths.l2ToL1Msgs;
     cols[0][AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_PUBLIC_DATA_WRITES_ROW_IDX] =
-        accumulated_data_array_lengths.public_data_writes;
+        accumulatedDataArrayLengths.publicDataWrites;
 
     // Accumulated data
     set_field_array_in_cols(
-        accumulated_data.note_hashes, cols, AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX);
+        accumulatedData.noteHashes, cols, AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX);
     set_field_array_in_cols(
-        accumulated_data.nullifiers, cols, AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX);
+        accumulatedData.nullifiers, cols, AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX);
     set_l2_to_l1_msg_array_in_cols(
-        accumulated_data.l2_to_l1_msgs, cols, AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX);
+        accumulatedData.l2ToL1Msgs, cols, AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX);
     set_public_logs_in_cols(
-        accumulated_data.public_logs, cols, AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX);
+        accumulatedData.publicLogs, cols, AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX);
     set_public_data_writes_in_cols(
-        accumulated_data.public_data_writes, cols, AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_DATA_WRITES_ROW_IDX);
+        accumulatedData.publicDataWrites, cols, AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_DATA_WRITES_ROW_IDX);
 
     // Transaction fee
-    cols[0][AVM_PUBLIC_INPUTS_TRANSACTION_FEE_ROW_IDX] = transaction_fee;
+    cols[0][AVM_PUBLIC_INPUTS_TRANSACTION_FEE_ROW_IDX] = transactionFee;
 
     // Reverted
     cols[0][AVM_PUBLIC_INPUTS_REVERTED_ROW_IDX] = static_cast<uint8_t>(reverted);

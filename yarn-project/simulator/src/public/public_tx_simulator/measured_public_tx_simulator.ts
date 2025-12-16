@@ -1,6 +1,6 @@
 import type { Fr } from '@aztec/foundation/fields';
 import { Timer } from '@aztec/foundation/timer';
-import type { PublicSimulatorConfig, PublicTxResult } from '@aztec/stdlib/avm';
+import type { ProcessedPhase, PublicTxResult, PublicTxSimulatorConfig } from '@aztec/stdlib/avm';
 import type { Gas } from '@aztec/stdlib/gas';
 import type { AvmSimulationStats } from '@aztec/stdlib/stats';
 import type { MerkleTreeWriteOperations } from '@aztec/stdlib/trees';
@@ -23,7 +23,7 @@ export class MeasuredPublicTxSimulator extends PublicTxSimulator implements Meas
     contractsDB: PublicContractsDB,
     globalVariables: GlobalVariables,
     protected readonly metrics: ExecutorMetricsInterface,
-    config?: Partial<PublicSimulatorConfig>,
+    config?: Partial<PublicTxSimulatorConfig>,
   ) {
     super(merkleTree, contractsDB, globalVariables, config);
   }
@@ -34,7 +34,7 @@ export class MeasuredPublicTxSimulator extends PublicTxSimulator implements Meas
     try {
       avmResult = await super.simulate(tx);
     } finally {
-      this.metrics.stopRecordingTxSimulation(txLabel, avmResult?.gasUsed, avmResult?.revertCode);
+      this.metrics.stopRecordingTxSimulation(txLabel, avmResult?.revertCode);
     }
     return avmResult;
   }
@@ -51,7 +51,7 @@ export class MeasuredPublicTxSimulator extends PublicTxSimulator implements Meas
     this.metrics.recordPrivateEffectsInsertion(timer.us(), 'revertible');
   }
 
-  protected override async simulatePhase(phase: TxExecutionPhase, context: PublicTxContext) {
+  protected override async simulatePhase(phase: TxExecutionPhase, context: PublicTxContext): Promise<ProcessedPhase> {
     const timer = new Timer();
     const result = await super.simulatePhase(phase, context);
     result.durationMs = timer.ms();

@@ -1,6 +1,6 @@
 use crate::test::utils;
 use crate::Token;
-use aztec::test::helpers::authwit::add_public_authwit_from_call;
+use aztec::test::helpers::authwit::add_public_authwit_from_call_interface;
 
 #[test]
 unconstrained fn public_transfer() {
@@ -45,11 +45,16 @@ unconstrained fn public_transfer_on_behalf_of_other() {
     let (env, token_contract_address, owner, recipient, mint_amount) =
         utils::setup_and_mint_to_public(/* with_account_contracts */ true);
     let transfer_amount = mint_amount / (10 as u128);
-    let public_transfer_in_private_call =
+    let public_transfer_in_private_call_interface =
         Token::at(token_contract_address).transfer_in_public(owner, recipient, transfer_amount, 1);
-    add_public_authwit_from_call(env, owner, recipient, public_transfer_in_private_call);
+    add_public_authwit_from_call_interface(
+        env,
+        owner,
+        recipient,
+        public_transfer_in_private_call_interface,
+    );
     // Transfer tokens
-    env.call_public(recipient, public_transfer_in_private_call);
+    env.call_public(recipient, public_transfer_in_private_call_interface);
     // Check balances
     utils::check_public_balance(
         env,
@@ -67,10 +72,10 @@ unconstrained fn public_transfer_failure_more_than_balance() {
         utils::setup_and_mint_to_public(/* with_account_contracts */ false);
     // Transfer tokens
     let transfer_amount = mint_amount + (1 as u128);
-    let public_transfer_call =
+    let public_transfer_call_interface =
         Token::at(token_contract_address).transfer_in_public(owner, recipient, transfer_amount, 0);
     // Try to transfer tokens
-    env.call_public(owner, public_transfer_call);
+    env.call_public(owner, public_transfer_call_interface);
 }
 
 #[test(should_fail_with = "Assertion failed: Invalid authwit nonce. When 'from' and 'msg_sender' are the same, 'authwit_nonce' must be zero")]
@@ -80,11 +85,11 @@ unconstrained fn public_transfer_failure_on_behalf_of_self_non_zero_nonce() {
         utils::setup_and_mint_to_public(/* with_account_contracts */ false);
     // Transfer tokens
     let transfer_amount = mint_amount / (10 as u128);
-    let public_transfer_call =
+    let public_transfer_call_interface =
         Token::at(token_contract_address).transfer_in_public(owner, recipient, transfer_amount, 1);
-    add_public_authwit_from_call(env, owner, recipient, public_transfer_call);
+    add_public_authwit_from_call_interface(env, owner, recipient, public_transfer_call_interface);
     // Try to transfer tokens
-    env.call_public(owner, public_transfer_call);
+    env.call_public(owner, public_transfer_call_interface);
 }
 
 #[test(should_fail_with = "unauthorized")]
@@ -93,11 +98,11 @@ unconstrained fn public_transfer_failure_on_behalf_of_other_without_approval() {
     let (env, token_contract_address, owner, recipient, mint_amount) =
         utils::setup_and_mint_to_public(/* with_account_contracts */ true);
     let transfer_amount = mint_amount / (10 as u128);
-    let public_transfer_in_private_call =
+    let public_transfer_in_private_call_interface =
         Token::at(token_contract_address).transfer_in_public(owner, recipient, transfer_amount, 1);
 
     // Try to transfer tokens
-    env.call_public(recipient, public_transfer_in_private_call);
+    env.call_public(recipient, public_transfer_in_private_call_interface);
 }
 
 #[test(should_fail_with = "Assertion failed: attempt to subtract with overflow")]
@@ -106,12 +111,17 @@ unconstrained fn public_transfer_failure_on_behalf_of_other_more_than_balance() 
     let (env, token_contract_address, owner, recipient, mint_amount) =
         utils::setup_and_mint_to_public(/* with_account_contracts */ true);
     let transfer_amount = mint_amount + (1 as u128);
-    let public_transfer_in_private_call =
+    let public_transfer_in_private_call_interface =
         Token::at(token_contract_address).transfer_in_public(owner, recipient, transfer_amount, 1);
-    add_public_authwit_from_call(env, owner, recipient, public_transfer_in_private_call);
+    add_public_authwit_from_call_interface(
+        env,
+        owner,
+        recipient,
+        public_transfer_in_private_call_interface,
+    );
 
     // Try to transfer tokens
-    env.call_public(recipient, public_transfer_in_private_call);
+    env.call_public(recipient, public_transfer_in_private_call_interface);
 }
 
 #[test(should_fail_with = "unauthorized")]
@@ -120,10 +130,15 @@ unconstrained fn public_transfer_failure_on_behalf_of_other_wrong_caller() {
     let (env, token_contract_address, owner, recipient, mint_amount) =
         utils::setup_and_mint_to_public(/* with_account_contracts */ true);
     let transfer_amount = mint_amount / (10 as u128);
-    let public_transfer_in_private_call =
+    let public_transfer_in_private_call_interface =
         Token::at(token_contract_address).transfer_in_public(owner, recipient, transfer_amount, 1);
-    add_public_authwit_from_call(env, owner, owner, public_transfer_in_private_call);
+    add_public_authwit_from_call_interface(
+        env,
+        owner,
+        owner,
+        public_transfer_in_private_call_interface,
+    );
 
     // Try to transfer tokens
-    env.call_public(recipient, public_transfer_in_private_call);
+    env.call_public(recipient, public_transfer_in_private_call_interface);
 }

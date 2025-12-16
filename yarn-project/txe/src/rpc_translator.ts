@@ -549,12 +549,6 @@ export class RPCTranslator {
     throw new Error('Enqueueing public calls is not supported in TestEnvironment::private_context');
   }
 
-  public async privateIsSideEffectCounterRevertible(foreignSideEffectCounter: ForeignCallSingle) {
-    const sideEffectCounter = fromSingle(foreignSideEffectCounter).toNumber();
-    const isRevertible = await this.handlerAsPrivate().privateIsSideEffectCounterRevertible(sideEffectCounter);
-    return toForeignCallResult([toSingle(new Fr(isRevertible))]);
-  }
-
   async utilityGetUtilityContext() {
     const context = await this.handlerAsUtility().utilityGetUtilityContext();
 

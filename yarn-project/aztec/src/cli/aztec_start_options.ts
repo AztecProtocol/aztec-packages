@@ -82,7 +82,6 @@ export const universalOptions = [
   'l1ConsensusHostApiKeys',
   'l1ConsensusHostApiKeyHeaders',
   'p2pEnabled',
-  'fishermanMode',
   ...getKeys(chainConfigMappings),
   ...getKeys(l1ContractsConfigMappings),
   ...getKeys(l1ContractAddressesMapping),
@@ -108,8 +107,6 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
 
     configToFlag('--sync-mode', sharedNodeConfigMappings.syncMode),
     configToFlag('--snapshots-urls', sharedNodeConfigMappings.snapshotsUrls),
-
-    configToFlag('--fisherman-mode', sharedNodeConfigMappings.fishermanMode),
   ],
   LOCAL_NETWORK: [
     {

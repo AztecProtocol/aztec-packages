@@ -85,8 +85,26 @@ const sidebar = {
       ]
     },
     {
-      "type": "doc",
-      "id": "the_aztec_network/setup/running_a_prover"
+      "type": "category",
+      "label": "Running a Prover",
+      "link": {
+        "type": "doc",
+        "id": "the_aztec_network/setup/running_a_prover"
+      },
+      "items": [
+        {
+          "type": "doc",
+          "id": "the_aztec_network/setup/prover_single_machine"
+        },
+        {
+          "type": "doc",
+          "id": "the_aztec_network/setup/prover_distributed"
+        },
+        {
+          "type": "doc",
+          "id": "the_aztec_network/setup/prover_verification_troubleshooting"
+        }
+      ]
     },
     {
       "type": "doc",
@@ -164,10 +182,6 @@ const sidebar = {
         {
           "type": "doc",
           "id": "the_aztec_network/operation/sequencer_management/creating_and_voting_on_proposals"
-        },
-        {
-          "type": "doc",
-          "id": "the_aztec_network/operation/sequencer_management/slashing_and_offenses"
         },
         {
           "type": "doc",
