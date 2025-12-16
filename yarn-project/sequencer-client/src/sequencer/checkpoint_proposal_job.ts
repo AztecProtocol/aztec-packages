@@ -144,11 +144,17 @@ export class CheckpointProposalJob {
       broadcastInvalidBlockProposal: this.config.broadcastInvalidBlockProposal,
     };
 
+    // Track when checkpoint building actually starts (after initialization)
+    // This is used as the baseline for all block deadlines to prevent drift
+    const checkpointStartTime = this.getSecondsIntoSlot();
+    this.log.debug(`Checkpoint building starts at ${checkpointStartTime}s into slot`);
+
     // Main loop: build blocks for the checkpoint
     const { blocksInCheckpoint, pendingBroadcast } = await this.buildBlocksForCheckpoint(
       checkpointBuilder,
       checkpointGlobalVariables.timestamp,
       blockProposalOptions,
+      checkpointStartTime,
     );
 
     if (blocksInCheckpoint.length === 0) {
@@ -229,6 +235,7 @@ export class CheckpointProposalJob {
     checkpointBuilder: CheckpointBuilder,
     timestamp: bigint,
     blockProposalOptions: BlockProposalOptions,
+    checkpointStartTime: number,
   ): Promise<{
     blocksInCheckpoint: L2BlockNew[];
     pendingBroadcast: { block: L2BlockNew; txs: Tx[] } | undefined;
@@ -237,6 +244,7 @@ export class CheckpointProposalJob {
     const txHashesAlreadyIncluded = new Set<string>();
     let pendingBroadcast: { block: L2BlockNew; txs: Tx[] } | undefined = undefined;
     const initialBlockNumber = BlockNumber(this.syncedToBlockNumber + 1);
+    let previousBlockDuration = 0; // First block has no previous block
 
     while (true) {
       const blocksBuilt = blocksInCheckpoint.length;
@@ -244,7 +252,13 @@ export class CheckpointProposalJob {
       const blockNumber = BlockNumber(initialBlockNumber + blocksBuilt);
 
       const secondsIntoSlot = this.getSecondsIntoSlot();
-      const timingInfo = this.timetable.canStartNextBlock(secondsIntoSlot);
+      const blockBuildStartTime = secondsIntoSlot;
+      const timingInfo = this.timetable.canStartNextBlock(
+        secondsIntoSlot,
+        checkpointStartTime,
+        indexWithinCheckpoint,
+        previousBlockDuration,
+      );
 
       if (!timingInfo.canStart) {
         this.log.debug(`Not enough time left in slot to start another block`, {
@@ -272,7 +286,7 @@ export class CheckpointProposalJob {
         break;
       } else if (!buildResult) {
         // But if there is still time for more blocks, wait until the next block time and try again
-        await this.waitUntilNextBlock(secondsIntoSlot);
+        await this.waitUntilNextBlock(checkpointStartTime, indexWithinCheckpoint + 1);
         continue;
       } else if ('error' in buildResult) {
         // If there was an error building the block, just exit the loop and give up the rest of the slot
@@ -286,6 +300,14 @@ export class CheckpointProposalJob {
 
       const { block, usedTxs } = buildResult;
       blocksInCheckpoint.push(block);
+
+      // Track how long this block took to build (for calculating last block timing)
+      const blockBuildEndTime = this.getSecondsIntoSlot();
+      const actualBlockDuration = blockBuildEndTime - blockBuildStartTime;
+      this.log.debug(`Block ${blockNumber} took ${actualBlockDuration}s to build`);
+
+      // Update for next iteration
+      previousBlockDuration = actualBlockDuration;
 
       // Sync the proposed block to the archiver to make it available
       // Note that the checkpoint builder uses its own fork so it should not need to wait for this syncing
@@ -319,7 +341,7 @@ export class CheckpointProposalJob {
       }
 
       // Wait until the next block's start time
-      await this.waitUntilNextBlock(secondsIntoSlot);
+      await this.waitUntilNextBlock(checkpointStartTime, indexWithinCheckpoint + 1);
     }
 
     this.log.verbose(`Block building loop completed for slot ${this.slot}`, {
@@ -334,11 +356,20 @@ export class CheckpointProposalJob {
   }
 
   /** Sleeps until it is time to produce the next block in the slot */
-  private async waitUntilNextBlock(blockStartedAtSecondsIntoSlot: number) {
+  private async waitUntilNextBlock(checkpointStartTime: number, nextBlockIndex: number) {
     this.setStateFn(SequencerState.WAITING_UNTIL_NEXT_BLOCK, this.slot);
-    const blockDurationSeconds = this.timetable.blockDuration!;
-    const nextBlockStart = blockStartedAtSecondsIntoSlot + blockDurationSeconds;
-    this.log.verbose(`Waiting until time for the next block at ${nextBlockStart}s into slot`, { slot: this.slot });
+
+    // Calculate when next block should start based on checkpoint start time
+    // This prevents drift when blocks finish early or late
+    const nextBlockStart = this.timetable.getBlockStartTime(checkpointStartTime, nextBlockIndex);
+
+    this.log.verbose(`Waiting until time for block ${nextBlockIndex} at ${nextBlockStart}s into slot`, {
+      slot: this.slot,
+      nextBlockIndex,
+      checkpointStartTime,
+      nextBlockStart,
+    });
+
     await this.waitUntilTimeInSlot(nextBlockStart);
   }
 

@@ -82,7 +82,7 @@ describe('sequencer', () => {
 
   let sequencer: TestSubject;
 
-  const slotDuration = 8;
+  const slotDuration = 12;
   const ethereumSlotDuration = 4;
 
   const chainId = new Fr(12345);

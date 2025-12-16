@@ -1,5 +1,5 @@
 import { DEFAULT_ATTESTATION_PROPAGATION_TIME } from '../config.js';
-import { BLOCK_VALIDATION_TIME, SequencerTimetable } from './timetable.js';
+import { BLOCK_VALIDATION_TIME, MIN_EXECUTION_TIME, SequencerTimetable } from './timetable.js';
 import { SequencerState } from './utils.js';
 
 describe('sequencer-timetable', () => {
@@ -33,8 +33,8 @@ describe('sequencer-timetable', () => {
       ).toThrow(/initialize deadline cannot be negative/i);
     });
 
-    it('allows a slot duration of at least two ethereum slots', () => {
-      const aztecSlotDuration = ETHEREUM_SLOT_DURATION * 2;
+    it('allows a slot duration of at least three ethereum slots', () => {
+      const aztecSlotDuration = ETHEREUM_SLOT_DURATION * 3;
       const timetable = new SequencerTimetable({
         ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
         aztecSlotDuration,
@@ -47,9 +47,9 @@ describe('sequencer-timetable', () => {
           2 * timetable.attestationPropagationTime - // time to propagate the attestation
           timetable.blockValidationTime - // time to validate the block
           timetable.blockPrepareTime - // time to prepare the block
-          2 * timetable.minExecutionTime, // min guaranteed time to execute the block
+          2 * MIN_EXECUTION_TIME, // min guaranteed time to execute the block
       );
-      expect(timetable.initializeDeadline).toEqual(4);
+      expect(timetable.initializeDeadline).toEqual(12);
     });
   });
 
@@ -106,97 +106,14 @@ describe('sequencer-timetable', () => {
     });
   });
 
-  describe('getBlockProposalExecTimeEnd', () => {
-    it('sets deadline considering unused time from init phase', () => {
-      const actual = timetable.getBlockProposalExecTimeEnd(1);
-      const available =
-        AZTEC_SLOT_DURATION -
-        timetable.attestationPropagationTime * 2 -
-        timetable.l1PublishingTime -
-        timetable.blockValidationTime -
-        1;
-      const expected = available / 2 + 1;
-      expect(actual).toEqual(expected);
-      expect(expected).toEqual(10);
-    });
-
-    it('sets deadline considering starting before slot', () => {
-      const actual = timetable.getBlockProposalExecTimeEnd(-1);
-      const available =
-        AZTEC_SLOT_DURATION -
-        timetable.attestationPropagationTime * 2 -
-        timetable.l1PublishingTime -
-        timetable.blockValidationTime +
-        1;
-      const expected = available / 2 - 1;
-      expect(actual).toEqual(expected);
-      expect(expected).toEqual(9);
-    });
-
-    it('sets deadline when building on time', () => {
-      const intoSlot = timetable.initializeDeadline + timetable.blockPrepareTime;
-      const actual = timetable.getBlockProposalExecTimeEnd(intoSlot);
-      const available =
-        AZTEC_SLOT_DURATION -
-        timetable.attestationPropagationTime * 2 -
-        timetable.l1PublishingTime -
-        timetable.blockValidationTime -
-        intoSlot;
-      const expected = available / 2 + intoSlot;
-      expect(actual).toEqual(expected);
-      expect(expected).toEqual(18);
-    });
-
-    it('sets deadline before current time if too late', () => {
-      const intoSlot = AZTEC_SLOT_DURATION - 4;
-      const actual = timetable.getBlockProposalExecTimeEnd(intoSlot);
-      expect(actual).toBeLessThan(intoSlot);
-    });
-  });
-
-  describe('getValidatorReexecTimeEnd', () => {
-    it('sets deadline', () => {
-      const actual = timetable.getValidatorReexecTimeEnd(10);
-      const available = AZTEC_SLOT_DURATION - timetable.attestationPropagationTime - timetable.l1PublishingTime - 10;
-      const expected = available + 10;
-      expect(actual).toEqual(expected);
-      expect(expected).toEqual(22);
-    });
-
-    it('sets time available equal to block building', () => {
-      const { blockValidationTime, attestationPropagationTime, l1PublishingTime } = timetable;
-
-      const intoSlot = 3;
-      const blockBuildDeadline = timetable.getBlockProposalExecTimeEnd(intoSlot);
-      const blockBuildAvailable = blockBuildDeadline - intoSlot;
-
-      const validatorIntoSlot = blockBuildDeadline + blockValidationTime + attestationPropagationTime;
-      const validatorDeadline = timetable.getValidatorReexecTimeEnd(validatorIntoSlot);
-      const validatorAvailable = validatorDeadline - validatorIntoSlot;
-
-      expect(blockBuildAvailable).toEqual(validatorAvailable);
-
-      expect(
-        blockBuildAvailable +
-          validatorAvailable +
-          intoSlot +
-          blockValidationTime +
-          attestationPropagationTime * 2 +
-          l1PublishingTime,
-      ).toEqual(AZTEC_SLOT_DURATION);
-    });
-  });
-
-  describe('getBlockTimingInfo', () => {
+  describe('canStartNextBlock', () => {
     const AZTEC_SLOT_DURATION = 72;
 
     let afterBlockBuildingTimeNeededWithoutReexec: number;
-    let slotBuildDeadline: number;
 
     beforeEach(() => {
       afterBlockBuildingTimeNeededWithoutReexec =
         BLOCK_VALIDATION_TIME + 2 * DEFAULT_ATTESTATION_PROPAGATION_TIME + L1_PUBLISHING_TIME;
-      slotBuildDeadline = AZTEC_SLOT_DURATION - afterBlockBuildingTimeNeededWithoutReexec;
     });
 
     describe('single block per slot', () => {
@@ -210,25 +127,44 @@ describe('sequencer-timetable', () => {
       });
 
       it('should handle only block at the start of the slot', () => {
-        const result = timetable.canStartNextBlock(0);
+        const checkpointStartTime = 0;
+        const blockIndex = 0;
+        const previousBlockDuration = 0;
+        const result = timetable.canStartNextBlock(0, checkpointStartTime, blockIndex, previousBlockDuration);
         expect(result.isLastBlock).toBe(true);
         expect(result.canStart).toBe(true);
-        expect(result.deadline).toBe(slotBuildDeadline / 2); // We need to account for reexecution
+        // Single block mode: deadline is aztecSlotDuration - l1PublishingTime
+        expect(result.deadline).toBe(AZTEC_SLOT_DURATION - L1_PUBLISHING_TIME);
       });
 
       it('should handle only block into the slot', () => {
         const secondsIntoSlot = 4;
-        const result = timetable.canStartNextBlock(secondsIntoSlot);
+        const checkpointStartTime = 4;
+        const blockIndex = 0;
+        const previousBlockDuration = 0;
+        const result = timetable.canStartNextBlock(
+          secondsIntoSlot,
+          checkpointStartTime,
+          blockIndex,
+          previousBlockDuration,
+        );
         expect(result.isLastBlock).toBe(true);
         expect(result.canStart).toBe(true);
-        // When starting secondsIntoSlot into slot: available time is split 50/50 for execution and reexecution
-        const available = slotBuildDeadline - secondsIntoSlot;
-        const expectedDeadline = secondsIntoSlot + available / 2;
-        expect(result.deadline).toBe(expectedDeadline);
+        // Single block mode: deadline is aztecSlotDuration - l1PublishingTime
+        expect(result.deadline).toBe(AZTEC_SLOT_DURATION - L1_PUBLISHING_TIME);
       });
 
       it('should refuse to start with too little time available', () => {
-        const result = timetable.canStartNextBlock(AZTEC_SLOT_DURATION - afterBlockBuildingTimeNeededWithoutReexec - 1);
+        const secondsIntoSlot = AZTEC_SLOT_DURATION - afterBlockBuildingTimeNeededWithoutReexec - 1;
+        const checkpointStartTime = secondsIntoSlot;
+        const blockIndex = 0;
+        const previousBlockDuration = 0;
+        const result = timetable.canStartNextBlock(
+          secondsIntoSlot,
+          checkpointStartTime,
+          blockIndex,
+          previousBlockDuration,
+        );
         expect(result.canStart).toBe(false);
       });
     });

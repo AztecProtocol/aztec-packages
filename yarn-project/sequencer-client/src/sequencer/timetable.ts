@@ -5,7 +5,7 @@ import { SequencerTooSlowError } from './errors.js';
 import type { SequencerMetrics } from './metrics.js';
 import { SequencerState } from './utils.js';
 
-export const MIN_EXECUTION_TIME = 1;
+export const MIN_EXECUTION_TIME = 3;
 export const BLOCK_PREPARE_TIME = 1;
 export const BLOCK_VALIDATION_TIME = 1;
 
@@ -23,12 +23,6 @@ export class SequencerTimetable {
    * we can just post in the very last second of the L1 slot and still expect the tx to be accepted.
    */
   public readonly l1PublishingTime: number;
-
-  /**
-   * What's the minimum time we want to leave available for execution and reexecution (used to derive init deadline)
-   * Defaults to half of the block duration if set, otherwise a constant.
-   */
-  public readonly minExecutionTime: number = MIN_EXECUTION_TIME;
 
   /** How long it takes to get ready to start building */
   public readonly blockPrepareTime: number = BLOCK_PREPARE_TIME;
@@ -68,7 +62,6 @@ export class SequencerTimetable {
     this.l1PublishingTime = opts.l1PublishingTime;
     this.attestationPropagationTime = opts.attestationPropagationTime ?? DEFAULT_ATTESTATION_PROPAGATION_TIME;
     this.blockDuration = opts.blockDurationMs ? opts.blockDurationMs / 1000 : undefined;
-    this.minExecutionTime = this.blockDuration ? this.blockDuration / 2 : MIN_EXECUTION_TIME;
     this.enforce = opts.enforce;
 
     // Assume zero-cost propagation time and faster runs in test environments where L1 slot duration is shortened
@@ -80,7 +73,7 @@ export class SequencerTimetable {
 
     const allWorkToDo =
       this.blockPrepareTime +
-      this.minExecutionTime * 2 +
+      MIN_EXECUTION_TIME * 2 +
       this.attestationPropagationTime * 2 +
       this.blockValidationTime +
       this.l1PublishingTime;
@@ -92,7 +85,7 @@ export class SequencerTimetable {
       ethereumSlotDuration: this.ethereumSlotDuration,
       aztecSlotDuration: this.aztecSlotDuration,
       l1PublishingTime: this.l1PublishingTime,
-      minExecutionTime: this.minExecutionTime,
+      minExecutionTime: MIN_EXECUTION_TIME,
       blockPrepareTime: this.blockPrepareTime,
       attestationPropagationTime: this.attestationPropagationTime,
       blockValidationTime: this.blockValidationTime,
@@ -108,37 +101,46 @@ export class SequencerTimetable {
     }
   }
 
-  private get afterBlockBuildingTimeNeededWithoutReexec() {
-    return this.blockValidationTime + this.attestationPropagationTime * 2 + this.l1PublishingTime;
+  /**
+   * Calculate deadline for a regular (non-last) block.
+   * Deadline is when the block execution should complete.
+   * @param checkpointStartTime - Seconds into slot when checkpoint building began
+   * @param blockIndex - Index of the block (0 for first, 1 for second, etc.)
+   * @returns Seconds into slot when block should be complete
+   */
+  public getRegularBlockDeadline(checkpointStartTime: number, blockIndex: number): number {
+    if (!this.blockDuration) {
+      throw new Error('getRegularBlockDeadline called but blockDuration is undefined');
+    }
+    return checkpointStartTime + (blockIndex + 1) * this.blockDuration;
   }
 
-  public getBlockProposalExecTimeEnd(secondsIntoSlot: number): number {
-    // We are N seconds into the slot. We need to account for `afterBlockBuildingTimeNeededWithoutReexec` seconds,
-    // send then split the remaining time between the re-execution and the block building.
-    const maxAllowed = this.aztecSlotDuration - this.afterBlockBuildingTimeNeededWithoutReexec;
-    const available = maxAllowed - secondsIntoSlot;
-    const executionTimeEnd = secondsIntoSlot + available / 2;
-    this.log.verbose(`Block proposal execution time deadline is ${executionTimeEnd}`, {
-      secondsIntoSlot,
-      maxAllowed,
-      available,
-      executionTimeEnd,
-    });
-    return executionTimeEnd;
+  /**
+   * Calculate when a block should start building (to maintain regular intervals).
+   * @param checkpointStartTime - Seconds into slot when checkpoint building began
+   * @param blockIndex - Index of the block (0 for first, 1 for second, etc.)
+   * @returns Seconds into slot when block should start
+   */
+  public getBlockStartTime(checkpointStartTime: number, blockIndex: number): number {
+    if (!this.blockDuration) {
+      throw new Error('getBlockStartTime called but blockDuration is undefined');
+    }
+    return checkpointStartTime + blockIndex * this.blockDuration;
   }
 
-  private get afterBlockReexecTimeNeeded() {
-    return this.attestationPropagationTime + this.l1PublishingTime;
-  }
-
-  public getValidatorReexecTimeEnd(secondsIntoSlot?: number): number {
-    // We need to leave for `afterBlockReexecTimeNeeded` seconds available.
-    const validationTimeEnd = this.aztecSlotDuration - this.afterBlockReexecTimeNeeded;
-    this.log.debug(`Validator re-execution time deadline is ${validationTimeEnd}`, {
-      secondsIntoSlot,
-      validationTimeEnd,
-    });
-    return validationTimeEnd;
+  /**
+   * Calculate time needed after completing a block to finish the checkpoint.
+   * Includes validator re-execution, propagation, validation, and L1 publishing.
+   * @param blockBuildDuration - How long it took to build the block
+   * @returns Seconds needed
+   */
+  private getAfterBlockTimeNeeded(blockBuildDuration: number): number {
+    return (
+      blockBuildDuration + // Validators need same time to re-execute
+      2 * this.attestationPropagationTime + // Round-trip propagation (proposal and attestations)
+      this.blockValidationTime + // Time to finalize checkpoint and create proposal
+      this.l1PublishingTime // Time to publish to L1
+    );
   }
 
   // TODO(palla/mbps): Review these times for new states
@@ -161,11 +163,29 @@ export class SequencerTimetable {
         return this.initializeDeadline;
       case SequencerState.WAITING_FOR_TXS:
       case SequencerState.CREATING_BLOCK:
+        // TODO(timing): These states have block-specific deadlines that depend on
+        // which block is being built. The deadline is calculated in CheckpointProposalJob
+        // using the deadline returned by canStartNextBlock().
         return this.initializeDeadline + this.blockPrepareTime;
       case SequencerState.WAITING_UNTIL_NEXT_BLOCK:
+        // Conservative estimate - actual deadline depends on checkpoint start time and block index
         return this.initializeDeadline + this.blockPrepareTime;
-      case SequencerState.FINALIZING_CHECKPOINT:
-        return this.aztecSlotDuration - this.l1PublishingTime - 2 * this.attestationPropagationTime;
+      case SequencerState.FINALIZING_CHECKPOINT: {
+        // After building last block, need time for:
+        // - validators to re-execute last block (assume MAX blockDuration for safety)
+        // - attestations to propagate back (2 * attestationPropagationTime)
+        // - validation time
+        // - L1 publishing time
+        // Conservative estimate using blockDuration as max last block time
+        const conservativeLastBlockTime = this.blockDuration ?? MIN_EXECUTION_TIME;
+        return (
+          this.aztecSlotDuration -
+          conservativeLastBlockTime -
+          2 * this.attestationPropagationTime -
+          this.blockValidationTime -
+          this.l1PublishingTime
+        );
+      }
       case SequencerState.COLLECTING_ATTESTATIONS:
         return this.aztecSlotDuration - this.l1PublishingTime - 2 * this.attestationPropagationTime;
       case SequencerState.PUBLISHING_CHECKPOINT:
@@ -197,55 +217,103 @@ export class SequencerTimetable {
   }
 
   /**
-   * Get timing information for building blocks within a slot.
-   * @param secondsIntoSlot - Current seconds into the slot
-   * @returns Object containing:
-   *   - canStart: boolean - Whether there's time to start a block now
-   *   - deadline: number - Deadline (seconds into slot) for current/next block
-   *   - isLastBlock: boolean - Whether the next block would be the last
+   * Determine if we can start building the next block, and if so, what the deadline is.
+   * This method also determines if the block will be the last in the checkpoint.
+   *
+   * Key insight: Validators execute blocks sequentially. They cannot start re-executing
+   * block N until they finish re-executing block N-1. This means the last block's timing
+   * must account for validators finishing the PREVIOUS block's re-execution.
+   *
+   * @param secondsIntoSlot - Current time (seconds into the slot)
+   * @param checkpointStartTime - When checkpoint building began (seconds into slot)
+   * @param blockIndex - Index of block we're considering (0=first, 1=second, etc.)
+   * @param previousBlockDuration - How long the previous block took to build (0 for first block)
+   * @returns Object with canStart, deadline, and isLastBlock flags
    */
-  public canStartNextBlock(secondsIntoSlot: number): {
+  public canStartNextBlock(
+    secondsIntoSlot: number,
+    checkpointStartTime: number,
+    blockIndex: number,
+    previousBlockDuration: number,
+  ): {
     canStart: boolean;
-    deadline: number;
+    deadline: number; // seconds into slot
     isLastBlock: boolean;
   } {
-    const minExecutionTime = this.minExecutionTime;
-    const deadline = this.getBlockProposalExecTimeEnd(secondsIntoSlot);
-    const canStart = deadline - secondsIntoSlot >= minExecutionTime;
-
-    // Single block per slot
+    // Single block per slot - special case
     if (this.blockDuration === undefined) {
+      const deadline = this.aztecSlotDuration - this.l1PublishingTime;
+      const canStart = secondsIntoSlot <= this.initializeDeadline;
       this.log.verbose(`${canStart ? 'Can' : 'Cannot'} start single-block checkpoint at ${secondsIntoSlot}s into slot`);
       return { deadline, canStart, isLastBlock: true };
     }
 
     // Multiple blocks per slot
-    // TODO(palla/mbps): The following is most likely incorrect. When the sequencer sends the penultimate
-    // block in the slot, the attestors will finish executing it at the very end of the slot, leaving no time for
-    // yet another block, but the following logic seems like it may still allow it. Review this.
-    const timeForNextBlockEnd = secondsIntoSlot + this.blockDuration;
-    const canStartAnotherBlock =
-      this.getBlockProposalExecTimeEnd(timeForNextBlockEnd) - timeForNextBlockEnd >= minExecutionTime;
-    const effectiveDeadline = canStartAnotherBlock ? timeForNextBlockEnd : deadline;
+    const remaining = this.aztecSlotDuration - secondsIntoSlot;
 
-    this.log.verbose(
-      canStart
-        ? canStartAnotherBlock
-          ? `Starting new block at ${secondsIntoSlot}s into slot`
-          : `Starting last block at ${secondsIntoSlot}s into slot`
-        : `No time left for starting new block at ${secondsIntoSlot}s into slot`,
-      {
+    // Calculate when this block should start and its regular deadline
+    const expectedStart = this.getBlockStartTime(checkpointStartTime, blockIndex);
+    const regularDeadline = this.getRegularBlockDeadline(checkpointStartTime, blockIndex);
+
+    // Check 1: Can we fit a regular block (blockDuration) PLUS another block after it?
+    // For this check, assume both this block and the next take the standard blockDuration
+    const remainingAfterThisBlock = remaining - this.blockDuration;
+    // 17s = 4s propagation + 1s validation + 12s L1 publishing (with default config)
+    const afterBlockOverhead = 2 * this.attestationPropagationTime + this.blockValidationTime + this.l1PublishingTime;
+    const nextBlockMaxDuration = remainingAfterThisBlock - this.blockDuration - afterBlockOverhead;
+
+    if (nextBlockMaxDuration >= MIN_EXECUTION_TIME) {
+      // Yes, we can fit another block after this one
+      // So this is NOT the last block - build it as a regular block
+      const canStart = secondsIntoSlot <= regularDeadline - MIN_EXECUTION_TIME;
+
+      this.log.verbose(
+        canStart
+          ? `Starting regular block at ${secondsIntoSlot}s into slot`
+          : `No time to start regular block at ${secondsIntoSlot}s into slot`,
+        {
+          secondsIntoSlot,
+          expectedStart,
+          regularDeadline,
+          remaining,
+          canStartAnotherAfter: true,
+        },
+      );
+
+      return { canStart, deadline: regularDeadline, isLastBlock: false };
+    }
+
+    // Check 2: Can we fit this block as the LAST block?
+    // Use actual previous block duration (not assumed blockDuration)
+    // Formula: M <= remaining - D - 17s where:
+    //   M = time for last block
+    //   D = previous block duration (validators need this long to re-exec it)
+    //   17s = 4s propagation + 1s validation + 12s L1 publishing
+    const lastBlockMaxDuration = remaining - previousBlockDuration - afterBlockOverhead;
+
+    if (lastBlockMaxDuration >= MIN_EXECUTION_TIME) {
+      // Yes, we can fit one more block as the last block
+      const deadline = secondsIntoSlot + lastBlockMaxDuration;
+
+      this.log.verbose(`Starting last block at ${secondsIntoSlot}s into slot with ${lastBlockMaxDuration}s allocated`, {
         secondsIntoSlot,
-        blockDuration: this.blockDuration,
-        minExecutionTime,
+        remaining,
+        previousBlockDuration,
+        lastBlockMaxDuration,
         deadline,
-        effectiveDeadline,
-        timeForNextBlockEnd,
-        canStartAnotherBlock,
-        canStart,
-      },
-    );
+      });
 
-    return { canStart, deadline: effectiveDeadline, isLastBlock: !canStartAnotherBlock };
+      return { canStart: true, deadline, isLastBlock: true };
+    }
+
+    // Cannot fit any more blocks
+    this.log.verbose(`No time left for starting new block at ${secondsIntoSlot}s into slot`, {
+      secondsIntoSlot,
+      remaining,
+      previousBlockDuration,
+      lastBlockMaxDuration,
+    });
+
+    return { canStart: false, deadline: 0, isLastBlock: false };
   }
 }

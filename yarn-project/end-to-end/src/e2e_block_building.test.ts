@@ -112,9 +112,14 @@ describe('e2e_block_building', () => {
       // This will leave the sequencer with just a few seconds to build the block, so it shouldn't
       // be able to squeeze in more than a few txs in each. This is sensitive to the time it takes
       // to pick up and validate the txs, so we may need to bump it to work on CI.
-      jest
-        .spyOn(sequencer.sequencer.timetable, 'getBlockProposalExecTimeEnd')
-        .mockImplementation((secondsIntoSlot: number) => secondsIntoSlot + 1);
+      const originalCanStartNextBlock = sequencer.sequencer.timetable.canStartNextBlock.bind(
+        sequencer.sequencer.timetable,
+      );
+      jest.spyOn(sequencer.sequencer.timetable, 'canStartNextBlock').mockImplementation((...args) => {
+        const result = originalCanStartNextBlock(...args);
+        // Override the deadline to give only 1 second from current time
+        return { ...result, deadline: args[0] + 1 };
+      });
 
       // Flood the mempool with TX_COUNT simultaneous txs
       const methods = times(TX_COUNT, i => contract.methods.increment_public_value(ownerAddress, i));
