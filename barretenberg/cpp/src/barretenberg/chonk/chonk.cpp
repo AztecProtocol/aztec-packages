@@ -171,7 +171,20 @@ Chonk::perform_recursive_verification_and_databus_consistency_checks(
         // Add pairing points for aggregation
         pairing_points.emplace_back(kernel_input.pairing_inputs);
         // Perform databus consistency checks
+        bool kernel_return_data_match =
+            kernel_input.kernel_return_data.get_value() == witness_commitments.calldata.get_value();
+        BB_ASSERT_DEBUG(kernel_return_data_match,
+                        "kernel_return_data mismatch: proof contains " << kernel_input.kernel_return_data.get_value()
+                                                                       << " but calldata commitment is "
+                                                                       << witness_commitments.calldata.get_value());
         kernel_input.kernel_return_data.incomplete_assert_equal(witness_commitments.calldata);
+
+        bool app_return_data_match =
+            kernel_input.app_return_data.get_value() == witness_commitments.secondary_calldata.get_value();
+        BB_ASSERT_DEBUG(app_return_data_match,
+                        "app_return_data mismatch: proof contains "
+                            << kernel_input.app_return_data.get_value() << " but secondary_calldata commitment is "
+                            << witness_commitments.secondary_calldata.get_value());
         kernel_input.app_return_data.incomplete_assert_equal(witness_commitments.secondary_calldata);
 
         // T_prev is read by the public input of the previous kernel K_{i-1} at the beginning of the recursive
@@ -185,6 +198,11 @@ Chonk::perform_recursive_verification_and_databus_consistency_checks(
         // Get the previous accum hash
         info("Accumulator hash from IO: ", kernel_input.output_hn_accum_hash);
         BB_ASSERT(prev_accum_hash.has_value());
+        bool accum_hash_match = kernel_input.output_hn_accum_hash.get_value() == prev_accum_hash->get_value();
+        BB_ASSERT_DEBUG(accum_hash_match,
+                        "output_hn_accum_hash mismatch: proof contains "
+                            << kernel_input.output_hn_accum_hash.get_value() << " but expected "
+                            << prev_accum_hash->get_value());
         kernel_input.output_hn_accum_hash.assert_equal(*prev_accum_hash);
 
         // Set the kernel return data commitment to be propagated via the public inputs
