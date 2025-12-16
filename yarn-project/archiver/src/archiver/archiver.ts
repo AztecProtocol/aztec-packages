@@ -1368,7 +1368,7 @@ export class Archiver
     if (number === 0) {
       return undefined;
     }
-    const publishedBlock = await this.store.getBlock(number);
+    const publishedBlock = await this.store.store.getBlock(number);
     return publishedBlock;
   }
 
@@ -1757,11 +1757,13 @@ export class ArchiverStoreHelper
       | 'close'
       | 'transactionAsync'
       | 'addBlocks'
+      | 'getBlock'
+      | 'getBlocks'
     >
 {
   #log = createLogger('archiver:block-helper');
 
-  constructor(protected readonly store: ArchiverDataStore) {}
+  constructor(public readonly store: ArchiverDataStore) {}
 
   /**
    * Extracts and stores contract classes out of ContractClassPublished events emitted by the class registry contract.
@@ -2042,17 +2044,11 @@ export class ArchiverStoreHelper
   getBlockHeaderByArchive(archive: Fr): Promise<BlockHeader | undefined> {
     return this.store.getBlockHeaderByArchive(archive);
   }
-  getBlock(number: BlockNumber): Promise<L2BlockNew | undefined> {
-    return this.store.getBlock(number);
-  }
   getBlockByHash(blockHash: Fr): Promise<L2BlockNew | undefined> {
     return this.store.getBlockByHash(blockHash);
   }
   getBlockByArchive(archive: Fr): Promise<L2BlockNew | undefined> {
     return this.store.getBlockByArchive(archive);
-  }
-  getBlocks(from: BlockNumber, limit: number): Promise<L2BlockNew[]> {
-    return this.store.getBlocks(from, limit);
   }
   getLatestBlockNumber(): Promise<BlockNumber> {
     return this.store.getLatestBlockNumber();

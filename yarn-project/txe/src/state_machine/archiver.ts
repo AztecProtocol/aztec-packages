@@ -23,9 +23,25 @@ import type { UInt64 } from '@aztec/stdlib/types';
 // We are extending the ArchiverDataStoreHelper here because it provides most of the endpoints needed by the
 // node for reading from and writing to state, without needing any of the extra overhead that the Archiver itself
 // requires (i.e. an L1 client)
-export class TXEArchiver extends ArchiverStoreHelper implements Omit<L2BlockSource, 'getBlock' | 'getBlocks'> {
+export class TXEArchiver extends ArchiverStoreHelper implements L2BlockSource {
   constructor(db: AztecAsyncKVStore) {
     super(new KVArchiverDataStore(db, 9999));
+  }
+
+  public async getBlock(number: BlockNumber): Promise<L2Block | undefined> {
+    if (number === 0) {
+      return undefined;
+    }
+    const publishedBlocks = await this.getPublishedBlocks(number, 1);
+    if (publishedBlocks.length === 0) {
+      return undefined;
+    }
+    return publishedBlocks[0].block;
+  }
+
+  public async getBlocks(from: BlockNumber, limit: number, proven?: boolean): Promise<L2Block[]> {
+    const publishedBlocks = await this.getPublishedBlocks(from, limit, proven);
+    return publishedBlocks.map(x => x.block);
   }
 
   public override async addCheckpoints(

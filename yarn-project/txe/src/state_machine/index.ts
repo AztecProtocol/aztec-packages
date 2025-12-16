@@ -36,7 +36,7 @@ export class TXEStateMachine {
     const node = new AztecNodeService(
       aztecNodeConfig,
       new DummyP2P(),
-      archiver as any,
+      archiver,
       archiver,
       archiver,
       archiver,
