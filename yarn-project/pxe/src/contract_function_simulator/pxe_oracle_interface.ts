@@ -4,7 +4,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { Point } from '@aztec/foundation/curves/grumpkin';
 import { createLogger } from '@aztec/foundation/log';
 import type { KeyStore } from '@aztec/key-store';
-import { EventSelector, FunctionSelector } from '@aztec/stdlib/abi';
+import { EventSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { BlockParameter, DataInBlock, L2Block } from '@aztec/stdlib/block';
 import type { CompleteAddress } from '@aztec/stdlib/contract';
@@ -223,10 +223,6 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     if (version !== ORACLE_VERSION) {
       throw new Error(`Incompatible oracle version. Expected version ${ORACLE_VERSION}, got ${version}.`);
     }
-  }
-
-  public getDebugFunctionName(contractAddress: AztecAddress, selector: FunctionSelector): Promise<string> {
-    return this.contractDataProvider.getDebugFunctionName(contractAddress, selector);
   }
 
   /**

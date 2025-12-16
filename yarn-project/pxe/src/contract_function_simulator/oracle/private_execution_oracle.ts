@@ -647,7 +647,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
   }
 
   public getDebugFunctionName() {
-    return this.executionDataProvider.getDebugFunctionName(this.contractAddress, this.callContext.functionSelector);
+    return this.contractDataProvider.getDebugFunctionName(this.contractAddress, this.callContext.functionSelector);
   }
 
   public utilityEmitOffchainEffect(data: Fr[]): Promise<void> {

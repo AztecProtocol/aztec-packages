@@ -2,7 +2,6 @@ import type { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
 import type { BlockNumber } from '@aztec/foundation/branded-types';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import type { Point } from '@aztec/foundation/curves/grumpkin';
-import type { FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2Block } from '@aztec/stdlib/block';
 import type { CompleteAddress } from '@aztec/stdlib/contract';
@@ -82,13 +81,6 @@ export interface ExecutionDataProvider {
     status: NoteStatus,
     scopes?: AztecAddress[],
   ): Promise<NoteData[]>;
-
-  /**
-   * Generates a stable function name for debug purposes.
-   * @param contractAddress - The contract address.
-   * @param selector - The corresponding function selector.
-   */
-  getDebugFunctionName(contractAddress: AztecAddress, selector: FunctionSelector): Promise<string>;
 
   /**
    * Gets the index of a nullifier in the nullifier tree.
