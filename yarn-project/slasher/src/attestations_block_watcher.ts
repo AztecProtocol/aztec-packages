@@ -1,18 +1,24 @@
 import { EpochCache } from '@aztec/epoch-cache';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import {
+  EthAddress,
   type InvalidBlockDetectedEvent,
   type L2BlockSourceEventEmitter,
   L2BlockSourceEvents,
   PublishedL2Block,
   type ValidateBlockNegativeResult,
 } from '@aztec/stdlib/block';
-import { OffenseType } from '@aztec/stdlib/slashing';
+import { Offense } from '@aztec/stdlib/slashing';
 
 import EventEmitter from 'node:events';
 
-import type { SlasherConfig } from '../config.js';
-import { WANT_TO_SLASH_EVENT, type WantToSlashArgs, type Watcher, type WatcherEmitter } from '../watcher.js';
+import {
+  type SlasherConfig,
+  WANT_TO_SLASH_EVENT,
+  type WantToSlashArgs,
+  type Watcher,
+  type WatcherEmitter,
+} from './config.js';
 
 /**
  * This watcher is responsible for detecting invalid blocks and creating slashing arguments for offenders.
@@ -28,6 +34,10 @@ export class AttestationsBlockWatcher extends (EventEmitter as new () => Watcher
 
   // All invalid archive roots seen
   private invalidArchiveRoots: Set<string> = new Set();
+
+  // TODO(#16140): Bad validators are never cleared even after slashing
+  private badAttestors: Set<string> = new Set();
+  private badProposers: Set<string> = new Set();
 
   private boundHandleInvalidBlock = (event: InvalidBlockDetectedEvent) => {
     try {
@@ -46,7 +56,10 @@ export class AttestationsBlockWatcher extends (EventEmitter as new () => Watcher
     private epochCache: EpochCache,
     private config: Pick<
       SlasherConfig,
-      'slashAttestDescendantOfInvalidPenalty' | 'slashProposeInvalidAttestationsPenalty'
+      | 'slashAttestDescendantOfInvalidPenalty'
+      | 'slashAttestDescendantOfInvalidMaxPenalty'
+      | 'slashProposeInvalidAttestationsPenalty'
+      | 'slashProposeInvalidAttestationsMaxPenalty'
     >,
   ) {
     super();
@@ -64,6 +77,23 @@ export class AttestationsBlockWatcher extends (EventEmitter as new () => Watcher
       this.boundHandleInvalidBlock,
     );
     return Promise.resolve();
+  }
+
+  public shouldSlash({ amount, offense, validator }: WantToSlashArgs): Promise<boolean> {
+    const maxPenalty = this.getMaxPenalty(offense);
+    const logData = { validator, amount, offense, maxPenalty };
+    if (amount > maxPenalty) {
+      this.log.warn(`Slash amount ${amount} exceeds maximum penalty ${maxPenalty} for offense ${offense}`, logData);
+      return Promise.resolve(false);
+    }
+
+    if (this.hasOffended(offense, validator)) {
+      this.log.verbose(`Agreeing to slash validator ${validator} for offense ${offense}`, logData);
+      return Promise.resolve(true);
+    }
+
+    this.log.debug(`Refusing to slash validator ${validator} for offense ${offense}`, logData);
+    return Promise.resolve(false);
   }
 
   private handleInvalidBlock(event: InvalidBlockDetectedEvent): void {
@@ -103,13 +133,14 @@ export class AttestationsBlockWatcher extends (EventEmitter as new () => Watcher
         parentArchive,
       });
 
+      attestors.forEach(attestor => this.badAttestors.add(attestor.toString()));
+
       this.emit(
         WANT_TO_SLASH_EVENT,
         attestors.map(attestor => ({
           validator: attestor,
           amount: this.config.slashAttestDescendantOfInvalidPenalty,
-          offenseType: OffenseType.ATTESTED_DESCENDANT_OF_INVALID,
-          epochOrSlot: block.block.slot,
+          offense: Offense.ATTESTED_DESCENDANT_OF_INVALID,
         })),
       );
     }
@@ -128,31 +159,51 @@ export class AttestationsBlockWatcher extends (EventEmitter as new () => Watcher
 
     const offense = this.getOffenseFromInvalidationReason(reason);
     const amount = this.config.slashProposeInvalidAttestationsPenalty;
-    const args: WantToSlashArgs = {
-      validator: proposer,
-      amount,
-      offenseType: offense,
-      epochOrSlot: block.block.slot,
-    };
+    const args: WantToSlashArgs = { validator: proposer, amount, offense };
 
     this.log.info(`Want to slash proposer of block ${blockNumber} due to ${reason}`, {
       ...block.block.toBlockInfo(),
       ...args,
     });
 
+    this.badProposers.add(proposer.toString());
     this.emit(WANT_TO_SLASH_EVENT, [args]);
   }
 
-  private getOffenseFromInvalidationReason(reason: ValidateBlockNegativeResult['reason']): OffenseType {
+  private getOffenseFromInvalidationReason(reason: ValidateBlockNegativeResult['reason']): Offense {
     switch (reason) {
       case 'invalid-attestation':
-        return OffenseType.PROPOSED_INCORRECT_ATTESTATIONS;
+        return Offense.PROPOSED_INCORRECT_ATTESTATIONS;
       case 'insufficient-attestations':
-        return OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS;
+        return Offense.PROPOSED_INSUFFICIENT_ATTESTATIONS;
       default: {
         const _: never = reason;
-        return OffenseType.UNKNOWN;
+        return Offense.UNKNOWN;
       }
+    }
+  }
+
+  private getMaxPenalty(offense: Offense) {
+    switch (offense) {
+      case Offense.PROPOSED_INCORRECT_ATTESTATIONS:
+      case Offense.PROPOSED_INSUFFICIENT_ATTESTATIONS:
+        return this.config.slashProposeInvalidAttestationsMaxPenalty;
+      case Offense.ATTESTED_DESCENDANT_OF_INVALID:
+        return this.config.slashProposeInvalidAttestationsMaxPenalty;
+      default:
+        return 0n;
+    }
+  }
+
+  private hasOffended(offense: Offense, validator: EthAddress): boolean {
+    switch (offense) {
+      case Offense.PROPOSED_INCORRECT_ATTESTATIONS:
+      case Offense.PROPOSED_INSUFFICIENT_ATTESTATIONS:
+        return this.badProposers.has(validator.toString());
+      case Offense.ATTESTED_DESCENDANT_OF_INVALID:
+        return this.badAttestors.has(validator.toString());
+      default:
+        return false;
     }
   }
 

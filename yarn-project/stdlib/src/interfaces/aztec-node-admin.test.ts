@@ -1,7 +1,8 @@
+import { SecretValue } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type JsonRpcTestContext, createJsonRpcTestSetup } from '@aztec/foundation/json-rpc/test';
 
-import { type Offense, OffenseType, type SlashPayloadRound } from '../slashing/index.js';
+import type { MonitoredSlashPayload } from '../slashing/index.js';
 import { type AztecNodeAdmin, AztecNodeAdminApiSchema } from './aztec-node-admin.js';
 import type { SequencerConfig } from './configs.js';
 import type { ProverConfig } from './prover-client.js';
@@ -56,32 +57,16 @@ describe('AztecNodeAdminApiSchema', () => {
     await context.client.resumeSync();
   });
 
-  it('getSlashPayloads', async () => {
-    const payloads = await context.client.getSlashPayloads();
+  it('getSlasherMonitoredPayloads', async () => {
+    const payloads: MonitoredSlashPayload[] = await context.client.getSlasherMonitoredPayloads();
     expect(payloads).toHaveLength(1);
     expect(payloads[0]).toMatchObject({
-      address: expect.any(EthAddress),
-      slashes: [
-        {
-          validator: expect.any(EthAddress),
-          amount: 1000n,
-          offenses: [{ offenseType: OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS, epochOrSlot: 1n }],
-        },
-      ],
-      votes: 1n,
-      round: 1n,
-      timestamp: 1000n,
-    } satisfies SlashPayloadRound);
-  });
-
-  it('getSlashOffenses', async () => {
-    const offenses = await context.client.getSlashOffenses('all');
-    expect(offenses).toHaveLength(1);
-    expect(offenses[0]).toMatchObject({
-      validator: expect.any(EthAddress),
-      amount: expect.any(BigInt),
-      offenseType: OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS,
-      epochOrSlot: expect.any(BigInt),
+      payloadAddress: expect.any(EthAddress),
+      validators: expect.arrayContaining([expect.any(EthAddress)]),
+      amounts: expect.arrayContaining([expect.any(BigInt)]),
+      offenses: [],
+      observedAtSeconds: expect.any(Number),
+      totalAmount: expect.any(BigInt),
     });
   });
 });
@@ -92,35 +77,15 @@ class MockAztecNodeAdmin implements AztecNodeAdmin {
     expect(config.coinbase).toBeInstanceOf(EthAddress);
     return Promise.resolve();
   }
-  getSlashPayloads(): Promise<SlashPayloadRound[]> {
+  getSlasherMonitoredPayloads(): Promise<MonitoredSlashPayload[]> {
     return Promise.resolve([
       {
-        address: EthAddress.random(),
-        slashes: [
-          {
-            validator: EthAddress.random(),
-            amount: 1000n,
-            offenses: [
-              {
-                offenseType: OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS,
-                epochOrSlot: 1n,
-              },
-            ],
-          },
-        ],
-        timestamp: 1000n,
-        votes: 1n,
-        round: 1n,
-      },
-    ]);
-  }
-  getSlashOffenses(): Promise<Offense[]> {
-    return Promise.resolve([
-      {
-        validator: EthAddress.random(),
-        amount: 1000n,
-        offenseType: OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS,
-        epochOrSlot: 1n,
+        payloadAddress: EthAddress.random(),
+        validators: [EthAddress.random(), EthAddress.random()],
+        amounts: [100n, 200n],
+        offenses: [],
+        observedAtSeconds: Math.floor(Date.now() / 1000),
+        totalAmount: 300n,
       },
     ]);
   }
@@ -137,27 +102,22 @@ class MockAztecNodeAdmin implements AztecNodeAdmin {
       slashPruneEnabled: false,
       slashPrunePenalty: 1000n,
       slashPruneMaxPenalty: 1000n,
-      slashBroadcastedInvalidBlockEnabled: false,
-      slashBroadcastedInvalidBlockPenalty: 1000n,
-      slashBroadcastedInvalidBlockMaxPenalty: 1000n,
+      slashInvalidBlockEnabled: false,
+      slashInvalidBlockPenalty: 1000n,
+      slashInvalidBlockMaxPenalty: 1000n,
       slashInactivityEnabled: false,
       slashInactivityCreateTargetPercentage: 0.5,
       slashInactivitySignalTargetPercentage: 0.5,
       slashInactivityCreatePenalty: 1000n,
       slashInactivityMaxPenalty: 1000n,
       slashProposerRoundPollingIntervalSeconds: 1000,
+      slasherPrivateKey: new SecretValue<string | undefined>(undefined),
       secondsBeforeInvalidatingBlockAsCommitteeMember: 0,
       secondsBeforeInvalidatingBlockAsNonCommitteeMember: 0,
       slashProposeInvalidAttestationsPenalty: 1000n,
       slashProposeInvalidAttestationsMaxPenalty: 1000n,
       slashAttestDescendantOfInvalidPenalty: 1000n,
       slashAttestDescendantOfInvalidMaxPenalty: 1000n,
-      slashOffenseExpirationRounds: 4,
-      slashMaxPayloadSize: 50,
-      slashUnknownPenalty: 1000n,
-      slashUnknownMaxPenalty: 1000n,
-      slashGracePeriodL2Slots: 0,
-      slasherClientType: 'empire' as const,
     });
   }
   startSnapshotUpload(_location: string): Promise<void> {

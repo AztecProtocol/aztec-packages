@@ -9,5 +9,4 @@ export * from './inbox.js';
 export * from './multicall.js';
 export * from './registry.js';
 export * from './rollup.js';
-export * from './empire_slashing_proposer.js';
-export * from './tally_slashing_proposer.js';
+export * from './slashing_proposer.js';

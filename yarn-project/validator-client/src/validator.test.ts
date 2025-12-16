@@ -16,7 +16,7 @@ import {
   createSecp256k1PeerId,
 } from '@aztec/p2p';
 import { computeInHashFromL1ToL2Messages } from '@aztec/prover-client/helpers';
-import { OffenseType, WANT_TO_SLASH_EVENT } from '@aztec/slasher';
+import { Offense, WANT_TO_SLASH_EVENT } from '@aztec/slasher';
 import type { L2Block, L2BlockSource } from '@aztec/stdlib/block';
 import { Gas } from '@aztec/stdlib/gas';
 import type { BuildBlockResult, IFullNodeBlockBuilder, SlasherConfig } from '@aztec/stdlib/interfaces/server';
@@ -36,12 +36,7 @@ import { ValidatorClient } from './validator.js';
 
 describe('ValidatorClient', () => {
   let config: ValidatorClientConfig &
-    Pick<
-      SlasherConfig,
-      | 'slashBroadcastedInvalidBlockEnabled'
-      | 'slashBroadcastedInvalidBlockPenalty'
-      | 'slashBroadcastedInvalidBlockMaxPenalty'
-    >;
+    Pick<SlasherConfig, 'slashInvalidBlockEnabled' | 'slashInvalidBlockPenalty' | 'slashInvalidBlockMaxPenalty'>;
   let validatorClient: ValidatorClient;
   let p2pClient: MockProxy<P2P>;
   let blockSource: MockProxy<L2BlockSource>;
@@ -75,9 +70,9 @@ describe('ValidatorClient', () => {
       disableValidator: false,
       validatorReexecute: false,
       validatorReexecuteDeadlineMs: 6000,
-      slashBroadcastedInvalidBlockEnabled: true,
-      slashBroadcastedInvalidBlockPenalty: 1n,
-      slashBroadcastedInvalidBlockMaxPenalty: 100n,
+      slashInvalidBlockEnabled: true,
+      slashInvalidBlockPenalty: 1n,
+      slashInvalidBlockMaxPenalty: 100n,
     };
     validatorClient = ValidatorClient.new(
       config,
@@ -293,9 +288,8 @@ describe('ValidatorClient', () => {
       expect(emitSpy).toHaveBeenCalledWith(WANT_TO_SLASH_EVENT, [
         {
           validator: proposer,
-          amount: config.slashBroadcastedInvalidBlockPenalty,
-          offenseType: OffenseType.BROADCASTED_INVALID_BLOCK_PROPOSAL,
-          epochOrSlot: expect.any(BigInt),
+          amount: config.slashInvalidBlockPenalty,
+          offense: Offense.BROADCASTED_INVALID_BLOCK_PROPOSAL,
         },
       ]);
 
@@ -303,9 +297,8 @@ describe('ValidatorClient', () => {
       await expect(
         validatorClient.shouldSlash({
           validator: EthAddress.fromString(proposer.toString()), // create a copy of the EthAddress
-          amount: config.slashBroadcastedInvalidBlockMaxPenalty,
-          offenseType: OffenseType.BROADCASTED_INVALID_BLOCK_PROPOSAL,
-          epochOrSlot: 1n,
+          amount: config.slashInvalidBlockMaxPenalty,
+          offense: Offense.BROADCASTED_INVALID_BLOCK_PROPOSAL,
         }),
       ).resolves.toBe(true);
 
@@ -313,15 +306,14 @@ describe('ValidatorClient', () => {
       await expect(
         validatorClient.shouldSlash({
           validator: EthAddress.fromString(proposer.toString()),
-          amount: config.slashBroadcastedInvalidBlockMaxPenalty + 1n,
-          offenseType: OffenseType.BROADCASTED_INVALID_BLOCK_PROPOSAL,
-          epochOrSlot: 1n,
+          amount: config.slashInvalidBlockMaxPenalty + 1n,
+          offense: Offense.BROADCASTED_INVALID_BLOCK_PROPOSAL,
         }),
       ).resolves.toBe(false);
     });
 
     it('should not emit WANT_TO_SLASH_EVENT if slashing is disabled', async () => {
-      validatorClient.configureSlashing({ slashBroadcastedInvalidBlockEnabled: false });
+      validatorClient.configureSlashing({ slashInvalidBlockEnabled: false });
 
       const emitSpy = jest.spyOn(validatorClient, 'emit');
       enableReexecution();

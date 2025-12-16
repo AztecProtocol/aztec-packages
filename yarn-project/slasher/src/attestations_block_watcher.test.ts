@@ -10,22 +10,21 @@ import {
   type ValidateBlockNegativeResult,
 } from '@aztec/stdlib/block';
 import { BlockAttestation } from '@aztec/stdlib/p2p';
-import { OffenseType } from '@aztec/stdlib/slashing';
+import { Offense } from '@aztec/stdlib/slashing';
 
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 import EventEmitter from 'node:events';
 
-import { DefaultSlasherConfig, type SlasherConfig } from '../config.js';
-import { WANT_TO_SLASH_EVENT, type WantToSlashArgs } from '../watcher.js';
 import { AttestationsBlockWatcher } from './attestations_block_watcher.js';
+import { DefaultSlasherConfig, type SlasherConfig, WANT_TO_SLASH_EVENT } from './config.js';
 
 describe('AttestationsBlockWatcher', () => {
   let watcher: AttestationsBlockWatcher;
   let l2BlockSource: L2BlockSourceEventEmitter;
   let epochCache: MockProxy<EpochCache>;
   let config: SlasherConfig;
-  let handler: jest.MockedFunction<(args: WantToSlashArgs[]) => void>;
+  let handler: jest.MockedFunction<any>;
   let block: L2Block;
   let publishedBlock: PublishedL2Block;
   let proposer: EthAddress;
@@ -79,9 +78,8 @@ describe('AttestationsBlockWatcher', () => {
       {
         validator: proposer,
         amount: config.slashProposeInvalidAttestationsPenalty,
-        offenseType: OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS,
-        epochOrSlot: 1n,
-      } satisfies WantToSlashArgs,
+        offense: Offense.PROPOSED_INSUFFICIENT_ATTESTATIONS,
+      },
     ]);
     expect(handler).toHaveBeenCalledTimes(1);
   });
@@ -111,9 +109,8 @@ describe('AttestationsBlockWatcher', () => {
       {
         validator: proposer,
         amount: config.slashProposeInvalidAttestationsPenalty,
-        offenseType: OffenseType.PROPOSED_INCORRECT_ATTESTATIONS,
-        epochOrSlot: 1n,
-      } satisfies WantToSlashArgs,
+        offense: Offense.PROPOSED_INCORRECT_ATTESTATIONS,
+      },
     ]);
     expect(handler).toHaveBeenCalledTimes(1);
   });
@@ -179,26 +176,105 @@ describe('AttestationsBlockWatcher', () => {
       {
         validator: proposer2,
         amount: config.slashProposeInvalidAttestationsPenalty,
-        offenseType: OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS,
-        epochOrSlot: 2n,
-      } satisfies WantToSlashArgs,
+        offense: Offense.PROPOSED_INSUFFICIENT_ATTESTATIONS,
+      },
     ]);
 
     expect(handler).toHaveBeenCalledWith([
       {
         validator: attestor1,
         amount: config.slashAttestDescendantOfInvalidPenalty,
-        offenseType: OffenseType.ATTESTED_DESCENDANT_OF_INVALID,
-        epochOrSlot: 2n,
+        offense: Offense.ATTESTED_DESCENDANT_OF_INVALID,
       },
       {
         validator: attestor2,
         amount: config.slashAttestDescendantOfInvalidPenalty,
-        offenseType: OffenseType.ATTESTED_DESCENDANT_OF_INVALID,
-        epochOrSlot: 2n,
+        offense: Offense.ATTESTED_DESCENDANT_OF_INVALID,
       },
-    ] satisfies WantToSlashArgs[]);
+    ]);
     expect(handler).toHaveBeenCalledTimes(2);
+  });
+
+  it('should return true for shouldSlash when validator has offended', async () => {
+    const validationResult: ValidateBlockNegativeResult = {
+      valid: false,
+      reason: 'insufficient-attestations',
+      block: publishedBlock,
+      committee,
+      epoch: 1n,
+      seed: 0n,
+      attestations: [],
+    };
+
+    const event: InvalidBlockDetectedEvent = {
+      type: L2BlockSourceEvents.InvalidAttestationsBlockDetected,
+      validationResult,
+    };
+
+    l2BlockSource.emit(L2BlockSourceEvents.InvalidAttestationsBlockDetected, event);
+
+    await sleep(100);
+
+    // Should return true for the offending proposer
+    await expect(
+      watcher.shouldSlash({
+        validator: proposer,
+        amount: config.slashProposeInvalidAttestationsPenalty,
+        offense: Offense.PROPOSED_INSUFFICIENT_ATTESTATIONS,
+      }),
+    ).resolves.toBe(true);
+
+    // Should return false for a different validator
+    await expect(
+      watcher.shouldSlash({
+        validator: EthAddress.fromString('0x0000000000000000000000000000000000000000'),
+        amount: config.slashProposeInvalidAttestationsPenalty,
+        offense: Offense.PROPOSED_INSUFFICIENT_ATTESTATIONS,
+      }),
+    ).resolves.toBe(false);
+
+    expect(handler).toHaveBeenCalledTimes(1);
+  });
+
+  it('should return false for shouldSlash when amount exceeds max penalty', async () => {
+    const validationResult: ValidateBlockNegativeResult = {
+      valid: false,
+      reason: 'insufficient-attestations',
+      block: publishedBlock,
+      committee,
+      epoch: 1n,
+      seed: 0n,
+      attestations: [],
+    };
+
+    const event: InvalidBlockDetectedEvent = {
+      type: L2BlockSourceEvents.InvalidAttestationsBlockDetected,
+      validationResult,
+    };
+
+    l2BlockSource.emit(L2BlockSourceEvents.InvalidAttestationsBlockDetected, event);
+
+    await sleep(100);
+
+    // Should return false when amount exceeds max penalty
+    await expect(
+      watcher.shouldSlash({
+        validator: proposer,
+        amount: config.slashProposeInvalidAttestationsMaxPenalty + 1n,
+        offense: Offense.PROPOSED_INSUFFICIENT_ATTESTATIONS,
+      }),
+    ).resolves.toBe(false);
+
+    // Should return true when amount is within max penalty
+    await expect(
+      watcher.shouldSlash({
+        validator: proposer,
+        amount: config.slashProposeInvalidAttestationsMaxPenalty,
+        offense: Offense.PROPOSED_INSUFFICIENT_ATTESTATIONS,
+      }),
+    ).resolves.toBe(true);
+
+    expect(handler).toHaveBeenCalledTimes(1);
   });
 
   it('should not process the same invalid block twice', async () => {
@@ -251,6 +327,18 @@ describe('AttestationsBlockWatcher', () => {
 
     // Should not emit any events
     expect(handler).not.toHaveBeenCalled();
+  });
+
+  it('should return false for shouldSlash with unknown offense', async () => {
+    const validator = EthAddress.fromString('0x0000000000000000000000000000000000000abc');
+
+    await expect(
+      watcher.shouldSlash({
+        validator,
+        amount: 1000n,
+        offense: Offense.UNKNOWN,
+      }),
+    ).resolves.toBe(false);
   });
 });
 

@@ -19,11 +19,6 @@ export function unfreeze<T>(obj: T): Writeable<T> {
   return obj as Writeable<T>;
 }
 
-/** Resolves a record-like type. Lifted from viem. */
-export type Prettify<T> = {
-  [K in keyof T]: T[K];
-} & {};
-
 /**
  * Type-safe Event Emitter type
  * @example

@@ -56,11 +56,10 @@ contract SlashingTest is TestBase {
 
     address[] memory offenders = new address[](_howMany);
     uint96[] memory amounts = new uint96[](_howMany);
-    uint128[][] memory offenses = new uint128[][](_howMany);
+    uint256[] memory offenses = new uint256[](_howMany);
     for (uint256 i = 0; i < _howMany; i++) {
       offenders[i] = _attesters[i];
       amounts[i] = _slashAmount;
-      offenses[i] = new uint128[](0); // Empty array of offenses for each validator
     }
 
     IPayload payload = slashFactory.createSlashPayload(offenders, amounts, offenses);

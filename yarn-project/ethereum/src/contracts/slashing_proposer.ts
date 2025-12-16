@@ -8,7 +8,6 @@ import {
   type EncodeFunctionDataParameters,
   type GetContractReturnType,
   type Hex,
-  type Log,
   type TypedDataDefinition,
   encodeFunctionData,
   getContract,
@@ -16,7 +15,7 @@ import {
 
 import type { L1TxRequest, L1TxUtils } from '../l1_tx_utils.js';
 import type { ViemClient } from '../types.js';
-import { FormattedViemError, tryExtractEvent } from '../utils.js';
+import { FormattedViemError } from '../utils.js';
 import { type IEmpireBase, encodeSignal, encodeSignalWithSignature, signSignalWithSig } from './empire_base.js';
 
 export class ProposalAlreadyExecutedError extends Error {
@@ -25,11 +24,9 @@ export class ProposalAlreadyExecutedError extends Error {
   }
 }
 
-export class EmpireSlashingProposerContract extends EventEmitter implements IEmpireBase {
-  private readonly logger = createLogger('ethereum:contracts:empire_slashing_proposer');
+export class SlashingProposerContract extends EventEmitter implements IEmpireBase {
+  private readonly logger = createLogger('SlashingProposerContract');
   private readonly proposer: GetContractReturnType<typeof EmpireSlashingProposerAbi, ViemClient>;
-
-  public readonly type = 'empire' as const;
 
   constructor(
     public readonly client: ViemClient,
@@ -114,12 +111,12 @@ export class EmpireSlashingProposerContract extends EventEmitter implements IEmp
     return this.proposer.watchEvent.PayloadSubmittable(
       {},
       {
-        strict: true,
         onLogs: logs => {
-          for (const log of logs) {
-            const { payload, round } = log.args;
-            if (payload && round) {
-              callback({ payload, round });
+          for (const payload of logs) {
+            const args = payload.args;
+            if (args.payload && args.round) {
+              // why compiler can't figure it out? no one knows
+              callback(args as { payload: `0x${string}`; round: bigint });
             }
           }
         },
@@ -132,50 +129,15 @@ export class EmpireSlashingProposerContract extends EventEmitter implements IEmp
       {},
       {
         onLogs: logs => {
-          for (const log of logs) {
-            const { payload, round } = log.args;
-            if (round && payload) {
-              callback({ round, payload });
+          for (const payload of logs) {
+            const args = payload.args;
+            if (args.round && args.payload) {
+              callback(args as { round: bigint; payload: `0x${string}` });
             }
           }
         },
       },
     );
-  }
-
-  public listenToSignalCasted(
-    callback: (args: { round: bigint; payload: `0x${string}`; signaler: `0x${string}` }) => unknown,
-  ) {
-    return this.proposer.watchEvent.SignalCast(
-      {},
-      {
-        onLogs: logs => {
-          for (const log of logs) {
-            const { round, payload, signaler } = log.args;
-            if (round && payload && signaler) {
-              callback({ round, payload, signaler });
-            }
-          }
-        },
-      },
-    );
-  }
-
-  /** Creates an L1TxRequest to submit the round winner for the given round. */
-  public buildExecuteRoundRequest(round: bigint): L1TxRequest {
-    return {
-      to: this.address.toString(),
-      data: encodeFunctionData({
-        abi: EmpireSlashingProposerAbi,
-        functionName: 'submitRoundWinner',
-        args: [round],
-      }),
-    };
-  }
-
-  /** Tries to extract a PayloadSubmitted event from the given logs. */
-  public tryExtractPayloadSubmittedEvent(logs: Log[]) {
-    return tryExtractEvent(logs, this.address.toString(), EmpireSlashingProposerAbi, 'PayloadSubmitted');
   }
 
   /**
