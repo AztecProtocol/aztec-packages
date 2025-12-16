@@ -499,7 +499,7 @@ mod tests {
                 let membership_witness = if hint.read_request_index != ReadRequestLen {
                     MembershipWitness {
                         leaf_index: hint.leaf_index as Field,
-                        sibling_path: tree.get_sibling_path(hint.leaf_index as Field),
+                        sibling_path: tree.get_sibling_path(hint.leaf_index),
                     }
                 } else {
                     MembershipWitness::empty()

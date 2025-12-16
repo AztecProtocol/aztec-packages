@@ -126,7 +126,7 @@ export class ExecutionNoteCache {
    * transaction (and thus not a new note).
    */
   public async nullifyNote(contractAddress: AztecAddress, innerNullifier: Fr, noteHash: Fr) {
-    const siloedNullifier = (await siloNullifier(contractAddress, innerNullifier)).toBigInt();
+    const siloedNullifier = await siloNullifier(contractAddress, innerNullifier);
     let nullifiedNoteHashCounter: number | undefined = undefined;
     // Find and remove the matching new note and log(s) if the emitted noteHash is not empty.
     if (!noteHash.isEmpty()) {
@@ -158,7 +158,7 @@ export class ExecutionNoteCache {
    * @param innerNullifier
    */
   public async nullifierCreated(contractAddress: AztecAddress, innerNullifier: Fr) {
-    const siloedNullifier = (await siloNullifier(contractAddress, innerNullifier)).toBigInt();
+    const siloedNullifier = await siloNullifier(contractAddress, innerNullifier);
     this.recordNullifier(contractAddress, siloedNullifier);
   }
 
@@ -208,15 +208,10 @@ export class ExecutionNoteCache {
     return [...this.allNullifiers].map(n => new Fr(n));
   }
 
-  recordNullifier(contractAddress: AztecAddress, siloedNullifier: bigint) {
+  recordNullifier(contractAddress: AztecAddress, siloedNullifier: Fr) {
     const nullifiers = this.getNullifiers(contractAddress);
-
-    if (nullifiers.has(siloedNullifier)) {
-      throw new Error(`Duplicate siloed nullifier ${siloedNullifier} emitted by contract ${contractAddress}`);
-    }
-
-    nullifiers.add(siloedNullifier);
+    nullifiers.add(siloedNullifier.toBigInt());
     this.nullifierMap.set(contractAddress.toBigInt(), nullifiers);
-    this.allNullifiers.add(siloedNullifier);
+    this.allNullifiers.add(siloedNullifier.toBigInt());
   }
 }

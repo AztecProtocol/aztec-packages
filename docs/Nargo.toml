@@ -1,5 +1,0 @@
-[workspace]
-members = [
-    "examples/tutorials/counter_contract",
-    "examples/tutorials/bob_token_contract"
-]

@@ -243,7 +243,7 @@ contract Governance is IGovernance {
   }
 
   /**
-   * @dev the initial _beneficiary is expected to be the GSE or address(0) for anyone
+   * @dev the initial _beneficiary is expected to be the GSE.
    */
   constructor(IERC20 _asset, address _governanceProposer, address _beneficiary, Configuration memory _configuration) {
     ASSET = _asset;
@@ -252,14 +252,10 @@ contract Governance is IGovernance {
     _configuration.assertValid();
     configuration = CompressedConfigurationLib.compress(_configuration);
 
-    if (_beneficiary == address(0)) {
-      depositControl.allBeneficiariesAllowed = true;
-      emit FloodGatesOpened();
-    } else {
-      depositControl.allBeneficiariesAllowed = false;
-      depositControl.isAllowed[_beneficiary] = true;
-      emit BeneficiaryAdded(_beneficiary);
-    }
+    // Unnecessary to set, but better clarity.
+    depositControl.allBeneficiariesAllowed = false;
+    depositControl.isAllowed[_beneficiary] = true;
+    emit BeneficiaryAdded(_beneficiary);
   }
 
   /**

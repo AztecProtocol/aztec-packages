@@ -103,13 +103,8 @@ export class AccountManager {
    * Gets the address for this given account.
    * Does not require the account to have been published for public execution.
    * @returns The address.
-   * @deprecated Use .address instead.
    */
   public getAddress() {
-    return this.instance.address;
-  }
-
-  get address() {
     return this.instance.address;
   }
 

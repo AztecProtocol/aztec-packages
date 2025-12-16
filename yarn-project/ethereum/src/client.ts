@@ -19,7 +19,7 @@ import { createEthereumChain } from './chain.js';
 import type { ExtendedViemWalletClient, ViemPublicClient } from './types.js';
 
 type Config = {
-  /** List of URLs of Ethereum RPC nodes that services will connect to (comma separated). */
+  /** The RPC Url of the ethereum host. */
   l1RpcUrls: string[];
   /** The chain ID of the ethereum host. */
   l1ChainId: number;

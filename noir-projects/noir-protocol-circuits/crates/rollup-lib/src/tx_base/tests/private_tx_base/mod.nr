@@ -12,6 +12,7 @@ use crate::{
         components::{
             fees::{compute_fee_payer_fee_juice_balance_leaf_slot, compute_transaction_fee},
             TreeSnapshotDiffHints,
+            tx_blob_data::TX_EFFECTS_BLOB_HASH_INPUT_FIELDS,
         },
         private_tx_base_rollup_private_inputs::PrivateTxBaseRollupPrivateInputs,
     },
@@ -27,13 +28,11 @@ use dep::types::{
     address::AztecAddress,
     constants::{
         ARCHIVE_HEIGHT, CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, HIDING_KERNEL_TO_ROLLUP_VK_INDEX,
-        MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_HASHES_PER_TX,
-        MAX_NULLIFIERS_PER_TX, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, NOTE_HASH_SUBTREE_HEIGHT,
-        NOTE_HASH_TREE_HEIGHT, NULLIFIER_SUBTREE_HEIGHT, NULLIFIER_TREE_HEIGHT,
-        PUBLIC_DATA_TREE_HEIGHT,
+        MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX,
+        NOTE_HASH_SUBTREE_HEIGHT, NOTE_HASH_TREE_HEIGHT, NULLIFIER_SUBTREE_HEIGHT,
+        NULLIFIER_TREE_HEIGHT, PUBLIC_DATA_TREE_HEIGHT,
     },
     data::public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage,
-    hash::silo_l2_to_l1_message,
     merkle_tree::{LeafPreimage, MembershipWitness},
     tests::{
         fixture_builder::FixtureBuilder, merkle_tree_utils::SingleSubtreeMerkleTree, utils::pad_end,
@@ -58,10 +57,10 @@ pub struct TestBuilder {
     tree_snapshot_diff_hints: TreeSnapshotDiffHints,
     pre_existing_note_hashes: [Field; MAX_NOTE_HASHES_PER_TX],
     note_hash_tree: SingleSubtreeMerkleTree<MAX_NOTE_HASHES_PER_TX, NOTE_HASH_SUBTREE_HEIGHT, NOTE_HASH_TREE_HEIGHT>,
-    pre_existing_nullifiers: [NullifierLeafPreimage; 4],
+    pre_existing_public_data_leaves: [PublicDataTreeLeafPreimage; TEST_PUBLIC_DATA_SUBTREE_WIDTH],
     nullifier_tree: SingleSubtreeMerkleTree<MAX_NULLIFIERS_PER_TX, NULLIFIER_SUBTREE_HEIGHT, NULLIFIER_TREE_HEIGHT>,
-    pre_existing_public_data_preimages: [PublicDataTreeLeafPreimage; TEST_PUBLIC_DATA_SUBTREE_WIDTH],
-    fee_payer_preimage_index: u32,
+    pre_existing_nullifiers: [NullifierLeafPreimage; 4],
+    fee_payer_balance_leaf_index: u32,
     public_data_tree: SingleSubtreeMerkleTree<TEST_PUBLIC_DATA_SUBTREE_WIDTH, TEST_PUBLIC_DATA_SUBTREE_HEIGHT, PUBLIC_DATA_TREE_HEIGHT>,
 }
 
@@ -69,8 +68,6 @@ impl TestBuilder {
     pub fn new() -> Self {
         let rollup_fixture_builder = RollupFixtureBuilder::new();
         let block_number = rollup_fixture_builder.start_block_number;
-
-        let start_sponge_blob = rollup_fixture_builder.get_sponge_blob(block_number);
 
         let mut constants = rollup_fixture_builder.get_block_constant_data(block_number);
 
@@ -99,7 +96,7 @@ impl TestBuilder {
 
         // Public data writes in the tree before the tx.
         let fee_payer_balance_leaf_slot = compute_fee_payer_fee_juice_balance_leaf_slot(fee_payer);
-        let pre_existing_public_data_preimages = [
+        let pre_existing_public_data_leaves = [
             PublicDataTreeLeafPreimage {
                 slot: fee_payer_balance_leaf_slot + 10,
                 value: 1100,
@@ -125,7 +122,7 @@ impl TestBuilder {
                 next_index: 1,
             },
         ];
-        let fee_payer_preimage_index = 1;
+        let fee_payer_balance_leaf_index = 1;
 
         // Nullifiers in the tree before the tx.
         let pre_existing_nullifiers = [
@@ -134,6 +131,8 @@ impl TestBuilder {
             NullifierLeafPreimage { nullifier: 11, next_nullifier: 22, next_index: 0 },
             NullifierLeafPreimage { nullifier: 33, next_nullifier: 44, next_index: 1 },
         ];
+
+        let start_sponge_blob = SpongeBlob::new(TX_EFFECTS_BLOB_HASH_INPUT_FIELDS);
 
         let mut builder = TestBuilder {
             private_tail,
@@ -146,21 +145,17 @@ impl TestBuilder {
             tree_snapshot_diff_hints: std::mem::zeroed(),
             pre_existing_note_hashes: pad_end(pre_existing_note_hashes),
             note_hash_tree: std::mem::zeroed(),
-            pre_existing_public_data_preimages,
+            pre_existing_public_data_leaves: pad_end(pre_existing_public_data_leaves),
             nullifier_tree: std::mem::zeroed(),
             pre_existing_nullifiers,
-            fee_payer_preimage_index,
+            fee_payer_balance_leaf_index,
             public_data_tree: std::mem::zeroed(),
         };
 
-        // Insert the pre-existing note hashes at a non-zero index by default.
-        let note_hash_start_index = (MAX_NOTE_HASHES_PER_TX * 26) as Field;
-        builder.build_note_hash_tree(note_hash_start_index);
-        // Insert the pre-existing nullifiers at index 0 by default.
-        builder.build_nullifier_tree(0);
+        builder.build_note_hash_tree();
+        builder.build_nullifier_tree();
         builder.build_hints_for_new_nullifiers();
-        // Insert the pre-existing public data leaves at index 0.
-        builder.build_public_data_tree(0);
+        builder.build_public_data_tree();
         builder.build_hints_for_fee_payer_balance();
 
         builder
@@ -174,26 +169,21 @@ impl TestBuilder {
         )
     }
 
-    pub fn get_siloed_l2_to_l1_msgs(self) -> [Field; MAX_L2_TO_L1_MSGS_PER_TX] {
-        self.private_tail.end.l2_to_l1_msgs.map(|msg| silo_l2_to_l1_message(
-            msg,
-            self.constants.global_variables.version,
-            self.constants.global_variables.chain_id,
-        ))
-    }
-
     pub fn update_private_tail_accumulated_data(&mut self, fixture_builder: FixtureBuilder) {
         self.private_tail.end = fixture_builder.to_private_to_rollup_accumulated_data();
         self.contract_class_log_fields = fixture_builder.contract_class_log_fields.storage();
     }
 
-    pub fn build_note_hash_tree(&mut self, start_index: Field) {
+    pub fn build_note_hash_tree(&mut self) {
+        // Insert the pre-existing note hashes at a non-zero index.
+        let start_index = MAX_NOTE_HASHES_PER_TX * 26;
+
         self.note_hash_tree = SingleSubtreeMerkleTree::new_at_index(
             pad_end(self.pre_existing_note_hashes),
             start_index,
         );
 
-        let next_available_leaf_index = start_index + MAX_NOTE_HASHES_PER_TX as Field;
+        let next_available_leaf_index = start_index + MAX_NOTE_HASHES_PER_TX;
 
         self.start_tree_snapshots.note_hash_tree = AppendOnlyTreeSnapshot {
             root: self.note_hash_tree.get_root(),
@@ -206,17 +196,19 @@ impl TestBuilder {
         );
     }
 
-    pub fn build_nullifier_tree(&mut self, start_index: Field) {
+    pub fn build_nullifier_tree(&mut self) {
         let leaf_values = self.pre_existing_nullifiers.map(|nullifier| nullifier.as_leaf());
-        self.nullifier_tree =
-            SingleSubtreeMerkleTree::new_at_index(pad_end(leaf_values), start_index);
+
+        self.nullifier_tree = SingleSubtreeMerkleTree::new_at_index(pad_end(leaf_values), 0);
+
+        let next_available_leaf_index = MAX_NULLIFIERS_PER_TX;
 
         self.start_tree_snapshots.nullifier_tree = AppendOnlyTreeSnapshot {
             root: self.nullifier_tree.get_root(),
-            next_available_leaf_index: start_index + MAX_NULLIFIERS_PER_TX as Field,
+            next_available_leaf_index,
         };
 
-        // If the tree is rebuilt, might need to call `build_hints_for_new_nullifiers` again to update the hints.
+        // If nullifier tree is rebuilt, might need to call `build_hints_for_new_nullifiers` again to update the hints.
     }
 
     pub fn build_hints_for_new_nullifiers(&mut self) {
@@ -231,8 +223,7 @@ impl TestBuilder {
 
         let mut cloned_nullifier_tree = self.nullifier_tree;
         let mut low_leaves = self.pre_existing_nullifiers;
-        let new_batch_start_index =
-            self.start_tree_snapshots.nullifier_tree.next_available_leaf_index;
+        let new_batch_start_index = MAX_NULLIFIERS_PER_TX;
         for i in 0..sorted_nullifiers.len() {
             let new_nullifier = sorted_nullifiers[i];
             // Safety: This is for testing only.
@@ -249,51 +240,47 @@ impl TestBuilder {
                 self.tree_snapshot_diff_hints.nullifier_predecessor_preimages[i] =
                     low_leaves[low_leaf_index];
 
-                let low_tree_leaf_index = low_leaf_index as Field;
                 self.tree_snapshot_diff_hints.nullifier_predecessor_membership_witnesses[i] = MembershipWitness {
-                    leaf_index: low_tree_leaf_index,
-                    sibling_path: cloned_nullifier_tree.get_sibling_path(low_tree_leaf_index),
+                    leaf_index: low_leaf_index as Field,
+                    sibling_path: cloned_nullifier_tree.get_sibling_path(low_leaf_index),
                 };
 
                 low_leaves[low_leaf_index].next_nullifier = new_nullifier;
                 low_leaves[low_leaf_index].next_index =
-                    new_batch_start_index + sorted_nullifier_indexes[i] as Field;
+                    new_batch_start_index + sorted_nullifier_indexes[i];
 
                 cloned_nullifier_tree.update_leaf(
-                    low_tree_leaf_index,
+                    low_leaf_index,
                     low_leaves[low_leaf_index].as_leaf(),
                 );
             }
         }
 
+        let next_available_leaf_index = MAX_NULLIFIERS_PER_TX;
         self.tree_snapshot_diff_hints.nullifier_subtree_root_sibling_path = subarray(
-            cloned_nullifier_tree.get_sibling_path(new_batch_start_index),
+            cloned_nullifier_tree.get_sibling_path(next_available_leaf_index),
             NULLIFIER_SUBTREE_HEIGHT,
         );
     }
 
-    pub fn build_public_data_tree(&mut self, start_index: Field) {
+    pub fn build_public_data_tree(&mut self) {
         self.public_data_tree = SingleSubtreeMerkleTree::new_at_index(
-            self.pre_existing_public_data_preimages.map(|leaf| leaf.as_leaf()),
-            start_index,
+            self.pre_existing_public_data_leaves.map(|leaf| leaf.as_leaf()),
+            0,
         );
+
+        let next_available_leaf_index = TEST_PUBLIC_DATA_SUBTREE_WIDTH;
 
         self.start_tree_snapshots.public_data_tree = AppendOnlyTreeSnapshot {
             root: self.public_data_tree.get_root(),
-            next_available_leaf_index: MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX as Field,
+            next_available_leaf_index,
         };
-
-        // If the tree is rebuilt and the start index has changed, call `build_hints_for_fee_payer_balance` again to
-        // update the hints.
     }
 
     pub fn build_hints_for_fee_payer_balance(&mut self) {
-        let start_index = self.public_data_tree.get_next_available_index()
-            - TEST_PUBLIC_DATA_SUBTREE_WIDTH as Field;
-        let leaf_index = start_index + self.fee_payer_preimage_index as Field;
         self.tree_snapshot_diff_hints.fee_payer_balance_membership_witness = MembershipWitness {
-            leaf_index,
-            sibling_path: self.public_data_tree.get_sibling_path(leaf_index),
+            leaf_index: self.fee_payer_balance_leaf_index as Field,
+            sibling_path: self.public_data_tree.get_sibling_path(self.fee_payer_balance_leaf_index),
         };
     }
 
@@ -302,7 +289,7 @@ impl TestBuilder {
             RollupFixtureBuilder::make_proof_data(self.private_tail, self.hiding_kernel_vk_index);
 
         let fee_payer_balance_leaf_preimage =
-            self.pre_existing_public_data_preimages[self.fee_payer_preimage_index];
+            self.pre_existing_public_data_leaves[self.fee_payer_balance_leaf_index];
 
         PrivateTxBaseRollupPrivateInputs {
             hiding_kernel_proof_data,

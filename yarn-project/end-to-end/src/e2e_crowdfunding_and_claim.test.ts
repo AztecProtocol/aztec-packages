@@ -1,8 +1,9 @@
-import { Fr, type Logger, PublicKeys, deriveKeys } from '@aztec/aztec.js';
+import { Fr, type Logger, type UniqueNote, deriveKeys } from '@aztec/aztec.js';
 import { CheatCodes } from '@aztec/aztec/testing';
 import { ClaimContract } from '@aztec/noir-contracts.js/Claim';
 import { CrowdfundingContract } from '@aztec/noir-contracts.js/Crowdfunding';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
+import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { computePartialAddress } from '@aztec/stdlib/contract';
 import type { TestWallet } from '@aztec/test-wallet/server';
@@ -43,7 +44,7 @@ describe('e2e_crowdfunding_and_claim', () => {
   let claimContract: ClaimContract;
 
   let crowdfundingSecretKey;
-  let crowdfundingPublicKeys: PublicKeys;
+  let crowdfundingPublicKeys;
   let cheatCodes: CheatCodes;
   let deadline: number; // end of crowdfunding period
 
@@ -83,8 +84,6 @@ describe('e2e_crowdfunding_and_claim', () => {
       .deployed();
     logger.info(`Reward Token deployed to ${rewardToken.address}`);
 
-    // We deploy the Crowdfunding contract as an escrow contract (i.e. with populated public keys that make it
-    // a potential recipient of notes) because the donations accumulate "in it".
     crowdfundingSecretKey = Fr.random();
     crowdfundingPublicKeys = (await deriveKeys(crowdfundingSecretKey)).publicKeys;
 
@@ -96,10 +95,7 @@ describe('e2e_crowdfunding_and_claim', () => {
       deadline,
     );
     const crowdfundingInstance = await crowdfundingDeployment.getInstance();
-    await wallet.registerKeysForEscrowContract(
-      crowdfundingSecretKey,
-      await computePartialAddress(crowdfundingInstance),
-    );
+    await wallet.registerAccount(crowdfundingSecretKey, await computePartialAddress(crowdfundingInstance));
     crowdfundingContract = await crowdfundingDeployment.send({ from: operatorAddress }).deployed();
     logger.info(`Crowdfunding contract deployed at ${crowdfundingContract.address}`);
 
@@ -119,6 +115,24 @@ describe('e2e_crowdfunding_and_claim', () => {
     await teardown();
   });
 
+  // Processes unique note such that it can be passed to a claim function of Claim contract
+  const processUniqueNote = (uniqueNote: UniqueNote) => {
+    return {
+      note: {
+        owner: AztecAddress.fromField(uniqueNote.note.items[0]),
+        randomness: uniqueNote.note.items[1],
+        value: uniqueNote.note.items[2].toBigInt(), // We convert to bigint as Fr is not serializable to U128
+      },
+      // eslint-disable-next-line camelcase
+      contract_address: uniqueNote.contractAddress,
+      metadata: {
+        stage: 3, // aztec::note::note_metadata::NoteStage::SETTLED
+        // eslint-disable-next-line camelcase
+        maybe_note_nonce: uniqueNote.noteNonce,
+      },
+    };
+  };
+
   it('full donor flow', async () => {
     const donationAmount = 1000n;
 
@@ -131,18 +145,21 @@ describe('e2e_crowdfunding_and_claim', () => {
         0,
       );
       const witness = await wallet.createAuthWit(donor1Address, { caller: crowdfundingContract.address, action });
-      await crowdfundingContract.methods
+      const donateTxReceipt = await crowdfundingContract.methods
         .donate(donationAmount)
         .send({ from: donor1Address, authWitnesses: [witness] })
         .wait();
 
-      // The donor should have exactly one note
-      const pageIndex = 0;
-      const notes = await crowdfundingContract.methods
-        .get_donation_notes(donor1Address, pageIndex)
-        .simulate({ from: donor1Address });
-      expect(notes.len).toEqual(1n);
-      uintNote = notes.storage[0];
+      // Get the notes emitted by the Crowdfunding contract and check that only 1 was emitted (the UintNote)
+      const notes = await wallet.getNotes({
+        txHash: donateTxReceipt.txHash,
+        contractAddress: crowdfundingContract.address,
+      });
+      const filteredNotes = notes.filter(x => x.contractAddress.equals(crowdfundingContract.address));
+      expect(filteredNotes!.length).toEqual(1);
+
+      // Set the UintNote in a format which can be passed to claim function
+      uintNote = processUniqueNote(filteredNotes![0]);
     }
 
     // 2) We claim the reward token via the Claim contract
@@ -181,9 +198,10 @@ describe('e2e_crowdfunding_and_claim', () => {
     const donationAmount = 1000n;
 
     const donorAddress = donor2Address;
-    const unrelatedAddress = donor1Address;
+    const unrelatedAdress = donor1Address;
 
     // 1) We permit the crowdfunding contract to pull the donation amount from the donor's wallet, and we donate
+
     const action = donationToken.methods.transfer_in_private(
       donorAddress,
       crowdfundingContract.address,
@@ -191,25 +209,26 @@ describe('e2e_crowdfunding_and_claim', () => {
       0,
     );
     const witness = await wallet.createAuthWit(donorAddress, { caller: crowdfundingContract.address, action });
-    await crowdfundingContract.methods
+    const donateTxReceipt = await crowdfundingContract.methods
       .donate(donationAmount)
       .send({ from: donorAddress, authWitnesses: [witness] })
       .wait();
 
-    // The donor should have exactly one note
-    const pageIndex = 0;
-    const notes = await crowdfundingContract.methods
-      .get_donation_notes(donorAddress, pageIndex)
-      .simulate({ from: donorAddress });
-    expect(notes.len).toEqual(1n);
-    const anotherDonationNote = notes.storage[0];
+    // Get the notes emitted by the Crowdfunding contract and check that only 1 was emitted (the UintNote)
+    const notes = await wallet.getNotes({
+      contractAddress: crowdfundingContract.address,
+      txHash: donateTxReceipt.txHash,
+    });
+    const filtered = notes.filter(x => x.contractAddress.equals(crowdfundingContract.address));
+    expect(filtered!.length).toEqual(1);
+
+    // Set the UintNote in a format which can be passed to claim function
+    const anotherDonationNote = processUniqueNote(filtered![0]);
 
     // 2) We try to claim the reward token via the Claim contract with the unrelated wallet
-    // docs:start:local-tx-fails
     await expect(
-      claimContract.methods.claim(anotherDonationNote, donorAddress).send({ from: unrelatedAddress }).wait(),
+      claimContract.methods.claim(anotherDonationNote, donorAddress).send({ from: unrelatedAdress }).wait(),
     ).rejects.toThrow('Note does not belong to the sender');
-    // docs:end:local-tx-fails
   });
 
   it('cannot claim with a non-existent note', async () => {
@@ -222,48 +241,33 @@ describe('e2e_crowdfunding_and_claim', () => {
     ).rejects.toThrow();
   });
 
-  it('cannot claim with existing note which was not emitted by a different contract', async () => {
-    // 1) Deploy another instance of the crowdfunding contract
-    let otherCrowdfundingContract: CrowdfundingContract;
-    {
-      const otherCrowdfundingDeployment = CrowdfundingContract.deployWithPublicKeys(
-        crowdfundingPublicKeys,
-        wallet,
-        donationToken.address,
-        operatorAddress,
-        deadline,
-      );
+  it('cannot claim with existing note which was not emitted by the crowdfunding contract', async () => {
+    // 1) Deploy a Test contract
+    const testContract = await TestContract.deploy(wallet).send({ from: operatorAddress }).deployed();
 
-      otherCrowdfundingContract = await otherCrowdfundingDeployment.send({ from: operatorAddress }).deployed();
-      logger.info(`Crowdfunding contract deployed at ${otherCrowdfundingContract.address}`);
+    // 2) Create a note
+    let note: any;
+    const arbitraryStorageSlot = 69;
+    {
+      const arbitraryValue = 5n;
+      const receipt = await testContract.methods
+        .call_create_note(arbitraryValue, operatorAddress, arbitraryStorageSlot, false)
+        .send({ from: operatorAddress })
+        .wait();
+      const notes = await wallet.getNotes({ txHash: receipt.txHash, contractAddress: testContract.address });
+      expect(notes.length).toEqual(1);
+      note = processUniqueNote(notes[0]);
     }
 
-    // 2) Make a donation to get a note from the other contract
-    await mintTokensToPrivate(donationToken, operatorAddress, donor1Address, 1000n);
-    const donationAmount = 1000n;
-    const action = donationToken.methods.transfer_in_private(
-      donor1Address,
-      otherCrowdfundingContract.address,
-      donationAmount,
-      0,
-    );
-    const witness = await wallet.createAuthWit(donor1Address, { caller: otherCrowdfundingContract.address, action });
-    await otherCrowdfundingContract.methods
-      .donate(donationAmount)
-      .send({ from: donor1Address, authWitnesses: [witness] })
+    // 3) Test the note was included
+    await testContract.methods
+      .test_note_inclusion(operatorAddress, arbitraryStorageSlot)
+      .send({ from: operatorAddress })
       .wait();
 
-    // 3) Get the donation note
-    const pageIndex = 0;
-    const notes = await otherCrowdfundingContract.methods
-      .get_donation_notes(donor1Address, pageIndex)
-      .simulate({ from: donor1Address });
-    expect(notes.len).toEqual(1n);
-    const otherContractNote = notes.storage[0];
-
-    // 4) Try to claim rewards using note from other contract
+    // 4) Finally, check that the claim process fails
     await expect(
-      claimContract.methods.claim(otherContractNote, donor1Address).send({ from: donor1Address }).wait(),
+      claimContract.methods.claim(note, donor1Address).send({ from: operatorAddress }).wait(),
     ).rejects.toThrow();
   });
 

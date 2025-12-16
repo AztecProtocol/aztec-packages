@@ -20,7 +20,6 @@ struct EnqueuedCallEvent {
     FF contract_address;
     FF transaction_fee;
     bool is_static;
-    uint32_t calldata_size;
     FF calldata_hash;
     Gas start_gas;
     Gas end_gas;

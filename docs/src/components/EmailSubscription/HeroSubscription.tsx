@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import styles from './HeroSubscription.module.css';
-import { analytics } from '@site/src/utils/analytics';
 
 interface HeroSubscriptionProps {
   title?: string;
@@ -18,7 +17,6 @@ export default function HeroSubscription({
   const [email, setEmail] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubscribed, setIsSubscribed] = useState(false);
-  const [successMessage, setSuccessMessage] = useState('');
   const [error, setError] = useState('');
 
   const validateEmail = (email: string): boolean => {
@@ -44,59 +42,34 @@ export default function HeroSubscription({
 
     try {
       // Track subscription attempt
-      analytics.trackEvent('Email Subscription', 'Attempted', source);
-
-      // Call the real Brevo API endpoint
-      const response = await fetch('/.netlify/functions/subscribe', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: email.trim(),
-          source: source,
-          timestamp: Date.now(),
-          url: window.location.href
-        }),
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        if (data.alreadySubscribed) {
-          // Handle already subscribed case - show as success with different message
-          setIsSubscribed(true);
-          setSuccessMessage("It looks like you're already subscribed, good for you!");
-          setEmail('');
-
-          // Track already subscribed event
-          analytics.trackEvent('Email Subscription', 'Already Subscribed', source);
-        } else {
-          // Handle new subscription success
-          setIsSubscribed(true);
-          setSuccessMessage("You'll hear from us soon with the latest updates.");
-          setEmail('');
-
-          // Track successful subscription
-          analytics.trackEvent('Email Subscription', 'Successful', source);
-        }
-
-        console.log('✅ Subscription response:', data.message);
-      } else if (response.status === 429) {
-        // Rate limited
-        const retryAfter = data.retryAfter || 60;
-        const minutes = Math.ceil(retryAfter / 60);
-        throw new Error(`Please wait ${minutes} minute${minutes > 1 ? 's' : ''} before trying again.`);
-      } else {
-        throw new Error(data.error || 'Subscription failed');
+      if (typeof window !== 'undefined' && window.analytics) {
+        window.analytics.trackEvent('Email Subscription', 'Attempted', source);
       }
 
-    } catch (err: any) {
+      // Demo mode - simulate success
+      console.log('📧 Hero subscription:', { email, source, timestamp: Date.now() });
+      
+      // Simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      setIsSubscribed(true);
+      setEmail('');
+      
+      // Track successful subscription
+      if (typeof window !== 'undefined' && window.analytics) {
+        window.analytics.trackEvent('Email Subscription', 'Successful', source);
+      }
+      
+      console.log('✅ Hero subscription successful for:', email);
+      
+    } catch (err) {
+      setError('Something went wrong. Please try again.');
       console.error('Subscription error:', err);
-      setError(err.message || 'Failed to subscribe. Please try again.');
-
+      
       // Track subscription error
-      analytics.trackEvent('Email Subscription', 'Failed', source);
+      if (typeof window !== 'undefined' && window.analytics) {
+        window.analytics.trackEvent('Email Subscription', 'Failed', source);
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -108,7 +81,7 @@ export default function HeroSubscription({
         <div className={styles.heroContent}>
           <div className={styles.successState}>
             <h2 className={styles.heroTitle}>Thank you!</h2>
-            <p className={styles.successMessage}>{successMessage}</p>
+            <p className={styles.successMessage}>You'll hear from us soon with the latest updates.</p>
           </div>
         </div>
       </div>

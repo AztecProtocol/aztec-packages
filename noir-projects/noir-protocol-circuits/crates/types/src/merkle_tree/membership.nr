@@ -116,7 +116,7 @@ mod tests {
         check_membership(
             leaf,
             leaf_index,
-            tree.get_sibling_path(leaf_index),
+            tree.get_sibling_path(leaf_index as u32),
             tree_root,
         )
     }
@@ -128,16 +128,16 @@ mod tests {
         assert_check_membership(
             leaf,
             leaf_index,
-            tree.get_sibling_path(leaf_index),
+            tree.get_sibling_path(leaf_index as u32),
             tree_root,
         );
     }
 
-    fn assert_check_non_membership_at_index(low_leaf_index: Field, key: Field) {
+    fn assert_check_non_membership_at_index(low_leaf_index: u32, key: Field) {
         let tree = build_tree();
         let tree_root = tree.get_root();
-        let leaf_preimage = if low_leaf_index.lt(leaf_preimages.len() as Field) {
-            leaf_preimages[low_leaf_index as u32]
+        let leaf_preimage = if low_leaf_index as u32 < leaf_preimages.len() {
+            leaf_preimages[low_leaf_index]
         } else {
             TestLeafPreimage { value: 0, next_value: 0 }
         };
@@ -146,7 +146,7 @@ mod tests {
             key,
             leaf_preimage,
             MembershipWitness {
-                leaf_index: low_leaf_index,
+                leaf_index: low_leaf_index as Field,
                 sibling_path: tree.get_sibling_path(low_leaf_index),
             },
             tree_root,
@@ -155,13 +155,13 @@ mod tests {
 
     fn conditionally_assert_check_membership_at_index(
         exists: bool,
-        low_leaf_index: Field,
+        low_leaf_index: u32,
         key: Field,
     ) {
         let tree = build_tree();
         let tree_root = tree.get_root();
-        let leaf_preimage = if low_leaf_index.lt(leaf_preimages.len() as Field) {
-            leaf_preimages[low_leaf_index as u32]
+        let leaf_preimage = if low_leaf_index as u32 < leaf_preimages.len() {
+            leaf_preimages[low_leaf_index]
         } else {
             TestLeafPreimage { value: 0, next_value: 0 }
         };
@@ -171,7 +171,7 @@ mod tests {
             exists,
             leaf_preimage,
             MembershipWitness {
-                leaf_index: low_leaf_index,
+                leaf_index: low_leaf_index as Field,
                 sibling_path: tree.get_sibling_path(low_leaf_index),
             },
             tree_root,

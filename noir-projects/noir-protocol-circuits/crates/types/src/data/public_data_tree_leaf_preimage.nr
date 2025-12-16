@@ -8,7 +8,7 @@ pub struct PublicDataTreeLeafPreimage {
     pub slot: Field,
     pub value: Field,
     pub next_slot: Field,
-    pub next_index: Field,
+    pub next_index: u32,
 }
 
 impl Empty for PublicDataTreeLeafPreimage {
@@ -60,7 +60,7 @@ impl IndexedTreeLeafPreimage<PublicDataTreeLeaf> for PublicDataTreeLeafPreimage 
         (self.next_slot == 0) & (self.next_index == 0)
     }
 
-    fn update_pointers(self, next_slot: Field, next_index: Field) -> Self {
+    fn update_pointers(self, next_slot: Field, next_index: u32) -> Self {
         Self { slot: self.slot, value: self.value, next_slot, next_index }
     }
 

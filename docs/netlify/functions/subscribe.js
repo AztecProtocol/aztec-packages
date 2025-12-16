@@ -192,9 +192,8 @@ exports.handler = async (event, context) => {
       await apiInstance.createContact(createContact);
       
     } catch (brevoError) {
-      // Check if contact already exists (Brevo returns 400 with duplicate_parameter code)
-      if (brevoError && (brevoError.status === 400 || brevoError.status === 409) &&
-          brevoError.response?.data?.code === 'duplicate_parameter') {
+      // Check if contact already exists (Brevo returns 409 for duplicates)
+      if (brevoError && brevoError.status === 409) {
         // Contact exists, try to add to list
         try {
           const addToList = new brevo.AddContactToList();
@@ -211,10 +210,7 @@ exports.handler = async (event, context) => {
               'Content-Type': 'application/json',
               'Access-Control-Allow-Origin': '*',
             },
-            body: JSON.stringify({
-              message: 'You\'re already subscribed! Check your inbox for our latest updates.',
-              alreadySubscribed: true
-            }),
+            body: JSON.stringify({ message: 'Email already subscribed' }),
           };
         }
       } else {

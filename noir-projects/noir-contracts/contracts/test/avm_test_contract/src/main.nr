@@ -271,14 +271,13 @@ pub contract AvmTest {
     }
 
     #[public]
-    // Must be called with `denominator == 0`
-    fn divide_by_zero(denominator: u8) -> u8 {
-        1 / denominator
+    fn divide_by_zero() -> u8 {
+        1 / 0
     }
 
     #[public]
     fn external_call_to_divide_by_zero() {
-        let _ = AvmTest::at(context.this_address()).divide_by_zero(0).call(&mut context);
+        let _ = AvmTest::at(context.this_address()).divide_by_zero().call(&mut context);
     }
 
     #[public]
@@ -290,14 +289,14 @@ pub contract AvmTest {
         // since it will all be consumed on exceptional halt.
         let l2_gas_left = context.l2_gas_left();
         let da_gas_left = context.da_gas_left();
-        let selector = FunctionSelector::from_signature("divide_by_zero(u8)");
+        let selector = FunctionSelector::from_signature("divide_by_zero()");
 
         // Call without capturing a return value since call no longer returns success
         call(
             l2_gas_left - 200_000,
             da_gas_left - 200_000,
             context.this_address(),
-            &[selector.to_field(), 0],
+            &[selector.to_field()],
         );
 
         // Use SUCCESSCOPY to get the success status

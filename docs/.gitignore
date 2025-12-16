@@ -29,5 +29,3 @@ yarn-error.log*
 test-results
 
 !CLAUDE.md
-
-target

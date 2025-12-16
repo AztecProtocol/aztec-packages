@@ -111,6 +111,7 @@ const redactedPaths = [
   // bot keys
   'l1PrivateKey',
   'senderPrivateKey',
+  'recipientEncryptionSecret',
   // blob sink
   'l1ConsensusHostApiKeys',
   // sensitive options used in the CLI

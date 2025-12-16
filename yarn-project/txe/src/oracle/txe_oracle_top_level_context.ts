@@ -303,6 +303,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       HashedValuesCache.create([new HashedValues(args, argsHash)]),
       noteCache,
       this.pxeOracleInterface,
+      simulator,
       0,
       1,
       undefined, // log
@@ -312,7 +313,6 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
        * contract would perform, including setting senderForTags.
        */
       from,
-      simulator,
     );
 
     // Note: This is a slight modification of simulator.run without any of the checks. Maybe we should modify simulator.run with a boolean value to skip checks.

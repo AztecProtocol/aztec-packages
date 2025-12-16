@@ -52,7 +52,6 @@ import {
 import { SingleValidatorStatsSchema, ValidatorsStatsSchema } from '../validators/schemas.js';
 import type { SingleValidatorStats, ValidatorsStats } from '../validators/types.js';
 import { type ComponentsVersions, getVersioningResponseHandler } from '../versioning/index.js';
-import { type AllowedElement, AllowedElementSchema } from './allowed_element.js';
 import { MAX_RPC_BLOCKS_LEN, MAX_RPC_LEN, MAX_RPC_TXS_LEN } from './api_limit.js';
 import {
   type GetContractClassLogsResponse,
@@ -443,12 +442,6 @@ export interface AztecNode
    * Returns the ENR of this node for peer discovery, if available.
    */
   getEncodedEnr(): Promise<string | undefined>;
-
-  /**
-   * Returns the list of allowed public setup elements configured for this node.
-   * @returns The list of allowed elements.
-   */
-  getAllowedPublicSetup(): Promise<AllowedElement[]>;
 }
 
 export const MAX_LOGS_PER_TAG = 10;
@@ -618,8 +611,6 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
   getContract: z.function().args(schemas.AztecAddress).returns(ContractInstanceWithAddressSchema.optional()),
 
   getEncodedEnr: z.function().returns(z.string().optional()),
-
-  getAllowedPublicSetup: z.function().args().returns(z.array(AllowedElementSchema)),
 };
 
 export function createAztecNodeClient(

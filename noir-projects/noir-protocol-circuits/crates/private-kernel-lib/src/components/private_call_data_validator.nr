@@ -12,7 +12,10 @@ use dep::types::{
         transaction::tx_request::TxRequest,
     },
     address::AztecAddress,
-    constants::{CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, MAX_FIELD_VALUE, PRIVATE_LOG_SIZE_IN_FIELDS},
+    constants::{
+        CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS,
+        MAX_FIELD_VALUE, PRIVATE_LOG_SIZE_IN_FIELDS,
+    },
     traits::FromField,
     utils::arrays::ClaimedLengthArray,
 };
@@ -238,6 +241,18 @@ impl PrivateCallDataValidator {
                 self.data.public_inputs.contract_class_logs_hashes.length,
                 0,
                 "contract_class_logs_hashes must be empty for static calls",
+            );
+        }
+
+        // TODO(#15092): consider removing this assertion.
+        // Would it be bad if we enabled other functions to emit these logs?
+        // Oh, maybe the AVM does stuff with those logs, with the presumption that they
+        // contain avm bytecode that needs to be validated by the avm?
+        if (self.data.public_inputs.contract_class_logs_hashes.length != 0) {
+            assert_eq(
+                call_context.contract_address,
+                CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS,
+                "only the class registry may emit contract class logs",
             );
         }
     }

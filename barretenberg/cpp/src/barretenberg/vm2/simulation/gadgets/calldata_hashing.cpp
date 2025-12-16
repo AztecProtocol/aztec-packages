@@ -23,8 +23,9 @@ FF CalldataHasher::compute_calldata_hash(std::span<const FF> calldata)
 
     events.emit({
         .context_id = context_id,
-        .calldata_size = static_cast<uint32_t>(calldata.size()),
+        .calldata_length = static_cast<uint32_t>(calldata.size()),
         .calldata = { calldata.begin(), calldata.end() },
+        .output_hash = output_hash,
     });
     return output_hash;
 }

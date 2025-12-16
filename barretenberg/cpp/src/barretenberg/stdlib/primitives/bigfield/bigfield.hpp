@@ -596,12 +596,11 @@ template <typename Builder, typename T> class bigfield {
 
     bool_t<Builder> operator==(const bigfield& other) const;
 
-    void assert_is_in_field(std::string const& msg = "bigfield::assert_is_in_field") const;
-    void assert_less_than(const uint256_t& upper_limit, std::string const& msg = "bigfield::assert_less_than") const;
+    void assert_is_in_field() const;
+    void assert_less_than(const uint256_t& upper_limit) const;
     void reduce_mod_target_modulus() const;
     void assert_equal(const bigfield& other) const;
-    void assert_is_not_equal(const bigfield& other,
-                             std::string const& msg = "bigfield: prime limb diff is zero, but expected non-zero") const;
+    void assert_is_not_equal(const bigfield& other) const;
 
     void self_reduce() const;
 
@@ -952,8 +951,7 @@ template <typename Builder, typename T> class bigfield {
      * @param upper_limit
      * @warning This function is UNSAFE as it assumes that the bigfield element is already reduced.
      */
-    void unsafe_assert_less_than(const uint256_t& upper_limit,
-                                 std::string const& msg = "bigfield::unsafe_assert_less_than") const;
+    void unsafe_assert_less_than(const uint256_t& upper_limit) const;
 
     /**
      * @brief Get the witness indices of the (normalized) binary basis limbs

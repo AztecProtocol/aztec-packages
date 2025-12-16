@@ -18,6 +18,62 @@ auto& engine = numeric::get_debug_randomness();
 }
 
 /**
+ * @brief Validate the inputs used by the verification function and return messages if they produce an invalid circuit.
+ *
+ * @tparam Builder
+ * @tparam Curve
+ * @tparam Fq
+ * @tparam Fr
+ * @tparam G1
+ * @param hashed_message
+ * @param public_key
+ * @param sig
+ * @param scalar_mul_result
+ */
+template <typename Builder, typename Curve, typename Fq, typename Fr, typename G1>
+void validate_inputs(const stdlib::byte_array<Builder>& hashed_message,
+                     const G1& public_key,
+                     const ecdsa_signature<Builder>& sig)
+{
+    auto check_smaller_than = [](const uint512_t& value,
+                                 const uint512_t& max_value,
+                                 const std::string& value_label,
+                                 const std::string& max_value_label) {
+        std::string msg =
+            "The " + value_label + " is bigger than " + max_value_label + ". This will produce an unsatisfied circuit.";
+        if (value >= max_value) {
+            info(msg);
+        }
+    };
+
+    auto check_is_not_zero = [](const uint512_t& value, const std::string& label) {
+        std::string msg = "The " + label + " is equal to zero. This will produce an unsatisfied circuit.";
+        if (value == 0) {
+            info(msg);
+        }
+    };
+
+    // H(m) < n
+    uint512_t hash_value = static_cast<uint512_t>(Fr(hashed_message).get_value());
+    check_smaller_than(hash_value, Fr::modulus, "hash of the message", "order of the elliptic curve");
+
+    // P \in E
+    if (!public_key.get_value().on_curve()) {
+        info("The public key is not a point on the elliptic curve. This will produce an unsatisfied circuit.");
+    }
+
+    // 0 < r < n
+    uint512_t r_value = static_cast<uint512_t>(Fr(sig.r).get_value());
+    check_smaller_than(r_value, Fr::modulus, "r component of the signature", "order of the elliptic curve");
+    check_is_not_zero(r_value, "r component of the signature");
+
+    // 0 < s < (n+1)/2
+    uint512_t s_value = static_cast<uint512_t>(Fr(sig.s).get_value());
+    check_smaller_than(s_value, (Fr::modulus + 1) / 2, "s component of the signature", "order of the elliptic curve");
+    check_is_not_zero(s_value, "s component of the signature");
+}
+
+/**
  * @brief Verify ECDSA signature. Returns bool_t(true/false) depending on whether the signature is valid or not.
  *
  * @details Fix the following notation:
@@ -29,14 +85,13 @@ auto& engine = numeric::get_debug_randomness();
  * Given a message \f$m\f$, a couple \f$(r,s)\f$ is a valid signature for the message \f$m\f$ with respect to the public
  * key \f$P\f$ if:
  *  1. \f$P\f$ is a point on \f$E\f$
- *  2. \f$P\f$ is not the point at infinity
- *  3. \f$0 < r < n\f$
- *  4. \f$0 < s < (n+1) / 2\f$
- *  5. Define \f$e := \mathbf{H}(m) \mod n\f$ and \f$Q := e s^{-1} G + r s^{-1} P \f$
- *  6. \f$Q\f$ is not the point at infinity
- *  7. \f$Q_x = r \mod n\f$ (note that \f$Q_x \in \mathbb{F}_q\f$)
+ *  2. \f$0 < r < n\f$
+ *  3. \f$0 < s < (n+1) / 2\f$
+ *  4. Define \f$e := \mathbf{H}(m) \mod n\f$ and \f$Q := e s^{-1} G + r s^{-1} P \f$
+ *  5. \f$Q\f$ is not the point at infinity
+ *  6. \f$Q_x = r \mod n\f$ (note that \f$Q_x \in \mathbb{F}_q\f$)
  *
- * @note The requirement of step 4. is to avoid signature malleability: if \f$(r,s)\f$ is a valid signature for
+ * @note The requirement of step 2. is to avoid signature malleability: if \f$(r,s)\f$ is a valid signature for
  * message \f$m\f$ and public key \f$P\f$, so is \f$(r,n-s)\f$. We protect against malleability by enforcing that
  * \f$s\f$ is always the lowest of the two possible values.
  *
@@ -51,14 +106,13 @@ auto& engine = numeric::get_debug_randomness();
  *
  * @note The circuit introduces constraints for the following assertions:
  *          1. \f$P\f$ is on the curve
- *          2. \f$P\f$ is on the point at infinity
- *          3. \f$H(m) < n\f$
- *          4. \f$0 < r < n\f$
- *          5. \f$0 < s < (n+1)/2\f$
- *          6. \f$Q := H(m) s^{-1} G + r s^{-1} P\f$ is not the point at infinity
+ *          2. \f$H(m) < n\f$
+ *          3. \f$0 < r < n\f$
+ *          4. \f$0 < s < (n+1)/2\f$
+ *          5. \f$Q := H(m) s^{-1} G + r s^{-1} P\f$ is not the point at infinity
  * Therefore, if the witnesses passed to this function do not satisfy these constraints, the resulting circuit
  * will be unsatisfied. If a user wants to use the verification inside a in-circuit branch, then they need to supply
- * valid data for \f$m, P, r, s\f$, even though \f$(r,s)\f$ doesn't need to be a valid signature.
+ * valid data for \f$P, r, s\f$, even though \f$(r,s)\f$ doesn't need to be a valid signature.
  *
  * @tparam Builder
  * @tparam Curve
@@ -75,11 +129,28 @@ bool_t<Builder> ecdsa_verify_signature(const stdlib::byte_array<Builder>& hashed
                                        const G1& public_key,
                                        const ecdsa_signature<Builder>& sig)
 {
+    // Validate inputs for debugging
+    validate_inputs<Builder, Curve, Fq, Fr>(hashed_message, public_key, sig);
+
     // Fetch the context
-    Builder* builder = hashed_message.get_context();
-    builder = validate_context(builder, public_key.get_context());
-    builder = validate_context(builder, sig.get_context());
-    BB_ASSERT_EQ(builder != nullptr, true, "At least one of the inputs should be non-constant.");
+    bool message_is_not_constant = hashed_message.get_context() != nullptr;
+    bool public_key_is_not_constant = public_key.get_context() != nullptr;
+    bool sig_is_not_constant = sig.get_context() != nullptr;
+    BB_ASSERT_EQ(message_is_not_constant || public_key_is_not_constant || sig_is_not_constant,
+                 true,
+                 "At least one of the inputs should be non-constant.");
+
+    Builder* ctx = nullptr;
+    if (message_is_not_constant) {
+        ctx = hashed_message.get_context();
+    } else if (public_key_is_not_constant) {
+        ctx = public_key.get_context();
+    } else if (sig_is_not_constant) {
+        ctx = sig.get_context();
+    } else {
+        throw_or_abort(
+            "At least one of the inputs passed should be non-constant. Assert failed to catch this condition.");
+    }
 
     // Turn the hashed message into an element of Fr
     // The assertion means that an honest prover has a small probability of not being able to generate a valid proof if
@@ -87,30 +158,22 @@ bool_t<Builder> ecdsa_verify_signature(const stdlib::byte_array<Builder>& hashed
     // forged by finding a collision of H modulo n. While finding such a collision is supposed to be hard even modulo n,
     // we protect against this case with this cheap check.
     Fr z(hashed_message);
-    z.assert_is_in_field(
-        "ECDSA input validation: the hash of the message is bigger than the order of the elliptic curve.");
+    z.assert_is_in_field();
 
     // Step 1.
-    public_key.validate_on_curve("ECDSA input validation: the public key is not a point on the elliptic curve.");
+    public_key.validate_on_curve();
 
     // Step 2.
-    public_key.is_point_at_infinity().assert_equal(bool_t<Builder>(false),
-                                                   "ECDSA input validation: the public key is the point at infinity.");
+    Fr r(sig.r);
+    r.assert_is_in_field();            // r < n
+    r.assert_is_not_equal(Fr::zero()); // 0 < r
 
     // Step 3.
-    Fr r(sig.r);
-    r.assert_is_in_field("ECDSA input validation: the r component of the signature is bigger than the order of the "
-                         "elliptic curve.");                                                                // r < n
-    r.assert_is_not_equal(Fr::zero(), "ECDSA input validation: the r component of the signature is zero."); // 0 < r
+    Fr s(sig.s);
+    s.assert_less_than((Fr::modulus + 1) / 2); // s < (n+1) / 2
+    s.assert_is_not_equal(Fr::zero());         // 0 < s
 
     // Step 4.
-    Fr s(sig.s);
-    s.assert_less_than(
-        (Fr::modulus + 1) / 2,
-        "ECDSA input validation: the s component of the signature is bigger than Fr::modulus - s."); // s < (n+1)/2
-    s.assert_is_not_equal(Fr::zero(), "ECDSA input validation: the s component of the signature is zero."); // 0 < s
-
-    // Step 5.
     Fr u1 = z.div_without_denominator_check(s);
     Fr u2 = r.div_without_denominator_check(s);
 
@@ -118,20 +181,17 @@ bool_t<Builder> ecdsa_verify_signature(const stdlib::byte_array<Builder>& hashed
     if constexpr (Curve::type == bb::CurveType::SECP256K1) {
         result = G1::secp256k1_ecdsa_mul(public_key, u1, u2);
     } else {
-        // This error comes from the lookup tables used in batch_mul. We could get rid of it by setting with_edgecase =
-        // true. However, this would increase the gate count, and it would handle a case that should not appear in
-        // general: someone using plus or minus the generator as a public key.
-        if ((public_key.get_value().x == Curve::g1::affine_one.x) && (!builder->failed())) {
-            builder->failure("ECDSA input validation: the public key is equal to plus or minus the generator point.");
-        }
-        result = G1::batch_mul({ G1::one(builder), public_key }, { u1, u2 });
+        result = G1::batch_mul({ G1::one(ctx), public_key }, { u1, u2 });
     }
 
-    // Step 6.
-    result.is_point_at_infinity().assert_equal(
-        bool_t<Builder>(false), "ECDSA validation: the result of the batch multiplication is the point at infinity.");
+    // Step 5.
+    if (result.get_value().is_point_at_infinity()) {
+        info("The result of the batch multiplication is the point at infinity. This will produce an unsatisfied "
+             "circuit.");
+    }
+    result.is_point_at_infinity().assert_equal(bool_t<Builder>(false));
 
-    // Step 7.
+    // Step 6.
     // We reduce result.x to 2^s, where s is the smallest s.t. 2^s > q. It is cheap in terms of constraints, and avoids
     // possible edge cases
     result.x.self_reduce();
@@ -151,9 +211,9 @@ bool_t<Builder> ecdsa_verify_signature(const stdlib::byte_array<Builder>& hashed
 
     // Logging
     if (is_signature_valid.get_value()) {
-        vinfo("ECDSA signature verification succeeded.");
+        vinfo("Signature verification succeeded.");
     } else {
-        vinfo("ECDSA signature verification failed");
+        vinfo("Signature verification failed");
     }
 
     return is_signature_valid;

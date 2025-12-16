@@ -3,7 +3,7 @@ import { BufferReader, FieldReader } from '@aztec/foundation/serialize';
 
 import type { Blob as BlobBuffer } from 'c-kzg';
 
-import { getNumBlobFieldsFromTxStartMarker, isBlockEndMarker } from './encoding.js';
+import { getLengthFromFirstField, isBlockEndMarker } from './encoding.js';
 
 /**
  * Deserializes a blob buffer into an array of field elements.
@@ -60,7 +60,7 @@ export function deserializeEncodedBlobToFields(blob: BlobBuffer): Fr[] {
     }
 
     // Skip the remaining fields in this transaction
-    const len = getNumBlobFieldsFromTxStartMarker(currentField);
+    const len = getLengthFromFirstField(currentField);
     fieldReader.skip(len);
   }
 

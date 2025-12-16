@@ -4,7 +4,8 @@ use std::meta::derive;
 #[derive(Deserialize, Eq, Serialize)]
 pub struct AppendOnlyTreeSnapshot {
     pub root: Field,
-    pub next_available_leaf_index: Field,
+    // TODO(Alvaro) change this to a u64
+    pub next_available_leaf_index: u32,
 }
 
 impl Empty for AppendOnlyTreeSnapshot {

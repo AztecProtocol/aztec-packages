@@ -39,20 +39,17 @@ impl NoteHash for TransparentNote {
     fn compute_nullifier(
         self,
         _context: &mut PrivateContext,
-        note_hash_for_nullification: Field,
+        note_hash_for_nullify: Field,
     ) -> Field {
         poseidon2_hash_with_separator(
-            [note_hash_for_nullification],
+            [note_hash_for_nullify],
             GENERATOR_INDEX__NOTE_NULLIFIER as Field,
         )
     }
 
-    unconstrained fn compute_nullifier_unconstrained(
-        self,
-        note_hash_for_nullification: Field,
-    ) -> Field {
+    unconstrained fn compute_nullifier_unconstrained(self, note_hash_for_nullify: Field) -> Field {
         // compute_nullifier ignores context so we can reuse it here
-        self.compute_nullifier(zeroed(), note_hash_for_nullification)
+        self.compute_nullifier(zeroed(), note_hash_for_nullify)
     }
 }
 // docs:end:transparent_note_impl

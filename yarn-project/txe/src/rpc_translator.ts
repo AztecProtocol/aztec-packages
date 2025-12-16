@@ -97,7 +97,7 @@ export class RPCTranslator {
   // TXE session state transition functions - these get handled by the state handler
 
   async txeSetTopLevelTXEContext() {
-    await this.stateHandler.enterTopLevelState();
+    await this.stateHandler.setTopLevelContext();
 
     return toForeignCallResult([]);
   }
@@ -116,7 +116,7 @@ export class RPCTranslator {
       ? fromSingle(foreignAnchorBlockNumberValue).toNumber()
       : undefined;
 
-    const privateContextInputs = await this.stateHandler.enterPrivateState(contractAddress, anchorBlockNumber);
+    const privateContextInputs = await this.stateHandler.setPrivateContext(contractAddress, anchorBlockNumber);
 
     return toForeignCallResult(privateContextInputs.toFields().map(toSingle));
   }
@@ -129,7 +129,7 @@ export class RPCTranslator {
       ? AztecAddress.fromField(fromSingle(foreignContractAddressValue))
       : undefined;
 
-    await this.stateHandler.enterPublicState(contractAddress);
+    await this.stateHandler.setPublicContext(contractAddress);
 
     return toForeignCallResult([]);
   }
@@ -142,7 +142,7 @@ export class RPCTranslator {
       ? AztecAddress.fromField(fromSingle(foreignContractAddressValue))
       : undefined;
 
-    await this.stateHandler.enterUtilityState(contractAddress);
+    await this.stateHandler.setUtilityContext(contractAddress);
 
     return toForeignCallResult([]);
   }

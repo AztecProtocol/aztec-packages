@@ -19,7 +19,13 @@ export function getBlockBlobFields(txEffects: TxEffect[]) {
 }
 
 export class Body {
-  constructor(public txEffects: TxEffect[]) {}
+  constructor(public txEffects: TxEffect[]) {
+    txEffects.forEach(txEffect => {
+      if (txEffect.isEmpty()) {
+        throw new Error('Empty tx effect not allowed in Body');
+      }
+    });
+  }
 
   equals(other: Body) {
     return (
