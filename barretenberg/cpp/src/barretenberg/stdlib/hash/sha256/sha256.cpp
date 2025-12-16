@@ -102,9 +102,10 @@ std::array<field_t<Builder>, 64> SHA256<Builder>::extend_witness(const std::arra
 
     std::array<SHA256<Builder>::sparse_witness_limbs, 64> w_sparse;
 
-    // Populate initial 16 words in sparse form from input
+    // Populate initial 16 words from input (sparse form computed lazily as needed)
     for (size_t i = 0; i < 16; ++i) {
         w_sparse[i] = SHA256<Builder>::sparse_witness_limbs(w_in[i]);
+        // Extract builder context from inputs
         if ((ctx == nullptr) && w_in[i].get_context()) {
             ctx = w_in[i].get_context();
         }
@@ -141,23 +142,20 @@ std::array<field_t<Builder>, 64> SHA256<Builder>::extend_witness(const std::arra
         };
 
         // Compute σ₀(w[i-15]) = (x >>> 7) ⊕ (x >>> 18) ⊕ (x >> 3) in sparse form.
-        // Each sparse digit holds the sum of contributions from the three rotation/shift operations
-        // (digit value in {0,1,2,3}).
-        // The fr(4) scaling positions σ₀'s contribution in the upper 2 bits of each 4-bit digit slot:
-        // when combined with σ₁ (unscaled, in lower 2 bits), each digit becomes 4*σ₀_digit + σ₁_digit ∈ [0,15].
+        // Each sparse digit holds the sum of contributions from the three rotation/shift operations (digit value in
+        // {0,1,2,3}). The fr(4) scaling positions σ₀'s contribution in the upper 2 bits of each 4-bit digit slot: when
+        // combined with σ₁ (unscaled, in lower 2 bits), each digit becomes 4*σ₀_digit + σ₁_digit ∈ [0,15].
         const field_pt left_xor_sparse =
             left[0].add_two(left[1], left[2]).add_two(left[3], w_left.rotated_limb_corrections[1]) * fr(4);
 
-        // Compute σ₀(w[i-15]) + σ₁(w[i-2]) where σ₁(x) = (x >>> 17) ⊕ (x >>> 19) ⊕ (x >> 10).
+        // Compute σ₀(w[i-15]) + σ₁(w[i-2]) in sparse form where σ₁(x) = (x >>> 17) ⊕ (x >>> 19) ⊕ (x >> 10).
         const field_pt xor_result_sparse = right[0]
                                                .add_two(right[1], right[2])
                                                .add_two(right[3], w_right.rotated_limb_corrections[2])
                                                .add_two(w_right.rotated_limb_corrections[3], left_xor_sparse);
 
+        // Normalize the sparse representation via a lookup to obtain the genuine result σ₀ + σ₁
         field_pt xor_result = plookup_read<Builder>::read_from_1_to_2_table(SHA256_WITNESS_OUTPUT, xor_result_sparse);
-
-        // AUDITTODO: What is this TODO referring to?
-        // TODO NORMALIZE WITH RANGE CHECK
 
         // Compute W[i] = σ₁(W[i-2]) + W[i-7] + σ₀(W[i-15]) + W[i-16]
         field_pt w_out_raw = xor_result.add_two(w_sparse[i - 16].normal, w_sparse[i - 7].normal);
@@ -189,7 +187,6 @@ std::array<field_t<Builder>, 64> SHA256<Builder>::extend_witness(const std::arra
     }
 
     std::array<field_pt, 64> w_extended;
-
     for (size_t i = 0; i < 64; ++i) {
         w_extended[i] = w_sparse[i].normal;
     }
@@ -246,6 +243,8 @@ SHA256<Builder>::sparse_value SHA256<Builder>::map_into_maj_sparse_form(const fi
  * Sparse encoding: 7*[rotations] + [e + 2f + 3g], where factor 7 separates rotation
  * contributions (0-3) from Choose encoding (0-6) within each base-28 digit.
  *
+ * See get_choose_input_table() in plookup_tables/sha256.hpp for the mathematical derivation.
+ *
  * @param e Input/output: e.normal read, e.sparse populated as side effect
  * @param f Input: must have .sparse already populated
  * @param g Input: must have .sparse already populated
@@ -259,23 +258,19 @@ field_t<Builder> SHA256<Builder>::choose_with_sigma1(sparse_value& e, const spar
     const auto lookup = plookup_read<Builder>::get_lookup_accumulators(SHA256_CH_INPUT, e.normal);
     const auto rotation_coefficients = sha256_tables::get_choose_rotation_multipliers();
 
-    // Rotation accumulator with split-boundary contributions baked in via lookup tables
     field_pt rotation_result = lookup[ColumnIdx::C3][0];
-    // Full sparse form of e (L0 + L1*28^11 + L2*28^22)
     e.sparse = lookup[ColumnIdx::C2][0];
-    // Isolated sparse(L2), needed for L2 coefficient correction
-    field_pt sparse_limb_3 = lookup[ColumnIdx::C2][2];
+    field_pt sparse_L2 = lookup[ColumnIdx::C2][2];
 
-    // Compute e + 7*Σ₁(e): rotation_result provides split-boundary parts,
-    // coef[0] adds contiguous contributions via e.sparse, coef[2] corrects L2's coefficient
+    // Compute e + 7*Σ₁(e) in sparse form
     field_pt xor_result = (rotation_result * fr(7))
                               .add_two(e.sparse * (rotation_coefficients[0] * fr(7) + fr(1)),
-                                       sparse_limb_3 * (rotation_coefficients[2] * fr(7)));
+                                       sparse_L2 * (rotation_coefficients[2] * fr(7)));
 
-    // Add 2f + 3g to complete: e + 7*Σ₁(e) + 2f + 3g (each digit in 0..27)
+    // Add 2f + 3g to get e + 7*Σ₁(e) + 2f + 3g (each digit in 0..27)
     field_pt choose_result_sparse = xor_result.add_two(f.sparse + f.sparse, g.sparse + g.sparse + g.sparse);
 
-    // Normalize: each digit maps to Σ₁(e)_i + Ch(e,f,g)_i via lookup table
+    // Normalize via lookup: each digit maps to Σ₁(e)_i + Ch(e,f,g)_i
     field_pt choose_result = plookup_read<Builder>::read_from_1_to_2_table(SHA256_CH_OUTPUT, choose_result_sparse);
 
     return choose_result;
@@ -291,6 +286,8 @@ field_t<Builder> SHA256<Builder>::choose_with_sigma1(sparse_value& e, const spar
  * Sparse encoding: 4*[rotations] + [a + b + c], where factor 4 separates rotation
  * contributions (0-3) from Majority encoding (0-3) within each base-16 digit.
  *
+ * See get_majority_input_table() in plookup_tables/sha256.hpp for the mathematical derivation.
+ *
  * @param a Input/output: a.normal read, a.sparse populated as side effect
  * @param b Input: must have .sparse already populated
  * @param c Input: must have .sparse already populated
@@ -304,24 +301,19 @@ field_t<Builder> SHA256<Builder>::majority_with_sigma0(sparse_value& a, const sp
     const auto lookup = plookup_read<Builder>::get_lookup_accumulators(SHA256_MAJ_INPUT, a.normal);
     const auto rotation_coefficients = sha256_tables::get_majority_rotation_multipliers();
 
-    // Rotation accumulator with split-boundary contributions baked in via lookup tables
     field_pt rotation_result = lookup[ColumnIdx::C3][0];
-    // Full sparse form of a (L0 + L1*16^11 + L2*16^22)
     a.sparse = lookup[ColumnIdx::C2][0];
-    // Partial accumulator: sparse(L1) + sparse(L2)*16^11, used for L1 coefficient correction.
-    // The S2*16^11 term introduces an L2 side-effect that is corrected by the L2 correction baked into C3.
     field_pt sparse_L1_acc = lookup[ColumnIdx::C2][1];
 
-    // Compute a + 4*Σ₀(a): rotation_result provides split-boundary parts,
-    // coef[0] adds contiguous contributions via a.sparse, coef[1] corrects L1's coefficient
+    // Compute a + 4*Σ₀(a) in sparse form
     field_pt xor_result = (rotation_result * fr(4))
                               .add_two(a.sparse * (rotation_coefficients[0] * fr(4) + fr(1)),
                                        sparse_L1_acc * (rotation_coefficients[1] * fr(4)));
 
-    // Add b + c to complete: a + 4*Σ₀(a) + b + c (each digit in 0..15)
+    // Add b + c to get a + 4*Σ₀(a) + b + c (each digit in 0..15)
     field_pt majority_result_sparse = xor_result.add_two(b.sparse, c.sparse);
 
-    // Normalize: each digit maps to Σ₀(a)_i + Maj(a,b,c)_i via lookup table
+    // Normalize via lookup: each digit maps to Σ₀(a)_i + Maj(a,b,c)_i
     field_pt majority_result = plookup_read<Builder>::read_from_1_to_2_table(SHA256_MAJ_OUTPUT, majority_result_sparse);
 
     return majority_result;
@@ -396,37 +388,21 @@ std::array<field_t<Builder>, 8> SHA256<Builder>::sha256_block(const std::array<f
      *   T2 = Σ0(a) + Maj(a,b,c)
      *   h,g,f,e,d,c,b,a = g,f,e,d+T1,c,b,a,T1+T2
      *
-     * In this implementation, choose_with_sigma1() returns Ch(e,f,g) + Σ1(e) and majority_with_sigma0() returns
-     * Maj(a,b,c) + Σ0(a), so the rotation sums are bundled into the nonlinear functions.
-     *
-     * AUDITODO(critical-invariant): choose_with_sigma1() and majority_with_sigma0() have SIDE EFFECTS - they
-     * populate the .sparse field of their first argument (e and a respectively). The correctness of this loop
-     * depends on:
-     *   1. choose_with_sigma1(e,...) computes e.sparse before e is shuffled to f
-     *   2. majority_with_sigma0(a,...) computes a.sparse before a is shuffled to b
-     *   3. The shuffle (h=g, g=f, ...) copies the FULL sparse_value (including .sparse)
-     *   4. The e.normal and a.normal assignments only update .normal, leaving .sparse stale
-     *   5. The stale .sparse is OK because next iteration's choose_with_sigma1/majority_with_sigma0 will recompute it
-     * Any refactoring must preserve this ordering or explicitly manage sparse form computation.
+     * NOTE: Order-dependent side effects below. choose_with_sigma1() populates e.sparse (subsequently copied to f).
+     * majority_with_sigma0() populates a.sparse (subsequently copied to b). Do not reorder relative to f=e or b=a.
      */
     for (size_t i = 0; i < 64; ++i) {
-        // AUDITODO(side-effect): choose_with_sigma1() populates e.sparse as a side effect via lookup table
         auto ch = choose_with_sigma1(e, f, g);
-        // AUDITODO(side-effect): majority_with_sigma0() populates a.sparse as a side effect via lookup table
         auto maj = majority_with_sigma0(a, b, c);
-        // T1 = Ch + Σ1 + h + K[i] + W[i] (ch already contains Ch + Σ1)
         auto temp1 = ch.add_two(h.normal, w[i] + fr(round_constants[i]));
 
-        // Shuffle working variables - copies full sparse_value structs (both .normal and .sparse)
         h = g;
         g = f;
-        f = e; // f gets e's .sparse (computed by choose_with_sigma1() above) - this ordering is critical
-        // AUDITODO(stale-sparse): e.sparse becomes stale here; relies on next iteration's choose_with_sigma1() to fix
+        f = e;
         e.normal = add_normalize(d.normal, temp1);
         d = c;
         c = b;
-        b = a; // b gets a's .sparse (computed by majority_with_sigma0() above) - this ordering is critical
-        // AUDITODO(stale-sparse): a.sparse becomes stale here; relies on next iteration's majority_with_sigma0() to fix
+        b = a;
         a.normal = add_normalize(temp1, maj);
     }
 
