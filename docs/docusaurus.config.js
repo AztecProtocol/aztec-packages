@@ -300,7 +300,7 @@ const config = {
                 to: "/",
               },
               {
-                label: "Developer Getting Started",
+                label: "Developer Getting Started Guide",
                 to: "/developers/getting_started",
               },
               {
