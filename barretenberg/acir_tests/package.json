@@ -10,8 +10,5 @@
   ],
   "dependencies": {
     "pino": "^9.5.0"
-  },
-  "resolutions": {
-    "ws": "^8.17.1"
   }
 }

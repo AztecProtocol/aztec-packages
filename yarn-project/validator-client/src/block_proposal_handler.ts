@@ -265,7 +265,7 @@ export class BlockProposalHandler {
     });
 
     const numFailedTxs = failedTxs.length;
-    const slot = proposal.slotNumber.toBigInt();
+    const slot = proposal.slotNumber;
     this.log.verbose(`Transaction re-execution complete for slot ${slot}`, {
       numFailedTxs,
       numProposalTxs: txHashes.length,

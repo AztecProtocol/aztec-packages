@@ -425,8 +425,8 @@ export class RollupContract {
     return result;
   }
 
-  getBlock(blockNumber: bigint | number) {
-    return this.rollup.read.getBlock([BigInt(blockNumber)]);
+  getBlock(blockNumber: bigint) {
+    return this.rollup.read.getBlock([blockNumber]);
   }
 
   getTips() {

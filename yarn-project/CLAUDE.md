@@ -48,8 +48,8 @@ yarn test --runInBand
 ## Logging During Tests
 Set `LOG_LEVEL` environment variable:
 ```bash
-env LOG_LEVEL=verbose yarn test FILENAME
-env LOG_LEVEL=debug yarn test FILENAME
+LOG_LEVEL=verbose yarn test FILENAME
+LOG_LEVEL=debug yarn test FILENAME
 ```
 
 Available levels: trace, debug, verbose, info, warn (verbose recommended)
@@ -57,7 +57,7 @@ Available levels: trace, debug, verbose, info, warn (verbose recommended)
 Example:
 ```bash
 cd aztec-node
-env LOG_LEVEL=verbose yarn test some-test-file.test.ts
+LOG_LEVEL=verbose yarn test some-test-file.test.ts
 ```
 
 ## Dependency Management

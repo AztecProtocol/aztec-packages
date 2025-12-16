@@ -38,8 +38,8 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
 
   beforeEach(async () => {
     test = await EpochsTestContext.setup({
-      maxSpeedUpAttempts: 0, // Do not speed up l1 txs, we dont want them to land
-      cancelTxOnTimeout: false,
+      l1PublishRetryIntervalMS: 300_000, // Do not retry l1 txs, we dont want them to land
+      txPropagationMaxQueryAttempts: 2, // We are blocking txs here, so do not spend much time looking for them
       ethereumSlotDuration: process.env.L1_BLOCK_TIME ? parseInt(process.env.L1_BLOCK_TIME) : 4, // Got to speed these tests up for CI
     });
     ({ proverDelayer, sequencerDelayer, context, logger, monitor, L1_BLOCK_TIME_IN_S, L2_SLOT_DURATION_IN_S } = test);

@@ -192,15 +192,13 @@ namespace public_data_check;
     pol commit low_leaf_hash;
     // The intermediate root is the root of the tree after the low leaf update but before the new leaf is inserted.
     pol commit intermediate_root;
-    // TODO: We need these temporarily while we do not allow for aliases in the lookup tuple
+    // TODO: We need this temporarily while we do not allow for aliases in the lookup tuple
     pol commit tree_height;
     sel * (tree_height - constants.PUBLIC_DATA_TREE_HEIGHT) = 0;
-    pol commit const_two;
-    sel * (const_two - 2) = 0;
 
     #[LOW_LEAF_POSEIDON2_0]
-    sel { low_leaf_slot, low_leaf_value, low_leaf_next_index, low_leaf_hash, const_two }
-    in poseidon2_hash.start { poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output, poseidon2_hash.num_perm_rounds_rem };
+    sel { low_leaf_slot, low_leaf_value, low_leaf_next_index, low_leaf_hash }
+    in poseidon2_hash.start { poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output };
 
     #[LOW_LEAF_POSEIDON2_1]
     sel { low_leaf_next_slot, precomputed.zero, precomputed.zero, low_leaf_hash }
@@ -209,8 +207,8 @@ namespace public_data_check;
     pol commit updated_low_leaf_hash;
 
     #[UPDATED_LOW_LEAF_POSEIDON2_0]
-    write { low_leaf_slot, updated_low_leaf_value, updated_low_leaf_next_index, updated_low_leaf_hash, const_two }
-    in poseidon2_hash.start { poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output, poseidon2_hash.num_perm_rounds_rem };
+    write { low_leaf_slot, updated_low_leaf_value, updated_low_leaf_next_index, updated_low_leaf_hash }
+    in poseidon2_hash.start { poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output };
 
     #[UPDATED_LOW_LEAF_POSEIDON2_1]
     write { updated_low_leaf_next_slot, precomputed.zero, precomputed.zero, updated_low_leaf_hash }
@@ -235,8 +233,8 @@ namespace public_data_check;
     pol commit new_leaf_hash;
 
     #[NEW_LEAF_POSEIDON2_0]
-    should_insert { leaf_slot, value, low_leaf_next_index, new_leaf_hash, const_two }
-    in poseidon2_hash.start { poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output, poseidon2_hash.num_perm_rounds_rem };
+    should_insert { leaf_slot, value, low_leaf_next_index, new_leaf_hash }
+    in poseidon2_hash.start { poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output };
     #[NEW_LEAF_POSEIDON2_1]
     should_insert { low_leaf_next_slot, precomputed.zero, precomputed.zero, new_leaf_hash }
     in poseidon2_hash.end { poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output };

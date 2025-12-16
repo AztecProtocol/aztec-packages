@@ -565,6 +565,7 @@ export async function setup(
       config.bbBinaryPath = bbConfig.bbBinaryPath;
       config.bbWorkingDirectory = bbConfig.bbWorkingDirectory;
     }
+    config.l1PublishRetryIntervalMS = 100;
 
     const blobSinkClient = createBlobSinkClient(config, { logger: createLogger('node:blob-sink:client') });
 
@@ -881,7 +882,7 @@ export async function waitForProvenChain(node: AztecNode, targetBlock?: number, 
 export function createAndSyncProverNode(
   proverNodePrivateKey: `0x${string}`,
   aztecNodeConfig: AztecNodeConfig,
-  proverNodeConfig: Partial<ProverNodeConfig> & Pick<DataStoreConfig, 'dataDirectory'> & { dontStart?: boolean },
+  proverNodeConfig: Partial<ProverNodeConfig> & Pick<DataStoreConfig, 'dataDirectory'>,
   aztecNode: AztecNode | undefined,
   prefilledPublicData: PublicDataTreeLeaf[] = [],
   proverNodeDeps: ProverNodeDeps = {},
@@ -934,9 +935,7 @@ export function createAndSyncProverNode(
       { prefilledPublicData },
     );
     getLogger().info(`Created and synced prover node`, { publisherAddress: l1TxUtils.client.account!.address });
-    if (!proverNodeConfig.dontStart) {
-      await proverNode.start();
-    }
+    await proverNode.start();
     return proverNode;
   });
 }
