@@ -3,7 +3,7 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 
 import { z } from 'zod';
 
-import { type ZodFor, schemas } from '../schemas/index.js';
+import { schemas, zodFor } from '../schemas/index.js';
 import type { TxHash } from '../tx/tx_hash.js';
 import type { EpochProver } from './epoch-prover.js';
 import type { ProvingJobConsumer } from './prover-broker.js';
@@ -33,15 +33,18 @@ export type ProverConfig = ActualProverConfig & {
   failedProofStore?: string;
 };
 
-export const ProverConfigSchema = z.object({
-  nodeUrl: z.string().optional(),
-  realProofs: z.boolean(),
-  proverId: schemas.EthAddress.optional(),
-  proverTestDelayType: z.enum(['fixed', 'realistic']),
-  proverTestDelayMs: z.number(),
-  proverTestDelayFactor: z.number(),
-  proverAgentCount: z.number(),
-}) satisfies ZodFor<ProverConfig>;
+export const ProverConfigSchema = zodFor<ProverConfig>()(
+  z.object({
+    nodeUrl: z.string().optional(),
+    realProofs: z.boolean(),
+    proverId: schemas.EthAddress.optional(),
+    proverTestDelayType: z.enum(['fixed', 'realistic']),
+    proverTestDelayMs: z.number(),
+    proverTestDelayFactor: z.number(),
+    proverAgentCount: z.number(),
+    failedProofStore: z.string().optional(),
+  }),
+);
 
 export const proverConfigMappings: ConfigMappingsType<ProverConfig> = {
   nodeUrl: {

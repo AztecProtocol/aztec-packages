@@ -6,12 +6,14 @@ import type { FunctionArtifactWithContractName, FunctionSelector } from '@aztec/
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2Block } from '@aztec/stdlib/block';
 import type { CompleteAddress, ContractInstance } from '@aztec/stdlib/contract';
+import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
 import type { DirectionalAppTaggingSecret } from '@aztec/stdlib/logs';
 import type { NoteStatus } from '@aztec/stdlib/note';
 import { type MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import type { NodeStats } from '@aztec/stdlib/tx';
 
+import type { SenderTaggingDataProvider } from '../storage/tagging_data_provider/sender_tagging_data_provider.js';
 import type { NoteData } from './oracle/interfaces.js';
 import type { MessageLoadOracleInputs } from './oracle/message_load_oracle_inputs.js';
 
@@ -220,25 +222,6 @@ export interface ExecutionDataProvider {
   ): Promise<DirectionalAppTaggingSecret>;
 
   /**
-   * Updates the local index of the shared tagging secret of a (sender, recipient, contract) tuple if a log with
-   * a larger index is found from the node.
-   * @param secret - The secret that's unique for (sender, recipient, contract) tuple while the direction
-   * of sender -> recipient matters.
-   * @param contractAddress - The address of the contract that the logs are tagged for. Needs to be provided to store
-   * because the function performs second round of siloing which is necessary because kernels do it as well (they silo
-   * first field of the private log which corresponds to the tag).
-   */
-  syncTaggedLogsAsSender(secret: DirectionalAppTaggingSecret, contractAddress: AztecAddress): Promise<void>;
-
-  /**
-   * Returns the last used index when sending a log with a given secret.
-   * @param secret - The directional app tagging secret.
-   * @returns The last used index for the given directional app tagging secret, or undefined if we never sent a log
-   * from this sender to a recipient in a given contract (implicitly included in the secret).
-   */
-  getLastUsedIndexAsSender(secret: DirectionalAppTaggingSecret): Promise<number | undefined>;
-
-  /**
    * Synchronizes the private logs tagged with scoped addresses and all the senders in the address book. Stores the found
    * logs in CapsuleArray ready for a later retrieval in Aztec.nr.
    * @param contractAddress - The address of the contract that the logs are tagged for.
@@ -332,4 +315,8 @@ export interface ExecutionDataProvider {
    * @returns The execution statistics.
    */
   getStats(): ExecutionStats;
+
+  // Exposed when moving in the direction of #17776
+  get aztecNode(): AztecNode;
+  get senderTaggingDataProvider(): SenderTaggingDataProvider;
 }

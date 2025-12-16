@@ -17,6 +17,7 @@
     "./forwarder-proxy": "./dest/forwarder_proxy.js",
     "./l1-artifacts": "./dest/l1_artifacts.js",
     "./l1-contract-addresses": "./dest/l1_contract_addresses.js",
+    "./l1-fee-analysis": "./dest/l1_tx_utils/l1_fee_analyzer.js",
     "./l1-reader": "./dest/l1_reader.js",
     "./l1-tx-utils": "./dest/l1_tx_utils/index.js",
     "./l1-tx-utils-with-blobs": "./dest/l1_tx_utils/index-blobs.js",

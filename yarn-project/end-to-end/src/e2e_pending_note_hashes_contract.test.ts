@@ -287,6 +287,8 @@ describe('e2e_pending_note_hashes_contract', () => {
   });
 
   it('Should handle overflowing the kernel data structures in nested calls', async () => {
+    // This test verifies that a transaction can emit more notes than MAX_NOTE_HASHES_PER_TX without failing, since
+    // the notes are nullified and will be squashed by the kernel reset circuit.
     const sender = owner;
     const notesPerIteration = Math.min(MAX_NOTE_HASHES_PER_CALL, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL);
     const minToNeedReset = Math.min(MAX_NOTE_HASHES_PER_TX, MAX_NOTE_HASH_READ_REQUESTS_PER_TX) + 1;
