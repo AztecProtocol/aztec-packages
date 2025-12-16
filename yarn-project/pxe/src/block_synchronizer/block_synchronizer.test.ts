@@ -11,7 +11,7 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { AnchorBlockDataProvider } from '../storage/anchor_block_data_provider/anchor_block_data_provider.js';
 import { NoteDataProvider } from '../storage/note_data_provider/note_data_provider.js';
-import { TaggingDataProvider } from '../storage/tagging_data_provider/tagging_data_provider.js';
+import { RecipientTaggingDataProvider } from '../storage/tagging_data_provider/recipient_tagging_data_provider.js';
 import { BlockSynchronizer } from './block_synchronizer.js';
 
 describe('BlockSynchronizer', () => {
@@ -19,7 +19,7 @@ describe('BlockSynchronizer', () => {
   let tipsStore: L2TipsKVStore;
   let anchorBlockDataProvider: AnchorBlockDataProvider;
   let noteDataProvider: NoteDataProvider;
-  let taggingDataProvider: TaggingDataProvider;
+  let recipientTaggingDataProvider: RecipientTaggingDataProvider;
   let aztecNode: MockProxy<AztecNode>;
   let blockStream: MockProxy<L2BlockStream>;
 
@@ -36,12 +36,12 @@ describe('BlockSynchronizer', () => {
     tipsStore = new L2TipsKVStore(store, 'pxe');
     anchorBlockDataProvider = new AnchorBlockDataProvider(store);
     noteDataProvider = await NoteDataProvider.create(store);
-    taggingDataProvider = new TaggingDataProvider(store);
+    recipientTaggingDataProvider = new RecipientTaggingDataProvider(store);
     synchronizer = new TestSynchronizer(
       aztecNode,
       anchorBlockDataProvider,
       noteDataProvider,
-      taggingDataProvider,
+      recipientTaggingDataProvider,
       tipsStore,
     );
   });
@@ -59,7 +59,7 @@ describe('BlockSynchronizer', () => {
       .spyOn(noteDataProvider, 'rollbackNotesAndNullifiers')
       .mockImplementation(() => Promise.resolve());
     const resetNoteSyncData = jest
-      .spyOn(taggingDataProvider, 'resetNoteSyncData')
+      .spyOn(recipientTaggingDataProvider, 'resetNoteSyncData')
       .mockImplementation(() => Promise.resolve());
     aztecNode.getBlockHeader.mockImplementation(async blockNumber =>
       (await L2Block.random(BlockNumber(blockNumber as number))).getBlockHeader(),
