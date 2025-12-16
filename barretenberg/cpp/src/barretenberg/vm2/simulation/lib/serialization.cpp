@@ -19,11 +19,17 @@
 
 namespace bb::avm2::simulation {
 
-const std::unordered_map<OperandType, uint32_t> OPERAND_TYPE_SIZE_BYTES = {
-    { OperandType::INDIRECT8, 1 }, { OperandType::INDIRECT16, 2 }, { OperandType::TAG, 1 },
-    { OperandType::UINT8, 1 },     { OperandType::UINT16, 2 },     { OperandType::UINT32, 4 },
-    { OperandType::UINT64, 8 },    { OperandType::UINT128, 16 },   { OperandType::FF, 32 }
-};
+namespace {
+const std::unordered_map<OperandType, uint32_t>& get_operand_type_size_bytes()
+{
+    static const std::unordered_map<OperandType, uint32_t> OPERAND_TYPE_SIZE_BYTES = {
+        { OperandType::INDIRECT8, 1 }, { OperandType::INDIRECT16, 2 }, { OperandType::TAG, 1 },
+        { OperandType::UINT8, 1 },     { OperandType::UINT16, 2 },     { OperandType::UINT32, 4 },
+        { OperandType::UINT64, 8 },    { OperandType::UINT128, 16 },   { OperandType::FF, 32 }
+    };
+    return OPERAND_TYPE_SIZE_BYTES;
+}
+} // namespace
 
 // Instruction wire formats.
 const std::vector<OperandType> three_operand_format8 = {
@@ -47,161 +53,168 @@ const std::vector<OperandType> external_call_format = { OperandType::INDIRECT16,
                                                         /*argsOffset=*/OperandType::UINT16,
                                                         /*argsSizeOffset=*/OperandType::UINT16 };
 
+namespace {
 // Contrary to TS, the format does not contain the WireOpCode byte which prefixes any instruction.
 // Entries are ordered to match WireOpCode enum.
-const std::unordered_map<WireOpCode, std::vector<OperandType>> WireOpCode_WIRE_FORMAT = {
-    // Compute
-    // Compute - Arithmetic
-    { WireOpCode::ADD_8, three_operand_format8 },
-    { WireOpCode::ADD_16, three_operand_format16 },
-    { WireOpCode::SUB_8, three_operand_format8 },
-    { WireOpCode::SUB_16, three_operand_format16 },
-    { WireOpCode::MUL_8, three_operand_format8 },
-    { WireOpCode::MUL_16, three_operand_format16 },
-    { WireOpCode::DIV_8, three_operand_format8 },
-    { WireOpCode::DIV_16, three_operand_format16 },
-    { WireOpCode::FDIV_8, three_operand_format8 },
-    { WireOpCode::FDIV_16, three_operand_format16 },
-    // Compute - Comparison
-    { WireOpCode::EQ_8, three_operand_format8 },
-    { WireOpCode::EQ_16, three_operand_format16 },
-    { WireOpCode::LT_8, three_operand_format8 },
-    { WireOpCode::LT_16, three_operand_format16 },
-    { WireOpCode::LTE_8, three_operand_format8 },
-    { WireOpCode::LTE_16, three_operand_format16 },
-    // Compute - Bitwise
-    { WireOpCode::AND_8, three_operand_format8 },
-    { WireOpCode::AND_16, three_operand_format16 },
-    { WireOpCode::OR_8, three_operand_format8 },
-    { WireOpCode::OR_16, three_operand_format16 },
-    { WireOpCode::XOR_8, three_operand_format8 },
-    { WireOpCode::XOR_16, three_operand_format16 },
-    { WireOpCode::NOT_8, { OperandType::INDIRECT8, OperandType::UINT8, OperandType::UINT8 } },
-    { WireOpCode::NOT_16, { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16 } },
-    { WireOpCode::SHL_8, three_operand_format8 },
-    { WireOpCode::SHL_16, three_operand_format16 },
-    { WireOpCode::SHR_8, three_operand_format8 },
-    { WireOpCode::SHR_16, three_operand_format16 },
-    // Compute - Type Conversions
-    { WireOpCode::CAST_8, { OperandType::INDIRECT8, OperandType::UINT8, OperandType::UINT8, OperandType::TAG } },
-    { WireOpCode::CAST_16, { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16, OperandType::TAG } },
+const std::unordered_map<WireOpCode, std::vector<OperandType>>& get_wire_opcode_wire_format()
+{
+    static const std::unordered_map<WireOpCode, std::vector<OperandType>> WireOpCode_WIRE_FORMAT = {
+        // Compute
+        // Compute - Arithmetic
+        { WireOpCode::ADD_8, three_operand_format8 },
+        { WireOpCode::ADD_16, three_operand_format16 },
+        { WireOpCode::SUB_8, three_operand_format8 },
+        { WireOpCode::SUB_16, three_operand_format16 },
+        { WireOpCode::MUL_8, three_operand_format8 },
+        { WireOpCode::MUL_16, three_operand_format16 },
+        { WireOpCode::DIV_8, three_operand_format8 },
+        { WireOpCode::DIV_16, three_operand_format16 },
+        { WireOpCode::FDIV_8, three_operand_format8 },
+        { WireOpCode::FDIV_16, three_operand_format16 },
+        // Compute - Comparison
+        { WireOpCode::EQ_8, three_operand_format8 },
+        { WireOpCode::EQ_16, three_operand_format16 },
+        { WireOpCode::LT_8, three_operand_format8 },
+        { WireOpCode::LT_16, three_operand_format16 },
+        { WireOpCode::LTE_8, three_operand_format8 },
+        { WireOpCode::LTE_16, three_operand_format16 },
+        // Compute - Bitwise
+        { WireOpCode::AND_8, three_operand_format8 },
+        { WireOpCode::AND_16, three_operand_format16 },
+        { WireOpCode::OR_8, three_operand_format8 },
+        { WireOpCode::OR_16, three_operand_format16 },
+        { WireOpCode::XOR_8, three_operand_format8 },
+        { WireOpCode::XOR_16, three_operand_format16 },
+        { WireOpCode::NOT_8, { OperandType::INDIRECT8, OperandType::UINT8, OperandType::UINT8 } },
+        { WireOpCode::NOT_16, { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16 } },
+        { WireOpCode::SHL_8, three_operand_format8 },
+        { WireOpCode::SHL_16, three_operand_format16 },
+        { WireOpCode::SHR_8, three_operand_format8 },
+        { WireOpCode::SHR_16, three_operand_format16 },
+        // Compute - Type Conversions
+        { WireOpCode::CAST_8, { OperandType::INDIRECT8, OperandType::UINT8, OperandType::UINT8, OperandType::TAG } },
+        { WireOpCode::CAST_16, { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16, OperandType::TAG } },
 
-    // Execution Environment - Globals
-    { WireOpCode::GETENVVAR_16,
-      {
-          OperandType::INDIRECT8,
-          OperandType::UINT16,
-          OperandType::UINT8, // var idx
-      } },
+        // Execution Environment - Globals
+        { WireOpCode::GETENVVAR_16,
+          {
+              OperandType::INDIRECT8,
+              OperandType::UINT16,
+              OperandType::UINT8, // var idx
+          } },
 
-    // Execution Environment - Calldata
-    { WireOpCode::CALLDATACOPY,
-      { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16, OperandType::UINT16 } },
-    { WireOpCode::SUCCESSCOPY, { OperandType::INDIRECT8, OperandType::UINT16 } },
-    { WireOpCode::RETURNDATASIZE, { OperandType::INDIRECT8, OperandType::UINT16 } },
-    { WireOpCode::RETURNDATACOPY,
-      { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16, OperandType::UINT16 } },
+        // Execution Environment - Calldata
+        { WireOpCode::CALLDATACOPY,
+          { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16, OperandType::UINT16 } },
+        { WireOpCode::SUCCESSCOPY, { OperandType::INDIRECT8, OperandType::UINT16 } },
+        { WireOpCode::RETURNDATASIZE, { OperandType::INDIRECT8, OperandType::UINT16 } },
+        { WireOpCode::RETURNDATACOPY,
+          { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16, OperandType::UINT16 } },
 
-    // Machine State - Internal Control Flow
-    { WireOpCode::JUMP_32, { OperandType::UINT32 } },
-    { WireOpCode::JUMPI_32, { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT32 } },
-    { WireOpCode::INTERNALCALL, { OperandType::UINT32 } },
-    { WireOpCode::INTERNALRETURN, {} },
+        // Machine State - Internal Control Flow
+        { WireOpCode::JUMP_32, { OperandType::UINT32 } },
+        { WireOpCode::JUMPI_32, { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT32 } },
+        { WireOpCode::INTERNALCALL, { OperandType::UINT32 } },
+        { WireOpCode::INTERNALRETURN, {} },
 
-    // Machine State - Memory
-    { WireOpCode::SET_8, { OperandType::INDIRECT8, OperandType::UINT8, OperandType::TAG, OperandType::UINT8 } },
-    { WireOpCode::SET_16, { OperandType::INDIRECT8, OperandType::UINT16, OperandType::TAG, OperandType::UINT16 } },
-    { WireOpCode::SET_32, { OperandType::INDIRECT8, OperandType::UINT16, OperandType::TAG, OperandType::UINT32 } },
-    { WireOpCode::SET_64, { OperandType::INDIRECT8, OperandType::UINT16, OperandType::TAG, OperandType::UINT64 } },
-    { WireOpCode::SET_128, { OperandType::INDIRECT8, OperandType::UINT16, OperandType::TAG, OperandType::UINT128 } },
-    { WireOpCode::SET_FF, { OperandType::INDIRECT8, OperandType::UINT16, OperandType::TAG, OperandType::FF } },
-    { WireOpCode::MOV_8, { OperandType::INDIRECT8, OperandType::UINT8, OperandType::UINT8 } },
-    { WireOpCode::MOV_16, { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16 } },
+        // Machine State - Memory
+        { WireOpCode::SET_8, { OperandType::INDIRECT8, OperandType::UINT8, OperandType::TAG, OperandType::UINT8 } },
+        { WireOpCode::SET_16, { OperandType::INDIRECT8, OperandType::UINT16, OperandType::TAG, OperandType::UINT16 } },
+        { WireOpCode::SET_32, { OperandType::INDIRECT8, OperandType::UINT16, OperandType::TAG, OperandType::UINT32 } },
+        { WireOpCode::SET_64, { OperandType::INDIRECT8, OperandType::UINT16, OperandType::TAG, OperandType::UINT64 } },
+        { WireOpCode::SET_128,
+          { OperandType::INDIRECT8, OperandType::UINT16, OperandType::TAG, OperandType::UINT128 } },
+        { WireOpCode::SET_FF, { OperandType::INDIRECT8, OperandType::UINT16, OperandType::TAG, OperandType::FF } },
+        { WireOpCode::MOV_8, { OperandType::INDIRECT8, OperandType::UINT8, OperandType::UINT8 } },
+        { WireOpCode::MOV_16, { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16 } },
 
-    // Side Effects - Public Storage
-    { WireOpCode::SLOAD, { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16 } },
-    { WireOpCode::SSTORE, { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16 } },
-    // Side Effects - Notes, Nullfiers, Logs, Messages
-    { WireOpCode::NOTEHASHEXISTS,
-      { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16, OperandType::UINT16 } },
+        // Side Effects - Public Storage
+        { WireOpCode::SLOAD, { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16 } },
+        { WireOpCode::SSTORE, { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16 } },
+        // Side Effects - Notes, Nullfiers, Logs, Messages
+        { WireOpCode::NOTEHASHEXISTS,
+          { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16, OperandType::UINT16 } },
 
-    { WireOpCode::EMITNOTEHASH,
-      {
-          OperandType::INDIRECT8,
-          OperandType::UINT16,
-      } },
-    { WireOpCode::NULLIFIEREXISTS,
-      { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16, OperandType::UINT16 } },
-    { WireOpCode::EMITNULLIFIER,
-      {
-          OperandType::INDIRECT8,
-          OperandType::UINT16,
-      } },
-    { WireOpCode::L1TOL2MSGEXISTS,
-      { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16, OperandType::UINT16 } },
-    { WireOpCode::GETCONTRACTINSTANCE,
-      { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16, OperandType::UINT8 } },
-    { WireOpCode::EMITUNENCRYPTEDLOG,
-      {
-          OperandType::INDIRECT8,
-          OperandType::UINT16,
-          OperandType::UINT16,
-      } },
-    { WireOpCode::SENDL2TOL1MSG, { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16 } },
+        { WireOpCode::EMITNOTEHASH,
+          {
+              OperandType::INDIRECT8,
+              OperandType::UINT16,
+          } },
+        { WireOpCode::NULLIFIEREXISTS,
+          { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16, OperandType::UINT16 } },
+        { WireOpCode::EMITNULLIFIER,
+          {
+              OperandType::INDIRECT8,
+              OperandType::UINT16,
+          } },
+        { WireOpCode::L1TOL2MSGEXISTS,
+          { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16, OperandType::UINT16 } },
+        { WireOpCode::GETCONTRACTINSTANCE,
+          { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16, OperandType::UINT8 } },
+        { WireOpCode::EMITUNENCRYPTEDLOG,
+          {
+              OperandType::INDIRECT8,
+              OperandType::UINT16,
+              OperandType::UINT16,
+          } },
+        { WireOpCode::SENDL2TOL1MSG, { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16 } },
 
-    // Control Flow - Contract Calls
-    { WireOpCode::CALL, external_call_format },
-    { WireOpCode::STATICCALL, external_call_format },
-    { WireOpCode::RETURN, { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16 } },
-    // REVERT,
-    { WireOpCode::REVERT_8, { OperandType::INDIRECT8, OperandType::UINT8, OperandType::UINT8 } },
-    { WireOpCode::REVERT_16, { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16 } },
+        // Control Flow - Contract Calls
+        { WireOpCode::CALL, external_call_format },
+        { WireOpCode::STATICCALL, external_call_format },
+        { WireOpCode::RETURN, { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16 } },
+        // REVERT,
+        { WireOpCode::REVERT_8, { OperandType::INDIRECT8, OperandType::UINT8, OperandType::UINT8 } },
+        { WireOpCode::REVERT_16, { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16 } },
 
-    // Misc
-    { WireOpCode::DEBUGLOG,
-      { OperandType::INDIRECT8,
-        OperandType::UINT16,
-        OperandType::UINT16,
-        OperandType::UINT16,
-        OperandType::UINT16,
-        OperandType::UINT16 } },
+        // Misc
+        { WireOpCode::DEBUGLOG,
+          { OperandType::INDIRECT8,
+            OperandType::UINT16,
+            OperandType::UINT16,
+            OperandType::UINT16,
+            OperandType::UINT16,
+            OperandType::UINT16 } },
 
-    // Gadgets
-    // Gadgets - Hashing
-    { WireOpCode::POSEIDON2PERM, { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16 } },
-    { WireOpCode::SHA256COMPRESSION,
-      { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16, OperandType::UINT16 } },
-    { WireOpCode::KECCAKF1600, { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16 } },
-    // TEMP ECADD without relative memory
-    { WireOpCode::ECADD,
-      { OperandType::INDIRECT16,
-        OperandType::UINT16,     // lhs.x
-        OperandType::UINT16,     // lhs.y
-        OperandType::UINT16,     // lhs.is_infinite
-        OperandType::UINT16,     // rhs.x
-        OperandType::UINT16,     // rhs.y
-        OperandType::UINT16,     // rhs.is_infinite
-        OperandType::UINT16 } }, // dst_offset
-    // Gadget - Conversion
-    { WireOpCode::TORADIXBE,
-      { OperandType::INDIRECT16,
-        OperandType::UINT16,
-        OperandType::UINT16,
-        OperandType::UINT16,
-        OperandType::UINT16,
-        OperandType::UINT16 } },
-};
+        // Gadgets
+        // Gadgets - Hashing
+        { WireOpCode::POSEIDON2PERM, { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16 } },
+        { WireOpCode::SHA256COMPRESSION,
+          { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16, OperandType::UINT16 } },
+        { WireOpCode::KECCAKF1600, { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16 } },
+        // TEMP ECADD without relative memory
+        { WireOpCode::ECADD,
+          { OperandType::INDIRECT16,
+            OperandType::UINT16,     // lhs.x
+            OperandType::UINT16,     // lhs.y
+            OperandType::UINT16,     // lhs.is_infinite
+            OperandType::UINT16,     // rhs.x
+            OperandType::UINT16,     // rhs.y
+            OperandType::UINT16,     // rhs.is_infinite
+            OperandType::UINT16 } }, // dst_offset
+        // Gadget - Conversion
+        { WireOpCode::TORADIXBE,
+          { OperandType::INDIRECT16,
+            OperandType::UINT16,
+            OperandType::UINT16,
+            OperandType::UINT16,
+            OperandType::UINT16,
+            OperandType::UINT16 } },
+    };
+    return WireOpCode_WIRE_FORMAT;
+}
+} // namespace
 
 namespace testonly {
 
 const std::unordered_map<WireOpCode, std::vector<OperandType>>& get_instruction_wire_formats()
 {
-    return WireOpCode_WIRE_FORMAT;
+    return get_wire_opcode_wire_format();
 }
 
 const std::unordered_map<OperandType, uint32_t>& get_operand_type_sizes()
 {
-    return OPERAND_TYPE_SIZE_BYTES;
+    return get_operand_type_size_bytes();
 }
 
 } // namespace testonly
@@ -232,11 +245,11 @@ Instruction deserialize_instruction(std::span<const uint8_t> bytecode, size_t po
     }
 
     const auto opcode = static_cast<WireOpCode>(opcode_byte);
-    const auto iter = WireOpCode_WIRE_FORMAT.find(opcode);
-    assert(iter != WireOpCode_WIRE_FORMAT.end());
+    const auto iter = get_wire_opcode_wire_format().find(opcode);
+    assert(iter != get_wire_opcode_wire_format().end());
     const auto& inst_format = iter->second;
 
-    const uint32_t instruction_size = WIRE_INSTRUCTION_SPEC.at(opcode).size_in_bytes;
+    const uint32_t instruction_size = get_wire_instruction_spec().at(opcode).size_in_bytes;
 
     // We know we will encounter a parsing error, but continue processing because
     // we need the partial instruction to be parsed for witness generation.
@@ -257,7 +270,7 @@ Instruction deserialize_instruction(std::span<const uint8_t> bytecode, size_t po
     uint16_t indirect = 0;
     std::vector<Operand> operands;
     for (const OperandType op_type : inst_format) {
-        const auto operand_size = OPERAND_TYPE_SIZE_BYTES.at(op_type);
+        const auto operand_size = get_operand_type_size_bytes().at(op_type);
         assert(pos + operand_size <= bytecode_length); // Guaranteed to hold due to
                                                        //  pos + instruction_size <= bytecode_length
 
@@ -343,24 +356,24 @@ std::string Instruction::to_string() const
 
 size_t Instruction::size_in_bytes() const
 {
-    assert(WIRE_INSTRUCTION_SPEC.contains(opcode));
-    return WIRE_INSTRUCTION_SPEC.at(opcode).size_in_bytes;
+    assert(get_wire_instruction_spec().contains(opcode));
+    return get_wire_instruction_spec().at(opcode).size_in_bytes;
 }
 
 ExecutionOpCode Instruction::get_exec_opcode() const
 {
-    assert(WIRE_INSTRUCTION_SPEC.contains(opcode));
-    return WIRE_INSTRUCTION_SPEC.at(opcode).exec_opcode;
+    assert(get_wire_instruction_spec().contains(opcode));
+    return get_wire_instruction_spec().at(opcode).exec_opcode;
 }
 
 std::vector<uint8_t> Instruction::serialize() const
 {
     std::vector<uint8_t> output;
-    output.reserve(WIRE_INSTRUCTION_SPEC.at(opcode).size_in_bytes);
+    output.reserve(get_wire_instruction_spec().at(opcode).size_in_bytes);
     output.emplace_back(static_cast<uint8_t>(opcode));
     size_t operand_pos = 0;
 
-    for (const auto& operand_type : WireOpCode_WIRE_FORMAT.at(opcode)) {
+    for (const auto& operand_type : get_wire_opcode_wire_format().at(opcode)) {
         switch (operand_type) {
         case OperandType::INDIRECT8:
             output.emplace_back(static_cast<uint8_t>(indirect));
@@ -412,7 +425,7 @@ bool check_tag(const Instruction& instruction)
         return false;
     }
 
-    const auto& wire_format = WireOpCode_WIRE_FORMAT.at(instruction.opcode);
+    const auto& wire_format = get_wire_opcode_wire_format().at(instruction.opcode);
 
     size_t pos = 0; // Position in instruction operands
 

@@ -14,7 +14,7 @@ import { openTmpStore } from '@aztec/kv-store/lmdb';
 import { type AppendOnlyTree, Poseidon, StandardTree, newTree } from '@aztec/merkle-tree';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { computeFeePayerBalanceStorageSlot } from '@aztec/protocol-contracts/fee-juice';
-import { PublicDataWrite, type PublicTxResult, RevertCode } from '@aztec/stdlib/avm';
+import { PublicDataWrite, PublicSimulatorConfig, type PublicTxResult, RevertCode } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { SimulationError } from '@aztec/stdlib/errors';
@@ -217,11 +217,9 @@ describe('public_tx_simulator', () => {
   };
 
   const createSimulator = ({
-    doMerkleOperations = true,
     skipFeeEnforcement = false,
     proverId,
   }: {
-    doMerkleOperations?: boolean;
     skipFeeEnforcement?: boolean;
     proverId?: Fr;
   }) => {
@@ -229,11 +227,10 @@ describe('public_tx_simulator', () => {
       merkleTrees,
       contractsDB,
       GlobalVariables.from({ ...GlobalVariables.empty(), gasFees }),
-      {
-        doMerkleOperations,
+      PublicSimulatorConfig.from({
         skipFeeEnforcement,
         proverId,
-      },
+      }),
     );
 
     // Mock the internal private function. Borrowed from https://stackoverflow.com/a/71033167
@@ -297,7 +294,7 @@ describe('public_tx_simulator', () => {
     // Clone the whole state because somewhere down the line (AbstractPhaseManager) the public data root is modified in the referenced header directly :/
     header.state = StateReference.fromBuffer(stateReference.toBuffer());
 
-    simulator = createSimulator({});
+    simulator = createSimulator({ skipFeeEnforcement: true });
   }, 30_000);
 
   afterEach(async () => {
@@ -1074,6 +1071,7 @@ describe('public_tx_simulator', () => {
 
   describe('fees', () => {
     it('deducts fees from the fee payer balance', async () => {
+      simulator = createSimulator({ skipFeeEnforcement: false });
       const feePayer = await AztecAddress.random();
       await setFeeBalance(feePayer, Fr.MAX_FIELD_VALUE);
 
@@ -1089,6 +1087,7 @@ describe('public_tx_simulator', () => {
     });
 
     it('fails if fee payer cant pay for the tx', async () => {
+      simulator = createSimulator({ skipFeeEnforcement: false });
       const feePayer = await AztecAddress.random();
 
       await expect(

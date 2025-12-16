@@ -125,6 +125,14 @@ export class PrivateCircuitPublicInputs {
      */
     public endSideEffectCounter: Fr,
     /**
+     * The expected non revertible side effect counter for this call.
+     */
+    public expectedNonRevertibleSideEffectCounter: Fr,
+    /**
+     * The expected revertible side effect counter for this call.
+     */
+    public expectedRevertibleSideEffectCounter: Fr,
+    /**
      * Header of a block whose state is used during private execution (not the block the transaction is included in).
      */
     public anchorBlockHeader: BlockHeader,
@@ -176,6 +184,8 @@ export class PrivateCircuitPublicInputs {
       reader.readObject(ClaimedLengthArrayFromBuffer(CountedLogHash, MAX_CONTRACT_CLASS_LOGS_PER_CALL)),
       reader.readObject(Fr),
       reader.readObject(Fr),
+      reader.readObject(Fr),
+      reader.readObject(Fr),
       reader.readObject(BlockHeader),
       reader.readObject(TxContext),
     );
@@ -203,6 +213,8 @@ export class PrivateCircuitPublicInputs {
       reader.readObject(ClaimedLengthArrayFromFields(CountedL2ToL1Message, MAX_L2_TO_L1_MSGS_PER_CALL)),
       reader.readObject(ClaimedLengthArrayFromFields(PrivateLogData, MAX_PRIVATE_LOGS_PER_CALL)),
       reader.readObject(ClaimedLengthArrayFromFields(CountedLogHash, MAX_CONTRACT_CLASS_LOGS_PER_CALL)),
+      reader.readField(),
+      reader.readField(),
       reader.readField(),
       reader.readField(),
       reader.readObject(BlockHeader),
@@ -235,6 +247,8 @@ export class PrivateCircuitPublicInputs {
       ClaimedLengthArray.empty(CountedLogHash, MAX_CONTRACT_CLASS_LOGS_PER_CALL),
       Fr.ZERO,
       Fr.ZERO,
+      Fr.ZERO,
+      Fr.ZERO,
       BlockHeader.empty(),
       TxContext.empty(),
     );
@@ -261,6 +275,8 @@ export class PrivateCircuitPublicInputs {
       this.contractClassLogsHashes.isEmpty() &&
       this.startSideEffectCounter.isZero() &&
       this.endSideEffectCounter.isZero() &&
+      this.expectedNonRevertibleSideEffectCounter.isZero() &&
+      this.expectedRevertibleSideEffectCounter.isZero() &&
       this.anchorBlockHeader.isEmpty() &&
       this.txContext.isEmpty()
     );
@@ -292,6 +308,8 @@ export class PrivateCircuitPublicInputs {
       fields.contractClassLogsHashes,
       fields.startSideEffectCounter,
       fields.endSideEffectCounter,
+      fields.expectedNonRevertibleSideEffectCounter,
+      fields.expectedRevertibleSideEffectCounter,
       fields.anchorBlockHeader,
       fields.txContext,
     ] as const;
@@ -324,6 +342,8 @@ export class PrivateCircuitPublicInputs {
       this.contractClassLogsHashes,
       this.startSideEffectCounter,
       this.endSideEffectCounter,
+      this.expectedNonRevertibleSideEffectCounter,
+      this.expectedRevertibleSideEffectCounter,
       this.anchorBlockHeader,
       this.txContext,
     ]);

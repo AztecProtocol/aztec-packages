@@ -19,13 +19,12 @@ import {
   type TxProvider,
   createSecp256k1PeerId,
 } from '@aztec/p2p';
-import { computeInHashFromL1ToL2Messages } from '@aztec/prover-client/helpers';
 import { OffenseType, WANT_TO_SLASH_EVENT } from '@aztec/slasher';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2Block, L2BlockSource } from '@aztec/stdlib/block';
 import { Gas } from '@aztec/stdlib/gas';
 import type { BuildBlockResult, IFullNodeBlockBuilder, SlasherConfig } from '@aztec/stdlib/interfaces/server';
-import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
+import { type L1ToL2MessageSource, computeInHashFromL1ToL2Messages } from '@aztec/stdlib/messaging';
 import type { BlockProposal } from '@aztec/stdlib/p2p';
 import { makeBlockAttestation, makeBlockProposal, makeL2BlockHeader, mockTx } from '@aztec/stdlib/testing';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
@@ -57,6 +56,7 @@ describe('ValidatorClient', () => {
     p2pClient = mock<P2P>();
     p2pClient.getAttestationsForSlot.mockImplementation(() => Promise.resolve([]));
     p2pClient.handleAuthRequestFromPeer.mockResolvedValue(StatusMessage.random());
+    p2pClient.broadcastAttestations.mockResolvedValue();
     blockBuilder = mock<IFullNodeBlockBuilder>();
     blockBuilder.getConfig.mockReturnValue({ l1GenesisTime: 1n, slotDuration: 24, l1ChainId: 1, rollupVersion: 1 });
     epochCache = mock<EpochCache>();
@@ -463,6 +463,28 @@ describe('ValidatorClient', () => {
 
       const attestation = await validatorClient.attestToProposal(proposal, sender);
       expect(attestation).toBeUndefined();
+    });
+
+    it('should validate proposals in fisherman mode but not create or broadcast attestations', async () => {
+      // Enable fisherman mode (which also triggers re-execution)
+      validatorClient.updateConfig({ fishermanMode: true });
+
+      // Enable re-execution (required in fisherman mode)
+      enableReexecution();
+
+      // Set up so validator is NOT in the committee
+      epochCache.filterInCommittee.mockResolvedValueOnce([]);
+
+      // Spy on addAttestations to verify attestations are NOT added to the pool
+      const addAttestationsSpy = jest.spyOn(p2pClient, 'addAttestations');
+
+      const attestations = await validatorClient.attestToProposal(proposal, sender);
+
+      // In fisherman mode, no attestations should be created or returned
+      expect(attestations).toBeUndefined();
+
+      // Attestations should NOT be added to the p2p pool
+      expect(addAttestationsSpy).not.toHaveBeenCalled();
     });
   });
 

@@ -148,7 +148,7 @@ void AvmProver::execute_relation_check_rounds()
 
     // Generate gate challenges
     std::vector<FF> gate_challenges =
-        transcript->template get_powers_of_challenge<FF>("Sumcheck:gate_challenge", key->log_circuit_size);
+        transcript->template get_dyadic_powers_of_challenge<FF>("Sumcheck:gate_challenge", key->log_circuit_size);
 
     Sumcheck sumcheck(key->circuit_size,
                       prover_polynomials,

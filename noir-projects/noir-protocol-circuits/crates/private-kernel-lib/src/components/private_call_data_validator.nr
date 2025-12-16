@@ -40,6 +40,7 @@ impl PrivateCallDataValidator {
         validate_contract_address(self.data, protocol_contracts);
 
         self.restrict_side_effects();
+        self.validate_claimed_lengths();
 
         self.validate_private_call_requests();
         self.validate_public_call_requests();
@@ -48,8 +49,8 @@ impl PrivateCallDataValidator {
     }
 
     /// For Init only.
-    /// Asserts: No static calls. No msg_sender.
-    pub fn validate_as_first_call(self) {
+    /// Asserts: No static calls. No msg_sender. Validate expected counters.
+    pub fn validate_as_first_call(self, claimed_revertible_counter: u32) {
         let public_inputs = self.data.public_inputs;
         let call_context = public_inputs.call_context;
 
@@ -60,6 +61,8 @@ impl PrivateCallDataValidator {
             call_context.msg_sender == NULL_MSG_SENDER_CONTRACT_ADDRESS,
             "Users cannot set msg_sender in first call",
         );
+
+        self.validate_expected_counters(claimed_revertible_counter);
     }
 
     /// For Init only.
@@ -142,6 +145,7 @@ impl PrivateCallDataValidator {
         );
         assert_eq(public_inputs.tx_context, constants.tx_context, "mismatch tx context");
         // constants.global_variables is not relevant to private functions and is ensured to be empty in PrivateKernelCircuitOutputValidator.
+        self.validate_expected_counters(previous_kernel.claimed_revertible_counter);
     }
 
     fn restrict_side_effects(self) {
@@ -179,6 +183,39 @@ impl PrivateCallDataValidator {
                 "contract_class_logs_hashes must be empty for static calls",
             );
         }
+    }
+
+    fn validate_claimed_lengths(self) {
+        self.data.public_inputs.note_hash_read_requests.assert_length_within_bounds(
+            "note_hash_read_requests length out of bounds",
+        );
+        self.data.public_inputs.nullifier_read_requests.assert_length_within_bounds(
+            "nullifier_read_requests length out of bounds",
+        );
+        self.data.public_inputs.key_validation_requests_and_generators.assert_length_within_bounds(
+            "key_validation_requests_and_generators length out of bounds",
+        );
+        self.data.public_inputs.note_hashes.assert_length_within_bounds(
+            "note_hashes length out of bounds",
+        );
+        self.data.public_inputs.nullifiers.assert_length_within_bounds(
+            "nullifiers length out of bounds",
+        );
+        self.data.public_inputs.private_call_requests.assert_length_within_bounds(
+            "private_call_requests length out of bounds",
+        );
+        self.data.public_inputs.public_call_requests.assert_length_within_bounds(
+            "public_call_requests length out of bounds",
+        );
+        self.data.public_inputs.l2_to_l1_msgs.assert_length_within_bounds(
+            "l2_to_l1_msgs length out of bounds",
+        );
+        self.data.public_inputs.private_logs.assert_length_within_bounds(
+            "private_logs length out of bounds",
+        );
+        self.data.public_inputs.contract_class_logs_hashes.assert_length_within_bounds(
+            "contract_class_logs_hashes length out of bounds",
+        );
     }
 
     // TODO: Maybe we should loop once over each array. This will be the 2nd time we iterate over this array (the first time being the length validation).
@@ -307,5 +344,28 @@ impl PrivateCallDataValidator {
             counter_end,
             public_inputs.public_call_requests,
         );
+    }
+
+    pub fn validate_expected_counters(self, claimed_revertible_counter: u32) {
+        let expected_non_revertible_side_effect_counter =
+            self.data.public_inputs.expected_non_revertible_side_effect_counter;
+        let expected_revertible_side_effect_counter =
+            self.data.public_inputs.expected_revertible_side_effect_counter;
+
+        // If claimed_revertible_counter is 0, it means that end_setup was never called, so everything is non revertible.
+        if expected_non_revertible_side_effect_counter != 0 {
+            assert(
+                (claimed_revertible_counter == 0)
+                    | (expected_non_revertible_side_effect_counter < claimed_revertible_counter),
+                "Failed to validate expected non revertible side effect counter",
+            )
+        }
+        if expected_revertible_side_effect_counter != 0 {
+            assert(
+                (claimed_revertible_counter != 0)
+                    & (expected_revertible_side_effect_counter >= claimed_revertible_counter),
+                "Failed to validate expected revertible side effect counter",
+            )
+        }
     }
 }

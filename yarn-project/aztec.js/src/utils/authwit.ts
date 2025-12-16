@@ -169,9 +169,20 @@ export async function lookupValidity(
     name: 'lookup_validity',
     isInitializer: false,
     functionType: FunctionType.UTILITY,
-    isInternal: false,
+    isOnlySelf: false,
     isStatic: false,
-    parameters: [{ name: 'message_hash', type: { kind: 'field' }, visibility: 'private' as ABIParameterVisibility }],
+    parameters: [
+      {
+        name: 'consumer',
+        type: {
+          fields: [{ name: 'inner', type: { kind: 'field' } }],
+          kind: 'struct',
+          path: 'aztec::protocol_types::address::aztec_address::AztecAddress',
+        },
+        visibility: 'private' as ABIParameterVisibility,
+      },
+      { name: 'inner_hash', type: { kind: 'field' }, visibility: 'private' as ABIParameterVisibility },
+    ],
     returnTypes: [{ kind: 'boolean' }],
     errorTypes: {},
   } as FunctionAbi;
@@ -189,7 +200,7 @@ export async function lookupValidity(
     name: 'utility_is_consumable',
     isInitializer: false,
     functionType: FunctionType.UTILITY,
-    isInternal: false,
+    isOnlySelf: false,
     isStatic: false,
     parameters: [
       {
@@ -286,7 +297,7 @@ export class SetPublicAuthwitContractInteraction extends ContractFunctionInterac
       name: 'set_authorized',
       isInitializer: false,
       functionType: FunctionType.PUBLIC,
-      isInternal: true,
+      isOnlySelf: true,
       isStatic: false,
       parameters: [
         {

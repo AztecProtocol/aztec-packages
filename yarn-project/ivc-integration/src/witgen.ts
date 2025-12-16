@@ -12,6 +12,7 @@ import type { RecursiveProof } from '@aztec/stdlib/proofs';
 import { VerificationKeyAsFields } from '@aztec/stdlib/vks';
 
 import { strict as assert } from 'assert';
+import { ungzip } from 'pako';
 
 import MockAppCreatorCircuit from '../artifacts/app_creator.json' with { type: 'json' };
 import MockAppReaderCircuit from '../artifacts/app_reader.json' with { type: 'json' };
@@ -251,7 +252,7 @@ export async function generateTestingIVCStack(
   // A call to the reader app creates 1 read request. A reset kernel will be run if there are 2 read requests in the
   // public inputs. All read requests must be cleared before running the tail kernel.
   numReaderAppCalls: number,
-): Promise<[string[], Uint8Array[], KernelPublicInputs, string[]]> {
+): Promise<[Uint8Array[], Uint8Array[], KernelPublicInputs, Uint8Array[]]> {
   if (numCreatorAppCalls > 2) {
     throw new Error('The creator app can only be called at most twice.');
   }
@@ -368,7 +369,22 @@ export async function generateTestingIVCStack(
   bytecodes.push(MockHidingCircuit.bytecode);
   vks.push(MockHidingVk.keyAsBytes);
 
-  return [bytecodes, witnessStack, hidingWitnessGenResult.publicInputs, vks];
+  function base64ToUint8Array(base64: string): Uint8Array {
+    return Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+  }
+  function hexToUint8Array(hex: string): Uint8Array {
+    const cleaned = hex.replace(/^0x/i, '');
+    const bytes = new Uint8Array(cleaned.length / 2);
+    for (let i = 0; i < bytes.length; i++) {
+      bytes[i] = parseInt(cleaned.slice(i * 2, i * 2 + 2), 16);
+    }
+    return bytes;
+  }
+  const rawBytecodes = bytecodes.map(base64ToUint8Array).map((arr: Uint8Array) => ungzip(arr));
+  const rawWitnessStack = witnessStack.map((arr: Uint8Array) => ungzip(arr));
+  const rawVks = vks.map(hexToUint8Array);
+
+  return [rawBytecodes, rawWitnessStack, hidingWitnessGenResult.publicInputs, rawVks];
 }
 
 export function mapRecursiveProofToNoir<N extends number>(proof: RecursiveProof<N>): FixedLengthArray<string, N> {

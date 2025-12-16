@@ -13,7 +13,7 @@ use types::{
 pub fn validate_squashable_note_hash_nullifier_pair(
     note_hash: Scoped<Counted<NoteHash>>,
     nullifier: Scoped<Counted<Nullifier>>,
-    min_revertible_side_effect_counter: u32,
+    split_counter: u32,
 ) {
     // Ensure the nullifier refers to the note hash.
     assert_eq(
@@ -35,7 +35,7 @@ pub fn validate_squashable_note_hash_nullifier_pair(
         "Cannot nullify a note hash created afterwards",
     );
 
-    // If the nullifier is revertible (i.e., counter >= `min_revertible_side_effect_counter`), the note hash must also
+    // If the nullifier is revertible (i.e., counter >= `split_counter`), the note hash must also
     // be revertible.
     //
     // A revertible nullifier and non-revertible note hash pair can't be squashed; they must be propagated.
@@ -45,9 +45,9 @@ pub fn validate_squashable_note_hash_nullifier_pair(
     //
     // Note: No need to check the other way around. Since the nullifier counter must be larger than the note hash
     // counter, it's not possible to have a non-revertible nullifier nullifying a revertible note hash.
-    if nullifier.counter() >= min_revertible_side_effect_counter {
+    if nullifier.counter() >= split_counter {
         assert(
-            note_hash.counter() >= min_revertible_side_effect_counter,
+            note_hash.counter() >= split_counter,
             "Cannot squash a non-revertible note hash with a revertible nullifier",
         );
     }
@@ -124,7 +124,7 @@ mod tests {
         builder.add_nullifiers([Nullifier { value: 505, note_hash: 11 }.count(5)]);
 
         // Make the note hash non-revertible and the nullifier revertible.
-        builder.min_revertible_side_effect_counter = 3;
+        builder.split_counter = 3;
 
         builder.add_squashing_hint(0, 0);
 

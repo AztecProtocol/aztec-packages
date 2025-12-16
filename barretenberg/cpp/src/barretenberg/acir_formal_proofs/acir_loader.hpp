@@ -96,7 +96,6 @@ class AcirToSmtLoader {
 
   private:
     std::string instruction_name;              ///< Name of the instruction/filename being processed
-    std::vector<uint8_t> acir_program_buf;     ///< Buffer containing the raw ACIR program data read from file
     acir_format::AcirFormat constraint_system; ///< The parsed constraint system from the ACIR program
     msgpack::sbuffer circuit_buf;              ///< Buffer for circuit serialization using MessagePack
 };

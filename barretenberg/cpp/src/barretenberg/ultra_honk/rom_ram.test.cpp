@@ -1,4 +1,6 @@
 
+#include "barretenberg/circuit_checker/circuit_checker.hpp"
+#include "failure_test_utils.hpp"
 #include "ultra_honk.test.hpp"
 
 using namespace bb;
@@ -402,4 +404,86 @@ TYPED_TEST(UltraHonkTests, RomFailureSingleReadAtPair)
 
     TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
     TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/false);
+}
+
+// Test malicious initialization value in ROM
+TYPED_TEST(UltraHonkTests, RomMaliciousInitValue)
+{
+    using Flavor = TypeParam;
+    using FF = typename Flavor::FF;
+    MaliciousWitnessInjector<Flavor> injector;
+
+    // Create a simple ROM with one malicious initialization value
+    size_t rom_id = injector.builder.create_ROM_array(5);
+
+    // This witness has value 42 in good proof, 666 in bad proof
+    auto malicious_witness = injector.add_malicious_variable(FF(42), FF(666));
+
+    // Initialize ROM with the malicious witness
+    injector.builder.set_ROM_element(rom_id, 0, malicious_witness);
+
+    // Initialize remaining elements with arbitrary values
+    for (size_t i = 1; i < 5; ++i) {
+        auto good_witness = injector.builder.add_variable(FF::random_element());
+        injector.builder.set_ROM_element(rom_id, i, good_witness);
+    }
+
+    // Read the malicious element to create constraints
+    auto index = injector.builder.put_constant_variable(0);
+    injector.builder.read_ROM_array(rom_id, index);
+
+    TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(injector.builder);
+
+    // Run CircuitChecker; expect failure in Memory relation for malicious witness
+    EXPECT_TRUE(CircuitChecker::check(injector.builder)); // good builder passes
+    auto bad_builder = injector.create_builder_with_malicious_witnesses();
+    EXPECT_FALSE(CircuitChecker::check(bad_builder)); // bad builder fails (will print "Failed Memory relation")
+
+    // Run full protocol
+    auto [good_instance, bad_instance] = injector.create_instances();
+    TestFixture::prove_and_verify(good_instance, /*expected_result=*/true);
+    TestFixture::prove_and_verify(bad_instance, /*expected_result=*/false);
+}
+
+// Test malicious witness "out-of-bounds" RAM access
+TYPED_TEST(UltraHonkTests, RamOutOfBoundsRead)
+{
+    using Flavor = TypeParam;
+    using FF = typename Flavor::FF;
+    MaliciousWitnessInjector<Flavor> injector;
+
+    // Create a RAM array of size 5
+    const size_t ram_size = 5;
+    size_t ram_id = injector.builder.create_RAM_array(ram_size);
+
+    // Initialize all elements
+    for (size_t i = 0; i < ram_size; ++i) {
+        auto init_val = injector.builder.add_variable(FF::random_element());
+        injector.builder.init_RAM_element(ram_id, i, init_val);
+    }
+
+    // Create a malicious/invalid index witness:
+    FF good_index = FF(2);
+    FF bad_index = FF(99);
+    auto malicious_index = injector.add_malicious_variable(good_index, bad_index);
+
+    // Create a read using the malicious index
+    auto read_result = injector.builder.read_RAM_array(ram_id, malicious_index);
+
+    // Use the read result in a constraint to ensure it's checked
+    auto expected = injector.builder.add_variable(FF(102)); // value at index 2
+    injector.builder.assert_equal(read_result, expected);
+
+    TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(injector.builder);
+
+    // Run CircuitChecker
+    // Expected error: "Failed tag check."
+    EXPECT_TRUE(CircuitChecker::check(injector.builder));
+    auto bad_builder = injector.create_builder_with_malicious_witnesses();
+    EXPECT_FALSE(CircuitChecker::check(bad_builder));
+
+    // Run full protocol
+    auto [good_instance, bad_instance] = injector.create_instances();
+    TestFixture::prove_and_verify(good_instance, /*expected_result=*/true);
+    TestFixture::prove_and_verify(bad_instance, /*expected_result=*/false);
 }

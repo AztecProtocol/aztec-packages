@@ -117,16 +117,26 @@ export const setupL1Contracts = async (
   args: Partial<DeployL1ContractsArgs> = {},
   chain: Chain = foundry,
 ) => {
-  const l1Data = await deployL1Contracts(l1RpcUrls, account, chain, logger, {
-    vkTreeRoot: getVKTreeRoot(),
-    protocolContractsHash,
-    genesisArchiveRoot: args.genesisArchiveRoot ?? new Fr(GENESIS_ARCHIVE_ROOT),
-    salt: args.salt,
-    initialValidators: args.initialValidators,
-    ...getL1ContractsConfigEnvVars(),
-    realVerifier: false,
-    ...args,
-  });
+  const l1Data = await deployL1Contracts(
+    l1RpcUrls,
+    account,
+    chain,
+    logger,
+    {
+      vkTreeRoot: getVKTreeRoot(),
+      protocolContractsHash,
+      genesisArchiveRoot: args.genesisArchiveRoot ?? new Fr(GENESIS_ARCHIVE_ROOT),
+      salt: args.salt,
+      initialValidators: args.initialValidators,
+      ...getL1ContractsConfigEnvVars(),
+      realVerifier: false,
+      ...args,
+    },
+    {
+      priorityFeeBumpPercentage: 0,
+      priorityFeeRetryBumpPercentage: 0,
+    },
+  );
 
   return l1Data;
 };
@@ -848,7 +858,7 @@ export async function setupSponsoredFPC(wallet: Wallet) {
     salt: new Fr(SPONSORED_FPC_SALT),
   });
 
-  await wallet.registerContract({ instance, artifact: SponsoredFPCContract.artifact });
+  await wallet.registerContract(instance, SponsoredFPCContract.artifact);
   getLogger().info(`SponsoredFPC: ${instance.address}`);
   return instance;
 }
@@ -858,7 +868,7 @@ export async function setupSponsoredFPC(wallet: Wallet) {
  * @param wallet - The wallet
  */
 export async function registerSponsoredFPC(wallet: Wallet): Promise<void> {
-  await wallet.registerContract({ instance: await getSponsoredFPCInstance(), artifact: SponsoredFPCContract.artifact });
+  await wallet.registerContract(await getSponsoredFPCInstance(), SponsoredFPCContract.artifact);
 }
 
 export async function waitForProvenChain(node: AztecNode, targetBlock?: number, timeoutSec = 60, intervalSec = 1) {

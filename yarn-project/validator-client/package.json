@@ -70,7 +70,6 @@
     "@aztec/foundation": "workspace:^",
     "@aztec/node-keystore": "workspace:^",
     "@aztec/p2p": "workspace:^",
-    "@aztec/prover-client": "workspace:^",
     "@aztec/slasher": "workspace:^",
     "@aztec/stdlib": "workspace:^",
     "@aztec/telemetry-client": "workspace:^",

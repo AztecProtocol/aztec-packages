@@ -138,6 +138,8 @@ class MultilinearBatchingFlavor {
         DEFINE_COMPOUND_GET_ALL(WitnessEntities<DataType>, ShiftedEntities<DataType>)
 
         auto get_unshifted() { return WitnessEntities<DataType>::get_all(); };
+        auto get_witness() { return WitnessEntities<DataType>::get_all(); };
+        auto get_witness() const { return WitnessEntities<DataType>::get_all(); };
         auto get_shifted() { return ShiftedEntities<DataType>::get_all(); };
     };
 

@@ -97,16 +97,16 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
     GateCounter gate_counter{ &builder, collect_gates_per_opcode };
 
     // Add arithmetic gates
-    for (size_t i = 0; i < constraint_system.poly_triple_constraints.size(); ++i) {
-        const auto& constraint = constraint_system.poly_triple_constraints.at(i);
-        builder.create_poly_gate(constraint);
+    for (size_t i = 0; i < constraint_system.arithmetic_triple_constraints.size(); ++i) {
+        const auto& constraint = constraint_system.arithmetic_triple_constraints.at(i);
+        builder.create_arithmetic_gate(constraint);
         gate_counter.track_diff(constraint_system.gates_per_opcode,
-                                constraint_system.original_opcode_indices.poly_triple_constraints.at(i));
+                                constraint_system.original_opcode_indices.arithmetic_triple_constraints.at(i));
     }
 
     for (size_t i = 0; i < constraint_system.quad_constraints.size(); ++i) {
         const auto& constraint = constraint_system.quad_constraints.at(i);
-        builder.create_big_mul_gate(constraint);
+        builder.create_big_mul_add_gate(constraint);
         gate_counter.track_diff(constraint_system.gates_per_opcode,
                                 constraint_system.original_opcode_indices.quad_constraints.at(i));
     }
@@ -123,7 +123,7 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
                 big_constraint[j].d = next_w4_wire;
                 big_constraint[j].d_scaling = fr(-1);
             }
-            builder.create_big_mul_add_gate(big_constraint[j], true);
+            builder.create_big_mul_add_gate(big_constraint[j], /*include_next_gate_w_4*/ true);
             next_w4_wire_value = builder.get_variable(big_constraint[j].a) * builder.get_variable(big_constraint[j].b) *
                                      big_constraint[j].mul_scaling +
                                  builder.get_variable(big_constraint[j].a) * big_constraint[j].a_scaling +
@@ -135,7 +135,9 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
         uint32_t next_w4_wire = builder.add_variable(next_w4_wire_value);
         big_constraint.back().d = next_w4_wire;
         big_constraint.back().d_scaling = fr(-1);
-        builder.create_big_mul_add_gate(big_constraint.back(), false);
+        builder.create_big_mul_add_gate(big_constraint.back(), /*include_next_gate_w_4*/ false);
+        gate_counter.track_diff(constraint_system.gates_per_opcode,
+                                constraint_system.original_opcode_indices.big_quad_constraints.at(i));
     }
 
     // Add logic constraint
@@ -159,12 +161,12 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
         uint32_t range = constraint.num_bits;
         if (constraint_system.minimal_range.contains(constraint.witness)) {
             range = constraint_system.minimal_range[constraint.witness];
-            builder.create_range_constraint(constraint.witness, range, "");
-            gate_counter.track_diff(constraint_system.gates_per_opcode,
-                                    constraint_system.original_opcode_indices.range_constraints.at(i));
-            // no need to add more range constraints for this witness.
+            // no need to add more range constraints for this witness later.
             constraint_system.minimal_range.erase(constraint.witness);
         }
+        builder.create_range_constraint(constraint.witness, range, "");
+        gate_counter.track_diff(constraint_system.gates_per_opcode,
+                                constraint_system.original_opcode_indices.range_constraints.at(i));
     }
 
     // Add aes128 constraints
@@ -411,8 +413,7 @@ void perform_full_IPA_verification(Builder& builder,
     VerifierCommitmentKey<stdlib::grumpkin<Builder>> verifier_commitment_key(
         &builder, 1 << CONST_ECCVM_LOG_N, VerifierCommitmentKey<curve::Grumpkin>(1 << CONST_ECCVM_LOG_N));
 
-    auto accumulated_ipa_transcript = std::make_shared<StdlibTranscript>();
-    accumulated_ipa_transcript->load_proof(stdlib::Proof<Builder>(builder, ipa_proof));
+    auto accumulated_ipa_transcript = std::make_shared<StdlibTranscript>(stdlib::Proof<Builder>(builder, ipa_proof));
     IPA<stdlib::grumpkin<Builder>>::full_verify_recursive(
         verifier_commitment_key, ipa_claim, accumulated_ipa_transcript);
 }
@@ -442,10 +443,8 @@ std::pair<OpeningClaim<stdlib::grumpkin<Builder>>, HonkProof> handle_IPA_accumul
         CommitmentKey<curve::Grumpkin> commitment_key(1 << CONST_ECCVM_LOG_N);
         using StdlibTranscript = UltraStdlibTranscript;
 
-        auto ipa_transcript_1 = std::make_shared<StdlibTranscript>();
-        ipa_transcript_1->load_proof(nested_ipa_proofs[0]);
-        auto ipa_transcript_2 = std::make_shared<StdlibTranscript>();
-        ipa_transcript_2->load_proof(nested_ipa_proofs[1]);
+        auto ipa_transcript_1 = std::make_shared<StdlibTranscript>(nested_ipa_proofs[0]);
+        auto ipa_transcript_2 = std::make_shared<StdlibTranscript>(nested_ipa_proofs[1]);
         auto [ipa_claim, ipa_proof] = IPA<stdlib::grumpkin<Builder>>::accumulate(
             commitment_key, ipa_transcript_1, nested_ipa_claims[0], ipa_transcript_2, nested_ipa_claims[1]);
 
@@ -584,7 +583,7 @@ void process_pg_recursion_constraints(MegaCircuitBuilder& builder,
         // Complete the kernel circuit with all required recursive verifications, databus consistency checks etc.
         ivc->complete_kernel_circuit_logic(builder);
 
-        // Note: we can't easily track the gate contribution from each individual pg_recursion_constraint since they
+        // Note: we can't easily track the gate contribution from each individual hn_recursion_constraint since they
         // are handled simultaneously in the above function call; instead we track the total contribution
         gate_counter.track_diff(constraints.gates_per_opcode,
                                 constraints.original_opcode_indices.hn_recursion_constraints.at(0));

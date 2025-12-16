@@ -153,18 +153,13 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class goblin_el
         return result;
     }
 
-    goblin_element checked_unconditional_add(const goblin_element& other) const
-    {
-        return goblin_element::operator+(*this, other);
-    }
-    goblin_element checked_unconditional_subtract(const goblin_element& other) const
-    {
-        return goblin_element::operator-(*this, other);
-    }
+    goblin_element checked_unconditional_add(const goblin_element& other) const { return operator+(other); }
+    goblin_element checked_unconditional_subtract(const goblin_element& other) const { return operator-(other); }
 
     goblin_element operator+(const goblin_element& other) const
     {
-        return batch_mul({ *this, other }, { Fr(1), Fr(1) });
+        auto builder = get_context(other);
+        return batch_mul({ *this, other }, { Fr(builder, 1), Fr(builder, 1) });
     }
 
     goblin_element operator-(const goblin_element& other) const
@@ -231,7 +226,11 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class goblin_el
         return result;
     }
 
-    goblin_element operator-() const { return point_at_infinity(get_context()) - *this; }
+    goblin_element operator-() const
+    {
+        auto builder = get_context();
+        return point_at_infinity(builder) - *this;
+    }
 
     goblin_element operator+=(const goblin_element& other)
     {
@@ -287,7 +286,11 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class goblin_el
         return *this;
     }
 
-    goblin_element dbl() const { return batch_mul({ *this }, { 2 }); }
+    goblin_element dbl() const
+    {
+        auto builder = get_context();
+        return batch_mul({ *this }, { Fr(builder, 2) });
+    }
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1291) max_num_bits is unused; could implement and
     // use this to optimize other operations. interface compatible with biggroup.hpp, the final parameter

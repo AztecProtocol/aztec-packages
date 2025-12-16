@@ -85,51 +85,8 @@ cycle_scalar<Builder> cycle_scalar<Builder>::from_witness(Builder* context, cons
     hi.set_free_witness_tag();
 
     cycle_scalar result{ lo, hi };
-    result._num_bits = NUM_BITS;
 
     return result;
-}
-
-/**
- * @brief Construct a cycle scalar from a uint256_t witness bitstring
- * @details Used when we want to multiply a group element by a string of bits of known size, e.g. for Schnorr
- * signatures. No primality test is performed.
- *
- * @tparam Builder
- * @param context
- * @param value
- * @return cycle_scalar<Builder>
- */
-template <typename Builder>
-cycle_scalar<Builder> cycle_scalar<Builder>::from_u256_witness(Builder* context, const uint256_t& bitstring)
-{
-    const size_t num_bits = 256;
-    const uint256_t lo_v = bitstring.slice(0, LO_BITS);
-    const uint256_t hi_v = bitstring.slice(LO_BITS, num_bits);
-    auto lo = field_t::from_witness(context, typename field_t::native(lo_v));
-    auto hi = field_t::from_witness(context, typename field_t::native(hi_v));
-    cycle_scalar result{ lo, hi, SkipValidation::FLAG };
-    result._num_bits = num_bits;
-    return result;
-}
-
-/**
- * @brief Construct a cycle scalar (grumpkin scalar field element) from a bn254 scalar field element
- * @details This method ensures that the input is constrained to be less than the bn254 scalar field modulus to ensure
- * unique representation in the grumpkin scalar field. The validation is performed by split_unique.
- *
- * @tparam Builder
- * @param in a field_t representing a bn254 scalar field element
- * @return cycle_scalar<Builder> a cycle_scalar representing the same value in the grumpkin scalar field
- */
-template <typename Builder> cycle_scalar<Builder> cycle_scalar<Builder>::create_from_bn254_scalar(const field_t& in)
-{
-    // Use split_unique with skip_range_constraints=true since the range constraints are implicit
-    // in the lookup arguments used in scalar multiplication and thus do not need to be applied here.
-    // Note: split_unique validates the value is less than bn254::fr::modulus
-    auto [lo, hi] = split_unique(in, LO_BITS, /*skip_range_constraints=*/true);
-    // Note: we skip validation here since it is redundant with `split_unique`
-    return cycle_scalar{ lo, hi, SkipValidation::FLAG };
 }
 
 /**

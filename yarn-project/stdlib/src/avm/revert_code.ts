@@ -70,6 +70,24 @@ export class RevertCode {
   }
 
   /**
+   * Creates a RevertCode from a plain object without Zod validation.
+   * This method is optimized for performance and skips validation, making it suitable
+   * for deserializing trusted data (e.g., from C++ via MessagePack).
+   * @param obj - Plain object, number, or RevertCode instance
+   * @returns A RevertCode instance
+   */
+  static fromPlainObject(obj: any): RevertCode {
+    if (obj instanceof RevertCode) {
+      return obj;
+    }
+    const code = typeof obj === 'number' ? obj : (obj.code ?? obj);
+    if (!isRevertCodeEnum(code)) {
+      throw new Error(`Invalid RevertCode: ${code}`);
+    }
+    return new RevertCode(code);
+  }
+
+  /**
    * Having different serialization methods allows for
    * decoupling the serialization for producing the content commitment hash
    * (where we use fields)
@@ -97,11 +115,15 @@ export class RevertCode {
     return this.toBuffer().length;
   }
 
-  public static fromField(fr: Fr): RevertCode {
-    if (!isRevertCodeEnum(fr.toNumber())) {
-      throw new Error(`Invalid RevertCode: ${fr.toNumber()}`);
+  public static fromNumber(code: number): RevertCode {
+    if (!isRevertCodeEnum(code)) {
+      throw new Error(`Invalid RevertCode: ${code}`);
     }
-    return new RevertCode(fr.toNumber());
+    return new RevertCode(code);
+  }
+
+  public static fromField(field: Fr): RevertCode {
+    return RevertCode.fromNumber(field.toNumber());
   }
 
   public static fromFields(fields: Fr[] | FieldReader): RevertCode {
@@ -112,10 +134,7 @@ export class RevertCode {
   public static fromBuffer(buffer: Buffer | BufferReader): RevertCode {
     const reader = BufferReader.asReader(buffer);
     const code = reader.readBytes(RevertCode.PACKED_SIZE_IN_BYTES).readUInt8(0);
-    if (!isRevertCodeEnum(code)) {
-      throw new Error(`Invalid RevertCode: ${code}`);
-    }
-    return new RevertCode(code);
+    return RevertCode.fromNumber(code);
   }
 
   private static readonly NUM_OPTIONS = 4;

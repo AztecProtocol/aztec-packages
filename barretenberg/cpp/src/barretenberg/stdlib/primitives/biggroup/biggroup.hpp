@@ -137,6 +137,14 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         }
     }
 
+    [[nodiscard]] bool is_constant() const
+    {
+        const bool x_is_const = _x.is_constant();
+        const bool y_is_const = _y.is_constant();
+        BB_ASSERT_EQ(x_is_const, y_is_const, "biggroup: x and y coordinate constant status mismatch");
+        return x_is_const;
+    }
+
     /**
      * @brief Creates fixed witnesses from a constant element.
      **/
@@ -322,8 +330,6 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     static chain_add_accumulator chain_add_start(const element& p1, const element& p2);
     static chain_add_accumulator chain_add(const element& p1, const chain_add_accumulator& accumulator);
     static element chain_add_end(const chain_add_accumulator& accumulator);
-    element montgomery_ladder(const element& other) const;
-    element montgomery_ladder(const chain_add_accumulator& to_add);
     element multiple_montgomery_ladder(const std::vector<chain_add_accumulator>& to_add) const;
 
     typename NativeGroup::affine_element get_value() const
@@ -384,9 +390,6 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     // Coordinate accessors (non-owning, const reference)
     const Fq& x() const { return _x; }
     const Fq& y() const { return _y; }
-    // BIGGROUP_AUDITTODO: Remove these non-const accessors by adding explicit methods for mutation where required.
-    Fq& x() { return _x; }
-    Fq& y() { return _y; }
 
     bool_ct is_point_at_infinity() const { return _is_infinity; }
     void set_point_at_infinity(const bool_ct& is_infinity, const bool& add_to_used_witnesses = false)
@@ -403,6 +406,13 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         _x.set_origin_tag(tag);
         _y.set_origin_tag(tag);
         _is_infinity.set_origin_tag(tag);
+    }
+
+    void clear_round_provenance() const
+    {
+        _x.clear_round_provenance();
+        _y.clear_round_provenance();
+        _is_infinity.clear_round_provenance();
     }
 
     OriginTag get_origin_tag() const
@@ -940,6 +950,20 @@ class element_test_accessor {
     {
         return element<C, Fq, Fr, G>::template get_staggered_wnaf_fragment_value<wnaf_size>(
             fragment_u64, stagger, is_negative, wnaf_skew);
+    }
+
+    template <typename C, typename Fq, typename Fr, typename G>
+    static auto checked_unconditional_add_sub(const element<C, Fq, Fr, G>& elem1, const element<C, Fq, Fr, G>& elem2)
+    {
+        return elem1.checked_unconditional_add_sub(elem2);
+    }
+
+    // Overload for goblin_element
+    template <typename C, typename Fq, typename Fr, typename G>
+    static auto checked_unconditional_add_sub(const element_goblin::goblin_element<C, Fq, Fr, G>& elem1,
+                                              const element_goblin::goblin_element<C, Fq, Fr, G>& elem2)
+    {
+        return elem1.checked_unconditional_add_sub(elem2);
     }
 };
 

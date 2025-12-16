@@ -103,6 +103,9 @@ class SpscShm {
     bool wait_for_data(uint32_t spin_ns);               // returns true if data available
     bool wait_for_space(size_t need, uint32_t spin_ns); // returns true if space available
 
+    // Wake all blocked threads (for graceful shutdown)
+    void wakeup_all();
+
   private:
     // Private constructor for create/connect factories
     SpscShm(int fd, size_t map_len, SpscCtrl* ctrl, uint8_t* buf);

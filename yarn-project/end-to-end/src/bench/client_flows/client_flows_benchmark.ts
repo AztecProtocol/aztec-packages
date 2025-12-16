@@ -20,6 +20,7 @@ import { TokenContract as BananaCoin, TokenContract } from '@aztec/noir-contract
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { getCanonicalFeeJuice } from '@aztec/protocol-contracts/fee-juice';
 import { type PXEConfig, getPXEConfig } from '@aztec/pxe/server';
+import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { GasSettings } from '@aztec/stdlib/gas';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
 import { TestWallet } from '@aztec/test-wallet/server';
@@ -69,15 +70,21 @@ export class ClientFlowsBenchmark {
   public feeJuiceContract!: FeeJuiceContract;
   // Asset in which fees are paid via FPC
   public bananaCoin!: BananaCoin;
+  public bananaCoinInstance!: ContractInstanceWithAddress;
   public bananaFPC!: FPCContract;
+  public bananaFPCInstance!: ContractInstanceWithAddress;
   // Random asset we want to trade
   public candyBarCoin!: TokenContract;
+  public candyBarCoinInstance!: ContractInstanceWithAddress;
   // AMM contract
   public amm!: AMMContract;
+  public ammInstance!: ContractInstanceWithAddress;
   // Liquidity token for AMM
   public liquidityToken!: TokenContract;
+  public liquidityTokenInstance!: ContractInstanceWithAddress;
   // Sponsored FPC contract
   public sponsoredFPC!: SponsoredFPCContract;
+  public sponsoredFPCInstance!: ContractInstanceWithAddress;
 
   // PXE and Wallet used by the benchmarking user. It can be set up with client-side proving enabled
   public userWallet!: TestWallet;
@@ -204,7 +211,7 @@ export class ClientFlowsBenchmark {
         this.sequencerAddress = sequencerAddress;
 
         const canonicalFeeJuice = await getCanonicalFeeJuice();
-        this.feeJuiceContract = await FeeJuiceContract.at(canonicalFeeJuice.address, this.adminWallet);
+        this.feeJuiceContract = FeeJuiceContract.at(canonicalFeeJuice.address, this.adminWallet);
         this.coinbase = EthAddress.random();
 
         const userPXEConfig = getPXEConfig();
@@ -229,7 +236,7 @@ export class ClientFlowsBenchmark {
       async (_data, context) => {
         this.context = context;
 
-        this.feeJuiceContract = await FeeJuiceContract.at(ProtocolContractAddress.FeeJuice, this.adminWallet);
+        this.feeJuiceContract = FeeJuiceContract.at(ProtocolContractAddress.FeeJuice, this.adminWallet);
 
         this.feeJuiceBridgeTestHarness = await FeeJuicePortalTestingHarnessFactory.create({
           aztecNode: context.aztecNode,
@@ -246,14 +253,22 @@ export class ClientFlowsBenchmark {
     await this.snapshotManager.snapshot(
       'deploy_banana_token',
       async () => {
-        const bananaCoin = await BananaCoin.deploy(this.adminWallet, this.adminAddress, 'BC', 'BC', 18n)
+        const { contract: bananaCoin, instance: bananaCoinInstance } = await BananaCoin.deploy(
+          this.adminWallet,
+          this.adminAddress,
+          'BC',
+          'BC',
+          18n,
+        )
           .send({ from: this.adminAddress })
-          .deployed();
+          .wait();
         this.logger.info(`BananaCoin deployed at ${bananaCoin.address}`);
-        return { bananaCoinAddress: bananaCoin.address };
+        return { bananaCoinAddress: bananaCoin.address, bananaCoinInstance };
       },
-      async ({ bananaCoinAddress }) => {
-        this.bananaCoin = await BananaCoin.at(bananaCoinAddress, this.adminWallet);
+      ({ bananaCoinAddress, bananaCoinInstance }) => {
+        this.bananaCoin = BananaCoin.at(bananaCoinAddress, this.adminWallet);
+        this.bananaCoinInstance = bananaCoinInstance;
+        return Promise.resolve();
       },
     );
   }
@@ -262,14 +277,22 @@ export class ClientFlowsBenchmark {
     await this.snapshotManager.snapshot(
       'deploy_candy_bar_token',
       async () => {
-        const candyBarCoin = await TokenContract.deploy(this.adminWallet, this.adminAddress, 'CBC', 'CBC', 18n)
+        const { contract: candyBarCoin, instance: candyBarCoinInstance } = await TokenContract.deploy(
+          this.adminWallet,
+          this.adminAddress,
+          'CBC',
+          'CBC',
+          18n,
+        )
           .send({ from: this.adminAddress })
-          .deployed();
+          .wait();
         this.logger.info(`CandyBarCoin deployed at ${candyBarCoin.address}`);
-        return { candyBarCoinAddress: candyBarCoin.address };
+        return { candyBarCoinAddress: candyBarCoin.address, candyBarCoinInstance };
       },
-      async ({ candyBarCoinAddress }) => {
-        this.candyBarCoin = await TokenContract.at(candyBarCoinAddress, this.adminWallet);
+      ({ candyBarCoinAddress, candyBarCoinInstance }) => {
+        this.candyBarCoin = TokenContract.at(candyBarCoinAddress, this.adminWallet);
+        this.candyBarCoinInstance = candyBarCoinInstance;
+        return Promise.resolve();
       },
     );
   }
@@ -282,18 +305,24 @@ export class ClientFlowsBenchmark {
         expect((await context.wallet.getContractMetadata(feeJuiceContract.address)).isContractPublished).toBe(true);
 
         const bananaCoin = this.bananaCoin;
-        const bananaFPC = await FPCContract.deploy(this.adminWallet, bananaCoin.address, this.adminAddress)
+        const { contract: bananaFPC, instance: bananaFPCInstance } = await FPCContract.deploy(
+          this.adminWallet,
+          bananaCoin.address,
+          this.adminAddress,
+        )
           .send({ from: this.adminAddress })
-          .deployed();
+          .wait();
 
         this.logger.info(`BananaPay deployed at ${bananaFPC.address}`);
 
         await this.feeJuiceBridgeTestHarness.bridgeFromL1ToL2(bananaFPC.address, this.adminAddress);
 
-        return { bananaFPCAddress: bananaFPC.address };
+        return { bananaFPCAddress: bananaFPC.address, bananaFPCInstance };
       },
-      async data => {
-        this.bananaFPC = await FPCContract.at(data.bananaFPCAddress, this.adminWallet);
+      data => {
+        this.bananaFPC = FPCContract.at(data.bananaFPCAddress, this.adminWallet);
+        this.bananaFPCInstance = data.bananaFPCInstance;
+        return Promise.resolve();
       },
     );
   }
@@ -302,12 +331,14 @@ export class ClientFlowsBenchmark {
     await this.snapshotManager.snapshot(
       'deploy_sponsored_fpc',
       async () => {
-        const sponsoredFPC = await setupSponsoredFPC(this.adminWallet);
-        this.logger.info(`SponsoredFPC at ${sponsoredFPC.address}`);
-        return { sponsoredFPCAddress: sponsoredFPC.address };
+        const sponsoredFPCInstance = await setupSponsoredFPC(this.adminWallet);
+        this.logger.info(`SponsoredFPC at ${sponsoredFPCInstance.address}`);
+        return { sponsoredFPCAddress: sponsoredFPCInstance.address, sponsoredFPCInstance };
       },
-      async ({ sponsoredFPCAddress }) => {
-        this.sponsoredFPC = await SponsoredFPCContract.at(sponsoredFPCAddress, this.adminWallet);
+      ({ sponsoredFPCAddress, sponsoredFPCInstance }) => {
+        this.sponsoredFPC = SponsoredFPCContract.at(sponsoredFPCAddress, this.adminWallet);
+        this.sponsoredFPCInstance = sponsoredFPCInstance;
+        return Promise.resolve();
       },
     );
   }
@@ -361,24 +392,38 @@ export class ClientFlowsBenchmark {
     await this.snapshotManager.snapshot(
       'deploy_amm',
       async () => {
-        const liquidityToken = await TokenContract.deploy(this.adminWallet, this.adminAddress, 'LPT', 'LPT', 18n)
+        const { contract: liquidityToken, instance: liquidityTokenInstance } = await TokenContract.deploy(
+          this.adminWallet,
+          this.adminAddress,
+          'LPT',
+          'LPT',
+          18n,
+        )
           .send({ from: this.adminAddress })
-          .deployed();
-        const amm = await AMMContract.deploy(
+          .wait();
+        const { contract: amm, instance: ammInstance } = await AMMContract.deploy(
           this.adminWallet,
           this.bananaCoin.address,
           this.candyBarCoin.address,
           liquidityToken.address,
         )
           .send({ from: this.adminAddress })
-          .deployed();
+          .wait();
         this.logger.info(`AMM deployed at ${amm.address}`);
         await liquidityToken.methods.set_minter(amm.address, true).send({ from: this.adminAddress }).wait();
-        return { ammAddress: amm.address, liquidityTokenAddress: liquidityToken.address };
+        return {
+          ammAddress: amm.address,
+          ammInstance,
+          liquidityTokenAddress: liquidityToken.address,
+          liquidityTokenInstance,
+        };
       },
-      async ({ ammAddress, liquidityTokenAddress }) => {
-        this.liquidityToken = await TokenContract.at(liquidityTokenAddress, this.adminWallet);
-        this.amm = await AMMContract.at(ammAddress, this.adminWallet);
+      ({ ammAddress, ammInstance, liquidityTokenAddress, liquidityTokenInstance }) => {
+        this.liquidityToken = TokenContract.at(liquidityTokenAddress, this.adminWallet);
+        this.liquidityTokenInstance = liquidityTokenInstance;
+        this.amm = AMMContract.at(ammAddress, this.adminWallet);
+        this.ammInstance = ammInstance;
+        return Promise.resolve();
       },
     );
   }

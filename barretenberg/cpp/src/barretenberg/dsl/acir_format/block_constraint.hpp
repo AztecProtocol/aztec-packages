@@ -12,12 +12,12 @@
 namespace acir_format {
 
 struct MemOp {
-    uint8_t access_type;
-    bb::poly_triple index;
-    bb::poly_triple value;
+    uint8_t access_type; // always binary: `0` corresponds to a READ and `1` corresponds to a WRITE.
+    bb::arithmetic_triple index;
+    bb::arithmetic_triple value;
 };
 
-enum BlockType {
+enum BlockType : std::uint8_t {
     ROM = 0,
     RAM = 1,
     CallData = 2,
@@ -25,7 +25,7 @@ enum BlockType {
 };
 
 struct BlockConstraint {
-    std::vector<bb::poly_triple> init;
+    std::vector<bb::arithmetic_triple> init;
     std::vector<MemOp> trace;
     BlockType type;
     uint32_t calldata_id{ 0 };

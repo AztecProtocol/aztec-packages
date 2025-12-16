@@ -164,6 +164,9 @@ export interface P2PConfig extends P2PReqRespConfig, ChainConfig, TxCollectionCo
 
   /** Whether to delete transactions from the pool after a reorg instead of moving them back to pending. */
   txPoolDeleteTxsAfterReorg: boolean;
+
+  /** Whether to run in fisherman mode: validates all proposals and attestations but does not broadcast attestations or participate in consensus */
+  fishermanMode: boolean;
 }
 
 export const DEFAULT_P2P_PORT = 40400;
@@ -418,6 +421,12 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
   txPoolDeleteTxsAfterReorg: {
     env: 'P2P_TX_POOL_DELETE_TXS_AFTER_REORG',
     description: 'Whether to delete transactions from the pool after a reorg instead of moving them back to pending.',
+    ...booleanConfigHelper(false),
+  },
+  fishermanMode: {
+    env: 'FISHERMAN_MODE',
+    description:
+      'Whether to run in fisherman mode: validates all proposals and attestations but does not broadcast attestations or participate in consensus.',
     ...booleanConfigHelper(false),
   },
   ...p2pReqRespConfigMappings,

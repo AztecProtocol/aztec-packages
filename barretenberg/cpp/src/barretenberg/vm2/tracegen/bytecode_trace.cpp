@@ -21,7 +21,6 @@
 #include "barretenberg/vm2/simulation/events/bytecode_events.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/tracegen/lib/interaction_def.hpp"
-#include "barretenberg/vm2/tracegen/precomputed_trace.hpp"
 
 using Poseidon2 = bb::crypto::Poseidon2<bb::crypto::Poseidon2Bn254ScalarFieldParams>;
 
@@ -219,7 +218,7 @@ void BytecodeTraceBuilder::process_retrieval(
     for (const auto& event : events) {
         uint64_t remaining_bytecodes = MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS +
                                        AVM_RETRIEVED_BYTECODES_TREE_INITIAL_SIZE -
-                                       event.retrieved_bytecodes_snapshot_before.nextAvailableLeafIndex;
+                                       event.retrieved_bytecodes_snapshot_before.next_available_leaf_index;
         bool error = event.instance_not_found_error || event.limit_error;
         trace.set(
             row,
@@ -239,10 +238,10 @@ void BytecodeTraceBuilder::process_retrieval(
                 // Retrieved bytecodes tree state
                 { C::bc_retrieval_prev_retrieved_bytecodes_tree_root, event.retrieved_bytecodes_snapshot_before.root },
                 { C::bc_retrieval_prev_retrieved_bytecodes_tree_size,
-                  event.retrieved_bytecodes_snapshot_before.nextAvailableLeafIndex },
+                  event.retrieved_bytecodes_snapshot_before.next_available_leaf_index },
                 { C::bc_retrieval_next_retrieved_bytecodes_tree_root, event.retrieved_bytecodes_snapshot_after.root },
                 { C::bc_retrieval_next_retrieved_bytecodes_tree_size,
-                  event.retrieved_bytecodes_snapshot_after.nextAvailableLeafIndex },
+                  event.retrieved_bytecodes_snapshot_after.next_available_leaf_index },
 
                 // Instance existence determined by shared contract instance retrieval
                 { C::bc_retrieval_instance_exists, !event.instance_not_found_error },
@@ -300,7 +299,7 @@ void BytecodeTraceBuilder::process_instruction_fetching(
         uint8_t tag_value = 0;
 
         if (wire_opcode_in_range) {
-            const auto& wire_instr_spec = WIRE_INSTRUCTION_SPEC.at(static_cast<WireOpCode>(wire_opcode));
+            const auto& wire_instr_spec = get_wire_instruction_spec().at(static_cast<WireOpCode>(wire_opcode));
             size_in_bytes = wire_instr_spec.size_in_bytes;
             exec_opcode = wire_instr_spec.exec_opcode;
             op_dc_selectors = wire_instr_spec.op_dc_selectors;

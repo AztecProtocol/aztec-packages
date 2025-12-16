@@ -44,7 +44,7 @@ pub contract Test {
         // Macros
         macros::{
             events::event,
-            functions::{initializer, only_self, noinitcheck, external},
+            functions::{initializer, only_self, noinitcheck, external, nophasecheck},
             storage::storage,
         },
         // Contract instance management
@@ -262,6 +262,26 @@ pub contract Test {
     #[external("private")]
     fn test_setting_fee_payer() {
         self.context.set_as_fee_payer();
+    }
+
+    #[external("private")]
+    #[nophasecheck]
+    fn end_setup_checking_phases() {
+        assert(!self.context.in_revertible_phase());
+        self.context.end_setup();
+        assert(self.context.in_revertible_phase());
+    }
+
+    #[external("private")]
+    fn call_function_that_ends_setup() {
+        // This function should error since it gets inadvertently phase changed by a nested call.
+        self.call_self.end_setup_checking_phases();
+    }
+
+    #[external("private")]
+    #[nophasecheck]
+    fn call_function_that_ends_setup_without_phase_check() {
+        self.call_self.end_setup_checking_phases();
     }
 
     #[external("public")]

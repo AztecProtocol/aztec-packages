@@ -1,7 +1,8 @@
+import { DEFAULT_TEARDOWN_DA_GAS_LIMIT, DEFAULT_TEARDOWN_L2_GAS_LIMIT } from '@aztec/constants';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { Fr } from '@aztec/foundation/fields';
 import { type ContractArtifact, encodeArguments } from '@aztec/stdlib/abi';
-import type { PublicTxResult } from '@aztec/stdlib/avm';
+import { PublicSimulatorConfig, type PublicTxResult } from '@aztec/stdlib/avm';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { Gas, GasFees } from '@aztec/stdlib/gas';
 import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
@@ -55,11 +56,12 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
     super(contractDataSource, merkleTree);
 
     const contractsDB = new PublicContractsDB(contractDataSource);
-    const config = {
-      doMerkleOperations: true,
+    const config = PublicSimulatorConfig.from({
       skipFeeEnforcement: false,
-      clientInitiatedSimulation: true,
-    };
+      collectDebugLogs: true,
+      collectHints: false,
+      collectStatistics: false,
+    });
     this.simulator = useCppSimulator
       ? new MeasuredCppPublicTxSimulator(merkleTree, contractsDB, globals, this.metrics, config)
       : new MeasuredPublicTxSimulator(merkleTree, contractsDB, globals, this.metrics, config);
@@ -106,7 +108,9 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
       appCallRequests,
       teardownCallRequest,
       feePayer,
-      /*gasUsedByPrivate*/ Gas.empty(),
+      /*gasUsedByPrivate*/ teardownCall
+        ? new Gas(DEFAULT_TEARDOWN_DA_GAS_LIMIT, DEFAULT_TEARDOWN_L2_GAS_LIMIT)
+        : Gas.empty(),
       defaultGlobals(),
     );
   }

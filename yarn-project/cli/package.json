@@ -99,6 +99,9 @@
     "viem": "npm:@spalladino/viem@2.38.2-eip7594.0"
   },
   "devDependencies": {
+    "@aztec/aztec-node": "workspace:^",
+    "@aztec/kv-store": "workspace:^",
+    "@aztec/telemetry-client": "workspace:^",
     "@jest/globals": "^30.0.0",
     "@types/jest": "^30.0.0",
     "@types/lodash.chunk": "^4.2.9",
@@ -127,7 +130,8 @@
   "files": [
     "dest",
     "src",
-    "!*.test.*"
+    "!*.test.*",
+    "public_include_metric_prefixes.json"
   ],
   "types": "./dest/index.d.ts",
   "engines": {

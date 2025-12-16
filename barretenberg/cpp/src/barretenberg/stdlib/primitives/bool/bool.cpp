@@ -206,7 +206,8 @@ template <typename Builder> bool_t<Builder> bool_t<Builder>::operator&(const boo
         fr q_o{ -1 };
         fr q_c{ i_a * i_b };
 
-        ctx->create_poly_gate({ witness_index, other.witness_index, result.witness_index, q_m, q_l, q_r, q_o, q_c });
+        ctx->create_arithmetic_gate(
+            { witness_index, other.witness_index, result.witness_index, q_m, q_l, q_r, q_o, q_c });
     } else if (!is_constant() && other.is_constant()) {
         BB_ASSERT(!other.witness_inverted);
         // If rhs is a constant true, the output is determined by the lhs. Otherwise the output is a constant
@@ -259,7 +260,8 @@ template <typename Builder> bool_t<Builder> bool_t<Builder>::operator|(const boo
         // Let r := a | b;
         // Constrain
         //      q_m * w_a * w_b + q_l * w_a + q_r * w_b + q_o * r + q_c = 0
-        ctx->create_poly_gate({ witness_index, other.witness_index, result.witness_index, q_m, q_l, q_r, q_o, q_c });
+        ctx->create_arithmetic_gate(
+            { witness_index, other.witness_index, result.witness_index, q_m, q_l, q_r, q_o, q_c });
     } else if (!is_constant() && other.is_constant()) {
         BB_ASSERT_EQ(other.witness_inverted, false);
 
@@ -314,7 +316,8 @@ template <typename Builder> bool_t<Builder> bool_t<Builder>::operator^(const boo
         // Let r := a ^ b;
         // Constrain
         //      q_m * w_a * w_b + q_l * w_a + q_r * w_b + q_o * r + q_c = 0
-        ctx->create_poly_gate({ witness_index, other.witness_index, result.witness_index, q_m, q_l, q_r, q_o, q_c });
+        ctx->create_arithmetic_gate(
+            { witness_index, other.witness_index, result.witness_index, q_m, q_l, q_r, q_o, q_c });
     } else if (!is_constant() && other.is_constant()) {
         // witness ^ 1 = !witness
         BB_ASSERT_EQ(other.witness_inverted, false);
@@ -377,7 +380,8 @@ template <typename Builder> bool_t<Builder> bool_t<Builder>::operator==(const bo
         bb::fr q_o{ bb::fr::neg_one() };
         bb::fr q_c{ 1 - lhs_inverted - rhs_inverted + 2 * rhs_inverted * lhs_inverted };
 
-        ctx->create_poly_gate({ witness_index, other.witness_index, result.witness_index, q_m, q_l, q_r, q_o, q_c });
+        ctx->create_arithmetic_gate(
+            { witness_index, other.witness_index, result.witness_index, q_m, q_l, q_r, q_o, q_c });
 
     } else if (!is_constant() && (other.is_constant())) {
         // Compare *this with a constant other. If other == true, then we're checking *this == true. In this case we
@@ -418,7 +422,7 @@ template <typename Builder> void bool_t<Builder>::assert_equal(const bool_t& rhs
 {
     const bool_t lhs = *this;
     Builder* ctx = validate_context<Builder>(rhs.get_context(), lhs.get_context());
-    (void)OriginTag(get_origin_tag(), rhs.get_origin_tag());
+
     if (lhs.is_constant() && rhs.is_constant()) {
         BB_ASSERT_EQ(lhs.get_value(), rhs.get_value());
     } else if (lhs.is_constant()) {
@@ -432,6 +436,13 @@ template <typename Builder> void bool_t<Builder>::assert_equal(const bool_t& rhs
         const bool rhs_value = lhs.witness_inverted ? !rhs.witness_bool : rhs.witness_bool;
         ctx->assert_equal_constant(lhs.witness_index, rhs_value, msg);
     } else {
+        // Both are witnesses - save original tags and clear them to allow different transcript/free witness sources
+        // (e.g., proving 2 separate properties about same object through 2 different transcripts)
+        const auto lhs_original_tag = lhs.get_origin_tag();
+        const auto rhs_original_tag = rhs.get_origin_tag();
+        lhs.set_origin_tag(OriginTag());
+        rhs.set_origin_tag(OriginTag());
+
         bool_t left = lhs;
         bool_t right = rhs;
         // we need to normalize iff lhs or rhs has an inverted witness (but not both)
@@ -440,6 +451,10 @@ template <typename Builder> void bool_t<Builder>::assert_equal(const bool_t& rhs
             right = right.normalize();
         }
         ctx->assert_equal(left.witness_index, right.witness_index, msg);
+
+        // Restore tags
+        lhs.set_origin_tag(lhs_original_tag);
+        rhs.set_origin_tag(rhs_original_tag);
     }
 }
 
@@ -522,7 +537,7 @@ template <typename Builder> bool_t<Builder> bool_t<Builder>::normalize() const
     bb::fr q_o = bb::fr::neg_one();
     bb::fr q_m = bb::fr::zero();
     bb::fr q_r = bb::fr::zero();
-    context->create_poly_gate({ witness_index, context->zero_idx(), new_witness, q_m, q_l, q_r, q_o, q_c });
+    context->create_arithmetic_gate({ witness_index, context->zero_idx(), new_witness, q_m, q_l, q_r, q_o, q_c });
 
     witness_index = new_witness;
     witness_bool = value;

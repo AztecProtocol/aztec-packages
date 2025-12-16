@@ -1,6 +1,11 @@
 import { css } from '@mui/styled-engine';
 import { useContext, useEffect, useState } from 'react';
-import { type ContractInstanceWithAddress, type DeployOptions, Contract, DeployMethod } from '@aztec/aztec.js/contracts';
+import {
+  type ContractInstanceWithAddress,
+  type DeployOptions,
+  Contract,
+  DeployMethod,
+} from '@aztec/aztec.js/contracts';
 import { TxStatus } from '@aztec/aztec.js/tx';
 import { type FunctionAbi, getAllFunctionAbis, FunctionType } from '@aztec/stdlib/abi';
 import { AztecContext } from '../../aztecContext';
@@ -115,14 +120,6 @@ const contractName = css({
   '@media (max-width: 900px)': {
     fontSize: '1.5rem',
   },
-});
-
-const contractClassIdCss = css({
-  marginBottom: '1rem',
-  marginTop: '0.5rem',
-  backgroundColor: 'rgba(255, 255, 255, 0.22)',
-  padding: '0px 5px',
-  borderRadius: '3px',
 });
 
 const deployedContractCss = css({
@@ -290,10 +287,6 @@ export function ContractComponent() {
                 )}
               </Box>
 
-              <Typography variant="caption" css={contractClassIdCss}>
-                Contract Class ID: {currentContract?.instance?.currentContractClassId.toString()}
-              </Typography>
-
               {!!ContractDescriptions[currentContractArtifact.name] && (
                 <Typography variant="body2" css={{ marginBottom: '2rem' }}>
                   {ContractDescriptions[currentContractArtifact.name]}
@@ -318,7 +311,7 @@ export function ContractComponent() {
           {functionAbis
             .filter(
               fn =>
-                !fn.isInternal &&
+                !fn.isOnlySelf &&
                 !FORBIDDEN_FUNCTIONS.includes(fn.name) &&
                 ((filters.private && fn.functionType === FunctionType.PRIVATE) ||
                   (filters.public && fn.functionType === FunctionType.PUBLIC) ||

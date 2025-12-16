@@ -316,18 +316,6 @@ describe('Private Execution test suite', () => {
       return Promise.resolve(artifact);
     });
 
-    executionDataProvider.getFunctionArtifactByName.mockImplementation((address, name) => {
-      const contract = contracts[address.toString()];
-      if (!contract) {
-        throw new Error(`Contract not found: ${address}`);
-      }
-      const artifact = getFunctionArtifactByName(contract, name);
-      if (!artifact) {
-        throw new Error(`Function not found: ${name} in contract ${address}`);
-      }
-      return Promise.resolve(artifact);
-    });
-
     executionDataProvider.syncTaggedLogs.mockImplementation((_, __) => Promise.resolve());
     // Provide tagging-related mocks expected by private log emission
     executionDataProvider.calculateDirectionalAppTaggingSecret.mockImplementation((_contract, _sender, _recipient) => {
@@ -797,11 +785,11 @@ describe('Private Execution test suite', () => {
   });
 
   describe('enqueued calls', () => {
-    it.each([false, true])('parent should enqueue call to child (internal %p)', async isInternal => {
+    it.each([false, true])('parent should enqueue call to child (is #[only_self]: %p)', async isOnlySelf => {
       const childContractArtifact = structuredClone(ChildContractArtifact);
       const childFunctionArtifact = childContractArtifact.functions.find(fn => fn.name === 'public_dispatch')!;
       expect(childFunctionArtifact).toBeDefined();
-      childFunctionArtifact.isInternal = isInternal;
+      childFunctionArtifact.isOnlySelf = isOnlySelf;
 
       const childAddress = await AztecAddress.random();
       await mockContractInstance(childContractArtifact, childAddress);
@@ -900,6 +888,26 @@ describe('Private Execution test suite', () => {
         contractAddress,
       });
       expect(result.publicInputs.isFeePayer).toBe(true);
+    });
+  });
+
+  describe('phase checking', () => {
+    it('should be able to end setup checking phases', async () => {
+      // arbitrary random function that doesn't set a fee payer
+      const contractAddress = await AztecAddress.random();
+      const { entrypoint: result } = await runSimulator({
+        artifact: TestContractArtifact,
+        functionName: 'end_setup_checking_phases',
+        contractAddress,
+      });
+      const minRevertibleSideEffectCounter = result.publicInputs.minRevertibleSideEffectCounter.toNumber();
+      const expectedNonRevertibleSideEffectCounter =
+        result.publicInputs.expectedNonRevertibleSideEffectCounter.toNumber();
+      const expectedRevertibleSideEffectCounter = result.publicInputs.expectedRevertibleSideEffectCounter.toNumber();
+      expect(expectedNonRevertibleSideEffectCounter).toBeGreaterThan(0);
+      expect(expectedRevertibleSideEffectCounter).toBeGreaterThan(0);
+      expect(expectedNonRevertibleSideEffectCounter < minRevertibleSideEffectCounter).toBe(true);
+      expect(expectedRevertibleSideEffectCounter >= minRevertibleSideEffectCounter).toBe(true);
     });
   });
 

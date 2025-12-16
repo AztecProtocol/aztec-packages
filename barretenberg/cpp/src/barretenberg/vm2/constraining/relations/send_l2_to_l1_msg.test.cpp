@@ -119,15 +119,15 @@ TEST(SendL2ToL1MsgConstrainingTest, Interactions)
     AztecAddress address = 0xdeadbeef;
     AvmAccumulatedData accumulated_data = {};
 
-    accumulated_data.l2ToL1Msgs[0] = {
+    accumulated_data.l2_to_l1_msgs[0] = {
         .message =
             L2ToL1Message{
                 .recipient = recipient,
                 .content = content,
             },
-        .contractAddress = address,
+        .contract_address = address,
     };
-    AvmAccumulatedDataArrayLengths array_lengths = { .l2ToL1Msgs = 1 };
+    AvmAccumulatedDataArrayLengths array_lengths = { .l2_to_l1_msgs = 1 };
     auto public_inputs = PublicInputsBuilder()
                              .set_accumulated_data(accumulated_data)
                              .set_accumulated_data_array_lengths(array_lengths)

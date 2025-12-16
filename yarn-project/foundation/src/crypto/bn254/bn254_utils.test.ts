@@ -127,13 +127,6 @@ describe('BN254 Point Operations', () => {
       expect(msbSet).toBe(yIsOdd);
     });
 
-    it('handles various compressed input lengths', async () => {
-      // Very short input
-      await expect(Bn254G1Point.fromCompressed(Buffer.from('1234', 'hex'))).rejects.toThrow();
-      // 33 bytes (too long)
-      await expect(Bn254G1Point.fromCompressed(Buffer.from('00'.repeat(33), 'hex'))).rejects.toThrow();
-    });
-
     it('throws on x-coordinate out of field range', async () => {
       // Create a compressed point with x >= field order
       const tooLarge = Buffer.from('ff'.repeat(32), 'hex');

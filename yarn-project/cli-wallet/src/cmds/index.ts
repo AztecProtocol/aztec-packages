@@ -346,7 +346,7 @@ export function injectCommands(
       log,
     );
     if (db && sentTx) {
-      const txAlias = alias ? alias : `${functionName}-${randomBytes(16).toString()}`;
+      const txAlias = alias ? alias : `${functionName}-${randomBytes(16).toString('hex')}`;
       await db.storeTx(sentTx, log, txAlias);
     }
   });

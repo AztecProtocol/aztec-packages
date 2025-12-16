@@ -234,7 +234,7 @@ TEST(FieldGreaterThanConstrainingTest, NegativeManipulatedComparisonsWithP)
     builder.process(event_emitter.dump_events(), trace);
     check_relation<ff_gt>(trace);
 
-    auto p_limbs = simulation::decompose(FF::modulus);
+    auto p_limbs = simulation::decompose_256(FF::modulus);
     uint256_t p_lo = uint256_t::from_uint128(p_limbs.lo);
     uint256_t p_hi = uint256_t::from_uint128(p_limbs.hi);
 

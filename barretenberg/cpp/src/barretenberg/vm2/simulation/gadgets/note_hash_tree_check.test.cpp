@@ -34,7 +34,7 @@ TEST(AvmSimulationNoteHashTree, Exists)
     std::vector<FF> sibling_path = { 1, 2, 3, 4, 5 };
     AppendOnlyTreeSnapshot snapshot = {
         .root = 123456,
-        .nextAvailableLeafIndex = 128,
+        .next_available_leaf_index = 128,
     };
 
     FF note_hash = 42;
@@ -71,21 +71,21 @@ TEST(AvmSimulationNoteHashTree, WriteUnique)
     std::vector<FF> sibling_path = { 1, 2, 3, 4, 5 };
     AppendOnlyTreeSnapshot snapshot = {
         .root = 123456,
-        .nextAvailableLeafIndex = 128,
+        .next_available_leaf_index = 128,
     };
     FF note_hash = 42;
     uint64_t note_hash_counter = 10;
     FF next_root = 234567;
 
-    EXPECT_CALL(merkle_check, write(FF(0), note_hash, snapshot.nextAvailableLeafIndex, _, snapshot.root))
+    EXPECT_CALL(merkle_check, write(FF(0), note_hash, snapshot.next_available_leaf_index, _, snapshot.root))
         .WillOnce(Return(next_root));
 
     AppendOnlyTreeSnapshot next_snapshot =
         note_hash_tree_check.append_unique_note_hash(note_hash, note_hash_counter, sibling_path, snapshot);
 
-    EXPECT_EQ(next_snapshot.nextAvailableLeafIndex, snapshot.nextAvailableLeafIndex + 1);
+    EXPECT_EQ(next_snapshot.next_available_leaf_index, snapshot.next_available_leaf_index + 1);
     NoteHashTreeReadWriteEvent expect_event = { .note_hash = note_hash,
-                                                .leaf_index = snapshot.nextAvailableLeafIndex,
+                                                .leaf_index = snapshot.next_available_leaf_index,
                                                 .prev_snapshot = snapshot,
                                                 .append_data = NoteHashAppendData{
                                                     .note_hash_counter = note_hash_counter,
@@ -106,7 +106,7 @@ TEST(AvmSimulationNoteHashTree, WriteSiloed)
     std::vector<FF> sibling_path = { 1, 2, 3, 4, 5 };
     AppendOnlyTreeSnapshot snapshot = {
         .root = 123456,
-        .nextAvailableLeafIndex = 128,
+        .next_available_leaf_index = 128,
     };
     FF siloed_note_hash = 42;
     uint64_t note_hash_counter = 10;
@@ -121,15 +121,15 @@ TEST(AvmSimulationNoteHashTree, WriteSiloed)
     std::vector<FF> unique_note_hash_inputs = { GENERATOR_INDEX__UNIQUE_NOTE_HASH, nonce, siloed_note_hash };
     EXPECT_CALL(poseidon2, hash(unique_note_hash_inputs)).WillOnce(Return(unique_note_hash));
 
-    EXPECT_CALL(merkle_check, write(FF(0), unique_note_hash, snapshot.nextAvailableLeafIndex, _, snapshot.root))
+    EXPECT_CALL(merkle_check, write(FF(0), unique_note_hash, snapshot.next_available_leaf_index, _, snapshot.root))
         .WillOnce(Return(next_root));
 
     AppendOnlyTreeSnapshot next_snapshot =
         note_hash_tree_check.append_siloed_note_hash(siloed_note_hash, note_hash_counter, sibling_path, snapshot);
 
-    EXPECT_EQ(next_snapshot.nextAvailableLeafIndex, snapshot.nextAvailableLeafIndex + 1);
+    EXPECT_EQ(next_snapshot.next_available_leaf_index, snapshot.next_available_leaf_index + 1);
     NoteHashTreeReadWriteEvent expect_event = { .note_hash = siloed_note_hash,
-                                                .leaf_index = snapshot.nextAvailableLeafIndex,
+                                                .leaf_index = snapshot.next_available_leaf_index,
                                                 .prev_snapshot = snapshot,
                                                 .append_data = NoteHashAppendData{
                                                     .uniqueness_data =
@@ -156,7 +156,7 @@ TEST(AvmSimulationNoteHashTree, WriteRaw)
     std::vector<FF> sibling_path = { 1, 2, 3, 4, 5 };
     AppendOnlyTreeSnapshot snapshot = {
         .root = 123456,
-        .nextAvailableLeafIndex = 128,
+        .next_available_leaf_index = 128,
     };
 
     FF raw_note_hash = 37;
@@ -179,15 +179,15 @@ TEST(AvmSimulationNoteHashTree, WriteRaw)
     std::vector<FF> unique_note_hash_inputs = { GENERATOR_INDEX__UNIQUE_NOTE_HASH, nonce, siloed_note_hash };
     EXPECT_CALL(poseidon2, hash(unique_note_hash_inputs)).WillOnce(Return(unique_note_hash));
 
-    EXPECT_CALL(merkle_check, write(FF(0), unique_note_hash, snapshot.nextAvailableLeafIndex, _, snapshot.root))
+    EXPECT_CALL(merkle_check, write(FF(0), unique_note_hash, snapshot.next_available_leaf_index, _, snapshot.root))
         .WillOnce(Return(next_root));
 
     AppendOnlyTreeSnapshot next_snapshot = note_hash_tree_check.append_note_hash(
         raw_note_hash, contract_address, note_hash_counter, sibling_path, snapshot);
 
-    EXPECT_EQ(next_snapshot.nextAvailableLeafIndex, snapshot.nextAvailableLeafIndex + 1);
+    EXPECT_EQ(next_snapshot.next_available_leaf_index, snapshot.next_available_leaf_index + 1);
     NoteHashTreeReadWriteEvent expect_event = { .note_hash = raw_note_hash,
-                                                .leaf_index = snapshot.nextAvailableLeafIndex,
+                                                .leaf_index = snapshot.next_available_leaf_index,
                                                 .prev_snapshot = snapshot,
                                                 .append_data = NoteHashAppendData{
                                                     .siloing_data =

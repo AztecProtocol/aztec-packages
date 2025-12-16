@@ -1,12 +1,10 @@
 import { Fr } from '@aztec/foundation/fields';
-import { type ZodFor, optional } from '@aztec/foundation/schemas';
+import { type ZodFor, optional, schemas } from '@aztec/foundation/schemas';
 
 import { z } from 'zod';
 
-import type { AbiDecoded } from '../abi/decoder.js';
 import type { AztecNode } from '../interfaces/aztec-node.js';
 import { type PrivateExecutionStep, PrivateExecutionStepSchema } from '../kernel/private_kernel_prover_output.js';
-import { AbiDecodedSchema } from '../schemas/schemas.js';
 
 export type NodeStats = Partial<Record<keyof AztecNode, { times: number[] }>>;
 
@@ -127,21 +125,21 @@ export class TxProfileResult {
 
 export class UtilitySimulationResult {
   constructor(
-    public result: AbiDecoded,
+    public result: Fr[],
     public stats?: SimulationStats,
   ) {}
 
   static get schema(): ZodFor<UtilitySimulationResult> {
     return z
       .object({
-        result: AbiDecodedSchema,
+        result: z.array(schemas.Fr),
         stats: optional(SimulationStatsSchema),
       })
       .transform(({ result, stats }) => new UtilitySimulationResult(result, stats));
   }
 
   static random(): UtilitySimulationResult {
-    return new UtilitySimulationResult(Fr.random().toBigInt(), {
+    return new UtilitySimulationResult([Fr.random()], {
       nodeRPCCalls: { getBlockHeader: { times: [1] } },
       timings: {
         sync: 1,

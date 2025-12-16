@@ -3,7 +3,6 @@ import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
-import { sleep } from '@aztec/foundation/sleep';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { ChildContract } from '@aztec/noir-test-contracts.js/Child';
 import { TestWallet } from '@aztec/test-wallet/server';
@@ -50,10 +49,6 @@ describe('e2e_2_pxes', () => {
     const accountBDeployMethod = await accountBManager.getDeployMethod();
     await accountBDeployMethod.send({ from: AztecAddress.ZERO }).wait();
 
-    /*TODO(post-honk): We wait 5 seconds for a race condition in setting up two nodes.
-     What is a more robust solution? */
-    await sleep(5000);
-
     await walletA.registerSender(accountBAddress, 'accountB');
     await walletB.registerSender(accountAAddress, 'accountA');
   });
@@ -68,17 +63,17 @@ describe('e2e_2_pxes', () => {
     const transferAmount1 = 654n;
     const transferAmount2 = 323n;
 
-    const token = await deployToken(walletA, accountAAddress, initialBalance, logger);
+    const { contract: token, instance } = await deployToken(walletA, accountAAddress, initialBalance, logger);
 
     // Add token to PXE B (PXE A already has it because it was deployed through it)
-    await walletB.registerContract(token);
+    await walletB.registerContract(instance, TokenContract.artifact);
 
     // Check initial balances are as expected
     await expectTokenBalance(walletA, token, accountAAddress, initialBalance, logger);
     await expectTokenBalance(walletB, token, accountBAddress, 0n, logger);
 
     // Transfer funds from A to B via PXE A
-    const contractWithWalletA = await TokenContract.at(token.address, walletA);
+    const contractWithWalletA = TokenContract.at(token.address, walletA);
     await contractWithWalletA.methods.transfer(accountBAddress, transferAmount1).send({ from: accountAAddress }).wait();
 
     // Check balances are as expected
@@ -86,7 +81,7 @@ describe('e2e_2_pxes', () => {
     await expectTokenBalance(walletB, token, accountBAddress, transferAmount1, logger);
 
     // Transfer funds from B to A via PXE B
-    const contractWithWalletB = await TokenContract.at(token.address, walletB);
+    const contractWithWalletB = TokenContract.at(token.address, walletB);
     await contractWithWalletB.methods
       .transfer(accountAAddress, transferAmount2)
       .send({ from: accountBAddress })
@@ -105,10 +100,10 @@ describe('e2e_2_pxes', () => {
 
   const deployChildContractViaServerA = async () => {
     logger.info(`Deploying Child contract...`);
-    const contract = await ChildContract.deploy(walletA).send({ from: accountAAddress }).deployed();
+    const { instance } = await ChildContract.deploy(walletA).send({ from: accountAAddress }).wait();
     logger.info('Child contract deployed');
 
-    return contract.instance;
+    return instance;
   };
 
   const getChildStoredValue = (child: { address: AztecAddress }, node: AztecNode) =>
@@ -118,14 +113,11 @@ describe('e2e_2_pxes', () => {
     const childCompleteAddress = await deployChildContractViaServerA();
 
     // Add Child to PXE B
-    await walletB.registerContract({
-      artifact: ChildContract.artifact,
-      instance: childCompleteAddress,
-    });
+    await walletB.registerContract(childCompleteAddress, ChildContract.artifact);
 
     const newValueToSet = new Fr(256n);
 
-    const childContractWithWalletB = await ChildContract.at(childCompleteAddress.address, walletB);
+    const childContractWithWalletB = ChildContract.at(childCompleteAddress.address, walletB);
     await childContractWithWalletB.methods
       .pub_inc_value(newValueToSet)
       .send({ from: accountBAddress })
@@ -142,10 +134,10 @@ describe('e2e_2_pxes', () => {
     const userABalance = 100n;
     const userBBalance = 150n;
 
-    const token = await deployToken(walletA, accountAAddress, userABalance, logger);
+    const { contract: token, instance } = await deployToken(walletA, accountAAddress, userABalance, logger);
 
     // Add token to PXE B (PXE A already has it because it was deployed through it)
-    await walletB.registerContract(token);
+    await walletB.registerContract(instance, TokenContract.artifact);
 
     // Mint tokens to user B
     await mintTokensToPrivate(token, accountAAddress, accountBAddress, userBBalance);
@@ -166,18 +158,18 @@ describe('e2e_2_pxes', () => {
     const initialBalance = 987n;
     const transferAmount1 = 654n;
 
-    const token = await deployToken(walletA, accountAAddress, initialBalance, logger);
+    const { contract: token, instance } = await deployToken(walletA, accountAAddress, initialBalance, logger);
 
     // Check initial balances are as expected
     await expectTokenBalance(walletA, token, accountAAddress, initialBalance, logger);
     // don't check userB yet
 
     // Transfer funds from A to B via PXE A
-    const contractWithWalletA = await TokenContract.at(token.address, walletA);
+    const contractWithWalletA = TokenContract.at(token.address, walletA);
     await contractWithWalletA.methods.transfer(accountBAddress, transferAmount1).send({ from: accountAAddress }).wait();
 
     // now add the contract and check balances
-    await walletB.registerContract(token);
+    await walletB.registerContract(instance, TokenContract.artifact);
     await expectTokenBalance(walletA, token, accountAAddress, initialBalance - transferAmount1, logger);
     await expectTokenBalance(walletB, token, accountBAddress, transferAmount1, logger);
   });
@@ -198,10 +190,10 @@ describe('e2e_2_pxes', () => {
     await walletB.createSchnorrAccount(sharedAccount.secret, sharedAccount.salt);
 
     // deploy the contract on PXE A
-    const token = await deployToken(walletA, accountAAddress, initialBalance, logger);
+    const { contract: token, instance } = await deployToken(walletA, accountAAddress, initialBalance, logger);
 
     // Transfer funds from A to Shared Wallet via PXE A
-    const contractWithWalletA = await TokenContract.at(token.address, walletA);
+    const contractWithWalletA = TokenContract.at(token.address, walletA);
     await contractWithWalletA.methods
       .transfer(sharedAccountAddress, transferAmount1)
       .send({ from: accountAAddress })
@@ -222,7 +214,7 @@ describe('e2e_2_pxes', () => {
     // PXE-B had previously deferred the notes from A -> Shared, and Shared -> B
     // PXE-B adds the contract
     // PXE-B reprocesses the deferred notes, and sees the nullifier for A -> Shared
-    await walletB.registerContract(token);
+    await walletB.registerContract(instance, TokenContract.artifact);
     await expectTokenBalance(walletB, token, accountBAddress, transferAmount2, logger);
     await expectTokenBalance(walletB, token, sharedAccountAddress, transferAmount1 - transferAmount2, logger);
   });
