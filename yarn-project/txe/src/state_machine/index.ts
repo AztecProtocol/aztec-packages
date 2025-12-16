@@ -1,11 +1,14 @@
 import { type AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
 import { TestCircuitVerifier } from '@aztec/bb-prover/test';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { AnchorBlockDataProvider } from '@aztec/pxe/server';
-import { L2Block } from '@aztec/stdlib/block';
-import { L1PublishedData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
+import type { L2BlockNew } from '@aztec/stdlib/block';
+import { Checkpoint, L1PublishedData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
+import { CheckpointHeader } from '@aztec/stdlib/rollup';
+import { ContentCommitment } from '@aztec/stdlib/tx';
 import { getPackageVersion } from '@aztec/stdlib/update-checker';
 
 import { TXEArchiver } from './archiver.js';
@@ -58,21 +61,39 @@ export class TXEStateMachine {
     return new this(node, synchronizer, archiver, anchorBlockDataProvider);
   }
 
-  public async handleL2Block(block: L2Block) {
-    const checkpoint = block.toCheckpoint();
+  public async handleL2Block(block: L2BlockNew) {
+    const { header, archive, checkpointNumber } = block;
+    const { globalVariables, totalManaUsed, lastArchive } = header;
+
+    // Create a CheckpointHeader from the block's header
+    const checkpointHeader = new CheckpointHeader(
+      lastArchive.root,
+      Fr.ZERO, // blockHeadersHash - not used in TXE
+      ContentCommitment.empty(), // contentCommitment - not used in TXE
+      globalVariables.slotNumber,
+      globalVariables.timestamp,
+      globalVariables.coinbase,
+      globalVariables.feeRecipient,
+      globalVariables.gasFees,
+      totalManaUsed,
+    );
+
+    const checkpoint = new Checkpoint(archive, checkpointHeader, [block], checkpointNumber);
+
     const publishedCheckpoint = new PublishedCheckpoint(
       checkpoint,
       new L1PublishedData(
-        BigInt(block.header.globalVariables.blockNumber),
-        block.header.globalVariables.timestamp,
-        block.header.globalVariables.blockNumber.toString(),
+        BigInt(globalVariables.blockNumber),
+        globalVariables.timestamp,
+        globalVariables.blockNumber.toString(),
       ),
       [],
     );
+
     await Promise.all([
-      this.synchronizer.handleL2Block(block.toL2Block()),
+      this.synchronizer.handleL2Block(block),
       this.archiver.addCheckpoints([publishedCheckpoint], undefined),
-      this.anchorBlockDataProvider.setHeader(block.getBlockHeader()),
+      this.anchorBlockDataProvider.setHeader(header),
     ]);
   }
 }

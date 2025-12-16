@@ -3,7 +3,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { PublicDataWrite } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { L2Block } from '@aztec/stdlib/block';
+import type { L2BlockNew } from '@aztec/stdlib/block';
 import { computePublicDataTreeLeafSlot, siloNoteHash, siloNullifier } from '@aztec/stdlib/hash';
 import {
   MerkleTreeId,
@@ -124,7 +124,7 @@ export class TXEOraclePublicContext implements IAvmExecutionOracle {
     return value;
   }
 
-  async close(): Promise<L2Block> {
+  async close(): Promise<L2BlockNew> {
     this.logger.debug('Exiting Public Context, building block with collected side effects', {
       blockNumber: this.globalVariables.blockNumber,
     });

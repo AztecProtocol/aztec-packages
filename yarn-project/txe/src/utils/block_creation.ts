@@ -4,13 +4,12 @@ import {
   NULLIFIER_SUBTREE_HEIGHT,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
 } from '@aztec/constants';
-import { BlockNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { Body, L2Block, L2BlockHeader } from '@aztec/stdlib/block';
-import { makeContentCommitment } from '@aztec/stdlib/testing';
+import { Body, L2BlockNew } from '@aztec/stdlib/block';
 import { AppendOnlyTreeSnapshot, MerkleTreeId, type MerkleTreeWriteOperations } from '@aztec/stdlib/trees';
-import { GlobalVariables, TxEffect } from '@aztec/stdlib/tx';
+import { BlockHeader, GlobalVariables, TxEffect } from '@aztec/stdlib/tx';
 
 /**
  * Returns a transaction request hash that is valid for transactions that are the only ones in a block.
@@ -47,24 +46,23 @@ export async function insertTxEffectIntoWorldTrees(
 export async function makeTXEBlockHeader(
   worldTrees: MerkleTreeWriteOperations,
   globalVariables: GlobalVariables,
-): Promise<L2BlockHeader> {
+): Promise<BlockHeader> {
   const stateReference = await worldTrees.getStateReference();
   const archiveInfo = await worldTrees.getTreeInfo(MerkleTreeId.ARCHIVE);
+  const lastArchive = new AppendOnlyTreeSnapshot(new Fr(archiveInfo.root), Number(archiveInfo.size));
 
-  return new L2BlockHeader(
-    new AppendOnlyTreeSnapshot(new Fr(archiveInfo.root), Number(archiveInfo.size)),
-    makeContentCommitment(),
+  return new BlockHeader(
+    lastArchive,
     stateReference,
+    Fr.ZERO, // spongeBlobHash
     globalVariables,
-    Fr.ZERO,
-    Fr.ZERO,
-    Fr.ZERO,
-    Fr.ZERO,
+    Fr.ZERO, // totalFees
+    Fr.ZERO, // totalManaUsed
   );
 }
 
 /**
- * Creates an L2Block with proper archive chaining.
+ * Creates an L2BlockNew with proper archive chaining.
  * This function:
  * 1. Gets the current archive state as lastArchive for the header
  * 2. Creates the block header
@@ -74,21 +72,24 @@ export async function makeTXEBlockHeader(
  * @param worldTrees - The world trees to read/write from
  * @param globalVariables - Global variables for the block
  * @param txEffects - Transaction effects to include in the block
- * @returns The created L2Block with proper archive chaining
+ * @returns The created L2BlockNew with proper archive chaining
  */
 export async function makeTXEBlock(
   worldTrees: MerkleTreeWriteOperations,
   globalVariables: GlobalVariables,
   txEffects: TxEffect[],
-): Promise<L2Block> {
+): Promise<L2BlockNew> {
   const header = await makeTXEBlockHeader(worldTrees, globalVariables);
 
   // Update the archive tree with this block's header hash
-  await worldTrees.updateArchive(header.toBlockHeader());
+  await worldTrees.updateArchive(header);
 
   // Get the new archive state after updating
   const newArchiveInfo = await worldTrees.getTreeInfo(MerkleTreeId.ARCHIVE);
   const newArchive = new AppendOnlyTreeSnapshot(new Fr(newArchiveInfo.root), Number(newArchiveInfo.size));
 
-  return new L2Block(newArchive, header, new Body(txEffects));
+  const blockNumber = globalVariables.blockNumber;
+  const checkpointNumber = CheckpointNumber.fromBlockNumber(blockNumber);
+
+  return new L2BlockNew(newArchive, header, new Body(txEffects), checkpointNumber, 0);
 }
