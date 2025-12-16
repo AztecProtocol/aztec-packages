@@ -85,7 +85,7 @@ describe('syncSenderTaggingIndexes', () => {
 
       // Mock getL2Tips to return a finalized block number >= the tx block number
       aztecNode.getL2Tips.mockResolvedValue({
-        finalized: { number: finalizedBlockNumberStep1 },
+        blocks: { finalized: { number: finalizedBlockNumberStep1 } },
       } as any);
 
       await syncSenderTaggingIndexes(secret, contractAddress, aztecNode, taggingDataProvider);
@@ -114,7 +114,7 @@ describe('syncSenderTaggingIndexes', () => {
       } as any);
 
       aztecNode.getL2Tips.mockResolvedValue({
-        finalized: { number: finalizedBlockNumberStep1 },
+        blocks: { finalized: { number: finalizedBlockNumberStep1 } },
       } as any);
 
       await syncSenderTaggingIndexes(secret, contractAddress, aztecNode, taggingDataProvider);
@@ -183,7 +183,7 @@ describe('syncSenderTaggingIndexes', () => {
 
       // Mock getL2Tips with the new finalized block number
       aztecNode.getL2Tips.mockResolvedValue({
-        finalized: { number: newFinalizedBlockNumber },
+        blocks: { finalized: { number: newFinalizedBlockNumber } },
       } as any);
 
       await syncSenderTaggingIndexes(secret, contractAddress, aztecNode, taggingDataProvider);
@@ -236,7 +236,7 @@ describe('syncSenderTaggingIndexes', () => {
     });
 
     aztecNode.getL2Tips.mockResolvedValue({
-      finalized: { number: finalizedBlockNumber },
+      blocks: { finalized: { number: finalizedBlockNumber } },
     } as any);
 
     // Sync tagged logs

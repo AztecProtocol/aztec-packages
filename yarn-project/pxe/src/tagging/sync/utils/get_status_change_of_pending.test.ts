@@ -56,7 +56,7 @@ describe('getStatusChangeOfPending', () => {
     });
 
     aztecNode.getL2Tips.mockResolvedValue({
-      finalized: { number: BlockNumber(finalizedBlockNumber) },
+      blocks: { finalized: { number: BlockNumber(finalizedBlockNumber) } },
     } as any);
 
     const result = await getStatusChangeOfPending(
@@ -90,7 +90,7 @@ describe('getStatusChangeOfPending', () => {
     } as any);
 
     aztecNode.getL2Tips.mockResolvedValue({
-      finalized: { number: BlockNumber(finalizedBlockNumber) },
+      blocks: { finalized: { number: BlockNumber(finalizedBlockNumber) } },
     } as any);
 
     const result = await getStatusChangeOfPending([txHash], aztecNode);

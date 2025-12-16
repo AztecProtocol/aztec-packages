@@ -316,9 +316,11 @@ describe('P2P Client', () => {
       await advanceToFinalizedBlock(BlockNumber(50));
 
       await expect(client.getL2Tips()).resolves.toEqual({
-        latest: { number: BlockNumber(100), hash: expect.any(String) },
-        proven: { number: BlockNumber(90), hash: expect.any(String) },
-        finalized: { number: BlockNumber(50), hash: expect.any(String) },
+        blocks: {
+          latest: { number: BlockNumber(100), hash: expect.any(String) },
+          proven: { number: BlockNumber(90), hash: expect.any(String) },
+          finalized: { number: BlockNumber(50), hash: expect.any(String) },
+        },
       });
 
       blockSource.removeBlocks(10);
@@ -326,9 +328,11 @@ describe('P2P Client', () => {
       await client.sync();
 
       await expect(client.getL2Tips()).resolves.toEqual({
-        latest: { number: BlockNumber(90), hash: expect.any(String) },
-        proven: { number: BlockNumber(90), hash: expect.any(String) },
-        finalized: { number: BlockNumber(50), hash: expect.any(String) },
+        blocks: {
+          latest: { number: BlockNumber(90), hash: expect.any(String) },
+          proven: { number: BlockNumber(90), hash: expect.any(String) },
+          finalized: { number: BlockNumber(50), hash: expect.any(String) },
+        },
       });
 
       blockSource.addBlocks([await L2Block.random(BlockNumber(91)), await L2Block.random(BlockNumber(92))]);
@@ -336,9 +340,11 @@ describe('P2P Client', () => {
       await client.sync();
 
       await expect(client.getL2Tips()).resolves.toEqual({
-        latest: { number: BlockNumber(92), hash: expect.any(String) },
-        proven: { number: BlockNumber(90), hash: expect.any(String) },
-        finalized: { number: BlockNumber(50), hash: expect.any(String) },
+        blocks: {
+          latest: { number: BlockNumber(92), hash: expect.any(String) },
+          proven: { number: BlockNumber(90), hash: expect.any(String) },
+          finalized: { number: BlockNumber(50), hash: expect.any(String) },
+        },
       });
     });
 
