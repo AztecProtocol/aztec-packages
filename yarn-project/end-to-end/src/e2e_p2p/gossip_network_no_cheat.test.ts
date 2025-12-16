@@ -226,7 +226,7 @@ describe('e2e_p2p_network', () => {
 
     // Gather signers from attestations downloaded from L1
     const blockNumber = await txsSentViaDifferentNodes[0][0].getReceipt().then(r => r.blockNumber!);
-    const dataStore = ((nodes[0] as AztecNodeService).getBlockSource() as Archiver).dataStore;
+    const dataStore = (nodes[0] as AztecNodeService).getBlockSource() as Archiver;
     const [block] = await dataStore.getPublishedBlocks(blockNumber, blockNumber);
     const payload = ConsensusPayload.fromBlock(block.block);
     const attestations = block.attestations

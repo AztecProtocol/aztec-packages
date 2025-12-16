@@ -1010,6 +1010,61 @@ void ProgramBlock::process_calldatacopy_instruction(CALLDATACOPY_Instruction ins
     }
 }
 
+void ProgramBlock::process_sendl2tol1msg_instruction(SENDL2TOL1MSG_Instruction instruction)
+{
+    auto set_recipient_instruction = SET_FF_Instruction{ .value_tag = bb::avm2::MemoryTag::FF,
+                                                         .result_address = instruction.recipient_address,
+                                                         .value = instruction.recipient };
+    this->process_set_ff_instruction(set_recipient_instruction);
+    auto set_content_instruction = SET_FF_Instruction{ .value_tag = bb::avm2::MemoryTag::FF,
+                                                       .result_address = instruction.content_address,
+                                                       .value = instruction.content };
+    this->process_set_ff_instruction(set_content_instruction);
+
+    auto recipient_address_operand = memory_manager.get_memory_address_and_operand_16(instruction.recipient_address);
+    auto content_address_operand = memory_manager.get_memory_address_and_operand_16(instruction.content_address);
+    if (!recipient_address_operand.has_value() || !content_address_operand.has_value()) {
+        return;
+    }
+    preprocess_memory_addresses(instruction.recipient_address, recipient_address_operand.value().first);
+    preprocess_memory_addresses(instruction.content_address, content_address_operand.value().first);
+    auto sendl2tol1msg_instruction = bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::SENDL2TOL1MSG)
+                                         .operand(recipient_address_operand.value().second)
+                                         .operand(content_address_operand.value().second)
+                                         .build();
+    instructions.push_back(sendl2tol1msg_instruction);
+}
+
+void ProgramBlock::process_emitunencryptedlog_instruction(EMITUNENCRYPTEDLOG_Instruction instruction)
+{
+    auto log_size_set_instruction = SET_32_Instruction{ .value_tag = bb::avm2::MemoryTag::U32,
+                                                        .result_address = instruction.log_size_address,
+                                                        .value = instruction.log_size };
+    this->process_set_32_instruction(log_size_set_instruction);
+    size_t counter = 0;
+    for (const auto& value : instruction.log_values) {
+        auto log_values_address =
+            ResultAddressRef{ .address = static_cast<uint32_t>(instruction.log_values_address_start + counter),
+                              .mode = AddressingMode::Direct };
+        auto set_value_instruction = SET_FF_Instruction{ .value_tag = bb::avm2::MemoryTag::FF,
+                                                         .result_address = log_values_address,
+                                                         .value = value };
+        this->process_set_ff_instruction(set_value_instruction);
+        counter++;
+    }
+    auto log_size_address_operand = memory_manager.get_memory_address_and_operand_16(instruction.log_size_address);
+    if (!log_size_address_operand.has_value()) {
+        return;
+    }
+    preprocess_memory_addresses(instruction.log_size_address, log_size_address_operand.value().first);
+    auto emitunencryptedlog_instruction =
+        bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::EMITUNENCRYPTEDLOG)
+            .operand(log_size_address_operand.value().second)
+            .operand(instruction.log_values_address_start)
+            .build();
+    instructions.push_back(emitunencryptedlog_instruction);
+}
+
 void ProgramBlock::finalize_with_return(uint8_t return_size,
                                         MemoryTagWrapper return_value_tag,
                                         uint16_t return_value_offset_index)
@@ -1175,6 +1230,12 @@ void ProgramBlock::process_instruction(FuzzInstruction instruction)
             },
             [this](CALLDATACOPY_Instruction instruction) {
                 return this->process_calldatacopy_instruction(instruction);
+            },
+            [this](SENDL2TOL1MSG_Instruction instruction) {
+                return this->process_sendl2tol1msg_instruction(instruction);
+            },
+            [this](EMITUNENCRYPTEDLOG_Instruction instruction) {
+                return this->process_emitunencryptedlog_instruction(instruction);
             },
             [](auto) { throw std::runtime_error("Unknown instruction"); },
         },

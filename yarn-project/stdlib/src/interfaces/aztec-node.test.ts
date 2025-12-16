@@ -21,11 +21,12 @@ import times from 'lodash.times';
 
 import type { ContractArtifact } from '../abi/abi.js';
 import { AztecAddress } from '../aztec-address/index.js';
+import { PublishedL2Block } from '../block/checkpointed_l2_block.js';
 import type { DataInBlock } from '../block/in_block.js';
 import { type BlockParameter, CommitteeAttestation, L2BlockHash } from '../block/index.js';
 import { L2Block } from '../block/l2_block.js';
 import type { L2Tips } from '../block/l2_block_source.js';
-import { PublishedL2Block } from '../block/published_l2_block.js';
+import { L1PublishedData } from '../checkpoint/published_checkpoint.js';
 import {
   type ContractClassPublic,
   type ContractInstanceWithAddress,
@@ -675,7 +676,7 @@ class MockAztecNode implements AztecNode {
       PublishedL2Block.fromFields({
         block: await L2Block.random(BlockNumber(from + i)),
         attestations: [CommitteeAttestation.random()],
-        l1: { blockHash: Buffer32.random().toString(), blockNumber: 1n, timestamp: 1n },
+        l1: new L1PublishedData(1n, 1n, Buffer32.random().toString()),
       }),
     );
   }

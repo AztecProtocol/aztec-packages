@@ -70,7 +70,6 @@ describe('Utility Execution test suite', () => {
     );
 
     executionDataProvider.loadCapsule.mockImplementation((_, __) => Promise.resolve(null));
-    executionDataProvider.getAnchorBlockHeader.mockResolvedValue(BlockHeader.empty());
 
     const execRequest: FunctionCall = {
       name: artifact.name,
@@ -83,7 +82,7 @@ describe('Utility Execution test suite', () => {
       returnTypes: artifact.returnTypes,
     };
 
-    const result = await acirSimulator.runUtility(execRequest, [], []);
+    const result = await acirSimulator.runUtility(execRequest, [], BlockHeader.random(), []);
 
     expect(result).toEqual([new Fr(9)]);
   }, 30_000);

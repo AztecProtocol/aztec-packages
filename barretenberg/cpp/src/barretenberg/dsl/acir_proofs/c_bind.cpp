@@ -26,7 +26,7 @@ WASM_EXPORT void acir_get_circuit_sizes(uint8_t const* acir_vec,
                                         uint32_t* total,
                                         uint32_t* subgroup)
 {
-    const acir_format::ProgramMetadata metadata{ .has_ipa_claim = *has_ipa_claim, .size_hint = 1 << 19 };
+    const acir_format::ProgramMetadata metadata{ .has_ipa_claim = *has_ipa_claim };
     acir_format::AcirProgram program{ acir_format::circuit_buf_to_acir_format(
         from_buffer<std::vector<uint8_t>>(acir_vec)) };
     auto builder = acir_format::create_circuit<UltraCircuitBuilder>(program, metadata);

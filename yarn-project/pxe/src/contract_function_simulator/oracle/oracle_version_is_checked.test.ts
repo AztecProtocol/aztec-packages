@@ -25,7 +25,6 @@ describe('Oracle Version Check test suite', () => {
     // Mock basic oracle responses
     executionDataProvider.getPublicStorageAt.mockResolvedValue(Fr.ZERO);
     executionDataProvider.loadCapsule.mockImplementation((_, __) => Promise.resolve(null));
-    executionDataProvider.getAnchorBlockHeader.mockResolvedValue(BlockHeader.empty());
     executionDataProvider.getContractInstance.mockResolvedValue({
       currentContractClassId: new Fr(42),
       originalContractClassId: new Fr(42),
@@ -68,7 +67,7 @@ describe('Oracle Version Check test suite', () => {
       // Call the private function with arbitrary message sender and sender for tags
       const msgSender = await AztecAddress.random();
       const senderForTags = await AztecAddress.random();
-      await acirSimulator.run(txRequest, contractAddress, selector, msgSender, senderForTags);
+      await acirSimulator.run(txRequest, contractAddress, selector, msgSender, BlockHeader.random(), senderForTags);
 
       expect(executionDataProvider.assertCompatibleOracleVersion).toHaveBeenCalledTimes(1);
     }, 30_000);
@@ -97,7 +96,7 @@ describe('Oracle Version Check test suite', () => {
       };
 
       // Call the utility function
-      await acirSimulator.runUtility(execRequest, [], []);
+      await acirSimulator.runUtility(execRequest, [], BlockHeader.random(), []);
 
       expect(executionDataProvider.assertCompatibleOracleVersion).toHaveBeenCalledTimes(1);
     }, 30_000);

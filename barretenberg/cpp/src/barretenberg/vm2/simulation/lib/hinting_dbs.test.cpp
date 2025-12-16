@@ -209,11 +209,8 @@ TEST_F(MockedHintingDBsTest, GetLowLeaf)
 {
     // Mock some slots:
     std::vector<FF> update_preimage_slots = { 1, 2, 4 };
-    SiblingPath mock_path((PUBLIC_DATA_TREE_HEIGHT));
-    // get_low_indexed_leaf will call get_tree_roots and get_sibling_path (which itself will call get_tree_roots):
-    EXPECT_CALL(base_merkle_db, get_tree_roots).Times(static_cast<int>(update_preimage_slots.size() * 2));
-    EXPECT_CALL(base_merkle_db, get_sibling_path(world_state::MerkleTreeId::PUBLIC_DATA_TREE, testing::_))
-        .WillRepeatedly([&](world_state::MerkleTreeId, index_t) { return mock_path; });
+    // get_low_indexed_leaf will call get_tree_roots:
+    EXPECT_CALL(base_merkle_db, get_tree_roots).Times(static_cast<int>(update_preimage_slots.size()));
     EXPECT_CALL(base_merkle_db, get_low_indexed_leaf(world_state::MerkleTreeId::PUBLIC_DATA_TREE, testing::_))
         .WillRepeatedly([&](world_state::MerkleTreeId, const FF& leaf_slot) {
             for (size_t i = 0; i < update_preimage_slots.size(); ++i) {
@@ -233,7 +230,6 @@ TEST_F(MockedHintingDBsTest, GetLowLeaf)
 
     // Check the collected hints:
     EXPECT_EQ(collected_hints.get_previous_value_index_hints.size(), update_preimage_slots.size());
-    EXPECT_EQ(collected_hints.get_sibling_path_hints.size(), update_preimage_slots.size());
     EXPECT_THAT(
         collected_hints.get_previous_value_index_hints,
         testing::ElementsAreArray({ GetPreviousValueIndexHint{ .hint_key = mock_tree_info.public_data_tree,
@@ -251,30 +247,14 @@ TEST_F(MockedHintingDBsTest, GetLowLeaf)
                                                                .value = update_preimage_slots[2],
                                                                .index = 2,
                                                                .already_present = true } }));
-    EXPECT_THAT(collected_hints.get_sibling_path_hints,
-                testing::ElementsAreArray({ GetSiblingPathHint{ .hint_key = mock_tree_info.public_data_tree,
-                                                                .tree_id = world_state::MerkleTreeId::PUBLIC_DATA_TREE,
-                                                                .index = 0,
-                                                                .path = mock_path },
-                                            GetSiblingPathHint{ .hint_key = mock_tree_info.public_data_tree,
-                                                                .tree_id = world_state::MerkleTreeId::PUBLIC_DATA_TREE,
-                                                                .index = 1,
-                                                                .path = mock_path },
-                                            GetSiblingPathHint{ .hint_key = mock_tree_info.public_data_tree,
-                                                                .tree_id = world_state::MerkleTreeId::PUBLIC_DATA_TREE,
-                                                                .index = 2,
-                                                                .path = mock_path } }));
 }
 
 TEST_F(MockedHintingDBsTest, GetLeafValue)
 {
     // Mock some leaf values:
     std::vector<FF> note_hash_leaf_values = { 11, 22, 44, 88 };
-    SiblingPath mock_path((NOTE_HASH_TREE_HEIGHT));
-    // get_leaf_value will call get_tree_roots and get_sibling_path (which itself will call get_tree_roots):
-    EXPECT_CALL(base_merkle_db, get_tree_roots).Times(static_cast<int>(note_hash_leaf_values.size() * 2));
-    EXPECT_CALL(base_merkle_db, get_sibling_path(world_state::MerkleTreeId::NOTE_HASH_TREE, testing::_))
-        .WillRepeatedly([&](world_state::MerkleTreeId, index_t) { return mock_path; });
+    // get_leaf_value will call get_tree_roots:
+    EXPECT_CALL(base_merkle_db, get_tree_roots).Times(static_cast<int>(note_hash_leaf_values.size()));
     EXPECT_CALL(base_merkle_db, get_leaf_value(world_state::MerkleTreeId::NOTE_HASH_TREE, testing::_))
         .WillRepeatedly([&](world_state::MerkleTreeId, index_t index) {
             if (index < note_hash_leaf_values.size()) {
@@ -292,7 +272,6 @@ TEST_F(MockedHintingDBsTest, GetLeafValue)
 
     // Check the collected hints:
     EXPECT_EQ(collected_hints.get_leaf_value_hints.size(), note_hash_leaf_values.size());
-    EXPECT_EQ(collected_hints.get_sibling_path_hints.size(), note_hash_leaf_values.size());
     EXPECT_THAT(collected_hints.get_leaf_value_hints,
                 testing::ElementsAreArray({
                     GetLeafValueHint{ .hint_key = mock_tree_info.note_hash_tree,
@@ -312,23 +291,6 @@ TEST_F(MockedHintingDBsTest, GetLeafValue)
                                       .index = 3,
                                       .value = note_hash_leaf_values[3] },
                 }));
-    EXPECT_THAT(collected_hints.get_sibling_path_hints,
-                testing::ElementsAreArray({ GetSiblingPathHint{ .hint_key = mock_tree_info.note_hash_tree,
-                                                                .tree_id = world_state::MerkleTreeId::NOTE_HASH_TREE,
-                                                                .index = 0,
-                                                                .path = mock_path },
-                                            GetSiblingPathHint{ .hint_key = mock_tree_info.note_hash_tree,
-                                                                .tree_id = world_state::MerkleTreeId::NOTE_HASH_TREE,
-                                                                .index = 1,
-                                                                .path = mock_path },
-                                            GetSiblingPathHint{ .hint_key = mock_tree_info.note_hash_tree,
-                                                                .tree_id = world_state::MerkleTreeId::NOTE_HASH_TREE,
-                                                                .index = 2,
-                                                                .path = mock_path },
-                                            GetSiblingPathHint{ .hint_key = mock_tree_info.note_hash_tree,
-                                                                .tree_id = world_state::MerkleTreeId::NOTE_HASH_TREE,
-                                                                .index = 3,
-                                                                .path = mock_path } }));
 }
 
 TEST_F(MockedHintingDBsTest, GetLeafPreimagePublicDataTree)
@@ -338,12 +300,8 @@ TEST_F(MockedHintingDBsTest, GetLeafPreimagePublicDataTree)
     std::vector<IndexedLeaf<PublicDataLeafValue>> public_leaf_preimages = { { public_leaf_values[0], 1, 6 },
                                                                             { public_leaf_values[1], 2, 4 },
                                                                             { public_leaf_values[2], 0, 3 } };
-    SiblingPath mock_path((PUBLIC_DATA_TREE_HEIGHT));
-    // get_leaf_preimage_public_data_tree will call get_tree_roots and get_sibling_path (which itself will call
-    // get_tree_roots):
-    EXPECT_CALL(base_merkle_db, get_tree_roots).Times(static_cast<int>(public_leaf_preimages.size() * 2));
-    EXPECT_CALL(base_merkle_db, get_sibling_path(world_state::MerkleTreeId::PUBLIC_DATA_TREE, testing::_))
-        .WillRepeatedly([&](world_state::MerkleTreeId, index_t) { return mock_path; });
+    // get_leaf_preimage_public_data_tree will call get_tree_roots:
+    EXPECT_CALL(base_merkle_db, get_tree_roots).Times(static_cast<int>(public_leaf_preimages.size()));
     EXPECT_CALL(base_merkle_db, get_leaf_preimage_public_data_tree(testing::_)).WillRepeatedly([&](index_t index) {
         if (index < public_leaf_preimages.size()) {
             return public_leaf_preimages[index];
@@ -360,7 +318,6 @@ TEST_F(MockedHintingDBsTest, GetLeafPreimagePublicDataTree)
 
     // Check the collected hints:
     EXPECT_EQ(collected_hints.get_leaf_preimage_hints_public_data_tree.size(), public_leaf_preimages.size());
-    EXPECT_EQ(collected_hints.get_sibling_path_hints.size(), public_leaf_preimages.size());
     EXPECT_THAT(
         collected_hints.get_leaf_preimage_hints_public_data_tree,
         testing::ElementsAreArray(
@@ -371,19 +328,6 @@ TEST_F(MockedHintingDBsTest, GetLeafPreimagePublicDataTree)
               GetLeafPreimageHint<PublicDataTreeLeafPreimage>{ .hint_key = mock_tree_info.public_data_tree,
                                                                .index = 2,
                                                                .leaf_preimage = public_leaf_preimages[2] } }));
-    EXPECT_THAT(collected_hints.get_sibling_path_hints,
-                testing::ElementsAreArray({ GetSiblingPathHint{ .hint_key = mock_tree_info.public_data_tree,
-                                                                .tree_id = world_state::MerkleTreeId::PUBLIC_DATA_TREE,
-                                                                .index = 0,
-                                                                .path = mock_path },
-                                            GetSiblingPathHint{ .hint_key = mock_tree_info.public_data_tree,
-                                                                .tree_id = world_state::MerkleTreeId::PUBLIC_DATA_TREE,
-                                                                .index = 1,
-                                                                .path = mock_path },
-                                            GetSiblingPathHint{ .hint_key = mock_tree_info.public_data_tree,
-                                                                .tree_id = world_state::MerkleTreeId::PUBLIC_DATA_TREE,
-                                                                .index = 2,
-                                                                .path = mock_path } }));
 }
 
 TEST_F(MockedHintingDBsTest, GetLeafPreimageNullifierTree)
@@ -393,12 +337,8 @@ TEST_F(MockedHintingDBsTest, GetLeafPreimageNullifierTree)
     std::vector<IndexedLeaf<NullifierLeafValue>> nullifier_leaf_preimages = { { nullifier_leaf_values[0], 1, 6 },
                                                                               { nullifier_leaf_values[1], 2, 4 },
                                                                               { nullifier_leaf_values[2], 0, 3 } };
-    SiblingPath mock_path((NULLIFIER_TREE_HEIGHT));
-    // get_leaf_preimage_nullifier_tree will call get_tree_roots and get_sibling_path (which itself will call
-    // get_tree_roots):
-    EXPECT_CALL(base_merkle_db, get_tree_roots).Times(static_cast<int>(nullifier_leaf_preimages.size() * 2));
-    EXPECT_CALL(base_merkle_db, get_sibling_path(world_state::MerkleTreeId::NULLIFIER_TREE, testing::_))
-        .WillRepeatedly([&](world_state::MerkleTreeId, index_t) { return mock_path; });
+    // get_leaf_preimage_nullifier_tree will call get_tree_roots:
+    EXPECT_CALL(base_merkle_db, get_tree_roots).Times(static_cast<int>(nullifier_leaf_preimages.size()));
     EXPECT_CALL(base_merkle_db, get_leaf_preimage_nullifier_tree(testing::_)).WillRepeatedly([&](index_t index) {
         if (index < nullifier_leaf_preimages.size()) {
             return nullifier_leaf_preimages[index];
@@ -415,7 +355,6 @@ TEST_F(MockedHintingDBsTest, GetLeafPreimageNullifierTree)
 
     // Check the collected hints:
     EXPECT_EQ(collected_hints.get_leaf_preimage_hints_nullifier_tree.size(), nullifier_leaf_preimages.size());
-    EXPECT_EQ(collected_hints.get_sibling_path_hints.size(), nullifier_leaf_preimages.size());
     EXPECT_THAT(
         collected_hints.get_leaf_preimage_hints_nullifier_tree,
         testing::ElementsAreArray(
@@ -426,19 +365,6 @@ TEST_F(MockedHintingDBsTest, GetLeafPreimageNullifierTree)
               GetLeafPreimageHint<NullifierTreeLeafPreimage>{ .hint_key = mock_tree_info.nullifier_tree,
                                                               .index = 2,
                                                               .leaf_preimage = nullifier_leaf_preimages[2] } }));
-    EXPECT_THAT(collected_hints.get_sibling_path_hints,
-                testing::ElementsAreArray({ GetSiblingPathHint{ .hint_key = mock_tree_info.nullifier_tree,
-                                                                .tree_id = world_state::MerkleTreeId::NULLIFIER_TREE,
-                                                                .index = 0,
-                                                                .path = mock_path },
-                                            GetSiblingPathHint{ .hint_key = mock_tree_info.nullifier_tree,
-                                                                .tree_id = world_state::MerkleTreeId::NULLIFIER_TREE,
-                                                                .index = 1,
-                                                                .path = mock_path },
-                                            GetSiblingPathHint{ .hint_key = mock_tree_info.nullifier_tree,
-                                                                .tree_id = world_state::MerkleTreeId::NULLIFIER_TREE,
-                                                                .index = 2,
-                                                                .path = mock_path } }));
 }
 
 TEST_F(MockedHintingDBsTest, InsertIndexedLeavesPublicDataTree)
@@ -525,63 +451,31 @@ TEST_F(MockedHintingDBsTest, InsertIndexedLeavesNullifierTree)
 TEST_F(MockedHintingDBsTest, AppendLeaves)
 {
     // Set initial state:
-    mock_tree_info.note_hash_tree = { 0, 0 };
+    AppendOnlyTreeSnapshot initial_state = { 0, 0 };
+    mock_tree_info.note_hash_tree = initial_state;
     // Mock the leaf values:
     std::vector<FF> note_hash_leaf_values = { 11, 22, 44, 88 };
-    SiblingPath mock_path((NOTE_HASH_TREE_HEIGHT));
-    auto mock_append_internal = [&](world_state::MerkleTreeId, const FF&) -> AppendLeafResult {
-        auto this_path = mock_path;
-        auto this_index = mock_tree_info.note_hash_tree.next_available_leaf_index;
-        auto this_sibling =
-            this_index % 2 == 0 ? note_hash_leaf_values[this_index + 1] : note_hash_leaf_values[this_index - 1];
-        this_path[0] = this_sibling;
-        AppendLeafResult result = { mock_tree_info.note_hash_tree.root, mock_path };
-        mock_tree_info.note_hash_tree.next_available_leaf_index++;
-        mock_tree_info.note_hash_tree.root += 2;
-        return result;
-    };
-    auto int_state = mock_tree_info.note_hash_tree;
-    auto expected_end_state = mock_tree_info;
-    expected_end_state.note_hash_tree = { int_state.root + 2 * note_hash_leaf_values.size(),
-                                          int_state.next_available_leaf_index + note_hash_leaf_values.size() };
+    AppendOnlyTreeSnapshot expected_end_state = { 8, 4 };
+    TreeSnapshots expected_tree_info_after = mock_tree_info;
+    expected_tree_info_after.note_hash_tree = expected_end_state;
     // append_leaves will call get_tree_info at the beginning and end of appending leaves:
     EXPECT_CALL(base_merkle_db, get_tree_roots)
         .WillOnce(testing::Return(mock_tree_info))
-        .WillOnce(testing::Return(expected_end_state));
-    EXPECT_CALL(base_merkle_db, append_leaves(world_state::MerkleTreeId::NOTE_HASH_TREE, testing::_))
-        .WillOnce([&](world_state::MerkleTreeId, std::span<const FF> leaves) {
-            std::vector<AppendLeafResult> results;
-            for (const auto& leaf : leaves) {
-                results.push_back(mock_append_internal(world_state::MerkleTreeId::NOTE_HASH_TREE, leaf));
-            }
-            return results;
-        });
+        .WillOnce(testing::Return(expected_tree_info_after));
+    EXPECT_CALL(base_merkle_db, append_leaves(world_state::MerkleTreeId::NOTE_HASH_TREE, testing::_)).Times(1);
 
     // Call the db:
     hinting_merkle_db.append_leaves(world_state::MerkleTreeId::NOTE_HASH_TREE, note_hash_leaf_values);
     ExecutionHints collected_hints;
     hinting_merkle_db.dump_hints(collected_hints);
 
-    std::vector<AppendLeavesHint> expected_append_hints;
-    std::vector<GetSiblingPathHint> expected_sibling_hints;
-    for (const auto& leaf : note_hash_leaf_values) {
-        AppendOnlyTreeSnapshot state_after = { int_state.root + 2, int_state.next_available_leaf_index + 1 };
-        expected_append_hints.push_back(AppendLeavesHint{ .hint_key = int_state,
-                                                          .state_after = state_after,
-                                                          .tree_id = world_state::MerkleTreeId::NOTE_HASH_TREE,
-                                                          .leaves = { leaf } });
-        expected_sibling_hints.push_back(GetSiblingPathHint{ .hint_key = state_after,
-                                                             .tree_id = world_state::MerkleTreeId::NOTE_HASH_TREE,
-                                                             .index = int_state.next_available_leaf_index,
-                                                             .path = mock_path });
-        int_state = state_after;
-    }
-
-    // Check the collected hints:
-    EXPECT_EQ(collected_hints.append_leaves_hints.size(), note_hash_leaf_values.size());
-    EXPECT_EQ(collected_hints.get_sibling_path_hints.size(), note_hash_leaf_values.size());
-    EXPECT_THAT(collected_hints.append_leaves_hints, testing::ElementsAreArray(expected_append_hints));
-    EXPECT_THAT(collected_hints.get_sibling_path_hints, testing::ElementsAreArray(expected_sibling_hints));
+    // Check the collected hints - one hint for all leaves:
+    EXPECT_EQ(collected_hints.append_leaves_hints.size(), 1);
+    EXPECT_THAT(collected_hints.append_leaves_hints,
+                testing::ElementsAre(AppendLeavesHint{ .hint_key = initial_state,
+                                                       .state_after = expected_end_state,
+                                                       .tree_id = world_state::MerkleTreeId::NOTE_HASH_TREE,
+                                                       .leaves = note_hash_leaf_values }));
 }
 
 TEST_F(MockedHintingDBsTest, MerkleDBCheckpoints)

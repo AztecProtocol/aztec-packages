@@ -13,10 +13,16 @@ describe('LogId', () => {
     expect(parsedLogId).toEqual(logId);
   });
 
-  it('toBuffer and fromBuffer works', () => {
-    const buffer = logId.toBuffer();
-    const parsedLogId = LogId.fromBuffer(buffer);
+  it('toString and fromString works', () => {
+    const str = logId.toString();
+    const parsedLogId = LogId.fromString(str);
 
     expect(parsedLogId).toEqual(logId);
+  });
+
+  it('human readable string includes block hash', () => {
+    const human = logId.toHumanReadable();
+
+    expect(human).toContain(logId.blockHash.toString());
   });
 });

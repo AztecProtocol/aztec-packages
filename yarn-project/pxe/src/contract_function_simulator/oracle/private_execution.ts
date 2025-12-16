@@ -188,10 +188,8 @@ export async function readCurrentClassId(
 export async function verifyCurrentClassId(
   contractAddress: AztecAddress,
   executionDataProvider: ExecutionDataProvider,
-  header?: BlockHeader,
+  header: BlockHeader,
 ) {
-  header = header ?? (await executionDataProvider.getAnchorBlockHeader());
-
   const instance = await executionDataProvider.getContractInstance(contractAddress);
   const currentClassId = await readCurrentClassId(
     contractAddress,

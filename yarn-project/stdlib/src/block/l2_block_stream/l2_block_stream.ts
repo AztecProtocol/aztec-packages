@@ -26,6 +26,10 @@ export class L2BlockStream {
       skipFinalized?: boolean;
     } = {},
   ) {
+    // Note that RunningPromise is in stopped state by default. This promise won't run until someone invokes `start`,
+    // which makes it run periodically, or `sync`, which triggers it once.
+    // Users of L2BlockStream decide what mode to run it in (_periodically_ vs _manually triggered_).
+    // The default is _manually triggered_.
     this.runningPromise = new RunningPromise(() => this.work(), log, this.opts.pollIntervalMS ?? 1000);
   }
 
@@ -42,6 +46,11 @@ export class L2BlockStream {
     return this.runningPromise.isRunning();
   }
 
+  /**
+   * Runs the synchronization process once.
+   *
+   * If you want to run this process continuously use `start` and `stop` instead.
+   */
   public async sync() {
     this.isSyncing = true;
     await this.runningPromise.trigger();
