@@ -10,6 +10,7 @@ import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
   L2Block,
   L2BlockHash,
+  L2BlockNew,
   type L2BlockSource,
   type L2Tips,
   PublishedL2Block,
@@ -140,6 +141,15 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
     );
   }
 
+  async getL2BlockNew(number: BlockNumber): Promise<L2BlockNew | undefined> {
+    const block = await this.getBlock(number);
+    return block.toL2Block();
+  }
+  async getL2BlocksNew(from: BlockNumber, limit: number, proven?: boolean): Promise<L2BlockNew[]> {
+    const blocks = await this.getBlocks(from, limit, proven);
+    return blocks.map(x => x.toL2Block());
+  }
+
   public async getPublishedBlockByHash(blockHash: Fr): Promise<PublishedL2Block | undefined> {
     for (const block of this.l2Blocks) {
       const hash = await block.hash();
@@ -263,17 +273,19 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
     const finalizedBlock = this.l2Blocks[finalized - 1];
 
     return {
-      latest: {
-        number: BlockNumber(latest),
-        hash: (await latestBlock?.hash())?.toString(),
-      },
-      proven: {
-        number: BlockNumber(proven),
-        hash: (await provenBlock?.hash())?.toString(),
-      },
-      finalized: {
-        number: BlockNumber(finalized),
-        hash: (await finalizedBlock?.hash())?.toString(),
+      blocks: {
+        latest: {
+          number: BlockNumber(latest),
+          hash: (await latestBlock?.hash())?.toString(),
+        },
+        proven: {
+          number: BlockNumber(proven),
+          hash: (await provenBlock?.hash())?.toString(),
+        },
+        finalized: {
+          number: BlockNumber(finalized),
+          hash: (await finalizedBlock?.hash())?.toString(),
+        },
       },
     };
   }

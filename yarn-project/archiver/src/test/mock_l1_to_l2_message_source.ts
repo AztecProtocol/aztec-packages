@@ -35,9 +35,11 @@ export class MockL1ToL2MessageSource implements L1ToL2MessageSource {
     const number = this.blockNumber;
     const tip = { number: BlockNumber(number), hash: new Fr(number).toString() };
     return Promise.resolve({
-      latest: tip,
-      proven: tip,
-      finalized: tip,
+      blocks: {
+        latest: tip,
+        proven: tip,
+        finalized: tip,
+      },
     });
   }
 }

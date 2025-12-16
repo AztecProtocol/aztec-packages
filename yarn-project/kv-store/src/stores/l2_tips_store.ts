@@ -16,6 +16,7 @@ import type { AztecAsyncKVStore } from '../interfaces/store.js';
 export class L2TipsKVStore implements L2BlockStreamEventHandler, L2BlockStreamLocalDataProvider {
   private readonly l2TipsStore: AztecAsyncMap<L2BlockTag, BlockNumber>;
   private readonly l2BlockHashesStore: AztecAsyncMap<BlockNumber, string>;
+  // TODO(pw/mbps): Store and serve checkpoint
 
   constructor(store: AztecAsyncKVStore, namespace: string) {
     this.l2TipsStore = store.openMap([namespace, 'l2_tips'].join('_'));
@@ -28,9 +29,11 @@ export class L2TipsKVStore implements L2BlockStreamEventHandler, L2BlockStreamLo
 
   public async getL2Tips(): Promise<L2Tips> {
     return {
-      latest: await this.getL2Tip('latest'),
-      finalized: await this.getL2Tip('finalized'),
-      proven: await this.getL2Tip('proven'),
+      blocks: {
+        latest: await this.getL2Tip('latest'),
+        finalized: await this.getL2Tip('finalized'),
+        proven: await this.getL2Tip('proven'),
+      },
     };
   }
 
@@ -50,7 +53,7 @@ export class L2TipsKVStore implements L2BlockStreamEventHandler, L2BlockStreamLo
   public async handleBlockStreamEvent(event: L2BlockStreamEvent): Promise<void> {
     switch (event.type) {
       case 'blocks-added': {
-        const blocks = event.blocks.map(b => b.block);
+        const blocks = event.blocks;
         for (const block of blocks) {
           await this.l2BlockHashesStore.set(block.number, (await block.hash()).toString());
         }

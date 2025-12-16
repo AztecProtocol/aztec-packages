@@ -9,6 +9,7 @@ import { OffenseType, WANT_TO_SLASH_EVENT, type WantToSlashArgs } from '@aztec/s
 import type { SlasherConfig } from '@aztec/slasher/config';
 import {
   CommitteeAttestation,
+  L2BlockNew,
   type L2BlockSource,
   type L2BlockStream,
   type L2BlockStreamEvent,
@@ -89,7 +90,7 @@ describe('sentinel', () => {
   describe('getSlotActivity', () => {
     let signers: Secp256k1Signer[];
     let validators: EthAddress[];
-    let block: PublishedL2Block;
+    let block: L2BlockNew;
     let attestations: BlockAttestation[];
     let proposer: EthAddress;
     let committee: EthAddress[];
@@ -97,8 +98,8 @@ describe('sentinel', () => {
     beforeEach(async () => {
       signers = times(4, Secp256k1Signer.random);
       validators = signers.map(signer => signer.address);
-      block = await randomPublishedL2Block(Number(slot));
-      attestations = signers.map(signer => makeBlockAttestation({ signer, archive: block.block.archive.root }));
+      block = await L2BlockNew.random(BlockNumber(1), { slotNumber: SlotNumber(0) });
+      attestations = signers.map(signer => makeBlockAttestation({ signer, archive: block.archive.root }));
       proposer = validators[0];
       committee = [...validators];
 

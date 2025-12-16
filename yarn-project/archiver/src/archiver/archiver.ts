@@ -33,6 +33,7 @@ import type { FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
   type ArchiverEmitter,
+  type CheckpointId,
   CheckpointedL2Block,
   CommitteeAttestation,
   L2Block,
@@ -583,13 +584,13 @@ export class Archiver
       const newBlocks = blockPromises.filter(isDefined).flat();
 
       // TODO(pw/mbps): Don't convert to legacy blocks here
-      const blocks: L2Block[] = (await Promise.all(newBlocks.map(x => this.getBlock(x.number)))).filter(isDefined);
+      //const blocks: L2Block[] = (await Promise.all(newBlocks.map(x => this.getBlock(x.number)))).filter(isDefined);
 
       // Emit an event for listening services to react to the chain prune
       this.emit(L2BlockSourceEvents.L2PruneDetected, {
         type: L2BlockSourceEvents.L2PruneDetected,
         epochNumber: pruneFromEpochNumber,
-        blocks,
+        blocks: newBlocks,
       });
 
       this.log.debug(
@@ -1373,6 +1374,16 @@ export class Archiver
     return publishedBlock;
   }
 
+  public async getL2BlocksNew(from: BlockNumber, limit: number, proven?: boolean): Promise<L2BlockNew[]> {
+    const blocks = await this.store.store.getBlocks(from, limit);
+
+    if (proven === true) {
+      const provenBlockNumber = await this.store.getProvenBlockNumber();
+      return blocks.filter(b => b.number <= provenBlockNumber);
+    }
+    return blocks;
+  }
+
   public async getBlockHeader(number: BlockNumber | 'latest'): Promise<BlockHeader | undefined> {
     if (number === 'latest') {
       number = await this.store.getSynchedL2BlockNumber();
@@ -1543,18 +1554,30 @@ export class Archiver
     const provenBlockHeaderHash = (await provenBlockHeader?.hash()) ?? GENESIS_BLOCK_HEADER_HASH;
     const finalizedBlockHeaderHash = (await finalizedBlockHeader?.hash()) ?? GENESIS_BLOCK_HEADER_HASH;
 
+    const latestCheckpoint = await this.store.getCheckpointData(await this.store.getSynchedCheckpointNumber());
+    const checkpointId: CheckpointId | undefined =
+      latestCheckpoint === undefined
+        ? undefined
+        : {
+            number: latestCheckpoint.checkpointNumber,
+            blockHeadersHash: latestCheckpoint.header.blockHeadersHash.toString(),
+          };
+
     return {
-      latest: { number: latestBlockNumber, hash: latestBlockHeaderHash.toString() },
-      proven: { number: provenBlockNumber, hash: provenBlockHeaderHash.toString() },
-      finalized: { number: finalizedBlockNumber, hash: finalizedBlockHeaderHash.toString() },
+      blocks: {
+        latest: { number: latestBlockNumber, hash: latestBlockHeaderHash.toString() },
+        proven: { number: provenBlockNumber, hash: provenBlockHeaderHash.toString() },
+        finalized: { number: finalizedBlockNumber, hash: finalizedBlockHeaderHash.toString() },
+      },
+      checkpoint: checkpointId,
     };
   }
 
   public async rollbackTo(targetL2BlockNumber: BlockNumber): Promise<void> {
     // TODO(pw/mbps): This still assumes 1 block per checkpoint
     const currentBlocks = await this.getL2Tips();
-    const currentL2Block = currentBlocks.latest.number;
-    const currentProvenBlock = currentBlocks.proven.number;
+    const currentL2Block = currentBlocks.blocks.latest.number;
+    const currentProvenBlock = currentBlocks.blocks.proven.number;
 
     if (targetL2BlockNumber >= currentL2Block) {
       throw new Error(`Target L2 block ${targetL2BlockNumber} must be less than current L2 block ${currentL2Block}`);

@@ -335,7 +335,7 @@ export class EpochsTestContext {
       ]);
       this.logger.info(`Wait for node synch ${blockNumber} ${type}`, { blockNumber, type, syncState, tips });
       if (type === 'proven') {
-        synched = tips.proven.number >= blockNumber && syncState.latestBlockNumber >= blockNumber;
+        synched = tips.blocks.proven.number >= blockNumber && syncState.latestBlockNumber >= blockNumber;
       } else if (type === 'finalized') {
         synched = syncState.finalizedBlockNumber >= blockNumber;
       } else {

@@ -58,6 +58,7 @@ import {
   type DataInBlock,
   type L2Block,
   L2BlockHash,
+  L2BlockNew,
   type L2BlockSource,
   type PublishedL2Block,
 } from '@aztec/stdlib/block';
@@ -618,6 +619,10 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
 
   public async getPublishedBlocks(from: BlockNumber, limit: number): Promise<PublishedL2Block[]> {
     return (await this.blockSource.getPublishedBlocks(from, limit)) ?? [];
+  }
+
+  public async getL2BlocksNew(from: BlockNumber, limit: number): Promise<L2BlockNew[]> {
+    return (await this.blockSource.getL2BlocksNew(from, limit)) ?? [];
   }
 
   /**
@@ -1303,7 +1308,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     }
 
     // And it has an L2 block hash
-    const l2BlockHash = await archiver.getL2Tips().then(tips => tips.latest.hash);
+    const l2BlockHash = await archiver.getL2Tips().then(tips => tips.blocks.latest.hash);
     if (!l2BlockHash) {
       this.metrics.recordSnapshotError();
       throw new Error(`Archiver has no latest L2 block hash downloaded. Cannot start snapshot.`);
@@ -1337,7 +1342,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       throw new Error('Archiver implementation does not support rollbacks.');
     }
 
-    const finalizedBlock = await archiver.getL2Tips().then(tips => tips.finalized.number);
+    const finalizedBlock = await archiver.getL2Tips().then(tips => tips.blocks.finalized.number);
     if (targetBlock < finalizedBlock) {
       if (force) {
         this.log.warn(`Clearing world state database to allow rolling back behind finalized block ${finalizedBlock}`);

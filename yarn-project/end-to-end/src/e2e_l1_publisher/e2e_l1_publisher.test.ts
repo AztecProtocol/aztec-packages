@@ -222,7 +222,7 @@ describe('L1Publisher integration', () => {
           ? { number: latestBlock.number, hash: latestBlock.hash.toString() }
           : { number: BlockNumber.ZERO, hash: GENESIS_BLOCK_HEADER_HASH.toString() };
 
-        return Promise.resolve({ latest: res, proven: res, finalized: res });
+        return Promise.resolve({ blocks: { latest: res, proven: res, finalized: res } });
       },
       getBlockNumber(): Promise<BlockNumber> {
         return Promise.resolve(BlockNumber(blocks.at(-1)?.number ?? BlockNumber.ZERO));
