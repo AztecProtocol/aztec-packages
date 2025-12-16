@@ -163,18 +163,6 @@ variable "VALIDATORS_PER_NODE" {
   default     = 12
 }
 
-variable "VALIDATOR_PUBLISHERS_PER_VALIDATOR_KEY" {
-  description = "Number of publisher EOAs per validator key"
-  type        = string
-  default     = 1
-}
-
-variable "VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX" {
-  description = "Mnemonic start index for validator publishers"
-  type        = string
-  default     = 5000
-}
-
 variable "VALIDATOR_REPLICAS" {
   description = "The number of validator replicas"
   type        = string
@@ -320,18 +308,7 @@ variable "SNAPSHOT_CRON" {
   default     = "0 */12 * * *"
 }
 
-variable "BOT_MNEMONIC" {
-  description = "The bot mnemonic"
-  type        = string
-  default     = "test test test test test test test test test test test junk"
-}
-
-variable "BOT_TRANSFERS_MNEMONIC_START_INDEX" {
-  description = "The prover mnemonic start index"
-  type        = string
-  default     = ""
-}
-
+# Bot configuration
 variable "BOT_TRANSFERS_REPLICAS" {
   description = "Number of transfer bot replicas to deploy (0 to disable)"
   type        = number
@@ -347,19 +324,7 @@ variable "BOT_TRANSFERS_TX_INTERVAL_SECONDS" {
 variable "BOT_TRANSFERS_FOLLOW_CHAIN" {
   description = "Transfers bot follow-chain mode (e.g., NONE)"
   type        = string
-  default     = "PENDING"
-}
-
-variable "BOT_TRANSFERS_L2_PRIVATE_KEY" {
-  description = "Private key for the transfers bot (hex string starting with 0x)"
-  nullable    = true
-  default     = null
-}
-
-variable "BOT_SWAPS_MNEMONIC_START_INDEX" {
-  description = "The prover mnemonic start index"
-  type        = string
-  default     = ""
+  default     = "NONE"
 }
 
 variable "BOT_SWAPS_REPLICAS" {
@@ -380,11 +345,18 @@ variable "BOT_SWAPS_FOLLOW_CHAIN" {
   default     = "PENDING"
 }
 
-variable "BOT_SWAPS_L2_PRIVATE_KEY" {
+variable "BOT_TRANSFERS_PRIVATE_KEY" {
+  description = "Private key for the transfers bot (hex string starting with 0x)"
+  type        = string
+  default     = null
+  nullable    = true
+}
+
+variable "BOT_SWAPS_PRIVATE_KEY" {
   description = "Private key for the AMM swaps bot (hex string starting with 0x)"
   type        = string
-  nullable    = true
   default     = null
+  nullable    = true
 }
 
 # RPC ingress configuration (GKE-specific)
@@ -409,12 +381,5 @@ variable "RPC_INGRESS_STATIC_IP_NAME" {
 variable "RPC_INGRESS_SSL_CERT_NAME" {
   description = "Name of the GCP managed SSL certificate for the ingress"
   type        = string
-  default     = ""
-}
-
-variable "PROVER_FAILED_PROOF_STORE" {
-  description = "Optional GCS/URI to store failed proofs from the prover"
-  type        = string
-  nullable    = false
   default     = ""
 }

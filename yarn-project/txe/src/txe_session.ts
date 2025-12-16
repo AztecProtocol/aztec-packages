@@ -252,7 +252,7 @@ export class TXESession implements TXESessionStateHandler {
       contractAddress ?? DEFAULT_ADDRESS,
     );
 
-    this.oracleHandler = await TXE.create(
+    this.oracleHandler = new TXE(
       contractAddress ?? DEFAULT_ADDRESS,
       this.pxeOracleInterface,
       await this.stateMachine.synchronizer.nativeWorldStateService.fork(),
@@ -274,7 +274,7 @@ export class TXESession implements TXESessionStateHandler {
     // all the way to the tip of the chain.
     const latestBlock = await this.stateMachine.node.getBlockHeader('latest');
 
-    this.oracleHandler = await TXE.create(
+    this.oracleHandler = new TXE(
       contractAddress ?? DEFAULT_ADDRESS,
       this.pxeOracleInterface,
       await this.stateMachine.synchronizer.nativeWorldStateService.fork(),

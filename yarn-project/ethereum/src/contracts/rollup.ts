@@ -713,10 +713,6 @@ export class RollupContract {
     return this.rollup.read.getStakingAsset();
   }
 
-  getRewardConfig() {
-    return this.rollup.read.getRewardConfig();
-  }
-
   setupEpoch(l1TxUtils: L1TxUtils) {
     return l1TxUtils.sendAndMonitorTransaction({
       to: this.address,

@@ -119,9 +119,10 @@ bool table::lookup_table_exists_for_point(const affine_element& input)
  * MultiTables
  *
  * @param input
- * @return std::array<MultiTableId, 2>
+ * @return std::optional<std::array<MultiTableId, 2>>
  */
-std::array<MultiTableId, 2> table::get_lookup_table_ids_for_point(const grumpkin::g1::affine_element& input)
+std::optional<std::array<MultiTableId, 2>> table::get_lookup_table_ids_for_point(
+    const grumpkin::g1::affine_element& input)
 {
     if (input == lhs_generator_point()) {
         return { { FIXED_BASE_LEFT_LO, FIXED_BASE_LEFT_HI } };
@@ -129,7 +130,6 @@ std::array<MultiTableId, 2> table::get_lookup_table_ids_for_point(const grumpkin
     if (input == rhs_generator_point()) {
         return { { FIXED_BASE_RIGHT_LO, FIXED_BASE_RIGHT_HI } };
     }
-    ASSERT(false && "No fixed-base table for input point");
     return {};
 }
 
@@ -139,9 +139,9 @@ std::array<MultiTableId, 2> table::get_lookup_table_ids_for_point(const grumpkin
  * Return value is std::optional in case the table_id is not a fixed-base table.
  *
  * @param table_id
- * @return affine_element
+ * @return std::optional<affine_element>
  */
-grumpkin::g1::affine_element table::get_generator_offset_for_table_id(const MultiTableId table_id)
+std::optional<grumpkin::g1::affine_element> table::get_generator_offset_for_table_id(const MultiTableId table_id)
 {
     if (table_id == FIXED_BASE_LEFT_LO) {
         return fixed_base_table_offset_generators()[0];
@@ -155,8 +155,7 @@ grumpkin::g1::affine_element table::get_generator_offset_for_table_id(const Mult
     if (table_id == FIXED_BASE_RIGHT_HI) {
         return fixed_base_table_offset_generators()[3];
     }
-    ASSERT(false && "Invalid fixed-base table ID");
-    return {};
+    return std::nullopt;
 }
 
 using function_ptr = std::array<bb::fr, 2> (*)(const std::array<uint64_t, 2>);

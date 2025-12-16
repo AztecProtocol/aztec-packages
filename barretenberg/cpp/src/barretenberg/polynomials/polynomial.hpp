@@ -8,7 +8,6 @@
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/mem.hpp"
-#include "barretenberg/common/thread.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/common/zip_view.hpp"
 #include "barretenberg/constants.hpp"
@@ -252,8 +251,6 @@ template <typename Fr> class Polynomial {
      */
     void add_scaled(PolynomialSpan<const Fr> other, Fr scaling_factor) &;
 
-    void add_scaled_chunk(const ThreadChunk& chunk, PolynomialSpan<const Fr> other, Fr scaling_factor) &;
-
     /**
      * @brief adds the polynomial q(X) 'other'.
      *
@@ -274,8 +271,6 @@ template <typename Fr> class Polynomial {
      * @param scaling_factor s
      */
     Polynomial& operator*=(Fr scaling_factor);
-
-    void multiply_chunk(const ThreadChunk& chunk, Fr scaling_factor);
 
     /**
      * @brief Add random values to the coefficients of a polynomial. In practice, this is used for ensuring the

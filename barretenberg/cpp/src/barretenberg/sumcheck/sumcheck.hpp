@@ -9,7 +9,7 @@
 #include "barretenberg/polynomials/polynomial_arithmetic.hpp"
 #include "barretenberg/sumcheck/sumcheck_output.hpp"
 #include "barretenberg/transcript/transcript.hpp"
-#include "barretenberg/ultra_honk/prover_instance.hpp"
+#include "barretenberg/ultra_honk/decider_proving_key.hpp"
 #include "sumcheck_round.hpp"
 
 namespace bb {
@@ -519,7 +519,7 @@ template <typename Flavor> class SumcheckProver {
             // virtually zeroize any leftover values beyond the limit (in-place computation).
             // This is important to zeroize leftover values to not mess up with compute_univariate().
             // Note that the virtual size of pep_view[j] remains unchanged.
-            pep_view[j].shrink_end_index((limit / 2) + (limit % 2));
+            pep_view[j].shrink_end_index(limit / 2 + limit % 2);
         });
     };
     /**
@@ -544,7 +544,7 @@ template <typename Flavor> class SumcheckProver {
             // virtually zeroize any leftover values beyond the limit (in-place computation).
             // This is important to zeroize leftover values to not mess up with compute_univariate().
             // Note that the virtual size of pep_view[j] remains unchanged.
-            pep_view[j].shrink_end_index((limit / 2) + (limit % 2));
+            pep_view[j].shrink_end_index(limit / 2 + limit % 2);
         });
     };
 

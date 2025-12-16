@@ -136,14 +136,13 @@ export class FeesTest {
 
   async getBlockRewards() {
     const blockReward = await this.rollupContract.getBlockReward();
-    const rewardConfig = await this.rollupContract.getRewardConfig();
 
     const balance = await this.feeJuiceBridgeTestHarness.getL1FeeJuiceBalance(
-      EthAddress.fromString(rewardConfig.rewardDistributor),
+      this.context.deployL1ContractsValues.l1ContractAddresses.rewardDistributorAddress,
     );
 
     const toDistribute = balance > blockReward ? blockReward : balance;
-    const sequencerBlockRewards = (toDistribute * BigInt(rewardConfig.sequencerBps)) / 10000n;
+    const sequencerBlockRewards = toDistribute / 2n;
     const proverBlockRewards = toDistribute - sequencerBlockRewards;
 
     return { sequencerBlockRewards, proverBlockRewards };

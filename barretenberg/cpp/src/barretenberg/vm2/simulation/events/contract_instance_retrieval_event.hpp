@@ -21,7 +21,6 @@ struct ContractInstanceRetrievalEvent {
     bool exists;
 
     bool error = false;
-    bool is_protocol_contract = false;
 
     bool operator==(const ContractInstanceRetrievalEvent& other) const = default;
 };

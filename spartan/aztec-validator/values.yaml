@@ -14,8 +14,6 @@ validator:
   mnemonic: "test test test test test test test test test test test junk"
   mnemonicStartIndex: 2000
   validatorsPerNode: 1
-  publishersPerValidatorKey: 2
-  publisherMnemonicStartIndex: 7000
 
   persistence:
     enabled: false
@@ -31,7 +29,7 @@ validator:
       envEnabled: true
 
     preStartScript: |
-      source /scripts/setup-attester-keystore.sh
+      source /scripts/get-private-key.sh
 
     env:
       OTEL_SERVICE_NAME: "validator"
@@ -42,8 +40,6 @@ validator:
       - --sequencer
 
     hostNetwork: true
-
-  web3signerUrl: ""
 
   service:
     p2p:

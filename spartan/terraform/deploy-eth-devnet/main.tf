@@ -38,7 +38,6 @@ resource "null_resource" "generate_genesis" {
     block_time = var.BLOCK_TIME
     gas_limit  = var.GAS_LIMIT
     mnemonic   = var.MNEMONIC
-    prefunded  = var.PREFUNDED_MNEMONIC_INDICES
   }
 
   provisioner "local-exec" {

@@ -9,16 +9,16 @@
 #include "barretenberg/flavor/mega_flavor.hpp"
 #include "barretenberg/protogalaxy/folding_result.hpp"
 #include "barretenberg/transcript/transcript.hpp"
-#include "barretenberg/ultra_honk/instances.hpp"
+#include "barretenberg/ultra_honk/decider_keys.hpp"
 
 namespace bb {
-template <class VerifierInstances> class ProtogalaxyVerifier_ {
+template <class DeciderVerificationKeys> class ProtogalaxyVerifier_ {
   public:
-    using Flavor = typename VerifierInstances::Flavor;
+    using Flavor = typename DeciderVerificationKeys::Flavor;
     using Transcript = typename Flavor::Transcript;
     using FF = typename Flavor::FF;
     using Commitment = typename Flavor::Commitment;
-    using VerifierInstance = typename VerifierInstances::VerifierInstance;
+    using DeciderVK = typename DeciderVerificationKeys::DeciderVK;
     using VerificationKey = typename Flavor::VerificationKey;
     using WitnessCommitments = typename Flavor::WitnessCommitments;
     using CommitmentLabels = typename Flavor::CommitmentLabels;
@@ -26,28 +26,28 @@ template <class VerifierInstances> class ProtogalaxyVerifier_ {
 
     static constexpr size_t NUM_SUBRELATIONS = Flavor::NUM_SUBRELATIONS;
 
-    VerifierInstances insts_to_fold;
+    DeciderVerificationKeys keys_to_fold;
 
     std::shared_ptr<Transcript> transcript = std::make_shared<Transcript>();
 
-    ProtogalaxyVerifier_(const std::vector<std::shared_ptr<VerifierInstance>>& insts,
+    ProtogalaxyVerifier_(const std::vector<std::shared_ptr<DeciderVK>>& keys,
                          const std::shared_ptr<Transcript>& transcript)
-        : insts_to_fold(VerifierInstances(insts))
+        : keys_to_fold(DeciderVerificationKeys(keys))
         , transcript(transcript) {};
     ~ProtogalaxyVerifier_() = default;
 
     /**
-     * @brief Instatiate the verifier instances and the transcript.
+     * @brief Instatiate the vks and the transcript.
      *
      * @param fold_data The data transmitted via the transcript by the prover.
      */
-    void run_oink_verifier_on_each_incomplete_instance(const std::vector<FF>&);
+    void run_oink_verifier_on_each_incomplete_key(const std::vector<FF>&);
 
     /**
      * @brief Run the folding protocol on the verifier side to establish whether the public data ϕ of the new
-     * accumulator, received from the prover, is the same as that produced by the verifier.
+     * accumulator, received from the prover is the same as that produced by the verifier.
      */
-    std::shared_ptr<VerifierInstance> verify_folding_proof(const std::vector<FF>&);
+    std::shared_ptr<DeciderVK> verify_folding_proof(const std::vector<FF>&);
 };
 
 } // namespace bb

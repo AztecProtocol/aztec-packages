@@ -16,12 +16,12 @@ class CivcRecursionConstraintTest : public ::testing::Test {
 
     // Types for ClientIVC recursive verifier
     using Flavor = UltraRollupFlavor;
-    using ProverInstance = ProverInstance_<Flavor>;
+    using DeciderProvingKey = DeciderProvingKey_<Flavor>;
     using VerificationKey = Flavor::VerificationKey;
     using ClientIVCRecursiveVerifier = stdlib::recursion::honk::ClientIVCRecursiveVerifier;
 
     // Types for ClientIVC
-    using DeciderZKProvingKey = ProverInstance_<MegaZKFlavor>;
+    using DeciderZKProvingKey = DeciderProvingKey_<MegaZKFlavor>;
     using MegaZKVerificationKey = MegaZKFlavor::VerificationKey;
 
     // Public inputs added by bb to a ClientIVC proof
@@ -83,7 +83,7 @@ class CivcRecursionConstraintTest : public ::testing::Test {
         return program;
     }
 
-    static std::shared_ptr<ProverInstance> get_civc_recursive_verifier_pk(AcirProgram& program)
+    static std::shared_ptr<DeciderProvingKey> get_civc_recursive_verifier_pk(AcirProgram& program)
     {
         // Build constraints
         Builder builder = create_circuit(program, { .honk_recursion = 2 });
@@ -91,9 +91,9 @@ class CivcRecursionConstraintTest : public ::testing::Test {
         info("Estimate finalized number of gates: ", builder.get_estimated_num_finalized_gates());
 
         // Construct vk
-        auto prover_instance = std::make_shared<ProverInstance>(builder);
+        auto proving_key = std::make_shared<DeciderProvingKey>(builder);
 
-        return prover_instance;
+        return proving_key;
     }
 
   protected:
@@ -110,11 +110,11 @@ TEST_F(CivcRecursionConstraintTest, GenerateRecursiveCivcVerifierVKFromConstrain
     std::shared_ptr<VerificationKey> vk_from_valid_witness;
     {
         AcirProgram program = create_acir_program(civc_data);
-        auto prover_instance = get_civc_recursive_verifier_pk(program);
-        vk_from_valid_witness = std::make_shared<VerificationKey>(prover_instance->get_precomputed());
+        auto proving_key = get_civc_recursive_verifier_pk(program);
+        vk_from_valid_witness = std::make_shared<VerificationKey>(proving_key->get_precomputed());
 
         // Prove and verify
-        UltraProver_<UltraRollupFlavor> prover(prover_instance, vk_from_valid_witness);
+        UltraProver_<UltraRollupFlavor> prover(proving_key, vk_from_valid_witness);
         HonkProof proof = prover.prove();
 
         VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key(1 << CONST_ECCVM_LOG_N);
@@ -133,8 +133,8 @@ TEST_F(CivcRecursionConstraintTest, GenerateRecursiveCivcVerifierVKFromConstrain
     {
         AcirProgram program = create_acir_program(civc_data);
         program.witness.clear();
-        auto prover_instance = get_civc_recursive_verifier_pk(program);
-        vk_from_constraints = std::make_shared<VerificationKey>(prover_instance->get_precomputed());
+        auto proving_key = get_civc_recursive_verifier_pk(program);
+        vk_from_constraints = std::make_shared<VerificationKey>(proving_key->get_precomputed());
     }
 
     EXPECT_EQ(*vk_from_valid_witness, *vk_from_constraints);

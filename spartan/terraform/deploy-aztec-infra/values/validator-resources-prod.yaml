@@ -3,7 +3,6 @@ validator:
   nodeSelector:
     local-ssd: "false"
     node-type: "network"
-    cores: "2"
   affinity:
     podAntiAffinity:
       requiredDuringSchedulingIgnoredDuringExecution:
@@ -18,8 +17,8 @@ validator:
   node:
     resources:
       requests:
-        cpu: "1.6"
-        memory: "5Gi"
+        cpu: "3"
+        memory: "12Gi"
   statefulSet:
     volumeClaimTemplates:
       - metadata:

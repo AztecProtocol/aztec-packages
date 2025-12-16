@@ -714,7 +714,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
 
     if (nullifierIndex !== undefined) {
       const { data: _, ...blockHashAndNum } = nullifierIndex;
-      await this.noteDataProvider.removeNullifiedNotes([{ data: siloedNullifier, ...blockHashAndNum }]);
+      await this.noteDataProvider.removeNullifiedNotes([{ data: siloedNullifier, ...blockHashAndNum }], recipient);
 
       this.log.verbose(`Removed just-added note`, {
         contract: contractAddress,
@@ -895,48 +895,51 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     // available, even for non-archive nodes.
     const syncedBlockNumber = await this.syncDataProvider.getBlockNumber();
 
-    const contractNotes = await this.noteDataProvider.getNotes({ contractAddress });
+    for (const recipient of await this.keyStore.getAccounts()) {
+      const currentNotesForRecipient = await this.noteDataProvider.getNotes({ contractAddress, recipient });
 
-    if (contractNotes.length === 0) {
-      return;
-    }
+      if (currentNotesForRecipient.length === 0) {
+        // Save a call to the node if there are no notes for the recipient
+        continue;
+      }
 
-    const nullifiersToCheck = contractNotes.map(note => note.siloedNullifier);
-    const nullifierBatches = nullifiersToCheck.reduce(
-      (acc, nullifier) => {
-        if (acc[acc.length - 1].length < MAX_RPC_LEN) {
-          acc[acc.length - 1].push(nullifier);
-        } else {
-          acc.push([nullifier]);
-        }
-        return acc;
-      },
-      [[]] as Fr[][],
-    );
-    const nullifierIndexes = (
-      await Promise.all(
-        nullifierBatches.map(batch =>
-          this.aztecNode.findLeavesIndexes(syncedBlockNumber, MerkleTreeId.NULLIFIER_TREE, batch),
-        ),
-      )
-    ).flat();
+      const nullifiersToCheck = currentNotesForRecipient.map(note => note.siloedNullifier);
+      const nullifierBatches = nullifiersToCheck.reduce(
+        (acc, nullifier) => {
+          if (acc[acc.length - 1].length < MAX_RPC_LEN) {
+            acc[acc.length - 1].push(nullifier);
+          } else {
+            acc.push([nullifier]);
+          }
+          return acc;
+        },
+        [[]] as Fr[][],
+      );
+      const nullifierIndexes = (
+        await Promise.all(
+          nullifierBatches.map(batch =>
+            this.aztecNode.findLeavesIndexes(syncedBlockNumber, MerkleTreeId.NULLIFIER_TREE, batch),
+          ),
+        )
+      ).flat();
 
-    const foundNullifiers = nullifiersToCheck
-      .map((nullifier, i) => {
-        if (nullifierIndexes[i] !== undefined) {
-          return { ...nullifierIndexes[i], ...{ data: nullifier } } as InBlock<Fr>;
-        }
-      })
-      .filter(nullifier => nullifier !== undefined) as InBlock<Fr>[];
+      const foundNullifiers = nullifiersToCheck
+        .map((nullifier, i) => {
+          if (nullifierIndexes[i] !== undefined) {
+            return { ...nullifierIndexes[i], ...{ data: nullifier } } as InBlock<Fr>;
+          }
+        })
+        .filter(nullifier => nullifier !== undefined) as InBlock<Fr>[];
 
-    const nullifiedNotes = await this.noteDataProvider.removeNullifiedNotes(foundNullifiers);
-    nullifiedNotes.forEach(noteDao => {
-      this.log.verbose(`Removed note for contract ${noteDao.contractAddress} at slot ${noteDao.storageSlot}`, {
-        contract: noteDao.contractAddress,
-        slot: noteDao.storageSlot,
-        nullifier: noteDao.siloedNullifier.toString(),
+      const nullifiedNotes = await this.noteDataProvider.removeNullifiedNotes(foundNullifiers, recipient);
+      nullifiedNotes.forEach(noteDao => {
+        this.log.verbose(`Removed note for contract ${noteDao.contractAddress} at slot ${noteDao.storageSlot}`, {
+          contract: noteDao.contractAddress,
+          slot: noteDao.storageSlot,
+          nullifier: noteDao.siloedNullifier.toString(),
+        });
       });
-    });
+    }
   }
 
   storeCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[]): Promise<void> {

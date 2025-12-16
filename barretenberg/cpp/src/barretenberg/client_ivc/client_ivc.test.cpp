@@ -28,15 +28,15 @@ class ClientIVCTests : public ::testing::Test {
     using Commitment = Flavor::Commitment;
     using VerificationKey = Flavor::VerificationKey;
     using Builder = ClientIVC::ClientCircuit;
-    using ProverInstance = ClientIVC::ProverInstance;
-    using VerifierInstance = ClientIVC::VerifierInstance;
+    using DeciderProvingKey = ClientIVC::DeciderProvingKey;
+    using DeciderVerificationKey = ClientIVC::DeciderVerificationKey;
     using FoldProof = ClientIVC::FoldProof;
     using DeciderProver = ClientIVC::DeciderProver;
     using DeciderVerifier = ClientIVC::DeciderVerifier;
-    using ProverInstances = ProverInstances_<Flavor>;
+    using DeciderProvingKeys = DeciderProvingKeys_<Flavor>;
     using FoldingProver = ProtogalaxyProver_<Flavor>;
-    using VerifierInstances = VerifierInstances_<Flavor>;
-    using FoldingVerifier = ProtogalaxyVerifier_<VerifierInstances>;
+    using DeciderVerificationKeys = DeciderVerificationKeys_<Flavor>;
+    using FoldingVerifier = ProtogalaxyVerifier_<DeciderVerificationKeys>;
     using CircuitProducer = PrivateFunctionExecutionMockCircuitProducer;
 
   public:

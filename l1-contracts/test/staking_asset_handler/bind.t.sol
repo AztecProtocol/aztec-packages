@@ -35,7 +35,9 @@ contract BindTest is StakingAssetHandlerBase {
 
     vm.assume(_attester != BOUND_ADDRESS && _attester != address(this));
 
-    vm.expectRevert(abi.encodeWithSelector(IStakingAssetHandler.InvalidBoundAddress.selector, BOUND_ADDRESS, _attester));
+    vm.expectRevert(
+      abi.encodeWithSelector(IStakingAssetHandler.ProofNotBoundToAddress.selector, BOUND_ADDRESS, _attester)
+    );
     vm.prank(_attester);
     stakingAssetHandler.addValidator(
       _attester, validMerkleProof, realProof, BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero()

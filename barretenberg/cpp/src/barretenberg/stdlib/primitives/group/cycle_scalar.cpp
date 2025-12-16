@@ -20,7 +20,8 @@ cycle_scalar<Builder>::cycle_scalar(const field_t& _lo, const field_t& _hi)
 template <typename Builder> cycle_scalar<Builder>::cycle_scalar(const field_t& in)
 {
     const uint256_t value(in.get_value());
-    const auto [lo_v, hi_v] = decompose_into_lo_hi(value);
+    const uint256_t lo_v = value.slice(0, LO_BITS);
+    const uint256_t hi_v = value.slice(LO_BITS, HI_BITS);
     constexpr uint256_t shift = uint256_t(1) << LO_BITS;
     if (in.is_constant()) {
         lo = lo_v;
@@ -41,7 +42,8 @@ template <typename Builder> cycle_scalar<Builder>::cycle_scalar(const field_t& i
 template <typename Builder> cycle_scalar<Builder>::cycle_scalar(const ScalarField& in)
 {
     const uint256_t value(in);
-    const auto [lo_v, hi_v] = decompose_into_lo_hi(value);
+    const uint256_t lo_v = value.slice(0, LO_BITS);
+    const uint256_t hi_v = value.slice(LO_BITS, HI_BITS);
     lo = lo_v;
     hi = hi_v;
 }
@@ -50,7 +52,8 @@ template <typename Builder>
 cycle_scalar<Builder> cycle_scalar<Builder>::from_witness(Builder* context, const ScalarField& value)
 {
     const uint256_t value_u256(value);
-    const auto [lo_v, hi_v] = decompose_into_lo_hi(value_u256);
+    const uint256_t lo_v = value_u256.slice(0, LO_BITS);
+    const uint256_t hi_v = value_u256.slice(LO_BITS, HI_BITS);
     field_t lo = witness_t<Builder>(context, lo_v);
     field_t hi = witness_t<Builder>(context, hi_v);
     lo.set_free_witness_tag();
@@ -65,14 +68,17 @@ cycle_scalar<Builder> cycle_scalar<Builder>::from_witness(Builder* context, cons
  * @tparam Builder
  * @param context
  * @param value
+ * @param num_bits
  * @return cycle_scalar<Builder>
  */
 template <typename Builder>
-cycle_scalar<Builder> cycle_scalar<Builder>::from_u256_witness(Builder* context, const uint256_t& bitstring)
+cycle_scalar<Builder> cycle_scalar<Builder>::from_witness_bitstring(Builder* context,
+                                                                    const uint256_t& bitstring,
+                                                                    const size_t num_bits)
 {
-    const size_t num_bits = 256;
+    BB_ASSERT_LT(bitstring.get_msb(), num_bits);
     const uint256_t lo_v = bitstring.slice(0, LO_BITS);
-    const uint256_t hi_v = bitstring.slice(LO_BITS, num_bits);
+    const uint256_t hi_v = bitstring.slice(LO_BITS, HI_BITS);
     field_t lo = witness_t<Builder>(context, lo_v);
     field_t hi = witness_t<Builder>(context, hi_v);
     lo.set_free_witness_tag();
@@ -95,7 +101,8 @@ template <typename Builder>
 cycle_scalar<Builder> cycle_scalar<Builder>::create_from_bn254_scalar(const field_t& in, const bool skip_primality_test)
 {
     const uint256_t value_u256(in.get_value());
-    const auto [lo_v, hi_v] = decompose_into_lo_hi(value_u256);
+    const uint256_t lo_v = value_u256.slice(0, LO_BITS);
+    const uint256_t hi_v = value_u256.slice(LO_BITS, HI_BITS);
     if (in.is_constant()) {
         cycle_scalar result{ field_t(lo_v), field_t(hi_v), NUM_BITS, false, true };
         return result;
@@ -126,7 +133,8 @@ template <typename Builder> cycle_scalar<Builder>::cycle_scalar(BigScalarField& 
 
     if (scalar.is_constant()) {
         const uint256_t value((scalar.get_value() % uint512_t(ScalarField::modulus)).lo);
-        const auto [value_lo, value_hi] = decompose_into_lo_hi(value);
+        const uint256_t value_lo = value.slice(0, LO_BITS);
+        const uint256_t value_hi = value.slice(LO_BITS, HI_BITS);
 
         lo = value_lo;
         hi = value_hi;
@@ -265,7 +273,8 @@ template <typename Builder> void cycle_scalar<Builder>::validate_scalar_is_in_fi
         // Check that scalar.hi * 2^LO_BITS + scalar.lo < cycle_group_modulus when evaluated over the integers
         const uint256_t cycle_group_modulus =
             use_bn254_scalar_field_for_primality_test() ? FF::modulus : ScalarField::modulus;
-        const auto [r_lo, r_hi] = decompose_into_lo_hi(cycle_group_modulus);
+        const uint256_t r_lo = cycle_group_modulus.slice(0, LO_BITS);
+        const uint256_t r_hi = cycle_group_modulus.slice(LO_BITS, HI_BITS);
 
         bool need_borrow = uint256_t(lo.get_value()) > r_lo;
         field_t borrow = lo.is_constant() ? need_borrow : field_t::from_witness(get_context(), need_borrow);

@@ -159,15 +159,6 @@ struct BytecodeCommitmentHint {
     MSGPACK_FIELDS(classId, commitment);
 };
 
-struct ProtocolContractAddressHint {
-    AztecAddress canonicalAddress;
-    AztecAddress derivedAddress;
-
-    bool operator==(const ProtocolContractAddressHint& other) const = default;
-
-    MSGPACK_FIELDS(canonicalAddress, derivedAddress);
-};
-
 ////////////////////////////////////////////////////////////////////////////
 // Hints (merkle db)
 ////////////////////////////////////////////////////////////////////////////
@@ -337,8 +328,6 @@ struct Tx {
 struct ExecutionHints {
     GlobalVariables globalVariables;
     Tx tx;
-    // Protocol Contract Hints
-    std::vector<ProtocolContractAddressHint> protocolContractDerivedAddresses;
     // Contracts.
     std::vector<ContractInstanceHint> contractInstances;
     std::vector<ContractClassHint> contractClasses;
@@ -363,7 +352,6 @@ struct ExecutionHints {
 
     MSGPACK_FIELDS(globalVariables,
                    tx,
-                   protocolContractDerivedAddresses,
                    contractInstances,
                    contractClasses,
                    bytecodeCommitments,

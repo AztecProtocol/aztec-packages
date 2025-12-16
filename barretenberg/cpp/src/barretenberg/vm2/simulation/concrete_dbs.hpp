@@ -9,7 +9,6 @@
 #include "barretenberg/vm2/simulation/lib/raw_data_dbs.hpp"
 #include "barretenberg/vm2/simulation/note_hash_tree_check.hpp"
 #include "barretenberg/vm2/simulation/nullifier_tree_check.hpp"
-#include "barretenberg/vm2/simulation/protocol_contracts.hpp"
 #include "barretenberg/vm2/simulation/public_data_tree_check.hpp"
 #include "barretenberg/vm2/simulation/written_public_data_slots_tree_check.hpp"
 
@@ -29,12 +28,10 @@ class ContractDB final : public ContractDBInterface {
   public:
     ContractDB(ContractDBInterface& raw_contract_db,
                AddressDerivationInterface& address_derivation,
-               ClassIdDerivationInterface& class_id_derivation,
-               ProtocolContractSetInterface& protocol_contracts_set)
+               ClassIdDerivationInterface& class_id_derivation)
         : raw_contract_db(raw_contract_db)
         , address_derivation(address_derivation)
         , class_id_derivation(class_id_derivation)
-        , protocol_contracts_set(protocol_contracts_set)
     {}
 
     // Gets an instance from the DB and proves address derivation from the result.
@@ -50,7 +47,6 @@ class ContractDB final : public ContractDBInterface {
     ContractDBInterface& raw_contract_db;
     AddressDerivationInterface& address_derivation;
     ClassIdDerivationInterface& class_id_derivation;
-    ProtocolContractSetInterface& protocol_contracts_set;
     // TODO: EventEmitters.
 };
 

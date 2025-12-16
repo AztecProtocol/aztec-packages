@@ -70,7 +70,7 @@ const config = {
           lastVersion: versions[1],
           versions: {
             [versions[0]]: {
-              ...(versions[0].includes("nightly") && { path: "nightly" }),
+              path: "nightly",
             },
             ...(process.env.ENV === "dev" && {
               current: {
@@ -300,7 +300,7 @@ const config = {
                 to: "/",
               },
               {
-                label: "Developer Getting Started",
+                label: "Developer Getting Started Guide",
                 to: "/developers/getting_started",
               },
               {
