@@ -518,7 +518,8 @@ plookup::BasicTable& UltraCircuitBuilder_<ExecutionTrace>::get_table(const plook
  * and (2) the reconstruction of the final result from the results of the BasicTable lookups. This is done via an
  * accumulator pattern where the wires in each gate store accumulated sums and we use step size coefficients (stored in
  * q_2, q_m, q_c) to extract actual table entries via an expression of the form `derived_entry_i = w_i - step_size_i *
- * w_i_shift` where w_i is the wire value at the current row, w_i_shift is the wire value at the next row.
+ * w_i_shift` where w_i is the wire value at the current row, w_i_shift is the wire value at the next row. For a
+ * detailed description of the accumulator pattern, see barretenberg/stdlib_circuit_builders/plookup_tables/README.md.
  *
  * The last lookup has zero step size coefficients (q_2 = q_m = q_c = 0) because there's no next accumulator to
  * subtract; its wire values already contain the raw slices.
