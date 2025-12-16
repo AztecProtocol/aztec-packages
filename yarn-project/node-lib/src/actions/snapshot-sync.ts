@@ -64,7 +64,7 @@ export async function trySnapshotSync(config: SnapshotSyncConfig, log: Logger) {
   try {
     [archiverL1BlockNumber, archiverL2BlockNumber] = await Promise.all([
       archiverStore.getSynchPoint().then(s => s.blocksSynchedTo),
-      archiverStore.getSynchedL2BlockNumber(),
+      archiverStore.getLatestBlockNumber(),
     ] as const);
   } finally {
     log.verbose(`Closing temporary archiver data store`, { archiverL1BlockNumber, archiverL2BlockNumber });

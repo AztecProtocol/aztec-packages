@@ -128,7 +128,7 @@ describe('e2e_multi_validator_node', () => {
     });
     expect(tx.blockNumber).toBeDefined();
 
-    const dataStore = ((aztecNode as AztecNodeService).getBlockSource() as Archiver).dataStore;
+    const dataStore = (aztecNode as AztecNodeService).getBlockSource() as Archiver;
     const [block] = await dataStore.getPublishedBlocks(tx.blockNumber!, tx.blockNumber!);
     const payload = ConsensusPayload.fromBlock(block.block);
     const attestations = block.attestations
@@ -191,7 +191,7 @@ describe('e2e_multi_validator_node', () => {
     });
     expect(tx.blockNumber).toBeDefined();
 
-    const dataStore = ((aztecNode as AztecNodeService).getBlockSource() as Archiver).dataStore;
+    const dataStore = (aztecNode as AztecNodeService).getBlockSource() as Archiver;
     const [block] = await dataStore.getPublishedBlocks(tx.blockNumber!, tx.blockNumber!);
     const payload = ConsensusPayload.fromBlock(block.block);
     const attestations = block.attestations
