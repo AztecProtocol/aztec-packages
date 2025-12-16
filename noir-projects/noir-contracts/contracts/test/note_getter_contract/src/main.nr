@@ -5,7 +5,7 @@ use aztec::macros::aztec;
 pub contract NoteGetter {
     use aztec::{
         // Core functionality
-        messages::message_delivery::MessageDelivery,
+        event::event_interface::MessageDelivery,
         note::note_interface::NoteProperties,
         // Macros
         macros::{functions::{private, utility}, storage::storage},

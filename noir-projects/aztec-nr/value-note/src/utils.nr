@@ -2,7 +2,7 @@ use crate::{filter::filter_notes_min_sum, value_note::ValueNote};
 
 use aztec::{
     context::PrivateContext,
-    messages::message_delivery::MessageDelivery,
+    event::event_interface::MessageDelivery,
     note::{note_getter_options::{NoteGetterOptions, SortOrder}, note_interface::NoteProperties},
     protocol_types::{address::AztecAddress, traits::Packable},
     state_vars::PrivateSet,
