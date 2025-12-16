@@ -1,9 +1,12 @@
 import { type ContractInstanceWithAddress, Fr, Point } from '@aztec/aztec.js';
+import { CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS } from '@aztec/constants';
+import type { Logger } from '@aztec/foundation/log';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import type { ProtocolContract } from '@aztec/protocol-contracts';
 import { packAsRetrievedNote } from '@aztec/pxe/simulator';
 import { type ContractArtifact, FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { computePartialAddress } from '@aztec/stdlib/contract';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 
 import { TXE } from '../oracle/txe_oracle.js';
@@ -34,12 +37,16 @@ export class TXEService {
   context = TXEContext.TOP_LEVEL;
   contextChecksEnabled = false;
 
-  constructor(private txe: TXE) {}
+  constructor(
+    private logger: Logger,
+    private txe: TXE,
+  ) {}
 
-  static async init(protocolContracts: ProtocolContract[]) {
+  static async init(logger: Logger, protocolContracts: ProtocolContract[]) {
+    logger.debug(`TXE service initialized`);
     const store = await openTmpStore('test');
-    const txe = await TXE.create(store, protocolContracts);
-    const service = new TXEService(txe);
+    const txe = await TXE.create(logger, store, protocolContracts);
+    const service = new TXEService(logger, txe);
     await service.txeAdvanceBlocksBy(toSingle(new Fr(1n)));
     return service;
   }
@@ -99,47 +106,62 @@ export class TXEService {
 
   // Cheatcodes
 
-  async txeGetPrivateContextInputs(
-    foreignBlockNumberIsSome: ForeignCallSingle,
-    foreignBlockNumberValue: ForeignCallSingle,
-  ) {
-    const blockNumber = fromSingle(foreignBlockNumberIsSome).toBool()
-      ? fromSingle(foreignBlockNumberValue).toNumber()
-      : null;
+  async txeGetPrivateContextInputs(blockNumberIsSome: ForeignCallSingle, blockNumberValue: ForeignCallSingle) {
+    const blockNumber = fromSingle(blockNumberIsSome).toBool() ? fromSingle(blockNumberValue).toNumber() : null;
 
     const inputs = await this.txe.txeGetPrivateContextInputs(blockNumber);
+
+    this.logger.info(
+      `Created private context for block ${inputs.historicalHeader.globalVariables.blockNumber} (requested ${blockNumber})`,
+    );
 
     return toForeignCallResult(inputs.toFields().map(toSingle));
   }
 
-  async txeAdvanceBlocksBy(foreignBlocks: ForeignCallSingle) {
-    const blocks = fromSingle(foreignBlocks).toNumber();
+  async txeAdvanceBlocksBy(blocks: ForeignCallSingle) {
+    const nBlocks = fromSingle(blocks).toNumber();
+    this.logger.debug(`time traveling ${nBlocks} blocks`);
 
-    await this.txe.txeAdvanceBlocksBy(blocks);
-
+    for (let i = 0; i < nBlocks; i++) {
+      const blockNumber = await this.txe.utilityGetBlockNumber();
+      await this.txe.commitState();
+      this.txe.setBlockNumber(blockNumber + 1);
+    }
     return toForeignCallResult([]);
   }
 
-  txeAdvanceTimestampBy(foreignDuration: ForeignCallSingle) {
-    const duration = fromSingle(foreignDuration).toBigInt();
-
-    this.txe.txeAdvanceTimestampBy(duration);
-
+  txeAdvanceTimestampBy(duration: ForeignCallSingle) {
+    const durationBigInt = fromSingle(duration).toBigInt();
+    this.logger.debug(`time traveling ${durationBigInt} seconds`);
+    this.txe.txeAdvanceTimestampBy(durationBigInt);
     return toForeignCallResult([]);
   }
 
-  txeSetContractAddress(foreignAddress: ForeignCallSingle) {
-    const address = addressFromSingle(foreignAddress);
-
-    this.txe.txeSetContractAddress(address);
-
+  txeSetContractAddress(address: ForeignCallSingle) {
+    const typedAddress = addressFromSingle(address);
+    this.txe.txeSetContractAddress(typedAddress);
     return toForeignCallResult([]);
   }
 
-  async txeDeploy(artifact: ContractArtifact, instance: ContractInstanceWithAddress, foreignSecret: ForeignCallSingle) {
-    const secret = fromSingle(foreignSecret);
+  async txeDeploy(artifact: ContractArtifact, instance: ContractInstanceWithAddress, secret: ForeignCallSingle) {
+    // Emit deployment nullifier
+    await this.txe.noteCache.nullifierCreated(
+      AztecAddress.fromNumber(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS),
+      instance.address.toField(),
+    );
 
-    await this.txe.txeDeploy(artifact, instance, secret);
+    // Make sure the deployment nullifier gets included in a tx in a block
+    const blockNumber = await this.txe.utilityGetBlockNumber();
+    await this.txe.commitState();
+    this.txe.setBlockNumber(blockNumber + 1);
+
+    if (!fromSingle(secret).equals(Fr.ZERO)) {
+      await this.txeAddAccount(artifact, instance, secret);
+    } else {
+      await this.txe.addContractInstance(instance);
+      await this.txe.addContractArtifact(instance.currentContractClassId, artifact);
+      this.logger.debug(`Deployed ${artifact.name} at ${instance.address}`);
+    }
 
     return toForeignCallResult([
       toArray([
@@ -152,38 +174,42 @@ export class TXEService {
     ]);
   }
 
-  async txeCreateAccount(foreignSecret: ForeignCallSingle) {
-    const secret = fromSingle(foreignSecret);
-
-    const completeAddress = await this.txe.txeCreateAccount(secret);
-
+  async txeCreateAccount(secret: ForeignCallSingle) {
+    const keyStore = this.txe.getKeyStore();
+    const secretFr = fromSingle(secret);
+    // This is a footgun !
+    const completeAddress = await keyStore.addAccount(secretFr, secretFr);
+    const accountDataProvider = this.txe.getAccountDataProvider();
+    await accountDataProvider.setAccount(completeAddress.address, completeAddress);
+    const addressDataProvider = this.txe.getAddressDataProvider();
+    await addressDataProvider.addCompleteAddress(completeAddress);
+    this.logger.debug(`Created account ${completeAddress.address}`);
     return toForeignCallResult([
       toSingle(completeAddress.address),
       ...completeAddress.publicKeys.toFields().map(toSingle),
     ]);
   }
 
-  async txeAddAccount(
-    artifact: ContractArtifact,
-    instance: ContractInstanceWithAddress,
-    foreignSecret: ForeignCallSingle,
-  ) {
-    const secret = fromSingle(foreignSecret);
+  async txeAddAccount(artifact: ContractArtifact, instance: ContractInstanceWithAddress, secret: ForeignCallSingle) {
+    this.logger.debug(`Deployed ${artifact.name} at ${instance.address}`);
+    await this.txe.addContractInstance(instance);
+    await this.txe.addContractArtifact(instance.currentContractClassId, artifact);
 
-    const completeAddress = await this.txe.txeAddAccount(artifact, instance, secret);
-
+    const keyStore = this.txe.getKeyStore();
+    const completeAddress = await keyStore.addAccount(fromSingle(secret), await computePartialAddress(instance));
+    const accountDataProvider = this.txe.getAccountDataProvider();
+    await accountDataProvider.setAccount(completeAddress.address, completeAddress);
+    const addressDataProvider = this.txe.getAddressDataProvider();
+    await addressDataProvider.addCompleteAddress(completeAddress);
+    this.logger.debug(`Created account ${completeAddress.address}`);
     return toForeignCallResult([
       toSingle(completeAddress.address),
       ...completeAddress.publicKeys.toFields().map(toSingle),
     ]);
   }
 
-  async txeAddAuthWitness(foreignAddress: ForeignCallSingle, foreignMessageHash: ForeignCallSingle) {
-    const address = addressFromSingle(foreignAddress);
-    const messageHash = fromSingle(foreignMessageHash);
-
-    await this.txe.txeAddAuthWitness(address, messageHash);
-
+  async txeAddAuthWitness(address: ForeignCallSingle, messageHash: ForeignCallSingle) {
+    await this.txe.txeAddAuthWitness(addressFromSingle(address), fromSingle(messageHash));
     return toForeignCallResult([]);
   }
 
@@ -196,9 +222,7 @@ export class TXEService {
       );
     }
 
-    const randomField = this.txe.utilityGetRandomField();
-
-    return toForeignCallResult([toSingle(randomField)]);
+    return toForeignCallResult([toSingle(this.txe.utilityGetRandomField())]);
   }
 
   async utilityGetContractAddress() {
@@ -212,7 +236,6 @@ export class TXEService {
     }
 
     const contractAddress = await this.txe.utilityGetContractAddress();
-
     return toForeignCallResult([toSingle(contractAddress.toField())]);
   }
 
@@ -222,7 +245,6 @@ export class TXEService {
     }
 
     const blockNumber = await this.txe.utilityGetBlockNumber();
-
     return toForeignCallResult([toSingle(new Fr(blockNumber))]);
   }
 
@@ -233,7 +255,6 @@ export class TXEService {
     }
 
     const timestamp = await this.txe.utilityGetTimestamp();
-
     return toForeignCallResult([toSingle(new Fr(timestamp))]);
   }
 
@@ -243,147 +264,121 @@ export class TXEService {
     }
 
     const timestamp = await this.txe.txeGetLastBlockTimestamp();
-
     return toForeignCallResult([toSingle(new Fr(timestamp))]);
   }
 
   // Since the argument is a slice, noir automatically adds a length field to oracle call.
-  privateStoreInExecutionCache(
-    _foreignLength: ForeignCallSingle,
-    foreignValues: ForeignCallArray,
-    foreignHash: ForeignCallSingle,
-  ) {
+  privateStoreInExecutionCache(_length: ForeignCallSingle, values: ForeignCallArray, hash: ForeignCallSingle) {
     if (this.contextChecksEnabled && this.context == TXEContext.TOP_LEVEL) {
       throw new Error(
         'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
       );
     }
-    const values = fromArray(foreignValues);
-    const hash = fromSingle(foreignHash);
 
-    this.txe.privateStoreInExecutionCache(values, hash);
-
+    this.txe.privateStoreInExecutionCache(fromArray(values), fromSingle(hash));
     return toForeignCallResult([]);
   }
 
-  async privateLoadFromExecutionCache(foreignHash: ForeignCallSingle) {
+  async privateLoadFromExecutionCache(hash: ForeignCallSingle) {
     if (this.contextChecksEnabled && this.context == TXEContext.TOP_LEVEL) {
       throw new Error(
         'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
       );
     }
-    const hash = fromSingle(foreignHash);
 
-    const returns = await this.txe.privateLoadFromExecutionCache(hash);
-
+    const returns = await this.txe.privateLoadFromExecutionCache(fromSingle(hash));
     return toForeignCallResult([toArray(returns)]);
   }
 
   // Since the argument is a slice, noir automatically adds a length field to oracle call.
-  utilityDebugLog(
-    foreignMessage: ForeignCallArray,
-    _foreignLength: ForeignCallSingle,
-    foreignFields: ForeignCallArray,
-  ) {
-    const message = fromArray(foreignMessage)
+  utilityDebugLog(message: ForeignCallArray, _length: ForeignCallSingle, fields: ForeignCallArray) {
+    const messageStr = fromArray(message)
       .map(field => String.fromCharCode(field.toNumber()))
       .join('');
-    const fields = fromArray(foreignFields);
-
-    this.txe.utilityDebugLog(message, fields);
-
+    const fieldsFr = fromArray(fields);
+    this.txe.utilityDebugLog(messageStr, fieldsFr);
     return toForeignCallResult([]);
   }
 
   async utilityStorageRead(
-    foreignContractAddress: ForeignCallSingle,
-    foreignStartStorageSlot: ForeignCallSingle,
-    foreignBlockNumber: ForeignCallSingle,
-    foreignNumberOfElements: ForeignCallSingle,
+    contractAddress: ForeignCallSingle,
+    startStorageSlot: ForeignCallSingle,
+    blockNumber: ForeignCallSingle,
+    numberOfElements: ForeignCallSingle,
   ) {
-    const contractAddress = addressFromSingle(foreignContractAddress);
-    const startStorageSlot = fromSingle(foreignStartStorageSlot);
-    const blockNumber = fromSingle(foreignBlockNumber).toNumber();
-    const numberOfElements = fromSingle(foreignNumberOfElements).toNumber();
-
-    const values = await this.txe.utilityStorageRead(contractAddress, startStorageSlot, blockNumber, numberOfElements);
-
+    const values = await this.txe.utilityStorageRead(
+      addressFromSingle(contractAddress),
+      fromSingle(startStorageSlot),
+      fromSingle(blockNumber).toNumber(),
+      fromSingle(numberOfElements).toNumber(),
+    );
     return toForeignCallResult([toArray(values)]);
   }
 
-  async utilityGetPublicDataWitness(foreignBlockNumber: ForeignCallSingle, foreignLeafSlot: ForeignCallSingle) {
+  async utilityGetPublicDataWitness(blockNumber: ForeignCallSingle, leafSlot: ForeignCallSingle) {
     if (this.contextChecksEnabled && this.context == TXEContext.TOP_LEVEL) {
       throw new Error(
         'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
       );
     }
-    const blockNumber = fromSingle(foreignBlockNumber).toNumber();
-    const leafSlot = fromSingle(foreignLeafSlot);
 
-    const witness = await this.txe.utilityGetPublicDataWitness(blockNumber, leafSlot);
+    const parsedBlockNumber = fromSingle(blockNumber).toNumber();
+    const parsedLeafSlot = fromSingle(leafSlot);
 
+    const witness = await this.txe.utilityGetPublicDataWitness(parsedBlockNumber, parsedLeafSlot);
     if (!witness) {
-      throw new Error(`Public data witness not found for slot ${leafSlot} at block ${blockNumber}.`);
+      throw new Error(`Public data witness not found for slot ${parsedLeafSlot} at block ${parsedBlockNumber}.`);
     }
     return toForeignCallResult(witness.toNoirRepresentation());
   }
 
   async utilityGetNotes(
-    foreignStorageSlot: ForeignCallSingle,
-    foreignNumSelects: ForeignCallSingle,
-    foreignSelectByIndexes: ForeignCallArray,
-    foreignSelectByOffsets: ForeignCallArray,
-    foreignSelectByLengths: ForeignCallArray,
-    foreignSelectValues: ForeignCallArray,
-    foreignSelectComparators: ForeignCallArray,
-    foreignSortByIndexes: ForeignCallArray,
-    foreignSortByOffsets: ForeignCallArray,
-    foreignSortByLengths: ForeignCallArray,
-    foreignSortOrder: ForeignCallArray,
-    foreignLimit: ForeignCallSingle,
-    foreignOffset: ForeignCallSingle,
-    foreignStatus: ForeignCallSingle,
-    foreignMaxNotes: ForeignCallSingle,
-    foreignPackedRetrievedNoteLength: ForeignCallSingle,
+    storageSlot: ForeignCallSingle,
+    numSelects: ForeignCallSingle,
+    selectByIndexes: ForeignCallArray,
+    selectByOffsets: ForeignCallArray,
+    selectByLengths: ForeignCallArray,
+    selectValues: ForeignCallArray,
+    selectComparators: ForeignCallArray,
+    sortByIndexes: ForeignCallArray,
+    sortByOffsets: ForeignCallArray,
+    sortByLengths: ForeignCallArray,
+    sortOrder: ForeignCallArray,
+    limit: ForeignCallSingle,
+    offset: ForeignCallSingle,
+    status: ForeignCallSingle,
+    maxNotes: ForeignCallSingle,
+    packedRetrievedNoteLength: ForeignCallSingle,
   ) {
     if (this.contextChecksEnabled && this.context == TXEContext.TOP_LEVEL) {
       throw new Error(
         'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
       );
     }
-    const storageSlot = fromSingle(foreignStorageSlot);
-    const numSelects = fromSingle(foreignNumSelects).toNumber();
-    const selectByIndexes = fromArray(foreignSelectByIndexes).map(fr => fr.toNumber());
-    const selectByOffsets = fromArray(foreignSelectByOffsets).map(fr => fr.toNumber());
-    const selectByLengths = fromArray(foreignSelectByLengths).map(fr => fr.toNumber());
-    const selectValues = fromArray(foreignSelectValues);
-    const selectComparators = fromArray(foreignSelectComparators).map(fr => fr.toNumber());
-    const sortByIndexes = fromArray(foreignSortByIndexes).map(fr => fr.toNumber());
-    const sortByOffsets = fromArray(foreignSortByOffsets).map(fr => fr.toNumber());
-    const sortByLengths = fromArray(foreignSortByLengths).map(fr => fr.toNumber());
-    const sortOrder = fromArray(foreignSortOrder).map(fr => fr.toNumber());
-    const limit = fromSingle(foreignLimit).toNumber();
-    const offset = fromSingle(foreignOffset).toNumber();
-    const status = fromSingle(foreignStatus).toNumber();
-    const maxNotes = fromSingle(foreignMaxNotes).toNumber();
-    const packedRetrievedNoteLength = fromSingle(foreignPackedRetrievedNoteLength).toNumber();
 
     const noteDatas = await this.txe.utilityGetNotes(
-      storageSlot,
-      numSelects,
-      selectByIndexes,
-      selectByOffsets,
-      selectByLengths,
-      selectValues,
-      selectComparators,
-      sortByIndexes,
-      sortByOffsets,
-      sortByLengths,
-      sortOrder,
-      limit,
-      offset,
-      status,
+      fromSingle(storageSlot),
+      fromSingle(numSelects).toNumber(),
+      fromArray(selectByIndexes).map(fr => fr.toNumber()),
+      fromArray(selectByOffsets).map(fr => fr.toNumber()),
+      fromArray(selectByLengths).map(fr => fr.toNumber()),
+      fromArray(selectValues),
+      fromArray(selectComparators).map(fr => fr.toNumber()),
+      fromArray(sortByIndexes).map(fr => fr.toNumber()),
+      fromArray(sortByOffsets).map(fr => fr.toNumber()),
+      fromArray(sortByLengths).map(fr => fr.toNumber()),
+      fromArray(sortOrder).map(fr => fr.toNumber()),
+      fromSingle(limit).toNumber(),
+      fromSingle(offset).toNumber(),
+      fromSingle(status).toNumber(),
     );
+
+    if (noteDatas.length > 0) {
+      const noteLength = noteDatas[0].note.items.length;
+      if (!noteDatas.every(({ note }) => noteLength === note.items.length)) {
+        throw new Error('Notes should all be the same length.');
+      }
+    }
 
     const returnDataAsArrayOfArrays = noteDatas.map(packAsRetrievedNote);
 
@@ -396,90 +391,84 @@ export class TXEService {
     return toForeignCallResult(
       arrayOfArraysToBoundedVecOfArrays(
         returnDataAsArrayOfForeignCallSingleArrays,
-        maxNotes,
-        packedRetrievedNoteLength,
+        fromSingle(maxNotes).toNumber(),
+        fromSingle(packedRetrievedNoteLength).toNumber(),
       ),
     );
   }
 
   privateNotifyCreatedNote(
-    foreignStorageSlot: ForeignCallSingle,
-    foreignNoteTypeId: ForeignCallSingle,
-    foreignNote: ForeignCallArray,
-    foreignNoteHash: ForeignCallSingle,
-    foreignCounter: ForeignCallSingle,
+    storageSlot: ForeignCallSingle,
+    noteTypeId: ForeignCallSingle,
+    note: ForeignCallArray,
+    noteHash: ForeignCallSingle,
+    counter: ForeignCallSingle,
   ) {
     if (this.contextChecksEnabled && this.context == TXEContext.TOP_LEVEL) {
       throw new Error(
         'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
       );
     }
-    const storageSlot = fromSingle(foreignStorageSlot);
-    const noteTypeId = NoteSelector.fromField(fromSingle(foreignNoteTypeId));
-    const note = fromArray(foreignNote);
-    const noteHash = fromSingle(foreignNoteHash);
-    const counter = fromSingle(foreignCounter).toNumber();
 
-    this.txe.privateNotifyCreatedNote(storageSlot, noteTypeId, note, noteHash, counter);
-
+    this.txe.privateNotifyCreatedNote(
+      fromSingle(storageSlot),
+      NoteSelector.fromField(fromSingle(noteTypeId)),
+      fromArray(note),
+      fromSingle(noteHash),
+      fromSingle(counter).toNumber(),
+    );
     return toForeignCallResult([]);
   }
 
   async privateNotifyNullifiedNote(
-    foreignInnerNullifier: ForeignCallSingle,
-    foreignNoteHash: ForeignCallSingle,
-    foreignCounter: ForeignCallSingle,
+    innerNullifier: ForeignCallSingle,
+    noteHash: ForeignCallSingle,
+    counter: ForeignCallSingle,
   ) {
     if (this.contextChecksEnabled && this.context == TXEContext.TOP_LEVEL) {
       throw new Error(
         'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
       );
     }
-    const innerNullifier = fromSingle(foreignInnerNullifier);
-    const noteHash = fromSingle(foreignNoteHash);
-    const counter = fromSingle(foreignCounter).toNumber();
 
-    await this.txe.privateNotifyNullifiedNote(innerNullifier, noteHash, counter);
-
+    await this.txe.privateNotifyNullifiedNote(
+      fromSingle(innerNullifier),
+      fromSingle(noteHash),
+      fromSingle(counter).toNumber(),
+    );
     return toForeignCallResult([]);
   }
 
-  async privateNotifyCreatedNullifier(foreignInnerNullifier: ForeignCallSingle) {
+  async privateNotifyCreatedNullifier(innerNullifier: ForeignCallSingle) {
     if (this.contextChecksEnabled && this.context == TXEContext.TOP_LEVEL) {
       throw new Error(
         'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
       );
     }
-    const innerNullifier = fromSingle(foreignInnerNullifier);
 
-    await this.txe.privateNotifyCreatedNullifier(innerNullifier);
-
+    await this.txe.privateNotifyCreatedNullifier(fromSingle(innerNullifier));
     return toForeignCallResult([]);
   }
 
-  async utilityCheckNullifierExists(foreignInnerNullifier: ForeignCallSingle) {
+  async utilityCheckNullifierExists(innerNullifier: ForeignCallSingle) {
     if (this.contextChecksEnabled && this.context == TXEContext.TOP_LEVEL) {
       throw new Error(
         'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
       );
     }
-    const innerNullifier = fromSingle(foreignInnerNullifier);
 
-    const exists = await this.txe.utilityCheckNullifierExists(innerNullifier);
-
+    const exists = await this.txe.utilityCheckNullifierExists(fromSingle(innerNullifier));
     return toForeignCallResult([toSingle(new Fr(exists))]);
   }
 
-  async utilityGetContractInstance(foreignAddress: ForeignCallSingle) {
+  async utilityGetContractInstance(address: ForeignCallSingle) {
     if (this.contextChecksEnabled && this.context == TXEContext.TOP_LEVEL) {
       throw new Error(
         'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
       );
     }
-    const address = addressFromSingle(foreignAddress);
 
-    const instance = await this.txe.utilityGetContractInstance(address);
-
+    const instance = await this.txe.utilityGetContractInstance(addressFromSingle(address));
     return toForeignCallResult(
       [
         instance.salt,
@@ -491,99 +480,90 @@ export class TXEService {
     );
   }
 
-  async utilityGetPublicKeysAndPartialAddress(foreignAddress: ForeignCallSingle) {
+  async utilityGetPublicKeysAndPartialAddress(address: ForeignCallSingle) {
     if (this.contextChecksEnabled && this.context == TXEContext.TOP_LEVEL) {
       throw new Error(
         'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
       );
     }
-    const address = addressFromSingle(foreignAddress);
 
-    const { publicKeys, partialAddress } = await this.txe.utilityGetCompleteAddress(address);
-
+    const parsedAddress = addressFromSingle(address);
+    const { publicKeys, partialAddress } = await this.txe.utilityGetCompleteAddress(parsedAddress);
     return toForeignCallResult([toArray([...publicKeys.toFields(), partialAddress])]);
   }
 
-  async utilityGetKeyValidationRequest(foreignPkMHash: ForeignCallSingle) {
+  async utilityGetKeyValidationRequest(pkMHash: ForeignCallSingle) {
     if (this.contextChecksEnabled && this.context == TXEContext.TOP_LEVEL) {
       throw new Error(
         'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
       );
     }
-    const pkMHash = fromSingle(foreignPkMHash);
 
-    const keyValidationRequest = await this.txe.utilityGetKeyValidationRequest(pkMHash);
-
+    const keyValidationRequest = await this.txe.utilityGetKeyValidationRequest(fromSingle(pkMHash));
     return toForeignCallResult(keyValidationRequest.toFields().map(toSingle));
   }
 
   privateCallPrivateFunction(
-    _foreignTargetContractAddress: ForeignCallSingle,
-    _foreignFunctionSelector: ForeignCallSingle,
-    _foreignArgsHash: ForeignCallSingle,
-    _foreignSideEffectCounter: ForeignCallSingle,
-    _foreignIsStaticCall: ForeignCallSingle,
+    _targetContractAddress: ForeignCallSingle,
+    _functionSelector: ForeignCallSingle,
+    _argsHash: ForeignCallSingle,
+    _sideEffectCounter: ForeignCallSingle,
+    _isStaticCall: ForeignCallSingle,
   ) {
     throw new Error(
       'Contract calls are forbidden inside a `TestEnvironment::private_context`, use `private_call` instead',
     );
   }
 
-  async utilityGetNullifierMembershipWitness(
-    foreignBlockNumber: ForeignCallSingle,
-    foreignNullifier: ForeignCallSingle,
-  ) {
+  async utilityGetNullifierMembershipWitness(blockNumber: ForeignCallSingle, nullifier: ForeignCallSingle) {
     if (this.contextChecksEnabled && this.context == TXEContext.TOP_LEVEL) {
       throw new Error(
         'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
       );
     }
-    const blockNumber = fromSingle(foreignBlockNumber).toNumber();
-    const nullifier = fromSingle(foreignNullifier);
 
-    const witness = await this.txe.utilityGetNullifierMembershipWitness(blockNumber, nullifier);
-
+    const parsedBlockNumber = fromSingle(blockNumber).toNumber();
+    const witness = await this.txe.utilityGetNullifierMembershipWitness(parsedBlockNumber, fromSingle(nullifier));
     if (!witness) {
-      throw new Error(`Nullifier membership witness not found at block ${blockNumber}.`);
+      throw new Error(`Nullifier membership witness not found at block ${parsedBlockNumber}.`);
     }
     return toForeignCallResult(witness.toNoirRepresentation());
   }
 
-  async utilityGetAuthWitness(foreignMessageHash: ForeignCallSingle) {
+  async utilityGetAuthWitness(messageHash: ForeignCallSingle) {
     if (this.contextChecksEnabled && this.context == TXEContext.TOP_LEVEL) {
       throw new Error(
         'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
       );
     }
-    const messageHash = fromSingle(foreignMessageHash);
 
-    const authWitness = await this.txe.utilityGetAuthWitness(messageHash);
-
+    const parsedMessageHash = fromSingle(messageHash);
+    const authWitness = await this.txe.utilityGetAuthWitness(parsedMessageHash);
     if (!authWitness) {
-      throw new Error(`Auth witness not found for message hash ${messageHash}.`);
+      throw new Error(`Auth witness not found for message hash ${parsedMessageHash}.`);
     }
     return toForeignCallResult([toArray(authWitness)]);
   }
 
   public privateNotifyEnqueuedPublicFunctionCall(
-    _foreignTargetContractAddress: ForeignCallSingle,
-    _foreignCalldataHash: ForeignCallSingle,
-    _foreignSideEffectCounter: ForeignCallSingle,
-    _foreignIsStaticCall: ForeignCallSingle,
+    _targetContractAddress: ForeignCallSingle,
+    _calldataHash: ForeignCallSingle,
+    _sideEffectCounter: ForeignCallSingle,
+    _isStaticCall: ForeignCallSingle,
   ) {
     throw new Error('Enqueueing public calls is not supported in TestEnvironment::private_context');
   }
 
   public privateNotifySetPublicTeardownFunctionCall(
-    _foreignTargetContractAddress: ForeignCallSingle,
-    _foreignCalldataHash: ForeignCallSingle,
-    _foreignSideEffectCounter: ForeignCallSingle,
-    _foreignIsStaticCall: ForeignCallSingle,
+    _targetContractAddress: ForeignCallSingle,
+    _calldataHash: ForeignCallSingle,
+    _sideEffectCounter: ForeignCallSingle,
+    _isStaticCall: ForeignCallSingle,
   ) {
     throw new Error('Enqueueing public calls is not supported in TestEnvironment::private_context');
   }
 
-  public privateNotifySetMinRevertibleSideEffectCounter(_foreignMinRevertibleSideEffectCounter: ForeignCallSingle) {
+  public privateNotifySetMinRevertibleSideEffectCounter(_minRevertibleSideEffectCounter: ForeignCallSingle) {
     throw new Error('Enqueueing public calls is not supported in TestEnvironment::private_context');
   }
 
@@ -594,9 +574,7 @@ export class TXEService {
       );
     }
 
-    const chainId = await this.txe.utilityGetChainId();
-
-    return toForeignCallResult([toSingle(chainId)]);
+    return toForeignCallResult([toSingle(await this.txe.utilityGetChainId())]);
   }
 
   async utilityGetVersion() {
@@ -606,21 +584,17 @@ export class TXEService {
       );
     }
 
-    const version = await this.txe.utilityGetVersion();
-
-    return toForeignCallResult([toSingle(version)]);
+    return toForeignCallResult([toSingle(await this.txe.utilityGetVersion())]);
   }
 
-  async utilityGetBlockHeader(foreignBlockNumber: ForeignCallSingle) {
+  async utilityGetBlockHeader(blockNumber: ForeignCallSingle) {
     if (this.contextChecksEnabled && this.context == TXEContext.TOP_LEVEL) {
       throw new Error(
         'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
       );
     }
-    const blockNumber = fromSingle(foreignBlockNumber).toNumber();
 
-    const header = await this.txe.utilityGetBlockHeader(blockNumber);
-
+    const header = await this.txe.utilityGetBlockHeader(fromSingle(blockNumber).toNumber());
     if (!header) {
       throw new Error(`Block header not found for block ${blockNumber}.`);
     }
@@ -628,199 +602,175 @@ export class TXEService {
   }
 
   async utilityGetMembershipWitness(
-    foreignBlockNumber: ForeignCallSingle,
-    foreignTreeId: ForeignCallSingle,
-    foreignLeafValue: ForeignCallSingle,
+    blockNumber: ForeignCallSingle,
+    treeId: ForeignCallSingle,
+    leafValue: ForeignCallSingle,
   ) {
     if (this.contextChecksEnabled && this.context == TXEContext.TOP_LEVEL) {
       throw new Error(
         'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
       );
     }
-    const blockNumber = fromSingle(foreignBlockNumber).toNumber();
-    const treeId = fromSingle(foreignTreeId).toNumber();
-    const leafValue = fromSingle(foreignLeafValue);
 
-    const witness = await this.txe.utilityGetMembershipWitness(blockNumber, treeId, leafValue);
-
+    const parsedBlockNumber = fromSingle(blockNumber).toNumber();
+    const parsedTreeId = fromSingle(treeId).toNumber();
+    const parsedLeafValue = fromSingle(leafValue);
+    const witness = await this.txe.utilityGetMembershipWitness(parsedBlockNumber, parsedTreeId, parsedLeafValue);
     if (!witness) {
       throw new Error(
-        `Membership witness in tree ${MerkleTreeId[treeId]} not found for value ${leafValue} at block ${blockNumber}.`,
+        `Membership witness in tree ${MerkleTreeId[parsedTreeId]} not found for value ${parsedLeafValue} at block ${parsedBlockNumber}.`,
       );
     }
     return toForeignCallResult([toSingle(witness[0]), toArray(witness.slice(1))]);
   }
 
-  async utilityGetLowNullifierMembershipWitness(
-    foreignBlockNumber: ForeignCallSingle,
-    foreignNullifier: ForeignCallSingle,
-  ) {
+  async utilityGetLowNullifierMembershipWitness(blockNumber: ForeignCallSingle, nullifier: ForeignCallSingle) {
     if (this.contextChecksEnabled && this.context == TXEContext.TOP_LEVEL) {
       throw new Error(
         'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
       );
     }
-    const blockNumber = fromSingle(foreignBlockNumber).toNumber();
-    const nullifier = fromSingle(foreignNullifier);
 
-    const witness = await this.txe.utilityGetLowNullifierMembershipWitness(blockNumber, nullifier);
+    const parsedBlockNumber = fromSingle(blockNumber).toNumber();
 
+    const witness = await this.txe.utilityGetLowNullifierMembershipWitness(parsedBlockNumber, fromSingle(nullifier));
     if (!witness) {
-      throw new Error(`Low nullifier witness not found for nullifier ${nullifier} at block ${blockNumber}.`);
+      throw new Error(`Low nullifier witness not found for nullifier ${nullifier} at block ${parsedBlockNumber}.`);
     }
     return toForeignCallResult(witness.toNoirRepresentation());
   }
 
-  async utilityGetIndexedTaggingSecretAsSender(foreignSender: ForeignCallSingle, foreignRecipient: ForeignCallSingle) {
+  async utilityGetIndexedTaggingSecretAsSender(sender: ForeignCallSingle, recipient: ForeignCallSingle) {
     if (this.contextChecksEnabled && this.context == TXEContext.TOP_LEVEL) {
       throw new Error(
         'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
       );
     }
-    const sender = AztecAddress.fromField(fromSingle(foreignSender));
-    const recipient = AztecAddress.fromField(fromSingle(foreignRecipient));
 
-    const secret = await this.txe.utilityGetIndexedTaggingSecretAsSender(sender, recipient);
-
+    const secret = await this.txe.utilityGetIndexedTaggingSecretAsSender(
+      AztecAddress.fromField(fromSingle(sender)),
+      AztecAddress.fromField(fromSingle(recipient)),
+    );
     return toForeignCallResult(secret.toFields().map(toSingle));
   }
 
-  async utilityFetchTaggedLogs(foreignPendingTaggedLogArrayBaseSlot: ForeignCallSingle) {
+  async utilityFetchTaggedLogs(pendingTaggedLogArrayBaseSlot: ForeignCallSingle) {
     if (this.contextChecksEnabled && this.context == TXEContext.TOP_LEVEL) {
       throw new Error(
         'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
       );
     }
-    const pendingTaggedLogArrayBaseSlot = fromSingle(foreignPendingTaggedLogArrayBaseSlot);
 
-    await this.txe.utilityFetchTaggedLogs(pendingTaggedLogArrayBaseSlot);
-
+    await this.txe.utilityFetchTaggedLogs(fromSingle(pendingTaggedLogArrayBaseSlot));
     return toForeignCallResult([]);
   }
 
   public async utilityValidateEnqueuedNotesAndEvents(
-    foreignContractAddress: ForeignCallSingle,
-    foreignNoteValidationRequestsArrayBaseSlot: ForeignCallSingle,
-    foreignEventValidationRequestsArrayBaseSlot: ForeignCallSingle,
+    contractAddress: ForeignCallSingle,
+    noteValidationRequestsArrayBaseSlot: ForeignCallSingle,
+    eventValidationRequestsArrayBaseSlot: ForeignCallSingle,
   ) {
     if (this.contextChecksEnabled && this.context == TXEContext.TOP_LEVEL) {
       throw new Error(
         'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
       );
     }
-    const contractAddress = AztecAddress.fromField(fromSingle(foreignContractAddress));
-    const noteValidationRequestsArrayBaseSlot = fromSingle(foreignNoteValidationRequestsArrayBaseSlot);
-    const eventValidationRequestsArrayBaseSlot = fromSingle(foreignEventValidationRequestsArrayBaseSlot);
 
     await this.txe.utilityValidateEnqueuedNotesAndEvents(
-      contractAddress,
-      noteValidationRequestsArrayBaseSlot,
-      eventValidationRequestsArrayBaseSlot,
+      AztecAddress.fromField(fromSingle(contractAddress)),
+      fromSingle(noteValidationRequestsArrayBaseSlot),
+      fromSingle(eventValidationRequestsArrayBaseSlot),
     );
 
     return toForeignCallResult([]);
   }
 
   public async utilityBulkRetrieveLogs(
-    foreignContractAddress: ForeignCallSingle,
-    foreignLogRetrievalRequestsArrayBaseSlot: ForeignCallSingle,
-    foreignLogRetrievalResponsesArrayBaseSlot: ForeignCallSingle,
+    contractAddress: ForeignCallSingle,
+    logRetrievalRequestsArrayBaseSlot: ForeignCallSingle,
+    logRetrievalResponsesArrayBaseSlot: ForeignCallSingle,
   ) {
     if (this.contextChecksEnabled && this.context == TXEContext.TOP_LEVEL) {
       throw new Error(
         'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
       );
     }
-    const contractAddress = AztecAddress.fromField(fromSingle(foreignContractAddress));
-    const logRetrievalRequestsArrayBaseSlot = fromSingle(foreignLogRetrievalRequestsArrayBaseSlot);
-    const logRetrievalResponsesArrayBaseSlot = fromSingle(foreignLogRetrievalResponsesArrayBaseSlot);
 
     await this.txe.utilityBulkRetrieveLogs(
-      contractAddress,
-      logRetrievalRequestsArrayBaseSlot,
-      logRetrievalResponsesArrayBaseSlot,
+      AztecAddress.fromField(fromSingle(contractAddress)),
+      fromSingle(logRetrievalRequestsArrayBaseSlot),
+      fromSingle(logRetrievalResponsesArrayBaseSlot),
     );
 
     return toForeignCallResult([]);
   }
 
-  async utilityStoreCapsule(
-    foreignContractAddress: ForeignCallSingle,
-    foreignSlot: ForeignCallSingle,
-    foreignCapsule: ForeignCallArray,
-  ) {
+  async utilityStoreCapsule(contractAddress: ForeignCallSingle, slot: ForeignCallSingle, capsule: ForeignCallArray) {
     if (this.contextChecksEnabled && this.context == TXEContext.TOP_LEVEL) {
       throw new Error(
         'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
       );
     }
-    const contractAddress = AztecAddress.fromField(fromSingle(foreignContractAddress));
-    const slot = fromSingle(foreignSlot);
-    const capsule = fromArray(foreignCapsule);
 
-    await this.txe.utilityStoreCapsule(contractAddress, slot, capsule);
-
+    await this.txe.utilityStoreCapsule(
+      AztecAddress.fromField(fromSingle(contractAddress)),
+      fromSingle(slot),
+      fromArray(capsule),
+    );
     return toForeignCallResult([]);
   }
 
-  async utilityLoadCapsule(
-    foreignContractAddress: ForeignCallSingle,
-    foreignSlot: ForeignCallSingle,
-    foreignTSize: ForeignCallSingle,
-  ) {
+  async utilityLoadCapsule(contractAddress: ForeignCallSingle, slot: ForeignCallSingle, tSize: ForeignCallSingle) {
     if (this.contextChecksEnabled && this.context == TXEContext.TOP_LEVEL) {
       throw new Error(
         'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
       );
     }
-    const contractAddress = AztecAddress.fromField(fromSingle(foreignContractAddress));
-    const slot = fromSingle(foreignSlot);
-    const tSize = fromSingle(foreignTSize).toNumber();
 
-    const values = await this.txe.utilityLoadCapsule(contractAddress, slot);
-
+    const values = await this.txe.utilityLoadCapsule(
+      AztecAddress.fromField(fromSingle(contractAddress)),
+      fromSingle(slot),
+    );
     // We are going to return a Noir Option struct to represent the possibility of null values. Options are a struct
     // with two fields: `some` (a boolean) and `value` (a field array in this case).
     if (values === null) {
       // No data was found so we set `some` to 0 and pad `value` with zeros get the correct return size.
-      return toForeignCallResult([toSingle(new Fr(0)), toArray(Array(tSize).fill(new Fr(0)))]);
+      return toForeignCallResult([toSingle(new Fr(0)), toArray(Array(fromSingle(tSize).toNumber()).fill(new Fr(0)))]);
     } else {
       // Data was found so we set `some` to 1 and return it along with `value`.
       return toForeignCallResult([toSingle(new Fr(1)), toArray(values)]);
     }
   }
 
-  async utilityDeleteCapsule(foreignContractAddress: ForeignCallSingle, foreignSlot: ForeignCallSingle) {
+  async utilityDeleteCapsule(contractAddress: ForeignCallSingle, slot: ForeignCallSingle) {
     if (this.contextChecksEnabled && this.context == TXEContext.TOP_LEVEL) {
       throw new Error(
         'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
       );
     }
-    const contractAddress = AztecAddress.fromField(fromSingle(foreignContractAddress));
-    const slot = fromSingle(foreignSlot);
 
-    await this.txe.utilityDeleteCapsule(contractAddress, slot);
-
+    await this.txe.utilityDeleteCapsule(AztecAddress.fromField(fromSingle(contractAddress)), fromSingle(slot));
     return toForeignCallResult([]);
   }
 
   async utilityCopyCapsule(
-    foreignContractAddress: ForeignCallSingle,
-    foreignSrcSlot: ForeignCallSingle,
-    foreignDstSlot: ForeignCallSingle,
-    foreignNumEntries: ForeignCallSingle,
+    contractAddress: ForeignCallSingle,
+    srcSlot: ForeignCallSingle,
+    dstSlot: ForeignCallSingle,
+    numEntries: ForeignCallSingle,
   ) {
     if (this.contextChecksEnabled && this.context == TXEContext.TOP_LEVEL) {
       throw new Error(
         'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
       );
     }
-    const contractAddress = AztecAddress.fromField(fromSingle(foreignContractAddress));
-    const srcSlot = fromSingle(foreignSrcSlot);
-    const dstSlot = fromSingle(foreignDstSlot);
-    const numEntries = fromSingle(foreignNumEntries).toNumber();
 
-    await this.txe.utilityCopyCapsule(contractAddress, srcSlot, dstSlot, numEntries);
+    await this.txe.utilityCopyCapsule(
+      AztecAddress.fromField(fromSingle(contractAddress)),
+      fromSingle(srcSlot),
+      fromSingle(dstSlot),
+      fromSingle(numEntries).toNumber(),
+    );
 
     return toForeignCallResult([]);
   }
@@ -830,57 +780,52 @@ export class TXEService {
   // to implement this function here. Isn't there a way to programmatically identify that this is missing, given the
   // existence of a txe_oracle method?
   async utilityAes128Decrypt(
-    foreignCiphertextBVecStorage: ForeignCallArray,
-    foreignCiphertextLength: ForeignCallSingle,
-    foreignIv: ForeignCallArray,
-    foreignSymKey: ForeignCallArray,
+    ciphertextBVecStorage: ForeignCallArray,
+    ciphertextLength: ForeignCallSingle,
+    iv: ForeignCallArray,
+    symKey: ForeignCallArray,
   ) {
     if (this.contextChecksEnabled && this.context == TXEContext.TOP_LEVEL) {
       throw new Error(
         'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
       );
     }
-    const ciphertext = fromUintBoundedVec(foreignCiphertextBVecStorage, foreignCiphertextLength, 8);
-    const iv = fromUintArray(foreignIv, 8);
-    const symKey = fromUintArray(foreignSymKey, 8);
 
-    const plaintextBuffer = await this.txe.utilityAes128Decrypt(ciphertext, iv, symKey);
+    const ciphertext = fromUintBoundedVec(ciphertextBVecStorage, ciphertextLength, 8);
+    const ivBuffer = fromUintArray(iv, 8);
+    const symKeyBuffer = fromUintArray(symKey, 8);
 
-    return toForeignCallResult(
-      arrayToBoundedVec(bufferToU8Array(plaintextBuffer), foreignCiphertextBVecStorage.length),
-    );
+    const plaintextBuffer = await this.txe.utilityAes128Decrypt(ciphertext, ivBuffer, symKeyBuffer);
+
+    return toForeignCallResult(arrayToBoundedVec(bufferToU8Array(plaintextBuffer), ciphertextBVecStorage.length));
   }
 
   async utilityGetSharedSecret(
-    foreignAddress: ForeignCallSingle,
-    foreignEphPKField0: ForeignCallSingle,
-    foreignEphPKField1: ForeignCallSingle,
-    foreignEphPKField2: ForeignCallSingle,
+    address: ForeignCallSingle,
+    ephPKField0: ForeignCallSingle,
+    ephPKField1: ForeignCallSingle,
+    ephPKField2: ForeignCallSingle,
   ) {
     if (this.contextChecksEnabled && this.context == TXEContext.TOP_LEVEL) {
       throw new Error(
         'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
       );
     }
-    const address = AztecAddress.fromField(fromSingle(foreignAddress));
-    const ephPK = Point.fromFields([
-      fromSingle(foreignEphPKField0),
-      fromSingle(foreignEphPKField1),
-      fromSingle(foreignEphPKField2),
-    ]);
 
-    const secret = await this.txe.utilityGetSharedSecret(address, ephPK);
-
+    const secret = await this.txe.utilityGetSharedSecret(
+      AztecAddress.fromField(fromSingle(address)),
+      Point.fromFields([fromSingle(ephPKField0), fromSingle(ephPKField1), fromSingle(ephPKField2)]),
+    );
     return toForeignCallResult(secret.toFields().map(toSingle));
   }
 
-  emitOffchainEffect(_foreignData: ForeignCallArray) {
+  emitOffchainEffect(_data: ForeignCallArray) {
     throw new Error('Offchain effects are not yet supported in the TestEnvironment');
   }
 
   // AVM opcodes
 
-  avmOpcodeEmitUnencryptedLog(_foreignMessage: ForeignCallArray) {
+  avmOpcodeEmitUnencryptedLog(_message: ForeignCallArray) {
     if (this.contextChecksEnabled && this.context != TXEContext.PUBLIC) {
       throw new Error(
         `Attempted to call the avmOpcodeEmitUnencryptedLog oracle while in context ${TXEContext[this.context]}`,
@@ -891,41 +836,34 @@ export class TXEService {
     return toForeignCallResult([]);
   }
 
-  async avmOpcodeStorageRead(foreignSlot: ForeignCallSingle) {
+  async avmOpcodeStorageRead(slot: ForeignCallSingle) {
     if (this.contextChecksEnabled && this.context != TXEContext.PUBLIC) {
       throw new Error(`Attempted to call the avmOpcodeStorageRead oracle while in context ${TXEContext[this.context]}`);
     }
-    const slot = fromSingle(foreignSlot);
 
-    const value = (await this.txe.avmOpcodeStorageRead(slot)).value;
-
+    const value = (await this.txe.avmOpcodeStorageRead(fromSingle(slot))).value;
     return toForeignCallResult([toSingle(new Fr(value))]);
   }
 
-  async avmOpcodeStorageWrite(foreignSlot: ForeignCallSingle, foreignValue: ForeignCallSingle) {
+  async avmOpcodeStorageWrite(slot: ForeignCallSingle, value: ForeignCallSingle) {
     if (this.contextChecksEnabled && this.context != TXEContext.PUBLIC) {
       throw new Error(
         `Attempted to call the avmOpcodeStorageWrite oracle while in context ${TXEContext[this.context]}`,
       );
     }
-    const slot = fromSingle(foreignSlot);
-    const value = fromSingle(foreignValue);
 
-    await this.txe.storageWrite(slot, [value]);
-
+    await this.txe.storageWrite(fromSingle(slot), [fromSingle(value)]);
     return toForeignCallResult([]);
   }
 
-  async avmOpcodeGetContractInstanceDeployer(foreignAddress: ForeignCallSingle) {
+  async avmOpcodeGetContractInstanceDeployer(address: ForeignCallSingle) {
     if (this.contextChecksEnabled && this.context != TXEContext.PUBLIC) {
       throw new Error(
         `Attempted to call the avmOpcodeGetContractInstanceDeployer oracle while in context ${TXEContext[this.context]}`,
       );
     }
-    const address = addressFromSingle(foreignAddress);
 
-    const instance = await this.txe.utilityGetContractInstance(address);
-
+    const instance = await this.txe.utilityGetContractInstance(addressFromSingle(address));
     return toForeignCallResult([
       toSingle(instance.deployer),
       // AVM requires an extra boolean indicating the instance was found
@@ -933,16 +871,14 @@ export class TXEService {
     ]);
   }
 
-  async avmOpcodeGetContractInstanceClassId(foreignAddress: ForeignCallSingle) {
+  async avmOpcodeGetContractInstanceClassId(address: ForeignCallSingle) {
     if (this.contextChecksEnabled && this.context != TXEContext.PUBLIC) {
       throw new Error(
         `Attempted to call the avmOpcodeGetContractInstanceClassId oracle while in context ${TXEContext[this.context]}`,
       );
     }
-    const address = addressFromSingle(foreignAddress);
 
-    const instance = await this.txe.utilityGetContractInstance(address);
-
+    const instance = await this.txe.utilityGetContractInstance(addressFromSingle(address));
     return toForeignCallResult([
       toSingle(instance.currentContractClassId),
       // AVM requires an extra boolean indicating the instance was found
@@ -950,16 +886,14 @@ export class TXEService {
     ]);
   }
 
-  async avmOpcodeGetContractInstanceInitializationHash(foreignAddress: ForeignCallSingle) {
+  async avmOpcodeGetContractInstanceInitializationHash(address: ForeignCallSingle) {
     if (this.contextChecksEnabled && this.context != TXEContext.PUBLIC) {
       throw new Error(
         `Attempted to call the avmOpcodeGetContractInstanceInitializationHash oracle while in context ${TXEContext[this.context]}`,
       );
     }
-    const address = addressFromSingle(foreignAddress);
 
-    const instance = await this.txe.utilityGetContractInstance(address);
-
+    const instance = await this.txe.utilityGetContractInstance(addressFromSingle(address));
     return toForeignCallResult([
       toSingle(instance.initializationHash),
       // AVM requires an extra boolean indicating the instance was found
@@ -973,47 +907,42 @@ export class TXEService {
     }
 
     const sender = this.txe.getMsgSender();
-
     return toForeignCallResult([toSingle(sender)]);
   }
 
-  async avmOpcodeEmitNullifier(foreignNullifier: ForeignCallSingle) {
+  async avmOpcodeEmitNullifier(nullifier: ForeignCallSingle) {
     if (this.contextChecksEnabled && this.context != TXEContext.PUBLIC) {
       throw new Error(
         `Attempted to call the avmOpcodeEmitNullifier oracle while in context ${TXEContext[this.context]}`,
       );
     }
-    const nullifier = fromSingle(foreignNullifier);
 
-    await this.txe.avmOpcodeEmitNullifier(nullifier);
-
+    await this.txe.avmOpcodeEmitNullifier(fromSingle(nullifier));
     return toForeignCallResult([]);
   }
 
-  async avmOpcodeEmitNoteHash(foreignNoteHash: ForeignCallSingle) {
+  async avmOpcodeEmitNoteHash(noteHash: ForeignCallSingle) {
     if (this.contextChecksEnabled && this.context != TXEContext.PUBLIC) {
       throw new Error(
         `Attempted to call the avmOpcodeEmitNoteHash oracle while in context ${TXEContext[this.context]}`,
       );
     }
-    const noteHash = fromSingle(foreignNoteHash);
 
-    await this.txe.avmOpcodeEmitNoteHash(noteHash);
-
+    await this.txe.avmOpcodeEmitNoteHash(fromSingle(noteHash));
     return toForeignCallResult([]);
   }
 
-  async avmOpcodeNullifierExists(foreignInnerNullifier: ForeignCallSingle, foreignTargetAddress: ForeignCallSingle) {
+  async avmOpcodeNullifierExists(innerNullifier: ForeignCallSingle, targetAddress: ForeignCallSingle) {
     if (this.contextChecksEnabled && this.context != TXEContext.PUBLIC) {
       throw new Error(
         `Attempted to call the avmOpcodeNullifierExists oracle while in context ${TXEContext[this.context]}`,
       );
     }
-    const innerNullifier = fromSingle(foreignInnerNullifier);
-    const targetAddress = AztecAddress.fromField(fromSingle(foreignTargetAddress));
 
-    const exists = await this.txe.avmOpcodeNullifierExists(innerNullifier, targetAddress);
-
+    const exists = await this.txe.avmOpcodeNullifierExists(
+      fromSingle(innerNullifier),
+      AztecAddress.fromField(fromSingle(targetAddress)),
+    );
     return toForeignCallResult([toSingle(new Fr(exists))]);
   }
 
@@ -1023,7 +952,6 @@ export class TXEService {
     }
 
     const contractAddress = await this.txe.utilityGetContractAddress();
-
     return toForeignCallResult([toSingle(contractAddress.toField())]);
   }
 
@@ -1033,7 +961,6 @@ export class TXEService {
     }
 
     const blockNumber = await this.txe.utilityGetBlockNumber();
-
     return toForeignCallResult([toSingle(new Fr(blockNumber))]);
   }
 
@@ -1043,7 +970,6 @@ export class TXEService {
     }
 
     const timestamp = await this.txe.utilityGetTimestamp();
-
     return toForeignCallResult([toSingle(new Fr(timestamp))]);
   }
 
@@ -1056,7 +982,6 @@ export class TXEService {
 
     // TestEnvironment::public_context is always static
     const isStaticCall = true;
-
     return toForeignCallResult([toSingle(new Fr(isStaticCall ? 1 : 0))]);
   }
 
@@ -1066,7 +991,6 @@ export class TXEService {
     }
 
     const chainId = await this.txe.utilityGetChainId();
-
     return toForeignCallResult([toSingle(chainId)]);
   }
 
@@ -1076,7 +1000,6 @@ export class TXEService {
     }
 
     const version = await this.txe.utilityGetVersion();
-
     return toForeignCallResult([toSingle(version)]);
   }
 
@@ -1086,18 +1009,18 @@ export class TXEService {
     );
   }
 
-  avmOpcodeReturndataCopy(_foreignRdOffset: ForeignCallSingle, _foreignCopySize: ForeignCallSingle) {
+  avmOpcodeReturndataCopy(_rdOffset: ForeignCallSingle, _copySize: ForeignCallSingle) {
     throw new Error(
       'Contract calls are forbidden inside a `TestEnvironment::public_context`, use `public_call` instead',
     );
   }
 
   avmOpcodeCall(
-    _foreignL2Gas: ForeignCallSingle,
-    _foreignDaGas: ForeignCallSingle,
-    _foreignAddress: ForeignCallSingle,
-    _foreignLength: ForeignCallSingle,
-    _foreignArgs: ForeignCallArray,
+    _l2Gas: ForeignCallSingle,
+    _daGas: ForeignCallSingle,
+    _address: ForeignCallSingle,
+    _length: ForeignCallSingle,
+    _args: ForeignCallArray,
   ) {
     throw new Error(
       'Contract calls are forbidden inside a `TestEnvironment::public_context`, use `public_call` instead',
@@ -1105,11 +1028,11 @@ export class TXEService {
   }
 
   avmOpcodeStaticCall(
-    _foreignL2Gas: ForeignCallSingle,
-    _foreignDaGas: ForeignCallSingle,
-    _foreignAddress: ForeignCallSingle,
-    _foreignLength: ForeignCallSingle,
-    _foreignArgs: ForeignCallArray,
+    _l2Gas: ForeignCallSingle,
+    _daGas: ForeignCallSingle,
+    _address: ForeignCallSingle,
+    _length: ForeignCallSingle,
+    _args: ForeignCallArray,
   ) {
     throw new Error(
       'Contract calls are forbidden inside a `TestEnvironment::public_context`, use `public_call` instead',
@@ -1123,60 +1046,53 @@ export class TXEService {
   }
 
   async txePrivateCallNewFlow(
-    foreignFrom: ForeignCallSingle,
-    foreignTargetContractAddress: ForeignCallSingle,
-    foreignFunctionSelector: ForeignCallSingle,
-    _foreignArgsLength: ForeignCallSingle,
-    foreignArgs: ForeignCallArray,
-    foreignArgsHash: ForeignCallSingle,
-    foreignIsStaticCall: ForeignCallSingle,
+    from: ForeignCallSingle,
+    targetContractAddress: ForeignCallSingle,
+    functionSelector: ForeignCallSingle,
+    _argsLength: ForeignCallSingle,
+    args: ForeignCallArray,
+    argsHash: ForeignCallSingle,
+    isStaticCall: ForeignCallSingle,
   ) {
-    const from = addressFromSingle(foreignFrom);
-    const targetContractAddress = addressFromSingle(foreignTargetContractAddress);
-    const functionSelector = FunctionSelector.fromField(fromSingle(foreignFunctionSelector));
-    const args = fromArray(foreignArgs);
-    const argsHash = fromSingle(foreignArgsHash);
-    const isStaticCall = fromSingle(foreignIsStaticCall).toBool();
-
     const result = await this.txe.txePrivateCallNewFlow(
-      from,
-      targetContractAddress,
-      functionSelector,
-      args,
-      argsHash,
-      isStaticCall,
+      addressFromSingle(from),
+      addressFromSingle(targetContractAddress),
+      FunctionSelector.fromField(fromSingle(functionSelector)),
+      fromArray(args),
+      fromSingle(argsHash),
+      fromSingle(isStaticCall).toBool(),
     );
 
     return toForeignCallResult([toArray([result.endSideEffectCounter, result.returnsHash, result.txHash.hash])]);
   }
 
   async simulateUtilityFunction(
-    foreignTargetContractAddress: ForeignCallSingle,
-    foreignFunctionSelector: ForeignCallSingle,
-    foreignArgsHash: ForeignCallSingle,
+    targetContractAddress: ForeignCallSingle,
+    functionSelector: ForeignCallSingle,
+    argsHash: ForeignCallSingle,
   ) {
-    const targetContractAddress = addressFromSingle(foreignTargetContractAddress);
-    const functionSelector = FunctionSelector.fromField(fromSingle(foreignFunctionSelector));
-    const argsHash = fromSingle(foreignArgsHash);
-
-    const result = await this.txe.simulateUtilityFunction(targetContractAddress, functionSelector, argsHash);
+    const result = await this.txe.simulateUtilityFunction(
+      addressFromSingle(targetContractAddress),
+      FunctionSelector.fromField(fromSingle(functionSelector)),
+      fromSingle(argsHash),
+    );
 
     return toForeignCallResult([toSingle(result)]);
   }
 
   async txePublicCallNewFlow(
-    foreignFrom: ForeignCallSingle,
-    foreignAddress: ForeignCallSingle,
-    _foreignLength: ForeignCallSingle,
-    foreignCalldata: ForeignCallArray,
-    foreignIsStaticCall: ForeignCallSingle,
+    from: ForeignCallSingle,
+    address: ForeignCallSingle,
+    _length: ForeignCallSingle,
+    calldata: ForeignCallArray,
+    isStaticCall: ForeignCallSingle,
   ) {
-    const from = addressFromSingle(foreignFrom);
-    const address = addressFromSingle(foreignAddress);
-    const calldata = fromArray(foreignCalldata);
-    const isStaticCall = fromSingle(foreignIsStaticCall).toBool();
-
-    const result = await this.txe.txePublicCallNewFlow(from, address, calldata, isStaticCall);
+    const result = await this.txe.txePublicCallNewFlow(
+      addressFromSingle(from),
+      addressFromSingle(address),
+      fromArray(calldata),
+      fromSingle(isStaticCall).toBool(),
+    );
 
     return toForeignCallResult([toArray([result.returnsHash, result.txHash.hash])]);
   }
@@ -1189,7 +1105,6 @@ export class TXEService {
     }
 
     const sender = await this.txe.privateGetSenderForTags();
-
     // Return a Noir Option struct with `some` and `value` fields
     if (sender === undefined) {
       // No sender found, return Option with some=0 and value=0
@@ -1200,16 +1115,14 @@ export class TXEService {
     }
   }
 
-  async privateSetSenderForTags(foreignSenderForTags: ForeignCallSingle) {
+  async privateSetSenderForTags(senderForTags: ForeignCallSingle) {
     if (this.contextChecksEnabled && this.context == TXEContext.TOP_LEVEL) {
       throw new Error(
         'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
       );
     }
-    const senderForTags = AztecAddress.fromField(fromSingle(foreignSenderForTags));
 
-    await this.txe.privateSetSenderForTags(senderForTags);
-
+    await this.txe.privateSetSenderForTags(AztecAddress.fromField(fromSingle(senderForTags)));
     return toForeignCallResult([]);
   }
 }
