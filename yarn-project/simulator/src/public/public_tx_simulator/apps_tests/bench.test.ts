@@ -101,8 +101,7 @@ describe('Public TX simulator apps tests: benchmarks', () => {
         expect(result.revertCode.isOK()).toBe(true);
       });
 
-      // TODO: Flaky test - runs out of L2GAS intermittently
-      it.skip('AVM simulator MEGA bulk test', async () => {
+      it('AVM simulator MEGA bulk test', async () => {
         tester.setMetricsPrefix(`${metricsPrefixPrefix}AvmTest contract tests`);
         const result = await megaBulkTest(tester, logger, AvmTestContractArtifact);
         expect(result.revertCode.isOK()).toBe(true);
