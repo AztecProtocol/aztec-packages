@@ -254,6 +254,8 @@ template <typename Builder>
 field_t<Builder> SHA256<Builder>::choose_with_sigma1(sparse_value& e, const sparse_value& f, const sparse_value& g)
 {
     using field_pt = field_t<Builder>;
+    // Separates rotation contributions (0-3) from Choose encoding (0-6) in each base-28 digit
+    constexpr fr SPARSE_MULT = fr(7);
 
     const auto lookup = plookup_read<Builder>::get_lookup_accumulators(SHA256_CH_INPUT, e.normal);
     const auto rotation_coefficients = sha256_tables::get_choose_rotation_multipliers();
@@ -262,10 +264,10 @@ field_t<Builder> SHA256<Builder>::choose_with_sigma1(sparse_value& e, const spar
     e.sparse = lookup[ColumnIdx::C2][0];
     field_pt sparse_L2 = lookup[ColumnIdx::C2][2];
 
-    // Compute e + 7*Σ₁(e) in sparse form
-    field_pt xor_result = (rotation_result * fr(7))
-                              .add_two(e.sparse * (rotation_coefficients[0] * fr(7) + fr(1)),
-                                       sparse_L2 * (rotation_coefficients[2] * fr(7)));
+    // Compute e + SPARSE_MULT*Σ₁(e) in sparse form
+    field_pt xor_result = (rotation_result * SPARSE_MULT)
+                              .add_two(e.sparse * (rotation_coefficients[0] * SPARSE_MULT + fr(1)),
+                                       sparse_L2 * (rotation_coefficients[2] * SPARSE_MULT));
 
     // Add 2f + 3g to get e + 7*Σ₁(e) + 2f + 3g (each digit in 0..27)
     field_pt choose_result_sparse = xor_result.add_two(f.sparse + f.sparse, g.sparse + g.sparse + g.sparse);
@@ -297,6 +299,8 @@ template <typename Builder>
 field_t<Builder> SHA256<Builder>::majority_with_sigma0(sparse_value& a, const sparse_value& b, const sparse_value& c)
 {
     using field_pt = field_t<Builder>;
+    // Separates rotation contributions (0-3) from Majority encoding (0-3) in each base-16 digit
+    constexpr fr SPARSE_MULT = fr(4);
 
     const auto lookup = plookup_read<Builder>::get_lookup_accumulators(SHA256_MAJ_INPUT, a.normal);
     const auto rotation_coefficients = sha256_tables::get_majority_rotation_multipliers();
@@ -305,10 +309,10 @@ field_t<Builder> SHA256<Builder>::majority_with_sigma0(sparse_value& a, const sp
     a.sparse = lookup[ColumnIdx::C2][0];
     field_pt sparse_L1_acc = lookup[ColumnIdx::C2][1];
 
-    // Compute a + 4*Σ₀(a) in sparse form
-    field_pt xor_result = (rotation_result * fr(4))
-                              .add_two(a.sparse * (rotation_coefficients[0] * fr(4) + fr(1)),
-                                       sparse_L1_acc * (rotation_coefficients[1] * fr(4)));
+    // Compute a + SPARSE_MULT*Σ₀(a) in sparse form
+    field_pt xor_result = (rotation_result * SPARSE_MULT)
+                              .add_two(a.sparse * (rotation_coefficients[0] * SPARSE_MULT + fr(1)),
+                                       sparse_L1_acc * (rotation_coefficients[1] * SPARSE_MULT));
 
     // Add b + c to get a + 4*Σ₀(a) + b + c (each digit in 0..15)
     field_pt majority_result_sparse = xor_result.add_two(b.sparse, c.sparse);
