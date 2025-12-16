@@ -120,7 +120,8 @@ void executionImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     {
         using Accumulator = typename std::tuple_element_t<8, ContainerOverSubrelations>;
         auto tmp = (in.get(C::execution_sel_instruction_fetching_success) -
-                    in.get(C::execution_sel) * (FF(1) - in.get(C::execution_sel_instruction_fetching_failure)));
+                    in.get(C::execution_sel_bytecode_retrieval_success) *
+                        (FF(1) - in.get(C::execution_sel_instruction_fetching_failure)));
         tmp *= scaling_factor;
         std::get<8>(evals) += typename Accumulator::View(tmp);
     }
