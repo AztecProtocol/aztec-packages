@@ -34,25 +34,6 @@ template <typename FF> class sstore : public Relation<sstoreImpl<FF>> {
   public:
     static constexpr const std::string_view NAME = "sstore";
 
-    static std::string get_subrelation_label(size_t index)
-    {
-        switch (index) {
-        case 1:
-            return "SSTORE_MAX_DATA_WRITES_REACHED";
-        case 2:
-            return "OPCODE_ERROR_IF_OVERFLOW_OR_STATIC";
-        case 4:
-            return "SSTORE_WRITTEN_SLOTS_ROOT_NOT_CHANGED";
-        case 5:
-            return "SSTORE_WRITTEN_SLOTS_SIZE_NOT_CHANGED";
-        case 6:
-            return "SSTORE_PUBLIC_DATA_TREE_ROOT_NOT_CHANGED";
-        case 7:
-            return "SSTORE_PUBLIC_DATA_TREE_SIZE_NOT_CHANGED";
-        }
-        return std::to_string(index);
-    }
-
     // Subrelation indices constants, to be used in tests.
     static constexpr size_t SR_SSTORE_MAX_DATA_WRITES_REACHED = 1;
     static constexpr size_t SR_OPCODE_ERROR_IF_OVERFLOW_OR_STATIC = 2;
@@ -60,6 +41,25 @@ template <typename FF> class sstore : public Relation<sstoreImpl<FF>> {
     static constexpr size_t SR_SSTORE_WRITTEN_SLOTS_SIZE_NOT_CHANGED = 5;
     static constexpr size_t SR_SSTORE_PUBLIC_DATA_TREE_ROOT_NOT_CHANGED = 6;
     static constexpr size_t SR_SSTORE_PUBLIC_DATA_TREE_SIZE_NOT_CHANGED = 7;
+
+    static std::string get_subrelation_label(size_t index)
+    {
+        switch (index) {
+        case SR_SSTORE_MAX_DATA_WRITES_REACHED:
+            return "SSTORE_MAX_DATA_WRITES_REACHED";
+        case SR_OPCODE_ERROR_IF_OVERFLOW_OR_STATIC:
+            return "OPCODE_ERROR_IF_OVERFLOW_OR_STATIC";
+        case SR_SSTORE_WRITTEN_SLOTS_ROOT_NOT_CHANGED:
+            return "SSTORE_WRITTEN_SLOTS_ROOT_NOT_CHANGED";
+        case SR_SSTORE_WRITTEN_SLOTS_SIZE_NOT_CHANGED:
+            return "SSTORE_WRITTEN_SLOTS_SIZE_NOT_CHANGED";
+        case SR_SSTORE_PUBLIC_DATA_TREE_ROOT_NOT_CHANGED:
+            return "SSTORE_PUBLIC_DATA_TREE_ROOT_NOT_CHANGED";
+        case SR_SSTORE_PUBLIC_DATA_TREE_SIZE_NOT_CHANGED:
+            return "SSTORE_PUBLIC_DATA_TREE_SIZE_NOT_CHANGED";
+        }
+        return std::to_string(index);
+    }
 };
 
 } // namespace bb::avm2

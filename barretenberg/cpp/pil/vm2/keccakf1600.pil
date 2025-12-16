@@ -1342,17 +1342,12 @@ pol commit src_addr;
 pol commit dst_addr;
 pol commit space_id;
 pol commit tag_error; // Constrained to be boolean in keccak_memory.pil
-pol commit src_out_of_range_error;
-pol commit dst_out_of_range_error;
+pol commit src_out_of_range_error; // Constrained to be boolean by the lookup into gt. (provided that start == 1).
+pol commit dst_out_of_range_error; // Constrained to be boolean by the lookup into gt. (provided that start == 1).
 pol commit error;
 
 // Note that errors are only relevant at row where start == 1.
 // On the other rows, they are underconstrained.
-
-#[SRC_OUT_OF_RANGE_ERROR_BOOLEAN]
-src_out_of_range_error * (1 - src_out_of_range_error) = 0;
-#[DST_OUT_OF_RANGE_ERROR_BOOLEAN]
-dst_out_of_range_error * (1 - dst_out_of_range_error) = 0;
 
 pol HIGHEST_SLICE_ADDRESS = constants.AVM_HIGHEST_MEM_ADDRESS - constants.AVM_KECCAKF1600_STATE_SIZE + 1;
 // TODO: remove this column when we support constants in lookup tuples.
