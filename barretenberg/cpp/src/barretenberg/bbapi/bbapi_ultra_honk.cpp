@@ -127,8 +127,7 @@ CircuitProve::Response _prove(std::vector<uint8_t>&& bytecode,
 }
 
 template <typename Flavor>
-bool _verify([[maybe_unused]] const bool ipa_accumulation,
-             const std::vector<uint8_t>& vk_bytes,
+bool _verify(const std::vector<uint8_t>& vk_bytes,
              const std::vector<uint256_t>& public_inputs,
              const std::vector<uint256_t>& proof)
 {
@@ -317,20 +316,20 @@ CircuitVerify::Response CircuitVerify::execute(BB_UNUSED const BBApiRequest& req
 
     // if the ipa accumulation flag is set we are using the UltraRollupFlavor
     if (ipa_accumulation) {
-        verified = _verify<UltraRollupFlavor>(ipa_accumulation, verification_key, public_inputs, proof);
+        verified = _verify<UltraRollupFlavor>(verification_key, public_inputs, proof);
     } else if (settings.oracle_hash_type == "poseidon2" && !settings.disable_zk) {
-        verified = _verify<UltraZKFlavor>(ipa_accumulation, verification_key, public_inputs, proof);
+        verified = _verify<UltraZKFlavor>(verification_key, public_inputs, proof);
     } else if (settings.oracle_hash_type == "poseidon2" && settings.disable_zk) {
-        verified = _verify<UltraFlavor>(ipa_accumulation, verification_key, public_inputs, proof);
+        verified = _verify<UltraFlavor>(verification_key, public_inputs, proof);
     } else if (settings.oracle_hash_type == "keccak" && !settings.disable_zk) {
-        verified = _verify<UltraKeccakZKFlavor>(ipa_accumulation, verification_key, public_inputs, proof);
+        verified = _verify<UltraKeccakZKFlavor>(verification_key, public_inputs, proof);
     } else if (settings.oracle_hash_type == "keccak" && settings.disable_zk) {
-        verified = _verify<UltraKeccakFlavor>(ipa_accumulation, verification_key, public_inputs, proof);
+        verified = _verify<UltraKeccakFlavor>(verification_key, public_inputs, proof);
 #ifdef STARKNET_GARAGA_FLAVORS
     } else if (settings.oracle_hash_type == "starknet" && !settings.disable_zk) {
-        verified = _verify<UltraStarknetZKFlavor>(ipa_accumulation, verification_key, public_inputs, proof);
+        verified = _verify<UltraStarknetZKFlavor>(verification_key, public_inputs, proof);
     } else if (settings.oracle_hash_type == "starknet" && settings.disable_zk) {
-        verified = _verify<UltraStarknetFlavor>(ipa_accumulation, verification_key, public_inputs, proof);
+        verified = _verify<UltraStarknetFlavor>(verification_key, public_inputs, proof);
 #endif
     } else {
         throw_or_abort("invalid proof type in _verify");
