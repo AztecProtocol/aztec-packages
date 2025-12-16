@@ -224,22 +224,26 @@ class Chonk : public IVCBase {
     /**
      * @brief Proof type determining recursive verification logic in kernel circuits.
      *
-     * @details State machine transitions based on `num_circuits_accumulated`:
+     * @details This enum has dual semantics depending on context:
+     *
+     * PROVER PERSPECTIVE (in `accumulate`): Type assigned to the circuit being accumulated.
+     * State machine transitions based on `num_circuits_accumulated`:
      *   - OINK:     First app (circuit 0) - no prior accumulator, just Oink verification
      *   - HN:       Apps 1..n-3, inner kernels, and reset kernels - full HyperNova folding verification
      *   - HN_TAIL:  Circuit n-3 (last kernel before tail) - adds ZK masking at op queue start
      *   - HN_FINAL: Circuit n-2 (tail kernel) - final folding + decider verification
      *   - MEGA:     Circuit n-1 (hiding kernel) - MegaZK proof, no folding
      *
+     * VERIFIER PERSPECTIVE (in `complete_kernel_circuit_logic`): Type of the proof being verified.
+     *   - If verifying OINK proof → this kernel is the init kernel (circuit 1)
+     *   - If verifying HN proof → this kernel is an inner/reset kernel
+     *   - If verifying HN_TAIL proof → this kernel IS the tail kernel (circuit n-2)
+     *   - If verifying HN_FINAL proof → this kernel IS the hiding kernel (circuit n-1)
+     *
+     *
      * See `get_queue_type()` for assignment logic and README.md#circuit-structure for overview.
      */
-    enum class QUEUE_TYPE : uint8_t {
-        OINK,     // First app: instance_to_accumulator, T_prev = infinity
-        HN,       // Inner circuits: verify_folding_proof
-        HN_TAIL,  // Pre-tail kernel: triggers ZK masking at op queue start
-        HN_FINAL, // Tail kernel: final folding + decider, recursive in hiding kernel
-        MEGA      // Hiding kernel: MegaZK proof only, no folding
-    };
+    enum class QUEUE_TYPE : uint8_t { OINK, HN, HN_TAIL, HN_FINAL, MEGA };
 
     // An entry in the native verification queue
     struct VerifierInputs {

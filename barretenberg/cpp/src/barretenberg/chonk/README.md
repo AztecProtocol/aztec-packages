@@ -736,17 +736,30 @@ transcript->add_to_hash_buffer(domain_separator + "vk_hash", vk_hash);
 
 ### QUEUE_TYPE
 
-These types are used in two contexts with different meanings:
-- In `accumulate`: Indicates which circuit type is being accumulated (e.g., `HN_TAIL` means we are accumulating the tail circuit)
-- In `complete_kernel_circuit_logic`: Indicates which kernel's logic is being completed (e.g., `HN_TAIL` means we are completing the tail kernel's logic, not verifying it)
+This enum has **dual semantics** depending on context:
 
-| Type | Description |
-|------|-------------|
-| `OINK` | Witness commitments only (no sumcheck) - used for first circuit |
-| `HN` | HyperNova folding proof - standard accumulation |
-| `HN_FINAL` | Final HN verification in hiding kernel |
-| `HN_TAIL` | Tail kernel proof with special ZK handling |
-| `MEGA` | Full Mega/Honk proof |
+#### Prover Perspective (`accumulate`)
+The type is assigned to the circuit being accumulated based on its position:
+
+| Circuit Position | QUEUE_TYPE | Description |
+|-----------------|------------|-------------|
+| Circuit 0 | `OINK` | First app - no prior accumulator, just Oink verification |
+| Circuits 1..n-4 | `HN` | Apps, inner kernels, reset kernels - standard HyperNova folding |
+| Circuit n-3 | `HN_TAIL` | Pre-tail kernel - adds ZK masking at op queue start |
+| Circuit n-2 | `HN_FINAL` | Tail kernel - final folding + decider verification |
+| Circuit n-1 | `MEGA` | Hiding kernel - MegaZK proof, no folding |
+
+#### Verifier Perspective (`complete_kernel_circuit_logic`)
+The type indicates which proof is being verified BY the current kernel:
+
+| Verifying Proof Type | Current Kernel Is | Action |
+|---------------------|-------------------|---------|
+| `OINK` | Init kernel (circuit 1) | Verify first app's Oink proof |
+| `HN` | Inner/reset kernel | Verify standard HN folding proof |
+| `HN_TAIL` | **Tail kernel** (circuit n-2) | Verify pre-tail kernel's proof, add ZK ops |
+| `HN_FINAL` | **Hiding kernel** (circuit n-1) | Verify tail kernel's proof + decider |
+
+**Key Point**: `HN_TAIL` is the proof FROM circuit n-3, verified BY the tail kernel (n-2). Similarly, `HN_FINAL` is the proof FROM the tail kernel (n-2), verified BY the hiding kernel (n-1).
 
 ### Proof Size
 
