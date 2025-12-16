@@ -10,12 +10,6 @@
 namespace bb {
 class ECCVMTraceChecker {
   public:
-    static bool check(ECCVMCircuitBuilder&,
-                      numeric::RNG* engine_ptr = nullptr
-#ifdef FUZZING
-                      ,
-                      bool disable_fixed_dyadic_trace_size = false
-#endif
-    );
+    static bool check(ECCVMCircuitBuilder&, numeric::RNG* engine_ptr = nullptr);
 };
 } // namespace bb

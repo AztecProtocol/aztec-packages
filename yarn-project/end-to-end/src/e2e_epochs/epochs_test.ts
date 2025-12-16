@@ -131,7 +131,6 @@ export class EpochsTestContext {
       txPropagationMaxQueryAttempts: opts.txPropagationMaxQueryAttempts ?? 12,
       worldStateBlockHistory: WORLD_STATE_BLOCK_HISTORY,
       exitDelaySeconds: DefaultL1ContractsConfig.exitDelaySeconds,
-      slasherFlavor: 'none',
       ...opts,
     });
 

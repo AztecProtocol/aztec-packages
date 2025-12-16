@@ -5,9 +5,8 @@ pragma solidity >=0.8.27;
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 
 enum SlasherFlavor {
-  NONE,
-  TALLY,
-  EMPIRE
+  EMPIRE,
+  TALLY
 }
 
 interface ISlasher {

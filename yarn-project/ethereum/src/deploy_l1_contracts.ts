@@ -38,7 +38,7 @@ import {
 import { GSEContract } from './contracts/gse.js';
 import { deployMulticall3 } from './contracts/multicall.js';
 import { RegistryContract } from './contracts/registry.js';
-import { RollupContract, SlashingProposerType } from './contracts/rollup.js';
+import { RollupContract } from './contracts/rollup.js';
 import {
   CoinIssuerArtifact,
   FeeAssetArtifact,
@@ -472,21 +472,6 @@ export const deployUpgradePayload = async (
   return payloadAddress;
 };
 
-function slasherFlavorToSolidityEnum(flavor: DeployL1ContractsArgs['slasherFlavor']): number {
-  switch (flavor) {
-    case 'none':
-      return SlashingProposerType.None.valueOf();
-    case 'tally':
-      return SlashingProposerType.Tally.valueOf();
-    case 'empire':
-      return SlashingProposerType.Empire.valueOf();
-    default: {
-      const _: never = flavor;
-      throw new Error(`Unexpected slasher flavor ${flavor}`);
-    }
-  }
-}
-
 /**
  * Deploys a new rollup contract, funds and initializes the fee juice portal, and initializes the validator set.
  */
@@ -543,7 +528,7 @@ export const deployRollup = async (
     rewardBoostConfig: getRewardBoostConfig(networkName),
     stakingQueueConfig: getEntryQueueConfig(networkName),
     exitDelaySeconds: BigInt(args.exitDelaySeconds),
-    slasherFlavor: slasherFlavorToSolidityEnum(args.slasherFlavor),
+    slasherFlavor: args.slasherFlavor === 'tally' ? 1 : 0,
     slashingOffsetInRounds: BigInt(args.slashingOffsetInRounds),
     slashingUnit: args.slashingUnit,
   };
@@ -1096,15 +1081,9 @@ export class L1Deployer {
       return;
     }
 
-    this.logger.verbose(`Waiting for ${this.txHashes.length} transactions to be mined`, { txHashes: this.txHashes });
-    const receipts = await Promise.all(
-      this.txHashes.map(txHash => this.client.waitForTransactionReceipt({ hash: txHash })),
-    );
-    const failed = receipts.filter(r => r.status !== 'success');
-    if (failed.length > 0) {
-      throw new Error(`Some deployment txs have failed: ${failed.map(f => f.transactionHash).join(', ')}`);
-    }
-    this.logger.info('All transactions mined successfully', { txHashes: this.txHashes });
+    this.logger.info(`Waiting for ${this.txHashes.length} transactions to be mined...`);
+    await Promise.all(this.txHashes.map(txHash => this.client.waitForTransactionReceipt({ hash: txHash })));
+    this.logger.info('All transactions mined successfully');
   }
 
   sendTransaction(
@@ -1227,12 +1206,6 @@ export async function deployL1Contract(
     resultingAddress = address;
     const existing = await extendedClient.getCode({ address: resultingAddress });
     if (existing === undefined || existing === '0x') {
-      try {
-        await l1TxUtils.simulate({ to: DEPLOYER_ADDRESS, data: concatHex([salt, calldata]) }, { gasLimit });
-      } catch (err) {
-        logger?.error(`Failed to simulate deployment tx using universal deployer`, err);
-        await l1TxUtils.simulate({ to: null, data: encodeDeployData({ abi, bytecode, args }) });
-      }
       const res = await l1TxUtils.sendTransaction(
         { to: DEPLOYER_ADDRESS, data: concatHex([salt, calldata]) },
         { gasLimit },

@@ -98,9 +98,8 @@ export type ViemAppendOnlyTreeSnapshot = {
 };
 
 export enum SlashingProposerType {
-  None = 0,
+  Empire = 0,
   Tally = 1,
-  Empire = 2,
 }
 
 export class RollupContract {

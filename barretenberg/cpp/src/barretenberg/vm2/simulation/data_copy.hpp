@@ -25,10 +25,10 @@ class DataCopyInterface {
 class DataCopy : public DataCopyInterface {
   public:
     DataCopy(ExecutionIdGetterInterface& execution_id_manager,
-             GreaterThanInterface& gt,
+             RangeCheckInterface& range_check,
              EventEmitterInterface<DataCopyEvent>& event_emitter)
         : execution_id_manager(execution_id_manager)
-        , gt(gt)
+        , range_check(range_check)
         , events(event_emitter)
     {}
 
@@ -42,10 +42,11 @@ class DataCopy : public DataCopyInterface {
                  const MemoryAddress dst_addr) override;
 
   private:
+    bool is_lte(const uint64_t a, uint64_t b);
     uint64_t min(uint64_t a, uint64_t b);
 
     ExecutionIdGetterInterface& execution_id_manager;
-    GreaterThanInterface& gt;
+    RangeCheckInterface& range_check;
     EventEmitterInterface<DataCopyEvent>& events;
 };
 

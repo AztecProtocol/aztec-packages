@@ -46,7 +46,7 @@ export type L1ContractsConfig = {
   /** How many slashing rounds back we slash (ie when slashing in round N, we slash for offenses committed during epochs of round N-offset) */
   slashingOffsetInRounds: number;
   /** Type of slasher proposer */
-  slasherFlavor: 'empire' | 'tally' | 'none';
+  slasherFlavor: 'empire' | 'tally';
   /** Minimum slashing unit for consensus-based slashing (all slashes will be a 1-3x this value) */
   slashingUnit: bigint;
   /** Governance proposing quorum */

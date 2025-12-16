@@ -15,13 +15,7 @@ using Builder = typename ECCVMFlavor::CircuitBuilder;
 using FF = typename ECCVMFlavor::FF;
 using ProverPolynomials = typename ECCVMFlavor::ProverPolynomials;
 
-bool ECCVMTraceChecker::check(Builder& builder,
-                              numeric::RNG* engine_ptr
-#ifdef FUZZING
-                              ,
-                              bool disable_fixed_dyadic_trace_size
-#endif
-)
+bool ECCVMTraceChecker::check(Builder& builder, numeric::RNG* engine_ptr)
 {
     const FF gamma = FF::random_element(engine_ptr);
     const FF beta = FF::random_element(engine_ptr);
@@ -41,11 +35,7 @@ bool ECCVMTraceChecker::check(Builder& builder,
         .eccvm_set_permutation_delta = eccvm_set_permutation_delta,
     };
 
-#ifdef FUZZING
-    ProverPolynomials polynomials(builder, disable_fixed_dyadic_trace_size);
-#else
     ProverPolynomials polynomials(builder);
-#endif
     const size_t num_rows = polynomials.get_polynomial_size();
     const size_t unmasked_witness_size = num_rows - NUM_DISABLED_ROWS_IN_SUMCHECK;
     compute_logderivative_inverse<FF, ECCVMLookupRelation<FF>>(polynomials, params, unmasked_witness_size);
@@ -61,22 +51,7 @@ bool ECCVMTraceChecker::check(Builder& builder,
         constexpr size_t NUM_SUBRELATIONS = result.size();
 
         for (size_t i = 0; i < num_rows; ++i) {
-            auto row = polynomials.get_row(i);
-#ifdef FUZZING
-            // Check if the relation is skippable and should be skipped (only in fuzzing builds)
-            if constexpr (isSkippable<Relation, decltype(row)>) {
-                // Only accumulate if the relation should not be skipped
-                if (!Relation::skip(row)) {
-                    Relation::accumulate(result, row, params, 1);
-                }
-            } else {
-                // If not skippable, always accumulate
-                Relation::accumulate(result, row, params, 1);
-            }
-#else
-            // In non-fuzzing builds, always accumulate for maximum security
-            Relation::accumulate(result, row, params, 1);
-#endif
+            Relation::accumulate(result, polynomials.get_row(i), params, 1);
 
             bool x = true;
             for (size_t j = 0; j < NUM_SUBRELATIONS; ++j) {

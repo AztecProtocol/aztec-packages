@@ -1,5 +1,3 @@
 *.tgz
 scripts/logs
 scripts/LICENSE
-tfplan
-*_override.tf

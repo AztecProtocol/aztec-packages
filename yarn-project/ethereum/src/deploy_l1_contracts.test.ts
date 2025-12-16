@@ -77,20 +77,13 @@ describe('deploy_l1_contracts', () => {
   const getRollup = (deployed: Awaited<ReturnType<typeof deploy>>) =>
     new RollupContract(deployed.l1Client, deployed.l1ContractAddresses.rollupAddress);
 
-  const checkRollupDeploy = async (deployed: Awaited<ReturnType<typeof deploy>>) => {
-    const rollup = getRollup(deployed);
-    expect(await rollup.getEpochDuration()).toEqual(BigInt(DefaultL1ContractsConfig.aztecEpochDuration));
-    return rollup;
-  };
-
   it('deploys without salt', async () => {
-    const deployed = await deploy();
-    await checkRollupDeploy(deployed);
+    await deploy();
   });
 
   it('deploys initializing validators', async () => {
     const deployed = await deploy({ initialValidators });
-    const rollup = await checkRollupDeploy(deployed);
+    const rollup = getRollup(deployed);
     await Promise.all(
       initialValidators.map(async validator => {
         await retryUntil(
@@ -111,8 +104,6 @@ describe('deploy_l1_contracts', () => {
     const second = await deploy({ salt: 43 });
 
     expect(first.l1ContractAddresses).not.toEqual(second.l1ContractAddresses);
-    await checkRollupDeploy(first);
-    await checkRollupDeploy(second);
   });
 
   it('deploys twice with salt on same addresses', async () => {
@@ -120,7 +111,6 @@ describe('deploy_l1_contracts', () => {
     const second = await deploy({ salt: 44 });
 
     expect(first.l1ContractAddresses).toEqual(second.l1ContractAddresses);
-    await checkRollupDeploy(first);
   });
 
   it('deploys twice with salt on same addresses initializing validators', async () => {

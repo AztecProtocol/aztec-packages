@@ -53,7 +53,9 @@ spec:
             - "/bin/bash"
             - "-c"
             - |
-              source /scripts/setup-attester-keystore.sh && \
+              # Get the private key from the mnemonic - based on the pod replica index
+              source /scripts/get-private-key.sh && \
+              source /shared/config/keys.env && \
               source /shared/contracts/contracts.env && \
               source /shared/config/p2p-addresses && \
               source /shared/config/service-addresses && \
