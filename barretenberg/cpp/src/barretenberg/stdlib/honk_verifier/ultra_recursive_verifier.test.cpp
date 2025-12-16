@@ -1,4 +1,3 @@
-#include "barretenberg/stdlib/honk_verifier/ultra_recursive_verifier.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/test.hpp"
 #include "barretenberg/dsl/acir_format/gate_count_constants.hpp"
@@ -69,7 +68,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
                                                                               // OuterVerifier is Rollup flavor
                                        bb::stdlib::recursion::honk::DefaultIO<OuterBuilder>>;
 
-    using RecursiveVerifier = UltraRecursiveVerifier_<RecursiveFlavor>;
+    using RecursiveVerifier = bb::UltraVerifier_<RecursiveFlavor, DefaultRecursiveIO<RecursiveFlavor>>;
     using VerificationKey = typename RecursiveVerifier::VerificationKey;
 
     using PairingObject = PairingPoints<OuterBuilder>;

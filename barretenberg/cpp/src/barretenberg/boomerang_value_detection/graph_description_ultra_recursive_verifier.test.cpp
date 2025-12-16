@@ -3,8 +3,8 @@
 #include "barretenberg/common/test.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/ultra_rollup_recursive_flavor.hpp"
-#include "barretenberg/stdlib/honk_verifier/ultra_recursive_verifier.hpp"
 #include "barretenberg/stdlib/honk_verifier/ultra_verification_keys_comparator.hpp"
+#include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/stdlib/test_utils/tamper_proof.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
@@ -44,7 +44,7 @@ template <typename RecursiveFlavor> class BoomerangRecursiveVerifierTest : publi
     using OuterVerifier = UltraVerifier_<OuterFlavor, OuterIO>;
     using OuterProverInstance = ProverInstance_<OuterFlavor>;
 
-    using RecursiveVerifier = UltraRecursiveVerifier_<RecursiveFlavor>;
+    using RecursiveVerifier = bb::UltraVerifier_<RecursiveFlavor, DefaultRecursiveIO<RecursiveFlavor>>;
     using VerificationKey = typename RecursiveVerifier::VerificationKey;
 
     using PairingObject = PairingPoints<bn254<OuterBuilder>>;

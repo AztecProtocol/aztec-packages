@@ -7,9 +7,9 @@
 #pragma once
 #include "barretenberg/commitment_schemes/claim.hpp"
 #include "barretenberg/stdlib/eccvm_verifier/verifier_commitment_key.hpp"
-#include "barretenberg/stdlib/honk_verifier/ultra_recursive_verifier.hpp"
 #include "barretenberg/stdlib/primitives/pairing_points.hpp"
 #include "barretenberg/stdlib/proof/proof.hpp"
+#include "barretenberg/ultra_honk/ultra_verifier.hpp"
 #include <cstdint>
 #include <vector>
 

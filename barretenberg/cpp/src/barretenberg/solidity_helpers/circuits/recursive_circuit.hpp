@@ -1,10 +1,10 @@
 #pragma once
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
-#include "barretenberg/stdlib/honk_verifier/ultra_recursive_verifier.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "barretenberg/stdlib/primitives/witness/witness.hpp"
+#include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 
@@ -24,7 +24,7 @@ class RecursiveCircuit {
     using RecursiveFlavor = bb::UltraRecursiveFlavor_<bb::UltraCircuitBuilder>;
     using OuterBuilder = typename RecursiveFlavor::CircuitBuilder;
 
-    using RecursiveVerifier = bb::stdlib::recursion::honk::UltraRecursiveVerifier_<RecursiveFlavor>;
+    using RecursiveVerifier = bb::UltraVerifier_<RecursiveFlavor, bb::stdlib::recursion::honk::DefaultIO<OuterBuilder>>;
     using VerificationKey = typename RecursiveVerifier::VerificationKey;
     using VerifierOutput = bb::stdlib::recursion::honk::UltraRecursiveVerifierOutput<OuterBuilder>;
     using OuterIO = bb::stdlib::recursion::honk::DefaultIO<OuterBuilder>;
