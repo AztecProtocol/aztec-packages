@@ -127,18 +127,20 @@ CircuitProve::Response _prove(std::vector<uint8_t>&& bytecode,
 }
 
 template <typename Flavor>
-bool _verify(const bool ipa_accumulation,
+bool _verify([[maybe_unused]] const bool ipa_accumulation,
              const std::vector<uint8_t>& vk_bytes,
              const std::vector<uint256_t>& public_inputs,
              const std::vector<uint256_t>& proof)
 {
     using VerificationKey = typename Flavor::VerificationKey;
-    using Verifier = UltraVerifier_<Flavor>;
+    using VKAndHash = typename Flavor::VKAndHash;
+    using IO = std::conditional_t<HasIPAAccumulator<Flavor>, RollupIO, DefaultIO>;
+    using Verifier = UltraVerifier_<Flavor, IO>;
     using Transcript = typename Flavor::Transcript;
     using DataType = typename Transcript::DataType;
-    using Proof = typename Transcript::Proof;
 
     std::shared_ptr<VerificationKey> vk = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(vk_bytes));
+    auto vk_and_hash = std::make_shared<VKAndHash>(vk);
 
     // concatenate public inputs and proof
     std::vector<DataType> complete_proof;
@@ -146,30 +148,14 @@ bool _verify(const bool ipa_accumulation,
     complete_proof.insert(complete_proof.end(), public_inputs.begin(), public_inputs.end());
     complete_proof.insert(complete_proof.end(), proof.begin(), proof.end());
 
-    VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key;
-    if constexpr (HasIPAAccumulator<Flavor>) {
-        if (ipa_accumulation) {
-            ipa_verification_key = VerifierCommitmentKey<curve::Grumpkin>(1 << CONST_ECCVM_LOG_N);
-        }
-    }
-
-    Verifier verifier{ vk, ipa_verification_key };
+    Verifier verifier{ vk_and_hash };
 
     bool verified = false;
     if constexpr (HasIPAAccumulator<Flavor>) {
-        const size_t HONK_PROOF_LENGTH = Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS() - IPA_PROOF_LENGTH;
-        const size_t num_public_inputs = static_cast<size_t>(vk->num_public_inputs);
-        // The extra calculation is for the IPA proof length.
-        BB_ASSERT_EQ(complete_proof.size(),
-                     HONK_PROOF_LENGTH + IPA_PROOF_LENGTH + num_public_inputs,
-                     "Honk proof has incorrect length while verifying.");
-        const std::ptrdiff_t honk_proof_with_pub_inputs_length =
-            static_cast<std::ptrdiff_t>(HONK_PROOF_LENGTH + num_public_inputs);
-        auto ipa_proof = Proof(complete_proof.begin() + honk_proof_with_pub_inputs_length, complete_proof.end());
-        auto honk_proof = Proof(complete_proof.begin(), complete_proof.begin() + honk_proof_with_pub_inputs_length);
-        verified = verifier.template verify_proof<RollupIO>(complete_proof, ipa_proof).result;
+        auto [honk_proof, ipa_proof] = split_rollup_proof(complete_proof, vk);
+        verified = verifier.verify_proof(honk_proof, ipa_proof).result;
     } else {
-        verified = verifier.template verify_proof<DefaultIO>(complete_proof).result;
+        verified = verifier.verify_proof(complete_proof).result;
     }
 
     if (verified) {

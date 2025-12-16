@@ -24,11 +24,12 @@ template <typename Circuit, typename Flavor> void generate_proof(uint256_t input
 {
     using ProverInstance = ProverInstance_<Flavor>;
     using VerificationKey = typename Flavor::VerificationKey;
+    using VKAndHash = typename Flavor::VKAndHash;
     using Prover = UltraProver_<Flavor>;
-    using Verifier = UltraVerifier_<Flavor>;
+    using IO = std::conditional_t<HasIPAAccumulator<Flavor>, RollupIO, DefaultIO>;
+    using Verifier = UltraVerifier_<Flavor, IO>;
     using Proof = typename Flavor::Transcript::Proof;
     using CircuitBuilder = typename Flavor::CircuitBuilder;
-    using IO = std::conditional_t<HasIPAAccumulator<Flavor>, RollupIO, DefaultIO>;
 
     CircuitBuilder builder = Circuit::generate(inputs);
     // If this is not a recursive circuit, we need to add the default pairing points to the public inputs
@@ -42,12 +43,13 @@ template <typename Circuit, typename Flavor> void generate_proof(uint256_t input
 
     auto instance = std::make_shared<ProverInstance>(builder);
     auto verification_key = std::make_shared<VerificationKey>(instance->get_precomputed());
+    auto vk_and_hash = std::make_shared<VKAndHash>(verification_key);
     Prover prover(instance, verification_key);
-    Verifier verifier(verification_key);
+    Verifier verifier(vk_and_hash);
 
     Proof proof = prover.construct_proof();
     {
-        if (!verifier.template verify_proof<IO>(proof)) {
+        if (!verifier.verify_proof(proof)) {
             throw_or_abort("Verification failed");
         }
 

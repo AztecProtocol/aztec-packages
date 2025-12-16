@@ -160,7 +160,7 @@ TEST_F(ChonkTranscriptInvariantTests, RecursiveVerificationTranscriptCount)
     auto stdlib_vk = std::make_shared<RecursiveVerifier::RecursiveVK>(&builder, vk.mega);
     auto stdlib_vk_and_hash = std::make_shared<RecursiveVerifier::RecursiveVKAndHash>(stdlib_vk);
 
-    RecursiveVerifier verifier(&builder, stdlib_vk_and_hash);
+    RecursiveVerifier verifier(stdlib_vk_and_hash);
     RecursiveVerifier::StdlibProof stdlib_proof(builder, proof);
     [[maybe_unused]] auto output = verifier.verify(stdlib_proof);
 

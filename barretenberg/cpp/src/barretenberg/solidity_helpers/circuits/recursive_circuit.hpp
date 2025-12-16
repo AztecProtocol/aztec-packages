@@ -13,7 +13,7 @@ class RecursiveCircuit {
   public:
     using InnerFlavor = bb::UltraFlavor;
     using InnerProver = bb::UltraProver_<InnerFlavor>;
-    using InnerVerifier = bb::UltraVerifier_<InnerFlavor>;
+    using InnerVerifier = bb::UltraVerifier_<InnerFlavor, DefaultIO>;
     using InnerBuilder = typename InnerFlavor::CircuitBuilder;
     using InnerProverInstance = bb::ProverInstance_<InnerFlavor>;
     using InnerCommitment = InnerFlavor::Commitment;
@@ -80,18 +80,19 @@ class RecursiveCircuit {
             std::make_shared<typename RecursiveFlavor::VKAndHash>(outer_circuit, inner_verification_key);
 
         // Instantiate the recursive verifier using the native verification key
-        RecursiveVerifier verifier{ &outer_circuit, stdlib_vk_and_hash };
+        RecursiveVerifier verifier{ stdlib_vk_and_hash };
         verifier.transcript->enable_manifest();
 
-        InnerVerifier native_verifier(inner_verification_key);
+        auto inner_vk_and_hash = std::make_shared<typename InnerFlavor::VKAndHash>(inner_verification_key);
+        InnerVerifier native_verifier(inner_vk_and_hash);
         native_verifier.transcript->enable_manifest();
-        auto native_result = native_verifier.template verify_proof<NativeIO>(inner_proof);
+        auto native_result = native_verifier.verify_proof(inner_proof);
         if (!native_result) {
             throw std::runtime_error("Inner proof verification failed");
         }
 
         StdlibProof stdlib_inner_proof(outer_circuit, inner_proof);
-        VerifierOutput output = verifier.template verify_proof<OuterIO>(stdlib_inner_proof);
+        VerifierOutput output = verifier.verify_proof(stdlib_inner_proof);
 
         stdlib::recursion::honk::DefaultIO<OuterBuilder> public_inputs;
         public_inputs.pairing_inputs = output.points_accumulator;

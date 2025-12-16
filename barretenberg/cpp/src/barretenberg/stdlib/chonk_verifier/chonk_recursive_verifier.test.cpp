@@ -71,7 +71,7 @@ TEST_F(ChonkRecursionTests, Basic)
     // Construct the Chonk recursive verifier
     Builder builder;
     auto mega_vk_and_hash = std::make_shared<ChonkVerifier::RecursiveVKAndHash>(builder, vk.mega);
-    ChonkVerifier verifier{ &builder, mega_vk_and_hash };
+    ChonkVerifier verifier{ mega_vk_and_hash };
 
     // Generate the recursive verification circuit
     StdlibProof stdlib_proof(builder, proof);
