@@ -970,6 +970,7 @@ export class Archiver
         this.l1Addresses,
         this.instrumentation,
         this.log,
+        !this.initialSyncComplete, // isHistoricalSync
       );
 
       if (retrievedCheckpoints.length === 0) {

@@ -45,6 +45,16 @@ export interface BlobSinkConfig extends BlobSinkArchiveApiConfig {
    * Whether to allow having no blob sources configured during startup
    */
   blobAllowEmptySources?: boolean;
+
+  /**
+   * URLs for reading blobs from filestore (s3://, gs://, file://, https://). Tried in order until blobs are found.
+   */
+  blobFileStoreUrls?: string[];
+
+  /**
+   * URL for uploading blobs to filestore (s3://, gs://, file://)
+   */
+  blobFileStoreUploadUrl?: string;
 }
 
 export const blobSinkConfigMapping: ConfigMappingsType<BlobSinkConfig> = {
@@ -84,6 +94,19 @@ export const blobSinkConfigMapping: ConfigMappingsType<BlobSinkConfig> = {
     description: 'Whether to allow having no blob sources configured during startup',
     ...booleanConfigHelper(false),
   },
+  blobFileStoreUrls: {
+    env: 'BLOB_FILE_STORE_URLS',
+    description: 'URLs for filestore blob archive, comma-separated. Tried in order until blobs are found.',
+    parseEnv: (val: string) =>
+      val
+        .split(',')
+        .map(url => url.trim())
+        .filter(url => url.length > 0),
+  },
+  blobFileStoreUploadUrl: {
+    env: 'BLOB_FILE_STORE_UPLOAD_URL',
+    description: 'URL for uploading blobs to filestore (s3://, gs://, file://)',
+  },
   ...blobSinkArchiveApiConfigMappings,
 };
 
@@ -99,5 +122,10 @@ export function getBlobSinkConfigFromEnv(): BlobSinkConfig {
  * Returns whether the given blob sink config has any remote sources defined.
  */
 export function hasRemoteBlobSinkSources(config: BlobSinkConfig = {}): boolean {
-  return !!(config.blobSinkUrl || config.l1ConsensusHostUrls?.length || config.archiveApiUrl);
+  return !!(
+    config.blobSinkUrl ||
+    config.l1ConsensusHostUrls?.length ||
+    config.archiveApiUrl ||
+    config.blobFileStoreUrls?.length
+  );
 }
