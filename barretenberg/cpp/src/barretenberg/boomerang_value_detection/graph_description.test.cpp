@@ -248,7 +248,7 @@ TEST(boomerang_ultra_circuit_constructor, test_graph_for_sort_constraints)
     auto b_idx = circuit_constructor.add_variable(b);
     auto c_idx = circuit_constructor.add_variable(c);
     auto d_idx = circuit_constructor.add_variable(d);
-    circuit_constructor.create_sort_constraint({ a_idx, b_idx, c_idx, d_idx });
+    circuit_constructor.enforce_small_deltas({ a_idx, b_idx, c_idx, d_idx });
 
     fr e = fr(5);
     fr f = fr(6);
@@ -258,7 +258,7 @@ TEST(boomerang_ultra_circuit_constructor, test_graph_for_sort_constraints)
     auto f_idx = circuit_constructor.add_variable(f);
     auto g_idx = circuit_constructor.add_variable(g);
     auto h_idx = circuit_constructor.add_variable(h);
-    circuit_constructor.create_sort_constraint({ e_idx, f_idx, g_idx, h_idx });
+    circuit_constructor.enforce_small_deltas({ e_idx, f_idx, g_idx, h_idx });
 
     StaticAnalyzer graph = StaticAnalyzer(circuit_constructor);
     auto connected_components = graph.find_connected_components();
@@ -477,7 +477,7 @@ TEST(boomerang_ultra_circuit_constructor, test_variables_gates_counts_for_sorted
     auto b_idx = circuit_constructor.add_variable(b);
     auto c_idx = circuit_constructor.add_variable(c);
     auto d_idx = circuit_constructor.add_variable(d);
-    circuit_constructor.create_sort_constraint({ a_idx, b_idx, c_idx, d_idx });
+    circuit_constructor.enforce_small_deltas({ a_idx, b_idx, c_idx, d_idx });
 
     fr e = fr(5);
     fr f = fr(6);
@@ -487,7 +487,7 @@ TEST(boomerang_ultra_circuit_constructor, test_variables_gates_counts_for_sorted
     auto f_idx = circuit_constructor.add_variable(f);
     auto g_idx = circuit_constructor.add_variable(g);
     auto h_idx = circuit_constructor.add_variable(h);
-    circuit_constructor.create_sort_constraint({ e_idx, f_idx, g_idx, h_idx });
+    circuit_constructor.enforce_small_deltas({ e_idx, f_idx, g_idx, h_idx });
 
     StaticAnalyzer graph = StaticAnalyzer(circuit_constructor);
     auto variables_gate_counts = graph.get_variables_gate_counts();
@@ -639,9 +639,9 @@ TEST(boomerang_ultra_circuit_constructor, test_graph_for_range_constraints)
     };
     auto indices = add_variables({ fr(1), fr(2), fr(3), fr(4) });
     for (size_t i = 0; i < indices.size(); i++) {
-        circuit_constructor.create_new_range_constraint(indices[i], 5);
+        circuit_constructor.create_small_range_constraint(indices[i], 5);
     }
-    circuit_constructor.create_sort_constraint(indices);
+    circuit_constructor.enforce_small_deltas(indices);
     StaticAnalyzer graph = StaticAnalyzer(circuit_constructor);
     auto connected_components = graph.find_connected_components();
     EXPECT_EQ(connected_components.size(), 1);
@@ -663,7 +663,7 @@ TEST(boomerang_ultra_circuit_constructor, composed_range_constraint)
     auto a_idx = circuit_constructor.add_variable(fr(e));
     circuit_constructor.create_add_gate(
         { a_idx, circuit_constructor.zero_idx(), circuit_constructor.zero_idx(), 1, 0, 0, -fr(e) });
-    circuit_constructor.decompose_into_default_range(a_idx, 134);
+    circuit_constructor.create_limbed_range_constraint(a_idx, 134);
 
     StaticAnalyzer graph = StaticAnalyzer(circuit_constructor);
     auto connected_components = graph.find_connected_components();

@@ -302,7 +302,9 @@ library ProposeLib {
     }
 
     // Emit event for external listeners. Nodes rely on this event to update their state.
-    emit IRollupCore.CheckpointProposed(checkpointNumber, _args.archive, v.blobHashes);
+    emit IRollupCore.CheckpointProposed(
+      checkpointNumber, _args.archive, v.blobHashes, v.payloadDigest, v.attestationsHash
+    );
   }
 
   /**

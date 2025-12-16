@@ -2,7 +2,7 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 
 import { z } from 'zod';
 
-import { type ZodFor, schemas } from '../schemas/index.js';
+import { schemas, zodFor } from '../schemas/index.js';
 
 export enum OffenseType {
   UNKNOWN = 0,
@@ -90,12 +90,14 @@ export type Offense = {
 
 export type OffenseIdentifier = Pick<Offense, 'validator' | 'offenseType' | 'epochOrSlot'>;
 
-export const OffenseSchema = z.object({
-  validator: schemas.EthAddress,
-  amount: schemas.BigInt,
-  offenseType: OffenseTypeSchema,
-  epochOrSlot: schemas.BigInt,
-}) satisfies ZodFor<Offense>;
+export const OffenseSchema = zodFor<Offense>()(
+  z.object({
+    validator: schemas.EthAddress,
+    amount: schemas.BigInt,
+    offenseType: OffenseTypeSchema,
+    epochOrSlot: schemas.BigInt,
+  }),
+);
 
 /** Offense by a validator in the context of a slash payload */
 export type ValidatorSlashOffense = {
@@ -120,19 +122,21 @@ export type SlashPayload = {
 /** Slash payload with round information from empire slash proposer */
 export type SlashPayloadRound = SlashPayload & { votes: bigint; round: bigint };
 
-export const SlashPayloadRoundSchema = z.object({
-  address: schemas.EthAddress,
-  timestamp: schemas.BigInt,
-  votes: schemas.BigInt,
-  round: schemas.BigInt,
-  slashes: z.array(
-    z.object({
-      validator: schemas.EthAddress,
-      amount: schemas.BigInt,
-      offenses: z.array(z.object({ offenseType: OffenseTypeSchema, epochOrSlot: schemas.BigInt })),
-    }),
-  ),
-}) satisfies ZodFor<SlashPayloadRound>;
+export const SlashPayloadRoundSchema = zodFor<SlashPayloadRound>()(
+  z.object({
+    address: schemas.EthAddress,
+    timestamp: schemas.BigInt,
+    votes: schemas.BigInt,
+    round: schemas.BigInt,
+    slashes: z.array(
+      z.object({
+        validator: schemas.EthAddress,
+        amount: schemas.BigInt,
+        offenses: z.array(z.object({ offenseType: OffenseTypeSchema, epochOrSlot: schemas.BigInt })),
+      }),
+    ),
+  }),
+);
 
 /** Votes for a validator slash in the consensus slash proposer */
 export type ValidatorSlashVote = number;

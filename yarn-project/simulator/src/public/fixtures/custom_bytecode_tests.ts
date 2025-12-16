@@ -10,7 +10,7 @@ import {
   OperandType,
   getOperandSize,
 } from '../avm/serialization/instruction_serialization.js';
-import { testCustomBytecode } from './custom_bytecode_tester.js';
+import { deployAndExecuteCustomBytecode } from './custom_bytecode_tester.js';
 import { PublicTxSimulationTester } from './public_tx_simulation_tester.js';
 
 // First instruction resolved a base address (offset 0) which is uninitialized and therefore
@@ -28,7 +28,7 @@ export async function addressingWithBaseTagIssueTest(isIndirect: boolean, tester
   ]);
 
   const txLabel = isIndirect ? 'AddressingWithBaseTagInvalidIndirect' : 'AddressingWithBaseTagInvalidDirect';
-  return await testCustomBytecode(bytecode, tester, txLabel);
+  return await deployAndExecuteCustomBytecode(bytecode, tester, txLabel);
 }
 
 // First instruction sets a value with tag U64 at offset 0. Then a CalldataCopy instruction
@@ -52,7 +52,7 @@ export async function addressingWithIndirectTagIssueTest(tester: PublicTxSimulat
   ]);
 
   const txLabel = 'AddressingWithIndirectTagInvalid';
-  return await testCustomBytecode(bytecode, tester, txLabel);
+  return await deployAndExecuteCustomBytecode(bytecode, tester, txLabel);
 }
 
 export async function pcOutOfRangeTest(tester: PublicTxSimulationTester) {
@@ -62,7 +62,7 @@ export async function pcOutOfRangeTest(tester: PublicTxSimulationTester) {
   ]);
 
   const txLabel = 'PcOutOfRange';
-  return await testCustomBytecode(bytecode, tester, txLabel);
+  return await deployAndExecuteCustomBytecode(bytecode, tester, txLabel);
 }
 
 export async function invalidOpcodeTest(tester: PublicTxSimulationTester) {
@@ -81,7 +81,7 @@ export async function invalidOpcodeTest(tester: PublicTxSimulationTester) {
   bytecode[offsetReturnOpcodeByte] = MAX_OPCODE_VALUE + 1; // opcode is invalid.
 
   const txLabel = 'InvalidOpcode';
-  return await testCustomBytecode(bytecode, tester, txLabel);
+  return await deployAndExecuteCustomBytecode(bytecode, tester, txLabel);
 }
 
 // Single invalid byte in the bytecode.
@@ -91,7 +91,7 @@ export async function invalidByteTest(tester: PublicTxSimulationTester) {
   const bytecode = Buffer.from([invalidOpcode]);
 
   const txLabel = 'InvalidByte';
-  return await testCustomBytecode(bytecode, tester, txLabel);
+  return await deployAndExecuteCustomBytecode(bytecode, tester, txLabel);
 }
 
 // Truncate the last instruction in the bytecode.
@@ -104,7 +104,7 @@ export async function instructionTruncatedTest(tester: PublicTxSimulationTester)
   bytecode = bytecode.subarray(0, -1);
 
   const txLabel = 'InstructionTruncated';
-  return await testCustomBytecode(bytecode, tester, txLabel);
+  return await deployAndExecuteCustomBytecode(bytecode, tester, txLabel);
 }
 
 // Invalid tag value byte in an instruction.
@@ -119,7 +119,7 @@ export async function invalidTagValueTest(tester: PublicTxSimulationTester) {
   bytecode[tagOffset] = TypeTag.INVALID;
 
   const txLabel = 'InvalidTagValue';
-  return await testCustomBytecode(bytecode, tester, txLabel);
+  return await deployAndExecuteCustomBytecode(bytecode, tester, txLabel);
 }
 
 // Combine an invalid tag in the last instruction that is truncated.
@@ -136,7 +136,7 @@ export async function invalidTagValueAndInstructionTruncatedTest(tester: PublicT
   bytecode[tagOffset] = 0x6f; // Invalid tag value.
 
   const txLabel = 'InvalidTagValueAndInstructionTruncated';
-  return await testCustomBytecode(bytecode, tester, txLabel);
+  return await deployAndExecuteCustomBytecode(bytecode, tester, txLabel);
 }
 
 /**

@@ -418,9 +418,7 @@ calls are constrained to also be static calls.</p>
 </ul>
 <h4>Example</h4>
 <pre><code>self.view(Token::at(address).balance_of_private(recipient));</code></pre></div>
-</div><code id="enqueue" class="code-header">pub fn <a href="#enqueue"><span class="fn">enqueue</span></a>&lt;let M: <a href="../../std/primitive.u32.html" class="primitive">u32</a>, let N: <a href="../../std/primitive.u32.html" class="primitive">u32</a>, T&gt;(&mut self, call: <a href="../../noir_aztec/context/calls/struct.PublicCall.html" class="struct">PublicCall</a>&lt;M, N, T&gt;)
-<div class="where-clause">where
-    T: <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a></div></code>
+</div><code id="enqueue" class="code-header">pub fn <a href="#enqueue"><span class="fn">enqueue</span></a>&lt;let M: <a href="../../std/primitive.u32.html" class="primitive">u32</a>, let N: <a href="../../std/primitive.u32.html" class="primitive">u32</a>, T&gt;(&mut self, call: <a href="../../noir_aztec/context/calls/struct.PublicCall.html" class="struct">PublicCall</a>&lt;M, N, T&gt;)</code>
 
 <div class="padded-description"><div class="comments">
 <p>Enqueues a call to the public function defined by the <code>call</code> parameter,
@@ -448,16 +446,11 @@ See also: https://docs.aztec.network/developers/resources/considerations/privacy
 <ul>
 <li><code>call</code> - The interface representing the public function to enqueue.</li>
 </ul>
-<p>TODO(F-131): We should drop T from here because it is strange as there
-is no return value. The PublicCall type seems to be defined
-incorrectly.</p>
 </div>
 </div><code id="enqueue_view" class="code-header">pub fn <a href="#enqueue_view"><span class="fn">enqueue_view</span></a>&lt;let M: <a href="../../std/primitive.u32.html" class="primitive">u32</a>, let N: <a href="../../std/primitive.u32.html" class="primitive">u32</a>, T&gt;(
     &mut self,
     call: <a href="../../noir_aztec/context/calls/struct.PublicStaticCall.html" class="struct">PublicStaticCall</a>&lt;M, N, T&gt;,
-)
-<div class="where-clause">where
-    T: <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a></div></code>
+)</code>
 
 <div class="padded-description"><div class="comments">
 <p>Enqueues a read-only call to the public function defined by the <code>call</code> parameter.</p>
@@ -469,13 +462,8 @@ calls are constrained to also be static calls.</p>
 <li><code>call</code> - The object representing the read-only public function to enqueue.</li>
 </ul>
 <h4>Example</h4>
-<pre><code>self.enqueue_view(MyContract::at(address).assert_timestamp_less_than(timestamp));</code></pre>
-<p>TODO(F-131): We should drop T from here because it is strange as there
-is no return value. The PublicCall type seems to be defined
-incorrectly.</p></div>
-</div><code id="enqueue_incognito" class="code-header">pub fn <a href="#enqueue_incognito"><span class="fn">enqueue_incognito</span></a>&lt;let M: <a href="../../std/primitive.u32.html" class="primitive">u32</a>, let N: <a href="../../std/primitive.u32.html" class="primitive">u32</a>, T&gt;(&mut self, call: <a href="../../noir_aztec/context/calls/struct.PublicCall.html" class="struct">PublicCall</a>&lt;M, N, T&gt;)
-<div class="where-clause">where
-    T: <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a></div></code>
+<pre><code>self.enqueue_view(MyContract::at(address).assert_timestamp_less_than(timestamp));</code></pre></div>
+</div><code id="enqueue_incognito" class="code-header">pub fn <a href="#enqueue_incognito"><span class="fn">enqueue_incognito</span></a>&lt;let M: <a href="../../std/primitive.u32.html" class="primitive">u32</a>, let N: <a href="../../std/primitive.u32.html" class="primitive">u32</a>, T&gt;(&mut self, call: <a href="../../noir_aztec/context/calls/struct.PublicCall.html" class="struct">PublicCall</a>&lt;M, N, T&gt;)</code>
 
 <div class="padded-description"><div class="comments">
 <p>Enqueues a call to the public function defined by the <code>call</code> parameter,
@@ -518,16 +506,11 @@ NULL_MSG_SENDER_CONTRACT_ADDRESS.</li>
 <li>When the called public function calls <code>PublicContext::msg_sender()</code>,
 aztec-nr will translate NULL_MSG_SENDER_CONTRACT_ADDRESS into
 <code>Option&lt;AztecAddress&gt;::none</code> for familiarity to devs.</li>
-</ul>
-<p>TODO(F-131): We should drop T from here because it is strange as there
-is no return value. The PublicCall type seems to be defined
-incorrectly.</p></div>
+</ul></div>
 </div><code id="enqueue_view_incognito" class="code-header">pub fn <a href="#enqueue_view_incognito"><span class="fn">enqueue_view_incognito</span></a>&lt;let M: <a href="../../std/primitive.u32.html" class="primitive">u32</a>, let N: <a href="../../std/primitive.u32.html" class="primitive">u32</a>, T&gt;(
     &mut self,
     call: <a href="../../noir_aztec/context/calls/struct.PublicStaticCall.html" class="struct">PublicStaticCall</a>&lt;M, N, T&gt;,
-)
-<div class="where-clause">where
-    T: <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a></div></code>
+)</code>
 
 <div class="padded-description"><div class="comments">
 <p>Enqueues a read-only call to the public function defined by the <code>call</code> parameter.</p>
@@ -539,13 +522,8 @@ the target public function.</p>
 <li><code>call</code> - The object representing the read-only public function to enqueue.</li>
 </ul>
 <h4>Example</h4>
-<pre><code>self.enqueue_view_incognito(MyContract::at(address).assert_timestamp_less_than(timestamp));</code></pre>
-<p>TODO(F-131): We should drop T from here because it is strange as there
-is no return value. The PublicCall type seems to be defined
-incorrectly.</p></div>
-</div><code id="set_as_teardown" class="code-header">pub fn <a href="#set_as_teardown"><span class="fn">set_as_teardown</span></a>&lt;let M: <a href="../../std/primitive.u32.html" class="primitive">u32</a>, let N: <a href="../../std/primitive.u32.html" class="primitive">u32</a>, T&gt;(&mut self, call: <a href="../../noir_aztec/context/calls/struct.PublicCall.html" class="struct">PublicCall</a>&lt;M, N, T&gt;)
-<div class="where-clause">where
-    T: <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a></div></code>
+<pre><code>self.enqueue_view_incognito(MyContract::at(address).assert_timestamp_less_than(timestamp));</code></pre></div>
+</div><code id="set_as_teardown" class="code-header">pub fn <a href="#set_as_teardown"><span class="fn">set_as_teardown</span></a>&lt;let M: <a href="../../std/primitive.u32.html" class="primitive">u32</a>, let N: <a href="../../std/primitive.u32.html" class="primitive">u32</a>, T&gt;(&mut self, call: <a href="../../noir_aztec/context/calls/struct.PublicCall.html" class="struct">PublicCall</a>&lt;M, N, T&gt;)</code>
 
 <div class="padded-description"><div class="comments">
 <p>Enqueues a call to the public function defined by the <code>call</code> parameter,
@@ -573,16 +551,11 @@ very early). Wallet/FPC/Paymaster developers should be mindful of this.</p>
 <ul>
 <li><code>call</code> - The object representing the public function to designate as teardown.</li>
 </ul>
-<p>TODO(F-131): We should drop T from here because it is strange as there
-is no return value. The PublicCall type seems to be defined
-incorrectly.</p>
 </div>
 </div><code id="set_as_teardown_incognito" class="code-header">pub fn <a href="#set_as_teardown_incognito"><span class="fn">set_as_teardown_incognito</span></a>&lt;let M: <a href="../../std/primitive.u32.html" class="primitive">u32</a>, let N: <a href="../../std/primitive.u32.html" class="primitive">u32</a>, T&gt;(
     &mut self,
     call: <a href="../../noir_aztec/context/calls/struct.PublicCall.html" class="struct">PublicCall</a>&lt;M, N, T&gt;,
-)
-<div class="where-clause">where
-    T: <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a></div></code>
+)</code>
 
 <div class="padded-description"><div class="comments">
 <p>Enqueues a call to the public function defined by the <code>call</code> parameter,
@@ -591,9 +564,6 @@ function call can be made by a tx.</p>
 <p>As per <code>set_as_teardown</code>, but hides this calling contract's address from
 the target public function.</p>
 <p>See <code>enqueue_incognito</code> for more details relating to hiding msg_sender.</p>
-<p>TODO(F-131): We should drop T from here because it is strange as there
-is no return value. The PublicCall type seems to be defined
-incorrectly.</p>
 </div>
 </div></div></main>
 </span>

@@ -5,7 +5,7 @@ import { createLogger } from '@aztec/foundation/log';
 import { mapAvmCircuitPublicInputsToNoir } from '@aztec/noir-protocol-circuits-types/server';
 import { AvmTestContractArtifact } from '@aztec/noir-test-contracts.js/AvmTest';
 import { PublicTxSimulationTester, bulkTest } from '@aztec/simulator/public/fixtures';
-import { AvmCircuitInputs, AvmCircuitPublicInputs } from '@aztec/stdlib/avm';
+import { AvmCircuitInputs, AvmCircuitPublicInputs, PublicSimulatorConfig } from '@aztec/stdlib/avm';
 import { RecursiveProof } from '@aztec/stdlib/proofs';
 import { VerificationKeyAsFields } from '@aztec/stdlib/vks';
 import { NativeWorldStateService } from '@aztec/world-state/native';
@@ -37,6 +37,15 @@ import {
 jest.setTimeout(150_000);
 
 const logger = createLogger('ivc-integration:test:rollup-native');
+
+const simConfig: PublicSimulatorConfig = PublicSimulatorConfig.from({
+  skipFeeEnforcement: false,
+  collectCallMetadata: true, // For results.
+  collectDebugLogs: false,
+  collectHints: true, // Required for proving!
+  collectPublicInputs: true, // Required for proving!
+  collectStatistics: false,
+});
 
 describe('Rollup IVC Integration', () => {
   let bbBinaryPath: string;
@@ -72,7 +81,13 @@ describe('Rollup IVC Integration', () => {
     const avmWorkingDirectory = await getWorkingDirectory('bb-rollup-ivc-integration-avm-');
 
     const worldStateService = await NativeWorldStateService.tmp();
-    const simTester = await PublicTxSimulationTester.create(worldStateService);
+    const simTester = await PublicTxSimulationTester.create(
+      worldStateService,
+      /*globals=*/ undefined, // default
+      /*metrics=*/ undefined,
+      /*useCppSimulator=*/ true,
+      simConfig,
+    );
     const avmSimulationResult = await bulkTest(simTester, logger, AvmTestContractArtifact);
     await worldStateService.close();
     expect(avmSimulationResult.revertCode.isOK()).toBe(true);

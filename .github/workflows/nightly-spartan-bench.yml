@@ -2,8 +2,7 @@ name: Nightly Spartan Benchmarks
 
 on:
   schedule:
-    # Run every night at 3:00 AM UTC (1 hour after nightly release tag at 2:00 AM)
-    - cron: "0 3 * * *"
+    - cron: "0 4 * * *"
   workflow_dispatch:
     inputs:
       nightly_tag:
@@ -79,6 +78,9 @@ jobs:
         with:
           terraform_version: "1.7.5"
           terraform_wrapper: false
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
 
       - name: Setup spartan
         run: |

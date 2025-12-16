@@ -16,10 +16,11 @@ namespace bb {
  * @brief Verifies an ECCVM Honk proof for given program settings.
  * @details Works for both native verification and recursive (in-circuit) verification.
  */
-template <typename Flavor> OpeningClaim<typename Flavor::Curve> ECCVMVerifier_<Flavor>::verify_proof()
+template <typename Flavor>
+typename ECCVMVerifier_<Flavor>::ReductionResult ECCVMVerifier_<Flavor>::reduce_to_ipa_opening()
 {
     using Curve = typename Flavor::Curve;
-    using Shplemini = ShpleminiVerifier_<Curve>;
+    using Shplemini = ShpleminiVerifier_<Curve, Flavor::HasZK>;
     using Shplonk = ShplonkVerifier_<Curve>;
     using OpeningClaim = OpeningClaim<Curve>;
     using ClaimBatcher = ClaimBatcher_<Curve>;
@@ -85,21 +86,19 @@ template <typename Flavor> OpeningClaim<typename Flavor::Curve> ECCVMVerifier_<F
 
     // Compute the Shplemini accumulator consisting of the Shplonk evaluation and the commitments and scalars vector
     // produced by the unified protocol
-    consistency_checked = true;
+
     ClaimBatcher claim_batcher{
         .unshifted = ClaimBatch{ commitments.get_unshifted(), sumcheck_output.claimed_evaluations.get_unshifted() },
         .shifted = ClaimBatch{ commitments.get_to_be_shifted(), sumcheck_output.claimed_evaluations.get_shifted() }
     };
 
-    BatchOpeningClaim<Curve> sumcheck_batch_opening_claims =
+    auto [sumcheck_batch_opening_claims, consistency_checked] =
         Shplemini::compute_batch_opening_claim(padding_indicator_array,
                                                claim_batcher,
                                                sumcheck_output.challenge,
-                                               key->pcs_verification_key.get_g1_identity(),
+                                               key->pcs_g1_identity,
                                                transcript,
                                                Flavor::REPEATED_COMMITMENTS,
-                                               Flavor::HasZK,
-                                               &consistency_checked,
                                                libra_commitments,
                                                sumcheck_output.claimed_libra_evaluation,
                                                sumcheck_output.round_univariate_commitments,
@@ -123,16 +122,16 @@ template <typename Flavor> OpeningClaim<typename Flavor::Curve> ECCVMVerifier_<F
 
     // Construct the combined opening claim
     const OpeningClaim batch_opening_claim =
-        Shplonk::reduce_verification(key->pcs_verification_key.get_g1_identity(), opening_claims, transcript);
+        Shplonk::reduce_verification(key->pcs_g1_identity, opening_claims, transcript);
 
-    sumcheck_verified = sumcheck_output.verified;
-    vinfo("eccvm sumcheck verified?: ", sumcheck_verified);
-    vinfo("eccvm consistency check verified?: ", consistency_checked);
-    vinfo("translation masking consistency checked?: ", translation_masking_consistency_checked);
+    bool sumcheck_verified = sumcheck_output.verified;
+    vinfo("ECCVM Verifier: sumcheck verified: ", sumcheck_verified);
+    vinfo("ECCVM Verifier: consistency checked: ", consistency_checked);
+    vinfo("ECCVM Verifier: translation masking consistency checked: ", translation_masking_consistency_checked);
 
     compute_accumulated_result();
 
-    return batch_opening_claim;
+    return { batch_opening_claim, sumcheck_verified && consistency_checked && translation_masking_consistency_checked };
 }
 
 /**

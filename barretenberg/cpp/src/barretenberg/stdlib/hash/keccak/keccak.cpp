@@ -312,8 +312,8 @@ template <typename Builder> void keccak<Builder>::theta(keccak_state& internal)
 
         // assert equal should cost 1 gate (multipliers are all constants)
         D[i].assert_equal((hi * multiplicand).add_two(mid * 11, lo));
-        internal.context->create_new_range_constraint(hi.get_witness_index(), static_cast<uint64_t>(BASE));
-        internal.context->create_new_range_constraint(lo.get_witness_index(), static_cast<uint64_t>(BASE));
+        internal.context->create_small_range_constraint(hi.get_witness_index(), static_cast<uint64_t>(BASE));
+        internal.context->create_small_range_constraint(lo.get_witness_index(), static_cast<uint64_t>(BASE));
 
         // If number of bits in KECCAK_THETA_OUTPUT table does NOT cleanly divide 64,
         // we need an additional range constraint to ensure that mid < 11^64

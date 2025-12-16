@@ -260,9 +260,11 @@ enum class InstructionGenerationOptions {
     EMITNOTEHASH,
     NOTEHASHEXISTS,
     CALLDATACOPY,
+    SENDL2TOL1MSG,
+    EMITUNENCRYPTEDLOG,
 };
 
-using InstructionGenerationConfig = WeightedSelectionConfig<InstructionGenerationOptions, 42>;
+using InstructionGenerationConfig = WeightedSelectionConfig<InstructionGenerationOptions, 44>;
 
 constexpr InstructionGenerationConfig BASIC_INSTRUCTION_GENERATION_CONFIGURATION = InstructionGenerationConfig({
     { InstructionGenerationOptions::ADD_8, 1 },
@@ -307,6 +309,8 @@ constexpr InstructionGenerationConfig BASIC_INSTRUCTION_GENERATION_CONFIGURATION
     { InstructionGenerationOptions::EMITNOTEHASH, 1 },
     { InstructionGenerationOptions::NOTEHASHEXISTS, 1 },
     { InstructionGenerationOptions::CALLDATACOPY, 1 },
+    { InstructionGenerationOptions::SENDL2TOL1MSG, 1 },
+    { InstructionGenerationOptions::EMITUNENCRYPTEDLOG, 1 },
 });
 
 enum class SStoreMutationOptions { src_address, result_address, slot };
@@ -372,6 +376,27 @@ constexpr CalldataCopyMutationConfig BASIC_CALLDATACOPY_MUTATION_CONFIGURATION =
     { CalldataCopyMutationOptions::cd_start, 1 },
     { CalldataCopyMutationOptions::cd_start_address, 1 },
 });
+
+enum class SendL2ToL1MsgMutationOptions { recipient, recipient_address, content, content_address };
+using SendL2ToL1MsgMutationConfig = WeightedSelectionConfig<SendL2ToL1MsgMutationOptions, 4>;
+
+constexpr SendL2ToL1MsgMutationConfig BASIC_SENDL2TOL1MSG_MUTATION_CONFIGURATION = SendL2ToL1MsgMutationConfig({
+    { SendL2ToL1MsgMutationOptions::recipient, 1 },
+    { SendL2ToL1MsgMutationOptions::recipient_address, 1 },
+    { SendL2ToL1MsgMutationOptions::content, 1 },
+    { SendL2ToL1MsgMutationOptions::content_address, 1 },
+});
+
+enum class EmitUnencryptedLogMutationOptions { log_size, log_size_address, log_values, log_values_address_start };
+using EmitUnencryptedLogMutationConfig = WeightedSelectionConfig<EmitUnencryptedLogMutationOptions, 4>;
+
+constexpr EmitUnencryptedLogMutationConfig BASIC_EMITUNENCRYPTEDLOG_MUTATION_CONFIGURATION =
+    EmitUnencryptedLogMutationConfig({
+        { EmitUnencryptedLogMutationOptions::log_size, 1 },
+        { EmitUnencryptedLogMutationOptions::log_size_address, 1 },
+        { EmitUnencryptedLogMutationOptions::log_values, 1 },
+        { EmitUnencryptedLogMutationOptions::log_values_address_start, 1 },
+    });
 
 enum class ReturnOptionsMutationOptions { return_size, return_value_tag, return_value_offset_index };
 

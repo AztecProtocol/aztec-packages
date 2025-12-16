@@ -25,7 +25,7 @@ template <typename Flavor_> class HypernovaDeciderVerifier {
     using Transcript = Flavor::Transcript;
     using ClaimBatcher = ClaimBatcher_<Curve>;
     using ClaimBatch = ClaimBatcher::Batch;
-    using ShpleminiVerifier = bb::ShpleminiVerifier_<Curve>;
+    using ShpleminiVerifier = bb::ShpleminiVerifier_<Curve, Flavor::HasZK>;
     using PCS = Flavor::PCS;
     using Accumulator = HypernovaFoldingVerifier<Flavor>::Accumulator;
     // Types conditionally assigned based on the Flavor being recursive

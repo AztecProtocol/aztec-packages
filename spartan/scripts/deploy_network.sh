@@ -272,6 +272,10 @@ fi
 # Deploy rollup contracts
 # -------------------------------
 
+if [[ "${VERIFY_CONTRACTS:-}" == "true" && "${ETHEREUM_CHAIN_ID}" == "1337" ]]; then
+  die "Cannot verify contracts deployed to eth-devnet"
+fi
+
 if [[ "${VERIFY_CONTRACTS:-}" == "true" && "${CREATE_ROLLUP_CONTRACTS}" == "true" ]]; then
   if [ -z "$ETHERSCAN_API_KEY" ]; then
     echo "Error: ETHERSCAN_API_KEY is not set, but VERIFY_CONTRACTS=true. Cannot verify contracts without Etherscan API key (i.e. we need API access to the verification service)."
@@ -330,6 +334,7 @@ NETWORK = ${NETWORK_TF}
 JOB_NAME = "deploy-rollup-contracts"
 JOB_BACKOFF_LIMIT = 3
 JOB_TTL_SECONDS_AFTER_FINISHED = 3600
+VERIFY_CONTRACTS = ${VERIFY_CONTRACTS:-false}
 EOF
 
 # Check terraform state for existing contract addresses
@@ -337,7 +342,7 @@ EOF
 terraform -chdir="${DEPLOY_ROLLUP_CONTRACTS_DIR}" init -reconfigure >/dev/null
 EXISTING_REGISTRY=$(terraform -chdir="${DEPLOY_ROLLUP_CONTRACTS_DIR}" output -raw registry_address 2>/dev/null | grep -E '^0x[a-fA-F0-9]{40}$' || true)
 
-if [[ -n "${EXISTING_REGISTRY}" && "${REDEPLOY_ROLLUP_CONTRACTS}" != "true" ]]; then
+if [[ ( -n "${EXISTING_REGISTRY}" || "${USE_NETWORK_CONFIG:-true}" == "true" ) && "${REDEPLOY_ROLLUP_CONTRACTS}" != "true" ]]; then
   log "Contracts already deployed (registry=${EXISTING_REGISTRY}), skipping deployment"
 else
   if [[ "${REDEPLOY_ROLLUP_CONTRACTS}" == "true" ]]; then

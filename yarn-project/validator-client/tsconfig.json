@@ -7,6 +7,12 @@
   },
   "references": [
     {
+      "path": "../blob-lib"
+    },
+    {
+      "path": "../blob-sink"
+    },
+    {
       "path": "../constants"
     },
     {

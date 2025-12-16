@@ -27,7 +27,6 @@ AcirFormatOriginalOpcodeIndices create_empty_original_opcode_indices()
         .avm_recursion_constraints = {},
         .hn_recursion_constraints = {},
         .chonk_recursion_constraints = {},
-        .arithmetic_triple_constraints = {},
         .quad_constraints = {},
         .big_quad_constraints = {},
         .block_constraints = {},

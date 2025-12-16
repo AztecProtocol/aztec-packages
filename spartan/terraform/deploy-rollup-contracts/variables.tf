@@ -236,3 +236,8 @@ variable "NETWORK" {
   nullable    = true
 }
 
+variable "VERIFY_CONTRACTS" {
+  description = "Verify contracts on Etherscan"
+  type        = bool
+  default     = false
+}

@@ -221,13 +221,6 @@ class TranslatorTests : public ::testing::Test {
         // Generate proof
         auto proof = prover.construct_proof();
 
-        // Create verifier
-        auto verification_key = std::make_shared<TranslatorFlavor::VerificationKey>(proving_key->proving_key);
-        TranslatorVerifier verifier(verification_key, verifier_transcript);
-
-        // Get accumulated_result from the prover
-        uint256_t accumulated_result = prover.get_accumulated_result();
-
         // Commit to op queue wires
         std::array<TranslatorFlavor::Commitment, TranslatorFlavor::NUM_OP_QUEUE_WIRES> op_queue_commitments;
         op_queue_commitments[0] =
@@ -239,9 +232,20 @@ class TranslatorTests : public ::testing::Test {
         op_queue_commitments[3] =
             proving_key->proving_key->commitment_key.commit(proving_key->proving_key->polynomials.y_lo_z_2);
 
-        // Verify proof and return result
-        return verifier.verify_proof(
-            proof, evaluation_challenge_x, batching_challenge_v, accumulated_result, op_queue_commitments);
+        // Get accumulated_result from the prover
+        uint256_t accumulated_result = prover.get_accumulated_result();
+
+        // Create verifier
+        TranslatorVerifier verifier(verifier_transcript,
+                                    proof,
+                                    evaluation_challenge_x,
+                                    batching_challenge_v,
+                                    accumulated_result,
+                                    op_queue_commitments);
+
+        // Verify proof: get reduction result and check all components
+        auto result = verifier.reduce_to_pairing_check();
+        return result.pairing_points.check() && result.reduction_succeeded;
     }
 };
 
@@ -392,10 +396,6 @@ TEST_F(TranslatorTests, TranscriptPinned)
     auto verifier_transcript = std::make_shared<Transcript>(proof);
     verifier_transcript->enable_manifest();
 
-    // Create verifier
-    auto verification_key = std::make_shared<TranslatorFlavor::VerificationKey>(proving_key->proving_key);
-    TranslatorVerifier verifier(verification_key, verifier_transcript);
-
     // Get accumulated_result from the prover
     uint256_t accumulated_result = prover.get_accumulated_result();
 
@@ -409,9 +409,16 @@ TEST_F(TranslatorTests, TranscriptPinned)
     op_queue_commitments[3] =
         proving_key->proving_key->commitment_key.commit(proving_key->proving_key->polynomials.y_lo_z_2);
 
-    // Run verification
-    [[maybe_unused]] bool verified = verifier.verify_proof(
-        proof, evaluation_challenge_x, batching_challenge_v, accumulated_result, op_queue_commitments);
+    // Create verifier with all required inputs
+    TranslatorVerifier verifier(verifier_transcript,
+                                proof,
+                                evaluation_challenge_x,
+                                batching_challenge_v,
+                                accumulated_result,
+                                op_queue_commitments);
+
+    // Run verification - just reduce to pairing check to exercise the transcript
+    [[maybe_unused]] auto result = verifier.reduce_to_pairing_check();
 
     // Compare verifier manifest against hardcoded expected structure
     auto expected_manifest = build_expected_translator_manifest();
