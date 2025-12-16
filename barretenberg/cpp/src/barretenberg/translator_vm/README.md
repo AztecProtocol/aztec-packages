@@ -408,12 +408,12 @@ For 64 microlimb columns, we have 4 groups of 16 columns each, resulting in four
 
 The permutation argument verifies that within each group, the interleaved values are a permutation of the ordered (sorted) values. Due to interleaving, the total circuit size increases 16×, requiring more zero-padding (enforced by Relation 7). Interleaving trades circuit size (inexpensive) for relation degree (expensive). The 16× size increase is acceptable given the 9× degree reduction.
 
-> $\textcolor{orange}{\textsf{Effect on Commitment Scheme}}$: The interleaved polynomials do not require separate commitments. During proving key construction, the prover computes them for use in sumcheck. In the Gemini PCS phase, the prover sends only **two additional field element evaluations** $P_+(r^{16})$ and $P_-(r^{16})$ where $r$ is the Gemini challenge:
-> $$P_{\pm}(x) = \sum_{i=0}^{15} (\pm r)^i \cdot p_{i}(x)$$
-> The verifier reconstructs full batched polynomial evaluations as $A_0(r) = A_{0+}(r) + P_+(r^{16})$ and $A_0(-r) = A_{0-}(-r) + P_-(r^{16})$. Since $P_{\pm}(r^{16})$ relates to evaluations $p_i(r^{16})$ already in the Gemini protocol, no additional commitments are needed. The PCS proof grows by only **2 field elements**.
->
+> $\textcolor{orange}{\textsf{Effect on Commitment Scheme}}$:
 > For polynomials $p_0, \dots, p_{15}$ of size $n$, the interleaved polynomial of size $16n$ is:
 > $$p_{\textsf{interleaved}}(x) = \sum_{i=0}^{15} x^i \cdot p_{i}(x^{16})$$
+> The interleaved polynomials do not require separate commitments because they can be derived from the original polynomials' commitments. In the Gemini PCS phase, the prover sends only two additional field element evaluations $P_+(r^{16})$ and $P_-(r^{16})$ where $r$ is the Gemini challenge:
+> $$P_{\pm}(x) = \sum_{i=0}^{15} (\pm r)^i \cdot p_{i}(x)$$
+> The verifier reconstructs full batched polynomial evaluations as $A_0(r) = A_{0+}(r) + P_+(r^{16})$ and $A_0(-r) = A_{0-}(-r) + P_-(r^{16})$. Since $P_{\pm}(r^{16})$ relates to evaluations $p_i(r^{16})$ already in the Gemini protocol, no additional commitments are needed.
 
 ---
 
