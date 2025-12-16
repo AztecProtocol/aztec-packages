@@ -186,7 +186,7 @@ template <typename Flavor, class IO> class UltraVerifier_ {
     std::shared_ptr<VKAndHash> vk_and_hash;
     std::shared_ptr<Instance> verifier_instance;
     std::shared_ptr<Transcript> transcript;
-    std::shared_ptr<Transcript> ipa_transcript = std::make_shared<Transcript>(); // Native only
+    std::shared_ptr<Transcript> ipa_transcript; // Native only
 
     // Builder pointer (extracted from proof for recursive, nullptr for native)
     std::conditional_t<IsRecursive, Builder*, void*> builder = nullptr;
