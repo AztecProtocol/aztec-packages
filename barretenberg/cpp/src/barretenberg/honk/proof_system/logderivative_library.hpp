@@ -82,7 +82,9 @@ void compute_logderivative_inverse(Polynomials& polynomials, auto& relation_para
             compute_inverses(start, end);
         });
     } else {
-        compute_inverses(0, inverse_polynomial.size());
+        {
+            compute_inverses(0, inverse_polynomial.size());
+        }
     }
 }
 

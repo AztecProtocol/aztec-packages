@@ -5,13 +5,12 @@
 
 namespace bb::avm2::tracegen {
 
+// This class is only needed to set the correct size of the inverse column.
+// TODO: In the future we'll repurpose this class to keep track of the active rows,
+// and let the provers use it to more efficiently compute the inverses.
 template <typename PermutationSettings> class PermutationBuilder : public InteractionBuilderInterface {
   public:
-    void process(TraceContainer&) override
-    {
-        // There's nothing to do here.
-        // We only keep this class around so that in tests we can use the checked version.
-    }
+    void process(TraceContainer& trace) override { SetDummyInverses<PermutationSettings>(trace); }
 };
 
 } // namespace bb::avm2::tracegen

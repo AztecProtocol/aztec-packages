@@ -136,7 +136,6 @@ describe('Registry', () => {
         realVerifier: false,
       },
       deployedAddresses,
-      true,
       logger,
     );
 

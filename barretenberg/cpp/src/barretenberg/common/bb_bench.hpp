@@ -8,7 +8,6 @@
 #include <ostream>
 #include <string_view>
 #include <tracy/Tracy.hpp>
-#include <unordered_map>
 #include <vector>
 
 /**
@@ -66,7 +65,7 @@ struct AggregateEntry {
 // AggregateData: Result of normalizing benchmark data
 // entries: Key -> ParentKey -> Entry
 // Empty string is used as key if the entry has no parent.
-using AggregateData = std::unordered_map<OperationKey, std::map<OperationKey, AggregateEntry>>;
+using AggregateData = std::map<OperationKey, std::map<OperationKey, AggregateEntry>>;
 
 // Contains all statically known op counts
 struct GlobalBenchStatsContainer {
@@ -74,11 +73,11 @@ struct GlobalBenchStatsContainer {
     static inline thread_local TimeStatsEntry* parent = nullptr;
     ~GlobalBenchStatsContainer();
     std::mutex mutex;
-    std::vector<std::shared_ptr<TimeStatsEntry>> entries;
+    std::vector<TimeStatsEntry*> entries;
     void print() const;
     // NOTE: Should be called when other threads aren't active
     void clear();
-    void add_entry(const char* key, const std::shared_ptr<TimeStatsEntry>& entry);
+    void add_entry(const char* key, TimeStatsEntry* entry);
     void print_stats_recursive(const OperationKey& key, const TimeStats* stats, const std::string& indent) const;
     void print_aggregate_counts(std::ostream&, size_t) const;
     void print_aggregate_counts_hierarchical(std::ostream&) const;
@@ -152,17 +151,16 @@ struct TimeStatsEntry {
 template <OperationLabel Op> struct ThreadBenchStats {
   public:
     // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-    static inline thread_local std::shared_ptr<TimeStatsEntry> stats;
+    static inline thread_local TimeStatsEntry stats;
 
     static void init_entry(TimeStatsEntry& entry);
     // returns null if use_bb_bench not enabled
-    static std::shared_ptr<TimeStatsEntry> ensure_stats()
+    static TimeStatsEntry* ensure_stats()
     {
-        if (bb::detail::use_bb_bench && BB_UNLIKELY(stats == nullptr)) {
-            stats = std::make_shared<TimeStatsEntry>();
-            GLOBAL_BENCH_STATS.add_entry(Op.value, stats);
+        if (bb::detail::use_bb_bench && BB_UNLIKELY(stats.key.empty())) {
+            GLOBAL_BENCH_STATS.add_entry(Op.value, &stats);
         }
-        return stats;
+        return bb::detail::use_bb_bench ? &stats : nullptr;
     }
 };
 
@@ -200,7 +198,7 @@ struct BenchReporter {
 #define BB_BENCH_TRACY() BB_BENCH_ONLY_NAME(__func__)
 #define BB_BENCH_TRACY_NAME(name) BB_BENCH_ONLY_NAME(name)
 #define BB_BENCH_ONLY_NAME(name)                                                                                       \
-    bb::detail::BenchReporter _bb_bench_reporter((bb::detail::ThreadBenchStats<name>::ensure_stats().get()))
+    bb::detail::BenchReporter _bb_bench_reporter((bb::detail::ThreadBenchStats<name>::ensure_stats()))
 #define BB_BENCH_ENABLE_NESTING()                                                                                      \
     if (_bb_bench_reporter.stats)                                                                                      \
     bb::detail::GlobalBenchStatsContainer::parent = _bb_bench_reporter.stats

@@ -5,7 +5,6 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import type { Fr } from '@aztec/foundation/fields';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import { retryUntil } from '@aztec/foundation/retry';
 import { DateProvider } from '@aztec/foundation/timer';
 import type { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 
@@ -431,7 +430,6 @@ export const deployRollupForUpgrade = async (
   registryAddress: EthAddress,
   logger: Logger,
   txUtilsConfig: L1TxUtilsConfig,
-  flushEntryQueue: boolean = true,
 ) => {
   const deployer = new L1Deployer(
     extendedClient,
@@ -444,14 +442,7 @@ export const deployRollupForUpgrade = async (
 
   const addresses = await RegistryContract.collectAddresses(extendedClient, registryAddress, 'canonical');
 
-  const { rollup, slashFactoryAddress } = await deployRollup(
-    extendedClient,
-    deployer,
-    args,
-    addresses,
-    flushEntryQueue,
-    logger,
-  );
+  const { rollup, slashFactoryAddress } = await deployRollup(extendedClient, deployer, args, addresses, logger);
 
   await deployer.waitForDeployments();
 
@@ -510,7 +501,6 @@ export const deployRollup = async (
     | 'gseAddress'
     | 'governanceAddress'
   >,
-  flushEntryQueue: boolean,
   logger: Logger,
 ) => {
   if (!addresses.gseAddress) {
@@ -685,7 +675,6 @@ export const deployRollup = async (
       addresses.stakingAssetAddress.toString(),
       args.initialValidators,
       args.acceleratedTestDeployments,
-      flushEntryQueue,
       logger,
     );
   }
@@ -862,7 +851,6 @@ export const addMultipleValidators = async (
   stakingAssetAddress: Hex,
   validators: Operator[],
   acceleratedTestDeployments: boolean | undefined,
-  flushEntryQueue: boolean,
   logger: Logger,
 ) => {
   const rollup = new RollupContract(extendedClient, rollupAddress);
@@ -929,7 +917,7 @@ export const addMultipleValidators = async (
             data: encodeFunctionData({
               abi: MultiAdderArtifact.contractAbi,
               functionName: 'addValidators',
-              args: [validatorsTuples, /* skip flushing */ true],
+              args: [validatorsTuples, true],
             }),
           },
           {
@@ -937,49 +925,19 @@ export const addMultipleValidators = async (
           },
         );
 
-        let queueLength = await rollup.getEntryQueueLength();
-        while (flushEntryQueue && queueLength > 0n) {
-          logger.info(`Flushing entry queue with ${queueLength} entries`);
-
-          try {
-            await deployer.l1TxUtils.sendAndMonitorTransaction(
-              {
-                to: rollupAddress,
-                data: encodeFunctionData({
-                  abi: RollupArtifact.contractAbi,
-                  functionName: 'flushEntryQueue',
-                  args: [],
-                }),
-              },
-              {
-                gasLimit: 20_000_000n,
-              },
-            );
-          } catch (err) {
-            logger.warn('Failed to flush queue', { err });
-          }
-
-          queueLength = await rollup.getEntryQueueLength();
-          // check if we drained the queue enough here so we can avoid sleep
-          if (queueLength === 0n) {
-            break;
-          }
-
-          logger.info(`Waiting for next flushable epoch to flush remaining ${queueLength} entries`);
-          await retryUntil(
-            async () => {
-              const [currentEpoch, flushableEpoch] = await Promise.all([
-                rollup.getCurrentEpochNumber(),
-                rollup.getNextFlushableEpoch(),
-              ]);
-              logger.debug(`Next flushable epoch is ${flushableEpoch} (current epoch is ${currentEpoch})`);
-              return currentEpoch >= flushableEpoch;
-            },
-            'wait for next flushable epoch',
-            3600,
-            12,
-          );
-        }
+        await deployer.l1TxUtils.sendAndMonitorTransaction(
+          {
+            to: rollupAddress,
+            data: encodeFunctionData({
+              abi: RollupArtifact.contractAbi,
+              functionName: 'flushEntryQueue',
+              args: [],
+            }),
+          },
+          {
+            gasLimit: 40_000_000n,
+          },
+        );
       } else {
         await deployer.l1TxUtils.sendAndMonitorTransaction(
           {
@@ -987,7 +945,7 @@ export const addMultipleValidators = async (
             data: encodeFunctionData({
               abi: MultiAdderArtifact.contractAbi,
               functionName: 'addValidators',
-              args: [validatorsTuples, /* skip flushing */ !flushEntryQueue],
+              args: [validatorsTuples, false],
             }),
           },
           {
@@ -1070,7 +1028,6 @@ export const deployL1Contracts = async (
   args: DeployL1ContractsArgs,
   txUtilsConfig: L1TxUtilsConfig = getL1TxUtilsConfigEnvVars(),
   createVerificationJson: string | false = false,
-  flushEntryQueue: boolean = true,
 ): Promise<DeployL1ContractsReturnType> => {
   logger.info(`Deploying L1 contracts with config: ${jsonStringify(args)}`);
   validateConfig(args);
@@ -1137,7 +1094,6 @@ export const deployL1Contracts = async (
       stakingAssetAddress,
       governanceAddress,
     },
-    flushEntryQueue,
     logger,
   );
 

@@ -111,7 +111,9 @@ export class SequencerClient {
           l1RpcUrls: rpcUrls,
           l1ChainId: chainId,
           viemPollingIntervalMS: config.viemPollingIntervalMS,
+          aztecSlotDuration: config.aztecSlotDuration,
           ethereumSlotDuration: config.ethereumSlotDuration,
+          aztecEpochDuration: config.aztecEpochDuration,
         },
         { dateProvider: deps.dateProvider },
       ));

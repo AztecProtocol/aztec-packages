@@ -27,12 +27,7 @@ export async function startBot(
   }
 
   const fetch = makeTracedFetch([1, 2, 3], true);
-  const config = extractRelevantOptions<BotConfig>(options, botConfigMappings, 'bot');
-  if (!config.nodeUrl) {
-    throw new Error('The bot requires access to a Node');
-  }
-
-  const node = createAztecNodeClient(config.nodeUrl, getVersions(), fetch);
+  const node = createAztecNodeClient(options.nodeUrl, getVersions(), fetch);
 
   // Start a PXE client that is used by the bot if required
   let pxe: PXE | undefined;

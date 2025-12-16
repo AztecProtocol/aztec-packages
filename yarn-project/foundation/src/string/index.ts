@@ -39,25 +39,5 @@ export function isoDate(date?: Date) {
 }
 
 export function urlJoin(...args: string[]): string {
-  const processed = [];
-  for (const arg of args) {
-    if (arg.length === 0) {
-      continue;
-    }
-
-    let start = 0;
-    let end = arg.length - 1;
-
-    while (start <= end && arg[start] === '/') {
-      start++;
-    }
-    while (end >= start && arg[end] === '/') {
-      end--;
-    }
-
-    if (start < end) {
-      processed.push(arg.slice(start, end + 1));
-    }
-  }
-  return processed.join('/');
+  return args.map(arg => arg.replace(/\/+$/, '').replace(/^\/+/, '')).join('/');
 }
