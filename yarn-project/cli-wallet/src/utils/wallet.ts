@@ -261,6 +261,6 @@ export class CLIWallet extends BaseWallet {
   // Exposed because of the `aztec-wallet get-tx` command. It has been decided that it's fine to keep around because
   // this is just a CLI wallet.
   getNotes(filter: NotesFilter): Promise<NoteDao[]> {
-    return this.pxe.getNotes(filter);
+    return this.pxe.debug.getNotes(filter);
   }
 }
