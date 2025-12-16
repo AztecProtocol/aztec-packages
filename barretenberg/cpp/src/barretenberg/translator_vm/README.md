@@ -8,32 +8,27 @@
 2. [High-Level Statement](#high-level-statement)
 3. [Architecture and Constants](#architecture-and-constants)
 4. [Witness Trace Structure](#witness-trace-structure)
-5. [Witness Generation and Proving Key Construction](#witness-generation-and-proving-key-construction)
-6. [Interleaving: The Key Optimization](#interleaving-the-key-optimization)
-7. [The Seven Relations](#the-seven-relations)
-8. [Proof System Details](#proof-system-details)
-9. [Proof Size Analysis](#proof-size-analysis)
-10. [Critical Components for Auditing](#critical-components-for-auditing)
+5. [Interleaving: The Key Optimization](#interleaving-the-key-optimization)
+6. [Witness Generation and Proving Key Construction](#witness-generation-and-proving-key-construction)
+7. [Translator Relations](#translator-relations)
 
 ---
 
 ## Overview
 
-The **Translator Circuit** is a critical component of the Goblin Plonk proving system in Aztec. It serves as a bridge between the Mega and ECCVM circuits.
+The Translator circuit is a critical component of the Goblin Plonk proving system in Aztec. It serves as a bridge between the Mega and ECCVM circuits.
 
 | Curve    | Base Field     | Scalar Field   | Usage                                     |
 | -------- | -------------- | -------------- | ----------------------------------------- |
 | BN254    | $\mathbb{F}_q$ | $\mathbb{F}_r$ | Used in Mega circuits                     |
 | Grumpkin | $\mathbb{F}_r$ | $\mathbb{F}_q$ | Used in ECCVM for efficient EC operations |
 
-When proving recursive circuits with Mega circuit builder, we accumulate elliptic curve operations in an `EccOpQueue`. Proving these ECC operations is delegated to the ECCVM circuit, which operates over the Grumpkin curve. However, the **same operations have different representations** in the two circuits because:
+When proving recursive circuits with Mega circuit builder, we accumulate elliptic curve operations in an `EccOpQueue`. Proving these ECC operations is delegated to the ECCVM circuit, which operates over the Grumpkin curve. However, the same operations have different representations in the two circuits because:
 
 - Mega circuit operates over the BN254 scalar field $\mathbb{F}_r$ so elements in $\mathbb{F}_q$ are non-native (i.e., they need to decomposed into limbs in $\mathbb{F}_r$)
 - ECCVM operates over the Grumpkin scalar field $\mathbb{F}_q$ so elements in $\mathbb{F}_q$ are circuit native
 
-For example, consider the operation $(z \cdot P)$ where $P$ is a point on the curve and $z$ is a scalar:
-
-The ECCVM arithmetisation represents this operation (in 1 row) as:
+For example, consider the operation $(z \cdot P)$ where $P$ is a point on the curve and $z$ is a scalar. The ECCVM arithmetisation represents this operation (in 1 row) as:
 
 | Opcode | $x$-coordinate | $y$-coordinate | Scalar $z_1$ | Scalar $z_2$ | Full scalar $z$ |
 | ------ | -------------- | -------------- | ------------ | ------------ | --------------- |
@@ -1333,3 +1328,7 @@ This ensures the multisets balance:
 - **Denominator:** 5 ordered (each with 1 copy of each step value)
 
 ---
+
+## Translator Relations
+
+Constraints for the translator VM are specified in [RELATIONS.md](RELATIONS.md).

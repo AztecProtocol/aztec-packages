@@ -1,12 +1,8 @@
 # Translator Relations
 
-## Document Purpose
+The translator VM enforces several relations/constraints to ensure the correctness of non-native field arithmetic and other operations. The primary relation is the **Non-Native Field Relation**, which verifies that certain accumulations hold in a non-native field (the BN254 base field $\mathbb{F}_q$) while operating in the native field (the BN254 scalar field $\mathbb{F}_p$).
 
-This document provides a rigorous mathematical treatment of the **Non-Native Field Relation** in the Translator circuit, using consistent LaTeX nomenclature throughout. This is the core relation that enables computation in 𝔽q (BN254 base field) using only 𝔽p (BN254 scalar field) arithmetic.
-
----
-
-### Active Constraints by Row Type
+Since we follow a two-row trace structure, some relations are only active on even rows, while others are only active on odd rows. Below is a summary of the relations and their activation patterns.
 
 | Constraint                                 | Active on Even Rows | Active on Odd Rows |
 | ------------------------------------------ | ------------------- | ------------------ |
@@ -16,36 +12,22 @@ This document provides a rigorous mathematical treatment of the **Non-Native Fie
 | Range Constraints (Permutation)            | ✓                   | ✓                  |
 | Decomposition Relations                    | ✓                   | ✓                  |
 
-**Lagrange selectors**:
+Lagrange selectors:
 
 - $L_{\text{even}}$: Equals 1 on even rows, 0 elsewhere
 - $L_{\text{odd}}$: Equals 1 on odd rows, 0 elsewhere
 
----
-
 ## Table of Contents
 
 1. [Limb Decomposition Structure](#limb-decomposition-structure)
-2. [The Problem Statement](#the-problem-statement)
-3. [Nomenclature and Notation](#nomenclature-and-notation)
-4. [The Three Subrelations](#the-three-subrelations)
-5. [Subrelation 1: Lower Mod 2¹³⁶ Check](#subrelation-1-lower-mod-2136-check)
-6. [Subrelation 2: Higher Mod 2¹³⁶ Check](#subrelation-2-higher-mod-2136-check)
-7. [Subrelation 3: Native Field Check](#subrelation-3-native-field-check)
-8. [Soundness Argument](#soundness-argument)
-9. [Complete Constraint System](#complete-constraint-system)
+2. [Non Native Field Relations](#non-native-field-relations)
+3. [Decomposition Relation](#decomposition-relation)
+4. [Accumulator Transfer Relation](#accumulator-transfer-relation)
+5. [Opcode Constraint](#opcode-constraint)
 
 ---
 
 ## Limb Decomposition Structure
-
-### Why 68-bit Limbs?
-
-- Need to represent 254-bit values (elements of 𝔽q)
-- Split into **4 limbs**: 68 + 68 + 68 + 50 = 254 bits
-- 68 bits chosen for efficient range constraints (68 = 14 × 4 + 12)
-
-### Complete Decomposition Table
 
 This table establishes **all notation** used in the relations:
 
@@ -75,7 +57,7 @@ This table establishes **all notation** used in the relations:
 | **Opcode (witness, small)**     |
 | $\texttt{op}$                   | Operation code       | (no decomposition, ≤ 8)                                                              | $\texttt{op}$   |
 
-### Reconstruction Formula (General)
+#### Reconstruction Formula (General)
 
 For a 254-bit value decomposed as $\ell_0, \ell_1, \ell_2, \ell_3$:
 
@@ -105,91 +87,24 @@ The quotient $\mathcal{Q}$ is reconstructed as:
 
 $$\mathcal{Q} = q_0 + 2^{68} \cdot q_1 + 2^{136} \cdot q_2 + 2^{204} \cdot q_3$$
 
----
-
-## The Problem Statement
-
-### Field Moduli
-
-| Symbol | Value                                                                | Description                     |
-| ------ | -------------------------------------------------------------------- | ------------------------------- |
-| $q$    | `0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47` | BN254 base field modulus (𝔽q)   |
-| $p$    | `0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001` | BN254 scalar field modulus (𝔽p) |
-
-**Key fact:** $q \neq p$, so we cannot directly compute in 𝔽q using 𝔽p arithmetic.
-
-### Goal
-
-Prove the following accumulation identity holds in $\mathbb{F}_q$:
-
-$$\boxed{a^{\text{curr}} = a^{\text{prev}} \cdot x + \texttt{op} + P_x \cdot v + P_y \cdot v^2 + z_1 \cdot v^3 + z_2 \cdot v^4 \pmod{q}}$$
-
-### Challenge
-
-We can only perform arithmetic in $\mathbb{F}_p$ (the scalar field), but we need to prove correctness in $\mathbb{F}_q$ (the base field).
-
-### Solution Approach
-
-Rewrite as an integer equation with quotient:
-
-$$a^{\text{prev}} \cdot x + \texttt{op} + P_x \cdot v + P_y \cdot v^2 + z_1 \cdot v^3 + z_2 \cdot v^4 - \mathcal{Q} \cdot q - a^{\text{curr}} = 0 \quad (\text{in integers})$$
-
-**Key insight:** If this equation holds:
-
-1. **Modulo $2^{272}$** (via limb arithmetic in 𝔽p), AND
-2. **Modulo $p$** (native 𝔽p computation), AND
-3. All values are properly range-constrained
-
-Then it holds in integers (since $2^{272} \cdot p > 2^{514}$ > max possible value), which implies it holds modulo $q$.
-
-### Negative Prime Modulus
-
-We work with $-q \pmod{2^{272}}$ to avoid subtraction:
-
-$$\bar{q} := 2^{272} - q$$
-
-Decomposed into limbs:
-
-$$\bar{q} = \bar{q}_0 + 2^{68} \cdot \bar{q}_1 + 2^{136} \cdot \bar{q}_2 + 2^{204} \cdot \bar{q}_3$$
-
-Plus native field representation: $\bar{q}_4 = -q \pmod{p}$
-
----
-
-## The Problem Statement
-
-### Goal
-
-Prove the following accumulation identity holds in 𝔽q:
-
-$$\boxed{a^{\text{curr}} = a^{\text{prev}} \cdot x + \texttt{op} + P_x \cdot v + P_y \cdot v^2 + z_1 \cdot v^3 + z_2 \cdot v^4 \pmod{q}}$$
-
-### Challenge
-
-We can only perform arithmetic in 𝔽p (the scalar field), but we need to prove correctness in 𝔽q (the base field).
-Since $q \neq p$, so we cannot directly compute in 𝔽q using 𝔽p arithmetic.
-
-| Symbol | LaTeX | Value                                                                | Description                     |
-| ------ | ----- | -------------------------------------------------------------------- | ------------------------------- |
-| q      | `q`   | `0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47` | BN254 base field modulus (𝔽q)   |
-| p      | `p`   | `0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001` | BN254 scalar field modulus (𝔽p) |
-
-### Solution Approach
-
-Rewrite as an integer equation with quotient:
-
-$$a^{\text{prev}} \cdot x + \texttt{op} + P_x \cdot v + P_y \cdot v^2 + z_1 \cdot v^3 + z_2 \cdot v^4 - \mathcal{Q} \cdot q - a^{\text{curr}} = 0 \quad (\text{in integers})$$
-
-**Key insight:** If this equation holds:
-
-1. **Modulo 2²⁷²** (via limb arithmetic in 𝔽p), AND
-2. **Modulo p** (native 𝔽p computation), AND
-3. All values are properly range-constrained
-
-Using Chinese Remainder Theorem, then it holds in integers (since $2^{272} \cdot p > 2^{514}$ > max possible value), which implies it holds modulo q.
-See [bigfield documentation](barretenberg/cpp/src/barretenberg/stdlib/primitives/bigfield/README.md) for more details on non-native field arithmetic.
-
 ## Non-Native Field Relations
+
+We want to prove the following accumulation identity holds in $\mathbb{F}_q$:
+
+$$\boxed{a^{\text{curr}} = a^{\text{prev}} \cdot x + \texttt{op} + P_x \cdot v + P_y \cdot v^2 + z_1 \cdot v^3 + z_2 \cdot v^4 \pmod{q}}$$
+
+We can only perform arithmetic in $\mathbb{F}_p$, but we need to prove correctness in $\mathbb{F}_q$ (the base field).
+To do this, we rewrite the above equation as an integer equation with quotient $\mathcal{Q}$:
+
+$$a^{\text{prev}} \cdot x + \texttt{op} + P_x \cdot v + P_y \cdot v^2 + z_1 \cdot v^3 + z_2 \cdot v^4 - \mathcal{Q} \cdot q - a^{\text{curr}} = 0 \quad (\text{in integers})$$
+
+If this equation holds:
+
+1. Modulo $2^{272}$ (via limb arithmetic in $\mathbb{F}_p$), and
+2. Modulo $p$ (native $\mathbb{F}_p$ computation), and
+3. All values are properly range-constrained
+
+Using Chinese Remainder Theorem, then it holds in integers (since $2^{272} \cdot p > 2^{514}$ > max possible value), which implies it holds modulo $q$. See [bigfield documentation](barretenberg/cpp/src/barretenberg/stdlib/primitives/bigfield/README.md) for more details on non-native field arithmetic.
 
 The non-native field relation is enforced through **three separate subrelations**:
 
@@ -200,6 +115,12 @@ The non-native field relation is enforced through **three separate subrelations*
 | 3           | Native field check    | $p$       | Full native reconstruction            |
 
 Together, these prove the relation holds in integers.
+
+> **Negative Modulus Constant**: We work with $-q \pmod{2^{272}}$ to avoid subtraction:
+> $$\bar{q} := 2^{272} - q$$
+> Decomposed into limbs:
+> $$\bar{q} = \bar{q}_0 + 2^{68} \cdot \bar{q}_1 + 2^{136} \cdot \bar{q}_2 + 2^{204} \cdot \bar{q}_3$$
+> Plus native field representation: $\bar{q}_4 = -q \pmod{p}$
 
 ---
 
@@ -261,8 +182,6 @@ $$\boxed{L_{\text{even}} \cdot \texttt{op} \cdot \left( T_0 + 2^{68} \cdot T_1 -
 - $L_{\text{even}} = 1$ (even rows in mini-circuit)
 - $\texttt{op} \neq 0$ (not a no-op)
 
----
-
 ### Subrelation 2: Higher Mod 2¹³⁶ Check
 
 Prove that when we compute the accumulation formula using limbs 2 and 3, plus the carry from subrelation 1, the result is a multiple of $2^{136}$.
@@ -308,7 +227,7 @@ The combined subrelation 2 is:
 
 $$\boxed{L_{\text{even}} \cdot \texttt{op} \cdot \left( T_2 + 2^{68} \cdot T_3 - 2^{136} \cdot c^{\text{hi}} \right) = 0}$$
 
-**Interpretation:**
+Interpretation:
 
 - Start with carry $c^{\text{lo}}$ from subrelation 1
 - Add limb 2 contribution $T_2$
@@ -316,11 +235,9 @@ $$\boxed{L_{\text{even}} \cdot \texttt{op} \cdot \left( T_2 + 2^{68} \cdot T_3 -
 - Result should be $c^{\text{hi}} \cdot 2^{136}$
 - If this holds, the higher 136 bits are correct
 
-**Together with Subrelation 1:** We've proven the relation holds modulo $2^{272}$.
+Together with Subrelation 1: We've proven the relation holds modulo $2^{272}$.
 
----
-
-## Subrelation 3: Native Field Check
+### Subrelation 3: Native Field Check
 
 Prove the accumulation formula holds when computed directly in 𝔽p (the native field).
 
@@ -361,7 +278,7 @@ Where:
 - $x_4, v_4, (v^2)_4, (v^3)_4, (v^4)_4$ are the native field representations of the challenges
 - $\bar{q}_4 = -q \pmod{p}$
 
-**Interpretation:**
+Interpretation:
 
 - Reconstruct all limbed values back to native $\mathbb{F}_{p}$ elements
 - Compute the accumulation formula directly in $\mathbb{F}_{p}$
@@ -369,64 +286,7 @@ Where:
 
 ---
 
-## Soundness Argument
-
-### The Two-Moduli Approach
-
-We prove the accumulation identity holds in three ways:
-
-1. **Modulo $2^{136}$ (lower):** Subrelation 1
-2. **Modulo $2^{136}$ (higher):** Subrelation 2, which together with 1 gives mod $2^{272}$
-3. **Modulo $p$:** Subrelation 3
-
-### Chinese Remainder Theorem Intuition
-
-If an equation holds modulo $M_1$ and modulo $M_2$ where $\gcd(M_1, M_2) = 1$, then it holds modulo $M_1 \cdot M_2$.
-
-**Application:**
-
-- $\gcd(2^{272}, p) = 1$ (since $p$ is odd prime)
-- If equation holds mod $2^{272}$ AND mod $p$
-- Then it holds mod $2^{272} \cdot p$
-
-### Maximum Value Bound
-
-**Maximum possible value of LHS:**
-
-$$\text{Max} = \max(a^{\text{prev}}) \cdot \max(x) + \text{sum of other products}$$
-
-Each factor is at most $2^{254}$, so:
-
-$$\text{Max} < 2^{254} \cdot 2^{254} + 4 \cdot 2^{254} \cdot 2^{254} < 5 \cdot 2^{508} < 2^{511}$$
-
-$$\implies 2^{272} \cdot p > 2^{272} \cdot 2^{253} = 2^{525} > 2^{511} > \text{Max}$$
-
-**Conclusion:**
-
-- If the equation holds mod $2^{272} \cdot p$
-- AND all values are bounded as above
-- THEN the equation holds in integers (no wraparound possible)
-- THEREFORE it holds modulo any smaller modulus, including $q$
-
-### Range Constraints are Critical
-
-The soundness argument **requires** that all limbs are properly range-constrained:
-
-| Limb                                             | Required Range                 | Enforced By                            |
-| ------------------------------------------------ | ------------------------------ | -------------------------------------- |
-| $P_{x,i}^{\text{lo}}, P_{x,i}^{\text{hi}}$ (i=0) | $[0, 2^{68})$                  | Decomposition + Delta Range Constraint |
-| $P_{x,1}^{\text{hi}}$                            | $[0, 2^{50})$                  | Stricter constraint via tail microlimb |
-| All other 68-bit limbs                           | $[0, 2^{68})$                  | Permutation argument                   |
-| Quotient limbs                                   | $[0, 2^{68})$ or $[0, 2^{52})$ | Permutation argument                   |
-| Carries $c^{\text{lo}}, c^{\text{hi}}$           | $[0, 2^{84})$                  | Relation wide limb range constraints   |
-
-**If any limb is out of range**, the maximum value bound is violated and soundness breaks.
-
----
-
-## Decomposition Relation: Mathematical Specification
-
-### Purpose and Overview
+## Decomposition Relation
 
 The decomposition relation enforces the integrity of the limb decomposition system. While the Non-Native Field Relation proves the accumulation formula is correct, the Decomposition Relation proves all limb decompositions are valid.
 
@@ -444,7 +304,7 @@ These work with the **Delta Range Constraint** permutation argument that proves 
 
 ### The 14-bit Microlimb System
 
-**Two-level decomposition hierarchy:**
+Two-level decomposition hierarchy:
 
 1. Level 1 (68-bit limbs): 254-bit values → 68 + 68 + 68 + 50 bits
 2. Level 2 (14-bit microlimbs): 68-bit limbs → 14 + 14 + 14 + 14 + 12 bits
@@ -453,7 +313,7 @@ Microlimb reconstruction formula for a 68-bit limb $\ell$ with microlimbs $m_0, 
 
 $$\boxed{\ell = m_0 + m_1 \cdot 2^{14} + m_2 \cdot 2^{28} + m_3 \cdot 2^{42} + m_4 \cdot 2^{56}}$$
 
-**Range constraints:**
+Range constraints:
 
 - All microlimbs $m_j \in [0, 2^{14})$ (enforced by permutation)
 - For 68-bit limbs: $m_4 \in [0, 2^{12})$
@@ -461,11 +321,9 @@ $$\boxed{\ell = m_0 + m_1 \cdot 2^{14} + m_2 \cdot 2^{28} + m_3 \cdot 2^{42} + m
 - For 52-bit limbs: $m_3 \in [0, 2^{10})$
 - For 60-bit limbs: $m_4 \in [0, 2^{4})$
 
----
+### Categories 1 and 2: Microlimb Decomposition (Subrelations 0-19)
 
-### Categories 1-2: Microlimb Decomposition (Subrelations 0-19)
-
-**General pattern** for decomposing a limb $\ell_i$ into microlimbs $\{\ell_{i,j}\}$:
+General pattern for decomposing a limb $\ell_i$ into microlimbs $\{\ell_{i,j}\}$:
 $$\boxed{L_{\text{selector}} \cdot \left( \sum_{j=0}^{k} \ell_{i,j} \cdot 2^{14j} - \ell_i \right) = 0}$$
 
 where $k=4$ for 68/60-bit limbs and $k=3$ for 50/52-bit limbs.
@@ -484,8 +342,6 @@ where $k=4$ for 68/60-bit limbs and $k=3$ for 50/52-bit limbs.
 | $\mathcal{Q}$ | $q_0, q_1, q_2, q_3$                                                                       | 4                      | 68 + 68 + 68 + 52 bits            |
 |               |                                                                                            |                        |                                   |
 
----
-
 ### Category 3: Wide Limb Decomposition (Subrelations 20-21)
 
 Carry limbs $c^{\text{lo}}, c^{\text{hi}}$ are **84 bits** (6 × 14-bit microlimbs). To save space, the 5th and 6th microlimbs are stored in unused "tail" columns:
@@ -500,8 +356,6 @@ where $c^{(0)} = c^{\text{lo}}$, $c^{(1)} = c^{\text{hi}}$.
 - $c_{0,5}^{\text{micro}}$ = `accumulator_high_limbs_range_constraint_tail_shift`
 - $c_{1,4}^{\text{micro}}$ = `p_y_high_limbs_range_constraint_tail_shift`
 - $c_{1,5}^{\text{micro}}$ = `quotient_high_limbs_range_constraint_tail_shift`
-
----
 
 ### Category 4: Range Constraint Tightening (Subrelations 22-41)
 
@@ -555,44 +409,21 @@ $$\boxed{L_{\text{even}} \cdot \left( \ell_{\text{low}} + 2^{68} \cdot \ell_{\te
 - `X_HI_Z_1`: $P_{x,\text{hi}}$ / $z_1$
 - `Y_LO_Z_2`: $P_{y,\text{lo}}$ / $z_2$
 
----
-
-### Complete Decomposition Relation Summary
-
-The Decomposition Relation enforces 48 independent constraints:
-
-| Subrelations | Category                     | Purpose                                                    |
-| ------------ | ---------------------------- | ---------------------------------------------------------- |
-| 0-3          | Accumulator microlimb decomp | Prove $a_i^{\text{curr}}$ correctly decomposes (4 limbs)   |
-| 4-7          | $P_y$ microlimb decomp       | Prove $P_y$ limbs correctly decompose (4 limbs)            |
-| 8-11         | $z_1, z_2$ microlimb decomp  | Prove $z$ limbs correctly decompose (2 values × 2 limbs)   |
-| 12-15        | $P_x$ microlimb decomp       | Prove $P_x$ limbs correctly decompose (4 limbs)            |
-| 16-19        | Quotient microlimb decomp    | Prove $\mathcal{Q}$ limbs correctly decompose (4 limbs)    |
-| 20-21        | Wide limb decomp             | Prove carry limbs $c^{\text{lo}}, c^{\text{hi}}$ decompose |
-| 22-25        | $P_x$ range tightening       | Constrain $P_x$ highest microlimbs to 12/8 bits            |
-| 26-29        | $P_y$ range tightening       | Constrain $P_y$ highest microlimbs to 12/8 bits            |
-| 30-33        | $z$ range tightening         | Constrain $z$ highest microlimbs to 12/4 bits              |
-| 34-37        | Accumulator range tightening | Constrain accumulator highest microlimbs to 12/8 bits      |
-| 38-41        | Quotient range tightening    | Constrain quotient highest microlimbs to 12/10 bits        |
-| 42-47        | Transcript value composition | Prove 68-bit limbs correctly form transcript values        |
-
-### Interaction with Delta Range Constraint
+#### Interaction with Delta Range Constraint
 
 The Decomposition Relation works in tandem with the Delta Range Constraint (a separate permutation argument):
 
-**Delta Range Constraint proves:** Every microlimb column (all `*_range_constraint_*` columns) contains only values in $[0, 2^{14})$.
+Delta Range Constraint proves: Every microlimb column (all `*_range_constraint_*` columns) contains only values in $[0, 2^{14})$.
 
-**Decomposition Relation proves:**
+Decomposition Relation proves:
 
 1. Large limbs are correctly reconstructed from microlimbs
 2. Highest microlimbs are more strictly bounded (4, 8, 10, or 12 bits)
 3. Transcript values are correctly formed from 68-bit limbs
 
-**Together they guarantee:** All limb decompositions are valid and all values are correctly range-constrained.
+Together they guarantee: All limb decompositions are valid and all values are correctly range-constrained.
 
----
-
-## Permutation Relation: Mathematical Specification
+## Permutation Relation
 
 The Permutation Relation is the foundation of all range constraints in the Translator circuit. It proves that every microlimb value used in the circuit belongs to the set $[0, 2^{14} - 1]$. The grand product argument comparing two multisets:
 
@@ -601,7 +432,7 @@ The Permutation Relation is the foundation of all range constraints in the Trans
 
 If the two multisets are equal (i.e., one is a permutation of the other), then all values are valid.
 
-The relation consists of **2 subrelations**:
+The relation consists of 2 subrelations:
 
 1. Grand product identity (degree 7)
 2. Finalization check (degree 3)
@@ -652,9 +483,9 @@ If the two multisets are equal:
 2. After processing all rows, the grand product returns to 1 (accounting for initialization/finalization)
 3. If any value is out of range or missing from the sorted set, the product cannot telescope correctly
 
-**Active when:** All rows (both even and odd in the full interleaved circuit)
+Active when: All rows (both even and odd in the full interleaved circuit)
 
-**Degree:** 7 (1 + 5 wire products + Lagrange selector)
+Degree: 7 (1 + 5 wire products + Lagrange selector)
 
 ---
 
@@ -676,37 +507,17 @@ $$\boxed{L_{\text{last}} \cdot z_{\text{perm}}^{\text{shift}} = 0}$$
 
 ---
 
-### Security Implications
-
-**If the Permutation Relation fails:**
-
-- Attacker can use microlimbs $> 2^{14} - 1$
-- This breaks the range constraint system
-- Allows limbs $> 2^{68}$ bits
-- Breaks the soundness of Non-Native Field Relation (overflow in Chinese Remainder Theorem)
-- Complete circuit soundness failure
-
-**Critical property:** The sorted multiset must contain:
-
-- All microlimbs actually used in the circuit
-- "Step values" inserted every 3 increments (due to `SORT_STEP = 3`)
-- Final value must be exactly $2^{14} - 1 = 16383$
-
----
-
-## Delta Range Constraint Relation: Mathematical Specification
-
-### Purpose and Overview
+## Delta Range Constraint Relation
 
 The Delta Range Constraint Relation works in tandem with the Permutation Relation to prove that the **ordered (sorted) multiset** is actually sorted and bounded correctly.
 
-**What it proves:**
+What it proves:
 
 1. The "ordered" wires are actually in non-descending order
 2. Consecutive values differ by at most `SORT_STEP = 3`
 3. The final value in each column is exactly $2^{14} - 1 = 16383$
 
-**Why needed:** The Permutation Relation only proves the multisets are equal. Without the Delta Range Constraint, an attacker could provide an "ordered" set that isn't actually sorted (e.g., [5, 3, 7, 1]), and the permutation would still pass if the interleaved set matches.
+The Permutation Relation only proves the multisets are equal. Without the Delta Range Constraint, an attacker could provide an "ordered" set that isn't actually sorted (e.g., [5, 3, 7, 1]), and the permutation would still pass if the interleaved set matches.
 
 The relation consists of **10 subrelations**:
 
