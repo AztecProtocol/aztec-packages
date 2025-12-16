@@ -2,8 +2,6 @@
 # Usage: source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 source $(git rev-parse --show-toplevel)/ci3/source
 
-# WORKTODO: Remove this once msgpack-compact is the default serialization format in noir.
-export NOIR_SERIALIZATION_FORMAT=msgpack-compact
 source $ci3/source_refname
 source $ci3/source_redis
 
