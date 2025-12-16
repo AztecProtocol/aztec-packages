@@ -104,11 +104,6 @@ class MultilinearBatchingFlavor {
                               batched_unshifted_instance,    // column 1: batched unshifted poly for instance
                               eq_accumulator,                // column 2: eq(u, r_acc) - selects accumulator eval point
                               eq_instance);                  // column 3: eq(u, r_inst) - selects instance eval point
-
-        MSGPACK_FIELDS(this->batched_unshifted_accumulator,
-                       this->batched_unshifted_instance,
-                       this->eq_accumulator,
-                       this->eq_instance);
     };
 
     /**
