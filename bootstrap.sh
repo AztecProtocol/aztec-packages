@@ -444,14 +444,12 @@ case "$cmd" in
     test
     release
     ;;
-  "ci-network-deploy")
+  "ci-network-scenario")
     export CI=1
-    spartan/bootstrap.sh network_deploy $NETWORK_ENV_FILE
-    ;;
-  "ci-network-tests")
-    export CI=1
+    export USE_TEST_CACHE=1
+    export CI_SCENARIO_TEST=1
     build
-    spartan/bootstrap.sh network_tests $NETWORK_ENV_FILE
+    spartan/bootstrap.sh test
     ;;
   "ci-release")
     export CI=1

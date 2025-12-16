@@ -36,11 +36,7 @@ struct BytecodeRetrievalEvent {
     ContractClass contract_class;
     FF nullifier_root;
     FF public_data_tree_root;
-    AppendOnlyTreeSnapshot retrieved_bytecodes_snapshot_before;
-    AppendOnlyTreeSnapshot retrieved_bytecodes_snapshot_after;
-    bool is_new_class = false;
-    bool instance_not_found_error = false;
-    bool limit_error = false;
+    bool error = false;
 };
 
 struct InstructionFetchingEvent {

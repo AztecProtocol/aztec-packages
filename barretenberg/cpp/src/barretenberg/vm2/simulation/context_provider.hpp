@@ -50,7 +50,6 @@ class ContextProvider : public ContextProviderInterface {
                     InternalCallStackManagerProviderInterface& internal_call_stack_manager_provider,
                     HighLevelMerkleDBInterface& merkle_db,
                     WrittenPublicDataSlotsTreeCheckInterface& written_public_data_slots_tree,
-                    RetrievedBytecodesTreeCheckInterface& retrieved_bytecodes_tree,
                     const GlobalVariables& global_variables)
         : tx_bytecode_manager(tx_bytecode_manager)
         , memory_provider(memory_provider)
@@ -58,7 +57,6 @@ class ContextProvider : public ContextProviderInterface {
         , internal_call_stack_manager_provider(internal_call_stack_manager_provider)
         , merkle_db(merkle_db)
         , written_public_data_slots_tree(written_public_data_slots_tree)
-        , retrieved_bytecodes_tree(retrieved_bytecodes_tree)
         , global_variables(global_variables)
     {}
     std::unique_ptr<ContextInterface> make_nested_context(AztecAddress address,
@@ -91,7 +89,6 @@ class ContextProvider : public ContextProviderInterface {
     InternalCallStackManagerProviderInterface& internal_call_stack_manager_provider;
     HighLevelMerkleDBInterface& merkle_db;
     WrittenPublicDataSlotsTreeCheckInterface& written_public_data_slots_tree;
-    RetrievedBytecodesTreeCheckInterface& retrieved_bytecodes_tree;
     const GlobalVariables& global_variables;
 };
 

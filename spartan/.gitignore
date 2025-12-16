@@ -3,8 +3,3 @@ scripts/logs
 scripts/LICENSE
 tfplan
 *_override.tf
-mnemonic.tmp
-environments/*
-!environments/scenario.local.env
-!environments/staging.local.env
-*.tfvars

@@ -14,7 +14,7 @@ void internal_call_stackImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    BB_BENCH_NAME("accumulate/internal_call_stack");
+    PROFILE_THIS_NAME("accumulate/internal_call_stack");
 
     {
         using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;

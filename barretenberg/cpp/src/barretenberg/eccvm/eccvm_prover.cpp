@@ -10,7 +10,6 @@
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplonk.hpp"
 #include "barretenberg/commitment_schemes/small_subgroup_ipa/small_subgroup_ipa.hpp"
-#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/ref_array.hpp"
 #include "barretenberg/honk/library/grand_product_library.hpp"
 #include "barretenberg/honk/proof_system/logderivative_library.hpp"
@@ -25,7 +24,7 @@ ECCVMProver::ECCVMProver(CircuitBuilder& builder,
     : transcript(transcript)
     , ipa_transcript(ipa_transcript)
 {
-    BB_BENCH_NAME("ECCVMProver(CircuitBuilder&)");
+    PROFILE_THIS_NAME("ECCVMProver(CircuitBuilder&)");
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/939): Remove redundancy between
     // ProvingKey/ProverPolynomials and update the model to reflect what's done in all other proving systems.
@@ -57,7 +56,6 @@ void ECCVMProver::execute_preamble_round()
  */
 void ECCVMProver::execute_wire_commitments_round()
 {
-    BB_BENCH_NAME("ECCVMProver::execute_wire_commitments_round");
     // To commit to the masked wires when `real_size` < `circuit_size`, we use
     // `commit_structured` that ignores 0 coefficients between the real size and the last NUM_DISABLED_ROWS_IN_SUMCHECK
     // wire entries.
@@ -91,7 +89,6 @@ void ECCVMProver::execute_wire_commitments_round()
  */
 void ECCVMProver::execute_log_derivative_commitments_round()
 {
-    BB_BENCH_NAME("ECCVMProver::execute_log_derivative_commitments_round");
 
     // Compute and add beta to relation parameters
     auto [beta, gamma] = transcript->template get_challenges<FF>("beta", "gamma");
@@ -119,7 +116,6 @@ void ECCVMProver::execute_log_derivative_commitments_round()
  */
 void ECCVMProver::execute_grand_product_computation_round()
 {
-    BB_BENCH_NAME("ECCVMProver::execute_grand_product_computation_round");
     // Compute permutation grand product and their commitments
     compute_grand_products<Flavor>(key->polynomials, relation_parameters, unmasked_witness_size);
     commit_to_witness_polynomial(key->polynomials.z_perm, commitment_labels.z_perm);
@@ -131,7 +127,7 @@ void ECCVMProver::execute_grand_product_computation_round()
  */
 void ECCVMProver::execute_relation_check_rounds()
 {
-    BB_BENCH_NAME("ECCVMProver::execute_relation_check_rounds");
+
     using Sumcheck = SumcheckProver<Flavor>;
 
     // Each linearly independent subrelation contribution is multiplied by `alpha^i`, where
@@ -164,7 +160,6 @@ void ECCVMProver::execute_relation_check_rounds()
  */
 void ECCVMProver::execute_pcs_rounds()
 {
-    BB_BENCH_NAME("ECCVMProver::execute_pcs_rounds");
     using Curve = typename Flavor::Curve;
     using Shplemini = ShpleminiProver_<Curve>;
     using Shplonk = ShplonkProver_<Curve>;
@@ -212,7 +207,7 @@ ECCVMProof ECCVMProver::export_proof()
 
 ECCVMProof ECCVMProver::construct_proof()
 {
-    BB_BENCH_NAME("ECCVMProver::construct_proof");
+    PROFILE_THIS_NAME("ECCVMProver::construct_proof");
 
     execute_preamble_round();
     execute_wire_commitments_round();

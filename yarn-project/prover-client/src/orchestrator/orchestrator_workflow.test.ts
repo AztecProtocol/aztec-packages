@@ -35,10 +35,7 @@ describe('prover/orchestrator', () => {
 
       beforeEach(async () => {
         mockProver = mock<ServerCircuitProver>();
-        context = await TestContext.new(logger, {
-          proverCount: 4,
-          createProver: () => Promise.resolve(mockProver),
-        });
+        context = await TestContext.new(logger, 4, () => Promise.resolve(mockProver));
         ({ orchestrator, globalVariables } = context);
         previousBlockHeader = context.getPreviousBlockHeader();
       });
@@ -111,11 +108,12 @@ describe('prover/orchestrator', () => {
       });
 
       it('waits for block to be completed before enqueueing block root proof', async () => {
-        const { txs } = await context.makePendingBlock(2);
+        const txs = await Promise.all([context.makeProcessedTx(1), context.makeProcessedTx(2)]);
         const blobs = await Blob.getBlobsPerBlock(txs.map(tx => tx.txEffect.toBlobFields()).flat());
         const finalBlobChallenges = await BatchedBlob.precomputeBatchedBlobChallenges(blobs);
         orchestrator.startNewEpoch(1, 1, 1, finalBlobChallenges);
         await orchestrator.startNewBlock(globalVariables, [], previousBlockHeader);
+        await context.setTreeRoots(txs);
         await orchestrator.addTxs(txs);
 
         // wait for the block root proof to try to be enqueued
@@ -130,7 +128,7 @@ describe('prover/orchestrator', () => {
 
       it('can start tube proofs before adding processed txs', async () => {
         const getTubeSpy = jest.spyOn(prover, 'getTubeProof');
-        const { txs: processedTxs } = await context.makePendingBlock(2);
+        const processedTxs = await Promise.all([context.makeProcessedTx(1), context.makeProcessedTx(2)]);
         const blobs = await Blob.getBlobsPerBlock(processedTxs.map(tx => tx.txEffect.toBlobFields()).flat());
         const finalBlobChallenges = await BatchedBlob.precomputeBatchedBlobChallenges(blobs);
         orchestrator.startNewEpoch(1, 1, 1, finalBlobChallenges);
@@ -147,6 +145,7 @@ describe('prover/orchestrator', () => {
         getTubeSpy.mockReset();
 
         await orchestrator.startNewBlock(globalVariables, [], previousBlockHeader);
+        await context.setTreeRoots(processedTxs);
         await orchestrator.addTxs(processedTxs);
         await orchestrator.setBlockCompleted(context.blockNumber);
         const result = await orchestrator.finalizeEpoch();

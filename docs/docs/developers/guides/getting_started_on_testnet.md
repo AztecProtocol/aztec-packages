@@ -1,6 +1,6 @@
 ---
 title: Setting up for Testnet
-sidebar_position: 3
+sidebar_position: 1
 tags: [testnet]
 description: Guide for developers to get started with the Aztec testnet, including account creation and contract deployment.
 ---
@@ -14,7 +14,6 @@ This guide explains the differences between sandbox and testnet, how to migrate 
 Before diving into the setup, it's important to understand the differences between sandbox and testnet:
 
 ### Sandbox (Local Development)
-
 - Runs locally on your machine
 - No proving by default (faster development)
 - No fees
@@ -23,7 +22,6 @@ Before diving into the setup, it's important to understand the differences betwe
 - Ideal for rapid development and testing
 
 ### Testnet (Remote Network)
-
 - Remote environment with network of sequencers
 - Always has proving enabled (longer transaction times)
 - Always has fees enabled (need to pay or sponsor fees)
@@ -130,6 +128,7 @@ aztec-wallet send mint_to_private \
     --args accounts:my-wallet 10
 ```
 
+
 ## Migrating from Sandbox to Testnet
 
 If you have an existing app running on sandbox, here's how to migrate it to testnet:
@@ -153,13 +152,11 @@ aztec-wallet create-account -a main --register-only --node-url $NODE_URL
 You can connect to testnet directly from your app using AztecJS:
 
 In the browser:
-
 ```javascript
 import { createPXEService } from "@aztec/pxe/client/lazy";
 ```
 
 In Node.js:
-
 ```javascript
 import { createPXEService } from "@aztec/pxe/server";
 ```
@@ -222,8 +219,8 @@ Testnet transactions take longer than sandbox. Handle timeouts gracefully:
 try {
   const receipt = await tx.wait();
 } catch (error) {
-  if (error.message.includes("Timeout awaiting isMined")) {
-    console.log("Transaction sent but still being mined");
+  if (error.message.includes('Timeout awaiting isMined')) {
+    console.log('Transaction sent but still being mined');
     // Check block explorer for status
   }
 }
@@ -234,8 +231,8 @@ try {
 Detect which environment your code is running against:
 
 ```javascript
-const isTestnet = process.env.NODE_URL?.includes("testnet");
-const nodeUrl = process.env.NODE_URL || "http://localhost:8080";
+const isTestnet = process.env.NODE_URL?.includes('testnet');
+const nodeUrl = process.env.NODE_URL || 'http://localhost:8080';
 ```
 
 ## Next Steps

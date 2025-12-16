@@ -1,6 +1,5 @@
 #pragma once
 
-#include "barretenberg/common/try_catch_shim.hpp"
 #include "msgpack.hpp"
 #include "msgpack_impl/drop_keys.hpp"
 

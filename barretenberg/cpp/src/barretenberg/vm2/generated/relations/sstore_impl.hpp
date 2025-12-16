@@ -14,7 +14,7 @@ void sstoreImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    BB_BENCH_NAME("accumulate/sstore");
+    PROFILE_THIS_NAME("accumulate/sstore");
 
     const auto constants_MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX = FF(63);
     const auto constants_AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_INITIAL_SIZE = FF(1);

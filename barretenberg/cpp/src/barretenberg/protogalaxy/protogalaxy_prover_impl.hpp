@@ -5,7 +5,7 @@
 // =====================
 
 #pragma once
-#include "barretenberg/common/bb_bench.hpp"
+#include "barretenberg/common/op_count.hpp"
 #include "barretenberg/honk/relation_checker.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_prover_internal.hpp"
 #include "barretenberg/protogalaxy/prover_verifier_shared.hpp"
@@ -20,7 +20,7 @@ void ProtogalaxyProver_<Flavor, NUM_KEYS>::run_oink_prover_on_one_incomplete_key
                                                                                  const std::string& domain_separator)
 {
 
-    BB_BENCH_NAME("ProtogalaxyProver::run_oink_prover_on_one_incomplete_key");
+    PROFILE_THIS_NAME("ProtogalaxyProver::run_oink_prover_on_one_incomplete_key");
     OinkProver<typename DeciderProvingKeys::Flavor> oink_prover(key, vk->vk, transcript, domain_separator + '_');
     oink_prover.prove();
 }
@@ -28,6 +28,7 @@ void ProtogalaxyProver_<Flavor, NUM_KEYS>::run_oink_prover_on_one_incomplete_key
 template <IsUltraOrMegaHonk Flavor, size_t NUM_KEYS>
 void ProtogalaxyProver_<Flavor, NUM_KEYS>::run_oink_prover_on_each_incomplete_key()
 {
+    PROFILE_THIS_NAME("ProtogalaxyProver_::run_oink_prover_on_each_incomplete_key");
     size_t idx = 0;
     auto& key = keys_to_fold[0];
     auto domain_separator = std::to_string(idx);
@@ -54,7 +55,7 @@ template <IsUltraOrMegaHonk Flavor, size_t NUM_KEYS>
 std::tuple<std::vector<typename Flavor::FF>, Polynomial<typename Flavor::FF>> ProtogalaxyProver_<Flavor, NUM_KEYS>::
     perturbator_round(const std::shared_ptr<const DeciderPK>& accumulator)
 {
-    BB_BENCH_NAME("ProtogalaxyProver_::perturbator_round");
+    PROFILE_THIS_NAME("ProtogalaxyProver_::perturbator_round");
 
     const std::vector<FF> deltas = transcript->template get_powers_of_challenge<FF>("delta", CONST_PG_LOG_N);
     // An honest prover with valid initial key computes that the perturbator is 0 in the first round
@@ -82,7 +83,7 @@ ProtogalaxyProver_<Flavor, NUM_KEYS>::combiner_quotient_round(const std::vector<
                                                               const std::vector<FF>& deltas,
                                                               const DeciderProvingKeys& keys)
 {
-    BB_BENCH_NAME("ProtogalaxyProver_::combiner_quotient_round");
+    PROFILE_THIS_NAME("ProtogalaxyProver_::combiner_quotient_round");
 
     const FF perturbator_challenge = transcript->template get_challenge<FF>("perturbator_challenge");
 
@@ -119,7 +120,7 @@ void ProtogalaxyProver_<Flavor, NUM_KEYS>::update_target_sum_and_fold(
     const UnivariateRelationParameters& univariate_relation_parameters,
     const FF& perturbator_evaluation)
 {
-    BB_BENCH_NAME("ProtogalaxyProver_::update_target_sum_and_fold");
+    PROFILE_THIS_NAME("ProtogalaxyProver_::update_target_sum_and_fold");
 
     std::shared_ptr<DeciderPK> accumulator = keys[0];
     std::shared_ptr<DeciderPK> incoming = keys[1];
@@ -172,7 +173,7 @@ void ProtogalaxyProver_<Flavor, NUM_KEYS>::update_target_sum_and_fold(
 
 template <IsUltraOrMegaHonk Flavor, size_t NUM_KEYS> FoldingResult<Flavor> ProtogalaxyProver_<Flavor, NUM_KEYS>::prove()
 {
-    BB_BENCH_NAME("ProtogalaxyProver::prove");
+    PROFILE_THIS_NAME("ProtogalaxyProver::prove");
 
     // Ensure keys are all of the same size
     size_t max_circuit_size = 0;

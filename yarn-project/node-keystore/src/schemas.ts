@@ -19,8 +19,8 @@ const remoteSignerConfigSchema = z.union([
   urlSchema,
   z.object({
     remoteSignerUrl: urlSchema,
-    certPath: z.string().nullish(),
-    certPass: z.string().nullish(),
+    certPath: z.string().optional(),
+    certPass: z.string().optional(),
   }),
 ]);
 
@@ -29,25 +29,25 @@ const remoteSignerAccountSchema = z.union([
   ethAddressSchema,
   z.object({
     address: ethAddressSchema,
-    remoteSignerUrl: urlSchema.nullish(),
-    certPath: z.string().nullish(),
-    certPass: z.string().nullish(),
+    remoteSignerUrl: urlSchema.optional(),
+    certPath: z.string().optional(),
+    certPass: z.string().optional(),
   }),
 ]);
 
 // JSON V3 keystore schema
 const jsonKeyFileV3Schema = z.object({
   path: z.string(),
-  password: z.string().nullish(),
+  password: z.string().optional(),
 });
 
 // Mnemonic config schema
 const mnemonicConfigSchema = z.object({
   mnemonic: z.string().min(1, 'Mnemonic cannot be empty'),
-  addressIndex: z.number().int().min(0).default(0),
-  accountIndex: z.number().int().min(0).default(0),
-  addressCount: z.number().int().min(1).default(1),
-  accountCount: z.number().int().min(1).default(1),
+  addressIndex: z.number().int().min(0).optional(),
+  accountIndex: z.number().int().min(0).optional(),
+  addressCount: z.number().int().min(1).optional(),
+  accountCount: z.number().int().min(1).optional(),
 });
 
 // EthAccount schema
@@ -73,8 +73,8 @@ const proverKeyStoreSchema = z.union([
 // Validator keystore schema
 const validatorKeyStoreSchema = z.object({
   attester: ethAccountsSchema,
-  coinbase: ethAddressSchema.nullish(),
-  publisher: ethAccountsSchema.nullish(),
+  coinbase: ethAddressSchema.optional(),
+  publisher: ethAccountsSchema.optional(),
   feeRecipient: aztecAddressSchema,
   remoteSigner: remoteSignerConfigSchema.nullish(),
 });
@@ -83,10 +83,10 @@ const validatorKeyStoreSchema = z.object({
 export const keystoreSchema = z
   .object({
     schemaVersion: z.literal(1),
-    validators: z.array(validatorKeyStoreSchema).nullish(),
-    slasher: ethAccountsSchema.nullish(),
+    validators: z.array(validatorKeyStoreSchema).optional(),
+    slasher: ethAccountsSchema.optional(),
     remoteSigner: remoteSignerConfigSchema.nullish(),
-    prover: proverKeyStoreSchema.nullish(),
+    prover: proverKeyStoreSchema.optional(),
   })
   .refine(data => data.validators || data.prover, {
     message: 'Keystore must have at least validators or prover configuration',

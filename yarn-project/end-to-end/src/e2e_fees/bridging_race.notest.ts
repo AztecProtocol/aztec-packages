@@ -1,5 +1,6 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import { Fr, type Logger, type PXE, sleep } from '@aztec/aztec.js';
+import { FEE_FUNDING_FOR_TESTER_ACCOUNT } from '@aztec/constants';
 import { Fq } from '@aztec/foundation/fields';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 
@@ -63,13 +64,11 @@ describe('e2e_fees bridging_race', () => {
     // Waiting for the archiver to sync the message _before_ waiting for the mandatory 2 L2 blocks to pass fixed it
     // This was added everywhere we wait for two blocks, which is spread across three different places in the codebase
     // Yes, we need to REFACTOR it at some point
-    const claim = await t.feeJuiceBridgeTestHarness.prepareTokensOnL1(bobsAddress);
+    const amount = FEE_FUNDING_FOR_TESTER_ACCOUNT;
+    const claim = await t.feeJuiceBridgeTestHarness.prepareTokensOnL1(amount, bobsAddress);
     const { claimSecret: secret, messageLeafIndex: index } = claim;
-    await t.feeJuiceContract.methods
-      .claim(bobsAddress, claim.claimAmount, secret, index)
-      .send({ from: bobsAddress })
-      .wait();
+    await t.feeJuiceContract.methods.claim(bobsAddress, amount, secret, index).send({ from: bobsAddress }).wait();
     const [balance] = await t.getGasBalanceFn(bobsAddress);
-    expect(balance).toEqual(claim.claimAmount);
+    expect(balance).toEqual(amount);
   });
 });

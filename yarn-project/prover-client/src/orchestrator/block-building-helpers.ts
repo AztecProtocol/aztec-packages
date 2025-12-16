@@ -71,7 +71,9 @@ export const insertSideEffectsAndBuildBaseRollupHints = runInSpan(
     span: Span,
     tx: ProcessedTx,
     globalVariables: GlobalVariables,
-    newL1ToL2MessageTreeSnapshot: AppendOnlyTreeSnapshot,
+    // Passing in the snapshot instead of getting it from the db because it might've been updated in the orchestrator
+    // when base parity proof is being generated.
+    l1ToL2MessageTreeSnapshot: AppendOnlyTreeSnapshot,
     db: MerkleTreeWriteOperations,
     startSpongeBlob: SpongeBlob,
   ) => {
@@ -207,7 +209,7 @@ export const insertSideEffectsAndBuildBaseRollupHints = runInSpan(
 
       const constants = BlockConstantData.from({
         lastArchive,
-        newL1ToL2: newL1ToL2MessageTreeSnapshot,
+        lastL1ToL2: l1ToL2MessageTreeSnapshot,
         vkTreeRoot: getVKTreeRoot(),
         protocolContractTreeRoot,
         globalVariables,

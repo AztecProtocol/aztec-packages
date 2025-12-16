@@ -31,10 +31,7 @@ describe('prover/bb_prover/full-rollup', () => {
       return prover;
     };
     log = createLogger('prover-client:test:bb-prover-full-rollup');
-    context = await TestContext.new(log, {
-      proverCount: 1,
-      createProver: FAKE_PROOFS ? undefined : buildProver,
-    });
+    context = await TestContext.new(log, 1, FAKE_PROOFS ? undefined : buildProver);
     previousBlockHeader = context.getPreviousBlockHeader();
   });
 
@@ -64,7 +61,7 @@ describe('prover/bb_prover/full-rollup', () => {
         });
 
         log.info(`Processing public functions`);
-        const [processed, failed] = await context.processPublicFunctions(txs);
+        const [processed, failed] = await context.processPublicFunctions(txs, nonEmptyTxs);
         expect(processed.length).toBe(nonEmptyTxs);
         expect(failed.length).toBe(0);
         processedTxs[blockNum] = processed;
@@ -132,7 +129,7 @@ describe('prover/bb_prover/full-rollup', () => {
       Fr.random,
     );
 
-    const [processed, failed] = await context.processPublicFunctions(txs);
+    const [processed, failed] = await context.processPublicFunctions(txs, numTransactions);
 
     expect(processed.length).toBe(numTransactions);
     expect(failed.length).toBe(0);

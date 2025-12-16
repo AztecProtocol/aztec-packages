@@ -20,7 +20,7 @@ namespace bb::avm2::simulation {
 // Possible mutually exclusive execution errors.
 enum class ExecutionError {
     NONE,
-    BYTECODE_RETRIEVAL,
+    BYTECODE_NOT_FOUND,
     INSTRUCTION_FETCHING,
     ADDRESSING,
     REGISTER_READ,

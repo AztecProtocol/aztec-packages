@@ -16,6 +16,6 @@ spec:
     namespaces:
       - {{ .Values.global.targetNamespace }}
     labelSelectors:
-      app.kubernetes.io/component: prover-node
+      app: prover-node
   duration: {{ .Values.proverFailure.duration }}
 {{- end }}

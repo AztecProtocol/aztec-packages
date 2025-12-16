@@ -3,7 +3,7 @@ export {
   type BackendOptions,
   Barretenberg,
   BarretenbergSync,
-  UltraHonkVerifierBackend,
+  BarretenbergVerifier,
   UltraHonkBackend,
   AztecClientBackend,
 } from './barretenberg/index.js';

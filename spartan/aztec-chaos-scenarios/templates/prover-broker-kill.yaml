@@ -17,5 +17,5 @@ spec:
     namespaces:
       - {{ .Values.global.targetNamespace }}
     labelSelectors:
-      app.kubernetes.io/component: prover-broker
+      app: prover-broker
 {{- end }}

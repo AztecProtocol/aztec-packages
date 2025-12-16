@@ -166,20 +166,6 @@ const linkLibrary = (bytecode, libraryName, libraryAddress) => {
 };
 
 /**
- * Converts binary data to array of field elements (32-byte chunks as hex strings)
- * @param {Buffer} buffer - Binary data
- * @return {Array<String>} Array of hex strings with 0x prefix
- */
-const binaryToFields = (buffer) => {
-  const fields = [];
-  for (let i = 0; i < buffer.length; i += 32) {
-    const chunk = buffer.slice(i, i + 32);
-    fields.push('0x' + chunk.toString('hex'));
-  }
-  return fields;
-};
-
-/**
  * Takes in a proof as fields, and returns the public inputs, as well as the number of public inputs
  * @param {Array<String>} proofAsFields
  * @return {Array} [number, Array<String>]
@@ -239,22 +225,26 @@ try {
   const proof = readFileSync(proofPath);
   proofStr = proof.toString("hex");
 
-  let publicInputsPath = getEnvVarCanBeUndefined("PUBLIC_INPUTS");
-  var publicInputs = [];
+  let publicInputsAsFieldsPath = getEnvVarCanBeUndefined(
+    "PUBLIC_INPUTS_AS_FIELDS"
+  ); // PUBLIC_INPUTS_AS_FIELDS is not defined for bb plonk, but is for bb honk and bbjs honk.
+  var publicInputs;
+  let proofAsFieldsPath = getEnvVarCanBeUndefined("PROOF_AS_FIELDS"); // PROOF_AS_FIELDS is not defined for bbjs, but is for bb plonk and bb honk.
   let numExtraPublicInputs = 0;
   let extraPublicInputs = [];
-
-  // For flows that use binary proof format, extract public inputs from the proof
-  const proofAsFields = binaryToFields(proof);
-  if (proofAsFields.length > NUMBER_OF_FIELDS_IN_PROOF) {
+  if (proofAsFieldsPath) {
+    const proofAsFields = readFileSync(proofAsFieldsPath);
     // We need to extract the public inputs from the proof. This might be empty, or just the pairing point object, or be the entire public inputs...
-    [numExtraPublicInputs, extraPublicInputs] = readPublicInputs(proofAsFields);
+    [numExtraPublicInputs, extraPublicInputs] = readPublicInputs(
+      JSON.parse(proofAsFields.toString())
+    );
   }
+  // We need to do this because plonk doesn't define this path
+  if (publicInputsAsFieldsPath) {
+    const innerPublicInputs = JSON.parse(
+      readFileSync(publicInputsAsFieldsPath).toString()
+    ); // assumes JSON array of PI hex strings
 
-  // Read public inputs from binary file if available
-  if (publicInputsPath) {
-    const publicInputsBinary = readFileSync(publicInputsPath);
-    const innerPublicInputs = binaryToFields(publicInputsBinary);
     publicInputs = innerPublicInputs.concat(extraPublicInputs);
   } else {
     // for plonk, the extraPublicInputs are all of the public inputs

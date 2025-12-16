@@ -54,8 +54,6 @@ bot:
     requests:
       memory: 15Gi
       cpu: 7
-  nodeSelector:
-    cores: "8"
 
 web3signer:
   enabled: true

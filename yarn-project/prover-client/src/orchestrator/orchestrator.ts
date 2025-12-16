@@ -525,7 +525,7 @@ export class ProvingOrchestrator implements EpochProver {
       insertSideEffectsAndBuildBaseRollupHints(
         tx,
         provingState.globalVariables,
-        provingState.l1ToL2MessageTreeSnapshotAfterInsertion,
+        provingState.l1ToL2MessageTreeSnapshot,
         db,
         provingState.spongeBlobState,
       ),

@@ -9,7 +9,9 @@ const logger = pino({
 });
 
 const proofPath = (dir: string) => path.join(dir, "proof");
-const publicInputsPath = (dir: string) => path.join(dir, "public_inputs");
+const proofAsFieldsPath = (dir: string) => path.join(dir, "proof_fields.json");
+const publicInputsAsFieldsPath = (dir: string) =>
+  path.join(dir, "public_inputs_fields.json");
 const vkeyPath = (dir: string) => path.join(dir, "vk");
 
 async function generateProof({
@@ -25,7 +27,7 @@ async function generateProof({
   oracleHash?: string;
   multiThreaded?: boolean;
 }) {
-  const { UltraHonkBackend } = await import("@aztec/bb.js");
+  const { UltraHonkBackend, deflattenFields } = await import("@aztec/bb.js");
 
   logger.debug(`Generating proof for ${bytecodePath}...`);
   const circuitArtifact = await fs.readFile(bytecodePath);
@@ -43,16 +45,17 @@ async function generateProof({
   await fs.writeFile(proofPath(outputDirectory), Buffer.from(proof.proof));
   logger.debug("Proof written to " + proofPath(outputDirectory));
 
-  // Convert public inputs from field strings to binary
-  const publicInputsBuffer = Buffer.concat(
-    proof.publicInputs.map((field: string) => {
-      const hex = field.startsWith('0x') ? field.slice(2) : field;
-      return Buffer.from(hex.padStart(64, '0'), 'hex');
-    })
+  await fs.writeFile(
+    publicInputsAsFieldsPath(outputDirectory),
+    JSON.stringify(proof.publicInputs)
   );
-  await fs.writeFile(publicInputsPath(outputDirectory), publicInputsBuffer);
   logger.debug(
-    "Public inputs written to " + publicInputsPath(outputDirectory)
+    "Public inputs written to " + publicInputsAsFieldsPath(outputDirectory)
+  );
+
+  await fs.writeFile(
+    proofAsFieldsPath(outputDirectory),
+    JSON.stringify(deflattenFields(proof.proof))
   );
 
   const verificationKey = await backend.getVerificationKey({
@@ -66,24 +69,21 @@ async function generateProof({
 }
 
 async function verifyProof({ directory }: { directory: string }) {
-  const { UltraHonkVerifierBackend } = await import("@aztec/bb.js");
+  const { BarretenbergVerifier } = await import("@aztec/bb.js");
 
-  const verifier = new UltraHonkVerifierBackend();
+  const verifier = new BarretenbergVerifier();
 
   const proof = await fs.readFile(proofPath(directory));
 
-  // Read binary public inputs and convert to field strings
-  const publicInputsBinary = await fs.readFile(publicInputsPath(directory));
-  const publicInputs = [];
-  for (let i = 0; i < publicInputsBinary.length; i += 32) {
-    const chunk = publicInputsBinary.slice(i, Math.min(i + 32, publicInputsBinary.length));
-    publicInputs.push('0x' + chunk.toString('hex'));
-  }
+  const publicInputs = JSON.parse(
+    await fs.readFile(publicInputsAsFieldsPath(directory), "utf8")
+  );
   logger.debug(`publicInputs: ${JSON.stringify(publicInputs)}`);
-  const verificationKey = await fs.readFile(vkeyPath(directory));
+  const vkey = await fs.readFile(vkeyPath(directory));
 
-  const verified = await verifier.verifyProof(
-    { proof: new Uint8Array(proof), publicInputs, verificationKey},
+  const verified = await verifier.verifyUltraHonkProof(
+    { proof: new Uint8Array(proof), publicInputs },
+    new Uint8Array(vkey)
   );
 
   await verifier.destroy();

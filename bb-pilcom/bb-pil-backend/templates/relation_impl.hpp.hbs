@@ -15,7 +15,7 @@ void {{name}}Impl<FF_>::accumulate(
 ){
     using C = ColumnAndShifts;
 
-    BB_BENCH_NAME("accumulate/{{name}}");
+    PROFILE_THIS_NAME("accumulate/{{name}}");
 
     {{#each alias_defs as |alias|}}
     const auto {{alias.name}} = {{alias.expr}};

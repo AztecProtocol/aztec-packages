@@ -68,8 +68,6 @@ export enum SignalType {
 }
 
 export const Actions = [
-  'invalidate-by-invalid-attestation',
-  'invalidate-by-insufficient-attestations',
   'propose',
   'governance-signal',
   'empire-slashing-signal',
@@ -77,6 +75,8 @@ export const Actions = [
   'execute-empire-payload',
   'vote-offenses',
   'execute-slash',
+  'invalidate-by-invalid-attestation',
+  'invalidate-by-insufficient-attestations',
 ] as const;
 export type Action = (typeof Actions)[number];
 

@@ -65,11 +65,22 @@ pub unconstrained fn public_call_new_flow(
 #[oracle(txeGetLastBlockTimestamp)]
 pub unconstrained fn get_last_block_timestamp() -> u64 {}
 
+#[oracle(txeSetContractAddress)]
+pub unconstrained fn set_contract_address(address: AztecAddress) {}
+
+#[oracle(utilityGetContractAddress)]
+pub unconstrained fn get_contract_address() -> AztecAddress {}
+
 #[oracle(txeAdvanceBlocksBy)]
 pub unconstrained fn advance_blocks_by(blocks: u32) {}
 
 #[oracle(txeAdvanceTimestampBy)]
 pub unconstrained fn advance_timestamp_by(duration: u64) {}
+
+#[oracle(txeGetPrivateContextInputs)]
+pub unconstrained fn get_private_context_inputs(
+    historical_block_number: Option<u32>,
+) -> PrivateContextInputs {}
 
 #[oracle(txeDeploy)]
 pub unconstrained fn deploy_oracle<let N: u32, let P: u32>(
@@ -110,13 +121,10 @@ unconstrained fn public_call_new_flow_oracle(
 pub unconstrained fn set_top_level_txe_context() {}
 
 #[oracle(txeSetPrivateTXEContext)]
-pub unconstrained fn set_private_txe_context(
-    contract_address: Option<AztecAddress>,
-    historical_block_number: Option<u32>,
-) -> PrivateContextInputs {}
+pub unconstrained fn set_private_txe_context() {}
 
 #[oracle(txeSetPublicTXEContext)]
-pub unconstrained fn set_public_txe_context(contract_address: Option<AztecAddress>) {}
+pub unconstrained fn set_public_txe_context() {}
 
 #[oracle(txeSetUtilityTXEContext)]
-pub unconstrained fn set_utility_txe_context(contract_address: Option<AztecAddress>) {}
+pub unconstrained fn set_utility_txe_context() {}

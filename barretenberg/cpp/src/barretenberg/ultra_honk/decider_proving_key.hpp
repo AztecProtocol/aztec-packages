@@ -95,7 +95,7 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProvingKey_ {
         : is_structured(trace_settings.structure.has_value())
         , commitment_key(commitment_key)
     {
-        BB_BENCH_NAME("DeciderProvingKey(Circuit&)");
+        PROFILE_THIS_NAME("DeciderProvingKey(Circuit&)");
         vinfo("Constructing DeciderProvingKey");
         auto start = std::chrono::steady_clock::now();
         // Decider proving keys can be constructed multiple times, hence, we check whether the circuit has been
@@ -132,7 +132,7 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProvingKey_ {
 
         vinfo("allocating polynomials object in proving key...");
         {
-            BB_BENCH_NAME("allocating proving key");
+            PROFILE_THIS_NAME("allocating proving key");
 
             populate_memory_records(circuit);
 
@@ -170,11 +170,11 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProvingKey_ {
         Trace::populate(circuit, polynomials, active_region_data);
 
         {
-            BB_BENCH_NAME("constructing prover instance after trace populate");
+            PROFILE_THIS_NAME("constructing prover instance after trace populate");
 
             // If Goblin, construct the databus polynomials
             if constexpr (IsMegaFlavor<Flavor>) {
-                BB_BENCH_NAME("constructing databus polynomials");
+                PROFILE_THIS_NAME("constructing databus polynomials");
 
                 construct_databus_polynomials(circuit);
             }
@@ -184,14 +184,14 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProvingKey_ {
         polynomials.lagrange_last.at(final_active_wire_idx) = 1;
 
         {
-            BB_BENCH_NAME("constructing lookup table polynomials");
+            PROFILE_THIS_NAME("constructing lookup table polynomials");
 
             construct_lookup_table_polynomials<Flavor>(
                 polynomials.get_tables(), circuit, dyadic_size(), NUM_DISABLED_ROWS_IN_SUMCHECK);
         }
 
         {
-            BB_BENCH_NAME("constructing lookup read counts");
+            PROFILE_THIS_NAME("constructing lookup read counts");
 
             construct_lookup_read_counts<Flavor>(
                 polynomials.lookup_read_counts, polynomials.lookup_read_tags, circuit, dyadic_size());

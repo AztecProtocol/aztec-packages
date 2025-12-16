@@ -14,7 +14,7 @@ void bitwiseImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    BB_BENCH_NAME("accumulate/bitwise");
+    PROFILE_THIS_NAME("accumulate/bitwise");
 
     const auto constants_MEM_TAG_FF = FF(0);
     const auto bitwise_TAG_A_DIFF = (in.get(C::bitwise_tag_a) - constants_MEM_TAG_FF);

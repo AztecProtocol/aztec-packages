@@ -321,7 +321,6 @@ pub contract SimpleToken {
         context.push_nullifier(nullifier);
     }
 
-    // docs:start:subtract_balance
     #[contract_library_method]
     fn subtract_balance(
         context: &mut PrivateContext,
@@ -339,7 +338,6 @@ pub contract SimpleToken {
             compute_recurse_subtract_balance_call(*context, account, remaining).call(context)
         }
     }
-    // docs:end:subtract_balance
 
     #[no_predicates]
     #[contract_library_method]

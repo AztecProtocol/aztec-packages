@@ -149,11 +149,13 @@ impl TestEnvironment {
         _self: Self,
         f: fn[Env](&mut PublicContext) -> T,
     ) -> T {
-        txe_oracles::set_public_txe_context(Option::none());
+        txe_oracles::set_public_txe_context();
 
         let mut context = PublicContext::new(|| 0);
         let ret_value = f(&mut context);
 
+        // merge calls below into 'exit public txe context' -> this mines a block
+        txe_oracles::advance_blocks_by(1);
         txe_oracles::set_top_level_txe_context();
 
         ret_value
@@ -162,18 +164,17 @@ impl TestEnvironment {
     /// Variant of `public_context` which allows specifying the contract address in which the public context will
     /// execute, which will affect note and nullifier siloing, storage access, etc.
     pub unconstrained fn public_context_at<Env, T>(
-        _self: Self,
+        self,
         addr: AztecAddress,
         f: fn[Env](&mut PublicContext) -> T,
     ) -> T {
-        txe_oracles::set_public_txe_context(Option::some(addr));
+        // temporary hack until we reimplement the public context oracle and have it take this as a param
+        let pre = txe_oracles::get_contract_address();
+        txe_oracles::set_contract_address(addr);
+        let ret = self.public_context(f);
+        txe_oracles::set_contract_address(pre);
 
-        let mut context = PublicContext::new(|| 0);
-        let ret_value = f(&mut context);
-
-        txe_oracles::set_top_level_txe_context();
-
-        ret_value
+        ret
     }
 
     /// Creates a `PrivateContext`, which allows using aztec-nr features as if inside a private contract function.
@@ -209,18 +210,22 @@ impl TestEnvironment {
     ///   state_var.get_note()
     /// });
     /// ```
-    pub unconstrained fn private_context<Env, T>(
-        _self: Self,
-        f: fn[Env](&mut PrivateContext) -> T,
-    ) -> T {
+    pub unconstrained fn private_context<Env, T>(self, f: fn[Env](&mut PrivateContext) -> T) -> T {
+        // merge the two oracles below - the creation of a context implies a transition to a private txe context. right
+        // now we have them in this order because creating the private context requires reading the latest block number,
+        // which we only allow for top level and utility
         let mut context = PrivateContext::new(
-            txe_oracles::set_private_txe_context(Option::none(), Option::none()),
+            txe_oracles::get_private_context_inputs(Option::some(self.last_block_number())),
             0,
         );
+        txe_oracles::set_private_txe_context();
 
         let ret_value = f(&mut context);
-
         txe_oracles::set_top_level_txe_context();
+
+        // todo: should commit the context to mine a block with the side effects of the context. we should have an
+        // oracle that receives the context we produced probably
+        self.mine_block();
 
         ret_value
     }
@@ -228,39 +233,53 @@ impl TestEnvironment {
     /// Variant of `private_context` which allows specifying the contract address in which the private context will
     /// execute, which will affect note and nullifier siloing, storage access, etc.
     pub unconstrained fn private_context_at<Env, T>(
-        _self: Self,
+        self,
         addr: AztecAddress,
         f: fn[Env](&mut PrivateContext) -> T,
     ) -> T {
-        let mut context = PrivateContext::new(
-            txe_oracles::set_private_txe_context(Option::some(addr), Option::none()),
-            0,
-        );
+        // temporary hack until we reimplement the public context oracle and have it take this as a param
+        let pre = txe_oracles::get_contract_address();
+        txe_oracles::set_contract_address(addr);
+        let ret = self.private_context(f);
+        txe_oracles::set_contract_address(pre);
 
-        let ret_value = f(&mut context);
-
-        txe_oracles::set_top_level_txe_context();
-
-        ret_value
+        ret
     }
 
     /// Variant of `private_context` which allows specifying multiple configuration values via `PrivateContextOptions`.
     pub unconstrained fn private_context_opts<Env, T>(
-        _self: Self,
+        self,
         opts: PrivateContextOptions,
         f: fn[Env](&mut PrivateContext) -> T,
     ) -> T {
+        // temporary hack until we reimplement the public context oracle and have it take this as a param
+
+        let pre_contract_address = txe_oracles::get_contract_address();
+
+        if opts.contract_address.is_some() {
+            txe_oracles::set_contract_address(opts.contract_address.unwrap());
+        }
+
+        // merge the two oracles below - the creation of a context implies a transition to a private txe context. right
+        // now we have them in this order because creating the private context requires reading the latest block number,
+        // which we only allow for top level and utility
         let mut context = PrivateContext::new(
-            txe_oracles::set_private_txe_context(
-                opts.contract_address,
-                opts.historical_block_number,
-            ),
+            txe_oracles::get_private_context_inputs(opts.historical_block_number.or_else(|| {
+                Option::some(self.last_block_number())
+            })),
             0,
         );
 
-        let ret_value = f(&mut context);
+        txe_oracles::set_private_txe_context();
 
+        let ret_value = f(&mut context);
         txe_oracles::set_top_level_txe_context();
+
+        // todo: should commit the context to mine a block with the side effects of the context. we should have an
+        // oracle that receives the context we produced probably
+        self.mine_block();
+
+        txe_oracles::set_contract_address(pre_contract_address);
 
         ret_value
     }
@@ -295,7 +314,7 @@ impl TestEnvironment {
         _self: Self,
         f: fn[Env](UtilityContext) -> T,
     ) -> T {
-        txe_oracles::set_utility_txe_context(Option::none());
+        txe_oracles::set_utility_txe_context();
         let context = UtilityContext::new();
         let ret_value = f(context);
         txe_oracles::set_top_level_txe_context();
@@ -306,16 +325,17 @@ impl TestEnvironment {
     /// Variant of `utility_context` which allows specifying the contract address in which the utility context will
     /// execute, which will affect note and storage access.
     pub unconstrained fn utility_context_at<Env, T>(
-        _self: Self,
+        self,
         addr: AztecAddress,
         f: fn[Env](UtilityContext) -> T,
     ) -> T {
-        txe_oracles::set_utility_txe_context(Option::some(addr));
-        let context = UtilityContext::new();
-        let ret_value = f(context);
-        txe_oracles::set_top_level_txe_context();
+        // temporary hack until we reimplement the utility context oracle and have it take this as a param
+        let pre = txe_oracles::get_contract_address();
+        txe_oracles::set_contract_address(addr);
+        let ret = self.utility_context(f);
+        txe_oracles::set_contract_address(pre);
 
-        ret_value
+        ret
     }
 
     /// Returns the number of the next block to be mined.

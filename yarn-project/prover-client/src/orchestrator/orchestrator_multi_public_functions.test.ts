@@ -5,11 +5,7 @@ import { createLogger } from '@aztec/foundation/log';
 import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
-import {
-  PublicTxSimulationTester,
-  SimpleContractDataSource,
-  type TestEnqueuedCall,
-} from '@aztec/simulator/public/fixtures';
+import type { TestEnqueuedCall } from '@aztec/simulator/public/fixtures';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { siloNullifier } from '@aztec/stdlib/hash';
@@ -21,8 +17,6 @@ const logger = createLogger('prover-client:test:orchestrator-multi-public-functi
 
 describe('prover/orchestrator/public-functions', () => {
   let context: TestContext;
-  let tester: PublicTxSimulationTester;
-  let contractDataSource: SimpleContractDataSource;
 
   beforeEach(async () => {
     context = await TestContext.new(logger);
@@ -40,12 +34,8 @@ describe('prover/orchestrator/public-functions', () => {
     beforeEach(async () => {
       admin = context.feePayer; // make sure tx sender has sufficient balance
 
-      const merkleTrees = await context.worldState.fork();
-      contractDataSource = new SimpleContractDataSource();
-      tester = new PublicTxSimulationTester(merkleTrees, contractDataSource);
-
       const constructorArgs = [admin, /*name=*/ 'Token', /*symbol=*/ 'TOK', /*decimals=*/ new Fr(18)];
-      token = await tester.registerAndDeployContract(
+      token = await context.tester.registerAndDeployContract(
         constructorArgs,
         /*deployer=*/ admin,
         TokenContractArtifact,
@@ -58,7 +48,7 @@ describe('prover/orchestrator/public-functions', () => {
         token.address.toField(),
       );
 
-      constructorTx = await tester.createTx(
+      constructorTx = await context.tester.createTx(
         /*sender=*/ admin,
         /*setupCalls=*/ [],
         /*appCalls=*/ [
@@ -102,10 +92,7 @@ describe('prover/orchestrator/public-functions', () => {
           await tx.recomputeHash();
         }
 
-        const [processed, failed] = await context.processPublicFunctions(txs, {
-          maxTransactions: numTransactions,
-          contractDataSource,
-        });
+        const [processed, failed] = await context.processPublicFunctions(txs, numTransactions);
         expect(processed.length).toBe(numTransactions);
         expect(failed.length).toBe(0);
 
@@ -149,7 +136,7 @@ describe('prover/orchestrator/public-functions', () => {
       const appCalls = Array.from({ length: numberOfRevertiblePublicCallRequests }, (_, i) =>
         createMintCall(/*seed=*/ appCallSeed(i)),
       );
-      return await tester.createTx(
+      return await context.tester.createTx(
         /*sender=*/ admin,
         /*setupCalls=*/ setupCalls,
         /*appCalls=*/ appCalls,

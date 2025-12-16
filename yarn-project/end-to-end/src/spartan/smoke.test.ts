@@ -1,25 +1,18 @@
-import { type PXE, retryUntil } from '@aztec/aztec.js';
-import { RollupContract, type ViemPublicClient, createEthereumChain } from '@aztec/ethereum';
+import type { PXE } from '@aztec/aztec.js';
+import { RollupContract, getPublicClient } from '@aztec/ethereum';
 import { createLogger } from '@aztec/foundation/log';
 
 import type { ChildProcess } from 'child_process';
-import { createPublicClient, fallback, http } from 'viem';
+import { foundry } from 'viem/chains';
 
 import { startCompatiblePXE } from './setup_test_wallets.js';
-import {
-  getGitProjectRoot,
-  installChaosMeshChart,
-  setupEnvironment,
-  startPortForwardForEthereum,
-  startPortForwardForRPC,
-} from './utils.js';
+import { setupEnvironment, startPortForwardForRPC } from './utils.js';
 
 const config = setupEnvironment(process.env);
 
 describe('smoke test', () => {
   const logger = createLogger('e2e:spartan-test:smoke');
   let pxe: PXE;
-  let ethereumClient: ViemPublicClient;
   const forwardProcesses: ChildProcess[] = [];
   let cleanup: undefined | (() => Promise<void>);
 
@@ -30,23 +23,10 @@ describe('smoke test', () => {
 
   beforeAll(async () => {
     logger.info('Starting port forward for PXE');
-    const { process: aztecRpcProcess, port: aztecRpcPort } = await startPortForwardForRPC(config.NAMESPACE);
-    const { process: ethereumProcess, port: ethereumPort } = await startPortForwardForEthereum(config.NAMESPACE);
-    forwardProcesses.push(aztecRpcProcess);
-    forwardProcesses.push(ethereumProcess);
-    const rpcUrl = `http://127.0.0.1:${aztecRpcPort}`;
-
-    ({ pxe, cleanup } = await startCompatiblePXE(rpcUrl, config.REAL_VERIFIER, logger));
-    // docs:start:get_node_info_pub_client
-    const nodeInfo = await pxe.getNodeInfo();
-
-    const ethereumUrl = `http://127.0.0.1:${ethereumPort}`;
-    const chain = createEthereumChain([ethereumUrl], nodeInfo.l1ChainId);
-    ethereumClient = createPublicClient({
-      chain: chain.chainInfo,
-      transport: fallback([http(ethereumUrl)]),
-    });
-    // docs:end:get_node_info_pub_client
+    const { process, port } = await startPortForwardForRPC(config.NAMESPACE);
+    forwardProcesses.push(process);
+    const rpcUrl = `http://127.0.0.1:${port}`;
+    ({ pxe, cleanup } = await startCompatiblePXE(rpcUrl, config.AZTEC_REAL_PROOFS, logger));
   });
 
   it('should be able to get node enr', async () => {
@@ -54,43 +34,34 @@ describe('smoke test', () => {
 
     logger.info(`info: ${JSON.stringify(info)}`);
     expect(info).toBeDefined();
+    // expect enr to be a string starting with 'enr:-'
     expect(info.enr).toMatch(/^enr:-/);
   });
 
-  it(
-    'should have a committee',
-    async () => {
-      const nodeInfo = await pxe.getNodeInfo();
-      const rollup = new RollupContract(ethereumClient, nodeInfo.l1ContractAddresses.rollupAddress);
-      const epochDuration = await rollup.getEpochDuration();
-      logger.info(`Epoch duration: ${epochDuration}`);
-      logger.info('Waiting for committee');
-      await retryUntil(
-        async () => {
-          const slot = await rollup.getSlotNumber();
-          logger.info(`Slot: ${slot}`);
+  // Leaving this test skipped commented out because it requires the ethereum node
+  // to be running and forwarded, e.g.
+  // kubectl port-forward -n smoke service/spartan-aztec-network-eth-execution 8545:8545
+  // also because it assumes foundry.
 
-          const committee = await rollup.getCurrentEpochCommittee();
-          return committee !== undefined;
-        },
-        'committee',
-        60 * 60, // wait up to 1 hour, since if the rollup was just deployed there will be no committee for 2 epochs
-        12, // 12 seconds between each check
-      );
-    },
-    60 * 60 * 1000,
-  );
-
-  it('can add chaos', async () => {
-    const chaosValuesFile = process.env.CHAOS_SCENARIO_VALUES || 'prover-kill.yaml';
-    const spartanDir = `${getGitProjectRoot()}/spartan`;
-    logger.info(`Applying Chaos Mesh scenario: ${chaosValuesFile}`);
-    await installChaosMeshChart({
-      instanceName: 'smoke-chaos',
-      targetNamespace: config.NAMESPACE,
-      valuesFile: chaosValuesFile,
-      helmChartDir: `${spartanDir}/aztec-chaos-scenarios`,
-      logger,
+  it.skip('should be able to get rollup info', async () => {
+    // docs:start:get_node_info_pub_client
+    const info = await pxe.getNodeInfo();
+    const publicClient = getPublicClient({
+      l1RpcUrls: ['http://localhost:8545'],
+      l1ChainId: foundry.id,
     });
+    // docs:end:get_node_info_pub_client
+
+    const rollupContract = new RollupContract(publicClient, info.l1ContractAddresses.rollupAddress);
+
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const [pendingBlockNum, pendingArchive, provenBlockNum, provenArchive, myArchive, provenEpochNumber] =
+      await rollupContract.status(60n);
+    // console.log('pendingBlockNum', pendingBlockNum.toString());
+    // console.log('pendingArchive', pendingArchive.toString());
+    // console.log('provenBlockNum', provenBlockNum.toString());
+    // console.log('provenArchive', provenArchive.toString());
+    // console.log('myArchive', myArchive.toString());
+    // console.log('provenEpochNumber', provenEpochNumber.toString());
   });
 });

@@ -263,13 +263,36 @@ export const deploySharedContracts = async (
 
   const coinIssuerAddress = await deployer.deploy(CoinIssuerArtifact, [
     feeAssetAddress.toString(),
-    1_000_000n * 10n ** 18n, // @todo  #8084
-    l1Client.account.address,
+    1n * 10n ** 18n, // @todo  #8084
+    governanceAddress.toString(),
   ]);
   logger.verbose(`Deployed CoinIssuer at ${coinIssuerAddress}`);
 
+  const feeAsset = getContract({
+    address: feeAssetAddress.toString(),
+    abi: FeeAssetArtifact.contractAbi,
+    client: l1Client,
+  });
+
   logger.verbose(`Waiting for deployments to complete`);
   await deployer.waitForDeployments();
+
+  if (args.acceleratedTestDeployments || !(await feeAsset.read.minters([coinIssuerAddress.toString()]))) {
+    const { txHash } = await deployer.sendTransaction(
+      {
+        to: feeAssetAddress.toString(),
+        data: encodeFunctionData({
+          abi: FeeAssetArtifact.contractAbi,
+          functionName: 'addMinter',
+          args: [coinIssuerAddress.toString()],
+        }),
+      },
+      { gasLimit: 100_000n },
+    );
+
+    logger.verbose(`Added coin issuer ${coinIssuerAddress} as minter on fee asset in ${txHash}`);
+    txHashes.push(txHash);
+  }
 
   // Registry ownership will be transferred to governance later, after rollup is added
 
@@ -286,23 +309,20 @@ export const deploySharedContracts = async (
     feeAssetHandlerAddress = await deployer.deploy(FeeAssetHandlerArtifact, [
       l1Client.account.address,
       feeAssetAddress.toString(),
-      BigInt(1000n * 10n ** 18n),
+      BigInt(1e18),
     ]);
     logger.verbose(`Deployed FeeAssetHandler at ${feeAssetHandlerAddress}`);
 
-    // Only if we are "fresh" will we be adding as a minter, otherwise above will simply get same address
-    if (needToSetGovernance) {
-      const { txHash } = await deployer.sendTransaction({
-        to: feeAssetAddress.toString(),
-        data: encodeFunctionData({
-          abi: FeeAssetArtifact.contractAbi,
-          functionName: 'addMinter',
-          args: [feeAssetHandlerAddress.toString()],
-        }),
-      });
-      logger.verbose(`Added fee asset handler ${feeAssetHandlerAddress} as minter on fee asset in ${txHash}`);
-      txHashes.push(txHash);
-    }
+    const { txHash } = await deployer.sendTransaction({
+      to: feeAssetAddress.toString(),
+      data: encodeFunctionData({
+        abi: FeeAssetArtifact.contractAbi,
+        functionName: 'addMinter',
+        args: [feeAssetHandlerAddress.toString()],
+      }),
+    });
+    logger.verbose(`Added fee asset handler ${feeAssetHandlerAddress} as minter on fee asset in ${txHash}`);
+    txHashes.push(txHash);
 
     // Only if on sepolia will we deploy the staking asset handler
     // Should not be deployed to devnet since it would cause caos with sequencers there etc.
@@ -497,12 +517,7 @@ export const deployRollup = async (
   >,
   addresses: Pick<
     L1ContractAddresses,
-    | 'feeJuiceAddress'
-    | 'registryAddress'
-    | 'rewardDistributorAddress'
-    | 'stakingAssetAddress'
-    | 'gseAddress'
-    | 'governanceAddress'
+    'feeJuiceAddress' | 'registryAddress' | 'rewardDistributorAddress' | 'stakingAssetAddress' | 'gseAddress'
   >,
   logger: Logger,
 ) => {
@@ -680,24 +695,6 @@ export const deployRollup = async (
     );
   }
 
-  // If the owner is not the Governance contract, transfer ownership to the Governance contract
-  logger.verbose(addresses.governanceAddress.toString());
-  if (getAddress(await rollupContract.getOwner()) !== getAddress(addresses.governanceAddress.toString())) {
-    // TODO(md): add send transaction to the deployer such that we do not need to manage tx hashes here
-    const { txHash: transferOwnershipTxHash } = await deployer.sendTransaction({
-      to: rollupContract.address,
-      data: encodeFunctionData({
-        abi: RegistryArtifact.contractAbi,
-        functionName: 'transferOwnership',
-        args: [getAddress(addresses.governanceAddress.toString())],
-      }),
-    });
-    logger.verbose(
-      `Transferring the ownership of the rollup contract at ${rollupContract.address} to the Governance ${addresses.governanceAddress} in tx ${transferOwnershipTxHash}`,
-    );
-    txHashes.push(transferOwnershipTxHash);
-  }
-
   await deployer.waitForDeployments();
   await Promise.all(txHashes.map(txHash => extendedClient.waitForTransactionReceipt({ hash: txHash })));
   logger.verbose(`Rollup deployed`);
@@ -710,8 +707,6 @@ export const handoverToGovernance = async (
   deployer: L1Deployer,
   registryAddress: EthAddress,
   gseAddress: EthAddress,
-  coinIssuerAddress: EthAddress,
-  feeAssetAddress: EthAddress,
   governanceAddress: EthAddress,
   logger: Logger,
   acceleratedTestDeployments: boolean | undefined,
@@ -726,18 +721,6 @@ export const handoverToGovernance = async (
   const gseContract = getContract({
     address: getAddress(gseAddress.toString()),
     abi: GSEArtifact.contractAbi,
-    client: extendedClient,
-  });
-
-  const coinIssuerContract = getContract({
-    address: getAddress(coinIssuerAddress.toString()),
-    abi: CoinIssuerArtifact.contractAbi,
-    client: extendedClient,
-  });
-
-  const feeAsset = getContract({
-    address: getAddress(feeAssetAddress.toString()),
-    abi: FeeAssetArtifact.contractAbi,
     client: extendedClient,
   });
 
@@ -776,54 +759,6 @@ export const handoverToGovernance = async (
     });
     logger.verbose(
       `Transferring the ownership of the gse contract at ${gseAddress} to the Governance ${governanceAddress} in tx ${transferOwnershipTxHash}`,
-    );
-    txHashes.push(transferOwnershipTxHash);
-  }
-
-  if (acceleratedTestDeployments || (await feeAsset.read.owner()) !== coinIssuerAddress.toString()) {
-    const { txHash } = await deployer.sendTransaction(
-      {
-        to: feeAssetAddress.toString(),
-        data: encodeFunctionData({
-          abi: FeeAssetArtifact.contractAbi,
-          functionName: 'transferOwnership',
-          args: [coinIssuerAddress.toString()],
-        }),
-      },
-      { gasLimit: 500_000n },
-    );
-    logger.verbose(`Transfer ownership of fee asset to coin issuer ${coinIssuerAddress} in ${txHash}`);
-    txHashes.push(txHash);
-
-    const { txHash: acceptTokenOwnershipTxHash } = await deployer.sendTransaction(
-      {
-        to: coinIssuerAddress.toString(),
-        data: encodeFunctionData({
-          abi: CoinIssuerArtifact.contractAbi,
-          functionName: 'acceptTokenOwnership',
-        }),
-      },
-      { gasLimit: 500_000n },
-    );
-    logger.verbose(`Accept ownership of fee asset in ${acceptTokenOwnershipTxHash}`);
-    txHashes.push(acceptTokenOwnershipTxHash);
-  }
-
-  // If the owner is not the Governance contract, transfer ownership to the Governance contract
-  if (
-    acceleratedTestDeployments ||
-    (await coinIssuerContract.read.owner()) !== getAddress(governanceAddress.toString())
-  ) {
-    const { txHash: transferOwnershipTxHash } = await deployer.sendTransaction({
-      to: coinIssuerContract.address,
-      data: encodeFunctionData({
-        abi: CoinIssuerArtifact.contractAbi,
-        functionName: 'transferOwnership',
-        args: [getAddress(governanceAddress.toString())],
-      }),
-    });
-    logger.verbose(
-      `Transferring the ownership of the coin issuer contract at ${coinIssuerAddress} to the Governance ${governanceAddress} in tx ${transferOwnershipTxHash}`,
     );
     txHashes.push(transferOwnershipTxHash);
   }
@@ -909,51 +844,19 @@ export const addMultipleValidators = async (
 
       logger.info(`Adding ${validators.length} validators to the rollup`);
 
-      // Adding to the queue and flushing need to be done in two transactions
-      // if we are adding many validators.
-      if (validatorsTuples.length > 10) {
-        await deployer.l1TxUtils.sendAndMonitorTransaction(
-          {
-            to: multiAdder.toString(),
-            data: encodeFunctionData({
-              abi: MultiAdderArtifact.contractAbi,
-              functionName: 'addValidators',
-              args: [validatorsTuples, true],
-            }),
-          },
-          {
-            gasLimit: 40_000_000n,
-          },
-        );
-
-        await deployer.l1TxUtils.sendAndMonitorTransaction(
-          {
-            to: rollupAddress,
-            data: encodeFunctionData({
-              abi: RollupArtifact.contractAbi,
-              functionName: 'flushEntryQueue',
-              args: [],
-            }),
-          },
-          {
-            gasLimit: 40_000_000n,
-          },
-        );
-      } else {
-        await deployer.l1TxUtils.sendAndMonitorTransaction(
-          {
-            to: multiAdder.toString(),
-            data: encodeFunctionData({
-              abi: MultiAdderArtifact.contractAbi,
-              functionName: 'addValidators',
-              args: [validatorsTuples, false],
-            }),
-          },
-          {
-            gasLimit: 45_000_000n,
-          },
-        );
-      }
+      await deployer.l1TxUtils.sendAndMonitorTransaction(
+        {
+          to: multiAdder.toString(),
+          data: encodeFunctionData({
+            abi: MultiAdderArtifact.contractAbi,
+            functionName: 'addValidators',
+            args: [validatorsTuples],
+          }),
+        },
+        {
+          gasLimit: 45_000_000n,
+        },
+      );
 
       const entryQueueLengthAfter = await rollup.getEntryQueueLength();
       const validatorCountAfter = await rollup.getActiveAttesterCount();
@@ -1030,7 +933,6 @@ export const deployL1Contracts = async (
   txUtilsConfig: L1TxUtilsConfig = getL1TxUtilsConfigEnvVars(),
   createVerificationJson: string | false = false,
 ): Promise<DeployL1ContractsReturnType> => {
-  logger.info(`Deploying L1 contracts with config: ${jsonStringify(args)}`);
   validateConfig(args);
 
   const l1Client = createExtendedL1Client(rpcUrls, account, chain);
@@ -1093,7 +995,6 @@ export const deployL1Contracts = async (
       gseAddress,
       rewardDistributorAddress,
       stakingAssetAddress,
-      governanceAddress,
     },
     logger,
   );
@@ -1107,8 +1008,6 @@ export const deployL1Contracts = async (
     deployer,
     registryAddress,
     gseAddress,
-    coinIssuerAddress,
-    feeAssetAddress,
     governanceAddress,
     logger,
     args.acceleratedTestDeployments,
