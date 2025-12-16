@@ -1,5 +1,5 @@
 import type { EpochCache } from '@aztec/epoch-cache';
-import { BlockNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { compactArray, times } from '@aztec/foundation/collection';
 import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -13,12 +13,12 @@ import {
   type L2BlockSource,
   type L2BlockStream,
   type L2BlockStreamEvent,
-  PublishedL2Block,
-  getAttestationInfoFromPublishedL2Block,
+  getAttestationInfoFromPublishedCheckpoint,
 } from '@aztec/stdlib/block';
-import { type L1RollupConstants, getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
+import { Checkpoint, L1PublishedData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
+import { type L1RollupConstants, getEpochAtSlot, getSlotRangeForEpoch } from '@aztec/stdlib/epoch-helpers';
 import type { BlockAttestation } from '@aztec/stdlib/p2p';
-import { makeBlockAttestation, randomPublishedL2Block } from '@aztec/stdlib/testing';
+import { makeAttestationFromCheckpoint, makeBlockAttestation } from '@aztec/stdlib/testing';
 import type {
   ValidatorStats,
   ValidatorStatusHistory,
@@ -91,6 +91,7 @@ describe('sentinel', () => {
     let signers: Secp256k1Signer[];
     let validators: EthAddress[];
     let block: L2BlockNew;
+    let publishedCheckpoint: PublishedCheckpoint;
     let attestations: BlockAttestation[];
     let proposer: EthAddress;
     let committee: EthAddress[];
@@ -107,6 +108,12 @@ describe('sentinel', () => {
     });
 
     it('flags block as mined', async () => {
+      // Set checkpoint data to simulate block being mined
+      sentinel.setCheckpointForSlot(slot, {
+        checkpointNumber: CheckpointNumber(1),
+        archive: block.archive.root.toString(),
+        attestors: [],
+      });
       await sentinel.handleBlockStreamEvent({ type: 'blocks-added', blocks: [block] });
 
       const activity = await sentinel.getSlotActivity(slot, epoch, proposer, committee);
@@ -126,47 +133,88 @@ describe('sentinel', () => {
     });
 
     it('identifies attestors from p2p and archiver', async () => {
-      block = await randomPublishedL2Block(Number(slot), { signers: signers.slice(0, 2) });
-      const attestorsFromBlock = compactArray(
-        getAttestationInfoFromPublishedL2Block(block).map(info =>
+      // Create a checkpoint with a block at the target slot
+      const checkpoint = await Checkpoint.random(CheckpointNumber(1), { numBlocks: 1, slotNumber: slot });
+      // Create attestations from signers
+      const checkpointAttestations = signers.slice(0, 2).map(signer => {
+        const blockAttestation = makeAttestationFromCheckpoint(checkpoint, signer, signer);
+        return new CommitteeAttestation(signer.address, blockAttestation.signature);
+      });
+      publishedCheckpoint = new PublishedCheckpoint(checkpoint, L1PublishedData.random(), checkpointAttestations);
+
+      const attestorsFromCheckpoint = compactArray(
+        getAttestationInfoFromPublishedCheckpoint(publishedCheckpoint).map(info =>
           info.status === 'recovered-from-signature' || info.status === 'provided-as-address'
             ? info.address
             : undefined,
         ),
       );
-      expect(attestorsFromBlock.map(a => a.toString())).toEqual(signers.slice(0, 2).map(a => a.address.toString()));
+      expect(attestorsFromCheckpoint.map(a => a.toString())).toEqual(
+        signers.slice(0, 2).map(a => a.address.toString()),
+      );
 
+      // Set checkpoint data with attestors from signers 0 and 1 (validators 0 and 1)
+      sentinel.setCheckpointForSlot(slot, {
+        checkpointNumber: CheckpointNumber(1),
+        archive: checkpoint.archive.root.toString(),
+        attestors: attestorsFromCheckpoint,
+      });
+
+      // Use the block from the checkpoint for the event
+      block = checkpoint.blocks[0];
       await sentinel.handleBlockStreamEvent({ type: 'blocks-added', blocks: [block] });
+      // P2P provides attestation from signer 2 (validator 2)
       p2p.getAttestationsForSlot.mockResolvedValue(attestations.slice(2, 3));
 
       const activity = await sentinel.getSlotActivity(slot, epoch, proposer, committee);
+      // Validator 1 attested via archiver checkpoint data
       expect(activity[committee[1].toString()]).toEqual('attestation-sent');
+      // Validator 2 attested via p2p
       expect(activity[committee[2].toString()]).toEqual('attestation-sent');
+      // Validator 3 has no attestation
       expect(activity[committee[3].toString()]).toEqual('attestation-missed');
     });
 
     it('only counts recovered-from-signature attestations, not placeholder attestations', async () => {
-      // Create a block with only 2 signers (validators 0 and 1), plus placeholders for 2 and 3
-      block = await randomPublishedL2Block(Number(slot), { signers: signers.slice(0, 2) });
+      // Create a checkpoint with only 2 signers (validators 0 and 1), plus placeholders for 2 and 3
+      const checkpoint = await Checkpoint.random(CheckpointNumber(1), { numBlocks: 1, slotNumber: slot });
+
+      // Create attestations from first 2 signers
+      const signedAttestations = signers.slice(0, 2).map(signer => {
+        const blockAttestation = makeAttestationFromCheckpoint(checkpoint, signer, signer);
+        return new CommitteeAttestation(signer.address, blockAttestation.signature);
+      });
 
       // Add placeholder attestations for the missing validators (no signature)
       const placeholderAttestations = validators.slice(2).map(addr => CommitteeAttestation.fromAddress(addr));
 
-      // Append placeholders to the existing attestations
-      const allAttestations = [...block.attestations, ...placeholderAttestations];
-      block = new PublishedL2Block(block.block, block.l1, allAttestations);
+      // Combine signed and placeholder attestations
+      const allAttestations = [...signedAttestations, ...placeholderAttestations];
+      publishedCheckpoint = new PublishedCheckpoint(checkpoint, L1PublishedData.random(), allAttestations);
 
-      // Verify that getAttestationInfoFromPublishedL2Block returns 4 entries total:
+      // Verify that getAttestationInfoFromPublishedCheckpoint returns 4 entries total:
       // - 2 with status 'recovered-from-signature' (actual attestations with valid signatures)
       // - 2 with status 'provided-as-address' (placeholders for missing validators)
-      const attestationInfo = getAttestationInfoFromPublishedL2Block(block);
+      const attestationInfo = getAttestationInfoFromPublishedCheckpoint(publishedCheckpoint);
       expect(attestationInfo).toHaveLength(4);
       const recoveredSignatures = attestationInfo.filter(info => info.status === 'recovered-from-signature');
       const placeholders = attestationInfo.filter(info => info.status === 'provided-as-address');
       expect(recoveredSignatures).toHaveLength(2);
       expect(placeholders).toHaveLength(2);
 
-      // After processing the block, only the validators with actual signatures should be recorded as attestors
+      // Set checkpoint data with ONLY the recovered-from-signature attestors (validators 0 and 1)
+      // This simulates how the Sentinel filters attestations when processing checkpoint-added events
+      const realAttestors = compactArray(
+        recoveredSignatures.map(info => (info.status === 'recovered-from-signature' ? info.address : undefined)),
+      );
+      sentinel.setCheckpointForSlot(slot, {
+        checkpointNumber: CheckpointNumber(1),
+        archive: checkpoint.archive.root.toString(),
+        attestors: realAttestors,
+      });
+
+      // Use the block from the checkpoint for the event
+      block = checkpoint.blocks[0];
       await sentinel.handleBlockStreamEvent({ type: 'blocks-added', blocks: [block] });
 
       // No additional attestations from p2p
@@ -517,13 +565,14 @@ describe('sentinel', () => {
     it('calls inactivity watcher with performance data', async () => {
       const blockNumber = BlockNumber(15);
       const blockHash = '0xblockhash';
-      const mockBlock = await randomPublishedL2Block(blockNumber);
-      const slot = mockBlock.block.header.getSlot();
+      const mockBlock = await L2BlockNew.random(blockNumber);
+      const slot = mockBlock.header.getSlot();
       const epochNumber = getEpochAtSlot(slot, l1Constants);
       const validator1 = EthAddress.random();
       const validator2 = EthAddress.random();
       const validator3 = EthAddress.random();
-      const headerSlots = times(l1Constants.epochDuration, i => SlotNumber(slot - i)).reverse();
+      // Use getSlotRangeForEpoch to calculate expected slot range (same as Sentinel does)
+      const [fromSlot, toSlot] = getSlotRangeForEpoch(epochNumber, l1Constants);
 
       epochCache.getEpochAndSlotNow.mockReturnValue({
         epoch: epochNumber,
@@ -531,7 +580,7 @@ describe('sentinel', () => {
         ts,
         now: ts,
       });
-      archiver.getBlock.calledWith(blockNumber).mockResolvedValue(mockBlock.block);
+      archiver.getBlock.calledWith(blockNumber).mockResolvedValue(mockBlock as any);
       archiver.getL1Constants.mockResolvedValue(l1Constants);
       epochCache.getL1Constants.mockReturnValue(l1Constants);
 
@@ -546,7 +595,7 @@ describe('sentinel', () => {
           // Validator 1 missed 1 attestation only, we won't slash them
           [validator1.toString()]: {
             address: validator1,
-            totalSlots: headerSlots.length,
+            totalSlots: l1Constants.epochDuration,
             missedProposals: { count: 0, currentStreak: 0, rate: 0, total: 0 },
             missedAttestations: { count: 1, currentStreak: 0, rate: 1 / 8, total: 8 },
             history: [],
@@ -554,7 +603,7 @@ describe('sentinel', () => {
           // Validator 2 missed 7 out of 8, we will slash them
           [validator2.toString()]: {
             address: validator2,
-            totalSlots: headerSlots.length,
+            totalSlots: l1Constants.epochDuration,
             missedProposals: { count: 0, currentStreak: 0, rate: 0, total: 0 },
             missedAttestations: { count: 7, currentStreak: 3, rate: 7 / 8, total: 8 },
             history: [],
@@ -563,7 +612,7 @@ describe('sentinel', () => {
           // This difference happens because we don't count attestations for a slot where there was no proposal
           [validator3.toString()]: {
             address: validator3,
-            totalSlots: headerSlots.length,
+            totalSlots: l1Constants.epochDuration,
             missedProposals: { count: 0, currentStreak: 0, rate: 0, total: 0 },
             missedAttestations: { count: 4, currentStreak: 4, rate: 4 / 4, total: 4 },
             history: [],
@@ -579,8 +628,8 @@ describe('sentinel', () => {
       await sentinel.handleChainProven({ type: 'chain-proven', block: { number: blockNumber, hash: blockHash } });
 
       expect(computeStatsSpy).toHaveBeenCalledWith({
-        fromSlot: headerSlots[0],
-        toSlot: headerSlots[headerSlots.length - 1],
+        fromSlot,
+        toSlot,
         validators: [validator1, validator2, validator3],
       });
       const makeInactivitySlash = (validator: EthAddress): WantToSlashArgs => ({
@@ -833,6 +882,14 @@ class TestSentinel extends Sentinel {
 
   public setLastProcessedSlot(slot: SlotNumber) {
     this.lastProcessedSlot = slot;
+  }
+
+  /** Set checkpoint data for a slot (for testing). */
+  public setCheckpointForSlot(
+    slot: SlotNumber,
+    data: { checkpointNumber: CheckpointNumber; archive: string; attestors: EthAddress[] },
+  ) {
+    this.slotNumberToCheckpoint.set(slot, data);
   }
 
   public getInitialSlot() {

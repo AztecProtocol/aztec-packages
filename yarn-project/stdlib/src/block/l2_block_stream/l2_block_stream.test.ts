@@ -1,4 +1,4 @@
-import { BlockNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import { compactArray } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 
@@ -6,8 +6,7 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 import times from 'lodash.times';
 
 import type { BlockHeader } from '../../tx/block_header.js';
-import type { PublishedL2Block } from '../checkpointed_l2_block.js';
-import type { L2Block } from '../l2_block.js';
+import type { L2BlockNew } from '../l2_block_new.js';
 import type { L2BlockId, L2BlockSource, L2Tips } from '../l2_block_source.js';
 import type { L2BlockStreamEvent, L2BlockStreamEventHandler, L2BlockStreamLocalDataProvider } from './interfaces.js';
 import { L2BlockStream } from './l2_block_stream.js';
@@ -20,7 +19,12 @@ describe('L2BlockStream', () => {
 
   const makeHash = (number: number) => new Fr(number).toString();
 
-  const makeBlock = (number: number) => ({ block: { number: BlockNumber(number) } as L2Block }) as PublishedL2Block;
+  const makeBlock = (number: number) =>
+    ({
+      number: BlockNumber(number),
+      checkpointNumber: CheckpointNumber(number),
+      indexWithinCheckpoint: 0,
+    }) as L2BlockNew;
 
   const makeHeader = (number: number) => ({ hash: () => Promise.resolve(new Fr(number)) }) as BlockHeader;
 
@@ -32,9 +36,11 @@ describe('L2BlockStream', () => {
     latest = latest_;
 
     blockSource.getL2Tips.mockResolvedValue({
-      latest: { number: BlockNumber(latest), hash: makeHash(latest) },
-      proven: { number: BlockNumber(proven), hash: makeHash(proven) },
-      finalized: { number: BlockNumber(finalized), hash: makeHash(finalized) },
+      blocks: {
+        latest: { number: BlockNumber(latest), hash: makeHash(latest) },
+        proven: { number: BlockNumber(proven), hash: makeHash(proven) },
+        finalized: { number: BlockNumber(finalized), hash: makeHash(finalized) },
+      },
     });
   };
 
@@ -50,7 +56,7 @@ describe('L2BlockStream', () => {
     );
 
     // And returns blocks up until what was reported as the latest block
-    blockSource.getPublishedBlocks.mockImplementation((from, limit) =>
+    blockSource.getL2BlocksNew.mockImplementation((from, limit) =>
       Promise.resolve(compactArray(times(limit, i => (from + i > latest ? undefined : makeBlock(from + i))))),
     );
   });
@@ -80,7 +86,7 @@ describe('L2BlockStream', () => {
       localData.latest.number = BlockNumber(10);
 
       await blockStream.work();
-      expect(blockSource.getPublishedBlocks).toHaveBeenCalledWith(BlockNumber(11), 5, undefined);
+      expect(blockSource.getL2BlocksNew).toHaveBeenCalledWith(BlockNumber(11), 5, undefined);
       expect(handler.events).toEqual([
         { type: 'blocks-added', blocks: times(5, i => makeBlock(i + 11)) },
       ] satisfies L2BlockStreamEvent[]);
@@ -90,7 +96,7 @@ describe('L2BlockStream', () => {
       setRemoteTips(45);
 
       await blockStream.work();
-      expect(blockSource.getPublishedBlocks).toHaveBeenCalledTimes(5);
+      expect(blockSource.getL2BlocksNew).toHaveBeenCalledTimes(5);
       expect(handler.callCount).toEqual(5);
       expect(handler.events).toEqual([
         { type: 'blocks-added', blocks: times(10, i => makeBlock(i + 1)) },
@@ -106,7 +112,7 @@ describe('L2BlockStream', () => {
       blockStream.running = false;
 
       await blockStream.work();
-      expect(blockSource.getPublishedBlocks).toHaveBeenCalledTimes(1);
+      expect(blockSource.getL2BlocksNew).toHaveBeenCalledTimes(1);
       expect(handler.events).toEqual([
         { type: 'blocks-added', blocks: times(10, i => makeBlock(i + 1)) },
       ] satisfies L2BlockStreamEvent[]);
@@ -276,7 +282,11 @@ class TestL2BlockStreamLocalDataProvider implements L2BlockStreamLocalDataProvid
 
   public getL2Tips(): Promise<L2Tips> {
     return Promise.resolve({
-      blocks: this,
+      blocks: {
+        latest: this.latest,
+        proven: this.proven,
+        finalized: this.finalized,
+      },
     });
   }
 }
@@ -294,7 +304,7 @@ class TestL2BlockStream extends L2BlockStream {
 }
 
 class TestL2TipsMemoryStore extends L2TipsMemoryStore {
-  protected override computeBlockHash(block: L2Block): Promise<`0x${string}`> {
+  protected override computeBlockHash(block: L2BlockNew): Promise<`0x${string}`> {
     return Promise.resolve(new Fr(block.number).toString());
   }
 }
