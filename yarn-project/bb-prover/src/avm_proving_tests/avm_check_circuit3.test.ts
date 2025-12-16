@@ -5,9 +5,9 @@ import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 
 import { AvmProvingTester } from './avm_proving_tester.js';
 
-const TIMEOUT = 100_000;
+const TIMEOUT = 300_000;
 
-describe.skip('AVM check-circuit – unhappy paths 3', () => {
+describe.skip('AVM WitGen & Circuit – check circuit', () => {
   const sender = AztecAddress.fromNumber(42);
   let avmTestContractInstance: ContractInstanceWithAddress;
   let tester: AvmProvingTester;

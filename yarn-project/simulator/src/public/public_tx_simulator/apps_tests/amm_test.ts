@@ -2,12 +2,11 @@ import { GeneratorIndex } from '@aztec/constants';
 import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import type { Logger } from '@aztec/foundation/log';
-import { Timer } from '@aztec/foundation/timer';
 import { AMMContractArtifact } from '@aztec/noir-contracts.js/AMM';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 
-import { PublicTxSimulationTester } from './public_tx_simulation_tester.js';
+import { PublicTxSimulationTester } from '../../fixtures/public_tx_simulation_tester.js';
 import { setUpToken } from './token_test.js';
 
 const INITIAL_TOKEN_BALANCE = 1_000_000_000n;
@@ -16,16 +15,16 @@ const INITIAL_TOKEN_BALANCE = 1_000_000_000n;
  * `.skip` it or literally just delete it and notify AVM team.
  * You do NOT need permission to remove this test!
  */
-export async function ammTest(tester: PublicTxSimulationTester, logger: Logger, expectToBeTrue: (x: boolean) => void) {
-  const timer = new Timer();
+export async function ammTest(tester: PublicTxSimulationTester, logger: Logger) {
+  const startTime = performance.now();
 
   const admin = AztecAddress.fromNumber(42);
   const sender = AztecAddress.fromNumber(111);
 
   logger.debug(`Deploying tokens`);
-  const token0 = await setUpToken(tester, admin, expectToBeTrue, /*seed=*/ 0);
-  const token1 = await setUpToken(tester, admin, expectToBeTrue, /*seed=*/ 1);
-  const liquidityToken = await setUpToken(tester, admin, expectToBeTrue, /*seed=*/ 2);
+  const token0 = await setUpToken(tester, admin, /*seed=*/ 0);
+  const token1 = await setUpToken(tester, admin, /*seed=*/ 1);
+  const liquidityToken = await setUpToken(tester, admin, /*seed=*/ 2);
   logger.debug(`Deploying AMM`);
   const constructorArgs = [token0, token1, liquidityToken];
   const amm = await tester.registerAndDeployContract(
@@ -36,8 +35,7 @@ export async function ammTest(tester: PublicTxSimulationTester, logger: Logger, 
     /*seed=*/ 3,
   );
 
-  // EXECUTE! This means that if using AvmProvingTester subclass, it will PROVE the transaction!
-  const ammConstructorResult = await tester.executeTxWithLabel(
+  const ammConstructorResult = await tester.simulateTxWithLabel(
     /*txLabel=*/ 'AMM/constructor',
     /*sender=*/ admin,
     /*setupCalls=*/ [],
@@ -49,13 +47,12 @@ export async function ammTest(tester: PublicTxSimulationTester, logger: Logger, 
       },
     ],
   );
-  expectToBeTrue(ammConstructorResult.revertCode.isOK());
+  expect(ammConstructorResult.revertCode.isOK()).toBe(true);
 
   logger.debug(`Setting AMM as minter for liquidity token`);
 
   // set the AMM as the minter for the liquidity token
-  // EXECUTE! This means that if using AvmProvingTester subclass, it will PROVE the transaction!
-  const setMinterResult = await tester.executeTxWithLabel(
+  const setMinterResult = await tester.simulateTxWithLabel(
     /*txLabel=*/ 'AMM/set_minter',
     /*sender=*/ admin,
     /*setupCalls=*/ [],
@@ -67,7 +64,7 @@ export async function ammTest(tester: PublicTxSimulationTester, logger: Logger, 
       },
     ],
   );
-  expectToBeTrue(setMinterResult.revertCode.isOK());
+  expect(setMinterResult.revertCode.isOK()).toBe(true);
 
   logger.debug(`Adding liquidity`);
   const amount0Max = (INITIAL_TOKEN_BALANCE * 6n) / 10n;
@@ -87,7 +84,7 @@ export async function ammTest(tester: PublicTxSimulationTester, logger: Logger, 
     /*amount0Min=*/ amount0Min,
     /*amount1Min=*/ amount1Min,
   );
-  expectToBeTrue(addLiquidityResult.revertCode.isOK());
+  expect(addLiquidityResult.revertCode.isOK()).toBe(true);
 
   logger.debug(`Swapping tokens`);
   const swapResult = await swapExactTokensForTokens(
@@ -99,7 +96,7 @@ export async function ammTest(tester: PublicTxSimulationTester, logger: Logger, 
     /*amountIn=*/ amount0Min / 10n, // something smaller than total liquidity
     /*amountOutMin=*/ amount1Min / 100n, // something even smaller
   );
-  expectToBeTrue(swapResult.revertCode.isOK());
+  expect(swapResult.revertCode.isOK()).toBe(true);
 
   logger.debug(`Removing liquidity`);
   const removeLiquidityResult = await removeLiquidity(
@@ -113,9 +110,11 @@ export async function ammTest(tester: PublicTxSimulationTester, logger: Logger, 
     /*amount0Min=*/ 1n, // remove some tiny amount
     /*amount1Min=*/ 1n,
   );
-  expectToBeTrue(removeLiquidityResult.revertCode.isOK());
+  expect(removeLiquidityResult.revertCode.isOK()).toBe(true);
 
-  logger.info(`AMM public tx simulator test took ${timer.ms()}ms\n`);
+  const endTime = performance.now();
+
+  logger.info(`AMM public tx simulator test took ${endTime - startTime}ms\n`);
 }
 
 async function addLiquidity(
@@ -159,8 +158,7 @@ async function addLiquidity(
   await tester.insertNullifier(token1.address, refundToken1PartialNoteValidityCommitment);
   await tester.insertNullifier(liquidityToken.address, liquidityPartialNoteValidityCommitment);
 
-  // EXECUTE! This means that if using AvmProvingTester subclass, it will PROVE the transaction!
-  return await tester.executeTxWithLabel(
+  return await tester.simulateTxWithLabel(
     /*txLabel=*/ 'AMM/add_liquidity',
     /*sender=*/ sender,
     /*setupCalls=*/ [],
@@ -226,8 +224,7 @@ async function swapExactTokensForTokens(
   // function that is not invoked in this test.
   await tester.insertNullifier(tokenOut.address, tokenOutPartialNoteValidityCommitment);
 
-  // EXECUTE! This means that if using AvmProvingTester subclass, it will PROVE the transaction!
-  return await tester.executeTxWithLabel(
+  return await tester.simulateTxWithLabel(
     /*txLabel=*/ 'AMM/swap_exact_tokens_for_tokens',
     /*sender=*/ sender,
     /*setupCalls=*/ [],
@@ -281,8 +278,7 @@ async function removeLiquidity(
   await tester.insertNullifier(token0.address, token0PartialNoteValidityCommitment);
   await tester.insertNullifier(token1.address, token1PartialNoteValidityCommitment);
 
-  // EXECUTE! This means that if using AvmProvingTester subclass, it will PROVE the transaction!
-  return await tester.executeTxWithLabel(
+  return await tester.simulateTxWithLabel(
     /*txLabel=*/ 'AMM/remove_liquidity',
     /*sender=*/ sender,
     /*setupCalls=*/ [],
