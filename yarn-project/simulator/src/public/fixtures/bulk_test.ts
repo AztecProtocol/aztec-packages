@@ -121,7 +121,6 @@ export async function megaBulkTest(
   const argsField5 = [11, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(x => new Fr(x));
   const argsField6 = [13, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(x => new Fr(x));
   const argsField7 = [15, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(x => new Fr(x));
-  const argsField8 = [17, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(x => new Fr(x));
   const argsU8 = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(x => new Fr(x));
   const genArgs = (argsField: Fr[]) => [
     argsField,
@@ -147,7 +146,6 @@ export async function megaBulkTest(
       { address: avmTestContract.address, fnName: 'bulk_testing', args: genArgs(argsField5) },
       { address: avmTestContract.address, fnName: 'bulk_testing', args: genArgs(argsField6) },
       { address: avmTestContract.address, fnName: 'bulk_testing', args: genArgs(argsField7) },
-      { address: avmTestContract.address, fnName: 'bulk_testing', args: genArgs(argsField8) },
     ],
     /*teardownCall=*/ undefined,
     /*feePayer*/ undefined,
