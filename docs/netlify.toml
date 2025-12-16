@@ -2,8 +2,8 @@
 # BUILD CONFIGURATION
 # =============================================================================
 [build]
-  # Only build if changes are made in the docs directory
-  ignore = "git diff --quiet $CACHED_COMMIT_REF $COMMIT_REF"
+  # Only build if docs-related files changed (docs/, aztec-nr/, or #include_code references)
+  ignore = "./scripts/netlify-ignore-build.sh"
   command = "yarn build"
   functions = "netlify/functions"
 
@@ -23,7 +23,7 @@
 
 [[redirects]]
     from = "/guides/smart_contracts/writing_contracts/initializers"
-    to = "/developers/docs/guides/smart_contracts/define_functions"
+    to = "/developers/docs/guides/smart_contracts/how_to_define_functions"
 
 [[redirects]]
     from = "/guides/smart_contracts/writing_contracts/*"
@@ -31,19 +31,19 @@
 
 [[redirects]]
     from = "/developers/reference/smart_contract_reference/storage/*"
-    to = "/developers/docs/guides/smart_contracts/storage_types"
+    to = "/developers/docs/guides/smart_contracts/how_to_define_storage"
 
 [[redirects]]
     from = "/getting_started"
-    to = "/developers/getting_started_on_local_network"
+    to = "/developers/getting_started_on_sandbox"
 
 [[redirects]]
     from = "/developers/getting_started/main"
-    to = "/developers/getting_started_on_local_network"
+    to = "/developers/getting_started_on_sandbox"
 
 [[redirects]]
     from = "guides/getting_started"
-    to = "/developers/getting_started_on_local_network"
+    to = "/developers/getting_started_on_sandbox"
 
 [[redirects]]
     from = "/tutorials/simple_dapp/*"
@@ -95,19 +95,19 @@
 
 [[redirects]]
     from = "/reference/sandbox_reference/sandbox-reference"
-    to = "/developers/getting_started_on_local_network"
+    to = "/developers/getting_started_on_sandbox"
 
 [[redirects]]
     from = "/reference/sandbox_reference"
-    to = "/developers/getting_started_on_local_network"
+    to = "/developers/getting_started_on_sandbox"
 
 [[redirects]]
     from = "/guides/getting_started/*"
-    to = "/developers/getting_started_on_local_network"
+    to = "/developers/getting_started_on_sandbox"
 
 [[redirects]]
     from = "/guides/developer_guides/*"
-    to = "/developers/getting_started_on_local_network"
+    to = "/developers/getting_started_on_sandbox"
 
 # =============================================================================
 # ACTIVE REDIRECTS: Concept Path Restructures
@@ -127,7 +127,7 @@
 
 [[redirects]]
     from = "/aztec/concepts/storage/partial_notes"
-    to = "/developers/docs/concepts/advanced/storage/partial_notes"
+    to = "/developers/docs/concepts/storage"
 
 [[redirects]]
     from = "/aztec/concepts/circuits/*"
@@ -164,7 +164,7 @@
 
 [[redirects]]
     from = "/developers/guides/smart_contracts/deploy_contract"
-    to = "/developers/docs/guides/smart_contracts/how_to_deploy_contract"
+    to = "/developers/docs/guides/aztec-js/how_to_deploy_contract"
 
 [[redirects]]
     from = "/developers/guides/smart_contracts/define_functions"
@@ -188,7 +188,7 @@
 
 [[redirects]]
     from = "/developers/guides/smart_contracts/write_custom_note"
-    to = "/developers/docs/guides/smart_contracts/how_to_implement_custom_note"
+    to = "/developers/docs/guides/smart_contracts/how_to_implement_custom_notes"
 
 [[redirects]]
     from = "/developers/guides/smart_contracts/test_contracts"
@@ -210,15 +210,15 @@
 # Redirect getting_started variations
 [[redirects]]
     from = "/developers/getting_started/getting_started"
-    to = "/developers/getting_started_on_local_network"
+    to = "/developers/getting_started_on_sandbox"
 
 [[redirects]]
     from = "/getting_started/getting_started"
-    to = "/developers/getting_started_on_local_network"
+    to = "/developers/getting_started_on_sandbox"
 
 [[redirects]]
     from = "/developers/getting_started/getting_started.md"
-    to = "/developers/getting_started_on_local_network"
+    to = "/developers/getting_started_on_sandbox"
 
 # =============================================================================
 # DISABLED: Future Migration Paths (Granular Refactor)
@@ -349,12 +349,12 @@
 # Getting started on testnet redirect
 [[redirects]]
     from = "/developers/guides/getting_started_on_testnet"
-    to = "/developers/getting_started_on_testnet"
+    to = "/developers/getting_started_on_devnet"
 
-# Local network reference redirect (renamed from sandbox)
+# Sandbox reference redirect
 [[redirects]]
     from = "/developers/guides/local_env/sandbox-reference"
-    to = "/developers/docs/reference/environment_reference/local-network-reference"
+    to = "/developers/docs/reference/environment_reference/sandbox-reference"
 
 # FaceID wallet redirect
 [[redirects]]
@@ -482,20 +482,8 @@
 
 [[redirects]]
     from = "/developers/sandbox/*"
-    to = "/developers/getting_started_on_local_network"
+    to = "/developers/getting_started_on_sandbox"
 
 [[redirects]]
     from = "/dev_docs/*"
-    to = "/developers/getting_started_on_local_network"
-
-# =============================================================================
-# ERROR CODES
-# Sequential error code redirects for user-friendly error references.
-# Each error code maps to a relevant documentation page.
-# Add new error codes sequentially (1, 2, 3, ...).
-# =============================================================================
-
-# Example (uncomment and modify when adding error codes):
-# [[redirects]]
-#     from = "/errors/1"
-#     to = "/developers/docs/guides/smart_contracts/how_to_define_functions"
+    to = "/developers/getting_started_on_sandbox"

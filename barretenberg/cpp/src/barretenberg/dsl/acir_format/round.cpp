@@ -11,6 +11,7 @@ namespace acir_format {
 // Rounds a number to the nearest multiple of 8
 uint32_t round_to_nearest_mul_8(uint32_t num_bits)
 {
+    BB_ASSERT(num_bits <= UINT32_MAX - 8, "round_to_nearest_mul_8: num_bits too large, calculation would overflow.");
     uint32_t remainder = num_bits % 8;
     if (remainder == 0) {
         return num_bits;

@@ -77,6 +77,9 @@ template <typename FF> class ProofSurgeon {
     static std::vector<uint32_t> get_public_inputs_witness_indices_from_proof(
         const bb::stdlib::Proof<bb::MegaCircuitBuilder>& proof, const size_t num_public_inputs_to_extract)
     {
+        BB_ASSERT_LTE(
+            num_public_inputs_to_extract, proof.size(), "Number of public inputs to extract exceeds proof size");
+
         std::vector<uint32_t> public_input_witness_indices;
         public_input_witness_indices.reserve(num_public_inputs_to_extract);
 

@@ -4,6 +4,7 @@
 // external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // =====================
 
+#include "barretenberg/common/assert.hpp"
 #include <cstdint>
 
 namespace acir_format {

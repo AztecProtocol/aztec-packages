@@ -19,6 +19,11 @@ export function unfreeze<T>(obj: T): Writeable<T> {
   return obj as Writeable<T>;
 }
 
+/** Is defined type guard */
+export function isDefined<T>(value: T | undefined): value is T {
+  return value !== undefined;
+}
+
 /** Resolves a record-like type. Lifted from viem. */
 export type Prettify<T> = {
   [K in keyof T]: T[K];

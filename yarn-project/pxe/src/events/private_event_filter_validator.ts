@@ -2,10 +2,10 @@ import type { PrivateEventFilter } from '@aztec/aztec.js/wallet';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 
-import type { PrivateEventDataProviderFilter, SyncDataProvider } from '../storage/index.js';
+import type { AnchorBlockDataProvider, PrivateEventDataProviderFilter } from '../storage/index.js';
 
 export class PrivateEventFilterValidator {
-  constructor(private syncDataProvider: SyncDataProvider) {}
+  constructor(private anchorBlockDataProvider: AnchorBlockDataProvider) {}
 
   async validate(filter: PrivateEventFilter): Promise<PrivateEventDataProviderFilter> {
     let { fromBlock, toBlock } = filter;
@@ -15,7 +15,7 @@ export class PrivateEventFilterValidator {
     // We then default to [INITIAL_L2_BLOCK_NUM, latestKnownBlock + 1), ie: by default return events from
     // the first block to the latest known block.
     if (!fromBlock || !toBlock) {
-      const lastKnownBlock = await this.syncDataProvider.getBlockNumber();
+      const lastKnownBlock = (await this.anchorBlockDataProvider.getBlockHeader()).getBlockNumber();
       fromBlock = fromBlock ?? BlockNumber(INITIAL_L2_BLOCK_NUM);
       toBlock = toBlock ?? BlockNumber(lastKnownBlock + 1);
     }
