@@ -84,7 +84,6 @@ class UltraKeccakFlavor : public bb::UltraFlavor {
     // Specialize for Ultra (general case used in UltraRecursive).
     using VerifierCommitments = VerifierCommitments_<Commitment, VerificationKey>;
 
-    // VKAndHash wrapper for verification key and its hash (overrides inherited from UltraFlavor)
     using VKAndHash = VKAndHash_<FF, VerificationKey>;
 };
 

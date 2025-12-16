@@ -478,7 +478,6 @@ template <typename FF, typename VerificationKey> class VKAndHash_ {
         : vk(std::make_shared<VerificationKey>(&builder, native_vk))
         , hash(FF::from_witness(&builder, native_vk->hash()))
     {}
-
     std::shared_ptr<VerificationKey> vk;
     FF hash;
 };

@@ -230,8 +230,6 @@ class UltraZKFlavor : public UltraFlavor {
         }
     };
     using Transcript = Transcript_;
-
-    // Explicitly inherit VKAndHash from UltraFlavor (same VK, so same VKAndHash)
     using VKAndHash = UltraFlavor::VKAndHash;
 };
 } // namespace bb

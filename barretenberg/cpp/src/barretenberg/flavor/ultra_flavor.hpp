@@ -526,7 +526,6 @@ class UltraFlavor {
 #endif
     };
 
-    // VKAndHash wrapper for verification key and its hash (consistent with recursive flavors)
     using VKAndHash = VKAndHash_<FF, VerificationKey>;
 
     /**

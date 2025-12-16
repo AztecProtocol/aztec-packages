@@ -221,7 +221,6 @@ class UltraKeccakZKFlavor : public UltraKeccakFlavor {
         }
     };
 
-    // Explicitly inherit VKAndHash from UltraKeccakFlavor (same VK, so same VKAndHash)
     using VKAndHash = UltraKeccakFlavor::VKAndHash;
 };
 } // namespace bb

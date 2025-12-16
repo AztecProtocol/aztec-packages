@@ -58,7 +58,6 @@ template <typename BuilderType> class MegaZKRecursiveFlavor_ : public MegaRecurs
     // length = 3
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = NativeFlavor::BATCHED_RELATION_PARTIAL_LENGTH;
 
-    // Size of the final PCS MSM for ZK (delegates to native ZK flavor)
     static constexpr size_t FINAL_PCS_MSM_SIZE(size_t log_n = VIRTUAL_LOG_N)
     {
         return NativeFlavor::FINAL_PCS_MSM_SIZE(log_n);

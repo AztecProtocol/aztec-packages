@@ -367,7 +367,7 @@ TYPED_TEST(UltraTranscriptTests, StructureTest)
     prover.transcript->deserialize_full_transcript(verification_key->num_public_inputs, virtual_log_n);
     prover.transcript->serialize_full_transcript(virtual_log_n);
     // reset verifier's transcript
-    verifier.transcript = std::make_shared<typename Flavor::Transcript>();
+    verifier.transcript = std::make_shared<typename Flavor:let : Transcript>();
 
     proof = TestFixture::export_serialized_proof(prover, prover_instance->num_public_inputs());
     {
