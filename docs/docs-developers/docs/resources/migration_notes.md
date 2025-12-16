@@ -9,6 +9,16 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## TBD
 
+### [PXE] deprecated `getNotes`
+
+This function serves only for debugging purposes so we are taking it out of the main PXE API. If you still need to consume it, you can
+do so through the new `debug` sub-module.
+
+```diff
+- this.pxe.getNotes(filter);
++ this.pxe.debug.getNotes(filter);
+```
+
 ### [Aztec node, archiver] Deprecated `getPrivateLogs`
 
 Aztec node no longer offers a `getPrivateLogs` method. If you need to process the logs of a block, you can instead use `getBlock` and call `getPrivateLogs` on an `L2BlockNew` instance. See the diff below for before/after equivalent code samples.

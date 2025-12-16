@@ -45,10 +45,9 @@ describe('Public TX simulator apps tests: benchmarks', () => {
       writeFileSync(process.env.BENCH_OUTPUT, metrics.toGithubActionBenchmarkJSON());
     } else if (process.env.BENCH_OUTPUT_MD) {
       writeFileSync(process.env.BENCH_OUTPUT_MD, metrics.toPrettyString());
-    } else {
-      logger.info(`\n`); // sometimes jest tests obscure the last line(s)
-      logger.info(metrics.toPrettyString());
     }
+    logger.info(`\n`); // sometimes jest tests obscure the last line(s)
+    logger.info(metrics.toPrettyString());
   });
 
   describe.each([
@@ -102,8 +101,7 @@ describe('Public TX simulator apps tests: benchmarks', () => {
         expect(result.revertCode.isOK()).toBe(true);
       });
 
-      // TODO: Flaky test - runs out of L2GAS intermittently
-      it.skip('AVM simulator MEGA bulk test', async () => {
+      it('AVM simulator MEGA bulk test', async () => {
         tester.setMetricsPrefix(`${metricsPrefixPrefix}AvmTest contract tests`);
         const result = await megaBulkTest(tester, logger, AvmTestContractArtifact);
         expect(result.revertCode.isOK()).toBe(true);

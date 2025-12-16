@@ -21,10 +21,10 @@ import { z } from 'zod';
 
 import type { AztecAddress } from '../aztec-address/index.js';
 import { type BlockParameter, BlockParameterSchema } from '../block/block_parameter.js';
+import { PublishedL2Block } from '../block/checkpointed_l2_block.js';
 import { type DataInBlock, dataInBlockSchemaFor } from '../block/in_block.js';
 import { L2Block } from '../block/l2_block.js';
 import { type L2BlockSource, type L2Tips, L2TipsSchema } from '../block/l2_block_source.js';
-import { PublishedL2Block } from '../block/published_l2_block.js';
 import {
   type ContractClassPublic,
   ContractClassPublicSchema,

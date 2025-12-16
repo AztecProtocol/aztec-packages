@@ -137,4 +137,8 @@ export async function enrichEnvironmentWithNetworkConfig(networkName: NetworkNam
   if (networkConfig.feeAssetHandlerAddress) {
     enrichEthAddressVar('FEE_ASSET_HANDLER_CONTRACT_ADDRESS', networkConfig.feeAssetHandlerAddress.toString());
   }
+
+  if (networkConfig.blobFileStoreUrls?.length) {
+    enrichVar('BLOB_FILE_STORE_URLS', networkConfig.blobFileStoreUrls.join(','));
+  }
 }

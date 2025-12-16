@@ -1,7 +1,7 @@
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 import { randomPublishedL2Block } from '@aztec/stdlib/testing';
 
-import { PublishedL2Block } from './published_l2_block.js';
+import { PublishedL2Block } from './checkpointed_l2_block.js';
 
 describe('PublishedL2Block', () => {
   it('convert to and from json', async () => {

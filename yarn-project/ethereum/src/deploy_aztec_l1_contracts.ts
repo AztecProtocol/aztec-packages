@@ -10,7 +10,7 @@ import { fileURLToPath } from '@aztec/foundation/url';
 import { bn254 } from '@noble/curves/bn254';
 import type { Abi, Narrow } from 'abitype';
 import { spawn } from 'child_process';
-import { cp, mkdtemp, rm, stat } from 'fs/promises';
+import { cp, mkdtemp, rm } from 'fs/promises';
 import { tmpdir } from 'os';
 import { dirname, join, resolve } from 'path';
 import readline from 'readline';
@@ -80,17 +80,9 @@ function runProcess<T>(
 /**
  * Copies the foundry cache folder to a temporary location to avoid conflicts when running forge in parallel.
  * The cache folder is small metadata that links to the out folder, so this is a fast operation.
- * Returns the path to the temporary cache folder, or undefined if the cache folder doesn't exist.
  */
-async function copyFoundryCacheToTemp(l1ContractsPath: string): Promise<string | undefined> {
+async function copyFoundryCacheToTemp(l1ContractsPath: string): Promise<string> {
   const cacheFolder = join(l1ContractsPath, 'cache');
-  try {
-    await stat(cacheFolder);
-  } catch {
-    // Cache folder doesn't exist, nothing to copy
-    return undefined;
-  }
-
   const tempCacheFolder = await mkdtemp(join(tmpdir(), 'foundry-cache-'));
   await cp(cacheFolder, tempCacheFolder, { recursive: true });
   return tempCacheFolder;
@@ -224,6 +216,7 @@ export async function deployAztecL1Contracts(
   privateKey: `0x${string}`,
   chainId: number,
   args: DeployAztecL1ContractsArgs,
+  verifyContracts = false,
 ): Promise<DeployAztecL1ContractsReturnType> {
   logger.info(`Deploying L1 contracts with config: ${jsonStringify(args)}`);
   if (args.initialValidators && args.initialValidators.length > 0 && args.existingTokenAddress) {
@@ -285,14 +278,16 @@ export async function deployAztecL1Contracts(
       '--rpc-url',
       rpcUrl,
       '--broadcast',
-      ...(chainId === foundry.id ? ['--batch-size', MAGIC_ANVIL_BATCH_SIZE.toString()] : ['--verify']),
+      ...(chainId === foundry.id ? ['--batch-size', MAGIC_ANVIL_BATCH_SIZE.toString()] : []),
+      ...(verifyContracts ? ['--verify'] : []),
     ];
     const forgeEnv = {
+      // Protect against root leaving deployment files in docker that cannot be used later.
+      FOUNDRY_BROADCAST: process.getuid?.() === 0 ? 'broadcast-root' : tempCachePath,
       // Env vars required by l1-contracts/script/deploy/DeploymentConfiguration.sol.
       NETWORK: getActiveNetworkName(),
       FOUNDRY_PROFILE: chainId === mainnet.id ? 'production' : undefined,
       FOUNDRY_CACHE_PATH: tempCachePath,
-      FOUNDRY_BROADCAST: tempCachePath,
       ...getDeployAztecL1ContractsEnvVars(args),
     };
     const result = await runProcess<ForgeL1ContractsDeployResult>('forge', forgeArgs, forgeEnv, l1ContractsPath);
@@ -358,9 +353,7 @@ export async function deployAztecL1Contracts(
       },
     };
   } finally {
-    if (tempCachePath) {
-      await rm(tempCachePath, { recursive: true, force: true });
-    }
+    await rm(tempCachePath, { recursive: true, force: true });
   }
 }
 
@@ -581,8 +574,6 @@ export const deployRollupForUpgrade = async (
       slashFactoryAddress: result.slashFactoryAddress,
     };
   } finally {
-    if (tempCachePath) {
-      await rm(tempCachePath, { recursive: true, force: true });
-    }
+    await rm(tempCachePath, { recursive: true, force: true });
   }
 };

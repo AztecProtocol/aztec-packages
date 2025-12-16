@@ -1,28 +1,31 @@
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { TxHash } from '@aztec/stdlib/tx';
+import { BlockHeader, TxHash } from '@aztec/stdlib/tx';
 
 import { mock } from 'jest-mock-extended';
 import type { MockProxy } from 'jest-mock-extended/lib/Mock.js';
 
-import { SyncDataProvider } from '../storage/index.js';
+import { AnchorBlockDataProvider } from '../storage/index.js';
 import { PrivateEventFilterValidator } from './private_event_filter_validator.js';
 
 describe('PrivateEventFilterValidator', () => {
   let contractAddress: AztecAddress;
+  let lastKnownBlock: BlockHeader;
   let lastKnownBlockNumber: BlockNumber;
   let scope: AztecAddress;
-  let syncDataProvider: MockProxy<SyncDataProvider>;
+  let anchorBlockDataProvider: MockProxy<AnchorBlockDataProvider>;
   let validator: PrivateEventFilterValidator;
 
   beforeEach(async () => {
-    lastKnownBlockNumber = BlockNumber(42);
+    lastKnownBlock = BlockHeader.random();
+    lastKnownBlockNumber = lastKnownBlock.getBlockNumber();
     contractAddress = await AztecAddress.random();
     scope = await AztecAddress.random();
-    syncDataProvider = mock<SyncDataProvider>();
-    syncDataProvider.getBlockNumber.mockResolvedValue(lastKnownBlockNumber);
-    validator = new PrivateEventFilterValidator(syncDataProvider);
+    anchorBlockDataProvider = mock<AnchorBlockDataProvider>();
+
+    anchorBlockDataProvider.getBlockHeader.mockResolvedValue(lastKnownBlock);
+    validator = new PrivateEventFilterValidator(anchorBlockDataProvider);
   });
 
   it('rejects empty scope', async () => {
