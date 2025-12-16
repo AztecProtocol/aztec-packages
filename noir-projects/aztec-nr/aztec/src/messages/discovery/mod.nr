@@ -8,9 +8,7 @@ pub mod process_message;
 
 use crate::{
     messages::{
-        discovery::{
-            private_notes::MAX_NOTE_PACKED_LEN, process_message::process_message_ciphertext,
-        },
+        discovery::{private_notes::MAX_NOTE_PACKED_LEN, process_message::do_process_message},
         processing::{
             get_private_logs, pending_tagged_log::PendingTaggedLog,
             validate_enqueued_notes_and_events,
@@ -61,7 +59,7 @@ pub struct NoteHashAndNullifier {
 ///     };
 /// }
 /// ```
-pub type ComputeNoteHashAndNullifier<Env> = unconstrained fn[Env](/* packed_note */BoundedVec<Field, MAX_NOTE_PACKED_LEN>, /* storage_slot */ Field, /* note_type_id */ Field, /* contract_address */ AztecAddress, /* note nonce */ Field) -> Option<NoteHashAndNullifier>;
+type ComputeNoteHashAndNullifier<Env> = unconstrained fn[Env](/* packed_note */BoundedVec<Field, MAX_NOTE_PACKED_LEN>, /* storage_slot */ Field, /* note_type_id */ Field, /* contract_address */ AztecAddress, /* note nonce */ Field) -> Option<NoteHashAndNullifier>;
 
 /// Performs the message discovery process, in which private logs are downloaded and inspected to find new private
 /// notes, partial notes and events, etc., and pending partial notes are processed to search for their completion logs.
@@ -90,7 +88,7 @@ pub unconstrained fn discover_new_messages<Env>(
         // We remove the tag from the pending tagged log and process the message ciphertext contained in it.
         let message_ciphertext = array::subbvec(pending_tagged_log.log, 1);
 
-        process_message_ciphertext(
+        do_process_message(
             contract_address,
             compute_note_hash_and_nullifier,
             message_ciphertext,

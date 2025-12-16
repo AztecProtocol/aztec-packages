@@ -116,13 +116,16 @@ describe('NoteDataProvider', () => {
   it.each(filteringTests)('retrieves nullified notes', async (getFilter, getExpected) => {
     await noteDataProvider.addNotes(notes);
 
-    // Nullify all notes
-    const nullifiers = notes.map(note => ({
-      data: note.siloedNullifier,
-      l2BlockNumber: note.l2BlockNumber,
-      l2BlockHash: L2BlockHash.fromString(note.l2BlockHash),
-    }));
-    await expect(noteDataProvider.removeNullifiedNotes(nullifiers)).resolves.toEqual(notes);
+    // Nullify all notes and use the same filter as other test cases
+    for (const recipient of recipients) {
+      const notesToNullify = notes.filter(note => note.recipient.equals(recipient));
+      const nullifiers = notesToNullify.map(note => ({
+        data: note.siloedNullifier,
+        l2BlockNumber: note.l2BlockNumber,
+        l2BlockHash: L2BlockHash.fromString(note.l2BlockHash),
+      }));
+      await expect(noteDataProvider.removeNullifiedNotes(nullifiers, recipient)).resolves.toEqual(notesToNullify);
+    }
     const filter = await getFilter();
     const returnedNotes = await noteDataProvider.getNotes({ ...filter, status: NoteStatus.ACTIVE_OR_NULLIFIED });
     const expected = await getExpected();
@@ -137,7 +140,9 @@ describe('NoteDataProvider', () => {
       l2BlockNumber: note.l2BlockNumber,
       l2BlockHash: L2BlockHash.fromString(note.l2BlockHash),
     }));
-    await expect(noteDataProvider.removeNullifiedNotes(nullifiers)).resolves.toEqual(notesToNullify);
+    await expect(noteDataProvider.removeNullifiedNotes(nullifiers, notesToNullify[0].recipient)).resolves.toEqual(
+      notesToNullify,
+    );
 
     const actualNotesWithDefault = await getNotesForAllContracts({});
     const actualNotesWithActive = await getNotesForAllContracts({ status: NoteStatus.ACTIVE });
@@ -155,7 +160,9 @@ describe('NoteDataProvider', () => {
       l2BlockNumber: 99,
       l2BlockHash: L2BlockHash.random(),
     }));
-    await expect(noteDataProvider.removeNullifiedNotes(nullifiers)).resolves.toEqual(notesToNullify);
+    await expect(noteDataProvider.removeNullifiedNotes(nullifiers, notesToNullify[0].recipient)).resolves.toEqual(
+      notesToNullify,
+    );
     await expect(noteDataProvider.unnullifyNotesAfter(98)).resolves.toEqual(undefined);
 
     const result = await getNotesForAllContracts({ status: NoteStatus.ACTIVE, recipient: recipients[0] });
@@ -172,7 +179,9 @@ describe('NoteDataProvider', () => {
       l2BlockNumber: note.l2BlockNumber,
       l2BlockHash: L2BlockHash.fromString(note.l2BlockHash),
     }));
-    await expect(noteDataProvider.removeNullifiedNotes(nullifiers)).resolves.toEqual(notesToNullify);
+    await expect(noteDataProvider.removeNullifiedNotes(nullifiers, notesToNullify[0].recipient)).resolves.toEqual(
+      notesToNullify,
+    );
 
     const result = await getNotesForAllContracts({
       status: NoteStatus.ACTIVE_OR_NULLIFIED,
@@ -222,13 +231,16 @@ describe('NoteDataProvider', () => {
       }),
     ).resolves.toEqual([notes[0]]);
     await expect(
-      noteDataProvider.removeNullifiedNotes([
-        {
-          data: notes[0].siloedNullifier,
-          l2BlockHash: L2BlockHash.fromString(notes[0].l2BlockHash),
-          l2BlockNumber: notes[0].l2BlockNumber,
-        },
-      ]),
+      noteDataProvider.removeNullifiedNotes(
+        [
+          {
+            data: notes[0].siloedNullifier,
+            l2BlockHash: L2BlockHash.fromString(notes[0].l2BlockHash),
+            l2BlockNumber: notes[0].l2BlockNumber,
+          },
+        ],
+        recipients[0],
+      ),
     ).resolves.toEqual([notes[0]]);
 
     await expect(
