@@ -719,6 +719,10 @@ std::vector<uint32_t> UltraCircuitBuilder_<ExecutionTrace>::create_limbed_range_
         // sum is w_4-shift, which will be the witness corresponding to what is currently `new_accumulator`.).
         // If `i == num_limb_triples - 1`, then the last argument to `create_big_add_gate` is false, so the constraint
         // is limb[0]*2^shift[0] + limb[1]*2^shift[1] + limb[2]*2^shift[2] - acc = 0.
+        //
+        // N.B. When `num_bits` is small, we only have remainder bits. This last constraint, checking the correctness of
+        // the limb-decomposition, ensures that the variable is not orphaned. (See the warning in
+        // `create_small_range_constraint`.)
         create_big_add_gate(
             {
                 new_limbs[0],

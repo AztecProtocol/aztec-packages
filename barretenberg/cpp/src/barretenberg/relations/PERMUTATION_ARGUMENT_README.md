@@ -108,6 +108,13 @@ Variables without an explicit tag assignment receive `DEFAULT_TAG`, and $\tau(\t
 The extra constraint we wish to impose is: as multisets, variables with `tag_a` and variables with `tag_b` are equal.
 
 **NOTE**: In the original Generalized Permutations paper, care is taken to allow for arbitrary permutations-on-tags $\tau$. In our codebase, $\tau$ is always a product of _disjoint_ transpositions in our implementation, i.e., always a permutation of order 1 or 2.
+### How Tags are used in Barretenberg
+As explained, variables are by default assigned the `DEFAULT_TAG`. Tags are used in exactly two ways in Barretenberg.
+
+* If a usual (a.k.a. pre-Fiat-Shamir) witness is assigned a non-trivial tag, then this tag corresponds to a non-trivial "small" range constraint, which is mediated by the method `create_small_range_constraint`. Moreover, different tags correspond to different range-constraints. This allows us to efficiently batch range-constraints in the circuit.
+* The only other tags that occur are for witnesses generated after Fiat-Shamir. These occur in memory ops, as the algorithm for verifying memory ops involves multiset-equality checks.
+
+We trust that this dichotomy is not too confusing, as there is _no meaning_ for witnesses generated post-Fiat-Shamir being range-constrained.
 ### How Tags Modify the Permutation
 
 Consider a copy cycle for a variable with tag $t$. In the standard permutation argument, the cycle would close: the last element's sigma points back to the first element's id.
