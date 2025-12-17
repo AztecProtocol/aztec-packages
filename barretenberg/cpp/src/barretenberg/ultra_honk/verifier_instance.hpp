@@ -27,8 +27,9 @@ template <IsUltraOrMegaHonk Flavor_> class VerifierInstance_ {
     using CommitmentLabels = typename Flavor::CommitmentLabels;
     using SubrelationSeparator = typename Flavor::SubrelationSeparator;
     using Transcript = typename Flavor::Transcript;
+    using VKAndHash = typename Flavor::VKAndHash;
 
-    std::shared_ptr<VerificationKey> vk;
+    std::shared_ptr<VKAndHash> vk_and_hash;
 
     bool is_complete = false;      // whether this instance has been completely populated
     std::vector<FF> public_inputs; // to be extracted from the corresponding proof
@@ -45,14 +46,17 @@ template <IsUltraOrMegaHonk Flavor_> class VerifierInstance_ {
 
     VerifierInstance_() = default;
     VerifierInstance_(std::shared_ptr<VerificationKey> vk)
-        : vk(vk)
+        : vk_and_hash(std::make_shared<VKAndHash>(vk))
+    {}
+    VerifierInstance_(std::shared_ptr<VKAndHash> vk_and_hash)
+        : vk_and_hash(vk_and_hash)
     {}
 
     /**
      * @brief Get the verification key
      * @return Verification key shared pointer
      */
-    std::shared_ptr<VerificationKey> get_vk() const { return vk; }
+    std::shared_ptr<VerificationKey> get_vk() const { return vk_and_hash->vk; }
 
     /**
      * @brief Tag all components and hash.
@@ -79,12 +83,13 @@ template <IsUltraOrMegaHonk Flavor_> class VerifierInstance_ {
         };
 
         // Tag and serialize VK metadata
-        append_tagged(this->vk->log_circuit_size);
-        append_tagged(this->vk->num_public_inputs);
-        append_tagged(this->vk->pub_inputs_offset);
+        auto vk = get_vk();
+        append_tagged(vk->log_circuit_size);
+        append_tagged(vk->num_public_inputs);
+        append_tagged(vk->pub_inputs_offset);
 
         // Tag and serialize VK precomputed commitments
-        for (const Commitment& commitment : this->vk->get_all()) {
+        for (const Commitment& commitment : vk->get_all()) {
             append_tagged(commitment);
         }
 

@@ -6,7 +6,6 @@
 #include "barretenberg/goblin/goblin.hpp"
 #include "barretenberg/goblin/goblin_verifier.hpp"
 #include "barretenberg/stdlib/hash/poseidon2/poseidon2.hpp"
-#include "barretenberg/stdlib/honk_verifier/ultra_recursive_verifier.hpp"
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
@@ -110,11 +109,11 @@ class AvmGoblinRecursiveVerifier {
         // Types for MegaHonk and Goblin recursive verifiers arithmetized with Ultra
         using MegaRecursiveFlavor = MegaRecursiveFlavor_<UltraBuilder>;
         using MegaRecursiveVKAndHash = MegaRecursiveFlavor::VKAndHash;
-        using MegaRecursiveVerifier = stdlib::recursion::honk::UltraRecursiveVerifier_<MegaRecursiveFlavor>;
         using GoblinRecursiveVerifier = bb::GoblinRecursiveVerifier;
         using MergeCommitments = GoblinRecursiveVerifier::MergeCommitments;
         using FF = MegaRecursiveFlavor::FF;
         using IO = stdlib::recursion::honk::GoblinAvmIO<UltraBuilder>;
+        using MegaRecursiveVerifier = UltraVerifier_<MegaRecursiveFlavor, IO>;
 
         // Construct hash buffer containing the AVM proof and public inputs
         std::vector<FF> hash_buffer;
@@ -131,13 +130,13 @@ class AvmGoblinRecursiveVerifier {
         mega_vk_and_hash->vk->fix_witness();
         mega_vk_and_hash->hash.fix_witness();
 
-        MegaRecursiveVerifier mega_verifier(&ultra_builder, mega_vk_and_hash, transcript);
+        MegaRecursiveVerifier mega_verifier(mega_vk_and_hash, transcript);
         stdlib::Proof<UltraBuilder> mega_proof(ultra_builder, inner_output.mega_proof);
-        auto mega_verifier_output = mega_verifier.template verify_proof<IO>(mega_proof);
+        auto mega_verifier_output = mega_verifier.verify_proof(mega_proof);
 
         // Recursively verify the goblin proof\pi_G in the Ultra circuit
         MergeCommitments merge_commitments{
-            .t_commitments = mega_verifier.verifier_instance->witness_commitments.get_ecc_op_wires().get_copy(),
+            .t_commitments = mega_verifier.get_verifier_instance()->witness_commitments.get_ecc_op_wires().get_copy(),
             .T_prev_commitments = stdlib::recursion::honk::empty_ecc_op_tables(
                 ultra_builder) // Empty ecc op tables because there is only one layer of Goblin
         };

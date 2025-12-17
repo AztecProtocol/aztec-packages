@@ -567,9 +567,9 @@ bool Chonk::verify(const Proof& proof, const VerificationKey& vk)
     std::shared_ptr<Goblin::Transcript> chonk_verifier_transcript = std::make_shared<Goblin::Transcript>();
 
     // Step 1: Verify the Hiding kernel proof
-    MegaZKVerifier verifier{ vk.mega, /*ipa_verification_key=*/{}, chonk_verifier_transcript };
-    auto [mega_verified, kernel_return_data, T_prev_commitments] =
-        verifier.template verify_proof<bb::HidingKernelIO>(proof.mega_proof);
+    auto vk_and_hash_mega = std::make_shared<MegaZKFlavor::VKAndHash>(vk.mega);
+    MegaZKVerifier verifier{ vk_and_hash_mega, chonk_verifier_transcript };
+    auto [mega_verified, kernel_return_data, T_prev_commitments] = verifier.verify_proof(proof.mega_proof);
     vinfo("Mega verified: ", mega_verified);
     if (!mega_verified) {
         info("Chonk verification failed at Mega step");
@@ -577,7 +577,8 @@ bool Chonk::verify(const Proof& proof, const VerificationKey& vk)
     }
 
     // Step 2: Perform databus consistency checks
-    bool databus_consistency_verified = kernel_return_data == verifier.verifier_instance->witness_commitments.calldata;
+    bool databus_consistency_verified =
+        kernel_return_data == verifier.get_verifier_instance()->witness_commitments.calldata;
     vinfo("Databus consistency verified: ", databus_consistency_verified);
     if (!databus_consistency_verified) {
         info("Chonk verification failed at databus consistency check");
@@ -585,7 +586,8 @@ bool Chonk::verify(const Proof& proof, const VerificationKey& vk)
     }
 
     // Extract the commitments to the subtable corresponding to the incoming circuit
-    TableCommitments t_commitments = verifier.verifier_instance->witness_commitments.get_ecc_op_wires().get_copy();
+    TableCommitments t_commitments =
+        verifier.get_verifier_instance()->witness_commitments.get_ecc_op_wires().get_copy();
 
     // Step 3: Goblin verification (merge, eccvm, translator)
     // Reduces Goblin proof to pairing points and IPA claim. In native mode, pairing checks are performed

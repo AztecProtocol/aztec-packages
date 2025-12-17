@@ -524,6 +524,8 @@ class UltraFlavor {
 #endif
     };
 
+    using VKAndHash = VKAndHash_<FF, VerificationKey>;
+
     /**
      * @brief A container for storing the partially evaluated multivariates produced by sumcheck.
      */
