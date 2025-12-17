@@ -480,8 +480,6 @@ void ExecutionTraceBuilder::process(
          **************************************************************************************************/
 
         const bool should_check_gas = should_process_registers && !register_processing_failed;
-        const bool oog = ex_event.error == ExecutionError::GAS;
-        trace.set(C::execution_sel_should_check_gas, row, should_check_gas ? 1 : 0);
         if (should_check_gas) {
             process_gas(ex_event.gas_event, *exec_opcode, trace, row);
 
@@ -505,6 +503,7 @@ void ExecutionTraceBuilder::process(
             }
         }
 
+        const bool oog = ex_event.error == ExecutionError::GAS;
         /**************************************************************************************************
          *  Temporality group 5: Opcode execution.
          **************************************************************************************************/
@@ -814,10 +813,11 @@ void ExecutionTraceBuilder::process_gas(const simulation::GasEvent& gas_event,
     bool oog = gas_event.oog_l2 || gas_event.oog_da;
     trace.set(row,
               { {
+                  { C::execution_sel_should_check_gas, 1 },
                   { C::execution_out_of_gas_l2, gas_event.oog_l2 ? 1 : 0 },
                   { C::execution_out_of_gas_da, gas_event.oog_da ? 1 : 0 },
                   { C::execution_sel_out_of_gas, oog ? 1 : 0 },
-                  // Base gas.
+                  // Addressing gas.
                   { C::execution_addressing_gas, gas_event.addressing_gas },
                   // Dynamic gas.
                   { C::execution_dynamic_l2_gas_factor, gas_event.dynamic_gas_factor.l2_gas },
