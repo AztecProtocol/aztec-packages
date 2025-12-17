@@ -341,15 +341,15 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKNoSumcheckOpenings)
     // Run Shplemini
     std::vector<Fr> padding_indicator_array(this->log_n, Fr{ 1 });
 
-    auto batch_opening_claim = ShpleminiVerifier::compute_batch_opening_claim(padding_indicator_array,
-                                                                              mock_claims.claim_batcher,
-                                                                              mle_opening_point,
-                                                                              this->vk().get_g1_identity(),
-                                                                              verifier_transcript,
-                                                                              {},
-                                                                              libra_commitments,
-                                                                              libra_evaluation)
-                                   .batch_opening_claim;
+    auto [batch_opening_claim, consistency_checked] =
+        ShpleminiVerifier::compute_batch_opening_claim(padding_indicator_array,
+                                                       mock_claims.claim_batcher,
+                                                       mle_opening_point,
+                                                       this->vk().get_g1_identity(),
+                                                       verifier_transcript,
+                                                       {},
+                                                       libra_commitments,
+                                                       libra_evaluation);
     // Verify claim using KZG or IPA
     if constexpr (std::is_same_v<TypeParam, GrumpkinSettings>) {
         auto result =
@@ -361,6 +361,7 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKNoSumcheckOpenings)
         // Final pairing check: e([Q] - [Q_z] + z[W], [1]_2) = e([W], [x]_2)
         EXPECT_EQ(this->vk().pairing_check(pairing_points[0], pairing_points[1]), true);
     }
+    EXPECT_EQ(consistency_checked, true);
 }
 
 /**
@@ -611,6 +612,285 @@ TYPED_TEST(ShpleminiTest, HighDegreeAttackReject)
             KZG<Curve>::reduce_verify_batch_opening_claim(std::move(batch_opening_claim), verifier_transcript);
         EXPECT_EQ(this->vk().pairing_check(pairing_points[0], pairing_points[1]), false);
     }
+}
+
+/**
+ * @brief Test that consistency_checked is false when a Libra univariate evaluation is corrupted.
+ * @details This test simulates a malicious prover sending a corrupted Libra evaluation via the
+ * transcript. The ShpleminiVerifier should detect the inconsistency and set consistency_checked to false.
+ */
+TYPED_TEST(ShpleminiTest, LibraConsistencyCheckFailsOnCorruptedEvaluation)
+{
+    using ZKData = ZKSumcheckData<TypeParam>;
+    using Curve = typename TypeParam::Curve;
+    using ShpleminiProver = ShpleminiProver_<Curve>;
+    constexpr bool HasZK = true;
+    using ShpleminiVerifier = ShpleminiVerifier_<Curve, HasZK>;
+    using Fr = typename Curve::ScalarField;
+    using Commitment = typename Curve::AffineElement;
+    using CK = typename TypeParam::CommitmentKey;
+
+    // Initialize transcript and commitment key
+    auto prover_transcript = TypeParam::Transcript::prover_init_empty();
+
+    // SmallSubgroupIPAProver requires at least CURVE::SUBGROUP_SIZE + 3 elements in the ck.
+    static constexpr size_t log_subgroup_size = static_cast<size_t>(numeric::get_msb(Curve::SUBGROUP_SIZE));
+    CK ck = create_commitment_key<CK>(std::max<size_t>(this->n, 1ULL << (log_subgroup_size + 1)));
+
+    // Generate Libra polynomials, compute masked concatenated Libra polynomial, commit to it
+    ZKData zk_sumcheck_data(this->log_n, prover_transcript, ck);
+
+    // Generate multivariate challenge
+    std::vector<Fr> mle_opening_point = this->random_evaluation_point(this->log_n);
+
+    // Generate random prover polynomials, compute their evaluations and commitments
+    MockClaimGenerator<Curve> mock_claims(this->n,
+                                          /*num_polynomials*/ this->num_polynomials,
+                                          /*num_to_be_shifted*/ this->num_shiftable,
+                                          mle_opening_point,
+                                          ck);
+
+    // Compute the correct sum of the Libra constant term and Libra univariates evaluated at Sumcheck challenges
+    const Fr claimed_inner_product = SmallSubgroupIPAProver<TypeParam>::compute_claimed_inner_product(
+        zk_sumcheck_data, mle_opening_point, this->log_n);
+
+    // CORRUPT: Malicious prover sends a corrupted evaluation via the transcript
+    const Fr corrupted_inner_product = claimed_inner_product + Fr::random_element();
+    prover_transcript->send_to_verifier("Libra:claimed_evaluation", corrupted_inner_product);
+
+    // Instantiate SmallSubgroupIPAProver with the CORRECT value (prover's internal state is correct,
+    // but the value sent to verifier is corrupted - simulating a cheating prover)
+    SmallSubgroupIPAProver<TypeParam> small_subgroup_ipa_prover(
+        zk_sumcheck_data, mle_opening_point, claimed_inner_product, prover_transcript, ck);
+    small_subgroup_ipa_prover.prove();
+
+    // Reduce to KZG or IPA based on the curve used in the test Flavor
+    const auto opening_claim = ShpleminiProver::prove(this->n,
+                                                      mock_claims.polynomial_batcher,
+                                                      mle_opening_point,
+                                                      ck,
+                                                      prover_transcript,
+                                                      small_subgroup_ipa_prover.get_witness_polynomials());
+
+    if constexpr (std::is_same_v<TypeParam, GrumpkinSettings>) {
+        TestFixture::IPA::compute_opening_proof(this->ck(), opening_claim, prover_transcript);
+    } else {
+        KZG<Curve>::compute_opening_proof(this->ck(), opening_claim, prover_transcript);
+    }
+
+    // Initialize verifier's transcript
+    auto verifier_transcript = NativeTranscript::verifier_init_empty(prover_transcript);
+
+    // Start populating Verifier's array of Libra commitments
+    std::array<Commitment, NUM_LIBRA_COMMITMENTS> libra_commitments = {};
+    libra_commitments[0] =
+        verifier_transcript->template receive_from_prover<Commitment>("Libra:concatenation_commitment");
+
+    // Place Libra data to the transcript
+    [[maybe_unused]] const Fr libra_total_sum = verifier_transcript->template receive_from_prover<Fr>("Libra:Sum");
+    [[maybe_unused]] const Fr libra_challenge = verifier_transcript->template get_challenge<Fr>("Libra:Challenge");
+    // Verifier receives the CORRUPTED evaluation from the transcript
+    const Fr libra_evaluation = verifier_transcript->template receive_from_prover<Fr>("Libra:claimed_evaluation");
+
+    // Finalize the array of Libra/SmallSubgroupIpa commitments
+    libra_commitments[1] = verifier_transcript->template receive_from_prover<Commitment>("Libra:grand_sum_commitment");
+    libra_commitments[2] = verifier_transcript->template receive_from_prover<Commitment>("Libra:quotient_commitment");
+
+    // Run Shplemini - verifier uses the corrupted evaluation received from the transcript
+    std::vector<Fr> padding_indicator_array(this->log_n, Fr{ 1 });
+
+    auto shplemini_output = ShpleminiVerifier::compute_batch_opening_claim(padding_indicator_array,
+                                                                           mock_claims.claim_batcher,
+                                                                           mle_opening_point,
+                                                                           this->vk().get_g1_identity(),
+                                                                           verifier_transcript,
+                                                                           {},
+                                                                           libra_commitments,
+                                                                           libra_evaluation);
+
+    // Verify that consistency_checked is false due to corrupted Libra evaluation
+    EXPECT_FALSE(shplemini_output.consistency_checked);
+}
+
+/**
+ * @brief Helper to run a Libra tampering test with configurable tampering options.
+ * @details Runs the full ZK Shplemini prover/verifier flow with optional tampering of:
+ * - A witness polynomial (by index: 0=G concatenated, 1=A grand sum, 3=Q quotient)
+ * - A commitment (by index: 0=concatenated, 1=grand sum, 2=quotient)
+ * Then verifies the expected consistency_checked result and that PCS verification fails.
+ */
+template <typename TypeParam>
+void run_libra_tampering_test(ShpleminiTest<TypeParam>* test,
+                              std::optional<size_t> tamper_polynomial_idx,
+                              std::optional<size_t> tamper_commitment_idx,
+                              bool expected_consistency_checked)
+{
+    using ZKData = ZKSumcheckData<TypeParam>;
+    using Curve = typename TypeParam::Curve;
+    using ShpleminiProver = ShpleminiProver_<Curve>;
+    constexpr bool HasZK = true;
+    using ShpleminiVerifier = ShpleminiVerifier_<Curve, HasZK>;
+    using Fr = typename Curve::ScalarField;
+    using Commitment = typename Curve::AffineElement;
+    using CK = typename TypeParam::CommitmentKey;
+
+    auto prover_transcript = TypeParam::Transcript::prover_init_empty();
+
+    static constexpr size_t log_subgroup_size = static_cast<size_t>(numeric::get_msb(Curve::SUBGROUP_SIZE));
+    CK ck = create_commitment_key<CK>(std::max<size_t>(test->n, 1ULL << (log_subgroup_size + 1)));
+
+    ZKData zk_sumcheck_data(test->log_n, prover_transcript, ck);
+    std::vector<Fr> mle_opening_point = test->random_evaluation_point(test->log_n);
+
+    MockClaimGenerator<Curve> mock_claims(test->n, test->num_polynomials, test->num_shiftable, mle_opening_point, ck);
+
+    const Fr claimed_inner_product = SmallSubgroupIPAProver<TypeParam>::compute_claimed_inner_product(
+        zk_sumcheck_data, mle_opening_point, test->log_n);
+
+    prover_transcript->send_to_verifier("Libra:claimed_evaluation", claimed_inner_product);
+
+    SmallSubgroupIPAProver<TypeParam> small_subgroup_ipa_prover(
+        zk_sumcheck_data, mle_opening_point, claimed_inner_product, prover_transcript, ck);
+    small_subgroup_ipa_prover.prove();
+
+    auto witness_polynomials = small_subgroup_ipa_prover.get_witness_polynomials();
+
+    // Optionally tamper with a witness polynomial
+    if (tamper_polynomial_idx.has_value()) {
+        witness_polynomials[*tamper_polynomial_idx].at(0) += Fr::random_element();
+    }
+
+    const auto opening_claim = ShpleminiProver::prove(
+        test->n, mock_claims.polynomial_batcher, mle_opening_point, ck, prover_transcript, witness_polynomials);
+
+    if constexpr (std::is_same_v<TypeParam, GrumpkinSettings>) {
+        ShpleminiTest<TypeParam>::IPA::compute_opening_proof(test->ck(), opening_claim, prover_transcript);
+    } else {
+        KZG<Curve>::compute_opening_proof(test->ck(), opening_claim, prover_transcript);
+    }
+
+    auto verifier_transcript = NativeTranscript::verifier_init_empty(prover_transcript);
+
+    std::array<Commitment, NUM_LIBRA_COMMITMENTS> libra_commitments = {};
+    libra_commitments[0] =
+        verifier_transcript->template receive_from_prover<Commitment>("Libra:concatenation_commitment");
+
+    [[maybe_unused]] const Fr libra_total_sum = verifier_transcript->template receive_from_prover<Fr>("Libra:Sum");
+    [[maybe_unused]] const Fr libra_challenge = verifier_transcript->template get_challenge<Fr>("Libra:Challenge");
+    const Fr libra_evaluation = verifier_transcript->template receive_from_prover<Fr>("Libra:claimed_evaluation");
+
+    libra_commitments[1] = verifier_transcript->template receive_from_prover<Commitment>("Libra:grand_sum_commitment");
+    libra_commitments[2] = verifier_transcript->template receive_from_prover<Commitment>("Libra:quotient_commitment");
+
+    // Optionally tamper with a commitment
+    if (tamper_commitment_idx.has_value()) {
+        libra_commitments[*tamper_commitment_idx] = libra_commitments[*tamper_commitment_idx] + Commitment::one();
+    }
+
+    std::vector<Fr> padding_indicator_array(test->log_n, Fr{ 1 });
+
+    auto [batch_opening_claim, consistency_checked] =
+        ShpleminiVerifier::compute_batch_opening_claim(padding_indicator_array,
+                                                       mock_claims.claim_batcher,
+                                                       mle_opening_point,
+                                                       test->vk().get_g1_identity(),
+                                                       verifier_transcript,
+                                                       {},
+                                                       libra_commitments,
+                                                       libra_evaluation);
+
+    EXPECT_EQ(consistency_checked, expected_consistency_checked);
+
+    // PCS verification should always fail when tampering occurred
+    if constexpr (std::is_same_v<TypeParam, GrumpkinSettings>) {
+        EXPECT_THROW(ShpleminiTest<TypeParam>::IPA::reduce_verify_batch_opening_claim(
+                         batch_opening_claim, test->vk(), verifier_transcript),
+                     std::runtime_error);
+    } else {
+        const auto pairing_points =
+            KZG<Curve>::reduce_verify_batch_opening_claim(std::move(batch_opening_claim), verifier_transcript);
+        EXPECT_FALSE(test->vk().pairing_check(pairing_points[0], pairing_points[1]));
+    }
+}
+
+/**
+ * @brief Test tampering with quotient polynomial Q - breaks consistency check and PCS.
+ */
+TYPED_TEST(ShpleminiTest, LibraQuotientPolynomialTamperingCausesVerificationFailure)
+{
+    // Tamper with polynomial index 3 (quotient Q), no commitment tampering
+    // Consistency check fails because Q(r) is wrong
+    run_libra_tampering_test(this,
+                             /*tamper_polynomial_idx=*/3,
+                             /*tamper_commitment_idx=*/std::nullopt,
+                             /*expected_consistency_checked=*/false);
+}
+
+/**
+ * @brief Test tampering with quotient commitment [Q] - consistency check passes but PCS fails.
+ */
+TYPED_TEST(ShpleminiTest, LibraQuotientCommitmentTamperingCausesVerificationFailure)
+{
+    // No polynomial tampering, tamper with commitment index 2 (quotient)
+    // Consistency check passes because evaluations are honest
+    run_libra_tampering_test(this,
+                             /*tamper_polynomial_idx=*/std::nullopt,
+                             /*tamper_commitment_idx=*/2,
+                             /*expected_consistency_checked=*/true);
+}
+
+/**
+ * @brief Test tampering with grand sum polynomial A - breaks consistency check and PCS.
+ */
+TYPED_TEST(ShpleminiTest, LibraGrandSumTamperingCausesVerificationFailure)
+{
+    // Tamper with polynomial index 1 (grand sum A), no commitment tampering
+    // Consistency check fails because A(r) and A(g*r) are wrong
+    run_libra_tampering_test(this,
+                             /*tamper_polynomial_idx=*/1,
+                             /*tamper_commitment_idx=*/std::nullopt,
+                             /*expected_consistency_checked=*/false);
+}
+
+/**
+ * @brief Test tampering with grand sum commitment [A] - consistency check passes but PCS fails.
+ */
+TYPED_TEST(ShpleminiTest, LibraGrandSumCommitmentTamperingCausesVerificationFailure)
+{
+    // No polynomial tampering, tamper with commitment index 1 (grand sum)
+    // Consistency check passes because evaluations are honest
+    run_libra_tampering_test(this,
+                             /*tamper_polynomial_idx=*/std::nullopt,
+                             /*tamper_commitment_idx=*/1,
+                             /*expected_consistency_checked=*/true);
+}
+
+/**
+ * @brief Test tampering with concatenated polynomial G - breaks consistency check and PCS.
+ *
+ */
+TYPED_TEST(ShpleminiTest, LibraConcatenatedPolynomialTamperingCausesVerificationFailure)
+{
+    // Tamper with polynomial index 0 (concatenated), no commitment tampering
+    // Consistency check fails because G(r) is wrong
+    run_libra_tampering_test(this,
+                             /*tamper_polynomial_idx=*/0,
+                             /*tamper_commitment_idx=*/std::nullopt,
+                             /*expected_consistency_checked=*/false);
+}
+
+/**
+ * @brief Test tampering with concatenated commitment [G] - consistency check passes but PCS fails.
+ *
+ */
+TYPED_TEST(ShpleminiTest, LibraConcatenatedCommitmentTamperingCausesVerificationFailure)
+{
+    // No polynomial tampering, tamper with commitment index 0 (concatenated)
+    // Consistency check passes because evaluations are honest
+    run_libra_tampering_test(this,
+                             /*tamper_polynomial_idx=*/std::nullopt,
+                             /*tamper_commitment_idx=*/0,
+                             /*expected_consistency_checked=*/true);
 }
 
 } // namespace bb
