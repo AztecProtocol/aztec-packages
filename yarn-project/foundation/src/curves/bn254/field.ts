@@ -195,7 +195,7 @@ function fromHexString<T extends BaseField>(buf: string, f: DerivedField<T>) {
 
   const buffer = Buffer.from(checked.length % 2 === 1 ? '0' + checked : checked, 'hex');
 
-  return new f(buffer);
+  return new f(toBigIntBE(buffer));
 }
 
 /** Branding to ensure fields are not interchangeable types. */
