@@ -6,7 +6,6 @@
 
 #pragma once
 
-#include "barretenberg/crypto/aes128/aes128.hpp"
 #include "barretenberg/numeric/bitop/pow.hpp"
 #include "barretenberg/numeric/bitop/rotate.hpp"
 #include "barretenberg/numeric/bitop/sparse_form.hpp"
@@ -16,85 +15,138 @@
 
 namespace bb::plookup::sha256_tables {
 
+/**
+ * @brief Normalization table for combined Σ₁(e) + Ch(e,f,g) computation in base-28 sparse form.
+ *
+ * @details
+ * The Choose function is Ch(e,f,g) = (e & f) ^ (~e & g), i.e., "if e then f else g".
+ * The Σ₁ function is Σ₁(e) = (e>>>6) ^ (e>>>11) ^ (e>>>25).
+ *
+ * Table index = 7 × σ + (e + 2f + 3g), where:
+ *   - σ (0-3): sum of the three rotation bits at position i: (e>>>6)[i] + (e>>>11)[i] + (e>>>25)[i]
+ *   - e, f, g (each 0 or 1): the Ch function input bits at position i
+ *   - e + 2f + 3g (0-6): sparse encoding of Ch inputs
+ *
+ * Table output = Σ₁_bit + Ch_bit, where:
+ *   - Σ₁_bit = σ mod 2 (the actual XOR result: 0,2 → 0 and 1,3 → 1)
+ *   - Ch_bit = Ch(e,f,g)
+ *
+ * Output range is 0-2, fitting in the normalized sparse digit.
+ */
 static constexpr uint64_t choose_normalization_table[28]{
-    /* xor result = 0 */
-    0, // e + 2f + 3g = 0 => e = 0, f = 0, g = 0 => t = 0
-    0, // e + 2f + 3g = 1 => e = 1, f = 0, g = 0 => t = 0
-    0, // e + 2f + 3g = 2 => e = 0, f = 1, g = 0 => t = 0
-    1, // e + 2f + 3g = 3 => e = 0, f = 0, g = 1 OR e = 1, f = 1, g = 0 => t = 1
-    0, // e + 2f + 3g = 4 => e = 1, f = 0, g = 1 => t = 0
-    1, // e + 2f + 3g = 5 => e = 0, f = 1, g = 1 => t = 1
-    1, // e + 2f + 3g = 6 => e = 1, f = 1, g = 1 => t = 1
-    /* xor result = 1 */
-    1, // e + 2f + 3g = 0 => e = 0, f = 0, g = 0 => t = 0
-    1, // e + 2f + 3g = 1 => e = 1, f = 0, g = 0 => t = 0
-    1, // e + 2f + 3g = 2 => e = 0, f = 1, g = 0 => t = 0
-    2, // e + 2f + 3g = 3 => e = 0, f = 0, g = 1 OR e = 1, f = 1, g = 0 => t = 1
-    1, // e + 2f + 3g = 4 => e = 1, f = 0, g = 1 => t = 0
-    2, // e + 2f + 3g = 5 => e = 0, f = 1, g = 1 => t = 1
-    2, // e + 2f + 3g = 6 => e = 1, f = 1, g = 1 => t = 1
-    /* xor result = 2 */
-    0, // e + 2f + 3g = 0 => e = 0, f = 0, g = 0 => t = 0
-    0, // e + 2f + 3g = 1 => e = 1, f = 0, g = 0 => t = 0
-    0, // e + 2f + 3g = 2 => e = 0, f = 1, g = 0 => t = 0
-    1, // e + 2f + 3g = 3 => e = 0, f = 0, g = 1 OR e = 1, f = 1, g = 0 => t = 1
-    0, // e + 2f + 3g = 4 => e = 1, f = 0, g = 1 => t = 0
-    1, // e + 2f + 3g = 5 => e = 0, f = 1, g = 1 => t = 1
-    1, // e + 2f + 3g = 6 => e = 1, f = 1, g = 1 => t = 1
-    1, // e + 2f + 3g = 0 => e = 0, f = 0, g = 0 => t = 0
-    /* xor result = 3 */
-    1, // e + 2f + 3g = 1 => e = 1, f = 0, g = 0 => t = 0
-    1, // e + 2f + 3g = 2 => e = 0, f = 1, g = 0 => t = 0
-    2, // e + 2f + 3g = 3 => e = 0, f = 0, g = 1 OR e = 1, f = 1, g = 0 => t = 1
-    1, // e + 2f + 3g = 4 => e = 1, f = 0, g = 1 => t = 0
-    2, // e + 2f + 3g = 5 => e = 0, f = 1, g = 1 => t = 1
-    2, // e + 2f + 3g = 6 => e = 1, f = 1, g = 1 => t = 1
+    /* σ = 0 (Σ₁ = 0): output = 0 + Ch */
+    0, // e + 2f + 3g = 0 => e=0, f=0, g=0 => Ch=0
+    0, // e + 2f + 3g = 1 => e=1, f=0, g=0 => Ch=0
+    0, // e + 2f + 3g = 2 => e=0, f=1, g=0 => Ch=0
+    1, // e + 2f + 3g = 3 => e=0, f=0, g=1 OR e=1, f=1, g=0 => Ch=1
+    0, // e + 2f + 3g = 4 => e=1, f=0, g=1 => Ch=0
+    1, // e + 2f + 3g = 5 => e=0, f=1, g=1 => Ch=1
+    1, // e + 2f + 3g = 6 => e=1, f=1, g=1 => Ch=1
+    /* σ = 1 (Σ₁ = 1): output = 1 + Ch */
+    1, // e + 2f + 3g = 0 => Ch=0
+    1, // e + 2f + 3g = 1 => Ch=0
+    1, // e + 2f + 3g = 2 => Ch=0
+    2, // e + 2f + 3g = 3 => Ch=1
+    1, // e + 2f + 3g = 4 => Ch=0
+    2, // e + 2f + 3g = 5 => Ch=1
+    2, // e + 2f + 3g = 6 => Ch=1
+    /* σ = 2 (Σ₁ = 0): output = 0 + Ch */
+    0, // e + 2f + 3g = 0 => Ch=0
+    0, // e + 2f + 3g = 1 => Ch=0
+    0, // e + 2f + 3g = 2 => Ch=0
+    1, // e + 2f + 3g = 3 => Ch=1
+    0, // e + 2f + 3g = 4 => Ch=0
+    1, // e + 2f + 3g = 5 => Ch=1
+    1, // e + 2f + 3g = 6 => Ch=1
+    /* σ = 3 (Σ₁ = 1): output = 1 + Ch */
+    1, // e + 2f + 3g = 0 => Ch=0
+    1, // e + 2f + 3g = 1 => Ch=0
+    1, // e + 2f + 3g = 2 => Ch=0
+    2, // e + 2f + 3g = 3 => Ch=1
+    1, // e + 2f + 3g = 4 => Ch=0
+    2, // e + 2f + 3g = 5 => Ch=1
+    2, // e + 2f + 3g = 6 => Ch=1
 };
 
+/**
+ * @brief Normalization table for combined Σ₀(a) + Maj(a,b,c) computation in base-16 sparse form.
+ *
+ * @details
+ * The Majority function is Maj(a,b,c) = (a & b) ^ (a & c) ^ (b & c), i.e., the majority bit.
+ * The Σ₀ function is Σ₀(a) = (a>>>2) ^ (a>>>13) ^ (a>>>22).
+ *
+ * Table index = 4 × σ + (a + b + c), where:
+ *   - σ (0-3): sum of the three rotation bits at position i: (a>>>2)[i] + (a>>>13)[i] + (a>>>22)[i]
+ *   - a, b, c (each 0 or 1): the Maj function input bits at position i
+ *   - a + b + c (0-3): sum of Maj inputs
+ *
+ * Table output = Σ₀_bit + Maj_bit, where:
+ *   - Σ₀_bit = σ mod 2 (the actual XOR result)
+ *   - Maj_bit = 1 if (a + b + c) >= 2, else 0 (majority vote)
+ *
+ * Output range is 0-2, fitting in the normalized sparse digit.
+ */
 static constexpr uint64_t majority_normalization_table[16]{
-    /* xor result = 0 */
-    0, // a + b + c = 0 => (a & b) ^ (a & c) ^ (b & c) = 0
-    0, // a + b + c = 1 => (a & b) ^ (a & c) ^ (b & c) = 0
-    1, // a + b + c = 2 => (a & b) ^ (a & c) ^ (b & c) = 1
-    1, // a + b + c = 3 => (a & b) ^ (a & c) ^ (b & c) = 1
-    /* xor result = 1 */
-    1,
-    1,
-    2,
-    2,
-    /* xor result = 2 */
-    0,
-    0,
-    1,
-    1,
-    /* xor result = 3 */
-    1,
-    1,
-    2,
-    2,
+    /* σ = 0 (Σ₀ = 0): output = 0 + Maj */
+    0, // a + b + c = 0 => Maj=0
+    0, // a + b + c = 1 => Maj=0
+    1, // a + b + c = 2 => Maj=1
+    1, // a + b + c = 3 => Maj=1
+    /* σ = 1 (Σ₀ = 1): output = 1 + Maj */
+    1, // a + b + c = 0 => Maj=0
+    1, // a + b + c = 1 => Maj=0
+    2, // a + b + c = 2 => Maj=1
+    2, // a + b + c = 3 => Maj=1
+    /* σ = 2 (Σ₀ = 0): output = 0 + Maj */
+    0, // a + b + c = 0 => Maj=0
+    0, // a + b + c = 1 => Maj=0
+    1, // a + b + c = 2 => Maj=1
+    1, // a + b + c = 3 => Maj=1
+    /* σ = 3 (Σ₀ = 1): output = 1 + Maj */
+    1, // a + b + c = 0 => Maj=0
+    1, // a + b + c = 1 => Maj=0
+    2, // a + b + c = 2 => Maj=1
+    2, // a + b + c = 3 => Maj=1
 };
 
+/**
+ * @brief Normalization table for message schedule extension (σ₀ and σ₁) in base-16 sparse form.
+ *
+ * @details
+ * Used for the SHA-256 message schedule extension which computes:
+ *   w[i] = σ₁(w[i-2]) + w[i-7] + σ₀(w[i-15]) + w[i-16]
+ * where:
+ *   σ₀(x) = (x>>>7) ^ (x>>>18) ^ (x>>3)
+ *   σ₁(x) = (x>>>17) ^ (x>>>19) ^ (x>>10)
+ *
+ * Table index = 4 × σ₁ + σ₂, where:
+ *   - σ₁ (0-3): sum of bits from one XOR operation (e.g., 3 rotation/shift bits)
+ *   - σ₂ (0-3): sum of bits from another XOR operation
+ *
+ * Table output = (σ₁ mod 2) + (σ₂ mod 2), combining two XOR results.
+ * Output range is 0-2.
+ */
 static constexpr uint64_t witness_extension_normalization_table[16]{
-    /* xor result = 0 */
-    0,
-    1,
-    0,
-    1,
-    /* xor result = 1 */
-    1,
-    2,
-    1,
-    2,
-    /* xor result = 2 */
-    0,
-    1,
-    0,
-    1,
-    /* xor result = 3 */
-    1,
-    2,
-    1,
-    2,
+    /* σ₁ = 0 (XOR₁ = 0): output = 0 + (σ₂ mod 2) */
+    0, // σ₂ = 0 => XOR₂ = 0
+    1, // σ₂ = 1 => XOR₂ = 1
+    0, // σ₂ = 2 => XOR₂ = 0
+    1, // σ₂ = 3 => XOR₂ = 1
+    /* σ₁ = 1 (XOR₁ = 1): output = 1 + (σ₂ mod 2) */
+    1, // σ₂ = 0 => XOR₂ = 0
+    2, // σ₂ = 1 => XOR₂ = 1
+    1, // σ₂ = 2 => XOR₂ = 0
+    2, // σ₂ = 3 => XOR₂ = 1
+    /* σ₁ = 2 (XOR₁ = 0): output = 0 + (σ₂ mod 2) */
+    0, // σ₂ = 0 => XOR₂ = 0
+    1, // σ₂ = 1 => XOR₂ = 1
+    0, // σ₂ = 2 => XOR₂ = 0
+    1, // σ₂ = 3 => XOR₂ = 1
+    /* σ₁ = 3 (XOR₁ = 1): output = 1 + (σ₂ mod 2) */
+    1, // σ₂ = 0 => XOR₂ = 0
+    2, // σ₂ = 1 => XOR₂ = 1
+    1, // σ₂ = 2 => XOR₂ = 0
+    2, // σ₂ = 3 => XOR₂ = 1
 };
 
 /**
@@ -173,7 +225,7 @@ static constexpr std::array<bb::fr, 3> majority_rotation_coefficients{
     majority_rot2_coefficients[2] + majority_rot13_coefficients[2] + majority_rot22_coefficients[2],
 };
 
-inline plookup::BasicTable generate_witness_extension_normalization_table(BasicTableId id, const size_t table_index)
+inline BasicTable generate_witness_extension_normalization_table(BasicTableId id, const size_t table_index)
 {
     return sparse_tables::generate_sparse_normalization_table<16, 3, witness_extension_normalization_table>(
         id, table_index);
