@@ -249,7 +249,7 @@ typename UltraVerifier_<Flavor, IO>::Output UltraVerifier_<Flavor, IO>::verify_p
             output.ipa_proof = ipa_proof;
         }
     } else {
-        // Native: perform immediate verification
+        // Perform pairing check
         bool pairing_verified = pi_pairing_points.check();
         vinfo("UltraVerifier: pairing check: ", pairing_verified ? "true" : "false");
 
@@ -258,7 +258,7 @@ typename UltraVerifier_<Flavor, IO>::Output UltraVerifier_<Flavor, IO>::verify_p
             return Output{};
         }
 
-        // Step 4: Perform IPA verification if Rollup flavor
+        // Perform IPA verification if Rollup flavor
         if constexpr (HasIPAAccumulator<Flavor>) {
             if (!verify_ipa(ipa_proof, inputs.ipa_claim)) {
                 return Output{};
