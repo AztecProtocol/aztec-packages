@@ -105,25 +105,24 @@ constexpr MemoryTagMutationConfig BASIC_MEMORY_TAG_MUTATION_CONFIGURATION = Memo
     { MemoryTagOptions::FF, 1 },
 });
 
-enum class AddressRefMutationOptions { tag, index, pointer_address, base_offset, mode };
-using AddressRefMutationConfig = WeightedSelectionConfig<AddressRefMutationOptions, 5>;
-constexpr AddressRefMutationConfig BASIC_ADDRESS_REF_MUTATION_CONFIGURATION = AddressRefMutationConfig({
-    { AddressRefMutationOptions::tag, 3 },
-    { AddressRefMutationOptions::index, 4 },
-    { AddressRefMutationOptions::pointer_address, 1 },
-    { AddressRefMutationOptions::base_offset, 1 },
-    { AddressRefMutationOptions::mode, 2 },
+enum class VariableRefMutationOptions { tag, index, pointer_address, base_offset, mode };
+using VariableRefMutationConfig = WeightedSelectionConfig<VariableRefMutationOptions, 5>;
+constexpr VariableRefMutationConfig BASIC_VARIABLE_REF_MUTATION_CONFIGURATION = VariableRefMutationConfig({
+    { VariableRefMutationOptions::tag, 3 },
+    { VariableRefMutationOptions::index, 4 },
+    { VariableRefMutationOptions::pointer_address, 1 },
+    { VariableRefMutationOptions::base_offset, 1 },
+    { VariableRefMutationOptions::mode, 2 },
 });
 
-enum class ResultAddressRefMutationOptions { address, pointer_address, base_offset, mode };
-using ResultAddressRefMutationConfig = WeightedSelectionConfig<ResultAddressRefMutationOptions, 5>;
-constexpr ResultAddressRefMutationConfig BASIC_RESULT_ADDRESS_REF_MUTATION_CONFIGURATION =
-    ResultAddressRefMutationConfig({
-        { ResultAddressRefMutationOptions::address, 1 },
-        { ResultAddressRefMutationOptions::pointer_address, 1 },
-        { ResultAddressRefMutationOptions::base_offset, 1 },
-        { ResultAddressRefMutationOptions::mode, 1 },
-    });
+enum class AddressRefMutationOptions { address, pointer_address, base_offset, mode };
+using AddressRefMutationConfig = WeightedSelectionConfig<AddressRefMutationOptions, 5>;
+constexpr AddressRefMutationConfig BASIC_ADDRESS_REF_MUTATION_CONFIGURATION = AddressRefMutationConfig({
+    { AddressRefMutationOptions::address, 1 },
+    { AddressRefMutationOptions::pointer_address, 1 },
+    { AddressRefMutationOptions::base_offset, 1 },
+    { AddressRefMutationOptions::mode, 1 },
+});
 
 enum class UnaryInstruction8MutationOptions { a_address, result_address };
 

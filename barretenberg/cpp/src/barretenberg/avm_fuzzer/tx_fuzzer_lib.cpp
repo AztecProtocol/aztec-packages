@@ -81,10 +81,11 @@ SimulatorResult fuzz_tx(FuzzerTxData& tx_data)
 }
 
 // Initialize FuzzerTxData with sensible defaults
-FuzzerTxData create_default_tx_data()
+FuzzerTxData create_default_tx_data(std::mt19937_64& rng)
 {
+    FuzzerData fuzzer_data = generate_fuzzer_data(rng);
     FuzzerTxData tx_data = {
-        .input_programs = { FuzzerData{} },
+        .input_programs = { fuzzer_data },
         .tx = create_default_tx(MSG_SENDER, MSG_SENDER, {}, TRANSACTION_FEE, IS_STATIC_CALL, GAS_LIMIT),
         .global_variables = { .chain_id = CHAIN_ID,
                               .version = VERSION,
@@ -139,7 +140,7 @@ size_t mutate_tx_data(uint8_t* serialized_fuzzer_data,
             .convert(tx_data);
     } catch (const std::exception&) {
         fuzz_info("Failed to deserialize input in CustomMutator, creating default FuzzerTxData");
-        tx_data = create_default_tx_data();
+        tx_data = create_default_tx_data(rng);
     }
 
     // Mutate the fuzzer data multiple times for better bytecode variety
