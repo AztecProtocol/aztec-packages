@@ -5,4 +5,4 @@ file(GLOB_RECURSE SOURCE_FILES *.cpp)
 list(FILTER SOURCE_FILES EXCLUDE REGEX ".*\\.(fuzzer|test|bench)\\.cpp$")
 
 add_library(vm2_stub OBJECT ${SOURCE_FILES})
-target_link_libraries(vm2_stub PUBLIC barretenberg_headers)
+target_link_libraries(vm2_stub PUBLIC msgpack-c barretenberg_headers)
