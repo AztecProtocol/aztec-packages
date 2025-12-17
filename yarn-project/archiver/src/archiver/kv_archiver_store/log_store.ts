@@ -1,10 +1,10 @@
 import { INITIAL_L2_BLOCK_NUM, MAX_NOTE_HASHES_PER_TX } from '@aztec/constants';
 import { BlockNumber } from '@aztec/foundation/branded-types';
-import type { Fr } from '@aztec/foundation/curves/bn254';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import { BufferReader, numToUInt32BE } from '@aztec/foundation/serialize';
 import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
-import type { L2Block } from '@aztec/stdlib/block';
+import { L2BlockHash, L2BlockNew } from '@aztec/stdlib/block';
 import type { GetContractClassLogsResponse, GetPublicLogsResponse } from '@aztec/stdlib/interfaces/client';
 import {
   ContractClassLog,
@@ -42,7 +42,8 @@ export class LogStore {
     this.#logsMaxPageSize = logsMaxPageSize;
   }
 
-  #extractTaggedLogs(block: L2Block) {
+  async #extractTaggedLogs(block: L2BlockNew) {
+    const blockHash = L2BlockHash.fromField(await block.hash());
     const taggedLogs = new Map<string, Buffer[]>();
     const dataStartIndexForBlock =
       block.header.state.partial.noteHashTree.nextAvailableLeafIndex -
@@ -56,7 +57,9 @@ export class LogStore {
         this.#log.debug(`Found private log with tag ${tag.toString()} in block ${block.number}`);
 
         const currentLogs = taggedLogs.get(tag.toString()) ?? [];
-        currentLogs.push(new TxScopedL2Log(txHash, dataStartIndexForTx, logIndex, block.number, log).toBuffer());
+        currentLogs.push(
+          new TxScopedL2Log(txHash, dataStartIndexForTx, logIndex, block.number, blockHash, log).toBuffer(),
+        );
         taggedLogs.set(tag.toString(), currentLogs);
       });
 
@@ -65,7 +68,9 @@ export class LogStore {
         this.#log.debug(`Found public log with tag ${tag.toString()} in block ${block.number}`);
 
         const currentLogs = taggedLogs.get(tag.toString()) ?? [];
-        currentLogs.push(new TxScopedL2Log(txHash, dataStartIndexForTx, logIndex, block.number, log).toBuffer());
+        currentLogs.push(
+          new TxScopedL2Log(txHash, dataStartIndexForTx, logIndex, block.number, blockHash, log).toBuffer(),
+        );
         taggedLogs.set(tag.toString(), currentLogs);
       });
     });
@@ -77,16 +82,15 @@ export class LogStore {
    * @param blocks - The blocks for which to add the logs.
    * @returns True if the operation is successful.
    */
-  addLogs(blocks: L2Block[]): Promise<boolean> {
-    const taggedLogsToAdd = blocks
-      .map(block => this.#extractTaggedLogs(block))
-      .reduce((acc, val) => {
-        for (const [tag, logs] of val.entries()) {
-          const currentLogs = acc.get(tag) ?? [];
-          acc.set(tag, currentLogs.concat(logs));
-        }
-        return acc;
-      }, new Map());
+  async addLogs(blocks: L2BlockNew[]): Promise<boolean> {
+    const taggedLogsInBlocks = await Promise.all(blocks.map(block => this.#extractTaggedLogs(block)));
+    const taggedLogsToAdd = taggedLogsInBlocks.reduce((acc, taggedLogs) => {
+      for (const [tag, logs] of taggedLogs.entries()) {
+        const currentLogs = acc.get(tag) ?? [];
+        acc.set(tag, currentLogs.concat(logs));
+      }
+      return acc;
+    }, new Map<string, Buffer[]>());
     const tagsToUpdate = Array.from(taggedLogsToAdd.keys());
 
     return this.db.transactionAsync(async () => {
@@ -102,6 +106,8 @@ export class LogStore {
         }
       });
       for (const block of blocks) {
+        const blockHash = await block.hash();
+
         const tagsInBlock = [];
         for (const [tag, logs] of taggedLogsToAdd.entries()) {
           await this.#logsByTag.set(tag, logs);
@@ -129,15 +135,32 @@ export class LogStore {
           )
           .flat();
 
-        await this.#publicLogsByBlock.set(block.number, Buffer.concat(publicLogsInBlock));
-        await this.#contractClassLogsByBlock.set(block.number, Buffer.concat(contractClassLogsInBlock));
+        await this.#publicLogsByBlock.set(block.number, this.#packWithBlockHash(blockHash, publicLogsInBlock));
+        await this.#contractClassLogsByBlock.set(
+          block.number,
+          this.#packWithBlockHash(blockHash, contractClassLogsInBlock),
+        );
       }
 
       return true;
     });
   }
 
-  deleteLogs(blocks: L2Block[]): Promise<boolean> {
+  #packWithBlockHash(blockHash: Fr, data: Buffer<ArrayBufferLike>[]): Buffer<ArrayBufferLike> {
+    return Buffer.concat([blockHash.toBuffer(), ...data]);
+  }
+
+  #unpackBlockHash(reader: BufferReader): L2BlockHash {
+    const blockHash = reader.remainingBytes() > 0 ? reader.readObject(Fr) : undefined;
+
+    if (!blockHash) {
+      throw new Error('Failed to read block hash from log entry buffer');
+    }
+
+    return L2BlockHash.fromField(blockHash);
+  }
+
+  deleteLogs(blocks: L2BlockNew[]): Promise<boolean> {
     return this.db.transactionAsync(async () => {
       const tagsToDelete = (
         await Promise.all(
@@ -207,6 +230,9 @@ export class LogStore {
     const buffer = (await this.#publicLogsByBlock.getAsync(blockNumber)) ?? Buffer.alloc(0);
     const publicLogsInBlock: [PublicLog[]] = [[]];
     const reader = new BufferReader(buffer);
+
+    const blockHash = this.#unpackBlockHash(reader);
+
     while (reader.remainingBytes() > 0) {
       const indexOfTx = reader.readNumber();
       const numLogsInTx = reader.readNumber();
@@ -219,7 +245,7 @@ export class LogStore {
     const txLogs = publicLogsInBlock[txIndex];
 
     const logs: ExtendedPublicLog[] = [];
-    const maxLogsHit = this.#accumulateLogs(logs, blockNumber, txIndex, txLogs, filter);
+    const maxLogsHit = this.#accumulateLogs(logs, blockNumber, blockHash, txIndex, txLogs, filter);
 
     return { logs, maxLogsHit };
   }
@@ -242,6 +268,9 @@ export class LogStore {
     loopOverBlocks: for await (const [blockNumber, logBuffer] of this.#publicLogsByBlock.entriesAsync({ start, end })) {
       const publicLogsInBlock: [PublicLog[]] = [[]];
       const reader = new BufferReader(logBuffer);
+
+      const blockHash = this.#unpackBlockHash(reader);
+
       while (reader.remainingBytes() > 0) {
         const indexOfTx = reader.readNumber();
         const numLogsInTx = reader.readNumber();
@@ -252,7 +281,7 @@ export class LogStore {
       }
       for (let txIndex = filter.afterLog?.txIndex ?? 0; txIndex < publicLogsInBlock.length; txIndex++) {
         const txLogs = publicLogsInBlock[txIndex];
-        maxLogsHit = this.#accumulateLogs(logs, blockNumber, txIndex, txLogs, filter);
+        maxLogsHit = this.#accumulateLogs(logs, blockNumber, blockHash, txIndex, txLogs, filter);
         if (maxLogsHit) {
           this.#log.debug(`Max logs hit at block ${blockNumber}`);
           break loopOverBlocks;
@@ -291,6 +320,8 @@ export class LogStore {
     const contractClassLogsInBlock: [ContractClassLog[]] = [[]];
 
     const reader = new BufferReader(contractClassLogsBuffer);
+    const blockHash = this.#unpackBlockHash(reader);
+
     while (reader.remainingBytes() > 0) {
       const indexOfTx = reader.readNumber();
       const numLogsInTx = reader.readNumber();
@@ -303,7 +334,7 @@ export class LogStore {
     const txLogs = contractClassLogsInBlock[txIndex];
 
     const logs: ExtendedContractClassLog[] = [];
-    const maxLogsHit = this.#accumulateLogs(logs, blockNumber, txIndex, txLogs, filter);
+    const maxLogsHit = this.#accumulateLogs(logs, blockNumber, blockHash, txIndex, txLogs, filter);
 
     return { logs, maxLogsHit };
   }
@@ -329,6 +360,7 @@ export class LogStore {
     })) {
       const contractClassLogsInBlock: [ContractClassLog[]] = [[]];
       const reader = new BufferReader(logBuffer);
+      const blockHash = this.#unpackBlockHash(reader);
       while (reader.remainingBytes() > 0) {
         const indexOfTx = reader.readNumber();
         const numLogsInTx = reader.readNumber();
@@ -339,7 +371,7 @@ export class LogStore {
       }
       for (let txIndex = filter.afterLog?.txIndex ?? 0; txIndex < contractClassLogsInBlock.length; txIndex++) {
         const txLogs = contractClassLogsInBlock[txIndex];
-        maxLogsHit = this.#accumulateLogs(logs, blockNumber, txIndex, txLogs, filter);
+        maxLogsHit = this.#accumulateLogs(logs, blockNumber, blockHash, txIndex, txLogs, filter);
         if (maxLogsHit) {
           this.#log.debug(`Max logs hit at block ${blockNumber}`);
           break loopOverBlocks;
@@ -353,9 +385,10 @@ export class LogStore {
   #accumulateLogs(
     results: (ExtendedContractClassLog | ExtendedPublicLog)[],
     blockNumber: number,
+    blockHash: L2BlockHash,
     txIndex: number,
     txLogs: (ContractClassLog | PublicLog)[],
-    filter: LogFilter,
+    filter: LogFilter = {},
   ): boolean {
     let maxLogsHit = false;
     let logIndex = typeof filter.afterLog?.logIndex === 'number' ? filter.afterLog.logIndex + 1 : 0;
@@ -363,9 +396,13 @@ export class LogStore {
       const log = txLogs[logIndex];
       if (!filter.contractAddress || log.contractAddress.equals(filter.contractAddress)) {
         if (log instanceof ContractClassLog) {
-          results.push(new ExtendedContractClassLog(new LogId(BlockNumber(blockNumber), txIndex, logIndex), log));
+          results.push(
+            new ExtendedContractClassLog(new LogId(BlockNumber(blockNumber), blockHash, txIndex, logIndex), log),
+          );
+        } else if (log instanceof PublicLog) {
+          results.push(new ExtendedPublicLog(new LogId(BlockNumber(blockNumber), blockHash, txIndex, logIndex), log));
         } else {
-          results.push(new ExtendedPublicLog(new LogId(BlockNumber(blockNumber), txIndex, logIndex), log));
+          throw new Error('Unknown log type');
         }
 
         if (results.length >= this.#logsMaxPageSize) {

@@ -14,6 +14,14 @@ variable "AZTEC_DOCKER_IMAGE" {
   type        = string
 }
 
+variable "ETHERSCAN_API_KEY" {
+  description = "Etherscan API key"
+  type        = string
+  sensitive   = true
+  nullable    = true
+  default     = null
+}
+
 # Deploy L1 contracts configuration
 variable "L1_RPC_URLS" {
   description = "Comma-separated list of L1 RPC URLs"
@@ -228,3 +236,8 @@ variable "NETWORK" {
   nullable    = true
 }
 
+variable "VERIFY_CONTRACTS" {
+  description = "Verify contracts on Etherscan"
+  type        = bool
+  default     = false
+}

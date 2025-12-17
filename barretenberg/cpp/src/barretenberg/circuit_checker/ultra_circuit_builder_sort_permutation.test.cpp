@@ -125,7 +125,7 @@ TEST(UltraCircuitBuilder, SortWidget)
     auto b_idx = builder.add_variable(b);
     auto c_idx = builder.add_variable(c);
     auto d_idx = builder.add_variable(d);
-    builder.create_sort_constraint({ a_idx, b_idx, c_idx, d_idx });
+    builder.enforce_small_deltas({ a_idx, b_idx, c_idx, d_idx });
 
     EXPECT_TRUE(CircuitChecker::check(builder));
 }
@@ -222,7 +222,7 @@ TEST(UltraCircuitBuilder, SortWidgetComplex)
         std::vector<uint32_t> ind;
         for (size_t i = 0; i < a.size(); i++)
             ind.emplace_back(builder.add_variable(a[i]));
-        builder.create_sort_constraint(ind);
+        builder.enforce_small_deltas(ind);
 
         EXPECT_TRUE(CircuitChecker::check(builder));
     }
@@ -233,7 +233,7 @@ TEST(UltraCircuitBuilder, SortWidgetComplex)
         std::vector<uint32_t> ind;
         for (size_t i = 0; i < a.size(); i++)
             ind.emplace_back(builder.add_variable(a[i]));
-        builder.create_sort_constraint(ind);
+        builder.enforce_small_deltas(ind);
 
         EXPECT_FALSE(CircuitChecker::check(builder));
     }
@@ -251,7 +251,7 @@ TEST(UltraCircuitBuilder, SortWidgetNeg)
     auto b_idx = builder.add_variable(b);
     auto c_idx = builder.add_variable(c);
     auto d_idx = builder.add_variable(d);
-    builder.create_sort_constraint({ a_idx, b_idx, c_idx, d_idx });
+    builder.enforce_small_deltas({ a_idx, b_idx, c_idx, d_idx });
 
     EXPECT_FALSE(CircuitChecker::check(builder));
 }

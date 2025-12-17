@@ -30,7 +30,8 @@ HypernovaDeciderVerifier<Flavor>::PairingPoints HypernovaDeciderVerifier<Flavor>
                                                        RefVector(accumulator.shifted_evaluation) } };
     std::vector<FF> padding_indicator_array(Flavor::VIRTUAL_LOG_N, 1);
     auto opening_claim = ShpleminiVerifier::compute_batch_opening_claim(
-        padding_indicator_array, claim_batcher, accumulator.challenge, generator, transcript);
+                             padding_indicator_array, claim_batcher, accumulator.challenge, generator, transcript)
+                             .batch_opening_claim;
 
     if constexpr (IsRecursiveFlavor<Flavor>) {
         PairingPoints pairing_points(PCS::reduce_verify_batch_opening_claim(std::move(opening_claim), transcript));

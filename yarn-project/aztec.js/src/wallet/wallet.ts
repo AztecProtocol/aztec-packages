@@ -20,7 +20,7 @@ import {
   type ContractMetadata,
 } from '@aztec/stdlib/contract';
 import { Gas } from '@aztec/stdlib/gas';
-import { AbiDecodedSchema, type ApiSchemaFor, type ZodFor, optional, schemas } from '@aztec/stdlib/schemas';
+import { AbiDecodedSchema, type ApiSchemaFor, optional, schemas, zodFor } from '@aztec/stdlib/schemas';
 import {
   Capsule,
   HashedValues,
@@ -281,17 +281,21 @@ export const BatchedMethodSchema = z.union([
   }),
 ]);
 
-export const ContractMetadataSchema = z.object({
-  contractInstance: z.union([ContractInstanceWithAddressSchema, z.undefined()]),
-  isContractInitialized: z.boolean(),
-  isContractPublished: z.boolean(),
-}) satisfies ZodFor<ContractMetadata>;
+export const ContractMetadataSchema = zodFor<ContractMetadata>()(
+  z.object({
+    contractInstance: z.union([ContractInstanceWithAddressSchema, z.undefined()]),
+    isContractInitialized: z.boolean(),
+    isContractPublished: z.boolean(),
+  }),
+);
 
-export const ContractClassMetadataSchema = z.object({
-  contractClass: z.union([ContractClassWithIdSchema, z.undefined()]),
-  isContractClassPubliclyRegistered: z.boolean(),
-  artifact: z.union([ContractArtifactSchema, z.undefined()]),
-}) satisfies ZodFor<ContractClassMetadata>;
+export const ContractClassMetadataSchema = zodFor<ContractClassMetadata>()(
+  z.object({
+    contractClass: z.union([ContractClassWithIdSchema, z.undefined()]),
+    isContractClassPubliclyRegistered: z.boolean(),
+    artifact: z.union([ContractArtifactSchema, z.undefined()]),
+  }),
+);
 
 export const EventMetadataDefinitionSchema = z.object({
   eventSelector: schemas.EventSelector,
@@ -299,10 +303,12 @@ export const EventMetadataDefinitionSchema = z.object({
   fieldNames: z.array(z.string()),
 });
 
-export const PrivateEventSchema: ZodFor<PrivateEvent<AbiDecoded>> = z.object({
-  event: AbiDecodedSchema,
-  metadata: inTxSchema(),
-});
+export const PrivateEventSchema: z.ZodType<any> = zodFor<PrivateEvent<AbiDecoded>>()(
+  z.object({
+    event: AbiDecodedSchema,
+    metadata: inTxSchema(),
+  }),
+);
 
 export const PrivateEventFilterSchema = z.object({
   contractAddress: schemas.AztecAddress,
