@@ -11,6 +11,7 @@
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 #include "barretenberg/vm2/common/avm_io.hpp"
 #include "barretenberg/vm2/constraining/prover.hpp"
+#include "barretenberg/vm2/constraining/recursion/goblin_avm_recursive_verifier.hpp"
 #include "barretenberg/vm2/constraining/recursion/recursive_flavor.hpp"
 #include "barretenberg/vm2/constraining/recursion/recursive_verifier.hpp"
 #include "barretenberg/vm2/constraining/verifier.hpp"
@@ -102,21 +103,58 @@ class AvmRecursionConstraintTest : public ::testing::Test, public TestClass<AvmR
 TEST_F(AvmRecursionConstraintTest, GenerateVKFromConstraints)
 {
     // AVM constraints are always proven with UltraRollupFlavor (they are part of the base rollup circuit)
-    test_vk_independence<UltraRollupFlavor>();
+    size_t num_gates = test_vk_independence<UltraRollupFlavor>();
+
+    EXPECT_EQ(num_gates, FINALIZED_GOBLIN_AVM_GATE_COUNT);
 }
 
-TEST_F(AvmRecursionConstraintTest, GateCount)
+TEST_F(AvmRecursionConstraintTest, GateCountAndOuterVKCheck)
 {
+    using ProverInstance = ProverInstance_<UltraRollupFlavor>;
+
+    static constexpr FF EXPECTED_OUTER_VK_HASH =
+        FF("0x09c2c15426bce647913e27c928c81726da8a90175739a6a8d1ef6b90bc015a6d");
     auto [constraint, witness] = generate_constraints();
 
     AcirFormat acir_format = constraint_to_acir_format(constraint, static_cast<uint32_t>(witness.size() - 1));
 
-    AcirProgram program = { acir_format, witness };
+    AcirProgram program = { acir_format, {} };
     ProgramMetadata metadata = { .has_ipa_claim = true }; // Base::generate_metadata();
     metadata.collect_gates_per_opcode = true;
     auto builder = create_circuit<Builder>(program, metadata);
 
     EXPECT_EQ(program.constraints.gates_per_opcode.size(), 1);
     EXPECT_EQ(program.constraints.gates_per_opcode[0], GOBLIN_AVM_GATE_COUNT);
-    EXPECT_EQ(builder.get_num_finalized_gates_inefficient(), FINALIZED_GOBLIN_AVM_GATE_COUNT);
+
+    auto prover_instance = std::make_shared<ProverInstance>(builder);
+    auto vk = std::make_shared<typename UltraRollupFlavor::VerificationKey>(prover_instance->get_precomputed());
+    EXPECT_EQ(vk->hash(), EXPECTED_OUTER_VK_HASH);
+}
+
+TEST_F(AvmRecursionConstraintTest, InnerVKCheck)
+{
+    static constexpr FF EXPECTED_INNER_VK_HASH =
+        FF("0x1f197ad657b0e30220d11af1c6ef1c5c657effd8a7af00098218f143ad3f5a12");
+    const auto [proof, public_inputs_flat] =
+        AvmRecursionConstraintTestingFunctions::create_avm_data(); // Base::create_avm_data();
+
+    Builder inner_builder;
+    std::vector<field_t<Builder>> stdlib_public_inputs_flat;
+    stdlib_public_inputs_flat.reserve(AVM_PUBLIC_INPUTS_COLUMNS_COMBINED_LENGTH);
+    for (size_t idx = 0; idx < AVM_PUBLIC_INPUTS_COLUMNS_COMBINED_LENGTH; idx++) {
+        stdlib_public_inputs_flat.emplace_back(field_t<Builder>::from_witness(
+            &inner_builder, idx < public_inputs_flat.size() ? public_inputs_flat[idx] : FF::random_element()));
+    }
+    stdlib::Proof<Builder> stdlib_proof;
+    stdlib_proof.reserve(AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED);
+    for (const auto proof_element : proof) {
+        stdlib_proof.emplace_back(field_t<Builder>::from_witness(&inner_builder, proof_element));
+    }
+
+    AvmGoblinRecursiveVerifier goblin_avm_verifier(inner_builder);
+    auto [_mega_proof, _goblin_proof, mega_vk, _goblin_vk] =
+        goblin_avm_verifier.construct_and_prove_inner_recursive_verification_circuit(
+            stdlib_proof, PublicInputs::flat_to_columns<field_t<Builder>>(stdlib_public_inputs_flat));
+
+    EXPECT_EQ(mega_vk->hash(), EXPECTED_INNER_VK_HASH);
 }
