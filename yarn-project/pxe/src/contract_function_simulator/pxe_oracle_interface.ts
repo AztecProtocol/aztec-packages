@@ -9,7 +9,6 @@ import type { BlockParameter, DataInBlock, L2Block } from '@aztec/stdlib/block';
 import type { CompleteAddress } from '@aztec/stdlib/contract';
 import { computeUniqueNoteHash, siloNoteHash, siloNullifier, siloPrivateLog } from '@aztec/stdlib/hash';
 import { type AztecNode, MAX_RPC_LEN } from '@aztec/stdlib/interfaces/client';
-import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
 import { computeAddressSecret } from '@aztec/stdlib/keys';
 import {
   PendingTaggedLog,
@@ -70,10 +69,6 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     private privateEventDataProvider: PrivateEventDataProvider,
     private log = createLogger('pxe:pxe_oracle_interface'),
   ) {}
-
-  getKeyValidationRequest(pkMHash: Fr, contractAddress: AztecAddress): Promise<KeyValidationRequest> {
-    return this.keyStore.getKeyValidationRequest(pkMHash, contractAddress);
-  }
 
   async getCompleteAddress(account: AztecAddress): Promise<CompleteAddress> {
     const completeAddress = await this.addressDataProvider.getCompleteAddress(account);

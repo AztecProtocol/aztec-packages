@@ -2,6 +2,7 @@ import { MAX_FR_CALLDATA_TO_ALL_ENQUEUED_CALLS, PRIVATE_CONTEXT_INPUTS_LENGTH } 
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
+import type { KeyStore } from '@aztec/key-store';
 import { type CircuitSimulator, toACVMWitness } from '@aztec/simulator/client';
 import {
   type FunctionAbi,
@@ -84,6 +85,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     executionDataProvider: ExecutionDataProvider,
     contractDataProvider: ContractDataProvider,
     noteDataProvider: NoteDataProvider,
+    keyStore: KeyStore,
     private totalPublicCalldataCount: number = 0,
     protected sideEffectCounter: number = 0,
     log = createLogger('simulator:client_execution_context'),
@@ -99,6 +101,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       executionDataProvider,
       contractDataProvider,
       noteDataProvider,
+      keyStore,
       log,
       scopes,
     );
@@ -545,6 +548,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       this.executionDataProvider,
       this.contractDataProvider,
       this.noteDataProvider,
+      this.keyStore,
       this.totalPublicCalldataCount,
       sideEffectCounter,
       this.log,

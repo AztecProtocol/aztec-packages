@@ -16,6 +16,7 @@ import { GrumpkinScalar } from '@aztec/foundation/curves/grumpkin';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import type { FieldsOf } from '@aztec/foundation/types';
+import { KeyStore } from '@aztec/key-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
 import { type AppendOnlyTree, Poseidon, StandardTree, newTree } from '@aztec/merkle-tree';
 import { ChildContractArtifact } from '@aztec/noir-test-contracts.js/Child';
@@ -108,6 +109,7 @@ describe('Private Execution test suite', () => {
   let executionDataProvider: MockProxy<ExecutionDataProvider>;
   let contractDataProvider: MockProxy<ContractDataProvider>;
   let noteDataProvider: MockProxy<NoteDataProvider>;
+  let keyStore: MockProxy<KeyStore>;
   let senderTaggingDataProvider: MockProxy<SenderTaggingDataProvider>;
   let aztecNode: MockProxy<AztecNode>;
   let acirSimulator: ContractFunctionSimulator;
@@ -279,6 +281,7 @@ describe('Private Execution test suite', () => {
     noteDataProvider = mock<NoteDataProvider>();
     senderTaggingDataProvider = mock<SenderTaggingDataProvider>();
     aztecNode = mock<AztecNode>();
+    keyStore = mock<KeyStore>();
     contracts = {};
 
     // Mock the senderTaggingDataProvider getter
@@ -301,27 +304,25 @@ describe('Private Execution test suite', () => {
     // on the input.
     aztecNode.getLogsByTags.mockImplementation((tags: Fr[]) => Promise.resolve(tags.map(() => [])));
 
-    executionDataProvider.getKeyValidationRequest.mockImplementation(
-      async (pkMHash: Fr, contractAddress: AztecAddress) => {
-        if (pkMHash.equals(await ownerCompleteAddress.publicKeys.masterNullifierPublicKey.hash())) {
-          return Promise.resolve(
-            new KeyValidationRequest(
-              ownerCompleteAddress.publicKeys.masterNullifierPublicKey,
-              await computeAppNullifierSecretKey(ownerNskM, contractAddress),
-            ),
-          );
-        }
-        if (pkMHash.equals(await recipientCompleteAddress.publicKeys.masterNullifierPublicKey.hash())) {
-          return Promise.resolve(
-            new KeyValidationRequest(
-              recipientCompleteAddress.publicKeys.masterNullifierPublicKey,
-              await computeAppNullifierSecretKey(recipientNskM, contractAddress),
-            ),
-          );
-        }
-        throw new Error(`Unknown master public key hash: ${pkMHash}`);
-      },
-    );
+    keyStore.getKeyValidationRequest.mockImplementation(async (pkMHash: Fr, contractAddress: AztecAddress) => {
+      if (pkMHash.equals(await ownerCompleteAddress.publicKeys.masterNullifierPublicKey.hash())) {
+        return Promise.resolve(
+          new KeyValidationRequest(
+            ownerCompleteAddress.publicKeys.masterNullifierPublicKey,
+            await computeAppNullifierSecretKey(ownerNskM, contractAddress),
+          ),
+        );
+      }
+      if (pkMHash.equals(await recipientCompleteAddress.publicKeys.masterNullifierPublicKey.hash())) {
+        return Promise.resolve(
+          new KeyValidationRequest(
+            recipientCompleteAddress.publicKeys.masterNullifierPublicKey,
+            await computeAppNullifierSecretKey(recipientNskM, contractAddress),
+          ),
+        );
+      }
+      throw new Error(`Unknown master public key hash: ${pkMHash}`);
+    });
 
     // We call insertLeaves here with no leaves to populate empty public data tree root --> this is necessary to be
     // able to get ivpk_m during execution
@@ -366,6 +367,7 @@ describe('Private Execution test suite', () => {
       executionDataProvider,
       contractDataProvider,
       noteDataProvider,
+      keyStore,
       simulator,
     );
   });

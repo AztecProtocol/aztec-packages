@@ -6,10 +6,10 @@ import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2Block } from '@aztec/stdlib/block';
 import type { CompleteAddress } from '@aztec/stdlib/contract';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
-import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
 import type { DirectionalAppTaggingSecret } from '@aztec/stdlib/logs';
 import { type MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import type { NodeStats } from '@aztec/stdlib/tx';
+
 import type { SenderTaggingDataProvider } from '../storage/tagging_data_provider/sender_tagging_data_provider.js';
 import type { MessageLoadOracleInputs } from './oracle/message_load_oracle_inputs.js';
 
@@ -52,14 +52,6 @@ export interface ExecutionDataProvider {
    * @throws An error if the account is not registered in the database.
    */
   getCompleteAddress(account: AztecAddress): Promise<CompleteAddress>;
-
-  /**
-   * Retrieve keys associated with a specific master public key and app address.
-   * @param pkMHash - The master public key hash.
-   * @returns A Promise that resolves to nullifier keys.
-   * @throws If the keys are not registered in the key store.
-   */
-  getKeyValidationRequest(pkMHash: Fr, contractAddress: AztecAddress): Promise<KeyValidationRequest>;
 
   /**
    * Gets the index of a nullifier in the nullifier tree.

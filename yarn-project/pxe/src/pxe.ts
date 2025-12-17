@@ -207,6 +207,7 @@ export class PXE {
       pxeOracleInterface,
       this.contractDataProvider,
       this.noteDataProvider,
+      this.keyStore,
       this.simulator,
     );
   }

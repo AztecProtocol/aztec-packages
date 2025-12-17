@@ -21,6 +21,7 @@ import { poseidon2Hash } from '@aztec/foundation/crypto/poseidon';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
+import type { KeyStore } from '@aztec/key-store';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractsHash } from '@aztec/protocol-contracts';
 import {
@@ -90,6 +91,7 @@ export class ContractFunctionSimulator {
     private executionDataProvider: ExecutionDataProvider,
     private contractDataProvider: ContractDataProvider,
     private noteDataProvider: NoteDataProvider,
+    private keyStore: KeyStore,
     private simulator: CircuitSimulator,
   ) {
     this.log = createLogger('simulator');
@@ -165,6 +167,7 @@ export class ContractFunctionSimulator {
       this.executionDataProvider,
       this.contractDataProvider,
       this.noteDataProvider,
+      this.keyStore,
       0, // totalPublicArgsCount
       startSideEffectCounter,
       undefined, // log
@@ -252,6 +255,7 @@ export class ContractFunctionSimulator {
       this.executionDataProvider,
       this.contractDataProvider,
       this.noteDataProvider,
+      this.keyStore,
       undefined,
       scopes,
     );

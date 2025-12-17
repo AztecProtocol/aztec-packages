@@ -1,5 +1,6 @@
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import type { KeyStore } from '@aztec/key-store';
 import { StatefulTestContractArtifact } from '@aztec/noir-test-contracts.js/StatefulTest';
 import { WASMSimulator } from '@aztec/simulator/client';
 import { FunctionCall, FunctionSelector, FunctionType, encodeArguments } from '@aztec/stdlib/abi';
@@ -21,6 +22,7 @@ describe('Utility Execution test suite', () => {
   let executionDataProvider: ReturnType<typeof mock<ExecutionDataProvider>>;
   let contractDataProvider: ReturnType<typeof mock<ContractDataProvider>>;
   let noteDataProvider: ReturnType<typeof mock<NoteDataProvider>>;
+  let keyStore: ReturnType<typeof mock<KeyStore>>;
   let acirSimulator: ContractFunctionSimulator;
   let owner: AztecAddress;
   const ownerSecretKey = Fr.fromHexString('2dcc5485a58316776299be08c78fa3788a1a7961ae30dc747fb1be17692a8d32');
@@ -33,10 +35,12 @@ describe('Utility Execution test suite', () => {
     executionDataProvider = mock<ExecutionDataProvider>();
     contractDataProvider = mock<ContractDataProvider>();
     noteDataProvider = mock<NoteDataProvider>();
+    keyStore = mock<KeyStore>();
     acirSimulator = new ContractFunctionSimulator(
       executionDataProvider,
       contractDataProvider,
       noteDataProvider,
+      keyStore,
       simulator,
     );
 

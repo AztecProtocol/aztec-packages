@@ -1,4 +1,5 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { KeyStore } from '@aztec/key-store';
 import { OracleVersionCheckContractArtifact } from '@aztec/noir-test-contracts.js/OracleVersionCheck';
 import { WASMSimulator } from '@aztec/simulator/client';
 import { FunctionCall, FunctionSelector, FunctionType, encodeArguments } from '@aztec/stdlib/abi';
@@ -19,6 +20,7 @@ describe('Oracle Version Check test suite', () => {
   let executionDataProvider: ReturnType<typeof mock<ExecutionDataProvider>>;
   let contractDataProvider: ReturnType<typeof mock<ContractDataProvider>>;
   let noteDataProvider: ReturnType<typeof mock<NoteDataProvider>>;
+  let keyStore: ReturnType<typeof mock<KeyStore>>;
   let acirSimulator: ContractFunctionSimulator;
   let contractAddress: AztecAddress;
 
@@ -26,6 +28,7 @@ describe('Oracle Version Check test suite', () => {
     executionDataProvider = mock<ExecutionDataProvider>();
     contractDataProvider = mock<ContractDataProvider>();
     noteDataProvider = mock<NoteDataProvider>();
+    keyStore = mock<KeyStore>();
 
     // Mock basic oracle responses
     executionDataProvider.getPublicStorageAt.mockResolvedValue(Fr.ZERO);
@@ -43,6 +46,7 @@ describe('Oracle Version Check test suite', () => {
       executionDataProvider,
       contractDataProvider,
       noteDataProvider,
+      keyStore,
       simulator,
     );
   });

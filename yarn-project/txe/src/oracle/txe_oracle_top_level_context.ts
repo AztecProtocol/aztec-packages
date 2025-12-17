@@ -307,6 +307,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       this.pxeOracleInterface,
       this.contractDataProvider,
       this.noteDataProvider,
+      this.keyStore,
       0,
       1,
       undefined, // log
@@ -623,6 +624,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
         this.pxeOracleInterface,
         this.contractDataProvider,
         this.noteDataProvider,
+        this.keyStore,
       );
       const acirExecutionResult = await new WASMSimulator()
         .executeUserCircuit(toACVMWitness(0, args), entryPointArtifact, new Oracle(oracle).toACIRCallback())

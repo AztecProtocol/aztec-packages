@@ -3,6 +3,7 @@ import { Aes128 } from '@aztec/foundation/crypto/aes128';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { Point } from '@aztec/foundation/curves/grumpkin';
 import { LogLevels, applyStringFormatting, createLogger } from '@aztec/foundation/log';
+import type { KeyStore } from '@aztec/key-store';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { CompleteAddress, ContractInstance } from '@aztec/stdlib/contract';
@@ -37,6 +38,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     protected readonly executionDataProvider: ExecutionDataProvider,
     protected readonly contractDataProvider: ContractDataProvider,
     protected readonly noteDataProvider: NoteDataProvider,
+    protected readonly keyStore: KeyStore,
     protected log = createLogger('simulator:client_view_context'),
     protected readonly scopes?: AztecAddress[],
   ) {}
@@ -66,7 +68,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * @throws If the keys are not registered in the key store.
    */
   public utilityGetKeyValidationRequest(pkMHash: Fr): Promise<KeyValidationRequest> {
-    return this.executionDataProvider.getKeyValidationRequest(pkMHash, this.contractAddress);
+    return this.keyStore.getKeyValidationRequest(pkMHash, this.contractAddress);
   }
 
   /**
