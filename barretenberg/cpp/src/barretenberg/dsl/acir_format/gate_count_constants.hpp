@@ -119,4 +119,12 @@ inline constexpr size_t HIDING_KERNEL_ULTRA_OPS = 124;
 // Gate count for ECCVM recursive verifier (Ultra-arithmetized)
 inline constexpr size_t ECCVM_RECURSIVE_VERIFIER_GATE_COUNT = 215188;
 
+// ========================================
+// Goblin AVM Recursive Verifier Constants
+// ========================================
+
+// Gate count for Goblin AVM recursive verifier
+inline constexpr size_t GOBLIN_AVM_GATE_COUNT = 3485224;
+inline constexpr size_t FINALIZED_GOBLIN_AVM_GATE_COUNT = 3485240;
+
 } // namespace acir_format
