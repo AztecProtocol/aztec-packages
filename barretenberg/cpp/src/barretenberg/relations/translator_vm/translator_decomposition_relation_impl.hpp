@@ -46,10 +46,10 @@ void TranslatorDecompositionRelationImpl<FF>::accumulate(ContainerOverSubrelatio
         using View = typename Accumulator::View;
 
         // Values to multiply an element by to perform an appropriate shift
-        static constexpr auto MICRO_LIMB_SHIFT = FF(uint256_t(1) << NUM_MICRO_LIMB_BITS);
-        static constexpr auto MICRO_LIMB_SHIFTx2 = MICRO_LIMB_SHIFT * MICRO_LIMB_SHIFT;
-        static constexpr auto MICRO_LIMB_SHIFTx3 = MICRO_LIMB_SHIFTx2 * MICRO_LIMB_SHIFT;
-        static constexpr auto MICRO_LIMB_SHIFTx4 = MICRO_LIMB_SHIFTx3 * MICRO_LIMB_SHIFT;
+        const auto MICRO_LIMB_SHIFT = FF(uint256_t(1) << NUM_MICRO_LIMB_BITS);
+        const auto MICRO_LIMB_SHIFTx2 = MICRO_LIMB_SHIFT * MICRO_LIMB_SHIFT;
+        const auto MICRO_LIMB_SHIFTx3 = MICRO_LIMB_SHIFTx2 * MICRO_LIMB_SHIFT;
+        const auto MICRO_LIMB_SHIFTx4 = MICRO_LIMB_SHIFTx3 * MICRO_LIMB_SHIFT;
 
         // A = (A₃ || A₂ || A₁ || A₀)
         auto accumulators_binary_limbs_0 = View(in.accumulators_binary_limbs_0);
@@ -139,14 +139,14 @@ void TranslatorDecompositionRelationImpl<FF>::accumulate(ContainerOverSubrelatio
         using View = typename Accumulator::View;
 
         // Value to multiply an element by to perform an appropriate shift
-        static constexpr auto LIMB_SHIFT = FF(uint256_t(1) << NUM_LIMB_BITS);
+        const auto LIMB_SHIFT = FF(uint256_t(1) << NUM_LIMB_BITS);
 
         // Values to multiply an element by to perform an appropriate shift
-        static constexpr auto MICRO_LIMB_SHIFT = FF(uint256_t(1) << NUM_MICRO_LIMB_BITS);
-        static constexpr auto MICRO_LIMB_SHIFTx2 = MICRO_LIMB_SHIFT * MICRO_LIMB_SHIFT;
-        static constexpr auto MICRO_LIMB_SHIFTx3 = MICRO_LIMB_SHIFTx2 * MICRO_LIMB_SHIFT;
-        static constexpr auto MICRO_LIMB_SHIFTx4 = MICRO_LIMB_SHIFTx3 * MICRO_LIMB_SHIFT;
-        static constexpr auto MICRO_LIMB_SHIFTx5 = MICRO_LIMB_SHIFTx4 * MICRO_LIMB_SHIFT;
+        const auto MICRO_LIMB_SHIFT = FF(uint256_t(1) << NUM_MICRO_LIMB_BITS);
+        const auto MICRO_LIMB_SHIFTx2 = MICRO_LIMB_SHIFT * MICRO_LIMB_SHIFT;
+        const auto MICRO_LIMB_SHIFTx3 = MICRO_LIMB_SHIFTx2 * MICRO_LIMB_SHIFT;
+        const auto MICRO_LIMB_SHIFTx4 = MICRO_LIMB_SHIFTx3 * MICRO_LIMB_SHIFT;
+        const auto MICRO_LIMB_SHIFTx5 = MICRO_LIMB_SHIFTx4 * MICRO_LIMB_SHIFT;
 
         auto accumulator_low_limbs_range_constraint_4 = View(in.accumulator_low_limbs_range_constraint_4);
         auto accumulator_low_limbs_range_constraint_4_shift = View(in.accumulator_low_limbs_range_constraint_4_shift);
