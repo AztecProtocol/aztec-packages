@@ -106,7 +106,7 @@ std::vector<Operand> Addressing::resolve(const Instruction& instruction, MemoryI
                 // We extend the address to uint64_t to avoid overflows.
                 auto offset = static_cast<uint64_t>(resolution_info.after_relative);
                 // Note: Since we know that the offset and the base address are valid, the addition fits in 33 bits.
-                offset += (*base_address).to<uint64_t>();
+                offset += (*base_address).as<MemoryAddress>();
                 // We store the offset as FF. If the circuit needs to prove overflow, it will
                 // need the full value.
                 resolution_info.after_relative = FF(offset);
