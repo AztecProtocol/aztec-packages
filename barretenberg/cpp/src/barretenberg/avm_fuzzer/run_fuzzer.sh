@@ -8,6 +8,7 @@ set -e
 show_usage() {
     echo "Usage: $0 <command> <fuzzer_type> [options] [-- fuzzer_args...]"
     echo "Commands:"
+    echo "  build <fuzzer_type>                        - Build the fuzzer binary"
     echo "  fuzz <fuzzer_type> [--log] [-- args...]     - Run the fuzzer (--log to tail fuzz-0.log)"
     echo "  coverage <fuzzer_type> [type]              - Generate coverage report (type: html or report, default: html)"
     echo "  list-targets                               - List all available fuzzing targets"
@@ -118,22 +119,51 @@ else
     BUILD_CMAKE_FLAGS=""
 fi
 
+# Build function
+build_fuzzer() {
+    echo "Building fuzzer: $FUZZER_TYPE"
+    echo "Build directory: $BUILD_DIR"
+    echo "Preset: $BUILD_PRESET"
+    if [ -n "$BUILD_CMAKE_FLAGS" ]; then
+        echo "Extra CMake flags: $BUILD_CMAKE_FLAGS"
+    fi
+    echo ""
+
+    cd "$CPP_DIR"
+
+    # Configure if build dir doesn't exist or CMakeCache is missing
+    if [ ! -f "$BUILD_DIR/CMakeCache.txt" ]; then
+        echo "Configuring cmake..."
+        if [ -n "$BUILD_CMAKE_FLAGS" ]; then
+            cmake --preset "$BUILD_PRESET" $BUILD_CMAKE_FLAGS
+        else
+            cmake --preset "$BUILD_PRESET"
+        fi
+    fi
+
+    # Build the target
+    echo "Building target: $FUZZER_TYPE"
+    cmake --build "$BUILD_DIR" --target "$FUZZER_TYPE"
+
+    echo ""
+    echo "Build complete: $FUZZER_BIN"
+}
+
 # Check if fuzzer build/binary exists
 FUZZER_BIN="$BUILD_DIR/bin/$FUZZER_TYPE"
-if [ ! -d "$BUILD_DIR" ] || [ ! -f "$FUZZER_BIN" ]; then
-    echo "Error: Fuzzer binary not found: $FUZZER_BIN"
+
+# Handle build command
+if [ "$COMMAND" = "build" ]; then
+    build_fuzzer
+    exit 0
+fi
+
+# Auto-build if binary doesn't exist
+if [ ! -f "$FUZZER_BIN" ]; then
+    echo "Fuzzer binary not found: $FUZZER_BIN"
+    echo "Auto-building..."
     echo ""
-    echo "Please build the fuzzer by running:"
-    echo "  cd $CPP_DIR"
-    if [ -n "$BUILD_CMAKE_FLAGS" ]; then
-        echo "  cmake --preset $BUILD_PRESET $BUILD_CMAKE_FLAGS"
-    else
-        echo "  cmake --preset $BUILD_PRESET"
-    fi
-    echo "  cmake --build --preset $BUILD_PRESET --target $FUZZER_TYPE"
-    echo ""
-    echo "Use './run_fuzzer.sh list-targets' to see all available targets"
-    exit 1
+    build_fuzzer
 fi
 
 # Set corpus directory based on fuzzer type
