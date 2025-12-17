@@ -39,11 +39,6 @@ uint32_t get_max_variable_address(AddressingMode mode, uint32_t literal_max_valu
     return AVM_HIGHEST_MEM_ADDRESS;
 }
 
-uint32_t trimmed_direct_address(uint32_t direct_address_seed, uint32_t max_operand_address)
-{
-    return direct_address_seed % (max_operand_address + 1);
-}
-
 uint32_t trimmed_pointer_address(uint32_t pointer_address_seed, uint32_t max_operand_address)
 {
     return pointer_address_seed % (max_operand_address + 1);
@@ -163,7 +158,7 @@ ResolvedAddress MemoryManager::resolve_address(AddressRef address, uint32_t max_
             address.base_offset_seed, address.pointer_address_seed, max_operand_address);
         break;
     case AddressingMode::Direct:
-        resolved_address.absolute_address = trimmed_direct_address(address.address, max_operand_address);
+        BB_ASSERT_LTE(address.address, max_operand_address);
         resolved_address.operand_address = resolved_address.absolute_address;
         break;
     }
@@ -190,6 +185,14 @@ OperandBuilder MemoryManager::get_memory_address_operand(OperandBuilder operand,
 }
 
 std::optional<std::pair<ResolvedAddress, bb::avm2::testing::OperandBuilder>> MemoryManager::
+    get_resolved_address_and_operand_8(ParamRef address)
+{
+    return std::visit(overloaded{ [&](VariableRef var) { return get_resolved_address_and_operand_8(var); },
+                                  [&](AddressRef addr) { return get_resolved_address_and_operand_8(addr); } },
+                      address);
+}
+
+std::optional<std::pair<ResolvedAddress, bb::avm2::testing::OperandBuilder>> MemoryManager::
     get_resolved_address_and_operand_8(VariableRef address)
 {
     auto actual_address = get_variable_address(address.tag, address.index, get_max_variable_address(address.mode, 255));
@@ -211,6 +214,14 @@ std::optional<std::pair<ResolvedAddress, bb::avm2::testing::OperandBuilder>> Mem
     auto resolved_address = resolve_address(address, 255);
     auto operand = OperandBuilder::from<uint8_t>(static_cast<uint8_t>(resolved_address.operand_address));
     return std::make_pair(resolved_address, get_memory_address_operand(operand, address.mode));
+}
+
+std::optional<std::pair<ResolvedAddress, bb::avm2::testing::OperandBuilder>> MemoryManager::
+    get_resolved_address_and_operand_16(ParamRef address)
+{
+    return std::visit(overloaded{ [&](VariableRef var) { return get_resolved_address_and_operand_16(var); },
+                                  [&](AddressRef addr) { return get_resolved_address_and_operand_16(addr); } },
+                      address);
 }
 
 std::optional<std::pair<ResolvedAddress, bb::avm2::testing::OperandBuilder>> MemoryManager::

@@ -265,9 +265,10 @@ enum class InstructionGenerationOptions {
     RETURNDATASIZE_WITH_RETURNDATACOPY,
     GETCONTRACTINSTANCE,
     SUCCESSCOPY,
+    ECADD,
 };
 
-using InstructionGenerationConfig = WeightedSelectionConfig<InstructionGenerationOptions, 48>;
+using InstructionGenerationConfig = WeightedSelectionConfig<InstructionGenerationOptions, 49>;
 
 constexpr InstructionGenerationConfig BASIC_INSTRUCTION_GENERATION_CONFIGURATION = InstructionGenerationConfig({
     { InstructionGenerationOptions::ADD_8, 1 },
@@ -318,6 +319,7 @@ constexpr InstructionGenerationConfig BASIC_INSTRUCTION_GENERATION_CONFIGURATION
     { InstructionGenerationOptions::RETURNDATASIZE_WITH_RETURNDATACOPY, 1 },
     { InstructionGenerationOptions::GETCONTRACTINSTANCE, 1 },
     { InstructionGenerationOptions::SUCCESSCOPY, 1 },
+    { InstructionGenerationOptions::ECADD, 1 },
 });
 
 enum class SStoreMutationOptions { src_address, result_address, slot };
