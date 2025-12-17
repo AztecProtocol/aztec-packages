@@ -11,24 +11,102 @@
 
 namespace bb::avm2::simulation {
 
+namespace {
+
+/**
+ * @brief Fast divmod for uint256_t by a small divisor (fits in uint64_t).
+ *
+ * This is MUCH faster than the generic uint256_t::divmod which uses bit-by-bit
+ * binary long division. Instead, we process 64 bits at a time using 128-bit
+ * arithmetic, reducing from ~256 iterations to just 4.
+ *
+ * @param value The dividend (modified in place to become the quotient)
+ * @param divisor The divisor (must be > 0 and fit in uint64_t)
+ * @return The remainder
+ */
+inline uint64_t fast_divmod_small(uint256_t& value, uint64_t divisor)
+{
+#if defined(__SIZEOF_INT128__) && !defined(__wasm__)
+    // Use native 128-bit division - process limbs from MSB to LSB
+    __uint128_t carry = 0;
+    for (int i = 3; i >= 0; i--) {
+        __uint128_t current = (carry << 64) | value.data[i];
+        value.data[i] = static_cast<uint64_t>(current / divisor);
+        carry = current % divisor;
+    }
+    return static_cast<uint64_t>(carry);
+#else
+    // Fallback for platforms without 128-bit integers (e.g., WASM)
+    // Use the standard divmod but it's still faster than the generic case
+    // because the divisor is small
+    auto [quotient, remainder] = value.divmod(uint256_t(divisor));
+    value = quotient;
+    return static_cast<uint64_t>(remainder.data[0]);
+#endif
+}
+
+/**
+ * @brief Check if uint256_t is zero by examining all limbs.
+ */
+inline bool is_zero(const uint256_t& value)
+{
+    return (value.data[0] | value.data[1] | value.data[2] | value.data[3]) == 0;
+}
+
+} // namespace
+
 std::pair<std::vector<uint8_t>, /* truncated */ bool> PureToRadix::to_le_radix(const FF& value,
                                                                                uint32_t num_limbs,
                                                                                uint32_t radix)
 {
     BB_BENCH_NAME("PureToRadix::to_le_radix");
 
-    uint256_t radix_integer = static_cast<uint256_t>(radix);
     uint256_t value_integer = static_cast<uint256_t>(value);
     std::vector<uint8_t> limbs;
     limbs.reserve(num_limbs);
 
-    for (uint32_t i = 0; i < num_limbs; i++) {
-        auto [quotient, remainder] = value_integer.divmod(radix_integer);
-        limbs.push_back(static_cast<uint8_t>(remainder));
-        value_integer = quotient;
+    // Fast path for radix 2: use get_bit() which is much faster than divmod.
+    // Each get_bit() is just array indexing + bit mask on uint64_t.
+    if (radix == 2) {
+        for (uint32_t i = 0; i < num_limbs; i++) {
+            limbs.push_back(static_cast<uint8_t>(value_integer.get_bit(i)));
+        }
+        // Check for truncation: are there any set bits beyond num_limbs?
+        bool truncated = (num_limbs < 256) && (value_integer >> uint256_t(num_limbs)) != uint256_t(0);
+        return { limbs, truncated };
     }
 
-    return { limbs, value_integer != 0 };
+    // Fast path for other power-of-2 radixes (4, 8, 16, 32, 64, 128, 256).
+    // Use bit masking and shifting instead of expensive divmod.
+    if ((radix & (radix - 1)) == 0 && radix >= 4) {
+        uint32_t bits_per_limb = static_cast<uint32_t>(__builtin_ctz(radix));
+        uint64_t mask = radix - 1;
+        uint256_t shift_amount(bits_per_limb);
+
+        for (uint32_t i = 0; i < num_limbs; i++) {
+            limbs.push_back(static_cast<uint8_t>(value_integer.data[0] & mask));
+            value_integer = value_integer >> shift_amount;
+        }
+
+        return { limbs, value_integer != uint256_t(0) };
+    }
+
+    // Optimized path for non-power-of-2 radixes.
+    // Since radix <= 256 (enforced by caller), it fits in uint64_t.
+    // Use fast 128-bit division instead of slow bit-by-bit uint256_t::divmod.
+    uint64_t radix64 = static_cast<uint64_t>(radix);
+
+    for (uint32_t i = 0; i < num_limbs; i++) {
+        if (is_zero(value_integer)) {
+            // Once value is 0, all remaining limbs are 0
+            limbs.resize(num_limbs, 0);
+            return { limbs, false };
+        }
+        uint64_t remainder = fast_divmod_small(value_integer, radix64);
+        limbs.push_back(static_cast<uint8_t>(remainder));
+    }
+
+    return { limbs, !is_zero(value_integer) };
 }
 
 std::pair<std::vector<bool>, /* truncated */ bool> PureToRadix::to_le_bits(const FF& value, uint32_t num_limbs)

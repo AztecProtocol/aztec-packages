@@ -60,6 +60,16 @@ BENCHMARK(BM_pure_to_radix)->Ranges({ { 2, 256 }, { 2, 256 } })->Unit(benchmark:
 BENCHMARK(BM_pure_to_bits)->Ranges({ { 2, 256 } })->Unit(benchmark::kMillisecond);
 BENCHMARK(BM_pure_to_radix_memory)->Ranges({ { 2, 256 }, { 2, 256 } })->Unit(benchmark::kMillisecond);
 
+// Benchmarks for non-power-of-2 radixes (these use the new fast_divmod_small optimization)
+BENCHMARK(BM_pure_to_radix)->Args({ 256, 3 })->Unit(benchmark::kMillisecond);
+BENCHMARK(BM_pure_to_radix)->Args({ 256, 5 })->Unit(benchmark::kMillisecond);
+BENCHMARK(BM_pure_to_radix)->Args({ 256, 7 })->Unit(benchmark::kMillisecond);
+BENCHMARK(BM_pure_to_radix)->Args({ 256, 10 })->Unit(benchmark::kMillisecond);
+BENCHMARK(BM_pure_to_radix)->Args({ 256, 100 })->Unit(benchmark::kMillisecond);
+BENCHMARK(BM_pure_to_radix)->Args({ 128, 10 })->Unit(benchmark::kMillisecond);
+BENCHMARK(BM_pure_to_radix)->Args({ 64, 10 })->Unit(benchmark::kMillisecond);
+BENCHMARK(BM_pure_to_radix)->Args({ 32, 10 })->Unit(benchmark::kMillisecond);
+
 } // namespace
 
 } // namespace bb::avm2::simulation
