@@ -1,5 +1,5 @@
 import type { FUNCTION_TREE_HEIGHT } from '@aztec/constants';
-import type { Fr } from '@aztec/foundation/fields';
+import type { Fr } from '@aztec/foundation/curves/bn254';
 import { toArray } from '@aztec/foundation/iterable';
 import type { MembershipWitness } from '@aztec/foundation/trees';
 import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
@@ -8,11 +8,13 @@ import {
   type FunctionAbi,
   type FunctionArtifact,
   type FunctionArtifactWithContractName,
+  FunctionCall,
   type FunctionDebugMetadata,
   FunctionSelector,
   FunctionType,
   contractArtifactFromBuffer,
   contractArtifactToBuffer,
+  encodeArguments,
   getFunctionDebugMetadata,
 } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -273,5 +275,30 @@ export class ContractDataProvider {
         return fn;
       }
     }
+  }
+
+  public async getFunctionCall(functionName: string, args: any[], to: AztecAddress): Promise<FunctionCall> {
+    const contract = await this.getContract(to);
+    if (!contract) {
+      throw new Error(
+        `Unknown contract ${to}: add it to PXE by calling server.addContracts(...).\nSee docs for context: https://docs.aztec.network/developers/resources/debugging/aztecnr-errors#unknown-contract-0x0-add-it-to-pxe-by-calling-serveraddcontracts`,
+      );
+    }
+
+    const functionDao = contract.functions.find(f => f.name === functionName);
+    if (!functionDao) {
+      throw new Error(`Unknown function ${functionName} in contract ${contract.name}.`);
+    }
+
+    return {
+      name: functionDao.name,
+      args: encodeArguments(functionDao, args),
+      selector: await FunctionSelector.fromNameAndParameters(functionDao.name, functionDao.parameters),
+      type: functionDao.functionType,
+      to,
+      hideMsgSender: false,
+      isStatic: functionDao.isStatic,
+      returnTypes: functionDao.returnTypes,
+    };
   }
 }

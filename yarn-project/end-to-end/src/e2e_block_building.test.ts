@@ -7,9 +7,9 @@ import type { AztecNode } from '@aztec/aztec.js/node';
 import { TxStatus } from '@aztec/aztec.js/tx';
 import { AnvilTestWatcher, CheatCodes } from '@aztec/aztec/testing';
 import { asyncMap } from '@aztec/foundation/async-map';
-import { EpochNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { times, unique } from '@aztec/foundation/collection';
-import { poseidon2Hash } from '@aztec/foundation/crypto';
+import { poseidon2Hash } from '@aztec/foundation/crypto/poseidon';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
@@ -17,8 +17,7 @@ import { StatefulTestContract } from '@aztec/noir-test-contracts.js/StatefulTest
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import type { BlockBuilder, SequencerClient } from '@aztec/sequencer-client';
 import type { TestSequencerClient } from '@aztec/sequencer-client/test';
-import { Set } from '@aztec/simulator/public/avm/opcodes';
-import { type PublicTxResult, PublicTxSimulator } from '@aztec/simulator/server';
+import type { PublicTxResult, PublicTxSimulatorInterface } from '@aztec/simulator/server';
 import { getProofSubmissionDeadlineEpoch } from '@aztec/stdlib/epoch-helpers';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 import { TX_ERROR_EXISTING_NULLIFIER, type Tx } from '@aztec/stdlib/tx';
@@ -439,15 +438,15 @@ describe('e2e_block_building', () => {
       expect(privateLogs.length).toBe(3);
 
       // The first two logs are encrypted.
-      const events = await wallet.getPrivateEvents(
-        testContract.address,
-        TestContract.events.ExampleEvent,
-        rct.blockNumber!,
-        1,
-        [ownerAddress],
-      );
-      expect(events[0]).toEqual(values);
-      expect(events[1]).toEqual(nestedValues);
+      const events = await wallet.getPrivateEvents(TestContract.events.ExampleEvent, {
+        contractAddress: testContract.address,
+        fromBlock: BlockNumber(rct.blockNumber!),
+        toBlock: BlockNumber(rct.blockNumber! + 1),
+        scopes: [ownerAddress],
+      });
+
+      expect(events[0].event).toEqual(values);
+      expect(events[1].event).toEqual(nestedValues);
 
       // The last log is not encrypted.
       // The first field is the first value and is siloed with contract address by the kernel circuit.
@@ -470,7 +469,6 @@ describe('e2e_block_building', () => {
     it('publishes two empty blocks', async () => {
       ({ teardown, wallet, logger, aztecNode } = await setup(0, {
         minTxsPerBlock: 0,
-        skipProtocolContracts: true,
       }));
 
       await retryUntil(async () => (await aztecNode.getBlockNumber()) >= 3, 'wait-block', 10, 1);
@@ -480,7 +478,6 @@ describe('e2e_block_building', () => {
     it('sends a tx on the first block', async () => {
       const context = await setup(0, {
         minTxsPerBlock: 0,
-        skipProtocolContracts: true,
         numberOfInitialFundedAccounts: 1,
       });
       ({ teardown, logger, aztecNode, wallet } = context);
@@ -506,7 +503,6 @@ describe('e2e_block_building', () => {
         accounts: [ownerAddress],
       } = await setup(1, {
         minTxsPerBlock: 1,
-        skipProtocolContracts: true,
         ethereumSlotDuration: 6,
       }));
 
@@ -536,7 +532,6 @@ describe('e2e_block_building', () => {
     it('clears up all nullifiers if tx processing fails', async () => {
       const context = await setup(1, {
         minTxsPerBlock: 1,
-        skipProtocolContracts: true,
         numberOfInitialFundedAccounts: 1,
       });
       ({
@@ -559,30 +554,31 @@ describe('e2e_block_building', () => {
         ]);
       const batches = times(2, makeBatch);
 
-      // This is embarrassingly brittle. What we want to do here is: we want the sequencer to wait until both
-      // txs have arrived (so minTxsPerBlock=2), but agree to build a block with 1 tx only, so we change the config
-      // to minTxsPerBlock=1 as soon as we start processing. We also want to simulate an AVM failure in tx processing
-      // for only one of the txs, and near the end so all nullifiers have been emitted. So we throw on one of the last
-      // calls to SET. Note that this will break on brillig or AVM changes that change how many SET operations we use.
-      let setCount = 0;
-      const origExecute = Set.prototype.execute;
-      const spy = jest.spyOn(Set.prototype, 'execute').mockImplementation(async function (...args: any[]) {
-        setCount++;
-        if (setCount === 1) {
-          context.sequencer?.updateConfig({ minTxsPerBlock: 1 });
-        } else if (setCount === 48) {
-          throw new Error('Simulated failure in AVM opcode SET');
-        }
-        // @ts-expect-error: eslint-be-happy
-        await origExecute.call(this, ...args);
-      });
+      // We want the sequencer to wait until both txs have arrived (so minTxsPerBlock=2), but agree to build
+      // a block with 1 tx only, so we change the config to minTxsPerBlock=1 as soon as we start processing.
+      // We also want to simulate an AVM failure in tx processing for only one of the txs.
+      let simulateCount = 0;
+      interceptTxProcessorSimulate(
+        aztecNode as AztecNodeService,
+        async (tx: Tx, originalSimulate: (tx: Tx) => Promise<PublicTxResult>) => {
+          simulateCount++;
+          if (simulateCount === 1) {
+            context.sequencer?.updateConfig({ minTxsPerBlock: 1 });
+          }
+          const result = await originalSimulate(tx);
+          if (simulateCount === 2) {
+            throw new Error('Simulated failure in public tx simulation');
+          }
+          return result;
+        },
+      );
 
       const txs = await Promise.all(batches.map(batch => batch.send({ from: ownerAddress })));
       logger.warn(`Sent two txs to test contract`, { txs: await Promise.all(txs.map(tx => tx.getTxHash())) });
       await Promise.race(txs.map(tx => tx.wait({ timeout: 60 })));
 
-      logger.warn(`At least one tx has been mined (after ${spy.mock.calls.length} AVM SET invocations)`);
-      expect(setCount).toBeGreaterThanOrEqual(48);
+      logger.warn(`At least one tx has been mined (after ${simulateCount} public tx simulations)`);
+      expect(simulateCount).toBeGreaterThanOrEqual(2);
       const lastBlock = await context.aztecNode.getBlockHeader();
       expect(lastBlock).toBeDefined();
 
@@ -596,7 +592,7 @@ describe('e2e_block_building', () => {
     let contract: StatefulTestContract;
     let cheatCodes: CheatCodes;
     let ownerAddress: AztecAddress;
-    let initialBlockNumber: number;
+    let initialBlockNumber: BlockNumber;
     let teardown: () => Promise<void>;
 
     beforeEach(async () => {
@@ -695,7 +691,7 @@ describe('e2e_block_building', () => {
       .mockImplementation(async (...args: Parameters<BlockBuilder['makeBlockBuilderDeps']>) => {
         logger.warn('Creating mocked public tx simulator');
         const deps = await originalCreateDeps(...args);
-        const simulator: PublicTxSimulator = (deps.processor as any).publicTxSimulator;
+        const simulator: PublicTxSimulatorInterface = (deps.processor as any).publicTxSimulator;
         const originalSimulate = simulator.simulate.bind(simulator);
         jest.spyOn(simulator, 'simulate').mockImplementation((tx: Tx) => stub(tx, originalSimulate));
         return deps;

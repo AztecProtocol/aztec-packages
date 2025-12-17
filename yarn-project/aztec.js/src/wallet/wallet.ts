@@ -1,6 +1,8 @@
 import type { ChainInfo } from '@aztec/entrypoints/interfaces';
-import type { Fr } from '@aztec/foundation/fields';
+import { BlockNumber, BlockNumberPositiveSchema } from '@aztec/foundation/branded-types';
+import type { Fr } from '@aztec/foundation/curves/bn254';
 import {
+  type AbiDecoded,
   AbiTypeSchema,
   type ContractArtifact,
   ContractArtifactSchema,
@@ -18,7 +20,7 @@ import {
   type ContractMetadata,
 } from '@aztec/stdlib/contract';
 import { Gas } from '@aztec/stdlib/gas';
-import { AbiDecodedSchema, type ApiSchemaFor, type ZodFor, optional, schemas } from '@aztec/stdlib/schemas';
+import { AbiDecodedSchema, type ApiSchemaFor, optional, schemas, zodFor } from '@aztec/stdlib/schemas';
 import {
   Capsule,
   HashedValues,
@@ -27,8 +29,9 @@ import {
   TxReceipt,
   TxSimulationResult,
   UtilitySimulationResult,
+  inTxSchema,
 } from '@aztec/stdlib/tx';
-import type { ExecutionPayload } from '@aztec/stdlib/tx';
+import type { ExecutionPayload, InTx } from '@aztec/stdlib/tx';
 
 import { z } from 'zod';
 
@@ -130,18 +133,47 @@ export type BatchResults<T extends readonly BatchedMethod<keyof BatchableMethods
 };
 
 /**
+ * Filter options when querying private events.
+ */
+export type PrivateEventFilter = {
+  /** The address of the contract that emitted the events. */
+  contractAddress: AztecAddress;
+  /** Addresses of accounts that are in scope for this filter. */
+  scopes: AztecAddress[];
+  /** Transaction in which the events were emitted. */
+  txHash?: TxHash;
+  /** The block number from which to start fetching events (inclusive).
+   * Optional. If provided, it must be greater or equal than 1.
+   * Defaults to the initial L2 block number (INITIAL_L2_BLOCK_NUM).
+   * */
+  fromBlock?: BlockNumber;
+  /** The block number until which to fetch logs (not inclusive).
+   * Optional. If provided, it must be greater than fromBlock.
+   * Defaults to the latest known block to PXE + 1.
+   */
+  toBlock?: BlockNumber;
+};
+
+/**
+ * An ABI decoded private event with associated metadata.
+ */
+export type PrivateEvent<T> = {
+  /** The ABI decoded event */
+  event: T;
+  /** Metadata describing event context information such as tx and block */
+  metadata: InTx;
+};
+
+/**
  * The wallet interface.
  */
 export type Wallet = {
   getContractClassMetadata(id: Fr, includeArtifact?: boolean): Promise<ContractClassMetadata>;
   getContractMetadata(address: AztecAddress): Promise<ContractMetadata>;
   getPrivateEvents<T>(
-    contractAddress: AztecAddress,
     eventMetadata: EventMetadataDefinition,
-    from: number,
-    numBlocks: number,
-    recipients: AztecAddress[],
-  ): Promise<T[]>;
+    eventFilter: PrivateEventFilter,
+  ): Promise<PrivateEvent<T>[]>;
   getChainInfo(): Promise<ChainInfo>;
   getTxReceipt(txHash: TxHash): Promise<TxReceipt>;
   registerSender(address: AztecAddress, alias?: string): Promise<AztecAddress>;
@@ -249,22 +281,41 @@ export const BatchedMethodSchema = z.union([
   }),
 ]);
 
-export const ContractMetadataSchema = z.object({
-  contractInstance: z.union([ContractInstanceWithAddressSchema, z.undefined()]),
-  isContractInitialized: z.boolean(),
-  isContractPublished: z.boolean(),
-}) satisfies ZodFor<ContractMetadata>;
+export const ContractMetadataSchema = zodFor<ContractMetadata>()(
+  z.object({
+    contractInstance: z.union([ContractInstanceWithAddressSchema, z.undefined()]),
+    isContractInitialized: z.boolean(),
+    isContractPublished: z.boolean(),
+  }),
+);
 
-export const ContractClassMetadataSchema = z.object({
-  contractClass: z.union([ContractClassWithIdSchema, z.undefined()]),
-  isContractClassPubliclyRegistered: z.boolean(),
-  artifact: z.union([ContractArtifactSchema, z.undefined()]),
-}) satisfies ZodFor<ContractClassMetadata>;
+export const ContractClassMetadataSchema = zodFor<ContractClassMetadata>()(
+  z.object({
+    contractClass: z.union([ContractClassWithIdSchema, z.undefined()]),
+    isContractClassPubliclyRegistered: z.boolean(),
+    artifact: z.union([ContractArtifactSchema, z.undefined()]),
+  }),
+);
 
 export const EventMetadataDefinitionSchema = z.object({
   eventSelector: schemas.EventSelector,
   abiType: AbiTypeSchema,
   fieldNames: z.array(z.string()),
+});
+
+export const PrivateEventSchema: z.ZodType<any> = zodFor<PrivateEvent<AbiDecoded>>()(
+  z.object({
+    event: AbiDecodedSchema,
+    metadata: inTxSchema(),
+  }),
+);
+
+export const PrivateEventFilterSchema = z.object({
+  contractAddress: schemas.AztecAddress,
+  scopes: z.array(schemas.AztecAddress),
+  txHash: optional(TxHash.schema),
+  fromBlock: optional(BlockNumberPositiveSchema),
+  toBlock: optional(BlockNumberPositiveSchema),
 });
 
 export const WalletSchema: ApiSchemaFor<Wallet> = {
@@ -277,8 +328,8 @@ export const WalletSchema: ApiSchemaFor<Wallet> = {
   getTxReceipt: z.function().args(TxHash.schema).returns(TxReceipt.schema),
   getPrivateEvents: z
     .function()
-    .args(schemas.AztecAddress, EventMetadataDefinitionSchema, z.number(), z.number(), z.array(schemas.AztecAddress))
-    .returns(z.array(AbiDecodedSchema)),
+    .args(EventMetadataDefinitionSchema, PrivateEventFilterSchema)
+    .returns(z.array(PrivateEventSchema)),
   registerSender: z.function().args(schemas.AztecAddress, optional(z.string())).returns(schemas.AztecAddress),
   getAddressBook: z
     .function()

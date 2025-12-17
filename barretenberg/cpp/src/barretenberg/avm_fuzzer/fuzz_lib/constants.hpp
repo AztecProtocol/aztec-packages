@@ -1,7 +1,11 @@
 #pragma once
+#include "barretenberg/common/log.hpp"
 #include "barretenberg/vm2/common/avm_io.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/field.hpp"
+
+#include <cstdlib>
+#include <functional>
 
 using namespace bb::avm2;
 using EthAddress = FF;
@@ -34,3 +38,14 @@ const FF CONTRACT_ADDRESS = 42;
 const FF TRANSACTION_FEE = 0;
 const bool IS_STATIC_CALL = false;
 const Gas GAS_LIMIT = Gas{ .l2_gas = 1000000, .da_gas = 1000000 };
+// Fuzzer-specific logging macro (similar to vinfo but uses AVM_FUZZER_LOGGING env var)
+// Uses lazy evaluation to avoid string formatting overhead when logging is disabled
+inline void fuzz_info_(std::function<std::string()> func)
+{
+    static const bool enabled = std::getenv("AVM_FUZZER_LOGGING") != nullptr;
+    if (enabled) {
+        info(func());
+    }
+}
+
+#define fuzz_info(...) fuzz_info_([&]() { return format(__VA_ARGS__); })

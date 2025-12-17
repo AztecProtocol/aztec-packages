@@ -41,12 +41,6 @@ template <typename LeafValueType> using IndexedLeaf = ::bb::crypto::merkle_tree:
 template <typename LeafValueType>
 using SequentialInsertionResult = ::bb::world_state::SequentialInsertionResult<LeafValueType>;
 
-// The sibling path and root after the insertion.
-struct AppendLeafResult {
-    FF root;
-    SiblingPath path;
-};
-
 // Low level access to a merkle db. In general these will not be constrained.
 class LowLevelMerkleDBInterface {
   public:
@@ -67,8 +61,7 @@ class LowLevelMerkleDBInterface {
     virtual SequentialInsertionResult<NullifierLeafValue> insert_indexed_leaves_nullifier_tree(
         const NullifierLeafValue& leaf_value) = 0;
 
-    // todo(ilyas): does this need to be a vector of appendLeafResult? We should only care abou the end of appendings
-    virtual std::vector<AppendLeafResult> append_leaves(MerkleTreeId tree_id, std::span<const FF> leaves) = 0;
+    virtual void append_leaves(MerkleTreeId tree_id, std::span<const FF> leaves) = 0;
 
     virtual void pad_tree(MerkleTreeId tree_id, size_t num_leaves) = 0;
 

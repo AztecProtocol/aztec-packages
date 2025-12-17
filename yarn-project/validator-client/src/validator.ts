@@ -1,8 +1,10 @@
+import { getBlobsPerL1Block } from '@aztec/blob-lib';
+import type { FileStoreBlobClient } from '@aztec/blob-sink/filestore';
 import type { EpochCache } from '@aztec/epoch-cache';
-import { EpochNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, EpochNumber } from '@aztec/foundation/branded-types';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { Signature } from '@aztec/foundation/eth-signature';
-import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { sleep } from '@aztec/foundation/sleep';
@@ -65,6 +67,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     private p2pClient: P2P,
     private blockProposalHandler: BlockProposalHandler,
     private config: ValidatorClientFullConfig,
+    private fileStoreBlobUploadClient: FileStoreBlobClient | undefined,
     private dateProvider: DateProvider = new DateProvider(),
     telemetry: TelemetryClient = getTelemetryClient(),
     log = createLogger('validator'),
@@ -147,6 +150,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     l1ToL2MessageSource: L1ToL2MessageSource,
     txProvider: TxProvider,
     keyStoreManager: KeystoreManager,
+    fileStoreBlobUploadClient?: FileStoreBlobClient,
     dateProvider: DateProvider = new DateProvider(),
     telemetry: TelemetryClient = getTelemetryClient(),
   ) {
@@ -172,6 +176,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       p2pClient,
       blockProposalHandler,
       config,
+      fileStoreBlobUploadClient,
       dateProvider,
       telemetry,
     );
@@ -192,7 +197,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
   // Proxy method for backwards compatibility with tests
   public reExecuteTransactions(
     proposal: BlockProposal,
-    blockNumber: number,
+    blockNumber: BlockNumber,
     txs: any[],
     l1ToL2Messages: Fr[],
   ): Promise<any> {
@@ -289,7 +294,8 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       fishermanMode ||
       (slashBroadcastedInvalidBlockPenalty > 0n && validatorReexecute) ||
       (partOfCommittee && validatorReexecute) ||
-      alwaysReexecuteBlockProposals;
+      alwaysReexecuteBlockProposals ||
+      this.fileStoreBlobUploadClient;
 
     const validationResult = await this.blockProposalHandler.handleBlockProposal(
       proposal,
@@ -344,6 +350,20 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     });
 
     this.metrics.incSuccessfulAttestations(inCommittee.length);
+
+    // Upload blobs to filestore after successful re-execution (fire-and-forget)
+    if (validationResult.reexecutionResult?.block && this.fileStoreBlobUploadClient) {
+      void Promise.resolve().then(async () => {
+        try {
+          const blobFields = validationResult.reexecutionResult!.block.getCheckpointBlobFields();
+          const blobs = getBlobsPerL1Block(blobFields);
+          await this.fileStoreBlobUploadClient!.saveBlobs(blobs, true);
+          this.log.debug(`Uploaded ${blobs.length} blobs to filestore from re-execution`, proposalInfo);
+        } catch (err) {
+          this.log.warn(`Failed to upload blobs from re-execution`, err);
+        }
+      });
+    }
 
     // If the above function does not throw an error, then we can attest to the proposal
     // Determine which validators should attest
@@ -401,7 +421,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
   }
 
   async createBlockProposal(
-    blockNumber: number,
+    blockNumber: BlockNumber,
     header: CheckpointHeader,
     archive: Fr,
     txs: Tx[],

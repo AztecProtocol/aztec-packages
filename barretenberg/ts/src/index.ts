@@ -7,6 +7,10 @@ export {
   UltraHonkVerifierBackend,
   UltraHonkBackend,
   AztecClientBackend,
+  fieldToString,
+  fieldsToStrings,
+  type UltraHonkBackendOptions,
+  type VerifierTarget,
 } from './barretenberg/index.js';
 
 export { randomBytes } from './random/index.js';

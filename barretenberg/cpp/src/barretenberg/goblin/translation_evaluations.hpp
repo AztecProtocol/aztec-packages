@@ -26,9 +26,16 @@ template <typename BF> struct TranslationEvaluations_ {
     std::array<std::string, NUM_TRANSLATION_EVALUATIONS> labels = {
         "Translation:op", "Translation:Px", "Translation:Py", "Translation:z1", "Translation:z2"
     };
-    ;
+};
 
-    MSGPACK_FIELDS(op, Px, Py, z1, z2);
+/**
+ * @brief Data passed from ECCVM Verifier to Translator Verifier for verification
+ * @tparam FF The field type (either bb::fq or bigfield)
+ */
+template <typename FF> struct TranslatorInputData_ {
+    FF evaluation_challenge_x;
+    FF batching_challenge_v;
+    FF accumulated_result;
 };
 
 /**

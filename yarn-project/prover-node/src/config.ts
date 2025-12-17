@@ -1,6 +1,6 @@
 import { type ArchiverConfig, archiverConfigMappings } from '@aztec/archiver/config';
 import type { ACVMConfig, BBConfig } from '@aztec/bb-prover/config';
-import { type GenesisStateConfig, genesisStateConfigMappings } from '@aztec/ethereum';
+import { type GenesisStateConfig, genesisStateConfigMappings } from '@aztec/ethereum/config';
 import {
   type ConfigMappingsType,
   booleanConfigHelper,
@@ -8,7 +8,9 @@ import {
   numberConfigHelper,
 } from '@aztec/foundation/config';
 import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
-import { type KeyStore, type KeyStoreConfig, ethPrivateKeySchema, keyStoreConfigMappings } from '@aztec/node-keystore';
+import { type KeyStoreConfig, keyStoreConfigMappings } from '@aztec/node-keystore/config';
+import { ethPrivateKeySchema } from '@aztec/node-keystore/schemas';
+import type { KeyStore } from '@aztec/node-keystore/types';
 import { type SharedNodeConfig, sharedNodeConfigMappings } from '@aztec/node-lib/config';
 import { type P2PConfig, p2pConfigMappings } from '@aztec/p2p/config';
 import {
@@ -16,7 +18,7 @@ import {
   type ProverBrokerConfig,
   proverAgentConfigMappings,
   proverBrokerConfigMappings,
-} from '@aztec/prover-client/broker';
+} from '@aztec/prover-client/broker/config';
 import { type ProverClientUserConfig, bbConfigMappings, proverClientConfigMappings } from '@aztec/prover-client/config';
 import {
   type PublisherConfig,
@@ -163,7 +165,7 @@ function createKeyStoreFromWeb3Signer(config: ProverNodeConfig): KeyStore | unde
 function createKeyStoreFromPublisherKeys(config: ProverNodeConfig): KeyStore | undefined {
   // Extract the publisher keys from the provided config.
   const publisherKeys = config.publisherPrivateKeys
-    ? config.publisherPrivateKeys.map(k => ethPrivateKeySchema.parse(k.getValue()))
+    ? config.publisherPrivateKeys.map((k: { getValue: () => string }) => ethPrivateKeySchema.parse(k.getValue()))
     : [];
 
   // There must be at least 1.

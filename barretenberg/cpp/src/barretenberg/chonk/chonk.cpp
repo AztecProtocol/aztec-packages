@@ -7,6 +7,8 @@
 #include "barretenberg/chonk/chonk.hpp"
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/streams.hpp"
+#include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
+#include "barretenberg/goblin/goblin_verifier.hpp"
 #include "barretenberg/honk/prover_instance_inspector.hpp"
 #include "barretenberg/multilinear_batching/multilinear_batching_prover.hpp"
 #include "barretenberg/serialize/msgpack_impl.hpp"
@@ -143,8 +145,6 @@ Chonk::perform_recursive_verification_and_databus_consistency_checks(
         vinfo("Recursively verifying accumulation of the tail kernel.");
         BB_ASSERT_EQ(stdlib_verification_queue.size(), size_t(1));
 
-        hide_op_queue_accumulation_result(circuit);
-
         auto [_first_verified, _second_verified, final_verifier_accumulator] =
             folding_verifier.verify_folding_proof(verifier_instance, verifier_inputs.proof);
 
@@ -171,7 +171,20 @@ Chonk::perform_recursive_verification_and_databus_consistency_checks(
         // Add pairing points for aggregation
         pairing_points.emplace_back(kernel_input.pairing_inputs);
         // Perform databus consistency checks
+        bool kernel_return_data_match =
+            kernel_input.kernel_return_data.get_value() == witness_commitments.calldata.get_value();
+        BB_ASSERT_DEBUG(kernel_return_data_match,
+                        "kernel_return_data mismatch: proof contains " << kernel_input.kernel_return_data.get_value()
+                                                                       << " but calldata commitment is "
+                                                                       << witness_commitments.calldata.get_value());
         kernel_input.kernel_return_data.incomplete_assert_equal(witness_commitments.calldata);
+
+        bool app_return_data_match =
+            kernel_input.app_return_data.get_value() == witness_commitments.secondary_calldata.get_value();
+        BB_ASSERT_DEBUG(app_return_data_match,
+                        "app_return_data mismatch: proof contains "
+                            << kernel_input.app_return_data.get_value() << " but secondary_calldata commitment is "
+                            << witness_commitments.secondary_calldata.get_value());
         kernel_input.app_return_data.incomplete_assert_equal(witness_commitments.secondary_calldata);
 
         // T_prev is read by the public input of the previous kernel K_{i-1} at the beginning of the recursive
@@ -185,6 +198,11 @@ Chonk::perform_recursive_verification_and_databus_consistency_checks(
         // Get the previous accum hash
         info("Accumulator hash from IO: ", kernel_input.output_hn_accum_hash);
         BB_ASSERT(prev_accum_hash.has_value());
+        bool accum_hash_match = kernel_input.output_hn_accum_hash.get_value() == prev_accum_hash->get_value();
+        BB_ASSERT_DEBUG(accum_hash_match,
+                        "output_hn_accum_hash mismatch: proof contains "
+                            << kernel_input.output_hn_accum_hash.get_value() << " but expected "
+                            << prev_accum_hash->get_value());
         kernel_input.output_hn_accum_hash.assert_equal(*prev_accum_hash);
 
         // Set the kernel return data commitment to be propagated via the public inputs
@@ -213,25 +231,33 @@ Chonk::perform_recursive_verification_and_databus_consistency_checks(
 
 /**
  * @brief Append logic to complete a kernel circuit
- * @details A kernel circuit may contain some combination of HN recursive verification, merge recursive
- * verification, and databus commitment consistency checks. This method appends this logic to a provided kernel
- * circuit.
  *
- * @param circuit
+ * @details This is the verifier counterpart to prover's `accumulate()`. While `accumulate()` creates
+ * proofs for each circuit, this method adds recursive verification constraints to kernel circuits.
+ *
+ * The method performs the following steps:
+ *   1. SETUP: Initialize transcript, determine kernel type, add ZK masking for tail kernel
+ *   2. VERIFICATION LOOP: Process each entry in stdlib_verification_queue (folding + merge + databus)
+ *   3. OUTPUT: Set public inputs (KernelIO or HidingKernelIO) for propagation to next kernel
+ *
+ * @param circuit The kernel circuit to append verification logic to
  */
 void Chonk::complete_kernel_circuit_logic(ClientCircuit& circuit)
 {
-    // Transcript to be shared across recursive verification of the folding of K_{i-1} (kernel), A_{i} (app)
+    // Step 1: SETUP - Initialize state and determine kernel type
+
+    // Transcript is shared across recursive verification of the folding of K_{i-1} (kernel) and A_{i} (app)
     auto accumulation_recursive_transcript = std::make_shared<RecursiveTranscript>();
 
-    // Commitment to the previous state of the op_queue in the recursive verification
+    // T_prev: commitment to previous merged table, propagated via public inputs
     TableCommitments T_prev_commitments;
 
-    // Instantiate stdlib verifier inputs from their native counterparts
+    // Convert native verification queue to circuit witnesses
     if (stdlib_verification_queue.empty()) {
         instantiate_stdlib_verification_queue(circuit);
     }
 
+    // Determine kernel type from queue contents
     bool is_init_kernel =
         stdlib_verification_queue.size() == 1 && (stdlib_verification_queue.front().type == QUEUE_TYPE::OINK);
 
@@ -241,6 +267,7 @@ void Chonk::complete_kernel_circuit_logic(ClientCircuit& circuit)
     bool is_hiding_kernel =
         stdlib_verification_queue.size() == 1 && (stdlib_verification_queue.front().type == QUEUE_TYPE::HN_FINAL);
 
+    // For ZK: Tail kernel adds masking at op queue start
     // The ECC-op subtable for a kernel begins with an eq-and-reset to ensure that the preceeding circuit's subtable
     // cannot affect the ECC-op accumulator for the kernel. For the tail kernel, we additionally add a preceeding no-op
     // to ensure the op queue wires in translator are shiftable, i.e. their 0th coefficient is 0. (The tail kernel
@@ -253,10 +280,14 @@ void Chonk::complete_kernel_circuit_logic(ClientCircuit& circuit)
         // Add randomness at the begining of the tail kernel (whose ecc ops fall at the beginning of the op queue table)
         // to ensure the CHONK proof doesn't leak information about the actual content of the op queue
         hide_op_queue_content_in_tail(circuit);
+
+        // Add the hiding op with random (non-curve) Px, Py values for statistical hiding of accumulated_result.
+        hide_op_queue_accumulation_result(circuit);
     }
     circuit.queue_ecc_eq();
 
-    // Perform Oink/HN and Merge recursive verification + databus consistency checks for each entry in the queue
+    // Step 2: VERIFICATION LOOP - Recursively verify each proof in the queue
+
     std::vector<PairingPoints> points_accumulator;
     std::optional<RecursiveVerifierAccumulator> current_stdlib_verifier_accumulator;
     if (!is_init_kernel) {
@@ -281,10 +312,11 @@ void Chonk::complete_kernel_circuit_logic(ClientCircuit& circuit)
         stdlib_verification_queue.pop_front();
     }
 
-    // PairingPoint aggregation
+    // Step 3: OUTPUT - Set public inputs for propagation to next kernel
+
     PairingPoints pairing_points_aggregator = PairingPoints::aggregate_multiple(points_accumulator);
 
-    // Set the kernel output data to be propagated via the public inputs
+    // Output differs based on kernel type: HidingKernelIO (no accum hash) vs KernelIO (with accum hash)
     if (is_hiding_kernel) {
         BB_ASSERT_EQ(current_stdlib_verifier_accumulator.has_value(), false);
         // Add randomness at the end of the hiding kernel (whose ecc ops fall right at the end of the op queue table) to
@@ -297,7 +329,7 @@ void Chonk::complete_kernel_circuit_logic(ClientCircuit& circuit)
         hiding_output.set_public();
     } else {
         BB_ASSERT_NEQ(current_stdlib_verifier_accumulator.has_value(), false);
-        // Extract native verifier accumulator from the stdlib accum for use on the next round
+        // Extract native verifier accumulator from the stdlib accum to use it in the next round
         recursive_verifier_native_accum = current_stdlib_verifier_accumulator->get_value<VerifierAccumulator>();
 
         KernelIO kernel_output;
@@ -348,13 +380,18 @@ Chonk::QUEUE_TYPE Chonk::get_queue_type() const
 
 /**
  * @brief Execute prover work for accumulation
- * @details Construct an prover instance for the provided circuit. If this is the first step in the IVC, simply
- * initialize the folding accumulator. Otherwise, execute the HN prover to fold the prover instance into the accumulator
- * and produce a folding proof. Also execute the merge protocol to produce a merge proof.
  *
- * @param circuit
- * this case, just produce a Honk proof for that circuit and do no folding.
- * @param precomputed_vk
+ * @details Creates proofs that will later be recursively verified in kernel circuits.
+ *
+ * Prover actions per QUEUE_TYPE (see chonk.hpp for verifier perspective):
+ *   - OINK:     instance_to_accumulator (first app, circuit 0)
+ *   - HN:       fold (circuits 1..n-4: apps, inner kernels, reset kernels)
+ *   - HN_TAIL:  fold (circuit n-3)
+ *   - HN_FINAL: fold + decider (tail kernel, circuit n-2)
+ *   - MEGA:     MegaZK proof (hiding kernel, circuit n-1)
+ *
+ * @param circuit The circuit to accumulate
+ * @param precomputed_vk Precomputed verification key for the circuit
  */
 void Chonk::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVerificationKey>& precomputed_vk)
 {
@@ -447,23 +484,19 @@ void Chonk::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVerific
 }
 
 /**
- * @brief Add a valid operation with random data to the op queue to prevent information leakage in Translator
- * proof.
+ * @brief Add a hiding op with fully random Px, Py field elements to prevent information leakage in Translator proof.
  *
  * @details The Translator circuit builder evaluates a batched polynomial (representing the four op queue polynomials
  * in UltraOp format) at a random challenge x. This evaluation result (called accumulated_result in translator) is
  * included in the translator proof and verified against the equivalent computation performed by ECCVM (in
- * verify_translation, establishing equivalence between ECCVM and UltraOp format). To ensure the accumulated_result
- * doesn't reveal information about actual ecc operations in the transaction, when the proof is sent to the rollup, we
- * add a random yet valid operation to the op queue. This guarantees the batched polynomial over Grumpkin contains at
- * least one random coefficient.
+ * verify_translation, establishing equivalence between ECCVM and UltraOp format).
+ *
  */
 void Chonk::hide_op_queue_accumulation_result(ClientCircuit& circuit)
 {
-    Point random_point = Point::random_element();
-    FF random_scalar = FF::random_element();
-    circuit.queue_ecc_mul_accum(random_point, random_scalar);
-    circuit.queue_ecc_eq();
+    // Use random Fq field elements as Px and Py.
+    using Fq = curve::Grumpkin::ScalarField; // Same as BN254::BaseField
+    circuit.queue_ecc_hiding_op(Fq::random_element(), Fq::random_element());
 }
 
 /**
@@ -490,7 +523,7 @@ void Chonk::hide_op_queue_content_in_hiding(ClientCircuit& circuit)
 }
 
 /**
- * @brief Construct a zero-knowledge proof for the hiding circuit, which recursively verifies the last folding,
+ * @brief Construct a zero-knowledge proof for the Hiding kernel, which recursively verifies the last folding,
  * merge and decider proof.
  */
 HonkProof Chonk::construct_honk_proof_for_hiding_kernel(ClientCircuit& circuit,
@@ -498,7 +531,7 @@ HonkProof Chonk::construct_honk_proof_for_hiding_kernel(ClientCircuit& circuit,
 {
     auto hiding_prover_inst = std::make_shared<DeciderZKProvingKey>(circuit, bn254_commitment_key);
 
-    // Hiding circuit is proven by a MegaZKProver
+    // Hiding kernel is proven by a MegaZKProver
     MegaZKProver prover(hiding_prover_inst, verification_key, transcript);
     HonkProof proof = prover.construct_proof();
 
@@ -516,11 +549,11 @@ Chonk::Proof Chonk::prove()
     prover_accumulator = ProverAccumulator();
     auto mega_proof = verification_queue.front().proof;
 
-    // A transcript is shared between the Hiding circuit prover and the Goblin prover
+    // A transcript is shared between the Hiding kernel prover and the Goblin prover
     goblin.transcript = transcript;
 
-    // Returns a proof for the hiding circuit and the Goblin proof. The latter consists of Translator and ECCVM proof
-    // for the whole ecc op table and the merge proof for appending the subtable coming from the hiding circuit. The
+    // Returns a proof for the Hiding kernel and the Goblin proof. The latter consists of Translator and ECCVM proof
+    // for the whole ecc op table and the merge proof for appending the subtable coming from the Hiding kernel. The
     // final merging is done via appending to facilitate creating a zero-knowledge merge proof. This enables us to add
     // randomness to the beginning of the tail kernel and the end of the hiding kernel, hiding the commitments and
     // evaluations of both the previous table and the incoming subtable.
@@ -532,24 +565,53 @@ bool Chonk::verify(const Proof& proof, const VerificationKey& vk)
     using TableCommitments = Goblin::TableCommitments;
     // Create a transcript to be shared by MegaZK-, Merge-, ECCVM-, and Translator- Verifiers.
     std::shared_ptr<Goblin::Transcript> chonk_verifier_transcript = std::make_shared<Goblin::Transcript>();
-    // Verify the hiding circuit proof
-    MegaZKVerifier verifier{ vk.mega, /*ipa_verification_key=*/{}, chonk_verifier_transcript };
-    auto [mega_verified, kernel_return_data, T_prev_commitments] =
-        verifier.template verify_proof<bb::HidingKernelIO>(proof.mega_proof);
+
+    // Step 1: Verify the Hiding kernel proof
+    auto vk_and_hash_mega = std::make_shared<MegaZKFlavor::VKAndHash>(vk.mega);
+    MegaZKVerifier verifier{ vk_and_hash_mega, chonk_verifier_transcript };
+    auto [mega_verified, kernel_return_data, T_prev_commitments] = verifier.verify_proof(proof.mega_proof);
     vinfo("Mega verified: ", mega_verified);
-    // Perform databus consistency checks
-    bool databus_consistency_verified = kernel_return_data == verifier.verifier_instance->witness_commitments.calldata;
+    if (!mega_verified) {
+        info("Chonk verification failed at Mega step");
+        return false;
+    }
+
+    // Step 2: Perform databus consistency checks
+    bool databus_consistency_verified =
+        kernel_return_data == verifier.get_verifier_instance()->witness_commitments.calldata;
     vinfo("Databus consistency verified: ", databus_consistency_verified);
+    if (!databus_consistency_verified) {
+        info("Chonk verification failed at databus consistency check");
+        return false;
+    }
+
     // Extract the commitments to the subtable corresponding to the incoming circuit
-    TableCommitments t_commitments = verifier.verifier_instance->witness_commitments.get_ecc_op_wires().get_copy();
+    TableCommitments t_commitments =
+        verifier.get_verifier_instance()->witness_commitments.get_ecc_op_wires().get_copy();
 
-    // Goblin verification (final merge, eccvm, translator)
-    bool goblin_verified = Goblin::verify(
-        proof.goblin_proof, { t_commitments, T_prev_commitments }, chonk_verifier_transcript, MergeSettings::APPEND);
-    vinfo("Goblin verified: ", goblin_verified);
+    // Step 3: Goblin verification (merge, eccvm, translator)
+    // Reduces Goblin proof to pairing points and IPA claim. In native mode, pairing checks are performed
+    // immediately for fail-fast. goblin_checks_passed includes reduction checks + pairing checks (pairing performed).
+    GoblinVerifier goblin_verifier{
+        chonk_verifier_transcript, proof.goblin_proof, { t_commitments, T_prev_commitments }, MergeSettings::APPEND
+    };
+    auto [_, ipa_claim, ipa_proof, goblin_checks_passed] = goblin_verifier.reduce_to_pairing_check_and_ipa_opening();
+    if (!goblin_checks_passed) {
+        info("Chonk verification failed at Goblin checks (merge/eccvm/translator reduction + pairing)");
+        return false;
+    }
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1396): State tracking in Chonk verifiers.
-    return goblin_verified && mega_verified && databus_consistency_verified;
+    // Step 4: Verify IPA opening
+    auto ipa_transcript = std::make_shared<Goblin::Transcript>(ipa_proof);
+    auto ipa_vk = VerifierCommitmentKey<curve::Grumpkin>{ ECCVMFlavor::ECCVM_FIXED_SIZE };
+    bool ipa_verified = IPA<curve::Grumpkin>::reduce_verify(ipa_vk, ipa_claim, ipa_transcript);
+    vinfo("Goblin IPA verified: ", ipa_verified);
+    if (!ipa_verified) {
+        info("Chonk verification failed at IPA check");
+        return false;
+    }
+
+    return true;
 }
 
 // Proof methods
@@ -564,9 +626,8 @@ std::vector<Chonk::FF> Chonk::Proof::to_field_elements() const
 
     proof.insert(proof.end(), mega_proof.begin(), mega_proof.end());
     proof.insert(proof.end(), goblin_proof.merge_proof.begin(), goblin_proof.merge_proof.end());
-    proof.insert(
-        proof.end(), goblin_proof.eccvm_proof.pre_ipa_proof.begin(), goblin_proof.eccvm_proof.pre_ipa_proof.end());
-    proof.insert(proof.end(), goblin_proof.eccvm_proof.ipa_proof.begin(), goblin_proof.eccvm_proof.ipa_proof.end());
+    proof.insert(proof.end(), goblin_proof.eccvm_proof.begin(), goblin_proof.eccvm_proof.end());
+    proof.insert(proof.end(), goblin_proof.ipa_proof.begin(), goblin_proof.ipa_proof.end());
     proof.insert(proof.end(), goblin_proof.translator_proof.begin(), goblin_proof.translator_proof.end());
     return proof;
 };
@@ -590,15 +651,15 @@ Chonk::Proof Chonk::Proof::from_field_elements(const std::vector<Chonk::FF>& fie
     end_idx += static_cast<std::ptrdiff_t>(MERGE_PROOF_SIZE);
     goblin_proof.merge_proof.insert(goblin_proof.merge_proof.end(), start_idx, end_idx);
 
-    // ECCVM pre-ipa proof
+    // ECCVM proof
     start_idx = end_idx;
-    end_idx += static_cast<std::ptrdiff_t>(ECCVMFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS - IPA_PROOF_LENGTH);
-    goblin_proof.eccvm_proof.pre_ipa_proof.insert(goblin_proof.eccvm_proof.pre_ipa_proof.end(), start_idx, end_idx);
+    end_idx += static_cast<std::ptrdiff_t>(ECCVMFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS);
+    goblin_proof.eccvm_proof.insert(goblin_proof.eccvm_proof.end(), start_idx, end_idx);
 
-    // ECCVM ipa proof
+    // IPA proof
     start_idx = end_idx;
     end_idx += static_cast<std::ptrdiff_t>(IPA_PROOF_LENGTH);
-    goblin_proof.eccvm_proof.ipa_proof.insert(goblin_proof.eccvm_proof.ipa_proof.end(), start_idx, end_idx);
+    goblin_proof.ipa_proof.insert(goblin_proof.ipa_proof.end(), start_idx, end_idx);
 
     // Translator proof
     start_idx = end_idx;

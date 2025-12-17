@@ -1,12 +1,14 @@
+import type { FileStoreBlobClient } from '@aztec/blob-sink/filestore';
 import { GENESIS_ARCHIVE_ROOT } from '@aztec/constants';
 import type { EpochCache } from '@aztec/epoch-cache';
-import { SlotNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { times } from '@aztec/foundation/collection';
 import { SecretValue, getConfigFromMappings } from '@aztec/foundation/config';
-import { Secp256k1Signer, makeEthSignDigest } from '@aztec/foundation/crypto';
+import { Secp256k1Signer, makeEthSignDigest } from '@aztec/foundation/crypto/secp256k1-signer';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { Fr } from '@aztec/foundation/fields';
+import { sleep } from '@aztec/foundation/sleep';
 import type { Hex } from '@aztec/foundation/string';
 import { TestDateProvider, Timer } from '@aztec/foundation/timer';
 import { type KeyStore, KeystoreManager } from '@aztec/node-keystore';
@@ -107,6 +109,7 @@ describe('ValidatorClient', () => {
       l1ToL2MessageSource,
       txProvider,
       keyStoreManager,
+      undefined, // fileStoreBlobUploadClient
       dateProvider,
     );
   });
@@ -223,7 +226,7 @@ describe('ValidatorClient', () => {
 
   describe('attestToProposal', () => {
     let proposal: BlockProposal;
-    let blockNumber: number;
+    let blockNumber: BlockNumber;
     let sender: PeerId;
     let blockBuildResult: BuildBlockResult;
 
@@ -238,7 +241,7 @@ describe('ValidatorClient', () => {
       const emptyInHash = computeInHashFromL1ToL2Messages([]);
       const contentCommitment = new ContentCommitment(Fr.random(), emptyInHash, Fr.random());
       const blockHeader = makeL2BlockHeader(1, 100, 100, { contentCommitment });
-      blockNumber = blockHeader.getBlockNumber();
+      blockNumber = BlockNumber(blockHeader.getBlockNumber());
       proposal = makeBlockProposal({ header: blockHeader });
       // Set the current time to the start of the slot of the proposal
       const genesisTime = 1n;
@@ -269,7 +272,7 @@ describe('ValidatorClient', () => {
       // Return parent block when requested
       blockSource.getBlockHeaderByArchive.mockResolvedValue({
         getBlockNumber: () => blockNumber - 1,
-        getSlot: () => blockHeader.getSlot() - SlotNumber(1),
+        getSlot: () => SlotNumber(blockHeader.getSlot() - 1),
       } as BlockHeader);
 
       blockSource.getGenesisValues.mockResolvedValue({ genesisArchiveRoot: new Fr(GENESIS_ARCHIVE_ROOT) });
@@ -462,6 +465,118 @@ describe('ValidatorClient', () => {
 
       const attestation = await validatorClient.attestToProposal(proposal, sender);
       expect(attestation).toBeUndefined();
+    });
+
+    describe('filestore blob upload', () => {
+      let mockFileStoreBlobClient: MockProxy<FileStoreBlobClient>;
+
+      beforeEach(() => {
+        mockFileStoreBlobClient = mock<FileStoreBlobClient>();
+        mockFileStoreBlobClient.saveBlobs.mockResolvedValue();
+      });
+
+      const createValidatorWithFileStore = () => {
+        return ValidatorClient.new(
+          config,
+          blockBuilder,
+          epochCache,
+          p2pClient,
+          blockSource,
+          l1ToL2MessageSource,
+          txProvider,
+          keyStoreManager,
+          mockFileStoreBlobClient,
+          dateProvider,
+        );
+      };
+
+      it('should upload blobs to filestore after successful re-execution', async () => {
+        const validatorWithFileStore = createValidatorWithFileStore();
+        validatorWithFileStore.updateConfig({ validatorReexecute: true });
+        blockBuilder.buildBlock.mockImplementation(() => Promise.resolve(blockBuildResult));
+        epochCache.filterInCommittee.mockResolvedValue([EthAddress.fromString(validatorAccounts[0].address)]);
+
+        // Mock that the block has checkpoint blob fields
+        const mockBlobFields = [Fr.random(), Fr.random()];
+        (blockBuildResult.block as any).getCheckpointBlobFields = jest.fn().mockReturnValue(mockBlobFields);
+
+        const attestations = await validatorWithFileStore.attestToProposal(proposal, sender);
+
+        expect(attestations).toBeDefined();
+
+        // Wait for fire-and-forget upload (1ms is enough since mock resolves immediately)
+        await sleep(1);
+
+        expect(mockFileStoreBlobClient.saveBlobs).toHaveBeenCalledWith(expect.any(Array), true);
+      });
+
+      it('should not attempt upload when fileStoreBlobUploadClient is undefined', async () => {
+        // validatorClient is created without filestore client in beforeEach
+        enableReexecution();
+        epochCache.filterInCommittee.mockResolvedValue([EthAddress.fromString(validatorAccounts[0].address)]);
+
+        const attestations = await validatorClient.attestToProposal(proposal, sender);
+
+        expect(attestations).toBeDefined();
+        // No upload should happen since there's no filestore client
+        expect(mockFileStoreBlobClient.saveBlobs).not.toHaveBeenCalled();
+      });
+
+      it('should not fail attestation when blob upload fails', async () => {
+        mockFileStoreBlobClient.saveBlobs.mockRejectedValue(new Error('Upload failed'));
+        const validatorWithFileStore = createValidatorWithFileStore();
+        validatorWithFileStore.updateConfig({ validatorReexecute: true });
+        blockBuilder.buildBlock.mockImplementation(() => Promise.resolve(blockBuildResult));
+        epochCache.filterInCommittee.mockResolvedValue([EthAddress.fromString(validatorAccounts[0].address)]);
+
+        // Mock that the block has checkpoint blob fields
+        const mockBlobFields = [Fr.random(), Fr.random()];
+        (blockBuildResult.block as any).getCheckpointBlobFields = jest.fn().mockReturnValue(mockBlobFields);
+
+        // Should still return attestations even if upload fails
+        const attestations = await validatorWithFileStore.attestToProposal(proposal, sender);
+
+        expect(attestations).toBeDefined();
+        expect(attestations?.length).toBeGreaterThan(0);
+      });
+
+      it('should trigger re-execution when filestore is configured even if validatorReexecute is false', async () => {
+        const validatorWithFileStore = createValidatorWithFileStore();
+        // Re-execution disabled via config, but filestore is configured which triggers re-execution
+        validatorWithFileStore.updateConfig({ validatorReexecute: false });
+        blockBuilder.buildBlock.mockImplementation(() => Promise.resolve(blockBuildResult));
+        epochCache.filterInCommittee.mockResolvedValue([EthAddress.fromString(validatorAccounts[0].address)]);
+
+        // Mock that the block has checkpoint blob fields
+        const mockBlobFields = [Fr.random(), Fr.random()];
+        (blockBuildResult.block as any).getCheckpointBlobFields = jest.fn().mockReturnValue(mockBlobFields);
+
+        const attestations = await validatorWithFileStore.attestToProposal(proposal, sender);
+
+        expect(attestations).toBeDefined();
+
+        // Wait for fire-and-forget upload (1ms is enough since mock resolves immediately)
+        await sleep(1);
+
+        // Upload should still happen because filestore presence triggers re-execution
+        expect(mockFileStoreBlobClient.saveBlobs).toHaveBeenCalled();
+      });
+
+      it('should not upload blobs when validation fails', async () => {
+        const validatorWithFileStore = createValidatorWithFileStore();
+        validatorWithFileStore.updateConfig({ validatorReexecute: true });
+        blockBuilder.buildBlock.mockImplementation(() => Promise.resolve(blockBuildResult));
+        epochCache.filterInCommittee.mockResolvedValue([EthAddress.fromString(validatorAccounts[0].address)]);
+
+        // Make validation fail by returning mismatched archive
+        blockBuildResult.block.archive.root = Fr.random();
+
+        const attestations = await validatorWithFileStore.attestToProposal(proposal, sender);
+
+        expect(attestations).toBeUndefined();
+        // No upload because validation failed
+        expect(mockFileStoreBlobClient.saveBlobs).not.toHaveBeenCalled();
+      });
     });
 
     it('should validate proposals in fisherman mode but not create or broadcast attestations', async () => {

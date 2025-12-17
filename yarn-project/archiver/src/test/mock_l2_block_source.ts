@@ -1,9 +1,9 @@
 import { GENESIS_ARCHIVE_ROOT } from '@aztec/constants';
-import { DefaultL1ContractsConfig } from '@aztec/ethereum';
-import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { DefaultL1ContractsConfig } from '@aztec/ethereum/config';
+import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import type { FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -15,7 +15,7 @@ import {
   PublishedL2Block,
   type ValidateBlockResult,
 } from '@aztec/stdlib/block';
-import type { Checkpoint } from '@aztec/stdlib/checkpoint';
+import { type Checkpoint, L1PublishedData } from '@aztec/stdlib/checkpoint';
 import type { ContractClassPublic, ContractDataSource, ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { EmptyL1RollupConstants, type L1RollupConstants, getSlotRangeForEpoch } from '@aztec/stdlib/epoch-helpers';
 import { type BlockHeader, TxHash, TxReceipt, TxStatus } from '@aztec/stdlib/tx';
@@ -35,7 +35,7 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
   public async createBlocks(numBlocks: number) {
     for (let i = 0; i < numBlocks; i++) {
       const blockNum = this.l2Blocks.length + 1;
-      const block = await L2Block.random(blockNum);
+      const block = await L2Block.random(BlockNumber(blockNum));
       this.l2Blocks.push(block);
     }
 
@@ -84,11 +84,16 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
    * @returns In this mock instance, returns the number of L2 blocks that we've mocked.
    */
   public getBlockNumber() {
-    return Promise.resolve(this.l2Blocks.length);
+    return Promise.resolve(BlockNumber(this.l2Blocks.length));
   }
 
-  public getProvenBlockNumber(): Promise<number> {
-    return Promise.resolve(this.provenBlockNumber);
+  public getProvenBlockNumber() {
+    return Promise.resolve(BlockNumber(this.provenBlockNumber));
+  }
+
+  public getCheckpointedBlock(_number: BlockNumber) {
+    // In this mock, we don't track checkpointed blocks separately
+    return Promise.resolve(undefined);
   }
 
   /**
@@ -114,9 +119,14 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
     );
   }
 
-  public async getPublishedCheckpoints(from: number, limit: number) {
+  public async getPublishedCheckpoints(from: CheckpointNumber, limit: number) {
     // TODO: Implement this properly. This only works when we have one block per checkpoint.
     return (await this.getPublishedBlocks(from, limit)).map(block => block.toPublishedCheckpoint());
+  }
+
+  public async getCheckpointByArchive(archive: Fr): Promise<Checkpoint | undefined> {
+    // TODO: Implement this properly. This only works when we have one block per checkpoint.
+    return (await this.getPublishedBlockByArchive(archive))?.block.toCheckpoint();
   }
 
   public async getPublishedBlocks(from: number, limit: number, proven?: boolean) {
@@ -124,11 +134,7 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
     return blocks.map(block =>
       PublishedL2Block.fromFields({
         block,
-        l1: {
-          blockNumber: BigInt(block.number),
-          blockHash: Buffer32.random().toString(),
-          timestamp: BigInt(block.number),
-        },
+        l1: new L1PublishedData(BigInt(block.number), BigInt(block.number), Buffer32.random().toString()),
         attestations: [],
       }),
     );
@@ -140,11 +146,7 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
       if (hash.equals(blockHash)) {
         return PublishedL2Block.fromFields({
           block,
-          l1: {
-            blockNumber: BigInt(block.number),
-            blockHash: Buffer32.random().toString(),
-            timestamp: BigInt(block.number),
-          },
+          l1: new L1PublishedData(BigInt(block.number), BigInt(block.number), Buffer32.random().toString()),
           attestations: [],
         });
       }
@@ -160,11 +162,7 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
     return Promise.resolve(
       PublishedL2Block.fromFields({
         block,
-        l1: {
-          blockNumber: BigInt(block.number),
-          blockHash: Buffer32.random().toString(),
-          timestamp: BigInt(block.number),
-        },
+        l1: new L1PublishedData(BigInt(block.number), BigInt(block.number), Buffer32.random().toString()),
         attestations: [],
       }),
     );
@@ -266,15 +264,15 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
 
     return {
       latest: {
-        number: latest,
+        number: BlockNumber(latest),
         hash: (await latestBlock?.hash())?.toString(),
       },
       proven: {
-        number: proven,
+        number: BlockNumber(proven),
         hash: (await provenBlock?.hash())?.toString(),
       },
       finalized: {
-        number: finalized,
+        number: BlockNumber(finalized),
         hash: (await finalizedBlock?.hash())?.toString(),
       },
     };

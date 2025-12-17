@@ -2,33 +2,34 @@ import { L2Block } from '@aztec/aztec.js/block';
 import { Blob, getBlobsPerL1Block, getPrefixedEthBlobCommitments } from '@aztec/blob-lib';
 import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-sink/client';
 import type { EpochCache } from '@aztec/epoch-cache';
+import type { L1ContractsConfig } from '@aztec/ethereum/config';
 import {
   type EmpireSlashingProposerContract,
-  FormattedViemError,
   type GovernanceProposerContract,
   type IEmpireBase,
-  type L1BlobInputs,
-  type L1ContractsConfig,
-  type L1TxConfig,
-  type L1TxRequest,
   MULTI_CALL_3_ADDRESS,
   Multicall3,
   RollupContract,
   type TallySlashingProposerContract,
-  type TransactionStats,
   type ViemCommitteeAttestations,
   type ViemHeader,
+} from '@aztec/ethereum/contracts';
+import { type L1FeeAnalysisResult, L1FeeAnalyzer } from '@aztec/ethereum/l1-fee-analysis';
+import {
+  type L1BlobInputs,
+  type L1TxConfig,
+  type L1TxRequest,
+  type TransactionStats,
   WEI_CONST,
-  formatViemError,
-  tryExtractEvent,
-} from '@aztec/ethereum';
+} from '@aztec/ethereum/l1-tx-utils';
 import type { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
+import { FormattedViemError, formatViemError, tryExtractEvent } from '@aztec/ethereum/utils';
 import { sumBigint } from '@aztec/foundation/bigint';
 import { toHex as toPaddedHex } from '@aztec/foundation/bigint-buffer';
-import { CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import type { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature, type ViemSignature } from '@aztec/foundation/eth-signature';
-import type { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { bufferToHex } from '@aztec/foundation/string';
 import { DateProvider, Timer } from '@aztec/foundation/timer';
@@ -82,8 +83,8 @@ export type InvalidateBlockRequest = {
   request: L1TxRequest;
   reason: 'invalid-attestation' | 'insufficient-attestations';
   gasUsed: bigint;
-  blockNumber: number;
-  forcePendingBlockNumber: number;
+  blockNumber: BlockNumber;
+  forcePendingBlockNumber: BlockNumber;
 };
 
 interface RequestWithExpiry {
@@ -115,6 +116,9 @@ export class SequencerPublisher {
 
   /** Address to use for simulations in fisherman mode (actual proposer's address) */
   private proposerAddressForSimulation?: EthAddress;
+
+  /** L1 fee analyzer for fisherman mode */
+  private l1FeeAnalyzer?: L1FeeAnalyzer;
   // @note - with blobs, the below estimate seems too large.
   // Total used for full block from int_l1_pub e2e test: 1m (of which 86k is 1x blob)
   // Total used for emptier block from above test: 429k (of which 84k is 1x blob)
@@ -174,6 +178,15 @@ export class SequencerPublisher {
       this.slashingProposerContract = newSlashingProposer;
     });
     this.slashFactoryContract = deps.slashFactoryContract;
+
+    // Initialize L1 fee analyzer for fisherman mode
+    if (config.fishermanMode) {
+      this.l1FeeAnalyzer = new L1FeeAnalyzer(
+        this.l1TxUtils.client,
+        deps.dateProvider,
+        createLogger('sequencer:publisher:fee-analyzer'),
+      );
+    }
   }
 
   public getRollupContract(): RollupContract {
@@ -182,6 +195,13 @@ export class SequencerPublisher {
 
   public getSenderAddress() {
     return this.l1TxUtils.getSenderAddress();
+  }
+
+  /**
+   * Gets the L1 fee analyzer instance (only available in fisherman mode)
+   */
+  public getL1FeeAnalyzer(): L1FeeAnalyzer | undefined {
+    return this.l1FeeAnalyzer;
   }
 
   /**
@@ -209,6 +229,62 @@ export class SequencerPublisher {
     if (count > 0) {
       this.log.debug(`Cleared ${count} pending request(s)`);
     }
+  }
+
+  /**
+   * Analyzes L1 fees for the pending requests without sending them.
+   * This is used in fisherman mode to validate fee calculations.
+   * @param l2SlotNumber - The L2 slot number for this analysis
+   * @param onComplete - Optional callback to invoke when analysis completes (after block is mined)
+   * @returns The analysis result (incomplete until block mines), or undefined if no requests
+   */
+  public async analyzeL1Fees(
+    l2SlotNumber: bigint,
+    onComplete?: (analysis: L1FeeAnalysisResult) => void,
+  ): Promise<L1FeeAnalysisResult | undefined> {
+    if (!this.l1FeeAnalyzer) {
+      this.log.warn('L1 fee analyzer not available (not in fisherman mode)');
+      return undefined;
+    }
+
+    const requestsToAnalyze = [...this.requests];
+    if (requestsToAnalyze.length === 0) {
+      this.log.debug('No requests to analyze for L1 fees');
+      return undefined;
+    }
+
+    // Extract blob config from requests (if any)
+    const blobConfigs = requestsToAnalyze.filter(request => request.blobConfig).map(request => request.blobConfig);
+    const blobConfig = blobConfigs[0];
+
+    // Get gas configs
+    const gasConfigs = requestsToAnalyze.filter(request => request.gasConfig).map(request => request.gasConfig);
+    const gasLimits = gasConfigs.map(g => g?.gasLimit).filter((g): g is bigint => g !== undefined);
+    const gasLimit = gasLimits.length > 0 ? gasLimits.reduce((sum, g) => sum + g, 0n) : 0n;
+
+    // Get the transaction requests
+    const l1Requests = requestsToAnalyze.map(r => r.request);
+
+    // Start the analysis
+    const analysisId = await this.l1FeeAnalyzer.startAnalysis(
+      l2SlotNumber,
+      gasLimit > 0n ? gasLimit : SequencerPublisher.PROPOSE_GAS_GUESS,
+      l1Requests,
+      blobConfig,
+      onComplete,
+    );
+
+    this.log.info('Started L1 fee analysis', {
+      analysisId,
+      l2SlotNumber: l2SlotNumber.toString(),
+      requestCount: requestsToAnalyze.length,
+      hasBlobConfig: !!blobConfig,
+      gasLimit: gasLimit.toString(),
+      actions: requestsToAnalyze.map(r => r.action),
+    });
+
+    // Return the analysis result (will be incomplete until block mines)
+    return this.l1FeeAnalyzer.getAnalysis(analysisId);
   }
 
   /**
@@ -335,7 +411,7 @@ export class SequencerPublisher {
   public canProposeAtNextEthBlock(
     tipArchive: Fr,
     msgSender: EthAddress,
-    opts: { forcePendingBlockNumber?: number } = {},
+    opts: { forcePendingBlockNumber?: BlockNumber } = {},
   ) {
     // TODO: #14291 - should loop through multiple keys to check if any of them can propose
     const ignoredErrors = ['SlotAlreadyInChain', 'InvalidProposer', 'InvalidArchive'];
@@ -364,7 +440,10 @@ export class SequencerPublisher {
    *          It will throw if the block header is invalid.
    * @param header - The block header to validate
    */
-  public async validateBlockHeader(header: CheckpointHeader, opts?: { forcePendingBlockNumber: number | undefined }) {
+  public async validateBlockHeader(
+    header: CheckpointHeader,
+    opts?: { forcePendingBlockNumber: BlockNumber | undefined },
+  ) {
     const flags = { ignoreDA: true, ignoreSignatures: true };
 
     const args = [
@@ -441,7 +520,7 @@ export class SequencerPublisher {
       const { gasUsed } = await this.l1TxUtils.simulate(request, undefined, undefined, ErrorsAbi);
       this.log.verbose(`Simulation for invalidate block ${blockNumber} succeeded`, { ...logData, request, gasUsed });
 
-      return { request, gasUsed, blockNumber, forcePendingBlockNumber: blockNumber - 1, reason };
+      return { request, gasUsed, blockNumber, forcePendingBlockNumber: BlockNumber(blockNumber - 1), reason };
     } catch (err) {
       const viemError = formatViemError(err);
 
@@ -519,7 +598,7 @@ export class SequencerPublisher {
     block: L2Block,
     attestationsAndSigners: CommitteeAttestationsAndSigners,
     attestationsAndSignersSignature: Signature,
-    options: { forcePendingBlockNumber?: number },
+    options: { forcePendingBlockNumber?: BlockNumber },
   ): Promise<bigint> {
     const ts = BigInt((await this.l1TxUtils.getBlock()).timestamp + this.ethereumSlotDuration);
 
@@ -802,7 +881,7 @@ export class SequencerPublisher {
     block: L2Block,
     attestationsAndSigners: CommitteeAttestationsAndSigners,
     attestationsAndSignersSignature: Signature,
-    opts: { txTimeoutAt?: Date; forcePendingBlockNumber?: number } = {},
+    opts: { txTimeoutAt?: Date; forcePendingBlockNumber?: BlockNumber } = {},
   ): Promise<boolean> {
     const checkpointHeader = block.getCheckpointHeader();
 
@@ -945,7 +1024,7 @@ export class SequencerPublisher {
   private async prepareProposeTx(
     encodedData: L1ProcessArgs,
     timestamp: bigint,
-    options: { forcePendingBlockNumber?: number },
+    options: { forcePendingBlockNumber?: BlockNumber },
   ) {
     const kzg = Blob.getViemKzgInstance();
     const blobInput = getPrefixedEthBlobCommitments(encodedData.blobs);
@@ -1026,7 +1105,7 @@ export class SequencerPublisher {
       `0x${string}`,
     ],
     timestamp: bigint,
-    options: { forcePendingBlockNumber?: number },
+    options: { forcePendingBlockNumber?: BlockNumber },
   ) {
     const rollupData = encodeFunctionData({
       abi: RollupAbi,
@@ -1105,7 +1184,7 @@ export class SequencerPublisher {
   private async addProposeTx(
     block: L2Block,
     encodedData: L1ProcessArgs,
-    opts: { txTimeoutAt?: Date; forcePendingBlockNumber?: number } = {},
+    opts: { txTimeoutAt?: Date; forcePendingBlockNumber?: BlockNumber } = {},
     timestamp: bigint,
   ): Promise<void> {
     const timer = new Timer();
@@ -1124,9 +1203,11 @@ export class SequencerPublisher {
 
     // Send the blobs to the blob sink preemptively. This helps in tests where the sequencer mistakingly thinks that the propose
     // tx fails but it does get mined. We make sure that the blobs are sent to the blob sink regardless of the tx outcome.
-    void this.blobSinkClient.sendBlobsToBlobSink(encodedData.blobs).catch(_err => {
-      this.log.error('Failed to send blobs to blob sink');
-    });
+    void Promise.resolve().then(() =>
+      this.blobSinkClient.sendBlobsToBlobSink(encodedData.blobs).catch(_err => {
+        this.log.error('Failed to send blobs to blob sink');
+      }),
+    );
 
     return this.addRequest({
       action: 'propose',

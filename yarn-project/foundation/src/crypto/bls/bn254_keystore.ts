@@ -1,4 +1,4 @@
-import { randomBytes } from '@aztec/foundation/crypto';
+import { randomBytes } from '@aztec/foundation/crypto/random';
 
 import { createCipheriv, createDecipheriv, createHash, pbkdf2Sync, randomUUID } from 'crypto';
 import { readFileSync } from 'fs';

@@ -11,7 +11,8 @@ import {
 } from '@aztec/aztec.js/authorization';
 import { AccountManager, type SendOptions, type SimulateOptions } from '@aztec/aztec.js/wallet';
 import type { DefaultAccountEntrypointOptions } from '@aztec/entrypoints/account';
-import { Fq, Fr, GrumpkinScalar } from '@aztec/foundation/fields';
+import { Fq, Fr } from '@aztec/foundation/curves/bn254';
+import { GrumpkinScalar } from '@aztec/foundation/curves/grumpkin';
 import { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
@@ -251,7 +252,7 @@ export abstract class BaseTestWallet extends BaseWallet {
    * @returns The requested notes.
    */
   getNotes(filter: NotesFilter): Promise<NoteDao[]> {
-    return this.pxe.getNotes(filter);
+    return this.pxe.debug.getNotes(filter);
   }
 
   /**

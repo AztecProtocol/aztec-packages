@@ -1,13 +1,11 @@
-import {
-  type L1ContractsConfig,
-  type L1ReaderConfig,
-  RollupContract,
-  type ViemPublicClient,
-  createEthereumChain,
-} from '@aztec/ethereum';
-import { SlotNumber } from '@aztec/foundation/branded-types';
+import { createEthereumChain } from '@aztec/ethereum/chain';
+import type { L1ContractsConfig } from '@aztec/ethereum/config';
+import { RollupContract } from '@aztec/ethereum/contracts';
+import type { L1ReaderConfig } from '@aztec/ethereum/l1-reader';
+import type { ViemPublicClient } from '@aztec/ethereum/types';
+import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import type { EthAddress } from '@aztec/foundation/eth-address';
-import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { GasFees } from '@aztec/stdlib/gas';
@@ -97,7 +95,7 @@ export class GlobalVariableBuilder implements GlobalVariableBuilderInterface {
    * @returns The global variables for the given block number.
    */
   public async buildGlobalVariables(
-    blockNumber: number,
+    blockNumber: BlockNumber,
     coinbase: EthAddress,
     feeRecipient: AztecAddress,
     slotNumber?: SlotNumber,

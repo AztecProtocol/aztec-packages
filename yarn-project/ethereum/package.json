@@ -3,12 +3,30 @@
   "version": "0.1.0",
   "type": "module",
   "exports": {
-    ".": "./dest/index.js",
-    "./test": "./dest/test/index.js",
+    "./account": "./dest/account.js",
+    "./chain": "./dest/chain.js",
+    "./client": "./dest/client.js",
+    "./config": "./dest/config.js",
+    "./constants": "./dest/constants.js",
     "./contracts": "./dest/contracts/index.js",
-    "./deploy-l1-contracts": "./dest/deploy_l1_contracts.js",
+    "./deploy-aztec-l1-contracts": "./dest/deploy_aztec_l1_contracts.js",
+    "./deploy-l1-contract": "./dest/deploy_l1_contract.js",
+    "./contracts/registry": "./dest/contracts/registry.js",
+    "./contracts/rollup": "./dest/contracts/rollup.js",
+    "./eth-signer": "./dest/eth-signer/index.js",
+    "./forwarder-proxy": "./dest/forwarder_proxy.js",
+    "./l1-artifacts": "./dest/l1_artifacts.js",
     "./l1-contract-addresses": "./dest/l1_contract_addresses.js",
-    "./l1-tx-utils-with-blobs": "./dest/l1_tx_utils/l1_tx_utils_with_blobs.js",
+    "./l1-fee-analysis": "./dest/l1_tx_utils/l1_fee_analyzer.js",
+    "./l1-reader": "./dest/l1_reader.js",
+    "./l1-tx-utils": "./dest/l1_tx_utils/index.js",
+    "./l1-tx-utils-with-blobs": "./dest/l1_tx_utils/index-blobs.js",
+    "./l1-tx-utils/config": "./dest/l1_tx_utils/config.js",
+    "./l1-types": "./dest/l1_types.js",
+    "./publisher-manager": "./dest/publisher_manager.js",
+    "./queries": "./dest/queries.js",
+    "./test": "./dest/test/index.js",
+    "./types": "./dest/types.js",
     "./utils": "./dest/utils.js"
   },
   "typedocOptions": {
@@ -19,8 +37,8 @@
     "tsconfig": "./tsconfig.json"
   },
   "scripts": {
-    "build": "yarn clean && tsgo -b",
-    "build:dev": "tsgo -b --watch",
+    "build": "yarn clean && ../scripts/tsc.sh",
+    "build:dev": "../scripts/tsc.sh --watch",
     "clean": "rm -rf ./dest .tsbuildinfo",
     "start:dev": "concurrently -k \"tsgo -b -w\" \"nodemon --watch dest --exec yarn start\"",
     "start": "node ./dest/index.js",
@@ -63,7 +81,7 @@
     "src",
     "!*.test.*"
   ],
-  "types": "./dest/index.d.ts",
+  "types": "./dest/types.d.ts",
   "jest": {
     "moduleNameMapper": {
       "^(\\.{1,2}/.*)\\.[cm]?js$": "$1"

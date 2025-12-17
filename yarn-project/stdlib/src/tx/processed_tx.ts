@@ -1,9 +1,10 @@
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 
+import type { PublicTxEffect } from '../avm/avm.js';
 import type { AvmProvingRequest } from '../avm/avm_proving_request.js';
 import type { PublicDataWrite } from '../avm/public_data_write.js';
 import { RevertCode } from '../avm/revert_code.js';
-import type { SimulationError } from '../errors/simulation_error.js';
+import { SimulationError } from '../errors/simulation_error.js';
 import { Gas } from '../gas/gas.js';
 import type { GasUsed } from '../gas/gas_used.js';
 import { computeL2ToL1MessageHash } from '../hash/hash.js';
@@ -130,17 +131,13 @@ export function makeProcessedTxFromPrivateOnlyTx(
 
 export function makeProcessedTxFromTxWithPublicCalls(
   tx: Tx,
-  avmProvingRequest: AvmProvingRequest,
+  globalVariables: GlobalVariables,
+  avmProvingRequest: AvmProvingRequest | undefined,
+  publicTxEffect: PublicTxEffect,
   gasUsed: GasUsed,
   revertCode: RevertCode,
   revertReason: SimulationError | undefined,
 ): ProcessedTx {
-  const avmPublicInputs = avmProvingRequest.inputs.publicInputs;
-
-  const globalVariables = avmPublicInputs.globalVariables;
-
-  const publicDataWrites = avmPublicInputs.accumulatedData.publicDataWrites.filter(w => !w.isEmpty());
-
   const privateLogs = [
     ...tx.data.forPublic!.nonRevertibleAccumulatedData.privateLogs,
     ...(revertCode.isOK() ? tx.data.forPublic!.revertibleAccumulatedData.privateLogs : []),
@@ -153,10 +150,10 @@ export function makeProcessedTxFromTxWithPublicCalls(
   const txEffect = new TxEffect(
     revertCode,
     tx.getTxHash(),
-    avmPublicInputs.transactionFee,
-    avmPublicInputs.accumulatedData.noteHashes.filter(h => !h.isZero()),
-    avmPublicInputs.accumulatedData.nullifiers.filter(h => !h.isZero()),
-    avmPublicInputs.accumulatedData.l2ToL1Msgs
+    publicTxEffect.transactionFee,
+    publicTxEffect.noteHashes,
+    publicTxEffect.nullifiers,
+    publicTxEffect.l2ToL1Msgs // convert messages to hashes.
       .filter(msg => !msg.contractAddress.isZero())
       .map(msg =>
         computeL2ToL1MessageHash({
@@ -167,11 +164,17 @@ export function makeProcessedTxFromTxWithPublicCalls(
           chainId: globalVariables.chainId,
         }),
       ),
-    publicDataWrites,
+    publicTxEffect.publicDataWrites,
     privateLogs,
-    avmPublicInputs.accumulatedData.publicLogs.toLogs(),
+    publicTxEffect.publicLogs,
     contractClassLogs,
   );
+
+  // Some callers expect a revert reason if the tx reverted.
+  const finalRevertReason =
+    revertReason === undefined && !revertCode.isOK()
+      ? new SimulationError('TX reverted', /*functionErrorStack=*/ [], /*revertData=*/ [])
+      : revertReason;
 
   return {
     hash: txEffect.txHash,
@@ -182,6 +185,6 @@ export function makeProcessedTxFromTxWithPublicCalls(
     txEffect,
     gasUsed,
     revertCode,
-    revertReason,
+    revertReason: finalRevertReason,
   };
 }

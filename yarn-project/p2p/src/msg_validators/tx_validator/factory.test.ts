@@ -1,4 +1,5 @@
-import { Fr } from '@aztec/foundation/fields';
+import { BlockNumber } from '@aztec/foundation/branded-types';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { GasFees } from '@aztec/stdlib/gas';
 import type { ClientProtocolCircuitVerifier, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
@@ -22,7 +23,7 @@ describe('GasTxValidator', () => {
   it('inserts tx proof validator last', () => {
     const validators = createTxMessageValidators(
       0n,
-      2,
+      BlockNumber(2),
       synchronizer,
       new GasFees(1, 1),
       1,

@@ -44,9 +44,9 @@ class MegaFlavor {
     using TraceBlocks = MegaExecutionTraceBlocks;
     using Transcript = NativeTranscript;
 
-    // An upper bound on the size of the Mega-circuits. `CONST_PG_LOG_N` bounds the log circuit sizes in the Chonk
+    // An upper bound on the size of the Mega-circuits. `CONST_FOLDING_LOG_N` bounds the log circuit sizes in the Chonk
     // context. `MEGA_AVM_LOG_N` is determined by the size of the AVMRecursiveVerifier.
-    static constexpr size_t VIRTUAL_LOG_N = std::max(CONST_PG_LOG_N, MEGA_AVM_LOG_N);
+    static constexpr size_t VIRTUAL_LOG_N = std::max(CONST_FOLDING_LOG_N, MEGA_AVM_LOG_N);
     // indicates when evaluating sumcheck, edges can be left as degree-1 monomials
     static constexpr bool USE_SHORT_MONOMIALS = true;
     // Indicates that this flavor runs with non-ZK Sumcheck.
@@ -63,8 +63,6 @@ class MegaFlavor {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 31;
     // The total number of witness entities not including shifts.
     static constexpr size_t NUM_WITNESS_ENTITIES = 24;
-    // Total number of folded polynomials, which is just all polynomials except the shifts
-    static constexpr size_t NUM_FOLDED_ENTITIES = NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES;
     // The number of shifted witness entities including derived witness entities
     static constexpr size_t NUM_SHIFTED_ENTITIES = 5;
     // The number of unshifted witness entities
@@ -72,6 +70,14 @@ class MegaFlavor {
 
     static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS = RepeatedCommitmentsData(
         NUM_PRECOMPUTED_ENTITIES, NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES, NUM_SHIFTED_ENTITIES);
+
+    // Size of the final PCS MSM after KZG adds quotient commitment:
+    // 1 (Shplonk Q) + NUM_UNSHIFTED + (log_n - 1) Gemini folds + 1 (G1 identity) + 1 (KZG W)
+    // (shifted commitments are removed as duplicates)
+    static constexpr size_t FINAL_PCS_MSM_SIZE(size_t log_n = VIRTUAL_LOG_N)
+    {
+        return NUM_UNSHIFTED_ENTITIES + log_n + 2;
+    }
 
     // define the tuple of Relations that comprise the Sumcheck relation
     // Note: made generic for use in MegaRecursive.
@@ -283,31 +289,6 @@ class MegaFlavor {
         {
             return concatenate(WireEntities<DataType>::get_all(), DerivedEntities<DataType>::get_to_be_shifted());
         }
-
-        MSGPACK_FIELDS(this->w_l,
-                       this->w_r,
-                       this->w_o,
-                       this->w_4,
-                       this->z_perm,
-                       this->lookup_inverses,
-                       this->lookup_read_counts,
-                       this->lookup_read_tags,
-                       this->ecc_op_wire_1,
-                       this->ecc_op_wire_2,
-                       this->ecc_op_wire_3,
-                       this->ecc_op_wire_4,
-                       this->calldata,
-                       this->calldata_read_counts,
-                       this->calldata_read_tags,
-                       this->calldata_inverses,
-                       this->secondary_calldata,
-                       this->secondary_calldata_read_counts,
-                       this->secondary_calldata_read_tags,
-                       this->secondary_calldata_inverses,
-                       this->return_data,
-                       this->return_data_read_counts,
-                       this->return_data_read_tags,
-                       this->return_data_inverses);
     };
 
     // Default WitnessEntities alias
@@ -492,6 +473,8 @@ class MegaFlavor {
         }
 #endif
     };
+
+    using VKAndHash = VKAndHash_<FF, VerificationKey>;
 
     /**
      * @brief A container for storing the partially evaluated multivariates produced by sumcheck.

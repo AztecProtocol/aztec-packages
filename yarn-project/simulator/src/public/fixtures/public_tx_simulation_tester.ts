@@ -1,6 +1,7 @@
 import { DEFAULT_TEARDOWN_DA_GAS_LIMIT, DEFAULT_TEARDOWN_L2_GAS_LIMIT } from '@aztec/constants';
 import { asyncMap } from '@aztec/foundation/async-map';
-import { Fr } from '@aztec/foundation/fields';
+import { BlockNumber } from '@aztec/foundation/branded-types';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { type ContractArtifact, encodeArguments } from '@aztec/stdlib/abi';
 import { PublicSimulatorConfig, type PublicTxResult } from '@aztec/stdlib/avm';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -19,7 +20,7 @@ import {
 } from '../avm/fixtures/utils.js';
 import { PublicContractsDB } from '../public_db_sources.js';
 import { MeasuredCppPublicTxSimulator } from '../public_tx_simulator/cpp_public_tx_simulator.js';
-import { MeasuredPublicTxSimulator } from '../public_tx_simulator/measured_public_tx_simulator.js';
+import { MeasuredCppVsTsPublicTxSimulator } from '../public_tx_simulator/cpp_vs_ts_public_tx_simulator.js';
 import type { MeasuredPublicTxSimulatorInterface } from '../public_tx_simulator/public_tx_simulator_interface.js';
 import { TestExecutorMetrics } from '../test_executor_metrics.js';
 import { SimpleContractDataSource } from './simple_contract_data_source.js';
@@ -30,7 +31,7 @@ const DEFAULT_GAS_FEES = new GasFees(2, 3);
 export type TestEnqueuedCall = {
   sender?: AztecAddress;
   address: AztecAddress;
-  fnName: string;
+  fnName?: string;
   args: any[];
   isStaticCall?: boolean;
   contractArtifact?: ContractArtifact;
@@ -41,8 +42,20 @@ const defaultConfig: PublicSimulatorConfig = PublicSimulatorConfig.from({
   collectCallMetadata: true,
   collectDebugLogs: true,
   collectHints: false,
+  collectPublicInputs: false,
   collectStatistics: false,
 });
+
+/**
+ * Factory type for creating a MeasuredPublicTxSimulatorInterface.
+ */
+export type MeasuredSimulatorFactory = (
+  merkleTree: MerkleTreeWriteOperations,
+  contractsDB: PublicContractsDB,
+  globals: GlobalVariables,
+  metrics: TestExecutorMetrics,
+  config: PublicSimulatorConfig,
+) => MeasuredPublicTxSimulatorInterface;
 
 /**
  * A test class that extends the BaseAvmSimulationTester to enable real-app testing of the PublicTxSimulator.
@@ -59,15 +72,17 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
     contractDataSource: SimpleContractDataSource,
     globals: GlobalVariables = defaultGlobals(),
     private metrics: TestExecutorMetrics = new TestExecutorMetrics(),
-    useCppSimulator: boolean = false,
+    simulatorFactory?: MeasuredSimulatorFactory,
     config: PublicSimulatorConfig = defaultConfig,
   ) {
     super(contractDataSource, merkleTree);
 
     const contractsDB = new PublicContractsDB(contractDataSource);
-    this.simulator = useCppSimulator
-      ? new MeasuredCppPublicTxSimulator(merkleTree, contractsDB, globals, this.metrics, config)
-      : new MeasuredPublicTxSimulator(merkleTree, contractsDB, globals, this.metrics, config);
+    if (simulatorFactory) {
+      this.simulator = simulatorFactory(merkleTree, contractsDB, globals, this.metrics, config);
+    } else {
+      this.simulator = new MeasuredCppPublicTxSimulator(merkleTree, contractsDB, globals, this.metrics, config);
+    }
   }
 
   public static async create(
@@ -79,7 +94,10 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
   ): Promise<PublicTxSimulationTester> {
     const contractDataSource = new SimpleContractDataSource();
     const merkleTree = await worldStateService.fork();
-    return new PublicTxSimulationTester(merkleTree, contractDataSource, globals, metrics, useCppSimulator, config);
+    const simulatorFactory: MeasuredSimulatorFactory = useCppSimulator
+      ? (mt, cdb, g, m, c) => new MeasuredCppPublicTxSimulator(mt, cdb, g, m, c)
+      : (mt, cdb, g, m, c) => new MeasuredCppVsTsPublicTxSimulator(mt, cdb, g, m, c);
+    return new PublicTxSimulationTester(merkleTree, contractDataSource, globals, metrics, simulatorFactory, config);
   }
 
   public setMetricsPrefix(prefix: string) {
@@ -136,6 +154,11 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
     const txLabelWithCount = `${txLabel}/${this.txCount - 1}`;
     const fullTxLabel = this.metricsPrefix ? `${this.metricsPrefix}/${txLabelWithCount}` : txLabelWithCount;
 
+    if (!this.simulator) {
+      throw new Error(
+        'No simulator configured. Pass a simulatorFactory to the constructor or use PublicTxSimulationTester.create()',
+      );
+    }
     const avmResult = await this.simulator.simulate(tx, fullTxLabel);
 
     // Something like this is often useful for debugging:
@@ -212,10 +235,24 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
       throw new Error(`Contract artifact not found for address: ${address}`);
     }
 
-    const fnSelector = await getFunctionSelector(call.fnName, contractArtifact);
-    const fnAbi = getContractFunctionAbi(call.fnName, contractArtifact)!;
-    const encodedArgs = encodeArguments(fnAbi, call.args);
-    const calldata = [fnSelector.toField(), ...encodedArgs];
+    let calldata: Fr[] = [];
+    if (!call.fnName) {
+      this.logger.debug(
+        `No function name specified for call to contract ${call.address.toString()}. Assuming this is a custom bytecode with no public_dispatch function.`,
+      );
+      this.logger.debug(`Not using ABI to encode arguments. Not prepending fn selector to calldata.`);
+      try {
+        calldata = call.args.map(arg => new Fr(arg));
+      } catch (error) {
+        this.logger.warn(`Tried assuming that all arguments are Field-like. Failed. Error: ${error}`);
+        throw error;
+      }
+    } else {
+      const fnSelector = await getFunctionSelector(call.fnName, contractArtifact);
+      const fnAbi = getContractFunctionAbi(call.fnName, contractArtifact)!;
+      const encodedArgs = encodeArguments(fnAbi, call.args);
+      calldata = [fnSelector.toField(), ...encodedArgs];
+    }
     const isStaticCall = call.isStaticCall ?? false;
     const request = await PublicCallRequest.fromCalldata(sender, address, isStaticCall, calldata);
 
@@ -227,6 +264,6 @@ export function defaultGlobals() {
   const globals = GlobalVariables.empty();
   globals.timestamp = DEFAULT_TIMESTAMP;
   globals.gasFees = DEFAULT_GAS_FEES; // apply some nonzero default gas fees
-  globals.blockNumber = DEFAULT_BLOCK_NUMBER;
+  globals.blockNumber = BlockNumber(DEFAULT_BLOCK_NUMBER);
   return globals;
 }

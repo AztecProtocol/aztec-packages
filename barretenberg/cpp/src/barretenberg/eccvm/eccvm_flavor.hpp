@@ -38,7 +38,6 @@ class ECCVMFlavor {
     using CycleGroup = bb::g1;
     using Curve = curve::Grumpkin;
     using G1 = typename Curve::Group;
-    using PCS = IPA<Curve>;
     using FF = typename Curve::ScalarField;
     using BF = typename Curve::BaseField;
     using Polynomial = bb::Polynomial<FF>;
@@ -48,6 +47,7 @@ class ECCVMFlavor {
     using VerifierCommitmentKey = bb::VerifierCommitmentKey<Curve>;
     using MSM = bb::eccvm::MSM<CycleGroup>;
     using Transcript = NativeTranscript;
+    using Proof = HonkProof;
 
     // indicates when evaluating sumcheck, edges must be extended to be MAX_PARTIAL_RELATION_LENGTH
     static constexpr bool USE_SHORT_MONOMIALS = false;
@@ -69,11 +69,11 @@ class ECCVMFlavor {
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We often
     // need containers of this size to hold related data, so we choose a name more agnostic than `NUM_POLYNOMIALS`.
     // Note: this number does not include the individual sorted list polynomials.
-    // Includes gemini_masking_poly for ZK (NUM_ALL_ENTITIES = 116 + NUM_MASKING_POLYNOMIALS)
-    static constexpr size_t NUM_ALL_ENTITIES = 117;
+    // Includes gemini_masking_poly for ZK (NUM_ALL_ENTITIES = 117 + NUM_MASKING_POLYNOMIALS)
+    static constexpr size_t NUM_ALL_ENTITIES = 118;
     // The number of polynomials precomputed to describe a circuit and to aid a prover in constructing a satisfying
     // assignment of witnesses. We again choose a neutral name.
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 3;
+    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 4;
     // The total number of witness entities not including shifts.
     // Includes gemini_masking_poly for ZK (NUM_WITNESS_ENTITIES = 86 + NUM_MASKING_POLYNOMIALS)
     static constexpr size_t NUM_WITNESS_ENTITIES = 87;
@@ -150,8 +150,7 @@ class ECCVMFlavor {
         /* 24 Translator grand sum shift eval */ (num_frs_fq) +
         /* 25 Translator grand sum eval */ (num_frs_fq) +
         /* 26 Translator quotient eval */ (num_frs_fq) +
-        /* 27 Shplonk Q commitment */ (num_frs_comm) +
-        /* 28 IPA proof */ IPA_PROOF_LENGTH;
+        /* 27 Shplonk Q commitment */ (num_frs_comm);
 
     // The sub-protocol `compute_translation_opening_claims` outputs an opening claim for the batched univariate
     // evaluation of `op`, `Px`, `Py`, `z1`, and `z2`, and an array of opening claims for the evaluations of the
@@ -170,8 +169,9 @@ class ECCVMFlavor {
         using DataType = DataType_;
         DEFINE_FLAVOR_MEMBERS(DataType,
                               lagrange_first,  // column 0
-                              lagrange_second, // column 1
-                              lagrange_last);  // column 2
+                              lagrange_second, // column 1 - hiding op row
+                              lagrange_third,  // column 2 - first real op row
+                              lagrange_last);  // column 3
 
         DataType get_selectors() { return get_all(); };
     };
@@ -494,7 +494,8 @@ class ECCVMFlavor {
          *          For full details see `eccvm/eccvm_flavor.hpp`
          *
          *          lagrange_first: lagrange_first[0] = 1, 0 elsewhere
-         *          lagrange_second: lagrange_second[1] = 1, 0 elsewhere
+         *          lagrange_second: lagrange_second[1] = 1, 0 elsewhere (hiding op row)
+         *          lagrange_third: lagrange_third[2] = 1, 0 elsewhere (first real op row)
          *          lagrange_last: lagrange_last[lagrange_last.size() - 1] = 1, 0 elsewhere
          *          transcript_add/mul/eq/reset_accumulator: boolean selectors that toggle add/mul/eq/reset opcodes
          trigger
@@ -586,6 +587,7 @@ class ECCVMFlavor {
 #endif
         {
             // compute rows for the three different sections of the ECCVM execution trace
+            // Note: the first operation (index 0) is always a hiding op with random Px, Py values
             const auto transcript_rows =
                 ECCVMTranscriptBuilder::compute_rows(builder.op_queue->get_eccvm_ops(), builder.get_number_of_muls());
             const std::vector<MSM> msms = builder.get_msms();
@@ -631,6 +633,7 @@ class ECCVMFlavor {
             }
             lagrange_first.at(0) = 1;
             lagrange_second.at(1) = 1;
+            lagrange_third.at(2) = 1;
             lagrange_last.at(unmasked_witness_size - 1) = 1;
             for (size_t i = 0; i < point_table_read_counts[0].size(); ++i) {
                 // Explanation of off-by-one offset:
@@ -815,8 +818,11 @@ class ECCVMFlavor {
       public:
         bool operator==(const VerificationKey&) const = default;
 
-        // IPA verification key requires one more point.
-        VerifierCommitmentKey pcs_verification_key = VerifierCommitmentKey(ECCVM_FIXED_SIZE + 1);
+        // Identity point for PCS operations (Shplemini/Shplonk)
+        Commitment pcs_g1_identity = []() {
+            auto pcs_vk = VerifierCommitmentKey(1); // Just need the identity (first point)
+            return pcs_vk.get_g1_identity();
+        }();
 
         // Default construct the fixed VK that results from ECCVM_FIXED_SIZE
         VerificationKey()
@@ -969,6 +975,7 @@ class ECCVMFlavor {
             // The ones beginning with "__" are only used for debugging
             Base::lagrange_first = "__LAGRANGE_FIRST";
             Base::lagrange_second = "__LAGRANGE_SECOND";
+            Base::lagrange_third = "__LAGRANGE_THIRD";
             Base::lagrange_last = "__LAGRANGE_LAST";
         };
     };
@@ -980,6 +987,7 @@ class ECCVMFlavor {
         {
             this->lagrange_first = verification_key->lagrange_first;
             this->lagrange_second = verification_key->lagrange_second;
+            this->lagrange_third = verification_key->lagrange_third;
             this->lagrange_last = verification_key->lagrange_last;
         }
     };

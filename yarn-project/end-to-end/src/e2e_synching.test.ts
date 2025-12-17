@@ -40,13 +40,10 @@ import { type Logger, createLogger } from '@aztec/aztec.js/log';
 import { AnvilTestWatcher } from '@aztec/aztec/testing';
 import { createBlobSinkClient } from '@aztec/blob-sink/client';
 import { EpochCache } from '@aztec/epoch-cache';
-import {
-  EmpireSlashingProposerContract,
-  GovernanceProposerContract,
-  RollupContract,
-  getL1ContractsConfigEnvVars,
-} from '@aztec/ethereum';
+import { getL1ContractsConfigEnvVars } from '@aztec/ethereum/config';
+import { EmpireSlashingProposerContract, GovernanceProposerContract, RollupContract } from '@aztec/ethereum/contracts';
 import { createL1TxUtilsWithBlobsFromViemWallet } from '@aztec/ethereum/l1-tx-utils-with-blobs';
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { SecretValue } from '@aztec/foundation/config';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { sleep } from '@aztec/foundation/sleep';
@@ -70,7 +67,6 @@ import { DEFAULT_BLOB_SINK_PORT } from './fixtures/fixtures.js';
 import { mintTokensToPrivate } from './fixtures/token_utils.js';
 import { type EndToEndContext, getPrivateKeyFromIndex, setup, setupPXEAndGetWallet } from './fixtures/utils.js';
 
-const SALT = 420;
 const AZTEC_GENERATE_TEST_DATA = !!process.env.AZTEC_GENERATE_TEST_DATA;
 const START_TIME = 1893456000; // 2030 01 01 00 00
 const RUN_THE_BIG_ONE = !!process.env.RUN_THE_BIG_ONE;
@@ -333,7 +329,6 @@ describe('e2e_synching', () => {
         initialFundedAccounts,
         cheatCodes,
       } = await setup(1, {
-        salt: SALT,
         l1StartTime: START_TIME,
         l2StartTime: START_TIME + 200 * ETHEREUM_SLOT_DURATION,
         numberOfInitialFundedAccounts: variant.txCount + 1,
@@ -365,7 +360,7 @@ describe('e2e_synching', () => {
         await cheatCodes.rollup.markAsProven();
       }
 
-      const blocks = await aztecNode.getBlocks(1, await aztecNode.getBlockNumber());
+      const blocks = await aztecNode.getBlocks(BlockNumber(1), await aztecNode.getBlockNumber());
 
       await variant.writeBlocks(blocks);
       await teardown();
@@ -396,9 +391,7 @@ describe('e2e_synching', () => {
       initialFundedAccounts,
       dateProvider,
     } = await setup(0, {
-      salt: SALT,
       l1StartTime: START_TIME,
-      skipProtocolContracts: true,
       numberOfInitialFundedAccounts: 10,
     });
 
@@ -438,6 +431,7 @@ describe('e2e_synching', () => {
     const publisher = new SequencerPublisher(
       {
         l1RpcUrls: config.l1RpcUrls,
+        l1DebugRpcUrls: [],
         l1Contracts: deployL1ContractsValues.l1ContractAddresses,
         publisherPrivateKeys: [new SecretValue(sequencerPK)],
         l1ChainId: 31337,
@@ -607,7 +601,6 @@ describe('e2e_synching', () => {
           }
 
           expect(await archiver.getTxEffect(txHash)).not.toBeUndefined;
-          expect(await archiver.getPrivateLogs(blockTip.number, 1)).not.toEqual([]);
           expect(
             await archiver.getPublicLogs({ fromBlock: blockTip.number, toBlock: blockTip.number + 1 }),
           ).not.toEqual([]);
@@ -632,15 +625,16 @@ describe('e2e_synching', () => {
           );
 
           expect(await archiver.getTxEffect(txHash)).toBeUndefined;
-          expect(await archiver.getPrivateLogs(blockTip.number, 1)).toEqual([]);
           expect(await archiver.getPublicLogs({ fromBlock: blockTip.number, toBlock: blockTip.number + 1 })).toEqual(
             [],
           );
 
           // Check world state reverted as well
           expect(await worldState.getLatestBlockNumber()).toEqual(Number(provenThrough));
-          const worldStateLatestBlockHash = await worldState.getL2BlockHash(Number(provenThrough));
-          const archiverLatestBlockHash = await archiver.getBlockHeader(Number(provenThrough)).then(b => b?.hash());
+          const worldStateLatestBlockHash = await worldState.getL2BlockHash(BlockNumber(Number(provenThrough)));
+          const archiverLatestBlockHash = await archiver
+            .getBlockHeader(BlockNumber(Number(provenThrough)))
+            .then(b => b?.hash());
           expect(worldStateLatestBlockHash).toEqual(archiverLatestBlockHash?.toString());
 
           await tryStop(archiver);

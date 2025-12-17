@@ -17,8 +17,8 @@
     "tsconfig": "./tsconfig.json"
   },
   "scripts": {
-    "build": "yarn clean && tsgo -b",
-    "build:dev": "tsgo -b --watch",
+    "build": "yarn clean && ../scripts/tsc.sh",
+    "build:dev": "../scripts/tsc.sh --watch",
     "clean": "rm -rf ./dest .tsbuildinfo",
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}",
     "test:integration": "concurrently -k -s first -c reset,dim -n test,anvil \"yarn test:integration:run\" \"anvil\"",
@@ -81,7 +81,8 @@
     "lodash.groupby": "^4.6.0",
     "lodash.omit": "^4.5.0",
     "tslib": "^2.5.0",
-    "viem": "npm:@aztec/viem@2.38.2"
+    "viem": "npm:@aztec/viem@2.38.2",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
     "@jest/globals": "^30.0.0",

@@ -1,5 +1,5 @@
 import { MAX_FR_CALLDATA_TO_ALL_ENQUEUED_CALLS, PRIVATE_CONTEXT_INPUTS_LENGTH } from '@aztec/constants';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { type CircuitSimulator, toACVMWitness } from '@aztec/simulator/client';
@@ -26,6 +26,7 @@ import {
   type TxContext,
 } from '@aztec/stdlib/tx';
 
+import { syncSenderTaggingIndexes } from '../../tagging/sync/sync_sender_tagging_indexes.js';
 import { Tag } from '../../tagging/tag.js';
 import type { ExecutionDataProvider } from '../execution_data_provider.js';
 import type { ExecutionNoteCache } from '../execution_note_cache.js';
@@ -71,7 +72,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     private readonly txContext: TxContext,
     private readonly callContext: CallContext,
     /** Header of a block whose state is used during private execution (not the block the transaction is included in). */
-    protected readonly anchorBlockHeader: BlockHeader,
+    protected override readonly anchorBlockHeader: BlockHeader,
     /** List of transient auth witnesses to be used during this simulation */
     authWitnesses: AuthWitness[],
     capsules: Capsule[],
@@ -86,7 +87,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     private senderForTags?: AztecAddress,
     private simulator?: CircuitSimulator,
   ) {
-    super(callContext.contractAddress, authWitnesses, capsules, executionDataProvider, log, scopes);
+    super(callContext.contractAddress, authWitnesses, capsules, anchorBlockHeader, executionDataProvider, log, scopes);
   }
 
   public getPrivateContextInputs(): PrivateContextInputs {
@@ -152,7 +153,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
   }
 
   /**
-   * Returns the pre tags that were used in this execution (and that need to be stored in the db).
+   * Returns the pre-tags that were used in this execution (and that need to be stored in the db).
    */
   public getUsedPreTags(): PreTag[] {
     return this.taggingIndexCache.getUsedPreTags();
@@ -224,11 +225,16 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     if (lastUsedIndexInTx !== undefined) {
       return lastUsedIndexInTx + 1;
     } else {
+      // TODO(#17776): Don't access the Aztec node and senderTaggingDataProvider via the executionDataProvider.
+      const aztecNode = this.executionDataProvider.aztecNode;
+      const senderTaggingDataProvider = this.executionDataProvider.senderTaggingDataProvider;
+
       // This is a tagging secret we've not yet used in this tx, so first sync our store to make sure its indices
       // are up to date. We do this here because this store is not synced as part of the global sync because
       // that'd be wasteful as most tagging secrets are not used in each tx.
-      await this.executionDataProvider.syncTaggedLogsAsSender(secret, this.contractAddress);
-      const lastUsedIndex = await this.executionDataProvider.getLastUsedIndexAsSender(secret);
+      await syncSenderTaggingIndexes(secret, this.contractAddress, aztecNode, senderTaggingDataProvider);
+
+      const lastUsedIndex = await senderTaggingDataProvider.getLastUsedIndex(secret);
       // If lastUsedIndex is undefined, we've never used this secret, so start from 0
       // Otherwise, the next index to use is one past the last used index
       return lastUsedIndex === undefined ? 0 : lastUsedIndex + 1;
@@ -282,7 +288,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
    * Real notes coming from DB will have a leafIndex which
    * represents their index in the note hash tree.
    *
-   * @param owner - The owner of the notes.
+   * @param owner - The owner of the notes. If undefined, returns notes for all owners.
    * @param storageSlot - The storage slot.
    * @param numSelects - The number of valid selects in selectBy and selectValues.
    * @param selectBy - An array of indices of the fields to selects.
@@ -296,7 +302,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
    * @returns Array of note data.
    */
   public override async utilityGetNotes(
-    owner: AztecAddress,
+    owner: AztecAddress | undefined,
     storageSlot: Fr,
     numSelects: number,
     selectByIndexes: number[],

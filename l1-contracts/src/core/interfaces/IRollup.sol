@@ -8,11 +8,12 @@ import {IVerifier} from "@aztec/core/interfaces/IVerifier.sol";
 import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
 import {IOutbox} from "@aztec/core/interfaces/messagebridge/IOutbox.sol";
 import {CheckpointLog, CompressedTempCheckpointLog} from "@aztec/core/libraries/compressed-data/CheckpointLog.sol";
+import {FeeAssetPerEthE9, EthValue, FeeAssetValue} from "@aztec/core/libraries/compressed-data/fees/FeeConfig.sol";
+import {FeeHeader, L1FeeData} from "@aztec/core/libraries/compressed-data/fees/FeeStructs.sol";
 import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
 import {CompressedChainTips, ChainTips} from "@aztec/core/libraries/compressed-data/Tips.sol";
 import {CommitteeAttestations} from "@aztec/core/libraries/rollup/AttestationLib.sol";
-import {FeeHeader, L1FeeData, ManaBaseFeeComponents} from "@aztec/core/libraries/rollup/FeeLib.sol";
-import {FeeAssetPerEthE9, EthValue, FeeAssetValue} from "@aztec/core/libraries/rollup/FeeLib.sol";
+import {ManaBaseFeeComponents} from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {ProposedHeader} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
 import {ProposeArgs} from "@aztec/core/libraries/rollup/ProposeLib.sol";
 import {RewardConfig} from "@aztec/core/libraries/rollup/RewardLib.sol";
@@ -100,7 +101,13 @@ struct RollupStore {
 }
 
 interface IRollupCore {
-  event CheckpointProposed(uint256 indexed checkpointNumber, bytes32 indexed archive, bytes32[] versionedBlobHashes);
+  event CheckpointProposed(
+    uint256 indexed checkpointNumber,
+    bytes32 indexed archive,
+    bytes32[] versionedBlobHashes,
+    bytes32 payloadDigest,
+    bytes32 attestationsHash
+  );
   event L2ProofVerified(uint256 indexed checkpointNumber, address indexed proverId);
   event CheckpointInvalidated(uint256 indexed checkpointNumber);
   event RewardConfigUpdated(RewardConfig rewardConfig);

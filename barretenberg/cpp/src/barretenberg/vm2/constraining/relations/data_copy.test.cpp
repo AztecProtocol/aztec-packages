@@ -46,7 +46,7 @@ using data_copy = bb::avm2::data_copy<FF>;
 
 class DataCopyConstrainingBuilderTest : public ::testing::Test {
   protected:
-    DataCopyConstrainingBuilderTest() { EXPECT_CALL(context, get_memory).WillRepeatedly(ReturnRef(mem)); }
+    DataCopyConstrainingBuilderTest() { EXPECT_CALL(context, get_memory()).WillRepeatedly(ReturnRef(mem)); }
 
     ExecutionIdManager execution_id_manager = ExecutionIdManager(0);
     EventEmitter<RangeCheckEvent> range_check_event_emitter;
@@ -443,7 +443,6 @@ class EnqueuedCdConstrainingBuilderTest : public DataCopyConstrainingBuilderTest
 
         CalldataEvent cd_event = {
             .context_id = 1,
-            .calldata_size = static_cast<uint32_t>(data.size()),
             .calldata = calldata_ff,
         };
         calldata_builder.process_retrieval({ cd_event }, trace);
@@ -545,7 +544,6 @@ class EnqueuedEmptyCdConstrainingBuilderTest : public DataCopyConstrainingBuilde
         tracegen::CalldataTraceBuilder calldata_builder;
         CalldataEvent cd_event = {
             .context_id = 1,
-            .calldata_size = 0,
             .calldata = {},
         };
         calldata_builder.process_retrieval({ cd_event }, trace);
@@ -633,7 +631,7 @@ TEST(DataCopyWithExecutionPerm, CdCopy)
 
     // Mock current context
     StrictMock<MockContext> context;
-    EXPECT_CALL(context, get_memory).WillRepeatedly(ReturnRef(mem));
+    EXPECT_CALL(context, get_memory()).WillRepeatedly(ReturnRef(mem));
     EXPECT_CALL(context, get_parent_cd_size).WillRepeatedly(Return(data.size()));
     EXPECT_CALL(context, has_parent).WillRepeatedly(Return(true));
     EXPECT_CALL(context, get_parent_cd_addr).WillRepeatedly(Return(parent_cd_addr));
@@ -728,7 +726,7 @@ TEST(DataCopyWithExecutionPerm, RdCopy)
     StrictMock<MockExecutionIdManager> execution_id_manager;
     EXPECT_CALL(execution_id_manager, get_execution_id()).WillOnce(Return(0));
     StrictMock<MockContext> context;
-    EXPECT_CALL(context, get_memory).WillRepeatedly(ReturnRef(mem));
+    EXPECT_CALL(context, get_memory()).WillRepeatedly(ReturnRef(mem));
     EXPECT_CALL(context, get_last_rd_size).WillRepeatedly(Return(data.size()));
     EXPECT_CALL(context, has_parent).WillRepeatedly(Return(true));
     EXPECT_CALL(context, get_last_rd_addr).WillRepeatedly(Return(child_rd_addr));
@@ -787,7 +785,7 @@ TEST(DataCopyWithExecutionPerm, ErrorPropagation)
 
     MemoryStore mem;
     StrictMock<MockContext> context;
-    EXPECT_CALL(context, get_memory).WillRepeatedly(ReturnRef(mem));
+    EXPECT_CALL(context, get_memory()).WillRepeatedly(ReturnRef(mem));
     EXPECT_CALL(context, get_last_rd_size).WillRepeatedly(Return(child_data_size));
     EXPECT_CALL(context, has_parent).WillRepeatedly(Return(true));
     EXPECT_CALL(context, get_last_rd_addr).WillRepeatedly(Return(child_rd_addr));

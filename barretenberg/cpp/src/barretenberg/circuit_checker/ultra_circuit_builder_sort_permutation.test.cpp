@@ -30,13 +30,14 @@ TEST(UltraCircuitBuilder, NonTrivialTagPermutation)
     builder.create_add_gate({ a_idx, b_idx, builder.zero_idx(), fr::one(), fr::one(), fr::zero(), fr::zero() });
     builder.create_add_gate({ c_idx, d_idx, builder.zero_idx(), fr::one(), fr::one(), fr::zero(), fr::zero() });
 
-    builder.create_tag(1, 2);
-    builder.create_tag(2, 1);
+    auto first_tag = builder.get_new_tag();
+    auto second_tag = builder.get_new_tag();
+    builder.set_tau_transposition(first_tag, second_tag);
 
-    builder.assign_tag(a_idx, 1);
-    builder.assign_tag(b_idx, 1);
-    builder.assign_tag(c_idx, 2);
-    builder.assign_tag(d_idx, 2);
+    builder.assign_tag(a_idx, first_tag);
+    builder.assign_tag(b_idx, first_tag);
+    builder.assign_tag(c_idx, second_tag);
+    builder.assign_tag(d_idx, second_tag);
 
     EXPECT_TRUE(CircuitChecker::check(builder));
 
@@ -64,13 +65,14 @@ TEST(UltraCircuitBuilder, NonTrivialTagPermutationAndCycles)
     auto h_idx = builder.add_variable(c);
     builder.assert_equal(g_idx, h_idx);
 
-    builder.create_tag(1, 2);
-    builder.create_tag(2, 1);
+    auto first_tag = builder.get_new_tag();
+    auto second_tag = builder.get_new_tag();
+    builder.set_tau_transposition(first_tag, second_tag);
 
-    builder.assign_tag(a_idx, 1);
-    builder.assign_tag(c_idx, 1);
-    builder.assign_tag(e_idx, 2);
-    builder.assign_tag(g_idx, 2);
+    builder.assign_tag(a_idx, first_tag);
+    builder.assign_tag(c_idx, first_tag);
+    builder.assign_tag(e_idx, second_tag);
+    builder.assign_tag(g_idx, second_tag);
 
     builder.create_add_gate({ b_idx, a_idx, builder.zero_idx(), fr::one(), fr::neg_one(), fr::zero(), fr::zero() });
     builder.create_add_gate({ c_idx, g_idx, builder.zero_idx(), fr::one(), -fr::one(), fr::zero(), fr::zero() });
@@ -99,13 +101,14 @@ TEST(UltraCircuitBuilder, BadTagPermutation)
 
     EXPECT_TRUE(CircuitChecker::check(builder));
 
-    builder.create_tag(1, 2);
-    builder.create_tag(2, 1);
+    auto first_tag = builder.get_new_tag();
+    auto second_tag = builder.get_new_tag();
+    builder.set_tau_transposition(first_tag, second_tag);
 
-    builder.assign_tag(a_idx, 1);
-    builder.assign_tag(b_idx, 1);
-    builder.assign_tag(c_idx, 2);
-    builder.assign_tag(d_idx, 2);
+    builder.assign_tag(a_idx, first_tag);
+    builder.assign_tag(b_idx, first_tag);
+    builder.assign_tag(c_idx, second_tag);
+    builder.assign_tag(d_idx, second_tag);
 
     EXPECT_FALSE(CircuitChecker::check(builder));
 }
@@ -122,7 +125,7 @@ TEST(UltraCircuitBuilder, SortWidget)
     auto b_idx = builder.add_variable(b);
     auto c_idx = builder.add_variable(c);
     auto d_idx = builder.add_variable(d);
-    builder.create_sort_constraint({ a_idx, b_idx, c_idx, d_idx });
+    builder.enforce_small_deltas({ a_idx, b_idx, c_idx, d_idx });
 
     EXPECT_TRUE(CircuitChecker::check(builder));
 }
@@ -219,7 +222,7 @@ TEST(UltraCircuitBuilder, SortWidgetComplex)
         std::vector<uint32_t> ind;
         for (size_t i = 0; i < a.size(); i++)
             ind.emplace_back(builder.add_variable(a[i]));
-        builder.create_sort_constraint(ind);
+        builder.enforce_small_deltas(ind);
 
         EXPECT_TRUE(CircuitChecker::check(builder));
     }
@@ -230,7 +233,7 @@ TEST(UltraCircuitBuilder, SortWidgetComplex)
         std::vector<uint32_t> ind;
         for (size_t i = 0; i < a.size(); i++)
             ind.emplace_back(builder.add_variable(a[i]));
-        builder.create_sort_constraint(ind);
+        builder.enforce_small_deltas(ind);
 
         EXPECT_FALSE(CircuitChecker::check(builder));
     }
@@ -248,7 +251,7 @@ TEST(UltraCircuitBuilder, SortWidgetNeg)
     auto b_idx = builder.add_variable(b);
     auto c_idx = builder.add_variable(c);
     auto d_idx = builder.add_variable(d);
-    builder.create_sort_constraint({ a_idx, b_idx, c_idx, d_idx });
+    builder.enforce_small_deltas({ a_idx, b_idx, c_idx, d_idx });
 
     EXPECT_FALSE(CircuitChecker::check(builder));
 }

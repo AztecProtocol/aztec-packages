@@ -294,6 +294,7 @@ TEST(ContractInstanceRetrievalConstrainingTest, ProtocolContractInstanceExists)
             { C::precomputed_first_row, 1 },
             // Field Greater-Than Trace for Protocol Contract Address Check
             { C::ff_gt_sel, 1 },
+            { C::ff_gt_sel_gt, 1 },
             { C::ff_gt_a, MAX_PROTOCOL_CONTRACTS },
             { C::ff_gt_b, contract_address - FF(1) },
             { C::ff_gt_result, 1 },
@@ -350,6 +351,7 @@ TEST(ContractInstanceRetrievalConstrainingTest, ProtocolContractInstanceNotExist
             { C::precomputed_first_row, 1 },
             // Field Greater-Than Trace for Protocol Contract Address Check
             { C::ff_gt_sel, 1 },
+            { C::ff_gt_sel_gt, 1 },
             { C::ff_gt_a, MAX_PROTOCOL_CONTRACTS },
             { C::ff_gt_b, contract_address - FF(1) },
             { C::ff_gt_result, 1 },

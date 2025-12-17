@@ -18,7 +18,7 @@ struct lookup_contract_instance_retrieval_check_protocol_address_range_settings_
     static constexpr std::string_view RELATION_NAME = "contract_instance_retrieval";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
     static constexpr Column SRC_SELECTOR = Column::contract_instance_retrieval_sel;
-    static constexpr Column DST_SELECTOR = Column::ff_gt_sel;
+    static constexpr Column DST_SELECTOR = Column::ff_gt_sel_gt;
     static constexpr Column COUNTS = Column::lookup_contract_instance_retrieval_check_protocol_address_range_counts;
     static constexpr Column INVERSES = Column::lookup_contract_instance_retrieval_check_protocol_address_range_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {

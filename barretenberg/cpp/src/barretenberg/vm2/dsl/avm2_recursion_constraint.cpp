@@ -26,11 +26,13 @@
 namespace acir_format {
 
 using namespace bb;
+
+namespace {
+
+using Builder = bb::UltraCircuitBuilder;
 using field_ct = stdlib::field_t<Builder>;
 using bn254 = stdlib::bn254<Builder>;
 using PairingPoints = bb::stdlib::recursion::PairingPoints<Builder>;
-
-namespace {
 /**
  * @brief Creates a dummy vkey and proof object.
  * @details Populates the key and proof vectors with dummy values in the write_vk case when we do not have a valid
@@ -43,10 +45,7 @@ namespace {
  * @param key_fields
  * @param proof_fields
  */
-void create_dummy_vkey_and_proof(Builder& builder,
-                                 [[maybe_unused]] size_t proof_size,
-                                 const std::vector<field_ct>& key_fields,
-                                 const std::vector<field_ct>& proof_fields)
+void create_dummy_proof(Builder& builder, [[maybe_unused]] size_t proof_size, const std::vector<field_ct>& proof_fields)
 {
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1514): restructure this function to use functions from
     // mock_verifier_inputs
@@ -69,9 +68,6 @@ void create_dummy_vkey_and_proof(Builder& builder,
     };
 
     size_t offset = 0;
-    for (size_t i = 0; i < Flavor::NUM_PRECOMPUTED_ENTITIES; ++i) {
-        set_dummy_commitment(key_fields, offset);
-    }
 
     // This routine is adding some placeholders for avm proof and avm vk in the case where witnesses are not present.
     // TODO(#14234)[Unconditional PIs validation]: Remove next line and use offset == 0 for subsequent line.
@@ -124,25 +120,23 @@ void create_dummy_vkey_and_proof(Builder& builder,
  * @return HonkRecursionConstraintOutput {pairing agg object, ipa claim, ipa proof}
  */
 HonkRecursionConstraintOutput<Builder> create_avm2_recursion_constraints_goblin(Builder& builder,
-                                                                                const RecursionConstraint& input,
-                                                                                bool has_valid_witness_assignments)
+                                                                                const RecursionConstraint& input)
 {
     using RecursiveVerifier = avm2::AvmGoblinRecursiveVerifier;
 
     BB_ASSERT_EQ(input.proof_type, AVM);
 
-    // Construct in-circuit representations of the verification key, proof and public inputs
-    const auto key_fields = RecursionConstraint::fields_from_witnesses(builder, input.key);
-    const auto proof_fields = RecursionConstraint::fields_from_witnesses(builder, input.proof);
-    const auto public_inputs_flattened = RecursionConstraint::fields_from_witnesses(builder, input.public_inputs);
+    // Construct in-circuit representations of the proof and public inputs
+    const auto proof_fields = fields_from_witnesses(builder, input.proof);
+    const auto public_inputs_flattened = fields_from_witnesses(builder, input.public_inputs);
 
     // Populate the key fields and proof fields with dummy values to prevent issues (e.g. points must be on curve).
-    if (!has_valid_witness_assignments) {
-        create_dummy_vkey_and_proof(builder, input.proof.size(), key_fields, proof_fields);
+    if (builder.is_write_vk_mode()) {
+        create_dummy_proof(builder, input.proof.size(), proof_fields);
     }
 
     // Execute the Goblin AVM2 recursive verifier
-    RecursiveVerifier verifier(builder, key_fields);
+    RecursiveVerifier verifier(builder);
 
     bb::avm2::AvmGoblinRecursiveVerifier::RecursiveAvmGoblinOutput output =
         verifier.verify_proof(proof_fields, bb::avm2::PublicInputs::flat_to_columns(public_inputs_flattened));

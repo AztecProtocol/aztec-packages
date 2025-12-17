@@ -9,6 +9,7 @@
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
+#include "barretenberg/vm2/common/avm_io.hpp"
 #include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/simulation/interfaces/db.hpp"
 #include "barretenberg/vm2/simulation/lib/contract_crypto.hpp"
@@ -615,21 +616,45 @@ void HintedRawMerkleDB::revert_checkpoint()
     checkpoint_action_counter++;
 }
 
-std::vector<AppendLeafResult> HintedRawMerkleDB::append_leaves(world_state::MerkleTreeId tree_id,
-                                                               std::span<const FF> leaves)
+void HintedRawMerkleDB::append_leaves(world_state::MerkleTreeId tree_id, std::span<const FF> leaves)
 {
-    std::vector<AppendLeafResult> results;
-    results.reserve(leaves.size());
-
-    // We need to process each leaf individually because we need the sibling path after insertion, to be able to
-    // constraint the insertion.
-    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/13380): This can be changed if the world state
-    // appendLeaves returns the sibling paths.
-    for (const auto& leaf : leaves) {
-        results.push_back(appendLeafInternal(tree_id, leaf));
+    auto tree_info = get_tree_info(tree_id);
+    AppendLeavesHintKey key = { tree_info, tree_id, std::vector<FF>(leaves.begin(), leaves.end()) };
+    auto it = append_leaves_hints.find(key);
+    if (it == append_leaves_hints.end()) {
+        throw std::runtime_error(format("Append leaves hint not found for key (root: ",
+                                        tree_info.root,
+                                        ", size: ",
+                                        tree_info.next_available_leaf_index,
+                                        ", tree: ",
+                                        get_tree_name(tree_id),
+                                        ", leaves: ",
+                                        std::vector<FF>(leaves.begin(), leaves.end()),
+                                        ")"));
     }
+    const AppendOnlyTreeSnapshot& snapshot_after = it->second;
 
-    return results;
+    // Update the tree state based on the hint.
+    switch (tree_id) {
+    case world_state::MerkleTreeId::NOTE_HASH_TREE:
+        tree_roots.note_hash_tree = snapshot_after;
+        debug("Evolved state of NOTE_HASH_TREE: ",
+              tree_roots.note_hash_tree.root,
+              " (size: ",
+              tree_roots.note_hash_tree.next_available_leaf_index,
+              ")");
+        break;
+    case world_state::MerkleTreeId::L1_TO_L2_MESSAGE_TREE:
+        tree_roots.l1_to_l2_message_tree = snapshot_after;
+        debug("Evolved state of L1_TO_L2_MESSAGE_TREE: ",
+              tree_roots.l1_to_l2_message_tree.root,
+              " (size: ",
+              tree_roots.l1_to_l2_message_tree.next_available_leaf_index,
+              ")");
+        break;
+    default:
+        throw std::runtime_error("append_leaves is only supported for NOTE_HASH_TREE and L1_TO_L2_MESSAGE_TREE");
+    }
 }
 
 void HintedRawMerkleDB::pad_tree(world_state::MerkleTreeId tree_id, size_t num_leaves)
@@ -647,50 +672,6 @@ void HintedRawMerkleDB::pad_tree(world_state::MerkleTreeId tree_id, size_t num_l
           tree_info.next_available_leaf_index);
 }
 
-AppendLeafResult HintedRawMerkleDB::appendLeafInternal(world_state::MerkleTreeId tree_id, const FF& leaf)
-{
-    auto tree_info = get_tree_info(tree_id);
-    AppendLeavesHintKey key = { tree_info, tree_id, { leaf } };
-    auto it = append_leaves_hints.find(key);
-    if (it == append_leaves_hints.end()) {
-        throw std::runtime_error(format("Append leaves hint not found for key (root: ",
-                                        tree_info.root,
-                                        ", size: ",
-                                        tree_info.next_available_leaf_index,
-                                        ", tree: ",
-                                        get_tree_name(tree_id),
-                                        ", leaf: ",
-                                        leaf,
-                                        ")"));
-    }
-    const auto& state_after = it->second;
-
-    // Update the tree state based on the hint.
-    switch (tree_id) {
-    case world_state::MerkleTreeId::NOTE_HASH_TREE:
-        tree_roots.note_hash_tree = state_after;
-        debug("Evolved state of NOTE_HASH_TREE: ",
-              tree_roots.note_hash_tree.root,
-              " (size: ",
-              tree_roots.note_hash_tree.next_available_leaf_index,
-              ")");
-        break;
-    case world_state::MerkleTreeId::L1_TO_L2_MESSAGE_TREE:
-        tree_roots.l1_to_l2_message_tree = state_after;
-        debug("Evolved state of L1_TO_L2_MESSAGE_TREE: ",
-              tree_roots.l1_to_l2_message_tree.root,
-              " (size: ",
-              tree_roots.l1_to_l2_message_tree.next_available_leaf_index,
-              ")");
-        break;
-    default:
-        throw std::runtime_error("append_leaves is only supported for NOTE_HASH_TREE and L1_TO_L2_MESSAGE_TREE");
-    }
-
-    // Get the sibling path for the newly inserted leaf.
-    return { .root = tree_info.root, .path = get_sibling_path(tree_id, tree_info.next_available_leaf_index) };
-}
-
 uint32_t HintedRawMerkleDB::get_checkpoint_id() const
 {
     return checkpoint_stack.top();
@@ -699,12 +680,16 @@ uint32_t HintedRawMerkleDB::get_checkpoint_id() const
 // PureRawMerkleDB starts.
 TreeSnapshots PureRawMerkleDB::get_tree_roots() const
 {
+    if (cached_tree_snapshots.has_value()) {
+        return cached_tree_snapshots.value();
+    }
+
     auto l1_to_l2_info = ws_instance.get_tree_info(ws_revision, MerkleTreeId::L1_TO_L2_MESSAGE_TREE);
     auto note_hash_info = ws_instance.get_tree_info(ws_revision, MerkleTreeId::NOTE_HASH_TREE);
     auto nullifier_info = ws_instance.get_tree_info(ws_revision, MerkleTreeId::NULLIFIER_TREE);
     auto public_data_info = ws_instance.get_tree_info(ws_revision, MerkleTreeId::PUBLIC_DATA_TREE);
 
-    return TreeSnapshots{
+    TreeSnapshots tree_snapshots = {
         .l1_to_l2_message_tree = AppendOnlyTreeSnapshot{ .root = l1_to_l2_info.meta.root,
                                                          .next_available_leaf_index = l1_to_l2_info.meta.size },
         .note_hash_tree = AppendOnlyTreeSnapshot{ .root = note_hash_info.meta.root,
@@ -714,6 +699,12 @@ TreeSnapshots PureRawMerkleDB::get_tree_roots() const
         .public_data_tree = AppendOnlyTreeSnapshot{ .root = public_data_info.meta.root,
                                                     .next_available_leaf_index = public_data_info.meta.size },
     };
+
+    if (cache_tree_roots) {
+        cached_tree_snapshots = tree_snapshots;
+    }
+
+    return tree_snapshots;
 }
 
 SiblingPath PureRawMerkleDB::get_sibling_path(MerkleTreeId tree_id, index_t leaf_index) const
@@ -763,6 +754,9 @@ IndexedLeaf<NullifierLeafValue> PureRawMerkleDB::get_leaf_preimage_nullifier_tre
 SequentialInsertionResult<PublicDataLeafValue> PureRawMerkleDB::insert_indexed_leaves_public_data_tree(
     const PublicDataLeafValue& leaf_value)
 {
+    // Invalidate the cached tree roots.
+    cached_tree_snapshots = std::nullopt;
+
     auto result = ws_instance.insert_indexed_leaves<PublicDataLeafValue>(
         MerkleTreeId::PUBLIC_DATA_TREE, { leaf_value }, ws_revision.forkId);
     return result;
@@ -771,28 +765,27 @@ SequentialInsertionResult<PublicDataLeafValue> PureRawMerkleDB::insert_indexed_l
 SequentialInsertionResult<NullifierLeafValue> PureRawMerkleDB::insert_indexed_leaves_nullifier_tree(
     const NullifierLeafValue& leaf_value)
 {
+    // Invalidate the cached tree roots.
+    cached_tree_snapshots = std::nullopt;
+
     auto result = ws_instance.insert_indexed_leaves<NullifierLeafValue>(
         MerkleTreeId::NULLIFIER_TREE, { leaf_value }, ws_revision.forkId);
     return result;
 }
 
-// This method currently returns a vector of intermediate roots and sibling paths, but in practice we might only
-// need or care about the last one for simulation, this would simplify how we append in this function.
-// todo(ilyas): Given this function says append, perhaps we just want to restrict to NoteHash?
-std::vector<AppendLeafResult> PureRawMerkleDB::append_leaves(MerkleTreeId tree_id, std::span<const FF> leaves)
+void PureRawMerkleDB::append_leaves(MerkleTreeId tree_id, std::span<const FF> leaves)
 {
-    std::vector<FF> leaves_vec(leaves.begin(), leaves.end());
+    // Invalidate the cached tree roots.
+    cached_tree_snapshots = std::nullopt;
 
-    // If we wanted intermediate roots and paths, we would need to call append_leaves one by one
-    ws_instance.append_leaves(tree_id, leaves_vec, ws_revision.forkId);
-
-    auto tree_info = ws_instance.get_tree_info(ws_revision, MerkleTreeId::NOTE_HASH_TREE);
-    return { AppendLeafResult{ .root = tree_info.meta.root,
-                               .path = get_sibling_path(tree_id, tree_info.meta.size - 1) } };
+    ws_instance.append_leaves(tree_id, std::vector<FF>(leaves.begin(), leaves.end()), ws_revision.forkId);
 }
 
 void PureRawMerkleDB::pad_tree(MerkleTreeId tree_id, size_t num_leaves)
 {
+    // Invalidate the cached tree roots.
+    cached_tree_snapshots = std::nullopt;
+
     // The only trees that should be padded are NULLIFIER_TREE and NOTE_HASH_TREE
     switch (tree_id) {
     case MerkleTreeId::NULLIFIER_TREE: {
@@ -827,6 +820,9 @@ void PureRawMerkleDB::commit_checkpoint()
 
 void PureRawMerkleDB::revert_checkpoint()
 {
+    // Invalidate the cached tree roots.
+    cached_tree_snapshots = std::nullopt;
+
     ws_instance.revert_checkpoint(ws_revision.forkId);
     checkpoint_stack.pop();
 }

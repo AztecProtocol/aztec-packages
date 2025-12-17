@@ -7,48 +7,120 @@
 #pragma once
 #include "barretenberg/eccvm/eccvm_flavor.hpp"
 #include "barretenberg/goblin/translation_evaluations.hpp"
+#include "barretenberg/stdlib/eccvm_verifier/eccvm_recursive_flavor.hpp"
+#include "barretenberg/stdlib/proof/proof.hpp"
 
 namespace bb {
-class ECCVMVerifier {
-    using Flavor = ECCVMFlavor;
+
+/**
+ * @brief Unified ECCVM verifier class for both native and recursive verification
+ * @tparam Flavor Either ECCVMFlavor (native) or ECCVMRecursiveFlavor (recursive)
+ */
+template <typename Flavor> class ECCVMVerifier_ {
+  public:
     using FF = Flavor::FF;
+    using BF = Flavor::BF;
     using Curve = Flavor::Curve;
     using Commitment = Flavor::Commitment;
     using CommitmentLabels = Flavor::CommitmentLabels;
     using Transcript = Flavor::Transcript;
-    using ProvingKey = Flavor::ProvingKey;
     using VerificationKey = Flavor::VerificationKey;
     using VerifierCommitments = Flavor::VerifierCommitments;
     using VerifierCommitmentKey = Flavor::VerifierCommitmentKey;
-    using PCS = Flavor::PCS;
+    using Proof = Flavor::Proof;
+    using PCS = IPA<Curve, CONST_ECCVM_LOG_N>;
+    using TranslatorInputData = TranslatorInputData_<FF>;
 
-  public:
-    explicit ECCVMVerifier(const std::shared_ptr<Transcript>& transcript)
-        : transcript(transcript) {};
+    static constexpr bool IsRecursive = Curve::is_stdlib_type;
+    using Builder = std::conditional_t<IsRecursive, typename Flavor::CircuitBuilder, void>;
 
-    bool verify_proof(const ECCVMProof& proof);
-    void compute_translation_opening_claims(
-        const std::array<Commitment, NUM_TRANSLATION_EVALUATIONS>& translation_commitments);
+    /**
+     * @brief Result of reducing ECCVM proof to IPA opening claim
+     * @details Contains IPA opening claim for deferred verification and status of internal checks. The IPA claim
+     * must be verified externally. Individual check results are logged via vinfo().
+     */
+    struct ReductionResult {
+        OpeningClaim<Curve> ipa_claim;    // IPA opening claim for deferred verification
+        bool reduction_succeeded = false; // Aggregate of sumcheck, consistency, and translation masking checks
+    };
 
-    uint32_t circuit_size;
+    // Unified constructor for both native and recursive verification
+    // For recursive case, extracts builder from proof elements via get_context()
+    ECCVMVerifier_(const std::shared_ptr<Transcript>& transcript, const Proof& proof)
+        : proof(proof)
+        , transcript(transcript)
+    {
+        // ECCVM VK is constant
+        auto native_vk = std::make_shared<ECCVMFlavor::VerificationKey>();
+        if constexpr (IsRecursive) {
+            // Extract builder from proof - safe since transcript cannot hash non-witness elements
+            builder = proof.back().get_context();
+            key = std::make_shared<VerificationKey>(builder, native_vk);
+            vk_hash = stdlib::witness_t<Builder>(builder, native_vk->hash());
+            key->fix_witness();
+            vk_hash.fix_witness();
+        } else {
+            key = native_vk;
+            vk_hash = native_vk->hash();
+        }
+    }
+
+    /**
+     * @brief Reduce the ECCVM proof to an IPA opening claim
+     * @details The ECCVM proves correct execution of elliptic curve operations accumulated in the op queue. This method
+     * verifies the ECCVM proof's internal checks (sumcheck, translation masking consistency, etc.) and reduces all
+     * polynomial opening claims to a single IPA opening claim via Shplemini and Shplonk. This method does NOT perform
+     * the final IPA verification - it returns an IPA claim that must be verified externally.
+     *
+     * @return ReductionResult containing:
+     *   - ipa_claim: IPA opening claim to be verified externally (in root rollup or natively)
+     *   - reduction_succeeded: true if sumcheck, consistency, and masking checks passed
+     */
+    [[nodiscard("Verification result must be checked")]] ReductionResult reduce_to_ipa_opening();
+
+    /**
+     * @brief Get the data required by the TranslatorVerifier
+     * @return TranslatorInputData containing evaluation_challenge_x, batching_challenge_v, and accumulated_result
+     */
+    TranslatorInputData get_translator_input_data() const
+    {
+        return { evaluation_challenge_x, batching_challenge_v, accumulated_result };
+    }
+
+    std::shared_ptr<VerificationKey> get_verification_key() const { return key; }
+    std::shared_ptr<Transcript> get_transcript() const { return transcript; }
+
+  private:
+    void compute_translation_opening_claims(const std::vector<Commitment>& translation_commitments);
+    void compute_accumulated_result();
+
+    std::shared_ptr<VerificationKey> key;
+    Proof proof;
+    BF vk_hash;
+    std::shared_ptr<Transcript> transcript;
+
+    // Builder pointer (only used for recursive, nullptr for native)
+    std::conditional_t<IsRecursive, Builder*, void*> builder = nullptr;
+
     // Final ShplonkVerifier consumes an array consisting of Translation Opening Claims and a
     // `multivariate_to_univariate_opening_claim`
     static constexpr size_t NUM_OPENING_CLAIMS = ECCVMFlavor::NUM_TRANSLATION_OPENING_CLAIMS + 1;
     std::array<OpeningClaim<Curve>, NUM_OPENING_CLAIMS> opening_claims;
 
-    std::shared_ptr<VerificationKey> key = std::make_shared<VerificationKey>();
-    std::map<std::string, Commitment> commitments;
-    std::shared_ptr<Transcript> transcript;
-    std::shared_ptr<Transcript> ipa_transcript = std::make_shared<Transcript>();
-
     TranslationEvaluations_<FF> translation_evaluations;
 
-    // Translation evaluation and batching challenges. They are propagated to the TranslatorVerifier
+    // Translation evaluation and batching challenges. Propagated to TranslatorVerifier via get_translator_input_data()
     FF evaluation_challenge_x;
     FF batching_challenge_v;
-    // The value ∑ mᵢ(x) ⋅ vⁱ which needs to be propagated to TranslatorVerifier
-    FF translation_masking_term_eval;
+    FF accumulated_result;
 
+    // Intermediate verification state
+    FF translation_masking_term_eval;
     bool translation_masking_consistency_checked = false;
 };
+
+// Type aliases
+using ECCVMVerifier = ECCVMVerifier_<ECCVMFlavor>;
+using ECCVMRecursiveVerifier = ECCVMVerifier_<ECCVMRecursiveFlavor>;
+
 } // namespace bb

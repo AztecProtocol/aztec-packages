@@ -1,6 +1,9 @@
+import { GENESIS_BLOCK_HEADER_HASH } from '@aztec/constants';
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { times } from '@aztec/foundation/collection';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { type L2Block, type L2BlockId, PublishedL2Block } from '@aztec/stdlib/block';
+import { L1PublishedData } from '@aztec/stdlib/checkpoint';
 
 import { jestExpect as expect } from '@jest/expect';
 
@@ -15,17 +18,20 @@ export function testL2TipsStore(makeTipsStore: () => Promise<L2TipsStore>) {
 
   const makeBlock = (number: number): PublishedL2Block =>
     PublishedL2Block.fromFields({
-      block: { number, hash: () => Promise.resolve(new Fr(number)) } as L2Block,
-      l1: { blockNumber: BigInt(number), blockHash: `0x${number}`, timestamp: BigInt(number) },
+      block: { number: BlockNumber(number), hash: () => Promise.resolve(new Fr(number)) } as L2Block,
+      l1: new L1PublishedData(BigInt(number), BigInt(number), `0x${number}`),
       attestations: [],
     });
 
   const makeBlockId = (number: number): L2BlockId => ({
-    number,
+    number: BlockNumber(number),
     hash: new Fr(number).toString(),
   });
 
-  const makeTip = (number: number) => ({ number, hash: number === 0 ? undefined : new Fr(number).toString() });
+  const makeTip = (number: number): L2BlockId => ({
+    number: BlockNumber(number),
+    hash: number === 0 ? GENESIS_BLOCK_HEADER_HASH.toString() : new Fr(number).toString(),
+  });
 
   const makeTips = (latest: number, proven: number, finalized: number) => ({
     latest: makeTip(latest),

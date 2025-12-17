@@ -153,11 +153,6 @@ pol constant sel_non_revertible_append_l2_l1_msg;
 pol constant sel_revertible_append_note_hash;
 pol constant sel_revertible_append_nullifier;
 pol constant sel_revertible_append_l2_l1_msg;
-pol constant sel_can_emit_note_hash;
-pol constant sel_can_emit_nullifier;
-pol constant sel_can_write_public_data;
-pol constant sel_can_emit_unencrypted_log;
-pol constant sel_can_emit_l2_l1_msg;
 pol constant next_phase_on_revert;
 
 // Keccak round constants

@@ -10,6 +10,7 @@ namespace {
 using simulation::check_tag;
 using simulation::deserialize_instruction;
 using simulation::InstrDeserializationError;
+using simulation::InstrDeserializationEventError;
 using simulation::Instruction;
 using simulation::Operand;
 
@@ -119,7 +120,8 @@ TEST(SerializationTest, PCOutOfRange)
     try {
         deserialize_instruction(bytecode, bytecode.size() + 1);
     } catch (const InstrDeserializationError& error) {
-        EXPECT_EQ(error, InstrDeserializationError::PC_OUT_OF_RANGE);
+        EXPECT_EQ(error.type, InstrDeserializationEventError::PC_OUT_OF_RANGE);
+        EXPECT_TRUE(error.message.has_value());
     }
 }
 
@@ -132,7 +134,8 @@ TEST(SerializationTest, OpcodeOutOfRange)
     try {
         deserialize_instruction(bytecode, 0);
     } catch (const InstrDeserializationError& error) {
-        EXPECT_EQ(error, InstrDeserializationError::OPCODE_OUT_OF_RANGE);
+        EXPECT_EQ(error.type, InstrDeserializationEventError::OPCODE_OUT_OF_RANGE);
+        EXPECT_TRUE(error.message.has_value());
     }
 }
 
@@ -154,7 +157,8 @@ TEST(SerializationTest, InstructionOutOfRange)
     try {
         deserialize_instruction(bytecode, 0);
     } catch (const InstrDeserializationError& error) {
-        EXPECT_EQ(error, InstrDeserializationError::INSTRUCTION_OUT_OF_RANGE);
+        EXPECT_EQ(error.type, InstrDeserializationEventError::INSTRUCTION_OUT_OF_RANGE);
+        EXPECT_TRUE(error.message.has_value());
     }
 }
 

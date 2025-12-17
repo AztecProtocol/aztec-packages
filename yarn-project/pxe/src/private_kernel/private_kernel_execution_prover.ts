@@ -1,5 +1,5 @@
-import { vkAsFieldsMegaHonk } from '@aztec/foundation/crypto';
-import { Fr } from '@aztec/foundation/fields';
+import { vkAsFieldsMegaHonk } from '@aztec/foundation/crypto/keys';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import { pushTestData } from '@aztec/foundation/testing';
 import { Timer } from '@aztec/foundation/timer';
@@ -290,8 +290,8 @@ export class PrivateKernelExecutionProver {
       },
     });
 
-    // Hiding circuit is only executed if we are generating witnesses.
-    // For simulation, we can end with the tail, since the hiding circuit will simply return the same tail output.
+    // Hiding kernel is only executed if we are generating witnesses.
+    // For simulation, we can end with the tail, since the Hiding kernel will simply return the same tail output.
     if (generateWitnesses) {
       const previousKernelVkData = await this.getVkData(tailOutput.verificationKey);
 

@@ -2,6 +2,7 @@ import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import { PRIVATE_LOG_CIPHERTEXT_LEN } from '@aztec/constants';
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { OffchainEffectContract, type TestEvent } from '@aztec/noir-test-contracts.js/OffchainEffect';
 import { MessageContext } from '@aztec/stdlib/logs';
 import { OFFCHAIN_MESSAGE_IDENTIFIER } from '@aztec/stdlib/tx';
@@ -77,7 +78,7 @@ describe('e2e_offchain_effect', () => {
       contract1.methods.emit_event_as_offchain_message_for_msg_sender(a, b, c),
       { from: defaultAccountAddress },
     );
-    const { txHash, blockNumber } = await provenTx.send().wait();
+    const { txHash, blockNumber, blockHash } = await provenTx.send().wait();
 
     const offchainEffects = provenTx.offchainEffects;
     expect(offchainEffects).toHaveLength(1);
@@ -106,19 +107,25 @@ describe('e2e_offchain_effect', () => {
       .simulate({ from: defaultAccountAddress });
 
     // Get the event from PXE
-    const events = await wallet.getPrivateEvents<TestEvent>(
-      contract1.address,
-      OffchainEffectContract.events.TestEvent,
-      blockNumber!,
-      1,
-      [recipient],
-    );
+    const events = await wallet.getPrivateEvents<TestEvent>(OffchainEffectContract.events.TestEvent, {
+      contractAddress: contract1.address,
+      fromBlock: BlockNumber(blockNumber!),
+      toBlock: BlockNumber(blockNumber! + 1),
+      scopes: [recipient],
+    });
 
     expect(events.length).toBe(1);
     expect(events[0]).toEqual({
-      a,
-      b,
-      c,
+      event: {
+        a,
+        b,
+        c,
+      },
+      metadata: {
+        l2BlockNumber: blockNumber,
+        l2BlockHash: blockHash,
+        txHash,
+      },
     });
   });
 

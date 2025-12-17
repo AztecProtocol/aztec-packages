@@ -87,7 +87,6 @@ class CalldataHashingConstrainingTestTraceHelper : public CalldataHashingConstra
             };
             events.push_back({
                 .context_id = context_id,
-                .calldata_size = static_cast<uint32_t>(all_calldata_fields[j].size()),
                 .calldata = all_calldata_fields[j],
             });
             auto padding_amount = (3 - (calldata_fields.size() % 3)) % 3;

@@ -1,9 +1,9 @@
 import type { BBProverConfig } from '@aztec/bb-prover';
 import { TestCircuitProver } from '@aztec/bb-prover';
 import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
-import { CheckpointNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import { padArrayEnd, times, timesAsync } from '@aztec/foundation/collection';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import type { Logger } from '@aztec/foundation/log';
 import type { FieldsOf } from '@aztec/foundation/types';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
@@ -203,7 +203,7 @@ export class TestContext {
     const newL1ToL2Snapshot = await getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, fork);
 
     const startBlockNumber = this.nextBlockNumber;
-    const previousBlockHeader = this.getBlockHeader(startBlockNumber - 1);
+    const previousBlockHeader = this.getBlockHeader(BlockNumber(startBlockNumber - 1));
 
     // Build global variables.
     const blockGlobalVariables = times(numBlocks, i =>
@@ -250,7 +250,6 @@ export class TestContext {
     // Add tx effects to db and build block headers.
     const blocks = [];
     for (let i = 0; i < numBlocks; i++) {
-      const isFirstBlock = i === 0;
       const txs = blockTxs[i];
       const state = blockEndStates[i];
 
@@ -259,8 +258,8 @@ export class TestContext {
       const header = block.header;
       this.headers.set(block.number, header);
 
-      const blockMsgs = isFirstBlock ? l1ToL2Messages : [];
-      await this.worldState.handleL2BlockAndMessages(block, blockMsgs, isFirstBlock);
+      const blockMsgs = block.indexWithinCheckpoint === 0 ? l1ToL2Messages : [];
+      await this.worldState.handleL2BlockAndMessages(block, blockMsgs);
 
       blocks.push({ header, txs });
     }
@@ -297,11 +296,13 @@ export class TestContext {
     return tx;
   }
 
-  private getBlockHeader(blockNumber: number): BlockHeader {
-    if (blockNumber > 0 && blockNumber >= this.nextBlockNumber) {
+  private getBlockHeader(blockNumber: BlockNumber): BlockHeader {
+    if (Number(blockNumber) > 0 && Number(blockNumber) >= this.nextBlockNumber) {
       throw new Error(`Block header not built for block number ${blockNumber}.`);
     }
-    return blockNumber === 0 ? this.worldState.getCommitted().getInitialHeader() : this.headers.get(blockNumber)!;
+    return Number(blockNumber) === 0
+      ? this.worldState.getCommitted().getInitialHeader()
+      : this.headers.get(Number(blockNumber))!;
   }
 
   private async updateTrees(txs: ProcessedTx[], fork: MerkleTreeWriteOperations) {

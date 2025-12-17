@@ -1,11 +1,11 @@
 import type { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
-import { timesParallel } from '@aztec/foundation/collection';
-import { Fr, Point } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
+import { Point } from '@aztec/foundation/curves/grumpkin';
 import { createLogger } from '@aztec/foundation/log';
 import type { KeyStore } from '@aztec/key-store';
 import { EventSelector, type FunctionArtifactWithContractName, FunctionSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { DataInBlock, L2Block, L2BlockNumber } from '@aztec/stdlib/block';
+import type { BlockParameter, DataInBlock, L2Block } from '@aztec/stdlib/block';
 import type { CompleteAddress, ContractInstance } from '@aztec/stdlib/contract';
 import { computeUniqueNoteHash, siloNoteHash, siloNullifier, siloPrivateLog } from '@aztec/stdlib/hash';
 import { type AztecNode, MAX_RPC_LEN } from '@aztec/stdlib/interfaces/client';
@@ -23,19 +23,19 @@ import { getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
 import { Note, type NoteStatus } from '@aztec/stdlib/note';
 import { NoteDao } from '@aztec/stdlib/note';
 import { MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
-import type { BlockHeader } from '@aztec/stdlib/tx';
 import { TxHash } from '@aztec/stdlib/tx';
 
 import type { ExecutionDataProvider, ExecutionStats } from '../contract_function_simulator/execution_data_provider.js';
 import { MessageLoadOracleInputs } from '../contract_function_simulator/oracle/message_load_oracle_inputs.js';
 import { ORACLE_VERSION } from '../oracle_version.js';
 import type { AddressDataProvider } from '../storage/address_data_provider/address_data_provider.js';
+import type { AnchorBlockDataProvider } from '../storage/anchor_block_data_provider/anchor_block_data_provider.js';
 import type { CapsuleDataProvider } from '../storage/capsule_data_provider/capsule_data_provider.js';
 import type { ContractDataProvider } from '../storage/contract_data_provider/contract_data_provider.js';
 import type { NoteDataProvider } from '../storage/note_data_provider/note_data_provider.js';
 import type { PrivateEventDataProvider } from '../storage/private_event_data_provider/private_event_data_provider.js';
-import type { SyncDataProvider } from '../storage/sync_data_provider/sync_data_provider.js';
-import type { TaggingDataProvider } from '../storage/tagging_data_provider/tagging_data_provider.js';
+import type { RecipientTaggingDataProvider } from '../storage/tagging_data_provider/recipient_tagging_data_provider.js';
+import type { SenderTaggingDataProvider } from '../storage/tagging_data_provider/sender_tagging_data_provider.js';
 import {
   DirectionalAppTaggingSecret,
   SiloedTag,
@@ -54,14 +54,19 @@ import type { ProxiedNode } from './proxied_node.js';
  * A data layer that provides and stores information needed for simulating/proving a transaction.
  */
 export class PXEOracleInterface implements ExecutionDataProvider {
+  // Note: The Aztec node and senderDataProvider are exposed publicly since PXEOracleInterface will be deprecated soon
+  // (issue #17776). When refactoring tagging, it made sense to align with this future change by moving the sender
+  // tagging index sync functionality elsewhere. This required exposing these two properties since there is currently
+  // no alternative way to access them in the PrivateExecutionOracle.
   constructor(
-    private aztecNode: AztecNode | ProxiedNode,
+    public readonly aztecNode: AztecNode | ProxiedNode,
     private keyStore: KeyStore,
     private contractDataProvider: ContractDataProvider,
     private noteDataProvider: NoteDataProvider,
     private capsuleDataProvider: CapsuleDataProvider,
-    private syncDataProvider: SyncDataProvider,
-    private taggingDataProvider: TaggingDataProvider,
+    private anchorBlockDataProvider: AnchorBlockDataProvider,
+    public readonly senderTaggingDataProvider: SenderTaggingDataProvider,
+    private recipientTaggingDataProvider: RecipientTaggingDataProvider,
     private addressDataProvider: AddressDataProvider,
     private privateEventDataProvider: PrivateEventDataProvider,
     private log = createLogger('pxe:pxe_oracle_interface'),
@@ -92,7 +97,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
 
   async getNotes(
     contractAddress: AztecAddress,
-    owner: AztecAddress,
+    owner: AztecAddress | undefined,
     storageSlot: Fr,
     status: NoteStatus,
     scopes?: AztecAddress[],
@@ -163,12 +168,12 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     return await this.#findLeafIndex('latest', MerkleTreeId.NULLIFIER_TREE, nullifier);
   }
 
-  async #findLeafIndex(blockNumber: L2BlockNumber, treeId: MerkleTreeId, leafValue: Fr): Promise<bigint | undefined> {
+  async #findLeafIndex(blockNumber: BlockParameter, treeId: MerkleTreeId, leafValue: Fr): Promise<bigint | undefined> {
     const [leafIndex] = await this.aztecNode.findLeavesIndexes(blockNumber, treeId, [leafValue]);
     return leafIndex?.data;
   }
 
-  public async getMembershipWitness(blockNumber: number, treeId: MerkleTreeId, leafValue: Fr): Promise<Fr[]> {
+  public async getMembershipWitness(blockNumber: BlockParameter, treeId: MerkleTreeId, leafValue: Fr): Promise<Fr[]> {
     const witness = await this.#tryGetMembershipWitness(blockNumber, treeId, leafValue);
     if (!witness) {
       throw new Error(`Leaf value ${leafValue} not found in tree ${MerkleTreeId[treeId]} at block ${blockNumber}`);
@@ -176,7 +181,11 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     return witness;
   }
 
-  async #tryGetMembershipWitness(blockNumber: number, treeId: MerkleTreeId, value: Fr): Promise<Fr[] | undefined> {
+  async #tryGetMembershipWitness(
+    blockNumber: BlockParameter,
+    treeId: MerkleTreeId,
+    value: Fr,
+  ): Promise<Fr[] | undefined> {
     switch (treeId) {
       case MerkleTreeId.NULLIFIER_TREE:
         return (await this.aztecNode.getNullifierMembershipWitness(blockNumber, value))?.withoutPreimage().toFields();
@@ -192,54 +201,50 @@ export class PXEOracleInterface implements ExecutionDataProvider {
   }
 
   public async getNullifierMembershipWitnessAtLatestBlock(nullifier: Fr) {
-    const blockNumber = (await this.getAnchorBlockHeader()).globalVariables.blockNumber;
+    const blockNumber = (await this.anchorBlockDataProvider.getBlockHeader()).getBlockNumber();
     return this.getNullifierMembershipWitness(blockNumber, nullifier);
   }
 
   public getNullifierMembershipWitness(
-    blockNumber: number,
+    blockNumber: BlockParameter,
     nullifier: Fr,
   ): Promise<NullifierMembershipWitness | undefined> {
     return this.aztecNode.getNullifierMembershipWitness(blockNumber, nullifier);
   }
 
   public async getLowNullifierMembershipWitness(
-    blockNumber: number,
+    blockNumber: BlockParameter,
     nullifier: Fr,
   ): Promise<NullifierMembershipWitness | undefined> {
-    const header = await this.getAnchorBlockHeader();
-    if (blockNumber > header.globalVariables.blockNumber) {
-      throw new Error(`Block number ${blockNumber} is higher than current block ${header.globalVariables.blockNumber}`);
+    const anchorBlockNumber = (await this.anchorBlockDataProvider.getBlockHeader()).getBlockNumber();
+    if (blockNumber !== 'latest' && blockNumber > anchorBlockNumber) {
+      throw new Error(`Block number ${blockNumber} is higher than current block ${anchorBlockNumber}`);
     }
     return this.aztecNode.getLowNullifierMembershipWitness(blockNumber, nullifier);
   }
 
-  public async getBlock(blockNumber: number): Promise<L2Block | undefined> {
-    const header = await this.getAnchorBlockHeader();
-    if (blockNumber > header.globalVariables.blockNumber) {
-      throw new Error(`Block number ${blockNumber} is higher than current block ${header.globalVariables.blockNumber}`);
+  public async getBlock(blockNumber: BlockParameter): Promise<L2Block | undefined> {
+    const anchorBlockNumber = (await this.anchorBlockDataProvider.getBlockHeader()).getBlockNumber();
+    if (blockNumber !== 'latest' && blockNumber > anchorBlockNumber) {
+      throw new Error(`Block number ${blockNumber} is higher than current block ${anchorBlockNumber}`);
     }
     return await this.aztecNode.getBlock(blockNumber);
   }
 
-  public async getPublicDataWitness(blockNumber: number, leafSlot: Fr): Promise<PublicDataWitness | undefined> {
-    const header = await this.getAnchorBlockHeader();
-    if (blockNumber > header.globalVariables.blockNumber) {
-      throw new Error(`Block number ${blockNumber} is higher than current block ${header.globalVariables.blockNumber}`);
+  public async getPublicDataWitness(blockNumber: BlockParameter, leafSlot: Fr): Promise<PublicDataWitness | undefined> {
+    const anchorBlockNumber = (await this.anchorBlockDataProvider.getBlockHeader()).getBlockNumber();
+    if (blockNumber !== 'latest' && blockNumber > anchorBlockNumber) {
+      throw new Error(`Block number ${blockNumber} is higher than current block ${anchorBlockNumber}`);
     }
     return await this.aztecNode.getPublicDataWitness(blockNumber, leafSlot);
   }
 
-  public async getPublicStorageAt(blockNumber: number, contract: AztecAddress, slot: Fr): Promise<Fr> {
-    const header = await this.getAnchorBlockHeader();
-    if (blockNumber > header.globalVariables.blockNumber) {
-      throw new Error(`Block number ${blockNumber} is higher than current block ${header.globalVariables.blockNumber}`);
+  public async getPublicStorageAt(blockNumber: BlockParameter, contract: AztecAddress, slot: Fr): Promise<Fr> {
+    const anchorBlockNumber = (await this.anchorBlockDataProvider.getBlockHeader()).getBlockNumber();
+    if (blockNumber !== 'latest' && blockNumber > anchorBlockNumber) {
+      throw new Error(`Block number ${blockNumber} is higher than current block ${anchorBlockNumber}`);
     }
     return await this.aztecNode.getPublicStorageAt(blockNumber, contract, slot);
-  }
-
-  getAnchorBlockHeader(): Promise<BlockHeader> {
-    return this.syncDataProvider.getBlockHeader();
   }
 
   public assertCompatibleOracleVersion(version: number): void {
@@ -259,11 +264,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
    * @returns The full list of the users contact addresses.
    */
   public getSenders(): Promise<AztecAddress[]> {
-    return this.taggingDataProvider.getSenderAddresses();
-  }
-
-  public getLastUsedIndexAsSender(secret: DirectionalAppTaggingSecret): Promise<number | undefined> {
-    return this.taggingDataProvider.getLastUsedIndexesAsSender(secret);
+    return this.recipientTaggingDataProvider.getSenderAddresses();
   }
 
   public async calculateDirectionalAppTaggingSecret(
@@ -292,8 +293,8 @@ export class PXEOracleInterface implements ExecutionDataProvider {
    * @param recipient - The address receiving the notes
    * @returns A list of directional app tagging secrets along with the last used tagging indexes. If the corresponding
    * secret was never used, the index is undefined.
-   * TODO(benesjan): The naming here is broken as the function name does not reflect the return type. Fix when associating
-   * indexes with tx hash.
+   * TODO(#17775): The naming here is broken as the function name does not reflect the return type. Make sure this gets
+   * fixed when implementing the linked issue.
    */
   async #getLastUsedTaggingIndexesForSenders(
     contractAddress: AztecAddress,
@@ -305,7 +306,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     // We implicitly add all PXE accounts as senders, this helps us decrypt tags on notes that we send to ourselves
     // (recipient = us, sender = us)
     const senders = [
-      ...(await this.taggingDataProvider.getSenderAddresses()),
+      ...(await this.recipientTaggingDataProvider.getSenderAddresses()),
       ...(await this.keyStore.getAccounts()),
     ].filter((address, index, self) => index === self.findIndex(otherAddress => otherAddress.equals(address)));
     const secrets = await Promise.all(
@@ -319,7 +320,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
         );
       }),
     );
-    const indexes = await this.taggingDataProvider.getLastUsedIndexesAsRecipient(secrets);
+    const indexes = await this.recipientTaggingDataProvider.getLastUsedIndexes(secrets);
     if (indexes.length !== secrets.length) {
       throw new Error('Indexes and directional app tagging secrets have different lengths');
     }
@@ -330,80 +331,9 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     }));
   }
 
-  public async syncTaggedLogsAsSender(
-    secret: DirectionalAppTaggingSecret,
-    contractAddress: AztecAddress,
-  ): Promise<void> {
-    const lastUsedIndex = await this.taggingDataProvider.getLastUsedIndexesAsSender(secret);
-    // If lastUsedIndex is undefined, we've never used this secret, so start from 0
-    // Otherwise, start from one past the last used index
-    const startIndex = lastUsedIndex === undefined ? 0 : lastUsedIndex + 1;
-
-    // This algorithm works such that:
-    // 1. If we find minimum consecutive empty logs in a window of logs we set the index to the index of the last log
-    // we found and quit.
-    // 2. If we don't find minimum consecutive empty logs in a window of logs we slide the window to latest log index
-    // and repeat the process.
-    const MIN_CONSECUTIVE_EMPTY_LOGS = 10;
-    const WINDOW_SIZE = MIN_CONSECUTIVE_EMPTY_LOGS * 2;
-
-    let [numConsecutiveEmptyLogs, currentIndex] = [0, startIndex];
-    let lastFoundLogIndex: number | undefined = undefined;
-    do {
-      // We compute the tags for the current window of indexes
-      const currentTags = await timesParallel(WINDOW_SIZE, async i => {
-        return SiloedTag.compute(await Tag.compute({ secret, index: currentIndex + i }), contractAddress);
-      });
-
-      // We fetch the logs for the tags
-      // TODO: The following conversion is unfortunate and we should most likely just type the #getPrivateLogsByTags
-      // to accept SiloedTag[] instead of Fr[]. That would result in a large change so I didn't do it yet.
-      const tagsAsFr = currentTags.map(tag => tag.value);
-      const possibleLogs = await this.#getPrivateLogsByTags(tagsAsFr);
-
-      // We find the index of the last log in the window that is not empty
-      const indexOfLastLogWithinArray = possibleLogs.findLastIndex(possibleLog => possibleLog.length !== 0);
-
-      if (indexOfLastLogWithinArray === -1) {
-        // We haven't found any logs in the current window so we stop looking
-        break;
-      }
-
-      // We've found logs so we update the last found log index
-      lastFoundLogIndex = (lastFoundLogIndex ?? 0) + indexOfLastLogWithinArray;
-      // We move the current index to that of the log right after the last found log
-      currentIndex = lastFoundLogIndex + 1;
-
-      // We compute the number of consecutive empty logs we found and repeat the process if we haven't found enough.
-      numConsecutiveEmptyLogs = WINDOW_SIZE - indexOfLastLogWithinArray - 1;
-    } while (numConsecutiveEmptyLogs < MIN_CONSECUTIVE_EMPTY_LOGS);
-
-    const contractName = await this.contractDataProvider.getDebugContractName(contractAddress);
-    if (lastFoundLogIndex !== undefined) {
-      // Last found index is defined meaning we have actually found logs so we update the last used index
-      await this.taggingDataProvider.setLastUsedIndexesAsSender([{ secret, index: lastFoundLogIndex }]);
-
-      this.log.debug(`Syncing logs for secret ${secret.toString()} at contract ${contractName}(${contractAddress})`, {
-        index: currentIndex,
-        contractName,
-        contractAddress,
-      });
-    } else {
-      this.log.debug(
-        `No new logs found for secret ${secret.toString()} at contract ${contractName}(${contractAddress})`,
-      );
-    }
-  }
-
-  /**
-   * Synchronizes the private logs tagged with scoped addresses and all the senders in the address book. Stores the found
-   * logs in CapsuleArray ready for a later retrieval in Aztec.nr.
-   * @param contractAddress - The address of the contract that the logs are tagged for.
-   * @param pendingTaggedLogArrayBaseSlot - The base slot of the pending tagged logs capsule array in which
-   * found logs will be stored.
-   * @param scopes - The scoped addresses to sync logs for. If not provided, all accounts in the address book will be
-   * synced.
-   */
+  // TODO(#17775): Replace this implementation of this function with one implementing an approach similar
+  // to syncSenderTaggingIndexes. Not done yet due to re-prioritization to devex and this doesn't directly affect
+  // devex.
   public async syncTaggedLogs(
     contractAddress: AztecAddress,
     pendingTaggedLogArrayBaseSlot: Fr,
@@ -411,7 +341,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
   ) {
     this.log.verbose('Searching for tagged logs', { contract: contractAddress });
 
-    const maxBlockNumber = await this.syncDataProvider.getBlockNumber();
+    const maxBlockNumber = (await this.anchorBlockDataProvider.getBlockHeader()).getBlockNumber();
 
     // Ideally this algorithm would be implemented in noir, exposing its building blocks as oracles.
     // However it is impossible at the moment due to the language not supporting nested slices.
@@ -493,7 +423,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
               filteredLogsByBlockNumber,
             );
 
-            // We retrieve the pre tag corresponding to the log as I need that to evaluate whether
+            // We retrieve the pre-tag corresponding to the log as I need that to evaluate whether
             // a new largest index have been found.
             const preTagCorrespondingToLog = preTagsForTheWholeWindow[logIndex];
             const initialIndex = initialIndexesMap[preTagCorrespondingToLog.secret.toString()];
@@ -550,7 +480,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
       // At this point we have processed all the logs for the recipient so we store the last used indexes in the db.
       // newLargestIndexMapToStore contains "next" indexes to look for (one past the last found), so subtract 1 to get
       // last used.
-      await this.taggingDataProvider.setLastUsedIndexesAsRecipient(
+      await this.recipientTaggingDataProvider.setLastUsedIndexes(
         Object.entries(newLargestIndexMapToStore).map(([directionalAppTaggingSecret, index]) => ({
           secret: DirectionalAppTaggingSecret.fromString(directionalAppTaggingSecret),
           index: index - 1,
@@ -668,12 +598,26 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     // number which *should* be recent enough to be available, even for non-archive nodes.
     // Also note that the note should never be ahead of the synced block here since `fetchTaggedLogs` only processes
     // logs up to the synced block making this only an additional safety check.
-    const syncedBlockNumber = await this.syncDataProvider.getBlockNumber();
+    const syncedBlockNumber = (await this.anchorBlockDataProvider.getBlockHeader()).getBlockNumber();
 
     // By computing siloed and unique note hashes ourselves we prevent contracts from interfering with the note storage
     // of other contracts, which would constitute a security breach.
     const uniqueNoteHash = await computeUniqueNoteHash(noteNonce, await siloNoteHash(contractAddress, noteHash));
     const siloedNullifier = await siloNullifier(contractAddress, nullifier);
+
+    const txEffect = await this.aztecNode.getTxEffect(txHash);
+    if (!txEffect) {
+      throw new Error(`Could not find tx effect for tx hash ${txHash}`);
+    }
+
+    if (txEffect.l2BlockNumber > syncedBlockNumber) {
+      throw new Error(`Could not find tx effect for tx hash ${txHash} as of block number ${syncedBlockNumber}`);
+    }
+
+    const noteInTx = txEffect.data.noteHashes.some(nh => nh.equals(uniqueNoteHash));
+    if (!noteInTx) {
+      throw new Error(`Note hash ${noteHash} (uniqued as ${uniqueNoteHash}) is not present in tx ${txHash}`);
+    }
 
     // We store notes by their index in the global note hash tree, which has the convenient side effect of validating
     // note existence in said tree. We concurrently also check if the note's nullifier exists, performing all node
@@ -699,9 +643,9 @@ export class PXEOracleInterface implements ExecutionDataProvider {
       noteHash,
       siloedNullifier,
       txHash,
-      uniqueNoteHashTreeIndexInBlock?.l2BlockNumber,
-      uniqueNoteHashTreeIndexInBlock?.l2BlockHash.toString(),
-      uniqueNoteHashTreeIndexInBlock?.data,
+      uniqueNoteHashTreeIndexInBlock.l2BlockNumber,
+      uniqueNoteHashTreeIndexInBlock.l2BlockHash.toString(),
+      uniqueNoteHashTreeIndexInBlock.data,
     );
 
     // The note was found by `recipient`, so we use that as the scope when storing the note.
@@ -789,17 +733,19 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     content: Fr[],
     eventCommitment: Fr,
     txHash: TxHash,
-    recipient: AztecAddress,
+    scope: AztecAddress,
   ): Promise<void> {
     // While using 'latest' block number would be fine for private events since they cannot be accessed from Aztec.nr
     // (and thus we're less concerned about being ahead of the synced block), we use the synced block number to
     // maintain consistent behavior in the PXE. Additionally, events should never be ahead of the synced block here
     // since `fetchTaggedLogs` only processes logs up to the synced block.
-    const [syncedBlockNumber, siloedEventCommitment, txEffect] = await Promise.all([
-      this.syncDataProvider.getBlockNumber(),
+    const [syncedBlockHeader, siloedEventCommitment, txEffect] = await Promise.all([
+      this.anchorBlockDataProvider.getBlockHeader(),
       siloNullifier(contractAddress, eventCommitment),
       this.aztecNode.getTxEffect(txHash),
     ]);
+
+    const syncedBlockNumber = syncedBlockHeader.getBlockNumber();
 
     if (!txEffect) {
       throw new Error(`Could not find tx effect for tx hash ${txHash}`);
@@ -809,7 +755,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
       throw new Error(`Could not find tx effect for tx hash ${txHash} as of block number ${syncedBlockNumber}`);
     }
 
-    const eventInTx = txEffect.data.nullifiers.some(nullifier => nullifier.equals(siloedEventCommitment));
+    const eventInTx = txEffect.data.nullifiers.some(n => n.equals(siloedEventCommitment));
     if (!eventInTx) {
       throw new Error(
         `Event commitment ${eventCommitment} (siloed as ${siloedEventCommitment}) is not present in tx ${txHash}`,
@@ -827,14 +773,16 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     }
 
     return this.privateEventDataProvider.storePrivateEventLog(
-      contractAddress,
-      recipient,
       selector,
       content,
-      txHash,
       Number(nullifierIndex.data), // Index of the event commitment in the nullifier tree
-      nullifierIndex.l2BlockNumber, // Block number in which the event was emitted
-      nullifierIndex.l2BlockHash, // Block hash in which the event was emitted
+      {
+        contractAddress,
+        scope,
+        txHash,
+        l2BlockNumber: nullifierIndex.l2BlockNumber, // Block number in which the event was emitted
+        l2BlockHash: nullifierIndex.l2BlockHash, // Block hash in which the event was emitted
+      },
     );
   }
 
@@ -921,7 +869,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
   public async syncNoteNullifiers(contractAddress: AztecAddress) {
     this.log.verbose('Searching for nullifiers of known notes', { contract: contractAddress });
 
-    const syncedBlockNumber = await this.syncDataProvider.getBlockNumber();
+    const syncedBlockNumber = (await this.anchorBlockDataProvider.getBlockHeader()).getBlockNumber();
 
     const contractNotes = await this.noteDataProvider.getNotes({ contractAddress });
 

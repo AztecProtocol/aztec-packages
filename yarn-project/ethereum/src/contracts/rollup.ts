@@ -19,7 +19,7 @@ import {
 } from 'viem';
 
 import { getPublicClient } from '../client.js';
-import type { DeployL1ContractsReturnType } from '../deploy_l1_contracts.js';
+import type { DeployAztecL1ContractsReturnType } from '../deploy_aztec_l1_contracts.js';
 import type { L1ContractAddresses } from '../l1_contract_addresses.js';
 import type { L1ReaderConfig } from '../l1_reader.js';
 import type { L1TxRequest, L1TxUtils } from '../l1_tx_utils/index.js';
@@ -106,7 +106,7 @@ export class RollupContract {
     return (RollupContract.cachedStfStorageSlot ??= keccak256(Buffer.from('aztec.stf.storage', 'utf-8')));
   }
 
-  static getFromL1ContractsValues(deployL1ContractsValues: DeployL1ContractsReturnType) {
+  static getFromL1ContractsValues(deployL1ContractsValues: DeployAztecL1ContractsReturnType) {
     const {
       l1Client,
       l1ContractAddresses: { rollupAddress },
@@ -420,8 +420,12 @@ export class RollupContract {
     return this.rollup.read.getCheckpoint([BigInt(checkpointNumber)]);
   }
 
-  getTips() {
-    return this.rollup.read.getTips();
+  async getTips(): Promise<{ pending: CheckpointNumber; proven: CheckpointNumber }> {
+    const { pending, proven } = await this.rollup.read.getTips();
+    return {
+      pending: CheckpointNumber.fromBigInt(pending),
+      proven: CheckpointNumber.fromBigInt(proven),
+    };
   }
 
   getTimestampForSlot(slot: SlotNumber) {

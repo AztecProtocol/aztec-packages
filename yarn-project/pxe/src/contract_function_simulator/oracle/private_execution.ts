@@ -1,5 +1,6 @@
 import { PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH, PRIVATE_CONTEXT_INPUTS_LENGTH } from '@aztec/constants';
-import { Fr } from '@aztec/foundation/fields';
+import { BlockNumber } from '@aztec/foundation/branded-types';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
@@ -162,7 +163,7 @@ export async function readCurrentClassId(
   contractAddress: AztecAddress,
   instance: ContractInstance,
   executionDataProvider: ExecutionDataProvider | AztecNode,
-  blockNumber: number,
+  blockNumber: BlockNumber,
   timestamp: UInt64,
 ) {
   const { delayedPublicMutableSlot } = await DelayedPublicMutableValuesWithHash.getContractUpdateSlots(contractAddress);
@@ -187,10 +188,8 @@ export async function readCurrentClassId(
 export async function verifyCurrentClassId(
   contractAddress: AztecAddress,
   executionDataProvider: ExecutionDataProvider,
-  header?: BlockHeader,
+  header: BlockHeader,
 ) {
-  header = header ?? (await executionDataProvider.getAnchorBlockHeader());
-
   const instance = await executionDataProvider.getContractInstance(contractAddress);
   const currentClassId = await readCurrentClassId(
     contractAddress,

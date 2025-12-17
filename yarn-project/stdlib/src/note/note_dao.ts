@@ -1,5 +1,7 @@
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
-import { Fr, Point } from '@aztec/foundation/fields';
+import { BlockNumber } from '@aztec/foundation/branded-types';
+import { Fr } from '@aztec/foundation/curves/bn254';
+import { Point } from '@aztec/foundation/curves/grumpkin';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { Note } from '@aztec/stdlib/note';
@@ -50,7 +52,7 @@ export class NoteDao {
     public txHash: TxHash,
     /** The L2 block number in which the tx with this note was included. Used for note management while processing
      * reorgs.*/
-    public l2BlockNumber: number,
+    public l2BlockNumber: BlockNumber,
     /** The L2 block hash in which the tx with this note was included. Used for note management while processing
      * reorgs.*/
     public l2BlockHash: string,
@@ -87,7 +89,7 @@ export class NoteDao {
     const noteHash = Fr.fromBuffer(reader);
     const siloedNullifier = Fr.fromBuffer(reader);
     const txHash = reader.readObject(TxHash);
-    const l2BlockNumber = reader.readNumber();
+    const l2BlockNumber = BlockNumber(reader.readNumber());
     const l2BlockHash = Fr.fromBuffer(reader).toString();
     const index = toBigIntBE(reader.readBytes(32));
 
@@ -117,6 +119,26 @@ export class NoteDao {
   }
 
   /**
+   * Returns true if this note is equal to the `other` one.
+   */
+  equals(other: NoteDao): boolean {
+    return (
+      this.note.equals(other.note) &&
+      this.contractAddress.equals(other.contractAddress) &&
+      this.owner.equals(other.owner) &&
+      this.storageSlot.equals(other.storageSlot) &&
+      this.randomness.equals(other.randomness) &&
+      this.noteNonce.equals(other.noteNonce) &&
+      this.noteHash.equals(other.noteHash) &&
+      this.siloedNullifier.equals(other.siloedNullifier) &&
+      this.txHash.equals(other.txHash) &&
+      this.l2BlockNumber === other.l2BlockNumber &&
+      this.l2BlockHash === other.l2BlockHash &&
+      this.index === other.index
+    );
+  }
+
+  /**
    * Returns the size in bytes of the Note Dao.
    * @returns - Its size in bytes.
    */
@@ -138,7 +160,7 @@ export class NoteDao {
     noteHash = Fr.random(),
     siloedNullifier = Fr.random(),
     txHash = TxHash.random(),
-    l2BlockNumber = Math.floor(Math.random() * 1000),
+    l2BlockNumber = BlockNumber(Math.floor(Math.random() * 1000)),
     l2BlockHash = Fr.random().toString(),
     index = Fr.random().toBigInt(),
   }: Partial<NoteDao> = {}) {

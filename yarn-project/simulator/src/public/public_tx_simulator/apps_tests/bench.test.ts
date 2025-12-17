@@ -1,5 +1,5 @@
-import { randomInt } from '@aztec/foundation/crypto';
-import { Fr } from '@aztec/foundation/fields';
+import { randomInt } from '@aztec/foundation/crypto/random';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import { AMMContractArtifact } from '@aztec/noir-contracts.js/AMM';
 import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
@@ -15,9 +15,16 @@ import path from 'path';
 
 import { ammTest } from '../../fixtures/amm_test.js';
 import { bulkTest, megaBulkTest } from '../../fixtures/bulk_test.js';
-import { PublicTxSimulationTester, defaultGlobals } from '../../fixtures/public_tx_simulation_tester.js';
+import {
+  type MeasuredSimulatorFactory,
+  PublicTxSimulationTester,
+  defaultGlobals,
+} from '../../fixtures/public_tx_simulation_tester.js';
+import { SimpleContractDataSource } from '../../fixtures/simple_contract_data_source.js';
 import { tokenTest } from '../../fixtures/token_test.js';
 import { TestExecutorMetrics } from '../../test_executor_metrics.js';
+import { MeasuredCppPublicTxSimulator } from '../cpp_public_tx_simulator.js';
+import { MeasuredPublicTxSimulator } from '../measured_public_tx_simulator.js';
 
 describe('Public TX simulator apps tests: benchmarks', () => {
   const logger = createLogger('public-tx-apps-tests-bench');
@@ -38,10 +45,9 @@ describe('Public TX simulator apps tests: benchmarks', () => {
       writeFileSync(process.env.BENCH_OUTPUT, metrics.toGithubActionBenchmarkJSON());
     } else if (process.env.BENCH_OUTPUT_MD) {
       writeFileSync(process.env.BENCH_OUTPUT_MD, metrics.toPrettyString());
-    } else {
-      logger.info(`\n`); // sometimes jest tests obscure the last line(s)
-      logger.info(metrics.toPrettyString());
     }
+    logger.info(`\n`); // sometimes jest tests obscure the last line(s)
+    logger.info(metrics.toPrettyString());
   });
 
   describe.each([
@@ -56,11 +62,18 @@ describe('Public TX simulator apps tests: benchmarks', () => {
 
       beforeEach(async () => {
         worldStateService = await NativeWorldStateService.tmp();
-        tester = await PublicTxSimulationTester.create(
-          worldStateService,
+        const contractDataSource = new SimpleContractDataSource();
+        const merkleTree = await worldStateService.fork();
+        // For benchmarking, use pure simulators (no CppVsTs comparison overhead)
+        const simulatorFactory: MeasuredSimulatorFactory = useCppSimulator
+          ? (mt, cdb, g, m, c) => new MeasuredCppPublicTxSimulator(mt, cdb, g, m, c)
+          : (mt, cdb, g, m, c) => new MeasuredPublicTxSimulator(mt, cdb, g, m, c);
+        tester = new PublicTxSimulationTester(
+          merkleTree,
+          contractDataSource,
           defaultGlobals(),
           metrics,
-          useCppSimulator,
+          simulatorFactory,
           config,
         );
       });
@@ -71,7 +84,10 @@ describe('Public TX simulator apps tests: benchmarks', () => {
 
       it('Token Contract test', async () => {
         tester.setMetricsPrefix(`${metricsPrefixPrefix}Token contract tests`);
-        await tokenTest(tester, logger, TokenContractArtifact, (b: boolean) => expect(b).toBe(true));
+        // Skip return value assertions since collectCallMetadata=false for benchmarking
+        await tokenTest(tester, logger, TokenContractArtifact, (b: boolean) => expect(b).toBe(true), {
+          skipReturnValueAssertions: true,
+        });
       });
 
       it('AMM Contract test', async () => {
@@ -126,7 +142,19 @@ describe('Public TX simulator apps tests: benchmarks', () => {
 
       beforeEach(async () => {
         worldStateService = await NativeWorldStateService.tmp();
-        tester = await PublicTxSimulationTester.create(worldStateService, defaultGlobals(), metrics, useCppSimulator);
+        const contractDataSource = new SimpleContractDataSource();
+        const merkleTree = await worldStateService.fork();
+        // For benchmarking, use pure simulators (no CppVsTs comparison overhead)
+        const simulatorFactory: MeasuredSimulatorFactory = useCppSimulator
+          ? (mt, cdb, g, m, c) => new MeasuredCppPublicTxSimulator(mt, cdb, g, m, c)
+          : (mt, cdb, g, m, c) => new MeasuredPublicTxSimulator(mt, cdb, g, m, c);
+        tester = new PublicTxSimulationTester(
+          merkleTree,
+          contractDataSource,
+          defaultGlobals(),
+          metrics,
+          simulatorFactory,
+        );
         avmGadgetsTestContract = await tester.registerAndDeployContract(
           /*constructorArgs=*/ [],
           deployer,

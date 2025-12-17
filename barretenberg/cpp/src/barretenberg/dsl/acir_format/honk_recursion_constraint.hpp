@@ -8,25 +8,20 @@
 #include "barretenberg/commitment_schemes/claim.hpp"
 #include "barretenberg/dsl/acir_format/recursion_constraint.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
-#include "barretenberg/stdlib/honk_verifier/ultra_recursive_verifier.hpp"
 #include "barretenberg/stdlib/primitives/bigfield/bigfield.hpp"
 #include "barretenberg/stdlib/primitives/curves/grumpkin.hpp"
 #include "barretenberg/stdlib/primitives/pairing_points.hpp"
+#include "barretenberg/ultra_honk/ultra_verifier.hpp"
 #include <vector>
 
 namespace acir_format {
 
 using namespace bb;
 
-template <typename Builder>
-using HonkRecursionConstraintOutput = bb::stdlib::recursion::honk::UltraRecursiveVerifierOutput<Builder>;
-
 template <typename Flavor>
 [[nodiscard("IPA claim and Pairing points should be accumulated")]] HonkRecursionConstraintOutput<
     typename Flavor::CircuitBuilder>
-create_honk_recursion_constraints(typename Flavor::CircuitBuilder& builder,
-                                  const RecursionConstraint& input,
-                                  bool has_valid_witness_assignments = false)
+create_honk_recursion_constraints(typename Flavor::CircuitBuilder& builder, const RecursionConstraint& input)
     requires(IsRecursiveFlavor<Flavor> && IsUltraHonk<typename Flavor::NativeFlavor>);
 
 #ifndef NDEBUG

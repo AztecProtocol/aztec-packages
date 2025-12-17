@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Completed, auditors: [Federico], date: 2025-12-04 }
 // external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // =====================
@@ -29,7 +29,13 @@ using namespace bb;
 
 /// ========= HELPERS ========= ///
 
-WitnessOrConstant<bb::fr> parse_input(Acir::FunctionInput input)
+bb::fr from_buffer_with_bound_checks(const std::vector<uint8_t>& buffer)
+{
+    BB_ASSERT_EQ(buffer.size(), 32U, "acir_format::from_buffer_with_bound_checks: buffer size must be 32 bytes.");
+    return fr::serialize_from_buffer(buffer.data());
+}
+
+WitnessOrConstant<bb::fr> parse_input(const Acir::FunctionInput& input)
 {
     WitnessOrConstant<bb::fr> result = std::visit(
         [&](auto&& e) {
@@ -43,24 +49,223 @@ WitnessOrConstant<bb::fr> parse_input(Acir::FunctionInput input)
             } else if constexpr (std::is_same_v<T, Acir::FunctionInput::Constant>) {
                 return WitnessOrConstant<bb::fr>{
                     .index = bb::stdlib::IS_CONSTANT,
-                    .value = fr::serialize_from_buffer(&e.value[0]),
+                    .value = from_buffer_with_bound_checks(e.value),
                     .is_constant = true,
                 };
             } else {
-                bb::assert_failure("acir_format::parse_input: unrecognized Acir::FunctionInput variant.");
+                bb::assert_failure("acir_format::parse_input: unrecognized Acir::FunctionInput variant. An error here "
+                                   "means there was a serialization error.");
             }
         },
         input.value);
     return result;
 }
 
-uint32_t get_witness_from_function_input(Acir::FunctionInput input)
+uint32_t get_witness_from_function_input(const Acir::FunctionInput& input)
 {
     BB_ASSERT(std::holds_alternative<Acir::FunctionInput::Witness>(input.value),
-              "get_witness_from_function_input: input must be a Witness variant");
+              "acir_format::get_witness_from_function_input: input must be a Witness variant. An error here means "
+              "there was a serialization error.");
 
-    auto input_witness = std::get<Acir::FunctionInput::Witness>(input.value);
-    return input_witness.value.value;
+    return std::get<Acir::FunctionInput::Witness>(input.value).value.value;
+}
+
+void update_max_witness_index(const uint32_t witness_idx, AcirFormat& af)
+{
+    if (witness_idx != stdlib::IS_CONSTANT) {
+        af.max_witness_index = std::max(af.max_witness_index, witness_idx);
+    }
+}
+
+void update_max_witness_index_from_expression(Acir::Expression const& expr, AcirFormat& af)
+{
+    // Process multiplication terms: each term has two witness indices
+    for (const auto& mul_term : expr.mul_terms) {
+        update_max_witness_index(std::get<1>(mul_term).value, af);
+        update_max_witness_index(std::get<2>(mul_term).value, af);
+    }
+
+    // Process linear combinations: each term has one witness index
+    for (const auto& linear_term : expr.linear_combinations) {
+        update_max_witness_index(std::get<1>(linear_term).value, af);
+    }
+}
+
+void update_max_witness_index_from_opcode(Acir::Opcode const& opcode, AcirFormat& af)
+{
+    auto update_max_witness_index_from_function_input = [&](const Acir::FunctionInput& input) {
+        if (std::holds_alternative<Acir::FunctionInput::Witness>(input.value)) {
+            update_max_witness_index(std::get<Acir::FunctionInput::Witness>(input.value).value.value, af);
+        }
+    };
+
+    auto update_max_witness_index_from_witness = [&](const Acir::Witness& witness) {
+        update_max_witness_index(witness.value, af);
+    };
+
+    std::visit(
+        [&](auto&& arg) {
+            using T = std::decay_t<decltype(arg)>;
+            if constexpr (std::is_same_v<T, Acir::Opcode::AssertZero>) {
+                update_max_witness_index_from_expression(arg.value, af);
+            } else if constexpr (std::is_same_v<T, Acir::Opcode::BlackBoxFuncCall>) {
+                std::visit(
+                    [&](auto&& bb_arg) {
+                        using BBT = std::decay_t<decltype(bb_arg)>;
+                        if constexpr (std::is_same_v<BBT, Acir::BlackBoxFuncCall::AND> ||
+                                      std::is_same_v<BBT, Acir::BlackBoxFuncCall::XOR>) {
+                            update_max_witness_index_from_function_input(bb_arg.lhs);
+                            update_max_witness_index_from_function_input(bb_arg.rhs);
+                            update_max_witness_index_from_witness(bb_arg.output);
+                        } else if constexpr (std::is_same_v<BBT, Acir::BlackBoxFuncCall::RANGE>) {
+                            update_max_witness_index_from_function_input(bb_arg.input);
+                        } else if constexpr (std::is_same_v<BBT, Acir::BlackBoxFuncCall::AES128Encrypt>) {
+                            for (const auto& input : bb_arg.inputs) {
+                                update_max_witness_index_from_function_input(input);
+                            }
+                            for (const auto& input : *bb_arg.iv) {
+                                update_max_witness_index_from_function_input(input);
+                            }
+                            for (const auto& input : *bb_arg.key) {
+                                update_max_witness_index_from_function_input(input);
+                            }
+                            for (const auto& output : bb_arg.outputs) {
+                                update_max_witness_index_from_witness(output);
+                            }
+                        } else if constexpr (std::is_same_v<BBT, Acir::BlackBoxFuncCall::Sha256Compression>) {
+                            for (const auto& input : *bb_arg.inputs) {
+                                update_max_witness_index_from_function_input(input);
+                            }
+                            for (const auto& input : *bb_arg.hash_values) {
+                                update_max_witness_index_from_function_input(input);
+                            }
+                            for (const auto& output : *bb_arg.outputs) {
+                                update_max_witness_index_from_witness(output);
+                            }
+                        } else if constexpr (std::is_same_v<BBT, Acir::BlackBoxFuncCall::Blake2s> ||
+                                             std::is_same_v<BBT, Acir::BlackBoxFuncCall::Blake3>) {
+                            for (const auto& input : bb_arg.inputs) {
+                                update_max_witness_index_from_function_input(input);
+                            }
+                            for (const auto& output : *bb_arg.outputs) {
+                                update_max_witness_index_from_witness(output);
+                            }
+                        } else if constexpr (std::is_same_v<BBT, Acir::BlackBoxFuncCall::EcdsaSecp256k1> ||
+                                             std::is_same_v<BBT, Acir::BlackBoxFuncCall::EcdsaSecp256r1>) {
+                            for (const auto& input : *bb_arg.public_key_x) {
+                                update_max_witness_index_from_function_input(input);
+                            }
+                            for (const auto& input : *bb_arg.public_key_y) {
+                                update_max_witness_index_from_function_input(input);
+                            }
+                            for (const auto& input : *bb_arg.signature) {
+                                update_max_witness_index_from_function_input(input);
+                            }
+                            for (const auto& input : *bb_arg.hashed_message) {
+                                update_max_witness_index_from_function_input(input);
+                            }
+                            update_max_witness_index_from_function_input(bb_arg.predicate);
+                            update_max_witness_index_from_witness(bb_arg.output);
+                        } else if constexpr (std::is_same_v<BBT, Acir::BlackBoxFuncCall::MultiScalarMul>) {
+                            for (const auto& input : bb_arg.points) {
+                                update_max_witness_index_from_function_input(input);
+                            }
+                            for (const auto& input : bb_arg.scalars) {
+                                update_max_witness_index_from_function_input(input);
+                            }
+                            update_max_witness_index_from_function_input(bb_arg.predicate);
+                            for (const auto& output : *bb_arg.outputs) {
+                                update_max_witness_index_from_witness(output);
+                            }
+                        } else if constexpr (std::is_same_v<BBT, Acir::BlackBoxFuncCall::EmbeddedCurveAdd>) {
+                            for (const auto& input : *bb_arg.input1) {
+                                update_max_witness_index_from_function_input(input);
+                            }
+                            for (const auto& input : *bb_arg.input2) {
+                                update_max_witness_index_from_function_input(input);
+                            }
+                            update_max_witness_index_from_function_input(bb_arg.predicate);
+                            for (const auto& output : *bb_arg.outputs) {
+                                update_max_witness_index_from_witness(output);
+                            }
+                        } else if constexpr (std::is_same_v<BBT, Acir::BlackBoxFuncCall::Keccakf1600>) {
+                            for (const auto& input : *bb_arg.inputs) {
+                                update_max_witness_index_from_function_input(input);
+                            }
+                            for (const auto& output : *bb_arg.outputs) {
+                                update_max_witness_index_from_witness(output);
+                            }
+                        } else if constexpr (std::is_same_v<BBT, Acir::BlackBoxFuncCall::RecursiveAggregation>) {
+                            for (const auto& input : bb_arg.verification_key) {
+                                update_max_witness_index_from_function_input(input);
+                            }
+                            for (const auto& input : bb_arg.proof) {
+                                update_max_witness_index_from_function_input(input);
+                            }
+                            for (const auto& input : bb_arg.public_inputs) {
+                                update_max_witness_index_from_function_input(input);
+                            }
+                            update_max_witness_index_from_function_input(bb_arg.key_hash);
+                            update_max_witness_index_from_function_input(bb_arg.predicate);
+                        } else if constexpr (std::is_same_v<BBT, Acir::BlackBoxFuncCall::Poseidon2Permutation>) {
+                            for (const auto& input : bb_arg.inputs) {
+                                update_max_witness_index_from_function_input(input);
+                            }
+                            for (const auto& output : bb_arg.outputs) {
+                                update_max_witness_index_from_witness(output);
+                            }
+                        }
+                    },
+                    arg.value.value);
+            } else if constexpr (std::is_same_v<T, Acir::Opcode::MemoryInit>) {
+                for (const auto& init : arg.init) {
+                    update_max_witness_index_from_witness(init);
+                }
+            } else if constexpr (std::is_same_v<T, Acir::Opcode::MemoryOp>) {
+                update_max_witness_index_from_expression(arg.op.index, af);
+                update_max_witness_index_from_expression(arg.op.value, af);
+                update_max_witness_index_from_expression(arg.op.operation, af);
+            } else if constexpr (std::is_same_v<T, Acir::Opcode::BrilligCall>) {
+                // Process inputs
+                for (const auto& input : arg.inputs) {
+                    std::visit(
+                        [&](auto&& e) {
+                            using IT = std::decay_t<decltype(e)>;
+                            if constexpr (std::is_same_v<IT, Acir::BrilligInputs::Single>) {
+                                update_max_witness_index_from_expression(e.value, af);
+                            } else if constexpr (std::is_same_v<IT, Acir::BrilligInputs::Array>) {
+                                for (const auto& expr : e.value) {
+                                    update_max_witness_index_from_expression(expr, af);
+                                }
+                            }
+                            // MemoryArray contains a BlockId, no direct witnesses to track
+                        },
+                        input.value);
+                }
+                // Process outputs
+                for (const auto& output : arg.outputs) {
+                    std::visit(
+                        [&](auto&& e) {
+                            using OT = std::decay_t<decltype(e)>;
+                            if constexpr (std::is_same_v<OT, Acir::BrilligOutputs::Simple>) {
+                                update_max_witness_index_from_witness(e.value);
+                            } else if constexpr (std::is_same_v<OT, Acir::BrilligOutputs::Array>) {
+                                for (const auto& witness : e.value) {
+                                    update_max_witness_index_from_witness(witness);
+                                }
+                            }
+                        },
+                        output.value);
+                }
+                // Process optional predicate
+                if (arg.predicate.has_value()) {
+                    update_max_witness_index_from_expression(arg.predicate.value(), af);
+                }
+            } else {
+                bb::assert_failure("acir_format::update_max_witness_index_from_opcode: Unrecognized opcode.");
+            }
+        },
+        opcode.value);
 }
 
 /// ========= BYTES TO BARRETENBERG'S REPRESENTATION  ========= ///
@@ -86,7 +291,10 @@ T deserialize_any_format(std::vector<uint8_t>&& buf,
         // Once we remove support for legacy bincode format, we should expect to always
         // have a format marker corresponding to acir::serialization::Format::Msgpack,
         // but until then a match could be pure coincidence.
-        if (buf[0] == 2) {
+        const uint8_t FORMAT_MSGPACK = 2;
+        const uint8_t FORMAT_MSGPACK_COMPACT = 3;
+        uint8_t format = buf[0];
+        if (format == FORMAT_MSGPACK || format == FORMAT_MSGPACK_COMPACT) {
             // Skip the format marker to get the data.
             const char* buffer = &reinterpret_cast<const char*>(buf.data())[1];
             size_t size = buf.size() - 1;
@@ -96,10 +304,9 @@ T deserialize_any_format(std::vector<uint8_t>&& buf,
                 // This has to be on a separate line, see
                 // https://github.com/msgpack/msgpack-c/issues/695#issuecomment-393035172
                 auto o = oh.get();
-                // In experiments bincode data was parsed as 0.
-                // All the top level formats we look for are MAP types.
-                if (o.type == msgpack::type::MAP) {
-                    BB_ASSERT(false, "Msgpack is not currently supported.");
+                // In experiments bincode data was parsed as 0, so a successful parse is not a guarnatee that it's
+                // msgpack. All the top level formats we look for are MAP or ARRAY types (depending on the format).
+                if (o.type == msgpack::type::MAP || o.type == msgpack::type::ARRAY) {
                     return decode_msgpack(o);
                 }
             }
@@ -114,12 +321,23 @@ T deserialize_any_format(std::vector<uint8_t>&& buf,
 
 AcirFormat circuit_serde_to_acir_format(Acir::Circuit const& circuit)
 {
+    BB_ASSERT_LT(
+        circuit.opcodes.size(), UINT32_MAX, "acir_format::circuit_serde_to_acir_format: too many opcodes in circuit.");
+
     AcirFormat af;
-    // `varnum` is the true number of variables, thus we add one to the index which starts at zero
-    af.varnum = circuit.current_witness_index + 1;
     af.num_acir_opcodes = static_cast<uint32_t>(circuit.opcodes.size());
-    af.public_inputs = join({ transform::map(circuit.public_parameters.value, [](auto e) { return e.value; }),
-                              transform::map(circuit.return_values.value, [](auto e) { return e.value; }) });
+    af.public_inputs = join({
+        transform::map(circuit.public_parameters.value,
+                       [&](const Acir::Witness& e) {
+                           update_max_witness_index(e.value, af);
+                           return e.value;
+                       }),
+        transform::map(circuit.return_values.value,
+                       [&](const Acir::Witness& e) {
+                           update_max_witness_index(e.value, af);
+                           return e.value;
+                       }),
+    });
     // Map to a pair of: BlockConstraint, and list of opcodes associated with that BlockConstraint
     // Block constraints are built as we process the opcodes, so we store them in this map and we add them to the
     // AcirFormat struct at the end
@@ -128,28 +346,30 @@ AcirFormat circuit_serde_to_acir_format(Acir::Circuit const& circuit)
 
     for (size_t i = 0; i < circuit.opcodes.size(); ++i) {
         const auto& gate = circuit.opcodes[i];
+        update_max_witness_index_from_opcode(gate, af);
         std::visit(
             [&](auto&& arg) {
                 using T = std::decay_t<decltype(arg)>;
                 if constexpr (std::is_same_v<T, Acir::Opcode::AssertZero>) {
-                    handle_arithmetic(arg, af, i);
+                    assert_zero_to_quad_constraints(arg, af, i);
                 } else if constexpr (std::is_same_v<T, Acir::Opcode::BlackBoxFuncCall>) {
-                    handle_blackbox_func_call(arg, af, i);
+                    add_blackbox_func_call_to_acir_format(arg, af, i);
                 } else if constexpr (std::is_same_v<T, Acir::Opcode::MemoryInit>) {
-                    auto block = handle_memory_init(arg);
+                    auto block = memory_init_to_block_constraint(arg);
                     uint32_t block_id = arg.block_id.value;
                     block_id_to_block_constraint[block_id] = { block, /*opcode_indices=*/{ i } };
                 } else if constexpr (std::is_same_v<T, Acir::Opcode::MemoryOp>) {
                     auto block = block_id_to_block_constraint.find(arg.block_id.value);
                     if (block == block_id_to_block_constraint.end()) {
-                        throw_or_abort("unitialized MemoryOp");
+                        bb::assert_failure("acir_format::circuit_serder_to_acir_format: unitialized MemoryOp.");
                     }
-                    handle_memory_op(arg, block->second.first);
+                    add_memory_op_to_block_constraint(arg, block->second.first);
                     block->second.second.push_back(i);
                 } else if constexpr (std::is_same_v<T, Acir::Opcode::BrilligCall>) {
-                    // This is a no-op in Barretenberg
+                    // This is a no-op in barretenberg
                 } else {
-                    bb::assert_failure("circuit_serde_to_acir_format: Unrecognized Acir Opcode.");
+                    bb::assert_failure("acir_format::circuit_serde_to_acir_format: Unrecognized Acir Opcode. An error "
+                                       "here means there was a serialization error.");
                 }
             },
             gate.value);
@@ -178,7 +398,8 @@ AcirFormat circuit_buf_to_acir_format(std::vector<uint8_t>&& buf)
                 program.functions = program_wob.functions;
             } catch (const msgpack::type_error&) {
                 std::cerr << o << std::endl;
-                throw_or_abort("failed to convert msgpack data to Program");
+                bb::assert_failure(
+                    "acir_format::circuit_buf_to_acir_format: failed to convert msgpack data to Program");
             }
             return program;
         },
@@ -199,13 +420,15 @@ WitnessVector witness_buf_to_witness_vector(std::vector<uint8_t>&& buf)
                 o.convert(witness_stack);
             } catch (const msgpack::type_error&) {
                 std::cerr << o << std::endl;
-                throw_or_abort("failed to convert msgpack data to WitnessStack");
+                bb::assert_failure(
+                    "acir_format::witness_buf_to_witness_vector: failed to convert msgpack data to WitnessStack");
             }
             return witness_stack;
         },
         &Witnesses::WitnessStack::bincodeDeserialize);
-    BB_ASSERT_EQ(
-        witness_stack.stack.size(), 1U, "witness_buf_to_witness_vector: expected single WitnessMap in WitnessStack");
+    BB_ASSERT_EQ(witness_stack.stack.size(),
+                 1U,
+                 "acir_format::witness_buf_to_witness_vector: expected single WitnessMap in WitnessStack");
 
     return witness_map_to_witness_vector(witness_stack.stack[0].witness);
 }
@@ -224,7 +447,7 @@ WitnessVector witness_map_to_witness_vector(Witnesses::WitnessMap const& witness
             witness_vector.emplace_back(0);
             index++;
         }
-        witness_vector.emplace_back(fr::serialize_from_buffer(&e.second[0]));
+        witness_vector.emplace_back(from_buffer_with_bound_checks(e.second));
         index++;
     }
 
@@ -232,83 +455,6 @@ WitnessVector witness_map_to_witness_vector(Witnesses::WitnessMap const& witness
 }
 
 /// ========= ACIR OPCODE HANDLERS ========= ///
-
-/**
- * @brief Construct a poly_tuple for a standard width-3 arithmetic gate from its acir representation
- *
- * @param arg acir representation of an 3-wire arithmetic operation
- * @return arithmetic_triple
- * @note In principle Acir::Expression can accommodate arbitrarily many quadratic and linear terms but in practice
- * the ones processed here have a max of 1 and 3 respectively, in accordance with the standard width-3 arithmetic gate.
- */
-arithmetic_triple serialize_arithmetic_gate(Acir::Expression const& arg)
-{
-    arithmetic_triple pt{
-        .a = 0,
-        .b = 0,
-        .c = 0,
-        .q_m = 0,
-        .q_l = 0,
-        .q_r = 0,
-        .q_o = 0,
-        .q_c = 0,
-    };
-
-    // Flags indicating whether each witness index for the present poly_tuple has been set
-    bool a_set = false;
-    bool b_set = false;
-    bool c_set = false;
-
-    // If necessary, set values for quadratic term (q_m * w_l * w_r)
-    BB_ASSERT_LTE(arg.mul_terms.size(), 1U, "We can only accommodate 1 quadratic term");
-    // Note: mul_terms are tuples of the form {selector_value, witness_idx_1, witness_idx_2}
-    if (!arg.mul_terms.empty()) {
-        const auto& mul_term = arg.mul_terms[0];
-        pt.q_m = fr::serialize_from_buffer(&(std::get<0>(mul_term)[0]));
-        pt.a = std::get<1>(mul_term).value;
-        pt.b = std::get<2>(mul_term).value;
-        a_set = true;
-        b_set = true;
-    }
-
-    // If necessary, set values for linears terms q_l * w_l, q_r * w_r and q_o * w_o
-    BB_ASSERT_LTE(arg.linear_combinations.size(), 3U, "We can only accommodate 3 linear terms");
-    for (const auto& linear_term : arg.linear_combinations) {
-        fr selector_value = fr::serialize_from_buffer(&(std::get<0>(linear_term)[0]));
-        uint32_t witness_idx = std::get<1>(linear_term).value;
-
-        // If the witness index has not yet been set or if the corresponding linear term is active, set the witness
-        // index and the corresponding selector value.
-        if (!a_set || pt.a == witness_idx) { // q_l * w_l
-            pt.a = witness_idx;
-            pt.q_l += selector_value; // Accumulate coefficients for duplicate witnesses
-            a_set = true;
-        } else if (!b_set || pt.b == witness_idx) { // q_r * w_r
-            pt.b = witness_idx;
-            pt.q_r += selector_value; // Accumulate coefficients for duplicate witnesses
-            b_set = true;
-        } else if (!c_set || pt.c == witness_idx) { // q_o * w_o
-            pt.c = witness_idx;
-            pt.q_o += selector_value; // Accumulate coefficients for duplicate witnesses
-            c_set = true;
-        } else {
-            return arithmetic_triple{
-                .a = 0,
-                .b = 0,
-                .c = 0,
-                .q_m = 0,
-                .q_l = 0,
-                .q_r = 0,
-                .q_o = 0,
-                .q_c = 0,
-            };
-        }
-    }
-
-    // Set constant value q_c
-    pt.q_c = fr::serialize_from_buffer(&arg.q_c[0]);
-    return pt;
-}
 
 std::vector<mul_quad_<fr>> split_into_mul_quad_gates(Acir::Expression const& arg,
                                                      std::map<uint32_t, bb::fr>& linear_terms)
@@ -326,6 +472,9 @@ std::vector<mul_quad_<fr>> split_into_mul_quad_gates(Acir::Expression const& arg
     // We cannot precompute the exact number of gates that will result from the expression. Therefore, we reserve the
     // maximum number of gates that could ever be needed: one per multiplication term plus one per linear term. The real
     // number of gates will in general be lower than this.
+    BB_ASSERT_LTE(arg.mul_terms.size(),
+                  SIZE_MAX - linear_terms.size(),
+                  "split_into_mul_quad_gates: overflow when reserving space for mul_quad_ gates.");
     result.reserve(arg.mul_terms.size() + linear_terms.size());
 
     // Step 1. Add multiplication terms and linear terms with the same witness index
@@ -335,7 +484,7 @@ std::vector<mul_quad_<fr>> split_into_mul_quad_gates(Acir::Expression const& arg
             .b = std::get<2>(mul_term).value,
             .c = bb::stdlib::IS_CONSTANT,
             .d = bb::stdlib::IS_CONSTANT,
-            .mul_scaling = fr::serialize_from_buffer(&(std::get<0>(mul_term)[0])),
+            .mul_scaling = from_buffer_with_bound_checks(std::get<0>(mul_term)),
             .a_scaling = fr::zero(),
             .b_scaling = fr::zero(),
             .c_scaling = fr::zero(),
@@ -365,7 +514,7 @@ std::vector<mul_quad_<fr>> split_into_mul_quad_gates(Acir::Expression const& arg
 
         if (is_first_gate) {
             // First gate contains the constant term and uses all four wires
-            mul_quad.const_scaling = fr::serialize_from_buffer(&arg.q_c[0]);
+            mul_quad.const_scaling = from_buffer_with_bound_checks(arg.q_c);
             if (!linear_terms.empty()) {
                 add_linear_term_and_erase(mul_quad.d, mul_quad.d_scaling, linear_terms);
             }
@@ -399,29 +548,25 @@ std::vector<mul_quad_<fr>> split_into_mul_quad_gates(Acir::Expression const& arg
         }
         if (is_first_gate) {
             // First gate contains the constant term and uses all four wires
-            mul_quad.const_scaling = fr::serialize_from_buffer(&arg.q_c[0]);
+            mul_quad.const_scaling = from_buffer_with_bound_checks(arg.q_c);
             if (!linear_terms.empty()) {
                 add_linear_term_and_erase(mul_quad.d, mul_quad.d_scaling, linear_terms);
             }
             is_first_gate = false;
         }
+
         result.emplace_back(mul_quad);
     }
 
-    BB_ASSERT(!result.empty(), "split_into_mul_quad_gates: resulted in zero gates.");
+    BB_ASSERT(!result.empty(),
+              "split_into_mul_quad_gates: resulted in zero gates. This means that there is an expression with no  "
+              "multiplication terms and no linear terms.");
     result.shrink_to_fit();
 
     return result;
 }
 
-bool is_assert_equal(mul_quad_<fr> const& mul_quad)
-{
-    return mul_quad.mul_scaling == bb::fr::zero() && mul_quad.a_scaling == -mul_quad.b_scaling &&
-           mul_quad.a_scaling != bb::fr::zero() && mul_quad.const_scaling == bb::fr::zero() &&
-           mul_quad.c_scaling == bb::fr::zero() && mul_quad.d_scaling == bb::fr::zero();
-}
-
-void handle_arithmetic(Acir::Opcode::AssertZero const& arg, AcirFormat& af, size_t opcode_index)
+void assert_zero_to_quad_constraints(Acir::Opcode::AssertZero const& arg, AcirFormat& af, size_t opcode_index)
 {
     // Lambda to detect zero gates
     auto is_zero_gate = [](const mul_quad_<fr>& gate) {
@@ -434,177 +579,159 @@ void handle_arithmetic(Acir::Opcode::AssertZero const& arg, AcirFormat& af, size
     std::vector<mul_quad_<fr>> mul_quads = split_into_mul_quad_gates(arg.value, linear_terms);
 
     if (is_single_gate) {
-        BB_ASSERT_EQ(mul_quads.size(), 1U, "acir_format::handle_arithmetic: expected a single gate.");
+        BB_ASSERT_EQ(mul_quads.size(), 1U, "acir_format::assert_zero_to_quad_constraints: expected a single gate.");
         auto mul_quad = mul_quads[0];
 
         af.quad_constraints.push_back(mul_quad);
         af.original_opcode_indices.quad_constraints.push_back(opcode_index);
     } else {
-        BB_ASSERT_GT(mul_quads.size(), 1U, "acir_format::handle_arithmetic: expected multiple gates but found one.");
+        BB_ASSERT_GT(mul_quads.size(),
+                     1U,
+                     "acir_format::assert_zero_to_quad_constraints: expected multiple gates but found one.");
         af.big_quad_constraints.push_back(mul_quads);
         af.original_opcode_indices.big_quad_constraints.push_back(opcode_index);
     }
 
     for (auto const& mul_quad : mul_quads) {
-        BB_ASSERT(!is_zero_gate(mul_quad), "acir_format::handle_arithmetic: produced an arithmetic zero gate.");
+        BB_ASSERT(!is_zero_gate(mul_quad),
+                  "acir_format::assert_zero_to_quad_constraints: produced an arithmetic zero gate.");
     }
 }
 
-void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg, AcirFormat& af, size_t opcode_index)
+void add_blackbox_func_call_to_acir_format(Acir::Opcode::BlackBoxFuncCall const& arg,
+                                           AcirFormat& af,
+                                           size_t opcode_index)
 {
+    auto to_witness_or_constant = [&](const Acir::FunctionInput& e) { return parse_input(e); };
+    auto to_witness = [&](const Acir::Witness& e) { return e.value; };
+    auto to_witness_from_input = [&](const Acir::FunctionInput& e) { return get_witness_from_function_input(e); };
+
     std::visit(
         [&](auto&& arg) {
             using T = std::decay_t<decltype(arg)>;
             if constexpr (std::is_same_v<T, Acir::BlackBoxFuncCall::AND>) {
-                auto lhs_input = parse_input(arg.lhs);
-                auto rhs_input = parse_input(arg.rhs);
                 af.logic_constraints.push_back(LogicConstraint{
-                    .a = lhs_input,
-                    .b = rhs_input,
-                    .result = arg.output.value,
+                    .a = parse_input(arg.lhs),
+                    .b = parse_input(arg.rhs),
+                    .result = to_witness(arg.output),
                     .num_bits = arg.num_bits,
                     .is_xor_gate = false,
                 });
                 af.original_opcode_indices.logic_constraints.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Acir::BlackBoxFuncCall::XOR>) {
-                auto lhs_input = parse_input(arg.lhs);
-                auto rhs_input = parse_input(arg.rhs);
                 af.logic_constraints.push_back(LogicConstraint{
-                    .a = lhs_input,
-                    .b = rhs_input,
-                    .result = arg.output.value,
+                    .a = parse_input(arg.lhs),
+                    .b = parse_input(arg.rhs),
+                    .result = to_witness(arg.output),
                     .num_bits = arg.num_bits,
                     .is_xor_gate = true,
                 });
                 af.original_opcode_indices.logic_constraints.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Acir::BlackBoxFuncCall::RANGE>) {
-                auto witness_input = get_witness_from_function_input(arg.input);
                 af.range_constraints.push_back(RangeConstraint{
-                    .witness = witness_input,
+                    .witness = get_witness_from_function_input(arg.input),
                     .num_bits = arg.num_bits,
                 });
                 af.original_opcode_indices.range_constraints.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Acir::BlackBoxFuncCall::AES128Encrypt>) {
                 af.aes128_constraints.push_back(AES128Constraint{
-                    .inputs = transform::map(arg.inputs, [](auto& e) { return parse_input(e); }),
-                    .iv = transform::map(*arg.iv, [](auto& e) { return parse_input(e); }),
-                    .key = transform::map(*arg.key, [](auto& e) { return parse_input(e); }),
-                    .outputs = transform::map(arg.outputs, [](auto& e) { return e.value; }),
+                    .inputs = transform::map(arg.inputs, to_witness_or_constant),
+                    .iv = transform::map(*arg.iv, to_witness_or_constant),
+                    .key = transform::map(*arg.key, to_witness_or_constant),
+                    .outputs = transform::map(arg.outputs, to_witness),
                 });
                 af.original_opcode_indices.aes128_constraints.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Acir::BlackBoxFuncCall::Sha256Compression>) {
                 af.sha256_compression.push_back(Sha256Compression{
-                    .inputs = transform::map(*arg.inputs, [](auto& e) { return parse_input(e); }),
-                    .hash_values = transform::map(*arg.hash_values, [](auto& e) { return parse_input(e); }),
-                    .result = transform::map(*arg.outputs, [](auto& e) { return e.value; }),
+                    .inputs = transform::map(*arg.inputs, to_witness_or_constant),
+                    .hash_values = transform::map(*arg.hash_values, to_witness_or_constant),
+                    .result = transform::map(*arg.outputs, to_witness),
                 });
                 af.original_opcode_indices.sha256_compression.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Acir::BlackBoxFuncCall::Blake2s>) {
                 af.blake2s_constraints.push_back(Blake2sConstraint{
                     .inputs = transform::map(arg.inputs,
-                                             [](auto& e) {
+                                             [&](auto& e) {
                                                  return Blake2sInput{
                                                      .blackbox_input = parse_input(e),
                                                      .num_bits = 8,
                                                  };
                                              }),
-                    .result = transform::map(*arg.outputs, [](auto& e) { return e.value; }),
+                    .result = transform::map(*arg.outputs, to_witness),
                 });
                 af.original_opcode_indices.blake2s_constraints.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Acir::BlackBoxFuncCall::Blake3>) {
                 af.blake3_constraints.push_back(Blake3Constraint{
                     .inputs = transform::map(
                         arg.inputs,
-                        [](auto& e) { return Blake3Input{ .blackbox_input = parse_input(e), .num_bits = 8 }; }),
-                    .result = transform::map(*arg.outputs, [](auto& e) { return e.value; }),
+                        [&](auto& e) { return Blake3Input{ .blackbox_input = parse_input(e), .num_bits = 8 }; }),
+                    .result = transform::map(*arg.outputs, to_witness),
                 });
                 af.original_opcode_indices.blake3_constraints.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Acir::BlackBoxFuncCall::EcdsaSecp256k1>) {
                 af.ecdsa_k1_constraints.push_back(EcdsaConstraint{
                     .type = bb::CurveType::SECP256K1,
-                    .hashed_message =
-                        transform::map(*arg.hashed_message, [](auto& e) { return get_witness_from_function_input(e); }),
-                    .signature =
-                        transform::map(*arg.signature, [](auto& e) { return get_witness_from_function_input(e); }),
-                    .pub_x_indices =
-                        transform::map(*arg.public_key_x, [](auto& e) { return get_witness_from_function_input(e); }),
-                    .pub_y_indices =
-                        transform::map(*arg.public_key_y, [](auto& e) { return get_witness_from_function_input(e); }),
+                    .hashed_message = transform::map(*arg.hashed_message, to_witness_from_input),
+                    .signature = transform::map(*arg.signature, to_witness_from_input),
+                    .pub_x_indices = transform::map(*arg.public_key_x, to_witness_from_input),
+                    .pub_y_indices = transform::map(*arg.public_key_y, to_witness_from_input),
                     .predicate = parse_input(arg.predicate),
-                    .result = arg.output.value,
+                    .result = to_witness(arg.output),
                 });
                 af.original_opcode_indices.ecdsa_k1_constraints.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Acir::BlackBoxFuncCall::EcdsaSecp256r1>) {
                 af.ecdsa_r1_constraints.push_back(EcdsaConstraint{
                     .type = bb::CurveType::SECP256R1,
-                    .hashed_message =
-                        transform::map(*arg.hashed_message, [](auto& e) { return get_witness_from_function_input(e); }),
-                    .signature =
-                        transform::map(*arg.signature, [](auto& e) { return get_witness_from_function_input(e); }),
-                    .pub_x_indices =
-                        transform::map(*arg.public_key_x, [](auto& e) { return get_witness_from_function_input(e); }),
-                    .pub_y_indices =
-                        transform::map(*arg.public_key_y, [](auto& e) { return get_witness_from_function_input(e); }),
+                    .hashed_message = transform::map(*arg.hashed_message, to_witness_from_input),
+                    .signature = transform::map(*arg.signature, to_witness_from_input),
+                    .pub_x_indices = transform::map(*arg.public_key_x, to_witness_from_input),
+                    .pub_y_indices = transform::map(*arg.public_key_y, to_witness_from_input),
                     .predicate = parse_input(arg.predicate),
-                    .result = arg.output.value,
+                    .result = to_witness(arg.output),
                 });
                 af.original_opcode_indices.ecdsa_r1_constraints.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Acir::BlackBoxFuncCall::MultiScalarMul>) {
                 af.multi_scalar_mul_constraints.push_back(MultiScalarMul{
-                    .points = transform::map(arg.points, [](auto& e) { return parse_input(e); }),
-                    .scalars = transform::map(arg.scalars, [](auto& e) { return parse_input(e); }),
+                    .points = transform::map(arg.points, to_witness_or_constant),
+                    .scalars = transform::map(arg.scalars, to_witness_or_constant),
                     .predicate = parse_input(arg.predicate),
-                    .out_point_x = (*arg.outputs)[0].value,
-                    .out_point_y = (*arg.outputs)[1].value,
-                    .out_point_is_infinite = (*arg.outputs)[2].value,
+                    .out_point_x = to_witness((*arg.outputs)[0]),
+                    .out_point_y = to_witness((*arg.outputs)[1]),
+                    .out_point_is_infinite = to_witness((*arg.outputs)[2]),
                 });
                 af.original_opcode_indices.multi_scalar_mul_constraints.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Acir::BlackBoxFuncCall::EmbeddedCurveAdd>) {
-                auto input_1_x = parse_input((*arg.input1)[0]);
-                auto input_1_y = parse_input((*arg.input1)[1]);
-                auto input_1_infinite = parse_input((*arg.input1)[2]);
-                auto input_2_x = parse_input((*arg.input2)[0]);
-                auto input_2_y = parse_input((*arg.input2)[1]);
-                auto input_2_infinite = parse_input((*arg.input2)[2]);
-                auto predicate = parse_input(arg.predicate);
-
                 af.ec_add_constraints.push_back(EcAdd{
-                    .input1_x = input_1_x,
-                    .input1_y = input_1_y,
-                    .input1_infinite = input_1_infinite,
-                    .input2_x = input_2_x,
-                    .input2_y = input_2_y,
-                    .input2_infinite = input_2_infinite,
-                    .predicate = predicate,
-                    .result_x = (*arg.outputs)[0].value,
-                    .result_y = (*arg.outputs)[1].value,
-                    .result_infinite = (*arg.outputs)[2].value,
+                    .input1_x = parse_input((*arg.input1)[0]),
+                    .input1_y = parse_input((*arg.input1)[1]),
+                    .input1_infinite = parse_input((*arg.input1)[2]),
+                    .input2_x = parse_input((*arg.input2)[0]),
+                    .input2_y = parse_input((*arg.input2)[1]),
+                    .input2_infinite = parse_input((*arg.input2)[2]),
+                    .predicate = parse_input(arg.predicate),
+                    .result_x = to_witness((*arg.outputs)[0]),
+                    .result_y = to_witness((*arg.outputs)[1]),
+                    .result_infinite = to_witness((*arg.outputs)[2]),
                 });
                 af.original_opcode_indices.ec_add_constraints.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Acir::BlackBoxFuncCall::Keccakf1600>) {
                 af.keccak_permutations.push_back(Keccakf1600{
-                    .state = transform::map(*arg.inputs, [](auto& e) { return parse_input(e); }),
-                    .result = transform::map(*arg.outputs, [](auto& e) { return e.value; }),
+                    .state = transform::map(*arg.inputs, to_witness_or_constant),
+                    .result = transform::map(*arg.outputs, to_witness),
                 });
                 af.original_opcode_indices.keccak_permutations.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Acir::BlackBoxFuncCall::RecursiveAggregation>) {
-
-                auto input_key = get_witness_from_function_input(arg.key_hash);
-
-                auto proof_type_in = arg.proof_type;
                 auto predicate = parse_input(arg.predicate);
                 if (predicate.is_constant && predicate.value.is_zero()) {
                     // No constraint if the recursion is disabled
                     return;
                 }
                 auto c = RecursionConstraint{
-                    .key = transform::map(arg.verification_key,
-                                          [](auto& e) { return get_witness_from_function_input(e); }),
-                    .proof = transform::map(arg.proof, [](auto& e) { return get_witness_from_function_input(e); }),
-                    .public_inputs =
-                        transform::map(arg.public_inputs, [](auto& e) { return get_witness_from_function_input(e); }),
-                    .key_hash = input_key,
-                    .proof_type = proof_type_in,
+                    .key = transform::map(arg.verification_key, to_witness_from_input),
+                    .proof = transform::map(arg.proof, to_witness_from_input),
+                    .public_inputs = transform::map(arg.public_inputs, to_witness_from_input),
+                    .key_hash = get_witness_from_function_input(arg.key_hash),
+                    .proof_type = arg.proof_type,
                     .predicate = predicate,
                 };
 
@@ -633,22 +760,24 @@ void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg, AcirFo
                     af.original_opcode_indices.chonk_recursion_constraints.push_back(opcode_index);
                     break;
                 default:
-                    throw_or_abort("Invalid PROOF_TYPE in RecursionConstraint!");
+                    bb::assert_failure(
+                        "acir_format::handle_black_box_fun_call: Invalid PROOF_TYPE in RecursionConstraint.");
                 }
             } else if constexpr (std::is_same_v<T, Acir::BlackBoxFuncCall::Poseidon2Permutation>) {
                 af.poseidon2_constraints.push_back(Poseidon2Constraint{
-                    .state = transform::map(arg.inputs, [](auto& e) { return parse_input(e); }),
-                    .result = transform::map(arg.outputs, [](auto& e) { return e.value; }),
+                    .state = transform::map(arg.inputs, to_witness_or_constant),
+                    .result = transform::map(arg.outputs, to_witness),
                 });
                 af.original_opcode_indices.poseidon2_constraints.push_back(opcode_index);
             } else {
-                bb::assert_failure("handle_blackbox_func_call: Unrecognized BlackBoxFuncCall variant.");
+                bb::assert_failure("acir_format::handle_blackbox_func_call: Unrecognized BlackBoxFuncCall variant. An "
+                                   "error here means there was a serialization error.");
             }
         },
         arg.value.value);
 }
 
-BlockConstraint handle_memory_init(Acir::Opcode::MemoryInit const& mem_init)
+BlockConstraint memory_init_to_block_constraint(Acir::Opcode::MemoryInit const& mem_init)
 {
     // Noir doesn't distinguish between ROM and RAM table. Therefore, we initialize every table as a ROM table, and
     // then we make it a RAM table if there is at least one write operation
@@ -678,30 +807,27 @@ BlockConstraint handle_memory_init(Acir::Opcode::MemoryInit const& mem_init)
     return block;
 }
 
-void handle_memory_op(Acir::Opcode::MemoryOp const& mem_op, BlockConstraint& block)
+void add_memory_op_to_block_constraint(Acir::Opcode::MemoryOp const& mem_op, BlockConstraint& block)
 {
     // Lambda to convert an Acir::Expression to a witness index
     auto acir_expression_to_witness_or_constant = [&](const Acir::Expression& expr) {
-        std::map<uint32_t, bb::fr> linear_terms = process_linear_terms(expr);
-        std::vector<mul_quad_<fr>> mul_quads = split_into_mul_quad_gates(expr, linear_terms);
-
-        BB_ASSERT_EQ(mul_quads.size(), 1U, "MemoryOp expression should result in a single mul_quad_ gate");
-        mul_quad_<fr> quad = mul_quads.front();
-
         // Noir gives us witnesses or constants for read/write operations. We use the following assertions to ensure
         // that the data coming from Noir is in the correct form.
-        BB_ASSERT_EQ(quad.mul_scaling, fr::zero(), "MemoryOp should not have a mul term");
-        BB_ASSERT_EQ(quad.b_scaling, fr::zero(), "MemoryOp should only have one linear term");
-        BB_ASSERT_EQ(quad.c_scaling, fr::zero(), "MemoryOp should only have one linear term");
-        BB_ASSERT_EQ(quad.d_scaling, fr::zero(), "MemoryOp should only have one linear term");
+        BB_ASSERT(expr.mul_terms.empty(), "MemoryOp should not have multiplication terms");
+        BB_ASSERT_LTE(expr.linear_combinations.size(), 1U, "MemoryOp should have at most one linear term");
 
-        bool is_witness = quad.a_scaling == fr::one() && quad.const_scaling == fr::zero();
-        bool is_constant = quad.a_scaling == fr::zero();
+        const fr a_scaling = expr.linear_combinations.size() == 1
+                                 ? from_buffer_with_bound_checks(std::get<0>(expr.linear_combinations[0]))
+                                 : fr::zero();
+        const fr constant_term = from_buffer_with_bound_checks(expr.q_c);
+
+        bool is_witness = a_scaling == fr::one() && constant_term == fr::zero();
+        bool is_constant = a_scaling == fr::zero();
         BB_ASSERT(is_witness || is_constant, "MemoryOp expression must be a witness or a constant");
 
         return WitnessOrConstant<bb::fr>{
-            .index = is_witness ? quad.a : bb::stdlib::IS_CONSTANT,
-            .value = is_constant ? quad.const_scaling : bb::fr::zero(),
+            .index = is_witness ? std::get<1>(expr.linear_combinations[0]).value : bb::stdlib::IS_CONSTANT,
+            .value = is_constant ? constant_term : fr::zero(),
             .is_constant = is_constant,
         };
     };
@@ -711,7 +837,7 @@ void handle_memory_op(Acir::Opcode::MemoryOp const& mem_op, BlockConstraint& blo
         BB_ASSERT(expr.mul_terms.empty(), "MemoryOp expression should not have multiplication terms");
         BB_ASSERT(expr.linear_combinations.empty(), "MemoryOp expression should not have linear terms");
 
-        const fr const_term = fr::serialize_from_buffer(&expr.q_c[0]);
+        const fr const_term = from_buffer_with_bound_checks(expr.q_c);
 
         BB_ASSERT((const_term == fr::one()) || (const_term == fr::zero()),
                   "MemoryOp expression should be either zero or one");
@@ -789,7 +915,7 @@ std::map<uint32_t, bb::fr> process_linear_terms(Acir::Expression const& expr)
 {
     std::map<uint32_t, bb::fr> linear_terms;
     for (const auto& linear_term : expr.linear_combinations) {
-        fr selector_value = fr::serialize_from_buffer(&(std::get<0>(linear_term)[0]));
+        fr selector_value = from_buffer_with_bound_checks(std::get<0>(linear_term));
         uint32_t witness_idx = std::get<1>(linear_term).value;
         if (linear_terms.contains(witness_idx)) {
             linear_terms[witness_idx] += selector_value; // Accumulate coefficients for duplicate witnesses

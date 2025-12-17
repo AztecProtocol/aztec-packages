@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import type { BlockNumber } from './block_number.js';
 import type { Branded } from './types.js';
 
 /**
@@ -41,7 +42,7 @@ export function CheckpointNumber(value: number): CheckpointNumber {
  * @deprecated Checkpoint number and block number should no longer convert to each other once we support multiple blocks
  * per checkpoint everywhere.
  */
-CheckpointNumber.fromBlockNumber = function (value: number): CheckpointNumber {
+CheckpointNumber.fromBlockNumber = function (value: BlockNumber): CheckpointNumber {
   return CheckpointNumber(value);
 };
 

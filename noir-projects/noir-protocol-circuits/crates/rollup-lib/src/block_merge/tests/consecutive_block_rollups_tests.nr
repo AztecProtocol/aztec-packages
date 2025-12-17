@@ -248,12 +248,13 @@ fn non_consecutive_timestamps() {
     builder.execute_and_fail();
 }
 
-#[test(should_fail_with = "Rollup block timestamps do not follow on from each other")]
-fn non_consecutive_timestamps_duplicates() {
+#[test]
+fn identical_timestamps_are_allowed() {
     let mut builder = TestBuilder::default();
 
     // Change the start_timestamp of the right rollup to be the same as the end_timestamp of the left rollup.
     builder.right_rollup.start_timestamp = builder.left_rollup.end_timestamp;
 
-    builder.execute_and_fail();
+    let pi = builder.execute();
+    builder.assert_expected_public_inputs(pi);
 }

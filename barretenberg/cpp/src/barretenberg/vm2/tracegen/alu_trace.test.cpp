@@ -1381,7 +1381,7 @@ TEST_F(AluShrTraceGenerationTest, TraceGenerationShrTagError)
 
 // TRUNCATE operation (SET/CAST opcodes)
 
-// Truncation is a special case as we always have FF TaggedValue inputs:
+// Truncation is a special case as we always have FF MemoryValue inputs:
 struct TruncateTrivialTestParams {
     MemoryValue a;
     MemoryTag dst_tag;

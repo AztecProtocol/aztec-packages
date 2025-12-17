@@ -3,8 +3,12 @@ import { UltraHonkBackend, ProofData, Barretenberg, RawBuffer, deflattenFields }
 import { Noir } from '@noir-lang/noir_js';
 // docs:end:imports
 import { readFileSync } from 'fs';
-import { expect } from 'chai';
+import { expect, describe, it, beforeAll, afterAll } from '@jest/globals';
 import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 describe('Recursive Aggregation Example', () => {
   let mainBackend: UltraHonkBackend;
@@ -13,8 +17,7 @@ describe('Recursive Aggregation Example', () => {
   let recursiveNoir: Noir;
   let recursiveInputs: any;
 
-  before(async function () {
-    this.timeout(120000);
+  beforeAll(async () => {
 
     // docs:start:setup
     // Load main circuit bytecode
@@ -41,15 +44,13 @@ describe('Recursive Aggregation Example', () => {
     // docs:end:backend_setup
   });
 
-  after(async function () {
+  afterAll(async () => {
     // Clean up resources
     if (mainBackend) await mainBackend.destroy();
     if (recursiveBackend) await recursiveBackend.destroy();
   });
 
-  it('should execute witness generation for both circuits', async function () {
-    this.timeout(60000);
-
+  it('should execute witness generation for both circuits', async () => {
     // docs:start:witness_generation
     // Generate witness for main circuit
     const { witness: mainWitness } = await mainNoir.execute({ x: 1, y: 2 });
@@ -59,38 +60,34 @@ describe('Recursive Aggregation Example', () => {
     // docs:end:witness_generation
 
     // Test that witness was generated
-    expect(mainWitness).to.exist;
-    expect(mainWitness.length).to.be.greaterThan(0);
+    expect(mainWitness).toBeDefined();
+    expect(mainWitness.length).toBeGreaterThan(0);
   });
 
-  it('should generate proof and verification key for main circuit', async function () {
-    this.timeout(120000);
-
+  it('should generate proof and verification key for main circuit', async () => {
     // Generate witness for main circuit
     const { witness: mainWitness } = await mainNoir.execute({ x: 1, y: 2 });
 
     // docs:start:proof_generation
-    // Generate proof for main circuit with keccakZK for recursive verification
+    // Generate proof for main circuit for EVM verification with ZK
     const mainProofData = await mainBackend.generateProof(mainWitness, {
-      keccakZK: true,
+      verifierTarget: 'evm',
     });
 
     // Generate verification key for main circuit
     const mainVerificationKey = await mainBackend.getVerificationKey({
-      keccakZK: true,
+      verifierTarget: 'evm',
     });
     // docs:end:proof_generation
 
     // Test that proof and VK were generated
-    expect(mainProofData.proof).to.exist;
-    expect(mainProofData.proof.length).to.be.greaterThan(0);
-    expect(mainVerificationKey).to.exist;
-    expect(mainVerificationKey.length).to.be.greaterThan(0);
+    expect(mainProofData.proof).toBeDefined();
+    expect(mainProofData.proof.length).toBeGreaterThan(0);
+    expect(mainVerificationKey).toBeDefined();
+    expect(mainVerificationKey.length).toBeGreaterThan(0);
   });
 
-  it('should prepare recursive inputs from proof and verification key', async function () {
-    this.timeout(120000);
-
+  it('should prepare recursive inputs from proof and verification key', async () => {
     // Generate witness and proof for main circuit
     const { witness: mainWitness } = await mainNoir.execute({ x: 1, y: 2 });
     const mainProofData = await mainBackend.generateProof(mainWitness);
@@ -113,16 +110,14 @@ describe('Recursive Aggregation Example', () => {
     // docs:end:recursive_inputs
 
     // Test that inputs were prepared correctly
-    expect(recursiveInputs.proof).to.exist;
-    expect(recursiveInputs.proof.length).to.be.greaterThan(0);
-    expect(recursiveInputs.verification_key).to.exist;
-    expect(recursiveInputs.verification_key.length).to.be.greaterThan(0);
-    expect(recursiveInputs.public_inputs).to.deep.equal([2]);
+    expect(recursiveInputs.proof).toBeDefined();
+    expect(recursiveInputs.proof.length).toBeGreaterThan(0);
+    expect(recursiveInputs.verification_key).toBeDefined();
+    expect(recursiveInputs.verification_key.length).toBeGreaterThan(0);
+    expect(recursiveInputs.public_inputs).toEqual([2]);
   });
 
-  it('should generate recursive proof', async function () {
-    this.timeout(300000);
-
+  it('should generate recursive proof', async () => {
     // docs:start:recursive_proof
     // Generate witness for recursive circuit
     const { witness: recursiveWitness } = await recursiveNoir.execute(recursiveInputs);
@@ -132,12 +127,12 @@ describe('Recursive Aggregation Example', () => {
     // docs:end:recursive_proof
 
     // Test that recursive proof was generated
-    expect(recursiveProofData.proof).to.exist;
-    expect(recursiveProofData.proof.length).to.be.greaterThan(0);
-    expect(recursiveProofData.publicInputs).to.exist;
+    expect(recursiveProofData.proof).toBeDefined();
+    expect(recursiveProofData.proof.length).toBeGreaterThan(0);
+    expect(recursiveProofData.publicInputs).toBeDefined();
 
     // Verify the recursive proof
     const isValid = await recursiveBackend.verifyProof(recursiveProofData);
-    expect(isValid).to.be.true;
-  });
+    expect(isValid).toBe(true);
+  }, 300000);
 });

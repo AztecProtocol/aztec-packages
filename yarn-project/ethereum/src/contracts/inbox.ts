@@ -5,7 +5,7 @@ import { InboxAbi } from '@aztec/l1-artifacts/InboxAbi';
 import { type BlockTag, type GetContractReturnType, type Hex, getContract } from 'viem';
 
 import { getPublicClient } from '../client.js';
-import type { DeployL1ContractsReturnType } from '../deploy_l1_contracts.js';
+import type { DeployAztecL1ContractsReturnType } from '../deploy_aztec_l1_contracts.js';
 import type { L1ReaderConfig } from '../l1_reader.js';
 import type { ViemClient } from '../types.js';
 import { checkBlockTag } from './utils.js';
@@ -13,7 +13,7 @@ import { checkBlockTag } from './utils.js';
 export class InboxContract {
   private readonly inbox: GetContractReturnType<typeof InboxAbi, ViemClient>;
 
-  static getFromL1ContractsValues(deployL1ContractsValues: DeployL1ContractsReturnType) {
+  static getFromL1ContractsValues(deployL1ContractsValues: DeployAztecL1ContractsReturnType) {
     const {
       l1Client,
       l1ContractAddresses: { inboxAddress },

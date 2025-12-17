@@ -1,4 +1,4 @@
-import type { Fr } from '@aztec/foundation/fields';
+import type { Fr } from '@aztec/foundation/curves/bn254';
 import type { Logger } from '@aztec/foundation/log';
 import { ErrorsAbi } from '@aztec/l1-artifacts/ErrorsAbi';
 
@@ -8,6 +8,7 @@ import {
   type ContractEventName,
   ContractFunctionRevertedError,
   type DecodeEventLogReturnType,
+  type FormattedTransaction,
   type Hex,
   type Log,
   decodeErrorResult,
@@ -232,4 +233,32 @@ export function tryGetCustomErrorName(err: any) {
   } catch {
     return undefined;
   }
+}
+
+/**
+ * Type guard to check if a transaction is a blob transaction (EIP-4844).
+ * Blob transactions have maxFeePerBlobGas and blobVersionedHashes fields.
+ */
+export function isBlobTransaction(tx: FormattedTransaction): tx is FormattedTransaction & {
+  maxFeePerBlobGas: bigint;
+  blobVersionedHashes: readonly Hex[];
+} {
+  return (
+    'maxFeePerBlobGas' in tx &&
+    tx.maxFeePerBlobGas !== undefined &&
+    'blobVersionedHashes' in tx &&
+    tx.blobVersionedHashes !== undefined
+  );
+}
+
+/**
+ * Calculates a percentile from an array of bigints
+ */
+export function calculatePercentile(values: bigint[], percentile: number): bigint {
+  if (values.length === 0) {
+    return 0n;
+  }
+  const sorted = [...values].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+  const index = Math.ceil((sorted.length - 1) * (percentile / 100));
+  return sorted[index];
 }

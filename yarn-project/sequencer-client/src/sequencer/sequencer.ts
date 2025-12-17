@@ -1,13 +1,15 @@
 import { L2Block } from '@aztec/aztec.js/block';
+import { getKzg } from '@aztec/blob-lib';
 import { BLOBS_PER_CHECKPOINT, FIELDS_PER_BLOB, INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import type { EpochCache } from '@aztec/epoch-cache';
-import { FormattedViemError, NoCommitteeError, type RollupContract } from '@aztec/ethereum';
-import { CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { NoCommitteeError, type RollupContract } from '@aztec/ethereum/contracts';
+import { FormattedViemError } from '@aztec/ethereum/utils';
+import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { omit, pick } from '@aztec/foundation/collection';
-import { randomInt } from '@aztec/foundation/crypto';
+import { randomInt } from '@aztec/foundation/crypto/random';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
-import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { type DateProvider, Timer } from '@aztec/foundation/timer';
@@ -73,7 +75,7 @@ export type SequencerEvents = {
     sentActions?: Action[];
     expiredActions?: Action[];
   }) => void;
-  ['block-published']: (args: { blockNumber: number; slot: number }) => void;
+  ['block-published']: (args: { blockNumber: BlockNumber; slot: number }) => void;
 };
 
 /**
@@ -105,6 +107,9 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
 
   /** The last slot for which we built a validation block in fisherman mode, to prevent duplicate attempts. */
   private lastSlotForValidationBlock: SlotNumber | undefined;
+
+  /** The last epoch for which we logged strategy comparison in fisherman mode. */
+  private lastEpochForStrategyComparison: EpochNumber | undefined;
 
   /** The maximum number of seconds that the sequencer can be into a slot to transition to a particular state. */
   protected timetable!: SequencerTimetable;
@@ -220,6 +225,8 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
   }
 
   public async init() {
+    // Takes ~3s to precompute some tables.
+    getKzg();
     this.publisher = (await this.publisherFactory.create(undefined)).publisher;
   }
 
@@ -281,7 +288,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     }
 
     const chainTipArchive = syncedTo.archive;
-    const newBlockNumber = syncedTo.blockNumber + 1;
+    const newBlockNumber = BlockNumber(syncedTo.blockNumber + 1);
 
     const syncLogData = {
       now,
@@ -426,9 +433,22 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     // Wait until the voting promises have resolved, so all requests are enqueued
     await Promise.all(votesPromises);
 
-    // In fisherman mode, we don't publish to L1
+    // In fisherman mode, we don't publish to L1 but analyze the fees
     if (this.config.fishermanMode) {
-      // Clear pending requests
+      // Perform L1 fee analysis before clearing requests
+      // The callback is invoked asynchronously after the next block is mined
+      const feeAnalysis = await publisher.analyzeL1Fees(BigInt(slot), analysis => {
+        this.metrics.recordFishermanFeeAnalysis(analysis);
+      });
+
+      // Check if we've moved to a new epoch and log strategy comparison
+      const currentEpoch = this.epochCache.getEpochAndSlotNow().epoch;
+      if (this.lastEpochForStrategyComparison === undefined || currentEpoch > this.lastEpochForStrategyComparison) {
+        this.logStrategyComparison(currentEpoch, publisher);
+        this.lastEpochForStrategyComparison = currentEpoch;
+      }
+
+      // Clear pending requests (we're not sending them)
       publisher.clearPendingRequests();
 
       if (block) {
@@ -437,6 +457,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
           slot: Number(slot),
           archive: block.archive.toString(),
           txCount: block.body.txEffects.length,
+          feeAnalysisId: feeAnalysis?.id,
         });
         this.lastBlockPublished = block;
         this.metrics.recordBlockProposalSuccess();
@@ -445,6 +466,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
         this.log.warn(`Validation block building FAILED for slot ${slot}`, {
           blockNumber: newBlockNumber,
           slot: Number(slot),
+          feeAnalysisId: feeAnalysis?.id,
         });
         this.metrics.recordBlockProposalFailed('block_build_failed');
       }
@@ -468,7 +490,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
   private async tryBuildBlockAndEnqueuePublish(
     slot: SlotNumber,
     proposer: EthAddress | undefined,
-    newBlockNumber: number,
+    newBlockNumber: BlockNumber,
     publisher: SequencerPublisher,
     newGlobalVariables: GlobalVariables,
     chainTipArchive: Fr,
@@ -644,8 +666,9 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     await publisher.validateBlockHeader(proposalHeader, invalidateBlock);
 
     const blockNumber = newGlobalVariables.blockNumber;
+    const checkpointNumber = CheckpointNumber.fromBlockNumber(blockNumber);
     const slot = proposalHeader.slotNumber;
-    const l1ToL2Messages = await this.l1ToL2MessageSource.getL1ToL2Messages(blockNumber);
+    const l1ToL2Messages = await this.l1ToL2MessageSource.getL1ToL2Messages(checkpointNumber);
 
     const workTimer = new Timer();
     this.setState(SequencerState.CREATING_BLOCK, slot);
@@ -924,7 +947,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
   protected async checkSync(args: { ts: bigint; slot: SlotNumber }): Promise<
     | {
         block?: L2Block;
-        blockNumber: number;
+        blockNumber: BlockNumber;
         archive: Fr;
         l1Timestamp: bigint;
         pendingChainValidationStatus: ValidateBlockResult;
@@ -958,14 +981,13 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
 
     const [worldState, l2BlockSource, p2p, l1ToL2MessageSource, pendingChainValidationStatus] = syncedBlocks;
 
-    // The archiver reports 'undefined' hash for the genesis block
-    // because it doesn't have access to world state to compute it (facepalm)
+    // Handle zero as a special case, since the block hash won't match across services if we're changing the prefilled data for the genesis block,
+    // as the world state can compute the new genesis block hash, but other components use the hardcoded constant.
     const result =
-      l2BlockSource.hash === undefined
-        ? worldState.number === 0 && p2p.number === 0 && l1ToL2MessageSource.number === 0
-        : worldState.hash === l2BlockSource.hash &&
-          p2p.hash === l2BlockSource.hash &&
-          l1ToL2MessageSource.hash === l2BlockSource.hash;
+      (l2BlockSource.number === 0 && worldState.number === 0 && p2p.number === 0 && l1ToL2MessageSource.number === 0) ||
+      (worldState.hash === l2BlockSource.hash &&
+        p2p.hash === l2BlockSource.hash &&
+        l1ToL2MessageSource.hash === l2BlockSource.hash);
 
     if (!result) {
       this.log.debug(`Sequencer sync check failed`, { worldState, l2BlockSource, p2p, l1ToL2MessageSource });
@@ -976,7 +998,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     const blockNumber = worldState.number;
     if (blockNumber < INITIAL_L2_BLOCK_NUM) {
       const archive = new Fr((await this.worldState.getCommitted().getTreeInfo(MerkleTreeId.ARCHIVE)).root);
-      return { blockNumber: INITIAL_L2_BLOCK_NUM - 1, archive, l1Timestamp, pendingChainValidationStatus };
+      return { blockNumber: BlockNumber(INITIAL_L2_BLOCK_NUM - 1), archive, l1Timestamp, pendingChainValidationStatus };
     }
 
     const block = await this.l2BlockSource.getBlock(blockNumber);
@@ -1168,7 +1190,6 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       return;
     }
 
-    const { publisher } = await this.publisherFactory.create(undefined);
     const invalidBlockNumber = pendingChainValidationStatus.block.blockNumber;
     const invalidBlockTimestamp = pendingChainValidationStatus.block.timestamp;
     const timeSinceChainInvalid = this.dateProvider.nowInSeconds() - Number(invalidBlockTimestamp);
@@ -1208,6 +1229,24 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       return;
     }
 
+    let validatorToUse: EthAddress;
+    if (invalidateAsCommitteeMember) {
+      // When invalidating as a committee member, use first validator that's actually in the committee
+      const { committee } = await this.epochCache.getCommittee(currentSlot);
+      if (committee) {
+        const committeeSet = new Set(committee.map(addr => addr.toString()));
+        validatorToUse =
+          ourValidatorAddresses.find(addr => committeeSet.has(addr.toString())) ?? ourValidatorAddresses[0];
+      } else {
+        validatorToUse = ourValidatorAddresses[0];
+      }
+    } else {
+      // When invalidating as a non-committee member, use the first validator
+      validatorToUse = ourValidatorAddresses[0];
+    }
+
+    const { publisher } = await this.publisherFactory.create(validatorToUse);
+
     const invalidateBlock = await publisher.simulateInvalidateBlock(pendingChainValidationStatus);
     if (!invalidateBlock) {
       this.log.warn(`Failed to simulate invalidate block`, logData);
@@ -1238,6 +1277,38 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
   private getSecondsIntoSlot(slotNumber: SlotNumber): number {
     const slotStartTimestamp = this.getSlotStartBuildTimestamp(slotNumber);
     return Number((this.dateProvider.now() / 1000 - slotStartTimestamp).toFixed(3));
+  }
+
+  /**
+   * Logs strategy comparison statistics at the end of each epoch in fisherman mode
+   */
+  private logStrategyComparison(epoch: EpochNumber, publisher: SequencerPublisher): void {
+    const feeAnalyzer = publisher.getL1FeeAnalyzer();
+    if (!feeAnalyzer) {
+      return;
+    }
+
+    const comparison = feeAnalyzer.getStrategyComparison();
+    if (comparison.length === 0) {
+      this.log.debug(`No strategy data available yet for epoch ${epoch}`);
+      return;
+    }
+
+    this.log.info(`L1 Fee Strategy Performance Report - End of Epoch ${epoch}`, {
+      epoch: Number(epoch),
+      totalAnalyses: comparison[0]?.totalAnalyses,
+      strategies: comparison.map(s => ({
+        id: s.strategyId,
+        name: s.strategyName,
+        inclusionRate: `${(s.inclusionRate * 100).toFixed(1)}%`,
+        inclusionCount: `${s.inclusionCount}/${s.totalAnalyses}`,
+        avgCostEth: s.avgEstimatedCostEth.toFixed(6),
+        totalCostEth: s.totalEstimatedCostEth.toFixed(6),
+        avgOverpaymentEth: s.avgOverpaymentEth.toFixed(6),
+        totalOverpaymentEth: s.totalOverpaymentEth.toFixed(6),
+        avgPriorityFeeDeltaGwei: s.avgPriorityFeeDeltaGwei.toFixed(2),
+      })),
+    });
   }
 
   get aztecSlotDuration() {

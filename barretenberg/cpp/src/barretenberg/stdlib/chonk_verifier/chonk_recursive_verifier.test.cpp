@@ -13,7 +13,7 @@ class ChonkRecursionTests : public testing::Test {
     using StdlibProof = ChonkVerifier::StdlibProof;
     using RollupFlavor = UltraRollupRecursiveFlavor_<Builder>;
     using NativeFlavor = RollupFlavor::NativeFlavor;
-    using UltraRecursiveVerifier = UltraRecursiveVerifier_<RollupFlavor>;
+    using UltraRecursiveVerifier = UltraVerifier_<RollupFlavor, RollupIO>;
     using MockCircuitProducer = PrivateFunctionExecutionMockCircuitProducer;
     using IVCVerificationKey = Chonk::VerificationKey;
     using PairingAccumulator = PairingPoints<Builder>;
@@ -70,7 +70,8 @@ TEST_F(ChonkRecursionTests, Basic)
 
     // Construct the Chonk recursive verifier
     Builder builder;
-    ChonkVerifier verifier{ &builder, vk.mega };
+    auto mega_vk_and_hash = std::make_shared<ChonkVerifier::RecursiveVKAndHash>(builder, vk.mega);
+    ChonkVerifier verifier{ mega_vk_and_hash };
 
     // Generate the recursive verification circuit
     StdlibProof stdlib_proof(builder, proof);

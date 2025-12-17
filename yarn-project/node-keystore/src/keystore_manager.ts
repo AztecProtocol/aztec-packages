@@ -3,7 +3,7 @@
  *
  * Manages keystore configuration and delegates signing operations to appropriate signers.
  */
-import type { EthSigner } from '@aztec/ethereum';
+import type { EthSigner } from '@aztec/ethereum/eth-signer';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { Signature } from '@aztec/foundation/eth-signature';
@@ -228,7 +228,7 @@ export class KeystoreManager {
   }
 
   /**
-   * Create signers for validator publisher accounts (falls back to attester if not specified)
+   * Create signers for validator publisher accounts (falls back to keystore-level publisher, then to attester if not specified)
    */
   createPublisherSigners(validatorIndex: number): EthSigner[] {
     const validator = this.getValidator(validatorIndex);
@@ -236,6 +236,14 @@ export class KeystoreManager {
     if (validator.publisher) {
       return this.createSignersFromEthAccounts(
         validator.publisher,
+        validator.remoteSigner || this.keystore.remoteSigner,
+      );
+    }
+
+    // Fall back to keystore-level publisher
+    if (this.keystore.publisher) {
+      return this.createSignersFromEthAccounts(
+        this.keystore.publisher,
         validator.remoteSigner || this.keystore.remoteSigner,
       );
     }
@@ -320,7 +328,7 @@ export class KeystoreManager {
   }
 
   /**
-   * Get coinbase address for validator (falls back to the specific attester address)
+   * Get coinbase address for validator (falls back to keystore-level coinbase, then to the specific attester address)
    */
   getCoinbaseAddress(validatorIndex: number, attesterAddress: EthAddress): EthAddress {
     const validator = this.getValidator(validatorIndex);
@@ -329,16 +337,33 @@ export class KeystoreManager {
       return validator.coinbase;
     }
 
+    // Fall back to keystore-level coinbase
+    if (this.keystore.coinbase) {
+      return this.keystore.coinbase;
+    }
+
     // Fall back to the specific attester address
     return attesterAddress;
   }
 
   /**
-   * Get fee recipient for validator
+   * Get fee recipient for validator (falls back to keystore-level feeRecipient)
    */
   getFeeRecipient(validatorIndex: number): AztecAddress {
     const validator = this.getValidator(validatorIndex);
-    return validator.feeRecipient;
+
+    if (validator.feeRecipient) {
+      return validator.feeRecipient;
+    }
+
+    // Fall back to keystore-level feeRecipient
+    if (this.keystore.feeRecipient) {
+      return this.keystore.feeRecipient;
+    }
+
+    throw new KeystoreError(
+      `No feeRecipient configured for validator ${validatorIndex}. You can set it at validator or keystore level.`,
+    );
   }
 
   /**

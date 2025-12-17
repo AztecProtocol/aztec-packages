@@ -1,15 +1,19 @@
 import type { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
-import type { Fr, Point } from '@aztec/foundation/fields';
+import type { BlockNumber } from '@aztec/foundation/branded-types';
+import type { Fr } from '@aztec/foundation/curves/bn254';
+import type { Point } from '@aztec/foundation/curves/grumpkin';
 import type { FunctionArtifactWithContractName, FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2Block } from '@aztec/stdlib/block';
 import type { CompleteAddress, ContractInstance } from '@aztec/stdlib/contract';
+import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
 import type { DirectionalAppTaggingSecret } from '@aztec/stdlib/logs';
 import type { NoteStatus } from '@aztec/stdlib/note';
 import { type MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
-import type { BlockHeader, NodeStats } from '@aztec/stdlib/tx';
+import type { NodeStats } from '@aztec/stdlib/tx';
 
+import type { SenderTaggingDataProvider } from '../storage/tagging_data_provider/sender_tagging_data_provider.js';
 import type { NoteData } from './oracle/interfaces.js';
 import type { MessageLoadOracleInputs } from './oracle/message_load_oracle_inputs.js';
 
@@ -74,7 +78,7 @@ export interface ExecutionDataProvider {
    * Returns an object containing an array of note data.
    *
    * @param contractAddress - The contract address of the notes.
-   * @param owner - The owner of the notes.
+   * @param owner - The owner of the notes. If undefined, returns notes for all owners.
    * @param storageSlot - The storage slot of the notes.
    * @param status - The status of notes to fetch.
    * @param scopes - The accounts whose notes we can access in this call. Currently optional and will default to all.
@@ -82,7 +86,7 @@ export interface ExecutionDataProvider {
    */
   getNotes(
     contractAddress: AztecAddress,
-    owner: AztecAddress,
+    owner: AztecAddress | undefined,
     storageSlot: Fr,
     status: NoteStatus,
     scopes?: AztecAddress[],
@@ -137,21 +141,13 @@ export interface ExecutionDataProvider {
   ): Promise<MessageLoadOracleInputs<typeof L1_TO_L2_MSG_TREE_HEIGHT>>;
 
   /**
-   * Retrieve the latest block header synchronized by the execution data provider. This block header is referred
-   * to as the anchor block header in Aztec terminology and it defines the state that is used during private function
-   * execution.
-   * @returns The anchor block header.
-   */
-  getAnchorBlockHeader(): Promise<BlockHeader>;
-
-  /**
    * Fetches the index and sibling path of a leaf at a given block from a given tree.
    * @param blockNumber - The block number at which to get the membership witness.
    * @param treeId - Id of the tree to get the sibling path from.
    * @param leafValue - The leaf value
    * @returns The index and sibling path concatenated [index, sibling_path]
    */
-  getMembershipWitness(blockNumber: number, treeId: MerkleTreeId, leafValue: Fr): Promise<Fr[]>;
+  getMembershipWitness(blockNumber: BlockNumber, treeId: MerkleTreeId, leafValue: Fr): Promise<Fr[]>;
 
   /**
    * Returns a nullifier membership witness for a given nullifier at a given block.
@@ -159,7 +155,10 @@ export interface ExecutionDataProvider {
    * @param nullifier - Nullifier we try to find witness for.
    * @returns The nullifier membership witness (if found).
    */
-  getNullifierMembershipWitness(blockNumber: number, nullifier: Fr): Promise<NullifierMembershipWitness | undefined>;
+  getNullifierMembershipWitness(
+    blockNumber: BlockNumber,
+    nullifier: Fr,
+  ): Promise<NullifierMembershipWitness | undefined>;
 
   /**
    * Returns a low nullifier membership witness for a given nullifier at a given block.
@@ -170,14 +169,17 @@ export interface ExecutionDataProvider {
    * list structure" of leaves and proving that a lower nullifier is pointing to a bigger next value than the nullifier
    * we are trying to prove non-inclusion for.
    */
-  getLowNullifierMembershipWitness(blockNumber: number, nullifier: Fr): Promise<NullifierMembershipWitness | undefined>;
+  getLowNullifierMembershipWitness(
+    blockNumber: BlockNumber,
+    nullifier: Fr,
+  ): Promise<NullifierMembershipWitness | undefined>;
 
   /**
    * Returns a witness for a given slot of the public data tree at a given block.
    * @param blockNumber - The block number at which to get the witness.
    * @param leafSlot - The slot of the public data in the public data tree.
    */
-  getPublicDataWitness(blockNumber: number, leafSlot: Fr): Promise<PublicDataWitness | undefined>;
+  getPublicDataWitness(blockNumber: BlockNumber, leafSlot: Fr): Promise<PublicDataWitness | undefined>;
 
   /**
    * Gets the storage value at the given contract storage slot.
@@ -191,14 +193,14 @@ export interface ExecutionDataProvider {
    * @returns Storage value at the given contract slot.
    * @throws If the contract is not deployed.
    */
-  getPublicStorageAt(blockNumber: number, contract: AztecAddress, slot: Fr): Promise<Fr>;
+  getPublicStorageAt(blockNumber: BlockNumber, contract: AztecAddress, slot: Fr): Promise<Fr>;
 
   /**
    * Fetch a block corresponding to the given block number.
    * @param blockNumber - The block number of a block to fetch.
    * @returns - The block corresponding to the given block number. Undefined if it does not exist.
    */
-  getBlock(blockNumber: number): Promise<L2Block | undefined>;
+  getBlock(blockNumber: BlockNumber): Promise<L2Block | undefined>;
 
   /**
    * Assert that the oracle version is compatible with the expected version.
@@ -218,25 +220,6 @@ export interface ExecutionDataProvider {
     sender: AztecAddress,
     recipient: AztecAddress,
   ): Promise<DirectionalAppTaggingSecret>;
-
-  /**
-   * Updates the local index of the shared tagging secret of a (sender, recipient, contract) tuple if a log with
-   * a larger index is found from the node.
-   * @param secret - The secret that's unique for (sender, recipient, contract) tuple while the direction
-   * of sender -> recipient matters.
-   * @param contractAddress - The address of the contract that the logs are tagged for. Needs to be provided to store
-   * because the function performs second round of siloing which is necessary because kernels do it as well (they silo
-   * first field of the private log which corresponds to the tag).
-   */
-  syncTaggedLogsAsSender(secret: DirectionalAppTaggingSecret, contractAddress: AztecAddress): Promise<void>;
-
-  /**
-   * Returns the last used index when sending a log with a given secret.
-   * @param secret - The directional app tagging secret.
-   * @returns The last used index for the given directional app tagging secret, or undefined if we never sent a log
-   * from this sender to a recipient in a given contract (implicitly included in the secret).
-   */
-  getLastUsedIndexAsSender(secret: DirectionalAppTaggingSecret): Promise<number | undefined>;
 
   /**
    * Synchronizes the private logs tagged with scoped addresses and all the senders in the address book. Stores the found
@@ -332,4 +315,8 @@ export interface ExecutionDataProvider {
    * @returns The execution statistics.
    */
   getStats(): ExecutionStats;
+
+  // Exposed when moving in the direction of #17776
+  get aztecNode(): AztecNode;
+  get senderTaggingDataProvider(): SenderTaggingDataProvider;
 }

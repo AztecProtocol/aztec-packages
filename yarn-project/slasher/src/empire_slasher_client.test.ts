@@ -1,4 +1,4 @@
-import { EmpireSlashingProposerContract, RollupContract, SlasherContract } from '@aztec/ethereum';
+import { EmpireSlashingProposerContract, RollupContract, SlasherContract } from '@aztec/ethereum/contracts';
 import { SlotNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';

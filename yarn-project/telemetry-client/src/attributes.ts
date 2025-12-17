@@ -131,3 +131,12 @@ export const L1_TX_SCOPE = 'aztec.l1_tx.scope';
 
 /** Generic error type attribute */
 export const IS_COMMITTEE_MEMBER = 'aztec.is_committee_member';
+
+/** Fisherman fee analysis strategy identifier */
+export const FISHERMAN_FEE_STRATEGY_ID = 'aztec.fisherman.strategy_id';
+
+/** The L1 transaction target for block proposal */
+export const L1_BLOCK_PROPOSAL_TX_TARGET = 'aztec.l1.block_proposal_tx_target';
+
+/** Whether tracing methods were used to extract block proposal data */
+export const L1_BLOCK_PROPOSAL_USED_TRACE = 'aztec.l1.block_proposal_used_trace';

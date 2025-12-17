@@ -47,7 +47,7 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
     using PCS = Flavor::PCS;
     using Curve = Flavor::Curve;
     using VerifierCommitments = Flavor::VerifierCommitments;
-    using Shplemini = ShpleminiVerifier_<Curve>;
+    using Shplemini = ShpleminiVerifier_<Curve, Flavor::HasZK>;
     using ClaimBatcher = ClaimBatcher_<Curve>;
     using ClaimBatch = ClaimBatcher::Batch;
     using VerifierCommitmentKey = typename Flavor::VerifierCommitmentKey;
@@ -56,9 +56,8 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
 
     transcript->load_proof(proof);
 
-    // TODO(#15892): Fiat-Shamir the vk hash by uncommenting the line below.
     FF vk_hash = key->hash();
-    // transcript->add_to_hash_buffer("avm_vk_hash", vk_hash);
+    transcript->add_to_hash_buffer("avm_vk_hash", vk_hash);
     vinfo("AVM vk hash in verifier: ", vk_hash);
 
     // Check public inputs size.
@@ -153,9 +152,9 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
 
     // Batch commitments: first commitment has coefficient 1, rest are batched with challenges
     Commitment squashed_unshifted =
-        unshifted_comms[0] + batch_mul_native(unshifted_comms.subspan(1), unshifted_challenges);
+        unshifted_comms[0] + batch_mul_native<Curve>(unshifted_comms.subspan(1), unshifted_challenges);
 
-    Commitment squashed_shifted = batch_mul_native(shifted_comms, shifted_challenges);
+    Commitment squashed_shifted = batch_mul_native<Curve>(shifted_comms, shifted_challenges);
 
     // Batch evaluations: compute inner product with first eval as initial value for unshifted
     FF squashed_unshifted_eval = std::inner_product(
@@ -169,10 +168,12 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
                                                                   .evaluations = RefVector(squashed_unshifted_eval) },
                                          .shifted = ClaimBatch{ .commitments = RefVector(squashed_shifted),
                                                                 .evaluations = RefVector(squashed_shifted_eval) } };
-    const BatchOpeningClaim<Curve> opening_claim = Shplemini::compute_batch_opening_claim(
-        padding_indicator_array, squashed_claim_batcher, output.challenge, Commitment::one(), transcript);
+    auto opening_claim =
+        Shplemini::compute_batch_opening_claim(
+            padding_indicator_array, squashed_claim_batcher, output.challenge, Commitment::one(), transcript)
+            .batch_opening_claim;
 
-    const auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
+    const auto pairing_points = PCS::reduce_verify_batch_opening_claim(std::move(opening_claim), transcript);
     VerifierCommitmentKey pcs_vkey{};
     const auto shplemini_verified = pcs_vkey.pairing_check(pairing_points[0], pairing_points[1]);
 

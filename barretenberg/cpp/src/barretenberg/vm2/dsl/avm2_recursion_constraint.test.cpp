@@ -25,7 +25,6 @@ using namespace bb::avm2;
 
 struct InnerCircuitData {
     AvmProvingHelper::Proof proof;
-    std::shared_ptr<AvmFlavor::VerificationKey> verification_key;
     std::vector<FF> public_inputs_flat;
 };
 
@@ -36,7 +35,6 @@ class AcirAvm2RecursionConstraint : public ::testing::Test {
 
     using OuterFlavor = UltraRollupFlavor;
     using OuterProver = UltraProver_<OuterFlavor>;
-    using OuterVerifier = UltraVerifier_<OuterFlavor>;
     using OuterProverInstance = ProverInstance_<OuterFlavor>;
 
     using OuterVerificationKey = OuterFlavor::VerificationKey;
@@ -50,7 +48,6 @@ class AcirAvm2RecursionConstraint : public ::testing::Test {
 
         InnerProver prover;
         auto [proof, vk_data] = prover.prove(std::move(trace));
-        const auto verification_key = InnerProver::create_verification_key(vk_data);
 
         const bool verified = prover.verify(proof, public_inputs, vk_data);
         EXPECT_TRUE(verified) << "native proof verification failed";
@@ -59,7 +56,7 @@ class AcirAvm2RecursionConstraint : public ::testing::Test {
 
         // TODO(#14234)[Unconditional PIs validation]: Remove next line
         proof.insert(proof.begin(), 0);
-        return { proof, verification_key, public_inputs_flat };
+        return { proof, public_inputs_flat };
     }
 
     /**
@@ -74,12 +71,10 @@ class AcirAvm2RecursionConstraint : public ::testing::Test {
         std::vector<fr>& witness = program.witness;
 
         for (const auto& inner_circuit_data : inner_circuits) {
-            const std::vector<fr> key_witnesses = inner_circuit_data.verification_key->to_field_elements();
             const std::vector<fr> proof_witnesses = inner_circuit_data.proof;
             const std::vector<fr> public_inputs_witnesses = inner_circuit_data.public_inputs_flat;
 
             RecursionConstraint avm_recursion_constraint{
-                .key = add_to_witness_and_track_indices(witness, key_witnesses),
                 .proof = add_to_witness_and_track_indices(witness, proof_witnesses),
                 .public_inputs = add_to_witness_and_track_indices(witness, public_inputs_witnesses),
                 .key_hash = 0, // not used
@@ -92,7 +87,7 @@ class AcirAvm2RecursionConstraint : public ::testing::Test {
         std::iota(avm_recursion_opcode_indices.begin(), avm_recursion_opcode_indices.end(), 0);
 
         AcirFormat& constraint_system = program.constraints;
-        constraint_system.varnum = static_cast<uint32_t>(witness.size());
+        constraint_system.max_witness_index = static_cast<uint32_t>(witness.size() - 1);
         constraint_system.num_acir_opcodes = static_cast<uint32_t>(avm_recursion_constraints.size());
         constraint_system.avm_recursion_constraints = avm_recursion_constraints;
         constraint_system.original_opcode_indices = create_empty_original_opcode_indices();
@@ -113,7 +108,7 @@ TEST_F(AcirAvm2RecursionConstraint, TestBasicSingleAvm2RecursionConstraint)
     std::vector<InnerCircuitData> layer_1_circuits;
     layer_1_circuits.push_back(create_inner_circuit_data());
     AcirProgram avm_verifier_program = construct_avm_verifier_program(layer_1_circuits);
-    auto layer_2_circuit = create_circuit(avm_verifier_program);
+    auto layer_2_circuit = create_circuit<OuterBuilder>(avm_verifier_program);
 
     info("circuit gates = ", layer_2_circuit.get_num_finalized_gates_inefficient());
 
@@ -122,9 +117,8 @@ TEST_F(AcirAvm2RecursionConstraint, TestBasicSingleAvm2RecursionConstraint)
     OuterProver prover(prover_instance, verification_key);
     info("prover gates = ", prover_instance->dyadic_size());
     auto proof = prover.construct_proof();
-    VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key(1 << CONST_ECCVM_LOG_N);
-    OuterVerifier verifier(verification_key, ipa_verification_key);
-    bool result = verifier.template verify_proof<bb::RollupIO>(proof, prover_instance->ipa_proof).result;
+    UltraRollupVerifier verifier(std::make_shared<UltraRollupFlavor::VKAndHash>(verification_key));
+    bool result = verifier.verify_proof(proof).result;
     EXPECT_TRUE(result);
 }
 
@@ -151,7 +145,7 @@ TEST_F(AcirAvm2RecursionConstraint, TestGenerateVKFromConstraintsWithoutWitness)
         const ProgramMetadata metadata{
             .has_ipa_claim = true,
         };
-        auto layer_2_circuit = create_circuit(avm_verifier_program, metadata);
+        auto layer_2_circuit = create_circuit<OuterBuilder>(avm_verifier_program, metadata);
 
         info("circuit gates = ", layer_2_circuit.get_num_finalized_gates_inefficient());
 
@@ -162,10 +156,9 @@ TEST_F(AcirAvm2RecursionConstraint, TestGenerateVKFromConstraintsWithoutWitness)
 
         // Construct and verify a proof of the outer AVM verifier circuits
         auto proof = prover.construct_proof();
-        VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key(1 << CONST_ECCVM_LOG_N);
-        OuterVerifier verifier(expected_vk, ipa_verification_key);
+        UltraRollupVerifier verifier(std::make_shared<UltraRollupFlavor::VKAndHash>(expected_vk));
 
-        bool result = verifier.template verify_proof<bb::RollupIO>(proof, prover_instance->ipa_proof).result;
+        bool result = verifier.verify_proof(proof).result;
         EXPECT_TRUE(result);
     }
 
@@ -177,7 +170,7 @@ TEST_F(AcirAvm2RecursionConstraint, TestGenerateVKFromConstraintsWithoutWitness)
         // Clear the program witness then construct the bberg circuit as normal
         avm_verifier_program.witness.clear();
         const ProgramMetadata metadata{ .has_ipa_claim = true };
-        auto layer_2_circuit = create_circuit(avm_verifier_program, metadata);
+        auto layer_2_circuit = create_circuit<OuterBuilder>(avm_verifier_program, metadata);
 
         info("circuit gates = ", layer_2_circuit.get_num_finalized_gates_inefficient());
 

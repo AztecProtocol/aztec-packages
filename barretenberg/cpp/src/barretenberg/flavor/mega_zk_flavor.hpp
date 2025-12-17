@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include "barretenberg/constants.hpp"
 #include "barretenberg/flavor/mega_flavor.hpp"
 
 namespace bb {
@@ -16,6 +17,9 @@ namespace bb {
 */
 class MegaZKFlavor : public bb::MegaFlavor {
   public:
+    // MegaZK is only used in production to prove the Hiding Kernel
+    static constexpr size_t VIRTUAL_LOG_N = HIDING_KERNEL_LOG_N;
+
     // Indicates that this flavor runs with ZK Sumcheck.
     static constexpr bool HasZK = true;
 
@@ -34,6 +38,14 @@ class MegaZKFlavor : public bb::MegaFlavor {
     static constexpr size_t NUM_WITNESS_ENTITIES = MegaFlavor::NUM_WITNESS_ENTITIES + NUM_MASKING_POLYNOMIALS;
     // NUM_ALL_ENTITIES includes gemini_masking_poly
     static constexpr size_t NUM_ALL_ENTITIES = MegaFlavor::NUM_ALL_ENTITIES + NUM_MASKING_POLYNOMIALS;
+    // NUM_UNSHIFTED_ENTITIES includes gemini_masking_poly
+    static constexpr size_t NUM_UNSHIFTED_ENTITIES = MegaFlavor::NUM_UNSHIFTED_ENTITIES + NUM_MASKING_POLYNOMIALS;
+
+    // Size of the final PCS MSM for ZK = non-ZK size + NUM_LIBRA_COMMITMENTS (3)
+    static constexpr size_t FINAL_PCS_MSM_SIZE(size_t log_n = MegaFlavor::VIRTUAL_LOG_N)
+    {
+        return NUM_UNSHIFTED_ENTITIES + log_n + 2 + NUM_LIBRA_COMMITMENTS;
+    }
 
     // Override OINK_PROOF_LENGTH to include gemini_masking_poly commitment (sent via commit_to_masking_poly)
     static constexpr size_t OINK_PROOF_LENGTH_WITHOUT_PUB_INPUTS =
@@ -49,7 +61,7 @@ class MegaZKFlavor : public bb::MegaFlavor {
     using ExtendedEdges = ProverUnivariates<MAX_PARTIAL_RELATION_LENGTH>;
 
     // Proof length formula
-    static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS(size_t virtual_log_n = MegaFlavor::VIRTUAL_LOG_N)
+    static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS(size_t virtual_log_n = VIRTUAL_LOG_N)
     {
         return /* 1. NUM_WITNESS_ENTITIES commitments */ (NUM_WITNESS_ENTITIES * num_frs_comm) +
                /* 2. Libra concatenation commitment*/ (num_frs_comm) +
@@ -70,6 +82,7 @@ class MegaZKFlavor : public bb::MegaFlavor {
     }
 
     using Transcript = NativeTranscript;
+    using VKAndHash = MegaFlavor::VKAndHash;
 };
 
 } // namespace bb

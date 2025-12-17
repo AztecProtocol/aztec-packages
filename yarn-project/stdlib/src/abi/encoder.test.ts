@@ -1,4 +1,5 @@
-import { Fr, Point } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
+import { Point } from '@aztec/foundation/curves/grumpkin';
 import { jsonParseWithSchema, jsonStringify } from '@aztec/foundation/json-rpc';
 
 import { AztecAddress } from '../aztec-address/index.js';
@@ -82,7 +83,7 @@ describe('abi/encoder', () => {
     };
 
     const str = 'abc';
-    // As bigints padded with 0 for length 4. ("a" = 97, "b" = 98, "c" = 99, 0)
+    // As bigints padded with 0 for length 4. ("a" = 97, "b" = 98, "c" = 99, BlockNumber.ZERO)
     const expected = [new Fr(97), new Fr(98), new Fr(99), new Fr(0)];
     expect(encodeArguments(abi, [str])).toEqual(expected);
   });

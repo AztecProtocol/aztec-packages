@@ -1,13 +1,11 @@
-import { L1_TO_L2_MSG_SUBTREE_HEIGHT } from '@aztec/constants';
-import { SHA256Trunc } from '@aztec/foundation/crypto';
-import type { Fr } from '@aztec/foundation/fields';
+import { BlockNumber } from '@aztec/foundation/branded-types';
+import type { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { elapsed } from '@aztec/foundation/timer';
-import { MerkleTreeCalculator } from '@aztec/foundation/trees';
 import type {
-  L2Block,
   L2BlockId,
+  L2BlockNew,
   L2BlockSource,
   L2BlockStream,
   L2BlockStreamEvent,
@@ -45,17 +43,17 @@ export class ServerWorldStateSynchronizer
 {
   private readonly merkleTreeCommitted: MerkleTreeReadOperations;
 
-  private latestBlockNumberAtStart = 0;
+  private latestBlockNumberAtStart = BlockNumber.ZERO;
   private historyToKeep: number | undefined;
   private currentState: WorldStateRunningState = WorldStateRunningState.IDLE;
-  private latestBlockHashQuery: { blockNumber: number; hash: string | undefined } | undefined = undefined;
+  private latestBlockHashQuery: { blockNumber: BlockNumber; hash: string | undefined } | undefined = undefined;
 
   private syncPromise = promiseWithResolvers<void>();
   protected blockStream: L2BlockStream | undefined;
 
   // WorldState doesn't track the proven block number, it only tracks the latest tips of the pending chain and the finalized chain
   // store the proven block number here, in the synchronizer, so that we don't end up spamming the logs with 'chain-proved' events
-  private provenBlockNumber: bigint | undefined;
+  private provenBlockNumber: BlockNumber | undefined;
 
   constructor(
     private readonly merkleTreeDb: MerkleTreeAdminDatabase,
@@ -77,11 +75,11 @@ export class ServerWorldStateSynchronizer
     return this.merkleTreeDb.getCommitted();
   }
 
-  public getSnapshot(blockNumber: number): MerkleTreeReadOperations {
+  public getSnapshot(blockNumber: BlockNumber): MerkleTreeReadOperations {
     return this.merkleTreeDb.getSnapshot(blockNumber);
   }
 
-  public fork(blockNumber?: number): Promise<MerkleTreeWriteOperations> {
+  public fork(blockNumber?: BlockNumber): Promise<MerkleTreeWriteOperations> {
     return this.merkleTreeDb.fork(blockNumber);
   }
 
@@ -102,9 +100,11 @@ export class ServerWorldStateSynchronizer
     }
 
     // Get the current latest block number
-    this.latestBlockNumberAtStart = await (this.config.worldStateProvenBlocksOnly
-      ? this.l2BlockSource.getProvenBlockNumber()
-      : this.l2BlockSource.getBlockNumber());
+    this.latestBlockNumberAtStart = BlockNumber(
+      await (this.config.worldStateProvenBlocksOnly
+        ? this.l2BlockSource.getProvenBlockNumber()
+        : this.l2BlockSource.getBlockNumber()),
+    );
 
     const blockToDownloadFrom = (await this.getLatestBlockNumber()) + 1;
 
@@ -147,10 +147,10 @@ export class ServerWorldStateSynchronizer
   public async status(): Promise<WorldStateSynchronizerStatus> {
     const summary = await this.merkleTreeDb.getStatusSummary();
     const status: WorldStateSyncStatus = {
-      latestBlockNumber: Number(summary.unfinalizedBlockNumber),
-      latestBlockHash: (await this.getL2BlockHash(Number(summary.unfinalizedBlockNumber))) ?? '',
-      finalizedBlockNumber: Number(summary.finalizedBlockNumber),
-      oldestHistoricBlockNumber: Number(summary.oldestHistoricalBlock),
+      latestBlockNumber: summary.unfinalizedBlockNumber,
+      latestBlockHash: (await this.getL2BlockHash(summary.unfinalizedBlockNumber)) ?? '',
+      finalizedBlockNumber: summary.finalizedBlockNumber,
+      oldestHistoricBlockNumber: summary.oldestHistoricalBlock,
       treesAreSynched: summary.treesAreSynched,
     };
     return {
@@ -184,7 +184,10 @@ export class ServerWorldStateSynchronizer
    * @param skipThrowIfTargetNotReached - Whether to skip throwing if the target block number is not reached.
    * @returns A promise that resolves with the block number the world state was synced to
    */
-  public async syncImmediate(targetBlockNumber?: number, skipThrowIfTargetNotReached?: boolean): Promise<number> {
+  public async syncImmediate(
+    targetBlockNumber?: BlockNumber,
+    skipThrowIfTargetNotReached?: boolean,
+  ): Promise<BlockNumber> {
     if (this.currentState !== WorldStateRunningState.RUNNING) {
       throw new Error(`World State is not running. Unable to perform sync.`);
     }
@@ -202,7 +205,7 @@ export class ServerWorldStateSynchronizer
 
     // If the archiver is behind the target block, force an archiver sync
     if (targetBlockNumber) {
-      const archiverLatestBlock = await this.l2BlockSource.getBlockNumber();
+      const archiverLatestBlock = BlockNumber(await this.l2BlockSource.getBlockNumber());
       if (archiverLatestBlock < targetBlockNumber) {
         this.log.debug(`Archiver is at ${archiverLatestBlock} behind target block ${targetBlockNumber}.`);
         await this.l2BlockSource.syncImmediate();
@@ -232,8 +235,8 @@ export class ServerWorldStateSynchronizer
   }
 
   /** Returns the L2 block hash for a given number. Used by the L2BlockStream for detecting reorgs. */
-  public async getL2BlockHash(number: number): Promise<string | undefined> {
-    if (number === 0) {
+  public async getL2BlockHash(number: BlockNumber): Promise<string | undefined> {
+    if (number === BlockNumber.ZERO) {
       return (await this.merkleTreeCommitted.getInitialHeader().hash()).toString();
     }
     if (this.latestBlockHashQuery?.hash === undefined || number !== this.latestBlockHashQuery.blockNumber) {
@@ -250,13 +253,13 @@ export class ServerWorldStateSynchronizer
   /** Returns the latest L2 block number for each tip of the chain (latest, proven, finalized). */
   public async getL2Tips(): Promise<L2Tips> {
     const status = await this.merkleTreeDb.getStatusSummary();
-    const unfinalizedBlockHash = await this.getL2BlockHash(Number(status.unfinalizedBlockNumber));
-    const latestBlockId: L2BlockId = { number: Number(status.unfinalizedBlockNumber), hash: unfinalizedBlockHash! };
+    const unfinalizedBlockHash = await this.getL2BlockHash(status.unfinalizedBlockNumber);
+    const latestBlockId: L2BlockId = { number: status.unfinalizedBlockNumber, hash: unfinalizedBlockHash! };
 
     return {
       latest: latestBlockId,
-      finalized: { number: Number(status.finalizedBlockNumber), hash: '' },
-      proven: { number: Number(this.provenBlockNumber ?? status.finalizedBlockNumber), hash: '' }, // TODO(palla/reorg): Using finalized as proven for now
+      finalized: { number: status.finalizedBlockNumber, hash: '' },
+      proven: { number: this.provenBlockNumber ?? status.finalizedBlockNumber, hash: '' }, // TODO(palla/reorg): Using finalized as proven for now
     };
   }
 
@@ -264,7 +267,7 @@ export class ServerWorldStateSynchronizer
   public async handleBlockStreamEvent(event: L2BlockStreamEvent): Promise<void> {
     switch (event.type) {
       case 'blocks-added':
-        await this.handleL2Blocks(event.blocks.map(b => b.block));
+        await this.handleL2Blocks(event.blocks.map(b => b.block.toL2Block()));
         break;
       case 'chain-pruned':
         await this.handleChainPruned(event.block.number);
@@ -283,22 +286,32 @@ export class ServerWorldStateSynchronizer
    * @param l2Blocks - The L2 blocks to handle.
    * @returns Whether the block handled was produced by this same node.
    */
-  private async handleL2Blocks(l2Blocks: L2Block[]) {
+  private async handleL2Blocks(l2Blocks: L2BlockNew[]) {
     this.log.trace(`Handling L2 blocks ${l2Blocks[0].number} to ${l2Blocks.at(-1)!.number}`);
 
-    const messagePromises = l2Blocks.map(block => this.l2BlockSource.getL1ToL2Messages(block.number));
-    const l1ToL2Messages: Fr[][] = await Promise.all(messagePromises);
-    let updateStatus: WorldStateStatusFull | undefined = undefined;
+    // Fetch the L1->L2 messages for the first block in a checkpoint.
+    const messagesForBlocks = new Map<BlockNumber, Fr[]>();
+    await Promise.all(
+      l2Blocks
+        .filter(b => b.indexWithinCheckpoint === 0)
+        .map(async block => {
+          const l1ToL2Messages = await this.l2BlockSource.getL1ToL2Messages(block.checkpointNumber);
+          messagesForBlocks.set(block.number, l1ToL2Messages);
+        }),
+    );
 
-    for (let i = 0; i < l2Blocks.length; i++) {
-      const [duration, result] = await elapsed(() => this.handleL2Block(l2Blocks[i], l1ToL2Messages[i]));
-      this.log.info(`World state updated with L2 block ${l2Blocks[i].number}`, {
+    let updateStatus: WorldStateStatusFull | undefined = undefined;
+    for (const block of l2Blocks) {
+      const [duration, result] = await elapsed(() =>
+        this.handleL2Block(block, messagesForBlocks.get(block.number) ?? []),
+      );
+      this.log.info(`World state updated with L2 block ${block.number}`, {
         eventName: 'l2-block-handled',
         duration,
-        unfinalizedBlockNumber: result.summary.unfinalizedBlockNumber,
-        finalizedBlockNumber: result.summary.finalizedBlockNumber,
-        oldestHistoricBlock: result.summary.oldestHistoricalBlock,
-        ...l2Blocks[i].getStats(),
+        unfinalizedBlockNumber: BigInt(result.summary.unfinalizedBlockNumber),
+        finalizedBlockNumber: BigInt(result.summary.finalizedBlockNumber),
+        oldestHistoricBlock: BigInt(result.summary.oldestHistoricalBlock),
+        ...block.getStats(),
       } satisfies L2BlockHandledStats);
       updateStatus = result;
     }
@@ -314,14 +327,7 @@ export class ServerWorldStateSynchronizer
    * @param l1ToL2Messages - The L1 to L2 messages for the block.
    * @returns Whether the block handled was produced by this same node.
    */
-  private async handleL2Block(l2Block: L2Block, l1ToL2Messages: Fr[]): Promise<WorldStateStatusFull> {
-    // First we check that the L1 to L2 messages hash to the block inHash.
-    // Note that we cannot optimize this check by checking the root of the subtree after inserting the messages
-    // to the real L1_TO_L2_MESSAGE_TREE (like we do in merkleTreeDb.handleL2BlockAndMessages(...)) because that
-    // tree uses pedersen and we don't have access to the converted root.
-    await this.verifyMessagesHashToInHash(l1ToL2Messages, l2Block.header.contentCommitment.inHash);
-
-    // If the above check succeeds, we can proceed to handle the block.
+  private async handleL2Block(l2Block: L2BlockNew, l1ToL2Messages: Fr[]): Promise<WorldStateStatusFull> {
     this.log.trace(`Pushing L2 block ${l2Block.number} to merkle tree db `, {
       blockNumber: l2Block.number,
       blockHash: await l2Block.hash().then(h => h.toString()),
@@ -337,30 +343,30 @@ export class ServerWorldStateSynchronizer
     return result;
   }
 
-  private async handleChainFinalized(blockNumber: number) {
+  private async handleChainFinalized(blockNumber: BlockNumber) {
     this.log.verbose(`Finalized chain is now at block ${blockNumber}`);
-    const summary = await this.merkleTreeDb.setFinalized(BigInt(blockNumber));
+    const summary = await this.merkleTreeDb.setFinalized(blockNumber);
     if (this.historyToKeep === undefined) {
       return;
     }
-    const newHistoricBlock = summary.finalizedBlockNumber - BigInt(this.historyToKeep) + 1n;
+    const newHistoricBlock = summary.finalizedBlockNumber - this.historyToKeep + 1;
     if (newHistoricBlock <= 1) {
       return;
     }
     this.log.verbose(`Pruning historic blocks to ${newHistoricBlock}`);
-    const status = await this.merkleTreeDb.removeHistoricalBlocks(newHistoricBlock);
+    const status = await this.merkleTreeDb.removeHistoricalBlocks(BlockNumber(newHistoricBlock));
     this.log.debug(`World state summary `, status.summary);
   }
 
-  private handleChainProven(blockNumber: number) {
-    this.provenBlockNumber = BigInt(blockNumber);
+  private handleChainProven(blockNumber: BlockNumber) {
+    this.provenBlockNumber = blockNumber;
     this.log.debug(`Proven chain is now at block ${blockNumber}`);
     return Promise.resolve();
   }
 
-  private async handleChainPruned(blockNumber: number) {
+  private async handleChainPruned(blockNumber: BlockNumber) {
     this.log.warn(`Chain pruned to block ${blockNumber}`);
-    const status = await this.merkleTreeDb.unwindBlocks(BigInt(blockNumber));
+    const status = await this.merkleTreeDb.unwindBlocks(blockNumber);
     this.latestBlockHashQuery = undefined;
     this.provenBlockNumber = undefined;
     this.instrumentation.updateWorldStateMetrics(status);
@@ -373,25 +379,5 @@ export class ServerWorldStateSynchronizer
   private setCurrentState(newState: WorldStateRunningState) {
     this.currentState = newState;
     this.log.debug(`Moved to state ${WorldStateRunningState[this.currentState]}`);
-  }
-
-  /**
-   * Verifies that the L1 to L2 messages hash to the block inHash.
-   * @param l1ToL2Messages - The L1 to L2 messages for the block.
-   * @param inHash - The inHash of the block.
-   * @throws If the L1 to L2 messages do not hash to the block inHash.
-   */
-  protected async verifyMessagesHashToInHash(l1ToL2Messages: Fr[], inHash: Fr) {
-    const treeCalculator = await MerkleTreeCalculator.create(
-      L1_TO_L2_MSG_SUBTREE_HEIGHT,
-      Buffer.alloc(32),
-      (lhs, rhs) => Promise.resolve(new SHA256Trunc().hash(lhs, rhs)),
-    );
-
-    const root = await treeCalculator.computeTreeRoot(l1ToL2Messages.map(msg => msg.toBuffer()));
-
-    if (!root.equals(inHash.toBuffer())) {
-      throw new Error('Obtained L1 to L2 messages failed to be hashed to the block inHash');
-    }
   }
 }

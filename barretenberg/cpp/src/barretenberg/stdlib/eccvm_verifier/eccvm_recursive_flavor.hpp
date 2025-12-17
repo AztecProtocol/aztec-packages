@@ -8,6 +8,7 @@
 #include "barretenberg/eccvm/eccvm_flavor.hpp"
 #include "barretenberg/stdlib/eccvm_verifier/verifier_commitment_key.hpp"
 #include "barretenberg/stdlib/primitives/curves/grumpkin.hpp"
+#include "barretenberg/stdlib/proof/proof.hpp"
 
 // NOLINTBEGIN(cppcoreguidelines-avoid-const-or-ref-data-members) ?
 
@@ -80,7 +81,7 @@ class ECCVMRecursiveFlavor {
                                                           ECCVMFlavor::PrecomputedEntities<Commitment>,
                                                           VKSerializationMode::NO_METADATA> {
       public:
-        VerifierCommitmentKey pcs_verification_key;
+        Commitment pcs_g1_identity;
 
         /**
          * @brief Construct a new Verification Key with stdlib types from a provided native verification
@@ -90,7 +91,7 @@ class ECCVMRecursiveFlavor {
          * @param native_key Native verification key from which to extract the precomputed commitments
          */
         VerificationKey(CircuitBuilder* builder, const std::shared_ptr<NativeVerificationKey>& native_key)
-            : pcs_verification_key(builder, 1UL << CONST_ECCVM_LOG_N, native_key->pcs_verification_key)
+            : pcs_g1_identity(Commitment(native_key->pcs_g1_identity))
         {
 
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/1324): Remove `log_circuit_size` from MSGPACK
@@ -139,6 +140,9 @@ class ECCVMRecursiveFlavor {
     using VerifierCommitments = ECCVMFlavor::VerifierCommitments_<Commitment, VerificationKey>;
     // Reuse the transcript from ECCVM
     using Transcript = StdlibTranscript<CircuitBuilder>;
+
+    // Proof type for recursive verification
+    using Proof = stdlib::Proof<CircuitBuilder>;
 
     using VKAndHash = VKAndHash_<VerificationKey, FF>;
 
