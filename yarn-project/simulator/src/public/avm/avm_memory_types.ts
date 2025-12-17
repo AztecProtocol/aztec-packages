@@ -416,7 +416,7 @@ const TAG_FOR_MEM_VAL = new Map<string, TypeTag>([
   ['Uint128', TypeTag.UINT128],
 ]);
 
-export const VALID_TAGS = new Set([
+const VALID_TAGS = new Set([
   TypeTag.FIELD,
   TypeTag.UINT1,
   TypeTag.UINT8,
@@ -426,7 +426,7 @@ export const VALID_TAGS = new Set([
   TypeTag.UINT128,
 ]);
 
-export const INTEGRAL_TAGS = new Set([
+const INTEGRAL_TAGS = new Set([
   TypeTag.UINT1,
   TypeTag.UINT8,
   TypeTag.UINT16,
