@@ -369,7 +369,7 @@ TYPED_TEST(SmallSubgroupIPATest, EvaluationChallengeInSubgroupThrows)
     // Create an evaluation challenge that is IN the small subgroup
     // Using g^k for some k gives us an element where Z_H(g^k) = (g^k)^|H| - 1 = g^{k*|H|} - 1 = 1 - 1 = 0
     // pick a random exponent k in the size of the subgroup
-    const FF subgroup_element = Curve::subgroup_generator.pow(10); // g^1 is in the subgroup
+    const FF subgroup_element = Curve::subgroup_generator.pow(10); // g^10 is in the subgroup
 
     // Verify that Z_H(subgroup_element) = 0
     const FF vanishing_poly_eval = subgroup_element.pow(SUBGROUP_SIZE) - FF(1);

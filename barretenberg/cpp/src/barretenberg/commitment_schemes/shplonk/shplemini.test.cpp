@@ -35,6 +35,12 @@ template <class Flavor> class ShpleminiTest : public CommitmentTest<typename Fla
     using Commitment = typename Flavor::Curve::AffineElement;
     using CK = typename Flavor::CommitmentKey;
     using IPA = IPA<typename Flavor::Curve, log_n>;
+
+    // Witness polynomials array: [0]=Concatenated(G), [1]=GrandSum(A), [2]=unused, [3]=Quotient(Q)
+    enum class TamperedPolynomial : size_t { None = SIZE_MAX, Concatenated = 0, GrandSum = 1, Quotient = 3 };
+
+    // libra_commitments array: [0]=Concatenated, [1]=GrandSum, [2]=Quotient
+    enum class TamperedCommitment : size_t { None = SIZE_MAX, Concatenated = 0, GrandSum = 1, Quotient = 2 };
 };
 
 using TestSettings = ::testing::Types<BN254Settings, GrumpkinSettings>;
@@ -661,7 +667,7 @@ TYPED_TEST(ShpleminiTest, LibraConsistencyCheckFailsOnCorruptedEvaluation)
     // Instantiate SmallSubgroupIPAProver with the CORRECT value (prover's internal state is correct,
     // but the value sent to verifier is corrupted - simulating a cheating prover)
     SmallSubgroupIPAProver<TypeParam> small_subgroup_ipa_prover(
-        zk_sumcheck_data, mle_opening_point, claimed_inner_product, prover_transcript, ck);
+        zk_sumcheck_data, mle_opening_point, corrupted_inner_product, prover_transcript, ck);
     small_subgroup_ipa_prover.prove();
 
     // Reduce to KZG or IPA based on the curve used in the test Flavor
@@ -715,16 +721,18 @@ TYPED_TEST(ShpleminiTest, LibraConsistencyCheckFailsOnCorruptedEvaluation)
 /**
  * @brief Helper to run a Libra tampering test with configurable tampering options.
  * @details Runs the full ZK Shplemini prover/verifier flow with optional tampering of:
- * - A witness polynomial (by index: 0=G concatenated, 1=A grand sum, 3=Q quotient)
- * - A commitment (by index: 0=concatenated, 1=grand sum, 2=quotient)
+ * - A witness polynomial (Concatenated, GrandSum, or Quotient)
+ * - A commitment (Concatenated, GrandSum, or Quotient)
  * Then verifies the expected consistency_checked result and that PCS verification fails.
  */
 template <typename TypeParam>
 void run_libra_tampering_test(ShpleminiTest<TypeParam>* test,
-                              std::optional<size_t> tamper_polynomial_idx,
-                              std::optional<size_t> tamper_commitment_idx,
+                              typename ShpleminiTest<TypeParam>::TamperedPolynomial tamper_polynomial,
+                              typename ShpleminiTest<TypeParam>::TamperedCommitment tamper_commitment,
                               bool expected_consistency_checked)
 {
+    using TamperedPolynomial = typename ShpleminiTest<TypeParam>::TamperedPolynomial;
+    using TamperedCommitment = typename ShpleminiTest<TypeParam>::TamperedCommitment;
     using ZKData = ZKSumcheckData<TypeParam>;
     using Curve = typename TypeParam::Curve;
     using ShpleminiProver = ShpleminiProver_<Curve>;
@@ -756,8 +764,8 @@ void run_libra_tampering_test(ShpleminiTest<TypeParam>* test,
     auto witness_polynomials = small_subgroup_ipa_prover.get_witness_polynomials();
 
     // Optionally tamper with a witness polynomial
-    if (tamper_polynomial_idx.has_value()) {
-        witness_polynomials[*tamper_polynomial_idx].at(0) += Fr::random_element();
+    if (tamper_polynomial != TamperedPolynomial::None) {
+        witness_polynomials[static_cast<size_t>(tamper_polynomial)].at(0) += Fr::random_element();
     }
 
     const auto opening_claim = ShpleminiProver::prove(
@@ -783,8 +791,9 @@ void run_libra_tampering_test(ShpleminiTest<TypeParam>* test,
     libra_commitments[2] = verifier_transcript->template receive_from_prover<Commitment>("Libra:quotient_commitment");
 
     // Optionally tamper with a commitment
-    if (tamper_commitment_idx.has_value()) {
-        libra_commitments[*tamper_commitment_idx] = libra_commitments[*tamper_commitment_idx] + Commitment::one();
+    if (tamper_commitment != TamperedCommitment::None) {
+        auto idx = static_cast<size_t>(tamper_commitment);
+        libra_commitments[idx] = libra_commitments[idx] + Commitment::one();
     }
 
     std::vector<Fr> padding_indicator_array(test->log_n, Fr{ 1 });
@@ -818,12 +827,11 @@ void run_libra_tampering_test(ShpleminiTest<TypeParam>* test,
  */
 TYPED_TEST(ShpleminiTest, LibraQuotientPolynomialTamperingCausesVerificationFailure)
 {
-    // Tamper with polynomial index 3 (quotient Q), no commitment tampering
+    using TamperedPolynomial = typename TestFixture::TamperedPolynomial;
+    using TamperedCommitment = typename TestFixture::TamperedCommitment;
     // Consistency check fails because Q(r) is wrong
-    run_libra_tampering_test(this,
-                             /*tamper_polynomial_idx=*/3,
-                             /*tamper_commitment_idx=*/std::nullopt,
-                             /*expected_consistency_checked=*/false);
+    run_libra_tampering_test(
+        this, TamperedPolynomial::Quotient, TamperedCommitment::None, /*expected_consistency_checked=*/false);
 }
 
 /**
@@ -831,25 +839,23 @@ TYPED_TEST(ShpleminiTest, LibraQuotientPolynomialTamperingCausesVerificationFail
  */
 TYPED_TEST(ShpleminiTest, LibraQuotientCommitmentTamperingCausesVerificationFailure)
 {
-    // No polynomial tampering, tamper with commitment index 2 (quotient)
+    using TamperedPolynomial = typename TestFixture::TamperedPolynomial;
+    using TamperedCommitment = typename TestFixture::TamperedCommitment;
     // Consistency check passes because evaluations are honest
-    run_libra_tampering_test(this,
-                             /*tamper_polynomial_idx=*/std::nullopt,
-                             /*tamper_commitment_idx=*/2,
-                             /*expected_consistency_checked=*/true);
+    run_libra_tampering_test(
+        this, TamperedPolynomial::None, TamperedCommitment::Quotient, /*expected_consistency_checked=*/true);
 }
 
 /**
  * @brief Test tampering with grand sum polynomial A - breaks consistency check and PCS.
  */
-TYPED_TEST(ShpleminiTest, LibraGrandSumTamperingCausesVerificationFailure)
+TYPED_TEST(ShpleminiTest, LibraGrandSumPolynomialTamperingCausesVerificationFailure)
 {
-    // Tamper with polynomial index 1 (grand sum A), no commitment tampering
+    using TamperedPolynomial = typename TestFixture::TamperedPolynomial;
+    using TamperedCommitment = typename TestFixture::TamperedCommitment;
     // Consistency check fails because A(r) and A(g*r) are wrong
-    run_libra_tampering_test(this,
-                             /*tamper_polynomial_idx=*/1,
-                             /*tamper_commitment_idx=*/std::nullopt,
-                             /*expected_consistency_checked=*/false);
+    run_libra_tampering_test(
+        this, TamperedPolynomial::GrandSum, TamperedCommitment::None, /*expected_consistency_checked=*/false);
 }
 
 /**
@@ -857,40 +863,35 @@ TYPED_TEST(ShpleminiTest, LibraGrandSumTamperingCausesVerificationFailure)
  */
 TYPED_TEST(ShpleminiTest, LibraGrandSumCommitmentTamperingCausesVerificationFailure)
 {
-    // No polynomial tampering, tamper with commitment index 1 (grand sum)
+    using TamperedPolynomial = typename TestFixture::TamperedPolynomial;
+    using TamperedCommitment = typename TestFixture::TamperedCommitment;
     // Consistency check passes because evaluations are honest
-    run_libra_tampering_test(this,
-                             /*tamper_polynomial_idx=*/std::nullopt,
-                             /*tamper_commitment_idx=*/1,
-                             /*expected_consistency_checked=*/true);
+    run_libra_tampering_test(
+        this, TamperedPolynomial::None, TamperedCommitment::GrandSum, /*expected_consistency_checked=*/true);
 }
 
 /**
  * @brief Test tampering with concatenated polynomial G - breaks consistency check and PCS.
- *
  */
 TYPED_TEST(ShpleminiTest, LibraConcatenatedPolynomialTamperingCausesVerificationFailure)
 {
-    // Tamper with polynomial index 0 (concatenated), no commitment tampering
+    using TamperedPolynomial = typename TestFixture::TamperedPolynomial;
+    using TamperedCommitment = typename TestFixture::TamperedCommitment;
     // Consistency check fails because G(r) is wrong
-    run_libra_tampering_test(this,
-                             /*tamper_polynomial_idx=*/0,
-                             /*tamper_commitment_idx=*/std::nullopt,
-                             /*expected_consistency_checked=*/false);
+    run_libra_tampering_test(
+        this, TamperedPolynomial::Concatenated, TamperedCommitment::None, /*expected_consistency_checked=*/false);
 }
 
 /**
  * @brief Test tampering with concatenated commitment [G] - consistency check passes but PCS fails.
- *
  */
 TYPED_TEST(ShpleminiTest, LibraConcatenatedCommitmentTamperingCausesVerificationFailure)
 {
-    // No polynomial tampering, tamper with commitment index 0 (concatenated)
+    using TamperedPolynomial = typename TestFixture::TamperedPolynomial;
+    using TamperedCommitment = typename TestFixture::TamperedCommitment;
     // Consistency check passes because evaluations are honest
-    run_libra_tampering_test(this,
-                             /*tamper_polynomial_idx=*/std::nullopt,
-                             /*tamper_commitment_idx=*/0,
-                             /*expected_consistency_checked=*/true);
+    run_libra_tampering_test(
+        this, TamperedPolynomial::None, TamperedCommitment::Concatenated, /*expected_consistency_checked=*/true);
 }
 
 } // namespace bb
