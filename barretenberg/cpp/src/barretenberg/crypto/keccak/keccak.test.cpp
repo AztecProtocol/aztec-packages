@@ -14,6 +14,8 @@ struct Keccak256TestVector {
     std::array<uint8_t, KECCAK256_OUTPUT_BYTES> output;
 };
 
+// Test vectors generated using the keccak reference implementation (https://github.com/XKCP/XKCP) for testing the
+// Keccak-f[1600] permutation.
 const std::vector<KeccakF1600TestVector> keccak_f1600_test_vectors = {
     {
         // Test vector 0: input state all zeros
