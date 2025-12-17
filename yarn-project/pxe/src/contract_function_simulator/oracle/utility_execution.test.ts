@@ -79,7 +79,7 @@ describe('Utility Execution test suite', () => {
 
     const notes: Note[] = [...Array(5).fill(buildNote(1n)), ...Array(2).fill(buildNote(2n))];
 
-    executionDataProvider.getPublicStorageAt.mockResolvedValue(Fr.ZERO);
+    aztecNode.getPublicStorageAt.mockResolvedValue(Fr.ZERO);
     contractDataProvider.getFunctionArtifact.mockResolvedValue(artifact);
     contractDataProvider.getContractInstance.mockResolvedValue({
       currentContractClassId: new Fr(42),

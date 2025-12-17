@@ -2,6 +2,7 @@ import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { KeyStore } from '@aztec/key-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { CompleteAddress } from '@aztec/stdlib/contract';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import { BlockHeader, GlobalVariables } from '@aztec/stdlib/tx';
@@ -10,7 +11,7 @@ import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { AddressDataProvider, AnchorBlockDataProvider, ContractDataProvider } from '../../storage/index.js';
-import { getBlock, getLowNullifierMembershipWitness, getPublicDataWitness } from './common.js';
+import { getBlock, getLowNullifierMembershipWitness, getPublicDataWitness, getPublicStorageAt } from './common.js';
 
 jest.setTimeout(30_000);
 
@@ -49,11 +50,13 @@ describe('Common oracle functions', () => {
   describe('Respects synced block number', () => {
     const syncedBlockNumber = 100;
     let nullifier: Fr;
+    let contractAddress: AztecAddress;
     let leafSlot: Fr;
 
     beforeEach(async () => {
       leafSlot = Fr.random();
       nullifier = Fr.random();
+      contractAddress = await AztecAddress.random();
       await setSyncedBlockNumber(BlockNumber(syncedBlockNumber));
     });
 
@@ -77,6 +80,18 @@ describe('Common oracle functions', () => {
     it('throws when getting public data witness for future block', async () => {
       await expect(
         getPublicDataWitness(BlockNumber(syncedBlockNumber + 1), leafSlot, anchorBlockDataProvider, aztecNode),
+      ).rejects.toThrow(`Block number ${syncedBlockNumber + 1} is higher than current block ${syncedBlockNumber}`);
+    });
+
+    it('throws when getting public storage for future block', async () => {
+      await expect(
+        getPublicStorageAt(
+          BlockNumber(syncedBlockNumber + 1),
+          contractAddress,
+          leafSlot,
+          anchorBlockDataProvider,
+          aztecNode,
+        ),
       ).rejects.toThrow(`Block number ${syncedBlockNumber + 1} is higher than current block ${syncedBlockNumber}`);
     });
   });

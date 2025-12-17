@@ -43,7 +43,7 @@ describe('Oracle Version Check test suite', () => {
     anchorBlockDataProvider = mock<AnchorBlockDataProvider>();
 
     // Mock basic oracle responses
-    executionDataProvider.getPublicStorageAt.mockResolvedValue(Fr.ZERO);
+    aztecNode.getPublicStorageAt.mockResolvedValue(Fr.ZERO);
     executionDataProvider.loadCapsule.mockImplementation((_, __) => Promise.resolve(null));
 
     contractAddress = await AztecAddress.random();

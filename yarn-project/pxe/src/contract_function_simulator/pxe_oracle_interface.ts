@@ -73,14 +73,6 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     return leafIndex?.data;
   }
 
-  public async getPublicStorageAt(blockNumber: BlockParameter, contract: AztecAddress, slot: Fr): Promise<Fr> {
-    const anchorBlockNumber = (await this.anchorBlockDataProvider.getBlockHeader()).getBlockNumber();
-    if (blockNumber !== 'latest' && blockNumber > anchorBlockNumber) {
-      throw new Error(`Block number ${blockNumber} is higher than current block ${anchorBlockNumber}`);
-    }
-    return await this.aztecNode.getPublicStorageAt(blockNumber, contract, slot);
-  }
-
   public assertCompatibleOracleVersion(version: number): void {
     if (version !== ORACLE_VERSION) {
       throw new Error(`Incompatible oracle version. Expected version ${ORACLE_VERSION}, got ${version}.`);

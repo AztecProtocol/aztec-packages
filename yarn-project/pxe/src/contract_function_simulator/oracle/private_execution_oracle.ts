@@ -534,7 +534,8 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
 
     await verifyCurrentClassId(
       targetContractAddress,
-      this.executionDataProvider,
+      this.anchorBlockDataProvider,
+      this.aztecNode,
       this.contractDataProvider,
       this.anchorBlockHeader,
     );

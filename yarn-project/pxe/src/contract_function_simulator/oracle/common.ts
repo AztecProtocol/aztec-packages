@@ -232,3 +232,17 @@ export async function getPublicDataWitness(
   }
   return await aztecNode.getPublicDataWitness(blockNumber, leafSlot);
 }
+
+export async function getPublicStorageAt(
+  blockNumber: BlockParameter,
+  contract: AztecAddress,
+  slot: Fr,
+  anchorBlockDataProvider: AnchorBlockDataProvider,
+  aztecNode: AztecNode,
+): Promise<Fr> {
+  const anchorBlockNumber = (await anchorBlockDataProvider.getBlockHeader()).getBlockNumber();
+  if (blockNumber !== 'latest' && blockNumber > anchorBlockNumber) {
+    throw new Error(`Block number ${blockNumber} is higher than current block ${anchorBlockNumber}`);
+  }
+  return await aztecNode.getPublicStorageAt(blockNumber, contract, slot);
+}

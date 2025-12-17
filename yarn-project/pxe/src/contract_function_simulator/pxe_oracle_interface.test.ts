@@ -1077,24 +1077,6 @@ describe('PXEOracleInterface', () => {
     });
   });
 
-  describe('Respects synced block number', () => {
-    const syncedBlockNumber = 100;
-    let contractAddress: AztecAddress;
-    let leafSlot: Fr;
-
-    beforeEach(async () => {
-      contractAddress = await AztecAddress.random();
-      leafSlot = Fr.random();
-      await setSyncedBlockNumber(BlockNumber(syncedBlockNumber));
-    });
-
-    it('throws when getting public storage for future block', async () => {
-      await expect(
-        pxeOracleInterface.getPublicStorageAt(BlockNumber(syncedBlockNumber + 1), contractAddress, leafSlot),
-      ).rejects.toThrow(`Block number ${syncedBlockNumber + 1} is higher than current block ${syncedBlockNumber}`);
-    });
-  });
-
   const setSyncedBlockNumber = (blockNumber: BlockNumber) => {
     return anchorBlockDataProvider.setHeader(
       BlockHeader.empty({

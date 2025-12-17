@@ -408,7 +408,7 @@ describe('Private Execution test suite', () => {
     executionDataProvider.syncTaggedLogs.mockImplementation((_, __) => Promise.resolve());
     executionDataProvider.loadCapsule.mockImplementation((_, __) => Promise.resolve(null));
 
-    executionDataProvider.getPublicStorageAt.mockImplementation(
+    aztecNode.getPublicStorageAt.mockImplementation(
       (_blockNumber: BlockParameter, _address: AztecAddress, _storageSlot: Fr) => {
         return Promise.resolve(Fr.ZERO);
       },

@@ -58,7 +58,7 @@ import {
   ContractFunctionSimulator,
   generateSimulatedProvingResult,
 } from './contract_function_simulator/contract_function_simulator.js';
-import { readCurrentClassId } from './contract_function_simulator/oracle/private_execution.js';
+import { readCurrentClassIdFromNode } from './contract_function_simulator/oracle/private_execution.js';
 import { ProxiedContractDataProviderFactory } from './contract_function_simulator/proxied_contract_data_source.js';
 import { ProxiedNodeFactory } from './contract_function_simulator/proxied_node.js';
 import { PXEOracleInterface } from './contract_function_simulator/pxe_oracle_interface.js';
@@ -630,7 +630,7 @@ export class PXE {
 
       const header = await this.anchorBlockDataProvider.getBlockHeader();
 
-      const currentClassId = await readCurrentClassId(
+      const currentClassId = await readCurrentClassIdFromNode(
         contractAddress,
         currentInstance,
         this.node,

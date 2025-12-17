@@ -132,7 +132,8 @@ export class ContractFunctionSimulator {
 
     await verifyCurrentClassId(
       contractAddress,
-      this.executionDataProvider,
+      this.anchorBlockDataProvider,
+      this.aztecNode,
       this.contractDataProvider,
       anchorBlockHeader,
     );
@@ -251,7 +252,13 @@ export class ContractFunctionSimulator {
     anchorBlockHeader: BlockHeader,
     scopes?: AztecAddress[],
   ): Promise<Fr[]> {
-    await verifyCurrentClassId(call.to, this.executionDataProvider, this.contractDataProvider, anchorBlockHeader);
+    await verifyCurrentClassId(
+      call.to,
+      this.anchorBlockDataProvider,
+      this.aztecNode,
+      this.contractDataProvider,
+      anchorBlockHeader,
+    );
 
     const entryPointArtifact = await getFunctionArtifact(call.to, call.selector, this.contractDataProvider);
 

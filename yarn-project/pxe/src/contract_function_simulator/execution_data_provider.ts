@@ -1,4 +1,3 @@
-import type { BlockNumber } from '@aztec/foundation/branded-types';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
@@ -44,20 +43,6 @@ export interface ExecutionDataProvider {
    * @returns - The index of the nullifier. Undefined if it does not exist in the tree.
    */
   getNullifierIndex(nullifier: Fr): Promise<bigint | undefined>;
-
-  /**
-   * Gets the storage value at the given contract storage slot.
-   *
-   * @remarks The storage slot here refers to the slot as it is defined in Noir not the index in the merkle tree.
-   * Aztec's version of `eth_getStorageAt`.
-   *
-   * @param blockNumber - The block number at which to get the data.
-   * @param contract - Address of the contract to query.
-   * @param slot - Slot to query.
-   * @returns Storage value at the given contract slot.
-   * @throws If the contract is not deployed.
-   */
-  getPublicStorageAt(blockNumber: BlockNumber, contract: AztecAddress, slot: Fr): Promise<Fr>;
 
   /**
    * Assert that the oracle version is compatible with the expected version.

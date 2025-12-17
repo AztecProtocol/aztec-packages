@@ -33,6 +33,7 @@ import {
   getNotes,
   getNullifierMembershipWitness,
   getPublicDataWitness,
+  getPublicStorageAt,
   getSharedSecret,
 } from './common.js';
 import type { IMiscOracle, IUtilityExecutionOracle, NoteData } from './interfaces.js';
@@ -287,7 +288,13 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     const values = [];
     for (let i = 0n; i < numberOfElements; i++) {
       const storageSlot = new Fr(startStorageSlot.value + i);
-      const value = await this.executionDataProvider.getPublicStorageAt(blockNumber, contractAddress, storageSlot);
+      const value = await getPublicStorageAt(
+        blockNumber,
+        contractAddress,
+        storageSlot,
+        this.anchorBlockDataProvider,
+        this.aztecNode,
+      );
 
       this.log.debug(
         `Oracle storage read: slot=${storageSlot.toString()} address-${contractAddress.toString()} value=${value}`,
