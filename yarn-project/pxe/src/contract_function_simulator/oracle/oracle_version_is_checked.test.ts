@@ -6,6 +6,7 @@ import { FunctionCall, FunctionSelector, FunctionType, encodeArguments } from '@
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { GasFees, GasSettings } from '@aztec/stdlib/gas';
+import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import { BlockHeader, HashedValues, TxContext, TxExecutionRequest } from '@aztec/stdlib/tx';
 
 import { mock } from 'jest-mock-extended';
@@ -22,6 +23,7 @@ describe('Oracle Version Check test suite', () => {
   let noteDataProvider: ReturnType<typeof mock<NoteDataProvider>>;
   let keyStore: ReturnType<typeof mock<KeyStore>>;
   let addressDataProvider: ReturnType<typeof mock<AddressDataProvider>>;
+  let aztecNode: ReturnType<typeof mock<AztecNode>>;
   let acirSimulator: ContractFunctionSimulator;
   let contractAddress: AztecAddress;
 
@@ -31,6 +33,7 @@ describe('Oracle Version Check test suite', () => {
     noteDataProvider = mock<NoteDataProvider>();
     keyStore = mock<KeyStore>();
     addressDataProvider = mock<AddressDataProvider>();
+    aztecNode = mock<AztecNode>();
 
     // Mock basic oracle responses
     executionDataProvider.getPublicStorageAt.mockResolvedValue(Fr.ZERO);
@@ -50,6 +53,7 @@ describe('Oracle Version Check test suite', () => {
       noteDataProvider,
       keyStore,
       addressDataProvider,
+      aztecNode,
       simulator,
     );
   });

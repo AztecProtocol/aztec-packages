@@ -8,6 +8,7 @@ import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { CompleteAddress, ContractInstance } from '@aztec/stdlib/contract';
 import { siloNullifier } from '@aztec/stdlib/hash';
+import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
 import type { NoteStatus } from '@aztec/stdlib/note';
 import { type MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
@@ -17,7 +18,13 @@ import type { AddressDataProvider, ContractDataProvider, NoteDataProvider } from
 import type { ExecutionDataProvider } from '../execution_data_provider.js';
 import { UtilityContext } from '../noir-structs/utility_context.js';
 import { pickNotes } from '../pick_notes.js';
-import { getCompleteAddress, getContractInstance, getNotes, getSharedSecret } from './common.js';
+import {
+  getCompleteAddress,
+  getContractInstance,
+  getL1ToL2MembershipWitness,
+  getNotes,
+  getSharedSecret,
+} from './common.js';
 import type { IMiscOracle, IUtilityExecutionOracle, NoteData } from './interfaces.js';
 
 /**
@@ -40,6 +47,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     protected readonly noteDataProvider: NoteDataProvider,
     protected readonly keyStore: KeyStore,
     protected readonly addressDataProvider: AddressDataProvider,
+    protected readonly aztecNode: AztecNode,
     protected log = createLogger('simulator:client_view_context'),
     protected readonly scopes?: AztecAddress[],
   ) {}
@@ -249,7 +257,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * @returns The l1 to l2 membership witness (index of message in the tree and sibling path).
    */
   public async utilityGetL1ToL2MembershipWitness(contractAddress: AztecAddress, messageHash: Fr, secret: Fr) {
-    return await this.executionDataProvider.getL1ToL2MembershipWitness(contractAddress, messageHash, secret);
+    return await getL1ToL2MembershipWitness(contractAddress, messageHash, secret, this.aztecNode);
   }
 
   /**

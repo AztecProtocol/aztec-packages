@@ -7,6 +7,7 @@ import { FunctionCall, FunctionSelector, FunctionType, encodeArguments } from '@
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { L2BlockHash } from '@aztec/stdlib/block';
 import { CompleteAddress, type ContractInstanceWithAddress } from '@aztec/stdlib/contract';
+import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import { Note, NoteDao } from '@aztec/stdlib/note';
 import { BlockHeader, TxHash } from '@aztec/stdlib/tx';
 
@@ -24,6 +25,7 @@ describe('Utility Execution test suite', () => {
   let noteDataProvider: ReturnType<typeof mock<NoteDataProvider>>;
   let keyStore: ReturnType<typeof mock<KeyStore>>;
   let addressDataProvider: ReturnType<typeof mock<AddressDataProvider>>;
+  let aztecNode: ReturnType<typeof mock<AztecNode>>;
   let acirSimulator: ContractFunctionSimulator;
   let owner: AztecAddress;
   const ownerSecretKey = Fr.fromHexString('2dcc5485a58316776299be08c78fa3788a1a7961ae30dc747fb1be17692a8d32');
@@ -38,12 +40,14 @@ describe('Utility Execution test suite', () => {
     noteDataProvider = mock<NoteDataProvider>();
     keyStore = mock<KeyStore>();
     addressDataProvider = mock<AddressDataProvider>();
+    aztecNode = mock<AztecNode>();
     acirSimulator = new ContractFunctionSimulator(
       executionDataProvider,
       contractDataProvider,
       noteDataProvider,
       keyStore,
       addressDataProvider,
+      aztecNode,
       simulator,
     );
 

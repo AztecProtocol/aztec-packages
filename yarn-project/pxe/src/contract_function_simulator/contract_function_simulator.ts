@@ -45,6 +45,7 @@ import {
   siloNoteHash,
   siloNullifier,
 } from '@aztec/stdlib/hash';
+import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import {
   PartialPrivateTailPublicInputsForPublic,
   PartialPrivateTailPublicInputsForRollup,
@@ -93,6 +94,7 @@ export class ContractFunctionSimulator {
     private noteDataProvider: NoteDataProvider,
     private keyStore: KeyStore,
     private addressDataProvider: AddressDataProvider,
+    private aztecNode: AztecNode,
     private simulator: CircuitSimulator,
   ) {
     this.log = createLogger('simulator');
@@ -170,6 +172,7 @@ export class ContractFunctionSimulator {
       this.noteDataProvider,
       this.keyStore,
       this.addressDataProvider,
+      this.aztecNode,
       0, // totalPublicArgsCount
       startSideEffectCounter,
       undefined, // log
@@ -259,6 +262,7 @@ export class ContractFunctionSimulator {
       this.noteDataProvider,
       this.keyStore,
       this.addressDataProvider,
+      this.aztecNode,
       undefined,
       scopes,
     );

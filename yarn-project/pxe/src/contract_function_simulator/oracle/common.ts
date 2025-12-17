@@ -1,14 +1,18 @@
+import type { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import type { Point } from '@aztec/foundation/curves/grumpkin';
 import type { KeyStore } from '@aztec/key-store';
 import type { FunctionArtifactWithContractName, FunctionSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { CompleteAddress, ContractInstance } from '@aztec/stdlib/contract';
+import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import { computeAddressSecret } from '@aztec/stdlib/keys';
 import { DirectionalAppTaggingSecret, deriveEcdhSharedSecret } from '@aztec/stdlib/logs';
+import { getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
 import type { NoteStatus } from '@aztec/stdlib/note';
 
 import type { AddressDataProvider, ContractDataProvider, NoteDataProvider } from '../../storage/index.js';
+import { MessageLoadOracleInputs } from './message_load_oracle_inputs.js';
 
 // TODO: this might not be the final home for these functions,
 // it's just a way of starting to dissolve PXEOracleInterface
@@ -107,4 +111,29 @@ export async function getSharedSecret(
   const ivskM = await keyStore.getMasterSecretKey(recipientCompleteAddress.publicKeys.masterIncomingViewingPublicKey);
   const addressSecret = await computeAddressSecret(await recipientCompleteAddress.getPreaddress(), ivskM);
   return deriveEcdhSharedSecret(addressSecret, ephPk);
+}
+
+/**
+ * Fetches a message from the db, given its key.
+ * @param contractAddress - Address of a contract by which the message was emitted.
+ * @param messageHash - Hash of the message.
+ * @param secret - Secret used to compute a nullifier.
+ * @dev Contract address and secret are only used to compute the nullifier to get non-nullified messages
+ * @returns The l1 to l2 membership witness (index of message in the tree and sibling path).
+ */
+export async function getL1ToL2MembershipWitness(
+  contractAddress: AztecAddress,
+  messageHash: Fr,
+  secret: Fr,
+  aztecNode: AztecNode,
+): Promise<MessageLoadOracleInputs<typeof L1_TO_L2_MSG_TREE_HEIGHT>> {
+  const [messageIndex, siblingPath] = await getNonNullifiedL1ToL2MessageWitness(
+    aztecNode,
+    contractAddress,
+    messageHash,
+    secret,
+  );
+
+  // Assuming messageIndex is what you intended to use for the index in MessageLoadOracleInputs
+  return new MessageLoadOracleInputs(messageIndex, siblingPath);
 }

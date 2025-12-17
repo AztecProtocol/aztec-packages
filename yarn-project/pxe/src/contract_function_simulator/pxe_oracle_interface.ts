@@ -1,4 +1,3 @@
-import type { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import type { KeyStore } from '@aztec/key-store';
@@ -14,13 +13,11 @@ import {
   PublicLogWithTxData,
   TxScopedL2Log,
 } from '@aztec/stdlib/logs';
-import { getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
 import { Note, NoteDao } from '@aztec/stdlib/note';
 import { MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import { TxHash } from '@aztec/stdlib/tx';
 
 import type { ExecutionDataProvider, ExecutionStats } from '../contract_function_simulator/execution_data_provider.js';
-import { MessageLoadOracleInputs } from '../contract_function_simulator/oracle/message_load_oracle_inputs.js';
 import { ORACLE_VERSION } from '../oracle_version.js';
 import type { AddressDataProvider } from '../storage/address_data_provider/address_data_provider.js';
 import type { AnchorBlockDataProvider } from '../storage/anchor_block_data_provider/anchor_block_data_provider.js';
@@ -66,30 +63,6 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     private privateEventDataProvider: PrivateEventDataProvider,
     private log = createLogger('pxe:pxe_oracle_interface'),
   ) {}
-
-  /**
-   * Fetches a message from the db, given its key.
-   * @param contractAddress - Address of a contract by which the message was emitted.
-   * @param messageHash - Hash of the message.
-   * @param secret - Secret used to compute a nullifier.
-   * @dev Contract address and secret are only used to compute the nullifier to get non-nullified messages
-   * @returns The l1 to l2 membership witness (index of message in the tree and sibling path).
-   */
-  async getL1ToL2MembershipWitness(
-    contractAddress: AztecAddress,
-    messageHash: Fr,
-    secret: Fr,
-  ): Promise<MessageLoadOracleInputs<typeof L1_TO_L2_MSG_TREE_HEIGHT>> {
-    const [messageIndex, siblingPath] = await getNonNullifiedL1ToL2MessageWitness(
-      this.aztecNode,
-      contractAddress,
-      messageHash,
-      secret,
-    );
-
-    // Assuming messageIndex is what you intended to use for the index in MessageLoadOracleInputs
-    return new MessageLoadOracleInputs(messageIndex, siblingPath);
-  }
 
   async getNullifierIndex(nullifier: Fr) {
     return await this.#findLeafIndex('latest', MerkleTreeId.NULLIFIER_TREE, nullifier);

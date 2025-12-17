@@ -14,6 +14,7 @@ import {
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/stdlib/hash';
+import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import { PrivateContextInputs } from '@aztec/stdlib/kernel';
 import type { ContractClassLog, DirectionalAppTaggingSecret, PreTag } from '@aztec/stdlib/logs';
 import { Note, type NoteStatus } from '@aztec/stdlib/note';
@@ -87,6 +88,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     noteDataProvider: NoteDataProvider,
     keyStore: KeyStore,
     addressDataProvider: AddressDataProvider,
+    aztecNode: AztecNode,
     private totalPublicCalldataCount: number = 0,
     protected sideEffectCounter: number = 0,
     log = createLogger('simulator:client_execution_context'),
@@ -104,6 +106,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       noteDataProvider,
       keyStore,
       addressDataProvider,
+      aztecNode,
       log,
       scopes,
     );
@@ -554,6 +557,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       this.noteDataProvider,
       this.keyStore,
       this.addressDataProvider,
+      this.aztecNode,
       this.totalPublicCalldataCount,
       sideEffectCounter,
       this.log,

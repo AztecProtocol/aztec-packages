@@ -209,6 +209,7 @@ export class PXE {
       this.noteDataProvider,
       this.keyStore,
       this.addressDataProvider,
+      this.node,
       this.simulator,
     );
   }

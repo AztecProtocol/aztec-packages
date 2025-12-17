@@ -33,7 +33,7 @@ import {
   getFunctionArtifactByName,
 } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { type BlockParameter, L2BlockHash } from '@aztec/stdlib/block';
+import { type BlockParameter, L2Block, L2BlockHash, wrapDataInBlock } from '@aztec/stdlib/block';
 import {
   CompleteAddress,
   type ContractInstanceWithAddress,
@@ -67,7 +67,6 @@ import { AddressDataProvider, ContractDataProvider, NoteDataProvider } from '../
 import type { SenderTaggingDataProvider } from '../../storage/tagging_data_provider/sender_tagging_data_provider.js';
 import { ContractFunctionSimulator } from '../contract_function_simulator.js';
 import type { ExecutionDataProvider } from '../execution_data_provider.js';
-import { MessageLoadOracleInputs } from './message_load_oracle_inputs.js';
 
 jest.setTimeout(60_000);
 
@@ -366,6 +365,7 @@ describe('Private Execution test suite', () => {
       noteDataProvider,
       keyStore,
       addressDataProvider,
+      aztecNode,
       simulator,
     );
   });
@@ -662,8 +662,11 @@ describe('Private Execution test suite', () => {
 
       const mockOracles = async () => {
         const tree = await insertLeaves([preimage.hash()], 'l1ToL2Messages');
-        executionDataProvider.getL1ToL2MembershipWitness.mockImplementation(async () => {
-          return Promise.resolve(new MessageLoadOracleInputs(0n, await tree.getSiblingPath(0n, true)));
+        aztecNode.getL1ToL2MessageMembershipWitness.mockImplementation(async () => {
+          return Promise.resolve([0n, await tree.getSiblingPath(0n, true)]);
+        });
+        aztecNode.findLeavesIndexes.mockImplementation(async () => {
+          return [await wrapDataInBlock(0n, await L2Block.random(BlockNumber(Fr.random().toNumber())))];
         });
       };
 

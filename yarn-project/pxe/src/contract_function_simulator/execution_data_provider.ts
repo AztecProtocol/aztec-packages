@@ -1,4 +1,3 @@
-import type { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
 import type { BlockNumber } from '@aztec/foundation/branded-types';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -8,7 +7,6 @@ import { type MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness }
 import type { NodeStats } from '@aztec/stdlib/tx';
 
 import type { SenderTaggingDataProvider } from '../storage/tagging_data_provider/sender_tagging_data_provider.js';
-import type { MessageLoadOracleInputs } from './oracle/message_load_oracle_inputs.js';
 
 /**
  * Error thrown when a contract is not found in the database.
@@ -55,20 +53,6 @@ export interface ExecutionDataProvider {
    * @param nullifier - Nullifier we're looking for.
    */
   getNullifierMembershipWitnessAtLatestBlock(nullifier: Fr): Promise<NullifierMembershipWitness | undefined>;
-
-  /**
-   * Fetches a message from the db, given its key.
-   * @param contractAddress - Address of a contract by which the message was emitted.
-   * @param messageHash - Hash of the message.
-   * @param secret - Secret used to compute a nullifier.
-   * @dev Contract address and secret are only used to compute the nullifier to get non-nullified messages
-   * @returns The l1 to l2 membership witness (index of message in the tree and sibling path).
-   */
-  getL1ToL2MembershipWitness(
-    contractAddress: AztecAddress,
-    messageHash: Fr,
-    secret: Fr,
-  ): Promise<MessageLoadOracleInputs<typeof L1_TO_L2_MSG_TREE_HEIGHT>>;
 
   /**
    * Fetches the index and sibling path of a leaf at a given block from a given tree.
