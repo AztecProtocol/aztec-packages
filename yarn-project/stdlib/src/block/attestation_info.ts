@@ -4,8 +4,6 @@ import type { EthAddress } from '@aztec/foundation/eth-address';
 import { Checkpoint } from '../checkpoint/checkpoint.js';
 import { ConsensusPayload } from '../p2p/consensus_payload.js';
 import { SignatureDomainSeparator, getHashedSignaturePayloadEthSignedMessage } from '../p2p/signature_utils.js';
-import type { CheckpointedL2Block } from './checkpointed_l2_block.js';
-import type { L2Block } from './l2_block.js';
 import type { CommitteeAttestation } from './proposal/committee_attestation.js';
 
 /**

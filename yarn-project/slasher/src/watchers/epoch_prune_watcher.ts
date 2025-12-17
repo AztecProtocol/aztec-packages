@@ -4,7 +4,6 @@ import { merge, pick } from '@aztec/foundation/collection';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import {
   EthAddress,
-  L2Block,
   L2BlockNew,
   type L2BlockPruneEvent,
   type L2BlockSourceEventEmitter,

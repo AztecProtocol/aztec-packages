@@ -78,7 +78,6 @@ export class L2BlockStream {
 
       // Check if there was a reorg and emit a chain-pruned event if so.
       let latestBlockNumber = localTips.blocks.latest.number;
-      let latestCheckpointNumber = localTips.checkpoint?.number;
       const sourceCache = new BlockHashCache([sourceTips.blocks.latest]);
       while (!(await this.areBlockHashesEqualAt(latestBlockNumber, { sourceCache }))) {
         latestBlockNumber--;

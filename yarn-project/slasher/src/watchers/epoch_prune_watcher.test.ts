@@ -2,7 +2,7 @@ import type { EpochCache } from '@aztec/epoch-cache';
 import { BlockNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { sleep } from '@aztec/foundation/sleep';
-import { L2Block, L2BlockNew, type L2BlockSourceEventEmitter, L2BlockSourceEvents } from '@aztec/stdlib/block';
+import { L2BlockNew, type L2BlockSourceEventEmitter, L2BlockSourceEvents } from '@aztec/stdlib/block';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import type {
   BuildBlockResult,
