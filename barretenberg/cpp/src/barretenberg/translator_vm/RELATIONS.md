@@ -4,17 +4,17 @@ The translator VM enforces several relations/constraints to ensure the correctne
 
 Since we follow a two-row trace structure, some relations are only active on even rows, while others are only active on odd rows. Below is a summary of the relations and their activation patterns.
 
-| Constraint                                      | Active on Even Rows | Active on Odd Rows |
-| ----------------------------------------------- | ------------------- | ------------------ |
-| Non-Native Field Relation (3 subrelations)      | ✓                   | ✗                  |
-| Decomposition Relation (48 subrelations)        | ✓                   | ✓                  |
-| Permutation Relation (2 subrelations)           | ✓                   | ✓                  |
-| Delta Range Constraint (10 subrelations)        | ✓                   | ✓                  |
-| Opcode Constraint Relation (5 subrelations)     | ✓                   | ✓                  |
-| Accumulator Transfer Relation (12 subrelations) | ✗                   | ✓ (propagation)    |
-| Zero Constraints Relation (68 subrelations)     | ✓                   | ✓                  |
+| Constraint                    | No of subtrelations | Active on even rows | Active on odd rows |
+| ----------------------------- | ------------------- | ------------------- | ------------------ |
+| Non-Native Field Relation     | 3                   | ✓                   | ✗                  |
+| Decomposition Relation        | 48                  | ✓                   | ✓                  |
+| Permutation Relation          | 2                   | ✓                   | ✓                  |
+| Delta Range Constraint        | 10                  | ✓                   | ✓                  |
+| Opcode Constraint Relation    | 5                   | ✓                   | ✓                  |
+| Accumulator Transfer Relation | 12                  | ✗                   | ✓ (propagation)    |
+| Zero Constraints Relation     | 68                  | ✓                   | ✓                  |
 
-Lagrange selectors:
+Lagrange selectors for activation:
 
 - $L_{\text{even}}$: Equals 1 on even rows, 0 elsewhere
 - $L_{\text{odd}}$: Equals 1 on odd rows, 0 elsewhere
@@ -34,7 +34,7 @@ Lagrange selectors:
 
 ## Limb Decomposition Structure
 
-This table establishes **all notation** used in the relations:
+This table establishes all notation used in the relations:
 
 | Value                           | Native (𝔽q)          | Binary Limbs                                                                         | Native (𝔽r)     |
 | ------------------------------- | -------------------- | ------------------------------------------------------------------------------------ | --------------- |
@@ -56,6 +56,8 @@ This table establishes **all notation** used in the relations:
 | $a^{\text{curr}}$               | Current accumulator  | $a_0^{\text{curr}}, a_1^{\text{curr}}, a_2^{\text{curr}}, a_3^{\text{curr}}$         | (reconstructed) |
 | **Quotient (witness)**          |
 | $\mathcal{Q}$                   | Division quotient    | $q_0, q_1, q_2, q_3$                                                                 | (reconstructed) |
+| **Negative $q$ constant**       |
+| $\bar{q}$                       | $-q \pmod{2^{272}}$  | $\bar{q}_0, \bar{q}_1, \bar{q}_2, \bar{q}_3$                                         | $\bar{q}_4$     |
 | **Carries (witness)**           |
 | $c^{\text{lo}}$                 | Lower carry          | (single 84-bit value)                                                                | -               |
 | $c^{\text{hi}}$                 | Higher carry         | (single 84-bit value)                                                                | -               |
@@ -111,25 +113,19 @@ If this equation holds:
 
 Using Chinese Remainder Theorem, then it holds in integers (since $2^{272} \cdot r > 2^{514}$ > max possible value), which implies it holds modulo $q$. See [bigfield documentation](barretenberg/cpp/src/barretenberg/stdlib/primitives/bigfield/README.md) for more details on non-native field arithmetic.
 
-The non-native field relation is enforced through **three separate subrelations**:
+The non-native field relation is enforced through three separate subrelations:
 
-| Subrelation | Purpose               | Modulus   | Limbs Checked                         |
-| ----------- | --------------------- | --------- | ------------------------------------- |
-| 1           | Lower mod 2²⁷² check  | $2^{136}$ | Limbs 0, 1                            |
-| 2           | Higher mod 2²⁷² check | $2^{136}$ | Limbs 2, 3 (with carry from subrel 1) |
-| 3           | Native field check    | $r$       | Full native reconstruction            |
+| Subrelation | Purpose                    | Modulus   | Limbs checked                         |
+| ----------- | -------------------------- | --------- | ------------------------------------- |
+| 1           | Lower mod $2^{272}$ check  | $2^{136}$ | Limbs 0, 1                            |
+| 2           | Higher mod $2^{272}$ check | $2^{136}$ | Limbs 2, 3 (with carry from subrel 1) |
+| 3           | Native field check         | $r$       | Full native reconstruction            |
 
 Together, these prove the relation holds in integers.
 
-> **Negative Modulus Constant**: We work with $-q \pmod{2^{272}}$ to avoid subtraction:
-> $$\bar{q} := 2^{272} - q$$
-> Decomposed into limbs:
-> $$\bar{q} = \bar{q}_0 + 2^{68} \cdot \bar{q}_1 + 2^{136} \cdot \bar{q}_2 + 2^{204} \cdot \bar{q}_3$$
-> Plus native field representation: $\bar{q}_4 = -q \pmod{r}$
-
 ---
 
-### Subrelation 1: Lower Mod 2¹³⁶ Check
+### Subrelation 1: Lower Mod $2^{136}$ Check
 
 Prove that when we compute the accumulation formula using limbs 0 and 1, the result is a multiple of $2^{136}$.
 
@@ -139,7 +135,6 @@ We compute the accumulation using:
 - Limb 1 terms (contribute at weight $2^{68}$)
 
 The result should be: $\text{Result} = c^{\text{lo}} \cdot 2^{136}$ for some carry $c^{\text{lo}}$.
-
 The limb 0 contribution is:
 
 $$
@@ -175,19 +170,19 @@ Thus, the combined subrelation is:
 
 $$\boxed{L_{\text{even}} \cdot \texttt{op} \cdot \left( T_0 + 2^{68} \cdot T_1 - 2^{136} \cdot c^{\text{lo}} \right) = 0}$$
 
-**Interpretation:**
+Interpretation:
 
 - Compute $T_0$ (limb 0 contribution)
 - Compute $T_1 \cdot 2^{68}$ (limb 1 contribution, shifted by 68 bits)
 - Their sum should equal $c^{\text{lo}} \cdot 2^{136}$
 - If this holds, the lower 136 bits of the accumulation equation are correct
 
-**Active when:**
+This subrelation is only active when:
 
 - $L_{\text{even}} = 1$ (even rows in mini-circuit)
 - $\texttt{op} \neq 0$ (not a no-op)
 
-### Subrelation 2: Higher Mod 2¹³⁶ Check
+### Subrelation 2: Higher Mod $2^{136}$ Check
 
 Prove that when we compute the accumulation formula using limbs 2 and 3, plus the carry from subrelation 1, the result is a multiple of $2^{136}$.
 
@@ -198,7 +193,6 @@ We compute using:
 - Limb 3 terms (contribute at weight $2^{204}$)
 
 The result should be: $\text{Result} = c^{\text{hi}} \cdot 2^{136}$ for some carry $c^{\text{hi}}$.
-
 The limb 2 contribution (with carry) is:
 
 $$
@@ -245,7 +239,6 @@ Together with Subrelation 1: We've proven the relation holds modulo $2^{272}$.
 ### Subrelation 3: Native Field Check
 
 Prove the accumulation formula holds when computed directly in 𝔽r (the native field).
-
 First, reconstruct all values from their limbs:
 
 $$
@@ -277,7 +270,7 @@ L_{\text{even}} \cdot \texttt{op} \cdot \Big( &\tilde{a}^{\text{prev}} \cdot x_4
 \end{align*}}
 $$
 
-Where:
+where:
 
 - All arithmetic is performed in $\mathbb{F}_{r}$
 - $x_4, v_4, (v^2)_4, (v^3)_4, (v^4)_4$ are the native field representations of the challenges
@@ -289,19 +282,18 @@ Interpretation:
 - Compute the accumulation formula directly in $\mathbb{F}_{r}$
 - If subrelations 1 and 2 prove it holds mod $2^{272}$, and subrelation 3 proves it holds mod $r$, then it holds in integers
 
----
-
 ## Decomposition Relation
 
-The Decomposition Relation enforces the integrity of the limb decomposition system. While the Non-Native Field Relation proves the accumulation formula is correct, the Decomposition Relation proves all limb decompositions are valid.
+The Decomposition Relation enforces the integrity of the limb decomposition system. While the Non-Native Field Relation proves the accumulation formula is correct, the Decomposition Relation proves all limb decompositions are valid. It consists of 48 subrelations organized into five categories:
 
-The relation consists of **48 subrelations** organized into five categories:
-
-1. **Accumulator microlimb decomposition** (4 subrelations) — Active when $L_{\text{even}} \cdot \texttt{op} = 1$
-2. **Point & Scalar microlimb decomposition** (18 subrelations) — Active when $L_{\text{even}} = 1$
-3. **Wide limb decomposition** (2 subrelations) — Decompose 84-bit carry limbs
-4. **Range constraint tightening** (20 subrelations) — Enforce stricter bounds on highest microlimbs
-5. **Transcript composition** (6 subrelations) — Prove 68-bit limbs reconstruct transcript values
+| Category                               | No. of Subrelations | Note                                                |
+| -------------------------------------- | ------------------- | --------------------------------------------------- |
+| Accumulator microlimb decomposition    | 4                   | Active when $L_{\text{even}} \cdot \texttt{op} = 1$ |
+| Point & Scalar microlimb decomposition | 18                  | Active when $L_{\text{even}} = 1$                   |
+| Wide limb decomposition                | 2                   | Decompose 84-bit carry limbs                        |
+| Range constraint tightening            | 20                  | Enforce stricter bounds on highest microlimbs       |
+| Transcript composition                 | 6                   | Prove 68-bit limbs reconstruct transcript values    |
+|                                        |                     |                                                     |
 
 These work with the **Permutation Relation** and **Delta Range Constraint** which together prove each microlimb is in $[0, 2^{14})$.
 
@@ -349,13 +341,12 @@ where $k=4$ for 68/60-bit limbs and $k=3$ for 50/52-bit limbs.
 
 ### Category 3: Wide Limb Decomposition (Subrelations 20-21)
 
-Carry limbs $c^{\text{lo}}, c^{\text{hi}}$ are **84 bits** (6 × 14-bit microlimbs). To save space, the 5th and 6th microlimbs are stored in unused "tail" columns:
+Carry limbs $c^{\text{lo}}, c^{\text{hi}}$ are 84 bits (6 × 14-bit microlimbs). To save space, the 5th and 6th microlimbs are stored in unused "tail" columns:
 
 $$\boxed{L_{\text{even}} \cdot \left( \sum_{j=0}^{3} c_{i,j} \cdot 2^{14j} + c_{i,4} \cdot 2^{56} + c_{i,5} \cdot 2^{70} - c^{(i)} \right) = 0}$$
 
 where $c^{(0)} = c^{\text{lo}}$, $c^{(1)} = c^{\text{hi}}$.
-
-**Microlimb reuse:**
+Microlimb reuse:
 
 - $c_{0,4}^{\text{micro}}$ = `p_x_high_limbs_range_constraint_tail_shift`
 - $c_{0,5}^{\text{micro}}$ = `accumulator_high_limbs_range_constraint_tail_shift`
@@ -378,41 +369,39 @@ $$\boxed{L_{\text{even}} \cdot \left( m_k \cdot 2^{14-r} - m_k^{\text{tail}} \ri
 
 implying $m_k \in [0, 2^r)$.
 
-**Shift factors:**
+Shift factors:
 
-- $2^2 = 4$: Constrains to 12 bits (68-bit limbs)
-- $2^4 = 16$: Constrains to 10 bits (52-bit limbs)
-- $2^6 = 64$: Constrains to 8 bits (50-bit limbs)
-- $2^{10} = 1024$: Constrains to 4 bits (60-bit limbs)
+- for 68-bit limbs: $2^2 = 4$: Constrains to 12 bits
+- for 52-bit limbs: $2^4 = 16$: Constrains to 10 bits
+- for 50-bit limbs: $2^6 = 64$: Constrains to 8 bits
+- for 60-bit limbs: $2^{10} = 1024$: Constrains to 4 bits
 
-**Subrelations 22-41** apply this pattern to:
+Subrelations 22-41 apply this pattern to:
 
-- $P_x$ limbs (4 constraints): 12, 12, 12, 8 bits
-- $P_y$ limbs (4 constraints): 12, 12, 12, 8 bits
-- $z_1, z_2$ limbs (4 constraints): 12, 12, 4, 4 bits
-- Accumulator limbs (4 constraints): 12, 12, 12, 8 bits
-- Quotient limbs (4 constraints): 12, 12, 12, 10 bits
-
----
+| Elements    | No of subrelations | Tail bits           |
+| ----------- | ------------------ | ------------------- |
+| $P_x$ limbs | 4                  | 12, 12, 12, 8 bits  |
+| $P_y$ limbs | 4                  | 12, 12, 12, 8 bits  |
+| $z_1$ limbs | 2                  | 12, 4 bits          |
+| $z_2$ limbs | 2                  | 12, 4 bits          |
+| Accumulator | 4                  | 12, 12, 12, 8 bits  |
+| Quotient    | 4                  | 12, 12, 12, 10 bits |
+|             |                    |                     |
 
 ### Category 5: Transcript Value Composition (Subrelations 42-47)
 
 These prove that 68-bit limbs correctly reconstruct EccOpQueue transcript values.
-
-**General pattern** for composing two limbs into a transcript value:
+General pattern for composing two limbs into a transcript value:
 $$\boxed{L_{\text{even}} \cdot \left( \ell_{\text{low}} + 2^{68} \cdot \ell_{\text{high}} - \text{transcript}_{\text{value}} \right) = 0}$$
 
-**Subrelations:**
+Subrelations:
 
-- **42-43:** $P_x$ composition: $P_{x,\text{lo}}$ (136-bit) and $P_{x,\text{hi}}$ (118-bit)
-- **44-45:** $P_y$ composition: $P_{y,\text{lo}}$ (136-bit) and $P_{y,\text{hi}}$ (118-bit)
-- **46-47:** $z_1, z_2$ composition: (128-bit each)
-
-**EccOpQueue encoding** (even/odd rows):
-
-- `X_LO_Y_HI`: $P_{x,\text{lo}}$ / $P_{y,\text{hi}}$
-- `X_HI_Z_1`: $P_{x,\text{hi}}$ / $z_1$
-- `Y_LO_Z_2`: $P_{y,\text{lo}}$ / $z_2$
+| Column      | Even row                     | Odd row                      | No. of subrelations |
+| ----------- | ---------------------------- | ---------------------------- | ------------------- |
+| `X_LO_Y_HI` | $P_{x,\text{lo}}$ (136 bits) | $P_{y,\text{hi}}$ (118 bits) | 2                   |
+| `X_HI_Z_1`  | $P_{x,\text{hi}}$ (118 bits) | $z_1$ (128 bits)             | 2                   |
+| `Y_LO_Z_2`  | $P_{y,\text{lo}}$ (136 bits) | $z_2$ (128 bits)             | 2                   |
+|             |                              |                              |                     |
 
 #### Interaction with Delta Range Constraint
 
@@ -429,8 +418,6 @@ Decomposition Relation proves:
 Together they guarantee: All limb decompositions are valid and all values are correctly range-constrained.
 
 ## Permutation Relation
-
-### Overview
 
 The Permutation Relation is the foundation of all range constraints in the Translator circuit. It proves that every microlimb value used in the circuit belongs to the set $[0, 2^{14} - 1]$. The relation uses a grand product argument comparing two multisets:
 
@@ -543,19 +530,14 @@ For each ordered wire $j \in \{0, 1, 2, 3, 4\}$:
 $$\boxed{\left( L_{\text{real\_last}} - 1 \right) \cdot \left( L_{\text{mask}} - 1 \right) \cdot \Delta_j \cdot (\Delta_j - 1) \cdot (\Delta_j - 2) \cdot (\Delta_j - 3) = 0}$$
 
 where:
-$$\Delta_j := w_j^{\text{ordered}}[i+1] - w_j^{\text{ordered}}[i]$$
+$$\Delta_j := w_j^{\text{ordered}}[i+1] - w_j^{\text{ordered}}[i].$$
 
-Interpretation:
-
-The constraint is active when:
+When active, it forces: $\Delta_j \in \{0, 1, 2, 3\}$. The constraint is active when:
 
 - $L_{\text{real\_last}} = 0$ (not the last real row)
 - $L_{\text{mask}} = 0$ (not a masking row)
 
-When active, it forces: $\Delta_j \in \{0, 1, 2, 3\}$
-
 Why maximum step 3?
-
 To ensure full coverage of $[0, 2^{14} - 1]$, we insert "step values" into the sorted array:
 
 - Start at 0
@@ -568,24 +550,16 @@ Between these steps, actual microlimbs fill in the gaps. With $\Delta \in \{0, 1
 - Every value $\leq 16383$ has a step value within distance 3
 - Therefore, all values in range can be represented
 
-Active when: All rows except last and masking rows
-
-- $L_{\text{real\_last}} = 1$: The last real row (boundary condition handled by subrelations 6-10)
-- $L_{\text{mask}} = 1$: Zero-knowledge masking rows
-
 Degree: 6 (product of 6 degree-1 polynomials: $(L_{\text{real\_last}} - 1) \cdot (L_{\text{mask}} - 1) \cdot \Delta \cdot (\Delta-1) \cdot (\Delta-2) \cdot (\Delta-3)$)
 
 ---
 
 ### Subrelations 6-10: Maximum Value Constraints
 
-Purpose: Ensure the final value in each sorted column is exactly $2^{14} - 1 = 16383$.
-
+Ensure the final value in each sorted column is exactly $2^{14} - 1 = 16383$.
 For each ordered wire $j \in \{0, 1, 2, 3, 4\}$:
 
 $$\boxed{L_{\text{real\_last}} \cdot \left( w_j^{\text{ordered}} - (2^{14} - 1) \right) = 0}$$
-
-Interpretation:
 
 At the last real row ($L_{\text{real\_last}} = 1$):
 $$w_j^{\text{ordered}}[\text{last}] = 2^{14} - 1 = 16383$$
@@ -603,8 +577,6 @@ Degree: 2 (Lagrange × difference)
 ---
 
 ## Opcode Constraint Relation
-
-### Overview
 
 The Opcode Constraint Relation enforces that all operation codes (`op`) belong to the valid set:
 
@@ -625,12 +597,6 @@ Valid opcodes:
 - `4`: Reset accumulator
 - `8`: [Special operation]
 
-The relation consists of **5 subrelations** (one per non-zero opcode check), implemented for efficiency.
-
----
-
-### Polynomial Root Constraint
-
 The constraint is expressed as a polynomial that has roots at the valid opcode values:
 
 $$\boxed{\left( L_{\text{even}} + L_{\text{mini\_mask}} \right) \cdot \texttt{op} \cdot (\texttt{op} - 1) \cdot (\texttt{op} - 2) \cdot (\texttt{op} - 3) \cdot (\texttt{op} - 4) \cdot (\texttt{op} - 8) = 0}$$
@@ -649,9 +615,7 @@ Active when: Even rows and mini-circuit masking rows
 
 Degree: 7 (degree-1 Lagrange × degree-6 polynomial in `op`)
 
-#### Implementation as 5 Subrelations
-
-For efficiency in the sumcheck protocol, the constraint is split into 5 subrelations:
+Implementation as 5 Subrelations: For efficiency in the sumcheck protocol, the constraint is split into 5 subrelations:
 
 $$
 \boxed{\begin{align*}
@@ -681,12 +645,6 @@ The Accumulator Transfer Relation manages the lifecycle of the accumulator acros
 3. Computation: Update accumulator on even rows (handled by Non-Native Field Relation)
 4. Finalization: Verify final accumulator matches expected result
 
-The accumulator must maintain state consistency across rows. Without these constraints:
-
-- Initial value could be non-zero (offsetting all computations)
-- Accumulator could "reset" mid-computation
-- Final value might not match ECCVM's expected result
-
 The relation consists of 12 subrelations:
 
 - 4 for odd row propagation (copy previous value)
@@ -708,7 +666,7 @@ Row-by-row behavior:
 
 ### Subrelations 1-4: Odd Row Propagation
 
-Purpose: Ensure accumulator does not change on odd rows (data storage rows).
+Ensure accumulator does not change on odd rows (data storage rows).
 
 For each limb $i \in \{0, 1, 2, 3\}$:
 
@@ -724,35 +682,23 @@ Active when: Odd rows only ($L_{\text{odd}} = 1$)
 
 Degree: 2 (Lagrange × difference)
 
----
-
 ### Subrelations 5-8: Initialization
 
-Purpose: Initialize accumulator to zero at the start of the circuit.
+Ensure the accumulator starts at zero at the beginning of the circuit.
 
 For each limb $i \in \{0, 1, 2, 3\}$:
 
 $$\boxed{L_{\text{first}} \cdot a_i^{\text{curr}} = 0}$$
 
-Interpretation:
-
-At the first row ($L_{\text{first}} = 1$):
-$$a_i^{\text{curr}}[0] = 0 \quad \forall i \in \{0, 1, 2, 3\}$$
-
-This ensures:
-$$a^{\text{curr}}[0] = 0 + 0 \cdot 2^{68} + 0 \cdot 2^{136} + 0 \cdot 2^{204} = 0$$
-
-If the accumulator starts at a non-zero value, all subsequent accumulations are offset by this initial value, breaking the consistency proof.
+This implies that at the first row, all limbs of the accumulator are zero, ensuring the accumulator starts at 0.
 
 Active when: First row only ($L_{\text{first}} = 1$)
 
 Degree: 2 (Lagrange × limb value)
 
----
-
 ### Subrelations 9-12: Finalization
 
-Purpose: Verify the final accumulator value matches the expected result from ECCVM.
+Verify the final accumulator value matches the expected result from ECCVM.
 
 For each limb $i \in \{0, 1, 2, 3\}$:
 
@@ -768,23 +714,15 @@ Active when: Result row only ($L_{\text{result}} = 1$)
 
 Degree: 2 (Lagrange × difference)
 
----
-
 ## Zero Constraints Relation
 
 The Zero Constraints Relation enforces that all witness wires are zero outside the mini-circuit.
-
 Due to interleaving, the full circuit is 16× larger than the mini-circuit:
 
 - Mini-circuit: $2^{13} = 8,192$ rows (actual computation)
 - Full circuit: $2^{17} = 131,072$ rows (for interleaving optimization)
 
 Rows outside the mini-circuit (rows 8,192 to 131,071) must be zero. The relation consists of **68 subrelations**:
-
-- 64 for range constraint microlimb wires
-- 4 for EccOpQueue transcript wires
-
-### Which Wires Must Be Zero
 
 Range constraint microlimb wires (64 total):
 
