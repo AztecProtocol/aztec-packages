@@ -370,15 +370,6 @@ struct MegaTraceBlockData {
 
 class MegaExecutionTraceBlocks : public MegaTraceBlockData {
   public:
-    /**
-     * @brief Defines the circuit block types for the Mega arithmetization
-     * @note Its useful to define this as a template since it is used to actually store gate data (T = MegaTraceBlock)
-     * but also to store corresponding block sizes (T = uint32_t) for the structured trace or dynamic block size
-     * tracking in Chonk.
-     *
-     * @tparam T
-     */
-
     static constexpr size_t NUM_WIRES = MegaTraceBlock::NUM_WIRES;
 
     using FF = fr;

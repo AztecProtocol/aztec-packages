@@ -34,10 +34,6 @@ template <typename FF> void MegaCircuitBuilder_<FF>::finalize_circuit(const bool
  *
  * @param in Structure containing variables and witness selectors
  */
-// TODO(https://github.com/AztecProtocol/barretenberg/issues/1066): This function adds valid (but arbitrary) gates to
-// ensure that the circuit which includes them will not result in any zero-polynomials. This method is designed to be
-// used in conjunction with the corresponding method on the Ultra builder. It handles databus and ecc-op related
-// polynomials.
 template <typename FF> void MegaCircuitBuilder_<FF>::add_mega_gates_to_ensure_all_polys_are_non_zero()
 {
     // Add a single default value to all databus columns. Note: This value must be equal across all columns in order for
@@ -76,9 +72,6 @@ template <typename FF> void MegaCircuitBuilder_<FF>::add_mega_gates_to_ensure_al
  *
  * @param in Structure containing variables and witness selectors
  */
-// TODO(https://github.com/AztecProtocol/barretenberg/issues/1066): This function adds valid (but arbitrary) gates to
-// ensure that the circuit which includes them will not result in any zero-polynomials. It also ensures that the first
-// coefficient of the wire polynomials is zero, which is required for them to be shiftable.
 template <typename FF> void MegaCircuitBuilder_<FF>::add_ultra_and_mega_gates_to_ensure_all_polys_are_non_zero()
 {
     // Most polynomials are handled via the conventional Ultra method

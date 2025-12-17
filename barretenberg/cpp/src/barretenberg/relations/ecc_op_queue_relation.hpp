@@ -31,7 +31,7 @@ template <typename FF_> class EccOpQueueRelationImpl {
     }
 
     /**
-     * @brief Expression for the generalized permutation sort gate.
+     * @brief Constrains ecc_op_wire polynomials to equal shifted wires on the ECC op domain, and zero elsewhere.
      * @details The relation is defined as C(in(X)...) =
      *    \alpha_{base} *
      *       ( \Sum_{i=0}^3 \alpha^i * (w_i_shift - w_{op,i}) * \chi_{ecc_op} +
@@ -43,6 +43,9 @@ template <typename FF_> class EccOpQueueRelationImpl {
      * The first four sub-relations check that the values in the conventional wires are identical to the values in the
      * ecc op wires over the portion of the execution trace representing ECC op queue gates. The next four check
      * that the op wire polynomials are identically zero everywhere else.
+     * @note In other words, the `ecc_op_wire`s are derived witnesses, which the prover "fills in". We wish that these
+     * values are constrained to be `w_i_shift` when `i` is in the `ecc_op` range and 0 else. This tacitly assumes that
+     * the ecc ops "come first" in the execution trace.
      * @note This relation utilizes the shifted wires so that the ecc op wires can store the data begining at index 0,
      * unlike the wires which contain an initial zero row to facilitate the left-shift-by-1 needed by other relations.
      *
@@ -71,9 +74,10 @@ template <typename FF_> class EccOpQueueRelationImpl {
         auto op_wire_2 = Accumulator(CoefficientAccumulator(in.ecc_op_wire_2));
         auto op_wire_3 = Accumulator(CoefficientAccumulator(in.ecc_op_wire_3));
         auto op_wire_4 = Accumulator(CoefficientAccumulator(in.ecc_op_wire_4));
-        auto lagrange_ecc_op = Accumulator(CoefficientAccumulator(in.lagrange_ecc_op));
+        auto lagrange_ecc_op = Accumulator(CoefficientAccumulator(in.lagrange_ecc_op)); // precomputed selector
 
-        // If lagrange_ecc_op is the indicator for ecc_op_gates, this is the indicator for the complement
+        // If lagrange_ecc_op is the indicator for ecc_op_gates, complement_ecc_op_by_scaling is the indicator for the
+        // complement times the scaling factor
         auto lagrange_by_scaling = lagrange_ecc_op * scaling_factor;
         auto complement_ecc_op_by_scaling = -lagrange_by_scaling + scaling_factor;
 

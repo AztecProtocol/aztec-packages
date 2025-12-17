@@ -25,7 +25,7 @@ enum MergeSettings { PREPEND, APPEND };
  * are reflected in both ultra ops and eccvm table and so, that lead to actual operations in the ECCVM :
  * - addition: add = true, value() = 8
  * - multiplication: mul = true, value() = 4
- * - equality abd reset: eq = true, reset = true,  value() = 3
+ * - equality and reset: eq = true, reset = true,  value() = 3
  * On top of that, we see two more opcodes reflected only in the ultra ops table
  * - no operation: all false, value() = 0 - The ultra ops table is seen as 4 column polynomials in the merge protocol
  * and translator. We need to be able to shift these polynomials in translator and so they will have to start with
@@ -46,6 +46,7 @@ struct EccOpCode {
     Fr random_value_1 = Fr(0);
     Fr random_value_2 = Fr(0);
 
+    // encodes add*8 + mul*4 + eq*2 + reset*1
     [[nodiscard]] uint32_t value() const
     {
         if (is_random_op) {
@@ -136,12 +137,7 @@ template <typename OpFormat> class EccOpsTable {
 
     auto& get() const { return table; }
 
-    void push(const OpFormat& op)
-    {
-        // Get the reference of the subtable to update
-
-        current_subtable.push_back(op);
-    }
+    void push(const OpFormat& op) { current_subtable.push_back(op); }
 
     void create_new_subtable(size_t size_hint = 0)
     {
@@ -149,7 +145,7 @@ template <typename OpFormat> class EccOpsTable {
         current_subtable.reserve(size_hint);
     }
 
-    // const version of operator[]
+    // const operator[]. there is no non-const version.
     const OpFormat& operator[](size_t index) const
     {
         BB_ASSERT(current_subtable.empty(),
@@ -162,10 +158,13 @@ template <typename OpFormat> class EccOpsTable {
             }
             index -= subtable.size(); // move to the next subtable
         }
-        return table.front().front(); // should never reach here
+        BB_ASSERT(
+            false,
+            "Unreachable: something has gone wrong with the subtable sizes, which do not add up to the table size.");
     }
 
-    // highly inefficient copy-based reconstruction of the table for use in ECCVM/Translator
+    // highly inefficient copy-based reconstruction of the table for use in ECCVM/Translator. Used once at the end of an
+    // IVC.
     std::vector<OpFormat> get_reconstructed() const
     {
         BB_ASSERT(current_subtable.empty(),
@@ -227,13 +226,15 @@ class UltraEccOpsTable {
     using Curve = curve::BN254;
     using Fr = Curve::ScalarField;
     using UltraOpsTable = EccOpsTable<UltraOp>;
-    using TableView = std::array<std::span<Fr>, TABLE_WIDTH>;
     using ColumnPolynomials = std::array<Polynomial<Fr>, TABLE_WIDTH>;
 
     size_t current_subtable_idx = 0; // index of the current subtable being constructed
     UltraOpsTable table;
 
-    // For fixed-location append functionality (ultra ops only)
+    // For fixed-location append functionality
+    // APPEND mode is only used by the hiding kernel to place its ops at t fixed position at the end of the table,
+    // ensuring constant total table size for zero-knowledge. See chonk/README.md "Constant Merged Table Size for ZK"
+    // for details. (Only applicable for ultra ops.)
     std::optional<size_t> fixed_append_offset;
     bool has_fixed_append = false;
 
@@ -411,7 +412,6 @@ class UltraEccOpsTable {
     /**
      * @brief Construct polynomials corresponding to the columns of the reconstructed ultra ops table for the given
      * range of subtables
-     * TODO(https://github.com/AztecProtocol/barretenberg/issues/1267): multithread this functionality
      * @param target_columns
      */
     ColumnPolynomials construct_column_polynomials_from_subtables(const size_t poly_size,
