@@ -14,7 +14,7 @@ import {
   TxScopedL2Log,
 } from '@aztec/stdlib/logs';
 import { Note, NoteDao } from '@aztec/stdlib/note';
-import { MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
+import { MerkleTreeId, PublicDataWitness } from '@aztec/stdlib/trees';
 import { TxHash } from '@aztec/stdlib/tx';
 
 import type { ExecutionDataProvider, ExecutionStats } from '../contract_function_simulator/execution_data_provider.js';
@@ -71,18 +71,6 @@ export class PXEOracleInterface implements ExecutionDataProvider {
   async #findLeafIndex(blockNumber: BlockParameter, treeId: MerkleTreeId, leafValue: Fr): Promise<bigint | undefined> {
     const [leafIndex] = await this.aztecNode.findLeavesIndexes(blockNumber, treeId, [leafValue]);
     return leafIndex?.data;
-  }
-
-  public async getNullifierMembershipWitnessAtLatestBlock(nullifier: Fr) {
-    const blockNumber = (await this.anchorBlockDataProvider.getBlockHeader()).getBlockNumber();
-    return this.getNullifierMembershipWitness(blockNumber, nullifier);
-  }
-
-  public getNullifierMembershipWitness(
-    blockNumber: BlockParameter,
-    nullifier: Fr,
-  ): Promise<NullifierMembershipWitness | undefined> {
-    return this.aztecNode.getNullifierMembershipWitness(blockNumber, nullifier);
   }
 
   public async getPublicDataWitness(blockNumber: BlockParameter, leafSlot: Fr): Promise<PublicDataWitness | undefined> {

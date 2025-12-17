@@ -2,7 +2,7 @@ import type { BlockNumber } from '@aztec/foundation/branded-types';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
-import { type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
+import { PublicDataWitness } from '@aztec/stdlib/trees';
 import type { NodeStats } from '@aztec/stdlib/tx';
 
 import type { SenderTaggingDataProvider } from '../storage/tagging_data_provider/sender_tagging_data_provider.js';
@@ -45,24 +45,6 @@ export interface ExecutionDataProvider {
    * @returns - The index of the nullifier. Undefined if it does not exist in the tree.
    */
   getNullifierIndex(nullifier: Fr): Promise<bigint | undefined>;
-
-  /**
-   * Returns a nullifier membership witness for the given nullifier or undefined if not found.
-   * REFACTOR: Same as getL1ToL2MembershipWitness, can be combined with aztec-node method that does almost the same thing.
-   * @param nullifier - Nullifier we're looking for.
-   */
-  getNullifierMembershipWitnessAtLatestBlock(nullifier: Fr): Promise<NullifierMembershipWitness | undefined>;
-
-  /**
-   * Returns a nullifier membership witness for a given nullifier at a given block.
-   * @param blockNumber - The block number at which to get the index.
-   * @param nullifier - Nullifier we try to find witness for.
-   * @returns The nullifier membership witness (if found).
-   */
-  getNullifierMembershipWitness(
-    blockNumber: BlockNumber,
-    nullifier: Fr,
-  ): Promise<NullifierMembershipWitness | undefined>;
 
   /**
    * Returns a witness for a given slot of the public data tree at a given block.

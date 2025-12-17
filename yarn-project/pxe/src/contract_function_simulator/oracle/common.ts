@@ -202,3 +202,20 @@ export async function getBlock(
   }
   return await aztecNode.getBlock(blockNumber);
 }
+
+export function getNullifierMembershipWitness(
+  blockNumber: BlockParameter,
+  nullifier: Fr,
+  aztecNode: AztecNode,
+): Promise<NullifierMembershipWitness | undefined> {
+  return aztecNode.getNullifierMembershipWitness(blockNumber, nullifier);
+}
+
+export async function getNullifierMembershipWitnessAtLatestBlock(
+  nullifier: Fr,
+  anchorBlockDataProvider: AnchorBlockDataProvider,
+  aztecNode: AztecNode,
+) {
+  const blockNumber = (await anchorBlockDataProvider.getBlockHeader()).getBlockNumber();
+  return getNullifierMembershipWitness(blockNumber, nullifier, aztecNode);
+}

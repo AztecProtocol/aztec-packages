@@ -31,6 +31,7 @@ import {
   getLowNullifierMembershipWitness,
   getMembershipWitness,
   getNotes,
+  getNullifierMembershipWitness,
   getSharedSecret,
 } from './common.js';
 import type { IMiscOracle, IUtilityExecutionOracle, NoteData } from './interfaces.js';
@@ -110,7 +111,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     blockNumber: BlockNumber,
     nullifier: Fr,
   ): Promise<NullifierMembershipWitness | undefined> {
-    return await this.executionDataProvider.getNullifierMembershipWitness(blockNumber, nullifier);
+    return await getNullifierMembershipWitness(blockNumber, nullifier, this.aztecNode);
   }
 
   /**
