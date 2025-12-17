@@ -10,7 +10,7 @@ import { BlockHeader, HashedValues, TxContext, TxExecutionRequest } from '@aztec
 
 import { mock } from 'jest-mock-extended';
 
-import { ContractDataProvider, NoteDataProvider } from '../../storage/index.js';
+import { AddressDataProvider, ContractDataProvider, NoteDataProvider } from '../../storage/index.js';
 import { ContractFunctionSimulator } from '../contract_function_simulator.js';
 import type { ExecutionDataProvider } from '../execution_data_provider.js';
 
@@ -21,6 +21,7 @@ describe('Oracle Version Check test suite', () => {
   let contractDataProvider: ReturnType<typeof mock<ContractDataProvider>>;
   let noteDataProvider: ReturnType<typeof mock<NoteDataProvider>>;
   let keyStore: ReturnType<typeof mock<KeyStore>>;
+  let addressDataProvider: ReturnType<typeof mock<AddressDataProvider>>;
   let acirSimulator: ContractFunctionSimulator;
   let contractAddress: AztecAddress;
 
@@ -29,6 +30,7 @@ describe('Oracle Version Check test suite', () => {
     contractDataProvider = mock<ContractDataProvider>();
     noteDataProvider = mock<NoteDataProvider>();
     keyStore = mock<KeyStore>();
+    addressDataProvider = mock<AddressDataProvider>();
 
     // Mock basic oracle responses
     executionDataProvider.getPublicStorageAt.mockResolvedValue(Fr.ZERO);
@@ -47,6 +49,7 @@ describe('Oracle Version Check test suite', () => {
       contractDataProvider,
       noteDataProvider,
       keyStore,
+      addressDataProvider,
       simulator,
     );
   });

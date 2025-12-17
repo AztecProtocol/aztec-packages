@@ -12,7 +12,7 @@ import { BlockHeader, TxHash } from '@aztec/stdlib/tx';
 
 import { mock } from 'jest-mock-extended';
 
-import { ContractDataProvider, NoteDataProvider } from '../../storage/index.js';
+import { AddressDataProvider, ContractDataProvider, NoteDataProvider } from '../../storage/index.js';
 import { ContractFunctionSimulator } from '../contract_function_simulator.js';
 import type { ExecutionDataProvider } from '../execution_data_provider.js';
 
@@ -23,6 +23,7 @@ describe('Utility Execution test suite', () => {
   let contractDataProvider: ReturnType<typeof mock<ContractDataProvider>>;
   let noteDataProvider: ReturnType<typeof mock<NoteDataProvider>>;
   let keyStore: ReturnType<typeof mock<KeyStore>>;
+  let addressDataProvider: ReturnType<typeof mock<AddressDataProvider>>;
   let acirSimulator: ContractFunctionSimulator;
   let owner: AztecAddress;
   const ownerSecretKey = Fr.fromHexString('2dcc5485a58316776299be08c78fa3788a1a7961ae30dc747fb1be17692a8d32');
@@ -36,18 +37,20 @@ describe('Utility Execution test suite', () => {
     contractDataProvider = mock<ContractDataProvider>();
     noteDataProvider = mock<NoteDataProvider>();
     keyStore = mock<KeyStore>();
+    addressDataProvider = mock<AddressDataProvider>();
     acirSimulator = new ContractFunctionSimulator(
       executionDataProvider,
       contractDataProvider,
       noteDataProvider,
       keyStore,
+      addressDataProvider,
       simulator,
     );
 
     const ownerCompleteAddress = await CompleteAddress.fromSecretKeyAndPartialAddress(ownerSecretKey, Fr.random());
     owner = ownerCompleteAddress.address;
 
-    executionDataProvider.getCompleteAddress.mockImplementation((account: AztecAddress) => {
+    addressDataProvider.getCompleteAddress.mockImplementation((account: AztecAddress) => {
       if (account.equals(owner)) {
         return Promise.resolve(ownerCompleteAddress);
       }

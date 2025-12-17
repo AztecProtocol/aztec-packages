@@ -13,11 +13,11 @@ import type { NoteStatus } from '@aztec/stdlib/note';
 import { type MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import type { BlockHeader, Capsule } from '@aztec/stdlib/tx';
 
-import type { ContractDataProvider, NoteDataProvider } from '../../storage/index.js';
+import type { AddressDataProvider, ContractDataProvider, NoteDataProvider } from '../../storage/index.js';
 import type { ExecutionDataProvider } from '../execution_data_provider.js';
 import { UtilityContext } from '../noir-structs/utility_context.js';
 import { pickNotes } from '../pick_notes.js';
-import { getContractInstance, getNotes } from './common.js';
+import { getCompleteAddress, getContractInstance, getNotes } from './common.js';
 import type { IMiscOracle, IUtilityExecutionOracle, NoteData } from './interfaces.js';
 
 /**
@@ -39,6 +39,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     protected readonly contractDataProvider: ContractDataProvider,
     protected readonly noteDataProvider: NoteDataProvider,
     protected readonly keyStore: KeyStore,
+    protected readonly addressDataProvider: AddressDataProvider,
     protected log = createLogger('simulator:client_view_context'),
     protected readonly scopes?: AztecAddress[],
   ) {}
@@ -144,7 +145,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * @throws An error if the account is not registered in the database.
    */
   public utilityGetPublicKeysAndPartialAddress(account: AztecAddress): Promise<CompleteAddress> {
-    return this.executionDataProvider.getCompleteAddress(account);
+    return getCompleteAddress(account, this.addressDataProvider);
   }
 
   /**

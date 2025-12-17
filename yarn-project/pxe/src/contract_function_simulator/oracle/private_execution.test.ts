@@ -64,7 +64,7 @@ import { jest } from '@jest/globals';
 import { Matcher, type MatcherCreator, type MockProxy, mock } from 'jest-mock-extended';
 import { toFunctionSelector } from 'viem';
 
-import { ContractDataProvider, NoteDataProvider } from '../../storage/index.js';
+import { AddressDataProvider, ContractDataProvider, NoteDataProvider } from '../../storage/index.js';
 import type { SenderTaggingDataProvider } from '../../storage/tagging_data_provider/sender_tagging_data_provider.js';
 import { ContractFunctionSimulator } from '../contract_function_simulator.js';
 import type { ExecutionDataProvider } from '../execution_data_provider.js';
@@ -109,6 +109,7 @@ describe('Private Execution test suite', () => {
   let executionDataProvider: MockProxy<ExecutionDataProvider>;
   let contractDataProvider: MockProxy<ContractDataProvider>;
   let noteDataProvider: MockProxy<NoteDataProvider>;
+  let addressDataProvider: MockProxy<AddressDataProvider>;
   let keyStore: MockProxy<KeyStore>;
   let senderTaggingDataProvider: MockProxy<SenderTaggingDataProvider>;
   let aztecNode: MockProxy<AztecNode>;
@@ -279,6 +280,7 @@ describe('Private Execution test suite', () => {
     executionDataProvider = mock<ExecutionDataProvider>();
     contractDataProvider = mock<ContractDataProvider>();
     noteDataProvider = mock<NoteDataProvider>();
+    addressDataProvider = mock<AddressDataProvider>();
     senderTaggingDataProvider = mock<SenderTaggingDataProvider>();
     aztecNode = mock<AztecNode>();
     keyStore = mock<KeyStore>();
@@ -328,7 +330,7 @@ describe('Private Execution test suite', () => {
     // able to get ivpk_m during execution
     await insertLeaves([], 'publicData');
 
-    executionDataProvider.getCompleteAddress.mockImplementation((address: AztecAddress) => {
+    addressDataProvider.getCompleteAddress.mockImplementation((address: AztecAddress) => {
       if (address.equals(owner)) {
         return Promise.resolve(ownerCompleteAddress);
       }
@@ -368,6 +370,7 @@ describe('Private Execution test suite', () => {
       contractDataProvider,
       noteDataProvider,
       keyStore,
+      addressDataProvider,
       simulator,
     );
   });
@@ -1115,7 +1118,7 @@ describe('Private Execution test suite', () => {
       const args = [completeAddress.address];
       const pubKey = completeAddress.publicKeys.masterIncomingViewingPublicKey;
 
-      executionDataProvider.getCompleteAddress.mockResolvedValue(completeAddress);
+      addressDataProvider.getCompleteAddress.mockResolvedValue(completeAddress);
       const { entrypoint: result } = await runSimulator({
         artifact: TestContractArtifact,
         functionName: 'get_master_incoming_viewing_public_key',

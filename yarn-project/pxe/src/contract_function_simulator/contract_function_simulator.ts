@@ -70,7 +70,7 @@ import {
   getFinalMinRevertibleSideEffectCounter,
 } from '@aztec/stdlib/tx';
 
-import type { ContractDataProvider, NoteDataProvider } from '../storage/index.js';
+import type { AddressDataProvider, ContractDataProvider, NoteDataProvider } from '../storage/index.js';
 import type { ExecutionDataProvider } from './execution_data_provider.js';
 import { ExecutionNoteCache } from './execution_note_cache.js';
 import { ExecutionTaggingIndexCache } from './execution_tagging_index_cache.js';
@@ -92,6 +92,7 @@ export class ContractFunctionSimulator {
     private contractDataProvider: ContractDataProvider,
     private noteDataProvider: NoteDataProvider,
     private keyStore: KeyStore,
+    private addressDataProvider: AddressDataProvider,
     private simulator: CircuitSimulator,
   ) {
     this.log = createLogger('simulator');
@@ -168,6 +169,7 @@ export class ContractFunctionSimulator {
       this.contractDataProvider,
       this.noteDataProvider,
       this.keyStore,
+      this.addressDataProvider,
       0, // totalPublicArgsCount
       startSideEffectCounter,
       undefined, // log
@@ -256,6 +258,7 @@ export class ContractFunctionSimulator {
       this.contractDataProvider,
       this.noteDataProvider,
       this.keyStore,
+      this.addressDataProvider,
       undefined,
       scopes,
     );

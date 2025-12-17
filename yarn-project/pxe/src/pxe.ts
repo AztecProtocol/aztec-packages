@@ -208,6 +208,7 @@ export class PXE {
       this.contractDataProvider,
       this.noteDataProvider,
       this.keyStore,
+      this.addressDataProvider,
       this.simulator,
     );
   }

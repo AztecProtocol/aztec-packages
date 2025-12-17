@@ -6,7 +6,6 @@ import type { KeyStore } from '@aztec/key-store';
 import { EventSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { BlockParameter, DataInBlock, L2Block } from '@aztec/stdlib/block';
-import type { CompleteAddress } from '@aztec/stdlib/contract';
 import { computeUniqueNoteHash, siloNoteHash, siloNullifier, siloPrivateLog } from '@aztec/stdlib/hash';
 import { type AztecNode, MAX_RPC_LEN } from '@aztec/stdlib/interfaces/client';
 import { computeAddressSecret } from '@aztec/stdlib/keys';
@@ -46,6 +45,7 @@ import { EventValidationRequest } from './noir-structs/event_validation_request.
 import { LogRetrievalRequest } from './noir-structs/log_retrieval_request.js';
 import { LogRetrievalResponse } from './noir-structs/log_retrieval_response.js';
 import { NoteValidationRequest } from './noir-structs/note_validation_request.js';
+import { getCompleteAddress } from './oracle/common.js';
 import type { ProxiedNode } from './proxied_node.js';
 
 /**
@@ -69,17 +69,6 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     private privateEventDataProvider: PrivateEventDataProvider,
     private log = createLogger('pxe:pxe_oracle_interface'),
   ) {}
-
-  async getCompleteAddress(account: AztecAddress): Promise<CompleteAddress> {
-    const completeAddress = await this.addressDataProvider.getCompleteAddress(account);
-    if (!completeAddress) {
-      throw new Error(
-        `No public key registered for address ${account}.
-        Register it by calling pxe.addAccount(...).\nSee docs for context: https://docs.aztec.network/developers/resources/debugging/aztecnr-errors#simulation-error-no-public-key-registered-for-address-0x0-register-it-by-calling-pxeregisterrecipient-or-pxeregisteraccount`,
-      );
-    }
-    return completeAddress;
-  }
 
   /**
    * Fetches a message from the db, given its key.
@@ -209,7 +198,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     sender: AztecAddress,
     recipient: AztecAddress,
   ) {
-    const senderCompleteAddress = await this.getCompleteAddress(sender);
+    const senderCompleteAddress = await getCompleteAddress(sender, this.addressDataProvider);
     const senderIvsk = await this.keyStore.getMasterIncomingViewingSecretKey(sender);
     return DirectionalAppTaggingSecret.compute(
       senderCompleteAddress,
@@ -237,7 +226,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     contractAddress: AztecAddress,
     recipient: AztecAddress,
   ): Promise<{ secret: DirectionalAppTaggingSecret; index: number | undefined }[]> {
-    const recipientCompleteAddress = await this.getCompleteAddress(recipient);
+    const recipientCompleteAddress = await getCompleteAddress(recipient, this.addressDataProvider);
     const recipientIvsk = await this.keyStore.getMasterIncomingViewingSecretKey(recipient);
 
     // We implicitly add all PXE accounts as senders, this helps us decrypt tags on notes that we send to ourselves
@@ -870,7 +859,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
 
   async getSharedSecret(address: AztecAddress, ephPk: Point): Promise<Point> {
     // TODO(#12656): return an app-siloed secret
-    const recipientCompleteAddress = await this.getCompleteAddress(address);
+    const recipientCompleteAddress = await getCompleteAddress(address, this.addressDataProvider);
     const ivskM = await this.keyStore.getMasterSecretKey(
       recipientCompleteAddress.publicKeys.masterIncomingViewingPublicKey,
     );

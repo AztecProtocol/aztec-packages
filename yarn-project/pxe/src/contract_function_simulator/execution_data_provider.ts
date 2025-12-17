@@ -4,7 +4,6 @@ import type { Fr } from '@aztec/foundation/curves/bn254';
 import type { Point } from '@aztec/foundation/curves/grumpkin';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2Block } from '@aztec/stdlib/block';
-import type { CompleteAddress } from '@aztec/stdlib/contract';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import type { DirectionalAppTaggingSecret } from '@aztec/stdlib/logs';
 import { type MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
@@ -45,14 +44,6 @@ export type ExecutionStats = {
  * The interface for the data layer required to perform private and utility execution.
  */
 export interface ExecutionDataProvider {
-  /**
-   * Retrieve the complete address associated to a given address.
-   * @param account - The account address.
-   * @returns A complete address associated with the input address.
-   * @throws An error if the account is not registered in the database.
-   */
-  getCompleteAddress(account: AztecAddress): Promise<CompleteAddress>;
-
   /**
    * Gets the index of a nullifier in the nullifier tree.
    * @param nullifier - The nullifier.
