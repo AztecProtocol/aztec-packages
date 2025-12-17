@@ -58,11 +58,6 @@ const int max_num_events = 20;
 const int max_calldata_fields = 20;
 const uint8_t default_calldata_fields = 16;
 
-// TODO(MW): Increase and track the below?
-// extern "C" {
-// __attribute__((section("__libfuzzer_extra_counters"))) uint8_t max_calldata_fields = 0;
-// }
-
 extern "C" {
 __attribute__((section("__libfuzzer_extra_counters"))) uint8_t num_events = 1;
 }
