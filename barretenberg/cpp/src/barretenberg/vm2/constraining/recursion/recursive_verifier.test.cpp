@@ -149,7 +149,7 @@ TEST_F(AvmRecursiveTests, GoblinRecursion)
     auto outer_vk_and_hash = std::make_shared<UltraRollupFlavor::VKAndHash>(outer_verification_key);
     UltraRollupVerifier final_verifier(outer_vk_and_hash);
 
-    bool result = final_verifier.verify_proof(outer_proof, outer_proving_key->ipa_proof).result;
+    bool result = final_verifier.verify_proof(outer_proof).result;
     EXPECT_TRUE(result);
 }
 
@@ -243,7 +243,7 @@ TEST_F(AvmRecursiveTests, GoblinRecursionWithoutPIValidation)
     auto outer_vk_and_hash = std::make_shared<UltraRollupFlavor::VKAndHash>(outer_verification_key);
     UltraRollupVerifier final_verifier(outer_vk_and_hash);
 
-    bool result = final_verifier.verify_proof(outer_proof, outer_proving_key->ipa_proof).result;
+    bool result = final_verifier.verify_proof(outer_proof).result;
     EXPECT_TRUE(result);
 }
 
