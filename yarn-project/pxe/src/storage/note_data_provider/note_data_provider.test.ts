@@ -10,10 +10,10 @@ import { NoteDataProvider } from './note_data_provider.js';
 // -----------------------------------------------------------------------------
 // Shared constants for deterministic fixtures
 // -----------------------------------------------------------------------------
-const CONTRACT_A = AztecAddress.fromString('0xdeadbeef00000000000000000000000000000000000000000000000000000000');
-const CONTRACT_B = AztecAddress.fromString('0xfeedface00000000000000000000000000000000000000000000000000000000');
-const SCOPE_1 = AztecAddress.fromString('0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa');
-const SCOPE_2 = AztecAddress.fromString('0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb');
+const CONTRACT_A = AztecAddress.fromString('0x0eadbeef00000000000000000000000000000000000000000000000000000000');
+const CONTRACT_B = AztecAddress.fromString('0x0eedface00000000000000000000000000000000000000000000000000000000');
+const SCOPE_1 = AztecAddress.fromString('0x0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a');
+const SCOPE_2 = AztecAddress.fromString('0x0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b');
 const FAKE_ADDRESS = AztecAddress.fromString('0x1111111111111111111111111111111111111111111111111111111111111111');
 const SLOT_X = Fr.fromString('0x01');
 const SLOT_Y = Fr.fromString('0x02');

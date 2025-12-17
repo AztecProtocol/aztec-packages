@@ -352,7 +352,7 @@ describe('Keystore Duplication Validation', () => {
 
     // File-level funding account
     expect(ks.fundingAccount).toBeDefined();
-    expect(ks.fundingAccount).toBe('0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa');
+    expect(ks.fundingAccount).toBe('0x0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a');
 
     // Slasher: array with mixed account types (private key, address, remote signer account, mnemonic)
     expect(ks.slasher).toBeDefined();
@@ -382,11 +382,11 @@ describe('Keystore Duplication Validation', () => {
     expect(v1.publisher).toBeDefined(); // mnemonic config
     expect(
       (v1.feeRecipient as AztecAddress).equals(
-        AztecAddress.fromString('0xabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd'),
+        AztecAddress.fromString('0x0bcdef0bcdef0bcdef0bcdef0bcdef0bcdef0bcdef0bcdef0bcdef0bcdef0bcd'),
       ),
     ).toBeTruthy();
     expect(v1.fundingAccount).toBeDefined();
-    expect(v1.fundingAccount).toBe('0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb');
+    expect(v1.fundingAccount).toBe('0x0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b');
 
     // Prover complex type
     expect(ks.prover).toBeDefined();
