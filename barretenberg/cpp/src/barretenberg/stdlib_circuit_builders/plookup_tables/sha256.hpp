@@ -310,6 +310,22 @@ inline std::array<bb::fr, 3> get_choose_rotation_multipliers()
     return { choose_rotation_coefficients[0], bb::fr(0) /*unused*/, limb2_correction };
 }
 
+/**
+ * @brief Constructs a MultiTable for decomposing a 32-bit word for message schedule extension.
+ *
+ * @details
+ * This table decomposes a 32-bit input into 4 limbs for computing BOTH:
+ *   σ₀(x) = (x>>>7) ^ (x>>>18) ^ (x>>3)   — applied to w[i-15]
+ *   σ₁(x) = (x>>>17) ^ (x>>>19) ^ (x>>10) — applied to w[i-2]
+ *
+ * Limb structure (boundaries chosen to align with rotation/shift parameters):
+ *   - L0: bits 0-2   (3 bits)
+ *   - L1: bits 3-9   (7 bits)
+ *   - L2: bits 10-17 (8 bits)
+ *   - L3: bits 18-31 (14 bits)
+ *
+ * Column 1 accumulates the normal form: x = L0 + L1·2³ + L2·2¹⁰ + L3·2¹⁸
+ */
 inline MultiTable get_witness_extension_input_table(const MultiTableId id = SHA256_WITNESS_INPUT)
 {
     std::vector<bb::fr> column_1_coefficients{ 1, 1 << 3, 1 << 10, 1 << 18 };
@@ -317,8 +333,21 @@ inline MultiTable get_witness_extension_input_table(const MultiTableId id = SHA2
     std::vector<bb::fr> column_3_coefficients{ 0, 0, 0, 0 };
     MultiTable table(column_1_coefficients, column_2_coefficients, column_3_coefficients);
     table.id = id;
-    // AUDITTODO: slice sizes should be 3, 7, 8, 14 (not 18) bits respectively
-    table.slice_sizes = { (1 << 3), (1 << 7), (1 << 8), (1 << 18) };
+    table.slice_sizes = { (1 << 3), (1 << 7), (1 << 8), (1 << 14) };
+
+    /**
+     * Specify the rotation to apply to each limb. A rotation R "splits" limb [start, end] when
+     * start < R ≤ end, causing some bits to wrap. The table handles splits from both σ₀ and σ₁.
+     *
+     * table_rotation = splitting_rotation - limb_start_position
+     *
+     *   | Limb | Start | Splitting rot | Table rot    |
+     *   |------|-------|---------------|--------------|
+     *   | L0   | 0     | (none)        | 0 (unused)   |
+     *   | L1   | 3     | σ₀'s 7        | 7 - 3 = 4    |
+     *   | L2   | 10    | σ₁'s 17       | 17 - 10 = 7  |
+     *   | L3   | 18    | σ₁'s 19       | 19 - 18 = 1  |
+     */
     table.basic_table_ids = { SHA256_WITNESS_SLICE_3,
                               SHA256_WITNESS_SLICE_7_ROTATE_4,
                               SHA256_WITNESS_SLICE_8_ROTATE_7,
