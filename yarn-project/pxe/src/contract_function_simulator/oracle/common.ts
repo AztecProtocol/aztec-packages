@@ -4,7 +4,7 @@ import type { Point } from '@aztec/foundation/curves/grumpkin';
 import type { KeyStore } from '@aztec/key-store';
 import type { FunctionArtifactWithContractName, FunctionSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { BlockParameter } from '@aztec/stdlib/block';
+import type { BlockParameter, L2Block } from '@aztec/stdlib/block';
 import type { CompleteAddress, ContractInstance } from '@aztec/stdlib/contract';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import { computeAddressSecret } from '@aztec/stdlib/keys';
@@ -189,4 +189,16 @@ export async function getLowNullifierMembershipWitness(
     throw new Error(`Block number ${blockNumber} is higher than current block ${anchorBlockNumber}`);
   }
   return aztecNode.getLowNullifierMembershipWitness(blockNumber, nullifier);
+}
+
+export async function getBlock(
+  blockNumber: BlockParameter,
+  anchorBlockDataProvider: AnchorBlockDataProvider,
+  aztecNode: AztecNode,
+): Promise<L2Block | undefined> {
+  const anchorBlockNumber = (await anchorBlockDataProvider.getBlockHeader()).getBlockNumber();
+  if (blockNumber !== 'latest' && blockNumber > anchorBlockNumber) {
+    throw new Error(`Block number ${blockNumber} is higher than current block ${anchorBlockNumber}`);
+  }
+  return await aztecNode.getBlock(blockNumber);
 }

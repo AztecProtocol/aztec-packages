@@ -1088,12 +1088,6 @@ describe('PXEOracleInterface', () => {
       await setSyncedBlockNumber(BlockNumber(syncedBlockNumber));
     });
 
-    it('throws when getting block for future block number', async () => {
-      await expect(pxeOracleInterface.getBlock(BlockNumber(syncedBlockNumber + 1))).rejects.toThrow(
-        `Block number ${syncedBlockNumber + 1} is higher than current block ${syncedBlockNumber}`,
-      );
-    });
-
     it('throws when getting public data witness for future block', async () => {
       await expect(
         pxeOracleInterface.getPublicDataWitness(BlockNumber(syncedBlockNumber + 1), leafSlot),

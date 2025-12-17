@@ -1,7 +1,6 @@
 import type { BlockNumber } from '@aztec/foundation/branded-types';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { L2Block } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import { type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import type { NodeStats } from '@aztec/stdlib/tx';
@@ -85,13 +84,6 @@ export interface ExecutionDataProvider {
    * @throws If the contract is not deployed.
    */
   getPublicStorageAt(blockNumber: BlockNumber, contract: AztecAddress, slot: Fr): Promise<Fr>;
-
-  /**
-   * Fetch a block corresponding to the given block number.
-   * @param blockNumber - The block number of a block to fetch.
-   * @returns - The block corresponding to the given block number. Undefined if it does not exist.
-   */
-  getBlock(blockNumber: BlockNumber): Promise<L2Block | undefined>;
 
   /**
    * Assert that the oracle version is compatible with the expected version.

@@ -10,7 +10,7 @@ import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { AddressDataProvider, AnchorBlockDataProvider, ContractDataProvider } from '../../storage/index.js';
-import { getLowNullifierMembershipWitness } from './common.js';
+import { getBlock, getLowNullifierMembershipWitness } from './common.js';
 
 jest.setTimeout(30_000);
 
@@ -64,6 +64,12 @@ describe('Common oracle functions', () => {
           aztecNode,
         ),
       ).rejects.toThrow(`Block number ${syncedBlockNumber + 1} is higher than current block ${syncedBlockNumber}`);
+    });
+
+    it('throws when getting block for future block number', async () => {
+      await expect(getBlock(BlockNumber(syncedBlockNumber + 1), anchorBlockDataProvider, aztecNode)).rejects.toThrow(
+        `Block number ${syncedBlockNumber + 1} is higher than current block ${syncedBlockNumber}`,
+      );
     });
   });
 

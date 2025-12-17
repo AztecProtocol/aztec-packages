@@ -24,6 +24,7 @@ import type { ExecutionDataProvider } from '../execution_data_provider.js';
 import { UtilityContext } from '../noir-structs/utility_context.js';
 import { pickNotes } from '../pick_notes.js';
 import {
+  getBlock,
   getCompleteAddress,
   getContractInstance,
   getL1ToL2MembershipWitness,
@@ -147,7 +148,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * @returns Block extracted from a block with block number `blockNumber`.
    */
   public async utilityGetBlockHeader(blockNumber: BlockNumber): Promise<BlockHeader | undefined> {
-    const block = await this.executionDataProvider.getBlock(blockNumber);
+    const block = await getBlock(blockNumber, this.anchorBlockDataProvider, this.aztecNode);
     if (!block) {
       return undefined;
     }

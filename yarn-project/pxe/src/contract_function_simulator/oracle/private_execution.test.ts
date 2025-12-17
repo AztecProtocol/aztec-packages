@@ -330,17 +330,17 @@ describe('Private Execution test suite', () => {
     // and cleaning up the mess that is setting up keys.
     // Also: having owner, recipient, and sender for tags
     // in the same key store is maybe too weak of a set up to test?
-    keyStore.getMasterIncomingViewingSecretKey.mockImplementation(async (address: AztecAddress) => {
+    keyStore.getMasterIncomingViewingSecretKey.mockImplementation((address: AztecAddress) => {
       if (address.equals(owner)) {
-        return ownerIvskM;
+        return Promise.resolve(ownerIvskM);
       }
       if (address.equals(recipient)) {
-        return recipientIvskM;
+        return Promise.resolve(recipientIvskM);
       }
       if (address.equals(senderForTags)) {
-        return senderForTagsIvskM;
+        return Promise.resolve(senderForTagsIvskM);
       }
-      return ownerIvskM;
+      return Promise.resolve(ownerIvskM);
     });
 
     keyStore.getKeyValidationRequest.mockImplementation(async (pkMHash: Fr, contractAddress: AztecAddress) => {
