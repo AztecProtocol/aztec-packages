@@ -26,14 +26,14 @@ import {
   type TxContext,
 } from '@aztec/stdlib/tx';
 
-import type { ContractDataProvider } from '../../storage/index.js';
+import type { ContractDataProvider, NoteDataProvider } from '../../storage/index.js';
 import { Tag } from '../../tagging/tag.js';
 import type { ExecutionDataProvider } from '../execution_data_provider.js';
 import type { ExecutionNoteCache } from '../execution_note_cache.js';
 import { ExecutionTaggingIndexCache } from '../execution_tagging_index_cache.js';
 import type { HashedValuesCache } from '../hashed_values_cache.js';
 import { pickNotes } from '../pick_notes.js';
-import { getFunctionArtifact } from './common.js';
+import { getFunctionArtifact, getNotes } from './common.js';
 import type { IPrivateExecutionOracle, NoteData } from './interfaces.js';
 import { executePrivateFunction, verifyCurrentClassId } from './private_execution.js';
 import { UtilityExecutionOracle } from './utility_execution_oracle.js';
@@ -82,6 +82,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     private readonly taggingIndexCache: ExecutionTaggingIndexCache,
     executionDataProvider: ExecutionDataProvider,
     contractDataProvider: ContractDataProvider,
+    noteDataProvider: NoteDataProvider,
     private totalPublicCalldataCount: number = 0,
     protected sideEffectCounter: number = 0,
     log = createLogger('simulator:client_execution_context'),
@@ -96,6 +97,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       anchorBlockHeader,
       executionDataProvider,
       contractDataProvider,
+      noteDataProvider,
       log,
       scopes,
     );
@@ -328,11 +330,12 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     const pendingNotes = this.noteCache.getNotes(this.callContext.contractAddress, owner, storageSlot);
 
     const pendingNullifiers = this.noteCache.getNullifiers(this.callContext.contractAddress);
-    const dbNotes = await this.executionDataProvider.getNotes(
+    const dbNotes = await getNotes(
       this.callContext.contractAddress,
       owner,
       storageSlot,
       status,
+      this.noteDataProvider,
       this.scopes,
     );
     const dbNotesFiltered = dbNotes.filter(n => !pendingNullifiers.has((n.siloedNullifier as Fr).value));
@@ -535,6 +538,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       this.taggingIndexCache,
       this.executionDataProvider,
       this.contractDataProvider,
+      this.noteDataProvider,
       this.totalPublicCalldataCount,
       sideEffectCounter,
       this.log,

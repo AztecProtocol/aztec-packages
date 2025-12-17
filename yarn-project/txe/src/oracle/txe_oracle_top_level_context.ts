@@ -14,6 +14,7 @@ import { TestDateProvider } from '@aztec/foundation/timer';
 import type { KeyStore } from '@aztec/key-store';
 import {
   AddressDataProvider,
+  NoteDataProvider,
   ORACLE_VERSION,
   PXEOracleInterface,
   enrichPublicSimulationError,
@@ -92,6 +93,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
   constructor(
     private stateMachine: TXEStateMachine,
     private contractDataProvider: TXEContractDataProvider,
+    private noteDataProvider: NoteDataProvider,
     private keyStore: KeyStore,
     private addressDataProvider: AddressDataProvider,
     private accountDataProvider: TXEAccountDataProvider,
@@ -304,6 +306,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       taggingIndexCache,
       this.pxeOracleInterface,
       this.contractDataProvider,
+      this.noteDataProvider,
       0,
       1,
       undefined, // log
@@ -619,6 +622,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
         anchorBlockHeader,
         this.pxeOracleInterface,
         this.contractDataProvider,
+        this.noteDataProvider,
       );
       const acirExecutionResult = await new WASMSimulator()
         .executeUserCircuit(toACVMWitness(0, args), entryPointArtifact, new Oracle(oracle).toACIRCallback())

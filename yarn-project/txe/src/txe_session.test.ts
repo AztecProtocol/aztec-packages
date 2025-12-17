@@ -12,6 +12,7 @@ describe('TXESession.processFunction', () => {
       {} as any, // stateMachine
       {} as any, // oracleHandler
       {} as any, // contractDataProvider
+      {} as any, // noteDataProvider
       {} as any, // keyStore
       {} as any, // addressDataProvider
       {} as any, // accountDataProvider

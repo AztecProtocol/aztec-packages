@@ -21,8 +21,7 @@ import {
   deriveEcdhSharedSecret,
 } from '@aztec/stdlib/logs';
 import { getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
-import { Note, type NoteStatus } from '@aztec/stdlib/note';
-import { NoteDao } from '@aztec/stdlib/note';
+import { Note, NoteDao } from '@aztec/stdlib/note';
 import { MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import { TxHash } from '@aztec/stdlib/tx';
 
@@ -80,36 +79,6 @@ export class PXEOracleInterface implements ExecutionDataProvider {
       );
     }
     return completeAddress;
-  }
-
-  async getNotes(
-    contractAddress: AztecAddress,
-    owner: AztecAddress | undefined,
-    storageSlot: Fr,
-    status: NoteStatus,
-    scopes?: AztecAddress[],
-  ) {
-    const noteDaos = await this.noteDataProvider.getNotes({
-      contractAddress,
-      owner,
-      storageSlot,
-      status,
-      scopes,
-    });
-    return noteDaos.map(
-      ({ contractAddress, owner, storageSlot, randomness, noteNonce, note, noteHash, siloedNullifier, index }) => ({
-        contractAddress,
-        owner,
-        storageSlot,
-        randomness,
-        noteNonce,
-        note,
-        noteHash,
-        siloedNullifier,
-        // PXE can use this index to get full MembershipWitness
-        index,
-      }),
-    );
   }
 
   /**

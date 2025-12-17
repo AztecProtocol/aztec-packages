@@ -120,6 +120,7 @@ export class TXESession implements TXESessionStateHandler {
       | IAvmExecutionOracle
       | ITxeExecutionOracle,
     private contractDataProvider: TXEContractDataProvider,
+    private noteDataProvider: NoteDataProvider,
     private keyStore: KeyStore,
     private addressDataProvider: AddressDataProvider,
     private accountDataProvider: TXEAccountDataProvider,
@@ -168,6 +169,7 @@ export class TXESession implements TXESessionStateHandler {
     const topLevelOracleHandler = new TXEOracleTopLevelContext(
       stateMachine,
       contractDataProvider,
+      noteDataProvider,
       keyStore,
       addressDataProvider,
       accountDataProvider,
@@ -184,6 +186,7 @@ export class TXESession implements TXESessionStateHandler {
       stateMachine,
       topLevelOracleHandler,
       contractDataProvider,
+      noteDataProvider,
       keyStore,
       addressDataProvider,
       accountDataProvider,
@@ -250,6 +253,7 @@ export class TXESession implements TXESessionStateHandler {
     this.oracleHandler = new TXEOracleTopLevelContext(
       this.stateMachine,
       this.contractDataProvider,
+      this.noteDataProvider,
       this.keyStore,
       this.addressDataProvider,
       this.accountDataProvider,
@@ -307,6 +311,7 @@ export class TXESession implements TXESessionStateHandler {
       taggingIndexCache,
       this.pxeOracleInterface,
       this.contractDataProvider,
+      this.noteDataProvider,
     );
 
     // We store the note and tagging index caches fed into the PrivateExecutionOracle (along with some other auxiliary
@@ -363,6 +368,7 @@ export class TXESession implements TXESessionStateHandler {
       anchorBlockHeader,
       this.pxeOracleInterface,
       this.contractDataProvider,
+      this.noteDataProvider,
     );
 
     this.state = { name: 'UTILITY' };

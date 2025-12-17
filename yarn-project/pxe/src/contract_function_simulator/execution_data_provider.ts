@@ -7,11 +7,9 @@ import type { L2Block } from '@aztec/stdlib/block';
 import type { CompleteAddress } from '@aztec/stdlib/contract';
 import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
 import type { DirectionalAppTaggingSecret } from '@aztec/stdlib/logs';
-import type { NoteStatus } from '@aztec/stdlib/note';
 import { type MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import type { NodeStats } from '@aztec/stdlib/tx';
 
-import type { NoteData } from './oracle/interfaces.js';
 import type { MessageLoadOracleInputs } from './oracle/message_load_oracle_inputs.js';
 
 /**
@@ -61,26 +59,6 @@ export interface ExecutionDataProvider {
    * @throws If the keys are not registered in the key store.
    */
   getKeyValidationRequest(pkMHash: Fr, contractAddress: AztecAddress): Promise<KeyValidationRequest>;
-
-  /**
-   * Retrieves a set of notes stored in the database for a given contract address and storage slot.
-   * The query result is paginated using 'limit' and 'offset' values.
-   * Returns an object containing an array of note data.
-   *
-   * @param contractAddress - The contract address of the notes.
-   * @param owner - The owner of the notes. If undefined, returns notes for all owners.
-   * @param storageSlot - The storage slot of the notes.
-   * @param status - The status of notes to fetch.
-   * @param scopes - The accounts whose notes we can access in this call. Currently optional and will default to all.
-   * @returns A Promise that resolves to an array of note data.
-   */
-  getNotes(
-    contractAddress: AztecAddress,
-    owner: AztecAddress | undefined,
-    storageSlot: Fr,
-    status: NoteStatus,
-    scopes?: AztecAddress[],
-  ): Promise<NoteData[]>;
 
   /**
    * Gets the index of a nullifier in the nullifier tree.

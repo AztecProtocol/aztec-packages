@@ -6,6 +6,7 @@ import {
   PUBLIC_DATA_TREE_HEIGHT,
 } from '@aztec/constants';
 import { asyncMap } from '@aztec/foundation/async-map';
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { times } from '@aztec/foundation/collection';
 import { poseidon2Hash, poseidon2HashWithSeparator } from '@aztec/foundation/crypto/poseidon';
 import { randomInt } from '@aztec/foundation/crypto/random';
@@ -31,7 +32,7 @@ import {
   getFunctionArtifactByName,
 } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { BlockParameter } from '@aztec/stdlib/block';
+import { type BlockParameter, L2BlockHash } from '@aztec/stdlib/block';
 import {
   CompleteAddress,
   type ContractInstanceWithAddress,
@@ -44,7 +45,7 @@ import { KeyValidationRequest } from '@aztec/stdlib/kernel';
 import { computeAppNullifierSecretKey, deriveKeys } from '@aztec/stdlib/keys';
 import { DirectionalAppTaggingSecret } from '@aztec/stdlib/logs';
 import { L1Actor, L1ToL2Message, L2Actor } from '@aztec/stdlib/messaging';
-import { Note } from '@aztec/stdlib/note';
+import { Note, NoteDao } from '@aztec/stdlib/note';
 import { makeBlockHeader } from '@aztec/stdlib/testing';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 import {
@@ -54,16 +55,16 @@ import {
   StateReference,
   TxContext,
   TxExecutionRequest,
+  TxHash,
 } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
 import { Matcher, type MatcherCreator, type MockProxy, mock } from 'jest-mock-extended';
 import { toFunctionSelector } from 'viem';
 
-import { ContractDataProvider } from '../../storage/index.js';
+import { ContractDataProvider, NoteDataProvider } from '../../storage/index.js';
 import { ContractFunctionSimulator } from '../contract_function_simulator.js';
 import type { ExecutionDataProvider } from '../execution_data_provider.js';
-import type { NoteData } from './interfaces.js';
 import { MessageLoadOracleInputs } from './message_load_oracle_inputs.js';
 
 jest.setTimeout(60_000);
@@ -104,6 +105,7 @@ describe('Private Execution test suite', () => {
 
   let executionDataProvider: MockProxy<ExecutionDataProvider>;
   let contractDataProvider: MockProxy<ContractDataProvider>;
+  let noteDataProvider: MockProxy<NoteDataProvider>;
   let acirSimulator: ContractFunctionSimulator;
 
   let anchorBlockHeader = BlockHeader.empty();
@@ -270,6 +272,7 @@ describe('Private Execution test suite', () => {
     trees = {};
     executionDataProvider = mock<ExecutionDataProvider>();
     contractDataProvider = mock<ContractDataProvider>();
+    noteDataProvider = mock<NoteDataProvider>();
     contracts = {};
     executionDataProvider.getKeyValidationRequest.mockImplementation(
       async (pkMHash: Fr, contractAddress: AztecAddress) => {
@@ -339,7 +342,12 @@ describe('Private Execution test suite', () => {
       },
     );
 
-    acirSimulator = new ContractFunctionSimulator(executionDataProvider, contractDataProvider, simulator);
+    acirSimulator = new ContractFunctionSimulator(
+      executionDataProvider,
+      contractDataProvider,
+      noteDataProvider,
+      simulator,
+    );
   });
 
   describe('no constructor', () => {
@@ -363,7 +371,7 @@ describe('Private Execution test suite', () => {
     const mockFirstNullifier = new Fr(1111);
     let currentNoteIndex = 0n;
 
-    const buildNote = async (amount: bigint, owner: AztecAddress, storageSlot: Fr) => {
+    const buildNote = async (amount: bigint, owner: AztecAddress, storageSlot: Fr): Promise<NoteDao> => {
       // WARNING: this is not actually how nonces are computed!
       // For the purpose of this test we use a mocked firstNullifier and and a random number
       // to compute the nonce. Proper nonces are only enforced later by the kernel/later circuits
@@ -378,17 +386,21 @@ describe('Private Execution test suite', () => {
       // Note: The following does not correspond to how note hashing is generally done in real notes.
       const noteHash = await poseidon2Hash([storageSlot, ...note.items]);
       const randomness = Fr.random();
-      return {
+
+      return new NoteDao(
+        note,
         contractAddress,
         owner,
         storageSlot,
         randomness,
         noteNonce,
-        note,
         noteHash,
-        siloedNullifier: new Fr(0),
-        index: currentNoteIndex++,
-      };
+        new Fr(0),
+        TxHash.random(),
+        BlockNumber(Math.abs(randomInt(1000))),
+        L2BlockHash.random().toString(),
+        currentNoteIndex++,
+      );
     };
 
     beforeEach(async () => {
@@ -453,12 +465,13 @@ describe('Private Execution test suite', () => {
     it('should run the destroy_and_create function', async () => {
       const storageSlot = StatefulTestContractArtifact.storageLayout['notes'].slot;
 
-      const notes: NoteData[] = await Promise.all([
+      const notes: NoteDao[] = await Promise.all([
         buildNote(60n, ownerCompleteAddress.address, storageSlot),
         buildNote(80n, ownerCompleteAddress.address, storageSlot),
       ]);
       executionDataProvider.syncTaggedLogs.mockResolvedValue();
-      executionDataProvider.getNotes.mockResolvedValue(notes);
+
+      noteDataProvider.getNotes.mockResolvedValue(notes);
 
       const consumedNotes = await asyncMap(notes, async ({ note, noteNonce, randomness }) => {
         const noteHash = await computeNoteHash(note, owner, storageSlot, randomness);
@@ -506,7 +519,7 @@ describe('Private Execution test suite', () => {
 
       const notes = await Promise.all([buildNote(balance, ownerCompleteAddress.address, storageSlot)]);
       executionDataProvider.syncTaggedLogs.mockResolvedValue();
-      executionDataProvider.getNotes.mockResolvedValue(notes);
+      noteDataProvider.getNotes.mockResolvedValue(notes);
 
       const consumedNotes = await asyncMap(notes, async ({ note, noteNonce, randomness }) => {
         const noteHash = await computeNoteHash(note, owner, storageSlot, randomness);
@@ -937,7 +950,7 @@ describe('Private Execution test suite', () => {
 
     it('should be able to insert, read, and nullify pending note hashes in one call', async () => {
       executionDataProvider.syncTaggedLogs.mockResolvedValue();
-      executionDataProvider.getNotes.mockResolvedValue([]);
+      noteDataProvider.getNotes.mockResolvedValue([]);
 
       const amountToTransfer = 100n;
 
@@ -987,7 +1000,7 @@ describe('Private Execution test suite', () => {
 
     it('should be able to insert, read, and nullify pending note hashes in nested calls', async () => {
       executionDataProvider.syncTaggedLogs.mockResolvedValue();
-      executionDataProvider.getNotes.mockResolvedValue([]);
+      noteDataProvider.getNotes.mockResolvedValue([]);
 
       const amountToTransfer = 100n;
 
@@ -1055,7 +1068,7 @@ describe('Private Execution test suite', () => {
 
     it('cant read a commitment that is inserted later in same call', async () => {
       executionDataProvider.syncTaggedLogs.mockResolvedValue();
-      executionDataProvider.getNotes.mockResolvedValue([]);
+      noteDataProvider.getNotes.mockResolvedValue([]);
 
       const amountToTransfer = 100n;
 
@@ -1096,7 +1109,7 @@ describe('Private Execution test suite', () => {
       // call_get_notes(owner: AztecAddress, storage_slot: Field, active_or_nullified: bool)
       const args = [owner, 2n, true];
       executionDataProvider.syncTaggedLogs.mockResolvedValue();
-      executionDataProvider.getNotes.mockResolvedValue([]);
+      noteDataProvider.getNotes.mockResolvedValue([]);
 
       await expect(() =>
         runSimulator({ artifact: TestContractArtifact, functionName: 'call_get_notes', args, anchorBlockHeader }),

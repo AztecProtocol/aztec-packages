@@ -1,8 +1,10 @@
+import type { Fr } from '@aztec/foundation/curves/bn254';
 import type { FunctionArtifactWithContractName, FunctionSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstance } from '@aztec/stdlib/contract';
+import type { NoteStatus } from '@aztec/stdlib/note';
 
-import type { ContractDataProvider } from '../../storage/index.js';
+import type { ContractDataProvider, NoteDataProvider } from '../../storage/index.js';
 
 // TODO: this might not be the final home for these functions,
 // it's just a way of starting to dissolve PXEOracleInterface
@@ -31,4 +33,35 @@ export async function getFunctionArtifact(
     ...artifact,
     debug,
   };
+}
+
+export async function getNotes(
+  contractAddress: AztecAddress,
+  owner: AztecAddress | undefined,
+  storageSlot: Fr,
+  status: NoteStatus,
+  noteDataProvider: NoteDataProvider,
+  scopes?: AztecAddress[],
+) {
+  const noteDaos = await noteDataProvider.getNotes({
+    contractAddress,
+    owner,
+    storageSlot,
+    status,
+    scopes,
+  });
+  return noteDaos.map(
+    ({ contractAddress, owner, storageSlot, randomness, noteNonce, note, noteHash, siloedNullifier, index }) => ({
+      contractAddress,
+      owner,
+      storageSlot,
+      randomness,
+      noteNonce,
+      note,
+      noteHash,
+      siloedNullifier,
+      // PXE can use this index to get full MembershipWitness
+      index,
+    }),
+  );
 }
