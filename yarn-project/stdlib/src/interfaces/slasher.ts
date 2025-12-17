@@ -1,5 +1,5 @@
 import type { EthAddress } from '@aztec/foundation/eth-address';
-import { type ZodFor, schemas } from '@aztec/foundation/schemas';
+import { schemas, zodFor } from '@aztec/foundation/schemas';
 
 import { z } from 'zod';
 
@@ -27,24 +27,26 @@ export interface SlasherConfig {
   slashExecuteRoundsLookBack: number; // How many rounds to look back when searching for a round to execute
 }
 
-export const SlasherConfigSchema = z.object({
-  slashOverridePayload: schemas.EthAddress.optional(),
-  slashMinPenaltyPercentage: z.number(),
-  slashMaxPenaltyPercentage: z.number(),
-  slashValidatorsAlways: z.array(schemas.EthAddress),
-  slashValidatorsNever: z.array(schemas.EthAddress),
-  slashPrunePenalty: schemas.BigInt,
-  slashDataWithholdingPenalty: schemas.BigInt,
-  slashInactivityTargetPercentage: z.number(),
-  slashInactivityConsecutiveEpochThreshold: z.number(),
-  slashInactivityPenalty: schemas.BigInt,
-  slashProposeInvalidAttestationsPenalty: schemas.BigInt,
-  slashAttestDescendantOfInvalidPenalty: schemas.BigInt,
-  slashUnknownPenalty: schemas.BigInt,
-  slashOffenseExpirationRounds: z.number(),
-  slashMaxPayloadSize: z.number(),
-  slashGracePeriodL2Slots: z.number(),
-  slashBroadcastedInvalidBlockPenalty: schemas.BigInt,
-  slashExecuteRoundsLookBack: z.number(),
-  slashSelfAllowed: z.boolean().optional(),
-}) satisfies ZodFor<SlasherConfig>;
+export const SlasherConfigSchema = zodFor<SlasherConfig>()(
+  z.object({
+    slashOverridePayload: schemas.EthAddress.optional(),
+    slashMinPenaltyPercentage: z.number(),
+    slashMaxPenaltyPercentage: z.number(),
+    slashValidatorsAlways: z.array(schemas.EthAddress),
+    slashValidatorsNever: z.array(schemas.EthAddress),
+    slashPrunePenalty: schemas.BigInt,
+    slashDataWithholdingPenalty: schemas.BigInt,
+    slashInactivityTargetPercentage: z.number(),
+    slashInactivityConsecutiveEpochThreshold: z.number(),
+    slashInactivityPenalty: schemas.BigInt,
+    slashProposeInvalidAttestationsPenalty: schemas.BigInt,
+    slashAttestDescendantOfInvalidPenalty: schemas.BigInt,
+    slashUnknownPenalty: schemas.BigInt,
+    slashOffenseExpirationRounds: z.number(),
+    slashMaxPayloadSize: z.number(),
+    slashGracePeriodL2Slots: z.number(),
+    slashBroadcastedInvalidBlockPenalty: schemas.BigInt,
+    slashExecuteRoundsLookBack: z.number(),
+    slashSelfAllowed: z.boolean().optional(),
+  }),
+);

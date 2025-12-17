@@ -11,7 +11,7 @@ sidebar_position: 1
 
 Barretenberg (or `bb` for short) is an optimized elliptic curve library for the bn128 curve, and a PLONK SNARK prover.
 
-Although it is a standandalone prover, Barretenberg is designed to be used with [Noir](https://noir-lang.org). It is highly recommended to start by creating a Noir project with the [Noir guickstart guide](https://noir-lang.org/docs/getting_started/quick_start) before this guide!
+Although it is a standalone prover, Barretenberg is designed to be used with [Noir](https://noir-lang.org). It is highly recommended to start by creating a Noir project with the [Noir quickstart guide](https://noir-lang.org/docs/getting_started/quick_start) before this guide!
 
 ## Installation
 
@@ -39,6 +39,29 @@ bb verify -p ./target/proof -k ./target/vk
 ```
 
 Congratulations! Using Noir and Barretenberg, your verifier could verify the correctness of a proof, without knowing the private inputs!
+
+### Verifier Targets
+
+The `--verifier_target` (or `-t`) option lets you configure the proof for different verification environments. Each target automatically sets the appropriate hash function and zero-knowledge settings:
+
+```bash
+# For Ethereum/Solidity verification (uses keccak hash)
+bb prove -b ./target/hello_world.json -w ./target/hello_world.gz --verifier_target evm -o target
+
+# For recursive verification in Noir circuits (uses poseidon2 hash)
+bb prove -b ./target/hello_world.json -w ./target/hello_world.gz --verifier_target noir-recursive -o target
+
+# For Starknet verification via Garaga
+bb prove -b ./target/hello_world.json -w ./target/hello_world.gz --verifier_target starknet -o target
+```
+
+Available targets:
+- `evm` / `evm-no-zk`: Ethereum/Solidity verification (keccak)
+- `noir-recursive` / `noir-recursive-no-zk`: Recursive verification in Noir circuits (poseidon2)
+- `noir-rollup` / `noir-rollup-no-zk`: Rollup circuits with IPA accumulation (poseidon2)
+- `starknet` / `starknet-no-zk`: Starknet verification via Garaga
+
+The `-no-zk` variants disable zero-knowledge, which can be useful when privacy isn't required and you want slightly faster proving.
 
 :::info
 

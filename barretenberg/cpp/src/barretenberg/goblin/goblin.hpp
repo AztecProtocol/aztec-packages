@@ -4,7 +4,6 @@
 // external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // =====================
 
-// goblin.hpp
 #pragma once
 
 #include "barretenberg/eccvm/eccvm_flavor.hpp"

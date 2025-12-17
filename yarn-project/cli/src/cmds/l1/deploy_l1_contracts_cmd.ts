@@ -25,6 +25,7 @@ export async function deployL1ContractsCmd(
   initialValidators: EthAddress[],
   realVerifier: boolean,
   existingToken: EthAddress | undefined,
+  verifyContracts: boolean | undefined,
   log: LogFn,
   debugLogger: Logger,
 ) {
@@ -59,19 +60,25 @@ export async function deployL1ContractsCmd(
   debugLogger.info('Deploying L1 contracts via Forge...');
 
   // Deploy using l1-contracts Forge scripts
-  const { l1ContractAddresses, rollupVersion } = await deployAztecL1Contracts(rpcUrls[0], deployerPrivateKey, chainId, {
-    // Initial validators to add during deployment
-    initialValidators: initialValidatorOperators,
-    // Genesis config
-    vkTreeRoot,
-    protocolContractsHash,
-    genesisArchiveRoot,
-    // Deployment options
-    realVerifier,
-    ...config,
-    feeJuicePortalInitialBalance: fundingNeeded,
-    existingTokenAddress: existingToken,
-  });
+  const { l1ContractAddresses, rollupVersion } = await deployAztecL1Contracts(
+    rpcUrls[0],
+    deployerPrivateKey,
+    chainId,
+    {
+      // Initial validators to add during deployment
+      initialValidators: initialValidatorOperators,
+      // Genesis config
+      vkTreeRoot,
+      protocolContractsHash,
+      genesisArchiveRoot,
+      // Deployment options
+      realVerifier,
+      ...config,
+      feeJuicePortalInitialBalance: fundingNeeded,
+      existingTokenAddress: existingToken,
+    },
+    verifyContracts,
+  );
 
   debugLogger.info('Forge deployment complete', { rollupVersion });
 

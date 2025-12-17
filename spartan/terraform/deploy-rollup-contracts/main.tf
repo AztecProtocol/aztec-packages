@@ -28,7 +28,8 @@ locals {
     ["--json"], # Always output JSON for easier parsing
     var.SPONSORED_FPC ? ["--sponsored-fpc"] : [],
     var.TEST_ACCOUNTS ? ["--test-accounts"] : [],
-    var.REAL_VERIFIER ? ["--real-verifier"] : []
+    var.REAL_VERIFIER ? ["--real-verifier"] : [],
+    var.VERIFY_CONTRACTS ? ["--verify-contracts"] : []
   )
 
 

@@ -7,7 +7,7 @@ import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import type { PXEConfig } from '../config/index.js';
 import type { AnchorBlockDataProvider } from '../storage/anchor_block_data_provider/anchor_block_data_provider.js';
 import type { NoteDataProvider } from '../storage/note_data_provider/note_data_provider.js';
-import type { TaggingDataProvider } from '../storage/tagging_data_provider/tagging_data_provider.js';
+import type { RecipientTaggingDataProvider } from '../storage/tagging_data_provider/recipient_tagging_data_provider.js';
 
 /**
  * The BlockSynchronizer class orchestrates synchronization between PXE and Aztec node, maintaining an up-to-date
@@ -23,7 +23,7 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
     private node: AztecNode,
     private anchorBlockDataProvider: AnchorBlockDataProvider,
     private noteDataProvider: NoteDataProvider,
-    private taggingDataProvider: TaggingDataProvider,
+    private recipientTaggingDataProvider: RecipientTaggingDataProvider,
     private l2TipsStore: L2TipsKVStore,
     config: Partial<Pick<PXEConfig, 'l2BlockBatchSize'>> = {},
     loggerOrSuffix?: string | Logger,
@@ -66,7 +66,10 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
         await this.noteDataProvider.rollbackNotesAndNullifiers(event.block.number, lastSynchedBlockNumber);
         // Remove all note tagging indexes to force a full resync. This is suboptimal, but unless we track the
         // block number in which each index is used it's all we can do.
-        await this.taggingDataProvider.resetNoteSyncData();
+        // Note: This is now unnecessary for the sender tagging data provider because the new algorithm handles reorgs.
+        // TODO(#17775): Once this issue is implemented we will have the index-block number mapping, so we can
+        // implement this more intelligently.
+        await this.recipientTaggingDataProvider.resetNoteSyncData();
         // Update the header to the last block.
         const newHeader = await this.node.getBlockHeader(event.block.number);
         if (!newHeader) {
