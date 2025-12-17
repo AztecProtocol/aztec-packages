@@ -3,11 +3,13 @@ import { makeRandomBlob } from '@aztec/blob-lib/testing';
 import { times } from '@aztec/foundation/collection';
 import { SecretValue } from '@aztec/foundation/config';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { sleep } from '@aztec/foundation/sleep';
 
 import { jest } from '@jest/globals';
 import http from 'http';
 import type { AddressInfo } from 'net';
 
+import type { FileStoreBlobClient } from '../filestore/filestore_blob_client.js';
 import { BlobSinkServer } from '../server/server.js';
 import { BlobWithIndex } from '../types/blob_with_index.js';
 import { HttpBlobSinkClient } from './http.js';
@@ -622,8 +624,498 @@ class TestHttpBlobSinkClient extends HttpBlobSinkClient {
   public getArchiveClient() {
     return this.archiveClient!;
   }
+
+  public getFileStoreClients() {
+    return this.fileStoreClients;
+  }
 }
 
 class TestBlobSinkServer extends BlobSinkServer {
   declare public blobStore: BlobSinkServer['blobStore'];
 }
+
+class MockFileStoreBlobClient {
+  private files = new Map<string, BlobJson>();
+
+  constructor(
+    private basePath: string = 'aztec-1-1-0x1234',
+    private shouldFail: boolean = false,
+  ) {}
+
+  getBlobsByHashes(blobHashes: string[]): Promise<BlobJson[]> {
+    if (this.shouldFail) {
+      return Promise.reject(new Error('FileStore connection failed'));
+    }
+    const results: BlobJson[] = [];
+    for (const hash of blobHashes) {
+      const blob = this.files.get(hash);
+      if (blob) {
+        results.push({ ...blob, index: '-1' });
+      }
+    }
+    return Promise.resolve(results);
+  }
+
+  exists(versionedBlobHash: string): Promise<boolean> {
+    return Promise.resolve(this.files.has(versionedBlobHash));
+  }
+
+  saveBlob(blob: Blob, _skipIfExists = true): Promise<void> {
+    if (this.shouldFail) {
+      return Promise.reject(new Error('FileStore save failed'));
+    }
+    const versionedHash = `0x${blob.getEthVersionedBlobHash().toString('hex')}`;
+    this.files.set(versionedHash, blob.toJson(-1));
+    return Promise.resolve();
+  }
+
+  async saveBlobs(blobs: Blob[] | BlobWithIndex[], skipIfExists = true): Promise<void> {
+    await Promise.all(
+      blobs.map(b => {
+        const blob = 'blob' in b ? b.blob : b;
+        return this.saveBlob(blob, skipIfExists);
+      }),
+    );
+  }
+
+  getBaseUrl(): string {
+    return this.basePath;
+  }
+
+  testConnection(): Promise<boolean> {
+    return Promise.resolve(!this.shouldFail);
+  }
+
+  // Test helper to pre-populate blobs
+  addBlob(blob: Blob): void {
+    const versionedHash = `0x${blob.getEthVersionedBlobHash().toString('hex')}`;
+    this.files.set(versionedHash, blob.toJson(-1));
+  }
+
+  addBlobWithIndex(blobWithIndex: BlobWithIndex): void {
+    const versionedHash = `0x${blobWithIndex.blob.getEthVersionedBlobHash().toString('hex')}`;
+    this.files.set(versionedHash, blobWithIndex.toJSON());
+  }
+}
+
+describe('HttpBlobSinkClient FileStore Integration', () => {
+  let testBlobs: Blob[];
+  let testBlobsHashes: Buffer[];
+  let testBlobsWithIndex: BlobWithIndex[];
+
+  beforeEach(() => {
+    testBlobs = Array.from({ length: 2 }, () => makeRandomBlob(3));
+    testBlobsHashes = testBlobs.map(b => b.getEthVersionedBlobHash());
+    testBlobsWithIndex = testBlobs.map((b, index) => new BlobWithIndex(b, index));
+  });
+
+  describe('getBlobSidecar with filestore clients', () => {
+    it('should fetch blobs from filestore clients', async () => {
+      const mockFileStore = new MockFileStoreBlobClient();
+      testBlobsWithIndex.forEach(b => mockFileStore.addBlobWithIndex(b));
+
+      const client = new HttpBlobSinkClient(
+        {},
+        { fileStoreClients: [mockFileStore as unknown as FileStoreBlobClient] },
+      );
+
+      const retrievedBlobs = await client.getBlobSidecar('0x1234', testBlobsHashes);
+
+      expect(retrievedBlobs).toHaveLength(2);
+      expect(retrievedBlobs[0].blob.commitment).toEqual(testBlobs[0].commitment);
+      expect(retrievedBlobs[1].blob.commitment).toEqual(testBlobs[1].commitment);
+    });
+
+    it('should try multiple filestores when first one does not have blobs', async () => {
+      const mockFileStore1 = new MockFileStoreBlobClient('store1');
+      const mockFileStore2 = new MockFileStoreBlobClient('store2');
+
+      // Only add blobs to second store
+      testBlobsWithIndex.forEach(b => mockFileStore2.addBlobWithIndex(b));
+
+      const client = new HttpBlobSinkClient(
+        {},
+        {
+          fileStoreClients: [
+            mockFileStore1 as unknown as FileStoreBlobClient,
+            mockFileStore2 as unknown as FileStoreBlobClient,
+          ],
+        },
+      );
+
+      const retrievedBlobs = await client.getBlobSidecar('0x1234', testBlobsHashes);
+
+      expect(retrievedBlobs).toHaveLength(2);
+    });
+
+    it('should accumulate blobs from multiple filestores', async () => {
+      const mockFileStore1 = new MockFileStoreBlobClient('store1');
+      const mockFileStore2 = new MockFileStoreBlobClient('store2');
+
+      // Split blobs across stores
+      mockFileStore1.addBlobWithIndex(testBlobsWithIndex[0]);
+      mockFileStore2.addBlobWithIndex(testBlobsWithIndex[1]);
+
+      const client = new HttpBlobSinkClient(
+        {},
+        {
+          fileStoreClients: [
+            mockFileStore1 as unknown as FileStoreBlobClient,
+            mockFileStore2 as unknown as FileStoreBlobClient,
+          ],
+        },
+      );
+
+      const retrievedBlobs = await client.getBlobSidecar('0x1234', testBlobsHashes);
+
+      expect(retrievedBlobs).toHaveLength(2);
+    });
+
+    it('should handle filestore errors gracefully', async () => {
+      const failingFileStore = new MockFileStoreBlobClient('failing', true);
+      const workingFileStore = new MockFileStoreBlobClient('working');
+      testBlobsWithIndex.forEach(b => workingFileStore.addBlobWithIndex(b));
+
+      const client = new HttpBlobSinkClient(
+        {},
+        {
+          fileStoreClients: [
+            failingFileStore as unknown as FileStoreBlobClient,
+            workingFileStore as unknown as FileStoreBlobClient,
+          ],
+        },
+      );
+
+      const retrievedBlobs = await client.getBlobSidecar('0x1234', testBlobsHashes);
+
+      expect(retrievedBlobs).toHaveLength(2);
+    });
+  });
+
+  describe('sendBlobsToBlobSink with filestore upload', () => {
+    it('should upload blobs to filestore when fileStoreUploadClient is configured', async () => {
+      const mockUploadStore = new MockFileStoreBlobClient();
+      const saveBlobsSpy = jest.spyOn(mockUploadStore, 'saveBlobs');
+
+      const client = new HttpBlobSinkClient(
+        {},
+        { fileStoreUploadClient: mockUploadStore as unknown as FileStoreBlobClient },
+      );
+
+      const success = await client.sendBlobsToBlobSink(testBlobs);
+
+      expect(success).toBe(true);
+      expect(saveBlobsSpy).toHaveBeenCalledWith(testBlobs, true);
+    });
+
+    it('should return false when both blob sink and filestore are not configured', async () => {
+      const client = new HttpBlobSinkClient({});
+
+      const success = await client.sendBlobsToBlobSink(testBlobs);
+
+      expect(success).toBe(false);
+    });
+
+    it('should return true if filestore upload succeeds even if blob sink fails', async () => {
+      const mockUploadStore = new MockFileStoreBlobClient();
+
+      const client = new HttpBlobSinkClient(
+        { blobSinkUrl: 'http://localhost:12345' }, // Invalid URL that will fail
+        { fileStoreUploadClient: mockUploadStore as unknown as FileStoreBlobClient },
+      );
+
+      const success = await client.sendBlobsToBlobSink(testBlobs);
+
+      expect(success).toBe(true);
+    });
+
+    it('should handle filestore upload failure gracefully', async () => {
+      const failingStore = new MockFileStoreBlobClient('failing', true);
+
+      const client = new HttpBlobSinkClient(
+        {},
+        { fileStoreUploadClient: failingStore as unknown as FileStoreBlobClient },
+      );
+
+      const success = await client.sendBlobsToBlobSink(testBlobs);
+
+      expect(success).toBe(false);
+    });
+  });
+
+  describe('onBlobsFetched callback', () => {
+    it('should fire onBlobsFetched callback after successful fetch', async () => {
+      const mockFileStore = new MockFileStoreBlobClient();
+      testBlobsWithIndex.forEach(b => mockFileStore.addBlobWithIndex(b));
+
+      const onBlobsFetched = jest.fn();
+      const client = new HttpBlobSinkClient(
+        {},
+        {
+          fileStoreClients: [mockFileStore as unknown as FileStoreBlobClient],
+          onBlobsFetched,
+        },
+      );
+
+      await client.getBlobSidecar('0x1234', testBlobsHashes);
+
+      // Wait for async callback (1ms is enough since mock resolves immediately)
+      await sleep(1);
+
+      expect(onBlobsFetched).toHaveBeenCalledWith(expect.arrayContaining([expect.any(BlobWithIndex)]));
+    });
+
+    it('should automatically set up upload callback when fileStoreUploadClient is provided', async () => {
+      const mockFileStore = new MockFileStoreBlobClient();
+      testBlobsWithIndex.forEach(b => mockFileStore.addBlobWithIndex(b));
+
+      const mockUploadStore = new MockFileStoreBlobClient();
+      const saveBlobsSpy = jest.spyOn(mockUploadStore, 'saveBlobs');
+
+      const client = new HttpBlobSinkClient(
+        {},
+        {
+          fileStoreClients: [mockFileStore as unknown as FileStoreBlobClient],
+          fileStoreUploadClient: mockUploadStore as unknown as FileStoreBlobClient,
+        },
+      );
+
+      await client.getBlobSidecar('0x1234', testBlobsHashes);
+
+      // Wait for async callback (1ms is enough since mock resolves immediately)
+      await sleep(1);
+
+      expect(saveBlobsSpy).toHaveBeenCalled();
+    });
+  });
+
+  describe('testSources with filestores', () => {
+    it('should test filestore connectivity', async () => {
+      const mockFileStore = new MockFileStoreBlobClient();
+      const testConnectionSpy = jest.spyOn(mockFileStore, 'testConnection');
+
+      const client = new HttpBlobSinkClient(
+        { blobAllowEmptySources: true },
+        { fileStoreClients: [mockFileStore as unknown as FileStoreBlobClient] },
+      );
+
+      await client.testSources();
+
+      expect(testConnectionSpy).toHaveBeenCalled();
+    });
+
+    it('should not throw when filestore is reachable', async () => {
+      const mockFileStore = new MockFileStoreBlobClient();
+
+      const client = new HttpBlobSinkClient(
+        { blobAllowEmptySources: true },
+        { fileStoreClients: [mockFileStore as unknown as FileStoreBlobClient] },
+      );
+
+      await expect(client.testSources()).resolves.not.toThrow();
+    });
+
+    it('should count filestore as successful source', async () => {
+      const mockFileStore = new MockFileStoreBlobClient();
+
+      // No blob sink, no consensus, but filestore is available
+      const client = new HttpBlobSinkClient(
+        {},
+        { fileStoreClients: [mockFileStore as unknown as FileStoreBlobClient] },
+      );
+
+      // Should not throw because filestore counts as a successful source
+      await expect(client.testSources()).resolves.not.toThrow();
+    });
+
+    it('should handle filestore connection failure', async () => {
+      const failingStore = new MockFileStoreBlobClient('failing', true);
+
+      const client = new HttpBlobSinkClient(
+        { blobAllowEmptySources: false },
+        { fileStoreClients: [failingStore as unknown as FileStoreBlobClient] },
+      );
+
+      await expect(client.testSources()).rejects.toThrow('No blob sources are reachable');
+    });
+  });
+
+  describe('isHistoricalSync flag behavior', () => {
+    it('should not retry filestores for historical sync', async () => {
+      const mockFileStore = new MockFileStoreBlobClient();
+      const getBlobsByHashesSpy = jest.spyOn(mockFileStore, 'getBlobsByHashes');
+
+      const client = new HttpBlobSinkClient(
+        {},
+        { fileStoreClients: [mockFileStore as unknown as FileStoreBlobClient] },
+      );
+
+      // Historical sync - should not retry
+      await client.getBlobSidecar('0x1234', testBlobsHashes, undefined, { isHistoricalSync: true });
+
+      // Should only be called once (no retries)
+      expect(getBlobsByHashesSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it('should retry filestores with backoff for near-tip sync when blobs not found', async () => {
+      jest.useFakeTimers();
+
+      const mockFileStore = new MockFileStoreBlobClient();
+      const getBlobsByHashesSpy = jest.spyOn(mockFileStore, 'getBlobsByHashes');
+
+      const client = new HttpBlobSinkClient(
+        {},
+        { fileStoreClients: [mockFileStore as unknown as FileStoreBlobClient] },
+      );
+
+      // Near-tip sync (default) - should retry
+      const promise = client.getBlobSidecar('0x1234', testBlobsHashes, undefined, { isHistoricalSync: false });
+
+      // Advance all timers to allow retries to complete
+      await jest.runAllTimersAsync();
+
+      await promise;
+
+      // Initial call + retries (hardcoded [1, 1, 2] backoff = 4 attempts total)
+      // First call in tryFileStores, then 3 more retry attempts
+      expect(getBlobsByHashesSpy.mock.calls.length).toBeGreaterThan(1);
+
+      jest.useRealTimers();
+    });
+
+    it('should not retry if all blobs found on first try', async () => {
+      const mockFileStore = new MockFileStoreBlobClient();
+      testBlobsWithIndex.forEach(b => mockFileStore.addBlobWithIndex(b));
+      const getBlobsByHashesSpy = jest.spyOn(mockFileStore, 'getBlobsByHashes');
+
+      const client = new HttpBlobSinkClient(
+        {},
+        { fileStoreClients: [mockFileStore as unknown as FileStoreBlobClient] },
+      );
+
+      await client.getBlobSidecar('0x1234', testBlobsHashes, undefined, { isHistoricalSync: false });
+
+      // Should only be called once since all blobs were found
+      expect(getBlobsByHashesSpy).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('source ordering', () => {
+    let blobSinkServer: TestBlobSinkServer;
+    let executionHostServer: http.Server | undefined;
+    let executionHostPort: number | undefined;
+    let consensusHostServer: http.Server | undefined;
+    let consensusHostPort: number | undefined;
+
+    const startExecutionHostServer = (): Promise<void> => {
+      executionHostServer = http.createServer((req, res) => {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ result: { parentBeaconBlockRoot: '0x1234' } }));
+      });
+
+      return new Promise((resolve, _reject) => {
+        executionHostServer?.listen(0, () => {
+          executionHostPort = (executionHostServer?.address() as AddressInfo).port;
+          resolve();
+        });
+      });
+    };
+
+    const startConsensusHostServer = (blobData: BlobJson[]): Promise<void> => {
+      consensusHostServer = http.createServer((req, res) => {
+        if (req.url?.includes('/eth/v1/beacon/headers/')) {
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ data: { header: { message: { slot: 1 } } } }));
+        } else if (req.url?.includes('/eth/v1/beacon/blob_sidecars/')) {
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ data: blobData }));
+        } else {
+          res.writeHead(404, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Not Found' }));
+        }
+      });
+
+      return new Promise((resolve, _reject) => {
+        consensusHostServer?.listen(0, () => {
+          consensusHostPort = (consensusHostServer?.address() as AddressInfo).port;
+          resolve();
+        });
+      });
+    };
+
+    afterEach(async () => {
+      await blobSinkServer?.stop();
+      executionHostServer?.close();
+      consensusHostServer?.close();
+      executionHostPort = undefined;
+      consensusHostPort = undefined;
+    });
+
+    it('should try blob sink before filestore', async () => {
+      blobSinkServer = new TestBlobSinkServer({ port: 0 });
+      await blobSinkServer.start();
+      await blobSinkServer.blobStore.addBlobs(testBlobsWithIndex);
+
+      const mockFileStore = new MockFileStoreBlobClient();
+      const fileStoreGetSpy = jest.spyOn(mockFileStore, 'getBlobsByHashes');
+
+      const client = new HttpBlobSinkClient(
+        { blobSinkUrl: `http://localhost:${blobSinkServer.port}` },
+        { fileStoreClients: [mockFileStore as unknown as FileStoreBlobClient] },
+      );
+
+      const retrievedBlobs = await client.getBlobSidecar('0x1234', testBlobsHashes);
+
+      // Blobs found in blob sink, filestore should not be called
+      expect(retrievedBlobs).toHaveLength(2);
+      expect(fileStoreGetSpy).not.toHaveBeenCalled();
+    });
+
+    it('should try filestore before consensus host', async () => {
+      await startExecutionHostServer();
+      await startConsensusHostServer(testBlobsWithIndex.map(b => b.toJSON()));
+
+      const mockFileStore = new MockFileStoreBlobClient();
+      testBlobsWithIndex.forEach(b => mockFileStore.addBlobWithIndex(b));
+
+      const client = new HttpBlobSinkClient(
+        {
+          l1RpcUrls: [`http://localhost:${executionHostPort}`],
+          l1ConsensusHostUrls: [`http://localhost:${consensusHostPort}`],
+        },
+        { fileStoreClients: [mockFileStore as unknown as FileStoreBlobClient] },
+      );
+
+      // Spy on fetch to see if consensus is called
+      const fetchSpy = jest.spyOn(client as any, 'fetch');
+
+      const retrievedBlobs = await client.getBlobSidecar('0x1234', testBlobsHashes);
+
+      expect(retrievedBlobs).toHaveLength(2);
+      // Consensus should not be called for blob_sidecars since filestore had all blobs
+      expect(fetchSpy).not.toHaveBeenCalledWith(expect.stringContaining('blob_sidecars'), expect.anything());
+    });
+
+    it('should fall back to consensus when filestore has partial blobs', async () => {
+      await startExecutionHostServer();
+      await startConsensusHostServer(testBlobsWithIndex.map(b => b.toJSON()));
+
+      const mockFileStore = new MockFileStoreBlobClient();
+      // Only add first blob to filestore
+      mockFileStore.addBlobWithIndex(testBlobsWithIndex[0]);
+
+      const client = new HttpBlobSinkClient(
+        {
+          l1RpcUrls: [`http://localhost:${executionHostPort}`],
+          l1ConsensusHostUrls: [`http://localhost:${consensusHostPort}`],
+        },
+        { fileStoreClients: [mockFileStore as unknown as FileStoreBlobClient] },
+      );
+
+      const retrievedBlobs = await client.getBlobSidecar('0x1234', testBlobsHashes);
+
+      // Should have both blobs - one from filestore, one from consensus
+      expect(retrievedBlobs).toHaveLength(2);
+    });
+  });
+});

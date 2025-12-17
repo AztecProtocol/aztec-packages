@@ -20,10 +20,7 @@ using namespace bb;
  * @details Ultra does not support DataBus operations
  *
  */
-template <>
-void create_block_constraints(UltraCircuitBuilder& builder,
-                              const BlockConstraint& constraint,
-                              bool has_valid_witness_assignments)
+template <> void create_block_constraints(UltraCircuitBuilder& builder, const BlockConstraint& constraint)
 {
     using field_ct = bb::stdlib::field_t<UltraCircuitBuilder>;
 
@@ -37,10 +34,10 @@ void create_block_constraints(UltraCircuitBuilder& builder,
     // Note: CallData/ReturnData require DataBus, which is only available in Mega and in particular is _not_ supported
     // by Ultra. If we encounter them in an Ultra circuit, we return an error.
     case BlockType::ROM:
-        process_ROM_operations(builder, constraint, has_valid_witness_assignments, init);
+        process_ROM_operations(builder, constraint, init);
         break;
     case BlockType::RAM:
-        process_RAM_operations(builder, constraint, has_valid_witness_assignments, init);
+        process_RAM_operations(builder, constraint, init);
         break;
     case BlockType::CallData:
     case BlockType::ReturnData:
@@ -58,10 +55,7 @@ void create_block_constraints(UltraCircuitBuilder& builder,
  * @brief Create block constraints; Specialization for Mega arithmetization
  *
  */
-template <>
-void create_block_constraints(MegaCircuitBuilder& builder,
-                              const BlockConstraint& constraint,
-                              bool has_valid_witness_assignments)
+template <> void create_block_constraints(MegaCircuitBuilder& builder, const BlockConstraint& constraint)
 {
     using field_ct = stdlib::field_t<MegaCircuitBuilder>;
 
@@ -73,13 +67,13 @@ void create_block_constraints(MegaCircuitBuilder& builder,
 
     switch (constraint.type) {
     case BlockType::ROM: {
-        process_ROM_operations(builder, constraint, has_valid_witness_assignments, init);
+        process_ROM_operations(builder, constraint, init);
     } break;
     case BlockType::RAM: {
-        process_RAM_operations(builder, constraint, has_valid_witness_assignments, init);
+        process_RAM_operations(builder, constraint, init);
     } break;
     case BlockType::CallData: {
-        process_call_data_operations(builder, constraint, has_valid_witness_assignments, init);
+        process_call_data_operations(builder, constraint, init);
     } break;
     case BlockType::ReturnData: {
         process_return_data_operations(builder, constraint, init);
@@ -93,7 +87,6 @@ void create_block_constraints(MegaCircuitBuilder& builder,
 template <typename Builder>
 void process_ROM_operations(Builder& builder,
                             const BlockConstraint& constraint,
-                            bool has_valid_witness_assignments,
                             std::vector<bb::stdlib::field_t<Builder>>& init)
 {
     using field_ct = stdlib::field_t<Builder>;
@@ -103,12 +96,6 @@ void process_ROM_operations(Builder& builder,
     for (const auto& op : constraint.trace) {
         field_ct value = to_field_ct(op.value, builder);
         field_ct index = to_field_ct(op.index, builder);
-
-        // In case of invalid witness assignment, we set the value of index value to zero to not hit out of bound in
-        // ROM table
-        if (!has_valid_witness_assignments && !index.is_constant()) {
-            builder.set_variable(index.get_witness_index(), 0);
-        }
 
         switch (op.access_type) {
         case AccessType::Read:
@@ -124,7 +111,6 @@ void process_ROM_operations(Builder& builder,
 template <typename Builder>
 void process_RAM_operations(Builder& builder,
                             const BlockConstraint& constraint,
-                            bool has_valid_witness_assignments,
                             std::vector<bb::stdlib::field_t<Builder>>& init)
 {
     using field_ct = stdlib::field_t<Builder>;
@@ -134,12 +120,6 @@ void process_RAM_operations(Builder& builder,
     for (const auto& op : constraint.trace) {
         field_ct value = to_field_ct(op.value, builder);
         field_ct index = to_field_ct(op.index, builder);
-
-        // In case of invalid witness assignment, we set the value of index value to zero to not hit an out-of-bounds
-        // index in the RAM table
-        if (!has_valid_witness_assignments && !index.is_constant()) {
-            builder.set_variable(index.get_witness_index(), 0);
-        }
 
         switch (op.access_type) {
         case AccessType::Read:
@@ -158,7 +138,6 @@ void process_RAM_operations(Builder& builder,
 template <typename Builder>
 void process_call_data_operations(Builder& builder,
                                   const BlockConstraint& constraint,
-                                  bool has_valid_witness_assignments,
                                   std::vector<bb::stdlib::field_t<Builder>>& init)
 {
     using field_ct = stdlib::field_t<Builder>;
@@ -174,12 +153,6 @@ void process_call_data_operations(Builder& builder,
         for (const auto& op : constraint.trace) {
             field_ct value = to_field_ct(op.value, builder);
             field_ct index = to_field_ct(op.index, builder);
-
-            // In case of invalid witness assignment, we set the value of index value to zero to not hit out of bound in
-            // ROM table
-            if (!has_valid_witness_assignments && !index.is_constant()) {
-                builder.set_variable(index.get_witness_index(), 0);
-            }
 
             switch (op.access_type) {
             case AccessType::Read:

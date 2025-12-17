@@ -1148,7 +1148,7 @@ export class CallStackMetadata {
     const { stack, leaf } = failingCall;
     const aztecCallStack = stack.map(call => ({
       contractAddress: AztecAddress.fromField(call.contractAddress),
-      functionSelector: call.calldata.length > 0 ? FunctionSelector.fromField(call.calldata[0]) : undefined,
+      functionSelector: call.calldata.length > 0 ? FunctionSelector.fromFieldOrUndefined(call.calldata[0]) : undefined,
     }));
 
     // The Noir call stack is the internal call stack at exit of the failing call

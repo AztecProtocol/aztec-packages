@@ -109,9 +109,6 @@ template <IsUltraOrMegaHonk Flavor_> class VerifierInstance_ {
         // Hash the tagged elements directly
         return Transcript::HashFunction::hash(instance_elements);
     }
-
-    MSGPACK_FIELDS(
-        vk, relation_parameters, alpha, is_complete, gate_challenges, witness_commitments, gemini_masking_commitment);
 };
 
 } // namespace bb

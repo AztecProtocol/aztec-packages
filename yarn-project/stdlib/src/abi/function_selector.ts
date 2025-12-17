@@ -39,6 +39,14 @@ export class FunctionSelector extends Selector {
     return new FunctionSelector(Number(fr.toBigInt()));
   }
 
+  static fromFieldOrUndefined(fr: Fr) {
+    try {
+      return FunctionSelector.fromField(fr);
+    } catch {
+      return undefined;
+    }
+  }
+
   static fromFields(fields: Fr[] | FieldReader) {
     const reader = FieldReader.asReader(fields);
     return FunctionSelector.fromField(reader.readField());

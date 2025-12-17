@@ -141,8 +141,8 @@ async function main() {
     logger.info('Retrieving block header from rollup transaction...');
     logger.info('');
 
-    // For this script, we don't have blob hashes, so pass empty array
-    const result = await retriever.getCheckpointFromRollupTx(txHash, [], CheckpointNumber(l2BlockNumber));
+    // For this script, we don't have blob hashes or expected hashes, so pass empty arrays/objects
+    const result = await retriever.getCheckpointFromRollupTx(txHash, [], CheckpointNumber(l2BlockNumber), {});
 
     logger.info(' Successfully retrieved block header!');
     logger.info('');

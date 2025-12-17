@@ -1,5 +1,5 @@
 #!/usr/bin/env -S node --no-warnings
-import { getInitialTestAccountsData } from '@aztec/accounts/testing/lazy';
+import { getInitialTestAccountsData } from '@aztec/accounts/testing';
 import { AztecNodeService } from '@aztec/aztec-node';
 import { type AztecNodeConfig, getConfigEnvVars } from '@aztec/aztec-node/config';
 import { Fr } from '@aztec/aztec.js/fields';

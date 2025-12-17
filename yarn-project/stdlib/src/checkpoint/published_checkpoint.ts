@@ -18,11 +18,13 @@ export class L1PublishedData {
   ) {}
 
   static get schema() {
-    return z.object({
-      blockNumber: schemas.BigInt,
-      timestamp: schemas.BigInt,
-      blockHash: z.string(),
-    });
+    return z
+      .object({
+        blockNumber: schemas.BigInt,
+        timestamp: schemas.BigInt,
+        blockHash: z.string(),
+      })
+      .transform(obj => L1PublishedData.fromFields(obj));
   }
 
   static random() {
@@ -35,6 +37,18 @@ export class L1PublishedData {
 
   static fromFields(fields: FieldsOf<L1PublishedData>) {
     return new L1PublishedData(fields.blockNumber, fields.timestamp, fields.blockHash);
+  }
+
+  static fromBuffer(bufferOrReader: Buffer | BufferReader): L1PublishedData {
+    const reader = BufferReader.asReader(bufferOrReader);
+    const l1BlockNumber = reader.readBigInt();
+    const l1BlockHash = reader.readString();
+    const l1Timestamp = reader.readBigInt();
+    return new L1PublishedData(l1BlockNumber, l1Timestamp, l1BlockHash);
+  }
+
+  public toBuffer(): Buffer {
+    return serializeToBuffer(this.blockNumber, this.blockHash, this.timestamp);
   }
 }
 

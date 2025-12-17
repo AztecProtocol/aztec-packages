@@ -505,6 +505,22 @@ struct CALLDATACOPY_Instruction {
     MSGPACK_FIELDS(dst_address, copy_size, copy_size_address, cd_start, cd_start_address);
 };
 
+struct SENDL2TOL1MSG_Instruction {
+    bb::avm2::FF recipient;
+    ResultAddressRef recipient_address;
+    bb::avm2::FF content;
+    ResultAddressRef content_address;
+    MSGPACK_FIELDS(recipient, recipient_address, content, content_address);
+};
+
+struct EMITUNENCRYPTEDLOG_Instruction {
+    uint8_t log_size;
+    ResultAddressRef log_size_address;
+    std::vector<bb::avm2::FF> log_values;
+    uint16_t log_values_address_start;
+    MSGPACK_FIELDS(log_size, log_size_address, log_values);
+};
+
 using FuzzInstruction = std::variant<ADD_8_Instruction,
                                      FDIV_8_Instruction,
                                      SET_8_Instruction,
@@ -550,7 +566,9 @@ using FuzzInstruction = std::variant<ADD_8_Instruction,
                                      NULLIFIEREXISTS_Instruction,
                                      EMITNOTEHASH_Instruction,
                                      NOTEHASHEXISTS_Instruction,
-                                     CALLDATACOPY_Instruction>;
+                                     CALLDATACOPY_Instruction,
+                                     SENDL2TOL1MSG_Instruction,
+                                     EMITUNENCRYPTEDLOG_Instruction>;
 
 template <class... Ts> struct overloaded_instruction : Ts... {
     using Ts::operator()...;
@@ -716,6 +734,17 @@ inline std::ostream& operator<<(std::ostream& os, const FuzzInstruction& instruc
             [&](CALLDATACOPY_Instruction arg) {
                 os << "CALLDATACOPY_Instruction " << arg.dst_address << " " << static_cast<int>(arg.copy_size) << " "
                    << arg.copy_size_address << " " << arg.cd_start_address << " " << arg.cd_start_address;
+            },
+            [&](SENDL2TOL1MSG_Instruction arg) {
+                os << "SENDL2TOL1MSG_Instruction " << arg.recipient << " " << arg.recipient_address << " "
+                   << arg.content << " " << arg.content_address;
+            },
+            [&](EMITUNENCRYPTEDLOG_Instruction arg) {
+                os << "EMITUNENCRYPTEDLOG_Instruction " << arg.log_size << " " << arg.log_size_address << " ";
+                for (const auto& value : arg.log_values) {
+                    os << value << " ";
+                }
+                os << std::endl;
             },
             [&](auto) { os << "Unknown instruction"; },
         },

@@ -31,6 +31,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     /** List of transient auth witnesses to be used during this simulation */
     protected readonly authWitnesses: AuthWitness[],
     protected readonly capsules: Capsule[], // TODO(#12425): Rename to transientCapsules
+    protected readonly anchorBlockHeader: BlockHeader,
     protected readonly executionDataProvider: ExecutionDataProvider,
     protected log = createLogger('simulator:client_view_context'),
     protected readonly scopes?: AztecAddress[],
@@ -44,14 +45,13 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     return Fr.random();
   }
 
-  public async utilityGetUtilityContext(): Promise<UtilityContext> {
-    const blockHeader = await this.executionDataProvider.getAnchorBlockHeader();
+  public utilityGetUtilityContext(): UtilityContext {
     return UtilityContext.from({
-      blockNumber: blockHeader.globalVariables.blockNumber,
-      timestamp: blockHeader.globalVariables.timestamp,
+      blockNumber: this.anchorBlockHeader.globalVariables.blockNumber,
+      timestamp: this.anchorBlockHeader.globalVariables.timestamp,
       contractAddress: this.contractAddress,
-      version: blockHeader.globalVariables.version,
-      chainId: blockHeader.globalVariables.chainId,
+      version: this.anchorBlockHeader.globalVariables.version,
+      chainId: this.anchorBlockHeader.globalVariables.chainId,
     });
   }
 

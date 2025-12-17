@@ -19,7 +19,12 @@ set_main_fuzzer() {
 	main_fuzzer=''
 	if [[ "$avm" == "on" ]]; then
 		main_fuzzer="./build-fuzzing-avm/bin"
+		# TODO(defkit): implement cov and post-fuzzer for AVM
+		post_fuzzer="./build-fuzzing-avm/bin"
+		cov_fuzzer="./build-fuzzing-avm/bin"
 	else
+		post_fuzzer="./build-fuzzing-asan/bin"
+		cov_fuzzer="./build-fuzzing-cov/bin"
 		case "$asm" in
 		on)
 			main_fuzzer="./build-fuzzing/bin"
@@ -33,9 +38,6 @@ set_main_fuzzer() {
 			;;
 		esac
 	fi
-
-	post_fuzzer="./build-fuzzing-asan/bin"
-	cov_fuzzer="./build-fuzzing-cov/bin" # TODO(defkit): implement cov fuzzer for AVM
 }
 
 show_fuzzers() {

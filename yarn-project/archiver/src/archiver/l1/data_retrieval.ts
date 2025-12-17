@@ -16,7 +16,7 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { type InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 import { Body, CommitteeAttestation, L2BlockNew } from '@aztec/stdlib/block';
-import { Checkpoint, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
+import { Checkpoint, L1PublishedData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import { Proof } from '@aztec/stdlib/proofs';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
@@ -35,7 +35,6 @@ import { NoBlobBodiesFoundError } from '../errors.js';
 import type { ArchiverInstrumentation } from '../instrumentation.js';
 import type { DataRetrieval } from '../structs/data_retrieval.js';
 import type { InboxMessage } from '../structs/inbox_message.js';
-import type { L1PublishedData } from '../structs/published.js';
 import { CalldataRetriever } from './calldata_retriever.js';
 
 export type RetrievedCheckpoint = {
@@ -138,13 +137,17 @@ export async function retrievedToPublishedCheckpoint({
 
 /**
  * Fetches new checkpoints.
+ * @param rollup - The rollup contract instance.
  * @param publicClient - The viem public client to use for transaction retrieval.
  * @param debugClient - The viem debug client to use for trace/debug RPC methods (optional).
- * @param rollupAddress - The address of the rollup contract.
+ * @param blobSinkClient - The blob sink client for fetching blob data.
  * @param searchStartBlock - The block number to use for starting the search.
  * @param searchEndBlock - The highest block number that we should search up to.
- * @param expectedNextL2BlockNum - The next L2 block number that we expect to find.
- * @returns An array of block; as well as the next eth block to search from.
+ * @param contractAddresses - The contract addresses (governanceProposerAddress, slashFactoryAddress, slashingProposerAddress).
+ * @param instrumentation - The archiver instrumentation instance.
+ * @param logger - The logger instance.
+ * @param isHistoricalSync - Whether this is a historical sync.
+ * @returns An array of retrieved checkpoints.
  */
 export async function retrieveCheckpointsFromRollup(
   rollup: GetContractReturnType<typeof RollupAbi, ViemPublicClient>,
@@ -160,6 +163,7 @@ export async function retrieveCheckpointsFromRollup(
   },
   instrumentation: ArchiverInstrumentation,
   logger: Logger = createLogger('archiver'),
+  isHistoricalSync: boolean = false,
 ): Promise<RetrievedCheckpoint[]> {
   const retrievedCheckpoints: RetrievedCheckpoint[] = [];
 
@@ -211,6 +215,7 @@ export async function retrieveCheckpointsFromRollup(
       contractAddresses,
       instrumentation,
       logger,
+      isHistoricalSync,
     );
     retrievedCheckpoints.push(...newCheckpoints);
     searchStartBlock = lastLog.blockNumber! + 1n;
@@ -222,11 +227,17 @@ export async function retrieveCheckpointsFromRollup(
 
 /**
  * Processes newly received CheckpointProposed logs.
- * @param rollup - The rollup contract
+ * @param rollup - The rollup contract instance.
  * @param publicClient - The viem public client to use for transaction retrieval.
  * @param debugClient - The viem debug client to use for trace/debug RPC methods (optional).
+ * @param blobSinkClient - The blob sink client for fetching blob data.
  * @param logs - CheckpointProposed logs.
- * @returns - An array of checkpoints.
+ * @param rollupConstants - The rollup constants (chainId, version, targetCommitteeSize).
+ * @param contractAddresses - The contract addresses (governanceProposerAddress, slashFactoryAddress, slashingProposerAddress).
+ * @param instrumentation - The archiver instrumentation instance.
+ * @param logger - The logger instance.
+ * @param isHistoricalSync - Whether this is a historical sync.
+ * @returns An array of retrieved checkpoints.
  */
 async function processCheckpointProposedLogs(
   rollup: GetContractReturnType<typeof RollupAbi, ViemPublicClient>,
@@ -242,6 +253,7 @@ async function processCheckpointProposedLogs(
   },
   instrumentation: ArchiverInstrumentation,
   logger: Logger,
+  isHistoricalSync: boolean,
 ): Promise<RetrievedCheckpoint[]> {
   const retrievedCheckpoints: RetrievedCheckpoint[] = [];
   const calldataRetriever = new CalldataRetriever(
@@ -261,10 +273,17 @@ async function processCheckpointProposedLogs(
 
     // The value from the event and contract will match only if the checkpoint is in the chain.
     if (archive === archiveFromChain) {
+      // Build expected hashes object (fields may be undefined for backwards compatibility with older events)
+      const expectedHashes = {
+        attestationsHash: log.args.attestationsHash,
+        payloadDigest: log.args.payloadDigest,
+      };
+
       const checkpoint = await calldataRetriever.getCheckpointFromRollupTx(
         log.transactionHash!,
         blobHashes,
         checkpointNumber,
+        expectedHashes,
       );
       const checkpointBlobData = await getCheckpointBlobDataFromBlobs(
         blobSinkClient,
@@ -272,13 +291,14 @@ async function processCheckpointProposedLogs(
         blobHashes,
         checkpointNumber,
         logger,
+        isHistoricalSync,
       );
 
-      const l1: L1PublishedData = {
-        blockNumber: log.blockNumber,
-        blockHash: log.blockHash,
-        timestamp: await getL1BlockTime(publicClient, log.blockNumber),
-      };
+      const l1 = new L1PublishedData(
+        log.blockNumber,
+        await getL1BlockTime(publicClient, log.blockNumber),
+        log.blockHash,
+      );
 
       retrievedCheckpoints.push({ ...checkpoint, checkpointBlobData, l1, chainId, version });
       logger.trace(`Retrieved checkpoint ${checkpointNumber} from L1 tx ${log.transactionHash}`, {
@@ -309,8 +329,9 @@ export async function getCheckpointBlobDataFromBlobs(
   blobHashes: Buffer<ArrayBufferLike>[],
   checkpointNumber: CheckpointNumber,
   logger: Logger,
+  isHistoricalSync: boolean,
 ): Promise<CheckpointBlobData> {
-  const blobBodies = await blobSinkClient.getBlobSidecar(blockHash, blobHashes);
+  const blobBodies = await blobSinkClient.getBlobSidecar(blockHash, blobHashes, undefined, { isHistoricalSync });
   if (blobBodies.length === 0) {
     throw new NoBlobBodiesFoundError(checkpointNumber);
   }
