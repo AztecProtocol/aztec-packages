@@ -314,23 +314,36 @@ inline std::array<bb::fr, 3> get_choose_rotation_multipliers()
  * @brief Constructs a MultiTable for decomposing a 32-bit word for message schedule extension.
  *
  * @details
- * This table decomposes a 32-bit input into 4 limbs for computing BOTH:
- *   σ₀(x) = (x>>>7) ^ (x>>>18) ^ (x>>3)   — applied to w[i-15]
- *   σ₁(x) = (x>>>17) ^ (x>>>19) ^ (x>>10) — applied to w[i-2]
+ * ## Table Structure
  *
- * Limb structure (boundaries chosen to align with rotation/shift parameters):
+ * This table decomposes a 32-bit input into 4 limbs and produces outputs via lookup:
+ *   - C1: Normal form accumulator (x = L0 + L1·2³ + L2·2¹⁰ + L3·2¹⁸)
+ *   - C2: Sparse form of each limb (NOT accumulated)
+ *   - C3: Rotated sparse form for split-boundary corrections (NOT accumulated)
+ *
+ * Limb structure (boundaries chosen to work nicely with rotation magnitudes):
  *   - L0: bits 0-2   (3 bits)
  *   - L1: bits 3-9   (7 bits)
  *   - L2: bits 10-17 (8 bits)
  *   - L3: bits 18-31 (14 bits)
  *
- * Column 1 accumulates the normal form: x = L0 + L1·2³ + L2·2¹⁰ + L3·2¹⁸
+ * ## Purpose
+ *
+ * Used to compute the SHA-256 message schedule extension:
+ *   w[i] = σ₁(w[i-2]) + w[i-7] + σ₀(w[i-15]) + w[i-16]
+ * where:
+ *   σ₀(x) = (x>>>7) ^ (x>>>18) ^ (x>>3)   — applied to w[i-15]
+ *   σ₁(x) = (x>>>17) ^ (x>>>19) ^ (x>>10) — applied to w[i-2]
+ *
+ * The same decomposition serves BOTH σ₀ and σ₁, with limb boundaries at 3, 10, 18
+ * aligning with the shift/rotation parameters of both functions.
+ *
  */
 inline MultiTable get_witness_extension_input_table(const MultiTableId id = SHA256_WITNESS_INPUT)
 {
     std::vector<bb::fr> column_1_coefficients{ 1, 1 << 3, 1 << 10, 1 << 18 };
-    std::vector<bb::fr> column_2_coefficients{ 0, 0, 0, 0 };
-    std::vector<bb::fr> column_3_coefficients{ 0, 0, 0, 0 };
+    std::vector<bb::fr> column_2_coefficients{ 0, 0, 0, 0 }; // Not accumulated; accessed individually
+    std::vector<bb::fr> column_3_coefficients{ 0, 0, 0, 0 }; // Not accumulated; accessed individually
     MultiTable table(column_1_coefficients, column_2_coefficients, column_3_coefficients);
     table.id = id;
     table.slice_sizes = { (1 << 3), (1 << 7), (1 << 8), (1 << 14) };
@@ -347,6 +360,7 @@ inline MultiTable get_witness_extension_input_table(const MultiTableId id = SHA2
      *   | L1   | 3     | σ₀'s 7        | 7 - 3 = 4    |
      *   | L2   | 10    | σ₁'s 17       | 17 - 10 = 7  |
      *   | L3   | 18    | σ₁'s 19       | 19 - 18 = 1  |
+     *
      */
     table.basic_table_ids = { SHA256_WITNESS_SLICE_3,
                               SHA256_WITNESS_SLICE_7_ROTATE_4,
