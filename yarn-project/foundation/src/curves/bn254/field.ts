@@ -29,6 +29,7 @@ type DerivedField<T extends BaseField> = {
 abstract class BaseField {
   static SIZE_IN_BYTES = 32;
   private readonly asBigInt: bigint;
+  private asBuffer?: Buffer;
 
   /**
    * Return bigint representation.
@@ -49,6 +50,10 @@ abstract class BaseField {
         throw new Error(`Value length ${value.length} exceeds ${BaseField.SIZE_IN_BYTES}`);
       }
       this.asBigInt = toBigIntBE(value);
+      this.asBuffer =
+        value.length === BaseField.SIZE_IN_BYTES
+          ? value
+          : Buffer.concat([Buffer.alloc(BaseField.SIZE_IN_BYTES - value.length), value]);
     } else if (typeof value === 'bigint' || typeof value === 'number' || typeof value === 'boolean') {
       this.asBigInt = BigInt(value);
     } else if (value instanceof BaseField) {
@@ -70,7 +75,10 @@ abstract class BaseField {
    * Converts the bigint to a Buffer.
    */
   toBuffer(): Buffer {
-    return toBufferBE(this.asBigInt, 32);
+    if (!this.asBuffer) {
+      this.asBuffer = toBufferBE(this.asBigInt, 32);
+    }
+    return this.asBuffer;
   }
 
   toString(): `0x${string}` {
