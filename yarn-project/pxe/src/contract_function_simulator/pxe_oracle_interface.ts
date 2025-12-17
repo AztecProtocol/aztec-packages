@@ -14,7 +14,7 @@ import {
   TxScopedL2Log,
 } from '@aztec/stdlib/logs';
 import { Note, NoteDao } from '@aztec/stdlib/note';
-import { MerkleTreeId, PublicDataWitness } from '@aztec/stdlib/trees';
+import { MerkleTreeId } from '@aztec/stdlib/trees';
 import { TxHash } from '@aztec/stdlib/tx';
 
 import type { ExecutionDataProvider, ExecutionStats } from '../contract_function_simulator/execution_data_provider.js';
@@ -71,14 +71,6 @@ export class PXEOracleInterface implements ExecutionDataProvider {
   async #findLeafIndex(blockNumber: BlockParameter, treeId: MerkleTreeId, leafValue: Fr): Promise<bigint | undefined> {
     const [leafIndex] = await this.aztecNode.findLeavesIndexes(blockNumber, treeId, [leafValue]);
     return leafIndex?.data;
-  }
-
-  public async getPublicDataWitness(blockNumber: BlockParameter, leafSlot: Fr): Promise<PublicDataWitness | undefined> {
-    const anchorBlockNumber = (await this.anchorBlockDataProvider.getBlockHeader()).getBlockNumber();
-    if (blockNumber !== 'latest' && blockNumber > anchorBlockNumber) {
-      throw new Error(`Block number ${blockNumber} is higher than current block ${anchorBlockNumber}`);
-    }
-    return await this.aztecNode.getPublicDataWitness(blockNumber, leafSlot);
   }
 
   public async getPublicStorageAt(blockNumber: BlockParameter, contract: AztecAddress, slot: Fr): Promise<Fr> {

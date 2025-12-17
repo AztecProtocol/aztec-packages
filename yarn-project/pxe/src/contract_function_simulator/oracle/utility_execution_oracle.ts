@@ -32,6 +32,7 @@ import {
   getMembershipWitness,
   getNotes,
   getNullifierMembershipWitness,
+  getPublicDataWitness,
   getSharedSecret,
 } from './common.js';
 import type { IMiscOracle, IUtilityExecutionOracle, NoteData } from './interfaces.js';
@@ -140,7 +141,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     blockNumber: BlockNumber,
     leafSlot: Fr,
   ): Promise<PublicDataWitness | undefined> {
-    return await this.executionDataProvider.getPublicDataWitness(blockNumber, leafSlot);
+    return await getPublicDataWitness(blockNumber, leafSlot, this.anchorBlockDataProvider, this.aztecNode);
   }
 
   /**

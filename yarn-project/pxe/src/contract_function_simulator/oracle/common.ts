@@ -11,7 +11,7 @@ import { computeAddressSecret } from '@aztec/stdlib/keys';
 import { DirectionalAppTaggingSecret, deriveEcdhSharedSecret } from '@aztec/stdlib/logs';
 import { getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
 import type { NoteStatus } from '@aztec/stdlib/note';
-import { MerkleTreeId, NullifierMembershipWitness } from '@aztec/stdlib/trees';
+import { MerkleTreeId, NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 
 import type {
   AddressDataProvider,
@@ -218,4 +218,17 @@ export async function getNullifierMembershipWitnessAtLatestBlock(
 ) {
   const blockNumber = (await anchorBlockDataProvider.getBlockHeader()).getBlockNumber();
   return getNullifierMembershipWitness(blockNumber, nullifier, aztecNode);
+}
+
+export async function getPublicDataWitness(
+  blockNumber: BlockParameter,
+  leafSlot: Fr,
+  anchorBlockDataProvider: AnchorBlockDataProvider,
+  aztecNode: AztecNode,
+): Promise<PublicDataWitness | undefined> {
+  const anchorBlockNumber = (await anchorBlockDataProvider.getBlockHeader()).getBlockNumber();
+  if (blockNumber !== 'latest' && blockNumber > anchorBlockNumber) {
+    throw new Error(`Block number ${blockNumber} is higher than current block ${anchorBlockNumber}`);
+  }
+  return await aztecNode.getPublicDataWitness(blockNumber, leafSlot);
 }
