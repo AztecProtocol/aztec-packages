@@ -154,8 +154,7 @@ std::array<field_t<Builder>, 64> SHA256<Builder>::extend_witness(const std::arra
             // Establish w_out as the 32-bit reduction of w_out_raw via w_out_raw = w_out + divisor*2^32
             w_out = witness_t<Builder>(ctx, fr(w_out_modded));
             static constexpr fr inv_pow_two = fr(2).pow(32).invert();
-            // Implementation note: by multiplying the field elements by constants separately then subtracting, we
-            // ensure that the divisor is in a normalized state and subsequent call to .normalize() won't add gates
+
             field_pt w_out_raw_inv_pow_two = w_out_raw * inv_pow_two;
             field_pt w_out_inv_pow_two = w_out * inv_pow_two;
             field_pt divisor = w_out_raw_inv_pow_two - w_out_inv_pow_two;
