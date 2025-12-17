@@ -12,10 +12,12 @@
 #include "barretenberg/vm2/generated/relations/lookups_emit_unencrypted_log.hpp"
 #include "barretenberg/vm2/simulation/events/emit_unencrypted_log_event.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
+#include "barretenberg/vm2/simulation/events/gt_event.hpp"
 #include "barretenberg/vm2/simulation/lib/side_effect_tracker.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
 #include "barretenberg/vm2/testing/public_inputs_builder.hpp"
+#include "barretenberg/vm2/tracegen/gt_trace.hpp"
 #include "barretenberg/vm2/tracegen/opcodes/emit_unencrypted_log_trace.hpp"
 #include "barretenberg/vm2/tracegen/precomputed_trace.hpp"
 #include "barretenberg/vm2/tracegen/public_inputs_trace.hpp"
@@ -84,6 +86,62 @@ TEST(EmitUnencryptedLogConstrainingTest, Positive)
     check_relation<emit_unencrypted_log>(trace);
 }
 
+TEST(EmitUnencryptedLogConstrainingTest, PositiveEmptyLog)
+{
+    // Test created to ensure we do not underflow/fail memory checks for logs with no fields (not including header)
+    AztecAddress address = 0xdeadbeef;
+    MemoryAddress log_address = 0;
+    const std::vector<FF> log_fields = {};
+    uint32_t log_size = static_cast<uint32_t>(log_fields.size());
+    TrackedSideEffects side_effect_states = { .public_logs = {} };
+    TrackedSideEffects side_effect_states_after = { .public_logs = PublicLogs{ { { log_fields, address } } } };
+
+    EmitUnencryptedLogWriteEvent event = {
+        .execution_clk = 1,
+        .contract_address = address,
+        .space_id = 57,
+        .log_address = log_address,
+        .log_size = log_size,
+        .prev_num_unencrypted_log_fields = side_effect_states.get_num_unencrypted_log_fields(),
+        .next_num_unencrypted_log_fields = side_effect_states_after.get_num_unencrypted_log_fields(),
+        .is_static = false,
+        .values = to_memory_values(log_fields),
+        .error_memory_out_of_bounds = false,
+        .error_too_many_log_fields = false,
+        .error_tag_mismatch = false,
+    };
+
+    // As calculated in EmitUnencryptedLog::emit_unencrypted_log gadget:
+    uint64_t end_log_address = static_cast<uint64_t>(log_address) + static_cast<uint64_t>(log_size) - 1;
+
+    simulation::GreaterThanEvent gt_event = {
+        .a = end_log_address,
+        .b = AVM_HIGHEST_MEM_ADDRESS,
+        .result = end_log_address > AVM_HIGHEST_MEM_ADDRESS,
+    };
+
+    TestTraceContainer trace({
+        { { C::precomputed_first_row, 1 } },
+    });
+
+    EmitUnencryptedLogTraceBuilder trace_builder;
+    tracegen::GreaterThanTraceBuilder gt_builder;
+    gt_builder.process({ gt_event }, trace);
+    trace_builder.process({ event }, trace);
+
+    FF end_log_address_log_trace = trace.get(C::emit_unencrypted_log_end_log_address, 1);
+    FF end_log_address_gt_trace = trace.get(C::gt_input_a, 0);
+    // This fails because in cpp the underflow is in u64, so gt gets max(u64), while log gets p - 1:
+    EXPECT_EQ(end_log_address_log_trace, end_log_address_gt_trace);
+
+    // Even if we correct it by forcing gt to check p - 1, the lookup expectedly fails (memory is out of bounds for a 0
+    // length log, but error_memory_out_of_bounds = false):
+    trace.set(C::gt_input_a, 1, end_log_address_log_trace);
+    check_relation<emit_unencrypted_log>(trace);
+    check_interaction<EmitUnencryptedLogTraceBuilder, lookup_emit_unencrypted_log_check_memory_out_of_bounds_settings>(
+        trace);
+}
+
 TEST(EmitUnencryptedLogConstrainingTest, ErrorMemoryOutOfBounds)
 {
     AztecAddress address = 0xdeadbeef;
@@ -123,7 +181,7 @@ TEST(EmitUnencryptedLogConstrainingTest, ErrorTooManyLogFields)
     MemoryAddress log_address = 27;
     const std::vector<FF> log_fields = { 4, 5 };
     uint32_t log_size = static_cast<uint32_t>(log_fields.size());
-    // Minus three so header = 2 + log_size = 2 doesn't fit
+    // Minus three so header = 2 + log_size = 4 doesn't fit
     TrackedSideEffects side_effect_states = {
         .public_logs = PublicLogs{ { { testing::random_fields(FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH - 3), address } } }
     };
