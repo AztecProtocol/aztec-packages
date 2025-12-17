@@ -67,18 +67,12 @@ contract RollupConfiguration is IRollupConfiguration, Test {
     });
   }
 
-  function getRewardConfiguration(IRewardDistributor _rewardDistributor) external view returns (RewardConfig memory) {
-    // Default: sequencerBps=8000, checkpointReward=500e18
-    // Mainnet: sequencerBps=7000, checkpointReward=400e18
+  function getRewardConfiguration(IRewardDistributor _rewardDistributor) external pure returns (RewardConfig memory) {
     uint16 sequencerBps;
     uint96 checkpointReward;
-    if (keccak256(bytes(networkName)) == keccak256("mainnet")) {
-      sequencerBps = 7000;
-      checkpointReward = 400e18;
-    } else {
-      sequencerBps = 8000;
-      checkpointReward = 500e18;
-    }
+    sequencerBps = 7000;
+    checkpointReward = 400e18;
+
     return RewardConfig({
       rewardDistributor: _rewardDistributor,
       sequencerBps: Bps.wrap(sequencerBps),
@@ -94,50 +88,13 @@ contract RollupConfiguration is IRollupConfiguration, Test {
   }
 
   function getStakingQueueConfiguration() external view returns (StakingQueueConfig memory) {
-    bytes32 h = keccak256(bytes(networkName));
-
-    if (h == keccak256("staging-public")) {
-      return StakingQueueConfig({
-        bootstrapValidatorSetSize: 48,
-        bootstrapFlushSize: 48,
-        normalFlushSizeMin: 1,
-        normalFlushSizeQuotient: 2475,
-        maxQueueFlushSize: 32
-      });
-    } else if (h == keccak256("testnet")) {
-      return StakingQueueConfig({
-        bootstrapValidatorSetSize: 256,
-        bootstrapFlushSize: 256,
-        normalFlushSizeMin: 4,
-        normalFlushSizeQuotient: 2048,
-        maxQueueFlushSize: 8
-      });
-    } else if (h == keccak256("staging-ignition")) {
-      return StakingQueueConfig({
-        bootstrapValidatorSetSize: 48,
-        bootstrapFlushSize: 48,
-        normalFlushSizeMin: 1,
-        normalFlushSizeQuotient: 2048,
-        maxQueueFlushSize: 24
-      });
-    } else if (h == keccak256("mainnet")) {
-      return StakingQueueConfig({
-        bootstrapValidatorSetSize: 1000,
-        bootstrapFlushSize: 1000,
-        normalFlushSizeMin: 1,
-        normalFlushSizeQuotient: 2048,
-        maxQueueFlushSize: 8
-      });
-    } else {
-      // local, devnet, next-net, etc.
-      return StakingQueueConfig({
-        bootstrapValidatorSetSize: 0,
-        bootstrapFlushSize: 0,
-        normalFlushSizeMin: 48,
-        normalFlushSizeQuotient: 2,
-        maxQueueFlushSize: 48
-      });
-    }
+    return StakingQueueConfig({
+      bootstrapValidatorSetSize: vm.envOr("AZTEC_ENTRY_QUEUE_BOOTSTRAP_VALIDATOR_SET_SIZE", uint256(0)),
+      bootstrapFlushSize: vm.envOr("AZTEC_ENTRY_QUEUE_BOOTSTRAP_FLUSH_SIZE", uint256(0)),
+      normalFlushSizeMin: vm.envOr("AZTEC_ENTRY_QUEUE_FLUSH_SIZE_MIN", uint256(48)),
+      normalFlushSizeQuotient: vm.envOr("AZTEC_ENTRY_QUEUE_FLUSH_SIZE_QUOTIENT", uint256(2)),
+      maxQueueFlushSize: vm.envOr("AZTEC_ENTRY_QUEUE_MAX_FLUSH_SIZE", uint256(48))
+    });
   }
 
   function getRollupConfiguration(IRewardDistributor _rewardDistributor)
@@ -161,7 +118,7 @@ contract RollupConfiguration is IRollupConfiguration, Test {
       lagInEpochsForValidatorSet: vm.envOr("AZTEC_LAG_IN_EPOCHS_FOR_VALIDATOR_SET", uint256(2)),
       lagInEpochsForRandao: vm.envOr("AZTEC_LAG_IN_EPOCHS_FOR_RANDAO", uint256(2)),
       aztecProofSubmissionEpochs: vm.envOr("AZTEC_PROOF_SUBMISSION_EPOCHS", uint256(1)),
-      localEjectionThreshold: vm.envOr("AZTEC_LOCAL_EJECTION_THRESHOLD", uint256(98e18)),
+      localEjectionThreshold: vm.envOr("AZTEC_LOCAL_EJECTION_THRESHOLD", uint256(198e18)),
       slashingQuorum: slashingQuorum,
       slashingRoundSize: slashingRoundSize,
       slashingLifetimeInRounds: vm.envOr("AZTEC_SLASHING_LIFETIME_IN_ROUNDS", uint256(5)),
