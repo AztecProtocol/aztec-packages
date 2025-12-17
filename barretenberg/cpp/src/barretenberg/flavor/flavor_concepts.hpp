@@ -27,6 +27,7 @@ template <typename T>
 concept IsMegaFlavor = IsAnyOf<T, MegaFlavor, MegaZKFlavor, MegaAvmFlavor,
                                     MegaRecursiveFlavor_<UltraCircuitBuilder>,
                                     MegaRecursiveFlavor_<MegaCircuitBuilder>,
+                                    MegaAvmRecursiveFlavor_<UltraCircuitBuilder>,
                                     MegaZKRecursiveFlavor_<MegaCircuitBuilder>,
                                     MegaZKRecursiveFlavor_<UltraCircuitBuilder>>;
 
