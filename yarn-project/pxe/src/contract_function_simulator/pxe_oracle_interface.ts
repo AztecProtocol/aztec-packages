@@ -1,5 +1,4 @@
 import type { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
-import { timesParallel } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { Point } from '@aztec/foundation/curves/grumpkin';
 import { createLogger } from '@aztec/foundation/log';
@@ -34,7 +33,8 @@ import type { CapsuleDataProvider } from '../storage/capsule_data_provider/capsu
 import type { ContractDataProvider } from '../storage/contract_data_provider/contract_data_provider.js';
 import type { NoteDataProvider } from '../storage/note_data_provider/note_data_provider.js';
 import type { PrivateEventDataProvider } from '../storage/private_event_data_provider/private_event_data_provider.js';
-import type { TaggingDataProvider } from '../storage/tagging_data_provider/tagging_data_provider.js';
+import type { RecipientTaggingDataProvider } from '../storage/tagging_data_provider/recipient_tagging_data_provider.js';
+import type { SenderTaggingDataProvider } from '../storage/tagging_data_provider/sender_tagging_data_provider.js';
 import {
   DirectionalAppTaggingSecret,
   SiloedTag,
@@ -53,14 +53,19 @@ import type { ProxiedNode } from './proxied_node.js';
  * A data layer that provides and stores information needed for simulating/proving a transaction.
  */
 export class PXEOracleInterface implements ExecutionDataProvider {
+  // Note: The Aztec node and senderDataProvider are exposed publicly since PXEOracleInterface will be deprecated soon
+  // (issue #17776). When refactoring tagging, it made sense to align with this future change by moving the sender
+  // tagging index sync functionality elsewhere. This required exposing these two properties since there is currently
+  // no alternative way to access them in the PrivateExecutionOracle.
   constructor(
-    private aztecNode: AztecNode | ProxiedNode,
+    public readonly aztecNode: AztecNode | ProxiedNode,
     private keyStore: KeyStore,
     private contractDataProvider: ContractDataProvider,
     private noteDataProvider: NoteDataProvider,
     private capsuleDataProvider: CapsuleDataProvider,
     private anchorBlockDataProvider: AnchorBlockDataProvider,
-    private taggingDataProvider: TaggingDataProvider,
+    public readonly senderTaggingDataProvider: SenderTaggingDataProvider,
+    private recipientTaggingDataProvider: RecipientTaggingDataProvider,
     private addressDataProvider: AddressDataProvider,
     private privateEventDataProvider: PrivateEventDataProvider,
     private log = createLogger('pxe:pxe_oracle_interface'),
@@ -201,11 +206,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
    * @returns The full list of the users contact addresses.
    */
   public getSenders(): Promise<AztecAddress[]> {
-    return this.taggingDataProvider.getSenderAddresses();
-  }
-
-  public getLastUsedIndexAsSender(secret: DirectionalAppTaggingSecret): Promise<number | undefined> {
-    return this.taggingDataProvider.getLastUsedIndexesAsSender(secret);
+    return this.recipientTaggingDataProvider.getSenderAddresses();
   }
 
   public async calculateDirectionalAppTaggingSecret(
@@ -234,8 +235,8 @@ export class PXEOracleInterface implements ExecutionDataProvider {
    * @param recipient - The address receiving the notes
    * @returns A list of directional app tagging secrets along with the last used tagging indexes. If the corresponding
    * secret was never used, the index is undefined.
-   * TODO(benesjan): The naming here is broken as the function name does not reflect the return type. Fix when associating
-   * indexes with tx hash.
+   * TODO(#17775): The naming here is broken as the function name does not reflect the return type. Make sure this gets
+   * fixed when implementing the linked issue.
    */
   async #getLastUsedTaggingIndexesForSenders(
     contractAddress: AztecAddress,
@@ -247,7 +248,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     // We implicitly add all PXE accounts as senders, this helps us decrypt tags on notes that we send to ourselves
     // (recipient = us, sender = us)
     const senders = [
-      ...(await this.taggingDataProvider.getSenderAddresses()),
+      ...(await this.recipientTaggingDataProvider.getSenderAddresses()),
       ...(await this.keyStore.getAccounts()),
     ].filter((address, index, self) => index === self.findIndex(otherAddress => otherAddress.equals(address)));
     const secrets = await Promise.all(
@@ -261,7 +262,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
         );
       }),
     );
-    const indexes = await this.taggingDataProvider.getLastUsedIndexesAsRecipient(secrets);
+    const indexes = await this.recipientTaggingDataProvider.getLastUsedIndexes(secrets);
     if (indexes.length !== secrets.length) {
       throw new Error('Indexes and directional app tagging secrets have different lengths');
     }
@@ -272,80 +273,9 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     }));
   }
 
-  public async syncTaggedLogsAsSender(
-    secret: DirectionalAppTaggingSecret,
-    contractAddress: AztecAddress,
-  ): Promise<void> {
-    const lastUsedIndex = await this.taggingDataProvider.getLastUsedIndexesAsSender(secret);
-    // If lastUsedIndex is undefined, we've never used this secret, so start from 0
-    // Otherwise, start from one past the last used index
-    const startIndex = lastUsedIndex === undefined ? 0 : lastUsedIndex + 1;
-
-    // This algorithm works such that:
-    // 1. If we find minimum consecutive empty logs in a window of logs we set the index to the index of the last log
-    // we found and quit.
-    // 2. If we don't find minimum consecutive empty logs in a window of logs we slide the window to latest log index
-    // and repeat the process.
-    const MIN_CONSECUTIVE_EMPTY_LOGS = 10;
-    const WINDOW_SIZE = MIN_CONSECUTIVE_EMPTY_LOGS * 2;
-
-    let [numConsecutiveEmptyLogs, currentIndex] = [0, startIndex];
-    let lastFoundLogIndex: number | undefined = undefined;
-    do {
-      // We compute the tags for the current window of indexes
-      const currentTags = await timesParallel(WINDOW_SIZE, async i => {
-        return SiloedTag.compute(await Tag.compute({ secret, index: currentIndex + i }), contractAddress);
-      });
-
-      // We fetch the logs for the tags
-      // TODO: The following conversion is unfortunate and we should most likely just type the #getPrivateLogsByTags
-      // to accept SiloedTag[] instead of Fr[]. That would result in a large change so I didn't do it yet.
-      const tagsAsFr = currentTags.map(tag => tag.value);
-      const possibleLogs = await this.#getPrivateLogsByTags(tagsAsFr);
-
-      // We find the index of the last log in the window that is not empty
-      const indexOfLastLogWithinArray = possibleLogs.findLastIndex(possibleLog => possibleLog.length !== 0);
-
-      if (indexOfLastLogWithinArray === -1) {
-        // We haven't found any logs in the current window so we stop looking
-        break;
-      }
-
-      // We've found logs so we update the last found log index
-      lastFoundLogIndex = (lastFoundLogIndex ?? 0) + indexOfLastLogWithinArray;
-      // We move the current index to that of the log right after the last found log
-      currentIndex = lastFoundLogIndex + 1;
-
-      // We compute the number of consecutive empty logs we found and repeat the process if we haven't found enough.
-      numConsecutiveEmptyLogs = WINDOW_SIZE - indexOfLastLogWithinArray - 1;
-    } while (numConsecutiveEmptyLogs < MIN_CONSECUTIVE_EMPTY_LOGS);
-
-    const contractName = await this.contractDataProvider.getDebugContractName(contractAddress);
-    if (lastFoundLogIndex !== undefined) {
-      // Last found index is defined meaning we have actually found logs so we update the last used index
-      await this.taggingDataProvider.setLastUsedIndexesAsSender([{ secret, index: lastFoundLogIndex }]);
-
-      this.log.debug(`Syncing logs for secret ${secret.toString()} at contract ${contractName}(${contractAddress})`, {
-        index: currentIndex,
-        contractName,
-        contractAddress,
-      });
-    } else {
-      this.log.debug(
-        `No new logs found for secret ${secret.toString()} at contract ${contractName}(${contractAddress})`,
-      );
-    }
-  }
-
-  /**
-   * Synchronizes the private logs tagged with scoped addresses and all the senders in the address book. Stores the found
-   * logs in CapsuleArray ready for a later retrieval in Aztec.nr.
-   * @param contractAddress - The address of the contract that the logs are tagged for.
-   * @param pendingTaggedLogArrayBaseSlot - The base slot of the pending tagged logs capsule array in which
-   * found logs will be stored.
-   * @param scopes - The scoped addresses to sync logs for. If not provided, all accounts in the address book will be
-   * synced.
-   */
+  // TODO(#17775): Replace this implementation of this function with one implementing an approach similar
+  // to syncSenderTaggingIndexes. Not done yet due to re-prioritization to devex and this doesn't directly affect
+  // devex.
   public async syncTaggedLogs(
     contractAddress: AztecAddress,
     pendingTaggedLogArrayBaseSlot: Fr,
@@ -435,7 +365,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
               filteredLogsByBlockNumber,
             );
 
-            // We retrieve the pre tag corresponding to the log as I need that to evaluate whether
+            // We retrieve the pre-tag corresponding to the log as I need that to evaluate whether
             // a new largest index have been found.
             const preTagCorrespondingToLog = preTagsForTheWholeWindow[logIndex];
             const initialIndex = initialIndexesMap[preTagCorrespondingToLog.secret.toString()];
@@ -492,7 +422,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
       // At this point we have processed all the logs for the recipient so we store the last used indexes in the db.
       // newLargestIndexMapToStore contains "next" indexes to look for (one past the last found), so subtract 1 to get
       // last used.
-      await this.taggingDataProvider.setLastUsedIndexesAsRecipient(
+      await this.recipientTaggingDataProvider.setLastUsedIndexes(
         Object.entries(newLargestIndexMapToStore).map(([directionalAppTaggingSecret, index]) => ({
           secret: DirectionalAppTaggingSecret.fromString(directionalAppTaggingSecret),
           index: index - 1,

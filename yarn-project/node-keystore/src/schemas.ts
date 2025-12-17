@@ -97,8 +97,8 @@ const proverKeyStoreSchema = z.union([
     .strict(),
 ]);
 
-// Validator keystore schema
-const validatorKeyStoreSchema = z
+// Validator keystore schema for v1 (feeRecipient required)
+const validatorKeyStoreSchemaV1 = z
   .object({
     attester: attesterAccountsSchema,
     coinbase: optional(schemas.EthAddress),
@@ -109,11 +109,23 @@ const validatorKeyStoreSchema = z
   })
   .strict();
 
-// Main keystore schema
-export const keystoreSchema = z
+// Validator keystore schema for v2 (feeRecipient optional, can fall back to top-level)
+const validatorKeyStoreSchemaV2 = z
+  .object({
+    attester: attesterAccountsSchema,
+    coinbase: optional(schemas.EthAddress),
+    publisher: optional(ethAccountsSchema),
+    feeRecipient: optional(AztecAddress.schema),
+    remoteSigner: optional(remoteSignerConfigSchema),
+    fundingAccount: optional(ethAccountSchema),
+  })
+  .strict();
+
+// Schema v1 - original format
+const keystoreSchemaV1 = z
   .object({
     schemaVersion: z.literal(1),
-    validators: optional(z.array(validatorKeyStoreSchema)),
+    validators: optional(z.array(validatorKeyStoreSchemaV1)),
     slasher: optional(ethAccountsSchema),
     remoteSigner: optional(remoteSignerConfigSchema),
     prover: optional(proverKeyStoreSchema),
@@ -124,3 +136,40 @@ export const keystoreSchema = z
     message: 'Keystore must have at least validators or prover configuration',
     path: ['root'],
   });
+
+// Schema v2 - adds top-level publisher, coinbase, feeRecipient
+const keystoreSchemaV2 = z
+  .object({
+    schemaVersion: z.literal(2),
+    validators: optional(z.array(validatorKeyStoreSchemaV2)),
+    slasher: optional(ethAccountsSchema),
+    remoteSigner: optional(remoteSignerConfigSchema),
+    prover: optional(proverKeyStoreSchema),
+    fundingAccount: optional(ethAccountSchema),
+    publisher: optional(ethAccountsSchema),
+    coinbase: optional(schemas.EthAddress),
+    feeRecipient: optional(AztecAddress.schema),
+  })
+  .strict()
+  .refine(data => data.validators || data.prover, {
+    message: 'Keystore must have at least validators or prover configuration',
+    path: ['root'],
+  })
+  .refine(
+    data => {
+      // If validators are present, ensure each validator has a feeRecipient or there's a top-level feeRecipient
+      if (data.validators) {
+        const hasTopLevelFeeRecipient = !!data.feeRecipient;
+        const allValidatorsHaveFeeRecipient = data.validators.every(v => v.feeRecipient);
+        return hasTopLevelFeeRecipient || allValidatorsHaveFeeRecipient;
+      }
+      return true;
+    },
+    {
+      message: 'Each validator must have a feeRecipient, or a top-level feeRecipient must be set for all validators',
+      path: ['feeRecipient'],
+    },
+  );
+
+// Main keystore schema - accepts both v1 and v2
+export const keystoreSchema = z.union([keystoreSchemaV1, keystoreSchemaV2]);

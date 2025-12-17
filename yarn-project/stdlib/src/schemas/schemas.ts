@@ -94,6 +94,7 @@ export const NullishToUndefined = (schema: ZodFor<any>) => schema.nullish().tran
 
 export {
   type ZodFor,
+  zodFor,
   bufferSchema,
   hexSchema,
   hexSchemaFor,

@@ -1,7 +1,7 @@
 import type { BlobJson } from '@aztec/blob-lib/types';
 import { createLogger } from '@aztec/foundation/log';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
-import { type ZodFor, schemas } from '@aztec/foundation/schemas';
+import { schemas, zodFor } from '@aztec/foundation/schemas';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { z } from 'zod';
@@ -9,38 +9,40 @@ import { z } from 'zod';
 import { BlobArchiveClientInstrumentation } from './instrumentation.js';
 import type { BlobArchiveClient } from './interface.js';
 
-export const BlobscanBlockResponseSchema = z
-  .object({
-    hash: z.string(),
-    slot: z.number().int(),
-    number: z.number().int(),
-    transactions: z.array(
-      z.object({
-        hash: z.string(),
-        blobs: z.array(
-          z.object({
-            versionedHash: z.string(),
-            data: z.string(),
-            commitment: z.string(),
-            proof: z.string(),
-            size: z.number().int(),
-            index: z.number().int().optional(), // This is the index within the tx, not within the block!
-          }),
-        ),
-      }),
+export const BlobscanBlockResponseSchema = zodFor<BlobJson[]>()(
+  z
+    .object({
+      hash: z.string(),
+      slot: z.number().int(),
+      number: z.number().int(),
+      transactions: z.array(
+        z.object({
+          hash: z.string(),
+          blobs: z.array(
+            z.object({
+              versionedHash: z.string(),
+              data: z.string(),
+              commitment: z.string(),
+              proof: z.string(),
+              size: z.number().int(),
+              index: z.number().int().optional(), // This is the index within the tx, not within the block!
+            }),
+          ),
+        }),
+      ),
+    })
+    .transform(data =>
+      data.transactions
+        .flatMap(tx =>
+          tx.blobs.map(blob => ({
+            blob: blob.data,
+            // eslint-disable-next-line camelcase
+            kzg_commitment: blob.commitment,
+          })),
+        )
+        .map((blob, index) => ({ ...blob, index: index.toString() })),
     ),
-  })
-  .transform(data =>
-    data.transactions
-      .flatMap(tx =>
-        tx.blobs.map(blob => ({
-          blob: blob.data,
-          // eslint-disable-next-line camelcase
-          kzg_commitment: blob.commitment,
-        })),
-      )
-      .map((blob, index) => ({ ...blob, index: index.toString() })),
-  ) satisfies ZodFor<BlobJson[]>;
+);
 
 // Response from https://api.blobscan.com/blocks?sort=desc&type=canonical
 export const BlobscanBlocksResponseSchema = z.object({
