@@ -1,6 +1,5 @@
 import type { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { Point } from '@aztec/foundation/curves/grumpkin';
 import { createLogger } from '@aztec/foundation/log';
 import type { KeyStore } from '@aztec/key-store';
 import { EventSelector } from '@aztec/stdlib/abi';
@@ -8,14 +7,12 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { BlockParameter, DataInBlock, L2Block } from '@aztec/stdlib/block';
 import { computeUniqueNoteHash, siloNoteHash, siloNullifier, siloPrivateLog } from '@aztec/stdlib/hash';
 import { type AztecNode, MAX_RPC_LEN } from '@aztec/stdlib/interfaces/client';
-import { computeAddressSecret } from '@aztec/stdlib/keys';
 import {
   PendingTaggedLog,
   PrivateLogWithTxData,
   PublicLog,
   PublicLogWithTxData,
   TxScopedL2Log,
-  deriveEcdhSharedSecret,
 } from '@aztec/stdlib/logs';
 import { getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
 import { Note, NoteDao } from '@aztec/stdlib/note';
@@ -839,16 +836,6 @@ export class PXEOracleInterface implements ExecutionDataProvider {
 
   copyCapsule(contractAddress: AztecAddress, srcSlot: Fr, dstSlot: Fr, numEntries: number): Promise<void> {
     return this.capsuleDataProvider.copyCapsule(contractAddress, srcSlot, dstSlot, numEntries);
-  }
-
-  async getSharedSecret(address: AztecAddress, ephPk: Point): Promise<Point> {
-    // TODO(#12656): return an app-siloed secret
-    const recipientCompleteAddress = await getCompleteAddress(address, this.addressDataProvider);
-    const ivskM = await this.keyStore.getMasterSecretKey(
-      recipientCompleteAddress.publicKeys.masterIncomingViewingPublicKey,
-    );
-    const addressSecret = await computeAddressSecret(await recipientCompleteAddress.getPreaddress(), ivskM);
-    return deriveEcdhSharedSecret(addressSecret, ephPk);
   }
 
   // TODO(#12656): Make this a public function on the AztecNode interface and remove the original getLogsByTags. This

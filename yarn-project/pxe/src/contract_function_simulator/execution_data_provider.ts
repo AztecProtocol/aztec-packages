@@ -1,7 +1,6 @@
 import type { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
 import type { BlockNumber } from '@aztec/foundation/branded-types';
 import type { Fr } from '@aztec/foundation/curves/bn254';
-import type { Point } from '@aztec/foundation/curves/grumpkin';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2Block } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
@@ -219,14 +218,6 @@ export interface ExecutionDataProvider {
    * @param numEntries - The number of entries to copy.
    */
   copyCapsule(contractAddress: AztecAddress, srcSlot: Fr, dstSlot: Fr, numEntries: number): Promise<void>;
-
-  /**
-   * Retrieves the shared secret for a given address and ephemeral public key.
-   * @param address - The address to get the secret for.
-   * @param ephPk - The ephemeral public key to get the secret for.
-   * @returns The secret for the given address.
-   */
-  getSharedSecret(address: AztecAddress, ephPk: Point): Promise<Point>;
 
   /**
    * Returns the execution statistics collected during the simulator run.

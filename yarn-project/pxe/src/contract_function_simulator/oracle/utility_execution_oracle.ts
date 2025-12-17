@@ -17,7 +17,7 @@ import type { AddressDataProvider, ContractDataProvider, NoteDataProvider } from
 import type { ExecutionDataProvider } from '../execution_data_provider.js';
 import { UtilityContext } from '../noir-structs/utility_context.js';
 import { pickNotes } from '../pick_notes.js';
-import { getCompleteAddress, getContractInstance, getNotes } from './common.js';
+import { getCompleteAddress, getContractInstance, getNotes, getSharedSecret } from './common.js';
 import type { IMiscOracle, IUtilityExecutionOracle, NoteData } from './interfaces.js';
 
 /**
@@ -374,6 +374,6 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   }
 
   public utilityGetSharedSecret(address: AztecAddress, ephPk: Point): Promise<Point> {
-    return this.executionDataProvider.getSharedSecret(address, ephPk);
+    return getSharedSecret(address, ephPk, this.addressDataProvider, this.keyStore);
   }
 }

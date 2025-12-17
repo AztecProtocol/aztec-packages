@@ -1,9 +1,11 @@
 import type { Fr } from '@aztec/foundation/curves/bn254';
+import type { Point } from '@aztec/foundation/curves/grumpkin';
 import type { KeyStore } from '@aztec/key-store';
 import type { FunctionArtifactWithContractName, FunctionSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { CompleteAddress, ContractInstance } from '@aztec/stdlib/contract';
-import { DirectionalAppTaggingSecret } from '@aztec/stdlib/logs';
+import { computeAddressSecret } from '@aztec/stdlib/keys';
+import { DirectionalAppTaggingSecret, deriveEcdhSharedSecret } from '@aztec/stdlib/logs';
 import type { NoteStatus } from '@aztec/stdlib/note';
 
 import type { AddressDataProvider, ContractDataProvider, NoteDataProvider } from '../../storage/index.js';
@@ -92,4 +94,17 @@ export async function calculateDirectionalAppTaggingSecret(
   const senderCompleteAddress = await getCompleteAddress(sender, addressDataProvider);
   const senderIvsk = await keyStore.getMasterIncomingViewingSecretKey(sender);
   return DirectionalAppTaggingSecret.compute(senderCompleteAddress, senderIvsk, recipient, contractAddress, recipient);
+}
+
+export async function getSharedSecret(
+  address: AztecAddress,
+  ephPk: Point,
+  addressDataProvider: AddressDataProvider,
+  keyStore: KeyStore,
+): Promise<Point> {
+  // TODO(#12656): return an app-siloed secret
+  const recipientCompleteAddress = await getCompleteAddress(address, addressDataProvider);
+  const ivskM = await keyStore.getMasterSecretKey(recipientCompleteAddress.publicKeys.masterIncomingViewingPublicKey);
+  const addressSecret = await computeAddressSecret(await recipientCompleteAddress.getPreaddress(), ivskM);
+  return deriveEcdhSharedSecret(addressSecret, ephPk);
 }
