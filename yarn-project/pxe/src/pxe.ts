@@ -190,10 +190,15 @@ export class PXE {
   // Internal methods
 
   #getSimulatorForTx(overrides?: { contracts?: ContractOverrides }) {
+    const proxyContractDataProvider = ProxiedContractDataProviderFactory.create(
+      this.contractDataProvider,
+      overrides?.contracts,
+    );
+
     const pxeOracleInterface = new PXEOracleInterface(
       ProxiedNodeFactory.create(this.node),
       this.keyStore,
-      ProxiedContractDataProviderFactory.create(this.contractDataProvider, overrides?.contracts),
+      proxyContractDataProvider,
       this.noteDataProvider,
       this.capsuleDataProvider,
       this.anchorBlockDataProvider,
@@ -205,7 +210,7 @@ export class PXE {
     );
     return new ContractFunctionSimulator(
       pxeOracleInterface,
-      this.contractDataProvider,
+      proxyContractDataProvider,
       this.noteDataProvider,
       this.keyStore,
       this.addressDataProvider,
