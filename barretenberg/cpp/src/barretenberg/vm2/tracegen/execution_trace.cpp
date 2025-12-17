@@ -468,11 +468,12 @@ void ExecutionTraceBuilder::process(
 
         // Note that if addressing did not fail, register reading will not fail.
         std::array<MemoryValue, AVM_MAX_REGISTERS> registers;
-        std::ranges::fill(registers, MemoryValue::from<FF>(0));
+        std::ranges::fill(registers, MemoryValue::from_tag(static_cast<MemoryTag>(0), 0));
         const bool should_process_registers = instruction_fetching_success && !addressing_failed;
         const bool register_processing_failed = ex_event.error == ExecutionError::REGISTER_READ;
         if (should_process_registers) {
-            process_registers(*exec_opcode, ex_event.inputs, ex_event.output, registers, trace, row);
+            process_registers(
+                *exec_opcode, ex_event.inputs, ex_event.output, registers, register_processing_failed, trace, row);
         }
 
         /**************************************************************************************************
@@ -999,6 +1000,7 @@ void ExecutionTraceBuilder::process_registers(ExecutionOpCode exec_opcode,
                                               const std::vector<MemoryValue>& inputs,
                                               const MemoryValue& output,
                                               std::span<MemoryValue> registers,
+                                              bool register_processing_failed,
                                               TraceContainer& trace,
                                               uint32_t row)
 {
@@ -1006,7 +1008,9 @@ void ExecutionTraceBuilder::process_registers(ExecutionOpCode exec_opcode,
     // At this point we can assume instruction fetching succeeded, so this should never fail.
     const auto& register_info = get_exec_instruction_spec().at(exec_opcode).register_info;
 
-    // Registers.
+    // Registers. We set all of them here, even the write ones. This is fine because
+    // if an error occured before the register write group, simulation would pass the default
+    // value-tag (0, 0). Furthermore, the permutation of the memory write would not be activated.
     size_t input_counter = 0;
     for (uint8_t i = 0; i < AVM_MAX_REGISTERS; ++i) {
         if (register_info.is_active(i)) {
@@ -1015,8 +1019,11 @@ void ExecutionTraceBuilder::process_registers(ExecutionOpCode exec_opcode,
                 registers[i] = output;
             } else {
                 // If this is a read operation, we need to get the value from the input.
-                auto input = inputs.size() > input_counter ? inputs.at(input_counter) : MemoryValue::from<FF>(0);
-                registers[i] = input;
+
+                // Register specifications must be consistent with the number of inputs.
+                BB_ASSERT(inputs.size() > input_counter, "Not enough inputs for register read");
+
+                registers[i] = inputs.at(input_counter);
                 input_counter++;
             }
         }
@@ -1032,19 +1039,8 @@ void ExecutionTraceBuilder::process_registers(ExecutionOpCode exec_opcode,
         }
     }
 
-    // Tag check.
-    bool some_tag_check_failed = false;
-    for (size_t i = 0; i < AVM_MAX_REGISTERS; i++) {
-        if (register_info.need_tag_check(i)) {
-            if (registers[i].get_tag() != *register_info.expected_tag(i)) {
-                some_tag_check_failed = true;
-                break;
-            }
-        }
-    }
-
     FF batched_tags_diff_reg = 0;
-    if (some_tag_check_failed) {
+    if (register_processing_failed) {
         FF power_of_2 = 1;
         for (size_t i = 0; i < AVM_MAX_REGISTERS; ++i) {
             if (register_info.need_tag_check(i)) {
@@ -1059,7 +1055,7 @@ void ExecutionTraceBuilder::process_registers(ExecutionOpCode exec_opcode,
               { {
                   { C::execution_sel_should_read_registers, 1 },
                   { C::execution_batched_tags_diff_inv_reg, batched_tags_diff_reg }, // Will be inverted in batch.
-                  { C::execution_sel_register_read_error, some_tag_check_failed ? 1 : 0 },
+                  { C::execution_sel_register_read_error, register_processing_failed ? 1 : 0 },
               } });
 }
 

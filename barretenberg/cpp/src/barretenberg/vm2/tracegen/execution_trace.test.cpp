@@ -71,7 +71,9 @@ ExecutionEvent create_call_event(uint32_t context_id,
     ex_event.next_context_id = next_context_id;
     ex_event.inputs = { /*allocated_l2_gas_read=*/MemoryValue::from<uint32_t>(10),
                         /*allocated_da_gas_read=*/MemoryValue ::from<uint32_t>(11),
-                        /*contract_address=*/MemoryValue::from<uint32_t>(0xdeadbeef) };
+                        /*contract_address=*/
+                        MemoryValue::from<uint32_t>(0xdeadbeef),
+                        /*cd_size=*/MemoryValue::from<uint32_t>(0) };
     return ex_event;
 }
 
@@ -169,7 +171,8 @@ TEST(ExecutionTraceGenTest, Call)
         .wire_instruction = call_instr,
         .inputs = { /*allocated_l2_gas_read=*/MemoryValue::from<uint32_t>(allocated_gas.l2_gas),
                     /*allocated_da_gas_read=*/MemoryValue ::from<uint32_t>(allocated_gas.da_gas),
-                    /*contract_address=*/MemoryValue::from<FF>(0xdeadbeef) },
+                    /*contract_address=*/MemoryValue::from<FF>(0xdeadbeef),
+                    /*cd_size=*/MemoryValue::from<uint32_t>(0) },
         .next_context_id = 2,
         .addressing_event = { .instruction = call_instr,
                               .resolution_info = {
@@ -657,6 +660,7 @@ TEST(ExecutionTraceGenTest, JumpiWrongTag)
                            .build();
 
     ExecutionEvent ex_event_jumpi = {
+        .error = simulation::ExecutionError::REGISTER_READ,
         .wire_instruction = instr,
         .inputs = { MemoryValue::from<uint8_t>(1) }, // Conditional value with tag != U1
         .addressing_event = { .instruction = instr,
@@ -676,7 +680,7 @@ TEST(ExecutionTraceGenTest, JumpiWrongTag)
                     AllOf(ROW_FIELD_EQ(execution_sel, 0)),
                     // Second row is the jumpi
                     AllOf(ROW_FIELD_EQ(execution_sel, 1),
-                          ROW_FIELD_EQ(execution_sel_execute_jumpi, 1),
+                          ROW_FIELD_EQ(execution_sel_execute_jumpi, 0), // Inactive because of register read error
                           ROW_FIELD_EQ(execution_rop_0_, 654),
                           ROW_FIELD_EQ(execution_rop_1_, 9876),
                           ROW_FIELD_EQ(execution_register_0_, 1),
