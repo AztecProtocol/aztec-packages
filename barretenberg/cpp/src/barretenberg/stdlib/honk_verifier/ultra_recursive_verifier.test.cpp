@@ -141,12 +141,14 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
         RecursiveVerifier verifier{ stdlib_vk_and_hash };
 
         // Spot check some values in the recursive VK to ensure it was constructed correctly
-        EXPECT_EQ(static_cast<uint64_t>(verifier.verifier_instance->vk_and_hash->vk->log_circuit_size.get_value()),
-                  honk_vk->log_circuit_size);
-        EXPECT_EQ(static_cast<uint64_t>(verifier.verifier_instance->vk_and_hash->vk->num_public_inputs.get_value()),
-                  honk_vk->num_public_inputs);
+        EXPECT_EQ(
+            static_cast<uint64_t>(verifier.get_verifier_instance()->vk_and_hash->vk->log_circuit_size.get_value()),
+            honk_vk->log_circuit_size);
+        EXPECT_EQ(
+            static_cast<uint64_t>(verifier.get_verifier_instance()->vk_and_hash->vk->num_public_inputs.get_value()),
+            honk_vk->num_public_inputs);
         for (auto [vk_poly, native_vk_poly] :
-             zip_view(verifier.verifier_instance->vk_and_hash->vk->get_all(), honk_vk->get_all())) {
+             zip_view(verifier.get_verifier_instance()->vk_and_hash->vk->get_all(), honk_vk->get_all())) {
             EXPECT_EQ(vk_poly.get_value(), native_vk_poly);
         }
     }
@@ -229,8 +231,9 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
         OuterBuilder outer_circuit;
         auto stdlib_vk_and_hash =
             std::make_shared<typename RecursiveFlavor::VKAndHash>(outer_circuit, verification_key);
-        RecursiveVerifier verifier{ stdlib_vk_and_hash };
-        verifier.transcript->enable_manifest();
+        auto recursive_transcript = std::make_shared<typename RecursiveFlavor::Transcript>();
+        recursive_transcript->enable_manifest();
+        RecursiveVerifier verifier{ stdlib_vk_and_hash, recursive_transcript };
 
         OuterStdlibProof stdlib_inner_proof(outer_circuit, inner_proof);
         VerifierOutput output = verifier.verify_proof(stdlib_inner_proof);
@@ -253,8 +256,9 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
         // Check 1: Perform native verification then perform the pairing on the outputs of the recursive
         // verifier and check that the result agrees.
         auto vk_and_hash = std::make_shared<typename InnerFlavor::VKAndHash>(verification_key);
-        InnerVerifier native_verifier(vk_and_hash);
-        native_verifier.transcript->enable_manifest();
+        auto native_transcript = std::make_shared<typename InnerFlavor::Transcript>();
+        native_transcript->enable_manifest();
+        InnerVerifier native_verifier(vk_and_hash, native_transcript);
         // inner_proof already contains combined honk + IPA for rollup flavors
         bool native_result = native_verifier.verify_proof(inner_proof).result;
 
@@ -268,8 +272,8 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
 
         // Check 2: Ensure that the underlying native and recursive verification algorithms agree by ensuring
         // the manifests produced by each agree.
-        auto recursive_manifest = verifier.transcript->get_manifest();
-        auto native_manifest = native_verifier.transcript->get_manifest();
+        auto recursive_manifest = verifier.get_transcript()->get_manifest();
+        auto native_manifest = native_verifier.get_transcript()->get_manifest();
         for (size_t i = 0; i < recursive_manifest.size(); ++i) {
             EXPECT_EQ(recursive_manifest[i], native_manifest[i]);
         }

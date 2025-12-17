@@ -65,6 +65,18 @@ template <typename Flavor> struct UltraVerifierOutput {
     bool result = false;
     typename Flavor::Commitment kernel_return_data;
     std::array<Commitment, Flavor::NUM_WIRES> ecc_op_tables;
+
+    UltraVerifierOutput() = default;
+
+    template <class IO> UltraVerifierOutput(IO& inputs)
+    {
+        if constexpr (std::is_same_v<IO, HidingKernelIO>) {
+            kernel_return_data = inputs.kernel_return_data;
+            ecc_op_tables = inputs.ecc_op_tables;
+        } else if constexpr (!std::is_same_v<IO, DefaultIO> && !std::is_same_v<IO, RollupIO>) {
+            throw_or_abort("Invalid public input type.");
+        }
+    }
 };
 
 // Instance type selection helper
@@ -161,14 +173,21 @@ template <typename Flavor, class IO> class UltraVerifier_ {
 
     /**
      * @brief Split a combined rollup proof into honk and IPA components
-     * @details Only callable for Rollup flavors (HasIPAAccumulator<Flavor> must be true)
      * @param combined_proof The concatenated [honk_proof | ipa_proof]
      * @return std::pair<Proof, Proof> The {honk_proof, ipa_proof} pair
      */
     std::pair<Proof, Proof> split_rollup_proof(const Proof& combined_proof) const
         requires(HasIPAAccumulator<Flavor>);
 
-  public:
+    /**
+     * @brief Verify IPA proof for rollup circuits (native verifier only)
+     * @param ipa_proof The IPA proof to verify
+     * @param ipa_claim The IPA opening claim from public inputs
+     * @return bool True if IPA verification succeeds
+     */
+    bool verify_ipa(const Proof& ipa_proof, const IPAClaim& ipa_claim)
+        requires(!IsRecursiveFlavor<Flavor> && HasIPAAccumulator<Flavor>);
+
     /**
      * @brief Perform ultra verification
      * @details
@@ -183,6 +202,17 @@ template <typename Flavor, class IO> class UltraVerifier_ {
      */
     Output verify_proof(const Proof& proof);
 
+    /**
+     * @brief Get the transcript (for accessing manifest in tests)
+     */
+    const std::shared_ptr<Transcript>& get_transcript() const { return transcript; }
+
+    /**
+     * @brief Get the verifier instance (for accessing VK and witness commitments in Chonk/Goblin)
+     */
+    const std::shared_ptr<Instance>& get_verifier_instance() const { return verifier_instance; }
+
+  private:
     std::shared_ptr<VKAndHash> vk_and_hash;
     std::shared_ptr<Instance> verifier_instance;
     std::shared_ptr<Transcript> transcript;

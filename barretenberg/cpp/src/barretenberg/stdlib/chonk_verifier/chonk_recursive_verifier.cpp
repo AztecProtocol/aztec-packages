@@ -28,13 +28,15 @@ ChonkRecursiveVerifier::Output ChonkRecursiveVerifier::verify(const StdlibProof&
     MegaVerifier::Output mega_output = verifier.verify_proof(proof.mega_proof);
 
     // Perform databus consistency checks
-    mega_output.kernel_return_data.incomplete_assert_equal(verifier.verifier_instance->witness_commitments.calldata);
+    mega_output.kernel_return_data.incomplete_assert_equal(
+        verifier.get_verifier_instance()->witness_commitments.calldata);
 
     // Perform Goblin recursive verification
     // Reduces Goblin proof to pairing points and IPA claim. In recursive mode, the all_checks_passed flag only includes
     // reduction checks that should be viewed as debugging hints.
     MergeCommitments merge_commitments{
-        .t_commitments = verifier.verifier_instance->witness_commitments.get_ecc_op_wires()
+        .t_commitments = verifier.get_verifier_instance()
+                             ->witness_commitments.get_ecc_op_wires()
                              .get_copy(), // Commitments to subtables added by the hiding kernel
         .T_prev_commitments = std::move(mega_output.ecc_op_tables) // Commitments to the state of the ecc op_queue as
                                                                    // computed insided the hiding kernel

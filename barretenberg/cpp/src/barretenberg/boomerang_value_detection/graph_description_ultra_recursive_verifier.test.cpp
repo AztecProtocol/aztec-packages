@@ -112,10 +112,10 @@ template <typename RecursiveFlavor> class BoomerangRecursiveVerifierTest : publi
         auto stdlib_vk_and_hash =
             std::make_shared<typename RecursiveFlavor::VKAndHash>(outer_circuit, verification_key);
         RecursiveVerifier verifier{ stdlib_vk_and_hash };
-        verifier.verifier_instance->vk_and_hash->vk->num_public_inputs.fix_witness();
-        verifier.verifier_instance->vk_and_hash->vk->pub_inputs_offset.fix_witness();
+        verifier.get_verifier_instance()->vk_and_hash->vk->num_public_inputs.fix_witness();
+        verifier.get_verifier_instance()->vk_and_hash->vk->pub_inputs_offset.fix_witness();
         // It's currently un-used
-        verifier.verifier_instance->vk_and_hash->vk->log_circuit_size.fix_witness();
+        verifier.get_verifier_instance()->vk_and_hash->vk->log_circuit_size.fix_witness();
 
         StdlibProof stdlib_inner_proof(outer_circuit, inner_proof);
         VerifierOutput output = verifier.verify_proof(stdlib_inner_proof);

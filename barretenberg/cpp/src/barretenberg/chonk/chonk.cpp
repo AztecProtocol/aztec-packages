@@ -577,7 +577,8 @@ bool Chonk::verify(const Proof& proof, const VerificationKey& vk)
     }
 
     // Step 2: Perform databus consistency checks
-    bool databus_consistency_verified = kernel_return_data == verifier.verifier_instance->witness_commitments.calldata;
+    bool databus_consistency_verified =
+        kernel_return_data == verifier.get_verifier_instance()->witness_commitments.calldata;
     vinfo("Databus consistency verified: ", databus_consistency_verified);
     if (!databus_consistency_verified) {
         info("Chonk verification failed at databus consistency check");
@@ -585,7 +586,8 @@ bool Chonk::verify(const Proof& proof, const VerificationKey& vk)
     }
 
     // Extract the commitments to the subtable corresponding to the incoming circuit
-    TableCommitments t_commitments = verifier.verifier_instance->witness_commitments.get_ecc_op_wires().get_copy();
+    TableCommitments t_commitments =
+        verifier.get_verifier_instance()->witness_commitments.get_ecc_op_wires().get_copy();
 
     // Step 3: Goblin verification (merge, eccvm, translator)
     // Reduces Goblin proof to pairing points and IPA claim. In native mode, pairing checks are performed

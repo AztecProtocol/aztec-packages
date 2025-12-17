@@ -136,7 +136,7 @@ class AvmGoblinRecursiveVerifier {
 
         // Recursively verify the goblin proof\pi_G in the Ultra circuit
         MergeCommitments merge_commitments{
-            .t_commitments = mega_verifier.verifier_instance->witness_commitments.get_ecc_op_wires().get_copy(),
+            .t_commitments = mega_verifier.get_verifier_instance()->witness_commitments.get_ecc_op_wires().get_copy(),
             .T_prev_commitments = stdlib::recursion::honk::empty_ecc_op_tables(
                 ultra_builder) // Empty ecc op tables because there is only one layer of Goblin
         };
