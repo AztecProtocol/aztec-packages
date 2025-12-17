@@ -48,86 +48,79 @@ This is efficient because $|G| \leq |H|$ (the subgroup size), avoiding the expon
 
 ## Protocol Description
 
-### Witness Polynomial $G$
+# inner products using KZG with zk and linear time verifier
 
-For ZK-Sumcheck, $G$ is the masked concatenated Libra polynomial:
+The construction here is used
+as a component in [zk honk](https://hackmd.io/aQgy7oX5Rwq3cz75qPlJ4g).
 
-$$G = (\text{libra\_constant}, g_{0,0}, \ldots, g_{0,L-1}, \ldots, g_{d-1,0}, \ldots, g_{d-1,L-1})$$
+## Setting:
+Fix integer parameter $m$.
+We want a
+- Commitment algorithm $(u,r)->com_r(u)$. Where $u\in F^m, r\in F^2$. ($r$ is the randomness of the commitment scheme.)
 
-Masked by adding $(r_0 + r_1 X) \cdot Z_H(X)$ where $Z_H$ is the vanishing polynomial over subgroup $H$.
+- Opening protocol $open(c,v,s;u,r)$
+where $v\in F^m$ and $s\in F$.
+ *(inputs after semicolon only known to $P$)*.
 
-### Derived Witnesses
+Such that:
+(semi-formally)
+**knowledge soundness:** If $V$ accepts in $open(c,v,s)$ then $P$ knows $u\in F^m,r$ with $com_r(u)=c$ and $<u,v>=s$.
 
-The prover computes:
-- **Grand Sum Polynomial** $A(X)$: Cumulative sum encoding $\langle F, G \rangle$
-- **Quotient Polynomial** $Q(X)$: Proves the grand sum identity holds
+**zero-knowledge:** A simulator knowing only $c,v,s$ and the PCS trapdoor $\tau$ (but not $u$), can efficiently simulate the transcript. In other words, nothing is leaked about $u$.
 
-### Verification Equation
 
-The verifier checks the algebraic identity:
+**context:** This construction is for situations where we care about zk, but $m$ is small enough that we can afford $V$ to run in $O(m)$ field ops. (In zk honk $m$ will be $d\log n$ where $d$ is the constraint degree).
 
-$$L_1(r) A(r) + (r - g^{-1})(A(gr) - A(r) - F(r)G(r)) + L_{|H|}(r)(A(r) - s) = Q(r) \cdot Z_H(r)$$
 
-Where:
-- $r$ is the evaluation challenge (from Gemini)
-- $g$ is the subgroup generator
-- $L_1(X)$, $L_{|H|}(X)$ are the first and last Lagrange polynomials over $H$
-- $Z_H(X) = X^{|H|} - 1$ is the vanishing polynomial
-- $s$ is the claimed inner product $\langle F, G \rangle$
+**Notation:**
+Let $H$ be a subgroup of size $m+1$, with generator $\omega$, Lagrange basis $L_1(X),\ldots,L_{m+1}(X)$ and vanishing polynomial $Z_H(X)$. Let $cm$ be a commitment scheme for polys of degree at most $n$ for some $n\geq m+3$ (e.g. KZG).
 
-## Key Constants
 
-| Constant | Description |
-|----------|-------------|
-| `SUBGROUP_SIZE` | Size of multiplicative subgroup $H$ (curve-dependent) |
-| `LIBRA_UNIVARIATES_LENGTH` | Length of Libra masking univariates |
+$cm(u,r)$:
+1. Let $G(X)= \sum_{i=1}^{m} u_i L_i(X) + Z_H(X)(r_0 + r_1\cdot X)$. Then $com_r(u)=cm(G)$
 
-### Curve-Specific Values
+We refer to the polynomial encoding $v$ as $F(X) = \sum_i v_iL_i(X)$.
 
-| Curve | `SUBGROUP_SIZE` |
-|-------|-----------------|
-| BN254 | 16 |
-| Grumpkin | 16 |
+$open(c,v,s;u,r)$:
+1. Define the vector $A$ by, $A_0=0$, for $i=1,\ldots,m$, $a_i=\sum_{j<i} u_j\cdot v_j$.
+2.  $P$ chooses a random degree two polynomial $R(X)$. Let $A(X):=\sum_{i=1}^{m+1}A_i L_i(X)+ Z_H(X)R(X)$. $P$ computes and sends $cm(A)$.
+3. Let $G(X)$ be the polynomial computed in the description of $com_r(u)$.
+$P$ needs to show that for:
+    - $i=0$: $A(g^0) = A(1) = 0$
+    - $0 < i \leq m$: $A(g^i) = A(g^{i-1}) + F(g^{i-1})G(g^{i-1})$
+    - $i=m$: $A(g^m) = s$
 
-## Files
+where $g$ is the subgroup generator. The second condition at $X = g^{i-1}$ becomes $A(gX) = A(X) + F(X)G(X)$, which vanishes at all points except $X = g^{-1}$ (the last element). Thus the following polynomial is zero on the whole subgroup:
 
-| File | Description |
-|------|-------------|
-| `small_subgroup_ipa.hpp` | Main prover and verifier classes |
-| `small_subgroup_ipa.cpp` | Implementation |
-| `small_subgroup_ipa_utils.hpp` | Helper functions |
-| `small_subgroup_ipa.test.cpp` | Unit tests |
+$$\begin{aligned}
+C(X) =\; & L_1(X) A(X) \\
+& + (X - g^{-1})(A(gX) - A(X) - F(X)G(X)) \\
+& + L_{|H|}(X)(A(X) - s)
+\end{aligned}$$
 
-## Key Types
+This is done by showing that $C$ is divisible by $Z_H$. So $P$ computes the quotient polynomial $Q = C/Z_H$.
 
-- `SmallSubgroupIPAProver<Flavor>` - Prover implementation
-- `SmallSubgroupIPAVerifier<Curve>` - Verifier implementation
+3. P sends $[Q]$.
+4. $V$ sends random evaluation challenge $r \in \mathbb{F}$.
+5. $P$ sends $A(gr), A(r), G(r), Q(r)$ with opening proofs.
+6. $V$ computes $F(r)$, $L_1(r)$, $L_{|H|}(r)$, and $Z_H(r)$, then checks:
 
-## Security Considerations
+$$\begin{aligned}
+Z_H(r) \cdot Q(r) =\; & L_1(r) A(r) \\
+& + (r - g^{-1})(A(gr) - A(r) - F(r)G(r)) \\
+& + L_{|H|}(r)(A(r) - s)
+\end{aligned}$$
 
-1. **Evaluation Challenge**: The evaluation point $r$ must not be in the subgroup $H$, as this would cause division by zero in the Lagrange polynomial computation. The verifier aborts if $Z_H(r) = 0$.
 
-2. **Polynomial Sizes**: The protocol has tight constraints on polynomial sizes based on `SUBGROUP_SIZE` and `LIBRA_UNIVARIATES_LENGTH`.
+### zk simulator:
 
-## Usage
+The main point is the simulator doesn't need $u$
+The transcript consists of
+$cm(G),cm(A),cm(T),\alpha,A(\alpha),G(\alpha),F(\alpha),A(\omega \alpha),T(\alpha)$
 
-### Prover
 
-```cpp
-SmallSubgroupIPAProver<Flavor> prover(
-    zk_sumcheck_data,
-    multilinear_challenge,
-    claimed_inner_product,
-    transcript,
-    commitment_key
-);
-prover.prove();
-auto witness_polynomials = prover.get_witness_polynomials();
-```
+The simulator has access to the srs secret $\tau$.
+It chooses all transcript values besides $cm(T)=T(\tau)$ and $T(\alpha)$ randomly and independently.
+And then deterministically computes these two values to satisfy the quotient equation (as written in step 7 for $\alpha$) at $\tau,\alpha$ respectively.
 
-### Verifier
-
-The verifier logic is integrated into `ShpleminiVerifier` when `HasZK=true`. It checks:
-1. Algebraic identity holds at the evaluation point
-2. Polynomial commitments open correctly
 
