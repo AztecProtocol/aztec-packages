@@ -162,8 +162,8 @@ template <typename Flavor, class IO> class UltraVerifier_ {
     /**
      * @brief Perform ultra verification for non-Rollup flavors
      * @details
-     * - Native: Calls reduce_to_claims() then performs immediate pairing check
-     * - Recursive: Calls reduce_to_claims() and returns pairing points for deferred verification
+     * - Native: Calls reduce_to_pairing_check() then performs immediate pairing check
+     * - Recursive: Calls reduce_to_pairing_check() and returns pairing points for deferred verification
      *
      * @return Output (UltraVerifierOutput for native, UltraRecursiveVerifierOutput for recursive)
      */
@@ -173,8 +173,8 @@ template <typename Flavor, class IO> class UltraVerifier_ {
     /**
      * @brief Perform ultra verification for Rollup flavors
      * @details
-     * - Native: Calls reduce_to_claims() then performs immediate pairing check + IPA verification
-     * - Recursive: Calls reduce_to_claims() and returns pairing points and IPA proof for deferred verification
+     * - Native: Calls reduce_to_pairing_check() then performs immediate pairing check + IPA verification
+     * - Recursive: Calls reduce_to_pairing_check() and returns pairing points and IPA proof for deferred verification
      *
      * @param proof The honk proof
      * @param ipa_proof IPA proof
@@ -189,7 +189,7 @@ template <typename Flavor, class IO> class UltraVerifier_ {
     std::shared_ptr<Transcript> ipa_transcript; // Native only
 
     // Builder pointer (extracted from proof for recursive, nullptr for native)
-    std::conditional_t<IsRecursive, Builder*, void*> builder = nullptr;
+    Builder* builder;
 };
 
 /**
