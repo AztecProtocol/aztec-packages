@@ -25,9 +25,13 @@ namespace execution;
     // must be 0 on the first row.
 
     // sel_exit_call is used to flag if we are returning or reverting or there has been ANY error during execution
-    // sel_execute_revert & sel_execute_return are mutually exclusive
+    // sel_execute_revert & sel_execute_return are mutually exclusive.
+    // By #[INFALLIBLE_OPCODES_SUCCESS] in execution.pil, sel_opcode_error is mutually exclusive
+    // with sel_execute_revert and sel_execute_return. As sel_opcode_error is a specific error of the last Temporality
+    // group, sel_error is mutually exclusive with sel_execute_revert and sel_execute_return. Namely, if
+    // an error occurs earlier neither sel_execute_revert nor sel_execute_return can be activated.
     pol commit sel_exit_call;
-    sel_exit_call = 1 - (1 - sel_execute_revert - sel_execute_return) * (1 - sel_error);
+    sel_exit_call = sel_failure + sel_execute_return; // = sel_execute_revert + sel_error + sel_execute_return
 
     // Context columns
     pol commit context_id;
@@ -468,7 +472,7 @@ namespace execution;
     };
 
     pol commit nested_return;
-    nested_return = nested_exit_call * sel_execute_return * (1 - sel_error);
+    nested_return = has_parent_ctx * sel_execute_return;
     #[CTX_STACK_RETURN]
     nested_return {
         context_id,

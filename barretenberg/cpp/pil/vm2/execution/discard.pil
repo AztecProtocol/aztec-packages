@@ -2,6 +2,8 @@
  * Discarding on error in execution.
  *
  * Design Document: https://docs.google.com/document/d/1xz5sZSxTu841K8uvnT8U-nO2X5ZjY8o0TjOYKfT9b6o
+ * The numbering of the constraints in this file corresponds to the numbering in the Design Document at
+ * Section "Execution trace constraints".
  *
  * This subtrace is focused on managing the changes to the discard and dying_context_id columns.
  * It is a virtual gadget, which is part of the execution trace.
@@ -16,8 +18,9 @@ namespace execution; // virtual to execution.pil
     pol commit sel_failure;
     // sel_failure is boolean by definition and because sel_error and sel_execute_revert are
     // guaranteed to be boolean as constrained in execution.pil
+    // #[INFALLIBLE_OPCODES_SUCCESS] in execution.pil enforces mutual exclusivity of sel_error and sel_execute_revert.
     #[SEL_FAILURE]
-    sel_failure = 1 - (1 - sel_error) * (1 - sel_execute_revert);
+    sel_failure = sel_error + sel_execute_revert;
 
     // Discard columns for error handling
     pol commit discard; // This context or one of its ancestors fails. All side effects should be discarded.
@@ -27,7 +30,7 @@ namespace execution; // virtual to execution.pil
     pol commit dying_context_id; // The context_id of this context's oldest ancestor that fails. This is nonzero if and only if discard is 1.
     pol commit dying_context_id_inv; // inverse of dying_context_id
     // 2. Discard being 1 implies non-zero dying context and vice versa
-    // discard == 1 ⇔ dying_context_id != 0
+    // discard == 1 <=> dying_context_id != 0
     #[DISCARD_IFF_DYING_CONTEXT]
     dying_context_id * ((1 - discard) * (1 - dying_context_id_inv) + dying_context_id_inv) - discard = 0;
 
@@ -42,7 +45,7 @@ namespace execution; // virtual to execution.pil
     pol commit dying_context_diff_inv; // Inverse of (context_id - dying_context_id) when they're different
 
     // Constraint to check if context_id == dying_context_id
-    // DYING_CONTEXT_DIFF == 0 <==> is_dying_context == 1
+    // DYING_CONTEXT_DIFF == 0 <==> is_dying_context == 1 (on active rows)
     // Note: context_id will never be 0 for an active row and therefore
     // `is_dying_context == 0` whenever `discard == 0` (because `discard == 0` implies `dying_context_id == 0`).
     // In other words, `is_dying_context == 1` implies `discard == 1`.
@@ -60,16 +63,21 @@ namespace execution; // virtual to execution.pil
     // since setup must have discard=0, and app logic can have discard=1.
     // App logic to teardown wouldn't need special-casing because if teardown discards,
     // all of app logic must discard too.
-    pol commit resolves_dying_context;
-    #[RESOLVES_DYING_CONTEXT]
-    (resolves_dying_context - sel_failure * is_dying_context) = 0;
-    // Note: sel_failure implies discard ^
-    pol commit nested_call_from_undiscarded_context; // sel_enter_call * (1 - discard) // 5c.
-    #[NESTED_CALL_FROM_UNDISCARDED_CONTEXT]
-    (nested_call_from_undiscarded_context - sel_enter_call * (1 - discard)) = 0;
-    // Note: if any of these ^ conditions are met, we lift the propagation constraint.
-    // Otherwise, propagation is enforced.
 
+    // 5b. condition
+    pol commit resolves_dying_context; // Not an alias to keep propagation relations below with a low degree.
+    #[RESOLVES_DYING_CONTEXT]
+    resolves_dying_context = sel_failure * is_dying_context;
+    // Recall: `sel_failure == 1` implies `discard == 1` (#[DISCARD_IF_FAILURE])
+
+    // 5c. condition
+    // Not an alias to keep propagation relations below with a low degree.
+    pol commit nested_call_from_undiscarded_context;
+    #[NESTED_CALL_FROM_UNDISCARDED_CONTEXT]
+    nested_call_from_undiscarded_context = sel_enter_call * (1 - discard);
+
+    // Note: if any of these conditions are met, we lift the propagation constraint.
+    // Otherwise, propagation is enforced.
     pol PROPAGATE_DISCARD = NOT_LAST_EXEC * (1 - enqueued_call_end) * (1 - resolves_dying_context) * (1 - nested_call_from_undiscarded_context);
     // Note: on nested call, can't know yet whether or not the nested context will eventually revert.
     // But, we can lift the propagation constraint, and enforce that a dying context _must_ be resolved.
@@ -83,19 +91,24 @@ namespace execution; // virtual to execution.pil
     PROPAGATE_DISCARD * (dying_context_id' - dying_context_id) = 0;
 
     // 6. An instruction/row cannot exit the "dying context" without a failure.
-    // If is_dying_context_id == 1 && exit == 1, then sel_failure == 1 must hold true.
-    // Note: recall that dying_context_id == 1 implies discard == 1
+    // If is_dying_context == 1 && exit == 1, then sel_failure == 1 must hold true.
+    // This is equivalent to `is_dying_context == 1 ==> sel_execute_return == 0`, because the
+    // only way to exit the context with a failure is by reverting or erroring.
+    // Algebraically, this equivalence corresponds to:
+    // is_dying_context * sel_exit_call * (1 - sel_failure) = is_dying_context * sel_execute_return = 0
+    // because `sel_exit_call = sel_failure + sel_execute_return`. (definition in context.pil)
+    // Note: recall that `is_dying_context == 1 implies discard == 1`.
     #[DYING_CONTEXT_MUST_FAIL]
-    is_dying_context * sel_exit_call * (1 - sel_failure) = 0;
+    is_dying_context * sel_execute_return = 0;
 
     // 7. On enter_call, if discard is being raised (0->1), the new context must be the dying context.
     // This prevents attacks where discard is raised with a wrong dying_context_id.
     // If sel_enter_call == 1 && discard == 0 && discard' == 1, enforce that context_id' == dying_context_id'
     #[ENTER_CALL_DISCARD_MUST_BE_DYING_CONTEXT]
-    sel_enter_call * (1 - discard) * discard' * (context_id' - dying_context_id') = 0;
+    nested_call_from_undiscarded_context * discard' * (context_id' - dying_context_id') = 0;
 
     // 8. When a dying context with a parent resolves, discard must be cleared (1->0) on the next row.
     // This prevents attacks where the dying context is changed instead of clearing discard.
     // If sel_failure == 1 && is_dying_context == 1 && has_parent_ctx == 1, enforce that discard' == 0
     #[DYING_CONTEXT_WITH_PARENT_MUST_CLEAR_DISCARD]
-    sel_failure * is_dying_context * has_parent_ctx * discard' = 0;
+    resolves_dying_context * has_parent_ctx * discard' = 0;
