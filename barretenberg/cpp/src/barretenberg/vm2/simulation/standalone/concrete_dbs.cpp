@@ -123,21 +123,24 @@ void PureMerkleDB::nullifier_write_internal(std::optional<AztecAddress> contract
         siloed_nullifier = unconstrained_silo_nullifier(contract_address.value(), nullifier);
     }
 
-    auto [present, low_leaf_index_] =
-        raw_merkle_db.get_low_indexed_leaf(MerkleTreeId::NULLIFIER_TREE, siloed_nullifier);
-
-    if (present) {
-        throw NullifierCollisionException(
-            contract_address.has_value() ? format("Attempted to emit duplicate nullifier ",
-                                                  nullifier,
-                                                  " (contract address: ",
-                                                  contract_address.value(),
-                                                  ").")
-                                         : format("Attempted to emit duplicate siloed nullifier ", nullifier, "."));
+    // Attempt to insert directly - the tree will throw if the nullifier already exists.
+    // This avoids a separate get_low_indexed_leaf call, saving one tree traversal.
+    try {
+        raw_merkle_db.insert_indexed_leaves_nullifier_tree(siloed_nullifier);
+        tree_counters_stack.top().nullifier_counter++;
+    } catch (const std::runtime_error& e) {
+        // Check if this is a collision error (nullifier already present)
+        if (std::string(e.what()).find("already present") != std::string::npos) {
+            throw NullifierCollisionException(
+                contract_address.has_value() ? format("Attempted to emit duplicate nullifier ",
+                                                      nullifier,
+                                                      " (contract address: ",
+                                                      contract_address.value(),
+                                                      ").")
+                                             : format("Attempted to emit duplicate siloed nullifier ", nullifier, "."));
+        }
+        throw; // Re-throw other errors
     }
-
-    raw_merkle_db.insert_indexed_leaves_nullifier_tree(siloed_nullifier);
-    tree_counters_stack.top().nullifier_counter++;
 }
 
 bool PureMerkleDB::note_hash_exists(uint64_t leaf_index, const FF& unique_note_hash) const
