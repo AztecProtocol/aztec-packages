@@ -112,12 +112,12 @@ TEST(EmitUnencryptedLogConstrainingTest, PositiveEmptyLog)
     };
 
     // As calculated in EmitUnencryptedLog::emit_unencrypted_log gadget:
-    uint64_t end_log_address = static_cast<uint64_t>(log_address) + static_cast<uint64_t>(log_size) - 1;
+    uint64_t end_log_address_upper_bound = static_cast<uint64_t>(log_address) + static_cast<uint64_t>(log_size);
 
     simulation::GreaterThanEvent gt_event = {
-        .a = end_log_address,
-        .b = AVM_HIGHEST_MEM_ADDRESS,
-        .result = end_log_address > AVM_HIGHEST_MEM_ADDRESS,
+        .a = end_log_address_upper_bound,
+        .b = AVM_MEMORY_SIZE,
+        .result = end_log_address_upper_bound > AVM_MEMORY_SIZE,
     };
 
     TestTraceContainer trace({
@@ -129,14 +129,11 @@ TEST(EmitUnencryptedLogConstrainingTest, PositiveEmptyLog)
     gt_builder.process({ gt_event }, trace);
     trace_builder.process({ event }, trace);
 
-    FF end_log_address_log_trace = trace.get(C::emit_unencrypted_log_end_log_address, 1);
-    FF end_log_address_gt_trace = trace.get(C::gt_input_a, 0);
-    // This fails because in cpp the underflow is in u64, so gt gets max(u64), while log gets p - 1:
-    EXPECT_EQ(end_log_address_log_trace, end_log_address_gt_trace);
+    // Check tracegen fills the values correctly:
+    FF end_log_address_upper_bound_log_trace = trace.get(C::emit_unencrypted_log_end_log_address_upper_bound, 1);
+    FF end_log_address_upper_bound_gt_trace = trace.get(C::gt_input_a, 0);
+    EXPECT_EQ(end_log_address_upper_bound_log_trace, end_log_address_upper_bound_gt_trace);
 
-    // Even if we correct it by forcing gt to check p - 1, the lookup expectedly fails (memory is out of bounds for a 0
-    // length log, but error_memory_out_of_bounds = false):
-    trace.set(C::gt_input_a, 1, end_log_address_log_trace);
     check_relation<emit_unencrypted_log>(trace);
     check_interaction<EmitUnencryptedLogTraceBuilder, lookup_emit_unencrypted_log_check_memory_out_of_bounds_settings>(
         trace);
@@ -181,7 +178,7 @@ TEST(EmitUnencryptedLogConstrainingTest, ErrorTooManyLogFields)
     MemoryAddress log_address = 27;
     const std::vector<FF> log_fields = { 4, 5 };
     uint32_t log_size = static_cast<uint32_t>(log_fields.size());
-    // Minus three so header = 2 + log_size = 4 doesn't fit
+    // Minus three so header = 2 + log_size = 2 doesn't fit
     TrackedSideEffects side_effect_states = {
         .public_logs = PublicLogs{ { { testing::random_fields(FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH - 3), address } } }
     };
@@ -336,8 +333,8 @@ TEST(EmitUnencryptedLogConstrainingTest, Interactions)
             { C::execution_discard, 0 },
             // GT - check memory out of bounds
             { C::gt_sel, 1 },
-            { C::gt_input_a, log_address + log_size - 1 },
-            { C::gt_input_b, AVM_HIGHEST_MEM_ADDRESS },
+            { C::gt_input_a, log_address + log_size },
+            { C::gt_input_b, static_cast<uint64_t>(AVM_MEMORY_SIZE) },
             { C::gt_res, 0 },
         },
     });
