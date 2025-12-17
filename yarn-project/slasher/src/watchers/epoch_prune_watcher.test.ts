@@ -1,5 +1,5 @@
 import type { EpochCache } from '@aztec/epoch-cache';
-import { BlockNumber, EpochNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { sleep } from '@aztec/foundation/sleep';
 import { L2Block, L2BlockNew, type L2BlockSourceEventEmitter, L2BlockSourceEvents } from '@aztec/stdlib/block';
@@ -74,10 +74,12 @@ describe('EpochPruneWatcher', () => {
     const emitSpy = jest.spyOn(watcher, 'emit');
     const epochNumber = EpochNumber(1);
 
+    // Slot 10 is in epoch 1 (with epochDuration=8, epoch 1 = slots 8-15)
     const block = await L2BlockNew.random(
       BlockNumber(12), // block number
       {
         txsPerBlock: 4,
+        slotNumber: SlotNumber(10),
       },
     );
     txProvider.getAvailableTxs.mockResolvedValue({ txs: [], missingTxs: [block.body.txEffects[0].txHash] });
@@ -120,10 +122,12 @@ describe('EpochPruneWatcher', () => {
   it('should slash if the data is available and the epoch could have been proven', async () => {
     const emitSpy = jest.spyOn(watcher, 'emit');
 
+    // Slot 10 is in epoch 1 (with epochDuration=8, epoch 1 = slots 8-15)
     const block = await L2BlockNew.random(
       BlockNumber(12), // block number
       {
         txsPerBlock: 4,
+        slotNumber: SlotNumber(10),
       },
     );
     const tx = Tx.random();
@@ -174,16 +178,20 @@ describe('EpochPruneWatcher', () => {
   it('should not slash if the data is available but the epoch could not have been proven', async () => {
     const emitSpy = jest.spyOn(watcher, 'emit');
 
+    // Slot 10 is in epoch 1 (with epochDuration=8, epoch 1 = slots 8-15)
     const blockFromL1 = await L2BlockNew.random(
       BlockNumber(12), // block number
       {
         txsPerBlock: 1,
+        slotNumber: SlotNumber(10),
       },
     );
+    // Block from builder has different archive root, simulating failed re-execution
     const blockFromBuilder = await L2BlockNew.random(
       BlockNumber(13), // block number
       {
         txsPerBlock: 1,
+        slotNumber: SlotNumber(10),
       },
     );
     const tx = Tx.random();

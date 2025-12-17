@@ -39,9 +39,11 @@ describe('ProvingNodeApiSchema', () => {
   it('getL2Tips', async () => {
     const result = await context.client.getL2Tips();
     expect(result).toEqual({
-      latest: { number: 1, hash: `0x01` },
-      proven: { number: 1, hash: `0x01` },
-      finalized: { number: 1, hash: `0x01` },
+      blocks: {
+        latest: { number: 1, hash: `0x01` },
+        proven: { number: 1, hash: `0x01` },
+        finalized: { number: 1, hash: `0x01` },
+      },
     });
   });
 

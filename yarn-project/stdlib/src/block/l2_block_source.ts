@@ -274,7 +274,7 @@ export const L2TipsSchema = z.object({
     proven: L2BlockIdSchema,
     finalized: L2BlockIdSchema,
   }),
-  checkpoint: L2CheckpointSchema,
+  checkpoint: L2CheckpointSchema.optional(),
 });
 
 export enum L2BlockSourceEvents {

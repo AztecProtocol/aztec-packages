@@ -268,7 +268,7 @@ describe('sequencer', () => {
     l2BlockSource = mock<L2BlockSource>({
       getBlock: mockFn().mockResolvedValue(L2Block.empty()),
       getBlockNumber: mockFn().mockResolvedValue(lastBlockNumber),
-      getL2Tips: mockFn().mockResolvedValue({ latest: { number: lastBlockNumber, hash } }),
+      getL2Tips: mockFn().mockResolvedValue({ blocks: { latest: { number: lastBlockNumber, hash } } }),
       getL1Timestamp: mockFn().mockResolvedValue(1000n),
       isPendingChainInvalid: mockFn().mockResolvedValue(false),
       getPendingChainValidationStatus: mockFn().mockResolvedValue({ valid: true }),
@@ -276,7 +276,7 @@ describe('sequencer', () => {
 
     l1ToL2MessageSource = mock<L1ToL2MessageSource>({
       getL1ToL2Messages: () => Promise.resolve(Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(Fr.ZERO)),
-      getL2Tips: mockFn().mockResolvedValue({ latest: { number: lastBlockNumber, hash } }),
+      getL2Tips: mockFn().mockResolvedValue({ blocks: { latest: { number: lastBlockNumber, hash } } }),
     });
 
     validatorClient = mock<ValidatorClient>();

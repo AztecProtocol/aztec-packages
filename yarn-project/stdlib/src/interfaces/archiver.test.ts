@@ -191,9 +191,11 @@ describe('ArchiverApiSchema', () => {
   it('getL2Tips', async () => {
     const result = await context.client.getL2Tips();
     expect(result).toEqual({
-      latest: { number: 1, hash: `0x01` },
-      proven: { number: 1, hash: `0x01` },
-      finalized: { number: 1, hash: `0x01` },
+      blocks: {
+        latest: { number: 1, hash: `0x01` },
+        proven: { number: 1, hash: `0x01` },
+        finalized: { number: 1, hash: `0x01` },
+      },
     });
   });
 
@@ -304,6 +306,16 @@ describe('ArchiverApiSchema', () => {
   it('getGenesisValues', async () => {
     const result = await context.client.getGenesisValues();
     expect(result).toEqual({ genesisArchiveRoot: expect.any(Fr) });
+  });
+
+  it('getL2BlockNew', async () => {
+    const result = await context.client.getL2BlockNew(BlockNumber(1));
+    expect(result).toEqual(expect.any(L2BlockNew));
+  });
+
+  it('getL2BlocksNew', async () => {
+    const result = await context.client.getL2BlocksNew(BlockNumber(1), 1);
+    expect(result).toEqual([expect.any(L2BlockNew)]);
   });
 });
 

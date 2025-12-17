@@ -91,9 +91,11 @@ describe('AztecNodeApiSchema', () => {
   it('getL2Tips', async () => {
     const result = await context.client.getL2Tips();
     expect(result).toEqual({
-      latest: { number: 1, hash: `0x01` },
-      proven: { number: 1, hash: `0x01` },
-      finalized: { number: 1, hash: `0x01` },
+      blocks: {
+        latest: { number: 1, hash: `0x01` },
+        proven: { number: 1, hash: `0x01` },
+        finalized: { number: 1, hash: `0x01` },
+      },
     });
   });
 
@@ -244,6 +246,17 @@ describe('AztecNodeApiSchema', () => {
     const response = await context.client.getBlocks(BlockNumber(1), BlockNumber(1));
     expect(response).toHaveLength(1);
     expect(response[0]).toBeInstanceOf(L2Block);
+
+    await expect(context.client.getBlocks(-1 as BlockNumber, BlockNumber(1))).rejects.toThrow();
+    await expect(context.client.getBlocks(BlockNumber.ZERO, BlockNumber(1))).rejects.toThrow();
+    await expect(context.client.getBlocks(BlockNumber(1), BlockNumber.ZERO)).rejects.toThrow();
+    await expect(context.client.getBlocks(BlockNumber(1), MAX_RPC_LEN + 1)).rejects.toThrow();
+  });
+
+  it('getL2BlocksNew', async () => {
+    const response = await context.client.getL2BlocksNew(BlockNumber(1), BlockNumber(1));
+    expect(response).toHaveLength(1);
+    expect(response[0]).toBeInstanceOf(L2BlockNew);
 
     await expect(context.client.getBlocks(-1 as BlockNumber, BlockNumber(1))).rejects.toThrow();
     await expect(context.client.getBlocks(BlockNumber.ZERO, BlockNumber(1))).rejects.toThrow();
