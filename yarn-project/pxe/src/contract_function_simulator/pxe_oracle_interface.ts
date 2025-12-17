@@ -193,22 +193,6 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     return this.recipientTaggingDataProvider.getSenderAddresses();
   }
 
-  public async calculateDirectionalAppTaggingSecret(
-    contractAddress: AztecAddress,
-    sender: AztecAddress,
-    recipient: AztecAddress,
-  ) {
-    const senderCompleteAddress = await getCompleteAddress(sender, this.addressDataProvider);
-    const senderIvsk = await this.keyStore.getMasterIncomingViewingSecretKey(sender);
-    return DirectionalAppTaggingSecret.compute(
-      senderCompleteAddress,
-      senderIvsk,
-      recipient,
-      contractAddress,
-      recipient,
-    );
-  }
-
   /**
    * Returns the last used tagging indexes along with the directional app tagging secrets for a given recipient and all
    * the senders in the address book.

@@ -45,7 +45,6 @@ import { computeNoteHashNonce, computeSecretHash, computeUniqueNoteHash, siloNot
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import { KeyValidationRequest } from '@aztec/stdlib/kernel';
 import { computeAppNullifierSecretKey, deriveKeys } from '@aztec/stdlib/keys';
-import { DirectionalAppTaggingSecret } from '@aztec/stdlib/logs';
 import { L1Actor, L1ToL2Message, L2Actor } from '@aztec/stdlib/messaging';
 import { Note, NoteDao } from '@aztec/stdlib/note';
 import { makeBlockHeader } from '@aztec/stdlib/testing';
@@ -353,10 +352,6 @@ describe('Private Execution test suite', () => {
     });
 
     executionDataProvider.syncTaggedLogs.mockImplementation((_, __) => Promise.resolve());
-    // Provide tagging-related mocks expected by private log emission
-    executionDataProvider.calculateDirectionalAppTaggingSecret.mockImplementation((_contract, _sender, _recipient) => {
-      return Promise.resolve(DirectionalAppTaggingSecret.fromString('0x1'));
-    });
     executionDataProvider.loadCapsule.mockImplementation((_, __) => Promise.resolve(null));
 
     executionDataProvider.getPublicStorageAt.mockImplementation(

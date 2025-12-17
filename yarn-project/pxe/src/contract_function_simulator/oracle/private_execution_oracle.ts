@@ -35,7 +35,7 @@ import type { ExecutionNoteCache } from '../execution_note_cache.js';
 import { ExecutionTaggingIndexCache } from '../execution_tagging_index_cache.js';
 import type { HashedValuesCache } from '../hashed_values_cache.js';
 import { pickNotes } from '../pick_notes.js';
-import { getFunctionArtifact, getNotes } from './common.js';
+import { calculateDirectionalAppTaggingSecret, getFunctionArtifact, getNotes } from './common.js';
 import type { IPrivateExecutionOracle, NoteData } from './interfaces.js';
 import { executePrivateFunction, verifyCurrentClassId } from './private_execution.js';
 import { UtilityExecutionOracle } from './utility_execution_oracle.js';
@@ -222,10 +222,12 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
    * @returns An app tag to be used in a log.
    */
   public async privateGetNextAppTagAsSender(sender: AztecAddress, recipient: AztecAddress): Promise<Tag> {
-    const secret = await this.executionDataProvider.calculateDirectionalAppTaggingSecret(
+    const secret = await calculateDirectionalAppTaggingSecret(
       this.contractAddress,
       sender,
       recipient,
+      this.addressDataProvider,
+      this.keyStore,
     );
 
     const index = await this.#getIndexToUseForSecret(secret);

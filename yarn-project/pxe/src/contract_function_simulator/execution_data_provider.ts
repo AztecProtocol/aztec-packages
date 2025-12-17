@@ -5,7 +5,6 @@ import type { Point } from '@aztec/foundation/curves/grumpkin';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2Block } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
-import type { DirectionalAppTaggingSecret } from '@aztec/stdlib/logs';
 import { type MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import type { NodeStats } from '@aztec/stdlib/tx';
 
@@ -139,19 +138,6 @@ export interface ExecutionDataProvider {
    * @param version - The expected version.
    */
   assertCompatibleOracleVersion(version: number): void;
-
-  /**
-   * Calculates the directional app tagging secret for a given contract, sender and recipient.
-   * @param contractAddress - The contract address to silo the secret for
-   * @param sender - The address sending the note
-   * @param recipient - The address receiving the note
-   * @returns The directional app tagging secret
-   */
-  calculateDirectionalAppTaggingSecret(
-    contractAddress: AztecAddress,
-    sender: AztecAddress,
-    recipient: AztecAddress,
-  ): Promise<DirectionalAppTaggingSecret>;
 
   /**
    * Synchronizes the private logs tagged with scoped addresses and all the senders in the address book. Stores the found

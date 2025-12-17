@@ -1,7 +1,9 @@
 import type { Fr } from '@aztec/foundation/curves/bn254';
+import type { KeyStore } from '@aztec/key-store';
 import type { FunctionArtifactWithContractName, FunctionSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { CompleteAddress, ContractInstance } from '@aztec/stdlib/contract';
+import { DirectionalAppTaggingSecret } from '@aztec/stdlib/logs';
 import type { NoteStatus } from '@aztec/stdlib/note';
 
 import type { AddressDataProvider, ContractDataProvider, NoteDataProvider } from '../../storage/index.js';
@@ -78,4 +80,16 @@ export async function getCompleteAddress(
     );
   }
   return completeAddress;
+}
+
+export async function calculateDirectionalAppTaggingSecret(
+  contractAddress: AztecAddress,
+  sender: AztecAddress,
+  recipient: AztecAddress,
+  addressDataProvider: AddressDataProvider,
+  keyStore: KeyStore,
+) {
+  const senderCompleteAddress = await getCompleteAddress(sender, addressDataProvider);
+  const senderIvsk = await keyStore.getMasterIncomingViewingSecretKey(sender);
+  return DirectionalAppTaggingSecret.compute(senderCompleteAddress, senderIvsk, recipient, contractAddress, recipient);
 }
