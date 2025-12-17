@@ -673,8 +673,8 @@ describe('Private Execution test suite', () => {
         aztecNode.getL1ToL2MessageMembershipWitness.mockImplementation(async () => {
           return Promise.resolve([0n, await tree.getSiblingPath(0n, true)]);
         });
-        aztecNode.findLeavesIndexes.mockImplementation(async () => {
-          return [await wrapDataInBlock(0n, await L2Block.random(BlockNumber(Fr.random().toNumber())))];
+        aztecNode.findLeavesIndexes.mockImplementation(() => {
+          return Promise.resolve([]);
         });
       };
 

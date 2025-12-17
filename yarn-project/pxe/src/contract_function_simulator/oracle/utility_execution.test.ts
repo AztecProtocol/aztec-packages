@@ -99,7 +99,7 @@ describe('Utility Execution test suite', () => {
             Fr.random(),
             Fr.random(),
             TxHash.random(),
-            BlockNumber(Fr.random().toNumber()),
+            BlockNumber(42),
             L2BlockHash.random().toString(),
             BigInt(index),
           ),
