@@ -116,37 +116,38 @@ static constexpr uint64_t majority_normalization_table[16]{
  * Used for the SHA-256 message schedule extension which computes:
  *   w[i] = σ₁(w[i-2]) + w[i-7] + σ₀(w[i-15]) + w[i-16]
  * where:
- *   σ₀(x) = (x>>>7) ^ (x>>>18) ^ (x>>3)
- *   σ₁(x) = (x>>>17) ^ (x>>>19) ^ (x>>10)
+ *   σ₀(x) = (x>>>7) ^ (x>>>18) ^ (x>>3)   (3-way XOR)
+ *   σ₁(x) = (x>>>17) ^ (x>>>19) ^ (x>>10) (3-way XOR)
  *
- * Table index = 4 × σ₁ + σ₂, where:
- *   - σ₁ (0-3): sum of bits from one XOR operation (e.g., 3 rotation/shift bits)
- *   - σ₂ (0-3): sum of bits from another XOR operation
+ * At each bit position, the sparse digit encodes two sums:
+ *   - s_0 (0-3): sum of the 3 rotation/shift bits from σ₀
+ *   - s_1 (0-3): sum of the 3 rotation/shift bits from σ₁
  *
- * Table output = (σ₁ mod 2) + (σ₂ mod 2), combining two XOR results.
+ * Table index = 4 × s_0 + s_1 (range 0-15)
+ * Table output = (s_0 mod 2) + (s_1 mod 2) = σ₀_bit + σ₁_bit
  * Output range is 0-2.
  */
 static constexpr uint64_t witness_extension_normalization_table[16]{
-    /* σ₁ = 0 (XOR₁ = 0): output = 0 + (σ₂ mod 2) */
-    0, // σ₂ = 0 => XOR₂ = 0
-    1, // σ₂ = 1 => XOR₂ = 1
-    0, // σ₂ = 2 => XOR₂ = 0
-    1, // σ₂ = 3 => XOR₂ = 1
-    /* σ₁ = 1 (XOR₁ = 1): output = 1 + (σ₂ mod 2) */
-    1, // σ₂ = 0 => XOR₂ = 0
-    2, // σ₂ = 1 => XOR₂ = 1
-    1, // σ₂ = 2 => XOR₂ = 0
-    2, // σ₂ = 3 => XOR₂ = 1
-    /* σ₁ = 2 (XOR₁ = 0): output = 0 + (σ₂ mod 2) */
-    0, // σ₂ = 0 => XOR₂ = 0
-    1, // σ₂ = 1 => XOR₂ = 1
-    0, // σ₂ = 2 => XOR₂ = 0
-    1, // σ₂ = 3 => XOR₂ = 1
-    /* σ₁ = 3 (XOR₁ = 1): output = 1 + (σ₂ mod 2) */
-    1, // σ₂ = 0 => XOR₂ = 0
-    2, // σ₂ = 1 => XOR₂ = 1
-    1, // σ₂ = 2 => XOR₂ = 0
-    2, // σ₂ = 3 => XOR₂ = 1
+    /* s_0 = 0 (σ₀_bit = 0): output = 0 + (s_1 mod 2) */
+    0, // s_1 = 0 => σ₁_bit = 0
+    1, // s_1 = 1 => σ₁_bit = 1
+    0, // s_1 = 2 => σ₁_bit = 0
+    1, // s_1 = 3 => σ₁_bit = 1
+    /* s_0 = 1 (σ₀_bit = 1): output = 1 + (s_1 mod 2) */
+    1, // s_1 = 0 => σ₁_bit = 0
+    2, // s_1 = 1 => σ₁_bit = 1
+    1, // s_1 = 2 => σ₁_bit = 0
+    2, // s_1 = 3 => σ₁_bit = 1
+    /* s_0 = 2 (σ₀_bit = 0): output = 0 + (s_1 mod 2) */
+    0, // s_1 = 0 => σ₁_bit = 0
+    1, // s_1 = 1 => σ₁_bit = 1
+    0, // s_1 = 2 => σ₁_bit = 0
+    1, // s_1 = 3 => σ₁_bit = 1
+    /* s_0 = 3 (σ₀_bit = 1): output = 1 + (s_1 mod 2) */
+    1, // s_1 = 0 => σ₁_bit = 0
+    2, // s_1 = 1 => σ₁_bit = 1
+    1, // s_1 = 2 => σ₁_bit = 0
+    2, // s_1 = 3 => σ₁_bit = 1
 };
 
 /**
