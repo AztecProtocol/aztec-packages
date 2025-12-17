@@ -138,18 +138,11 @@ template <typename RecursiveFlavor> class AcirHonkRecursionConstraint : public :
         return outer_circuit;
     }
 
-    bool verify_proof(const std::shared_ptr<OuterProverInstance>& prover_instance,
-                      const std::shared_ptr<OuterVerificationKey>& verification_key,
-                      const HonkProof& proof)
+    bool verify_proof(const std::shared_ptr<OuterVerificationKey>& verification_key, const HonkProof& proof)
     {
         auto vk_and_hash = std::make_shared<typename OuterFlavor::VKAndHash>(verification_key);
         OuterVerifier verifier(vk_and_hash);
-
-        if constexpr (HasIPAAccumulator<OuterFlavor>) {
-            return verifier.verify_proof(proof, prover_instance->ipa_proof).result;
-        } else {
-            return verifier.verify_proof(proof).result;
-        }
+        return verifier.verify_proof(proof).result;
     }
 
   protected:
@@ -209,7 +202,7 @@ TYPED_TEST(AcirHonkRecursionConstraint, TestBasicSingleHonkRecursionConstraint)
     typename TestFixture::OuterProver prover(prover_instance, verification_key);
     auto proof = prover.construct_proof();
 
-    EXPECT_EQ(TestFixture::verify_proof(prover_instance, verification_key, proof), true);
+    EXPECT_EQ(TestFixture::verify_proof(verification_key, proof), true);
 }
 
 TYPED_TEST(AcirHonkRecursionConstraint, TestBasicDoubleHonkRecursionConstraints)
@@ -228,7 +221,7 @@ TYPED_TEST(AcirHonkRecursionConstraint, TestBasicDoubleHonkRecursionConstraints)
     typename TestFixture::OuterProver prover(prover_instance, verification_key);
     auto proof = prover.construct_proof();
 
-    EXPECT_EQ(TestFixture::verify_proof(prover_instance, verification_key, proof), true);
+    EXPECT_EQ(TestFixture::verify_proof(verification_key, proof), true);
 }
 
 TYPED_TEST(AcirHonkRecursionConstraint, TestOneOuterRecursiveCircuit)
@@ -292,7 +285,7 @@ TYPED_TEST(AcirHonkRecursionConstraint, TestOneOuterRecursiveCircuit)
     typename TestFixture::OuterProver prover(prover_instance, verification_key);
     auto proof = prover.construct_proof();
 
-    EXPECT_EQ(TestFixture::verify_proof(prover_instance, verification_key, proof), true);
+    EXPECT_EQ(TestFixture::verify_proof(verification_key, proof), true);
 }
 
 /**
@@ -347,7 +340,7 @@ TYPED_TEST(AcirHonkRecursionConstraint, TestFullRecursiveComposition)
     typename TestFixture::OuterProver prover(prover_instance, verification_key);
     auto proof = prover.construct_proof();
 
-    EXPECT_EQ(TestFixture::verify_proof(prover_instance, verification_key, proof), true);
+    EXPECT_EQ(TestFixture::verify_proof(verification_key, proof), true);
 }
 
 TYPED_TEST(AcirHonkRecursionConstraint, GateCountSingleHonkRecursion)

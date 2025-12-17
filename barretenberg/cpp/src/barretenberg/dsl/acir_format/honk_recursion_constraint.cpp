@@ -247,14 +247,7 @@ HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recur
     auto vkey = std::make_shared<RecursiveVerificationKey>(vk_fields);
     auto vk_and_hash = std::make_shared<RecursiveVKAndHash>(vkey, vk_hash);
     RecursiveVerifier verifier(vk_and_hash);
-    UltraRecursiveVerifierOutput<Builder> verifier_output = [&]() {
-        if constexpr (HasIPAAccumulator<Flavor>) {
-            auto [honk_proof, ipa_proof] = split_rollup_proof(proof_fields, vkey);
-            return verifier.verify_proof(honk_proof, ipa_proof);
-        } else {
-            return verifier.verify_proof(proof_fields);
-        }
-    }();
+    UltraRecursiveVerifierOutput<Builder> verifier_output = verifier.verify_proof(proof_fields);
 
 #ifndef NDEBUG
     native_verification_debug<Flavor>(vkey, proof_fields);
@@ -280,23 +273,8 @@ void native_verification_debug(const std::shared_ptr<typename Flavor::Verificati
     auto native_vk_and_hash = std::make_shared<typename Flavor::NativeFlavor::VKAndHash>(native_vkey);
     HonkProof native_proof = proof_fields.get_value();
 
-    HonkProof honk_proof;
-    HonkProof ipa_proof;
-    if constexpr (HasIPAAccumulator<Flavor>) {
-        honk_proof = HonkProof(native_proof.begin(), native_proof.end() - IPA_PROOF_LENGTH);
-        ipa_proof = HonkProof(native_proof.end() - IPA_PROOF_LENGTH, native_proof.end());
-    } else {
-        honk_proof = native_proof;
-    }
-
     UltraVerifier_<typename Flavor::NativeFlavor, NativeIO> native_verifier(native_vk_and_hash);
-    bool is_valid_proof = [&]() {
-        if constexpr (HasIPAAccumulator<Flavor>) {
-            return native_verifier.verify_proof(honk_proof, ipa_proof).result;
-        } else {
-            return native_verifier.verify_proof(honk_proof).result;
-        }
-    }();
+    bool is_valid_proof = native_verifier.verify_proof(native_proof).result;
 
     info("===== HONK RECURSION CONSTRAINT DEBUG INFO =====");
     std::string flavor;

@@ -160,28 +160,28 @@ template <typename Flavor, class IO> class UltraVerifier_ {
     [[nodiscard("Reduction result should be verified")]] ReductionResult reduce_to_pairing_check(const Proof& proof);
 
     /**
-     * @brief Perform ultra verification for non-Rollup flavors
-     * @details
-     * - Native: Calls reduce_to_pairing_check() then performs immediate pairing check
-     * - Recursive: Calls reduce_to_pairing_check() and returns pairing points for deferred verification
-     *
-     * @return Output (UltraVerifierOutput for native, UltraRecursiveVerifierOutput for recursive)
+     * @brief Split a combined rollup proof into honk and IPA components
+     * @details Only callable for Rollup flavors (HasIPAAccumulator<Flavor> must be true)
+     * @param combined_proof The concatenated [honk_proof | ipa_proof]
+     * @return std::pair<Proof, Proof> The {honk_proof, ipa_proof} pair
      */
-    Output verify_proof(const Proof& proof)
-        requires(!HasIPAAccumulator<Flavor>);
-
-    /**
-     * @brief Perform ultra verification for Rollup flavors
-     * @details
-     * - Native: Calls reduce_to_pairing_check() then performs immediate pairing check + IPA verification
-     * - Recursive: Calls reduce_to_pairing_check() and returns pairing points and IPA proof for deferred verification
-     *
-     * @param proof The honk proof
-     * @param ipa_proof IPA proof
-     * @return Output (UltraVerifierOutput for native, UltraRecursiveVerifierOutput for recursive)
-     */
-    Output verify_proof(const Proof& proof, const Proof& ipa_proof)
+    std::pair<Proof, Proof> split_rollup_proof(const Proof& combined_proof) const
         requires(HasIPAAccumulator<Flavor>);
+
+  public:
+    /**
+     * @brief Perform ultra verification
+     * @details
+     * For Rollup flavors, the proof is expected to be a combined [honk_proof | ipa_proof] and will be split
+     * internally. For non-Rollup flavors, the proof is used as-is.
+     *
+     * - Native: Performs immediate pairing check (+ IPA verification for Rollup)
+     * - Recursive: Returns pairing points (+ IPA proof for Rollup) for deferred verification
+     *
+     * @param proof The proof (combined with IPA for Rollup flavors)
+     * @return Output (UltraVerifierOutput for native, UltraRecursiveVerifierOutput for recursive)
+     */
+    Output verify_proof(const Proof& proof);
 
     std::shared_ptr<VKAndHash> vk_and_hash;
     std::shared_ptr<Instance> verifier_instance;
@@ -192,43 +192,6 @@ template <typename Flavor, class IO> class UltraVerifier_ {
     Builder* builder;
 };
 
-/**
- * @brief Split a combined rollup proof into honk and IPA components
- * @details For rollup flavors, proofs are concatenated: [honk_proof | ipa_proof]
- * This helper extracts them based on the verification key's public input count.
- * Works for both native and recursive (stdlib) proofs/VKs.
- *
- * @tparam Proof The proof type (native std::vector<fr> or stdlib::Proof<Builder>)
- * @tparam VK The verification key type (native or recursive)
- * @param combined_proof The concatenated proof
- * @param vk The verification key (to determine split point from num_public_inputs)
- * @return std::pair<Proof, Proof> The {honk_proof, ipa_proof} pair
- */
-template <typename Proof, class VK> auto split_rollup_proof(const Proof& combined_proof, const std::shared_ptr<VK>& vk)
-{
-    // Get num_public_inputs - works for both native and recursive VKs
-    size_t num_public_inputs = [&]() {
-        if constexpr (requires { vk->num_public_inputs.get_value(); }) {
-            // Recursive VK: field_t<Builder>
-            return static_cast<size_t>(static_cast<uint32_t>(vk->num_public_inputs.get_value()));
-        } else {
-            // Native VK: uint32_t
-            return static_cast<size_t>(vk->num_public_inputs);
-        }
-    }();
-
-    // Calculate split point
-    const size_t HONK_PROOF_LENGTH = UltraRollupFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS() - IPA_PROOF_LENGTH;
-    const std::ptrdiff_t honk_proof_with_pub_inputs_length =
-        static_cast<std::ptrdiff_t>(HONK_PROOF_LENGTH + num_public_inputs);
-
-    // Extract proofs (infer type from combined_proof)
-    using ProofVec = std::decay_t<decltype(combined_proof)>;
-    ProofVec honk_proof(combined_proof.begin(), combined_proof.begin() + honk_proof_with_pub_inputs_length);
-    ProofVec ipa_proof(combined_proof.begin() + honk_proof_with_pub_inputs_length, combined_proof.end());
-
-    return std::make_pair(honk_proof, ipa_proof);
-}
 // Native verifier type aliases
 using UltraVerifier = UltraVerifier_<UltraFlavor, DefaultIO>;
 using UltraZKVerifier = UltraVerifier_<UltraZKFlavor, DefaultIO>;

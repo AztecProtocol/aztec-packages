@@ -328,9 +328,5 @@ TYPED_TEST(UltraHonkTests, NativeVKHashMismatchDetected)
 
     // Verification should fail with BB_ASSERT_EQ detecting the mismatch
     Verifier verifier(vk_and_hash);
-    if constexpr (HasIPAAccumulator<Flavor>) {
-        EXPECT_THROW_WITH_MESSAGE(verifier.verify_proof(proof, prover_instance->ipa_proof), "VK Hash Mismatch");
-    } else {
-        EXPECT_THROW_WITH_MESSAGE(verifier.verify_proof(proof), "VK Hash Mismatch");
-    }
+    EXPECT_THROW_WITH_MESSAGE(verifier.verify_proof(proof), "VK Hash Mismatch");
 }

@@ -64,13 +64,8 @@ template <typename Flavor> class UltraHonkTests : public ::testing::Test {
         Prover prover(prover_instance, verification_key);
         auto proof = prover.construct_proof();
         Verifier verifier(vk_and_hash);
-        if constexpr (HasIPAAccumulator<Flavor>) {
-            bool result = verifier.verify_proof(proof, prover_instance->ipa_proof).result;
-            EXPECT_EQ(result, expected_result);
-        } else {
-            bool result = verifier.verify_proof(proof).result;
-            EXPECT_EQ(result, expected_result);
-        }
+        bool result = verifier.verify_proof(proof).result;
+        EXPECT_EQ(result, expected_result);
     };
 
   protected:

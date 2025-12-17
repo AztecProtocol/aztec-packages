@@ -119,13 +119,7 @@ TEST_F(ChonkRecursionConstraintTest, GenerateRecursiveChonkVerifierVKFromConstra
         auto vk_and_hash = std::make_shared<UltraRollupFlavor::VKAndHash>(vk_from_valid_witness);
         UltraVerifier_<UltraRollupFlavor, bb::RollupIO> verifier(vk_and_hash);
 
-        // Split the proof
-        auto ultra_proof =
-            HonkProof(proof.begin(), proof.begin() + static_cast<std::ptrdiff_t>(proof.size() - IPA_PROOF_LENGTH));
-        auto ipa_proof =
-            HonkProof(proof.begin() + static_cast<std::ptrdiff_t>(proof.size() - IPA_PROOF_LENGTH), proof.end());
-
-        EXPECT_TRUE(verifier.verify_proof(ultra_proof, ipa_proof).result);
+        EXPECT_TRUE(verifier.verify_proof(proof).result);
     }
 
     std::shared_ptr<VerificationKey> vk_from_constraints;

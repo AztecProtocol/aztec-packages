@@ -149,13 +149,7 @@ bool _verify(const std::vector<uint8_t>& vk_bytes,
 
     Verifier verifier{ vk_and_hash };
 
-    bool verified = false;
-    if constexpr (HasIPAAccumulator<Flavor>) {
-        auto [honk_proof, ipa_proof] = split_rollup_proof(complete_proof, vk);
-        verified = verifier.verify_proof(honk_proof, ipa_proof).result;
-    } else {
-        verified = verifier.verify_proof(complete_proof).result;
-    }
+    bool verified = verifier.verify_proof(complete_proof).result;
 
     if (verified) {
         info("Proof verified successfully");
