@@ -70,7 +70,6 @@ FF get_result_of_instruction(FuzzInstruction instruction,
                                                 .value = 5 };
     auto set_instruction_2 = SET_8_Instruction{ .value_tag = bb::avm2::MemoryTag::U8,
                                                 .result_address = AddressRef{ .address = 1 },
-                                                .result_address = VariableRef{ .address = 1 },
                                                 .value = 2 };
     auto instructions = std::vector<FuzzInstruction>{ set_instruction_1, set_instruction_2, instruction };
     auto return_options =
@@ -157,343 +156,338 @@ TEST(fuzz, LT8)
 
 TEST(fuzz, LTE8)
 {
-    auto lte_instruction = LTE_8_Instruction
-    {
+    auto lte_instruction = LTE_8_Instruction{
         .a_address = VariableRef{ .tag = bb::avm2::MemoryTag::U8, .index = 0, .mode = AddressingMode::Direct },
         .b_address = VariableRef{ .tag = bb::avm2::MemoryTag::U8, .index = 1, .mode = AddressingMode::Direct },
-        .result_address = AddressRef
-        {
-            .address = 2, .mode = AddressingMode::Direct
-        }
-        auto result = get_result_of_instruction(lte_instruction, bb::avm2::MemoryTag::U1);
-        EXPECT_EQ(result, 0);
-    }
+        .result_address = AddressRef{ .address = 2, .mode = AddressingMode::Direct }
+    };
+    auto result = get_result_of_instruction(lte_instruction, bb::avm2::MemoryTag::U1);
+    EXPECT_EQ(result, 0);
+}
 
-    TEST(fuzz, AND8)
-    {
-        auto and_instruction = AND_8_Instruction{
-            .a_address = VariableRef{ .tag = bb::avm2::MemoryTag::U8, .index = 0, .mode = AddressingMode::Direct },
-            .b_address = VariableRef{ .tag = bb::avm2::MemoryTag::U8, .index = 1, .mode = AddressingMode::Direct },
-            .result_address = AddressRef{ .address = 2, .mode = AddressingMode::Direct }
-        };
-        auto result = get_result_of_instruction(and_instruction);
-        EXPECT_EQ(result, 0);
-    }
+TEST(fuzz, AND8)
+{
+    auto and_instruction = AND_8_Instruction{
+        .a_address = VariableRef{ .tag = bb::avm2::MemoryTag::U8, .index = 0, .mode = AddressingMode::Direct },
+        .b_address = VariableRef{ .tag = bb::avm2::MemoryTag::U8, .index = 1, .mode = AddressingMode::Direct },
+        .result_address = AddressRef{ .address = 2, .mode = AddressingMode::Direct }
+    };
+    auto result = get_result_of_instruction(and_instruction);
+    EXPECT_EQ(result, 0);
+}
 
-    TEST(fuzz, OR8)
-    {
-        auto or_instruction = OR_8_Instruction{
-            .a_address = VariableRef{ .tag = bb::avm2::MemoryTag::U8, .index = 0, .mode = AddressingMode::Direct },
-            .b_address = VariableRef{ .tag = bb::avm2::MemoryTag::U8, .index = 1, .mode = AddressingMode::Direct },
-            .result_address = AddressRef{ .address = 2, .mode = AddressingMode::Direct }
-        };
-        auto result = get_result_of_instruction(or_instruction);
-        EXPECT_EQ(result, 7);
-    }
+TEST(fuzz, OR8)
+{
+    auto or_instruction = OR_8_Instruction{
+        .a_address = VariableRef{ .tag = bb::avm2::MemoryTag::U8, .index = 0, .mode = AddressingMode::Direct },
+        .b_address = VariableRef{ .tag = bb::avm2::MemoryTag::U8, .index = 1, .mode = AddressingMode::Direct },
+        .result_address = AddressRef{ .address = 2, .mode = AddressingMode::Direct }
+    };
+    auto result = get_result_of_instruction(or_instruction);
+    EXPECT_EQ(result, 7);
+}
 
-    TEST(fuzz, XOR8)
-    {
-        auto xor_instruction = XOR_8_Instruction{
-            .a_address = VariableRef{ .tag = bb::avm2::MemoryTag::U8, .index = 0, .mode = AddressingMode::Direct },
-            .b_address = VariableRef{ .tag = bb::avm2::MemoryTag::U8, .index = 1, .mode = AddressingMode::Direct },
-            .result_address = AddressRef{ .address = 2, .mode = AddressingMode::Direct }
-        };
-        auto result = get_result_of_instruction(xor_instruction);
-        EXPECT_EQ(result, 7);
-    }
+TEST(fuzz, XOR8)
+{
+    auto xor_instruction = XOR_8_Instruction{
+        .a_address = VariableRef{ .tag = bb::avm2::MemoryTag::U8, .index = 0, .mode = AddressingMode::Direct },
+        .b_address = VariableRef{ .tag = bb::avm2::MemoryTag::U8, .index = 1, .mode = AddressingMode::Direct },
+        .result_address = AddressRef{ .address = 2, .mode = AddressingMode::Direct }
+    };
+    auto result = get_result_of_instruction(xor_instruction);
+    EXPECT_EQ(result, 7);
+}
 
-    TEST(fuzz, SHL8)
-    {
-        auto shl_instruction = SHL_8_Instruction{
-            .a_address = VariableRef{ .tag = bb::avm2::MemoryTag::U8, .index = 0, .mode = AddressingMode::Direct },
-            .b_address = VariableRef{ .tag = bb::avm2::MemoryTag::U8, .index = 1, .mode = AddressingMode::Direct },
-            .result_address = AddressRef{ .address = 2, .mode = AddressingMode::Direct }
-        };
-        auto result = get_result_of_instruction(shl_instruction);
-        EXPECT_EQ(result, 20);
-    }
+TEST(fuzz, SHL8)
+{
+    auto shl_instruction = SHL_8_Instruction{
+        .a_address = VariableRef{ .tag = bb::avm2::MemoryTag::U8, .index = 0, .mode = AddressingMode::Direct },
+        .b_address = VariableRef{ .tag = bb::avm2::MemoryTag::U8, .index = 1, .mode = AddressingMode::Direct },
+        .result_address = AddressRef{ .address = 2, .mode = AddressingMode::Direct }
+    };
+    auto result = get_result_of_instruction(shl_instruction);
+    EXPECT_EQ(result, 20);
+}
 
-    TEST(fuzz, SHR8)
-    {
-        auto shr_instruction = SHR_8_Instruction{
-            .a_address = VariableRef{ .tag = bb::avm2::MemoryTag::U8, .index = 0, .mode = AddressingMode::Direct },
-            .b_address = VariableRef{ .tag = bb::avm2::MemoryTag::U8, .index = 1, .mode = AddressingMode::Direct },
-            .result_address = AddressRef{ .address = 2, .mode = AddressingMode::Direct }
-        };
-        auto result = get_result_of_instruction(shr_instruction);
-        EXPECT_EQ(result, 1);
-    }
+TEST(fuzz, SHR8)
+{
+    auto shr_instruction = SHR_8_Instruction{
+        .a_address = VariableRef{ .tag = bb::avm2::MemoryTag::U8, .index = 0, .mode = AddressingMode::Direct },
+        .b_address = VariableRef{ .tag = bb::avm2::MemoryTag::U8, .index = 1, .mode = AddressingMode::Direct },
+        .result_address = AddressRef{ .address = 2, .mode = AddressingMode::Direct }
+    };
+    auto result = get_result_of_instruction(shr_instruction);
+    EXPECT_EQ(result, 1);
+}
 
-    // set(0, 4, FF) set(1, 2, FF) fdiv(FF, 0, 1, 2) return(2)
-    TEST(fuzz, FDIV8)
-    {
-        auto fdiv_instruction = FDIV_8_Instruction{
-            .a_address = VariableRef{ .tag = bb::avm2::MemoryTag::FF, .index = 0, .mode = AddressingMode::Direct },
-            .b_address = VariableRef{ .tag = bb::avm2::MemoryTag::FF, .index = 1, .mode = AddressingMode::Direct },
-            .result_address = AddressRef{ .address = 2, .mode = AddressingMode::Direct }
-        };
-        auto set_instruction_1 =
-            SET_8_Instruction{ .value_tag = bb::avm2::MemoryTag::FF,
-                               .result_address = AddressRef{ .address = 0, .mode = AddressingMode::Direct },
-                               .value = 4 };
-        auto set_instruction_2 =
-            SET_8_Instruction{ .value_tag = bb::avm2::MemoryTag::FF,
-                               .result_address = AddressRef{ .address = 1, .mode = AddressingMode::Direct },
-                               .value = 2 };
-        auto instructions = std::vector<FuzzInstruction>{ set_instruction_1, set_instruction_2, fdiv_instruction };
+// set(0, 4, FF) set(1, 2, FF) fdiv(FF, 0, 1, 2) return(2)
+TEST(fuzz, FDIV8)
+{
+    auto fdiv_instruction = FDIV_8_Instruction{
+        .a_address = VariableRef{ .tag = bb::avm2::MemoryTag::FF, .index = 0, .mode = AddressingMode::Direct },
+        .b_address = VariableRef{ .tag = bb::avm2::MemoryTag::FF, .index = 1, .mode = AddressingMode::Direct },
+        .result_address = AddressRef{ .address = 2, .mode = AddressingMode::Direct }
+    };
+    auto set_instruction_1 =
+        SET_8_Instruction{ .value_tag = bb::avm2::MemoryTag::FF,
+                           .result_address = AddressRef{ .address = 0, .mode = AddressingMode::Direct },
+                           .value = 4 };
+    auto set_instruction_2 =
+        SET_8_Instruction{ .value_tag = bb::avm2::MemoryTag::FF,
+                           .result_address = AddressRef{ .address = 1, .mode = AddressingMode::Direct },
+                           .value = 2 };
+    auto instructions = std::vector<FuzzInstruction>{ set_instruction_1, set_instruction_2, fdiv_instruction };
 
-        auto return_options = ReturnOptions{ .return_size = 1,
-                                             .return_value_tag = bb::avm2::MemoryTag::FF,
-                                             .return_value_offset_index = 2 };
-        auto instruction_blocks = std::vector<std::vector<FuzzInstruction>>{ instructions };
-        auto control_flow = ControlFlow(instruction_blocks);
-        control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
-        auto bytecode = control_flow.build_bytecode(return_options);
+    auto return_options = ReturnOptions{ .return_size = 1,
+                                         .return_value_tag = bb::avm2::MemoryTag::FF,
+                                         .return_value_offset_index = 2 };
+    auto instruction_blocks = std::vector<std::vector<FuzzInstruction>>{ instructions };
+    auto control_flow = ControlFlow(instruction_blocks);
+    control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
+    auto bytecode = control_flow.build_bytecode(return_options);
 
-        auto result = simulate_with_default_tx(bytecode, {});
-        EXPECT_EQ(result.output.at(0), 2);
-    }
+    auto result = simulate_with_default_tx(bytecode, {});
+    EXPECT_EQ(result.output.at(0), 2);
+}
 
-    // set(0, 0, U8) not(U8, 0, 1) return(1)
-    TEST(fuzz, NOT8)
-    {
-        auto set_instruction =
-            SET_8_Instruction{ .value_tag = bb::avm2::MemoryTag::U8,
-                               .result_address = AddressRef{ .address = 0, .mode = AddressingMode::Direct },
-                               .value = 0 };
-        auto not_instruction = NOT_8_Instruction{
-            .a_address = VariableRef{ .tag = bb::avm2::MemoryTag::U8, .index = 0, .mode = AddressingMode::Direct },
-            .result_address = AddressRef{ .address = 1, .mode = AddressingMode::Direct }
-        };
-        auto instructions = std::vector<FuzzInstruction>{ set_instruction, not_instruction };
-        auto return_options = ReturnOptions{ .return_size = 1,
-                                             .return_value_tag = bb::avm2::MemoryTag::U8,
-                                             .return_value_offset_index = 1 };
-        auto instruction_blocks = std::vector<std::vector<FuzzInstruction>>{ instructions };
-        auto control_flow = ControlFlow(instruction_blocks);
-        control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
-        auto bytecode = control_flow.build_bytecode(return_options);
+// set(0, 0, U8) not(U8, 0, 1) return(1)
+TEST(fuzz, NOT8)
+{
+    auto set_instruction =
+        SET_8_Instruction{ .value_tag = bb::avm2::MemoryTag::U8,
+                           .result_address = AddressRef{ .address = 0, .mode = AddressingMode::Direct },
+                           .value = 0 };
+    auto not_instruction = NOT_8_Instruction{
+        .a_address = VariableRef{ .tag = bb::avm2::MemoryTag::U8, .index = 0, .mode = AddressingMode::Direct },
+        .result_address = AddressRef{ .address = 1, .mode = AddressingMode::Direct }
+    };
+    auto instructions = std::vector<FuzzInstruction>{ set_instruction, not_instruction };
+    auto return_options =
+        ReturnOptions{ .return_size = 1, .return_value_tag = bb::avm2::MemoryTag::U8, .return_value_offset_index = 1 };
+    auto instruction_blocks = std::vector<std::vector<FuzzInstruction>>{ instructions };
+    auto control_flow = ControlFlow(instruction_blocks);
+    control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
+    auto bytecode = control_flow.build_bytecode(return_options);
 
-        auto result = simulate_with_default_tx(bytecode, {});
-        EXPECT_EQ(result.output.at(0), 255);
-    }
+    auto result = simulate_with_default_tx(bytecode, {});
+    EXPECT_EQ(result.output.at(0), 255);
+}
 
-    // Helper function for 16-bit instructions
-    // set(addr 0, 5) set(addr 1, 2) OP_16(addr 0, addr 1, addr 2) return(addr 2)
-    FF get_result_of_instruction_16(FuzzInstruction instruction,
-                                    bb::avm2::MemoryTag return_value_tag = bb::avm2::MemoryTag::U8)
-    {
-        auto set_instruction_1 =
-            SET_8_Instruction{ .value_tag = bb::avm2::MemoryTag::U8,
-                               .result_address = AddressRef{ .address = 0, .mode = AddressingMode::Direct },
-                               .value = 5 };
-        auto set_instruction_2 =
-            SET_8_Instruction{ .value_tag = bb::avm2::MemoryTag::U8,
-                               .result_address = AddressRef{ .address = 1, .mode = AddressingMode::Direct },
-                               .value = 2 };
-        auto instructions = std::vector<FuzzInstruction>{ set_instruction_1, set_instruction_2, instruction };
+// Helper function for 16-bit instructions
+// set(addr 0, 5) set(addr 1, 2) OP_16(addr 0, addr 1, addr 2) return(addr 2)
+FF get_result_of_instruction_16(FuzzInstruction instruction,
+                                bb::avm2::MemoryTag return_value_tag = bb::avm2::MemoryTag::U8)
+{
+    auto set_instruction_1 =
+        SET_8_Instruction{ .value_tag = bb::avm2::MemoryTag::U8,
+                           .result_address = AddressRef{ .address = 0, .mode = AddressingMode::Direct },
+                           .value = 5 };
+    auto set_instruction_2 =
+        SET_8_Instruction{ .value_tag = bb::avm2::MemoryTag::U8,
+                           .result_address = AddressRef{ .address = 1, .mode = AddressingMode::Direct },
+                           .value = 2 };
+    auto instructions = std::vector<FuzzInstruction>{ set_instruction_1, set_instruction_2, instruction };
 
-        auto return_options =
-            ReturnOptions{ .return_size = 1, .return_value_tag = return_value_tag, .return_value_offset_index = 2 };
-        auto instruction_blocks = std::vector<std::vector<FuzzInstruction>>{ instructions };
-        auto control_flow = ControlFlow(instruction_blocks);
-        control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
-        auto bytecode = control_flow.build_bytecode(return_options);
+    auto return_options =
+        ReturnOptions{ .return_size = 1, .return_value_tag = return_value_tag, .return_value_offset_index = 2 };
+    auto instruction_blocks = std::vector<std::vector<FuzzInstruction>>{ instructions };
+    auto control_flow = ControlFlow(instruction_blocks);
+    control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
+    auto bytecode = control_flow.build_bytecode(return_options);
 
-        auto result = simulate_with_default_tx(bytecode, {});
-        return result.output.at(0);
-    }
+    auto result = simulate_with_default_tx(bytecode, {});
+    return result.output.at(0);
+}
 
-    TEST(fuzz, ADD16)
-    {
-        auto add_instruction = ADD_16_Instruction{
-            .a_address =
-                VariableRef{
-                    .tag = bb::avm2::MemoryTag::U8,
-                    .index = 0,
-                    .mode = AddressingMode::Direct,
-                },
-            .b_address = VariableRef{ .tag = bb::avm2::MemoryTag::U8, .index = 1, .mode = AddressingMode::Direct },
-            .result_address = AddressRef{ .address = 2, .mode = AddressingMode::Direct }
-        };
-        auto result = get_result_of_instruction_16(add_instruction);
-        EXPECT_EQ(result, 7);
-    }
+TEST(fuzz, ADD16)
+{
+    auto add_instruction = ADD_16_Instruction{
+        .a_address =
+            VariableRef{
+                .tag = bb::avm2::MemoryTag::U8,
+                .index = 0,
+                .mode = AddressingMode::Direct,
+            },
+        .b_address = VariableRef{ .tag = bb::avm2::MemoryTag::U8, .index = 1, .mode = AddressingMode::Direct },
+        .result_address = AddressRef{ .address = 2, .mode = AddressingMode::Direct }
+    };
+    auto result = get_result_of_instruction_16(add_instruction);
+    EXPECT_EQ(result, 7);
+}
 
-    TEST(fuzz, SUB16)
-    {
-        auto sub_instruction = SUB_16_Instruction{
-            .a_address = VariableRef{ .tag = bb::avm2::MemoryTag::U8, .index = 0, .mode = AddressingMode::Direct },
-            .b_address = VariableRef{ .tag = bb::avm2::MemoryTag::U8, .index = 1, .mode = AddressingMode::Direct },
-            .result_address = AddressRef{ .address = 2, .mode = AddressingMode::Direct }
-        };
-        auto result = get_result_of_instruction_16(sub_instruction);
-        EXPECT_EQ(result, 3);
-    }
+TEST(fuzz, SUB16)
+{
+    auto sub_instruction = SUB_16_Instruction{
+        .a_address = VariableRef{ .tag = bb::avm2::MemoryTag::U8, .index = 0, .mode = AddressingMode::Direct },
+        .b_address = VariableRef{ .tag = bb::avm2::MemoryTag::U8, .index = 1, .mode = AddressingMode::Direct },
+        .result_address = AddressRef{ .address = 2, .mode = AddressingMode::Direct }
+    };
+    auto result = get_result_of_instruction_16(sub_instruction);
+    EXPECT_EQ(result, 3);
+}
 
-    TEST(fuzz, MUL16)
-    {
-        auto mul_instruction = MUL_16_Instruction{
-            .a_address = VariableRef{ .tag = bb::avm2::MemoryTag::U8, .index = 0, .mode = AddressingMode::Direct },
-            .b_address = VariableRef{ .tag = bb::avm2::MemoryTag::U8, .index = 1, .mode = AddressingMode::Direct },
-            .result_address = AddressRef{ .address = 2, .mode = AddressingMode::Direct }
-        };
-        auto result = get_result_of_instruction_16(mul_instruction);
-        EXPECT_EQ(result, 10);
-    }
+TEST(fuzz, MUL16)
+{
+    auto mul_instruction = MUL_16_Instruction{
+        .a_address = VariableRef{ .tag = bb::avm2::MemoryTag::U8, .index = 0, .mode = AddressingMode::Direct },
+        .b_address = VariableRef{ .tag = bb::avm2::MemoryTag::U8, .index = 1, .mode = AddressingMode::Direct },
+        .result_address = AddressRef{ .address = 2, .mode = AddressingMode::Direct }
+    };
+    auto result = get_result_of_instruction_16(mul_instruction);
+    EXPECT_EQ(result, 10);
+}
 
-    TEST(fuzz, DIV16)
-    {
-        auto div_instruction = DIV_16_Instruction{
-            .a_address = VariableRef{ .tag = bb::avm2::MemoryTag::U8, .index = 0, .mode = AddressingMode::Direct },
-            .b_address = VariableRef{ .tag = bb::avm2::MemoryTag::U8, .index = 1, .mode = AddressingMode::Direct },
-            .result_address = AddressRef{ .address = 2, .mode = AddressingMode::Direct }
-        };
-        auto result = get_result_of_instruction_16(div_instruction);
-        EXPECT_EQ(result, 2);
-    }
+TEST(fuzz, DIV16)
+{
+    auto div_instruction = DIV_16_Instruction{
+        .a_address = VariableRef{ .tag = bb::avm2::MemoryTag::U8, .index = 0, .mode = AddressingMode::Direct },
+        .b_address = VariableRef{ .tag = bb::avm2::MemoryTag::U8, .index = 1, .mode = AddressingMode::Direct },
+        .result_address = AddressRef{ .address = 2, .mode = AddressingMode::Direct }
+    };
+    auto result = get_result_of_instruction_16(div_instruction);
+    EXPECT_EQ(result, 2);
+}
 
-    TEST(fuzz, EQ16)
-    {
-        auto eq_instruction = EQ_16_Instruction{
-            .a_address = VariableRef{ .tag = bb::avm2::MemoryTag::U8, .index = 0, .mode = AddressingMode::Direct },
-            .b_address = VariableRef{ .tag = bb::avm2::MemoryTag::U8, .index = 1, .mode = AddressingMode::Direct },
-            .result_address = AddressRef{ .address = 2, .mode = AddressingMode::Direct }
-        };
-        auto result = get_result_of_instruction_16(eq_instruction, bb::avm2::MemoryTag::U1);
-        EXPECT_EQ(result, 0);
-    }
+TEST(fuzz, EQ16)
+{
+    auto eq_instruction = EQ_16_Instruction{
+        .a_address = VariableRef{ .tag = bb::avm2::MemoryTag::U8, .index = 0, .mode = AddressingMode::Direct },
+        .b_address = VariableRef{ .tag = bb::avm2::MemoryTag::U8, .index = 1, .mode = AddressingMode::Direct },
+        .result_address = AddressRef{ .address = 2, .mode = AddressingMode::Direct }
+    };
+    auto result = get_result_of_instruction_16(eq_instruction, bb::avm2::MemoryTag::U1);
+    EXPECT_EQ(result, 0);
+}
 
-    TEST(fuzz, LT16)
-    {
-        auto lt_instruction = LT_16_Instruction{
-            .a_address = VariableRef{ .tag = bb::avm2::MemoryTag::U8, .index = 0, .mode = AddressingMode::Direct },
-            .b_address = VariableRef{ .tag = bb::avm2::MemoryTag::U8, .index = 1, .mode = AddressingMode::Direct },
-            .result_address = AddressRef{ .address = 2, .mode = AddressingMode::Direct }
-        };
-        auto result = get_result_of_instruction_16(lt_instruction, bb::avm2::MemoryTag::U1);
-        EXPECT_EQ(result, 0);
-    }
+TEST(fuzz, LT16)
+{
+    auto lt_instruction = LT_16_Instruction{
+        .a_address = VariableRef{ .tag = bb::avm2::MemoryTag::U8, .index = 0, .mode = AddressingMode::Direct },
+        .b_address = VariableRef{ .tag = bb::avm2::MemoryTag::U8, .index = 1, .mode = AddressingMode::Direct },
+        .result_address = AddressRef{ .address = 2, .mode = AddressingMode::Direct }
+    };
+    auto result = get_result_of_instruction_16(lt_instruction, bb::avm2::MemoryTag::U1);
+    EXPECT_EQ(result, 0);
+}
 
-    TEST(fuzz, LTE16)
-    {
-        auto lte_instruction = LTE_16_Instruction{
-            .a_address = VariableRef{ .tag = bb::avm2::MemoryTag::U8, .index = 0, .mode = AddressingMode::Direct },
-            .b_address = VariableRef{ .tag = bb::avm2::MemoryTag::U8, .index = 1, .mode = AddressingMode::Direct },
-            .result_address = AddressRef{ .address = 2, .mode = AddressingMode::Direct }
-        };
-        auto result = get_result_of_instruction_16(lte_instruction, bb::avm2::MemoryTag::U1);
-        EXPECT_EQ(result, 0);
-    }
+TEST(fuzz, LTE16)
+{
+    auto lte_instruction = LTE_16_Instruction{
+        .a_address = VariableRef{ .tag = bb::avm2::MemoryTag::U8, .index = 0, .mode = AddressingMode::Direct },
+        .b_address = VariableRef{ .tag = bb::avm2::MemoryTag::U8, .index = 1, .mode = AddressingMode::Direct },
+        .result_address = AddressRef{ .address = 2, .mode = AddressingMode::Direct }
+    };
+    auto result = get_result_of_instruction_16(lte_instruction, bb::avm2::MemoryTag::U1);
+    EXPECT_EQ(result, 0);
+}
 
-    TEST(fuzz, AND16)
-    {
-        auto and_instruction = AND_16_Instruction{
-            .a_address = VariableRef{ .tag = bb::avm2::MemoryTag::U8, .index = 0, .mode = AddressingMode::Direct },
-            .b_address = VariableRef{ .tag = bb::avm2::MemoryTag::U8, .index = 1, .mode = AddressingMode::Direct },
-            .result_address = AddressRef{ .address = 2, .mode = AddressingMode::Direct }
-        };
-        auto result = get_result_of_instruction_16(and_instruction);
-        EXPECT_EQ(result, 0);
-    }
+TEST(fuzz, AND16)
+{
+    auto and_instruction = AND_16_Instruction{
+        .a_address = VariableRef{ .tag = bb::avm2::MemoryTag::U8, .index = 0, .mode = AddressingMode::Direct },
+        .b_address = VariableRef{ .tag = bb::avm2::MemoryTag::U8, .index = 1, .mode = AddressingMode::Direct },
+        .result_address = AddressRef{ .address = 2, .mode = AddressingMode::Direct }
+    };
+    auto result = get_result_of_instruction_16(and_instruction);
+    EXPECT_EQ(result, 0);
+}
 
-    TEST(fuzz, OR16)
-    {
-        auto or_instruction = OR_16_Instruction{
-            .a_address = VariableRef{ .tag = bb::avm2::MemoryTag::U8, .index = 0, .mode = AddressingMode::Direct },
-            .b_address = VariableRef{ .tag = bb::avm2::MemoryTag::U8, .index = 1, .mode = AddressingMode::Direct },
-            .result_address = AddressRef{ .address = 2, .mode = AddressingMode::Direct }
-        };
-        auto result = get_result_of_instruction_16(or_instruction);
-        EXPECT_EQ(result, 7);
-    }
+TEST(fuzz, OR16)
+{
+    auto or_instruction = OR_16_Instruction{
+        .a_address = VariableRef{ .tag = bb::avm2::MemoryTag::U8, .index = 0, .mode = AddressingMode::Direct },
+        .b_address = VariableRef{ .tag = bb::avm2::MemoryTag::U8, .index = 1, .mode = AddressingMode::Direct },
+        .result_address = AddressRef{ .address = 2, .mode = AddressingMode::Direct }
+    };
+    auto result = get_result_of_instruction_16(or_instruction);
+    EXPECT_EQ(result, 7);
+}
 
-    TEST(fuzz, XOR16)
-    {
-        auto xor_instruction = XOR_16_Instruction{
-            .a_address = VariableRef{ .tag = bb::avm2::MemoryTag::U8, .index = 0, .mode = AddressingMode::Direct },
-            .b_address = VariableRef{ .tag = bb::avm2::MemoryTag::U8, .index = 1, .mode = AddressingMode::Direct },
-            .result_address = AddressRef{ .address = 2, .mode = AddressingMode::Direct }
-        };
-        auto result = get_result_of_instruction_16(xor_instruction);
-        EXPECT_EQ(result, 7);
-    }
+TEST(fuzz, XOR16)
+{
+    auto xor_instruction = XOR_16_Instruction{
+        .a_address = VariableRef{ .tag = bb::avm2::MemoryTag::U8, .index = 0, .mode = AddressingMode::Direct },
+        .b_address = VariableRef{ .tag = bb::avm2::MemoryTag::U8, .index = 1, .mode = AddressingMode::Direct },
+        .result_address = AddressRef{ .address = 2, .mode = AddressingMode::Direct }
+    };
+    auto result = get_result_of_instruction_16(xor_instruction);
+    EXPECT_EQ(result, 7);
+}
 
-    TEST(fuzz, SHL16)
-    {
-        auto shl_instruction = SHL_16_Instruction{
-            .a_address = VariableRef{ .tag = bb::avm2::MemoryTag::U8, .index = 0, .mode = AddressingMode::Direct },
-            .b_address = VariableRef{ .tag = bb::avm2::MemoryTag::U8, .index = 1, .mode = AddressingMode::Direct },
-            .result_address = AddressRef{ .address = 2, .mode = AddressingMode::Direct }
-        };
-        auto result = get_result_of_instruction_16(shl_instruction);
-        EXPECT_EQ(result, 20);
-    }
+TEST(fuzz, SHL16)
+{
+    auto shl_instruction = SHL_16_Instruction{
+        .a_address = VariableRef{ .tag = bb::avm2::MemoryTag::U8, .index = 0, .mode = AddressingMode::Direct },
+        .b_address = VariableRef{ .tag = bb::avm2::MemoryTag::U8, .index = 1, .mode = AddressingMode::Direct },
+        .result_address = AddressRef{ .address = 2, .mode = AddressingMode::Direct }
+    };
+    auto result = get_result_of_instruction_16(shl_instruction);
+    EXPECT_EQ(result, 20);
+}
 
-    TEST(fuzz, SHR16)
-    {
-        auto shr_instruction = SHR_16_Instruction{
-            .a_address = VariableRef{ .tag = bb::avm2::MemoryTag::U8, .index = 0, .mode = AddressingMode::Direct },
-            .b_address = VariableRef{ .tag = bb::avm2::MemoryTag::U8, .index = 1, .mode = AddressingMode::Direct },
-            .result_address = AddressRef{ .address = 2, .mode = AddressingMode::Direct }
-        };
-        auto result = get_result_of_instruction_16(shr_instruction);
-        EXPECT_EQ(result, 1);
-    }
+TEST(fuzz, SHR16)
+{
+    auto shr_instruction = SHR_16_Instruction{
+        .a_address = VariableRef{ .tag = bb::avm2::MemoryTag::U8, .index = 0, .mode = AddressingMode::Direct },
+        .b_address = VariableRef{ .tag = bb::avm2::MemoryTag::U8, .index = 1, .mode = AddressingMode::Direct },
+        .result_address = AddressRef{ .address = 2, .mode = AddressingMode::Direct }
+    };
+    auto result = get_result_of_instruction_16(shr_instruction);
+    EXPECT_EQ(result, 1);
+}
 
-    // set(0, 4, FF) set(1, 2, FF) fdiv_16(FF, 0, 1, 2) return(2)
-    TEST(fuzz, FDIV16)
-    {
-        auto fdiv_instruction = FDIV_16_Instruction{
-            .a_address = VariableRef{ .tag = bb::avm2::MemoryTag::FF, .index = 0, .mode = AddressingMode::Direct },
-            .b_address = VariableRef{ .tag = bb::avm2::MemoryTag::FF, .index = 1, .mode = AddressingMode::Direct },
-            .result_address = AddressRef{ .address = 2, .mode = AddressingMode::Direct }
-        };
-        auto set_instruction_1 =
-            SET_8_Instruction{ .value_tag = bb::avm2::MemoryTag::FF,
-                               .result_address = AddressRef{ .address = 0, .mode = AddressingMode::Direct },
-                               .value = 4 };
-        auto set_instruction_2 =
-            SET_8_Instruction{ .value_tag = bb::avm2::MemoryTag::FF,
-                               .result_address = AddressRef{ .address = 1, .mode = AddressingMode::Direct },
-                               .value = 2 };
-        auto instructions = std::vector<FuzzInstruction>{ set_instruction_1, set_instruction_2, fdiv_instruction };
+// set(0, 4, FF) set(1, 2, FF) fdiv_16(FF, 0, 1, 2) return(2)
+TEST(fuzz, FDIV16)
+{
+    auto fdiv_instruction = FDIV_16_Instruction{
+        .a_address = VariableRef{ .tag = bb::avm2::MemoryTag::FF, .index = 0, .mode = AddressingMode::Direct },
+        .b_address = VariableRef{ .tag = bb::avm2::MemoryTag::FF, .index = 1, .mode = AddressingMode::Direct },
+        .result_address = AddressRef{ .address = 2, .mode = AddressingMode::Direct }
+    };
+    auto set_instruction_1 =
+        SET_8_Instruction{ .value_tag = bb::avm2::MemoryTag::FF,
+                           .result_address = AddressRef{ .address = 0, .mode = AddressingMode::Direct },
+                           .value = 4 };
+    auto set_instruction_2 =
+        SET_8_Instruction{ .value_tag = bb::avm2::MemoryTag::FF,
+                           .result_address = AddressRef{ .address = 1, .mode = AddressingMode::Direct },
+                           .value = 2 };
+    auto instructions = std::vector<FuzzInstruction>{ set_instruction_1, set_instruction_2, fdiv_instruction };
 
-        auto return_options = ReturnOptions{ .return_size = 1,
-                                             .return_value_tag = bb::avm2::MemoryTag::FF,
-                                             .return_value_offset_index = 2 };
-        auto instruction_blocks = std::vector<std::vector<FuzzInstruction>>{ instructions };
-        auto control_flow = ControlFlow(instruction_blocks);
-        control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
-        auto bytecode = control_flow.build_bytecode(return_options);
+    auto return_options = ReturnOptions{ .return_size = 1,
+                                         .return_value_tag = bb::avm2::MemoryTag::FF,
+                                         .return_value_offset_index = 2 };
+    auto instruction_blocks = std::vector<std::vector<FuzzInstruction>>{ instructions };
+    auto control_flow = ControlFlow(instruction_blocks);
+    control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
+    auto bytecode = control_flow.build_bytecode(return_options);
 
-        auto result = simulate_with_default_tx(bytecode, {});
-        EXPECT_EQ(result.output.at(0), 2);
-    }
+    auto result = simulate_with_default_tx(bytecode, {});
+    EXPECT_EQ(result.output.at(0), 2);
+}
 
-    // set(0, 0, U8) not_16(U8, 0, 1) return(1)
-    TEST(fuzz, NOT16)
-    {
-        auto set_instruction =
-            SET_8_Instruction{ .value_tag = bb::avm2::MemoryTag::U8,
-                               .result_address = AddressRef{ .address = 0, .mode = AddressingMode::Direct },
-                               .value = 0 };
-        auto not_instruction = NOT_16_Instruction{
-            .a_address = VariableRef{ .tag = bb::avm2::MemoryTag::U8, .index = 0, .mode = AddressingMode::Direct },
-            .result_address = AddressRef{ .address = 1, .mode = AddressingMode::Direct }
-        };
-        auto instructions = std::vector<FuzzInstruction>{ set_instruction, not_instruction };
-        auto return_options = ReturnOptions{ .return_size = 1,
-                                             .return_value_tag = bb::avm2::MemoryTag::U8,
-                                             .return_value_offset_index = 1 };
-        auto instruction_blocks = std::vector<std::vector<FuzzInstruction>>{ instructions };
-        auto control_flow = ControlFlow(instruction_blocks);
-        control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
-        auto bytecode = control_flow.build_bytecode(return_options);
+// set(0, 0, U8) not_16(U8, 0, 1) return(1)
+TEST(fuzz, NOT16)
+{
+    auto set_instruction =
+        SET_8_Instruction{ .value_tag = bb::avm2::MemoryTag::U8,
+                           .result_address = AddressRef{ .address = 0, .mode = AddressingMode::Direct },
+                           .value = 0 };
+    auto not_instruction = NOT_16_Instruction{
+        .a_address = VariableRef{ .tag = bb::avm2::MemoryTag::U8, .index = 0, .mode = AddressingMode::Direct },
+        .result_address = AddressRef{ .address = 1, .mode = AddressingMode::Direct }
+    };
+    auto instructions = std::vector<FuzzInstruction>{ set_instruction, not_instruction };
+    auto return_options =
+        ReturnOptions{ .return_size = 1, .return_value_tag = bb::avm2::MemoryTag::U8, .return_value_offset_index = 1 };
+    auto instruction_blocks = std::vector<std::vector<FuzzInstruction>>{ instructions };
+    auto control_flow = ControlFlow(instruction_blocks);
+    control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
+    auto bytecode = control_flow.build_bytecode(return_options);
 
-        auto result = simulate_with_default_tx(bytecode, {});
-        EXPECT_EQ(result.output.at(0), 255);
-    }
+    auto result = simulate_with_default_tx(bytecode, {});
+    EXPECT_EQ(result.output.at(0), 255);
+}
 } // namespace arithmetic
 
 namespace type_conversion {
