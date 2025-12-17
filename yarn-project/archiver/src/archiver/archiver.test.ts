@@ -1679,6 +1679,74 @@ describe('Archiver', () => {
       expect(retrievedBlock!.number).toEqual(BlockNumber(1));
     });
 
+    it('retrieves multiple blocks with getL2BlocksNew', async () => {
+      setupMinimalL1Mocks();
+      const block1 = await makeBlock(BlockNumber(1), 0, genesisArchive);
+      const block2 = await makeBlock(BlockNumber(2), 1, block1.archive);
+      const block3 = await makeBlock(BlockNumber(3), 2, block2.archive);
+
+      await archiver.addBlock(block1);
+      await archiver.addBlock(block2);
+      await archiver.addBlock(block3);
+
+      const blocks = await archiver.getL2BlocksNew(BlockNumber(1), 3);
+      expect(blocks).toEqual([block1, block2, block3]);
+    });
+
+    it('retrieves blocks with limit in getL2BlocksNew', async () => {
+      setupMinimalL1Mocks();
+      const block1 = await makeBlock(BlockNumber(1), 0, genesisArchive);
+      const block2 = await makeBlock(BlockNumber(2), 1, block1.archive);
+      const block3 = await makeBlock(BlockNumber(3), 2, block2.archive);
+
+      await archiver.addBlock(block1);
+      await archiver.addBlock(block2);
+      await archiver.addBlock(block3);
+
+      // Request only 2 blocks starting from block 1
+      const blocks = await archiver.getL2BlocksNew(BlockNumber(1), 2);
+      expect(blocks).toEqual([block1, block2]);
+    });
+
+    it('retrieves blocks starting from middle with getL2BlocksNew', async () => {
+      setupMinimalL1Mocks();
+      const block1 = await makeBlock(BlockNumber(1), 0, genesisArchive);
+      const block2 = await makeBlock(BlockNumber(2), 1, block1.archive);
+      const block3 = await makeBlock(BlockNumber(3), 2, block2.archive);
+
+      await archiver.addBlock(block1);
+      await archiver.addBlock(block2);
+      await archiver.addBlock(block3);
+
+      // Start from block 2
+      const blocks = await archiver.getL2BlocksNew(BlockNumber(2), 2);
+      expect(blocks).toEqual([block2, block3]);
+    });
+
+    it('returns empty array when requesting blocks beyond available range', async () => {
+      setupMinimalL1Mocks();
+      const block1 = await makeBlock(BlockNumber(1), 0, genesisArchive);
+
+      await archiver.addBlock(block1);
+
+      // Request blocks starting from block 5 (which doesn't exist)
+      const blocks = await archiver.getL2BlocksNew(BlockNumber(5), 3);
+      expect(blocks).toEqual([]);
+    });
+
+    it('returns partial results when limit exceeds available blocks', async () => {
+      setupMinimalL1Mocks();
+      const block1 = await makeBlock(BlockNumber(1), 0, genesisArchive);
+      const block2 = await makeBlock(BlockNumber(2), 1, block1.archive);
+
+      await archiver.addBlock(block1);
+      await archiver.addBlock(block2);
+
+      // Request 10 blocks but only 2 are available
+      const blocks = await archiver.getL2BlocksNew(BlockNumber(1), 10);
+      expect(blocks).toEqual([block1, block2]);
+    });
+
     it('blocks added via addBlock become checkpointed when checkpoint syncs from L1', async () => {
       // First, sync checkpoint 1 from L1 to establish a baseline
       const checkpoint1 = checkpoints[0];

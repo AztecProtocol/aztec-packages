@@ -129,6 +129,7 @@ export class L2BlockStream {
       }
 
       // Update the checkpointed tips
+      // TODO(pw/mbps): Not sure if this is the correct way of handling multiple checkpoints or if we should do each one in turn
       if (
         localTips.checkpoint !== undefined &&
         sourceTips.checkpoint !== undefined &&
