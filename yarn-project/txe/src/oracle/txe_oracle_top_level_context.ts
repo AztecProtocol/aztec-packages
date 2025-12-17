@@ -310,6 +310,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       this.keyStore,
       this.addressDataProvider,
       this.stateMachine.node,
+      this.stateMachine.anchorBlockDataProvider,
       0,
       1,
       undefined, // log
@@ -629,6 +630,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
         this.keyStore,
         this.addressDataProvider,
         this.stateMachine.node,
+        this.stateMachine.anchorBlockDataProvider,
       );
       const acirExecutionResult = await new WASMSimulator()
         .executeUserCircuit(toACVMWitness(0, args), entryPointArtifact, new Oracle(oracle).toACIRCallback())

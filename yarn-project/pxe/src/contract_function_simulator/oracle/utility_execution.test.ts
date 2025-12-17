@@ -13,7 +13,12 @@ import { BlockHeader, TxHash } from '@aztec/stdlib/tx';
 
 import { mock } from 'jest-mock-extended';
 
-import { AddressDataProvider, ContractDataProvider, NoteDataProvider } from '../../storage/index.js';
+import {
+  AddressDataProvider,
+  AnchorBlockDataProvider,
+  ContractDataProvider,
+  NoteDataProvider,
+} from '../../storage/index.js';
 import { ContractFunctionSimulator } from '../contract_function_simulator.js';
 import type { ExecutionDataProvider } from '../execution_data_provider.js';
 
@@ -26,6 +31,7 @@ describe('Utility Execution test suite', () => {
   let keyStore: ReturnType<typeof mock<KeyStore>>;
   let addressDataProvider: ReturnType<typeof mock<AddressDataProvider>>;
   let aztecNode: ReturnType<typeof mock<AztecNode>>;
+  let anchorBlockDataProvider: ReturnType<typeof mock<AnchorBlockDataProvider>>;
   let acirSimulator: ContractFunctionSimulator;
   let owner: AztecAddress;
   const ownerSecretKey = Fr.fromHexString('2dcc5485a58316776299be08c78fa3788a1a7961ae30dc747fb1be17692a8d32');
@@ -41,6 +47,7 @@ describe('Utility Execution test suite', () => {
     keyStore = mock<KeyStore>();
     addressDataProvider = mock<AddressDataProvider>();
     aztecNode = mock<AztecNode>();
+    anchorBlockDataProvider = mock<AnchorBlockDataProvider>();
     acirSimulator = new ContractFunctionSimulator(
       executionDataProvider,
       contractDataProvider,
@@ -48,6 +55,7 @@ describe('Utility Execution test suite', () => {
       keyStore,
       addressDataProvider,
       aztecNode,
+      anchorBlockDataProvider,
       simulator,
     );
 

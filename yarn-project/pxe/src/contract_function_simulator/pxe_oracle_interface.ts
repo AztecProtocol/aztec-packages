@@ -85,17 +85,6 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     return this.aztecNode.getNullifierMembershipWitness(blockNumber, nullifier);
   }
 
-  public async getLowNullifierMembershipWitness(
-    blockNumber: BlockParameter,
-    nullifier: Fr,
-  ): Promise<NullifierMembershipWitness | undefined> {
-    const anchorBlockNumber = (await this.anchorBlockDataProvider.getBlockHeader()).getBlockNumber();
-    if (blockNumber !== 'latest' && blockNumber > anchorBlockNumber) {
-      throw new Error(`Block number ${blockNumber} is higher than current block ${anchorBlockNumber}`);
-    }
-    return this.aztecNode.getLowNullifierMembershipWitness(blockNumber, nullifier);
-  }
-
   public async getBlock(blockNumber: BlockParameter): Promise<L2Block | undefined> {
     const anchorBlockNumber = (await this.anchorBlockDataProvider.getBlockHeader()).getBlockNumber();
     if (blockNumber !== 'latest' && blockNumber > anchorBlockNumber) {

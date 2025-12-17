@@ -63,7 +63,12 @@ import { jest } from '@jest/globals';
 import { Matcher, type MatcherCreator, type MockProxy, mock } from 'jest-mock-extended';
 import { toFunctionSelector } from 'viem';
 
-import { AddressDataProvider, ContractDataProvider, NoteDataProvider } from '../../storage/index.js';
+import {
+  AddressDataProvider,
+  AnchorBlockDataProvider,
+  ContractDataProvider,
+  NoteDataProvider,
+} from '../../storage/index.js';
 import type { SenderTaggingDataProvider } from '../../storage/tagging_data_provider/sender_tagging_data_provider.js';
 import { ContractFunctionSimulator } from '../contract_function_simulator.js';
 import type { ExecutionDataProvider } from '../execution_data_provider.js';
@@ -111,6 +116,7 @@ describe('Private Execution test suite', () => {
   let keyStore: MockProxy<KeyStore>;
   let senderTaggingDataProvider: MockProxy<SenderTaggingDataProvider>;
   let aztecNode: MockProxy<AztecNode>;
+  let anchorBlockDataProvider: MockProxy<AnchorBlockDataProvider>;
   let acirSimulator: ContractFunctionSimulator;
 
   let anchorBlockHeader = BlockHeader.empty();
@@ -282,6 +288,7 @@ describe('Private Execution test suite', () => {
     senderTaggingDataProvider = mock<SenderTaggingDataProvider>();
     aztecNode = mock<AztecNode>();
     keyStore = mock<KeyStore>();
+    anchorBlockDataProvider = mock<AnchorBlockDataProvider>();
     contracts = {};
 
     // Mock the senderTaggingDataProvider getter
@@ -366,6 +373,7 @@ describe('Private Execution test suite', () => {
       keyStore,
       addressDataProvider,
       aztecNode,
+      anchorBlockDataProvider,
       simulator,
     );
   });

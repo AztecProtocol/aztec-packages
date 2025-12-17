@@ -28,7 +28,12 @@ import {
   type TxContext,
 } from '@aztec/stdlib/tx';
 
-import type { AddressDataProvider, ContractDataProvider, NoteDataProvider } from '../../storage/index.js';
+import type {
+  AddressDataProvider,
+  AnchorBlockDataProvider,
+  ContractDataProvider,
+  NoteDataProvider,
+} from '../../storage/index.js';
 import { syncSenderTaggingIndexes } from '../../tagging/sync/sync_sender_tagging_indexes.js';
 import { Tag } from '../../tagging/tag.js';
 import type { ExecutionDataProvider } from '../execution_data_provider.js';
@@ -89,6 +94,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     keyStore: KeyStore,
     addressDataProvider: AddressDataProvider,
     aztecNode: AztecNode,
+    anchorBlockDataProvider: AnchorBlockDataProvider,
     private totalPublicCalldataCount: number = 0,
     protected sideEffectCounter: number = 0,
     log = createLogger('simulator:client_execution_context'),
@@ -107,6 +113,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       keyStore,
       addressDataProvider,
       aztecNode,
+      anchorBlockDataProvider,
       log,
       scopes,
     );
@@ -558,6 +565,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       this.keyStore,
       this.addressDataProvider,
       this.aztecNode,
+      this.anchorBlockDataProvider,
       this.totalPublicCalldataCount,
       sideEffectCounter,
       this.log,

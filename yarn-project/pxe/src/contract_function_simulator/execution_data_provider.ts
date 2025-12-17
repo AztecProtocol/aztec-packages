@@ -66,20 +66,6 @@ export interface ExecutionDataProvider {
   ): Promise<NullifierMembershipWitness | undefined>;
 
   /**
-   * Returns a low nullifier membership witness for a given nullifier at a given block.
-   * @param blockNumber - The block number at which to get the index.
-   * @param nullifier - Nullifier we try to find the low nullifier witness for.
-   * @returns The low nullifier membership witness (if found).
-   * @remarks Low nullifier witness can be used to perform a nullifier non-inclusion proof by leveraging the "linked
-   * list structure" of leaves and proving that a lower nullifier is pointing to a bigger next value than the nullifier
-   * we are trying to prove non-inclusion for.
-   */
-  getLowNullifierMembershipWitness(
-    blockNumber: BlockNumber,
-    nullifier: Fr,
-  ): Promise<NullifierMembershipWitness | undefined>;
-
-  /**
    * Returns a witness for a given slot of the public data tree at a given block.
    * @param blockNumber - The block number at which to get the witness.
    * @param leafSlot - The slot of the public data in the public data tree.

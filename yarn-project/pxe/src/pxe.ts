@@ -215,6 +215,7 @@ export class PXE {
       this.keyStore,
       this.addressDataProvider,
       this.node,
+      this.anchorBlockDataProvider,
       this.simulator,
     );
   }

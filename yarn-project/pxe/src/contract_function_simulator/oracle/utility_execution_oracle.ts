@@ -14,7 +14,12 @@ import type { NoteStatus } from '@aztec/stdlib/note';
 import { type MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import type { BlockHeader, Capsule } from '@aztec/stdlib/tx';
 
-import type { AddressDataProvider, ContractDataProvider, NoteDataProvider } from '../../storage/index.js';
+import type {
+  AddressDataProvider,
+  AnchorBlockDataProvider,
+  ContractDataProvider,
+  NoteDataProvider,
+} from '../../storage/index.js';
 import type { ExecutionDataProvider } from '../execution_data_provider.js';
 import { UtilityContext } from '../noir-structs/utility_context.js';
 import { pickNotes } from '../pick_notes.js';
@@ -22,6 +27,7 @@ import {
   getCompleteAddress,
   getContractInstance,
   getL1ToL2MembershipWitness,
+  getLowNullifierMembershipWitness,
   getMembershipWitness,
   getNotes,
   getSharedSecret,
@@ -49,6 +55,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     protected readonly keyStore: KeyStore,
     protected readonly addressDataProvider: AddressDataProvider,
     protected readonly aztecNode: AztecNode,
+    protected readonly anchorBlockDataProvider: AnchorBlockDataProvider,
     protected log = createLogger('simulator:client_view_context'),
     protected readonly scopes?: AztecAddress[],
   ) {}
@@ -118,7 +125,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     blockNumber: BlockNumber,
     nullifier: Fr,
   ): Promise<NullifierMembershipWitness | undefined> {
-    return await this.executionDataProvider.getLowNullifierMembershipWitness(blockNumber, nullifier);
+    return await getLowNullifierMembershipWitness(blockNumber, nullifier, this.anchorBlockDataProvider, this.aztecNode);
   }
 
   /**

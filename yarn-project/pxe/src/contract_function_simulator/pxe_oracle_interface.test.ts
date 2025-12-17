@@ -1080,20 +1080,12 @@ describe('PXEOracleInterface', () => {
   describe('Respects synced block number', () => {
     const syncedBlockNumber = 100;
     let contractAddress: AztecAddress;
-    let nullifier: Fr;
     let leafSlot: Fr;
 
     beforeEach(async () => {
       contractAddress = await AztecAddress.random();
-      nullifier = Fr.random();
       leafSlot = Fr.random();
       await setSyncedBlockNumber(BlockNumber(syncedBlockNumber));
-    });
-
-    it('throws when getting low nullifier membership witness for future block', async () => {
-      await expect(
-        pxeOracleInterface.getLowNullifierMembershipWitness(BlockNumber(syncedBlockNumber + 1), nullifier),
-      ).rejects.toThrow(`Block number ${syncedBlockNumber + 1} is higher than current block ${syncedBlockNumber}`);
     });
 
     it('throws when getting block for future block number', async () => {

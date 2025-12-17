@@ -318,6 +318,7 @@ export class TXESession implements TXESessionStateHandler {
       this.keyStore,
       this.addressDataProvider,
       this.stateMachine.node,
+      this.stateMachine.anchorBlockDataProvider,
     );
 
     // We store the note and tagging index caches fed into the PrivateExecutionOracle (along with some other auxiliary
@@ -378,6 +379,7 @@ export class TXESession implements TXESessionStateHandler {
       this.keyStore,
       this.addressDataProvider,
       this.stateMachine.node,
+      this.stateMachine.anchorBlockDataProvider,
     );
 
     this.state = { name: 'UTILITY' };

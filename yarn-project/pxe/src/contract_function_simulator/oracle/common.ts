@@ -11,9 +11,14 @@ import { computeAddressSecret } from '@aztec/stdlib/keys';
 import { DirectionalAppTaggingSecret, deriveEcdhSharedSecret } from '@aztec/stdlib/logs';
 import { getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
 import type { NoteStatus } from '@aztec/stdlib/note';
-import { MerkleTreeId } from '@aztec/stdlib/trees';
+import { MerkleTreeId, NullifierMembershipWitness } from '@aztec/stdlib/trees';
 
-import type { AddressDataProvider, ContractDataProvider, NoteDataProvider } from '../../storage/index.js';
+import type {
+  AddressDataProvider,
+  AnchorBlockDataProvider,
+  ContractDataProvider,
+  NoteDataProvider,
+} from '../../storage/index.js';
 import { MessageLoadOracleInputs } from './message_load_oracle_inputs.js';
 
 // TODO: this might not be the final home for these functions,
@@ -171,4 +176,17 @@ async function tryGetMembershipWitness(
     default:
       throw new Error('Not implemented');
   }
+}
+
+export async function getLowNullifierMembershipWitness(
+  blockNumber: BlockParameter,
+  nullifier: Fr,
+  anchorBlockDataProvider: AnchorBlockDataProvider,
+  aztecNode: AztecNode,
+): Promise<NullifierMembershipWitness | undefined> {
+  const anchorBlockNumber = (await anchorBlockDataProvider.getBlockHeader()).getBlockNumber();
+  if (blockNumber !== 'latest' && blockNumber > anchorBlockNumber) {
+    throw new Error(`Block number ${blockNumber} is higher than current block ${anchorBlockNumber}`);
+  }
+  return aztecNode.getLowNullifierMembershipWitness(blockNumber, nullifier);
 }
