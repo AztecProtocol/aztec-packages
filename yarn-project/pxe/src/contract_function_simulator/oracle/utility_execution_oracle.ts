@@ -22,6 +22,7 @@ import {
   getCompleteAddress,
   getContractInstance,
   getL1ToL2MembershipWitness,
+  getMembershipWitness,
   getNotes,
   getSharedSecret,
 } from './common.js';
@@ -88,7 +89,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * @returns The index and sibling path concatenated [index, sibling_path]
    */
   public utilityGetMembershipWitness(blockNumber: BlockNumber, treeId: MerkleTreeId, leafValue: Fr): Promise<Fr[]> {
-    return this.executionDataProvider.getMembershipWitness(blockNumber, treeId, leafValue);
+    return getMembershipWitness(blockNumber, treeId, leafValue, this.aztecNode);
   }
 
   /**

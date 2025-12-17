@@ -73,33 +73,6 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     return leafIndex?.data;
   }
 
-  public async getMembershipWitness(blockNumber: BlockParameter, treeId: MerkleTreeId, leafValue: Fr): Promise<Fr[]> {
-    const witness = await this.#tryGetMembershipWitness(blockNumber, treeId, leafValue);
-    if (!witness) {
-      throw new Error(`Leaf value ${leafValue} not found in tree ${MerkleTreeId[treeId]} at block ${blockNumber}`);
-    }
-    return witness;
-  }
-
-  async #tryGetMembershipWitness(
-    blockNumber: BlockParameter,
-    treeId: MerkleTreeId,
-    value: Fr,
-  ): Promise<Fr[] | undefined> {
-    switch (treeId) {
-      case MerkleTreeId.NULLIFIER_TREE:
-        return (await this.aztecNode.getNullifierMembershipWitness(blockNumber, value))?.withoutPreimage().toFields();
-      case MerkleTreeId.NOTE_HASH_TREE:
-        return (await this.aztecNode.getNoteHashMembershipWitness(blockNumber, value))?.toFields();
-      case MerkleTreeId.PUBLIC_DATA_TREE:
-        return (await this.aztecNode.getPublicDataWitness(blockNumber, value))?.withoutPreimage().toFields();
-      case MerkleTreeId.ARCHIVE:
-        return (await this.aztecNode.getArchiveMembershipWitness(blockNumber, value))?.toFields();
-      default:
-        throw new Error('Not implemented');
-    }
-  }
-
   public async getNullifierMembershipWitnessAtLatestBlock(nullifier: Fr) {
     const blockNumber = (await this.anchorBlockDataProvider.getBlockHeader()).getBlockNumber();
     return this.getNullifierMembershipWitness(blockNumber, nullifier);

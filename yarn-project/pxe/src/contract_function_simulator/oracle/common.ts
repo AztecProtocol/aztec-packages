@@ -4,12 +4,14 @@ import type { Point } from '@aztec/foundation/curves/grumpkin';
 import type { KeyStore } from '@aztec/key-store';
 import type { FunctionArtifactWithContractName, FunctionSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { BlockParameter } from '@aztec/stdlib/block';
 import type { CompleteAddress, ContractInstance } from '@aztec/stdlib/contract';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import { computeAddressSecret } from '@aztec/stdlib/keys';
 import { DirectionalAppTaggingSecret, deriveEcdhSharedSecret } from '@aztec/stdlib/logs';
 import { getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
 import type { NoteStatus } from '@aztec/stdlib/note';
+import { MerkleTreeId } from '@aztec/stdlib/trees';
 
 import type { AddressDataProvider, ContractDataProvider, NoteDataProvider } from '../../storage/index.js';
 import { MessageLoadOracleInputs } from './message_load_oracle_inputs.js';
@@ -136,4 +138,37 @@ export async function getL1ToL2MembershipWitness(
 
   // Assuming messageIndex is what you intended to use for the index in MessageLoadOracleInputs
   return new MessageLoadOracleInputs(messageIndex, siblingPath);
+}
+
+export async function getMembershipWitness(
+  blockNumber: BlockParameter,
+  treeId: MerkleTreeId,
+  leafValue: Fr,
+  aztecNode: AztecNode,
+): Promise<Fr[]> {
+  const witness = await tryGetMembershipWitness(blockNumber, treeId, leafValue, aztecNode);
+  if (!witness) {
+    throw new Error(`Leaf value ${leafValue} not found in tree ${MerkleTreeId[treeId]} at block ${blockNumber}`);
+  }
+  return witness;
+}
+
+async function tryGetMembershipWitness(
+  blockNumber: BlockParameter,
+  treeId: MerkleTreeId,
+  value: Fr,
+  aztecNode: AztecNode,
+): Promise<Fr[] | undefined> {
+  switch (treeId) {
+    case MerkleTreeId.NULLIFIER_TREE:
+      return (await aztecNode.getNullifierMembershipWitness(blockNumber, value))?.withoutPreimage().toFields();
+    case MerkleTreeId.NOTE_HASH_TREE:
+      return (await aztecNode.getNoteHashMembershipWitness(blockNumber, value))?.toFields();
+    case MerkleTreeId.PUBLIC_DATA_TREE:
+      return (await aztecNode.getPublicDataWitness(blockNumber, value))?.withoutPreimage().toFields();
+    case MerkleTreeId.ARCHIVE:
+      return (await aztecNode.getArchiveMembershipWitness(blockNumber, value))?.toFields();
+    default:
+      throw new Error('Not implemented');
+  }
 }

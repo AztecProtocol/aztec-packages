@@ -3,7 +3,7 @@ import type { Fr } from '@aztec/foundation/curves/bn254';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2Block } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
-import { type MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
+import { type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import type { NodeStats } from '@aztec/stdlib/tx';
 
 import type { SenderTaggingDataProvider } from '../storage/tagging_data_provider/sender_tagging_data_provider.js';
@@ -53,15 +53,6 @@ export interface ExecutionDataProvider {
    * @param nullifier - Nullifier we're looking for.
    */
   getNullifierMembershipWitnessAtLatestBlock(nullifier: Fr): Promise<NullifierMembershipWitness | undefined>;
-
-  /**
-   * Fetches the index and sibling path of a leaf at a given block from a given tree.
-   * @param blockNumber - The block number at which to get the membership witness.
-   * @param treeId - Id of the tree to get the sibling path from.
-   * @param leafValue - The leaf value
-   * @returns The index and sibling path concatenated [index, sibling_path]
-   */
-  getMembershipWitness(blockNumber: BlockNumber, treeId: MerkleTreeId, leafValue: Fr): Promise<Fr[]>;
 
   /**
    * Returns a nullifier membership witness for a given nullifier at a given block.
