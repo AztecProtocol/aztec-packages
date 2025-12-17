@@ -1,5 +1,6 @@
 #include "barretenberg/avm_fuzzer/fuzz_lib/memory_manager.hpp"
 #include "barretenberg/avm_fuzzer/fuzz_lib/instruction.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/vm2/testing/instruction_builder.hpp"
 
 using namespace bb::avm2::testing;
@@ -17,8 +18,7 @@ namespace {
  * @return std::optional containing the selected element, or std::nullopt if no elements match
  */
 template <std::ranges::input_range Range, typename Predicate>
-auto get_nth_filtered(Range&& range, Predicate predicate, size_t index)
-    -> std::optional<std::ranges::range_value_t<Range>>
+std::optional<std::ranges::range_value_t<Range>> get_nth_filtered(Range&& range, Predicate predicate, size_t index)
 {
     auto filtered = range | std::views::filter(predicate);
 
@@ -46,10 +46,6 @@ uint32_t trimmed_direct_address(uint32_t direct_address_seed, uint32_t max_opera
 
 uint32_t trimmed_pointer_address(uint32_t pointer_address_seed, uint32_t max_operand_address)
 {
-    if (pointer_address_seed <= max_operand_address) {
-        return pointer_address_seed;
-    }
-
     return pointer_address_seed % (max_operand_address + 1);
 }
 
@@ -202,9 +198,7 @@ std::optional<std::pair<ResolvedAddress, bb::avm2::testing::OperandBuilder>> Mem
     }
     auto resolved_address = resolve_address(address, actual_address.value(), 255);
 
-    if (resolved_address.operand_address > 255) {
-        return std::nullopt;
-    }
+    BB_ASSERT_LTE(resolved_address.operand_address, uint32_t{ 255 });
 
     auto operand = OperandBuilder::from<uint8_t>(static_cast<uint8_t>(resolved_address.operand_address));
 
@@ -230,9 +224,7 @@ std::optional<std::pair<ResolvedAddress, bb::avm2::testing::OperandBuilder>> Mem
 
     auto resolved_address = resolve_address(address, actual_address.value(), 65535);
 
-    if (resolved_address.operand_address > 65535) {
-        return std::nullopt;
-    }
+    BB_ASSERT_LTE(resolved_address.operand_address, uint32_t{ 65535 });
     auto operand = OperandBuilder::from<uint16_t>(static_cast<uint16_t>(resolved_address.operand_address));
     return std::make_pair(resolved_address, get_memory_address_operand(operand, address.mode));
 }
@@ -256,6 +248,7 @@ std::optional<uint8_t> MemoryManager::get_memory_offset_8(bb::avm2::MemoryTag ta
     if (!value.has_value()) {
         return std::nullopt;
     }
+    BB_ASSERT_LTE(value.value(), uint8_t{ 255 });
     return static_cast<uint8_t>(value.value());
 }
 
@@ -265,7 +258,7 @@ std::optional<uint16_t> MemoryManager::get_memory_offset_16(bb::avm2::MemoryTag 
     if (!value.has_value()) {
         return std::nullopt;
     }
-
+    BB_ASSERT_LTE(value.value(), uint16_t{ 65535 });
     return static_cast<uint16_t>(value.value());
 }
 
