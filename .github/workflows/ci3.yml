@@ -67,7 +67,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
           GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
-          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+          NETLIFY_SIT=E_ID: ${{ secrets.NETLIFY_SITE_ID }}
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
           DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
@@ -106,7 +106,7 @@ jobs:
       - name: Upload benchmarks
         if: env.SHOULD_UPLOAD_BENCHMARKS == '1'
         uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
-        with:
+        with: &ci_benchmark_args
           name: Aztec Benchmarks
           benchmark-data-dir-path: "bench/${{ env.TARGET_BRANCH }}"
           tool: "customSmallerIsBetter"
@@ -124,7 +124,7 @@ jobs:
   # This task runs against a real testnet deployment. This uses resources on GCP (not AWS, thank free credit incentives).
   ci-network-end-to-end:
     runs-on: ubuntu-latest
-    # We need the release to be cut.
+    # We either run after a release (tag starting with v), or when the ci-network-end-to-end label is present in a PR.
     needs: ci
     if: startsWith(github.ref, 'refs/tags/v') || contains(github.event.pull_request.labels.*.name, 'ci-network-end-to-end')
     steps:
@@ -166,16 +166,4 @@ jobs:
       - name: Upload benchmarks
         if: env.ENABLE_DEPLOY_BENCH == '1'
         uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
-        with:
-          name: Aztec Deploy Benchmarks
-          benchmark-data-dir-path: "bench/deploy"
-          tool: "customSmallerIsBetter"
-          output-file-path: ./bench-out/bench.json
-          github-token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-          auto-push: true
-          ref: ${{ github.sha }}
-          alert-threshold: "105%"
-          comment-on-alert: false
-          fail-on-alert: false
-          max-items-in-chart: 100
-
+        with: *ci_benchmark_args

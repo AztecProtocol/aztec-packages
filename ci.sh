@@ -112,6 +112,10 @@ case "$cmd" in
       'run x4-full amd64 ci-full-no-test-cache-makefile' \
       'run a1-fast arm64 ci-fast' | DUP=1 cache_log "Merge queue CI run" $RUN_ID
     ;;
+
+  ##########################################
+  # NETWORK DEPLOYMENTS WITH BENCHES/TESTS #
+  ##########################################
   "network-deploy")
     # Args: <scenario> <namespace> [docker_image]
     # If docker_image is not provided, ci-network-deploy will build and push to aztecdev.
@@ -124,9 +128,21 @@ case "$cmd" in
     bootstrap_ec2 "./bootstrap.sh ci-network-tests"
     ;;
   "network-bench")
-    export JOB_ID="x-network-bench" CPUS=16
-    bootstrap_ec2 "./bootstrap.sh ci-network-bench"
+    # Args: <scenario> <namespace> [docker_image]
+    # If docker_image is not provided, ci-network-bench will build and push to aztecdev.
+    export JOB_ID="x-${2:?namespace is required}-network-bench" CPUS=16
+    bootstrap_ec2 "./bootstrap.sh ci-network-bench $*"
     ;;
+  "network-teardown")
+    # Args: <scenario> <namespace>
+    export JOB_ID="x-${2:?namespace is required}-network-teardown"
+    export CPUS=4
+    bootstrap_ec2 "./bootstrap.sh ci-network-teardown $*"
+    ;;
+
+  ############
+  # RELEASES #
+  ############
   "release")
     prep_vars
     # Spin up ec2 instance and run the release flow.
@@ -143,6 +159,10 @@ case "$cmd" in
       gh pr edit $PR_NUMBER --remove-label ci-release-pr || true
     fi
     ;;
+
+  #######################################
+  # VARIANTS ON INTERACTIVE CI SESSIONS #
+  #######################################
   "shell-new")
     # Spin up ec2 instance, clone, and drop into shell.
     # False triggers the shell on fail.
@@ -163,6 +183,10 @@ case "$cmd" in
     [ -z "$ip" ] && echo "No instance found: $instance_name" && exit 1
     ssh -t -F $ci3/aws/build_instance_ssh_config ubuntu@$ip
     ;;
+
+  ###################
+  # TRIGGER ci3.yml #
+  ###################
   "run")
     # Trigger a GA workflow for current branch PR and tail logs.
     $0 trigger
@@ -259,6 +283,10 @@ case "$cmd" in
   "help"|"")
     print_usage
     ;;
+
+  ###################################
+  # DOWNLOAD CI-UPLOADED BENCHMARKS #
+  ###################################
   "gh-bench")
     cache_download bench-$(git rev-parse HEAD^{tree}).tar.gz
     ;;

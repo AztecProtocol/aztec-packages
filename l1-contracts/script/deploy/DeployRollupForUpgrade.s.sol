@@ -28,7 +28,7 @@ import {IRollupConfiguration, RollupConfiguration} from "./RollupConfiguration.s
 ///
 /// For initial L1 deployment, use DeployAztecL1Contracts.s.sol instead.
 ///
-/// See RollupConfiguration.s.sol for relevant environment variables.
+/// See RollupConfiguration.sol for relevant environment variables.
 contract DeployRollupForUpgrade is Script {
   /// @notice Rollup deployment output
   RollupAddressOutput internal _rollupOutput;
