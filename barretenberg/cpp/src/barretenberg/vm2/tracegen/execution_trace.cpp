@@ -681,26 +681,21 @@ void ExecutionTraceBuilder::process(
         const bool nested_exit_call = sel_exit_call && has_parent;
         const bool enqueued_call_end = sel_exit_call && !has_parent;
         const bool nested_failure = is_failure && has_parent;
-        const bool resolves_dying_context = is_failure && is_dying_context;
-        const bool nested_call_rom_undiscarded_context = sel_enter_call && discard == 0;
 
-        trace.set(
-            row,
-            { {
-                { C::execution_sel_exit_call, sel_exit_call ? 1 : 0 },
-                { C::execution_nested_exit_call, nested_exit_call ? 1 : 0 },
-                { C::execution_nested_failure, nested_failure ? 1 : 0 },
-                { C::execution_sel_error, is_err ? 1 : 0 },
-                { C::execution_sel_failure, is_failure ? 1 : 0 },
-                { C::execution_discard, discard },
-                { C::execution_dying_context_id, dying_context_id },
-                { C::execution_dying_context_id_inv, dying_context_id }, // Will be inverted in batch.
-                { C::execution_is_dying_context, is_dying_context ? 1 : 0 },
-                { C::execution_dying_context_diff_inv, dying_context_diff }, // Will be inverted in batch.
-                { C::execution_enqueued_call_end, enqueued_call_end ? 1 : 0 },
-                { C::execution_resolves_dying_context, resolves_dying_context ? 1 : 0 },
-                { C::execution_nested_call_from_undiscarded_context, nested_call_rom_undiscarded_context ? 1 : 0 },
-            } });
+        trace.set(row,
+                  { {
+                      { C::execution_sel_exit_call, sel_exit_call ? 1 : 0 },
+                      { C::execution_nested_exit_call, nested_exit_call ? 1 : 0 },
+                      { C::execution_nested_failure, nested_failure ? 1 : 0 },
+                      { C::execution_sel_error, is_err ? 1 : 0 },
+                      { C::execution_sel_failure, is_failure ? 1 : 0 },
+                      { C::execution_discard, discard },
+                      { C::execution_dying_context_id, dying_context_id },
+                      { C::execution_dying_context_id_inv, dying_context_id }, // Will be inverted in batch.
+                      { C::execution_is_dying_context, is_dying_context ? 1 : 0 },
+                      { C::execution_dying_context_diff_inv, dying_context_diff }, // Will be inverted in batch.
+                      { C::execution_enqueued_call_end, enqueued_call_end ? 1 : 0 },
+                  } });
 
         // Trace-generation is done for this event.
         // Now, use this event to determine whether we should set/reset the discard flag for the NEXT event
