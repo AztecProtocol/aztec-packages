@@ -97,9 +97,8 @@ template <typename Builder_, InputConstancy Constancy> class EcOperationsTesting
         };
     }
 
-    static void invalidate_witness(AcirConstraint& constraint,
-                                   WitnessVector& witness_values,
-                                   const InvalidWitness::Target& invalid_witness_target)
+    static std::pair<AcirConstraint, WitnessVector> invalidate_witness(
+        AcirConstraint constraint, WitnessVector witness_values, const InvalidWitness::Target& invalid_witness_target)
     {
         switch (invalid_witness_target) {
         case InvalidWitness::Target::Input1: {
@@ -131,6 +130,8 @@ template <typename Builder_, InputConstancy Constancy> class EcOperationsTesting
         default:
             break;
         }
+
+        return { constraint, witness_values };
     };
 };
 

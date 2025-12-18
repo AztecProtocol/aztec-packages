@@ -44,7 +44,6 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
     .option('--sponsored-fpc', 'Populate genesis state with a testing sponsored FPC contract')
     .option('--real-verifier', 'Deploy the real verifier', false)
     .option('--existing-token <address>', 'Use an existing ERC20 for both fee and staking', parseEthereumAddress)
-    .option('--verify-contracts', 'Verify deployed contracts on Etherscan', false)
     .action(async options => {
       const { deployL1ContractsCmd } = await import('./deploy_l1_contracts_cmd.js');
 
@@ -62,7 +61,6 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
         initialValidators,
         options.realVerifier,
         options.existingToken,
-        options.verifyContracts,
         log,
         debugLogger,
       );

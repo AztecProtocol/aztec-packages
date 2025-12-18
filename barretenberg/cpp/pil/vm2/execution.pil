@@ -398,10 +398,9 @@ pol commit sel_should_check_gas; // @boolean (by definition)
 // Note that sel == 0 ==> sel_should_check_gas = 0 by transitive reasoning.
 sel_should_check_gas = sel_should_read_registers * (1 - sel_register_read_error);
 
-// NOTE: Gas is constrained in gas.pil but we set here the following dynamic gas factors
-// declared in gas.pil:
-// - dynamic_l2_gas_factor
-// - dynamic_da_gas_factor
+// NOTE: Gas is constrained in gas.pil but we set here the following dynamic gas factors:
+pol commit dynamic_l2_gas_factor;
+pol commit dynamic_da_gas_factor;
 
 // The "output we want is" sel_out_of_gas from gas.pil.
 

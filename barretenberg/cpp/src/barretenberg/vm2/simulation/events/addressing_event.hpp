@@ -11,12 +11,14 @@
 
 namespace bb::avm2::simulation {
 
-enum class AddressingEventError {
-    // The base address (mem[0]) is not a valid address.
+enum class AddressingEventError : uint8_t {
+    // The base address (mem[0]) points to a MemoryValue not of the
+    // right tag (not MemoryAddressTag).
     BASE_ADDRESS_INVALID,
-    // The relative computation overflowed.
+    // The relative computation overflowed the max memory address.
     RELATIVE_COMPUTATION_OOB,
-    // The address obtained after applying indirection is not a valid address.
+    // The address obtained after applying indirection points to
+    // a MemoryValue not of the right tag (not MemoryAddressTag).
     INVALID_ADDRESS_AFTER_INDIRECTION,
 };
 
@@ -41,18 +43,24 @@ struct AddressingException : public std::runtime_error {
     {}
 };
 
+// This represents the resolution of a single operand.
+// The operand can be either an immediate or an address.
+// If it is an address, we can apply relative addressing and indirection to it.
+// We will store the result of the resolution in the resolved_operand field.
+// An immediate operand will never have an error and both resolved_operand
+// and after_relative will be the same as the original operand.
+// Note: after_relative does not need the tag information in trace generation
 struct OperandResolutionInfo {
-    Operand after_relative;
+    FF after_relative = FF::zero();
     Operand resolved_operand;
     std::optional<AddressingEventError> error;
 };
 
-// See https://docs.google.com/document/d/1EgFj0OQYZCWufjzLgoAAiVL9jV0-fUAaCCIVlvRc8bY/ for circuit details.
-// - The activation mask can be derived from spec.num_addresses.
+// We initialize base_address so that tag and value are 0
+// in the trace when no relative addressing is used.
 struct AddressingEvent {
-    Instruction instruction;
-    MemoryValue base_address;
-    std::vector<OperandResolutionInfo> resolution_info; // One per operand (including immediates).
+    MemoryValue base_address = MemoryValue::from_tag(static_cast<MemoryTag>(0), 0);
+    std::vector<OperandResolutionInfo> resolution_info; // One entry per operand (including immediates).
 };
 
 } // namespace bb::avm2::simulation
