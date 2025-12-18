@@ -80,7 +80,7 @@ This is achieved via the `LinearCombinationOfClaims` structure which stores:
 
 Shplemini combines Gemini and Shplonk into a single protocol, providing:
 - Multilinear polynomial opening at a single point
-- Optional zero-knowledge via SmallSubgroupIPA integration
+- For zero-knowledge cases, the SmallSubgroupIPA related data is added to the final claim
 
 ### Verification Flow
 
@@ -136,10 +136,23 @@ The shifted scalar differs by a factor of $ r^{-1} $ and uses subtraction instea
 
 ### Handling Interleaved Polynomials (Translator)
 
-For the Translator flavor, polynomials are combined via interleaving:
-- Multiple polynomial groups are interleaved into a single polynomial
-- Partially evaluated interleaved polynomials $ P_+(r^s) $ and $ P_-((-r)^s) $ are sent by prover
-- These contribute to the constant term accumulator
+For the Translator flavor, a group of polynomials $ P_0, P_1, \ldots, P_{s-1} $ (where $ s $ is the group size) are combined via **interleaving** rather than standard batching.
+
+**Definitions:**
+- $ P_+(X) = \sum_{i=0}^{s-1} r^i \cdot P_i(X) $ (partial evaluation with positive powers of $ r $)
+- $ P_-(X) = \sum_{i=0}^{s-1} (-r)^i \cdot P_i(X) $ (partial evaluation with alternating sign powers)
+
+The full Gemini identity $ A_0(r) $ and $ A_0(-r) $ include contributions from these interleaved polynomials:
+- $ A_0(r) = A_{0+}(r) + P_+(r^s) $
+- $ A_0(-r) = A_{0-}(-r) + P_-((-r)^s) $
+
+**Prover sends:** The evaluations $ P_+(r^s) $ and $ P_-((-r)^s) $ via transcript labels `"Gemini:P_pos"` and `"Gemini:P_neg"`, where $s$ is the grouping size.
+
+**Scalar contribution:** These evaluations contribute to the constant term accumulator in Shplonk:
+
+$$\theta_{\text{interleaved}} = \frac{1}{z - r^s} \cdot \left( \nu^{2d} \cdot P_+(r^s) + \nu^{2d+1} \cdot P_-((-r)^s) \right)$$
+
+where $ d = \text{virtual\_log\_n} $ and the interleaved claims use batching powers $ \nu^{2d} $ and $ \nu^{2d+1} $ (placed after all Gemini fold claims in the batching order)
 
 ### Key Features
 
@@ -193,7 +206,7 @@ auto opening_claim = ShpleminiProver::prove(
 ### Verifier
 
 ```cpp
-auto [batch_opening_claim, consistency_checked] =
+auto [batch_opening_claim, consistency_checked /* only for ZK flavors*/ ] =
     ShpleminiVerifier::compute_batch_opening_claim(
         padding_indicator_array,
         claim_batcher,
