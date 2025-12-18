@@ -59,7 +59,7 @@ Tx create_default_tx(const AztecAddress& contract_address,
         .hash = TRANSACTION_HASH,
         .gas_settings = GasSettings{
             .gas_limits = gas_limit,
-            .max_fees_per_gas = GasFees{ .fee_per_da_gas = FEE_PER_DA_GAS, .fee_per_l2_gas = FEE_PER_L2_GAS },
+            .max_fees_per_gas = GasFees{ .fee_per_da_gas = 10000, .fee_per_l2_gas = 10000 },
         },
         .effective_gas_fees = EFFECTIVE_GAS_FEES,
         .non_revertible_accumulated_data = AccumulatedData{
@@ -97,7 +97,7 @@ SimulatorResult fuzz(FuzzerData& fuzzer_data)
     for (const auto& cfg_instruction : fuzzer_data.cfg_instructions) {
         control_flow.process_cfg_instruction(cfg_instruction);
     }
-    fuzz_info("Fuzzer data: ", fuzzer_data);
+    fuzz_info("Fuzzer data: ", fuzzer_data.instruction_blocks);
 
     auto bytecode = control_flow.build_bytecode(fuzzer_data.return_options);
     fuzz_info("Bytecode: ", bytecode);
@@ -136,8 +136,8 @@ SimulatorResult fuzz(FuzzerData& fuzzer_data)
 
     // If the results does not match
     if (!compare_simulator_results(cpp_result, js_result)) {
-        vinfo("CppSimulator ", cpp_result);
-        vinfo("JsSimulator  ", js_result);
+        fuzz_info("CppSimulator ", cpp_result);
+        fuzz_info("JsSimulator  ", js_result);
         throw std::runtime_error("Simulator results are different");
     }
     fuzz_info("Simulator results match successfully");

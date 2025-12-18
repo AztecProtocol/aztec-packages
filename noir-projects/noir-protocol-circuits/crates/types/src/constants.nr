@@ -996,7 +996,7 @@ pub global AVM_PUBLIC_INPUTS_COLUMNS_COMBINED_LENGTH: u32 =
 // We introduce padded version for two AVM constants and we will use the padded ones
 // until we freeze the number of columns in AVM.
 // TODO(#13390): Remove these constants and use the above ones (commented out) in noir/TS.
-pub global AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED: u32 = 20000;
+pub global AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED: u32 = 16200;
 pub global AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED: u32 = 1000;
 
 // GAS DEFAULTS
