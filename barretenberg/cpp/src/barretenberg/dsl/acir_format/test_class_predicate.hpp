@@ -78,6 +78,8 @@ concept TestBaseWithPredicate = requires {
          * 1. Constraints fail when predicate is true and witnesses are invalid
          * 2. Constraints succeed when predicate is false, regardless of witness validity
          *
+         * @note The constraint and witness values must be copied otherwise this would affect later calls to this
+         * function
          */
         {
             T::invalidate_witness(constraint, witness_values, invalid_witness_target)
