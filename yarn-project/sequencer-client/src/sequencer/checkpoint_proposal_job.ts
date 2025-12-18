@@ -214,10 +214,14 @@ export class CheckpointProposalJob {
         this.proposer,
         blockProposalOptions,
       );
+      const blockProposedAt = this.dateProvider.now();
       await this.p2pClient.broadcastProposal(proposal);
 
       this.setStateFn(SequencerState.COLLECTING_ATTESTATIONS, this.slot);
       const attestations = await this.waitForAttestations(proposal);
+      const blockAttestedAt = this.dateProvider.now();
+
+      this.metrics.recordBlockAttestationDelay(blockAttestedAt - blockProposedAt);
 
       // Proposer must sign over the attestations before pushing them to L1
       const signer = this.proposer ?? this.publisher.getSenderAddress();

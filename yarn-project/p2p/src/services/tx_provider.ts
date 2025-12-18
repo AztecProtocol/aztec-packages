@@ -160,13 +160,13 @@ export class TxProvider implements ITxProvider {
 
     // Start tx collection from the network if needed, while we validate the txs taken from the proposal in parallel
     const [txsFromNetwork] = await Promise.all([
-      this.txCollection.collectFastFor(request, [...missingTxHashes], opts),
+      this.collectFromP2P(request, [...missingTxHashes], opts),
       this.processProposalTxs(txsFromProposal),
     ] as const);
 
     if (txsFromNetwork.length > 0) {
       txsFromNetwork.forEach(tx => missingTxHashes.delete(tx.txHash.toString()));
-      this.instrumentation.incTxsFromP2P(txsFromNetwork.length);
+      this.instrumentation.incTxsFromP2P(txsFromNetwork.length, txHashes.length);
       this.log.debug(
         `Retrieved ${txsFromNetwork.length} txs from network for block proposal (${missingTxHashes.size} pending)`,
         { ...blockInfo, missingTxHashes: [...missingTxHashes] },
@@ -198,6 +198,18 @@ export class TxProvider implements ITxProvider {
       txsFromProposal,
       missingTxHashes: [...missingTxHashes],
     };
+  }
+
+  private collectFromP2P(
+    input: FastCollectionRequestInput,
+    txHashes: TxHash[] | string[],
+    opts: { deadline: Date; pinnedPeer?: PeerId },
+  ): Promise<Tx[]> {
+    const requestedAt = Date.now();
+    const result = this.txCollection.collectFastFor(input, txHashes, opts);
+    const requestProcessedAt = Date.now();
+    this.instrumentation.recordTxsRequestDelay(requestProcessedAt - requestedAt);
+    return result;
   }
 
   private extractFromProposal(proposal: BlockProposal | undefined, missingTxHashes: string[]): Tx[] {

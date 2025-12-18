@@ -35,6 +35,8 @@ export const CIRCUIT_SIZE = 'aztec.circuit.size';
 export const MEMPOOL_TX_COUNT = 'aztec.mempool.tx_count';
 export const MEMPOOL_TX_SIZE = 'aztec.mempool.tx_size';
 export const MEMPOOL_TX_ADDED_COUNT = 'aztec.mempool.tx_added_count';
+export const MEMPOOL_TX_MINED_DELAY = 'aztec.mempool.tx_mined_delay';
+
 export const DB_NUM_ITEMS = 'aztec.db.num_items';
 export const DB_MAP_SIZE = 'aztec.db.map_size';
 export const DB_PHYSICAL_FILE_SIZE = 'aztec.db.physical_file_size';
@@ -43,6 +45,7 @@ export const DB_USED_SIZE = 'aztec.db.used_size';
 export const MEMPOOL_ATTESTATIONS_COUNT = 'aztec.mempool.attestations_count';
 export const MEMPOOL_ATTESTATIONS_SIZE = 'aztec.mempool.attestations_size';
 export const MEMPOOL_ATTESTATIONS_ADDED_COUNT = 'aztec.mempool.attestations_added_count';
+export const MEMPOOL_ATTESTATIONS_MINED_DELAY = 'aztec.mempool.attestations_mined_delay';
 
 export const ARCHIVER_L1_BLOCK_HEIGHT = 'aztec.archiver.l1_block_height';
 export const ARCHIVER_BLOCK_HEIGHT = 'aztec.archiver.block_height';
@@ -77,6 +80,8 @@ export const SEQUENCER_BLOCK_COUNT = 'aztec.sequencer.block.count';
 export const SEQUENCER_CURRENT_BLOCK_REWARDS = 'aztec.sequencer.current_block_rewards';
 export const SEQUENCER_SLOT_COUNT = 'aztec.sequencer.slot.total_count';
 export const SEQUENCER_FILLED_SLOT_COUNT = 'aztec.sequencer.slot.filled_count';
+
+export const SEQUENCER_BLOCK_ATTESTATION_DELAY = 'aztec.sequencer.block.attestation_delay';
 
 export const SEQUENCER_COLLECTED_ATTESTATIONS_COUNT = 'aztec.sequencer.attestations.collected_count';
 export const SEQUENCER_REQUIRED_ATTESTATIONS_COUNT = 'aztec.sequencer.attestations.required_count';
@@ -258,6 +263,8 @@ export const TX_PROVIDER_TXS_FROM_PROPOSALS_COUNT = 'aztec.tx_collector.txs_from
 export const TX_PROVIDER_TXS_FROM_MEMPOOL_COUNT = 'aztec.tx_collector.txs_from_mempool_count';
 export const TX_PROVIDER_TXS_FROM_P2P_COUNT = 'aztec.tx_collector.txs_from_p2p_count';
 export const TX_PROVIDER_MISSING_TXS_COUNT = 'aztec.tx_collector.missing_txs_count';
+export const TX_PROVIDER_P2P_TXS_REQUESTED_FRACTION = 'aztec.tx_collector.txs_requested_fraction';
+export const TX_PROVIDER_P2P_TXS_REQUEST_DELAY = 'aztec.tx_collector.txs_requested_delay';
 
 export const TX_COLLECTOR_COUNT = 'aztec.tx_collector.tx_count';
 export const TX_COLLECTOR_DURATION_PER_REQUEST = 'aztec.tx_collector.duration_per_request';
