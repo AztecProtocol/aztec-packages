@@ -190,6 +190,12 @@ describe('Utility Execution test suite', () => {
           utilityExecutionOracle.utilityGetLowNullifierMembershipWitness(BlockNumber(syncedBlockNumber + 1), nullifier),
         ).rejects.toThrow(`Block number ${syncedBlockNumber + 1} is higher than current block ${syncedBlockNumber}`);
       });
+
+      it('throws when getting block for future block number', async () => {
+        await expect(utilityExecutionOracle.utilityGetBlockHeader(BlockNumber(syncedBlockNumber + 1))).rejects.toThrow(
+          `Block number ${syncedBlockNumber + 1} is higher than current block ${syncedBlockNumber}`,
+        );
+      });
     });
   });
 });

@@ -1,7 +1,7 @@
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import type { EventSelector, FunctionArtifactWithContractName, FunctionSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { BlockParameter, DataInBlock, L2Block } from '@aztec/stdlib/block';
+import type { BlockParameter, DataInBlock } from '@aztec/stdlib/block';
 import { computeUniqueNoteHash, siloNoteHash, siloNullifier, siloPrivateLog } from '@aztec/stdlib/hash';
 import { type AztecNode, MAX_RPC_LEN } from '@aztec/stdlib/interfaces/server';
 import { PrivateLogWithTxData, PublicLog, PublicLogWithTxData, TxScopedL2Log } from '@aztec/stdlib/logs';
@@ -41,18 +41,6 @@ export async function getFunctionArtifact(
     ...artifact,
     debug,
   };
-}
-
-export async function getBlock(
-  blockNumber: BlockParameter,
-  anchorBlockDataProvider: AnchorBlockDataProvider,
-  aztecNode: AztecNode,
-): Promise<L2Block | undefined> {
-  const anchorBlockNumber = (await anchorBlockDataProvider.getBlockHeader()).getBlockNumber();
-  if (blockNumber !== 'latest' && blockNumber > anchorBlockNumber) {
-    throw new Error(`Block number ${blockNumber} is higher than current block ${anchorBlockNumber}`);
-  }
-  return await aztecNode.getBlock(blockNumber);
 }
 
 export function getNullifierMembershipWitness(

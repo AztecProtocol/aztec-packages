@@ -38,7 +38,6 @@ import {
   bulkRetrieveLogs,
   deliverEvent,
   deliverNote,
-  getBlock,
   getPrivateLogByTag,
   getPublicDataWitness,
   getPublicLogByTag,
@@ -98,12 +97,6 @@ describe('Common oracle functions', () => {
       leafSlot = Fr.random();
       contractAddress = await AztecAddress.random();
       await setSyncedBlockNumber(BlockNumber(syncedBlockNumber));
-    });
-
-    it('throws when getting block for future block number', async () => {
-      await expect(getBlock(BlockNumber(syncedBlockNumber + 1), anchorBlockDataProvider, aztecNode)).rejects.toThrow(
-        `Block number ${syncedBlockNumber + 1} is higher than current block ${syncedBlockNumber}`,
-      );
     });
 
     it('throws when getting public data witness for future block', async () => {
