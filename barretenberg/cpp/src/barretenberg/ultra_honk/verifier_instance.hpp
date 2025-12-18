@@ -31,7 +31,6 @@ template <typename Flavor_> class VerifierInstance_ {
 
     std::shared_ptr<VKAndHash> vk_and_hash;
 
-    bool is_complete = false;      // whether this instance has been completely populated
     std::vector<FF> public_inputs; // to be extracted from the corresponding proof
 
     SubrelationSeparator alpha; // a challenge whose powers are used to batch subrelation contributions during Sumcheck

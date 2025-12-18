@@ -558,7 +558,6 @@ template <typename Flavor> std::shared_ptr<VerifierInstance_<Flavor>> create_moc
             0, 0); // metadata does not need to be accurate
     auto vk_and_hash = std::make_shared<typename Flavor::VKAndHash>(vk);
     auto verifier_instance = std::make_shared<VerifierInstance_<Flavor>>(vk_and_hash);
-    verifier_instance->is_complete = true;
     verifier_instance->gate_challenges =
         std::vector<FF>(static_cast<size_t>(CONST_FOLDING_LOG_N), FF::random_element());
 

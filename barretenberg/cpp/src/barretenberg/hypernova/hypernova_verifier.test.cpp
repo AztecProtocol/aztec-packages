@@ -100,47 +100,44 @@ class HypernovaFoldingVerifierTests : public ::testing::Test {
 
         // Create recursive instance with the recursive VK
         auto recursive_instance = std::make_shared<RecursiveVerifierInstance>(recursive_vk);
-        recursive_instance->is_complete = native_instance->is_complete;
 
-        if (native_instance->is_complete) {
-            // Convert alpha
-            recursive_instance->alpha = FF::from_witness(builder, native_instance->alpha);
+        // Convert alpha
+        recursive_instance->alpha = FF::from_witness(builder, native_instance->alpha);
 
-            // Convert witness commitments
-            auto native_comms = native_instance->witness_commitments.get_all();
-            size_t comm_idx = 0;
-            for (auto& comm : recursive_instance->witness_commitments.get_all()) {
-                comm = Commitment::from_witness(builder, native_comms[comm_idx]);
-                comm_idx++;
-            }
+        // Convert witness commitments
+        auto native_comms = native_instance->witness_commitments.get_all();
+        size_t comm_idx = 0;
+        for (auto& comm : recursive_instance->witness_commitments.get_all()) {
+            comm = Commitment::from_witness(builder, native_comms[comm_idx]);
+            comm_idx++;
+        }
 
-            // Convert gate challenges
-            recursive_instance->gate_challenges = std::vector<FF>(native_instance->gate_challenges.size());
-            size_t challenge_idx = 0;
-            for (auto& challenge : recursive_instance->gate_challenges) {
-                challenge = FF::from_witness(builder, native_instance->gate_challenges[challenge_idx]);
-                challenge_idx++;
-            }
+        // Convert gate challenges
+        recursive_instance->gate_challenges = std::vector<FF>(native_instance->gate_challenges.size());
+        size_t challenge_idx = 0;
+        for (auto& challenge : recursive_instance->gate_challenges) {
+            challenge = FF::from_witness(builder, native_instance->gate_challenges[challenge_idx]);
+            challenge_idx++;
+        }
 
-            // Convert relation parameters
-            recursive_instance->relation_parameters.eta =
-                FF::from_witness(builder, native_instance->relation_parameters.eta);
-            recursive_instance->relation_parameters.eta_two =
-                FF::from_witness(builder, native_instance->relation_parameters.eta_two);
-            recursive_instance->relation_parameters.eta_three =
-                FF::from_witness(builder, native_instance->relation_parameters.eta_three);
-            recursive_instance->relation_parameters.beta =
-                FF::from_witness(builder, native_instance->relation_parameters.beta);
-            recursive_instance->relation_parameters.gamma =
-                FF::from_witness(builder, native_instance->relation_parameters.gamma);
-            recursive_instance->relation_parameters.public_input_delta =
-                FF::from_witness(builder, native_instance->relation_parameters.public_input_delta);
+        // Convert relation parameters
+        recursive_instance->relation_parameters.eta =
+            FF::from_witness(builder, native_instance->relation_parameters.eta);
+        recursive_instance->relation_parameters.eta_two =
+            FF::from_witness(builder, native_instance->relation_parameters.eta_two);
+        recursive_instance->relation_parameters.eta_three =
+            FF::from_witness(builder, native_instance->relation_parameters.eta_three);
+        recursive_instance->relation_parameters.beta =
+            FF::from_witness(builder, native_instance->relation_parameters.beta);
+        recursive_instance->relation_parameters.gamma =
+            FF::from_witness(builder, native_instance->relation_parameters.gamma);
+        recursive_instance->relation_parameters.public_input_delta =
+            FF::from_witness(builder, native_instance->relation_parameters.public_input_delta);
 
-            // For ZK flavors: convert gemini_masking_commitment
-            if constexpr (NativeFlavor::HasZK) {
-                recursive_instance->gemini_masking_commitment =
-                    Commitment::from_witness(builder, native_instance->gemini_masking_commitment);
-            }
+        // For ZK flavors: convert gemini_masking_commitment
+        if constexpr (NativeFlavor::HasZK) {
+            recursive_instance->gemini_masking_commitment =
+                Commitment::from_witness(builder, native_instance->gemini_masking_commitment);
         }
 
         return recursive_instance;

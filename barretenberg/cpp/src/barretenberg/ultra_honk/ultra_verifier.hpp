@@ -134,7 +134,7 @@ template <typename Flavor, class IO> class UltraVerifier_ {
     explicit UltraVerifier_(const std::shared_ptr<VKAndHash>& vk_and_hash,
                             const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>())
         : vk_and_hash(vk_and_hash)
-        , verifier_instance(std::make_shared(vk_and_hash))
+        , verifier_instance(std::make_shared<Instance>(vk_and_hash))
         , transcript(transcript)
     {
         if constexpr (!IsRecursive) {

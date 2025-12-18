@@ -42,7 +42,6 @@ template <typename Flavor> void OinkVerifier<Flavor>::verify()
     verifier_instance->witness_commitments = witness_comms;
     verifier_instance->relation_parameters = relation_parameters;
     verifier_instance->alpha = generate_alpha_round();
-    verifier_instance->is_complete = true; // instance has been completely populated
 }
 
 /**
