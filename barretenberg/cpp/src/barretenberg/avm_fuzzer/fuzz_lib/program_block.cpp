@@ -1076,37 +1076,37 @@ void ProgramBlock::process_call_instruction(CALL_Instruction instruction)
         bb::avm2::fuzzer::ContractDBProxy::get_instance()->get_function_address(instruction.function_index);
     auto set_function_address_instruction =
         SET_FF_Instruction{ .value_tag = bb::avm2::MemoryTag::FF,
-                            .result_address = ResultAddressRef{ .address = instruction.address_offset,
-                                                                .mode = AddressingMode::Direct },
+                            .result_address =
+                                AddressRef{ .address = instruction.address_offset, .mode = AddressingMode::Direct },
                             .value = function_address };
     this->process_set_ff_instruction(set_function_address_instruction);
     auto set_l2_gas_instruction =
         SET_32_Instruction{ .value_tag = bb::avm2::MemoryTag::U32,
-                            .result_address = ResultAddressRef{ .address = instruction.l2_gas_address,
-                                                                .mode = AddressingMode::Direct },
+                            .result_address =
+                                AddressRef{ .address = instruction.l2_gas_address, .mode = AddressingMode::Direct },
                             .value = instruction.l2_gas };
     this->process_set_32_instruction(set_l2_gas_instruction);
     auto set_da_gas_instruction =
         SET_32_Instruction{ .value_tag = bb::avm2::MemoryTag::U32,
-                            .result_address = ResultAddressRef{ .address = instruction.da_gas_address,
-                                                                .mode = AddressingMode::Direct },
+                            .result_address =
+                                AddressRef{ .address = instruction.da_gas_address, .mode = AddressingMode::Direct },
                             .value = instruction.da_gas };
     this->process_set_32_instruction(set_da_gas_instruction);
     auto set_arg_size_instruction =
         SET_32_Instruction{ .value_tag = bb::avm2::MemoryTag::U32,
-                            .result_address = ResultAddressRef{ .address = instruction.arg_size_offset,
-                                                                .mode = AddressingMode::Direct },
+                            .result_address =
+                                AddressRef{ .address = instruction.arg_size_offset, .mode = AddressingMode::Direct },
                             .value = static_cast<uint32_t>(instruction.args.size()) };
     this->process_set_32_instruction(set_arg_size_instruction);
 
     uint16_t arg_index = 0;
     for (const auto& arg : instruction.args) {
-        auto set_arg_instruction = SET_FF_Instruction{
-            .value_tag = bb::avm2::MemoryTag::FF,
-            .result_address = ResultAddressRef{ .address = static_cast<uint32_t>(instruction.args_offset + arg_index),
+        auto set_arg_instruction =
+            SET_FF_Instruction{ .value_tag = bb::avm2::MemoryTag::FF,
+                                .result_address =
+                                    AddressRef{ .address = static_cast<uint32_t>(instruction.args_offset + arg_index),
                                                 .mode = AddressingMode::Direct },
-            .value = arg
-        };
+                                .value = arg };
         this->process_set_ff_instruction(set_arg_instruction);
         arg_index++;
     }
@@ -1131,8 +1131,8 @@ void ProgramBlock::process_returndatasize_with_returndatacopy_instruction(
     instructions.push_back(returndatasize_instruction);
     auto rd_start_set_instruction =
         SET_32_Instruction{ .value_tag = bb::avm2::MemoryTag::U32,
-                            .result_address = ResultAddressRef{ .address = instruction.rd_start_offset,
-                                                                .mode = AddressingMode::Direct },
+                            .result_address =
+                                AddressRef{ .address = instruction.rd_start_offset, .mode = AddressingMode::Direct },
                             .value = instruction.rd_start };
     this->process_set_32_instruction(rd_start_set_instruction);
     auto returndatacopy_instruction = bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::RETURNDATACOPY)
