@@ -334,30 +334,20 @@ else
   [[ "${TEST_ACCOUNTS}" == "true" ]] && CLI_ARGS+=("--test-accounts")
   [[ "${REAL_VERIFIER}" == "true" ]] && CLI_ARGS+=("--real-verifier")
 
-  # Create temp file for output
-  DEPLOY_OUTPUT=$(mktemp)
-  trap "rm -f ${DEPLOY_OUTPUT}" EXIT
+  # Export AZTEC_* and other config env vars so the node process can read them
+  export NETWORK ETHERSCAN_API_KEY LOG_LEVEL
+  for var in ${!AZTEC_*}; do export "$var"; done
 
-  # Run deployment directly using node
-  node --no-warnings "${REPO_ROOT}/yarn-project/aztec/dest/bin/index.js" \
-    "${CLI_ARGS[@]}" 2>&1 | tee "${DEPLOY_OUTPUT}"
+  # Run deployment and capture JSON output
+  # The command outputs logs to stderr and JSON to stdout when --json is used
+  CONTRACT_JSON=$(node --no-warnings "${REPO_ROOT}/yarn-project/aztec/dest/bin/index.js" \
+    "${CLI_ARGS[@]}" 2>&1 | tee /dev/stderr | grep -E '^\{.*\}$' | tail -1) || true
 
-  # Extract JSON output from deployment
-  # The deploy-l1-contracts command outputs JSON when --json flag is used
-  CONTRACT_JSON=$(grep -E '^\{' "${DEPLOY_OUTPUT}" | grep -E '"registryAddress"' | tail -1 || true)
-
-  if [[ -z "${CONTRACT_JSON}" ]]; then
-    # Try extracting multi-line JSON
-    CONTRACT_JSON=$(sed -n '/^{$/,/^}$/p' "${DEPLOY_OUTPUT}" | tail -n +1 || true)
-  fi
-
-  if [[ -z "${CONTRACT_JSON}" ]]; then
-    err "Deployment output:"
-    cat "${DEPLOY_OUTPUT}"
+  if [[ -z "${CONTRACT_JSON}" ]] || ! echo "${CONTRACT_JSON}" | jq -e '.registryAddress' >/dev/null 2>&1; then
     die "Failed to extract contract addresses from deployment output"
   fi
 
-  # Extract addresses
+  # Extract addresses using jq
   REGISTRY_ADDRESS=$(echo "${CONTRACT_JSON}" | jq -r '.registryAddress')
   SLASH_FACTORY_ADDRESS=$(echo "${CONTRACT_JSON}" | jq -r '.slashFactoryAddress // empty')
   FEE_ASSET_HANDLER_ADDRESS=$(echo "${CONTRACT_JSON}" | jq -r '.feeAssetHandlerAddress // empty')
