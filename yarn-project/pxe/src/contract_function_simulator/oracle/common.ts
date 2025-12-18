@@ -43,19 +43,6 @@ export async function getFunctionArtifact(
   };
 }
 
-export async function getLowNullifierMembershipWitness(
-  blockNumber: BlockParameter,
-  nullifier: Fr,
-  anchorBlockDataProvider: AnchorBlockDataProvider,
-  aztecNode: AztecNode,
-): Promise<NullifierMembershipWitness | undefined> {
-  const anchorBlockNumber = (await anchorBlockDataProvider.getBlockHeader()).getBlockNumber();
-  if (blockNumber !== 'latest' && blockNumber > anchorBlockNumber) {
-    throw new Error(`Block number ${blockNumber} is higher than current block ${anchorBlockNumber}`);
-  }
-  return aztecNode.getLowNullifierMembershipWitness(blockNumber, nullifier);
-}
-
 export async function getBlock(
   blockNumber: BlockParameter,
   anchorBlockDataProvider: AnchorBlockDataProvider,

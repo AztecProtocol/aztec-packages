@@ -39,7 +39,6 @@ import {
   deliverEvent,
   deliverNote,
   getBlock,
-  getLowNullifierMembershipWitness,
   getPrivateLogByTag,
   getPublicDataWitness,
   getPublicLogByTag,
@@ -92,26 +91,13 @@ describe('Common oracle functions', () => {
 
   describe('Respects synced block number', () => {
     const syncedBlockNumber = 100;
-    let nullifier: Fr;
     let contractAddress: AztecAddress;
     let leafSlot: Fr;
 
     beforeEach(async () => {
       leafSlot = Fr.random();
-      nullifier = Fr.random();
       contractAddress = await AztecAddress.random();
       await setSyncedBlockNumber(BlockNumber(syncedBlockNumber));
-    });
-
-    it('throws when getting low nullifier membership witness for future block', async () => {
-      await expect(
-        getLowNullifierMembershipWitness(
-          BlockNumber(syncedBlockNumber + 1),
-          nullifier,
-          anchorBlockDataProvider,
-          aztecNode,
-        ),
-      ).rejects.toThrow(`Block number ${syncedBlockNumber + 1} is higher than current block ${syncedBlockNumber}`);
     });
 
     it('throws when getting block for future block number', async () => {

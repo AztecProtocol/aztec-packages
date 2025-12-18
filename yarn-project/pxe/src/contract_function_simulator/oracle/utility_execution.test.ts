@@ -9,7 +9,7 @@ import { L2BlockHash } from '@aztec/stdlib/block';
 import { CompleteAddress, type ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import { Note, NoteDao } from '@aztec/stdlib/note';
-import { BlockHeader, TxHash } from '@aztec/stdlib/tx';
+import { BlockHeader, GlobalVariables, TxHash } from '@aztec/stdlib/tx';
 
 import { mock } from 'jest-mock-extended';
 
@@ -24,6 +24,7 @@ import {
   SenderTaggingDataProvider,
 } from '../../storage/index.js';
 import { ContractFunctionSimulator } from '../contract_function_simulator.js';
+import { UtilityExecutionOracle } from './utility_execution_oracle.js';
 
 describe('Utility Execution test suite', () => {
   const simulator = new WASMSimulator();
@@ -148,4 +149,47 @@ describe('Utility Execution test suite', () => {
 
     expect(result).toEqual([new Fr(9)]);
   }, 30_000);
+
+  describe('UtilityExecutionOracle', () => {
+    describe('Respects synced block number', () => {
+      const syncedBlockNumber = 100;
+      let nullifier: Fr;
+      let contractAddress: AztecAddress;
+      // let leafSlot: Fr;
+      let utilityExecutionOracle: UtilityExecutionOracle;
+
+      beforeEach(async () => {
+        // leafSlot = Fr.random();
+        nullifier = Fr.random();
+        contractAddress = await AztecAddress.random();
+        anchorBlockHeader = BlockHeader.empty({
+          globalVariables: GlobalVariables.empty({ blockNumber: BlockNumber(syncedBlockNumber) }),
+        });
+        anchorBlockDataProvider.getBlockHeader.mockResolvedValue(anchorBlockHeader);
+
+        utilityExecutionOracle = new UtilityExecutionOracle(
+          contractAddress,
+          [],
+          [],
+          anchorBlockHeader,
+          contractDataProvider,
+          noteDataProvider,
+          keyStore,
+          addressDataProvider,
+          aztecNode,
+          anchorBlockDataProvider,
+          senderTaggingDataProvider,
+          recipientTaggingDataProvider,
+          capsuleDataProvider,
+          privateEventDataProvider,
+        );
+      });
+
+      it('throws when getting low nullifier membership witness for future block', async () => {
+        await expect(
+          utilityExecutionOracle.utilityGetLowNullifierMembershipWitness(BlockNumber(syncedBlockNumber + 1), nullifier),
+        ).rejects.toThrow(`Block number ${syncedBlockNumber + 1} is higher than current block ${syncedBlockNumber}`);
+      });
+    });
+  });
 });

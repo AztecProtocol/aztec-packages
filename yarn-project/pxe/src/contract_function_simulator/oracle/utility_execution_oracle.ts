@@ -41,7 +41,6 @@ import {
   assertCompatibleOracleVersion,
   bulkRetrieveLogs,
   getBlock,
-  getLowNullifierMembershipWitness,
   getNullifierIndex,
   getNullifierMembershipWitness,
   getPublicDataWitness,
@@ -177,7 +176,18 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     blockNumber: BlockNumber,
     nullifier: Fr,
   ): Promise<NullifierMembershipWitness | undefined> {
-    return await getLowNullifierMembershipWitness(blockNumber, nullifier, this.anchorBlockDataProvider, this.aztecNode);
+    return await this.getLowNullifierMembershipWitness(blockNumber, nullifier);
+  }
+
+  protected async getLowNullifierMembershipWitness(
+    blockNumber: BlockParameter,
+    nullifier: Fr,
+  ): Promise<NullifierMembershipWitness | undefined> {
+    const anchorBlockNumber = (await this.anchorBlockDataProvider.getBlockHeader()).getBlockNumber();
+    if (blockNumber !== 'latest' && blockNumber > anchorBlockNumber) {
+      throw new Error(`Block number ${blockNumber} is higher than current block ${anchorBlockNumber}`);
+    }
+    return this.aztecNode.getLowNullifierMembershipWitness(blockNumber, nullifier);
   }
 
   /**
