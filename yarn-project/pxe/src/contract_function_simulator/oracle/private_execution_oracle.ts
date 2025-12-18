@@ -44,7 +44,7 @@ import type { ExecutionNoteCache } from '../execution_note_cache.js';
 import { ExecutionTaggingIndexCache } from '../execution_tagging_index_cache.js';
 import type { HashedValuesCache } from '../hashed_values_cache.js';
 import { pickNotes } from '../pick_notes.js';
-import { calculateDirectionalAppTaggingSecret, getFunctionArtifact, getNotes } from './common.js';
+import { calculateDirectionalAppTaggingSecret, getFunctionArtifact } from './common.js';
 import type { IPrivateExecutionOracle, NoteData } from './interfaces.js';
 import { executePrivateFunction, verifyCurrentClassId } from './private_execution.js';
 import { UtilityExecutionOracle } from './utility_execution_oracle.js';
@@ -358,14 +358,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     const pendingNotes = this.noteCache.getNotes(this.callContext.contractAddress, owner, storageSlot);
 
     const pendingNullifiers = this.noteCache.getNullifiers(this.callContext.contractAddress);
-    const dbNotes = await getNotes(
-      this.callContext.contractAddress,
-      owner,
-      storageSlot,
-      status,
-      this.noteDataProvider,
-      this.scopes,
-    );
+    const dbNotes = await this.getNotes(this.callContext.contractAddress, owner, storageSlot, status, this.scopes);
     const dbNotesFiltered = dbNotes.filter(n => !pendingNullifiers.has((n.siloedNullifier as Fr).value));
 
     const notes = pickNotes<NoteData>([...dbNotesFiltered, ...pendingNotes], {

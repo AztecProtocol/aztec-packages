@@ -19,7 +19,7 @@ import {
   deriveEcdhSharedSecret,
 } from '@aztec/stdlib/logs';
 import { getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
-import { Note, NoteDao, type NoteStatus } from '@aztec/stdlib/note';
+import { Note, NoteDao } from '@aztec/stdlib/note';
 import { MerkleTreeId, NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import type { TxHash } from '@aztec/stdlib/tx';
 
@@ -59,37 +59,6 @@ export async function getFunctionArtifact(
     ...artifact,
     debug,
   };
-}
-
-export async function getNotes(
-  contractAddress: AztecAddress,
-  owner: AztecAddress | undefined,
-  storageSlot: Fr,
-  status: NoteStatus,
-  noteDataProvider: NoteDataProvider,
-  scopes?: AztecAddress[],
-) {
-  const noteDaos = await noteDataProvider.getNotes({
-    contractAddress,
-    owner,
-    storageSlot,
-    status,
-    scopes,
-  });
-  return noteDaos.map(
-    ({ contractAddress, owner, storageSlot, randomness, noteNonce, note, noteHash, siloedNullifier, index }) => ({
-      contractAddress,
-      owner,
-      storageSlot,
-      randomness,
-      noteNonce,
-      note,
-      noteHash,
-      siloedNullifier,
-      // PXE can use this index to get full MembershipWitness
-      index,
-    }),
-  );
 }
 
 export async function getCompleteAddress(

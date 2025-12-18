@@ -34,7 +34,6 @@ import {
   getL1ToL2MembershipWitness,
   getLowNullifierMembershipWitness,
   getMembershipWitness,
-  getNotes,
   getNullifierIndex,
   getNullifierMembershipWitness,
   getPublicDataWitness,
@@ -245,14 +244,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     offset: number,
     status: NoteStatus,
   ): Promise<NoteData[]> {
-    const dbNotes = await getNotes(
-      this.contractAddress,
-      owner,
-      storageSlot,
-      status,
-      this.noteDataProvider,
-      this.scopes,
-    );
+    const dbNotes = await this.getNotes(this.contractAddress, owner, storageSlot, status, this.scopes);
     return pickNotes<NoteData>(dbNotes, {
       selects: selectByIndexes.slice(0, numSelects).map((index, i) => ({
         selector: { index, offset: selectByOffsets[i], length: selectByLengths[i] },
@@ -266,6 +258,36 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       limit,
       offset,
     });
+  }
+
+  protected async getNotes(
+    contractAddress: AztecAddress,
+    owner: AztecAddress | undefined,
+    storageSlot: Fr,
+    status: NoteStatus,
+    scopes?: AztecAddress[],
+  ) {
+    const noteDaos = await this.noteDataProvider.getNotes({
+      contractAddress,
+      owner,
+      storageSlot,
+      status,
+      scopes,
+    });
+    return noteDaos.map(
+      ({ contractAddress, owner, storageSlot, randomness, noteNonce, note, noteHash, siloedNullifier, index }) => ({
+        contractAddress,
+        owner,
+        storageSlot,
+        randomness,
+        noteNonce,
+        note,
+        noteHash,
+        siloedNullifier,
+        // PXE can use this index to get full MembershipWitness
+        index,
+      }),
+    );
   }
 
   /**
