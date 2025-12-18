@@ -224,6 +224,6 @@ using UltraStarknetZKVerifier = UltraVerifier_<UltraStarknetZKFlavor, DefaultIO>
 using MegaVerifier = UltraVerifier_<MegaFlavor, DefaultIO>;
 using MegaZKVerifier = UltraVerifier_<MegaZKFlavor, HidingKernelIO>;
 using MegaZKRecursiveVerifier = UltraVerifier_<MegaZKRecursiveFlavor_<UltraCircuitBuilder>,
-                                               stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>>;
+                                               stdlib::recursion::honk::HidingKernelIO<UltraCircuitBuilder>>;
 
 } // namespace bb
