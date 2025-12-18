@@ -50,6 +50,16 @@
  */
 namespace bb::plookup::sha256_tables {
 
+// Sparse form bases used for SHA-256 operations; chosen to prevent overflow during sparse digit addition
+static constexpr uint64_t CHOOSE_BASE = 28;
+static constexpr uint64_t MAJORITY_BASE = 16;
+static constexpr uint64_t WITNESS_EXTENSION_BASE = 16;
+
+// Bits per lookup in the sparse form normalization tables
+static constexpr uint64_t CHOOSE_BITS_PER_LOOKUP = 2;            // table size: 28² = 784
+static constexpr uint64_t MAJORITY_BITS_PER_LOOKUP = 3;          // table size: 16³ = 4096
+static constexpr uint64_t WITNESS_EXTENSION_BITS_PER_LOOKUP = 3; // table size: 16³ = 4096
+
 /**
  * @brief Normalization table for combined Σ₁(e) + Ch(e,f,g) computation in base-28 sparse form.
  *
@@ -57,7 +67,7 @@ namespace bb::plookup::sha256_tables {
  * The Choose function is Ch(e,f,g) = (e & f) ^ (~e & g), i.e., "if e then f else g".
  * The Σ₁ function is Σ₁(e) = (e>>>6) ^ (e>>>11) ^ (e>>>25).
  *
- * Table index = 7 × σ + (e + 2f + 3g), where:
+ * Table index = 7 * σ + (e + 2f + 3g), where:
  *   - σ (0-3): sum of the three rotation bits at position i: (e>>>6)[i] + (e>>>11)[i] + (e>>>25)[i]
  *   - e, f, g (each 0 or 1): the Ch function input bits at position i
  *   - e + 2f + 3g (0-6): sparse encoding of Ch inputs
@@ -68,7 +78,7 @@ namespace bb::plookup::sha256_tables {
  *
  * Output range is 0-2, fitting in the normalized sparse digit.
  */
-static constexpr uint64_t choose_normalization_table[28]{
+static constexpr uint64_t choose_normalization_table[CHOOSE_BASE]{
     /* σ = 0 (Σ₁ = 0): output = 0 + Ch */
     0, // e + 2f + 3g = 0 => e=0, f=0, g=0 => Ch=0
     0, // e + 2f + 3g = 1 => e=1, f=0, g=0 => Ch=0
@@ -110,7 +120,7 @@ static constexpr uint64_t choose_normalization_table[28]{
  * The Majority function is Maj(a,b,c) = (a & b) ^ (a & c) ^ (b & c), i.e., the majority bit.
  * The Σ₀ function is Σ₀(a) = (a>>>2) ^ (a>>>13) ^ (a>>>22).
  *
- * Table index = 4 × σ + (a + b + c), where:
+ * Table index = 4 * σ + (a + b + c), where:
  *   - σ (0-3): sum of the three rotation bits at position i: (a>>>2)[i] + (a>>>13)[i] + (a>>>22)[i]
  *   - a, b, c (each 0 or 1): the Maj function input bits at position i
  *   - a + b + c (0-3): sum of Maj inputs
@@ -121,7 +131,7 @@ static constexpr uint64_t choose_normalization_table[28]{
  *
  * Output range is 0-2, fitting in the normalized sparse digit.
  */
-static constexpr uint64_t majority_normalization_table[16]{
+static constexpr uint64_t majority_normalization_table[MAJORITY_BASE]{
     /* σ = 0 (Σ₀ = 0): output = 0 + Maj */
     0, // a + b + c = 0 => Maj=0
     0, // a + b + c = 1 => Maj=0
@@ -158,11 +168,11 @@ static constexpr uint64_t majority_normalization_table[16]{
  *   - s_0 (0-3): sum of the 3 rotation/shift bits from σ₀
  *   - s_1 (0-3): sum of the 3 rotation/shift bits from σ₁
  *
- * Table index = 4 × s_0 + s_1 (range 0-15)
+ * Table index = 4 * s_0 + s_1 (range 0-15)
  * Table output = (s_0 mod 2) + (s_1 mod 2) = σ₀_bit + σ₁_bit
  * Output range is 0-2.
  */
-static constexpr uint64_t witness_extension_normalization_table[16]{
+static constexpr uint64_t witness_extension_normalization_table[WITNESS_EXTENSION_BASE]{
     /* s_0 = 0 (σ₀_bit = 0): output = 0 + (s_1 mod 2) */
     0, // s_1 = 0 => σ₁_bit = 0
     1, // s_1 = 1 => σ₁_bit = 1
@@ -195,7 +205,7 @@ static constexpr uint64_t witness_extension_normalization_table[16]{
  *
  * Limb structure: L0 = bits 0-10, L1 = bits 11-21, L2 = bits 22-31
  */
-static constexpr bb::fr choose_base{ 28 };
+static constexpr bb::fr choose_base{ CHOOSE_BASE };
 
 static constexpr bb::fr HANDLED_VIA_TABLE{ 0 }; // indicates handling via lookup table instead of scalar multiplier
 
@@ -234,7 +244,7 @@ static constexpr std::array<bb::fr, 3> choose_rotation_coefficients{
  *
  * Limb structure: L0 = bits 0-10, L1 = bits 11-21, L2 = bits 22-31
  */
-static constexpr bb::fr majority_base{ 16 };
+static constexpr bb::fr majority_base{ MAJORITY_BASE };
 
 static constexpr std::array<bb::fr, 3> majority_rot2_coefficients{
     HANDLED_VIA_TABLE,         // splits across boundary
@@ -270,8 +280,9 @@ static constexpr std::array<bb::fr, 3> majority_rotation_coefficients{
  */
 inline BasicTable generate_witness_extension_normalization_table(BasicTableId id, const size_t table_index)
 {
-    return sparse_tables::generate_sparse_normalization_table<16, 3, witness_extension_normalization_table>(
-        id, table_index);
+    return sparse_tables::generate_sparse_normalization_table<WITNESS_EXTENSION_BASE,
+                                                              WITNESS_EXTENSION_BITS_PER_LOOKUP,
+                                                              witness_extension_normalization_table>(id, table_index);
 }
 
 /**
@@ -283,7 +294,9 @@ inline BasicTable generate_witness_extension_normalization_table(BasicTableId id
  */
 inline BasicTable generate_choose_normalization_table(BasicTableId id, const size_t table_index)
 {
-    return sparse_tables::generate_sparse_normalization_table<28, 2, choose_normalization_table>(id, table_index);
+    return sparse_tables::generate_sparse_normalization_table<CHOOSE_BASE,
+                                                              CHOOSE_BITS_PER_LOOKUP,
+                                                              choose_normalization_table>(id, table_index);
 }
 
 /**
@@ -295,7 +308,9 @@ inline BasicTable generate_choose_normalization_table(BasicTableId id, const siz
  */
 inline BasicTable generate_majority_normalization_table(BasicTableId id, const size_t table_index)
 {
-    return sparse_tables::generate_sparse_normalization_table<16, 3, majority_normalization_table>(id, table_index);
+    return sparse_tables::generate_sparse_normalization_table<MAJORITY_BASE,
+                                                              MAJORITY_BITS_PER_LOOKUP,
+                                                              majority_normalization_table>(id, table_index);
 }
 
 /**
@@ -305,16 +320,18 @@ inline BasicTable generate_majority_normalization_table(BasicTableId id, const s
  */
 inline MultiTable get_witness_extension_output_table(const MultiTableId id = SHA256_WITNESS_OUTPUT)
 {
-    const size_t num_entries = 11; // ceil(32 bits / 3 bits per lookup)
+    const size_t num_entries = 11; // ceil(32 bits / WITNESS_EXTENSION_BITS_PER_LOOKUP)
+    const auto slice_size = numeric::pow64(WITNESS_EXTENSION_BASE, WITNESS_EXTENSION_BITS_PER_LOOKUP);
 
-    MultiTable table(numeric::pow64(16, 3), 1 << 3, 0, num_entries);
+    MultiTable table(slice_size, 1ULL << WITNESS_EXTENSION_BITS_PER_LOOKUP, 0, num_entries);
 
     table.id = id;
     for (size_t i = 0; i < num_entries; ++i) {
-        table.slice_sizes.emplace_back(numeric::pow64(16, 3));
+        table.slice_sizes.emplace_back(slice_size);
         table.basic_table_ids.emplace_back(SHA256_WITNESS_NORMALIZE);
         table.get_table_values.emplace_back(
-            &sparse_tables::get_sparse_normalization_values<16, witness_extension_normalization_table>);
+            &sparse_tables::get_sparse_normalization_values<WITNESS_EXTENSION_BASE,
+                                                            witness_extension_normalization_table>);
     }
     return table;
 }
@@ -326,16 +343,17 @@ inline MultiTable get_witness_extension_output_table(const MultiTableId id = SHA
  */
 inline MultiTable get_choose_output_table(const MultiTableId id = SHA256_CH_OUTPUT)
 {
-    const size_t num_entries = 16; // 32 bits / 2 bits per lookup
+    const size_t num_entries = 16; // 32 bits / CHOOSE_BITS_PER_LOOKUP
+    const auto slice_size = numeric::pow64(CHOOSE_BASE, CHOOSE_BITS_PER_LOOKUP);
 
-    MultiTable table(numeric::pow64(28, 2), 1 << 2, 0, num_entries);
+    MultiTable table(slice_size, 1ULL << CHOOSE_BITS_PER_LOOKUP, 0, num_entries);
 
     table.id = id;
     for (size_t i = 0; i < num_entries; ++i) {
-        table.slice_sizes.emplace_back(numeric::pow64(28, 2));
+        table.slice_sizes.emplace_back(slice_size);
         table.basic_table_ids.emplace_back(SHA256_CH_NORMALIZE);
         table.get_table_values.emplace_back(
-            &sparse_tables::get_sparse_normalization_values<28, choose_normalization_table>);
+            &sparse_tables::get_sparse_normalization_values<CHOOSE_BASE, choose_normalization_table>);
     }
     return table;
 }
@@ -347,16 +365,17 @@ inline MultiTable get_choose_output_table(const MultiTableId id = SHA256_CH_OUTP
  */
 inline MultiTable get_majority_output_table(const MultiTableId id = SHA256_MAJ_OUTPUT)
 {
-    const size_t num_entries = 11; // ceil(32 bits / 3 bits per lookup)
+    const size_t num_entries = 11; // ceil(32 bits / MAJORITY_BITS_PER_LOOKUP)
+    const auto slice_size = numeric::pow64(MAJORITY_BASE, MAJORITY_BITS_PER_LOOKUP);
 
-    MultiTable table(numeric::pow64(16, 3), 1 << 3, 0, num_entries);
+    MultiTable table(slice_size, 1ULL << MAJORITY_BITS_PER_LOOKUP, 0, num_entries);
 
     table.id = id;
     for (size_t i = 0; i < num_entries; ++i) {
-        table.slice_sizes.emplace_back(numeric::pow64(16, 3));
+        table.slice_sizes.emplace_back(slice_size);
         table.basic_table_ids.emplace_back(SHA256_MAJ_NORMALIZE);
         table.get_table_values.emplace_back(
-            &sparse_tables::get_sparse_normalization_values<16, majority_normalization_table>);
+            &sparse_tables::get_sparse_normalization_values<MAJORITY_BASE, majority_normalization_table>);
     }
     return table;
 }
@@ -433,17 +452,17 @@ inline MultiTable get_witness_extension_input_table(const MultiTableId id = SHA2
     table.slice_sizes = { (1 << 3), (1 << 7), (1 << 8), (1 << 14) };
 
     /**
-     * Specify the rotation to apply to each limb. A rotation R "splits" limb [start, end] when
-     * start < R ≤ end, causing some bits to wrap. The table handles splits from both σ₀ and σ₁.
+     * Specify the functions defining the rotation to be applied to each of three limbs. This is only for handling the
+     * limbs which split across the 31/0-bit boundary when rotated. The table handles rotations from both σ₀ and σ₁.
      *
      * table_rotation = splitting_rotation - limb_start_position
      *
      *   | Limb | Start | Splitting rot | Table rot    |
      *   |------|-------|---------------|--------------|
      *   | L0   | 0     | (none)        | 0 (unused)   |
-     *   | L1   | 3     | σ₀'s 7        | 7 - 3 = 4    |
-     *   | L2   | 10    | σ₁'s 17       | 17 - 10 = 7  |
-     *   | L3   | 18    | σ₁'s 19       | 19 - 18 = 1  |
+     *   | L1   | 3     | 7 (from σ₀)   | 7 - 3 = 4    |
+     *   | L2   | 10    | 17 (from σ₁)  | 17 - 10 = 7  |
+     *   | L3   | 18    | 19 (from σ₁)  | 19 - 18 = 1  |
      *
      */
     table.basic_table_ids = { SHA256_WITNESS_SLICE_3,
@@ -452,10 +471,10 @@ inline MultiTable get_witness_extension_input_table(const MultiTableId id = SHA2
                               SHA256_WITNESS_SLICE_14_ROTATE_1 };
 
     table.get_table_values = {
-        &sparse_tables::get_sparse_table_with_rotation_values<16, 0>,
-        &sparse_tables::get_sparse_table_with_rotation_values<16, 4>,
-        &sparse_tables::get_sparse_table_with_rotation_values<16, 7>,
-        &sparse_tables::get_sparse_table_with_rotation_values<16, 1>,
+        &sparse_tables::get_sparse_table_with_rotation_values<WITNESS_EXTENSION_BASE, 0>,
+        &sparse_tables::get_sparse_table_with_rotation_values<WITNESS_EXTENSION_BASE, 4>,
+        &sparse_tables::get_sparse_table_with_rotation_values<WITNESS_EXTENSION_BASE, 7>,
+        &sparse_tables::get_sparse_table_with_rotation_values<WITNESS_EXTENSION_BASE, 1>,
     };
     return table;
 }
@@ -531,9 +550,9 @@ inline MultiTable get_choose_input_table(const MultiTableId id = SHA256_CH_INPUT
      *   | L2   | 22        | 25         | 25 - 22 = 3 |
      */
     table.basic_table_ids = { SHA256_BASE28_ROTATE6, SHA256_BASE28, SHA256_BASE28_ROTATE3 };
-    table.get_table_values = { &sparse_tables::get_sparse_table_with_rotation_values<28, 6>,
-                               &sparse_tables::get_sparse_table_with_rotation_values<28, 0>,
-                               &sparse_tables::get_sparse_table_with_rotation_values<28, 3> };
+    table.get_table_values = { &sparse_tables::get_sparse_table_with_rotation_values<CHOOSE_BASE, 6>,
+                               &sparse_tables::get_sparse_table_with_rotation_values<CHOOSE_BASE, 0>,
+                               &sparse_tables::get_sparse_table_with_rotation_values<CHOOSE_BASE, 3> };
 
     return table;
 }
@@ -609,9 +628,9 @@ inline MultiTable get_majority_input_table(const MultiTableId id = SHA256_MAJ_IN
      *   | L2   | 22        | 22         | 22 - 22 = 0 |
      */
     table.basic_table_ids = { SHA256_BASE16_ROTATE2, SHA256_BASE16_ROTATE2, SHA256_BASE16 };
-    table.get_table_values = { &sparse_tables::get_sparse_table_with_rotation_values<16, 2>,
-                               &sparse_tables::get_sparse_table_with_rotation_values<16, 2>,
-                               &sparse_tables::get_sparse_table_with_rotation_values<16, 0> };
+    table.get_table_values = { &sparse_tables::get_sparse_table_with_rotation_values<MAJORITY_BASE, 2>,
+                               &sparse_tables::get_sparse_table_with_rotation_values<MAJORITY_BASE, 2>,
+                               &sparse_tables::get_sparse_table_with_rotation_values<MAJORITY_BASE, 0> };
     return table;
 }
 
