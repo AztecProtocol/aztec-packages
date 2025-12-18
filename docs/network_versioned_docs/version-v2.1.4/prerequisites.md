@@ -123,6 +123,14 @@ nc -zuv [YOUR_EXTERNAL_IP] 40400
 If port forwarding isn't properly configured, your node may not be able to participate in P2P duties.
 :::
 
+:::info Dynamic IPs and cgNAT
+If your ISP assigns a dynamic IP address, you can set `P2P_QUERY_FOR_IP=true` to have your node automatically detect and update its external IP.
+
+If you're behind Carrier-Grade NAT (cgNAT), standard port forwarding won't work. Check your router's WAN IP—if it's in a private range (like `100.64.x.x`, `10.x.x.x`, or `192.168.x.x`), you'll need to use a VPN with port forwarding or a cloud relay.
+
+See the [FAQ - Dynamic IP Addresses](./operation/operator_faq.md#dynamic-ip-addresses) and [FAQ - cgNAT](./operation/operator_faq.md#carrier-grade-nat-cgnat) for detailed troubleshooting steps.
+:::
+
 ## Next Steps
 
 Once you have met the prerequisites, proceed to set up your desired node type:

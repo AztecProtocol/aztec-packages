@@ -283,6 +283,88 @@ Join the [Aztec Discord](https://discord.gg/aztec) and follow the announcements 
    - Ensure ports are properly mapped in docker-compose.yml
    - Check that `P2P_PORT` environment variable matches the exposed ports
 
+### Dynamic IP Addresses
+
+**Symptom**: Your node frequently loses peer connections or can't be discovered by other nodes after your IP address changes.
+
+**Cause**: When your ISP assigns a new IP address, your node's ENR (Ethereum Node Record) still contains the old IP address, making it unreachable to peers.
+
+**Solutions**:
+
+1. **Enable automatic IP detection** (recommended for dynamic IPs):
+
+   Set the following environment variable to have your node automatically query and update its external IP:
+
+   ```bash
+   P2P_QUERY_FOR_IP=true
+   ```
+
+   This tells the node to periodically check its external IP and update the ENR when changes are detected.
+
+2. **Verify your current ENR**:
+
+   You can check your node's current ENR to see what IP it's advertising:
+
+   ```bash
+   curl -s http://localhost:8080 -X POST -H "Content-Type: application/json" \
+     -d '{"jsonrpc":"2.0","method":"node_getEncodedEnr","params":[],"id":1}'
+   ```
+
+3. **Monitor for IP changes**:
+   - If using a static `P2P_IP` configuration, you'll need to update it manually when your IP changes
+   - Consider setting up monitoring to alert you when your external IP changes
+
+:::tip Static IP Recommended
+For production sequencer nodes, a static IP address from your ISP is recommended for better reliability. Contact your ISP to inquire about static IP options.
+:::
+
+### Carrier-Grade NAT (cgNAT)
+
+**Symptom**: Your node can't receive incoming P2P connections even though port forwarding is correctly configured on your router.
+
+**Cause**: Your ISP uses Carrier-Grade NAT (cgNAT), meaning your router's WAN IP is not a public IP address. Port forwarding on your router has no effect because there's another NAT layer at your ISP that you can't control.
+
+**How to detect cgNAT**:
+
+1. Log into your router's admin interface and find your WAN/external IP address
+2. Compare it to your actual public IP:
+
+   ```bash
+   curl ipv4.icanhazip.com
+   ```
+
+3. If these IPs are different, you're behind cgNAT
+
+4. Alternatively, if your router's WAN IP falls within these private ranges, you're behind cgNAT or double NAT:
+   - `100.64.0.0` - `100.127.255.255` (cgNAT shared address space, RFC 6598)
+   - `10.0.0.0` - `10.255.255.255` (private, RFC 1918)
+   - `172.16.0.0` - `172.31.255.255` (private, RFC 1918)
+   - `192.168.0.0` - `192.168.255.255` (private, RFC 1918)
+
+**Solutions**:
+
+1. **Use a VPN with port forwarding** (recommended):
+
+   Several VPN providers offer port forwarding capabilities that can bypass cgNAT:
+
+   - Set up a VPN tunnel on your node
+   - Configure the VPN's port forwarding feature to forward your P2P port
+   - Update `P2P_IP` to use the VPN's assigned public IP
+   - See your VPN provider's documentation for port forwarding setup
+
+2. **Use a cloud-based relay or VPS**:
+
+   - Run your node on a VPS with a public IP
+   - Or set up a reverse tunnel to a VPS that forwards traffic to your local node
+
+3. **Contact your ISP**:
+   - Some ISPs offer public IP addresses as an add-on service
+   - Request to be moved off cgNAT to a standard NAT with a public IP
+
+:::warning cgNAT Limitations
+If you're behind cgNAT, traditional port forwarding will not work. You must use one of the solutions above to participate in P2P networking.
+:::
+
 ## Other Common Issues
 
 ### CodeError: Stream Reset
