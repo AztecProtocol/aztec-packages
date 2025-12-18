@@ -56,7 +56,7 @@ export const BlobscanBlocksResponseSchema = z.object({
 });
 
 export class BlobscanArchiveClient implements BlobArchiveClient {
-  private readonly logger = createLogger('blob-sink:blobscan-archive-client');
+  private readonly logger = createLogger('blob-client:blobscan-archive-client');
   private readonly fetchOpts = { headers: { accept: 'application/json' } };
   private readonly fetch = async (...args: Parameters<typeof fetch>): Promise<Response> => {
     return await retry(

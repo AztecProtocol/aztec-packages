@@ -23,7 +23,6 @@ export const INITIAL_L2_BLOCK_NUM: BlockNumber = BlockNumber(INITIAL_L2_BLOCK_NU
 
 /** The initial L2 checkpoint number (typed as CheckpointNumber). This is the first checkpont number in the Aztec L2 chain. */
 // Shadow the export from constants.gen above
-// eslint-disable-next-line import/export
 export const INITIAL_L2_CHECKPOINT_NUM: CheckpointNumber = CheckpointNumber(INITIAL_CHECKPOINT_NUM_RAW);
 
 /** The block header hash for the genesis block 0. */

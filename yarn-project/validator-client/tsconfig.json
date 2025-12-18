@@ -10,7 +10,7 @@
       "path": "../blob-lib"
     },
     {
-      "path": "../blob-sink"
+      "path": "../blob-client"
     },
     {
       "path": "../constants"

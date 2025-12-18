@@ -5,17 +5,12 @@ import {
   getConfigFromMappings,
 } from '@aztec/foundation/config';
 
-import { type BlobSinkArchiveApiConfig, blobSinkArchiveApiConfigMappings } from '../archive/config.js';
+import { type BlobArchiveApiConfig, blobArchiveApiConfigMappings } from '../archive/config.js';
 
 /**
- * The configuration for the blob sink client
+ * The configuration for the blob client
  */
-export interface BlobSinkConfig extends BlobSinkArchiveApiConfig {
-  /**
-   * The URL of the blob sink
-   */
-  blobSinkUrl?: string;
-
+export interface BlobClientConfig extends BlobArchiveApiConfig {
   /**
    * List of URLs for L1 RPC Execution clients
    */
@@ -57,11 +52,7 @@ export interface BlobSinkConfig extends BlobSinkArchiveApiConfig {
   blobFileStoreUploadUrl?: string;
 }
 
-export const blobSinkConfigMapping: ConfigMappingsType<BlobSinkConfig> = {
-  blobSinkUrl: {
-    env: 'BLOB_SINK_URL',
-    description: 'The URL of the blob sink',
-  },
+export const blobClientConfigMapping: ConfigMappingsType<BlobClientConfig> = {
   l1RpcUrls: {
     env: 'ETHEREUM_HOSTS',
     description: 'List of URLs for L1 RPC Execution clients',
@@ -107,25 +98,20 @@ export const blobSinkConfigMapping: ConfigMappingsType<BlobSinkConfig> = {
     env: 'BLOB_FILE_STORE_UPLOAD_URL',
     description: 'URL for uploading blobs to filestore (s3://, gs://, file://)',
   },
-  ...blobSinkArchiveApiConfigMappings,
+  ...blobArchiveApiConfigMappings,
 };
 
 /**
- * Returns the blob sink configuration from the environment variables.
- * @returns The blob sink configuration.
+ * Returns the blob client configuration from the environment variables.
+ * @returns The blob client configuration.
  */
-export function getBlobSinkConfigFromEnv(): BlobSinkConfig {
-  return getConfigFromMappings<BlobSinkConfig>(blobSinkConfigMapping);
+export function getBlobClientConfigFromEnv(): BlobClientConfig {
+  return getConfigFromMappings<BlobClientConfig>(blobClientConfigMapping);
 }
 
 /**
- * Returns whether the given blob sink config has any remote sources defined.
+ * Returns whether the given blob client config has any remote sources defined.
  */
-export function hasRemoteBlobSinkSources(config: BlobSinkConfig = {}): boolean {
-  return !!(
-    config.blobSinkUrl ||
-    config.l1ConsensusHostUrls?.length ||
-    config.archiveApiUrl ||
-    config.blobFileStoreUrls?.length
-  );
+export function hasRemoteBlobSources(config: BlobClientConfig = {}): boolean {
+  return !!(config.l1ConsensusHostUrls?.length || config.archiveApiUrl || config.blobFileStoreUrls?.length);
 }

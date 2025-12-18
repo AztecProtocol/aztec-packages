@@ -15,9 +15,9 @@ export interface GetBlobSidecarOptions {
   isHistoricalSync?: boolean;
 }
 
-export interface BlobSinkClientInterface {
-  /** Sends the given blobs to a sink, to be indexed by blob hash. */
-  sendBlobsToBlobSink(blobs: Blob[]): Promise<boolean>;
+export interface BlobClientInterface {
+  /** Sends the given blobs to the filestore, to be indexed by blob hash. */
+  sendBlobsToFilestore(blobs: Blob[]): Promise<boolean>;
   /** Fetches the given blob sidecars by block, hash, and indices. */
   getBlobSidecar(
     blockId: string,

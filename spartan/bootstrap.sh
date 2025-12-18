@@ -251,27 +251,27 @@ case "$cmd" in
     ;;
   "test-kind-transfer")
     # TODO(#12163) reenable bot once not conflicting with transfer
-    OVERRIDES="blobSink.enabled=true,bot.enabled=false" \
+    OVERRIDES="bot.enabled=false" \
     FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false \
       ./scripts/test_k8s.sh kind src/spartan/transfer.test.ts ci.yaml transfer${NAME_POSTFIX:-}
     ;;
   "test-kind-1tps")
-    OVERRIDES="blobSink.enabled=true,bot.enabled=false" \
+    OVERRIDES="bot.enabled=false" \
     FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false RESOURCES_FILE=gcloud-1tps-sim.yaml \
       ./scripts/test_k8s.sh kind src/spartan/1tps.test.ts ci-1tps.yaml one-tps${NAME_POSTFIX:-}
     ;;
   "test-kind-10tps-10%-drop")
-    OVERRIDES="telemetry.enabled=false,blobSink.enabled=true,bot.enabled=false,validator.p2p.dropTransactions=true,validator.p2p.dropTransactionsProbability=0.1" \
+    OVERRIDES="telemetry.enabled=false,bot.enabled=false,validator.p2p.dropTransactions=true,validator.p2p.dropTransactionsProbability=0.1" \
     FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false \
     ./scripts/test_k8s.sh kind src/spartan/n_tps.test.ts ci-1tps.yaml ten-tps${NAME_POSTFIX:-}
   ;;
   "test-kind-10tps-30%-drop")
-    OVERRIDES="telemetry.enabled=false,blobSink.enabled=true,bot.enabled=false,validator.p2p.dropTransactions=true,validator.p2p.dropTransactionsProbability=0.3" \
+    OVERRIDES="telemetry.enabled=false,bot.enabled=false,validator.p2p.dropTransactions=true,validator.p2p.dropTransactionsProbability=0.3" \
     FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false \
     ./scripts/test_k8s.sh kind src/spartan/n_tps.test.ts ci-tx-drop.yaml ten-tps${NAME_POSTFIX:-}
   ;;
   "test-kind-10tps-50%-drop")
-    OVERRIDES="telemetry.enabled=false,blobSink.enabled=true,bot.enabled=false,validator.p2p.dropTransactions=true,validator.p2p.dropTransactionsProbability=0.5" \
+    OVERRIDES="telemetry.enabled=false,bot.enabled=false,validator.p2p.dropTransactions=true,validator.p2p.dropTransactionsProbability=0.5" \
     FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false \
     ./scripts/test_k8s.sh kind src/spartan/n_tps.test.ts ci-tx-drop.yaml ten-tps${NAME_POSTFIX:-}
   ;;
@@ -291,7 +291,7 @@ case "$cmd" in
   "test-gke-transfer")
     execution_client="$1"
     # TODO(#12163) reenable bot once not conflicting with transfer
-    OVERRIDES="blobSink.enabled=true,bot.enabled=false"
+    OVERRIDES="bot.enabled=false"
     if [ -n "$execution_client" ]; then
       OVERRIDES="$OVERRIDES,ethereum.execution.client=$execution_client"
     fi
@@ -299,7 +299,7 @@ case "$cmd" in
       ./scripts/test_k8s.sh gke src/spartan/transfer.test.ts ci-fast-epoch.yaml ${NAMESPACE:-"transfer${NAME_POSTFIX:-}"}
     ;;
   "test-gke-1tps")
-    OVERRIDES="blobSink.enabled=true,bot.enabled=false" \
+    OVERRIDES="bot.enabled=false" \
     FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false RESOURCES_FILE=gcloud-1tps-sim.yaml \
       ./scripts/test_k8s.sh gke src/spartan/1tps.test.ts ci-1tps.yaml ${NAMESPACE:-"one-tps${NAME_POSTFIX:-}"}
     ;;

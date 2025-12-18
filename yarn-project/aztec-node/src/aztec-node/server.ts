@@ -1,11 +1,11 @@
 import { Archiver, createArchiver } from '@aztec/archiver';
 import { BBCircuitVerifier, QueuedIVCVerifier, TestCircuitVerifier } from '@aztec/bb-prover';
-import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-sink/client';
+import { type BlobClientInterface, createBlobClient } from '@aztec/blob-client/client';
 import {
   type BlobFileStoreMetadata,
   createReadOnlyFileStoreBlobClients,
   createWritableFileStoreBlobClient,
-} from '@aztec/blob-sink/filestore';
+} from '@aztec/blob-client/filestore';
 import {
   ARCHIVE_HEIGHT,
   INITIAL_L2_BLOCK_NUM,
@@ -189,7 +189,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       logger?: Logger;
       publisher?: SequencerPublisher;
       dateProvider?: DateProvider;
-      blobSinkClient?: BlobSinkClientInterface;
+      blobClient?: BlobClientInterface;
       p2pClientDeps?: P2PClientDeps<P2PClientType.Full>;
     } = {},
     options: {
@@ -280,10 +280,10 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       createWritableFileStoreBlobClient(config.blobFileStoreUploadUrl, blobFileStoreMetadata, log),
     ]);
 
-    const blobSinkClient =
-      deps.blobSinkClient ??
-      createBlobSinkClient(config, {
-        logger: createLogger('node:blob-sink:client'),
+    const blobClient =
+      deps.blobClient ??
+      createBlobClient(config, {
+        logger: createLogger('node:blob-client:client'),
         fileStoreClients,
         fileStoreUploadClient,
       });
@@ -295,7 +295,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
 
     const archiver = await createArchiver(
       config,
-      { blobSinkClient, epochCache, telemetry, dateProvider },
+      { blobClient, epochCache, telemetry, dateProvider },
       { blockUntilSync: !config.skipArchiverInitialSync },
     );
 
@@ -475,7 +475,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
         l1ToL2MessageSource: archiver,
         telemetry,
         dateProvider,
-        blobSinkClient,
+        blobClient,
         nodeKeyStore: keyStoreManager!,
       });
     }
