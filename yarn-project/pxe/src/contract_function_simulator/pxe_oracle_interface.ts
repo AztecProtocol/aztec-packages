@@ -17,7 +17,7 @@ import { Note, NoteDao } from '@aztec/stdlib/note';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import { TxHash } from '@aztec/stdlib/tx';
 
-import type { ExecutionDataProvider, ExecutionStats } from '../contract_function_simulator/execution_data_provider.js';
+import type { ExecutionDataProvider } from '../contract_function_simulator/execution_data_provider.js';
 import type { AddressDataProvider } from '../storage/address_data_provider/address_data_provider.js';
 import type { AnchorBlockDataProvider } from '../storage/anchor_block_data_provider/anchor_block_data_provider.js';
 import type { CapsuleDataProvider } from '../storage/capsule_data_provider/capsule_data_provider.js';
@@ -719,12 +719,5 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     return allPublicLogs.map(logs =>
       logs.filter(log => (log.log as PublicLog).contractAddress.equals(contractAddress)),
     );
-  }
-
-  getStats(): ExecutionStats {
-    const nodeRPCCalls =
-      typeof (this.aztecNode as ProxiedNode).getStats === 'function' ? (this.aztecNode as ProxiedNode).getStats() : {};
-
-    return { nodeRPCCalls };
   }
 }

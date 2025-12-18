@@ -83,7 +83,7 @@ import type { ExecutionDataProvider } from './execution_data_provider.js';
 import { ExecutionNoteCache } from './execution_note_cache.js';
 import { ExecutionTaggingIndexCache } from './execution_tagging_index_cache.js';
 import { HashedValuesCache } from './hashed_values_cache.js';
-import { getFunctionArtifact } from './oracle/common.js';
+import { getFunctionArtifact, getStats } from './oracle/common.js';
 import { Oracle } from './oracle/oracle.js';
 import { executePrivateFunction, verifyCurrentClassId } from './oracle/private_execution.js';
 import { PrivateExecutionOracle } from './oracle/private_execution_oracle.js';
@@ -321,7 +321,7 @@ export class ContractFunctionSimulator {
   // docs:end:execute_utility_function
 
   getStats() {
-    return this.executionDataProvider.getStats();
+    return getStats(this.aztecNode);
   }
 }
 

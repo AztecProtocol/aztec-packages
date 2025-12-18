@@ -20,6 +20,8 @@ import type {
   ContractDataProvider,
   NoteDataProvider,
 } from '../../storage/index.js';
+import type { ExecutionStats } from '../execution_data_provider.js';
+import type { ProxiedNode } from '../proxied_node.js';
 import { MessageLoadOracleInputs } from './message_load_oracle_inputs.js';
 
 // TODO: this might not be the final home for these functions,
@@ -252,4 +254,11 @@ export function assertCompatibleOracleVersion(version: number): void {
   if (version !== ORACLE_VERSION) {
     throw new Error(`Incompatible oracle version. Expected version ${ORACLE_VERSION}, got ${version}.`);
   }
+}
+
+export function getStats(aztecNode: AztecNode): ExecutionStats {
+  const nodeRPCCalls =
+    typeof (aztecNode as ProxiedNode).getStats === 'function' ? (aztecNode as ProxiedNode).getStats() : {};
+
+  return { nodeRPCCalls };
 }

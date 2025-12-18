@@ -82,12 +82,6 @@ export interface ExecutionDataProvider {
    */
   syncNoteNullifiers(contractAddress: AztecAddress): Promise<void>;
 
-  /**
-   * Returns the execution statistics collected during the simulator run.
-   * @returns The execution statistics.
-   */
-  getStats(): ExecutionStats;
-
   // Exposed when moving in the direction of #17776
   get aztecNode(): AztecNode;
 }
