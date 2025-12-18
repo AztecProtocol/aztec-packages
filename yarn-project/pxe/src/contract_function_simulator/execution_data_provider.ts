@@ -1,6 +1,5 @@
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import type { NodeStats } from '@aztec/stdlib/tx';
 
 /**
@@ -55,7 +54,4 @@ export interface ExecutionDataProvider {
    * Looks for nullifiers of active contract notes and marks them as nullified in the db if a nullifier is found.
    */
   syncNoteNullifiers(contractAddress: AztecAddress): Promise<void>;
-
-  // Exposed when moving in the direction of #17776
-  get aztecNode(): AztecNode;
 }
