@@ -1,3 +1,4 @@
+import type { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
 import type { BlockNumber } from '@aztec/foundation/branded-types';
 import { Aes128 } from '@aztec/foundation/crypto/aes128';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -18,6 +19,7 @@ import {
   TxScopedL2Log,
   deriveEcdhSharedSecret,
 } from '@aztec/stdlib/logs';
+import { getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
 import type { NoteStatus } from '@aztec/stdlib/note';
 import { MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import type { BlockHeader, Capsule } from '@aztec/stdlib/tx';
@@ -39,7 +41,6 @@ import {
   assertCompatibleOracleVersion,
   bulkRetrieveLogs,
   getBlock,
-  getL1ToL2MembershipWitness,
   getLowNullifierMembershipWitness,
   getNullifierIndex,
   getNullifierMembershipWitness,
@@ -49,6 +50,7 @@ import {
   validateEnqueuedNotesAndEvents,
 } from './common.js';
 import type { IMiscOracle, IUtilityExecutionOracle, NoteData } from './interfaces.js';
+import { MessageLoadOracleInputs } from './message_load_oracle_inputs.js';
 
 /**
  * The oracle for an execution of utility contract functions.
@@ -357,7 +359,23 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * @returns The l1 to l2 membership witness (index of message in the tree and sibling path).
    */
   public async utilityGetL1ToL2MembershipWitness(contractAddress: AztecAddress, messageHash: Fr, secret: Fr) {
-    return await getL1ToL2MembershipWitness(contractAddress, messageHash, secret, this.aztecNode);
+    return await this.getL1ToL2MembershipWitness(contractAddress, messageHash, secret);
+  }
+
+  protected async getL1ToL2MembershipWitness(
+    contractAddress: AztecAddress,
+    messageHash: Fr,
+    secret: Fr,
+  ): Promise<MessageLoadOracleInputs<typeof L1_TO_L2_MSG_TREE_HEIGHT>> {
+    const [messageIndex, siblingPath] = await getNonNullifiedL1ToL2MessageWitness(
+      this.aztecNode,
+      contractAddress,
+      messageHash,
+      secret,
+    );
+
+    // Assuming messageIndex is what you intended to use for the index in MessageLoadOracleInputs
+    return new MessageLoadOracleInputs(messageIndex, siblingPath);
   }
 
   /**
