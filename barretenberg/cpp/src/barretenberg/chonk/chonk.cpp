@@ -751,7 +751,8 @@ void Chonk::update_native_verifier_accumulator(const VerifierInputs& queue_entry
 {
     info("======= DEBUGGING INFO FOR NATIVE FOLDING STEP =======");
 
-    auto verifier_inst = std::make_shared<VerifierInstance>(queue_entry.honk_vk);
+    auto verifier_inst =
+        std::make_shared<VerifierInstance>(std::make_shared<MegaFlavor::VKAndHash>(queue_entry.honk_vk));
 
     FoldingVerifier native_verifier(verifier_transcript);
     if (queue_entry.type == QUEUE_TYPE::OINK) {
