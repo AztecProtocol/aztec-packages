@@ -609,9 +609,11 @@ case "$cmd" in
     export CI=1
     export NETWORK_ENV_FILE="${1:?scenario is required}"
     export NAMESPACE="${2:?namespace is required}"
-    export DESTROY_ETH_DEVNET=true CREATE_ETH_DEVNET=false
-    export DESTROY_ROLLUP_CONTRACTS=true CREATE_ROLLUP_CONTRACTS=false
-    export DESTROY_AZTEC_INFRA=true CREATE_AZTEC_INFRA=false
+    export DESTROY_ETH_DEVNET=true
+    export CREATE_ETH_DEVNET=false
+    export ROLLUP_CONTRACTS_MODE="delete"
+    export DESTROY_AZTEC_INFRA=true
+    export CREATE_AZTEC_INFRA=false
     spartan/bootstrap.sh network_deploy "$NETWORK_ENV_FILE"
     ;;
   ############

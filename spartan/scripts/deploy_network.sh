@@ -49,8 +49,10 @@ LABS_INFRA_INDICES=${LABS_INFRA_INDICES:-0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,1
 ########################
 # ROLLUP VARIABLES
 ########################
-REDEPLOY_ROLLUP_CONTRACTS=${REDEPLOY_ROLLUP_CONTRACTS:-false}
-CREATE_ROLLUP_CONTRACTS=${CREATE_ROLLUP_CONTRACTS:-true}
+ROLLUP_CONTRACTS_MODE=${ROLLUP_CONTRACTS_MODE:-standard}
+if [[ ! "${ROLLUP_CONTRACTS_MODE}" =~ ^(deploy|clear_state|redeploy|from_env)$ ]]; then
+  die "Invalid ROLLUP_CONTRACTS_MODE: ${ROLLUP_CONTRACTS_MODE}. Must be one of: deploy, clear_state, redeploy, from_env"
+fi
 SPONSORED_FPC=${SPONSORED_FPC:-true}
 TEST_ACCOUNTS=${TEST_ACCOUNTS:-false}
 REAL_VERIFIER=${REAL_VERIFIER:-true}
@@ -279,7 +281,7 @@ fi
 # Check for ETHERSCAN_API_KEY when VERIFY_CONTRACTS is enabled
 # Contract verification happens automatically in the yarn-project code when on mainnet/sepolia
 # and ETHERSCAN_API_KEY is set. This check ensures we fail early if verification is expected.
-if [[ "${VERIFY_CONTRACTS:-}" == "true" && "${CREATE_ROLLUP_CONTRACTS}" == "true" && -z "${ETHERSCAN_API_KEY:-}" ]]; then
+if [[ "${VERIFY_CONTRACTS:-}" == "true" && "${ROLLUP_CONTRACTS_MODE}" != "delete" && -z "${ETHERSCAN_API_KEY:-}" ]]; then
   die "Error: ETHERSCAN_API_KEY is not set but VERIFY_CONTRACTS=true. Contract verification requires an Etherscan API key. Set ETHERSCAN_API_KEY environment variable."
 fi
 
@@ -342,13 +344,15 @@ EOF
 terraform -chdir="${DEPLOY_ROLLUP_CONTRACTS_DIR}" init -reconfigure >/dev/null
 EXISTING_REGISTRY=$(terraform -chdir="${DEPLOY_ROLLUP_CONTRACTS_DIR}" output -raw registry_address 2>/dev/null | grep -E '^0x[a-fA-F0-9]{40}$' || true)
 
+# Handle l1-contract deploys.
 if [[ -n "${EXISTING_REGISTRY}" && "${REDEPLOY_ROLLUP_CONTRACTS}" != "true" ]]; then
   log "Contracts already deployed (registry=${EXISTING_REGISTRY}), skipping deployment"
+elif [[ "${ROLLUP_CONTRACTS_MODE}" == "delete" ]]; then
+    log "ROLLUP_CONTRACTS_MODE=delete, skipping creation of rollup contracts"
+    STAGE_TIMINGS[rollup_contracts]=$(($(date +%s) - ROLLUP_CONTRACTS_START))
+    log "Rollup contracts ready (deletion only)"
+    exit 0
 else
-  if [[ "${REDEPLOY_ROLLUP_CONTRACTS}" == "true" ]]; then
-    log "REDEPLOY_ROLLUP_CONTRACTS=true, destroying existing deployment"
-    terraform -chdir="${DEPLOY_ROLLUP_CONTRACTS_DIR}" destroy -auto-approve
-  fi
   terraform -chdir="${DEPLOY_ROLLUP_CONTRACTS_DIR}" plan -out=tfplan
   terraform -chdir="${DEPLOY_ROLLUP_CONTRACTS_DIR}" apply tfplan
 

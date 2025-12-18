@@ -5,11 +5,6 @@ name: Test Network Scenarios
 on:
   workflow_dispatch:
     inputs:
-      ref:
-        description: Branch, tag, or commit SHA to run from
-        required: true
-        type: string
-        default: next
       docker_image:
         description: Complete docker image to use (e.g., aztecprotocol/aztec:some-tag)
         required: true
@@ -34,9 +29,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-        with:
-          ref: ${{ inputs.ref }}
-          persist-credentials: false
 
       - name: Run
         env:
