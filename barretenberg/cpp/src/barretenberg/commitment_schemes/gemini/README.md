@@ -1,13 +1,15 @@
 # Gemini
 
 Gemini is a protocol for opening several multilinear polynomials at the same point, reducing the problem to univariate polynomial openings.
+This protocol is taken from the tensor product argument in section 5 of [BCHO22](https://eprint.iacr.org/2022/420.pdf).
+Our implementation is based on an optimized variant of the protocol described in this [paper](https://eprint.iacr.org/2025/1793).
 
 ## Overview
 
 Given:
-- $ m $ = number of variables
-- $ n = 2^m $
-- $ u = (u_0, \ldots, u_{m-1}) $ = evaluation point (often from sumcheck)
+- $ d $ = number of variables
+- $ n = 2^d $
+- $ u = (u_0, \ldots, u_{d-1}) $ = evaluation point (often from sumcheck)
 - $ f_0, \ldots, f_{k-1} $ = multilinear polynomials
 - $ g_0, \ldots, g_{h-1} $ = shifted multilinear polynomials
 
@@ -36,11 +38,11 @@ Which means:
 
 Replacing $\text{even},\text{odd}$ in the equation above we get:
 
-$$A_{i+1}(r^2) = (1 - u_i) \cdot \frac{A_i(r) + A_i(-r)}{2} + u_i \cdot \frac{A_i(r) - A_i(-r)}{2r}$$
+$$A_{i+1}(X^2) = (1 - u_i) \cdot \frac{A_i(X) + A_i(-X)}{2} + u_i \cdot \frac{A_i(X) - A_i(-X)}{2r}$$
 
 ### Implementation:
-- We assume that at each step, the verifier is given $A_{i+1}(r^2)$ and $A_{i}(-r)$, and computes the positive evaluation $A_i(r)$.
-- The correctness of this positive evaluation is deferred to Shplonk (as a part of `Shplemini`).
+- Instead of checking the identity given the evaluations $A_i(r), A_i(-r), A_{i+1}(r^2)$, we assume that the verifier is given $A_i(-r)$ and $A_{i+1}(r^2)$ and computes the positive evalution $A_i(r)$ from those values.
+- Later, the correctness of is this evluation is checked against the commitment $[A_i]$ in Shplonk.
 
 Hence, the verifier computes $A_{i}(r)$ using the following formula:
 
@@ -57,7 +59,7 @@ The verifier starts from $i=m-1$, iterating over $i$ in decreasing order, and co
 
 | File | Description |
 |------|-------------|
-| `gemini.hpp` | Main header with protocol documentation and verifier implementation |
+| `gemini.hpp` | Main header with protocol documentation and verification methods |
 | `gemini_impl.hpp` | Implementation details of the prover algorithm|
 | `gemini.cpp` | mostly empty |
 

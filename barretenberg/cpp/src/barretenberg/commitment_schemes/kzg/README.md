@@ -34,6 +34,8 @@ This reduces to checking two pairing points $ P_0, P_1 $ satisfy:
 
 $ e(P_0, [1]_2) = e(P_1, [\tau]_2) $
 
+Note that we never perform the pairing check in circuit as it is too expensive. Instead, the recursive verifier outputs the two pairing points $ P_0, P_1 $ which are **accumulated** across multiple recursive proofs.
+
 ## Files
 
 | File | Description |
@@ -46,7 +48,7 @@ $ e(P_0, [1]_2) = e(P_1, [\tau]_2) $
 - `KZG<Curve>` - Main KZG class with static methods for:
   - `compute_opening_proof()` - Generate KZG witness
   - `reduce_verify()` - Compute pairing check points
-  - `reduce_verify_batch_opening_claim()` - Batch verification
+  - `reduce_verify_batch_opening_claim()` - Batch verification that outputs the pairing points.
 
 ## Supported Curves
 
