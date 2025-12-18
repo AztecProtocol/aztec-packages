@@ -287,6 +287,7 @@ case "$cmd" in
     repo=$(gh repo view --json nameWithOwner -q .nameWithOwner)
     echo "https://github.com/$repo/actions/runs/$run_id"
     ;;
+
   ###################################
   # DOWNLOAD CI-UPLOADED BENCHMARKS #
   ###################################

@@ -564,7 +564,7 @@ case "$cmd" in
     build
     # If no docker image provided, build and push to aztecdev
     if [ -z "${3:-}" ]; then
-      release-image/bootstrap.sh push_dev
+      release-image/bootstrap.sh push_pr
       export AZTEC_DOCKER_IMAGE="aztecprotocol/aztecdev:$(git rev-parse HEAD)"
     else
       export AZTEC_DOCKER_IMAGE="$3"
@@ -592,7 +592,7 @@ case "$cmd" in
     build
     # If no docker image provided, build and push to aztecdev
     if [ -z "${3:-}" ]; then
-      release-image/bootstrap.sh push_dev
+      release-image/bootstrap.sh push_pr
       export AZTEC_DOCKER_IMAGE="aztecprotocol/aztecdev:$(git rev-parse HEAD)"
     else
       export AZTEC_DOCKER_IMAGE="$3"

@@ -87,8 +87,8 @@ function push {
   do_or_dryrun docker push aztecprotocol/aztec:$COMMIT_HASH
 }
 
-function push_dev {
-  echo_header "release-image push_dev"
+function push_pr {
+  echo_header "release-image push_pr"
 
   if [ -z "${DOCKERHUB_PASSWORD:-}" ]; then
     echo "Missing DOCKERHUB_PASSWORD."
