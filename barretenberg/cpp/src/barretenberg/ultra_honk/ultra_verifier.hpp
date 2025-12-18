@@ -78,15 +78,6 @@ template <typename Flavor> struct UltraVerifierOutput {
     }
 };
 
-// Instance type selection helper
-template <typename Flavor, bool = IsRecursiveFlavor<Flavor>> struct UltraVerifierInstanceType {
-    using type = VerifierInstance_<Flavor>;
-};
-
-template <typename Flavor> struct UltraVerifierInstanceType<Flavor, true> {
-    using type = bb::VerifierInstance_<Flavor>;
-};
-
 template <typename Flavor, class IO> class UltraVerifier_ {
   public:
     using FF = typename Flavor::FF;
@@ -99,7 +90,7 @@ template <typename Flavor, class IO> class UltraVerifier_ {
 
     // Conditional types based on recursion
     using Builder = std::conditional_t<IsRecursive, typename Flavor::CircuitBuilder, void>;
-    using Instance = typename UltraVerifierInstanceType<Flavor>::type;
+    using Instance = VerifierInstance_<Flavor>;
     using PairingPoints =
         std::conditional_t<IsRecursive, stdlib::recursion::PairingPoints<Curve>, bb::PairingPoints<Curve>>;
 
@@ -143,11 +134,9 @@ template <typename Flavor, class IO> class UltraVerifier_ {
     explicit UltraVerifier_(const std::shared_ptr<VKAndHash>& vk_and_hash,
                             const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>())
         : vk_and_hash(vk_and_hash)
+        , verifier_instance(std::make_shared(vk_and_hash))
         , transcript(transcript)
     {
-        // Create verifier_instance with VKAndHash (both native and recursive)
-        verifier_instance = std::make_shared<Instance>(vk_and_hash);
-
         if constexpr (!IsRecursive) {
             // Native only: create IPA transcript
             ipa_transcript = std::make_shared<Transcript>();

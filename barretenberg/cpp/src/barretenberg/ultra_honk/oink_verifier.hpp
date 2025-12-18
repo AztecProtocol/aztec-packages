@@ -10,15 +10,6 @@
 
 namespace bb {
 
-// Helper to select the correct instance type without violating template constraints
-template <typename Flavor, bool = IsRecursiveFlavor<Flavor>> struct OinkVerifierInstanceType {
-    using type = VerifierInstance_<Flavor>;
-};
-
-template <typename Flavor> struct OinkVerifierInstanceType<Flavor, true> {
-    using type = bb::VerifierInstance_<Flavor>;
-};
-
 /**
  * @brief Verifier class for all the presumcheck rounds, which are shared between the folding verifier and ultra
  * verifier.
@@ -39,7 +30,7 @@ template <typename Flavor> class OinkVerifier {
     using SubrelationSeparator = typename Flavor::SubrelationSeparator;
 
     // Use appropriate instance type based on whether flavor is recursive
-    using Instance = typename OinkVerifierInstanceType<Flavor>::type;
+    using Instance = bb::VerifierInstance_<Flavor>;
 
   public:
     std::shared_ptr<Transcript> transcript;
