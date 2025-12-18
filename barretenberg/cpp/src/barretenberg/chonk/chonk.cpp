@@ -542,9 +542,9 @@ HonkProof Chonk::construct_honk_proof_for_hiding_kernel(ClientCircuit& circuit,
 /**
  * @brief Construct a proof for the IVC, which, if verified, fully establishes its correctness
  *
- * @return Proof
+ * @return ChonkProof
  */
-Chonk::Proof Chonk::prove()
+ChonkProof Chonk::prove()
 {
     // deallocate the accumulator
     prover_accumulator = ProverAccumulator();
@@ -560,126 +560,6 @@ Chonk::Proof Chonk::prove()
     // evaluations of both the previous table and the incoming subtable.
     return { mega_proof, goblin.prove(MergeSettings::APPEND) };
 };
-
-// Proof methods
-size_t Chonk::Proof::size() const
-{
-    return mega_proof.size() + goblin_proof.size();
-}
-
-std::vector<Chonk::FF> Chonk::Proof::to_field_elements() const
-{
-    HonkProof proof;
-
-    proof.insert(proof.end(), mega_proof.begin(), mega_proof.end());
-    proof.insert(proof.end(), goblin_proof.merge_proof.begin(), goblin_proof.merge_proof.end());
-    proof.insert(proof.end(), goblin_proof.eccvm_proof.begin(), goblin_proof.eccvm_proof.end());
-    proof.insert(proof.end(), goblin_proof.ipa_proof.begin(), goblin_proof.ipa_proof.end());
-    proof.insert(proof.end(), goblin_proof.translator_proof.begin(), goblin_proof.translator_proof.end());
-    return proof;
-};
-
-Chonk::Proof Chonk::Proof::from_field_elements(const std::vector<Chonk::FF>& fields)
-{
-    HonkProof mega_proof;
-    GoblinProof goblin_proof;
-
-    size_t custom_public_inputs_size = fields.size() - Chonk::Proof::PROOF_LENGTH();
-
-    // Mega proof
-    auto start_idx = fields.begin();
-    auto end_idx = start_idx + static_cast<std::ptrdiff_t>(
-                                   MegaZKFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS(MegaZKFlavor::VIRTUAL_LOG_N) +
-                                   bb::HidingKernelIO::PUBLIC_INPUTS_SIZE + custom_public_inputs_size);
-    mega_proof.insert(mega_proof.end(), start_idx, end_idx);
-
-    // Merge proof
-    start_idx = end_idx;
-    end_idx += static_cast<std::ptrdiff_t>(MERGE_PROOF_SIZE);
-    goblin_proof.merge_proof.insert(goblin_proof.merge_proof.end(), start_idx, end_idx);
-
-    // ECCVM proof
-    start_idx = end_idx;
-    end_idx += static_cast<std::ptrdiff_t>(ECCVMFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS);
-    goblin_proof.eccvm_proof.insert(goblin_proof.eccvm_proof.end(), start_idx, end_idx);
-
-    // IPA proof
-    start_idx = end_idx;
-    end_idx += static_cast<std::ptrdiff_t>(IPA_PROOF_LENGTH);
-    goblin_proof.ipa_proof.insert(goblin_proof.ipa_proof.end(), start_idx, end_idx);
-
-    // Translator proof
-    start_idx = end_idx;
-    end_idx += static_cast<std::ptrdiff_t>(TranslatorFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS);
-    goblin_proof.translator_proof.insert(goblin_proof.translator_proof.end(), start_idx, end_idx);
-
-    return { mega_proof, goblin_proof };
-};
-
-msgpack::sbuffer Chonk::Proof::to_msgpack_buffer() const
-{
-    msgpack::sbuffer buffer;
-    msgpack::pack(buffer, *this);
-    return buffer;
-}
-
-uint8_t* Chonk::Proof::to_msgpack_heap_buffer() const
-{
-    msgpack::sbuffer buffer = to_msgpack_buffer();
-
-    std::vector<uint8_t> buf(buffer.data(), buffer.data() + buffer.size());
-    return to_heap_buffer(buf);
-}
-
-Chonk::Proof Chonk::Proof::from_msgpack_buffer(uint8_t const*& buffer)
-{
-    auto uint8_buffer = from_buffer<std::vector<uint8_t>>(buffer);
-
-    msgpack::sbuffer sbuf;
-    sbuf.write(reinterpret_cast<char*>(uint8_buffer.data()), uint8_buffer.size());
-
-    return from_msgpack_buffer(sbuf);
-}
-
-Chonk::Proof Chonk::Proof::from_msgpack_buffer(const msgpack::sbuffer& buffer)
-{
-    msgpack::object_handle oh = msgpack::unpack(buffer.data(), buffer.size());
-    msgpack::object obj = oh.get();
-    Proof proof;
-    obj.convert(proof);
-    return proof;
-}
-
-void Chonk::Proof::to_file_msgpack(const std::string& filename) const
-{
-    msgpack::sbuffer buffer = to_msgpack_buffer();
-    std::ofstream ofs(filename, std::ios::binary);
-    if (!ofs.is_open()) {
-        throw_or_abort("Failed to open file for writing.");
-    }
-    ofs.write(buffer.data(), static_cast<std::streamsize>(buffer.size()));
-    ofs.close();
-}
-
-Chonk::Proof Chonk::Proof::from_file_msgpack(const std::string& filename)
-{
-    std::ifstream ifs(filename, std::ios::binary);
-    if (!ifs.is_open()) {
-        throw_or_abort("Failed to open file for reading.");
-    }
-
-    ifs.seekg(0, std::ios::end);
-    size_t file_size = static_cast<size_t>(ifs.tellg());
-    ifs.seekg(0, std::ios::beg);
-
-    std::vector<char> buffer(file_size);
-    ifs.read(buffer.data(), static_cast<std::streamsize>(file_size));
-    ifs.close();
-    msgpack::sbuffer msgpack_buffer;
-    msgpack_buffer.write(buffer.data(), file_size);
-
-    return Proof::from_msgpack_buffer(msgpack_buffer);
-}
 
 // VerificationKey construction
 Chonk::VerificationKey Chonk::get_vk() const

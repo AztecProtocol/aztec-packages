@@ -88,7 +88,7 @@ WASM_EXPORT void acir_prove_aztec_client(uint8_t const* ivc_inputs_buf, uint8_t*
     vinfo("time to construct and accumulate all circuits: ", diff.count());
 
     vinfo("calling ivc.prove ...");
-    Chonk::Proof proof = ivc->prove();
+    ChonkProof proof = ivc->prove();
     end = std::chrono::steady_clock::now();
 
     diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
@@ -109,7 +109,7 @@ WASM_EXPORT void acir_prove_aztec_client(uint8_t const* ivc_inputs_buf, uint8_t*
 
 WASM_EXPORT void acir_verify_aztec_client(uint8_t const* proof_buf, uint8_t const* vk_buf, bool* result)
 {
-    const auto proof = Chonk::Proof::from_msgpack_buffer(proof_buf);
+    const auto proof = ChonkProof::from_msgpack_buffer(proof_buf);
     const auto vk = from_buffer<Chonk::VerificationKey>(from_buffer<std::vector<uint8_t>>(vk_buf));
 
     ChonkNativeVerifier verifier(vk.mega);
