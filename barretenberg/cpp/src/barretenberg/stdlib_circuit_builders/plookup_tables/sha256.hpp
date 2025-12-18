@@ -13,6 +13,41 @@
 #include "sparse.hpp"
 #include "types.hpp"
 
+/**
+ * @file sha256.hpp
+ * @brief Plookup tables for SHA-256 using sparse form representation.
+ *
+ * @details This file defines lookup tables that enable efficient SHA-256 computation in circuits by converting bitwise
+ * XOR operations into arithmetic additions via "sparse form" representation.
+ *
+ * In sparse form, each bit of a value is stored in its own base-B digit, where B is chosen large enough to prevent
+ * overflow when multiple values are added. This allows:
+ *   - XOR of N values becomes addition of N sparse values plus normalization (digit mod 2)
+ *   - Boolean functions (Ch, Maj) to be encoded alongside rotations in a single sparse digit
+ *
+ * Each SHA-256 operation proceeds in three stages:
+ *
+ *   1. **Input Table** (decomposition): Converts a 32-bit word into sparse limbs
+ *      - Splits the word into limbs at boundaries aligned with rotation parameters
+ *      - Produces sparse form (C2) and rotated sparse form (C3) for each limb
+ *
+ *   2. **Sparse Computation** (in sha256.cpp): Combines sparse limbs via arithmetic
+ *      - Multiplies limbs by rotation coefficients to position them correctly
+ *      - Adds multiple rotated/shifted copies together
+ *      - Result is a sparse value encoding the XOR (and optionally Ch/Maj) result
+ *
+ *   3. **Output Table** (normalization): Converts sparse form back to normal form
+ *
+ * ## Tables overview
+ *
+ * | Operation              | Input Table              | Output Table             | Base |
+ * |------------------------|--------------------------|--------------------------|------|
+ * | Message extension σ₀/σ₁| `SHA256_WITNESS_INPUT`   | `SHA256_WITNESS_OUTPUT`  | 16   |
+ * | Choose + Σ₁            | `SHA256_CH_INPUT`        | `SHA256_CH_OUTPUT`       | 28   |
+ * | Majority + Σ₀          | `SHA256_MAJ_INPUT`       | `SHA256_MAJ_OUTPUT`      | 16   |
+ *
+ * See corresponding table generation functions for details, including choice of base and limb structure.
+ */
 namespace bb::plookup::sha256_tables {
 
 /**
@@ -226,25 +261,51 @@ static constexpr std::array<bb::fr, 3> majority_rotation_coefficients{
     majority_rot2_coefficients[2] + majority_rot13_coefficients[2] + majority_rot22_coefficients[2],
 };
 
+/**
+ * @brief Generates a BasicTable for normalizing witness extension sparse digits.
+ *
+ * @details Template: <base=16, num_bits=3, witness_extension_normalization_table>.
+ * Processes num_bits=3 bits per lookup, giving 16³ = 4096 table entries.
+ * Normalizing 32 bits requires ceil(32/3) = 11 lookups (see get_witness_extension_output_table).
+ */
 inline BasicTable generate_witness_extension_normalization_table(BasicTableId id, const size_t table_index)
 {
     return sparse_tables::generate_sparse_normalization_table<16, 3, witness_extension_normalization_table>(
         id, table_index);
 }
 
+/**
+ * @brief Generates a BasicTable for normalizing choose sparse digits.
+ *
+ * @details Template: <base=28, num_bits=2, choose_normalization_table>.
+ * Processes num_bits=2 bits per lookup, giving 28² = 784 table entries.
+ * Normalizing 32 bits requires 32/2 = 16 lookups (see get_choose_output_table).
+ */
 inline BasicTable generate_choose_normalization_table(BasicTableId id, const size_t table_index)
 {
     return sparse_tables::generate_sparse_normalization_table<28, 2, choose_normalization_table>(id, table_index);
 }
 
+/**
+ * @brief Generates a BasicTable for normalizing majority sparse digits.
+ *
+ * @details Template: <base=16, num_bits=3, majority_normalization_table>.
+ * Processes num_bits=3 bits per lookup, giving 16³ = 4096 table entries.
+ * Normalizing 32 bits requires ceil(32/3) = 11 lookups (see get_majority_output_table).
+ */
 inline BasicTable generate_majority_normalization_table(BasicTableId id, const size_t table_index)
 {
     return sparse_tables::generate_sparse_normalization_table<16, 3, majority_normalization_table>(id, table_index);
 }
 
+/**
+ * @brief Constructs a MultiTable for normalizing witness extension sparse results back to normal form.
+ *
+ * @details Allows for normalizing 32 bits using 11 lookups of 3 bits each (ceil(32/3) = 11).
+ */
 inline MultiTable get_witness_extension_output_table(const MultiTableId id = SHA256_WITNESS_OUTPUT)
 {
-    const size_t num_entries = 11;
+    const size_t num_entries = 11; // ceil(32 bits / 3 bits per lookup)
 
     MultiTable table(numeric::pow64(16, 3), 1 << 3, 0, num_entries);
 
@@ -258,9 +319,14 @@ inline MultiTable get_witness_extension_output_table(const MultiTableId id = SHA
     return table;
 }
 
+/**
+ * @brief Constructs a MultiTable for normalizing choose sparse results back to normal form.
+ *
+ * @details Allows for normalizing 32 bits using 16 lookups of 2 bits each (32/2 = 16).
+ */
 inline MultiTable get_choose_output_table(const MultiTableId id = SHA256_CH_OUTPUT)
 {
-    const size_t num_entries = 16;
+    const size_t num_entries = 16; // 32 bits / 2 bits per lookup
 
     MultiTable table(numeric::pow64(28, 2), 1 << 2, 0, num_entries);
 
@@ -274,9 +340,14 @@ inline MultiTable get_choose_output_table(const MultiTableId id = SHA256_CH_OUTP
     return table;
 }
 
+/**
+ * @brief Constructs a MultiTable for normalizing majority sparse results back to normal form.
+ *
+ * @details Allows for normalizing 32 bits using 11 lookups of 3 bits each (ceil(32/3) = 11).
+ */
 inline MultiTable get_majority_output_table(const MultiTableId id = SHA256_MAJ_OUTPUT)
 {
-    const size_t num_entries = 11;
+    const size_t num_entries = 11; // ceil(32 bits / 3 bits per lookup)
 
     MultiTable table(numeric::pow64(16, 3), 1 << 3, 0, num_entries);
 
@@ -290,25 +361,37 @@ inline MultiTable get_majority_output_table(const MultiTableId id = SHA256_MAJ_O
     return table;
 }
 
+/**
+ * @brief Returns multipliers for computing Σ₀(a) rotations in majority_with_sigma0.
+ *
+ * @details When computing rotations, we multiply a_sparse by c0 (L0's coefficient).
+ * This gives L1 a coefficient of B¹¹·c0, but we need c1. The correction δ = c1 - B¹¹·c0
+ * is applied to L1's contribution. L2 correction is handled in the input table (see get_majority_input_table).
+ *
+ * @return {c0, L1_correction, 0} where L1_correction = c1 - 16¹¹·c0
+ */
 inline std::array<bb::fr, 3> get_majority_rotation_multipliers()
 {
-    // L1 correction: coefficients[1] - 16^11 * coefficients[0]
-    // Needed because multiplying a.sparse by coefficients[0] gives L1 the coefficient 16^11 * coefficients[0],
-    // but we need coefficients[1]
     bb::fr limb1_correction =
         majority_rotation_coefficients[1] - majority_base.pow(11) * majority_rotation_coefficients[0];
 
-    return { majority_rotation_coefficients[0], limb1_correction, bb::fr(0) /*unused*/ };
+    return { majority_rotation_coefficients[0], limb1_correction, bb::fr(0) };
 }
 
+/**
+ * @brief Returns multipliers for computing Σ₁(e) rotations in choose_with_sigma1.
+ *
+ * @details When computing rotations, we multiply e_sparse by c0 (L0's coefficient).
+ * This gives L2 a coefficient of B²²·c0, but we need c2. The correction δ = c2 - B²²·c0
+ * is applied to L2's contribution. L1 correction is handled in the input table (see get_choose_input_table).
+ *
+ * @return {c0, 0, L2_correction} where L2_correction = c2 - 28²²·c0
+ */
 inline std::array<bb::fr, 3> get_choose_rotation_multipliers()
 {
-    // L2 correction: coefficients[2] - 28^22 * coefficients[0]
-    // Needed because multiplying e.sparse by coefficients[0] gives L2 the coefficient 28^22 * coefficients[0],
-    // but we need coefficients[2]
     bb::fr limb2_correction = choose_rotation_coefficients[2] - choose_base.pow(22) * choose_rotation_coefficients[0];
 
-    return { choose_rotation_coefficients[0], bb::fr(0) /*unused*/, limb2_correction };
+    return { choose_rotation_coefficients[0], bb::fr(0), limb2_correction };
 }
 
 /**
