@@ -29,14 +29,14 @@ extern "C" {
 #endif
 
 /**
- * The Keccak-f[1600] function.
+ * The Keccak-f[1600] function (FIPS 202 Section 3: https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.202.pdf)).
  *
  * The implementation of the Keccak-f function with 1600-bit width of the permutation (b).
  * The size of the state is also 1600 bit what gives 25 64-bit words.
  *
  * @param state  The state of 25 64-bit words on which the permutation is to be performed.
  */
-void ethash_keccakf1600(uint64_t state[25]) NOEXCEPT;
+void ethash_keccakf1600(uint64_t state[KECCAKF1600_LANES]) NOEXCEPT;
 
 struct keccak256 ethash_keccak256(const uint8_t* data, size_t size) NOEXCEPT;
 
@@ -63,9 +63,9 @@ class Keccak {
                 word = __builtin_bswap64(word);
             }
         }
-        std::array<uint8_t, 32> result;
+        std::array<uint8_t, KECCAK256_OUTPUT_BYTES> result;
 
-        for (size_t i = 0; i < 4; ++i) {
+        for (size_t i = 0; i < KECCAK256_OUTPUT_WORDS; ++i) {
             for (size_t j = 0; j < 8; ++j) {
                 uint8_t byte = static_cast<uint8_t>(hash_result.word64s[i] >> (56 - (j * 8)));
                 result[i * 8 + j] = byte;

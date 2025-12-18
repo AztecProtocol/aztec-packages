@@ -30,8 +30,8 @@ class MultilinearBatchingFlavor {
     using Transcript = NativeTranscript;
 
     // An upper bound on the size of the MultilinearBatching-circuits. `CONST_FOLDING_LOG_N` bounds the log circuit
-    // sizes in the Chonk context. `MEGA_AVM_LOG_N` is determined by the size of the AVMRecursiveVerifier.
-    static constexpr size_t VIRTUAL_LOG_N = std::max(CONST_FOLDING_LOG_N, MEGA_AVM_LOG_N);
+    // sizes in the Chonk context.
+    static constexpr size_t VIRTUAL_LOG_N = CONST_FOLDING_LOG_N;
     static constexpr bool USE_SHORT_MONOMIALS = false;
     // Indicates that this flavor runs with non-ZK Sumcheck.
     static constexpr bool HasZK = false;
@@ -104,11 +104,6 @@ class MultilinearBatchingFlavor {
                               batched_unshifted_instance,    // column 1: batched unshifted poly for instance
                               eq_accumulator,                // column 2: eq(u, r_acc) - selects accumulator eval point
                               eq_instance);                  // column 3: eq(u, r_inst) - selects instance eval point
-
-        MSGPACK_FIELDS(this->batched_unshifted_accumulator,
-                       this->batched_unshifted_instance,
-                       this->eq_accumulator,
-                       this->eq_instance);
     };
 
     /**

@@ -230,5 +230,6 @@ class UltraZKFlavor : public UltraFlavor {
         }
     };
     using Transcript = Transcript_;
+    using VKAndHash = UltraFlavor::VKAndHash;
 };
 } // namespace bb

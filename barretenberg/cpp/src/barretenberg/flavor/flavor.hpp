@@ -422,23 +422,59 @@ class StdlibVerificationKey_ : public PrecomputedCommitments {
     }
 };
 
+/**
+ * @brief Wrapper holding a verification key and its precomputed hash.
+ * @details The hash is used to bind the verification key to the proof during verification, ensuring that the
+ * correct VK is used.
+ *
+ * This class provides three constructors for different use cases:
+ *
+ * 1. **VKAndHash_(vk)** - Auto-computes hash from VK
+ *    - Use case: Native verification entry points (e.g., `bb verify`, ACIR proof verification)
+ *
+ * 2. **VKAndHash_(builder, native_vk)** - Creates stdlib VK from native and computes hash (recursive only)
+ *    - Use case: Setting up recursive verifiers with a native VK reference
+ *
+ * 3. **VKAndHash_(vk, hash)** - Takes both VK and hash separately
+ *    - Use case: Constraint-based recursion (ACIR) where hash is provided as a separate circuit witness
+ *
+ * @tparam FF The field type (native fr or stdlib field_t)
+ * @tparam VerificationKey The verification key type (native or stdlib)
+ */
 template <typename FF, typename VerificationKey> class VKAndHash_ {
   public:
-    using Builder = VerificationKey::Builder;
-    using NativeVerificationKey = VerificationKey::NativeVerificationKey;
+    template <typename T = VerificationKey>
+    using Builder = typename std::enable_if_t<requires { typename T::Builder; }, T>::Builder;
+
+    template <typename T = VerificationKey>
+    using NativeVerificationKey =
+        typename std::enable_if_t<requires { typename T::NativeVerificationKey; }, T>::NativeVerificationKey;
 
     VKAndHash_() = default;
+
+    /**
+     * @brief Construct from VK, auto-computing the hash.
+     */
     VKAndHash_(const std::shared_ptr<VerificationKey>& vk)
         : vk(vk)
         , hash(vk->hash())
     {}
 
+    /**
+     * @brief Construct from VK and pre-provided hash.
+     */
     VKAndHash_(const std::shared_ptr<VerificationKey>& vk, const FF& hash)
         : vk(vk)
         , hash(hash)
     {}
 
-    VKAndHash_(Builder& builder, const std::shared_ptr<NativeVerificationKey>& native_vk)
+    /**
+     * @brief Construct stdlib VKAndHash from a native VK (recursive verification keys only).
+     */
+    template <typename VK = VerificationKey,
+              typename B = typename VK::Builder,
+              typename NVK = typename VK::NativeVerificationKey>
+    VKAndHash_(B& builder, const std::shared_ptr<NVK>& native_vk)
         : vk(std::make_shared<VerificationKey>(&builder, native_vk))
         , hash(FF::from_witness(&builder, native_vk->hash()))
     {}
@@ -530,6 +566,7 @@ class UltraStarknetZKFlavor;
 class UltraKeccakZKFlavor;
 class MegaFlavor;
 class MegaZKFlavor;
+class MegaAvmFlavor;
 class TranslatorFlavor;
 class ECCVMRecursiveFlavor;
 class TranslatorRecursiveFlavor;
@@ -541,6 +578,7 @@ template <typename BuilderType> class UltraZKRecursiveFlavor_;
 template <typename BuilderType> class UltraRollupRecursiveFlavor_;
 template <typename BuilderType> class MegaRecursiveFlavor_;
 template <typename BuilderType> class MegaZKRecursiveFlavor_;
+template <typename BuilderType> class MegaAvmRecursiveFlavor_;
 
 // Serialization methods for NativeVerificationKey_.
 // These should cover all base classes that do not need additional members, as long as the appropriate SerializeMetadata

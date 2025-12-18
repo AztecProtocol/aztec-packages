@@ -65,7 +65,7 @@ static inline void keccak(uint64_t* out, size_t bits, const uint8_t* data, size_
     uint64_t last_word = 0;
     uint8_t* last_word_iter = (uint8_t*)&last_word;
 
-    uint64_t state[25] = { 0 };
+    uint64_t state[KECCAKF1600_LANES] = { 0 };
 
     while (size >= block_size) {
         for (i = 0; i < (block_size / word_size); ++i) {
@@ -113,11 +113,11 @@ struct keccak256 ethash_keccak256(const uint8_t* data, size_t size) NOEXCEPT
 
 struct keccak256 hash_field_elements(const uint64_t* limbs, size_t num_elements)
 {
-    uint8_t input_buffer[num_elements * 32];
+    uint8_t input_buffer[num_elements * KECCAK256_OUTPUT_BYTES];
 
     for (size_t i = 0; i < num_elements; ++i) {
-        for (size_t j = 0; j < 4; ++j) {
-            uint64_t word = (limbs[i * 4 + j]);
+        for (size_t j = 0; j < KECCAK256_OUTPUT_WORDS; ++j) {
+            uint64_t word = (limbs[i * KECCAK256_OUTPUT_WORDS + j]);
             size_t idx = i * 32 + j * 8;
             input_buffer[idx] = (uint8_t)((word >> 56) & 0xff);
             input_buffer[idx + 1] = (uint8_t)((word >> 48) & 0xff);
@@ -130,7 +130,7 @@ struct keccak256 hash_field_elements(const uint64_t* limbs, size_t num_elements)
         }
     }
 
-    return ethash_keccak256(input_buffer, num_elements * 32);
+    return ethash_keccak256(input_buffer, num_elements * KECCAK256_OUTPUT_BYTES);
 }
 
 struct keccak256 hash_field_element(const uint64_t* limb)

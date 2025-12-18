@@ -8,6 +8,7 @@ function bootstrap_all {
   ./bbup/bootstrap.sh $@
   ./cpp/bootstrap.sh $@
   ./ts/bootstrap.sh $@
+  ./rust/bootstrap.sh $@
   ./acir_tests/bootstrap.sh $@
   ./docs/bootstrap.sh $@
   ./sol/bootstrap.sh $@

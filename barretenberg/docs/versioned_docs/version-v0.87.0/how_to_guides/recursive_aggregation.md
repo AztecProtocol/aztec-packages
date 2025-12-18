@@ -170,7 +170,7 @@ const mainVerificationKey = await mainBackend.getVerificationKey({ keccakZK: tru
 
 One common mistake is to forget *who* generates the verification key.
 
-In a situation where Alice and Bob are playing a battleships game and Alice is proving to Bob that he shot an aircraft carrier, **Bob** should generate the verification key himself. If Bob just accepts the proof and the VK from Alice, this means Alice could prove any circuit (i.e. 1 != 2) instead of the actual "proof that Bob sinked my ship"
+In a situation where Alice and Bob are playing a battleships game and Alice is proving to Bob that he shot an aircraft carrier, **Bob** should generate the verification key himself. If Bob just accepts the proof and the VK from Alice, this means Alice could prove any circuit (i.e. 1 != 2) instead of the actual "proof that Bob sank my ship"
 
 :::
 
@@ -211,7 +211,7 @@ You can obviously chain this proof into another proof. In fact, if you're using 
 
 ## Example
 
-You can find a non-exaustive example of recursive aggregation in the [noir-examples](https://github.com/noir-lang/noir-examples/tree/master/recursion) repository.
+You can find a non-exhaustive example of recursive aggregation in the [noir-examples](https://github.com/noir-lang/noir-examples/tree/master/recursion) repository.
 
 Keep in mind that recursive proof aggregation is very much an experimental way of using Barretenberg, and you may need to tweak or downgrade versions.
 

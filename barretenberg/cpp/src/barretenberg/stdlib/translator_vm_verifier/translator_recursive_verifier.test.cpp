@@ -32,7 +32,7 @@ class TranslatorRecursiveTests : public ::testing::Test {
     using OuterBuilder = RecursiveFlavor::CircuitBuilder;
     using OuterFlavor = std::conditional_t<IsMegaBuilder<OuterBuilder>, MegaFlavor, UltraFlavor>;
     using OuterProver = UltraProver_<OuterFlavor>;
-    using OuterVerifier = UltraVerifier_<OuterFlavor>;
+    using OuterVerifier = UltraVerifier_<OuterFlavor, bb::DefaultIO>;
     using OuterProverInstance = ProverInstance_<OuterFlavor>;
 
     using TranslatorBF = TranslatorRecursiveFlavor::BF;
@@ -232,10 +232,11 @@ class TranslatorRecursiveTests : public ::testing::Test {
 
         // Prove and verify the outer recursive circuit
         auto prover_instance = std::make_shared<OuterProverInstance>(outer_circuit);
+        auto vk_and_hash = std::make_shared<OuterFlavor::VKAndHash>(outer_verification_key);
         OuterProver prover(prover_instance, outer_verification_key);
-        OuterVerifier verifier(outer_verification_key);
+        OuterVerifier verifier(vk_and_hash);
         auto proof = prover.construct_proof();
-        bool verified = verifier.template verify_proof<DefaultIO>(proof).result;
+        bool verified = verifier.verify_proof(proof).result;
 
         ASSERT_TRUE(verified);
     }
