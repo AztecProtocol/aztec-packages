@@ -2,6 +2,7 @@
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
 #include "barretenberg/eccvm/eccvm_flavor.hpp"
 #include "barretenberg/eccvm/eccvm_prover.hpp"
+#include "barretenberg/eccvm/eccvm_test_utils.hpp"
 #include "barretenberg/eccvm/eccvm_verifier.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
@@ -11,17 +12,7 @@
 #include <gtest/gtest.h>
 
 using namespace bb;
-
-namespace {
-/**
- * @brief Add a hiding op with random Px, Py to the op_queue for testing.
- */
-void add_hiding_op_for_test(const std::shared_ptr<ECCOpQueue>& op_queue)
-{
-    using Fq = curve::BN254::BaseField;
-    op_queue->append_hiding_op(Fq::random_element(), Fq::random_element());
-}
-} // namespace
+using eccvm_test_utils::add_hiding_op_for_test;
 
 class ECCVMTranscriptTests : public ::testing::Test {
   public:

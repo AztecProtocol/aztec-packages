@@ -36,7 +36,7 @@ namespace bb {
  * round, slice) to the multiset when point_transition == 1.
  *
  * Furthermore, as the column `point_transition` is committed to by the Prover, we must constrain it is correctly
- * computed (see also `ecc_point_table_relation_impl.hpp` for a description of what the table looks like.)
+ * computed (see also `ECCVMPointTableRelationImpl` for a description of what the table looks like.)
  *
  * @tparam FF
  * @tparam AccumulatorTypes
@@ -58,9 +58,9 @@ void ECCVMWnafRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulato
     auto round_shift = View(in.precompute_round_shift);
     auto pc = View(in.precompute_pc); // note that this is a _point-counter_.
     auto pc_shift = View(in.precompute_pc_shift);
-    // precompute_select is a boolean column that is 0 at the first row and 1 at all subsequent active rows in the
+    // precompute_select is a boolean column that is 0 at the initial row and 1 at all subsequent active rows in the
     // precompute table. We only evaluate the ecc_wnaf_relation and the ecc_point_table_relation if
-    // `precompute_select=1`. As a reminder, this latter is 0 at the first row and then 1 at the rest of the (active)
+    // `precompute_select=1`. As a reminder, this latter is 0 at the initial row and then 1 at the rest of the (active)
     // rows of the Precomputed table. The fact that `precompute_select` is correctly computed is mediated by the set
     // relation.
     auto precompute_select = View(in.precompute_select);
@@ -121,7 +121,7 @@ void ECCVMWnafRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulato
     const auto s1_shift_msb_set = (s1_shift - 2) * (s1_shift - 3);
     const auto scaled_transition_plus_lagrange_first = scaled_transition + scaled_lagrange_first;
     // away from row zero, add `scaled_transition * precompute_select_shift * s1_shift_msb_set`. however,
-    // `point_transition[0] == 0`, so this constraint will not turn on at the 0th row unless we add
+    // `q_transition[0] == 0`, so this constraint will not turn on at the 0th row unless we add
     // `scaled_lagrange_first`.
     std::get<20>(accumulator) += scaled_transition_plus_lagrange_first * precompute_select_shift * s1_shift_msb_set;
     /**

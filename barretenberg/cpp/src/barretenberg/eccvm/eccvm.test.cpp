@@ -1,16 +1,13 @@
 #include <cstddef>
 #include <cstdint>
 #include <gtest/gtest.h>
-#include <iomanip>
-#include <iostream>
 #include <vector>
 
 #include "barretenberg/commitment_schemes/ipa/ipa.hpp"
 #include "barretenberg/commitment_schemes/verification_key.hpp"
-#include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/eccvm/eccvm_circuit_builder.hpp"
-#include "barretenberg/eccvm/eccvm_flavor.hpp"
 #include "barretenberg/eccvm/eccvm_prover.hpp"
+#include "barretenberg/eccvm/eccvm_test_utils.hpp"
 #include "barretenberg/eccvm/eccvm_verifier.hpp"
 #include "barretenberg/honk/library/grand_product_delta.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
@@ -26,25 +23,14 @@ using PK = ECCVMFlavor::ProvingKey;
 using Transcript = ECCVMFlavor::Transcript;
 using ECCVMVerifier = ECCVMVerifier_<ECCVMFlavor>;
 using PCS = IPA<ECCVMFlavor::Curve, CONST_ECCVM_LOG_N>;
+using eccvm_test_utils::add_hiding_op_for_test;
+
 class ECCVMTests : public ::testing::Test {
   protected:
     void SetUp() override { srs::init_file_crs_factory(bb::srs::bb_crs_path()); };
 };
 namespace {
 auto& engine = numeric::get_debug_randomness();
-
-/**
- * @brief Add a hiding op to the op_queue for testing.
- * @details The ECCVM relation constraints expect q_eq = 1 at row 1 (lagrange_second).
- * In production (Chonk flow), a hiding op with random Px, Py is prepended for statistical hiding.
- * For tests, we also use random values to match production behavior.
- */
-void add_hiding_op_for_test(const std::shared_ptr<ECCOpQueue>& op_queue)
-{
-    using Fq = curve::BN254::BaseField;
-    // Prepend a hiding op with random coordinates - provides statistical hiding
-    op_queue->append_hiding_op(Fq::random_element(), Fq::random_element());
-}
 } // namespace
 
 /**
@@ -413,120 +399,4 @@ TEST_F(ECCVMTests, FixedVK)
 
     // Check that the fixed VK is equal to the generated VK
     EXPECT_EQ(fixed_vk, vk_computed_by_prover);
-}
-
-// Debug test to print column values for inspection
-// Disabled by default - run with: ./eccvm_tests --gtest_also_run_disabled_tests --gtest_filter=*DebugPrintColumns
-// Designed to make it easy to change the function to see different columns/more rows.
-TEST_F(ECCVMTests, DISABLED_DebugPrintColumns)
-{
-    using Curve = curve::BN254;
-    using G1 = Curve::Element;
-    using Fr = Curve::ScalarField;
-    using ProvingKey = ECCVMFlavor::ProvingKey;
-
-    // Helper lambda to print specific columns for first N rows
-    auto print_columns =
-        [](const std::string& test_name, const ECCVMFlavor::ProverPolynomials& polys, size_t num_rows) {
-            auto to_uint = [](const FF& f) -> uint64_t { return static_cast<uint64_t>(f); };
-
-            std::cout << "\n========== " << test_name << " ==========\n";
-            std::cout << "First " << num_rows << " rows of selected columns:\n\n";
-
-            // Print header
-            std::cout << std::setw(4) << "row"
-                      << " | " << std::setw(7) << "pre_sel"
-                      << " | " << std::setw(7) << "pre_pc"
-                      << " | " << std::setw(7) << "pre_rnd"
-                      << " | " << std::setw(7) << "pt_tr"
-                      << " | " << std::setw(7) << "sc_sum"
-                      << " | " << std::setw(7) << "s1hi"
-                      << " | " << std::setw(7) << "s1lo"
-                      << " | " << std::setw(7) << "skew"
-                      << " | " << std::setw(7) << "tx_pc"
-                      << " | " << std::setw(7) << "msm_pc"
-                      << " | " << std::setw(7) << "L_first"
-                      << " | " << std::setw(7) << "L_second"
-                      << "\n";
-            std::cout << std::string(130, '-') << "\n";
-
-            for (size_t i = 0; i < num_rows; i++) {
-                std::cout << std::setw(4) << i << " | " << std::setw(7) << to_uint(polys.precompute_select[i]) << " | "
-                          << std::setw(7) << to_uint(polys.precompute_pc[i]) << " | " << std::setw(7)
-                          << to_uint(polys.precompute_round[i]) << " | " << std::setw(7)
-                          << to_uint(polys.precompute_point_transition[i]) << " | " << std::setw(7)
-                          << to_uint(polys.precompute_scalar_sum[i]) << " | " << std::setw(7)
-                          << to_uint(polys.precompute_s1hi[i]) << " | " << std::setw(7)
-                          << to_uint(polys.precompute_s1lo[i]) << " | " << std::setw(7)
-                          << to_uint(polys.precompute_skew[i]) << " | " << std::setw(7)
-                          << to_uint(polys.transcript_pc[i]) << " | " << std::setw(7) << to_uint(polys.msm_pc[i])
-                          << " | " << std::setw(7) << to_uint(polys.lagrange_first[i]) << " | " << std::setw(7)
-                          << to_uint(polys.lagrange_second[i]) << "\n";
-            }
-            std::cout << "\n";
-        };
-
-    constexpr size_t NUM_ROWS_TO_PRINT = 10;
-
-    // Test 1: Null op queue
-    {
-        std::cout << "\n\n########## TEST 1: NULL OP QUEUE ##########\n";
-        std::shared_ptr<ECCOpQueue> op_queue = std::make_shared<ECCOpQueue>();
-        add_hiding_op_for_test(op_queue);
-        ECCVMCircuitBuilder builder{ op_queue };
-        auto pk = std::make_shared<ProvingKey>(builder);
-        print_columns("Null Op Queue", pk->polynomials, NUM_ROWS_TO_PRINT);
-    }
-
-    // Test 2: Single add operation
-    {
-        std::cout << "\n\n########## TEST 2: SINGLE ADD ##########\n";
-        std::shared_ptr<ECCOpQueue> op_queue = std::make_shared<ECCOpQueue>();
-        G1 a = G1::one();
-        op_queue->add_accumulate(a);
-        op_queue->eq_and_reset();
-        op_queue->merge();
-        add_hiding_op_for_test(op_queue);
-        ECCVMCircuitBuilder builder{ op_queue };
-        auto pk = std::make_shared<ProvingKey>(builder);
-        print_columns("Single Add", pk->polynomials, NUM_ROWS_TO_PRINT);
-    }
-
-    // Test 3: Single mul operation
-    {
-        std::cout << "\n\n########## TEST 3: SINGLE MUL ##########\n";
-        std::shared_ptr<ECCOpQueue> op_queue = std::make_shared<ECCOpQueue>();
-        G1 a = G1::one();
-        Fr x = Fr(5);
-        op_queue->mul_accumulate(a, x);
-        op_queue->eq_and_reset();
-        op_queue->merge();
-        add_hiding_op_for_test(op_queue);
-        ECCVMCircuitBuilder builder{ op_queue };
-        auto pk = std::make_shared<ProvingKey>(builder);
-        print_columns("Single Mul", pk->polynomials, NUM_ROWS_TO_PRINT);
-    }
-
-    // Test 4: Multiple muls (small MSM)
-    {
-        std::cout << "\n\n########## TEST 4: SMALL MSM (3 muls) ##########\n";
-        std::shared_ptr<ECCOpQueue> op_queue = std::make_shared<ECCOpQueue>();
-        G1 a = G1::one();
-        G1 b = G1::random_element(&engine);
-        G1 c = G1::random_element(&engine);
-        Fr x = Fr(5);
-        Fr y = Fr(7);
-        Fr z = Fr(11);
-        op_queue->mul_accumulate(a, x);
-        op_queue->mul_accumulate(b, y);
-        op_queue->mul_accumulate(c, z);
-        op_queue->eq_and_reset();
-        op_queue->merge();
-        add_hiding_op_for_test(op_queue);
-        ECCVMCircuitBuilder builder{ op_queue };
-        auto pk = std::make_shared<ProvingKey>(builder);
-        print_columns("Small MSM (3 muls)", pk->polynomials, NUM_ROWS_TO_PRINT);
-    }
-
-    SUCCEED(); // This test is just for debugging output
 }

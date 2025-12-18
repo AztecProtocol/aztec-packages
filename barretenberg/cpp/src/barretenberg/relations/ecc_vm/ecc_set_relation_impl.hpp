@@ -151,8 +151,9 @@ Accumulator ECCVMSetRelationImpl<FF>::compute_grand_product_numerator(const AllE
         numerator *= skew_input; // degree-5
     }
     {
-        // in `eccvm_prover.cpp`, we see that `eccvm_set_permutation_delta` is initially computed as (γ)·(γ + β²)·(γ +
-        // 2β²)·(γ + 3β²) and _then_ inverted. Therefore, `eccvm_set_permutation_delta` == 1 / (γ)·(γ + β²)·(γ + 2β²)·(γ
+        // in `EccvmProver` and `ECCVMVerifier`, we see that `eccvm_set_permutation_delta` is initially computed as
+        // (γ)·(γ + β²)·(γ + 2β²)·(γ + 3β²) and _then_ inverted. Therefore, `eccvm_set_permutation_delta` == 1 / (γ)·(γ
+        // + β²)·(γ + 2β²)·(γ
         // + 3β²)
         const auto& eccvm_set_permutation_delta = params.eccvm_set_permutation_delta;
         // if `precompute_select == 1`, don't change the numerator. if it is 0, then to get the grand product argument
