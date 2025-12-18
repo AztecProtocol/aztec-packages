@@ -32,6 +32,7 @@ describe('Oracle Version Check test suite', () => {
   let anchorBlockDataProvider: ReturnType<typeof mock<AnchorBlockDataProvider>>;
   let acirSimulator: ContractFunctionSimulator;
   let contractAddress: AztecAddress;
+  let anchorBlockHeader: BlockHeader;
 
   beforeEach(async () => {
     executionDataProvider = mock<ExecutionDataProvider>();
@@ -44,6 +45,8 @@ describe('Oracle Version Check test suite', () => {
 
     // Mock basic oracle responses
     aztecNode.getPublicStorageAt.mockResolvedValue(Fr.ZERO);
+    anchorBlockHeader = BlockHeader.random();
+    anchorBlockDataProvider.getBlockHeader.mockResolvedValue(anchorBlockHeader);
     executionDataProvider.loadCapsule.mockImplementation((_, __) => Promise.resolve(null));
 
     contractAddress = await AztecAddress.random();
@@ -99,7 +102,7 @@ describe('Oracle Version Check test suite', () => {
       // Call the private function with arbitrary message sender and sender for tags
       const msgSender = await AztecAddress.random();
       const senderForTags = await AztecAddress.random();
-      await acirSimulator.run(txRequest, contractAddress, selector, msgSender, BlockHeader.random(), senderForTags);
+      await acirSimulator.run(txRequest, contractAddress, selector, msgSender, anchorBlockHeader, senderForTags);
 
       expect(executionDataProvider.assertCompatibleOracleVersion).toHaveBeenCalledTimes(1);
     }, 30_000);
@@ -128,7 +131,7 @@ describe('Oracle Version Check test suite', () => {
       };
 
       // Call the utility function
-      await acirSimulator.runUtility(execRequest, [], BlockHeader.random(), []);
+      await acirSimulator.runUtility(execRequest, [], anchorBlockHeader, []);
 
       expect(executionDataProvider.assertCompatibleOracleVersion).toHaveBeenCalledTimes(1);
     }, 30_000);

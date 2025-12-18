@@ -305,6 +305,8 @@ describe('Private Execution test suite', () => {
     keyStore = mock<KeyStore>();
     anchorBlockDataProvider = mock<AnchorBlockDataProvider>();
     contracts = {};
+    anchorBlockHeader = makeBlockHeader();
+    anchorBlockDataProvider.getBlockHeader.mockImplementation(() => Promise.resolve(anchorBlockHeader));
 
     // Mock the senderTaggingDataProvider getter
     Object.defineProperty(executionDataProvider, 'senderTaggingDataProvider', {

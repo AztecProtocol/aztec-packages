@@ -34,6 +34,7 @@ describe('Utility Execution test suite', () => {
   let anchorBlockDataProvider: ReturnType<typeof mock<AnchorBlockDataProvider>>;
   let acirSimulator: ContractFunctionSimulator;
   let owner: AztecAddress;
+  let anchorBlockHeader: BlockHeader;
   const ownerSecretKey = Fr.fromHexString('2dcc5485a58316776299be08c78fa3788a1a7961ae30dc747fb1be17692a8d32');
 
   const buildNote = (amount: bigint) => {
@@ -48,6 +49,8 @@ describe('Utility Execution test suite', () => {
     addressDataProvider = mock<AddressDataProvider>();
     aztecNode = mock<AztecNode>();
     anchorBlockDataProvider = mock<AnchorBlockDataProvider>();
+    anchorBlockHeader = BlockHeader.random();
+    anchorBlockDataProvider.getBlockHeader.mockImplementation(() => Promise.resolve(anchorBlockHeader));
     acirSimulator = new ContractFunctionSimulator(
       executionDataProvider,
       contractDataProvider,
@@ -119,7 +122,7 @@ describe('Utility Execution test suite', () => {
       returnTypes: artifact.returnTypes,
     };
 
-    const result = await acirSimulator.runUtility(execRequest, [], BlockHeader.random(), []);
+    const result = await acirSimulator.runUtility(execRequest, [], anchorBlockHeader, []);
 
     expect(result).toEqual([new Fr(9)]);
   }, 30_000);
