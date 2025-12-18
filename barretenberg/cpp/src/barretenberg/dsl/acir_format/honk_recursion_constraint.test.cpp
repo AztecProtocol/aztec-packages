@@ -26,16 +26,18 @@ template <typename RecursiveFlavor> class AcirHonkRecursionConstraint : public :
     using InnerProverInstance = ProverInstance_<InnerFlavor>;
     using InnerProver = bb::UltraProver_<InnerFlavor>;
     using InnerVerificationKey = typename InnerFlavor::VerificationKey;
-    using InnerVerifier = bb::UltraVerifier_<InnerFlavor>;
+    using InnerIO = std::conditional_t<bb::HasIPAAccumulator<InnerFlavor>, bb::RollupIO, bb::DefaultIO>;
+    using InnerVerifier = bb::UltraVerifier_<InnerFlavor, InnerIO>;
     using OuterBuilder = typename RecursiveFlavor::CircuitBuilder;
     using OuterFlavor =
         std::conditional_t<IsMegaBuilder<OuterBuilder>,
                            MegaFlavor,
                            std::conditional_t<HasIPAAccumulator<InnerFlavor>, UltraRollupFlavor, UltraFlavor>>;
+    using OuterIO = std::conditional_t<bb::HasIPAAccumulator<OuterFlavor>, bb::RollupIO, bb::DefaultIO>;
     using OuterProverInstance = ProverInstance_<OuterFlavor>;
     using OuterProver = bb::UltraProver_<OuterFlavor>;
     using OuterVerificationKey = typename OuterFlavor::VerificationKey;
-    using OuterVerifier = bb::UltraVerifier_<OuterFlavor>;
+    using OuterVerifier = bb::UltraVerifier_<OuterFlavor, OuterIO>;
 
     InnerBuilder create_inner_circuit()
     {
@@ -78,7 +80,8 @@ template <typename RecursiveFlavor> class AcirHonkRecursionConstraint : public :
             auto prover_instance = std::make_shared<InnerProverInstance>(inner_circuit);
             auto verification_key = std::make_shared<InnerVerificationKey>(prover_instance->get_precomputed());
             InnerProver prover(prover_instance, verification_key);
-            InnerVerifier verifier(verification_key);
+            auto vk_and_hash = std::make_shared<typename InnerFlavor::VKAndHash>(verification_key);
+            InnerVerifier verifier(vk_and_hash);
             auto inner_proof = prover.construct_proof();
 
             std::vector<bb::fr> key_witnesses = verification_key->to_field_elements();
@@ -135,24 +138,11 @@ template <typename RecursiveFlavor> class AcirHonkRecursionConstraint : public :
         return outer_circuit;
     }
 
-    bool verify_proof(const std::shared_ptr<OuterProverInstance>& prover_instance,
-                      const std::shared_ptr<OuterVerificationKey>& verification_key,
-                      const HonkProof& proof)
+    bool verify_proof(const std::shared_ptr<OuterVerificationKey>& verification_key, const HonkProof& proof)
     {
-        using IO = std::conditional_t<HasIPAAccumulator<RecursiveFlavor>, RollupIO, DefaultIO>;
-
-        bool result = false;
-
-        if constexpr (HasIPAAccumulator<RecursiveFlavor>) {
-            VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key(1 << CONST_ECCVM_LOG_N);
-            OuterVerifier verifier(verification_key, ipa_verification_key);
-            result = verifier.template verify_proof<IO>(proof, prover_instance->ipa_proof).result;
-        } else {
-            OuterVerifier verifier(verification_key);
-            result = verifier.template verify_proof<IO>(proof).result;
-        }
-
-        return result;
+        auto vk_and_hash = std::make_shared<typename OuterFlavor::VKAndHash>(verification_key);
+        OuterVerifier verifier(vk_and_hash);
+        return verifier.verify_proof(proof).result;
     }
 
   protected:
@@ -212,7 +202,7 @@ TYPED_TEST(AcirHonkRecursionConstraint, TestBasicSingleHonkRecursionConstraint)
     typename TestFixture::OuterProver prover(prover_instance, verification_key);
     auto proof = prover.construct_proof();
 
-    EXPECT_EQ(TestFixture::verify_proof(prover_instance, verification_key, proof), true);
+    EXPECT_EQ(TestFixture::verify_proof(verification_key, proof), true);
 }
 
 TYPED_TEST(AcirHonkRecursionConstraint, TestBasicDoubleHonkRecursionConstraints)
@@ -231,7 +221,7 @@ TYPED_TEST(AcirHonkRecursionConstraint, TestBasicDoubleHonkRecursionConstraints)
     typename TestFixture::OuterProver prover(prover_instance, verification_key);
     auto proof = prover.construct_proof();
 
-    EXPECT_EQ(TestFixture::verify_proof(prover_instance, verification_key, proof), true);
+    EXPECT_EQ(TestFixture::verify_proof(verification_key, proof), true);
 }
 
 TYPED_TEST(AcirHonkRecursionConstraint, TestOneOuterRecursiveCircuit)
@@ -295,7 +285,7 @@ TYPED_TEST(AcirHonkRecursionConstraint, TestOneOuterRecursiveCircuit)
     typename TestFixture::OuterProver prover(prover_instance, verification_key);
     auto proof = prover.construct_proof();
 
-    EXPECT_EQ(TestFixture::verify_proof(prover_instance, verification_key, proof), true);
+    EXPECT_EQ(TestFixture::verify_proof(verification_key, proof), true);
 }
 
 /**
@@ -350,7 +340,7 @@ TYPED_TEST(AcirHonkRecursionConstraint, TestFullRecursiveComposition)
     typename TestFixture::OuterProver prover(prover_instance, verification_key);
     auto proof = prover.construct_proof();
 
-    EXPECT_EQ(TestFixture::verify_proof(prover_instance, verification_key, proof), true);
+    EXPECT_EQ(TestFixture::verify_proof(verification_key, proof), true);
 }
 
 TYPED_TEST(AcirHonkRecursionConstraint, GateCountSingleHonkRecursion)

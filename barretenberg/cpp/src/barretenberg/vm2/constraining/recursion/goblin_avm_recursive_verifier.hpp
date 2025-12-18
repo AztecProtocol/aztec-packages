@@ -1,12 +1,13 @@
 #pragma once
 
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
+#include "barretenberg/flavor/mega_avm_flavor.hpp"
+#include "barretenberg/flavor/mega_avm_recursive_flavor.hpp"
 #include "barretenberg/flavor/mega_flavor.hpp"
 #include "barretenberg/flavor/mega_recursive_flavor.hpp"
 #include "barretenberg/goblin/goblin.hpp"
 #include "barretenberg/goblin/goblin_verifier.hpp"
 #include "barretenberg/stdlib/hash/poseidon2/poseidon2.hpp"
-#include "barretenberg/stdlib/honk_verifier/ultra_recursive_verifier.hpp"
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
@@ -57,10 +58,10 @@ class AvmGoblinRecursiveVerifier {
 
     // Output of prover for inner Mega-arithmetized AVM recursive verifier circuit; input to the outer verifier
     struct InnerProverOutput {
-        HonkProof mega_proof;                                 // \pi_M
-        GoblinProof goblin_proof;                             // \pi_G
-        std::shared_ptr<MegaFlavor::VerificationKey> mega_vk; // VK_M
-        Goblin::VerificationKey goblin_vk;                    // VK_G
+        HonkProof mega_proof;                                    // \pi_M
+        GoblinProof goblin_proof;                                // \pi_G
+        std::shared_ptr<MegaAvmFlavor::VerificationKey> mega_vk; // VK_M
+        Goblin::VerificationKey goblin_vk;                       // VK_G
     };
 
     UltraBuilder& ultra_builder;
@@ -108,13 +109,13 @@ class AvmGoblinRecursiveVerifier {
                                                    const InnerProverOutput& inner_output) const
     {
         // Types for MegaHonk and Goblin recursive verifiers arithmetized with Ultra
-        using MegaRecursiveFlavor = MegaRecursiveFlavor_<UltraBuilder>;
-        using MegaRecursiveVKAndHash = MegaRecursiveFlavor::VKAndHash;
-        using MegaRecursiveVerifier = stdlib::recursion::honk::UltraRecursiveVerifier_<MegaRecursiveFlavor>;
+        using MegaAvmRecursiveFlavor = MegaAvmRecursiveFlavor_<UltraBuilder>;
+        using MegaRecursiveVKAndHash = MegaAvmRecursiveFlavor::VKAndHash;
         using GoblinRecursiveVerifier = bb::GoblinRecursiveVerifier;
         using MergeCommitments = GoblinRecursiveVerifier::MergeCommitments;
-        using FF = MegaRecursiveFlavor::FF;
+        using FF = MegaAvmRecursiveFlavor::FF;
         using IO = stdlib::recursion::honk::GoblinAvmIO<UltraBuilder>;
+        using MegaRecursiveVerifier = UltraVerifier_<MegaAvmRecursiveFlavor, IO>;
 
         // Construct hash buffer containing the AVM proof and public inputs
         std::vector<FF> hash_buffer;
@@ -125,19 +126,19 @@ class AvmGoblinRecursiveVerifier {
 
         // Recursively verify the Mega proof \pi_M in the Ultra circuit
         // All verifier components share a single transcript
-        auto transcript = std::make_shared<MegaRecursiveFlavor::Transcript>();
+        auto transcript = std::make_shared<MegaAvmRecursiveFlavor::Transcript>();
         auto mega_vk_and_hash = std::make_shared<MegaRecursiveVKAndHash>(ultra_builder, inner_output.mega_vk);
         // Fix the inner mega vk and vk hash to be constants in the outer circuit.
         mega_vk_and_hash->vk->fix_witness();
         mega_vk_and_hash->hash.fix_witness();
 
-        MegaRecursiveVerifier mega_verifier(&ultra_builder, mega_vk_and_hash, transcript);
+        MegaRecursiveVerifier mega_verifier(mega_vk_and_hash, transcript);
         stdlib::Proof<UltraBuilder> mega_proof(ultra_builder, inner_output.mega_proof);
-        auto mega_verifier_output = mega_verifier.template verify_proof<IO>(mega_proof);
+        auto mega_verifier_output = mega_verifier.verify_proof(mega_proof);
 
         // Recursively verify the goblin proof\pi_G in the Ultra circuit
         MergeCommitments merge_commitments{
-            .t_commitments = mega_verifier.verifier_instance->witness_commitments.get_ecc_op_wires().get_copy(),
+            .t_commitments = mega_verifier.get_verifier_instance()->witness_commitments.get_ecc_op_wires().get_copy(),
             .T_prev_commitments = stdlib::recursion::honk::empty_ecc_op_tables(
                 ultra_builder) // Empty ecc op tables because there is only one layer of Goblin
         };
@@ -174,9 +175,11 @@ class AvmGoblinRecursiveVerifier {
     {
         using ECCVMVK = Goblin::ECCVMVerificationKey;
         using TranslatorVK = Goblin::TranslatorVerificationKey;
-        using MegaVerificationKey = MegaFlavor::VerificationKey;
         using FF = AvmRecursiveFlavor::FF;
         using IO = stdlib::recursion::honk::GoblinAvmIO<MegaBuilder>;
+        using MegaAvmProverInstance = ProverInstance_<MegaAvmFlavor>;
+        using MegaAvmVerificationKey = MegaAvmFlavor::VerificationKey;
+        using MegaAvmProver = UltraProver_<MegaAvmFlavor>;
 
         // Instantiate Mega builder for the inner circuit (AVM2 proof recursive verifier)
         Goblin goblin;
@@ -219,14 +222,14 @@ class AvmGoblinRecursiveVerifier {
         // All prover components share a single transcript
         std::shared_ptr<Goblin::Transcript> transcript = std::make_shared<Goblin::Transcript>();
         // Construct Mega proof \pi_M of the AVM recursive verifier circuit
-        auto mega_proving_key = std::make_shared<ProverInstance_<MegaFlavor>>(mega_builder);
+        auto mega_proving_key = std::make_shared<MegaAvmProverInstance>(mega_builder);
         // Detect when MEGA_AVM_LOG_N needs to be bumped.
         BB_ASSERT_LTE(
             mega_proving_key->log_dyadic_size(),
             MEGA_AVM_LOG_N,
             "AVMRecursiveVerifier: circuit size exceeded current upper bound. If expected, bump MEGA_AVM_LOG_N");
-        auto mega_vk = std::make_shared<MegaVerificationKey>(mega_proving_key->get_precomputed());
-        MegaProver mega_prover(mega_proving_key, mega_vk, transcript);
+        auto mega_vk = std::make_shared<MegaAvmVerificationKey>(mega_proving_key->get_precomputed());
+        MegaAvmProver mega_prover(mega_proving_key, mega_vk, transcript);
         HonkProof mega_proof = mega_prover.construct_proof();
         goblin.transcript = transcript;
         goblin.avm_mode = true;

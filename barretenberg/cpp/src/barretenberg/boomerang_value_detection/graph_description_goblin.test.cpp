@@ -19,7 +19,7 @@ class BoomerangGoblinRecursiveVerifierTests : public testing::Test {
 
     using OuterFlavor = UltraFlavor;
     using OuterProver = UltraProver_<OuterFlavor>;
-    using OuterVerifier = UltraVerifier_<OuterFlavor>;
+    using OuterVerifier = UltraVerifier_<OuterFlavor, bb::DefaultIO>;
     using OuterProverInstance = ProverInstance_<OuterFlavor>;
 
     using Commitment = MergeVerifier::Commitment;
@@ -97,10 +97,11 @@ TEST_F(BoomerangGoblinRecursiveVerifierTests, graph_description_basic)
         auto prover_instance = std::make_shared<OuterProverInstance>(builder);
         auto verification_key =
             std::make_shared<typename OuterFlavor::VerificationKey>(prover_instance->get_precomputed());
+        auto vk_and_hash = std::make_shared<typename OuterFlavor::VKAndHash>(verification_key);
         OuterProver prover(prover_instance, verification_key);
-        OuterVerifier verifier(verification_key);
+        OuterVerifier verifier(vk_and_hash);
         auto proof = prover.construct_proof();
-        bool verified = verifier.template verify_proof<bb::DefaultIO>(proof).result;
+        bool verified = verifier.verify_proof(proof).result;
 
         ASSERT_TRUE(verified);
     }
