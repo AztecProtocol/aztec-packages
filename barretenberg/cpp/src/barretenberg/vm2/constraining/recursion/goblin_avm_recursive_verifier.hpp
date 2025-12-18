@@ -177,6 +177,9 @@ class AvmGoblinRecursiveVerifier {
         using TranslatorVK = Goblin::TranslatorVerificationKey;
         using FF = AvmRecursiveFlavor::FF;
         using IO = stdlib::recursion::honk::GoblinAvmIO<MegaBuilder>;
+        using MegaAvmProverInstance = ProverInstance_<MegaAvmFlavor>;
+        using MegaAvmVerificationKey = MegaAvmFlavor::VerificationKey;
+        using MegaAvmProver = UltraProver_<MegaAvmFlavor>;
 
         // Instantiate Mega builder for the inner circuit (AVM2 proof recursive verifier)
         Goblin goblin;
@@ -219,10 +222,6 @@ class AvmGoblinRecursiveVerifier {
         // All prover components share a single transcript
         std::shared_ptr<Goblin::Transcript> transcript = std::make_shared<Goblin::Transcript>();
         // Construct Mega proof \pi_M of the AVM recursive verifier circuit
-        using MegaAvmProverInstance = ProverInstance_<MegaAvmFlavor>;
-        using MegaAvmVerificationKey = MegaAvmFlavor::VerificationKey;
-        using MegaAvmProver = UltraProver_<MegaAvmFlavor>;
-
         auto mega_proving_key = std::make_shared<MegaAvmProverInstance>(mega_builder);
         // Detect when MEGA_AVM_LOG_N needs to be bumped.
         BB_ASSERT_LTE(
