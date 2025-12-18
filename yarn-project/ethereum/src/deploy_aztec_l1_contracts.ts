@@ -278,7 +278,7 @@ export function writeForgePlan(plan: ForgePlan, filePath: string): void {
  * Runs a forge plan and returns the deployment result.
  * This executes the forge command with the arguments and environment from the plan.
  */
-export async function runForgePlan<T>(plan: ForgePlan): Promise<T | undefined> {
+export function runForgePlan<T>(plan: ForgePlan): Promise<T | undefined> {
   return runProcess<T>('forge', plan.args, plan.env, plan.cwd);
 }
 
