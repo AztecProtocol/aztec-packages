@@ -1,4 +1,4 @@
-#include "barretenberg/stdlib/chonk_verifier/chonk_recursive_verifier.hpp"
+#include "barretenberg/chonk/chonk_verifier.hpp"
 #include "barretenberg/chonk/mock_circuit_producer.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/test.hpp"
@@ -8,9 +8,9 @@ namespace bb::stdlib::recursion::honk {
 class ChonkRecursionTests : public testing::Test {
   public:
     using Builder = UltraCircuitBuilder;
-    using ChonkVerifier = ChonkRecursiveVerifier;
+    using ChonkVerifier = bb::ChonkRecursiveVerifier;
     using Proof = Chonk::Proof;
-    using StdlibProof = ChonkVerifier::StdlibProof;
+    using StdlibProof = bb::ChonkStdlibProof<Builder>;
     using RollupFlavor = UltraRollupRecursiveFlavor_<Builder>;
     using NativeFlavor = RollupFlavor::NativeFlavor;
     using UltraRecursiveVerifier = UltraVerifier_<RollupFlavor, RollupIO>;
@@ -63,14 +63,14 @@ TEST_F(ChonkRecursionTests, NativeVerification)
  */
 TEST_F(ChonkRecursionTests, Basic)
 {
-    using ChonkRecVerifierOutput = ChonkRecursiveVerifier::Output;
+    using ChonkRecVerifierOutput = ChonkVerifier::Output;
 
     // Generate a genuine Chonk prover output
     auto [proof, vk] = construct_chonk_prover_output();
 
     // Construct the Chonk recursive verifier
     Builder builder;
-    auto mega_vk_and_hash = std::make_shared<ChonkVerifier::RecursiveVKAndHash>(builder, vk.mega);
+    auto mega_vk_and_hash = std::make_shared<ChonkVerifier::VKAndHash>(builder, vk.mega);
     ChonkVerifier verifier{ mega_vk_and_hash };
 
     // Generate the recursive verification circuit

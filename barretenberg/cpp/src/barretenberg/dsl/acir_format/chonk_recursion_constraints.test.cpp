@@ -1,9 +1,9 @@
+#include "barretenberg/chonk/chonk_verifier.hpp"
 #include "barretenberg/chonk/mock_circuit_producer.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/dsl/acir_format/acir_format_mocks.hpp"
 #include "barretenberg/dsl/acir_format/gate_count_constants.hpp"
 #include "barretenberg/dsl/acir_format/proof_surgeon.hpp"
-#include "barretenberg/stdlib/chonk_verifier/chonk_recursive_verifier.hpp"
 
 #include <gtest/gtest.h>
 
@@ -19,7 +19,7 @@ class ChonkRecursionConstraintTest : public ::testing::Test {
     using Flavor = UltraRollupFlavor;
     using ProverInstance = ProverInstance_<Flavor>;
     using VerificationKey = Flavor::VerificationKey;
-    using ChonkRecursiveVerifier = stdlib::recursion::honk::ChonkRecursiveVerifier;
+    using ChonkRecursiveVerifier = bb::ChonkRecursiveVerifier;
 
     // Types for Chonk
     using DeciderZKProvingKey = ProverInstance_<MegaZKFlavor>;

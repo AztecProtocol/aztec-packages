@@ -3,9 +3,9 @@
 // external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // =====================
+#include "barretenberg/chonk/chonk_verifier.hpp"
 #include "barretenberg/dsl/acir_format/mock_verifier_inputs.hpp"
 #include "barretenberg/dsl/acir_format/recursion_constraint.hpp"
-#include "barretenberg/stdlib/chonk_verifier/chonk_recursive_verifier.hpp"
 #include "barretenberg/stdlib/primitives/bigfield/bigfield.hpp"
 #include "proof_surgeon.hpp"
 
@@ -32,10 +32,9 @@ void create_dummy_vkey_and_proof(UltraCircuitBuilder& builder,
                                  const std::vector<stdlib::field_t<UltraCircuitBuilder>>& proof_fields)
 {
     using Builder = UltraCircuitBuilder;
-    using ChonkRecursiveVerifier = stdlib::recursion::honk::ChonkRecursiveVerifier;
     using IO = stdlib::recursion::honk::HidingKernelIO<Builder>;
 
-    BB_ASSERT_EQ(proof_size, ChonkRecursiveVerifier::StdlibProof::PROOF_LENGTH_WITHOUT_PUB_INPUTS());
+    BB_ASSERT_EQ(proof_size, bb::ChonkStdlibProof<Builder>::PROOF_LENGTH_WITHOUT_PUB_INPUTS());
 
     size_t num_inner_public_inputs = public_inputs_size - IO::PUBLIC_INPUTS_SIZE;
     uint32_t pub_inputs_offset = MegaZKFlavor::has_zero_row ? 1 : 0;
@@ -80,9 +79,9 @@ create_chonk_recursion_constraints(bb::UltraCircuitBuilder& builder, const Recur
 {
     using Builder = bb::UltraCircuitBuilder;
     using field_ct = stdlib::field_t<Builder>;
-    using ChonkRecursiveVerifier = stdlib::recursion::honk::ChonkRecursiveVerifier;
-    using RecursiveVKAndHash = ChonkRecursiveVerifier::RecursiveVKAndHash;
-    using VerificationKey = ChonkRecursiveVerifier::RecursiveVK;
+    using ChonkRecursiveVerifier = bb::ChonkRecursiveVerifier;
+    using RecursiveVKAndHash = ChonkRecursiveVerifier::VKAndHash;
+    using VerificationKey = ChonkRecursiveVerifier::VK;
     using IO = stdlib::recursion::honk::HidingKernelIO<Builder>;
 
     BB_ASSERT_EQ(input.proof_type, PROOF_TYPE::CHONK);
@@ -113,7 +112,7 @@ create_chonk_recursion_constraints(bb::UltraCircuitBuilder& builder, const Recur
     // Recursively verify Chonk proof
     auto mega_vk = std::make_shared<VerificationKey>(key_fields);
     auto mega_vk_and_hash = std::make_shared<RecursiveVKAndHash>(mega_vk, vk_hash);
-    ChonkRecursiveVerifier::StdlibProof stdlib_proof(proof_fields, input.public_inputs.size());
+    bb::ChonkStdlibProof<Builder> stdlib_proof(proof_fields, input.public_inputs.size());
 
     ChonkRecursiveVerifier verifier(mega_vk_and_hash);
     ChonkRecursiveVerifier::Output verification_output = verifier.verify(stdlib_proof);
