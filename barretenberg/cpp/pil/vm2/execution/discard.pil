@@ -85,10 +85,10 @@ namespace execution; // virtual to execution.pil
     // be resolved in a later row by an error encountered in the dying context.
 
     // Discard propagation
-    #[DISCARD_PROPAGATION]
-    PROPAGATE_DISCARD * (discard' - discard) = 0;
     #[DYING_CONTEXT_PROPAGATION]
     PROPAGATE_DISCARD * (dying_context_id' - dying_context_id) = 0;
+    // As a consequence, `discard' = discard` when `PROPAGATE_DISCARD = 1` because `discard`
+    // is a "compressed" version of `dying_context_id`, namely `discard == 1 <=> dying_context_id != 0`.
 
     // 6. An instruction/row cannot exit the "dying context" without a failure.
     // If is_dying_context == 1 && exit == 1, then sel_failure == 1 must hold true.

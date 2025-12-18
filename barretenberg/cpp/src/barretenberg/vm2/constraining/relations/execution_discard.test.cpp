@@ -177,12 +177,22 @@ TEST(ExecutionDiscardConstrainingTest, DiscardPropagationOfZeroDiscard)
     });
 
     check_relation<execution_discard>(
-        trace, execution_discard::SR_DISCARD_PROPAGATION, execution_discard::SR_DYING_CONTEXT_PROPAGATION);
+        trace, execution_discard::SR_DISCARD_IFF_DYING_CONTEXT, execution_discard::SR_DYING_CONTEXT_PROPAGATION);
 
     // Negative test: doesn't propagate but it should.
     trace.set(C::execution_discard, 2, 42);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<execution_discard>(trace, execution_discard::SR_DISCARD_PROPAGATION),
-                              "DISCARD_PROPAGATION");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<execution_discard>(trace,
+                                                                execution_discard::SR_DISCARD_IFF_DYING_CONTEXT,
+                                                                execution_discard::SR_DYING_CONTEXT_PROPAGATION),
+                              "DISCARD_IFF_DYING_CONTEXT");
+
+    // Second try: adapt dying_context_id to make SR_DISCARD_IFF_DYING_CONTEXT valid.
+    trace.set(C::execution_dying_context_id, 2, 1);
+    trace.set(C::execution_dying_context_id_inv, 2, 1);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<execution_discard>(trace,
+                                                                execution_discard::SR_DISCARD_IFF_DYING_CONTEXT,
+                                                                execution_discard::SR_DYING_CONTEXT_PROPAGATION),
+                              "DYING_CONTEXT_PROPAGATION");
 }
 
 TEST(ExecutionDiscardConstrainingTest, DiscardPropagationOfNonzeroDiscard)
@@ -193,6 +203,7 @@ TEST(ExecutionDiscardConstrainingTest, DiscardPropagationOfNonzeroDiscard)
         { { C::execution_sel, 1 },
           { C::execution_discard, 1 },
           { C::execution_dying_context_id, 42 },
+          { C::execution_dying_context_id_inv, FF(42).invert() },
           { C::execution_sel_exit_call, 0 },
           { C::execution_has_parent_ctx, 1 },
           { C::execution_sel_failure, 0 },
@@ -205,21 +216,35 @@ TEST(ExecutionDiscardConstrainingTest, DiscardPropagationOfNonzeroDiscard)
         { { C::execution_sel, 1 },
           { C::execution_discard, 1 },
           { C::execution_dying_context_id, 42 },
+          { C::execution_dying_context_id_inv, FF(42).invert() },
           { C::execution_enqueued_call_end, 0 },
           { C::execution_resolves_dying_context, 0 },
           { C::execution_nested_call_from_undiscarded_context, 0 } },
         // Last row gets propagated discard values. Propagation doesn't apply to next row because last=1.
-        { { C::execution_sel, 1 }, { C::execution_discard, 1 }, { C::execution_dying_context_id, 42 } },
+        { { C::execution_sel, 1 },
+          { C::execution_discard, 1 },
+          { C::execution_dying_context_id, 42 },
+          { C::execution_dying_context_id_inv, FF(42).invert() } },
         { { C::execution_sel, 0 } },
     });
 
     check_relation<execution_discard>(
-        trace, execution_discard::SR_DISCARD_PROPAGATION, execution_discard::SR_DYING_CONTEXT_PROPAGATION);
+        trace, execution_discard::SR_DISCARD_IFF_DYING_CONTEXT, execution_discard::SR_DYING_CONTEXT_PROPAGATION);
 
     // Negative test: doesn't propagate but it should.
     trace.set(C::execution_discard, 2, 0);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<execution_discard>(trace, execution_discard::SR_DISCARD_PROPAGATION),
-                              "DISCARD_PROPAGATION");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<execution_discard>(trace,
+                                                                execution_discard::SR_DISCARD_IFF_DYING_CONTEXT,
+                                                                execution_discard::SR_DYING_CONTEXT_PROPAGATION),
+                              "DISCARD_IFF_DYING_CONTEXT");
+
+    // Second try: adapt dying_context_id to make SR_DISCARD_IFF_DYING_CONTEXT valid.
+    trace.set(C::execution_dying_context_id, 2, 0);
+    trace.set(C::execution_dying_context_id_inv, 2, 0);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<execution_discard>(trace,
+                                                                execution_discard::SR_DISCARD_IFF_DYING_CONTEXT,
+                                                                execution_discard::SR_DYING_CONTEXT_PROPAGATION),
+                              "DYING_CONTEXT_PROPAGATION");
 }
 
 TEST(ExecutionDiscardConstrainingTest, DiscardPropagationLiftedEndOfEnqueuedCall)
@@ -231,6 +256,7 @@ TEST(ExecutionDiscardConstrainingTest, DiscardPropagationLiftedEndOfEnqueuedCall
         { { C::execution_sel, 1 },
           { C::execution_discard, 1 },
           { C::execution_dying_context_id, 42 },
+          { C::execution_dying_context_id_inv, FF(42).invert() },
           { C::execution_sel_exit_call, 1 },
           { C::execution_has_parent_ctx, 0 },
           { C::execution_enqueued_call_end, 1 },
@@ -243,7 +269,7 @@ TEST(ExecutionDiscardConstrainingTest, DiscardPropagationLiftedEndOfEnqueuedCall
     });
 
     check_relation<execution_discard>(
-        trace, execution_discard::SR_DISCARD_PROPAGATION, execution_discard::SR_DYING_CONTEXT_PROPAGATION);
+        trace, execution_discard::SR_DISCARD_IFF_DYING_CONTEXT, execution_discard::SR_DYING_CONTEXT_PROPAGATION);
 }
 
 TEST(ExecutionDiscardConstrainingTest, DiscardPropagationLiftedResolvesDyingContext)
@@ -256,6 +282,7 @@ TEST(ExecutionDiscardConstrainingTest, DiscardPropagationLiftedResolvesDyingCont
           { C::execution_context_id, 42 },
           { C::execution_discard, 1 },
           { C::execution_dying_context_id, 42 },
+          { C::execution_dying_context_id_inv, FF(42).invert() },
           { C::execution_sel_failure, 1 },
           { C::execution_is_dying_context, 1 },
           { C::execution_dying_context_diff_inv, 0 },
@@ -274,7 +301,7 @@ TEST(ExecutionDiscardConstrainingTest, DiscardPropagationLiftedResolvesDyingCont
     });
 
     check_relation<execution_discard>(
-        trace, execution_discard::SR_DISCARD_PROPAGATION, execution_discard::SR_DYING_CONTEXT_PROPAGATION);
+        trace, execution_discard::SR_DISCARD_IFF_DYING_CONTEXT, execution_discard::SR_DYING_CONTEXT_PROPAGATION);
 }
 
 TEST(ExecutionDiscardConstrainingTest, DiscardPropagationLiftedNestedCallFromUndiscarded)
@@ -291,15 +318,21 @@ TEST(ExecutionDiscardConstrainingTest, DiscardPropagationLiftedNestedCallFromUnd
           { C::execution_resolves_dying_context, 0 },
           { C::execution_nested_call_from_undiscarded_context, 1 } },
         // Next row can raise discard (nested context will error)
-        { { C::execution_sel, 1 }, { C::execution_discard, 1 }, { C::execution_dying_context_id, 99 } },
+        { { C::execution_sel, 1 },
+          { C::execution_discard, 1 },
+          { C::execution_dying_context_id, 99 },
+          { C::execution_dying_context_id_inv, FF(99).invert() } },
         // Last row keeps the values (propagation doesn't apply because last=1)
-        { { C::execution_sel, 1 }, { C::execution_discard, 1 }, { C::execution_dying_context_id, 99 } },
+        { { C::execution_sel, 1 },
+          { C::execution_discard, 1 },
+          { C::execution_dying_context_id, 99 },
+          { C::execution_dying_context_id_inv, FF(99).invert() } },
         { { C::execution_sel, 0 } },
     });
 
     // This should pass because sel_enter_call=1 lifts the propagation constraint
     check_relation<execution_discard>(
-        trace, execution_discard::SR_DISCARD_PROPAGATION, execution_discard::SR_DYING_CONTEXT_PROPAGATION);
+        trace, execution_discard::SR_DISCARD_IFF_DYING_CONTEXT, execution_discard::SR_DYING_CONTEXT_PROPAGATION);
 }
 
 TEST(ExecutionDiscardConstrainingTest, DiscardDyingContextMustError)
@@ -368,6 +401,7 @@ TEST(ExecutionDiscardConstrainingTest, DiscardComplexScenario)
           { C::execution_context_id, 2 },
           { C::execution_discard, 1 },
           { C::execution_dying_context_id, 2 },
+          { C::execution_dying_context_id_inv, FF(2).invert() },
           { C::execution_is_dying_context, 1 },
           { C::execution_dying_context_diff_inv, 0 },
           { C::execution_enqueued_call_end, 0 },
@@ -378,6 +412,7 @@ TEST(ExecutionDiscardConstrainingTest, DiscardComplexScenario)
           { C::execution_context_id, 2 },
           { C::execution_discard, 1 },
           { C::execution_dying_context_id, 2 },
+          { C::execution_dying_context_id_inv, FF(2).invert() },
           { C::execution_is_dying_context, 1 },
           { C::execution_sel_exit_call, 1 },
           { C::execution_sel_error, 1 },
@@ -404,7 +439,7 @@ TEST(ExecutionDiscardConstrainingTest, DiscardComplexScenario)
     // Only check the most important relations for this scenario
     check_relation<execution_discard>(trace,
                                       execution_discard::SR_IS_DYING_CONTEXT_CHECK,
-                                      execution_discard::SR_DISCARD_PROPAGATION,
+                                      execution_discard::SR_DISCARD_IFF_DYING_CONTEXT,
                                       execution_discard::SR_DYING_CONTEXT_PROPAGATION,
                                       execution_discard::SR_DYING_CONTEXT_MUST_FAIL);
 }
@@ -412,20 +447,23 @@ TEST(ExecutionDiscardConstrainingTest, DiscardComplexScenario)
 TEST(ExecutionDiscardConstrainingTest, DiscardWithLastRow)
 {
     // Test discard behavior with last row
-    TestTraceContainer trace(
-        { { { C::precomputed_first_row, 1 } },
-          { { C::execution_sel, 1 },
-            { C::execution_discard, 1 },
-            { C::execution_dying_context_id, 42 },
-            { C::execution_enqueued_call_end, 0 },
-            { C::execution_resolves_dying_context, 0 },
-            { C::execution_nested_call_from_undiscarded_context, 0 } },
-          // Last row also has discard values (propagation doesn't apply because last=1)
-          { { C::execution_sel, 1 }, { C::execution_discard, 1 }, { C::execution_dying_context_id, 42 } },
-          { { C::execution_sel, 0 } } });
+    TestTraceContainer trace({ { { C::precomputed_first_row, 1 } },
+                               { { C::execution_sel, 1 },
+                                 { C::execution_discard, 1 },
+                                 { C::execution_dying_context_id, 42 },
+                                 { C::execution_dying_context_id_inv, FF(42).invert() },
+                                 { C::execution_enqueued_call_end, 0 },
+                                 { C::execution_resolves_dying_context, 0 },
+                                 { C::execution_nested_call_from_undiscarded_context, 0 } },
+                               // Last row also has discard values (propagation doesn't apply because last=1)
+                               { { C::execution_sel, 1 },
+                                 { C::execution_discard, 1 },
+                                 { C::execution_dying_context_id, 42 },
+                                 { C::execution_dying_context_id_inv, FF(42).invert() } },
+                               { { C::execution_sel, 0 } } });
 
     check_relation<execution_discard>(
-        trace, execution_discard::SR_DISCARD_PROPAGATION, execution_discard::SR_DYING_CONTEXT_PROPAGATION);
+        trace, execution_discard::SR_DISCARD_IFF_DYING_CONTEXT, execution_discard::SR_DYING_CONTEXT_PROPAGATION);
 }
 
 // ====== EXPLOIT TESTS - These test vulnerabilities found in early versions ======
