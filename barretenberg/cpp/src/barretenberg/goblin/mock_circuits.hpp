@@ -70,8 +70,8 @@ class GoblinMockCircuits {
     using Flavor = bb::MegaFlavor;
     using RecursiveFlavor = bb::MegaRecursiveFlavor_<MegaBuilder>;
     using RecursiveVerifier = bb::UltraVerifier_<RecursiveFlavor, bb::stdlib::recursion::honk::DefaultIO<MegaBuilder>>;
-    using VerifierInstance = bb::VerifierInstance_<Flavor>;
-    using RecursiveVerifierInstance = ::bb::stdlib::recursion::honk::RecursiveVerifierInstance_<RecursiveFlavor>;
+    using VerifierInstance = VerifierInstance_<Flavor>;
+    using RecursiveVerifierInstance = VerifierInstance_<RecursiveFlavor>;
     using RecursiveVKAndHash = RecursiveVerifierInstance::VKAndHash;
     using RecursiveVerifierAccumulator = std::shared_ptr<RecursiveVerifierInstance>;
     using VerificationKey = Flavor::VerificationKey;
