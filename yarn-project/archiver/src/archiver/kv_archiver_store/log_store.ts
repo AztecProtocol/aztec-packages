@@ -4,7 +4,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import { BufferReader, numToUInt32BE } from '@aztec/foundation/serialize';
 import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
-import { type L2Block, L2BlockHash } from '@aztec/stdlib/block';
+import { L2BlockHash, L2BlockNew } from '@aztec/stdlib/block';
 import type { GetContractClassLogsResponse, GetPublicLogsResponse } from '@aztec/stdlib/interfaces/client';
 import {
   ContractClassLog,
@@ -42,7 +42,7 @@ export class LogStore {
     this.#logsMaxPageSize = logsMaxPageSize;
   }
 
-  async #extractTaggedLogs(block: L2Block) {
+  async #extractTaggedLogs(block: L2BlockNew) {
     const blockHash = L2BlockHash.fromField(await block.hash());
     const taggedLogs = new Map<string, Buffer[]>();
     const dataStartIndexForBlock =
@@ -82,7 +82,7 @@ export class LogStore {
    * @param blocks - The blocks for which to add the logs.
    * @returns True if the operation is successful.
    */
-  async addLogs(blocks: L2Block[]): Promise<boolean> {
+  async addLogs(blocks: L2BlockNew[]): Promise<boolean> {
     const taggedLogsInBlocks = await Promise.all(blocks.map(block => this.#extractTaggedLogs(block)));
     const taggedLogsToAdd = taggedLogsInBlocks.reduce((acc, taggedLogs) => {
       for (const [tag, logs] of taggedLogs.entries()) {
@@ -160,7 +160,7 @@ export class LogStore {
     return L2BlockHash.fromField(blockHash);
   }
 
-  deleteLogs(blocks: L2Block[]): Promise<boolean> {
+  deleteLogs(blocks: L2BlockNew[]): Promise<boolean> {
     return this.db.transactionAsync(async () => {
       const tagsToDelete = (
         await Promise.all(

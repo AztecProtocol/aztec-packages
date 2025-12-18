@@ -13,7 +13,7 @@ import { spawn } from 'child_process';
 import { dirname, resolve } from 'path';
 import readline from 'readline';
 import type { Hex } from 'viem';
-import { foundry, mainnet } from 'viem/chains';
+import { foundry, mainnet, sepolia } from 'viem/chains';
 
 import { createEthereumChain, isAnvilTestChain } from './chain.js';
 import { createExtendedL1Client } from './client.js';
@@ -246,10 +246,20 @@ export async function deployAztecL1Contracts(
   const FORGE_SCRIPT = 'script/deploy/DeployAztecL1Contracts.s.sol';
   await maybeForgeForceProductionBuild(l1ContractsPath, FORGE_SCRIPT, chainId);
 
+  // Verify contracts on Etherscan when on mainnet/sepolia and ETHERSCAN_API_KEY is available.
+  const isVerifiableChain = chainId === mainnet.id || chainId === sepolia.id;
+  const shouldVerify = isVerifiableChain && !!process.env.ETHERSCAN_API_KEY;
+
+  if (isVerifiableChain && !process.env.ETHERSCAN_API_KEY) {
+    logger.warn(
+      `Deploying to chain ${chainId} (${chainId === mainnet.id ? 'mainnet' : 'sepolia'}) without ETHERSCAN_API_KEY. ` +
+        `Contracts will NOT be verified on Etherscan. Set ETHERSCAN_API_KEY environment variable to enable verification.`,
+    );
+  }
+
   // From heuristic testing. More caused issues with anvil.
   const MAGIC_ANVIL_BATCH_SIZE = 12;
   // Anvil seems to stall with unbounded batch size. Otherwise no max batch size is desirable.
-  // On sepolia and mainnet, we verify on etherscan (if etherscan API key is in env)
   const forgeArgs = [
     'script',
     FORGE_SCRIPT,
@@ -260,11 +270,10 @@ export async function deployAztecL1Contracts(
     '--rpc-url',
     rpcUrl,
     '--broadcast',
-    ...(chainId === foundry.id ? ['--batch-size', MAGIC_ANVIL_BATCH_SIZE.toString()] : ['--verify']),
+    ...(chainId === foundry.id ? ['--batch-size', MAGIC_ANVIL_BATCH_SIZE.toString()] : []),
+    ...(shouldVerify ? ['--verify'] : []),
   ];
   const forgeEnv = {
-    // Protect against root leaving deployment files in docker that cannot be used later.
-    FOUNDRY_BROADCAST: process.getuid?.() === 0 ? 'broadcast-root' : undefined,
     // Env vars required by l1-contracts/script/deploy/DeploymentConfiguration.sol.
     NETWORK: getActiveNetworkName(),
     FOUNDRY_PROFILE: chainId === mainnet.id ? 'production' : undefined,
@@ -523,8 +532,6 @@ export const deployRollupForUpgrade = async (
     '--broadcast',
   ];
   const forgeEnv = {
-    // Protect against root leaving deployment files in docker that cannot be used later.
-    FOUNDRY_BROADCAST: process.getuid?.() === 0 ? 'broadcast-root' : undefined,
     FOUNDRY_PROFILE: chainId === mainnet.id ? 'production' : undefined,
     // Env vars required by l1-contracts/script/deploy/RollupConfiguration.sol.
     REGISTRY_ADDRESS: registryAddress.toString(),

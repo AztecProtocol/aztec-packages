@@ -55,6 +55,7 @@ import {
   PublishedL2Block,
   Signature,
 } from '@aztec/stdlib/block';
+import { L1PublishedData } from '@aztec/stdlib/checkpoint';
 import { type L1RollupConstants, getSlotStartBuildTimestamp } from '@aztec/stdlib/epoch-helpers';
 import { GasFees, GasSettings } from '@aztec/stdlib/gas';
 import { SlashFactoryContract } from '@aztec/stdlib/l1-contracts';
@@ -210,11 +211,7 @@ describe('L1Publisher integration', () => {
               attestations: [],
               block,
               // Use L2 block number and hash for faking the L1 info
-              l1: {
-                blockNumber: BigInt(block.number),
-                blockHash: block.hash.toString(),
-                timestamp: BigInt(block.number),
-              },
+              l1: new L1PublishedData(BigInt(block.number), BigInt(block.number), block.hash.toString()),
             }),
           ),
         );

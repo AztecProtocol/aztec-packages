@@ -14,7 +14,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractsHash } from '@aztec/protocol-contracts';
-import { type ZodFor, schemas } from '@aztec/stdlib/schemas';
+import { schemas, zodFor } from '@aztec/stdlib/schemas';
 import type { ComponentsVersions } from '@aztec/stdlib/versioning';
 
 import { z } from 'zod';
@@ -80,50 +80,52 @@ export type BotConfig = {
   ammTxs: boolean;
 } & Pick<DataStoreConfig, 'dataDirectory' | 'dataStoreMapSizeKb'>;
 
-export const BotConfigSchema = z
-  .object({
-    nodeUrl: z.string().optional(),
-    nodeAdminUrl: z.string().optional(),
-    l1RpcUrls: z.array(z.string()).optional(),
-    l1Mnemonic: schemas.SecretValue(z.string()).optional(),
-    l1PrivateKey: schemas.SecretValue(z.string()).optional(),
-    l1ToL2MessageTimeoutSeconds: z.number(),
-    senderPrivateKey: schemas.SecretValue(schemas.Fr).optional(),
-    senderSalt: schemas.Fr.optional(),
-    tokenSalt: schemas.Fr,
-    txIntervalSeconds: z.number(),
-    privateTransfersPerTx: z.number().int().nonnegative(),
-    publicTransfersPerTx: z.number().int().nonnegative(),
-    feePaymentMethod: z.literal('fee_juice'),
-    baseFeePadding: z.number().int().nonnegative(),
-    noStart: z.boolean(),
-    txMinedWaitSeconds: z.number(),
-    followChain: z.enum(BotFollowChain),
-    maxPendingTxs: z.number().int().nonnegative(),
-    flushSetupTransactions: z.boolean(),
-    l2GasLimit: z.number().int().nonnegative().optional(),
-    daGasLimit: z.number().int().nonnegative().optional(),
-    contract: z.nativeEnum(SupportedTokenContracts),
-    maxConsecutiveErrors: z.number().int().nonnegative(),
-    stopWhenUnhealthy: z.boolean(),
-    ammTxs: z.boolean().default(false),
-    dataDirectory: z.string().optional(),
-    dataStoreMapSizeKb: z.number().optional(),
-  })
-  .transform(config => ({
-    nodeUrl: undefined,
-    nodeAdminUrl: undefined,
-    l1RpcUrls: undefined,
-    senderSalt: undefined,
-    l2GasLimit: undefined,
-    daGasLimit: undefined,
-    l1Mnemonic: undefined,
-    l1PrivateKey: undefined,
-    senderPrivateKey: undefined,
-    dataDirectory: undefined,
-    dataStoreMapSizeKb: 1_024 * 1_024,
-    ...config,
-  })) satisfies ZodFor<BotConfig>;
+export const BotConfigSchema = zodFor<BotConfig>()(
+  z
+    .object({
+      nodeUrl: z.string().optional(),
+      nodeAdminUrl: z.string().optional(),
+      l1RpcUrls: z.array(z.string()).optional(),
+      l1Mnemonic: schemas.SecretValue(z.string()).optional(),
+      l1PrivateKey: schemas.SecretValue(z.string()).optional(),
+      l1ToL2MessageTimeoutSeconds: z.number(),
+      senderPrivateKey: schemas.SecretValue(schemas.Fr).optional(),
+      senderSalt: schemas.Fr.optional(),
+      tokenSalt: schemas.Fr,
+      txIntervalSeconds: z.number(),
+      privateTransfersPerTx: z.number().int().nonnegative(),
+      publicTransfersPerTx: z.number().int().nonnegative(),
+      feePaymentMethod: z.literal('fee_juice'),
+      baseFeePadding: z.number().int().nonnegative(),
+      noStart: z.boolean(),
+      txMinedWaitSeconds: z.number(),
+      followChain: z.enum(BotFollowChain),
+      maxPendingTxs: z.number().int().nonnegative(),
+      flushSetupTransactions: z.boolean(),
+      l2GasLimit: z.number().int().nonnegative().optional(),
+      daGasLimit: z.number().int().nonnegative().optional(),
+      contract: z.nativeEnum(SupportedTokenContracts),
+      maxConsecutiveErrors: z.number().int().nonnegative(),
+      stopWhenUnhealthy: z.boolean(),
+      ammTxs: z.boolean().default(false),
+      dataDirectory: z.string().optional(),
+      dataStoreMapSizeKb: z.number().optional(),
+    })
+    .transform(config => ({
+      nodeUrl: undefined,
+      nodeAdminUrl: undefined,
+      l1RpcUrls: undefined,
+      senderSalt: undefined,
+      l2GasLimit: undefined,
+      daGasLimit: undefined,
+      l1Mnemonic: undefined,
+      l1PrivateKey: undefined,
+      senderPrivateKey: undefined,
+      dataDirectory: undefined,
+      dataStoreMapSizeKb: 1_024 * 1_024,
+      ...config,
+    })),
+);
 
 export const botConfigMappings: ConfigMappingsType<BotConfig> = {
   nodeUrl: {

@@ -39,6 +39,14 @@ std::string serialize_simulation_request(const Tx& tx,
     std::vector<ContractClass> classes_vec = contract_db.get_contract_classes();
     std::vector<std::pair<AztecAddress, ContractInstance>> instances_vec = contract_db.get_contract_instances();
 
+    // Sort by address for consistency in insertion order with TypeScript simulator
+    std::ranges::sort(
+        instances_vec.begin(),
+        instances_vec.end(),
+        [](const std::pair<AztecAddress, ContractInstance>& a, const std::pair<AztecAddress, ContractInstance>& b) {
+            return uint256_t(a.first) < uint256_t(b.first);
+        });
+
     FuzzerSimulationRequest request{
         .ws_data_dir = FuzzerWorldStateManager::get_data_dir(),
         .ws_map_size_kb = FuzzerWorldStateManager::get_map_size_kb(),
@@ -73,7 +81,12 @@ SimulatorResult CppSimulator::simulate(fuzzer::FuzzerWorldStateManager& ws_mgr,
                                        fuzzer::FuzzerContractDB& contract_db,
                                        const Tx& tx)
 {
-    const PublicSimulatorConfig config{ .collect_call_metadata = true, .collect_public_inputs = true };
+
+    const PublicSimulatorConfig config{
+        .skip_fee_enforcement = true, // This is disabled once we need a prover fuzzer
+        .collect_call_metadata = true,
+        .collect_public_inputs = true,
+    };
 
     ProtocolContracts protocol_contracts{};
 
@@ -91,8 +104,13 @@ SimulatorResult CppSimulator::simulate(fuzzer::FuzzerWorldStateManager& ws_mgr,
         "C++ Simulator result - reverted: ", reverted, ", output size: ", result.call_stack_metadata[0].output.size());
     std::vector<FF> values = {};
     if (result.call_stack_metadata.size() != 0) {
-        for (const auto& output : result.call_stack_metadata.at(0).output) {
-            values.push_back(output);
+        for (const auto& metadata : result.call_stack_metadata) {
+            // Only collect outputs from APP_LOGIC phase (matches TypeScript getAppLogicReturnValues())
+            if (metadata.phase == CoarseTransactionPhase::APP_LOGIC) {
+                for (const auto& output : metadata.output) {
+                    values.push_back(output);
+                }
+            }
         }
     }
     if (result.public_inputs.has_value()) {
@@ -134,7 +152,6 @@ SimulatorResult JsSimulator::simulate([[maybe_unused]] fuzzer::FuzzerWorldStateM
     auto globals = create_default_globals();
 
     std::string serialized = serialize_simulation_request(tx, globals, contract_db);
-    fuzz_info("Sending request to simulator: ", serialized);
 
     // Send the request
     process.write_line(serialized);
@@ -147,7 +164,6 @@ SimulatorResult JsSimulator::simulate([[maybe_unused]] fuzzer::FuzzerWorldStateM
     // Remove the newline character
     response.erase(response.find_last_not_of('\n') + 1);
 
-    fuzz_info("Received response from simulator: ", response);
     // Parse with msg_pack
     auto res_buffer = base64_decode(response);
     SimulatorResult result;

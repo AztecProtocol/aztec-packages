@@ -27,12 +27,13 @@ import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { AddressDataProvider } from '../storage/address_data_provider/address_data_provider.js';
+import { AnchorBlockDataProvider } from '../storage/anchor_block_data_provider/anchor_block_data_provider.js';
 import { CapsuleDataProvider } from '../storage/capsule_data_provider/capsule_data_provider.js';
 import { ContractDataProvider } from '../storage/contract_data_provider/contract_data_provider.js';
 import { NoteDataProvider } from '../storage/note_data_provider/note_data_provider.js';
 import { PrivateEventDataProvider } from '../storage/private_event_data_provider/private_event_data_provider.js';
-import { SyncDataProvider } from '../storage/sync_data_provider/sync_data_provider.js';
-import { TaggingDataProvider } from '../storage/tagging_data_provider/tagging_data_provider.js';
+import { RecipientTaggingDataProvider } from '../storage/tagging_data_provider/recipient_tagging_data_provider.js';
+import { SenderTaggingDataProvider } from '../storage/tagging_data_provider/sender_tagging_data_provider.js';
 import { WINDOW_HALF_SIZE } from '../tagging/constants.js';
 import { SiloedTag } from '../tagging/siloed_tag.js';
 import { Tag } from '../tagging/tag.js';
@@ -65,8 +66,9 @@ describe('PXEOracleInterface', () => {
   let privateEventDataProvider: PrivateEventDataProvider;
   let contractDataProvider: ContractDataProvider;
   let noteDataProvider: NoteDataProvider;
-  let syncDataProvider: SyncDataProvider;
-  let taggingDataProvider: TaggingDataProvider;
+  let senderTaggingDataProvider: SenderTaggingDataProvider;
+  let recipientTaggingDataProvider: RecipientTaggingDataProvider;
+  let anchorBlockDataProvider: AnchorBlockDataProvider;
   let capsuleDataProvider: CapsuleDataProvider;
   let keyStore: KeyStore;
 
@@ -89,8 +91,9 @@ describe('PXEOracleInterface', () => {
     addressDataProvider = new AddressDataProvider(store);
     privateEventDataProvider = new PrivateEventDataProvider(store);
     noteDataProvider = await NoteDataProvider.create(store);
-    syncDataProvider = new SyncDataProvider(store);
-    taggingDataProvider = new TaggingDataProvider(store);
+    anchorBlockDataProvider = new AnchorBlockDataProvider(store);
+    senderTaggingDataProvider = new SenderTaggingDataProvider(store);
+    recipientTaggingDataProvider = new RecipientTaggingDataProvider(store);
     capsuleDataProvider = new CapsuleDataProvider(store);
     keyStore = new KeyStore(store);
     pxeOracleInterface = new PXEOracleInterface(
@@ -99,8 +102,9 @@ describe('PXEOracleInterface', () => {
       contractDataProvider,
       noteDataProvider,
       capsuleDataProvider,
-      syncDataProvider,
-      taggingDataProvider,
+      anchorBlockDataProvider,
+      senderTaggingDataProvider,
+      recipientTaggingDataProvider,
       addressDataProvider,
       privateEventDataProvider,
     ); // Set up contract address
@@ -209,7 +213,7 @@ describe('PXEOracleInterface', () => {
         return { completeAddress, ivsk: keys.masterIncomingViewingSecretKey, secretKey: new Fr(index) };
       });
       for (const sender of senders) {
-        await taggingDataProvider.addSenderAddress(sender.completeAddress.address);
+        await recipientTaggingDataProvider.addSenderAddress(sender.completeAddress.address);
       }
       aztecNode.getLogsByTags.mockReset();
       aztecNode.getTxEffect.mockResolvedValue({
@@ -245,7 +249,7 @@ describe('PXEOracleInterface', () => {
       // First sender should have 2 logs, but keep index 0 since they were built using the same tag
       // Next 4 senders should also have index 0 = offset + 0
       // Last 5 senders should have index 1 = offset + 1
-      const indexes = await taggingDataProvider.getLastUsedIndexesAsRecipient(secrets);
+      const indexes = await recipientTaggingDataProvider.getLastUsedIndexes(secrets);
 
       expect(indexes).toHaveLength(NUM_SENDERS);
       expect(indexes).toEqual([0, 0, 0, 0, 0, 1, 1, 1, 1, 1]);
@@ -253,88 +257,6 @@ describe('PXEOracleInterface', () => {
       // We should have called the node 2 times:
       // 2 times: first time during initial request, second time after pushing the edge of the window once
       expect(aztecNode.getLogsByTags.mock.calls.length).toBe(2);
-    });
-
-    it('should sync tagged logs as senders', async () => {
-      for (const sender of senders) {
-        await addressDataProvider.addCompleteAddress(sender.completeAddress);
-        await keyStore.addAccount(sender.secretKey, sender.completeAddress.partialAddress);
-      }
-
-      let tagIndex = 0;
-      await generateMockLogs(tagIndex);
-
-      // Recompute the secrets (as recipient) to ensure indexes are updated
-      const ivsk = await keyStore.getMasterIncomingViewingSecretKey(recipient.address);
-      // An array of directional secrets for each sender-recipient pair
-      const secrets = await Promise.all(
-        senders.map(sender =>
-          DirectionalAppTaggingSecret.compute(
-            recipient,
-            ivsk,
-            sender.completeAddress.address,
-            contractAddress,
-            recipient.address,
-          ),
-        ),
-      );
-
-      const getTaggingSecretsIndexesAsSenderForSenders = () =>
-        Promise.all(secrets.map(secret => taggingDataProvider.getLastUsedIndexesAsSender(secret)));
-
-      const indexesAsSender = await getTaggingSecretsIndexesAsSenderForSenders();
-      expect(indexesAsSender).toStrictEqual([
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-      ]);
-
-      expect(aztecNode.getLogsByTags.mock.calls.length).toBe(0);
-
-      for (let i = 0; i < senders.length; i++) {
-        const directionalAppTaggingSecret = await DirectionalAppTaggingSecret.compute(
-          senders[i].completeAddress,
-          senders[i].ivsk,
-          recipient.address,
-          contractAddress,
-          recipient.address,
-        );
-        await pxeOracleInterface.syncTaggedLogsAsSender(directionalAppTaggingSecret, contractAddress);
-      }
-
-      let indexesAsSenderAfterSync = await getTaggingSecretsIndexesAsSenderForSenders();
-      expect(indexesAsSenderAfterSync).toStrictEqual([0, 0, 0, 0, 0, 1, 1, 1, 1, 1]);
-
-      // Only 1 window is obtained for each sender
-      expect(aztecNode.getLogsByTags.mock.calls.length).toBe(NUM_SENDERS);
-      aztecNode.getLogsByTags.mockReset();
-
-      // We add more logs to the second half of the window to test that a second iteration in `syncTaggedLogsAsSender`
-      // is handled correctly.
-      tagIndex = 11;
-      await generateMockLogs(tagIndex);
-      for (let i = 0; i < senders.length; i++) {
-        const directionalAppTaggingSecret = await DirectionalAppTaggingSecret.compute(
-          senders[i].completeAddress,
-          senders[i].ivsk,
-          recipient.address,
-          contractAddress,
-          recipient.address,
-        );
-        await pxeOracleInterface.syncTaggedLogsAsSender(directionalAppTaggingSecret, contractAddress);
-      }
-
-      indexesAsSenderAfterSync = await getTaggingSecretsIndexesAsSenderForSenders();
-      expect(indexesAsSenderAfterSync).toStrictEqual([10, 10, 10, 10, 10, 11, 11, 11, 11, 11]);
-
-      expect(aztecNode.getLogsByTags.mock.calls.length).toBe(NUM_SENDERS * 2);
     });
 
     it('should sync tagged logs with a sender index offset', async () => {
@@ -363,7 +285,7 @@ describe('PXEOracleInterface', () => {
       // First sender should have 2 logs, but keep index 5 since they were built using the same tag
       // Next 4 senders should also have index 5 = offset
       // Last 5 senders should have index 6 = offset + 1
-      const indexes = await taggingDataProvider.getLastUsedIndexesAsRecipient(secrets);
+      const indexes = await recipientTaggingDataProvider.getLastUsedIndexes(secrets);
 
       expect(indexes).toHaveLength(NUM_SENDERS);
       expect(indexes).toEqual([5, 5, 5, 5, 5, 6, 6, 6, 6, 6]);
@@ -392,7 +314,7 @@ describe('PXEOracleInterface', () => {
       );
 
       // Set last used indexes to 1 (so next scan starts at 2)
-      await taggingDataProvider.setLastUsedIndexesAsRecipient(secrets.map(secret => ({ secret, index: 1 })));
+      await recipientTaggingDataProvider.setLastUsedIndexes(secrets.map(secret => ({ secret, index: 1 })));
 
       await pxeOracleInterface.syncTaggedLogs(contractAddress, PENDING_TAGGED_LOG_ARRAY_BASE_SLOT);
 
@@ -403,7 +325,7 @@ describe('PXEOracleInterface', () => {
       // First sender should have 2 logs, but keep index 1 since they were built using the same tag
       // Next 4 senders should also have index 1 = tagIndex
       // Last 5 senders should have index 2 = tagIndex + 1
-      const indexes = await taggingDataProvider.getLastUsedIndexesAsRecipient(secrets);
+      const indexes = await recipientTaggingDataProvider.getLastUsedIndexes(secrets);
 
       expect(indexes).toHaveLength(NUM_SENDERS);
       expect(indexes).toEqual([1, 1, 1, 1, 1, 2, 2, 2, 2, 2]);
@@ -434,7 +356,7 @@ describe('PXEOracleInterface', () => {
       // We set the last used indexes to WINDOW_HALF_SIZE so that next scan starts at WINDOW_HALF_SIZE + 1,
       // which is outside the window, and for this reason no updates should be triggered.
       const index = WINDOW_HALF_SIZE + 1;
-      await taggingDataProvider.setLastUsedIndexesAsRecipient(secrets.map(secret => ({ secret, index })));
+      await recipientTaggingDataProvider.setLastUsedIndexes(secrets.map(secret => ({ secret, index })));
 
       await pxeOracleInterface.syncTaggedLogs(contractAddress, PENDING_TAGGED_LOG_ARRAY_BASE_SLOT);
 
@@ -443,7 +365,7 @@ describe('PXEOracleInterface', () => {
       await expectPendingTaggedLogArrayLengthToBe(contractAddress, NUM_SENDERS / 2);
 
       // Indexes should remain where we set them (window_size)
-      const indexes = await taggingDataProvider.getLastUsedIndexesAsRecipient(secrets);
+      const indexes = await recipientTaggingDataProvider.getLastUsedIndexes(secrets);
 
       expect(indexes).toHaveLength(NUM_SENDERS);
       expect(indexes).toEqual([index, index, index, index, index, index, index, index, index, index]);
@@ -470,7 +392,7 @@ describe('PXEOracleInterface', () => {
         ),
       );
 
-      await taggingDataProvider.setLastUsedIndexesAsRecipient(
+      await recipientTaggingDataProvider.setLastUsedIndexes(
         secrets.map(secret => ({ secret, index: WINDOW_HALF_SIZE + 2 })),
       );
 
@@ -486,14 +408,14 @@ describe('PXEOracleInterface', () => {
       aztecNode.getLogsByTags.mockClear();
 
       // Wipe the database
-      await taggingDataProvider.resetNoteSyncData();
+      await recipientTaggingDataProvider.resetNoteSyncData();
 
       await pxeOracleInterface.syncTaggedLogs(contractAddress, PENDING_TAGGED_LOG_ARRAY_BASE_SLOT);
 
       // First sender should have 2 logs, but keep index 0 since they were built using the same tag
       // Next 4 senders should also have index 0 = offset
       // Last 5 senders should have index 1 = offset + 1
-      const indexes = await taggingDataProvider.getLastUsedIndexesAsRecipient(secrets);
+      const indexes = await recipientTaggingDataProvider.getLastUsedIndexes(secrets);
 
       expect(indexes).toHaveLength(NUM_SENDERS);
       expect(indexes).toEqual([0, 0, 0, 0, 0, 1, 1, 1, 1, 1]);
@@ -1193,21 +1115,8 @@ describe('PXEOracleInterface', () => {
     });
   });
 
-  describe('getAnchorBlockHeader', () => {
-    it('returns the anchor block header and not a header from aztec node', async () => {
-      const blockNumber = BlockNumber(42);
-      const header = BlockHeader.empty({
-        globalVariables: GlobalVariables.empty({ blockNumber }),
-      });
-      await syncDataProvider.setHeader(header);
-
-      const result = await pxeOracleInterface.getAnchorBlockHeader();
-      expect(result).toEqual(header);
-    });
-  });
-
   const setSyncedBlockNumber = (blockNumber: BlockNumber) => {
-    return syncDataProvider.setHeader(
+    return anchorBlockDataProvider.setHeader(
       BlockHeader.empty({
         globalVariables: GlobalVariables.empty({ blockNumber }),
       }),

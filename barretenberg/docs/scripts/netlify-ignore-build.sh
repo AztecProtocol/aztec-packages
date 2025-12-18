@@ -23,6 +23,14 @@ if [ "${BRANCH:-}" = "$BASE_BRANCH" ]; then
     echo "Production deploy without cached commit reference - proceeding with build"
     exit 1
   fi
+
+  # Handle edge case where CACHED_COMMIT_REF equals COMMIT_REF
+  # This happens on first deploys or when Netlify's cache is in an unexpected state
+  if [ "$CACHED_COMMIT_REF" = "$COMMIT_REF" ]; then
+    echo "CACHED_COMMIT_REF equals COMMIT_REF ($COMMIT_REF) - cannot determine changes, proceeding with build"
+    exit 1
+  fi
+
   COMPARE_REF="$CACHED_COMMIT_REF"
   echo "Production deploy: comparing $COMMIT_REF against last deployed commit $COMPARE_REF"
 else

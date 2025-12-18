@@ -79,7 +79,9 @@ export class DummyP2P implements P2P {
   }
 
   public getTxStatus(_txHash: TxHash): Promise<'pending' | 'mined' | undefined> {
-    throw new Error('DummyP2P does not implement "getTxStatus"');
+    // In TXE there is no concept of transactions but we need to implement this because of tagging. We return 'mined'
+    // tx status for any tx hash.
+    return Promise.resolve('mined');
   }
 
   public iteratePendingTxs(): AsyncIterableIterator<Tx> {
