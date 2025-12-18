@@ -20,7 +20,7 @@ class MegaAvmFlavor : public bb::MegaFlavor {
     // Override VIRTUAL_LOG_N for the AVM recursive verifier circuit
     static constexpr size_t VIRTUAL_LOG_N = MEGA_AVM_LOG_N;
 
-    // Override proof length calculations to use our VIRTUAL_LOG_N
+    // Override proof length calculations to use AVM VIRTUAL_LOG_N
     static constexpr size_t FINAL_PCS_MSM_SIZE(size_t log_n = VIRTUAL_LOG_N)
     {
         return NUM_UNSHIFTED_ENTITIES + log_n + 2;
