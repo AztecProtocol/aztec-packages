@@ -125,6 +125,7 @@ void native_verification_debug(const std::shared_ptr<typename Flavor::Verificati
     using NativeIO = std::conditional_t<HasIPAAccumulator<Flavor>, bb::RollupIO, bb::DefaultIO>;
 
     auto native_vkey = std::make_shared<NativeVerificationKey>(vkey->get_value());
+    auto native_vk_and_hash = std::make_shared<typename Flavor::NativeFlavor::VKAndHash>(native_vkey, vkey_hash);
     const bool vkey_and_hash_match = native_vkey->hash() == vkey_hash;
     HonkProof native_proof = proof_fields.get_value();
 
