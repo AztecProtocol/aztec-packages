@@ -74,7 +74,6 @@ import {
 } from '../../storage/index.js';
 import type { SenderTaggingDataProvider } from '../../storage/tagging_data_provider/sender_tagging_data_provider.js';
 import { ContractFunctionSimulator } from '../contract_function_simulator.js';
-import type { ExecutionDataProvider } from '../execution_data_provider.js';
 
 jest.setTimeout(60_000);
 
@@ -112,7 +111,6 @@ export const buildL1ToL2Message = async (
 describe('Private Execution test suite', () => {
   const simulator = new WASMSimulator();
 
-  let executionDataProvider: MockProxy<ExecutionDataProvider>;
   let contractDataProvider: MockProxy<ContractDataProvider>;
   let noteDataProvider: MockProxy<NoteDataProvider>;
   let addressDataProvider: MockProxy<AddressDataProvider>;
@@ -302,9 +300,9 @@ describe('Private Execution test suite', () => {
 
   beforeEach(async () => {
     trees = {};
-    executionDataProvider = mock<ExecutionDataProvider>();
     contractDataProvider = mock<ContractDataProvider>();
     noteDataProvider = mock<NoteDataProvider>();
+    noteDataProvider.getNotes.mockResolvedValue([]);
     addressDataProvider = mock<AddressDataProvider>();
     senderTaggingDataProvider = mock<SenderTaggingDataProvider>();
     recipientTaggingDataProvider = mock<RecipientTaggingDataProvider>();
@@ -318,16 +316,6 @@ describe('Private Execution test suite', () => {
     anchorBlockDataProvider.getBlockHeader.mockImplementation(() => Promise.resolve(anchorBlockHeader));
     capsuleDataProvider.readCapsuleArray.mockResolvedValue([]);
 
-    // Mock the senderTaggingDataProvider getter
-    Object.defineProperty(executionDataProvider, 'senderTaggingDataProvider', {
-      get: () => senderTaggingDataProvider,
-    });
-
-    // Mock the aztecNode getter
-    Object.defineProperty(executionDataProvider, 'aztecNode', {
-      get: () => aztecNode,
-    });
-
     // Mock sender tagging data provider methods
     senderTaggingDataProvider.getLastFinalizedIndex.mockResolvedValue(undefined);
     senderTaggingDataProvider.getLastUsedIndex.mockResolvedValue(undefined);
@@ -335,7 +323,7 @@ describe('Private Execution test suite', () => {
     senderTaggingDataProvider.storePendingIndexes.mockResolvedValue();
     recipientTaggingDataProvider.getSenderAddresses.mockResolvedValue([]);
     recipientTaggingDataProvider.getLastUsedIndexes.mockImplementation(secrets =>
-      Promise.resolve(secrets.map(() => undefined)),
+      Promise.resolve(new Array(secrets?.length ?? 0).fill(undefined)),
     );
 
     // Mock aztec node methods - the return array needs to have the same length as the number of tags
@@ -432,7 +420,6 @@ describe('Private Execution test suite', () => {
     );
 
     acirSimulator = new ContractFunctionSimulator(
-      executionDataProvider,
       contractDataProvider,
       noteDataProvider,
       keyStore,

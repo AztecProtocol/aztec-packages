@@ -4,11 +4,12 @@ import { KeyStore } from '@aztec/key-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { EventSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { L2BlockHash } from '@aztec/stdlib/block';
+import { L2BlockHash, randomDataInBlock } from '@aztec/stdlib/block';
 import { CompleteAddress } from '@aztec/stdlib/contract';
 import { computeUniqueNoteHash, siloNoteHash, siloNullifier, siloPrivateLog } from '@aztec/stdlib/hash';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import { PublicLog, TxScopedL2Log } from '@aztec/stdlib/logs';
+import { NoteStatus } from '@aztec/stdlib/note';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import {
   BlockHeader,
@@ -28,6 +29,7 @@ import {
   AnchorBlockDataProvider,
   CapsuleDataProvider,
   ContractDataProvider,
+  NoteDao,
   NoteDataProvider,
   PrivateEventDataProvider,
 } from '../../storage/index.js';
@@ -42,6 +44,7 @@ import {
   getPublicDataWitness,
   getPublicLogByTag,
   getPublicStorageAt,
+  syncNoteNullifiers,
 } from './common.js';
 
 jest.setTimeout(30_000);
@@ -654,6 +657,127 @@ describe('Common oracle functions', () => {
       // Verify note was removed
       const notes = await noteDataProvider.getNotes({ contractAddress, scopes: [recipient.address] });
       expect(notes).toHaveLength(0);
+    });
+  });
+
+  describe('syncNoteNullifiers', () => {
+    let recipient: AztecAddress;
+
+    beforeEach(async () => {
+      // Check that there are no notes in the database
+      const notes = await noteDataProvider.getNotes({ contractAddress });
+      expect(notes).toHaveLength(0);
+
+      // Check that the expected number of accounts is present
+      const accounts = await keyStore.getAccounts();
+      expect(accounts).toHaveLength(1);
+
+      recipient = accounts[0];
+    });
+
+    it('should remove notes that have been nullified', async () => {
+      // Set up initial state with a note
+      const noteDao = await NoteDao.random({ contractAddress });
+
+      // Spy on the noteDataProvider.applyNullifiers to later on have additional guarantee that we really removed
+      // the note.
+      jest.spyOn(noteDataProvider, 'applyNullifiers');
+
+      // Add the note to storage
+      await noteDataProvider.addNotes([noteDao], recipient);
+
+      // Set up the nullifier in the merkle tree
+      const nullifierIndex = randomDataInBlock(123n);
+      aztecNode.findLeavesIndexes.mockResolvedValue([nullifierIndex]);
+
+      // Call the function under test
+      await syncNoteNullifiers(contractAddress, anchorBlockDataProvider, noteDataProvider, aztecNode);
+
+      // Verify the note was removed by checking storage
+      const remainingNotes = await noteDataProvider.getNotes({
+        contractAddress,
+        status: NoteStatus.ACTIVE,
+        scopes: [recipient],
+      });
+      expect(remainingNotes).toHaveLength(0);
+
+      // Verify the note was removed by checking the spy
+      expect(noteDataProvider.applyNullifiers).toHaveBeenCalledTimes(1);
+    });
+
+    it('should keep notes that have not been nullified', async () => {
+      // Set up initial state with a note
+      const noteDao = await NoteDao.random({ contractAddress });
+
+      // Add the note to storage
+      await noteDataProvider.addNotes([noteDao], recipient);
+
+      // No nullifier found in merkle tree
+      aztecNode.findLeavesIndexes.mockResolvedValue([undefined]);
+
+      // Call the function under test
+      await syncNoteNullifiers(contractAddress, anchorBlockDataProvider, noteDataProvider, aztecNode);
+
+      // Verify note still exists
+      const remainingNotes = await noteDataProvider.getNotes({
+        contractAddress,
+        status: NoteStatus.ACTIVE,
+        scopes: [recipient],
+      });
+      expect(remainingNotes).toHaveLength(1);
+      expect(remainingNotes[0]).toEqual(noteDao);
+    });
+
+    // Verifies that notes are not marked as nullified when their nullifier only exists in blocks that haven't been
+    // synced yet. We mock the nullifier to only exist in blocks beyond our current sync point, then verify the note
+    // is not removed by applyNullifiers.
+    it('should not remove notes if nullifier is in unsynced blocks', async () => {
+      // Set up initial state with a note
+      const noteDao = await NoteDao.random({ contractAddress });
+      const syncedBlockNumber = 100;
+      await setSyncedBlockNumber(BlockNumber(syncedBlockNumber));
+
+      // Add the note to storage
+      await noteDataProvider.addNotes([noteDao], recipient);
+
+      // Mock nullifier to only exist after synced block
+      aztecNode.findLeavesIndexes.mockImplementation(blockNum => {
+        if (typeof blockNum === 'number' && blockNum > syncedBlockNumber) {
+          return Promise.resolve([randomDataInBlock(0n)]);
+        }
+        return Promise.resolve([undefined]);
+      });
+
+      // Call the function under test
+      await syncNoteNullifiers(contractAddress, anchorBlockDataProvider, noteDataProvider, aztecNode);
+      // Verify note still exists
+      const remainingNotes = await noteDataProvider.getNotes({
+        contractAddress,
+        status: NoteStatus.ACTIVE,
+        scopes: [recipient],
+      });
+      expect(remainingNotes).toHaveLength(1);
+      expect(remainingNotes[0]).toEqual(noteDao);
+    });
+
+    it('should search for notes from all accounts', async () => {
+      // Add multiple accounts to keystore
+      await keyStore.addAccount(Fr.random(), Fr.random());
+      await keyStore.addAccount(Fr.random(), Fr.random());
+
+      expect(await keyStore.getAccounts()).toHaveLength(3);
+
+      // Spy on the noteDataProvider.getNotesSpy
+      const getNotesSpy = jest.spyOn(noteDataProvider, 'getNotes');
+
+      // Call the function under test
+      await syncNoteNullifiers(contractAddress, anchorBlockDataProvider, noteDataProvider, aztecNode);
+
+      // Verify applyNullifiers was called once for all accounts
+      expect(getNotesSpy).toHaveBeenCalledTimes(1);
+
+      // Verify getNotes was called with the correct contract address
+      expect(getNotesSpy).toHaveBeenCalledWith(expect.objectContaining({ contractAddress }));
     });
   });
 

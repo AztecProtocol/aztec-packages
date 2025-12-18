@@ -8,10 +8,10 @@ import {
   AddressDataProvider,
   CapsuleDataProvider,
   NoteDataProvider,
-  PXEOracleInterface,
   PrivateEventDataProvider,
   RecipientTaggingDataProvider,
   SenderTaggingDataProvider,
+  syncNoteNullifiers,
 } from '@aztec/pxe/server';
 import {
   ExecutionNoteCache,
@@ -132,7 +132,6 @@ export class TXESession implements TXESessionStateHandler {
     private chainId: Fr,
     private version: Fr,
     private nextBlockTimestamp: bigint,
-    private pxeOracleInterface: PXEOracleInterface,
   ) {}
 
   static async init(protocolContracts: ProtocolContract[]) {
@@ -160,12 +159,6 @@ export class TXESession implements TXESessionStateHandler {
     const version = new Fr(await stateMachine.node.getVersion());
     const chainId = new Fr(await stateMachine.node.getChainId());
 
-    const pxeOracleInterface = new PXEOracleInterface(
-      stateMachine.node,
-      noteDataProvider,
-      stateMachine.anchorBlockDataProvider,
-    );
-
     const topLevelOracleHandler = new TXEOracleTopLevelContext(
       stateMachine,
       contractDataProvider,
@@ -177,7 +170,6 @@ export class TXESession implements TXESessionStateHandler {
       recipientTaggingDataProvider,
       capsuleDataProvider,
       privateEventDataProvider,
-      pxeOracleInterface,
       nextBlockTimestamp,
       version,
       chainId,
@@ -201,7 +193,6 @@ export class TXESession implements TXESessionStateHandler {
       version,
       chainId,
       nextBlockTimestamp,
-      pxeOracleInterface,
     );
   }
 
@@ -269,7 +260,6 @@ export class TXESession implements TXESessionStateHandler {
       this.recipientTaggingDataProvider,
       this.capsuleDataProvider,
       this.privateEventDataProvider,
-      this.pxeOracleInterface,
       this.nextBlockTimestamp,
       this.version,
       this.chainId,
@@ -291,7 +281,12 @@ export class TXESession implements TXESessionStateHandler {
     // we perform this. We therefore search for known nullifiers now, as otherwise notes that were nullified would not
     // be removed from the database.
     // TODO(#12553): make the synchronizer sync here instead and remove this
-    await this.pxeOracleInterface.syncNoteNullifiers(contractAddress);
+    await syncNoteNullifiers(
+      contractAddress,
+      this.stateMachine.anchorBlockDataProvider,
+      this.noteDataProvider,
+      this.stateMachine.node,
+    );
 
     // Private execution has two associated block numbers: the anchor block (i.e. the historical block that is used to
     // build the proof), and the *next* block, i.e. the one we'll create once the execution ends, and which will contain
@@ -321,7 +316,6 @@ export class TXESession implements TXESessionStateHandler {
       new HashedValuesCache(),
       noteCache,
       taggingIndexCache,
-      this.pxeOracleInterface,
       this.contractDataProvider,
       this.noteDataProvider,
       this.keyStore,
@@ -377,7 +371,12 @@ export class TXESession implements TXESessionStateHandler {
     // we perform this. We therefore search for known nullifiers now, as otherwise notes that were nullified would not
     // be removed from the database.
     // TODO(#12553): make the synchronizer sync here instead and remove this
-    await this.pxeOracleInterface.syncNoteNullifiers(contractAddress);
+    await syncNoteNullifiers(
+      contractAddress,
+      this.stateMachine.anchorBlockDataProvider,
+      this.noteDataProvider,
+      this.stateMachine.node,
+    );
 
     const anchorBlockHeader = await this.stateMachine.anchorBlockDataProvider.getBlockHeader();
 
@@ -386,7 +385,6 @@ export class TXESession implements TXESessionStateHandler {
       [],
       [],
       anchorBlockHeader,
-      this.pxeOracleInterface,
       this.contractDataProvider,
       this.noteDataProvider,
       this.keyStore,

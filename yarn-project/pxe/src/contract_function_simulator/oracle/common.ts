@@ -4,10 +4,10 @@ import type { Point } from '@aztec/foundation/curves/grumpkin';
 import type { KeyStore } from '@aztec/key-store';
 import type { EventSelector, FunctionArtifactWithContractName, FunctionSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { BlockParameter, L2Block } from '@aztec/stdlib/block';
+import type { BlockParameter, DataInBlock, L2Block } from '@aztec/stdlib/block';
 import type { CompleteAddress, ContractInstance } from '@aztec/stdlib/contract';
 import { computeUniqueNoteHash, siloNoteHash, siloNullifier, siloPrivateLog } from '@aztec/stdlib/hash';
-import type { AztecNode } from '@aztec/stdlib/interfaces/server';
+import { type AztecNode, MAX_RPC_LEN } from '@aztec/stdlib/interfaces/server';
 import { computeAddressSecret } from '@aztec/stdlib/keys';
 import {
   DirectionalAppTaggingSecret,
@@ -893,4 +893,59 @@ export async function deliverEvent(
       l2BlockHash: nullifierIndex.l2BlockHash, // Block hash in which the event was emitted
     },
   );
+}
+
+/**
+ * Looks for nullifiers of active contract notes and marks them as nullified if a nullifier is found.
+ *
+ * Fetches notes from the NoteDataProvider and checks which nullifiers are present in the
+ * onchain nullifier Merkle tree -  up to the latest locally synced block. We use the
+ * locally synced block instead of querying the chain's 'latest' block to ensure correctness:
+ * notes are only marked nullified once their corresponding nullifier has been included in a
+ * block up to which the PXE has synced.
+ * This allows recent nullifications to be processed even if the node is not an archive node.
+ *
+ * @param contractAddress - The contract whose notes should be checked and nullified.
+ */
+export async function syncNoteNullifiers(
+  contractAddress: AztecAddress,
+  anchorBlockDataProvider: AnchorBlockDataProvider,
+  noteDataProvider: NoteDataProvider,
+  aztecNode: AztecNode,
+) {
+  const syncedBlockNumber = (await anchorBlockDataProvider.getBlockHeader()).getBlockNumber();
+
+  const contractNotes = await noteDataProvider.getNotes({ contractAddress });
+
+  if (contractNotes.length === 0) {
+    return;
+  }
+
+  const nullifiersToCheck = contractNotes.map(note => note.siloedNullifier);
+  const nullifierBatches = nullifiersToCheck.reduce(
+    (acc, nullifier) => {
+      if (acc[acc.length - 1].length < MAX_RPC_LEN) {
+        acc[acc.length - 1].push(nullifier);
+      } else {
+        acc.push([nullifier]);
+      }
+      return acc;
+    },
+    [[]] as Fr[][],
+  );
+  const nullifierIndexes = (
+    await Promise.all(
+      nullifierBatches.map(batch => aztecNode.findLeavesIndexes(syncedBlockNumber, MerkleTreeId.NULLIFIER_TREE, batch)),
+    )
+  ).flat();
+
+  const foundNullifiers = nullifiersToCheck
+    .map((nullifier, i) => {
+      if (nullifierIndexes[i] !== undefined) {
+        return { ...nullifierIndexes[i], ...{ data: nullifier } } as DataInBlock<Fr>;
+      }
+    })
+    .filter(nullifier => nullifier !== undefined) as DataInBlock<Fr>[];
+
+  await noteDataProvider.applyNullifiers(foundNullifiers);
 }

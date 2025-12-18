@@ -81,7 +81,6 @@ import type {
   RecipientTaggingDataProvider,
   SenderTaggingDataProvider,
 } from '../storage/index.js';
-import type { ExecutionDataProvider } from './execution_data_provider.js';
 import { ExecutionNoteCache } from './execution_note_cache.js';
 import { ExecutionTaggingIndexCache } from './execution_tagging_index_cache.js';
 import { HashedValuesCache } from './hashed_values_cache.js';
@@ -98,7 +97,6 @@ export class ContractFunctionSimulator {
   private log: Logger;
 
   constructor(
-    private executionDataProvider: ExecutionDataProvider,
     private contractDataProvider: ContractDataProvider,
     private noteDataProvider: NoteDataProvider,
     private keyStore: KeyStore,
@@ -182,7 +180,6 @@ export class ContractFunctionSimulator {
       HashedValuesCache.create(request.argsOfCalls),
       noteCache,
       taggingIndexCache,
-      this.executionDataProvider,
       this.contractDataProvider,
       this.noteDataProvider,
       this.keyStore,
@@ -283,7 +280,6 @@ export class ContractFunctionSimulator {
       authwits,
       [],
       anchorBlockHeader,
-      this.executionDataProvider,
       this.contractDataProvider,
       this.noteDataProvider,
       this.keyStore,

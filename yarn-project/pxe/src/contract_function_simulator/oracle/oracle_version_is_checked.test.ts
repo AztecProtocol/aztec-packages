@@ -23,13 +23,11 @@ import {
   SenderTaggingDataProvider,
 } from '../../storage/index.js';
 import { ContractFunctionSimulator } from '../contract_function_simulator.js';
-import type { ExecutionDataProvider } from '../execution_data_provider.js';
 import { UtilityExecutionOracle } from './utility_execution_oracle.js';
 
 describe('Oracle Version Check test suite', () => {
   const simulator = new WASMSimulator();
 
-  let executionDataProvider: ReturnType<typeof mock<ExecutionDataProvider>>;
   let contractDataProvider: ReturnType<typeof mock<ContractDataProvider>>;
   let noteDataProvider: ReturnType<typeof mock<NoteDataProvider>>;
   let keyStore: ReturnType<typeof mock<KeyStore>>;
@@ -48,7 +46,6 @@ describe('Oracle Version Check test suite', () => {
   >;
 
   beforeEach(async () => {
-    executionDataProvider = mock<ExecutionDataProvider>();
     contractDataProvider = mock<ContractDataProvider>();
     noteDataProvider = mock<NoteDataProvider>();
     keyStore = mock<KeyStore>();
@@ -79,6 +76,7 @@ describe('Oracle Version Check test suite', () => {
     recipientTaggingDataProvider.getLastUsedIndexes.mockImplementation(secrets =>
       Promise.resolve(secrets.map(() => undefined)),
     );
+    noteDataProvider.getNotes.mockResolvedValue([]);
     keyStore.getAccounts.mockResolvedValue([]);
 
     contractAddress = await AztecAddress.random();
@@ -90,7 +88,6 @@ describe('Oracle Version Check test suite', () => {
     } as ContractInstanceWithAddress);
 
     acirSimulator = new ContractFunctionSimulator(
-      executionDataProvider,
       contractDataProvider,
       noteDataProvider,
       keyStore,

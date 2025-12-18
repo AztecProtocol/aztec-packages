@@ -24,12 +24,10 @@ import {
   SenderTaggingDataProvider,
 } from '../../storage/index.js';
 import { ContractFunctionSimulator } from '../contract_function_simulator.js';
-import type { ExecutionDataProvider } from '../execution_data_provider.js';
 
 describe('Utility Execution test suite', () => {
   const simulator = new WASMSimulator();
 
-  let executionDataProvider: ReturnType<typeof mock<ExecutionDataProvider>>;
   let contractDataProvider: ReturnType<typeof mock<ContractDataProvider>>;
   let noteDataProvider: ReturnType<typeof mock<NoteDataProvider>>;
   let keyStore: ReturnType<typeof mock<KeyStore>>;
@@ -50,7 +48,6 @@ describe('Utility Execution test suite', () => {
   };
 
   beforeEach(async () => {
-    executionDataProvider = mock<ExecutionDataProvider>();
     contractDataProvider = mock<ContractDataProvider>();
     noteDataProvider = mock<NoteDataProvider>();
     keyStore = mock<KeyStore>();
@@ -73,7 +70,6 @@ describe('Utility Execution test suite', () => {
     );
     capsuleDataProvider.readCapsuleArray.mockResolvedValue([]);
     acirSimulator = new ContractFunctionSimulator(
-      executionDataProvider,
       contractDataProvider,
       noteDataProvider,
       keyStore,

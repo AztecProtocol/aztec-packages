@@ -40,7 +40,6 @@ import type {
 } from '../../storage/index.js';
 import { syncSenderTaggingIndexes } from '../../tagging/sync/sync_sender_tagging_indexes.js';
 import { Tag } from '../../tagging/tag.js';
-import type { ExecutionDataProvider } from '../execution_data_provider.js';
 import type { ExecutionNoteCache } from '../execution_note_cache.js';
 import { ExecutionTaggingIndexCache } from '../execution_tagging_index_cache.js';
 import type { HashedValuesCache } from '../hashed_values_cache.js';
@@ -92,7 +91,6 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     private readonly executionCache: HashedValuesCache,
     private readonly noteCache: ExecutionNoteCache,
     private readonly taggingIndexCache: ExecutionTaggingIndexCache,
-    executionDataProvider: ExecutionDataProvider,
     contractDataProvider: ContractDataProvider,
     noteDataProvider: NoteDataProvider,
     keyStore: KeyStore,
@@ -115,7 +113,6 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       authWitnesses,
       capsules,
       anchorBlockHeader,
-      executionDataProvider,
       contractDataProvider,
       noteDataProvider,
       keyStore,
@@ -568,7 +565,6 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       this.executionCache,
       this.noteCache,
       this.taggingIndexCache,
-      this.executionDataProvider,
       this.contractDataProvider,
       this.noteDataProvider,
       this.keyStore,

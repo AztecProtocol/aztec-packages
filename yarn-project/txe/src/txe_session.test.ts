@@ -23,7 +23,6 @@ describe('TXESession.processFunction', () => {
       new Fr(1), // chainId
       new Fr(1), // version
       0n, // nextBlockTimestamp
-      {} as any, // pxeOracleInterface
     );
   });
 

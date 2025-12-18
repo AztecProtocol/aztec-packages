@@ -24,7 +24,6 @@ import type {
   RecipientTaggingDataProvider,
   SenderTaggingDataProvider,
 } from '../../storage/index.js';
-import type { ExecutionDataProvider } from '../execution_data_provider.js';
 import { UtilityContext } from '../noir-structs/utility_context.js';
 import { pickNotes } from '../pick_notes.js';
 import {
@@ -42,6 +41,7 @@ import {
   getPublicDataWitness,
   getPublicStorageAt,
   getSharedSecret,
+  syncNoteNullifiers,
   syncTaggedLogs,
   validateEnqueuedNotesAndEvents,
 } from './common.js';
@@ -62,7 +62,6 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     protected readonly authWitnesses: AuthWitness[],
     protected readonly capsules: Capsule[], // TODO(#12425): Rename to transientCapsules
     protected readonly anchorBlockHeader: BlockHeader,
-    protected readonly executionDataProvider: ExecutionDataProvider,
     protected readonly contractDataProvider: ContractDataProvider,
     protected readonly noteDataProvider: NoteDataProvider,
     protected readonly keyStore: KeyStore,
@@ -339,7 +338,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       this.scopes,
     );
 
-    await this.executionDataProvider.syncNoteNullifiers(this.contractAddress);
+    await syncNoteNullifiers(this.contractAddress, this.anchorBlockDataProvider, this.noteDataProvider, this.aztecNode);
   }
 
   public async utilityValidateEnqueuedNotesAndEvents(

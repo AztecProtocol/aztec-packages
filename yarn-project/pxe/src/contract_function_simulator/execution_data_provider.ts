@@ -1,4 +1,3 @@
-import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { NodeStats } from '@aztec/stdlib/tx';
 
 /**
@@ -28,13 +27,3 @@ export type ExecutionStats = {
    */
   nodeRPCCalls: NodeStats;
 };
-
-/**
- * The interface for the data layer required to perform private and utility execution.
- */
-export interface ExecutionDataProvider {
-  /**
-   * Looks for nullifiers of active contract notes and marks them as nullified in the db if a nullifier is found.
-   */
-  syncNoteNullifiers(contractAddress: AztecAddress): Promise<void>;
-}
