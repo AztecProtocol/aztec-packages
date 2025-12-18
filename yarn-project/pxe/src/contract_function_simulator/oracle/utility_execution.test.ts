@@ -16,6 +16,7 @@ import { mock } from 'jest-mock-extended';
 import {
   AddressDataProvider,
   AnchorBlockDataProvider,
+  CapsuleDataProvider,
   ContractDataProvider,
   NoteDataProvider,
   SenderTaggingDataProvider,
@@ -34,6 +35,7 @@ describe('Utility Execution test suite', () => {
   let aztecNode: ReturnType<typeof mock<AztecNode>>;
   let anchorBlockDataProvider: ReturnType<typeof mock<AnchorBlockDataProvider>>;
   let senderTaggingDataProvider: ReturnType<typeof mock<SenderTaggingDataProvider>>;
+  let capsuleDataProvider: ReturnType<typeof mock<CapsuleDataProvider>>;
   let acirSimulator: ContractFunctionSimulator;
   let owner: AztecAddress;
   let anchorBlockHeader: BlockHeader;
@@ -52,6 +54,7 @@ describe('Utility Execution test suite', () => {
     aztecNode = mock<AztecNode>();
     anchorBlockDataProvider = mock<AnchorBlockDataProvider>();
     senderTaggingDataProvider = mock<SenderTaggingDataProvider>();
+    capsuleDataProvider = mock<CapsuleDataProvider>();
     anchorBlockHeader = BlockHeader.random();
     anchorBlockDataProvider.getBlockHeader.mockImplementation(() => Promise.resolve(anchorBlockHeader));
     acirSimulator = new ContractFunctionSimulator(
@@ -63,6 +66,7 @@ describe('Utility Execution test suite', () => {
       aztecNode,
       anchorBlockDataProvider,
       senderTaggingDataProvider,
+      capsuleDataProvider,
       simulator,
     );
 

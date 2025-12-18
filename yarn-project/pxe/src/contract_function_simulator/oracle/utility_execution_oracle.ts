@@ -17,6 +17,7 @@ import type { BlockHeader, Capsule } from '@aztec/stdlib/tx';
 import type {
   AddressDataProvider,
   AnchorBlockDataProvider,
+  CapsuleDataProvider,
   ContractDataProvider,
   NoteDataProvider,
   SenderTaggingDataProvider,
@@ -63,6 +64,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     protected readonly aztecNode: AztecNode,
     protected readonly anchorBlockDataProvider: AnchorBlockDataProvider,
     protected readonly senderTaggingDataProvider: SenderTaggingDataProvider,
+    protected readonly capsuleDataProvider: CapsuleDataProvider,
     protected log = createLogger('simulator:client_view_context'),
     protected readonly scopes?: AztecAddress[],
   ) {}
@@ -360,7 +362,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
       throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
     }
-    return this.executionDataProvider.storeCapsule(this.contractAddress, slot, capsule);
+    return this.capsuleDataProvider.storeCapsule(this.contractAddress, slot, capsule);
   }
 
   public async utilityLoadCapsule(contractAddress: AztecAddress, slot: Fr): Promise<Fr[] | null> {

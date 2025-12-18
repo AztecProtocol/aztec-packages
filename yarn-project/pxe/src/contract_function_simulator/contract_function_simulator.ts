@@ -74,6 +74,7 @@ import {
 import type {
   AddressDataProvider,
   AnchorBlockDataProvider,
+  CapsuleDataProvider,
   ContractDataProvider,
   NoteDataProvider,
   SenderTaggingDataProvider,
@@ -103,6 +104,7 @@ export class ContractFunctionSimulator {
     private aztecNode: AztecNode,
     private anchorBlockDataProvider: AnchorBlockDataProvider,
     private senderTaggingDataProvider: SenderTaggingDataProvider,
+    private capsuleDataProvider: CapsuleDataProvider,
     private simulator: CircuitSimulator,
   ) {
     this.log = createLogger('simulator');
@@ -184,6 +186,7 @@ export class ContractFunctionSimulator {
       this.aztecNode,
       this.anchorBlockDataProvider,
       this.senderTaggingDataProvider,
+      this.capsuleDataProvider,
       0, // totalPublicArgsCount
       startSideEffectCounter,
       undefined, // log
@@ -282,6 +285,7 @@ export class ContractFunctionSimulator {
       this.aztecNode,
       this.anchorBlockDataProvider,
       this.senderTaggingDataProvider,
+      this.capsuleDataProvider,
       undefined,
       scopes,
     );

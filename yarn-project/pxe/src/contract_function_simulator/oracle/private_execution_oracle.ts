@@ -31,6 +31,7 @@ import {
 import type {
   AddressDataProvider,
   AnchorBlockDataProvider,
+  CapsuleDataProvider,
   ContractDataProvider,
   NoteDataProvider,
   SenderTaggingDataProvider,
@@ -97,6 +98,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     aztecNode: AztecNode,
     anchorBlockDataProvider: AnchorBlockDataProvider,
     senderTaggingDataProvider: SenderTaggingDataProvider,
+    capsuleDataProvider: CapsuleDataProvider,
     private totalPublicCalldataCount: number = 0,
     protected sideEffectCounter: number = 0,
     log = createLogger('simulator:client_execution_context'),
@@ -117,6 +119,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       aztecNode,
       anchorBlockDataProvider,
       senderTaggingDataProvider,
+      capsuleDataProvider,
       log,
       scopes,
     );
@@ -570,6 +573,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       this.aztecNode,
       this.anchorBlockDataProvider,
       this.senderTaggingDataProvider,
+      this.capsuleDataProvider,
       this.totalPublicCalldataCount,
       sideEffectCounter,
       this.log,

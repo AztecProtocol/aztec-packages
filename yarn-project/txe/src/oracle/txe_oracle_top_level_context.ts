@@ -14,6 +14,7 @@ import { TestDateProvider } from '@aztec/foundation/timer';
 import type { KeyStore } from '@aztec/key-store';
 import {
   AddressDataProvider,
+  CapsuleDataProvider,
   NoteDataProvider,
   ORACLE_VERSION,
   PXEOracleInterface,
@@ -99,6 +100,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     private addressDataProvider: AddressDataProvider,
     private accountDataProvider: TXEAccountDataProvider,
     private senderTaggingDataProvider: SenderTaggingDataProvider,
+    private capsuleDataProvider: CapsuleDataProvider,
     private pxeOracleInterface: PXEOracleInterface,
     private nextBlockTimestamp: bigint,
     private version: Fr,
@@ -314,6 +316,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       this.stateMachine.node,
       this.stateMachine.anchorBlockDataProvider,
       this.senderTaggingDataProvider,
+      this.capsuleDataProvider,
       0,
       1,
       undefined, // log
@@ -635,6 +638,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
         this.stateMachine.node,
         this.stateMachine.anchorBlockDataProvider,
         this.senderTaggingDataProvider,
+        this.capsuleDataProvider,
       );
       const acirExecutionResult = await new WASMSimulator()
         .executeUserCircuit(toACVMWitness(0, args), entryPointArtifact, new Oracle(oracle).toACIRCallback())

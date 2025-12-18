@@ -15,6 +15,7 @@ import { mock } from 'jest-mock-extended';
 import {
   AddressDataProvider,
   AnchorBlockDataProvider,
+  CapsuleDataProvider,
   ContractDataProvider,
   NoteDataProvider,
   SenderTaggingDataProvider,
@@ -34,6 +35,7 @@ describe('Oracle Version Check test suite', () => {
   let aztecNode: ReturnType<typeof mock<AztecNode>>;
   let anchorBlockDataProvider: ReturnType<typeof mock<AnchorBlockDataProvider>>;
   let senderTaggingDataProvider: ReturnType<typeof mock<SenderTaggingDataProvider>>;
+  let capsuleDataProvider: ReturnType<typeof mock<CapsuleDataProvider>>;
   let acirSimulator: ContractFunctionSimulator;
   let contractAddress: AztecAddress;
   let anchorBlockHeader: BlockHeader;
@@ -50,6 +52,7 @@ describe('Oracle Version Check test suite', () => {
     aztecNode = mock<AztecNode>();
     anchorBlockDataProvider = mock<AnchorBlockDataProvider>();
     senderTaggingDataProvider = mock<SenderTaggingDataProvider>();
+    capsuleDataProvider = mock<CapsuleDataProvider>();
     assertCompatibleOracleVersionSpy = jest.spyOn(
       UtilityExecutionOracle.prototype,
       'utilityAssertCompatibleOracleVersion',
@@ -79,6 +82,7 @@ describe('Oracle Version Check test suite', () => {
       aztecNode,
       anchorBlockDataProvider,
       senderTaggingDataProvider,
+      capsuleDataProvider,
       simulator,
     );
   });

@@ -704,10 +704,6 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     });
   }
 
-  storeCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[]): Promise<void> {
-    return this.capsuleDataProvider.storeCapsule(contractAddress, slot, capsule);
-  }
-
   loadCapsule(contractAddress: AztecAddress, slot: Fr): Promise<Fr[] | null> {
     return this.capsuleDataProvider.loadCapsule(contractAddress, slot);
   }

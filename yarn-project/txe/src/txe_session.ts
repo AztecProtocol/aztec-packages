@@ -126,6 +126,7 @@ export class TXESession implements TXESessionStateHandler {
     private addressDataProvider: AddressDataProvider,
     private accountDataProvider: TXEAccountDataProvider,
     private senderTaggingDataProvider: SenderTaggingDataProvider,
+    private capsuleDataProvider: CapsuleDataProvider,
     private chainId: Fr,
     private version: Fr,
     private nextBlockTimestamp: bigint,
@@ -178,6 +179,7 @@ export class TXESession implements TXESessionStateHandler {
       addressDataProvider,
       accountDataProvider,
       senderTaggingDataProvider,
+      capsuleDataProvider,
       pxeOracleInterface,
       nextBlockTimestamp,
       version,
@@ -196,6 +198,7 @@ export class TXESession implements TXESessionStateHandler {
       addressDataProvider,
       accountDataProvider,
       senderTaggingDataProvider,
+      capsuleDataProvider,
       version,
       chainId,
       nextBlockTimestamp,
@@ -264,6 +267,7 @@ export class TXESession implements TXESessionStateHandler {
       this.addressDataProvider,
       this.accountDataProvider,
       this.senderTaggingDataProvider,
+      this.capsuleDataProvider,
       this.pxeOracleInterface,
       this.nextBlockTimestamp,
       this.version,
@@ -324,6 +328,7 @@ export class TXESession implements TXESessionStateHandler {
       this.stateMachine.node,
       this.stateMachine.anchorBlockDataProvider,
       this.senderTaggingDataProvider,
+      this.capsuleDataProvider,
     );
 
     // We store the note and tagging index caches fed into the PrivateExecutionOracle (along with some other auxiliary
@@ -386,6 +391,7 @@ export class TXESession implements TXESessionStateHandler {
       this.stateMachine.node,
       this.stateMachine.anchorBlockDataProvider,
       this.senderTaggingDataProvider,
+      this.capsuleDataProvider,
     );
 
     this.state = { name: 'UTILITY' };

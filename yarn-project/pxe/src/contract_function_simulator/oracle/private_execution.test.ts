@@ -66,6 +66,7 @@ import { toFunctionSelector } from 'viem';
 import {
   AddressDataProvider,
   AnchorBlockDataProvider,
+  CapsuleDataProvider,
   ContractDataProvider,
   NoteDataProvider,
 } from '../../storage/index.js';
@@ -117,6 +118,7 @@ describe('Private Execution test suite', () => {
   let senderTaggingDataProvider: MockProxy<SenderTaggingDataProvider>;
   let aztecNode: MockProxy<AztecNode>;
   let anchorBlockDataProvider: MockProxy<AnchorBlockDataProvider>;
+  let capsuleDataProvider: MockProxy<CapsuleDataProvider>;
   let acirSimulator: ContractFunctionSimulator;
 
   let anchorBlockHeader = BlockHeader.empty();
@@ -304,6 +306,7 @@ describe('Private Execution test suite', () => {
     aztecNode = mock<AztecNode>();
     keyStore = mock<KeyStore>();
     anchorBlockDataProvider = mock<AnchorBlockDataProvider>();
+    capsuleDataProvider = mock<CapsuleDataProvider>();
     contracts = {};
     anchorBlockHeader = makeBlockHeader();
     anchorBlockDataProvider.getBlockHeader.mockImplementation(() => Promise.resolve(anchorBlockHeader));
@@ -425,6 +428,7 @@ describe('Private Execution test suite', () => {
       aztecNode,
       anchorBlockDataProvider,
       senderTaggingDataProvider,
+      capsuleDataProvider,
       simulator,
     );
   });
