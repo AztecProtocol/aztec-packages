@@ -283,26 +283,22 @@ fi
 
 ROLLUP_CONTRACTS_START=$(date +%s)
 
-# File to store deployed contract addresses
-CONTRACTS_FILE="${SCRIPT_DIR}/../.deployed-contracts-${NAMESPACE}.json"
-
-if [[ -f "${CONTRACTS_FILE}" && "${REDEPLOY_ROLLUP_CONTRACTS}" != "true" ]]; then
-  # Check if we have valid contract addresses from a previous deployment
-  EXISTING_REGISTRY=$(jq -r '.registryAddress // empty' "${CONTRACTS_FILE}" 2>/dev/null || true)
-  if [[ -n "${EXISTING_REGISTRY}" && "${EXISTING_REGISTRY}" =~ ^0x[a-fA-F0-9]{40}$ ]]; then
-    log "Contracts already deployed (registry=${EXISTING_REGISTRY}), skipping deployment"
-    REGISTRY_ADDRESS="${EXISTING_REGISTRY}"
-    SLASH_FACTORY_ADDRESS=$(jq -r '.slashFactoryAddress // empty' "${CONTRACTS_FILE}")
-    FEE_ASSET_HANDLER_ADDRESS=$(jq -r '.feeAssetHandlerAddress // empty' "${CONTRACTS_FILE}")
+# Check if registry contract already exists on-chain (skip deployment if so)
+if [[ -n "${REGISTRY_ADDRESS:-}" && "${REDEPLOY_ROLLUP_CONTRACTS}" != "true" ]]; then
+  # Registry address provided via env/config - check if it has code
+  FIRST_RPC_URL=$(echo "${CSV_RPC_URLS}" | cut -d',' -f1)
+  CODE=$(curl -s -X POST -H "Content-Type: application/json" \
+    --data "{\"jsonrpc\":\"2.0\",\"method\":\"eth_getCode\",\"params\":[\"${REGISTRY_ADDRESS}\",\"latest\"],\"id\":1}" \
+    "${FIRST_RPC_URL}" | jq -r '.result // "0x"')
+  if [[ "${CODE}" != "0x" && "${CODE}" != "null" && -n "${CODE}" ]]; then
+    log "Registry contract exists at ${REGISTRY_ADDRESS}, skipping deployment"
+  else
+    log "Registry address provided but no code found on-chain, will deploy"
+    unset REGISTRY_ADDRESS
   fi
 fi
 
 if [[ -z "${REGISTRY_ADDRESS:-}" ]]; then
-  if [[ "${REDEPLOY_ROLLUP_CONTRACTS}" == "true" && -f "${CONTRACTS_FILE}" ]]; then
-    log "REDEPLOY_ROLLUP_CONTRACTS=true, removing previous contract addresses"
-    rm -f "${CONTRACTS_FILE}"
-  fi
-
   log "Deploying L1 contracts..."
 
   # Build CLI arguments
@@ -342,14 +338,12 @@ if [[ -z "${REGISTRY_ADDRESS:-}" ]]; then
     die "Failed to extract contract addresses from deployment output"
   fi
 
-  # Save contract addresses
-  echo "${CONTRACT_JSON}" > "${CONTRACTS_FILE}"
-  log "Contract addresses saved to ${CONTRACTS_FILE}"
-
   # Extract addresses
   REGISTRY_ADDRESS=$(echo "${CONTRACT_JSON}" | jq -r '.registryAddress')
   SLASH_FACTORY_ADDRESS=$(echo "${CONTRACT_JSON}" | jq -r '.slashFactoryAddress // empty')
   FEE_ASSET_HANDLER_ADDRESS=$(echo "${CONTRACT_JSON}" | jq -r '.feeAssetHandlerAddress // empty')
+
+  log "Deployed contracts: registry=${REGISTRY_ADDRESS}"
 fi
 
 STAGE_TIMINGS[rollup_contracts]=$(($(date +%s) - ROLLUP_CONTRACTS_START))
