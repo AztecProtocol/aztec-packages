@@ -197,14 +197,9 @@ export class PXE {
 
     const pxeOracleInterface = new PXEOracleInterface(
       ProxiedNodeFactory.create(this.node),
-      this.keyStore,
-      proxyContractDataProvider,
       this.noteDataProvider,
       this.capsuleDataProvider,
       this.anchorBlockDataProvider,
-      this.senderTaggingDataProvider,
-      this.recipientTaggingDataProvider,
-      this.addressDataProvider,
       this.privateEventDataProvider,
       this.log,
     );
@@ -217,6 +212,7 @@ export class PXE {
       this.node,
       this.anchorBlockDataProvider,
       this.senderTaggingDataProvider,
+      this.recipientTaggingDataProvider,
       this.capsuleDataProvider,
       this.simulator,
     );

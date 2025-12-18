@@ -34,6 +34,7 @@ import type {
   CapsuleDataProvider,
   ContractDataProvider,
   NoteDataProvider,
+  RecipientTaggingDataProvider,
   SenderTaggingDataProvider,
 } from '../../storage/index.js';
 import { syncSenderTaggingIndexes } from '../../tagging/sync/sync_sender_tagging_indexes.js';
@@ -98,6 +99,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     aztecNode: AztecNode,
     anchorBlockDataProvider: AnchorBlockDataProvider,
     senderTaggingDataProvider: SenderTaggingDataProvider,
+    recipientTaggingDataProvider: RecipientTaggingDataProvider,
     capsuleDataProvider: CapsuleDataProvider,
     private totalPublicCalldataCount: number = 0,
     protected sideEffectCounter: number = 0,
@@ -119,6 +121,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       aztecNode,
       anchorBlockDataProvider,
       senderTaggingDataProvider,
+      recipientTaggingDataProvider,
       capsuleDataProvider,
       log,
       scopes,
@@ -573,6 +576,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       this.aztecNode,
       this.anchorBlockDataProvider,
       this.senderTaggingDataProvider,
+      this.recipientTaggingDataProvider,
       this.capsuleDataProvider,
       this.totalPublicCalldataCount,
       sideEffectCounter,

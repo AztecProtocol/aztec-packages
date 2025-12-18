@@ -18,6 +18,7 @@ import {
   NoteDataProvider,
   ORACLE_VERSION,
   PXEOracleInterface,
+  RecipientTaggingDataProvider,
   SenderTaggingDataProvider,
   enrichPublicSimulationError,
   getFunctionArtifact,
@@ -100,6 +101,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     private addressDataProvider: AddressDataProvider,
     private accountDataProvider: TXEAccountDataProvider,
     private senderTaggingDataProvider: SenderTaggingDataProvider,
+    private recipientTaggingDataProvider: RecipientTaggingDataProvider,
     private capsuleDataProvider: CapsuleDataProvider,
     private pxeOracleInterface: PXEOracleInterface,
     private nextBlockTimestamp: bigint,
@@ -316,6 +318,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       this.stateMachine.node,
       this.stateMachine.anchorBlockDataProvider,
       this.senderTaggingDataProvider,
+      this.recipientTaggingDataProvider,
       this.capsuleDataProvider,
       0,
       1,
@@ -638,6 +641,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
         this.stateMachine.node,
         this.stateMachine.anchorBlockDataProvider,
         this.senderTaggingDataProvider,
+        this.recipientTaggingDataProvider,
         this.capsuleDataProvider,
       );
       const acirExecutionResult = await new WASMSimulator()

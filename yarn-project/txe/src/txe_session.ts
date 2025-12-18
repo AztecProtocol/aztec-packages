@@ -126,6 +126,7 @@ export class TXESession implements TXESessionStateHandler {
     private addressDataProvider: AddressDataProvider,
     private accountDataProvider: TXEAccountDataProvider,
     private senderTaggingDataProvider: SenderTaggingDataProvider,
+    private recipientTaggingDataProvider: RecipientTaggingDataProvider,
     private capsuleDataProvider: CapsuleDataProvider,
     private chainId: Fr,
     private version: Fr,
@@ -160,14 +161,9 @@ export class TXESession implements TXESessionStateHandler {
 
     const pxeOracleInterface = new PXEOracleInterface(
       stateMachine.node,
-      keyStore,
-      contractDataProvider,
       noteDataProvider,
       capsuleDataProvider,
       stateMachine.anchorBlockDataProvider,
-      senderTaggingDataProvider,
-      recipientTaggingDataProvider,
-      addressDataProvider,
       privateEventDataProvider,
     );
 
@@ -179,6 +175,7 @@ export class TXESession implements TXESessionStateHandler {
       addressDataProvider,
       accountDataProvider,
       senderTaggingDataProvider,
+      recipientTaggingDataProvider,
       capsuleDataProvider,
       pxeOracleInterface,
       nextBlockTimestamp,
@@ -198,6 +195,7 @@ export class TXESession implements TXESessionStateHandler {
       addressDataProvider,
       accountDataProvider,
       senderTaggingDataProvider,
+      recipientTaggingDataProvider,
       capsuleDataProvider,
       version,
       chainId,
@@ -267,6 +265,7 @@ export class TXESession implements TXESessionStateHandler {
       this.addressDataProvider,
       this.accountDataProvider,
       this.senderTaggingDataProvider,
+      this.recipientTaggingDataProvider,
       this.capsuleDataProvider,
       this.pxeOracleInterface,
       this.nextBlockTimestamp,
@@ -328,6 +327,7 @@ export class TXESession implements TXESessionStateHandler {
       this.stateMachine.node,
       this.stateMachine.anchorBlockDataProvider,
       this.senderTaggingDataProvider,
+      this.recipientTaggingDataProvider,
       this.capsuleDataProvider,
     );
 
@@ -391,6 +391,7 @@ export class TXESession implements TXESessionStateHandler {
       this.stateMachine.node,
       this.stateMachine.anchorBlockDataProvider,
       this.senderTaggingDataProvider,
+      this.recipientTaggingDataProvider,
       this.capsuleDataProvider,
     );
 

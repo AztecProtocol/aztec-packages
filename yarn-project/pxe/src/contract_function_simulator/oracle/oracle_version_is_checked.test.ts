@@ -18,6 +18,7 @@ import {
   CapsuleDataProvider,
   ContractDataProvider,
   NoteDataProvider,
+  RecipientTaggingDataProvider,
   SenderTaggingDataProvider,
 } from '../../storage/index.js';
 import { ContractFunctionSimulator } from '../contract_function_simulator.js';
@@ -35,6 +36,7 @@ describe('Oracle Version Check test suite', () => {
   let aztecNode: ReturnType<typeof mock<AztecNode>>;
   let anchorBlockDataProvider: ReturnType<typeof mock<AnchorBlockDataProvider>>;
   let senderTaggingDataProvider: ReturnType<typeof mock<SenderTaggingDataProvider>>;
+  let recipientTaggingDataProvider: ReturnType<typeof mock<RecipientTaggingDataProvider>>;
   let capsuleDataProvider: ReturnType<typeof mock<CapsuleDataProvider>>;
   let acirSimulator: ContractFunctionSimulator;
   let contractAddress: AztecAddress;
@@ -52,6 +54,7 @@ describe('Oracle Version Check test suite', () => {
     aztecNode = mock<AztecNode>();
     anchorBlockDataProvider = mock<AnchorBlockDataProvider>();
     senderTaggingDataProvider = mock<SenderTaggingDataProvider>();
+    recipientTaggingDataProvider = mock<RecipientTaggingDataProvider>();
     capsuleDataProvider = mock<CapsuleDataProvider>();
     assertCompatibleOracleVersionSpy = jest.spyOn(
       UtilityExecutionOracle.prototype,
@@ -64,6 +67,16 @@ describe('Oracle Version Check test suite', () => {
     anchorBlockHeader = BlockHeader.random();
     anchorBlockDataProvider.getBlockHeader.mockResolvedValue(anchorBlockHeader);
     capsuleDataProvider.loadCapsule.mockImplementation((_, __) => Promise.resolve(null));
+    capsuleDataProvider.readCapsuleArray.mockResolvedValue([]);
+    senderTaggingDataProvider.getLastFinalizedIndex.mockResolvedValue(undefined);
+    senderTaggingDataProvider.getLastUsedIndex.mockResolvedValue(undefined);
+    senderTaggingDataProvider.getTxHashesOfPendingIndexes.mockResolvedValue([]);
+    senderTaggingDataProvider.storePendingIndexes.mockResolvedValue();
+    recipientTaggingDataProvider.getSenderAddresses.mockResolvedValue([]);
+    recipientTaggingDataProvider.getLastUsedIndexes.mockImplementation(secrets =>
+      Promise.resolve(secrets.map(() => undefined)),
+    );
+    keyStore.getAccounts.mockResolvedValue([]);
 
     contractAddress = await AztecAddress.random();
 
@@ -82,6 +95,7 @@ describe('Oracle Version Check test suite', () => {
       aztecNode,
       anchorBlockDataProvider,
       senderTaggingDataProvider,
+      recipientTaggingDataProvider,
       capsuleDataProvider,
       simulator,
     );

@@ -19,6 +19,7 @@ import {
   CapsuleDataProvider,
   ContractDataProvider,
   NoteDataProvider,
+  RecipientTaggingDataProvider,
   SenderTaggingDataProvider,
 } from '../../storage/index.js';
 import { ContractFunctionSimulator } from '../contract_function_simulator.js';
@@ -35,6 +36,7 @@ describe('Utility Execution test suite', () => {
   let aztecNode: ReturnType<typeof mock<AztecNode>>;
   let anchorBlockDataProvider: ReturnType<typeof mock<AnchorBlockDataProvider>>;
   let senderTaggingDataProvider: ReturnType<typeof mock<SenderTaggingDataProvider>>;
+  let recipientTaggingDataProvider: ReturnType<typeof mock<RecipientTaggingDataProvider>>;
   let capsuleDataProvider: ReturnType<typeof mock<CapsuleDataProvider>>;
   let acirSimulator: ContractFunctionSimulator;
   let owner: AztecAddress;
@@ -54,9 +56,19 @@ describe('Utility Execution test suite', () => {
     aztecNode = mock<AztecNode>();
     anchorBlockDataProvider = mock<AnchorBlockDataProvider>();
     senderTaggingDataProvider = mock<SenderTaggingDataProvider>();
+    recipientTaggingDataProvider = mock<RecipientTaggingDataProvider>();
     capsuleDataProvider = mock<CapsuleDataProvider>();
     anchorBlockHeader = BlockHeader.random();
     anchorBlockDataProvider.getBlockHeader.mockImplementation(() => Promise.resolve(anchorBlockHeader));
+    senderTaggingDataProvider.getLastFinalizedIndex.mockResolvedValue(undefined);
+    senderTaggingDataProvider.getLastUsedIndex.mockResolvedValue(undefined);
+    senderTaggingDataProvider.getTxHashesOfPendingIndexes.mockResolvedValue([]);
+    senderTaggingDataProvider.storePendingIndexes.mockResolvedValue();
+    recipientTaggingDataProvider.getSenderAddresses.mockResolvedValue([]);
+    recipientTaggingDataProvider.getLastUsedIndexes.mockImplementation(secrets =>
+      Promise.resolve(secrets.map(() => undefined)),
+    );
+    capsuleDataProvider.readCapsuleArray.mockResolvedValue([]);
     acirSimulator = new ContractFunctionSimulator(
       executionDataProvider,
       contractDataProvider,
@@ -66,12 +78,14 @@ describe('Utility Execution test suite', () => {
       aztecNode,
       anchorBlockDataProvider,
       senderTaggingDataProvider,
+      recipientTaggingDataProvider,
       capsuleDataProvider,
       simulator,
     );
 
     const ownerCompleteAddress = await CompleteAddress.fromSecretKeyAndPartialAddress(ownerSecretKey, Fr.random());
     owner = ownerCompleteAddress.address;
+    keyStore.getAccounts.mockResolvedValue([owner]);
 
     addressDataProvider.getCompleteAddress.mockImplementation((account: AztecAddress) => {
       if (account.equals(owner)) {

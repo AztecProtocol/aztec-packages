@@ -69,6 +69,7 @@ import {
   CapsuleDataProvider,
   ContractDataProvider,
   NoteDataProvider,
+  RecipientTaggingDataProvider,
 } from '../../storage/index.js';
 import type { SenderTaggingDataProvider } from '../../storage/tagging_data_provider/sender_tagging_data_provider.js';
 import { ContractFunctionSimulator } from '../contract_function_simulator.js';
@@ -116,6 +117,7 @@ describe('Private Execution test suite', () => {
   let addressDataProvider: MockProxy<AddressDataProvider>;
   let keyStore: MockProxy<KeyStore>;
   let senderTaggingDataProvider: MockProxy<SenderTaggingDataProvider>;
+  let recipientTaggingDataProvider: MockProxy<RecipientTaggingDataProvider>;
   let aztecNode: MockProxy<AztecNode>;
   let anchorBlockDataProvider: MockProxy<AnchorBlockDataProvider>;
   let capsuleDataProvider: MockProxy<CapsuleDataProvider>;
@@ -303,6 +305,7 @@ describe('Private Execution test suite', () => {
     noteDataProvider = mock<NoteDataProvider>();
     addressDataProvider = mock<AddressDataProvider>();
     senderTaggingDataProvider = mock<SenderTaggingDataProvider>();
+    recipientTaggingDataProvider = mock<RecipientTaggingDataProvider>();
     aztecNode = mock<AztecNode>();
     keyStore = mock<KeyStore>();
     anchorBlockDataProvider = mock<AnchorBlockDataProvider>();
@@ -310,6 +313,7 @@ describe('Private Execution test suite', () => {
     contracts = {};
     anchorBlockHeader = makeBlockHeader();
     anchorBlockDataProvider.getBlockHeader.mockImplementation(() => Promise.resolve(anchorBlockHeader));
+    capsuleDataProvider.readCapsuleArray.mockResolvedValue([]);
 
     // Mock the senderTaggingDataProvider getter
     Object.defineProperty(executionDataProvider, 'senderTaggingDataProvider', {
@@ -326,6 +330,10 @@ describe('Private Execution test suite', () => {
     senderTaggingDataProvider.getLastUsedIndex.mockResolvedValue(undefined);
     senderTaggingDataProvider.getTxHashesOfPendingIndexes.mockResolvedValue([]);
     senderTaggingDataProvider.storePendingIndexes.mockResolvedValue();
+    recipientTaggingDataProvider.getSenderAddresses.mockResolvedValue([]);
+    recipientTaggingDataProvider.getLastUsedIndexes.mockImplementation(secrets =>
+      Promise.resolve(secrets.map(() => undefined)),
+    );
 
     // Mock aztec node methods - the return array needs to have the same length as the number of tags
     // on the input.
@@ -347,6 +355,8 @@ describe('Private Execution test suite', () => {
       }
       return Promise.resolve(ownerIvskM);
     });
+
+    keyStore.getAccounts.mockResolvedValue([owner, recipient, senderForTags]);
 
     keyStore.getKeyValidationRequest.mockImplementation(async (pkMHash: Fr, contractAddress: AztecAddress) => {
       if (pkMHash.equals(await ownerCompleteAddress.publicKeys.masterNullifierPublicKey.hash())) {
@@ -410,7 +420,6 @@ describe('Private Execution test suite', () => {
       return Promise.resolve(artifact);
     });
 
-    executionDataProvider.syncTaggedLogs.mockImplementation((_, __) => Promise.resolve());
     capsuleDataProvider.loadCapsule.mockImplementation((_, __) => Promise.resolve(null));
 
     aztecNode.getPublicStorageAt.mockImplementation(
@@ -428,6 +437,7 @@ describe('Private Execution test suite', () => {
       aztecNode,
       anchorBlockDataProvider,
       senderTaggingDataProvider,
+      recipientTaggingDataProvider,
       capsuleDataProvider,
       simulator,
     );
@@ -552,7 +562,6 @@ describe('Private Execution test suite', () => {
         buildNote(60n, ownerCompleteAddress.address, storageSlot),
         buildNote(80n, ownerCompleteAddress.address, storageSlot),
       ]);
-      executionDataProvider.syncTaggedLogs.mockResolvedValue();
 
       noteDataProvider.getNotes.mockResolvedValue(notes);
 
@@ -601,7 +610,6 @@ describe('Private Execution test suite', () => {
       const storageSlot = StatefulTestContractArtifact.storageLayout['notes'].slot;
 
       const notes = await Promise.all([buildNote(balance, ownerCompleteAddress.address, storageSlot)]);
-      executionDataProvider.syncTaggedLogs.mockResolvedValue();
       noteDataProvider.getNotes.mockResolvedValue(notes);
 
       const consumedNotes = await asyncMap(notes, async ({ note, noteNonce, randomness }) => {
@@ -1035,7 +1043,6 @@ describe('Private Execution test suite', () => {
     });
 
     it('should be able to insert, read, and nullify pending note hashes in one call', async () => {
-      executionDataProvider.syncTaggedLogs.mockResolvedValue();
       noteDataProvider.getNotes.mockResolvedValue([]);
 
       const amountToTransfer = 100n;
@@ -1085,7 +1092,6 @@ describe('Private Execution test suite', () => {
     });
 
     it('should be able to insert, read, and nullify pending note hashes in nested calls', async () => {
-      executionDataProvider.syncTaggedLogs.mockResolvedValue();
       noteDataProvider.getNotes.mockResolvedValue([]);
 
       const amountToTransfer = 100n;
@@ -1153,7 +1159,6 @@ describe('Private Execution test suite', () => {
     });
 
     it('cant read a commitment that is inserted later in same call', async () => {
-      executionDataProvider.syncTaggedLogs.mockResolvedValue();
       noteDataProvider.getNotes.mockResolvedValue([]);
 
       const amountToTransfer = 100n;
@@ -1194,7 +1199,6 @@ describe('Private Execution test suite', () => {
     it('fails if returning no notes', async () => {
       // call_get_notes(owner: AztecAddress, storage_slot: Field, active_or_nullified: bool)
       const args = [owner, 2n, true];
-      executionDataProvider.syncTaggedLogs.mockResolvedValue();
       noteDataProvider.getNotes.mockResolvedValue([]);
 
       await expect(() =>

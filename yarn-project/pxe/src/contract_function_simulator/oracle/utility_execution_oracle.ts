@@ -20,6 +20,7 @@ import type {
   CapsuleDataProvider,
   ContractDataProvider,
   NoteDataProvider,
+  RecipientTaggingDataProvider,
   SenderTaggingDataProvider,
 } from '../../storage/index.js';
 import type { ExecutionDataProvider } from '../execution_data_provider.js';
@@ -27,6 +28,7 @@ import { UtilityContext } from '../noir-structs/utility_context.js';
 import { pickNotes } from '../pick_notes.js';
 import {
   assertCompatibleOracleVersion,
+  bulkRetrieveLogs,
   getBlock,
   getCompleteAddress,
   getContractInstance,
@@ -38,6 +40,7 @@ import {
   getPublicDataWitness,
   getPublicStorageAt,
   getSharedSecret,
+  syncTaggedLogs,
 } from './common.js';
 import type { IMiscOracle, IUtilityExecutionOracle, NoteData } from './interfaces.js';
 
@@ -64,6 +67,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     protected readonly aztecNode: AztecNode,
     protected readonly anchorBlockDataProvider: AnchorBlockDataProvider,
     protected readonly senderTaggingDataProvider: SenderTaggingDataProvider,
+    protected readonly recipientTaggingDataProvider: RecipientTaggingDataProvider,
     protected readonly capsuleDataProvider: CapsuleDataProvider,
     protected log = createLogger('simulator:client_view_context'),
     protected readonly scopes?: AztecAddress[],
@@ -318,7 +322,18 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   }
 
   public async utilityFetchTaggedLogs(pendingTaggedLogArrayBaseSlot: Fr) {
-    await this.executionDataProvider.syncTaggedLogs(this.contractAddress, pendingTaggedLogArrayBaseSlot, this.scopes);
+    await syncTaggedLogs(
+      this.contractAddress,
+      pendingTaggedLogArrayBaseSlot,
+      this.anchorBlockDataProvider,
+      this.keyStore,
+      this.contractDataProvider,
+      this.capsuleDataProvider,
+      this.addressDataProvider,
+      this.recipientTaggingDataProvider,
+      this.aztecNode,
+      this.scopes,
+    );
 
     await this.executionDataProvider.syncNoteNullifiers(this.contractAddress);
   }
@@ -350,10 +365,12 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       throw new Error(`Got a note validation request from ${contractAddress}, expected ${this.contractAddress}`);
     }
 
-    await this.executionDataProvider.bulkRetrieveLogs(
+    await bulkRetrieveLogs(
       contractAddress,
       logRetrievalRequestsArrayBaseSlot,
       logRetrievalResponsesArrayBaseSlot,
+      this.capsuleDataProvider,
+      this.aztecNode,
     );
   }
 
