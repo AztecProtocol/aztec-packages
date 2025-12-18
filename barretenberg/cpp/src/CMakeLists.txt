@@ -190,9 +190,7 @@ set(BARRETENBERG_TARGET_OBJECTS
     $<TARGET_OBJECTS:sumcheck_objects>
     $<TARGET_OBJECTS:transcript_objects>
     $<TARGET_OBJECTS:translator_vm_objects>
-    $<TARGET_OBJECTS:ultra_honk_objects>
-    # This is an object library, so doesn't need _objects.
-    $<TARGET_OBJECTS:vm2_stub>)
+    $<TARGET_OBJECTS:ultra_honk_objects>)
 
 if(NOT WASM AND NOT FUZZING)
     # enable merkle trees and lmdb
@@ -216,6 +214,8 @@ if(WASM)
         barretenberg-debug.wasm
         ${BARRETENBERG_TARGET_OBJECTS}
         $<TARGET_OBJECTS:wasi_objects>
+        # This is an object library, so doesn't need _objects.
+        $<TARGET_OBJECTS:vm2_stub>
     )
 
     target_link_options(
