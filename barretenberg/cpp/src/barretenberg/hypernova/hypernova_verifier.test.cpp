@@ -106,18 +106,16 @@ class HypernovaFoldingVerifierTests : public ::testing::Test {
 
         // Convert witness commitments
         auto native_comms = native_instance->witness_commitments.get_all();
-        size_t comm_idx = 0;
-        for (auto& comm : recursive_instance->witness_commitments.get_all()) {
-            comm = Commitment::from_witness(builder, native_comms[comm_idx]);
-            comm_idx++;
+        for (auto [native_comm, recursive_comm] :
+             zip_view(native_comms, recursive_instance->witness_commitments.get_all())) {
+            recursive_comm = Commitment::from_witness(builder, native_comm);
         }
 
         // Convert gate challenges
         recursive_instance->gate_challenges = std::vector<FF>(native_instance->gate_challenges.size());
-        size_t challenge_idx = 0;
-        for (auto& challenge : recursive_instance->gate_challenges) {
-            challenge = FF::from_witness(builder, native_instance->gate_challenges[challenge_idx]);
-            challenge_idx++;
+        for (auto [native_challenge, recursive_challenge] :
+             zip_view(native_instance->gate_challenges, recursive_instance->gate_challenges)) {
+            recursive_challenge = FF::from_witness(builder, native_challenge);
         }
 
         // Convert relation parameters
