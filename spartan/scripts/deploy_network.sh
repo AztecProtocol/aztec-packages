@@ -21,6 +21,22 @@ DEPLOY_START_TIME=$(date +%s)
 declare -A STAGE_TIMINGS
 
 ########################
+# CLEANUP
+########################
+# Track background processes for cleanup
+ETH_EXECUTION_PF_PID=""
+ETH_BEACON_PF_PID=""
+
+cleanup() {
+  if [[ -n "${ETH_EXECUTION_PF_PID}" ]] || [[ -n "${ETH_BEACON_PF_PID}" ]]; then
+    log "Cleaning up port-forwards..."
+    [[ -n "${ETH_EXECUTION_PF_PID}" ]] && kill "${ETH_EXECUTION_PF_PID}" 2>/dev/null || true
+    [[ -n "${ETH_BEACON_PF_PID}" ]] && kill "${ETH_BEACON_PF_PID}" 2>/dev/null || true
+  fi
+}
+trap cleanup EXIT
+
+########################
 # GLOBAL VARIABLES
 ########################
 NAMESPACE=${NAMESPACE} # required
@@ -245,10 +261,28 @@ EOF
   [[ -n "${L1_RPC_URL}" ]] || die "Failed to fetch eth_execution_rpc_url"
   [[ -n "${L1_CONSENSUS_HOST_URL}" ]] || die "Failed to fetch eth_beacon_api_url"
 
-  # For downstream modules
+  # Port-forward eth-devnet services to make them reachable from outside the cluster
+  # The terraform outputs are k8s-internal URLs, we need to expose them locally
+  ETH_EXECUTION_SVC="${NAMESPACE}-eth-execution"
+  ETH_BEACON_SVC="${NAMESPACE}-eth-beacon"
+
+  log "Setting up port-forwards for eth-devnet..."
+  kubectl -n "${NAMESPACE}" port-forward "svc/${ETH_EXECUTION_SVC}" 8545:8545 &
+  ETH_EXECUTION_PF_PID=$!
+  kubectl -n "${NAMESPACE}" port-forward "svc/${ETH_BEACON_SVC}" 5052:5052 &
+  ETH_BEACON_PF_PID=$!
+
+  # Give port-forwards time to establish
+  sleep 2
+
+  # Use localhost URLs for deployment
+  L1_RPC_URL="http://localhost:8545"
+  L1_CONSENSUS_HOST_URL="http://localhost:5052"
+
+  # For downstream modules (still use k8s-internal URLs)
   CSV_RPC_URLS="${L1_RPC_URL}"
-  L1_RPC_URLS_JSON="[\"${L1_RPC_URL}\"]"
-  L1_CONSENSUS_HOST_URLS_JSON="[\"${L1_CONSENSUS_HOST_URL}\"]"
+  L1_RPC_URLS_JSON="[\"$(terraform -chdir="${DEPLOY_ETH_DEVNET_DIR}" output -raw eth_execution_rpc_url)\"]"
+  L1_CONSENSUS_HOST_URLS_JSON="[\"$(terraform -chdir="${DEPLOY_ETH_DEVNET_DIR}" output -raw eth_beacon_api_url)\"]"
   # These can be null
   # L1_CONSENSUS_HOST_API_KEYS_JSON=
   # L1_CONSENSUS_HOST_API_KEY_HEADERS_JSON=
@@ -338,13 +372,43 @@ else
   export NETWORK ETHERSCAN_API_KEY LOG_LEVEL
   for var in ${!AZTEC_*}; do export "$var"; done
 
-  # Run deployment and capture JSON output
-  # The command outputs logs to stderr and JSON to stdout when --json is used
-  CONTRACT_JSON=$(node --no-warnings "${REPO_ROOT}/yarn-project/aztec/dest/bin/index.js" \
-    "${CLI_ARGS[@]}" 2>&1 | tee /dev/stderr | grep -E '^\{.*\}$' | tail -1) || true
+  # Use FORGE_PLAN mode to get the forge arguments, then run forge from docker
+  FORGE_PLAN_FILE=$(mktemp)
+  export FORGE_PLAN="${FORGE_PLAN_FILE}"
+
+  log "Generating forge plan..."
+  # The command will exit with error after writing the plan (by design)
+  node --no-warnings "${REPO_ROOT}/yarn-project/aztec/dest/bin/index.js" \
+    "${CLI_ARGS[@]}" 2>&1 || true
+
+  if [[ ! -s "${FORGE_PLAN_FILE}" ]]; then
+    die "Failed to generate forge plan - file is empty or missing"
+  fi
+
+  log "Running forge from docker..."
+
+  # Build docker env args from the plan's env object
+  DOCKER_ENV_ARGS=()
+  while IFS='=' read -r key value; do
+    DOCKER_ENV_ARGS+=("-e" "${key}=${value}")
+  done < <(jq -r '.env | to_entries | .[] | "\(.key)=\(.value)"' "${FORGE_PLAN_FILE}")
+
+  # Extract forge args as a bash array
+  readarray -t FORGE_ARGS < <(jq -r '.args[]' "${FORGE_PLAN_FILE}")
+
+  # Run forge from docker with the l1-contracts mounted
+  # Use host network to access the port-forwarded eth-devnet
+  CONTRACT_JSON=$(docker run --rm --network=host \
+    -v "${REPO_ROOT}/l1-contracts:/l1-contracts" \
+    -w "/l1-contracts" \
+    "${DOCKER_ENV_ARGS[@]}" \
+    "${AZTEC_DOCKER_IMAGE}" \
+    forge "${FORGE_ARGS[@]}" 2>&1 | tee /dev/stderr | grep -E '^\{.*\}$' | tail -1) || true
+
+  rm -f "${FORGE_PLAN_FILE}"
 
   if [[ -z "${CONTRACT_JSON}" ]] || ! echo "${CONTRACT_JSON}" | jq -e '.registryAddress' >/dev/null 2>&1; then
-    die "Failed to extract contract addresses from deployment output"
+    die "Failed to extract contract addresses from forge output"
   fi
 
   # Extract addresses using jq

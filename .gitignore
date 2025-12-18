@@ -32,3 +32,4 @@ docs/docs/protocol-specs/public-vm/gen/
 
 # for those who use Claude Code
 /.claude
+a.sh
