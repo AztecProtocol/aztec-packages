@@ -138,7 +138,7 @@ class HypernovaDeciderVerifierTests : public ::testing::Test {
      * @details Converts all fields from native to stdlib types for recursive verification testing
      */
     static std::shared_ptr<RecursiveVerifierInstance> create_recursive_verifier_instance(
-        Builder* builder, std::shared_ptr<NativeVerifierInstance> native_instance)
+        Builder* builder, const std::shared_ptr<NativeVerifierInstance>& native_instance)
     {
         using FF = RecursiveFlavor::FF;
         using Commitment = RecursiveFlavor::Commitment;

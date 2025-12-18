@@ -28,8 +28,6 @@ template <typename Flavor> class OinkVerifier {
     using FF = typename Flavor::FF;
     using Commitment = typename Flavor::Commitment;
     using SubrelationSeparator = typename Flavor::SubrelationSeparator;
-
-    // Use appropriate instance type based on whether flavor is recursive
     using Instance = bb::VerifierInstance_<Flavor>;
 
   public:

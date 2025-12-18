@@ -85,12 +85,12 @@ template <typename Flavor, class IO> class UltraVerifier_ {
     using Curve = typename Flavor::Curve;
     using VerificationKey = typename Flavor::VerificationKey;
     using Transcript = typename Flavor::Transcript;
+    using Instance = VerifierInstance_<Flavor>;
 
     static constexpr bool IsRecursive = IsRecursiveFlavor<Flavor>;
 
     // Conditional types based on recursion
     using Builder = std::conditional_t<IsRecursive, typename Flavor::CircuitBuilder, void>;
-    using Instance = VerifierInstance_<Flavor>;
     using PairingPoints =
         std::conditional_t<IsRecursive, stdlib::recursion::PairingPoints<Curve>, bb::PairingPoints<Curve>>;
 

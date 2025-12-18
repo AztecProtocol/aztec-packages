@@ -25,7 +25,7 @@ class HypernovaNativeTypes {
 
 class HypernovaRecursiveTypes {
   public:
-    using VerifierInstance = bb::VerifierInstance_<MegaRecursiveFlavor_<MegaCircuitBuilder>>;
+    using VerifierInstance = VerifierInstance_<MegaRecursiveFlavor_<MegaCircuitBuilder>>;
     using Proof = stdlib::Proof<MegaCircuitBuilder>;
     using MultilinearBatchingVerifier = bb::MultilinearBatchingVerifier<MultilinearBatchingRecursiveFlavor>;
     using PairingPoints = stdlib::recursion::PairingPoints<stdlib::bn254<MegaCircuitBuilder>>;
