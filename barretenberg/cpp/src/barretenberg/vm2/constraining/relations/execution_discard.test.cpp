@@ -328,6 +328,11 @@ TEST(ExecutionDiscardConstrainingTest, DiscardDyingContextMustError)
     trace.set(C::execution_sel_failure, 1, 0);
     trace.set(C::execution_sel_error, 1, 0);
     trace.set(C::execution_sel_execute_revert, 1, 0);
+
+    // As defined in context,pil, sel_exit_call = sel_failure + sel_execute_return; therefore
+    // we must set sel_execute_return to 1 to make the relation valid.
+    trace.set(C::execution_sel_execute_return, 1, 1);
+
     EXPECT_THROW_WITH_MESSAGE(check_relation<execution_discard>(trace, execution_discard::SR_DYING_CONTEXT_MUST_FAIL),
                               "DYING_CONTEXT_MUST_FAIL");
 }

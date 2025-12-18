@@ -237,13 +237,15 @@ TEST(ContextConstrainingTest, ContextSwitchingExceptionalHalt)
               { C::execution_sel, 1 },
               { C::execution_pc, 20 },
               { C::execution_next_pc, 30 },
-              { C::execution_sel_execute_return, 1 },
+              // Note that `sel_execute_return` is 0 because this is an exceptional halt.
               { C::execution_rop_0_, 500 },      // Return data size offset
               { C::execution_rop_1_, 600 },      // Return data offset
               { C::execution_register_0_, 200 }, // Return data size
               { C::execution_sel_exit_call, 1 },
               { C::execution_nested_exit_call, 1 },
               { C::execution_sel_error, 1 }, // Exceptional Halt
+              { C::execution_sel_failure, 1 },
+              { C::execution_nested_revert_or_error, 1 },
               { C::execution_context_id, 2 },
               { C::execution_next_context_id, 3 },
               { C::execution_parent_id, 1 },
