@@ -398,6 +398,30 @@ For more information on keystore configuration and creation, see the [Creating V
    docker compose up -d
    ```
 
+## Logging and Debugging
+
+### How Do I Enable JSON Logging?
+
+**Question**: How can I enable structured JSON logging for better debugging and log aggregation?
+
+**Answer**: Set the `LOG_JSON` environment variable to enable JSON-formatted log output:
+
+```bash
+LOG_JSON=1
+```
+
+Add this to your `.env` file and restart your node. When enabled, all logs are output as JSON to stderr, making them suitable for collection by standard log aggregation tools.
+
+**Example JSON log output**:
+
+```json
+{"level":30,"time":1705312245123,"module":"p2p","msg":"Connected to peer","peerId":"QmX..."}
+```
+
+Log levels are numeric: `trace=10`, `debug=20`, `verbose=25`, `info=30`, `warn=40`, `error=50`, `fatal=60`.
+
+For more information on logging options, see the [Monitoring and Observability guide](./monitoring.md).
+
 ## Getting Additional Help
 
 If you've tried the solutions above and are still experiencing issues:

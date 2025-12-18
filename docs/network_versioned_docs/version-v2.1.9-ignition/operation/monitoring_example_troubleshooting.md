@@ -108,6 +108,18 @@ This configuration includes:
 - Persistent volumes for Prometheus and Grafana data
 - All services on the same Docker network for easy communication
 
+## Adding Log Aggregation
+
+To enable structured JSON logging for your Aztec node, add `LOG_JSON=1` to your environment:
+
+```yaml
+environment:
+  LOG_JSON: "1"
+  # ... other environment variables
+```
+
+This outputs logs as JSON to stderr, which can be collected by your preferred log aggregation tool. See the [Structured Logging section](./monitoring.md#structured-logging) for details on the log format and other logging options.
+
 ## Troubleshooting
 
 ### Metrics not appearing
