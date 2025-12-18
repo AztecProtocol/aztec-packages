@@ -40,7 +40,6 @@ class TranslatorRecursiveFlavor;
 class ECCVMRecursiveFlavor;
 class MultilinearBatchingFlavor;
 class MultilinearBatchingRecursiveFlavor;
-class AvmRecursiveFlavor;
 
 // Forward declare SumcheckTestFlavor template and Grumpkin ZK variant
 namespace curve {
