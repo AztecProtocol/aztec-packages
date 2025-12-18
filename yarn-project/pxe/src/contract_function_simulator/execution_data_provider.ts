@@ -36,13 +36,6 @@ export type ExecutionStats = {
  */
 export interface ExecutionDataProvider {
   /**
-   * Gets the index of a nullifier in the nullifier tree.
-   * @param nullifier - The nullifier.
-   * @returns - The index of the nullifier. Undefined if it does not exist in the tree.
-   */
-  getNullifierIndex(nullifier: Fr): Promise<bigint | undefined>;
-
-  /**
    * Validates all note and event validation requests enqueued via `enqueue_note_for_validation` and
    * `enqueue_event_for_validation`, inserting them into the note database and event store respectively, making them
    * queryable via `get_notes` and `getPrivateEvents`.

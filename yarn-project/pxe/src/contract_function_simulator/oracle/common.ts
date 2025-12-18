@@ -662,3 +662,17 @@ export async function bulkRetrieveLogs(
     maybeLogRetrievalResponses.map(LogRetrievalResponse.toSerializedOption),
   );
 }
+
+export async function getNullifierIndex(nullifier: Fr, aztecNode: AztecNode) {
+  return await findLeafIndex('latest', MerkleTreeId.NULLIFIER_TREE, nullifier, aztecNode);
+}
+
+async function findLeafIndex(
+  blockNumber: BlockParameter,
+  treeId: MerkleTreeId,
+  leafValue: Fr,
+  aztecNode: AztecNode,
+): Promise<bigint | undefined> {
+  const [leafIndex] = await aztecNode.findLeavesIndexes(blockNumber, treeId, [leafValue]);
+  return leafIndex?.data;
+}

@@ -36,6 +36,7 @@ import {
   getLowNullifierMembershipWitness,
   getMembershipWitness,
   getNotes,
+  getNullifierIndex,
   getNullifierMembershipWitness,
   getPublicDataWitness,
   getPublicStorageAt,
@@ -265,7 +266,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    */
   public async utilityCheckNullifierExists(innerNullifier: Fr) {
     const nullifier = await siloNullifier(this.contractAddress, innerNullifier!);
-    const index = await this.executionDataProvider.getNullifierIndex(nullifier);
+    const index = await getNullifierIndex(nullifier, this.aztecNode);
     return index !== undefined;
   }
 

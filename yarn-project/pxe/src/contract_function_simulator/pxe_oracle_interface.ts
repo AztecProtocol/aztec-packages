@@ -2,7 +2,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import { EventSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { BlockParameter, DataInBlock } from '@aztec/stdlib/block';
+import type { DataInBlock } from '@aztec/stdlib/block';
 import { computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/stdlib/hash';
 import { type AztecNode, MAX_RPC_LEN } from '@aztec/stdlib/interfaces/client';
 import { Note, NoteDao } from '@aztec/stdlib/note';
@@ -34,15 +34,6 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     private privateEventDataProvider: PrivateEventDataProvider,
     private log = createLogger('pxe:pxe_oracle_interface'),
   ) {}
-
-  async getNullifierIndex(nullifier: Fr) {
-    return await this.#findLeafIndex('latest', MerkleTreeId.NULLIFIER_TREE, nullifier);
-  }
-
-  async #findLeafIndex(blockNumber: BlockParameter, treeId: MerkleTreeId, leafValue: Fr): Promise<bigint | undefined> {
-    const [leafIndex] = await this.aztecNode.findLeavesIndexes(blockNumber, treeId, [leafValue]);
-    return leafIndex?.data;
-  }
 
   public async validateEnqueuedNotesAndEvents(
     contractAddress: AztecAddress,
