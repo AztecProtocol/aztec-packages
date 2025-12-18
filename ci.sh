@@ -18,34 +18,38 @@ function echo_cmd {
 function print_usage {
   echo "usage: $(basename $0) <cmd>"
   echo
-  echo_cmd "fast"           "Spin up an EC2 instance and run bootstrap ci-fast."
-  echo_cmd "full"           "Spin up an EC2 instance and run bootstrap ci-full."
-  echo_cmd "full-no-test-cache" "Spin up an EC2 instance and run bootstrap ci-full-no-test-cache."
-  echo_cmd "docs"           "Spin up an EC2 instance and run docs-only CI."
-  echo_cmd "barretenberg"   "Spin up an EC2 instance and run barretenberg-only CI."
-  echo_cmd "merge-queue"    "Spin up several EC2 instances to run the merge-queue jobs."
-  echo_cmd "network-deploy" "Spin up an EC2 instance to deploy a network."
-  echo_cmd "network-tests"  "Spin up an EC2 instance to run tests on a network."
-  echo_cmd "network-bench"  "Spin up an EC2 instance to run benchmarks on a network."
-  echo_cmd "release"        "Spin up an EC2 instance and run bootstrap release."
-  echo_cmd "shell-new"      "Spin up an EC2 instance, clone the repo, and drop into a shell."
-  echo_cmd "shell"          "Drop into a shell in the current running build instance container."
-  echo_cmd "shell-host"     "Drop into a shell in the current running build host."
-  echo_cmd "run"            "Trigger a GA workflow for the current branch PR and tail logs."
-  echo_cmd "trigger"        "Trigger the GA workflow on the PR associated with the current branch."
-  echo_cmd "rlog"           "Tail the logs of the latest GA run or the given GA run ID."
-  echo_cmd "ilog"           "Tail the logs of the current running build instance."
-  echo_cmd "dlog"           "Display the log of the given denoise log ID."
-  echo_cmd "tlog"           "Display the last log of the given test command as output by test_cmds."
-  echo_cmd "tilog"          "Tail the live log of a given test command as output by test_cmds."
-  echo_cmd "llog"           "Tail the live log of a given log ID."
-  echo_cmd "draft"          "Mark the current PR as draft (no automatic CI runs when pushing)."
-  echo_cmd "ready"          "Mark the current PR as ready (enable automatic CI runs when pushing)."
-  echo_cmd "pr-url"         "Print the URL of the current PR associated with the branch."
-  echo_cmd "last-run-url"   "Print the URL of the last GA run for the current branch PR."
+  echo_cmd "fast"                  "Spin up an EC2 instance and run bootstrap ci-fast."
+  echo_cmd "full"                  "Spin up an EC2 instance and run bootstrap ci-full."
+  echo_cmd "full-no-test-cache"    "Spin up an EC2 instance and run bootstrap ci-full-no-test-cache."
+  echo_cmd "docs"                  "Spin up an EC2 instance and run docs-only CI."
+  echo_cmd "barretenberg"          "Spin up an EC2 instance and run barretenberg-only CI."
+  echo_cmd "grind"                 "Spin up multiple EC2 instances to run parallel full CI runs."
+  echo_cmd "merge-queue"           "Spin up several EC2 instances to run the merge-queue jobs."
+  echo_cmd "network-deploy"        "Spin up an EC2 instance to deploy a network."
+  echo_cmd "network-tests"         "Spin up an EC2 instance to run tests on a network."
+  echo_cmd "network-bench"         "Spin up an EC2 instance to run benchmarks on a network."
+  echo_cmd "network-teardown"      "Spin up an EC2 instance to teardown a network deployment."
+  echo_cmd "release"               "Spin up an EC2 instance and run bootstrap release."
+  echo_cmd "shell-new"             "Spin up an EC2 instance, clone the repo, and drop into a shell."
+  echo_cmd "shell-container"       "Drop into a shell in the current running build instance container."
+  echo_cmd "shell-host"            "Drop into a shell in the current running build host."
+  echo_cmd "run"                   "Trigger a GA workflow for the current branch PR and tail logs."
+  echo_cmd "trigger"               "Trigger the GA workflow on the PR associated with the current branch."
+  echo_cmd "rlog"                  "Tail the logs of the latest GA run or the given GA run ID."
+  echo_cmd "ilog"                  "Tail the logs of the current running build instance."
+  echo_cmd "dlog"                  "Display the log of the given denoise log ID."
+  echo_cmd "kill"                  "Terminate the EC2 instance for the current branch."
+  echo_cmd "draft"                 "Mark the current PR as draft (no automatic CI runs when pushing)."
+  echo_cmd "ready"                 "Mark the current PR as ready (enable automatic CI runs when pushing)."
+  echo_cmd "pr-url"                "Print the URL of the current PR associated with the branch."
+  echo_cmd "last-run-url"          "Print the URL of the last GA run for the current branch PR."
+  echo_cmd "gh-bench"              "Download CI-uploaded benchmarks for the current commit."
+  echo_cmd "gh-deploy-bench"       "Download CI-uploaded deployment benchmarks for the current commit."
+  echo_cmd "gh-spartan-bench"      "Download CI-uploaded spartan benchmarks for the current commit."
   echo_cmd "avm-inputs-collection" "Nightly: run e2e tests, dump AVM circuit inputs, upload to cache."
-  echo_cmd "avm-check-circuit" "Nightly: download cached AVM inputs, run check-circuit on each."
-  echo_cmd "help"           "Display this help message."
+  echo_cmd "avm-check-circuit"     "Nightly: download cached AVM inputs, run check-circuit on each."
+  echo_cmd "help"                  "Display this help message."
+
 }
 
 [ -n "$cmd" ] && shift
@@ -84,6 +88,9 @@ function prep_vars {
 }
 
 case "$cmd" in
+  "help"|"")
+    print_usage
+    ;;
   fast|full|full-no-test-cache|full-no-test-cache-makefile|docs|barretenberg|avm-inputs-collection|avm-check-circuit)
     export JOB_ID="x1-$cmd"
     bootstrap_ec2 "./bootstrap.sh ci-$cmd"
@@ -280,10 +287,6 @@ case "$cmd" in
     repo=$(gh repo view --json nameWithOwner -q .nameWithOwner)
     echo "https://github.com/$repo/actions/runs/$run_id"
     ;;
-  "help"|"")
-    print_usage
-    ;;
-
   ###################################
   # DOWNLOAD CI-UPLOADED BENCHMARKS #
   ###################################
@@ -295,15 +298,6 @@ case "$cmd" in
     ;;
   "gh-spartan-bench")
     cache_download spartan-bench-$(git rev-parse HEAD^{tree}).tar.gz
-    ;;
-  "uncached-tests")
-    if [ -z "$CI_REDIS_AVAILABLE" ]; then
-      echo "Not connected to CI redis."
-      exit 1
-    fi
-    ./bootstrap.sh test_cmds | \
-       grep -Ev -f <(yq e '.tests[] | select(.skip == true) | .regex' $root/.test_patterns.yml) | \
-       USE_TEST_CACHE=1 filter_cached_test_cmd
     ;;
   *)
     echo "Unknown command: $cmd, see ./ci.sh help"
