@@ -29,8 +29,8 @@ To open $H$ at the sumcheck challenge point $(u_0,\dots,u_{d-1})$, we observe:
 $$H(u_0,\dots,u_{d-1}) = c + \sum_{i=0}^{d-1} H_i(u_i) = \langle F, G \rangle$$
 
 where:
-- **$G$** = concatenation of $(c, H_0, H_1, \ldots, H_{d-1})$ in Lagrange basis over subgroup $H$
-- **$F$** = challenge polynomial with coefficients $(1, 1, u_0, u_0^2, \ldots, 1, u_1, u_1^2, \ldots)$
+- **$G$** = polynomial whose Lagrange coefficients over subgroup $H$ are the concatenation of $(c, \text{coeffs}(H_0), \text{coeffs}(H_1), \ldots, \text{coeffs}(H_{d-1}))$, where $\text{coeffs}(H_i)$ denotes the monomial coefficients of $H_i$
+- **$F$** = challenge polynomial with Lagrange coefficients $(1, 1, u_0, u_0^2, \ldots, 1, u_1, u_1^2, \ldots)$ over $H$ (check the protocol description for the formal definitions of $G$ and $F$).
 
 The inner product $\langle F, G \rangle$ computes $c \cdot 1 + H_0(u_0) + H_1(u_1) + \cdots = H(u_0, \ldots, u_{d-1})$.
 
@@ -44,7 +44,7 @@ We:
 1. Commit to the concatenated polynomial $G$ (small: size $\approx d \cdot L$ where $L$ = `LIBRA_UNIVARIATES_LENGTH`)
 2. Prove $\langle F, G \rangle = s$ using SmallSubgroupIPA (leverages small multiplicative subgroup)
 
-This is efficient because $|G| \leq |H|$ (the subgroup size), avoiding the exponential blowup.
+This is efficient because $|G| \leq |H|$ (the subgroup size), avoiding the blowup.
 
 ## Protocol Description
 
@@ -85,12 +85,13 @@ $open(c,v,s;u,r)$:
 1. Define the vector $A$ by, $A_0=0$, for $i=1,\ldots,m$, $a_i=\sum_{j<i} u_j\cdot v_j$.
 2.  $P$ chooses a random degree two polynomial $R(X)$. Let $A(X):=\sum_{i=1}^{m+1}A_i L_i(X)+ Z_H(X)R(X)$. $P$ computes and sends $cm(A)$.
 3. Let $G(X)$ be the polynomial computed in the description of $com_r(u)$.
-$P$ needs to show that for:
+
+    $P$ needs to show that for:
     - $i=0$: $A(g^0) = A(1) = 0$
     - $0 < i \leq m$: $A(g^i) = A(g^{i-1}) + F(g^{i-1})G(g^{i-1})$
     - $i=m$: $A(g^m) = s$
 
-where $g$ is the subgroup generator. The second condition at $X = g^{i-1}$ becomes $A(gX) = A(X) + F(X)G(X)$, which vanishes at all points except $X = g^{-1}$ (the last element). Thus the following polynomial is zero on the whole subgroup:
+    where $g$ is the subgroup generator. The second condition at $X = g^{i-1}$ becomes $A(gX) = A(X) + F(X)G(X)$, which vanishes at all points except $X = g^{-1}$ (the last element). Thus the following polynomial is zero on the whole subgroup:
 
 $$\begin{aligned}
 C(X) =\; & L_1(X) A(X) \\
