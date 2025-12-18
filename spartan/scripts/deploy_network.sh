@@ -282,23 +282,24 @@ if [[ "${VERIFY_CONTRACTS:-}" == "true" && "${CREATE_ROLLUP_CONTRACTS}" == "true
 fi
 
 ROLLUP_CONTRACTS_START=$(date +%s)
+DEPLOY_ROLLUP_CONTRACTS_DIR="${SCRIPT_DIR}/../terraform/deploy-rollup-contracts"
+"${SCRIPT_DIR}/override_terraform_backend.sh" "${DEPLOY_ROLLUP_CONTRACTS_DIR}" "${CLUSTER}" "${BASE_STATE_PATH}/deploy-rollup-contracts"
 
-# Check if registry contract already exists on-chain (skip deployment if so)
-if [[ -n "${REGISTRY_ADDRESS:-}" && "${REDEPLOY_ROLLUP_CONTRACTS}" != "true" ]]; then
-  # Registry address provided via env/config - check if it has code
-  FIRST_RPC_URL=$(echo "${CSV_RPC_URLS}" | cut -d',' -f1)
-  CODE=$(curl -s -X POST -H "Content-Type: application/json" \
-    --data "{\"jsonrpc\":\"2.0\",\"method\":\"eth_getCode\",\"params\":[\"${REGISTRY_ADDRESS}\",\"latest\"],\"id\":1}" \
-    "${FIRST_RPC_URL}" | jq -r '.result // "0x"')
-  if [[ "${CODE}" != "0x" && "${CODE}" != "null" && -n "${CODE}" ]]; then
-    log "Registry contract exists at ${REGISTRY_ADDRESS}, skipping deployment"
-  else
-    log "Registry address provided but no code found on-chain, will deploy"
-    unset REGISTRY_ADDRESS
+# Initialize terraform and check for existing state
+terraform -chdir="${DEPLOY_ROLLUP_CONTRACTS_DIR}" init -reconfigure >/dev/null
+EXISTING_REGISTRY=$(terraform -chdir="${DEPLOY_ROLLUP_CONTRACTS_DIR}" output -raw registry_address 2>/dev/null | grep -E '^0x[a-fA-F0-9]{40}$' || true)
+
+if [[ -n "${EXISTING_REGISTRY}" && "${REDEPLOY_ROLLUP_CONTRACTS}" != "true" ]]; then
+  log "Contracts already deployed (registry=${EXISTING_REGISTRY}), loading from state"
+  REGISTRY_ADDRESS="${EXISTING_REGISTRY}"
+  SLASH_FACTORY_ADDRESS=$(terraform -chdir="${DEPLOY_ROLLUP_CONTRACTS_DIR}" output -raw slash_factory_address 2>/dev/null || true)
+  FEE_ASSET_HANDLER_ADDRESS=$(terraform -chdir="${DEPLOY_ROLLUP_CONTRACTS_DIR}" output -raw fee_asset_handler_address 2>/dev/null || true)
+  ROLLUP_ADDRESS=$(terraform -chdir="${DEPLOY_ROLLUP_CONTRACTS_DIR}" output -raw rollup_address 2>/dev/null || true)
+else
+  if [[ "${REDEPLOY_ROLLUP_CONTRACTS}" == "true" ]]; then
+    log "REDEPLOY_ROLLUP_CONTRACTS=true, deploying fresh contracts"
   fi
-fi
 
-if [[ -z "${REGISTRY_ADDRESS:-}" ]]; then
   log "Deploying L1 contracts..."
 
   # Build CLI arguments
@@ -342,8 +343,21 @@ if [[ -z "${REGISTRY_ADDRESS:-}" ]]; then
   REGISTRY_ADDRESS=$(echo "${CONTRACT_JSON}" | jq -r '.registryAddress')
   SLASH_FACTORY_ADDRESS=$(echo "${CONTRACT_JSON}" | jq -r '.slashFactoryAddress // empty')
   FEE_ASSET_HANDLER_ADDRESS=$(echo "${CONTRACT_JSON}" | jq -r '.feeAssetHandlerAddress // empty')
+  ROLLUP_ADDRESS=$(echo "${CONTRACT_JSON}" | jq -r '.rollupAddress // empty')
 
   log "Deployed contracts: registry=${REGISTRY_ADDRESS}"
+
+  # Save to terraform state for persistence
+  cat > "${DEPLOY_ROLLUP_CONTRACTS_DIR}/terraform.tfvars" << EOF
+registry_address          = "${REGISTRY_ADDRESS}"
+slash_factory_address     = "${SLASH_FACTORY_ADDRESS:-}"
+fee_asset_handler_address = "${FEE_ASSET_HANDLER_ADDRESS:-}"
+rollup_address            = "${ROLLUP_ADDRESS:-}"
+deployed_at               = "$(date -Is)"
+EOF
+
+  terraform -chdir="${DEPLOY_ROLLUP_CONTRACTS_DIR}" apply -auto-approve >/dev/null
+  log "Contract addresses saved to terraform state"
 fi
 
 STAGE_TIMINGS[rollup_contracts]=$(($(date +%s) - ROLLUP_CONTRACTS_START))
