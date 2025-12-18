@@ -16,7 +16,7 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/stdlib/hash';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import { PrivateContextInputs } from '@aztec/stdlib/kernel';
-import type { ContractClassLog, DirectionalAppTaggingSecret, PreTag } from '@aztec/stdlib/logs';
+import { type ContractClassLog, DirectionalAppTaggingSecret, type PreTag } from '@aztec/stdlib/logs';
 import { Note, type NoteStatus } from '@aztec/stdlib/note';
 import {
   type BlockHeader,
@@ -44,7 +44,7 @@ import type { ExecutionNoteCache } from '../execution_note_cache.js';
 import { ExecutionTaggingIndexCache } from '../execution_tagging_index_cache.js';
 import type { HashedValuesCache } from '../hashed_values_cache.js';
 import { pickNotes } from '../pick_notes.js';
-import { calculateDirectionalAppTaggingSecret, getFunctionArtifact } from './common.js';
+import { getFunctionArtifact } from './common.js';
 import type { IPrivateExecutionOracle, NoteData } from './interfaces.js';
 import { executePrivateFunction, verifyCurrentClassId } from './private_execution.js';
 import { UtilityExecutionOracle } from './utility_execution_oracle.js';
@@ -241,13 +241,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
    * @returns An app tag to be used in a log.
    */
   public async privateGetNextAppTagAsSender(sender: AztecAddress, recipient: AztecAddress): Promise<Tag> {
-    const secret = await calculateDirectionalAppTaggingSecret(
-      this.contractAddress,
-      sender,
-      recipient,
-      this.addressDataProvider,
-      this.keyStore,
-    );
+    const secret = await this.#calculateDirectionalAppTaggingSecret(this.contractAddress, sender, recipient);
 
     const index = await this.#getIndexToUseForSecret(secret);
     this.log.debug(
@@ -256,6 +250,22 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     this.taggingIndexCache.setLastUsedIndex(secret, index);
 
     return Tag.compute({ secret, index });
+  }
+
+  async #calculateDirectionalAppTaggingSecret(
+    contractAddress: AztecAddress,
+    sender: AztecAddress,
+    recipient: AztecAddress,
+  ) {
+    const senderCompleteAddress = await this.getCompleteAddress(sender);
+    const senderIvsk = await this.keyStore.getMasterIncomingViewingSecretKey(sender);
+    return DirectionalAppTaggingSecret.compute(
+      senderCompleteAddress,
+      senderIvsk,
+      recipient,
+      contractAddress,
+      recipient,
+    );
   }
 
   async #getIndexToUseForSecret(secret: DirectionalAppTaggingSecret): Promise<number> {

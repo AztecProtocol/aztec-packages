@@ -1,23 +1,11 @@
 import type { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
 import type { Fr } from '@aztec/foundation/curves/bn254';
-import type { Point } from '@aztec/foundation/curves/grumpkin';
-import type { KeyStore } from '@aztec/key-store';
 import type { EventSelector, FunctionArtifactWithContractName, FunctionSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { BlockParameter, DataInBlock, L2Block } from '@aztec/stdlib/block';
-import type { CompleteAddress } from '@aztec/stdlib/contract';
 import { computeUniqueNoteHash, siloNoteHash, siloNullifier, siloPrivateLog } from '@aztec/stdlib/hash';
 import { type AztecNode, MAX_RPC_LEN } from '@aztec/stdlib/interfaces/server';
-import { computeAddressSecret } from '@aztec/stdlib/keys';
-import {
-  DirectionalAppTaggingSecret,
-  PendingTaggedLog,
-  PrivateLogWithTxData,
-  PublicLog,
-  PublicLogWithTxData,
-  TxScopedL2Log,
-  deriveEcdhSharedSecret,
-} from '@aztec/stdlib/logs';
+import { PrivateLogWithTxData, PublicLog, PublicLogWithTxData, TxScopedL2Log } from '@aztec/stdlib/logs';
 import { getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
 import { Note, NoteDao } from '@aztec/stdlib/note';
 import { MerkleTreeId, NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
@@ -25,15 +13,12 @@ import type { TxHash } from '@aztec/stdlib/tx';
 
 import { ORACLE_VERSION } from '../../oracle_version.js';
 import {
-  type AddressDataProvider,
   AnchorBlockDataProvider,
   type CapsuleDataProvider,
   type ContractDataProvider,
   type NoteDataProvider,
   PrivateEventDataProvider,
-  type RecipientTaggingDataProvider,
 } from '../../storage/index.js';
-import { SiloedTag, Tag, WINDOW_HALF_SIZE, getInitialIndexesMap, getPreTagsForTheWindow } from '../../tagging/index.js';
 import type { ExecutionStats } from '../execution_data_provider.js';
 import { EventValidationRequest } from '../noir-structs/event_validation_request.js';
 import { LogRetrievalRequest } from '../noir-structs/log_retrieval_request.js';
@@ -59,45 +44,6 @@ export async function getFunctionArtifact(
     ...artifact,
     debug,
   };
-}
-
-export async function getCompleteAddress(
-  account: AztecAddress,
-  addressDataProvider: AddressDataProvider,
-): Promise<CompleteAddress> {
-  const completeAddress = await addressDataProvider.getCompleteAddress(account);
-  if (!completeAddress) {
-    throw new Error(
-      `No public key registered for address ${account}.
-      Register it by calling pxe.addAccount(...).\nSee docs for context: https://docs.aztec.network/developers/resources/debugging/aztecnr-errors#simulation-error-no-public-key-registered-for-address-0x0-register-it-by-calling-pxeregisterrecipient-or-pxeregisteraccount`,
-    );
-  }
-  return completeAddress;
-}
-
-export async function calculateDirectionalAppTaggingSecret(
-  contractAddress: AztecAddress,
-  sender: AztecAddress,
-  recipient: AztecAddress,
-  addressDataProvider: AddressDataProvider,
-  keyStore: KeyStore,
-) {
-  const senderCompleteAddress = await getCompleteAddress(sender, addressDataProvider);
-  const senderIvsk = await keyStore.getMasterIncomingViewingSecretKey(sender);
-  return DirectionalAppTaggingSecret.compute(senderCompleteAddress, senderIvsk, recipient, contractAddress, recipient);
-}
-
-export async function getSharedSecret(
-  address: AztecAddress,
-  ephPk: Point,
-  addressDataProvider: AddressDataProvider,
-  keyStore: KeyStore,
-): Promise<Point> {
-  // TODO(#12656): return an app-siloed secret
-  const recipientCompleteAddress = await getCompleteAddress(address, addressDataProvider);
-  const ivskM = await keyStore.getMasterSecretKey(recipientCompleteAddress.publicKeys.masterIncomingViewingPublicKey);
-  const addressSecret = await computeAddressSecret(await recipientCompleteAddress.getPreaddress(), ivskM);
-  return deriveEcdhSharedSecret(addressSecret, ephPk);
 }
 
 /**
@@ -238,247 +184,6 @@ export function getStats(aztecNode: AztecNode): ExecutionStats {
     typeof (aztecNode as ProxiedNode).getStats === 'function' ? (aztecNode as ProxiedNode).getStats() : {};
 
   return { nodeRPCCalls };
-}
-
-// TODO(#17775): Replace this implementation of this function with one implementing an approach similar
-// to syncSenderTaggingIndexes. Not done yet due to re-prioritization to devex and this doesn't directly affect
-// devex.
-export async function syncTaggedLogs(
-  contractAddress: AztecAddress,
-  pendingTaggedLogArrayBaseSlot: Fr,
-  anchorBlockDataProvider: AnchorBlockDataProvider,
-  keyStore: KeyStore,
-  contractDataProvider: ContractDataProvider,
-  capsuleDataProvider: CapsuleDataProvider,
-  addressDataProvider: AddressDataProvider,
-  recipientTaggingDataProvider: RecipientTaggingDataProvider,
-  aztecNode: AztecNode,
-  scopes?: AztecAddress[],
-) {
-  const maxBlockNumber = (await anchorBlockDataProvider.getBlockHeader()).getBlockNumber();
-
-  // Ideally this algorithm would be implemented in noir, exposing its building blocks as oracles.
-  // However it is impossible at the moment due to the language not supporting nested slices.
-  // This nesting is necessary because for a given set of tags we don't
-  // know how many logs we will get back. Furthermore, these logs are of undetermined
-  // length, since we don't really know the note they correspond to until we decrypt them.
-  const recipients = scopes ? scopes : await keyStore.getAccounts();
-  for (const recipient of recipients) {
-    // Get all the secrets for the recipient and sender pairs (#9365)
-    const indexedSecrets = await getLastUsedTaggingIndexesForSenders(
-      contractAddress,
-      recipient,
-      addressDataProvider,
-      keyStore,
-      recipientTaggingDataProvider,
-    );
-
-    // We fetch logs for a window of indexes in a range:
-    //    <latest_log_index - WINDOW_HALF_SIZE, latest_log_index + WINDOW_HALF_SIZE>.
-    //
-    // We use this window approach because it could happen that a sender might have messed up and inadvertently
-    // incremented their index without us getting any logs (for example, in case of a revert). If we stopped looking
-    // for logs the first time we don't receive any logs for a tag, we might never receive anything from that sender again.
-    //    Also there's a possibility that we have advanced our index, but the sender has reused it, so we might have missed
-    // some logs. For these reasons, we have to look both back and ahead of the stored index.
-    let secretsAndWindows = indexedSecrets.map(indexedSecret => {
-      if (indexedSecret.index === undefined) {
-        return {
-          secret: indexedSecret.secret,
-          leftMostIndex: 0,
-          rightMostIndex: WINDOW_HALF_SIZE,
-        };
-      } else {
-        return {
-          secret: indexedSecret.secret,
-          leftMostIndex: Math.max(0, indexedSecret.index - WINDOW_HALF_SIZE),
-          rightMostIndex: indexedSecret.index + WINDOW_HALF_SIZE,
-        };
-      }
-    });
-
-    // As we iterate we store the largest index we have seen for a given secret to later on store it in the db.
-    const newLargestIndexMapToStore: { [k: string]: number } = {};
-
-    // The initial/unmodified indexes of the secrets stored in a key-value map where key is the directional app
-    // tagging secret.
-    const initialIndexesMap = getInitialIndexesMap(indexedSecrets);
-
-    while (secretsAndWindows.length > 0) {
-      const preTagsForTheWholeWindow = getPreTagsForTheWindow(secretsAndWindows);
-      const tagsForTheWholeWindow = await Promise.all(
-        preTagsForTheWholeWindow.map(async preTag => {
-          return SiloedTag.compute(await Tag.compute(preTag), contractAddress);
-        }),
-      );
-
-      // We store the new largest indexes we find in the iteration in the following map to later on construct
-      // a new set of secrets and windows to fetch logs for.
-      const newLargestIndexMapForIteration: { [k: string]: number } = {};
-
-      // Fetch the private logs for the tags and iterate over them
-      // TODO: The following conversion is unfortunate and we should most likely just type the #getPrivateLogsByTags
-      // to accept SiloedTag[] instead of Fr[]. That would result in a large change so I didn't do it yet.
-      const tagsForTheWholeWindowAsFr = tagsForTheWholeWindow.map(tag => tag.value);
-      const logsByTags = await internalGetPrivateLogsByTags(tagsForTheWholeWindowAsFr, aztecNode);
-
-      for (let logIndex = 0; logIndex < logsByTags.length; logIndex++) {
-        const logsByTag = logsByTags[logIndex];
-        if (logsByTag.length > 0) {
-          // We filter out the logs that are newer than the anchor block number of the tx currently being constructed
-          const filteredLogsByBlockNumber = logsByTag.filter(l => l.blockNumber <= maxBlockNumber);
-
-          // We store the logs in capsules (to later be obtained in Noir)
-          await storePendingTaggedLogs(
-            contractAddress,
-            pendingTaggedLogArrayBaseSlot,
-            recipient,
-            filteredLogsByBlockNumber,
-            aztecNode,
-            capsuleDataProvider,
-          );
-
-          // We retrieve the pre-tag corresponding to the log as I need that to evaluate whether
-          // a new largest index have been found.
-          const preTagCorrespondingToLog = preTagsForTheWholeWindow[logIndex];
-          const initialIndex = initialIndexesMap[preTagCorrespondingToLog.secret.toString()];
-
-          if (
-            preTagCorrespondingToLog.index >= initialIndex &&
-            (newLargestIndexMapForIteration[preTagCorrespondingToLog.secret.toString()] === undefined ||
-              preTagCorrespondingToLog.index >=
-                newLargestIndexMapForIteration[preTagCorrespondingToLog.secret.toString()])
-          ) {
-            // We have found a new largest index so we store it for later processing (storing it in the db + fetching
-            // the difference of the window sets of current and the next iteration)
-            newLargestIndexMapForIteration[preTagCorrespondingToLog.secret.toString()] =
-              preTagCorrespondingToLog.index + 1;
-          }
-        }
-      }
-
-      // Now based on the new largest indexes we found, we will construct a new secrets and windows set to fetch logs
-      // for. Note that it's very unlikely that a new log from the current window would appear between the iterations
-      // so we fetch the logs only for the difference of the window sets.
-      const newSecretsAndWindows = [];
-      for (const [directionalAppTaggingSecret, newIndex] of Object.entries(newLargestIndexMapForIteration)) {
-        const maybeIndexedSecret = indexedSecrets.find(
-          indexedSecret => indexedSecret.secret.toString() === directionalAppTaggingSecret,
-        );
-        if (maybeIndexedSecret) {
-          newSecretsAndWindows.push({
-            secret: maybeIndexedSecret.secret,
-            // We set the left most index to the new index to avoid fetching the same logs again
-            leftMostIndex: newIndex,
-            rightMostIndex: newIndex + WINDOW_HALF_SIZE,
-          });
-
-          // We store the new largest index in the map to later store it in the db.
-          newLargestIndexMapToStore[directionalAppTaggingSecret] = newIndex;
-        } else {
-          throw new Error(
-            `Secret not found for directionalAppTaggingSecret ${directionalAppTaggingSecret}. This is a bug as it should never happen!`,
-          );
-        }
-      }
-
-      // Now we set the new secrets and windows and proceed to the next iteration.
-      secretsAndWindows = newSecretsAndWindows;
-    }
-
-    // At this point we have processed all the logs for the recipient so we store the last used indexes in the db.
-    // newLargestIndexMapToStore contains "next" indexes to look for (one past the last found), so subtract 1 to get
-    // last used.
-    await recipientTaggingDataProvider.setLastUsedIndexes(
-      Object.entries(newLargestIndexMapToStore).map(([directionalAppTaggingSecret, index]) => ({
-        secret: DirectionalAppTaggingSecret.fromString(directionalAppTaggingSecret),
-        index: index - 1,
-      })),
-    );
-  }
-}
-
-async function storePendingTaggedLogs(
-  contractAddress: AztecAddress,
-  capsuleArrayBaseSlot: Fr,
-  recipient: AztecAddress,
-  privateLogs: TxScopedL2Log[],
-  aztecNode: AztecNode,
-  capsuleDataProvider: CapsuleDataProvider,
-) {
-  // Build all pending tagged logs upfront with their tx effects
-  const pendingTaggedLogs = await Promise.all(
-    privateLogs.map(async scopedLog => {
-      // TODO(#9789): get these effects along with the log
-      const txEffect = await aztecNode.getTxEffect(scopedLog.txHash);
-      if (!txEffect) {
-        throw new Error(`Could not find tx effect for tx hash ${scopedLog.txHash}`);
-      }
-
-      const pendingTaggedLog = new PendingTaggedLog(
-        scopedLog.log.fields,
-        scopedLog.txHash,
-        txEffect.data.noteHashes,
-        txEffect.data.nullifiers[0],
-        recipient,
-      );
-
-      return pendingTaggedLog.toFields();
-    }),
-  );
-
-  return capsuleDataProvider.appendToCapsuleArray(contractAddress, capsuleArrayBaseSlot, pendingTaggedLogs);
-}
-
-/**
- * Returns the last used tagging indexes along with the directional app tagging secrets for a given recipient and all
- * the senders in the address book.
- * This method should be exposed as an oracle call to allow aztec.nr to perform the orchestration
- * of the syncTaggedLogs and processTaggedLogs methods. However, it is not possible to do so at the moment,
- * so we're keeping it private for now.
- * @param contractAddress - The contract address to silo the secret for
- * @param recipient - The address receiving the notes
- * @returns A list of directional app tagging secrets along with the last used tagging indexes. If the corresponding
- * secret was never used, the index is undefined.
- * TODO(#17775): The naming here is broken as the function name does not reflect the return type. Make sure this gets
- * fixed when implementing the linked issue.
- */
-async function getLastUsedTaggingIndexesForSenders(
-  contractAddress: AztecAddress,
-  recipient: AztecAddress,
-  addressDataProvider: AddressDataProvider,
-  keyStore: KeyStore,
-  recipientTaggingDataProvider: RecipientTaggingDataProvider,
-): Promise<{ secret: DirectionalAppTaggingSecret; index: number | undefined }[]> {
-  const recipientCompleteAddress = await getCompleteAddress(recipient, addressDataProvider);
-  const recipientIvsk = await keyStore.getMasterIncomingViewingSecretKey(recipient);
-
-  // We implicitly add all PXE accounts as senders, this helps us decrypt tags on notes that we send to ourselves
-  // (recipient = us, sender = us)
-  const senders = [
-    ...(await recipientTaggingDataProvider.getSenderAddresses()),
-    ...(await keyStore.getAccounts()),
-  ].filter((address, index, self) => index === self.findIndex(otherAddress => otherAddress.equals(address)));
-  const secrets = await Promise.all(
-    senders.map(contact => {
-      return DirectionalAppTaggingSecret.compute(
-        recipientCompleteAddress,
-        recipientIvsk,
-        contact,
-        contractAddress,
-        recipient,
-      );
-    }),
-  );
-  const indexes = await recipientTaggingDataProvider.getLastUsedIndexes(secrets);
-  if (indexes.length !== secrets.length) {
-    throw new Error('Indexes and directional app tagging secrets have different lengths');
-  }
-
-  return secrets.map((secret, i) => ({
-    secret,
-    index: indexes[i],
-  }));
 }
 
 // TODO(#14555): delete this function and implement this behavior in the node instead
