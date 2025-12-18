@@ -359,7 +359,7 @@ export async function deployAztecL1Contracts(
   const forgePlanPath = process.env.FORGE_PLAN;
   if (forgePlanPath) {
     writeForgePlan(plan, forgePlanPath);
-    throw new Error(`Forge plan written to ${forgePlanPath}. Set FORGE_PLAN= to execute the deployment.`);
+    throw new Error(`Forge plan written to ${forgePlanPath}. Unset FORGE_PLAN to execute the deployment.`);
   }
 
   const result = await runForgePlan<ForgeL1ContractsDeployResult>(plan);
@@ -663,7 +663,7 @@ export const deployRollupForUpgrade = async (
   const forgePlanPath = process.env.FORGE_PLAN;
   if (forgePlanPath) {
     writeForgePlan(plan, forgePlanPath);
-    throw new Error(`Forge plan written to ${forgePlanPath}. Set FORGE_PLAN= to execute the deployment.`);
+    throw new Error(`Forge plan written to ${forgePlanPath}. Unset FORGE_PLAN to execute the deployment.`);
   }
 
   const result = await runForgePlan<ForgeRollupUpgradeResult>(plan);
