@@ -303,7 +303,7 @@ if [[ -z "${REGISTRY_ADDRESS:-}" ]]; then
     rm -f "${CONTRACTS_FILE}"
   fi
 
-  log "Deploying L1 contracts via docker..."
+  log "Deploying L1 contracts..."
 
   # Build CLI arguments
   CLI_ARGS=(
@@ -319,41 +319,13 @@ if [[ -z "${REGISTRY_ADDRESS:-}" ]]; then
   [[ "${TEST_ACCOUNTS}" == "true" ]] && CLI_ARGS+=("--test-accounts")
   [[ "${REAL_VERIFIER}" == "true" ]] && CLI_ARGS+=("--real-verifier")
 
-  # Build environment variables to pass to container
-  ENV_ARGS=()
-  [[ -n "${NETWORK:-}" ]] && ENV_ARGS+=("-e" "NETWORK=${NETWORK}")
-  [[ -n "${ETHERSCAN_API_KEY:-}" ]] && ENV_ARGS+=("-e" "ETHERSCAN_API_KEY=${ETHERSCAN_API_KEY}")
-
-  # Pass through AZTEC_* environment variables
-  for var in AZTEC_LAG_IN_EPOCHS_FOR_VALIDATOR_SET AZTEC_LAG_IN_EPOCHS_FOR_RANDAO \
-             AZTEC_SLOT_DURATION AZTEC_EPOCH_DURATION AZTEC_TARGET_COMMITTEE_SIZE \
-             AZTEC_PROOF_SUBMISSION_EPOCHS AZTEC_ACTIVATION_THRESHOLD AZTEC_EJECTION_THRESHOLD \
-             AZTEC_LOCAL_EJECTION_THRESHOLD AZTEC_SLASHING_QUORUM AZTEC_SLASHING_ROUND_SIZE \
-             AZTEC_SLASHING_ROUND_SIZE_IN_EPOCHS AZTEC_SLASHING_LIFETIME_IN_ROUNDS \
-             AZTEC_SLASHING_EXECUTION_DELAY_IN_ROUNDS AZTEC_SLASHING_VETOER \
-             AZTEC_SLASHING_OFFSET_IN_ROUNDS AZTEC_SLASH_AMOUNT_SMALL AZTEC_SLASH_AMOUNT_MEDIUM \
-             AZTEC_SLASH_AMOUNT_LARGE AZTEC_SLASHER_FLAVOR AZTEC_GOVERNANCE_PROPOSER_QUORUM \
-             AZTEC_GOVERNANCE_PROPOSER_ROUND_SIZE AZTEC_MANA_TARGET AZTEC_PROVING_COST_PER_MANA \
-             AZTEC_EXIT_DELAY_SECONDS; do
-    if [[ -n "${!var:-}" ]]; then
-      ENV_ARGS+=("-e" "${var}=${!var}")
-    fi
-  done
-
   # Create temp file for output
   DEPLOY_OUTPUT=$(mktemp)
   trap "rm -f ${DEPLOY_OUTPUT}" EXIT
 
-  # Build docker command
-  DOCKER_CMD=(docker run --rm)
-  [[ ${#ENV_ARGS[@]} -gt 0 ]] && DOCKER_CMD+=("${ENV_ARGS[@]}")
-  DOCKER_CMD+=(-e "LOG_LEVEL=${LOG_LEVEL:-debug}")
-  DOCKER_CMD+=("${AZTEC_DOCKER_IMAGE}")
-  DOCKER_CMD+=(node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js)
-  DOCKER_CMD+=("${CLI_ARGS[@]}")
-
-  # Run deployment in docker container
-  "${DOCKER_CMD[@]}" 2>&1 | tee "${DEPLOY_OUTPUT}"
+  # Run deployment directly using node
+  node --no-warnings "${REPO_ROOT}/yarn-project/aztec/dest/bin/index.js" \
+    "${CLI_ARGS[@]}" 2>&1 | tee "${DEPLOY_OUTPUT}"
 
   # Extract JSON output from deployment
   # The deploy-l1-contracts command outputs JSON when --json flag is used
