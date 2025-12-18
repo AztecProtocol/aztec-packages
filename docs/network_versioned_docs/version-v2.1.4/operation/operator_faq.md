@@ -32,19 +32,24 @@ ERROR: world-state:database Call SYNC_BLOCK failed: Error: Can't synch block: bl
 
 1. Stop your node:
 
-   - Docker Compose: `docker compose down`
-   - CLI: Press `Ctrl+C` to stop the process
+   ```bash
+   docker compose down
+   ```
 
 2. Remove the archiver data directory:
 
    ```bash
-   rm -rf ~/.aztec/v2.1.4/data/archiver
+   rm -rf ~/.aztec/v2.1.9/data/archiver
    ```
 
-3. Restart your node with your normal startup command
+3. Restart your node:
+
+   ```bash
+   docker compose up -d
+   ```
 
 :::warning Data Loss and Resync
-This process removes local state and requires full resynchronization. Consider using snapshot sync mode (`--sync-mode snapshot`) to speed up recovery. See the [syncing best practices guide](../setup/syncing_best_practices.md) for more information.
+This process removes local state and requires full resynchronization. Consider using snapshot sync mode (`SYNC_MODE=snapshot`) to speed up recovery. See the [syncing best practices guide](../setup/syncing_best_practices.md) for more information.
 :::
 
 ### Error Getting Slot Number
@@ -194,10 +199,10 @@ Error: insufficient funds for gas * price + value
 
 3. **Set up balance monitoring**:
 
-   ```bash
-   # Check your publisher balance
-   cast balance [YOUR_PUBLISHER_ADDRESS] --rpc-url [YOUR_RPC_URL]
-   ```
+   Check your publisher balance on Etherscan:
+   - Go to `https://etherscan.io/address/[YOUR_PUBLISHER_ADDRESS]`
+   - The ETH balance is displayed at the top of the page
+   - For testnet, use `https://sepolia.etherscan.io/address/[YOUR_PUBLISHER_ADDRESS]`
 
 4. **Configure alerts**:
    - Set up monitoring to alert you when balance drops below 0.15 ETH
@@ -213,15 +218,19 @@ Sequencers with insufficient funds in their publisher account risk being slashed
 
 To update to a specific version:
 
-```bash
-# CLI method
-aztec-up -v 2.1.4
-
-# Docker Compose: Update your docker-compose.yml
+```yaml
 # Change the image tag from:
 image: "aztecprotocol/aztec:latest"
 # To:
-image: "aztecprotocol/aztec:2.1.4"
+image: "aztecprotocol/aztec:2.1.9"
+```
+
+Then run:
+
+```bash
+docker compose pull
+docker compose down
+docker compose up -d
 ```
 
 :::tip Stay Informed About Updates
@@ -270,7 +279,7 @@ Join the [Aztec Discord](https://discord.gg/aztec) and follow the announcements 
    sudo ufw status
    ```
 
-5. **Verify Docker network settings** (Docker Compose method):
+5. **Verify Docker network settings**:
    - Ensure ports are properly mapped in docker-compose.yml
    - Check that `P2P_PORT` environment variable matches the exposed ports
 
@@ -335,8 +344,8 @@ CodeError: stream reset
    ```
 
 4. **Verify keystore directory path**:
-   - Docker Compose: Ensure `KEY_STORE_DIRECTORY` environment variable is set
-   - CLI: Check that `--key-store` flag points to the correct directory
+   - Ensure `KEY_STORE_DIRECTORY` environment variable is set in your `.env` file
+   - Verify the volume mount in `docker-compose.yml` points to the correct directory
 
 For more information on keystore configuration and creation, see the [Creating Validator Keystores guide](./keystore/creating_keystores.md) and the [Advanced Keystore Usage guide](./keystore/index.md).
 

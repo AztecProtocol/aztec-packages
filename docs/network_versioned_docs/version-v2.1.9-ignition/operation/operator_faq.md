@@ -199,10 +199,10 @@ Error: insufficient funds for gas * price + value
 
 3. **Set up balance monitoring**:
 
-   ```bash
-   # Check your publisher balance
-   cast balance [YOUR_PUBLISHER_ADDRESS] --rpc-url [YOUR_RPC_URL]
-   ```
+   Check your publisher balance on Etherscan:
+   - Go to `https://etherscan.io/address/[YOUR_PUBLISHER_ADDRESS]`
+   - The ETH balance is displayed at the top of the page
+   - For testnet, use `https://sepolia.etherscan.io/address/[YOUR_PUBLISHER_ADDRESS]`
 
 4. **Configure alerts**:
    - Set up monitoring to alert you when balance drops below 0.15 ETH

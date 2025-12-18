@@ -21,7 +21,7 @@ Before creating keystores, ensure you have:
 
 - Basic understanding of Ethereum addresses and private keys
 - Access to an Ethereum L1 RPC endpoint
-- Foundry toolkit installed (for creating publisher addresses)
+- A method to generate Ethereum addresses (browser wallet, hardware wallet, or any wallet generator)
 
 ## Installing the Aztec CLI
 
@@ -49,7 +49,7 @@ This approach creates multiple sequencer identities (validators) that share a si
 
 ### Step 1: Create Publisher Address and Set RPC Endpoint
 
-First, set your Ethereum L1 RPC endpoint:
+First, set your Ethereum mainnet L1 RPC endpoint:
 
 ```bash
 export ETH_RPC=https://ethereum-rpc.publicnode.com
@@ -57,32 +57,29 @@ export ETH_RPC=https://ethereum-rpc.publicnode.com
 
 Or use your preferred Ethereum RPC provider (Infura, Alchemy, etc.).
 
-Then generate a separate address for publishing transactions to L1 using the Foundry toolkit:
+Then generate a separate address for publishing transactions to L1. You can use any of these methods:
 
-```bash
-cast wallet new-mnemonic --words 24
-```
+**Option A: Use MetaMask or another browser wallet**
+1. Open MetaMask and click "Create Account" or "Add Account"
+2. Note the new address
+3. Click the three dots → "Account Details" → "Show Private Key"
+4. Enter your password and copy the private key
 
-**Example output:**
+**Option B: Use a hardware wallet (recommended for production)**
+1. Connect your Ledger/Trezor and create a new Ethereum account
+2. Export the address (the private key stays secure on the device)
+3. For signing, you'll use the hardware wallet directly via MetaMask + Etherscan
 
-```
-Successfully generated a new mnemonic.
-Phrase:
-word1 word2 word3 word4 word5 word6 word7 word8 word9 word10 word11 word12 word13 word14 word15 word16 word17 word18 word19 word20 word21 word22 word23 word24
+**Option C: Use any secure wallet generator**
+- Generate a new Ethereum wallet using a trusted tool
+- Save the mnemonic phrase and private key securely
 
-Accounts:
-- Account 0:
-Address:     0xE434A95e816991E66bF7052955FD699aEf8a286b
-Private key: 0x7988a4a7...79f058a0
-```
-
-:::warning Critical: Save Your Publisher Mnemonic
-The 24-word mnemonic is the **only way** to recover your publisher private key. Store it securely offline (not on the server running the node).
+:::warning Critical: Save Your Publisher Mnemonic/Private Key
+The mnemonic or private key is the **only way** to recover your publisher account. Store it securely offline (not on the server running the node). Never share it or enter it on untrusted websites.
 :::
 
-**Save from the output:**
-- ✅ The 24-word mnemonic (for recovery)
-- ✅ The private key (you'll use this in the next step)
+**Save:**
+- ✅ The mnemonic or private key (for recovery/signing)
 - ✅ The address (you'll fund this with ETH)
 
 ### Step 2: Generate Your Keystores with Publisher
@@ -164,13 +161,13 @@ Staker outputs:
 ]
 ```
 
-:::warning Critical: Save Both Mnemonics
-You now have **two separate mnemonics** to secure:
+:::warning Critical: Save Both Sets of Keys
+You now have **two separate sets of credentials** to secure:
 
 1. **Validator mnemonic** (shown above, 12 words) - Regenerates your attester keys
-2. **Publisher mnemonic** (from Step 1, 24 words) - Regenerates your publisher key
+2. **Publisher credentials** (from Step 1) - Your publisher private key or hardware wallet
 
-Both must be stored securely offline. Losing either mnemonic means losing access to those keys.
+Both must be stored securely offline. Losing either means losing access to those keys.
 :::
 
 **Files created:**
@@ -183,16 +180,15 @@ Your publisher address needs ETH to pay for L1 gas when submitting proposals.
 
 **Funding requirement:** At least **0.3 ETH** for 5 validators (rule of thumb: 0.1 ETH per validator)
 
-Transfer ETH to the publisher address from Step 1. You can check the balance with:
+Transfer ETH to the publisher address from Step 1. You can check the balance on Etherscan:
 
-```bash
-cast balance 0xE434A95e816991E66bF7052955FD699aEf8a286b --rpc-url $ETH_RPC
-```
+1. Go to `https://etherscan.io/address/[YOUR_PUBLISHER_ADDRESS]`
+2. The ETH balance is displayed at the top of the page
 
-Replace the address with your actual publisher address.
+For testnet, use `https://sepolia.etherscan.io/address/[YOUR_PUBLISHER_ADDRESS]`
 
 :::warning Monitor Publisher Balance
-Set up monitoring to alert when the publisher balance falls below 0.5 ETH to prevent failed block publications.
+Set up monitoring to alert when the publisher balance falls below 0.5 ETH to prevent failed block publications. Etherscan offers free address watch notifications.
 :::
 
 ### Step 4: Upload Keystore to Your Node
@@ -247,8 +243,8 @@ By following the recommended setup, you've accomplished:
 ✅ **Started your node** and verified validator addresses in the output
 ✅ **Ready to register** using the public keystore (`key1_staker_output.json`)
 
-**Two mnemonics to keep secure:**
-1. **Publisher mnemonic** (24 words) - Recovers publisher private key
+**Two sets of credentials to keep secure:**
+1. **Publisher credentials** - Private key or hardware wallet access
 2. **Validator mnemonic** (12 words) - Recovers all 5 validator attester keys
 
 ## Alternative: Single Validator Setup

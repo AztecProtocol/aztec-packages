@@ -15,7 +15,7 @@ Before proceeding, you should:
 
 - Have a running sequencer node (see [Sequencer Setup Guide](../../setup/sequencer_management.md))
 - Be familiar with basic sequencer operations
-- Have access to Foundry's `cast` tool for contract queries
+- Have a browser wallet (MetaMask, Rabby, etc.) for contract interactions via Etherscan
 - Understand your sequencer's role in the network
 
 ## Understanding Sequencer Operations

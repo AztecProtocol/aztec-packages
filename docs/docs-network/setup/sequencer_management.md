@@ -426,38 +426,35 @@ Both options use the same node setup from this guide.
 
 ## Monitoring Sequencer Status
 
-You can query the status of any sequencer (attester) using the Rollup and GSE (Governance Staking Escrow) contracts on L1.
+You can query the status of any sequencer (attester) using the Rollup and GSE (Governance Staking Escrow) contracts on L1 via Etherscan.
 
 ### Prerequisites
 
-- Foundry installed (`cast` command)
-- Ethereum RPC endpoint
+- A web browser
 - Registry contract address for your network
 
 ### Get Contract Addresses
 
 First, get the canonical Rollup contract address from the Registry:
 
-```bash
-# Get the canonical rollup address
-cast call [REGISTRY_CONTRACT_ADDRESS] "getCanonicalRollup()" --rpc-url [YOUR_RPC_URL]
-```
+1. Go to `https://etherscan.io/address/[REGISTRY_CONTRACT_ADDRESS]#readContract` (use `sepolia.etherscan.io` for testnet)
+2. Find the `getCanonicalRollup` function
+3. Click **"Query"** and copy the returned Rollup address
 
 Then get the GSE contract address from the Rollup:
 
-```bash
-# Get the GSE contract address
-cast call [ROLLUP_ADDRESS] "getGSE()" --rpc-url [YOUR_RPC_URL]
-```
+1. Go to `https://etherscan.io/address/[ROLLUP_ADDRESS]#readContract`
+2. Find the `getGSE` function
+3. Click **"Query"** and copy the returned GSE address
 
 ### Query Sequencer Status
 
 Check the complete status and information for a specific sequencer:
 
-```bash
-# Get full attester view (status, balance, exit info, config)
-cast call [ROLLUP_ADDRESS] "getAttesterView(address)" [ATTESTER_ADDRESS] --rpc-url [YOUR_RPC_URL]
-```
+1. Go to `https://etherscan.io/address/[ROLLUP_ADDRESS]#readContract`
+2. Find the `getAttesterView` function
+3. Enter the attester address
+4. Click **"Query"**
 
 This returns an `AttesterView` struct containing:
 

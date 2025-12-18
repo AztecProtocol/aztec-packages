@@ -3,6 +3,7 @@ id: running_a_prover
 sidebar_position: 4
 title: Running a Prover
 description: A comprehensive guide on how to run an Aztec prover on the network using Docker Compose in a distributed configuration.
+references: ["yarn-project/aztec/src/cli/cmds/start_prover_node.ts"]
 ---
 
 ## Overview
@@ -43,7 +44,6 @@ The prover consists of three main components:
 ### Prover Agents
 
 **For each agent:**
-
 - 32 core / 64 vCPU (released in 2015 or later)
 - 128 GB RAM
 - 10 GB SSD
@@ -52,11 +52,10 @@ These requirements are subject to change as the network throughput increases. Pr
 
 :::tip Running Multiple Agents
 You can run multiple prover agents on a single machine by adjusting `PROVER_AGENT_COUNT`. Hardware requirements scale approximately linearly:
-
 - **2 agents**: 64 cores, 256 GB RAM
 - **3 agents**: 96 cores, 384 GB RAM
 - **4 agents**: 128 cores, 512 GB RAM
-  :::
+:::
 
 ## Generating Keys
 
@@ -66,29 +65,30 @@ Before setting up your prover, you need to generate the required Ethereum privat
 
 The prover publisher key is used to submit proofs to L1. This account needs ETH funding to pay for L1 gas.
 
-Generate an Ethereum private key using Foundry's `cast` tool:
+Generate an Ethereum address and private key using any of these methods:
 
-```bash
-# Generate a new wallet with a 24-word mnemonic
-cast wallet new-mnemonic --words 24
+**Option A: Use MetaMask or another browser wallet**
+1. Open MetaMask and click "Create Account" or "Add Account"
+2. Note the new address (this will be your `PROVER_ID`)
+3. Click the three dots → "Account Details" → "Show Private Key"
+4. Enter your password and copy the private key (for `PROVER_PUBLISHER_PRIVATE_KEY`)
 
-# This outputs a mnemonic phrase, a derived address, and private key
-# Save these securely - you'll need the private key for PROVER_PUBLISHER_PRIVATE_KEY
-# and the address for PROVER_ID
-```
+**Option B: Use a hardware wallet (recommended for production)**
+1. Connect your Ledger/Trezor and create a new Ethereum account
+2. Export the address (for `PROVER_ID`)
+3. For signing, you'll use the hardware wallet directly via MetaMask
+
+**Option C: Use any secure wallet generator**
+- Generate a new Ethereum wallet using a trusted tool
+- Save the mnemonic phrase and private key securely
 
 **Important notes:**
-
-- Save both the private key and the derived address securely
+- Save both the private key and the address securely
 - The private key will be used for `PROVER_PUBLISHER_PRIVATE_KEY`
-- The derived Ethereum address will be used for `PROVER_ID`
+- The Ethereum address will be used for `PROVER_ID`
 
 :::warning Account Funding Required
-The publisher account needs to be funded with ETH to post proofs to L1. Ensure the account holds sufficient ETH for gas costs during operation.
-:::
-
-:::tip
-If you don't have Foundry installed, follow the installation guide at [getfoundry.sh](https://getfoundry.sh/).
+The publisher account needs to be funded with ETH to post proofs to L1. Ensure the account holds sufficient ETH for gas costs during operation. Check your balance on Etherscan at `https://etherscan.io/address/[YOUR_ADDRESS]`.
 :::
 
 ## Setup
@@ -107,7 +107,7 @@ Prover agents must communicate with the prover broker over the network. Ensure t
 - The broker machine's port 8080 is accessible from all agent machines
 - Firewall rules allow traffic between agents and broker
 - Network connectivity is stable and low-latency between components
-  :::
+:::
 
 ### Prover Node and Broker Setup
 
@@ -151,7 +151,7 @@ Create `docker-compose.yml`:
 name: aztec-prover-node
 services:
   prover-node:
-    image: aztecprotocol/aztec:2.1.9
+    image: aztecprotocol/aztec:#include_testnet_version
     entrypoint: >-
       node
       --no-warnings
@@ -159,7 +159,7 @@ services:
       start
       --prover-node
       --archiver
-      --network mainnet
+      --network testnet
     depends_on:
       prover-broker:
         condition: service_started
@@ -184,14 +184,14 @@ services:
     restart: unless-stopped
 
   prover-broker:
-    image: aztecprotocol/aztec:2.1.9
+    image: aztecprotocol/aztec:#include_testnet_version
     entrypoint: >-
       node
       --no-warnings
       /usr/src/yarn-project/aztec/dest/bin/index.js
       start
       --prover-broker
-      --network mainnet
+      --network testnet
     environment:
       DATA_DIRECTORY: /var/lib/data
       ETHEREUM_HOSTS: ${ETHEREUM_HOSTS}
@@ -208,18 +208,16 @@ services:
 The admin port (8880) is intentionally **not exposed** to the host machine for security reasons. The admin API provides sensitive operations like configuration changes and database rollbacks that should never be accessible from outside the container.
 
 If you need to access admin endpoints, use `docker exec`:
-
 ```bash
 docker exec -it prover-node curl -X POST http://localhost:8880 \
   -H 'Content-Type: application/json' \
   -d '{"jsonrpc":"2.0","method":"nodeAdmin_getConfig","params":[],"id":1}'
 ```
-
 :::
 
 **Important:** The broker exposes port 8080 via `ports: - ${PROVER_BROKER_PORT}:8080`, making it accessible to external prover agents. Ensure this port is reachable from your agent machines.
 
-This configuration includes only essential settings. The `--network mainnet` flag applies network-specific defaults—see the [CLI reference](../reference/cli_reference.md) for all available configuration options.
+This configuration includes only essential settings. The `--network testnet` flag applies network-specific defaults—see the [CLI reference](../reference/cli_reference.md) for all available configuration options.
 
 #### Step 4: Start Node and Broker
 
@@ -266,14 +264,14 @@ Create `docker-compose.yml`:
 name: aztec-prover-agent
 services:
   prover-agent:
-    image: aztecprotocol/aztec:2.1.9
+    image: aztecprotocol/aztec:#include_testnet_version
     entrypoint: >-
       node
       --no-warnings
       /usr/src/yarn-project/aztec/dest/bin/index.js
       start
       --prover-agent
-      --network mainnet
+      --network testnet
     environment:
       PROVER_AGENT_COUNT: ${PROVER_AGENT_COUNT}
       PROVER_AGENT_POLL_INTERVAL_MS: ${PROVER_AGENT_POLL_INTERVAL_MS}
@@ -302,13 +300,11 @@ Once your prover is running, verify all components are working correctly:
 ### Check Services
 
 On the prover node machine:
-
 ```bash
 docker compose ps
 ```
 
 On each agent machine:
-
 ```bash
 docker compose ps
 ```
@@ -316,7 +312,6 @@ docker compose ps
 ### View Logs
 
 On prover node machine:
-
 ```bash
 # Prover node logs
 docker compose logs -f prover-node
@@ -326,7 +321,6 @@ docker compose logs -f prover-broker
 ```
 
 On agent machines:
-
 ```bash
 # Agent logs
 docker compose logs -f prover-agent
@@ -339,7 +333,6 @@ docker compose logs -f prover-agent
 **Issue**: Prover agent cannot connect to broker.
 
 **Solutions**:
-
 - Verify the broker IP address in `PROVER_BROKER_HOST` is correct
 - Ensure port 8080 on the broker machine is accessible from agent machines
 - Check firewall rules between machines allow traffic on port 8080
@@ -353,7 +346,6 @@ docker compose logs -f prover-agent
 **Issue**: Prover agent crashes or performs poorly.
 
 **Solutions**:
-
 - Verify your hardware meets the minimum requirements (32 cores per agent, 128 GB RAM per agent)
 - Check system resource usage: `docker stats`
 - Reduce `PROVER_AGENT_COUNT` if running multiple agents per machine
@@ -365,7 +357,6 @@ docker compose logs -f prover-agent
 **Issue**: Agent logs show no job activity.
 
 **Solutions**:
-
 - Verify the broker is receiving jobs from the prover node
 - Check broker logs for errors
 - Confirm `PROVER_ID` matches your publisher address
@@ -377,7 +368,6 @@ docker compose logs -f prover-agent
 **Issue**: Containers won't start or crash repeatedly.
 
 **Solutions**:
-
 - Ensure Docker and Docker Compose are up to date
 - Check disk space availability on all machines
 - Verify `.env` files are properly formatted

@@ -333,19 +333,11 @@ grep "Slashing round.*has been executed" /path/to/node/logs
 
 ### Query L1 Contract State
 
-You can query the TallySlashingProposer contract to see voting activity:
+You can query the TallySlashingProposer contract via Etherscan to see voting activity:
 
-```bash
-# Get current round information
-cast call [TALLY_SLASHING_PROPOSER_ADDRESS] \
-  "getCurrentRound()" \
-  --rpc-url [YOUR_RPC_URL]
-
-# Check a specific round's vote count
-cast call [TALLY_SLASHING_PROPOSER_ADDRESS] \
-  "getRound(uint256)" [ROUND_NUMBER] \
-  --rpc-url [YOUR_RPC_URL]
-```
+1. Go to `https://etherscan.io/address/[TALLY_SLASHING_PROPOSER_ADDRESS]#readContract` (use `sepolia.etherscan.io` for testnet)
+2. Query `getCurrentRound()` to get the current slashing round
+3. Query `getRound(uint256)` with a specific round number to see vote counts for that round
 
 ## Troubleshooting
 
