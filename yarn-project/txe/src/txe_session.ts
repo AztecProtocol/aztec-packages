@@ -128,6 +128,7 @@ export class TXESession implements TXESessionStateHandler {
     private senderTaggingDataProvider: SenderTaggingDataProvider,
     private recipientTaggingDataProvider: RecipientTaggingDataProvider,
     private capsuleDataProvider: CapsuleDataProvider,
+    private privateEventDataProvider: PrivateEventDataProvider,
     private chainId: Fr,
     private version: Fr,
     private nextBlockTimestamp: bigint,
@@ -162,9 +163,7 @@ export class TXESession implements TXESessionStateHandler {
     const pxeOracleInterface = new PXEOracleInterface(
       stateMachine.node,
       noteDataProvider,
-      capsuleDataProvider,
       stateMachine.anchorBlockDataProvider,
-      privateEventDataProvider,
     );
 
     const topLevelOracleHandler = new TXEOracleTopLevelContext(
@@ -177,6 +176,7 @@ export class TXESession implements TXESessionStateHandler {
       senderTaggingDataProvider,
       recipientTaggingDataProvider,
       capsuleDataProvider,
+      privateEventDataProvider,
       pxeOracleInterface,
       nextBlockTimestamp,
       version,
@@ -197,6 +197,7 @@ export class TXESession implements TXESessionStateHandler {
       senderTaggingDataProvider,
       recipientTaggingDataProvider,
       capsuleDataProvider,
+      privateEventDataProvider,
       version,
       chainId,
       nextBlockTimestamp,
@@ -267,6 +268,7 @@ export class TXESession implements TXESessionStateHandler {
       this.senderTaggingDataProvider,
       this.recipientTaggingDataProvider,
       this.capsuleDataProvider,
+      this.privateEventDataProvider,
       this.pxeOracleInterface,
       this.nextBlockTimestamp,
       this.version,
@@ -329,6 +331,7 @@ export class TXESession implements TXESessionStateHandler {
       this.senderTaggingDataProvider,
       this.recipientTaggingDataProvider,
       this.capsuleDataProvider,
+      this.privateEventDataProvider,
     );
 
     // We store the note and tagging index caches fed into the PrivateExecutionOracle (along with some other auxiliary
@@ -393,6 +396,7 @@ export class TXESession implements TXESessionStateHandler {
       this.senderTaggingDataProvider,
       this.recipientTaggingDataProvider,
       this.capsuleDataProvider,
+      this.privateEventDataProvider,
     );
 
     this.state = { name: 'UTILITY' };

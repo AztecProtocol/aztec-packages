@@ -69,6 +69,7 @@ import {
   CapsuleDataProvider,
   ContractDataProvider,
   NoteDataProvider,
+  PrivateEventDataProvider,
   RecipientTaggingDataProvider,
 } from '../../storage/index.js';
 import type { SenderTaggingDataProvider } from '../../storage/tagging_data_provider/sender_tagging_data_provider.js';
@@ -121,6 +122,7 @@ describe('Private Execution test suite', () => {
   let aztecNode: MockProxy<AztecNode>;
   let anchorBlockDataProvider: MockProxy<AnchorBlockDataProvider>;
   let capsuleDataProvider: MockProxy<CapsuleDataProvider>;
+  let privateEventDataProvider: MockProxy<PrivateEventDataProvider>;
   let acirSimulator: ContractFunctionSimulator;
 
   let anchorBlockHeader = BlockHeader.empty();
@@ -310,6 +312,7 @@ describe('Private Execution test suite', () => {
     keyStore = mock<KeyStore>();
     anchorBlockDataProvider = mock<AnchorBlockDataProvider>();
     capsuleDataProvider = mock<CapsuleDataProvider>();
+    privateEventDataProvider = mock<PrivateEventDataProvider>();
     contracts = {};
     anchorBlockHeader = makeBlockHeader();
     anchorBlockDataProvider.getBlockHeader.mockImplementation(() => Promise.resolve(anchorBlockHeader));
@@ -439,6 +442,7 @@ describe('Private Execution test suite', () => {
       senderTaggingDataProvider,
       recipientTaggingDataProvider,
       capsuleDataProvider,
+      privateEventDataProvider,
       simulator,
     );
   });

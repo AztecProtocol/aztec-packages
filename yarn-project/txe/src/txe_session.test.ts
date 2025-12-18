@@ -19,6 +19,7 @@ describe('TXESession.processFunction', () => {
       {} as any, // senderTaggingDataProvider
       {} as any, // recipientTaggingDataProvider
       {} as any, // capsuleDataProvider
+      {} as any, // privateEventDataProvider
       new Fr(1), // chainId
       new Fr(1), // version
       0n, // nextBlockTimestamp

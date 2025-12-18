@@ -1,4 +1,3 @@
-import type { Fr } from '@aztec/foundation/curves/bn254';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { NodeStats } from '@aztec/stdlib/tx';
 
@@ -34,22 +33,6 @@ export type ExecutionStats = {
  * The interface for the data layer required to perform private and utility execution.
  */
 export interface ExecutionDataProvider {
-  /**
-   * Validates all note and event validation requests enqueued via `enqueue_note_for_validation` and
-   * `enqueue_event_for_validation`, inserting them into the note database and event store respectively, making them
-   * queryable via `get_notes` and `getPrivateEvents`.
-   *
-   * This automatically clears both validation request queues, so no further work needs to be done by the caller.
-   * @param contractAddress - The address of the contract that the logs are tagged for.
-   * @param noteValidationRequestsArrayBaseSlot - The base slot of capsule array containing note validation requests.
-   * @param eventValidationRequestsArrayBaseSlot - The base slot of capsule array containing event validation requests.
-   */
-  validateEnqueuedNotesAndEvents(
-    contractAddress: AztecAddress,
-    noteValidationRequestsArrayBaseSlot: Fr,
-    eventValidationRequestsArrayBaseSlot: Fr,
-  ): Promise<void>;
-
   /**
    * Looks for nullifiers of active contract notes and marks them as nullified in the db if a nullifier is found.
    */

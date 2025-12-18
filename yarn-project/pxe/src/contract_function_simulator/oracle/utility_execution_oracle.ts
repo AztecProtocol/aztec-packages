@@ -20,6 +20,7 @@ import type {
   CapsuleDataProvider,
   ContractDataProvider,
   NoteDataProvider,
+  PrivateEventDataProvider,
   RecipientTaggingDataProvider,
   SenderTaggingDataProvider,
 } from '../../storage/index.js';
@@ -42,6 +43,7 @@ import {
   getPublicStorageAt,
   getSharedSecret,
   syncTaggedLogs,
+  validateEnqueuedNotesAndEvents,
 } from './common.js';
 import type { IMiscOracle, IUtilityExecutionOracle, NoteData } from './interfaces.js';
 
@@ -70,6 +72,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     protected readonly senderTaggingDataProvider: SenderTaggingDataProvider,
     protected readonly recipientTaggingDataProvider: RecipientTaggingDataProvider,
     protected readonly capsuleDataProvider: CapsuleDataProvider,
+    protected readonly privateEventDataProvider: PrivateEventDataProvider,
     protected log = createLogger('simulator:client_view_context'),
     protected readonly scopes?: AztecAddress[],
   ) {}
@@ -349,10 +352,15 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       throw new Error(`Got a note validation request from ${contractAddress}, expected ${this.contractAddress}`);
     }
 
-    await this.executionDataProvider.validateEnqueuedNotesAndEvents(
+    await validateEnqueuedNotesAndEvents(
       contractAddress,
       noteValidationRequestsArrayBaseSlot,
       eventValidationRequestsArrayBaseSlot,
+      this.capsuleDataProvider,
+      this.anchorBlockDataProvider,
+      this.aztecNode,
+      this.noteDataProvider,
+      this.privateEventDataProvider,
     );
   }
 

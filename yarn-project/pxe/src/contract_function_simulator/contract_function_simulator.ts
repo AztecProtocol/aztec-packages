@@ -77,6 +77,7 @@ import type {
   CapsuleDataProvider,
   ContractDataProvider,
   NoteDataProvider,
+  PrivateEventDataProvider,
   RecipientTaggingDataProvider,
   SenderTaggingDataProvider,
 } from '../storage/index.js';
@@ -107,6 +108,7 @@ export class ContractFunctionSimulator {
     private senderTaggingDataProvider: SenderTaggingDataProvider,
     private recipientTaggingDataProvider: RecipientTaggingDataProvider,
     private capsuleDataProvider: CapsuleDataProvider,
+    private privateEventDataProvider: PrivateEventDataProvider,
     private simulator: CircuitSimulator,
   ) {
     this.log = createLogger('simulator');
@@ -190,6 +192,7 @@ export class ContractFunctionSimulator {
       this.senderTaggingDataProvider,
       this.recipientTaggingDataProvider,
       this.capsuleDataProvider,
+      this.privateEventDataProvider,
       0, // totalPublicArgsCount
       startSideEffectCounter,
       undefined, // log
@@ -290,6 +293,7 @@ export class ContractFunctionSimulator {
       this.senderTaggingDataProvider,
       this.recipientTaggingDataProvider,
       this.capsuleDataProvider,
+      this.privateEventDataProvider,
       undefined,
       scopes,
     );

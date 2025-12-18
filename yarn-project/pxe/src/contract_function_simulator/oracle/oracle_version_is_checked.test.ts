@@ -18,6 +18,7 @@ import {
   CapsuleDataProvider,
   ContractDataProvider,
   NoteDataProvider,
+  PrivateEventDataProvider,
   RecipientTaggingDataProvider,
   SenderTaggingDataProvider,
 } from '../../storage/index.js';
@@ -38,6 +39,7 @@ describe('Oracle Version Check test suite', () => {
   let senderTaggingDataProvider: ReturnType<typeof mock<SenderTaggingDataProvider>>;
   let recipientTaggingDataProvider: ReturnType<typeof mock<RecipientTaggingDataProvider>>;
   let capsuleDataProvider: ReturnType<typeof mock<CapsuleDataProvider>>;
+  let privateEventDataProvider: ReturnType<typeof mock<PrivateEventDataProvider>>;
   let acirSimulator: ContractFunctionSimulator;
   let contractAddress: AztecAddress;
   let anchorBlockHeader: BlockHeader;
@@ -56,6 +58,7 @@ describe('Oracle Version Check test suite', () => {
     senderTaggingDataProvider = mock<SenderTaggingDataProvider>();
     recipientTaggingDataProvider = mock<RecipientTaggingDataProvider>();
     capsuleDataProvider = mock<CapsuleDataProvider>();
+    privateEventDataProvider = mock<PrivateEventDataProvider>();
     assertCompatibleOracleVersionSpy = jest.spyOn(
       UtilityExecutionOracle.prototype,
       'utilityAssertCompatibleOracleVersion',
@@ -97,6 +100,7 @@ describe('Oracle Version Check test suite', () => {
       senderTaggingDataProvider,
       recipientTaggingDataProvider,
       capsuleDataProvider,
+      privateEventDataProvider,
       simulator,
     );
   });

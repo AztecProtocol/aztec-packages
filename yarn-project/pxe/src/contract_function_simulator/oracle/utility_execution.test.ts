@@ -19,6 +19,7 @@ import {
   CapsuleDataProvider,
   ContractDataProvider,
   NoteDataProvider,
+  PrivateEventDataProvider,
   RecipientTaggingDataProvider,
   SenderTaggingDataProvider,
 } from '../../storage/index.js';
@@ -38,6 +39,7 @@ describe('Utility Execution test suite', () => {
   let senderTaggingDataProvider: ReturnType<typeof mock<SenderTaggingDataProvider>>;
   let recipientTaggingDataProvider: ReturnType<typeof mock<RecipientTaggingDataProvider>>;
   let capsuleDataProvider: ReturnType<typeof mock<CapsuleDataProvider>>;
+  let privateEventDataProvider: ReturnType<typeof mock<PrivateEventDataProvider>>;
   let acirSimulator: ContractFunctionSimulator;
   let owner: AztecAddress;
   let anchorBlockHeader: BlockHeader;
@@ -58,6 +60,7 @@ describe('Utility Execution test suite', () => {
     senderTaggingDataProvider = mock<SenderTaggingDataProvider>();
     recipientTaggingDataProvider = mock<RecipientTaggingDataProvider>();
     capsuleDataProvider = mock<CapsuleDataProvider>();
+    privateEventDataProvider = mock<PrivateEventDataProvider>();
     anchorBlockHeader = BlockHeader.random();
     anchorBlockDataProvider.getBlockHeader.mockImplementation(() => Promise.resolve(anchorBlockHeader));
     senderTaggingDataProvider.getLastFinalizedIndex.mockResolvedValue(undefined);
@@ -80,6 +83,7 @@ describe('Utility Execution test suite', () => {
       senderTaggingDataProvider,
       recipientTaggingDataProvider,
       capsuleDataProvider,
+      privateEventDataProvider,
       simulator,
     );
 

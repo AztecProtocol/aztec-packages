@@ -34,6 +34,7 @@ import type {
   CapsuleDataProvider,
   ContractDataProvider,
   NoteDataProvider,
+  PrivateEventDataProvider,
   RecipientTaggingDataProvider,
   SenderTaggingDataProvider,
 } from '../../storage/index.js';
@@ -101,6 +102,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     senderTaggingDataProvider: SenderTaggingDataProvider,
     recipientTaggingDataProvider: RecipientTaggingDataProvider,
     capsuleDataProvider: CapsuleDataProvider,
+    privateEventDataProvider: PrivateEventDataProvider,
     private totalPublicCalldataCount: number = 0,
     protected sideEffectCounter: number = 0,
     log = createLogger('simulator:client_execution_context'),
@@ -123,6 +125,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       senderTaggingDataProvider,
       recipientTaggingDataProvider,
       capsuleDataProvider,
+      privateEventDataProvider,
       log,
       scopes,
     );
@@ -575,6 +578,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       this.senderTaggingDataProvider,
       this.recipientTaggingDataProvider,
       this.capsuleDataProvider,
+      this.privateEventDataProvider,
       this.totalPublicCalldataCount,
       sideEffectCounter,
       this.log,

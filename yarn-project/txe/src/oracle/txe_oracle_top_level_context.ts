@@ -18,6 +18,7 @@ import {
   NoteDataProvider,
   ORACLE_VERSION,
   PXEOracleInterface,
+  PrivateEventDataProvider,
   RecipientTaggingDataProvider,
   SenderTaggingDataProvider,
   enrichPublicSimulationError,
@@ -103,6 +104,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     private senderTaggingDataProvider: SenderTaggingDataProvider,
     private recipientTaggingDataProvider: RecipientTaggingDataProvider,
     private capsuleDataProvider: CapsuleDataProvider,
+    private privateEventDataProvider: PrivateEventDataProvider,
     private pxeOracleInterface: PXEOracleInterface,
     private nextBlockTimestamp: bigint,
     private version: Fr,
@@ -320,6 +322,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       this.senderTaggingDataProvider,
       this.recipientTaggingDataProvider,
       this.capsuleDataProvider,
+      this.privateEventDataProvider,
       0,
       1,
       undefined, // log
@@ -643,6 +646,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
         this.senderTaggingDataProvider,
         this.recipientTaggingDataProvider,
         this.capsuleDataProvider,
+        this.privateEventDataProvider,
       );
       const acirExecutionResult = await new WASMSimulator()
         .executeUserCircuit(toACVMWitness(0, args), entryPointArtifact, new Oracle(oracle).toACIRCallback())

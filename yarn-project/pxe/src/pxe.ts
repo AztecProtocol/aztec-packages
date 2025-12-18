@@ -198,9 +198,7 @@ export class PXE {
     const pxeOracleInterface = new PXEOracleInterface(
       ProxiedNodeFactory.create(this.node),
       this.noteDataProvider,
-      this.capsuleDataProvider,
       this.anchorBlockDataProvider,
-      this.privateEventDataProvider,
       this.log,
     );
     return new ContractFunctionSimulator(
@@ -214,6 +212,7 @@ export class PXE {
       this.senderTaggingDataProvider,
       this.recipientTaggingDataProvider,
       this.capsuleDataProvider,
+      this.privateEventDataProvider,
       this.simulator,
     );
   }
