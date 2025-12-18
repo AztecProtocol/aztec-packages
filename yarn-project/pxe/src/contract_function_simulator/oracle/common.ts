@@ -5,7 +5,7 @@ import type { KeyStore } from '@aztec/key-store';
 import type { EventSelector, FunctionArtifactWithContractName, FunctionSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { BlockParameter, DataInBlock, L2Block } from '@aztec/stdlib/block';
-import type { CompleteAddress, ContractInstance } from '@aztec/stdlib/contract';
+import type { CompleteAddress } from '@aztec/stdlib/contract';
 import { computeUniqueNoteHash, siloNoteHash, siloNullifier, siloPrivateLog } from '@aztec/stdlib/hash';
 import { type AztecNode, MAX_RPC_LEN } from '@aztec/stdlib/interfaces/server';
 import { computeAddressSecret } from '@aztec/stdlib/keys';
@@ -44,16 +44,6 @@ import { MessageLoadOracleInputs } from './message_load_oracle_inputs.js';
 
 // TODO: this might not be the final home for these functions,
 // it's just a way of starting to dissolve PXEOracleInterface
-export async function getContractInstance(
-  address: AztecAddress,
-  contractDataProvider: ContractDataProvider,
-): Promise<ContractInstance> {
-  const instance = await contractDataProvider.getContractInstance(address);
-  if (!instance) {
-    throw new Error(`No contract instance found for address ${address.toString()}`);
-  }
-  return instance;
-}
 
 export async function getFunctionArtifact(
   contractAddress: AztecAddress,

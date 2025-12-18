@@ -28,7 +28,7 @@ import { BlockHeader, PrivateCallExecutionResult } from '@aztec/stdlib/tx';
 import type { UInt64 } from '@aztec/stdlib/types';
 
 import { AnchorBlockDataProvider, ContractDataProvider } from '../../storage/index.js';
-import { getContractInstance, getPublicStorageAt } from './common.js';
+import { getPublicStorageAt } from './common.js';
 import { Oracle } from './oracle.js';
 import type { PrivateExecutionOracle } from './private_execution_oracle.js';
 
@@ -228,7 +228,11 @@ export async function verifyCurrentClassId(
   contractDataProvider: ContractDataProvider,
   header: BlockHeader,
 ) {
-  const instance = await getContractInstance(contractAddress, contractDataProvider);
+  const instance = await contractDataProvider.getContractInstance(contractAddress);
+  if (!instance) {
+    throw new Error(`No contract instance found for address ${contractAddress.toString()}`);
+  }
+
   const currentClassId = await readCurrentClassIdFromCurrentBlockAnchor(
     contractAddress,
     instance,

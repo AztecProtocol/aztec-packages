@@ -31,7 +31,6 @@ import {
   bulkRetrieveLogs,
   getBlock,
   getCompleteAddress,
-  getContractInstance,
   getL1ToL2MembershipWitness,
   getLowNullifierMembershipWitness,
   getMembershipWitness,
@@ -186,7 +185,15 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * @returns A contract instance.
    */
   public utilityGetContractInstance(address: AztecAddress): Promise<ContractInstance> {
-    return getContractInstance(address, this.contractDataProvider);
+    return this.getContractInstance(address);
+  }
+
+  protected async getContractInstance(address: AztecAddress): Promise<ContractInstance> {
+    const instance = await this.contractDataProvider.getContractInstance(address);
+    if (!instance) {
+      throw new Error(`No contract instance found for address ${address.toString()}`);
+    }
+    return instance;
   }
 
   /**
