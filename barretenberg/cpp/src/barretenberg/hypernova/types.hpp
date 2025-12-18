@@ -8,7 +8,6 @@
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/mega_recursive_flavor.hpp"
 #include "barretenberg/multilinear_batching/multilinear_batching_verifier.hpp"
-#include "barretenberg/stdlib/honk_verifier/recursive_verifier_instance.hpp"
 #include "barretenberg/stdlib/primitives/pairing_points.hpp"
 #include "barretenberg/stdlib/proof/proof.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
@@ -26,8 +25,7 @@ class HypernovaNativeTypes {
 
 class HypernovaRecursiveTypes {
   public:
-    using VerifierInstance =
-        stdlib::recursion::honk::RecursiveVerifierInstance_<MegaRecursiveFlavor_<MegaCircuitBuilder>>;
+    using VerifierInstance = VerifierInstance_<MegaRecursiveFlavor_<MegaCircuitBuilder>>;
     using Proof = stdlib::Proof<MegaCircuitBuilder>;
     using MultilinearBatchingVerifier = bb::MultilinearBatchingVerifier<MultilinearBatchingRecursiveFlavor>;
     using PairingPoints = stdlib::recursion::PairingPoints<stdlib::bn254<MegaCircuitBuilder>>;

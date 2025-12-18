@@ -57,7 +57,7 @@ class Chonk : public IVCBase {
     using RecursiveFlavor = MegaRecursiveFlavor_<bb::MegaCircuitBuilder>;
     using StdlibFF = RecursiveFlavor::FF;
     using RecursiveCommitment = RecursiveFlavor::Commitment;
-    using RecursiveVerifierInstance = stdlib::recursion::honk::RecursiveVerifierInstance_<RecursiveFlavor>;
+    using RecursiveVerifierInstance = VerifierInstance_<RecursiveFlavor>;
     using RecursiveVerificationKey = RecursiveFlavor::VerificationKey;
     using RecursiveVKAndHash = RecursiveFlavor::VKAndHash;
     using RecursiveTranscript = RecursiveFlavor::Transcript;
