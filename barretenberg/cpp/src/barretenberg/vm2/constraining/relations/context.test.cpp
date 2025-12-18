@@ -245,7 +245,7 @@ TEST(ContextConstrainingTest, ContextSwitchingExceptionalHalt)
               { C::execution_nested_exit_call, 1 },
               { C::execution_sel_error, 1 }, // Exceptional Halt
               { C::execution_sel_failure, 1 },
-              { C::execution_nested_revert_or_error, 1 },
+              { C::execution_nested_failure, 1 },
               { C::execution_context_id, 2 },
               { C::execution_next_context_id, 3 },
               { C::execution_parent_id, 1 },
