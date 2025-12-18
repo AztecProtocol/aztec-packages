@@ -31,6 +31,7 @@ if [ "$COMMAND" = "list-targets" ]; then
     echo "  ecc - ECC fuzzer (harness_ecc_fuzzer)"
     echo "  gt - Greater Than fuzzer (harness_gt_fuzzer)"
     echo "  merkle_check - Merkle Check fuzzer (harness_merkle_check_fuzzer)"
+    echo "  calldata - Calldata fuzzer (harness_calldata_fuzzer)"
     exit 0
 fi
 
@@ -64,9 +65,10 @@ case "$FUZZER_ALIAS" in
     ecc) FUZZER_TYPE="harness_ecc_fuzzer" ;;
     gt) FUZZER_TYPE="harness_gt_fuzzer" ;;
     merkle_check) FUZZER_TYPE="harness_merkle_check_fuzzer" ;;
+    calldata) FUZZER_TYPE="harness_calldata_fuzzer" ;;
     *)
         echo "Error: Invalid fuzzer type '$FUZZER_ALIAS'"
-        echo "Valid options: 'avm', 'alu', 'bitwise', 'ecc', 'gt' or 'merkle_check'"
+        echo "Valid options: 'avm', 'alu', 'bitwise', 'ecc', 'gt', 'merkle_check', or 'calldata'"
         exit 1
         ;;
 esac
