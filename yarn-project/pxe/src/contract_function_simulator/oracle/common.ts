@@ -6,7 +6,7 @@ import { computeUniqueNoteHash, siloNoteHash, siloNullifier, siloPrivateLog } fr
 import { type AztecNode, MAX_RPC_LEN } from '@aztec/stdlib/interfaces/server';
 import { PrivateLogWithTxData, PublicLog, PublicLogWithTxData, TxScopedL2Log } from '@aztec/stdlib/logs';
 import { Note, NoteDao } from '@aztec/stdlib/note';
-import { MerkleTreeId, NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
+import { MerkleTreeId, PublicDataWitness } from '@aztec/stdlib/trees';
 import type { TxHash } from '@aztec/stdlib/tx';
 
 import { ORACLE_VERSION } from '../../oracle_version.js';
@@ -41,23 +41,6 @@ export async function getFunctionArtifact(
     ...artifact,
     debug,
   };
-}
-
-export function getNullifierMembershipWitness(
-  blockNumber: BlockParameter,
-  nullifier: Fr,
-  aztecNode: AztecNode,
-): Promise<NullifierMembershipWitness | undefined> {
-  return aztecNode.getNullifierMembershipWitness(blockNumber, nullifier);
-}
-
-export async function getNullifierMembershipWitnessAtLatestBlock(
-  nullifier: Fr,
-  anchorBlockDataProvider: AnchorBlockDataProvider,
-  aztecNode: AztecNode,
-) {
-  const blockNumber = (await anchorBlockDataProvider.getBlockHeader()).getBlockNumber();
-  return getNullifierMembershipWitness(blockNumber, nullifier, aztecNode);
 }
 
 export async function getPublicDataWitness(

@@ -41,7 +41,6 @@ import {
   assertCompatibleOracleVersion,
   bulkRetrieveLogs,
   getNullifierIndex,
-  getNullifierMembershipWitness,
   getPublicDataWitness,
   getPublicStorageAt,
   syncNoteNullifiers,
@@ -159,7 +158,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     blockNumber: BlockNumber,
     nullifier: Fr,
   ): Promise<NullifierMembershipWitness | undefined> {
-    return await getNullifierMembershipWitness(blockNumber, nullifier, this.aztecNode);
+    return await this.aztecNode.getNullifierMembershipWitness(blockNumber, nullifier);
   }
 
   /**
