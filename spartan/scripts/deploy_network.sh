@@ -272,6 +272,13 @@ fi
 # Deploy rollup contracts
 # -------------------------------
 
+# Handle NETWORK variable - needs quotes for string values, null for unset
+if [[ -n "${NETWORK:-}" ]]; then
+  NETWORK_TF="\"${NETWORK}\""
+else
+  NETWORK_TF=null
+fi
+
 if [[ "${VERIFY_CONTRACTS:-}" == "true" && "${ETHEREUM_CHAIN_ID}" == "1337" ]]; then
   die "Cannot verify contracts deployed to eth-devnet"
 fi
