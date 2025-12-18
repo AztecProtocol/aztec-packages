@@ -74,11 +74,12 @@ describe('Utility Execution test suite', () => {
     recipientTaggingDataProvider.getLastUsedIndexes.mockImplementation(secrets =>
       Promise.resolve(secrets.map(() => undefined)),
     );
-    capsuleDataProvider.setCapsuleArray.mockImplementation(async (address, slot, content) => {
+    capsuleDataProvider.setCapsuleArray.mockImplementation((address, slot, content) => {
       capsuleArrays.set(`${address.toString()}:${slot.toString()}`, content);
+      return Promise.resolve();
     });
-    capsuleDataProvider.readCapsuleArray.mockImplementation(async (address, slot) => {
-      return capsuleArrays.get(`${address.toString()}:${slot.toString()}`) ?? [];
+    capsuleDataProvider.readCapsuleArray.mockImplementation((address, slot) => {
+      return Promise.resolve(capsuleArrays.get(`${address.toString()}:${slot.toString()}`) ?? []);
     });
     acirSimulator = new ContractFunctionSimulator(
       contractDataProvider,

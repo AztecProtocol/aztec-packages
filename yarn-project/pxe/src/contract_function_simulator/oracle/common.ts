@@ -4,7 +4,7 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { BlockParameter, DataInBlock } from '@aztec/stdlib/block';
 import { computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/stdlib/hash';
 import { type AztecNode, MAX_RPC_LEN } from '@aztec/stdlib/interfaces/server';
-import { PrivateLogWithTxData, PublicLog, PublicLogWithTxData, TxScopedL2Log } from '@aztec/stdlib/logs';
+import { PrivateLogWithTxData, TxScopedL2Log } from '@aztec/stdlib/logs';
 import { Note, NoteDao } from '@aztec/stdlib/note';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import type { TxHash } from '@aztec/stdlib/tx';
@@ -46,42 +46,6 @@ export function assertCompatibleOracleVersion(version: number): void {
 }
 
 // TODO(#14555): delete this function and implement this behavior in the node instead
-export async function getPublicLogByTag(
-  tag: Fr,
-  contractAddress: AztecAddress,
-  aztecNode: AztecNode,
-): Promise<PublicLogWithTxData | null> {
-  const logs = await internalGetPublicLogsByTagsFromContract([tag], contractAddress, aztecNode);
-  const logsForTag = logs[0];
-
-  if (logsForTag.length == 0) {
-    return null;
-  } else if (logsForTag.length > 1) {
-    // TODO(#11627): handle this case
-    throw new Error(
-      `Got ${logsForTag.length} logs for tag ${tag} and contract ${contractAddress.toString()}. getPublicLogByTag currently only supports a single log per tag`,
-    );
-  }
-
-  const scopedLog = logsForTag[0];
-
-  // getLogsByTag doesn't have all of the information that we need (notably note hashes and the first nullifier), so
-  // we need to make a second call to the node for `getTxEffect`.
-  // TODO(#9789): bundle this information in the `getLogsByTag` call.
-  const txEffect = await aztecNode.getTxEffect(scopedLog.txHash);
-  if (txEffect == undefined) {
-    throw new Error(`Unexpected: failed to retrieve tx effects for tx ${scopedLog.txHash} which is known to exist`);
-  }
-
-  return new PublicLogWithTxData(
-    scopedLog.log.getEmittedFieldsWithoutTag(),
-    scopedLog.txHash,
-    txEffect.data.noteHashes,
-    txEffect.data.nullifiers[0],
-  );
-}
-
-// TODO(#14555): delete this function and implement this behavior in the node instead
 export async function getPrivateLogByTag(siloedTag: Fr, aztecNode: AztecNode): Promise<PrivateLogWithTxData | null> {
   const logs = await internalGetPrivateLogsByTags([siloedTag], aztecNode);
   const logsForTag = logs[0];
@@ -118,18 +82,6 @@ export async function getPrivateLogByTag(siloedTag: Fr, aztecNode: AztecNode): P
 async function internalGetPrivateLogsByTags(tags: Fr[], aztecNode: AztecNode): Promise<TxScopedL2Log[][]> {
   const allLogs = await aztecNode.getLogsByTags(tags);
   return allLogs.map(logs => logs.filter(log => !log.isFromPublic));
-}
-
-// TODO(#12656): Make this a public function on the AztecNode interface and remove the original getLogsByTags. This
-// was not done yet as we were unsure about the API and we didn't want to introduce a breaking change.
-async function internalGetPublicLogsByTagsFromContract(
-  tags: Fr[],
-  contractAddress: AztecAddress,
-  aztecNode: AztecNode,
-): Promise<TxScopedL2Log[][]> {
-  const allLogs = await aztecNode.getLogsByTags(tags);
-  const allPublicLogs = allLogs.map(logs => logs.filter(log => log.isFromPublic));
-  return allPublicLogs.map(logs => logs.filter(log => (log.log as PublicLog).contractAddress.equals(contractAddress)));
 }
 
 export async function getNullifierIndex(nullifier: Fr, aztecNode: AztecNode) {

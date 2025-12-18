@@ -8,7 +8,7 @@ import { L2BlockHash, randomDataInBlock } from '@aztec/stdlib/block';
 import { CompleteAddress } from '@aztec/stdlib/contract';
 import { computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/stdlib/hash';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
-import { PublicLog, TxScopedL2Log } from '@aztec/stdlib/logs';
+import { TxScopedL2Log } from '@aztec/stdlib/logs';
 import { NoteStatus } from '@aztec/stdlib/note';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import {
@@ -21,7 +21,6 @@ import {
 } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
-import { randomInt } from 'crypto';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import {
@@ -32,7 +31,7 @@ import {
   NoteDataProvider,
   PrivateEventDataProvider,
 } from '../../storage/index.js';
-import { deliverEvent, deliverNote, getPrivateLogByTag, getPublicLogByTag, syncNoteNullifiers } from './common.js';
+import { deliverEvent, deliverNote, getPrivateLogByTag, syncNoteNullifiers } from './common.js';
 
 jest.setTimeout(30_000);
 
@@ -73,88 +72,6 @@ describe('Common oracle functions', () => {
     await setSyncedBlockNumber(MAX_BLOCK_NUMBER_OF_A_LOG);
 
     contractAddress = await AztecAddress.random();
-  });
-
-  describe('getPublicLogByTag', () => {
-    const tag = Fr.random();
-
-    beforeEach(() => {
-      aztecNode.getLogsByTags.mockReset();
-      aztecNode.getTxEffect.mockReset();
-    });
-
-    it('returns null if no logs found for tag', async () => {
-      aztecNode.getLogsByTags.mockResolvedValue([[]]);
-
-      const result = await getPublicLogByTag(tag, contractAddress, aztecNode);
-      expect(result).toBeNull();
-    });
-
-    it('returns log data when single log found', async () => {
-      const scopedLog = await TxScopedL2Log.random(true);
-      const logContractAddress = (scopedLog.log as PublicLog).contractAddress;
-
-      aztecNode.getLogsByTags.mockResolvedValue([[scopedLog]]);
-      const indexedTxEffect = await randomIndexedTxEffect();
-      aztecNode.getTxEffect.mockImplementation((txHash: TxHash) =>
-        txHash.equals(scopedLog.txHash) ? Promise.resolve(indexedTxEffect) : Promise.resolve(undefined),
-      );
-
-      const result = (await getPublicLogByTag(tag, logContractAddress, aztecNode))!;
-
-      expect(result.logPayload).toEqual(scopedLog.log.getEmittedFieldsWithoutTag());
-      expect(result.uniqueNoteHashesInTx).toEqual(indexedTxEffect.data.noteHashes);
-      expect(result.txHash).toEqual(scopedLog.txHash);
-      expect(result.firstNullifierInTx).toEqual(indexedTxEffect.data.nullifiers[0]);
-
-      expect(aztecNode.getLogsByTags).toHaveBeenCalledWith([tag]);
-      expect(aztecNode.getTxEffect).toHaveBeenCalledWith(scopedLog.txHash);
-    });
-
-    it('throws if multiple logs found for tag', async () => {
-      const scopedLog = await TxScopedL2Log.random(true);
-      aztecNode.getLogsByTags.mockResolvedValue([[scopedLog, scopedLog]]);
-      const logContractAddress = (scopedLog.log as PublicLog).contractAddress;
-
-      await expect(getPublicLogByTag(tag, logContractAddress, aztecNode)).rejects.toThrow(/Got 2 logs for tag/);
-    });
-
-    it('throws if tx effect not found', async () => {
-      const scopedLog = await TxScopedL2Log.random(true);
-      aztecNode.getLogsByTags.mockResolvedValue([[scopedLog]]);
-      aztecNode.getTxEffect.mockResolvedValue(undefined);
-      const logContractAddress = (scopedLog.log as PublicLog).contractAddress;
-
-      await expect(getPublicLogByTag(tag, logContractAddress, aztecNode)).rejects.toThrow(
-        /failed to retrieve tx effects/,
-      );
-    });
-
-    it('returns log fields that are actually emitted', async () => {
-      const logContractAddress = await AztecAddress.random();
-      const logPlaintext = [Fr.random()];
-      const logContent = [tag, ...logPlaintext];
-
-      const log = PublicLog.from({
-        contractAddress: logContractAddress,
-        fields: logContent,
-      });
-      const scopedLogWithPadding = new TxScopedL2Log(
-        TxHash.random(),
-        randomInt(100),
-        randomInt(100),
-        BlockNumber(randomInt(100)),
-        L2BlockHash.random(),
-        log,
-      );
-
-      aztecNode.getLogsByTags.mockResolvedValue([[scopedLogWithPadding]]);
-      aztecNode.getTxEffect.mockResolvedValue(await randomIndexedTxEffect());
-
-      const result = await getPublicLogByTag(tag, logContractAddress, aztecNode);
-
-      expect(result?.logPayload).toEqual(logPlaintext);
-    });
   });
 
   describe('getPrivateLogByTag', () => {

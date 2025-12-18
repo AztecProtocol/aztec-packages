@@ -16,6 +16,8 @@ import { computeAddressSecret } from '@aztec/stdlib/keys';
 import {
   DirectionalAppTaggingSecret,
   PendingTaggedLog,
+  PublicLog,
+  PublicLogWithTxData,
   TxScopedL2Log,
   deriveEcdhSharedSecret,
 } from '@aztec/stdlib/logs';
@@ -43,7 +45,6 @@ import {
   assertCompatibleOracleVersion,
   getNullifierIndex,
   getPrivateLogByTag,
-  getPublicLogByTag,
   syncNoteNullifiers,
   validateEnqueuedNotesAndEvents,
 } from './common.js';
@@ -504,7 +505,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       logRetrievalRequests.map(async request => {
         // TODO(#14555): remove these internal functions and have node endpoints that do this instead
         const [publicLog, privateLog] = await Promise.all([
-          getPublicLogByTag(request.unsiloedTag, request.contractAddress, this.aztecNode),
+          this.getPublicLogByTag(request.unsiloedTag, request.contractAddress),
           getPrivateLogByTag(await siloPrivateLog(request.contractAddress, request.unsiloedTag), this.aztecNode),
         ]);
 
@@ -832,5 +833,51 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   protected async internalGetPrivateLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]> {
     const allLogs = await this.aztecNode.getLogsByTags(tags);
     return allLogs.map(logs => logs.filter(log => !log.isFromPublic));
+  }
+
+  // TODO(#14555): delete this function and implement this behavior in the node instead
+  protected async getPublicLogByTag(tag: Fr, contractAddress: AztecAddress): Promise<PublicLogWithTxData | null> {
+    const logs = await this.internalGetPublicLogsByTagsFromContract([tag], contractAddress, this.aztecNode);
+    const logsForTag = logs[0];
+
+    if (logsForTag.length == 0) {
+      return null;
+    } else if (logsForTag.length > 1) {
+      // TODO(#11627): handle this case
+      throw new Error(
+        `Got ${logsForTag.length} logs for tag ${tag} and contract ${contractAddress.toString()}. getPublicLogByTag currently only supports a single log per tag`,
+      );
+    }
+
+    const scopedLog = logsForTag[0];
+
+    // getLogsByTag doesn't have all of the information that we need (notably note hashes and the first nullifier), so
+    // we need to make a second call to the node for `getTxEffect`.
+    // TODO(#9789): bundle this information in the `getLogsByTag` call.
+    const txEffect = await this.aztecNode.getTxEffect(scopedLog.txHash);
+    if (txEffect == undefined) {
+      throw new Error(`Unexpected: failed to retrieve tx effects for tx ${scopedLog.txHash} which is known to exist`);
+    }
+
+    return new PublicLogWithTxData(
+      scopedLog.log.getEmittedFieldsWithoutTag(),
+      scopedLog.txHash,
+      txEffect.data.noteHashes,
+      txEffect.data.nullifiers[0],
+    );
+  }
+
+  // TODO(#12656): Make this a public function on the AztecNode interface and remove the original getLogsByTags. This
+  // was not done yet as we were unsure about the API and we didn't want to introduce a breaking change.
+  protected async internalGetPublicLogsByTagsFromContract(
+    tags: Fr[],
+    contractAddress: AztecAddress,
+    aztecNode: AztecNode,
+  ): Promise<TxScopedL2Log[][]> {
+    const allLogs = await aztecNode.getLogsByTags(tags);
+    const allPublicLogs = allLogs.map(logs => logs.filter(log => log.isFromPublic));
+    return allPublicLogs.map(logs =>
+      logs.filter(log => (log.log as PublicLog).contractAddress.equals(contractAddress)),
+    );
   }
 }
