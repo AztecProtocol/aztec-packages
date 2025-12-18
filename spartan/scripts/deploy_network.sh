@@ -277,102 +277,115 @@ if [[ "${VERIFY_CONTRACTS:-}" == "true" && "${ETHEREUM_CHAIN_ID}" == "1337" ]]; 
 fi
 
 # Check for ETHERSCAN_API_KEY when VERIFY_CONTRACTS is enabled
-# Contract verification happens automatically in the yarn-project code when on mainnet/sepolia
-# and ETHERSCAN_API_KEY is set. This check ensures we fail early if verification is expected.
 if [[ "${VERIFY_CONTRACTS:-}" == "true" && "${CREATE_ROLLUP_CONTRACTS}" == "true" && -z "${ETHERSCAN_API_KEY:-}" ]]; then
   die "Error: ETHERSCAN_API_KEY is not set but VERIFY_CONTRACTS=true. Contract verification requires an Etherscan API key. Set ETHERSCAN_API_KEY environment variable."
 fi
 
 ROLLUP_CONTRACTS_START=$(date +%s)
-DEPLOY_ROLLUP_CONTRACTS_DIR="${SCRIPT_DIR}/../terraform/deploy-rollup-contracts"
-"${SCRIPT_DIR}/override_terraform_backend.sh" "${DEPLOY_ROLLUP_CONTRACTS_DIR}" "${CLUSTER}" "${BASE_STATE_PATH}/deploy-rollup-contracts"
 
-# Handle NETWORK variable - needs quotes for string values, null for unset
-if [[ -n "${NETWORK:-}" ]]; then
-  NETWORK_TF="\"${NETWORK}\""
-else
-  NETWORK_TF=null
+# File to store deployed contract addresses
+CONTRACTS_FILE="${SCRIPT_DIR}/../.deployed-contracts-${NAMESPACE}.json"
+
+if [[ -f "${CONTRACTS_FILE}" && "${REDEPLOY_ROLLUP_CONTRACTS}" != "true" ]]; then
+  # Check if we have valid contract addresses from a previous deployment
+  EXISTING_REGISTRY=$(jq -r '.registryAddress // empty' "${CONTRACTS_FILE}" 2>/dev/null || true)
+  if [[ -n "${EXISTING_REGISTRY}" && "${EXISTING_REGISTRY}" =~ ^0x[a-fA-F0-9]{40}$ ]]; then
+    log "Contracts already deployed (registry=${EXISTING_REGISTRY}), skipping deployment"
+    REGISTRY_ADDRESS="${EXISTING_REGISTRY}"
+    SLASH_FACTORY_ADDRESS=$(jq -r '.slashFactoryAddress // empty' "${CONTRACTS_FILE}")
+    FEE_ASSET_HANDLER_ADDRESS=$(jq -r '.feeAssetHandlerAddress // empty' "${CONTRACTS_FILE}")
+  fi
 fi
 
-cat > "${DEPLOY_ROLLUP_CONTRACTS_DIR}/terraform.tfvars" << EOF
-K8S_CLUSTER_CONTEXT = "${K8S_CLUSTER_CONTEXT}"
-NAMESPACE = "${NAMESPACE}"
-AZTEC_DOCKER_IMAGE = "${AZTEC_DOCKER_IMAGE}"
-L1_RPC_URLS = "${CSV_RPC_URLS}"
-PRIVATE_KEY = "${ROLLUP_DEPLOYMENT_PRIVATE_KEY}"
-L1_CHAIN_ID = "${ETHEREUM_CHAIN_ID}"
-VALIDATORS = "${VALIDATOR_ADDRESSES}"
-SPONSORED_FPC = ${SPONSORED_FPC}
-TEST_ACCOUNTS = ${TEST_ACCOUNTS}
-REAL_VERIFIER = ${REAL_VERIFIER}
-AZTEC_LAG_IN_EPOCHS_FOR_VALIDATOR_SET = ${AZTEC_LAG_IN_EPOCHS_FOR_VALIDATOR_SET:-null}
-AZTEC_LAG_IN_EPOCHS_FOR_RANDAO = ${AZTEC_LAG_IN_EPOCHS_FOR_RANDAO:-null}
-AZTEC_SLOT_DURATION = ${AZTEC_SLOT_DURATION:-null}
-AZTEC_EPOCH_DURATION = ${AZTEC_EPOCH_DURATION:-null}
-AZTEC_TARGET_COMMITTEE_SIZE = ${AZTEC_TARGET_COMMITTEE_SIZE:-null}
-AZTEC_PROOF_SUBMISSION_EPOCHS = ${AZTEC_PROOF_SUBMISSION_EPOCHS:-null}
-AZTEC_ACTIVATION_THRESHOLD = ${AZTEC_ACTIVATION_THRESHOLD:-null}
-AZTEC_EJECTION_THRESHOLD = ${AZTEC_EJECTION_THRESHOLD:-null}
-AZTEC_LOCAL_EJECTION_THRESHOLD = ${AZTEC_LOCAL_EJECTION_THRESHOLD:-null}
-AZTEC_SLASHING_QUORUM = ${AZTEC_SLASHING_QUORUM:-null}
-AZTEC_SLASHING_ROUND_SIZE = ${AZTEC_SLASHING_ROUND_SIZE:-null}
-AZTEC_SLASHING_ROUND_SIZE_IN_EPOCHS = ${AZTEC_SLASHING_ROUND_SIZE_IN_EPOCHS:-null}
-AZTEC_SLASHING_LIFETIME_IN_ROUNDS = ${AZTEC_SLASHING_LIFETIME_IN_ROUNDS:-null}
-AZTEC_SLASHING_EXECUTION_DELAY_IN_ROUNDS = ${AZTEC_SLASHING_EXECUTION_DELAY_IN_ROUNDS:-null}
-AZTEC_SLASHING_VETOER = ${AZTEC_SLASHING_VETOER:-null}
-AZTEC_SLASHING_OFFSET_IN_ROUNDS = ${AZTEC_SLASHING_OFFSET_IN_ROUNDS:-null}
-AZTEC_SLASH_AMOUNT_SMALL = ${AZTEC_SLASH_AMOUNT_SMALL:-null}
-AZTEC_SLASH_AMOUNT_MEDIUM = ${AZTEC_SLASH_AMOUNT_MEDIUM:-null}
-AZTEC_SLASH_AMOUNT_LARGE = ${AZTEC_SLASH_AMOUNT_LARGE:-null}
-AZTEC_SLASHER_FLAVOR = ${AZTEC_SLASHER_FLAVOR:-null}
-AZTEC_GOVERNANCE_PROPOSER_QUORUM = ${AZTEC_GOVERNANCE_PROPOSER_QUORUM:-null}
-AZTEC_GOVERNANCE_PROPOSER_ROUND_SIZE = ${AZTEC_GOVERNANCE_PROPOSER_ROUND_SIZE:-null}
-AZTEC_MANA_TARGET = ${AZTEC_MANA_TARGET:-null}
-AZTEC_PROVING_COST_PER_MANA = ${AZTEC_PROVING_COST_PER_MANA:-null}
-AZTEC_EXIT_DELAY_SECONDS = ${AZTEC_EXIT_DELAY_SECONDS:-null}
-ETHERSCAN_API_KEY = "${ETHERSCAN_API_KEY:-null}"
-NETWORK = ${NETWORK_TF}
-JOB_NAME = "deploy-rollup-contracts"
-JOB_BACKOFF_LIMIT = 3
-JOB_TTL_SECONDS_AFTER_FINISHED = 3600
-EOF
-
-# Check terraform state for existing contract addresses
-# This avoids redeploying contracts when the k8s job has been cleaned up by TTL
-terraform -chdir="${DEPLOY_ROLLUP_CONTRACTS_DIR}" init -reconfigure >/dev/null
-EXISTING_REGISTRY=$(terraform -chdir="${DEPLOY_ROLLUP_CONTRACTS_DIR}" output -raw registry_address 2>/dev/null | grep -E '^0x[a-fA-F0-9]{40}$' || true)
-
-if [[ -n "${EXISTING_REGISTRY}" && "${REDEPLOY_ROLLUP_CONTRACTS}" != "true" ]]; then
-  log "Contracts already deployed (registry=${EXISTING_REGISTRY}), skipping deployment"
-else
-  if [[ "${REDEPLOY_ROLLUP_CONTRACTS}" == "true" ]]; then
-    log "REDEPLOY_ROLLUP_CONTRACTS=true, destroying existing deployment"
-    terraform -chdir="${DEPLOY_ROLLUP_CONTRACTS_DIR}" destroy -auto-approve
+if [[ -z "${REGISTRY_ADDRESS:-}" ]]; then
+  if [[ "${REDEPLOY_ROLLUP_CONTRACTS}" == "true" && -f "${CONTRACTS_FILE}" ]]; then
+    log "REDEPLOY_ROLLUP_CONTRACTS=true, removing previous contract addresses"
+    rm -f "${CONTRACTS_FILE}"
   fi
-  terraform -chdir="${DEPLOY_ROLLUP_CONTRACTS_DIR}" plan -out=tfplan
-  terraform -chdir="${DEPLOY_ROLLUP_CONTRACTS_DIR}" apply tfplan
 
-  # Print logs from any failed pods (useful if job succeeded after retries)
-  JOB_NAME=$(terraform -chdir="${DEPLOY_ROLLUP_CONTRACTS_DIR}" output -raw job_name)
-  for pod in $(kubectl get pods -n "${NAMESPACE}" -l "job-name=${JOB_NAME}" \
-    --field-selector=status.phase=Failed -o jsonpath='{.items[*].metadata.name}' 2>/dev/null); do
-    echo "=== Failed pod: $pod ==="
-    kubectl logs -n "${NAMESPACE}" "$pod" 2>/dev/null || true
+  log "Deploying L1 contracts via docker..."
+
+  # Build CLI arguments
+  CLI_ARGS=(
+    "deploy-l1-contracts"
+    "--l1-rpc-urls" "${CSV_RPC_URLS}"
+    "--private-key" "${ROLLUP_DEPLOYMENT_PRIVATE_KEY}"
+    "--l1-chain-id" "${ETHEREUM_CHAIN_ID}"
+    "--json"
+  )
+
+  [[ -n "${VALIDATOR_ADDRESSES:-}" ]] && CLI_ARGS+=("--validators" "${VALIDATOR_ADDRESSES}")
+  [[ "${SPONSORED_FPC}" == "true" ]] && CLI_ARGS+=("--sponsored-fpc")
+  [[ "${TEST_ACCOUNTS}" == "true" ]] && CLI_ARGS+=("--test-accounts")
+  [[ "${REAL_VERIFIER}" == "true" ]] && CLI_ARGS+=("--real-verifier")
+
+  # Build environment variables to pass to container
+  ENV_ARGS=()
+  [[ -n "${NETWORK:-}" ]] && ENV_ARGS+=("-e" "NETWORK=${NETWORK}")
+  [[ -n "${ETHERSCAN_API_KEY:-}" ]] && ENV_ARGS+=("-e" "ETHERSCAN_API_KEY=${ETHERSCAN_API_KEY}")
+
+  # Pass through AZTEC_* environment variables
+  for var in AZTEC_LAG_IN_EPOCHS_FOR_VALIDATOR_SET AZTEC_LAG_IN_EPOCHS_FOR_RANDAO \
+             AZTEC_SLOT_DURATION AZTEC_EPOCH_DURATION AZTEC_TARGET_COMMITTEE_SIZE \
+             AZTEC_PROOF_SUBMISSION_EPOCHS AZTEC_ACTIVATION_THRESHOLD AZTEC_EJECTION_THRESHOLD \
+             AZTEC_LOCAL_EJECTION_THRESHOLD AZTEC_SLASHING_QUORUM AZTEC_SLASHING_ROUND_SIZE \
+             AZTEC_SLASHING_ROUND_SIZE_IN_EPOCHS AZTEC_SLASHING_LIFETIME_IN_ROUNDS \
+             AZTEC_SLASHING_EXECUTION_DELAY_IN_ROUNDS AZTEC_SLASHING_VETOER \
+             AZTEC_SLASHING_OFFSET_IN_ROUNDS AZTEC_SLASH_AMOUNT_SMALL AZTEC_SLASH_AMOUNT_MEDIUM \
+             AZTEC_SLASH_AMOUNT_LARGE AZTEC_SLASHER_FLAVOR AZTEC_GOVERNANCE_PROPOSER_QUORUM \
+             AZTEC_GOVERNANCE_PROPOSER_ROUND_SIZE AZTEC_MANA_TARGET AZTEC_PROVING_COST_PER_MANA \
+             AZTEC_EXIT_DELAY_SECONDS; do
+    if [[ -n "${!var:-}" ]]; then
+      ENV_ARGS+=("-e" "${var}=${!var}")
+    fi
   done
+
+  # Create temp file for output
+  DEPLOY_OUTPUT=$(mktemp)
+  trap "rm -f ${DEPLOY_OUTPUT}" EXIT
+
+  # Build docker command
+  DOCKER_CMD=(docker run --rm)
+  [[ ${#ENV_ARGS[@]} -gt 0 ]] && DOCKER_CMD+=("${ENV_ARGS[@]}")
+  DOCKER_CMD+=(-e "LOG_LEVEL=${LOG_LEVEL:-debug}")
+  DOCKER_CMD+=("${AZTEC_DOCKER_IMAGE}")
+  DOCKER_CMD+=(node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js)
+  DOCKER_CMD+=("${CLI_ARGS[@]}")
+
+  # Run deployment in docker container
+  "${DOCKER_CMD[@]}" 2>&1 | tee "${DEPLOY_OUTPUT}"
+
+  # Extract JSON output from deployment
+  # The deploy-l1-contracts command outputs JSON when --json flag is used
+  CONTRACT_JSON=$(grep -E '^\{' "${DEPLOY_OUTPUT}" | grep -E '"registryAddress"' | tail -1 || true)
+
+  if [[ -z "${CONTRACT_JSON}" ]]; then
+    # Try extracting multi-line JSON
+    CONTRACT_JSON=$(sed -n '/^{$/,/^}$/p' "${DEPLOY_OUTPUT}" | tail -n +1 || true)
+  fi
+
+  if [[ -z "${CONTRACT_JSON}" ]]; then
+    err "Deployment output:"
+    cat "${DEPLOY_OUTPUT}"
+    die "Failed to extract contract addresses from deployment output"
+  fi
+
+  # Save contract addresses
+  echo "${CONTRACT_JSON}" > "${CONTRACTS_FILE}"
+  log "Contract addresses saved to ${CONTRACTS_FILE}"
+
+  # Extract addresses
+  REGISTRY_ADDRESS=$(echo "${CONTRACT_JSON}" | jq -r '.registryAddress')
+  SLASH_FACTORY_ADDRESS=$(echo "${CONTRACT_JSON}" | jq -r '.slashFactoryAddress // empty')
+  FEE_ASSET_HANDLER_ADDRESS=$(echo "${CONTRACT_JSON}" | jq -r '.feeAssetHandlerAddress // empty')
 fi
 
 STAGE_TIMINGS[rollup_contracts]=$(($(date +%s) - ROLLUP_CONTRACTS_START))
 log "Rollup contracts ready"
 
 if [[ "${USE_NETWORK_CONFIG:-false}" != "true" ]]; then
-  REGISTRY_ADDRESS=$(terraform -chdir="${DEPLOY_ROLLUP_CONTRACTS_DIR}" output -raw registry_address)
-  SLASH_FACTORY_ADDRESS=$(terraform -chdir="${DEPLOY_ROLLUP_CONTRACTS_DIR}" output -raw slash_factory_address)
-  FEE_ASSET_HANDLER_ADDRESS=$(terraform -chdir="${DEPLOY_ROLLUP_CONTRACTS_DIR}" output -raw fee_asset_handler_address)
-
   [[ -n "${REGISTRY_ADDRESS}" ]] || die "Failed to fetch registry_address"
-  [[ -n "${SLASH_FACTORY_ADDRESS}" ]] || die "Failed to fetch slash_factory_address"
-  [[ -n "${FEE_ASSET_HANDLER_ADDRESS}" ]] || die "Failed to fetch fee_asset_handler_address"
-  log "Contract addresses: registry=${REGISTRY_ADDRESS}, slash_factory=${SLASH_FACTORY_ADDRESS}, fee_asset_handler=${FEE_ASSET_HANDLER_ADDRESS}"
+  log "Contract addresses: registry=${REGISTRY_ADDRESS}, slash_factory=${SLASH_FACTORY_ADDRESS:-N/A}, fee_asset_handler=${FEE_ASSET_HANDLER_ADDRESS:-N/A}"
 else
   REGISTRY_ADDRESS="${REGISTRY_ADDRESS:-}"
   SLASH_FACTORY_ADDRESS="${SLASH_FACTORY_ADDRESS:-}"

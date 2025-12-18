@@ -10,6 +10,7 @@ import { fileURLToPath } from '@aztec/foundation/url';
 import { bn254 } from '@noble/curves/bn254';
 import type { Abi, Narrow } from 'abitype';
 import { spawn } from 'child_process';
+import { writeFileSync } from 'fs';
 import { dirname, resolve } from 'path';
 import readline from 'readline';
 import type { Hex } from 'viem';
@@ -187,11 +188,109 @@ export interface ForgeL1ContractsDeployResult extends ForgeRollupUpgradeResult {
 }
 
 /**
+ * A forge deployment plan that can be written to a file and executed later.
+ * This allows separating the computation of deployment parameters from the actual deployment.
+ */
+export interface ForgePlan {
+  /** The forge script to run */
+  script: string;
+  /** Command line arguments for forge */
+  args: string[];
+  /** Environment variables to set */
+  env: Record<string, string>;
+  /** Working directory (l1-contracts path) */
+  cwd: string;
+}
+
+/**
+ * Generates a forge deployment plan for L1 contracts without executing it.
+ * The plan can be written to a file and executed later using runForgePlan.
+ *
+ * @param rpcUrl - The RPC URL to use
+ * @param privateKey - The private key for the deployer (with 0x prefix)
+ * @param chainId - The chain ID
+ * @param args - Deployment arguments
+ * @returns The forge plan that can be executed later
+ */
+export function getL1ContractsDeployForgePlan(
+  rpcUrl: string,
+  privateKey: `0x${string}`,
+  chainId: number,
+  args: DeployAztecL1ContractsArgs,
+): ForgePlan {
+  const currentDir = dirname(fileURLToPath(import.meta.url));
+  const l1ContractsPath = resolve(currentDir, '..', '..', '..', 'l1-contracts');
+
+  const FORGE_SCRIPT = 'script/deploy/DeployAztecL1Contracts.s.sol';
+
+  // Verify contracts on Etherscan when on mainnet/sepolia and ETHERSCAN_API_KEY is available.
+  const isVerifiableChain = chainId === mainnet.id || chainId === sepolia.id;
+  const shouldVerify = isVerifiableChain && !!process.env.ETHERSCAN_API_KEY;
+
+  // From heuristic testing. More caused issues with anvil.
+  const MAGIC_ANVIL_BATCH_SIZE = 12;
+
+  const forgeArgs = [
+    'script',
+    FORGE_SCRIPT,
+    '--sig',
+    'run()',
+    '--private-key',
+    privateKey,
+    '--rpc-url',
+    rpcUrl,
+    '--broadcast',
+    ...(chainId === foundry.id ? ['--batch-size', MAGIC_ANVIL_BATCH_SIZE.toString()] : []),
+    ...(shouldVerify ? ['--verify'] : []),
+  ];
+
+  // Filter out undefined values from env vars
+  const rawEnv = {
+    NETWORK: getActiveNetworkName(),
+    FOUNDRY_PROFILE: chainId === mainnet.id ? 'production' : undefined,
+    ...getDeployAztecL1ContractsEnvVars(args),
+  };
+
+  const env: Record<string, string> = {};
+  for (const [key, value] of Object.entries(rawEnv)) {
+    if (value !== undefined) {
+      env[key] = value;
+    }
+  }
+
+  return {
+    script: FORGE_SCRIPT,
+    args: forgeArgs,
+    env,
+    cwd: l1ContractsPath,
+  };
+}
+
+/**
+ * Writes a forge plan to a file.
+ */
+export function writeForgePlan(plan: ForgePlan, filePath: string): void {
+  writeFileSync(filePath, JSON.stringify(plan, null, 2));
+  logger.info(`Forge plan written to ${filePath}`);
+}
+
+/**
+ * Runs a forge plan and returns the deployment result.
+ * This executes the forge command with the arguments and environment from the plan.
+ */
+export async function runForgePlan<T>(plan: ForgePlan): Promise<T | undefined> {
+  return runProcess<T>('forge', plan.args, plan.env, plan.cwd);
+}
+
+/**
  * Deploys L1 contracts using forge and returns a result compatible with the TypeScript deployAztecL1Contracts function.
  * This queries the Rollup contract to get the inbox, outbox, and feeJuicePortal addresses.
  *
  * All configuration is passed via environment variables to the forge script. The DeploymentConfiguration.sol
  * contract reads these values and applies defaults for any unspecified parameters.
+ *
+ * If the FORGE_PLAN environment variable is set to a file path, the forge plan will be written to that file
+ * instead of executing forge. This allows the deployment to be executed separately.
  *
  * @param rpcUrl - The RPC URL to use
  * @param privateKey - The private key for the deployer (with 0x prefix)
@@ -243,13 +342,12 @@ export async function deployAztecL1Contracts(
   // Relative location of l1-contracts in monorepo or docker image.
   const l1ContractsPath = resolve(currentDir, '..', '..', '..', 'l1-contracts');
 
-  const FORGE_SCRIPT = 'script/deploy/DeployAztecL1Contracts.s.sol';
-  await maybeForgeForceProductionBuild(l1ContractsPath, FORGE_SCRIPT, chainId);
+  const plan = getL1ContractsDeployForgePlan(rpcUrl, privateKey, chainId, args);
+
+  await maybeForgeForceProductionBuild(l1ContractsPath, plan.script, chainId);
 
   // Verify contracts on Etherscan when on mainnet/sepolia and ETHERSCAN_API_KEY is available.
   const isVerifiableChain = chainId === mainnet.id || chainId === sepolia.id;
-  const shouldVerify = isVerifiableChain && !!process.env.ETHERSCAN_API_KEY;
-
   if (isVerifiableChain && !process.env.ETHERSCAN_API_KEY) {
     logger.warn(
       `Deploying to chain ${chainId} (${chainId === mainnet.id ? 'mainnet' : 'sepolia'}) without ETHERSCAN_API_KEY. ` +
@@ -257,29 +355,14 @@ export async function deployAztecL1Contracts(
     );
   }
 
-  // From heuristic testing. More caused issues with anvil.
-  const MAGIC_ANVIL_BATCH_SIZE = 12;
-  // Anvil seems to stall with unbounded batch size. Otherwise no max batch size is desirable.
-  const forgeArgs = [
-    'script',
-    FORGE_SCRIPT,
-    '--sig',
-    'run()',
-    '--private-key',
-    privateKey,
-    '--rpc-url',
-    rpcUrl,
-    '--broadcast',
-    ...(chainId === foundry.id ? ['--batch-size', MAGIC_ANVIL_BATCH_SIZE.toString()] : []),
-    ...(shouldVerify ? ['--verify'] : []),
-  ];
-  const forgeEnv = {
-    // Env vars required by l1-contracts/script/deploy/DeploymentConfiguration.sol.
-    NETWORK: getActiveNetworkName(),
-    FOUNDRY_PROFILE: chainId === mainnet.id ? 'production' : undefined,
-    ...getDeployAztecL1ContractsEnvVars(args),
-  };
-  const result = await runProcess<ForgeL1ContractsDeployResult>('forge', forgeArgs, forgeEnv, l1ContractsPath);
+  // If FORGE_PLAN is set, write the plan to file instead of executing
+  const forgePlanPath = process.env.FORGE_PLAN;
+  if (forgePlanPath) {
+    writeForgePlan(plan, forgePlanPath);
+    throw new Error(`Forge plan written to ${forgePlanPath}. Set FORGE_PLAN= to execute the deployment.`);
+  }
+
+  const result = await runForgePlan<ForgeL1ContractsDeployResult>(plan);
   if (!result) {
     throw new Error('Forge script did not output deployment result');
   }
@@ -495,30 +578,29 @@ export function getDeployRollupForUpgradeEnvVars(
   } as const;
 }
 
+export type DeployRollupForUpgradeArgs = Omit<
+  DeployAztecL1ContractsArgs,
+  | 'governanceProposerQuorum'
+  | 'governanceProposerRoundSize'
+  | 'ejectionThreshold'
+  | 'activationThreshold'
+  | 'zkPassportArgs'
+>;
+
 /**
- * Deploys a new rollup, using the existing canonical version to derive certain values (addresses of assets etc).
+ * Generates a forge deployment plan for rollup upgrade without executing it.
  */
-export const deployRollupForUpgrade = async (
+export function getRollupUpgradeForgePlan(
   privateKey: `0x${string}`,
   rpcUrl: string,
   chainId: number,
   registryAddress: EthAddress,
-  args: Omit<
-    DeployAztecL1ContractsArgs,
-    | 'governanceProposerQuorum'
-    | 'governanceProposerRoundSize'
-    | 'ejectionThreshold'
-    | 'activationThreshold'
-    | 'zkPassportArgs'
-  >,
-) => {
+  args: DeployRollupForUpgradeArgs,
+): ForgePlan {
   const currentDir = dirname(fileURLToPath(import.meta.url));
-
-  // Relative location of l1-contracts in monorepo or docker image.
   const l1ContractsPath = resolve(currentDir, '..', '..', '..', 'l1-contracts');
 
   const FORGE_SCRIPT = 'script/deploy/DeployRollupForUpgrade.s.sol';
-  await maybeForgeForceProductionBuild(l1ContractsPath, FORGE_SCRIPT, chainId);
 
   const forgeArgs = [
     'script',
@@ -531,15 +613,60 @@ export const deployRollupForUpgrade = async (
     rpcUrl,
     '--broadcast',
   ];
-  const forgeEnv = {
+
+  // Filter out undefined values from env vars
+  const rawEnv = {
     FOUNDRY_PROFILE: chainId === mainnet.id ? 'production' : undefined,
-    // Env vars required by l1-contracts/script/deploy/RollupConfiguration.sol.
     REGISTRY_ADDRESS: registryAddress.toString(),
     NETWORK: getActiveNetworkName(),
     ...getDeployRollupForUpgradeEnvVars(args),
   };
 
-  const result = await runProcess<ForgeRollupUpgradeResult>('forge', forgeArgs, forgeEnv, l1ContractsPath);
+  const env: Record<string, string> = {};
+  for (const [key, value] of Object.entries(rawEnv)) {
+    if (value !== undefined) {
+      env[key] = value;
+    }
+  }
+
+  return {
+    script: FORGE_SCRIPT,
+    args: forgeArgs,
+    env,
+    cwd: l1ContractsPath,
+  };
+}
+
+/**
+ * Deploys a new rollup, using the existing canonical version to derive certain values (addresses of assets etc).
+ *
+ * If the FORGE_PLAN environment variable is set to a file path, the forge plan will be written to that file
+ * instead of executing forge. This allows the deployment to be executed separately.
+ */
+export const deployRollupForUpgrade = async (
+  privateKey: `0x${string}`,
+  rpcUrl: string,
+  chainId: number,
+  registryAddress: EthAddress,
+  args: DeployRollupForUpgradeArgs,
+) => {
+  const currentDir = dirname(fileURLToPath(import.meta.url));
+
+  // Relative location of l1-contracts in monorepo or docker image.
+  const l1ContractsPath = resolve(currentDir, '..', '..', '..', 'l1-contracts');
+
+  const plan = getRollupUpgradeForgePlan(privateKey, rpcUrl, chainId, registryAddress, args);
+
+  await maybeForgeForceProductionBuild(l1ContractsPath, plan.script, chainId);
+
+  // If FORGE_PLAN is set, write the plan to file instead of executing
+  const forgePlanPath = process.env.FORGE_PLAN;
+  if (forgePlanPath) {
+    writeForgePlan(plan, forgePlanPath);
+    throw new Error(`Forge plan written to ${forgePlanPath}. Set FORGE_PLAN= to execute the deployment.`);
+  }
+
+  const result = await runForgePlan<ForgeRollupUpgradeResult>(plan);
   if (!result) {
     throw new Error('Forge script did not output deployment result');
   }
