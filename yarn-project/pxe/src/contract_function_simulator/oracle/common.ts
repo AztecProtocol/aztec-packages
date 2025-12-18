@@ -71,39 +71,6 @@ export async function getL1ToL2MembershipWitness(
   return new MessageLoadOracleInputs(messageIndex, siblingPath);
 }
 
-export async function getMembershipWitness(
-  blockNumber: BlockParameter,
-  treeId: MerkleTreeId,
-  leafValue: Fr,
-  aztecNode: AztecNode,
-): Promise<Fr[]> {
-  const witness = await tryGetMembershipWitness(blockNumber, treeId, leafValue, aztecNode);
-  if (!witness) {
-    throw new Error(`Leaf value ${leafValue} not found in tree ${MerkleTreeId[treeId]} at block ${blockNumber}`);
-  }
-  return witness;
-}
-
-async function tryGetMembershipWitness(
-  blockNumber: BlockParameter,
-  treeId: MerkleTreeId,
-  value: Fr,
-  aztecNode: AztecNode,
-): Promise<Fr[] | undefined> {
-  switch (treeId) {
-    case MerkleTreeId.NULLIFIER_TREE:
-      return (await aztecNode.getNullifierMembershipWitness(blockNumber, value))?.withoutPreimage().toFields();
-    case MerkleTreeId.NOTE_HASH_TREE:
-      return (await aztecNode.getNoteHashMembershipWitness(blockNumber, value))?.toFields();
-    case MerkleTreeId.PUBLIC_DATA_TREE:
-      return (await aztecNode.getPublicDataWitness(blockNumber, value))?.withoutPreimage().toFields();
-    case MerkleTreeId.ARCHIVE:
-      return (await aztecNode.getArchiveMembershipWitness(blockNumber, value))?.toFields();
-    default:
-      throw new Error('Not implemented');
-  }
-}
-
 export async function getLowNullifierMembershipWitness(
   blockNumber: BlockParameter,
   nullifier: Fr,

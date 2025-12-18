@@ -6,6 +6,7 @@ import { LogLevels, applyStringFormatting, createLogger } from '@aztec/foundatio
 import type { KeyStore } from '@aztec/key-store';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { BlockParameter } from '@aztec/stdlib/block';
 import type { CompleteAddress, ContractInstance } from '@aztec/stdlib/contract';
 import { siloNullifier } from '@aztec/stdlib/hash';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
@@ -18,7 +19,7 @@ import {
   deriveEcdhSharedSecret,
 } from '@aztec/stdlib/logs';
 import type { NoteStatus } from '@aztec/stdlib/note';
-import { type MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
+import { MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import type { BlockHeader, Capsule } from '@aztec/stdlib/tx';
 
 import type {
@@ -40,7 +41,6 @@ import {
   getBlock,
   getL1ToL2MembershipWitness,
   getLowNullifierMembershipWitness,
-  getMembershipWitness,
   getNullifierIndex,
   getNullifierMembershipWitness,
   getPublicDataWitness,
@@ -115,7 +115,38 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * @returns The index and sibling path concatenated [index, sibling_path]
    */
   public utilityGetMembershipWitness(blockNumber: BlockNumber, treeId: MerkleTreeId, leafValue: Fr): Promise<Fr[]> {
-    return getMembershipWitness(blockNumber, treeId, leafValue, this.aztecNode);
+    return this.getMembershipWitness(blockNumber, treeId, leafValue);
+  }
+
+  protected async getMembershipWitness(
+    blockNumber: BlockParameter,
+    treeId: MerkleTreeId,
+    leafValue: Fr,
+  ): Promise<Fr[]> {
+    const witness = await this.tryGetMembershipWitness(blockNumber, treeId, leafValue);
+    if (!witness) {
+      throw new Error(`Leaf value ${leafValue} not found in tree ${MerkleTreeId[treeId]} at block ${blockNumber}`);
+    }
+    return witness;
+  }
+
+  protected async tryGetMembershipWitness(
+    blockNumber: BlockParameter,
+    treeId: MerkleTreeId,
+    value: Fr,
+  ): Promise<Fr[] | undefined> {
+    switch (treeId) {
+      case MerkleTreeId.NULLIFIER_TREE:
+        return (await this.aztecNode.getNullifierMembershipWitness(blockNumber, value))?.withoutPreimage().toFields();
+      case MerkleTreeId.NOTE_HASH_TREE:
+        return (await this.aztecNode.getNoteHashMembershipWitness(blockNumber, value))?.toFields();
+      case MerkleTreeId.PUBLIC_DATA_TREE:
+        return (await this.aztecNode.getPublicDataWitness(blockNumber, value))?.withoutPreimage().toFields();
+      case MerkleTreeId.ARCHIVE:
+        return (await this.aztecNode.getArchiveMembershipWitness(blockNumber, value))?.toFields();
+      default:
+        throw new Error('Not implemented');
+    }
   }
 
   /**
