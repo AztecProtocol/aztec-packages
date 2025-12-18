@@ -294,6 +294,17 @@ DEPLOY_ROLLUP_CONTRACTS_DIR="${SCRIPT_DIR}/../terraform/deploy-rollup-contracts"
 
 # Initialize terraform and check for existing state
 terraform -chdir="${DEPLOY_ROLLUP_CONTRACTS_DIR}" init -reconfigure >/dev/null
+
+# Migrate from old K8s-based terraform state if needed
+# The old module had kubernetes_job and data.external resources that no longer exist
+OLD_RESOURCES=$(terraform -chdir="${DEPLOY_ROLLUP_CONTRACTS_DIR}" state list 2>/dev/null | grep -E '^(kubernetes_|data\.external\.)' || true)
+if [[ -n "${OLD_RESOURCES}" ]]; then
+  log "Migrating terraform state: removing old K8s resources"
+  for resource in ${OLD_RESOURCES}; do
+    terraform -chdir="${DEPLOY_ROLLUP_CONTRACTS_DIR}" state rm "${resource}" >/dev/null 2>&1 || true
+  done
+fi
+
 EXISTING_REGISTRY=$(terraform -chdir="${DEPLOY_ROLLUP_CONTRACTS_DIR}" output -raw registry_address 2>/dev/null | grep -E '^0x[a-fA-F0-9]{40}$' || true)
 
 if [[ -n "${EXISTING_REGISTRY}" && "${REDEPLOY_ROLLUP_CONTRACTS}" != "true" ]]; then
