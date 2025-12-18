@@ -63,7 +63,7 @@ describeOrSkip('Opcode Spammer Benchmarks', () => {
   describe.each([
     // NOTE: Cpp vs TS simulation is very slow (because TS is slow), so we skip it by default.
     // It is useful to manually run to make sure these tests perform identically between simulators.
-    //{ useCppSimulator: false, simulatorName: 'TSvsCpp' },
+    //{ useCppSimulator: false, simulatorName: 'CppVsTs' },
     { useCppSimulator: true, simulatorName: 'Cpp' },
   ])('($simulatorName) Simulator', ({ useCppSimulator, simulatorName }) => {
     const metricsPrefix = simulatorName;

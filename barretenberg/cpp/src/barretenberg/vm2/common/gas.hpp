@@ -4,6 +4,6 @@
 
 namespace bb::avm2 {
 
-uint32_t compute_addressing_gas(uint16_t indirect_flag);
+uint16_t compute_addressing_gas(uint16_t addressing_mode);
 
 } // namespace bb::avm2

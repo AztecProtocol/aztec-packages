@@ -118,7 +118,7 @@ TEST_F(AcirAvm2RecursionConstraint, TestBasicSingleAvm2RecursionConstraint)
     info("prover gates = ", prover_instance->dyadic_size());
     auto proof = prover.construct_proof();
     UltraRollupVerifier verifier(std::make_shared<UltraRollupFlavor::VKAndHash>(verification_key));
-    bool result = verifier.verify_proof(proof, prover_instance->ipa_proof).result;
+    bool result = verifier.verify_proof(proof).result;
     EXPECT_TRUE(result);
 }
 
@@ -158,7 +158,7 @@ TEST_F(AcirAvm2RecursionConstraint, TestGenerateVKFromConstraintsWithoutWitness)
         auto proof = prover.construct_proof();
         UltraRollupVerifier verifier(std::make_shared<UltraRollupFlavor::VKAndHash>(expected_vk));
 
-        bool result = verifier.verify_proof(proof, prover_instance->ipa_proof).result;
+        bool result = verifier.verify_proof(proof).result;
         EXPECT_TRUE(result);
     }
 

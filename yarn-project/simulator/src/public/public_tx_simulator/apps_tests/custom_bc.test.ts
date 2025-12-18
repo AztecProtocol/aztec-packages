@@ -1,4 +1,9 @@
-import { addressingWithBaseTagIssueTest, addressingWithIndirectTagIssueTest } from '@aztec/simulator/public/fixtures';
+import {
+  addressingWithBaseTagIssueTest,
+  addressingWithIndirectTagIssueTest,
+  addressingWithIndirectThenRelativeTagIssueTest,
+  addressingWithRelativeOverflowAndIndirectTagIssueTest,
+} from '@aztec/simulator/public/fixtures';
 import { NativeWorldStateService } from '@aztec/world-state/native';
 
 import {
@@ -44,6 +49,16 @@ describe.each([
 
   it('Indirect address with invalid tag', async () => {
     const result = await addressingWithIndirectTagIssueTest(tester);
+    expect(result.revertCode.isOK()).toBe(false);
+  });
+
+  it('Indirect addressing succeeds, then relative addressing fails due to wrong base tag', async () => {
+    const result = await addressingWithIndirectThenRelativeTagIssueTest(tester);
+    expect(result.revertCode.isOK()).toBe(false);
+  });
+
+  it('Indirect relative addressing overflows, then indirect addressing fails', async () => {
+    const result = await addressingWithRelativeOverflowAndIndirectTagIssueTest(tester);
     expect(result.revertCode.isOK()).toBe(false);
   });
 });

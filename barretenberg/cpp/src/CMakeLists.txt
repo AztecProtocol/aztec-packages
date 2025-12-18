@@ -214,7 +214,8 @@ if(WASM)
         barretenberg-debug.wasm
         ${BARRETENBERG_TARGET_OBJECTS}
         $<TARGET_OBJECTS:wasi_objects>
-        $<TARGET_OBJECTS:vm2_stub_objects>
+        # This is an object library, so doesn't need _objects.
+        $<TARGET_OBJECTS:vm2_stub>
     )
 
     target_link_options(

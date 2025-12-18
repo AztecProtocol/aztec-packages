@@ -566,6 +566,7 @@ class UltraStarknetZKFlavor;
 class UltraKeccakZKFlavor;
 class MegaFlavor;
 class MegaZKFlavor;
+class MegaAvmFlavor;
 class TranslatorFlavor;
 class ECCVMRecursiveFlavor;
 class TranslatorRecursiveFlavor;
@@ -577,6 +578,7 @@ template <typename BuilderType> class UltraZKRecursiveFlavor_;
 template <typename BuilderType> class UltraRollupRecursiveFlavor_;
 template <typename BuilderType> class MegaRecursiveFlavor_;
 template <typename BuilderType> class MegaZKRecursiveFlavor_;
+template <typename BuilderType> class MegaAvmRecursiveFlavor_;
 
 // Serialization methods for NativeVerificationKey_.
 // These should cover all base classes that do not need additional members, as long as the appropriate SerializeMetadata

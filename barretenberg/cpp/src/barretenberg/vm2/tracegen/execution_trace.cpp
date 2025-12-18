@@ -454,7 +454,7 @@ void ExecutionTraceBuilder::process(
                             ex_event.before_context_event.pc + ex_event.wire_instruction.size_in_bytes() },
                       } });
 
-            // Along this function we need to set the info we get from the EXEC_SPEC_READ lookup.
+            // Along this function we need to set the info we get from the #[EXEC_SPEC_READ] lookup.
             process_execution_spec(ex_event, trace, row);
 
             process_addressing(ex_event.addressing_event, ex_event.wire_instruction, trace, row);
@@ -468,11 +468,12 @@ void ExecutionTraceBuilder::process(
 
         // Note that if addressing did not fail, register reading will not fail.
         std::array<MemoryValue, AVM_MAX_REGISTERS> registers;
-        std::ranges::fill(registers, MemoryValue::from<FF>(0));
+        std::ranges::fill(registers, MemoryValue::from_tag(static_cast<MemoryTag>(0), 0));
         const bool should_process_registers = instruction_fetching_success && !addressing_failed;
         const bool register_processing_failed = ex_event.error == ExecutionError::REGISTER_READ;
         if (should_process_registers) {
-            process_registers(*exec_opcode, ex_event.inputs, ex_event.output, registers, trace, row);
+            process_registers(
+                *exec_opcode, ex_event.inputs, ex_event.output, registers, register_processing_failed, trace, row);
         }
 
         /**************************************************************************************************
@@ -480,8 +481,6 @@ void ExecutionTraceBuilder::process(
          **************************************************************************************************/
 
         const bool should_check_gas = should_process_registers && !register_processing_failed;
-        const bool oog = ex_event.error == ExecutionError::GAS;
-        trace.set(C::execution_sel_should_check_gas, row, should_check_gas ? 1 : 0);
         if (should_check_gas) {
             process_gas(ex_event.gas_event, *exec_opcode, trace, row);
 
@@ -505,6 +504,7 @@ void ExecutionTraceBuilder::process(
             }
         }
 
+        const bool oog = ex_event.error == ExecutionError::GAS;
         /**************************************************************************************************
          *  Temporality group 5: Opcode execution.
          **************************************************************************************************/
@@ -785,7 +785,7 @@ void ExecutionTraceBuilder::process_execution_spec(const simulation::ExecutionEv
                       { REGISTER_IS_WRITE_COLUMNS[i], register_info.is_write(i) ? 1 : 0 },
                       { REGISTER_MEM_OP_COLUMNS[i], register_info.is_active(i) ? 1 : 0 },
                       { REGISTER_EXPECTED_TAG_COLUMNS[i],
-                        register_info.need_tag_check(i) ? static_cast<uint32_t>(*register_info.expected_tag(i)) : 0 },
+                        register_info.need_tag_check(i) ? static_cast<uint32_t>(*(register_info.expected_tag(i))) : 0 },
                       { REGISTER_TAG_CHECK_COLUMNS[i], register_info.need_tag_check(i) ? 1 : 0 },
                   } });
     }
@@ -814,10 +814,11 @@ void ExecutionTraceBuilder::process_gas(const simulation::GasEvent& gas_event,
     bool oog = gas_event.oog_l2 || gas_event.oog_da;
     trace.set(row,
               { {
+                  { C::execution_sel_should_check_gas, 1 },
                   { C::execution_out_of_gas_l2, gas_event.oog_l2 ? 1 : 0 },
                   { C::execution_out_of_gas_da, gas_event.oog_da ? 1 : 0 },
                   { C::execution_sel_out_of_gas, oog ? 1 : 0 },
-                  // Base gas.
+                  // Addressing gas.
                   { C::execution_addressing_gas, gas_event.addressing_gas },
                   // Dynamic gas.
                   { C::execution_dynamic_l2_gas_factor, gas_event.dynamic_gas_factor.l2_gas },
@@ -844,14 +845,18 @@ void ExecutionTraceBuilder::process_addressing(const simulation::AddressingEvent
 
     auto resolution_info_vec = addr_event.resolution_info;
     assert(resolution_info_vec.size() <= AVM_MAX_OPERANDS);
+    // Pad with default values for the missing operands.
     resolution_info_vec.resize(AVM_MAX_OPERANDS,
                                {
                                    // This is the default we want: both tag and value 0.
-                                   .after_relative = Operand::from<FF>(0),
-                                   .resolved_operand = Operand::from<FF>(0),
+                                   .after_relative = FF::zero(),
+                                   .resolved_operand = Operand::from_tag(static_cast<ValueTag>(0), 0),
+                                   .error = std::nullopt,
                                });
 
     std::array<bool, AVM_MAX_OPERANDS> should_apply_indirection{};
+    std::array<bool, AVM_MAX_OPERANDS> is_relative{};
+    std::array<bool, AVM_MAX_OPERANDS> is_indirect{};
     std::array<bool, AVM_MAX_OPERANDS> is_relative_effective{};
     std::array<bool, AVM_MAX_OPERANDS> is_indirect_effective{};
     std::array<bool, AVM_MAX_OPERANDS> relative_oob{};
@@ -860,20 +865,22 @@ void ExecutionTraceBuilder::process_addressing(const simulation::AddressingEvent
     std::array<uint8_t, AVM_MAX_OPERANDS> resolved_operand_tag{};
     uint8_t num_relative_operands = 0;
 
-    bool base_address_invalid = false;
-    bool do_base_check = false;
+    // The error about the base address being invalid is stored in every resolution_info member when it happens.
+    bool base_address_invalid = resolution_info_vec[0].error.has_value() &&
+                                *resolution_info_vec[0].error == AddressingEventError::BASE_ADDRESS_INVALID;
+    bool do_base_check = false; // Whether we need to retrieve the base address,
+                                // i.e., at least one operand is relative.
 
     // Gather operand information.
     for (size_t i = 0; i < AVM_MAX_OPERANDS; i++) {
-        const auto& resolution_info = resolution_info_vec.at(i);
+        const auto& resolution_info = resolution_info_vec[i];
         bool op_is_address = i < ex_spec.num_addresses;
         relative_oob[i] = resolution_info.error.has_value() &&
                           *resolution_info.error == AddressingEventError::RELATIVE_COMPUTATION_OOB;
-        base_address_invalid =
-            base_address_invalid ||
-            (resolution_info.error.has_value() && *resolution_info.error == AddressingEventError::BASE_ADDRESS_INVALID);
-        is_indirect_effective[i] = op_is_address && is_operand_indirect(instruction.indirect, i);
-        is_relative_effective[i] = op_is_address && is_operand_relative(instruction.indirect, i);
+        is_relative[i] = is_operand_relative(instruction.indirect, i);
+        is_indirect[i] = is_operand_indirect(instruction.indirect, i);
+        is_relative_effective[i] = op_is_address && is_relative[i];
+        is_indirect_effective[i] = op_is_address && is_indirect[i];
         should_apply_indirection[i] = is_indirect_effective[i] && !relative_oob[i] && !base_address_invalid;
         resolved_operand_tag[i] = static_cast<uint8_t>(resolution_info.resolved_operand.get_tag());
         after_relative[i] = resolution_info.after_relative;
@@ -884,15 +891,19 @@ void ExecutionTraceBuilder::process_addressing(const simulation::AddressingEvent
         }
     }
 
+    BB_ASSERT(do_base_check || !base_address_invalid, "Base address is invalid but we are not checking it.");
+
     // Set the operand columns.
     for (size_t i = 0; i < AVM_MAX_OPERANDS; i++) {
         trace.set(row,
                   { {
+                      { OPERAND_IS_RELATIVE_WIRE_COLUMNS[i], is_relative[i] ? 1 : 0 },
+                      { OPERAND_IS_INDIRECT_WIRE_COLUMNS[i], is_indirect[i] ? 1 : 0 },
                       { OPERAND_RELATIVE_OVERFLOW_COLUMNS[i], relative_oob[i] ? 1 : 0 },
                       { OPERAND_AFTER_RELATIVE_COLUMNS[i], after_relative[i] },
                       { OPERAND_SHOULD_APPLY_INDIRECTION_COLUMNS[i], should_apply_indirection[i] ? 1 : 0 },
                       { OPERAND_IS_RELATIVE_VALID_BASE_COLUMNS[i],
-                        is_relative_effective[i] && !base_address_invalid ? 1 : 0 },
+                        (is_relative_effective[i] && !base_address_invalid) ? 1 : 0 },
                       { RESOLVED_OPERAND_COLUMNS[i], resolved_operand[i] },
                       { RESOLVED_OPERAND_TAG_COLUMNS[i], resolved_operand_tag[i] },
                   } });
@@ -900,7 +911,7 @@ void ExecutionTraceBuilder::process_addressing(const simulation::AddressingEvent
 
     // We need to compute relative and indirect over the whole 16 bits of the indirect flag.
     // See comment in PIL file about indirect upper bits.
-    for (size_t i = 0; i < TOTAL_INDIRECT_BITS / 2; i++) {
+    for (size_t i = AVM_MAX_OPERANDS; i < TOTAL_INDIRECT_BITS / 2; i++) {
         bool is_relative = is_operand_relative(instruction.indirect, i);
         bool is_indirect = is_operand_indirect(instruction.indirect, i);
         trace.set(row,
@@ -923,8 +934,9 @@ void ExecutionTraceBuilder::process_addressing(const simulation::AddressingEvent
     if (some_final_check_failed) {
         FF power_of_2 = 1;
         for (size_t i = 0; i < AVM_MAX_OPERANDS; ++i) {
-            batched_tags_diff +=
-                FF(is_indirect_effective[i] ? 1 : 0) * power_of_2 * (FF(resolved_operand_tag[i]) - FF(MEM_TAG_U32));
+            if (should_apply_indirection[i]) {
+                batched_tags_diff += power_of_2 * (FF(resolved_operand_tag[i]) - FF(MEM_TAG_U32));
+            }
             power_of_2 *= 8; // 2^3
         }
     }
@@ -963,8 +975,7 @@ void ExecutionTraceBuilder::process_addressing(const simulation::AddressingEvent
             { C::execution_batched_tags_diff_inv, batched_tags_diff },         // Will be inverted in batch.
             { C::execution_sel_some_final_check_failed, some_final_check_failed ? 1 : 0 },
             { C::execution_sel_base_address_failure, base_address_invalid ? 1 : 0 },
-            { C::execution_num_relative_operands_inv,
-              do_base_check ? num_relative_operands : 0 }, // Will be inverted in batch later.
+            { C::execution_num_relative_operands_inv, num_relative_operands }, // Will be inverted in batch later.
             { C::execution_sel_do_base_check, do_base_check ? 1 : 0 },
             { C::execution_highest_address, AVM_HIGHEST_MEM_ADDRESS },
         } });
@@ -999,6 +1010,7 @@ void ExecutionTraceBuilder::process_registers(ExecutionOpCode exec_opcode,
                                               const std::vector<MemoryValue>& inputs,
                                               const MemoryValue& output,
                                               std::span<MemoryValue> registers,
+                                              bool register_processing_failed,
                                               TraceContainer& trace,
                                               uint32_t row)
 {
@@ -1006,7 +1018,9 @@ void ExecutionTraceBuilder::process_registers(ExecutionOpCode exec_opcode,
     // At this point we can assume instruction fetching succeeded, so this should never fail.
     const auto& register_info = get_exec_instruction_spec().at(exec_opcode).register_info;
 
-    // Registers.
+    // Registers. We set all of them here, even the write ones. This is fine because
+    // if an error occured before the register write group, simulation would pass the default
+    // value-tag (0, 0). Furthermore, the permutation of the memory write would not be activated.
     size_t input_counter = 0;
     for (uint8_t i = 0; i < AVM_MAX_REGISTERS; ++i) {
         if (register_info.is_active(i)) {
@@ -1015,8 +1029,11 @@ void ExecutionTraceBuilder::process_registers(ExecutionOpCode exec_opcode,
                 registers[i] = output;
             } else {
                 // If this is a read operation, we need to get the value from the input.
-                auto input = inputs.size() > input_counter ? inputs.at(input_counter) : MemoryValue::from<FF>(0);
-                registers[i] = input;
+
+                // Register specifications must be consistent with the number of inputs.
+                BB_ASSERT(inputs.size() > input_counter, "Not enough inputs for register read");
+
+                registers[i] = inputs.at(input_counter);
                 input_counter++;
             }
         }
@@ -1032,19 +1049,8 @@ void ExecutionTraceBuilder::process_registers(ExecutionOpCode exec_opcode,
         }
     }
 
-    // Tag check.
-    bool some_tag_check_failed = false;
-    for (size_t i = 0; i < AVM_MAX_REGISTERS; i++) {
-        if (register_info.need_tag_check(i)) {
-            if (registers[i].get_tag() != *register_info.expected_tag(i)) {
-                some_tag_check_failed = true;
-                break;
-            }
-        }
-    }
-
     FF batched_tags_diff_reg = 0;
-    if (some_tag_check_failed) {
+    if (register_processing_failed) {
         FF power_of_2 = 1;
         for (size_t i = 0; i < AVM_MAX_REGISTERS; ++i) {
             if (register_info.need_tag_check(i)) {
@@ -1059,7 +1065,7 @@ void ExecutionTraceBuilder::process_registers(ExecutionOpCode exec_opcode,
               { {
                   { C::execution_sel_should_read_registers, 1 },
                   { C::execution_batched_tags_diff_inv_reg, batched_tags_diff_reg }, // Will be inverted in batch.
-                  { C::execution_sel_register_read_error, some_tag_check_failed ? 1 : 0 },
+                  { C::execution_sel_register_read_error, register_processing_failed ? 1 : 0 },
               } });
 }
 
