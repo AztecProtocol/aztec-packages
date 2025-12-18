@@ -39,7 +39,7 @@ class ECCVMRecursiveTests : public ::testing::Test {
     using OuterBuilder = RecursiveFlavor::CircuitBuilder;
     using OuterFlavor = std::conditional_t<IsMegaBuilder<OuterBuilder>, MegaFlavor, UltraFlavor>;
     using OuterProver = UltraProver_<OuterFlavor>;
-    using OuterVerifier = UltraVerifier_<OuterFlavor>;
+    using OuterVerifier = UltraVerifier_<OuterFlavor, bb::DefaultIO>;
     using OuterProverInstance = ProverInstance_<OuterFlavor>;
 
     using PCS = IPA<ECCVMFlavor::Curve, CONST_ECCVM_LOG_N>;
@@ -152,10 +152,11 @@ class ECCVMRecursiveTests : public ::testing::Test {
         {
             auto prover_instance = std::make_shared<OuterProverInstance>(outer_circuit);
             auto verification_key = std::make_shared<OuterFlavor::VerificationKey>(prover_instance->get_precomputed());
+            auto vk_and_hash = std::make_shared<OuterFlavor::VKAndHash>(verification_key);
             OuterProver prover(prover_instance, verification_key);
-            OuterVerifier verifier(verification_key);
+            OuterVerifier verifier(vk_and_hash);
             auto proof = prover.construct_proof();
-            bool verified = verifier.template verify_proof<DefaultIO>(proof).result;
+            bool verified = verifier.verify_proof(proof).result;
 
             ASSERT_TRUE(verified);
         }

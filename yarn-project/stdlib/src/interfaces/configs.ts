@@ -3,7 +3,7 @@ import type { EthAddress } from '@aztec/foundation/eth-address';
 import { z } from 'zod';
 
 import type { AztecAddress } from '../aztec-address/index.js';
-import { type ZodFor, schemas } from '../schemas/index.js';
+import { schemas, zodFor } from '../schemas/index.js';
 import { type AllowedElement, AllowedElementSchema } from './allowed_element.js';
 
 /**
@@ -62,29 +62,32 @@ export interface SequencerConfig {
   shuffleAttestationOrdering?: boolean;
 }
 
-export const SequencerConfigSchema = z.object({
-  transactionPollingIntervalMS: z.number().optional(),
-  maxTxsPerBlock: z.number().optional(),
-  minTxsPerBlock: z.number().optional(),
-  maxL2BlockGas: z.number().optional(),
-  publishTxsWithProposals: z.boolean().optional(),
-  maxDABlockGas: z.number().optional(),
-  coinbase: schemas.EthAddress.optional(),
-  feeRecipient: schemas.AztecAddress.optional(),
-  acvmWorkingDirectory: z.string().optional(),
-  acvmBinaryPath: z.string().optional(),
-  txPublicSetupAllowList: z.array(AllowedElementSchema).optional(),
-  maxBlockSizeInBytes: z.number().optional(),
-  governanceProposerPayload: schemas.EthAddress.optional(),
-  maxL1TxInclusionTimeIntoSlot: z.number().optional(),
-  enforceTimeTable: z.boolean().optional(),
-  fakeProcessingDelayPerTxMs: z.number().optional(),
-  attestationPropagationTime: z.number().optional(),
-  skipCollectingAttestations: z.boolean().optional(),
-  secondsBeforeInvalidatingBlockAsCommitteeMember: z.number(),
-  secondsBeforeInvalidatingBlockAsNonCommitteeMember: z.number(),
-  broadcastInvalidBlockProposal: z.boolean().optional(),
-  injectFakeAttestation: z.boolean().optional(),
-  fishermanMode: z.boolean().optional(),
-  shuffleAttestationOrdering: z.boolean().optional(),
-}) satisfies ZodFor<SequencerConfig>;
+export const SequencerConfigSchema = zodFor<SequencerConfig>()(
+  z.object({
+    transactionPollingIntervalMS: z.number().optional(),
+    maxTxsPerBlock: z.number().optional(),
+    minTxsPerBlock: z.number().optional(),
+    maxL2BlockGas: z.number().optional(),
+    publishTxsWithProposals: z.boolean().optional(),
+    maxDABlockGas: z.number().optional(),
+    coinbase: schemas.EthAddress.optional(),
+    feeRecipient: schemas.AztecAddress.optional(),
+    acvmWorkingDirectory: z.string().optional(),
+    acvmBinaryPath: z.string().optional(),
+    txPublicSetupAllowList: z.array(AllowedElementSchema).optional(),
+    maxBlockSizeInBytes: z.number().optional(),
+    governanceProposerPayload: schemas.EthAddress.optional(),
+    maxL1TxInclusionTimeIntoSlot: z.number().optional(),
+    enforceTimeTable: z.boolean().optional(),
+    fakeProcessingDelayPerTxMs: z.number().optional(),
+    attestationPropagationTime: z.number().optional(),
+    skipCollectingAttestations: z.boolean().optional(),
+    skipInvalidateBlockAsProposer: z.boolean().optional(),
+    secondsBeforeInvalidatingBlockAsCommitteeMember: z.number(),
+    secondsBeforeInvalidatingBlockAsNonCommitteeMember: z.number(),
+    broadcastInvalidBlockProposal: z.boolean().optional(),
+    injectFakeAttestation: z.boolean().optional(),
+    fishermanMode: z.boolean().optional(),
+    shuffleAttestationOrdering: z.boolean().optional(),
+  }),
+);

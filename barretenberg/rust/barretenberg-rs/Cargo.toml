@@ -1,0 +1,29 @@
+[package]
+name = "barretenberg-rs"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+# Serialization
+rmp.workspace = true
+rmp-serde.workspace = true
+rmpv.workspace = true
+serde.workspace = true
+
+# Async runtime
+tokio = { workspace = true, optional = true }
+
+# IPC and system
+libc.workspace = true
+nix = { workspace = true, optional = true }
+
+# Utilities
+thiserror.workspace = true
+tracing = { workspace = true, optional = true }
+hex.workspace = true
+
+[features]
+default = ["native"]
+native = ["tokio", "nix", "tracing"]
+async = ["tokio"]

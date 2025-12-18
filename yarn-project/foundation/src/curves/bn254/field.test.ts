@@ -1,11 +1,15 @@
 import { Fq, Fr } from './field.js';
 
-describe('Fr Serialization via schema', () => {
-  it('should serialize and deserialize correctly (hex)', () => {
+describe('Fr Serialization', () => {
+  it('should serialize and deserialize correctly through hex schema', () => {
     const original = Fr.random();
     const string = original.toString();
     const obtained = Fr.schema.parse(string);
     expect(obtained).toEqual(original);
+  });
+
+  it('should validate hex strings', () => {
+    expect(() => Fr.fromHexString(Fr.MODULUS.toString(16))).toThrow('greater or equal to field modulus');
   });
 });
 

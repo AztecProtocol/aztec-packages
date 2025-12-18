@@ -272,10 +272,15 @@ fi
 # Deploy rollup contracts
 # -------------------------------
 
-if [[ "${VERIFY_CONTRACTS:-}" == "true" && "${CREATE_ROLLUP_CONTRACTS}" == "true" ]]; then
-  if [ -z "$ETHERSCAN_API_KEY" ]; then
-    echo "Error: ETHERSCAN_API_KEY is not set, but VERIFY_CONTRACTS=true. Cannot verify contracts without Etherscan API key (i.e. we need API access to the verification service)."
-  fi
+if [[ "${VERIFY_CONTRACTS:-}" == "true" && "${ETHEREUM_CHAIN_ID}" == "1337" ]]; then
+  die "Cannot verify contracts deployed to eth-devnet"
+fi
+
+# Check for ETHERSCAN_API_KEY when VERIFY_CONTRACTS is enabled
+# Contract verification happens automatically in the yarn-project code when on mainnet/sepolia
+# and ETHERSCAN_API_KEY is set. This check ensures we fail early if verification is expected.
+if [[ "${VERIFY_CONTRACTS:-}" == "true" && "${CREATE_ROLLUP_CONTRACTS}" == "true" && -z "${ETHERSCAN_API_KEY:-}" ]]; then
+  die "Error: ETHERSCAN_API_KEY is not set but VERIFY_CONTRACTS=true. Contract verification requires an Etherscan API key. Set ETHERSCAN_API_KEY environment variable."
 fi
 
 ROLLUP_CONTRACTS_START=$(date +%s)
@@ -325,6 +330,7 @@ AZTEC_GOVERNANCE_PROPOSER_ROUND_SIZE = ${AZTEC_GOVERNANCE_PROPOSER_ROUND_SIZE:-n
 AZTEC_MANA_TARGET = ${AZTEC_MANA_TARGET:-null}
 AZTEC_PROVING_COST_PER_MANA = ${AZTEC_PROVING_COST_PER_MANA:-null}
 AZTEC_EXIT_DELAY_SECONDS = ${AZTEC_EXIT_DELAY_SECONDS:-null}
+ETHERSCAN_API_KEY = "${ETHERSCAN_API_KEY:-null}"
 NETWORK = ${NETWORK_TF}
 JOB_NAME = "deploy-rollup-contracts"
 JOB_BACKOFF_LIMIT = 3

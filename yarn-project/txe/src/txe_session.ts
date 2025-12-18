@@ -10,7 +10,8 @@ import {
   NoteDataProvider,
   PXEOracleInterface,
   PrivateEventDataProvider,
-  TaggingDataProvider,
+  RecipientTaggingDataProvider,
+  SenderTaggingDataProvider,
 } from '@aztec/pxe/server';
 import {
   ExecutionNoteCache,
@@ -24,11 +25,10 @@ import {
 import { FunctionSelector } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { Body, L2Block } from '@aztec/stdlib/block';
 import { GasSettings } from '@aztec/stdlib/gas';
 import { computeProtocolNullifier } from '@aztec/stdlib/hash';
 import { PrivateContextInputs } from '@aztec/stdlib/kernel';
-import { makeAppendOnlyTreeSnapshot, makeGlobalVariables } from '@aztec/stdlib/testing';
+import { makeGlobalVariables } from '@aztec/stdlib/testing';
 import { CallContext, GlobalVariables, TxContext } from '@aztec/stdlib/tx';
 
 import { z } from 'zod';
@@ -41,11 +41,7 @@ import { TXEStateMachine } from './state_machine/index.js';
 import type { ForeignCallArgs, ForeignCallResult } from './util/encoding.js';
 import { TXEAccountDataProvider } from './util/txe_account_data_provider.js';
 import { TXEContractDataProvider } from './util/txe_contract_data_provider.js';
-import {
-  getSingleTxBlockRequestHash,
-  insertTxEffectIntoWorldTrees,
-  makeTXEBlockHeader,
-} from './utils/block_creation.js';
+import { getSingleTxBlockRequestHash, insertTxEffectIntoWorldTrees, makeTXEBlock } from './utils/block_creation.js';
 import { makeTxEffect } from './utils/tx_effect_creation.js';
 
 /**
@@ -141,7 +137,8 @@ export class TXESession implements TXESessionStateHandler {
     const privateEventDataProvider = new PrivateEventDataProvider(store);
     const contractDataProvider = new TXEContractDataProvider(store);
     const noteDataProvider = await NoteDataProvider.create(store);
-    const taggingDataProvider = new TaggingDataProvider(store);
+    const senderTaggingDataProvider = new SenderTaggingDataProvider(store);
+    const recipientTaggingDataProvider = new RecipientTaggingDataProvider(store);
     const capsuleDataProvider = new CapsuleDataProvider(store);
     const keyStore = new KeyStore(store);
     const accountDataProvider = new TXEAccountDataProvider(store);
@@ -164,8 +161,9 @@ export class TXESession implements TXESessionStateHandler {
       contractDataProvider,
       noteDataProvider,
       capsuleDataProvider,
-      stateMachine.syncDataProvider,
-      taggingDataProvider,
+      stateMachine.anchorBlockDataProvider,
+      senderTaggingDataProvider,
+      recipientTaggingDataProvider,
       addressDataProvider,
       privateEventDataProvider,
     );
@@ -358,7 +356,15 @@ export class TXESession implements TXESessionStateHandler {
     // TODO(#12553): make the synchronizer sync here instead and remove this
     await this.pxeOracleInterface.syncNoteNullifiers(contractAddress);
 
-    this.oracleHandler = new UtilityExecutionOracle(contractAddress, [], [], this.pxeOracleInterface);
+    const anchorBlockHeader = await this.stateMachine.anchorBlockDataProvider.getBlockHeader();
+
+    this.oracleHandler = new UtilityExecutionOracle(
+      contractAddress,
+      [],
+      [],
+      anchorBlockHeader,
+      this.pxeOracleInterface,
+    );
 
     this.state = { name: 'UTILITY' };
     this.logger.debug(`Entered state ${this.state.name}`);
@@ -402,11 +408,7 @@ export class TXESession implements TXESessionStateHandler {
     const forkedWorldTrees = await this.stateMachine.synchronizer.nativeWorldStateService.fork();
     await insertTxEffectIntoWorldTrees(txEffect, forkedWorldTrees);
 
-    const block = new L2Block(
-      makeAppendOnlyTreeSnapshot(),
-      await makeTXEBlockHeader(forkedWorldTrees, this.state.nextBlockGlobalVariables),
-      new Body([txEffect]),
-    );
+    const block = await makeTXEBlock(forkedWorldTrees, this.state.nextBlockGlobalVariables, [txEffect]);
     await this.stateMachine.handleL2Block(block);
 
     await forkedWorldTrees.close();

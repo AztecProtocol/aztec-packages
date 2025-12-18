@@ -74,7 +74,7 @@ template <IsRecursiveFlavor Flavor_> class RecursiveVerifierInstance_ {
 
     // Constructor from native verifier instance
     RecursiveVerifierInstance_(Builder* builder, std::shared_ptr<NativeVerifierInstance> verification_key)
-        : RecursiveVerifierInstance_(builder, verification_key->vk)
+        : RecursiveVerifierInstance_(builder, verification_key->get_vk())
     {
         is_complete = verification_key->is_complete;
         if (is_complete) {

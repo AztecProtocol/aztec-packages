@@ -70,7 +70,7 @@ impl OperandCollector {
     }
 
     fn convert_address(address: usize) -> Result<usize, String> {
-        if address > MAX_SCRATCH_SPACE {
+        if address >= MAX_SCRATCH_SPACE {
             return Err(format!("Address {} is out of bounds", address));
         }
         let result = address + SCRATCH_SPACE_START;

@@ -116,9 +116,8 @@ template <typename Builder_, InputConstancy Constancy> class MultiScalarMulTesti
         };
     }
 
-    static void invalidate_witness(AcirConstraint& constraint,
-                                   WitnessVector& witness_values,
-                                   const InvalidWitness::Target& invalid_witness_target)
+    static std::pair<AcirConstraint, WitnessVector> invalidate_witness(
+        AcirConstraint constraint, WitnessVector witness_values, const InvalidWitness::Target& invalid_witness_target)
     {
         switch (invalid_witness_target) {
         case InvalidWitness::Target::Points: {
@@ -150,6 +149,8 @@ template <typename Builder_, InputConstancy Constancy> class MultiScalarMulTesti
         default:
             break;
         }
+
+        return { constraint, witness_values };
     };
 };
 

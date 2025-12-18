@@ -4,7 +4,7 @@ import { z } from 'zod';
 
 import { AztecAddress } from '../../aztec-address/index.js';
 import { PublicKeys } from '../../keys/public_keys.js';
-import { type ZodFor, schemas } from '../../schemas/index.js';
+import { schemas, zodFor } from '../../schemas/index.js';
 
 const VERSION = 1 as const;
 
@@ -32,19 +32,21 @@ export interface ContractInstance {
 
 export type ContractInstanceWithAddress = ContractInstance & { address: AztecAddress };
 
-export const ContractInstanceSchema = z.object({
-  version: z.literal(VERSION),
-  salt: schemas.Fr,
-  deployer: schemas.AztecAddress,
-  currentContractClassId: schemas.Fr,
-  originalContractClassId: schemas.Fr,
-  initializationHash: schemas.Fr,
-  publicKeys: PublicKeys.schema,
-}) satisfies ZodFor<ContractInstance>;
+export const ContractInstanceSchema = zodFor<ContractInstance>()(
+  z.object({
+    version: z.literal(VERSION),
+    salt: schemas.Fr,
+    deployer: schemas.AztecAddress,
+    currentContractClassId: schemas.Fr,
+    originalContractClassId: schemas.Fr,
+    initializationHash: schemas.Fr,
+    publicKeys: PublicKeys.schema,
+  }),
+);
 
-export const ContractInstanceWithAddressSchema = ContractInstanceSchema.and(
-  z.object({ address: schemas.AztecAddress }),
-) satisfies ZodFor<ContractInstanceWithAddress>;
+export const ContractInstanceWithAddressSchema = zodFor<ContractInstanceWithAddress>()(
+  ContractInstanceSchema.and(z.object({ address: schemas.AztecAddress })),
+);
 
 /**
  * Creates a ContractInstance from a plain object without Zod validation.

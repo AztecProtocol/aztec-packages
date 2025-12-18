@@ -120,6 +120,16 @@ if command -v gcloud &> /dev/null; then
   fi
 fi
 
+FOUNDRY_VERSION="v1.4.1"
+if ! command -v cast &> /dev/null; then
+  log "Installing cast (foundry $FOUNDRY_VERSION)..."
+  export FOUNDRY_DIR="$HOME/.foundry"
+  curl -L https://foundry.paradigm.xyz | bash
+  FOUNDRY_BIN_DIR="$FOUNDRY_DIR/bin"
+  "$FOUNDRY_BIN_DIR/foundryup" -i "$FOUNDRY_VERSION"
+  sudo mv "$FOUNDRY_BIN_DIR/cast" /usr/local/bin/cast
+  sudo chmod +x /usr/local/bin/cast
+fi
 
 require_cmd git
 require_cmd kubectl

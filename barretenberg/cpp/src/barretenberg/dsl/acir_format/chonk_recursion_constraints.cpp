@@ -106,7 +106,7 @@ create_chonk_recursion_constraints(bb::UltraCircuitBuilder& builder, const Recur
     auto mega_vk_and_hash = std::make_shared<RecursiveVKAndHash>(mega_vk, vk_hash);
     ChonkRecursiveVerifier::StdlibProof stdlib_proof(proof_fields, input.public_inputs.size());
 
-    ChonkRecursiveVerifier verifier(&builder, mega_vk_and_hash);
+    ChonkRecursiveVerifier verifier(mega_vk_and_hash);
     ChonkRecursiveVerifier::Output verification_output = verifier.verify(stdlib_proof);
 
     // Construct output

@@ -132,15 +132,16 @@ class HypernovaRecursionConstraintTest : public ::testing::Test {
 
             if (tamper_vk) {
                 honk_vk->q_l = g1::one;
-                UltraVerifier_<UltraFlavor> verifier(honk_vk);
-                EXPECT_FALSE(verifier.template verify_proof<DefaultIO>(inner_proof).result);
+                auto honk_vk_and_hash = std::make_shared<UltraFlavor::VKAndHash>(honk_vk);
+                UltraVerifier_<UltraFlavor, DefaultIO> verifier(honk_vk_and_hash);
+                EXPECT_FALSE(verifier.verify_proof(inner_proof).result);
             }
             // Instantiate the recursive verifier using the native verification key
             auto stdlib_vk_and_hash = std::make_shared<RecursiveFlavor::VKAndHash>(circuit, honk_vk);
-            stdlib::recursion::honk::UltraRecursiveVerifier_<RecursiveFlavor> verifier(&circuit, stdlib_vk_and_hash);
+            bb::UltraVerifier_<RecursiveFlavor, StdlibIO> verifier(stdlib_vk_and_hash);
 
             StdlibProof stdlib_inner_proof(circuit, inner_proof);
-            VerifierOutput output = verifier.template verify_proof<StdlibIO>(stdlib_inner_proof);
+            VerifierOutput output = verifier.verify_proof(stdlib_inner_proof);
 
             // IO
             StdlibIO inputs;

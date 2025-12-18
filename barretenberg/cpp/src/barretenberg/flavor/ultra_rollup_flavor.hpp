@@ -63,6 +63,7 @@ class UltraRollupFlavor : public bb::UltraFlavor {
     };
 
     using VerifierCommitments = VerifierCommitments_<Commitment, VerificationKey>;
+    using VKAndHash = VKAndHash_<FF, VerificationKey>;
 };
 
 } // namespace bb

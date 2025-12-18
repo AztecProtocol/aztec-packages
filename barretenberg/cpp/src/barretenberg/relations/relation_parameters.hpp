@@ -94,7 +94,5 @@ template <typename T> struct RelationParameters {
 
         return result;
     }
-
-    MSGPACK_FIELDS(eta, eta_two, eta_three, beta, gamma, public_input_delta);
 };
 } // namespace bb

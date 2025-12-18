@@ -8,6 +8,7 @@
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/ext/starknet/flavor/ultra_starknet_flavor.hpp"
 #include "barretenberg/ext/starknet/flavor/ultra_starknet_zk_flavor.hpp"
+#include "barretenberg/flavor/mega_avm_recursive_flavor.hpp"
 #include "barretenberg/flavor/mega_zk_recursive_flavor.hpp"
 #include "barretenberg/flavor/ultra_keccak_zk_flavor.hpp"
 #include "barretenberg/flavor/ultra_rollup_recursive_flavor.hpp"
@@ -59,9 +60,14 @@ template <typename Flavor> void OinkVerifier<Flavor>::execute_preamble_round()
 
     // For recursive flavors, assert that the VK hash matches the expected hash provided in the VK
     if constexpr (IsRecursiveFlavor<Flavor>) {
-        vinfo("expected vk hash: ", verifier_instance->vk_and_hash->hash);
+        const bool vk_hash_consistency = verifier_instance->vk_and_hash->hash.get_value() == vk_hash.get_value();
+        if (!vk_hash_consistency) {
+            info("Recursive Ultra Verifier: VK Hash Mismatch");
+        }
         verifier_instance->vk_and_hash->hash.assert_equal(vk_hash);
-    }
+    } else {
+        BB_ASSERT_EQ(verifier_instance->vk_and_hash->hash, vk_hash, "Native Ultra Verifier: VK Hash Mismatch");
+    };
 
     size_t num_public_inputs = get_num_public_inputs();
 
@@ -190,6 +196,7 @@ template class OinkVerifier<MegaRecursiveFlavor_<UltraCircuitBuilder>>;
 template class OinkVerifier<MegaRecursiveFlavor_<MegaCircuitBuilder>>;
 template class OinkVerifier<MegaZKRecursiveFlavor_<MegaCircuitBuilder>>;
 template class OinkVerifier<MegaZKRecursiveFlavor_<UltraCircuitBuilder>>;
+template class OinkVerifier<MegaAvmRecursiveFlavor_<UltraCircuitBuilder>>;
 template class OinkVerifier<UltraRollupRecursiveFlavor_<UltraCircuitBuilder>>;
 template class OinkVerifier<UltraZKRecursiveFlavor_<UltraCircuitBuilder>>;
 template class OinkVerifier<UltraZKRecursiveFlavor_<MegaCircuitBuilder>>;
