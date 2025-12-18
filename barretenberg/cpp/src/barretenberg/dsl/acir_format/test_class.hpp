@@ -584,8 +584,8 @@ template <TestBase Base_> class TestClass {
      * tests circuit_serde_to_acir_format, which would otherwise only be tested via the tests in acir_tests.
      *
      */
-    static std::tuple<bool, bool, std::string> test_constraints(const AcirConstraint& constraint,
-                                                                const WitnessVector& witness_values,
+    static std::tuple<bool, bool, std::string> test_constraints(AcirConstraint& constraint,
+                                                                WitnessVector& witness_values,
                                                                 const InvalidWitnessTarget& invalid_witness_target)
     {
         auto [updated_constraint, updated_witness_values] =

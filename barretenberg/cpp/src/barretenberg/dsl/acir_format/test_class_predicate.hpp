@@ -155,8 +155,8 @@ template <TestBaseWithPredicate Base_> class TestClassWithPredicate {
      *
      * @note The constraint and witness values must be copied otherwise this would affect later calls to this function
      */
-    static std::tuple<bool, bool, std::string> test_constraints(const AcirConstraint& constraint,
-                                                                const WitnessVector& witness_values,
+    static std::tuple<bool, bool, std::string> test_constraints(AcirConstraint& constraint,
+                                                                WitnessVector& witness_values,
                                                                 const PredicateTestCase& test_case,
                                                                 const InvalidWitnessTarget& invalid_witness_target)
     {
