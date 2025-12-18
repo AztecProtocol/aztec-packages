@@ -26,7 +26,7 @@ template <typename Flavor> class MegaHonkTests : public ::testing::Test {
     using Point = Curve::AffineElement;
     using CommitmentKey = bb::CommitmentKey<Curve>;
     using Prover = UltraProver_<Flavor>;
-    using Verifier = UltraVerifier_<Flavor>;
+    using Verifier = UltraVerifier_<Flavor, DefaultIO>;
     using VerificationKey = typename Flavor::VerificationKey;
     using ProverInstance = ProverInstance_<Flavor>;
     using VerifierInstance = VerifierInstance_<Flavor>;
@@ -39,10 +39,11 @@ template <typename Flavor> class MegaHonkTests : public ::testing::Test {
     {
         auto prover_instance = std::make_shared<ProverInstance>(builder);
         auto verification_key = std::make_shared<VerificationKey>(prover_instance->get_precomputed());
+        auto vk_and_hash = std::make_shared<typename Flavor::VKAndHash>(verification_key);
         Prover prover(prover_instance, verification_key);
-        Verifier verifier(verification_key);
+        Verifier verifier(vk_and_hash);
         auto proof = prover.construct_proof();
-        bool verified = verifier.template verify_proof<DefaultIO>(proof).result;
+        bool verified = verifier.verify_proof(proof).result;
 
         return verified;
     }
@@ -109,7 +110,7 @@ TYPED_TEST(MegaHonkTests, DynamicVirtualSizeIncrease)
     }
     typename Flavor::CircuitBuilder builder;
     using Prover = UltraProver_<Flavor>;
-    using Verifier = UltraVerifier_<Flavor>;
+    using Verifier = UltraVerifier_<Flavor, DefaultIO>;
 
     GoblinMockCircuits::construct_simple_circuit(builder);
 
@@ -135,22 +136,24 @@ TYPED_TEST(MegaHonkTests, DynamicVirtualSizeIncrease)
         EXPECT_EQ(entry, entry_copy);
     }
 
-    Verifier verifier(verification_key);
+    auto vk_and_hash = std::make_shared<typename Flavor::VKAndHash>(verification_key);
+    Verifier verifier(vk_and_hash);
     auto proof = prover.construct_proof();
 
     auto relation_failures =
         RelationChecker<Flavor>::check_all(prover_instance->polynomials, prover_instance->relation_parameters);
     EXPECT_TRUE(relation_failures.empty());
-    bool result = verifier.template verify_proof<DefaultIO>(proof).result;
+    bool result = verifier.verify_proof(proof).result;
     EXPECT_TRUE(result);
 
-    Verifier verifier_copy(verification_key_copy);
+    auto vk_and_hash_copy = std::make_shared<typename Flavor::VKAndHash>(verification_key_copy);
+    Verifier verifier_copy(vk_and_hash_copy);
     auto proof_copy = prover_copy.construct_proof();
 
     auto relation_failures_copy =
         RelationChecker<Flavor>::check_all(prover_instance->polynomials, prover_instance->relation_parameters);
     EXPECT_TRUE(relation_failures.empty());
-    bool result_copy = verifier_copy.template verify_proof<DefaultIO>(proof_copy).result;
+    bool result_copy = verifier_copy.verify_proof(proof_copy).result;
     EXPECT_TRUE(result_copy);
 }
 
@@ -194,20 +197,22 @@ TYPED_TEST(MegaHonkTests, PolySwap)
     { // Verification based on pkey 1 should succeed
         auto verification_key =
             std::make_shared<typename TestFixture::VerificationKey>(prover_instance_1->get_precomputed());
+        auto vk_and_hash = std::make_shared<typename Flavor::VKAndHash>(verification_key);
         typename TestFixture::Prover prover(prover_instance_1, verification_key);
-        typename TestFixture::Verifier verifier(verification_key);
+        typename TestFixture::Verifier verifier(vk_and_hash);
         auto proof = prover.construct_proof();
-        bool result = verifier.template verify_proof<DefaultIO>(proof).result;
+        bool result = verifier.verify_proof(proof).result;
         EXPECT_TRUE(result);
     }
 
     { // Verification based on pkey 2 should fail
         auto verification_key =
             std::make_shared<typename TestFixture::VerificationKey>(prover_instance_2->get_precomputed());
+        auto vk_and_hash = std::make_shared<typename Flavor::VKAndHash>(verification_key);
         typename TestFixture::Prover prover(prover_instance_2, verification_key);
-        typename TestFixture::Verifier verifier(verification_key);
+        typename TestFixture::Verifier verifier(vk_and_hash);
         auto proof = prover.construct_proof();
-        bool result = verifier.template verify_proof<DefaultIO>(proof).result;
+        bool result = verifier.verify_proof(proof).result;
         EXPECT_FALSE(result);
     }
 }

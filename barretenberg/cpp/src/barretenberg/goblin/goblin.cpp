@@ -80,6 +80,14 @@ GoblinProof Goblin::prove(const MergeSettings merge_settings)
     return goblin_proof;
 }
 
+/**
+ * @brief Recursively verify the next merge proof in the queue.
+ * @details Merge proofs are verified in FIFO order to match the circuit accumulation order.
+ * Each kernel verifies the merge proof from its corresponding app circuit. Since circuits
+ * are accumulated in sequence (e.g., App₀ → Kernel₀ → App₁ → Kernel₁ → ..., though
+ * in practice there can be repeated kernels such as inner → reset), the merge proofs must be
+ * verified in the same order to maintain consistency of the op queue commitments.
+ */
 std::pair<Goblin::PairingPoints, Goblin::RecursiveTableCommitments> Goblin::recursively_verify_merge(
     MegaBuilder& builder,
     const RecursiveMergeCommitments& merge_commitments,
@@ -87,7 +95,6 @@ std::pair<Goblin::PairingPoints, Goblin::RecursiveTableCommitments> Goblin::recu
     const MergeSettings merge_settings)
 {
     BB_ASSERT(!merge_verification_queue.empty());
-    // Recursively verify the next merge proof in the verification queue in a FIFO manner
     const MergeProof& merge_proof = merge_verification_queue.front();
     const stdlib::Proof<MegaBuilder> stdlib_merge_proof(builder, merge_proof);
 

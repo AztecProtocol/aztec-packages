@@ -9,11 +9,11 @@
 #include "barretenberg/flavor/multilinear_batching_flavor.hpp"
 #include "barretenberg/flavor/ultra_recursive_flavor.hpp"
 #include "barretenberg/flavor/ultra_rollup_recursive_flavor.hpp"
-#include "barretenberg/stdlib/honk_verifier/ultra_recursive_verifier.hpp"
 #include "barretenberg/stdlib/primitives/bigfield/constants.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/primitives/pairing_points.hpp"
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
+#include "barretenberg/ultra_honk/ultra_verifier.hpp"
 #include "proof_surgeon.hpp"
 #include "recursion_constraint.hpp"
 
@@ -553,11 +553,10 @@ template <typename Flavor> std::shared_ptr<VerifierInstance_<Flavor>> create_moc
     using FF = typename Flavor::FF;
 
     // Set relevant VK metadata and commitments
-    auto verifier_instance = std::make_shared<VerifierInstance_<Flavor>>();
     std::shared_ptr<typename Flavor::VerificationKey> vk =
         create_mock_honk_vk<Flavor, stdlib::recursion::honk::DefaultIO<typename Flavor::CircuitBuilder>>(
             0, 0); // metadata does not need to be accurate
-    verifier_instance->vk = vk;
+    auto verifier_instance = std::make_shared<VerifierInstance_<Flavor>>(vk);
     verifier_instance->is_complete = true;
     verifier_instance->gate_challenges =
         std::vector<FF>(static_cast<size_t>(CONST_FOLDING_LOG_N), FF::random_element());

@@ -518,7 +518,8 @@ plookup::BasicTable& UltraCircuitBuilder_<ExecutionTrace>::get_table(const plook
  * and (2) the reconstruction of the final result from the results of the BasicTable lookups. This is done via an
  * accumulator pattern where the wires in each gate store accumulated sums and we use step size coefficients (stored in
  * q_2, q_m, q_c) to extract actual table entries via an expression of the form `derived_entry_i = w_i - step_size_i *
- * w_i_shift` where w_i is the wire value at the current row, w_i_shift is the wire value at the next row.
+ * w_i_shift` where w_i is the wire value at the current row, w_i_shift is the wire value at the next row. For a
+ * detailed description of the accumulator pattern, see barretenberg/stdlib_circuit_builders/plookup_tables/README.md.
  *
  * The last lookup has zero step size coefficients (q_2 = q_m = q_c = 0) because there's no next accumulator to
  * subtract; its wire values already contain the raw slices.
@@ -718,6 +719,10 @@ std::vector<uint32_t> UltraCircuitBuilder_<ExecutionTrace>::create_limbed_range_
         // sum is w_4-shift, which will be the witness corresponding to what is currently `new_accumulator`.).
         // If `i == num_limb_triples - 1`, then the last argument to `create_big_add_gate` is false, so the constraint
         // is limb[0]*2^shift[0] + limb[1]*2^shift[1] + limb[2]*2^shift[2] - acc = 0.
+        //
+        // N.B. When `num_bits` is small, we only have remainder bits. This last constraint, checking the correctness of
+        // the limb-decomposition, ensures that the variable is not orphaned. (See the warning in
+        // `create_small_range_constraint`.)
         create_big_add_gate(
             {
                 new_limbs[0],

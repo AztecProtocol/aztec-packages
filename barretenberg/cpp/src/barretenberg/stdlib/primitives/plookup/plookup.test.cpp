@@ -21,7 +21,7 @@ namespace {
 auto& engine = numeric::get_debug_randomness();
 }
 
-TEST(stdlib_plookup, uint32_xor)
+TEST(PlookupTests, uint32_xor)
 {
     Builder builder = Builder();
 
@@ -65,7 +65,7 @@ TEST(stdlib_plookup, uint32_xor)
     EXPECT_EQ(result, true);
 }
 
-TEST(stdlib_plookup, blake2s_xor_rotate_16)
+TEST(PlookupTests, blake2s_xor_rotate_16)
 {
     Builder builder = Builder();
 
@@ -134,7 +134,7 @@ TEST(stdlib_plookup, blake2s_xor_rotate_16)
     EXPECT_EQ(result, true);
 }
 
-TEST(stdlib_plookup, blake2s_xor_rotate_8)
+TEST(PlookupTests, blake2s_xor_rotate_8)
 {
     Builder builder = Builder();
 
@@ -192,7 +192,7 @@ TEST(stdlib_plookup, blake2s_xor_rotate_8)
     EXPECT_EQ(result, true);
 }
 
-TEST(stdlib_plookup, blake2s_xor_rotate_7)
+TEST(PlookupTests, blake2s_xor_rotate_7)
 {
     Builder builder = Builder();
 
@@ -250,7 +250,7 @@ TEST(stdlib_plookup, blake2s_xor_rotate_7)
     EXPECT_EQ(result, true);
 }
 
-TEST(stdlib_plookup, blake2s_xor)
+TEST(PlookupTests, blake2s_xor)
 {
     Builder builder = Builder();
 
@@ -313,7 +313,7 @@ TEST(stdlib_plookup, blake2s_xor)
     EXPECT_EQ(result, true);
 }
 
-TEST(stdlib_plookup, uint32_and)
+TEST(PlookupTests, uint32_and)
 {
     Builder builder = Builder();
 
@@ -355,7 +355,7 @@ TEST(stdlib_plookup, uint32_and)
     EXPECT_EQ(result, true);
 }
 
-TEST(stdlib_plookup, secp256k1_generator)
+TEST(PlookupTests, secp256k1_generator)
 {
     using curve = stdlib::secp256k1<Builder>;
     Builder builder = Builder();
@@ -448,4 +448,72 @@ TEST(stdlib_plookup, secp256k1_generator)
 
     bool proof_result = CircuitChecker::check(builder);
     EXPECT_EQ(proof_result, true);
+}
+
+// Constant vs variable path tests
+TEST(PlookupTests, ConstantInputsConstantOutputs)
+{
+    Builder builder;
+
+    // Use constant field elements (not witnesses)
+    field_ct left(&builder, bb::fr(0x12345678));
+    field_ct right(&builder, bb::fr(0xDEADBEEF));
+
+    ASSERT_TRUE(left.is_constant());
+    ASSERT_TRUE(right.is_constant());
+
+    const auto lookup = plookup_read::get_lookup_accumulators(MultiTableId::UINT32_XOR, left, right, true);
+
+    // Result should be constant
+    EXPECT_TRUE(lookup[ColumnIdx::C3][0].is_constant());
+
+    // Result should still be correct
+    uint32_t expected = 0x12345678 ^ 0xDEADBEEF;
+    EXPECT_EQ(lookup[ColumnIdx::C3][0].get_value(), bb::fr(expected));
+}
+
+TEST(PlookupTests, VariableInputsVariableOutputs)
+{
+    Builder builder;
+
+    // Use witness field elements
+    field_ct left = witness_ct(&builder, bb::fr(0x12345678));
+    field_ct right = witness_ct(&builder, bb::fr(0xDEADBEEF));
+
+    ASSERT_FALSE(left.is_constant());
+    ASSERT_FALSE(right.is_constant());
+
+    const auto lookup = plookup_read::get_lookup_accumulators(MultiTableId::UINT32_XOR, left, right, true);
+
+    // Result should NOT be constant
+    EXPECT_FALSE(lookup[ColumnIdx::C3][0].is_constant());
+
+    // Result should still be correct
+    uint32_t expected = 0x12345678 ^ 0xDEADBEEF;
+    EXPECT_EQ(lookup[ColumnIdx::C3][0].get_value(), bb::fr(expected));
+
+    EXPECT_TRUE(CircuitChecker::check(builder));
+}
+
+TEST(PlookupTests, MixedConstantVariableInputs)
+{
+    Builder builder;
+
+    // One constant, one variable
+    field_ct left(&builder, bb::fr(0x12345678));
+    field_ct right = witness_ct(&builder, bb::fr(0xDEADBEEF));
+
+    ASSERT_TRUE(left.is_constant());
+    ASSERT_FALSE(right.is_constant());
+
+    const auto lookup = plookup_read::get_lookup_accumulators(MultiTableId::UINT32_XOR, left, right, true);
+
+    // Result should NOT be constant (one input is variable)
+    EXPECT_FALSE(lookup[ColumnIdx::C3][0].is_constant());
+
+    // Result should still be correct
+    uint32_t expected = 0x12345678 ^ 0xDEADBEEF;
+    EXPECT_EQ(lookup[ColumnIdx::C3][0].get_value(), bb::fr(expected));
+
+    EXPECT_TRUE(CircuitChecker::check(builder));
 }

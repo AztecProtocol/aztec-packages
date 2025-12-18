@@ -127,18 +127,19 @@ CircuitProve::Response _prove(std::vector<uint8_t>&& bytecode,
 }
 
 template <typename Flavor>
-bool _verify(const bool ipa_accumulation,
-             const std::vector<uint8_t>& vk_bytes,
+bool _verify(const std::vector<uint8_t>& vk_bytes,
              const std::vector<uint256_t>& public_inputs,
              const std::vector<uint256_t>& proof)
 {
     using VerificationKey = typename Flavor::VerificationKey;
-    using Verifier = UltraVerifier_<Flavor>;
+    using VKAndHash = typename Flavor::VKAndHash;
+    using IO = std::conditional_t<HasIPAAccumulator<Flavor>, RollupIO, DefaultIO>;
+    using Verifier = UltraVerifier_<Flavor, IO>;
     using Transcript = typename Flavor::Transcript;
     using DataType = typename Transcript::DataType;
-    using Proof = typename Transcript::Proof;
 
     std::shared_ptr<VerificationKey> vk = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(vk_bytes));
+    auto vk_and_hash = std::make_shared<VKAndHash>(vk);
 
     // concatenate public inputs and proof
     std::vector<DataType> complete_proof;
@@ -146,31 +147,9 @@ bool _verify(const bool ipa_accumulation,
     complete_proof.insert(complete_proof.end(), public_inputs.begin(), public_inputs.end());
     complete_proof.insert(complete_proof.end(), proof.begin(), proof.end());
 
-    VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key;
-    if constexpr (HasIPAAccumulator<Flavor>) {
-        if (ipa_accumulation) {
-            ipa_verification_key = VerifierCommitmentKey<curve::Grumpkin>(1 << CONST_ECCVM_LOG_N);
-        }
-    }
+    Verifier verifier{ vk_and_hash };
 
-    Verifier verifier{ vk, ipa_verification_key };
-
-    bool verified = false;
-    if constexpr (HasIPAAccumulator<Flavor>) {
-        const size_t HONK_PROOF_LENGTH = Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS() - IPA_PROOF_LENGTH;
-        const size_t num_public_inputs = static_cast<size_t>(vk->num_public_inputs);
-        // The extra calculation is for the IPA proof length.
-        BB_ASSERT_EQ(complete_proof.size(),
-                     HONK_PROOF_LENGTH + IPA_PROOF_LENGTH + num_public_inputs,
-                     "Honk proof has incorrect length while verifying.");
-        const std::ptrdiff_t honk_proof_with_pub_inputs_length =
-            static_cast<std::ptrdiff_t>(HONK_PROOF_LENGTH + num_public_inputs);
-        auto ipa_proof = Proof(complete_proof.begin() + honk_proof_with_pub_inputs_length, complete_proof.end());
-        auto honk_proof = Proof(complete_proof.begin(), complete_proof.begin() + honk_proof_with_pub_inputs_length);
-        verified = verifier.template verify_proof<RollupIO>(complete_proof, ipa_proof).result;
-    } else {
-        verified = verifier.template verify_proof<DefaultIO>(complete_proof).result;
-    }
+    bool verified = verifier.verify_proof(complete_proof).result;
 
     if (verified) {
         info("Proof verified successfully");
@@ -331,20 +310,20 @@ CircuitVerify::Response CircuitVerify::execute(BB_UNUSED const BBApiRequest& req
 
     // if the ipa accumulation flag is set we are using the UltraRollupFlavor
     if (ipa_accumulation) {
-        verified = _verify<UltraRollupFlavor>(ipa_accumulation, verification_key, public_inputs, proof);
+        verified = _verify<UltraRollupFlavor>(verification_key, public_inputs, proof);
     } else if (settings.oracle_hash_type == "poseidon2" && !settings.disable_zk) {
-        verified = _verify<UltraZKFlavor>(ipa_accumulation, verification_key, public_inputs, proof);
+        verified = _verify<UltraZKFlavor>(verification_key, public_inputs, proof);
     } else if (settings.oracle_hash_type == "poseidon2" && settings.disable_zk) {
-        verified = _verify<UltraFlavor>(ipa_accumulation, verification_key, public_inputs, proof);
+        verified = _verify<UltraFlavor>(verification_key, public_inputs, proof);
     } else if (settings.oracle_hash_type == "keccak" && !settings.disable_zk) {
-        verified = _verify<UltraKeccakZKFlavor>(ipa_accumulation, verification_key, public_inputs, proof);
+        verified = _verify<UltraKeccakZKFlavor>(verification_key, public_inputs, proof);
     } else if (settings.oracle_hash_type == "keccak" && settings.disable_zk) {
-        verified = _verify<UltraKeccakFlavor>(ipa_accumulation, verification_key, public_inputs, proof);
+        verified = _verify<UltraKeccakFlavor>(verification_key, public_inputs, proof);
 #ifdef STARKNET_GARAGA_FLAVORS
     } else if (settings.oracle_hash_type == "starknet" && !settings.disable_zk) {
-        verified = _verify<UltraStarknetZKFlavor>(ipa_accumulation, verification_key, public_inputs, proof);
+        verified = _verify<UltraStarknetZKFlavor>(verification_key, public_inputs, proof);
     } else if (settings.oracle_hash_type == "starknet" && settings.disable_zk) {
-        verified = _verify<UltraStarknetFlavor>(ipa_accumulation, verification_key, public_inputs, proof);
+        verified = _verify<UltraStarknetFlavor>(verification_key, public_inputs, proof);
 #endif
     } else {
         throw_or_abort("invalid proof type in _verify");

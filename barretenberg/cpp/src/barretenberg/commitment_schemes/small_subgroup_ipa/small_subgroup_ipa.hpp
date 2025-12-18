@@ -352,7 +352,8 @@ template <typename Curve> class SmallSubgroupIPAVerifier {
         }
         // The probability of this event is negligible but it has to be processed correctly
         if (evaluation_challenge_in_small_subgroup) {
-            throw_or_abort("Evaluation challenge is in the SmallSubgroup.");
+            throw_or_abort("SmallSubgroupIPA: Evaluation challenge is in the SmallSubgroup. This would cancel out the "
+                           "hiding property of the commitment.");
         }
     }
     /**

@@ -6,6 +6,9 @@
 
 namespace bb {
 
+/**
+ * @brief Save modified ivc-inputs.msgpack when VKs are rewritten.
+ */
 std::vector<uint8_t> compress(const std::vector<uint8_t>& input)
 {
     auto compressor =
@@ -27,6 +30,9 @@ std::vector<uint8_t> compress(const std::vector<uint8_t>& input)
     return compressed;
 }
 
+/**
+ * @brief Decompress bytecode and witness fields from ivc-inputs.msgpack.
+ */
 std::vector<uint8_t> decompress(const void* bytes, size_t size)
 {
     std::vector<uint8_t> content;
@@ -53,6 +59,9 @@ std::vector<uint8_t> decompress(const void* bytes, size_t size)
     return content;
 }
 
+/**
+ * @brief Deserialize msgpack data from file.
+ */
 template <typename T> T unpack_from_file(const std::filesystem::path& filename)
 {
     std::ifstream fin;

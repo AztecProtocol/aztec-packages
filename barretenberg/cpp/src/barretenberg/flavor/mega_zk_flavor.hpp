@@ -82,6 +82,7 @@ class MegaZKFlavor : public bb::MegaFlavor {
     }
 
     using Transcript = NativeTranscript;
+    using VKAndHash = MegaFlavor::VKAndHash;
 };
 
 } // namespace bb
