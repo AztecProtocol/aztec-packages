@@ -117,6 +117,6 @@ inline constexpr size_t HIDING_KERNEL_ULTRA_OPS = 124;
 // ========================================
 
 // Gate count for ECCVM recursive verifier (Ultra-arithmetized)
-inline constexpr size_t ECCVM_RECURSIVE_VERIFIER_GATE_COUNT = 215188;
+inline constexpr size_t ECCVM_RECURSIVE_VERIFIER_GATE_COUNT = 215197;
 
 } // namespace acir_format
