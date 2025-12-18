@@ -1,10 +1,11 @@
 #pragma once
 
 #include "barretenberg/vm2/common/aztec_types.hpp"
+#include "barretenberg/vm2/common/instruction_spec.hpp"
 #include "barretenberg/vm2/simulation/events/gas_event.hpp"
-#include "barretenberg/vm2/simulation/gadgets/context.hpp"
-#include "barretenberg/vm2/simulation/gadgets/gt.hpp"
+#include "barretenberg/vm2/simulation/interfaces/context.hpp"
 #include "barretenberg/vm2/simulation/interfaces/gas_tracker.hpp"
+#include "barretenberg/vm2/simulation/interfaces/gt.hpp"
 #include "barretenberg/vm2/simulation/lib/instruction_info.hpp"
 #include "barretenberg/vm2/simulation/lib/serialization.hpp"
 

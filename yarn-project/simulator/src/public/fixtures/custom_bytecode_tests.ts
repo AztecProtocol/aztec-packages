@@ -2,7 +2,7 @@ import { strict as assert } from 'assert';
 
 import { TypeTag } from '../avm/avm_memory_types.js';
 import { Addressing, AddressingMode } from '../avm/opcodes/addressing_mode.js';
-import { CalldataCopy, Jump, Return, Set } from '../avm/opcodes/index.js';
+import { Add, CalldataCopy, Jump, Return, Set } from '../avm/opcodes/index.js';
 import { encodeToBytecode } from '../avm/serialization/bytecode_serialization.js';
 import {
   MAX_OPCODE_VALUE,
@@ -52,6 +52,66 @@ export async function addressingWithIndirectTagIssueTest(tester: PublicTxSimulat
   ]);
 
   const txLabel = 'AddressingWithIndirectTagInvalid';
+  return await deployAndExecuteCustomBytecode(bytecode, tester, txLabel);
+}
+
+// First instruction sets a value 10 with tag U32 at offset 1 (direct, no relative).
+// Then an ADD_16 instruction uses INDIRECT addressing for the first operand (offset 1)
+// and RELATIVE addressing for the second operand (offset 2). The indirect addressing
+// succeeds (reads U32 value 10 from offset 1, uses it as address), but the relative
+// addressing fails because the base address at offset 0 has the wrong tag (uninitialized/invalid).
+export async function addressingWithIndirectThenRelativeTagIssueTest(tester: PublicTxSimulationTester) {
+  const addressingMode = Addressing.fromModes([
+    AddressingMode.INDIRECT, // First operand (aOffset) uses indirect addressing, no relative
+    AddressingMode.RELATIVE, // Second operand (bOffset) uses relative addressing
+    AddressingMode.DIRECT, // Third operand (dstOffset) uses direct addressing
+  ]);
+
+  const bytecode = encodeToBytecode([
+    // Set a U32 value 10 at offset 1 - this will be used as an indirect address
+    new Set(/*indirect=*/ 0, /*dstOffset=*/ 1, TypeTag.UINT32, /*value=*/ 10).as(Opcode.SET_32, Set.wireFormat32),
+    // ADD_16: first operand uses indirect addressing (reads from offset 1, gets value 10, uses as address - succeeds)
+    //         second operand uses relative addressing (tries to read base from offset 0, but offset 0 has wrong tag - fails)
+    new Add(/*indirect=*/ addressingMode.toWire(), /*aOffset=*/ 1, /*bOffset=*/ 2, /*dstOffset=*/ 3).as(
+      Opcode.ADD_16,
+      Add.wireFormat16,
+    ),
+    new Return(/*indirect=*/ 0, /*copySizeOffset=*/ 0, /*returnOffset=*/ 0),
+  ]);
+
+  const txLabel = 'AddressingWithIndirectThenRelativeTagInvalid';
+  return await deployAndExecuteCustomBytecode(bytecode, tester, txLabel);
+}
+
+// First instruction sets UINT32_MAX at offset 0 (base address) with tag U32.
+// Then an ADD_8 instruction uses INDIRECT_RELATIVE addressing for the first operand (offset 1)
+// and INDIRECT addressing for the second operand (offset 2). The relative addressing
+// for the first operand will overflow (UINT32_MAX + 1 >= MAX_MEMORY_SIZE), causing the instruction to fail.
+// The second operand will also fail (indirect addressing from offset 2 which is uninitialized with tag FF).
+export async function addressingWithRelativeOverflowAndIndirectTagIssueTest(tester: PublicTxSimulationTester) {
+  const addressingMode = Addressing.fromModes([
+    AddressingMode.INDIRECT_RELATIVE, // First operand (aOffset) uses both indirect and relative addressing
+    AddressingMode.INDIRECT, // Second operand (bOffset) uses indirect addressing only
+    AddressingMode.DIRECT, // Third operand (dstOffset) uses direct addressing
+  ]);
+
+  // UINT32_MAX = 2^32 - 1 = 4294967295
+  const UINT32_MAX = 0xffffffff;
+
+  const bytecode = encodeToBytecode([
+    // Set UINT32_MAX at offset 0 as base address - this will cause overflow when adding relative offset 1
+    new Set(/*indirect=*/ 0, /*dstOffset=*/ 0, TypeTag.UINT32, /*value=*/ UINT32_MAX).as(
+      Opcode.SET_32,
+      Set.wireFormat32,
+    ),
+    new Add(/*indirect=*/ addressingMode.toWire(), /*aOffset=*/ 1, /*bOffset=*/ 2, /*dstOffset=*/ 3).as(
+      Opcode.ADD_8,
+      Add.wireFormat8,
+    ),
+    new Return(/*indirect=*/ 0, /*copySizeOffset=*/ 0, /*returnOffset=*/ 0),
+  ]);
+
+  const txLabel = 'AddressingWithRelativeOverflowAndIndirectTagInvalid';
   return await deployAndExecuteCustomBytecode(bytecode, tester, txLabel);
 }
 
