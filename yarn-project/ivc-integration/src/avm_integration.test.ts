@@ -49,14 +49,8 @@ async function proveMockPublicBaseRollup(
   bbBinaryPath: string,
   chonkPublicInputs: KernelPublicInputs,
   chonkProof: RecursiveProof<typeof CHONK_PROOF_LENGTH>,
-  skipPublicInputsValidation: boolean = false,
 ) {
-  const { proof, publicInputs } = await proveAvm(
-    avmCircuitInputs,
-    bbWorkingDirectory,
-    logger,
-    skipPublicInputsValidation,
-  );
+  const { proof, publicInputs } = await proveAvm(avmCircuitInputs, bbWorkingDirectory, logger);
 
   // Use the pre-generated standalone vk to verify the proof recursively.
   const chonkVk = await VerificationKeyAsFields.fromKey(
@@ -147,7 +141,6 @@ describe('AVM Integration', () => {
       bbBinaryPath,
       chonkPublicInputs,
       chonkProof,
-      true,
     );
   }, 240_000);
 });

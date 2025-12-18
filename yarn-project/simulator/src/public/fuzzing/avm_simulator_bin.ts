@@ -98,6 +98,7 @@ async function execute(base64Line: string): Promise<void> {
     });
     writeSync(process.stdout.fd, resultBuffer.toString('base64') + '\n');
   } catch (error: any) {
+    // If we error, treat as reverted
     const errorResult = serializeWithMessagePack({
       reverted: true,
       output: [] as string[],

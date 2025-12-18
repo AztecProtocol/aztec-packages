@@ -125,8 +125,7 @@ export class ProvingJobController {
     const signal = this.abortController.signal;
     switch (type) {
       case ProvingRequestType.PUBLIC_VM: {
-        // TODO(#14234)[Unconditional PIs validation]: Remove argument "undefined".
-        return await this.circuitProver.getAvmProof(inputs, undefined, signal, this.epochNumber);
+        return await this.circuitProver.getAvmProof(inputs, signal, this.epochNumber);
       }
 
       case ProvingRequestType.PUBLIC_CHONK_VERIFIER: {
