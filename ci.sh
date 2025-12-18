@@ -113,8 +113,8 @@ case "$cmd" in
       'run a1-fast arm64 ci-fast' | DUP=1 cache_log "Merge queue CI run" $RUN_ID
     ;;
   "network-deploy")
-    export JOB_ID="x-${NAMESPACE}-network-deploy"
-    bootstrap_ec2 "./bootstrap.sh ci-network-deploy"
+    export JOB_ID="x-${NAMESPACE:-network}-network-deploy"
+    bootstrap_ec2 "./bootstrap.sh ci-network-deploy $*"
     ;;
   "network-tests")
     export JOB_ID="x-${NAMESPACE}-network-tests"

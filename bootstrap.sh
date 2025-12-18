@@ -547,10 +547,22 @@ case "$cmd" in
     bench
     ;;
   "ci-network-deploy")
+    # Usage: ci-network-deploy <env_file> [KEY=VALUE...]
+    # env_file: name of env file in spartan/environments/ (without .env extension)
+    # KEY=VALUE: override env vars (e.g., NAMESPACE=foo AZTEC_DOCKER_IMAGE=bar)
+    env_file="${1:?env_file argument required}"
+    shift
+    # Export any KEY=VALUE arguments as env vars
+    # These permeate into the deployment
+    for arg in "$@"; do
+      if [[ "$arg" == *=* ]]; then
+        export "$arg"
+      fi
+    done
     export CI=1
     build
     deploy_exit_code=0
-    spartan/bootstrap.sh network_deploy $NETWORK_ENV_FILE || deploy_exit_code=$?
+    spartan/bootstrap.sh network_deploy "$env_file" || deploy_exit_code=$?
     # Merge and upload deploy benchmarks (deploy_network.sh writes to spartan/bench-out/)
     rm -rf bench-out
     mkdir -p bench-out

@@ -1,13 +1,8 @@
 # CI for Aztec Network Scenarios.
-# Triggered by CI3 workflow completion on tagged releases.
-#
+# Manually triggered to deploy and test a network.
 name: Test Network Scenarios
 
 on:
-  workflow_run:
-    workflows: ["CI3"]
-    types:
-      - completed
   workflow_dispatch:
     inputs:
       ref:
@@ -24,218 +19,42 @@ on:
         required: true
         type: string
       env_file:
-        description: Environment file to use from spartan/environments/
+        description: Environment file to use from spartan/environments/ (without .env)
         required: false
         type: string
-        default: next-scenario.env
+        default: next-scenario
 
 concurrency:
-  group: test-network-scenarios-${{ (github.event_name == 'workflow_run' && github.event.workflow_run.head_sha) || (github.event_name == 'workflow_dispatch' && inputs.ref) || github.sha }}
+  group: test-network-scenarios-${{ inputs.namespace }}
   cancel-in-progress: true
 
 jobs:
-  check-should-run:
-    if: github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success'
+  deploy-and-test:
     runs-on: ubuntu-latest
-    outputs:
-      should_run: ${{ steps.check.outputs.should_run }}
     steps:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
-          ref: ${{ github.event.workflow_run.head_sha }}
-          fetch-depth: 0
-          persist-credentials: false
-      - name: Check for semver tag
-        id: check
-        run: |
-          git fetch --tags --force
-          tag=$(git tag --points-at "${{ github.event.workflow_run.head_sha }}" | head -n1)
-          if echo "$tag" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+' && ! echo "$tag" | grep -q 'commit'; then
-            echo "should_run=true" >> $GITHUB_OUTPUT
-            echo "Found semver tag: $tag"
-          else
-            echo "should_run=false" >> $GITHUB_OUTPUT
-            echo "No semver tag found for head_sha: ${{ github.event.workflow_run.head_sha }}. Skipping."
-          fi
-
-  deploy-and-test-scenarios:
-    needs: check-should-run
-    if: |
-      always() &&
-      ((github.event_name == 'workflow_run' && needs.check-should-run.outputs.should_run == 'true') ||
-      (github.event_name == 'workflow_dispatch'))
-    runs-on: ubuntu-latest
-    env:
-      NETWORK_ENV_FILE: /tmp/network.env
-      GOOGLE_APPLICATION_CREDENTIALS: /tmp/gcp-key.json
-    steps:
-      #############
-      # Prepare Env
-      #############
-      - name: Checkout (workflow_run)
-        if: github.event_name == 'workflow_run'
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-        with:
-          ref: ${{ github.event.workflow_run.head_sha }}
-          fetch-depth: 0
-          persist-credentials: false
-      - name: Checkout (workflow_dispatch)
-        if: github.event_name == 'workflow_dispatch'
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-        with:
           ref: ${{ inputs.ref }}
-          fetch-depth: 0
           persist-credentials: false
-      - name: Determine semver from tag
-        if: github.event_name == 'workflow_run'
-        run: |
-          git fetch --tags --force
-          tag=$(git tag --points-at "${{ github.event.workflow_run.head_sha }}" | head -n1)
-          semver="${tag#v}"
-          major_version="${semver%%.*}"
-          echo "SEMVER=$semver" >> $GITHUB_ENV
-          echo "MAJOR_VERSION=$major_version" >> $GITHUB_ENV
 
-      # For dispatch, set the dockerimage and the namespace from provided inputs
-      - name: Set docker image from input
-        if: github.event_name == 'workflow_dispatch'
-        run: |
-          docker_image="${{ inputs.docker_image }}"
-          # Use the provided namespace, sanitized for k8s naming
-          namespace_id=$(echo "${{ inputs.namespace }}" | sed 's/[^a-z0-9-]/-/g' | cut -c1-20)
-          echo "DOCKER_IMAGE=$docker_image" >> $GITHUB_ENV
-          echo "NAMESPACE_ID=$namespace_id" >> $GITHUB_ENV
-
-      - name: Setup
-        if: env.SEMVER != '' || env.DOCKER_IMAGE != ''
-        run: |
-          # Ensure we can SSH into the spot instances we request.
-          mkdir -p ~/.ssh
-          echo ${{ secrets.BUILD_INSTANCE_SSH_KEY }} | base64 --decode > ~/.ssh/build_instance_key
-          chmod 600 ~/.ssh/build_instance_key
-          sudo apt update && sudo apt install -y --no-install-recommends redis-tools parallel
-
-      - name: Store the GCP key in a file
-        if: env.SEMVER != '' || env.DOCKER_IMAGE != ''
-        env:
-          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
-        run: |
-          set +x
-          umask 077
-          printf '%s' "$GCP_SA_KEY" > "$GOOGLE_APPLICATION_CREDENTIALS"
-          jq -e . "$GOOGLE_APPLICATION_CREDENTIALS" >/dev/null
-
-      - name: Set environment variables
-        if: env.SEMVER != '' || env.DOCKER_IMAGE != ''
-        run: |
-          if [ -n "${{ env.SEMVER }}" ]; then
-            # workflow_run mode: use semver to construct namespace and image
-            NAMESPACE="v${MAJOR_VERSION}-scenario"
-            echo "NAMESPACE=$NAMESPACE" >> $GITHUB_ENV
-            echo "AZTEC_DOCKER_IMAGE=aztecprotocol/aztec:${SEMVER}" >> $GITHUB_ENV
-          else
-            # workflow_dispatch mode: use provided docker image and namespace ID
-            NAMESPACE="${NAMESPACE_ID}"
-            echo "NAMESPACE=$NAMESPACE" >> $GITHUB_ENV
-            echo "AZTEC_DOCKER_IMAGE=${DOCKER_IMAGE}" >> $GITHUB_ENV
-          fi
-          echo "GCP_PROJECT_ID=${{ secrets.GCP_PROJECT_ID }}" >> $GITHUB_ENV
-
-      - name: Get Tree Hash
-        if: env.SEMVER != '' || env.DOCKER_IMAGE != ''
-        run: echo "TREE_HASH=$(git rev-parse HEAD^{tree})" >> $GITHUB_ENV
-
-      - name: Copy network environment file
-        if: env.SEMVER != '' || env.DOCKER_IMAGE != ''
-        run: |
-          # Use the env_file input for workflow_dispatch, default to next-scenario.env for workflow_run
-          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-            ENV_FILE="${{ inputs.env_file }}"
-          else
-            ENV_FILE="next-scenario.env"
-          fi
-          cp "spartan/environments/${ENV_FILE}" ${{ env.NETWORK_ENV_FILE }}
-          echo "AZTEC_DOCKER_IMAGE=${{ env.AZTEC_DOCKER_IMAGE }}" >> ${{ env.NETWORK_ENV_FILE }}
-          echo "Copied network environment file ${ENV_FILE} to ${{ env.NETWORK_ENV_FILE }}"
-
-      - name: Check CI Cache
-        id: ci_cache
-        if: env.SEMVER != '' && github.event_name == 'workflow_run'
-        uses: actions/cache@v3
-        with:
-          path: ci-success.txt
-          key: ci-network-scenario-${{ env.TREE_HASH }}
-
-      #############
-      # Run
-      #############
       - name: Run
-        if: (env.SEMVER != '' || env.DOCKER_IMAGE != '') && (steps.ci_cache.outputs.cache-hit != 'true' || github.event_name == 'workflow_dispatch')
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
+          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+          GOOGLE_APPLICATION_CREDENTIALS: /tmp/gcp-key.json
+          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
           RUN_ID: ${{ github.run_id }}
-          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-          NETWORK_ENV_FILE: ${{ env.NETWORK_ENV_FILE }}
-          GOOGLE_APPLICATION_CREDENTIALS: ${{ env.GOOGLE_APPLICATION_CREDENTIALS }}
-          NAMESPACE: ${{ env.NAMESPACE }}
-          REF_NAME: ${{ (github.event_name == 'workflow_run' && format('v{0}', env.SEMVER)) || (github.event_name == 'workflow_dispatch' && inputs.ref) }}
-          AWS_SHUTDOWN_TIME: 360 # 6 hours as we are running tests that may take a while
+          AWS_SHUTDOWN_TIME: 360
           NO_SPOT: 1
+          NAMESPACE: ${{ inputs.namespace }}
         run: |
-          # the network env file and gcp credentials file are mounted into the ec2 instance
-          # see ci3/bootstrap_ec2
-          exec ./ci.sh network-deploy
-
-      - name: Save CI Success
-        if: (env.SEMVER != '' || env.DOCKER_IMAGE != '') && steps.ci_cache.outputs.cache-hit != 'true' && github.event_name == 'workflow_run'
-        run: echo "success" > ci-success.txt
-
-      #############
-      # Benchmarks
-      #############
-      - name: Download deploy benchmarks
-        if: always()
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        run: |
-          if ./ci.sh gh-deploy-bench; then
-            echo "ENABLE_DEPLOY_BENCH=1" >> $GITHUB_ENV
-          fi
-
-      - name: Upload deploy benchmarks
-        if: always() && env.ENABLE_DEPLOY_BENCH == '1'
-        uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
-        with:
-          name: CI Benchmarks
-          benchmark-data-dir-path: "bench/next"
-          tool: "customSmallerIsBetter"
-          output-file-path: ./bench-out/bench.json
-          github-token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-          auto-push: true
-          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
-          alert-threshold: "120%"
-          comment-on-alert: false
-          fail-on-alert: false
-          max-items-in-chart: 100
-
-      - name: Notify Slack on failure
-        if: failure() && github.event_name == 'workflow_run'
-        env:
-          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-        run: |
-          if [ -n "${SLACK_BOT_TOKEN}" ]; then
-            read -r -d '' data <<EOF || true
-            {
-              "channel": "#alerts-next-scenario",
-              "text": "Scenario tests FAILED for *next-scenario* (version ${{ env.SEMVER }}): <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Run>"
-            }
-          EOF
-            curl -X POST https://slack.com/api/chat.postMessage \
-              -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
-              -H "Content-type: application/json" \
-              --data "$data"
-          fi
+          namespace=$(echo "${{ inputs.namespace }}" | sed 's/[^a-z0-9-]/-/g' | cut -c1-20)
+          ./.github/ci3.sh network-deploy \
+            "${{ inputs.env_file }}" \
+            "NAMESPACE=$namespace" \
+            "AZTEC_DOCKER_IMAGE=${{ inputs.docker_image }}"

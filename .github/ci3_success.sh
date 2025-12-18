@@ -41,9 +41,6 @@ function handle_squash_merge {
 }
 
 function handle_benchmarks {
-  if [ "${SHOULD_UPLOAD_BENCHMARKS:-0}" -eq 0 ] || [ "${CI_INTERNAL:-0}" -eq 0 ]; then
-    return
-  fi
   # Handle benchmarks download (internal only)
   echo "Downloading benchmarks..."
   if ./ci.sh gh-bench && [ -f "./bench-out/bench.json" ] && [ "$(cat ./bench-out/bench.json)" != "[]" ]; then
