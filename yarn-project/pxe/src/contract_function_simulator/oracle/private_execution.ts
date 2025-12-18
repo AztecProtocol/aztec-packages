@@ -28,7 +28,6 @@ import { BlockHeader, PrivateCallExecutionResult } from '@aztec/stdlib/tx';
 import type { UInt64 } from '@aztec/stdlib/types';
 
 import { AnchorBlockDataProvider, ContractDataProvider } from '../../storage/index.js';
-import { getPublicStorageAt } from './common.js';
 import { Oracle } from './oracle.js';
 import type { PrivateExecutionOracle } from './private_execution_oracle.js';
 
@@ -168,16 +167,16 @@ export async function readCurrentClassIdFromCurrentBlockAnchor(
   blockNumber: BlockNumber,
   timestamp: UInt64,
 ) {
+  const anchorBlockNumber = (await anchorBlockDataProvider.getBlockHeader()).getBlockNumber();
+  if (blockNumber > anchorBlockNumber) {
+    throw new Error(`Block number ${blockNumber} is higher than current block ${anchorBlockNumber}`);
+  }
+
   const { delayedPublicMutableSlot } = await DelayedPublicMutableValuesWithHash.getContractUpdateSlots(contractAddress);
-  const delayedPublicMutableValues = await DelayedPublicMutableValues.readFromTree(delayedPublicMutableSlot, slot =>
-    getPublicStorageAt(
-      blockNumber,
-      ProtocolContractAddress.ContractInstanceRegistry,
-      slot,
-      anchorBlockDataProvider,
-      aztecNode,
-    ),
-  );
+  const delayedPublicMutableValues = await DelayedPublicMutableValues.readFromTree(delayedPublicMutableSlot, slot => {
+    return aztecNode.getPublicStorageAt(blockNumber, ProtocolContractAddress.ContractInstanceRegistry, slot);
+  });
+
   let currentClassId = delayedPublicMutableValues.svc.getCurrentAt(timestamp)[0];
   if (currentClassId.isZero()) {
     currentClassId = instance.originalContractClassId;

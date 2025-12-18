@@ -202,6 +202,12 @@ describe('Utility Execution test suite', () => {
           utilityExecutionOracle.utilityGetPublicDataWitness(BlockNumber(syncedBlockNumber + 1), leafSlot),
         ).rejects.toThrow(`Block number ${syncedBlockNumber + 1} is higher than current block ${syncedBlockNumber}`);
       });
+
+      it('throws when getting public storage for future block', async () => {
+        await expect(
+          utilityExecutionOracle.utilityStorageRead(contractAddress, leafSlot, BlockNumber(syncedBlockNumber + 1), 1),
+        ).rejects.toThrow(`Block number ${syncedBlockNumber + 1} is higher than current block ${syncedBlockNumber}`);
+      });
     });
   });
 });

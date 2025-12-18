@@ -40,7 +40,6 @@ import {
   deliverNote,
   getPrivateLogByTag,
   getPublicLogByTag,
-  getPublicStorageAt,
   syncNoteNullifiers,
 } from './common.js';
 
@@ -85,30 +84,6 @@ describe('Common oracle functions', () => {
     await setSyncedBlockNumber(MAX_BLOCK_NUMBER_OF_A_LOG);
 
     contractAddress = await AztecAddress.random();
-  });
-
-  describe('Respects synced block number', () => {
-    const syncedBlockNumber = 100;
-    let contractAddress: AztecAddress;
-    let leafSlot: Fr;
-
-    beforeEach(async () => {
-      leafSlot = Fr.random();
-      contractAddress = await AztecAddress.random();
-      await setSyncedBlockNumber(BlockNumber(syncedBlockNumber));
-    });
-
-    it('throws when getting public storage for future block', async () => {
-      await expect(
-        getPublicStorageAt(
-          BlockNumber(syncedBlockNumber + 1),
-          contractAddress,
-          leafSlot,
-          anchorBlockDataProvider,
-          aztecNode,
-        ),
-      ).rejects.toThrow(`Block number ${syncedBlockNumber + 1} is higher than current block ${syncedBlockNumber}`);
-    });
   });
 
   describe('utilityBulkRetrieveLogs', () => {

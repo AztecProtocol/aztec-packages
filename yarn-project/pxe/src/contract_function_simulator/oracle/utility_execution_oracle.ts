@@ -41,7 +41,6 @@ import {
   assertCompatibleOracleVersion,
   bulkRetrieveLogs,
   getNullifierIndex,
-  getPublicStorageAt,
   syncNoteNullifiers,
   validateEnqueuedNotesAndEvents,
 } from './common.js';
@@ -420,13 +419,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     const values = [];
     for (let i = 0n; i < numberOfElements; i++) {
       const storageSlot = new Fr(startStorageSlot.value + i);
-      const value = await getPublicStorageAt(
-        blockNumber,
-        contractAddress,
-        storageSlot,
-        this.anchorBlockDataProvider,
-        this.aztecNode,
-      );
+      const value = await this.getPublicStorageAt(blockNumber, contractAddress, storageSlot);
 
       this.log.debug(
         `Oracle storage read: slot=${storageSlot.toString()} address-${contractAddress.toString()} value=${value}`,
@@ -434,6 +427,14 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       values.push(value);
     }
     return values;
+  }
+
+  protected async getPublicStorageAt(blockNumber: BlockParameter, contract: AztecAddress, slot: Fr): Promise<Fr> {
+    const anchorBlockNumber = (await this.anchorBlockDataProvider.getBlockHeader()).getBlockNumber();
+    if (blockNumber !== 'latest' && blockNumber > anchorBlockNumber) {
+      throw new Error(`Block number ${blockNumber} is higher than current block ${anchorBlockNumber}`);
+    }
+    return await this.aztecNode.getPublicStorageAt(blockNumber, contract, slot);
   }
 
   public utilityDebugLog(level: number, message: string, fields: Fr[]): void {
