@@ -79,11 +79,16 @@ export class EmpireSlashingProposerContract extends EventEmitter implements IEmp
   public async getRoundInfo(
     rollupAddress: Hex,
     round: bigint,
-  ): Promise<{ lastSignalSlot: SlotNumber; payloadWithMostSignals: Hex; executed: boolean }> {
+  ): Promise<{ lastSignalSlot: SlotNumber; payloadWithMostSignals: Hex; quorumReached: boolean; executed: boolean }> {
     const result = await this.proposer.read.getRoundData([rollupAddress, round]);
+    const [signalCount, quorum] = await Promise.all([
+      this.proposer.read.signalCount([rollupAddress, round, result.payloadWithMostSignals]),
+      this.getQuorumSize(),
+    ]);
     return {
       lastSignalSlot: SlotNumber.fromBigInt(result.lastSignalSlot),
       payloadWithMostSignals: result.payloadWithMostSignals,
+      quorumReached: signalCount >= quorum,
       executed: result.executed,
     };
   }
