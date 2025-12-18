@@ -9,7 +9,7 @@ on:
       password:
         description: "Password to authorize retagging"
         required: true
-        type: string
+        type: secret
       commit:
         description: "Commit SHA to tag"
         required: true
