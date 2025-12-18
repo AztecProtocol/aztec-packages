@@ -15,7 +15,8 @@ NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
 function setup_environment {
   echo_header "Setup"
   # Store GCP key
-  if [ -n "${GCP_SA_KEY:-}" ] && [ -n "${GOOGLE_APPLICATION_CREDENTIALS:-}" ]; then
+  if [ -n "${GCP_SA_KEY:-}" ]; then
+    export GOOGLE_APPLICATION_CREDENTIALS=/tmp/gcp-key.json
     set +x
     umask 077
     printf '%s' "$GCP_SA_KEY" > "$GOOGLE_APPLICATION_CREDENTIALS"
