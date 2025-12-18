@@ -112,6 +112,45 @@ class PublicProcessorTimeoutError extends Error {
 }
 
 /**
+ * Recursively freezes an object and all its properties to detect mutations.
+ * Used to verify if Tx.clone() is actually necessary.
+ */
+function deepFreeze<T extends object>(obj: T): T {
+  if (obj === null || typeof obj !== 'object') {
+    return obj;
+  }
+  if (Object.isFrozen(obj)) {
+    return obj;
+  }
+  // Skip ArrayBuffer views (Uint8Array, etc.) - they can't be frozen
+  if (ArrayBuffer.isView(obj) || obj instanceof ArrayBuffer) {
+    return obj;
+  }
+  // Force lazy evaluation on objects with lazy caches before freezing.
+  // These classes cache values lazily, so we must populate them
+  // before freezing to avoid "Cannot assign to read only property" errors.
+  // Field-like objects (Fr, Fq, etc.) cache asBigInt/asBuffer:
+  if (typeof (obj as any).toBigInt === 'function') {
+    (obj as any).toBigInt();
+  }
+  if (typeof (obj as any).toBuffer === 'function') {
+    (obj as any).toBuffer();
+  }
+  // Tx caches calldataMap:
+  if (typeof (obj as any).getCalldataMap === 'function') {
+    (obj as any).getCalldataMap();
+  }
+  Object.freeze(obj);
+  for (const key of Object.getOwnPropertyNames(obj)) {
+    const value = (obj as Record<string, unknown>)[key];
+    if (value !== null && typeof value === 'object') {
+      deepFreeze(value as object);
+    }
+  }
+  return obj;
+}
+
+/**
  * Converts Txs lifted from the P2P module into ProcessedTx objects by executing
  * any public function calls in them. Txs with private calls only are unaffected.
  */
@@ -160,7 +199,7 @@ export class PublicProcessor implements Traceable {
     let totalBlockGas = new Gas(0, 0);
     let totalBlobFields = 0;
 
-    for await (const origTx of txs) {
+    for await (const tx of txs) {
       // Only process up to the max tx limit
       if (maxTransactions !== undefined && result.length >= maxTransactions) {
         this.log.debug(`Stopping tx processing due to reaching the max tx limit.`);
@@ -174,8 +213,8 @@ export class PublicProcessor implements Traceable {
       }
 
       // Skip this tx if it'd exceed max block size
-      const txHash = origTx.getTxHash().toString();
-      const preTxSizeInBytes = origTx.getEstimatedPrivateTxEffectsSize();
+      const txHash = tx.getTxHash().toString();
+      const preTxSizeInBytes = tx.getEstimatedPrivateTxEffectsSize();
       if (maxBlockSize !== undefined && totalSizeInBytes + preTxSizeInBytes > maxBlockSize) {
         this.log.warn(`Skipping processing of tx ${txHash} sized ${preTxSizeInBytes} bytes due to block size limit`, {
           txHash,
@@ -187,7 +226,7 @@ export class PublicProcessor implements Traceable {
       }
 
       // Skip this tx if its gas limit would exceed the block gas limit
-      const txGasLimit = origTx.data.constants.txContext.gasSettings.gasLimits;
+      const txGasLimit = tx.data.constants.txContext.gasSettings.gasLimits;
       if (maxBlockGas !== undefined && totalBlockGas.add(txGasLimit).gtAny(maxBlockGas)) {
         this.log.warn(`Skipping processing of tx ${txHash} due to block gas limit`, {
           txHash,
@@ -198,8 +237,10 @@ export class PublicProcessor implements Traceable {
         continue;
       }
 
-      // The processor modifies the tx objects in place, so we need to clone them.
-      const tx = Tx.clone(origTx);
+      // The processor SHOULDN'T modify the tx objects in place.
+      // It used to, so we used to clone them.
+      // Now, instead, freeze the original to detect if it's ever mutated.
+      deepFreeze(tx);
 
       // We validate the tx before processing it, to avoid unnecessary work.
       if (preprocessValidator) {
