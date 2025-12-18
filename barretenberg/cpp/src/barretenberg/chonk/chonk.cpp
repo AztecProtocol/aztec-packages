@@ -558,7 +558,7 @@ ChonkProof Chonk::prove()
     // final merging is done via appending to facilitate creating a zero-knowledge merge proof. This enables us to add
     // randomness to the beginning of the tail kernel and the end of the hiding kernel, hiding the commitments and
     // evaluations of both the previous table and the incoming subtable.
-    return { mega_proof, goblin.prove(MergeSettings::APPEND) };
+    return ChonkProof{ std::move(mega_proof), goblin.prove(MergeSettings::APPEND) };
 };
 
 // VerificationKey construction

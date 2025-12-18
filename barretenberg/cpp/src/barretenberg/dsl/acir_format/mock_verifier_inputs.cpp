@@ -362,7 +362,8 @@ template <typename Builder> HonkProof create_mock_chonk_proof(const size_t inner
     HonkProof ipa_proof = create_mock_ipa_proof();
     HonkProof translator_proof = create_mock_translator_proof();
 
-    ChonkProof chonk_proof{ mega_proof, { merge_proof, eccvm_proof, ipa_proof, translator_proof } };
+    ChonkProof chonk_proof{ std::move(mega_proof),
+                            GoblinProof{ merge_proof, eccvm_proof, ipa_proof, translator_proof } };
     proof = chonk_proof.to_field_elements();
 
     return proof;

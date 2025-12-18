@@ -34,7 +34,7 @@ void create_dummy_vkey_and_proof(UltraCircuitBuilder& builder,
     using Builder = UltraCircuitBuilder;
     using IO = stdlib::recursion::honk::HidingKernelIO<Builder>;
 
-    BB_ASSERT_EQ(proof_size, bb::ChonkProof::PROOF_LENGTH_WITHOUT_PUB_INPUTS());
+    BB_ASSERT_EQ(proof_size, bb::ChonkProof::PROOF_LENGTH_WITHOUT_PUB_INPUTS);
 
     size_t num_inner_public_inputs = public_inputs_size - IO::PUBLIC_INPUTS_SIZE;
     uint32_t pub_inputs_offset = MegaZKFlavor::has_zero_row ? 1 : 0;

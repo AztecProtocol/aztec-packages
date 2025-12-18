@@ -11,13 +11,22 @@
 
 namespace bb {
 
-// ChonkProof methods
-size_t ChonkProof::size() const
-{
-    return mega_proof.size() + goblin_proof.size();
-}
+// Forward declarations of template specializations
+template <> msgpack::sbuffer ChonkProof_<false>::to_msgpack_buffer() const;
 
-std::vector<bb::fr> ChonkProof::to_field_elements() const
+template <> uint8_t* ChonkProof_<false>::to_msgpack_heap_buffer() const;
+
+template <> ChonkProof_<false> ChonkProof_<false>::from_msgpack_buffer(uint8_t const*& buffer);
+
+template <> ChonkProof_<false> ChonkProof_<false>::from_msgpack_buffer(const msgpack::sbuffer& buffer);
+
+template <> void ChonkProof_<false>::to_file_msgpack(const std::string& filename) const;
+
+template <> ChonkProof_<false> ChonkProof_<false>::from_file_msgpack(const std::string& filename);
+
+// ChonkProof_ template method implementations
+
+template <bool IsRecursive> std::vector<bb::fr> ChonkProof_<IsRecursive>::to_field_elements() const
 {
     HonkProof proof;
 
@@ -29,12 +38,13 @@ std::vector<bb::fr> ChonkProof::to_field_elements() const
     return proof;
 };
 
-ChonkProof ChonkProof::from_field_elements(const std::vector<bb::fr>& fields)
+template <bool IsRecursive>
+ChonkProof_<IsRecursive> ChonkProof_<IsRecursive>::from_field_elements(const std::vector<bb::fr>& fields)
 {
     HonkProof mega_proof;
     GoblinProof goblin_proof;
 
-    size_t custom_public_inputs_size = fields.size() - ChonkProof::PROOF_LENGTH();
+    size_t custom_public_inputs_size = fields.size() - ChonkProof::PROOF_LENGTH;
 
     // Mega proof
     auto start_idx = fields.begin();
@@ -63,17 +73,18 @@ ChonkProof ChonkProof::from_field_elements(const std::vector<bb::fr>& fields)
     end_idx += static_cast<std::ptrdiff_t>(TranslatorFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS);
     goblin_proof.translator_proof.insert(goblin_proof.translator_proof.end(), start_idx, end_idx);
 
-    return { mega_proof, goblin_proof };
+    return ChonkProof_<IsRecursive>{ std::move(mega_proof), std::move(goblin_proof) };
 };
 
-msgpack::sbuffer ChonkProof::to_msgpack_buffer() const
+// MSGPACK methods (native mode only)
+template <> msgpack::sbuffer ChonkProof_<false>::to_msgpack_buffer() const
 {
     msgpack::sbuffer buffer;
     msgpack::pack(buffer, *this);
     return buffer;
 }
 
-uint8_t* ChonkProof::to_msgpack_heap_buffer() const
+template <> uint8_t* ChonkProof_<false>::to_msgpack_heap_buffer() const
 {
     msgpack::sbuffer buffer = to_msgpack_buffer();
 
@@ -81,7 +92,7 @@ uint8_t* ChonkProof::to_msgpack_heap_buffer() const
     return to_heap_buffer(buf);
 }
 
-ChonkProof ChonkProof::from_msgpack_buffer(uint8_t const*& buffer)
+template <> ChonkProof_<false> ChonkProof_<false>::from_msgpack_buffer(uint8_t const*& buffer)
 {
     auto uint8_buffer = from_buffer<std::vector<uint8_t>>(buffer);
 
@@ -91,7 +102,7 @@ ChonkProof ChonkProof::from_msgpack_buffer(uint8_t const*& buffer)
     return from_msgpack_buffer(sbuf);
 }
 
-ChonkProof ChonkProof::from_msgpack_buffer(const msgpack::sbuffer& buffer)
+template <> ChonkProof_<false> ChonkProof_<false>::from_msgpack_buffer(const msgpack::sbuffer& buffer)
 {
     msgpack::object_handle oh = msgpack::unpack(buffer.data(), buffer.size());
     msgpack::object obj = oh.get();
@@ -100,7 +111,7 @@ ChonkProof ChonkProof::from_msgpack_buffer(const msgpack::sbuffer& buffer)
     return proof;
 }
 
-void ChonkProof::to_file_msgpack(const std::string& filename) const
+template <> void ChonkProof_<false>::to_file_msgpack(const std::string& filename) const
 {
     msgpack::sbuffer buffer = to_msgpack_buffer();
     std::ofstream ofs(filename, std::ios::binary);
@@ -111,7 +122,7 @@ void ChonkProof::to_file_msgpack(const std::string& filename) const
     ofs.close();
 }
 
-ChonkProof ChonkProof::from_file_msgpack(const std::string& filename)
+template <> ChonkProof_<false> ChonkProof_<false>::from_file_msgpack(const std::string& filename)
 {
     std::ifstream ifs(filename, std::ios::binary);
     if (!ifs.is_open()) {
@@ -128,7 +139,7 @@ ChonkProof ChonkProof::from_file_msgpack(const std::string& filename)
     msgpack::sbuffer msgpack_buffer;
     msgpack_buffer.write(buffer.data(), file_size);
 
-    return ChonkProof::from_msgpack_buffer(msgpack_buffer);
+    return ChonkProof_<false>::from_msgpack_buffer(msgpack_buffer);
 }
 
 } // namespace bb
