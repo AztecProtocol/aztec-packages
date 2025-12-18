@@ -15,6 +15,7 @@ This protocol is used in two contexts:
 
 ## Motivation
 
+### ZK-Sumcheck
 In ZK-Sumcheck, the prover masks the multivariate polynomial by adding a Libra hiding polynomial:
 $$\rho \cdot H(x_0,\dots,x_{d-1})$$
 
@@ -34,6 +35,30 @@ where:
 
 The inner product $\langle F, G \rangle$ computes $c \cdot 1 + H_0(u_0) + H_1(u_1) + \cdots = H(u_0, \ldots, u_{d-1})$.
 
+### ECCVM Translation Data Consistency
+
+In ECCVM, the prover must link the transcript wires (`op`, `Px`, `Py`, `z1`, `z2`) to the accumulator computed by the translator. Let $T_0, \ldots, T_4$ denote these 5 **translation polynomials**. The verifier checks:
+$$x \cdot A = \sum_{i=0}^{4} T_i(x) \cdot v^i$$
+where $A$ is the accumulated result and $x$, $v$ are challenges.
+
+**The ZK Challenge:** The translation polynomials are masked to preserve zero-knowledge:
+$$\widetilde{T}_i(X) = T_i(X) + X^N \cdot m_i(X)$$
+where $N = \text{circuit\_size} - M$ and $M = \text{NUM\_DISABLED\_ROWS\_IN\_SUMCHECK}$.
+
+The verifier cannot receive unmasked evaluations $T_i(x)$. With masking, the identity becomes:
+$$x \cdot A = \sum_{i=0}^{4} \widetilde{T}_i(x) \cdot v^i - x^N \cdot \sum_{i=0}^{4} m_i(x) \cdot v^i$$
+
+**The Solution:** The prover sends $\widetilde{T}_i(x)$ (safe to reveal) and proves the correction term $\sum_i m_i(x) v^i$ via SmallSubgroupIPA:
+
+- **$G$** = polynomial whose Lagrange coefficients over $H$ are the concatenation $(m_0 \| m_1 \| m_2 \| m_3 \| m_4 \| \vec{0})$, where each $m_i$ is a vector of $M$ coefficients
+- **$F$** = challenge polynomial with Lagrange coefficients:
+  $$(1, x, x^2, \ldots, x^{M-1}, v, vx, \ldots, vx^{M-1}, \ldots, v^4, v^4 x, \ldots, v^4 x^{M-1}, 0, \ldots)$$
+
+The inner product computes:
+$$\langle F, G \rangle = \sum_{i=0}^{4} v^i \cdot m_i(x) = \sum_{i=0}^{4} v^i \sum_{j=0}^{M-1} m_{i,j} x^j$$
+
+This allows the verifier to compute the correction term without learning the unmasked wire evaluations.
+
 ### Why This Approach?
 
 Instead of:
@@ -48,10 +73,7 @@ This is efficient because $|G| \leq |H|$ (the subgroup size), avoiding the blowu
 
 ## Protocol Description
 
-# inner products using KZG with zk and linear time verifier
-
-The construction here is used
-as a component in [zk honk](https://hackmd.io/aQgy7oX5Rwq3cz75qPlJ4g).
+Now we dscribe a zero-knowledge inner products protocol using KZG with linear time verifier.
 
 ## Setting:
 Fix integer parameter $m$.
@@ -112,8 +134,12 @@ Z_H(r) \cdot Q(r) =\; & L_1(r) A(r) \\
 & + L_{|H|}(r)(A(r) - s)
 \end{aligned}$$
 
+### Implementation:
+Similar to Gemini, in small subgroup IPA, the verifier checks the correctness of the algebraic identity provided above for the claimed evaluations.
+The correctness of the openning claims and commitments (the concatination $G$, the grand-sum polynomial $A$ and the quotient $Q$) are deffered to Shplemini, where adds them to the containers for computing the final MSM.
 
-### zk simulator:
+
+### zk simulator sketch:
 
 The main point is the simulator doesn't need $u$
 The transcript consists of
