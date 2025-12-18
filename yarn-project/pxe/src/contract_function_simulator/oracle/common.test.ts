@@ -8,17 +8,9 @@ import { L2BlockHash, randomDataInBlock } from '@aztec/stdlib/block';
 import { CompleteAddress } from '@aztec/stdlib/contract';
 import { computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/stdlib/hash';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
-import { TxScopedL2Log } from '@aztec/stdlib/logs';
 import { NoteStatus } from '@aztec/stdlib/note';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
-import {
-  BlockHeader,
-  GlobalVariables,
-  type IndexedTxEffect,
-  TxEffect,
-  TxHash,
-  randomIndexedTxEffect,
-} from '@aztec/stdlib/tx';
+import { BlockHeader, GlobalVariables, type IndexedTxEffect, TxEffect, TxHash } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -31,7 +23,7 @@ import {
   NoteDataProvider,
   PrivateEventDataProvider,
 } from '../../storage/index.js';
-import { deliverEvent, deliverNote, getPrivateLogByTag, syncNoteNullifiers } from './common.js';
+import { deliverEvent, deliverNote, syncNoteNullifiers } from './common.js';
 
 jest.setTimeout(30_000);
 
@@ -72,50 +64,6 @@ describe('Common oracle functions', () => {
     await setSyncedBlockNumber(MAX_BLOCK_NUMBER_OF_A_LOG);
 
     contractAddress = await AztecAddress.random();
-  });
-
-  describe('getPrivateLogByTag', () => {
-    let tag: Fr;
-
-    beforeEach(() => {
-      tag = Fr.random();
-    });
-
-    it('returns null if no logs found', async () => {
-      aztecNode.getLogsByTags.mockResolvedValue([[]]);
-      const result = await getPrivateLogByTag(tag, aztecNode);
-      expect(result).toBeNull();
-    });
-
-    it('returns log and tx effect if single log found', async () => {
-      const scopedLog = await TxScopedL2Log.random(false);
-      aztecNode.getLogsByTags.mockResolvedValue([[scopedLog]]);
-      const indexedTxEffect = await randomIndexedTxEffect();
-      aztecNode.getTxEffect.mockResolvedValue(indexedTxEffect);
-
-      const result = await getPrivateLogByTag(tag, aztecNode);
-
-      expect(result?.logPayload).toEqual(scopedLog.log.getEmittedFieldsWithoutTag());
-      expect(result?.uniqueNoteHashesInTx).toEqual(indexedTxEffect.data.noteHashes);
-      expect(result?.txHash).toEqual(scopedLog.txHash);
-      expect(result?.firstNullifierInTx).toEqual(indexedTxEffect.data.nullifiers[0]);
-      expect(aztecNode.getTxEffect).toHaveBeenCalledWith(scopedLog.txHash);
-    });
-
-    it('throws if multiple logs found for tag', async () => {
-      const scopedLog = await TxScopedL2Log.random(false);
-      aztecNode.getLogsByTags.mockResolvedValue([[scopedLog, scopedLog]]);
-
-      await expect(getPrivateLogByTag(tag, aztecNode)).rejects.toThrow(/Got 2 logs for tag/);
-    });
-
-    it('throws if tx effect not found', async () => {
-      const scopedLog = await TxScopedL2Log.random(false);
-      aztecNode.getLogsByTags.mockResolvedValue([[scopedLog]]);
-      aztecNode.getTxEffect.mockResolvedValue(undefined);
-
-      await expect(getPrivateLogByTag(tag, aztecNode)).rejects.toThrow(/failed to retrieve tx effects/);
-    });
   });
 
   describe('deliverEvent', () => {

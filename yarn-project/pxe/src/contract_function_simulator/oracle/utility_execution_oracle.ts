@@ -16,6 +16,7 @@ import { computeAddressSecret } from '@aztec/stdlib/keys';
 import {
   DirectionalAppTaggingSecret,
   PendingTaggedLog,
+  PrivateLogWithTxData,
   PublicLog,
   PublicLogWithTxData,
   TxScopedL2Log,
@@ -44,7 +45,6 @@ import { pickNotes } from '../pick_notes.js';
 import {
   assertCompatibleOracleVersion,
   getNullifierIndex,
-  getPrivateLogByTag,
   syncNoteNullifiers,
   validateEnqueuedNotesAndEvents,
 } from './common.js';
@@ -506,7 +506,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
         // TODO(#14555): remove these internal functions and have node endpoints that do this instead
         const [publicLog, privateLog] = await Promise.all([
           this.getPublicLogByTag(request.unsiloedTag, request.contractAddress),
-          getPrivateLogByTag(await siloPrivateLog(request.contractAddress, request.unsiloedTag), this.aztecNode),
+          this.getPrivateLogByTag(await siloPrivateLog(request.contractAddress, request.unsiloedTag)),
         ]);
 
         if (publicLog !== null) {
@@ -878,6 +878,38 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     const allPublicLogs = allLogs.map(logs => logs.filter(log => log.isFromPublic));
     return allPublicLogs.map(logs =>
       logs.filter(log => (log.log as PublicLog).contractAddress.equals(contractAddress)),
+    );
+  }
+
+  // TODO(#14555): delete this function and implement this behavior in the node instead
+  protected async getPrivateLogByTag(siloedTag: Fr): Promise<PrivateLogWithTxData | null> {
+    const logs = await this.internalGetPrivateLogsByTags([siloedTag]);
+    const logsForTag = logs[0];
+
+    if (logsForTag.length == 0) {
+      return null;
+    } else if (logsForTag.length > 1) {
+      // TODO(#11627): handle this case
+      throw new Error(
+        `Got ${logsForTag.length} logs for tag ${siloedTag}. getPrivateLogByTag currently only supports a single log per tag`,
+      );
+    }
+
+    const scopedLog = logsForTag[0];
+
+    // getLogsByTag doesn't have all of the information that we need (notably note hashes and the first nullifier), so
+    // we need to make a second call to the node for `getTxEffect`.
+    // TODO(#9789): bundle this information in the `getLogsByTag` call.
+    const txEffect = await this.aztecNode.getTxEffect(scopedLog.txHash);
+    if (txEffect == undefined) {
+      throw new Error(`Unexpected: failed to retrieve tx effects for tx ${scopedLog.txHash} which is known to exist`);
+    }
+
+    return new PrivateLogWithTxData(
+      scopedLog.log.getEmittedFieldsWithoutTag(),
+      scopedLog.txHash,
+      txEffect.data.noteHashes,
+      txEffect.data.nullifiers[0],
     );
   }
 }
