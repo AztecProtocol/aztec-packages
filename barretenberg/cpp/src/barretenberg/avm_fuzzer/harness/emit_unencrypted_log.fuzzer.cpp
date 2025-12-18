@@ -1,33 +1,18 @@
 #include "barretenberg/vm2/simulation/gadgets/emit_unencrypted_log.hpp"
 #include <cassert>
 #include <cstdint>
-#include <fuzzer/FuzzedDataProvider.h>
 
 #include "barretenberg/avm_fuzzer/fuzz_lib/constants.hpp"
 #include "barretenberg/avm_fuzzer/harness/context_helper.hpp"
-#include "barretenberg/common/serialize.hpp"
-#include "barretenberg/numeric/uint256/uint256.hpp"
-#include "barretenberg/vm2/common/avm_io.hpp"
 #include "barretenberg/vm2/common/aztec_constants.hpp"
-#include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/generated/relations/emit_unencrypted_log.hpp"
-#include "barretenberg/vm2/generated/relations/lookups_execution.hpp"
 #include "barretenberg/vm2/simulation/events/emit_unencrypted_log_event.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
-#include "barretenberg/vm2/simulation/events/gt_event.hpp"
-#include "barretenberg/vm2/simulation/events/range_check_event.hpp"
-#include "barretenberg/vm2/simulation/gadgets/context_provider.hpp"
-#include "barretenberg/vm2/simulation/gadgets/gt.hpp"
-#include "barretenberg/vm2/simulation/gadgets/range_check.hpp"
 #include "barretenberg/vm2/simulation/interfaces/memory.hpp"
-#include "barretenberg/vm2/simulation/lib/execution_id_manager.hpp"
-#include "barretenberg/vm2/simulation/lib/raw_data_dbs.hpp"
-#include "barretenberg/vm2/simulation/lib/side_effect_tracking_db.hpp"
-#include "barretenberg/vm2/simulation/standalone/concrete_dbs.hpp"
 #include "barretenberg/vm2/testing/instruction_builder.hpp"
 #include "barretenberg/vm2/tooling/debugger.hpp"
 #include "barretenberg/vm2/tracegen/execution_trace.hpp"
@@ -35,7 +20,6 @@
 #include "barretenberg/vm2/tracegen/gt_trace.hpp"
 #include "barretenberg/vm2/tracegen/opcodes/emit_unencrypted_log_trace.hpp"
 #include "barretenberg/vm2/tracegen/precomputed_trace.hpp"
-#include "barretenberg/vm2/tracegen/public_inputs_trace.hpp"
 #include "barretenberg/vm2/tracegen/range_check_trace.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
 
@@ -293,16 +277,12 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
     // Set up gadgets and event emitters
     EventEmitter<EmitUnencryptedLogEvent> emit_log_emitter;
 
-    GadgetFuzzerContextHelper context_helper(input.contract_address, input.is_static);
+    GadgetFuzzerContextHelper context_helper(input.contract_address, input.is_static, 1);
     EmitUnencryptedLog emit_unencrypted_log(
         context_helper.execution_id_manager, context_helper.greater_than, emit_log_emitter);
 
     auto context =
         context_helper.make_enqueued_fuzzing_context(input.contract_address, input.contract_address, input.is_static);
-
-    // TODO(MW): This is a little janky. Without it, emit_unencrypted_log sets its clk at 0, but execution always starts
-    // at 1:
-    context_helper.execution_id_manager.increment_execution_id();
 
     // TODO(MW): multiple log events
     std::vector<FF> log_fields = generate_and_set_log_fields(input, &context->get_memory());
