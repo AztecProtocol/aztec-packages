@@ -6,7 +6,7 @@ import { EventSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { L2BlockHash, randomDataInBlock } from '@aztec/stdlib/block';
 import { CompleteAddress } from '@aztec/stdlib/contract';
-import { computeUniqueNoteHash, siloNoteHash, siloNullifier, siloPrivateLog } from '@aztec/stdlib/hash';
+import { computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/stdlib/hash';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import { PublicLog, TxScopedL2Log } from '@aztec/stdlib/logs';
 import { NoteStatus } from '@aztec/stdlib/note';
@@ -27,21 +27,12 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 import {
   AddressDataProvider,
   AnchorBlockDataProvider,
-  CapsuleDataProvider,
   ContractDataProvider,
   NoteDao,
   NoteDataProvider,
   PrivateEventDataProvider,
 } from '../../storage/index.js';
-import { LogRetrievalRequest } from '../noir-structs/log_retrieval_request.js';
-import {
-  bulkRetrieveLogs,
-  deliverEvent,
-  deliverNote,
-  getPrivateLogByTag,
-  getPublicLogByTag,
-  syncNoteNullifiers,
-} from './common.js';
+import { deliverEvent, deliverNote, getPrivateLogByTag, getPublicLogByTag, syncNoteNullifiers } from './common.js';
 
 jest.setTimeout(30_000);
 
@@ -52,7 +43,6 @@ describe('Common oracle functions', () => {
   let contractDataProvider: ContractDataProvider;
   let anchorBlockDataProvider: AnchorBlockDataProvider;
   let keyStore: KeyStore;
-  let capsuleDataProvider: CapsuleDataProvider;
   let privateEventDataProvider: PrivateEventDataProvider;
   let noteDataProvider: NoteDataProvider;
 
@@ -72,7 +62,6 @@ describe('Common oracle functions', () => {
     anchorBlockDataProvider = new AnchorBlockDataProvider(store);
     keyStore = new KeyStore(store);
     privateEventDataProvider = new PrivateEventDataProvider(store);
-    capsuleDataProvider = new CapsuleDataProvider(store);
     noteDataProvider = await NoteDataProvider.create(store);
 
     // Set up recipient account
@@ -84,85 +73,6 @@ describe('Common oracle functions', () => {
     await setSyncedBlockNumber(MAX_BLOCK_NUMBER_OF_A_LOG);
 
     contractAddress = await AztecAddress.random();
-  });
-
-  describe('utilityBulkRetrieveLogs', () => {
-    const unsiloedTag = Fr.random();
-    const REQUEST_SLOT = Fr.random();
-    const RESPONSE_SLOT = Fr.random();
-
-    beforeEach(() => {
-      aztecNode.getLogsByTags.mockReset();
-      aztecNode.getTxEffect.mockReset();
-    });
-
-    it('returns no logs if none are found', async () => {
-      aztecNode.getLogsByTags.mockResolvedValue([[]]);
-
-      const request = new LogRetrievalRequest(contractAddress, unsiloedTag);
-
-      await capsuleDataProvider.setCapsuleArray(contractAddress, REQUEST_SLOT, [request.toFields()]);
-      await bulkRetrieveLogs(contractAddress, REQUEST_SLOT, RESPONSE_SLOT, capsuleDataProvider, aztecNode);
-
-      expect((await capsuleDataProvider.readCapsuleArray(contractAddress, REQUEST_SLOT)).length).toEqual(0);
-
-      const responses = await capsuleDataProvider.readCapsuleArray(contractAddress, RESPONSE_SLOT);
-      expect(responses.length).toEqual(1);
-
-      // Check Option::none
-      expect(responses[0][0]).toEqual(new Fr(0)); // TODO: deserialize into option and check properly
-    });
-
-    it('returns a public log if one is found', async () => {
-      const scopedLog = await TxScopedL2Log.random(true);
-      (scopedLog.log as PublicLog).contractAddress = contractAddress;
-
-      aztecNode.getLogsByTags.mockResolvedValue([[scopedLog]]);
-      const indexedTxEffect = await randomIndexedTxEffect();
-
-      aztecNode.getTxEffect.mockImplementation((txHash: TxHash) =>
-        txHash.equals(scopedLog.txHash) ? Promise.resolve(indexedTxEffect) : Promise.resolve(undefined),
-      );
-
-      const request = new LogRetrievalRequest(contractAddress, scopedLog.log.fields[0]);
-
-      await capsuleDataProvider.setCapsuleArray(contractAddress, REQUEST_SLOT, [request.toFields()]);
-      await bulkRetrieveLogs(contractAddress, REQUEST_SLOT, RESPONSE_SLOT, capsuleDataProvider, aztecNode);
-
-      expect((await capsuleDataProvider.readCapsuleArray(contractAddress, REQUEST_SLOT)).length).toEqual(0);
-
-      const responses = await capsuleDataProvider.readCapsuleArray(contractAddress, RESPONSE_SLOT);
-      expect(responses.length).toEqual(1);
-
-      // Check Option::some
-      expect(responses[0][0]).toEqual(new Fr(1)); // TODO: deserialize into option and check properly
-    });
-
-    it('returns a private log if one is found', async () => {
-      const scopedLog = await TxScopedL2Log.random(false);
-      scopedLog.log.fields[0] = await siloPrivateLog(contractAddress, Fr.random());
-
-      aztecNode.getLogsByTags.mockResolvedValue([[scopedLog]]);
-      const indexedTxEffect = await randomIndexedTxEffect();
-      aztecNode.getTxEffect.mockResolvedValue(indexedTxEffect);
-
-      aztecNode.getTxEffect.mockImplementation((txHash: TxHash) =>
-        txHash.equals(scopedLog.txHash) ? Promise.resolve(indexedTxEffect) : Promise.resolve(undefined),
-      );
-
-      const request = new LogRetrievalRequest(contractAddress, scopedLog.log.fields[0]);
-
-      await capsuleDataProvider.setCapsuleArray(contractAddress, REQUEST_SLOT, [request.toFields()]);
-      await bulkRetrieveLogs(contractAddress, REQUEST_SLOT, RESPONSE_SLOT, capsuleDataProvider, aztecNode);
-
-      expect((await capsuleDataProvider.readCapsuleArray(contractAddress, REQUEST_SLOT)).length).toEqual(0);
-
-      const responses = await capsuleDataProvider.readCapsuleArray(contractAddress, RESPONSE_SLOT);
-      expect(responses.length).toEqual(1);
-
-      // Check Option::some
-      expect(responses[0][0]).toEqual(new Fr(1)); // TODO: deserialize into option and check properly
-    });
   });
 
   describe('getPublicLogByTag', () => {

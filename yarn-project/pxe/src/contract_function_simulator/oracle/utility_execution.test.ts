@@ -7,11 +7,14 @@ import { FunctionCall, FunctionSelector, FunctionType, encodeArguments } from '@
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { L2BlockHash } from '@aztec/stdlib/block';
 import { CompleteAddress, type ContractInstanceWithAddress } from '@aztec/stdlib/contract';
+import { siloPrivateLog } from '@aztec/stdlib/hash';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
+import { PublicLog, TxScopedL2Log } from '@aztec/stdlib/logs';
 import { Note, NoteDao } from '@aztec/stdlib/note';
-import { BlockHeader, GlobalVariables, TxHash } from '@aztec/stdlib/tx';
+import { BlockHeader, GlobalVariables, TxHash, randomIndexedTxEffect } from '@aztec/stdlib/tx';
 
 import { mock } from 'jest-mock-extended';
+import type { _MockProxy } from 'jest-mock-extended/lib/Mock.js';
 
 import {
   AddressDataProvider,
@@ -24,6 +27,7 @@ import {
   SenderTaggingDataProvider,
 } from '../../storage/index.js';
 import { ContractFunctionSimulator } from '../contract_function_simulator.js';
+import { LogRetrievalRequest } from '../noir-structs/log_retrieval_request.js';
 import { UtilityExecutionOracle } from './utility_execution_oracle.js';
 
 describe('Utility Execution test suite', () => {
@@ -59,6 +63,7 @@ describe('Utility Execution test suite', () => {
     recipientTaggingDataProvider = mock<RecipientTaggingDataProvider>();
     capsuleDataProvider = mock<CapsuleDataProvider>();
     privateEventDataProvider = mock<PrivateEventDataProvider>();
+    const capsuleArrays = new Map<string, Fr[][]>();
     anchorBlockHeader = BlockHeader.random();
     anchorBlockDataProvider.getBlockHeader.mockImplementation(() => Promise.resolve(anchorBlockHeader));
     senderTaggingDataProvider.getLastFinalizedIndex.mockResolvedValue(undefined);
@@ -69,7 +74,12 @@ describe('Utility Execution test suite', () => {
     recipientTaggingDataProvider.getLastUsedIndexes.mockImplementation(secrets =>
       Promise.resolve(secrets.map(() => undefined)),
     );
-    capsuleDataProvider.readCapsuleArray.mockResolvedValue([]);
+    capsuleDataProvider.setCapsuleArray.mockImplementation(async (address, slot, content) => {
+      capsuleArrays.set(`${address.toString()}:${slot.toString()}`, content);
+    });
+    capsuleDataProvider.readCapsuleArray.mockImplementation(async (address, slot) => {
+      return capsuleArrays.get(`${address.toString()}:${slot.toString()}`) ?? [];
+    });
     acirSimulator = new ContractFunctionSimulator(
       contractDataProvider,
       noteDataProvider,
@@ -151,38 +161,121 @@ describe('Utility Execution test suite', () => {
   }, 30_000);
 
   describe('UtilityExecutionOracle', () => {
-    describe('Respects synced block number', () => {
-      const syncedBlockNumber = 100;
-      let nullifier: Fr;
-      let contractAddress: AztecAddress;
-      let leafSlot: Fr;
-      let utilityExecutionOracle: UtilityExecutionOracle;
+    let contractAddress: AztecAddress;
+    let utilityExecutionOracle: UtilityExecutionOracle;
+    const syncedBlockNumber = 100;
 
-      beforeEach(async () => {
+    beforeEach(async () => {
+      contractAddress = await AztecAddress.random();
+      anchorBlockHeader = BlockHeader.empty({
+        globalVariables: GlobalVariables.empty({ blockNumber: BlockNumber(syncedBlockNumber) }),
+      });
+      anchorBlockDataProvider.getBlockHeader.mockResolvedValue(anchorBlockHeader);
+
+      utilityExecutionOracle = new UtilityExecutionOracle(
+        contractAddress,
+        [],
+        [],
+        anchorBlockHeader,
+        contractDataProvider,
+        noteDataProvider,
+        keyStore,
+        addressDataProvider,
+        aztecNode,
+        anchorBlockDataProvider,
+        senderTaggingDataProvider,
+        recipientTaggingDataProvider,
+        capsuleDataProvider,
+        privateEventDataProvider,
+      );
+    });
+
+    describe('utilityBulkRetrieveLogs', () => {
+      const unsiloedTag = Fr.random();
+      const REQUEST_SLOT = Fr.random();
+      const RESPONSE_SLOT = Fr.random();
+
+      beforeEach(() => {
+        aztecNode.getLogsByTags.mockReset();
+        aztecNode.getTxEffect.mockReset();
+      });
+
+      it('returns no logs if none are found', async () => {
+        aztecNode.getLogsByTags.mockResolvedValue([[]]);
+
+        const request = new LogRetrievalRequest(contractAddress, unsiloedTag);
+
+        await capsuleDataProvider.setCapsuleArray(contractAddress, REQUEST_SLOT, [request.toFields()]);
+        await utilityExecutionOracle.utilityBulkRetrieveLogs(contractAddress, REQUEST_SLOT, RESPONSE_SLOT);
+
+        expect((await capsuleDataProvider.readCapsuleArray(contractAddress, REQUEST_SLOT)).length).toEqual(0);
+
+        const responses = await capsuleDataProvider.readCapsuleArray(contractAddress, RESPONSE_SLOT);
+        expect(responses.length).toEqual(1);
+
+        // Check Option::none
+        expect(responses[0][0]).toEqual(new Fr(0)); // TODO: deserialize into option and check properly
+      });
+
+      it('returns a public log if one is found', async () => {
+        const scopedLog = await TxScopedL2Log.random(true);
+        (scopedLog.log as PublicLog).contractAddress = contractAddress;
+
+        aztecNode.getLogsByTags.mockResolvedValue([[scopedLog]]);
+        const indexedTxEffect = await randomIndexedTxEffect();
+
+        aztecNode.getTxEffect.mockImplementation((txHash: TxHash) =>
+          txHash.equals(scopedLog.txHash) ? Promise.resolve(indexedTxEffect) : Promise.resolve(undefined),
+        );
+
+        const request = new LogRetrievalRequest(contractAddress, scopedLog.log.fields[0]);
+
+        await capsuleDataProvider.setCapsuleArray(contractAddress, REQUEST_SLOT, [request.toFields()]);
+        await utilityExecutionOracle.utilityBulkRetrieveLogs(contractAddress, REQUEST_SLOT, RESPONSE_SLOT);
+
+        expect((await capsuleDataProvider.readCapsuleArray(contractAddress, REQUEST_SLOT)).length).toEqual(0);
+
+        const responses = await capsuleDataProvider.readCapsuleArray(contractAddress, RESPONSE_SLOT);
+        expect(responses.length).toEqual(1);
+
+        // Check Option::some
+        expect(responses[0][0]).toEqual(new Fr(1)); // TODO: deserialize into option and check properly
+      });
+
+      it('returns a private log if one is found', async () => {
+        const scopedLog = await TxScopedL2Log.random(false);
+        scopedLog.log.fields[0] = await siloPrivateLog(contractAddress, Fr.random());
+
+        aztecNode.getLogsByTags.mockResolvedValue([[scopedLog]]);
+        const indexedTxEffect = await randomIndexedTxEffect();
+        aztecNode.getTxEffect.mockResolvedValue(indexedTxEffect);
+
+        aztecNode.getTxEffect.mockImplementation((txHash: TxHash) =>
+          txHash.equals(scopedLog.txHash) ? Promise.resolve(indexedTxEffect) : Promise.resolve(undefined),
+        );
+
+        const request = new LogRetrievalRequest(contractAddress, scopedLog.log.fields[0]);
+
+        await capsuleDataProvider.setCapsuleArray(contractAddress, REQUEST_SLOT, [request.toFields()]);
+        await utilityExecutionOracle.utilityBulkRetrieveLogs(contractAddress, REQUEST_SLOT, RESPONSE_SLOT);
+
+        expect((await capsuleDataProvider.readCapsuleArray(contractAddress, REQUEST_SLOT)).length).toEqual(0);
+
+        const responses = await capsuleDataProvider.readCapsuleArray(contractAddress, RESPONSE_SLOT);
+        expect(responses.length).toEqual(1);
+
+        // Check Option::some
+        expect(responses[0][0]).toEqual(new Fr(1)); // TODO: deserialize into option and check properly
+      });
+    });
+
+    describe('Respects synced block number', () => {
+      let nullifier: Fr;
+      let leafSlot: Fr;
+
+      beforeEach(() => {
         leafSlot = Fr.random();
         nullifier = Fr.random();
-        contractAddress = await AztecAddress.random();
-        anchorBlockHeader = BlockHeader.empty({
-          globalVariables: GlobalVariables.empty({ blockNumber: BlockNumber(syncedBlockNumber) }),
-        });
-        anchorBlockDataProvider.getBlockHeader.mockResolvedValue(anchorBlockHeader);
-
-        utilityExecutionOracle = new UtilityExecutionOracle(
-          contractAddress,
-          [],
-          [],
-          anchorBlockHeader,
-          contractDataProvider,
-          noteDataProvider,
-          keyStore,
-          addressDataProvider,
-          aztecNode,
-          anchorBlockDataProvider,
-          senderTaggingDataProvider,
-          recipientTaggingDataProvider,
-          capsuleDataProvider,
-          privateEventDataProvider,
-        );
       });
 
       it('throws when getting low nullifier membership witness for future block', async () => {

@@ -2,7 +2,7 @@ import type { Fr } from '@aztec/foundation/curves/bn254';
 import type { EventSelector, FunctionArtifactWithContractName, FunctionSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { BlockParameter, DataInBlock } from '@aztec/stdlib/block';
-import { computeUniqueNoteHash, siloNoteHash, siloNullifier, siloPrivateLog } from '@aztec/stdlib/hash';
+import { computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/stdlib/hash';
 import { type AztecNode, MAX_RPC_LEN } from '@aztec/stdlib/interfaces/server';
 import { PrivateLogWithTxData, PublicLog, PublicLogWithTxData, TxScopedL2Log } from '@aztec/stdlib/logs';
 import { Note, NoteDao } from '@aztec/stdlib/note';
@@ -17,12 +17,8 @@ import {
   type NoteDataProvider,
   PrivateEventDataProvider,
 } from '../../storage/index.js';
-import type { ExecutionStats } from '../execution_data_provider.js';
 import { EventValidationRequest } from '../noir-structs/event_validation_request.js';
-import { LogRetrievalRequest } from '../noir-structs/log_retrieval_request.js';
-import { LogRetrievalResponse } from '../noir-structs/log_retrieval_response.js';
 import { NoteValidationRequest } from '../noir-structs/note_validation_request.js';
-import type { ProxiedNode } from '../proxied_node.js';
 
 // TODO: this might not be the final home for these functions,
 // it's just a way of starting to dissolve PXEOracleInterface
@@ -134,64 +130,6 @@ async function internalGetPublicLogsByTagsFromContract(
   const allLogs = await aztecNode.getLogsByTags(tags);
   const allPublicLogs = allLogs.map(logs => logs.filter(log => log.isFromPublic));
   return allPublicLogs.map(logs => logs.filter(log => (log.log as PublicLog).contractAddress.equals(contractAddress)));
-}
-
-export async function bulkRetrieveLogs(
-  contractAddress: AztecAddress,
-  logRetrievalRequestsArrayBaseSlot: Fr,
-  logRetrievalResponsesArrayBaseSlot: Fr,
-  capsuleDataProvider: CapsuleDataProvider,
-  aztecNode: AztecNode,
-) {
-  // We read all log retrieval requests and process them all concurrently. This makes the process much faster as we
-  // don't need to wait for the network round-trip.
-  const logRetrievalRequests = (
-    await capsuleDataProvider.readCapsuleArray(contractAddress, logRetrievalRequestsArrayBaseSlot)
-  ).map(LogRetrievalRequest.fromFields);
-
-  const maybeLogRetrievalResponses = await Promise.all(
-    logRetrievalRequests.map(async request => {
-      // TODO(#14555): remove these internal functions and have node endpoints that do this instead
-      const [publicLog, privateLog] = await Promise.all([
-        getPublicLogByTag(request.unsiloedTag, request.contractAddress, aztecNode),
-        getPrivateLogByTag(await siloPrivateLog(request.contractAddress, request.unsiloedTag), aztecNode),
-      ]);
-
-      if (publicLog !== null) {
-        if (privateLog !== null) {
-          throw new Error(
-            `Found both a public and private log when searching for tag ${request.unsiloedTag} from contract ${request.contractAddress}`,
-          );
-        }
-
-        return new LogRetrievalResponse(
-          publicLog.logPayload,
-          publicLog.txHash,
-          publicLog.uniqueNoteHashesInTx,
-          publicLog.firstNullifierInTx,
-        );
-      } else if (privateLog !== null) {
-        return new LogRetrievalResponse(
-          privateLog.logPayload,
-          privateLog.txHash,
-          privateLog.uniqueNoteHashesInTx,
-          privateLog.firstNullifierInTx,
-        );
-      } else {
-        return null;
-      }
-    }),
-  );
-
-  // Requests are cleared once we're done.
-  await capsuleDataProvider.setCapsuleArray(contractAddress, logRetrievalRequestsArrayBaseSlot, []);
-
-  // The responses are stored as Option<LogRetrievalResponse> in a second CapsuleArray.
-  await capsuleDataProvider.setCapsuleArray(
-    contractAddress,
-    logRetrievalResponsesArrayBaseSlot,
-    maybeLogRetrievalResponses.map(LogRetrievalResponse.toSerializedOption),
-  );
 }
 
 export async function getNullifierIndex(nullifier: Fr, aztecNode: AztecNode) {

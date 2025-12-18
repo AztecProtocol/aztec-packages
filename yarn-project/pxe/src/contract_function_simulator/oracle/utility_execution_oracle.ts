@@ -9,7 +9,7 @@ import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { BlockParameter, L2Block } from '@aztec/stdlib/block';
 import type { CompleteAddress, ContractInstance } from '@aztec/stdlib/contract';
-import { siloNullifier } from '@aztec/stdlib/hash';
+import { siloNullifier, siloPrivateLog } from '@aztec/stdlib/hash';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
 import { computeAddressSecret } from '@aztec/stdlib/keys';
@@ -35,12 +35,15 @@ import type {
   SenderTaggingDataProvider,
 } from '../../storage/index.js';
 import { SiloedTag, Tag, WINDOW_HALF_SIZE, getInitialIndexesMap, getPreTagsForTheWindow } from '../../tagging/index.js';
+import { LogRetrievalRequest } from '../noir-structs/log_retrieval_request.js';
+import { LogRetrievalResponse } from '../noir-structs/log_retrieval_response.js';
 import { UtilityContext } from '../noir-structs/utility_context.js';
 import { pickNotes } from '../pick_notes.js';
 import {
   assertCompatibleOracleVersion,
-  bulkRetrieveLogs,
   getNullifierIndex,
+  getPrivateLogByTag,
+  getPublicLogByTag,
   syncNoteNullifiers,
   validateEnqueuedNotesAndEvents,
 } from './common.js';
@@ -483,12 +486,62 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       throw new Error(`Got a note validation request from ${contractAddress}, expected ${this.contractAddress}`);
     }
 
-    await bulkRetrieveLogs(
+    await this.bulkRetrieveLogs(contractAddress, logRetrievalRequestsArrayBaseSlot, logRetrievalResponsesArrayBaseSlot);
+  }
+
+  protected async bulkRetrieveLogs(
+    contractAddress: AztecAddress,
+    logRetrievalRequestsArrayBaseSlot: Fr,
+    logRetrievalResponsesArrayBaseSlot: Fr,
+  ) {
+    // We read all log retrieval requests and process them all concurrently. This makes the process much faster as we
+    // don't need to wait for the network round-trip.
+    const logRetrievalRequests = (
+      await this.capsuleDataProvider.readCapsuleArray(contractAddress, logRetrievalRequestsArrayBaseSlot)
+    ).map(LogRetrievalRequest.fromFields);
+
+    const maybeLogRetrievalResponses = await Promise.all(
+      logRetrievalRequests.map(async request => {
+        // TODO(#14555): remove these internal functions and have node endpoints that do this instead
+        const [publicLog, privateLog] = await Promise.all([
+          getPublicLogByTag(request.unsiloedTag, request.contractAddress, this.aztecNode),
+          getPrivateLogByTag(await siloPrivateLog(request.contractAddress, request.unsiloedTag), this.aztecNode),
+        ]);
+
+        if (publicLog !== null) {
+          if (privateLog !== null) {
+            throw new Error(
+              `Found both a public and private log when searching for tag ${request.unsiloedTag} from contract ${request.contractAddress}`,
+            );
+          }
+
+          return new LogRetrievalResponse(
+            publicLog.logPayload,
+            publicLog.txHash,
+            publicLog.uniqueNoteHashesInTx,
+            publicLog.firstNullifierInTx,
+          );
+        } else if (privateLog !== null) {
+          return new LogRetrievalResponse(
+            privateLog.logPayload,
+            privateLog.txHash,
+            privateLog.uniqueNoteHashesInTx,
+            privateLog.firstNullifierInTx,
+          );
+        } else {
+          return null;
+        }
+      }),
+    );
+
+    // Requests are cleared once we're done.
+    await this.capsuleDataProvider.setCapsuleArray(contractAddress, logRetrievalRequestsArrayBaseSlot, []);
+
+    // The responses are stored as Option<LogRetrievalResponse> in a second CapsuleArray.
+    await this.capsuleDataProvider.setCapsuleArray(
       contractAddress,
-      logRetrievalRequestsArrayBaseSlot,
       logRetrievalResponsesArrayBaseSlot,
-      this.capsuleDataProvider,
-      this.aztecNode,
+      maybeLogRetrievalResponses.map(LogRetrievalResponse.toSerializedOption),
     );
   }
 
