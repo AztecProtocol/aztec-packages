@@ -398,11 +398,13 @@ else
 
   # Run forge from docker with the l1-contracts mounted
   # Use host network to access the port-forwarded eth-devnet
+  # Use aztec-dev image which has forge installed
+  FORGE_DOCKER_IMAGE="${FORGE_DOCKER_IMAGE:-aztecprotocol/aztec-dev:latest}"
   CONTRACT_JSON=$(docker run --rm --network=host \
     -v "${REPO_ROOT}/l1-contracts:/l1-contracts" \
     -w "/l1-contracts" \
     "${DOCKER_ENV_ARGS[@]}" \
-    "${AZTEC_DOCKER_IMAGE}" \
+    "${FORGE_DOCKER_IMAGE}" \
     forge "${FORGE_ARGS[@]}" 2>&1 | tee /dev/stderr | grep -E '^\{.*\}$' | tail -1) || true
 
   rm -f "${FORGE_PLAN_FILE}"
