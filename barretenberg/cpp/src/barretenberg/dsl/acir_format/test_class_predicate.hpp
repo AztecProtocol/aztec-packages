@@ -68,8 +68,8 @@ concept TestBaseWithPredicate = requires {
     { T::InvalidWitness::get_labels() } -> std::same_as<std::vector<std::string>>;
 
     // Required static constraint manipulation methods
-    requires requires(typename T::AcirConstraint& constraint,
-                      WitnessVector& witness_values,
+    requires requires(typename T::AcirConstraint constraint,
+                      WitnessVector witness_values,
                       const typename T::InvalidWitness::Target& invalid_witness_target) {
         /**
          * @brief Invalidate witness values based on the target
@@ -79,8 +79,12 @@ concept TestBaseWithPredicate = requires {
          * 2. Constraints succeed when predicate is false, regardless of witness validity
          *
          */
-        { T::invalidate_witness(constraint, witness_values, invalid_witness_target) } -> std::same_as<void>;
+        {
+            T::invalidate_witness(constraint, witness_values, invalid_witness_target)
+        } -> std::same_as<std::pair<typename T::AcirConstraint, WitnessVector>>;
+    };
 
+    requires requires(typename T::AcirConstraint& constraint, WitnessVector& witness_values) {
         /**
          * @brief Generate valid constraints with predicate set to a witness holding the value true.
          *
@@ -111,24 +115,29 @@ template <TestBaseWithPredicate Base_> class TestClassWithPredicate {
      *
      * @note The constraint and witness values must be copied otherwise this would affect later calls to this function
      */
-    static void update_witness_based_on_predicate(AcirConstraint& constraint,
-                                                  WitnessVector& witness_values,
-                                                  const Predicate<InvalidWitnessTarget>& mode)
+    static std::pair<AcirConstraint, WitnessVector> update_witness_based_on_predicate(
+        const AcirConstraint& constraint,
+        const WitnessVector& witness_values,
+        const Predicate<InvalidWitnessTarget>& mode)
     {
+        // Apply witness invalidation for all cases
+        auto [invalid_constraint, invalid_witness_values] =
+            Base::invalidate_witness(constraint, witness_values, mode.invalid_witness);
+
         switch (mode.test_case) {
         case PredicateTestCase::ConstantTrue:
-            constraint.predicate = WitnessOrConstant<bb::fr>::from_constant(bb::fr(1));
-            witness_values.pop_back();
+            invalid_constraint.predicate = WitnessOrConstant<bb::fr>::from_constant(bb::fr(1));
+            invalid_witness_values.pop_back();
             break;
         case PredicateTestCase::WitnessTrue:
             // Nothing to do - keep default witness predicate
             break;
         case PredicateTestCase::WitnessFalse:
-            witness_values[constraint.predicate.index] = bb::fr(0);
+            invalid_witness_values[invalid_constraint.predicate.index] = bb::fr(0);
             break;
         }
-        // Apply witness invalidation for all cases
-        Base::invalidate_witness(constraint, witness_values, mode.invalid_witness);
+
+        return { invalid_constraint, invalid_witness_values };
     }
 
     /**
@@ -146,20 +155,20 @@ template <TestBaseWithPredicate Base_> class TestClassWithPredicate {
      *
      * @note The constraint and witness values must be copied otherwise this would affect later calls to this function
      */
-    static std::tuple<bool, bool, std::string> test_constraints(AcirConstraint constraint,
-                                                                WitnessVector witness_values,
+    static std::tuple<bool, bool, std::string> test_constraints(const AcirConstraint& constraint,
+                                                                const WitnessVector& witness_values,
                                                                 const PredicateTestCase& test_case,
                                                                 const InvalidWitnessTarget& invalid_witness_target)
     {
         Predicate<InvalidWitnessTarget> predicate = { .test_case = test_case,
                                                       .invalid_witness = invalid_witness_target };
-        update_witness_based_on_predicate(constraint, witness_values, predicate);
+        auto [updated_constraint, updated_witness_values] =
+            update_witness_based_on_predicate(constraint, witness_values, predicate);
 
         // Use the full ACIR flow: constraint -> Acir::Opcode -> Acir::Circuit -> circuit_serde_to_acir_format
         AcirFormat constraint_system = constraint_to_acir_format(
-            constraint, /*max_witness_index=*/static_cast<uint32_t>(witness_values.size()) - 1);
-
-        AcirProgram program{ constraint_system, witness_values };
+            updated_constraint, /*max_witness_index=*/static_cast<uint32_t>(updated_witness_values.size()) - 1);
+        AcirProgram program{ constraint_system, updated_witness_values };
         auto builder = create_circuit<Builder>(program);
 
         return { CircuitChecker::check(builder), builder.failed(), builder.err() };
@@ -195,16 +204,16 @@ template <TestBaseWithPredicate Base_> class TestClassWithPredicate {
             // Update the constraint system based on the predicate mode
             Predicate<InvalidWitnessTarget> predicate = { .test_case = predicate_case,
                                                           .invalid_witness = InvalidWitnessTarget::None };
-            update_witness_based_on_predicate(constraint, witness_values, predicate);
+            auto [updated_constraint, updated_witness_values] =
+                update_witness_based_on_predicate(constraint, witness_values, predicate);
 
             // Use the full ACIR flow
             AcirFormat constraint_system = constraint_to_acir_format(
-                constraint, /*max_witness_index=*/static_cast<uint32_t>(witness_values.size()) - 1);
-
+                updated_constraint, /*max_witness_index=*/static_cast<uint32_t>(updated_witness_values.size()) - 1);
             // Construct the vks
             std::shared_ptr<VerificationKey> vk_from_witness;
             {
-                AcirProgram program{ constraint_system, witness_values };
+                AcirProgram program{ constraint_system, updated_witness_values };
                 auto builder = create_circuit<Builder>(program);
                 num_gates.emplace_back(builder.get_num_finalized_gates_inefficient());
 

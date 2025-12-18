@@ -536,22 +536,29 @@ concept TestBase = requires {
     { T::InvalidWitness::get_all() } -> std::same_as<std::vector<typename T::InvalidWitness::Target>>;
     { T::InvalidWitness::get_labels() } -> std::same_as<std::vector<std::string>>;
 
-    // Required constraint manipulation methods (can be static or non-static)
-    requires requires(T& instance,
-                      typename T::AcirConstraint& constraint,
-                      WitnessVector& witness_values,
-                      const typename T::InvalidWitness::Target& invalid_witness_target) {
+    // Required constraint manipulation methods
+    requires requires(T& instance, typename T::AcirConstraint& constraint, WitnessVector& witness_values) {
         /**
          * @brief Generate valid constraints.
          *
          */
         { T::generate_constraints(constraint, witness_values) } -> std::same_as<void>;
+    };
 
+    requires requires(T& instance,
+                      typename T::AcirConstraint constraint,
+                      WitnessVector witness_values,
+                      const typename T::InvalidWitness::Target& invalid_witness_target) {
         /**
          * @brief Invalidate witness values to test that invalid witnesses produce unsatisfied constraints.
          *
+         * @note The constraint and witness values must be copied otherwise this would affect later calls to this
+         * function
+         *
          */
-        { T::invalidate_witness(constraint, witness_values, invalid_witness_target) } -> std::same_as<void>;
+        {
+            T::invalidate_witness(constraint, witness_values, invalid_witness_target)
+        } -> std::same_as<std::pair<typename T::AcirConstraint, WitnessVector>>;
     };
 };
 
@@ -576,19 +583,18 @@ template <TestBase Base_> class TestClass {
      * serialization/deserialization. The rationale for doing the rewinding is ensuring that barretenberg internally
      * tests circuit_serde_to_acir_format, which would otherwise only be tested via the tests in acir_tests.
      *
-     * @note The constraint and witness values must be copied otherwise this would affect later calls to this function
      */
-    static std::tuple<bool, bool, std::string> test_constraints(AcirConstraint constraint,
-                                                                WitnessVector witness_values,
+    static std::tuple<bool, bool, std::string> test_constraints(const AcirConstraint& constraint,
+                                                                const WitnessVector& witness_values,
                                                                 const InvalidWitnessTarget& invalid_witness_target)
     {
-        Base::invalidate_witness(constraint, witness_values, invalid_witness_target);
+        auto [updated_constraint, updated_witness_values] =
+            Base::invalidate_witness(constraint, witness_values, invalid_witness_target);
 
         // Use the full ACIR flow: constraint -> Acir::Opcode -> Acir::Circuit -> circuit_serde_to_acir_format
         AcirFormat constraint_system = constraint_to_acir_format(
-            constraint, /*max_witness_index=*/static_cast<uint32_t>(witness_values.size()) - 1);
-
-        AcirProgram program{ constraint_system, witness_values };
+            updated_constraint, /*max_witness_index=*/static_cast<uint32_t>(updated_witness_values.size()) - 1);
+        AcirProgram program{ constraint_system, updated_witness_values };
         auto builder = create_circuit<Builder>(program);
 
         return { CircuitChecker::check(builder), builder.failed(), builder.err() };

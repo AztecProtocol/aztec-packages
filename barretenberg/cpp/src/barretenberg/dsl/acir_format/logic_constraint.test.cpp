@@ -86,9 +86,8 @@ class LogicConstraintTestingFunctions {
         };
     };
 
-    static void invalidate_witness(AcirConstraint& constraint,
-                                   WitnessVector& witness_values,
-                                   const InvalidWitness::Target& invalid_witness_target)
+    static std::pair<AcirConstraint, WitnessVector> invalidate_witness(
+        AcirConstraint constraint, WitnessVector witness_values, const InvalidWitness::Target& invalid_witness_target)
     {
         switch (invalid_witness_target) {
         case InvalidWitness::Target::None:
@@ -123,6 +122,8 @@ class LogicConstraintTestingFunctions {
             break;
         }
         }
+
+        return { constraint, witness_values };
     }
 };
 

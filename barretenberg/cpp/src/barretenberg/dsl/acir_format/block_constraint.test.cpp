@@ -143,9 +143,10 @@ template <typename Builder_, size_t table_size, size_t num_reads, bool perform_c
         memory_constraint = AcirConstraint{ .init = init_indices, .trace = trace, .type = BlockType::ROM };
     }
 
-    static void invalidate_witness([[maybe_unused]] AcirConstraint& memory_constraint,
-                                   WitnessVector& witness_values,
-                                   const InvalidWitness::Target& invalid_witness_target)
+    static std::pair<AcirConstraint, WitnessVector> invalidate_witness(
+        [[maybe_unused]] AcirConstraint memory_constraint,
+        WitnessVector witness_values,
+        const InvalidWitness::Target& invalid_witness_target)
     {
         switch (invalid_witness_target) {
         case InvalidWitness::Target::None:
@@ -161,6 +162,8 @@ template <typename Builder_, size_t table_size, size_t num_reads, bool perform_c
             }
             break;
         }
+
+        return { memory_constraint, witness_values };
     }
 };
 template <typename Params>
@@ -327,9 +330,10 @@ class RAMTestingFunctions {
         memory_constraint = AcirConstraint{ .init = init_indices, .trace = trace, .type = BlockType::RAM };
     }
 
-    static void invalidate_witness([[maybe_unused]] AcirConstraint& memory_constraint,
-                                   WitnessVector& witness_values,
-                                   const InvalidWitness::Target& invalid_witness_target)
+    static std::pair<AcirConstraint, WitnessVector> invalidate_witness(
+        [[maybe_unused]] AcirConstraint memory_constraint,
+        WitnessVector witness_values,
+        const InvalidWitness::Target& invalid_witness_target)
     {
         switch (invalid_witness_target) {
         case InvalidWitness::Target::None:
@@ -347,6 +351,8 @@ class RAMTestingFunctions {
             }
             break;
         }
+
+        return { memory_constraint, witness_values };
     }
 };
 
@@ -476,9 +482,10 @@ class CallDataTestingFunctions {
         };
     }
 
-    static void invalidate_witness(AcirConstraint& memory_constraint,
-                                   WitnessVector& witness_values,
-                                   const InvalidWitness::Target& invalid_witness_target)
+    static std::pair<AcirConstraint, WitnessVector> invalidate_witness(
+        AcirConstraint memory_constraint,
+        WitnessVector witness_values,
+        const InvalidWitness::Target& invalid_witness_target)
     {
         switch (invalid_witness_target) {
         case InvalidWitness::Target::None:
@@ -492,6 +499,8 @@ class CallDataTestingFunctions {
             }
             break;
         }
+
+        return { memory_constraint, witness_values };
     }
 };
 
@@ -563,14 +572,17 @@ class ReturnDataTestingFunctions {
         memory_constraint = AcirConstraint{ .init = init_indices, .trace = {}, .type = BlockType::ReturnData };
     }
 
-    static void invalidate_witness([[maybe_unused]] AcirConstraint& memory_constraint,
-                                   [[maybe_unused]] WitnessVector& witness_values,
-                                   const InvalidWitness::Target& invalid_witness_target)
+    static std::pair<AcirConstraint, WitnessVector> invalidate_witness(
+        [[maybe_unused]] AcirConstraint memory_constraint,
+        [[maybe_unused]] WitnessVector witness_values,
+        const InvalidWitness::Target& invalid_witness_target)
     {
         switch (invalid_witness_target) {
         case InvalidWitness::Target::None:
             break;
         }
+
+        return { memory_constraint, witness_values };
     }
 };
 

@@ -31,9 +31,8 @@ template <class BuilderType, bool IsInputConstant> class Blake2sTestingFunctions
         static std::vector<std::string> get_labels() { return { "None", "Input", "Output" }; }
     };
 
-    static void invalidate_witness(Blake2sConstraint& constraint,
-                                   WitnessVector& witness_values,
-                                   const InvalidWitness::Target& invalid_witness_target)
+    static std::pair<AcirConstraint, WitnessVector> invalidate_witness(
+        AcirConstraint constraint, WitnessVector witness_values, const InvalidWitness::Target& invalid_witness_target)
     {
         switch (invalid_witness_target) {
         case InvalidWitness::Target::Input: {
@@ -54,6 +53,8 @@ template <class BuilderType, bool IsInputConstant> class Blake2sTestingFunctions
         case InvalidWitness::Target::None:
             break;
         }
+
+        return { constraint, witness_values };
     }
 
     /**
