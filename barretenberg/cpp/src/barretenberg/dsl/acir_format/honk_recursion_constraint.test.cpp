@@ -237,9 +237,10 @@ class HonkRecursionConstraintTestingFunctions {
         return ProgramMetadata{ .has_ipa_claim = HasIPAAccumulator<RecursiveFlavor> && !IsRootRollup };
     }
 
-    static void invalidate_witness(AcirConstraint& honk_recursion_constraints,
-                                   WitnessVector& witness_values,
-                                   const InvalidWitness::Target& invalid_witness_target)
+    static std::pair<AcirConstraint, WitnessVector> invalidate_witness(
+        AcirConstraint honk_recursion_constraints,
+        WitnessVector witness_values,
+        const InvalidWitness::Target& invalid_witness_target)
     {
         switch (invalid_witness_target) {
         case InvalidWitness::Target::None:
@@ -280,6 +281,8 @@ class HonkRecursionConstraintTestingFunctions {
             break;
         }
         }
+
+        return { honk_recursion_constraints, witness_values };
     }
 
     static void generate_constraints(AcirConstraint& honk_recursion_constraint, WitnessVector& witness_values)
@@ -380,15 +383,20 @@ TYPED_TEST(HonkRecursionConstraintTestWithPredicate, GateCountSingleHonkRecursio
     using Builder = TestFixture::Builder;
     using InvalidWitnessTarget = TestFixture::InvalidWitnessTarget;
 
+    typename TestFixture::AcirConstraint constraint;
+    WitnessVector witness_values;
+    TestFixture::Base::generate_constraints(constraint, witness_values);
+
     for (const auto predicate_mode : Predicate<InvalidWitnessTarget>::get_all()) {
         Predicate<InvalidWitnessTarget> predicate{ .test_case = predicate_mode,
                                                    .invalid_witness = InvalidWitnessTarget::None };
-        auto [constraint, witness_values] = TestFixture::generate_constraints(predicate);
+        auto [updated_constraint, updated_witness_values] =
+            TestFixture::update_witness_based_on_predicate(constraint, witness_values, predicate);
 
         AcirFormat constraint_system = constraint_to_acir_format(
-            constraint, /*max_witness_index=*/static_cast<uint32_t>(witness_values.size()) - 1);
+            updated_constraint, /*max_witness_index=*/static_cast<uint32_t>(updated_witness_values.size()) - 1);
 
-        AcirProgram program{ constraint_system, witness_values };
+        AcirProgram program{ constraint_system, updated_witness_values };
         ProgramMetadata metadata = TestFixture::Base::generate_metadata();
         metadata.collect_gates_per_opcode = true;
         auto builder = create_circuit<Builder>(program, metadata);
@@ -471,7 +479,9 @@ TYPED_TEST(HonkRecursionConstraintTestWithoutPredicate, GateCountRootRollup)
         GTEST_SKIP(); // We have already pinned the gate counts in this situation
     }
 
-    auto [constraint, witness_values] = TestFixture::generate_constraints();
+    typename TestFixture::AcirConstraint constraint;
+    WitnessVector witness_values;
+    TestFixture::Base::generate_constraints(constraint, witness_values);
 
     AcirFormat constraint_system =
         constraint_to_acir_format(constraint, /*max_witness_index=*/static_cast<uint32_t>(witness_values.size()) - 1);
