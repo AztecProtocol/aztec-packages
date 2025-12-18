@@ -77,39 +77,10 @@ export interface ExecutionDataProvider {
     logRetrievalRequestsArrayBaseSlot: Fr,
     logRetrievalResponsesArrayBaseSlot: Fr,
   ): Promise<void>;
-
   /**
    * Looks for nullifiers of active contract notes and marks them as nullified in the db if a nullifier is found.
    */
   syncNoteNullifiers(contractAddress: AztecAddress): Promise<void>;
-
-  /**
-   * Returns data previously stored via `storeCapsule` in the per-contract non-volatile database.
-   * @param contractAddress - The contract address under which the data is scoped.
-   * @param slot - The slot in the database to read.
-   * @returns The stored data or `null` if no data is stored under the slot.
-   */
-  loadCapsule(contractAddress: AztecAddress, slot: Fr): Promise<Fr[] | null>;
-
-  /**
-   * Deletes data in the per-contract non-volatile database. Does nothing if no data was present.
-   * @param contractAddress - The contract address under which the data is scoped.
-   * @param slot - The slot in the database to delete.
-   */
-  deleteCapsule(contractAddress: AztecAddress, slot: Fr): Promise<void>;
-
-  /**
-   * Copies a number of contiguous entries in the per-contract non-volatile database. This allows for efficient data
-   * structures by avoiding repeated calls to `loadCapsule` and `storeCapsule`.
-   * Supports overlapping source and destination regions (which will result in the overlapped source values being
-   * overwritten). All copied slots must exist in the database (i.e. have been stored and not deleted)
-   *
-   * @param contractAddress - The contract address under which the data is scoped.
-   * @param srcSlot - The first slot to copy from.
-   * @param dstSlot - The first slot to copy to.
-   * @param numEntries - The number of entries to copy.
-   */
-  copyCapsule(contractAddress: AztecAddress, srcSlot: Fr, dstSlot: Fr, numEntries: number): Promise<void>;
 
   /**
    * Returns the execution statistics collected during the simulator run.

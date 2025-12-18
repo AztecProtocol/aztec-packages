@@ -373,7 +373,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     return (
       // TODO(#12425): On the following line, the pertinent capsule gets overshadowed by the transient one. Tackle this.
       this.capsules.find(c => c.contractAddress.equals(contractAddress) && c.storageSlot.equals(slot))?.data ??
-      (await this.executionDataProvider.loadCapsule(this.contractAddress, slot))
+      (await this.capsuleDataProvider.loadCapsule(this.contractAddress, slot))
     );
   }
 
@@ -382,7 +382,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
       throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
     }
-    return this.executionDataProvider.deleteCapsule(this.contractAddress, slot);
+    return this.capsuleDataProvider.deleteCapsule(this.contractAddress, slot);
   }
 
   public utilityCopyCapsule(
@@ -395,7 +395,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
       throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
     }
-    return this.executionDataProvider.copyCapsule(this.contractAddress, srcSlot, dstSlot, numEntries);
+    return this.capsuleDataProvider.copyCapsule(this.contractAddress, srcSlot, dstSlot, numEntries);
   }
 
   // TODO(#11849): consider replacing this oracle with a pure Noir implementation of aes decryption.

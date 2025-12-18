@@ -704,18 +704,6 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     });
   }
 
-  loadCapsule(contractAddress: AztecAddress, slot: Fr): Promise<Fr[] | null> {
-    return this.capsuleDataProvider.loadCapsule(contractAddress, slot);
-  }
-
-  deleteCapsule(contractAddress: AztecAddress, slot: Fr): Promise<void> {
-    return this.capsuleDataProvider.deleteCapsule(contractAddress, slot);
-  }
-
-  copyCapsule(contractAddress: AztecAddress, srcSlot: Fr, dstSlot: Fr, numEntries: number): Promise<void> {
-    return this.capsuleDataProvider.copyCapsule(contractAddress, srcSlot, dstSlot, numEntries);
-  }
-
   // TODO(#12656): Make this a public function on the AztecNode interface and remove the original getLogsByTags. This
   // was not done yet as we were unsure about the API and we didn't want to introduce a breaking change.
   async #getPrivateLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]> {

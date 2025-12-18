@@ -117,7 +117,7 @@ describe('Utility Execution test suite', () => {
       ),
     );
 
-    executionDataProvider.loadCapsule.mockImplementation((_, __) => Promise.resolve(null));
+    capsuleDataProvider.loadCapsule.mockImplementation((_, __) => Promise.resolve(null));
 
     const execRequest: FunctionCall = {
       name: artifact.name,

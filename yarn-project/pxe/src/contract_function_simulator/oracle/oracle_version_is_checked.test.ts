@@ -63,7 +63,7 @@ describe('Oracle Version Check test suite', () => {
     aztecNode.getPublicStorageAt.mockResolvedValue(Fr.ZERO);
     anchorBlockHeader = BlockHeader.random();
     anchorBlockDataProvider.getBlockHeader.mockResolvedValue(anchorBlockHeader);
-    executionDataProvider.loadCapsule.mockImplementation((_, __) => Promise.resolve(null));
+    capsuleDataProvider.loadCapsule.mockImplementation((_, __) => Promise.resolve(null));
 
     contractAddress = await AztecAddress.random();
 
