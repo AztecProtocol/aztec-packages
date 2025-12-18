@@ -113,8 +113,10 @@ case "$cmd" in
       'run a1-fast arm64 ci-fast' | DUP=1 cache_log "Merge queue CI run" $RUN_ID
     ;;
   "network-deploy")
-    export JOB_ID="x-${NAMESPACE}-network-deploy"
-    bootstrap_ec2 "./bootstrap.sh ci-network-deploy"
+    # Args: <scenario> <namespace> [docker_image]
+    # If docker_image is not provided, ci-network-deploy will build and push to aztecdev.
+    export JOB_ID="x-${2:?namespace is required}-network-deploy"
+    bootstrap_ec2 "./bootstrap.sh ci-network-deploy $*"
     ;;
   "network-tests")
     export JOB_ID="x-${NAMESPACE}-network-tests"

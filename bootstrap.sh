@@ -547,10 +547,20 @@ case "$cmd" in
     bench
     ;;
   "ci-network-deploy")
+    # Args: <scenario> <namespace> [docker_image]
     export CI=1
+    export NETWORK_ENV_FILE="${1:?scenario is required}"
+    export NAMESPACE="${2:?namespace is required}"
     build
+    # If no docker image provided, build and push to aztecdev
+    if [ -z "${3:-}" ]; then
+      release-image/bootstrap.sh push_dev
+      export AZTEC_DOCKER_IMAGE="aztecprotocol/aztecdev:$(git rev-parse HEAD)"
+    else
+      export AZTEC_DOCKER_IMAGE="$3"
+    fi
     deploy_exit_code=0
-    spartan/bootstrap.sh network_deploy $NETWORK_ENV_FILE || deploy_exit_code=$?
+    spartan/bootstrap.sh network_deploy "$NETWORK_ENV_FILE" || deploy_exit_code=$?
     # Merge and upload deploy benchmarks (deploy_network.sh writes to spartan/bench-out/)
     rm -rf bench-out
     mkdir -p bench-out
