@@ -120,12 +120,7 @@ FF ContractDBProxy::register_contract_from_bytecode(const std::vector<uint8_t>& 
     instance->contract_db->add_contract_instance(contract_address, default_instance);
     instance->registered_contract_addresses.push_back(contract_address);
 
-    try {
-        FuzzerWorldStateManager::getInstance()->register_contract_address(contract_address);
-    } catch (const std::exception& e) {
-        // contract is already registered
-        return contract_address;
-    }
+    FuzzerWorldStateManager::getInstance()->register_contract_address(contract_address);
     return contract_address;
 }
 
@@ -138,5 +133,13 @@ FF ContractDBProxy::get_function_address(size_t index)
         return FF::zero();
     }
     return instance->registered_contract_addresses[index % (instance->registered_contract_addresses.size())];
+}
+
+void ContractDBProxy::reset_instance()
+{
+    if (instance != nullptr) {
+        delete instance;
+        instance = new ContractDBProxy();
+    }
 }
 } // namespace bb::avm2::fuzzer

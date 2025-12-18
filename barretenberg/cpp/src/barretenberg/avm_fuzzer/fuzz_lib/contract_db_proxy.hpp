@@ -24,6 +24,8 @@ class ContractDBProxy {
     /// Adds the contract address to the registered_contract_addresses vector
     static FF register_contract_from_bytecode(const std::vector<uint8_t>& bytecode);
 
+    static void reset_instance();
+
     FuzzerContractDB* get_contract_db() const { return contract_db; }
 
     /// @brief Get the address of a function by index

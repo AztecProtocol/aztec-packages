@@ -36,15 +36,8 @@ std::string serialize_simulation_request(const Tx& tx,
                                          const FuzzerContractDB& contract_db)
 {
     // Build vectors from contract_db
-    std::vector<ContractClass> classes_vec;
-    for (const auto& [_, contract_class] : contract_db.get_contract_classes()) {
-        classes_vec.push_back(contract_class);
-    }
-
-    std::vector<std::pair<AztecAddress, ContractInstance>> instances_vec;
-    for (const auto& [address, instance] : contract_db.get_contract_instances()) {
-        instances_vec.emplace_back(address, instance);
-    }
+    std::vector<ContractClass> classes_vec = contract_db.get_contract_classes();
+    std::vector<std::pair<AztecAddress, ContractInstance>> instances_vec = contract_db.get_contract_instances();
 
     FuzzerSimulationRequest request{
         .ws_data_dir = FuzzerWorldStateManager::get_data_dir(),

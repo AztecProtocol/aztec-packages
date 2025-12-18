@@ -28,9 +28,6 @@ extern "C" int LLVMFuzzerInitialize(int*, char***)
     std::string simulator_path_str(simulator_path);
     JsSimulator::initialize(simulator_path_str);
     FuzzerWorldStateManager::initialize();
-    for (const auto& function : PREDEFINED_FUNCTIONS) {
-        ContractDBProxy::register_contract_from_bytecode(function);
-    }
     return 0;
 }
 

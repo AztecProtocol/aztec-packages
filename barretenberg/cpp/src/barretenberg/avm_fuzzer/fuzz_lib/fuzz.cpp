@@ -28,6 +28,9 @@ SimulatorResult fuzz_against_ts_simulator(FuzzerData& fuzzer_data)
 
     FuzzerWorldStateManager* ws_mgr = FuzzerWorldStateManager::getInstance();
     ContractDBProxy* contract_db_proxy = ContractDBProxy::get_instance();
+    for (const auto& function : PREDEFINED_FUNCTIONS) {
+        ContractDBProxy::register_contract_from_bytecode(function);
+    }
     auto contract_address = ContractDBProxy::register_contract_from_bytecode(bytecode);
     FuzzerContractDB contract_db = *contract_db_proxy->get_contract_db();
 
@@ -46,10 +49,12 @@ SimulatorResult fuzz_against_ts_simulator(FuzzerData& fuzzer_data)
     ws_mgr->checkpoint();
     auto js_result = js_simulator->simulate(*ws_mgr, contract_db, tx);
 
+    ContractDBProxy::reset_instance();
+
     // If the results does not match
     if (!compare_simulator_results(cpp_result, js_result)) {
-        vinfo("CppSimulator ", cpp_result);
-        vinfo("JsSimulator  ", js_result);
+        fuzz_info("CppSimulator ", cpp_result);
+        fuzz_info("JsSimulator  ", js_result);
         throw std::runtime_error("Simulator results are different");
     }
     fuzz_info("Simulator results match successfully");
