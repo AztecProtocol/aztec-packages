@@ -59,7 +59,6 @@ template <IsUltraOrMegaHonk Flavor_> class ProverInstance_ {
 
     HonkProof ipa_proof; // utilized only for UltraRollupFlavor
 
-    bool is_complete = false; // whether this instance has been completely populated
     std::vector<uint32_t> memory_read_records;
     std::vector<uint32_t> memory_write_records;
 
