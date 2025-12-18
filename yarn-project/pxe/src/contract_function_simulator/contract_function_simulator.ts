@@ -84,11 +84,12 @@ import type {
 import { ExecutionNoteCache } from './execution_note_cache.js';
 import { ExecutionTaggingIndexCache } from './execution_tagging_index_cache.js';
 import { HashedValuesCache } from './hashed_values_cache.js';
-import { getFunctionArtifact, getStats } from './oracle/common.js';
+import { getFunctionArtifact } from './oracle/common.js';
 import { Oracle } from './oracle/oracle.js';
 import { executePrivateFunction, verifyCurrentClassId } from './oracle/private_execution.js';
 import { PrivateExecutionOracle } from './oracle/private_execution_oracle.js';
 import { UtilityExecutionOracle } from './oracle/utility_execution_oracle.js';
+import type { ProxiedNode } from './proxied_node.js';
 
 /**
  * The contract function simulator.
@@ -325,7 +326,10 @@ export class ContractFunctionSimulator {
   // docs:end:execute_utility_function
 
   getStats() {
-    return getStats(this.aztecNode);
+    const nodeRPCCalls =
+      typeof (this.aztecNode as ProxiedNode).getStats === 'function' ? (this.aztecNode as ProxiedNode).getStats() : {};
+
+    return { nodeRPCCalls };
   }
 }
 

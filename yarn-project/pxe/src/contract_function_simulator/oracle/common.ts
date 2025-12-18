@@ -49,13 +49,6 @@ export function assertCompatibleOracleVersion(version: number): void {
   }
 }
 
-export function getStats(aztecNode: AztecNode): ExecutionStats {
-  const nodeRPCCalls =
-    typeof (aztecNode as ProxiedNode).getStats === 'function' ? (aztecNode as ProxiedNode).getStats() : {};
-
-  return { nodeRPCCalls };
-}
-
 // TODO(#14555): delete this function and implement this behavior in the node instead
 export async function getPublicLogByTag(
   tag: Fr,
