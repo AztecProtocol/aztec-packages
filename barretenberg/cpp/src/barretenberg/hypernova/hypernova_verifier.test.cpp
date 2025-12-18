@@ -99,7 +99,7 @@ class HypernovaFoldingVerifierTests : public ::testing::Test {
                                         FF::from_witness(builder, native_instance->get_vk()->hash()));
 
         // Create recursive instance with the recursive VK
-        auto recursive_instance = std::make_shared<RecursiveVerifierInstance>(builder, recursive_vk);
+        auto recursive_instance = std::make_shared<RecursiveVerifierInstance>(recursive_vk);
         recursive_instance->is_complete = native_instance->is_complete;
 
         if (native_instance->is_complete) {
@@ -261,7 +261,8 @@ class HypernovaFoldingVerifierTests : public ::testing::Test {
         auto incoming_instance = generate_new_instance(5);
         tampering(incoming_instance, mode);
         auto incoming_vk = std::make_shared<NativeVerificationKey>(incoming_instance->get_precomputed());
-        auto incoming_verifier_instance = std::make_shared<NativeVerifierInstance>(incoming_vk);
+        auto incoming_verifier_instance =
+            std::make_shared<NativeVerifierInstance>(std::make_shared<NativeFlavor::VKAndHash>(incoming_vk));
 
         auto folding_transcript = std::make_shared<NativeTranscript>();
         HypernovaFoldingProver folding_prover(folding_transcript);

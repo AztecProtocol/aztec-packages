@@ -11,7 +11,6 @@
 #include "barretenberg/flavor/ultra_zk_recursive_flavor.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/srs/global_crs.hpp"
-#include "barretenberg/stdlib/honk_verifier/recursive_verifier_instance.hpp"
 #include "barretenberg/stdlib/primitives/pairing_points.hpp"
 #include "barretenberg/stdlib/proof/proof.hpp"
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
@@ -85,7 +84,7 @@ template <typename Flavor, bool = IsRecursiveFlavor<Flavor>> struct UltraVerifie
 };
 
 template <typename Flavor> struct UltraVerifierInstanceType<Flavor, true> {
-    using type = bb::stdlib::recursion::honk::RecursiveVerifierInstance_<Flavor>;
+    using type = bb::VerifierInstance_<Flavor>;
 };
 
 template <typename Flavor, class IO> class UltraVerifier_ {
@@ -146,15 +145,16 @@ template <typename Flavor, class IO> class UltraVerifier_ {
         : vk_and_hash(vk_and_hash)
         , transcript(transcript)
     {
+        // Create verifier_instance with VKAndHash (both native and recursive)
+        verifier_instance = std::make_shared<Instance>(vk_and_hash);
+
         if constexpr (!IsRecursive) {
-            // Native: create verifier_instance immediately
-            verifier_instance = std::make_shared<Instance>(vk_and_hash);
+            // Native only: create IPA transcript
             ipa_transcript = std::make_shared<Transcript>();
         } else {
-            // Recursive: extract builder from VKAndHash and create verifier_instance
+            // Recursive only: extract builder from VKAndHash for later use
             // Safe since VKAndHash contains field_t elements (hash) with builder context
             builder = vk_and_hash->hash.get_context();
-            verifier_instance = std::make_shared<Instance>(builder, vk_and_hash);
         }
     }
 

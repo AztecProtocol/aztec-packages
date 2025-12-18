@@ -6,7 +6,6 @@
 
 #pragma once
 
-#include "barretenberg/stdlib/honk_verifier/recursive_verifier_instance.hpp"
 #include "barretenberg/ultra_honk/verifier_instance.hpp"
 
 namespace bb {
@@ -17,7 +16,7 @@ template <typename Flavor, bool = IsRecursiveFlavor<Flavor>> struct OinkVerifier
 };
 
 template <typename Flavor> struct OinkVerifierInstanceType<Flavor, true> {
-    using type = bb::stdlib::recursion::honk::RecursiveVerifierInstance_<Flavor>;
+    using type = bb::VerifierInstance_<Flavor>;
 };
 
 /**

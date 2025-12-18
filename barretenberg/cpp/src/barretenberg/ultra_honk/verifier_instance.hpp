@@ -12,11 +12,12 @@
 
 namespace bb {
 /**
- * @brief The VerifierInstance encapsulates all the necessary information for a Mega Honk Verifier to verify a
+ * @brief The VerifierInstance encapsulates all the necessary information for a Honk Verifier to verify a
  * proof (sumcheck + Shplemini). In the context of folding, this is provided to the Hypernova verifier as an incoming
  * instance.
+ * @details Works with both native and recursive flavors.
  */
-template <IsUltraOrMegaHonk Flavor_> class VerifierInstance_ {
+template <typename Flavor_> class VerifierInstance_ {
   public:
     using Flavor = Flavor_;
     using FF = typename Flavor::FF;
