@@ -41,7 +41,6 @@ import {
   assertCompatibleOracleVersion,
   bulkRetrieveLogs,
   getNullifierIndex,
-  getPublicDataWitness,
   getPublicStorageAt,
   syncNoteNullifiers,
   validateEnqueuedNotesAndEvents,
@@ -198,7 +197,18 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     blockNumber: BlockNumber,
     leafSlot: Fr,
   ): Promise<PublicDataWitness | undefined> {
-    return await getPublicDataWitness(blockNumber, leafSlot, this.anchorBlockDataProvider, this.aztecNode);
+    return await this.getPublicDataWitness(blockNumber, leafSlot);
+  }
+
+  protected async getPublicDataWitness(
+    blockNumber: BlockParameter,
+    leafSlot: Fr,
+  ): Promise<PublicDataWitness | undefined> {
+    const anchorBlockNumber = (await this.anchorBlockDataProvider.getBlockHeader()).getBlockNumber();
+    if (blockNumber !== 'latest' && blockNumber > anchorBlockNumber) {
+      throw new Error(`Block number ${blockNumber} is higher than current block ${anchorBlockNumber}`);
+    }
+    return await this.aztecNode.getPublicDataWitness(blockNumber, leafSlot);
   }
 
   /**

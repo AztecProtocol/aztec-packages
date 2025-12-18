@@ -39,7 +39,6 @@ import {
   deliverEvent,
   deliverNote,
   getPrivateLogByTag,
-  getPublicDataWitness,
   getPublicLogByTag,
   getPublicStorageAt,
   syncNoteNullifiers,
@@ -97,12 +96,6 @@ describe('Common oracle functions', () => {
       leafSlot = Fr.random();
       contractAddress = await AztecAddress.random();
       await setSyncedBlockNumber(BlockNumber(syncedBlockNumber));
-    });
-
-    it('throws when getting public data witness for future block', async () => {
-      await expect(
-        getPublicDataWitness(BlockNumber(syncedBlockNumber + 1), leafSlot, anchorBlockDataProvider, aztecNode),
-      ).rejects.toThrow(`Block number ${syncedBlockNumber + 1} is higher than current block ${syncedBlockNumber}`);
     });
 
     it('throws when getting public storage for future block', async () => {

@@ -6,7 +6,7 @@ import { computeUniqueNoteHash, siloNoteHash, siloNullifier, siloPrivateLog } fr
 import { type AztecNode, MAX_RPC_LEN } from '@aztec/stdlib/interfaces/server';
 import { PrivateLogWithTxData, PublicLog, PublicLogWithTxData, TxScopedL2Log } from '@aztec/stdlib/logs';
 import { Note, NoteDao } from '@aztec/stdlib/note';
-import { MerkleTreeId, PublicDataWitness } from '@aztec/stdlib/trees';
+import { MerkleTreeId } from '@aztec/stdlib/trees';
 import type { TxHash } from '@aztec/stdlib/tx';
 
 import { ORACLE_VERSION } from '../../oracle_version.js';
@@ -41,19 +41,6 @@ export async function getFunctionArtifact(
     ...artifact,
     debug,
   };
-}
-
-export async function getPublicDataWitness(
-  blockNumber: BlockParameter,
-  leafSlot: Fr,
-  anchorBlockDataProvider: AnchorBlockDataProvider,
-  aztecNode: AztecNode,
-): Promise<PublicDataWitness | undefined> {
-  const anchorBlockNumber = (await anchorBlockDataProvider.getBlockHeader()).getBlockNumber();
-  if (blockNumber !== 'latest' && blockNumber > anchorBlockNumber) {
-    throw new Error(`Block number ${blockNumber} is higher than current block ${anchorBlockNumber}`);
-  }
-  return await aztecNode.getPublicDataWitness(blockNumber, leafSlot);
 }
 
 export async function getPublicStorageAt(

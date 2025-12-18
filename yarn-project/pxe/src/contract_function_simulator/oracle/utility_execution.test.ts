@@ -155,11 +155,11 @@ describe('Utility Execution test suite', () => {
       const syncedBlockNumber = 100;
       let nullifier: Fr;
       let contractAddress: AztecAddress;
-      // let leafSlot: Fr;
+      let leafSlot: Fr;
       let utilityExecutionOracle: UtilityExecutionOracle;
 
       beforeEach(async () => {
-        // leafSlot = Fr.random();
+        leafSlot = Fr.random();
         nullifier = Fr.random();
         contractAddress = await AztecAddress.random();
         anchorBlockHeader = BlockHeader.empty({
@@ -195,6 +195,12 @@ describe('Utility Execution test suite', () => {
         await expect(utilityExecutionOracle.utilityGetBlockHeader(BlockNumber(syncedBlockNumber + 1))).rejects.toThrow(
           `Block number ${syncedBlockNumber + 1} is higher than current block ${syncedBlockNumber}`,
         );
+      });
+
+      it('throws when getting public data witness for future block', async () => {
+        await expect(
+          utilityExecutionOracle.utilityGetPublicDataWitness(BlockNumber(syncedBlockNumber + 1), leafSlot),
+        ).rejects.toThrow(`Block number ${syncedBlockNumber + 1} is higher than current block ${syncedBlockNumber}`);
       });
     });
   });
