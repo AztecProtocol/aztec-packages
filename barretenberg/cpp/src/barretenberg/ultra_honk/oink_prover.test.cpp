@@ -82,7 +82,8 @@ TEST_F(OinkTests, OinkProverCommitments)
     circuit.add_ultra_and_mega_gates_to_ensure_all_polys_are_non_zero(); // Ensure all polys are non-zero
     auto prover_instance = std::make_shared<ProverInstance>(circuit);
     auto verification_key = std::make_shared<VerificationKey>(prover_instance->get_precomputed());
-    auto verifier_instance = std::make_shared<VerifierInstance>(verification_key);
+    auto vk_and_hash = std::make_shared<typename Flavor::VKAndHash>(verification_key);
+    auto verifier_instance = std::make_shared<VerifierInstance>(vk_and_hash);
 
     OinkProver prover(prover_instance, verification_key);
     prover.prove();
