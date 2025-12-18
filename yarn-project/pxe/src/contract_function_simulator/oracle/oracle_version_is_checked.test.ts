@@ -9,6 +9,7 @@ import { GasFees, GasSettings } from '@aztec/stdlib/gas';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import { BlockHeader, HashedValues, TxContext, TxExecutionRequest } from '@aztec/stdlib/tx';
 
+import { jest } from '@jest/globals';
 import { mock } from 'jest-mock-extended';
 
 import {
@@ -16,10 +17,11 @@ import {
   AnchorBlockDataProvider,
   ContractDataProvider,
   NoteDataProvider,
+  SenderTaggingDataProvider,
 } from '../../storage/index.js';
 import { ContractFunctionSimulator } from '../contract_function_simulator.js';
 import type { ExecutionDataProvider } from '../execution_data_provider.js';
-import { assertCompatibleOracleVersion } from './common.js';
+import { UtilityExecutionOracle } from './utility_execution_oracle.js';
 
 describe('Oracle Version Check test suite', () => {
   const simulator = new WASMSimulator();
@@ -31,9 +33,13 @@ describe('Oracle Version Check test suite', () => {
   let addressDataProvider: ReturnType<typeof mock<AddressDataProvider>>;
   let aztecNode: ReturnType<typeof mock<AztecNode>>;
   let anchorBlockDataProvider: ReturnType<typeof mock<AnchorBlockDataProvider>>;
+  let senderTaggingDataProvider: ReturnType<typeof mock<SenderTaggingDataProvider>>;
   let acirSimulator: ContractFunctionSimulator;
   let contractAddress: AztecAddress;
   let anchorBlockHeader: BlockHeader;
+  let assertCompatibleOracleVersionSpy: jest.SpiedFunction<
+    typeof UtilityExecutionOracle.prototype.utilityAssertCompatibleOracleVersion
+  >;
 
   beforeEach(async () => {
     executionDataProvider = mock<ExecutionDataProvider>();
@@ -43,6 +49,12 @@ describe('Oracle Version Check test suite', () => {
     addressDataProvider = mock<AddressDataProvider>();
     aztecNode = mock<AztecNode>();
     anchorBlockDataProvider = mock<AnchorBlockDataProvider>();
+    senderTaggingDataProvider = mock<SenderTaggingDataProvider>();
+    assertCompatibleOracleVersionSpy = jest.spyOn(
+      UtilityExecutionOracle.prototype,
+      'utilityAssertCompatibleOracleVersion',
+    );
+    assertCompatibleOracleVersionSpy.mockClear();
 
     // Mock basic oracle responses
     aztecNode.getPublicStorageAt.mockResolvedValue(Fr.ZERO);
@@ -66,6 +78,7 @@ describe('Oracle Version Check test suite', () => {
       addressDataProvider,
       aztecNode,
       anchorBlockDataProvider,
+      senderTaggingDataProvider,
       simulator,
     );
   });
@@ -105,7 +118,7 @@ describe('Oracle Version Check test suite', () => {
       const senderForTags = await AztecAddress.random();
       await acirSimulator.run(txRequest, contractAddress, selector, msgSender, anchorBlockHeader, senderForTags);
 
-      expect(assertCompatibleOracleVersion).toHaveBeenCalledTimes(1);
+      expect(assertCompatibleOracleVersionSpy).toHaveBeenCalledTimes(1);
     }, 30_000);
   });
 
@@ -134,7 +147,7 @@ describe('Oracle Version Check test suite', () => {
       // Call the utility function
       await acirSimulator.runUtility(execRequest, [], anchorBlockHeader, []);
 
-      expect(assertCompatibleOracleVersion).toHaveBeenCalledTimes(1);
+      expect(assertCompatibleOracleVersionSpy).toHaveBeenCalledTimes(1);
     }, 30_000);
   });
 });

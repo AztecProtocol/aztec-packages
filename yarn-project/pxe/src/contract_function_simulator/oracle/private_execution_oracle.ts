@@ -33,6 +33,7 @@ import type {
   AnchorBlockDataProvider,
   ContractDataProvider,
   NoteDataProvider,
+  SenderTaggingDataProvider,
 } from '../../storage/index.js';
 import { syncSenderTaggingIndexes } from '../../tagging/sync/sync_sender_tagging_indexes.js';
 import { Tag } from '../../tagging/tag.js';
@@ -95,6 +96,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     addressDataProvider: AddressDataProvider,
     aztecNode: AztecNode,
     anchorBlockDataProvider: AnchorBlockDataProvider,
+    senderTaggingDataProvider: SenderTaggingDataProvider,
     private totalPublicCalldataCount: number = 0,
     protected sideEffectCounter: number = 0,
     log = createLogger('simulator:client_execution_context'),
@@ -114,6 +116,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       addressDataProvider,
       aztecNode,
       anchorBlockDataProvider,
+      senderTaggingDataProvider,
       log,
       scopes,
     );
@@ -258,14 +261,13 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     } else {
       // TODO(#17776): Don't access the Aztec node and senderTaggingDataProvider via the executionDataProvider.
       const aztecNode = this.executionDataProvider.aztecNode;
-      const senderTaggingDataProvider = this.executionDataProvider.senderTaggingDataProvider;
 
       // This is a tagging secret we've not yet used in this tx, so first sync our store to make sure its indices
       // are up to date. We do this here because this store is not synced as part of the global sync because
       // that'd be wasteful as most tagging secrets are not used in each tx.
-      await syncSenderTaggingIndexes(secret, this.contractAddress, aztecNode, senderTaggingDataProvider);
+      await syncSenderTaggingIndexes(secret, this.contractAddress, aztecNode, this.senderTaggingDataProvider);
 
-      const lastUsedIndex = await senderTaggingDataProvider.getLastUsedIndex(secret);
+      const lastUsedIndex = await this.senderTaggingDataProvider.getLastUsedIndex(secret);
       // If lastUsedIndex is undefined, we've never used this secret, so start from 0
       // Otherwise, the next index to use is one past the last used index
       return lastUsedIndex === undefined ? 0 : lastUsedIndex + 1;
@@ -567,6 +569,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       this.addressDataProvider,
       this.aztecNode,
       this.anchorBlockDataProvider,
+      this.senderTaggingDataProvider,
       this.totalPublicCalldataCount,
       sideEffectCounter,
       this.log,

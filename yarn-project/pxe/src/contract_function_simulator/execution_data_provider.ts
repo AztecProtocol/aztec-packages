@@ -3,8 +3,6 @@ import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import type { NodeStats } from '@aztec/stdlib/tx';
 
-import type { SenderTaggingDataProvider } from '../storage/tagging_data_provider/sender_tagging_data_provider.js';
-
 /**
  * Error thrown when a contract is not found in the database.
  */
@@ -133,5 +131,4 @@ export interface ExecutionDataProvider {
 
   // Exposed when moving in the direction of #17776
   get aztecNode(): AztecNode;
-  get senderTaggingDataProvider(): SenderTaggingDataProvider;
 }

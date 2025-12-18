@@ -424,6 +424,7 @@ describe('Private Execution test suite', () => {
       addressDataProvider,
       aztecNode,
       anchorBlockDataProvider,
+      senderTaggingDataProvider,
       simulator,
     );
   });
@@ -918,7 +919,7 @@ describe('Private Execution test suite', () => {
     });
     it('should be ok for parent to enqueue calls with <= max total args', async () => {
       // This function recurses and calls itself, so we need to mock retrieval of its own contract instance (parent)
-      // Recursions test that total args are enforced accross nested calls
+      // Recursions test that total args are enforced across nested calls
       const parentContractArtifact = structuredClone(ParentContractArtifact);
       const parentFunctionArtifact = parentContractArtifact.functions.find(fn => fn.name === 'public_dispatch')!;
       expect(parentFunctionArtifact).toBeDefined();
@@ -937,9 +938,9 @@ describe('Private Execution test suite', () => {
         args,
       });
     });
-    it('(prevent footguns) should error if parent enqueues two public calls with too many TOTAL args', async () => {
+    it('(prevent foot guns) should error if parent enqueues two public calls with too many TOTAL args', async () => {
       // This function recurses and calls itself, so we need to mock retrieval of its own contract instance (parent)
-      // Recursions test that total args are enforced accross nested calls
+      // Recursions test that total args are enforced across nested calls
       const parentContractArtifact = structuredClone(ParentContractArtifact);
       const parentFunctionArtifact = parentContractArtifact.functions.find(fn => fn.name === 'public_dispatch')!;
       expect(parentFunctionArtifact).toBeDefined();

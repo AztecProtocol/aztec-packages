@@ -19,6 +19,7 @@ import type {
   AnchorBlockDataProvider,
   ContractDataProvider,
   NoteDataProvider,
+  SenderTaggingDataProvider,
 } from '../../storage/index.js';
 import type { ExecutionDataProvider } from '../execution_data_provider.js';
 import { UtilityContext } from '../noir-structs/utility_context.js';
@@ -61,6 +62,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     protected readonly addressDataProvider: AddressDataProvider,
     protected readonly aztecNode: AztecNode,
     protected readonly anchorBlockDataProvider: AnchorBlockDataProvider,
+    protected readonly senderTaggingDataProvider: SenderTaggingDataProvider,
     protected log = createLogger('simulator:client_view_context'),
     protected readonly scopes?: AztecAddress[],
   ) {}

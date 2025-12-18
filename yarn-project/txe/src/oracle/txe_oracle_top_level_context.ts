@@ -17,6 +17,7 @@ import {
   NoteDataProvider,
   ORACLE_VERSION,
   PXEOracleInterface,
+  SenderTaggingDataProvider,
   enrichPublicSimulationError,
   getFunctionArtifact,
 } from '@aztec/pxe/server';
@@ -97,6 +98,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     private keyStore: KeyStore,
     private addressDataProvider: AddressDataProvider,
     private accountDataProvider: TXEAccountDataProvider,
+    private senderTaggingDataProvider: SenderTaggingDataProvider,
     private pxeOracleInterface: PXEOracleInterface,
     private nextBlockTimestamp: bigint,
     private version: Fr,
@@ -205,7 +207,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
   }
 
   async txeCreateAccount(secret: Fr) {
-    // This is a footgun !
+    // This is a foot gun !
     const completeAddress = await this.keyStore.addAccount(secret, secret);
     await this.accountDataProvider.setAccount(completeAddress.address, completeAddress);
     await this.addressDataProvider.addCompleteAddress(completeAddress);
@@ -311,6 +313,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       this.addressDataProvider,
       this.stateMachine.node,
       this.stateMachine.anchorBlockDataProvider,
+      this.senderTaggingDataProvider,
       0,
       1,
       undefined, // log
@@ -631,6 +634,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
         this.addressDataProvider,
         this.stateMachine.node,
         this.stateMachine.anchorBlockDataProvider,
+        this.senderTaggingDataProvider,
       );
       const acirExecutionResult = await new WASMSimulator()
         .executeUserCircuit(toACVMWitness(0, args), entryPointArtifact, new Oracle(oracle).toACIRCallback())

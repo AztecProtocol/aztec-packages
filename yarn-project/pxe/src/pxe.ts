@@ -216,6 +216,7 @@ export class PXE {
       this.addressDataProvider,
       this.node,
       this.anchorBlockDataProvider,
+      this.senderTaggingDataProvider,
       this.simulator,
     );
   }

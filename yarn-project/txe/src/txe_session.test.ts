@@ -16,6 +16,7 @@ describe('TXESession.processFunction', () => {
       {} as any, // keyStore
       {} as any, // addressDataProvider
       {} as any, // accountDataProvider
+      {} as any, // senderTaggingDataProvider
       new Fr(1), // chainId
       new Fr(1), // version
       0n, // nextBlockTimestamp

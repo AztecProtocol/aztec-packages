@@ -18,6 +18,7 @@ import {
   AnchorBlockDataProvider,
   ContractDataProvider,
   NoteDataProvider,
+  SenderTaggingDataProvider,
 } from '../../storage/index.js';
 import { ContractFunctionSimulator } from '../contract_function_simulator.js';
 import type { ExecutionDataProvider } from '../execution_data_provider.js';
@@ -32,6 +33,7 @@ describe('Utility Execution test suite', () => {
   let addressDataProvider: ReturnType<typeof mock<AddressDataProvider>>;
   let aztecNode: ReturnType<typeof mock<AztecNode>>;
   let anchorBlockDataProvider: ReturnType<typeof mock<AnchorBlockDataProvider>>;
+  let senderTaggingDataProvider: ReturnType<typeof mock<SenderTaggingDataProvider>>;
   let acirSimulator: ContractFunctionSimulator;
   let owner: AztecAddress;
   let anchorBlockHeader: BlockHeader;
@@ -49,6 +51,7 @@ describe('Utility Execution test suite', () => {
     addressDataProvider = mock<AddressDataProvider>();
     aztecNode = mock<AztecNode>();
     anchorBlockDataProvider = mock<AnchorBlockDataProvider>();
+    senderTaggingDataProvider = mock<SenderTaggingDataProvider>();
     anchorBlockHeader = BlockHeader.random();
     anchorBlockDataProvider.getBlockHeader.mockImplementation(() => Promise.resolve(anchorBlockHeader));
     acirSimulator = new ContractFunctionSimulator(
@@ -59,6 +62,7 @@ describe('Utility Execution test suite', () => {
       addressDataProvider,
       aztecNode,
       anchorBlockDataProvider,
+      senderTaggingDataProvider,
       simulator,
     );
 

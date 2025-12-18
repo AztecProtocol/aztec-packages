@@ -73,16 +73,6 @@ export class PXEOracleInterface implements ExecutionDataProvider {
   }
 
   /**
-   * Returns the full contents of your address book.
-   * This is used when calculating tags for incoming notes by deriving the shared secret, the contract-siloed tagging secret, and
-   * finally the index specified tag. We will then query the node with this tag for each address in the address book.
-   * @returns The full list of the users contact addresses.
-   */
-  public getSenders(): Promise<AztecAddress[]> {
-    return this.recipientTaggingDataProvider.getSenderAddresses();
-  }
-
-  /**
    * Returns the last used tagging indexes along with the directional app tagging secrets for a given recipient and all
    * the senders in the address book.
    * This method should be exposed as an oracle call to allow aztec.nr to perform the orchestration
