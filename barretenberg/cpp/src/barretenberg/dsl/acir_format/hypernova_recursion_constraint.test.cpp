@@ -3,6 +3,7 @@
 #include "acir_format_mocks.hpp"
 #include "barretenberg/bbapi/bbapi_shared.hpp"
 #include "barretenberg/chonk/chonk.hpp"
+#include "barretenberg/chonk/chonk_verifier.hpp"
 #include "barretenberg/dsl/acir_format/gate_count_constants.hpp"
 #include "barretenberg/dsl/acir_format/mock_verifier_inputs.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
@@ -307,7 +308,10 @@ TEST_F(HypernovaRecursionConstraintTest, AccumulateSingleApp)
     construct_and_accumulate_trailing_kernels(ivc);
 
     auto proof = ivc->prove();
-    EXPECT_TRUE(Chonk::verify(proof, ivc->get_vk()));
+    {
+        ChonkNativeVerifier verifier(ivc->get_vk().mega);
+        EXPECT_TRUE(verifier.verify(proof));
+    }
 }
 
 /**
@@ -337,7 +341,10 @@ TEST_F(HypernovaRecursionConstraintTest, AccumulateTwoApps)
     construct_and_accumulate_trailing_kernels(ivc);
 
     auto proof = ivc->prove();
-    EXPECT_TRUE(Chonk::verify(proof, ivc->get_vk()));
+    {
+        ChonkNativeVerifier verifier(ivc->get_vk().mega);
+        EXPECT_TRUE(verifier.verify(proof));
+    }
 }
 
 // Test generation of "init" kernel VK via dummy IVC data
@@ -574,7 +581,10 @@ TEST_F(HypernovaRecursionConstraintTest, RecursiveVerifierAppCircuit)
     construct_and_accumulate_trailing_kernels(ivc);
 
     auto proof = ivc->prove();
-    EXPECT_TRUE(Chonk::verify(proof, ivc->get_vk()));
+    {
+        ChonkNativeVerifier verifier(ivc->get_vk().mega);
+        EXPECT_TRUE(verifier.verify(proof));
+    }
 }
 
 /**
@@ -599,7 +609,10 @@ TEST_F(HypernovaRecursionConstraintTest, RecursiveVerifierAppCircuitFailure)
 
     // We expect the Chonk proof to fail due to the app with a failed UH recursive verification
     auto proof = ivc->prove();
-    EXPECT_FALSE(Chonk::verify(proof, ivc->get_vk()));
+    {
+        ChonkNativeVerifier verifier(ivc->get_vk().mega);
+        EXPECT_FALSE(verifier.verify(proof));
+    }
 }
 
 /**

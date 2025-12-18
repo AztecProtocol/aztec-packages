@@ -6,6 +6,7 @@
 
 #include "c_bind.hpp"
 #include "../acir_format/acir_to_constraint_buf.hpp"
+#include "barretenberg/chonk/chonk_verifier.hpp"
 #include "barretenberg/chonk/private_execution_steps.hpp"
 #include "barretenberg/common/mem.hpp"
 #include "barretenberg/common/net.hpp"
@@ -111,7 +112,8 @@ WASM_EXPORT void acir_verify_aztec_client(uint8_t const* proof_buf, uint8_t cons
     const auto proof = Chonk::Proof::from_msgpack_buffer(proof_buf);
     const auto vk = from_buffer<Chonk::VerificationKey>(from_buffer<std::vector<uint8_t>>(vk_buf));
 
-    *result = Chonk::verify(proof, vk);
+    ChonkNativeVerifier verifier(vk.mega);
+    *result = verifier.verify(proof);
 }
 
 WASM_EXPORT void acir_prove_ultra_zk_honk(uint8_t const* acir_vec,

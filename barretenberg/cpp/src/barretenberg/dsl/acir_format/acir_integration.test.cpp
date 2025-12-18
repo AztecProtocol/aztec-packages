@@ -1,4 +1,5 @@
 #include "barretenberg/chonk/chonk.hpp"
+#include "barretenberg/chonk/chonk_verifier.hpp"
 #include "barretenberg/common/get_bytecode.hpp"
 #ifndef __wasm__
 #include "barretenberg/chonk/private_execution_steps.hpp"
@@ -462,8 +463,8 @@ TEST_F(AcirIntegrationTest, DISABLED_ChonkMsgpackInputs)
 
     std::shared_ptr<Chonk> ivc = steps.accumulate();
     Chonk::Proof proof = ivc->prove();
-
-    EXPECT_TRUE(ivc->verify(proof, ivc->get_vk()));
+    ChonkNativeVerifier chonk_verifier(ivc->get_vk().mega);
+    EXPECT_TRUE(chonk_verifier.verify(proof));
 }
 
 /**

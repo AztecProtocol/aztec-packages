@@ -120,7 +120,8 @@ TEST_F(ChonkTranscriptInvariantTests, AccumulationTranscriptCount)
     // Generate and verify proof
     auto proof = ivc.prove();
     auto vk = ivc.get_vk();
-    EXPECT_TRUE(Chonk::verify(proof, vk)) << "IVC proof should verify";
+    ChonkNativeVerifier verifier(vk.mega);
+    EXPECT_TRUE(verifier.verify(proof)) << "IVC proof should verify";
 }
 
 /**

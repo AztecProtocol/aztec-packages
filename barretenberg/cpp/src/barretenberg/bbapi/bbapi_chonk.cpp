@@ -1,4 +1,5 @@
 #include "barretenberg/bbapi/bbapi_chonk.hpp"
+#include "barretenberg/chonk/chonk_verifier.hpp"
 #include "barretenberg/chonk/mock_circuit_producer.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/common/serialize.hpp"
@@ -113,7 +114,9 @@ ChonkProve::Response ChonkProve::execute(BBApiRequest& request) &&
     // We verify this proof. Another bb call to verify has some overhead of loading VK/proof/SRS,
     // and it is mysterious if this transaction fails later in the lifecycle.
     info("ChonkProve - verifying the generated proof as a sanity check");
-    verification_passed = Chonk::verify(proof, vk);
+    auto vk_and_hash = std::make_shared<ChonkNativeVerifier::VKAndHash>(vk.mega);
+    ChonkNativeVerifier verifier(vk_and_hash);
+    verification_passed = verifier.verify(proof);
 
     if (!verification_passed) {
         throw_or_abort("Failed to verify the generated proof!");
@@ -134,8 +137,10 @@ ChonkVerify::Response ChonkVerify::execute(const BBApiRequest& /*request*/) &&
     // Deserialize the verification key directly from buffer
     Chonk::VerificationKey verification_key = from_buffer<Chonk::VerificationKey>(vk);
 
-    // Verify the proof using Chonk's static verify method
-    const bool verified = Chonk::verify(proof, verification_key);
+    // Verify the proof using ChonkNativeVerifier
+    auto vk_and_hash = std::make_shared<ChonkNativeVerifier::VKAndHash>(verification_key.mega);
+    ChonkNativeVerifier verifier(vk_and_hash);
+    const bool verified = verifier.verify(proof);
 
     return { .valid = verified };
 }

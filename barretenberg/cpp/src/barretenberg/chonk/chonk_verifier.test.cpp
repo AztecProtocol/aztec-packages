@@ -54,7 +54,8 @@ TEST_F(ChonkRecursionTests, NativeVerification)
     auto [proof, vk] = construct_chonk_prover_output();
 
     // Confirm that the IVC proof can be natively verified
-    EXPECT_TRUE(Chonk::verify(proof, vk));
+    ChonkNativeVerifier verifier(vk.mega);
+    EXPECT_TRUE(verifier.verify(proof));
 }
 
 /**

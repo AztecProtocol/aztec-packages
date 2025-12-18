@@ -335,8 +335,6 @@ class Chonk : public IVCBase {
     static void hide_op_queue_content_in_tail(ClientCircuit& circuit);
     static void hide_op_queue_content_in_hiding(ClientCircuit& circuit);
 
-    static bool verify(const Proof& proof, const VerificationKey& vk);
-
     VerificationKey get_vk() const;
 
   private:

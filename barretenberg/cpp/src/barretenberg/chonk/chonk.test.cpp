@@ -1,6 +1,7 @@
 #include <ranges>
 
 #include "barretenberg/chonk/chonk.hpp"
+#include "barretenberg/chonk/chonk_verifier.hpp"
 #include "barretenberg/chonk/mock_circuit_producer.hpp"
 #include "barretenberg/chonk/test_bench_shared.hpp"
 #include "barretenberg/common/assert.hpp"
@@ -32,6 +33,7 @@ class ChonkTests : public ::testing::Test {
     using VerifierInstance = Chonk::VerifierInstance;
     using DeciderProver = Chonk::DeciderProver;
     using CircuitProducer = PrivateFunctionExecutionMockCircuitProducer;
+    using ChonkVerifier = ChonkNativeVerifier;
 
   public:
     /**
@@ -65,6 +67,13 @@ class ChonkTests : public ::testing::Test {
         }
         return { ivc.prove(), ivc.get_vk() };
     };
+
+    static bool verify_chonk(const Chonk::Proof& proof, const Chonk::VerificationKey& vk)
+    {
+        auto vk_and_hash = std::make_shared<ChonkVerifier::VKAndHash>(vk.mega);
+        ChonkVerifier verifier(vk_and_hash);
+        return verifier.verify(proof);
+    }
 
     /**
      * @brief Enum for specifying which KernelIO field to tamper with in tests
@@ -117,7 +126,7 @@ class ChonkTests : public ::testing::Test {
         }
 
         auto proof = ivc.prove();
-        EXPECT_FALSE(Chonk::verify(proof, ivc.get_vk()));
+        EXPECT_FALSE(verify_chonk(proof, ivc.get_vk()));
     }
 
     /**
@@ -179,7 +188,7 @@ class ChonkTests : public ::testing::Test {
         }
 
         auto proof = ivc.prove();
-        EXPECT_FALSE(Chonk::verify(proof, ivc.get_vk()));
+        EXPECT_FALSE(verify_chonk(proof, ivc.get_vk()));
     }
 
     /**
@@ -270,14 +279,14 @@ TEST_F(ChonkTests, TestCircuitSizes)
     // Check circuit sizes when no settings are passed
     {
         auto [proof, vk] = accumulate_and_prove_ivc(NUM_APP_CIRCUITS, {}, true);
-        EXPECT_TRUE(Chonk::verify(proof, vk));
+        EXPECT_TRUE(verify_chonk(proof, vk));
     }
 
     // Check circuit sizes when no settings are passed
     {
         auto [proof, vk] =
             accumulate_and_prove_ivc(NUM_APP_CIRCUITS, { .log2_num_gates = SMALL_LOG_2_NUM_GATES }, true);
-        EXPECT_TRUE(Chonk::verify(proof, vk));
+        EXPECT_TRUE(verify_chonk(proof, vk));
     }
 };
 
@@ -292,7 +301,7 @@ TEST_F(ChonkTests, Basic)
     const size_t NUM_APP_CIRCUITS = 2;
     auto [proof, vk] = accumulate_and_prove_ivc(NUM_APP_CIRCUITS);
 
-    EXPECT_TRUE(Chonk::verify(proof, vk));
+    EXPECT_TRUE(verify_chonk(proof, vk));
 };
 
 /**
@@ -320,7 +329,7 @@ TEST_F(ChonkTests, BadProofFailure)
             circuit_producer.construct_and_accumulate_next_circuit(ivc, settings);
         }
         auto proof = ivc.prove();
-        EXPECT_TRUE(Chonk::verify(proof, ivc.get_vk()));
+        EXPECT_TRUE(verify_chonk(proof, ivc.get_vk()));
     }
 
     // The IVC throws an exception if the FIRST fold proof is tampered with
@@ -348,7 +357,7 @@ TEST_F(ChonkTests, BadProofFailure)
             }
         }
         auto proof = ivc.prove();
-        EXPECT_FALSE(Chonk::verify(proof, ivc.get_vk()));
+        EXPECT_FALSE(verify_chonk(proof, ivc.get_vk()));
     }
 
     // The IVC fails if the SECOND fold proof is tampered with
@@ -370,7 +379,7 @@ TEST_F(ChonkTests, BadProofFailure)
             }
         }
         auto proof = ivc.prove();
-        EXPECT_FALSE(Chonk::verify(proof, ivc.get_vk()));
+        EXPECT_FALSE(verify_chonk(proof, ivc.get_vk()));
     }
 };
 
@@ -433,7 +442,7 @@ HEAVY_TEST(ChonkKernelCapacity, MaxCapacityPassing)
     const size_t NUM_APP_CIRCUITS = 17;
     auto [proof, vk] = ChonkTests::accumulate_and_prove_ivc(NUM_APP_CIRCUITS);
 
-    bool verified = Chonk::verify(proof, vk);
+    bool verified = ChonkTests::verify_chonk(proof, vk);
     EXPECT_TRUE(verified);
 };
 
@@ -452,7 +461,7 @@ TEST_F(ChonkTests, MsgpackProofFromFileOrBuffer)
         proof.to_file_msgpack(filename);
         auto proof_deserialized = Chonk::Proof::from_file_msgpack(filename);
 
-        EXPECT_TRUE(Chonk::verify(proof_deserialized, vk));
+        EXPECT_TRUE(verify_chonk(proof_deserialized, vk));
     }
 
     { // Serialize/deserialize proof to/from a heap buffer, check that it verifies
@@ -461,13 +470,13 @@ TEST_F(ChonkTests, MsgpackProofFromFileOrBuffer)
         uint8_t const* uint8_ptr = uint8_buffer.data();
         auto proof_deserialized = Chonk::Proof::from_msgpack_buffer(uint8_ptr);
 
-        EXPECT_TRUE(Chonk::verify(proof_deserialized, vk));
+        EXPECT_TRUE(verify_chonk(proof_deserialized, vk));
     }
 
     { // Check that attempting to deserialize a proof from a buffer with random bytes fails gracefully
         msgpack::sbuffer buffer = proof.to_msgpack_buffer();
         auto proof_deserialized = Chonk::Proof::from_msgpack_buffer(buffer);
-        EXPECT_TRUE(Chonk::verify(proof_deserialized, vk));
+        EXPECT_TRUE(verify_chonk(proof_deserialized, vk));
 
         std::vector<uint8_t> random_bytes(buffer.size());
         std::generate(random_bytes.begin(), random_bytes.end(), []() { return static_cast<uint8_t>(rand() % 256); });

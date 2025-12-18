@@ -3,6 +3,7 @@
 #include "barretenberg/api/log.hpp"
 #include "barretenberg/bbapi/bbapi.hpp"
 #include "barretenberg/chonk/chonk.hpp"
+#include "barretenberg/chonk/chonk_verifier.hpp"
 #include "barretenberg/chonk/mock_circuit_producer.hpp"
 #include "barretenberg/chonk/private_execution_steps.hpp"
 #include "barretenberg/common/get_bytecode.hpp"
@@ -138,7 +139,9 @@ bool ChonkAPI::prove_and_verify(const std::filesystem::path& input_path)
     // Construct the hiding kernel as the final step of the IVC
 
     auto proof = ivc->prove();
-    const bool verified = Chonk::verify(proof, ivc->get_vk());
+    auto vk = ivc->get_vk();
+    ChonkNativeVerifier verifier(vk.mega);
+    const bool verified = verifier.verify(proof);
     return verified;
 }
 

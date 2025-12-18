@@ -138,6 +138,10 @@ template <bool IsRecursive> class ChonkVerifier {
         : vk_and_hash(vk_and_hash)
     {}
 
+    ChonkVerifier(const std::shared_ptr<VK>& vk)
+        requires(!IsRecursive)
+        : vk_and_hash(std::make_shared<VKAndHash>(vk))
+    {}
     /**
      * @brief Verify a Chonk proof
      * @details
