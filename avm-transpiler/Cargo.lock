@@ -4,7 +4,7 @@ version = 4
 
 [[package]]
 name = "acir"
-version = "1.0.0-beta.15"
+version = "1.0.0-beta.16"
 dependencies = [
  "acir_field",
  "base64 0.22.1",
@@ -30,7 +30,7 @@ dependencies = [
 
 [[package]]
 name = "acir_field"
-version = "1.0.0-beta.15"
+version = "1.0.0-beta.16"
 dependencies = [
  "ark-bn254",
  "ark-ff",
@@ -43,7 +43,7 @@ dependencies = [
 
 [[package]]
 name = "acvm"
-version = "1.0.0-beta.15"
+version = "1.0.0-beta.16"
 dependencies = [
  "acir",
  "acvm_blackbox_solver",
@@ -57,7 +57,7 @@ dependencies = [
 
 [[package]]
 name = "acvm_blackbox_solver"
-version = "1.0.0-beta.15"
+version = "1.0.0-beta.16"
 dependencies = [
  "acir",
  "blake2",
@@ -476,7 +476,7 @@ dependencies = [
 
 [[package]]
 name = "bn254_blackbox_solver"
-version = "1.0.0-beta.15"
+version = "1.0.0-beta.16"
 dependencies = [
  "acir",
  "acvm_blackbox_solver",
@@ -500,7 +500,7 @@ dependencies = [
 
 [[package]]
 name = "brillig"
-version = "1.0.0-beta.15"
+version = "1.0.0-beta.16"
 dependencies = [
  "acir_field",
  "serde",
@@ -508,7 +508,7 @@ dependencies = [
 
 [[package]]
 name = "brillig_vm"
-version = "1.0.0-beta.15"
+version = "1.0.0-beta.16"
 dependencies = [
  "acir",
  "acvm_blackbox_solver",
@@ -931,7 +931,7 @@ dependencies = [
 
 [[package]]
 name = "fm"
-version = "1.0.0-beta.15"
+version = "1.0.0-beta.16"
 dependencies = [
  "codespan-reporting",
  "iter-extended",
@@ -1143,7 +1143,7 @@ checksum = "f8478577c03552c21db0e2724ffb8986a5ce7af88107e6be5d2ee6e158c12800"
 
 [[package]]
 name = "iter-extended"
-version = "1.0.0-beta.15"
+version = "1.0.0-beta.16"
 
 [[package]]
 name = "itertools"
@@ -1254,7 +1254,7 @@ checksum = "1d87ecb2933e8aeadb3e3a02b828fed80a7528047e68b4f424523a0981a3a084"
 
 [[package]]
 name = "noir_protobuf"
-version = "1.0.0-beta.15"
+version = "1.0.0-beta.16"
 dependencies = [
  "color-eyre",
  "prost",
@@ -1262,7 +1262,7 @@ dependencies = [
 
 [[package]]
 name = "noirc_abi"
-version = "1.0.0-beta.15"
+version = "1.0.0-beta.16"
 dependencies = [
  "acvm",
  "iter-extended",
@@ -1277,11 +1277,11 @@ dependencies = [
 
 [[package]]
 name = "noirc_arena"
-version = "1.0.0-beta.15"
+version = "1.0.0-beta.16"
 
 [[package]]
 name = "noirc_errors"
-version = "1.0.0-beta.15"
+version = "1.0.0-beta.16"
 dependencies = [
  "acvm",
  "base64 0.22.1",
@@ -1298,7 +1298,7 @@ dependencies = [
 
 [[package]]
 name = "noirc_evaluator"
-version = "1.0.0-beta.15"
+version = "1.0.0-beta.16"
 dependencies = [
  "acvm",
  "bn254_blackbox_solver",
@@ -1329,7 +1329,7 @@ dependencies = [
 
 [[package]]
 name = "noirc_frontend"
-version = "1.0.0-beta.15"
+version = "1.0.0-beta.16"
 dependencies = [
  "acvm",
  "bn254_blackbox_solver",
@@ -1357,7 +1357,7 @@ dependencies = [
 
 [[package]]
 name = "noirc_printable_type"
-version = "1.0.0-beta.15"
+version = "1.0.0-beta.16"
 dependencies = [
  "acvm",
  "iter-extended",
@@ -1367,7 +1367,7 @@ dependencies = [
 
 [[package]]
 name = "noirc_span"
-version = "1.0.0-beta.15"
+version = "1.0.0-beta.16"
 dependencies = [
  "codespan",
  "serde",
