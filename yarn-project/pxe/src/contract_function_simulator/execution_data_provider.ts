@@ -45,12 +45,6 @@ export interface ExecutionDataProvider {
   getNullifierIndex(nullifier: Fr): Promise<bigint | undefined>;
 
   /**
-   * Assert that the oracle version is compatible with the expected version.
-   * @param version - The expected version.
-   */
-  assertCompatibleOracleVersion(version: number): void;
-
-  /**
    * Synchronizes the private logs tagged with scoped addresses and all the senders in the address book. Stores the found
    * logs in CapsuleArray ready for a later retrieval in Aztec.nr.
    * @param contractAddress - The address of the contract that the logs are tagged for.

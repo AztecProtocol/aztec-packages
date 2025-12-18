@@ -19,6 +19,7 @@ import {
 } from '../../storage/index.js';
 import { ContractFunctionSimulator } from '../contract_function_simulator.js';
 import type { ExecutionDataProvider } from '../execution_data_provider.js';
+import { assertCompatibleOracleVersion } from './common.js';
 
 describe('Oracle Version Check test suite', () => {
   const simulator = new WASMSimulator();
@@ -104,7 +105,7 @@ describe('Oracle Version Check test suite', () => {
       const senderForTags = await AztecAddress.random();
       await acirSimulator.run(txRequest, contractAddress, selector, msgSender, anchorBlockHeader, senderForTags);
 
-      expect(executionDataProvider.assertCompatibleOracleVersion).toHaveBeenCalledTimes(1);
+      expect(assertCompatibleOracleVersion).toHaveBeenCalledTimes(1);
     }, 30_000);
   });
 
@@ -133,7 +134,7 @@ describe('Oracle Version Check test suite', () => {
       // Call the utility function
       await acirSimulator.runUtility(execRequest, [], anchorBlockHeader, []);
 
-      expect(executionDataProvider.assertCompatibleOracleVersion).toHaveBeenCalledTimes(1);
+      expect(assertCompatibleOracleVersion).toHaveBeenCalledTimes(1);
     }, 30_000);
   });
 });

@@ -24,6 +24,7 @@ import type { ExecutionDataProvider } from '../execution_data_provider.js';
 import { UtilityContext } from '../noir-structs/utility_context.js';
 import { pickNotes } from '../pick_notes.js';
 import {
+  assertCompatibleOracleVersion,
   getBlock,
   getCompleteAddress,
   getContractInstance,
@@ -65,7 +66,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   ) {}
 
   public utilityAssertCompatibleOracleVersion(version: number): void {
-    this.executionDataProvider.assertCompatibleOracleVersion(version);
+    assertCompatibleOracleVersion(version);
   }
 
   public utilityGetRandomField(): Fr {

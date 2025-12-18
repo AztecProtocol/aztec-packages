@@ -13,6 +13,7 @@ import { getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
 import type { NoteStatus } from '@aztec/stdlib/note';
 import { MerkleTreeId, NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 
+import { ORACLE_VERSION } from '../../oracle_version.js';
 import type {
   AddressDataProvider,
   AnchorBlockDataProvider,
@@ -245,4 +246,10 @@ export async function getPublicStorageAt(
     throw new Error(`Block number ${blockNumber} is higher than current block ${anchorBlockNumber}`);
   }
   return await aztecNode.getPublicStorageAt(blockNumber, contract, slot);
+}
+
+export function assertCompatibleOracleVersion(version: number): void {
+  if (version !== ORACLE_VERSION) {
+    throw new Error(`Incompatible oracle version. Expected version ${ORACLE_VERSION}, got ${version}.`);
+  }
 }
