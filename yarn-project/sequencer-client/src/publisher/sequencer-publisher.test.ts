@@ -26,6 +26,7 @@ import express, { json } from 'express';
 import type { Server } from 'http';
 import { type MockProxy, mock } from 'jest-mock-extended';
 import {
+  type GetCodeReturnType,
   type GetTransactionReceiptReturnType,
   type PrivateKeyAccount,
   type TransactionReceipt,
@@ -109,6 +110,7 @@ describe('SequencerPublisher', () => {
     l1TxUtils.getBlock.mockResolvedValue({ timestamp: 12n } as any);
     l1TxUtils.getBlockNumber.mockResolvedValue(1n);
     l1TxUtils.getSenderAddress.mockReturnValue(EthAddress.fromString(testHarnessAttesterAccount.address));
+    l1TxUtils.getCode.mockReturnValue(Promise.resolve(`0x1` as GetCodeReturnType));
     const config = {
       blobSinkUrl: BLOB_SINK_URL,
       l1RpcUrls: [`http://127.0.0.1:8545`],
@@ -224,6 +226,7 @@ describe('SequencerPublisher', () => {
     governanceProposerContract.getRoundInfo.mockResolvedValue({
       lastSignalSlot: SlotNumber(1),
       payloadWithMostSignals: govPayload.toString(),
+      quorumReached: false,
       executed: false,
     });
     governanceProposerContract.createSignalRequestWithSignature.mockResolvedValue({
@@ -418,5 +421,41 @@ describe('SequencerPublisher', () => {
     expect(result).toEqual(undefined);
     expect(forwardSpy).not.toHaveBeenCalled();
     expect((publisher as any).requests.length).toEqual(0);
+  });
+
+  it('does not signal for payload when quorum is reached', async () => {
+    const { govPayload } = mockGovernancePayload();
+
+    governanceProposerContract.getRoundInfo.mockResolvedValue({
+      lastSignalSlot: SlotNumber(1),
+      payloadWithMostSignals: govPayload.toString(),
+      quorumReached: true,
+      executed: false,
+    });
+
+    expect(
+      await publisher.enqueueGovernanceCastSignal(
+        govPayload,
+        SlotNumber(2),
+        1n,
+        EthAddress.fromString(testHarnessAttesterAccount.address),
+        msg => testHarnessAttesterAccount.signTypedData(msg),
+      ),
+    ).toEqual(false);
+  });
+
+  it.each<GetCodeReturnType>([undefined])('does not signal for payload with empty code', async code => {
+    const { govPayload } = mockGovernancePayload();
+    l1TxUtils.getCode.mockReturnValue(Promise.resolve(code));
+
+    expect(
+      await publisher.enqueueGovernanceCastSignal(
+        govPayload,
+        SlotNumber(2),
+        1n,
+        EthAddress.fromString(testHarnessAttesterAccount.address),
+        msg => testHarnessAttesterAccount.signTypedData(msg),
+      ),
+    ).toEqual(false);
   });
 });

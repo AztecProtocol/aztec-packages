@@ -35,7 +35,6 @@ locals {
 
 
   # Environment variables for the container (omit keys with null values)
-  # if NETWORK is set, ignore the other env vars
   env_vars = { for k, v in {
     NETWORK                                  = var.NETWORK
     AZTEC_LAG_IN_EPOCHS_FOR_VALIDATOR_SET    = var.AZTEC_LAG_IN_EPOCHS_FOR_VALIDATOR_SET
@@ -63,7 +62,6 @@ locals {
     AZTEC_MANA_TARGET                        = var.AZTEC_MANA_TARGET
     AZTEC_PROVING_COST_PER_MANA              = var.AZTEC_PROVING_COST_PER_MANA
     AZTEC_EXIT_DELAY_SECONDS                 = var.AZTEC_EXIT_DELAY_SECONDS
-    ETHERSCAN_API_KEY                        = var.ETHERSCAN_API_KEY
     LOG_LEVEL                                = "debug"
   } : k => v if v != null }
 
@@ -121,6 +119,11 @@ resource "kubernetes_job_v1" "deploy_rollup_contracts" {
               name  = env.key
               value = env.value
             }
+          }
+
+          env {
+            name  = "ETHERSCAN_API_KEY"
+            value = var.ETHERSCAN_API_KEY
           }
 
           # Resource limits

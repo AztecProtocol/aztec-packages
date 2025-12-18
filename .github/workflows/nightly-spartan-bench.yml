@@ -100,6 +100,14 @@ jobs:
         run: |
           ./spartan/scripts/network_deploy.sh ${{ env.NETWORK_ENV_FILE }}
 
+      - name: Setup
+        run: |
+          # Ensure we can SSH into the spot instances we request.
+          mkdir -p ~/.ssh
+          echo ${{ secrets.BUILD_INSTANCE_SSH_KEY }} | base64 --decode > ~/.ssh/build_instance_key
+          chmod 600 ~/.ssh/build_instance_key
+          sudo apt update && sudo apt install -y --no-install-recommends redis-tools parallel
+
       - name: Run benchmarks
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
