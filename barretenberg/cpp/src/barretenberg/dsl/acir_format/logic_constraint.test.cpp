@@ -248,19 +248,22 @@ TYPED_TEST(LogicConstraintTestsBothConstant, GenerateVKFromConstraints)
 
 TYPED_TEST(LogicConstraintTestsBothConstant, Tampering)
 {
+    typename TestFixture::AcirConstraint constraint;
+    WitnessVector witness_values;
+    TestFixture::Base::generate_constraints(constraint, witness_values);
+
     // We need to test tampering by hand because when both inputs are constant making the bit size invalid will not
     // make the builder fail, it will raise an error.
     {
         auto [circuit_checker_result, builder_failed, builder_err] =
-            TestFixture::test_constraints(TestFixture::InvalidWitnessTarget::None);
-
+            TestFixture::test_constraints(constraint, witness_values, TestFixture::InvalidWitnessTarget::None);
         EXPECT_TRUE(circuit_checker_result) << "Circuit checker failed unexpectedly for invalid witness target None";
         EXPECT_FALSE(builder_failed) << "Builder failed unexpectedly for invalid witness target None";
     }
 
     {
         auto [circuit_checker_result, builder_failed, builder_err] =
-            TestFixture::test_constraints(TestFixture::InvalidWitnessTarget::Inputs);
+            TestFixture::test_constraints(constraint, witness_values, TestFixture::InvalidWitnessTarget::Inputs);
         bool circuit_check_failed = !circuit_checker_result;
         bool assert_eq_error_present = (builder_err.find("assert_eq") != std::string::npos);
         EXPECT_TRUE(circuit_check_failed || assert_eq_error_present)
@@ -269,12 +272,14 @@ TYPED_TEST(LogicConstraintTestsBothConstant, Tampering)
     }
 
     {
-        EXPECT_THROW_WITH_MESSAGE(TestFixture::test_constraints(TestFixture::InvalidWitnessTarget::Input1BitSize),
-                                  "field_t: Left operand in logic gate exceeds specified bit length");
+        EXPECT_THROW_WITH_MESSAGE(
+            TestFixture::test_constraints(constraint, witness_values, TestFixture::InvalidWitnessTarget::Input1BitSize),
+            "field_t: Left operand in logic gate exceeds specified bit length");
     }
 
     {
-        EXPECT_THROW_WITH_MESSAGE(TestFixture::test_constraints(TestFixture::InvalidWitnessTarget::Input2BitSize),
-                                  "field_t: Right operand in logic gate exceeds specified bit length");
+        EXPECT_THROW_WITH_MESSAGE(
+            TestFixture::test_constraints(constraint, witness_values, TestFixture::InvalidWitnessTarget::Input2BitSize),
+            "field_t: Right operand in logic gate exceeds specified bit length");
     }
 }

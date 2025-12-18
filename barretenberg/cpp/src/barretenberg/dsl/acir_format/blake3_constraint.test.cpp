@@ -31,9 +31,9 @@ template <class BuilderType, bool IsInputConstant> class Blake3TestingFunctions 
         static std::vector<std::string> get_labels() { return { "None", "Input", "Output" }; }
     };
 
-    void invalidate_witness(Blake3Constraint& constraint,
-                            WitnessVector& witness_values,
-                            const InvalidWitness::Target& invalid_witness_target)
+    static void invalidate_witness(Blake3Constraint& constraint,
+                                   WitnessVector& witness_values,
+                                   const InvalidWitness::Target& invalid_witness_target)
     {
         switch (invalid_witness_target) {
         case InvalidWitness::Target::Input: {
@@ -59,7 +59,7 @@ template <class BuilderType, bool IsInputConstant> class Blake3TestingFunctions 
     /**
      * @brief Generate a valid Blake3Constraint with correct witness values
      */
-    void generate_constraints(Blake3Constraint& blake3_constraint, WitnessVector& witness_values)
+    static void generate_constraints(Blake3Constraint& blake3_constraint, WitnessVector& witness_values)
     {
         // Helper to add a state: either as witness or constant
         auto construct_state = [&](const std::vector<uint8_t>& state,

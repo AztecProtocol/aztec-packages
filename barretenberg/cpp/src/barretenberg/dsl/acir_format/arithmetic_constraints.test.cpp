@@ -136,7 +136,7 @@ class ArithmeticConstraintsTestingFunctions {
         return result;
     }
 
-    void generate_constraints(AcirConstraint& arithmetic_constraint, WitnessVector& witness_values)
+    static void generate_constraints(AcirConstraint& arithmetic_constraint, WitnessVector& witness_values)
     {
         // (scalar, (lhs_index, lhs_value), (rhs_index, rhs_value))
         std::vector<std::tuple<bb::fr, std::pair<uint32_t, bb::fr>, std::pair<uint32_t, bb::fr>>> mul_terms;
@@ -238,9 +238,9 @@ class ArithmeticConstraintsTestingFunctions {
         }
     }
 
-    void invalidate_witness(AcirConstraint& constraint,
-                            WitnessVector& witness_values,
-                            const typename InvalidWitness::Target& invalid_witness_target)
+    static void invalidate_witness(AcirConstraint& constraint,
+                                   WitnessVector& witness_values,
+                                   const typename InvalidWitness::Target& invalid_witness_target)
     {
         switch (invalid_witness_target) {
         case InvalidWitness::Target::None:

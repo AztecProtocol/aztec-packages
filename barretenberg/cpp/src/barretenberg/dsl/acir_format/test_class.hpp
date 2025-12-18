@@ -545,42 +545,26 @@ concept TestBase = requires {
          * @brief Generate valid constraints.
          *
          */
-        { instance.generate_constraints(constraint, witness_values) } -> std::same_as<void>;
+        { T::generate_constraints(constraint, witness_values) } -> std::same_as<void>;
 
         /**
          * @brief Invalidate witness values to test that invalid witnesses produce unsatisfied constraints.
          *
          */
-        { instance.invalidate_witness(constraint, witness_values, invalid_witness_target) } -> std::same_as<void>;
+        { T::invalidate_witness(constraint, witness_values, invalid_witness_target) } -> std::same_as<void>;
     };
 };
 
-template <TestBase Base> class TestClass {
+template <TestBase Base_> class TestClass {
   public:
+    using Base = Base_;
     using Builder = Base::Builder;
     using AcirConstraint = Base::AcirConstraint;
     using InvalidWitness = Base::InvalidWitness;
     using InvalidWitnessTarget = Base::InvalidWitness::Target;
 
     /**
-     * @brief Generate constraints and witness values based on the invalidation target.
-     */
-    static std::pair<AcirConstraint, WitnessVector> generate_constraints(
-        const InvalidWitnessTarget& invalid_witness_target = InvalidWitnessTarget::None)
-    {
-        AcirConstraint constraint;
-        WitnessVector witness_values;
-
-        // Create an instance to allow for non-static methods
-        Base base_instance;
-        base_instance.generate_constraints(constraint, witness_values);
-        base_instance.invalidate_witness(constraint, witness_values, invalid_witness_target);
-
-        return { constraint, witness_values };
-    }
-
-    /**
-     * @brief General purpose testing function. It generates the test based on the predicate and invalidation target.
+     * @brief General purpose testing function. It tests the constraints based on the invalidation target.
      *
      * @details In a real flow, we have:
      *          Noir --> ACIR --> Bytes --> AcirFormat (via circuit_buf_to_acir_format) --> Builder
@@ -592,10 +576,13 @@ template <TestBase Base> class TestClass {
      * serialization/deserialization. The rationale for doing the rewinding is ensuring that barretenberg internally
      * tests circuit_serde_to_acir_format, which would otherwise only be tested via the tests in acir_tests.
      *
+     * @note The constraint and witness values must be copied otherwise this would affect later calls to this function
      */
-    static std::tuple<bool, bool, std::string> test_constraints(const InvalidWitnessTarget& invalid_witness_target)
+    static std::tuple<bool, bool, std::string> test_constraints(AcirConstraint constraint,
+                                                                WitnessVector witness_values,
+                                                                const InvalidWitnessTarget& invalid_witness_target)
     {
-        auto [constraint, witness_values] = generate_constraints(invalid_witness_target);
+        Base::invalidate_witness(constraint, witness_values, invalid_witness_target);
 
         // Use the full ACIR flow: constraint -> Acir::Opcode -> Acir::Circuit -> circuit_serde_to_acir_format
         AcirFormat constraint_system = constraint_to_acir_format(
@@ -623,7 +610,9 @@ template <TestBase Base> class TestClass {
         size_t num_gates = 0;
 
         // Generate the constraint system
-        auto [constraint, witness_values] = generate_constraints();
+        AcirConstraint constraint;
+        WitnessVector witness_values;
+        Base::generate_constraints(constraint, witness_values);
 
         // Use the full ACIR flow: constraint -> Acir::Opcode -> Acir::Circuit -> circuit_serde_to_acir_format
         AcirFormat constraint_system = constraint_to_acir_format(
@@ -664,8 +653,15 @@ template <TestBase Base> class TestClass {
     static std::vector<std::string> test_tampering()
     {
         std::vector<std::string> error_msgs;
+
+        // Generate the constraint system
+        AcirConstraint constraint;
+        WitnessVector witness_values;
+        Base::generate_constraints(constraint, witness_values);
+
         for (auto [target, label] : zip_view(InvalidWitness::get_all(), InvalidWitness::get_labels())) {
-            auto [circuit_checker_result, builder_failed, builder_err] = test_constraints(target);
+            auto [circuit_checker_result, builder_failed, builder_err] =
+                test_constraints(constraint, witness_values, target);
             error_msgs.emplace_back(builder_err);
 
             if (target != InvalidWitness::Target::None) {
