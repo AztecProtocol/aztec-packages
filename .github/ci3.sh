@@ -45,19 +45,24 @@ function check_cache {
   # Export for use by ci3_success.sh
   echo "CI_CACHE_NAME=$cache_name" >> $GITHUB_ENV
   # Skip cache for release builds - they must always produce versioned images
-  if [ "$CI_MODE" == "release" ]; then
-    echo "Cache disabled for release builds"
-    return
+  cached_ci_modes=(
+    "fast"
+    "full"
+    "full-no-test-cache"
+    "docs"
+    "barretenberg"
+    "ci-release-pr"
+  )
+  # Check if CI_MODE is in cached_ci_modes
+  if [[ " ${cached_ci_modes[@]} " =~ " ${CI_MODE} " ]]; then
+    if cache_download "$cache_name" . 2>/dev/null && [ -f ".ci-success.txt" ]; then
+      echo "Cache hit in .github/ci3.sh! Previous run: $(cat ".ci-success.txt")"
+      exit 0
+    fi
+    echo "Cache miss in .github/ci3.sh, running CI in ${CI_MODE} mode..."
+  else
+    echo "Not using the .github/ci3.sh CI cache for mode $CI_MODE."
   fi
-  if [ "${NO_CACHE:-}" == "1" ]; then
-    echo "Cache disabled by label"
-    return
-  fi
-  if cache_download "$cache_name" . 2>/dev/null && [ -f ".ci-success.txt" ]; then
-    echo "Cache hit! Previous run: $(cat ".ci-success.txt")"
-    exit 0
-  fi
-  echo "Cache miss, running CI in ${CI_MODE} mode..."
 }
 
 function handle_release_pr {
