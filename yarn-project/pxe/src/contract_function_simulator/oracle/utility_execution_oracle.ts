@@ -6,7 +6,6 @@ import { LogLevels, applyStringFormatting, createLogger } from '@aztec/foundatio
 import type { KeyStore } from '@aztec/key-store';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { BlockParameter } from '@aztec/stdlib/block';
 import type { CompleteAddress, ContractInstance } from '@aztec/stdlib/contract';
 import { siloNullifier } from '@aztec/stdlib/hash';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
@@ -21,6 +20,7 @@ import { EventService } from '../../events/event_service.js';
 import { LogService } from '../../logs/log_service.js';
 import { NoteService } from '../../notes/note_service.js';
 import { ORACLE_VERSION } from '../../oracle_version.js';
+import { PublicStorageService } from '../../public_storage/public_storage_service.js';
 import type {
   AddressDataProvider,
   AnchorBlockDataProvider,
@@ -322,9 +322,13 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     numberOfElements: number,
   ) {
     const values = [];
+    const publicStorageService = new PublicStorageService(this.anchorBlockDataProvider, this.aztecNode);
+
+    // TODO: why do we serialize these requests? This should probably a single call
+    // Privacy considerations?
     for (let i = 0n; i < numberOfElements; i++) {
       const storageSlot = new Fr(startStorageSlot.value + i);
-      const value = await this.getPublicStorageAt(blockNumber, contractAddress, storageSlot);
+      const value = await publicStorageService.getPublicStorageAt(blockNumber, contractAddress, storageSlot);
 
       this.log.debug(
         `Oracle storage read: slot=${storageSlot.toString()} address-${contractAddress.toString()} value=${value}`,
@@ -332,14 +336,6 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       values.push(value);
     }
     return values;
-  }
-
-  protected async getPublicStorageAt(blockNumber: BlockParameter, contract: AztecAddress, slot: Fr): Promise<Fr> {
-    const anchorBlockNumber = (await this.anchorBlockDataProvider.getBlockHeader()).getBlockNumber();
-    if (blockNumber !== 'latest' && blockNumber > anchorBlockNumber) {
-      throw new Error(`Block number ${blockNumber} is higher than current block ${anchorBlockNumber}`);
-    }
-    return await this.aztecNode.getPublicStorageAt(blockNumber, contract, slot);
   }
 
   public utilityDebugLog(level: number, message: string, fields: Fr[]): void {
