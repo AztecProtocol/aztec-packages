@@ -54,8 +54,8 @@ jobs:
           GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
           GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-          DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
-          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          RUN_ID: ${{ github.run_id }}
+          AWS_SHUTDOWN_TIME: 360
           NO_SPOT: 1
         run: |
           # Pass the arguments expected in ./bootstrap.sh ci-network-bench
@@ -70,6 +70,7 @@ jobs:
           BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
           GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
           GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+          NO_SPOT: 1
         run: ./.github/ci3.sh network-teardown tps-scenario nightly-bench
 
       - name: Download benchmarks

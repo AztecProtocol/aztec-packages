@@ -208,7 +208,7 @@ function run {
     export NETWORK_ENV_FILE_B64=$(cat ${NETWORK_ENV_FILE} | base64 -w 0)
   fi
   # Only pass SSH keys if disk logging is enabled (internal CI only)
-  if [ "${CI_USE_BUILD_INSTANCE_KEY:-0}" -eq 1 ]; then
+  if [ "${CI_USE_BUILD_INSTANCE_KEY:-1}" -eq 1 ]; then
     # if the build instance key exists, load it into a base64 encoded string
     if [ -f ~/.ssh/build_instance_key ]; then
       export BUILD_INSTANCE_KEY_B64=$(cat ~/.ssh/build_instance_key | base64 -w 0)
