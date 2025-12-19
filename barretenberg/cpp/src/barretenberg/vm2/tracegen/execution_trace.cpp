@@ -208,13 +208,17 @@ FailingContexts preprocess_for_discard(
 {
     FailingContexts dying_info;
 
+    // We use `after_context_event` to retrieve parent_id, context_id, and phase to be consistent with
+    // how these values are populated in the trace (see ExecutionTraceBuilder::process()). These values
+    // should not change during the life-cycle of an execution event though and before_context_event
+    // would lead to the same results.
+
     // Preprocessing pass 1: find the events that exit the app logic and teardown phases
     for (const auto& ex_event : ex_events) {
         bool is_exit = ex_event.is_exit();
         bool is_top_level = ex_event.after_context_event.parent_id == 0;
 
         if (is_exit && is_top_level) {
-            // TODO(dbanks12): confirm this should be after_context_event and not before_context_event
             if (ex_event.after_context_event.phase == TransactionPhase::APP_LOGIC) {
                 dying_info.app_logic_failure = ex_event.is_failure();
                 dying_info.app_logic_exit_context_id = ex_event.after_context_event.id;
@@ -706,12 +710,13 @@ void ExecutionTraceBuilder::process(
             // Set/unset discard flag if the current event is the one that kills the dying context
             dying_context_id = 0;
             discard = 0;
-        } else if (sel_enter_call && discard == 0 && !is_err &&
-                   failures.does_context_fail.contains(ex_event.next_context_id)) {
+        } else if (sel_enter_call && discard == 0 && failures.does_context_fail.contains(ex_event.next_context_id)) {
             // If making a nested call, and discard isn't already high...
             // if the nested context being entered eventually dies, raise discard flag and remember which
-            // context is dying. NOTE: if a [STATIC]CALL instruction _itself_ errors, we don't set the
-            // discard flag because we aren't actually entering a new context!
+            // context is dying. NOTE: If a [STATIC]CALL instruction _itself_ errors, we don't set the
+            // discard flag because we aren't actually entering a new context. This is already captured
+            // by sel_enter_call boolean which is set to true only during opcode execution temporality group
+            // which cannot fail for CALL/STATICALL.
             dying_context_id = ex_event.next_context_id;
             discard = 1;
         }
