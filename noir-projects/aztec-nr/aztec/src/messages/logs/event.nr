@@ -18,6 +18,10 @@ pub fn private_event_to_message_plaintext<Event>(
 where
     Event: EventInterface + Serialize,
 {
+    // We use `Serialize` because we want for events to be processable by off-chain actors, e.g. block explorers,
+    // wallets and apps, without having to rely on contract invocation. If we used `Packable` we'd need to call utility
+    // functions in order to unpack events, which would introduce a level of complexity we don't currently think is
+    // worth the savings in DA (for public events) and proving time (when encrypting private event messages).
     let serialized_event = event.serialize();
 
     let mut msg_content = [0; PRIVATE_EVENT_RESERVED_FIELDS + <Event as Serialize>::N];
