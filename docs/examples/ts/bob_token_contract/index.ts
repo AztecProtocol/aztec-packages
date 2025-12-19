@@ -9,7 +9,7 @@ import { openTmpStore } from '@aztec/kv-store/lmdb';
 
 // docs:start:get_balances
 async function getBalances(contract: BobTokenContract, aliceAddress: AztecAddress, bobAddress: AztecAddress) {
-    Promise.all([
+    await Promise.all([
         contract.methods
             .public_balance_of(aliceAddress)
             .simulate({ from: aliceAddress }),
@@ -33,8 +33,6 @@ async function getBalances(contract: BobTokenContract, aliceAddress: AztecAddres
 async function main() {
     // Connect to local network
     const node = createAztecNodeClient('http://localhost:8080');
-
-    const store = await openTmpStore();
 
     const wallet = await TestWallet.create(node);
 
