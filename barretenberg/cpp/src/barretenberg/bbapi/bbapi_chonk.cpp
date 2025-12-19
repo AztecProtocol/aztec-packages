@@ -136,7 +136,7 @@ ChonkVerify::Response ChonkVerify::execute(const BBApiRequest& /*request*/) &&
     Chonk::VerificationKey verification_key = from_buffer<Chonk::VerificationKey>(vk);
 
     // Verify the proof using ChonkNativeVerifier
-    ChonkNativeVerifier verifier(std::make_shared<ChonkNativeVerifier::VKAndHash>(vk.mega));
+    ChonkNativeVerifier verifier(std::make_shared<ChonkNativeVerifier::VKAndHash>(verification_key.mega));
     const bool verified = verifier.verify(proof);
 
     return { .valid = verified };

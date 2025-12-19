@@ -9,7 +9,9 @@
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
+#include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 #include "barretenberg/transcript/transcript.hpp"
+#include <type_traits>
 
 namespace bb::stdlib::recursion {
 
@@ -130,16 +132,32 @@ template <typename Curve> struct PairingPoints {
         std::vector<Fr> challenges = transcript.template get_challenges<Fr>(labels);
 
         // Aggregate: P_agg = P₀ + r₁·P₁ + r₂·P₂ + ... + rₙ₋₁·Pₙ₋₁
-        // Use the first point as base (no scalar mul needed), then add batch_mul of remaining points
-        std::vector<Group> remaining_first(first_components.begin() + 1, first_components.end());
-        std::vector<Group> remaining_second(second_components.begin() + 1, second_components.end());
+        Group P0, P1;
 
-        Group P0 = first_components[0];
-        Group P1 = second_components[0];
+        // For MegaCircuitBuilder (Goblin): batch_mul optimizes constant scalar 1 (uses add instead of mul)
+        // so we can include all points in a single batch_mul with scalar [1, r₁, r₂, ..., rₙ₋₁]
+        // For UltraCircuitBuilder: no optimization for witness point × constant(1), so keep first point separate
+        if constexpr (std::is_same_v<Builder, MegaCircuitBuilder>) {
+            // Single batch_mul for all points (efficient for Goblin with constant scalar 1)
+            std::vector<Fr> scalars;
+            scalars.reserve(num_points);
+            scalars.push_back(Fr(1)); // Optimized by Goblin: add instead of mul
+            scalars.insert(scalars.end(), challenges.begin(), challenges.end());
 
-        if (!challenges.empty()) {
-            P0 += Group::batch_mul(remaining_first, challenges, 128, handle_edge_cases);
-            P1 += Group::batch_mul(remaining_second, challenges, 128, handle_edge_cases);
+            P0 = Group::batch_mul(first_components, scalars, 128, handle_edge_cases);
+            P1 = Group::batch_mul(second_components, scalars, 128, handle_edge_cases);
+        } else {
+            // Use first point as base, then batch_mul remaining points
+            std::vector<Group> remaining_first(first_components.begin() + 1, first_components.end());
+            std::vector<Group> remaining_second(second_components.begin() + 1, second_components.end());
+
+            P0 = first_components[0];
+            P1 = second_components[0];
+
+            if (!challenges.empty()) {
+                P0 += Group::batch_mul(remaining_first, challenges, 128, handle_edge_cases);
+                P1 += Group::batch_mul(remaining_second, challenges, 128, handle_edge_cases);
+            }
         }
 
         PairingPoints aggregated_points(P0, P1);
