@@ -1,3 +1,5 @@
+include "../execution.pil";
+
 /**
  * Discarding on error in execution.
  *
@@ -15,7 +17,7 @@ namespace execution; // virtual to execution.pil
     sel = 0; // from execution.pil.
 
     // sel_failure == sel_error || sel_execute_revert
-    pol commit sel_failure;
+    pol commit sel_failure; // @boolean (see below explanations)
     // sel_failure is boolean by definition and because sel_error and sel_execute_revert are
     // guaranteed to be boolean as constrained in execution.pil
     // #[INFALLIBLE_OPCODES_SUCCESS] in execution.pil enforces mutual exclusivity of sel_error and sel_execute_revert.
@@ -23,7 +25,7 @@ namespace execution; // virtual to execution.pil
     sel_failure = sel_error + sel_execute_revert;
 
     // Discard columns for error handling
-    pol commit discard; // This context or one of its ancestors fails. All side effects should be discarded.
+    pol commit discard; // @boolean This context or one of its ancestors fails. All side effects should be discarded.
     // 1. discard is boolean
     discard * (1 - discard) = 0;
 
@@ -39,7 +41,7 @@ namespace execution; // virtual to execution.pil
     sel_failure * (1 - discard) = 0;
 
     // Helper columns for checking if context_id == dying_context_id
-    pol commit is_dying_context; // 1 if context_id == dying_context_id
+    pol commit is_dying_context; // @boolean (on active rows) 1 iff context_id == dying_context_id
     is_dying_context * (1 - is_dying_context) = 0; // Boolean constraint
     pol DYING_CONTEXT_DIFF = context_id - dying_context_id;
     pol commit dying_context_diff_inv; // Inverse of (context_id - dying_context_id) when they're different
