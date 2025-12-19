@@ -284,7 +284,7 @@ if [[ "${VERIFY_CONTRACTS:-}" == "true" && ("${CREATE_ROLLUP_CONTRACTS}" == "tru
 fi
 
 ROLLUP_CONTRACTS_START=$(date +%s)
-DEPLOY_ROLLUP_CONTRACTS_DIR="${SCRIPT_DIR}/../terraform/deploy-rollup-contracts"
+DEPLOY_ROLLUP_CONiTRACTS_DIR="${SCRIPT_DIR}/../terraform/deploy-rollup-contracts"
 "${SCRIPT_DIR}/override_terraform_backend.sh" "${DEPLOY_ROLLUP_CONTRACTS_DIR}" "${CLUSTER}" "${BASE_STATE_PATH}/deploy-rollup-contracts"
 
 # Handle NETWORK variable - needs quotes for string values, null for unset
@@ -295,7 +295,7 @@ else
 fi
 
 # Handle ETHERSCAN_API_KEY - only set when deploying or redeploying contracts
-if [[ "${CREATE_ROLLUP_CONTRACTS}" == "true" || "${REDEPLOY_ROLLUP_CONTRACTS}" == "true" ]]; then
+if [[ "${VERIFY_CONTRACTS:-}" == "true" && ("${CREATE_ROLLUP_CONTRACTS}" == "true" || "${REDEPLOY_ROLLUP_CONTRACTS}" == "true") ]]; then
   ETHERSCAN_API_KEY_TF="\"${ETHERSCAN_API_KEY:-}\""
 else
   ETHERSCAN_API_KEY_TF=null
