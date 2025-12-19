@@ -1,15 +1,16 @@
 #include "barretenberg/vm2/tracegen/lib/interaction_builder.hpp"
 
 #include <algorithm>
-#include <unordered_set>
+
+#include "barretenberg/vm2/common/set.hpp"
 
 namespace bb::avm2::tracegen {
 
 void order_jobs_by_destination_columns(std::vector<std::unique_ptr<InteractionBuilderInterface>>& jobs)
 {
     // Identify first occurrences of each fingerprint.
-    std::unordered_set<size_t> seen_fingerprints;
-    std::unordered_set<InteractionBuilderInterface*> first_occurrence_jobs;
+    unordered_flat_set<size_t> seen_fingerprints;
+    unordered_flat_set<InteractionBuilderInterface*> first_occurrence_jobs;
 
     for (const auto& job : jobs) {
         auto fp = job->get_destination_columns_fingerprint();

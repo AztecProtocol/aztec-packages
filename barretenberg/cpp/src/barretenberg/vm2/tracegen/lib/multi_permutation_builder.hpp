@@ -11,6 +11,7 @@
 #include "barretenberg/common/utils.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/common/map.hpp"
+#include "barretenberg/vm2/common/small_vector.hpp"
 #include "barretenberg/vm2/common/stringify.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/tracegen/lib/interaction_builder.hpp"
@@ -56,8 +57,7 @@ template <typename... PermutationSettings_> class MultiPermutationBuilder : publ
         // Find each source tuple in the destination table, and set a 1 in the destination selector.
         trace.visit_column(PermutationSettings::SRC_SELECTOR, [&](uint32_t row, const FF&) {
             auto src_values = trace.get_multiple(PermutationSettings::SRC_COLUMNS, row);
-            size_t key_hash = std::hash<decltype(src_values)>{}(src_values);
-            auto index_it = row_idx.find(key_hash);
+            auto index_it = row_idx.find(src_values);
             if (index_it == row_idx.end() || index_it->second.empty()) {
                 throw std::runtime_error("Failed setting selectors for " + std::string(PermutationSettings::NAME) +
                                          ". Could not find tuple in destination.\nSRC tuple (row " +
@@ -66,7 +66,7 @@ template <typename... PermutationSettings_> class MultiPermutationBuilder : publ
             }
             // Get one of the available rows for the tuple.
             // TODO: This could be done in parallel, with only a lock on the row vector.
-            std::vector<uint32_t>& possible_dst_rows = index_it->second;
+            auto& possible_dst_rows = index_it->second;
             uint32_t dst_row = possible_dst_rows.back();
             trace.set(PermutationSettings::DST_SELECTOR, dst_row, 1);
             // We remove the used row from the list of possible rows.
@@ -84,10 +84,7 @@ template <typename... PermutationSettings_> class MultiPermutationBuilder : publ
         row_idx.reserve(trace.get_column_rows(dst_table_selector));
         trace.visit_column(dst_table_selector, [&](uint32_t row, const FF&) {
             auto dst_values = trace.get_multiple(DST_COLUMNS, row);
-            size_t key_hash = std::hash<decltype(dst_values)>{}(dst_values);
-            // FIXME: THIS IS NOT CORRECT!!!
-            // If hash collision, keep the first one (don't insert if key already exists).
-            row_idx[key_hash].push_back(row);
+            row_idx[dst_values].push_back(row);
         });
     }
 
@@ -105,7 +102,7 @@ template <typename... PermutationSettings_> class MultiPermutationBuilder : publ
     // (a, b, c, ...) in some destination table. That is, you want a row number in the destination table.
     // The following map contains (a, b, c, ...) -> [row_number_1, row_number_2, ...].
     // That is, you can efficiently find all the rows in the destination table that match the src tuple.
-    unordered_flat_map</*columns hash*/ size_t, /*rows*/ std::vector<uint32_t>> row_idx;
+    unordered_flat_map<RefTuple<DST_COLUMNS.size()>, /*rows*/ std::vector<uint32_t>> row_idx;
 };
 
 } // namespace bb::avm2::tracegen

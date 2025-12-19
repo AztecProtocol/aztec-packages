@@ -10,6 +10,7 @@
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/common/map.hpp"
 #include "barretenberg/vm2/common/map_hashes.hpp"
+#include "barretenberg/vm2/common/small_vector.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/tracegen/trace_container.hpp"
 
@@ -27,7 +28,7 @@ struct IndexKey {
 
 // The index type: maps a hash of field element tuples to a row number.
 // The actual tuple values are verified during lookup using the TraceContainer.
-using DstIndex = unordered_flat_map<size_t, uint32_t>;
+using DstIndex = unordered_flat_map<size_t, std::vector<uint32_t>>;
 
 // A thread-safe cache for destination table indices.
 // Multiple lookup builders targeting the same destination table can share an index,

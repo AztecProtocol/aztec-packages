@@ -10,6 +10,16 @@
 
 namespace bb::avm2::tracegen {
 
+// Helper to generate a tuple type with N const FF& elements.
+namespace detail {
+template <size_t N, typename = std::make_index_sequence<N>> struct RefTupleHelper;
+template <size_t N, size_t... Is> struct RefTupleHelper<N, std::index_sequence<Is...>> {
+    template <size_t> using ConstFFRef = const FF&;
+    using type = flat_tuple::tuple<ConstFFRef<Is>...>;
+};
+} // namespace detail
+template <size_t N> using RefTuple = typename detail::RefTupleHelper<N>::type;
+
 class InteractionBuilderInterface {
   public:
     virtual ~InteractionBuilderInterface() = default;

@@ -20,16 +20,6 @@
 
 namespace bb::avm2::tracegen {
 
-// Helper to generate a tuple type with N const FF& elements.
-namespace detail {
-template <size_t N, typename = std::make_index_sequence<N>> struct RefTupleHelper;
-template <size_t N, size_t... Is> struct RefTupleHelper<N, std::index_sequence<Is...>> {
-    template <size_t> using ConstFFRef = const FF&;
-    using type = flat_tuple::tuple<ConstFFRef<Is>...>;
-};
-} // namespace detail
-template <size_t N> using RefTuple = typename detail::RefTupleHelper<N>::type;
-
 // A lookup builder that uses a function `find_in_dst` to find the destination row for a given source tuple.
 template <typename LookupSettings_> class IndexedLookupTraceBuilder : public InteractionBuilderInterface {
   public:
@@ -119,11 +109,11 @@ class LookupIntoDynamicTableGeneric : public IndexedLookupTraceBuilder<LookupSet
         size_t key_hash = std::hash<TupleType>{}(tup);
         auto it = index_ptr_->find(key_hash);
         if (it != index_ptr_->end()) {
-            uint32_t row = it->second;
-            // Verify the actual values match (handles hash collisions).
-            auto dst_values = trace_ptr_->get_multiple(LookupSettings::DST_COLUMNS, row);
-            if (dst_values == tup) {
-                return row;
+            const auto& rows = it->second;
+            for (uint32_t row : rows) {
+                if (trace_ptr_->get_multiple(LookupSettings::DST_COLUMNS, row) == tup) {
+                    return row;
+                }
             }
         }
         throw std::runtime_error("Failed computing counts for " + std::string(LookupSettings::NAME) +
@@ -139,9 +129,21 @@ class LookupIntoDynamicTableGeneric : public IndexedLookupTraceBuilder<LookupSet
         trace.visit_column(this->outer_dst_selector, [&](uint32_t row, const FF&) {
             auto dst_values = trace.get_multiple(LookupSettings::DST_COLUMNS, row);
             size_t key_hash = std::hash<decltype(dst_values)>{}(dst_values);
-            // FIXME: THIS IS NOT CORRECT!!!
-            // If hash collision, keep the first one (don't insert if key already exists).
-            idx.insert({ key_hash, row });
+
+            auto& rows = idx[key_hash];
+            // We need to handle possible hash collisions.
+            bool found_match = false;
+            for (uint32_t existing_row : rows) {
+                if (trace.get_multiple(LookupSettings::DST_COLUMNS, existing_row) == dst_values) {
+                    found_match = true;
+                    break;
+                }
+            }
+            // If we find a match, we keep that row.
+            // If we don't find a match, we add the new row.
+            if (!found_match) {
+                rows.push_back(row);
+            }
         });
         return idx;
     }
