@@ -119,11 +119,11 @@ namespace execution; // virtual to execution.pil
     // Analysis of correctness
     // ========================================================
     // 3 Main cases:
-    // 1) Only nested call(s) fail(s) and is(are) discarded. The enqueued call does not fail and
-    //    is not discarded by another enqueued call 3).
-    // 2) The enqueued call fails and is discarded.
-    // 3) The enqueued call does not fail but needs to be discarded because of the tx-level
-    //    discard flag propagation logic (tx_discard.pil) incurred by another failed enqueued call.
+    //      1) Only nested call(s) fail(s) and is(are) discarded. The enqueued call does not fail and
+    //         is not discarded by another enqueued call 3).
+    //      2) The enqueued call fails and is discarded.
+    //      3) The enqueued call does not fail but needs to be discarded because of the tx-level
+    //         discard flag propagation logic (tx_discard.pil) incurred by another failed enqueued call.
     //
     // Case 1) Assume a failing nested call which is not itself inside another failing nested call.
     //         If a nested call fails, #[DISCARD_IF_FAILURE] implies that `discard' == 1` on the last row of the nested call.
@@ -143,7 +143,7 @@ namespace execution; // virtual to execution.pil
     //         Following the same reasoning as above, a row with `discard == 1` propagates up to the top row of a nested
     //         call and propagates down to the bottom row of the nested call. Here, #[DYING_CONTEXT_MUST_FAIL] enforces
     //         that the last row of the nested call has `sel_failure == 1`.
-
+    //
     // Case 2) The last row of the enqueued call has `sel_failure == 1` and `discard == 1`. For the proof that
     //         all rows of the enqueued call have `discard == 1`, we refer to the proof in Case 3).
     //         Now assume that the enqueued call succeeds but we set `discard == 1` on a row of the top-level call.
@@ -151,13 +151,13 @@ namespace execution; // virtual to execution.pil
     //         the last row of the enqueued call has `reverted == 0` which is prevented by constraints in tx_discard.pil.
     //
     // Case 3) By #[DISPATCH_EXEC_END] in tx.pil, the last row of the enqueued call has `discard == 1`.
-    // If the last row of the enqueued call has `discard == 1`, then `discard' == 1` must be set for all rows
-    // of the enqueued call. Namely, the only row where `discard` mutates from 0 to 1 (top-down) is when
-    // NESTED_CALL_FROM_UNDISCARDED_CONTEXT == 1. Consider the lowest above row where this happens. In this case,
-    // `dying_context_id` becomes the context_id of the nested call and when it resolves, `discard` must be cleared
-    // to 0 which contradicts "the lowest above row where `discard` mutates from 0 to 1".
-    // A row where `RESOLVES_DYING_CONTEXT == 1` also lifts the propagation but #[DYING_CONTEXT_WITH_PARENT_MUST_CLEAR_DISCARD]
-    // enforces that `discard' == 0` on next row in this case (not a transition from 0 to 1).
-    // We note that for Case 3), the `dying_context_id` is almost unconstrained. It must be a nonzero value and
-    // be different from the context_id of any nested call. In tracegen, it will be set to the "dying context id"
-    // of the enqueued call that failed.
+    //         If the last row of the enqueued call has `discard == 1`, then `discard' == 1` must be set for all rows
+    //         of the enqueued call. Namely, the only row where `discard` mutates from 0 to 1 (top-down) is when
+    //         NESTED_CALL_FROM_UNDISCARDED_CONTEXT == 1. Consider the lowest above row where this happens. In this case,
+    //         `dying_context_id` becomes the context_id of the nested call and when it resolves, `discard` must be cleared
+    //         to 0 which contradicts "the lowest above row where `discard` mutates from 0 to 1".
+    //         A row where `RESOLVES_DYING_CONTEXT == 1` also lifts the propagation but #[DYING_CONTEXT_WITH_PARENT_MUST_CLEAR_DISCARD]
+    //         enforces that `discard' == 0` on next row in this case (not a transition from 0 to 1).
+    //         We note that for Case 3), the `dying_context_id` is almost unconstrained. It must be a nonzero value and
+    //         be different from the context_id of any nested call. In tracegen, it will be set to the "dying context id"
+    //         of the enqueued call that failed.
