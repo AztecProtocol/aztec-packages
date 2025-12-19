@@ -24,9 +24,8 @@ tracing = { workspace = true, optional = true }
 hex.workspace = true
 
 [features]
-default = ["native"]
+default = ["native", "ffi"]
 native = ["tokio", "nix", "tracing"]
 async = ["tokio"]
-# FFI backend - requires linking against libbarretenberg.
-# Configure via .cargo/config.toml or RUSTFLAGS="-L /path/to/lib"
+# FFI backend - links against libbarretenberg from cpp build
 ffi = []

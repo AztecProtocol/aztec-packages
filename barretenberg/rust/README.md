@@ -25,12 +25,12 @@ api.destroy()?;
 
 ### Using FfiBackend (for mobile/embedded)
 
-Calls Barretenberg directly via FFI - maximum performance, requires linking:
+Calls Barretenberg directly via FFI - maximum performance, enabled by default:
 
 ```rust
 use barretenberg_rs::{BarretenbergApi, backends::FfiBackend};
 
-// Create FFI backend (requires libbarretenberg linked)
+// Create FFI backend (links to libbarretenberg automatically)
 let backend = FfiBackend::new()?;
 let mut api = BarretenbergApi::new(backend);
 
@@ -39,10 +39,8 @@ let response = api.blake2s(b"hello world")?;
 println!("Hash: {:?}", response.hash);
 ```
 
-To use FFI backend:
-1. Build `libbarretenberg.a` for your target platform
-2. Enable the `ffi` feature: `cargo build --features ffi`
-3. Configure the library path via `.cargo/config.toml` or `RUSTFLAGS="-L /path/to/lib"`
+The FFI backend requires `libbarretenberg.a` from the cpp build (run `barretenberg/cpp/bootstrap.sh` first).
+The library path is automatically configured via `build.rs`.
 
 ## Architecture
 
@@ -74,11 +72,11 @@ The crate provides a pluggable backend system:
 ## Testing
 
 ```bash
-# Run tests with PipeBackend (requires BB binary)
+# Run all tests (FFI enabled by default, requires cpp build)
 cargo test --release
 
-# Run tests with FfiBackend (requires libbarretenberg)
-RUSTFLAGS="-L /path/to/lib" cargo test --release --features ffi
+# Run tests without FFI (pipe backend only)
+cargo test --release --no-default-features --features native
 ```
 
 ## Generated Code
@@ -92,5 +90,5 @@ cd ../ts && yarn generate
 ## Features
 
 - `native` (default): Enables `PipeBackend` and async runtime
-- `ffi`: Enables `FfiBackend` for direct C FFI calls
+- `ffi` (default): Enables `FfiBackend` for direct C FFI calls, auto-links to cpp/build/lib
 - `async`: Enables async/await support

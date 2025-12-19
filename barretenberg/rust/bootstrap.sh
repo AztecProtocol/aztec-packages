@@ -34,8 +34,8 @@ function test {
     source "$HOME/.cargo/env"
   fi
 
-  # Run all tests including FFI (requires libbarretenberg from cpp build)
-  RUSTFLAGS="-L ../cpp/build/lib" cargo test --release --features ffi
+  # Run all tests (FFI is enabled by default, links to cpp/build/lib automatically)
+  cargo test --release
 }
 
 case "$cmd" in
