@@ -1,4 +1,7 @@
-use crate::{context::inputs::PrivateContextInputs, test::helpers::utils::TestAccount};
+use crate::{
+    context::inputs::PrivateContextInputs, event::event_selector::EventSelector,
+    test::helpers::utils::TestAccount,
+};
 
 use protocol_types::{
     abis::function_selector::FunctionSelector,
@@ -10,6 +13,9 @@ use protocol_types::{
     contract_instance::ContractInstance,
     traits::{Deserialize, ToField},
 };
+
+global MAX_PRIVATE_EVENTS_PER_TXE_QUERY: u32 = 5;
+global MAX_EVENT_SERIALIZATION_LENGTH: u32 = 12;
 
 pub unconstrained fn deploy<let M: u32, let N: u32, let P: u32>(
     path: str<N>,
@@ -72,6 +78,36 @@ pub unconstrained fn get_last_block_timestamp() -> u64 {}
 
 #[oracle(txeGetLastTxEffects)]
 pub unconstrained fn get_last_tx_effects() -> (Field, BoundedVec<Field, MAX_NOTE_HASHES_PER_TX>, BoundedVec<Field, MAX_NULLIFIERS_PER_TX>) {}
+
+#[oracle(txeGetDefaultAddress)]
+pub unconstrained fn get_default_address() -> AztecAddress {}
+
+// experimental
+pub(crate) unconstrained fn get_private_events(
+    selector: EventSelector,
+    contract_address: AztecAddress,
+    scope: AztecAddress,
+    ) -> BoundedVec<BoundedVec<Field, MAX_EVENT_SERIALIZATION_LENGTH>, MAX_PRIVATE_EVENTS_PER_TXE_QUERY> {
+    // This is a workaround as Noir does not currently let us return nested structs with arrays. We instead return a raw
+    // multidimensional array in get_private_events_oracle and create the BoundedVecs here.
+
+    let (raw_array_storage, event_lengths, query_length) =
+        get_private_events_oracle(selector, contract_address, scope);
+
+    let mut events = BoundedVec::new();
+    for i in 0..query_length {
+        events.push(BoundedVec::from_parts(raw_array_storage[i], event_lengths[i]));
+    }
+
+    events
+}
+
+#[oracle(txeGetPrivateEvents)]
+unconstrained fn get_private_events_oracle(
+    selector: EventSelector,
+    contract_address: AztecAddress,
+    scope: AztecAddress,
+    ) -> ([[Field; MAX_EVENT_SERIALIZATION_LENGTH]; MAX_PRIVATE_EVENTS_PER_TXE_QUERY], [u32; MAX_PRIVATE_EVENTS_PER_TXE_QUERY], u32) {}
 
 #[oracle(txeAdvanceBlocksBy)]
 pub unconstrained fn advance_blocks_by(blocks: u32) {}
