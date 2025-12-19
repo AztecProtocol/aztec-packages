@@ -12,16 +12,14 @@ import { BlockHeader, HashedValues, TxContext, TxExecutionRequest } from '@aztec
 import { jest } from '@jest/globals';
 import { mock } from 'jest-mock-extended';
 
-import {
-  AddressDataProvider,
-  AnchorBlockDataProvider,
-  CapsuleDataProvider,
-  ContractDataProvider,
-  NoteDataProvider,
-  PrivateEventDataProvider,
-  RecipientTaggingDataProvider,
-  SenderTaggingDataProvider,
-} from '../../storage/index.js';
+import type { AddressDataProvider } from '../../storage/address_data_provider/address_data_provider.js';
+import type { AnchorBlockDataProvider } from '../../storage/anchor_block_data_provider/anchor_block_data_provider.js';
+import type { CapsuleDataProvider } from '../../storage/capsule_data_provider/capsule_data_provider.js';
+import type { ContractDataProvider } from '../../storage/contract_data_provider/contract_data_provider.js';
+import type { NoteDataProvider } from '../../storage/note_data_provider/note_data_provider.js';
+import type { PrivateEventDataProvider } from '../../storage/private_event_data_provider/private_event_data_provider.js';
+import type { RecipientTaggingDataProvider } from '../../storage/tagging_data_provider/recipient_tagging_data_provider.js';
+import type { SenderTaggingDataProvider } from '../../storage/tagging_data_provider/sender_tagging_data_provider.js';
 import { ContractFunctionSimulator } from '../contract_function_simulator.js';
 import { UtilityExecutionOracle } from './utility_execution_oracle.js';
 

@@ -3,11 +3,12 @@ import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { DataInBlock } from '@aztec/stdlib/block';
 import { computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/stdlib/hash';
 import { type AztecNode, MAX_RPC_LEN } from '@aztec/stdlib/interfaces/server';
-import { Note, NoteStatus } from '@aztec/stdlib/note';
+import { Note, NoteDao, NoteStatus } from '@aztec/stdlib/note';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import type { TxHash } from '@aztec/stdlib/tx';
 
-import { type AnchorBlockDataProvider, NoteDao, type NoteDataProvider } from '../storage/index.js';
+import type { AnchorBlockDataProvider } from '../storage/anchor_block_data_provider/anchor_block_data_provider.js';
+import type { NoteDataProvider } from '../storage/note_data_provider/note_data_provider.js';
 
 export class NoteService {
   constructor(

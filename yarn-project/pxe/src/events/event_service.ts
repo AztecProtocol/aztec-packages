@@ -6,7 +6,8 @@ import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import type { TxHash } from '@aztec/stdlib/tx';
 
-import type { AnchorBlockDataProvider, PrivateEventDataProvider } from '../storage/index.js';
+import { AnchorBlockDataProvider } from '../storage/anchor_block_data_provider/anchor_block_data_provider.js';
+import { PrivateEventDataProvider } from '../storage/private_event_data_provider/private_event_data_provider.js';
 
 export class EventService {
   constructor(

@@ -7,7 +7,7 @@ import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import { getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
 import { MerkleTreeId, NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 
-import type { AnchorBlockDataProvider } from '../storage/index.js';
+import type { AnchorBlockDataProvider } from '../storage/anchor_block_data_provider/anchor_block_data_provider.js';
 
 export class TreeMembershipService {
   constructor(

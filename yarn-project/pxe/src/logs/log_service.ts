@@ -15,12 +15,10 @@ import {
 
 import type { LogRetrievalRequest } from '../contract_function_simulator/noir-structs/log_retrieval_request.js';
 import { LogRetrievalResponse } from '../contract_function_simulator/noir-structs/log_retrieval_response.js';
-import type {
-  AddressDataProvider,
-  AnchorBlockDataProvider,
-  CapsuleDataProvider,
-  RecipientTaggingDataProvider,
-} from '../storage/index.js';
+import { AddressDataProvider } from '../storage/address_data_provider/address_data_provider.js';
+import { AnchorBlockDataProvider } from '../storage/anchor_block_data_provider/anchor_block_data_provider.js';
+import { CapsuleDataProvider } from '../storage/capsule_data_provider/capsule_data_provider.js';
+import { RecipientTaggingDataProvider } from '../storage/tagging_data_provider/recipient_tagging_data_provider.js';
 import { WINDOW_HALF_SIZE } from '../tagging/constants.js';
 import { SiloedTag } from '../tagging/siloed_tag.js';
 import { Tag } from '../tagging/tag.js';

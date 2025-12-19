@@ -2,7 +2,7 @@ import { FunctionSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractOverrides } from '@aztec/stdlib/tx';
 
-import type { ContractDataProvider } from '../storage/index.js';
+import type { ContractDataProvider } from '../storage/contract_data_provider/contract_data_provider.js';
 
 /*
  * Proxy generator for a ContractDataProvider that allows overriding contract instances and artifacts, so

@@ -21,16 +21,14 @@ import { LogService } from '../../logs/log_service.js';
 import { NoteService } from '../../notes/note_service.js';
 import { ORACLE_VERSION } from '../../oracle_version.js';
 import { PublicStorageService } from '../../public_storage/public_storage_service.js';
-import type {
-  AddressDataProvider,
-  AnchorBlockDataProvider,
-  CapsuleDataProvider,
-  ContractDataProvider,
-  NoteDataProvider,
-  PrivateEventDataProvider,
-  RecipientTaggingDataProvider,
-  SenderTaggingDataProvider,
-} from '../../storage/index.js';
+import type { AddressDataProvider } from '../../storage/address_data_provider/address_data_provider.js';
+import type { AnchorBlockDataProvider } from '../../storage/anchor_block_data_provider/anchor_block_data_provider.js';
+import type { CapsuleDataProvider } from '../../storage/capsule_data_provider/capsule_data_provider.js';
+import type { ContractDataProvider } from '../../storage/contract_data_provider/contract_data_provider.js';
+import type { NoteDataProvider } from '../../storage/note_data_provider/note_data_provider.js';
+import type { PrivateEventDataProvider } from '../../storage/private_event_data_provider/private_event_data_provider.js';
+import type { RecipientTaggingDataProvider } from '../../storage/tagging_data_provider/recipient_tagging_data_provider.js';
+import type { SenderTaggingDataProvider } from '../../storage/tagging_data_provider/sender_tagging_data_provider.js';
 import { TreeMembershipService } from '../../tree_membership/tree_membership_service.js';
 import { EventValidationRequest } from '../noir-structs/event_validation_request.js';
 import { LogRetrievalRequest } from '../noir-structs/log_retrieval_request.js';

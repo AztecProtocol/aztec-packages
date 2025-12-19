@@ -14,7 +14,8 @@ import { BlockHeader, GlobalVariables, type IndexedTxEffect, TxEffect, TxHash } 
 import { jest } from '@jest/globals';
 import { mock } from 'jest-mock-extended';
 
-import { AnchorBlockDataProvider, NoteDataProvider } from '../storage/index.js';
+import { AnchorBlockDataProvider } from '../storage/anchor_block_data_provider/anchor_block_data_provider.js';
+import { NoteDataProvider } from '../storage/note_data_provider/note_data_provider.js';
 import { NoteService } from './note_service.js';
 
 describe('NoteService', () => {

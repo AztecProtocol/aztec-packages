@@ -2,7 +2,8 @@ import type { PrivateEventFilter } from '@aztec/aztec.js/wallet';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 
-import type { AnchorBlockDataProvider, PrivateEventDataProviderFilter } from '../storage/index.js';
+import { AnchorBlockDataProvider } from '../storage/anchor_block_data_provider/anchor_block_data_provider.js';
+import type { PrivateEventDataProviderFilter } from '../storage/private_event_data_provider/private_event_data_provider.js';
 
 export class PrivateEventFilterValidator {
   constructor(private anchorBlockDataProvider: AnchorBlockDataProvider) {}

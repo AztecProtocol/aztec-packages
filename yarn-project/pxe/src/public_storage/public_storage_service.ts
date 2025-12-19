@@ -3,7 +3,7 @@ import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { BlockParameter } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 
-import type { AnchorBlockDataProvider } from '../storage/index.js';
+import type { AnchorBlockDataProvider } from '../storage/anchor_block_data_provider/anchor_block_data_provider.js';
 
 export class PublicStorageService {
   constructor(
