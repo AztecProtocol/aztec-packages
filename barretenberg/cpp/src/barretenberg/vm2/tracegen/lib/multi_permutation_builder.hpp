@@ -56,7 +56,8 @@ template <typename... PermutationSettings_> class MultiPermutationBuilder : publ
         // Find each source tuple in the destination table, and set a 1 in the destination selector.
         trace.visit_column(PermutationSettings::SRC_SELECTOR, [&](uint32_t row, const FF&) {
             auto src_values = trace.get_multiple(PermutationSettings::SRC_COLUMNS, row);
-            auto index_it = row_idx.find(src_values);
+            size_t key_hash = std::hash<decltype(src_values)>{}(src_values);
+            auto index_it = row_idx.find(key_hash);
             if (index_it == row_idx.end() || index_it->second.empty()) {
                 throw std::runtime_error("Failed setting selectors for " + std::string(PermutationSettings::NAME) +
                                          ". Could not find tuple in destination.\nSRC tuple (row " +
@@ -83,7 +84,10 @@ template <typename... PermutationSettings_> class MultiPermutationBuilder : publ
         row_idx.reserve(trace.get_column_rows(dst_table_selector));
         trace.visit_column(dst_table_selector, [&](uint32_t row, const FF&) {
             auto dst_values = trace.get_multiple(DST_COLUMNS, row);
-            row_idx[dst_values].push_back(row);
+            size_t key_hash = std::hash<decltype(dst_values)>{}(dst_values);
+            // FIXME: THIS IS NOT CORRECT!!!
+            // If hash collision, keep the first one (don't insert if key already exists).
+            row_idx[key_hash].push_back(row);
         });
     }
 
@@ -101,9 +105,7 @@ template <typename... PermutationSettings_> class MultiPermutationBuilder : publ
     // (a, b, c, ...) in some destination table. That is, you want a row number in the destination table.
     // The following map contains (a, b, c, ...) -> [row_number_1, row_number_2, ...].
     // That is, you can efficiently find all the rows in the destination table that match the src tuple.
-    // TODO: Using the whole tuple as the key is not memory efficient.
-    using ArrayTuple = std::array<FF, COLUMNS_PER_SET>;
-    unordered_flat_map<ArrayTuple, /*rows*/ std::vector<uint32_t>> row_idx;
+    unordered_flat_map</*columns hash*/ size_t, /*rows*/ std::vector<uint32_t>> row_idx;
 };
 
 } // namespace bb::avm2::tracegen
