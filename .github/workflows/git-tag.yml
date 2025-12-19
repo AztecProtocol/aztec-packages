@@ -42,5 +42,5 @@ jobs:
           git config user.name "AztecBot"
           git config user.email "tech@aztec-labs.com"
           git fetch origin "${{ inputs.commit }}"
-          git tag -f "${{ inputs.tag }}" "${{ inputs.commit }}"
+          git tag -a "${{ inputs.tag }}" -m "${{ inputs.tag }}" "${{ inputs.commit }}"
           git push origin "${{ inputs.tag }}"

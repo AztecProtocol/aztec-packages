@@ -177,8 +177,8 @@ if (( TOTAL_PROVER_PUBLISHERS > 0 )); then
   LABS_INFRA_INDICES="${LABS_INFRA_INDICES},${PROVER_PUBLISHER_RANGE}"
 fi
 
-# Ensure docker image provided
-if [[ -z "${AZTEC_DOCKER_IMAGE:-}" ]]; then
+# Ensure docker image provided (not needed for pure teardowns)
+if [[ -z "${AZTEC_DOCKER_IMAGE:-}" && ("${CREATE_AZTEC_INFRA:-}" == "true" || "${CREATE_ROLLUP_CONTRACTS:-}" == "true") ]]; then
   die "AZTEC_DOCKER_IMAGE is not set"
 fi
 
