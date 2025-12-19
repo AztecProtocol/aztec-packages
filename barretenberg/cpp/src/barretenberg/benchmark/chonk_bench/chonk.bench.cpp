@@ -37,7 +37,7 @@ BENCHMARK_DEFINE_F(ChonkBench, VerificationOnly)(benchmark::State& state)
     auto precomputed_vks = precompute_vks(NUM_APP_CIRCUITS);
     auto [proof, vk] = accumulate_and_prove_with_precomputed_vks(NUM_APP_CIRCUITS, precomputed_vks);
 
-    ChonkNativeVerifier verifier(vk.mega);
+    ChonkNativeVerifier verifier(std::make_shared<ChonkNativeVerifier::VKAndHash>(vk.mega));
     for (auto _ : state) {
         benchmark::DoNotOptimize(verifier.verify(proof));
     }

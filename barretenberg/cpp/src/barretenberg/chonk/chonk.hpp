@@ -80,13 +80,6 @@ class Chonk : public IVCBase {
     using VerifierAccumulator = FoldingVerifier::Accumulator;
     using RecursiveVerifierAccumulator = RecursiveFoldingVerifier::Accumulator;
 
-    /**
-     * @brief A full proof for the IVC scheme containing a Mega proof showing correctness of the Hiding kernel (which
-     * recursive verified the last folding and decider proof) and a Goblin proof (translator VM, ECCVM and last merge
-     * proof).
-     *
-     * @details This proof will be zero-knowledge.
-     */
     struct VerificationKey {
         std::shared_ptr<MegaVerificationKey> mega;
         std::shared_ptr<ECCVMVerificationKey> eccvm;

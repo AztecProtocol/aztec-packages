@@ -114,8 +114,7 @@ ChonkProve::Response ChonkProve::execute(BBApiRequest& request) &&
     // We verify this proof. Another bb call to verify has some overhead of loading VK/proof/SRS,
     // and it is mysterious if this transaction fails later in the lifecycle.
     info("ChonkProve - verifying the generated proof as a sanity check");
-    auto vk_and_hash = std::make_shared<ChonkNativeVerifier::VKAndHash>(vk.mega);
-    ChonkNativeVerifier verifier(vk_and_hash);
+    ChonkNativeVerifier verifier(std::make_shared<ChonkNativeVerifier::VKAndHash>(vk.mega));
     verification_passed = verifier.verify(proof);
 
     if (!verification_passed) {
@@ -137,8 +136,7 @@ ChonkVerify::Response ChonkVerify::execute(const BBApiRequest& /*request*/) &&
     Chonk::VerificationKey verification_key = from_buffer<Chonk::VerificationKey>(vk);
 
     // Verify the proof using ChonkNativeVerifier
-    auto vk_and_hash = std::make_shared<ChonkNativeVerifier::VKAndHash>(verification_key.mega);
-    ChonkNativeVerifier verifier(vk_and_hash);
+    ChonkNativeVerifier verifier(std::make_shared<ChonkNativeVerifier::VKAndHash>(vk.mega));
     const bool verified = verifier.verify(proof);
 
     return { .valid = verified };
