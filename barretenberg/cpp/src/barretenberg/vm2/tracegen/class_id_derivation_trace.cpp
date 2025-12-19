@@ -37,7 +37,9 @@ void ClassIdDerivationTraceBuilder::process(
 
 const InteractionDefinition ClassIdDerivationTraceBuilder::interactions =
     InteractionDefinition()
-        .add<lookup_class_id_derivation_class_id_poseidon2_0_settings, InteractionType::LookupSequential>()
-        .add<lookup_class_id_derivation_class_id_poseidon2_1_settings, InteractionType::LookupSequential>();
+        .add<lookup_class_id_derivation_class_id_poseidon2_0_settings,
+             InteractionType::LookupGeneric>() // poseidon2 deduplicates
+        .add<lookup_class_id_derivation_class_id_poseidon2_1_settings,
+             InteractionType::LookupGeneric>(); // poseidon2 deduplicates
 
 } // namespace bb::avm2::tracegen

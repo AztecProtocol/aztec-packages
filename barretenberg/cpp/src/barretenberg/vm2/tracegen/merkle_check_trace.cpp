@@ -122,7 +122,7 @@ void MerkleCheckTraceBuilder::process(
 
 const InteractionDefinition MerkleCheckTraceBuilder::interactions =
     InteractionDefinition()
-        .add<lookup_merkle_check_merkle_poseidon2_read_settings, InteractionType::LookupSequential>()
-        .add<lookup_merkle_check_merkle_poseidon2_write_settings, InteractionType::LookupSequential>();
+        .add<lookup_merkle_check_merkle_poseidon2_read_settings, InteractionType::LookupGeneric>()
+        .add<lookup_merkle_check_merkle_poseidon2_write_settings, InteractionType::LookupGeneric>();
 
 } // namespace bb::avm2::tracegen

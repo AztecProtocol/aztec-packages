@@ -727,7 +727,7 @@ const InteractionDefinition TxTraceBuilder::interactions =
         // Cannot be sequential (sorting happens in public data tree trace)
         .add<lookup_tx_balance_read_settings, InteractionType::LookupGeneric>()
         .add<lookup_tx_write_fee_public_inputs_settings, InteractionType::LookupIntoIndexedByClk>()
-        .add<lookup_tx_balance_slot_poseidon2_settings, InteractionType::LookupSequential>()
+        .add<lookup_tx_balance_slot_poseidon2_settings, InteractionType::LookupGeneric>() // poseidon2 deduplicates
         // Lookups from tx_context.pil
         .add<lookup_tx_context_public_inputs_note_hash_tree_settings, InteractionType::LookupIntoIndexedByClk>()
         .add<lookup_tx_context_public_inputs_nullifier_tree_settings, InteractionType::LookupIntoIndexedByClk>()

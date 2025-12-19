@@ -62,16 +62,23 @@ void AddressDerivationTraceBuilder::process(
 const InteractionDefinition AddressDerivationTraceBuilder::interactions =
     InteractionDefinition()
         .add<lookup_address_derivation_salted_initialization_hash_poseidon2_0_settings,
-             InteractionType::LookupSequential>()
+             InteractionType::LookupGeneric>() // poseidon2 deduplicates
         .add<lookup_address_derivation_salted_initialization_hash_poseidon2_1_settings,
-             InteractionType::LookupSequential>()
-        .add<lookup_address_derivation_partial_address_poseidon2_settings, InteractionType::LookupSequential>()
-        .add<lookup_address_derivation_public_keys_hash_poseidon2_0_settings, InteractionType::LookupSequential>()
-        .add<lookup_address_derivation_public_keys_hash_poseidon2_1_settings, InteractionType::LookupSequential>()
-        .add<lookup_address_derivation_public_keys_hash_poseidon2_2_settings, InteractionType::LookupSequential>()
-        .add<lookup_address_derivation_public_keys_hash_poseidon2_3_settings, InteractionType::LookupSequential>()
-        .add<lookup_address_derivation_public_keys_hash_poseidon2_4_settings, InteractionType::LookupSequential>()
-        .add<lookup_address_derivation_preaddress_poseidon2_settings, InteractionType::LookupSequential>()
+             InteractionType::LookupGeneric>() // poseidon2 deduplicates
+        .add<lookup_address_derivation_partial_address_poseidon2_settings,
+             InteractionType::LookupGeneric>() // poseidon2 deduplicates
+        .add<lookup_address_derivation_public_keys_hash_poseidon2_0_settings,
+             InteractionType::LookupGeneric>() // poseidon2 deduplicates
+        .add<lookup_address_derivation_public_keys_hash_poseidon2_1_settings,
+             InteractionType::LookupGeneric>() // poseidon2 deduplicates
+        .add<lookup_address_derivation_public_keys_hash_poseidon2_2_settings,
+             InteractionType::LookupGeneric>() // poseidon2 deduplicates
+        .add<lookup_address_derivation_public_keys_hash_poseidon2_3_settings,
+             InteractionType::LookupGeneric>() // poseidon2 deduplicates
+        .add<lookup_address_derivation_public_keys_hash_poseidon2_4_settings,
+             InteractionType::LookupGeneric>() // poseidon2 deduplicates
+        .add<lookup_address_derivation_preaddress_poseidon2_settings,
+             InteractionType::LookupGeneric>() // poseidon2 deduplicates
         .add<lookup_address_derivation_preaddress_scalar_mul_settings, InteractionType::LookupSequential>()
         .add<lookup_address_derivation_address_ecadd_settings, InteractionType::LookupSequential>();
 

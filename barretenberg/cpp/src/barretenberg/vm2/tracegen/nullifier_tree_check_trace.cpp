@@ -98,16 +98,19 @@ void NullifierTreeCheckTraceBuilder::process(
 
 const InteractionDefinition NullifierTreeCheckTraceBuilder::interactions =
     InteractionDefinition()
-        .add<lookup_nullifier_check_silo_poseidon2_settings, InteractionType::LookupSequential>()
-        .add<lookup_nullifier_check_low_leaf_poseidon2_settings, InteractionType::LookupSequential>()
-        .add<lookup_nullifier_check_updated_low_leaf_poseidon2_settings, InteractionType::LookupSequential>()
-        .add<lookup_nullifier_check_low_leaf_merkle_check_settings, InteractionType::LookupSequential>()
+        .add<lookup_nullifier_check_silo_poseidon2_settings, InteractionType::LookupGeneric>() // poseidon2 deduplicates
+        .add<lookup_nullifier_check_low_leaf_poseidon2_settings,
+             InteractionType::LookupGeneric>() // poseidon2 deduplicates
+        .add<lookup_nullifier_check_updated_low_leaf_poseidon2_settings,
+             InteractionType::LookupGeneric>() // poseidon2 deduplicates
+        .add<lookup_nullifier_check_low_leaf_merkle_check_settings, InteractionType::LookupGeneric>()
         .add<lookup_nullifier_check_low_leaf_nullifier_validation_settings,
              InteractionType::LookupGeneric>() // ff_gt deduplicates
         .add<lookup_nullifier_check_low_leaf_next_nullifier_validation_settings,
              InteractionType::LookupGeneric>() // ff_gt deduplicates
-        .add<lookup_nullifier_check_new_leaf_poseidon2_settings, InteractionType::LookupSequential>()
-        .add<lookup_nullifier_check_new_leaf_merkle_check_settings, InteractionType::LookupSequential>()
+        .add<lookup_nullifier_check_new_leaf_poseidon2_settings,
+             InteractionType::LookupGeneric>() // poseidon2 deduplicates
+        .add<lookup_nullifier_check_new_leaf_merkle_check_settings, InteractionType::LookupGeneric>()
         .add<lookup_nullifier_check_write_nullifier_to_public_inputs_settings,
              InteractionType::LookupIntoIndexedByClk>();
 

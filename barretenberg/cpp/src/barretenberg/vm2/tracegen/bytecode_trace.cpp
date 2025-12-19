@@ -438,7 +438,7 @@ const InteractionDefinition BytecodeTraceBuilder::interactions =
     InteractionDefinition()
         // Bytecode Hashing
         .add<lookup_bc_hashing_check_final_bytes_remaining_settings, InteractionType::LookupSequential>()
-        .add<lookup_bc_hashing_poseidon2_hash_settings, InteractionType::LookupSequential>()
+        .add<lookup_bc_hashing_poseidon2_hash_settings, InteractionType::LookupGeneric>() // poseidon2 deduplicates
         // Bytecode Retrieval
         .add<lookup_bc_retrieval_class_id_derivation_settings, InteractionType::LookupGeneric>()
         .add<lookup_bc_retrieval_contract_instance_retrieval_settings, InteractionType::LookupSequential>()
