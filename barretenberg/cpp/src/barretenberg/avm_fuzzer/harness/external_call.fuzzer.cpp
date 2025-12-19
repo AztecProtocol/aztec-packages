@@ -169,7 +169,7 @@ void mutate_call_instance(ExternalCallFuzzerInput& input, std::mt19937 rng)
     // Modify a random call instance (using num_events to ensure it's used in a run)
     size_t num_events =
         static_cast<size_t>(input.num_flat_calls) * (input.num_nested_calls == 0 ? 1 : input.num_nested_calls);
-    std::uniform_int_distribution<size_t> index_dist(0, num_events - 1);
+    std::uniform_int_distribution<size_t> index_dist(0, num_events == 0 ? 0 : num_events - 1);
     size_t value_idx = index_dist(rng);
     std::uniform_int_distribution<int> inner_mutation_dist(0, 3);
     int inner_mutation_choice = inner_mutation_dist(rng);
@@ -216,12 +216,6 @@ extern "C" size_t LLVMFuzzerCustomMutator(uint8_t* data, size_t size, size_t max
     // Deserialize current input
     ExternalCallFuzzerInput input = ExternalCallFuzzerInput::from_buffer(data);
 
-    if (input.num_flat_calls == 0) {
-        // TODO(MW): Somehow the number of flat calls can be set as 0, todo more robustly
-        // ensure this does not happen (counter?)
-        input.num_flat_calls++;
-    }
-
     // Choose random mutation
     std::uniform_int_distribution<int> mutation_dist(0, 3);
     int mutation_choice = mutation_dist(rng);
@@ -241,7 +235,15 @@ extern "C" size_t LLVMFuzzerCustomMutator(uint8_t* data, size_t size, size_t max
     }
     case 2: {
         // Modify initial context pc
-        std::uniform_int_distribution<uint32_t> start_pc_dist(0, std::numeric_limits<uint32_t>::max());
+        size_t num_events =
+            static_cast<size_t>(input.num_flat_calls) * (input.num_nested_calls == 0 ? 1 : input.num_nested_calls);
+        // Creating a large offset to avoid overflow of pc
+        const auto& spec = get_wire_instruction_spec();
+        size_t instr_sizes_offset =
+            num_events * (spec.at(WireOpCode::CALL).size_in_bytes + spec.at(WireOpCode::RETURN).size_in_bytes +
+                          dummy_instr.size_in_bytes());
+        std::uniform_int_distribution<uint32_t> start_pc_dist(
+            0, std::numeric_limits<uint32_t>::max() - uint32_t(instr_sizes_offset));
         input.start_pc = start_pc_dist(rng);
         break;
     }
@@ -314,7 +316,10 @@ std::unique_ptr<ContextInterface> fuzz_call(std::vector<ExecutionEvent>& ex_even
 
     // Execution.execute post-dispatch:
     parent_context->set_pc(parent_context->get_next_pc());
-    ex_event.inputs = { allocated_l2_gas_read, allocated_da_gas_read, MemoryValue::from<FF>(input.contract_address) };
+    ex_event.inputs = { allocated_l2_gas_read,
+                        allocated_da_gas_read,
+                        MemoryValue::from<FF>(input.contract_address),
+                        /* cd_size = */ MemoryValue::from<uint32_t>(0) };
     ex_event.addressing_event = addressing_event;
     ex_event.gas_event = gas_event;
     ex_event.after_context_event = fill_context_event(parent_context);
@@ -323,8 +328,11 @@ std::unique_ptr<ContextInterface> fuzz_call(std::vector<ExecutionEvent>& ex_even
 
     // Push event from the call itself (via nested child context)
     // Note: we only need the gas_limit in after_context_event, hence filling that rather than .before_context_event
-    ExecutionEvent nested_event = { .wire_instruction = dummy_instr,
-                                    .after_context_event = fill_context_event(child_context) };
+    ExecutionEvent nested_event = {
+        .wire_instruction = dummy_instr,
+        .inputs = { MemoryValue::from(FF(0)), MemoryValue::from(FF(0)), MemoryValue::from(FF(0)) },
+        .after_context_event = fill_context_event(child_context)
+    };
 
     ex_events.push_back(nested_event);
 
