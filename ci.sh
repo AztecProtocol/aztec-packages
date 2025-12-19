@@ -127,24 +127,28 @@ case "$cmd" in
     # Args: <scenario> <namespace> [docker_image]
     # If docker_image is not provided, ci-network-deploy will build and push to aztecdev.
     export JOB_ID="x-${2:?namespace is required}-network-deploy"
+    export INSTANCE_POSTFIX="netdeploy"
     bootstrap_ec2 "./bootstrap.sh ci-network-deploy $*"
     ;;
   "network-tests")
     # Args: <scenario> <namespace>
     export JOB_ID="x-${2:?namespace is required}-network-tests"
     export AWS_SHUTDOWN_TIME=360 # 6 hours for network tests
+    export INSTANCE_POSTFIX="nettests"
     bootstrap_ec2 "./bootstrap.sh ci-network-tests $*"
     ;;
   "network-bench")
     # Args: <scenario> <namespace> [docker_image]
     # If docker_image is not provided, ci-network-bench will build and push to aztecdev.
     export JOB_ID="x-${2:?namespace is required}-network-bench" CPUS=16
+    export INSTANCE_POSTFIX="netbench"
     bootstrap_ec2 "./bootstrap.sh ci-network-bench $*"
     ;;
   "network-teardown")
     # Args: <scenario> <namespace>
     export JOB_ID="x-${2:?namespace is required}-network-teardown"
     export CPUS=4
+    export INSTANCE_POSTFIX="netteardown"
     bootstrap_ec2 "./bootstrap.sh ci-network-teardown $*"
     ;;
 
