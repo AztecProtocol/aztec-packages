@@ -340,21 +340,20 @@ class MakeProviderTest : public ::testing::Test {
 
 TEST_F(MakeProviderTest, MakeCalldataProviderSuccess)
 {
-    uint32_t cd_offset = 100;
     uint32_t cd_size = 5;
     std::vector<MemoryValue> calldata_values = {
         MemoryValue::from<FF>(FF(0xaaaa)), MemoryValue::from<FF>(FF(0xbbbb)), MemoryValue::from<FF>(FF(0xcccc)),
         MemoryValue::from<FF>(FF(0xdddd)), MemoryValue::from<FF>(FF(0xeeee)),
     };
 
-    // These are called when creating the provider
-    EXPECT_CALL(mock_context, get_parent_cd_addr()).WillOnce(Return(cd_offset));
+    // This is called when creating the provider
     EXPECT_CALL(mock_context, get_parent_cd_size()).WillOnce(Return(cd_size));
 
     auto provider = make_calldata_provider(mock_context);
 
-    // This is called when invoking the provider
-    EXPECT_CALL(mock_context, get_calldata(cd_offset, cd_size)).WillOnce(Return(calldata_values));
+    // This is called when invoking the provider.
+    // get_calldata handles offsetting into parent memory for nested contexts internally.
+    EXPECT_CALL(mock_context, get_calldata(0, cd_size)).WillOnce(Return(calldata_values));
 
     auto result = provider(1024);
 
@@ -363,7 +362,6 @@ TEST_F(MakeProviderTest, MakeCalldataProviderSuccess)
 
 TEST_F(MakeProviderTest, MakeCalldataProviderRespectsMaxSize)
 {
-    uint32_t cd_offset = 0;
     uint32_t cd_size = 2000; // Larger than max_size
     uint32_t max_size = 10;
     std::vector<MemoryValue> calldata_values(2000);
@@ -371,17 +369,15 @@ TEST_F(MakeProviderTest, MakeCalldataProviderRespectsMaxSize)
         calldata_values[i] = MemoryValue::from<FF>(FF(i));
     }
 
-    // These are called when creating the provider
-    EXPECT_CALL(mock_context, get_parent_cd_addr()).WillOnce(Return(cd_offset));
+    // This is called when creating the provider
     EXPECT_CALL(mock_context, get_parent_cd_size()).WillOnce(Return(cd_size));
 
     auto provider = make_calldata_provider(mock_context);
 
     // This is called when invoking the provider
-    EXPECT_CALL(mock_context, get_calldata(cd_offset, max_size))
-        .WillOnce([&calldata_values, max_size](uint32_t, uint32_t) {
-            return std::vector<MemoryValue>(calldata_values.begin(), calldata_values.begin() + max_size);
-        });
+    EXPECT_CALL(mock_context, get_calldata(0, max_size)).WillOnce([&calldata_values, max_size](uint32_t, uint32_t) {
+        return std::vector<MemoryValue>(calldata_values.begin(), calldata_values.begin() + max_size);
+    });
 
     auto result = provider(max_size);
 
@@ -391,18 +387,15 @@ TEST_F(MakeProviderTest, MakeCalldataProviderRespectsMaxSize)
 TEST_F(MakeProviderTest, MakeCalldataProviderHandlesException)
 {
     static AztecAddress contract_addr(0x1234);
-    uint32_t cd_offset = 100;
     uint32_t cd_size = 5;
 
-    // These are called when creating the provider
-    EXPECT_CALL(mock_context, get_parent_cd_addr()).WillOnce(Return(cd_offset));
+    // This is called when creating the provider
     EXPECT_CALL(mock_context, get_parent_cd_size()).WillOnce(Return(cd_size));
 
     auto provider = make_calldata_provider(mock_context);
 
     // This is called when invoking the provider, and throws
-    EXPECT_CALL(mock_context, get_calldata(cd_offset, _))
-        .WillOnce(::testing::Throw(std::runtime_error("Test exception")));
+    EXPECT_CALL(mock_context, get_calldata(0, _)).WillOnce(::testing::Throw(std::runtime_error("Test exception")));
     // The exception handler may call get_address() and get_pc() for logging (optional)
     EXPECT_CALL(mock_context, get_address()).Times(::testing::AnyNumber()).WillRepeatedly(ReturnRef(contract_addr));
     EXPECT_CALL(mock_context, get_pc()).Times(::testing::AnyNumber()).WillRepeatedly(Return(200));
