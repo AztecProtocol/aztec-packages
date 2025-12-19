@@ -279,7 +279,7 @@ fi
 # Check for ETHERSCAN_API_KEY when VERIFY_CONTRACTS is enabled
 # Contract verification happens automatically in the yarn-project code when on mainnet/sepolia
 # and ETHERSCAN_API_KEY is set. This check ensures we fail early if verification is expected.
-if [[ "${VERIFY_CONTRACTS:-}" == "true" && "${CREATE_ROLLUP_CONTRACTS}" == "true" && -z "${ETHERSCAN_API_KEY:-}" ]]; then
+if [[ "${VERIFY_CONTRACTS:-}" == "true" && ("${CREATE_ROLLUP_CONTRACTS}" == "true" || "${REDEPLOY_ROLLUP_CONTRACTS}" == "true") && -z "${ETHERSCAN_API_KEY:-}" ]]; then
   die "Error: ETHERSCAN_API_KEY is not set but VERIFY_CONTRACTS=true. Contract verification requires an Etherscan API key. Set ETHERSCAN_API_KEY environment variable."
 fi
 
@@ -292,6 +292,13 @@ if [[ -n "${NETWORK:-}" ]]; then
   NETWORK_TF="\"${NETWORK}\""
 else
   NETWORK_TF=null
+fi
+
+# Handle ETHERSCAN_API_KEY - only set when deploying or redeploying contracts
+if [[ "${CREATE_ROLLUP_CONTRACTS}" == "true" || "${REDEPLOY_ROLLUP_CONTRACTS}" == "true" ]]; then
+  ETHERSCAN_API_KEY_TF="\"${ETHERSCAN_API_KEY:-}\""
+else
+  ETHERSCAN_API_KEY_TF=null
 fi
 
 cat > "${DEPLOY_ROLLUP_CONTRACTS_DIR}/terraform.tfvars" << EOF
@@ -330,7 +337,7 @@ AZTEC_GOVERNANCE_PROPOSER_ROUND_SIZE = ${AZTEC_GOVERNANCE_PROPOSER_ROUND_SIZE:-n
 AZTEC_MANA_TARGET = ${AZTEC_MANA_TARGET:-null}
 AZTEC_PROVING_COST_PER_MANA = ${AZTEC_PROVING_COST_PER_MANA:-null}
 AZTEC_EXIT_DELAY_SECONDS = ${AZTEC_EXIT_DELAY_SECONDS:-null}
-ETHERSCAN_API_KEY = "${ETHERSCAN_API_KEY:-null}"
+ETHERSCAN_API_KEY = ${ETHERSCAN_API_KEY_TF}
 NETWORK = ${NETWORK_TF}
 JOB_NAME = "deploy-rollup-contracts"
 JOB_BACKOFF_LIMIT = 3

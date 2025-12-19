@@ -17,9 +17,6 @@ concurrency:
 jobs:
   benchmark:
     runs-on: ubuntu-latest
-    env:
-      GOOGLE_APPLICATION_CREDENTIALS: /tmp/gcp-key.json
-      NETWORK_ENV_FILE: /tmp/tps-scenario.env
     steps:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
@@ -32,10 +29,8 @@ jobs:
         id: nightly-tag
         run: |
           if [[ -n "${{ inputs.nightly_tag }}" ]]; then
-            # Manual dispatch with explicit tag
             nightly_tag="${{ inputs.nightly_tag }}"
           else
-            # Auto-detect today's nightly tag
             current_version=$(jq -r '."."' .release-please-manifest.json)
             nightly_tag="${current_version}-nightly.$(date -u +%Y%m%d)"
           fi
@@ -43,11 +38,9 @@ jobs:
           echo "Using nightly tag: $nightly_tag"
 
       - name: Check if Docker image exists
-        id: check-image
         run: |
           DOCKER_IMAGE="aztecprotocol/aztec:${{ steps.nightly-tag.outputs.nightly_tag }}"
           echo "Checking if Docker image exists: $DOCKER_IMAGE"
-
           if docker manifest inspect "$DOCKER_IMAGE" > /dev/null 2>&1; then
             echo "Docker image exists: $DOCKER_IMAGE"
           else
@@ -55,92 +48,34 @@ jobs:
             exit 1
           fi
 
-      - name: Store the GCP key in a file
-        env:
-          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
-        run: |
-          set +x
-          umask 077
-          printf '%s' "$GCP_SA_KEY" > "$GOOGLE_APPLICATION_CREDENTIALS"
-          jq -e . "$GOOGLE_APPLICATION_CREDENTIALS" >/dev/null
-
-      - name: Setup GCP authentication
-        run: |
-          gcloud auth activate-service-account --key-file="$GOOGLE_APPLICATION_CREDENTIALS"
-
-      - name: Setup gcloud and install GKE auth plugin
-        uses: google-github-actions/setup-gcloud@v2
-        with:
-          install_components: "gke-gcloud-auth-plugin"
-
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@633666f66e0061ca3b725c73b2ec20cd13a8fdd1
-        with:
-          terraform_version: "1.7.5"
-          terraform_wrapper: false
-
-      - name: Install Foundry
-        uses: foundry-rs/foundry-toolchain@v1
-
-      - name: Setup spartan
-        run: |
-          ./spartan/scripts/install_deps.sh
-
-      - name: Deploy network
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-          RUN_ID: ${{ github.run_id }}
-          GOOGLE_APPLICATION_CREDENTIALS: ${{ env.GOOGLE_APPLICATION_CREDENTIALS }}
-          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-          REF_NAME: "v${{ steps.nightly-tag.outputs.nightly_tag }}"
-          AZTEC_DOCKER_IMAGE: "aztecprotocol/aztec:${{ steps.nightly-tag.outputs.nightly_tag }}"
-          NETWORK_ENV_FILE: tps-scenario
-        run: |
-          ./spartan/scripts/network_deploy.sh ${{ env.NETWORK_ENV_FILE }}
-
-      - name: Setup
-        run: |
-          # Ensure we can SSH into the spot instances we request.
-          mkdir -p ~/.ssh
-          echo ${{ secrets.BUILD_INSTANCE_SSH_KEY }} | base64 --decode > ~/.ssh/build_instance_key
-          chmod 600 ~/.ssh/build_instance_key
-          sudo apt update && sudo apt install -y --no-install-recommends redis-tools parallel
-
       - name: Run benchmarks
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-          GOOGLE_APPLICATION_CREDENTIALS: ${{ env.GOOGLE_APPLICATION_CREDENTIALS }}
+          BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
+          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
           GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-          NETWORK_ENV_FILE: tps-scenario
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          NO_SPOT: 1
         run: |
-          ./ci.sh network-bench
+          # Pass the arguments expected in ./bootstrap.sh ci-network-bench
+          ./.github/ci3.sh network-bench tps-scenario nightly-bench "aztecprotocol/aztec:${{ steps.nightly-tag.outputs.nightly_tag }}"
 
       - name: Cleanup network resources
         if: always()
         env:
-          GOOGLE_APPLICATION_CREDENTIALS: ${{ env.GOOGLE_APPLICATION_CREDENTIALS }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
+          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
           GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+        run: ./.github/ci3.sh network-teardown tps-scenario nightly-bench
 
-          AZTEC_DOCKER_IMAGE: "aztecprotocol/aztec:${{ steps.nightly-tag.outputs.nightly_tag }}"
-          NETWORK_ENV_FILE: tps-scenario
-
-          DESTROY_ETH_DEVNET: true
-          CREATE_ETH_DEVNET: false
-
-          DESTROY_ROLLUP_CONTRACTS: true
-          CREATE_ROLLUP_CONTRACTS: false
-
-          DESTROY_AZTEC_INFRA: true
-          CREATE_AZTEC_INFRA: false
-        run: |
-          ./spartan/scripts/network_deploy.sh ${{ env.NETWORK_ENV_FILE }}
-          echo "Cleanup complete"
-
-      - name: Download deploy benchmarks
+      - name: Download benchmarks
         if: always()
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -150,7 +85,7 @@ jobs:
             echo "ENABLE_DEPLOY_BENCH=1" >> $GITHUB_ENV
           fi
 
-      - name: Upload deploy benchmarks
+      - name: Upload benchmarks
         if: always() && env.ENABLE_DEPLOY_BENCH == '1'
         uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
         with:
@@ -167,7 +102,7 @@ jobs:
           max-items-in-chart: 100
 
       - name: Notify Slack on failure
-        if: failure() && github.event_name == 'workflow_run'
+        if: failure() && github.event_name != 'workflow_dispatch'
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
         run: |
@@ -183,4 +118,3 @@ jobs:
               -H "Content-type: application/json" \
               --data "$data"
           fi
-
