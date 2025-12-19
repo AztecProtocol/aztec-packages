@@ -68,6 +68,10 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
     // The total number of witness entities not including shifts.
     static constexpr size_t NUM_WITNESS_ENTITIES = UltraFlavor::NUM_WITNESS_ENTITIES;
 
+    static constexpr size_t FINAL_PCS_MSM_SIZE(size_t log_n = VIRTUAL_LOG_N)
+    {
+        return UltraFlavor::FINAL_PCS_MSM_SIZE(log_n);
+    };
     static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS = UltraFlavor::REPEATED_COMMITMENTS;
 
     // define the tuple of Relations that comprise the Sumcheck relation

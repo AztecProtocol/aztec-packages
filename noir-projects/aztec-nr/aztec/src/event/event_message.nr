@@ -17,7 +17,7 @@ use protocol_types::{address::AztecAddress, traits::Serialize};
 /// Use [EventMessage::deliver_to] to select a delivery mechanism.
 #[must_use = "Unused EventMessage result - use the `deliver_to` function to prevent the event information from being lost forever"]
 pub struct EventMessage<Event> {
-    new_event: NewEvent<Event>,
+    pub(crate) new_event: NewEvent<Event>,
 
     // EventMessage is constructed when an event is emitted, which means that the `context` object will be in scope. By
     // storing a reference to it inside this object we remove the need for its methods to receive it, resulting in a

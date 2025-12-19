@@ -7,7 +7,7 @@
 /// @param fuzzer_data the fuzzer data to use for fuzzing
 /// @returns the simulator result if the results are the same
 /// @throws an exception if the simulator results are different
-SimulatorResult fuzz(FuzzerData& fuzzer_data);
+SimulatorResult fuzz_against_ts_simulator(FuzzerData& fuzzer_data);
 
 // Helper functions to create default contract class, instance, and tx
 ContractClass create_default_class(const std::vector<uint8_t>& bytecode);

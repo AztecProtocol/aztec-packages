@@ -592,6 +592,13 @@ case "$cmd" in
     export AVM_TRANSPILER=0
     barretenberg/cpp/bootstrap.sh ci
     ;;
+  "ci-barretenberg-full")
+    export CI=1
+    export USE_TEST_CACHE=1
+    export AVM=0
+    export AVM_TRANSPILER=0
+    barretenberg/bootstrap.sh ci
+    ;;
   "ci-avm-inputs-collection")
     # Nightly job: Run e2e tests with AVM circuit inputs dumping, upload to cache
     export CI=1

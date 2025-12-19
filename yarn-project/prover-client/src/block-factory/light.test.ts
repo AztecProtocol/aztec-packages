@@ -125,7 +125,7 @@ describe('LightBlockBuilder', () => {
 
     const expectedHeader = await buildExpectedHeader(txs, l1ToL2Messages);
 
-    expect(header).toEqual(expectedHeader);
+    expect(header.equals(expectedHeader)).toBe(true);
   });
 
   it('builds a 3 tx header', async () => {
@@ -137,7 +137,7 @@ describe('LightBlockBuilder', () => {
       return Promise.resolve([merge, rollupOutputs[2]]);
     });
 
-    expect(header).toEqual(expectedHeader);
+    expect(header.equals(expectedHeader)).toBe(true);
   });
 
   it('builds a 4 tx header', async () => {
@@ -150,7 +150,7 @@ describe('LightBlockBuilder', () => {
       return [mergeLeft, mergeRight];
     });
 
-    expect(header).toEqual(expectedHeader);
+    expect(header.equals(expectedHeader)).toBe(true);
   });
 
   it('builds a 4 tx header with no l1 to l2 messages', async () => {
@@ -164,7 +164,7 @@ describe('LightBlockBuilder', () => {
       return [mergeLeft, mergeRight];
     });
 
-    expect(header).toEqual(expectedHeader);
+    expect(header.equals(expectedHeader)).toBe(true);
   });
 
   it('builds a 5 tx header', async () => {
@@ -178,7 +178,7 @@ describe('LightBlockBuilder', () => {
       return [merge20, rollupOutputs[4]];
     });
 
-    expect(header).toEqual(expectedHeader);
+    expect(header.equals(expectedHeader)).toBe(true);
   });
 
   it('builds a single tx header', async () => {
@@ -187,7 +187,7 @@ describe('LightBlockBuilder', () => {
 
     const expectedHeader = await buildExpectedHeader(txs, l1ToL2Messages);
 
-    expect(header).toEqual(expectedHeader);
+    expect(header.equals(expectedHeader)).toBe(true);
   });
 
   it('builds an empty header', async () => {
@@ -196,7 +196,7 @@ describe('LightBlockBuilder', () => {
 
     const expectedHeader = await buildExpectedHeader(txs, l1ToL2Messages);
 
-    expect(header).toEqual(expectedHeader);
+    expect(header.equals(expectedHeader)).toBe(true);
   });
 
   const makeTx = (i: number) => {

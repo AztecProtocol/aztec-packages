@@ -671,6 +671,8 @@ After merge verification in kernel $K_i$, merged commitments $[M_{i,j}]$ are set
 
 `Chonk::perform_recursive_verification_and_databus_consistency_checks()`: For OINK (first app), `T_prev_commitments = empty_ecc_op_tables(circuit)` (point at infinity, see `empty_ecc_op_tables()` in `special_public_inputs.hpp`). Fixes starting point, prevents initial state manipulation.
 
+**Constraint mechanism**: `empty_ecc_op_tables()` creates points at infinity using `ctx->zero_idx()` for x,y coordinates and constant `true` for the infinity flag. The `zero_idx()` references the circuit's fixed zero witness, which is constrained via `fix_witness()` during circuit construction (see `put_constant_variable()` in `ultra_circuit_builder.cpp`). A malicious prover cannot modify these values without violating the `fix_witness` constraint, ensuring the initial $[T_{\text{prev},j}] = [\infty]$ is immutable.
+
 #### 5. Merge Mode
 
 `MergeVerifier_::verify_proof()`: PREPEND (default): $L_j = t_j$, $R_j = T_{\text{prev},j}$; APPEND (hiding kernel): $L_j = T_{\text{prev},j}$, $R_j = t_j$

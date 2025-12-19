@@ -50,8 +50,7 @@ class ProgramBlock {
     /// @brief preprocess the memory addresses
     /// Sets M[0] = base_offset for Relative/IndirectRelative modes
     /// Sets M[pointer_address] = pointer_value for Indirect/IndirectRelative modes
-    void preprocess_memory_addresses(AddressRef address, uint32_t actual_address);
-    void preprocess_memory_addresses(ResultAddressRef address, uint32_t actual_address);
+    void preprocess_memory_addresses(ResolvedAddress resolved_address);
 
     void process_add_8_instruction(ADD_8_Instruction instruction);
     void process_sub_8_instruction(SUB_8_Instruction instruction);
@@ -101,6 +100,9 @@ class ProgramBlock {
     void process_calldatacopy_instruction(CALLDATACOPY_Instruction instruction);
     void process_sendl2tol1msg_instruction(SENDL2TOL1MSG_Instruction instruction);
     void process_emitunencryptedlog_instruction(EMITUNENCRYPTEDLOG_Instruction instruction);
+    void process_call_instruction(CALL_Instruction instruction);
+    void process_returndatasize_with_returndatacopy_instruction(
+        RETURNDATASIZE_WITH_RETURNDATACOPY_Instruction instruction);
 
   public:
     std::vector<ProgramBlock*> successors;

@@ -46,13 +46,16 @@ namespace bb::avm2::simulation {
  * For every opcode execution method (e.g. Execution::add(), Execution::sub(), etc), it is crucial to preserve
  * the following order of operations (temporality groups 3,4,5,6):
  * 1. Temporality group 3 (Register read): Set the inputs and validate them. (RegisterValidationException might be
- * thrown.)
+ * thrown.) The corresponding memory reads must be performed in this group.
  * 2. Temporality group 4 (Gas): Consume gas. (OutOfGasException might be thrown.)
  * 3. Temporality group 5 (Opcode execution): Execute the opcode. (OpcodeExecutionException might be thrown.)
- * 4. Temporality group 6 (Register write): Set the output.
+ * 4. Temporality group 6 (Register write): Set the output. The corresponding memory writes must be performed in this
+ *    group. This order is crucial for the completeness of the circuit.
  *
- * This order is crucial for the completeness of the circuit. In tracegen, we rely on this order to correctly
- * populate the execution trace. In particular, we stop processing if any of the above exceptions are thrown.
+ * In tracegen, we rely on this order to correctly populate the execution trace. In particular, we stop processing if
+ * any of the above exceptions are thrown.
+ * For the memory permutations to be valid, the corresponding memory reads and writes must be performed in the same
+ * group.
  */
 
 /**
@@ -1728,7 +1731,7 @@ EnqueuedCallResult Execution::execute(std::unique_ptr<ContextInterface> enqueued
         // Default inputs and output initialization. This properly resets the values between two
         // opcode executions as well.
         inputs = {};
-        output = MemoryValue::from<FF>(0);
+        output = MemoryValue::from_tag(static_cast<MemoryTag>(0), 0);
 
         // Members of the execution event which are set in the try block.
         Instruction instruction;

@@ -40,6 +40,7 @@ where
     prefix_with_tag(message_ciphertext, recipient)
 }
 
+/// Creates the plaintext for a private note message (i.e. one of type [PRIVATE_NOTE_MSG_TYPE_ID]).
 pub fn private_note_to_message_plaintext<Note>(
     note: Note,
     owner: AztecAddress,
@@ -63,6 +64,7 @@ where
     encode_message(PRIVATE_NOTE_MSG_TYPE_ID, Note::get_id() as u64, msg_content)
 }
 
+/// Creates the plaintext for a partial note private message (i.e. one of type [PARTIAL_NOTE_PRIVATE_MSG_TYPE_ID]).
 pub fn partial_note_private_content_to_message_plaintext<PartialNotePrivateContent>(
     partial_note_private_content: PartialNotePrivateContent,
     owner: AztecAddress,

@@ -35,7 +35,6 @@ class AcirAvm2RecursionConstraint : public ::testing::Test {
 
     using OuterFlavor = UltraRollupFlavor;
     using OuterProver = UltraProver_<OuterFlavor>;
-    using OuterVerifier = UltraVerifier_<OuterFlavor>;
     using OuterProverInstance = ProverInstance_<OuterFlavor>;
 
     using OuterVerificationKey = OuterFlavor::VerificationKey;
@@ -55,8 +54,6 @@ class AcirAvm2RecursionConstraint : public ::testing::Test {
 
         const auto public_inputs_flat = PublicInputs::columns_to_flat(public_inputs.to_columns());
 
-        // TODO(#14234)[Unconditional PIs validation]: Remove next line
-        proof.insert(proof.begin(), 0);
         return { proof, public_inputs_flat };
     }
 
@@ -118,9 +115,8 @@ TEST_F(AcirAvm2RecursionConstraint, TestBasicSingleAvm2RecursionConstraint)
     OuterProver prover(prover_instance, verification_key);
     info("prover gates = ", prover_instance->dyadic_size());
     auto proof = prover.construct_proof();
-    VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key(1 << CONST_ECCVM_LOG_N);
-    OuterVerifier verifier(verification_key, ipa_verification_key);
-    bool result = verifier.template verify_proof<bb::RollupIO>(proof, prover_instance->ipa_proof).result;
+    UltraRollupVerifier verifier(std::make_shared<UltraRollupFlavor::VKAndHash>(verification_key));
+    bool result = verifier.verify_proof(proof).result;
     EXPECT_TRUE(result);
 }
 
@@ -158,10 +154,9 @@ TEST_F(AcirAvm2RecursionConstraint, TestGenerateVKFromConstraintsWithoutWitness)
 
         // Construct and verify a proof of the outer AVM verifier circuits
         auto proof = prover.construct_proof();
-        VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key(1 << CONST_ECCVM_LOG_N);
-        OuterVerifier verifier(expected_vk, ipa_verification_key);
+        UltraRollupVerifier verifier(std::make_shared<UltraRollupFlavor::VKAndHash>(expected_vk));
 
-        bool result = verifier.template verify_proof<bb::RollupIO>(proof, prover_instance->ipa_proof).result;
+        bool result = verifier.verify_proof(proof).result;
         EXPECT_TRUE(result);
     }
 

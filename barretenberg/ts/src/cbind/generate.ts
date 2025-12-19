@@ -1,5 +1,8 @@
 /**
- * Generate TypeScript bindings from msgpack schema
+ * Multi-language code generation from BB msgpack schema
+ *
+ * Architecture:
+ *   Raw Schema → SchemaVisitor → CompiledSchema IR → Language Codegens → Files
  */
 
 import { writeFileSync, mkdirSync } from 'fs';
@@ -8,36 +11,42 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 import { fileURLToPath } from 'url';
 import { unpack } from 'msgpackr';
-import {
-  createSharedTypesCompiler,
-  createSyncApiCompiler,
-  createAsyncApiCompiler,
-  type SchemaCompiler,
-} from './schema_compiler.js';
+import { SchemaVisitor, type CompiledSchema } from './schema_visitor.js';
+import { TypeScriptCodegen } from './typescript_codegen.js';
+import { RustCodegen } from './rust_codegen.js';
 
 const execAsync = promisify(exec);
 
-interface GeneratorConfig {
+// Language generators - all use the same CompiledSchema IR
+interface LanguageGenerator {
   name: string;
-  outputFile: string;
-  createCompiler: () => SchemaCompiler;
+  enabled: boolean;
+  generate: (compiled: CompiledSchema) => Array<{ path: string; content: string }>;
 }
 
-const GENERATORS: GeneratorConfig[] = [
+const LANGUAGE_GENERATORS: LanguageGenerator[] = [
   {
-    name: 'Shared types',
-    outputFile: 'generated/api_types.ts',
-    createCompiler: createSharedTypesCompiler,
+    name: 'TypeScript',
+    enabled: true,
+    generate: (compiled) => {
+      const tsGen = new TypeScriptCodegen();
+      return [
+        { path: 'generated/api_types.ts', content: tsGen.generateTypes(compiled) },
+        { path: 'generated/sync.ts', content: tsGen.generateSyncApi(compiled) },
+        { path: 'generated/async.ts', content: tsGen.generateAsyncApi(compiled) },
+      ];
+    },
   },
   {
-    name: 'Sync API',
-    outputFile: 'generated/sync.ts',
-    createCompiler: createSyncApiCompiler,
-  },
-  {
-    name: 'Async API',
-    outputFile: 'generated/async.ts',
-    createCompiler: createAsyncApiCompiler,
+    name: 'Rust',
+    enabled: true,
+    generate: (compiled) => {
+      const rustGen = new RustCodegen();
+      return [
+        { path: '../../../rust/barretenberg-rs/src/generated_types.rs', content: rustGen.generateTypes(compiled) },
+        { path: '../../../rust/barretenberg-rs/src/api.rs', content: rustGen.generateApi(compiled) },
+      ];
+    },
   },
 ];
 
@@ -56,29 +65,39 @@ async function generate() {
     throw new Error('Invalid schema: missing commands or responses');
   }
 
-  console.log('Generating TypeScript bindings...\n');
+  // Compile schema once using visitor pattern
+  console.log('Compiling schema...');
+  const visitor = new SchemaVisitor();
+  const compiled = visitor.visit(schema.commands, schema.responses);
+
+  console.log(`Found ${compiled.commands.length} commands, ${compiled.structs.size} structs\n`);
 
   // Ensure output directory exists
   const outputDir = join(__dirname, 'generated');
   mkdirSync(outputDir, { recursive: true });
 
-  // Generate each output file
-  for (const config of GENERATORS) {
-    const compiler = config.createCompiler();
-    compiler.processApiSchema(schema.commands, schema.responses);
+  // Generate all language bindings from compiled IR
+  for (const generator of LANGUAGE_GENERATORS) {
+    if (!generator.enabled) {
+      console.log(`⊘ ${generator.name}: disabled`);
+      continue;
+    }
 
-    const outputPath = join(__dirname, config.outputFile);
-    const content = compiler.compile();
-    writeFileSync(outputPath, content);
+    const files = generator.generate(compiled);
 
-    console.log(`✓ ${config.name}: ${outputPath}`);
+    for (const file of files) {
+      const outputPath = join(__dirname, file.path);
+      mkdirSync(dirname(outputPath), { recursive: true });
+      writeFileSync(outputPath, file.content);
+      console.log(`✓ ${generator.name}: ${outputPath}`);
+    }
   }
 
   // Generate curve constants
   console.log('\nGenerating curve constants...');
   await generateCurveConstants(bbBuildPath, outputDir);
 
-  console.log('\nGeneration complete!');
+  console.log('\n✨ Generation complete! Clean, maintainable, multi-language architecture.');
 }
 
 async function generateCurveConstants(bbBuildPath: string, outputDir: string) {

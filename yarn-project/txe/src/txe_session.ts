@@ -102,7 +102,7 @@ export interface TXESessionStateHandler {
   enterUtilityState(contractAddress?: AztecAddress): Promise<void>;
 }
 
-const DEFAULT_ADDRESS = AztecAddress.fromNumber(42);
+export const DEFAULT_ADDRESS = AztecAddress.fromNumber(42);
 
 /**
  * A `TXESession` corresponds to a Noir `#[test]` function, and handles all of its oracle calls, stores test-specific
@@ -427,6 +427,7 @@ export class TXESession implements TXESessionStateHandler {
 
     // We rely on the note cache to determine the effects of the transaction. This is incomplete as it doesn't private
     // logs (other effects like enqueued public calls don't need to be considered since those are not allowed).
+
     const txEffect = await makeTxEffect(
       this.state.noteCache,
       this.state.protocolNullifier,

@@ -709,8 +709,8 @@ export function describeArchiverDataStore(
         // getBlock should work for both checkpointed and uncheckpointed blocks
         expect((await store.getBlock(1))?.number).toBe(1);
         expect((await store.getBlock(2))?.number).toBe(2);
-        expect(await store.getBlock(3)).toEqual(block3);
-        expect(await store.getBlock(4)).toEqual(block4);
+        expect((await store.getBlock(3))?.equals(block3)).toBe(true);
+        expect((await store.getBlock(4))?.equals(block4)).toBe(true);
         expect(await store.getBlock(5)).toBeUndefined();
 
         const block5 = await L2BlockNew.random(BlockNumber(5), {
@@ -723,13 +723,13 @@ export function describeArchiverDataStore(
         // Verify the uncheckpointed blocks have correct data
         const retrieved3 = await store.getBlock(3);
         expect(retrieved3!.number).toBe(3);
-        expect(retrieved3).toEqual(block3);
+        expect(retrieved3!.equals(block3)).toBe(true);
         const retrieved4 = await store.getBlock(4);
         expect(retrieved4!.number).toBe(4);
-        expect(retrieved4).toEqual(block4);
+        expect(retrieved4!.equals(block4)).toBe(true);
         const retrieved5 = await store.getBlock(5);
         expect(retrieved5!.number).toBe(5);
-        expect(retrieved5).toEqual(block5);
+        expect(retrieved5!.equals(block5)).toBe(true);
       });
 
       it('getBlockByHash retrieves uncheckpointed blocks', async () => {
@@ -750,10 +750,10 @@ export function describeArchiverDataStore(
         const hash2 = await block2.header.hash();
 
         const retrieved1 = await store.getBlockByHash(hash1);
-        expect(retrieved1).toEqual(block1);
+        expect(retrieved1!.equals(block1)).toBe(true);
 
         const retrieved2 = await store.getBlockByHash(hash2);
-        expect(retrieved2).toEqual(block2);
+        expect(retrieved2!.equals(block2)).toBe(true);
       });
 
       it('getBlockByArchive retrieves uncheckpointed blocks', async () => {
@@ -774,10 +774,10 @@ export function describeArchiverDataStore(
         const archive2 = block2.archive.root;
 
         const retrieved1 = await store.getBlockByArchive(archive1);
-        expect(retrieved1).toEqual(block1);
+        expect(retrieved1!.equals(block1)).toBe(true);
 
         const retrieved2 = await store.getBlockByArchive(archive2);
-        expect(retrieved2).toEqual(block2);
+        expect(retrieved2!.equals(block2)).toBe(true);
       });
 
       it('getCheckpointedBlock returns undefined for uncheckpointed blocks', async () => {
@@ -811,8 +811,8 @@ export function describeArchiverDataStore(
         expect(await store.getCheckpointedBlock(4)).toBeUndefined();
 
         // But getBlock should work for all blocks
-        expect(await store.getBlock(3)).toEqual(block3);
-        expect(await store.getBlock(4)).toEqual(block4);
+        expect((await store.getBlock(3))?.equals(block3)).toBe(true);
+        expect((await store.getBlock(4))?.equals(block4)).toBe(true);
       });
 
       it('getCheckpointedBlockByHash returns undefined for uncheckpointed blocks', async () => {
@@ -829,7 +829,7 @@ export function describeArchiverDataStore(
         expect(await store.getCheckpointedBlockByHash(hash)).toBeUndefined();
 
         // But getBlockByHash should work
-        expect(await store.getBlockByHash(hash)).toEqual(block1);
+        expect((await store.getBlockByHash(hash))?.equals(block1)).toBe(true);
       });
 
       it('getCheckpointedBlockByArchive returns undefined for uncheckpointed blocks', async () => {
@@ -846,7 +846,7 @@ export function describeArchiverDataStore(
         expect(await store.getCheckpointedBlockByArchive(archive)).toBeUndefined();
 
         // But getBlockByArchive should work
-        expect(await store.getBlockByArchive(archive)).toEqual(block1);
+        expect((await store.getBlockByArchive(archive))?.equals(block1)).toBe(true);
       });
 
       it('checkpoint adopts previously added uncheckpointed blocks', async () => {
@@ -1064,8 +1064,8 @@ export function describeArchiverDataStore(
         await expect(store.addBlocks([block3, block4])).resolves.toBe(true);
 
         // Verify blocks were added
-        expect(await store.getBlock(3)).toEqual(block3);
-        expect(await store.getBlock(4)).toEqual(block4);
+        expect((await store.getBlock(3))?.equals(block3)).toBe(true);
+        expect((await store.getBlock(4))?.equals(block4)).toBe(true);
       });
 
       it('allows blocks for the initial checkpoint when store is empty', async () => {
@@ -1083,8 +1083,8 @@ export function describeArchiverDataStore(
         await expect(store.addBlocks([block1, block2])).resolves.toBe(true);
 
         // Verify blocks were added
-        expect(await store.getBlock(1)).toEqual(block1);
-        expect(await store.getBlock(2)).toEqual(block2);
+        expect((await store.getBlock(1))?.equals(block1)).toBe(true);
+        expect((await store.getBlock(2))?.equals(block2)).toBe(true);
         expect(await store.getLatestBlockNumber()).toBe(2);
       });
 

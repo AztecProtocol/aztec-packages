@@ -1,4 +1,4 @@
-if(AVM AND FUZZING)
+if(FUZZING_AVM)
     # Collect source files, excluding the harness subdirectory to avoid duplicate targets
     file(GLOB_RECURSE SOURCE_FILES
         "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp"
