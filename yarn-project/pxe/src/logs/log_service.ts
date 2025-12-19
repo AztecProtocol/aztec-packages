@@ -2,6 +2,7 @@ import type { Fr } from '@aztec/foundation/curves/bn254';
 import type { KeyStore } from '@aztec/key-store';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { CompleteAddress } from '@aztec/stdlib/contract';
+import { siloPrivateLog } from '@aztec/stdlib/hash';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import {
   DirectionalAppTaggingSecret,
@@ -12,6 +13,8 @@ import {
   TxScopedL2Log,
 } from '@aztec/stdlib/logs';
 
+import type { LogRetrievalRequest } from '../contract_function_simulator/noir-structs/log_retrieval_request.js';
+import { LogRetrievalResponse } from '../contract_function_simulator/noir-structs/log_retrieval_response.js';
 import type {
   AddressDataProvider,
   AnchorBlockDataProvider,
@@ -33,6 +36,42 @@ export class LogService {
     private readonly recipientTaggingDataProvider: RecipientTaggingDataProvider,
     private readonly addressDataProvider: AddressDataProvider,
   ) {}
+
+  public async bulkRetrieveLogs(logRetrievalRequests: LogRetrievalRequest[]): Promise<(LogRetrievalResponse | null)[]> {
+    return await Promise.all(
+      logRetrievalRequests.map(async request => {
+        // TODO(#14555): remove these internal functions and have node endpoints that do this instead
+        const [publicLog, privateLog] = await Promise.all([
+          this.getPublicLogByTag(request.unsiloedTag, request.contractAddress),
+          this.getPrivateLogByTag(await siloPrivateLog(request.contractAddress, request.unsiloedTag)),
+        ]);
+
+        if (publicLog !== null) {
+          if (privateLog !== null) {
+            throw new Error(
+              `Found both a public and private log when searching for tag ${request.unsiloedTag} from contract ${request.contractAddress}`,
+            );
+          }
+
+          return new LogRetrievalResponse(
+            publicLog.logPayload,
+            publicLog.txHash,
+            publicLog.uniqueNoteHashesInTx,
+            publicLog.firstNullifierInTx,
+          );
+        } else if (privateLog !== null) {
+          return new LogRetrievalResponse(
+            privateLog.logPayload,
+            privateLog.txHash,
+            privateLog.uniqueNoteHashesInTx,
+            privateLog.firstNullifierInTx,
+          );
+        } else {
+          return null;
+        }
+      }),
+    );
+  }
 
   // TODO(#14555): delete this function and implement this behavior in the node instead
   public async getPublicLogByTag(tag: Fr, contractAddress: AztecAddress): Promise<PublicLogWithTxData | null> {

@@ -9,7 +9,7 @@ import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { BlockParameter, L2Block } from '@aztec/stdlib/block';
 import type { CompleteAddress, ContractInstance } from '@aztec/stdlib/contract';
-import { siloNullifier, siloPrivateLog } from '@aztec/stdlib/hash';
+import { siloNullifier } from '@aztec/stdlib/hash';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
 import { computeAddressSecret } from '@aztec/stdlib/keys';
@@ -536,14 +536,6 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       throw new Error(`Got a note validation request from ${contractAddress}, expected ${this.contractAddress}`);
     }
 
-    await this.bulkRetrieveLogs(contractAddress, logRetrievalRequestsArrayBaseSlot, logRetrievalResponsesArrayBaseSlot);
-  }
-
-  protected async bulkRetrieveLogs(
-    contractAddress: AztecAddress,
-    logRetrievalRequestsArrayBaseSlot: Fr,
-    logRetrievalResponsesArrayBaseSlot: Fr,
-  ) {
     // We read all log retrieval requests and process them all concurrently. This makes the process much faster as we
     // don't need to wait for the network round-trip.
     const logRetrievalRequests = (
@@ -559,39 +551,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       this.addressDataProvider,
     );
 
-    const maybeLogRetrievalResponses = await Promise.all(
-      logRetrievalRequests.map(async request => {
-        // TODO(#14555): remove these internal functions and have node endpoints that do this instead
-        const [publicLog, privateLog] = await Promise.all([
-          logService.getPublicLogByTag(request.unsiloedTag, request.contractAddress),
-          logService.getPrivateLogByTag(await siloPrivateLog(request.contractAddress, request.unsiloedTag)),
-        ]);
-
-        if (publicLog !== null) {
-          if (privateLog !== null) {
-            throw new Error(
-              `Found both a public and private log when searching for tag ${request.unsiloedTag} from contract ${request.contractAddress}`,
-            );
-          }
-
-          return new LogRetrievalResponse(
-            publicLog.logPayload,
-            publicLog.txHash,
-            publicLog.uniqueNoteHashesInTx,
-            publicLog.firstNullifierInTx,
-          );
-        } else if (privateLog !== null) {
-          return new LogRetrievalResponse(
-            privateLog.logPayload,
-            privateLog.txHash,
-            privateLog.uniqueNoteHashesInTx,
-            privateLog.firstNullifierInTx,
-          );
-        } else {
-          return null;
-        }
-      }),
-    );
+    const maybeLogRetrievalResponses = await logService.bulkRetrieveLogs(logRetrievalRequests);
 
     // Requests are cleared once we're done.
     await this.capsuleDataProvider.setCapsuleArray(contractAddress, logRetrievalRequestsArrayBaseSlot, []);
