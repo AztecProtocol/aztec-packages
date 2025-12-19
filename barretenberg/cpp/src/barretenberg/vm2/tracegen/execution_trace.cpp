@@ -538,7 +538,7 @@ void ExecutionTraceBuilder::process(
             if (*exec_opcode == ExecutionOpCode::CALL || *exec_opcode == ExecutionOpCode::STATICCALL) {
                 sel_enter_call = true;
 
-                Gas gas_left = ex_event.after_context_event.gas_limit - ex_event.after_context_event.gas_used;
+                const Gas gas_left = ex_event.after_context_event.gas_limit - ex_event.after_context_event.gas_used;
 
                 uint32_t allocated_l2_gas = registers[0].as<uint32_t>();
                 bool is_l2_gas_allocated_lt_left = allocated_l2_gas < gas_left.l2_gas;
