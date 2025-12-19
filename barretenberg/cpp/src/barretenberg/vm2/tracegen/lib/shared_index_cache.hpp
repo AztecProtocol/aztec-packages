@@ -25,8 +25,9 @@ struct IndexKey {
     size_t hash() const { return bb::utils::hash_as_tuple(outer_dst_selector, dst_columns); }
 };
 
-// The index type: maps a vector of field elements (the tuple values) to a row number.
-using DstIndex = unordered_flat_map<std::vector<FF>, uint32_t>;
+// The index type: maps a hash of field element tuples to a row number.
+// The actual tuple values are verified during lookup using the TraceContainer.
+using DstIndex = unordered_flat_map<size_t, uint32_t>;
 
 // A thread-safe cache for destination table indices.
 // Multiple lookup builders targeting the same destination table can share an index,

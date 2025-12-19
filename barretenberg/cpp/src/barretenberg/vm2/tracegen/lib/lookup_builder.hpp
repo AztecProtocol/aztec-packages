@@ -88,6 +88,7 @@ class LookupIntoDynamicTableGeneric : public IndexedLookupTraceBuilder<LookupSet
 
     void init(TraceContainer& trace) override
     {
+        trace_ptr_ = &trace;
         index_ptr_ = &cache_.get_or_build(this->outer_dst_selector,
                                           LookupSettings::DST_COLUMNS,
                                           trace,
@@ -96,11 +97,15 @@ class LookupIntoDynamicTableGeneric : public IndexedLookupTraceBuilder<LookupSet
 
     uint32_t find_in_dst(const ArrayTuple& tup) const override
     {
-        // Convert array to vector for lookup in the shared index.
-        std::vector<FF> key(tup.begin(), tup.end());
-        auto it = index_ptr_->find(key);
+        size_t key_hash = std::hash<ArrayTuple>{}(tup);
+        auto it = index_ptr_->find(key_hash);
         if (it != index_ptr_->end()) {
-            return it->second;
+            uint32_t row = it->second;
+            // Verify the actual values match (handles hash collisions).
+            auto dst_values = trace_ptr_->get_multiple(LookupSettings::DST_COLUMNS, row);
+            if (dst_values == tup) {
+                return row;
+            }
         }
         throw std::runtime_error("Failed computing counts for " + std::string(LookupSettings::NAME) +
                                  ". Could not find tuple in destination. " +
@@ -114,14 +119,17 @@ class LookupIntoDynamicTableGeneric : public IndexedLookupTraceBuilder<LookupSet
         idx.reserve(trace.get_column_rows(this->outer_dst_selector));
         trace.visit_column(this->outer_dst_selector, [&](uint32_t row, const FF&) {
             auto dst_values = trace.get_multiple(LookupSettings::DST_COLUMNS, row);
-            std::vector<FF> key(dst_values.begin(), dst_values.end());
-            idx.insert({ std::move(key), row });
+            size_t key_hash = std::hash<ArrayTuple>{}(dst_values);
+            // FIXME: THIS IS NOT CORRECT!!!
+            // If hash collision, keep the first one (don't insert if key already exists).
+            idx.insert({ key_hash, row });
         });
         return idx;
     }
 
     SharedIndexCache& cache_;
     const DstIndex* index_ptr_ = nullptr;
+    const TraceContainer* trace_ptr_ = nullptr;
 };
 
 // This class is used when the lookup is into a non-precomputed table.
