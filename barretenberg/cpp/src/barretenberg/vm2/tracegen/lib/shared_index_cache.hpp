@@ -45,11 +45,8 @@ class SharedIndexCache {
     // Get or build an index for the given destination table.
     // If the index already exists or is being built, this will wait for it and return a reference.
     // If the index doesn't exist, the calling thread will build it using the provided build function.
-    //
-    // Template parameter N is the tuple size (number of destination columns).
-    template <size_t N>
     const DstIndex& get_or_build(Column outer_dst_selector,
-                                 const std::array<ColumnAndShifts, N>& dst_columns,
+                                 std::span<const ColumnAndShifts> dst_columns,
                                  const TraceContainer& trace,
                                  std::function<DstIndex(const TraceContainer&)> build_fn)
     {

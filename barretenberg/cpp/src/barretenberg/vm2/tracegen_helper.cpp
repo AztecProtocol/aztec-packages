@@ -2,7 +2,6 @@
 
 #include <array>
 #include <functional>
-#include <random>
 #include <span>
 #include <string>
 #include <vector>
@@ -438,7 +437,7 @@ void AvmTraceGenHelper::fill_trace_interactions(TraceContainer& trace)
 {
     // Now we can compute lookups and permutations.
     {
-        // We use a shared index cache so that lookups targeting the same destination table
+        // We use a shared index cache so that lookups targeting the same destination columns
         // can share the same index, avoiding redundant computation and memory usage.
         SharedIndexCache index_cache;
 
@@ -472,6 +471,11 @@ void AvmTraceGenHelper::fill_trace_interactions(TraceContainer& trace)
                              L1ToL2MessageTreeCheckTraceBuilder::interactions.get_all_jobs(index_cache),
                              EmitUnencryptedLogTraceBuilder::interactions.get_all_jobs(index_cache),
                              RetrievedBytecodesTreeCheckTraceBuilder::interactions.get_all_jobs(index_cache));
+
+        // Order jobs to minimize index building contention:
+        // Jobs with unique destination columns come first, then jobs that share destinations with earlier ones.
+        AVM_TRACK_TIME("tracegen/order_jobs_by_destination_columns",
+                       order_jobs_by_destination_columns(jobs_interactions));
 
         AVM_TRACK_TIME("tracegen/interactions",
                        parallel_for(jobs_interactions.size(), [&](size_t i) { jobs_interactions[i]->process(trace); }));

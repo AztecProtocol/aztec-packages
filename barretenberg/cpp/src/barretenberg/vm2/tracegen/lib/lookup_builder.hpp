@@ -11,6 +11,7 @@
 #include "barretenberg/common/utils.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/common/map.hpp"
+#include "barretenberg/vm2/common/map_hashes.hpp"
 #include "barretenberg/vm2/common/stringify.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/tracegen/lib/interaction_builder.hpp"
@@ -94,6 +95,11 @@ class LookupIntoDynamicTableGeneric : public IndexedLookupTraceBuilder<LookupSet
         , cache_(cache)
     {}
     virtual ~LookupIntoDynamicTableGeneric() = default;
+
+    size_t get_destination_columns_fingerprint() const override
+    {
+        return bb::utils::hash_as_tuple(this->outer_dst_selector, LookupSettings::DST_COLUMNS);
+    }
 
   protected:
     using LookupSettings = LookupSettings_;
