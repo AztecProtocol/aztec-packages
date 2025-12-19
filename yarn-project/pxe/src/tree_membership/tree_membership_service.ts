@@ -1,15 +1,23 @@
+import type { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
 import type { Fr } from '@aztec/foundation/curves/bn254';
+import type { SiblingPath } from '@aztec/foundation/trees';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { BlockParameter } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
+import { getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
 import { MerkleTreeId, NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 
 import type { AnchorBlockDataProvider } from '../storage/index.js';
 
-export class MembershipWitnessService {
+export class TreeMembershipService {
   constructor(
     private readonly aztecNode: AztecNode,
     private readonly anchorBlockDataProvider: AnchorBlockDataProvider,
   ) {}
+
+  public getNullifierIndex(nullifier: Fr) {
+    return this.#findLeafIndex('latest', MerkleTreeId.NULLIFIER_TREE, nullifier);
+  }
 
   public async getMembershipWitness(blockNumber: BlockParameter, treeId: MerkleTreeId, leafValue: Fr): Promise<Fr[]> {
     const witness = await this.#tryGetMembershipWitness(blockNumber, treeId, leafValue);
@@ -38,6 +46,14 @@ export class MembershipWitnessService {
     return await this.aztecNode.getPublicDataWitness(blockNumber, leafSlot);
   }
 
+  public getL1ToL2MembershipWitness(
+    contractAddress: AztecAddress,
+    messageHash: Fr,
+    secret: Fr,
+  ): Promise<[bigint, SiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>]> {
+    return getNonNullifiedL1ToL2MessageWitness(this.aztecNode, contractAddress, messageHash, secret);
+  }
+
   async #tryGetMembershipWitness(
     blockNumber: BlockParameter,
     treeId: MerkleTreeId,
@@ -55,5 +71,10 @@ export class MembershipWitnessService {
       default:
         throw new Error('Not implemented');
     }
+  }
+
+  async #findLeafIndex(blockNumber: BlockParameter, treeId: MerkleTreeId, leafValue: Fr): Promise<bigint | undefined> {
+    const [leafIndex] = await this.aztecNode.findLeavesIndexes(blockNumber, treeId, [leafValue]);
+    return leafIndex?.data;
   }
 }

@@ -1,4 +1,3 @@
-import type { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
 import type { BlockNumber } from '@aztec/foundation/branded-types';
 import { Aes128 } from '@aztec/foundation/crypto/aes128';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -14,14 +13,12 @@ import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
 import { computeAddressSecret } from '@aztec/stdlib/keys';
 import { deriveEcdhSharedSecret } from '@aztec/stdlib/logs';
-import { getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
 import type { NoteStatus } from '@aztec/stdlib/note';
 import { MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import type { BlockHeader, Capsule } from '@aztec/stdlib/tx';
 
 import { EventService } from '../../events/event_service.js';
 import { LogService } from '../../logs/log_service.js';
-import { MembershipWitnessService } from '../../membership_witness/membership_witness_service.js';
 import { NoteService } from '../../notes/note_service.js';
 import { ORACLE_VERSION } from '../../oracle_version.js';
 import type {
@@ -34,6 +31,7 @@ import type {
   RecipientTaggingDataProvider,
   SenderTaggingDataProvider,
 } from '../../storage/index.js';
+import { TreeMembershipService } from '../../tree_membership/tree_membership_service.js';
 import { EventValidationRequest } from '../noir-structs/event_validation_request.js';
 import { LogRetrievalRequest } from '../noir-structs/log_retrieval_request.js';
 import { LogRetrievalResponse } from '../noir-structs/log_retrieval_response.js';
@@ -110,8 +108,8 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * @returns The index and sibling path concatenated [index, sibling_path]
    */
   public utilityGetMembershipWitness(blockNumber: BlockNumber, treeId: MerkleTreeId, leafValue: Fr): Promise<Fr[]> {
-    const membershipWitnessService = new MembershipWitnessService(this.aztecNode, this.anchorBlockDataProvider);
-    return membershipWitnessService.getMembershipWitness(blockNumber, treeId, leafValue);
+    const treeMembershipService = new TreeMembershipService(this.aztecNode, this.anchorBlockDataProvider);
+    return treeMembershipService.getMembershipWitness(blockNumber, treeId, leafValue);
   }
 
   /**
@@ -140,8 +138,8 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     blockNumber: BlockNumber,
     nullifier: Fr,
   ): Promise<NullifierMembershipWitness | undefined> {
-    const membershipWitnessService = new MembershipWitnessService(this.aztecNode, this.anchorBlockDataProvider);
-    return await membershipWitnessService.getLowNullifierMembershipWitness(blockNumber, nullifier);
+    const treeMembershipService = new TreeMembershipService(this.aztecNode, this.anchorBlockDataProvider);
+    return await treeMembershipService.getLowNullifierMembershipWitness(blockNumber, nullifier);
   }
 
   /**
@@ -154,8 +152,8 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     blockNumber: BlockNumber,
     leafSlot: Fr,
   ): Promise<PublicDataWitness | undefined> {
-    const membershipWitnessService = new MembershipWitnessService(this.aztecNode, this.anchorBlockDataProvider);
-    return await membershipWitnessService.getPublicDataWitness(blockNumber, leafSlot);
+    const treeMembershipService = new TreeMembershipService(this.aztecNode, this.anchorBlockDataProvider);
+    return await treeMembershipService.getPublicDataWitness(blockNumber, leafSlot);
   }
 
   /**
@@ -285,21 +283,9 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    */
   public async utilityCheckNullifierExists(innerNullifier: Fr) {
     const nullifier = await siloNullifier(this.contractAddress, innerNullifier!);
-    const index = await this.getNullifierIndex(nullifier);
+    const treeMembershipService = new TreeMembershipService(this.aztecNode, this.anchorBlockDataProvider);
+    const index = await treeMembershipService.getNullifierIndex(nullifier);
     return index !== undefined;
-  }
-
-  protected async getNullifierIndex(nullifier: Fr) {
-    return await this.findLeafIndex('latest', MerkleTreeId.NULLIFIER_TREE, nullifier);
-  }
-
-  protected async findLeafIndex(
-    blockNumber: BlockParameter,
-    treeId: MerkleTreeId,
-    leafValue: Fr,
-  ): Promise<bigint | undefined> {
-    const [leafIndex] = await this.aztecNode.findLeavesIndexes(blockNumber, treeId, [leafValue]);
-    return leafIndex?.data;
   }
 
   /**
@@ -311,16 +297,8 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * @returns The l1 to l2 membership witness (index of message in the tree and sibling path).
    */
   public async utilityGetL1ToL2MembershipWitness(contractAddress: AztecAddress, messageHash: Fr, secret: Fr) {
-    return await this.getL1ToL2MembershipWitness(contractAddress, messageHash, secret);
-  }
-
-  protected async getL1ToL2MembershipWitness(
-    contractAddress: AztecAddress,
-    messageHash: Fr,
-    secret: Fr,
-  ): Promise<MessageLoadOracleInputs<typeof L1_TO_L2_MSG_TREE_HEIGHT>> {
-    const [messageIndex, siblingPath] = await getNonNullifiedL1ToL2MessageWitness(
-      this.aztecNode,
+    const treeMembershipService = new TreeMembershipService(this.aztecNode, this.anchorBlockDataProvider);
+    const [messageIndex, siblingPath] = await treeMembershipService.getL1ToL2MembershipWitness(
       contractAddress,
       messageHash,
       secret,
