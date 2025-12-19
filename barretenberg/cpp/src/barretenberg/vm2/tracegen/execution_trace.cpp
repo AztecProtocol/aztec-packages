@@ -208,13 +208,17 @@ FailingContexts preprocess_for_discard(
 {
     FailingContexts dying_info;
 
+    // We use `after_context_event` to retrieve parent_id, context_id, and phase to be consistent with
+    // how these values are populated in the trace (see ExecutionTraceBuilder::process()). These values
+    // should not change during the life-cycle of an execution event though and before_context_event
+    // would lead to the same results.
+
     // Preprocessing pass 1: find the events that exit the app logic and teardown phases
     for (const auto& ex_event : ex_events) {
         bool is_exit = ex_event.is_exit();
         bool is_top_level = ex_event.after_context_event.parent_id == 0;
 
         if (is_exit && is_top_level) {
-            // TODO(dbanks12): confirm this should be after_context_event and not before_context_event
             if (ex_event.after_context_event.phase == TransactionPhase::APP_LOGIC) {
                 dying_info.app_logic_failure = ex_event.is_failure();
                 dying_info.app_logic_exit_context_id = ex_event.after_context_event.id;
@@ -294,17 +298,18 @@ void ExecutionTraceBuilder::process(
 
     // Some variables updated per loop iteration to track
     // whether or not the upcoming row should "discard" [side effects].
-    uint32_t discard = 0;
     uint32_t dying_context_id = 0;
+    // dying_context_id captures whether we discard or not. Namely, discard == 1 <=> dying_context_id != 0
+    // is a circuit invariant. For this reason, we use a lambda to preserve the invariant.
+    auto is_discarding = [&dying_context_id]() { return dying_context_id != 0; };
     bool is_first_event_in_enqueued_call = true;
     bool prev_row_was_enter_call = false;
 
     for (const auto& ex_event : ex_events) {
         // Check if this is the first event in an enqueued call and whether
         // the phase should be discarded
-        if (discard == 0 && is_first_event_in_enqueued_call &&
+        if (!is_discarding() && is_first_event_in_enqueued_call &&
             is_phase_discarded(ex_event.after_context_event.phase, failures)) {
-            discard = 1;
             dying_context_id = dying_context_for_phase(ex_event.after_context_event.phase, failures);
         }
 
@@ -642,7 +647,7 @@ void ExecutionTraceBuilder::process(
                           { { { C::execution_sel_l2_to_l1_msg_limit_error, remaining_l2_to_l1_msgs == 0 },
                               { C::execution_remaining_l2_to_l1_msgs_inv,
                                 remaining_l2_to_l1_msgs }, // Will be inverted in batch later.
-                              { C::execution_sel_write_l2_to_l1_msg, !opcode_execution_failed && discard == 0 },
+                              { C::execution_sel_write_l2_to_l1_msg, !opcode_execution_failed && !is_discarding() },
                               {
                                   C::execution_public_inputs_index,
                                   AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX +
@@ -664,14 +669,10 @@ void ExecutionTraceBuilder::process(
          *  Discarding and error related selectors.
          **************************************************************************************************/
 
-        const bool is_dying_context = discard == 1 && (ex_event.after_context_event.id == dying_context_id);
-
+        const bool is_dying_context = ex_event.after_context_event.id == dying_context_id;
         // Need to generate the item below for checking "is dying context" in circuit
-        FF dying_context_diff = 0;
-        if (!is_dying_context) {
-            // Compute inversion when context_id != dying_context_id
-            dying_context_diff = FF(ex_event.after_context_event.id) - FF(dying_context_id);
-        }
+        // No need to condition by `!is_dying_context` as batch inversion skips 0.
+        const FF dying_context_diff = FF(ex_event.after_context_event.id) - FF(dying_context_id);
 
         // This is here instead of guarded by `should_execute_opcode` because is_err is a higher level error
         // than just an opcode error (i.e., it is on if there are any errors in any temporality group).
@@ -680,45 +681,40 @@ void ExecutionTraceBuilder::process(
         const bool is_failure = should_execute_revert || is_err;
         const bool nested_exit_call = sel_exit_call && has_parent;
         const bool enqueued_call_end = sel_exit_call && !has_parent;
-        const bool nested_revert_or_error = (should_execute_revert || is_err) && has_parent;
-        const bool resolves_dying_context = is_failure && is_dying_context;
-        const bool nested_call_rom_undiscarded_context = sel_enter_call && discard == 0;
+        const bool nested_failure = is_failure && has_parent;
 
-        trace.set(
-            row,
-            { {
-                { C::execution_sel_exit_call, sel_exit_call ? 1 : 0 },
-                { C::execution_nested_exit_call, nested_exit_call ? 1 : 0 },
-                { C::execution_nested_revert_or_error, nested_revert_or_error ? 1 : 0 },
-                { C::execution_sel_error, is_err ? 1 : 0 },
-                { C::execution_sel_failure, is_failure ? 1 : 0 },
-                { C::execution_discard, discard },
-                { C::execution_dying_context_id, dying_context_id },
-                { C::execution_dying_context_id_inv, dying_context_id }, // Will be inverted in batch.
-                { C::execution_is_dying_context, is_dying_context ? 1 : 0 },
-                { C::execution_dying_context_diff_inv, dying_context_diff }, // Will be inverted in batch.
-                { C::execution_enqueued_call_end, enqueued_call_end ? 1 : 0 },
-                { C::execution_resolves_dying_context, resolves_dying_context ? 1 : 0 },
-                { C::execution_nested_call_from_undiscarded_context, nested_call_rom_undiscarded_context ? 1 : 0 },
-            } });
+        trace.set(row,
+                  { {
+                      { C::execution_sel_exit_call, sel_exit_call ? 1 : 0 },
+                      { C::execution_nested_exit_call, nested_exit_call ? 1 : 0 },
+                      { C::execution_nested_failure, nested_failure ? 1 : 0 },
+                      { C::execution_sel_error, is_err ? 1 : 0 },
+                      { C::execution_sel_failure, is_failure ? 1 : 0 },
+                      { C::execution_discard, is_discarding() ? 1 : 0 },
+                      { C::execution_dying_context_id, dying_context_id },
+                      { C::execution_dying_context_id_inv, dying_context_id }, // Will be inverted in batch.
+                      { C::execution_is_dying_context, is_dying_context ? 1 : 0 },
+                      { C::execution_dying_context_diff_inv, dying_context_diff }, // Will be inverted in batch.
+                      { C::execution_enqueued_call_end, enqueued_call_end ? 1 : 0 },
+                  } });
 
         // Trace-generation is done for this event.
-        // Now, use this event to determine whether we should set/reset the discard flag for the NEXT event
-        const bool event_kills_dying_context =
-            discard == 1 && is_failure && ex_event.after_context_event.id == dying_context_id;
+        // Now, use this event to determine whether we should set/reset the discard flag for the NEXT event.
+        // Note: is_failure implies discard is true.
+        const bool event_kills_dying_context = is_failure && is_dying_context;
 
         if (event_kills_dying_context) {
             // Set/unset discard flag if the current event is the one that kills the dying context
             dying_context_id = 0;
-            discard = 0;
-        } else if (sel_enter_call && discard == 0 && !is_err &&
+        } else if (sel_enter_call && !is_discarding() &&
                    failures.does_context_fail.contains(ex_event.next_context_id)) {
             // If making a nested call, and discard isn't already high...
-            // if the nested context being entered eventually dies, raise discard flag and remember which
-            // context is dying. NOTE: if a [STATIC]CALL instruction _itself_ errors, we don't set the
-            // discard flag because we aren't actually entering a new context!
+            // if the nested context being entered eventually dies, we set which context is dying (implicitly raise
+            // discard flag). NOTE: If a [STATIC]CALL instruction _itself_ errors, we don't set the discard flag
+            // because we aren't actually entering a new context. This is already captured by `sel_enter_call`
+            // boolean which is set to true only during opcode execution temporality group which cannot
+            // fail for CALL/STATICALL.
             dying_context_id = ex_event.next_context_id;
-            discard = 1;
         }
         // Otherwise, we aren't entering or exiting a dying context,
         // so just propagate discard and dying context.

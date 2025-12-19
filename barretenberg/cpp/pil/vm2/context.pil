@@ -25,9 +25,13 @@ namespace execution;
     // must be 0 on the first row.
 
     // sel_exit_call is used to flag if we are returning or reverting or there has been ANY error during execution
-    // sel_execute_revert & sel_execute_return are mutually exclusive
+    // sel_execute_revert & sel_execute_return are mutually exclusive.
+    // By #[INFALLIBLE_OPCODES_SUCCESS] in execution.pil, sel_opcode_error is mutually exclusive
+    // with sel_execute_revert and sel_execute_return. As sel_opcode_error is a specific error of the last temporality
+    // group, sel_error is mutually exclusive with sel_execute_revert and sel_execute_return. Namely, if
+    // an error occurs earlier neither sel_execute_revert nor sel_execute_return can be activated.
     pol commit sel_exit_call;
-    sel_exit_call = 1 - (1 - sel_execute_revert - sel_execute_return) * (1 - sel_error);
+    sel_exit_call = sel_failure + sel_execute_return; // = sel_execute_revert + sel_error + sel_execute_return
 
     // Context columns
     pol commit context_id;
@@ -261,11 +265,11 @@ namespace execution;
     #[PROPAGATE_RD_SIZE]
     NOT_LAST_EXEC * DEFAULT_CTX_ROW * (last_child_returndata_size' - last_child_returndata_size) = 0;
 
-    pol commit nested_revert_or_error; // @boolean (by definition)
-    nested_revert_or_error = nested_exit_call * (1 - sel_execute_return);
+    pol commit nested_failure; // @boolean (by definition)
+    nested_failure = has_parent_ctx * sel_failure;
 
     // nested_return          = 1 ==> last_child_success' = 1;
-    // nested_revert_or_error = 1 ==> last_child_success' = 0;
+    // nested_failure = 1 ==> last_child_success' = 0;
     // Last child success value is reset when entering a new context/call (Default is false in simulation):
     // sel_enter_call         = 1 ==> last_child_success' = 0;
     // enqueued_call_start    = 1 ==> last_child_success = 0;
@@ -273,7 +277,7 @@ namespace execution;
     #[NESTED_RETURN_LAST_CHILD_SUCCESS]
     NOT_LAST_EXEC * nested_return * (last_child_success' - 1) = 0;
     #[LAST_CHILD_SUCCESS_NEXT_ROW_ZERO]
-    NOT_LAST_EXEC * (nested_revert_or_error + sel_enter_call) * last_child_success' = 0;
+    NOT_LAST_EXEC * (nested_failure + sel_enter_call) * last_child_success' = 0;
     #[LAST_CHILD_SUCCESS_IS_ZERO]
     enqueued_call_start * last_child_success = 0;
     #[PROPAGATE_LAST_CHILD_SUCCESS]
@@ -409,7 +413,7 @@ namespace execution;
     // If we are reverting or erroring a nested call, we restore the entire ctx from the stack
 
     #[CTX_STACK_ROLLBACK]
-    nested_revert_or_error {
+    nested_failure {
         context_id,
         context_id', // constrained to be parent_id
         parent_id',
@@ -468,7 +472,7 @@ namespace execution;
     };
 
     pol commit nested_return;
-    nested_return = nested_exit_call * sel_execute_return * (1 - sel_error);
+    nested_return = has_parent_ctx * sel_execute_return;
     #[CTX_STACK_RETURN]
     nested_return {
         context_id,
