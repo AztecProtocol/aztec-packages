@@ -11,6 +11,18 @@ export class PublicStorageService {
     private readonly aztecNode: AztecNode,
   ) {}
 
+  /**
+   * Gets the storage value at the given contract storage slot.
+   *
+   * @remarks The storage slot here refers to the slot as it is defined in Noir not the index in the merkle tree.
+   * Aztec's version of `eth_getStorageAt`.
+   *
+   * @param blockNumber - The block number at which to get the data.
+   * @param contract - Address of the contract to query.
+   * @param slot - Slot to query.
+   * @returns Storage value at the given contract slot.
+   * @throws If the contract is not deployed.
+   */
   public async getPublicStorageAt(blockNumber: BlockParameter, contract: AztecAddress, slot: Fr): Promise<Fr> {
     const anchorBlockNumber = (await this.anchorBlockDataProvider.getBlockHeader()).getBlockNumber();
     if (blockNumber !== 'latest' && blockNumber > anchorBlockNumber) {

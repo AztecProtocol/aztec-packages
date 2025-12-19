@@ -16,6 +16,15 @@ export class NoteService {
     private readonly anchorBlockDataProvider: AnchorBlockDataProvider,
   ) {}
 
+  /**
+   * Retrieves a set of notes stored in the database for a given contract address and storage slot.
+   * The query result is paginated using 'limit' and 'offset' values.
+   * Returns an object containing an array of note data.
+   *
+   * @param owner - The owner of the notes. If undefined, returns notes for all known owners.
+   * @param status - The status of notes to fetch.
+   * @param scopes - The accounts whose notes we can access in this call. Currently optional and will default to all.
+   */
   public async getNotes(
     contractAddress: AztecAddress,
     owner: AztecAddress | undefined,

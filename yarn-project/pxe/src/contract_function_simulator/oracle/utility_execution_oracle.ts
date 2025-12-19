@@ -362,6 +362,16 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     await noteService.syncNoteNullifiers(this.contractAddress);
   }
 
+  /**
+   * Validates all note and event validation requests enqueued via `enqueue_note_for_validation` and
+   * `enqueue_event_for_validation`, inserting them into the note database and event store respectively, making them
+   * queryable via `get_notes` and `getPrivateEvents`.
+   *
+   * This automatically clears both validation request queues, so no further work needs to be done by the caller.
+   * @param contractAddress - The address of the contract that the logs are tagged for.
+   * @param noteValidationRequestsArrayBaseSlot - The base slot of capsule array containing note validation requests.
+   * @param eventValidationRequestsArrayBaseSlot - The base slot of capsule array containing event validation requests.
+   */
   public async utilityValidateEnqueuedNotesAndEvents(
     contractAddress: AztecAddress,
     noteValidationRequestsArrayBaseSlot: Fr,
@@ -502,6 +512,12 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     return aes128.decryptBufferCBC(ciphertext, iv, symKey);
   }
 
+  /**
+   * Retrieves the shared secret for a given address and ephemeral public key.
+   * @param address - The address to get the secret for.
+   * @param ephPk - The ephemeral public key to get the secret for.
+   * @returns The secret for the given address.
+   */
   public utilityGetSharedSecret(address: AztecAddress, ephPk: Point): Promise<Point> {
     return this.getSharedSecret(address, ephPk);
   }

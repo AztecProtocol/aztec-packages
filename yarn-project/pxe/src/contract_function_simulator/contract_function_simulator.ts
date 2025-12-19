@@ -318,6 +318,10 @@ export class ContractFunctionSimulator {
   }
   // docs:end:execute_utility_function
 
+  /**
+   * Returns the execution statistics collected during the simulator run.
+   * @returns The execution statistics.
+   */
   getStats() {
     const nodeRPCCalls =
       typeof (this.aztecNode as ProxiedNode).getStats === 'function' ? (this.aztecNode as ProxiedNode).getStats() : {};
