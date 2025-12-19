@@ -30,6 +30,13 @@ struct Poseidon2HashEvent {
 struct Poseidon2PermutationEvent {
     std::array<FF, 4> input;
     std::array<FF, 4> output;
+
+    // To be used with deduplicating event emitters.
+    // The key is the input since the same input always produces the same output.
+    using Key = std::array<FF, 4>;
+    Key get_key() const { return input; }
+
+    bool operator==(const Poseidon2PermutationEvent& other) const = default;
 };
 
 struct Poseidon2PermutationMemoryEvent {

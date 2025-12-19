@@ -151,7 +151,7 @@ std::tuple<EventsContainer, TxSimulationResult> AvmSimulationHelper::simulate_fo
     DefaultEventEmitter<ScalarMulEvent> scalar_mul_emitter;
     DefaultEventEmitter<EccAddMemoryEvent> ecc_add_memory_emitter;
     DefaultDeduplicatingEventEmitter<Poseidon2HashEvent> poseidon2_hash_emitter;
-    DefaultEventEmitter<Poseidon2PermutationEvent> poseidon2_perm_emitter;
+    DefaultDeduplicatingEventEmitter<Poseidon2PermutationEvent> poseidon2_perm_emitter;
     DefaultEventEmitter<Poseidon2PermutationMemoryEvent> poseidon2_perm_mem_emitter;
     DefaultEventEmitter<KeccakF1600Event> keccakf1600_emitter;
     DefaultEventEmitter<ToRadixEvent> to_radix_emitter;
