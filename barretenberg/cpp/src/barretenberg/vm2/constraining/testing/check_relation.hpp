@@ -10,6 +10,7 @@
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 #include "barretenberg/vm2/constraining/polynomials.hpp"
+#include "barretenberg/vm2/tracegen/lib/shared_index_cache.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
 
 namespace bb::avm2::constraining {
@@ -73,23 +74,35 @@ template <typename Relation> void check_relation(const tracegen::TestTraceContai
     [&]<size_t... Is>(std::index_sequence<Is...>) { check_relation<Relation>(trace, Is...); }(subrelations);
 }
 
-template <typename TraceBuilder, typename... Setting> inline void check_interaction(tracegen::TestTraceContainer& trace)
+// Get a default cache for test convenience (used for backwards compatibility in tests).
+inline tracegen::SharedIndexCache& get_default_test_cache()
 {
-    (TraceBuilder::interactions.template get_test_job<Setting>()->process(trace), ...);
+    static tracegen::SharedIndexCache cache;
+    return cache;
+}
+
+template <typename TraceBuilder, typename... Setting>
+inline void check_interaction(tracegen::TestTraceContainer& trace,
+                              tracegen::SharedIndexCache& cache = get_default_test_cache())
+{
+    (TraceBuilder::interactions.template get_test_job<Setting>(cache)->process(trace), ...);
 }
 
 // Warning: The below requires ALL permutation settings as defined in InteractionDefinition.add():
 template <typename TraceBuilder, typename... Setting>
-inline void check_multipermutation_interaction(tracegen::TestTraceContainer& trace)
+inline void check_multipermutation_interaction(tracegen::TestTraceContainer& trace,
+                                               tracegen::SharedIndexCache& cache = get_default_test_cache())
 {
     // Concatenates the names of given permutation interactions:
     std::string name = (std::string(Setting::NAME) + ...);
-    TraceBuilder::interactions.get_test_job(name)->process(trace);
+    TraceBuilder::interactions.get_test_job(name, cache)->process(trace);
 }
 
-template <typename TraceBuilder> inline void check_all_interactions(tracegen::TestTraceContainer& trace)
+template <typename TraceBuilder>
+inline void check_all_interactions(tracegen::TestTraceContainer& trace,
+                                   tracegen::SharedIndexCache& cache = get_default_test_cache())
 {
-    for (auto& job : TraceBuilder::interactions.get_all_test_jobs()) {
+    for (auto& job : TraceBuilder::interactions.get_all_test_jobs(cache)) {
         job->process(trace);
     }
 }
