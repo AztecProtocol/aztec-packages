@@ -670,13 +670,9 @@ void ExecutionTraceBuilder::process(
          **************************************************************************************************/
 
         const bool is_dying_context = ex_event.after_context_event.id == dying_context_id;
-
         // Need to generate the item below for checking "is dying context" in circuit
-        FF dying_context_diff = 0;
-        if (!is_dying_context) {
-            // Compute inversion when context_id != dying_context_id
-            dying_context_diff = FF(ex_event.after_context_event.id) - FF(dying_context_id);
-        }
+        // No need to condition by `!is_dying_context` as batch inversion skips 0.
+        const FF dying_context_diff = FF(ex_event.after_context_event.id) - FF(dying_context_id);
 
         // This is here instead of guarded by `should_execute_opcode` because is_err is a higher level error
         // than just an opcode error (i.e., it is on if there are any errors in any temporality group).
@@ -705,7 +701,7 @@ void ExecutionTraceBuilder::process(
         // Trace-generation is done for this event.
         // Now, use this event to determine whether we should set/reset the discard flag for the NEXT event.
         // Note: is_failure implies discard is true.
-        const bool event_kills_dying_context = is_failure && ex_event.after_context_event.id == dying_context_id;
+        const bool event_kills_dying_context = is_failure && is_dying_context;
 
         if (event_kills_dying_context) {
             // Set/unset discard flag if the current event is the one that kills the dying context

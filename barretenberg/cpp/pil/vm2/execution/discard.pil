@@ -110,6 +110,8 @@ namespace execution; // virtual to execution.pil
     // 8. When a dying context with a parent resolves, discard must be cleared (1->0) on the next row.
     // This prevents attacks where the dying context is changed instead of clearing discard.
     // If sel_failure == 1 && is_dying_context == 1 && has_parent_ctx == 1, enforce that discard' == 0
+    // We need the gating factor `has_parent_ctx` because for a top-level call, the next row might pertain
+    // to another enqueued call (e.g. TEARDOWN).
     #[DYING_CONTEXT_WITH_PARENT_MUST_CLEAR_DISCARD]
     RESOLVES_DYING_CONTEXT * has_parent_ctx * discard' = 0;
 
