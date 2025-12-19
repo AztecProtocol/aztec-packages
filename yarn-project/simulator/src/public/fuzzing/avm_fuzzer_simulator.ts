@@ -185,7 +185,7 @@ export class AvmFuzzerSimulator extends BaseAvmSimulationTester {
     super(contractDataSource, merkleTrees);
     const contractsDb = new PublicContractsDB(contractDataSource);
     this.simulator = new PublicTxSimulator(merkleTrees, contractsDb, globals, {
-      skipFeeEnforcement: true,
+      skipFeeEnforcement: false,
       collectDebugLogs: false,
       collectHints: false,
       collectStatistics: false,
@@ -209,6 +209,13 @@ export class AvmFuzzerSimulator extends BaseAvmSimulationTester {
    * Simulate a transaction from a C++ AvmTxHint.
    */
   public async simulate(txHint: AvmTxHint): Promise<PublicTxResult> {
+    // Compute fee from gas limits and max fees per gas (upper bound on fee)
+    const totalFee =
+      BigInt(txHint.gasSettings.gasLimits.daGas) * txHint.gasSettings.maxFeesPerGas.feePerDaGas +
+      BigInt(txHint.gasSettings.gasLimits.l2Gas) * txHint.gasSettings.maxFeesPerGas.feePerL2Gas;
+
+    await this.setFeePayerBalance(txHint.feePayer, new Fr(totalFee));
+
     const tx = await createTxFromHint(txHint);
     return await this.simulator.simulate(tx);
   }

@@ -75,7 +75,7 @@ SimulatorResult CppSimulator::simulate(fuzzer::FuzzerWorldStateManager& ws_mgr,
 {
 
     const PublicSimulatorConfig config{
-        .skip_fee_enforcement = true, // This is disabled once we need a prover fuzzer
+        .skip_fee_enforcement = false,
         .collect_call_metadata = true,
         .collect_public_inputs = true,
     };

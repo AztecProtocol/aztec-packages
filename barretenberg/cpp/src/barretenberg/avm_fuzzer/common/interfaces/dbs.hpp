@@ -139,6 +139,7 @@ class FuzzerWorldStateManager {
 
     void reset_world_state();
     void register_contract_address(const AztecAddress& contract_address);
+    void write_fee_payer_balance(const AztecAddress& fee_payer, const FF& balance);
 
     world_state::WorldStateRevision get_current_revision() const;
     world_state::WorldStateRevision fork();

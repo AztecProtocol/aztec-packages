@@ -44,6 +44,14 @@ SimulatorResult fuzz_tx(FuzzerTxData& tx_data)
         ws_mgr->register_contract_address(addr);
     }
 
+    // Compute fee from gas limits and max fees per gas (upper bound on fee)
+    FF fee_required_da =
+        FF(tx_data.tx.gas_settings.gas_limits.da_gas) * FF(tx_data.tx.gas_settings.max_fees_per_gas.fee_per_da_gas);
+    FF fee_required_l2 =
+        FF(tx_data.tx.gas_settings.gas_limits.l2_gas) * FF(tx_data.tx.gas_settings.max_fees_per_gas.fee_per_l2_gas);
+
+    ws_mgr->write_fee_payer_balance(tx_data.tx.fee_payer, fee_required_da + fee_required_l2);
+
     // Run simulators
     auto cpp_simulator = CppSimulator();
     JsSimulator* js_simulator = JsSimulator::getInstance();
