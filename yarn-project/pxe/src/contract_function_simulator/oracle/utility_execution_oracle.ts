@@ -42,12 +42,7 @@ import { LogRetrievalRequest } from '../noir-structs/log_retrieval_request.js';
 import { LogRetrievalResponse } from '../noir-structs/log_retrieval_response.js';
 import { UtilityContext } from '../noir-structs/utility_context.js';
 import { pickNotes } from '../pick_notes.js';
-import {
-  assertCompatibleOracleVersion,
-  getNullifierIndex,
-  syncNoteNullifiers,
-  validateEnqueuedNotesAndEvents,
-} from './common.js';
+import { assertCompatibleOracleVersion, syncNoteNullifiers, validateEnqueuedNotesAndEvents } from './common.js';
 import type { IMiscOracle, IUtilityExecutionOracle, NoteData } from './interfaces.js';
 import { MessageLoadOracleInputs } from './message_load_oracle_inputs.js';
 
@@ -375,8 +370,21 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    */
   public async utilityCheckNullifierExists(innerNullifier: Fr) {
     const nullifier = await siloNullifier(this.contractAddress, innerNullifier!);
-    const index = await getNullifierIndex(nullifier, this.aztecNode);
+    const index = await this.getNullifierIndex(nullifier);
     return index !== undefined;
+  }
+
+  protected async getNullifierIndex(nullifier: Fr) {
+    return await this.findLeafIndex('latest', MerkleTreeId.NULLIFIER_TREE, nullifier);
+  }
+
+  protected async findLeafIndex(
+    blockNumber: BlockParameter,
+    treeId: MerkleTreeId,
+    leafValue: Fr,
+  ): Promise<bigint | undefined> {
+    const [leafIndex] = await this.aztecNode.findLeavesIndexes(blockNumber, treeId, [leafValue]);
+    return leafIndex?.data;
   }
 
   /**

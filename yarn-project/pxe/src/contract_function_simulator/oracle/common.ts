@@ -1,7 +1,7 @@
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import type { EventSelector, FunctionArtifactWithContractName, FunctionSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { BlockParameter, DataInBlock } from '@aztec/stdlib/block';
+import type { DataInBlock } from '@aztec/stdlib/block';
 import { computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/stdlib/hash';
 import { type AztecNode, MAX_RPC_LEN } from '@aztec/stdlib/interfaces/server';
 import { Note, NoteDao } from '@aztec/stdlib/note';
@@ -42,20 +42,6 @@ export function assertCompatibleOracleVersion(version: number): void {
   if (version !== ORACLE_VERSION) {
     throw new Error(`Incompatible oracle version. Expected version ${ORACLE_VERSION}, got ${version}.`);
   }
-}
-
-export async function getNullifierIndex(nullifier: Fr, aztecNode: AztecNode) {
-  return await findLeafIndex('latest', MerkleTreeId.NULLIFIER_TREE, nullifier, aztecNode);
-}
-
-async function findLeafIndex(
-  blockNumber: BlockParameter,
-  treeId: MerkleTreeId,
-  leafValue: Fr,
-  aztecNode: AztecNode,
-): Promise<bigint | undefined> {
-  const [leafIndex] = await aztecNode.findLeavesIndexes(blockNumber, treeId, [leafValue]);
-  return leafIndex?.data;
 }
 
 export async function validateEnqueuedNotesAndEvents(
