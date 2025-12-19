@@ -42,7 +42,7 @@ println!("Hash: {:?}", response.hash);
 To use FFI backend:
 1. Build `libbarretenberg.a` for your target platform
 2. Enable the `ffi` feature: `cargo build --features ffi`
-3. Set `BARRETENBERG_LIB_DIR` to the directory containing `libbarretenberg.a`
+3. Configure the library path via `.cargo/config.toml` or `RUSTFLAGS="-L /path/to/lib"`
 
 ## Architecture
 
@@ -78,7 +78,7 @@ The crate provides a pluggable backend system:
 cargo test --release
 
 # Run tests with FfiBackend (requires libbarretenberg)
-BARRETENBERG_LIB_DIR=/path/to/lib cargo test --release --features ffi
+RUSTFLAGS="-L /path/to/lib" cargo test --release --features ffi
 ```
 
 ## Generated Code

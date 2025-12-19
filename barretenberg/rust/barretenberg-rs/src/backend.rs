@@ -10,12 +10,6 @@ use crate::error::Result;
 /// Implement this trait to create a custom backend for Barretenberg.
 /// The backend handles msgpack-encoded command/response communication.
 ///
-/// # Implementation Requirements
-///
-/// Implementors **must** also implement [`Drop`] to ensure cleanup happens
-/// even if [`Backend::destroy`] is not called explicitly. The `destroy` method
-/// exists to allow error reporting during cleanup, which `Drop` cannot provide.
-///
 /// # Example
 ///
 /// ```ignore
@@ -32,13 +26,6 @@ use crate::error::Result;
 ///     fn destroy(&mut self) -> Result<()> {
 ///         // Clean up resources
 ///         Ok(())
-///     }
-/// }
-///
-/// impl Drop for MyCustomBackend {
-///     fn drop(&mut self) {
-///         // Best-effort cleanup (errors cannot be reported)
-///         let _ = self.destroy();
 ///     }
 /// }
 /// ```

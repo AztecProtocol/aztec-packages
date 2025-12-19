@@ -27,6 +27,6 @@ hex.workspace = true
 default = ["native"]
 native = ["tokio", "nix", "tracing"]
 async = ["tokio"]
-# FFI backend - requires linking against libbarretenberg
-# Set BARRETENBERG_LIB_DIR to the directory containing libbarretenberg.a
+# FFI backend - requires linking against libbarretenberg.
+# Configure via .cargo/config.toml or RUSTFLAGS="-L /path/to/lib"
 ffi = []

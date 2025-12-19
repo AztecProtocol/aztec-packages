@@ -7,7 +7,9 @@
 //!
 //! This backend requires linking against `libbarretenberg`. You must:
 //! 1. Build Barretenberg as a static library (`libbarretenberg.a`)
-//! 2. Set the library search path via `BARRETENBERG_LIB_DIR` or cargo config
+//! 2. Configure the library search path, either via:
+//!    - `.cargo/config.toml`: `[build] rustflags = ["-L", "/path/to/lib"]`
+//!    - Environment: `RUSTFLAGS="-L /path/to/lib"`
 //!
 //! # Example
 //!
