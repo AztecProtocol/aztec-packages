@@ -27,6 +27,7 @@ import type { NoteStatus } from '@aztec/stdlib/note';
 import { MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import type { BlockHeader, Capsule } from '@aztec/stdlib/tx';
 
+import { EventService } from '../../events/event_service.js';
 import { NoteService } from '../../notes/note_service.js';
 import type {
   AddressDataProvider,
@@ -39,11 +40,13 @@ import type {
   SenderTaggingDataProvider,
 } from '../../storage/index.js';
 import { SiloedTag, Tag, WINDOW_HALF_SIZE, getInitialIndexesMap, getPreTagsForTheWindow } from '../../tagging/index.js';
+import { EventValidationRequest } from '../noir-structs/event_validation_request.js';
 import { LogRetrievalRequest } from '../noir-structs/log_retrieval_request.js';
 import { LogRetrievalResponse } from '../noir-structs/log_retrieval_response.js';
+import { NoteValidationRequest } from '../noir-structs/note_validation_request.js';
 import { UtilityContext } from '../noir-structs/utility_context.js';
 import { pickNotes } from '../pick_notes.js';
-import { assertCompatibleOracleVersion, validateEnqueuedNotesAndEvents } from './common.js';
+import { assertCompatibleOracleVersion } from './common.js';
 import type { IMiscOracle, IUtilityExecutionOracle, NoteData } from './interfaces.js';
 import { MessageLoadOracleInputs } from './message_load_oracle_inputs.js';
 
@@ -475,16 +478,49 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       throw new Error(`Got a note validation request from ${contractAddress}, expected ${this.contractAddress}`);
     }
 
-    await validateEnqueuedNotesAndEvents(
-      contractAddress,
-      noteValidationRequestsArrayBaseSlot,
-      eventValidationRequestsArrayBaseSlot,
-      this.capsuleDataProvider,
-      this.anchorBlockDataProvider,
-      this.aztecNode,
-      this.noteDataProvider,
-      this.privateEventDataProvider,
+    // We read all note and event validation requests and process them all concurrently. This makes the process much
+    // faster as we don't need to wait for the network round-trip.
+    const noteValidationRequests = (
+      await this.capsuleDataProvider.readCapsuleArray(contractAddress, noteValidationRequestsArrayBaseSlot)
+    ).map(NoteValidationRequest.fromFields);
+
+    const eventValidationRequests = (
+      await this.capsuleDataProvider.readCapsuleArray(contractAddress, eventValidationRequestsArrayBaseSlot)
+    ).map(EventValidationRequest.fromFields);
+
+    const noteService = new NoteService(this.noteDataProvider, this.aztecNode, this.anchorBlockDataProvider);
+    const noteDeliveries = noteValidationRequests.map(request =>
+      noteService.deliverNote(
+        request.contractAddress,
+        request.owner,
+        request.storageSlot,
+        request.randomness,
+        request.noteNonce,
+        request.content,
+        request.noteHash,
+        request.nullifier,
+        request.txHash,
+        request.recipient,
+      ),
     );
+
+    const eventService = new EventService(this.anchorBlockDataProvider, this.aztecNode, this.privateEventDataProvider);
+    const eventDeliveries = eventValidationRequests.map(request =>
+      eventService.deliverEvent(
+        request.contractAddress,
+        request.eventTypeId,
+        request.serializedEvent,
+        request.eventCommitment,
+        request.txHash,
+        request.recipient,
+      ),
+    );
+
+    await Promise.all([...noteDeliveries, ...eventDeliveries]);
+
+    // Requests are cleared once we're done.
+    await this.capsuleDataProvider.setCapsuleArray(contractAddress, noteValidationRequestsArrayBaseSlot, []);
+    await this.capsuleDataProvider.setCapsuleArray(contractAddress, eventValidationRequestsArrayBaseSlot, []);
   }
 
   public async utilityBulkRetrieveLogs(
