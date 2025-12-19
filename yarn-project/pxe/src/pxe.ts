@@ -1,5 +1,4 @@
 import type { PrivateEventFilter } from '@aztec/aztec.js/wallet';
-import type { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
@@ -1061,13 +1060,4 @@ export class PXE {
   public stop(): Promise<void> {
     return this.jobQueue.end();
   }
-}
-function readCurrentClassIdFromNode(
-  contractAddress: AztecAddress,
-  currentInstance: ContractInstanceWithAddress,
-  node: AztecNode,
-  blockNumber: BlockNumber,
-  timestamp: bigint,
-) {
-  throw new Error('Function not implemented.');
 }
