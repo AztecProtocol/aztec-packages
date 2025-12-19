@@ -20,18 +20,16 @@ Contract classes simplify code reuse by making implementations a first-class cit
 A contract class includes:
 
 - `artifact_hash`: Hash of the contract artifact
-- `private_functions`: List of individual private functions, including constructors
+- `private_functions_root`: Merkle root of the private functions tree
 - `packed_public_bytecode`: Packed bytecode representation of the AVM bytecode for all public functions
 
 The specification of the artifact hash is not enforced by the protocol. It should include commitments to utility functions code and compilation metadata. It is intended to be used by clients to verify that an offchain fetched artifact matches a registered class.
 
 ### Contract Class Registration
 
-A contract class is published by calling a private `publish` function in a canonical `ContractClassRegistry` contract, which emits a Registration Nullifier. This process guarantees that the public bytecode for a contract class is publicly available, which is required for deploying contract instances.
+A contract class is published by calling a private `publish` function in a canonical `ContractClassRegistry` contract, which emits a registration nullifier. This process guarantees that the public bytecode for a contract class is publicly available, which is required for deploying contract instances.
 
-Contract class registration can be skipped if there are no public functions in the contract class, and the contract will still be usable privately. However, the contract class must be registered if it contains public functions, as these functions need to be publicly verifiable.
-
-If you have a contract with public functions, you must either register the contract class to deploy or a contract, or skip the public deployment step, in which case only the private functions will be callable.
+Contract class registration can be skipped if there are no public functions, and the contract will still be usable privately. However, if you have public functions, you must either register the class before deployment or skip public deployment entirely (only private functions will be callable).
 
 ## Contract Instances
 
@@ -41,12 +39,11 @@ A deployed contract is effectively an instance of a contract class. It always re
 
 A contract instance includes:
 
-- `version`: Version identifier, initially one
 - `salt`: User-generated pseudorandom value for uniqueness
 - `deployer`: Optional address of the contract deployer. Zero for universal deployment
 - `contract_class_id`: Identifier of the contract class for this instance
 - `initialization_hash`: Hash of the selector and arguments to the constructor
-- `public_keys_hash`: Optional hash of public keys used for encryption and nullifying
+- `public_keys`: Public keys used for encryption and nullifying (nullifier, incoming viewing, outgoing viewing, and tagging keys)
 
 ### Instance Address
 
@@ -56,12 +53,12 @@ The address of a contract instance is computed as the hash of the elements in it
 
 Aztec makes an important distinction between initialization and public deployment:
 
-1. **Initialization**: A contract instance is considered Initialized once it emits an initialization nullifier, meaning it can only be initialized once. The default state for any address is to be uninitialized. A user who knows the preimage of the address can still issue a private call into a function in the contract, as long as that function doesn't assert that the contract has been initialized.
-2. **Public Deployment**: A Contract Instance is considered to be publicly deployed when it has been broadcast to the network via a canonical `ContractInstanceRegistry` contract, which also emits a deployment nullifier. All public function calls to an undeployed address must fail, since the contract class for it is not known to the network.
+1. **Initialization**: A contract instance is considered initialized once it emits an initialization nullifier, meaning it can only be initialized once. The default state for any address is uninitialized. A user who knows the preimage of the address can still issue a private call into a function in the contract, as long as that function doesn't assert that the contract has been initialized.
+2. **Public Deployment**: A contract instance is considered publicly deployed when it has been broadcast to the network via the `publish_for_public_execution` function in the canonical `ContractInstanceRegistry` contract, which emits a deployment nullifier. All public function calls to an undeployed address fail, since the contract class is not known to the network.
 
 ### Initialization
 
-Contract constructors are not enshrined in the protocol, but handled at the application circuit level. Constructors are methods used for initializing a contract, either private or public, and contract classes may declare more than a single constructor. They can be declared by the `#[initializer]` macro. You can read more about how to use them on the [Defining Initializer Functions](../aztec-nr/framework-description/functions/how_to_define_functions.md#initializer-functions) page.
+Contract constructors are not enshrined in the protocol, but handled at the application circuit level. Constructors are methods used for initializing a contract, either private or public, and contract classes may declare more than a single constructor. They can be declared by the `#[initializer]` macro. You can read more about how to use them on the [defining initializer functions](../aztec-nr/framework-description/functions/how_to_define_functions.md#define-initializer-functions) page.
 
 A contract must ensure:
 
@@ -74,13 +71,11 @@ Functions in a contract may skip the initialization check.
 
 ## Verification of Executed Code
 
-The protocol circuits, both private and public, are responsible for verifying that the code loaded for a given function execution matches the expected one. This includes checking that the `contract_class_id` of the called address is the expected one and that the function selector being executed is part of the `contract_class_id`.
+When a function is called on a contract instance, the protocol circuits verify that the executed code matches what was registered. For private functions, the circuit checks that the function's verification key hash exists in the `private_functions_root` of the contract class. For public functions, the AVM verifies that the bytecode matches the registered `packed_public_bytecode`. This verification ensures that contracts execute the exact code that was published during class registration.
 
 ## Genesis Contracts
 
-The `ContractInstanceRegistry` and `ContractClassRegistry` contracts exist from the genesis of the Aztec Network, as they are necessary for deploying other contracts to the network. Their nullifiers are pre-inserted into the genesis nullifier tree.
-
-This modular approach to contract deployment creates a flexible system that supports diverse use cases, from public applications to private contract interactions, while maintaining the security and integrity of the Aztec protocol.
+The `ContractInstanceRegistry` and `ContractClassRegistry` contracts are protocol contracts that exist from the genesis of the Aztec Network at predefined addresses. They are necessary for deploying other contracts to the network.
 
 ## Further reading
 

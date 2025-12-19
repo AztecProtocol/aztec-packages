@@ -18,7 +18,10 @@ There are multiple types of calls, and some of the naming can make things **very
 
 ## Ethereum Call Types
 
-Even though we're discussing Aztec, its design is heavily influenced by Ethereum and many of the APIs and concepts are quite similar. It is therefore worthwhile to briefly review how things work there and what naming conventions are used to provide context to the Aztec-specific concepts.
+Aztec's design is heavily influenced by Ethereum, and many APIs and concepts are similar. This section provides background on Ethereum call types for context. If you're already familiar with Ethereum, you can skip to [Aztec Call Types](#aztec-call-types).
+
+<details>
+<summary>Ethereum background (click to expand)</summary>
 
 Broadly speaking, Ethereum contracts can be thought of as executing as a result of three different things: running certain EVM opcodes, running Solidity code (which compiles to EVM opcodes), or via the node JSON-RPC interface (e.g. when executing transactions).
 
@@ -67,7 +70,7 @@ This method is how transactions are sent to a node to get them to be broadcast a
 - there are no return values, even if the contract function invoked does return some data
 - there is no explicit caller: it is instead derived from a provided signature
 
-Some client libraries choose to automatically issue `eth_sendTransaction` when calling functions from a contract ABI that are not marked as `view` - [ethers is a good example](https://docs.ethers.org/v5/getting-started/#getting-started--writing). Notably, this means that any return value is lost and not available to the calling client - the library typically returns a transaction receipt instead. If the return value is required, then the only option is to simulate the call `eth_call`.
+Some client libraries choose to automatically issue `eth_sendTransaction` when calling functions from a contract ABI that are not marked as `view` - [ethers is a good example](https://docs.ethers.org/v5/getting-started/#getting-started--writing). Notably, this means that any return value is lost and not available to the calling client - the library typically returns a transaction receipt instead. If the return value is required, the only option is to simulate the call using `eth_call`.
 
 Note that it is possible to call non state-changing functions (i.e. `view`) with `eth_sendTransaction` - this is always meaningless. What transactions do is change the blockchain state, so all calling such a function achieves is for the caller to lose funds by paying for gas fees. The sole purpose of a `view` function is to return data, and `eth_sendTransaction` does not make the return value available.
 
@@ -89,11 +92,19 @@ What `eth_call` does is simulate a transaction (a call to a contract) given the 
 
 Because some libraries ([such as ethers](https://docs.ethers.org/v5/getting-started/#getting-started--reading)) automatically use `eth_call` for `view` functions (which when called via Solidity result in the `STATICCALL` opcode), these concepts can be hard to tell apart. The following bears repeating: **an `eth_call`'s call context is the same as `eth_sendTransaction`, and it is a `CALL` context, not `STATICCALL`.**
 
+</details>
+
 ## Aztec Call Types
 
-Large parts of the Aztec Network's design are still not finalized, and the nitty-gritty of contract calls is no exception. This section won't therefore contain a thorough review of these, but rather list some of the main ways contracts can currently be interacted with, with analogies to Ethereum call types when applicable.
+While Ethereum contracts are defined by bytecode that runs on the EVM, Aztec contracts have multiple modes of execution depending on the function that is invoked. This section covers the main ways contracts can be interacted with, drawing analogies to Ethereum call types where applicable.
 
-While Ethereum contracts are defined by bytecode that runs on the EVM, Aztec contracts have multiple modes of execution depending on the function that is invoked.
+### Quick Reference
+
+| Execution Mode | Annotation               | Runs On         | State Access          | Use Case                                     |
+| -------------- | ------------------------ | --------------- | --------------------- | -------------------------------------------- |
+| **Private**    | `#[external("private")]` | User's device   | Private state (notes) | Confidential transactions, private transfers |
+| **Public**     | `#[external("public")]`  | Sequencer       | Public state          | Token balances, access control checks        |
+| **Utility**    | `#[external("utility")]` | Offchain client | Both (unconstrained)  | Read-only queries, frontend data fetching    |
 
 ### Private Execution
 
@@ -101,7 +112,7 @@ Contract functions marked with `#[external("private")]` can only be called priva
 
 #### Private Calls
 
-Private functions from other contracts can be called either regularly or statically by using the `.call()` and `.static_call` functions. They will also be 'executed' (i.e. proved) in the user's device, and `static_call` will fail if any state changes are attempted (like the EVM's `STATICCALL`).
+Private functions from other contracts can be called either regularly or statically by using `self.call()` and `self.view()`. They will also be 'executed' (i.e. proved) in the user's device, and `self.view()` will fail if any state changes are attempted (like the EVM's `STATICCALL`).
 
 ```rust title="private_call" showLineNumbers
 let _ = Token::at(stable_coin).burn_private(from, amount, authwit_nonce).call(&mut context);
@@ -123,9 +134,9 @@ Lending::at(context.this_address())
     .enqueue(&mut context);
 ```
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v3.0.0-devnet.5/noir-projects/noir-contracts/contracts/app/lending_contract/src/main.nr#L119-L123" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/lending_contract/src/main.nr#L119-L123</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v3.0.0-devnet.5/noir-projects/noir-contracts/contracts/app/lending_contract/src/main.nr#L119-L123" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/lending\*contract/src/main.nr#L119-L123</a></sub></sup>
 
-It is also possible to create public functions that can _only_ be invoked by privately enqueueing a call from the same contract, which can be very useful to update public state after private execution (e.g. update a token's supply after privately minting). This is achieved by annotating functions with `#[internal]`.
+It is also possible to create public functions that can _only_ be invoked by privately enqueueing a call from the same contract, which can be very useful to update public state after private execution (e.g. update a token's supply after privately minting). This is achieved by annotating functions with `#[only_self]`.
 
 A common pattern is to enqueue public calls to check some validity condition on public state, e.g. that a deadline has not expired or that some public value is set.
 
@@ -183,25 +194,25 @@ fn check_timestamp(operation: u8, value: u64) {
 > <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v3.0.0-devnet.5/noir-projects/noir-contracts/contracts/protocol/router_contract/src/main.nr#L12-L22" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/protocol/router_contract/src/main.nr#L12-L22</a></sub></sup>
 
 :::note
-Note that the router contract is not currently part of the [aztec-nr repository](https://github.com/AztecProtocol/aztec-nr).
-To add it as a dependency point to the aztec-packages repository instead:
+The router contract is not part of the [aztec-nr repository](https://github.com/AztecProtocol/aztec-nr).
+To add it as a dependency, point to the aztec-packages repository:
 
 ```toml
 [dependencies]
-aztec = { git = "https://github.com/AztecProtocol/aztec-packages/", tag = "v3.0.0-devnet.5", directory = "noir-projects/noir-contracts/contracts/protocol/router_contract/src" }
+router = { git = "https://github.com/AztecProtocol/aztec-packages/", tag = "v3.0.0-devnet.5", directory = "noir-projects/noir-contracts/contracts/protocol/router_contract" }
 ```
 
 :::
 
-Even with the router contract achieving good privacy is hard.
+Even with the router contract, achieving good privacy is hard.
 For example, if the value being checked against is unique and stored in the contract's public storage, it's then simple to find private transactions that are using that value in the enqueued public reads, and therefore link them to this contract.
-For this reason it is encouraged to try to avoid public function calls and instead privately read [Shared State](../guides/smart_contracts/how_to_define_storage.md#delayed-public-mutable) when possible.
+For this reason it is encouraged to try to avoid public function calls and instead privately read [Delayed Public Mutable](../guides/smart_contracts/how_to_define_storage.md#delayed-public-mutable) state when possible.
 
 ### Public Execution
 
 Contract functions marked with `#[external("public")]` can only be called publicly, and are executed by the sequencer. The computation model is very similar to the EVM: all state, parameters, etc. are known to the entire network, and no data is private. Static execution like the EVM's `STATICCALL` is possible too, with similar semantics (state can be accessed but not modified, etc.).
 
-Since private calls are always run in a user's device, it is not possible to perform any private execution from a public context. A reasonably good mental model for public execution is that of an EVM in which some work has already been done privately, and all that is know about it is its correctness and side-effects (new notes and nullifiers, enqueued public calls, etc.). A reverted public execution will also revert the private side-effects.
+Since private calls are always run in a user's device, it is not possible to perform any private execution from a public context. A reasonably good mental model for public execution is that of an EVM in which some work has already been done privately, and all that is known about it is its correctness and side-effects (new notes and nullifiers, enqueued public calls, etc.). A reverted public execution will also revert the private side-effects.
 
 Public functions in other contracts can be called both regularly and statically, just like on the EVM.
 
@@ -219,16 +230,21 @@ Token::at(config.accepted_asset)
 > <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v3.0.0-devnet.5/noir-projects/noir-contracts/contracts/fees/fpc_contract/src/main.nr#L160-L169" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/fees/fpc_contract/src/main.nr#L160-L169</a></sub></sup>
 
 :::note
-This is the same function that was called by privately enqueuing a call to it! Public functions can be called either directly in a public context, or asynchronously by enqueuing in a private context.
+Public functions can be called either directly in a public context (as shown above), or asynchronously by enqueuing from a private context (as shown in the [Public Calls](#public-calls) section).
 :::
 
 ### Utility
 
-Contract functions marked with `#[external("utility")]` cannot be called as part of a transaction, and are only invoked by applications that interact with contracts to perform state queries from an offchain client (from both private and public state!) or to modify local contract-related PXE state (e.g. when processing logs in Aztec.nr). No guarantees are made on the correctness of the result since the entire execution is unconstrained and heavily reliant on oracle calls. It is possible however to verify that the bytecode being executed is the correct one, since a contract's address includes a commitment to all of its utility functions.
+Contract functions marked with `#[external("utility")]` cannot be called as part of a transaction. They are only invoked by applications that interact with contracts for:
+
+- **State queries**: Reading from both private and public state via an offchain client
+- **Local state management**: Modifying contract-related PXE state (e.g., processing logs in Aztec.nr)
+
+Since utility execution is unconstrained and relies heavily on oracle calls, no guarantees are made on the correctness of results. However, you can verify that the bytecode being executed is correct, since a contract's address includes a commitment to all of its utility functions.
 
 ### aztec.js
 
-There are three different ways to execute an Aztec contract function using the `aztec.js` library, with close similarities to their [JSON-RPC counterparts](#json-rpc).
+There are two main ways to execute an Aztec contract function using the `aztec.js` library, with close similarities to their [JSON-RPC counterparts](#json-rpc).
 
 #### `simulate`
 
@@ -257,9 +273,17 @@ expect(balance).toEqual(1n);
 No correctness is guaranteed on the result of `simulate`! Correct execution is entirely optional and left up to the client that handles this request.
 :::
 
-#### `prove`
+#### `send`
 
-This creates and returns a transaction request, which includes proof of correct private execution and side-effects. The request is not broadcast however, and no gas is spent. It is typically used in testing contexts to inspect transaction parameters or to check for execution failure.
+This creates a transaction, generates proofs for private execution, broadcasts the transaction to the network, and returns a receipt. This is how transactions are sent, getting them to be included in blocks and spending gas. It is similar to [`eth_sendTransaction`](#eth_sendtransaction), except it also performs work on the user's device, namely the production of the proof for the private part of the transaction.
+
+```typescript title="send_tx" showLineNumbers
+await contract.methods.buy_pack(seed).send({ from: firstPlayer }).wait();
+```
+
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v3.0.0-devnet.5/yarn-project/end-to-end/src/e2e_card_game.test.ts#L113-L115" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/e2e_card_game.test.ts#L113-L115</a></sub></sup>
+
+You can also use `send` to check for execution failures in testing contexts by expecting the transaction to throw:
 
 ```typescript title="local-tx-fails" showLineNumbers
 await expect(
@@ -272,12 +296,9 @@ await expect(
 
 > <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v3.0.0-devnet.5/yarn-project/end-to-end/src/e2e_crowdfunding_and_claim.test.ts#L206-L210" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/e2e_crowdfunding_and_claim.test.ts#L206-L210</a></sub></sup>
 
-#### `send`
+## Next Steps
 
-This is the same as [`prove`](#prove) except it also broadcasts the transaction and returns a receipt. This is how transactions are sent, getting them to be included in blocks and spending gas. It is similar to [`eth_sendTransaction`](#eth_sendtransaction), except it also performs some work on the user's device, namely the production of the proof for the private part of the transaction.
-
-```typescript title="send_tx" showLineNumbers
-await contract.methods.buy_pack(seed).send({ from: firstPlayer }).wait();
-```
-
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v3.0.0-devnet.5/yarn-project/end-to-end/src/e2e_card_game.test.ts#L113-L115" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/e2e_card_game.test.ts#L113-L115</a></sub></sup>
+- [State Management](./storage/state_model.md) - Learn how private and public state works in Aztec
+- [Transactions](./transactions.md) - Understand the transaction lifecycle
+- [Contract Creation](./smart_contracts/contract_creation.md) - Deploy and interact with contracts
+- [Declaring Storage](../guides/smart_contracts/how_to_define_storage.md) - Define storage in your contracts
