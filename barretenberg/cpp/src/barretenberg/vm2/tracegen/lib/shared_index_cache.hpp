@@ -42,6 +42,13 @@ class SharedIndexCache {
     SharedIndexCache(SharedIndexCache&&) = delete;
     SharedIndexCache& operator=(SharedIndexCache&&) = delete;
 
+    // Clear all cached indices. This should be called when the underlying trace changes.
+    void clear()
+    {
+        std::unique_lock lock(mutex_);
+        cache_.clear();
+    }
+
     // Get or build an index for the given destination table.
     // If the index already exists or is being built, this will wait for it and return a reference.
     // If the index doesn't exist, the calling thread will build it using the provided build function.
