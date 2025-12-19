@@ -67,8 +67,8 @@ template <bool IsRecursive = false> struct ChonkProof_ {
 
     // Constructors for recursive mode (IsRecursive=true)
     template <typename B = Builder>
-    ChonkProof_(B& builder, const ChonkProof_<false>& proof)
         requires IsRecursive
+    ChonkProof_(B& builder, const ChonkProof_<false>& proof)
         : mega_proof(builder, proof.mega_proof)
         , goblin_proof(builder, proof.goblin_proof)
     {}
