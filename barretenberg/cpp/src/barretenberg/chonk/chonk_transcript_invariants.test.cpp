@@ -162,7 +162,7 @@ TEST_F(ChonkTranscriptInvariantTests, RecursiveVerificationTranscriptCount)
     auto stdlib_vk_and_hash = std::make_shared<RecursiveVerifier::VKAndHash>(stdlib_vk);
 
     RecursiveVerifier verifier(stdlib_vk_and_hash);
-    bb::ChonkStdlibProof<UltraCircuitBuilder> stdlib_proof(builder, proof);
+    bb::ChonkStdlibProof stdlib_proof(builder, proof);
     [[maybe_unused]] auto output = verifier.verify(stdlib_proof);
 
     size_t index_after_verify = bb::unique_transcript_index.load();

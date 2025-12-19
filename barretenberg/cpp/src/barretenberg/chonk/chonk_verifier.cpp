@@ -18,7 +18,7 @@ namespace bb {
  *   3. Goblin verification using ECC op wire commitments from the kernel
  *   4. (Native only) Pairing check and IPA verification
  *
- * @param proof Chonk proof (ChonkStdlibProof for recursive, Chonk::Proof for native)
+ * @param proof Chonk proof (ChonkStdlibProof for recursive, ChonkProof for native)
  * @return Output (ReductionResult for recursive, bool for native)
  */
 template <bool IsRecursive> ChonkVerifier<IsRecursive>::Output ChonkVerifier<IsRecursive>::verify(const Proof& proof)

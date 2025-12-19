@@ -246,7 +246,7 @@ TEST(MockVerifierInputsTest, MockChonkProofSize)
     // to update the Prover.toml file for rollup-tx-private to reflect the new length of the Chonk proof.
     size_t CURRENT_CHONK_PROOF_SIZE_WITHOUT_PUB_INPUTS = 1907;
     HonkProof chonk_proof = create_mock_chonk_proof<Builder>();
-    EXPECT_EQ(chonk_proof.size(), Chonk::Proof::PROOF_LENGTH());
+    EXPECT_EQ(chonk_proof.size(), ChonkProof::PROOF_LENGTH);
     EXPECT_EQ(chonk_proof.size(),
               CURRENT_CHONK_PROOF_SIZE_WITHOUT_PUB_INPUTS +
                   stdlib::recursion::honk::HidingKernelIO<Builder>::PUBLIC_INPUTS_SIZE)

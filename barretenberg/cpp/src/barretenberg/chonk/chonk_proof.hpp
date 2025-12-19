@@ -7,6 +7,7 @@
 #pragma once
 
 #include "barretenberg/goblin/goblin.hpp"
+#include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 
@@ -21,6 +22,7 @@ template <bool IsRecursive = false> struct ChonkProof_ {
     using Builder = std::conditional_t<IsRecursive, UltraCircuitBuilder, void>;
     using HonkProof = std::conditional_t<IsRecursive, stdlib::Proof<Builder>, ::bb::HonkProof>;
     using GoblinProof = std::conditional_t<IsRecursive, GoblinStdlibProof, ::bb::GoblinProof>;
+    using FF = std::conditional_t<IsRecursive, stdlib::field_t<Builder>, bb::fr>;
 
     HonkProof mega_proof;     // MegaZK proof of the hiding kernel circuit
     GoblinProof goblin_proof; // Goblin proof (Merge + ECCVM + IPA + Translator)
@@ -46,7 +48,6 @@ template <bool IsRecursive = false> struct ChonkProof_ {
 
     // Default constructor
     ChonkProof_() = default;
-
     // Constructor for both native and recursive modes
     ChonkProof_(HonkProof&& mega, GoblinProof&& goblin)
         : mega_proof(std::move(mega))
@@ -61,63 +62,59 @@ template <bool IsRecursive = false> struct ChonkProof_ {
         , goblin_proof(builder, proof.goblin_proof)
     {}
 
-    /**
-     * @brief Construct from field elements (recursive mode only)
-     * @param proof_indices Field elements representing the proof
-     * @param public_inputs_size Number of public inputs
-     */
-    template <typename B = Builder>
-    ChonkProof_(const std::vector<stdlib::field_t<B>>& proof_indices, size_t public_inputs_size)
-        requires IsRecursive
-    {
-        BB_ASSERT_EQ(proof_indices.size(),
-                     PROOF_LENGTH + public_inputs_size,
-                     "Number of indices differs from the expected proof size.");
-
-        auto it = proof_indices.begin();
-
-        // Mega proof
-        std::ptrdiff_t start_idx = 0;
-        std::ptrdiff_t end_idx = static_cast<std::ptrdiff_t>(
-            HIDING_KERNEL_PROOF_LENGTH_WITHOUT_PUBLIC_INPUTS +
-            stdlib::recursion::honk::HidingKernelIO<Builder>::PUBLIC_INPUTS_SIZE + public_inputs_size);
-        mega_proof.insert(mega_proof.end(), it + start_idx, it + end_idx);
-
-        // Merge proof
-        start_idx = end_idx;
-        end_idx += static_cast<std::ptrdiff_t>(MERGE_PROOF_SIZE);
-        goblin_proof.merge_proof.insert(goblin_proof.merge_proof.end(), it + start_idx, it + end_idx);
-
-        // ECCVM proof (IPA is separate)
-        start_idx = end_idx;
-        end_idx += static_cast<std::ptrdiff_t>(ECCVMFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS);
-        goblin_proof.eccvm_proof.insert(goblin_proof.eccvm_proof.end(), it + start_idx, it + end_idx);
-
-        // IPA proof
-        start_idx = end_idx;
-        end_idx += static_cast<std::ptrdiff_t>(IPA_PROOF_LENGTH);
-        goblin_proof.ipa_proof.insert(goblin_proof.ipa_proof.end(), it + start_idx, it + end_idx);
-
-        // Translator proof
-        start_idx = end_idx;
-        end_idx += static_cast<std::ptrdiff_t>(TranslatorFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS);
-        goblin_proof.translator_proof.insert(goblin_proof.translator_proof.end(), it + start_idx, it + end_idx);
-
-        BB_ASSERT_EQ(static_cast<uint32_t>(end_idx),
-                     PROOF_LENGTH + public_inputs_size,
-                     "Reconstructed a Chonk proof of wrong the length from proof indices.");
-    }
-
     // Common methods (available for both native and recursive)
     size_t size() const { return mega_proof.size() + goblin_proof.size(); }
 
     /**
-     * @brief Serialize proof to field elements
+     * @brief Serialize proof to field elements (native mode)
      */
-    std::vector<bb::fr> to_field_elements() const;
+    std::vector<FF> to_field_elements() const;
 
-    static ChonkProof_ from_field_elements(const std::vector<bb::fr>& fields);
+    /**
+     * @brief Common logic to reconstruct proof from field elements
+     * @tparam FieldType Either bb::fr (native) or stdlib::field_t<Builder> (recursive)
+     */
+    static ChonkProof_ from_field_elements(const std::vector<FF>& fields)
+    {
 
+        HonkProof mega_proof;
+        GoblinProof goblin_proof;
+
+        // Calculate custom public inputs size from total proof size
+        BB_ASSERT_GTE(fields.size(), PROOF_LENGTH, "Proof size is less than minimum proof length");
+        size_t custom_public_inputs_size = fields.size() - PROOF_LENGTH;
+
+        // Mega proof
+        auto start_idx = fields.begin();
+        auto end_idx =
+            start_idx + static_cast<std::ptrdiff_t>(HIDING_KERNEL_PROOF_LENGTH_WITHOUT_PUBLIC_INPUTS +
+                                                    bb::HidingKernelIO::PUBLIC_INPUTS_SIZE + custom_public_inputs_size);
+        mega_proof.insert(mega_proof.end(), start_idx, end_idx);
+
+        // Merge proof
+        start_idx = end_idx;
+        end_idx += static_cast<std::ptrdiff_t>(MERGE_PROOF_SIZE);
+        goblin_proof.merge_proof.insert(goblin_proof.merge_proof.end(), start_idx, end_idx);
+
+        // ECCVM proof
+        start_idx = end_idx;
+        end_idx += static_cast<std::ptrdiff_t>(ECCVMFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS);
+        goblin_proof.eccvm_proof.insert(goblin_proof.eccvm_proof.end(), start_idx, end_idx);
+
+        // IPA proof
+        start_idx = end_idx;
+        end_idx += static_cast<std::ptrdiff_t>(IPA_PROOF_LENGTH);
+        goblin_proof.ipa_proof.insert(goblin_proof.ipa_proof.end(), start_idx, end_idx);
+
+        // Translator proof
+        start_idx = end_idx;
+        end_idx += static_cast<std::ptrdiff_t>(TranslatorFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS);
+        goblin_proof.translator_proof.insert(goblin_proof.translator_proof.end(), start_idx, end_idx);
+
+        return ChonkProof_{ std::move(mega_proof), std::move(goblin_proof) };
+    }
+
+  public:
     // MSGPACK methods (native mode only, IsRecursive=false)
     msgpack::sbuffer to_msgpack_buffer() const
         requires(!IsRecursive);

@@ -1,4 +1,5 @@
 #include "barretenberg/chonk/chonk_verifier.hpp"
+#include "barretenberg/chonk/chonk_proof.hpp"
 #include "barretenberg/chonk/mock_circuit_producer.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/test.hpp"
@@ -9,8 +10,8 @@ class ChonkRecursionTests : public testing::Test {
   public:
     using Builder = UltraCircuitBuilder;
     using ChonkVerifier = bb::ChonkRecursiveVerifier;
-    using Proof = Chonk::Proof;
-    using StdlibProof = bb::ChonkStdlibProof<Builder>;
+    using Proof = ChonkProof;
+    using StdlibProof = ChonkStdlibProof;
     using RollupFlavor = UltraRollupRecursiveFlavor_<Builder>;
     using NativeFlavor = RollupFlavor::NativeFlavor;
     using UltraRecursiveVerifier = UltraVerifier_<RollupFlavor, RollupIO>;

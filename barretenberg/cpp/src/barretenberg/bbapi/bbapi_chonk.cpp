@@ -122,8 +122,7 @@ ChonkProve::Response ChonkProve::execute(BBApiRequest& request) &&
         throw_or_abort("Failed to verify the generated proof!");
     }
 
-    response.proof =
-        Chonk::Proof{ .mega_proof = std::move(proof.mega_proof), .goblin_proof = std::move(proof.goblin_proof) };
+    response.proof = ChonkProof{ std::move(proof.mega_proof), std::move(proof.goblin_proof) };
 
     request.ivc_in_progress.reset();
     request.ivc_stack_depth = 0;

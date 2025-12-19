@@ -54,9 +54,9 @@ class ChonkTests : public ::testing::Test {
         }
     }
 
-    static std::pair<Chonk::Proof, Chonk::VerificationKey> accumulate_and_prove_ivc(size_t num_app_circuits,
-                                                                                    TestSettings settings = {},
-                                                                                    bool check_circuit_sizes = false)
+    static std::pair<ChonkProof, Chonk::VerificationKey> accumulate_and_prove_ivc(size_t num_app_circuits,
+                                                                                  TestSettings settings = {},
+                                                                                  bool check_circuit_sizes = false)
     {
         CircuitProducer circuit_producer(num_app_circuits);
         const size_t num_circuits = circuit_producer.total_num_circuits;
@@ -68,7 +68,7 @@ class ChonkTests : public ::testing::Test {
         return { ivc.prove(), ivc.get_vk() };
     };
 
-    static bool verify_chonk(const Chonk::Proof& proof, const Chonk::VerificationKey& vk)
+    static bool verify_chonk(const ChonkProof& proof, const Chonk::VerificationKey& vk)
     {
         auto vk_and_hash = std::make_shared<ChonkVerifier::VKAndHash>(vk.mega);
         ChonkVerifier verifier(vk_and_hash);
@@ -459,7 +459,7 @@ TEST_F(ChonkTests, MsgpackProofFromFileOrBuffer)
     { // Serialize/deserialize the proof to/from a file, check that it verifies
         const std::string filename = "proof.msgpack";
         proof.to_file_msgpack(filename);
-        auto proof_deserialized = Chonk::Proof::from_file_msgpack(filename);
+        auto proof_deserialized = ChonkProof::from_file_msgpack(filename);
 
         EXPECT_TRUE(verify_chonk(proof_deserialized, vk));
     }
@@ -468,14 +468,14 @@ TEST_F(ChonkTests, MsgpackProofFromFileOrBuffer)
         uint8_t* buffer = proof.to_msgpack_heap_buffer();
         auto uint8_buffer = from_buffer<std::vector<uint8_t>>(buffer);
         uint8_t const* uint8_ptr = uint8_buffer.data();
-        auto proof_deserialized = Chonk::Proof::from_msgpack_buffer(uint8_ptr);
+        auto proof_deserialized = ChonkProof::from_msgpack_buffer(uint8_ptr);
 
         EXPECT_TRUE(verify_chonk(proof_deserialized, vk));
     }
 
     { // Check that attempting to deserialize a proof from a buffer with random bytes fails gracefully
         msgpack::sbuffer buffer = proof.to_msgpack_buffer();
-        auto proof_deserialized = Chonk::Proof::from_msgpack_buffer(buffer);
+        auto proof_deserialized = ChonkProof::from_msgpack_buffer(buffer);
         EXPECT_TRUE(verify_chonk(proof_deserialized, vk));
 
         std::vector<uint8_t> random_bytes(buffer.size());
@@ -483,7 +483,7 @@ TEST_F(ChonkTests, MsgpackProofFromFileOrBuffer)
         std::copy(random_bytes.begin(), random_bytes.end(), buffer.data());
 
         // Expect deserialization to fail with error msgpack::v1::type_error with description "std::bad_cast"
-        EXPECT_THROW(Chonk::Proof::from_msgpack_buffer(buffer), msgpack::v1::type_error);
+        EXPECT_THROW(ChonkProof::from_msgpack_buffer(buffer), msgpack::v1::type_error);
     }
 };
 

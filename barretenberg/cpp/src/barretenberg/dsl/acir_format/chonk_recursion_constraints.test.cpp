@@ -30,7 +30,7 @@ class ChonkRecursionConstraintTest : public ::testing::Test {
 
     struct ChonkData {
         std::shared_ptr<MegaZKVerificationKey> mega_vk;
-        Chonk::Proof proof;
+        ChonkProof proof;
     };
 
     static ChonkData get_chonk_data()
@@ -45,7 +45,7 @@ class ChonkRecursionConstraintTest : public ::testing::Test {
             circuit_producer.construct_and_accumulate_next_circuit(ivc);
         }
 
-        Chonk::Proof proof = ivc.prove();
+        ChonkProof proof = ivc.prove();
         return { ivc.get_vk().mega, proof };
     }
 

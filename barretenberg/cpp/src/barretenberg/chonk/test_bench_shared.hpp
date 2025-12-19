@@ -18,7 +18,7 @@ namespace bb {
  *
  * @param NUM_CIRCUITS Number of circuits to accumulate (apps + kernels)
  */
-std::pair<Chonk::Proof, Chonk::VerificationKey> accumulate_and_prove_with_precomputed_vks(
+std::pair<ChonkProof, Chonk::VerificationKey> accumulate_and_prove_with_precomputed_vks(
     size_t num_app_circuits, auto& precomputed_vks, const bool large_first_app = true)
 {
     PrivateFunctionExecutionMockCircuitProducer circuit_producer(num_app_circuits, large_first_app);

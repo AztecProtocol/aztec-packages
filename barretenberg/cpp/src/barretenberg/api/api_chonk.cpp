@@ -121,7 +121,7 @@ bool ChonkAPI::verify([[maybe_unused]] const Flags& flags,
 {
     BB_BENCH_NAME("ChonkAPI::verify");
     auto proof_fields = many_from_buffer<fr>(read_file(proof_path));
-    auto proof = Chonk::Proof::from_field_elements(proof_fields);
+    auto proof = ChonkProof::from_field_elements(proof_fields);
 
     auto vk_buffer = read_file(vk_path);
 

@@ -74,7 +74,7 @@ App₀ → Kernel₀ → App₁ → Kernel₁ → ... → Appₙ → Reset → T
 
 ### Proof Structure
 
-A Chonk proof (`Chonk::Proof`) consists of:
+A Chonk proof (`ChonkProof`) consists of:
 
 1. **Mega proof**: ZK proof of the Hiding kernel which recursively verifies:
    - The final HyperNova folding proof
@@ -765,10 +765,10 @@ The type indicates which proof is being verified BY the current kernel:
 
 ```cpp
 // Without public inputs
-size_t len = Chonk::Proof::PROOF_LENGTH_WITHOUT_PUB_INPUTS();
+size_t len = ChonkProof::PROOF_LENGTH_WITHOUT_PUB_INPUTS();
 
 // With HidingKernelIO public inputs
-size_t len = Chonk::Proof::PROOF_LENGTH();
+size_t len = ChonkProof::PROOF_LENGTH();
 ```
 
 ### Serialization
@@ -776,15 +776,15 @@ size_t len = Chonk::Proof::PROOF_LENGTH();
 ```cpp
 // Proof to/from field elements
 std::vector<FF> fields = proof.to_field_elements();
-Chonk::Proof proof = Chonk::Proof::from_field_elements(fields);
+ChonkProof proof = ChonkProof::from_field_elements(fields);
 
 // Proof to/from msgpack
 msgpack::sbuffer buf = proof.to_msgpack_buffer();
-Chonk::Proof proof = Chonk::Proof::from_msgpack_buffer(buf);
+ChonkProof proof = ChonkProof::from_msgpack_buffer(buf);
 
 // Proof to/from file
 proof.to_file_msgpack("proof.bin");
-Chonk::Proof proof = Chonk::Proof::from_file_msgpack("proof.bin");
+ChonkProof proof = ChonkProof::from_file_msgpack("proof.bin");
 
 // VK serialization
 std::vector<bb::fr> fields = vk.to_field_elements();
