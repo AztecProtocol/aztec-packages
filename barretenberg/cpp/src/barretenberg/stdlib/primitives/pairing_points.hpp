@@ -88,7 +88,7 @@ template <typename Curve> struct PairingPoints {
      * @details The pairing points are aggregated using challenges generated as the consecutive hashes of the pairing
      * points being aggregated.
      */
-    static PairingPoints aggregate_multiple(std::vector<PairingPoints>& pairing_points)
+    static PairingPoints aggregate_multiple(std::vector<PairingPoints>& pairing_points, bool handle_edge_cases = true)
     {
         size_t num_points = pairing_points.size();
         BB_ASSERT_GT(num_points, 1UL, "This method should be used only with more than one pairing point.");
@@ -102,22 +102,34 @@ template <typename Curve> struct PairingPoints {
             second_components.emplace_back(points.P1);
         }
 
-        // Fiat-Shamir
+        // Fiat-Shamir: hash all points for binding, but only need n-1 challenges
         StdlibTranscript<Builder> transcript{};
         std::vector<std::string> labels;
-        labels.reserve(num_points);
+        labels.reserve(num_points - 1); // Only need n-1 challenges
         for (size_t idx = 0; auto [first, second] : zip_view(first_components, second_components)) {
             transcript.add_to_hash_buffer("first_component_" + std::to_string(idx), first);
             transcript.add_to_hash_buffer("second_component_" + std::to_string(idx), second);
-            labels.emplace_back("pp_aggregation_challenge_" + std::to_string(idx));
+            // Generate challenges for points 1..n-1 (skip the first point)
+            if (idx > 0) {
+                labels.emplace_back("pp_aggregation_challenge_" + std::to_string(idx));
+            }
             idx++;
         }
 
         std::vector<Fr> challenges = transcript.template get_challenges<Fr>(labels);
 
-        // Batch mul
-        auto P0 = Group::batch_mul(first_components, challenges);
-        auto P1 = Group::batch_mul(second_components, challenges);
+        // Aggregate: P_agg = P₀ + r₁·P₁ + r₂·P₂ + ... + rₙ₋₁·Pₙ₋₁
+        // Use the first point as base (no scalar mul needed), then add batch_mul of remaining points
+        std::vector<Group> remaining_first(first_components.begin() + 1, first_components.end());
+        std::vector<Group> remaining_second(second_components.begin() + 1, second_components.end());
+
+        Group P0 = first_components[0];
+        Group P1 = second_components[0];
+
+        if (!challenges.empty()) {
+            P0 += Group::batch_mul(remaining_first, challenges, 128, handle_edge_cases);
+            P1 += Group::batch_mul(remaining_second, challenges, 128, handle_edge_cases);
+        }
 
         PairingPoints aggregated_points(P0, P1);
 

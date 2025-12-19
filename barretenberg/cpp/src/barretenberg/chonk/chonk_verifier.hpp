@@ -47,6 +47,9 @@ template <bool IsRecursive> class ChonkVerifier {
     using GoblinVerifier = std::conditional_t<IsRecursive, bb::GoblinRecursiveVerifier, bb::GoblinVerifier>;
     using Transcript = typename GoblinVerifier::Transcript;
     using GoblinReductionResult = typename GoblinVerifier::ReductionResult;
+    using HidingKernelIO =
+        std::conditional_t<IsRecursive, stdlib::recursion::honk::HidingKernelIO<Builder>, bb::HidingKernelIO>;
+    using PairingPoints = typename GoblinVerifier::ReductionResult::PairingPoints;
 
   public:
     using GoblinVerificationKey = Goblin::VerificationKey;

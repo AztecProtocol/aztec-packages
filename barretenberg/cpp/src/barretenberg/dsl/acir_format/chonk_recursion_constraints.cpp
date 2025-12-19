@@ -118,8 +118,9 @@ create_chonk_recursion_constraints(bb::UltraCircuitBuilder& builder, const Recur
     ChonkRecursiveVerifier::Output verification_output = verifier.verify(stdlib_proof);
 
     // Construct output
+    // Note: ChonkVerifier aggregates all pairing points (PI + PCS + Merge + Translator) into merge_pairing_points
     HonkRecursionConstraintOutput<Builder> output;
-    output.points_accumulator = verification_output.pairing_points;
+    output.points_accumulator = verification_output.merge_pairing_points;
     output.ipa_claim = verification_output.ipa_claim;
     output.ipa_proof = verification_output.ipa_proof;
 
