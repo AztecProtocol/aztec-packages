@@ -11,10 +11,16 @@ fn main() {
 
         println!("cargo:rustc-link-search=native={}", lib_dir.display());
 
-        // Link order matters for static libraries!
-        // libbarretenberg depends on libenv for logstr/throw_or_abort_impl
+        // Use link group to handle circular dependencies between static libraries
+        // libbarretenberg depends on libvm2 for AVM constraints
+        // libvm2 depends on libcommon for utilities
+        // libenv provides logstr/throw_or_abort_impl
+        println!("cargo:rustc-link-arg=-Wl,--start-group");
         println!("cargo:rustc-link-lib=static=barretenberg");
+        println!("cargo:rustc-link-lib=static=vm2");
+        println!("cargo:rustc-link-lib=static=common");
         println!("cargo:rustc-link-lib=static=env");
+        println!("cargo:rustc-link-arg=-Wl,--end-group");
         println!("cargo:rustc-link-lib=dylib=stdc++");
     }
 }

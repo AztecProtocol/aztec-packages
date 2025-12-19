@@ -140,15 +140,24 @@ impl Default for FfiBackend {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    // Note: These tests require libbarretenberg to be linked.
-    // They are ignored by default and can be run with:
-    // cargo test --features ffi -- --ignored
+    use crate::api::BarretenbergApi;
 
     #[test]
-    #[ignore]
     fn test_ffi_backend_creation() {
         let backend = FfiBackend::new();
         assert!(backend.is_ok());
+    }
+
+    #[test]
+    fn test_ffi_blake2s() {
+        let backend = FfiBackend::new().unwrap();
+        let mut api = BarretenbergApi::new(backend);
+
+        let response = api.blake2s(b"hello world").unwrap();
+        assert_eq!(response.hash.len(), 32);
+
+        // Verify deterministic output
+        let response2 = api.blake2s(b"hello world").unwrap();
+        assert_eq!(response.hash, response2.hash);
     }
 }
