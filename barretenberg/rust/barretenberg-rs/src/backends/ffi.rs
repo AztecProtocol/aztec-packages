@@ -29,7 +29,7 @@ use std::ptr;
 
 // C API exported by Barretenberg
 // See: barretenberg/cpp/src/barretenberg/bbapi/c_bind.hpp
-#[link(name = "barretenberg")]
+// Link directives are in build.rs to control link order (barretenberg depends on env)
 extern "C" {
     /// Execute a msgpack-encoded command and return msgpack-encoded response.
     ///
