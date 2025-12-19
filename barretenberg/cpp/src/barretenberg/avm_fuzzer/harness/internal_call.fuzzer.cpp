@@ -10,6 +10,7 @@
 
 #include "barretenberg/avm_fuzzer/fuzz_lib/constants.hpp"
 #include "barretenberg/avm_fuzzer/harness/context_helper.hpp"
+#include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/simulation/events/context_events.hpp"
@@ -121,12 +122,8 @@ extern "C" size_t LLVMFuzzerCustomMutator(uint8_t* data, size_t size, size_t max
 
     // Deserialize current input
     InternalCallFuzzerInput input = InternalCallFuzzerInput::from_buffer(data);
-
-    if (input.num_flat_calls == 0) {
-        // TODO(MW): Somehow the number of flat calls can be set as 0, todo more robustly
-        // ensure this does not happen (counter?)
-        input.num_flat_calls++;
-    }
+    size_t num_events =
+        static_cast<size_t>(input.num_flat_calls) * (input.num_nested_calls == 0 ? 1 : input.num_nested_calls);
 
     // Choose random mutation
     std::uniform_int_distribution<int> mutation_dist(0, 4);
@@ -147,19 +144,16 @@ extern "C" size_t LLVMFuzzerCustomMutator(uint8_t* data, size_t size, size_t max
     }
     case 2: {
         // Modify initial context pc
-        // TODO(MW): gate by max - num_events so we don't hit the overflow case?
-        std::uniform_int_distribution<uint32_t> start_pc_dist(0, std::numeric_limits<uint32_t>::max());
+        std::uniform_int_distribution<uint32_t> start_pc_dist(
+            0, std::numeric_limits<uint32_t>::max() - uint32_t(num_events));
         input.start_pc = start_pc_dist(rng);
         break;
     }
     case 3: {
         // Modify a random local pc (using num_events to ensure it's used in a run)
-        size_t num_events =
-            static_cast<size_t>(input.num_flat_calls) * (input.num_nested_calls == 0 ? 1 : input.num_nested_calls);
-        std::uniform_int_distribution<size_t> index_dist(0, num_events - 1);
+        std::uniform_int_distribution<size_t> index_dist(0, num_events == 0 ? 0 : num_events - 1);
         size_t value_idx = index_dist(rng);
-        // TODO(MW): gate by max - num_events so we don't hit the overflow case?
-        std::uniform_int_distribution<uint32_t> pc_dist(0, std::numeric_limits<uint32_t>::max());
+        std::uniform_int_distribution<uint32_t> pc_dist(0, std::numeric_limits<uint32_t>::max() - uint32_t(num_events));
         input.local_pcs[value_idx] = pc_dist(rng);
         break;
     }
@@ -303,8 +297,10 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
     if (!error) {
         // Ideally I would set the final row via a gadget or at least an event, but I'm not sure how these
         // are actually set in the standard flow:
-        ex_events.push_back({ .wire_instruction = dummy_instr,
-                              .before_context_event = fill_context_event(context, internal_call_stack_manager) });
+        ex_events.push_back(
+            { .wire_instruction = dummy_instr,
+              .inputs = { MemoryValue::from(FF(0)), MemoryValue::from(FF(0)), MemoryValue::from(FF(0)) },
+              .before_context_event = fill_context_event(context, internal_call_stack_manager) });
     } else {
         assert(ex_events.at(ex_events.size() - 1).error == ExecutionError::OPCODE_EXECUTION);
     }
