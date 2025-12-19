@@ -62,10 +62,6 @@ class AvmRecursionConstraintTestingFunctions {
 
         const auto public_inputs_flat = PublicInputs::columns_to_flat(public_inputs.to_columns());
 
-        // TO BE REMOVED ONCE PUBLIC INPUTS ARE VALIDATED (DAVID'S PR!)
-        // TODO(#14234)[Unconditional PIs validation]: Remove next line
-        proof.insert(proof.begin(), 0);
-
         return { proof, public_inputs_flat };
     }
 

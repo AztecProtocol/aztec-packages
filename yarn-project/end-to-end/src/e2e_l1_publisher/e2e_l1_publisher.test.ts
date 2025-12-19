@@ -749,7 +749,7 @@ describe('L1Publisher integration', () => {
 
       await publisher.enqueueProposeL2Block(block, CommitteeAttestationsAndSigners.empty(), Signature.empty());
       await publisher.enqueueGovernanceCastSignal(
-        EthAddress.random(),
+        l1ContractAddresses.rollupAddress,
         block.slot,
         block.timestamp,
         EthAddress.random(),

@@ -104,7 +104,7 @@ TEST_F(GasTrackerTest, OutOfGasBase)
     EXPECT_CALL(greater_than, gt(999 + opcode_l2_gas, 1000)).WillOnce(Return(true));
     EXPECT_CALL(greater_than, gt(450, 500)).WillOnce(Return(false));
 
-    EXPECT_THROW_WITH_MESSAGE(tracker.consume_gas(), "(base)");
+    EXPECT_THROW_WITH_MESSAGE(tracker.consume_gas(), "Out of gas:");
 
     EXPECT_EQ(gas_event,
               (GasEvent{
@@ -161,7 +161,7 @@ TEST_F(GasTrackerTest, OutOfGasDynamicPhase)
     EXPECT_CALL(greater_than, gt(0, 500)).WillOnce(Return(false));
 
     // This should throw because total gas exceeds limit.
-    EXPECT_THROW_WITH_MESSAGE(tracker.consume_gas(Gas{ 100, 0 }), "(dynamic)");
+    EXPECT_THROW_WITH_MESSAGE(tracker.consume_gas(Gas{ 100, 0 }), "Out of gas:");
 
     EXPECT_EQ(gas_event,
               (GasEvent{
@@ -194,7 +194,7 @@ TEST_F(GasTrackerTest, OutOfGasBothPhases)
     EXPECT_CALL(greater_than, gt(0, 500)).WillOnce(Return(false));
 
     // This should throw because total gas exceeds limit.
-    EXPECT_THROW_WITH_MESSAGE(tracker.consume_gas(Gas{ 100, 0 }), "(base)");
+    EXPECT_THROW_WITH_MESSAGE(tracker.consume_gas(Gas{ 100, 0 }), "Out of gas:");
 
     EXPECT_EQ(gas_event,
               (GasEvent{
@@ -226,7 +226,7 @@ TEST_F(GasTrackerTest, OutOfGasBasePhaseWithOverflow)
         .WillOnce(Return(true));                                         // L2 OOG.
     EXPECT_CALL(greater_than, gt(0, gas_limit)).WillOnce(Return(false)); // DA not OOG.
 
-    EXPECT_THROW_WITH_MESSAGE(tracker.consume_gas(), "(base)");
+    EXPECT_THROW_WITH_MESSAGE(tracker.consume_gas(), "Out of gas:");
 
     EXPECT_EQ(gas_event,
               (GasEvent{
@@ -262,7 +262,7 @@ TEST_F(GasTrackerTest, OutOfGasDynamicPhaseWithOverflow)
         .WillOnce(Return(true));                                         // L2 OOG.
     EXPECT_CALL(greater_than, gt(0, gas_limit)).WillOnce(Return(false)); // DA not OOG.
 
-    EXPECT_THROW_WITH_MESSAGE(tracker.consume_gas(Gas{ gas_factor, 0 }), "(dynamic)");
+    EXPECT_THROW_WITH_MESSAGE(tracker.consume_gas(Gas{ gas_factor, 0 }), "Out of gas:");
 
     EXPECT_EQ(gas_event,
               (GasEvent{

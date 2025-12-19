@@ -1,4 +1,6 @@
 import { AztecAddress } from '@aztec/aztec.js/addresses';
+import { Fr } from '@aztec/aztec.js/fields';
+import { deriveKeys } from '@aztec/aztec.js/keys';
 import type { Logger } from '@aztec/aztec.js/log';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 import { PrivateTokenContract } from '@aztec/noir-contracts.js/PrivateToken';
@@ -46,7 +48,19 @@ describe(`deploys and transfers a private only token`, () => {
     const initialBalance = 100_000_000_000n;
     const transferValue = 5n;
 
-    const token = await PrivateTokenContract.deploy(wallet, initialBalance, deployerAddress)
+    // Generate keys for the contract since PrivateToken uses SinglePrivateMutable which requires keys
+    const tokenSecretKey = Fr.random();
+    const tokenPublicKeys = (await deriveKeys(tokenSecretKey)).publicKeys;
+
+    const tokenDeployment = PrivateTokenContract.deployWithPublicKeys(
+      tokenPublicKeys,
+      wallet,
+      initialBalance,
+      deployerAddress,
+    );
+    const tokenInstance = await tokenDeployment.getInstance();
+    await wallet.registerContract(tokenInstance, PrivateTokenContract.artifact, tokenSecretKey);
+    const token = await tokenDeployment
       .send({
         from: deployerAddress,
         universalDeploy: true,
