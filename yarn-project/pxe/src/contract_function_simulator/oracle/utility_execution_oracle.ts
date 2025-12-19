@@ -29,6 +29,7 @@ import type { BlockHeader, Capsule } from '@aztec/stdlib/tx';
 
 import { EventService } from '../../events/event_service.js';
 import { NoteService } from '../../notes/note_service.js';
+import { ORACLE_VERSION } from '../../oracle_version.js';
 import type {
   AddressDataProvider,
   AnchorBlockDataProvider,
@@ -46,7 +47,6 @@ import { LogRetrievalResponse } from '../noir-structs/log_retrieval_response.js'
 import { NoteValidationRequest } from '../noir-structs/note_validation_request.js';
 import { UtilityContext } from '../noir-structs/utility_context.js';
 import { pickNotes } from '../pick_notes.js';
-import { assertCompatibleOracleVersion } from './common.js';
 import type { IMiscOracle, IUtilityExecutionOracle, NoteData } from './interfaces.js';
 import { MessageLoadOracleInputs } from './message_load_oracle_inputs.js';
 
@@ -80,7 +80,9 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   ) {}
 
   public utilityAssertCompatibleOracleVersion(version: number): void {
-    assertCompatibleOracleVersion(version);
+    if (version !== ORACLE_VERSION) {
+      throw new Error(`Incompatible oracle version. Expected version ${ORACLE_VERSION}, got ${version}.`);
+    }
   }
 
   public utilityGetRandomField(): Fr {
