@@ -1,4 +1,5 @@
 import type { PrivateEventFilter } from '@aztec/aztec.js/wallet';
+import type { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
@@ -58,7 +59,7 @@ import {
   ContractFunctionSimulator,
   generateSimulatedProvingResult,
 } from './contract_function_simulator/contract_function_simulator.js';
-import { readCurrentClassIdFromNode } from './contract_function_simulator/oracle/private_execution.js';
+import { readCurrentClassId } from './contract_function_simulator/oracle/private_execution.js';
 import { ProxiedContractDataProviderFactory } from './contract_function_simulator/proxied_contract_data_source.js';
 import { PXEDebugUtils } from './debug/pxe_debug_utils.js';
 import { enrichPublicSimulationError, enrichSimulationError } from './error_enriching.js';
@@ -618,7 +619,7 @@ export class PXE {
 
       const header = await this.anchorBlockDataProvider.getBlockHeader();
 
-      const currentClassId = await readCurrentClassIdFromNode(
+      const currentClassId = await readCurrentClassId(
         contractAddress,
         currentInstance,
         this.node,
@@ -1060,4 +1061,13 @@ export class PXE {
   public stop(): Promise<void> {
     return this.jobQueue.end();
   }
+}
+function readCurrentClassIdFromNode(
+  contractAddress: AztecAddress,
+  currentInstance: ContractInstanceWithAddress,
+  node: AztecNode,
+  blockNumber: BlockNumber,
+  timestamp: bigint,
+) {
+  throw new Error('Function not implemented.');
 }

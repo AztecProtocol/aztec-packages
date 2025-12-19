@@ -136,13 +136,7 @@ export class ContractFunctionSimulator {
   ): Promise<PrivateExecutionResult> {
     const simulatorSetupTimer = new Timer();
 
-    await verifyCurrentClassId(
-      contractAddress,
-      this.anchorBlockDataProvider,
-      this.aztecNode,
-      this.contractDataProvider,
-      anchorBlockHeader,
-    );
+    await verifyCurrentClassId(contractAddress, this.aztecNode, this.contractDataProvider, anchorBlockHeader);
 
     const entryPointArtifact = await this.contractDataProvider.getFunctionArtifactWithDebugMetadata(
       contractAddress,
@@ -264,13 +258,7 @@ export class ContractFunctionSimulator {
     anchorBlockHeader: BlockHeader,
     scopes?: AztecAddress[],
   ): Promise<Fr[]> {
-    await verifyCurrentClassId(
-      call.to,
-      this.anchorBlockDataProvider,
-      this.aztecNode,
-      this.contractDataProvider,
-      anchorBlockHeader,
-    );
+    await verifyCurrentClassId(call.to, this.aztecNode, this.contractDataProvider, anchorBlockHeader);
 
     const entryPointArtifact = await this.contractDataProvider.getFunctionArtifactWithDebugMetadata(
       call.to,

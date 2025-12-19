@@ -62,7 +62,6 @@ describe('Oracle Version Check test suite', () => {
     );
     utilityAssertCompatibleOracleVersionSpy.mockClear();
 
-    // Mock basic oracle responses
     aztecNode.getPublicStorageAt.mockResolvedValue(Fr.ZERO);
     anchorBlockHeader = BlockHeader.random();
     anchorBlockDataProvider.getBlockHeader.mockResolvedValue(anchorBlockHeader);
