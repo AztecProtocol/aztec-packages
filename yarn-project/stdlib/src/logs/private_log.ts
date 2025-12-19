@@ -59,7 +59,8 @@ export class PrivateLog {
   }
 
   isEmpty() {
-    return this.fields.every(f => f.isZero());
+    // Faster to check emittedLength than compare all fields against zero
+    return this.emittedLength === 0;
   }
 
   static empty() {

@@ -122,20 +122,18 @@ std::vector<CallStackMetadata> CallStackMetadataCollector::dump_call_stack_metad
 
 CalldataProvider make_calldata_provider(const ContextInterface& context)
 {
-    auto cd_offset = context.get_parent_cd_addr();
     auto cd_size = context.get_parent_cd_size();
-    return [&context, cd_offset, cd_size](uint32_t max_size) -> std::vector<FF> {
+    return [&context, cd_size](uint32_t max_size) -> std::vector<FF> {
         try {
+            // NOTE: get_calldata will handle offsetting into parent memory for nested contexts
             // TODO: check if this will pad to size. We don't want that.
-            auto data = context.get_calldata(cd_offset, std::min(max_size, cd_size));
+            auto data = context.get_calldata(0, std::min(max_size, cd_size));
             return std::vector<FF>(data.begin(), data.end());
         } catch (...) {
             vinfo("Failed to collect calldata (to:",
                   context.get_address(),
                   " pc:",
                   context.get_pc(),
-                  " cd_offset:",
-                  cd_offset,
                   " cd_size:",
                   cd_size,
                   " max_size:",

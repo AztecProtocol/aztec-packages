@@ -13,7 +13,6 @@
 #include "barretenberg/hypernova/hypernova_decider_verifier.hpp"
 #include "barretenberg/hypernova/hypernova_prover.hpp"
 #include "barretenberg/hypernova/hypernova_verifier.hpp"
-#include "barretenberg/stdlib/honk_verifier/ultra_recursive_verifier.hpp"
 #include "barretenberg/stdlib/primitives/databus/databus.hpp"
 #include "barretenberg/stdlib/proof/proof.hpp"
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
@@ -53,13 +52,12 @@ class Chonk : public IVCBase {
     using ECCVMVerificationKey = bb::ECCVMFlavor::VerificationKey;
     using TranslatorVerificationKey = bb::TranslatorFlavor::VerificationKey;
     using MegaProver = UltraProver_<Flavor>;
-    using MegaVerifier = UltraVerifier_<Flavor>;
     using Transcript = NativeTranscript;
     // Recursive types
     using RecursiveFlavor = MegaRecursiveFlavor_<bb::MegaCircuitBuilder>;
     using StdlibFF = RecursiveFlavor::FF;
     using RecursiveCommitment = RecursiveFlavor::Commitment;
-    using RecursiveVerifierInstance = stdlib::recursion::honk::RecursiveVerifierInstance_<RecursiveFlavor>;
+    using RecursiveVerifierInstance = VerifierInstance_<RecursiveFlavor>;
     using RecursiveVerificationKey = RecursiveFlavor::VerificationKey;
     using RecursiveVKAndHash = RecursiveFlavor::VKAndHash;
     using RecursiveTranscript = RecursiveFlavor::Transcript;
@@ -221,14 +219,29 @@ class Chonk : public IVCBase {
         }
     };
 
-    // Specifies proof type or equivalently the type of recursive verification to be performed on a given proof
-    enum class QUEUE_TYPE : uint8_t {
-        OINK,
-        HN,
-        HN_FINAL, // the final HN verification, used in hiding kernel
-        HN_TAIL,  // used in tail to indicate special handling of merge for ZK
-        MEGA
-    };
+    /**
+     * @brief Proof type determining recursive verification logic in kernel circuits.
+     *
+     * @details This enum has dual semantics depending on context:
+     *
+     * PROVER PERSPECTIVE (in `accumulate`): Type assigned to the circuit being accumulated.
+     * State machine transitions based on `num_circuits_accumulated`:
+     *   - OINK:     First app (circuit 0) - no prior accumulator, just Oink verification
+     *   - HN:       Apps 1..n-3, inner kernels, and reset kernels - full HyperNova folding verification
+     *   - HN_TAIL:  Circuit n-3 (last kernel before tail) - adds ZK masking at op queue start
+     *   - HN_FINAL: Circuit n-2 (tail kernel) - final folding + decider verification
+     *   - MEGA:     Circuit n-1 (hiding kernel) - MegaZK proof, no folding
+     *
+     * VERIFIER PERSPECTIVE (in `complete_kernel_circuit_logic`): Type of the proof being verified.
+     *   - If verifying OINK proof → this kernel is the init kernel (circuit 1)
+     *   - If verifying HN proof → this kernel is an inner/reset kernel
+     *   - If verifying HN_TAIL proof → this kernel IS the tail kernel (circuit n-2)
+     *   - If verifying HN_FINAL proof → this kernel IS the hiding kernel (circuit n-1)
+     *
+     *
+     * See `get_queue_type()` for assignment logic and README.md#circuit-structure for overview.
+     */
+    enum class QUEUE_TYPE : uint8_t { OINK, HN, HN_TAIL, HN_FINAL, MEGA };
 
     // An entry in the native verification queue
     struct VerifierInputs {
@@ -269,9 +282,11 @@ class Chonk : public IVCBase {
     FF native_verifier_accum_hash; // hash of the native verifier accumulator when entering recursive verification
 #endif
 
-    // Set of tuples {proof, verification_key, type (Oink/HN)} to be recursively verified
+    // PARALLEL QUEUES: These two queues must stay synchronized.
+    // - verification_queue: Native proofs created by accumulate() (prover side)
+    // - stdlib_verification_queue: Circuit witnesses for complete_kernel_circuit_logic() (verifier side)
+    // The stdlib queue is populated from the native queue via instantiate_stdlib_verification_queue().
     VerificationQueue verification_queue;
-    // Set of tuples {stdlib_proof, stdlib_verification_key, type} corresponding to the native verification queue
     StdlibVerificationQueue stdlib_verification_queue;
 
     // Management of linking databus commitments between circuits in the IVC

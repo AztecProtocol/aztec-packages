@@ -298,7 +298,8 @@ TYPED_TEST(RangeTests, LimbedRangeConstraint14Bits)
     auto value = fr(16383);
 
     auto idx = builder.add_variable(value);
-    builder.create_add_gate({ idx, builder.zero_idx(), builder.zero_idx(), 1, 0, 0, -value });
+    // NOTE: we do not need to create an auxiliary arithmetic gate; the `create_limbed_range_constraint` functionality
+    // prevents `idx` from being orphaned.
     builder.create_limbed_range_constraint(idx, /*num_bits=*/14);
 
     TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(builder);
@@ -316,7 +317,6 @@ TYPED_TEST(RangeTests, LimbedRangeConstraint133Bits)
     auto value = fr(truncated);
 
     auto idx = builder.add_variable(value);
-    // Need an arithmetic gate to use the variable (otherwise it's an orphan)
     builder.create_add_gate({ idx, builder.zero_idx(), builder.zero_idx(), 1, 0, 0, -value });
     builder.create_limbed_range_constraint(idx, /*num_bits=*/133);
 
@@ -335,8 +335,6 @@ TYPED_TEST(RangeTests, LimbedRangeConstraint253Bits)
     auto value = fr(truncated);
 
     auto idx = builder.add_variable(value);
-    // Need an arithmetic gate to use the variable (otherwise it's an orphan)
-    builder.create_add_gate({ idx, builder.zero_idx(), builder.zero_idx(), 1, 0, 0, -value });
     builder.create_limbed_range_constraint(idx, /*num_bits=*/253);
 
     TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(builder);

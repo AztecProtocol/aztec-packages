@@ -5,10 +5,9 @@
 
 #include "barretenberg/commitment_schemes/ipa/ipa.hpp"
 #include "barretenberg/commitment_schemes/verification_key.hpp"
-#include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/eccvm/eccvm_circuit_builder.hpp"
-#include "barretenberg/eccvm/eccvm_flavor.hpp"
 #include "barretenberg/eccvm/eccvm_prover.hpp"
+#include "barretenberg/eccvm/eccvm_test_utils.hpp"
 #include "barretenberg/eccvm/eccvm_verifier.hpp"
 #include "barretenberg/honk/library/grand_product_delta.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
@@ -24,25 +23,14 @@ using PK = ECCVMFlavor::ProvingKey;
 using Transcript = ECCVMFlavor::Transcript;
 using ECCVMVerifier = ECCVMVerifier_<ECCVMFlavor>;
 using PCS = IPA<ECCVMFlavor::Curve, CONST_ECCVM_LOG_N>;
+using eccvm_test_utils::add_hiding_op_for_test;
+
 class ECCVMTests : public ::testing::Test {
   protected:
     void SetUp() override { srs::init_file_crs_factory(bb::srs::bb_crs_path()); };
 };
 namespace {
 auto& engine = numeric::get_debug_randomness();
-
-/**
- * @brief Add a hiding op to the op_queue for testing.
- * @details The ECCVM relation constraints expect q_eq = 1 at row 1 (lagrange_second).
- * In production (Chonk flow), a hiding op with random Px, Py is prepended for statistical hiding.
- * For tests, we also use random values to match production behavior.
- */
-void add_hiding_op_for_test(const std::shared_ptr<ECCOpQueue>& op_queue)
-{
-    using Fq = curve::BN254::BaseField;
-    // Prepend a hiding op with random coordinates - provides statistical hiding
-    op_queue->append_hiding_op(Fq::random_element(), Fq::random_element());
-}
 } // namespace
 
 /**
@@ -163,6 +151,41 @@ TEST_F(ECCVMTests, ZeroesCoefficients)
 
     ASSERT_TRUE(ipa_verified && eccvm_result.reduction_succeeded);
 }
+// Calling get_eccvm_ops without a hiding op should throw
+TEST_F(ECCVMTests, MissingHidingOpThrows)
+{
+    std::shared_ptr<ECCOpQueue> op_queue = std::make_shared<ECCOpQueue>();
+    // get_eccvm_ops() requires a hiding op to have been set; throws "Hiding op must be set before calling
+    // get_eccvm_ops()"
+    EXPECT_THROW(op_queue->get_eccvm_ops(), std::runtime_error);
+}
+
+// Note that `NullOpQueue` is somewhat misleading, as we add a hiding operation.
+TEST_F(ECCVMTests, NullOpQUeue)
+{
+    std::shared_ptr<ECCOpQueue> op_queue = std::make_shared<ECCOpQueue>();
+    add_hiding_op_for_test(op_queue);
+    ECCVMCircuitBuilder builder{ op_queue };
+    std::shared_ptr<Transcript> prover_transcript = std::make_shared<Transcript>();
+    ECCVMProver prover(builder, prover_transcript);
+    auto [proof, opening_claim] = prover.construct_proof();
+
+    // Compute IPA proof
+    auto ipa_transcript = std::make_shared<Transcript>();
+    PCS::compute_opening_proof(prover.key->commitment_key, opening_claim, ipa_transcript);
+
+    std::shared_ptr<Transcript> verifier_transcript = std::make_shared<Transcript>();
+    ECCVMVerifier verifier(verifier_transcript, proof);
+    auto eccvm_result = verifier.reduce_to_ipa_opening();
+
+    // Verify IPA
+    auto ipa_verifier_transcript = std::make_shared<Transcript>(ipa_transcript->export_proof());
+    auto ipa_vk = VerifierCommitmentKey<curve::Grumpkin>{ ECCVMFlavor::ECCVM_FIXED_SIZE };
+    bool ipa_verified = IPA<curve::Grumpkin>::reduce_verify(ipa_vk, eccvm_result.ipa_claim, ipa_verifier_transcript);
+
+    ASSERT_TRUE(ipa_verified && eccvm_result.reduction_succeeded);
+}
+
 TEST_F(ECCVMTests, PointAtInfinity)
 {
     ECCVMCircuitBuilder builder = generate_zero_circuit(&engine, 0);

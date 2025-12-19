@@ -1,0 +1,46 @@
+# Tags can kick off releases from official channels, this is locked down to admins
+# or the usual release flows.
+# For now we give a password to those who need to frequent ad-hoc release tagging.
+name: Git Tag
+
+on:
+  workflow_dispatch:
+    inputs:
+      password:
+        description: "Password to authorize retagging"
+        required: true
+        type: secret
+      commit:
+        description: "Commit SHA to tag"
+        required: true
+        type: string
+      tag:
+        description: "Tag name to create/update"
+        required: true
+        type: string
+
+jobs:
+  retag:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify password
+        run: |
+          INPUT_HASH=$(echo -n "${{ inputs.password }}" | sha256sum | cut -d' ' -f1)
+          EXPECTED_HASH="de627b42af903492a7a89d308e7cfd087f4fb87a9eab1cb8f9a414d256f7b63c"
+          if [ "$INPUT_HASH" != "$EXPECTED_HASH" ]; then
+            echo "Invalid password"
+            exit 1
+          fi
+
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Create/update tag
+        env:
+          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+        run: |
+          git config user.name "AztecBot"
+          git config user.email "tech@aztec-labs.com"
+          git fetch origin "${{ inputs.commit }}"
+          git tag -f "${{ inputs.tag }}" "${{ inputs.commit }}"
+          git push origin "${{ inputs.tag }}"

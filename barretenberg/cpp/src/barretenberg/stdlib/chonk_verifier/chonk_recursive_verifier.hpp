@@ -33,9 +33,9 @@ namespace bb::stdlib::recursion::honk {
 class ChonkRecursiveVerifier {
     using Builder = UltraCircuitBuilder;                     // The circuit will be an Ultra circuit
     using RecursiveFlavor = MegaZKRecursiveFlavor_<Builder>; // The Hiding kernel verifier algorithm is MegaZK
-    using RecursiveVerifierInstance = RecursiveVerifierInstance_<RecursiveFlavor>;
+    using RecursiveVerifierInstance = VerifierInstance_<RecursiveFlavor>;
     using RecursiveVerificationKey = RecursiveVerifierInstance::VerificationKey;
-    using MegaVerifier = UltraRecursiveVerifier_<RecursiveFlavor>;
+    using MegaVerifier = bb::UltraVerifier_<RecursiveFlavor, HidingKernelIO<Builder>>;
     using GoblinVerifier = GoblinRecursiveVerifier;
     using Flavor = RecursiveFlavor::NativeFlavor;
     using VerificationKey = Flavor::VerificationKey;
@@ -123,9 +123,8 @@ class ChonkRecursiveVerifier {
         }
     };
 
-    ChonkRecursiveVerifier(Builder* builder, const std::shared_ptr<RecursiveVKAndHash>& stdlib_mega_vk_and_hash)
-        : builder(builder)
-        , stdlib_mega_vk_and_hash(stdlib_mega_vk_and_hash) {};
+    ChonkRecursiveVerifier(const std::shared_ptr<RecursiveVKAndHash>& stdlib_mega_vk_and_hash)
+        : stdlib_mega_vk_and_hash(stdlib_mega_vk_and_hash) {};
 
     /**
      * @brief Recursively verify a Chonk proof and return deferred verification data
@@ -144,7 +143,6 @@ class ChonkRecursiveVerifier {
     [[nodiscard("IPA claim and pairing points must be accumulated")]] Output verify(const StdlibProof&);
 
   private:
-    Builder* builder;
     // VK and hash of the hiding kernel
     std::shared_ptr<RecursiveVKAndHash> stdlib_mega_vk_and_hash;
 };

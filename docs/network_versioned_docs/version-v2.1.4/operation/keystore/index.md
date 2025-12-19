@@ -53,7 +53,7 @@ This guide walks you through advanced keystore configurations in three parts:
 Learn about different ways to store and access private keys:
 
 - Inline private keys (for testing)
-- Remote signers with Web3Signer (recommended for production)
+- Remote signers with Web3Signer (recommended for production Ethereum keys)
 - JSON V3 encrypted keystores
 - BIP44 mnemonic derivation
 

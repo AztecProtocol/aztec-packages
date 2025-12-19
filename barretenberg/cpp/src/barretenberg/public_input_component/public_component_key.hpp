@@ -5,8 +5,8 @@
 // =====================
 
 #pragma once
-#include <barretenberg/serialize/msgpack.hpp>
 #include <cstdint>
+#include <limits>
 
 namespace bb {
 
@@ -19,7 +19,5 @@ struct PublicComponentKey {
     bool operator==(const PublicComponentKey&) const = default;
 
     bool is_set() const { return start_idx != DEFAULT_IDX; }
-
-    MSGPACK_FIELDS(start_idx);
 };
 } // namespace bb

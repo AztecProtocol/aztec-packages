@@ -17,8 +17,14 @@
 extern "C" {
 #endif
 
+enum {
+    KECCAKF1600_LANES = 25,
+    KECCAKF1600_ROUNDS = 24,
+    KECCAK256_OUTPUT_BYTES = 32,
+    KECCAK256_OUTPUT_WORDS = 4 // 4 * 64 = 256 bits
+};
 struct keccak256 {
-    uint64_t word64s[4];
+    uint64_t word64s[KECCAK256_OUTPUT_WORDS];
 };
 
 #ifdef __cplusplus
