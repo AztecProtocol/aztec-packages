@@ -148,7 +148,19 @@ class AvmGoblinRecursiveVerifier {
         };
         GoblinRecursiveVerifier::ReductionResult goblin_verifier_output =
             goblin_verifier.reduce_to_pairing_check_and_ipa_opening();
-        goblin_verifier_output.pairing_points.aggregate(mega_verifier_output.points_accumulator);
+
+        // Batch aggregate all pairing points: Mega + Merge + Translator
+        // Edge case handling disabled: Safe because all points are verifier-computed (deterministic, won't collide)
+        // and the random challenges maintain binding. Saves significant circuit gates.
+        std::vector<PairingPoints> all_pairing_points;
+        all_pairing_points.reserve(3);
+        all_pairing_points.push_back(mega_verifier_output.points_accumulator);
+        all_pairing_points.push_back(std::move(goblin_verifier_output.merge_pairing_points));
+        all_pairing_points.push_back(std::move(goblin_verifier_output.translator_pairing_points));
+
+        constexpr bool handle_edge_cases = false;
+        PairingPoints aggregated_pairing_points =
+            PairingPoints::aggregate_multiple(all_pairing_points, handle_edge_cases);
 
         // Validate the consistency of the AVM2 verifier inputs {\pi, pub_inputs, VK}_{AVM2} between the inner (Mega)
         // circuit and the outer (Ultra) by asserting equality on the independently computed hashes of this data.
@@ -157,7 +169,7 @@ class AvmGoblinRecursiveVerifier {
 
         // Return ipa proof, ipa claim and output aggregation object produced from verifying the Mega + Goblin proofs
         RecursiveAvmGoblinOutput output;
-        output.points_accumulator = goblin_verifier_output.pairing_points;
+        output.points_accumulator = std::move(aggregated_pairing_points);
         output.ipa_claim = goblin_verifier_output.ipa_claim;
         output.ipa_proof = goblin_verifier_output.ipa_proof;
         return output;

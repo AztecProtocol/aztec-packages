@@ -82,18 +82,21 @@ template <bool IsRecursive> ChonkVerifier<IsRecursive>::Output ChonkVerifier<IsR
         all_pairing_points.push_back(std::move(goblin_output.merge_pairing_points));
         all_pairing_points.push_back(std::move(goblin_output.translator_pairing_points));
 
-        const bool handle_edge_cases = false;
         // Single aggregation with batch_mul (more efficient than multiple aggregate calls)
+        // Edge case handling disabled: Safe because:
+        // 1. Verifier-computed points (PCS, Merge, Translator) are deterministic and won't collide
+        // 2. Even if malicious prover sets PI pairing points to be linearly dependent with verifier points,
+        //    the linear combination P₀ + r₁·P₁ + r₂·P₂ + r₃·P₃ remains binding due to the random challenges
+        // 3. Skipping edge case checks saves significant circuit gates in recursive verification
+        constexpr bool handle_edge_cases = false;
         PairingPoints aggregated_pairing_points =
             PairingPoints::aggregate_multiple(all_pairing_points, handle_edge_cases);
 
         // Return reduction result with aggregated pairing points
-        return GoblinReductionResult{ .merge_pairing_points = std::move(aggregated_pairing_points),
-                                      .translator_pairing_points = {}, // Already aggregated into merge_pairing_points
-                                      .ipa_claim = std::move(goblin_output.ipa_claim),
-                                      .ipa_proof = std::move(goblin_output.ipa_proof),
-                                      .all_checks_passed =
-                                          mega_reduction_succeeded && goblin_output.all_checks_passed };
+        return ReductionResult{ .pairing_points = std::move(aggregated_pairing_points),
+                                .ipa_claim = std::move(goblin_output.ipa_claim),
+                                .ipa_proof = std::move(goblin_output.ipa_proof),
+                                .all_checks_passed = mega_reduction_succeeded && goblin_output.all_checks_passed };
     } else {
         // Native mode: perform immediate pairing check and IPA verification
         if (!goblin_output.all_checks_passed) {

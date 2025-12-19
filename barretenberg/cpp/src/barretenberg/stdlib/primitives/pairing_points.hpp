@@ -83,10 +83,21 @@ template <typename Curve> struct PairingPoints {
     typename Curve::bool_ct operator==(PairingPoints const& other) const { return P0 == other.P0 && P1 == other.P1; };
 
     /**
-     * @brief Aggregate multiple PairingPoints
+     * @brief Aggregate multiple PairingPoints using random linear combination
      *
      * @details The pairing points are aggregated using challenges generated as the consecutive hashes of the pairing
-     * points being aggregated.
+     * points being aggregated. Computes: P_agg = P₀ + r₁·P₁ + r₂·P₂ + ... + rₙ₋₁·Pₙ₋₁
+     * where r₁,...,rₙ₋₁ are 128-bit challenges derived from hashing all input points.
+     *
+     * @param pairing_points Vector of pairing points to aggregate (requires size > 1)
+     * @param handle_edge_cases If true, batch_mul handles edge cases where points might be zero or challenges might
+     * cause numerical issues. If false, assumes all points are non-zero and non-colliding (saves circuit gates).
+     *
+     * Safety of handle_edge_cases=false:
+     * - Safe when all points are verifier-computed (deterministic, won't collide)
+     * - Safe even with untrusted public input points, as the random challenges maintain binding
+     * - Provides significant circuit gate savings in recursive verification
+     * - Should only be disabled when the caller can guarantee point validity
      */
     static PairingPoints aggregate_multiple(std::vector<PairingPoints>& pairing_points, bool handle_edge_cases = true)
     {

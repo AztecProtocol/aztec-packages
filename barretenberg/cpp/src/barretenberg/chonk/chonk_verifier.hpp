@@ -50,10 +50,24 @@ template <bool IsRecursive> class ChonkVerifier {
     using HidingKernelIO =
         std::conditional_t<IsRecursive, stdlib::recursion::honk::HidingKernelIO<Builder>, bb::HidingKernelIO>;
     using PairingPoints = typename GoblinVerifier::ReductionResult::PairingPoints;
+    using IPAClaim = typename GoblinVerifier::ReductionResult::IPAClaim;
+    using IPAProof = typename GoblinVerifier::ReductionResult::IPAProof;
 
   public:
     using GoblinVerificationKey = Goblin::VerificationKey;
-    using Output = std::conditional_t<IsRecursive, GoblinRecursiveVerifier::ReductionResult, bool>;
+
+    /**
+     * @brief Result of Chonk verification reduction (recursive mode only)
+     * @details Contains aggregated pairing points and IPA verification data for deferred verification
+     */
+    struct ReductionResult {
+        PairingPoints pairing_points; // Aggregated pairing points (PI + PCS + Merge + Translator)
+        IPAClaim ipa_claim;           // IPA opening claim from ECCVM (Grumpkin curve)
+        IPAProof ipa_proof;           // IPA proof for verifying the claim
+        bool all_checks_passed;       // Reduction checks passed (sumcheck, evaluations, etc.)
+    };
+
+    using Output = std::conditional_t<IsRecursive, ReductionResult, bool>;
     using VKAndHash = typename HidingKernelVerifier::VKAndHash;
     using VK = typename HidingKernelVerifier::VerificationKey;
     using Commitment = typename HidingKernelVerifier::Commitment;
