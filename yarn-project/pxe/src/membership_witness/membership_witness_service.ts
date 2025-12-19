@@ -1,7 +1,7 @@
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import type { BlockParameter } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
-import { MerkleTreeId, NullifierMembershipWitness } from '@aztec/stdlib/trees';
+import { MerkleTreeId, NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 
 import type { AnchorBlockDataProvider } from '../storage/index.js';
 
@@ -28,6 +28,14 @@ export class MembershipWitnessService {
       throw new Error(`Block number ${blockNumber} is higher than current block ${anchorBlockNumber}`);
     }
     return this.aztecNode.getLowNullifierMembershipWitness(blockNumber, nullifier);
+  }
+
+  public async getPublicDataWitness(blockNumber: BlockParameter, leafSlot: Fr): Promise<PublicDataWitness | undefined> {
+    const anchorBlockNumber = (await this.anchorBlockDataProvider.getBlockHeader()).getBlockNumber();
+    if (blockNumber !== 'latest' && blockNumber > anchorBlockNumber) {
+      throw new Error(`Block number ${blockNumber} is higher than current block ${anchorBlockNumber}`);
+    }
+    return await this.aztecNode.getPublicDataWitness(blockNumber, leafSlot);
   }
 
   async #tryGetMembershipWitness(
