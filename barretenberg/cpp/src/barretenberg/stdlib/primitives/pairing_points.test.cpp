@@ -200,4 +200,44 @@ TYPED_TEST(PairingPointsTests, CopyConstructorWorks)
                  builder.pairing_points_tagging.get_tag(pp_copy.tag_index));
 }
 
+TYPED_TEST(PairingPointsTests, AggregateMultipleWithDuplicatePoints)
+{
+    using Curve = TypeParam;
+    using Builder = typename Curve::Builder;
+    using PairingPoints = PairingPoints<Curve>;
+    using Group = PairingPoints::Group;
+
+    Builder builder;
+
+    // Use default pairing points that are known to satisfy the pairing equation
+    Group P0(DEFAULT_PAIRING_POINTS_P0_X, DEFAULT_PAIRING_POINTS_P0_Y, /*assert_on_curve=*/false);
+    Group P1(DEFAULT_PAIRING_POINTS_P1_X, DEFAULT_PAIRING_POINTS_P1_Y, /*assert_on_curve=*/false);
+    P0.convert_constant_to_fixed_witness(&builder);
+    P1.convert_constant_to_fixed_witness(&builder);
+
+    // Create duplicate pairing points (same P0, P1)
+    PairingPoints pp_first = { P0, P1 };
+    PairingPoints pp_second = { P0, P1 }; // Duplicate
+    PairingPoints pp_third = { P0, P1 };  // Another duplicate
+
+    // Test aggregate_multiple with all duplicate points
+    // The n-1 optimization computes: P_agg = P₀ + r₁·P₁ + r₂·P₂
+    // With duplicates: P_agg = P + r₁·P + r₂·P = (1 + r₁ + r₂)·P
+    // This tests that the optimization handles the edge case where first point equals others
+    std::vector<PairingPoints> pp_vector = { pp_first, pp_second, pp_third };
+    PairingPoints aggregated = PairingPoints::aggregate_multiple(pp_vector);
+
+    // Circuit should be valid
+    EXPECT_TRUE(CircuitChecker::check(builder));
+
+    // Verify tags are properly merged
+    EXPECT_TRUE(builder.pairing_points_tagging.has_single_pairing_point_tag());
+
+    // The result should still be a valid pairing point (scalar multiple of the original)
+    bb::PairingPoints<typename Curve::NativeCurve> native_aggregated(aggregated.P0.get_value(),
+                                                                     aggregated.P1.get_value());
+    EXPECT_TRUE(native_aggregated.check())
+        << "Aggregated duplicate pairing points should still satisfy pairing equation";
+}
+
 } // namespace bb::stdlib::recursion

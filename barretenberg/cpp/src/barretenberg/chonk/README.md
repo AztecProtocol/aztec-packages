@@ -74,9 +74,19 @@ App₀ → Kernel₀ → App₁ → Kernel₁ → ... → Appₙ → Reset → T
 
 ### Proof Structure
 
-A Chonk proof (`ChonkProof`) consists of:
+A Chonk proof (`ChonkProof_<IsRecursive>`) is a unified template structure that works for both native and recursive verification modes:
 
-1. **Mega proof**: ZK proof of the Hiding kernel which recursively verifies:
+```cpp
+template <bool IsRecursive>
+struct ChonkProof_ {
+    HonkProof mega_proof;      // MegaZK proof of Hiding kernel
+    GoblinProof goblin_proof;  // Goblin sub-proofs
+};
+```
+
+**Proof components:**
+
+1. **Mega proof** (MegaZK): ZK proof of the Hiding kernel which recursively verifies:
    - The final HyperNova folding proof
    - The decider proof
 
@@ -85,6 +95,19 @@ A Chonk proof (`ChonkProof`) consists of:
    - **ECCVM proof**: Proves correctness of EC operations (see [ECCVM README](../eccvm/README.md))
    - **IPA proof**: Inner product argument for ECCVM (Grumpkin curve)
    - **Translator proof**: Converts between BN254 and Grumpkin curves
+
+**Verification Architecture:**
+
+The Chonk verifier performs verification in stages:
+1. **MegaZK reduction**: Uses `MegaZKVerifier::reduce_to_pairing_check` to verify Hiding kernel
+2. **Goblin reduction**: Reduces Merge, ECCVM, and Translator to pairing checks and IPA verification
+3. **Pairing aggregation**: Aggregates 4 pairing point sets in a single operation using `aggregate_multiple`:
+   - Public Input (PI) pairing points from MegaZK
+   - Polynomial Commitment Scheme (PCS) pairing points from MegaZK
+   - Merge protocol pairing points
+   - Translator protocol pairing points
+4. **Native mode**: Immediately verifies aggregated pairing points and IPA claim
+5. **Recursive mode**: Returns `ChonkVerifier::ReductionResult` with aggregated pairing points and IPA claim for deferred verification
 
 **Note on deferred verification**: IPA claims and pairing points are propagated through the rollup:
 - **IPA claims** (Grumpkin): originate from ECCVM verification when Chonk or AVM proofs are recursively verified. Carried in `RollupIO` public inputs through tx_merge → block_merge → checkpoint_root → checkpoint_merge. At each level, claims from child proofs are accumulated via `IPA::accumulate`. Finally verified **in-circuit in the root rollup** via `IPA::full_verify_recursive`.
