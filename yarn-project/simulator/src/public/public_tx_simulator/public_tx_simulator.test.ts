@@ -5,13 +5,9 @@ import {
   GAS_ESTIMATION_TEARDOWN_DA_GAS_LIMIT,
   GAS_ESTIMATION_TEARDOWN_L2_GAS_LIMIT,
   NULLIFIER_SUBTREE_HEIGHT,
-  PUBLIC_DATA_TREE_HEIGHT,
 } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import type { AztecKVStore } from '@aztec/kv-store';
-import { openTmpStore } from '@aztec/kv-store/lmdb';
-import { type AppendOnlyTree, Poseidon, StandardTree, newTree } from '@aztec/merkle-tree';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { computeFeePayerBalanceStorageSlot } from '@aztec/protocol-contracts/fee-juice';
 import { PublicDataWrite, PublicSimulatorConfig, PublicTxResult, RevertCode } from '@aztec/stdlib/avm';
@@ -24,8 +20,8 @@ import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server'
 import { countAccumulatedItems } from '@aztec/stdlib/kernel';
 import { L2ToL1Message, ScopedL2ToL1Message } from '@aztec/stdlib/messaging';
 import { fr, mockTx } from '@aztec/stdlib/testing';
-import { AppendOnlyTreeSnapshot, MerkleTreeId, PublicDataTreeLeaf } from '@aztec/stdlib/trees';
-import { BlockHeader, GlobalVariables, PartialStateReference, StateReference } from '@aztec/stdlib/tx';
+import { MerkleTreeId, PublicDataTreeLeaf } from '@aztec/stdlib/trees';
+import { GlobalVariables } from '@aztec/stdlib/tx';
 import { NativeWorldStateService } from '@aztec/world-state';
 
 import { jest } from '@jest/globals';
@@ -63,10 +59,7 @@ describe('public_tx_simulator', () => {
   let merkleTreesCopy: MerkleTreeWriteOperations;
   let contractsDB: PublicContractsDB;
 
-  let publicDataTree: AppendOnlyTree<Fr>;
-
   let worldStateService: NativeWorldStateService;
-  let treeStore: AztecKVStore;
   let simulator: PublicTxSimulator;
   let simulateInternal: jest.SpiedFunction<
     (
@@ -271,35 +264,11 @@ describe('public_tx_simulator', () => {
     merkleTreesCopy = await worldStateService.fork();
     contractsDB = new PublicContractsDB(mock<ContractDataSource>());
 
-    treeStore = openTmpStore();
-
-    publicDataTree = await newTree(
-      StandardTree,
-      treeStore,
-      new Poseidon(),
-      'PublicData',
-      Fr,
-      PUBLIC_DATA_TREE_HEIGHT,
-      1, // Add a default low leaf for the public data hints to be proved against.
-    );
-    const snap = new AppendOnlyTreeSnapshot(
-      Fr.fromBuffer(publicDataTree.getRoot(true)),
-      Number(publicDataTree.getNumLeaves(true)),
-    );
-    const header = BlockHeader.empty();
-    const stateReference = new StateReference(
-      header.state.l1ToL2MessageTree,
-      new PartialStateReference(header.state.partial.noteHashTree, header.state.partial.nullifierTree, snap),
-    );
-    // Clone the whole state because somewhere down the line (AbstractPhaseManager) the public data root is modified in the referenced header directly :/
-    header.state = StateReference.fromBuffer(stateReference.toBuffer());
-
     simulator = createSimulator({ skipFeeEnforcement: true });
   }, 30_000);
 
   afterEach(async () => {
     await worldStateService.close();
-    await treeStore.delete();
   });
 
   it('runs a tx with enqueued public calls in setup phase only', async () => {
