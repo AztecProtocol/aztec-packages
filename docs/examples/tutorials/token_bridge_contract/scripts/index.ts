@@ -16,7 +16,7 @@ import { Fr } from "@aztec/aztec.js/fields";
 import { createAztecNodeClient } from "@aztec/aztec.js/node";
 import { computeSecretHash } from "@aztec/stdlib/hash";
 import { computeL2ToL1MembershipWitness } from "@aztec/stdlib/messaging";
-import { sha256ToField } from "@aztec/foundation/crypto";
+import { sha256ToField } from "@aztec/foundation/crypto/sha256";
 import { computeL2ToL1MessageHash } from "@aztec/stdlib/hash";
 import { TestWallet } from "@aztec/test-wallet/server";
 import { getInitialTestAccountsData } from "@aztec/accounts/testing";
@@ -272,11 +272,11 @@ const content = sha256ToField([
 ]);
 
 // Get rollup version from the portal contract (it stores it during initialize)
-const version = await publicClient.readContract({
+const version = (await publicClient.readContract({
   address: portalAddress as `0x${string}`,
   abi: NFTPortal.abi,
   functionName: "rollupVersion",
-});
+})) as number;
 
 // Compute the L2→L1 message hash
 const msgLeaf = computeL2ToL1MessageHash({
