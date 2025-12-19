@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <functional>
+#include <tuple>
 #include <vector>
 
 #include "barretenberg/common/tuple.hpp"
@@ -12,6 +13,14 @@ namespace std {
 
 template <typename T> struct hash<std::reference_wrapper<const T>> {
     size_t operator()(const std::reference_wrapper<const T>& ref) const { return std::hash<T>{}(ref.get()); }
+};
+
+// Define a hash function for std::tuple so that it can be used as a key in a std::unordered_map.
+template <typename... Ts> struct hash<std::tuple<Ts...>> {
+    size_t operator()(const std::tuple<Ts...>& tup) const
+    {
+        return std::apply([](const auto&... args) { return bb::utils::hash_as_tuple(args...); }, tup);
+    }
 };
 
 template <typename T> struct hash<std::vector<T>> {

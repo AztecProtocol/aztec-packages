@@ -3,6 +3,8 @@
 #include "barretenberg/vm2/common/field.hpp"
 
 #include <cstdint>
+#include <optional>
+#include <tuple>
 #include <vector>
 
 namespace bb::avm2::simulation {
@@ -21,6 +23,13 @@ struct MerkleCheckEvent {
     std::vector<FF> sibling_path;
     FF root = 0;
     std::optional<FF> new_root;
+
+    // To be used with deduplicating event emitters.
+    // The key captures all inputs that determine the merkle check computation.
+    // For READs: (leaf_value, leaf_index, sibling_path, root)
+    // For WRITEs: additionally includes new_leaf_value (new_root is derived)
+    using Key = std::tuple<FF, std::optional<FF>, uint64_t, std::vector<FF>, FF>;
+    Key get_key() const { return { leaf_value, new_leaf_value, leaf_index, sibling_path, root }; }
 
     bool operator==(const MerkleCheckEvent& other) const = default;
 };

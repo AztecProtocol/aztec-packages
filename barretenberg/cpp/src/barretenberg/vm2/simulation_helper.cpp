@@ -157,7 +157,7 @@ std::tuple<EventsContainer, TxSimulationResult> AvmSimulationHelper::simulate_fo
     DefaultEventEmitter<ToRadixEvent> to_radix_emitter;
     DefaultEventEmitter<ToRadixMemoryEvent> to_radix_memory_emitter;
     DefaultDeduplicatingEventEmitter<FieldGreaterThanEvent> field_gt_emitter;
-    DefaultEventEmitter<MerkleCheckEvent> merkle_check_emitter;
+    DefaultDeduplicatingEventEmitter<MerkleCheckEvent> merkle_check_emitter;
     DefaultDeduplicatingEventEmitter<RangeCheckEvent> range_check_emitter;
     DefaultEventEmitter<ContextStackEvent> context_stack_emitter;
     DefaultEventEmitter<PublicDataTreeCheckEvent> public_data_tree_check_emitter;
