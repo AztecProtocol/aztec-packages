@@ -26,7 +26,7 @@ import { SiloedTag } from '../tagging/siloed_tag.js';
 import { Tag } from '../tagging/tag.js';
 import { getInitialIndexesMap, getPreTagsForTheWindow } from '../tagging/utils.js';
 
-// TODO: good names wanted
+// TODO: wanted: good name
 export class LogService {
   constructor(
     private readonly aztecNode: AztecNode,
