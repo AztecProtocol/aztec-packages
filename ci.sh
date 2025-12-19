@@ -130,9 +130,10 @@ case "$cmd" in
     bootstrap_ec2 "./bootstrap.sh ci-network-deploy $*"
     ;;
   "network-tests")
-    export JOB_ID="x-${NAMESPACE}-network-tests"
+    # Args: <scenario> <namespace>
+    export JOB_ID="x-${2:?namespace is required}-network-tests"
     export AWS_SHUTDOWN_TIME=360 # 6 hours for network tests
-    bootstrap_ec2 "./bootstrap.sh ci-network-tests"
+    bootstrap_ec2 "./bootstrap.sh ci-network-tests $*"
     ;;
   "network-bench")
     # Args: <scenario> <namespace> [docker_image]

@@ -581,9 +581,14 @@ case "$cmd" in
     exit $deploy_exit_code
     ;;
   "ci-network-tests")
+    # Args: <networkLabel> <namespace>
     export CI=1
+    network_label="${1:?networkLabel is required}"
+    namespace="${2:?namespace is required}"
     build
-    spartan/bootstrap.sh network_tests $NETWORK_ENV_FILE
+    # Set up environment for tests
+    export NAMESPACE="$namespace"
+    spartan/bootstrap.sh network_tests "${network_label}"
     ;;
   "ci-network-bench")
     # Args: <networkLabel> <namespace> [docker_image]

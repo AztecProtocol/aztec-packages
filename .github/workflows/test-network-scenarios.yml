@@ -13,7 +13,7 @@ on:
         description: Kubernetes namespace to use (will be sanitized for k8s naming)
         required: true
         type: string
-      network_label:
+      env_file:
         description: Network configuration to use (local, devnet, testnet, next-scenario, tps-scenario)
         required: false
         type: string
@@ -44,4 +44,4 @@ jobs:
           NO_SPOT: 1
         run: |
           namespace=$(echo "${{ inputs.namespace }}" | sed 's/[^a-z0-9-]/-/g' | cut -c1-20)
-          ./.github/ci3.sh network-deploy "${{ inputs.network_label }}" "$namespace" "${{ inputs.docker_image }}"
+          ./.github/ci3.sh network-deploy "${{ inputs.env_file }}" "$namespace" "${{ inputs.docker_image }}"
