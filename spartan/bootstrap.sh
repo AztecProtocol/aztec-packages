@@ -93,12 +93,12 @@ function test {
 }
 
 function network_tests {
-  local env_file="$1"
+  local config="$1"
+  local namespace="$2"
   echo_header "spartan scenario test"
 
-  # no parallelize here as we want to run the tests sequentially
-  export SCENARIO_TESTS=1
-  source_network_env $env_file
+  # Export test environment from config
+  eval $(node --experimental-strip-types deploy-ts/main.ts export-env "$config" "$namespace" 2>/dev/null)
 
   gcp_auth
   network_test_cmds | filter_test_cmds | parallelize 1
@@ -163,15 +163,24 @@ case "$cmd" in
   "network_deploy")
     env_file="$1"
 
-    #Sets up basic env vars like RUN_TESTS
+    # Source env vars like RUN_TESTS, CONFIG, NAMESPACE, AZTEC_DOCKER_IMAGE
     source_env_basic "$env_file"
 
-    # Run the network deploy script
-    ./scripts/network_deploy.sh "$env_file"
+    # Perform GCP auth
+    gcp_auth
+
+    # Run the TypeScript deploy
+    # CONFIG: short config name (e.g. next-scenario, tps-scenario) or path to .ts file
+    # NAMESPACE: kubernetes namespace
+    # AZTEC_DOCKER_IMAGE: docker image to deploy
+    node --experimental-strip-types deploy-ts/main.ts deploy \
+      "${CONFIG:-next-scenario}" \
+      "${NAMESPACE}" \
+      "${AZTEC_DOCKER_IMAGE}"
 
     if [[ "${RUN_TESTS:-}" == "true" ]]; then
       echo "Running tests"
-      network_tests "$env_file"
+      network_tests "${CONFIG:-next-scenario}" "${NAMESPACE}"
     fi
     ;;
   "single_test")
@@ -183,9 +192,14 @@ case "$cmd" in
     single_test $test_file
     ;;
 
-  network_tests|network_bench)
+  network_tests)
+    config="$1"
+    namespace="$2"
+    network_tests "$config" "$namespace"
+    ;;
+  network_bench)
     env_file="$1"
-    $cmd $env_file
+    network_bench "$env_file"
     ;;
   "kind")
     if ! kubectl config get-clusters | grep -q "^kind-kind$" || ! docker ps | grep -q "kind-control-plane"; then

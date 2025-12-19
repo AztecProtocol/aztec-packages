@@ -12,15 +12,35 @@ export const hours = (n: number): number => n * 3600;
 export const days = (n: number): number => n * 86400;
 
 // ============================================================================
+// GCP Secret Sentinel
+// ============================================================================
+
+/**
+ * Sentinel value indicating a field should be populated from GCP secrets.
+ * At deploy time, this value is replaced with the actual secret value.
+ * Using a unique symbol ensures it cannot be confused with actual string data.
+ */
+export const GCP_SECRET: unique symbol = Symbol("GCP_SECRET");
+export type GcpSecret = typeof GCP_SECRET;
+
+/** A value that is either provided directly or fetched from GCP secrets */
+export type SecretValue<T> = T | GcpSecret;
+
+/** Check if a value is the GCP_SECRET sentinel */
+export function isGcpSecret(value: unknown): value is GcpSecret {
+  return value === GCP_SECRET;
+}
+
+// ============================================================================
 // Ethereum/L1 Configuration
 // ============================================================================
 
 export interface EthereumConfig {
   chainId: number;
-  rpcUrls: string[];
-  consensusHostUrls: string[];
-  consensusHostApiKeys: string[];
-  consensusHostApiKeyHeaders: string[];
+  rpcUrls: SecretValue<string[]>;
+  consensusHostUrls: SecretValue<string[]>;
+  consensusHostApiKeys: SecretValue<string[]>;
+  consensusHostApiKeyHeaders: SecretValue<string[]>;
   blockTime: number;
   gasLimit: number;
 }
@@ -41,12 +61,12 @@ export interface KubernetesConfig {
 }
 
 export interface SecretsConfig {
-  labsInfraMnemonic: string;
-  rollupDeploymentPrivateKey?: string;
-  otelCollectorEndpoint?: string;
-  etherscanApiKey?: string;
-  r2AccessKeyId?: string;
-  r2SecretAccessKey?: string;
+  labsInfraMnemonic: SecretValue<string>;
+  rollupDeploymentPrivateKey?: SecretValue<string>;
+  otelCollectorEndpoint?: SecretValue<string>;
+  etherscanApiKey?: SecretValue<string>;
+  r2AccessKeyId?: SecretValue<string>;
+  r2SecretAccessKey?: SecretValue<string>;
 }
 
 // ============================================================================

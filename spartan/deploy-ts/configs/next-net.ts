@@ -1,9 +1,10 @@
 /**
- * Devnet network configuration.
- * This replaces spartan/environments/devnet.env
+ * Next-net network configuration.
+ * This replaces spartan/environments/next-net.env
  */
 
 import type { NetworkConfig } from "./types.ts";
+import { GCP_SECRET } from "./types.ts";
 import {
   DEFAULT_ROLLUP_CONFIG,
   DEFAULT_GOVERNANCE_CONFIG,
@@ -11,15 +12,16 @@ import {
   DEFAULT_GOVERNANCE_PROPOSER_CONFIG,
   DEFAULT_ZKPASSPORT_CONFIG,
 } from "./defaults.ts";
+
 const config: NetworkConfig = {
-  name: "devnet",
+  name: "next-net",
 
   ethereum: {
     chainId: 11155111, // Sepolia
-    rpcUrls: [], // Populated from secrets
-    consensusHostUrls: [], // Populated from secrets
-    consensusHostApiKeys: [], // Populated from secrets
-    consensusHostApiKeyHeaders: [], // Populated from secrets
+    rpcUrls: GCP_SECRET,
+    consensusHostUrls: GCP_SECRET,
+    consensusHostApiKeys: GCP_SECRET,
+    consensusHostApiKeyHeaders: GCP_SECRET,
     blockTime: 12,
     gasLimit: 100_000_000,
   },
@@ -31,14 +33,17 @@ const config: NetworkConfig = {
 
   kubernetes: {
     cluster: "aztec-gke-private",
-    namespace: "devnet",
+    namespace: "next-net",
     resourceProfile: "prod",
   },
 
   secrets: {
-    labsInfraMnemonic: "", // From GCP secrets
-    rollupDeploymentPrivateKey: undefined, // From GCP secrets
-    otelCollectorEndpoint: undefined, // From GCP secrets
+    labsInfraMnemonic: GCP_SECRET,
+    rollupDeploymentPrivateKey: GCP_SECRET,
+    otelCollectorEndpoint: GCP_SECRET,
+    etherscanApiKey: GCP_SECRET,
+    r2AccessKeyId: GCP_SECRET,
+    r2SecretAccessKey: GCP_SECRET,
   },
 
   deployEthDevnet: false,
@@ -50,41 +55,42 @@ const config: NetworkConfig = {
   verifyContracts: false,
 
   validators: {
-    replicas: 1,
-    validatorsPerNode: 1,
+    replicas: 4,
+    validatorsPerNode: 12,
     mnemonicStartIndex: 1,
     publisherMnemonicStartIndex: 5000,
-    publishersPerValidatorKey: 1,
+    publishersPerValidatorKey: 2,
   },
 
   provers: {
     replicas: 1,
     agentsPerProver: 4,
     mnemonicStartIndex: 8000,
-    publishersPerProver: 1,
+    publishersPerProver: 2,
     realProofs: false,
     agentPollIntervalMs: 1000,
+    failedProofStore: "gs://aztec-develop/next-net/failed-proofs",
   },
 
   bots: {
-    transfersReplicas: 0,
+    transfersReplicas: 1,
     transfersMnemonicStartIndex: 7000,
-    transfersTxIntervalSeconds: 60,
-    transfersFollowChain: "NONE",
+    transfersTxIntervalSeconds: 250,
+    transfersFollowChain: "PENDING",
     transfersL2PrivateKey: "0xcafe01",
-    swapsReplicas: 0,
+    swapsReplicas: 1,
     swapsMnemonicStartIndex: 7100,
-    swapsTxIntervalSeconds: 60,
-    swapsFollowChain: "NONE",
+    swapsTxIntervalSeconds: 350,
+    swapsFollowChain: "PENDING",
     swapsL2PrivateKey: "0xcafe02",
   },
 
   rpc: {
-    replicas: 1,
+    replicas: 2,
     ingressEnabled: true,
-    ingressHost: "devnet.aztec-labs.com",
-    ingressStaticIpName: "devnet-rpc-ip",
-    ingressSslCertName: "devnet-rpc-cert",
+    ingressHost: "next-net.aztec-labs.com",
+    ingressStaticIpName: "next-net-rpc-ip",
+    ingressSslCertName: "next-net-rpc-cert",
   },
 
   fullNodes: {
@@ -108,7 +114,7 @@ const config: NetworkConfig = {
 
   sequencer: {
     minTxPerBlock: 0,
-    maxTxPerBlock: 32,
+    maxTxPerBlock: 8,
   },
 
   fisherman: {
@@ -122,9 +128,9 @@ const config: NetworkConfig = {
 
   rollup: {
     ...DEFAULT_ROLLUP_CONFIG,
-    lagInEpochsForValidatorSet: 1,
-    lagInEpochsForRandao: 1,
-    aztecEpochDuration: 8,
+    aztecEpochDuration: 32,
+    lagInEpochsForValidatorSet: 2,
+    lagInEpochsForRandao: 2,
   },
 
   governance: DEFAULT_GOVERNANCE_CONFIG,
@@ -133,7 +139,6 @@ const config: NetworkConfig = {
   zkPassport: DEFAULT_ZKPASSPORT_CONFIG,
 
   logLevel: "info",
-  wsNumHistoricBlocks: 300,
 };
 
 export default config;

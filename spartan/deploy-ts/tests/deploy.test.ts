@@ -106,8 +106,8 @@ function makeTestConfig(overrides: Partial<NetworkConfig> = {}): NetworkConfig {
   };
 }
 
-describe("deploy", () => {
-  it("should plan all three stages when all are enabled", () => {
+void describe("deploy", () => {
+  void it("should plan all three stages when all are enabled", () => {
     const config = makeTestConfig();
     const exec = new PlanExecutor();
 
@@ -123,7 +123,7 @@ describe("deploy", () => {
     assert.ok(exec.operations.some(op => op.includes("create namespace")));
   });
 
-  it("should skip ETH devnet when not enabled", () => {
+  void it("should skip ETH devnet when not enabled", () => {
     const config = makeTestConfig({ deployEthDevnet: false });
     const exec = new PlanExecutor();
 
@@ -134,7 +134,7 @@ describe("deploy", () => {
     assert.strictEqual(exec.terraformApplies[1]?.module, "deploy-aztec-infra");
   });
 
-  it("should skip rollup contracts when not enabled", () => {
+  void it("should skip rollup contracts when not enabled", () => {
     const config = makeTestConfig({ deployRollupContracts: false });
     const exec = new PlanExecutor();
 
@@ -145,7 +145,7 @@ describe("deploy", () => {
     assert.strictEqual(exec.terraformApplies[1]?.module, "deploy-aztec-infra");
   });
 
-  it("should skip aztec infra when not enabled", () => {
+  void it("should skip aztec infra when not enabled", () => {
     const config = makeTestConfig({ deployAztecInfra: false });
     const exec = new PlanExecutor();
 
@@ -156,7 +156,7 @@ describe("deploy", () => {
     assert.strictEqual(exec.terraformApplies[1]?.module, "deploy-rollup-contracts");
   });
 
-  it("should pass docker image to rollup contracts", () => {
+  void it("should pass docker image to rollup contracts", () => {
     const config = makeTestConfig();
     const exec = new PlanExecutor();
 
@@ -168,8 +168,8 @@ describe("deploy", () => {
   });
 });
 
-describe("teardown", () => {
-  it("should destroy in reverse order", () => {
+void describe("teardown", () => {
+  void it("should destroy in reverse order", () => {
     const config = makeTestConfig();
     const exec = new PlanExecutor();
 
@@ -184,7 +184,7 @@ describe("teardown", () => {
     assert.ok(exec.operations.some(op => op.includes("delete namespace")));
   });
 
-  it("should skip stages that were not deployed", () => {
+  void it("should skip stages that were not deployed", () => {
     const config = makeTestConfig({
       deployEthDevnet: false,
       deployRollupContracts: true,
