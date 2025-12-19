@@ -29,13 +29,9 @@ validate_config() {
         return 1
     fi
 
-    # Check contracts array is not empty
+    # Check contracts count (can be empty if using pre-built packages like @aztec/noir-contracts.js)
     local contract_count
     contract_count="$(yq eval '.contracts | length' "$config_file")"
-    if [ "$contract_count" -eq 0 ]; then
-        echo_stderr "ERROR: No contracts specified in '${config_file}'"
-        return 1
-    fi
 
     # Check dependencies section exists and is an array (!!seq in YAML)
     local deps_type
@@ -45,15 +41,17 @@ validate_config() {
         return 1
     fi
 
-    # Validate all contract artifacts exist
-    local contract_name
-    while IFS= read -r contract_name; do
-        local artifact="$ARTIFACTS_DIR/${contract_name}.json"
-        if [ ! -f "$artifact" ]; then
-            echo_stderr "ERROR: Artifact not found for '${project_name}': ${artifact}"
-            return 1
-        fi
-    done < <(yq eval '.contracts[]' "$config_file")
+    # Validate all contract artifacts exist (if any contracts specified)
+    if [ "$contract_count" -gt 0 ]; then
+        local contract_name
+        while IFS= read -r contract_name; do
+            local artifact="$ARTIFACTS_DIR/${contract_name}.json"
+            if [ ! -f "$artifact" ]; then
+                echo_stderr "ERROR: Artifact not found for '${project_name}': ${artifact}"
+                return 1
+            fi
+        done < <(yq eval '.contracts[]' "$config_file")
+    fi
 
     return 0
 }
@@ -111,15 +109,22 @@ validate_project() {
         trap cleanup EXIT
 
         # Read contracts from config.yaml (already validated above)
-        echo_stderr "Compiling contracts for '${project_name}'..."
+        local contract_count
+        contract_count="$(yq eval '.contracts | length' config.yaml)"
 
-        # Process each contract
-        local contract_name
-        while IFS= read -r contract_name; do
-            local artifact="$ARTIFACTS_DIR/${contract_name}.json"
-            echo_stderr "Running codegen for '${contract_name}'..."
-            node --no-warnings "$BUILDER_CLI" codegen "$artifact" -o artifacts
-        done < <(yq eval '.contracts[]' config.yaml)
+        if [ "$contract_count" -gt 0 ]; then
+            echo_stderr "Running codegen for '${project_name}'..."
+
+            # Process each contract
+            local contract_name
+            while IFS= read -r contract_name; do
+                local artifact="$ARTIFACTS_DIR/${contract_name}.json"
+                echo_stderr "  - ${contract_name}..."
+                node --no-warnings "$BUILDER_CLI" codegen "$artifact" -o artifacts
+            done < <(yq eval '.contracts[]' config.yaml)
+        else
+            echo_stderr "No custom contracts for '${project_name}', skipping codegen..."
+        fi
 
         # Setup yarn
         echo_stderr "Setting up yarn for '${project_name}'..."
