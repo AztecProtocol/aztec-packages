@@ -6,141 +6,184 @@ keywords: [authwit, authentication witness, accounts]
 description: Learn about Aztec's Authentication Witness scheme that enables secure third-party actions on behalf of users, providing a privacy-preserving alternative to traditional token approvals.
 ---
 
-<!-- NOTE: combine with the "how to guide" AKA the framework description page... -->
+Authentication Witness is a scheme for authenticating actions on Aztec, allowing users to authorize third-parties (protocols or other users) to execute actions on their behalf.
 
-import Image from "@theme/IdealImage";
+## Summary
 
-Authentication Witness is a scheme for authenticating actions on Aztec, so users can allow third-parties (eg protocols or other users) to execute an action on their behalf.
+- **Authwits authorize specific actions**, not blanket allowances like ERC20 approvals
+- **Two-level hash structure**: inner hash (caller, selector, args) wrapped in message hash (consumer, chain_id, version, inner_hash)
+- **Private authwits** are verified via static calls to the account contract, with witnesses provided through oracles
+- **Public authwits** use a shared registry where authorizations are stored and consumed
+- **Single-use enforcement** through nullifiers prevents replay attacks
+- **Implementation**: Use the `#[authorize_once]` macro in your contracts (see [implementation guide](../../aztec-nr/framework-description/how_to_use_authwit.md))
 
 ## Background
 
-When building DeFi or other smart contracts, it is often desired to interact with other contracts to execute some action on behalf of the user. For example, when you want to deposit funds into a lending protocol, the protocol wants to perform a transfer of [ERC20](https://eips.ethereum.org/EIPS/eip-20) tokens from the user's account to the protocol's account.
+In traditional EVM contracts, users authorize third-party actions through `approve` (setting allowances) or `permit` (signed approvals). Both approaches have drawbacks: infinite approvals create security risks, two-transaction flows hurt UX, and smart contract wallets struggle with signature-based permits.
 
-In the EVM world, this is often accomplished by having the user `approve` the protocol to transfer funds from their account, and then calling a `deposit` function on it afterwards.
+Aztec's private state model makes traditional approvals even more problematic. Even if you approve an allowance, the recipient can't spend your private tokens without knowing the note secrets. See [Hybrid State model](../state_management.md) and [keys](../accounts/keys.md) for more on private state.
 
-<Image img={require("@site/static/img/authwit.png")} />
+Authwits solve this by authorizing specific actions rather than blanket allowances, with verification happening through account contracts.
 
-This flow makes it rather simple for the application developer to implement the deposit function, but does not come without its downsides.
+## How authwits work
 
-One main downside, which births a bunch of other issues, is that the user needs to send two transactions to make the deposit - first the `approve` and then the `deposit`.
+Since private execution happens on the user's device, we can use oracles to provide authorization data mid-execution. The user provides a "witness" (proof of authorization) that the account contract validates.
 
-To limit the annoyance for return-users, some front-ends will use the `approve` function with an infinite amount, which means that the user will only have to sign the `approve` transaction once, and every future `deposit` will then use some of that "allowance" to transfer funds from the user's account to the protocol's account.
-
-This can lead to a series of issues though, eg:
-
-- The user is not aware of how much they have allowed the protocol to transfer.
-- The protocol can transfer funds from the user's account at any time. This means that if the protocol is rugged or exploited, it can transfer funds from the user's account without the user having to sign any transaction. This is especially an issue if the protocol is upgradable, as it could be made to steal the user's approved funds at any time in the future.
-
-To avoid this, many protocols implement the `permit` flow, which uses a meta-transaction to let the user sign the approval offchain, and pass it as an input to the `deposit` function, that way the user only has to send one transaction to make the deposit.
-
-<Image img={require("@site/static/img/authwit2.png")} />
-
-This is a great improvement to infinite approvals, but still has its own sets of issues. For example, if the user is using a smart-contract wallet (such as Argent or Gnosis Safe), they will not be able to sign the permit message since the usual signature validation does not work well with contracts. [EIP-1271](https://eips.ethereum.org/EIPS/eip-1271) was proposed to give contracts a way to emulate this, but it is not widely adopted.
-
-Separately, the message that the user signs can seem opaque to the user and they might not understand what they are signing. This is generally an issue with `approve` as well.
-
-All of these issues have been discussed in the community for a while, and there are many proposals to solve them. However, none of them have been widely adopted - ERC20 is so commonly used and changing a standard is hard.
-
-## In Aztec
-
-Adopting ERC20 for Aztec is not as simple as it might seem because of private state.
-
-If you recall from the [Hybrid State model](../state_management.md), private state is generally only known by its owner and those they have shared it with. Because it relies on secrets, private state might be "owned" by a contract, but it needs someone with knowledge of these secrets to actually spend it. You might see where this is going.
-
-If we were to implement the `approve` with an allowance in private, you might know the allowance, but unless you also know about the individual notes that make up the user's balances, it would be of no use to you! It is private after all. To spend the user's funds you would need to know the decryption key, see [keys for more](../accounts/keys.md).
-
-While this might sound limiting in what we can actually do, the main use of approvals have been for simplifying contract interactions that the user is doing. In the case of private transactions, this is executed on the user device, so it is not a blocker that the user need to tell the executor a secret - the user is the executor!
-
-### So what can we do?
-
-A few more things we need to remember about private execution:
-
-- To stay private, it all happens on the user device.
-- Because it happens on the user device, additional user-provided information can be passed to the contract mid-execution via an oracle call.
-
-For example, when executing a private transfer, the wallet will be providing the notes that the user wants to transfer through one of these oracle calls instead of the function arguments. This allows us to keep the function signature simple, and have the user provide the notes they want to transfer through the oracle call.
-
-For a transfer, it could be the notes provided, but we could also use the oracle to provide any type of data to the contract. So we can borrow the idea from `permit` that the user can provide a signature (or witness) to the contract which allows it to perform some action on behalf of the user.
-
-:::info Witness or signature?
-The doc refers to a witness instead of a signature because it is not necessarily a signature that is required to convince the account contract that we are allowed to perform the action. It depends on the contract implementation, and could also be a password or something similar.
+:::info Witness vs signature
+We use "witness" instead of "signature" because authorization doesn't require a cryptographic signature. Depending on the account contract implementation, it could be a password or other mechanism.
 :::
 
-Since the witness is used to authenticate that someone can execute an action on behalf of the user, we call it an Authentication Witness or `AuthWit` for short. An "action", in this meaning, is a blob of data that specifies what call is approved, what arguments it is approved with, and the actor that is authenticated to perform the call.
+### Hash structure
 
-In practice, this blob is currently outlined to be a hash of the content mentioned, but it might change over time to make ["simulating simulations"](https://discourse.aztec.network/t/simulating-simulations/2218) easier.
+Authwits use a two-level hash structure:
 
-Outlined more clearly, we have the following, where the `H` is a SNARK-friendly hash function and `argsHash` is the hash of function arguments:
+**Inner hash** encodes the specific action being authorized:
 
 ```rust
-authentication_witness_action = H(
-    caller: AztecAddress,
-    contract: AztecAddress,
-    selector: Field,
-    argsHash: Field
-);
+inner_hash = H(caller, selector, args_hash)
 ```
 
-To outline an example as mentioned earlier, let's say that we have a token that implements `AuthWit` such that transfer funds from A to B is valid if A is doing the transfer, or there is a witness that authenticates the caller to transfer funds from A's account. While this specifies the spending rules, one must also know of the notes to use them for anything. This means that a witness in itself is only half the information.
-
-Creating the authentication action for the transfer of funds to the Defi contract would look like this:
+**Message hash** wraps the inner hash with context to prevent cross-chain replay attacks:
 
 ```rust
-action = H(defi, token, transfer_selector, H(alice_account, defi, 1000));
+message_hash = H(consumer, chain_id, version, inner_hash)
 ```
 
-This can be read as "defi is allowed to call token transfer function with the arguments (alice_account, defi, 1000)".
+Where
 
-With this out of the way, let's look at how this would work in the graph below. The exact contents of the witness will differ between implementations as mentioned before, but for the sake of simplicity you can think of it as a signature, which the account contract can then use to validate if it really should allow the action.
+- `caller` is the address attempting the action (e.g., a DeFi contract)
+- `selector` is the function selector being called
+- `args_hash` is the hash of the function arguments
+- `consumer` is the contract verifying the authorization (e.g., the token contract)
+- `chain_id` and `version` prevent cross-chain replay attacks
 
-<Image img={require("@site/static/img/authwit3.png")} />
-
-:::info Static call for AuthWit checks
-The call to the account contract for checking authentication should be a static call, meaning that it cannot change state or make calls that change state. If this call is not static, it could be used to re-enter the flow and change the state of the contract.
-:::
-
-:::danger Re-entries
-The above flow could be re-entered at token transfer. It is mainly for show to illustrate a logic outline.
-:::
-
-### What about public
-
-As noted earlier, we could use the ERC20 standard for public. But this seems like a waste when we have the ability to try righting some wrongs. Instead, we can expand our AuthWit scheme to also work in public. This is actually quite simple, instead of asking an oracle (which we can't do as easily because not private execution) we can just store the AuthWit in a shared registry, and look it up when we need it. While this needs the storage to be updated ahead of time (can be same tx), we can quite easily do so by batching the AuthWit updates with the interaction - a benefit of Account Contracts. A shared registry is used such that execution from the sequencers point of view will be more straight forward and predictable. Furthermore, since we have the authorization data directly in public state, if they are both set and unset (authorized and then used) in the same transaction, there will be no state effect after the transaction for the authorization which saves gas ⛽.
-
-<Image img={require("@site/static/img/authwit4.png")} />
-
-### Replays
-
-To ensure that the authentication witness can only be used once, we can emit the action itself as a nullifier. This way, the authentication witness can only be used once. This is similar to how notes are used, and we can use the same nullifier scheme for this.
-
-Note however, that it means that the same action cannot be authenticated twice, so if you want to allow the same action to be authenticated multiple times, we should include a nonce in the arguments, such that the action is different each time.
-
-For the transfer, this could be done simply by appending a nonce to the arguments.
+**Example:** Authorizing a DeFi contract to transfer tokens:
 
 ```rust
-action = H(defi, token, transfer_selector, H(alice_account, defi, 1000, nonce));
+inner_hash = H(defi, transfer_selector, H(alice_account, defi, 1000));
+message_hash = H(token, chain_id, version, inner_hash);
 ```
 
-Beware that the account contract will be unable to emit the nullifier since it is checked with a static call, so the calling contract must do it. This is similar to nonces in ERC20 tokens today. We provide a small library that handles this.
+This reads as "defi is allowed to call the token's transfer function with arguments (alice_account, defi, 1000) on this specific chain".
 
-### Differences to approval
+### Private authwit flow
 
-The main difference is that we are not setting up an allowance, but allowing the execution of a specific action. We decided on this option as the default since it is more explicit and the user can agree exactly what they are signing.
+In private execution, the Token contract asks Alice's account contract to verify the authwit. The account contract requests the witness from Alice via an oracle, validates it, and returns the result.
 
-Also, most uses of the approvals are for contracts where the following interactions are called by the user themselves, so it is not a big issue that they are not as easily "transferrable" as the `permit`s.
+```mermaid
+sequenceDiagram
+    participant Alice
+    participant Account as Alice's Account
+    participant Token
+    participant DeFi
 
-:::note
+    Alice->>Account: deposit(Token, 1000)
+    Account->>DeFi: deposit(Token, 1000)
+    DeFi->>Token: transfer(Alice, DeFi, 1000)
+    Token->>Account: verify authwit (static call)
+    Account->>Alice: request witness (oracle)
+    Alice-->>Account: provide witness
+    Account-->>Token: IS_VALID
+    Note over Token: emit nullifier
+    Token-->>DeFi: transfer complete
+    DeFi-->>Account: deposit complete
+```
 
-Authwits only work for a single user to authorize actions on contracts that their account is calling. You cannot authorize other users to take actions on your behalf.
-
+:::info Static calls for security
+The authwit verification uses a static call to the account contract. This prevents the account from re-entering the flow and modifying state during verification.
 :::
 
-In order for another user to be able to take actions on your behalf, they would need access to your nullifier secret key so that they could nullify notes for you, but they should not have access to your nullifier secret key.
+### Public authwit flow
 
-### Other use-cases
+In public execution, oracles aren't available since the sequencer runs the code. Instead, authorizations are stored in a shared registry before use.
 
-We don't need to limit ourselves to the `transfer` function, we can use the same scheme for any function that requires authentication. For example, for authenticating to burn, transferring assets from public to private, or to vote in a governance contract or perform an operation on a lending protocol.
+```mermaid
+sequenceDiagram
+    participant Alice
+    participant Account as Alice's Account
+    participant Registry as Auth Registry
+    participant Token
+    participant DeFi
 
-### Next Steps
+    Alice->>Account: set_authorized(message_hash, true)
+    Account->>Registry: set_authorized(message_hash, true)
+    Note over Registry: store authorization
 
-Check out the [developer documentation](../../aztec-nr/framework-description/how_to_use_authwit.md) to see how to implement this in your own contracts.
+    Alice->>Account: deposit(Token, 1000)
+    Account->>DeFi: deposit(Token, 1000)
+    DeFi->>Token: transfer(Alice, DeFi, 1000)
+    Token->>Registry: consume(Alice, inner_hash)
+    Note over Registry: verify & set to false
+    Registry-->>Token: IS_VALID
+    Token-->>DeFi: transfer complete
+```
+
+The registry approach has a gas optimization: if authorization is set and consumed in the same transaction, the state changes cancel out, saving gas.
+
+### Replay prevention
+
+Each authwit can only be used once. The consuming contract emits a nullifier for the action, preventing reuse. This is similar to how notes work.
+
+To allow the same action multiple times (e.g., repeated transfers of the same amount), include a nonce in the arguments:
+
+```rust
+inner_hash = H(defi, transfer_selector, H(alice_account, defi, 1000, nonce));
+```
+
+The account contract cannot emit the nullifier (it's called via static call), so the consuming contract handles this. The authwit library manages this automatically.
+
+### Cancelling authwits
+
+You can cancel an authwit before it's used by emitting its nullifier directly. This invalidates the authwit without executing the authorized action:
+
+```rust
+fn cancel_authwit(inner_hash: Field) {
+    let on_behalf_of = context.msg_sender();
+    let nullifier = compute_authwit_nullifier(on_behalf_of, inner_hash);
+    context.push_nullifier(nullifier);
+}
+```
+
+## Differences from ERC20 approvals
+
+| Aspect | ERC20 Approve | Authwit |
+|--------|---------------|---------|
+| Scope | Blanket allowance | Specific action |
+| User awareness | Often unclear amounts | Exact action visible |
+| Revocation | Requires transaction | Can cancel with nullifier |
+| Private state | Cannot work (need note secrets) | Works via account contract |
+
+:::note Private authwits and note secrets
+While authwits authorize a contract to perform an action, spending private notes still requires knowledge of the note secrets. For private tokens, the note owner must be involved in the transaction&mdash;they cannot simply give another user an authwit and have that user spend the notes independently.
+:::
+
+## Use cases
+
+Authwits work for any function requiring third-party authorization:
+
+- Token transfers and burns
+- DeFi deposits and withdrawals
+- Governance voting
+- Bridge operations (public to private transfers)
+- Any contract interaction requiring user approval
+
+## Implementation
+
+Use the `#[authorize_once]` macro to add authwit verification to your contract functions:
+
+```rust
+#[authorize_once("from", "authwit_nonce")]
+#[external("private")]
+fn transfer_in_private(
+    from: AztecAddress,
+    to: AztecAddress,
+    amount: u128,
+    authwit_nonce: Field,
+) {
+    // Transfer logic here
+}
+```
+
+The macro handles authwit verification and nullifier emission automatically.
+
+For complete implementation details, see the [developer documentation](../../aztec-nr/framework-description/how_to_use_authwit.md).
