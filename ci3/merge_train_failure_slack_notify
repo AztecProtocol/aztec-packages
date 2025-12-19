@@ -1,8 +1,21 @@
 #!/usr/bin/env bash
-NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
-source $ci3/source_redis
+set -eu
 
-ci_log_id=$1
+# Parse arguments
+DEQUEUED=false
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    --dequeued)
+      DEQUEUED=true
+      shift
+      ;;
+    *)
+      ci_log_id=$1
+      shift
+      ;;
+  esac
+done
+
 commit_title=$(git log -1 --pretty=format:'%s')
 commit_author=$(git log -1 --pretty=format:'%an')
 
@@ -18,29 +31,25 @@ else
   exit 0
 fi
 
-set -x
-
-# Publish merge train failure to Redis channel
-redis_data=$(jq -n \
-  --arg status "merge_train_failed" \
-  --arg ref_name "$REF_NAME" \
-  --arg channel "$channel" \
-  --arg log_url "http://ci.aztec-labs.com/$ci_log_id" \
-  --arg commit_title "$commit_title" \
-  --arg commit_author "$commit_author" \
-  --arg commit_hash "${COMMIT_HASH:-$(git rev-parse HEAD)}" \
-  '{status: $status, ref_name: $ref_name, channel: $channel, log_url: $log_url, commit_title: $commit_title, commit_author: $commit_author, commit_hash: $commit_hash, timestamp: now | todate}')
-redis_publish "ci:merge-train:failed" "$redis_data"
-
-# Send slack message
-data=$(cat <<EOF
+send_slack_message() {
+  local message=$1
+  local data=$(cat <<EOF
 {
   "channel": "$channel",
-  "text": "There was a failure (http://ci.aztec-labs.com/$ci_log_id) in the merge-train:\\n$commit_title by $commit_author"
+  "text": "$message"
 }
 EOF
 )
-curl -X POST https://slack.com/api/chat.postMessage \
-  -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
-  -H "Content-type: application/json" \
-  --data "$data"
+  curl -X POST https://slack.com/api/chat.postMessage \
+    -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+    -H "Content-type: application/json" \
+    --data "$data"
+}
+
+set -x
+
+if [[ "$DEQUEUED" == "true" ]]; then
+  send_slack_message "PR was removed from the merge queue: <$PR_URL|View PR>"
+else
+  send_slack_message "There was a failure (http://ci.aztec-labs.com/$ci_log_id) in the merge-train:\\n$commit_title by $commit_author"
+fi

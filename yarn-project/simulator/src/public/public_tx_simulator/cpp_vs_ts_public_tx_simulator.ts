@@ -39,7 +39,7 @@ export class CppVsTsPublicTxSimulator extends PublicTxSimulator implements Publi
     config?: Partial<PublicSimulatorConfig>,
   ) {
     super(merkleTree, contractsDB, globalVariables, config);
-    this.log = createLogger(`simulator:cpp_public_tx_simulator`);
+    this.log = createLogger(`simulator:cpp_vs_public_tx_simulator`);
   }
 
   /**

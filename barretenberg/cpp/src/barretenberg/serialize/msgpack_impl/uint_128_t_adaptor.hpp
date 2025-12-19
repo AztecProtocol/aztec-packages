@@ -8,15 +8,34 @@
 
 namespace msgpack::adaptor {
 
+// Helper to convert uint128_t to decimal string
+inline std::string uint128_to_decimal_string(uint128_t v)
+{
+    if (v == 0) {
+        return "0";
+    }
+    std::string result;
+    while (v > 0) {
+        result = static_cast<char>('0' + static_cast<uint8_t>(v % 10)) + result;
+        v = v / 10;
+    }
+    return result;
+}
+
 // Pack function for uint128_t
 template <> struct pack<uint128_t> {
     template <typename Stream> msgpack::packer<Stream>& operator()(msgpack::packer<Stream>& o, uint128_t const& v) const
     {
-        // Convert to string and pack as a string.
-        // TODO(fcarreiro): Consider the bin format for 16 bytes of data for speed.
-        std::string str = format(v);
-        o.pack_str(static_cast<uint32_t>(str.size()));
-        o.pack_str_body(str.c_str(), static_cast<uint32_t>(str.size()));
+        // If value fits in u64, pack as positive integer for efficiency
+        constexpr uint128_t max_u64 = static_cast<uint128_t>(UINT64_MAX);
+        if (v <= max_u64) {
+            o.pack_uint64(static_cast<uint64_t>(v));
+        } else {
+            // Convert to decimal string for larger values
+            std::string str = uint128_to_decimal_string(v);
+            o.pack_str(static_cast<uint32_t>(str.size()));
+            o.pack_str_body(str.c_str(), static_cast<uint32_t>(str.size()));
+        }
         return o;
     }
 };

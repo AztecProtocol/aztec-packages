@@ -219,9 +219,8 @@ HonkProof AvmProver::construct_proof()
     // Add circuit size public input size and public inputs to transcript.
     execute_preamble_round();
 
-    // TODO(https://github.com/AztecProtocol/aztec-packages/pull/17045): make the protocols secure at some point
-    // // Add public inputs to transcript.
-    // AVM_TRACK_TIME("prove/public_inputs_round", execute_public_inputs_round());
+    // Add public inputs to transcript.
+    AVM_TRACK_TIME("prove/public_inputs_round", execute_public_inputs_round());
 
     // Compute wire commitments.
     AVM_TRACK_TIME("prove/wire_commitments_round", execute_wire_commitments_round());

@@ -82,4 +82,15 @@ class JsSimulator : public Simulator {
                              const Tx& tx) override;
 };
 
+GlobalVariables create_default_globals();
+
+Tx create_default_tx(const AztecAddress& contract_address,
+                     const AztecAddress& sender_address,
+                     const std::vector<FF>& calldata,
+                     [[maybe_unused]] const FF& transaction_fee,
+                     bool is_static_call,
+                     const Gas& gas_limit);
+
 bool compare_simulator_results(const SimulatorResult& result1, const SimulatorResult& result2);
+
+GlobalVariables create_default_globals();
