@@ -52,6 +52,23 @@ export class ProxiedContractDataProviderFactory {
               }
             };
           }
+          case 'getFunctionArtifactWithDebugMetadata': {
+            return async (contractAddress: AztecAddress, selector: FunctionSelector) => {
+              if (overrides[contractAddress.toString()]) {
+                const { artifact } = overrides[contractAddress.toString()]!;
+                const functions = artifact.functions;
+                for (let i = 0; i < functions.length; i++) {
+                  const fn = functions[i];
+                  const fnSelector = await FunctionSelector.fromNameAndParameters(fn.name, fn.parameters);
+                  if (fnSelector.equals(selector)) {
+                    return fn;
+                  }
+                }
+              } else {
+                return target.getFunctionArtifactWithDebugMetadata(contractAddress, selector);
+              }
+            };
+          }
           default: {
             const value = Reflect.get(target, prop);
             if (typeof value === 'function') {

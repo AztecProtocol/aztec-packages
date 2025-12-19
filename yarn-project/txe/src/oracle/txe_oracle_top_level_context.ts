@@ -21,7 +21,6 @@ import {
   RecipientTaggingDataProvider,
   SenderTaggingDataProvider,
   enrichPublicSimulationError,
-  getFunctionArtifact,
 } from '@aztec/pxe/server';
 import {
   ExecutionNoteCache,
@@ -616,7 +615,10 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       to: targetContractAddress,
     };
 
-    const entryPointArtifact = await getFunctionArtifact(call.to, call.selector, this.contractDataProvider);
+    const entryPointArtifact = await this.contractDataProvider.getFunctionArtifactWithDebugMetadata(
+      call.to,
+      call.selector,
+    );
     if (entryPointArtifact.functionType !== FunctionType.UTILITY) {
       throw new Error(`Cannot run ${entryPointArtifact.functionType} function as utility`);
     }

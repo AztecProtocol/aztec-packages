@@ -86,6 +86,13 @@ describe('Oracle Version Check test suite', () => {
       originalContractClassId: new Fr(42),
       address: contractAddress,
     } as ContractInstanceWithAddress);
+    contractDataProvider.getFunctionArtifactWithDebugMetadata.mockImplementation(async (address, selector) => {
+      const artifact = await contractDataProvider.getFunctionArtifact(address, selector);
+      if (!artifact) {
+        throw new Error(`Function not found: ${selector.toString()} in contract ${address}`);
+      }
+      return { ...artifact, debug: undefined };
+    });
 
     acirSimulator = new ContractFunctionSimulator(
       contractDataProvider,

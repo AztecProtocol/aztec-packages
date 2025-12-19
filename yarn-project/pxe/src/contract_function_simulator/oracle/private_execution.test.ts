@@ -410,6 +410,13 @@ describe('Private Execution test suite', () => {
       }
       return Promise.resolve(artifact);
     });
+    contractDataProvider.getFunctionArtifactWithDebugMetadata.mockImplementation(async (address, selector) => {
+      const artifact = await contractDataProvider.getFunctionArtifact(address, selector);
+      if (!artifact) {
+        throw new Error(`Function not found: ${selector.toString()} in contract ${address}`);
+      }
+      return { ...artifact, debug: undefined };
+    });
 
     capsuleDataProvider.loadCapsule.mockImplementation((_, __) => Promise.resolve(null));
 
