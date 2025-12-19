@@ -27,7 +27,7 @@ import type { NoteStatus } from '@aztec/stdlib/note';
 import { MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import type { BlockHeader, Capsule } from '@aztec/stdlib/tx';
 
-import { NoteSynchronizer } from '../../notes/note_synchronizer.js';
+import { NoteService } from '../../notes/note_service.js';
 import type {
   AddressDataProvider,
   AnchorBlockDataProvider,
@@ -461,8 +461,8 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   public async utilityFetchTaggedLogs(pendingTaggedLogArrayBaseSlot: Fr) {
     await this.syncTaggedLogs(this.contractAddress, pendingTaggedLogArrayBaseSlot, this.scopes);
 
-    const noteSynchronizer = new NoteSynchronizer(this.noteDataProvider, this.aztecNode, this.anchorBlockDataProvider);
-    await noteSynchronizer.syncNoteNullifiers(this.contractAddress);
+    const noteService = new NoteService(this.noteDataProvider, this.aztecNode, this.anchorBlockDataProvider);
+    await noteService.syncNoteNullifiers(this.contractAddress);
   }
 
   public async utilityValidateEnqueuedNotesAndEvents(

@@ -8,7 +8,7 @@ import {
   AddressDataProvider,
   CapsuleDataProvider,
   NoteDataProvider,
-  NoteSynchronizer,
+  NoteService,
   PrivateEventDataProvider,
   RecipientTaggingDataProvider,
   SenderTaggingDataProvider,
@@ -281,7 +281,7 @@ export class TXESession implements TXESessionStateHandler {
     // we perform this. We therefore search for known nullifiers now, as otherwise notes that were nullified would not
     // be removed from the database.
     // TODO(#12553): make the synchronizer sync here instead and remove this
-    await new NoteSynchronizer(
+    await new NoteService(
       this.noteDataProvider,
       this.stateMachine.node,
       this.stateMachine.anchorBlockDataProvider,
@@ -370,7 +370,7 @@ export class TXESession implements TXESessionStateHandler {
     // we perform this. We therefore search for known nullifiers now, as otherwise notes that were nullified would not
     // be removed from the database.
     // TODO(#12553): make the synchronizer sync here instead and remove this
-    await new NoteSynchronizer(
+    await new NoteService(
       this.noteDataProvider,
       this.stateMachine.node,
       this.stateMachine.anchorBlockDataProvider,

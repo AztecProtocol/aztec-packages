@@ -9,7 +9,7 @@ import type { TxHash } from '@aztec/stdlib/tx';
 
 import { type AnchorBlockDataProvider, NoteDao, type NoteDataProvider } from '../storage/index.js';
 
-export class NoteSynchronizer {
+export class NoteService {
   constructor(
     private readonly noteDataProvider: NoteDataProvider,
     private readonly aztecNode: AztecNode,

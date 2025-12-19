@@ -15,9 +15,9 @@ import { jest } from '@jest/globals';
 import { mock } from 'jest-mock-extended';
 
 import { AnchorBlockDataProvider, NoteDataProvider } from '../storage/index.js';
-import { NoteSynchronizer } from './note_synchronizer.js';
+import { NoteService } from './note_service.js';
 
-describe('NoteSynchronizer', () => {
+describe('NoteService', () => {
   let anchorBlockDataProvider: AnchorBlockDataProvider;
   let noteDataProvider: NoteDataProvider;
   let keyStore: KeyStore;
@@ -26,7 +26,7 @@ describe('NoteSynchronizer', () => {
   let recipient: CompleteAddress;
   let contractAddress: AztecAddress;
 
-  let noteSynchronizer: NoteSynchronizer;
+  let noteService: NoteService;
 
   beforeEach(async () => {
     const store = await openTmpStore('test');
@@ -53,7 +53,7 @@ describe('NoteSynchronizer', () => {
 
     recipient = await keyStore.addAccount(new Fr(69), Fr.random());
 
-    noteSynchronizer = new NoteSynchronizer(noteDataProvider, aztecNode, anchorBlockDataProvider);
+    noteService = new NoteService(noteDataProvider, aztecNode, anchorBlockDataProvider);
   });
 
   it('should remove notes that have been nullified', async () => {
@@ -72,7 +72,7 @@ describe('NoteSynchronizer', () => {
     aztecNode.findLeavesIndexes.mockResolvedValue([nullifierIndex]);
 
     // Call the function under test
-    await noteSynchronizer.syncNoteNullifiers(contractAddress);
+    await noteService.syncNoteNullifiers(contractAddress);
 
     // Verify the note was removed by checking storage
     const remainingNotes = await noteDataProvider.getNotes({
@@ -97,7 +97,7 @@ describe('NoteSynchronizer', () => {
     aztecNode.findLeavesIndexes.mockResolvedValue([undefined]);
 
     // Call the function under test
-    await noteSynchronizer.syncNoteNullifiers(contractAddress);
+    await noteService.syncNoteNullifiers(contractAddress);
 
     // Verify note still exists
     const remainingNotes = await noteDataProvider.getNotes({
@@ -128,7 +128,7 @@ describe('NoteSynchronizer', () => {
     });
 
     // Call the function under test
-    await noteSynchronizer.syncNoteNullifiers(contractAddress);
+    await noteService.syncNoteNullifiers(contractAddress);
 
     // Verify note still exists
     const remainingNotes = await noteDataProvider.getNotes({
@@ -151,7 +151,7 @@ describe('NoteSynchronizer', () => {
     const getNotesSpy = jest.spyOn(noteDataProvider, 'getNotes');
 
     // Call the function under test
-    await noteSynchronizer.syncNoteNullifiers(contractAddress);
+    await noteService.syncNoteNullifiers(contractAddress);
 
     // Verify applyNullifiers was called once for all accounts
     expect(getNotesSpy).toHaveBeenCalledTimes(1);
@@ -262,7 +262,7 @@ describe('NoteSynchronizer', () => {
     });
 
     it('should store note if it exists in note hash tree and is not nullified', async () => {
-      await noteSynchronizer.deliverNote(
+      await noteService.deliverNote(
         contractAddress,
         owner,
         storageSlot,
@@ -284,7 +284,7 @@ describe('NoteSynchronizer', () => {
 
     it('should throw if tx hash does not exist', async () => {
       await expect(
-        noteSynchronizer.deliverNote(
+        noteService.deliverNote(
           contractAddress,
           owner,
           storageSlot,
@@ -301,7 +301,7 @@ describe('NoteSynchronizer', () => {
 
     it('should throw if note was not emitted in the tx', async () => {
       await expect(
-        noteSynchronizer.deliverNote(
+        noteService.deliverNote(
           contractAddress,
           owner,
           storageSlot,
@@ -320,7 +320,7 @@ describe('NoteSynchronizer', () => {
       await setSyncedBlockNumber(BlockNumber(blockNumber - 1));
 
       await expect(
-        noteSynchronizer.deliverNote(
+        noteService.deliverNote(
           contractAddress,
           owner,
           storageSlot,
@@ -338,7 +338,7 @@ describe('NoteSynchronizer', () => {
     it('should store and immediately remove note if it is already nullified', async () => {
       nullified = true;
 
-      await noteSynchronizer.deliverNote(
+      await noteService.deliverNote(
         contractAddress,
         owner,
         storageSlot,

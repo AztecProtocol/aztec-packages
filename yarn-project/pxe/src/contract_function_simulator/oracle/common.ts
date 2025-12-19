@@ -6,7 +6,7 @@ import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import type { TxHash } from '@aztec/stdlib/tx';
 
-import { NoteSynchronizer } from '../../notes/note_synchronizer.js';
+import { NoteService } from '../../notes/note_service.js';
 import { ORACLE_VERSION } from '../../oracle_version.js';
 import {
   AnchorBlockDataProvider,
@@ -63,10 +63,10 @@ export async function validateEnqueuedNotesAndEvents(
     await capsuleDataProvider.readCapsuleArray(contractAddress, eventValidationRequestsArrayBaseSlot)
   ).map(EventValidationRequest.fromFields);
 
-  const noteSynchronizer = new NoteSynchronizer(noteDataProvider, aztecNode, anchorBlockDataProvider);
+  const noteService = new NoteService(noteDataProvider, aztecNode, anchorBlockDataProvider);
 
   const noteDeliveries = noteValidationRequests.map(request =>
-    noteSynchronizer.deliverNote(
+    noteService.deliverNote(
       request.contractAddress,
       request.owner,
       request.storageSlot,

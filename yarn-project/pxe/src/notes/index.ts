@@ -1,1 +1,1 @@
-export { NoteSynchronizer } from './note_synchronizer.js';
+export { NoteService } from './note_service.js';
