@@ -122,11 +122,11 @@ jobs:
   # End-to-end tests that target a network deployment.
   # We run this every release (at minimum, nightly), or when explicitly requested.
   # This task runs against a real testnet deployment. This uses resources on GCP (not AWS, thank free credit incentives).
-  ci-network-end-to-end:
+  ci-network-scenario:
     runs-on: ubuntu-latest
-    # We either run after a release (tag starting with v), or when the ci-network-end-to-end label is present in a PR.
+    # We either run after a release (tag starting with v), or when the ci-network-scenario label is present in a PR.
     needs: ci
-    if: startsWith(github.ref, 'refs/tags/v') || contains(github.event.pull_request.labels.*.name, 'ci-network-end-to-end')
+    if: startsWith(github.ref, 'refs/tags/v') || contains(github.event.pull_request.labels.*.name, 'ci-network-scenario')
     steps:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
