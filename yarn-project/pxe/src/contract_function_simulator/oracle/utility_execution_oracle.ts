@@ -7,7 +7,7 @@ import { LogLevels, applyStringFormatting, createLogger } from '@aztec/foundatio
 import type { KeyStore } from '@aztec/key-store';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { BlockParameter, L2Block } from '@aztec/stdlib/block';
+import type { BlockParameter } from '@aztec/stdlib/block';
 import type { CompleteAddress, ContractInstance } from '@aztec/stdlib/contract';
 import { siloNullifier } from '@aztec/stdlib/hash';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
@@ -164,19 +164,13 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * @returns Block extracted from a block with block number `blockNumber`.
    */
   public async utilityGetBlockHeader(blockNumber: BlockNumber): Promise<BlockHeader | undefined> {
-    const block = await this.getBlock(blockNumber);
-    if (!block) {
-      return undefined;
-    }
-    return block.getBlockHeader();
-  }
-
-  protected async getBlock(blockNumber: BlockParameter): Promise<L2Block | undefined> {
     const anchorBlockNumber = (await this.anchorBlockDataProvider.getBlockHeader()).getBlockNumber();
-    if (blockNumber !== 'latest' && blockNumber > anchorBlockNumber) {
+    if (blockNumber > anchorBlockNumber) {
       throw new Error(`Block number ${blockNumber} is higher than current block ${anchorBlockNumber}`);
     }
-    return await this.aztecNode.getBlock(blockNumber);
+
+    const block = await this.aztecNode.getBlock(blockNumber);
+    return block?.getBlockHeader() || undefined;
   }
 
   /**
