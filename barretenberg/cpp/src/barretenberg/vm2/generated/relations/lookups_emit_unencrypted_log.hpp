@@ -22,8 +22,8 @@ struct lookup_emit_unencrypted_log_check_memory_out_of_bounds_settings_ {
     static constexpr Column COUNTS = Column::lookup_emit_unencrypted_log_check_memory_out_of_bounds_counts;
     static constexpr Column INVERSES = Column::lookup_emit_unencrypted_log_check_memory_out_of_bounds_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::emit_unencrypted_log_end_log_address,
-        ColumnAndShifts::emit_unencrypted_log_max_mem_addr,
+        ColumnAndShifts::emit_unencrypted_log_end_log_address_upper_bound,
+        ColumnAndShifts::emit_unencrypted_log_max_mem_size,
         ColumnAndShifts::emit_unencrypted_log_error_out_of_bounds
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::gt_input_a,
