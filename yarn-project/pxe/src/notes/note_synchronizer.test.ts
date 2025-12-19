@@ -3,11 +3,13 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { KeyStore } from '@aztec/key-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { randomDataInBlock } from '@aztec/stdlib/block';
+import { L2BlockHash, randomDataInBlock } from '@aztec/stdlib/block';
 import type { CompleteAddress } from '@aztec/stdlib/contract';
+import { computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/stdlib/hash';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import { NoteDao, NoteStatus } from '@aztec/stdlib/note';
-import { BlockHeader, GlobalVariables } from '@aztec/stdlib/tx';
+import { MerkleTreeId } from '@aztec/stdlib/trees';
+import { BlockHeader, GlobalVariables, type IndexedTxEffect, TxEffect, TxHash } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
 import { mock } from 'jest-mock-extended';
@@ -156,5 +158,202 @@ describe('NoteSynchronizer', () => {
 
     // Verify getNotes was called with the correct contract address
     expect(getNotesSpy).toHaveBeenCalledWith(expect.objectContaining({ contractAddress }));
+  });
+
+  describe('deliverNote', () => {
+    // Recipient is different from the owner because recipient refers to the
+    // recipient of the message containing the note, while owner refers to the
+    // owner of the note.
+    let owner: AztecAddress;
+    let storageSlot: Fr;
+    let randomness: Fr;
+    let noteNonce: Fr;
+    let content: Fr[];
+
+    let noteHash: Fr;
+    let uniqueNoteHash: Fr;
+    let nullifier: Fr;
+    let siloedNullifier: Fr;
+
+    let txHash: TxHash;
+    let txEffect: TxEffect;
+    let indexedTxEffect: IndexedTxEffect;
+    let blockNumber: BlockNumber;
+
+    let nullified = false;
+
+    const setSyncedBlockNumber = (blockNumber: BlockNumber) => {
+      return anchorBlockDataProvider.setHeader(
+        BlockHeader.empty({
+          globalVariables: GlobalVariables.empty({ blockNumber }),
+        }),
+      );
+    };
+
+    // beforeEach sets up the happy path case, so error modes are tested
+    // by minimally failing happy path conditions
+    beforeEach(async () => {
+      noteHash = Fr.random();
+      nullifier = Fr.random();
+      txHash = TxHash.random();
+      owner = await AztecAddress.random();
+      storageSlot = Fr.random();
+      randomness = Fr.random();
+      noteNonce = Fr.random();
+      content = [Fr.random(), Fr.random()];
+
+      uniqueNoteHash = await computeUniqueNoteHash(noteNonce, await siloNoteHash(contractAddress, noteHash));
+      siloedNullifier = await siloNullifier(contractAddress, nullifier);
+
+      blockNumber = BlockNumber(42);
+
+      txEffect = TxEffect.from({
+        ...(await TxEffect.random()),
+        noteHashes: [uniqueNoteHash],
+      });
+
+      indexedTxEffect = {
+        l2BlockNumber: blockNumber,
+        l2BlockHash: L2BlockHash.random(),
+        data: txEffect,
+        txIndexInBlock: 0,
+      };
+
+      /* Happy path context conditions:
+       ** - PXE is sync'd to _at least_ block including tx
+       ** - Node knows tx effect
+       ** - Node knows unique note hash (and siloed nullifier if requested)
+       */
+      await setSyncedBlockNumber(blockNumber);
+
+      aztecNode.getTxEffect.mockImplementation(queryTxHash =>
+        Promise.resolve(queryTxHash == txHash ? indexedTxEffect : undefined),
+      );
+
+      aztecNode.findLeavesIndexes.mockImplementation((queryBlockNum, treeId, leaves) => {
+        if (queryBlockNum != blockNumber) {
+          throw new Error(`Got a tree query for block ${queryBlockNum} but synced block is ${blockNumber}`);
+        }
+
+        if (treeId == MerkleTreeId.NOTE_HASH_TREE && leaves[0].equals(uniqueNoteHash)) {
+          return Promise.resolve([
+            {
+              data: BigInt(0),
+              l2BlockNumber: indexedTxEffect.l2BlockNumber,
+              l2BlockHash: indexedTxEffect.l2BlockHash,
+            },
+          ]);
+        } else if (treeId == MerkleTreeId.NULLIFIER_TREE && leaves[0].equals(siloedNullifier)) {
+          // Note that returning undefined (i.e. the un-nullified case) covers both scenarios where the note has not
+          // been nullified and where the nullifier is in a block past the synced block.
+          return Promise.resolve([
+            nullified
+              ? {
+                  data: BigInt(0),
+                  l2BlockNumber: indexedTxEffect.l2BlockNumber,
+                  l2BlockHash: indexedTxEffect.l2BlockHash,
+                }
+              : undefined,
+          ]);
+        } else {
+          throw new Error();
+        }
+      });
+    });
+
+    it('should store note if it exists in note hash tree and is not nullified', async () => {
+      await noteSynchronizer.deliverNote(
+        contractAddress,
+        owner,
+        storageSlot,
+        randomness,
+        noteNonce,
+        content,
+        noteHash,
+        nullifier,
+        txHash,
+        recipient.address,
+      );
+
+      // Verify note was stored
+      const notes = await noteDataProvider.getNotes({ contractAddress, scopes: [recipient.address] });
+
+      expect(notes).toHaveLength(1);
+      expect(notes[0].noteHash.equals(noteHash)).toBe(true);
+    });
+
+    it('should throw if tx hash does not exist', async () => {
+      await expect(
+        noteSynchronizer.deliverNote(
+          contractAddress,
+          owner,
+          storageSlot,
+          randomness,
+          noteNonce,
+          content,
+          noteHash,
+          nullifier,
+          TxHash.random(),
+          recipient.address,
+        ),
+      ).rejects.toThrow(/Could not find tx effect/);
+    });
+
+    it('should throw if note was not emitted in the tx', async () => {
+      await expect(
+        noteSynchronizer.deliverNote(
+          contractAddress,
+          owner,
+          storageSlot,
+          randomness,
+          noteNonce,
+          content,
+          Fr.random(), // note hash
+          nullifier,
+          txHash,
+          recipient.address,
+        ),
+      ).rejects.toThrow(/is not present in tx/);
+    });
+
+    it('should throw if tx was mined after synced block number', async () => {
+      await setSyncedBlockNumber(BlockNumber(blockNumber - 1));
+
+      await expect(
+        noteSynchronizer.deliverNote(
+          contractAddress,
+          owner,
+          storageSlot,
+          randomness,
+          noteNonce,
+          content,
+          noteHash,
+          nullifier,
+          txHash,
+          recipient.address,
+        ),
+      ).rejects.toThrow(/as of block number/);
+    });
+
+    it('should store and immediately remove note if it is already nullified', async () => {
+      nullified = true;
+
+      await noteSynchronizer.deliverNote(
+        contractAddress,
+        owner,
+        storageSlot,
+        randomness,
+        noteNonce,
+        content,
+        noteHash,
+        nullifier,
+        txHash,
+        recipient.address,
+      );
+
+      // Verify note was removed
+      const notes = await noteDataProvider.getNotes({ contractAddress, scopes: [recipient.address] });
+      expect(notes).toHaveLength(0);
+    });
   });
 });
