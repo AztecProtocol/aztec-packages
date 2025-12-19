@@ -18,7 +18,7 @@
 namespace bb {
 
 /**
- * @brief Unified Chonk proof type for both native and recursive verification.
+ * @brief Chonk proof type.
  * @details When IsRecursive=false (native): Contains native proof types with msgpack serialization.
  *          When IsRecursive=true (recursive): Contains stdlib proof types for in-circuit verification.
  */
@@ -65,7 +65,7 @@ template <bool IsRecursive = false> struct ChonkProof_ {
         , goblin_proof(std::move(goblin))
     {}
 
-    // Constructors for recursive mode (IsRecursive=true)
+    // Constructs a stdlib Chonk proof from a native Chonk proof
     template <typename B = Builder>
         requires IsRecursive
     ChonkProof_(B& builder, const ChonkProof_<false>& proof)
@@ -73,7 +73,8 @@ template <bool IsRecursive = false> struct ChonkProof_ {
         , goblin_proof(builder, proof.goblin_proof)
     {}
 
-    // Common methods (available for both native and recursive)
+    // Serde methods
+
     size_t size() const { return mega_proof.size() + goblin_proof.size(); }
 
     /**
@@ -88,7 +89,7 @@ template <bool IsRecursive = false> struct ChonkProof_ {
     static ChonkProof_ from_field_elements(const std::vector<FF>& fields);
 
   public:
-    // MSGPACK methods (native mode only, IsRecursive=false)
+    // MSGPACK methods (native mode only)
     msgpack::sbuffer to_msgpack_buffer() const
         requires(!IsRecursive)
     {

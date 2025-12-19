@@ -50,6 +50,9 @@ template <bool IsRecursive> ChonkVerifier<IsRecursive>::Output ChonkVerifier<IsR
 
     if constexpr (IsRecursive) {
         // Recursive mode: assert equality in-circuit
+        if (kernel_io.kernel_return_data.get_value() != calldata_commitment.get_value()) {
+            info("ChonkVerifier: Databus Consistency check failure");
+        }
         kernel_io.kernel_return_data.incomplete_assert_equal(calldata_commitment);
     } else {
         // Native mode: check equality
@@ -72,7 +75,7 @@ template <bool IsRecursive> ChonkVerifier<IsRecursive>::Output ChonkVerifier<IsR
     GoblinReductionResult goblin_output = goblin_verifier.reduce_to_pairing_check_and_ipa_opening();
 
     if constexpr (IsRecursive) {
-        // Recursive mode: Batch aggregate all pairing points using aggregate_multiple for efficiency
+        // Recursive mode: Batch aggregate all pairing points
         std::vector<PairingPoints> all_pairing_points;
         all_pairing_points.reserve(4);
 
@@ -82,12 +85,10 @@ template <bool IsRecursive> ChonkVerifier<IsRecursive>::Output ChonkVerifier<IsR
         all_pairing_points.push_back(std::move(goblin_output.merge_pairing_points));
         all_pairing_points.push_back(std::move(goblin_output.translator_pairing_points));
 
-        // Single aggregation with batch_mul (more efficient than multiple aggregate calls)
         // Edge case handling disabled: Safe because:
         // 1. Verifier-computed points (PCS, Merge, Translator) are deterministic and won't collide
-        // 2. Even if malicious prover sets PI pairing points to be linearly dependent with verifier points,
-        //    the linear combination P₀ + r₁·P₁ + r₂·P₂ + r₃·P₃ remains binding due to the random challenges
-        // 3. Skipping edge case checks saves significant circuit gates in recursive verification
+        // 2. PI points are added to to the result of batching of the above points, biggroup point addition gracefully
+        // handles edge cases.
         constexpr bool handle_edge_cases = false;
         PairingPoints aggregated_pairing_points =
             PairingPoints::aggregate_multiple(all_pairing_points, handle_edge_cases);

@@ -169,7 +169,7 @@ TEST_F(ChonkTranscriptInvariantTests, RecursiveVerificationTranscriptCount)
     size_t transcripts_created = index_after_verify - index_before_verify;
 
     // Pin the exact number of transcripts created during recursive verification
-    constexpr size_t EXPECTED_TRANSCRIPTS_DURING_RECURSIVE_VERIFY = 4;
+    constexpr size_t EXPECTED_TRANSCRIPTS_DURING_RECURSIVE_VERIFY = 2;
     EXPECT_EQ(transcripts_created, EXPECTED_TRANSCRIPTS_DURING_RECURSIVE_VERIFY)
         << "ChonkRecursiveVerifier transcript count changed. "
         << "If intentional, update EXPECTED_TRANSCRIPTS_DURING_RECURSIVE_VERIFY. "
