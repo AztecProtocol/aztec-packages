@@ -21,6 +21,7 @@ import type { BlockHeader, Capsule } from '@aztec/stdlib/tx';
 
 import { EventService } from '../../events/event_service.js';
 import { LogService } from '../../logs/log_service.js';
+import { MembershipWitnessService } from '../../membership_witness/membership_witness_service.js';
 import { NoteService } from '../../notes/note_service.js';
 import { ORACLE_VERSION } from '../../oracle_version.js';
 import type {
@@ -109,38 +110,8 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * @returns The index and sibling path concatenated [index, sibling_path]
    */
   public utilityGetMembershipWitness(blockNumber: BlockNumber, treeId: MerkleTreeId, leafValue: Fr): Promise<Fr[]> {
-    return this.getMembershipWitness(blockNumber, treeId, leafValue);
-  }
-
-  protected async getMembershipWitness(
-    blockNumber: BlockParameter,
-    treeId: MerkleTreeId,
-    leafValue: Fr,
-  ): Promise<Fr[]> {
-    const witness = await this.tryGetMembershipWitness(blockNumber, treeId, leafValue);
-    if (!witness) {
-      throw new Error(`Leaf value ${leafValue} not found in tree ${MerkleTreeId[treeId]} at block ${blockNumber}`);
-    }
-    return witness;
-  }
-
-  protected async tryGetMembershipWitness(
-    blockNumber: BlockParameter,
-    treeId: MerkleTreeId,
-    value: Fr,
-  ): Promise<Fr[] | undefined> {
-    switch (treeId) {
-      case MerkleTreeId.NULLIFIER_TREE:
-        return (await this.aztecNode.getNullifierMembershipWitness(blockNumber, value))?.withoutPreimage().toFields();
-      case MerkleTreeId.NOTE_HASH_TREE:
-        return (await this.aztecNode.getNoteHashMembershipWitness(blockNumber, value))?.toFields();
-      case MerkleTreeId.PUBLIC_DATA_TREE:
-        return (await this.aztecNode.getPublicDataWitness(blockNumber, value))?.withoutPreimage().toFields();
-      case MerkleTreeId.ARCHIVE:
-        return (await this.aztecNode.getArchiveMembershipWitness(blockNumber, value))?.toFields();
-      default:
-        throw new Error('Not implemented');
-    }
+    const membershipWitnessService = new MembershipWitnessService(this.aztecNode, this.anchorBlockDataProvider);
+    return membershipWitnessService.getMembershipWitness(blockNumber, treeId, leafValue);
   }
 
   /**
@@ -169,18 +140,8 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     blockNumber: BlockNumber,
     nullifier: Fr,
   ): Promise<NullifierMembershipWitness | undefined> {
-    return await this.getLowNullifierMembershipWitness(blockNumber, nullifier);
-  }
-
-  protected async getLowNullifierMembershipWitness(
-    blockNumber: BlockParameter,
-    nullifier: Fr,
-  ): Promise<NullifierMembershipWitness | undefined> {
-    const anchorBlockNumber = (await this.anchorBlockDataProvider.getBlockHeader()).getBlockNumber();
-    if (blockNumber !== 'latest' && blockNumber > anchorBlockNumber) {
-      throw new Error(`Block number ${blockNumber} is higher than current block ${anchorBlockNumber}`);
-    }
-    return this.aztecNode.getLowNullifierMembershipWitness(blockNumber, nullifier);
+    const membershipWitnessService = new MembershipWitnessService(this.aztecNode, this.anchorBlockDataProvider);
+    return await membershipWitnessService.getLowNullifierMembershipWitness(blockNumber, nullifier);
   }
 
   /**
