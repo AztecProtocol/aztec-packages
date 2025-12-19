@@ -224,8 +224,8 @@ TEST(ExecutionTraceGenTest, Call)
                           ROW_FIELD_EQ(execution_next_context_id, 2),
                           ROW_FIELD_EQ(execution_l2_gas_left, gas_left.l2_gas),
                           ROW_FIELD_EQ(execution_da_gas_left, gas_left.da_gas),
-                          ROW_FIELD_EQ(execution_call_is_l2_gas_allocated_lt_left, true),
-                          ROW_FIELD_EQ(execution_call_is_da_gas_allocated_lt_left, false))));
+                          ROW_FIELD_EQ(execution_is_l2_gas_left_gt_allocated, true),
+                          ROW_FIELD_EQ(execution_is_da_gas_left_gt_allocated, false))));
 }
 
 TEST(ExecutionTraceGenTest, Return)
