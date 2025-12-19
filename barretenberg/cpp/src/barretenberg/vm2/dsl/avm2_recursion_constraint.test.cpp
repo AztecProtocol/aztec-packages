@@ -36,15 +36,15 @@ class AvmRecursionConstraintTestingFunctions {
 
     class InvalidWitness {
       public:
-        enum class Target : uint8_t { None };
+        enum class Target : uint8_t { None, PublicInputs, Proof };
         static std::vector<Target> get_all()
         {
-            std::vector<Target> targets = { Target::None };
+            std::vector<Target> targets = { Target::None, Target::PublicInputs, Target::Proof };
             return targets;
         };
         static std::vector<std::string> get_labels()
         {
-            std::vector<std::string> labels = { "None" };
+            std::vector<std::string> labels = { "None", "PublicInputs", "Proof" };
             return labels;
         };
     };
@@ -84,13 +84,24 @@ class AvmRecursionConstraintTestingFunctions {
         };
     }
 
-    static void invalidate_witness([[maybe_unused]] AcirConstraint& memory_constraint,
-                                   [[maybe_unused]] WitnessVector& witness_values,
+    static void invalidate_witness(AcirConstraint& constraint,
+                                   WitnessVector& witness_values,
                                    const InvalidWitness::Target& invalid_witness_target)
     {
         switch (invalid_witness_target) {
         case InvalidWitness::Target::None:
             break;
+        case InvalidWitness::Target::PublicInputs: {
+            // Tamper with the public inputs
+            witness_values[constraint.public_inputs[0]] += FF::one();
+            break;
+        }
+        case InvalidWitness::Target::Proof: {
+            // REMOVE +1 AFTER DAVID'S PR IS MERGED
+            // Tamper with the inputs by changing on of the univariate coefficients
+            witness_values[constraint.proof[1 + AvmFlavor::NUM_WITNESS_ENTITIES]] += FF::one();
+            break;
+        }
         }
     }
 };
@@ -106,6 +117,11 @@ TEST_F(AvmRecursionConstraintTest, GenerateVKFromConstraints)
     size_t num_gates = test_vk_independence<UltraRollupFlavor>();
 
     EXPECT_EQ(num_gates, FINALIZED_GOBLIN_AVM_GATE_COUNT);
+}
+
+TEST_F(AvmRecursionConstraintTest, Tampering)
+{
+    std::vector<std::string> _ = test_tampering();
 }
 
 TEST_F(AvmRecursionConstraintTest, GateCountAndOuterVKCheck)
