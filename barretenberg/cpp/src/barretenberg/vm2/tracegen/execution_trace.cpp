@@ -538,21 +538,21 @@ void ExecutionTraceBuilder::process(
             if (*exec_opcode == ExecutionOpCode::CALL || *exec_opcode == ExecutionOpCode::STATICCALL) {
                 sel_enter_call = true;
 
-                Gas gas_left = ex_event.after_context_event.gas_limit - ex_event.after_context_event.gas_used;
+                const Gas gas_left = ex_event.after_context_event.gas_limit - ex_event.after_context_event.gas_used;
 
                 uint32_t allocated_l2_gas = registers[0].as<uint32_t>();
-                bool is_l2_gas_allocated_lt_left = allocated_l2_gas < gas_left.l2_gas;
+                bool is_l2_gas_left_gt_allocated = gas_left.l2_gas > allocated_l2_gas;
 
                 uint32_t allocated_da_gas = registers[1].as<uint32_t>();
-                bool is_da_gas_allocated_lt_left = allocated_da_gas < gas_left.da_gas;
+                bool is_da_gas_left_gt_allocated = gas_left.da_gas > allocated_da_gas;
 
                 trace.set(row,
                           { {
                               { C::execution_sel_enter_call, 1 },
                               { C::execution_l2_gas_left, gas_left.l2_gas },
                               { C::execution_da_gas_left, gas_left.da_gas },
-                              { C::execution_call_is_l2_gas_allocated_lt_left, is_l2_gas_allocated_lt_left },
-                              { C::execution_call_is_da_gas_allocated_lt_left, is_da_gas_allocated_lt_left },
+                              { C::execution_is_l2_gas_left_gt_allocated, is_l2_gas_left_gt_allocated ? 1 : 0 },
+                              { C::execution_is_da_gas_left_gt_allocated, is_da_gas_left_gt_allocated ? 1 : 0 },
                           } });
             } else if (*exec_opcode == ExecutionOpCode::RETURN) {
                 sel_exit_call = true;
@@ -1145,8 +1145,8 @@ const InteractionDefinition ExecutionTraceBuilder::interactions =
         .add<lookup_context_ctx_stack_rollback_settings, InteractionType::LookupGeneric>()
         .add<lookup_context_ctx_stack_return_settings, InteractionType::LookupGeneric>()
         // External Call
-        .add<lookup_external_call_call_is_l2_gas_allocated_lt_left_settings, InteractionType::LookupGeneric>(C::gt_sel)
-        .add<lookup_external_call_call_is_da_gas_allocated_lt_left_settings, InteractionType::LookupGeneric>(C::gt_sel)
+        .add<lookup_external_call_is_l2_gas_left_gt_alllocated_settings, InteractionType::LookupGeneric>(C::gt_sel)
+        .add<lookup_external_call_is_da_gas_left_gt_alllocated_settings, InteractionType::LookupGeneric>(C::gt_sel)
         // GetEnvVar opcode
         .add<lookup_get_env_var_precomputed_info_settings, InteractionType::LookupIntoIndexedByClk>()
         .add<lookup_get_env_var_read_from_public_inputs_col0_settings, InteractionType::LookupIntoIndexedByClk>()

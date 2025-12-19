@@ -55,11 +55,11 @@ namespace execution;
     pol commit l2_gas_limit;
     pol commit da_gas_limit;
 
-    pol commit prev_l2_gas_used;
-    pol commit prev_da_gas_used;
+    pol commit prev_l2_gas_used; // gas consumed before starting the current instruction
+    pol commit prev_da_gas_used; // gas consumed before starting the current instruction
 
-    pol commit l2_gas_used;
-    pol commit da_gas_used;
+    pol commit l2_gas_used; // including the gas consumed by the current instruction
+    pol commit da_gas_used; // including the gas consumed by the current instruction
 
     pol commit parent_l2_gas_limit;
     pol commit parent_da_gas_limit;
