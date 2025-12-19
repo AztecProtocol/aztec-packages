@@ -669,7 +669,6 @@ export class BlockStore {
       body,
       CheckpointNumber(blockStorage.checkpointNumber!),
       blockStorage.indexWithinCheckpoint,
-      Fr.fromBuffer(blockHash),
     );
 
     if (block.number !== blockNumber) {
