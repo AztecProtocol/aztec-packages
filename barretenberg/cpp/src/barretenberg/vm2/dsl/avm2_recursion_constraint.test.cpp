@@ -92,7 +92,7 @@ class AvmRecursionConstraintTestingFunctions {
             break;
         }
         case InvalidWitness::Target::Proof: {
-            // Tamper with the inputs by changing on of the univariate coefficients
+            // Tamper with the proof by changing one of the univariate coefficients
             witness_values[constraint.proof[FrCodec::calc_num_fields<AvmFlavor::Commitment>() *
                                             AvmFlavor::NUM_WITNESS_ENTITIES]] += FF::one();
             break;
@@ -144,7 +144,9 @@ TEST_F(AvmRecursionConstraintTest, GateCountAndOuterVKCheck)
 
     auto prover_instance = std::make_shared<ProverInstance>(builder);
     auto vk = std::make_shared<typename UltraRollupFlavor::VerificationKey>(prover_instance->get_precomputed());
-    EXPECT_EQ(vk->hash(), EXPECTED_OUTER_VK_HASH);
+    EXPECT_EQ(vk->hash(), EXPECTED_OUTER_VK_HASH)
+        << "The VK hash of the outer circuit in the Goblinized AVM recursive verifier has changed. If this is "
+           "expected, update the expected value in the test.";
 }
 
 TEST_F(AvmRecursionConstraintTest, InnerVKCheck)
@@ -167,9 +169,11 @@ TEST_F(AvmRecursionConstraintTest, InnerVKCheck)
     }
 
     AvmGoblinRecursiveVerifier goblin_avm_verifier(inner_builder);
-    auto [_mega_proof, _goblin_proof, mega_vk, _goblin_vk] =
+    auto [_mega_proof, _goblin_proof, mega_vk] =
         goblin_avm_verifier.construct_and_prove_inner_recursive_verification_circuit(
             stdlib_proof, PublicInputs::flat_to_columns<field_t<Builder>>(stdlib_public_inputs_flat));
 
-    EXPECT_EQ(mega_vk->hash(), EXPECTED_INNER_VK_HASH);
+    EXPECT_EQ(mega_vk->hash(), EXPECTED_INNER_VK_HASH)
+        << "The VK hash of the inner circuit in the Goblinized AVM recursive verifier has changed. If this is "
+           "expected, update the expected value in the test.";
 }
