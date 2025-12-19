@@ -37,7 +37,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
         msgpack::unpack((reinterpret_cast<const char*>(data)), size).get().convert(tx_data);
     } catch (const std::exception& e) {
         fuzz_info("Failed to deserialize input in TestOneInput, creating default FuzzerTxData, exception: ", e.what());
-        return 0;
+        return -1; // Try rejecting inputs that cannot be deserialized
     }
 
     FuzzerWorldStateManager* ws_mgr = FuzzerWorldStateManager::getInstance();

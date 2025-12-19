@@ -12,10 +12,12 @@
 #include "barretenberg/vm2/generated/relations/lookups_emit_unencrypted_log.hpp"
 #include "barretenberg/vm2/simulation/events/emit_unencrypted_log_event.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
+#include "barretenberg/vm2/simulation/events/gt_event.hpp"
 #include "barretenberg/vm2/simulation/lib/side_effect_tracker.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
 #include "barretenberg/vm2/testing/public_inputs_builder.hpp"
+#include "barretenberg/vm2/tracegen/gt_trace.hpp"
 #include "barretenberg/vm2/tracegen/opcodes/emit_unencrypted_log_trace.hpp"
 #include "barretenberg/vm2/tracegen/precomputed_trace.hpp"
 #include "barretenberg/vm2/tracegen/public_inputs_trace.hpp"
@@ -82,6 +84,59 @@ TEST(EmitUnencryptedLogConstrainingTest, Positive)
     trace_builder.process({ event }, trace);
 
     check_relation<emit_unencrypted_log>(trace);
+}
+
+TEST(EmitUnencryptedLogConstrainingTest, PositiveEmptyLog)
+{
+    // Test created to ensure we do not underflow/fail memory checks for logs with no fields (not including header)
+    AztecAddress address = 0xdeadbeef;
+    MemoryAddress log_address = 0;
+    const std::vector<FF> log_fields = {};
+    uint32_t log_size = static_cast<uint32_t>(log_fields.size());
+    TrackedSideEffects side_effect_states = { .public_logs = {} };
+    TrackedSideEffects side_effect_states_after = { .public_logs = PublicLogs{ { { log_fields, address } } } };
+
+    EmitUnencryptedLogWriteEvent event = {
+        .execution_clk = 1,
+        .contract_address = address,
+        .space_id = 57,
+        .log_address = log_address,
+        .log_size = log_size,
+        .prev_num_unencrypted_log_fields = side_effect_states.get_num_unencrypted_log_fields(),
+        .next_num_unencrypted_log_fields = side_effect_states_after.get_num_unencrypted_log_fields(),
+        .is_static = false,
+        .values = to_memory_values(log_fields),
+        .error_memory_out_of_bounds = false,
+        .error_too_many_log_fields = false,
+        .error_tag_mismatch = false,
+    };
+
+    // As calculated in EmitUnencryptedLog::emit_unencrypted_log gadget:
+    uint64_t end_log_address_upper_bound = static_cast<uint64_t>(log_address) + static_cast<uint64_t>(log_size);
+
+    simulation::GreaterThanEvent gt_event = {
+        .a = end_log_address_upper_bound,
+        .b = AVM_MEMORY_SIZE,
+        .result = end_log_address_upper_bound > AVM_MEMORY_SIZE,
+    };
+
+    TestTraceContainer trace({
+        { { C::precomputed_first_row, 1 } },
+    });
+
+    EmitUnencryptedLogTraceBuilder trace_builder;
+    tracegen::GreaterThanTraceBuilder gt_builder;
+    gt_builder.process({ gt_event }, trace);
+    trace_builder.process({ event }, trace);
+
+    // Check tracegen fills the values correctly:
+    FF end_log_address_upper_bound_log_trace = trace.get(C::emit_unencrypted_log_end_log_address_upper_bound, 1);
+    FF end_log_address_upper_bound_gt_trace = trace.get(C::gt_input_a, 0);
+    EXPECT_EQ(end_log_address_upper_bound_log_trace, end_log_address_upper_bound_gt_trace);
+
+    check_relation<emit_unencrypted_log>(trace);
+    check_interaction<EmitUnencryptedLogTraceBuilder, lookup_emit_unencrypted_log_check_memory_out_of_bounds_settings>(
+        trace);
 }
 
 TEST(EmitUnencryptedLogConstrainingTest, ErrorMemoryOutOfBounds)
@@ -278,8 +333,8 @@ TEST(EmitUnencryptedLogConstrainingTest, Interactions)
             { C::execution_discard, 0 },
             // GT - check memory out of bounds
             { C::gt_sel, 1 },
-            { C::gt_input_a, log_address + log_size - 1 },
-            { C::gt_input_b, AVM_HIGHEST_MEM_ADDRESS },
+            { C::gt_input_a, log_address + log_size },
+            { C::gt_input_b, static_cast<uint64_t>(AVM_MEMORY_SIZE) },
             { C::gt_res, 0 },
         },
     });

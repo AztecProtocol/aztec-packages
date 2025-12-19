@@ -19,7 +19,7 @@ void emit_unencrypted_logImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     const auto constants_FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH = FF(4096);
     const auto constants_PUBLIC_LOG_HEADER_LENGTH = FF(2);
     const auto constants_MEM_TAG_FF = FF(0);
-    const auto constants_AVM_HIGHEST_MEM_ADDRESS = FF(4294967295UL);
+    const auto constants_AVM_MEMORY_SIZE = FF(4294967296UL);
     const auto constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX = FF(522);
     const auto emit_unencrypted_log_NOT_END =
         in.get(C::emit_unencrypted_log_sel) * (FF(1) - in.get(C::emit_unencrypted_log_end));
@@ -110,17 +110,15 @@ void emit_unencrypted_logImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     {
         using View = typename std::tuple_element_t<11, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::emit_unencrypted_log_start)) *
-                   (static_cast<View>(in.get(C::emit_unencrypted_log_max_mem_addr)) -
-                    CView(constants_AVM_HIGHEST_MEM_ADDRESS));
+                   (static_cast<View>(in.get(C::emit_unencrypted_log_max_mem_size)) - CView(constants_AVM_MEMORY_SIZE));
         std::get<11>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<12, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::emit_unencrypted_log_start)) *
-                   (((static_cast<View>(in.get(C::emit_unencrypted_log_log_address)) +
-                      static_cast<View>(in.get(C::emit_unencrypted_log_log_size))) -
-                     FF(1)) -
-                    static_cast<View>(in.get(C::emit_unencrypted_log_end_log_address)));
+                   ((static_cast<View>(in.get(C::emit_unencrypted_log_log_address)) +
+                     static_cast<View>(in.get(C::emit_unencrypted_log_log_size))) -
+                    static_cast<View>(in.get(C::emit_unencrypted_log_end_log_address_upper_bound)));
         std::get<12>(evals) += (tmp * scaling_factor);
     }
     { // ERROR_OUT_OF_BOUNDS_CONSISTENCY

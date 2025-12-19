@@ -123,14 +123,14 @@ namespace emit_unencrypted_log;
     pol commit error_out_of_bounds; // Constrained to be boolean by the lookup into gt. (provided that start == 1).
 
     // TODO: Column needed until we support constants in lookups
-    pol commit max_mem_addr;
-    start * (max_mem_addr - constants.AVM_HIGHEST_MEM_ADDRESS) = 0;
+    pol commit max_mem_size;
+    start * (max_mem_size - constants.AVM_MEMORY_SIZE) = 0;
 
-    pol commit end_log_address;
-    start * (log_address + log_size - 1 - end_log_address) = 0;
+    pol commit end_log_address_upper_bound;
+    start * (log_address + log_size - end_log_address_upper_bound) = 0;
 
     #[CHECK_MEMORY_OUT_OF_BOUNDS]
-    start { end_log_address, max_mem_addr, error_out_of_bounds }
+    start { end_log_address_upper_bound, max_mem_size, error_out_of_bounds }
     in
     gt.sel_others { gt.input_a, gt.input_b, gt.res };
 
