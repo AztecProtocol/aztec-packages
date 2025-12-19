@@ -34,7 +34,7 @@ void create_dummy_vkey_and_proof(UltraCircuitBuilder& builder,
     using Builder = UltraCircuitBuilder;
     using IO = stdlib::recursion::honk::HidingKernelIO<Builder>;
 
-    BB_ASSERT_EQ(proof_size, bb::ChonkProof::PROOF_LENGTH_WITHOUT_PUB_INPUTS);
+    BB_ASSERT_EQ(proof_size, ChonkProof::PROOF_LENGTH_WITHOUT_PUB_INPUTS);
 
     size_t num_inner_public_inputs = public_inputs_size - IO::PUBLIC_INPUTS_SIZE;
     uint32_t pub_inputs_offset = MegaZKFlavor::has_zero_row ? 1 : 0;
@@ -79,7 +79,7 @@ create_chonk_recursion_constraints(bb::UltraCircuitBuilder& builder, const Recur
 {
     using Builder = bb::UltraCircuitBuilder;
     using field_ct = stdlib::field_t<Builder>;
-    using ChonkRecursiveVerifier = bb::ChonkRecursiveVerifier;
+    using ChonkRecursiveVerifier = ChonkRecursiveVerifier;
     using RecursiveVKAndHash = ChonkRecursiveVerifier::VKAndHash;
     using VerificationKey = ChonkRecursiveVerifier::VK;
     using IO = stdlib::recursion::honk::HidingKernelIO<Builder>;
@@ -112,7 +112,7 @@ create_chonk_recursion_constraints(bb::UltraCircuitBuilder& builder, const Recur
     // Recursively verify Chonk proof
     auto mega_vk = std::make_shared<VerificationKey>(key_fields);
     auto mega_vk_and_hash = std::make_shared<RecursiveVKAndHash>(mega_vk, vk_hash);
-    bb::ChonkStdlibProof stdlib_proof = bb::ChonkStdlibProof::from_field_elements(proof_fields);
+    ChonkStdlibProof stdlib_proof = ChonkStdlibProof::from_field_elements(proof_fields);
 
     ChonkRecursiveVerifier verifier(mega_vk_and_hash);
     ChonkRecursiveVerifier::Output verification_output = verifier.verify(stdlib_proof);

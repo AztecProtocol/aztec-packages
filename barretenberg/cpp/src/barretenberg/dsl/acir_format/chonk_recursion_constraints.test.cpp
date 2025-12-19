@@ -19,7 +19,7 @@ class ChonkRecursionConstraintTest : public ::testing::Test {
     using Flavor = UltraRollupFlavor;
     using ProverInstance = ProverInstance_<Flavor>;
     using VerificationKey = Flavor::VerificationKey;
-    using ChonkRecursiveVerifier = bb::ChonkRecursiveVerifier;
+    using ChonkRecursiveVerifier = ChonkRecursiveVerifier;
 
     // Types for Chonk
     using DeciderZKProvingKey = ProverInstance_<MegaZKFlavor>;
