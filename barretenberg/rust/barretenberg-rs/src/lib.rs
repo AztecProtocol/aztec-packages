@@ -62,8 +62,14 @@ pub use api::BarretenbergApi;
 pub use error::{BarretenbergError, Result};
 
 /// Backend implementations
-#[cfg(feature = "native")]
 pub mod backends {
+    #[cfg(feature = "native")]
     pub mod pipe;
+    #[cfg(feature = "native")]
     pub use pipe::PipeBackend;
+
+    #[cfg(feature = "ffi")]
+    pub mod ffi;
+    #[cfg(feature = "ffi")]
+    pub use ffi::FfiBackend;
 }
