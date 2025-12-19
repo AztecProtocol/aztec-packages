@@ -13,8 +13,8 @@ on:
         description: Kubernetes namespace to use (will be sanitized for k8s naming)
         required: true
         type: string
-      env_file:
-        description: Environment file to use from spartan/environments/ (without .env)
+      network_label:
+        description: Network configuration to use (local, devnet, testnet, next-scenario, tps-scenario)
         required: false
         type: string
         default: next-scenario
@@ -42,10 +42,6 @@ jobs:
           RUN_ID: ${{ github.run_id }}
           AWS_SHUTDOWN_TIME: 360
           NO_SPOT: 1
-          NAMESPACE: ${{ inputs.namespace }}
         run: |
           namespace=$(echo "${{ inputs.namespace }}" | sed 's/[^a-z0-9-]/-/g' | cut -c1-20)
-          ./.github/ci3.sh network-deploy \
-            "${{ inputs.env_file }}" \
-            "NAMESPACE=$namespace" \
-            "AZTEC_DOCKER_IMAGE=${{ inputs.docker_image }}"
+          ./.github/ci3.sh network-deploy "${{ inputs.network_label }}" "$namespace" "${{ inputs.docker_image }}"

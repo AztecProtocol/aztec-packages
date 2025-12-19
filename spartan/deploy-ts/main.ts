@@ -15,6 +15,7 @@ import { resolve } from "node:path";
 import { existsSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import type { NetworkConfig } from "./configs/types.ts";
+import { isGcpSecret } from "./configs/types.ts";
 import { deploy } from "./deploy/deploy.ts";
 import { teardown } from "./deploy/teardown.ts";
 import { RealExecutor, PlanExecutor } from "./deploy/executor.ts";
@@ -135,16 +136,16 @@ async function main(): Promise<void> {
     // === Ethereum/L1 ===
     exportVar("L1_CHAIN_ID", config.ethereum.chainId);
     exportVar("ETHEREUM_SLOT_DURATION", config.ethereum.blockTime);
-    if (config.ethereum.rpcUrls.length > 0) {
+    if (!isGcpSecret(config.ethereum.rpcUrls) && config.ethereum.rpcUrls.length > 0) {
       exportVar("ETHEREUM_HOSTS", JSON.stringify(config.ethereum.rpcUrls));
     }
-    if (config.ethereum.consensusHostUrls.length > 0) {
+    if (!isGcpSecret(config.ethereum.consensusHostUrls) && config.ethereum.consensusHostUrls.length > 0) {
       exportVar("L1_CONSENSUS_HOST_URLS", JSON.stringify(config.ethereum.consensusHostUrls));
     }
-    if (config.ethereum.consensusHostApiKeys.length > 0) {
+    if (!isGcpSecret(config.ethereum.consensusHostApiKeys) && config.ethereum.consensusHostApiKeys.length > 0) {
       exportVar("L1_CONSENSUS_HOST_API_KEYS", JSON.stringify(config.ethereum.consensusHostApiKeys));
     }
-    if (config.ethereum.consensusHostApiKeyHeaders.length > 0) {
+    if (!isGcpSecret(config.ethereum.consensusHostApiKeyHeaders) && config.ethereum.consensusHostApiKeyHeaders.length > 0) {
       exportVar("L1_CONSENSUS_HOST_API_KEY_HEADERS", JSON.stringify(config.ethereum.consensusHostApiKeyHeaders));
     }
 
@@ -179,7 +180,9 @@ async function main(): Promise<void> {
     exportVar("AZTEC_GOVERNANCE_PROPOSER_ROUND_SIZE", config.governanceProposer.roundSize);
 
     // === Secrets/Keys ===
-    exportVar("MNEMONIC", config.secrets.labsInfraMnemonic);
+    if (!isGcpSecret(config.secrets.labsInfraMnemonic)) {
+      exportVar("MNEMONIC", config.secrets.labsInfraMnemonic);
+    }
 
     // === Deployment Flags ===
     exportVar("TEST_ACCOUNTS", config.testAccounts);

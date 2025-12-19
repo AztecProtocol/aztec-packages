@@ -22,6 +22,16 @@ export interface ContractAddresses {
   feeAssetHandlerAddress: string;
 }
 
+/** Secrets with all values resolved (no GCP_SECRET sentinels) */
+export interface ResolvedSecrets {
+  labsInfraMnemonic: string;
+  rollupDeploymentPrivateKey?: string;
+  otelCollectorEndpoint?: string;
+  etherscanApiKey?: string;
+  r2AccessKeyId?: string;
+  r2SecretAccessKey?: string;
+}
+
 // ============================================================================
 // Stage 1: ETH Devnet
 // ============================================================================
@@ -32,6 +42,7 @@ export function deployEthDevnet(
   k8sContext: string,
   cluster: string,
   namespace: string,
+  secrets: ResolvedSecrets,
 ): L1Config {
   exec.log("Deploying Ethereum devnet");
 
@@ -42,7 +53,7 @@ export function deployEthDevnet(
     RELEASE_PREFIX: namespace,
     NAMESPACE: namespace,
     ETH_DEVNET_VALUES: "eth-devnet.yaml",
-    MNEMONIC: config.secrets.labsInfraMnemonic,
+    MNEMONIC: secrets.labsInfraMnemonic,
     CHAIN_ID: config.ethereum.chainId,
     BLOCK_TIME: config.ethereum.blockTime,
     GAS_LIMIT: config.ethereum.gasLimit,
@@ -72,18 +83,19 @@ export function deployRollupContracts(
   namespace: string,
   l1RpcUrls: string[],
   dockerImage: string,
+  secrets: ResolvedSecrets,
 ): ContractAddresses {
   exec.log("Deploying rollup contracts");
 
   // Compute validator addresses
   const totalValidatorKeys = config.validators.replicas * config.validators.validatorsPerNode;
   const validatorAddresses = Array.from({ length: totalValidatorKeys }, (_, i) =>
-    exec.computeAddress(config.secrets.labsInfraMnemonic, config.validators.mnemonicStartIndex + i),
+    exec.computeAddress(secrets.labsInfraMnemonic, config.validators.mnemonicStartIndex + i),
   );
 
   const deploymentPrivateKey =
-    config.secrets.rollupDeploymentPrivateKey ??
-    exec.computePrivateKey(config.secrets.labsInfraMnemonic, 0);
+    secrets.rollupDeploymentPrivateKey ??
+    exec.computePrivateKey(secrets.labsInfraMnemonic, 0);
 
   const vars: TerraformVars = {
     K8S_CLUSTER_CONTEXT: k8sContext,
@@ -120,7 +132,7 @@ export function deployRollupContracts(
     AZTEC_MANA_TARGET: config.rollup.manaTarget,
     AZTEC_PROVING_COST_PER_MANA: config.rollup.provingCostPerMana,
     AZTEC_EXIT_DELAY_SECONDS: config.rollup.exitDelaySeconds,
-    ETHERSCAN_API_KEY: config.secrets.etherscanApiKey ?? null,
+    ETHERSCAN_API_KEY: secrets.etherscanApiKey ?? null,
     NETWORK: config.name,
     JOB_NAME: "deploy-rollup-contracts",
     JOB_BACKOFF_LIMIT: 3,
@@ -155,6 +167,7 @@ export function deployAztecInfra(
   l1: L1Config,
   contracts: ContractAddresses,
   dockerImage: string,
+  secrets: ResolvedSecrets,
 ): void {
   exec.log("Deploying Aztec infrastructure");
 
@@ -166,8 +179,8 @@ export function deployAztecInfra(
     NAMESPACE: namespace,
     GCP_PROJECT_ID: config.gcp.projectId,
     GCP_REGION: config.gcp.region,
-    R2_ACCESS_KEY_ID: config.secrets.r2AccessKeyId ?? "",
-    R2_SECRET_ACCESS_KEY: config.secrets.r2SecretAccessKey ?? "",
+    R2_ACCESS_KEY_ID: secrets.r2AccessKeyId ?? "",
+    R2_SECRET_ACCESS_KEY: secrets.r2SecretAccessKey ?? "",
     P2P_BOOTSTRAP_RESOURCE_PROFILE: config.bootnode.resourceProfile ?? config.kubernetes.resourceProfile,
     VALIDATOR_RESOURCE_PROFILE: config.validators.resourceProfile ?? config.kubernetes.resourceProfile,
     PROVER_RESOURCE_PROFILE: config.provers.resourceProfile ?? config.kubernetes.resourceProfile,
@@ -184,14 +197,14 @@ export function deployAztecInfra(
     REGISTRY_CONTRACT_ADDRESS: contracts.registryAddress,
     SLASH_FACTORY_CONTRACT_ADDRESS: contracts.slashFactoryAddress,
     FEE_ASSET_HANDLER_CONTRACT_ADDRESS: contracts.feeAssetHandlerAddress,
-    VALIDATOR_MNEMONIC: config.secrets.labsInfraMnemonic,
+    VALIDATOR_MNEMONIC: secrets.labsInfraMnemonic,
     VALIDATOR_MNEMONIC_START_INDEX: config.validators.mnemonicStartIndex,
     VALIDATORS_PER_NODE: config.validators.validatorsPerNode,
     VALIDATOR_REPLICAS: config.validators.replicas,
     VALIDATOR_PUBLISHERS_PER_VALIDATOR_KEY: config.validators.publishersPerValidatorKey,
     SEQ_MIN_TX_PER_BLOCK: config.sequencer.minTxPerBlock,
     SEQ_MAX_TX_PER_BLOCK: config.sequencer.maxTxPerBlock,
-    PROVER_MNEMONIC: config.secrets.labsInfraMnemonic,
+    PROVER_MNEMONIC: secrets.labsInfraMnemonic,
     PROVER_PUBLISHER_MNEMONIC_START_INDEX: config.provers.mnemonicStartIndex,
     PROVER_PUBLISHERS_PER_PROVER: config.provers.publishersPerProver,
     SENTINEL_ENABLED: config.sentinel.enabled,
@@ -207,14 +220,14 @@ export function deployAztecInfra(
     SLASH_INVALID_BLOCK_PENALTY: config.sentinel.invalidBlockPenalty?.toString() ?? null,
     SLASH_OFFENSE_EXPIRATION_ROUNDS: config.sentinel.offenseExpirationRounds ?? null,
     SLASH_MAX_PAYLOAD_SIZE: config.sentinel.maxPayloadSize ?? null,
-    OTEL_COLLECTOR_ENDPOINT: config.secrets.otelCollectorEndpoint ?? "",
+    OTEL_COLLECTOR_ENDPOINT: secrets.otelCollectorEndpoint ?? "",
     DEPLOY_INTERNAL_BOOTNODE: config.bootnode.deployInternal,
     PROVER_REAL_PROOFS: config.provers.realProofs,
     TRANSACTIONS_DISABLED: config.transactionsDisabled ?? null,
     NETWORK: config.name,
     STORE_SNAPSHOT_URL: config.storeSnapshotUrl ?? null,
     BOT_RESOURCE_PROFILE: config.bots.resourceProfile ?? config.kubernetes.resourceProfile,
-    BOT_MNEMONIC: config.secrets.labsInfraMnemonic,
+    BOT_MNEMONIC: secrets.labsInfraMnemonic,
     BOT_TRANSFERS_MNEMONIC_START_INDEX: config.bots.transfersMnemonicStartIndex,
     BOT_TRANSFERS_REPLICAS: config.bots.transfersReplicas,
     BOT_TRANSFERS_TX_INTERVAL_SECONDS: config.bots.transfersTxIntervalSeconds,
@@ -233,7 +246,7 @@ export function deployAztecInfra(
     RPC_INGRESS_SSL_CERT_NAME: config.rpc.ingressSslCertName ?? "",
     RPC_REPLICAS: config.rpc.replicas,
     FISHERMAN_MODE: config.fisherman.mode,
-    FISHERMAN_MNEMONIC: config.secrets.labsInfraMnemonic,
+    FISHERMAN_MNEMONIC: secrets.labsInfraMnemonic,
     FISHERMAN_MNEMONIC_START_INDEX: config.fisherman.mnemonicStartIndex,
     FULL_NODE_REPLICAS: config.fullNodes.replicas,
     PROVER_FAILED_PROOF_STORE: config.provers.failedProofStore ?? "",

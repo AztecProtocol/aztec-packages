@@ -134,13 +134,18 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
 
+      - name: Set namespace
+        id: set-namespace
+        run: |
+          namespace=$(echo "${{ github.head_ref || github.ref_name }}" | sed 's/[^a-z0-9-]/-/g' | cut -c1-20)
+          echo "namespace=$namespace" >> $GITHUB_OUTPUT
+
       - name: Run Network Deploy
         env:
           <<: *ci_run_env
           AWS_SHUTDOWN_TIME: 360
           NO_SPOT: 1
         run: |
-          namespace=$(echo "${{ github.head_ref || github.ref_name }}" | sed 's/[^a-z0-9-]/-/g' | cut -c1-20)
           # For release tags, use the release image; for PRs, omit to build and push to aztecdev
           if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
             version="${{ github.ref_name }}"
@@ -148,7 +153,13 @@ jobs:
           else
             docker_image=""
           fi
-          ./.github/ci3.sh network-deploy next-scenario "$namespace" $docker_image
+          ./.github/ci3.sh network-deploy next-scenario "${{ steps.set-namespace.outputs.namespace }}" $docker_image
+
+      - name: Cleanup network resources
+        if: always()
+        env:
+          <<: *ci_run_env
+        run: ./.github/ci3.sh network-teardown next-scenario "${{ steps.set-namespace.outputs.namespace }}"
 
       #############
       # Benchmarks

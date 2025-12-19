@@ -6,8 +6,12 @@
 import { resolve, dirname } from "node:path";
 import { spawnSync } from "node:child_process";
 import { writeFileSync, mkdirSync, existsSync } from "node:fs";
+import { isGcpSecret, type GcpSecret } from "../configs/types.ts";
 
 export type TerraformVars = Record<string, string | number | boolean | null | string[] | undefined>;
+
+/** Secret value that may be a GCP secret sentinel */
+export type SecretValue<T> = T | GcpSecret;
 
 /** Executor interface - high-level deployment operations */
 export interface Executor {
@@ -27,6 +31,9 @@ export interface Executor {
   computePrivateKey(mnemonic: string, index: number): string;
 
   writeBenchmark(path: string, data: unknown): void;
+
+  /** Resolve a secret value - returns actual value or placeholder for plan mode */
+  resolveSecret<T>(value: SecretValue<T>, secretName: string): T;
 }
 
 /** Format terraform variable value */
@@ -146,6 +153,27 @@ export class RealExecutor implements Executor {
     if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
     writeFileSync(path, JSON.stringify(data, null, 2), "utf-8");
   }
+
+  resolveSecret<T>(value: SecretValue<T>, secretName: string): T {
+    if (!isGcpSecret(value)) {
+      return value;
+    }
+    // Fetch from GCP Secret Manager
+    const result = this.shell("gcloud", [
+      "secrets", "versions", "access", "latest",
+      "--secret", secretName,
+    ]);
+    if (!result.ok) {
+      throw new Error(`Failed to fetch secret: ${secretName}`);
+    }
+    // Parse JSON if it looks like JSON, otherwise return as string
+    const secretValue = result.stdout;
+    try {
+      return JSON.parse(secretValue) as T;
+    } catch {
+      return secretValue as T;
+    }
+  }
 }
 
 /** Plan executor - records operations instead of executing */
@@ -198,6 +226,20 @@ export class PlanExecutor implements Executor {
 
   writeBenchmark(path: string, _data: unknown): void {
     this.operations.push(`WRITE: ${path}`);
+  }
+
+  resolveSecret<T>(value: SecretValue<T>, secretName: string): T {
+    if (!isGcpSecret(value)) {
+      return value;
+    }
+    this.operations.push(`RESOLVE SECRET: ${secretName}`);
+    // Return placeholder value - for arrays return array with placeholder, for strings return placeholder string
+    // We use a heuristic: if the secret name suggests it's an array (contains 'urls', 'keys', 'headers'), return array
+    const isArraySecret = /urls|keys|headers/i.test(secretName);
+    if (isArraySecret) {
+      return [`<secret:${secretName}>`] as T;
+    }
+    return `<secret:${secretName}>` as T;
   }
 
   printPlan(): void {

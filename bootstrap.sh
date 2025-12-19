@@ -557,21 +557,20 @@ case "$cmd" in
   # NETWORK DEPLOYMENTS WITH BENCHES/TESTS #
   ##########################################
   "ci-network-deploy")
-    # Args: <scenario> <namespace> [docker_image]
+    # Args: <networkLabel> <namespace> [docker_image]
     export CI=1
-    export NETWORK_ENV_FILE="${1:?scenario is required}"
-    export NAMESPACE="${2:?namespace is required}"
+    network_label="${1:?networkLabel is required}"
+    namespace="${2:?namespace is required}"
+    docker_image="${3:-}"
     build
     # If no docker image provided, build and push to aztecdev
-    if [ -z "${3:-}" ]; then
+    if [ -z "$docker_image" ]; then
       release-image/bootstrap.sh push_pr
-      export AZTEC_DOCKER_IMAGE="aztecprotocol/aztecdev:$(git rev-parse HEAD)"
-    else
-      export AZTEC_DOCKER_IMAGE="$3"
+      docker_image="aztecprotocol/aztecdev:$(git rev-parse HEAD)"
     fi
     deploy_exit_code=0
-    spartan/bootstrap.sh network_deploy "$NETWORK_ENV_FILE" || deploy_exit_code=$?
-    # Merge and upload deploy benchmarks (deploy_network.sh writes to spartan/bench-out/)
+    node --experimental-strip-types network/deploy.ts "$network_label" "$namespace" "$docker_image" || deploy_exit_code=$?
+    # Merge and upload deploy benchmarks (deploy.ts writes to spartan/bench-out/)
     rm -rf bench-out
     mkdir -p bench-out
     bench_merge
@@ -584,37 +583,33 @@ case "$cmd" in
     spartan/bootstrap.sh network_tests $NETWORK_ENV_FILE
     ;;
   "ci-network-bench")
-    # Args: <scenario> <namespace> [docker_image]
+    # Args: <networkLabel> <namespace> [docker_image]
     # Deploys network and runs benchmarks. Cleanup should be done separately.
     export CI=1
-    export NETWORK_ENV_FILE="${1:?scenario is required}"
-    export NAMESPACE="${2:?namespace is required}"
+    network_label="${1:?networkLabel is required}"
+    namespace="${2:?namespace is required}"
+    docker_image="${3:-}"
     build
     # If no docker image provided, build and push to aztecdev
-    if [ -z "${3:-}" ]; then
+    if [ -z "$docker_image" ]; then
       release-image/bootstrap.sh push_pr
-      export AZTEC_DOCKER_IMAGE="aztecprotocol/aztecdev:$(git rev-parse HEAD)"
-    else
-      export AZTEC_DOCKER_IMAGE="$3"
+      docker_image="aztecprotocol/aztecdev:$(git rev-parse HEAD)"
     fi
     # Deploy network and run benchmarks
-    spartan/bootstrap.sh network_deploy "$NETWORK_ENV_FILE"
-    spartan/bootstrap.sh network_bench "$NETWORK_ENV_FILE"
+    node --experimental-strip-types network/deploy.ts "$network_label" "$namespace" "$docker_image"
+    # TODO: Create network/bench.ts to replace spartan/bootstrap.sh network_bench
+    export NAMESPACE="$namespace"
+    spartan/bootstrap.sh network_bench "${network_label}.env"
     bench_merge
     cache_upload spartan-bench-$(git rev-parse HEAD^{tree}).tar.gz bench-out/bench.json
     ;;
   "ci-network-teardown")
-    # Args: <scenario> <namespace>
+    # Args: <networkLabel> <namespace>
     # Tears down a deployed network.
     export CI=1
-    export NETWORK_ENV_FILE="${1:?scenario is required}"
-    export NAMESPACE="${2:?namespace is required}"
-    export DESTROY_ETH_DEVNET=true
-    export CREATE_ETH_DEVNET=false
-    export ROLLUP_CONTRACTS_MODE="delete"
-    export DESTROY_AZTEC_INFRA=true
-    export CREATE_AZTEC_INFRA=false
-    spartan/bootstrap.sh network_deploy "$NETWORK_ENV_FILE"
+    network_label="${1:?networkLabel is required}"
+    namespace="${2:?namespace is required}"
+    node --experimental-strip-types network/teardown.ts "$network_label" "$namespace"
     ;;
   ############
   # RELEASES #
