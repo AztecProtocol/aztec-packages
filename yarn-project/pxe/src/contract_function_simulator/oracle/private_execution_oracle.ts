@@ -28,6 +28,7 @@ import {
   type TxContext,
 } from '@aztec/stdlib/tx';
 
+import { NoteService } from '../../notes/note_service.js';
 import type {
   AddressDataProvider,
   AnchorBlockDataProvider,
@@ -367,7 +368,15 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     const pendingNotes = this.noteCache.getNotes(this.callContext.contractAddress, owner, storageSlot);
 
     const pendingNullifiers = this.noteCache.getNullifiers(this.callContext.contractAddress);
-    const dbNotes = await this.getNotes(this.callContext.contractAddress, owner, storageSlot, status, this.scopes);
+
+    const noteService = new NoteService(this.noteDataProvider, this.aztecNode, this.anchorBlockDataProvider);
+    const dbNotes = await noteService.getNotes(
+      this.callContext.contractAddress,
+      owner,
+      storageSlot,
+      status,
+      this.scopes,
+    );
     const dbNotesFiltered = dbNotes.filter(n => !pendingNullifiers.has((n.siloedNullifier as Fr).value));
 
     const notes = pickNotes<NoteData>([...dbNotesFiltered, ...pendingNotes], {

@@ -3,7 +3,7 @@ import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { DataInBlock } from '@aztec/stdlib/block';
 import { computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/stdlib/hash';
 import { type AztecNode, MAX_RPC_LEN } from '@aztec/stdlib/interfaces/server';
-import { Note } from '@aztec/stdlib/note';
+import { Note, NoteStatus } from '@aztec/stdlib/note';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import type { TxHash } from '@aztec/stdlib/tx';
 
@@ -15,6 +15,36 @@ export class NoteService {
     private readonly aztecNode: AztecNode,
     private readonly anchorBlockDataProvider: AnchorBlockDataProvider,
   ) {}
+
+  public async getNotes(
+    contractAddress: AztecAddress,
+    owner: AztecAddress | undefined,
+    storageSlot: Fr,
+    status: NoteStatus,
+    scopes?: AztecAddress[],
+  ) {
+    const noteDaos = await this.noteDataProvider.getNotes({
+      contractAddress,
+      owner,
+      storageSlot,
+      status,
+      scopes,
+    });
+    return noteDaos.map(
+      ({ contractAddress, owner, storageSlot, randomness, noteNonce, note, noteHash, siloedNullifier, index }) => ({
+        contractAddress,
+        owner,
+        storageSlot,
+        randomness,
+        noteNonce,
+        note,
+        noteHash,
+        siloedNullifier,
+        // PXE can use this index to get full MembershipWitness
+        index,
+      }),
+    );
+  }
 
   /**
    * Looks for nullifiers of active contract notes and marks them as nullified if a nullifier is found.
