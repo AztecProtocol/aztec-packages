@@ -45,6 +45,7 @@ describe('Utility Execution test suite', () => {
   let privateEventDataProvider: ReturnType<typeof mock<PrivateEventDataProvider>>;
   let acirSimulator: ContractFunctionSimulator;
   let owner: AztecAddress;
+  let ownerCompleteAddress: CompleteAddress;
   let anchorBlockHeader: BlockHeader;
   const ownerSecretKey = Fr.fromHexString('2dcc5485a58316776299be08c78fa3788a1a7961ae30dc747fb1be17692a8d32');
 
@@ -95,7 +96,7 @@ describe('Utility Execution test suite', () => {
       simulator,
     );
 
-    const ownerCompleteAddress = await CompleteAddress.fromSecretKeyAndPartialAddress(ownerSecretKey, Fr.random());
+    ownerCompleteAddress = await CompleteAddress.fromSecretKeyAndPartialAddress(ownerSecretKey, Fr.random());
     owner = ownerCompleteAddress.address;
     keyStore.getAccounts.mockResolvedValue([owner]);
 
