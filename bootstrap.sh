@@ -623,7 +623,7 @@ case "$cmd" in
     export DESTROY_AZTEC_INFRA=true
     export CREATE_AZTEC_INFRA=false
     export CREATE_ROLLUP_CONTRACTS=false
-    spartan/bootstrap.sh network_deploy "${network_label}"
+    spartan/bootstrap.sh network_teardown "${network_label}"
     ;;
   ############
   # RELEASES #

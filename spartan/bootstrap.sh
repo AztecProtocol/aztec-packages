@@ -319,6 +319,9 @@ case "$cmd" in
     FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false \
       ./scripts/test_k8s.sh gke src/spartan/upgrade_via_cli.test.ts 1-validators.yaml ${NAMESPACE:-"upgrade-via-cli${NAME_POSTFIX:-}"}
     ;;
+  "network_teardown")
+    ./scripts/network_teardown.sh
+    ;;
   *)
     echo "Unknown command: $cmd"
     exit 1
