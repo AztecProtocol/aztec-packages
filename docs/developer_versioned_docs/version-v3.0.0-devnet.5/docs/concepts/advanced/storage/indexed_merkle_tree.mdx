@@ -7,19 +7,25 @@ description: Learn about indexed merkle trees, an efficient data structure for n
 
 import Image from "@theme/IdealImage";
 
+## Prerequisites
+
+This page assumes familiarity with:
+
+- Merkle trees and membership proofs
+- The UTXO model for private state
+- Zero-knowledge proof concepts (circuits, constraints)
+
 ## Overview
 
-This article will introduce the concept of an indexed merkle tree, and how it can be used to improve the performance of nullifier trees in circuits.
+This page covers indexed merkle trees and how they improve nullifier tree performance in circuits, including:
 
-This page will answer:
-
-- Why we need nullifier trees at all
+- Why nullifier trees are necessary
 - How indexed merkle trees work
-- How they can be used for membership exclusion proofs
-- How they can leverage batch insertions
-- Tradeoffs of using indexed merkle trees
+- Membership exclusion proofs
+- Batch insertions
+- Tradeoffs
 
-The content was also covered in a presentation for the [Privacy + Scaling Explorations team at the Ethereum Foundation](https://pse.dev/).
+This content was presented to the [Privacy + Scaling Explorations team at the Ethereum Foundation](https://pse.dev/).
 
 <iframe
   width="100%"
@@ -33,53 +39,54 @@ The content was also covered in a presentation for the [Privacy + Scaling Explor
 
 ## Primer on Nullifier Trees
 
-Currently the only feasible way to get privacy in public blockchains is via a UTXO model. In this model, state is stored in encrypted UTXO's in merkle trees. However, to maintain privacy, state cannot be updated. The very act of performing an update leaks information. In order to simulate "updating" the state, we "destroy" old UTXO's and create new ones for each state update. Resulting in a merkle tree that is append-only.
+Privacy in public blockchains requires a UTXO model. State is stored in encrypted UTXOs in merkle trees. Since updating state directly leaks information, we simulate updates by "destroying" old UTXOs and creating new ones, resulting in an append-only merkle tree.
 
 A classic merkle tree:
 
 <Image
   img={require("@site/static/img/indexed-merkle-tree/normal-merkle-tree.png")}
+  alt="Classic merkle tree structure showing leaf nodes hashed up to a root"
 />
 
-To destroy state, the concept of a "nullifier" tree is introduced. Typically represented as a sparse Merkle Tree, the structure is utilized to store notes deterministically linked to values in the append-only tree of encrypted notes.
+To destroy state, a "nullifier" tree stores deterministic values linked to notes in the append-only tree. This is typically implemented as a sparse Merkle Tree.
 
 A sparse merkle tree (not every leaf stores a value):
 
 <Image
   img={require("@site/static/img/indexed-merkle-tree/sparse-merkle-tree.png")}
+  alt="Sparse merkle tree with empty leaves represented as zeros"
 />
 
-In order to spend / modify a note in the private state tree, one must create a nullifier for it, and prove that the nullifier does not already exist in the nullifier tree. As nullifier trees are modeled as sparse merkle trees, non membership checks are (conceptually) trivial.
+To spend or modify a note in the private state tree, you must create a nullifier and prove it does not already exist in the nullifier tree. Since nullifier trees are modeled as sparse merkle trees, non-membership checks are conceptually trivial.
 
-Data is stored at the leaf index corresponding to its value. E.g. if I have a sparse tree that can contain $2^{256}$ values and want to prove non membership of the value $2^{128}$.
+Data is stored at the leaf index corresponding to its value. For example, in a sparse tree containing $2^{256}$ values, to prove non-membership of value $2^{128}$:
 
-I can prove via a merkle membership proof that $tree\_values[2^{128}] = 0$, conversely if I can prove that $tree\_values[2^{128}] == 1$ I can prove that the item exists.
+- Prove $tree\_values[2^{128}] = 0$ via a merkle membership proof (value does not exist)
+- Conversely, prove $tree\_values[2^{128}] == 1$ to show the item exists
 
 ## Problems introduced by using Sparse Merkle Trees for Nullifier Trees
 
-While sparse Merkle Trees offer a simple and elegant solution, their implementation comes with some drawbacks. A sparse nullifier tree must have an index for $e \in \mathbb{F}_p$, which for the bn254 curve means that the sparse tree will need to have a depth of 254.
-If you're familiar with hashing in circuits the alarm bells have probably started ringing. A tree of depth 254 means 254 hashes per membership proof.
-In routine nullifier insertions, a non membership check for a value is performed, then an insertion of said value. This amounts to two trips from leaf to root, hashing all the way up. This means that there are $254 \times 2$ hashes per tree insertion. As the tree is sparse, insertions are random and must be performed in sequence. This means the number of hashes performed in the circuit scales linearly with the number of nullifiers being inserted. As a consequence number of constraints in a rollup circuit (where these checks are performed) will sky rocket, leading to long rollup proving times.
+While sparse Merkle Trees offer a simple solution, they have significant drawbacks. A sparse nullifier tree must have an index for $e \in \mathbb{F}_p$, which for the bn254 curve requires a depth of 254.
+
+A tree of depth 254 means 254 hashes per membership proof. Each nullifier insertion requires a non-membership check followed by an insertion—two trips from leaf to root. This results in $254 \times 2$ hashes per insertion. Since the tree is sparse, insertions are random and must be sequential, so hash count scales linearly with nullifier count. This causes constraint counts in rollup circuits to grow rapidly, leading to long proving times.
 
 ## Indexed Merkle Tree Constructions
 
-As it turns out, we can do better. [This paper](https://eprint.iacr.org/2021/1263.pdf) (page 6) introduces the idea of an indexed merkle tree. A Merkle Tree that allows us to perform efficient non-membership proofs. It achieves this by extending each node to include a specialized data structure. Each node not only stores some value $v \in \mathbb{F}_p$ but also some pointers to the leaf with the next higher value. The data structure is as follows:
+[This paper](https://eprint.iacr.org/2021/1263.pdf) (page 6) introduces indexed merkle trees, which enable efficient non-membership proofs. Each node stores a value $v \in \mathbb{F}_p$ and pointers to the leaf with the next higher value:
 
 $$
 \textsf{leaf} = \{v, i_{\textsf{next}}, v_{\textsf{next}}\}.
 $$
 
-Based on the tree's insertion rules, we can assume that there are no leaves in the tree that exist between the range $(v, v_{\textsf{next}})$.
+Based on the tree's insertion rules, no leaves exist between the range $(v, v_{\textsf{next}})$.
 
-More simply put, the merkle tree pretty much becomes a linked list of increasing size, where once inserted the pointers at a leaf can change, but the nullifier value cannot.
+The merkle tree forms a linked list of increasing values. Once inserted, a leaf's pointers can change but its nullifier value cannot.
 
-Despite being a minor modification, the performance implications are massive. We no longer position leaves in place $(index == value)$ therefore we no longer need a deep tree, rather we can use an arbitrarily small tree (32 levels should suffice).
+Since leaves are no longer positioned at $(index == value)$, a deep tree is unnecessary—32 levels suffice. This improves insertions by approximately 8x $(256 / 32)$.
 
-Some quick back of the napkin maths can show that insertions can be improved by a factor of 8 $(256 / 32)$.
+_The node that provides the non-membership check is called a "low nullifier"._
 
-_For the remainder of this article I will refer to the node that provides the non membership check as a "low nullifier"._
-
-The insertion protocol is described below:
+The insertion protocol:
 
 1. Look for a nullifier's corresponding low_nullifier where:
 
@@ -130,59 +137,65 @@ $$
 
 7. Perform insertion of new leaf (yields new root)
 
-#### Number of insertion constraints, in total:
+### Insertion constraints
 
-- `3n` hashes of 2 field elements (where `n` is the height of the tree).
-- `3` hashes of 3 field elements.
-- `2` range checks.
-- A handful of equality constraints.
+- `3n` hashes of 2 field elements (where `n` is the height of the tree)
+- `3` hashes of 3 field elements
+- `2` range checks
+- A handful of equality constraints
 
-**Special cases**
-You'll notice at step 3 the $low\_nullifier_{\textsf{next\_value}}$ can be 0. This is a special case as if a value is the max, it will not point to anything larger (as it does not exist). Instead it points to zero. By doing so we close the loop, so we are always inserting into a ring, if we could insert outside the ring we could cause a split.
+### Special cases
 
-A visual aid for insertion is presented below:
+At step 3, $low\_nullifier_{\textsf{next\_value}}$ can be 0. When a value is the maximum, it points to zero instead of a larger value (which does not exist). This closes the loop so insertions always occur within a ring, preventing splits.
+
+### Insertion example
 
 1. Initial state
 
 <Image
   img={require("@site/static/img/indexed-merkle-tree/index-merkle-tree-1.png")}
+  alt="Indexed merkle tree initial state with single zero node"
 />
 
 2. Add a new value $v=30$
 
 <Image
   img={require("@site/static/img/indexed-merkle-tree/index-merkle-tree-2.png")}
+  alt="Indexed merkle tree after inserting value 30"
 />
 
 3. Add a new value $v=10$
 
 <Image
   img={require("@site/static/img/indexed-merkle-tree/index-merkle-tree-3.png")}
+  alt="Indexed merkle tree after inserting value 10"
 />
 
 4. Add a new value $v=20$
 
 <Image
   img={require("@site/static/img/indexed-merkle-tree/index-merkle-tree-4.png")}
+  alt="Indexed merkle tree after inserting value 20"
 />
 
 5. Add a new value $v=50$
 
 <Image
   img={require("@site/static/img/indexed-merkle-tree/index-merkle-tree-5.png")}
+  alt="Indexed merkle tree after inserting value 50"
 />
 
-By studying the transitions between each diagram you can see how the pointers are updated between each insertion.
+The diagrams show how pointers update between each insertion.
 
-A further implementation detail is that we assume the first 0 node is pre-populated. As a consequence, the first insertion into the tree will be made into the second index.
+Note: The first node (value 0) is pre-populated, so the first insertion goes into the second index.
 
 ### Non-membership proof
 
-Suppose we want to show that the value `20` doesn't exist in the tree. We just reveal the leaf which 'steps over' `20`. I.e. the leaf whose value is less than `20`, but whose next value is greater than `20`. Call this leaf the `low_nullifier`.
+To prove value `20` does not exist, reveal the leaf that "steps over" `20`—the leaf whose value is less than `20` and whose next value is greater than `20`. This is the `low_nullifier`.
 
-- hash the low nullifier: $low\_nullifier = h(10, 1, 30)$.
-- Prove the low leaf exists in the tree: `n` hashes.
-- Check the new value 'would have' belonged in the range given by the low leaf: `2` range checks.
+- Hash the low nullifier: $low\_nullifier = h(10, 1, 30)$
+- Prove the low leaf exists in the tree: `n` hashes
+- Check the new value would have belonged in the range given by the low leaf: `2` range checks
   - If ($low\_nullifier_{\textsf{next\_index}} == 0$):
     - Special case, the low leaf is at the very end, so the new_value must be higher than all values in the tree:
     - $assert(low\_nullifier_{\textsf{value}} < new\_value_{\textsf{value}})$
@@ -190,21 +203,20 @@ Suppose we want to show that the value `20` doesn't exist in the tree. We just r
     - $assert(low\_nullifier_{\textsf{value}} < new\_value_{\textsf{value}})$
     - $assert(low\_nullifier_{\textsf{next\_value}} > new\_value_{\textsf{value}})$
 
-This is already a massive performance improvement, however we can go further, as this tree is not sparse. We can perform batch insertions.
+This provides significant performance improvement, but since the tree is not sparse, we can also perform batch insertions.
 
 ## Batch insertions
 
-As our nullifiers will all be inserted deterministically (append only), we can insert entire subtrees into our tree rather than appending nodes one by one, this optimization is globally applied to append only merkle trees. I wish this was it, but for every node we insert, we must also update low nullifier pointers, this introduces a bit of complexity while performing subtree insertions, as the low nullifier itself may exist within the subtree we are inserting - we must be careful how we prove these sort of insertions are correct (addressed later).
-We must update all of the impacted low nullifiers before.
+Since nullifiers are inserted deterministically (append-only), we can insert entire subtrees rather than appending nodes individually. However, for every node inserted, low nullifier pointers must be updated. This adds complexity when the low nullifier exists within the subtree being inserted. All impacted low nullifiers must be updated before the subtree insertion.
 
-First we will go over batch insertions in an append only merkle tree.
+Batch insertion in an append-only merkle tree:
 
-1. First we prove that the subtree we are inserting into consists of all empty values.
-1. We work out the root of an empty subtree, and perform an inclusion proof for an empty root, which proves that there is nothing within our subtree.
-1. We re-create our subtree within our circuit.
-1. We then use the same sibling path the get the new root of the tree after we insert the subtree.
+1. Prove the target subtree consists of all empty values
+2. Calculate the root of an empty subtree and perform an inclusion proof for this empty root
+3. Recreate the subtree within the circuit
+4. Use the same sibling path to get the new root after subtree insertion
 
-In the following example we insert a subtree of size 4 into our tree at step 4. above. Our subtree is greyed out as it is "pending".
+In the following example, a subtree of size 4 is inserted. The subtree is greyed out as "pending".
 
 **Legend**:
 
@@ -217,55 +229,62 @@ In the following example we insert a subtree of size 4 into our tree at step 4. 
 
 <Image
   img={require("@site/static/img/indexed-merkle-tree/subtree-insert-1.png")}
+  alt="Preparing to insert subtree with values 35, 50, 60, 15"
 />
 
-2. Update low nullifier for new nullifier $35$.
+2. Update low nullifier for new nullifier $35$
 
 <Image
   img={require("@site/static/img/indexed-merkle-tree/subtree-insert-2.png")}
+  alt="Updating low nullifier for value 35"
 />
 
-3. Update low nullifier for new nullifier $50$. (Notice how the low nullifier exists within our pending insertion subtree, this becomes important later).
+3. Update low nullifier for new nullifier $50$ (the low nullifier exists within the pending insertion subtree)
 
 <Image
   img={require("@site/static/img/indexed-merkle-tree/subtree-insert-3.png")}
+  alt="Updating low nullifier for value 50 from pending subtree"
 />
 
-4. Update low nullifier for new nullifier $60$.
+4. Update low nullifier for new nullifier $60$
 
 <Image
   img={require("@site/static/img/indexed-merkle-tree/subtree-insert-4.png")}
+  alt="Updating low nullifier for value 60"
 />
 
-5. Update low nullifier for new nullifier $15$.
+5. Update low nullifier for new nullifier $15$
 
 <Image
   img={require("@site/static/img/indexed-merkle-tree/subtree-insert-5.png")}
+  alt="Updating low nullifier for value 15"
 />
 
-6. Update pointers for new nullifier $15$.
+6. Update pointers for new nullifier $15$
 
 <Image
   img={require("@site/static/img/indexed-merkle-tree/subtree-insert-6.png")}
+  alt="Updating pointers for value 15"
 />
 
-7. Insert subtree.
+7. Insert subtree
 
 <Image
   img={require("@site/static/img/indexed-merkle-tree/subtree-insert-7.png")}
+  alt="Final state after subtree insertion"
 />
 
 ### Performance gains from subtree insertion
 
-Let's go back over the numbers:
-Insertions into a sparse nullifier tree involve 1 non membership check (254 hashes) and 1 insertion (254 hashes). If we were performing insertion for 4 values that would entail 2032 hashes.
-In the depth 32 indexed tree construction, each subtree insertion costs 1 non membership check (32 hashes), 1 pointer update (32 hashes) for each value as well as the cost of constructing and inserting a subtree (~67 hashes. Which is 327 hashes, an incredible efficiency increase.)
+Sparse nullifier tree insertions require 1 non-membership check (254 hashes) and 1 insertion (254 hashes). For 4 values: 2032 hashes.
 
-_I am ignoring range check constraint costs as they a negligible compared to the costs of a hash_.
+In a depth-32 indexed tree, each subtree insertion costs 1 non-membership check (32 hashes) and 1 pointer update (32 hashes) per value, plus subtree construction (~67 hashes). Total: 327 hashes—a significant efficiency gain.
+
+_Range check constraint costs are negligible compared to hash costs._
 
 ## Performing subtree insertions in a circuit context
 
-Some fun engineering problems occur when we inserting a subtree in circuits when the low nullifier for a value exists within the subtree we are inserting. In this case we cannot perform a non membership check against the root of the tree, as our leaf that we would use for non membership has NOT yet been inserted into the tree. We need another protocol to handle such cases, we like to call these "pending" insertions.
+A challenge arises when the low nullifier for a value exists within the subtree being inserted. In this case, you cannot perform a non-membership check against the tree root because the leaf needed for non-membership has not yet been inserted. These are called "pending" insertions.
 
 **Circuit Inputs**
 
@@ -273,67 +292,16 @@ Some fun engineering problems occur when we inserting a subtree in circuits when
 - `low_nullifier_leaf_preimages`: `tuple of {value: fr, next_index: fr, next_value: fr}`
 - `low_nullifier_membership_witnesses`: A sibling path and a leaf index of low nullifier
 - `current_nullifier_tree_root`: Current root of the nullifier tree
-- `next_insertion_index`: fr, the tip our nullifier tree
-- `subtree_insertion_sibling_path`: A sibling path to check our subtree against the root
+- `next_insertion_index`: `fr`, the tip of the nullifier tree
+- `subtree_insertion_sibling_path`: A sibling path to check the subtree against the root
 
-Protocol without batched insertion:
-Before adding a nullifier to the pending insertion tree, we check for its non membership using the previously defined protocol by consuming the circuit inputs:
-Pseudocode:
+If the low nullifier does not yet exist in the tree, membership checks fail and no non-membership proof can be produced. To handle this, the circuit must track all values pending insertion:
 
-```cpp
+- If `low_nullifier_membership_witness` is invalid (all zeros or leaf index of -1), this indicates a pending low nullifier read request
+- Loop through all pending insertions to find one with value lower than the nullifier being inserted
+- If no matching pending insertion is found, the circuit is invalid
 
-auto empty_subtree_hash = SOME_CONSTANT_EMPTY_SUBTREE;
-auto pending_insertion_subtree = [];
-auto insertion_index = inputs.next_insertion_index;
-auto root = inputs.current_nullifier_tree_root;
-
-// Check nothing exists where we would insert our subtree
-assert(membership_check(root, empty_subtree_hash, insertion_index >> subtree_depth, inputs.subtree_insertion_sibling_path));
-
-for (i in len(new_nullifiers)) {
-    auto new_nullifier = inputs.new_nullifiers[i];
-    auto low_nullifier_leaf_preimage = inputs.low_nullifier_leaf_preimages[i];
-    auto low_nullifier_membership_witness = inputs.low_nullifier_membership_witnesses[i];
-
-    // Membership check for low nullifier
-    assert(perform_membership_check(root, hash(low_nullifier_leaf_preimage), low_nullifier_membership_witness));
-
-    // Range check low nullifier against new nullifier
-    assert(new_nullifier < low_nullifier_leaf_preimage.next_value || low_nullifier_leaf.next_value == 0);
-    assert(new_nullifier > low_nullifier_leaf_preimage.value);
-
-    // Update new nullifier pointers
-    auto new_nullifier_leaf = {
-        .value = new_nullifier,
-        .next_index = low_nullifier_preimage.next_index,
-        .next_value = low_nullifier_preimage.next_value
-    };
-
-    // Update low nullifier pointers
-    low_nullifier_preimage.next_index = next_insertion_index;
-    low_nullifier_preimage.next_value = new_nullifier;
-
-    // Update state vals for next iteration
-    root = update_low_nullifier(low_nullifier, low_nullifier_membership_witness);
-    pending_insertion_subtree.push(new_nullifier_leaf);
-    next_insertion_index += 1;
-}
-
-// insert subtree
-root = insert_subtree(root, inputs.next_insertion_index >> subtree_depth, pending_insertion_subtree);
-
-```
-
-From looking at the code above we can probably deduce why we need pending insertion. If the low nullifier does not yet exist in the tree, all of our membership checks will fail, we cannot produce a non membership proof.
-
-To perform batched insertions, our circuit must keep track of all values that are pending insertion.
-
-- If the `low_nullifier_membership_witness` is identified to be nonsense ( all zeros, or has a leaf index of -1 ) we will know that this is a pending low nullifier read request and we will have to look within our pending subtree for the nearest low nullifier.
-  - Loop back through all "pending_insertions"
-    - If the pending insertion value is lower than the nullifier we are trying to insert
-    - If the pending insertion value is NOT found, then out circuit is invalid and should self abort.
-
-The updated pseudocode is as follows:
+Pseudocode with pending insertion handling:
 
 ```cpp
 
@@ -360,7 +328,7 @@ for (i in len(new_nullifiers)) {
             if (pending_nullifier.is_garbage()) continue;
             if (pending_nullifier[j].value < new_nullifier && (pending_nullifier[j].next_value > new_nullifier || pending_nullifier[j].next_value == 0)) {
 
-                // bingo
+                // Found matching low nullifier
                 matched = true;
 
                 // Update pointers
@@ -416,10 +384,13 @@ root = insert_subtree(root, inputs.next_insertion_index >> subtree_depth, pendin
 
 ```
 
-#### Drawbacks
+## Drawbacks
 
-Despite offering large performance improvements within the circuits, these come at the expense of increased computation / storage performed by the node. To provide a non membership proof we must find the "low nullifier" for it. In a naive implementation this entails a brute force search against the existing nodes in the tree. This performance can be increased by the node maintaining a sorted data structure of existing nullifiers, increasing its storage footprint.
+While indexed merkle trees provide significant circuit performance improvements, they increase computation and storage requirements for nodes. Finding the "low nullifier" for a non-membership proof requires searching existing nodes—a naive implementation uses brute force. Performance improves if nodes maintain a sorted data structure of existing nullifiers, though this increases storage footprint.
 
-#### Closing Notes
+## Related resources
 
-We have been working with these new trees in order to reduce the proving time for our rollups in Aztec, however we think EVERY protocol leveraging nullifier trees should know about these trees as their performance benefit is considerable.
+- [State Management](../../storage/state_model.md) - How public and private state work, including nullifiers
+- [Circuits](../circuits/index.md) - Core protocol circuits where indexed merkle trees are used
+- [Note Discovery](note_discovery.md) - How private notes are discovered and managed
+- [Original paper](https://eprint.iacr.org/2021/1263.pdf) - Academic reference for indexed merkle trees
