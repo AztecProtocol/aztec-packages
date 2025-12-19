@@ -145,6 +145,7 @@ class LookupIntoDynamicTableGeneric : public IndexedLookupTraceBuilder<LookupSet
                 rows.push_back(row);
             }
         });
+
         return idx;
     }
 

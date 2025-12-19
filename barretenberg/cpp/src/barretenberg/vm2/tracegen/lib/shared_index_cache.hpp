@@ -10,7 +10,6 @@
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/common/map.hpp"
 #include "barretenberg/vm2/common/map_hashes.hpp"
-#include "barretenberg/vm2/common/small_vector.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/tracegen/trace_container.hpp"
 
