@@ -8,7 +8,7 @@ jobs:
   notify-slack:
     name: Notify Slack
     runs-on: ubuntu-latest
-    if: startsWith(github.event.pull_request.head.ref, 'merge-train/')
+    if: startsWith(github.event.pull_request.head.ref, 'merge-train/') && github.event.pull_request.merged != true
     steps:
       - name: Checkout
         uses: actions/checkout@v4
