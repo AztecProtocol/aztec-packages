@@ -16,6 +16,7 @@ import {
   AddressDataProvider,
   ORACLE_VERSION,
   PXEOracleInterface,
+  PrivateEventDataProvider,
   enrichPublicSimulationError,
 } from '@aztec/pxe/server';
 import {
@@ -44,7 +45,7 @@ import {
   PublicContractsDB,
   PublicProcessor,
 } from '@aztec/simulator/server';
-import { type ContractArtifact, FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
+import { type ContractArtifact, EventSelector, FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
 import { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { PublicSimulatorConfig } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -76,6 +77,7 @@ import type { UInt64 } from '@aztec/stdlib/types';
 import { ForkCheckpoint } from '@aztec/world-state';
 
 import type { TXEStateMachine } from '../state_machine/index.js';
+import { DEFAULT_ADDRESS } from '../txe_session.js';
 import type { TXEAccountDataProvider } from '../util/txe_account_data_provider.js';
 import type { TXEContractDataProvider } from '../util/txe_contract_data_provider.js';
 import { TXEPublicContractDataSource } from '../util/txe_public_contract_data_source.js';
@@ -93,6 +95,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     private contractDataProvider: TXEContractDataProvider,
     private keyStore: KeyStore,
     private addressDataProvider: AddressDataProvider,
+    private privateEventDataProvider: PrivateEventDataProvider,
     private accountDataProvider: TXEAccountDataProvider,
     private pxeOracleInterface: PXEOracleInterface,
     private nextBlockTimestamp: bigint,
@@ -128,6 +131,10 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     this.logger[levelName](`${applyStringFormatting(message, fields)}`, { module: `${this.logger.module}:debug_log` });
   }
 
+  txeGetDefaultAddress(): AztecAddress {
+    return DEFAULT_ADDRESS;
+  }
+
   async txeGetNextBlockNumber(): Promise<BlockNumber> {
     return BlockNumber((await this.getLastBlockNumber()) + 1);
   }
@@ -151,6 +158,17 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     const txEffects = block!.body.txEffects[0];
 
     return { txHash: txEffects.txHash, noteHashes: txEffects.noteHashes, nullifiers: txEffects.nullifiers };
+  }
+
+  async txeGetPrivateEvents(selector: EventSelector, contractAddress: AztecAddress, scope: AztecAddress) {
+    return (
+      await this.privateEventDataProvider.getPrivateEvents(selector, {
+        contractAddress,
+        scopes: [scope],
+        fromBlock: 0,
+        toBlock: (await this.getLastBlockNumber()) + 1,
+      })
+    ).map(e => e.packedEvent);
   }
 
   async txeAdvanceBlocksBy(blocks: number) {

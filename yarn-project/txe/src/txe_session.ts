@@ -101,7 +101,7 @@ export interface TXESessionStateHandler {
   enterUtilityState(contractAddress?: AztecAddress): Promise<void>;
 }
 
-const DEFAULT_ADDRESS = AztecAddress.fromNumber(42);
+export const DEFAULT_ADDRESS = AztecAddress.fromNumber(42);
 
 /**
  * A `TXESession` corresponds to a Noir `#[test]` function, and handles all of its oracle calls, stores test-specific
@@ -122,6 +122,7 @@ export class TXESession implements TXESessionStateHandler {
     private contractDataProvider: TXEContractDataProvider,
     private keyStore: KeyStore,
     private addressDataProvider: AddressDataProvider,
+    private privateEventDataProvider: PrivateEventDataProvider,
     private accountDataProvider: TXEAccountDataProvider,
     private chainId: Fr,
     private version: Fr,
@@ -170,6 +171,7 @@ export class TXESession implements TXESessionStateHandler {
       contractDataProvider,
       keyStore,
       addressDataProvider,
+      privateEventDataProvider,
       accountDataProvider,
       pxeOracleInterface,
       nextBlockTimestamp,
@@ -186,6 +188,7 @@ export class TXESession implements TXESessionStateHandler {
       contractDataProvider,
       keyStore,
       addressDataProvider,
+      privateEventDataProvider,
       accountDataProvider,
       version,
       chainId,
@@ -252,6 +255,7 @@ export class TXESession implements TXESessionStateHandler {
       this.contractDataProvider,
       this.keyStore,
       this.addressDataProvider,
+      this.privateEventDataProvider,
       this.accountDataProvider,
       this.pxeOracleInterface,
       this.nextBlockTimestamp,
@@ -395,6 +399,7 @@ export class TXESession implements TXESessionStateHandler {
 
     // We rely on the note cache to determine the effects of the transaction. This is incomplete as it doesn't private
     // logs (other effects like enqueued public calls don't need to be considered since those are not allowed).
+
     const txEffect = await makeTxEffect(
       this.state.noteCache,
       this.state.protocolNullifier,
