@@ -49,3 +49,10 @@ inline void fuzz_info_(std::function<std::string()> func)
 }
 
 #define fuzz_info(...) fuzz_info_([&]() { return format(__VA_ARGS__); })
+
+// =========== Pre defined functions ===========
+// Taken from ADD_8 test in fuzz.test.cpp
+const std::vector<uint8_t> ADD_8_BYTECODE = { 39, 0,  0, 2, 5, 39, 0, 1, 2,  2, 0, 0, 0, 1,
+                                              2,  40, 0, 0, 5, 4,  0, 1, 59, 0, 0, 5, 0, 2 };
+
+const std::vector<std::vector<uint8_t>> PREDEFINED_FUNCTIONS = { ADD_8_BYTECODE };

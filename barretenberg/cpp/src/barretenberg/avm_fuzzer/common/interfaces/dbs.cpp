@@ -237,11 +237,13 @@ void FuzzerContractDB::add_contracts(const ContractDeploymentData& contract_depl
 void FuzzerContractDB::add_contract_class(const ContractClassId& class_id, const ContractClass& contract_class)
 {
     contract_classes[class_id] = contract_class;
+    contract_classes_vector.push_back(contract_class);
 }
 
 void FuzzerContractDB::add_contract_instance(const AztecAddress& address, const ContractInstance& contract_instance)
 {
     contract_instances[address] = contract_instance;
+    contract_instances_vector.push_back({ address, contract_instance });
 }
 
 // Based on fromLogs in yarn-project/protocol-contracts/src/class-registry/contract_class_published_event.ts
