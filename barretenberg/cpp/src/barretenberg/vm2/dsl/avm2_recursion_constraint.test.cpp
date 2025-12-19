@@ -80,9 +80,8 @@ class AvmRecursionConstraintTestingFunctions {
         };
     }
 
-    static void invalidate_witness(AcirConstraint& constraint,
-                                   WitnessVector& witness_values,
-                                   const InvalidWitness::Target& invalid_witness_target)
+    static std::pair<AcirConstraint, WitnessVector> invalidate_witness(
+        AcirConstraint constraint, WitnessVector witness_values, const InvalidWitness::Target& invalid_witness_target)
     {
         switch (invalid_witness_target) {
         case InvalidWitness::Target::None:
@@ -93,12 +92,14 @@ class AvmRecursionConstraintTestingFunctions {
             break;
         }
         case InvalidWitness::Target::Proof: {
-            // REMOVE +1 AFTER DAVID'S PR IS MERGED
             // Tamper with the inputs by changing on of the univariate coefficients
-            witness_values[constraint.proof[1 + AvmFlavor::NUM_WITNESS_ENTITIES]] += FF::one();
+            witness_values[constraint.proof[FrCodec::calc_num_fields<AvmFlavor::Commitment>() *
+                                            AvmFlavor::NUM_WITNESS_ENTITIES]] += FF::one();
             break;
         }
         }
+
+        return { constraint, witness_values };
     }
 };
 
@@ -125,13 +126,16 @@ TEST_F(AvmRecursionConstraintTest, GateCountAndOuterVKCheck)
     using ProverInstance = ProverInstance_<UltraRollupFlavor>;
 
     static constexpr FF EXPECTED_OUTER_VK_HASH =
-        FF("0x09c2c15426bce647913e27c928c81726da8a90175739a6a8d1ef6b90bc015a6d");
-    auto [constraint, witness] = generate_constraints();
+        FF("0x2355db226e779ba40c2b163a9b360e4c90b84cba1b6fa24a96ea2260555b8507");
+
+    AcirConstraint constraint;
+    WitnessVector witness;
+    Base::generate_constraints(constraint, witness);
 
     AcirFormat acir_format = constraint_to_acir_format(constraint, static_cast<uint32_t>(witness.size() - 1));
 
     AcirProgram program = { acir_format, {} };
-    ProgramMetadata metadata = { .has_ipa_claim = true }; // Base::generate_metadata();
+    ProgramMetadata metadata = Base::generate_metadata();
     metadata.collect_gates_per_opcode = true;
     auto builder = create_circuit<Builder>(program, metadata);
 
@@ -146,9 +150,8 @@ TEST_F(AvmRecursionConstraintTest, GateCountAndOuterVKCheck)
 TEST_F(AvmRecursionConstraintTest, InnerVKCheck)
 {
     static constexpr FF EXPECTED_INNER_VK_HASH =
-        FF("0x1f197ad657b0e30220d11af1c6ef1c5c657effd8a7af00098218f143ad3f5a12");
-    const auto [proof, public_inputs_flat] =
-        AvmRecursionConstraintTestingFunctions::create_avm_data(); // Base::create_avm_data();
+        FF("0x160a219644befd68f73abef2a32dda67daa1168619517e5688d3e906987ce04a");
+    const auto [proof, public_inputs_flat] = Base::create_avm_data();
 
     Builder inner_builder;
     std::vector<field_t<Builder>> stdlib_public_inputs_flat;
