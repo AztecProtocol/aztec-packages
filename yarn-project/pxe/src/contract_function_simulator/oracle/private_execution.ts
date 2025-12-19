@@ -27,7 +27,7 @@ import type { CircuitWitnessGenerationStats } from '@aztec/stdlib/stats';
 import { BlockHeader, PrivateCallExecutionResult } from '@aztec/stdlib/tx';
 import type { UInt64 } from '@aztec/stdlib/types';
 
-import { ContractDataProvider } from '../../storage/index.js';
+import { ContractDataProvider } from '../../storage/contract_data_provider/index.js';
 import { Oracle } from './oracle.js';
 import type { PrivateExecutionOracle } from './private_execution_oracle.js';
 
