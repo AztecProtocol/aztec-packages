@@ -1,4 +1,5 @@
 include "../execution.pil";
+include "../gt.pil";
 
 // A virtual trace for CALL/STATICCALL custom constraints in the execution trace.
 // Most of the constraints related to these "CALL" opcodes are related to context changes,
@@ -14,14 +15,19 @@ include "../execution.pil";
 // We only use register[0] and register[1] here.
 //
 // Inputs from context.pil:
-// - l2_gas_limit: L2 gas limit
-// - da_gas_limit: DA gas limit
+// - l2_gas_limit: L2 gas limit  (32-bit enforced by register mechanism for CALL/STATICCALL and
+//                                by the public base rollup enforces for enqueued calls)
+// - da_gas_limit: DA gas limit  (32-bit enforced by register mechanism for CALL/STATICCALL and
+//                                by the public base rollup enforces for enqueued calls)
+//
 // - l2_gas_used: L2 gas used
 // - da_gas_used: DA gas used
 //
 // Output back to context.pil:
 // l2_gas_limit': L2 gas limit for the new context (next row)
 // da_gas_limit': DA gas limit for the new context (next row)
+//
+// Interactions with gt.pil to perform two comparisons for gas clamping.
 namespace execution;
 
 // sel_enter_call = sel_execute_call + sel_execute_static_call (defined in context.pil)
@@ -31,14 +37,14 @@ namespace execution;
 sel_enter_call = 0;
 
 // ==== GAS CLAMPING ====
-// Guaranteed not to wrap since we never put a gas used > gas limit
+// Guaranteed not to wrap since we never put a gas used > gas limit (#[IS_OUT_OF_GAS_L2] and #[IS_OUT_OF_GAS_DA] in gas.pil)
 
 // Lookup alias support: Once we support expression in lookup, we can replace this column by an alias.
-pol commit l2_gas_left;
+pol commit l2_gas_left; // 32-bit
 l2_gas_left = sel_enter_call * (l2_gas_limit - l2_gas_used);
 
 // Lookup alias support: Once we support expression in lookup, we can replace this column by an alias.
-pol commit da_gas_left;
+pol commit da_gas_left; // 32-bit
 da_gas_left = sel_enter_call * (da_gas_limit - da_gas_used);
 
 
@@ -46,8 +52,9 @@ da_gas_left = sel_enter_call * (da_gas_limit - da_gas_used);
 
 // Compare the gas allocated to the call by the user, with the gas left.
 // Helper column containing whether the L2 left gas is greater than the allocated gas.
-pol commit is_l2_gas_left_gt_allocated; // Guaranteed to be boolean through the gt lookup. (provided that sel_enter_call == 1)
+pol commit is_l2_gas_left_gt_allocated; // @boolean (on row with `sel_enter_call = 1`) Guaranteed by the gt lookup.
 
+// Both inputs are 32 bits and therefore valid inputs for the gt gadget (register[0] is 32-bit).
 #[IS_L2_GAS_LEFT_GT_ALLLOCATED]
 sel_enter_call { l2_gas_left, register[0], is_l2_gas_left_gt_allocated } in gt.sel_others { gt.input_a, gt.input_b, gt.res };
 
@@ -60,8 +67,9 @@ sel_enter_call * ((register[0] - l2_gas_left) * is_l2_gas_left_gt_allocated + l2
 
 // Compare the gas allocated to the call by the user, with the gas left.
 // Helper column containing whether the DA left gas is greater than the allocated gas.
-pol commit is_da_gas_left_gt_allocated; // Guaranteed to be boolean through the gt lookup. (provided that sel_enter_call == 1)
+pol commit is_da_gas_left_gt_allocated; // @boolean (on row with `sel_enter_call = 1`) Guaranteed by the gt lookup.
 
+// Both inputs are 32 bits and therefore valid inputs for the gt gadget (register[1] is 32-bit).
 #[IS_DA_GAS_LEFT_GT_ALLLOCATED]
 sel_enter_call { da_gas_left, register[1], is_da_gas_left_gt_allocated } in gt.sel_others { gt.input_a, gt.input_b, gt.res };
 
