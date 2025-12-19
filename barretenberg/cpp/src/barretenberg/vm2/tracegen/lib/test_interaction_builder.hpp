@@ -2,8 +2,10 @@
 
 #include <string>
 #include <unordered_set>
+#include <utility>
 
 #include "barretenberg/common/log.hpp"
+#include "barretenberg/common/tuple.hpp"
 #include "barretenberg/vm2/common/map.hpp"
 #include "barretenberg/vm2/common/stringify.hpp"
 #include "barretenberg/vm2/tracegen/lib/interaction_builder.hpp"
@@ -19,6 +21,7 @@ template <typename BaseBuilder> class AddChecksToBuilder : public BaseBuilder {
                   "BaseBuilder must be an IndexedLookupTraceBuilder");
 
   public:
+    using TupleType = typename BaseBuilder::TupleType;
     ~AddChecksToBuilder() override = default;
 
     void init(TraceContainer& trace) override
@@ -27,8 +30,7 @@ template <typename BaseBuilder> class AddChecksToBuilder : public BaseBuilder {
         this->trace = &trace;
     }
 
-    uint32_t find_in_dst(
-        const std::array<FF, BaseBuilder::LookupSettings::LOOKUP_TUPLE_SIZE>& src_values) const override
+    uint32_t find_in_dst(const TupleType& src_values) const override
     {
         uint32_t dst_row = BaseBuilder::find_in_dst(src_values);
 
@@ -51,6 +53,7 @@ template <typename BaseBuilder> class AddChecksToBuilder : public BaseBuilder {
 template <typename PermutationSettings>
 class CheckingPermutationBuilder : public PermutationBuilder<PermutationSettings> {
   public:
+    // Use array for storage in map keys (tuples of references can't be stored).
     using ArrayTuple = std::array<FF, PermutationSettings::COLUMNS_PER_SET>;
 
     void process(TraceContainer& trace) override
@@ -61,12 +64,12 @@ class CheckingPermutationBuilder : public PermutationBuilder<PermutationSettings
         source_tuples.clear();
         trace.visit_column(PermutationSettings::SRC_SELECTOR, [&](uint32_t row, const FF&) {
             auto src_values = trace.get_multiple(PermutationSettings::SRC_COLUMNS, row);
-            source_tuples[src_values].insert(row);
+            source_tuples[to_array(src_values)].insert(row);
         });
         destination_tuples.clear();
         trace.visit_column(PermutationSettings::DST_SELECTOR, [&](uint32_t row, const FF&) {
             auto dst_values = trace.get_multiple(PermutationSettings::DST_COLUMNS, row);
-            destination_tuples[dst_values].insert(row);
+            destination_tuples[to_array(dst_values)].insert(row);
         });
 
         auto build_error_message =
@@ -112,6 +115,14 @@ class CheckingPermutationBuilder : public PermutationBuilder<PermutationSettings
     }
 
   private:
+    // Helper to convert tuple of references to array for storage.
+    template <typename... Ts> static ArrayTuple to_array(const flat_tuple::tuple<Ts...>& tup)
+    {
+        return [&]<size_t... Is>(std::index_sequence<Is...>) {
+            return ArrayTuple{ flat_tuple::get<Is>(tup)... };
+        }(std::make_index_sequence<sizeof...(Ts)>{});
+    }
+
     unordered_flat_map<ArrayTuple, std::unordered_set<uint32_t>> source_tuples;
     unordered_flat_map<ArrayTuple, std::unordered_set<uint32_t>> destination_tuples;
 };

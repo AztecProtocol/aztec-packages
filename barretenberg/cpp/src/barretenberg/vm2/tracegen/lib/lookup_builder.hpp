@@ -5,7 +5,9 @@
 #include <cstddef>
 #include <cstdint>
 #include <stdexcept>
+#include <utility>
 
+#include "barretenberg/common/tuple.hpp"
 #include "barretenberg/common/utils.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/common/map.hpp"
@@ -16,6 +18,16 @@
 #include "barretenberg/vm2/tracegen/trace_container.hpp"
 
 namespace bb::avm2::tracegen {
+
+// Helper to generate a tuple type with N const FF& elements.
+namespace detail {
+template <size_t N, typename = std::make_index_sequence<N>> struct RefTupleHelper;
+template <size_t N, size_t... Is> struct RefTupleHelper<N, std::index_sequence<Is...>> {
+    template <size_t> using ConstFFRef = const FF&;
+    using type = flat_tuple::tuple<ConstFFRef<Is>...>;
+};
+} // namespace detail
+template <size_t N> using RefTuple = typename detail::RefTupleHelper<N>::type;
 
 // A lookup builder that uses a function `find_in_dst` to find the destination row for a given source tuple.
 template <typename LookupSettings_> class IndexedLookupTraceBuilder : public InteractionBuilderInterface {
@@ -58,7 +70,8 @@ template <typename LookupSettings_> class IndexedLookupTraceBuilder : public Int
 
   protected:
     using LookupSettings = LookupSettings_;
-    virtual uint32_t find_in_dst(const std::array<FF, LookupSettings::LOOKUP_TUPLE_SIZE>& tup) const = 0;
+    using TupleType = RefTuple<LookupSettings::LOOKUP_TUPLE_SIZE>;
+    virtual uint32_t find_in_dst(const TupleType& tup) const = 0;
     virtual void init(TraceContainer&) {}; // Optional initialization step.
 
     // The outer (bigger) table selector.
@@ -84,7 +97,7 @@ class LookupIntoDynamicTableGeneric : public IndexedLookupTraceBuilder<LookupSet
 
   protected:
     using LookupSettings = LookupSettings_;
-    using ArrayTuple = std::array<FF, LookupSettings::LOOKUP_TUPLE_SIZE>;
+    using TupleType = RefTuple<LookupSettings::LOOKUP_TUPLE_SIZE>;
 
     void init(TraceContainer& trace) override
     {
@@ -95,9 +108,9 @@ class LookupIntoDynamicTableGeneric : public IndexedLookupTraceBuilder<LookupSet
                                           [this](const TraceContainer& t) { return build_index(t); });
     }
 
-    uint32_t find_in_dst(const ArrayTuple& tup) const override
+    uint32_t find_in_dst(const TupleType& tup) const override
     {
-        size_t key_hash = std::hash<ArrayTuple>{}(tup);
+        size_t key_hash = std::hash<TupleType>{}(tup);
         auto it = index_ptr_->find(key_hash);
         if (it != index_ptr_->end()) {
             uint32_t row = it->second;
@@ -119,7 +132,7 @@ class LookupIntoDynamicTableGeneric : public IndexedLookupTraceBuilder<LookupSet
         idx.reserve(trace.get_column_rows(this->outer_dst_selector));
         trace.visit_column(this->outer_dst_selector, [&](uint32_t row, const FF&) {
             auto dst_values = trace.get_multiple(LookupSettings::DST_COLUMNS, row);
-            size_t key_hash = std::hash<ArrayTuple>{}(dst_values);
+            size_t key_hash = std::hash<decltype(dst_values)>{}(dst_values);
             // FIXME: THIS IS NOT CORRECT!!!
             // If hash collision, keep the first one (don't insert if key already exists).
             idx.insert({ key_hash, row });

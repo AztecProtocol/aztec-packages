@@ -1,9 +1,11 @@
 #pragma once
 
-#include "barretenberg/common/utils.hpp"
 #include <cstddef>
 #include <functional>
 #include <vector>
+
+#include "barretenberg/common/tuple.hpp"
+#include "barretenberg/common/utils.hpp"
 
 // Specialization of std::hash for std::vector<T> to be used as a key in unordered_flat_map.
 namespace std {
@@ -30,6 +32,14 @@ template <typename T, size_t SIZE> struct hash<std::array<T, SIZE>> {
         return [&arr]<size_t... Is>(std::index_sequence<Is...>) {
             return bb::utils::hash_as_tuple(arr[Is]...);
         }(std::make_index_sequence<SIZE>{});
+    }
+};
+
+// Define a hash function for flat_tuple::tuple so that it can be used as a key in a std::unordered_map.
+template <typename... Ts> struct hash<bb::flat_tuple::tuple<Ts...>> {
+    inline std::size_t operator()(const bb::flat_tuple::tuple<Ts...>& tup) const noexcept
+    {
+        return bb::flat_tuple::apply([](const auto&... args) { return bb::utils::hash_as_tuple(args...); }, tup);
     }
 };
 
