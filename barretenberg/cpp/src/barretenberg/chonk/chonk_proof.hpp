@@ -6,10 +6,14 @@
 
 #pragma once
 
+#include "barretenberg/common/serialize.hpp"
+#include "barretenberg/common/streams.hpp"
 #include "barretenberg/goblin/goblin.hpp"
+#include "barretenberg/serialize/msgpack_impl.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
+#include <fstream>
 
 namespace bb {
 
@@ -48,7 +52,14 @@ template <bool IsRecursive = false> struct ChonkProof_ {
 
     // Default constructor
     ChonkProof_() = default;
-    // Constructor for both native and recursive modes
+
+    // Copy constructor (needed for msgpack deserialization)
+    ChonkProof_(const HonkProof& mega, const GoblinProof& goblin)
+        : mega_proof(mega)
+        , goblin_proof(goblin)
+    {}
+
+    // Move constructor for both native and recursive modes
     ChonkProof_(HonkProof&& mega, GoblinProof&& goblin)
         : mega_proof(std::move(mega))
         , goblin_proof(std::move(goblin))
@@ -74,65 +85,74 @@ template <bool IsRecursive = false> struct ChonkProof_ {
      * @brief Common logic to reconstruct proof from field elements
      * @tparam FieldType Either bb::fr (native) or stdlib::field_t<Builder> (recursive)
      */
-    static ChonkProof_ from_field_elements(const std::vector<FF>& fields)
-    {
-
-        HonkProof mega_proof;
-        GoblinProof goblin_proof;
-
-        // Calculate custom public inputs size from total proof size
-        BB_ASSERT_GTE(fields.size(), PROOF_LENGTH, "Proof size is less than minimum proof length");
-        size_t custom_public_inputs_size = fields.size() - PROOF_LENGTH;
-
-        // Mega proof
-        auto start_idx = fields.begin();
-        auto end_idx =
-            start_idx + static_cast<std::ptrdiff_t>(HIDING_KERNEL_PROOF_LENGTH_WITHOUT_PUBLIC_INPUTS +
-                                                    bb::HidingKernelIO::PUBLIC_INPUTS_SIZE + custom_public_inputs_size);
-        mega_proof.insert(mega_proof.end(), start_idx, end_idx);
-
-        // Merge proof
-        start_idx = end_idx;
-        end_idx += static_cast<std::ptrdiff_t>(MERGE_PROOF_SIZE);
-        goblin_proof.merge_proof.insert(goblin_proof.merge_proof.end(), start_idx, end_idx);
-
-        // ECCVM proof
-        start_idx = end_idx;
-        end_idx += static_cast<std::ptrdiff_t>(ECCVMFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS);
-        goblin_proof.eccvm_proof.insert(goblin_proof.eccvm_proof.end(), start_idx, end_idx);
-
-        // IPA proof
-        start_idx = end_idx;
-        end_idx += static_cast<std::ptrdiff_t>(IPA_PROOF_LENGTH);
-        goblin_proof.ipa_proof.insert(goblin_proof.ipa_proof.end(), start_idx, end_idx);
-
-        // Translator proof
-        start_idx = end_idx;
-        end_idx += static_cast<std::ptrdiff_t>(TranslatorFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS);
-        goblin_proof.translator_proof.insert(goblin_proof.translator_proof.end(), start_idx, end_idx);
-
-        return ChonkProof_{ std::move(mega_proof), std::move(goblin_proof) };
-    }
+    static ChonkProof_ from_field_elements(const std::vector<FF>& fields);
 
   public:
     // MSGPACK methods (native mode only, IsRecursive=false)
     msgpack::sbuffer to_msgpack_buffer() const
-        requires(!IsRecursive);
+        requires(!IsRecursive)
+    {
+        msgpack::sbuffer buffer;
+        msgpack::pack(buffer, *this);
+        return buffer;
+    }
 
     uint8_t* to_msgpack_heap_buffer() const
-        requires(!IsRecursive);
+        requires(!IsRecursive)
+    {
+        msgpack::sbuffer buffer = to_msgpack_buffer();
+        std::vector<uint8_t> buf(buffer.data(), buffer.data() + buffer.size());
+        return to_heap_buffer(buf);
+    }
 
     static ChonkProof_ from_msgpack_buffer(uint8_t const*& buffer)
-        requires(!IsRecursive);
+        requires(!IsRecursive)
+    {
+        auto uint8_buffer = from_buffer<std::vector<uint8_t>>(buffer);
+        msgpack::sbuffer sbuf;
+        sbuf.write(reinterpret_cast<char*>(uint8_buffer.data()), uint8_buffer.size());
+        return from_msgpack_buffer(sbuf);
+    }
 
     static ChonkProof_ from_msgpack_buffer(const msgpack::sbuffer& buffer)
-        requires(!IsRecursive);
+        requires(!IsRecursive)
+    {
+        msgpack::object_handle oh = msgpack::unpack(buffer.data(), buffer.size());
+        msgpack::object obj = oh.get();
+        ChonkProof_ proof;
+        obj.convert(proof);
+        return proof;
+    }
 
     void to_file_msgpack(const std::string& filename) const
-        requires(!IsRecursive);
+        requires(!IsRecursive)
+    {
+        msgpack::sbuffer buffer = to_msgpack_buffer();
+        std::ofstream ofs(filename, std::ios::binary);
+        if (!ofs.is_open()) {
+            throw_or_abort("Failed to open file for writing.");
+        }
+        ofs.write(buffer.data(), static_cast<std::streamsize>(buffer.size()));
+        ofs.close();
+    }
 
     static ChonkProof_ from_file_msgpack(const std::string& filename)
-        requires(!IsRecursive);
+        requires(!IsRecursive)
+    {
+        std::ifstream ifs(filename, std::ios::binary);
+        if (!ifs.is_open()) {
+            throw_or_abort("Failed to open file for reading.");
+        }
+        ifs.seekg(0, std::ios::end);
+        size_t file_size = static_cast<size_t>(ifs.tellg());
+        ifs.seekg(0, std::ios::beg);
+        std::vector<char> buffer(file_size);
+        ifs.read(buffer.data(), static_cast<std::streamsize>(file_size));
+        ifs.close();
+        msgpack::sbuffer msgpack_buffer;
+        msgpack_buffer.write(buffer.data(), file_size);
+        return ChonkProof_::from_msgpack_buffer(msgpack_buffer);
+    }
 
     // MSGPACK support (native mode only)
     static constexpr const char MSGPACK_SCHEMA_NAME[] = "ChonkProof";
