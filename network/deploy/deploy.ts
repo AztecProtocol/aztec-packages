@@ -2,7 +2,7 @@
  * Network deployment orchestration.
  */
 
-import type { NetworkConfig } from "../networks/types.ts";
+import type { NetworkConfig } from "../configs/types.ts";
 import type { Executor } from "./executor.ts";
 import { deployEthDevnet, deployRollupContracts, deployAztecInfra } from "./stages.ts";
 

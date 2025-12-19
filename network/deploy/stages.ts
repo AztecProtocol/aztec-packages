@@ -2,7 +2,7 @@
  * Deployment stages for network infrastructure.
  */
 
-import type { NetworkConfig } from "../networks/types.ts";
+import type { NetworkConfig } from "../configs/types.ts";
 import type { Executor, TerraformVars } from "./executor.ts";
 
 // ============================================================================

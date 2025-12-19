@@ -3,8 +3,8 @@ import assert from "node:assert";
 import { deploy } from "../deploy/deploy.ts";
 import { teardown } from "../deploy/teardown.ts";
 import { PlanExecutor } from "../deploy/executor.ts";
-import type { NetworkConfig } from "../networks/types.ts";
-import { DEFAULT_ROLLUP_CONFIG, DEFAULT_GSE_CONFIG, DEFAULT_GOVERNANCE_PROPOSER_CONFIG, DEFAULT_GOVERNANCE_CONFIG, DEFAULT_ZKPASSPORT_CONFIG } from "../networks/defaults.ts";
+import type { NetworkConfig } from "../configs/types.ts";
+import { DEFAULT_ROLLUP_CONFIG, DEFAULT_GSE_CONFIG, DEFAULT_GOVERNANCE_PROPOSER_CONFIG, DEFAULT_GOVERNANCE_CONFIG, DEFAULT_ZKPASSPORT_CONFIG } from "../configs/defaults.ts";
 
 /** Minimal config for testing */
 function makeTestConfig(overrides: Partial<NetworkConfig> = {}): NetworkConfig {

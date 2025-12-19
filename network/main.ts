@@ -3,53 +3,57 @@
  * Network management CLI.
  *
  * Usage:
- *   node --experimental-strip-types main.ts deploy [--plan] <networkLabel> <namespace> [aztecDockerImage]
- *   node --experimental-strip-types main.ts teardown [--plan] <networkLabel> <namespace>
+ *   node --experimental-strip-types main.ts deploy [--plan] <config> <namespace> [aztecDockerImage]
+ *   node --experimental-strip-types main.ts teardown [--plan] <config> <namespace>
  *
- * Networks: local, devnet, testnet, next-scenario, tps-scenario
+ * Config can be a short label (local, devnet, testnet, next-scenario, tps-scenario)
+ * or a path to a config file.
  *
  * Examples:
  *   node --experimental-strip-types main.ts deploy next-scenario my-branch
  *   node --experimental-strip-types main.ts deploy --plan devnet devnet aztecprotocol/aztec:0.87.0
+ *   node --experimental-strip-types main.ts deploy ./configs/custom.ts my-ns
  *   node --experimental-strip-types main.ts teardown next-scenario my-branch
  */
 
 import { resolve } from "node:path";
+import { existsSync } from "node:fs";
 import { spawnSync } from "node:child_process";
-import type { NetworkConfig } from "./networks/types.ts";
+import type { NetworkConfig } from "./configs/types.ts";
 import { deploy } from "./deploy/deploy.ts";
 import { teardown } from "./deploy/teardown.ts";
 import { RealExecutor, PlanExecutor } from "./deploy/executor.ts";
 
 const REPO_ROOT = spawnSync("git", ["rev-parse", "--show-toplevel"], { encoding: "utf-8" }).stdout.trim();
 const SPARTAN_DIR = resolve(REPO_ROOT, "spartan");
+const CONFIGS_DIR = resolve(import.meta.dirname!, "configs");
 
-const NETWORK_CONFIGS: Record<string, string> = {
-  local: "./networks/local.ts",
-  devnet: "./networks/devnet.ts",
-  testnet: "./networks/testnet.ts",
-  "next-scenario": "./networks/next-scenario.ts",
-  "tps-scenario": "./networks/tps-scenario.ts",
-};
+async function loadConfig(configArg: string): Promise<NetworkConfig> {
+  let configPath: string;
 
-async function loadNetworkConfig(networkLabel: string): Promise<NetworkConfig> {
-  const configRelPath = NETWORK_CONFIGS[networkLabel];
-  if (!configRelPath) {
-    console.error(`Unknown network: ${networkLabel}. Available: ${Object.keys(NETWORK_CONFIGS).join(", ")}`);
+  // Check if it's a path (contains / or ends with .ts)
+  if (configArg.includes("/") || configArg.endsWith(".ts")) {
+    configPath = resolve(configArg);
+  } else {
+    // Short label - look in configs/
+    configPath = resolve(CONFIGS_DIR, `${configArg}.ts`);
+  }
+
+  if (!existsSync(configPath)) {
+    console.error(`Config not found: ${configPath}`);
     process.exit(1);
   }
 
-  const configPath = resolve(import.meta.dirname!, configRelPath);
   const module = await import(configPath);
   return module.default ?? module.config;
 }
 
 function printUsage(): void {
   console.log("Usage:");
-  console.log("  node --experimental-strip-types main.ts deploy [--plan] <networkLabel> <namespace> [aztecDockerImage]");
-  console.log("  node --experimental-strip-types main.ts teardown [--plan] <networkLabel> <namespace>");
+  console.log("  node --experimental-strip-types main.ts deploy [--plan] <config> <namespace> [aztecDockerImage]");
+  console.log("  node --experimental-strip-types main.ts teardown [--plan] <config> <namespace>");
   console.log("");
-  console.log("Networks: " + Object.keys(NETWORK_CONFIGS).join(", "));
+  console.log("Config: short label (local, devnet, testnet, next-scenario, tps-scenario) or path to .ts file");
   console.log("");
   console.log("Options:");
   console.log("  --plan    Print plan without executing");
@@ -72,11 +76,11 @@ async function main(): Promise<void> {
 
   if (command === "deploy") {
     if (filteredArgs.length < 2) {
-      console.log("Usage: node --experimental-strip-types main.ts deploy [--plan] <networkLabel> <namespace> [aztecDockerImage]");
+      console.log("Usage: node --experimental-strip-types main.ts deploy [--plan] <config> <namespace> [aztecDockerImage]");
       process.exit(1);
     }
 
-    const [networkLabel, namespace, aztecDockerImage] = filteredArgs;
+    const [configArg, namespace, aztecDockerImage] = filteredArgs;
     const dockerImage = aztecDockerImage ?? process.env["AZTEC_DOCKER_IMAGE"] ?? "";
 
     if (!dockerImage && !planMode) {
@@ -84,7 +88,7 @@ async function main(): Promise<void> {
       process.exit(1);
     }
 
-    const config = await loadNetworkConfig(networkLabel!);
+    const config = await loadConfig(configArg!);
     config.kubernetes.namespace = namespace!;
 
     const exec = planMode ? new PlanExecutor() : new RealExecutor(SPARTAN_DIR);
@@ -95,13 +99,13 @@ async function main(): Promise<void> {
     }
   } else if (command === "teardown") {
     if (filteredArgs.length < 2) {
-      console.log("Usage: node --experimental-strip-types main.ts teardown [--plan] <networkLabel> <namespace>");
+      console.log("Usage: node --experimental-strip-types main.ts teardown [--plan] <config> <namespace>");
       process.exit(1);
     }
 
-    const [networkLabel, namespace] = filteredArgs;
+    const [configArg, namespace] = filteredArgs;
 
-    const config = await loadNetworkConfig(networkLabel!);
+    const config = await loadConfig(configArg!);
     config.kubernetes.namespace = namespace!;
 
     const exec = planMode ? new PlanExecutor() : new RealExecutor(SPARTAN_DIR);
