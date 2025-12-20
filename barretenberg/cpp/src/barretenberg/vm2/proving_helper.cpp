@@ -53,7 +53,6 @@ AvmProvingHelper::VkData AvmProvingHelper::get_verification_key()
 
 std::pair<AvmProvingHelper::Proof, AvmProvingHelper::VkData> AvmProvingHelper::prove(tracegen::TraceContainer&& trace)
 {
-    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/18934)
     auto polynomials = AVM_TRACK_TIME_V("proving/prove:compute_polynomials", constraining::compute_polynomials(trace));
     auto proving_key =
         AVM_TRACK_TIME_V("proving/prove:proving_key", constraining::proving_key_from_polynomials(polynomials));
