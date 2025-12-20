@@ -877,8 +877,8 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
 
       // Note that we dont have an attestation pool if we're a prover node, but we still
       // subscribe to block proposal topics in order to prevent their txs from being cleared.
-      const exists = isValid && (await pool?.hasBlockProposal(block));
-      const canAdd = isValid && (await pool?.canAddProposal(block));
+      const exists = isValid && pool ? await pool.hasBlockProposal(block) : false;
+      const canAdd = isValid && pool ? await pool.canAddProposal(block) : true; // If pool DNE, set canAdd to true to avoid peer penalization (the block is not added to the pool)
 
       this.logger.trace(`Validate propagated block proposal`, {
         isValid,
