@@ -159,8 +159,20 @@ template <typename Builder> class keccak {
     static void chi(keccak_state& state);
     static void iota(keccak_state& state, size_t round);
 
-    // exposing keccak f1600 permutation
     static void keccakf1600(keccak_state& state);
+
+    static std::vector<uint8_t> hash_native(const std::vector<uint8_t>& data)
+    {
+        auto hash_result = ethash_keccak256(&data[0], data.size());
+
+        std::vector<uint8_t> output;
+        output.resize(32);
+
+        memcpy((void*)&output[0], (void*)&hash_result.word64s[0], 32);
+        return output;
+    }
+
+    // exposing keccak f1600 permutation
 
     static std::array<field_ct, NUM_KECCAK_LANES> permutation_opcode(std::array<field_ct, NUM_KECCAK_LANES> state,
                                                                      Builder* context);
