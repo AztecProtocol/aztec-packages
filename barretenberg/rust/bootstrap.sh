@@ -34,7 +34,7 @@ function test {
     source "$HOME/.cargo/env"
   fi
 
-  # Run all tests
+  # Run all tests (FFI is enabled by default, links to cpp/build/lib automatically)
   cargo test --release
 }
 
