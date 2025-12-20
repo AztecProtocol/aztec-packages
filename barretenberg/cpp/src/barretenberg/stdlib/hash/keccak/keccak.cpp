@@ -29,7 +29,7 @@ using namespace bb::plookup;
  *
  * @tparam lane_index What keccak lane are we working on?
  * @param limb Input limb we want to normalize and rotate
- * @param msb (return parameter) The most significant bit of the normalized and rotated limb
+ * @param msb (return parameter) The most significant bit of the normalized and unrotated limb
  * @return field_t<Builder> The normalized and rotated output
  */
 template <typename Builder>
