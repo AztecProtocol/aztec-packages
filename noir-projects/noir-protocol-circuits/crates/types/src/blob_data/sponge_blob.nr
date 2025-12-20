@@ -90,8 +90,15 @@ impl SpongeBlob {
     }
 
     pub fn absorb_checkpoint_end_marker(&mut self) {
+        // If you ever increase the size of an `end_marker` beyond 1 Field, you need to adjust this
+        // incrementation accordingly:
         self.num_absorbed_fields += 1;
-        let end_marker = create_checkpoint_end_marker(self.num_absorbed_fields);
+        // Check that the number of absorbed blob fields is not larger than the maximum number of fields allowed.
+        assert(
+            self.num_absorbed_fields <= FIELDS_PER_BLOB * BLOBS_PER_CHECKPOINT,
+            "Attempted to overfill blobs",
+        );
+        let end_marker: Field = create_checkpoint_end_marker(self.num_absorbed_fields);
         self.sponge.absorb(end_marker);
     }
 
