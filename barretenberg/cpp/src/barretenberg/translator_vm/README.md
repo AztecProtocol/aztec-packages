@@ -74,29 +74,35 @@ Specifically, for each accumulation step (every 2 rows), prove:
 
 $$\text{acc}_{\text{curr}} = \text{acc}_{\text{prev}} \cdot x + \text{op} + P_x \cdot v + P_y \cdot v^2 + z_1 \cdot v^3 + z_2 \cdot v^4 \pmod{q}$$
 
-**Method:** Since we cannot directly compute in $\mathbb{F}_q$ using $\mathbb{F}_r$ arithmetic (as $q \neq r$), we use non-native field arithmetic. Similar to the technique in [bigfield](../stdlib/primitives/bigfield/README.md), we prove the equation holds in integers:
+Note that we process the `EccOpQueue` in reverse order while computing the accumulator in steps:
+
+$$
+\begin{aligned}
+\textcolor{orange}{\text{acc}_0} &= \textcolor{lightgrey}{0} \cdot x + \text{op}_{n-1} + P_x^{(n-1)} \cdot v + P_y^{(n-1)} \cdot v^2 + z_1^{(n-1)} \cdot v^3 + z_2^{(n-1)} \cdot v^4 \\
+\textcolor{lightgreen}{\text{acc}_1} &= \textcolor{orange}{\text{acc}_0} \cdot x + \text{op}_{n-2} + P_x^{(n-2)} \cdot v + P_y^{(n-2)} \cdot v^2 + z_1^{(n-2)} \cdot v^3 + z_2^{(n-2)} \cdot v^4 \\
+\textcolor{skyblue}{\text{acc}_2} &= \textcolor{lightgreen}{\text{acc}_1} \cdot x + \text{op}_{n-3} + P_x^{(n-3)} \cdot v + P_y^{(n-3)} \cdot v^2 + z_1^{(n-3)} \cdot v^3 + z_2^{(n-3)} \cdot v^4 \\
+&\ \ \vdots \\
+\textcolor{brown}{\text{acc}_{n-2}} &= \textcolor{grey}{\text{acc}_{n-3}} \cdot x + \text{op}_1 + P_x^{(1)} \cdot v + P_y^{(1)} \cdot v^2 + z_1^{(1)} \cdot v^3 + z_2^{(1)} \cdot v^4 \\
+\textcolor{violet}{\text{acc}_{n-1}} &= \textcolor{brown}{\text{acc}_{n-2}} \cdot x + \text{op}_0 + P_x^{(0)} \cdot v + P_y^{(0)} \cdot v^2 + z_1^{(0)} \cdot v^3 + z_2^{(0)} \cdot v^4 \\
+\end{aligned}
+$$
+
+The final accumulator value $\textcolor{violet}{\text{acc}_{n-1}}$ is what we need to verify against the ECCVM's output.
+Note that the "previous" accumulator in the _last_ step must be 0.
+
+**Method:** Since we cannot directly compute in $\mathbb{F}_q$ using $\mathbb{F}_r$ arithmetic (as $q \neq r$, and in fact $q > r$), we use non-native field arithmetic. Similar to the technique in [bigfield](../stdlib/primitives/bigfield/README.md), we prove the equation holds in integers:
 
 $$\text{acc}_{\text{prev}} \cdot x + \text{op} + P_x \cdot v + P_y \cdot v^2 + z_1 \cdot v^3 + z_2 \cdot v^4 - \text{quotient} \cdot q - \text{acc}_{\text{curr}} = 0$$
 
 We verify this by proving the equation holds:
 
-1. **modulo $2^{272}$** (via 68-bit limb arithmetic split into two 136-bit checks)
-2. **modulo $r$** (natively in $\mathbb{F}_r$)
-3. with **range constraints** on all limbs (prevents overflow/underflow)
+1. modulo $2^{272}$ (via 68-bit limb arithmetic split into two 136-bit checks)
+2. modulo $r$ (natively in $\mathbb{F}_r$)
+3. with range constraints on all limbs (prevents overflow/underflow)
 
 By the Chinese Remainder Theorem, since $2^{272} \cdot r > 2^{514}$ exceeds the maximum possible value, the equation must hold in integers, and thus modulo $q$.
 
-## Architecture and Constants
-
-#### Circuit Size Parameters
-
-```cpp
-CONST_TRANSLATOR_MINI_CIRCUIT_LOG_SIZE = 13      // Mini-circuit: 2^13 = 8,192 rows (log₂ of size)
-INTERLEAVING_GROUP_SIZE = 16                     // Interleaving factor
-CONST_TRANSLATOR_LOG_N = 13 + 4 = 17             // Full circuit: 2^17 = 131,072 rows (log₂ of size)
-```
-
-**Why interleaving?** Without interleaving, checking ~64 microlimb columns simultaneously would create a degree-65 polynomial in the permutation argument, making sumcheck impractical. Interleaving reduces this to degree 6-7 by spreading the checks across 16 segments (see [Interleaving section](#interleaving-the-key-optimization)).
+### Constants
 
 #### Field Moduli
 
@@ -110,7 +116,7 @@ r = 0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001
   ≈ 2^254
 ```
 
-**Key observation:** $q \neq r$ (they differ by $\approx 2^{47}$), so we cannot directly compute in $\mathbb{F}_q$ using $\mathbb{F}_r$ arithmetic.
+**Key observation:** $q > r$ (they differ by $\approx 2^{47}$), so we cannot directly compute in $\mathbb{F}_q$ using $\mathbb{F}_r$ arithmetic.
 
 #### Limb Decomposition Constants
 
@@ -131,18 +137,10 @@ NUM_MICRO_LIMBS = 6                   // 68 / 14 ≈ 5, plus 1 for tail
 
 #### Opcode Values
 
-```cpp
-Valid opcodes: {0, 1, 2, 3, 4, 8}
-```
-
-Encoding EC operations:
-
-- `0`: No-op / NULL
-- `1`: Add
-- `2`: Mul (scalar multiplication)
-- `3`: Equality check
-- `4`: Reset accumulator
-- `8`: [Special operation]
+- `0`: No-op
+- `3`: Equality check and reset accumulator
+- `4`: Scalar multiplication
+- `8`: Point addition
 
 #### Range Constraint Constants
 
@@ -155,38 +153,40 @@ SORTED_STEPS_COUNT = 2^14 / 3 + 1     // Number of "step" values inserted
 
 Each microlimb must be $≤ 2^{14} - 1 = 16383$.
 
----
-
 ## Witness Trace Structure
 
-The Translator circuit has **81 witness columns**, organized into:
+The Translator circuit has 81 witness columns, organized into:
 
-- **4 columns**: EccOpQueue transcript (op, P.x, P.y, z₁, z₂ encoded across 2 rows)
-- **13 columns**: Limb decompositions (68-bit limbs for non-native arithmetic)
-- **64 columns**: Microlimb decompositions (14-bit microlimbs for range constraints)
+- 4 columns: `EccOpQueue` transcript ($\texttt{op}, P_x, P_y, z_1, z_2$ encoded across 2 rows)
+- 13 columns: Limb decompositions (68-bit limbs for non-native arithmetic)
+- 64 columns: Microlimb decompositions (14-bit microlimbs for range constraints)
 
-The circuit operates on a **2-row cycle structure**. Each EccOpQueue entry occupies exactly 2 rows:
+The circuit operates on a 2-row cycle structure. Each `EccOpQueue` entry occupies exactly 2 rows:
 
-- **Row $2i$ (Even rows)**: **Computation rows** where the non-native field relation is actively checked
-- **Row $2i+1$ (Odd rows)**: **Data storage rows** that hold values accessed by the next even row via shifts
+- Row $2i$ (Even rows): Computation rows where the non-native field relation is actively checked
+- Row $2i+1$ (Odd rows): Data storage rows that hold values accessed via shifts
 
-This architecture exists because of how polynomial commitments work in the KZG scheme: the "shifted" polynomial at index $i$ evaluates to the polynomial at index $i+1$. Thus:
+While enforcing constraints on the even rows, we can access values from the "next" odd row using shifted column polynomials.
+As hinted earlier, the "previous" accumulator value needed for computation is stored at odd row $(2i+1)$.
+This value becomes the "current" accumulator for the next even row $(2i+2)$:
 
-- Even row $2i$ performs computation using "current" values from its own row
-- Even row $2i$ accesses "previous" values from odd row $2i+1$ via shift columns
-- Odd row $2i+1$ stores the data that will become "previous" for the next computation at row $2i+2$
+| Op index             | $0$                                    | $1$                                   | $\quad \dots \quad$ | $(n-2)$                                  | $(n-1)$                              |
+| -------------------- | -------------------------------------- | ------------------------------------- | ------------------- | ---------------------------------------- | ------------------------------------ |
+| Current accumulator  | $\textcolor{violet}{\text{acc}_{n-1}}$ | $\textcolor{brown}{\text{acc}_{n-2}}$ | $\quad \dots \quad$ | $\textcolor{lightgreen}{\text{acc}_{1}}$ | $\textcolor{orange}{\text{acc}_{0}}$ |
+| Previous accumulator | $\textcolor{brown}{\text{acc}_{n-2}}$  | $\textcolor{grey}{\text{acc}_{n-3}}$  | $\quad \dots \quad$ | $\textcolor{orange}{\text{acc}_{0}}$     | $0$                                  |
+|                      |                                        |                                       |                     |                                          |                                      |
 
 #### 1. EccOpQueue Transcript Columns (4 columns)
 
 These columns directly represent the EccOpQueue transcript:
 
-| Column      | Even Row (2i)                     | Odd Row (2i+1)               | Description                                   |
-| ----------- | --------------------------------- | ---------------------------- | --------------------------------------------- |
-| `OP`        | $\texttt{op} \in \{0,1,2,3,4,8\}$ | 0 (no-op)                    | Opcode (the type of elliptic curve operation) |
-| `X_LO_Y_HI` | $P_{x,\text{lo}}$ (136 bits)      | $P_{y,\text{hi}}$ (118 bits) | Low 136 bits of P.x and High 118 bits of P.y  |
-| `X_HI_Z_1`  | $P_{x,\text{hi}}$ (118 bits)      | $z_1$ (128 bits)             | High 118 bits of P.x and first scalar         |
-| `Y_LO_Z_2`  | $P_{y,\text{lo}}$ (136 bits)      | $z_2$ (128 bits)             | Low 136 bits of P.y and second scalar         |
-|             |                                   |                              |                                               |
+| Column      | Even Row $(2i)$                  | Odd Row $(2i+1)$             | Description                                                        |
+| ----------- | -------------------------------- | ---------------------------- | ------------------------------------------------------------------ |
+| `OP`        | $\texttt{op} \in \{0, 3, 4, 8\}$ | 0 (no-op)                    | Opcode (the type of elliptic curve operation)                      |
+| `X_LO_Y_HI` | $P_{x,\text{lo}}$ (136 bits)     | $P_{y,\text{hi}}$ (118 bits) | Low 136 bits of $x$-coordinate and high 118 bits of $y$-coordinate |
+| `X_HI_Z_1`  | $P_{x,\text{hi}}$ (118 bits)     | $z_1$ (128 bits)             | High 118 bits of $x$-coordinate and first scalar                   |
+| `Y_LO_Z_2`  | $P_{y,\text{lo}}$ (136 bits)     | $z_2$ (128 bits)             | Low 136 bits of $y$-coordinate and second scalar                   |
+|             |                                  |                              |                                                                    |
 
 **Encoding scheme**: Point coordinates $P_x$ and $P_y$ are each 254 bits, split as:
 
@@ -197,12 +197,12 @@ These columns directly represent the EccOpQueue transcript:
 
 These columns store finer-grained limb decompositions for non-native arithmetic:
 
-| Column Group                  | Even Row (2i)         | Odd Row (2i+1)        | Bits   | Purpose                                  |
+| Column Group                  | Even Row $(2i)$       | Odd Row $(2i+1)$      | Bits   | Purpose                                  |
 | ----------------------------- | --------------------- | --------------------- | ------ | ---------------------------------------- |
-| `P_X_LOW_LIMBS`               | $P_{x,0}^{\text{lo}}$ | $P_{x,1}^{\text{lo}}$ | 68     | Limbs 0 & 1 of $P_{x,\text{lo}}$         |
-| `P_X_HIGH_LIMBS`              | $P_{x,0}^{\text{hi}}$ | $P_{x,1}^{\text{hi}}$ | 68, 50 | Limbs 0 & 1 of $P_{x,\text{hi}}$         |
-| `P_Y_LOW_LIMBS`               | $P_{y,0}^{\text{lo}}$ | $P_{y,1}^{\text{lo}}$ | 68     | Limbs 0 & 1 of $P_{y,\text{lo}}$         |
-| `P_Y_HIGH_LIMBS`              | $P_{y,0}^{\text{hi}}$ | $P_{y,1}^{\text{hi}}$ | 68, 50 | Limbs 0 & 1 of $P_{y,\text{hi}}$         |
+| `P_X_LOW_LIMBS`               | $P_{x,0}^{\text{lo}}$ | $P_{x,1}^{\text{lo}}$ | 68     | Limbs 0 & 1 of $P_{x}$                   |
+| `P_X_HIGH_LIMBS`              | $P_{x,0}^{\text{hi}}$ | $P_{x,1}^{\text{hi}}$ | 68, 50 | Limbs 2 & 3 of $P_{x}$                   |
+| `P_Y_LOW_LIMBS`               | $P_{y,0}^{\text{lo}}$ | $P_{y,1}^{\text{lo}}$ | 68     | Limbs 0 & 1 of $P_{y}$                   |
+| `P_Y_HIGH_LIMBS`              | $P_{y,0}^{\text{hi}}$ | $P_{y,1}^{\text{hi}}$ | 68, 50 | Limbs 2 & 3 of $P_{y}$                   |
 | `Z_LOW_LIMBS`                 | $z_{1,0}$             | $z_{2,0}$             | 68     | Low limbs of $z_1$ and $z_2$             |
 | `Z_HIGH_LIMBS`                | $z_{1,1}$             | $z_{2,1}$             | 60     | High limbs of $z_1$ and $z_2$            |
 | `ACCUMULATORS_BINARY_LIMBS_0` | $a_0^{\text{curr}}$   | $a_0^{\text{prev}}$   | 68     | Limb 0 of current/previous accumulator   |
@@ -221,9 +221,9 @@ These columns store finer-grained limb decompositions for non-native arithmetic:
 
 #### 3. Range Constraint Microlimb Columns (64 columns)
 
-Each limb is further decomposed into **14-bit microlimbs** for range checking. Each 68-bit limb has 5 microlimbs (14 bits each) plus a "tail" microlimb that enforces tight range constraints. The columns are organized as follows:
+Each limb is further decomposed into 14-bit microlimbs for range checking. Each 68-bit limb has 5 microlimbs (14 bits each) plus a "tail" microlimb that enforces tight range constraints. The columns are organized as follows:
 
-| Column Group                                   | Even Row (2i)                                            | Odd Row (2i+1)                                            |
+| Column Group                                   | Even Row $(2i)$                                          | Odd Row $(2i+1)$                                          |
 | ---------------------------------------------- | -------------------------------------------------------- | --------------------------------------------------------- |
 | Coordinate $P_x$ microlimbs                    |                                                          |                                                           |
 | `P_X_LOW_LIMBS_RANGE_CONSTRAINT_0`             | $P_{x,0}[0]$                                             | $P_{x,1}[0]$                                              |
@@ -258,7 +258,7 @@ Each limb is further decomposed into **14-bit microlimbs** for range checking. E
 | `Z_HIGH_LIMBS_RANGE_CONSTRAINT_2`              | $z_{1,1}[2]$                                             | $z_{2,1}[2]$                                              |
 | `Z_HIGH_LIMBS_RANGE_CONSTRAINT_3`              | $z_{1,1}[3]$                                             | $z_{2,1}[3]$                                              |
 | `Z_HIGH_LIMBS_RANGE_CONSTRAINT_4`              | $z_{1,1}[4]$                                             | $z_{2,1}[4]$                                              |
-| Accumulator microlimbs                         |                                                          |                                                           |
+| Current and previous accumulator microlimbs    |                                                          |                                                           |
 | `ACCUMULATOR_LOW_LIMBS_RANGE_CONSTRAINT_0`     | $a_{0}^{\text{curr}}[0]$                                 | $a_{1}^{\text{curr}}[0]$                                  |
 | `ACCUMULATOR_LOW_LIMBS_RANGE_CONSTRAINT_1`     | $a_{0}^{\text{curr}}[1]$                                 | $a_{1}^{\text{curr}}[1]$                                  |
 | `ACCUMULATOR_LOW_LIMBS_RANGE_CONSTRAINT_2`     | $a_{0}^{\text{curr}}[2]$                                 | $a_{1}^{\text{curr}}[2]$                                  |
@@ -311,43 +311,40 @@ Some columns are "virtual" and not explicitly stored in the witness trace. Inste
 
 ### Lagrange Polynomials (Precomputed)
 
-The Translator circuit uses **ZERO selector polynomials** (`NUM_SELECTORS = 0`).
+The Translator circuit uses ZERO selector polynomials (`NUM_SELECTORS = 0`).
 
-Instead, the circuit uses **Lagrange polynomials** to control which constraints are active:
+Instead, the circuit uses Lagrange polynomials to control which constraints are active:
 
-| Polynomial                     | Description                     | Active Rows                           |
-| ------------------------------ | ------------------------------- | ------------------------------------- |
-| `lagrange_even_in_minicircuit` | Even indices in mini-circuit    | $i \in \{0, 2, 4, ..., 8190\}$ (mini) |
-| `lagrange_odd_in_minicircuit`  | Odd indices in mini-circuit     | $i \in \{1, 3, 5, ..., 8191\}$ (mini) |
-| `lagrange_first`               | First row                       | $i = 0$                               |
-| `lagrange_last_in_minicircuit` | Last row in mini-circuit        | $i = 8191$ (mini)                     |
-| `lagrange_result_row`          | Row containing final result     | Specific row in trace                 |
-| `lagrange_masking`             | Masking rows for zero-knowledge | Last few rows                         |
-| `lagrange_mini_masking`        | Masking within mini-circuit     | Last rows of mini-circuit             |
+| Polynomial                     | Description                     | Active Rows                                                                  |
+| ------------------------------ | ------------------------------- | ---------------------------------------------------------------------------- |
+| `lagrange_even_in_minicircuit` | Even indices in mini-circuit    | $i \in \{0, 2, 4, ..., 8190\}$ (mini)                                        |
+| `lagrange_odd_in_minicircuit`  | Odd indices in mini-circuit     | $i \in \{1, 3, 5, ..., 8191\}$ (mini)                                        |
+| `lagrange_first`               | First row                       | $i = 0$                                                                      |
+| `lagrange_last_in_minicircuit` | Last row in mini-circuit        | $i = 8191$ (mini)                                                            |
+| `lagrange_result_row`          | Row containing final result     | $i = 8$ (mini, equals no of rows are to be left for random ops at the start) |
+| `lagrange_masking`             | Masking rows for zero-knowledge | Last few rows                                                                |
+| `lagrange_mini_masking`        | Masking within mini-circuit     | Last rows of mini-circuit                                                    |
 
 The circuit's regularity (2-row cycles, uniform structure) allows using Lagrange polynomials, which are more efficient than custom selectors.
 
----
-
 ## Interleaving: The Key Optimization
 
-The Translator must range-constrain approximately 64 different microlimb sets using permutation argument. The permutation argument's degree equals $1 + \text{NUM\_COLS}$, where NUM_COLS is the number of columns being permuted:
+The Translator must range-constrain approximately 64 different microlimb sets using permutation argument (and the delta range constraint). The permutation argument's degree equals $1 + \textsf{NUM\_COLS}$, where NUM_COLS is the number of columns being permuted:
 
 $$
-z_{\textsf{perm}}[i+1] \cdot \prod_{j=1}^{\textsf{NUM\_COLS}} (\textsf{ordered}[j] + \beta + \gamma) =
-z_{\textsf{perm}}[i] \cdot \prod_{j=1}^{\textsf{NUM\_COLS}} (\textsf{interleaved}[j] + \beta + \gamma)
+z_{\textsf{perm}}[i+1] \cdot \prod_{j=1}^{\textsf{NUM\_COLS}} (\textsf{ordered}[j] + \gamma) =
+z_{\textsf{perm}}[i] \cdot \prod_{j=1}^{\textsf{NUM\_COLS}} (\textsf{interleaved}[j] + \gamma)
 $$
 
-**The Problem:** Permuting all ~64 microlimb columns simultaneously yields degree $1 + 64 = 65$, making sumcheck impractical.
+The Problem: Permuting all ~64 microlimb columns simultaneously yields degree $1 + 64 = 65$, making sumcheck impractical.
 
-**The Solution:** Interleave 16 logical column groups into the same 5 physical wires across 16 circuit segments. Each segment performs an independent permutation check with degree $1 + 5 = 6$ (or 7 with Lagrange selector). This reduces the relation degree by 9×.
+The Solution: Interleave 16 logical columns into one virtual column, and create 4 such columns (plus 1 for the extra column). Each group can then perform an independent permutation check with degree $1 + 5 = 6$ (or 7 with Lagrange selector). This reduces the relation degree from 65 to 7.
 
 ### Circuit Structure
 
 ```
 Mini-circuit size:  2^13 = 8,192 rows    (actual computation)
-Full circuit size:  2^17 = 131,072 rows  (16× larger for interleaving)
-FULL_SIZE = MINI_SIZE × INTERLEAVING_GROUP_SIZE = 8,192 × 16
+Full circuit size:  2^13 x 16 = 2^17 = 131,072 rows  (after interleaving)
 ```
 
 To compute the interleaved polynomials, we group 16 polynomials together and interleave their coefficients. Consider the following 16 polynomials each of size $n=2^{13}$ in the mini-circuit:
@@ -375,13 +372,12 @@ n-1 & \textcolor{skyblue}{a_{n-1}} & \textcolor{orange}{b_{n-1}} & \textcolor{li
 0 & 1 & \textcolor{orange}{b_0} \\
 0 & 2 & \textcolor{lightgreen}{c_0} \\
 \vdots & \vdots & \vdots \\[3pt]
-1 & 15 & \textcolor{firebrick}{p_0} \\ \hline
+0 & 15 & \textcolor{firebrick}{p_0} \\ \hline
 1 & 4 & \textcolor{skyblue}{a_1} \\
 1 & 5 & \textcolor{orange}{b_1} \\
 1 & 6 & \textcolor{lightgreen}{c_1} \\
 \vdots & \vdots & \vdots \\[3pt]
 1 & 7 & \textcolor{firebrick}{p_1} \\ \hline
-\vdots & \vdots & \vdots \\[5pt]
 \vdots & \vdots & \vdots \\ \hline
 n-1 & 4n-4 & \textcolor{skyblue}{a_{n-1}} \\
 n-1 & 4n-3 & \textcolor{orange}{b_{n-1}} \\
@@ -393,13 +389,13 @@ n-1 & 4n-1 & \textcolor{firebrick}{p_{n-1}} \\
 $$
 
 The resulting interleaved polynomial has size $16n = 2^{17}$.
-For 64 microlimb columns, we have 4 groups of 16 columns each, resulting in four interleaved polynomials. Note that the interleaved polynomials are "physical" wires in the circuit trace: we refer to them as virtual polynomials. Each of these groups performs an independent permutation check:
+For 64 microlimb columns, we have 4 groups of 16 columns each, resulting in four interleaved polynomials. Note that the interleaved polynomials are not "physical" wires in the circuit trace: we refer to them as virtual polynomials. Each of these groups performs an independent permutation check:
 
-- **Numerator:** 4 interleaved wires + 1 extra = 5 terms
-- **Denominator:** 5 ordered wires = 5 terms
-- **Degree:** $1 + 5 = 6$ (or 7 with Lagrange)
+- Numerator: 4 interleaved wires + 1 extra = 5 terms
+- Denominator: 5 ordered wires = 5 terms
+- Degree: $1 + 5 = 6$ (or 7 with Lagrange)
 
-The permutation argument verifies that within each group, the interleaved values are a permutation of the ordered (sorted) values. Due to interleaving, the total circuit size increases 16×, requiring more zero-padding (enforced by Relation 7). Interleaving trades circuit size (inexpensive) for relation degree (expensive). The 16× size increase is acceptable given the 9× degree reduction.
+The permutation argument verifies that within each group, the interleaved values are a permutation of the ordered (sorted) values. Due to interleaving, the total circuit size increases 16×, requiring more zero-padding. Interleaving trades circuit size (inexpensive) for relation degree (expensive). The 16× size increase is acceptable given the 9× degree reduction.
 
 > **Effect on Commitment Scheme**: For polynomials $p_0, \dots, p_{15}$ of size $n$, the interleaved polynomial of size $16n$ is:
 > $$p_{\textsf{interleaved}}(x) = \sum_{i=0}^{15} x^i \cdot p_{i}(x^{16})$$
