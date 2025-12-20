@@ -102,57 +102,6 @@ We verify this by proving the equation holds:
 
 By the Chinese Remainder Theorem, since $2^{272} \cdot r > 2^{514}$ exceeds the maximum possible value, the equation must hold in integers, and thus modulo $q$.
 
-### Constants
-
-#### Field Moduli
-
-```
-BN254 Base Field (Fq):
-q = 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47
-  ≈ 2^254
-
-BN254 Scalar Field (Fr):
-r = 0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001
-  ≈ 2^254
-```
-
-**Key observation:** $q > r$ (they differ by $\approx 2^{47}$), so we cannot directly compute in $\mathbb{F}_q$ using $\mathbb{F}_r$ arithmetic.
-
-#### Limb Decomposition Constants
-
-```cpp
-NUM_LIMB_BITS = 68                    // Each limb is 68 bits
-NUM_LAST_LIMB_BITS = 50               // Top limb: 254 - 3*68 = 50 bits
-NUM_BINARY_LIMBS = 4                  // Total limbs per element
-
-NUM_Z_BITS = 128                      // z₁ and z₂ are 128-bit
-NUM_Z_LIMBS = 2                       // z values use 2 limbs (68 + 60 bits)
-
-NUM_QUOTIENT_BITS = 256               // Quotient needs 256 bits
-NUM_LAST_QUOTIENT_LIMB_BITS = 52      // 256 - 3*68 = 52 bits
-
-MICRO_LIMB_BITS = 14                  // Range constraint granularity
-NUM_MICRO_LIMBS = 6                   // 68 / 14 ≈ 5, plus 1 for tail
-```
-
-#### Opcode Values
-
-- `0`: No-op
-- `3`: Equality check and reset accumulator
-- `4`: Scalar multiplication
-- `8`: Point addition
-
-#### Range Constraint Constants
-
-```cpp
-SORT_STEP = 3                         // Max delta between sorted values
-NUM_RANGE_CONSTRAINT_WIRES = 5        // ordered_range_constraints_{0,1,2,3,4}
-SORTED_STEPS_COUNT = 2^14 / 3 + 1     // Number of "step" values inserted
-                   = 5462 steps
-```
-
-Each microlimb must be $≤ 2^{14} - 1 = 16383$.
-
 ## Witness Trace Structure
 
 The Translator circuit has 81 witness columns, organized into:
