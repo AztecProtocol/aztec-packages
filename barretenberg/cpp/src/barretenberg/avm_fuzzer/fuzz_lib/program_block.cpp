@@ -1254,6 +1254,81 @@ void ProgramBlock::process_ecadd_instruction(ECADD_Instruction instruction)
     memory_manager.set_memory_address(bb::avm2::MemoryTag::U1, result.value().first.absolute_address + 2);
 }
 
+void ProgramBlock::process_poseidon2perm_instruction(POSEIDON2PERM_Instruction instruction)
+{
+    auto src = memory_manager.get_resolved_address_and_operand_16(instruction.src_address);
+    auto dst = memory_manager.get_resolved_address_and_operand_16(instruction.dst_address);
+
+    if (!src.has_value() || !dst.has_value()) {
+        return;
+    }
+
+    preprocess_memory_addresses(src.value().first);
+    preprocess_memory_addresses(dst.value().first);
+
+    auto poseidon2perm_instruction = bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::POSEIDON2PERM)
+                                         .operand(src.value().second)
+                                         .operand(dst.value().second)
+                                         .build();
+    instructions.push_back(poseidon2perm_instruction);
+
+    // Poseidon2 permutation writes 4 consecutive FF values to dst
+    for (uint32_t i = 0; i < 4; i++) {
+        memory_manager.set_memory_address(bb::avm2::MemoryTag::FF, dst.value().first.absolute_address + i);
+    }
+}
+
+void ProgramBlock::process_keccakf1600_instruction(KECCAKF1600_Instruction instruction)
+{
+    auto src = memory_manager.get_resolved_address_and_operand_16(instruction.src_address);
+    auto dst = memory_manager.get_resolved_address_and_operand_16(instruction.dst_address);
+
+    if (!src.has_value() || !dst.has_value()) {
+        return;
+    }
+
+    preprocess_memory_addresses(src.value().first);
+    preprocess_memory_addresses(dst.value().first);
+
+    auto keccakf1600_instruction = bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::KECCAKF1600)
+                                       .operand(src.value().second)
+                                       .operand(dst.value().second)
+                                       .build();
+    instructions.push_back(keccakf1600_instruction);
+
+    // Keccak-f[1600] permutation writes 25 consecutive U64 values to dst
+    for (uint32_t i = 0; i < 25; i++) {
+        memory_manager.set_memory_address(bb::avm2::MemoryTag::U64, dst.value().first.absolute_address + i);
+    }
+}
+
+void ProgramBlock::process_sha256compression_instruction(SHA256COMPRESSION_Instruction instruction)
+{
+    auto state = memory_manager.get_resolved_address_and_operand_16(instruction.state_address);
+    auto input = memory_manager.get_resolved_address_and_operand_16(instruction.input_address);
+    auto dst = memory_manager.get_resolved_address_and_operand_16(instruction.dst_address);
+
+    if (!state.has_value() || !input.has_value() || !dst.has_value()) {
+        return;
+    }
+
+    preprocess_memory_addresses(state.value().first);
+    preprocess_memory_addresses(input.value().first);
+    preprocess_memory_addresses(dst.value().first);
+
+    auto sha256compression_instruction = bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::SHA256COMPRESSION)
+                                             .operand(dst.value().second)
+                                             .operand(state.value().second)
+                                             .operand(input.value().second)
+                                             .build();
+    instructions.push_back(sha256compression_instruction);
+
+    // SHA256 compression writes 8 consecutive U32 values to dst
+    for (uint32_t i = 0; i < 8; i++) {
+        memory_manager.set_memory_address(bb::avm2::MemoryTag::U32, dst.value().first.absolute_address + i);
+    }
+}
+
 void ProgramBlock::finalize_with_return(uint8_t return_size,
                                         MemoryTagWrapper return_value_tag,
                                         uint16_t return_value_offset_index)
@@ -1435,6 +1510,13 @@ void ProgramBlock::process_instruction(FuzzInstruction instruction)
             },
             [this](SUCCESSCOPY_Instruction instruction) { return this->process_successcopy_instruction(instruction); },
             [this](ECADD_Instruction instruction) { return this->process_ecadd_instruction(instruction); },
+            [this](POSEIDON2PERM_Instruction instruction) {
+                return this->process_poseidon2perm_instruction(instruction);
+            },
+            [this](KECCAKF1600_Instruction instruction) { return this->process_keccakf1600_instruction(instruction); },
+            [this](SHA256COMPRESSION_Instruction instruction) {
+                return this->process_sha256compression_instruction(instruction);
+            },
             [](auto) { throw std::runtime_error("Unknown instruction"); },
         },
         instruction);

@@ -107,6 +107,9 @@ class ProgramBlock {
     void process_getcontractinstance_instruction(GETCONTRACTINSTANCE_Instruction instruction);
     void process_successcopy_instruction(SUCCESSCOPY_Instruction instruction);
     void process_ecadd_instruction(ECADD_Instruction instruction);
+    void process_poseidon2perm_instruction(POSEIDON2PERM_Instruction instruction);
+    void process_keccakf1600_instruction(KECCAKF1600_Instruction instruction);
+    void process_sha256compression_instruction(SHA256COMPRESSION_Instruction instruction);
 
   public:
     std::vector<ProgramBlock*> successors;

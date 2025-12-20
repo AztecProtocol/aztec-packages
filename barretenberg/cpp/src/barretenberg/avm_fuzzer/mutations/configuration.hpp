@@ -266,9 +266,12 @@ enum class InstructionGenerationOptions {
     GETCONTRACTINSTANCE,
     SUCCESSCOPY,
     ECADD,
+    POSEIDON2PERM,
+    KECCAKF1600,
+    SHA256COMPRESSION,
 };
 
-using InstructionGenerationConfig = WeightedSelectionConfig<InstructionGenerationOptions, 49>;
+using InstructionGenerationConfig = WeightedSelectionConfig<InstructionGenerationOptions, 52>;
 
 constexpr InstructionGenerationConfig BASIC_INSTRUCTION_GENERATION_CONFIGURATION = InstructionGenerationConfig({
     { InstructionGenerationOptions::ADD_8, 1 },
@@ -320,6 +323,9 @@ constexpr InstructionGenerationConfig BASIC_INSTRUCTION_GENERATION_CONFIGURATION
     { InstructionGenerationOptions::GETCONTRACTINSTANCE, 1 },
     { InstructionGenerationOptions::SUCCESSCOPY, 1 },
     { InstructionGenerationOptions::ECADD, 1 },
+    { InstructionGenerationOptions::POSEIDON2PERM, 1 },
+    { InstructionGenerationOptions::KECCAKF1600, 1 },
+    { InstructionGenerationOptions::SHA256COMPRESSION, 1 },
 });
 
 enum class SStoreMutationOptions { src_address, result_address, slot };
