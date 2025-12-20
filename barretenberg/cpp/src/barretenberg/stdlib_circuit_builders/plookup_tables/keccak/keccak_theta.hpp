@@ -26,7 +26,7 @@ namespace bb::plookup::keccak_tables {
  *
  * P = \sum_{j=0}^63 b_i * 11^i
  *
- * In this representation we evaluate CHI via the linear expression
+ * In this representation we evaluate THETA via the linear expression
  *
  * C0 = A0 + A1 + A2 + A3 + A4
  * C1 = B0 + B1 + B2 + B3 + B4
@@ -64,39 +64,13 @@ class Theta {
         0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0,
     };
 
-    // template <size_t i> static std::pair<uint64_t, uint64_t> update_counts(std::array<size_t, TABLE_BITS>& counts)
-    // {
-    //     BB_ASSERT(i <= TABLE_BITS);
-    //     if constexpr (i >= TABLE_BITS) {
-    //         // TODO use concepts or template metaprogramming to put this condition in method declaration
-    //         return std::make_pair(0, 0);
-    //     } else {
-    //         if (counts[i] == BASE - 1) {
-    //             counts[i] = 0;
-    //             return update_counts<i + 1>(counts);
-    //         } else {
-    //             counts[i] += 1;
-    //         }
-
-    //         uint64_t value = 0;
-    //         uint64_t normalized_value = 0;
-    //         uint64_t cumulative_base = 1;
-    //         for (size_t j = 0; j < TABLE_BITS; ++j) {
-    //             value += counts[j] * cumulative_base;
-    //             normalized_value += (THETA_NORMALIZATION_TABLE[counts[j]]) * cumulative_base;
-    //             cumulative_base *= BASE;
-    //         }
-    //         return std::make_pair(value, normalized_value);
-    //     }
-    // }
-
     /**
      * @brief Given a table input value, return the table output value
      *
      * Used by the Plookup code to precompute lookup tables and generate witness values
      *
      * @param key (first element = table input. Second element is unused as this lookup does not have 2 keys per value)
-     * @return std::array<bb::fr, 2> table output (normalized input and normalized input / 11^TABLE_BITS - 1)
+     * @return std::array<bb::fr, 2> table output {normalized, 0}
      */
     static std::array<bb::fr, 2> get_theta_renormalization_values(const std::array<uint64_t, 2> key)
     {
@@ -242,7 +216,7 @@ class Theta {
     static MultiTable get_theta_output_table(const MultiTableId id = KECCAK_THETA_OUTPUT)
     {
         constexpr size_t num_tables_per_multitable =
-            (64 / TABLE_BITS) + (64 % TABLE_BITS == 0 ? 0 : 1); // 64 bits, 5 bits per entry
+            (64 / TABLE_BITS) + (64 % TABLE_BITS == 0 ? 0 : 1); // 64 bits, 4 bits per entry
 
         uint64_t column_multiplier = numeric::pow64(BASE, TABLE_BITS);
         MultiTable table(column_multiplier, column_multiplier, 0, num_tables_per_multitable);
