@@ -203,6 +203,12 @@ impl BlockRollupPublicInputsComposer {
         // Absorb data for this block into the end sponge blob.
         let mut block_end_sponge_blob = self.end_sponge_blob;
         // `in_hash` is not 0 if and only if it's the first block in the checkpoint.
+        // Note: the `in_hash` of the first block in the checkpoint is asserted to be nonzero
+        // by the Checkpoint Root circuit.
+        // Note: the `in_hash` of subsequent blocks in the checkpoint is asserted to be 0
+        // within `validate_consecutive_block_rollups.nr`, by asserting that the `in_hash` of all
+        // "right" rollups is `0`.
+        // Q: what if the L1 subtree being copied to L2 is empty? What is the value in this case?
         let is_first_block_in_checkpoint = self.in_hash != 0;
         block_end_sponge_blob.absorb_block_end_data(
             global_variables,
