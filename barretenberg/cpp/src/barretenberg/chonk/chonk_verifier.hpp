@@ -52,6 +52,10 @@ template <bool IsRecursive> class ChonkVerifier {
     using PairingPoints = typename GoblinVerifier::ReductionResult::PairingPoints;
     using IPAClaim = typename GoblinVerifier::ReductionResult::IPAClaim;
     using IPAProof = typename GoblinVerifier::ReductionResult::IPAProof;
+    using MergeCommitments = typename GoblinVerifier::MergeVerifier::InputCommitments;
+
+    // Number of pairing point sets aggregated in recursive verification (PI, PCS, Merge, Translator)
+    static constexpr size_t NUM_PAIRING_POINTS = 4;
 
   public:
     using GoblinVerificationKey = Goblin::VerificationKey;
@@ -75,11 +79,13 @@ template <bool IsRecursive> class ChonkVerifier {
 
     ChonkVerifier(const std::shared_ptr<VKAndHash>& vk_and_hash)
         : vk_and_hash(vk_and_hash)
+        , transcript(std::make_shared<Transcript>())
     {}
 
     ChonkVerifier(const std::shared_ptr<VK>& vk)
         requires(!IsRecursive)
         : vk_and_hash(std::make_shared<VKAndHash>(vk))
+        , transcript(std::make_shared<Transcript>())
     {}
     /**
      * @brief Verify a Chonk proof
@@ -108,6 +114,8 @@ template <bool IsRecursive> class ChonkVerifier {
   private:
     // VK and hash of the hiding kernel
     std::shared_ptr<VKAndHash> vk_and_hash;
+    // Shared transcript for all verifiers
+    std::shared_ptr<Transcript> transcript;
 };
 
 // Type aliases for ease of use
