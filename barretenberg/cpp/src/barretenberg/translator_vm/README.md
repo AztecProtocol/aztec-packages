@@ -274,8 +274,6 @@ Instead, the circuit uses Lagrange polynomials to control which constraints are 
 | `lagrange_masking`             | Masking rows for zero-knowledge | Last few rows                                                                |
 | `lagrange_mini_masking`        | Masking within mini-circuit     | Last rows of mini-circuit                                                    |
 
-The circuit's regularity (2-row cycles, uniform structure) allows using Lagrange polynomials, which are more efficient than custom selectors.
-
 ## Interleaving: The Key Optimization
 
 The Translator must range-constrain approximately 64 different microlimb sets using permutation argument (and the delta range constraint). The permutation argument's degree equals $1 + \textsf{NUM\_COLS}$, where NUM_COLS is the number of columns being permuted:
