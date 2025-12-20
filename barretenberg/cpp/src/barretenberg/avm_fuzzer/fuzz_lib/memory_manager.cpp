@@ -158,7 +158,8 @@ ResolvedAddress MemoryManager::resolve_address(AddressRef address, uint32_t max_
             address.base_offset_seed, address.pointer_address_seed, max_operand_address);
         break;
     case AddressingMode::Direct:
-        BB_ASSERT_LTE(address.address, max_operand_address);
+        // Constrain address to fit in the operand (deserialized/mutated data may exceed max)
+        resolved_address.absolute_address = address.address % (max_operand_address + 1);
         resolved_address.operand_address = resolved_address.absolute_address;
         break;
     }

@@ -238,9 +238,8 @@ TEST(fuzz, FDIV8)
                            .value = 2 };
     auto instructions = std::vector<FuzzInstruction>{ set_instruction_1, set_instruction_2, fdiv_instruction };
 
-    auto return_options = ReturnOptions{ .return_size = 1,
-                                         .return_value_tag = bb::avm2::MemoryTag::FF,
-                                         .return_value_offset_index = 2 };
+    auto return_options =
+        ReturnOptions{ .return_size = 1, .return_value_tag = bb::avm2::MemoryTag::FF, .return_value_offset_index = 2 };
     auto instruction_blocks = std::vector<std::vector<FuzzInstruction>>{ instructions };
     auto control_flow = ControlFlow(instruction_blocks);
     control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
@@ -454,9 +453,8 @@ TEST(fuzz, FDIV16)
                            .value = 2 };
     auto instructions = std::vector<FuzzInstruction>{ set_instruction_1, set_instruction_2, fdiv_instruction };
 
-    auto return_options = ReturnOptions{ .return_size = 1,
-                                         .return_value_tag = bb::avm2::MemoryTag::FF,
-                                         .return_value_offset_index = 2 };
+    auto return_options =
+        ReturnOptions{ .return_size = 1, .return_value_tag = bb::avm2::MemoryTag::FF, .return_value_offset_index = 2 };
     auto instruction_blocks = std::vector<std::vector<FuzzInstruction>>{ instructions };
     auto control_flow = ControlFlow(instruction_blocks);
     control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });

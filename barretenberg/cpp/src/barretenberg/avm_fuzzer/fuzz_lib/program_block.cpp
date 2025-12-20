@@ -1430,14 +1430,11 @@ void ProgramBlock::process_instruction(FuzzInstruction instruction)
             [this](RETURNDATASIZE_WITH_RETURNDATACOPY_Instruction instruction) {
                 return this->process_returndatasize_with_returndatacopy_instruction(instruction);
             },
-<<<<<<< HEAD
             [this](GETCONTRACTINSTANCE_Instruction instruction) {
                 return this->process_getcontractinstance_instruction(instruction);
             },
             [this](SUCCESSCOPY_Instruction instruction) { return this->process_successcopy_instruction(instruction); },
-=======
             [this](ECADD_Instruction instruction) { return this->process_ecadd_instruction(instruction); },
->>>>>>> 50d99c3645 (backfill prototype)
             [](auto) { throw std::runtime_error("Unknown instruction"); },
         },
         instruction);
