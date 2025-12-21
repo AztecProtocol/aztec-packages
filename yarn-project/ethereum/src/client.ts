@@ -29,16 +29,92 @@ type Config = {
 
 export type { Config as EthereumClientConfig };
 
+/** Build robust HTTP transports with sensible fallbacks (adds public Sepolia RPCs if needed). */
+function buildTransports(urls: string[], chainId: number) {
+  // Normalize & de-duplicate by origin
+  const seen = new Set<string>();
+  const normalized: string[] = [];
+  for (const u of urls || []) {
+    try {
+      const origin = new URL(u).origin;
+      if (!seen.has(origin)) {
+        seen.add(origin);
+        normalized.push(u);
+      }
+    } catch {
+      // If URL constructor fails, keep raw but still dedupe by string
+      if (!seen.has(u)) {
+        seen.add(u);
+        normalized.push(u);
+      }
+    }
+  }
+
+  // If Sepolia (11155111), ensure we have at least two public fallbacks
+  if (chainId === 11155111) {
+    const publicCandidates = [
+      'https://ethereum-sepolia-rpc.publicnode.com',
+      'https://rpc.sepolia.org',
+    ];
+    for (const p of publicCandidates) {
+      const origin = (() => {
+        try {
+          return new URL(p).origin;
+        } catch {
+          return p;
+        }
+      })();
+      if (!seen.has(origin)) {
+        seen.add(origin);
+        normalized.push(p);
+      }
+    }
+  }
+
+  // Map to viem http transports
+  return normalized.map(u => http(u));
+}
+
 // TODO: Use these methods to abstract the creation of viem clients.
 
 /** Returns a viem public client given the L1 config. */
 export function getPublicClient(config: Config): ViemPublicClient {
   const chain = createEthereumChain(config.l1RpcUrls, config.l1ChainId);
+  const transports = buildTransports(config.l1RpcUrls, config.l1ChainId);
+
   return createPublicClient({
     chain: chain.chainInfo,
-    transport: fallback(config.l1RpcUrls.map(url => http(url))),
+    transport: fallback(transports, {
+      rank: true,        // prefer faster / healthier endpoints
+      retryCount: 3,
+      retryDelay: 400,   // ms
+    }),
     pollingInterval: config.viemPollingIntervalMS,
+    batch: { multicall: true },
   });
+}
+
+/**
+ * Optional helper: wrap getTransactionReceipt to normalize DRPC 403/429 into a single error code.
+ * Callers can catch `e.message === "rpc_rate_limited"` to show a friendly UI message.
+ */
+export async function getTransactionReceiptSafe(
+  client: ViemPublicClient,
+  hash: `0x${string}`,
+) {
+  try {
+    return await client.getTransactionReceipt({ hash });
+  } catch (e: any) {
+    const msg = String(e?.message ?? '');
+    const status = (e as any)?.status;
+    // DRPC: 403 "User balance exceeded" (code 10) or generic 429/403 from any provider
+    if (msg.toLowerCase().includes('balance exceeded') || status === 403 || status === 429) {
+      const err = new Error('rpc_rate_limited');
+      (err as any).cause = e;
+      throw err;
+    }
+    throw e;
+  }
 }
 
 /** Returns a viem public client after waiting for the L1 RPC node to become available. */
@@ -85,10 +161,16 @@ export function createExtendedL1Client(
         : mnemonicToAccount(mnemonicOrPrivateKeyOrHdAccount, { addressIndex })
       : mnemonicOrPrivateKeyOrHdAccount;
 
+  const transports = buildTransports(rpcUrls, chain.id ?? 0);
+
   const extendedClient = createWalletClient({
     account: hdAccount,
     chain,
-    transport: fallback(rpcUrls.map(url => http(url))),
+    transport: fallback(transports, {
+      rank: true,
+      retryCount: 3,
+      retryDelay: 400,
+    }),
     pollingInterval: pollingIntervalMS,
   }).extend(publicActions);
 
