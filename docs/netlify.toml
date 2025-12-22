@@ -387,6 +387,10 @@
     from = "/the_aztec_network/reference/useful_commands"
     to = "/network/operation/sequencer_management/useful_commands"
 
+[[redirects]]
+    from = "/the_aztec_network/operation/sequencer_management/running_delegated_stake"
+    to = "/network/operation/sequencer_management/become_a_staking_provider"
+
 # Network docs wildcard redirect - catches remaining /the_aztec_network paths
 # This MUST come AFTER specific path redirects above
 [[redirects]]
