@@ -406,7 +406,7 @@ class ECCOpQueue {
         Fr z_1 = 0;
         Fr z_2 = 0;
         auto converted = scalar.from_montgomery_form();
-        uint256_t converted_u256(converted);
+        uint256_t converted_u256(scalar);
         // if our scalar is small, don't split.
         if (converted_u256.get_msb() < 128) {
             ultra_op.z_1 = scalar;
