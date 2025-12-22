@@ -178,6 +178,21 @@ export class ContractDataProvider {
     return fnArtifact && { ...fnArtifact, contractName: artifact.name };
   }
 
+  public async getFunctionArtifactWithDebugMetadata(
+    contractAddress: AztecAddress,
+    selector: FunctionSelector,
+  ): Promise<FunctionArtifactWithContractName> {
+    const artifact = await this.getFunctionArtifact(contractAddress, selector);
+    if (!artifact) {
+      throw new Error(`Function artifact not found for contract ${contractAddress} and selector ${selector}.`);
+    }
+    const debug = await this.getFunctionDebugMetadata(contractAddress, selector);
+    return {
+      ...artifact,
+      debug,
+    };
+  }
+
   public async getPublicFunctionArtifact(
     contractAddress: AztecAddress,
   ): Promise<FunctionArtifactWithContractName | undefined> {
