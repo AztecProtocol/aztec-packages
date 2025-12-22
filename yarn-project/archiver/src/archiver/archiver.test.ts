@@ -1,7 +1,7 @@
+import type { BlobClientInterface } from '@aztec/blob-client/client';
+import { BlobWithIndex } from '@aztec/blob-client/types';
 import { getBlobsPerL1Block, getPrefixedEthBlobCommitments } from '@aztec/blob-lib';
 import { makeRandomBlob } from '@aztec/blob-lib/testing';
-import type { BlobSinkClientInterface } from '@aztec/blob-sink/client';
-import { BlobWithIndex } from '@aztec/blob-sink/types';
 import { GENESIS_ARCHIVE_ROOT } from '@aztec/constants';
 import type { EpochCache, EpochCommitteeInfo } from '@aztec/epoch-cache';
 import { DefaultL1ContractsConfig } from '@aztec/ethereum/config';
@@ -165,7 +165,7 @@ describe('Archiver', () => {
   let publicClient: MockProxy<ViemPublicClient>;
   let debugClient: MockProxy<ViemPublicClient>;
   let instrumentation: MockProxy<ArchiverInstrumentation>;
-  let blobSinkClient: MockProxy<BlobSinkClientInterface>;
+  let blobClient: MockProxy<BlobClientInterface>;
   let epochCache: MockProxy<EpochCache>;
   let dateProvider: TestDateProvider;
   let archiverStore: ArchiverDataStore;
@@ -228,7 +228,7 @@ describe('Archiver', () => {
     // Debug client uses the same mock as public client for tests
     debugClient = publicClient;
 
-    blobSinkClient = mock<BlobSinkClientInterface>();
+    blobClient = mock<BlobClientInterface>();
     epochCache = mock<EpochCache>();
     epochCache.getCommitteeForEpoch.mockResolvedValue({ committee: [] as EthAddress[] } as EpochCommitteeInfo);
 
@@ -266,7 +266,7 @@ describe('Archiver', () => {
         maxAllowedEthClientDriftSeconds: 300,
         ethereumAllowNoDebugHosts: true,
       },
-      blobSinkClient,
+      blobClient,
       epochCache,
       dateProvider,
       instrumentation,
@@ -298,7 +298,7 @@ describe('Archiver', () => {
       Promise.resolve(args.hash ? (allRollupTxs.get(args.hash) as any) : undefined),
     );
 
-    blobSinkClient.getBlobSidecar.mockImplementation((blockId: `0x${string}`, _requestedBlobHashes?: Buffer[]) =>
+    blobClient.getBlobSidecar.mockImplementation((blockId: `0x${string}`, _requestedBlobHashes?: Buffer[]) =>
       Promise.resolve(allBlobs.get(blockId) || []),
     );
 
@@ -381,7 +381,7 @@ describe('Archiver', () => {
       ]);
 
     const blobsFromCheckpoints = checkpoints.map(c => makeBlobsFromCheckpoint(c));
-    blobsFromCheckpoints.forEach(blobs => blobSinkClient.getBlobSidecar.mockResolvedValueOnce(blobs));
+    blobsFromCheckpoints.forEach(blobs => blobClient.getBlobSidecar.mockResolvedValueOnce(blobs));
 
     makeMessageSentEvents(98n, checkpoints[0].number, messagesPerCheckpoint[0]);
     makeCheckpointProposedEvent(101n, checkpoints[0].number, checkpoints[0].archive.root.toString(), blobHashes[0]);
@@ -487,7 +487,7 @@ describe('Archiver', () => {
 
     rollupTxs.forEach(tx => publicClient.getTransaction.mockResolvedValueOnce(tx));
     const blobsFromCheckpoints = checkpoints.map(b => makeBlobsFromCheckpoint(b));
-    blobsFromCheckpoints.forEach(blobs => blobSinkClient.getBlobSidecar.mockResolvedValueOnce(blobs));
+    blobsFromCheckpoints.forEach(blobs => blobClient.getBlobSidecar.mockResolvedValueOnce(blobs));
 
     await archiver.start(false);
 
@@ -720,7 +720,7 @@ describe('Archiver', () => {
 
     rollupTxs.forEach(tx => publicClient.getTransaction.mockResolvedValueOnce(tx));
     const blobsFromCheckpoints = checkpoints.map(b => makeBlobsFromCheckpoint(b));
-    blobsFromCheckpoints.forEach(blobs => blobSinkClient.getBlobSidecar.mockResolvedValueOnce(blobs));
+    blobsFromCheckpoints.forEach(blobs => blobClient.getBlobSidecar.mockResolvedValueOnce(blobs));
 
     await archiver.start(false);
 
@@ -765,7 +765,7 @@ describe('Archiver', () => {
 
     rollupTxs.forEach(tx => publicClient.getTransaction.mockResolvedValueOnce(tx));
     const blobsFromCheckpoints = checkpoints.map(c => makeBlobsFromCheckpoint(c));
-    blobsFromCheckpoints.forEach(blobs => blobSinkClient.getBlobSidecar.mockResolvedValueOnce(blobs));
+    blobsFromCheckpoints.forEach(blobs => blobClient.getBlobSidecar.mockResolvedValueOnce(blobs));
 
     await archiver.start(false);
 
@@ -802,7 +802,7 @@ describe('Archiver', () => {
 
     rollupTxs.forEach(tx => publicClient.getTransaction.mockResolvedValueOnce(tx));
     const blobsFromCheckpoints = checkpoints.map(c => makeBlobsFromCheckpoint(c));
-    blobsFromCheckpoints.forEach(blobs => blobSinkClient.getBlobSidecar.mockResolvedValueOnce(blobs));
+    blobsFromCheckpoints.forEach(blobs => blobClient.getBlobSidecar.mockResolvedValueOnce(blobs));
 
     logger.warn(`Initial sync with no checkpoints to retrieve`);
     await archiver.syncImmediate();
@@ -919,7 +919,7 @@ describe('Archiver', () => {
     );
     rollupTxs.forEach(tx => publicClient.getTransaction.mockResolvedValueOnce(tx));
     const blobsFromCheckpoints = checkpoints.map(c => makeBlobsFromCheckpoint(c));
-    blobsFromCheckpoints.forEach(blobs => blobSinkClient.getBlobSidecar.mockResolvedValueOnce(blobs));
+    blobsFromCheckpoints.forEach(blobs => blobClient.getBlobSidecar.mockResolvedValueOnce(blobs));
 
     makeMessageSentEvents(1n, checkpoint.number, messagesPerCheckpoint[0]);
     mockInbox.read.getState.mockResolvedValueOnce(makeInboxStateFromMsgCount(messagesPerCheckpoint[0].length));
@@ -969,7 +969,7 @@ describe('Archiver', () => {
 
     rollupTxs.forEach(tx => publicClient.getTransaction.mockResolvedValueOnce(tx));
     const blobsFromCheckpoints = checkpoints.map(c => makeBlobsFromCheckpoint(c));
-    blobsFromCheckpoints.forEach(blobs => blobSinkClient.getBlobSidecar.mockResolvedValueOnce(blobs));
+    blobsFromCheckpoints.forEach(blobs => blobClient.getBlobSidecar.mockResolvedValueOnce(blobs));
 
     await archiver.start(false);
 
@@ -1043,7 +1043,7 @@ describe('Archiver', () => {
 
     rollupTxs.forEach(tx => publicClient.getTransaction.mockResolvedValueOnce(tx));
     const blobsFromCheckpoints = checkpoints.map(c => makeBlobsFromCheckpoint(c));
-    blobsFromCheckpoints.forEach(blobs => blobSinkClient.getBlobSidecar.mockResolvedValueOnce(blobs));
+    blobsFromCheckpoints.forEach(blobs => blobClient.getBlobSidecar.mockResolvedValueOnce(blobs));
 
     await archiver.start(false);
 
@@ -1098,7 +1098,7 @@ describe('Archiver', () => {
     ]);
     makeCheckpointProposedEvent(70n, checkpoints[0].number, checkpoints[0].archive.root.toString(), blobHashes[0]);
     rollupTxs.forEach(tx => publicClient.getTransaction.mockResolvedValueOnce(tx));
-    blobsFromCheckpoints.forEach(blobs => blobSinkClient.getBlobSidecar.mockResolvedValueOnce(blobs));
+    blobsFromCheckpoints.forEach(blobs => blobClient.getBlobSidecar.mockResolvedValueOnce(blobs));
 
     makeMessageSentEvents(1n, checkpoints[0].number, messagesPerCheckpoint[0]);
     mockInbox.read.getState.mockResolvedValueOnce(makeInboxStateFromMsgCount(messagesPerCheckpoint[0].length));
@@ -1217,7 +1217,7 @@ describe('Archiver', () => {
     mockInbox.read.getState.mockResolvedValueOnce(makeInboxStateFromMsgCount(messagesPerCheckpoint[0].length));
 
     // Mock getBlobSidecar to return a random blob instead of the expected one
-    blobSinkClient.getBlobSidecar.mockResolvedValueOnce([randomBlob]);
+    blobClient.getBlobSidecar.mockResolvedValueOnce([randomBlob]);
 
     publicClient.getTransaction.mockResolvedValueOnce(rollupTx);
 
@@ -1257,7 +1257,7 @@ describe('Archiver', () => {
 
     const blobsFromCheckpoint = makeBlobsFromCheckpoint(checkpoint);
     expect(blobsFromCheckpoint.length).toBeGreaterThan(1);
-    blobSinkClient.getBlobSidecar.mockResolvedValueOnce(blobsFromCheckpoint);
+    blobClient.getBlobSidecar.mockResolvedValueOnce(blobsFromCheckpoint);
 
     publicClient.getTransaction.mockResolvedValueOnce(rollupTx);
 
@@ -1308,7 +1308,7 @@ describe('Archiver', () => {
 
       rollupTxs.forEach(tx => publicClient.getTransaction.mockResolvedValueOnce(tx));
       const blobsFromCheckpoints = checkpoints.map(c => makeBlobsFromCheckpoint(c));
-      blobsFromCheckpoints.forEach(blobs => blobSinkClient.getBlobSidecar.mockResolvedValueOnce(blobs));
+      blobsFromCheckpoints.forEach(blobs => blobClient.getBlobSidecar.mockResolvedValueOnce(blobs));
 
       await archiver.start(false);
       await waitUntilArchiverCheckpoint(CheckpointNumber(3));
@@ -1352,7 +1352,7 @@ describe('Archiver', () => {
 
       rollupTxs.forEach(tx => publicClient.getTransaction.mockResolvedValueOnce(tx));
       const blobsFromCheckpoints = checkpoints.map(c => makeBlobsFromCheckpoint(c));
-      blobsFromCheckpoints.forEach(blobs => blobSinkClient.getBlobSidecar.mockResolvedValueOnce(blobs));
+      blobsFromCheckpoints.forEach(blobs => blobClient.getBlobSidecar.mockResolvedValueOnce(blobs));
 
       await archiver.start(false);
       await waitUntilArchiverCheckpoint(CheckpointNumber(3));
@@ -1389,7 +1389,7 @@ describe('Archiver', () => {
 
       rollupTxs.forEach(tx => publicClient.getTransaction.mockResolvedValueOnce(tx));
       const blobsFromCheckpoints = checkpoints.map(c => makeBlobsFromCheckpoint(c));
-      blobsFromCheckpoints.forEach(blobs => blobSinkClient.getBlobSidecar.mockResolvedValueOnce(blobs));
+      blobsFromCheckpoints.forEach(blobs => blobClient.getBlobSidecar.mockResolvedValueOnce(blobs));
 
       await archiver.start(false);
       await waitUntilArchiverCheckpoint(CheckpointNumber(3));
@@ -1466,7 +1466,7 @@ describe('Archiver', () => {
 
       rollupTxs.forEach(tx => publicClient.getTransaction.mockResolvedValueOnce(tx));
       const blobsFromCheckpoints = checkpoints.map(c => makeBlobsFromCheckpoint(c));
-      blobsFromCheckpoints.forEach(blobs => blobSinkClient.getBlobSidecar.mockResolvedValueOnce(blobs));
+      blobsFromCheckpoints.forEach(blobs => blobClient.getBlobSidecar.mockResolvedValueOnce(blobs));
 
       await archiver.start(false);
       await waitUntilArchiverCheckpoint(CheckpointNumber(3));
@@ -1512,7 +1512,7 @@ describe('Archiver', () => {
 
       rollupTxs.forEach(tx => publicClient.getTransaction.mockResolvedValueOnce(tx));
       const blobsFromCheckpoints = checkpoints.map(c => makeBlobsFromCheckpoint(c));
-      blobsFromCheckpoints.forEach(blobs => blobSinkClient.getBlobSidecar.mockResolvedValueOnce(blobs));
+      blobsFromCheckpoints.forEach(blobs => blobClient.getBlobSidecar.mockResolvedValueOnce(blobs));
 
       await archiver.start(false);
       await waitUntilArchiverCheckpoint(CheckpointNumber(1));
@@ -1572,7 +1572,7 @@ describe('Archiver', () => {
 
       rollupTxs.forEach(tx => publicClient.getTransaction.mockResolvedValueOnce(tx));
       const blobsFromCheckpoints = checkpoints.map(c => makeBlobsFromCheckpoint(c));
-      blobsFromCheckpoints.forEach(blobs => blobSinkClient.getBlobSidecar.mockResolvedValueOnce(blobs));
+      blobsFromCheckpoints.forEach(blobs => blobClient.getBlobSidecar.mockResolvedValueOnce(blobs));
 
       await archiver.start(false);
       await waitUntilArchiverCheckpoint(CheckpointNumber(3));
@@ -1703,7 +1703,7 @@ describe('Archiver', () => {
       mockInbox.read.getState.mockResolvedValueOnce(makeInboxStateFromMsgCount(messagesPerCheckpoint[0].length));
 
       publicClient.getTransaction.mockResolvedValueOnce(rollupTx1);
-      blobSinkClient.getBlobSidecar.mockResolvedValueOnce(blobsFromCheckpoint1);
+      blobClient.getBlobSidecar.mockResolvedValueOnce(blobsFromCheckpoint1);
 
       await archiver.start(false);
       await waitUntilArchiverCheckpoint(CheckpointNumber(1));
@@ -1743,7 +1743,7 @@ describe('Archiver', () => {
       );
 
       publicClient.getTransaction.mockResolvedValueOnce(rollupTx2);
-      blobSinkClient.getBlobSidecar.mockResolvedValueOnce(blobsFromCheckpoint2);
+      blobClient.getBlobSidecar.mockResolvedValueOnce(blobsFromCheckpoint2);
 
       await waitUntilArchiverCheckpoint(CheckpointNumber(2));
 
@@ -1780,7 +1780,7 @@ describe('Archiver', () => {
       mockInbox.read.getState.mockResolvedValueOnce(makeInboxStateFromMsgCount(messagesPerCheckpoint[0].length));
 
       publicClient.getTransaction.mockResolvedValueOnce(rollupTx1);
-      blobSinkClient.getBlobSidecar.mockResolvedValueOnce(blobsFromCheckpoint1);
+      blobClient.getBlobSidecar.mockResolvedValueOnce(blobsFromCheckpoint1);
 
       await archiver.start(false);
       await waitUntilArchiverCheckpoint(CheckpointNumber(1));
@@ -1818,7 +1818,7 @@ describe('Archiver', () => {
       mockInbox.read.getState.mockResolvedValueOnce(makeInboxStateFromMsgCount(messagesPerCheckpoint[0].length));
 
       publicClient.getTransaction.mockResolvedValueOnce(rollupTx1);
-      blobSinkClient.getBlobSidecar.mockResolvedValueOnce(blobsFromCheckpoint1);
+      blobClient.getBlobSidecar.mockResolvedValueOnce(blobsFromCheckpoint1);
 
       await archiver.start(false);
       await waitUntilArchiverCheckpoint(CheckpointNumber(1));
@@ -1856,7 +1856,7 @@ describe('Archiver', () => {
       );
 
       publicClient.getTransaction.mockResolvedValueOnce(rollupTx2);
-      blobSinkClient.getBlobSidecar.mockResolvedValueOnce(blobsFromCheckpoint2);
+      blobClient.getBlobSidecar.mockResolvedValueOnce(blobsFromCheckpoint2);
 
       await waitUntilArchiverCheckpoint(CheckpointNumber(2));
 
@@ -2017,7 +2017,7 @@ describe('Archiver', () => {
   };
 
   /**
-   * Blob response to be returned from the blob sink based on the expected checkpoint.
+   * Blob response to be returned from the blob client based on the expected checkpoint.
    * @param checkpoint - The checkpoint.
    * @returns The blobs.
    */

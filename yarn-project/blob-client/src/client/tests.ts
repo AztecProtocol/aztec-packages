@@ -2,18 +2,18 @@ import { makeRandomBlob } from '@aztec/blob-lib/testing';
 
 import type { Hex } from 'viem';
 
-import type { BlobSinkClientInterface } from './interface.js';
+import type { BlobClientInterface } from './interface.js';
 
 /**
- * Shared test suite for blob sink clients
+ * Shared test suite for blob clients
  * @param createClient - Function that creates a client instance for testing
  * @param cleanup - Optional cleanup function to run after each test
  */
-export function runBlobSinkClientTests(
-  createClient: () => Promise<{ client: BlobSinkClientInterface; cleanup: () => Promise<void> }>,
+export function runBlobClientTests(
+  createClient: () => Promise<{ client: BlobClientInterface; cleanup: () => Promise<void> }>,
 ) {
   let blockId: Hex;
-  let client: BlobSinkClientInterface;
+  let client: BlobClientInterface;
   let cleanup: () => Promise<void>;
 
   beforeEach(async () => {
@@ -31,7 +31,7 @@ export function runBlobSinkClientTests(
     const blob = makeRandomBlob(5);
     const blobHash = blob.getEthVersionedBlobHash();
 
-    await client.sendBlobsToBlobSink([blob]);
+    await client.sendBlobsToFilestore([blob]);
 
     const retrievedBlobs = await client.getBlobSidecar(blockId, [blobHash]);
     expect(retrievedBlobs).toHaveLength(1);
@@ -42,7 +42,7 @@ export function runBlobSinkClientTests(
     const blobs = Array.from({ length: 3 }, () => makeRandomBlob(7));
     const blobHashes = blobs.map(blob => blob.getEthVersionedBlobHash());
 
-    await client.sendBlobsToBlobSink(blobs);
+    await client.sendBlobsToFilestore(blobs);
 
     const retrievedBlobs = await client.getBlobSidecar(blockId, blobHashes);
     expect(retrievedBlobs.length).toBe(3);
@@ -64,7 +64,7 @@ export function runBlobSinkClientTests(
     const blobs = Array.from({ length: 3 }, () => makeRandomBlob(7));
     const blobHashes = blobs.map(blob => blob.getEthVersionedBlobHash());
 
-    await client.sendBlobsToBlobSink(blobs);
+    await client.sendBlobsToFilestore(blobs);
 
     const retrievedBlobs = await client.getBlobSidecar(blockId, blobHashes);
     expect(retrievedBlobs.length).toBe(blobs.length);

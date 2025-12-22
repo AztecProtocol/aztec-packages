@@ -1,5 +1,5 @@
 import { type ArchiverConfig, archiverConfigMappings } from '@aztec/archiver/config';
-import { blobSinkConfigMappings } from '@aztec/blob-sink/server/config';
+import { blobClientConfigMapping } from '@aztec/blob-client/client/config';
 import { botConfigMappings } from '@aztec/bot/config';
 import { l1ContractsConfigMappings } from '@aztec/ethereum/config';
 import { l1ContractAddressesMapping } from '@aztec/ethereum/l1-contract-addresses';
@@ -153,9 +153,9 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
     configToFlag('--l1-chain-id', l1ReaderConfigMappings.l1ChainId),
     // Do not set default for CLI: keep undefined unless provided via flag or env
     configToFlag('--l1-rpc-urls', { ...l1ReaderConfigMappings.l1RpcUrls, defaultValue: undefined }),
-    configToFlag('--l1-consensus-host-urls', blobSinkConfigMappings.l1ConsensusHostUrls),
-    configToFlag('--l1-consensus-host-api-keys', blobSinkConfigMappings.l1ConsensusHostApiKeys),
-    configToFlag('--l1-consensus-host-api-key-headers', blobSinkConfigMappings.l1ConsensusHostApiKeyHeaders),
+    configToFlag('--l1-consensus-host-urls', blobClientConfigMapping.l1ConsensusHostUrls),
+    configToFlag('--l1-consensus-host-api-keys', blobClientConfigMapping.l1ConsensusHostApiKeys),
+    configToFlag('--l1-consensus-host-api-key-headers', blobClientConfigMapping.l1ConsensusHostApiKeyHeaders),
   ],
   'L1 CONTRACTS': [
     configToFlag('--registry-address', l1ContractAddressesMapping.registryAddress),
@@ -207,15 +207,6 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
         'blobSinkMapSizeKb',
       ]),
     ),
-  ],
-  'BLOB SINK': [
-    {
-      flag: '--blob-sink',
-      description: 'Starts Aztec Blob Sink with options',
-      defaultValue: undefined,
-      env: undefined,
-    },
-    ...getOptions('blobSink', blobSinkConfigMappings),
   ],
   'PROVER NODE': [
     {

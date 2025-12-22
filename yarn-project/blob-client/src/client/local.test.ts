@@ -1,11 +1,11 @@
 import { MemoryBlobStore } from '../blobstore/memory_blob_store.js';
-import { LocalBlobSinkClient } from './local.js';
-import { runBlobSinkClientTests } from './tests.js';
+import { LocalBlobClient } from './local.js';
+import { runBlobClientTests } from './tests.js';
 
-describe('LocalBlobSinkClient', () => {
-  runBlobSinkClientTests(() => {
+describe('LocalBlobClient', () => {
+  runBlobClientTests(() => {
     const store = new MemoryBlobStore();
-    const client = new LocalBlobSinkClient(store);
+    const client = new LocalBlobClient(store);
     return Promise.resolve({
       client,
       cleanup: async () => {

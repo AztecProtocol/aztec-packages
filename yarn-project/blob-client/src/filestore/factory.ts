@@ -59,7 +59,7 @@ export async function createReadOnlyFileStoreBlobClient(
     return undefined;
   }
 
-  const log = logger ?? createLogger('blob-sink:filestore-factory');
+  const log = logger ?? createLogger('blob-client:filestore-factory');
   const basePath = makeBlobBasePath(metadata);
 
   log.debug(`Creating read-only filestore blob client`, { storeUrl, basePath });
@@ -85,7 +85,7 @@ export async function createReadOnlyFileStoreBlobClients(
     return [];
   }
 
-  const log = logger ?? createLogger('blob-sink:filestore-factory');
+  const log = logger ?? createLogger('blob-client:filestore-factory');
   const clients: FileStoreBlobClient[] = [];
 
   for (const storeUrl of storeUrls) {
@@ -130,7 +130,7 @@ export async function createWritableFileStoreBlobClient(
     return undefined;
   }
 
-  const log = logger ?? createLogger('blob-sink:filestore-factory');
+  const log = logger ?? createLogger('blob-client:filestore-factory');
   const basePath = makeBlobBasePath(metadata);
 
   log.debug(`Creating writable filestore blob client`, { storeUrl, basePath });

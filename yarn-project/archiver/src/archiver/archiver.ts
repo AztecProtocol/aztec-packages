@@ -1,4 +1,4 @@
-import type { BlobSinkClientInterface } from '@aztec/blob-sink/client';
+import type { BlobClientInterface } from '@aztec/blob-client/client';
 import { GENESIS_BLOCK_HEADER_HASH } from '@aztec/constants';
 import { EpochCache } from '@aztec/epoch-cache';
 import { createEthereumChain } from '@aztec/ethereum/chain';
@@ -110,7 +110,7 @@ type AddBlockRequest = {
 
 export type ArchiverDeps = {
   telemetry?: TelemetryClient;
-  blobSinkClient: BlobSinkClientInterface;
+  blobClient: BlobClientInterface;
   epochCache?: EpochCache;
   dateProvider?: DateProvider;
 };
@@ -188,7 +188,7 @@ export class Archiver
       maxAllowedEthClientDriftSeconds: number;
       ethereumAllowNoDebugHosts?: boolean;
     },
-    private readonly blobSinkClient: BlobSinkClientInterface,
+    private readonly blobClient: BlobClientInterface,
     private readonly epochCache: EpochCache,
     private readonly dateProvider: DateProvider,
     private readonly instrumentation: ArchiverInstrumentation,
@@ -289,7 +289,7 @@ export class Archiver
       { ...config.l1Contracts, slashingProposerAddress },
       archiverStore,
       opts,
-      deps.blobSinkClient,
+      deps.blobClient,
       epochCache,
       deps.dateProvider ?? new DateProvider(),
       await ArchiverInstrumentation.new(telemetry, () => archiverStore.estimateSize()),
@@ -313,7 +313,7 @@ export class Archiver
       throw new Error('Archiver is already running');
     }
 
-    await this.blobSinkClient.testSources();
+    await this.blobClient.testSources();
     await this.testEthereumNodeSynced();
     await validateAndLogTraceAvailability(this.debugClient, this.config.ethereumAllowNoDebugHosts ?? false);
 
@@ -959,12 +959,12 @@ export class Archiver
 
       this.log.trace(`Retrieving checkpoints from L1 block ${searchStartBlock} to ${searchEndBlock}`);
 
-      // TODO(md): Retrieve from blob sink then from consensus client, then from peers
+      // TODO(md): Retrieve from blob client then from consensus client, then from peers
       const retrievedCheckpoints = await retrieveCheckpointsFromRollup(
         this.rollup.getContract() as GetContractReturnType<typeof RollupAbi, ViemPublicClient>,
         this.publicClient,
         this.debugClient,
-        this.blobSinkClient,
+        this.blobClient,
         searchStartBlock, // TODO(palla/reorg): If the L2 reorg was due to an L1 reorg, we need to start search earlier
         searchEndBlock,
         this.l1Addresses,

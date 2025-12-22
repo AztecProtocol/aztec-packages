@@ -1,11 +1,11 @@
 import { type L1ReaderConfig, l1ReaderConfigMappings } from '@aztec/ethereum/l1-reader';
 import { type ConfigMappingsType, pickConfigMappings } from '@aztec/foundation/config';
 
-export type BlobSinkArchiveApiConfig = {
+export type BlobArchiveApiConfig = {
   archiveApiUrl?: string;
 } & Partial<Pick<L1ReaderConfig, 'l1ChainId'>>;
 
-export const blobSinkArchiveApiConfigMappings: ConfigMappingsType<BlobSinkArchiveApiConfig> = {
+export const blobArchiveApiConfigMappings: ConfigMappingsType<BlobArchiveApiConfig> = {
   archiveApiUrl: {
     env: 'BLOB_SINK_ARCHIVE_API_URL',
     description: 'The URL of the archive API',

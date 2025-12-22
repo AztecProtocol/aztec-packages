@@ -8,22 +8,23 @@ import { type RpcBlock, createPublicClient, fallback, http } from 'viem';
 
 import { createBlobArchiveClient } from '../archive/factory.js';
 import type { BlobArchiveClient } from '../archive/interface.js';
-import { outboundTransform } from '../encoding/index.js';
 import type { FileStoreBlobClient } from '../filestore/filestore_blob_client.js';
 import { BlobWithIndex } from '../types/blob_with_index.js';
-import { type BlobSinkConfig, getBlobSinkConfigFromEnv } from './config.js';
-import type { BlobSinkClientInterface, GetBlobSidecarOptions } from './interface.js';
+import { type BlobClientConfig, getBlobClientConfigFromEnv } from './config.js';
+import type { BlobClientInterface, GetBlobSidecarOptions } from './interface.js';
 
-export class HttpBlobSinkClient implements BlobSinkClientInterface {
+export class HttpBlobClient implements BlobClientInterface {
   protected readonly log: Logger;
-  protected readonly config: BlobSinkConfig;
+  protected readonly config: BlobClientConfig;
   protected readonly archiveClient: BlobArchiveClient | undefined;
   protected readonly fetch: typeof fetch;
   protected readonly fileStoreClients: FileStoreBlobClient[];
   protected readonly fileStoreUploadClient: FileStoreBlobClient | undefined;
 
+  private disabled = false;
+
   constructor(
-    config?: BlobSinkConfig,
+    config?: BlobClientConfig,
     private readonly opts: {
       logger?: Logger;
       archiveClient?: BlobArchiveClient;
@@ -33,9 +34,9 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
       onBlobsFetched?: (blobs: BlobWithIndex[]) => void;
     } = {},
   ) {
-    this.config = config ?? getBlobSinkConfigFromEnv();
+    this.config = config ?? getBlobClientConfigFromEnv();
     this.archiveClient = opts.archiveClient ?? createBlobArchiveClient(this.config);
-    this.log = opts.logger ?? createLogger('blob-sink:client');
+    this.log = opts.logger ?? createLogger('blob-client:client');
     this.fileStoreClients = opts.fileStoreClients ?? [];
     this.fileStoreUploadClient = opts.fileStoreUploadClient;
 
@@ -71,30 +72,23 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
     });
   }
 
+  /**
+   * Disables or enables blob storage operations.
+   * When disabled, getBlobSidecar returns empty arrays and sendBlobsToFilestore returns false.
+   * Useful for testing scenarios where blob storage failure needs to be simulated.
+   * @param value - True to disable blob storage, false to enable
+   */
+  public setDisabled(value: boolean): void {
+    this.disabled = value;
+    this.log.info(`Blob storage ${value ? 'disabled' : 'enabled'}`);
+  }
+
   public async testSources() {
-    const { blobSinkUrl, l1ConsensusHostUrls } = this.config;
+    const { l1ConsensusHostUrls } = this.config;
     const archiveUrl = this.archiveClient?.getBaseUrl();
-    this.log.info(`Testing configured blob sources`, { blobSinkUrl, l1ConsensusHostUrls, archiveUrl });
+    this.log.info(`Testing configured blob sources`, { l1ConsensusHostUrls, archiveUrl });
 
     let successfulSourceCount = 0;
-
-    if (blobSinkUrl) {
-      try {
-        const res = await this.fetch(`${this.config.blobSinkUrl}/status`, {
-          headers: { 'Content-Type': 'application/json' },
-        });
-        if (res.ok) {
-          this.log.info(`Blob sink is reachable`, { blobSinkUrl });
-          successfulSourceCount++;
-        } else {
-          this.log.error(`Failure reaching blob sink: ${res.statusText} (${res.status})`, { blobSinkUrl });
-        }
-      } catch (err) {
-        this.log.error(`Error reaching blob sink`, err, { blobSinkUrl });
-      }
-    } else {
-      this.log.warn('No blob sink url is configured');
-    }
 
     if (l1ConsensusHostUrls && l1ConsensusHostUrls.length > 0) {
       for (let l1ConsensusHostIndex = 0; l1ConsensusHostIndex < l1ConsensusHostUrls.length; l1ConsensusHostIndex++) {
@@ -159,61 +153,36 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
     }
   }
 
-  public async sendBlobsToBlobSink(blobs: Blob[]): Promise<boolean> {
-    let blobSinkSuccess = false;
-    let fileStoreSuccess = false;
-
-    if (this.config.blobSinkUrl) {
-      this.log.verbose(`Sending ${blobs.length} blobs to blob sink`);
-      try {
-        const res = await this.fetch(`${this.config.blobSinkUrl}/blobs`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            // Snappy compress the blob buffer
-            blobs: blobs.map((b, i) => ({ blob: outboundTransform(b.toBuffer()), index: i })),
-          }),
-        });
-
-        if (res.ok) {
-          blobSinkSuccess = true;
-        } else {
-          this.log.error('Failed to send blobs to blob sink', { status: res.status });
-        }
-      } catch (err) {
-        this.log.error(`Blob sink url configured, but unable to send blobs`, err, {
-          blobSinkUrl: this.config.blobSinkUrl,
-        });
-      }
-    }
-
-    if (this.fileStoreUploadClient) {
-      this.log.verbose(`Uploading ${blobs.length} blobs to filestore`);
-      try {
-        await this.fileStoreUploadClient.saveBlobs(blobs, true);
-        fileStoreSuccess = true;
-      } catch (err) {
-        this.log.error('Failed to upload blobs to filestore', err);
-      }
-    }
-
-    if (!this.config.blobSinkUrl && !this.fileStoreUploadClient) {
-      this.log.verbose('No blob sink url or filestore upload configured');
+  public async sendBlobsToFilestore(blobs: Blob[]): Promise<boolean> {
+    if (this.disabled) {
+      this.log.warn('Blob storage is disabled, not uploading blobs');
       return false;
     }
 
-    return blobSinkSuccess || fileStoreSuccess;
+    if (!this.fileStoreUploadClient) {
+      this.log.verbose('No filestore upload configured');
+      return false;
+    }
+
+    this.log.verbose(`Uploading ${blobs.length} blobs to filestore`);
+    try {
+      await this.fileStoreUploadClient.saveBlobs(blobs, true);
+      return true;
+    } catch (err) {
+      this.log.error('Failed to upload blobs to filestore', err);
+      return false;
+    }
   }
 
   /**
    * Get the blob sidecar
    *
-   * If requesting from the blob sink, we send the blobkHash
+   * If requesting from the blob client, we send the blobkHash
    * If requesting from the beacon node, we send the slot number
    *
    * Source ordering depends on sync state:
-   * - Historical sync: Blob sink → FileStore → L1 consensus → Archive
-   * - Near tip sync: Blob sink → FileStore → L1 consensus → FileStore (with retries) → Archive (eg blobscan)
+   * - Historical sync: blob client → FileStore → L1 consensus → Archive
+   * - Near tip sync: blob client → FileStore → L1 consensus → FileStore (with retries) → Archive (eg blobscan)
    *
    * @param blockHash - The block hash
    * @param blobHashes - The blob hashes to fetch
@@ -227,6 +196,11 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
     indices?: number[],
     opts?: GetBlobSidecarOptions,
   ): Promise<BlobWithIndex[]> {
+    if (this.disabled) {
+      this.log.warn('Blob storage is disabled, returning empty blob sidecar');
+      return [];
+    }
+
     const isHistoricalSync = opts?.isHistoricalSync ?? false;
     // Accumulate blobs across sources, preserving order and handling duplicates
     // resultBlobs[i] will contain the blob for blobHashes[i], or undefined if not yet found
@@ -261,25 +235,9 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
       return blobs;
     };
 
-    const { blobSinkUrl, l1ConsensusHostUrls } = this.config;
+    const { l1ConsensusHostUrls } = this.config;
 
     const ctx = { blockHash, blobHashes: blobHashes.map(bufferToHex), indices };
-
-    if (blobSinkUrl) {
-      const missingHashes = getMissingBlobHashes();
-      if (missingHashes.length > 0) {
-        this.log.trace(`Attempting to get ${missingHashes.length} blobs from blob sink`, { blobSinkUrl, ...ctx });
-        const blobs = await this.getBlobsFromSink(blobSinkUrl, missingHashes);
-        const result = fillResults(blobs);
-        this.log.debug(`Got ${blobs.length} blobs from blob sink (total: ${result.length}/${blobHashes.length})`, {
-          blobSinkUrl,
-          ...ctx,
-        });
-        if (result.length === blobHashes.length) {
-          return returnWithCallback(result);
-        }
-      }
-    }
 
     // Try filestore (quick, no retries) - useful for both historical and near-tip sync
     if (this.fileStoreClients.length > 0 && getMissingBlobHashes().length > 0) {
@@ -371,32 +329,13 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
       this.log.warn(
         `Failed to fetch all blobs for ${blockHash} from all blob sources (got ${result.length}/${blobHashes.length})`,
         {
-          blobSinkUrl,
           l1ConsensusHostUrls,
           archiveUrl: this.archiveClient?.getBaseUrl(),
+          fileStoreUrls: this.fileStoreClients.map(c => c.getBaseUrl()),
         },
       );
     }
     return returnWithCallback(result);
-  }
-
-  private async getBlobsFromSink(blobSinkUrl: string, blobHashes: Buffer[]): Promise<BlobJson[]> {
-    try {
-      const hashStrings = blobHashes.map(bufferToHex).join(',');
-      const res = await this.fetch(`${blobSinkUrl}/blobs?blobHashes=${hashStrings}`, {
-        headers: { 'Content-Type': 'application/json' },
-      });
-
-      if (res.ok) {
-        return parseBlobJsonsFromResponse(await res.json(), this.log);
-      }
-
-      this.log.warn(`Failed to get blobs from blob sink: ${res.statusText} (${res.status})`);
-      return [];
-    } catch (error: any) {
-      this.log.error(`Error getting blobs from blob sink`, error);
-      return [];
-    }
   }
 
   /**
@@ -622,7 +561,7 @@ function parseBlobJsonsFromResponse(response: any, logger: Logger): BlobJson[] {
   }
 }
 
-// Blobs will be in this form when requested from the blob sink, or from the beacon chain via `getBlobSidecars`:
+// Blobs will be in this form when requested from the blob client, or from the beacon chain via `getBlobSidecars`:
 // https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/getBlobSidecars
 // Here we attempt to parse the response data to Buffer, and check the lengths (via Blob's constructor), to avoid
 // throwing an error down the line when calling BlobWithIndex.fromJson().
@@ -655,7 +594,7 @@ function processFetchedBlobs(blobs: BlobJson[], blobHashes: Buffer[], logger: Lo
   return blobHashes.map(h => hashToBlob.get(bufferToHex(h)));
 }
 
-function getBeaconNodeFetchOptions(url: string, config: BlobSinkConfig, l1ConsensusHostIndex?: number) {
+function getBeaconNodeFetchOptions(url: string, config: BlobClientConfig, l1ConsensusHostIndex?: number) {
   const { l1ConsensusHostApiKeys, l1ConsensusHostApiKeyHeaders } = config;
   const l1ConsensusHostApiKey =
     l1ConsensusHostIndex !== undefined && l1ConsensusHostApiKeys && l1ConsensusHostApiKeys[l1ConsensusHostIndex];

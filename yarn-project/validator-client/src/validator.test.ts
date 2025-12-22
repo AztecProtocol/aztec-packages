@@ -1,4 +1,4 @@
-import type { FileStoreBlobClient } from '@aztec/blob-sink/filestore';
+import type { FileStoreBlobClient } from '@aztec/blob-client/filestore';
 import { GENESIS_ARCHIVE_ROOT } from '@aztec/constants';
 import type { EpochCache } from '@aztec/epoch-cache';
 import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';

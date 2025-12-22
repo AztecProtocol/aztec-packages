@@ -1,13 +1,9 @@
 {
-  "name": "@aztec/blob-sink",
+  "name": "@aztec/blob-client",
   "version": "0.1.0",
   "type": "module",
-  "bin": {
-    "blob-sink-client": "./dest/client/bin/index.js"
-  },
+  "bin": "./dest/client/bin/index.js",
   "exports": {
-    "./server": "./dest/server/index.js",
-    "./server/config": "./dest/server/config.js",
     "./client": "./dest/client/index.js",
     "./client/config": "./dest/client/config.js",
     "./encoding": "./dest/encoding/index.js",

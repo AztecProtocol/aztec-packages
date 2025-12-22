@@ -1,6 +1,6 @@
 import type { Wallet } from '@aztec/aztec.js/wallet';
 import { CheatCodes } from '@aztec/aztec/testing';
-import type { BlobSinkServer } from '@aztec/blob-sink/server';
+import { type BlobClientInterface, HttpBlobClient } from '@aztec/blob-client/client';
 import { GovernanceProposerContract, RollupContract } from '@aztec/ethereum/contracts';
 import type { DeployAztecL1ContractsReturnType } from '@aztec/ethereum/deploy-aztec-l1-contracts';
 import { deployL1Contract } from '@aztec/ethereum/deploy-l1-contract';
@@ -46,8 +46,8 @@ describe('e2e_gov_proposal', () => {
   let aztecNodeAdmin: AztecNodeAdmin | undefined;
   let deployL1ContractsValues: DeployAztecL1ContractsReturnType;
   let cheatCodes: CheatCodes;
-  let blobSink: BlobSinkServer | undefined;
   let dateProvider: TestDateProvider | undefined;
+  let blobClient: BlobClientInterface | undefined;
   let rollup: RollupContract;
   let governanceProposer: GovernanceProposerContract;
   let newGovernanceProposerAddress: EthAddress;
@@ -87,8 +87,8 @@ describe('e2e_gov_proposal', () => {
       deployL1ContractsValues,
       cheatCodes,
       dateProvider,
+      blobClient,
       accounts,
-      blobSink,
     } = context);
     defaultAccountAddress = accounts[0];
 
@@ -188,11 +188,11 @@ describe('e2e_gov_proposal', () => {
   it('should vote even when unable to build blocks', async () => {
     const monitor = new ChainMonitor(rollup, dateProvider).start();
 
-    // Break the blob sink so no new blocks are synced
-    blobSink!.setDisableBlobStorage(true);
+    // Break the blob client so no new blocks are synced
+    (blobClient as HttpBlobClient).setDisabled(true);
     await sleep(1000);
     const lastBlockSynced = await aztecNode!.getBlockNumber();
-    logger.warn(`Blob sink is disabled (last block synced is ${lastBlockSynced})`);
+    logger.warn(`blob client is disabled (last block synced is ${lastBlockSynced})`);
 
     // And send a tx which shouldnt be syncable but does move the block forward
     await expect(() =>

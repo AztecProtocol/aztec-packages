@@ -10,34 +10,16 @@ import http from 'http';
 import type { AddressInfo } from 'net';
 
 import type { FileStoreBlobClient } from '../filestore/filestore_blob_client.js';
-import { BlobSinkServer } from '../server/server.js';
 import { BlobWithIndex } from '../types/blob_with_index.js';
-import { HttpBlobSinkClient } from './http.js';
-import { runBlobSinkClientTests } from './tests.js';
+import { HttpBlobClient } from './http.js';
 
-describe('HttpBlobSinkClient', () => {
-  runBlobSinkClientTests(async () => {
-    const server = new TestBlobSinkServer({ port: 0 });
-    await server.start();
-
-    const client = new HttpBlobSinkClient({
-      blobSinkUrl: `http://localhost:${server.port}`,
-    });
-
-    return {
-      client,
-      cleanup: async () => {
-        await server.stop();
-      },
-    };
-  });
-
-  it('should handle server connection errors gracefully', async () => {
-    const client = new HttpBlobSinkClient({ blobSinkUrl: 'http://localhost:12345' }); // Invalid port
+describe('HttpBlobClient', () => {
+  it('should handle no sources configured', async () => {
+    const client = new HttpBlobClient({});
     const blob = Blob.fromFields([Fr.random()]);
     const blobHash = blob.getEthVersionedBlobHash();
 
-    const success = await client.sendBlobsToBlobSink([blob]);
+    const success = await client.sendBlobsToFilestore([blob]);
     expect(success).toBe(false);
 
     const retrievedBlobs = await client.getBlobSidecar('0x1234', [blobHash]);
@@ -45,8 +27,6 @@ describe('HttpBlobSinkClient', () => {
   });
 
   describe('Mock Ethereum Clients', () => {
-    let blobSinkServer: TestBlobSinkServer;
-
     let testBlobs: Blob[];
     let testBlobsHashes: Buffer[];
     let testBlobsWithIndex: BlobWithIndex[];
@@ -74,7 +54,7 @@ describe('HttpBlobSinkClient', () => {
     });
 
     const startExecutionHostServer = (): Promise<void> => {
-      executionHostServer = http.createServer((req, res) => {
+      executionHostServer = http.createServer((_req, res) => {
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ result: { parentBeaconBlockRoot: '0x1234' } }));
       });
@@ -133,37 +113,12 @@ describe('HttpBlobSinkClient', () => {
       });
     };
 
-    afterEach(async () => {
-      await blobSinkServer?.stop();
+    afterEach(() => {
       executionHostServer?.close();
       consensusHostServer?.close();
 
       executionHostPort = undefined;
       consensusHostPort = undefined;
-    });
-
-    // When the consensus host is not responding, we should still be able to request blobs with the block hash
-    it('should handle no consensus host', async () => {
-      blobSinkServer = new TestBlobSinkServer({ port: 0 });
-      await blobSinkServer.start();
-
-      const blobSinkSpy = jest.spyOn(blobSinkServer.blobStore, 'getBlobsByHashes');
-
-      await startExecutionHostServer();
-
-      const client = new HttpBlobSinkClient({
-        blobSinkUrl: `http://localhost:${blobSinkServer.port}`,
-        l1RpcUrls: [`http://localhost:${executionHostPort}`],
-      });
-
-      const success = await client.sendBlobsToBlobSink(testBlobs);
-      expect(success).toBe(true);
-
-      const retrievedBlobs = await client.getBlobSidecar('0x1234', testBlobsHashes);
-      expect(retrievedBlobs).toEqual(testBlobsWithIndex);
-
-      // Check that the blob sink was called with the correct blob hash
-      expect(blobSinkSpy).toHaveBeenCalledWith(testBlobsHashes);
     });
 
     // When the consensus host is responding, we should request blobs from the consensus host
@@ -172,7 +127,7 @@ describe('HttpBlobSinkClient', () => {
       await startExecutionHostServer();
       await startConsensusHostServer();
 
-      const client = new HttpBlobSinkClient({
+      const client = new HttpBlobClient({
         l1RpcUrls: [`http://localhost:${executionHostPort}`],
         l1ConsensusHostUrls: [`http://localhost:${consensusHostPort}`],
       });
@@ -185,7 +140,7 @@ describe('HttpBlobSinkClient', () => {
       await startExecutionHostServer();
       await startConsensusHostServer();
 
-      const client = new HttpBlobSinkClient({
+      const client = new HttpBlobClient({
         l1RpcUrls: [`http://localhost:${executionHostPort}`],
         l1ConsensusHostUrls: ['invalidURL', `http://localhost:${consensusHostPort}`, 'invalidURL'],
       });
@@ -198,7 +153,7 @@ describe('HttpBlobSinkClient', () => {
       await startExecutionHostServer();
       await startConsensusHostServer('test-api-key');
 
-      const client = new HttpBlobSinkClient({
+      const client = new HttpBlobClient({
         l1RpcUrls: [`http://localhost:${executionHostPort}`],
         l1ConsensusHostUrls: [`http://localhost:${consensusHostPort}`],
         l1ConsensusHostApiKeys: ['test-api-key'].map(k => new SecretValue(k)),
@@ -207,7 +162,7 @@ describe('HttpBlobSinkClient', () => {
       const retrievedBlobs = await client.getBlobSidecar('0x1234', testBlobsHashes);
       expect(retrievedBlobs).toEqual(testBlobsWithIndex);
 
-      const clientWithNoKey = new HttpBlobSinkClient({
+      const clientWithNoKey = new HttpBlobClient({
         l1RpcUrls: [`http://localhost:${executionHostPort}`],
         l1ConsensusHostUrls: [`http://localhost:${consensusHostPort}`],
         l1ConsensusHostApiKeys: [].map(k => new SecretValue(k)),
@@ -216,7 +171,7 @@ describe('HttpBlobSinkClient', () => {
       const retrievedBlobsWithNoKey = await clientWithNoKey.getBlobSidecar('0x1234', testBlobsHashes);
       expect(retrievedBlobsWithNoKey).toEqual([]);
 
-      const clientWithInvalidKey = new HttpBlobSinkClient({
+      const clientWithInvalidKey = new HttpBlobClient({
         l1RpcUrls: [`http://localhost:${executionHostPort}`],
         l1ConsensusHostUrls: [`http://localhost:${consensusHostPort}`],
         l1ConsensusHostApiKeys: ['invalid-key'].map(k => new SecretValue(k)),
@@ -230,7 +185,7 @@ describe('HttpBlobSinkClient', () => {
       await startExecutionHostServer();
       await startConsensusHostServer('header-api-key', 'X-API-KEY');
 
-      const client = new HttpBlobSinkClient({
+      const client = new HttpBlobClient({
         l1RpcUrls: [`http://localhost:${executionHostPort}`],
         l1ConsensusHostUrls: [`http://localhost:${consensusHostPort}`],
         l1ConsensusHostApiKeys: ['header-api-key'].map(k => new SecretValue(k)),
@@ -240,7 +195,7 @@ describe('HttpBlobSinkClient', () => {
       const retrievedBlobs = await client.getBlobSidecar('0x1234', testBlobsHashes);
       expect(retrievedBlobs).toEqual(testBlobsWithIndex);
 
-      const clientWithWrongHeader = new HttpBlobSinkClient({
+      const clientWithWrongHeader = new HttpBlobClient({
         l1RpcUrls: [`http://localhost:${executionHostPort}`],
         l1ConsensusHostUrls: [`http://localhost:${consensusHostPort}`],
         l1ConsensusHostApiKeys: ['header-api-key'].map(k => new SecretValue(k)),
@@ -250,7 +205,7 @@ describe('HttpBlobSinkClient', () => {
       const retrievedBlobsWithWrongHeader = await clientWithWrongHeader.getBlobSidecar('0x1234', testBlobsHashes);
       expect(retrievedBlobsWithWrongHeader).toEqual([]);
 
-      const clientWithWrongKey = new HttpBlobSinkClient({
+      const clientWithWrongKey = new HttpBlobClient({
         l1RpcUrls: [`http://localhost:${executionHostPort}`],
         l1ConsensusHostUrls: [`http://localhost:${consensusHostPort}`],
         l1ConsensusHostApiKeys: ['invalid-key'].map(k => new SecretValue(k)),
@@ -275,7 +230,7 @@ describe('HttpBlobSinkClient', () => {
       const consensusPort3 = consensusHostPort;
 
       // Verify that the first consensus host works
-      let client = new HttpBlobSinkClient({
+      let client = new HttpBlobClient({
         l1RpcUrls: [`http://localhost:${executionHostPort}`],
         l1ConsensusHostUrls: [
           `http://localhost:${consensusPort1}`,
@@ -291,7 +246,7 @@ describe('HttpBlobSinkClient', () => {
 
       // Verify that the second consensus host works when the first host fails
       consensusServer1?.close();
-      client = new HttpBlobSinkClient({
+      client = new HttpBlobClient({
         l1RpcUrls: [`http://localhost:${executionHostPort}`],
         l1ConsensusHostUrls: [
           `http://localhost:${consensusPort1}`,
@@ -307,7 +262,7 @@ describe('HttpBlobSinkClient', () => {
 
       // Verify that the third consensus host works when the first and second hosts fail
       consensusServer2?.close();
-      client = new HttpBlobSinkClient({
+      client = new HttpBlobClient({
         l1RpcUrls: [`http://localhost:${executionHostPort}`],
         l1ConsensusHostUrls: [
           `http://localhost:${consensusPort1}`,
@@ -326,7 +281,7 @@ describe('HttpBlobSinkClient', () => {
       await startExecutionHostServer();
       await startConsensusHostServer();
 
-      const client = new HttpBlobSinkClient({
+      const client = new HttpBlobClient({
         l1RpcUrls: [`http://localhost:${executionHostPort}`],
         l1ConsensusHostUrls: [`http://localhost:${consensusHostPort}`],
       });
@@ -350,61 +305,30 @@ describe('HttpBlobSinkClient', () => {
       expect(retrievedBlobs).toEqual([testBlobsWithIndex[0], testBlobsWithIndex[1]]);
     });
 
-    it('should retrieve blobs from blob sink when it only has a partial set', async () => {
-      blobSinkServer = new TestBlobSinkServer({ port: 0 });
-      await blobSinkServer.start();
-
-      const blobs = Array.from({ length: 2 }, () => makeRandomBlob(3));
-      const blobHashes = blobs.map(b => b.getEthVersionedBlobHash());
-      const blobsWithIndex = blobs.map((b, index) => new BlobWithIndex(b, index));
-
-      // Only send the first blob to blob sink
-      await blobSinkServer.blobStore.addBlobs([blobsWithIndex[0]]);
-
-      await startExecutionHostServer();
-      await startConsensusHostServer();
-
-      const client = new HttpBlobSinkClient({
-        blobSinkUrl: `http://localhost:${blobSinkServer.port}`,
-        l1RpcUrls: [`http://localhost:${executionHostPort}`],
-        l1ConsensusHostUrls: [`http://localhost:${consensusHostPort}`],
-      });
-
-      // The second blob will be available from consensus
-      // Update blobData to include the second blob
-      blobData.push(blobsWithIndex[1].toJSON());
-
-      // Request both blobs - blobsWithIndex[0] should come from blob sink, blobsWithIndex[1] from consensus
-      const retrievedBlobs = await client.getBlobSidecar('0x1234', blobHashes);
-
-      // Should accumulate both blobs from different sources
-      expect(retrievedBlobs).toHaveLength(2);
-      expect(retrievedBlobs).toEqual(blobsWithIndex);
-    });
-
-    it('should accumulate blobs across all three sources (blob sink, consensus, archive)', async () => {
-      blobSinkServer = new TestBlobSinkServer({ port: 0 });
-      await blobSinkServer.start();
-
+    it('should accumulate blobs across all three sources (filestore, consensus, archive)', async () => {
       // Create three blobs for testing
       const blobs = Array.from({ length: 3 }, () => makeRandomBlob(3));
       const blobHashes = blobs.map(b => b.getEthVersionedBlobHash());
       const blobsWithIndex = blobs.map((b, index) => new BlobWithIndex(b, index));
+      blobsWithIndex[0].index = -1;
 
-      // Blob 0 only in blob sink
-      await blobSinkServer.blobStore.addBlobs([blobsWithIndex[0]]);
+      // Blob 0 only in filestore
+      const mockFileStore = new MockFileStoreBlobClient();
+      mockFileStore.addBlobWithIndex(blobsWithIndex[0]);
 
       // Blob 1 only in consensus host
       await startExecutionHostServer();
       await startConsensusHostServer();
       blobData.push(blobsWithIndex[1].toJSON());
 
-      const client = new TestHttpBlobSinkClient({
-        blobSinkUrl: `http://localhost:${blobSinkServer.port}`,
-        l1RpcUrls: [`http://localhost:${executionHostPort}`],
-        l1ConsensusHostUrls: [`http://localhost:${consensusHostPort}`],
-        archiveApiUrl: `https://api.blobscan.com`,
-      });
+      const client = new TestHttpBlobClient(
+        {
+          l1RpcUrls: [`http://localhost:${executionHostPort}`],
+          l1ConsensusHostUrls: [`http://localhost:${consensusHostPort}`],
+          archiveApiUrl: `https://api.blobscan.com`,
+        },
+        { fileStoreClients: [mockFileStore as unknown as FileStoreBlobClient] },
+      );
 
       // Blob 2 only in archive
       const blob3Json = blobsWithIndex[2].toJSON();
@@ -423,7 +347,7 @@ describe('HttpBlobSinkClient', () => {
       await startExecutionHostServer();
       await startConsensusHostServer();
 
-      const client = new HttpBlobSinkClient({
+      const client = new HttpBlobClient({
         l1RpcUrls: [`http://localhost:${executionHostPort}`],
         l1ConsensusHostUrls: [`http://localhost:${consensusHostPort}`],
       });
@@ -437,20 +361,16 @@ describe('HttpBlobSinkClient', () => {
     });
 
     it('should preserve blob order when requesting multiple blobs', async () => {
-      blobSinkServer = new TestBlobSinkServer({ port: 0 });
-      await blobSinkServer.start();
-
       // Create three distinct blobs
       const blobs = Array.from({ length: 3 }, () => makeRandomBlob(3));
       const blobHashes = blobs.map(b => b.getEthVersionedBlobHash());
-      const blobsWithIndex = blobs.map((b, index) => new BlobWithIndex(b, index));
+      const blobsWithIndex = blobs.map(b => new BlobWithIndex(b, -1));
 
-      // Add all blobs to blob sink
-      await blobSinkServer.blobStore.addBlobs(blobsWithIndex);
+      // Add all blobs to filestore
+      const mockFileStore = new MockFileStoreBlobClient();
+      blobsWithIndex.forEach(b => mockFileStore.addBlobWithIndex(b));
 
-      const client = new HttpBlobSinkClient({
-        blobSinkUrl: `http://localhost:${blobSinkServer.port}`,
-      });
+      const client = new HttpBlobClient({}, { fileStoreClients: [mockFileStore as unknown as FileStoreBlobClient] });
 
       // Request blobs in a specific order: blob3, blob1, blob2, blob1 (with duplicate)
       const retrievedBlobs = await client.getBlobSidecar('0x1234', [
@@ -472,7 +392,7 @@ describe('HttpBlobSinkClient', () => {
       await startExecutionHostServer();
       await startConsensusHostServer();
 
-      const client = new HttpBlobSinkClient({
+      const client = new HttpBlobClient({
         l1RpcUrls: [`http://localhost:${executionHostPort}`],
         l1ConsensusHostUrls: [`http://localhost:${consensusHostPort}`],
         l1ConsensusHostApiKeyHeaders: ['X-API-KEY'],
@@ -511,7 +431,7 @@ describe('HttpBlobSinkClient', () => {
       await startExecutionHostServer();
       await startConsensusHostServer();
 
-      const client = new HttpBlobSinkClient({
+      const client = new HttpBlobClient({
         l1RpcUrls: [`http://localhost:${executionHostPort}`],
         l1ConsensusHostUrls: [`http://localhost:${consensusHostPort}`],
       });
@@ -539,7 +459,7 @@ describe('HttpBlobSinkClient', () => {
     });
 
     it('should fall back to archive client', async () => {
-      const client = new TestHttpBlobSinkClient({ archiveApiUrl: `https://api.blobscan.com` });
+      const client = new TestHttpBlobClient({ archiveApiUrl: `https://api.blobscan.com` });
       const archiveSpy = jest.spyOn(client.getArchiveClient(), 'getBlobsFromBlock').mockResolvedValue(blobData);
 
       const retrievedBlobs = await client.getBlobSidecar('0x1234', testBlobsHashes);
@@ -553,7 +473,7 @@ describe('HttpBlobSinkClient', () => {
       const blobHash = blob.getEthVersionedBlobHash();
       const duplicateBlobData = [new BlobWithIndex(blob, 0), new BlobWithIndex(blob, 1)];
 
-      const client = new TestHttpBlobSinkClient({ archiveApiUrl: `https://api.blobscan.com` });
+      const client = new TestHttpBlobClient({ archiveApiUrl: `https://api.blobscan.com` });
       const archiveSpy = jest
         .spyOn(client.getArchiveClient(), 'getBlobsFromBlock')
         .mockResolvedValue(duplicateBlobData.map(b => b.toJSON()));
@@ -570,7 +490,7 @@ describe('HttpBlobSinkClient', () => {
       await startExecutionHostServer();
       await startConsensusHostServer();
 
-      const client = new TestHttpBlobSinkClient({
+      const client = new TestHttpBlobClient({
         l1RpcUrls: [`http://localhost:${executionHostPort}`],
         l1ConsensusHostUrls: [`http://localhost:${consensusHostPort}`],
       });
@@ -620,7 +540,7 @@ describe('HttpBlobSinkClient', () => {
   });
 });
 
-class TestHttpBlobSinkClient extends HttpBlobSinkClient {
+class TestHttpBlobClient extends HttpBlobClient {
   public getArchiveClient() {
     return this.archiveClient!;
   }
@@ -628,10 +548,6 @@ class TestHttpBlobSinkClient extends HttpBlobSinkClient {
   public getFileStoreClients() {
     return this.fileStoreClients;
   }
-}
-
-class TestBlobSinkServer extends BlobSinkServer {
-  declare public blobStore: BlobSinkServer['blobStore'];
 }
 
 class MockFileStoreBlobClient {
@@ -698,7 +614,7 @@ class MockFileStoreBlobClient {
   }
 }
 
-describe('HttpBlobSinkClient FileStore Integration', () => {
+describe('HttpBlobClient FileStore Integration', () => {
   let testBlobs: Blob[];
   let testBlobsHashes: Buffer[];
   let testBlobsWithIndex: BlobWithIndex[];
@@ -714,10 +630,7 @@ describe('HttpBlobSinkClient FileStore Integration', () => {
       const mockFileStore = new MockFileStoreBlobClient();
       testBlobsWithIndex.forEach(b => mockFileStore.addBlobWithIndex(b));
 
-      const client = new HttpBlobSinkClient(
-        {},
-        { fileStoreClients: [mockFileStore as unknown as FileStoreBlobClient] },
-      );
+      const client = new HttpBlobClient({}, { fileStoreClients: [mockFileStore as unknown as FileStoreBlobClient] });
 
       const retrievedBlobs = await client.getBlobSidecar('0x1234', testBlobsHashes);
 
@@ -733,7 +646,7 @@ describe('HttpBlobSinkClient FileStore Integration', () => {
       // Only add blobs to second store
       testBlobsWithIndex.forEach(b => mockFileStore2.addBlobWithIndex(b));
 
-      const client = new HttpBlobSinkClient(
+      const client = new HttpBlobClient(
         {},
         {
           fileStoreClients: [
@@ -756,7 +669,7 @@ describe('HttpBlobSinkClient FileStore Integration', () => {
       mockFileStore1.addBlobWithIndex(testBlobsWithIndex[0]);
       mockFileStore2.addBlobWithIndex(testBlobsWithIndex[1]);
 
-      const client = new HttpBlobSinkClient(
+      const client = new HttpBlobClient(
         {},
         {
           fileStoreClients: [
@@ -776,7 +689,7 @@ describe('HttpBlobSinkClient FileStore Integration', () => {
       const workingFileStore = new MockFileStoreBlobClient('working');
       testBlobsWithIndex.forEach(b => workingFileStore.addBlobWithIndex(b));
 
-      const client = new HttpBlobSinkClient(
+      const client = new HttpBlobClient(
         {},
         {
           fileStoreClients: [
@@ -792,52 +705,36 @@ describe('HttpBlobSinkClient FileStore Integration', () => {
     });
   });
 
-  describe('sendBlobsToBlobSink with filestore upload', () => {
+  describe('sendBlobsToFilestore with filestore upload', () => {
     it('should upload blobs to filestore when fileStoreUploadClient is configured', async () => {
       const mockUploadStore = new MockFileStoreBlobClient();
       const saveBlobsSpy = jest.spyOn(mockUploadStore, 'saveBlobs');
 
-      const client = new HttpBlobSinkClient(
+      const client = new HttpBlobClient(
         {},
         { fileStoreUploadClient: mockUploadStore as unknown as FileStoreBlobClient },
       );
 
-      const success = await client.sendBlobsToBlobSink(testBlobs);
+      const success = await client.sendBlobsToFilestore(testBlobs);
 
       expect(success).toBe(true);
       expect(saveBlobsSpy).toHaveBeenCalledWith(testBlobs, true);
     });
 
-    it('should return false when both blob sink and filestore are not configured', async () => {
-      const client = new HttpBlobSinkClient({});
+    it('should return false when both blob client and filestore are not configured', async () => {
+      const client = new HttpBlobClient({});
 
-      const success = await client.sendBlobsToBlobSink(testBlobs);
+      const success = await client.sendBlobsToFilestore(testBlobs);
 
       expect(success).toBe(false);
-    });
-
-    it('should return true if filestore upload succeeds even if blob sink fails', async () => {
-      const mockUploadStore = new MockFileStoreBlobClient();
-
-      const client = new HttpBlobSinkClient(
-        { blobSinkUrl: 'http://localhost:12345' }, // Invalid URL that will fail
-        { fileStoreUploadClient: mockUploadStore as unknown as FileStoreBlobClient },
-      );
-
-      const success = await client.sendBlobsToBlobSink(testBlobs);
-
-      expect(success).toBe(true);
     });
 
     it('should handle filestore upload failure gracefully', async () => {
       const failingStore = new MockFileStoreBlobClient('failing', true);
 
-      const client = new HttpBlobSinkClient(
-        {},
-        { fileStoreUploadClient: failingStore as unknown as FileStoreBlobClient },
-      );
+      const client = new HttpBlobClient({}, { fileStoreUploadClient: failingStore as unknown as FileStoreBlobClient });
 
-      const success = await client.sendBlobsToBlobSink(testBlobs);
+      const success = await client.sendBlobsToFilestore(testBlobs);
 
       expect(success).toBe(false);
     });
@@ -849,7 +746,7 @@ describe('HttpBlobSinkClient FileStore Integration', () => {
       testBlobsWithIndex.forEach(b => mockFileStore.addBlobWithIndex(b));
 
       const onBlobsFetched = jest.fn();
-      const client = new HttpBlobSinkClient(
+      const client = new HttpBlobClient(
         {},
         {
           fileStoreClients: [mockFileStore as unknown as FileStoreBlobClient],
@@ -872,7 +769,7 @@ describe('HttpBlobSinkClient FileStore Integration', () => {
       const mockUploadStore = new MockFileStoreBlobClient();
       const saveBlobsSpy = jest.spyOn(mockUploadStore, 'saveBlobs');
 
-      const client = new HttpBlobSinkClient(
+      const client = new HttpBlobClient(
         {},
         {
           fileStoreClients: [mockFileStore as unknown as FileStoreBlobClient],
@@ -894,7 +791,7 @@ describe('HttpBlobSinkClient FileStore Integration', () => {
       const mockFileStore = new MockFileStoreBlobClient();
       const testConnectionSpy = jest.spyOn(mockFileStore, 'testConnection');
 
-      const client = new HttpBlobSinkClient(
+      const client = new HttpBlobClient(
         { blobAllowEmptySources: true },
         { fileStoreClients: [mockFileStore as unknown as FileStoreBlobClient] },
       );
@@ -907,7 +804,7 @@ describe('HttpBlobSinkClient FileStore Integration', () => {
     it('should not throw when filestore is reachable', async () => {
       const mockFileStore = new MockFileStoreBlobClient();
 
-      const client = new HttpBlobSinkClient(
+      const client = new HttpBlobClient(
         { blobAllowEmptySources: true },
         { fileStoreClients: [mockFileStore as unknown as FileStoreBlobClient] },
       );
@@ -918,11 +815,8 @@ describe('HttpBlobSinkClient FileStore Integration', () => {
     it('should count filestore as successful source', async () => {
       const mockFileStore = new MockFileStoreBlobClient();
 
-      // No blob sink, no consensus, but filestore is available
-      const client = new HttpBlobSinkClient(
-        {},
-        { fileStoreClients: [mockFileStore as unknown as FileStoreBlobClient] },
-      );
+      // No blob client, no consensus, but filestore is available
+      const client = new HttpBlobClient({}, { fileStoreClients: [mockFileStore as unknown as FileStoreBlobClient] });
 
       // Should not throw because filestore counts as a successful source
       await expect(client.testSources()).resolves.not.toThrow();
@@ -931,7 +825,7 @@ describe('HttpBlobSinkClient FileStore Integration', () => {
     it('should handle filestore connection failure', async () => {
       const failingStore = new MockFileStoreBlobClient('failing', true);
 
-      const client = new HttpBlobSinkClient(
+      const client = new HttpBlobClient(
         { blobAllowEmptySources: false },
         { fileStoreClients: [failingStore as unknown as FileStoreBlobClient] },
       );
@@ -945,10 +839,7 @@ describe('HttpBlobSinkClient FileStore Integration', () => {
       const mockFileStore = new MockFileStoreBlobClient();
       const getBlobsByHashesSpy = jest.spyOn(mockFileStore, 'getBlobsByHashes');
 
-      const client = new HttpBlobSinkClient(
-        {},
-        { fileStoreClients: [mockFileStore as unknown as FileStoreBlobClient] },
-      );
+      const client = new HttpBlobClient({}, { fileStoreClients: [mockFileStore as unknown as FileStoreBlobClient] });
 
       // Historical sync - should not retry
       await client.getBlobSidecar('0x1234', testBlobsHashes, undefined, { isHistoricalSync: true });
@@ -963,10 +854,7 @@ describe('HttpBlobSinkClient FileStore Integration', () => {
       const mockFileStore = new MockFileStoreBlobClient();
       const getBlobsByHashesSpy = jest.spyOn(mockFileStore, 'getBlobsByHashes');
 
-      const client = new HttpBlobSinkClient(
-        {},
-        { fileStoreClients: [mockFileStore as unknown as FileStoreBlobClient] },
-      );
+      const client = new HttpBlobClient({}, { fileStoreClients: [mockFileStore as unknown as FileStoreBlobClient] });
 
       // Near-tip sync (default) - should retry
       const promise = client.getBlobSidecar('0x1234', testBlobsHashes, undefined, { isHistoricalSync: false });
@@ -988,10 +876,7 @@ describe('HttpBlobSinkClient FileStore Integration', () => {
       testBlobsWithIndex.forEach(b => mockFileStore.addBlobWithIndex(b));
       const getBlobsByHashesSpy = jest.spyOn(mockFileStore, 'getBlobsByHashes');
 
-      const client = new HttpBlobSinkClient(
-        {},
-        { fileStoreClients: [mockFileStore as unknown as FileStoreBlobClient] },
-      );
+      const client = new HttpBlobClient({}, { fileStoreClients: [mockFileStore as unknown as FileStoreBlobClient] });
 
       await client.getBlobSidecar('0x1234', testBlobsHashes, undefined, { isHistoricalSync: false });
 
@@ -1001,14 +886,13 @@ describe('HttpBlobSinkClient FileStore Integration', () => {
   });
 
   describe('source ordering', () => {
-    let blobSinkServer: TestBlobSinkServer;
     let executionHostServer: http.Server | undefined;
     let executionHostPort: number | undefined;
     let consensusHostServer: http.Server | undefined;
     let consensusHostPort: number | undefined;
 
     const startExecutionHostServer = (): Promise<void> => {
-      executionHostServer = http.createServer((req, res) => {
+      executionHostServer = http.createServer((_req, res) => {
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ result: { parentBeaconBlockRoot: '0x1234' } }));
       });
@@ -1043,32 +927,11 @@ describe('HttpBlobSinkClient FileStore Integration', () => {
       });
     };
 
-    afterEach(async () => {
-      await blobSinkServer?.stop();
+    afterEach(() => {
       executionHostServer?.close();
       consensusHostServer?.close();
       executionHostPort = undefined;
       consensusHostPort = undefined;
-    });
-
-    it('should try blob sink before filestore', async () => {
-      blobSinkServer = new TestBlobSinkServer({ port: 0 });
-      await blobSinkServer.start();
-      await blobSinkServer.blobStore.addBlobs(testBlobsWithIndex);
-
-      const mockFileStore = new MockFileStoreBlobClient();
-      const fileStoreGetSpy = jest.spyOn(mockFileStore, 'getBlobsByHashes');
-
-      const client = new HttpBlobSinkClient(
-        { blobSinkUrl: `http://localhost:${blobSinkServer.port}` },
-        { fileStoreClients: [mockFileStore as unknown as FileStoreBlobClient] },
-      );
-
-      const retrievedBlobs = await client.getBlobSidecar('0x1234', testBlobsHashes);
-
-      // Blobs found in blob sink, filestore should not be called
-      expect(retrievedBlobs).toHaveLength(2);
-      expect(fileStoreGetSpy).not.toHaveBeenCalled();
     });
 
     it('should try filestore before consensus host', async () => {
@@ -1078,7 +941,7 @@ describe('HttpBlobSinkClient FileStore Integration', () => {
       const mockFileStore = new MockFileStoreBlobClient();
       testBlobsWithIndex.forEach(b => mockFileStore.addBlobWithIndex(b));
 
-      const client = new HttpBlobSinkClient(
+      const client = new HttpBlobClient(
         {
           l1RpcUrls: [`http://localhost:${executionHostPort}`],
           l1ConsensusHostUrls: [`http://localhost:${consensusHostPort}`],
@@ -1104,7 +967,7 @@ describe('HttpBlobSinkClient FileStore Integration', () => {
       // Only add first blob to filestore
       mockFileStore.addBlobWithIndex(testBlobsWithIndex[0]);
 
-      const client = new HttpBlobSinkClient(
+      const client = new HttpBlobClient(
         {
           l1RpcUrls: [`http://localhost:${executionHostPort}`],
           l1ConsensusHostUrls: [`http://localhost:${consensusHostPort}`],

@@ -17,7 +17,7 @@ export class FileStoreBlobClient {
     private readonly basePath: string,
     logger?: Logger,
   ) {
-    this.log = logger ?? createLogger('blob-sink:filestore-client');
+    this.log = logger ?? createLogger('blob-client:filestore-client');
   }
 
   /**

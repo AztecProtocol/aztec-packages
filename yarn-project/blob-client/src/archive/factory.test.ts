@@ -1,8 +1,8 @@
-import type { BlobSinkArchiveApiConfig } from './config.js';
+import type { BlobArchiveApiConfig } from './config.js';
 import { createBlobArchiveClient } from './factory.js';
 
 describe('BlobscanArchiveClient factory', () => {
-  it.each<[string, BlobSinkArchiveApiConfig, boolean, string | undefined]>([
+  it.each<[string, BlobArchiveApiConfig, boolean, string | undefined]>([
     ['empty config', {}, false, undefined],
     ['random chain, no custom URL', { l1ChainId: 23478 }, false, undefined],
     [

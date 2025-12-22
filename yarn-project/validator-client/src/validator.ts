@@ -1,5 +1,5 @@
+import type { FileStoreBlobClient } from '@aztec/blob-client/filestore';
 import { getBlobsPerL1Block } from '@aztec/blob-lib';
-import type { FileStoreBlobClient } from '@aztec/blob-sink/filestore';
 import type { EpochCache } from '@aztec/epoch-cache';
 import { BlockNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
