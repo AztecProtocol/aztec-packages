@@ -130,6 +130,7 @@ export class L2BlockStream {
 
       // Update the checkpointed tips
       // TODO(pw/mbps): Not sure if this is the correct way of handling multiple checkpoints or if we should do each one in turn
+      // This matches the updates to the proven chain. But I suspect we may need to process checkpoints in turn for things like the sentinel.
       if (
         localTips.checkpoint !== undefined &&
         sourceTips.checkpoint !== undefined &&

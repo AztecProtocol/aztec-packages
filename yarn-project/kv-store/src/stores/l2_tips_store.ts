@@ -14,7 +14,9 @@ import type { AztecAsyncMap } from '../interfaces/map.js';
 import type { AztecAsyncSingleton } from '../interfaces/singleton.js';
 import type { AztecAsyncKVStore } from '../interfaces/store.js';
 
-/** Stores currently synced L2 tips and unfinalized block hashes. */
+/** Stores currently synced L2 tips and unfinalized block hashes.
+ *  TODO (pw/mbps): I feel like this store would benefit from using transactions to ensure atomicy across the different stores.
+ */
 export class L2TipsKVStore implements L2BlockStreamEventHandler, L2BlockStreamLocalDataProvider {
   private readonly l2TipsStore: AztecAsyncMap<L2BlockTag, BlockNumber>;
   private readonly l2BlockHashesStore: AztecAsyncMap<BlockNumber, string>;
