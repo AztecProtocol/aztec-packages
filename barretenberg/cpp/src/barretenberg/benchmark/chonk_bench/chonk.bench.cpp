@@ -4,6 +4,7 @@
  */
 
 #include <benchmark/benchmark.h>
+#include <chrono>
 
 #include "barretenberg/chonk/chonk_verifier.hpp"
 #include "barretenberg/chonk/test_bench_shared.hpp"
@@ -37,8 +38,8 @@ BENCHMARK_DEFINE_F(ChonkBench, VerificationOnly)(benchmark::State& state)
     auto precomputed_vks = precompute_vks(NUM_APP_CIRCUITS);
     auto [proof, vk_and_hash] = accumulate_and_prove_with_precomputed_vks(NUM_APP_CIRCUITS, precomputed_vks);
 
-    ChonkNativeVerifier verifier(vk_and_hash);
     for (auto _ : state) {
+        ChonkNativeVerifier verifier(vk_and_hash);
         benchmark::DoNotOptimize(verifier.verify(proof));
     }
 }
