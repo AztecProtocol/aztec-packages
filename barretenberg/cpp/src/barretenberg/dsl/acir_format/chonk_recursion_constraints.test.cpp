@@ -1,9 +1,9 @@
+#include "barretenberg/chonk/chonk_verifier.hpp"
 #include "barretenberg/chonk/mock_circuit_producer.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/dsl/acir_format/acir_format_mocks.hpp"
 #include "barretenberg/dsl/acir_format/gate_count_constants.hpp"
 #include "barretenberg/dsl/acir_format/proof_surgeon.hpp"
-#include "barretenberg/stdlib/chonk_verifier/chonk_recursive_verifier.hpp"
 
 #include <gtest/gtest.h>
 
@@ -19,8 +19,6 @@ class ChonkRecursionConstraintTest : public ::testing::Test {
     using Flavor = UltraRollupFlavor;
     using ProverInstance = ProverInstance_<Flavor>;
     using VerificationKey = Flavor::VerificationKey;
-    using ChonkRecursiveVerifier = stdlib::recursion::honk::ChonkRecursiveVerifier;
-
     // Types for Chonk
     using DeciderZKProvingKey = ProverInstance_<MegaZKFlavor>;
     using MegaZKVerificationKey = MegaZKFlavor::VerificationKey;
@@ -30,7 +28,7 @@ class ChonkRecursionConstraintTest : public ::testing::Test {
 
     struct ChonkData {
         std::shared_ptr<MegaZKVerificationKey> mega_vk;
-        Chonk::Proof proof;
+        ChonkProof proof;
     };
 
     static ChonkData get_chonk_data()
@@ -45,8 +43,8 @@ class ChonkRecursionConstraintTest : public ::testing::Test {
             circuit_producer.construct_and_accumulate_next_circuit(ivc);
         }
 
-        Chonk::Proof proof = ivc.prove();
-        return { ivc.get_vk().mega, proof };
+        ChonkProof proof = ivc.prove();
+        return { ivc.get_hiding_kernel_vk_and_hash()->vk, proof };
     }
 
     static AcirProgram create_acir_program(const ChonkData& chonk_data)
