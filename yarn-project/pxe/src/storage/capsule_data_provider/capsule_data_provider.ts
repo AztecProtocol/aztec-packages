@@ -19,10 +19,26 @@ export class CapsuleDataProvider {
     this.logger = createLogger('pxe:capsule-data-provider');
   }
 
+  /**
+   * Stores arbitrary information in a per-contract non-volatile database, which can later be retrieved with `loadCapsule`.
+   * * If data was already stored at this slot, it is overwritten.
+   * @param contractAddress - The contract address to scope the data under.
+   * @param slot - The slot in the database in which to store the value. Slots need not be contiguous.
+   * @param capsule - An array of field elements representing the capsule.
+   * @remarks A capsule is a "blob" of data that is passed to the contract through an oracle. It works similarly
+   * to public contract storage in that it's indexed by the contract address and storage slot but instead of the global
+   * network state it's backed by local PXE db.
+   */
   async storeCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[]): Promise<void> {
     await this.#capsules.set(dbSlotToKey(contractAddress, slot), Buffer.concat(capsule.map(value => value.toBuffer())));
   }
 
+  /**
+   * Returns data previously stored via `storeCapsule` in the per-contract non-volatile database.
+   * @param contractAddress - The contract address under which the data is scoped.
+   * @param slot - The slot in the database to read.
+   * @returns The stored data or `null` if no data is stored under the slot.
+   */
   async loadCapsule(contractAddress: AztecAddress, slot: Fr): Promise<Fr[] | null> {
     const dataBuffer = await this.#capsules.getAsync(dbSlotToKey(contractAddress, slot));
     if (!dataBuffer) {
@@ -36,10 +52,26 @@ export class CapsuleDataProvider {
     return capsule;
   }
 
+  /**
+   * Deletes data in the per-contract non-volatile database. Does nothing if no data was present.
+   * @param contractAddress - The contract address under which the data is scoped.
+   * @param slot - The slot in the database to delete.
+   */
   async deleteCapsule(contractAddress: AztecAddress, slot: Fr): Promise<void> {
     await this.#capsules.delete(dbSlotToKey(contractAddress, slot));
   }
 
+  /**
+   * Copies a number of contiguous entries in the per-contract non-volatile database. This allows for efficient data
+   * structures by avoiding repeated calls to `loadCapsule` and `storeCapsule`.
+   * Supports overlapping source and destination regions (which will result in the overlapped source values being
+   * overwritten). All copied slots must exist in the database (i.e. have been stored and not deleted)
+   *
+   * @param contractAddress - The contract address under which the data is scoped.
+   * @param srcSlot - The first slot to copy from.
+   * @param dstSlot - The first slot to copy to.
+   * @param numEntries - The number of entries to copy.
+   */
   copyCapsule(contractAddress: AztecAddress, srcSlot: Fr, dstSlot: Fr, numEntries: number): Promise<void> {
     return this.#store.transactionAsync(async () => {
       // In order to support overlapping source and destination regions, we need to check the relative positions of source

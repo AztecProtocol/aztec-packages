@@ -36,7 +36,7 @@ export function getPublicClient(config: Config): ViemPublicClient {
   const chain = createEthereumChain(config.l1RpcUrls, config.l1ChainId);
   return createPublicClient({
     chain: chain.chainInfo,
-    transport: fallback(config.l1RpcUrls.map(url => http(url))),
+    transport: fallback(config.l1RpcUrls.map(url => http(url, { batch: false }))),
     pollingInterval: config.viemPollingIntervalMS,
   });
 }
@@ -88,7 +88,7 @@ export function createExtendedL1Client(
   const extendedClient = createWalletClient({
     account: hdAccount,
     chain,
-    transport: fallback(rpcUrls.map(url => http(url))),
+    transport: fallback(rpcUrls.map(url => http(url, { batch: false }))),
     pollingInterval: pollingIntervalMS,
   }).extend(publicActions);
 

@@ -21,7 +21,7 @@ import { loadAndStoreNewTaggingIndexes } from './utils/load_and_store_new_taggin
 // - This value is below MAX_RPC_LEN (100) which is the limit for array parameters in the JSON RPC schema for
 //   `getLogsByTags`. Any test that would perform sync over JSON RPC (not by having access to the Aztec node instance
 //   directly) would error out if that maximum was hit (docs_examples.test.ts is an example of this).
-export const WINDOW_LEN = 95;
+export const UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN = 95;
 
 /**
  * Syncs tagging indexes. This function needs to be called whenever a private log is being sent.
@@ -64,7 +64,7 @@ export async function syncSenderTaggingIndexes(
   const finalizedIndex = await taggingDataProvider.getLastFinalizedIndex(secret);
 
   let start = finalizedIndex === undefined ? 0 : finalizedIndex + 1;
-  let end = start + WINDOW_LEN;
+  let end = start + UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN;
 
   let previousFinalizedIndex = finalizedIndex;
   let newFinalizedIndex = undefined;
@@ -101,7 +101,7 @@ export async function syncSenderTaggingIndexes(
 
       const previousEnd = end;
       // Add 1 because `end` is exclusive and the known finalized index is not included in the window.
-      end = newFinalizedIndex! + WINDOW_LEN + 1;
+      end = newFinalizedIndex! + UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN + 1;
       start = previousEnd;
       previousFinalizedIndex = newFinalizedIndex;
     } else {

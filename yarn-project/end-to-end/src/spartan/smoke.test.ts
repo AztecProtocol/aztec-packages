@@ -44,7 +44,7 @@ describe('smoke test', () => {
     const chain = createEthereumChain([ethereumUrl], nodeInfo.l1ChainId);
     ethereumClient = createPublicClient({
       chain: chain.chainInfo,
-      transport: fallback([http(ethereumUrl)]),
+      transport: fallback([http(ethereumUrl, { batch: false })]),
     });
   });
 

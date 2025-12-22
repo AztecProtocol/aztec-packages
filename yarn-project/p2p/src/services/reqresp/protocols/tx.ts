@@ -1,5 +1,4 @@
 import { chunk } from '@aztec/foundation/collection';
-import type { P2PClientType } from '@aztec/stdlib/p2p';
 import { TxArray, TxHash, TxHashArray } from '@aztec/stdlib/tx';
 
 import type { PeerId } from '@libp2p/interface';
@@ -16,7 +15,7 @@ import { ReqRespStatus, ReqRespStatusError } from '../status.js';
  * @param mempools - the mempools
  * @returns the Tx request handler
  */
-export function reqRespTxHandler<T extends P2PClientType>(mempools: MemPools<T>): ReqRespSubProtocolHandler {
+export function reqRespTxHandler(mempools: MemPools): ReqRespSubProtocolHandler {
   /**
    * Handler for tx requests
    * @param msg - the tx request message

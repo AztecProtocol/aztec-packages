@@ -47,7 +47,10 @@ export async function proverStats(opts: {
         .then(a => a.rollupAddress);
 
   const chain = createEthereumChain(l1RpcUrls, chainId).chainInfo;
-  const publicClient = createPublicClient({ chain, transport: fallback(l1RpcUrls.map(url => http(url))) });
+  const publicClient = createPublicClient({
+    chain,
+    transport: fallback(l1RpcUrls.map(url => http(url, { batch: false }))),
+  });
   const lastBlockNum = endBlock ?? (await publicClient.getBlockNumber());
   debugLog.verbose(`Querying events on rollup at ${rollup.toString()} from ${startBlock} up to ${lastBlockNum}`);
 

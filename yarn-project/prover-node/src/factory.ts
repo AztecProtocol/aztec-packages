@@ -126,7 +126,7 @@ export async function createProverNode(
 
   const publicClient = createPublicClient({
     chain: chain.chainInfo,
-    transport: fallback(config.l1RpcUrls.map((url: string) => http(url))),
+    transport: fallback(config.l1RpcUrls.map((url: string) => http(url, { batch: false }))),
     pollingInterval: config.viemPollingIntervalMS,
   });
 
