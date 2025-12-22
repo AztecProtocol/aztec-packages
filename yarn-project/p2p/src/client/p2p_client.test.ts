@@ -478,7 +478,11 @@ describe('P2P Client', () => {
       blockSource.addBlocks([block]);
       await client.sync();
 
-      expect(txCollection.startCollecting).toHaveBeenCalledWith(newBlock, [block.body.txEffects[1].txHash]);
+      expect(txCollection.startCollecting).toHaveBeenCalledTimes(2);
+      const [actualBlock, actualTxHashes] = txCollection.startCollecting.mock.calls[1];
+      expect(actualBlock.number).toEqual(newBlock.number);
+      expect(await actualBlock.hash()).toEqual(await newBlock.hash());
+      expect(actualTxHashes).toEqual([block.body.txEffects[1].txHash]);
     });
   });
 });

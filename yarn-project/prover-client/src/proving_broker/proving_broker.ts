@@ -302,6 +302,7 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
       this.resultsCache.delete(id);
       this.inProgress.delete(id);
       this.retries.delete(id);
+      this.enqueuedAt.delete(id);
     }
   }
 
@@ -354,6 +355,8 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
           const enqueuedAt = this.enqueuedAt.get(job.id);
           if (enqueuedAt) {
             this.instrumentation.recordJobWait(job.type, enqueuedAt);
+            // we can clear this flag now.
+            this.enqueuedAt.delete(job.id);
           }
 
           return { job, time };

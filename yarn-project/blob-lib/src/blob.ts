@@ -81,7 +81,7 @@ export class Blob {
   /**
    * Create a Blob from a JSON object.
    *
-   * Blobs will be in this form when requested from the blob sink, or from
+   * Blobs will be in this form when requested from the blob client, or from
    * the beacon chain via `getBlobSidecars`
    * https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/getBlobSidecars
    *

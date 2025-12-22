@@ -2,9 +2,9 @@ import type { Blob } from '@aztec/blob-lib';
 
 import type { BlobStore } from '../blobstore/index.js';
 import { BlobWithIndex } from '../types/blob_with_index.js';
-import type { BlobSinkClientInterface, GetBlobSidecarOptions } from './interface.js';
+import type { BlobClientInterface, GetBlobSidecarOptions } from './interface.js';
 
-export class LocalBlobSinkClient implements BlobSinkClientInterface {
+export class LocalBlobClient implements BlobClientInterface {
   private readonly blobStore: BlobStore;
 
   constructor(blobStore: BlobStore) {
@@ -15,7 +15,7 @@ export class LocalBlobSinkClient implements BlobSinkClientInterface {
     return Promise.resolve();
   }
 
-  public async sendBlobsToBlobSink(blobs: Blob[]): Promise<boolean> {
+  public async sendBlobsToFilestore(blobs: Blob[]): Promise<boolean> {
     const blobsWithIndex = blobs.map((blob, index) => new BlobWithIndex(blob, index));
     await this.blobStore.addBlobs(blobsWithIndex);
     return true;

@@ -1,4 +1,4 @@
-import type { BlobSinkClientInterface } from '@aztec/blob-sink/client';
+import type { BlobClientInterface } from '@aztec/blob-client/client';
 import { EpochCache } from '@aztec/epoch-cache';
 import { isAnvilTestChain } from '@aztec/ethereum/chain';
 import { getPublicClient } from '@aztec/ethereum/client';
@@ -63,7 +63,7 @@ export class SequencerClient {
       l1ToL2MessageSource: L1ToL2MessageSource;
       telemetry: TelemetryClient;
       publisherFactory?: SequencerPublisherFactory;
-      blobSinkClient?: BlobSinkClientInterface;
+      blobClient?: BlobClientInterface;
       dateProvider: DateProvider;
       epochCache?: EpochCache;
       l1TxUtils: L1TxUtilsWithBlobs[];
@@ -122,7 +122,7 @@ export class SequencerClient {
       deps.publisherFactory ??
       new SequencerPublisherFactory(config, {
         telemetry: telemetryClient,
-        blobSinkClient: deps.blobSinkClient,
+        blobClient: deps.blobClient,
         epochCache,
         governanceProposerContract,
         slashFactoryContract,

@@ -5,13 +5,13 @@ import type { L2Block } from '@aztec/aztec.js/block';
 import { Fr } from '@aztec/aztec.js/fields';
 import { createLogger } from '@aztec/aztec.js/log';
 import { GlobalVariables } from '@aztec/aztec.js/tx';
+import { createBlobClient } from '@aztec/blob-client/client';
 import {
   BatchedBlob,
   BatchedBlobAccumulator,
   getBlobsPerL1Block,
   getPrefixedEthBlobCommitments,
 } from '@aztec/blob-lib';
-import { createBlobSinkClient } from '@aztec/blob-sink/client';
 import {
   GENESIS_ARCHIVE_ROOT,
   GENESIS_BLOCK_HEADER_HASH,
@@ -250,7 +250,7 @@ describe('L1Publisher integration', () => {
       l1ContractAddresses.governanceProposerAddress.toString(),
     );
     epochCache = await EpochCache.create(l1ContractAddresses.rollupAddress, config, { dateProvider });
-    const blobSinkClient = createBlobSinkClient();
+    const blobClient = createBlobClient();
     const sequencerPublisherMetrics: MockProxy<SequencerPublisherMetrics> = mock<SequencerPublisherMetrics>();
 
     publisher = new SequencerPublisher(
@@ -264,7 +264,7 @@ describe('L1Publisher integration', () => {
         ethereumSlotDuration: config.ethereumSlotDuration,
       },
       {
-        blobSinkClient,
+        blobClient,
         l1TxUtils,
         rollupContract,
         epochCache,

@@ -5,7 +5,6 @@ import { map, sort, toArray } from '@aztec/foundation/iterable';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { GasFees } from '@aztec/stdlib/gas';
 import type { MerkleTreeReadOperations, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
-import { ChonkProof } from '@aztec/stdlib/proofs';
 import { mockTx } from '@aztec/stdlib/testing';
 import { BlockHeader, GlobalVariables, Tx, TxHash, type TxValidationResult } from '@aztec/stdlib/tx';
 
@@ -76,26 +75,35 @@ describe('KV TX pool', () => {
     const txs = await timesAsync(5, i => mockTx(i + 1));
     await txPool.addTxs(txs);
 
-    const expectedArchivedTxs = txs.map(tx => Tx.from({ ...tx, chonkProof: ChonkProof.empty() }));
+    // Helper to check archived tx by hash
+    const expectArchivedTx = async (txHash: TxHash, shouldExist: boolean) => {
+      const archived = await txPool.getArchivedTxByHash(txHash);
+      if (shouldExist) {
+        expect(archived).toBeDefined();
+        expect(archived!.getTxHash()).toEqual(txHash);
+      } else {
+        expect(archived).toBeUndefined();
+      }
+    };
 
     // delete two txs and assert that they are properly archived
     await txPool.deleteTxs([txs[0].getTxHash(), txs[1].getTxHash()]);
-    await expect(txPool.getArchivedTxByHash(txs[0].getTxHash())).resolves.toEqual(expectedArchivedTxs[0]);
-    await expect(txPool.getArchivedTxByHash(txs[1].getTxHash())).resolves.toEqual(expectedArchivedTxs[1]);
+    await expectArchivedTx(txs[0].getTxHash(), true);
+    await expectArchivedTx(txs[1].getTxHash(), true);
 
     // delete a single tx and assert that the first tx is purged and the new tx is archived
     await txPool.deleteTxs([txs[2].getTxHash()]);
-    await expect(txPool.getArchivedTxByHash(txs[0].getTxHash())).resolves.toBeUndefined();
-    await expect(txPool.getArchivedTxByHash(txs[1].getTxHash())).resolves.toEqual(expectedArchivedTxs[1]);
-    await expect(txPool.getArchivedTxByHash(txs[2].getTxHash())).resolves.toEqual(expectedArchivedTxs[2]);
+    await expectArchivedTx(txs[0].getTxHash(), false);
+    await expectArchivedTx(txs[1].getTxHash(), true);
+    await expectArchivedTx(txs[2].getTxHash(), true);
 
     // delete multiple txs and assert that the old txs are purged and the new txs are archived
     await txPool.deleteTxs([txs[3].getTxHash(), txs[4].getTxHash()]);
-    await expect(txPool.getArchivedTxByHash(txs[0].getTxHash())).resolves.toBeUndefined();
-    await expect(txPool.getArchivedTxByHash(txs[1].getTxHash())).resolves.toBeUndefined();
-    await expect(txPool.getArchivedTxByHash(txs[2].getTxHash())).resolves.toBeUndefined();
-    await expect(txPool.getArchivedTxByHash(txs[3].getTxHash())).resolves.toEqual(expectedArchivedTxs[3]);
-    await expect(txPool.getArchivedTxByHash(txs[4].getTxHash())).resolves.toEqual(expectedArchivedTxs[4]);
+    await expectArchivedTx(txs[0].getTxHash(), false);
+    await expectArchivedTx(txs[1].getTxHash(), false);
+    await expectArchivedTx(txs[2].getTxHash(), false);
+    await expectArchivedTx(txs[3].getTxHash(), true);
+    await expectArchivedTx(txs[4].getTxHash(), true);
   });
 
   it('Evicts low priority txs to satisfy the pending tx size limit', async () => {

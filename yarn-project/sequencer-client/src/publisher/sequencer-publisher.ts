@@ -1,6 +1,6 @@
 import { L2Block } from '@aztec/aztec.js/block';
+import { type BlobClientInterface, createBlobClient } from '@aztec/blob-client/client';
 import { Blob, getBlobsPerL1Block, getPrefixedEthBlobCommitments } from '@aztec/blob-lib';
-import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-sink/client';
 import type { EpochCache } from '@aztec/epoch-cache';
 import type { L1ContractsConfig } from '@aztec/ethereum/config';
 import {
@@ -114,7 +114,7 @@ export class SequencerPublisher {
   protected log: Logger;
   protected ethereumSlotDuration: bigint;
 
-  private blobSinkClient: BlobSinkClientInterface;
+  private blobClient: BlobClientInterface;
 
   /** Address to use for simulations in fisherman mode (actual proposer's address) */
   private proposerAddressForSimulation?: EthAddress;
@@ -144,7 +144,7 @@ export class SequencerPublisher {
     private config: TxSenderConfig & PublisherConfig & Pick<L1ContractsConfig, 'ethereumSlotDuration'>,
     deps: {
       telemetry?: TelemetryClient;
-      blobSinkClient?: BlobSinkClientInterface;
+      blobClient?: BlobClientInterface;
       l1TxUtils: L1TxUtilsWithBlobs;
       rollupContract: RollupContract;
       slashingProposerContract: EmpireSlashingProposerContract | TallySlashingProposerContract | undefined;
@@ -162,8 +162,8 @@ export class SequencerPublisher {
     this.epochCache = deps.epochCache;
     this.lastActions = deps.lastActions;
 
-    this.blobSinkClient =
-      deps.blobSinkClient ?? createBlobSinkClient(config, { logger: createLogger('sequencer:blob-sink:client') });
+    this.blobClient =
+      deps.blobClient ?? createBlobClient(config, { logger: createLogger('sequencer:blob-client:client') });
 
     const telemetry = deps.telemetry ?? getTelemetryClient();
     this.metrics = deps.metrics ?? new SequencerPublisherMetrics(telemetry, 'SequencerPublisher');
@@ -1223,11 +1223,11 @@ export class SequencerPublisher {
         SequencerPublisher.MULTICALL_OVERHEAD_GAS_GUESS, // We issue the simulation against the rollup contract, so we need to account for the overhead of the multicall3
     );
 
-    // Send the blobs to the blob sink preemptively. This helps in tests where the sequencer mistakingly thinks that the propose
-    // tx fails but it does get mined. We make sure that the blobs are sent to the blob sink regardless of the tx outcome.
+    // Send the blobs to the blob client preemptively. This helps in tests where the sequencer mistakingly thinks that the propose
+    // tx fails but it does get mined. We make sure that the blobs are sent to the blob client regardless of the tx outcome.
     void Promise.resolve().then(() =>
-      this.blobSinkClient.sendBlobsToBlobSink(encodedData.blobs).catch(_err => {
-        this.log.error('Failed to send blobs to blob sink');
+      this.blobClient.sendBlobsToFilestore(encodedData.blobs).catch(_err => {
+        this.log.error('Failed to send blobs to blob client');
       }),
     );
 
