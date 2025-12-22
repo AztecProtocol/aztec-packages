@@ -13,5 +13,6 @@ FF compute_public_bytecode_commitment(std::span<const uint8_t> bytecode);
 FF compute_contract_class_id(const FF& artifact_hash, const FF& private_fn_root, const FF& public_bytecode_commitment);
 FF hash_public_keys(const PublicKeys& public_keys);
 FF compute_contract_address(const ContractInstance& contract_instance);
+FF compute_calldata_hash(std::span<const FF> calldata);
 
 } // namespace bb::avm2::simulation
