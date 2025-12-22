@@ -41,6 +41,7 @@ import { TXEStateMachine } from './state_machine/index.js';
 import type { ForeignCallArgs, ForeignCallResult } from './util/encoding.js';
 import { TXEAccountDataProvider } from './util/txe_account_data_provider.js';
 import { TXEContractDataProvider } from './util/txe_contract_data_provider.js';
+import { createUtilityExecutor } from './util/txe_contract_function_simulator.js';
 import { getSingleTxBlockRequestHash, insertTxEffectIntoWorldTrees, makeTXEBlock } from './utils/block_creation.js';
 import { makeTxEffect } from './utils/tx_effect_creation.js';
 
@@ -305,11 +306,26 @@ export class TXESession implements TXESessionStateHandler {
     const noteCache = new ExecutionNoteCache(protocolNullifier);
     const taggingIndexCache = new ExecutionTaggingIndexCache();
 
+    const { utilityExecutor } = createUtilityExecutor({
+      contractDataProvider: this.contractDataProvider,
+      noteDataProvider: this.noteDataProvider,
+      keyStore: this.keyStore,
+      addressDataProvider: this.addressDataProvider,
+      aztecNode: this.stateMachine.node,
+      anchorBlockDataProvider: this.stateMachine.anchorBlockDataProvider,
+      senderTaggingDataProvider: this.senderTaggingDataProvider,
+      recipientTaggingDataProvider: this.recipientTaggingDataProvider,
+      capsuleDataProvider: this.capsuleDataProvider,
+      privateEventDataProvider: this.privateEventDataProvider,
+      anchorBlockHeader: anchorBlock!,
+    });
+
     this.oracleHandler = new PrivateExecutionOracle(
       Fr.ZERO,
       new TxContext(this.chainId, this.version, GasSettings.empty()),
       new CallContext(AztecAddress.ZERO, contractAddress, FunctionSelector.empty(), false),
       anchorBlock!,
+      utilityExecutor,
       [],
       [],
       new HashedValuesCache(),
