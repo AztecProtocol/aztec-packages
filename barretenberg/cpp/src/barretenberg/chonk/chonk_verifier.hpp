@@ -23,7 +23,7 @@ namespace bb {
 
 /**
  * @brief Verifier for Chonk IVC proofs (both native and recursive).
- * @details Creates circuit constraints that verify a Chonk proof, which consists of:
+ * @details Consists of:
  *   1. MegaZK proof of the hiding kernel
  *   2. Goblin proof (Merge + ECCVM + Translator) - note: IPA is NOT verified here in recursive mode
  *
@@ -58,8 +58,6 @@ template <bool IsRecursive> class ChonkVerifier {
     static constexpr size_t NUM_PAIRING_POINTS = 4;
 
   public:
-    using GoblinVerificationKey = Goblin::VerificationKey;
-
     /**
      * @brief Result of Chonk verification reduction (recursive mode only)
      * @details Contains aggregated pairing points and IPA verification data for deferred verification

@@ -12,14 +12,6 @@ namespace bb {
 
 /**
  * @brief Verifies a Chonk IVC proof (Native specialization).
- * @details Performs full verification including:
- *   1. MegaZK verification of the hiding kernel proof (with pairing check)
- *   2. Databus consistency check (kernel return data == calldata commitment)
- *   3. Goblin verification using ECC op wire commitments from the kernel
- *   4. IPA verification
- *
- * @param proof Native Chonk proof
- * @return bool indicating whether verification succeeded
  */
 template <> ChonkVerifier<false>::Output ChonkVerifier<false>::verify(const Proof& proof)
 {
@@ -70,15 +62,7 @@ template <> ChonkVerifier<false>::Output ChonkVerifier<false>::verify(const Proo
 }
 
 /**
- * @brief Verifies a Chonk IVC proof (Recursive specialization).
- * @details Performs verification and returns deferred verification data:
- *   1. MegaZK verification of the hiding kernel proof
- *   2. Databus consistency check (kernel return data == calldata commitment)
- *   3. Goblin verification using ECC op wire commitments from the kernel
- *   4. Aggregates all pairing points for deferred verification
- *
- * @param proof Recursive Chonk proof (ChonkStdlibProof)
- * @return ReductionResult containing aggregated pairing points and IPA claim
+ * @brief Verifies a Chonk IVC proof in-circuit.
  */
 template <> ChonkVerifier<true>::Output ChonkVerifier<true>::verify(const Proof& proof)
 {
