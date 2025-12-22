@@ -1329,6 +1329,62 @@ void ProgramBlock::process_sha256compression_instruction(SHA256COMPRESSION_Instr
     }
 }
 
+void ProgramBlock::process_l1tol2msgexists_instruction(L1TOL2MSGEXISTS_Instruction instruction)
+{
+    auto msg_hash_operand = memory_manager.get_resolved_address_and_operand_16(instruction.msg_hash_address);
+    auto leaf_index_operand = memory_manager.get_resolved_address_and_operand_16(instruction.leaf_index_address);
+    auto result_operand = memory_manager.get_resolved_address_and_operand_16(instruction.result_address);
+
+    if (!msg_hash_operand.has_value() || !leaf_index_operand.has_value() || !result_operand.has_value()) {
+        return;
+    }
+
+    preprocess_memory_addresses(msg_hash_operand.value().first);
+    preprocess_memory_addresses(leaf_index_operand.value().first);
+    preprocess_memory_addresses(result_operand.value().first);
+
+    auto l1tol2msgexists_instruction = bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::L1TOL2MSGEXISTS)
+                                           .operand(msg_hash_operand.value().second)
+                                           .operand(leaf_index_operand.value().second)
+                                           .operand(result_operand.value().second)
+                                           .build();
+    instructions.push_back(l1tol2msgexists_instruction);
+    memory_manager.set_memory_address(bb::avm2::MemoryTag::U1, result_operand.value().first.absolute_address);
+}
+
+void ProgramBlock::process_toradixbe_instruction(TORADIXBE_Instruction instruction)
+{
+    auto value_operand = memory_manager.get_resolved_address_and_operand_16(instruction.value_address);
+    auto radix_operand = memory_manager.get_resolved_address_and_operand_16(instruction.radix_address);
+    auto num_limbs_operand = memory_manager.get_resolved_address_and_operand_16(instruction.num_limbs_address);
+    auto output_bits_operand = memory_manager.get_resolved_address_and_operand_16(instruction.output_bits_address);
+    auto dst_operand = memory_manager.get_resolved_address_and_operand_16(instruction.dst_address);
+
+    if (!value_operand.has_value() || !radix_operand.has_value() || !num_limbs_operand.has_value() ||
+        !output_bits_operand.has_value() || !dst_operand.has_value()) {
+        return;
+    }
+
+    preprocess_memory_addresses(value_operand.value().first);
+    preprocess_memory_addresses(radix_operand.value().first);
+    preprocess_memory_addresses(num_limbs_operand.value().first);
+    preprocess_memory_addresses(output_bits_operand.value().first);
+    preprocess_memory_addresses(dst_operand.value().first);
+
+    auto toradixbe_instruction = bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::TORADIXBE)
+                                     .operand(dst_operand.value().second)
+                                     .operand(value_operand.value().second)
+                                     .operand(radix_operand.value().second)
+                                     .operand(num_limbs_operand.value().second)
+                                     .operand(output_bits_operand.value().second)
+                                     .build();
+    instructions.push_back(toradixbe_instruction);
+
+    // Use is_output_bits to determine the output memory tag
+    auto output_tag = instruction.is_output_bits ? bb::avm2::MemoryTag::U1 : bb::avm2::MemoryTag::U8;
+    memory_manager.set_memory_address(output_tag, dst_operand.value().first.absolute_address);
+}
+
 void ProgramBlock::finalize_with_return(uint8_t return_size,
                                         MemoryTagWrapper return_value_tag,
                                         uint16_t return_value_offset_index)
@@ -1517,6 +1573,10 @@ void ProgramBlock::process_instruction(FuzzInstruction instruction)
             [this](SHA256COMPRESSION_Instruction instruction) {
                 return this->process_sha256compression_instruction(instruction);
             },
+            [this](L1TOL2MSGEXISTS_Instruction instruction) {
+                return this->process_l1tol2msgexists_instruction(instruction);
+            },
+            [this](TORADIXBE_Instruction instruction) { return this->process_toradixbe_instruction(instruction); },
             [](auto) { throw std::runtime_error("Unknown instruction"); },
         },
         instruction);

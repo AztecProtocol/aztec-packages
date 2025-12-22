@@ -237,6 +237,8 @@ enum class InstructionGenerationOptions {
     SET_64,
     SET_128,
     SET_FF,
+    MOV_8,
+    MOV_16,
     ADD_16,
     SUB_16,
     MUL_16,
@@ -258,6 +260,7 @@ enum class InstructionGenerationOptions {
     GETENVVAR,
     EMITNULLIFIER,
     NULLIFIEREXISTS,
+    L1TOL2MSGEXISTS,
     EMITNOTEHASH,
     NOTEHASHEXISTS,
     CALLDATACOPY,
@@ -274,7 +277,7 @@ enum class InstructionGenerationOptions {
     TORADIXBE,
 };
 
-using InstructionGenerationConfig = WeightedSelectionConfig<InstructionGenerationOptions, 55>;
+using InstructionGenerationConfig = WeightedSelectionConfig<InstructionGenerationOptions, 58>;
 
 constexpr InstructionGenerationConfig BASIC_INSTRUCTION_GENERATION_CONFIGURATION = InstructionGenerationConfig({
     { InstructionGenerationOptions::ADD_8, 1 },
@@ -297,6 +300,8 @@ constexpr InstructionGenerationConfig BASIC_INSTRUCTION_GENERATION_CONFIGURATION
     { InstructionGenerationOptions::SET_64, 1 },
     { InstructionGenerationOptions::SET_128, 1 },
     { InstructionGenerationOptions::SET_FF, 1 },
+    { InstructionGenerationOptions::MOV_8, 1 },
+    { InstructionGenerationOptions::MOV_16, 1 },
     { InstructionGenerationOptions::ADD_16, 1 },
     { InstructionGenerationOptions::SUB_16, 1 },
     { InstructionGenerationOptions::MUL_16, 1 },
@@ -318,6 +323,7 @@ constexpr InstructionGenerationConfig BASIC_INSTRUCTION_GENERATION_CONFIGURATION
     { InstructionGenerationOptions::GETENVVAR, 1 },
     { InstructionGenerationOptions::EMITNULLIFIER, 1 },
     { InstructionGenerationOptions::NULLIFIEREXISTS, 1 },
+    { InstructionGenerationOptions::L1TOL2MSGEXISTS, 1 },
     { InstructionGenerationOptions::EMITNOTEHASH, 1 },
     { InstructionGenerationOptions::NOTEHASHEXISTS, 1 },
     { InstructionGenerationOptions::CALLDATACOPY, 1 },
@@ -367,6 +373,15 @@ constexpr NullifierExistsMutationConfig BASIC_NULLIFIER_EXISTS_MUTATION_CONFIGUR
     { NullifierExistsMutationOptions::nullifier_address, 1 },
     { NullifierExistsMutationOptions::contract_address_address, 1 },
     { NullifierExistsMutationOptions::result_address, 1 },
+});
+
+enum class L1ToL2MsgExistsMutationOptions { msg_hash_address, leaf_index_address, result_address };
+using L1ToL2MsgExistsMutationConfig = WeightedSelectionConfig<L1ToL2MsgExistsMutationOptions, 3>;
+
+constexpr L1ToL2MsgExistsMutationConfig BASIC_L1TOL2MSGEXISTS_MUTATION_CONFIGURATION = L1ToL2MsgExistsMutationConfig({
+    { L1ToL2MsgExistsMutationOptions::msg_hash_address, 1 },
+    { L1ToL2MsgExistsMutationOptions::leaf_index_address, 1 },
+    { L1ToL2MsgExistsMutationOptions::result_address, 1 },
 });
 
 enum class EmitNoteHashMutationOptions { note_hash_address, note_hash };
@@ -480,9 +495,10 @@ enum class ToRadixBEMutationOptions {
     radix_address,
     num_limbs_address,
     output_bits_address,
-    dst_address
+    dst_address,
+    is_output_bits
 };
-using ToRadixBEMutationConfig = WeightedSelectionConfig<ToRadixBEMutationOptions, 5>;
+using ToRadixBEMutationConfig = WeightedSelectionConfig<ToRadixBEMutationOptions, 6>;
 
 constexpr ToRadixBEMutationConfig BASIC_TORADIXBE_MUTATION_CONFIGURATION = ToRadixBEMutationConfig({
     { ToRadixBEMutationOptions::value_address, 1 },
@@ -490,6 +506,7 @@ constexpr ToRadixBEMutationConfig BASIC_TORADIXBE_MUTATION_CONFIGURATION = ToRad
     { ToRadixBEMutationOptions::num_limbs_address, 1 },
     { ToRadixBEMutationOptions::output_bits_address, 1 },
     { ToRadixBEMutationOptions::dst_address, 1 },
+    { ToRadixBEMutationOptions::is_output_bits, 1 },
 });
 
 enum class ReturnOptionsMutationOptions { return_size, return_value_tag, return_value_offset_index };
