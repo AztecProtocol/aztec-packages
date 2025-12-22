@@ -15,18 +15,33 @@ using namespace bb::avm2::fuzzer;
 
 FuzzerWorldStateManager* ws_mgr = nullptr;
 
+void register_functions()
+{
+    for (auto& function : PREDEFINED_FUNCTIONS) {
+        try {
+            ContractDBProxy::register_contract_from_bytecode(function);
+        } catch (...) {
+            std::cout << "Failed to register predefined function: " << function.size() << std::endl;
+            continue;
+        }
+    }
+}
+
 SimulatorResult simulate_with_default_tx(std::vector<uint8_t>& bytecode, std::vector<FF> calldata)
 {
     FuzzerWorldStateManager::initialize();
     if (ws_mgr == nullptr) {
         ws_mgr = FuzzerWorldStateManager::getInstance();
     }
+    ws_mgr->fork();
+
+    register_functions();
+
     ContractDBProxy* contract_db_proxy = ContractDBProxy::get_instance();
     auto contract_address = ContractDBProxy::register_contract_from_bytecode(bytecode);
     FuzzerContractDB contract_db = *contract_db_proxy->get_contract_db();
 
     auto tx = create_default_tx(contract_address, MSG_SENDER, calldata, TRANSACTION_FEE, IS_STATIC_CALL, GAS_LIMIT);
-    // Calculate fee the same way as fuzz.cpp does
     FF fee_required_da = FF(tx.effective_gas_fees.fee_per_da_gas) * FF(tx.gas_settings.gas_limits.da_gas);
     FF fee_required_l2 = FF(tx.effective_gas_fees.fee_per_l2_gas) * FF(tx.gas_settings.gas_limits.l2_gas);
     ws_mgr->write_fee_payer_balance(tx.fee_payer, fee_required_da + fee_required_l2);
@@ -36,6 +51,7 @@ SimulatorResult simulate_with_default_tx(std::vector<uint8_t>& bytecode, std::ve
     try {
         auto result = cpp_simulator.simulate(*ws_mgr, contract_db, tx);
         ws_mgr->revert();
+        ws_mgr->reset_world_state();
         return result;
     } catch (...) {
         ws_mgr->revert();
@@ -1047,7 +1063,6 @@ TEST(fuzz, SstoreThenSload)
     auto control_flow = ControlFlow(instruction_blocks);
     control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
     auto bytecode = control_flow.build_bytecode(return_options);
-    std::cout << "bytecode: " << bytecode << std::endl;
 
     auto result = simulate_with_default_tx(bytecode, {});
     EXPECT_EQ(result.output.at(0), 10);
@@ -1495,10 +1510,9 @@ TEST(fuzz, EmitUnencryptedLog)
 namespace external_calls {
 
 /// call(ADD8), returndatacopy, return
-/// ADD8: 2 + 5
+/// ADD8: 1 + 1
 TEST(fuzz, ExternalCallToAdd8)
 {
-
     auto call_instruction = CALL_Instruction{ .function_index = 0,
                                               .address_offset = 1,
                                               .l2_gas = 10000,
@@ -1520,7 +1534,7 @@ TEST(fuzz, ExternalCallToAdd8)
     auto bytecode = control_flow.build_bytecode(
         ReturnOptions{ .return_size = 1, .return_value_tag = bb::avm2::MemoryTag::FF, .return_value_offset_index = 1 });
     auto result = simulate_with_default_tx(bytecode, {});
-    EXPECT_EQ(result.output.at(0), 7);
+    EXPECT_EQ(result.output.at(0), 2);
 }
 
 FF get_contract_instance_helper(uint8_t member_enum, bb::avm2::MemoryTag return_value_tag = bb::avm2::MemoryTag::FF)
@@ -1543,10 +1557,11 @@ FF get_contract_instance_helper(uint8_t member_enum, bb::avm2::MemoryTag return_
 
 TEST(fuzz, GetContractInstance)
 {
+
     EXPECT_EQ(get_contract_instance_helper(0),
               FF("0x0000000000000000000000000000000000000000000000000000000000000064")); // DEPLOYER
     EXPECT_EQ(get_contract_instance_helper(1),
-              FF("0x1cc6b6f9a4f8834a63689f91f9c9fe3d9cd6266ac269937806f8ed16c2577a4b")); // CLASS_ID
+              FF("0x0dc97dd1cc90c276ca76f34abb5085e1ae3addd8ace763a5da908bacf147d972")); // CLASS_ID
     EXPECT_EQ(get_contract_instance_helper(2),
               FF("0x0000000000000000000000000000000000000000000000000000000000000000")); // INIT HASH
     EXPECT_EQ(get_contract_instance_helper(0, bb::avm2::MemoryTag::U1), FF::one());      // EXISTS
@@ -1555,7 +1570,7 @@ TEST(fuzz, GetContractInstance)
 // Calls add8, sucesscopy, return
 TEST(fuzz, SuccessCopy)
 {
-    auto call_instruction = CALL_Instruction{ .function_index = 0,
+    auto call_instruction = CALL_Instruction{ .function_index = 1,
                                               .address_offset = 1,
                                               .l2_gas = 10000,
                                               .l2_gas_address = 2,
@@ -1564,7 +1579,7 @@ TEST(fuzz, SuccessCopy)
                                               .arg_size_offset = 4,
                                               .args_offset = 5,
                                               .args = {},
-                                              .is_static_call = false };
+                                              .is_static_call = true };
     auto successcopy_instruction =
         SUCCESSCOPY_Instruction{ .dst_address = AddressRef{ .address = 6, .mode = AddressingMode::Direct } };
     auto instruction_blocks =
@@ -1578,9 +1593,9 @@ TEST(fuzz, SuccessCopy)
     EXPECT_EQ(result.output.at(0), FF::one());
 }
 
-// Performs static call to SSTORE_THAN_SLOAD, SUCESSCOPY, RETURN
+// Performs static call to SSTORE_THAN_SLOAD, SLOAD[10], RETURN
 // The result should be 0
-TEST(fuzz, SSTOREThanSLoad)
+TEST(fuzz, StaticCallToSSTOREThanSLoad)
 {
     auto static_call_instruction = CALL_Instruction{ .function_index = 1,
                                                      .address_offset = 1,

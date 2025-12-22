@@ -1110,10 +1110,10 @@ void ProgramBlock::process_call_instruction(CALL_Instruction instruction)
         this->process_set_ff_instruction(set_arg_instruction);
         arg_index++;
     }
-    auto call_instruction_builde = instruction.is_static_call
-                                       ? bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::STATICCALL)
-                                       : bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::CALL);
-    auto call_instruction = call_instruction_builde.operand(instruction.l2_gas_address)
+    auto call_instruction_builder = instruction.is_static_call
+                                        ? bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::STATICCALL)
+                                        : bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::CALL);
+    auto call_instruction = call_instruction_builder.operand(instruction.l2_gas_address)
                                 .operand(instruction.da_gas_address)
                                 .operand(instruction.address_offset)
                                 .operand(instruction.arg_size_offset)
