@@ -1,27 +1,12 @@
-use crate::{
-    messages::{
-        discovery::{ComputeNoteHashAndNullifier, nonce_discovery::attempt_note_nonce_discovery},
-        encoding::MAX_MESSAGE_CONTENT_LEN,
-        processing::enqueue_note_for_validation,
-    },
-    utils::array,
+use crate::messages::{
+    discovery::{ComputeNoteHashAndNullifier, nonce_discovery::attempt_note_nonce_discovery},
+    encoding::MAX_MESSAGE_CONTENT_LEN,
+    logs::note::{decode_private_note_message, MAX_NOTE_PACKED_LEN},
+    processing::enqueue_note_for_validation,
 };
 use protocol_types::{
     address::AztecAddress, constants::MAX_NOTE_HASHES_PER_TX, debug_log::debug_log_format,
-    traits::FromField,
 };
-
-/// The number of fields in a private note message content that are not the note's packed representation.
-// See the call to `std::static_assert` below to see what's in these fields.
-global PRIVATE_NOTE_MSG_CONTENT_NON_NOTE_FIELDS_LEN: u32 = 3;
-global PRIVATE_NOTE_MSG_CONTENT_OWNER_INDEX: u32 = 0;
-global PRIVATE_NOTE_MSG_CONTENT_STORAGE_SLOT_INDEX: u32 = 1;
-global PRIVATE_NOTE_MSG_CONTENT_RANDOMNESS_INDEX: u32 = 2;
-
-/// The maximum length of the packed representation of a note's contents. This is limited by private log size,
-/// encryption overhead and extra fields in the message (e.g. message type id, storage slot, randomness, etc.).
-pub global MAX_NOTE_PACKED_LEN: u32 =
-    MAX_MESSAGE_CONTENT_LEN - PRIVATE_NOTE_MSG_CONTENT_NON_NOTE_FIELDS_LEN;
 
 pub unconstrained fn process_private_note_msg<Env>(
     contract_address: AztecAddress,
@@ -34,7 +19,7 @@ pub unconstrained fn process_private_note_msg<Env>(
     msg_content: BoundedVec<Field, MAX_MESSAGE_CONTENT_LEN>,
 ) {
     let (note_type_id, owner, storage_slot, randomness, packed_note) =
-        decode_private_note_msg(msg_metadata, msg_content);
+        decode_private_note_message(msg_metadata, msg_content);
 
     attempt_note_discovery(
         contract_address,
@@ -97,31 +82,4 @@ pub unconstrained fn attempt_note_discovery<Env>(
             recipient,
         );
     });
-}
-
-fn decode_private_note_msg(
-    msg_metadata: u64,
-    msg_content: BoundedVec<Field, MAX_MESSAGE_CONTENT_LEN>,
-) -> (Field, AztecAddress, Field, Field, BoundedVec<Field, MAX_NOTE_PACKED_LEN>) {
-    let note_type_id = msg_metadata as Field; // TODO: make note type id not be a full field
-
-    assert(
-        msg_content.len() > PRIVATE_NOTE_MSG_CONTENT_NON_NOTE_FIELDS_LEN,
-        f"Invalid private note message: all private note messages must have at least {PRIVATE_NOTE_MSG_CONTENT_NON_NOTE_FIELDS_LEN} fields",
-    );
-
-    // If PRIVATE_NOTE_MSG_CONTENT_NON_NOTE_FIELDS_LEN is changed, causing the assertion below to fail, then the
-    // destructuring of the private note message encoding below must be updated as well.
-    std::static_assert(
-        PRIVATE_NOTE_MSG_CONTENT_NON_NOTE_FIELDS_LEN == 3,
-        "unexpected value for PRIVATE_NOTE_MSG_CONTENT_NON_NOTE_FIELDS_LEN",
-    );
-
-    // We currently have two fields that are not the note's packed representation, which are the owner and the storage slot.
-    let owner = AztecAddress::from_field(msg_content.get(PRIVATE_NOTE_MSG_CONTENT_OWNER_INDEX));
-    let storage_slot = msg_content.get(PRIVATE_NOTE_MSG_CONTENT_STORAGE_SLOT_INDEX);
-    let randomness = msg_content.get(PRIVATE_NOTE_MSG_CONTENT_RANDOMNESS_INDEX);
-    let packed_note = array::subbvec(msg_content, PRIVATE_NOTE_MSG_CONTENT_NON_NOTE_FIELDS_LEN);
-
-    (note_type_id, owner, storage_slot, randomness, packed_note)
 }
