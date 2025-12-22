@@ -104,7 +104,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
   private lastSlotForValidationBlock: bigint | undefined;
 
   /** The last epoch for which we logged strategy comparison in fisherman mode. */
-  private lastEpochForStrategyComparison: EpochNumber | undefined;
+  private lastEpochForStrategyComparison: bigint | undefined;
 
   /** The maximum number of seconds that the sequencer can be into a slot to transition to a particular state. */
   protected timetable!: SequencerTimetable;
@@ -1255,7 +1255,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
   /**
    * Logs strategy comparison statistics at the end of each epoch in fisherman mode
    */
-  private logStrategyComparison(epoch: EpochNumber, publisher: SequencerPublisher): void {
+  private logStrategyComparison(epoch: bigint, publisher: SequencerPublisher): void {
     const feeAnalyzer = publisher.getL1FeeAnalyzer();
     if (!feeAnalyzer) {
       return;
