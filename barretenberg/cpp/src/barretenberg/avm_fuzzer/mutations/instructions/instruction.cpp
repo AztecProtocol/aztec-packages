@@ -114,6 +114,128 @@ std::vector<FuzzInstruction> generate_ecadd_instruction(std::mt19937_64& rng)
     return instructions;
 }
 
+// Helper to generate a SET instruction for a given tag at a given address
+FuzzInstruction generate_set_for_tag(bb::avm2::MemoryTag tag, AddressRef addr, std::mt19937_64& rng)
+{
+    switch (tag) {
+    case bb::avm2::MemoryTag::U1:
+        return SET_8_Instruction{ .value_tag = tag, .result_address = addr, .value = static_cast<uint8_t>(rng() & 1) };
+    case bb::avm2::MemoryTag::U8:
+        return SET_8_Instruction{ .value_tag = tag, .result_address = addr, .value = generate_random_uint8(rng) };
+    case bb::avm2::MemoryTag::U16:
+        return SET_16_Instruction{ .value_tag = tag, .result_address = addr, .value = generate_random_uint16(rng) };
+    case bb::avm2::MemoryTag::U32:
+        return SET_32_Instruction{ .value_tag = tag, .result_address = addr, .value = generate_random_uint32(rng) };
+    case bb::avm2::MemoryTag::U64:
+        return SET_64_Instruction{ .value_tag = tag, .result_address = addr, .value = generate_random_uint64(rng) };
+    case bb::avm2::MemoryTag::U128:
+        return SET_128_Instruction{ .value_tag = tag,
+                                    .result_address = addr,
+                                    .value_low = generate_random_uint64(rng),
+                                    .value_high = generate_random_uint64(rng) };
+    case bb::avm2::MemoryTag::FF:
+    default:
+        return SET_FF_Instruction{ .value_tag = tag, .result_address = addr, .value = generate_random_field(rng) };
+    }
+}
+
+// Generate binary ALU instruction with optional backfill for matching tagged operands
+template <typename InstructionType>
+std::vector<FuzzInstruction> generate_alu_with_matching_tags(std::mt19937_64& rng, uint32_t max_operand)
+{
+    bool use_backfill = std::uniform_int_distribution<int>(0, 1)(rng) == 0;
+
+    if (!use_backfill) {
+        return { InstructionType{ .a_address = generate_variable_ref(rng),
+                                  .b_address = generate_variable_ref(rng),
+                                  .result_address = generate_address_ref(rng, max_operand) } };
+    }
+
+    auto tag = generate_memory_tag(rng, BASIC_MEMORY_TAG_GENERATION_CONFIGURATION);
+    AddressRef a_addr = generate_address_ref(rng, max_operand);
+    AddressRef b_addr = generate_address_ref(rng, max_operand);
+
+    std::vector<FuzzInstruction> instructions;
+    instructions.push_back(generate_set_for_tag(tag, a_addr, rng));
+    instructions.push_back(generate_set_for_tag(tag, b_addr, rng));
+    instructions.push_back(InstructionType{
+        .a_address = a_addr, .b_address = b_addr, .result_address = generate_address_ref(rng, max_operand) });
+    return instructions;
+}
+
+// Generate binary ALU instruction with optional backfill for matching non-FF tagged operands
+// Used for bitwise operations (AND, OR, XOR) and integer DIV which don't support FF
+template <typename InstructionType>
+std::vector<FuzzInstruction> generate_alu_with_matching_tags_not_ff(std::mt19937_64& rng, uint32_t max_operand)
+{
+    bool use_backfill = std::uniform_int_distribution<int>(0, 1)(rng) == 0;
+
+    if (!use_backfill) {
+        return { InstructionType{ .a_address = generate_variable_ref(rng),
+                                  .b_address = generate_variable_ref(rng),
+                                  .result_address = generate_address_ref(rng, max_operand) } };
+    }
+
+    // Pick a random non-FF tag (U1, U8, U16, U32, U64, U128)
+    static constexpr std::array<bb::avm2::MemoryTag, 6> int_tags = {
+        bb::avm2::MemoryTag::U1,  bb::avm2::MemoryTag::U8,  bb::avm2::MemoryTag::U16,
+        bb::avm2::MemoryTag::U32, bb::avm2::MemoryTag::U64, bb::avm2::MemoryTag::U128
+    };
+    auto tag = int_tags[std::uniform_int_distribution<size_t>(0, int_tags.size() - 1)(rng)];
+
+    AddressRef a_addr = generate_address_ref(rng, max_operand);
+    AddressRef b_addr = generate_address_ref(rng, max_operand);
+
+    std::vector<FuzzInstruction> instructions;
+    instructions.push_back(generate_set_for_tag(tag, a_addr, rng));
+    instructions.push_back(generate_set_for_tag(tag, b_addr, rng));
+    instructions.push_back(InstructionType{
+        .a_address = a_addr, .b_address = b_addr, .result_address = generate_address_ref(rng, max_operand) });
+    return instructions;
+}
+
+std::vector<FuzzInstruction> generate_fdiv_instruction(std::mt19937_64& rng, uint32_t max_operand)
+{
+    bool use_backfill = std::uniform_int_distribution<int>(0, 1)(rng) == 0;
+
+    if (!use_backfill) {
+        // Random mode: use existing memory values
+        return { FDIV_8_Instruction{ .a_address = generate_variable_ref(rng),
+                                     .b_address = generate_variable_ref(rng),
+                                     .result_address = generate_address_ref(rng, max_operand) } };
+    }
+
+    // Backfill mode: generate two non-zero FF values
+    std::vector<FuzzInstruction> instructions;
+    instructions.reserve(3);
+
+    // Generate non-zero field values (avoid division by zero)
+    auto generate_nonzero_field = [&rng]() {
+        bb::avm2::FF value;
+        do {
+            value = generate_random_field(rng);
+        } while (value.is_zero());
+        return value;
+    };
+
+    AddressRef a_addr = generate_address_ref(rng, max_operand);
+    AddressRef b_addr = generate_address_ref(rng, max_operand);
+
+    // SET the dividend (a)
+    instructions.push_back(SET_FF_Instruction{
+        .value_tag = bb::avm2::MemoryTag::FF, .result_address = a_addr, .value = generate_nonzero_field() });
+
+    // SET the divisor (b) - must be non-zero
+    instructions.push_back(SET_FF_Instruction{
+        .value_tag = bb::avm2::MemoryTag::FF, .result_address = b_addr, .value = generate_nonzero_field() });
+
+    // FDIV instruction
+    instructions.push_back(FDIV_8_Instruction{
+        .a_address = a_addr, .b_address = b_addr, .result_address = generate_address_ref(rng, max_operand) });
+
+    return instructions;
+}
+
 std::vector<FuzzInstruction> generate_keccakf_instruction(std::mt19937_64& rng)
 {
     bool use_backfill = std::uniform_int_distribution<int>(0, 1)(rng) == 0;
@@ -186,21 +308,15 @@ std::vector<FuzzInstruction> generate_instruction(std::mt19937_64& rng)
     // forgive me
     switch (option) {
     case InstructionGenerationOptions::ADD_8:
-        return { ADD_8_Instruction{ .a_address = generate_variable_ref(rng),
-                                    .b_address = generate_variable_ref(rng),
-                                    .result_address = generate_address_ref(rng, MAX_8BIT_OPERAND) } };
+        return generate_alu_with_matching_tags<ADD_8_Instruction>(rng, MAX_8BIT_OPERAND);
     case InstructionGenerationOptions::SUB_8:
-        return { SUB_8_Instruction{ .a_address = generate_variable_ref(rng),
-                                    .b_address = generate_variable_ref(rng),
-                                    .result_address = generate_address_ref(rng, MAX_8BIT_OPERAND) } };
+        return generate_alu_with_matching_tags<SUB_8_Instruction>(rng, MAX_8BIT_OPERAND);
     case InstructionGenerationOptions::MUL_8:
-        return { MUL_8_Instruction{ .a_address = generate_variable_ref(rng),
-                                    .b_address = generate_variable_ref(rng),
-                                    .result_address = generate_address_ref(rng, MAX_8BIT_OPERAND) } };
+        return generate_alu_with_matching_tags<MUL_8_Instruction>(rng, MAX_8BIT_OPERAND);
     case InstructionGenerationOptions::DIV_8:
-        return { DIV_8_Instruction{ .a_address = generate_variable_ref(rng),
-                                    .b_address = generate_variable_ref(rng),
-                                    .result_address = generate_address_ref(rng, MAX_8BIT_OPERAND) } };
+        return generate_alu_with_matching_tags_not_ff<DIV_8_Instruction>(rng, MAX_8BIT_OPERAND);
+    case InstructionGenerationOptions::FDIV_8:
+        return generate_fdiv_instruction(rng, MAX_8BIT_OPERAND);
     case InstructionGenerationOptions::EQ_8:
         return { EQ_8_Instruction{ .a_address = generate_variable_ref(rng),
                                    .b_address = generate_variable_ref(rng),
@@ -214,16 +330,13 @@ std::vector<FuzzInstruction> generate_instruction(std::mt19937_64& rng)
                                     .b_address = generate_variable_ref(rng),
                                     .result_address = generate_address_ref(rng, MAX_8BIT_OPERAND) } };
     case InstructionGenerationOptions::AND_8:
-        return { AND_8_Instruction{ .a_address = generate_variable_ref(rng),
-                                    .b_address = generate_variable_ref(rng),
-                                    .result_address = generate_address_ref(rng, MAX_8BIT_OPERAND) } };
+        return generate_alu_with_matching_tags_not_ff<AND_8_Instruction>(rng, MAX_8BIT_OPERAND);
     case InstructionGenerationOptions::OR_8:
-        return { OR_8_Instruction{ .a_address = generate_variable_ref(rng),
-                                   .b_address = generate_variable_ref(rng),
-                                   .result_address = generate_address_ref(rng, MAX_8BIT_OPERAND) } };
+        return generate_alu_with_matching_tags_not_ff<OR_8_Instruction>(rng, MAX_8BIT_OPERAND);
     case InstructionGenerationOptions::XOR_8:
-        return { XOR_8_Instruction{ .a_address = generate_variable_ref(rng),
-                                    .b_address = generate_variable_ref(rng),
+        return generate_alu_with_matching_tags_not_ff<XOR_8_Instruction>(rng, MAX_8BIT_OPERAND);
+    case InstructionGenerationOptions::NOT_8:
+        return { NOT_8_Instruction{ .a_address = generate_variable_ref(rng),
                                     .result_address = generate_address_ref(rng, MAX_8BIT_OPERAND) } };
     case InstructionGenerationOptions::SHL_8:
         return { SHL_8_Instruction{ .a_address = generate_variable_ref(rng),
@@ -260,21 +373,13 @@ std::vector<FuzzInstruction> generate_instruction(std::mt19937_64& rng)
                                      .result_address = generate_address_ref(rng, MAX_16BIT_OPERAND),
                                      .value = generate_random_field(rng) } };
     case InstructionGenerationOptions::ADD_16:
-        return { ADD_16_Instruction{ .a_address = generate_variable_ref(rng),
-                                     .b_address = generate_variable_ref(rng),
-                                     .result_address = generate_address_ref(rng, MAX_16BIT_OPERAND) } };
+        return generate_alu_with_matching_tags<ADD_16_Instruction>(rng, MAX_16BIT_OPERAND);
     case InstructionGenerationOptions::SUB_16:
-        return { SUB_16_Instruction{ .a_address = generate_variable_ref(rng),
-                                     .b_address = generate_variable_ref(rng),
-                                     .result_address = generate_address_ref(rng, MAX_16BIT_OPERAND) } };
+        return generate_alu_with_matching_tags<SUB_16_Instruction>(rng, MAX_16BIT_OPERAND);
     case InstructionGenerationOptions::MUL_16:
-        return { MUL_16_Instruction{ .a_address = generate_variable_ref(rng),
-                                     .b_address = generate_variable_ref(rng),
-                                     .result_address = generate_address_ref(rng, MAX_16BIT_OPERAND) } };
+        return generate_alu_with_matching_tags<MUL_16_Instruction>(rng, MAX_16BIT_OPERAND);
     case InstructionGenerationOptions::DIV_16:
-        return { DIV_16_Instruction{ .a_address = generate_variable_ref(rng),
-                                     .b_address = generate_variable_ref(rng),
-                                     .result_address = generate_address_ref(rng, MAX_16BIT_OPERAND) } };
+        return generate_alu_with_matching_tags_not_ff<DIV_16_Instruction>(rng, MAX_16BIT_OPERAND);
     case InstructionGenerationOptions::FDIV_16:
         return { FDIV_16_Instruction{ .a_address = generate_variable_ref(rng),
                                       .b_address = generate_variable_ref(rng),
@@ -292,17 +397,11 @@ std::vector<FuzzInstruction> generate_instruction(std::mt19937_64& rng)
                                      .b_address = generate_variable_ref(rng),
                                      .result_address = generate_address_ref(rng, MAX_16BIT_OPERAND) } };
     case InstructionGenerationOptions::AND_16:
-        return { AND_16_Instruction{ .a_address = generate_variable_ref(rng),
-                                     .b_address = generate_variable_ref(rng),
-                                     .result_address = generate_address_ref(rng, MAX_16BIT_OPERAND) } };
+        return generate_alu_with_matching_tags_not_ff<AND_16_Instruction>(rng, MAX_16BIT_OPERAND);
     case InstructionGenerationOptions::OR_16:
-        return { OR_16_Instruction{ .a_address = generate_variable_ref(rng),
-                                    .b_address = generate_variable_ref(rng),
-                                    .result_address = generate_address_ref(rng, MAX_16BIT_OPERAND) } };
+        return generate_alu_with_matching_tags_not_ff<OR_16_Instruction>(rng, MAX_16BIT_OPERAND);
     case InstructionGenerationOptions::XOR_16:
-        return { XOR_16_Instruction{ .a_address = generate_variable_ref(rng),
-                                     .b_address = generate_variable_ref(rng),
-                                     .result_address = generate_address_ref(rng, MAX_16BIT_OPERAND) } };
+        return generate_alu_with_matching_tags_not_ff<XOR_16_Instruction>(rng, MAX_16BIT_OPERAND);
     case InstructionGenerationOptions::NOT_16:
         return { NOT_16_Instruction{ .a_address = generate_variable_ref(rng),
                                      .result_address = generate_address_ref(rng, MAX_16BIT_OPERAND) } };
