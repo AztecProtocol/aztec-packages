@@ -221,12 +221,14 @@ enum class InstructionGenerationOptions {
     SUB_8,
     MUL_8,
     DIV_8,
+    FDIV_8,
     EQ_8,
     LT_8,
     LTE_8,
     AND_8,
     OR_8,
     XOR_8,
+    NOT_8,
     SHL_8,
     SHR_8,
     SET_8,
@@ -271,19 +273,21 @@ enum class InstructionGenerationOptions {
     SHA256COMPRESSION,
 };
 
-using InstructionGenerationConfig = WeightedSelectionConfig<InstructionGenerationOptions, 52>;
+using InstructionGenerationConfig = WeightedSelectionConfig<InstructionGenerationOptions, 54>;
 
 constexpr InstructionGenerationConfig BASIC_INSTRUCTION_GENERATION_CONFIGURATION = InstructionGenerationConfig({
     { InstructionGenerationOptions::ADD_8, 1 },
     { InstructionGenerationOptions::SUB_8, 1 },
     { InstructionGenerationOptions::MUL_8, 1 },
     { InstructionGenerationOptions::DIV_8, 1 },
+    { InstructionGenerationOptions::FDIV_8, 1 },
     { InstructionGenerationOptions::EQ_8, 1 },
     { InstructionGenerationOptions::LT_8, 1 },
     { InstructionGenerationOptions::LTE_8, 1 },
     { InstructionGenerationOptions::AND_8, 1 },
     { InstructionGenerationOptions::OR_8, 1 },
     { InstructionGenerationOptions::XOR_8, 1 },
+    { InstructionGenerationOptions::NOT_8, 1 },
     { InstructionGenerationOptions::SHL_8, 1 },
     { InstructionGenerationOptions::SHR_8, 1 },
     { InstructionGenerationOptions::SET_8, 1 },
