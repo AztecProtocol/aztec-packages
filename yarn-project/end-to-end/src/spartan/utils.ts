@@ -963,7 +963,7 @@ export async function getPublicViemClient(
       containerPort: 8545,
     });
     const url = `http://127.0.0.1:${port}`;
-    const client: ViemPublicClient = createPublicClient({ transport: fallback([http(url)]) });
+    const client: ViemPublicClient = createPublicClient({ transport: fallback([http(url, { batch: false })]) });
     if (processes) {
       processes.push(process);
     }
@@ -973,7 +973,9 @@ export async function getPublicViemClient(
     if (!L1_RPC_URLS_JSON) {
       throw new Error(`L1_RPC_URLS_JSON is not defined`);
     }
-    const client: ViemPublicClient = createPublicClient({ transport: fallback([http(L1_RPC_URLS_JSON)]) });
+    const client: ViemPublicClient = createPublicClient({
+      transport: fallback([http(L1_RPC_URLS_JSON, { batch: false })]),
+    });
     return { url: L1_RPC_URLS_JSON, client };
   }
 }

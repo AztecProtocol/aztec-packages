@@ -32,7 +32,7 @@ export class RollupCheatCodes {
   ) {
     this.client = createPublicClient({
       chain: ethCheatCodes.chain,
-      transport: fallback(ethCheatCodes.rpcUrls.map(url => http(url))),
+      transport: fallback(ethCheatCodes.rpcUrls.map(url => http(url, { batch: false }))),
     });
     this.rollup = getContract({
       abi: RollupAbi,

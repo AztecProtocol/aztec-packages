@@ -17,7 +17,7 @@ export async function getL1Addresses(
   const chain = createEthereumChain(rpcUrls, chainId);
   const publicClient: ViemPublicClient = createPublicClient({
     chain: chain.chainInfo,
-    transport: fallback(rpcUrls.map(url => http(url))),
+    transport: fallback(rpcUrls.map(url => http(url, { batch: false }))),
     pollingInterval: 100,
   });
   const addresses = await RegistryContract.collectAddresses(publicClient, registryAddress.toString(), rollupVersion);

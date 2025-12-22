@@ -35,7 +35,7 @@ export class EthCheatCodes {
     public chain: Chain = foundry,
   ) {
     this.publicClient = createPublicClient({
-      transport: fallback(this.rpcUrls.map(url => http(url))),
+      transport: fallback(this.rpcUrls.map(url => http(url, { batch: false }))),
       chain: chain,
     });
   }
