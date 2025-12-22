@@ -18,6 +18,7 @@ import { type Hex, formatUnits } from 'viem';
 
 import type { SequencerState } from './utils.js';
 
+// TODO(palla/mbps): Review all metrics and add any missing ones per checkpoint
 export class SequencerMetrics {
   public readonly tracer: Tracer;
   private meter: Meter;
@@ -41,6 +42,7 @@ export class SequencerMetrics {
   private blockProposalFailed: UpDownCounter;
   private blockProposalSuccess: UpDownCounter;
   private blockProposalPrecheckFailed: UpDownCounter;
+  private checkpointSuccess: UpDownCounter;
   private slashingAttempts: UpDownCounter;
 
   // Fisherman fee analysis metrics
@@ -149,6 +151,11 @@ export class SequencerMetrics {
     this.blockProposalSuccess = this.meter.createUpDownCounter(Metrics.SEQUENCER_BLOCK_PROPOSAL_SUCCESS_COUNT, {
       valueType: ValueType.INT,
       description: 'The number of times block proposal succeeded (including validation builds)',
+    });
+
+    this.checkpointSuccess = this.meter.createUpDownCounter(Metrics.SEQUENCER_CHECKPOINT_SUCCESS_COUNT, {
+      valueType: ValueType.INT,
+      description: 'The number of times checkpoint publishing succeeded',
     });
 
     this.blockProposalPrecheckFailed = this.meter.createUpDownCounter(
@@ -305,6 +312,10 @@ export class SequencerMetrics {
         // no-op
       }
     }
+  }
+
+  recordCheckpointSuccess() {
+    this.checkpointSuccess.add(1);
   }
 
   recordBlockProposalFailed(reason?: string) {

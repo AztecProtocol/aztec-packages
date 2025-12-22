@@ -73,3 +73,9 @@ export class InterruptibleSleep {
 export function sleep<T>(ms: number, returnValue?: T): Promise<T> {
   return new Promise(resolve => setTimeout(() => resolve(returnValue as T), ms));
 }
+
+/** Sleeps until the target date */
+export function sleepUntil<T>(target: Date, now: Date, returnValue?: T): Promise<T> {
+  const ms = target.getTime() - now.getTime();
+  return sleep(ms, returnValue);
+}
