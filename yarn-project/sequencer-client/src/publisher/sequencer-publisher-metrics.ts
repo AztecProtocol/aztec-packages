@@ -1,5 +1,5 @@
 import { createLogger } from '@aztec/aztec.js/log';
-import type { L1PublishBlockStats, L1PublishStats } from '@aztec/stdlib/stats';
+import type { L1PublishCheckpointStats, L1PublishStats } from '@aztec/stdlib/stats';
 import {
   Attributes,
   type Gauge,
@@ -135,7 +135,7 @@ export class SequencerPublisherMetrics {
     }
   }
 
-  recordProcessBlockTx(durationMs: number, stats: L1PublishBlockStats) {
+  recordProcessBlockTx(durationMs: number, stats: L1PublishCheckpointStats) {
     this.recordTx('process', durationMs, stats);
 
     if (stats.blobCount && stats.blobCount > 0) {

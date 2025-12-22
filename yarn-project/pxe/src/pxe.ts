@@ -1045,7 +1045,7 @@ export class PXE {
 
     const sanitizedFilter = await new PrivateEventFilterValidator(this.anchorBlockDataProvider).validate(filter);
 
-    this.log.error(
+    this.log.debug(
       `Getting private events for ${sanitizedFilter.contractAddress.toString()} from ${sanitizedFilter.fromBlock} to ${sanitizedFilter.toBlock}`,
     );
 

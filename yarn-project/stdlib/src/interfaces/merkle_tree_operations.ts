@@ -251,7 +251,10 @@ export interface MerkleTreeCheckpointOperations {
   revertAllCheckpoints(): Promise<void>;
 }
 
-export interface MerkleTreeWriteOperations extends MerkleTreeReadOperations, MerkleTreeCheckpointOperations {
+export interface MerkleTreeWriteOperations
+  extends MerkleTreeReadOperations,
+    MerkleTreeCheckpointOperations,
+    Disposable {
   /**
    * Appends leaves to a given tree.
    * @param treeId - The tree to be updated.

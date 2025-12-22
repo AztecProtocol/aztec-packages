@@ -97,12 +97,24 @@ export class EpochsTestContext {
     const aztecSlotDuration = opts.aztecSlotDuration ?? ethereumSlotDuration * 2;
     const aztecEpochDuration = opts.aztecEpochDuration ?? 6;
     const aztecProofSubmissionEpochs = opts.aztecProofSubmissionEpochs ?? 1;
-    return { ethereumSlotDuration, aztecSlotDuration, aztecEpochDuration, aztecProofSubmissionEpochs };
+    const l1PublishingTime = opts.l1PublishingTime ?? 1;
+    return {
+      l1PublishingTime,
+      ethereumSlotDuration,
+      aztecSlotDuration,
+      aztecEpochDuration,
+      aztecProofSubmissionEpochs,
+    };
   }
 
   public async setup(opts: EpochsTestOpts = {}) {
-    const { ethereumSlotDuration, aztecSlotDuration, aztecEpochDuration, aztecProofSubmissionEpochs } =
-      EpochsTestContext.getSlotDurations(opts);
+    const {
+      ethereumSlotDuration,
+      aztecSlotDuration,
+      aztecEpochDuration,
+      aztecProofSubmissionEpochs,
+      l1PublishingTime,
+    } = EpochsTestContext.getSlotDurations(opts);
 
     this.L1_BLOCK_TIME_IN_S = ethereumSlotDuration;
     this.L2_SLOT_DURATION_IN_S = aztecSlotDuration;
@@ -130,6 +142,7 @@ export class EpochsTestContext {
       worldStateBlockHistory: WORLD_STATE_BLOCK_HISTORY,
       exitDelaySeconds: DefaultL1ContractsConfig.exitDelaySeconds,
       slasherFlavor: 'none',
+      l1PublishingTime,
       ...opts,
     });
 
@@ -391,11 +404,11 @@ export class EpochsTestContext {
     const stateChanges: TrackedSequencerEvent[] = [];
     const failEvents: TrackedSequencerEvent[] = [];
 
-    // Note we do not include the 'tx-count-check-failed' event here, since it is fine if we dont build
+    // Note we do not include the 'block-tx-count-check-failed' event here, since it is fine if we dont build
     // due to lack of txs available.
     const failEventsKeys: (keyof SequencerEvents)[] = [
       'block-build-failed',
-      'block-publish-failed',
+      'checkpoint-publish-failed',
       'proposer-rollup-check-failed',
     ];
 
