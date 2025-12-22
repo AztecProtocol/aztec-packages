@@ -154,10 +154,8 @@ template <typename Curve> struct PairingPoints {
             P0 = first_components[0];
             P1 = second_components[0];
 
-            if (!challenges.empty()) {
-                P0 += Group::batch_mul(remaining_first, challenges, 128, handle_edge_cases);
-                P1 += Group::batch_mul(remaining_second, challenges, 128, handle_edge_cases);
-            }
+            P0 += Group::batch_mul(remaining_first, challenges, 128, handle_edge_cases);
+            P1 += Group::batch_mul(remaining_second, challenges, 128, handle_edge_cases);
         }
 
         PairingPoints aggregated_points(P0, P1);

@@ -79,7 +79,6 @@ create_chonk_recursion_constraints(bb::UltraCircuitBuilder& builder, const Recur
 {
     using Builder = bb::UltraCircuitBuilder;
     using field_ct = stdlib::field_t<Builder>;
-    using ChonkRecursiveVerifier = ChonkRecursiveVerifier;
     using RecursiveVKAndHash = ChonkRecursiveVerifier::VKAndHash;
     using VerificationKey = ChonkRecursiveVerifier::VK;
     using IO = stdlib::recursion::honk::HidingKernelIO<Builder>;
