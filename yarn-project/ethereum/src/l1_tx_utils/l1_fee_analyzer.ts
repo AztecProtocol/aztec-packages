@@ -1,3 +1,4 @@
+import type { SlotNumber } from '@aztec/foundation/branded-types';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import { DateProvider } from '@aztec/foundation/timer';
@@ -125,7 +126,7 @@ export interface L1FeeAnalysisResult {
   /** Unique identifier for this analysis */
   id: string;
   /** L2 slot number this analysis was performed for */
-  l2SlotNumber: bigint;
+  l2SlotNumber: SlotNumber;
   /** Snapshot of pending state when we computed our fees */
   pendingSnapshot: PendingBlockSnapshot;
   /** Our computed gas prices */
@@ -353,7 +354,7 @@ export class L1FeeAnalyzer {
    * @returns The analysis ID for tracking
    */
   async startAnalysis(
-    l2SlotNumber: bigint,
+    l2SlotNumber: SlotNumber,
     gasLimit: bigint,
     requests: L1TxRequest[],
     blobInputs?: L1BlobInputs,

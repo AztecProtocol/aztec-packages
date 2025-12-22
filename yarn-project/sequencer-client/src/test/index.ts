@@ -6,6 +6,7 @@ import type { ValidatorClient } from '@aztec/validator-client';
 import { SequencerClient } from '../client/sequencer-client.js';
 import type { SequencerPublisherFactory } from '../publisher/sequencer-publisher-factory.js';
 import type { SequencerPublisher } from '../publisher/sequencer-publisher.js';
+import type { FullNodeCheckpointsBuilder } from '../sequencer/checkpoint_builder.js';
 import { Sequencer } from '../sequencer/sequencer.js';
 import type { SequencerTimetable } from '../sequencer/timetable.js';
 
@@ -15,6 +16,7 @@ class TestSequencer_ extends Sequencer {
   declare public publisher: SequencerPublisher;
   declare public publisherFactory: SequencerPublisherFactory;
   declare public validatorClient: ValidatorClient;
+  declare public checkpointsBuilder: FullNodeCheckpointsBuilder;
 }
 
 export type TestSequencer = TestSequencer_;

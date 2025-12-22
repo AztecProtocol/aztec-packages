@@ -290,7 +290,7 @@ describe('e2e_multi_validator_node', () => {
       minTxsPerBlock: 1,
       maxTxsPerBlock: 1,
       archiverPollingIntervalMS: 200,
-      transactionPollingIntervalMS: 200,
+      sequencerPollingIntervalMS: 200,
       worldStateBlockCheckIntervalMS: 200,
       blockCheckIntervalMS: 200,
       startProverNode: true,

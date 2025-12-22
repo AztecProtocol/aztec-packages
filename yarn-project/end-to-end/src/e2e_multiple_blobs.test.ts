@@ -53,6 +53,10 @@ describe('e2e_multiple_blobs', () => {
     const privateFunctions = contractArtifact.functions.filter(fn => fn.functionType == FunctionType.PRIVATE);
     const utilityFunctions = contractArtifact.functions.filter(fn => fn.functionType == FunctionType.UTILITY);
 
+    // Increase the minimum number of txs per block so that all txs will be mined in the same block.
+    const TX_COUNT = 5;
+    await aztecNodeAdmin.setConfig({ minTxsPerBlock: TX_COUNT });
+
     const provenTxs = [
       // 1 contract deployment tx.
       await publishContractClass(wallet, AvmTestContract.artifact),
@@ -75,8 +79,7 @@ describe('e2e_multiple_blobs', () => {
       ]),
     ];
 
-    // Increase the minimum number of txs per block so that all txs will be mined in the same block.
-    await aztecNodeAdmin.setConfig({ minTxsPerBlock: provenTxs.length });
+    expect(provenTxs.length).toBe(TX_COUNT);
 
     // Send them simultaneously to be picked up by the sequencer
     const receipts = await Promise.all(provenTxs.map(tx => tx.send({ from: defaultAccountAddress }).wait()));

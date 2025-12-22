@@ -45,6 +45,8 @@ export const BLOCK_NUMBER = 'aztec.block.number';
 export const BLOCK_HASH = 'aztec.block.hash';
 /** The slot number */
 export const SLOT_NUMBER = 'aztec.slot.number';
+/** The checkpoint number */
+export const CHECKPOINT_NUMBER = 'aztec.checkpoint.number';
 /** The parent's block number */
 export const BLOCK_PARENT = 'aztec.block.parent';
 /** How many txs are being processed to build this block */

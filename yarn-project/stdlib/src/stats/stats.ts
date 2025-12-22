@@ -20,6 +20,13 @@ export type L2BlockStats = {
   publicLogCount?: number;
 };
 
+export type CheckpointStats = {
+  /** Number of transactions in the checkpoint */
+  txCount: number;
+  /** Number of blocks in the checkpoint */
+  blockCount: number;
+};
+
 /** Stats logged for each L1 publish tx.*/
 export type L1PublishStats = {
   /** Address of the sender. */
@@ -45,11 +52,11 @@ export type L1PublishStats = {
 };
 
 /** Stats logged for each L1 rollup publish tx.*/
-export type L1PublishBlockStats = {
+export type L1PublishCheckpointStats = {
   /** Name of the event for metrics purposes */
   eventName: 'rollup-published-to-l1';
 } & L1PublishStats &
-  L2BlockStats;
+  CheckpointStats;
 
 /** Stats logged for each L1 rollup publish tx.*/
 export type L1PublishProofStats = {
@@ -189,8 +196,6 @@ export type CircuitVerificationStats = {
 
 /** Stats for an L2 block built by a sequencer. */
 export type L2BlockBuiltStats = {
-  /** The creator of the block */
-  creator: string;
   /** Name of the event. */
   eventName: 'l2-block-built';
   /** Total duration in ms. */
@@ -272,7 +277,7 @@ export type Stats =
   | CircuitSimulationStats
   | CircuitWitnessGenerationStats
   | PublicDBAccessStats
-  | L1PublishBlockStats
+  | L1PublishCheckpointStats
   | L1PublishProofStats
   | L2BlockBuiltStats
   | L2BlockHandledStats

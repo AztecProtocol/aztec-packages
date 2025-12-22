@@ -49,6 +49,7 @@
     "./json-rpc/undici": "./dest/json-rpc/client/undici.js",
     "./json-rpc/test": "./dest/json-rpc/test/index.js",
     "./iterable": "./dest/iterable/index.js",
+    "./iterator": "./dest/iterator/index.js",
     "./log": "./dest/log/index.js",
     "./mutex": "./dest/mutex/index.js",
     "./retry": "./dest/retry/index.js",

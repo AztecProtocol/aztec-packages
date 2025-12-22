@@ -63,7 +63,6 @@ describe('e2e_epochs/epochs_first_slot', () => {
       minTxsPerBlock: 1,
       maxTxsPerBlock: 1,
       attestationPropagationTime: 0.5,
-      maxL1TxInclusionTimeIntoSlot: 0,
       archiverPollingIntervalMS: 200,
     });
 
