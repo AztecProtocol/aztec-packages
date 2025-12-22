@@ -58,7 +58,15 @@ export class LogStore {
 
         const currentLogs = taggedLogs.get(tag.toString()) ?? [];
         currentLogs.push(
-          new TxScopedL2Log(txHash, dataStartIndexForTx, logIndex, block.number, blockHash, log).toBuffer(),
+          new TxScopedL2Log(
+            txHash,
+            dataStartIndexForTx,
+            logIndex,
+            block.number,
+            blockHash,
+            block.timestamp,
+            log,
+          ).toBuffer(),
         );
         taggedLogs.set(tag.toString(), currentLogs);
       });
@@ -69,7 +77,15 @@ export class LogStore {
 
         const currentLogs = taggedLogs.get(tag.toString()) ?? [];
         currentLogs.push(
-          new TxScopedL2Log(txHash, dataStartIndexForTx, logIndex, block.number, blockHash, log).toBuffer(),
+          new TxScopedL2Log(
+            txHash,
+            dataStartIndexForTx,
+            logIndex,
+            block.number,
+            blockHash,
+            block.timestamp,
+            log,
+          ).toBuffer(),
         );
         taggedLogs.set(tag.toString(), currentLogs);
       });

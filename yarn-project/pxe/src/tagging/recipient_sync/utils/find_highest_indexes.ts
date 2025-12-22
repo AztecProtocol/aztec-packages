@@ -5,15 +5,15 @@ import type { TxScopedL2Log } from '@aztec/stdlib/logs';
  * Finds the highest aged and the highest finalized tagging indexes.
  */
 export function findHighestIndexes(
-  logsWithTimestampsAndIndexes: Array<{ log: TxScopedL2Log; blockTimestamp: bigint; taggingIndex: number }>,
+  privateLogsWithIndexes: Array<{ log: TxScopedL2Log; taggingIndex: number }>,
   currentTimestamp: bigint,
   finalizedBlockNumber: number,
 ): { highestAgedIndex: number | undefined; highestFinalizedIndex: number | undefined } {
   let highestAgedIndex = undefined;
   let highestFinalizedIndex = undefined;
 
-  for (const { log, blockTimestamp, taggingIndex } of logsWithTimestampsAndIndexes) {
-    const ageInSeconds = currentTimestamp - blockTimestamp;
+  for (const { log, taggingIndex } of privateLogsWithIndexes) {
+    const ageInSeconds = currentTimestamp - log.blockTimestamp;
 
     if (
       ageInSeconds >= BigInt(MAX_INCLUDE_BY_TIMESTAMP_DURATION) &&

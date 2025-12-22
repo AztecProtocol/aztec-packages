@@ -9,13 +9,14 @@ import { findHighestIndexes } from './find_highest_indexes.js';
 describe('findHighestIndexes', () => {
   const currentTimestamp = BigInt(Math.floor(Date.now() / 1000));
 
-  function makeLog(blockNumber: number): TxScopedL2Log {
+  function makeLog(blockNumber: number, blockTimestamp: bigint): TxScopedL2Log {
     return new TxScopedL2Log(
       TxHash.random(),
       0,
       0,
       BlockNumber(blockNumber),
       L2BlockHash.random(),
+      blockTimestamp,
       PrivateLog.random(),
     );
   }
@@ -23,13 +24,9 @@ describe('findHighestIndexes', () => {
   it('returns undefined for highestAgedIndex when no logs are at least 24 hours old', () => {
     const finalizedBlockNumber = 10;
     const blockTimestamp = currentTimestamp - 1n; // not aged
-    const log = makeLog(5);
+    const log = makeLog(5, blockTimestamp);
 
-    const result = findHighestIndexes(
-      [{ log, blockTimestamp, taggingIndex: 3 }],
-      currentTimestamp,
-      finalizedBlockNumber,
-    );
+    const result = findHighestIndexes([{ log, taggingIndex: 3 }], currentTimestamp, finalizedBlockNumber);
 
     expect(result.highestAgedIndex).toBeUndefined();
     expect(result.highestFinalizedIndex).toBe(3);
@@ -38,13 +35,9 @@ describe('findHighestIndexes', () => {
   it('returns undefined for highestFinalizedIndex when no logs are in finalized blocks', () => {
     const finalizedBlockNumber = 5;
     const blockTimestamp = currentTimestamp - BigInt(MAX_INCLUDE_BY_TIMESTAMP_DURATION);
-    const log = makeLog(10); // block 10 > finalizedBlockNumber 5
+    const log = makeLog(10, blockTimestamp); // block 10 > finalizedBlockNumber 5
 
-    const result = findHighestIndexes(
-      [{ log, blockTimestamp, taggingIndex: 3 }],
-      currentTimestamp,
-      finalizedBlockNumber,
-    );
+    const result = findHighestIndexes([{ log, taggingIndex: 3 }], currentTimestamp, finalizedBlockNumber);
 
     expect(result.highestAgedIndex).toBe(3);
     expect(result.highestFinalizedIndex).toBeUndefined();
@@ -54,14 +47,14 @@ describe('findHighestIndexes', () => {
     const finalizedBlockNumber = 10;
     const blockTimestamp1 = currentTimestamp - BigInt(MAX_INCLUDE_BY_TIMESTAMP_DURATION) - 1000n; // aged
     const blockTimestamp2 = currentTimestamp - BigInt(MAX_INCLUDE_BY_TIMESTAMP_DURATION) - 500n; // aged
-    const log1 = makeLog(5);
-    const log2 = makeLog(6);
+    const log1 = makeLog(5, blockTimestamp1);
+    const log2 = makeLog(6, blockTimestamp2);
 
     const result = findHighestIndexes(
       [
-        { log: log1, blockTimestamp: blockTimestamp1, taggingIndex: 2 },
-        { log: log2, blockTimestamp: blockTimestamp2, taggingIndex: 5 },
-        { log: log1, blockTimestamp: blockTimestamp1, taggingIndex: 3 },
+        { log: log1, taggingIndex: 2 },
+        { log: log2, taggingIndex: 5 },
+        { log: log1, taggingIndex: 3 },
       ],
       currentTimestamp,
       finalizedBlockNumber,
@@ -74,15 +67,15 @@ describe('findHighestIndexes', () => {
   it('selects the highest index from multiple finalized logs', () => {
     const finalizedBlockNumber = 10;
     const blockTimestamp = currentTimestamp - 500n; // 500 seconds ago - not aged
-    const log1 = makeLog(5);
-    const log2 = makeLog(8);
-    const log3 = makeLog(10); // At finalized block number
+    const log1 = makeLog(5, blockTimestamp);
+    const log2 = makeLog(8, blockTimestamp);
+    const log3 = makeLog(10, blockTimestamp); // At finalized block number
 
     const result = findHighestIndexes(
       [
-        { log: log1, blockTimestamp, taggingIndex: 2 },
-        { log: log2, blockTimestamp, taggingIndex: 7 },
-        { log: log3, blockTimestamp, taggingIndex: 1 },
+        { log: log1, taggingIndex: 2 },
+        { log: log2, taggingIndex: 7 },
+        { log: log3, taggingIndex: 1 },
       ],
       currentTimestamp,
       finalizedBlockNumber,
@@ -99,11 +92,11 @@ describe('findHighestIndexes', () => {
     const recentTimestamp = currentTimestamp - 5000n; // Not aged
 
     const logs = [
-      { log: makeLog(5), blockTimestamp: veryOldTimestamp, taggingIndex: 1 }, // Aged, finalized
-      { log: makeLog(8), blockTimestamp: oldTimestamp, taggingIndex: 5 }, // Aged, finalized
-      { log: makeLog(10), blockTimestamp: recentTimestamp, taggingIndex: 8 }, // Not aged, finalized
-      { log: makeLog(15), blockTimestamp: oldTimestamp, taggingIndex: 12 }, // Aged, not finalized
-      { log: makeLog(20), blockTimestamp: recentTimestamp, taggingIndex: 15 }, // Not aged, not finalized
+      { log: makeLog(5, veryOldTimestamp), taggingIndex: 1 }, // Aged, finalized
+      { log: makeLog(8, oldTimestamp), taggingIndex: 5 }, // Aged, finalized
+      { log: makeLog(10, recentTimestamp), taggingIndex: 8 }, // Not aged, finalized
+      { log: makeLog(15, oldTimestamp), taggingIndex: 12 }, // Aged, not finalized
+      { log: makeLog(20, recentTimestamp), taggingIndex: 15 }, // Not aged, not finalized
     ];
 
     const result = findHighestIndexes(logs, currentTimestamp, finalizedBlockNumber);
