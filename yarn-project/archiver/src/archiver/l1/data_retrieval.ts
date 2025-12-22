@@ -331,7 +331,7 @@ export async function getCheckpointBlobDataFromBlobs(
   logger: Logger,
   isHistoricalSync: boolean,
 ): Promise<CheckpointBlobData> {
-  const blobBodies = await blobClient.getBlobSidecar(blockHash, blobHashes, undefined, { isHistoricalSync });
+  const blobBodies = await blobClient.getBlobSidecar(blockHash, blobHashes, { isHistoricalSync });
   if (blobBodies.length === 0) {
     throw new NoBlobBodiesFoundError(checkpointNumber);
   }
@@ -339,7 +339,7 @@ export async function getCheckpointBlobDataFromBlobs(
   let checkpointBlobData: CheckpointBlobData;
   try {
     // Attempt to decode the checkpoint blob data.
-    checkpointBlobData = decodeCheckpointBlobDataFromBlobs(blobBodies.map(b => b.blob));
+    checkpointBlobData = decodeCheckpointBlobDataFromBlobs(blobBodies);
   } catch (err: any) {
     if (err instanceof BlobDeserializationError) {
       logger.fatal(err.message);
