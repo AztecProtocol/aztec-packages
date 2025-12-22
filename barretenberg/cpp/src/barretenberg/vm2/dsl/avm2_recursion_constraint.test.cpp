@@ -111,6 +111,9 @@ class AvmRecursionConstraintTest : public ::testing::Test, public TestClass<AvmR
 
 TEST_F(AvmRecursionConstraintTest, GenerateVKFromConstraints)
 {
+    if (avm2::testing::skip_slow_tests()) {
+        GTEST_SKIP() << "Skipping slow test";
+    }
     // AVM constraints are always proven with UltraRollupFlavor (they are part of the base rollup circuit)
     size_t num_gates = test_vk_independence<UltraRollupFlavor>();
 
@@ -119,11 +122,17 @@ TEST_F(AvmRecursionConstraintTest, GenerateVKFromConstraints)
 
 TEST_F(AvmRecursionConstraintTest, Tampering)
 {
+    if (avm2::testing::skip_slow_tests()) {
+        GTEST_SKIP() << "Skipping slow test";
+    }
     std::vector<std::string> _ = test_tampering();
 }
 
 TEST_F(AvmRecursionConstraintTest, GateCountAndVKCheck)
 {
+    if (avm2::testing::skip_slow_tests()) {
+        GTEST_SKIP() << "Skipping slow test";
+    }
     using ProverInstance = ProverInstance_<UltraRollupFlavor>;
 
     static constexpr FF EXPECTED_OUTER_VK_HASH =
@@ -190,6 +199,9 @@ class AvmRecursionInnerCircuitTests : public ::testing::Test {
 
 TEST_F(AvmRecursionInnerCircuitTests, VKCheck)
 {
+    if (avm2::testing::skip_slow_tests()) {
+        GTEST_SKIP() << "Skipping slow test";
+    }
     const auto [proof, public_inputs_flat] = AvmRecursionConstraintTestingFunctions::create_avm_data();
 
     Builder outer_builder;
@@ -207,6 +219,9 @@ TEST_F(AvmRecursionInnerCircuitTests, VKCheck)
  */
 TEST_F(AvmRecursionInnerCircuitTests, Tampering)
 {
+    if (avm2::testing::skip_slow_tests()) {
+        GTEST_SKIP() << "Skipping slow test";
+    }
     const auto [proof, public_inputs_flat] = AvmRecursionConstraintTestingFunctions::create_avm_data();
 
     {
