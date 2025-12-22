@@ -138,6 +138,8 @@ The shifted scalar differs by a factor of $ r^{-1} $ and uses subtraction instea
 
 For the Translator flavor, a group of polynomials $ P_0, P_1, \ldots, P_{s-1} $ (where $ s $ is the group size) are combined via **interleaving** rather than standard batching.
 
+**note:**  Our implemententation only supports $s$ values that are powers of 2.
+
 **Definitions:**
 - $ P_+(X) = \sum_{i=0}^{s-1} r^i \cdot P_i(X) $ (partial evaluation with positive powers of $ r $)
 - $ P_-(X) = \sum_{i=0}^{s-1} (-r)^i \cdot P_i(X) $ (partial evaluation with alternating sign powers)
@@ -215,7 +217,9 @@ auto [batch_opening_claim, consistency_checked /* only for ZK flavors*/ ] =
         transcript,
         repeated_commitments,
         libra_commitments,      // For ZK flavors
-        libra_evaluation        // For ZK flavors
+        libra_evaluation,        // For ZK flavors
+        sumcheck_round_commitments, // ECCVM commited sumcheck
+        sumcheck_round_evaluations // ECCVM commited sumcheck
     );
 ```
 

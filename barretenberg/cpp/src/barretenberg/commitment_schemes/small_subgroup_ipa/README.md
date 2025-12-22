@@ -61,15 +61,17 @@ This allows the verifier to compute the correction term without learning the unm
 
 ### Why This Approach?
 
-Instead of:
-1. Committing to $H$ as a multilinear polynomial (expensive: size $2^d$)
-2. Opening $H$ at $(u_0, \ldots, u_{d-1})$ via Gemini/Shplemini
+There is no direct way of comitting to $H$ unless a multivariate polynomial commitment scheme is used. This would not allow us to batch the opennings of this commitment with the rest of the commitments required in the protocol.
 
-We:
+We could convert each univariate component to a multilinear polynomial of $\log(\textsf{deg}(H_i))$ variables (with similar tricks as in Gemini) and have $\log(d)$ variables to concatinate them together and use Gemini for the opennings.
+
+This is quite wasteful as we are not benefiting from the $\textsf{deg}(H_i)$'s being smooth.
+
+Instead we:
 1. Commit to the concatenated polynomial $G$ (small: size $\approx d \cdot L$ where $L$ = `LIBRA_UNIVARIATES_LENGTH`)
 2. Prove $\langle F, G \rangle = s$ using SmallSubgroupIPA (leverages small multiplicative subgroup)
 
-This is efficient because $|G| \leq |H|$ (the subgroup size), avoiding the blowup.
+This will lead to a linear time verifier. But since $L$ is small, this is not an issue.
 
 ## Protocol Description
 
@@ -126,7 +128,7 @@ This is done by showing that $C$ is divisible by $Z_H$. So $P$ computes the quot
 3. P sends $[Q]$.
 4. $V$ sends random evaluation challenge $r \in \mathbb{F}$.
 5. $P$ sends $A(gr), A(r), G(r), Q(r)$ with opening proofs.
-6. $V$ computes $F(r)$, $L_1(r)$, $L_{|H|}(r)$, and $Z_H(r)$, then checks:
+6. $V$ computes $F(r)$, $L_1(r)$, $L_{|H|}(r)$, and $Z_H(r)$ (This is where the linear complexity of the verifier comes from), then checks:
 
 $$\begin{aligned}
 Z_H(r) \cdot Q(r) =\; & L_1(r) A(r) \\
