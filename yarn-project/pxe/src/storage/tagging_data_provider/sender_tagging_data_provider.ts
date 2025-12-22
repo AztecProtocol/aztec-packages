@@ -3,7 +3,7 @@ import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
 import type { DirectionalAppTaggingSecret, PreTag } from '@aztec/stdlib/logs';
 import { TxHash } from '@aztec/stdlib/tx';
 
-import { WINDOW_LEN as SENDER_TAGGING_INDEXES_SYNC_WINDOW_LEN } from '../../tagging/sync/sync_sender_tagging_indexes.js';
+import { UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN } from '../../tagging/sync/sync_sender_tagging_indexes.js';
 
 /**
  * Data provider of tagging data used when syncing the sender tagging indexes. The recipient counterpart of this class
@@ -68,10 +68,10 @@ export class SenderTaggingDataProvider {
       // First we check that for any secret the highest used index in tx is not further than window length from
       // the highest finalized index.
       const finalizedIndex = (await this.getLastFinalizedIndex(secret)) ?? 0;
-      if (index > finalizedIndex + SENDER_TAGGING_INDEXES_SYNC_WINDOW_LEN) {
+      if (index > finalizedIndex + UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN) {
         throw new Error(
           `Highest used index ${index} is further than window length from the highest finalized index ${finalizedIndex}.
-          Tagging window length ${SENDER_TAGGING_INDEXES_SYNC_WINDOW_LEN} is configured too low. Contact the Aztec team
+          Tagging window length ${UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN} is configured too low. Contact the Aztec team
           to increase it!`,
         );
       }
