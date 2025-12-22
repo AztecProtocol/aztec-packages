@@ -271,9 +271,10 @@ enum class InstructionGenerationOptions {
     POSEIDON2PERM,
     KECCAKF1600,
     SHA256COMPRESSION,
+    TORADIXBE,
 };
 
-using InstructionGenerationConfig = WeightedSelectionConfig<InstructionGenerationOptions, 54>;
+using InstructionGenerationConfig = WeightedSelectionConfig<InstructionGenerationOptions, 55>;
 
 constexpr InstructionGenerationConfig BASIC_INSTRUCTION_GENERATION_CONFIGURATION = InstructionGenerationConfig({
     { InstructionGenerationOptions::ADD_8, 1 },
@@ -330,6 +331,7 @@ constexpr InstructionGenerationConfig BASIC_INSTRUCTION_GENERATION_CONFIGURATION
     { InstructionGenerationOptions::POSEIDON2PERM, 1 },
     { InstructionGenerationOptions::KECCAKF1600, 1 },
     { InstructionGenerationOptions::SHA256COMPRESSION, 1 },
+    { InstructionGenerationOptions::TORADIXBE, 1 },
 });
 
 enum class SStoreMutationOptions { src_address, result_address, slot };
@@ -471,6 +473,23 @@ using SuccessCopyMutationConfig = WeightedSelectionConfig<SuccessCopyMutationOpt
 
 constexpr SuccessCopyMutationConfig BASIC_SUCCESSCOPY_MUTATION_CONFIGURATION = SuccessCopyMutationConfig({
     { SuccessCopyMutationOptions::dst_address, 1 },
+});
+
+enum class ToRadixBEMutationOptions {
+    value_address,
+    radix_address,
+    num_limbs_address,
+    output_bits_address,
+    dst_address
+};
+using ToRadixBEMutationConfig = WeightedSelectionConfig<ToRadixBEMutationOptions, 5>;
+
+constexpr ToRadixBEMutationConfig BASIC_TORADIXBE_MUTATION_CONFIGURATION = ToRadixBEMutationConfig({
+    { ToRadixBEMutationOptions::value_address, 1 },
+    { ToRadixBEMutationOptions::radix_address, 1 },
+    { ToRadixBEMutationOptions::num_limbs_address, 1 },
+    { ToRadixBEMutationOptions::output_bits_address, 1 },
+    { ToRadixBEMutationOptions::dst_address, 1 },
 });
 
 enum class ReturnOptionsMutationOptions { return_size, return_value_tag, return_value_offset_index };
