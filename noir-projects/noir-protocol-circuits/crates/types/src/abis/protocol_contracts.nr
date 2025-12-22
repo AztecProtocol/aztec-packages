@@ -1,6 +1,6 @@
 use crate::{
     address::aztec_address::AztecAddress,
-    constants::{GENERATOR_INDEX__PROTOCOL_CONTRACTS, MAX_PROTOCOL_CONTRACTS},
+    constants::{DOM_SEP__PROTOCOL_CONTRACTS, MAX_PROTOCOL_CONTRACTS},
     hash::poseidon2_hash_with_separator,
     traits::{Deserialize, Empty, Serialize, ToField},
 };
@@ -30,7 +30,7 @@ impl ProtocolContracts {
     pub fn hash(self) -> Field {
         poseidon2_hash_with_separator(
             self.derived_addresses.map(|address| address.to_field()),
-            GENERATOR_INDEX__PROTOCOL_CONTRACTS,
+            DOM_SEP__PROTOCOL_CONTRACTS,
         )
     }
 }

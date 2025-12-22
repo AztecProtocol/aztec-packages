@@ -11,9 +11,9 @@ use crate::{
     },
     address::{AztecAddress, EthAddress},
     constants::{
-        CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, FUNCTION_TREE_HEIGHT, GENERATOR_INDEX__NOTE_HASH_NONCE,
-        GENERATOR_INDEX__OUTER_NULLIFIER, GENERATOR_INDEX__SILOED_NOTE_HASH,
-        GENERATOR_INDEX__UNIQUE_NOTE_HASH, NULL_MSG_SENDER_CONTRACT_ADDRESS, TWO_POW_64,
+        CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, DOM_SEP__NOTE_HASH_NONCE, DOM_SEP__OUTER_NULLIFIER,
+        DOM_SEP__SILOED_NOTE_HASH, DOM_SEP__UNIQUE_NOTE_HASH, FUNCTION_TREE_HEIGHT,
+        NULL_MSG_SENDER_CONTRACT_ADDRESS, TWO_POW_64,
     },
     merkle_tree::root_from_sibling_path,
     messaging::l2_to_l1_message::L2ToL1Message,
@@ -54,13 +54,13 @@ pub fn compute_note_hash_nonce(first_nullifier_in_tx: Field, note_index_in_tx: u
     // unique).
     poseidon2_hash_with_separator(
         [first_nullifier_in_tx, note_index_in_tx as Field],
-        GENERATOR_INDEX__NOTE_HASH_NONCE,
+        DOM_SEP__NOTE_HASH_NONCE,
     )
 }
 
 pub fn compute_unique_note_hash(note_nonce: Field, siloed_note_hash: Field) -> Field {
     let inputs = [note_nonce, siloed_note_hash];
-    poseidon2_hash_with_separator(inputs, GENERATOR_INDEX__UNIQUE_NOTE_HASH)
+    poseidon2_hash_with_separator(inputs, DOM_SEP__UNIQUE_NOTE_HASH)
 }
 
 pub fn compute_nonce_and_unique_note_hash(
@@ -73,10 +73,7 @@ pub fn compute_nonce_and_unique_note_hash(
 }
 
 pub fn compute_siloed_note_hash(app: AztecAddress, note_hash: Field) -> Field {
-    poseidon2_hash_with_separator(
-        [app.to_field(), note_hash],
-        GENERATOR_INDEX__SILOED_NOTE_HASH,
-    )
+    poseidon2_hash_with_separator([app.to_field(), note_hash], DOM_SEP__SILOED_NOTE_HASH)
 }
 
 /// Computes unique note hashes from siloed note hashes
@@ -103,10 +100,7 @@ pub fn silo_note_hash(note_hash: Scoped<Counted<NoteHash>>) -> Field {
 }
 
 pub fn compute_siloed_nullifier(app: AztecAddress, nullifier: Field) -> Field {
-    poseidon2_hash_with_separator(
-        [app.to_field(), nullifier],
-        GENERATOR_INDEX__OUTER_NULLIFIER,
-    )
+    poseidon2_hash_with_separator([app.to_field(), nullifier], DOM_SEP__OUTER_NULLIFIER)
 }
 
 pub fn silo_nullifier(nullifier: Scoped<Counted<Nullifier>>) -> Field {

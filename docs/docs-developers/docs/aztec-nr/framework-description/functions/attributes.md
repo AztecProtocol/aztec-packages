@@ -221,7 +221,7 @@ impl NoteType for CustomNote {
 impl NoteHash for CustomNote {
     fn compute_note_hash(self, storage_slot: Field) -> Field {
         let inputs = array_concat(self.pack(), [storage_slot]);
-        poseidon2_hash_with_separator(inputs, GENERATOR_INDEX__NOTE_HASH)
+        poseidon2_hash_with_separator(inputs, DOM_SEP__NOTE_HASH)
     }
 
     fn compute_nullifier(self, context: &mut PrivateContext, note_hash_for_nullification: Field) -> Field {
@@ -232,7 +232,7 @@ impl NoteHash for CustomNote {
             note_hash_for_nullification,
             secret
         ],
-            GENERATOR_INDEX__NOTE_NULLIFIER as Field
+            DOM_SEP__NOTE_NULLIFIER as Field
         )
     }
 
@@ -248,7 +248,7 @@ impl NoteHash for CustomNote {
             note_hash_for_nullification,
             secret
         ],
-            GENERATOR_INDEX__NOTE_NULLIFIER as Field
+            DOM_SEP__NOTE_NULLIFIER as Field
         )
     }
 }

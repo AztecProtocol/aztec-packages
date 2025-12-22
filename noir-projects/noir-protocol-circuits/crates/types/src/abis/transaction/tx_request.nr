@@ -1,7 +1,7 @@
 use crate::{
     abis::{function_data::FunctionData, transaction::tx_context::TxContext},
     address::AztecAddress,
-    constants::GENERATOR_INDEX__TX_REQUEST,
+    constants::DOM_SEP__TX_REQUEST,
     hash::poseidon2_hash_with_separator,
     traits::{Deserialize, Empty, Hash, Serialize},
 };
@@ -30,7 +30,7 @@ impl Empty for TxRequest {
 
 impl Hash for TxRequest {
     fn hash(self) -> Field {
-        poseidon2_hash_with_separator(self.serialize(), GENERATOR_INDEX__TX_REQUEST)
+        poseidon2_hash_with_separator(self.serialize(), DOM_SEP__TX_REQUEST)
     }
 }
 

@@ -3,8 +3,8 @@ use dep::aztec::{
     macros::notes::custom_note,
     note::note_interface::NoteHash,
     protocol_types::{
-        address::AztecAddress, constants::GENERATOR_INDEX__NOTE_HASH,
-        hash::poseidon2_hash_with_separator, traits::Packable,
+        address::AztecAddress, constants::DOM_SEP__NOTE_HASH, hash::poseidon2_hash_with_separator,
+        traits::Packable,
     },
 };
 
@@ -25,7 +25,7 @@ impl NoteHash for TestNote {
         // The note is inserted into the state in the Test contract so we provide a real compute_note_hash
         // implementation.
         let inputs = self.pack().concat([storage_slot, randomness]);
-        poseidon2_hash_with_separator(inputs, GENERATOR_INDEX__NOTE_HASH)
+        poseidon2_hash_with_separator(inputs, DOM_SEP__NOTE_HASH)
     }
 
     fn compute_nullifier(

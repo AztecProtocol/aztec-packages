@@ -9,8 +9,8 @@ use dep::aztec::{
     protocol_types::{
         address::AztecAddress,
         constants::{
-            GENERATOR_INDEX__NOTE_HASH, GENERATOR_INDEX__NOTE_NULLIFIER,
-            GENERATOR_INDEX__PARTIAL_NOTE_VALIDITY_COMMITMENT, PRIVATE_LOG_SIZE_IN_FIELDS,
+            DOM_SEP__NOTE_HASH, DOM_SEP__NOTE_NULLIFIER, DOM_SEP__PARTIAL_NOTE_VALIDITY_COMMITMENT,
+            PRIVATE_LOG_SIZE_IN_FIELDS,
         },
         hash::{compute_siloed_nullifier, poseidon2_hash_with_separator},
         traits::{Deserialize, FromField, Hash, Packable, Serialize, ToField},
@@ -74,7 +74,7 @@ impl NoteHash for UintNote {
         let secret = context.request_nsk_app(owner_npk_m_hash);
         poseidon2_hash_with_separator(
             [note_hash_for_nullification, secret],
-            GENERATOR_INDEX__NOTE_NULLIFIER,
+            DOM_SEP__NOTE_NULLIFIER,
         )
     }
 
@@ -88,7 +88,7 @@ impl NoteHash for UintNote {
         let secret = get_nsk_app(owner_npk_m_hash);
         poseidon2_hash_with_separator(
             [note_hash_for_nullification, secret],
-            GENERATOR_INDEX__NOTE_NULLIFIER,
+            DOM_SEP__NOTE_NULLIFIER,
         )
     }
 }
@@ -166,7 +166,7 @@ fn compute_partial_commitment(
 ) -> Field {
     poseidon2_hash_with_separator(
         [owner.to_field(), storage_slot, randomness],
-        GENERATOR_INDEX__NOTE_HASH,
+        DOM_SEP__NOTE_HASH,
     )
 }
 // docs:end:compute_partial_commitment
@@ -263,7 +263,7 @@ impl PartialUintNote {
     pub fn compute_validity_commitment(self, completer: AztecAddress) -> Field {
         poseidon2_hash_with_separator(
             [self.commitment, completer.to_field()],
-            GENERATOR_INDEX__PARTIAL_NOTE_VALIDITY_COMMITMENT,
+            DOM_SEP__PARTIAL_NOTE_VALIDITY_COMMITMENT,
         )
     }
 
@@ -286,10 +286,7 @@ impl PartialUintNote {
     fn compute_complete_note_hash(self, value: u128) -> Field {
         // Here we finalize the note hash by including the (public) value into the partial note commitment. Note that we
         // use the same generator index as we used for the first round of poseidon - this is not an issue.
-        poseidon2_hash_with_separator(
-            [self.commitment, value.to_field()],
-            GENERATOR_INDEX__NOTE_HASH,
-        )
+        poseidon2_hash_with_separator([self.commitment, value.to_field()], DOM_SEP__NOTE_HASH)
     }
     // docs:end:compute_complete_note_hash
 }

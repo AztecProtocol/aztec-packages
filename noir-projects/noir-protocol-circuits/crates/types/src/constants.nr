@@ -627,65 +627,94 @@ pub global AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS: u32 = 2 + 21 * 4;
 pub global MAX_PUBLIC_BYTECODE_SIZE_IN_BYTES: u32 = MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS * 32;
 pub global MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS: u32 = 21;
 
+// ---------------------------------------------------------------
+// DOMAIN SEPARATORS
+
+// TODO: see ./domain-separators.nr tests for the domain separators that we should migrate to. I just didn't have time to make the changes, as I predict thousands of tests with hard-coded hashes breaking everywhere.
+
+// ---------------------------------------------------------------
+
 // Note hash generator index which can be used by custom implementations of NoteHash::compute_note_hash
-pub global GENERATOR_INDEX__NOTE_HASH: u32 = 1;
-pub global GENERATOR_INDEX__NOTE_HASH_NONCE: u32 = 2;
-pub global GENERATOR_INDEX__UNIQUE_NOTE_HASH: u32 = 3;
-pub global GENERATOR_INDEX__SILOED_NOTE_HASH: u32 = 4;
-pub global GENERATOR_INDEX__MESSAGE_NULLIFIER: u32 = 5;
-pub global GENERATOR_INDEX__INITIALIZATION_NULLIFIER: u32 = 6;
-pub global GENERATOR_INDEX__OUTER_NULLIFIER: u32 = 7;
-pub global GENERATOR_INDEX__PUBLIC_DATA_READ: u32 = 8;
-pub global GENERATOR_INDEX__PUBLIC_DATA_UPDATE_REQUEST: u32 = 9;
-pub global GENERATOR_INDEX__FUNCTION_DATA: u32 = 10;
-pub global GENERATOR_INDEX__FUNCTION_LEAF: u32 = 11;
-pub global GENERATOR_INDEX__CONTRACT_DEPLOYMENT_DATA: u32 = 12;
-pub global GENERATOR_INDEX__CONSTRUCTOR: u32 = 13;
-pub global GENERATOR_INDEX__CONSTRUCTOR_ARGS: u32 = 14;
-pub global GENERATOR_INDEX__CONTRACT_ADDRESS_V1: u32 = 15;
-pub global GENERATOR_INDEX__CONTRACT_LEAF: u32 = 16;
-pub global GENERATOR_INDEX__CALL_CONTEXT: u32 = 17;
-pub global GENERATOR_INDEX__CALL_STACK_ITEM: u32 = 18;
-pub global GENERATOR_INDEX__CALL_STACK_ITEM_2: u32 = 19;
-pub global GENERATOR_INDEX__SECRET_HASH: u32 = 20;
-pub global GENERATOR_INDEX__L2_TO_L1_MSG: u32 = 21;
-pub global GENERATOR_INDEX__TX_CONTEXT: u32 = 22;
-pub global GENERATOR_INDEX__PUBLIC_LEAF_INDEX: u32 = 23;
-pub global GENERATOR_INDEX__PUBLIC_DATA_LEAF: u32 = 24;
-pub global GENERATOR_INDEX__SIGNED_TX_REQUEST: u32 = 25;
-pub global GENERATOR_INDEX__GLOBAL_VARIABLES: u32 = 26;
-pub global GENERATOR_INDEX__PARTIAL_ADDRESS: u32 = 27;
-pub global GENERATOR_INDEX__BLOCK_HASH: u32 = 28;
-pub global GENERATOR_INDEX__SIDE_EFFECT: u32 = 29;
-pub global GENERATOR_INDEX__FEE_PAYLOAD: u32 = 30;
-pub global GENERATOR_INDEX__COMBINED_PAYLOAD: u32 = 31;
-pub global GENERATOR_INDEX__TX_NULLIFIER: u32 = 32;
-pub global GENERATOR_INDEX__TX_REQUEST: u32 = 33;
-pub global GENERATOR_INDEX__SIGNATURE_PAYLOAD: u32 = 34;
-pub global GENERATOR_INDEX__VK: u32 = 41;
-pub global GENERATOR_INDEX__PUBLIC_CALLDATA: u32 = 43;
-pub global GENERATOR_INDEX__FUNCTION_ARGS: u32 = 44;
-pub global GENERATOR_INDEX__AUTHWIT_INNER: u32 = 45;
-pub global GENERATOR_INDEX__AUTHWIT_OUTER: u32 = 46;
-pub global GENERATOR_INDEX__AUTHWIT_NULLIFIER: u32 = 47;
-// Key related generators follow
-pub global GENERATOR_INDEX__NSK_M: u32 = 48;
-pub global GENERATOR_INDEX__IVSK_M: u32 = 49;
-pub global GENERATOR_INDEX__OVSK_M: u32 = 50;
-pub global GENERATOR_INDEX__TSK_M: u32 = 51;
-pub global GENERATOR_INDEX__PUBLIC_KEYS_HASH: u32 = 52;
-pub global GENERATOR_INDEX__NOTE_NULLIFIER: u32 = 53;
-pub global GENERATOR_INDEX__SYMMETRIC_KEY: u8 = 54;
-pub global GENERATOR_INDEX__SYMMETRIC_KEY_2: u8 = 55;
-pub global GENERATOR_INDEX__PUBLIC_TX_HASH: u32 = 56;
-pub global GENERATOR_INDEX__PRIVATE_TX_HASH: u32 = 57;
-pub global GENERATOR_INDEX__PARTIAL_NOTE_VALIDITY_COMMITMENT: u32 = 58;
-pub global GENERATOR_INDEX__EVENT_COMMITMENT: u32 = 59;
-// Misc generators
-// TODO(8974): this likely belongs in the middle of the list, but was placed
-// here to avoid changing all of the key generators.
-pub global GENERATOR_INDEX__PUBLIC_BYTECODE: u32 = 60;
-pub global GENERATOR_INDEX__PROTOCOL_CONTRACTS: u32 = 61;
+pub global DOM_SEP__NOTE_HASH: u32 = 1;
+pub global DOM_SEP__NOTE_HASH_NONCE: u32 = 2;
+pub global DOM_SEP__UNIQUE_NOTE_HASH: u32 = 3;
+pub global DOM_SEP__SILOED_NOTE_HASH: u32 = 4;
+
+pub global DOM_SEP__NOTE_NULLIFIER: u32 = 53;
+pub global DOM_SEP__OUTER_NULLIFIER: u32 = 7;
+
+pub global DOM_SEP__PUBLIC_LEAF_INDEX: u32 = 23;
+
+pub global DOM_SEP__MESSAGE_NULLIFIER: u32 = 5;
+
+// ---------------------------------------------------------------
+// Contract Address
+
+// Class Id
+pub global DOM_SEP__FUNCTION_LEAF: u32 = 11;
+pub global DOM_SEP__PUBLIC_BYTECODE: u32 = 60;
+pub global DOM_SEP__CONTRACT_CLASS_ID: u32 = 16;
+
+// Salted Initialization Hash
+pub global DOM_SEP__CONSTRUCTOR: u32 = 13;
+
+// Keys
+pub global DOM_SEP__NSK_M: u32 = 48;
+pub global DOM_SEP__IVSK_M: u32 = 49;
+pub global DOM_SEP__OVSK_M: u32 = 50;
+pub global DOM_SEP__TSK_M: u32 = 51;
+pub global DOM_SEP__PUBLIC_KEYS_HASH: u32 = 52;
+
+// Address
+pub global DOM_SEP__PARTIAL_ADDRESS: u32 = 27;
+
+pub global DOM_SEP__CONTRACT_ADDRESS_V1: u32 = 15;
+
+// ---------------------------------------------------------------
+
+pub global DOM_SEP__BLOCK_HASH: u32 = 28; // Consider renaming to BLOCK_HEADER_HASH
+
+pub global DOM_SEP__TX_REQUEST: u32 = 33;
+pub global DOM_SEP__PUBLIC_TX_HASH: u32 = 56;
+pub global DOM_SEP__PRIVATE_TX_HASH: u32 = 57;
+
+// Hashing the calldata of public functions:
+pub global DOM_SEP__PUBLIC_CALLDATA: u32 = 43;
+// Hashing the args to private functions:
+pub global DOM_SEP__FUNCTION_ARGS: u32 = 44;
+
+pub global DOM_SEP__PROTOCOL_CONTRACTS: u32 = 61;
+// Part of the protocol, because some protocol contracts emit events.
+pub global DOM_SEP__EVENT_COMMITMENT: u32 = 59;
+
+// ---------------------------------------------------------------
+// Not protocol, but possibly protocol in future.
+
+// The following might (in future) be justifiable as protocol constants, as they might get used by the protocol's "Protocol Contracts", e.g. if the protocol enables FeeJuice to be shielded in future.
+// It will depend on the chosen functionality of FeeJuice:
+// - It might not support partial notes.
+// - It might not support encrypted messages.
+// - It might not support authwits (instead using the fee_payer field as evidence of authorization).
+// If FeeJuice doesn't end up supporting those things, then these constants should be moved into aztec.nr.
+
+pub global DOM_SEP__AUTHWIT_INNER: u32 = 45;
+pub global DOM_SEP__AUTHWIT_OUTER: u32 = 46;
+pub global DOM_SEP__AUTHWIT_NULLIFIER: u32 = 47;
+
+pub global DOM_SEP__SYMMETRIC_KEY: u8 = 54;
+pub global DOM_SEP__SYMMETRIC_KEY_2: u8 = 55;
+
+pub global DOM_SEP__PARTIAL_NOTE_VALIDITY_COMMITMENT: u32 = 58;
+
+// ---------------------------------------------------------------
+// TODO: consider moving these to aztec-nr
+
+pub global DOM_SEP__INITIALIZATION_NULLIFIER: u32 = 6;
+pub global DOM_SEP__SECRET_HASH: u32 = 20;
+pub global DOM_SEP__TX_NULLIFIER: u32 = 32;
+pub global DOM_SEP__SIGNATURE_PAYLOAD: u32 = 34;
+
+// ---------------------------------------------------------------
 
 // TODO: Move this to bb's constant noir lib when created.
 // AVM memory tags

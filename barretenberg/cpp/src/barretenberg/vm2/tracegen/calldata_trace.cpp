@@ -70,7 +70,7 @@ void CalldataTraceBuilder::process_hashing(
     uint32_t row = 1;
 
     for (const auto& event : events) {
-        std::vector<FF> calldata_with_sep = { GENERATOR_INDEX__PUBLIC_CALLDATA };
+        std::vector<FF> calldata_with_sep = { DOM_SEP__PUBLIC_CALLDATA };
         size_t input_size = event.calldata.size() + 1; // +1 for the separator
         calldata_with_sep.reserve(input_size);
         calldata_with_sep.insert(calldata_with_sep.end(), event.calldata.begin(), event.calldata.end());

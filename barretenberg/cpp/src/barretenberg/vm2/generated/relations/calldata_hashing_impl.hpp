@@ -15,7 +15,7 @@ void calldata_hashingImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    const auto constants_GENERATOR_INDEX__PUBLIC_CALLDATA = FF(43);
+    const auto constants_DOM_SEP__PUBLIC_CALLDATA = FF(43);
     const auto calldata_hashing_LATCH_CONDITION = in.get(C::calldata_hashing_latch) + in.get(C::precomputed_first_row);
     const auto calldata_hashing_PADDING_1 =
         in.get(C::calldata_hashing_sel) * (FF(1) - in.get(C::calldata_hashing_sel_not_padding_1));
@@ -83,9 +83,9 @@ void calldata_hashingImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     }
     { // START_IS_SEPARATOR
         using View = typename std::tuple_element_t<9, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::calldata_hashing_start)) *
-                   (static_cast<View>(in.get(C::calldata_hashing_input_0_)) -
-                    CView(constants_GENERATOR_INDEX__PUBLIC_CALLDATA));
+        auto tmp =
+            static_cast<View>(in.get(C::calldata_hashing_start)) *
+            (static_cast<View>(in.get(C::calldata_hashing_input_0_)) - CView(constants_DOM_SEP__PUBLIC_CALLDATA));
         std::get<9>(evals) += (tmp * scaling_factor);
     }
     { // INDEX_INCREMENTS
