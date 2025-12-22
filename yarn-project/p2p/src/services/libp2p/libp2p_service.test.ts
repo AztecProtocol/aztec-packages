@@ -231,7 +231,7 @@ describe('LibP2PService', () => {
     function setProposalTxHashes(
       svc: {
         mempools: {
-          attestationPool?: {
+          attestationPool: {
             getBlockProposal: (id: string) => Promise<{ txHashes: { toString(): string }[] } | undefined>;
           };
         };

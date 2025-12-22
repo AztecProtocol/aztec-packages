@@ -39,7 +39,7 @@ export function getMockPubSubP2PServiceFactory<T extends P2PClientType>(
     peerId: PeerId,
     deps: {
       packageVersion: string;
-      mempools: MemPools<T>;
+      mempools: MemPools;
       l2BlockSource: L2BlockSource & ContractDataSource;
       epochCache: EpochCacheInterface;
       proofVerifier: ClientProtocolCircuitVerifier;
