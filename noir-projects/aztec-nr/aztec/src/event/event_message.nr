@@ -3,7 +3,7 @@ use crate::{
     event::{event_emission::NewEvent, event_interface::EventInterface},
     messages::{
         encryption::{aes128::AES128, message_encryption::MessageEncryption},
-        logs::{event::private_event_to_message_plaintext, utils::prefix_with_tag},
+        logs::{event::encode_private_event_message, utils::prefix_with_tag},
         message_delivery::MessageDelivery,
         offchain_messages::deliver_offchain_message,
     },
@@ -72,7 +72,7 @@ where
         let ciphertext = remove_constraints_if(
             !constrained_encryption,
             || AES128::encrypt(
-                private_event_to_message_plaintext(new_event.event, new_event.randomness),
+                encode_private_event_message(new_event.event, new_event.randomness),
                 recipient,
             ),
         );

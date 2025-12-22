@@ -33,7 +33,7 @@ comptime fn generate_note_type_impl(s: TypeDefinition, note_type_id: Field) -> Q
     let name = s.name();
     let typ = s.as_type();
     let note_type_name: str<_> = f"{name}".as_ctstring().as_quoted_str!();
-    let max_note_packed_len = crate::messages::discovery::private_notes::MAX_NOTE_PACKED_LEN;
+    let max_note_packed_len = crate::messages::logs::note::MAX_NOTE_PACKED_LEN;
 
     quote {
         impl aztec::note::note_interface::NoteType for $name {

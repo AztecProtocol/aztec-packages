@@ -8,9 +8,8 @@ pub mod process_message;
 
 use crate::{
     messages::{
-        discovery::{
-            private_notes::MAX_NOTE_PACKED_LEN, process_message::process_message_ciphertext,
-        },
+        discovery::process_message::process_message_ciphertext,
+        logs::note::MAX_NOTE_PACKED_LEN,
         processing::{
             get_private_logs, pending_tagged_log::PendingTaggedLog,
             validate_enqueued_notes_and_events,

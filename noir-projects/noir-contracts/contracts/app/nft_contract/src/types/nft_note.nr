@@ -2,7 +2,7 @@ use dep::aztec::{
     context::{PrivateContext, PublicContext},
     keys::getters::{get_nsk_app, get_public_keys},
     macros::notes::custom_note,
-    messages::logs::note,
+    messages::logs::partial_note::compute_partial_note_private_content_log,
     note::note_interface::{NoteHash, NoteType},
     oracle::random::random,
     protocol_types::{
@@ -124,14 +124,15 @@ impl NFTNote {
         //  - the commitment is already public information, so we're not revealing anything else
         //  - we don't need to create any additional information, private or public, for the tag
         //  - other contracts cannot impersonate us and emit logs with the same tag due to public log siloing
-        let private_log_content = NFTPartialNotePrivateLogContent { public_log_tag: commitment };
+        let private_log_content = NFTPartialNotePrivateLogContent {};
 
-        let encrypted_log = note::compute_partial_note_private_content_log(
+        let encrypted_log = compute_partial_note_private_content_log(
             private_log_content,
             owner,
             storage_slot,
             randomness,
             recipient,
+            commitment,
         );
         // Regardless of the original content size, the log is padded with random bytes up to
         // `PRIVATE_LOG_SIZE_IN_FIELDS` to prevent leaking information about the actual size.
@@ -164,9 +165,9 @@ fn compute_partial_commitment(
 }
 
 #[derive(Packable)]
-struct NFTPartialNotePrivateLogContent {
-    public_log_tag: Field,
-}
+// This note does not have any non-metadata (i.e. storage slot, owner, randomness) private content, as the only field
+// (token_id) will be public in the partial note.
+struct NFTPartialNotePrivateLogContent {}
 
 impl NoteType for NFTPartialNotePrivateLogContent {
     fn get_id() -> Field {
@@ -237,13 +238,10 @@ impl PartialNFTNote {
 }
 
 mod test {
-    use super::{
-        compute_partial_commitment, NFTNote, NFTPartialNotePrivateLogContent, PartialNFTNote,
-    };
+    use super::{compute_partial_commitment, NFTNote, PartialNFTNote};
     use dep::aztec::{
         note::note_interface::NoteHash,
-        protocol_types::{address::AztecAddress, traits::{Deserialize, FromField, Packable}},
-        utils::array::subarray,
+        protocol_types::{address::AztecAddress, traits::FromField},
     };
 
     global token_id: Field = 17;
@@ -266,34 +264,5 @@ mod test {
         let completed_partial_note_hash = partial_note.compute_complete_note_hash(token_id);
 
         assert_eq(note_hash, completed_partial_note_hash);
-    }
-
-    #[test]
-    fn unpack_from_partial_note_encoding() {
-        // Tests that the packed representation of a regular NFTNote can be reconstructed given the partial note
-        // private fields log and the public completion log, ensuring the recipient will be able to compute the
-        // completed note as if it were a regular NFTNote.
-
-        let note = NFTNote { token_id };
-
-        let commitment = compute_partial_commitment(owner, storage_slot, randomness);
-
-        let private_log_content = NFTPartialNotePrivateLogContent { public_log_tag: commitment };
-        // The following is a misuse of the `deserialize` function, but this is just a test and it's better than
-        // letting devs manually construct it when they shouldn't be able to.
-        let partial_note = PartialNFTNote::deserialize([commitment]);
-
-        // The first field of the partial note private content is the public completion log tag, so it should match the
-        // first field of the public log.
-        assert_eq(
-            private_log_content.pack()[0],
-            partial_note.compute_note_completion_log(token_id)[0],
-        );
-
-        // The completion log without the tag should match the note's packed representation.
-        let public_log_without_tag: [_; 1] =
-            subarray(partial_note.compute_note_completion_log(token_id), 1);
-
-        assert_eq(public_log_without_tag, note.pack());
     }
 }

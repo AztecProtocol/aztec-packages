@@ -1,6 +1,6 @@
 use aztec::{
     macros::notes::note,
-    messages::discovery::private_notes::MAX_NOTE_PACKED_LEN,
+    messages::logs::note::MAX_NOTE_PACKED_LEN,
     protocol_types::traits::Packable,
 };
 
