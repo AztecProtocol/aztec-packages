@@ -65,28 +65,30 @@ Before setting up your prover, you need to generate the required Ethereum privat
 
 The prover publisher key is used to submit proofs to L1. This account needs ETH funding to pay for L1 gas.
 
-Generate an Ethereum private key using Foundry's `cast` tool:
+Generate an Ethereum address and private key using any of these methods:
 
-```bash
-# Generate a new wallet with a 24-word mnemonic
-cast wallet new-mnemonic --words 24
+**Option A: Use MetaMask or another browser wallet**
+1. Open MetaMask and click "Create Account" or "Add Account"
+2. Note the new address (this will be your `PROVER_ID`)
+3. Click the three dots → "Account Details" → "Show Private Key"
+4. Enter your password and copy the private key (for `PROVER_PUBLISHER_PRIVATE_KEY`)
 
-# This outputs a mnemonic phrase, a derived address, and private key
-# Save these securely - you'll need the private key for PROVER_PUBLISHER_PRIVATE_KEY
-# and the address for PROVER_ID
-```
+**Option B: Use a hardware wallet (recommended for production)**
+1. Connect your Ledger/Trezor and create a new Ethereum account
+2. Export the address (for `PROVER_ID`)
+3. For signing, you'll use the hardware wallet directly via MetaMask
+
+**Option C: Use any secure wallet generator**
+- Generate a new Ethereum wallet using a trusted tool
+- Save the mnemonic phrase and private key securely
 
 **Important notes:**
-- Save both the private key and the derived address securely
+- Save both the private key and the address securely
 - The private key will be used for `PROVER_PUBLISHER_PRIVATE_KEY`
-- The derived Ethereum address will be used for `PROVER_ID`
+- The Ethereum address will be used for `PROVER_ID`
 
 :::warning Account Funding Required
-The publisher account needs to be funded with ETH to post proofs to L1. Ensure the account holds sufficient ETH for gas costs during operation.
-:::
-
-:::tip
-If you don't have Foundry installed, follow the installation guide at [getfoundry.sh](https://getfoundry.sh/).
+The publisher account needs to be funded with ETH to post proofs to L1. Ensure the account holds sufficient ETH for gas costs during operation. Check your balance on Etherscan at `https://etherscan.io/address/[YOUR_ADDRESS]`.
 :::
 
 ## Setup

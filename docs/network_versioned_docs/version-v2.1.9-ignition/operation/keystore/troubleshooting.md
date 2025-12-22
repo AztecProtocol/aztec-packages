@@ -27,7 +27,7 @@ Error: HTTP request failed
 
 **Solutions:**
 - Verify `$ETH_RPC` is set correctly: `echo $ETH_RPC`
-- Test RPC connectivity: `cast block-number --rpc-url $ETH_RPC`
+- Test RPC connectivity by checking Etherscan can query the latest block at `https://etherscan.io/blocks`
 - Try a different RPC provider if the current one is rate-limited
 
 ### Permission Denied
@@ -179,14 +179,13 @@ openssl s_client -connect signer.example.com:8080 -showcerts
 
 **Solutions**:
 
-1. Check publisher balances:
-```bash
-cast balance 0xPUBLISHER_ADDRESS --rpc-url $ETHEREUM_HOST
-```
+1. Check publisher balances on Etherscan:
+   - Go to `https://etherscan.io/address/[PUBLISHER_ADDRESS]`
+   - The ETH balance is displayed at the top of the page
 
 2. Fund publisher accounts with ETH
 
-3. Set up automated balance monitoring and alerts
+3. Set up automated balance monitoring using Etherscan's address watch feature or API alerts
 
 ### "Nonce too low" or "Replacement transaction underpriced"
 

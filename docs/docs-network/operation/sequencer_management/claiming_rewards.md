@@ -1,22 +1,24 @@
 ---
 sidebar_position: 4
 title: Claiming Rewards
-description: Learn how to claim your sequencer rewards from the Aztec Rollup contract using cast commands.
+description: Learn how to claim your sequencer rewards from the Aztec Rollup contract using Etherscan.
 ---
 
 ## Overview
 
-Sequencer rewards accumulate in the Rollup contract but are not automatically distributed. You must manually claim them by calling the Rollup contract. This guide shows you how to check pending rewards and claim them using Foundry's `cast` command.
+Sequencer rewards accumulate in the Rollup contract but are not automatically distributed. You must manually claim them by calling the Rollup contract. This guide shows you how to check pending rewards and claim them using Etherscan's web interface.
+
+Using Etherscan instead of command-line tools provides a more secure approach—you never need to expose private keys in terminal commands. Etherscan integrates with browser wallets (MetaMask, Ledger, etc.) for signing transactions.
 
 ## Prerequisites
 
 Before proceeding, you should:
 
 - Have a running sequencer that earned rewards (see [Sequencer Setup Guide](../../setup/sequencer_management.md))
-- Have Foundry installed with the `cast` command available ([installation guide](https://book.getfoundry.sh/getting-started/installation))
+- Have a browser wallet (MetaMask, Rabby, etc.) connected to the appropriate network
 - Know your Rollup contract address (see [Useful Commands](./useful_commands.md#get-the-rollup-contract-address))
 - Have your sequencer's coinbase address
-- Have an Ethereum RPC endpoint for the network you're querying
+- Have ETH in your wallet to pay for gas
 
 ## Understanding Reward Claiming
 
@@ -43,121 +45,95 @@ Before claiming, verify these conditions:
 
 ## Checking Reward Status
 
-### Set Up Your Environment
+### Navigate to the Rollup Contract
 
-For convenience, set your RPC URL as an environment variable:
+Go to your Rollup contract on Etherscan:
+- **Mainnet**: `https://etherscan.io/address/[ROLLUP_ADDRESS]#readContract`
+- **Testnet (Sepolia)**: `https://sepolia.etherscan.io/address/[ROLLUP_ADDRESS]#readContract`
 
-```bash
-export RPC_URL="https://your-ethereum-rpc-endpoint.com"
-export ROLLUP_ADDRESS="[YOUR_ROLLUP_CONTRACT_ADDRESS]"
-```
-
-Replace `[YOUR_ROLLUP_CONTRACT_ADDRESS]` with your actual Rollup contract address.
+Replace `[ROLLUP_ADDRESS]` with your actual Rollup contract address.
 
 ### Check if Rewards Are Claimable
 
 Verify reward claiming is enabled before attempting to claim:
 
-```bash
-cast call $ROLLUP_ADDRESS "isRewardsClaimable()" --rpc-url $RPC_URL
-```
+1. Go to the Rollup contract's **Read Contract** page
+2. Find the `isRewardsClaimable` function
+3. Click **"Query"**
 
 **Expected output:**
-- `0x0000000000000000000000000000000000000000000000000000000000000001` - Rewards are claimable (true)
-- `0x0000000000000000000000000000000000000000000000000000000000000000` - Rewards are not yet claimable (false)
+- `true` - Rewards are claimable
+- `false` - Rewards are not yet claimable
 
 If rewards are not claimable, check when they will become claimable:
 
-```bash
-cast call $ROLLUP_ADDRESS "getEarliestRewardsClaimableTimestamp()" --rpc-url $RPC_URL
-```
+1. Find the `getEarliestRewardsClaimableTimestamp` function
+2. Click **"Query"**
 
-This returns a Unix timestamp indicating the earliest time when governance can enable reward claiming.
+This returns a Unix timestamp indicating the earliest time when governance can enable reward claiming. Use an online converter to translate the timestamp to a human-readable date.
 
 ### Query Your Pending Rewards
 
 Check accumulated rewards:
 
-```bash
-cast call $ROLLUP_ADDRESS "getSequencerRewards(address)" [COINBASE_ADDRESS] --rpc-url $RPC_URL
-```
+1. Find the `getSequencerRewards` function
+2. Enter your coinbase address (e.g., `0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb`)
+3. Click **"Query"**
 
-Replace `[COINBASE_ADDRESS]` with your sequencer's coinbase address.
+Etherscan displays the result in both hexadecimal and decimal formats. The value is in wei (10^18 wei = 1 token), so divide by 10^18 to get the token amount.
 
 **Example:**
-```bash
-# Query and convert to decimal tokens (assuming 18 decimals)
-cast call $ROLLUP_ADDRESS "getSequencerRewards(address)" 0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb --rpc-url $RPC_URL | cast --to-dec | cast --from-wei
-# Output: 0.1
-```
+If the result shows `100000000000000000` (decimal), that equals `0.1` tokens.
 
 ## Claiming Your Rewards
 
 The `claimSequencerRewards` function is permissionless - anyone can call it for any address. Rewards are always sent to the `coinbase` address, regardless of who submits the transaction.
 
-### Basic Claim Command
+### Claim via Etherscan
 
-Use `cast send` to claim rewards:
+1. Go to your Rollup contract's **Write Contract** page:
+   - **Mainnet**: `https://etherscan.io/address/[ROLLUP_ADDRESS]#writeContract`
+   - **Testnet (Sepolia)**: `https://sepolia.etherscan.io/address/[ROLLUP_ADDRESS]#writeContract`
 
-```bash
-cast send $ROLLUP_ADDRESS \
-  "claimSequencerRewards(address)" \
-  [COINBASE_ADDRESS] \
-  --rpc-url $RPC_URL \
-  --private-key [YOUR_PRIVATE_KEY]
-```
+2. Click **"Connect to Web3"** and connect your wallet (MetaMask, WalletConnect, etc.)
 
-Replace:
-- `[COINBASE_ADDRESS]` - The coinbase address whose rewards you want to claim
-- `[YOUR_PRIVATE_KEY]` - The private key of the account paying for gas
+3. Find the `claimSequencerRewards` function
 
-**Example:**
-```bash
-cast send $ROLLUP_ADDRESS \
-  "claimSequencerRewards(address)" \
-  0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb \
-  --rpc-url $RPC_URL \
-  --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
-```
+4. Enter the coinbase address whose rewards you want to claim (e.g., `0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb`)
 
-### Using a Keystore File
+5. Click **"Write"**
 
-For better security, use a keystore file instead of exposing your private key:
+6. Confirm the transaction in your wallet
 
-```bash
-cast send $ROLLUP_ADDRESS \
-  "claimSequencerRewards(address)" \
-  [COINBASE_ADDRESS] \
-  --rpc-url $RPC_URL \
-  --keystore [PATH_TO_KEYSTORE] \
-  --password [KEYSTORE_PASSWORD]
-```
+### Using Hardware Wallets
 
-### Using a Hardware Wallet
+Etherscan supports hardware wallet connections through:
 
-If you're using a Ledger wallet:
+- **MetaMask + Ledger/Trezor**: Connect your hardware wallet to MetaMask, then use MetaMask to connect to Etherscan
+- **WalletConnect**: Many hardware wallet apps support WalletConnect for direct connection
 
-```bash
-cast send $ROLLUP_ADDRESS \
-  "claimSequencerRewards(address)" \
-  [COINBASE_ADDRESS] \
-  --rpc-url $RPC_URL \
-  --ledger
-```
-
-This will prompt you to confirm the transaction on your Ledger device.
+This ensures your private keys never leave your hardware device.
 
 ## Verifying Your Claim
 
-Check that the transaction succeeded and your pending rewards were reset to zero:
+### Check Transaction Status
 
-```bash
-# Check transaction succeeded (look for status: 1)
-cast receipt [TRANSACTION_HASH] --rpc-url $RPC_URL
+After submitting the claim transaction:
 
-# Verify pending rewards are now zero
-cast call $ROLLUP_ADDRESS "getSequencerRewards(address)" [COINBASE_ADDRESS] --rpc-url $RPC_URL
-```
+1. Copy the transaction hash from your wallet or Etherscan
+2. Go to `https://etherscan.io/tx/[TRANSACTION_HASH]` (use `sepolia.etherscan.io` for testnet)
+3. Verify the transaction status shows **"Success"**
+
+### Verify Rewards Are Claimed
+
+Confirm your pending rewards are now zero:
+
+1. Go to the Rollup contract's **Read Contract** page
+2. Find the `getSequencerRewards` function
+3. Enter your coinbase address
+4. Click **"Query"**
+
+The result should show `0` if all rewards were successfully claimed.
 
 ## Troubleshooting
 
@@ -190,15 +166,9 @@ cast call $ROLLUP_ADDRESS "getSequencerRewards(address)" [COINBASE_ADDRESS] --rp
 **Symptom**: Transaction reverts due to insufficient gas.
 
 **Solution**:
-1. Increase the gas limit when sending the transaction using `--gas-limit`:
-   ```bash
-   cast send $ROLLUP_ADDRESS \
-     "claimSequencerRewards(address)" \
-     [COINBASE_ADDRESS] \
-     --rpc-url $RPC_URL \
-     --private-key [YOUR_PRIVATE_KEY] \
-     --gas-limit 200000
-   ```
+1. When using Etherscan, MetaMask typically estimates gas automatically. If the transaction fails:
+   - In MetaMask, click "Edit" on the gas settings before confirming
+   - Increase the gas limit to 200,000 or higher
 2. Ensure your account has sufficient ETH to cover gas costs
 
 ### Insufficient Funds for Gas
@@ -206,10 +176,9 @@ cast call $ROLLUP_ADDRESS "getSequencerRewards(address)" [COINBASE_ADDRESS] --rp
 **Symptom**: Transaction fails because the sending account has insufficient ETH.
 
 **Solution**:
-1. Check your account balance:
-   ```bash
-   cast balance [YOUR_ADDRESS] --rpc-url $RPC_URL
-   ```
+1. Check your account balance on Etherscan:
+   - Go to `https://etherscan.io/address/[YOUR_ADDRESS]`
+   - The ETH balance is displayed at the top of the page
 2. Send ETH to your account to cover gas costs (recommended: at least 0.005 ETH)
 
 ### Wrong Network
@@ -217,9 +186,12 @@ cast call $ROLLUP_ADDRESS "getSequencerRewards(address)" [COINBASE_ADDRESS] --rp
 **Symptom**: Transaction fails or contract calls return unexpected results.
 
 **Solution**:
-1. Verify your RPC URL points to the correct network (Sepolia for testnet)
-2. Verify the Rollup contract address matches your target network
-3. Check your account has ETH on the correct network
+1. Verify you're using the correct Etherscan domain:
+   - Mainnet: `etherscan.io`
+   - Sepolia testnet: `sepolia.etherscan.io`
+2. Ensure your wallet is connected to the correct network (check the network selector in MetaMask)
+3. Verify the Rollup contract address matches your target network
+4. Check your account has ETH on the correct network
 
 ## Best Practices
 
@@ -227,7 +199,7 @@ cast call $ROLLUP_ADDRESS "getSequencerRewards(address)" [COINBASE_ADDRESS] --rp
 
 **Monitor Pending Rewards**: Set up automated scripts to query pending rewards and alert you when they exceed a threshold.
 
-**Use Keystore Files**: Avoid exposing private keys in command history. Use keystore files or hardware wallets for production operations.
+**Use Hardware Wallets**: For production operations, use hardware wallets connected through MetaMask or WalletConnect for maximum security.
 
 **Verify Before Claiming**: Check pending rewards before claiming to ensure the transaction justifies the gas cost.
 

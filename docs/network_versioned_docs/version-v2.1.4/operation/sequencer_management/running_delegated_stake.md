@@ -18,7 +18,7 @@ Before proceeding, ensure you have:
 - Knowledge of running a sequencer node (see [Sequencer Setup Guide](../../setup/sequencer_management))
 - An Ethereum wallet with sufficient ETH for gas fees
 - Understanding of basic Aztec staking mechanics
-- Foundry installed for `cast` commands
+- A browser wallet (MetaMask, Rabby, etc.) for contract interactions via Etherscan
 - Aztec CLI v2.1.4 or later installed:
 
 ```bash
@@ -26,10 +26,15 @@ bash -i <(curl -s https://install.aztec.network)
 aztec-up --version 2.1.4
 ```
 
-### Contract Addresses (Sepolia)
+### Contract Addresses
 
+**Testnet (Sepolia):**
 - Staking Registry: `0xc3860c45e5F0b1eF3000dbF93149756f16928ADB`
 - GSE (Governance Staking Escrow): `0xfb243b9112bb65785a4a8edaf32529accf003614`
+
+**Mainnet:**
+- Staking Registry: `0x042dF8f42790d6943F41C25C2132400fd727f452`
+- GSE: `0xa92ecFD0E70c9cd5E5cd76c50Af0F7Da93567a4f`
 
 ## How Delegated Stake Works
 
@@ -87,50 +92,36 @@ function registerProvider(
 
 **Returns:** Your unique `providerIdentifier`. Save this—you'll need it for all provider operations.
 
-**Example:**
+**Example via Etherscan:**
 
-```bash
-# Register a provider with 5% commission rate
-cast send $STAKING_REGISTRY_ADDRESS \
-  "registerProvider(address,uint16,address)" \
-  $PROVIDER_ADMIN_ADDRESS \
-  500 \
-  $REWARDS_RECIPIENT_ADDRESS \
-  --rpc-url $RPC_URL \
-  --private-key $YOUR_PRIVATE_KEY
-```
+1. Go to `https://etherscan.io/address/[STAKING_REGISTRY_ADDRESS]#writeContract` (use `sepolia.etherscan.io` for testnet)
+2. Click **"Connect to Web3"** and connect your wallet
+3. Find the `registerProvider` function
+4. Enter the parameters:
+   - `_providerAdmin`: Your admin address
+   - `_providerTakeRate`: `500` (for 5% commission)
+   - `_providerRewardsRecipient`: Address to receive commission payments
+5. Click **"Write"** and confirm the transaction
 
 ### Extracting Your Provider ID
 
 Once the transaction is confirmed, you need to extract your `providerIdentifier` from the transaction logs. The provider ID is emitted as the second topic in the registration event log.
 
-**Method 1: Using cast receipt**
+**Via Etherscan:**
 
-```bash
-cast receipt [TX_HASH] --rpc-url $RPC_URL | grep "return" | awk '{print $2}' | xargs cast to-dec
-```
+1. After the transaction confirms, click the transaction hash to view details
+2. Scroll down to the **"Logs"** section
+3. Find the `ProviderRegistered` event
+4. The second topic (topic[1]) contains your `providerIdentifier` in hex format
+5. Etherscan displays the decoded decimal value next to the hex value
 
-**Method 2: From transaction logs**
+**Example log on Etherscan:**
 
-The transaction receipt will contain one log where the second topic is your `providerId` in hex format:
-
-```bash
-# Example log output
-logs [{"address":"0xc3860c45e5f0b1ef3000dbf93149756f16928adb",
-       "topics":["0x43fe1b4477c9a580955f586c904f4670929e184ef4bef4936221c52d0a79a75b",
-                 "0x0000000000000000000000000000000000000000000000000000000000000002",  # This is your providerId
-                 "0x000000000000000000000000efdb4c5f3a2f04e0cb393725bcae2dd675cc3718",
-                 "0x00000000000000000000000000000000000000000000000000000000000001f4"],
-       ...
-      }]
-```
-
-Convert the hex value to decimal:
-
-```bash
-cast to-dec 0x0000000000000000000000000000000000000000000000000000000000000002
-# Output: 2
-```
+You'll see something like:
+- Topic 0: `0x43fe1b4477...` (event signature)
+- Topic 1: `0x0000...0002` → This is your providerId (decimal: `2`)
+- Topic 2: Provider admin address
+- Topic 3: Take rate
 
 **Save your `providerIdentifier`**—you'll need it for all subsequent provider operations.
 
@@ -178,35 +169,48 @@ Use the `aztec validator-keys` command with the `--staker-output` flag to automa
 
 ```bash
 aztec validator-keys new \
-  --fee-recipient $AZTEC_ADDRESS \
+  --fee-recipient 0x0000000000000000000000000000000000000000000000000000000000000000 \
   --staker-output \
-  --gse-address 0xfb243b9112bb65785a4a8edaf32529accf003614 \
-  --l1-rpc-urls $RPC_URL
+  --gse-address 0xa92ecFD0E70c9cd5E5cd76c50Af0F7Da93567a4f \
+  --l1-rpc-urls $ETH_RPC \
+  --l1-chain-id 1
 ```
 
+**For testnet (Sepolia):** Use `--gse-address 0xfb243b9112bb65785a4a8edaf32529accf003614` and `--l1-chain-id 11155111`
+
 This command automatically:
-1. Generates the keystore with ETH and BLS keys
-2. Computes G1 and G2 public keys
+1. Generates the private keystore with ETH and BLS keys
+2. Generates the public keystore with G1 and G2 public keys
 3. Generates the proof of possession signature
 4. Outputs the data in the correct format for the `addKeysToProvider` function
 
-For more details on keystore creation, see the [Creating Sequencer Keystores](../keystore/creating_keystores.md) guide.
+The public keystore file (`keyN_staker_output.json`) contains the data you'll use for provider registration.
+
+For more details on keystore creation, see the [Sequencer Setup Guide](../../setup/sequencer_management.md#generating-keys).
 
 ### Building the Registration Command
 
-You have two options for constructing the `addKeysToProvider` command:
+You have two options for adding keys to your provider:
 
 **Option 1: Use the helper script (Recommended)**
 
-Use this helper script to automatically build the command from your `validator-keys` output:
+Use this helper script to automatically build the transaction data from your `validator-keys` output:
 
 https://gist.github.com/koenmtb1/1b665d055fbc22581c288f90cdc60d88
 
-The script reads the JSON output from `validator-keys staker` and constructs the properly formatted `cast send` command.
+The script reads the JSON output from `validator-keys staker` and constructs the properly formatted transaction data that you can use with Etherscan.
 
-**Option 2: Manual construction**
+**Option 2: Via Etherscan**
 
-If you need to manually construct the command, the function signature is:
+1. Go to `https://etherscan.io/address/[STAKING_REGISTRY_ADDRESS]#writeContract` (use `sepolia.etherscan.io` for testnet)
+2. Click **"Connect to Web3"** and connect your admin wallet
+3. Find the `addKeysToProvider` function
+4. Enter the parameters:
+   - `_providerIdentifier`: Your provider ID from Step 1
+   - `_keyStores`: Array of keystore data in the format from your `validator-keys --staker-output` file
+5. Click **"Write"** and confirm the transaction
+
+**Function signature:**
 
 ```solidity
 addKeysToProvider(uint256,(address,(uint256,uint256),(uint256,uint256,uint256,uint256),(uint256,uint256))[])
@@ -220,19 +224,8 @@ addKeysToProvider(uint256,(address,(uint256,uint256),(uint256,uint256,uint256,ui
   - `(uint256,uint256,uint256,uint256)`: publicKeyG2 (x0, x1, y0, y1 coordinates)
   - `(uint256,uint256)`: proofOfPossession (x, y coordinates)
 
-Example with placeholder values:
-
-```bash
-cast send $STAKING_REGISTRY_ADDRESS \
-  "addKeysToProvider(uint256,(address,(uint256,uint256),(uint256,uint256,uint256,uint256),(uint256,uint256))[])" \
-  $YOUR_PROVIDER_IDENTIFIER \
-  "[(0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb,(12345,67890),(11111,22222,33333,44444),(98765,43210))]" \
-  --rpc-url $RPC_URL \
-  --private-key $ADMIN_PRIVATE_KEY
-```
-
 **Important:**
-- Replace all values above with actual data from `aztec validator-keys new --staker-output`
+- Use actual data from `aztec validator-keys new --staker-output`
 - Add a maximum of 100 keystores per transaction to avoid gas limit issues
 - Verify each keystore is unique before adding to prevent duplicate key issues
 
@@ -293,7 +286,7 @@ Update the `coinbase` field in your sequencer node's keystore configuration to t
       },
       "publisher": ["0x..."],  // Address that submits blocks to L1
       "coinbase": "0x[SPLIT_CONTRACT_ADDRESS]",  // Split contract for this delegation
-      "feeRecipient": "0x..."  // Your Aztec address for L2 fees
+      "feeRecipient": "0x0000000000000000000000000000000000000000000000000000000000000000"  // Not currently used, set to all zeros
     }
   ]
 }
@@ -348,14 +341,12 @@ If your queue runs empty, new delegations cannot activate sequencers until you a
 
 ### Checking Available Keystores
 
-Check your current keystore queue with this call:
+Check your current keystore queue via Etherscan:
 
-```bash
-# Check provider queue length
-cast call [STAKING_REGISTRY_ADDRESS] \
-  "getProviderQueueLength(uint256) (uint256)" \
-  [YOUR_PROVIDER_IDENTIFIER] \
-  --rpc-url [RPC_URL]
+1. Go to `https://etherscan.io/address/[STAKING_REGISTRY_ADDRESS]#readContract` (use `sepolia.etherscan.io` for testnet)
+2. Find the `getProviderQueueLength` function
+3. Enter your provider identifier
+4. Click **"Query"**
 
 This returns your provider's queue length, which is the number of keystores currently available.
 
@@ -365,7 +356,7 @@ Implement automated monitoring to alert you when your keystore queue runs low.
 
 #### Cron Job Example
 
-The following script monitors your keystore queue and alerts when it drops below a threshold. Replace the placeholder values and uncomment your preferred alert method (webhook or email):
+The following script monitors your keystore queue and alerts when it drops below a threshold. It uses the Etherscan API to query the contract without exposing private keys. Replace the placeholder values and uncomment your preferred alert method:
 
 ```bash
 #!/bin/bash
@@ -374,14 +365,19 @@ The following script monitors your keystore queue and alerts when it drops below
 THRESHOLD=5  # Alert when fewer than 5 keystores remain
 REGISTRY_ADDRESS="[STAKING_REGISTRY_ADDRESS]"
 PROVIDER_ID="[YOUR_PROVIDER_IDENTIFIER]"
-RPC_URL="[YOUR_RPC_URL]"
+ETHERSCAN_API_KEY="[YOUR_ETHERSCAN_API_KEY]"  # Get from etherscan.io/apis
 WEBHOOK_URL="[YOUR_WEBHOOK_URL]"  # Optional: for Slack/Discord notifications
 
-# Gets current queue length
-QUEUE_LENGTH=$(cast call "$REGISTRY_ADDRESS" \
-  "getProviderQueueLength(uint256)" \
-  "$PROVIDER_ID" \
-  --rpc-url "$RPC_URL")
+# Encode the function call data
+# getProviderQueueLength(uint256) selector: 0x... (check on Etherscan)
+# You can find the encoded call data on Etherscan's Read Contract page
+
+# Use Etherscan API to call the contract
+RESPONSE=$(curl -s "https://api.etherscan.io/api?module=proxy&action=eth_call&to=$REGISTRY_ADDRESS&data=0x[ENCODED_CALL_DATA]&apikey=$ETHERSCAN_API_KEY")
+
+# Parse the response (returns hex value)
+QUEUE_LENGTH_HEX=$(echo $RESPONSE | jq -r '.result')
+QUEUE_LENGTH=$((QUEUE_LENGTH_HEX))
 
 echo "Queue length: $QUEUE_LENGTH"
 
@@ -398,6 +394,8 @@ if [ "$QUEUE_LENGTH" -lt "$THRESHOLD" ]; then
   # echo "Keystore queue has $QUEUE_LENGTH keys remaining" | mail -s "Low Keystore Alert" your-email@example.com
 fi
 ```
+
+**Tip:** Get a free Etherscan API key at [etherscan.io/apis](https://etherscan.io/apis) for automated monitoring.
 
 Make the script executable and schedule it with cron:
 
@@ -423,81 +421,74 @@ See [Step 2: Add Sequencer Identities](#step-2-add-sequencer-identities) for ins
 
 ## Managing Your Provider
 
-Update your provider configuration using these functions. All must be called from your `providerAdmin` address.
+Update your provider configuration using these functions via Etherscan. All must be called from your `providerAdmin` address.
 
 ### Update Admin Address
 
 Transfer provider administration to a new address:
 
-```bash
-cast send [STAKING_REGISTRY_ADDRESS] \
-  "updateProviderAdmin(uint256,address)" \
-  [YOUR_PROVIDER_IDENTIFIER] \
-  [NEW_ADMIN_ADDRESS] \
-  --rpc-url [RPC_URL] \
-  --private-key [CURRENT_ADMIN_PRIVATE_KEY]
-```
+1. Go to `https://etherscan.io/address/[STAKING_REGISTRY_ADDRESS]#writeContract` (use `sepolia.etherscan.io` for testnet)
+2. Click **"Connect to Web3"** and connect your current admin wallet
+3. Find the `updateProviderAdmin` function
+4. Enter:
+   - `_providerIdentifier`: Your provider ID
+   - `_newAdmin`: The new admin address
+5. Click **"Write"** and confirm the transaction
 
 ### Update Rewards Recipient
 
 Change the address receiving commission payments:
 
-```bash
-cast send [STAKING_REGISTRY_ADDRESS] \
-  "updateProviderRewardsRecipient(uint256,address)" \
-  [YOUR_PROVIDER_IDENTIFIER] \
-  [NEW_REWARDS_RECIPIENT_ADDRESS] \
-  --rpc-url [RPC_URL] \
-  --private-key [ADMIN_PRIVATE_KEY]
-```
+1. Go to the Staking Registry's **Write Contract** page
+2. Connect your admin wallet
+3. Find the `updateProviderRewardsRecipient` function
+4. Enter:
+   - `_providerIdentifier`: Your provider ID
+   - `_newRewardsRecipient`: The new recipient address
+5. Click **"Write"** and confirm
 
 ### Update Commission Rate
 
 Modify your commission rate (applies only to new delegations):
 
-```bash
-cast send [STAKING_REGISTRY_ADDRESS] \
-  "updateProviderTakeRate(uint256,uint16)" \
-  [YOUR_PROVIDER_IDENTIFIER] \
-  [NEW_RATE_BASIS_POINTS] \
-  --rpc-url [RPC_URL] \
-  --private-key [ADMIN_PRIVATE_KEY]
-```
+1. Go to the Staking Registry's **Write Contract** page
+2. Connect your admin wallet
+3. Find the `updateProviderTakeRate` function
+4. Enter:
+   - `_providerIdentifier`: Your provider ID
+   - `_newTakeRate`: The new rate in basis points (e.g., `500` for 5%)
+5. Click **"Write"** and confirm
 
-:::note
-Rate changes only apply to new delegations. Existing delegations retain the original commission rate they agreed to.
+:::warning Commission Changes Only Apply to New Delegations
+When you update your commission rate, only **new delegations** will use the updated rate. **Existing delegations cannot be changed**—they permanently retain the original commission rate that was agreed upon when the delegation was created.
 :::
 
 ## Verification
 
-Verify your setup is working correctly.
+Verify your setup is working correctly via Etherscan.
 
 ### Check Provider Registration
 
 Query the StakingRegistry to confirm your provider details:
 
-```bash
-cast call [STAKING_REGISTRY_ADDRESS] \
-  "providerConfigurations(uint256) (address,uint16,address)" \
-  [YOUR_PROVIDER_IDENTIFIER] \
-  --rpc-url [RPC_URL]
-```
+1. Go to `https://etherscan.io/address/[STAKING_REGISTRY_ADDRESS]#readContract` (use `sepolia.etherscan.io` for testnet)
+2. Find the `providerConfigurations` function
+3. Enter your provider identifier
+4. Click **"Query"**
 
 This returns:
 1. The provider's admin address
-2. The provider's commission rate in bps
+2. The provider's commission rate in basis points
 3. The provider's rewards recipient
 
 ### Verify Queue Length
 
 Check your provider queue length:
 
-```bash
-cast call [STAKING_REGISTRY_ADDRESS] \
-  "getProviderQueueLength(uint256)" \
-  [YOUR_PROVIDER_IDENTIFIER] \
-  --rpc-url [RPC_URL]
-```
+1. Go to the Staking Registry's **Read Contract** page
+2. Find the `getProviderQueueLength` function
+3. Enter your provider identifier
+4. Click **"Query"**
 
 ### Monitor Delegations
 

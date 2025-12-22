@@ -116,24 +116,17 @@ Never commit mnemonics to version control or share them over insecure channels.
 
 Each publisher account needs ETH to pay for L1 gas when submitting proposals. You must maintain at least **0.1 ETH** in each publisher account.
 
-**Check publisher balances:**
+**Check publisher balances on Etherscan:**
 
-```bash
-# Check balance for Publisher 1
-cast balance [PUBLISHER_1_ADDRESS] --rpc-url $ETH_RPC
-
-# Check balance for Publisher 2
-cast balance [PUBLISHER_2_ADDRESS] --rpc-url $ETH_RPC
-```
+1. Go to `https://etherscan.io/address/[PUBLISHER_1_ADDRESS]` (use `sepolia.etherscan.io` for testnet)
+2. The ETH balance is displayed at the top of the page
+3. Repeat for Publisher 2: `https://etherscan.io/address/[PUBLISHER_2_ADDRESS]`
 
 **Example:**
-```bash
-cast balance 0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb --rpc-url $ETH_RPC
-# Output: 100000000000000000 (0.1 ETH in wei)
-```
+Navigate to `https://etherscan.io/address/0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb` to see the balance displayed as "0.1 Ether" at the top of the page.
 
 :::warning Balance Monitoring
-Monitor these balances regularly to ensure they don't drop below 0.1 ETH. Falling below this threshold risks slashing. Consider setting up automated alerts when balances drop below 0.15 ETH.
+Monitor these balances regularly to ensure they don't drop below 0.1 ETH. Falling below this threshold risks slashing. Etherscan offers free address watch notifications—consider setting up automated alerts when balances drop below 0.15 ETH.
 :::
 
 ### Step 3: Extract Keys from Generated Keystore

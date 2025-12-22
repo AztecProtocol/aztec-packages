@@ -112,16 +112,16 @@ Use the Aztec CLI's keystore utility to generate both your private and public ke
 aztec validator-keys new \
   --fee-recipient 0x0000000000000000000000000000000000000000000000000000000000000000 \
   --staker-output \
-  --gse-address 0xfb243b9112bb65785a4a8edaf32529accf003614 \
+  --gse-address 0xa92ecFD0E70c9cd5E5cd76c50Af0F7Da93567a4f \
   --l1-rpc-urls $ETH_RPC
 ```
 
 **Relevant parameters:**
 - `--fee-recipient`: Set to all zeros (not currently used by the protocol)
 - `--staker-output`: Generate the public keystore for the staking dashboard
-- `--gse-address`: The GSE (Governance Staking Escrow) contract address (`0xfb243b9112bb65785a4a8edaf32529accf003614` for Sepolia testnet)
-- `--l1-rpc-urls`: Your Ethereum Sepolia L1 RPC endpoint
-  - Set `ETH_RPC` environment variable, or replace `$ETH_RPC` with your RPC URL (e.g., `https://sepolia.infura.io/v3/YOUR_API_KEY`)
+- `--gse-address`: The GSE (Governance Staking Escrow) contract address (`0xa92ecFD0E70c9cd5E5cd76c50Af0F7Da93567a4f` for mainnet)
+- `--l1-rpc-urls`: Your Ethereum mainnet RPC endpoint
+  - Set `ETH_RPC` environment variable, or replace `$ETH_RPC` with your Ethereum mainnet RPC URL (e.g., `https://mainnet.infura.io/v3/YOUR_API_KEY`)
 - `--count`: Number of validator identities to generate (default: 1)
   - Use this to generate multiple attester identities in a single keystore
   - Example: `--count 5` generates 5 validator identities with sequential addresses
@@ -197,7 +197,7 @@ For deterministic key generation or to recreate keys later, provide your own mne
 aztec validator-keys new \
   --fee-recipient 0x0000000000000000000000000000000000000000000000000000000000000000 \
   --staker-output \
-  --gse-address 0xfb243b9112bb65785a4a8edaf32529accf003614 \
+  --gse-address 0xa92ecFD0E70c9cd5E5cd76c50Af0F7Da93567a4f \
   --l1-rpc-urls $ETH_RPC \
   --mnemonic "your twelve word mnemonic phrase here"
 ```
@@ -210,7 +210,7 @@ To generate multiple validator identities (useful for delegated staking provider
 aztec validator-keys new \
   --fee-recipient 0x0000000000000000000000000000000000000000000000000000000000000000 \
   --staker-output \
-  --gse-address 0xfb243b9112bb65785a4a8edaf32529accf003614 \
+  --gse-address 0xa92ecFD0E70c9cd5E5cd76c50Af0F7Da93567a4f \
   --l1-rpc-urls $ETH_RPC \
   --count 5
 ```
@@ -284,8 +284,9 @@ Add the following to your `.env` file:
 DATA_DIRECTORY=./data
 KEY_STORE_DIRECTORY=./keys
 LOG_LEVEL=info
-ETHEREUM_HOSTS=[your Ethereum Sepolia execution endpoint, or a comma separated list if you have multiple]
-L1_CONSENSUS_HOST_URLS=[your Ethereum Sepolia consensus endpoint, or a comma separated list if you have multiple]
+ETHEREUM_HOSTS=[your Ethereum mainnet execution endpoint, or a comma separated list if you have multiple]
+L1_CONSENSUS_HOST_URLS=[your Ethereum mainnet consensus endpoint, or a comma separated list if you have multiple]
+ETHEREUM_DEBUG_HOSTS=[your trace capable L1 execution endpoint]
 P2P_IP=[your external IP address]
 P2P_PORT=40400
 AZTEC_PORT=8080
@@ -296,6 +297,12 @@ AZTEC_ADMIN_PORT=8880
 Find your public IP address with: `curl ipv4.icanhazip.com`
 :::
 
+:::warning
+In order to retrieve blocks posted to L1 via non-standard contract interactions, it is necessary to have access to an L1 rpc endpoint with 'trace' capability (either `trace_transaction` or `debug_traceTransaction`). The variable `ETHEREUM_DEBUG_HOSTS` is used to provide these url/s to the node. If not provided, the value of this will default to that set in `ETHEREUM_HOSTS`. The node will validate whether it is able to execute a trace call on the provided url/s, if not, it looks to the value set in `ETHEREUM_ALLOW_NO_DEBUG_HOSTS` to determine whether this should prevent the node from starting. By default `ETHEREUM_ALLOW_NO_DEBUG_HOSTS` is `true`, allowing the node to start. Any url provided in `ETHEREUM_DEBUG_HOSTS` will only be used in the case of having to execute a trace, it won't be used in regular L1 interactions.
+
+Note - if the node does not have access to an rpc url that is capable of trace calls and it encounters a block posted via a transaction using non-standard contract interactions, it may become stuck and unable to progress the chain.
+:::
+
 ### Step 5: Create Docker Compose File
 
 Create a `docker-compose.yml` file in your `aztec-sequencer` directory:
@@ -303,7 +310,7 @@ Create a `docker-compose.yml` file in your `aztec-sequencer` directory:
 ```yaml
 services:
   aztec-sequencer:
-    image: "aztecprotocol/aztec:2.1.4"
+    image: "aztecprotocol/aztec:2.1.9"
     container_name: "aztec-sequencer"
     ports:
       - ${AZTEC_PORT}:${AZTEC_PORT}
@@ -318,6 +325,7 @@ services:
       LOG_LEVEL: ${LOG_LEVEL}
       ETHEREUM_HOSTS: ${ETHEREUM_HOSTS}
       L1_CONSENSUS_HOST_URLS: ${L1_CONSENSUS_HOST_URLS}
+      ETHEREUM_DEBUG_HOSTS: ${ETHEREUM_DEBUG_HOSTS}
       P2P_IP: ${P2P_IP}
       P2P_PORT: ${P2P_PORT}
       AZTEC_PORT: ${AZTEC_PORT}
@@ -330,7 +338,7 @@ services:
       --node
       --archiver
       --sequencer
-      --network testnet
+      --network mainnet
     networks:
       - aztec
     restart: always
@@ -351,7 +359,7 @@ docker exec -it aztec-sequencer curl -X POST http://localhost:8880 \
 ```
 :::
 
-This configuration includes only essential settings. The `--network testnet` flag applies network-specific defaults—see the [CLI reference](../reference/cli_reference.md) for all available configuration options.
+This configuration includes only essential settings. The `--network mainnet` flag applies network-specific defaults—see the [CLI reference](../reference/cli_reference.md) for all available configuration options.
 
 ### Step 6: Start the Sequencer
 
@@ -418,38 +426,35 @@ Both options use the same node setup from this guide.
 
 ## Monitoring Sequencer Status
 
-You can query the status of any sequencer (attester) using the Rollup and GSE (Governance Staking Escrow) contracts on L1.
+You can query the status of any sequencer (attester) using the Rollup and GSE (Governance Staking Escrow) contracts on L1 via Etherscan.
 
 ### Prerequisites
 
-- Foundry installed (`cast` command)
-- Ethereum RPC endpoint
+- A web browser
 - Registry contract address for your network
 
 ### Get Contract Addresses
 
 First, get the canonical Rollup contract address from the Registry:
 
-```bash
-# Get the canonical rollup address
-cast call [REGISTRY_CONTRACT_ADDRESS] "getCanonicalRollup()" --rpc-url [YOUR_RPC_URL]
-```
+1. Go to `https://etherscan.io/address/[REGISTRY_CONTRACT_ADDRESS]#readContract` (use `sepolia.etherscan.io` for testnet)
+2. Find the `getCanonicalRollup` function
+3. Click **"Query"** and copy the returned Rollup address
 
 Then get the GSE contract address from the Rollup:
 
-```bash
-# Get the GSE contract address
-cast call [ROLLUP_ADDRESS] "getGSE()" --rpc-url [YOUR_RPC_URL]
-```
+1. Go to `https://etherscan.io/address/[ROLLUP_ADDRESS]#readContract`
+2. Find the `getGSE` function
+3. Click **"Query"** and copy the returned GSE address
 
 ### Query Sequencer Status
 
 Check the complete status and information for a specific sequencer:
 
-```bash
-# Get full attester view (status, balance, exit info, config)
-cast call [ROLLUP_ADDRESS] "getAttesterView(address)" [ATTESTER_ADDRESS] --rpc-url [YOUR_RPC_URL]
-```
+1. Go to `https://etherscan.io/address/[ROLLUP_ADDRESS]#readContract`
+2. Find the `getAttesterView` function
+3. Enter the attester address
+4. Click **"Query"**
 
 This returns an `AttesterView` struct containing:
 

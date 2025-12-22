@@ -173,38 +173,30 @@ Once configured, your sequencer automatically signals support for this payload e
 
 Once a payload receives the required quorum (151 signals in a 300-slot round), you or any user can call `submitRoundWinner` on the `GovernanceProposer` contract to officially create the proposal.
 
+### Find the Current Round Number
+
+First, check the current round:
+
+1. Go to `https://etherscan.io/address/[GOVERNANCE_PROPOSER_ADDRESS]#readContract` (use `sepolia.etherscan.io` for testnet)
+2. Find the `getCurrentRound` function
+3. Click **"Query"**
+4. Note the round number
+
 ### Submit the Payload
 
-```bash
-cast send [GOVERNANCE_PROPOSER_ADDRESS] \
-  "submitRoundWinner(uint256)" [ROUND_NUMBER] \
-  --rpc-url [YOUR_RPC_URL] \
-  --private-key [YOUR_PRIVATE_KEY]
-```
-
-To find the current round number:
-```bash
-# Get the current round from the GovernanceProposer contract
-cast call [GOVERNANCE_PROPOSER_ADDRESS] \
-  "getCurrentRound()" \
-  --rpc-url [YOUR_RPC_URL]
-```
+1. Go to `https://etherscan.io/address/[GOVERNANCE_PROPOSER_ADDRESS]#writeContract`
+2. Click **"Connect to Web3"** and connect your wallet
+3. Find the `submitRoundWinner` function
+4. Enter the round number
+5. Click **"Write"** and confirm the transaction in your wallet
 
 ### Verify the Created Proposal
 
-After creation, you can query the proposal in the governance contract:
+After creation, verify the proposal in the governance contract:
 
-```bash
-# Get the total proposal count
-cast call [GOVERNANCE_CONTRACT_ADDRESS] \
-  "proposalCount()" \
-  --rpc-url [YOUR_RPC_URL]
-
-# Query the latest proposal (count - 1, since proposals are zero-indexed)
-cast call [GOVERNANCE_CONTRACT_ADDRESS] \
-  "proposals(uint256)" $((PROPOSAL_COUNT - 1)) \
-  --rpc-url [YOUR_RPC_URL]
-```
+1. Go to `https://etherscan.io/address/[GOVERNANCE_CONTRACT_ADDRESS]#readContract`
+2. Query `proposalCount()` to get the total number of proposals
+3. Query `proposals(uint256)` with the latest proposal ID (count - 1, since proposals are zero-indexed)
 
 This returns the `CompressedProposal` struct data, which includes:
 - The payload address
@@ -225,14 +217,13 @@ By default, when you stake as a sequencer, you delegate your voting power to the
 - If you didn't signal but other sequencers did, your stake still votes "yea" when the rollup votes
 - To vote differently, you must change your delegation before voting opens (see Custom Voting below)
 
-Anyone can trigger the rollup vote:
+Anyone can trigger the rollup vote via Etherscan:
 
-```bash
-cast send [ROLLUP_ADDRESS] \
-  "vote(uint256)" [PROPOSAL_ID] \
-  --rpc-url [YOUR_RPC_URL] \
-  --private-key [YOUR_PRIVATE_KEY]
-```
+1. Go to `https://etherscan.io/address/[ROLLUP_ADDRESS]#writeContract` (use `sepolia.etherscan.io` for testnet)
+2. Click **"Connect to Web3"** and connect your wallet
+3. Find the `vote` function
+4. Enter the proposal ID
+5. Click **"Write"** and confirm the transaction
 
 ### Custom Voting: Delegating to Your Own Address
 
@@ -248,51 +239,38 @@ Check the proposal's voting start time and delegate well in advance.
 
 Use the GSE contract to delegate to an address you control:
 
-```bash
-cast send [GSE_ADDRESS] \
-  "delegate(address,address,address)" \
-  [ROLLUP_ADDRESS] \
-  [YOUR_ATTESTER_ADDRESS] \
-  [YOUR_DELEGATEE_ADDRESS] \
-  --rpc-url [YOUR_RPC_URL] \
-  --private-key [YOUR_WITHDRAWER_PRIVATE_KEY]
-```
-
-- `[ROLLUP_ADDRESS]`: The rollup contract where you staked
-- `[YOUR_ATTESTER_ADDRESS]`: Your sequencer's attester address
-- `[YOUR_DELEGATEE_ADDRESS]`: The address that will vote (often the same as your attester address, or another address you control)
-- You must sign this transaction with your **withdrawer** private key (the withdrawer that you specified when you initially deposited to the rollup)
+1. Go to `https://etherscan.io/address/[GSE_ADDRESS]#writeContract` (use `sepolia.etherscan.io` for testnet)
+2. Click **"Connect to Web3"** and connect your **withdrawer** wallet (the withdrawer you specified when you initially deposited to the rollup)
+3. Find the `delegate` function
+4. Enter the parameters:
+   - `_instance`: The rollup contract address where you staked
+   - `_attester`: Your sequencer's attester address
+   - `_delegatee`: The address that will vote (often your attester address, or another address you control)
+5. Click **"Write"** and confirm the transaction
 
 #### Step 2: Vote Through GSE
 
 Once you've delegated to an address you control, that address can vote directly on proposals:
 
-```bash
-# Vote "yea" with your voting power
-cast send [GSE_ADDRESS] \
-  "vote(uint256,uint256,bool)" \
-  [PROPOSAL_ID] \
-  [AMOUNT] \
-  true \
-  --rpc-url [YOUR_RPC_URL] \
-  --private-key [YOUR_DELEGATEE_PRIVATE_KEY]
-```
+1. Go to `https://etherscan.io/address/[GSE_ADDRESS]#writeContract`
+2. Click **"Connect to Web3"** and connect your **delegatee** wallet
+3. Find the `vote` function
+4. Enter the parameters:
+   - `_proposalId`: The proposal ID
+   - `_amount`: The amount of voting power to use (can be your full stake or partial)
+   - `_support`: `true` for "yea", `false` for "nay"
+5. Click **"Write"** and confirm the transaction
 
-- `[AMOUNT]`: The amount of voting power to use (can be your full stake or a partial amount)
-- You can vote multiple times with different amounts to split your voting power between "yea" and "nay" if desired
-- To vote "nay" with your voting power, set the boolean in the code above to false
+You can vote multiple times with different amounts to split your voting power between "yea" and "nay" if desired.
 
 #### Step 3: Verify Your Vote
 
 Check that your vote was recorded:
 
-```bash
-# Check vote counts for a proposal
-# Note: This returns the proposal's vote tallies from the Governance contract, not GSE
-cast call [GOVERNANCE_CONTRACT_ADDRESS] \
-  "getProposal(uint256)" [PROPOSAL_ID] \
-  --rpc-url [YOUR_RPC_URL]
-```
+1. Go to `https://etherscan.io/address/[GOVERNANCE_CONTRACT_ADDRESS]#readContract`
+2. Find the `getProposal` function
+3. Enter the proposal ID
+4. Click **"Query"**
 
 This returns the current "yea" and "nay" vote tallies.
 
@@ -302,14 +280,13 @@ When a proposal receives sufficient support, it passes. After passing, there's a
 
 ### Execute the Proposal
 
-Once the proposal state is Executable, anyone can execute it:
+Once the proposal state is Executable, anyone can execute it via Etherscan:
 
-```bash
-cast send [GOVERNANCE_CONTRACT_ADDRESS] \
-  "execute(uint256)" [PROPOSAL_ID] \
-  --rpc-url [YOUR_RPC_URL] \
-  --private-key [YOUR_PRIVATE_KEY]
-```
+1. Go to `https://etherscan.io/address/[GOVERNANCE_CONTRACT_ADDRESS]#writeContract` (use `sepolia.etherscan.io` for testnet)
+2. Click **"Connect to Web3"** and connect your wallet
+3. Find the `execute` function
+4. Enter the proposal ID
+5. Click **"Write"** and confirm the transaction
 
 After execution, the governance contract performs all actions defined in the payload. The protocol changes become effective immediately.
 
@@ -350,21 +327,22 @@ Monitor proposals closely from the signaling stage through execution. When a vot
 2. Verify you delegated before the voting period started (voting power is timestamped)
 3. Confirm you have sufficient voting power (check your stake amount)
 4. Ensure you're not trying to vote with more power than you have
-5. Check you're using the correct private key (delegatee key, not withdrawer)
+5. Check you're using the correct wallet (delegatee wallet, not withdrawer)
 
 ### How Do I Check When Voting Opens?
 
 Query the proposal to see the voting timeline:
 
-```bash
-cast call [GOVERNANCE_CONTRACT_ADDRESS] \
-  "proposals(uint256)" [PROPOSAL_ID] \
-  --rpc-url [YOUR_RPC_URL]
-```
+1. Go to `https://etherscan.io/address/[GOVERNANCE_CONTRACT_ADDRESS]#readContract` (use `sepolia.etherscan.io` for testnet)
+2. Find the `proposals` function
+3. Enter the proposal ID
+4. Click **"Query"**
 
 The returned data includes timestamps for:
 - Voting start time
 - Voting end time
+
+Use an online Unix timestamp converter to translate these to human-readable dates.
 
 ## Summary
 
