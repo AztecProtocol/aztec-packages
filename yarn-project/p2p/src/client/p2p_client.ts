@@ -69,7 +69,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
   private synchedLatestSlot: AztecAsyncSingleton<bigint>;
 
   private txPool: TxPool;
-  private attestationPool: T extends P2PClientType.Full ? AttestationPool : undefined;
+  private attestationPool: AttestationPool;
 
   private config: P2PConfig;
 
@@ -91,7 +91,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     _clientType: T,
     private store: AztecAsyncKVStore,
     private l2BlockSource: L2BlockSource & ContractDataSource,
-    mempools: MemPools<T>,
+    mempools: MemPools,
     private p2pService: P2PService,
     private txCollection: TxCollection,
     config: Partial<P2PConfig> = {},
@@ -103,7 +103,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
 
     this.config = { ...getP2PDefaultConfig(), ...config };
     this.txPool = mempools.txPool;
-    this.attestationPool = mempools.attestationPool!;
+    this.attestationPool = mempools.attestationPool;
 
     this.txProvider = new TxProvider(
       this.txCollection,
@@ -282,10 +282,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     const syncedProvenBlock = (await this.getSyncedProvenBlockNum()) + 1;
     const syncedFinalizedBlock = (await this.getSyncedFinalizedBlockNum()) + 1;
 
-    if (
-      (await this.txPool.isEmpty()) &&
-      (this.attestationPool === undefined || (await this.attestationPool?.isEmpty()))
-    ) {
+    if ((await this.txPool.isEmpty()) && (await this.attestationPool.isEmpty())) {
       // if mempools are empty, we don't care about syncing prior blocks
       this.initBlockStream(BlockNumber(this.latestBlockNumberAtStart));
       this.setCurrentState(P2PClientState.RUNNING);
@@ -389,19 +386,17 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
   }
 
   public async getAttestationsForSlot(slot: SlotNumber, proposalId?: string): Promise<BlockAttestation[]> {
-    return (
-      (await (proposalId
-        ? this.attestationPool?.getAttestationsForSlotAndProposal(slot, proposalId)
-        : this.attestationPool?.getAttestationsForSlot(slot))) ?? []
-    );
+    return await (proposalId
+      ? this.attestationPool.getAttestationsForSlotAndProposal(slot, proposalId)
+      : this.attestationPool.getAttestationsForSlot(slot));
   }
 
   public addAttestations(attestations: BlockAttestation[]): Promise<void> {
-    return this.attestationPool?.addAttestations(attestations) ?? Promise.resolve();
+    return this.attestationPool.addAttestations(attestations);
   }
 
   public deleteAttestation(attestation: BlockAttestation): Promise<void> {
-    return this.attestationPool?.deleteAttestations([attestation]) ?? Promise.resolve();
+    return this.attestationPool.deleteAttestations([attestation]);
   }
 
   // REVIEW: https://github.com/AztecProtocol/aztec-packages/issues/7963
@@ -782,7 +777,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     await this.txPool.deleteTxs(txHashes, { permanently: true });
     await this.txPool.cleanupDeletedMinedTxs(lastBlockNum);
 
-    await this.attestationPool?.deleteAttestationsOlderThan(lastBlockSlot);
+    await this.attestationPool.deleteAttestationsOlderThan(lastBlockSlot);
 
     await this.synchedFinalizedBlockNumber.set(lastBlockNum);
     this.log.debug(`Synched to finalized block ${lastBlockNum} at slot ${lastBlockSlot}`);
