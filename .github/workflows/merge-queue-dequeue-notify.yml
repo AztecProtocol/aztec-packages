@@ -1,0 +1,23 @@
+name: Notify Slack on Merge Queue Dequeue
+
+on:
+  pull_request:
+    types: [dequeued]
+
+jobs:
+  notify-slack:
+    name: Notify Slack
+    runs-on: ubuntu-latest
+    if: startsWith(github.event.pull_request.head.ref, 'merge-train/') && github.event.pull_request.merged != true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Send Slack notification
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          REF_NAME: ${{ github.event.pull_request.head.ref }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: ./ci3/merge_train_failure_slack_notify --dequeued

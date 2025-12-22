@@ -1,4 +1,4 @@
-import type { FileStoreBlobClient } from '@aztec/blob-sink/filestore';
+import type { FileStoreBlobClient } from '@aztec/blob-client/filestore';
 import type { EpochCache } from '@aztec/epoch-cache';
 import type { DateProvider } from '@aztec/foundation/timer';
 import type { KeystoreManager } from '@aztec/node-keystore';

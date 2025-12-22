@@ -88,8 +88,8 @@ void EmitUnencryptedLogTraceBuilder::process(
                     { C::emit_unencrypted_log_remaining_rows, remaining_rows },
                     { C::emit_unencrypted_log_remaining_rows_inv, remaining_rows }, // Will be inverted in batch later
                     { C::emit_unencrypted_log_error_out_of_bounds, event.error_memory_out_of_bounds },
-                    { C::emit_unencrypted_log_max_mem_addr, AVM_HIGHEST_MEM_ADDRESS },
-                    { C::emit_unencrypted_log_end_log_address, log_address + event.log_size - 1 },
+                    { C::emit_unencrypted_log_max_mem_size, static_cast<uint64_t>(AVM_MEMORY_SIZE) },
+                    { C::emit_unencrypted_log_end_log_address_upper_bound, log_address + event.log_size },
                     { C::emit_unencrypted_log_error_too_many_log_fields, event.error_too_many_log_fields },
                     { C::emit_unencrypted_log_expected_next_log_fields, expected_next_log_fields },
                     { C::emit_unencrypted_log_public_logs_payload_length, FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH },

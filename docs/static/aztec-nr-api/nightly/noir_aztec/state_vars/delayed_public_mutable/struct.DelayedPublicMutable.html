@@ -46,14 +46,7 @@
 { <span class="comment">/* private fields */</span> }
 </code></pre>
 <h2>Implementations</h2>
-<h3><code class="code-header">impl&lt;let InitialDelay: <a href="../../../std/primitive.u64.html" class="primitive">u64</a>, T&gt; <a href="../../../noir_aztec/state_vars/delayed_public_mutable/struct.DelayedPublicMutable.html" class="struct">DelayedPublicMutable</a>&lt;T, InitialDelay, &mut <a href="../../../noir_aztec/context/private_context/struct.PrivateContext.html" class="struct">PrivateContext</a>&gt;</code></h3>
-
-<div class="padded-methods"><code id="get_current_value" class="code-header">pub fn <a href="#get_current_value"><span class="fn">get_current_value</span></a>(self) -> T
-<div class="where-clause">where
-    T: <a href="../../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>,
-    T: <a href="../../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code>
-
-</div><h3><code class="code-header">impl&lt;let InitialDelay: <a href="../../../std/primitive.u64.html" class="primitive">u64</a>, T&gt; <a href="../../../noir_aztec/state_vars/delayed_public_mutable/struct.DelayedPublicMutable.html" class="struct">DelayedPublicMutable</a>&lt;T, InitialDelay, <a href="../../../noir_aztec/context/public_context/struct.PublicContext.html" class="struct">PublicContext</a>&gt;</code></h3>
+<h3><code class="code-header">impl&lt;let InitialDelay: <a href="../../../std/primitive.u64.html" class="primitive">u64</a>, T&gt; <a href="../../../noir_aztec/state_vars/delayed_public_mutable/struct.DelayedPublicMutable.html" class="struct">DelayedPublicMutable</a>&lt;T, InitialDelay, <a href="../../../noir_aztec/context/public_context/struct.PublicContext.html" class="struct">PublicContext</a>&gt;</code></h3>
 
 <div class="padded-methods"><code id="schedule_value_change" class="code-header">pub fn <a href="#schedule_value_change"><span class="fn">schedule_value_change</span></a>(self, new_value: T)
 <div class="where-clause">where
@@ -93,6 +86,13 @@
 </div><h3><code class="code-header">impl&lt;let InitialDelay: <a href="../../../std/primitive.u64.html" class="primitive">u64</a>, T&gt; <a href="../../../noir_aztec/state_vars/delayed_public_mutable/struct.DelayedPublicMutable.html" class="struct">DelayedPublicMutable</a>&lt;T, InitialDelay, <a href="../../../noir_aztec/context/utility_context/struct.UtilityContext.html" class="struct">UtilityContext</a>&gt;</code></h3>
 
 <div class="padded-methods"><code id="get_current_value" class="code-header">pub unconstrained fn <a href="#get_current_value"><span class="fn">get_current_value</span></a>(self) -> T
+<div class="where-clause">where
+    T: <a href="../../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>,
+    T: <a href="../../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code>
+
+</div><h3><code class="code-header">impl&lt;let InitialDelay: <a href="../../../std/primitive.u64.html" class="primitive">u64</a>, T&gt; <a href="../../../noir_aztec/state_vars/delayed_public_mutable/struct.DelayedPublicMutable.html" class="struct">DelayedPublicMutable</a>&lt;T, InitialDelay, &mut <a href="../../../noir_aztec/context/private_context/struct.PrivateContext.html" class="struct">PrivateContext</a>&gt;</code></h3>
+
+<div class="padded-methods"><code id="get_current_value" class="code-header">pub fn <a href="#get_current_value"><span class="fn">get_current_value</span></a>(self) -> T
 <div class="where-clause">where
     T: <a href="../../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>,
     T: <a href="../../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code>

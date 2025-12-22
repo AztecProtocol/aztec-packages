@@ -4,7 +4,7 @@ import { AztecNodeService } from '@aztec/aztec-node';
 import { type AztecNodeConfig, getConfigEnvVars } from '@aztec/aztec-node/config';
 import { Fr } from '@aztec/aztec.js/fields';
 import { createLogger } from '@aztec/aztec.js/log';
-import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-sink/client';
+import { type BlobClientInterface, createBlobClient } from '@aztec/blob-client/client';
 import { GENESIS_ARCHIVE_ROOT } from '@aztec/constants';
 import { createEthereumChain } from '@aztec/ethereum/chain';
 import { waitForPublicClient } from '@aztec/ethereum/client';
@@ -168,13 +168,9 @@ export async function createLocalNetwork(config: Partial<LocalNetworkConfig> = {
   }
 
   const telemetry = await initTelemetryClient(getTelemetryClientConfig());
-  // Create a local blob sink client inside the local network, no http connectivity
-  const blobSinkClient = createBlobSinkClient();
-  const node = await createAztecNode(
-    aztecNodeConfig,
-    { telemetry, blobSinkClient, dateProvider },
-    { prefilledPublicData },
-  );
+  // Create a local blob client client inside the local network, no http connectivity
+  const blobClient = createBlobClient();
+  const node = await createAztecNode(aztecNodeConfig, { telemetry, blobClient, dateProvider }, { prefilledPublicData });
 
   if (initialAccounts.length) {
     const PXEConfig = { proverEnabled: aztecNodeConfig.realProofs };
@@ -211,7 +207,7 @@ export async function createLocalNetwork(config: Partial<LocalNetworkConfig> = {
  */
 export async function createAztecNode(
   config: Partial<AztecNodeConfig> = {},
-  deps: { telemetry?: TelemetryClient; blobSinkClient?: BlobSinkClientInterface; dateProvider?: DateProvider } = {},
+  deps: { telemetry?: TelemetryClient; blobClient?: BlobClientInterface; dateProvider?: DateProvider } = {},
   options: { prefilledPublicData?: PublicDataTreeLeaf[] } = {},
 ) {
   // TODO(#12272): will clean this up. This is criminal.

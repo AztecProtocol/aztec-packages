@@ -162,11 +162,15 @@ import { Grumpkin } from '@aztec/foundation/crypto/grumpkin';
 import { randomBigInt } from '@aztec/foundation/crypto/random';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { Bufferable } from '@aztec/foundation/serialize';
-import type { CallStackMetadata, PublicTxResult } from '@aztec/stdlib/avm';
+import { type CallStackMetadata, PublicDataWrite, type PublicTxResult } from '@aztec/stdlib/avm';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { computePublicDataTreeLeafSlot, siloNullifier } from '@aztec/stdlib/hash';
+import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
+import { MerkleTreeId } from '@aztec/stdlib/trees';
 
 import assert from 'assert';
 
-import { Field, type MemoryValue, TaggedMemory, TypeTag, Uint1, Uint32 } from '../avm/avm_memory_types.js';
+import { Field, type MemoryValue, TaggedMemory, TypeTag, Uint1, Uint32, Uint64 } from '../avm/avm_memory_types.js';
 import {
   Add,
   And,
@@ -285,6 +289,59 @@ export interface SpamConfigsForOpcode {
 // ============================================================================
 
 /**
+ * Constants for "warm" tree reads - these values are inserted into the trees
+ * before running the spammer so that existence checks can find them.
+ */
+export const WARM_NOTE_HASH = new Fr(0xdeadbeefn);
+export const WARM_L1_TO_L2_MSG = new Fr(0xcafebabedeadbeefn);
+
+/** Warm nullifier constants - uses a fixed address since NULLIFIEREXISTS takes address as parameter */
+export const WARM_NULLIFIER = new Fr(0xdeadbeef0001n);
+export const WARM_NULLIFIER_ADDRESS = AztecAddress.fromNumber(0xbeef);
+
+/** Warm storage constants - storage is inserted for the deployed contract's address */
+export const WARM_STORAGE_SLOT = new Fr(0xdeadbeef0002n);
+export const WARM_STORAGE_VALUE = new Fr(0xcafebabe0003n);
+
+/**
+ * Leaf indices inserted to by insertWarmTreeEntries().
+ * Ideally we'd getTreeInfo and set dynamically, but that doesn't
+ * work easily with static spam configs, so we assume intial index 0.
+ */
+export const WARM_NOTE_HASH_LEAF_INDEX = 0n;
+export const WARM_L1_TO_L2_MSG_LEAF_INDEX = 0n;
+
+/**
+ * Insert entries into the trees so that "warm" configs can find them with existence checks.
+ * Call this before running the opcode spammer to enable warm tree reads.
+ *
+ * Inserts:
+ * - Note hash into NOTE_HASH_TREE
+ * - L1 to L2 message into L1_TO_L2_MESSAGE_TREE
+ * - Siloed nullifier into NULLIFIER_TREE (for NULLIFIEREXISTS warm check)
+ * - Storage value into PUBLIC_DATA_TREE (for SLOAD warm check)
+ */
+export async function insertWarmTreeEntries(
+  merkleTrees: MerkleTreeWriteOperations,
+  contractAddress: AztecAddress,
+): Promise<void> {
+  // Insert into note hash tree
+  await merkleTrees.appendLeaves(MerkleTreeId.NOTE_HASH_TREE, [WARM_NOTE_HASH]);
+
+  // Insert into L1 to L2 message tree
+  await merkleTrees.appendLeaves(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, [WARM_L1_TO_L2_MSG]);
+
+  // Insert siloed nullifier into nullifier tree
+  const siloedNullifier = await siloNullifier(WARM_NULLIFIER_ADDRESS, WARM_NULLIFIER);
+  await merkleTrees.sequentialInsert(MerkleTreeId.NULLIFIER_TREE, [siloedNullifier.toBuffer()]);
+
+  // Insert storage value into public data tree
+  const leafSlot = await computePublicDataTreeLeafSlot(contractAddress, WARM_STORAGE_SLOT);
+  const publicDataWrite = new PublicDataWrite(leafSlot, WARM_STORAGE_VALUE);
+  await merkleTrees.sequentialInsert(MerkleTreeId.PUBLIC_DATA_TREE, [publicDataWrite.toBuffer()]);
+}
+
+/**
  * Maximum bytecode size in bytes.
  *
  * Bytecode is encoded as fields using bufferAsFields():
@@ -384,7 +441,7 @@ const MAX_U32 = 0xffffffffn;
 /**
  * A SpamConfig for to make external CALLs to an address specified in calldata[0].
  */
-const EXTERNAL_CALL_CONFIG: SpamConfig = {
+export const EXTERNAL_CALL_CONFIG: SpamConfig = {
   setup: [
     // calldata will contain 1 item: the external call address
     { offset: CONST_0_OFFSET, value: new Uint32(0) }, // used for cdStartOffset
@@ -883,7 +940,13 @@ export const SPAM_CONFIGS: Partial<Record<Opcode, SpamConfig[]>> = {
       targetInstructions: () => [new SLoad(/*indirect=*/ 0, /*slotOffset=*/ 0, /*dstOffset=*/ 1)],
     },
     {
-      label: 'Warm read (SSTORE first)',
+      label: 'Warm read (from tree)',
+      // Uses pre-inserted storage from insertWarmTreeEntries() which is called after contract deployment
+      setup: [{ offset: 0, value: new Field(WARM_STORAGE_SLOT) }], // pre-inserted slot
+      targetInstructions: () => [new SLoad(/*indirect=*/ 0, /*slotOffset=*/ 0, /*dstOffset=*/ 1)],
+    },
+    {
+      label: 'Warm read (SSTORE first, unique slot per SLOAD)',
       // Memory layout: slot (incremented), value, constant 1, revertSize, loaded value
       setup: [
         { offset: 0, value: new Field(Fr.random()) }, // slot (will be incremented)
@@ -905,11 +968,23 @@ export const SPAM_CONFIGS: Partial<Record<Opcode, SpamConfig[]>> = {
 
   [Opcode.NOTEHASHEXISTS]: [
     {
+      label: 'Cold (non-existent)',
       // Note: Can't easily do "write first" version - would need to know the leaf index
       // that EMITNOTEHASH will produce, which depends on tree state
       setup: [
         { offset: 0, value: new Field(Fr.random()) }, // random noteHash
         { offset: 1, value: randomWithTag(TypeTag.UINT64) }, // random leafIndex
+      ],
+      targetInstructions: () => [
+        new NoteHashExists(/*indirect=*/ 0, /*noteHashOffset=*/ 0, /*leafIndexOffset=*/ 1, /*existsOffset=*/ 2),
+      ],
+    },
+    {
+      label: 'Warm (exists in tree)',
+      // Uses pre-inserted note hash from insertWarmTreeEntries()
+      setup: [
+        { offset: 0, value: new Field(WARM_NOTE_HASH) }, // pre-inserted noteHash
+        { offset: 1, value: new Uint64(WARM_NOTE_HASH_LEAF_INDEX) }, // known leafIndex
       ],
       targetInstructions: () => [
         new NoteHashExists(/*indirect=*/ 0, /*noteHashOffset=*/ 0, /*leafIndexOffset=*/ 1, /*existsOffset=*/ 2),
@@ -929,7 +1004,18 @@ export const SPAM_CONFIGS: Partial<Record<Opcode, SpamConfig[]>> = {
       ],
     },
     {
-      label: 'Existing nullifier (EMITNULLIFIER first)',
+      label: 'Existing nullifier (warm - from tree)',
+      // Uses pre-inserted nullifier from insertWarmTreeEntries()
+      setup: [
+        { offset: 0, value: new Field(WARM_NULLIFIER) }, // pre-inserted nullifier
+        { offset: 1, value: new Field(WARM_NULLIFIER_ADDRESS.toField()) }, // address it was siloed with
+      ],
+      targetInstructions: () => [
+        new NullifierExists(/*indirect=*/ 0, /*nullifierOffset=*/ 0, /*addressOffset=*/ 1, /*existsOffset=*/ 2),
+      ],
+    },
+    {
+      label: 'Existing nullifier (warm - EMITNULLIFIER first)',
       // Memory layout: nullifier (incremented), constant 1, current address (from GETENVVAR), revertSize, exists result
       setup: [
         { offset: 0, value: new Field(Fr.random()) }, // nullifier (will be incremented)
@@ -957,9 +1043,21 @@ export const SPAM_CONFIGS: Partial<Record<Opcode, SpamConfig[]>> = {
 
   [Opcode.L1TOL2MSGEXISTS]: [
     {
+      label: 'Cold (non-existent)',
       setup: [
         { offset: 0, value: new Field(Fr.random()) }, // random msgHash
         { offset: 1, value: randomWithTag(TypeTag.UINT64) }, // random msgLeafIndex
+      ],
+      targetInstructions: () => [
+        new L1ToL2MessageExists(/*indirect=*/ 0, /*msgHashOffset=*/ 0, /*msgLeafIndexOffset=*/ 1, /*existsOffset=*/ 2),
+      ],
+    },
+    {
+      label: 'Warm (exists in tree)',
+      // Uses pre-inserted L1 to L2 message from insertWarmTreeEntries()
+      setup: [
+        { offset: 0, value: new Field(WARM_L1_TO_L2_MSG) }, // pre-inserted msgHash
+        { offset: 1, value: new Uint64(WARM_L1_TO_L2_MSG_LEAF_INDEX) }, // known msgLeafIndex
       ],
       targetInstructions: () => [
         new L1ToL2MessageExists(/*indirect=*/ 0, /*msgHashOffset=*/ 0, /*msgLeafIndexOffset=*/ 1, /*existsOffset=*/ 2),
@@ -1222,6 +1320,27 @@ export const SPAM_CONFIGS: Partial<Record<Opcode, SpamConfig[]>> = {
         ),
       ],
     },
+    {
+      label: 'Radix 3 (slow divmod path)',
+      // Radix 3 bypasses the fast path for power-of-2 radixes (4, 8, 16, 32, 64, 128, 256)
+      // and uses the slow divmod implementation instead
+      setup: [
+        { offset: 0, value: new Field(Fr.random()) }, // random field value
+        { offset: 1, value: new Uint32(3n) }, // radix = 3 (non-power-of-2)
+        { offset: 2, value: new Uint32(161n) }, // numLimbs = 161 (ceil(256 / log2(3)) ≈ 161 limbs to represent 256 bits)
+        { offset: 3, value: new Uint1(0n) }, // outputBits = false
+      ],
+      targetInstructions: () => [
+        new ToRadixBE(
+          /*indirect=*/ 0,
+          /*srcOffset=*/ 0,
+          /*radixOffset=*/ 1,
+          /*numLimbsOffset=*/ 2,
+          /*outputBitsOffset=*/ 3,
+          /*dstOffset=*/ 4,
+        ),
+      ],
+    },
   ],
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -1456,6 +1575,9 @@ async function testStandardOpcodeSpam(
 ): Promise<PublicTxResult> {
   const bytecode = createOpcodeSpamBytecode(config);
   const contract = await deployCustomBytecode(bytecode, tester, config.label);
+
+  await insertWarmTreeEntries(tester.merkleTrees, contract.address);
+
   // Should we pass the contract address as calldata?
   const calldata = config.addressAsCalldata ? [contract.address.toField()] : [];
   const result = await executeCustomBytecode(contract, tester, config.label, calldata);

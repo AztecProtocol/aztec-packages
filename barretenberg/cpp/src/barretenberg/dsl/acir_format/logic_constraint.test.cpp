@@ -59,6 +59,8 @@ class LogicConstraintTestingFunctions {
         }
     };
 
+    static ProgramMetadata generate_metadata() { return ProgramMetadata{}; }
+
     static void generate_constraints(AcirConstraint& logic_constraint, WitnessVector& witness_values)
     {
         // Helper to add an input

@@ -76,6 +76,8 @@ function determine_ci_mode {
     CI_MODE="docs"
   elif has_label "ci-barretenberg" || [ "${TARGET_BRANCH:-}" == "merge-train/barretenberg" ]; then
     CI_MODE="barretenberg"
+  elif has_label "ci-barretenberg-full"; then
+    CI_MODE="barretenberg-full"
   # We don't distinguish nightlies currently.
   # elif [[ "${GITHUB_REF:-}" == *"-nightly."* ]] || [[ "${GITHUB_REF:-}" == *"-rc."* ]]; then
   #   CI_MODE="nightly"

@@ -34,11 +34,20 @@ Inline private keys are convenient for testing but should be avoided in producti
 
 ## Remote signers (Web3Signer)
 
-Remote signers keep private keys in a separate, secure signing service. This is the recommended approach for production environments.
+Remote signers keep private keys in a separate, secure signing service. This is the recommended approach for production environments for Ethereum keys.
 
-The keystore supports [Web3Signer](https://docs.web3signer.consensys.io/) endpoints configured at three levels:
+The keystore supports [Web3Signer](https://docs.web3signer.consensys.io/) endpoints for Ethereum keys. The keystore automatically detects whether a value is a private key or an address based on string length:
 
-**Global level** (applies to all accounts):
+- **66 characters** (`0x` + 64 hex characters): Interpreted as a private key (stored inline)
+- **42 characters** (`0x` + 40 hex characters): Interpreted as an address and uses the nearest `remoteSignerUrl`
+
+:::warning BLS Keys Do Not Support Remote Signers
+BLS keys must always be stored as private keys directly in the keystore. The keystore does not check `remoteSignerUrl` for BLS keys. Web3Signer's BLS support is designed for Ethereum consensus layer operations and is not compatible with Aztec's BLS key requirements.
+:::
+
+Remote signers can be configured at three levels:
+
+**Global level** (applies to all ETH keys):
 
 ```json
 {
@@ -48,7 +57,7 @@ The keystore supports [Web3Signer](https://docs.web3signer.consensys.io/) endpoi
     {
       "attester": {
         "eth": "0x1234567890123456789012345678901234567890",
-        "bls": "0x2345678901234567890123456789012345678901"
+        "bls": "0x20f2f5989b66462b39229900948c7846403768fec5b76d1c2937d64e04aac4b9"
       },
       "feeRecipient": "0x1234567890123456789012345678901234567890123456789012345678901234"
     }
@@ -56,9 +65,9 @@ The keystore supports [Web3Signer](https://docs.web3signer.consensys.io/) endpoi
 }
 ```
 
-In this example, both the Ethereum and BLS attester addresses are managed by the remote signer.
+In this example, the Ethereum attester address (42 characters) is managed by the remote signer, while the BLS key (66 characters) is a private key stored directly in the keystore.
 
-**Validator (sequencer) block level** (applies to all accounts in a sequencer configuration):
+**Validator (sequencer) block level** (applies to all ETH keys in a sequencer configuration):
 
 ```json
 {
@@ -67,7 +76,7 @@ In this example, both the Ethereum and BLS attester addresses are managed by the
     {
       "attester": {
         "eth": "0x1234567890123456789012345678901234567890",
-        "bls": "0x2345678901234567890123456789012345678901"
+        "bls": "0x20f2f5989b66462b39229900948c7846403768fec5b76d1c2937d64e04aac4b9"
       },
       "feeRecipient": "0x1234567890123456789012345678901234567890123456789012345678901234",
       "remoteSigner": "https://signer.example.com:8080"
@@ -76,7 +85,7 @@ In this example, both the Ethereum and BLS attester addresses are managed by the
 }
 ```
 
-**Account level** (applies to a specific key):
+**Account level** (applies to a specific ETH key):
 
 ```json
 {
@@ -84,8 +93,11 @@ In this example, both the Ethereum and BLS attester addresses are managed by the
   "validators": [
     {
       "attester": {
-        "address": "0x1234567890123456789012345678901234567890",
-        "remoteSignerUrl": "https://signer.example.com:8080"
+        "eth": {
+          "address": "0x1234567890123456789012345678901234567890",
+          "remoteSignerUrl": "https://signer.example.com:8080"
+        },
+        "bls": "0x20f2f5989b66462b39229900948c7846403768fec5b76d1c2937d64e04aac4b9"
       },
       "feeRecipient": "0x1234567890123456789012345678901234567890123456789012345678901234"
     }

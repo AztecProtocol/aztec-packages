@@ -262,9 +262,3 @@ https://devnet.aztec-labs.com
 - **Ready for production testing?** Continue using devnet
 - **Learn more:** Check out our [tutorials](./docs/tutorials/contract_tutorials/counter_contract.md)
 - **Explore:** Visit [Aztec Playground](https://play.aztec.network/)
-
-## Additional Resources
-
-- [Fee payment guide](./docs/aztec-js/how_to_pay_fees.md)
-- [Running a node](/network/)
-- [Block explorers](https://devnet.aztecscan.xyz)

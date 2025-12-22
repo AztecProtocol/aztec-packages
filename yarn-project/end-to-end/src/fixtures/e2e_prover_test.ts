@@ -11,8 +11,7 @@ import {
   TestCircuitVerifier,
 } from '@aztec/bb-prover';
 import { BackendType, Barretenberg } from '@aztec/bb.js';
-import { createBlobSinkClient } from '@aztec/blob-sink/client';
-import type { BlobSinkServer } from '@aztec/blob-sink/server';
+import { createBlobClientWithFileStores } from '@aztec/blob-client/client';
 import type { DeployAztecL1ContractsReturnType } from '@aztec/ethereum/deploy-aztec-l1-contracts';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { SecretValue } from '@aztec/foundation/config';
@@ -69,7 +68,6 @@ export class FullProverTest {
   aztecNode!: AztecNode;
   aztecNodeAdmin!: AztecNodeAdmin;
   cheatCodes!: CheatCodes;
-  blobSink!: BlobSinkServer;
   private provenComponents: ProvenSetup[] = [];
   private bbConfigCleanup?: () => Promise<void>;
   private acvmConfigCleanup?: () => Promise<void>;
@@ -169,11 +167,11 @@ export class FullProverTest {
       aztecNode: this.aztecNode,
       deployL1ContractsValues: this.l1Contracts,
       cheatCodes: this.cheatCodes,
-      blobSink: this.blobSink,
     } = this.context);
     this.aztecNodeAdmin = this.context.aztecNode;
 
-    const blobSinkClient = createBlobSinkClient({ blobSinkUrl: `http://localhost:${this.blobSink.port}` });
+    const config = this.context.aztecNodeConfig;
+    const blobClient = await createBlobClientWithFileStores(config, this.logger);
 
     // Configure a full prover PXE
     let acvmConfig: Awaited<ReturnType<typeof getACVMConfig>> | undefined;
@@ -243,7 +241,7 @@ export class FullProverTest {
     this.logger.verbose('Starting archiver for new prover node');
     const archiver = await createArchiver(
       { ...this.context.aztecNodeConfig, dataDirectory: undefined },
-      { blobSinkClient, dateProvider: this.context.dateProvider },
+      { blobClient, dateProvider: this.context.dateProvider },
       { blockUntilSync: true },
     );
 
@@ -283,7 +281,7 @@ export class FullProverTest {
       {
         aztecNodeTxProvider: this.aztecNode,
         archiver: archiver as Archiver,
-        blobSinkClient,
+        blobClient,
       },
       { prefilledPublicData },
     );

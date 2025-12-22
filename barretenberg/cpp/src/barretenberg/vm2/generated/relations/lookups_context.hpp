@@ -89,7 +89,7 @@ struct lookup_context_ctx_stack_rollback_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_CONTEXT_CTX_STACK_ROLLBACK";
     static constexpr std::string_view RELATION_NAME = "context";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 26;
-    static constexpr Column SRC_SELECTOR = Column::execution_nested_revert_or_error;
+    static constexpr Column SRC_SELECTOR = Column::execution_nested_failure;
     static constexpr Column DST_SELECTOR = Column::context_stack_sel;
     static constexpr Column COUNTS = Column::lookup_context_ctx_stack_rollback_counts;
     static constexpr Column INVERSES = Column::lookup_context_ctx_stack_rollback_inv;

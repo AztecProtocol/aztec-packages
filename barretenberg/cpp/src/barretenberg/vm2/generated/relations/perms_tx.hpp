@@ -110,7 +110,7 @@ using perm_tx_dispatch_exec_start_relation = permutation_relation_base<FF_, perm
 struct perm_tx_dispatch_exec_end_settings_ {
     static constexpr std::string_view NAME = "PERM_TX_DISPATCH_EXEC_END";
     static constexpr std::string_view RELATION_NAME = "tx";
-    static constexpr size_t COLUMNS_PER_SET = 19;
+    static constexpr size_t COLUMNS_PER_SET = 20;
     static constexpr Column SRC_SELECTOR = Column::tx_should_process_call_request;
     static constexpr Column DST_SELECTOR = Column::execution_enqueued_call_end;
     static constexpr Column INVERSES = Column::perm_tx_dispatch_exec_end_inv;
@@ -118,6 +118,7 @@ struct perm_tx_dispatch_exec_end_settings_ {
         ColumnAndShifts::tx_next_context_id,
         ColumnAndShifts::tx_next_context_id_shift,
         ColumnAndShifts::tx_reverted,
+        ColumnAndShifts::tx_discard,
         ColumnAndShifts::tx_next_note_hash_tree_root,
         ColumnAndShifts::tx_next_note_hash_tree_size,
         ColumnAndShifts::tx_next_num_note_hashes_emitted,
@@ -139,6 +140,7 @@ struct perm_tx_dispatch_exec_end_settings_ {
         ColumnAndShifts::execution_context_id,
         ColumnAndShifts::execution_next_context_id,
         ColumnAndShifts::execution_sel_failure,
+        ColumnAndShifts::execution_discard,
         ColumnAndShifts::execution_note_hash_tree_root,
         ColumnAndShifts::execution_note_hash_tree_size,
         ColumnAndShifts::execution_num_note_hashes_emitted,

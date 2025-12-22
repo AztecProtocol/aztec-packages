@@ -83,10 +83,10 @@ class FuzzerContractDB : public simulation::ContractDBInterface {
     void revert_checkpoint() override;
 
     // Getters for serialization
-    const std::unordered_map<ContractClassId, ContractClass>& get_contract_classes() const { return contract_classes; }
-    const std::unordered_map<AztecAddress, ContractInstance>& get_contract_instances() const
+    const std::vector<ContractClass>& get_contract_classes() const { return contract_classes_vector; }
+    const std::vector<std::pair<AztecAddress, ContractInstance>>& get_contract_instances() const
     {
-        return contract_instances;
+        return contract_instances_vector;
     }
 
   private:
@@ -95,6 +95,10 @@ class FuzzerContractDB : public simulation::ContractDBInterface {
 
     std::unordered_map<ContractClassId, ContractClass> contract_classes;
     std::unordered_map<AztecAddress, ContractInstance> contract_instances;
+
+    // Used for serialization keeping track of the order of the contracts and instances
+    std::vector<ContractClass> contract_classes_vector;
+    std::vector<std::pair<AztecAddress, ContractInstance>> contract_instances_vector;
 
     struct Checkpoint {
         std::unordered_map<ContractClassId, ContractClass> contract_classes;
@@ -135,6 +139,7 @@ class FuzzerWorldStateManager {
 
     void reset_world_state();
     void register_contract_address(const AztecAddress& contract_address);
+    void write_fee_payer_balance(const AztecAddress& fee_payer, const FF& balance);
 
     world_state::WorldStateRevision get_current_revision() const;
     world_state::WorldStateRevision fork();

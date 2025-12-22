@@ -16,6 +16,7 @@ import type {
 } from '@aztec/stdlib/interfaces/server';
 import { mockCheckpointAndMessages, mockL1ToL2Messages } from '@aztec/stdlib/testing';
 import { AppendOnlyTreeSnapshot, MerkleTreeId } from '@aztec/stdlib/trees';
+import { BlockHeader } from '@aztec/stdlib/tx';
 
 import type { NativeWorldStateService } from '../native/native_world_state.js';
 
@@ -59,7 +60,7 @@ export async function updateBlockState(block: L2BlockNew, l1ToL2Messages: Fr[], 
   await Promise.all([publicDataInsert, nullifierInsert, noteHashInsert, messageInsert]);
 
   const state = await fork.getStateReference();
-  block.header.state = state;
+  block.header = BlockHeader.from({ ...block.header, state });
   await fork.updateArchive(block.header);
 
   const archiveState = await fork.getTreeInfo(MerkleTreeId.ARCHIVE);
