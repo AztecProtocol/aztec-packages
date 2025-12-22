@@ -103,6 +103,7 @@ class ProgramBlock {
     void process_call_instruction(CALL_Instruction instruction);
     void process_returndatasize_with_returndatacopy_instruction(
         RETURNDATASIZE_WITH_RETURNDATACOPY_Instruction instruction);
+    void process_getcontractinstance_instruction(GETCONTRACTINSTANCE_Instruction instruction);
 
   public:
     std::vector<ProgramBlock*> successors;

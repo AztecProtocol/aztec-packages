@@ -26,6 +26,10 @@ SimulatorResult simulate_with_default_tx(std::vector<uint8_t>& bytecode, std::ve
     FuzzerContractDB contract_db = *contract_db_proxy->get_contract_db();
 
     auto tx = create_default_tx(contract_address, MSG_SENDER, calldata, TRANSACTION_FEE, IS_STATIC_CALL, GAS_LIMIT);
+    // Calculate fee the same way as fuzz.cpp does
+    FF fee_required_da = FF(tx.effective_gas_fees.fee_per_da_gas) * FF(tx.gas_settings.gas_limits.da_gas);
+    FF fee_required_l2 = FF(tx.effective_gas_fees.fee_per_l2_gas) * FF(tx.gas_settings.gas_limits.l2_gas);
+    ws_mgr->write_fee_payer_balance(tx.fee_payer, fee_required_da + fee_required_l2);
     auto cpp_simulator = CppSimulator();
 
     ws_mgr->checkpoint();
@@ -1493,16 +1497,7 @@ namespace external_calls {
 /// ADD8: 2 + 5
 TEST(fuzz, ExternalCallToAdd8)
 {
-    FuzzerWorldStateManager::initialize();
-    // Initialize world state BEFORE registering contracts
-    if (ws_mgr == nullptr) {
-        ws_mgr = FuzzerWorldStateManager::getInstance();
-    };
 
-    // Register external contracts
-    for (const auto& function : PREDEFINED_FUNCTIONS) {
-        ContractDBProxy::register_contract_from_bytecode(function);
-    }
     auto call_instruction = CALL_Instruction{ .function_index = 0,
                                               .address_offset = 1,
                                               .l2_gas = 10000,
@@ -1526,4 +1521,33 @@ TEST(fuzz, ExternalCallToAdd8)
     auto result = simulate_with_default_tx(bytecode, {});
     EXPECT_EQ(result.output.at(0), 7);
 }
+
+FF get_contract_instance_helper(uint8_t member_enum)
+{
+    auto get_contract_instance_instruction =
+        GETCONTRACTINSTANCE_Instruction{ .contract_index = 0,
+                                         .contract_address_address =
+                                             AddressRef{ .address = 123, .mode = AddressingMode::Direct },
+                                         .dst_address = AddressRef{ .address = 124, .mode = AddressingMode::Direct },
+                                         .member_enum = member_enum };
+
+    auto instruction_blocks = std::vector<std::vector<FuzzInstruction>>{ { get_contract_instance_instruction } };
+    auto control_flow = ControlFlow(instruction_blocks);
+    control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
+    auto bytecode = control_flow.build_bytecode(
+        ReturnOptions{ .return_size = 1, .return_value_tag = bb::avm2::MemoryTag::FF, .return_value_offset_index = 1 });
+    auto result = simulate_with_default_tx(bytecode, {});
+    return result.output.at(0);
+}
+
+TEST(fuzz, GetContractInstance)
+{
+    EXPECT_EQ(get_contract_instance_helper(0),
+              FF("0x0000000000000000000000000000000000000000000000000000000000000064")); // DEPLOYER
+    EXPECT_EQ(get_contract_instance_helper(1),
+              FF("0x1cc6b6f9a4f8834a63689f91f9c9fe3d9cd6266ac269937806f8ed16c2577a4b")); // CLASS_ID
+    EXPECT_EQ(get_contract_instance_helper(2),
+              FF("0x0000000000000000000000000000000000000000000000000000000000000000")); // INIT HASH
+}
+
 } // namespace external_calls
