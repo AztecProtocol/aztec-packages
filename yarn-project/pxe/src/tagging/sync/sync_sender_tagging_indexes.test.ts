@@ -27,7 +27,7 @@ describe('syncSenderTaggingIndexes', () => {
   }
 
   function makeLog(txHash: TxHash, tag: Fr) {
-    return new TxScopedL2Log(txHash, 0, 0, BlockNumber(0), L2BlockHash.random(), PrivateLog.random(tag));
+    return new TxScopedL2Log(txHash, 0, 0, BlockNumber(0), L2BlockHash.random(), 0n, PrivateLog.random(tag));
   }
 
   async function setUp() {

@@ -85,6 +85,7 @@ describe('LogService', () => {
           0,
           MIN_BLOCK_NUMBER_OF_A_LOG,
           L2BlockHash.random(),
+          0n,
           PrivateLog.random(tag.value),
         );
         logs[tag.toString()] = [log];
@@ -101,6 +102,7 @@ describe('LogService', () => {
         0,
         BlockNumber.ZERO,
         L2BlockHash.random(),
+        0n,
         PrivateLog.random(tag.value),
       );
       logs[tag.toString()].push(log);
@@ -118,6 +120,7 @@ describe('LogService', () => {
           0,
           blockNumber,
           L2BlockHash.random(),
+          0n,
           PrivateLog.random(tag.value),
         );
         logs[tag.toString()] = [log];
@@ -137,6 +140,7 @@ describe('LogService', () => {
           0,
           MAX_BLOCK_NUMBER_OF_A_LOG,
           L2BlockHash.random(),
+          0n,
           PrivateLog.random(tag.value),
         );
         logs[tag.toString()] = [log];
@@ -553,6 +557,7 @@ describe('LogService', () => {
         randomInt(100),
         BlockNumber(randomInt(100)),
         L2BlockHash.random(),
+        0n,
         log,
       );
 
