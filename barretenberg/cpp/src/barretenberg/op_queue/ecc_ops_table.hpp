@@ -145,7 +145,7 @@ template <typename OpFormat> class EccOpsTable {
         current_subtable.reserve(size_hint);
     }
 
-    // const operator[]. there is no non-const version.
+    // const operator[]. (there is no non-const version.)
     const OpFormat& operator[](size_t index) const
     {
         BB_ASSERT(current_subtable.empty(),
@@ -161,6 +161,8 @@ template <typename OpFormat> class EccOpsTable {
         BB_ASSERT(
             false,
             "Unreachable: something has gone wrong with the subtable sizes, which do not add up to the table size.");
+        // Unreachable
+        return table.front().front();
     }
 
     // highly inefficient copy-based reconstruction of the table for use in ECCVM/Translator. Used once at the end of an
@@ -239,8 +241,11 @@ class UltraEccOpsTable {
     bool has_fixed_append = false;
 
   public:
-    size_t size() const { return table.size(); }
-    size_t ultra_table_size() const
+    // Returns the number of ECC operations in the table
+    size_t num_ops() const { return table.size(); }
+
+    // Returns the number of rows in the Ultra execution trace (each op occupies NUM_ROWS_PER_OP rows)
+    size_t num_ultra_rows() const
     {
         size_t base_size = table.size() * NUM_ROWS_PER_OP;
         if (has_fixed_append && fixed_append_offset.has_value()) {
@@ -255,7 +260,7 @@ class UltraEccOpsTable {
         return base_size;
     }
     size_t current_ultra_subtable_size() const { return table.get()[current_subtable_idx].size() * NUM_ROWS_PER_OP; }
-    size_t previous_ultra_table_size() const { return (ultra_table_size() - current_ultra_subtable_size()); }
+    size_t previous_ultra_table_size() const { return (num_ultra_rows() - current_ultra_subtable_size()); }
     void create_new_subtable(size_t size_hint = 0) { table.create_new_subtable(size_hint); }
     void push(const UltraOp& op) { table.push(op); }
     void merge(MergeSettings settings = MergeSettings::PREPEND, std::optional<size_t> offset = std::nullopt)
@@ -320,7 +325,7 @@ class UltraEccOpsTable {
     // Construct the columns of the full ultra ecc ops table
     ColumnPolynomials construct_table_columns() const
     {
-        const size_t poly_size = ultra_table_size();
+        const size_t poly_size = num_ultra_rows();
 
         if (has_fixed_append) {
             // Handle fixed-location append: prepended tables first, then appended table at fixed offset
