@@ -26,27 +26,27 @@ template <class BuilderType> class KeccakTestingFunctions {
         };
 
         static std::vector<Target> get_all() { return { Target::None, Target::Input, Target::Output }; }
+
         static std::vector<std::string> get_labels() { return { "None", "Input", "Output" }; }
     };
 
-    void invalidate_witness(Keccakf1600& constraint,
-                            WitnessVector& witness_values,
-                            const InvalidWitness::Target& invalid_witness_target)
+    static std::pair<AcirConstraint, WitnessVector> invalidate_witness(
+        Keccakf1600 constraint, WitnessVector witness_values, const InvalidWitness::Target& invalid_witness_target)
     {
         switch (invalid_witness_target) {
-        case InvalidWitness::Target::Input: {
-            // Tamper with the first input lane
+        case InvalidWitness::Target::Input:
+            // Tamper with the first input element
             witness_values[constraint.state[0].index] += bb::fr(1);
             break;
-        }
-        case InvalidWitness::Target::Output: {
-            // Tamper with the first output lane
+        case InvalidWitness::Target::Output:
+            // Tamper with the first output element
             witness_values[constraint.result[0]] += bb::fr(1);
             break;
-        }
         case InvalidWitness::Target::None:
             break;
         }
+
+        return { constraint, witness_values };
     }
 
     /**
@@ -56,7 +56,7 @@ template <class BuilderType> class KeccakTestingFunctions {
      *  - 25 input lanes
      *  - 25 output lanes
      */
-    void generate_constraints(Keccakf1600& keccak_constraint, WitnessVector& witness_values)
+    static void generate_constraints(Keccakf1600& keccak_constraint, WitnessVector& witness_values)
     {
         // Start with the zero variable at index 0
         witness_values.emplace_back(bb::fr(0));
