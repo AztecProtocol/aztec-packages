@@ -9,7 +9,8 @@ Circuit-friendly implementation of the SHA-256 compression function using lookup
 1. [API](#api)
 2. [Algorithm](#algorithm) - Standard SHA-256 compression function
 3. [Implementation](#implementation) - Circuit-specific techniques
-4. [Security Considerations](#security-considerations)
+4. [Testing](#testing) - Verification approach
+5. [Security Considerations](#security-considerations)
 
 ## API
 
@@ -107,13 +108,41 @@ See `plookup_tables/sha256.hpp` for detailed table documentation.
 | Σ₀ + Maj | `majority_with_sigma0()` |
 | mod 2³² addition | `add_normalize()` |
 
+## Testing
+
+Correctness is verified through a layered approach:
+
+### Native Implementation (`crypto/sha256/`)
+
+The native (non-circuit) SHA-256 implementation is tested against official NIST test vectors, verifying the core algorithm is correct.
+
+### Circuit Implementation (`stdlib/hash/sha256/`)
+
+The circuit tests use:
+
+1. **NIST vectors with manual padding** - `sha256.test.cpp` tests `sha256_block` directly against NIST vectors ("abc" and 56-byte messages), manually constructing padded blocks to verify the compression function produces correct output.
+
+2. **Witness constraint tests** - Security regression tests verify that all witness values are properly constrained (e.g., `ExtendWitnessTamperingFailure` checks that modifying any extended witness causes circuit failure).
+
+### Differential Fuzzing (`sha256.fuzzer.cpp`)
+
+The fuzzer generates random inputs and compares circuit output against native output. This provides broad coverage without requiring exhaustive test vectors.
+
+### Coverage Philosophy
+
+The lookup tables are internal implementation details. Any table error would produce incorrect hash output, caught by either NIST vectors (deterministic) or the fuzzer (randomized). No table-specific unit tests are needed.
+
 ## Security Considerations
 
-TODO: Constraint completeness
+1. **Witness constraints** - All intermediate values (message schedule, round computations) must be properly constrained. The `ExtendWitnessTamperingFailure` test verifies this for the message schedule extension.
+
+2. **Input range constraints** - Inputs are NOT explicitly range-constrained to 32 bits. Most values are implicitly constrained via lookup tables, but some (notably `input[0]`, `h_init[3]`, `h_init[7]`) are only weakly bounded by `add_normalize` overflow constraints (~35 bits). This is not practically exploitable but deviates from the SHA-256 spec. See `AUDITTODO` in `sha256.cpp` for details.
+
+3. **Padding** - Only the compression function is implemented. Callers are responsible for correct SHA-256 padding (message + 0x80 + zeros + 64-bit length).
 
 ---
 
-## Appendix: Worked Example (Choose + Σ₁)
+## Appendix: Detailed Example: Choose + Σ₁
 
 This section walks through how `choose_with_sigma1()` (in `sha256.cpp`) computes `Σ₁(e) + Ch(e,f,g)` using sparse form.
 

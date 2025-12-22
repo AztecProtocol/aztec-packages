@@ -358,6 +358,27 @@ std::array<field_t<Builder>, 8> SHA256<Builder>::sha256_block(const std::array<f
 {
     using field_pt = field_t<Builder>;
 
+    // AUDITTODO: Input range constraints are not explicitly enforced here. Analysis shows:
+    //
+    // - h_init[1,2,5,6] are immediately lookup-constrained (32-bit) via map_into_*_sparse_form
+    // - h_init[0,4] are lookup-constrained in round 0 via choose/majority functions
+    // - h_init[3,7] are used in round 0 arithmetic BEFORE being lookup-constrained (they cycle
+    //   through working variables and get constrained in later rounds)
+    // - input[1..15] are lookup-constrained during extend_witness (as w[i-15] or w[i-2])
+    // - input[0] is NEVER lookup-constrained (only used as w[i-16] and in round 0, both additions)
+    //
+    // The add_normalize overflow constraints (3-bit, allowing overflow in [0,7]) provide a weak
+    // bound: the sum of unconstrained values feeding any single add_normalize must be < 8*2^32.
+    // This allows individual inputs up to ~35 bits rather than strict 32-bit.
+    //
+    // This is not practically exploitable (finding inputs that produce a specific hash still
+    // requires ~2^208 work), but deviates from the SHA-256 spec which assumes 32-bit words.
+    //
+    // Recommended fix: Use lookups (cheaper than create_range_constraint, ~1 gate vs multiple):
+    // - For h_init[3], h_init[7]: convert immediately via map_into_*_sparse_form instead of
+    //   wrapping in sparse_value(). The lookup constrains the input as a side effect.
+    // - For input[0]: add a lookup in extend_witness via convert_witness() or SHA256_WITNESS_INPUT.
+
     /**
      * Initialize round variables with previous block output.
      * Note: We delay converting `a` and `e` into their respective sparse forms because it's done as part of the
