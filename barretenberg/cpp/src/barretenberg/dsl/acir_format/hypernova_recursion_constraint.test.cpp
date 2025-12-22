@@ -257,23 +257,23 @@ class HypernovaRecursionConstraintTest : public ::testing::Test {
      * @brief Construct a kernel circuit VK from an acir program with IVC recursion constraints
      *
      * @param program Acir program representing a kernel circuit
-     * @return std::shared_ptr<Chonk::MegaVerificationKey>
+     * @return std::shared_ptr<Chonk::HidingKernelVK>
      */
-    static std::shared_ptr<Chonk::MegaVerificationKey> construct_kernel_vk_from_acir_program(AcirProgram& program)
+    static std::shared_ptr<Chonk::HidingKernelVK> construct_kernel_vk_from_acir_program(AcirProgram& program)
     {
         // Create kernel circuit from the kernel program
         auto kernel = acir_format::create_circuit<Builder>(program);
 
         // Manually construct the VK for the kernel circuit
         auto prover_instance = std::make_shared<Chonk::ProverInstance>(kernel);
-        auto verification_key = std::make_shared<Chonk::MegaVerificationKey>(prover_instance->get_precomputed());
+        auto verification_key = std::make_shared<Chonk::HidingKernelVK>(prover_instance->get_precomputed());
         return verification_key;
     }
 
-    static std::shared_ptr<Chonk::MegaVerificationKey> get_kernel_vk_from_circuit(Builder& kernel)
+    static std::shared_ptr<Chonk::HidingKernelVK> get_kernel_vk_from_circuit(Builder& kernel)
     {
         auto prover_instance = std::make_shared<Chonk::ProverInstance>(kernel);
-        auto verification_key = std::make_shared<Chonk::MegaVerificationKey>(prover_instance->get_precomputed());
+        auto verification_key = std::make_shared<Chonk::HidingKernelVK>(prover_instance->get_precomputed());
         return verification_key;
     }
 
@@ -309,7 +309,8 @@ TEST_F(HypernovaRecursionConstraintTest, AccumulateSingleApp)
 
     auto proof = ivc->prove();
     {
-        ChonkNativeVerifier verifier(ivc->get_vk().mega);
+        auto vk_and_hash = ivc->get_hiding_kernel_vk_and_hash();
+        ChonkNativeVerifier verifier(vk_and_hash);
         EXPECT_TRUE(verifier.verify(proof));
     }
 }
@@ -342,7 +343,7 @@ TEST_F(HypernovaRecursionConstraintTest, AccumulateTwoApps)
 
     auto proof = ivc->prove();
     {
-        ChonkNativeVerifier verifier(ivc->get_vk().mega);
+        ChonkNativeVerifier verifier(ivc->get_hiding_kernel_vk_and_hash());
         EXPECT_TRUE(verifier.verify(proof));
     }
 }
@@ -582,7 +583,7 @@ TEST_F(HypernovaRecursionConstraintTest, RecursiveVerifierAppCircuit)
 
     auto proof = ivc->prove();
     {
-        ChonkNativeVerifier verifier(ivc->get_vk().mega);
+        ChonkNativeVerifier verifier(ivc->get_hiding_kernel_vk_and_hash());
         EXPECT_TRUE(verifier.verify(proof));
     }
 }
@@ -610,7 +611,7 @@ TEST_F(HypernovaRecursionConstraintTest, RecursiveVerifierAppCircuitFailure)
     // We expect the Chonk proof to fail due to the app with a failed UH recursive verification
     auto proof = ivc->prove();
     {
-        ChonkNativeVerifier verifier(ivc->get_vk().mega);
+        ChonkNativeVerifier verifier(ivc->get_hiding_kernel_vk_and_hash());
         EXPECT_FALSE(verifier.verify(proof));
     }
 }

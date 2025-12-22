@@ -46,7 +46,7 @@ class ChonkRecursionConstraintTest : public ::testing::Test {
         }
 
         ChonkProof proof = ivc.prove();
-        return { ivc.get_vk().mega, proof };
+        return { ivc.get_hiding_kernel_vk_and_hash()->vk, proof };
     }
 
     static AcirProgram create_acir_program(const ChonkData& chonk_data)

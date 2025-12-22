@@ -142,7 +142,7 @@ void PrivateExecutionSteps::parse(std::vector<PrivateExecutionStepRaw>&& steps)
             // For backwards compatibility, but it affects performance and correctness.
             precomputed_vks[i] = nullptr;
         } else {
-            precomputed_vks[i] = from_buffer<std::shared_ptr<Chonk::MegaVerificationKey>>(step.vk);
+            precomputed_vks[i] = from_buffer<std::shared_ptr<Chonk::HidingKernelVK>>(step.vk);
         }
         function_names[i] = step.function_name;
     }

@@ -105,7 +105,7 @@ std::vector<uint8_t> compress(const std::vector<uint8_t>& input);
 } // namespace bb
 
 // Helper to get an IVC verification key for testing
-Chonk::MegaVerificationKey get_ivc_vk(const std::filesystem::path& test_dir)
+Chonk::HidingKernelVK get_ivc_vk(const std::filesystem::path& test_dir)
 {
     auto [app_bytecode, app_witness_data] = acir_bincode_mocks::create_simple_circuit_bytecode();
     bbapi::BBApiRequest request;
@@ -128,7 +128,7 @@ Chonk::MegaVerificationKey get_ivc_vk(const std::filesystem::path& test_dir)
     api.write_vk(write_vk_flags, bytecode_path, test_dir);
 
     auto buffer = read_file(test_dir / "vk");
-    return from_buffer<Chonk::MegaVerificationKey>(buffer);
+    return from_buffer<Chonk::HidingKernelVK>(buffer);
 };
 
 // Test the ChonkAPI::prove flow, making sure --write_vk
@@ -153,9 +153,9 @@ TEST_F(ChonkAPITests, DISABLED_ProveAndVerifyFileBasedFlow)
     };
 
     // Helper lambda to verify VK equivalence
-    auto verify_vk_equivalence = [&](const std::filesystem::path& vk1_path, const Chonk::MegaVerificationKey& vk2) {
+    auto verify_vk_equivalence = [&](const std::filesystem::path& vk1_path, const Chonk::HidingKernelVK& vk2) {
         auto vk1_data = read_file(vk1_path);
-        auto vk1 = from_buffer<Chonk::MegaVerificationKey>(vk1_data);
+        auto vk1 = from_buffer<Chonk::HidingKernelVK>(vk1_data);
         ASSERT_EQ(vk1, vk2);
     };
 

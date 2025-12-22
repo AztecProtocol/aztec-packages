@@ -38,9 +38,9 @@ TEST_F(BBApiChonkTest, ChonkVkSerialization)
     auto [bytecode, _witness] = acir_bincode_mocks::create_simple_circuit_bytecode();
     auto vk_response = ChonkComputeIvcVk{ .circuit = { .name = "test_circuit", .bytecode = bytecode } }.execute();
 
-    // Create a VK from the field elements
-    Chonk::VerificationKey vk = from_buffer<Chonk::VerificationKey>(vk_response.bytes);
-    EXPECT_EQ(to_buffer(vk.to_field_elements()), vk_response.bytes)
+    // Deserialize the hiding kernel VK
+    auto hiding_kernel_vk = from_buffer<Chonk::HidingKernelVK>(vk_response.bytes);
+    EXPECT_EQ(to_buffer(hiding_kernel_vk.to_field_elements()), vk_response.bytes)
         << "Serialized field elements should match original field elements";
 }
 

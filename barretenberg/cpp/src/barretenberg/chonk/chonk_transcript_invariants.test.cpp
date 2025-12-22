@@ -119,8 +119,8 @@ TEST_F(ChonkTranscriptInvariantTests, AccumulationTranscriptCount)
 
     // Generate and verify proof
     auto proof = ivc.prove();
-    auto vk = ivc.get_vk();
-    ChonkNativeVerifier verifier(vk.mega);
+    auto vk_and_hash = ivc.get_hiding_kernel_vk_and_hash();
+    ChonkNativeVerifier verifier(vk_and_hash);
     EXPECT_TRUE(verifier.verify(proof)) << "IVC proof should verify";
 }
 
@@ -150,7 +150,7 @@ TEST_F(ChonkTranscriptInvariantTests, RecursiveVerificationTranscriptCount)
     }
 
     auto proof = ivc.prove();
-    auto vk = ivc.get_vk();
+    auto vk_and_hash = ivc.get_hiding_kernel_vk_and_hash();
 
     // Perform recursive verification and track transcript creation
     // unique_transcript_index is only incremented for in-circuit transcripts (in_circuit == true)
@@ -158,7 +158,7 @@ TEST_F(ChonkTranscriptInvariantTests, RecursiveVerificationTranscriptCount)
     size_t index_before_verify = bb::unique_transcript_index.load();
 
     // Create stdlib VK from native VK and wrap it in VKAndHash
-    auto stdlib_vk = std::make_shared<RecursiveVerifier::VK>(&builder, vk.mega);
+    auto stdlib_vk = std::make_shared<RecursiveVerifier::VK>(&builder, vk_and_hash->vk);
     auto stdlib_vk_and_hash = std::make_shared<RecursiveVerifier::VKAndHash>(stdlib_vk);
 
     RecursiveVerifier verifier(stdlib_vk_and_hash);

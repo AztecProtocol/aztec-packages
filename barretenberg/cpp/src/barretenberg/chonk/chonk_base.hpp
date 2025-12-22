@@ -22,14 +22,14 @@ class IVCBase {
     // CHONK: "Client Honk" - An UltraHonk variant with incremental folding and delayed non-native arithmetic.
   public:
     using ClientCircuit = MegaCircuitBuilder;
-    using MegaVerificationKey = MegaFlavor::VerificationKey;
+    using HidingKernelVK = MegaFlavor::VerificationKey;
 
     virtual ~IVCBase() = default;
 
     virtual Goblin& get_goblin() = 0;
     virtual const Goblin& get_goblin() const = 0;
 
-    virtual void accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVerificationKey>& precomputed_vk) = 0;
+    virtual void accumulate(ClientCircuit& circuit, const std::shared_ptr<HidingKernelVK>& precomputed_vk) = 0;
 
   protected:
     IVCBase() = default;

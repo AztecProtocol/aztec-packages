@@ -9,21 +9,21 @@ namespace bb::stdlib::recursion::honk {
 class ChonkRecursionTests : public testing::Test {
   public:
     using Builder = UltraCircuitBuilder;
-    using ChonkVerifier = bb::ChonkRecursiveVerifier;
+    using ChonkVerifier = ChonkRecursiveVerifier;
     using Proof = ChonkProof;
     using StdlibProof = ChonkStdlibProof;
     using RollupFlavor = UltraRollupRecursiveFlavor_<Builder>;
     using NativeFlavor = RollupFlavor::NativeFlavor;
     using UltraRecursiveVerifier = UltraVerifier_<RollupFlavor, RollupIO>;
     using MockCircuitProducer = PrivateFunctionExecutionMockCircuitProducer;
-    using IVCVerificationKey = Chonk::VerificationKey;
+    using VKAndHash = MegaZKFlavor::VKAndHash;
     using PairingAccumulator = PairingPoints<Builder>;
 
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
     struct ChonkProverOutput {
         Proof proof;
-        IVCVerificationKey ivc_vk;
+        std::shared_ptr<VKAndHash> vk_and_hash;
     };
 
     /**
@@ -42,7 +42,7 @@ class ChonkRecursionTests : public testing::Test {
             circuit_producer.construct_and_accumulate_next_circuit(ivc);
         }
 
-        return { ivc.prove(), ivc.get_vk() };
+        return { ivc.prove(), ivc.get_hiding_kernel_vk_and_hash() };
     }
 };
 
@@ -52,10 +52,10 @@ class ChonkRecursionTests : public testing::Test {
  */
 TEST_F(ChonkRecursionTests, NativeVerification)
 {
-    auto [proof, vk] = construct_chonk_prover_output();
+    auto [proof, vk_and_hash] = construct_chonk_prover_output();
 
     // Confirm that the IVC proof can be natively verified
-    ChonkNativeVerifier verifier(vk.mega);
+    ChonkNativeVerifier verifier(vk_and_hash);
     EXPECT_TRUE(verifier.verify(proof));
 }
 
@@ -68,12 +68,12 @@ TEST_F(ChonkRecursionTests, Basic)
     using ChonkRecVerifierOutput = ChonkVerifier::Output;
 
     // Generate a genuine Chonk prover output
-    auto [proof, vk] = construct_chonk_prover_output();
+    auto [proof, native_vk_and_hash] = construct_chonk_prover_output();
 
     // Construct the Chonk recursive verifier
     Builder builder;
-    auto mega_vk_and_hash = std::make_shared<ChonkVerifier::VKAndHash>(builder, vk.mega);
-    ChonkVerifier verifier{ mega_vk_and_hash };
+    auto recursive_vk_and_hash = std::make_shared<ChonkVerifier::VKAndHash>(builder, native_vk_and_hash->vk);
+    ChonkVerifier verifier{ recursive_vk_and_hash };
 
     // Generate the recursive verification circuit
     StdlibProof stdlib_proof(builder, proof);

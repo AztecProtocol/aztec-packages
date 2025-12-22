@@ -463,7 +463,7 @@ TEST_F(AcirIntegrationTest, DISABLED_ChonkMsgpackInputs)
 
     std::shared_ptr<Chonk> ivc = steps.accumulate();
     ChonkProof proof = ivc->prove();
-    ChonkNativeVerifier chonk_verifier(ivc->get_vk().mega);
+    ChonkNativeVerifier chonk_verifier(ivc->get_hiding_kernel_vk_and_hash());
     EXPECT_TRUE(chonk_verifier.verify(proof));
 }
 

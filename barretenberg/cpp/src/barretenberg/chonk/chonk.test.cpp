@@ -54,9 +54,8 @@ class ChonkTests : public ::testing::Test {
         }
     }
 
-    static std::pair<ChonkProof, Chonk::VerificationKey> accumulate_and_prove_ivc(size_t num_app_circuits,
-                                                                                  TestSettings settings = {},
-                                                                                  bool check_circuit_sizes = false)
+    static std::pair<ChonkProof, std::shared_ptr<MegaZKFlavor::VKAndHash>> accumulate_and_prove_ivc(
+        size_t num_app_circuits, TestSettings settings = {}, bool check_circuit_sizes = false)
     {
         CircuitProducer circuit_producer(num_app_circuits);
         const size_t num_circuits = circuit_producer.total_num_circuits;
@@ -65,12 +64,11 @@ class ChonkTests : public ::testing::Test {
         for (size_t j = 0; j < num_circuits; ++j) {
             circuit_producer.construct_and_accumulate_next_circuit(ivc, settings, check_circuit_sizes);
         }
-        return { ivc.prove(), ivc.get_vk() };
+        return { ivc.prove(), ivc.get_hiding_kernel_vk_and_hash() };
     };
 
-    static bool verify_chonk(const ChonkProof& proof, const Chonk::VerificationKey& vk)
+    static bool verify_chonk(const ChonkProof& proof, const std::shared_ptr<MegaZKFlavor::VKAndHash>& vk_and_hash)
     {
-        auto vk_and_hash = std::make_shared<ChonkVerifier::VKAndHash>(vk.mega);
         ChonkVerifier verifier(vk_and_hash);
         return verifier.verify(proof);
     }
@@ -126,7 +124,7 @@ class ChonkTests : public ::testing::Test {
         }
 
         auto proof = ivc.prove();
-        EXPECT_FALSE(verify_chonk(proof, ivc.get_vk()));
+        EXPECT_FALSE(verify_chonk(proof, ivc.get_hiding_kernel_vk_and_hash()));
     }
 
     /**
@@ -188,7 +186,7 @@ class ChonkTests : public ::testing::Test {
         }
 
         auto proof = ivc.prove();
-        EXPECT_FALSE(verify_chonk(proof, ivc.get_vk()));
+        EXPECT_FALSE(verify_chonk(proof, ivc.get_hiding_kernel_vk_and_hash()));
     }
 
     /**
@@ -231,10 +229,10 @@ class ChonkTests : public ::testing::Test {
 
         // Generate the final proof (creates HidingKernel)
         auto proof = ivc.prove();
-        auto vk = ivc.get_vk();
+        auto vk_and_hash = ivc.get_hiding_kernel_vk_and_hash();
 
         // Extract field from HidingKernel's proof (final mega_proof)
-        size_t hiding_kernel_pub_inputs = vk.mega->num_public_inputs;
+        size_t hiding_kernel_pub_inputs = vk_and_hash->vk->num_public_inputs;
         ASSERT_EQ(hiding_kernel_pub_inputs, HidingKernelIOSerde::PUBLIC_INPUTS_SIZE)
             << "HidingKernel should use HidingKernelIO format";
         HidingKernelIOSerde hiding_io = HidingKernelIOSerde::from_proof(proof.mega_proof, hiding_kernel_pub_inputs);
@@ -329,7 +327,7 @@ TEST_F(ChonkTests, BadProofFailure)
             circuit_producer.construct_and_accumulate_next_circuit(ivc, settings);
         }
         auto proof = ivc.prove();
-        EXPECT_TRUE(verify_chonk(proof, ivc.get_vk()));
+        EXPECT_TRUE(verify_chonk(proof, ivc.get_hiding_kernel_vk_and_hash()));
     }
 
     // The IVC throws an exception if the FIRST fold proof is tampered with
@@ -357,7 +355,7 @@ TEST_F(ChonkTests, BadProofFailure)
             }
         }
         auto proof = ivc.prove();
-        EXPECT_FALSE(verify_chonk(proof, ivc.get_vk()));
+        EXPECT_FALSE(verify_chonk(proof, ivc.get_hiding_kernel_vk_and_hash()));
     }
 
     // The IVC fails if the SECOND fold proof is tampered with
@@ -379,33 +377,27 @@ TEST_F(ChonkTests, BadProofFailure)
             }
         }
         auto proof = ivc.prove();
-        EXPECT_FALSE(verify_chonk(proof, ivc.get_vk()));
+        EXPECT_FALSE(verify_chonk(proof, ivc.get_hiding_kernel_vk_and_hash()));
     }
 };
 
 /**
- * @brief Ensure that the Chonk VK is independent of the number of circuits accumulated
+ * @brief Ensure that the hiding kernel VK is independent of the number of circuits accumulated
  *
  */
 TEST_F(ChonkTests, VKIndependenceFromNumberOfCircuits)
 {
     const TestSettings settings{ .log2_num_gates = SMALL_LOG_2_NUM_GATES };
 
-    auto [unused_1, chonk_vk_1] = accumulate_and_prove_ivc(/*num_app_circuits=*/1, settings);
-    auto [unused_2, chonk_vk_2] = accumulate_and_prove_ivc(/*num_app_circuits=*/3, settings);
+    auto [unused_1, vk_and_hash_1] = accumulate_and_prove_ivc(/*num_app_circuits=*/1, settings);
+    auto [unused_2, vk_and_hash_2] = accumulate_and_prove_ivc(/*num_app_circuits=*/3, settings);
 
-    // Check the equality of the Mega components of the Chonk VKeys.
-    EXPECT_EQ(*chonk_vk_1.mega.get(), *chonk_vk_2.mega.get());
-
-    // Check the equality of the ECCVM components of the Chonk VKeys.
-    EXPECT_EQ(*chonk_vk_1.eccvm.get(), *chonk_vk_2.eccvm.get());
-
-    // Check the equality of the Translator components of the Chonk VKeys.
-    EXPECT_EQ(*chonk_vk_1.translator.get(), *chonk_vk_2.translator.get());
+    // Check the equality of the hiding kernel VKeys
+    EXPECT_EQ(*vk_and_hash_1->vk.get(), *vk_and_hash_2->vk.get());
 };
 
 /**
- * @brief Ensure that the Chonk VK is independent of the sizes of the circuits being accumulated
+ * @brief Ensure that the hiding kernel VK is independent of the sizes of the circuits being accumulated
  *
  */
 TEST_F(ChonkTests, VKIndependenceFromCircuitSize)
@@ -418,17 +410,11 @@ TEST_F(ChonkTests, VKIndependenceFromCircuitSize)
     const TestSettings settings_1{ .log2_num_gates = log2_num_gates_small };
     const TestSettings settings_2{ .log2_num_gates = log2_num_gates_big };
 
-    auto [unused_1, chonk_vk_1] = accumulate_and_prove_ivc(NUM_APP_CIRCUITS, settings_1);
-    auto [unused_2, chonk_vk_2] = accumulate_and_prove_ivc(NUM_APP_CIRCUITS, settings_2);
+    auto [unused_1, vk_and_hash_1] = accumulate_and_prove_ivc(NUM_APP_CIRCUITS, settings_1);
+    auto [unused_2, vk_and_hash_2] = accumulate_and_prove_ivc(NUM_APP_CIRCUITS, settings_2);
 
-    // Check the equality of the Mega components of the Chonk VKeys.
-    EXPECT_EQ(*chonk_vk_1.mega.get(), *chonk_vk_2.mega.get());
-
-    // Check the equality of the ECCVM components of the Chonk VKeys.
-    EXPECT_EQ(*chonk_vk_1.eccvm.get(), *chonk_vk_2.eccvm.get());
-
-    // Check the equality of the Translator components of the Chonk VKeys.
-    EXPECT_EQ(*chonk_vk_1.translator.get(), *chonk_vk_2.translator.get());
+    // Check the equality of the hiding kernel VKeys
+    EXPECT_EQ(*vk_and_hash_1->vk.get(), *vk_and_hash_2->vk.get());
 };
 
 /**

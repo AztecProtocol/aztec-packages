@@ -139,8 +139,8 @@ bool ChonkAPI::prove_and_verify(const std::filesystem::path& input_path)
     // Construct the hiding kernel as the final step of the IVC
 
     auto proof = ivc->prove();
-    auto vk = ivc->get_vk();
-    ChonkNativeVerifier verifier(vk.mega);
+    auto vk_and_hash = ivc->get_hiding_kernel_vk_and_hash();
+    ChonkNativeVerifier verifier(vk_and_hash);
     const bool verified = verifier.verify(proof);
     return verified;
 }

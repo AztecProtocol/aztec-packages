@@ -101,18 +101,21 @@ WASM_EXPORT void acir_prove_aztec_client(uint8_t const* ivc_inputs_buf, uint8_t*
     vinfo("time to serialize proof: ", diff.count());
 
     start = std::chrono::steady_clock::now();
-    *out_vk = to_heap_buffer(to_buffer(ivc->get_vk()));
+    auto vk_and_hash = ivc->get_hiding_kernel_vk_and_hash();
+    *out_vk = to_heap_buffer(to_buffer(*vk_and_hash->vk));
     end = std::chrono::steady_clock::now();
     diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-    vinfo("time to serialize vk: ", diff.count());
+    vinfo("time to serialize hiding kernel vk: ", diff.count());
 }
 
 WASM_EXPORT void acir_verify_aztec_client(uint8_t const* proof_buf, uint8_t const* vk_buf, bool* result)
 {
     const auto proof = ChonkProof::from_msgpack_buffer(proof_buf);
-    const auto vk = from_buffer<Chonk::VerificationKey>(from_buffer<std::vector<uint8_t>>(vk_buf));
+    auto hiding_kernel_vk = std::make_shared<Chonk::HidingKernelVK>(
+        from_buffer<Chonk::HidingKernelVK>(from_buffer<std::vector<uint8_t>>(vk_buf)));
 
-    ChonkNativeVerifier verifier(vk.mega);
+    auto vk_and_hash = std::make_shared<ChonkNativeVerifier::VKAndHash>(hiding_kernel_vk);
+    ChonkNativeVerifier verifier(vk_and_hash);
     *result = verifier.verify(proof);
 }
 

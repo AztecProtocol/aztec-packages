@@ -40,7 +40,7 @@ class Chonk : public IVCBase {
 
   public:
     using Flavor = MegaFlavor;
-    using MegaVerificationKey = Flavor::VerificationKey;
+    using HidingKernelVK = Flavor::VerificationKey;
     using MegaZKVerificationKey = MegaZKFlavor::VerificationKey;
     using FF = Flavor::FF;
     using Commitment = Flavor::Commitment;
@@ -80,66 +80,6 @@ class Chonk : public IVCBase {
     using VerifierAccumulator = FoldingVerifier::Accumulator;
     using RecursiveVerifierAccumulator = RecursiveFoldingVerifier::Accumulator;
 
-    struct VerificationKey {
-        std::shared_ptr<MegaVerificationKey> mega;
-        std::shared_ptr<ECCVMVerificationKey> eccvm;
-        std::shared_ptr<TranslatorVerificationKey> translator;
-
-        /**
-         * @brief Calculate the number of field elements needed for serialization
-         * @return size_t Number of field elements
-         */
-        static size_t calc_num_data_types()
-        {
-            return MegaVerificationKey::calc_num_data_types() + ECCVMVerificationKey::calc_num_data_types() +
-                   TranslatorVerificationKey::calc_num_data_types();
-        }
-
-        /**
-         * @brief Serialize verification key to field elements
-         * @return std::vector<bb::fr> The serialized field elements
-         */
-        std::vector<bb::fr> to_field_elements() const
-        {
-            std::vector<bb::fr> elements;
-
-            auto mega_elements = mega->to_field_elements();
-            elements.insert(elements.end(), mega_elements.begin(), mega_elements.end());
-
-            auto eccvm_elements = eccvm->to_field_elements();
-            elements.insert(elements.end(), eccvm_elements.begin(), eccvm_elements.end());
-
-            auto translator_elements = translator->to_field_elements();
-            elements.insert(elements.end(), translator_elements.begin(), translator_elements.end());
-
-            return elements;
-        }
-
-        /**
-         * @brief Deserialize verification key from field elements
-         * @param elements The field elements to deserialize from
-         * @return size_t Number of field elements read
-         */
-        size_t from_field_elements(std::span<const bb::fr> elements)
-        {
-            size_t read_idx = 0;
-
-            mega = std::make_shared<MegaVerificationKey>();
-            size_t mega_read = mega->from_field_elements(elements.subspan(read_idx));
-            read_idx += mega_read;
-
-            eccvm = std::make_shared<ECCVMVerificationKey>();
-            size_t eccvm_read = eccvm->from_field_elements(elements.subspan(read_idx));
-            read_idx += eccvm_read;
-
-            translator = std::make_shared<TranslatorVerificationKey>();
-            size_t translator_read = translator->from_field_elements(elements.subspan(read_idx));
-            read_idx += translator_read;
-
-            return read_idx;
-        }
-    };
-
     /**
      * @brief Proof type determining recursive verification logic in kernel circuits.
      *
@@ -167,7 +107,7 @@ class Chonk : public IVCBase {
     // An entry in the native verification queue
     struct VerifierInputs {
         std::vector<FF> proof; // oink or HN
-        std::shared_ptr<MegaVerificationKey> honk_vk;
+        std::shared_ptr<HidingKernelVK> honk_vk;
         QUEUE_TYPE type;
         bool is_kernel = false;
     };
@@ -248,7 +188,7 @@ class Chonk : public IVCBase {
      * set using the proving key produced from `circuit` in order to pass some assertions in the Oink prover.
      * @param mock_vk A boolean to say whether the precomputed vk should have its metadata set.
      */
-    void accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVerificationKey>& precomputed_vk) override;
+    void accumulate(ClientCircuit& circuit, const std::shared_ptr<HidingKernelVK>& precomputed_vk) override;
 
     ChonkProof prove();
 
@@ -256,7 +196,11 @@ class Chonk : public IVCBase {
     static void hide_op_queue_content_in_tail(ClientCircuit& circuit);
     static void hide_op_queue_content_in_hiding(ClientCircuit& circuit);
 
-    VerificationKey get_vk() const;
+    /**
+     * @brief Get the hiding kernel verification key and hash for Chonk verification
+     * @return VKAndHash containing the MegaZK verification key and its hash
+     */
+    std::shared_ptr<MegaZKFlavor::VKAndHash> get_hiding_kernel_vk_and_hash() const;
 
   private:
 #ifndef NDEBUG
@@ -271,41 +215,13 @@ class Chonk : public IVCBase {
 
     void debug_incoming_circuit(ClientCircuit& circuit,
                                 const std::shared_ptr<ProverInstance>& prover_instance,
-                                const std::shared_ptr<MegaVerificationKey>& precomputed_vk);
+                                const std::shared_ptr<HidingKernelVK>& precomputed_vk);
 #endif
 
     HonkProof construct_honk_proof_for_hiding_kernel(ClientCircuit& circuit,
-                                                     const std::shared_ptr<MegaVerificationKey>& verification_key);
+                                                     const std::shared_ptr<HidingKernelVK>& verification_key);
 
     QUEUE_TYPE get_queue_type() const;
 };
-
-// Serialization methods for Chonk::VerificationKey
-inline void read(uint8_t const*& it, Chonk::VerificationKey& vk)
-{
-    using serialize::read;
-
-    size_t num_frs = Chonk::VerificationKey::calc_num_data_types();
-
-    // Read exactly num_frs field elements from the buffer
-    std::vector<bb::fr> field_elements(num_frs);
-    for (auto& element : field_elements) {
-        read(it, element);
-    }
-
-    // Then use from_field_elements to populate the verification key
-    vk.from_field_elements(field_elements);
-}
-
-inline void write(std::vector<uint8_t>& buf, Chonk::VerificationKey const& vk)
-{
-    using serialize::write;
-
-    // Convert to field elements and write them directly without length prefix
-    auto field_elements = vk.to_field_elements();
-    for (const auto& element : field_elements) {
-        write(buf, element);
-    }
-}
 
 } // namespace bb

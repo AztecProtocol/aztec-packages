@@ -9,8 +9,9 @@
 
 namespace bb {
 
-// ChonkProof_ template method implementations
-
+/**
+ * @brief Serialize Chonk Proof
+ */
 template <bool IsRecursive>
 std::vector<typename ChonkProof_<IsRecursive>::FF> ChonkProof_<IsRecursive>::to_field_elements() const
 {
@@ -24,6 +25,9 @@ std::vector<typename ChonkProof_<IsRecursive>::FF> ChonkProof_<IsRecursive>::to_
     return proof;
 };
 
+/**
+ * @brief Split a vector of field elements into ChonkProof components.
+ */
 template <bool IsRecursive>
 ChonkProof_<IsRecursive> ChonkProof_<IsRecursive>::from_field_elements(const std::vector<FF>& fields)
 {
