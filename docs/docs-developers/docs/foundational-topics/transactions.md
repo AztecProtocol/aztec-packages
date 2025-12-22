@@ -10,9 +10,9 @@ import Image from '@theme/IdealImage';
 On this page you'll learn:
 
 - The step-by-step process of sending a transaction on Aztec
-- The role of components like PXE, Aztec Node, ACIR simulator, and the sequencer
-- The Aztec Kernel and its two circuits: private and public, and how they execute function calls
-- The call stacks for private & public functions and how they determine a transaction's completion
+- The role of components like PXE, Aztec Node, and the sequencer
+- The private and public kernel circuits and how they execute function calls
+- The call stacks for private and public functions and how they determine a transaction's completion
 
 ## Simple Example of the (Private) Transaction Lifecycle
 
@@ -25,30 +25,16 @@ The accompanying diagram illustrates the flow of interactions between a user, th
 <Image img={require("@site/static/img/transaction-lifecycle.png")} />
 
 1. **The user initiates a transaction** – In this example, the user decides to privately send 10 DAI to gudcause.eth. After inputting the amount and the receiving address, the user clicks the confirmation button on their wallet.
-
-_The transaction has not been broadcasted to the sequencer network yet. For now, the transaction exists solely within the context of the PXE._
-
-2. **The PXE executes transfer locally** – The PXE, running locally on the user's device, executes the transfer method on the DAI token contract on Aztec and computes the state difference based on the user’s intention.
-
-_The transaction has still not been broadcasted to the sequencer network yet and continues to live solely within the context of the PXE._
-
-3. **The PXE proves correct execution** – At this point, the PXE proves correct execution (via zero-knowledge proofs) of the authorization and of the private transfer method. Once the proofs have been generated, the PXE sends the proofs and required inputs (inputs are new note commitments, stored in the note hash tree and nullifiers stored in the nullifiers tree) to the sequencer. Nullifiers are data that invalidate old commitments, ensuring that commitments can only be used once.
-
-_The sequencer has received the transaction proof and can begin to process the transaction - verifying proofs and applying updates to the relevant data trees - alongside other public and private transactions._
-
-4. **The sequencer has the necessary information to act** – the randomly-selected sequencer (based on the Fernet sequencer selection protocol) validates the transaction proofs along with required inputs (e.g. the note commitments and nullifiers) for this private transfer. The sequencer also executes public functions and requests proofs of public execution from a prover network. The sequencer updates the corresponding data trees and does the same for other private transactions. When the sequencer receives proofs from the prover network, the proofs will be bundled into a final rollup proof.
-
-_The sequencer has passed the transaction information – proofs of correct execution and authorization, or public function execution information – to the prover, who will submit the new state root to Ethereum._
-
-5. **The transaction settles to L1** – the verifier contract on Ethereum can now validate the rollup proof and record a new state root. The state root is submitted to the rollup smart contract. Once the state root is verified in an Ethereum transaction, the private transfer has settled and the transaction is considered final.
+2. **The PXE executes transfer locally** – The PXE, running locally on the user's device, executes the transfer method on the DAI token contract on Aztec and computes the state difference based on the user's intention. At this point, the transaction exists solely within the context of the PXE.
+3. **The PXE proves correct execution** – The PXE proves correct execution (via zero-knowledge proofs) of the authorization and of the private transfer method. Once the proofs have been generated, the PXE sends the proofs and required inputs (new note commitments and nullifiers) to the sequencer.
+4. **The sequencer processes the transaction** – The randomly-selected sequencer (based on the Fernet sequencer selection protocol) validates the transaction proofs along with required inputs for this private transfer. The sequencer also executes public functions and requests proofs of public execution from a prover network. When the sequencer receives proofs from the prover network, the proofs are bundled into a final rollup proof.
+5. **The transaction settles to L1** – The verifier contract on Ethereum validates the rollup proof and records a new state root. Once the state root is verified in an Ethereum transaction, the private transfer has settled and the transaction is considered final.
 
 ### Detailed Diagram
 
-Transactions on Aztec start with a call from Aztec.js, which creates a request containing transaction details. This request moves to the Private Execution Environment (PXE) which simulates and processes it. Then the PXE interacts with the Aztec Node which uses the sequencer to ensure that all the transaction details are enqueued properly. The sequencer then submits the block to the rollup contract, and the transaction is successfully mined.
+The following diagram provides a more detailed overview of the transaction execution process, highlighting three different types of transaction execution: contract deployments, private transactions, and public transactions.
 
 <Image img={require("@site/static/img/local_network_sending_a_tx.png")} />
-
-See [this diagram](https://raw.githubusercontent.com/AztecProtocol/aztec-packages/2fa143e4d88b3089ebbe2a9e53645edf66157dc8/docs/static/img/local_network_sending_a_tx.svg) for a more detailed overview of the transaction execution process. It highlights 3 different types of transaction execution: contract deployments, private transactions and public transactions.
 
 See the page on [contract communication](../aztec-nr/framework-description/functions/public_private_calls.md) for more context on transaction execution.
 
@@ -63,13 +49,12 @@ In Aztec.js:
 Where:
 
 - `origin` is the account contract where the transaction is initiated from.
-- `functionData` contains the function selector and indicates whether the function is private or public.
-- `argsHash` is the hash of the arguments of all of the calls to be executed. The complete set of arguments is passed to the PXE as part of the [TxExecutionRequest](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/yarn-project/stdlib/src/tx/tx_execution_request.ts) and checked against this hash.
+- `argsHash` is the hash of the arguments of the entrypoint call. The complete set of arguments is passed to the PXE as part of the [TxExecutionRequest](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/yarn-project/stdlib/src/tx/tx_execution_request.ts) and checked against this hash.
 - `txContext` contains the chain id, version, and gas settings.
+- `functionData` contains the function selector and indicates whether the function is private or public.
+- `salt` is used to make the transaction request hash difficult to predict. The hash is used as the first nullifier if no nullifier is emitted throughout the transaction.
 
-The `functionData` includes an `AppPayload`, which includes information about the application functions and arguments, and a `FeePayload`, which includes info about how to pay for the transaction.
-
-An account contract validates that the transaction request has been authorized via its specified authorization mechanism, via the `is_valid_impl` function (e.g. [an ECDSA signature](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/noir-contracts/contracts/account/ecdsa_k_account_contract/src/main.nr#L56-L57), generated [in JS](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/yarn-project/accounts/src/ecdsa/ecdsa_k/account_contract.ts#L30)).
+An account contract validates that the transaction request has been authorized via its specified authorization mechanism, via the `is_valid_impl` function (e.g. [an ECDSA signature](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/noir-contracts/contracts/account/ecdsa_k_account_contract/src/main.nr)).
 
 Transaction requests are simulated in the PXE in order to generate the necessary inputs for generating proofs. Once transactions are proven, a [transaction object](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/yarn-project/stdlib/src/tx/tx.ts#L26) is created and can be sent to the network to be included in a block.
 
@@ -96,7 +81,7 @@ Batched transactions are a way to send multiple transactions in a single call. T
 
 There are two kernel circuits in Aztec, the private kernel and the public kernel. Each circuit validates the correct execution of a particular function call.
 
-A transaction is built up by generating proofs for multiple recursive iterations of kernel circuits. Each call in the call stack is modeled as new iteration of the kernel circuit and are managed by a [FIFO](<https://en.wikipedia.org/wiki/FIFO_(computing_and_electronics)>) queue containing pending function calls. There are two call stacks, one for private calls and one for public calls.
+A transaction is built up by generating proofs for multiple recursive iterations of kernel circuits. Each call in the call stack is modeled as a new iteration of the kernel circuit and is managed by a [FIFO](<https://en.wikipedia.org/wiki/FIFO_(computing_and_electronics)>) queue containing pending function calls. There are two call stacks, one for private calls and one for public calls.
 
 One iteration of a kernel circuit will pop a call off of the stack and execute the call. If the call triggers subsequent contract calls, these are pushed onto the stack.
 
@@ -112,3 +97,9 @@ The only information leaked about the transaction is:
 2. The set of public calls generated
 
 The addresses of all private calls are hidden from observers.
+
+## Next Steps
+
+- Learn about [accounts](./accounts/index.md) and how they authorize transactions
+- Understand [state management](./state_management.md) and how transaction effects are stored
+- Explore the [PXE](./pxe/index.md) in more detail

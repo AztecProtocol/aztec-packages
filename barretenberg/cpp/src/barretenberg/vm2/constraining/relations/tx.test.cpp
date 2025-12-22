@@ -578,9 +578,9 @@ TEST(TxExecutionConstrainingTest, WriteTreeValue)
     tracegen::PrecomputedTraceBuilder precomputed_builder;
     precomputed_builder.process_misc(trace, AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH);
 
-    TxTraceBuilder::interactions.get_test_job<lookup_tx_read_tree_insert_value_settings>()->process(trace);
-    TxTraceBuilder::interactions.get_test_job<lookup_tx_read_l2_l1_msg_settings>()->process(trace);
-    TxTraceBuilder::interactions.get_test_job<lookup_tx_write_l2_l1_msg_settings>()->process(trace);
+    check_interaction<TxTraceBuilder, lookup_tx_read_tree_insert_value_settings>(trace);
+    check_interaction<TxTraceBuilder, lookup_tx_read_l2_l1_msg_settings>(trace);
+    check_interaction<TxTraceBuilder, lookup_tx_write_l2_l1_msg_settings>(trace);
 }
 
 TEST_F(TxExecutionConstrainingTestHelper, CollectFees)
@@ -691,11 +691,11 @@ TEST_F(TxExecutionConstrainingTestHelper, CollectFees)
     precomputed_builder.process_misc(trace, AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH);
 
     check_relation<tx>(trace);
-    TxTraceBuilder::interactions.get_test_job<lookup_tx_read_phase_spec_settings>()->process(trace);
-    TxTraceBuilder::interactions.get_test_job<lookup_tx_read_phase_length_settings>()->process(trace);
-    TxTraceBuilder::interactions.get_test_job<lookup_tx_read_public_call_request_phase_settings>()->process(trace);
-    TxTraceBuilder::interactions.get_test_job<lookup_tx_read_effective_fee_public_inputs_settings>()->process(trace);
-    TxTraceBuilder::interactions.get_test_job<lookup_tx_read_fee_payer_public_inputs_settings>()->process(trace);
+    check_interaction<TxTraceBuilder, lookup_tx_read_phase_spec_settings>(trace);
+    check_interaction<TxTraceBuilder, lookup_tx_read_phase_length_settings>(trace);
+    check_interaction<TxTraceBuilder, lookup_tx_read_public_call_request_phase_settings>(trace);
+    check_interaction<TxTraceBuilder, lookup_tx_read_effective_fee_public_inputs_settings>(trace);
+    check_interaction<TxTraceBuilder, lookup_tx_read_fee_payer_public_inputs_settings>(trace);
 }
 
 TEST(TxExecutionConstrainingTest, NegativeTreePaddingChecks)

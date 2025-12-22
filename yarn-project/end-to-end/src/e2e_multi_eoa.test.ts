@@ -76,7 +76,7 @@ describe('e2e_multi_eoa', () => {
         ethCheatCodes,
       } = await setup(2, {
         archiverPollingIntervalMS: 200,
-        transactionPollingIntervalMS: 200,
+        sequencerPollingIntervalMS: 200,
         worldStateBlockCheckIntervalMS: 200,
         blockCheckIntervalMS: 200,
         publisherPrivateKeys: sequencerKeysAndAddresses.map(k => k.key),

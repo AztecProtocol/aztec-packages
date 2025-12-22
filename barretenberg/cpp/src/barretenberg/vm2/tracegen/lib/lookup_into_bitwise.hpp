@@ -8,8 +8,9 @@ namespace bb::avm2::tracegen {
 
 template <typename LookupSettings> class LookupIntoBitwise : public IndexedLookupTraceBuilder<LookupSettings> {
   protected:
+    using TupleType = typename IndexedLookupTraceBuilder<LookupSettings>::TupleType;
     // This is an efficient implementation of indexing into the precomputed table.
-    uint32_t find_in_dst(const std::array<FF, LookupSettings::LOOKUP_TUPLE_SIZE>& tup) const override
+    uint32_t find_in_dst(const TupleType& tup) const override
     {
         // row # is derived as:
         //     - input_b: bits 0...7 (0 being LSB)

@@ -1,4 +1,4 @@
-import { type BlobSinkConfig, blobSinkConfigMapping } from '@aztec/blob-sink/client/config';
+import { type BlobClientConfig, blobClientConfigMapping } from '@aztec/blob-client/client/config';
 import { type L1ContractsConfig, l1ContractsConfigMappings } from '@aztec/ethereum/config';
 import { l1ContractAddressesMapping } from '@aztec/ethereum/l1-contract-addresses';
 import { type L1ReaderConfig, l1ReaderConfigMappings } from '@aztec/ethereum/l1-reader';
@@ -18,10 +18,14 @@ import type { ArchiverSpecificConfig } from '@aztec/stdlib/interfaces/server';
  * Results of calls to eth_blockNumber are cached by viem with this cache being updated periodically at the interval specified by viemPollingIntervalMS.
  * As a result the maximum observed polling time for new blocks will be viemPollingIntervalMS + archiverPollingIntervalMS.
  */
-export type ArchiverConfig = ArchiverSpecificConfig & L1ReaderConfig & L1ContractsConfig & BlobSinkConfig & ChainConfig;
+export type ArchiverConfig = ArchiverSpecificConfig &
+  L1ReaderConfig &
+  L1ContractsConfig &
+  BlobClientConfig &
+  ChainConfig;
 
 export const archiverConfigMappings: ConfigMappingsType<ArchiverConfig> = {
-  ...blobSinkConfigMapping,
+  ...blobClientConfigMapping,
   archiverPollingIntervalMS: {
     env: 'ARCHIVER_POLLING_INTERVAL_MS',
     description: 'The polling interval in ms for retrieving new L2 blocks and encrypted logs.',

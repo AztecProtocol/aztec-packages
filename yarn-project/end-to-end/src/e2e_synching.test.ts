@@ -38,7 +38,7 @@ import { BatchCall, type Contract } from '@aztec/aztec.js/contracts';
 import { Fr, GrumpkinScalar } from '@aztec/aztec.js/fields';
 import { type Logger, createLogger } from '@aztec/aztec.js/log';
 import { AnvilTestWatcher } from '@aztec/aztec/testing';
-import { createBlobSinkClient } from '@aztec/blob-sink/client';
+import { createBlobClientWithFileStores } from '@aztec/blob-client/client';
 import { EpochCache } from '@aztec/epoch-cache';
 import { getL1ContractsConfigEnvVars } from '@aztec/ethereum/config';
 import { EmpireSlashingProposerContract, GovernanceProposerContract, RollupContract } from '@aztec/ethereum/contracts';
@@ -63,7 +63,6 @@ import * as fs from 'fs';
 import { type MockProxy, mock } from 'jest-mock-extended';
 import { getContract } from 'viem';
 
-import { DEFAULT_BLOB_SINK_PORT } from './fixtures/fixtures.js';
 import { mintTokensToPrivate } from './fixtures/token_utils.js';
 import { type EndToEndContext, getPrivateKeyFromIndex, setup, setupPXEAndGetWallet } from './fixtures/utils.js';
 
@@ -387,7 +386,6 @@ describe('e2e_synching', () => {
       sequencer,
       watcher,
       wallet,
-      blobSink,
       initialFundedAccounts,
       dateProvider,
     } = await setup(0, {
@@ -399,9 +397,7 @@ describe('e2e_synching', () => {
     await (sequencer as any).stop();
     await watcher?.stop();
 
-    const blobSinkClient = createBlobSinkClient({
-      blobSinkUrl: `http://localhost:${blobSink?.port ?? DEFAULT_BLOB_SINK_PORT}`,
-    });
+    const blobClient = await createBlobClientWithFileStores(config, createLogger('test:blob-client:client'));
 
     const sequencerPK: `0x${string}` = `0x${getPrivateKeyFromIndex(0)!.toString('hex')}`;
 
@@ -437,10 +433,9 @@ describe('e2e_synching', () => {
         l1ChainId: 31337,
         viemPollingIntervalMS: 100,
         ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
-        blobSinkUrl: `http://localhost:${blobSink?.port ?? 5052}`,
       },
       {
-        blobSinkClient,
+        blobClient,
         l1TxUtils,
         rollupContract,
         governanceProposerContract,
@@ -464,7 +459,11 @@ describe('e2e_synching', () => {
         await cheatCodes.eth.mine();
       }
       // If it breaks here, first place you should look is the pruning.
-      await publisher.enqueueProposeL2Block(block, CommitteeAttestationsAndSigners.empty(), Signature.empty());
+      await publisher.enqueueProposeCheckpoint(
+        block.toCheckpoint(),
+        CommitteeAttestationsAndSigners.empty(),
+        Signature.empty(),
+      );
 
       await cheatCodes.rollup.markAsProven(provenThrough);
     }
@@ -563,12 +562,13 @@ describe('e2e_synching', () => {
             await aztecNode.stop();
           }
 
-          const blobSinkClient = createBlobSinkClient({
-            blobSinkUrl: `http://localhost:${opts.blobSink?.port ?? DEFAULT_BLOB_SINK_PORT}`,
-          });
+          const blobClient = await createBlobClientWithFileStores(
+            opts.config!,
+            createLogger('test:blob-client:client'),
+          );
           const archiver = await createArchiver(
             opts.config!,
-            { blobSinkClient, dateProvider: opts.dateProvider! },
+            { blobClient, dateProvider: opts.dateProvider! },
             { blockUntilSync: true },
           );
           const pendingBlockNumber = await rollup.read.getPendingCheckpointNumber();

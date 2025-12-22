@@ -1,6 +1,6 @@
 ---
 title: Function Attributes and Macros
-sidebar_position: 4
+sidebar_position: 6
 tags: [functions]
 description: Explore function attributes in Aztec contracts that control visibility, mutability, and execution context.
 ---
@@ -21,54 +21,10 @@ A private function operates on private information, and is executed by the user 
 
 `#[external("private")]` is just syntactic sugar. At compile time, the Aztec.nr framework inserts code that allows the function to interact with the [kernel](../../advanced/circuits/kernels/private_kernel.md).
 
-To help illustrate how this interacts with the internals of Aztec and its kernel circuits, we can take an example private function, and explore what it looks like after Aztec.nr's macro expansion.
+If you are interested in what exactly the macros are doing we encourage you to run `nargo expand` on your contract.
+This will display your contract's code after the transformations are performed.
 
-#### Before expansion
-
-```rust title="simple_macro_example" showLineNumbers
-#[external("private")]
-fn simple_macro_example(a: Field, b: Field) -> Field {
-    a + b
-}
-```
-
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v3.0.0-devnet.5/noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L118-L123" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L118-L123</a></sub></sup>
-
-#### After expansion
-
-```rust title="simple_macro_example_expanded" showLineNumbers
-pub fn simple_macro_example_expanded(
-    // ************************************************************
-    // The private context inputs are made available to the circuit by the kernel
-    inputs: PrivateContextInputs,
-    // ************************************************************
-    // Our original inputs!
-    a: Field,
-    b: Field, // The actual return type of our circuit is the PrivateCircuitPublicInputs struct, this will be the
-    // input to our kernel!
-) -> PrivateCircuitPublicInputs {
-    // ************************************************************
-    // The args are serialized and hashed to generate the args hash for the circuit inputs.
-    let serialized_args = [a, b];
-    let args_hash = dep::aztec::hash::hash_args_array(serialized_args);
-    // The context object is created with the inputs and the hash of the inputs
-    let mut context = PrivateContext::new(inputs, args_hash);
-    #[allow(unused_variables)]
-    let mut storage = Storage::init(&mut context);
-    // ************************************************************
-    // Our actual program
-    let result = a + b;
-    // ************************************************************
-    // Return values are serialized and passed to the context
-    let serialized_return = [result];
-    context.set_return_hash(serialized_return);
-    // The context is returned to be consumed by the kernel circuit!
-    context.finish()
-    // ************************************************************
-}
-```
-
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v3.0.0-devnet.5/noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L129-L173" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L129-L173</a></sub></sup>
+(If you are using VSCode you can display the expanded code by pressing `CMD + Shift + P` and typing `nargo expand` and selecting `Noir: nargo expand on current package.)
 
 #### The expansion broken down
 
@@ -83,9 +39,20 @@ inputs: PrivateContextInputs,
 > <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v3.0.0-devnet.5/noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L133-L135" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L133-L135</a></sub></sup>
 
 Private function calls are able to interact with each other through orchestration from within the kernel circuits. The kernel circuit forwards information to each contract function (recall each contract function is a circuit). This information then becomes part of the private context.
-For example, within each private function we can access some global variables. To access them we can call on the `context`, e.g. `context.chain_id()`. The value of the chain ID comes from the values passed into the circuit from the kernel.
+For example, within each private function we can access some global variables. To access them we can call on the `self.context`, e.g. `self.context.chain_id()`. The value of the chain ID comes from the values passed into the circuit from the kernel.
 
 The kernel checks that all of the values passed to each circuit in a function call are the same.
+
+**Creating the function's `self.`**
+
+Each Aztec function has access to a `self` object. Upon creation it accepts storage and context. Context is initialized from the inputs provided by the kernel, and a hash of the function's inputs.
+
+We use the kernel to pass information between circuits. This means that the return values of functions must also be passed to the kernel (where they can be later passed on to another function).
+We achieve this by pushing return values to the execution context, which we then pass to the kernel.
+
+**Hashing the function inputs.**
+
+Inside the kernel circuits, the inputs to functions are reduced to a single value; the inputs hash. This prevents the need for multiple different kernel circuits; each supporting differing numbers of inputs. Hashing the inputs allows to reduce all of the inputs to a single value.
 
 **Returning the context to the kernel.**
 
@@ -102,59 +69,16 @@ The contract function must return information about the execution back to the ke
 
 This structure contains a host of information about the executed program. It will contain any newly created nullifiers, any messages to be sent to l2 and most importantly it will contain the return values of the function.
 
-**Hashing the function inputs.**
-
-```rust title="context-example-hasher" showLineNumbers
-let serialized_args = [a, b];
-let args_hash = dep::aztec::hash::hash_args_array(serialized_args);
-```
-
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v3.0.0-devnet.5/noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L146-L149" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L146-L149</a></sub></sup>
-
-> _What is the hasher and why is it needed?_
-
-Inside the kernel circuits, the inputs to functions are reduced to a single value; the inputs hash. This prevents the need for multiple different kernel circuits; each supporting differing numbers of inputs. The hasher abstraction that allows us to create an array of all of the inputs that can be reduced to a single value.
-
-**Creating the function's context.**
-
-```rust title="context-example-context" showLineNumbers
-let mut context = PrivateContext::new(inputs, args_hash);
-```
-
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v3.0.0-devnet.5/noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L151-L153" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L151-L153</a></sub></sup>
-
-Each Aztec function has access to a [context](context) object. This object, although labelled a global variable, is created locally on a users' device. It is initialized from the inputs provided by the kernel, and a hash of the function's inputs.
-
-```rust title="context-example-context-return" showLineNumbers
-let serialized_return = [result];
-context.set_return_hash(serialized_return);
-```
-
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v3.0.0-devnet.5/noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L163-L166" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L163-L166</a></sub></sup>
-
-We use the kernel to pass information between circuits. This means that the return values of functions must also be passed to the kernel (where they can be later passed on to another function).
-We achieve this by pushing return values to the execution context, which we then pass to the kernel.
-
 **Making the contract's storage available**
 
-```rust title="storage-example-context" showLineNumbers
-#[allow(unused_variables)]
-let mut storage = Storage::init(&mut context);
-```
+Each `self` has a `storage` variable exposed on it.
+When a `Storage` struct is declared within a contract, the `self.storage` contains real variables.
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v3.0.0-devnet.5/noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L154-L157" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L154-L157</a></sub></sup>
-
-When a `Storage` struct is declared within a contract, the `storage` keyword is made available. As shown in the macro expansion above, this calls the init function on the storage struct with the current function's context.
+If Storage is not defined `self.storage` contains only a placeholder value.
 
 Any state variables declared in the `Storage` struct can now be accessed as normal struct members.
 
 **Returning the function context to the kernel.**
-
-```rust title="context-example-finish" showLineNumbers
-context.finish()
-```
-
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v3.0.0-devnet.5/noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L168-L170" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L168-L170</a></sub></sup>
 
 This function takes the application context, and converts it into the `PrivateCircuitPublicInputs` structure. This structure is then passed to the kernel circuit.
 
@@ -315,17 +239,26 @@ When a function is annotated with `#[noinitcheck]`:
 - The Aztec macro processor skips the [insertion of the initialization check](#initializer-functions-initializer) for this specific function
 - The function can be called at any time, even if the contract hasn't been initialized yet
 
-## `Internal` functions #[internal]
+## #[only_self]
+
+External functions marked with #[only_self] attribute can only be called by the contract itself - if other contracts try to make the call it will fail.
+
+This attribute is commonly used when an action starts in private but needs to be completed in public. The public
+function must be marked with #[only_self] to restrict access to only the contract itself. A typical example is a private
+token mint operation that needs to enqueue a call to a public function to update the publicly tracked total token
+supply.
+
+It is also useful in private functions when dealing with tasks of an unknown size but with a large upper bound (e.g. when needing to process an unknown amount of notes or nullifiers) as they allow splitting the work in multiple circuits, possibly resulting in performance improvements for low-load scenarios.
 
 This macro inserts a check at the beginning of the function to ensure that the caller is the contract itself. This is done by adding the following assertion:
 
 ```rust
-assert(context.msg_sender().unwrap() == context.this_address(), "Function can only be called internally");
+assert(self.msg_sender() == self.address, "Function can only be called by the same contract");
 ```
 
 ## Implementing notes
 
-The `#[note]` attribute is used to define notes in Aztec contracts. Learn more about notes [here](../../storage/index.md).
+The `#[note]` attribute is used to define notes in Aztec contracts.
 
 When a struct is annotated with `#[note]`, the Aztec macro applies a series of transformations and generates implementations to turn it into a note that can be used in contracts to store private data.
 

@@ -4,7 +4,7 @@ import type { SlotNumber } from '@aztec/foundation/schemas';
 import type { AztecAddress } from '../aztec-address/index.js';
 import type { GasFees } from '../gas/gas_fees.js';
 import type { UInt32 } from '../types/index.js';
-import type { GlobalVariables } from './global_variables.js';
+import type { CheckpointGlobalVariables, GlobalVariables } from './global_variables.js';
 
 /**
  * Interface for building global variables for Aztec blocks.
@@ -26,4 +26,11 @@ export interface GlobalVariableBuilder {
     feeRecipient: AztecAddress,
     slotNumber?: SlotNumber,
   ): Promise<GlobalVariables>;
+
+  /** Builds global variables that are constant throughout a checkpoint. */
+  buildCheckpointGlobalVariables(
+    coinbase: EthAddress,
+    feeRecipient: AztecAddress,
+    slotNumber: SlotNumber,
+  ): Promise<CheckpointGlobalVariables>;
 }

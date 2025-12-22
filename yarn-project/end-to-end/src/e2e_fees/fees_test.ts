@@ -19,6 +19,7 @@ import { CounterContract } from '@aztec/noir-test-contracts.js/Counter';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { getCanonicalFeeJuice } from '@aztec/protocol-contracts/fee-juice';
 import { GasSettings } from '@aztec/stdlib/gas';
+import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 import { TestWallet } from '@aztec/test-wallet/server';
 
 import { getContract } from 'viem';
@@ -58,6 +59,7 @@ export class FeesTest {
 
   public logger: Logger;
   public aztecNode!: AztecNode;
+  public aztecNodeAdmin!: AztecNodeAdmin;
   public cheatCodes!: CheatCodes;
 
   public wallet!: TestWallet;
@@ -190,6 +192,7 @@ export class FeesTest {
       async ({ deployedAccounts }, { wallet, aztecNode, cheatCodes }) => {
         this.wallet = wallet;
         this.aztecNode = aztecNode;
+        this.aztecNodeAdmin = aztecNode;
         this.gasSettings = GasSettings.default({ maxFeesPerGas: (await this.aztecNode.getCurrentBaseFees()).mul(2) });
         this.cheatCodes = cheatCodes;
         this.accounts = deployedAccounts.map(a => a.address);

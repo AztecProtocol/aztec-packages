@@ -25,7 +25,6 @@ concurrency:
 
 jobs:
   fund:
-    continue-on-error: true
     strategy:
       # we can only run one funding operation at a time because all jobs fund from the same address
       max-parallel: 1

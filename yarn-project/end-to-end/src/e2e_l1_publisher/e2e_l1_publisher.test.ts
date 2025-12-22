@@ -5,13 +5,13 @@ import type { L2Block } from '@aztec/aztec.js/block';
 import { Fr } from '@aztec/aztec.js/fields';
 import { createLogger } from '@aztec/aztec.js/log';
 import { GlobalVariables } from '@aztec/aztec.js/tx';
+import { createBlobClient } from '@aztec/blob-client/client';
 import {
   BatchedBlob,
   BatchedBlobAccumulator,
   getBlobsPerL1Block,
   getPrefixedEthBlobCommitments,
 } from '@aztec/blob-lib';
-import { createBlobSinkClient } from '@aztec/blob-sink/client';
 import {
   GENESIS_ARCHIVE_ROOT,
   GENESIS_BLOCK_HEADER_HASH,
@@ -250,7 +250,7 @@ describe('L1Publisher integration', () => {
       l1ContractAddresses.governanceProposerAddress.toString(),
     );
     epochCache = await EpochCache.create(l1ContractAddresses.rollupAddress, config, { dateProvider });
-    const blobSinkClient = createBlobSinkClient();
+    const blobClient = createBlobClient();
     const sequencerPublisherMetrics: MockProxy<SequencerPublisherMetrics> = mock<SequencerPublisherMetrics>();
 
     publisher = new SequencerPublisher(
@@ -264,7 +264,7 @@ describe('L1Publisher integration', () => {
         ethereumSlotDuration: config.ethereumSlotDuration,
       },
       {
-        blobSinkClient,
+        blobClient,
         l1TxUtils,
         rollupContract,
         epochCache,
@@ -454,7 +454,11 @@ describe('L1Publisher integration', () => {
           deployerAccount.address,
         );
 
-        await publisher.enqueueProposeL2Block(block, CommitteeAttestationsAndSigners.empty(), Signature.empty());
+        await publisher.enqueueProposeCheckpoint(
+          block.toCheckpoint(),
+          CommitteeAttestationsAndSigners.empty(),
+          Signature.empty(),
+        );
         await publisher.sendRequests();
 
         const logs = await l1Client.getLogs({
@@ -569,7 +573,11 @@ describe('L1Publisher integration', () => {
     });
 
     const expectPublishBlock = async (block: L2Block, attestations: CommitteeAttestation[], signature: Signature) => {
-      await publisher.enqueueProposeL2Block(block, new CommitteeAttestationsAndSigners(attestations), signature);
+      await publisher.enqueueProposeCheckpoint(
+        block.toCheckpoint(),
+        new CommitteeAttestationsAndSigners(attestations),
+        signature,
+      );
       const result = await publisher.sendRequests();
       expect(result!.successfulActions).toEqual(['propose']);
       expect(result!.failedActions).toEqual([]);
@@ -608,9 +616,9 @@ describe('L1Publisher integration', () => {
       expect(canPropose?.slot).toEqual(block.header.getSlot());
       await publisher.validateBlockHeader(block.getCheckpointHeader());
 
-      await expect(publisher.enqueueProposeL2Block(block, attestationsAndSigners, Signature.empty())).rejects.toThrow(
-        /ValidatorSelection__InvalidCommitteeCommitment/,
-      );
+      await expect(
+        publisher.enqueueProposeCheckpoint(block.toCheckpoint(), attestationsAndSigners, Signature.empty()),
+      ).rejects.toThrow(/ValidatorSelection__InvalidCommitteeCommitment/);
     });
 
     it('rejects flipped proposer signature', async () => {
@@ -629,7 +637,11 @@ describe('L1Publisher integration', () => {
       );
 
       await expect(
-        publisher.enqueueProposeL2Block(block, attestationsAndSigners, flipSignature(attestationsAndSignersSignature)),
+        publisher.enqueueProposeCheckpoint(
+          block.toCheckpoint(),
+          attestationsAndSigners,
+          flipSignature(attestationsAndSignersSignature),
+        ),
       ).rejects.toThrow(/ECDSAInvalidSignatureS/);
     });
 
@@ -654,9 +666,9 @@ describe('L1Publisher integration', () => {
       const wrongV = attestationsAndSignersSignature.v - 27;
       const wrongSig = new Signature(attestationsAndSignersSignature.r, attestationsAndSignersSignature.s, wrongV);
 
-      await expect(publisher.enqueueProposeL2Block(block, attestationsAndSigners, wrongSig)).rejects.toThrow(
-        /ECDSAInvalidSignature/,
-      );
+      await expect(
+        publisher.enqueueProposeCheckpoint(block.toCheckpoint(), attestationsAndSigners, wrongSig),
+      ).rejects.toThrow(/ECDSAInvalidSignature/);
     });
 
     it('publishes a block invalidating the previous one', async () => {
@@ -730,9 +742,14 @@ describe('L1Publisher integration', () => {
       // Invalidate and propose
       logger.warn('Enqueuing requests to invalidate and propose the block');
       publisher.enqueueInvalidateBlock(invalidateRequest);
-      await publisher.enqueueProposeL2Block(block, attestationsAndSigners, attestationsAndSignersSignature, {
-        forcePendingBlockNumber: forcePendingBlockNumber ?? BlockNumber.ZERO,
-      });
+      await publisher.enqueueProposeCheckpoint(
+        block.toCheckpoint(),
+        attestationsAndSigners,
+        attestationsAndSignersSignature,
+        {
+          forcePendingBlockNumber: forcePendingBlockNumber ?? BlockNumber.ZERO,
+        },
+      );
       const result = await publisher.sendRequests();
       expect(result!.successfulActions).toEqual(['invalidate-by-insufficient-attestations', 'propose']);
       expect(result!.failedActions).toEqual([]);
@@ -747,7 +764,11 @@ describe('L1Publisher integration', () => {
     it(`succeeds proposing new block when vote fails`, async () => {
       const block = await buildSingleBlock();
 
-      await publisher.enqueueProposeL2Block(block, CommitteeAttestationsAndSigners.empty(), Signature.empty());
+      await publisher.enqueueProposeCheckpoint(
+        block.toCheckpoint(),
+        CommitteeAttestationsAndSigners.empty(),
+        Signature.empty(),
+      );
       await publisher.enqueueGovernanceCastSignal(
         l1ContractAddresses.rollupAddress,
         block.slot,
@@ -772,13 +793,17 @@ describe('L1Publisher integration', () => {
       // Expect the simulation to fail
       const loggerErrorSpy = jest.spyOn((publisher as any).log, 'error');
       await expect(
-        publisher.enqueueProposeL2Block(block, CommitteeAttestationsAndSigners.empty(), Signature.empty()),
+        publisher.enqueueProposeCheckpoint(
+          block.toCheckpoint(),
+          CommitteeAttestationsAndSigners.empty(),
+          Signature.empty(),
+        ),
       ).rejects.toThrow(/Rollup__InvalidInHash/);
       expect(loggerErrorSpy).toHaveBeenNthCalledWith(
         2,
         expect.stringMatching('Rollup__InvalidInHash'),
         expect.anything(),
-        expect.objectContaining({ blockNumber: 1 }),
+        expect.objectContaining({ checkpointNumber: 1 }),
       );
     });
   });
@@ -820,9 +845,14 @@ describe('L1Publisher integration', () => {
     };
 
     const enqueueProposeL2Block = async (block: L2Block) => {
-      await publisher.enqueueProposeL2Block(block, CommitteeAttestationsAndSigners.empty(), Signature.empty(), {
-        txTimeoutAt: getProposeTxTimeoutAt(block),
-      });
+      await publisher.enqueueProposeCheckpoint(
+        block.toCheckpoint(),
+        CommitteeAttestationsAndSigners.empty(),
+        Signature.empty(),
+        {
+          txTimeoutAt: getProposeTxTimeoutAt(block),
+        },
+      );
     };
 
     it(`cancels block proposal when the L2 slot ends`, async () => {

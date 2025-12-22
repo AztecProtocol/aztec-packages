@@ -572,6 +572,10 @@ export class HintingMerkleWriteOperations implements MerkleTreeWriteOperations {
     return await this.db.close();
   }
 
+  async [Symbol.dispose](): Promise<void> {
+    await this.close();
+  }
+
   public async findLeafIndices<ID extends MerkleTreeId>(
     treeId: ID,
     values: MerkleTreeLeafType<ID>[],

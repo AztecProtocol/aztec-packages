@@ -178,10 +178,8 @@ export async function readCurrentClassId(
 }
 
 /**
- * Verify that the current class id of a contract obtained from AztecNode is the same as the one in the execution data
- * provider (i.e. PXE).
- * @param contractAddress - The address of the contract to verify class id for.
- * @param executionDataProvider - The execution data provider.
+ * Verify that the current class id of a contract obtained from AztecNode is the same as the one in contract data
+ * provider (i.e. PXE's own storage).
  * @param header - The header of the block at which to verify the current class id. If not provided, the anchor block
  * header of the execution data provider is used.
  */

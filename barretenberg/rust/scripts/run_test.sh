@@ -8,5 +8,5 @@ if [ -f "$HOME/.cargo/env" ]; then
   source "$HOME/.cargo/env"
 fi
 
-# Run all Rust tests
+# Run all tests (FFI is enabled by default, links to cpp/build/lib automatically)
 cargo test --release

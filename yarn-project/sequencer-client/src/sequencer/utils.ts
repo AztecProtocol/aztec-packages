@@ -9,22 +9,31 @@ export enum SequencerState {
   SYNCHRONIZING = 'SYNCHRONIZING',
   /** Checking if we are the proposer for the current slot. */
   PROPOSER_CHECK = 'PROPOSER_CHECK',
-  /** Initializing the block proposal. Will move to CREATING_BLOCK if there are valid txs to include, or back to SYNCHRONIZING otherwise. */
-  INITIALIZING_PROPOSAL = 'INITIALIZING_PROPOSAL',
-  /** Creating a new L2 block. Includes processing public function calls and running rollup circuits. Will move to PUBLISHING_CONTRACT_DATA. */
+  /** Initializing the checkpoint proposal. */
+  INITIALIZING_CHECKPOINT = 'INITIALIZING_CHECKPOINT',
+  /** Waiting for transactions to arrive in the pool. */
+  WAITING_FOR_TXS = 'WAITING_FOR_TXS',
+  /** Creating a new L2 block. Includes processing public function calls. */
   CREATING_BLOCK = 'CREATING_BLOCK',
-  /** Collecting attestations from its peers. Will move to PUBLISHING_BLOCK. */
+  /** Waiting until the next block can be created. */
+  WAITING_UNTIL_NEXT_BLOCK = 'WAITING_UNTIL_NEXT_BLOCK',
+  /** Finalizing and broadcasting the checkpoint. */
+  FINALIZING_CHECKPOINT = 'FINALIZING_CHECKPOINT',
+  /** Collecting attestations from its peers. */
   COLLECTING_ATTESTATIONS = 'COLLECTING_ATTESTATIONS',
-  /** Sending the tx to L1 with the L2 block data and awaiting it to be mined. Will move to SYNCHRONIZING. */
-  PUBLISHING_BLOCK = 'PUBLISHING_BLOCK',
+  /** Sending the tx to L1 with the L2 checkpoint data and awaiting it to be mined.. */
+  PUBLISHING_CHECKPOINT = 'PUBLISHING_CHECKPOINT',
 }
 
 export type SequencerStateWithSlot =
-  | SequencerState.INITIALIZING_PROPOSAL
+  | SequencerState.INITIALIZING_CHECKPOINT
+  | SequencerState.WAITING_FOR_TXS
   | SequencerState.CREATING_BLOCK
+  | SequencerState.WAITING_UNTIL_NEXT_BLOCK
   | SequencerState.COLLECTING_ATTESTATIONS
-  | SequencerState.PUBLISHING_BLOCK
-  | SequencerState.PROPOSER_CHECK;
+  | SequencerState.PUBLISHING_CHECKPOINT
+  | SequencerState.PROPOSER_CHECK
+  | SequencerState.FINALIZING_CHECKPOINT;
 
 export type SequencerStateCallback = () => SequencerState;
 

@@ -11,6 +11,7 @@ import { GasFees } from '../gas/gas_fees.js';
 
 /**
  * Constants that are the same for the entire checkpoint.
+ * Used in circuits during rollup proving.
  */
 export class CheckpointConstantData {
   constructor(

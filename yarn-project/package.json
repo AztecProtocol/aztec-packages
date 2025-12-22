@@ -23,7 +23,7 @@
     "aztec",
     "bb-prover",
     "blob-lib",
-    "blob-sink",
+    "blob-client",
     "bot",
     "builder",
     "cli-wallet",
