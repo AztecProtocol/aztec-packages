@@ -581,6 +581,11 @@ struct GETCONTRACTINSTANCE_Instruction {
     MSGPACK_FIELDS(contract_index, contract_address_address, dst_address, member_enum);
 };
 
+struct SUCCESSCOPY_Instruction {
+    AddressRef dst_address;
+    MSGPACK_FIELDS(dst_address);
+};
+
 using FuzzInstruction = std::variant<ADD_8_Instruction,
                                      FDIV_8_Instruction,
                                      SET_8_Instruction,
@@ -631,7 +636,8 @@ using FuzzInstruction = std::variant<ADD_8_Instruction,
                                      EMITUNENCRYPTEDLOG_Instruction,
                                      CALL_Instruction,
                                      RETURNDATASIZE_WITH_RETURNDATACOPY_Instruction,
-                                     GETCONTRACTINSTANCE_Instruction>;
+                                     GETCONTRACTINSTANCE_Instruction,
+                                     SUCCESSCOPY_Instruction>;
 
 template <class... Ts> struct overloaded_instruction : Ts... {
     using Ts::operator()...;

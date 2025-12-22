@@ -1175,6 +1175,20 @@ void ProgramBlock::process_getcontractinstance_instruction(GETCONTRACTINSTANCE_I
     memory_manager.set_memory_address(bb::avm2::MemoryTag::U1, dst_address_operand.value().first.absolute_address);
     memory_manager.set_memory_address(bb::avm2::MemoryTag::FF, dst_address_operand.value().first.absolute_address + 1);
 }
+
+void ProgramBlock::process_successcopy_instruction(SUCCESSCOPY_Instruction instruction)
+{
+    auto dst_address_operand = memory_manager.get_resolved_address_and_operand_16(instruction.dst_address);
+    if (!dst_address_operand.has_value()) {
+        return;
+    }
+    preprocess_memory_addresses(dst_address_operand.value().first);
+    auto successcopy_instruction = bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::SUCCESSCOPY)
+                                       .operand(dst_address_operand.value().second)
+                                       .build();
+    instructions.push_back(successcopy_instruction);
+    memory_manager.set_memory_address(bb::avm2::MemoryTag::U1, dst_address_operand.value().first.absolute_address);
+}
 void ProgramBlock::finalize_with_return(uint8_t return_size,
                                         MemoryTagWrapper return_value_tag,
                                         uint16_t return_value_offset_index)
@@ -1354,6 +1368,7 @@ void ProgramBlock::process_instruction(FuzzInstruction instruction)
             [this](GETCONTRACTINSTANCE_Instruction instruction) {
                 return this->process_getcontractinstance_instruction(instruction);
             },
+            [this](SUCCESSCOPY_Instruction instruction) { return this->process_successcopy_instruction(instruction); },
             [](auto) { throw std::runtime_error("Unknown instruction"); },
         },
         instruction);

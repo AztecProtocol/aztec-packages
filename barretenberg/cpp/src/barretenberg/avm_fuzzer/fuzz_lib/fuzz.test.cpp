@@ -1047,6 +1047,7 @@ TEST(fuzz, SstoreThenSload)
     auto control_flow = ControlFlow(instruction_blocks);
     control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
     auto bytecode = control_flow.build_bytecode(return_options);
+    std::cout << "bytecode: " << bytecode << std::endl;
 
     auto result = simulate_with_default_tx(bytecode, {});
     EXPECT_EQ(result.output.at(0), 10);
@@ -1551,4 +1552,55 @@ TEST(fuzz, GetContractInstance)
     EXPECT_EQ(get_contract_instance_helper(0, bb::avm2::MemoryTag::U1), FF::one());      // EXISTS
 }
 
+// Calls add8, sucesscopy, return
+TEST(fuzz, SuccessCopy)
+{
+    auto call_instruction = CALL_Instruction{ .function_index = 0,
+                                              .address_offset = 1,
+                                              .l2_gas = 10000,
+                                              .l2_gas_address = 2,
+                                              .da_gas = 10000,
+                                              .da_gas_address = 3,
+                                              .arg_size_offset = 4,
+                                              .args_offset = 5,
+                                              .args = {},
+                                              .is_static_call = false };
+    auto successcopy_instruction =
+        SUCCESSCOPY_Instruction{ .dst_address = AddressRef{ .address = 6, .mode = AddressingMode::Direct } };
+    auto instruction_blocks =
+        std::vector<std::vector<FuzzInstruction>>{ { call_instruction, successcopy_instruction } };
+    auto control_flow = ControlFlow(instruction_blocks);
+    control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
+    auto bytecode = control_flow.build_bytecode(
+        ReturnOptions{ .return_size = 1, .return_value_tag = bb::avm2::MemoryTag::U1, .return_value_offset_index = 1 });
+
+    auto result = simulate_with_default_tx(bytecode, {});
+    EXPECT_EQ(result.output.at(0), FF::one());
+}
+
+// Performs static call to SSTORE_THAN_SLOAD, SUCESSCOPY, RETURN
+// The result should be 0
+TEST(fuzz, SSTOREThanSLoad)
+{
+    auto static_call_instruction = CALL_Instruction{ .function_index = 1,
+                                                     .address_offset = 1,
+                                                     .l2_gas = 10000,
+                                                     .l2_gas_address = 2,
+                                                     .da_gas = 10000,
+                                                     .da_gas_address = 3,
+                                                     .arg_size_offset = 4,
+                                                     .args_offset = 5,
+                                                     .args = {},
+                                                     .is_static_call = true };
+    auto successcopy_instruction =
+        SUCCESSCOPY_Instruction{ .dst_address = AddressRef{ .address = 6, .mode = AddressingMode::Direct } };
+    auto instruction_blocks =
+        std::vector<std::vector<FuzzInstruction>>{ { static_call_instruction, successcopy_instruction } };
+    auto control_flow = ControlFlow(instruction_blocks);
+    control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
+    auto bytecode = control_flow.build_bytecode(
+        ReturnOptions{ .return_size = 1, .return_value_tag = bb::avm2::MemoryTag::U1, .return_value_offset_index = 1 });
+    auto result = simulate_with_default_tx(bytecode, {});
+    EXPECT_EQ(result.output.at(0), FF::zero());
+}
 } // namespace external_calls

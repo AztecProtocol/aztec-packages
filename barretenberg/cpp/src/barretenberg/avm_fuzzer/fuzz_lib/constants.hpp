@@ -55,4 +55,12 @@ inline void fuzz_info_(std::function<std::string()> func)
 const std::vector<uint8_t> ADD_8_BYTECODE = { 39, 0,  0, 2, 5, 39, 0, 1, 2,  2, 0, 0, 0, 1,
                                               2,  40, 0, 0, 5, 4,  0, 1, 59, 0, 0, 5, 0, 2 };
 
-const std::vector<std::vector<uint8_t>> PREDEFINED_FUNCTIONS = { ADD_8_BYTECODE };
+// Taken from SSTORE_THAN_SLOAD test in fuzz.test.cpp
+const std::vector<uint8_t> SSTORE_THAN_SLOAD_BYTECODE = {
+    39, 0,  10, 0, 10, 44, 0, 0,  10, 0,  0, 0,  0,  0,  0,  0, 0, 0,  0, 0,  0,  0, 0, 0,  0, 0, 0, 0,
+    0,  0,  0,  0, 0,  0,  0, 0,  0,  0,  0, 0,  0,  10, 48, 0, 0, 10, 0, 10, 44, 0, 0, 10, 0, 0, 0, 0,
+    0,  0,  0,  0, 0,  0,  0, 0,  0,  0,  0, 0,  0,  0,  0,  0, 0, 0,  0, 0,  0,  0, 0, 0,  0, 0, 0, 0,
+    10, 47, 0,  0, 10, 0,  2, 39, 0,  10, 0, 11, 40, 0,  0,  5, 4, 0,  1, 59, 0,  0, 5, 0,  2
+};
+
+const std::vector<std::vector<uint8_t>> PREDEFINED_FUNCTIONS = { ADD_8_BYTECODE, SSTORE_THAN_SLOAD_BYTECODE };

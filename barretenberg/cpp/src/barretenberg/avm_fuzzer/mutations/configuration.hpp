@@ -264,9 +264,10 @@ enum class InstructionGenerationOptions {
     CALL,
     RETURNDATASIZE_WITH_RETURNDATACOPY,
     GETCONTRACTINSTANCE,
+    SUCCESSCOPY,
 };
 
-using InstructionGenerationConfig = WeightedSelectionConfig<InstructionGenerationOptions, 47>;
+using InstructionGenerationConfig = WeightedSelectionConfig<InstructionGenerationOptions, 48>;
 
 constexpr InstructionGenerationConfig BASIC_INSTRUCTION_GENERATION_CONFIGURATION = InstructionGenerationConfig({
     { InstructionGenerationOptions::ADD_8, 1 },
@@ -316,6 +317,7 @@ constexpr InstructionGenerationConfig BASIC_INSTRUCTION_GENERATION_CONFIGURATION
     { InstructionGenerationOptions::CALL, 1 },
     { InstructionGenerationOptions::RETURNDATASIZE_WITH_RETURNDATACOPY, 1 },
     { InstructionGenerationOptions::GETCONTRACTINSTANCE, 1 },
+    { InstructionGenerationOptions::SUCCESSCOPY, 1 },
 });
 
 enum class SStoreMutationOptions { src_address, result_address, slot };
@@ -451,6 +453,14 @@ constexpr GetContractInstanceMutationConfig BASIC_GETCONTRACTINSTANCE_MUTATION_C
         { GetContractInstanceMutationOptions::dst_address, 1 },
         { GetContractInstanceMutationOptions::member_enum, 1 },
     });
+
+enum class SuccessCopyMutationOptions { dst_address };
+using SuccessCopyMutationConfig = WeightedSelectionConfig<SuccessCopyMutationOptions, 1>;
+
+constexpr SuccessCopyMutationConfig BASIC_SUCCESSCOPY_MUTATION_CONFIGURATION = SuccessCopyMutationConfig({
+    { SuccessCopyMutationOptions::dst_address, 1 },
+});
+
 enum class ReturnOptionsMutationOptions { return_size, return_value_tag, return_value_offset_index };
 
 using ReturnOptionsMutationConfig = WeightedSelectionConfig<ReturnOptionsMutationOptions, 3>;

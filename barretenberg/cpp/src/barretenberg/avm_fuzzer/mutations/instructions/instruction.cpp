@@ -241,6 +241,8 @@ FuzzInstruction generate_instruction(std::mt19937_64& rng)
                                                 .contract_address_address = generate_address_ref(rng),
                                                 .dst_address = generate_address_ref(rng),
                                                 .member_enum = generate_random_uint8(rng) };
+    case InstructionGenerationOptions::SUCCESSCOPY:
+        return SUCCESSCOPY_Instruction{ .dst_address = generate_address_ref(rng) };
     }
 }
 /// Most of the tags will be equal to the default tag
@@ -745,6 +747,16 @@ void mutate_getcontractinstance_instruction(GETCONTRACTINSTANCE_Instruction& ins
     }
 }
 
+void mutate_successcopy_instruction(SUCCESSCOPY_Instruction& instruction, std::mt19937_64& rng)
+{
+    SuccessCopyMutationOptions option = BASIC_SUCCESSCOPY_MUTATION_CONFIGURATION.select(rng);
+    switch (option) {
+    case SuccessCopyMutationOptions::dst_address:
+        mutate_address_ref(instruction.dst_address, rng);
+        break;
+    }
+}
+
 void mutate_instruction(FuzzInstruction& instruction, std::mt19937_64& rng)
 {
     std::visit(
@@ -800,6 +812,7 @@ void mutate_instruction(FuzzInstruction& instruction, std::mt19937_64& rng)
                 mutate_returndatasize_with_returndatacopy_instruction(instr, rng);
             },
             [&rng](GETCONTRACTINSTANCE_Instruction& instr) { mutate_getcontractinstance_instruction(instr, rng); },
+            [&rng](SUCCESSCOPY_Instruction& instr) { mutate_successcopy_instruction(instr, rng); },
             [](auto&) { throw std::runtime_error("Unknown instruction"); } },
         instruction);
 }
