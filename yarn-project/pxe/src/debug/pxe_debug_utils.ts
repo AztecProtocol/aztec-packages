@@ -1,7 +1,8 @@
 import type { NoteDao, NotesFilter } from '@aztec/stdlib/note';
 
 import type { PXE } from '../pxe.js';
-import type { ContractDataProvider, NoteDataProvider } from '../storage/index.js';
+import type { ContractDataProvider } from '../storage/contract_data_provider/contract_data_provider.js';
+import type { NoteDataProvider } from '../storage/note_data_provider/note_data_provider.js';
 
 /**
  * Methods provided by this class might help debugging but must not be used in production.
