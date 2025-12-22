@@ -1570,7 +1570,7 @@ TEST(fuzz, GetContractInstance)
 // Calls add8, sucesscopy, return
 TEST(fuzz, SuccessCopy)
 {
-    auto call_instruction = CALL_Instruction{ .function_index = 1,
+    auto call_instruction = CALL_Instruction{ .function_index = 0,
                                               .address_offset = 1,
                                               .l2_gas = 10000,
                                               .l2_gas_address = 2,
@@ -1587,7 +1587,7 @@ TEST(fuzz, SuccessCopy)
     auto control_flow = ControlFlow(instruction_blocks);
     control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
     auto bytecode = control_flow.build_bytecode(
-        ReturnOptions{ .return_size = 1, .return_value_tag = bb::avm2::MemoryTag::U1, .return_value_offset_index = 1 });
+        ReturnOptions{ .return_size = 1, .return_value_tag = bb::avm2::MemoryTag::U1, .return_value_offset_index = 0 });
 
     auto result = simulate_with_default_tx(bytecode, {});
     EXPECT_EQ(result.output.at(0), FF::one());
