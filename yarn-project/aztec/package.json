@@ -35,7 +35,7 @@
     "@aztec/aztec.js": "workspace:^",
     "@aztec/bb-prover": "workspace:^",
     "@aztec/bb.js": "portal:../../barretenberg/ts",
-    "@aztec/blob-sink": "workspace:^",
+    "@aztec/blob-client": "workspace:^",
     "@aztec/bot": "workspace:^",
     "@aztec/builder": "workspace:^",
     "@aztec/cli": "workspace:^",
