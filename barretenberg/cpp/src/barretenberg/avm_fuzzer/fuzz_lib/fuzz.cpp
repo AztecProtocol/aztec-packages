@@ -17,7 +17,8 @@ SimulatorResult fuzz_against_ts_simulator(FuzzerData& fuzzer_data)
     for (const auto& cfg_instruction : fuzzer_data.cfg_instructions) {
         control_flow.process_cfg_instruction(cfg_instruction);
     }
-    fuzz_info("Fuzzer data: ", fuzzer_data.instruction_blocks);
+    fuzz_info("Instructions: ", fuzzer_data.instruction_blocks);
+    fuzz_info("Calldata: ", fuzzer_data.calldata);
 
     auto bytecode = control_flow.build_bytecode(fuzzer_data.return_options);
     fuzz_info("Bytecode: ", bytecode);
