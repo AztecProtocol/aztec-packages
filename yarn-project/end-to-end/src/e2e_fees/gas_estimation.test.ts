@@ -1,4 +1,3 @@
-import type { AztecNodeService } from '@aztec/aztec-node';
 import type { AztecAddress } from '@aztec/aztec.js/addresses';
 import type { DeployOptions } from '@aztec/aztec.js/contracts';
 import { type FeePaymentMethod, PublicFeePaymentMethod } from '@aztec/aztec.js/fee';
@@ -78,7 +77,7 @@ describe('e2e_fees gas_estimation', () => {
     });
     logGasEstimate(estimatedGas);
 
-    (t.aztecNode as AztecNodeService).getSequencer()!.updateConfig({ minTxsPerBlock: 2, maxTxsPerBlock: 2 });
+    await t.aztecNodeAdmin.setConfig({ minTxsPerBlock: 2, maxTxsPerBlock: 2 });
 
     const [withEstimate, withoutEstimate] = await sendTransfers(estimatedGas);
 

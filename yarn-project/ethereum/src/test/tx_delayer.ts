@@ -232,7 +232,7 @@ export function withDelayer<T extends ViemClient>(
           return Promise.resolve(txHash!);
         } else {
           const txHash = await client.sendRawTransaction(...args);
-          logger.verbose(`Sent tx immediately ${txHash}`);
+          logger.debug(`Sent tx immediately ${txHash}`);
           delayer.sentTxHashes.push(txHash);
           return txHash;
         }

@@ -8,6 +8,7 @@ export const NetworkConfigSchema = z
     registryAddress: z.string(),
     feeAssetHandlerAddress: z.string().optional(),
     l1ChainId: z.number(),
+    blockDurationMs: z.number().positive().optional(),
   })
   .passthrough(); // Allow additional unknown fields to pass through
 

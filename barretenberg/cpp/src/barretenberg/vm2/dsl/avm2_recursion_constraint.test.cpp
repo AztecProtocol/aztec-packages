@@ -136,7 +136,7 @@ TEST_F(AvmRecursionConstraintTest, GateCountAndVKCheck)
     using ProverInstance = ProverInstance_<UltraRollupFlavor>;
 
     static constexpr FF EXPECTED_OUTER_VK_HASH =
-        FF("0x2355db226e779ba40c2b163a9b360e4c90b84cba1b6fa24a96ea2260555b8507");
+        FF("0x2d7fae7caa7f5f6d0cac1ba957e6de9f5e9ed289f17df65438dd561e314b2a8e");
 
     AcirConstraint constraint;
     WitnessVector witness;
