@@ -31,7 +31,7 @@ URL for uploading blobs to a file store.
 **L1 Consensus Host URLs** (`L1_CONSENSUS_HOST_URLS`):
 Beacon node URLs for fetching recent blobs directly from L1.
 
-**Archive API URL** (`BLOB_SINK_ARCHIVE_API_URL`):
+**Archive API URL** (`BLOB_ARCHIVE_API_URL`):
 Blobscan or similar archive API for historical blob data.
 
 ### File Store Connectivity Testing
