@@ -92,7 +92,7 @@ Chonk::VerifierInputs create_mock_verification_queue_entry(const Chonk::QUEUE_TY
 {
     using IvcType = Chonk;
     using FF = IvcType::FF;
-    using HidingKernelVK = IvcType::HidingKernelVK;
+    using MegaVerificationKey = IvcType::MegaVerificationKey;
     using Flavor = IvcType::Flavor;
 
     size_t dyadic_size = 1 << Flavor::VIRTUAL_LOG_N;         // maybe doesnt need to be correct
@@ -100,7 +100,7 @@ Chonk::VerifierInputs create_mock_verification_queue_entry(const Chonk::QUEUE_TY
 
     // Construct a mock Oink or HN proof and a mock MegaHonk verification key
     std::vector<FF> proof;
-    std::shared_ptr<HidingKernelVK> verification_key;
+    std::shared_ptr<MegaVerificationKey> verification_key;
 
     if (is_kernel) {
         using KernelIO = stdlib::recursion::honk::KernelIO;

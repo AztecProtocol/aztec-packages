@@ -39,7 +39,7 @@ TEST_F(BBApiChonkTest, ChonkVkSerialization)
     auto vk_response = ChonkComputeIvcVk{ .circuit = { .name = "test_circuit", .bytecode = bytecode } }.execute();
 
     // Deserialize the hiding kernel VK
-    auto hiding_kernel_vk = from_buffer<Chonk::HidingKernelVK>(vk_response.bytes);
+    auto hiding_kernel_vk = from_buffer<Chonk::MegaVerificationKey>(vk_response.bytes);
     EXPECT_EQ(to_buffer(hiding_kernel_vk.to_field_elements()), vk_response.bytes)
         << "Serialized field elements should match original field elements";
 }

@@ -394,7 +394,7 @@ Chonk::QUEUE_TYPE Chonk::get_queue_type() const
  * @param circuit The circuit to accumulate
  * @param precomputed_vk Precomputed verification key for the circuit
  */
-void Chonk::accumulate(ClientCircuit& circuit, const std::shared_ptr<HidingKernelVK>& precomputed_vk)
+void Chonk::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVerificationKey>& precomputed_vk)
 {
     BB_ASSERT_LT(
         num_circuits_accumulated, num_circuits, "Chonk: Attempting to accumulate more circuits than expected.");
@@ -528,7 +528,7 @@ void Chonk::hide_op_queue_content_in_hiding(ClientCircuit& circuit)
  * merge and decider proof.
  */
 HonkProof Chonk::construct_honk_proof_for_hiding_kernel(ClientCircuit& circuit,
-                                                        const std::shared_ptr<HidingKernelVK>& verification_key)
+                                                        const std::shared_ptr<MegaVerificationKey>& verification_key)
 {
     auto hiding_prover_inst = std::make_shared<DeciderZKProvingKey>(circuit, bn254_commitment_key);
 
@@ -614,7 +614,7 @@ void Chonk::update_native_verifier_accumulator(const VerifierInputs& queue_entry
 
 void Chonk::debug_incoming_circuit(ClientCircuit& circuit,
                                    const std::shared_ptr<ProverInstance>& prover_instance,
-                                   const std::shared_ptr<HidingKernelVK>& precomputed_vk)
+                                   const std::shared_ptr<MegaVerificationKey>& precomputed_vk)
 {
     info("======= DEBUGGING INFO FOR INCOMING CIRCUIT =======");
 
@@ -626,7 +626,7 @@ void Chonk::debug_incoming_circuit(ClientCircuit& circuit,
     }
 
     // Compare precomputed VK with the one generated during accumulation
-    auto vk = std::make_shared<HidingKernelVK>(prover_instance->get_precomputed());
+    auto vk = std::make_shared<MegaVerificationKey>(prover_instance->get_precomputed());
     info("Does the precomputed vk match with the one generated during accumulation? ",
          vk->compare(*precomputed_vk) ? "true" : "false");
 

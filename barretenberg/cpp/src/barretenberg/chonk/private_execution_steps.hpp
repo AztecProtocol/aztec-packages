@@ -57,9 +57,9 @@ struct PrivateExecutionStepRaw {
  *
  */
 struct PrivateExecutionSteps {
-    std::vector<acir_format::AcirProgram> folding_stack;                 ///< ACIR programs with witnesses
-    std::vector<std::string> function_names;                             ///< Function names for logging
-    std::vector<std::shared_ptr<Chonk::HidingKernelVK>> precomputed_vks; ///< Precomputed VKs (performance)
+    std::vector<acir_format::AcirProgram> folding_stack;                      ///< ACIR programs with witnesses
+    std::vector<std::string> function_names;                                  ///< Function names for logging
+    std::vector<std::shared_ptr<Chonk::MegaVerificationKey>> precomputed_vks; ///< Precomputed VKs (performance)
 
     /**
      * @brief Creates a Chonk instance and accumulates each circuit in the folding stack.

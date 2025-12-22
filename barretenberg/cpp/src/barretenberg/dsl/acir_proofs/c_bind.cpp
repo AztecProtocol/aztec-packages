@@ -111,8 +111,8 @@ WASM_EXPORT void acir_prove_aztec_client(uint8_t const* ivc_inputs_buf, uint8_t*
 WASM_EXPORT void acir_verify_aztec_client(uint8_t const* proof_buf, uint8_t const* vk_buf, bool* result)
 {
     const auto proof = ChonkProof::from_msgpack_buffer(proof_buf);
-    auto hiding_kernel_vk = std::make_shared<Chonk::HidingKernelVK>(
-        from_buffer<Chonk::HidingKernelVK>(from_buffer<std::vector<uint8_t>>(vk_buf)));
+    auto hiding_kernel_vk = std::make_shared<Chonk::MegaVerificationKey>(
+        from_buffer<Chonk::MegaVerificationKey>(from_buffer<std::vector<uint8_t>>(vk_buf)));
 
     auto vk_and_hash = std::make_shared<ChonkNativeVerifier::VKAndHash>(hiding_kernel_vk);
     ChonkNativeVerifier verifier(vk_and_hash);

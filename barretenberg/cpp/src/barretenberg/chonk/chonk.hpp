@@ -40,7 +40,7 @@ class Chonk : public IVCBase {
 
   public:
     using Flavor = MegaFlavor;
-    using HidingKernelVK = Flavor::VerificationKey;
+    using MegaVerificationKey = Flavor::VerificationKey;
     using MegaZKVerificationKey = MegaZKFlavor::VerificationKey;
     using FF = Flavor::FF;
     using Commitment = Flavor::Commitment;
@@ -107,7 +107,7 @@ class Chonk : public IVCBase {
     // An entry in the native verification queue
     struct VerifierInputs {
         std::vector<FF> proof; // oink or HN
-        std::shared_ptr<HidingKernelVK> honk_vk;
+        std::shared_ptr<MegaVerificationKey> honk_vk;
         QUEUE_TYPE type;
         bool is_kernel = false;
     };
@@ -188,7 +188,7 @@ class Chonk : public IVCBase {
      * set using the proving key produced from `circuit` in order to pass some assertions in the Oink prover.
      * @param mock_vk A boolean to say whether the precomputed vk should have its metadata set.
      */
-    void accumulate(ClientCircuit& circuit, const std::shared_ptr<HidingKernelVK>& precomputed_vk) override;
+    void accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVerificationKey>& precomputed_vk) override;
 
     ChonkProof prove();
 
@@ -215,11 +215,11 @@ class Chonk : public IVCBase {
 
     void debug_incoming_circuit(ClientCircuit& circuit,
                                 const std::shared_ptr<ProverInstance>& prover_instance,
-                                const std::shared_ptr<HidingKernelVK>& precomputed_vk);
+                                const std::shared_ptr<MegaVerificationKey>& precomputed_vk);
 #endif
 
     HonkProof construct_honk_proof_for_hiding_kernel(ClientCircuit& circuit,
-                                                     const std::shared_ptr<HidingKernelVK>& verification_key);
+                                                     const std::shared_ptr<MegaVerificationKey>& verification_key);
 
     QUEUE_TYPE get_queue_type() const;
 };
