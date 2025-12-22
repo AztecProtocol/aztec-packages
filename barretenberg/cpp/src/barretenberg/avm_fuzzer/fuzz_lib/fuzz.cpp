@@ -38,6 +38,10 @@ SimulatorResult fuzz_against_ts_simulator(FuzzerData& fuzzer_data)
     auto tx = create_default_tx(
         contract_address, MSG_SENDER, fuzzer_data.calldata, TRANSACTION_FEE, IS_STATIC_CALL, GAS_LIMIT);
 
+    FF fee_required_da = FF(tx.gas_settings.gas_limits.da_gas) * FF(tx.gas_settings.max_fees_per_gas.fee_per_da_gas);
+    FF fee_required_l2 = FF(tx.gas_settings.gas_limits.l2_gas) * FF(tx.gas_settings.max_fees_per_gas.fee_per_l2_gas);
+    ws_mgr->write_fee_payer_balance(tx.fee_payer, fee_required_da + fee_required_l2);
+
     try {
         ws_mgr->checkpoint();
         cpp_result = cpp_simulator.simulate(*ws_mgr, contract_db, tx);

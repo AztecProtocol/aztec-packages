@@ -207,15 +207,11 @@ export class AvmFuzzerSimulator extends BaseAvmSimulationTester {
 
   /**
    * Simulate a transaction from a C++ AvmTxHint.
+   * Note: The fee payer balance should already be set in the world state by the C++ fuzzer
+   * before this method is called, so we don't set it again here to avoid overwriting
+   * the balance and causing public data tree mismatches.
    */
   public async simulate(txHint: AvmTxHint): Promise<PublicTxResult> {
-    // Compute fee from gas limits and max fees per gas (upper bound on fee)
-    const totalFee =
-      BigInt(txHint.gasSettings.gasLimits.daGas) * txHint.gasSettings.maxFeesPerGas.feePerDaGas +
-      BigInt(txHint.gasSettings.gasLimits.l2Gas) * txHint.gasSettings.maxFeesPerGas.feePerL2Gas;
-
-    await this.setFeePayerBalance(txHint.feePayer, new Fr(totalFee));
-
     const tx = await createTxFromHint(txHint);
     return await this.simulator.simulate(tx);
   }
