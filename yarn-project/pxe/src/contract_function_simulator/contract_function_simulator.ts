@@ -134,6 +134,7 @@ export class ContractFunctionSimulator {
   ): Promise<PrivateExecutionResult> {
     const simulatorSetupTimer = new Timer();
 
+    await this.syncPrivateState(contractAddress, anchorBlockHeader, scopes);
     await verifyCurrentClassId(contractAddress, this.aztecNode, this.contractDataProvider, anchorBlockHeader);
 
     const entryPointArtifact = await this.contractDataProvider.getFunctionArtifactWithDebugMetadata(
@@ -170,6 +171,9 @@ export class ContractFunctionSimulator {
       request.txContext,
       callContext,
       anchorBlockHeader,
+      async call => {
+        await this.runUtility(call, [], anchorBlockHeader, scopes);
+      },
       request.authWitnesses,
       request.capsules,
       HashedValuesCache.create(request.argsOfCalls),
@@ -325,6 +329,15 @@ export class ContractFunctionSimulator {
       typeof (this.aztecNode as ProxiedNode).getStats === 'function' ? (this.aztecNode as ProxiedNode).getStats() : {};
 
     return { nodeRPCCalls };
+  }
+
+  private async syncPrivateState(
+    contractAddress: AztecAddress,
+    anchorBlockHeader: BlockHeader,
+    scopes?: AztecAddress[],
+  ) {
+    const call = await this.contractDataProvider.getFunctionCall('sync_private_state', [], contractAddress);
+    await this.runUtility(call, [], anchorBlockHeader, scopes);
   }
 }
 

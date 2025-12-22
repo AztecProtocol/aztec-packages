@@ -415,6 +415,23 @@ describe('Private Execution test suite', () => {
       }
       return { ...artifact, debug: undefined };
     });
+    contractDataProvider.getFunctionCall.mockImplementation(async (functionName, args, to) => {
+      const contract = contracts[to.toString()];
+      if (!contract) {
+        throw new Error(`Contract not found: ${to}`);
+      }
+      const functionArtifact = getFunctionArtifactByName(contract, functionName);
+      return {
+        name: functionArtifact.name,
+        args: encodeArguments(functionArtifact, args),
+        selector: await FunctionSelector.fromNameAndParameters(functionArtifact.name, functionArtifact.parameters),
+        type: functionArtifact.functionType,
+        to,
+        hideMsgSender: false,
+        isStatic: functionArtifact.isStatic,
+        returnTypes: functionArtifact.returnTypes,
+      };
+    });
 
     capsuleDataProvider.loadCapsule.mockImplementation((_, __) => Promise.resolve(null));
 
@@ -670,17 +687,40 @@ describe('Private Execution test suite', () => {
         artifact: ParentContractArtifact,
         anchorBlockHeader,
         functionName: 'entry_point',
+        contractAddress: parentAddress,
       });
 
       expect(result.returnValues).toEqual([new Fr(privateIncrement)]);
 
-      // First fetch of the function artifact is the parent contract
-      expect(contractDataProvider.getFunctionArtifact.mock.calls[1]).toEqual([childAddress, childSelector]);
+      expect(contractDataProvider.getFunctionArtifact).toHaveBeenCalledWith(childAddress, childSelector);
       expect(result.nestedExecutionResults).toHaveLength(1);
       expect(result.nestedExecutionResults[0].returnValues).toEqual([new Fr(privateIncrement)]);
       expect(result.publicInputs.privateCallRequests.array[0].callContext).toEqual(
         result.nestedExecutionResults[0].publicInputs.callContext,
       );
+    });
+
+    it('syncs private state for parent and child in nested calls', async () => {
+      const childArtifact = getFunctionArtifactByName(ChildContractArtifact, 'value');
+      const parentAddress = await AztecAddress.random();
+      const childAddress = await AztecAddress.random();
+      const childSelector = await FunctionSelector.fromNameAndParameters(childArtifact.name, childArtifact.parameters);
+
+      await mockContractInstance(ChildContractArtifact, childAddress);
+
+      contractDataProvider.getFunctionCall.mockClear();
+
+      const args = [childAddress, childSelector];
+      await runSimulator({
+        args,
+        artifact: ParentContractArtifact,
+        anchorBlockHeader,
+        functionName: 'entry_point',
+        contractAddress: parentAddress,
+      });
+
+      expect(contractDataProvider.getFunctionCall).toHaveBeenCalledWith('sync_private_state', [], parentAddress);
+      expect(contractDataProvider.getFunctionCall).toHaveBeenCalledWith('sync_private_state', [], childAddress);
     });
   });
 

@@ -7,6 +7,7 @@ import { type CircuitSimulator, toACVMWitness } from '@aztec/simulator/client';
 import {
   type FunctionAbi,
   type FunctionArtifact,
+  type FunctionCall,
   FunctionSelector,
   type NoteSelector,
   countArgumentsSize,
@@ -83,6 +84,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     private readonly callContext: CallContext,
     /** Header of a block whose state is used during private execution (not the block the transaction is included in). */
     protected override readonly anchorBlockHeader: BlockHeader,
+    private readonly utilityExecutor: (call: FunctionCall) => Promise<void>,
     /** List of transient auth witnesses to be used during this simulation */
     authWitnesses: AuthWitness[],
     capsules: Capsule[],
@@ -553,6 +555,8 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       this.anchorBlockHeader,
     );
 
+    await this.syncPrivateState(targetContractAddress);
+
     const targetArtifact = await this.contractDataProvider.getFunctionArtifactWithDebugMetadata(
       targetContractAddress,
       functionSelector,
@@ -567,6 +571,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       derivedTxContext,
       derivedCallContext,
       this.anchorBlockHeader,
+      this.utilityExecutor,
       this.authWitnesses,
       this.capsules,
       this.executionCache,
@@ -617,6 +622,11 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       endSideEffectCounter: publicInputs.endSideEffectCounter,
       returnsHash: publicInputs.returnsHash,
     };
+  }
+
+  private async syncPrivateState(targetContractAddress: AztecAddress) {
+    const syncCall = await this.contractDataProvider.getFunctionCall('sync_private_state', [], targetContractAddress);
+    await this.utilityExecutor(syncCall);
   }
 
   #onNewPublicFunctionCall(calldataHash: Fr) {

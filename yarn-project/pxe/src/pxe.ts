@@ -996,6 +996,10 @@ export class PXE {
         const syncTime = syncTimer.ms();
         const functionTimer = new Timer();
         const contractFunctionSimulator = this.#getSimulatorForTx();
+        if (call.name !== 'sync_private_state') {
+          const syncCall = await this.contractDataProvider.getFunctionCall('sync_private_state', [], call.to);
+          await this.#simulateUtility(contractFunctionSimulator, syncCall, [], scopes);
+        }
         const executionResult = await this.#simulateUtility(contractFunctionSimulator, call, authwits ?? [], scopes);
         const functionTime = functionTimer.ms();
 
