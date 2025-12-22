@@ -297,10 +297,18 @@ class MegaTracePoseidon2InternalBlock : public MegaTraceBlock {
  *
  * @details We instantiate this both to contain the actual gates of an execution trace, and also to describe different
  * trace structures (i.e., sets of capacities for each block type, which we use to optimize the folding prover).
- * Note: the ecc_op block has to be the first in the execution trace to not break the Goblin functionality.
+ *
+ * @note The ecc_op block must be first in the execution trace. This is required because:
+ * 1. The EccOpQueueRelation constrains ecc_op_wire polynomials to equal shifted wires inside the block
+ * 2. ecc_op_wire stores data starting at index 0, while regular wires start at index 1 (due to zero row)
+ * 3. The relation ecc_op_wire[i] == w[i+1] _only_ holds when ecc_op is first (immediately after the zero row)
+ *
+ * @note The ecc_op block does NOT have a gate selector stored in the builder. Instead, the `lagrange_ecc_op`
+ * selector polynomial is constructed during TraceToPolynomials::add_ecc_op_wires_to_prover_instance() as a
+ * binary indicator (1 inside the ecc_op block, 0 elsewhere).
  */
 struct MegaTraceBlockData {
-    MegaTraceBlock ecc_op;
+    MegaTraceBlock ecc_op; // Must remain first
     MegaTraceBusReadBlock busread;
     MegaTraceLookupBlock lookup;
     MegaTracePublicInputBlock pub_inputs;

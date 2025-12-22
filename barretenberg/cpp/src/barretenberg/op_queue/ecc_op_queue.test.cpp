@@ -230,11 +230,11 @@ TEST(ECCOpQueueTest, PointAtInfinityHandling)
     {
         ECCOpQueue op_queue;
         auto P1 = G1::random_element();
-        G1 infinity;
-        infinity.self_set_infinity();
+        G1 identity;
+        identity.self_set_infinity();
 
         op_queue.add_accumulate(P1);
-        op_queue.add_accumulate(infinity); // Adding infinity should not change accumulator
+        op_queue.add_accumulate(identity); // Adding identity should not change accumulator
 
         EXPECT_EQ(op_queue.get_accumulator(), P1);
     }
@@ -243,30 +243,30 @@ TEST(ECCOpQueueTest, PointAtInfinityHandling)
     {
         ECCOpQueue op_queue;
         auto P1 = G1::random_element();
-        G1 infinity;
-        infinity.self_set_infinity();
+        G1 identity;
+        identity.self_set_infinity();
         auto scalar = Fr::random_element();
 
         op_queue.add_accumulate(P1);
-        op_queue.mul_accumulate(infinity, scalar); // infinity * scalar = infinity, adding gives P1
+        op_queue.mul_accumulate(identity, scalar); // identity * scalar = identity, adding gives P1
 
         EXPECT_EQ(op_queue.get_accumulator(), P1);
     }
 
-    // Test that accumulator starts at infinity and operations work correctly
+    // Test that accumulator starts at identity element and operations work correctly
     {
         ECCOpQueue op_queue;
         auto P1 = G1::random_element();
 
-        // Initial accumulator should be at infinity
+        // Initial accumulator should be point at infinity
         EXPECT_TRUE(op_queue.get_accumulator().is_point_at_infinity());
 
-        // Adding P1 to infinity should give P1
+        // Adding P1 to neutral element should give P1
         op_queue.add_accumulate(P1);
         EXPECT_EQ(op_queue.get_accumulator(), P1);
     }
 
-    // Test mul with scalar = 0 (result should be infinity)
+    // Test mul with scalar = 0 (result should be identity)
     {
         ECCOpQueue op_queue;
         auto P1 = G1::random_element();
@@ -275,7 +275,7 @@ TEST(ECCOpQueueTest, PointAtInfinityHandling)
         op_queue.add_accumulate(P1);
         op_queue.mul_accumulate(P2, Fr(0)); // 0 * P2 = infinity
 
-        // Accumulator should still be P1 (P1 + infinity = P1)
+        // Accumulator should still be P1 (P1 + identity = P1)
         EXPECT_EQ(op_queue.get_accumulator(), P1);
     }
 }
