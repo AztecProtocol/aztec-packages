@@ -19,14 +19,30 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # The main CI job for Aztec pull requests. It gatekeeps merges to next, intended for the merge queue.
+  #
+  # This orchestrates AWS EC2 spot instances then remotely runs ./bootstrap.sh
+  # The ci-full label enables heavier tests. For other labels, see ci3.sh.
+  #
+  #            Standard PR)                      Merge Queue
+  #                  |                                 |
+  #      |  1x AMD64 EC2 Spot  |           |  [ 4x AMD64 EC2 Spot ]  |
+  #                                        |  [ 1x ARM64 EC2 Spot ]  |
+  #                                                    |
+  #                                           Filters out "accidental"
+  #                                           successes, but non-determinism
+  #                                           can still cause flaky tests.
+  #
+  # If you suspect a flaky test, look for people recently reporting similar things.
+  # Otherwise, spend time ensuring it is not your PR. Spend some time attempting to fix it.
+  # Try not to just increase timeouts. Post either about your fix or your efforts where
+  # engineers can broadly see it.
   ci:
     runs-on: ubuntu-latest
     # exclusive with ci3-external.yml: never run on forks
     # (github.event.pull_request.head.repo.fork resolves to nil if not a pull request)
     if: github.event.pull_request.head.repo.fork != true && github.event.pull_request.draft == false
     environment: ${{ startsWith(github.ref, 'refs/tags/v') && 'master' || '' }}
-    env:
-      GOOGLE_APPLICATION_CREDENTIALS: /tmp/gcp-key.json
     steps:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
@@ -37,23 +53,26 @@ jobs:
           fetch-depth: ${{ github.event.pull_request.commits || 1 }}
           persist-credentials: false
 
+      - name: Determine CI Mode
+        env:
+          MERGE_GROUP_BASE_REF: ${{ github.event.merge_group.base_ref }}
+          PR_BASE_REF: ${{ github.event.pull_request.base.ref }}
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+        run: ./.github/ci3_labels_to_env.sh ${{ join(github.event.pull_request.labels.*.name, ' ') }}
+
       - name: Run
         env:
-          CI_INTERNAL: "1"
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
           GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
-          GOOGLE_APPLICATION_CREDENTIALS: ${{ env.GOOGLE_APPLICATION_CREDENTIALS }}
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
           DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-          # Enable disk logging for internal CI
-          CI_ENABLE_DISK_LOGS: "1"
           # Nightly test env vars.
           EXTERNAL_ETHEREUM_HOSTS: "https://json-rpc.${{ secrets.GCP_SEPOLIA_URL }}?key=${{ secrets.GCP_SEPOLIA_API_KEY }},${{ secrets.INFURA_SEPOLIA_URL }}"
           EXTERNAL_ETHEREUM_CONSENSUS_HOST: "https://beacon.${{ secrets.GCP_SEPOLIA_URL }}"
@@ -66,12 +85,12 @@ jobs:
           PR_COMMITS: ${{ github.event.pull_request.commits }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           GITHUB_REF_NAME: ${{ github.ref_name }}
-        run: ./.github/ci3.sh "${{ join(github.event.pull_request.labels.*.name, ',') }}"
+        # NOTE: $CI_MODE is set in the Determine CI Mode step.
+        run: ./.github/ci3.sh $CI_MODE
 
       - name: Post-Actions
         env:
-          CI_INTERNAL: "1"
-          # For updating success cache.
+          # For handling success cache, squash-and-merge, and benchmarks.
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           SHOULD_SQUASH_MERGE: ${{ contains(github.event.pull_request.labels.*.name, 'ci-squash-and-merge') && '1' || '0' }}
@@ -80,12 +99,12 @@ jobs:
           PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
           PR_BASE_REF: ${{ github.event.pull_request.base.ref }}
           PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
-        run: ./.github/ci3-post.sh
+        run: ./.github/ci3_success.sh
 
       - name: Upload benchmarks
         if: env.SHOULD_UPLOAD_BENCHMARKS == '1'
         uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
-        with:
+        with: &ci_benchmark_args
           name: Aztec Benchmarks
           benchmark-data-dir-path: "bench/${{ env.TARGET_BRANCH }}"
           tool: "customSmallerIsBetter"
@@ -97,3 +116,99 @@ jobs:
           comment-on-alert: false
           fail-on-alert: false
           max-items-in-chart: 100
+
+  # End-to-end tests that target a network deployment.
+  # We run this every release (at minimum, nightly), or when explicitly requested.
+  # This task runs against a real testnet deployment. This uses resources on GCP (not AWS, thank free credit incentives).
+  ci-network-scenario:
+    runs-on: ubuntu-latest
+    # We either run after a release (tag starting with v), or when the ci-network-scenario label is present in a PR.
+    needs: ci
+    if: github.event.pull_request.head.repo.fork != true && github.event.pull_request.draft == false && (startsWith(github.ref, 'refs/tags/v') || contains(github.event.pull_request.labels.*.name, 'ci-network-scenario'))
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Run Network Deploy
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
+          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+          # For pushing docker images (only for PR label, otherwise we use the tag)
+          DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          RUN_ID: ${{ github.run_id }}
+          AWS_SHUTDOWN_TIME: 360
+          NO_SPOT: 1
+        run: |
+          # For release tags, use the release image; for PRs, omit to build and push to aztecdev
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            tag="${{ github.ref_name }}"
+            tag="${tag#refs/tags/v}"
+            major_version=$(./ci3/semver major "$tag")
+            namespace="v${major_version}-scenario"
+            docker_image="aztecprotocol/aztec:${tag}"
+          else
+            # branch name
+            namespace=pr-$(echo "${{ github.head_ref || github.ref_name }}" | sed 's/[^a-z0-9-]/-/g' | cut -c1-20)
+            echo "NAMESPACE=$namespace" >> $GITHUB_ENV
+            docker_image=""
+          fi
+          set -x # print next line
+          ./.github/ci3.sh network-deploy next-scenario "$namespace" "$docker_image"
+
+      - name: Cleanup network resources
+        # Clean up if this is a CI label.
+        if: always() && !startsWith(github.ref, 'refs/tags/v')
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
+          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+          NO_SPOT: 1
+        run:
+          ./.github/ci3.sh network-teardown next-scenario "$NAMESPACE"
+
+      #############
+      # Benchmarks
+      #############
+      - name: Download deploy benchmarks
+        if: always() && startsWith(github.ref, 'refs/tags/v')
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        run: |
+          if ./ci.sh gh-deploy-bench; then
+            echo "ENABLE_DEPLOY_BENCH=1" >> $GITHUB_ENV
+          fi
+
+      - name: Upload benchmarks
+        if: env.ENABLE_DEPLOY_BENCH == '1'
+        uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
+        with: *ci_benchmark_args
+
+      - name: Notify Slack on failure
+        if: failure() && startsWith(github.ref, 'refs/tags/v')
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+        run: |
+          if [ -n "${SLACK_BOT_TOKEN}" ]; then
+            read -r -d '' data <<EOF || true
+            {
+              "channel": "#alerts-next-scenario",
+              "text": "Nightly Spartan Scenario FAILED in ci3.yml (nightly tag ${{ github.ref }}: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Run>"
+            }
+          EOF
+            curl -X POST https://slack.com/api/chat.postMessage \
+              -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+              -H "Content-type: application/json" \
+              --data "$data"
+          fi

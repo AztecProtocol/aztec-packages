@@ -1,5 +1,5 @@
 #!/bin/bash
-# Tests for the redact script
+# Comprehensive Redaction Test Suite
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -13,6 +13,8 @@ TESTS_PASSED=0
 TESTS_FAILED=0
 CLEAN_PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
+# --- Harness Functions ---
+
 pass() { echo "${GREEN}✓${NC} $1"; ((TESTS_PASSED++)) || true; }
 fail() {
   echo "${RED}✗${NC} $1"
@@ -21,7 +23,7 @@ fail() {
   ((TESTS_FAILED++)) || true
 }
 
-# Test helper - args: name expected input env_vars...
+# T: Standard test (auto-appends newline to input)
 T() {
   local name=$1 expected=$2 input=$3
   shift 3
@@ -30,56 +32,103 @@ T() {
   [[ "$actual" == "$expected" ]] && pass "$name" || fail "$name" "$expected" "$actual"
 }
 
-echo "=== Redact Tests ==="
+# TM: Multiline/Exact test (no newline appended)
+TM() {
+  local name=$1 expected=$2 input=$3
+  shift 3
+  local actual
+  actual=$(env -i PATH="$CLEAN_PATH" "$@" bash -c "printf '%s' '$input' | '$REDACT'" 2>&1) || true
+  [[ "$actual" == "$expected" ]] && pass "$name" || fail "$name" "$expected" "$actual"
+}
 
-echo "--- Basic ---"
-T "Simple secret" "pw is ***" "pw is supersecret1" "MY_PASSWORD=supersecret1"
-T "Multiple occurrences" "a *** b ***" "a secretval b secretval" "API_SECRET=secretval"
-T "Two secrets" "a=*** b=***" "a=apikey123 b=token456" "API_KEY=apikey123" "AUTH_TOKEN=token456"
+echo "=== Redact Test Suite ==="
 
-echo "--- Var Names ---"
+echo "--- 1. Variable Auto-Discovery ---"
 T "KEY match" "x ***" "x myapikey9" "API_KEY=myapikey9"
 T "TOKEN match" "x ***" "x mytoken99" "AUTH_TOKEN=mytoken99"
 T "PASSWORD match" "x ***" "x secretpw1" "DB_PASSWORD=secretpw1"
 T "SECRET match" "x ***" "x topsecret" "MY_SECRET=topsecret"
 T "MNEMONIC match" "x ***" "x mnemonic1" "WALLET_MNEMONIC=mnemonic1"
 T "No match passthrough" "x notsecret" "x notsecret" "MY_DATA=notsecret"
+T "Short env secret ignored (5 chars)" "x abcde" "x abcde" "API_KEY=abcde"
+T "Min length env secret redacted (6 chars)" "x ***" "x abcdef" "API_KEY=abcdef"
 
-echo "--- Special Chars ---"
+echo "--- 2. The 'Superman' Problem (Overlap Priority) ---"
+TM "Longest match first (Prefix)" "***" $'::add-mask::super99\n::add-mask::superman99\nsuperman99'
+TM "Longest match first (Suffix)" "***" $'::add-mask::manhole99\n::add-mask::man1234\nmanhole99'
+TM "Nested secrets" "The *** is here" $'::add-mask::token99\n::add-mask::secretToken99\nThe secretToken99 is here'
+
+echo "--- 3. Regex Safety & Special Chars ---"
 T "Dots" "x ***" "x a.b.c.d.e" "API_KEY=a.b.c.d.e"
-T "Slashes" "x ***" "x /a/b/c/d" "SECRET_PATH=/a/b/c/d"
+T "Slashes" "x ***" "x /a/b/c/d/e/f" "PATH_SECRET=/a/b/c/d/e/f"
 T "Plus" "x ***" "x a+b+c+d+e" "API_KEY=a+b+c+d+e"
 T "Equals" "x ***" "x abc123==" "API_KEY=abc123=="
-
-echo "--- Edge Cases ---"
-T "Empty not redacted" "x here" "x here" "API_KEY="
-T "Short secret redacted" "x ***" "x abc" "API_KEY=abc"
-T "Single char redacted" "x ***" "x Z" "API_KEY=Z"
-
-echo "--- No Secrets ---"
-T "No matching vars" "plain text" "plain text" "MY_VAR=value"
-
-echo "--- Binary-like ---"
-T "Base64" "x ***" "x SGVsbG9Xb3JsZA==" "API_KEY=SGVsbG9Xb3JsZA=="
-T "Hex" "x ***" "x deadbeef1234" "API_KEY=deadbeef1234"
-
-echo "--- Substring ---"
-T "Secret in middle" "pre***suf" "presecret99suf" "API_KEY=secret99"
-
-echo "--- Multiline Secret ---"
-T "Line 1 redacted" "x ***" "x firstline" $'MULTI_SECRET=firstline\nsecondline'
-T "Line 2 redacted" "x ***" "x secondline" $'MULTI_SECRET=firstline\nsecondline'
-
-echo "--- Regex Special Chars ---"
 T "Asterisk" "x ***" "x sec*ret99" "API_KEY=sec*ret99"
-T "Backslash" "x ***" 'x sec\ret99' 'API_KEY=sec\ret99'
+T "Backslash" "x ***" 'x sec\\ret99' 'API_KEY=sec\\ret99'
 T "Caret" "x ***" "x sec^ret99" "API_KEY=sec^ret99"
 T "Dollar" "x ***" 'x sec$ret99' 'API_KEY=sec$ret99'
 T "Parens" "x ***" "x sec(ret)9" "API_KEY=sec(ret)9"
 T "Brackets" "x ***" "x sec[ret]9" "API_KEY=sec[ret]9"
 T "Pipe" "x ***" "x sec|ret99" "API_KEY=sec|ret99"
 T "Question" "x ***" "x sec?ret99" "API_KEY=sec?ret99"
+TM "User sets secret to '.*'" "x *** y" $'::add-mask::.*\nx .* y'
+
+echo "--- 4. Binary-like & Encodings ---"
+T "Base64" "x ***" "x SGVsbG9Xb3JsZA==" "API_KEY=SGVsbG9Xb3JsZA=="
+T "Hex" "x ***" "x deadbeef1234" "API_KEY=deadbeef1234"
+T "UTF-8 / Emoji" "Masked *** 🤡" "Masked secret99 🤡" "API_KEY=secret99"
+TM "Unicode Secret" "This is ***" $'::add-mask::🚀\nThis is 🚀'
+
+echo "--- 5. Edge Cases ---"
+T "Empty var ignored" "x here" "x here" "API_KEY="
+TM "Short secret redacted via add-mask" "x ***" $'::add-mask::abc\nx abc'
+TM "Single char redacted via add-mask" "x ***" $'::add-mask::Z\nx Z'
+T "No vars set" "plain text" "plain text"
+T "No secrets in text" "hello world" "hello world" "KEY_1=secret99"
+
+echo "--- 6. Multiline Support ---"
+T "Multiline Secret (Line 1)" "x ***" "x firstline" $'MULTI_SECRET=firstline\nsecondline'
+T "Multiline Secret (Line 2)" "x ***" "x secondline" $'MULTI_SECRET=firstline\nsecondline'
+
+echo "--- 7. GitHub Actions ::add-mask:: Syntax ---"
+TM "add-mask stripped from output" "hello" $'::add-mask::secret123\nhello'
+TM "add-mask value redacted" "pw is ***" $'::add-mask::secret123\npw is secret123'
+TM "add-mask multiple secrets" $'a=***\nb=***' $'::add-mask::sec1\n::add-mask::sec2\na=sec1\nb=sec2'
+TM "add-mask combined with env" "a=*** b=***" $'::add-mask::masked1\na=masked1 b=envtok99' "AUTH_TOKEN=envtok99"
+TM "add-mask empty ignored" $'hello' $'::add-mask::\nhello'
+TM "add-mask redacts later lines" $'before\nafter ***' $'before\n::add-mask::secret\nafter secret'
+TM "add-mask special chars" "x ***" $'::add-mask::sec*ret\nx sec*ret'
+TM "add-mask with equals" "x ***" $'::add-mask::abc123==\nx abc123=='
+TM "non-add-mask command passthrough" "::set-output::value" $'::set-output::value'
+TM "add-mask partial line not stripped" "prefix ::add-mask::val" $'prefix ::add-mask::val'
+TM "Windows CRLF in ::add-mask::" "x ***" $'::add-mask::secret\r\nx secret'
+
+echo "--- 8. Malicious Inputs (The 'Inception' Tests) ---"
+
+# 1. User sets secret to "***".
+# If we aren't careful, we loop forever or redact the whole world.
+TM "Recursive Masking (User masks '***')" "x ***" $'::add-mask::***\nx ***'
+
+# 2. The Secret IS the command syntax "::add-mask::"
+# We must register "::add-mask::" as the secret value.
+# The command line itself (::add-mask::::add-mask::) must be consumed.
+# Future instances of "::add-mask::" must be redacted.
+TM "Secret IS command syntax" "x *** y" $'::add-mask::::add-mask::\nx ::add-mask:: y'
+
+# 3. The Secret CONTAINS the command syntax
+# e.g. "my::add-mask::token". This ensures the regex ^::add-mask::(.*)$ captures greedy enough.
+TM "Secret CONTAINS command syntax" "x *** y" $'::add-mask::my::add-mask::token\nx my::add-mask::token y'
+
+# 4. Masking the syntax itself (Contextual check)
+# The text "::add-mask::" appearing in a log line is NOT a command unless it's at start of line.
+# We ensure we don't accidentally treat random log text as a command.
+TM "Command syntax in middle of line" "log ::add-mask:: val" $'log ::add-mask:: val'
 
 echo
-echo "=== Results: ${GREEN}$TESTS_PASSED passed${NC}, ${RED}$TESTS_FAILED failed${NC} ==="
-[[ $TESTS_FAILED -eq 0 ]]
+if [[ $TESTS_FAILED -eq 0 ]]; then
+  echo "${GREEN}All $TESTS_PASSED tests passed.${NC}"
+  exit 0
+else
+  echo "${RED}$TESTS_FAILED tests failed.${NC}"
+  exit 1
+fi

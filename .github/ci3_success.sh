@@ -41,7 +41,7 @@ function handle_squash_merge {
 }
 
 function handle_benchmarks {
-  if [ "${SHOULD_UPLOAD_BENCHMARKS:-0}" -eq 0 ] || [ "${CI_INTERNAL:-0}" -eq 0 ]; then
+  if [ "${SHOULD_UPLOAD_BENCHMARKS:-0}" -eq 0 ]; then
     return
   fi
   # Handle benchmarks download (internal only)
