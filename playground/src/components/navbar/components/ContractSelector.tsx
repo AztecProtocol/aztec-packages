@@ -21,6 +21,7 @@ import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { parse } from 'buffer-json';
 import { navbarButtonStyle, navbarSelect, navbarSelectLabel } from '../../../styles/common';
 import { filterDeployedAliasedContracts } from '../../../utils/contracts';
+import { loadSimpleTokenArtifactJson } from '../../../utils/artifacts';
 import ArticleIcon from '@mui/icons-material/Article';
 import { InputLabel } from '@mui/material';
 import { trackButtonClick } from '../../../utils/matomo';
@@ -90,9 +91,7 @@ export function ContractSelector() {
             ));
             break;
           case PREDEFINED_CONTRACTS.SIMPLE_TOKEN:
-            ({ SimpleTokenContractArtifact: contractArtifactJSON } = await import(
-              '@aztec/noir-contracts.js/SimpleToken'
-            ));
+            contractArtifactJSON = await loadSimpleTokenArtifactJson();
             break;
         }
         const contractArtifact = await loadContractArtifact(contractArtifactJSON);

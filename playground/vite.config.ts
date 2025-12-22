@@ -101,6 +101,61 @@ export default defineConfig(({ mode }) => {
   return {
     base: './',
     logLevel: process.env.CI ? 'error' : undefined,
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            const normalizedId = id.split('?')[0];
+            const artifactChunkName = (packageName: string) => {
+              const artifactsMarker = `${path.sep}artifacts${path.sep}`;
+              if (normalizedId.includes(artifactsMarker) && normalizedId.endsWith('.json')) {
+                return `aztec-${packageName}-artifact-${path.basename(normalizedId, '.json')}`;
+              }
+              return undefined;
+            };
+
+            const workspaceMarker = `${path.sep}yarn-project${path.sep}`;
+            if (normalizedId.includes(workspaceMarker)) {
+              const after = normalizedId.split(workspaceMarker)[1] ?? '';
+              const packageName = after.split(path.sep)[0];
+              if (packageName) {
+                const artifactChunk = artifactChunkName(packageName);
+                if (artifactChunk) return artifactChunk;
+                return `aztec-${packageName}`;
+              }
+            }
+            const aztecNodeModulesMarker = `${path.sep}node_modules${path.sep}@aztec${path.sep}`;
+            if (normalizedId.includes(aztecNodeModulesMarker)) {
+              const after = normalizedId.split(aztecNodeModulesMarker)[1] ?? '';
+              const packageName = after.split(path.sep)[0];
+              if (packageName) {
+                const artifactChunk = artifactChunkName(packageName);
+                if (artifactChunk) return artifactChunk;
+                return `aztec-${packageName}`;
+              }
+            }
+            if (normalizedId.includes('node_modules')) {
+              if (normalizedId.includes(`${path.sep}@mui${path.sep}`)) return 'mui';
+              if (normalizedId.includes(`${path.sep}@emotion${path.sep}`)) return 'emotion';
+              if (
+                normalizedId.includes(`${path.sep}react${path.sep}`) ||
+                normalizedId.includes(`${path.sep}react-dom${path.sep}`)
+              ) {
+                return 'react-vendor';
+              }
+              if (
+                normalizedId.includes(`${path.sep}react-dropzone${path.sep}`) ||
+                normalizedId.includes(`${path.sep}react-confetti${path.sep}`)
+              ) {
+                return 'react-extras';
+              }
+              if (normalizedId.includes(`${path.sep}@toolpad${path.sep}`)) return 'toolpad';
+              return 'vendor';
+            }
+          },
+        },
+      },
+    },
     server: {
       // Headers needed for bb WASM to work in multithreaded mode
       headers: {

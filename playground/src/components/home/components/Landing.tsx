@@ -22,6 +22,7 @@ import { parse } from 'buffer-json';
 import { trackButtonClick } from '../../../utils/matomo';
 import { EmbeddedWallet } from '../../../wallet/embedded_wallet';
 import { prepareForFeePayment } from '../../../utils/sponsoredFPC';
+import { loadSimpleTokenArtifactJson } from '../../../utils/artifacts';
 import { colors, commonStyles } from '../../../global.styles';
 
 const container = css({
@@ -335,7 +336,7 @@ export function Landing() {
         break;
       }
       case PREDEFINED_CONTRACTS.SIMPLE_TOKEN: {
-        ({ SimpleTokenContractArtifact: contractArtifactJSON } = await import('@aztec/noir-contracts.js/SimpleToken'));
+        contractArtifactJSON = await loadSimpleTokenArtifactJson();
         defaultContractCreationParams = {
           initializer: 'constructor',
           name: 'My Token',
