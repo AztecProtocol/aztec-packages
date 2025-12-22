@@ -348,7 +348,6 @@ template <typename Curve> class ShplonkVerifier_ {
 
     // Random challenges
     std::vector<Fr> pows_of_nu;
-    size_t pow_idx = 0;
     // Commitment to quotient polynomial
     Commitment quotient;
     // Partial evaluation challenge
@@ -391,59 +390,6 @@ template <typename Curve> class ShplonkVerifier_ {
         if constexpr (Curve::is_stdlib_type) {
             evaluation.convert_constant_to_fixed_witness(pows_of_nu[1].get_context());
         }
-    }
-
-    /**
-     * Structure used to update the internal state of the Shplonk verifier. It represents a claim which is constructed
-     * as a linear combination of the commitments stored by the Shplonk verifier. The structure is composed of:
-     *  - A list of indices = \f$(i_1, \dots, i_k)\f$
-     *  - A list of scalar coefficients = \f$(a_1, \dots, a_k)\f$
-     *  - An opening pair \f$(x, v)\f$
-     * The state of the Shplonk verifier is updated so to add the check:
-     *      \f[ \sum_{j=1}^k a_j f_{i_j}(x) = v \f]
-     * where \f${f_i}_i\f$ are the polynomials whose commitments are stored in the Shplonk verifier
-     *
-     * @note The challenge \f$x\f$ is stored redundantly for the purpose of the `update` method, but it is useful to
-     * expose the method `reduce_verification_vector_claims_no_finalize`
-     */
-    // It is composed
-    struct LinearCombinationOfClaims {
-        std::vector<size_t> indices;
-        std::vector<Fr> scalars;
-        OpeningPair<Curve> opening_pair;
-    };
-
-    /**
-     * @brief Update the internal state of the Shplonk verifier
-     *
-     * @details Given a list of indices = \f$(i_1, \dots, i_k)\f$, a list of scalar coefficients = \f$(a_1, \dots,
-     * a_k)\f$, an opening pair $\f(x,v)\f$, and the inverse vanishing eval \f$\frac{1}{z - x}\f$, update the internal
-     * state of the Shplonk verifier so to add the check \f[ \sum_{j=1}^k a_j f_{i_j}(x) = v \f] This amounts to update:
-     *  - \f$s_{i_j} -= \frac{\nu^{i-1} * a_j}{z - x}\f$
-     *  - \f$\theta += \nu^{i-1} \frac{v}{z - x}\f$
-     *
-     * @param update_data
-     * @param inverse_vanishing_eval
-     */
-    void update(const LinearCombinationOfClaims& update_data, const Fr& inverse_vanishing_eval)
-    {
-        BB_ASSERT_LT(pow_idx, pows_of_nu.size(), "Shplonk verifier: pow_idx out of bounds");
-        // Compute \nu^{i-1} / (z - x)
-        auto scalar_factor = pows_of_nu[pow_idx] * inverse_vanishing_eval;
-
-        for (const auto& [index, coefficient] : zip_view(update_data.indices, update_data.scalars)) {
-            // \nu^{i-1} * a_j / (z - x)
-            auto scaling_factor = scalar_factor * coefficient;
-            // s_{i_j} -= \nu^{i-1} * a_j / (z - x)
-            BB_ASSERT_LT(index + 1, scalars.size(), "Shplonk verifier: index out of bounds");
-            scalars[index + 1] -= scaling_factor;
-        }
-
-        // \theta += \nu^{i-1} * v / (z - x)
-        identity_scalar_coefficient += scalar_factor * update_data.opening_pair.evaluation;
-
-        // Update `pow_idx`
-        pow_idx += 1;
     }
 
     /**
@@ -525,59 +471,18 @@ template <typename Curve> class ShplonkVerifier_ {
             Fr::batch_invert(inverse_vanishing_evals);
         }
 
+        // Update the Shplonk verifier state with each claim
+        // For each claim: s_i -= ν^i / (z - x_i) and θ += ν^i * v_i / (z - x_i)
         for (size_t idx = 0; idx < claims.size(); idx++) {
-            verifier.update({ { idx }, { Fr(1) }, claims[idx].opening_pair }, inverse_vanishing_evals[idx]);
+            // Compute ν^i / (z - x_i)
+            auto scalar_factor = verifier.pows_of_nu[idx] * inverse_vanishing_evals[idx];
+            // s_i -= ν^i / (z - x_i)
+            verifier.scalars[idx + 1] -= scalar_factor;
+            // θ += ν^i * v_i / (z - x_i)
+            verifier.identity_scalar_coefficient += scalar_factor * claims[idx].opening_pair.evaluation;
         }
 
         return verifier;
-    };
-
-    /**
-     * @brief Instantiate a Shplonk verifier and update its state with the provided data.
-     *
-     * @param claims List of LinearCombinationOfClaims \f$\{ ( (i_{j_1}, \dots, i_{j_k}), (a_{j_1}, \dots, a_{j_k}),
-     * (r_k, v_k) )
-     * \}_k\f$ s.t. \f[ \sum_{l=1}^k a_{j_l} f_{j_l}(r_k) = v_k \f] where \f$f_1, \dots, f_m\f$ are the polynomials
-     * whose commitments are held by the Shplonk verifier.
-     */
-    void reduce_verification_vector_claims_no_finalize(std::span<const LinearCombinationOfClaims> claims)
-    {
-        const size_t num_claims = claims.size();
-
-        // Compute { 1 / (z - x_i) }
-        std::vector<Fr> inverse_vanishing_evals;
-        inverse_vanishing_evals.reserve(num_claims);
-        if constexpr (Curve::is_stdlib_type) {
-            for (const auto& claim : claims) {
-                inverse_vanishing_evals.emplace_back((this->z_challenge - claim.opening_pair.challenge).invert());
-            }
-        } else {
-            for (const auto& claim : claims) {
-                inverse_vanishing_evals.emplace_back(this->z_challenge - claim.opening_pair.challenge);
-            }
-            Fr::batch_invert(inverse_vanishing_evals);
-        }
-
-        for (const auto& [claim, inv] : zip_view(claims, inverse_vanishing_evals)) {
-            this->update(claim, inv);
-        }
-    }
-
-    /**
-     * @brief Recomputes the new claim commitment [G] given the proof and
-     * the challenge r. No verification happens so this function always succeeds.
-     *
-     * @param g1_identity the identity element for the Curve
-     * @param claims List of LinearCombinationOfClaims \f$\{ ( (i_{j_1}, \dots, i_{j_k}), (a_{j_1}, \dots, a_{j_k}),
-     * (r_k, v_k) )
-     * \}_k\f$ s.t. \f[ \sum_{l=1}^k a_{j_l} f_{j_l}(r_k) = v_k \f] where \f$f_1, \dots, f_m\f$ are the polynomials
-     * whose commitments are held by the Shplonk verifier.
-     */
-    OpeningClaim<Curve> reduce_verification_vector_claims(Commitment g1_identity,
-                                                          std::span<const LinearCombinationOfClaims> claims)
-    {
-        this->reduce_verification_vector_claims_no_finalize(claims);
-        return this->finalize(g1_identity);
     };
 
     /**
