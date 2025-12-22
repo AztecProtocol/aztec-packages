@@ -233,20 +233,23 @@ class AvmFlavor {
 
         VerificationKey() = default;
 
-        VerificationKey(const std::shared_ptr<ProvingKey>& proving_key)
-        {
-            this->log_circuit_size = MAX_AVM_TRACE_LOG_SIZE;
-            for (auto [polynomial, commitment] : zip_view(proving_key->get_precomputed(), this->get_all())) {
-                commitment = proving_key->commitment_key.commit(polynomial);
-            }
-        }
-
         VerificationKey(std::array<Commitment, NUM_PRECOMPUTED_COMMITMENTS> const& precomputed_cmts)
         {
             this->log_circuit_size = MAX_AVM_TRACE_LOG_SIZE;
             for (auto [vk_cmt, cmt] : zip_view(this->get_all(), precomputed_cmts)) {
                 vk_cmt = cmt;
             }
+        }
+
+        // NOTE: This should not be used in production. You should use the fixed VK instead.
+        static VerificationKey from_proving_key(const ProvingKey& proving_key)
+        {
+            VerificationKey vk;
+            vk.log_circuit_size = MAX_AVM_TRACE_LOG_SIZE;
+            for (auto [polynomial, commitment] : zip_view(proving_key.get_precomputed(), vk.get_all())) {
+                commitment = proving_key.commitment_key.commit(polynomial);
+            }
+            return vk;
         }
 
         /**

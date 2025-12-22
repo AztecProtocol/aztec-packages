@@ -2,7 +2,7 @@ import { FunctionSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractOverrides } from '@aztec/stdlib/tx';
 
-import type { ContractDataProvider } from '../storage/index.js';
+import type { ContractDataProvider } from '../storage/contract_data_provider/contract_data_provider.js';
 
 /*
  * Proxy generator for a ContractDataProvider that allows overriding contract instances and artifacts, so
@@ -49,6 +49,23 @@ export class ProxiedContractDataProviderFactory {
                 }
               } else {
                 return target.getFunctionArtifact(contractAddress, selector);
+              }
+            };
+          }
+          case 'getFunctionArtifactWithDebugMetadata': {
+            return async (contractAddress: AztecAddress, selector: FunctionSelector) => {
+              if (overrides[contractAddress.toString()]) {
+                const { artifact } = overrides[contractAddress.toString()]!;
+                const functions = artifact.functions;
+                for (let i = 0; i < functions.length; i++) {
+                  const fn = functions[i];
+                  const fnSelector = await FunctionSelector.fromNameAndParameters(fn.name, fn.parameters);
+                  if (fnSelector.equals(selector)) {
+                    return fn;
+                  }
+                }
+              } else {
+                return target.getFunctionArtifactWithDebugMetadata(contractAddress, selector);
               }
             };
           }

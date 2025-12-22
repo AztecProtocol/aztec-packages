@@ -1,10 +1,12 @@
 import { BlockNumber, BlockNumberSchema } from '@aztec/foundation/branded-types';
-import { BufferReader, boolToBuffer, numToUInt32BE } from '@aztec/foundation/serialize';
+import { BufferReader, bigintToUInt64BE, boolToBuffer, numToUInt32BE } from '@aztec/foundation/serialize';
 
 import { z } from 'zod';
 
 import { L2BlockHash } from '../block/block_hash.js';
+import { schemas } from '../schemas/schemas.js';
 import { TxHash } from '../tx/tx_hash.js';
+import type { UInt64 } from '../types/shared.js';
 import { PrivateLog } from './private_log.js';
 import { PublicLog } from './public_log.js';
 
@@ -34,6 +36,10 @@ export class TxScopedL2Log {
      */
     public blockHash: L2BlockHash,
     /*
+     * The timestamp of the block this log is included in
+     */
+    public blockTimestamp: UInt64,
+    /*
      * The log data as either a PrivateLog or PublicLog
      */
     public log: PrivateLog | PublicLog,
@@ -51,11 +57,12 @@ export class TxScopedL2Log {
         logIndexInTx: z.number(),
         blockNumber: BlockNumberSchema,
         blockHash: L2BlockHash.schema,
+        blockTimestamp: schemas.UInt64,
         log: z.union([PrivateLog.schema, PublicLog.schema]),
       })
       .transform(
-        ({ txHash, dataStartIndexForTx, logIndexInTx, blockNumber, blockHash, log }) =>
-          new TxScopedL2Log(txHash, dataStartIndexForTx, logIndexInTx, blockNumber, blockHash, log),
+        ({ txHash, dataStartIndexForTx, logIndexInTx, blockNumber, blockHash, blockTimestamp, log }) =>
+          new TxScopedL2Log(txHash, dataStartIndexForTx, logIndexInTx, blockNumber, blockHash, blockTimestamp, log),
       );
   }
 
@@ -66,6 +73,7 @@ export class TxScopedL2Log {
       numToUInt32BE(this.logIndexInTx),
       numToUInt32BE(this.blockNumber),
       this.blockHash.toBuffer(),
+      bigintToUInt64BE(this.blockTimestamp),
       boolToBuffer(this.isFromPublic),
       this.log.toBuffer(),
     ]);
@@ -78,15 +86,16 @@ export class TxScopedL2Log {
     const logIndexInTx = reader.readNumber();
     const blockNumber = BlockNumber(reader.readNumber());
     const blockHash = reader.readObject(L2BlockHash);
+    const blockTimestamp = reader.readUInt64();
     const isFromPublic = reader.readBoolean();
     const log = isFromPublic ? PublicLog.fromBuffer(reader) : PrivateLog.fromBuffer(reader);
 
-    return new TxScopedL2Log(txHash, dataStartIndexForTx, logIndexInTx, blockNumber, blockHash, log);
+    return new TxScopedL2Log(txHash, dataStartIndexForTx, logIndexInTx, blockNumber, blockHash, blockTimestamp, log);
   }
 
   static async random(isFromPublic = Math.random() < 0.5) {
     const log = isFromPublic ? await PublicLog.random() : PrivateLog.random();
-    return new TxScopedL2Log(TxHash.random(), 1, 1, BlockNumber(1), L2BlockHash.random(), log);
+    return new TxScopedL2Log(TxHash.random(), 1, 1, BlockNumber(1), L2BlockHash.random(), BigInt(1), log);
   }
 
   equals(other: TxScopedL2Log) {
@@ -96,6 +105,7 @@ export class TxScopedL2Log {
       this.logIndexInTx === other.logIndexInTx &&
       this.blockNumber === other.blockNumber &&
       this.blockHash.equals(other.blockHash) &&
+      this.blockTimestamp === other.blockTimestamp &&
       ((this.log instanceof PublicLog && other.log instanceof PublicLog) ||
         (this.log instanceof PrivateLog && other.log instanceof PrivateLog)) &&
       this.log.equals(other.log as any)

@@ -3,7 +3,7 @@ use dep::aztec::{
     history::nullifier_inclusion::ProveNullifierInclusion,
     keys::getters::{get_nsk_app, get_public_keys},
     macros::notes::custom_note,
-    messages::logs::note,
+    messages::logs::partial_note::compute_partial_note_private_content_log,
     note::note_interface::{NoteHash, NoteType},
     oracle::random::random,
     protocol_types::{
@@ -129,14 +129,15 @@ impl UintNote {
         //  - the commitment is already public information, so we're not revealing anything else
         //  - we don't need to create any additional information, private or public, for the tag
         //  - other contracts cannot impersonate us and emit logs with the same tag due to public log siloing
-        let private_log_content = UintPartialNotePrivateLogContent { public_log_tag: commitment };
+        let private_log_content = UintPartialNotePrivateLogContent {};
 
-        let encrypted_log = note::compute_partial_note_private_content_log(
+        let encrypted_log = compute_partial_note_private_content_log(
             private_log_content,
             owner,
             storage_slot,
             randomness,
             recipient,
+            commitment,
         );
         // Regardless of the original content size, the log is padded with random bytes up to
         // `PRIVATE_LOG_SIZE_IN_FIELDS` to prevent leaking information about the actual size.
@@ -171,9 +172,9 @@ fn compute_partial_commitment(
 // docs:end:compute_partial_commitment
 
 #[derive(Packable)]
-struct UintPartialNotePrivateLogContent {
-    public_log_tag: Field,
-}
+// This note does not have any non-metadata (i.e. storage slot, owner, randomness) private content, as the only field
+// (value) will be public in the partial note.
+struct UintPartialNotePrivateLogContent {}
 
 impl NoteType for UintPartialNotePrivateLogContent {
     fn get_id() -> Field {
@@ -306,13 +307,10 @@ impl FromField for PartialUintNote {
 }
 
 mod test {
-    use super::{
-        compute_partial_commitment, PartialUintNote, UintNote, UintPartialNotePrivateLogContent,
-    };
+    use super::{compute_partial_commitment, PartialUintNote, UintNote};
     use dep::aztec::{
         note::note_interface::NoteHash,
-        protocol_types::{address::AztecAddress, traits::{Deserialize, FromField, Packable}},
-        utils::array::subarray,
+        protocol_types::{address::AztecAddress, traits::FromField},
     };
 
     global value: u128 = 17;
@@ -334,32 +332,5 @@ mod test {
         let completed_partial_note_hash = partial_note.compute_complete_note_hash(value);
 
         assert_eq(note_hash, completed_partial_note_hash);
-    }
-
-    #[test]
-    fn unpack_from_partial_note_encoding() {
-        // Tests that the packed representation of a regular UintNote can be reconstructed given the partial note
-        // private fields log and the public completion log, ensuring the recipient will be able to compute the
-        // completed note as if it were a regular UintNote.
-        let note = UintNote { value };
-
-        let commitment = compute_partial_commitment(owner, storage_slot, randomness);
-
-        let private_log_content = UintPartialNotePrivateLogContent { public_log_tag: commitment };
-        // The following is a misuse of the `deserialize` function, but this is just a test and it's better than
-        // letting devs manually construct it when they shouldn't be able to.
-        let partial_note = PartialUintNote::deserialize([commitment]);
-
-        // The first field of the partial note private content is the public completion log tag, so it should match the
-        // first field of the public log.
-        assert_eq(
-            private_log_content.pack()[0],
-            partial_note.compute_note_completion_log(value)[0],
-        );
-
-        // The completion log without the tag should match the note's packed representation.
-        let public_log_without_tag: [_; 1] =
-            subarray(partial_note.compute_note_completion_log(value), 1);
-        assert_eq(public_log_without_tag, note.pack());
     }
 }

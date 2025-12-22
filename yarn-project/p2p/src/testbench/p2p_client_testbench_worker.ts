@@ -126,7 +126,7 @@ class TestLibP2PService<T extends P2PClientType = P2PClientType.Full> extends Li
     peerDiscoveryService: PeerDiscoveryService,
     reqresp: ReqResp,
     peerManager: PeerManager,
-    mempools: MemPools<T>,
+    mempools: MemPools,
     archiver: L2BlockSource & ContractDataSource,
     epochCache: EpochCacheInterface,
     proofVerifier: ClientProtocolCircuitVerifier,

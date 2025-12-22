@@ -17,7 +17,7 @@ use crate::{
             process_message::process_message_plaintext,
         },
         encoding::MESSAGE_PLAINTEXT_LEN,
-        logs::{event::private_event_to_message_plaintext, note::private_note_to_message_plaintext},
+        logs::{event::encode_private_event_message, note::encode_private_note_message},
         processing::{message_context::MessageContext, validate_enqueued_notes_and_events},
     },
     note::{
@@ -757,7 +757,7 @@ impl TestEnvironment {
         // Note that we need to convert the fixed-size array produced by the encoding functions into a BoundedVec, which
         // is what the decoding functions expect (because they are built to manage protocol logs, which are arbitrarily
         // sized).
-        let message_plaintext = BoundedVec::from_array(private_note_to_message_plaintext(
+        let message_plaintext = BoundedVec::from_array(encode_private_note_message(
             note_message.new_note.note,
             note_message.new_note.owner,
             note_message.new_note.storage_slot,
@@ -886,7 +886,7 @@ impl TestEnvironment {
         // Note that we need to convert the fixed-size array produced by the encoding functions into a BoundedVec, which
         // is what the decoding functions expect (because they are built to manage protocol logs, which are arbitrarily
         // sized).
-        let message_plaintext = BoundedVec::from_array(private_event_to_message_plaintext(
+        let message_plaintext = BoundedVec::from_array(encode_private_event_message(
             event_message.new_event.event,
             event_message.new_event.randomness,
         ));

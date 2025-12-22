@@ -81,4 +81,14 @@ FF compute_contract_address(const ContractInstance& contract_instance)
     return (grumpkin::g1::affine_one * h_fq + contract_instance.public_keys.incoming_viewing_key).x;
 }
 
+FF compute_calldata_hash(std::span<const FF> calldata)
+{
+    std::vector<FF> calldata_with_sep = { GENERATOR_INDEX__PUBLIC_CALLDATA };
+    for (const auto& value : calldata) {
+        // Note: Using `insert` breaks GCC.
+        calldata_with_sep.push_back(value);
+    }
+    return poseidon2::hash(calldata_with_sep);
+}
+
 } // namespace bb::avm2::simulation

@@ -22,7 +22,7 @@ TEST(AvmFixedVKTests, FixedVKCommitments)
     auto polynomials = compute_polynomials(trace);
     auto proving_key = proving_key_from_polynomials(polynomials);
 
-    AvmVerifier::VerificationKey vk_computed(proving_key);
+    auto vk_computed = AvmVerifier::VerificationKey::from_proving_key(*proving_key);
     auto vk_computed_commitments = vk_computed.get_all();
 
     // Get the fixed VK commitments

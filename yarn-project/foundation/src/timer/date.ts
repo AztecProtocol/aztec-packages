@@ -9,6 +9,10 @@ export class DateProvider {
   public nowInSeconds(): number {
     return Math.floor(this.now() / 1000);
   }
+
+  public nowAsDate(): Date {
+    return new Date(this.now());
+  }
 }
 
 /** Returns current datetime and allows to override it. */

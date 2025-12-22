@@ -740,8 +740,8 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/archiver@workspace:archiver"
   dependencies:
+    "@aztec/blob-client": "workspace:^"
     "@aztec/blob-lib": "workspace:^"
-    "@aztec/blob-sink": "workspace:^"
     "@aztec/constants": "workspace:^"
     "@aztec/epoch-cache": "workspace:^"
     "@aztec/ethereum": "workspace:^"
@@ -803,7 +803,7 @@ __metadata:
   dependencies:
     "@aztec/archiver": "workspace:^"
     "@aztec/bb-prover": "workspace:^"
-    "@aztec/blob-sink": "workspace:^"
+    "@aztec/blob-client": "workspace:^"
     "@aztec/constants": "workspace:^"
     "@aztec/epoch-cache": "workspace:^"
     "@aztec/ethereum": "workspace:^"
@@ -907,7 +907,7 @@ __metadata:
     "@aztec/aztec.js": "workspace:^"
     "@aztec/bb-prover": "workspace:^"
     "@aztec/bb.js": "portal:../../barretenberg/ts"
-    "@aztec/blob-sink": "workspace:^"
+    "@aztec/blob-client": "workspace:^"
     "@aztec/bot": "workspace:^"
     "@aztec/builder": "workspace:^"
     "@aztec/cli": "workspace:^"
@@ -1004,28 +1004,9 @@ __metadata:
   languageName: node
   linkType: soft
 
-"@aztec/blob-lib@workspace:^, @aztec/blob-lib@workspace:blob-lib":
+"@aztec/blob-client@workspace:^, @aztec/blob-client@workspace:blob-client":
   version: 0.0.0-use.local
-  resolution: "@aztec/blob-lib@workspace:blob-lib"
-  dependencies:
-    "@aztec/constants": "workspace:^"
-    "@aztec/foundation": "workspace:^"
-    "@crate-crypto/node-eth-kzg": "npm:^0.10.0"
-    "@jest/globals": "npm:^30.0.0"
-    "@types/jest": "npm:^30.0.0"
-    "@types/node": "npm:^22.15.17"
-    "@typescript/native-preview": "npm:7.0.0-dev.20251126.1"
-    get-port: "npm:^7.1.0"
-    jest: "npm:^30.0.0"
-    ts-node: "npm:^10.9.1"
-    tslib: "npm:^2.4.0"
-    typescript: "npm:^5.3.3"
-  languageName: unknown
-  linkType: soft
-
-"@aztec/blob-sink@workspace:^, @aztec/blob-sink@workspace:blob-sink":
-  version: 0.0.0-use.local
-  resolution: "@aztec/blob-sink@workspace:blob-sink"
+  resolution: "@aztec/blob-client@workspace:blob-client"
   dependencies:
     "@aztec/blob-lib": "workspace:^"
     "@aztec/ethereum": "workspace:^"
@@ -1051,7 +1032,26 @@ __metadata:
     viem: "npm:@aztec/viem@2.38.2"
     zod: "npm:^3.23.8"
   bin:
-    blob-sink-client: ./dest/client/bin/index.js
+    blob-client: ./dest/client/bin/index.js
+  languageName: unknown
+  linkType: soft
+
+"@aztec/blob-lib@workspace:^, @aztec/blob-lib@workspace:blob-lib":
+  version: 0.0.0-use.local
+  resolution: "@aztec/blob-lib@workspace:blob-lib"
+  dependencies:
+    "@aztec/constants": "workspace:^"
+    "@aztec/foundation": "workspace:^"
+    "@crate-crypto/node-eth-kzg": "npm:^0.10.0"
+    "@jest/globals": "npm:^30.0.0"
+    "@types/jest": "npm:^30.0.0"
+    "@types/node": "npm:^22.15.17"
+    "@typescript/native-preview": "npm:7.0.0-dev.20251126.1"
+    get-port: "npm:^7.1.0"
+    jest: "npm:^30.0.0"
+    ts-node: "npm:^10.9.1"
+    tslib: "npm:^2.4.0"
+    typescript: "npm:^5.3.3"
   languageName: unknown
   linkType: soft
 
@@ -1239,8 +1239,8 @@ __metadata:
     "@aztec/aztec.js": "workspace:^"
     "@aztec/bb-prover": "workspace:^"
     "@aztec/bb.js": "workspace:^"
+    "@aztec/blob-client": "workspace:^"
     "@aztec/blob-lib": "workspace:^"
-    "@aztec/blob-sink": "workspace:^"
     "@aztec/bot": "workspace:^"
     "@aztec/cli": "workspace:^"
     "@aztec/constants": "workspace:^"
@@ -1627,8 +1627,8 @@ __metadata:
   dependencies:
     "@aztec/archiver": "workspace:^"
     "@aztec/bb-prover": "workspace:^"
+    "@aztec/blob-client": "workspace:^"
     "@aztec/blob-lib": "workspace:^"
-    "@aztec/blob-sink": "workspace:^"
     "@aztec/constants": "workspace:^"
     "@aztec/epoch-cache": "workspace:^"
     "@aztec/ethereum": "workspace:^"
@@ -1910,8 +1910,8 @@ __metadata:
   dependencies:
     "@aztec/archiver": "workspace:^"
     "@aztec/bb-prover": "workspace:^"
+    "@aztec/blob-client": "workspace:^"
     "@aztec/blob-lib": "workspace:^"
-    "@aztec/blob-sink": "workspace:^"
     "@aztec/constants": "workspace:^"
     "@aztec/epoch-cache": "workspace:^"
     "@aztec/ethereum": "workspace:^"
@@ -2012,8 +2012,8 @@ __metadata:
     "@aztec/archiver": "workspace:^"
     "@aztec/aztec.js": "workspace:^"
     "@aztec/bb-prover": "workspace:^"
+    "@aztec/blob-client": "workspace:^"
     "@aztec/blob-lib": "workspace:^"
-    "@aztec/blob-sink": "workspace:^"
     "@aztec/constants": "workspace:^"
     "@aztec/epoch-cache": "workspace:^"
     "@aztec/ethereum": "workspace:^"
@@ -2259,8 +2259,8 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/validator-client@workspace:validator-client"
   dependencies:
+    "@aztec/blob-client": "workspace:^"
     "@aztec/blob-lib": "workspace:^"
-    "@aztec/blob-sink": "workspace:^"
     "@aztec/constants": "workspace:^"
     "@aztec/epoch-cache": "workspace:^"
     "@aztec/ethereum": "workspace:^"

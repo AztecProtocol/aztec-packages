@@ -26,6 +26,8 @@ describe('enrichEnvironmentWithChainConfig', () => {
       publicMetricsCollectFrom: ['bar'],
       skipArchiverInitialSync: true,
       blobAllowEmptySources: true,
+      blockDurationMs: 12000,
+      buildCheckpointIfEmpty: true,
     };
 
     // Enrich env with those

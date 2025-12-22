@@ -81,6 +81,10 @@ export class GuardedMerkleTreeOperations implements MerkleTreeWriteOperations {
   close(): Promise<void> {
     return this.guardAndPush(() => this.target.close());
   }
+
+  async [Symbol.dispose](): Promise<void> {
+    await this.close();
+  }
   getTreeInfo(treeId: MerkleTreeId): Promise<TreeInfo> {
     return this.guardAndPush(() => this.target.getTreeInfo(treeId));
   }

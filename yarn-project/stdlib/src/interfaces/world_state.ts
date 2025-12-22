@@ -42,8 +42,13 @@ export interface WorldStateSynchronizerStatus {
 
 /** Provides writeable forks of the world state at a given block number. */
 export interface ForkMerkleTreeOperations {
-  /** Forks the world state at the given block number, defaulting to the latest one. */
-  fork(block?: BlockNumber): Promise<MerkleTreeWriteOperations>;
+  /**
+   * Forks the world state at the given block number, defaulting to the latest one.
+   * @param block - The block number to fork at.
+   * @param opts - Optional parameters:
+   *  - closeDelayMs: number of milliseconds to wait before closing the fork on dispose.
+   */
+  fork(block?: BlockNumber, opts?: { closeDelayMs?: number }): Promise<MerkleTreeWriteOperations>;
 
   /** Gets a handle that allows reading the state as it was at the given block number. */
   getSnapshot(blockNumber: BlockNumber): MerkleTreeReadOperations;

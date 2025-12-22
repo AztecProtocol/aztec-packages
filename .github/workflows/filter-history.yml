@@ -1,0 +1,34 @@
+name: Filter History to Linear Branch
+
+on:
+  push:
+    branches:
+      - next
+
+concurrency:
+  group: filter-history
+  cancel-in-progress: true
+
+jobs:
+  filter-history:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+
+      - name: Configure git
+        run: |
+          git config user.name "AztecBot"
+          git config user.email "tech@aztecprotocol.com"
+
+      - name: Filter history to linear branch
+        run: |
+          scripts/filter_history 10000
+
+      - name: Force push to next-linear-git
+        run: |
+          git push --force origin next-linear-git

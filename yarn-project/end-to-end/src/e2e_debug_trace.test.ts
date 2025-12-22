@@ -46,7 +46,7 @@ describe('e2e_debug_trace_transaction', () => {
       config,
     } = await setup(2, {
       archiverPollingIntervalMS: 200,
-      transactionPollingIntervalMS: 200,
+      sequencerPollingIntervalMS: 200,
       worldStateBlockCheckIntervalMS: 200,
       blockCheckIntervalMS: 200,
       maxSpeedUpAttempts: 0, // Disable speed ups, so that cancellation txs never make it through

@@ -1,4 +1,5 @@
 import { Blob } from '@aztec/blob-lib';
+import { SlotNumber } from '@aztec/foundation/branded-types';
 import { createLogger } from '@aztec/foundation/log';
 import { DateProvider, TestDateProvider } from '@aztec/foundation/timer';
 
@@ -187,7 +188,7 @@ describe('L1FeeAnalyzer', () => {
 
   describe('startAnalysis and completion', () => {
     it('starts analysis for regular transaction and completes when block mines', async () => {
-      const l2SlotNumber = 1n;
+      const l2SlotNumber = SlotNumber(1);
       const gasLimit = 21000n;
       const requests: L1TxRequest[] = [
         {
@@ -235,7 +236,7 @@ describe('L1FeeAnalyzer', () => {
     }, 20000);
 
     it('starts analysis for blob transaction and completes when block mines', async () => {
-      const l2SlotNumber = 2n;
+      const l2SlotNumber = SlotNumber(2);
       const blobData = new Uint8Array(131072).fill(1);
       const kzg = Blob.getViemKzgInstance();
 
@@ -269,7 +270,7 @@ describe('L1FeeAnalyzer', () => {
     }, 20000);
 
     it('calls completion callback when analysis finishes', async () => {
-      const l2SlotNumber = 3n;
+      const l2SlotNumber = SlotNumber(3);
       const gasLimit = 21000n;
       const requests: L1TxRequest[] = [
         {
@@ -301,7 +302,7 @@ describe('L1FeeAnalyzer', () => {
     it('tracks completed analyses and provides statistics', async () => {
       // Start multiple analyses
       for (let i = 0; i < 3; i++) {
-        await analyzer.startAnalysis(BigInt(i), 21000n, [
+        await analyzer.startAnalysis(SlotNumber(i), 21000n, [
           {
             to: '0x1234567890123456789012345678901234567890',
             data: '0x',
@@ -331,7 +332,7 @@ describe('L1FeeAnalyzer', () => {
 
       // Start 4 analyses
       for (let i = 0; i < 4; i++) {
-        await smallAnalyzer.startAnalysis(BigInt(i), 21000n, [
+        await smallAnalyzer.startAnalysis(SlotNumber(i), 21000n, [
           {
             to: '0x1234567890123456789012345678901234567890',
             data: '0x',
@@ -364,7 +365,7 @@ describe('L1FeeAnalyzer', () => {
       await new Promise(resolve => setTimeout(resolve, 2000));
 
       // Start an analysis
-      const analysisId = await analyzer.startAnalysis(1n, 21000n, [
+      const analysisId = await analyzer.startAnalysis(SlotNumber(1), 21000n, [
         {
           to: '0x1234567890123456789012345678901234567890',
           data: '0x',
@@ -418,7 +419,7 @@ describe('L1FeeAnalyzer', () => {
 
       const customAnalyzer = new L1FeeAnalyzer(l1Client, new DateProvider(), logger, 100, [customStrategy]);
 
-      const analysisId = await customAnalyzer.startAnalysis(1n, 21000n, [
+      const analysisId = await customAnalyzer.startAnalysis(SlotNumber(1), 21000n, [
         {
           to: '0x1234567890123456789012345678901234567890',
           data: '0x',
@@ -465,7 +466,7 @@ describe('L1FeeAnalyzer', () => {
       }
 
       // Start analysis while transactions are pending
-      const analysisId = await analyzer.startAnalysis(1n, 21000n, [
+      const analysisId = await analyzer.startAnalysis(SlotNumber(1), 21000n, [
         {
           to: '0x1234567890123456789012345678901234567890',
           data: '0x',
@@ -512,7 +513,7 @@ describe('L1FeeAnalyzer', () => {
       });
 
       // Start analysis
-      const analysisId = await analyzer.startAnalysis(1n, 21000n, [
+      const analysisId = await analyzer.startAnalysis(SlotNumber(1), 21000n, [
         {
           to: '0x1234567890123456789012345678901234567890',
           data: '0x',

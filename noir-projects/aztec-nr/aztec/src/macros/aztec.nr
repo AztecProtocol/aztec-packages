@@ -238,7 +238,7 @@ comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -
             /// This function is automatically injected by the `#[aztec]` macro.
             #[contract_library_method]
             unconstrained fn _compute_note_hash_and_nullifier(
-                packed_note: BoundedVec<Field, aztec::messages::discovery::private_notes::MAX_NOTE_PACKED_LEN>,
+                packed_note: BoundedVec<Field, aztec::messages::logs::note::MAX_NOTE_PACKED_LEN>,
                 owner: aztec::protocol_types::address::AztecAddress,
                 storage_slot: Field,
                 note_type_id: Field,
@@ -262,7 +262,7 @@ comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -
             /// This function is automatically injected by the `#[aztec]` macro.
             #[contract_library_method]
             unconstrained fn _compute_note_hash_and_nullifier(
-                _packed_note: BoundedVec<Field, aztec::messages::discovery::private_notes::MAX_NOTE_PACKED_LEN>,
+                _packed_note: BoundedVec<Field, aztec::messages::logs::note::MAX_NOTE_PACKED_LEN>,
                 _owner: aztec::protocol_types::address::AztecAddress,
                 _storage_slot: Field,
                 _note_type_id: Field,
