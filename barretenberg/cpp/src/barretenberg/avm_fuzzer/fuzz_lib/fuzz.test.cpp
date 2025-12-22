@@ -3,6 +3,7 @@
 
 #include "barretenberg/avm_fuzzer/common/interfaces/dbs.hpp"
 #include "barretenberg/avm_fuzzer/fuzz_lib/constants.hpp"
+#include "barretenberg/avm_fuzzer/fuzz_lib/contract_db_proxy.hpp"
 #include "barretenberg/avm_fuzzer/fuzz_lib/control_flow.hpp"
 #include "barretenberg/avm_fuzzer/fuzz_lib/fuzz.hpp"
 #include "barretenberg/avm_fuzzer/fuzz_lib/fuzzer_data.hpp"
@@ -20,13 +21,9 @@ SimulatorResult simulate_with_default_tx(std::vector<uint8_t>& bytecode, std::ve
     if (ws_mgr == nullptr) {
         ws_mgr = FuzzerWorldStateManager::getInstance();
     }
-    FuzzerContractDB contract_db;
-    auto default_class = create_default_class(bytecode);
-    auto default_instance = create_default_instance(default_class.id);
-    auto contract_address = compute_contract_address(default_instance);
-    contract_db.add_contract_class(default_class.id, default_class);
-    contract_db.add_contract_instance(contract_address, default_instance);
-    ws_mgr->register_contract_address(contract_address);
+    ContractDBProxy* contract_db_proxy = ContractDBProxy::get_instance();
+    auto contract_address = ContractDBProxy::register_contract_from_bytecode(bytecode);
+    FuzzerContractDB contract_db = *contract_db_proxy->get_contract_db();
 
     auto tx = create_default_tx(contract_address, MSG_SENDER, calldata, TRANSACTION_FEE, IS_STATIC_CALL, GAS_LIMIT);
     auto cpp_simulator = CppSimulator();
@@ -1489,3 +1486,44 @@ TEST(fuzz, EmitUnencryptedLog)
     EXPECT_EQ(result.reverted, false);
 }
 } // namespace misc
+
+namespace external_calls {
+
+/// call(ADD8), returndatacopy, return
+/// ADD8: 2 + 5
+TEST(fuzz, ExternalCallToAdd8)
+{
+    FuzzerWorldStateManager::initialize();
+    // Initialize world state BEFORE registering contracts
+    if (ws_mgr == nullptr) {
+        ws_mgr = FuzzerWorldStateManager::getInstance();
+    };
+
+    // Register external contracts
+    for (const auto& function : PREDEFINED_FUNCTIONS) {
+        ContractDBProxy::register_contract_from_bytecode(function);
+    }
+    auto call_instruction = CALL_Instruction{ .function_index = 0,
+                                              .address_offset = 1,
+                                              .l2_gas = 10000,
+                                              .l2_gas_address = 2,
+                                              .da_gas = 10000,
+                                              .da_gas_address = 3,
+                                              .arg_size_offset = 4,
+                                              .args_offset = 5,
+                                              .args = {},
+                                              .is_static_call = false };
+    auto returndatasize_with_returndatacopy_instruction = RETURNDATASIZE_WITH_RETURNDATACOPY_Instruction{
+        .copy_size_offset = 6, .dst_address = 7, .rd_start = 0, .rd_start_offset = 8
+    };
+    auto instruction_blocks =
+        std::vector<std::vector<FuzzInstruction>>{ { call_instruction,
+                                                     returndatasize_with_returndatacopy_instruction } };
+    auto control_flow = ControlFlow(instruction_blocks);
+    control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
+    auto bytecode = control_flow.build_bytecode(
+        ReturnOptions{ .return_size = 1, .return_value_tag = bb::avm2::MemoryTag::FF, .return_value_offset_index = 1 });
+    auto result = simulate_with_default_tx(bytecode, {});
+    EXPECT_EQ(result.output.at(0), 7);
+}
+} // namespace external_calls

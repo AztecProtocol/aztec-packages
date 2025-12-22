@@ -12,7 +12,15 @@ Before starting, make sure to be running Aztec local network at version #include
 
 ## Set up the project
 
-Let's initialize a yarn project first. You can init it with the dependencies we need:
+First, create a new directory for your project and initialize it with yarn:
+
+```sh
+mkdir token-tutorial
+cd token-tutorial
+yarn init -y
+```
+
+Next, add the TypeScript dependencies:
 
 ```sh
 yarn add typescript @types/node tsx
@@ -27,7 +35,7 @@ Never heard of `tsx`? Well, it will just run `typescript` with reasonable defaul
 Let's also import the Aztec dependencies for this tutorial:
 
 ```sh
-yarn add @aztec/aztec.js@#include_version_without_prefix @aztec/accounts@#include_version_without_prefix @aztec/noir-contracts.js@#include_version_without_prefix
+yarn add @aztec/aztec.js@#include_version_without_prefix @aztec/accounts@#include_version_without_prefix @aztec/noir-contracts.js@#include_version_without_prefix @aztec/test-wallet@#include_version_without_prefix
 ```
 
 Aztec.js assumes your project is using ESM, so make sure you add `"type": "module"` to `package.json`. You probably also want at least a `start` script. For example:
@@ -43,105 +51,69 @@ Aztec.js assumes your project is using ESM, so make sure you add `"type": "modul
 
 ### Connecting to the local network
 
-We want to [connect to our running local network](../../aztec-js/how_to_connect_to_local_network.md) and import the test accounts into a new wallet. Let's call them Alice and Bob (of course). Create an `index.ts` with it:
+Now let's connect to the Aztec local network and set up test accounts.
 
-```typescript
-import { createAztecNodeClient } from "@aztec/aztec.js/node";
-import { TestWallet } from "@aztec/test-wallet/server";
-import { getInitialTestAccountsData } from "@aztec/accounts/testing";
+**Step 1: Start the Aztec Local Network**
 
-const nodeUrl = "http://localhost:8080";
-const node = createAztecNodeClient(nodeUrl);
-const wallet = await TestWallet.create(node);
+In a separate terminal, run:
 
-const [alice, bob] = await getInitialTestAccountsData();
-await wallet.createSchnorrAccount(alice.secret, alice.salt);
-await wallet.createSchnorrAccount(bob.secret, bob.salt);
+```sh
+aztec start --local-network
 ```
+
+Keep this terminal running throughout the tutorial.
+
+**Step 2: Create the index.ts file**
+
+Create an `index.ts` file in the root of your project with the following code. This connects to the local network and imports test accounts (Alice and Bob):
+
+#include_code setup /docs/examples/ts/aztecjs_getting_started/index.ts typescript
+
+**Step 3: Verify the script runs**
+
+Run the script to make sure everything is set up correctly:
+
+```sh
+yarn start
+```
+
+If there are no errors, you're ready to continue. For more details on connecting to the local network, see [this guide](../../aztec-js/how_to_connect_to_local_network.md).
 
 ## Deploy the token contract
 
-Now that we have our accounts loaded, let's move on to deploy our pre-compiled token smart contract. You can find the full code for the contract [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/master/noir-projects/noir-contracts/contracts/app/token_contract/src).
+Now that we have our accounts loaded, let's deploy a pre-compiled token contract from the Aztec library. You can find the full code for the contract [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/noir-contracts/contracts/app/token_contract/src).
 
-Let's import the interface directly, and make Alice the admin:
+Add the following to `index.ts` to import the contract and deploy it with Alice as the admin:
 
-```typescript
-import { TokenContract } from "@aztec/noir-contracts.js/Token";
-
-const token = await TokenContract.deploy(
-  wallet,
-  alice.address,
-  "TokenName",
-  "TKN",
-  18
-)
-  .send({ from: alice.address })
-  .deployed();
-```
+#include_code deploy /docs/examples/ts/aztecjs_getting_started/index.ts typescript
 
 ## Mint and transfer
 
 Let's go ahead and have Alice mint herself some tokens, in private:
 
-```typescript
-await token.methods
-  .mint_to_private(alice.address, 100)
-  .send({ from: alice.address })
-  .wait();
-```
+#include_code mint /docs/examples/ts/aztecjs_getting_started/index.ts typescript
 
 Let's check both Alice's and Bob's balances now:
 
-```typescript
-let aliceBalance = await token.methods
-  .balance_of_private(alice.address)
-  .simulate({ from: alice.address });
-console.log(`Alice's balance: ${aliceBalance}`); // whoooaa 100 tokens
-let bobBalance = await token.methods
-  .balance_of_private(bob.address)
-  .simulate({ from: bob.address });
-console.log(`Bob's balance: ${bobBalance}`); // you get nothin' 🥹
-```
+#include_code check_balances /docs/examples/ts/aztecjs_getting_started/index.ts typescript
+
+Alice should have 100 tokens, while Bob has none yet.
 
 Great! Let's have Alice transfer some tokens to Bob, also in private:
 
-```typescript
-await token.methods
-  .transfer(bob.address, 10)
-  .send({ from: alice.address })
-  .wait();
-bobBalance = await token.methods
-  .balance_of_private(bob.address)
-  .simulate({ from: bob.address });
-console.log(`Bob's balance: ${bobBalance}`);
-```
+#include_code transfer /docs/examples/ts/aztecjs_getting_started/index.ts typescript
 
-Nice, Bob should now see 10 tokens in his balance! Thanks Alice!
+Bob should now see 10 tokens in his balance.
 
 ## Other cool things
 
 Say that Alice is nice and wants to set Bob as a minter. Even though it's a public function, it can be called in a similar way:
 
-```typescript
-await token.methods
-  .set_minter(bob.address, true)
-  .send({ from: alice.address })
-  .wait();
-```
+#include_code set_minter /docs/examples/ts/aztecjs_getting_started/index.ts typescript
 
-Bob is now the minter, so he can mint some tokens to himself, notice that for the time being, you need to bind `token` to Bob's wallet with `withWallet(bob)`:
+Bob is now the minter, so he can mint some tokens to himself:
 
-```typescript
-await token
-  .withWallet(bob)
-  .methods.mint_to_private(bob.address, 100)
-  .send({ from: bob.address })
-  .wait();
-bobBalance = await token.methods
-  .balance_of_private(bob.address)
-  .simulate({ from: bob.address });
-console.log(`Bob's balance: ${bobBalance}`);
-```
+#include_code bob_mints /docs/examples/ts/aztecjs_getting_started/index.ts typescript
 
 :::info
 

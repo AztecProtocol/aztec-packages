@@ -25,8 +25,12 @@ case "$cmd" in
   hash)
     hash
     ;;
-  ""|clean|ci|test|test_cmds|bench|bench_cmds|release)
+  ""|clean|test|test_cmds|bench|bench_cmds|release)
     bootstrap_all $@
+    ;;
+  ci)
+    bootstrap_all
+    bootstrap_all test
     ;;
   "release-preview")
     ./docs/bootstrap.sh release-preview

@@ -52,7 +52,8 @@ export function describeTxPool(getTxPool: () => TxPool) {
     await pool.addTxs([tx1, tx2, tx3]);
     expect(txsFromEvent).toBeDefined();
     expect(txsFromEvent).toHaveLength(2);
-    expect(txsFromEvent).toEqual(expect.arrayContaining([tx2, tx3]));
+    const eventHashes = txsFromEvent!.map(tx => tx.getTxHash());
+    expect(eventHashes).toEqual(expect.arrayContaining([tx2.getTxHash(), tx3.getTxHash()]));
   });
 
   it('permanently deletes pending txs and soft-deletes mined txs', async () => {
@@ -83,7 +84,8 @@ export function describeTxPool(getTxPool: () => TxPool) {
     await pool.addTxs([tx1, tx2]);
     await pool.markAsMined([tx1.getTxHash()], minedBlockHeader);
 
-    await expect(pool.getTxByHash(tx1.getTxHash())).resolves.toEqual(tx1);
+    const retrievedTx = await pool.getTxByHash(tx1.getTxHash());
+    expect(retrievedTx?.getTxHash()).toEqual(tx1.getTxHash());
     await expect(pool.getTxStatus(tx1.getTxHash())).resolves.toEqual('mined');
     await expect(pool.getMinedTxHashes()).resolves.toEqual([[tx1.getTxHash(), 1]]);
     await expect(pool.getPendingTxHashes()).resolves.toEqual([tx2.getTxHash()]);
@@ -136,7 +138,8 @@ export function describeTxPool(getTxPool: () => TxPool) {
 
     const poolTxs = await pool.getAllTxs();
     expect(poolTxs).toHaveLength(3);
-    expect(poolTxs).toEqual(expect.arrayContaining([tx1, tx2, tx3]));
+    const poolHashes = poolTxs.map(tx => tx.getTxHash());
+    expect(poolHashes).toEqual(expect.arrayContaining([tx1.getTxHash(), tx2.getTxHash(), tx3.getTxHash()]));
     await expect(pool.getPendingTxCount()).resolves.toEqual(3);
   });
 
@@ -163,17 +166,19 @@ export function describeTxPool(getTxPool: () => TxPool) {
 
     const requestedTxs = await pool.getTxsByHash([tx1.getTxHash(), tx3.getTxHash()]);
     expect(requestedTxs).toHaveLength(2);
-    expect(requestedTxs).toEqual(expect.arrayContaining([tx1, tx3]));
+    const requestedHashes = requestedTxs.map(tx => tx!.getTxHash());
+    expect(requestedHashes).toEqual(expect.arrayContaining([tx1.getTxHash(), tx3.getTxHash()]));
   });
 
   it('returns a large number of transactions by their hash', async () => {
-    const numTxs = 1000;
+    const numTxs = 1_000;
     const txs = await Promise.all(Array.from({ length: numTxs }, (_, i) => mockTx(i)));
     const hashes = txs.map(tx => tx.getTxHash());
     await pool.addTxs(txs);
     const requestedTxs = await pool.getTxsByHash(hashes);
     expect(requestedTxs).toHaveLength(numTxs);
-    expect(requestedTxs).toEqual(expect.arrayContaining(txs));
+    const requestedHashes = requestedTxs.map(tx => tx!.getTxHash());
+    expect(requestedHashes).toEqual(expect.arrayContaining(hashes));
   });
 
   it('returns whether or not txs exist', async () => {

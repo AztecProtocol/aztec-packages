@@ -319,7 +319,7 @@ namespace tx;
     #[DISPATCH_EXEC_START]
     should_process_call_request {
         next_context_id,
-        discard,
+        discard, // Important for security of discarding logic in execution trace. (see discard.pil correctness analysis)
         msg_sender,
         contract_addr,
         fee,
@@ -394,6 +394,10 @@ namespace tx;
        next_context_id,
        next_context_id', // The context id of the next row must be the one after the execution of the enqueued call
        reverted,
+       discard, // Crucial to pass discard info to execution trace when `reverted == 0`.
+                // (discard propagation from other enqueued calls which is handled in tx_discard.pil)
+                // We enforce this at `enqueued_call_end` because constraints in discard.pil propagate
+                // discard flag up to the top of the enqueued call in execution trace.
        // Tree State
        next_note_hash_tree_root,
        next_note_hash_tree_size,
@@ -419,6 +423,7 @@ namespace tx;
        execution.context_id,
        execution.next_context_id,
        execution.sel_failure,
+       execution.discard,
        // Tree State
        execution.note_hash_tree_root,
        execution.note_hash_tree_size,

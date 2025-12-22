@@ -9,7 +9,7 @@ import type { Logger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 import { AnvilTestWatcher, CheatCodes } from '@aztec/aztec/testing';
-import { type BlobSinkServer, createBlobSinkServer } from '@aztec/blob-sink/server';
+import { createBlobClientWithFileStores } from '@aztec/blob-client/client';
 import { createExtendedL1Client } from '@aztec/ethereum/client';
 import { getL1ContractsConfigEnvVars } from '@aztec/ethereum/config';
 import { deployMulticall3 } from '@aztec/ethereum/contracts';
@@ -40,7 +40,6 @@ import type { Anvil } from '@viem/anvil';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { copySync, removeSync } from 'fs-extra/esm';
 import fs from 'fs/promises';
-import getPort from 'get-port';
 import { tmpdir } from 'os';
 import path, { join } from 'path';
 import type { Hex } from 'viem';
@@ -56,6 +55,7 @@ import {
   getLogger,
   getPrivateKeyFromIndex,
   getSponsoredFPCAddress,
+  setupSharedBlobStorage,
 } from './utils.js';
 import { getEndToEndTestTelemetryClient } from './with_telemetry_utils.js';
 
@@ -72,7 +72,6 @@ export type SubsystemsContext = {
   cheatCodes: CheatCodes;
   sequencer: SequencerClient;
   dateProvider: TestDateProvider;
-  blobSink: BlobSinkServer;
   initialFundedAccounts: InitialAccountData[];
   directoryToCleanup?: string;
 };
@@ -275,7 +274,6 @@ async function teardown(context: SubsystemsContext | undefined) {
     await context.bbConfig?.cleanup();
     await tryStop(context.anvil);
     await tryStop(context.watcher);
-    await tryStop(context.blobSink);
     await tryRmDir(context.directoryToCleanup, logger);
   } catch (err) {
     logger.error('Error during teardown', err);
@@ -296,8 +294,6 @@ async function setupFromFresh(
   },
 ): Promise<SubsystemsContext> {
   logger.verbose(`Initializing state...`);
-
-  const blobSinkPort = await getPort();
 
   // Default to no slashing
   opts.slasherFlavor ??= 'none';
@@ -326,7 +322,8 @@ async function setupFromFresh(
   } else {
     aztecNodeConfig.dataDirectory = statePath;
   }
-  aztecNodeConfig.blobSinkUrl = `http://127.0.0.1:${blobSinkPort}`;
+
+  await setupSharedBlobStorage(aztecNodeConfig);
 
   const hdAccount = mnemonicToAccount(MNEMONIC, { addressIndex: 0 });
   const publisherPrivKeyRaw = hdAccount.getHdKey().privateKey;
@@ -413,24 +410,12 @@ async function setupFromFresh(
 
   const telemetry = await getEndToEndTestTelemetryClient(opts.metricsPort);
 
-  // Setup blob sink service
-  const blobSink = await createBlobSinkServer(
-    {
-      l1ChainId: aztecNodeConfig.l1ChainId,
-      l1RpcUrls: aztecNodeConfig.l1RpcUrls,
-      l1Contracts: aztecNodeConfig.l1Contracts,
-      port: blobSinkPort,
-      dataDirectory: aztecNodeConfig.dataDirectory,
-      dataStoreMapSizeKb: aztecNodeConfig.dataStoreMapSizeKb,
-    },
-    telemetry,
-  );
-  await blobSink.start();
+  const blobClient = await createBlobClientWithFileStores(aztecNodeConfig, createLogger('node:blob-client:client'));
 
   logger.info('Creating and synching an aztec node...');
   const aztecNode = await AztecNodeService.createAndSync(
     aztecNodeConfig,
-    { telemetry, dateProvider },
+    { telemetry, dateProvider, blobClient },
     { prefilledPublicData },
   );
 
@@ -476,7 +461,6 @@ async function setupFromFresh(
     watcher,
     cheatCodes,
     dateProvider,
-    blobSink,
     initialFundedAccounts,
     directoryToCleanup,
   };
@@ -491,17 +475,15 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
   const directoryToCleanup = path.join(tmpdir(), randomBytes(8).toString('hex'));
   await fs.mkdir(directoryToCleanup, { recursive: true });
 
-  // Run the blob sink on a random port
-  const blobSinkPort = await getPort();
-
   // TODO: For some reason this is currently the union of a bunch of subsystems. That needs fixing.
   const aztecNodeConfig: AztecNodeConfig & SetupOptions = JSON.parse(
     readFileSync(`${statePath}/aztec_node_config.json`, 'utf-8'),
     reviver,
   );
   aztecNodeConfig.dataDirectory = statePath;
-  aztecNodeConfig.blobSinkUrl = `http://127.0.0.1:${blobSinkPort}`;
   aztecNodeConfig.listenAddress = '127.0.0.1';
+
+  await setupSharedBlobStorage(aztecNodeConfig);
 
   const initialFundedAccounts: InitialAccountData[] =
     JSON.parse(readFileSync(`${statePath}/accounts.json`, 'utf-8'), reviver) || [];
@@ -542,23 +524,13 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
   await watcher.start();
 
   const telemetry = await initTelemetryClient(getTelemetryConfig());
-  const blobSink = await createBlobSinkServer(
-    {
-      l1ChainId: aztecNodeConfig.l1ChainId,
-      l1RpcUrls: aztecNodeConfig.l1RpcUrls,
-      l1Contracts: aztecNodeConfig.l1Contracts,
-      port: blobSinkPort,
-      dataDirectory: statePath,
-      dataStoreMapSizeKb: aztecNodeConfig.dataStoreMapSizeKb,
-    },
-    telemetry,
-  );
-  await blobSink.start();
+
+  const blobClient = await createBlobClientWithFileStores(aztecNodeConfig, createLogger('node:blob-client:client'));
 
   logger.verbose('Creating aztec node...');
   const aztecNode = await AztecNodeService.createAndSync(
     aztecNodeConfig,
-    { telemetry, dateProvider },
+    { telemetry, dateProvider, blobClient },
     { prefilledPublicData },
   );
 
@@ -603,7 +575,6 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
     watcher,
     cheatCodes,
     dateProvider,
-    blobSink,
     initialFundedAccounts,
     directoryToCleanup,
   };

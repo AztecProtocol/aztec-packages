@@ -586,7 +586,7 @@ void Execution::call(ContextInterface& context,
 
     get_gas_tracker().consume_gas(); // Base gas.
     Gas gas_limit = get_gas_tracker().compute_gas_limit_for_call(
-        Gas{ allocated_l2_gas_read.as<uint32_t>(), allocated_da_gas_read.as<uint32_t>() });
+        Gas{ .l2_gas = allocated_l2_gas_read.as<uint32_t>(), .da_gas = allocated_da_gas_read.as<uint32_t>() });
 
     // Tag check contract address + cd_size
     auto nested_context = context_provider.make_nested_context(contract_address,
@@ -646,7 +646,7 @@ void Execution::static_call(ContextInterface& context,
 
     get_gas_tracker().consume_gas(); // Base gas.
     Gas gas_limit = get_gas_tracker().compute_gas_limit_for_call(
-        Gas{ allocated_l2_gas_read.as<uint32_t>(), allocated_da_gas_read.as<uint32_t>() });
+        Gas{ .l2_gas = allocated_l2_gas_read.as<uint32_t>(), .da_gas = allocated_da_gas_read.as<uint32_t>() });
 
     // Tag check contract address + cd_size
     auto nested_context = context_provider.make_nested_context(contract_address,

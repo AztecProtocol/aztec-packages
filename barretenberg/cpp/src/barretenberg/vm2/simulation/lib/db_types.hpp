@@ -4,6 +4,7 @@
 #include "barretenberg/crypto/merkle_tree/types.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/map.hpp"
+#include "barretenberg/vm2/common/map_hashes.hpp"
 #include "barretenberg/vm2/simulation/interfaces/db.hpp"
 
 namespace bb::avm2::simulation {
@@ -83,18 +84,3 @@ auto& get_tree_info_helper(world_state::MerkleTreeId tree_id, auto& tree_roots)
         throw std::runtime_error("AVM cannot process tree id: " + std::to_string(static_cast<uint64_t>(tree_id)));
     }
 }
-
-// Specialization of std::hash for std::vector<FF> to be used as a key in unordered_flat_map.
-// Used in raw_data_dbs and hinting_dbs
-namespace std {
-template <> struct hash<std::vector<bb::avm2::FF>> {
-    size_t operator()(const std::vector<bb::avm2::FF>& vec) const
-    {
-        size_t seed = vec.size();
-        for (const auto& item : vec) {
-            seed ^= std::hash<bb::avm2::FF>{}(item) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
-        }
-        return seed;
-    }
-};
-} // namespace std

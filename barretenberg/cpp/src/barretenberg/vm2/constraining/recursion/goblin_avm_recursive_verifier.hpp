@@ -61,7 +61,6 @@ class AvmGoblinRecursiveVerifier {
         HonkProof mega_proof;                                    // \pi_M
         GoblinProof goblin_proof;                                // \pi_G
         std::shared_ptr<MegaAvmFlavor::VerificationKey> mega_vk; // VK_M
-        Goblin::VerificationKey goblin_vk;                       // VK_G
     };
 
     UltraBuilder& ultra_builder;
@@ -185,8 +184,6 @@ class AvmGoblinRecursiveVerifier {
     InnerProverOutput construct_and_prove_inner_recursive_verification_circuit(
         const stdlib::Proof<UltraBuilder>& stdlib_proof, const std::vector<std::vector<UltraFF>>& public_inputs) const
     {
-        using ECCVMVK = Goblin::ECCVMVerificationKey;
-        using TranslatorVK = Goblin::TranslatorVerificationKey;
         using FF = AvmRecursiveFlavor::FF;
         using IO = stdlib::recursion::honk::GoblinAvmIO<MegaBuilder>;
         using MegaAvmProverInstance = ProverInstance_<MegaAvmFlavor>;
@@ -249,14 +246,10 @@ class AvmGoblinRecursiveVerifier {
         // Construct corresponding Goblin proof \pi_G (includes Merge, ECCVM, and Translator proofs)
         GoblinProof goblin_proof = goblin.prove();
 
-        // Recursively verify the goblin proof in the Ultra circuit
-        Goblin::VerificationKey goblin_vk{ std::make_shared<ECCVMVK>(), std::make_shared<TranslatorVK>() };
-
         return {
             .mega_proof = mega_proof,
             .goblin_proof = goblin_proof,
             .mega_vk = mega_vk,
-            .goblin_vk = goblin_vk,
         };
     }
 };

@@ -28,7 +28,7 @@ export async function createArchiverStore(
 /**
  * Creates a local archiver.
  * @param config - The archiver configuration.
- * @param blobSinkClient - The blob sink client.
+ * @param blobClient - The blob client client.
  * @param opts - The options.
  * @param telemetry - The telemetry client.
  * @returns The local archiver.
