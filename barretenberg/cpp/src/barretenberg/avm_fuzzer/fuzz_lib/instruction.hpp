@@ -624,6 +624,17 @@ struct SHA256COMPRESSION_Instruction {
     MSGPACK_FIELDS(state_address, input_address, dst_address);
 };
 
+/// @brief TORADIXBE: Convert a field element to a vector of limbs in big-endian radix representation
+/// M[dst_address:dst_address+num_limbs] = to_radix_be(M[value_address], radix, num_limbs)
+struct TORADIXBE_Instruction {
+    ParamRef value_address;       // FF: value to convert
+    ParamRef radix_address;       // U32: the radix/base
+    ParamRef num_limbs_address;   // U32: number of output limbs
+    ParamRef output_bits_address; // U1: whether output is bits
+    AddressRef dst_address;       // destination for limbs
+    MSGPACK_FIELDS(value_address, radix_address, num_limbs_address, output_bits_address, dst_address);
+};
+
 using FuzzInstruction = std::variant<ADD_8_Instruction,
                                      FDIV_8_Instruction,
                                      SET_8_Instruction,
@@ -679,7 +690,8 @@ using FuzzInstruction = std::variant<ADD_8_Instruction,
                                      ECADD_Instruction,
                                      POSEIDON2PERM_Instruction,
                                      KECCAKF1600_Instruction,
-                                     SHA256COMPRESSION_Instruction>;
+                                     SHA256COMPRESSION_Instruction,
+                                     TORADIXBE_Instruction>;
 
 template <class... Ts> struct overloaded : Ts... {
     using Ts::operator()...;
@@ -885,6 +897,10 @@ inline std::ostream& operator<<(std::ostream& os, const FuzzInstruction& instruc
             [&](SHA256COMPRESSION_Instruction arg) {
                 os << "SHA256COMPRESSION_Instruction " << arg.state_address << " " << arg.input_address << " "
                    << arg.dst_address;
+            },
+            [&](TORADIXBE_Instruction arg) {
+                os << "TORADIXBE_Instruction " << arg.value_address << " " << arg.radix_address << " "
+                   << arg.num_limbs_address << " " << arg.output_bits_address << " " << arg.dst_address;
             },
             [&](auto) { os << "Unknown instruction"; },
         },
