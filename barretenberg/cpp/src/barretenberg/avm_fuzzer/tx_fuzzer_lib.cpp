@@ -228,7 +228,7 @@ size_t mutate_tx_data(uint8_t* serialized_fuzzer_data,
                     .msg_sender = MSG_SENDER,
                     .contract_address = contract_addresses[idx],
                     .is_static_call = false,
-                    .calldata_hash = 0,
+                    .calldata_hash = compute_calldata_hash({}),
                 },
             .calldata = {},
         });
