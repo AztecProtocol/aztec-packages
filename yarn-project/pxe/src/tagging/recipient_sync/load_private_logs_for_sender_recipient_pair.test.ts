@@ -35,13 +35,15 @@ describe('loadPrivateLogsForSenderRecipientPair', () => {
     return SiloedTag.compute(tag, app);
   }
 
-  function makeLog(blockHash: Fr, blockNumber: number, tag: Fr) {
+  // Move blockTimestamp before tag in args in makeLog
+  function makeLog(blockHash: Fr, blockNumber: number, blockTimestamp: bigint, tag: Fr) {
     return new TxScopedL2Log(
       TxHash.random(),
       0,
       0,
       BlockNumber(blockNumber),
       L2BlockHash.fromField(blockHash),
+      blockTimestamp,
       PrivateLog.random(tag),
     );
   }
@@ -54,7 +56,6 @@ describe('loadPrivateLogsForSenderRecipientPair', () => {
 
   beforeEach(async () => {
     aztecNode.getLogsByTags.mockReset();
-    aztecNode.getBlockHeaderByHash.mockReset();
     aztecNode.getL2Tips.mockReset();
     aztecNode.getBlockHeader.mockReset();
     taggingDataProvider = new NewRecipientTaggingDataProvider(await openTmpStore('test'));
@@ -103,16 +104,11 @@ describe('loadPrivateLogsForSenderRecipientPair', () => {
     aztecNode.getLogsByTags.mockImplementation((tags: Fr[]) => {
       return Promise.all(
         tags.map(async (t: Fr) =>
-          t.equals(logTag.value) ? [makeLog(await logBlockHeader.hash(), finalizedBlockNumber, logTag.value)] : [],
+          t.equals(logTag.value)
+            ? [makeLog(await logBlockHeader.hash(), finalizedBlockNumber, logBlockTimestamp, logTag.value)]
+            : [],
         ),
       );
-    });
-
-    aztecNode.getBlockHeaderByHash.mockImplementation(async (hash: Fr) => {
-      if (hash.equals(await logBlockHeader.hash())) {
-        return logBlockHeader;
-      }
-      return undefined;
     });
 
     const logs = await loadPrivateLogsForSenderRecipientPair(
@@ -146,16 +142,11 @@ describe('loadPrivateLogsForSenderRecipientPair', () => {
     aztecNode.getLogsByTags.mockImplementation((tags: Fr[]) => {
       return Promise.all(
         tags.map(async (t: Fr) =>
-          t.equals(logTag.value) ? [makeLog(await logBlockHeader.hash(), finalizedBlockNumber, logTag.value)] : [],
+          t.equals(logTag.value)
+            ? [makeLog(await logBlockHeader.hash(), finalizedBlockNumber, logBlockTimestamp, logTag.value)]
+            : [],
         ),
       );
-    });
-
-    aztecNode.getBlockHeaderByHash.mockImplementation(async (hash: Fr) => {
-      if (hash.equals(await logBlockHeader.hash())) {
-        return logBlockHeader;
-      }
-      return undefined;
     });
 
     const logs = await loadPrivateLogsForSenderRecipientPair(
@@ -203,22 +194,13 @@ describe('loadPrivateLogsForSenderRecipientPair', () => {
       return Promise.all(
         tags.map(async (t: Fr) => {
           if (t.equals(log1Tag.value)) {
-            return [makeLog(await log1BlockHeader.hash(), finalizedBlockNumber, log1Tag.value)];
+            return [makeLog(await log1BlockHeader.hash(), finalizedBlockNumber, log1BlockTimestamp, log1Tag.value)];
           } else if (t.equals(log2Tag.value)) {
-            return [makeLog(await log2BlockHeader.hash(), finalizedBlockNumber, log2Tag.value)];
+            return [makeLog(await log2BlockHeader.hash(), finalizedBlockNumber, log2BlockTimestamp, log2Tag.value)];
           }
           return [];
         }),
       );
-    });
-
-    aztecNode.getBlockHeaderByHash.mockImplementation(async (hash: Fr) => {
-      if (hash.equals(await log1BlockHeader.hash())) {
-        return log1BlockHeader;
-      } else if (hash.equals(await log2BlockHeader.hash())) {
-        return log2BlockHeader;
-      }
-      return undefined;
     });
 
     const logs = await loadPrivateLogsForSenderRecipientPair(

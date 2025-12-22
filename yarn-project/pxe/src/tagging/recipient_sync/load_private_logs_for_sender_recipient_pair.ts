@@ -88,16 +88,16 @@ export async function loadPrivateLogsForSenderRecipientPair(
 
   while (true) {
     // Get private logs with their block timestamps and corresponding tagging indexes
-    const logsWithTimestampsAndIndexes = await loadLogsForRange(secret, app, aztecNode, start, end, anchorBlockNumber);
+    const privateLogsWithIndexes = await loadLogsForRange(secret, app, aztecNode, start, end, anchorBlockNumber);
 
-    if (logsWithTimestampsAndIndexes.length === 0) {
+    if (privateLogsWithIndexes.length === 0) {
       break;
     }
 
-    logs.push(...logsWithTimestampsAndIndexes.map(({ log }) => log));
+    logs.push(...privateLogsWithIndexes.map(({ log }) => log));
 
     const { highestAgedIndex, highestFinalizedIndex } = findHighestIndexes(
-      logsWithTimestampsAndIndexes,
+      privateLogsWithIndexes,
       currentTimestamp,
       finalizedBlockNumber,
     );

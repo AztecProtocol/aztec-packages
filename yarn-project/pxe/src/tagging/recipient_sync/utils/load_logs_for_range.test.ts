@@ -29,13 +29,14 @@ describe('loadLogsForRange', () => {
     return SiloedTag.compute(tag, app);
   }
 
-  function makeLog(txHash: TxHash, blockHash: Fr, blockNumber: number, tag: SiloedTag) {
+  function makeLog(txHash: TxHash, blockHash: Fr, blockNumber: number, blockTimestamp: bigint, tag: SiloedTag) {
     return new TxScopedL2Log(
       txHash,
       0,
       0,
       BlockNumber(blockNumber),
       L2BlockHash.fromField(blockHash),
+      blockTimestamp,
       PrivateLog.random(tag.value),
     );
   }
@@ -48,7 +49,6 @@ describe('loadLogsForRange', () => {
 
   beforeEach(() => {
     aztecNode.getLogsByTags.mockReset();
-    aztecNode.getBlockHeaderByHash.mockReset();
   });
 
   it('returns empty array when no logs found for the given window', async () => {
@@ -70,23 +70,17 @@ describe('loadLogsForRange', () => {
 
     aztecNode.getLogsByTags.mockImplementation(async (tags: Fr[]) => {
       const blockHash = await blockHeader.hash();
-      const privateLog = makeLog(txHash, blockHash, blockNumber, tag);
+      const privateLog = makeLog(txHash, blockHash, blockNumber, timestamp, tag);
       const publicLog = new TxScopedL2Log(
         TxHash.random(),
         0,
         0,
         BlockNumber(blockNumber),
         L2BlockHash.fromField(blockHash),
+        timestamp,
         await PublicLog.random(),
       );
       return tags.map((t: Fr) => (t.equals(tag.value) ? [privateLog, publicLog] : []));
-    });
-
-    aztecNode.getBlockHeaderByHash.mockImplementation(async (hash: Fr) => {
-      if (hash.equals(await blockHeader.hash())) {
-        return blockHeader;
-      }
-      return undefined;
     });
 
     const result = await loadLogsForRange(secret, app, aztecNode, 0, 10, NON_INTERFERING_ANCHOR_BLOCK_NUMBER);
@@ -114,22 +108,13 @@ describe('loadLogsForRange', () => {
       return Promise.all(
         tags.map(async (t: Fr) => {
           if (t.equals(tag1.value)) {
-            return [makeLog(txHash1, await blockHeader1.hash(), blockNumber1, tag1)];
+            return [makeLog(txHash1, await blockHeader1.hash(), blockNumber1, timestamp1, tag1)];
           } else if (t.equals(tag2.value)) {
-            return [makeLog(txHash2, await blockHeader2.hash(), blockNumber2, tag2)];
+            return [makeLog(txHash2, await blockHeader2.hash(), blockNumber2, timestamp2, tag2)];
           }
           return [];
         }),
       );
-    });
-
-    aztecNode.getBlockHeaderByHash.mockImplementation(async (hash: Fr) => {
-      if (hash.equals(await blockHeader1.hash())) {
-        return blockHeader1;
-      } else if (hash.equals(await blockHeader2.hash())) {
-        return blockHeader2;
-      }
-      return undefined;
     });
 
     const result = await loadLogsForRange(secret, app, aztecNode, 0, 10, NON_INTERFERING_ANCHOR_BLOCK_NUMBER);
@@ -137,10 +122,10 @@ describe('loadLogsForRange', () => {
     expect(result).toHaveLength(2);
     const resultByIndex = result.sort((a, b) => a.taggingIndex - b.taggingIndex);
     expect(resultByIndex[0].taggingIndex).toBe(index1);
-    expect(resultByIndex[0].blockTimestamp).toBe(timestamp1);
+    expect(resultByIndex[0].log.blockTimestamp).toBe(timestamp1);
     expect(resultByIndex[0].log.txHash.equals(txHash1)).toBe(true);
     expect(resultByIndex[1].taggingIndex).toBe(index2);
-    expect(resultByIndex[1].blockTimestamp).toBe(timestamp2);
+    expect(resultByIndex[1].log.blockTimestamp).toBe(timestamp2);
     expect(resultByIndex[1].log.txHash.equals(txHash2)).toBe(true);
   });
 
@@ -161,21 +146,12 @@ describe('loadLogsForRange', () => {
         tags.map(async (t: Fr) =>
           t.equals(tag.value)
             ? [
-                makeLog(txHash1, await blockHeader1.hash(), blockNumber1, tag),
-                makeLog(txHash2, await blockHeader2.hash(), blockNumber2, tag),
+                makeLog(txHash1, await blockHeader1.hash(), blockNumber1, timestamp1, tag),
+                makeLog(txHash2, await blockHeader2.hash(), blockNumber2, timestamp2, tag),
               ]
             : [],
         ),
       );
-    });
-
-    aztecNode.getBlockHeaderByHash.mockImplementation(async (hash: Fr) => {
-      if (hash.equals(await blockHeader1.hash())) {
-        return blockHeader1;
-      } else if (hash.equals(await blockHeader2.hash())) {
-        return blockHeader2;
-      }
-      return undefined;
     });
 
     const result = await loadLogsForRange(secret, app, aztecNode, 0, 10, NON_INTERFERING_ANCHOR_BLOCK_NUMBER);
@@ -203,31 +179,23 @@ describe('loadLogsForRange', () => {
       const blockHash = await blockHeader.hash();
       return tags.map((t: Fr) => {
         if (t.equals(tag1.value)) {
-          return [makeLog(txHash1, blockHash, blockNumber, tag1)];
+          return [makeLog(txHash1, blockHash, blockNumber, timestamp, tag1)];
         } else if (t.equals(tag2.value)) {
-          return [makeLog(txHash2, blockHash, blockNumber, tag2)];
+          return [makeLog(txHash2, blockHash, blockNumber, timestamp, tag2)];
         }
         return [];
       });
     });
 
-    aztecNode.getBlockHeaderByHash.mockImplementation(async (hash: Fr) => {
-      if (hash.equals(await blockHeader.hash())) {
-        return blockHeader;
-      }
-      return undefined;
-    });
-
     const result = await loadLogsForRange(secret, app, aztecNode, 0, 10, NON_INTERFERING_ANCHOR_BLOCK_NUMBER);
 
     expect(result).toHaveLength(2);
-    // Should only fetch block header once for the same block
-    expect(aztecNode.getBlockHeaderByHash).toHaveBeenCalledTimes(1);
+
     const resultByIndex = result.sort((a, b) => a.taggingIndex - b.taggingIndex);
     expect(resultByIndex[0].taggingIndex).toBe(index1);
-    expect(resultByIndex[0].blockTimestamp).toBe(timestamp);
+    expect(resultByIndex[0].log.blockTimestamp).toBe(timestamp);
     expect(resultByIndex[1].taggingIndex).toBe(index2);
-    expect(resultByIndex[1].blockTimestamp).toBe(timestamp);
+    expect(resultByIndex[1].log.blockTimestamp).toBe(timestamp);
   });
 
   it('respects start (inclusive) and end (exclusive) boundaries', async () => {
@@ -245,19 +213,12 @@ describe('loadLogsForRange', () => {
       const blockHash = await blockHeader.hash();
       return tags.map((t: Fr) => {
         if (t.equals(tagAtStart.value)) {
-          return [makeLog(txHashAtStart, blockHash, 5, tagAtStart)];
+          return [makeLog(txHashAtStart, blockHash, 5, timestamp, tagAtStart)];
         } else if (t.equals(tagAtEnd.value)) {
-          return [makeLog(txHashAtEnd, blockHash, 6, tagAtEnd)];
+          return [makeLog(txHashAtEnd, blockHash, 6, timestamp, tagAtEnd)];
         }
         return [];
       });
-    });
-
-    aztecNode.getBlockHeaderByHash.mockImplementation(async (hash: Fr) => {
-      if (hash.equals(await blockHeader.hash())) {
-        return blockHeader;
-      }
-      return undefined;
     });
 
     const result = await loadLogsForRange(secret, app, aztecNode, start, end, NON_INTERFERING_ANCHOR_BLOCK_NUMBER);
@@ -266,50 +227,6 @@ describe('loadLogsForRange', () => {
     expect(result).toHaveLength(1);
     expect(result[0].taggingIndex).toBe(start);
     expect(result[0].log.txHash.equals(txHashAtStart)).toBe(true);
-  });
-
-  it('ignores logs from reorged blocks', async () => {
-    const txHashReorged = TxHash.random();
-    const txHashValid = TxHash.random();
-    const blockHashReorged = L2BlockHash.random();
-    const blockNumberReorged = 5;
-    const blockNumberValid = 6;
-    const index1 = 3;
-    const index2 = 4;
-    const timestamp = 2000n;
-    const tag1 = await computeSiloedTagForIndex(index1);
-    const tag2 = await computeSiloedTagForIndex(index2);
-    const blockHeaderValid = makeBlockHeader(1, { timestamp });
-
-    aztecNode.getLogsByTags.mockImplementation((tags: Fr[]) => {
-      return Promise.all(
-        tags.map(async (t: Fr) => {
-          if (t.equals(tag1.value)) {
-            return [makeLog(txHashReorged, Fr.fromBuffer(blockHashReorged.toBuffer()), blockNumberReorged, tag1)];
-          } else if (t.equals(tag2.value)) {
-            return [makeLog(txHashValid, await blockHeaderValid.hash(), blockNumberValid, tag2)];
-          }
-          return [];
-        }),
-      );
-    });
-
-    aztecNode.getBlockHeaderByHash.mockImplementation(async (hash: Fr) => {
-      // Block header for reorged block is not found (returns undefined)
-      if (hash.equals(Fr.fromBuffer(blockHashReorged.toBuffer()))) {
-        return undefined;
-      } else if (hash.equals(await blockHeaderValid.hash())) {
-        return blockHeaderValid;
-      }
-      return undefined;
-    });
-
-    const result = await loadLogsForRange(secret, app, aztecNode, 0, 10, NON_INTERFERING_ANCHOR_BLOCK_NUMBER);
-
-    // Should only include the log from the valid block, ignoring the log from the reorged block
-    expect(result).toHaveLength(1);
-    expect(result[0].log.txHash.equals(txHashValid)).toBe(true);
-    expect(result[0].taggingIndex).toBe(index2);
   });
 
   it('filters out logs from blocks after anchor block', async () => {
@@ -327,24 +244,13 @@ describe('loadLogsForRange', () => {
         tags.map(async (t: Fr) =>
           t.equals(tag.value)
             ? [
-                makeLog(TxHash.random(), await blockHeaderBefore.hash(), anchorBlockNumber - 1, tag),
-                makeLog(TxHash.random(), await blockHeaderAtAnchor.hash(), anchorBlockNumber, tag),
-                makeLog(TxHash.random(), await blockHeaderAfter.hash(), anchorBlockNumber + 1, tag),
+                makeLog(TxHash.random(), await blockHeaderBefore.hash(), anchorBlockNumber - 1, timestamp, tag),
+                makeLog(TxHash.random(), await blockHeaderAtAnchor.hash(), anchorBlockNumber, timestamp, tag),
+                makeLog(TxHash.random(), await blockHeaderAfter.hash(), anchorBlockNumber + 1, timestamp, tag),
               ]
             : [],
         ),
       );
-    });
-
-    aztecNode.getBlockHeaderByHash.mockImplementation(async (hash: Fr) => {
-      if (hash.equals(await blockHeaderBefore.hash())) {
-        return blockHeaderBefore;
-      } else if (hash.equals(await blockHeaderAtAnchor.hash())) {
-        return blockHeaderAtAnchor;
-      } else if (hash.equals(await blockHeaderAfter.hash())) {
-        return blockHeaderAfter;
-      }
-      return undefined;
     });
 
     const result = await loadLogsForRange(secret, app, aztecNode, 0, 10, BlockNumber(anchorBlockNumber));
