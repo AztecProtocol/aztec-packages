@@ -135,7 +135,7 @@ export async function newValidatorKeystore(options: NewValidatorKeystoreOptions,
     const chain = createEthereumChain(l1RpcUrls, l1ChainId);
     const publicClient = createPublicClient({
       chain: chain.chainInfo,
-      transport: fallback(l1RpcUrls.map(url => http(url))),
+      transport: fallback(l1RpcUrls.map(url => http(url, { batch: false }))),
     });
     const gse = new GSEContract(publicClient, gseAddress);
 

@@ -230,7 +230,7 @@ export class Archiver
     const chain = createEthereumChain(config.l1RpcUrls, config.l1ChainId);
     const publicClient = createPublicClient({
       chain: chain.chainInfo,
-      transport: fallback(config.l1RpcUrls.map(url => http(url))),
+      transport: fallback(config.l1RpcUrls.map(url => http(url, { batch: false }))),
       pollingInterval: config.viemPollingIntervalMS,
     });
 
@@ -238,7 +238,7 @@ export class Archiver
     const debugRpcUrls = config.l1DebugRpcUrls.length > 0 ? config.l1DebugRpcUrls : config.l1RpcUrls;
     const debugClient = createPublicClient({
       chain: chain.chainInfo,
-      transport: fallback(debugRpcUrls.map(url => http(url))),
+      transport: fallback(debugRpcUrls.map(url => http(url, { batch: false }))),
       pollingInterval: config.viemPollingIntervalMS,
     }) as ViemPublicDebugClient;
 

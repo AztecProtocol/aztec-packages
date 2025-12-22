@@ -12,14 +12,17 @@ describe('TXESession.processFunction', () => {
       {} as any, // stateMachine
       {} as any, // oracleHandler
       {} as any, // contractDataProvider
+      {} as any, // noteDataProvider
       {} as any, // keyStore
       {} as any, // addressDataProvider
       {} as any, // accountDataProvider
+      {} as any, // senderTaggingDataProvider
+      {} as any, // recipientTaggingDataProvider
+      {} as any, // capsuleDataProvider
       {} as any, // privateEventDataProvider
       new Fr(1), // chainId
       new Fr(1), // version
       0n, // nextBlockTimestamp
-      {} as any, // pxeOracleInterface
     );
   });
 

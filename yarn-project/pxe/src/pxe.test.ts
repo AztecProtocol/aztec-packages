@@ -25,7 +25,7 @@ import type { MockProxy } from 'jest-mock-extended/lib/Mock.js';
 
 import type { PXEConfig } from './config/index.js';
 import { PXE, type PackedPrivateEvent } from './pxe.js';
-import { PrivateEventDataProvider } from './storage/index.js';
+import { PrivateEventDataProvider } from './storage/private_event_data_provider/private_event_data_provider.js';
 
 describe('PXE', () => {
   let pxe: PXE;

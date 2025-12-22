@@ -18,7 +18,7 @@ export async function getL1Balance(
   const chain = createEthereumChain(l1RpcUrls, chainId);
   const publicClient = createPublicClient({
     chain: chain.chainInfo,
-    transport: fallback(l1RpcUrls.map(url => http(url))),
+    transport: fallback(l1RpcUrls.map(url => http(url, { batch: false }))),
   });
 
   let balance = 0n;
