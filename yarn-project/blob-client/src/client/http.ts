@@ -504,7 +504,7 @@ export class HttpBlobClient implements BlobClientInterface {
     // Ping execution node to get the parentBeaconBlockRoot for this block
     let parentBeaconBlockRoot: string | undefined;
     const client = createPublicClient({
-      transport: fallback(l1RpcUrls.map(url => http(url))),
+      transport: fallback(l1RpcUrls.map(url => http(url, { batch: false }))),
     });
     try {
       const res: RpcBlock = await client.request({

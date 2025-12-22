@@ -53,7 +53,7 @@ export class GlobalVariableBuilder implements GlobalVariableBuilderInterface {
 
     this.publicClient = createPublicClient({
       chain: chain.chainInfo,
-      transport: fallback(chain.rpcUrls.map(url => http(url))),
+      transport: fallback(chain.rpcUrls.map(url => http(url, { batch: false }))),
       pollingInterval: config.viemPollingIntervalMS,
     });
 
