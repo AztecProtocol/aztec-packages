@@ -97,7 +97,7 @@ resource "helm_release" "eth_devnet" {
     value = var.RELEASE_PREFIX
   }
 
-  timeout       = 300
+  timeout       = 1200
   wait          = true
   wait_for_jobs = false
 }
