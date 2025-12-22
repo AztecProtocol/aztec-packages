@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <cstring>
+#include <optional>
 #include <stdexcept>
 #include <variant>
 
@@ -111,7 +112,12 @@ struct VariableRef {
     uint32_t base_offset_seed = 0;
     AddressingModeWrapper mode = AddressingMode::Direct;
 
-    MSGPACK_FIELDS(tag, index, pointer_address_seed, base_offset_seed, mode);
+    /// @brief Raw operand value for decompiled bytecode
+    /// When set, this exact value is used as the operand instead of computing from seeds.
+    /// This ensures byte-perfect reconstruction of decompiled bytecode.
+    std::optional<uint32_t> raw_operand = std::nullopt;
+
+    MSGPACK_FIELDS(tag, index, pointer_address_seed, base_offset_seed, mode, raw_operand);
 };
 
 struct AddressRef {
@@ -126,7 +132,13 @@ struct AddressRef {
     /// Sets M[0] = base_offset
     uint32_t base_offset_seed = 0;
     AddressingModeWrapper mode = AddressingMode::Direct;
-    MSGPACK_FIELDS(address, pointer_address_seed, base_offset_seed, mode);
+
+    /// @brief Raw operand value for decompiled bytecode
+    /// When set, this exact value is used as the operand instead of computing from seeds.
+    /// This ensures byte-perfect reconstruction of decompiled bytecode.
+    std::optional<uint32_t> raw_operand = std::nullopt;
+
+    MSGPACK_FIELDS(address, pointer_address_seed, base_offset_seed, mode, raw_operand);
 };
 
 using ParamRef = std::variant<VariableRef, AddressRef>;
@@ -570,6 +582,19 @@ struct CALL_Instruction {
                    is_static_call);
 };
 
+/// @brief RAW_CALL: Raw CALL/STATICCALL instruction from decompiled bytecode
+/// Wire format: [INDIRECT16, l2GasOffset, daGasOffset, addrOffset, argsOffset, argsSizeOffset]
+/// Used for byte-perfect reconstruction of bytecode - no semantic processing
+struct RAW_CALL_Instruction {
+    AddressRef l2_gas_address;
+    AddressRef da_gas_address;
+    AddressRef addr_address;
+    AddressRef args_address;
+    AddressRef args_size_address;
+    bool is_static_call;
+    MSGPACK_FIELDS(l2_gas_address, da_gas_address, addr_address, args_address, args_size_address, is_static_call);
+};
+
 /// @brief: RETURNDATASIZE + RETURNDATACOPY:
 // M[copySizeOffset] = nestedReturndata.size()
 // M[dstOffset:dstOffset+M[copySizeOffset]] =
@@ -645,6 +670,93 @@ struct TORADIXBE_Instruction {
     MSGPACK_FIELDS(value_address, radix_address, num_limbs_address, output_bits_address, dst_address, is_output_bits);
 };
 
+// ============================================================================
+// Control Flow Instructions (opaque - serialize directly for decompiler)
+// These instructions are used by the bytecode decompiler to preserve
+// bytecode equivalence when decompiling and recompiling.
+// ============================================================================
+
+/// @brief JUMP_32: Unconditional jump to destination PC
+struct JUMP_32_Instruction {
+    uint32_t destination; // Raw PC offset from bytecode
+    MSGPACK_FIELDS(destination);
+};
+
+/// @brief JUMPI_32: Conditional jump based on condition at memory offset
+struct JUMPI_32_Instruction {
+    AddressRef condition_address; // Memory address of condition (with addressing mode)
+    uint32_t destination;         // Jump target if condition is true
+    MSGPACK_FIELDS(condition_address, destination);
+};
+
+/// @brief RETURN: Return from execution with data
+struct RETURN_Instruction {
+    AddressRef return_data_size_address; // Memory address containing size
+    AddressRef return_data_address;      // Memory address of return data start
+    MSGPACK_FIELDS(return_data_size_address, return_data_address);
+};
+
+/// @brief REVERT_8: Revert execution (8-bit operands)
+struct REVERT_8_Instruction {
+    AddressRef return_data_size_address;
+    AddressRef return_data_address;
+    MSGPACK_FIELDS(return_data_size_address, return_data_address);
+};
+
+/// @brief REVERT_16: Revert execution (16-bit operands)
+struct REVERT_16_Instruction {
+    AddressRef return_data_size_address;
+    AddressRef return_data_address;
+    MSGPACK_FIELDS(return_data_size_address, return_data_address);
+};
+
+/// @brief INTERNALCALL: Call internal function at destination PC
+struct INTERNALCALL_Instruction {
+    uint32_t destination; // Target PC of internal function
+    MSGPACK_FIELDS(destination);
+};
+
+/// @brief INTERNALRETURN: Return from internal function call
+struct INTERNALRETURN_Instruction {
+    // No operands - use empty MSGPACK_FIELDS
+    uint8_t _dummy = 0; // Placeholder for msgpack serialization
+    MSGPACK_FIELDS(_dummy);
+};
+
+// ============================================================================
+// Raw Instructions (for byte-perfect bytecode reconstruction from decompiler)
+// ============================================================================
+
+/// @brief RAW_RETURNDATASIZE: [INDIRECT8, dstOffset]
+struct RAW_RETURNDATASIZE_Instruction {
+    AddressRef dst_address;
+    MSGPACK_FIELDS(dst_address);
+};
+
+/// @brief RAW_RETURNDATACOPY: [INDIRECT8, dstOffset, rdStartOffset, copySizeOffset]
+struct RAW_RETURNDATACOPY_Instruction {
+    AddressRef dst_address;
+    AddressRef rd_start_address;
+    AddressRef copy_size_address;
+    MSGPACK_FIELDS(dst_address, rd_start_address, copy_size_address);
+};
+
+/// @brief RAW_L1TOL2MSGEXISTS: [INDIRECT8, msgKeyOffset, msgLeafIndexOffset, resultOffset]
+struct RAW_L1TOL2MSGEXISTS_Instruction {
+    AddressRef msg_key_address;
+    AddressRef msg_leaf_index_address;
+    AddressRef result_address;
+    MSGPACK_FIELDS(msg_key_address, msg_leaf_index_address, result_address);
+};
+
+/// @brief RAW_GETCONTRACTINSTANCE: [INDIRECT8, addrOffset, resultOffset, memberIndex]
+struct RAW_GETCONTRACTINSTANCE_Instruction {
+    AddressRef addr_address;
+    AddressRef result_address;
+    uint8_t member_index;
+    MSGPACK_FIELDS(addr_address, result_address, member_index);
+};
+
 using FuzzInstruction = std::variant<ADD_8_Instruction,
                                      FDIV_8_Instruction,
                                      SET_8_Instruction,
@@ -695,6 +807,7 @@ using FuzzInstruction = std::variant<ADD_8_Instruction,
                                      SENDL2TOL1MSG_Instruction,
                                      EMITUNENCRYPTEDLOG_Instruction,
                                      CALL_Instruction,
+                                     RAW_CALL_Instruction,
                                      RETURNDATASIZE_WITH_RETURNDATACOPY_Instruction,
                                      GETCONTRACTINSTANCE_Instruction,
                                      SUCCESSCOPY_Instruction,
@@ -703,6 +816,12 @@ using FuzzInstruction = std::variant<ADD_8_Instruction,
                                      KECCAKF1600_Instruction,
                                      SHA256COMPRESSION_Instruction,
                                      TORADIXBE_Instruction>;
+// Control flow instructions (for decompiler)
+JUMP_32_Instruction, JUMPI_32_Instruction, RETURN_Instruction, REVERT_8_Instruction, REVERT_16_Instruction,
+    INTERNALCALL_Instruction, INTERNALRETURN_Instruction,
+    // Raw instructions for byte-perfect bytecode reconstruction
+    RAW_RETURNDATASIZE_Instruction, RAW_RETURNDATACOPY_Instruction, RAW_L1TOL2MSGEXISTS_Instruction,
+    RAW_GETCONTRACTINSTANCE_Instruction > ;
 
 template <class... Ts> struct overloaded : Ts... {
     using Ts::operator()...;
@@ -918,6 +1037,25 @@ inline std::ostream& operator<<(std::ostream& os, const FuzzInstruction& instruc
                    << arg.num_limbs_address << " " << arg.output_bits_address << " " << arg.dst_address << " "
                    << arg.is_output_bits;
             },
+            // Control flow instructions
+            [&](JUMP_32_Instruction arg) { os << "JUMP_32_Instruction dest=" << arg.destination; },
+            [&](JUMPI_32_Instruction arg) {
+                os << "JUMPI_32_Instruction cond=" << arg.condition_address << " dest=" << arg.destination;
+            },
+            [&](RETURN_Instruction arg) {
+                os << "RETURN_Instruction size_off=" << arg.return_data_size_address
+                   << " data_off=" << arg.return_data_address;
+            },
+            [&](REVERT_8_Instruction arg) {
+                os << "REVERT_8_Instruction size_off=" << arg.return_data_size_address
+                   << " data_off=" << arg.return_data_address;
+            },
+            [&](REVERT_16_Instruction arg) {
+                os << "REVERT_16_Instruction size_off=" << arg.return_data_size_address
+                   << " data_off=" << arg.return_data_address;
+            },
+            [&](INTERNALCALL_Instruction arg) { os << "INTERNALCALL_Instruction dest=" << arg.destination; },
+            [&](INTERNALRETURN_Instruction) { os << "INTERNALRETURN_Instruction"; },
             [&](auto) { os << "Unknown instruction"; },
         },
         instruction);

@@ -237,6 +237,13 @@ int predict_block_size(ProgramBlock* block)
     const int JMP_SIZE = 1 + 4;            // opcode + destination offset
     const int JMP_IF_SIZE = 1 + 1 + 2 + 4; // opcode  + direct/indirect + condition offset + destination offset
     auto bytecode_length = static_cast<int>(create_bytecode(block->get_instructions()).size());
+
+    // If block has explicit terminator (from decompiler), just return bytecode length
+    // No additional terminators will be added
+    if (block->has_explicit_terminator) {
+        return bytecode_length;
+    }
+
     switch (block->terminator_type) {
     case TerminatorType::RETURN:
         return bytecode_length; // finalized with return, already counted
@@ -262,6 +269,10 @@ int predict_block_size(ProgramBlock* block)
         }
         return bytecode_length + JMP_IF_SIZE + JMP_SIZE; // finalized with jumpi
     }
+    case TerminatorType::NONE:
+        // Block with no terminator type but has explicit terminator (already handled above)
+        // This shouldn't be reached, but return bytecode length just in case
+        return bytecode_length;
     default:
         throw std::runtime_error("Predict block size: Every block should be terminated with return, jump, or jumpi, "
                                  "got " +
@@ -286,8 +297,9 @@ std::vector<uint8_t> ControlFlow::build_bytecode(const ReturnOptions& return_opt
     std::vector<ProgramBlock*> blocks = dfs_traverse(start_block);
 
     // Step 2 terminate all non-terminated blocks with return
+    // Skip blocks that have explicit terminators (from decompiler)
     for (ProgramBlock* block : blocks) {
-        if (block->terminator_type == TerminatorType::NONE) {
+        if (block->terminator_type == TerminatorType::NONE && !block->has_explicit_terminator) {
             block->finalize_with_return(
                 /*TODO(defkit) fix return size */ 1,
                 return_options.return_value_tag,
@@ -308,9 +320,17 @@ std::vector<uint8_t> ControlFlow::build_bytecode(const ReturnOptions& return_opt
     }
 
     // Step 4 terminate unterminated blocks with jumps with known offsets, get the bytecode for each block
+    // Skip adding terminators for blocks with explicit terminators (from decompiler)
     std::vector<std::vector<uint8_t>> block_bytecodes;
     for (ProgramBlock* block : blocks) {
         std::vector<bb::avm2::simulation::Instruction> instructions = block->get_instructions();
+
+        // If block has explicit terminator (from decompiler), just use instructions as-is
+        if (block->has_explicit_terminator) {
+            block_bytecodes.push_back(create_bytecode(instructions));
+            continue;
+        }
+
         switch (block->terminator_type) {
         case TerminatorType::RETURN: // finalized with return
             // already terminated with return
@@ -345,6 +365,10 @@ std::vector<uint8_t> ControlFlow::build_bytecode(const ReturnOptions& return_opt
             instructions.push_back(jump_else_instruction);
             break;
         }
+        case TerminatorType::NONE:
+            // Block with no terminator type but has explicit terminator
+            // This shouldn't be reached, but handle it gracefully
+            break;
         default:
             throw std::runtime_error(
                 "Inject terminators: Every block should be terminated with return, jump, or jumpi");

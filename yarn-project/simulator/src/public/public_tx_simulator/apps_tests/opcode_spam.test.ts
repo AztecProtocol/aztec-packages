@@ -15,6 +15,7 @@ import { SimpleContractDataSource } from '../../fixtures/simple_contract_data_so
 import { TestExecutorMetrics } from '../../test_executor_metrics.js';
 import { MeasuredCppPublicTxSimulator } from '../cpp_public_tx_simulator.js';
 import { MeasuredCppVsTsPublicTxSimulator } from '../cpp_vs_ts_public_tx_simulator.js';
+import { MeasuredDumpingCppPublicTxSimulator } from '../dumping_cpp_public_tx_simulator.js';
 
 // NOTE: This test is meant to be run for benchmarking. Set RUN_AVM_OPCODE_SPAM=1 to enable.
 const describeOrSkip = process.env.RUN_AVM_OPCODE_SPAM ? describe : describe.skip;
@@ -30,6 +31,9 @@ const MAX_CALL_STACK_ITEMS = COLLECT_META_CHECK_RET ? 10000 : 0;
 const MAX_CALL_STACK_DEPTH = COLLECT_META_CHECK_RET ? 10000 : 0;
 const expectToBeTrue = COLLECT_META_CHECK_RET ? (x: boolean) => expect(x).toBe(true) : () => {};
 
+// Environment variable for dumping AVM circuit inputs to disk
+const DUMP_DIR = process.env.DUMP_AVM_INPUTS_TO_DIR;
+
 describeOrSkip('Opcode Spammer Benchmarks', () => {
   const logger = createLogger('opcode-spam-bench');
 
@@ -39,13 +43,14 @@ describeOrSkip('Opcode Spammer Benchmarks', () => {
   // Shared metrics instance for benchmark collection
   const metrics = new TestExecutorMetrics();
 
-  // Benchmark config - disable most collection for speed
+  // Benchmark config - disable most collection for speed, unless dumping
   const config: PublicSimulatorConfig = PublicSimulatorConfig.from({
     skipFeeEnforcement: false,
     collectCallMetadata: COLLECT_META_CHECK_RET,
     collectDebugLogs: false,
-    collectHints: false,
-    collectPublicInputs: false,
+    // Enable hints/public inputs collection when dumping
+    collectHints: !!DUMP_DIR,
+    collectPublicInputs: !!DUMP_DIR,
     collectStatistics: false,
     // Increase call stack limits for nested call tests (defaults are too low for some opcodes)
     collectionLimits: CollectionLimitsConfig.from({
@@ -80,9 +85,15 @@ describeOrSkip('Opcode Spammer Benchmarks', () => {
       worldStateService = await NativeWorldStateService.tmp();
       const contractDataSource = new SimpleContractDataSource();
       const merkleTree = await worldStateService.fork();
-      const simulatorFactory: MeasuredSimulatorFactory = useCppSimulator
-        ? (mt, cdb, g, m, c) => new MeasuredCppPublicTxSimulator(mt, cdb, g, m, c)
-        : (mt, cdb, g, m, c) => new MeasuredCppVsTsPublicTxSimulator(mt, cdb, g, m, c);
+      // Use MeasuredDumpingCppPublicTxSimulator when DUMP_DIR is set, otherwise use regular simulator
+      let simulatorFactory: MeasuredSimulatorFactory;
+      if (DUMP_DIR && useCppSimulator) {
+        simulatorFactory = (mt, cdb, g, m, c) => new MeasuredDumpingCppPublicTxSimulator(mt, cdb, g, m, c, DUMP_DIR);
+      } else if (useCppSimulator) {
+        simulatorFactory = (mt, cdb, g, m, c) => new MeasuredCppPublicTxSimulator(mt, cdb, g, m, c);
+      } else {
+        simulatorFactory = (mt, cdb, g, m, c) => new MeasuredCppVsTsPublicTxSimulator(mt, cdb, g, m, c);
+      }
       tester = new PublicTxSimulationTester(
         merkleTree,
         contractDataSource,

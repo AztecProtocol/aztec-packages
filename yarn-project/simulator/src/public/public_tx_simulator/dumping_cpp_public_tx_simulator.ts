@@ -13,8 +13,10 @@ import { strict as assert } from 'assert';
 import { mkdirSync, writeFileSync } from 'fs';
 import { join } from 'path';
 
+import type { ExecutorMetricsInterface } from '../executor_metrics_interface.js';
 import type { PublicContractsDB } from '../public_db_sources.js';
 import { CppPublicTxSimulator } from './cpp_public_tx_simulator.js';
+import type { MeasuredPublicTxSimulatorInterface } from './public_tx_simulator_interface.js';
 
 /**
  * A C++ public tx simulator that dumps AVM circuit inputs to disk after simulation.
@@ -77,5 +79,36 @@ export class DumpingCppPublicTxSimulator extends CppPublicTxSimulator {
       // Non-blocking error handling - log but don't interrupt processing
       this.log.warn(`Failed to dump AVM circuit inputs for tx ${txHash.toString()}: ${error}`);
     }
+  }
+}
+
+/**
+ * A C++ public tx simulator that both dumps AVM circuit inputs and tracks metrics.
+ * Combines DumpingCppPublicTxSimulator and MeasuredCppPublicTxSimulator functionality.
+ */
+export class MeasuredDumpingCppPublicTxSimulator
+  extends DumpingCppPublicTxSimulator
+  implements MeasuredPublicTxSimulatorInterface
+{
+  constructor(
+    merkleTree: MerkleTreeWriteOperations,
+    contractsDB: PublicContractsDB,
+    globalVariables: GlobalVariables,
+    protected readonly metrics: ExecutorMetricsInterface,
+    config: Partial<PublicSimulatorConfig>,
+    outputDir: string,
+  ) {
+    super(merkleTree, contractsDB, globalVariables, config, outputDir);
+  }
+
+  public override async simulate(tx: Tx, txLabel: string = 'unlabeledTx'): Promise<PublicTxResult> {
+    this.metrics.startRecordingTxSimulation(txLabel);
+    let result: PublicTxResult | undefined;
+    try {
+      result = await super.simulate(tx);
+    } finally {
+      this.metrics.stopRecordingTxSimulation(txLabel, result?.gasUsed, result?.revertCode);
+    }
+    return result;
   }
 }

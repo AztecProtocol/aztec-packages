@@ -71,7 +71,8 @@ GlobalVariables create_default_globals()
 
 SimulatorResult CppSimulator::simulate(fuzzer::FuzzerWorldStateManager& ws_mgr,
                                        fuzzer::FuzzerContractDB& contract_db,
-                                       const Tx& tx)
+                                       const Tx& tx,
+                                       const GlobalVariables& globals)
 {
 
     const PublicSimulatorConfig config{
@@ -82,16 +83,26 @@ SimulatorResult CppSimulator::simulate(fuzzer::FuzzerWorldStateManager& ws_mgr,
 
     ProtocolContracts protocol_contracts{};
 
-    auto globals = create_default_globals();
-
     WorldState& ws = ws_mgr.get_world_state();
     WorldStateRevision ws_rev = ws_mgr.get_current_revision();
+
+    // Log transaction details
+    vinfo("[CPP_SIM] === Starting C++ Simulation ===");
+    vinfo("[CPP_SIM] tx.fee_payer: ", tx.fee_payer);
+    vinfo("[CPP_SIM] tx.gas_settings.gas_limits.da_gas: ", tx.gas_settings.gas_limits.da_gas);
+    vinfo("[CPP_SIM] tx.gas_settings.gas_limits.l2_gas: ", tx.gas_settings.gas_limits.l2_gas);
+    vinfo("[CPP_SIM] tx.effective_gas_fees.fee_per_da_gas: ", tx.effective_gas_fees.fee_per_da_gas);
+    vinfo("[CPP_SIM] tx.effective_gas_fees.fee_per_l2_gas: ", tx.effective_gas_fees.fee_per_l2_gas);
+    vinfo("[CPP_SIM] globals.gas_fees.fee_per_da_gas: ", globals.gas_fees.fee_per_da_gas);
+    vinfo("[CPP_SIM] globals.gas_fees.fee_per_l2_gas: ", globals.gas_fees.fee_per_l2_gas);
+    vinfo("[CPP_SIM] app_logic_enqueued_calls count: ", tx.app_logic_enqueued_calls.size());
 
     AvmSimulationHelper helper;
     TxSimulationResult result =
         helper.simulate_fast_with_existing_ws(contract_db, ws_rev, ws, config, tx, globals, protocol_contracts);
     bool reverted = result.revert_code != RevertCode::OK;
     // Just process the top level call's output
+    vinfo("[CPP_SIM] === C++ Simulation Complete ===");
     vinfo(
         "C++ Simulator result - reverted: ", reverted, ", output size: ", result.call_stack_metadata[0].output.size());
     std::vector<FF> values = {};
@@ -106,17 +117,33 @@ SimulatorResult CppSimulator::simulate(fuzzer::FuzzerWorldStateManager& ws_mgr,
         }
     }
     if (result.public_inputs.has_value()) {
+        const auto& snapshots = result.public_inputs->end_tree_snapshots;
+        vinfo("[CPP_SIM] end_tree_snapshots.publicDataTree.root: ", snapshots.public_data_tree.root);
+        vinfo("[CPP_SIM] end_tree_snapshots.nullifierTree.root: ", snapshots.nullifier_tree.root);
+        vinfo("[CPP_SIM] end_tree_snapshots.noteHashTree.root: ", snapshots.note_hash_tree.root);
         return { .reverted = reverted,
                  .output = values,
                  .end_tree_snapshots = result.public_inputs->end_tree_snapshots };
     }
+    vinfo("[CPP_SIM] WARNING: No public_inputs in result!");
     return { .reverted = reverted, .output = values };
 }
 
 JsSimulator* JsSimulator::instance = nullptr;
+
+std::string get_js_simulator_command(const std::string& simulator_path)
+{
+    // Allow overriding LOG_LEVEL via environment variable (default: silent)
+    const char* log_level_env = std::getenv("JS_SIMULATOR_LOG_LEVEL");
+    std::string log_level = log_level_env ? log_level_env : "silent";
+    // If not silent, don't redirect stderr to /dev/null
+    std::string stderr_redirect = (log_level == "silent") ? " 2>/dev/null" : "";
+    return "LOG_LEVEL=" + log_level + " node " + simulator_path + stderr_redirect;
+}
+
 JsSimulator::JsSimulator(std::string& simulator_path)
     : simulator_path(simulator_path)
-    , process("LOG_LEVEL=silent node " + simulator_path + " 2>/dev/null")
+    , process(get_js_simulator_command(simulator_path))
 {}
 
 JsSimulator* JsSimulator::getInstance()
@@ -139,10 +166,9 @@ void JsSimulator::initialize(std::string& simulator_path)
 
 SimulatorResult JsSimulator::simulate([[maybe_unused]] fuzzer::FuzzerWorldStateManager& ws_mgr,
                                       fuzzer::FuzzerContractDB& contract_db,
-                                      const Tx& tx)
+                                      const Tx& tx,
+                                      const GlobalVariables& globals)
 {
-    auto globals = create_default_globals();
-
     std::string serialized = serialize_simulation_request(tx, globals, contract_db);
 
     // Send the request

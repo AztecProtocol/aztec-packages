@@ -35,9 +35,10 @@ SimulatorResult fuzz_against_ts_simulator(FuzzerData& fuzzer_data)
     auto contract_address = ContractDBProxy::register_contract_from_bytecode(bytecode);
     FuzzerContractDB contract_db = *contract_db_proxy->get_contract_db();
 
-    // Create the transaction
+    // Create the transaction and globals
     auto tx = create_default_tx(
         contract_address, MSG_SENDER, fuzzer_data.calldata, TRANSACTION_FEE, IS_STATIC_CALL, GAS_LIMIT);
+    auto globals = create_default_globals();
 
     FF fee_required_da = FF(tx.effective_gas_fees.fee_per_da_gas) * FF(tx.gas_settings.gas_limits.da_gas);
     FF fee_required_l2 = FF(tx.effective_gas_fees.fee_per_l2_gas) * FF(tx.gas_settings.gas_limits.l2_gas);
@@ -45,14 +46,14 @@ SimulatorResult fuzz_against_ts_simulator(FuzzerData& fuzzer_data)
 
     try {
         ws_mgr->checkpoint();
-        cpp_result = cpp_simulator.simulate(*ws_mgr, contract_db, tx);
+        cpp_result = cpp_simulator.simulate(*ws_mgr, contract_db, tx, globals);
         ws_mgr->revert();
     } catch (const std::exception& e) {
         throw std::runtime_error(std::string("CppSimulator threw an exception: ") + e.what());
     }
 
     ws_mgr->checkpoint();
-    auto js_result = js_simulator->simulate(*ws_mgr, contract_db, tx);
+    auto js_result = js_simulator->simulate(*ws_mgr, contract_db, tx, globals);
 
     ContractDBProxy::reset_instance();
 

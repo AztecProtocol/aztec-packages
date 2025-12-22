@@ -123,6 +123,11 @@ class ProgramBlock {
     TerminatorType terminator_type = TerminatorType::NONE;
     int offset = -1;
 
+    /// @brief True if block contains an explicit terminator (RETURN, REVERT, JUMP, INTERNALRETURN)
+    /// When true, build_bytecode should NOT add implicit terminators.
+    /// This is used by the decompiler to preserve bytecode equivalence.
+    bool has_explicit_terminator = false;
+
     ProgramBlock() = default;
     /// @brief process the instruction
     /// @param instruction the instruction to process

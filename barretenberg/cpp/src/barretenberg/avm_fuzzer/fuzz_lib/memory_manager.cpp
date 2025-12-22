@@ -95,6 +95,14 @@ ResolvedAddress MemoryManager::resolve_address(VariableRef variable,
                                                uint32_t absolute_address,
                                                uint32_t max_operand_address)
 {
+    // For decompiled bytecode: use raw_operand directly if set
+    if (variable.raw_operand.has_value()) {
+        return ResolvedAddress{
+            .absolute_address = absolute_address,
+            .operand_address = variable.raw_operand.value(),
+        };
+    }
+
     ResolvedAddress resolved_address = {
         .absolute_address = absolute_address,
     };
@@ -130,6 +138,13 @@ ResolvedAddress MemoryManager::resolve_address(VariableRef variable,
 
 ResolvedAddress MemoryManager::resolve_address(AddressRef address, uint32_t max_operand_address)
 {
+    // For decompiled bytecode: use raw_operand directly if set
+    if (address.raw_operand.has_value()) {
+        return ResolvedAddress{
+            .absolute_address = address.address,
+            .operand_address = address.raw_operand.value(),
+        };
+    }
 
     ResolvedAddress resolved_address = {
         .absolute_address = address.address,
@@ -196,8 +211,23 @@ std::optional<std::pair<ResolvedAddress, bb::avm2::testing::OperandBuilder>> Mem
 std::optional<std::pair<ResolvedAddress, bb::avm2::testing::OperandBuilder>> MemoryManager::
     get_resolved_address_and_operand_8(VariableRef address)
 {
+    // For decompiled bytecode: use raw_operand directly with proper addressing mode
+    if (address.raw_operand.has_value()) {
+        auto resolved_address = resolve_address(address, address.index, 255);
+        auto operand = OperandBuilder::from<uint8_t>(static_cast<uint8_t>(resolved_address.operand_address));
+        return std::make_pair(resolved_address, get_memory_address_operand(operand, address.mode));
+    }
+
     auto actual_address = get_variable_address(address.tag, address.index, get_max_variable_address(address.mode, 255));
     if (!actual_address.has_value()) {
+        // For Direct mode, if no stored variable found, use the index directly as the address
+        // This supports decompiled bytecode where addresses aren't tracked in stored_variables
+        if (address.mode == AddressingMode::Direct) {
+            uint32_t direct_address = address.index % 256;
+            auto resolved_address = resolve_address(address, direct_address, 255);
+            auto operand = OperandBuilder::from<uint8_t>(static_cast<uint8_t>(resolved_address.operand_address));
+            return std::make_pair(resolved_address, get_memory_address_operand(operand, address.mode));
+        }
         return std::nullopt;
     }
     auto resolved_address = resolve_address(address, actual_address.value(), 255);
@@ -228,9 +258,24 @@ std::optional<std::pair<ResolvedAddress, bb::avm2::testing::OperandBuilder>> Mem
 std::optional<std::pair<ResolvedAddress, bb::avm2::testing::OperandBuilder>> MemoryManager::
     get_resolved_address_and_operand_16(VariableRef address)
 {
+    // For decompiled bytecode: use raw_operand directly with proper addressing mode
+    if (address.raw_operand.has_value()) {
+        auto resolved_address = resolve_address(address, address.index, 65535);
+        auto operand = OperandBuilder::from<uint16_t>(static_cast<uint16_t>(resolved_address.operand_address));
+        return std::make_pair(resolved_address, get_memory_address_operand(operand, address.mode));
+    }
+
     auto actual_address =
         get_variable_address(address.tag, address.index, get_max_variable_address(address.mode, 65535));
     if (!actual_address.has_value()) {
+        // For Direct mode, if no stored variable found, use the index directly as the address
+        // This supports decompiled bytecode where addresses aren't tracked in stored_variables
+        if (address.mode == AddressingMode::Direct) {
+            uint32_t direct_address = address.index % 65536;
+            auto resolved_address = resolve_address(address, direct_address, 65535);
+            auto operand = OperandBuilder::from<uint16_t>(static_cast<uint16_t>(resolved_address.operand_address));
+            return std::make_pair(resolved_address, get_memory_address_operand(operand, address.mode));
+        }
         return std::nullopt;
     }
 

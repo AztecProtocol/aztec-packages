@@ -6,6 +6,7 @@ import {
   deserializeFromMessagePack,
   serializeWithMessagePack,
 } from '@aztec/stdlib/avm';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { GlobalVariables, TreeSnapshots } from '@aztec/stdlib/tx';
 import { NativeWorldStateService } from '@aztec/world-state';
 
@@ -44,6 +45,21 @@ async function simulateWithFuzzer(
   rawContractClasses: any[], // Replace these when we are moving contract classes to TS
   rawContractInstances: [any, any][], // Replace these when we are moving contract instances to TS
 ): Promise<{ reverted: boolean; output: Fr[]; revertReason?: string; publicInputs: AvmCircuitPublicInputs }> {
+  // Log to stderr since stdout is used for communication
+  // console.error('[JS_SIM] === Starting JS Simulation ===');
+  // console.error('[JS_SIM] txHint.feePayer:', txHint.feePayer.toString());
+  // console.error('[JS_SIM] txHint.gasSettings.gasLimits.daGas:', txHint.gasSettings.gasLimits.daGas);
+  // console.error('[JS_SIM] txHint.gasSettings.gasLimits.l2Gas:', txHint.gasSettings.gasLimits.l2Gas);
+  // console.error('[JS_SIM] txHint.gasSettings.maxFeesPerGas.feePerDaGas:', txHint.gasSettings.maxFeesPerGas.feePerDaGas);
+  // console.error('[JS_SIM] txHint.gasSettings.maxFeesPerGas.feePerL2Gas:', txHint.gasSettings.maxFeesPerGas.feePerL2Gas);
+  // console.error('[JS_SIM] txHint.effectiveGasFees.feePerDaGas:', txHint.effectiveGasFees.feePerDaGas);
+  // console.error('[JS_SIM] txHint.effectiveGasFees.feePerL2Gas:', txHint.effectiveGasFees.feePerL2Gas);
+  // console.error('[JS_SIM] globals.gasFees.feePerDaGas:', globals.gasFees.feePerDaGas);
+  // console.error('[JS_SIM] globals.gasFees.feePerL2Gas:', globals.gasFees.feePerL2Gas);
+  // console.error('[JS_SIM] appLogicEnqueuedCalls count:', txHint.appLogicEnqueuedCalls?.length ?? 0);
+  // console.error('[JS_SIM] contractClasses count:', rawContractClasses.length);
+  // console.error('[JS_SIM] contractInstances count:', rawContractInstances.length);
+
   const worldStateService = await openExistingWorldState(dataDir, mapSizeKb);
 
   const simulator = await AvmFuzzerSimulator.create(worldStateService, globals);
@@ -54,15 +70,54 @@ async function simulateWithFuzzer(
   }
 
   // Register contract instances from C++
-  for (const [rawAddress, rawInstance] of rawContractInstances) {
+  // Sort by address and deduplicate to match C++ registration order
+  // (C++ sorts and uses std::unique before inserting nullifiers)
+  const sortedContractInstances = [...rawContractInstances].sort((a, b) => {
+    const addrA = AztecAddress.fromPlainObject(a[0]);
+    const addrB = AztecAddress.fromPlainObject(b[0]);
+    return addrA.toBigInt() < addrB.toBigInt() ? -1 : addrA.toBigInt() > addrB.toBigInt() ? 1 : 0;
+  });
+  // Deduplicate consecutive entries with same address (like std::unique after sort)
+  const uniqueContractInstances = sortedContractInstances.filter((item, index) => {
+    if (index === 0) {
+      return true;
+    }
+    const prevAddr = AztecAddress.fromPlainObject(sortedContractInstances[index - 1][0]);
+    const currAddr = AztecAddress.fromPlainObject(item[0]);
+    return !prevAddr.equals(currAddr);
+  });
+  for (const [rawAddress, rawInstance] of uniqueContractInstances) {
+    // console.error('[JS_SIM] Registering contract instance:', rawAddress);
     await simulator.addContractInstanceFromCpp(rawAddress, rawInstance);
   }
 
+  // console.error('[JS_SIM] Running simulation...');
   const result = await simulator.simulate(txHint);
+  // console.error('[JS_SIM] Simulation complete');
 
   const output = result
     .getAppLogicReturnValues()
     .flatMap((rv: { values?: Fr[] } | undefined) => rv?.values?.filter((v: Fr | null | undefined) => v != null) ?? []);
+
+  // console.error('[JS_SIM] === JS Simulation Complete ===');
+  // console.error('[JS_SIM] reverted:', !result.revertCode.isOK());
+  // console.error('[JS_SIM] output length:', output.length);
+  // if (result.publicInputs) {
+  //   console.error(
+  //     '[JS_SIM] end_tree_snapshots.publicDataTree.root:',
+  //     result.publicInputs.endTreeSnapshots.publicDataTree.root.toString(),
+  //   );
+  //   console.error(
+  //     '[JS_SIM] end_tree_snapshots.nullifierTree.root:',
+  //     result.publicInputs.endTreeSnapshots.nullifierTree.root.toString(),
+  //   );
+  //   console.error(
+  //     '[JS_SIM] end_tree_snapshots.noteHashTree.root:',
+  //     result.publicInputs.endTreeSnapshots.noteHashTree.root.toString(),
+  //   );
+  // } else {
+  //   console.error('[JS_SIM] WARNING: No publicInputs in result!');
+  // }
 
   return {
     reverted: !result.revertCode.isOK(),

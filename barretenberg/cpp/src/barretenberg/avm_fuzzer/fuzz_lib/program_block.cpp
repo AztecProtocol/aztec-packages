@@ -10,6 +10,98 @@
 #include "barretenberg/vm2/simulation/lib/serialization.hpp"
 #include "barretenberg/vm2/testing/instruction_builder.hpp"
 
+namespace {
+
+// Helper to check if a VariableRef is from decompiled bytecode
+bool is_decompiled_ref(const VariableRef& ref)
+{
+    return ref.raw_operand.has_value();
+}
+
+// Helper to check if an AddressRef is from decompiled bytecode
+bool is_decompiled_ref(const AddressRef& ref)
+{
+    return ref.raw_operand.has_value();
+}
+
+// Helper to check if a ParamRef is from decompiled bytecode
+bool is_decompiled_ref(const ParamRef& ref)
+{
+    return std::visit([](const auto& r) { return is_decompiled_ref(r); }, ref);
+}
+
+// Create an OperandBuilder from a decompiled VariableRef (16-bit)
+bb::avm2::testing::OperandBuilder decompiled_operand_16(const VariableRef& ref)
+{
+    auto operand =
+        bb::avm2::testing::OperandBuilder::from<uint16_t>(static_cast<uint16_t>(ref.raw_operand.value_or(ref.index)));
+    switch (ref.mode.value) {
+    case AddressingMode::Indirect:
+        return operand.indirect();
+    case AddressingMode::Relative:
+        return operand.relative();
+    case AddressingMode::IndirectRelative:
+        return operand.indirect().relative();
+    case AddressingMode::Direct:
+    default:
+        return operand;
+    }
+}
+
+// Create an OperandBuilder from a decompiled AddressRef (16-bit)
+bb::avm2::testing::OperandBuilder decompiled_operand_16(const AddressRef& ref)
+{
+    auto operand =
+        bb::avm2::testing::OperandBuilder::from<uint16_t>(static_cast<uint16_t>(ref.raw_operand.value_or(ref.address)));
+    switch (ref.mode.value) {
+    case AddressingMode::Indirect:
+        return operand.indirect();
+    case AddressingMode::Relative:
+        return operand.relative();
+    case AddressingMode::IndirectRelative:
+        return operand.indirect().relative();
+    case AddressingMode::Direct:
+    default:
+        return operand;
+    }
+}
+
+// Create an OperandBuilder from a decompiled ParamRef (16-bit)
+bb::avm2::testing::OperandBuilder decompiled_operand_16(const ParamRef& ref)
+{
+    return std::visit([](const auto& r) { return decompiled_operand_16(r); }, ref);
+}
+
+// Create an OperandBuilder from a decompiled VariableRef (8-bit)
+[[maybe_unused]] bb::avm2::testing::OperandBuilder decompiled_operand_8(const VariableRef& ref)
+{
+    auto operand =
+        bb::avm2::testing::OperandBuilder::from<uint8_t>(static_cast<uint8_t>(ref.raw_operand.value_or(ref.index)));
+    switch (ref.mode.value) {
+    case AddressingMode::Indirect:
+        return operand.indirect();
+    case AddressingMode::Direct:
+    default:
+        return operand;
+    }
+}
+
+// Create an OperandBuilder from a decompiled AddressRef (8-bit)
+[[maybe_unused]] bb::avm2::testing::OperandBuilder decompiled_operand_8(const AddressRef& ref)
+{
+    auto operand =
+        bb::avm2::testing::OperandBuilder::from<uint8_t>(static_cast<uint8_t>(ref.raw_operand.value_or(ref.address)));
+    switch (ref.mode.value) {
+    case AddressingMode::Indirect:
+        return operand.indirect();
+    case AddressingMode::Direct:
+    default:
+        return operand;
+    }
+}
+
+} // namespace
+
 void ProgramBlock::preprocess_memory_addresses(ResolvedAddress resolved_address)
 {
     if (resolved_address.base_pointer.has_value()) {
@@ -1698,31 +1790,147 @@ void ProgramBlock::process_instruction(FuzzInstruction instruction)
             [this](SHR_16_Instruction instruction) { return this->process_shr_16_instruction(instruction); },
             [this](CAST_8_Instruction instruction) { return this->process_cast_8_instruction(instruction); },
             [this](CAST_16_Instruction instruction) { return this->process_cast_16_instruction(instruction); },
-            [this](SSTORE_Instruction instruction) { return this->process_sstore_instruction(instruction); },
-            [this](SLOAD_Instruction instruction) { return this->process_sload_instruction(instruction); },
-            [this](GETENVVAR_Instruction instruction) { return this->process_getenvvar_instruction(instruction); },
+            [this](SSTORE_Instruction instruction) {
+                // Direct serialization for decompiled bytecode
+                if (is_decompiled_ref(instruction.src_address) || is_decompiled_ref(instruction.result_address)) {
+                    auto sstore_instr = bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::SSTORE)
+                                            .operand(decompiled_operand_16(instruction.src_address))
+                                            .operand(decompiled_operand_16(instruction.result_address))
+                                            .build();
+                    this->instructions.push_back(sstore_instr);
+                } else {
+                    return this->process_sstore_instruction(instruction);
+                }
+            },
+            [this](SLOAD_Instruction instruction) {
+                // Direct serialization for decompiled bytecode
+                if (is_decompiled_ref(instruction.slot_address) || is_decompiled_ref(instruction.result_address)) {
+                    auto sload_instr = bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::SLOAD)
+                                           .operand(decompiled_operand_16(instruction.slot_address))
+                                           .operand(decompiled_operand_16(instruction.result_address))
+                                           .build();
+                    this->instructions.push_back(sload_instr);
+                } else {
+                    return this->process_sload_instruction(instruction);
+                }
+            },
+            [this](GETENVVAR_Instruction instruction) {
+                // Direct serialization for decompiled bytecode
+                if (is_decompiled_ref(instruction.result_address)) {
+                    auto getenvvar_instr = bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::GETENVVAR_16)
+                                               .operand(decompiled_operand_16(instruction.result_address))
+                                               .operand(instruction.type)
+                                               .build();
+                    this->instructions.push_back(getenvvar_instr);
+                } else {
+                    return this->process_getenvvar_instruction(instruction);
+                }
+            },
             [this](EMITNULLIFIER_Instruction instruction) {
-                return this->process_emitnulifier_instruction(instruction);
+                // Direct serialization for decompiled bytecode
+                if (is_decompiled_ref(instruction.nullifier_address)) {
+                    auto emit_instr = bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::EMITNULLIFIER)
+                                          .operand(decompiled_operand_16(instruction.nullifier_address))
+                                          .build();
+                    this->instructions.push_back(emit_instr);
+                } else {
+                    return this->process_emitnulifier_instruction(instruction);
+                }
             },
             [this](NULLIFIEREXISTS_Instruction instruction) {
-                return this->process_nullifierexists_instruction(instruction);
+                // Direct serialization for decompiled bytecode
+                if (is_decompiled_ref(instruction.nullifier_address) ||
+                    is_decompiled_ref(instruction.contract_address_address) ||
+                    is_decompiled_ref(instruction.result_address)) {
+                    auto exists_instr = bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::NULLIFIEREXISTS)
+                                            .operand(decompiled_operand_16(instruction.nullifier_address))
+                                            .operand(decompiled_operand_16(instruction.contract_address_address))
+                                            .operand(decompiled_operand_16(instruction.result_address))
+                                            .build();
+                    this->instructions.push_back(exists_instr);
+                } else {
+                    return this->process_nullifierexists_instruction(instruction);
+                }
             },
             [this](EMITNOTEHASH_Instruction instruction) {
-                return this->process_emitnotehash_instruction(instruction);
+                // Direct serialization for decompiled bytecode
+                if (is_decompiled_ref(instruction.note_hash_address)) {
+                    auto emit_instr = bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::EMITNOTEHASH)
+                                          .operand(decompiled_operand_16(instruction.note_hash_address))
+                                          .build();
+                    this->instructions.push_back(emit_instr);
+                } else {
+                    return this->process_emitnotehash_instruction(instruction);
+                }
             },
             [this](NOTEHASHEXISTS_Instruction instruction) {
-                return this->process_notehashexists_instruction(instruction);
+                // Direct serialization for decompiled bytecode
+                if (is_decompiled_ref(instruction.notehash_address) ||
+                    is_decompiled_ref(instruction.leaf_index_address) ||
+                    is_decompiled_ref(instruction.result_address)) {
+                    auto exists_instr = bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::NOTEHASHEXISTS)
+                                            .operand(decompiled_operand_16(instruction.notehash_address))
+                                            .operand(decompiled_operand_16(instruction.leaf_index_address))
+                                            .operand(decompiled_operand_16(instruction.result_address))
+                                            .build();
+                    this->instructions.push_back(exists_instr);
+                } else {
+                    return this->process_notehashexists_instruction(instruction);
+                }
             },
             [this](CALLDATACOPY_Instruction instruction) {
-                return this->process_calldatacopy_instruction(instruction);
+                // Direct serialization for decompiled bytecode
+                if (is_decompiled_ref(instruction.dst_address) || is_decompiled_ref(instruction.copy_size_address) ||
+                    is_decompiled_ref(instruction.cd_start_address)) {
+                    auto copy_instr = bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::CALLDATACOPY)
+                                          .operand(decompiled_operand_16(instruction.dst_address))
+                                          .operand(decompiled_operand_16(instruction.cd_start_address))
+                                          .operand(decompiled_operand_16(instruction.copy_size_address))
+                                          .build();
+                    this->instructions.push_back(copy_instr);
+                } else {
+                    return this->process_calldatacopy_instruction(instruction);
+                }
             },
             [this](SENDL2TOL1MSG_Instruction instruction) {
-                return this->process_sendl2tol1msg_instruction(instruction);
+                // Direct serialization for decompiled bytecode
+                if (is_decompiled_ref(instruction.recipient_address) ||
+                    is_decompiled_ref(instruction.content_address)) {
+                    auto msg_instr = bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::SENDL2TOL1MSG)
+                                         .operand(decompiled_operand_16(instruction.recipient_address))
+                                         .operand(decompiled_operand_16(instruction.content_address))
+                                         .build();
+                    this->instructions.push_back(msg_instr);
+                } else {
+                    return this->process_sendl2tol1msg_instruction(instruction);
+                }
             },
             [this](EMITUNENCRYPTEDLOG_Instruction instruction) {
-                return this->process_emitunencryptedlog_instruction(instruction);
+                // Direct serialization for decompiled bytecode
+                if (is_decompiled_ref(instruction.log_size_address)) {
+                    auto log_instr = bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::EMITUNENCRYPTEDLOG)
+                                         .operand(decompiled_operand_16(instruction.log_size_address))
+                                         .operand(instruction.log_values_address_start)
+                                         .build();
+                    this->instructions.push_back(log_instr);
+                } else {
+                    return this->process_emitunencryptedlog_instruction(instruction);
+                }
             },
             [this](CALL_Instruction instruction) { return this->process_call_instruction(instruction); },
+            [this](RAW_CALL_Instruction instruction) {
+                // Direct serialization for decompiled CALL/STATICCALL
+                auto opcode =
+                    instruction.is_static_call ? bb::avm2::WireOpCode::STATICCALL : bb::avm2::WireOpCode::CALL;
+                auto call_instr = bb::avm2::testing::InstructionBuilder(opcode)
+                                      .operand(decompiled_operand_16(instruction.l2_gas_address))
+                                      .operand(decompiled_operand_16(instruction.da_gas_address))
+                                      .operand(decompiled_operand_16(instruction.addr_address))
+                                      .operand(decompiled_operand_16(instruction.args_address))
+                                      .operand(decompiled_operand_16(instruction.args_size_address))
+                                      .build();
+                this->instructions.push_back(call_instr);
+            },
             [this](RETURNDATASIZE_WITH_RETURNDATACOPY_Instruction instruction) {
                 return this->process_returndatasize_with_returndatacopy_instruction(instruction);
             },
@@ -1742,6 +1950,89 @@ void ProgramBlock::process_instruction(FuzzInstruction instruction)
                 return this->process_l1tol2msgexists_instruction(instruction);
             },
             [this](TORADIXBE_Instruction instruction) { return this->process_toradixbe_instruction(instruction); },
+            // Control flow instructions (direct serialization for decompiler)
+            [this](JUMP_32_Instruction instruction) {
+                auto jump_instr = bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::JUMP_32)
+                                      .operand(instruction.destination)
+                                      .build();
+                this->instructions.push_back(jump_instr);
+                this->has_explicit_terminator = true;
+            },
+            [this](JUMPI_32_Instruction instruction) {
+                auto jumpi_instr = bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::JUMPI_32)
+                                       .operand(decompiled_operand_16(instruction.condition_address))
+                                       .operand(instruction.destination)
+                                       .build();
+                this->instructions.push_back(jumpi_instr);
+                // Note: JUMPI doesn't fully terminate - fall-through continues
+            },
+            [this](RETURN_Instruction instruction) {
+                auto return_instr = bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::RETURN)
+                                        .operand(decompiled_operand_16(instruction.return_data_size_address))
+                                        .operand(decompiled_operand_16(instruction.return_data_address))
+                                        .build();
+                this->instructions.push_back(return_instr);
+                this->has_explicit_terminator = true;
+            },
+            [this](REVERT_8_Instruction instruction) {
+                auto revert_instr = bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::REVERT_8)
+                                        .operand(decompiled_operand_8(instruction.return_data_size_address))
+                                        .operand(decompiled_operand_8(instruction.return_data_address))
+                                        .build();
+                this->instructions.push_back(revert_instr);
+                this->has_explicit_terminator = true;
+            },
+            [this](REVERT_16_Instruction instruction) {
+                auto revert_instr = bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::REVERT_16)
+                                        .operand(decompiled_operand_16(instruction.return_data_size_address))
+                                        .operand(decompiled_operand_16(instruction.return_data_address))
+                                        .build();
+                this->instructions.push_back(revert_instr);
+                this->has_explicit_terminator = true;
+            },
+            [this](INTERNALCALL_Instruction instruction) {
+                auto internalcall_instr = bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::INTERNALCALL)
+                                              .operand(instruction.destination)
+                                              .build();
+                this->instructions.push_back(internalcall_instr);
+            },
+            [this](INTERNALRETURN_Instruction) {
+                auto internalreturn_instr =
+                    bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::INTERNALRETURN).build();
+                this->instructions.push_back(internalreturn_instr);
+                this->has_explicit_terminator = true;
+            },
+            // Raw instructions for byte-perfect bytecode reconstruction
+            [this](RAW_RETURNDATASIZE_Instruction instruction) {
+                auto instr = bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::RETURNDATASIZE)
+                                 .operand(decompiled_operand_16(instruction.dst_address))
+                                 .build();
+                this->instructions.push_back(instr);
+            },
+            [this](RAW_RETURNDATACOPY_Instruction instruction) {
+                auto instr = bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::RETURNDATACOPY)
+                                 .operand(decompiled_operand_16(instruction.dst_address))
+                                 .operand(decompiled_operand_16(instruction.rd_start_address))
+                                 .operand(decompiled_operand_16(instruction.copy_size_address))
+                                 .build();
+                this->instructions.push_back(instr);
+            },
+            [this](RAW_L1TOL2MSGEXISTS_Instruction instruction) {
+                auto instr = bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::L1TOL2MSGEXISTS)
+                                 .operand(decompiled_operand_16(instruction.msg_key_address))
+                                 .operand(decompiled_operand_16(instruction.msg_leaf_index_address))
+                                 .operand(decompiled_operand_16(instruction.result_address))
+                                 .build();
+                this->instructions.push_back(instr);
+            },
+            [this](RAW_GETCONTRACTINSTANCE_Instruction instruction) {
+                auto instr = bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::GETCONTRACTINSTANCE)
+                                 .operand(decompiled_operand_16(instruction.addr_address))
+                                 .operand(decompiled_operand_16(instruction.result_address))
+                                 .operand(instruction.member_index)
+                                 .build();
+                this->instructions.push_back(instr);
+            },
             [](auto) { throw std::runtime_error("Unknown instruction"); },
         },
         instruction);

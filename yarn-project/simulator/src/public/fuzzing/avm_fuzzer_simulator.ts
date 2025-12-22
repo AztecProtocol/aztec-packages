@@ -210,9 +210,9 @@ export class AvmFuzzerSimulator extends BaseAvmSimulationTester {
    */
   public async simulate(txHint: AvmTxHint): Promise<PublicTxResult> {
     // Compute fee from gas limits and max fees per gas (upper bound on fee)
-    const totalFee =
-      BigInt(txHint.gasSettings.gasLimits.daGas) * txHint.gasSettings.maxFeesPerGas.feePerDaGas +
-      BigInt(txHint.gasSettings.gasLimits.l2Gas) * txHint.gasSettings.maxFeesPerGas.feePerL2Gas;
+    const feeRequiredDa = BigInt(txHint.gasSettings.gasLimits.daGas) * txHint.gasSettings.maxFeesPerGas.feePerDaGas;
+    const feeRequiredL2 = BigInt(txHint.gasSettings.gasLimits.l2Gas) * txHint.gasSettings.maxFeesPerGas.feePerL2Gas;
+    const totalFee = feeRequiredDa + feeRequiredL2;
 
     await this.setFeePayerBalance(txHint.feePayer, new Fr(totalFee));
 

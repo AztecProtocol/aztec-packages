@@ -68,7 +68,7 @@ SimulatorResult fuzz_tx(FuzzerWorldStateManager& ws_mgr, FuzzerContractDB& contr
 
     try {
         ws_mgr.checkpoint();
-        cpp_result = cpp_simulator.simulate(ws_mgr, contract_db, tx_data.tx);
+        cpp_result = cpp_simulator.simulate(ws_mgr, contract_db, tx_data.tx, tx_data.global_variables);
         ws_mgr.revert();
     } catch (const std::exception& e) {
         fuzz_info("CppSimulator threw an exception: ", e.what());
@@ -82,7 +82,7 @@ SimulatorResult fuzz_tx(FuzzerWorldStateManager& ws_mgr, FuzzerContractDB& contr
     }
 
     ws_mgr.checkpoint();
-    auto js_result = js_simulator->simulate(ws_mgr, contract_db, tx_data.tx);
+    auto js_result = js_simulator->simulate(ws_mgr, contract_db, tx_data.tx, tx_data.global_variables);
 
     // If the results do not match
     if (!compare_simulator_results(cpp_result, js_result)) {

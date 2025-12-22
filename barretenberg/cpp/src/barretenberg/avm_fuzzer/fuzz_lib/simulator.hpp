@@ -47,7 +47,8 @@ class Simulator {
     Simulator() = default;
     virtual SimulatorResult simulate(fuzzer::FuzzerWorldStateManager& ws_mgr,
                                      fuzzer::FuzzerContractDB& contract_db,
-                                     const Tx& tx) = 0;
+                                     const Tx& tx,
+                                     const GlobalVariables& globals) = 0;
 };
 
 /// @brief uses barretenberg/vm2 to simulate the bytecode
@@ -55,7 +56,8 @@ class CppSimulator : public Simulator {
   public:
     SimulatorResult simulate(fuzzer::FuzzerWorldStateManager& ws_mgr,
                              fuzzer::FuzzerContractDB& contract_db,
-                             const Tx& tx) override;
+                             const Tx& tx,
+                             const GlobalVariables& globals) override;
 };
 
 /// @brief uses the yarn-project/simulator to simulate the bytecode
@@ -79,7 +81,8 @@ class JsSimulator : public Simulator {
 
     SimulatorResult simulate(fuzzer::FuzzerWorldStateManager& ws_mgr,
                              fuzzer::FuzzerContractDB& contract_db,
-                             const Tx& tx) override;
+                             const Tx& tx,
+                             const GlobalVariables& globals) override;
 };
 
 GlobalVariables create_default_globals();
