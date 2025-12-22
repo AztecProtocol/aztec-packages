@@ -32,7 +32,7 @@ class AvmSimulationHelper {
     simulation::EventsContainer simulate_for_witgen(const ExecutionHints& hints);
 
     // An extra entry point that is not used in production.
-    TxSimulationResult simulate_fast_with_hinted_dbs(const ExecutionHints& hints);
+    TxSimulationResult simulate_fast_with_hinted_dbs(const ExecutionHints& hints, const PublicSimulatorConfig& config);
 
   protected:
     TxSimulationResult simulate_fast_internal(simulation::ContractDBInterface& raw_contract_db,
