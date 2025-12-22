@@ -33,7 +33,7 @@ void create_sha256_compression_constraints(Builder& builder, const Sha256Compres
     }
 
     // Compute sha256 compression
-    auto output_state = bb::stdlib::SHA256<Builder>::sha256_block(hash_inputs, inputs);
+    std::array<field_ct, 8> output_state = bb::stdlib::SHA256<Builder>::sha256_block(hash_inputs, inputs);
 
     // Constrain outputs to match expected witness indices
     for (auto [output, result_idx] : zip_view(output_state, constraint.result)) {
