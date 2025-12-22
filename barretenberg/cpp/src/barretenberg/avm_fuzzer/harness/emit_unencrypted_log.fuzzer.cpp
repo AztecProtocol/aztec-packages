@@ -35,15 +35,13 @@ using bb::avm2::MemoryValue;
 using emit_log_rel = bb::avm2::emit_unencrypted_log<FF>;
 
 const uint8_t default_log_fields = 16;
-// TODO(MW): Set to slightly above the maximum size (FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH) so we hit
-// error_too_many_log_fields, but can be slow. Could instead set to < 1000 and explicitly set an edge case of > max in
-// the custom mutator?
-const uint32_t max_log_fields = 4100;
+// Set to slightly above the maximum size so we hit error_too_many_log_fields
+const uint32_t max_log_fields = FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH + 5;
 
 struct EmitUnencryptedLogFuzzerInput {
     AztecAddress contract_address;
     MemoryAddress log_offset = 1;
-    uint32_t log_size;
+    uint32_t log_size = 0;
     uint64_t selection_encoding = 0;
     bool is_static = false;
     bool tag_mismatch =
@@ -331,6 +329,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
     // TODO(MW): Set before_context_event.prev_num_unencrypted_log_fields in multiple calls
     ExecutionEvent ex_event = { .wire_instruction =
                                     bb::avm2::testing::InstructionBuilder(WireOpCode::EMITUNENCRYPTEDLOG).build(),
+                                .inputs = { MemoryValue::from<uint32_t>(input.log_size) },
                                 .after_context_event = fill_context_event(context) };
     ex_builder.process({ ex_event }, trace);
     auto exec_log_row = trace.get_column_rows(avm2::Column::execution_sel_exec_dispatch_emit_unencrypted_log);

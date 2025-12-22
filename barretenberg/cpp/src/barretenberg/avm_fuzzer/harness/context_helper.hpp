@@ -19,7 +19,7 @@
 #include "barretenberg/vm2/simulation/interfaces/context.hpp"
 #include "barretenberg/vm2/simulation/lib/execution_id_manager.hpp"
 #include "barretenberg/vm2/simulation/lib/side_effect_tracker.hpp"
-#include "barretenberg/vm2/simulation/lib/side_effect_tracking_db.hpp"
+#include "barretenberg/vm2/simulation/standalone/concrete_dbs.hpp"
 
 namespace bb::avm2::fuzzing {
 
@@ -104,7 +104,7 @@ class GadgetFuzzerContextHelper {
     // Misc:
     GlobalVariables global_variables;
     ExecutionHints hints;
-    SideEffectTrackingDB make_empty_merkle_db();
+    PureMerkleDB make_empty_merkle_db();
 };
 
 } // namespace bb::avm2::fuzzing
