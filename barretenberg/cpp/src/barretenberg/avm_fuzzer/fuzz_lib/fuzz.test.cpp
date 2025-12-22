@@ -1522,7 +1522,7 @@ TEST(fuzz, ExternalCallToAdd8)
     EXPECT_EQ(result.output.at(0), 7);
 }
 
-FF get_contract_instance_helper(uint8_t member_enum)
+FF get_contract_instance_helper(uint8_t member_enum, bb::avm2::MemoryTag return_value_tag = bb::avm2::MemoryTag::FF)
 {
     auto get_contract_instance_instruction =
         GETCONTRACTINSTANCE_Instruction{ .contract_index = 0,
@@ -1535,7 +1535,7 @@ FF get_contract_instance_helper(uint8_t member_enum)
     auto control_flow = ControlFlow(instruction_blocks);
     control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
     auto bytecode = control_flow.build_bytecode(
-        ReturnOptions{ .return_size = 1, .return_value_tag = bb::avm2::MemoryTag::FF, .return_value_offset_index = 1 });
+        ReturnOptions{ .return_size = 1, .return_value_tag = return_value_tag, .return_value_offset_index = 1 });
     auto result = simulate_with_default_tx(bytecode, {});
     return result.output.at(0);
 }
@@ -1548,6 +1548,7 @@ TEST(fuzz, GetContractInstance)
               FF("0x1cc6b6f9a4f8834a63689f91f9c9fe3d9cd6266ac269937806f8ed16c2577a4b")); // CLASS_ID
     EXPECT_EQ(get_contract_instance_helper(2),
               FF("0x0000000000000000000000000000000000000000000000000000000000000000")); // INIT HASH
+    EXPECT_EQ(get_contract_instance_helper(0, bb::avm2::MemoryTag::U1), FF::one());      // EXISTS
 }
 
 } // namespace external_calls
