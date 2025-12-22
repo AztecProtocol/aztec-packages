@@ -9,18 +9,8 @@
 #include "barretenberg/serialize/msgpack.hpp"
 #include <array>
 #include <cstdint>
-#include <vector>
 
 namespace acir_format {
-
-struct Sha256Input {
-    uint32_t witness;
-    uint32_t num_bits;
-
-    friend bool operator==(Sha256Input const& lhs, Sha256Input const& rhs) = default;
-    // for serialization, update with any new fields
-    MSGPACK_FIELDS(witness, num_bits);
-};
 
 struct Sha256Compression {
     std::array<WitnessOrConstant<bb::fr>, 16> inputs;
