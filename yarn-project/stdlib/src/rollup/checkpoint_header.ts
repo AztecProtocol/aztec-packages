@@ -17,6 +17,10 @@ import { schemas } from '../schemas/index.js';
 import { ContentCommitment } from '../tx/content_commitment.js';
 import type { UInt64 } from '../types/shared.js';
 
+/**
+ * Header of a checkpoint. A checkpoint is a collection of blocks submitted to L1 all within the same slot.
+ * TODO(palla/mbps): Should this include chainId and version as well? Is this used just in circuits?
+ */
 export class CheckpointHeader {
   constructor(
     /** Root of the archive tree before this block is added. */
