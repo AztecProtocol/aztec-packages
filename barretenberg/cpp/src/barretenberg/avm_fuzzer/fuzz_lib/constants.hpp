@@ -59,4 +59,11 @@ const std::vector<uint8_t> ADD_8_BYTECODE = { 39, 0,  0, 2, 1, 39, 0, 1, 2,  1, 
 const std::vector<uint8_t> ZERO_DIVISION_BYTECODE = { 39, 0, 0, 2, 0, 6,  0, 0, 0, 2, 40, 0,
                                                       0,  5, 4, 0, 1, 59, 0, 0, 5, 0, 0 };
 
-const std::vector<std::vector<uint8_t>> PREDEFINED_FUNCTIONS = { ADD_8_BYTECODE, ZERO_DIVISION_BYTECODE };
+// SSTORE[10] = 200
+const std::vector<uint8_t> SSTORE_BYTECODE = { 39, 0, 10, 0,  200, 44, 0,  0, 10, 0, 0, 0, 0, 0,  0, 0, 0, 0, 0, 0, 0,
+                                               0,  0, 0,  0,  0,   0,  0,  0, 0,  0, 0, 0, 0, 0,  0, 0, 0, 0, 0, 0, 10,
+                                               48, 0, 0,  10, 0,   10, 40, 0, 0,  5, 4, 0, 1, 59, 0, 0, 5, 0, 10 };
+
+const std::vector<std::vector<uint8_t>> PREDEFINED_FUNCTIONS = { ADD_8_BYTECODE,
+                                                                 ZERO_DIVISION_BYTECODE,
+                                                                 SSTORE_BYTECODE };
