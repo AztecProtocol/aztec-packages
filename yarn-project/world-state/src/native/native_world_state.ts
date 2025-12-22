@@ -159,7 +159,10 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     );
   }
 
-  public async fork(blockNumber?: BlockNumber): Promise<MerkleTreeWriteOperations> {
+  public async fork(
+    blockNumber?: BlockNumber,
+    opts: { closeDelayMs?: number } = {},
+  ): Promise<MerkleTreeWriteOperations> {
     const resp = await this.instance.call(WorldStateMessageType.CREATE_FORK, {
       latest: blockNumber === undefined,
       blockNumber: blockNumber ?? BlockNumber.ZERO,
@@ -173,6 +176,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
         /* blockNumber=*/ BlockNumber.ZERO,
         /* includeUncommitted=*/ true,
       ),
+      opts,
     );
   }
 

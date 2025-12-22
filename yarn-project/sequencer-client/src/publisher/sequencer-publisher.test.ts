@@ -198,9 +198,11 @@ describe('SequencerPublisher', () => {
   it('bundles propose and vote tx to l1', async () => {
     const expectedBlobs = getBlobsPerL1Block(l2Block.getCheckpointBlobFields());
 
-    expect(
-      await publisher.enqueueProposeL2Block(l2Block, CommitteeAttestationsAndSigners.empty(), Signature.empty()),
-    ).toEqual(true);
+    await publisher.enqueueProposeCheckpoint(
+      l2Block.toCheckpoint(),
+      CommitteeAttestationsAndSigners.empty(),
+      Signature.empty(),
+    );
 
     const { govPayload, voteSig } = mockGovernancePayload();
 
@@ -282,12 +284,11 @@ describe('SequencerPublisher', () => {
       errorMsg: undefined,
     });
 
-    const enqueued = await publisher.enqueueProposeL2Block(
-      l2Block,
+    await publisher.enqueueProposeCheckpoint(
+      l2Block.toCheckpoint(),
       CommitteeAttestationsAndSigners.empty(),
       Signature.empty(),
     );
-    expect(enqueued).toEqual(true);
     const result = await publisher.sendRequests();
     expect(result).toEqual(undefined);
   });
@@ -296,7 +297,11 @@ describe('SequencerPublisher', () => {
     l1TxUtils.simulate.mockRejectedValueOnce(new Error('Test error'));
 
     await expect(
-      publisher.enqueueProposeL2Block(l2Block, CommitteeAttestationsAndSigners.empty(), Signature.empty()),
+      publisher.enqueueProposeCheckpoint(
+        l2Block.toCheckpoint(),
+        CommitteeAttestationsAndSigners.empty(),
+        Signature.empty(),
+      ),
     ).rejects.toThrow();
 
     expect(l1TxUtils.simulate).toHaveBeenCalledTimes(1);
@@ -312,12 +317,11 @@ describe('SequencerPublisher', () => {
       errorMsg: 'Test error',
     });
 
-    const enqueued = await publisher.enqueueProposeL2Block(
-      l2Block,
+    await publisher.enqueueProposeCheckpoint(
+      l2Block.toCheckpoint(),
       CommitteeAttestationsAndSigners.empty(),
       Signature.empty(),
     );
-    expect(enqueued).toEqual(true);
     const result = await publisher.sendRequests();
 
     expect(result).not.toBeInstanceOf(FormattedViemError);
@@ -337,12 +341,11 @@ describe('SequencerPublisher', () => {
           errorMsg: undefined;
         }>,
     );
-    const enqueued = await publisher.enqueueProposeL2Block(
-      l2Block,
+    await publisher.enqueueProposeCheckpoint(
+      l2Block.toCheckpoint(),
       CommitteeAttestationsAndSigners.empty(),
       Signature.empty(),
     );
-    expect(enqueued).toEqual(true);
     publisher.interrupt();
     const resultPromise = publisher.sendRequests();
     const result = await resultPromise;
