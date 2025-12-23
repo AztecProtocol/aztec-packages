@@ -12,6 +12,7 @@ import json
 import re
 import argparse
 import os
+from datetime import datetime, timezone
 from typing import Dict, List, Optional, Any
 
 try:
@@ -260,7 +261,7 @@ class CLIScanner:
         """Start the recursive scan from the base command."""
         return {
             "command": self.base_command,
-            "scanned_at": subprocess.check_output(['date']).decode().strip(),
+            "scanned_at": datetime.now(timezone.utc).strftime('%a %d %b %Y %H:%M:%S UTC'),
             "data": self.scan_command([self.base_command])
         }
 

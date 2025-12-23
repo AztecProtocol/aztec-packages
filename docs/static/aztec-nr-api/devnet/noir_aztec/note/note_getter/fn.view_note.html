@@ -3,9 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../../styles.css">
+<script defer src="../../../nargo_doc.js"></script>
 <title>Function view_note documentation</title>
 </head>
 <body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">view_note</div>
+</div>
+<span id="main-contents">
 <nav class="sidebar">
 <h1><a href="../../../index.html">aztec-nr</a></h1>
 <div><a href="../../../all.html">All items</a></div>
@@ -22,11 +28,15 @@
 <main>
 <div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">note</a>::<a href="index.html">note_getter</a></div>
 <h1>Function <span class="fn">view_note</span></h1>
-<pre><code>pub unconstrained fn view_note&lt;Note&gt;(storage_slot: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>) -> <a href="../../../noir_aztec/note/retrieved_note/struct.RetrievedNote.html" class="struct">RetrievedNote</a>&lt;Note&gt;
+<pre><code>pub unconstrained fn view_note&lt;Note&gt;(
+    owner: <a href="../../../std/option/struct.Option.html" class="struct">Option</a>&lt;<a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>&gt;,
+    storage_slot: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>,
+) -> <a href="../../../noir_aztec/note/retrieved_note/struct.RetrievedNote.html" class="struct">RetrievedNote</a>&lt;Note&gt;
 <div class="where-clause">where
     Note: <a href="../../../noir_aztec/note/note_interface/trait.NoteType.html" class="trait">NoteType</a>,
     Note: <a href="../../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a></div></code></pre>
 
 </main>
+</span>
 </body>
 </html>

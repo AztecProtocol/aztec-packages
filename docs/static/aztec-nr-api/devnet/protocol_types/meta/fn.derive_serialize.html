@@ -3,9 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../styles.css">
+<script defer src="../../nargo_doc.js"></script>
 <title>Function derive_serialize documentation</title>
 </head>
 <body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">derive_serialize</div>
+</div>
+<span id="main-contents">
 <nav class="sidebar">
 <h1><a href="../../index.html">aztec-nr</a></h1>
 <div><a href="../../all.html">All items</a></div>
@@ -35,39 +41,37 @@
 <p>A quoted code block containing the trait implementation</p>
 <h2>Example</h2>
 <p>For a struct defined as:</p>
-<pre><code>struct Log&lt;N&gt; {
+<pre><code><span class="kw">struct</span> Log&lt;N&gt; {
     fields: [Field; N],
     length: u32
-}
-</code></pre>
+}</code></pre>
 <p>This function generates code equivalent to:</p>
-<pre><code>impl&lt;let N: u32&gt; Serialize for Log&lt;N&gt; {
-    let N: u32 = &lt;[Field; N] as Serialize&gt;::N + &lt;u32 as Serialize&gt;::N;
+<pre><code><span class="kw">impl</span>&lt;<span class="kw">let</span> N: u32&gt; Serialize <span class="kw">for</span> Log&lt;N&gt; {
+    <span class="kw">let</span> N: u32 = &lt;[Field; N] <span class="kw">as</span> Serialize&gt;::N + &lt;u32 <span class="kw">as</span> Serialize&gt;::N;
 
     #[inline_always]
-    fn serialize(self) -&gt; [Field; Self::N] {
-        let mut serialized_params = [0; _];
-        let mut offset = 0;
+    <span class="kw">fn</span> serialize(self) -&gt; [Field; Self::N] {
+        <span class="kw">let</span> <span class="kw">mut</span> serialized_params = [<span class="number">0</span>; _];
+        <span class="kw">let</span> <span class="kw">mut</span> offset = <span class="number">0</span>;
 
-        let serialized_member = Serialize::serialize(self.fields);
-        let serialized_member_len = &lt;[Field; N] as Serialize&gt;::N;
-        for i in 0..serialized_member_len {
+        <span class="kw">let</span> serialized_member = Serialize::serialize(self.fields);
+        <span class="kw">let</span> serialized_member_len = &lt;[Field; N] <span class="kw">as</span> Serialize&gt;::N;
+        <span class="kw">for</span> i <span class="kw">in</span> <span class="number">0</span>..serialized_member_len {
             serialized_params[i + offset] = serialized_member[i];
         }
         offset += serialized_member_len;
 
-        let serialized_member = Serialize::serialize(self.length);
-        let serialized_member_len = &lt;u32 as Serialize&gt;::N;
-        for i in 0..serialized_member_len {
+        <span class="kw">let</span> serialized_member = Serialize::serialize(self.length);
+        <span class="kw">let</span> serialized_member_len = &lt;u32 <span class="kw">as</span> Serialize&gt;::N;
+        <span class="kw">for</span> i <span class="kw">in</span> <span class="number">0</span>..serialized_member_len {
             serialized_params[i + offset] = serialized_member[i];
         }
         offset += serialized_member_len;
 
         serialized_params
     }
-}
-</code></pre>
-</div>
+}</code></pre></div>
 </main>
+</span>
 </body>
 </html>

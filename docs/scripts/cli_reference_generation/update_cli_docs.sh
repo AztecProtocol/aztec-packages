@@ -47,9 +47,9 @@ check_cli_version() {
     exit 1
   fi
 
-  # Get installed version
+  # Get installed version (including prerelease suffixes like -devnet.20251212)
   local installed_ver
-  installed_ver=$("$cli_cmd" --version 2>/dev/null | head -n1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -n1) || {
+  installed_ver=$("$cli_cmd" --version 2>/dev/null | head -n1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?' | head -n1) || {
     echo "Warning: Could not determine installed $cli_cmd version"
     return 0
   }
