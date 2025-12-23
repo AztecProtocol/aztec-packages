@@ -485,6 +485,15 @@ struct NULLIFIEREXISTS_Instruction {
     MSGPACK_FIELDS(nullifier_address, contract_address_address, result_address);
 };
 
+/// @brief L1TOL2MSGEXISTS: Check if a L1 to L2 message exists
+/// M[result_address] = L1TOL2MSGEXISTS(M[msg_hash_address], M[leaf_index_address])
+struct L1TOL2MSGEXISTS_Instruction {
+    ParamRef msg_hash_address;   // FF: the message hash
+    ParamRef leaf_index_address; // U64: leaf index in the message tree
+    AddressRef result_address;   // result (U1)
+    MSGPACK_FIELDS(msg_hash_address, leaf_index_address, result_address);
+};
+
 /// @brief EMITNOTEHASH: M[note_hash_offset] = note_hash; emit note hash to the note hash tree
 struct EMITNOTEHASH_Instruction {
     AddressRef note_hash_address; // absolute address where the note hash will be stored
@@ -624,6 +633,18 @@ struct SHA256COMPRESSION_Instruction {
     MSGPACK_FIELDS(state_address, input_address, dst_address);
 };
 
+/// @brief TORADIXBE: Convert a field element to a vector of limbs in big-endian radix representation
+/// M[dst_address:dst_address+num_limbs] = to_radix_be(M[value_address], radix, num_limbs)
+struct TORADIXBE_Instruction {
+    ParamRef value_address;       // FF: value to convert
+    ParamRef radix_address;       // U32: the radix/base
+    ParamRef num_limbs_address;   // U32: number of output limbs
+    ParamRef output_bits_address; // U1: whether output is bits
+    AddressRef dst_address;       // destination for limbs
+    bool is_output_bits;          // known at generation time for memory tracking (U1 if true, U8 if false)
+    MSGPACK_FIELDS(value_address, radix_address, num_limbs_address, output_bits_address, dst_address, is_output_bits);
+};
+
 using FuzzInstruction = std::variant<ADD_8_Instruction,
                                      FDIV_8_Instruction,
                                      SET_8_Instruction,
@@ -667,6 +688,7 @@ using FuzzInstruction = std::variant<ADD_8_Instruction,
                                      GETENVVAR_Instruction,
                                      EMITNULLIFIER_Instruction,
                                      NULLIFIEREXISTS_Instruction,
+                                     L1TOL2MSGEXISTS_Instruction,
                                      EMITNOTEHASH_Instruction,
                                      NOTEHASHEXISTS_Instruction,
                                      CALLDATACOPY_Instruction,
@@ -679,7 +701,8 @@ using FuzzInstruction = std::variant<ADD_8_Instruction,
                                      ECADD_Instruction,
                                      POSEIDON2PERM_Instruction,
                                      KECCAKF1600_Instruction,
-                                     SHA256COMPRESSION_Instruction>;
+                                     SHA256COMPRESSION_Instruction,
+                                     TORADIXBE_Instruction>;
 
 template <class... Ts> struct overloaded : Ts... {
     using Ts::operator()...;
@@ -841,6 +864,10 @@ inline std::ostream& operator<<(std::ostream& os, const FuzzInstruction& instruc
                 os << "NULLIFIEREXISTS_Instruction " << arg.nullifier_address << " " << arg.contract_address_address
                    << " " << arg.result_address;
             },
+            [&](L1TOL2MSGEXISTS_Instruction arg) {
+                os << "L1TOL2MSGEXISTS_Instruction " << arg.msg_hash_address << " " << arg.leaf_index_address << " "
+                   << arg.result_address;
+            },
             [&](EMITNOTEHASH_Instruction arg) {
                 os << "EMITNOTEHASH_Instruction " << arg.note_hash_address << " " << arg.note_hash;
             },
@@ -885,6 +912,11 @@ inline std::ostream& operator<<(std::ostream& os, const FuzzInstruction& instruc
             [&](SHA256COMPRESSION_Instruction arg) {
                 os << "SHA256COMPRESSION_Instruction " << arg.state_address << " " << arg.input_address << " "
                    << arg.dst_address;
+            },
+            [&](TORADIXBE_Instruction arg) {
+                os << "TORADIXBE_Instruction " << arg.value_address << " " << arg.radix_address << " "
+                   << arg.num_limbs_address << " " << arg.output_bits_address << " " << arg.dst_address << " "
+                   << arg.is_output_bits;
             },
             [&](auto) { os << "Unknown instruction"; },
         },

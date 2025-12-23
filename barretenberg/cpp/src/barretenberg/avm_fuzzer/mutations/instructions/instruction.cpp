@@ -302,6 +302,64 @@ std::vector<FuzzInstruction> generate_sha256compression_instruction(std::mt19937
     return instructions;
 }
 
+std::vector<FuzzInstruction> generate_toradixbe_instruction(std::mt19937_64& rng)
+{
+    bool use_backfill = std::uniform_int_distribution<int>(0, 1)(rng) == 0;
+    if (!use_backfill) {
+        // Random mode
+        return { TORADIXBE_Instruction{ .value_address = generate_variable_ref(rng),
+                                        .radix_address = generate_variable_ref(rng),
+                                        .num_limbs_address = generate_variable_ref(rng),
+                                        .output_bits_address = generate_variable_ref(rng),
+                                        .dst_address = generate_address_ref(rng, MAX_16BIT_OPERAND),
+                                        .is_output_bits = std::uniform_int_distribution<int>(0, 1)(rng) == 0 } };
+    }
+    // Backfill mode: set up proper typed values
+    // value: FF, radix: U32, num_limbs: U32, output_bits: U1
+    std::vector<FuzzInstruction> instructions;
+    instructions.reserve(5);
+
+    AddressRef value_addr = generate_address_ref(rng, MAX_16BIT_OPERAND);
+    AddressRef radix_addr = generate_address_ref(rng, MAX_16BIT_OPERAND);
+    AddressRef num_limbs_addr = generate_address_ref(rng, MAX_16BIT_OPERAND);
+    AddressRef output_bits_addr = generate_address_ref(rng, MAX_8BIT_OPERAND);
+
+    // SET the radix (U32) - pick radix between 2 and 256
+    uint32_t radix = std::uniform_int_distribution<uint32_t>(2, 256)(rng);
+    instructions.push_back(
+        SET_32_Instruction{ .value_tag = bb::avm2::MemoryTag::U32, .result_address = radix_addr, .value = radix });
+
+    // SET the num_limbs (U32) - reasonable range based on radix
+    uint32_t num_limbs = std::uniform_int_distribution<uint32_t>(1, 256)(rng);
+    instructions.push_back(SET_32_Instruction{
+        .value_tag = bb::avm2::MemoryTag::U32, .result_address = num_limbs_addr, .value = num_limbs });
+
+    // SET the output_bits (U1)
+    bool is_output_bits = radix == 2;
+    instructions.push_back(SET_8_Instruction{ .value_tag = bb::avm2::MemoryTag::U1,
+                                              .result_address = output_bits_addr,
+                                              .value = static_cast<uint8_t>(is_output_bits ? 1 : 0) });
+    // Pick the value such that it fits within the specified number of limbs and radix, if we truncate it will error
+    bb::avm2::FF value = 0;
+    bb::avm2::FF exponent = radix;
+    for (uint32_t i = 0; i < num_limbs; i++) {
+        value += bb::avm2::FF(generate_random_uint32(rng) % radix) * exponent;
+        exponent *= radix;
+    }
+    // SET the value (FF)
+    instructions.push_back(
+        SET_FF_Instruction{ .value_tag = bb::avm2::MemoryTag::FF, .result_address = value_addr, .value = value });
+
+    // TORADIXBE instruction
+    instructions.push_back(TORADIXBE_Instruction{ .value_address = value_addr,
+                                                  .radix_address = radix_addr,
+                                                  .num_limbs_address = num_limbs_addr,
+                                                  .output_bits_address = output_bits_addr,
+                                                  .dst_address = generate_address_ref(rng, MAX_16BIT_OPERAND),
+                                                  .is_output_bits = is_output_bits });
+    return instructions;
+}
+
 std::vector<FuzzInstruction> generate_instruction(std::mt19937_64& rng)
 {
     InstructionGenerationOptions option = BASIC_INSTRUCTION_GENERATION_CONFIGURATION.select(rng);
@@ -372,6 +430,14 @@ std::vector<FuzzInstruction> generate_instruction(std::mt19937_64& rng)
         return { SET_FF_Instruction{ .value_tag = generate_memory_tag(rng, BASIC_MEMORY_TAG_GENERATION_CONFIGURATION),
                                      .result_address = generate_address_ref(rng, MAX_16BIT_OPERAND),
                                      .value = generate_random_field(rng) } };
+    case InstructionGenerationOptions::MOV_8:
+        return { MOV_8_Instruction{ .value_tag = generate_memory_tag(rng, BASIC_MEMORY_TAG_GENERATION_CONFIGURATION),
+                                    .src_address = generate_variable_ref(rng),
+                                    .result_address = generate_address_ref(rng, MAX_8BIT_OPERAND) } };
+    case InstructionGenerationOptions::MOV_16:
+        return { MOV_16_Instruction{ .value_tag = generate_memory_tag(rng, BASIC_MEMORY_TAG_GENERATION_CONFIGURATION),
+                                     .src_address = generate_variable_ref(rng),
+                                     .result_address = generate_address_ref(rng, MAX_16BIT_OPERAND) } };
     case InstructionGenerationOptions::ADD_16:
         return generate_alu_with_matching_tags<ADD_16_Instruction>(rng, MAX_16BIT_OPERAND);
     case InstructionGenerationOptions::SUB_16:
@@ -440,6 +506,10 @@ std::vector<FuzzInstruction> generate_instruction(std::mt19937_64& rng)
         return { NULLIFIEREXISTS_Instruction{ .nullifier_address = generate_variable_ref(rng),
                                               .contract_address_address = generate_address_ref(rng, MAX_16BIT_OPERAND),
                                               .result_address = generate_address_ref(rng, MAX_16BIT_OPERAND) } };
+    case InstructionGenerationOptions::L1TOL2MSGEXISTS:
+        return { L1TOL2MSGEXISTS_Instruction{ .msg_hash_address = generate_variable_ref(rng),
+                                              .leaf_index_address = generate_variable_ref(rng),
+                                              .result_address = generate_address_ref(rng, MAX_16BIT_OPERAND) } };
     case InstructionGenerationOptions::EMITNOTEHASH:
         return { EMITNOTEHASH_Instruction{ .note_hash_address = generate_address_ref(rng, MAX_16BIT_OPERAND),
                                            .note_hash = generate_random_field(rng) } };
@@ -496,6 +566,8 @@ std::vector<FuzzInstruction> generate_instruction(std::mt19937_64& rng)
         return generate_keccakf_instruction(rng);
     case InstructionGenerationOptions::SHA256COMPRESSION:
         return generate_sha256compression_instruction(rng);
+    case InstructionGenerationOptions::TORADIXBE:
+        return generate_toradixbe_instruction(rng);
     }
 }
 /// Most of the tags will be equal to the default tag
@@ -722,6 +794,38 @@ void mutate_set_ff_instruction(SET_FF_Instruction& instruction, std::mt19937_64&
     }
 }
 
+void mutate_mov_8_instruction(MOV_8_Instruction& instruction, std::mt19937_64& rng)
+{
+    int choice = std::uniform_int_distribution<int>(0, 2)(rng);
+    switch (choice) {
+    case 0:
+        mutate_memory_tag(instruction.value_tag.value, rng, BASIC_MEMORY_TAG_MUTATION_CONFIGURATION);
+        break;
+    case 1:
+        mutate_param_ref(instruction.src_address, rng, std::nullopt, MAX_8BIT_OPERAND);
+        break;
+    case 2:
+        mutate_address_ref(instruction.result_address, rng, MAX_8BIT_OPERAND);
+        break;
+    }
+}
+
+void mutate_mov_16_instruction(MOV_16_Instruction& instruction, std::mt19937_64& rng)
+{
+    int choice = std::uniform_int_distribution<int>(0, 2)(rng);
+    switch (choice) {
+    case 0:
+        mutate_memory_tag(instruction.value_tag.value, rng, BASIC_MEMORY_TAG_MUTATION_CONFIGURATION);
+        break;
+    case 1:
+        mutate_param_ref(instruction.src_address, rng, std::nullopt, MAX_16BIT_OPERAND);
+        break;
+    case 2:
+        mutate_address_ref(instruction.result_address, rng, MAX_16BIT_OPERAND);
+        break;
+    }
+}
+
 void mutate_not_16_instruction(NOT_16_Instruction& instruction, std::mt19937_64& rng)
 {
 
@@ -837,6 +941,22 @@ void mutate_nullifier_exists_instruction(NULLIFIEREXISTS_Instruction& instructio
         mutate_address_ref(instruction.contract_address_address, rng, MAX_16BIT_OPERAND);
         break;
     case NullifierExistsMutationOptions::result_address:
+        mutate_address_ref(instruction.result_address, rng, MAX_16BIT_OPERAND);
+        break;
+    }
+}
+
+void mutate_l1tol2msgexists_instruction(L1TOL2MSGEXISTS_Instruction& instruction, std::mt19937_64& rng)
+{
+    L1ToL2MsgExistsMutationOptions option = BASIC_L1TOL2MSGEXISTS_MUTATION_CONFIGURATION.select(rng);
+    switch (option) {
+    case L1ToL2MsgExistsMutationOptions::msg_hash_address:
+        mutate_param_ref(instruction.msg_hash_address, rng, MemoryTag::FF, MAX_16BIT_OPERAND);
+        break;
+    case L1ToL2MsgExistsMutationOptions::leaf_index_address:
+        mutate_param_ref(instruction.leaf_index_address, rng, MemoryTag::U64, MAX_16BIT_OPERAND);
+        break;
+    case L1ToL2MsgExistsMutationOptions::result_address:
         mutate_address_ref(instruction.result_address, rng, MAX_16BIT_OPERAND);
         break;
     }
@@ -1104,6 +1224,31 @@ void mutate_sha256compression_instruction(SHA256COMPRESSION_Instruction& instruc
     }
 }
 
+void mutate_toradixbe_instruction(TORADIXBE_Instruction& instruction, std::mt19937_64& rng)
+{
+    ToRadixBEMutationOptions option = BASIC_TORADIXBE_MUTATION_CONFIGURATION.select(rng);
+    switch (option) {
+    case ToRadixBEMutationOptions::value_address:
+        mutate_param_ref(instruction.value_address, rng, MemoryTag::FF, MAX_16BIT_OPERAND);
+        break;
+    case ToRadixBEMutationOptions::radix_address:
+        mutate_param_ref(instruction.radix_address, rng, MemoryTag::U32, MAX_16BIT_OPERAND);
+        break;
+    case ToRadixBEMutationOptions::num_limbs_address:
+        mutate_param_ref(instruction.num_limbs_address, rng, MemoryTag::U32, MAX_16BIT_OPERAND);
+        break;
+    case ToRadixBEMutationOptions::output_bits_address:
+        mutate_param_ref(instruction.output_bits_address, rng, MemoryTag::U1, MAX_16BIT_OPERAND);
+        break;
+    case ToRadixBEMutationOptions::dst_address:
+        mutate_address_ref(instruction.dst_address, rng, MAX_16BIT_OPERAND);
+        break;
+    case ToRadixBEMutationOptions::is_output_bits:
+        instruction.is_output_bits = !instruction.is_output_bits;
+        break;
+    }
+}
+
 void mutate_instruction(FuzzInstruction& instruction, std::mt19937_64& rng)
 {
     std::visit(
@@ -1126,6 +1271,8 @@ void mutate_instruction(FuzzInstruction& instruction, std::mt19937_64& rng)
             [&rng](SET_64_Instruction& instr) { mutate_set_64_instruction(instr, rng); },
             [&rng](SET_128_Instruction& instr) { mutate_set_128_instruction(instr, rng); },
             [&rng](SET_FF_Instruction& instr) { mutate_set_ff_instruction(instr, rng); },
+            [&rng](MOV_8_Instruction& instr) { mutate_mov_8_instruction(instr, rng); },
+            [&rng](MOV_16_Instruction& instr) { mutate_mov_16_instruction(instr, rng); },
             [&rng](FDIV_8_Instruction& instr) { mutate_binary_instruction_8(instr, rng); },
             [&rng](NOT_8_Instruction& instr) { mutate_not_8_instruction(instr, rng); },
             [&rng](ADD_16_Instruction& instr) { mutate_binary_instruction_16(instr, rng); },
@@ -1149,6 +1296,7 @@ void mutate_instruction(FuzzInstruction& instruction, std::mt19937_64& rng)
             [&rng](GETENVVAR_Instruction& instr) { mutate_getenvvar_instruction(instr, rng); },
             [&rng](EMITNULLIFIER_Instruction& instr) { mutate_emit_nullifier_instruction(instr, rng); },
             [&rng](NULLIFIEREXISTS_Instruction& instr) { mutate_nullifier_exists_instruction(instr, rng); },
+            [&rng](L1TOL2MSGEXISTS_Instruction& instr) { mutate_l1tol2msgexists_instruction(instr, rng); },
             [&rng](EMITNOTEHASH_Instruction& instr) { mutate_emit_note_hash_instruction(instr, rng); },
             [&rng](NOTEHASHEXISTS_Instruction& instr) { mutate_note_hash_exists_instruction(instr, rng); },
             [&rng](CALLDATACOPY_Instruction& instr) { mutate_calldatacopy_instruction(instr, rng); },
@@ -1164,6 +1312,7 @@ void mutate_instruction(FuzzInstruction& instruction, std::mt19937_64& rng)
             [&rng](POSEIDON2PERM_Instruction& instr) { mutate_poseidon2perm_instruction(instr, rng); },
             [&rng](KECCAKF1600_Instruction& instr) { mutate_keccakf1600_instruction(instr, rng); },
             [&rng](SHA256COMPRESSION_Instruction& instr) { mutate_sha256compression_instruction(instr, rng); },
+            [&rng](TORADIXBE_Instruction& instr) { mutate_toradixbe_instruction(instr, rng); },
             [](auto&) { throw std::runtime_error("Unknown instruction"); } },
         instruction);
 }
