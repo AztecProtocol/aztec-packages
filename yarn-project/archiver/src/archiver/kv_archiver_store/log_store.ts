@@ -284,46 +284,27 @@ export class LogStore {
   }
 
   /**
-   * Gets all private logs that match any of the received tags (i.e. logs with their first field equal to a SiloedTag).
-   * @param tags - The SiloedTags to filter the logs by.
-   * @param limitPerTag - The maximum number of logs to return per tag.
-   * @returns For each received tag, an array of matching private logs is returned. An empty array implies no logs match
-   * that tag.
+   * Gets all private logs that match any of the `tags`. For each tag, an array of matching logs is returned. An empty
+   * array implies no logs match that tag.
    */
-  async getPrivateLogsByTags(tags: SiloedTag[], limitPerTag?: number): Promise<TxScopedL2Log[][]> {
-    if (limitPerTag !== undefined && limitPerTag <= 0) {
-      throw new TypeError('limitPerTag needs to be greater than 0');
-    }
+  async getPrivateLogsByTags(tags: SiloedTag[]): Promise<TxScopedL2Log[][]> {
     const logs = await Promise.all(tags.map(tag => this.#privateLogsByTag.getAsync(tag.toString())));
-    return logs.map(
-      logBuffers => logBuffers?.slice(0, limitPerTag).map(logBuffer => TxScopedL2Log.fromBuffer(logBuffer)) ?? [],
-    );
+
+    return logs.map(logBuffers => logBuffers?.map(logBuffer => TxScopedL2Log.fromBuffer(logBuffer)) ?? []);
   }
 
   /**
-   * Gets all public logs that match any of the received tags from the specified contract (i.e. logs with their first field equal to a Tag).
-   * @param contractAddress - The contract that emitted the public logs.
-   * @param tags - The Tags to filter the logs by.
-   * @param limitPerTag - The maximum number of logs to return per tag.
-   * @returns For each received tag, an array of matching public logs is returned. An empty array implies no logs match that tag.
+   * Gets all public logs that match any of the `tags` from the specified contract. For each tag, an array of matching
+   * logs is returned. An empty array implies no logs match that tag.
    */
-  async getPublicLogsByTagsFromContract(
-    contractAddress: AztecAddress,
-    tags: Tag[],
-    limitPerTag?: number,
-  ): Promise<TxScopedL2Log[][]> {
-    if (limitPerTag !== undefined && limitPerTag <= 0) {
-      throw new TypeError('limitPerTag needs to be greater than 0');
-    }
+  async getPublicLogsByTagsFromContract(contractAddress: AztecAddress, tags: Tag[]): Promise<TxScopedL2Log[][]> {
     const logs = await Promise.all(
       tags.map(tag => {
         const key = `${contractAddress.toString()}_${tag.value.toString()}`;
         return this.#publicLogsByContractAndTag.getAsync(key);
       }),
     );
-    return logs.map(
-      logBuffers => logBuffers?.slice(0, limitPerTag).map(logBuffer => TxScopedL2Log.fromBuffer(logBuffer)) ?? [],
-    );
+    return logs.map(logBuffers => logBuffers?.map(logBuffer => TxScopedL2Log.fromBuffer(logBuffer)) ?? []);
   }
 
   /**
