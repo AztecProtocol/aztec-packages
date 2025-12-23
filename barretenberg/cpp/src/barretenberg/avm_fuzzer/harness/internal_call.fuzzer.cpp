@@ -214,7 +214,6 @@ void fuzz_internal_return(std::vector<ExecutionEvent>& ex_events,
                           std::unique_ptr<ContextInterface>& context,
                           InternalCallStackManagerInterface& internal_call_stack_manager)
 {
-    // TODO(MW): Case where we do not have a return i.e other exit condition?
     ExecutionEvent ex_event = { .wire_instruction = ret_instr,
                                 .before_context_event = fill_context_event(context, internal_call_stack_manager) };
     // Execution.execute pre-dispatch:
