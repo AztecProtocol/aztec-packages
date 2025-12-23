@@ -30,7 +30,7 @@ import {
   SerializableContractInstance,
   computePublicBytecodeCommitment,
 } from '@aztec/stdlib/contract';
-import { ContractClassLog, LogId, PrivateLog, PublicLog } from '@aztec/stdlib/logs';
+import { ContractClassLog, LogId, PrivateLog, PublicLog, SiloedTag, Tag } from '@aztec/stdlib/logs';
 import { InboxLeaf } from '@aztec/stdlib/messaging';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import {
@@ -2198,43 +2198,32 @@ export function describeArchiverDataStore(
       });
     });
 
-    describe('getLogsByTags', () => {
+    describe('getPrivateLogsByTags', () => {
       const numBlocksForLogs = 3;
       const numTxsPerBlock = 4;
       const numPrivateLogsPerTx = 3;
-      const numPublicLogsPerTx = 2;
 
       let logsCheckpoints: PublishedCheckpoint[];
 
-      const makeTag = (blockNumber: number, txIndex: number, logIndex: number, isPublic = false) =>
-        blockNumber === 1 && txIndex === 0 && logIndex === 0
-          ? Fr.ZERO // Shared tag
-          : new Fr((blockNumber * 100 + txIndex * 10 + logIndex) * (isPublic ? 123 : 1));
+      const makePrivateLogTag = (blockNumber: number, txIndex: number, logIndex: number): SiloedTag =>
+        new SiloedTag(
+          blockNumber === 1 && txIndex === 0 && logIndex === 0
+            ? Fr.ZERO // Shared tag
+            : new Fr(blockNumber * 100 + txIndex * 10 + logIndex),
+        );
 
-      const makePrivateLog = (tag: Fr) =>
+      const makePrivateLog = (tag: SiloedTag) =>
         PrivateLog.from({
-          fields: makeTuple(PRIVATE_LOG_SIZE_IN_FIELDS, i => (!i ? tag : new Fr(tag.toNumber() + i))),
+          fields: makeTuple(PRIVATE_LOG_SIZE_IN_FIELDS, i =>
+            !i ? tag.value : new Fr(tag.value.toBigInt() + BigInt(i)),
+          ),
           emittedLength: PRIVATE_LOG_SIZE_IN_FIELDS,
-        });
-
-      const makePublicLog = (tag: Fr) =>
-        PublicLog.from({
-          contractAddress: AztecAddress.fromNumber(1),
-          // Arbitrary length
-          fields: new Array(10).fill(null).map((_, i) => (!i ? tag : new Fr(tag.toNumber() + i))),
         });
 
       const mockPrivateLogs = (blockNumber: number, txIndex: number) => {
         return times(numPrivateLogsPerTx, (logIndex: number) => {
-          const tag = makeTag(blockNumber, txIndex, logIndex);
+          const tag = makePrivateLogTag(blockNumber, txIndex, logIndex);
           return makePrivateLog(tag);
-        });
-      };
-
-      const mockPublicLogs = (blockNumber: number, txIndex: number) => {
-        return times(numPublicLogsPerTx, (logIndex: number) => {
-          const tag = makeTag(blockNumber, txIndex, logIndex, /* isPublic */ true);
-          return makePublicLog(tag);
         });
       };
 
@@ -2253,7 +2242,7 @@ export function describeArchiverDataStore(
         block.body.txEffects = await timesParallel(numTxsPerBlock, async (txIndex: number) => {
           const txEffect = await TxEffect.random();
           txEffect.privateLogs = mockPrivateLogs(blockNumber, txIndex);
-          txEffect.publicLogs = mockPublicLogs(blockNumber, txIndex);
+          txEffect.publicLogs = []; // No public logs needed for private log tests
           return txEffect;
         });
 
@@ -2279,9 +2268,9 @@ export function describeArchiverDataStore(
       });
 
       it('is possible to batch request private logs via tags', async () => {
-        const tags = [makeTag(2, 1, 2), makeTag(1, 2, 0)];
+        const tags = [makePrivateLogTag(2, 1, 2), makePrivateLogTag(1, 2, 0)];
 
-        const logsByTags = await store.getLogsByTags(tags);
+        const logsByTags = await store.getPrivateLogsByTags(tags);
 
         expect(logsByTags).toEqual([
           [
@@ -2303,32 +2292,8 @@ export function describeArchiverDataStore(
         ]);
       });
 
-      it('is possible to batch request all logs (private and public) via tags', async () => {
-        // Tag(1, 0, 0) is shared with the first private log and the first public log.
-        const tags = [makeTag(1, 0, 0)];
-
-        const logsByTags = await store.getLogsByTags(tags);
-
-        expect(logsByTags).toEqual([
-          [
-            expect.objectContaining({
-              blockNumber: 1,
-              blockHash: L2BlockHash.fromField(await logsCheckpoints[1 - 1].checkpoint.blocks[0].header.hash()),
-              log: makePrivateLog(tags[0]),
-              isFromPublic: false,
-            }),
-            expect.objectContaining({
-              blockNumber: 1,
-              blockHash: L2BlockHash.fromField(await logsCheckpoints[1 - 1].checkpoint.blocks[0].header.hash()),
-              log: makePublicLog(tags[0]),
-              isFromPublic: true,
-            }),
-          ],
-        ]);
-      });
-
       it('is possible to batch request logs that have the same tag but different content', async () => {
-        const tags = [makeTag(1, 2, 1)];
+        const tags = [makePrivateLogTag(1, 2, 1)];
 
         // Create a checkpoint containing logs that have the same tag as the checkpoints before.
         // Chain from the last checkpoint's archive
@@ -2336,12 +2301,12 @@ export function describeArchiverDataStore(
         const previousArchive = logsCheckpoints[logsCheckpoints.length - 1].checkpoint.blocks[0].archive;
         const newCheckpoint = await mockCheckpointWithLogs(newBlockNumber, previousArchive);
         const newLog = newCheckpoint.checkpoint.blocks[0].body.txEffects[1].privateLogs[1];
-        newLog.fields[0] = tags[0];
+        newLog.fields[0] = tags[0].value;
         newCheckpoint.checkpoint.blocks[0].body.txEffects[1].privateLogs[1] = newLog;
         await store.addCheckpoints([newCheckpoint]);
         await store.addLogs([newCheckpoint.checkpoint.blocks[0]]);
 
-        const logsByTags = await store.getLogsByTags(tags);
+        const logsByTags = await store.getPrivateLogsByTags(tags);
 
         expect(logsByTags).toEqual([
           [
@@ -2362,9 +2327,9 @@ export function describeArchiverDataStore(
       });
 
       it('is possible to request logs for non-existing tags and determine their position', async () => {
-        const tags = [makeTag(99, 88, 77), makeTag(1, 1, 1)];
+        const tags = [makePrivateLogTag(99, 88, 77), makePrivateLogTag(1, 1, 1)];
 
-        const logsByTags = await store.getLogsByTags(tags);
+        const logsByTags = await store.getPrivateLogsByTags(tags);
 
         expect(logsByTags).toEqual([
           [
@@ -2376,6 +2341,155 @@ export function describeArchiverDataStore(
               blockHash: L2BlockHash.fromField(await logsCheckpoints[1 - 1].checkpoint.blocks[0].header.hash()),
               log: makePrivateLog(tags[1]),
               isFromPublic: false,
+            }),
+          ],
+        ]);
+      });
+    });
+
+    describe('getPublicLogsByTagsFromContract', () => {
+      const numBlocksForLogs = 3;
+      const numTxsPerBlock = 4;
+      const numPublicLogsPerTx = 2;
+      const contractAddress = AztecAddress.fromNumber(543254);
+
+      let logsCheckpoints: PublishedCheckpoint[];
+
+      const makePublicLogTag = (blockNumber: number, txIndex: number, logIndex: number): Tag =>
+        new Tag(
+          blockNumber === 1 && txIndex === 0 && logIndex === 0
+            ? Fr.ZERO // Shared tag
+            : new Fr((blockNumber * 100 + txIndex * 10 + logIndex) * 123),
+        );
+
+      const makePublicLog = (tag: Tag) =>
+        PublicLog.from({
+          contractAddress: contractAddress,
+          // Arbitrary length
+          fields: new Array(10).fill(null).map((_, i) => (!i ? tag.value : new Fr(tag.value.toBigInt() + BigInt(i)))),
+        });
+
+      const mockPublicLogs = (blockNumber: number, txIndex: number) => {
+        return times(numPublicLogsPerTx, (logIndex: number) => {
+          const tag = makePublicLogTag(blockNumber, txIndex, logIndex);
+          return makePublicLog(tag);
+        });
+      };
+
+      const mockCheckpointWithLogs = async (
+        blockNumber: number,
+        previousArchive?: AppendOnlyTreeSnapshot,
+      ): Promise<PublishedCheckpoint> => {
+        const block = await L2BlockNew.random(BlockNumber(blockNumber), {
+          checkpointNumber: CheckpointNumber(blockNumber),
+          indexWithinCheckpoint: 0,
+          state: makeStateForBlock(blockNumber, numTxsPerBlock),
+          ...(previousArchive ? { lastArchive: previousArchive } : {}),
+        });
+        block.header.globalVariables.blockNumber = BlockNumber(blockNumber);
+
+        block.body.txEffects = await timesParallel(numTxsPerBlock, async (txIndex: number) => {
+          const txEffect = await TxEffect.random();
+          txEffect.privateLogs = []; // No private logs needed for public log tests
+          txEffect.publicLogs = mockPublicLogs(blockNumber, txIndex);
+          return txEffect;
+        });
+
+        const checkpoint = new Checkpoint(
+          AppendOnlyTreeSnapshot.random(),
+          CheckpointHeader.random(),
+          [block],
+          CheckpointNumber(blockNumber),
+        );
+        return makePublishedCheckpoint(checkpoint, blockNumber);
+      };
+
+      beforeEach(async () => {
+        // Create checkpoints sequentially to chain archive roots
+        logsCheckpoints = [];
+        for (let i = 0; i < numBlocksForLogs; i++) {
+          const previousArchive = i > 0 ? logsCheckpoints[i - 1].checkpoint.blocks[0].archive : undefined;
+          logsCheckpoints.push(await mockCheckpointWithLogs(i + 1, previousArchive));
+        }
+
+        await store.addCheckpoints(logsCheckpoints);
+        await store.addLogs(logsCheckpoints.flatMap(p => p.checkpoint.blocks));
+      });
+
+      it('is possible to batch request public logs via tags', async () => {
+        const tags = [makePublicLogTag(2, 1, 1), makePublicLogTag(1, 2, 0)];
+
+        const logsByTags = await store.getPublicLogsByTagsFromContract(contractAddress, tags);
+
+        expect(logsByTags).toEqual([
+          [
+            expect.objectContaining({
+              blockNumber: 2,
+              blockHash: L2BlockHash.fromField(await logsCheckpoints[2 - 1].checkpoint.blocks[0].header.hash()),
+              log: makePublicLog(tags[0]),
+              isFromPublic: true,
+            }),
+          ],
+          [
+            expect.objectContaining({
+              blockNumber: 1,
+              blockHash: L2BlockHash.fromField(await logsCheckpoints[1 - 1].checkpoint.blocks[0].header.hash()),
+              log: makePublicLog(tags[1]),
+              isFromPublic: true,
+            }),
+          ],
+        ]);
+      });
+
+      it('is possible to batch request logs that have the same tag but different content', async () => {
+        const tags = [makePublicLogTag(1, 2, 1)];
+
+        // Create a checkpoint containing logs that have the same tag as the checkpoints before.
+        // Chain from the last checkpoint's archive
+        const newBlockNumber = numBlocksForLogs + 1;
+        const previousArchive = logsCheckpoints[logsCheckpoints.length - 1].checkpoint.blocks[0].archive;
+        const newCheckpoint = await mockCheckpointWithLogs(newBlockNumber, previousArchive);
+        const newLog = newCheckpoint.checkpoint.blocks[0].body.txEffects[1].publicLogs[1];
+        newLog.fields[0] = tags[0].value;
+        newCheckpoint.checkpoint.blocks[0].body.txEffects[1].publicLogs[1] = newLog;
+        await store.addCheckpoints([newCheckpoint]);
+        await store.addLogs([newCheckpoint.checkpoint.blocks[0]]);
+
+        const logsByTags = await store.getPublicLogsByTagsFromContract(contractAddress, tags);
+
+        expect(logsByTags).toEqual([
+          [
+            expect.objectContaining({
+              blockNumber: 1,
+              blockHash: L2BlockHash.fromField(await logsCheckpoints[1 - 1].checkpoint.blocks[0].header.hash()),
+              log: makePublicLog(tags[0]),
+              isFromPublic: true,
+            }),
+            expect.objectContaining({
+              blockNumber: newBlockNumber,
+              blockHash: L2BlockHash.fromField(await newCheckpoint.checkpoint.blocks[0].header.hash()),
+              log: newLog,
+              isFromPublic: true,
+            }),
+          ],
+        ]);
+      });
+
+      it('is possible to request logs for non-existing tags and determine their position', async () => {
+        const tags = [makePublicLogTag(99, 88, 77), makePublicLogTag(1, 1, 0)];
+
+        const logsByTags = await store.getPublicLogsByTagsFromContract(contractAddress, tags);
+
+        expect(logsByTags).toEqual([
+          [
+            // No logs for the first tag.
+          ],
+          [
+            expect.objectContaining({
+              blockNumber: 1,
+              blockHash: L2BlockHash.fromField(await logsCheckpoints[1 - 1].checkpoint.blocks[0].header.hash()),
+              log: makePublicLog(tags[1]),
+              isFromPublic: true,
             }),
           ],
         ]);

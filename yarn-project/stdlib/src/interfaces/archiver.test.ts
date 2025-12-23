@@ -27,6 +27,8 @@ import { PublicKeys } from '../keys/public_keys.js';
 import { ExtendedContractClassLog } from '../logs/extended_contract_class_log.js';
 import { ExtendedPublicLog } from '../logs/extended_public_log.js';
 import type { LogFilter } from '../logs/log_filter.js';
+import { SiloedTag } from '../logs/siloed_tag.js';
+import { Tag } from '../logs/tag.js';
 import { TxScopedL2Log } from '../logs/tx_scoped_l2_log.js';
 import { getTokenContractArtifact } from '../tests/fixtures.js';
 import { BlockHeader } from '../tx/block_header.js';
@@ -197,8 +199,14 @@ describe('ArchiverApiSchema', () => {
     });
   });
 
-  it('getLogsByTags', async () => {
-    const result = await context.client.getLogsByTags([Fr.random()]);
+  it('getPrivateLogsByTags', async () => {
+    const result = await context.client.getPrivateLogsByTags([new SiloedTag(Fr.random())]);
+    expect(result).toEqual([[expect.any(TxScopedL2Log)]]);
+  });
+
+  it('getPublicLogsByTagsFromContract', async () => {
+    const contractAddress = await AztecAddress.random();
+    const result = await context.client.getPublicLogsByTagsFromContract(contractAddress, [new Tag(Fr.random())]);
     expect(result).toEqual([[expect.any(TxScopedL2Log)]]);
   });
 
@@ -441,9 +449,18 @@ class MockArchiver implements ArchiverApi {
     expect(blockNumber).toEqual(BlockNumber(1));
     return Promise.resolve(`0x01`);
   }
-  async getLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]> {
-    expect(tags[0]).toBeInstanceOf(Fr);
-    return [await Promise.all(tags.map(() => TxScopedL2Log.random()))];
+  async getPrivateLogsByTags(tags: SiloedTag[], _logsPerTag?: number): Promise<TxScopedL2Log[][]> {
+    expect(tags[0]).toBeInstanceOf(SiloedTag);
+    return [await Promise.all(tags.map(() => TxScopedL2Log.random(false)))];
+  }
+  async getPublicLogsByTagsFromContract(
+    contractAddress: AztecAddress,
+    tags: Tag[],
+    _logsPerTag?: number,
+  ): Promise<TxScopedL2Log[][]> {
+    expect(contractAddress).toBeInstanceOf(AztecAddress);
+    expect(tags[0]).toBeInstanceOf(Tag);
+    return [await Promise.all(tags.map(() => TxScopedL2Log.random(true)))];
   }
   async getPublicLogs(filter: LogFilter): Promise<GetPublicLogsResponse> {
     expect(filter.txHash).toBeInstanceOf(TxHash);

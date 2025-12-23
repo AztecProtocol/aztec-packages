@@ -45,6 +45,7 @@ import { computeNoteHashNonce, computeSecretHash, computeUniqueNoteHash, siloNot
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import { KeyValidationRequest } from '@aztec/stdlib/kernel';
 import { computeAppNullifierSecretKey, deriveKeys } from '@aztec/stdlib/keys';
+import type { SiloedTag } from '@aztec/stdlib/logs';
 import { L1Actor, L1ToL2Message, L2Actor } from '@aztec/stdlib/messaging';
 import { Note, NoteDao } from '@aztec/stdlib/note';
 import { makeBlockHeader } from '@aztec/stdlib/testing';
@@ -326,7 +327,7 @@ describe('Private Execution test suite', () => {
 
     // Mock aztec node methods - the return array needs to have the same length as the number of tags
     // on the input.
-    aztecNode.getLogsByTags.mockImplementation((tags: Fr[]) => Promise.resolve(tags.map(() => [])));
+    aztecNode.getPrivateLogsByTags.mockImplementation((tags: SiloedTag[]) => Promise.resolve(tags.map(() => [])));
 
     // TODO: refactor. Maybe it's worth stubbing a key store
     // and cleaning up the mess that is setting up keys.

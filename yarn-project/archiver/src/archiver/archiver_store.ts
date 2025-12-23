@@ -14,7 +14,7 @@ import type {
   UtilityFunctionWithMembershipProof,
 } from '@aztec/stdlib/contract';
 import type { GetContractClassLogsResponse, GetPublicLogsResponse } from '@aztec/stdlib/interfaces/client';
-import type { LogFilter, TxScopedL2Log } from '@aztec/stdlib/logs';
+import type { LogFilter, SiloedTag, Tag, TxScopedL2Log } from '@aztec/stdlib/logs';
 import { BlockHeader, type IndexedTxEffect, type TxHash, type TxReceipt } from '@aztec/stdlib/tx';
 import type { UInt64 } from '@aztec/stdlib/types';
 
@@ -206,13 +206,27 @@ export interface ArchiverDataStore {
   getTotalL1ToL2MessageCount(): Promise<bigint>;
 
   /**
-   * Gets all logs that match any of the received tags (i.e. logs with their first field equal to a tag).
-   * @param tags - The tags to filter the logs by.
+   * Gets all private logs that match any of the received tags (i.e. logs with their first field equal to a SiloedTag).
+   * @param tags - The SiloedTags to filter the logs by.
    * @param logsPerTag - The number of logs to return per tag. Defaults to everything
-   * @returns For each received tag, an array of matching logs is returned. An empty array implies no logs match
+   * @returns For each received tag, an array of matching private logs is returned. An empty array implies no logs match
    * that tag.
    */
-  getLogsByTags(tags: Fr[], logsPerTag?: number): Promise<TxScopedL2Log[][]>;
+  getPrivateLogsByTags(tags: SiloedTag[], logsPerTag?: number): Promise<TxScopedL2Log[][]>;
+
+  /**
+   * Gets all public logs that match any of the received tags from the specified contract (i.e. logs with their first field equal to a Tag).
+   * @param contractAddress - The contract that emitted the public logs.
+   * @param tags - The Tags to filter the logs by.
+   * @param logsPerTag - The number of logs to return per tag. Defaults to everything
+   * @returns For each received tag, an array of matching public logs is returned. An empty array implies no logs match
+   * that tag.
+   */
+  getPublicLogsByTagsFromContract(
+    contractAddress: AztecAddress,
+    tags: Tag[],
+    logsPerTag?: number,
+  ): Promise<TxScopedL2Log[][]>;
 
   /**
    * Gets public logs based on the provided filter.
