@@ -70,7 +70,7 @@ class Theta {
      * Used by the Plookup code to precompute lookup tables and generate witness values
      *
      * @param key (first element = table input. Second element is unused as this lookup does not have 2 keys per value)
-     * @return std::array<bb::fr, 2> table output {normalized, 0}
+     * @return std::array<bb::fr, 2> table output {normalized, 0} where the second entry is an unused placeholder
      */
     static std::array<bb::fr, 2> get_theta_renormalization_values(const std::array<uint64_t, 2> key)
     {
