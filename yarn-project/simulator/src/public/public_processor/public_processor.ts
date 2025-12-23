@@ -288,7 +288,15 @@ export class PublicProcessor implements Traceable {
         if (err?.name === 'PublicProcessorTimeoutError') {
           this.log.warn(`Stopping tx processing due to timeout.`);
           // We hit the transaction execution deadline.
-          // There may still be a transaction executing. We stop the guarded fork to prevent any further access to the world state.
+          // There may still be a transaction executing on a worker thread (C++ via NAPI).
+          // Signal cancellation AND WAIT for the simulation to actually stop.
+          // This is critical because C++ might be in the middle of a slow operation (e.g., pad_trees)
+          // and won't check the cancellation flag until that operation completes.
+          // Without waiting, we'd proceed to revert checkpoints while C++ is still writing to state.
+          // Wait for C++ to stop gracefully.
+          await this.publicTxSimulator.cancel?.();
+
+          // Now stop the guarded fork to prevent any further TS-side access to the world state.
           await this.guardedMerkleTree.stop();
 
           // We now know there can't be any further access to world state. The fork is in a state where there is:
