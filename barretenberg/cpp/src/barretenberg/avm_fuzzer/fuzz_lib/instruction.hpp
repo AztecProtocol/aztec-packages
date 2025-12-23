@@ -223,11 +223,10 @@ struct OR_8_Instruction {
 
 /// @brief mem[result_offset] = mem[a_address] ^ mem[b_address]
 struct XOR_8_Instruction {
-    MemoryTagWrapper argument_tag;
     ParamRef a_address;
     ParamRef b_address;
     AddressRef result_address;
-    MSGPACK_FIELDS(argument_tag, a_address, b_address, result_address);
+    MSGPACK_FIELDS(a_address, b_address, result_address);
 };
 
 struct NOT_8_Instruction {
@@ -599,6 +598,32 @@ struct ECADD_Instruction {
     MSGPACK_FIELDS(p1_x, p1_y, p1_infinite, p2_x, p2_y, p2_infinite, result);
 };
 
+/// @brief POSEIDON2PERM: Perform Poseidon2 permutation on 4 FF values
+/// M[dst_address:dst_address+4] = poseidon2_perm(M[src_address:src_address+4])
+struct POSEIDON2PERM_Instruction {
+    ParamRef src_address;
+    AddressRef dst_address;
+    MSGPACK_FIELDS(src_address, dst_address);
+};
+
+/// @brief KECCAKF1600: Perform Keccak-f[1600] permutation on 25 U64 values
+/// M[dst_address:dst_address+25] = keccakf1600(M[src_address:src_address+25])
+struct KECCAKF1600_Instruction {
+    ParamRef src_address;
+    AddressRef dst_address;
+    MSGPACK_FIELDS(src_address, dst_address);
+};
+
+/// @brief SHA256COMPRESSION: Perform SHA256 compression
+/// M[dst_address:dst_address+8] = sha256_compression(M[state_address:state_address+8],
+/// M[input_address:input_address+16])
+struct SHA256COMPRESSION_Instruction {
+    ParamRef state_address;
+    ParamRef input_address;
+    AddressRef dst_address;
+    MSGPACK_FIELDS(state_address, input_address, dst_address);
+};
+
 using FuzzInstruction = std::variant<ADD_8_Instruction,
                                      FDIV_8_Instruction,
                                      SET_8_Instruction,
@@ -651,7 +676,10 @@ using FuzzInstruction = std::variant<ADD_8_Instruction,
                                      RETURNDATASIZE_WITH_RETURNDATACOPY_Instruction,
                                      GETCONTRACTINSTANCE_Instruction,
                                      SUCCESSCOPY_Instruction,
-                                     ECADD_Instruction>;
+                                     ECADD_Instruction,
+                                     POSEIDON2PERM_Instruction,
+                                     KECCAKF1600_Instruction,
+                                     SHA256COMPRESSION_Instruction>;
 
 template <class... Ts> struct overloaded : Ts... {
     using Ts::operator()...;
@@ -843,6 +871,20 @@ inline std::ostream& operator<<(std::ostream& os, const FuzzInstruction& instruc
             [&](RETURNDATASIZE_WITH_RETURNDATACOPY_Instruction arg) {
                 os << "RETURNDATASIZE_WITH_RETURNDATACOPY_Instruction " << arg.copy_size_offset << " "
                    << arg.dst_address << " " << arg.rd_start_offset;
+            },
+            [&](ECADD_Instruction arg) {
+                os << "ECADD_Instruction " << arg.p1_x << " " << arg.p1_y << " " << arg.p1_infinite << " " << arg.p2_x
+                   << " " << arg.p2_y << " " << arg.p2_infinite << " " << arg.result;
+            },
+            [&](POSEIDON2PERM_Instruction arg) {
+                os << "POSEIDON2PERM_Instruction " << arg.src_address << " " << arg.dst_address;
+            },
+            [&](KECCAKF1600_Instruction arg) {
+                os << "KECCAKF1600_Instruction " << arg.src_address << " " << arg.dst_address;
+            },
+            [&](SHA256COMPRESSION_Instruction arg) {
+                os << "SHA256COMPRESSION_Instruction " << arg.state_address << " " << arg.input_address << " "
+                   << arg.dst_address;
             },
             [&](auto) { os << "Unknown instruction"; },
         },

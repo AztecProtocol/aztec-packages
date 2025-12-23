@@ -114,6 +114,72 @@ std::vector<FuzzInstruction> generate_ecadd_instruction(std::mt19937_64& rng)
     return instructions;
 }
 
+std::vector<FuzzInstruction> generate_keccakf_instruction(std::mt19937_64& rng)
+{
+    bool use_backfill = std::uniform_int_distribution<int>(0, 1)(rng) == 0;
+    if (!use_backfill) {
+        // Random mode
+        return { KECCAKF1600_Instruction{ .src_address = generate_variable_ref(rng),
+                                          .dst_address = generate_address_ref(rng, MAX_16BIT_OPERAND) } };
+    }
+    // Backfill mode
+    std::vector<FuzzInstruction> instructions;
+    // Keccak needs to backfill 25 U64 values, these need be contiguous in memory
+
+    AddressRef src_address = generate_address_ref(rng, MAX_16BIT_OPERAND - 24);
+    for (size_t i = 0; i < 25; i++) {
+        instructions.push_back(
+            SET_64_Instruction{ .value_tag = bb::avm2::MemoryTag::U64,
+                                .result_address = AddressRef{ .address = src_address.address + static_cast<uint32_t>(i),
+                                                              .mode = AddressingMode::Direct },
+                                .value = generate_random_uint64(rng) });
+    }
+    instructions.push_back(KECCAKF1600_Instruction{ .src_address = src_address,
+                                                    .dst_address = generate_address_ref(rng, MAX_16BIT_OPERAND) });
+    return instructions;
+}
+
+std::vector<FuzzInstruction> generate_sha256compression_instruction(std::mt19937_64& rng)
+{
+    bool use_backfill = std::uniform_int_distribution<int>(0, 1)(rng) == 0;
+    if (!use_backfill) {
+        // Random mode
+        return { SHA256COMPRESSION_Instruction{ .state_address = generate_variable_ref(rng),
+                                                .input_address = generate_variable_ref(rng),
+                                                .dst_address = generate_address_ref(rng, MAX_16BIT_OPERAND) } };
+    }
+    // Backfill mode
+    // SHA256 compression needs 8 U32 values for state and 16 U32 values for input (contiguous)
+    std::vector<FuzzInstruction> instructions;
+    instructions.reserve(8 + 16 + 1);
+
+    // Generate state address (8 contiguous U32 values)
+    AddressRef state_address = generate_address_ref(rng, MAX_16BIT_OPERAND - 7);
+    for (size_t i = 0; i < 8; i++) {
+        instructions.push_back(SET_32_Instruction{
+            .value_tag = bb::avm2::MemoryTag::U32,
+            .result_address = AddressRef{ .address = state_address.address + static_cast<uint32_t>(i),
+                                          .mode = AddressingMode::Direct },
+            .value = generate_random_uint32(rng) });
+    }
+
+    // Generate input address (16 contiguous U32 values)
+    AddressRef input_address = generate_address_ref(rng, MAX_16BIT_OPERAND - 15);
+    for (size_t i = 0; i < 16; i++) {
+        instructions.push_back(SET_32_Instruction{
+            .value_tag = bb::avm2::MemoryTag::U32,
+            .result_address = AddressRef{ .address = input_address.address + static_cast<uint32_t>(i),
+                                          .mode = AddressingMode::Direct },
+            .value = generate_random_uint32(rng) });
+    }
+
+    instructions.push_back(
+        SHA256COMPRESSION_Instruction{ .state_address = state_address,
+                                       .input_address = input_address,
+                                       .dst_address = generate_address_ref(rng, MAX_16BIT_OPERAND) });
+    return instructions;
+}
+
 std::vector<FuzzInstruction> generate_instruction(std::mt19937_64& rng)
 {
     InstructionGenerationOptions option = BASIC_INSTRUCTION_GENERATION_CONFIGURATION.select(rng);
@@ -324,6 +390,13 @@ std::vector<FuzzInstruction> generate_instruction(std::mt19937_64& rng)
         return { SUCCESSCOPY_Instruction{ .dst_address = generate_address_ref(rng, MAX_16BIT_OPERAND) } };
     case InstructionGenerationOptions::ECADD:
         return generate_ecadd_instruction(rng);
+    case InstructionGenerationOptions::POSEIDON2PERM:
+        return { POSEIDON2PERM_Instruction{ .src_address = generate_address_ref(rng, MAX_16BIT_OPERAND),
+                                            .dst_address = generate_address_ref(rng, MAX_16BIT_OPERAND) } };
+    case InstructionGenerationOptions::KECCAKF1600:
+        return generate_keccakf_instruction(rng);
+    case InstructionGenerationOptions::SHA256COMPRESSION:
+        return generate_sha256compression_instruction(rng);
     }
 }
 /// Most of the tags will be equal to the default tag
@@ -890,6 +963,48 @@ void mutate_ecadd_instruction(ECADD_Instruction& instruction, std::mt19937_64& r
     }
 }
 
+void mutate_poseidon2perm_instruction(POSEIDON2PERM_Instruction& instruction, std::mt19937_64& rng)
+{
+    int choice = std::uniform_int_distribution<int>(0, 1)(rng);
+    switch (choice) {
+    case 0:
+        mutate_param_ref(instruction.src_address, rng, MemoryTag::U32, MAX_16BIT_OPERAND);
+        break;
+    case 1:
+        mutate_address_ref(instruction.dst_address, rng, MAX_16BIT_OPERAND);
+        break;
+    }
+}
+
+void mutate_keccakf1600_instruction(KECCAKF1600_Instruction& instruction, std::mt19937_64& rng)
+{
+    int choice = std::uniform_int_distribution<int>(0, 1)(rng);
+    switch (choice) {
+    case 0:
+        mutate_param_ref(instruction.src_address, rng, MemoryTag::U32, MAX_16BIT_OPERAND);
+        break;
+    case 1:
+        mutate_address_ref(instruction.dst_address, rng, MAX_16BIT_OPERAND);
+        break;
+    }
+}
+
+void mutate_sha256compression_instruction(SHA256COMPRESSION_Instruction& instruction, std::mt19937_64& rng)
+{
+    int choice = std::uniform_int_distribution<int>(0, 2)(rng);
+    switch (choice) {
+    case 0:
+        mutate_param_ref(instruction.state_address, rng, MemoryTag::U32, MAX_16BIT_OPERAND);
+        break;
+    case 1:
+        mutate_param_ref(instruction.input_address, rng, MemoryTag::U32, MAX_16BIT_OPERAND);
+        break;
+    case 2:
+        mutate_address_ref(instruction.dst_address, rng, MAX_16BIT_OPERAND);
+        break;
+    }
+}
+
 void mutate_instruction(FuzzInstruction& instruction, std::mt19937_64& rng)
 {
     std::visit(
@@ -947,6 +1062,9 @@ void mutate_instruction(FuzzInstruction& instruction, std::mt19937_64& rng)
             [&rng](GETCONTRACTINSTANCE_Instruction& instr) { mutate_getcontractinstance_instruction(instr, rng); },
             [&rng](SUCCESSCOPY_Instruction& instr) { mutate_successcopy_instruction(instr, rng); },
             [&rng](ECADD_Instruction& instr) { mutate_ecadd_instruction(instr, rng); },
+            [&rng](POSEIDON2PERM_Instruction& instr) { mutate_poseidon2perm_instruction(instr, rng); },
+            [&rng](KECCAKF1600_Instruction& instr) { mutate_keccakf1600_instruction(instr, rng); },
+            [&rng](SHA256COMPRESSION_Instruction& instr) { mutate_sha256compression_instruction(instr, rng); },
             [](auto&) { throw std::runtime_error("Unknown instruction"); } },
         instruction);
 }
