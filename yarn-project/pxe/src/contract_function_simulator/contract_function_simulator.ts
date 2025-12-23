@@ -134,7 +134,22 @@ export class ContractFunctionSimulator {
   ): Promise<PrivateExecutionResult> {
     const simulatorSetupTimer = new Timer();
 
-    await this.syncPrivateState(contractAddress, anchorBlockHeader, scopes);
+    // Synchronize target contract data
+    // TODO: should we also synchronize the calling contract here? If it is generating notes that the target contract can immediately
+    // use maybe it makes sense
+    const syncPrivateStateFunctionCall = await this.contractDataProvider.getFunctionCall(
+      'sync_private_state',
+      [],
+      contractAddress,
+    );
+    if (selector.equals(syncPrivateStateFunctionCall.selector)) {
+      throw new Error(
+        'Forbidden `sync_private_state` invocation. `sync_private_state` can only be invoked by PXE, manual execution can lead to inconsistencies.',
+      );
+    }
+    const call = await this.contractDataProvider.getFunctionCall('sync_private_state', [], contractAddress);
+    await this.runUtility(call, [], anchorBlockHeader, scopes);
+
     await verifyCurrentClassId(contractAddress, this.aztecNode, this.contractDataProvider, anchorBlockHeader);
 
     const entryPointArtifact = await this.contractDataProvider.getFunctionArtifactWithDebugMetadata(
@@ -329,15 +344,6 @@ export class ContractFunctionSimulator {
       typeof (this.aztecNode as ProxiedNode).getStats === 'function' ? (this.aztecNode as ProxiedNode).getStats() : {};
 
     return { nodeRPCCalls };
-  }
-
-  private async syncPrivateState(
-    contractAddress: AztecAddress,
-    anchorBlockHeader: BlockHeader,
-    scopes?: AztecAddress[],
-  ) {
-    const call = await this.contractDataProvider.getFunctionCall('sync_private_state', [], contractAddress);
-    await this.runUtility(call, [], anchorBlockHeader, scopes);
   }
 }
 
