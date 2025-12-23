@@ -8,10 +8,10 @@ use crate::{
     abis::{BlockRollupPublicInputs, CheckpointRollupPublicInputs},
     block_merge::accumulate_block_headers_hash,
     checkpoint_root::{
-        checkpoint_root_rollup_private_inputs::{
-            CheckpointRootRollupHints, CheckpointRootRollupPrivateInputs,
+        checkpoint_root_rollup::{
+            self, CheckpointRootRollupHints, CheckpointRootRollupPrivateInputs,
         },
-        checkpoint_root_single_block_rollup_private_inputs::CheckpointRootSingleBlockRollupPrivateInputs,
+        checkpoint_root_single_block_rollup::{self, CheckpointRootSingleBlockRollupPrivateInputs},
     },
     tests::RollupFixtureBuilder,
     tx_merge::accumulate_out_hash,
@@ -213,29 +213,31 @@ impl TestBuilder {
 
     pub fn execute(self) -> CheckpointRollupPublicInputs {
         if self.is_single_block {
-            CheckpointRootSingleBlockRollupPrivateInputs {
-                previous_rollup: RollupFixtureBuilder::make_proof_data(
-                    self.left_rollup,
-                    self.left_rollup_vk_index,
-                ),
-                hints: self.hints,
-            }
-                .execute()
-        } else {
-            CheckpointRootRollupPrivateInputs {
-                previous_rollups: [
-                    RollupFixtureBuilder::make_proof_data(
+            checkpoint_root_single_block_rollup::execute(
+                CheckpointRootSingleBlockRollupPrivateInputs {
+                    previous_rollup: RollupFixtureBuilder::make_proof_data(
                         self.left_rollup,
                         self.left_rollup_vk_index,
                     ),
-                    RollupFixtureBuilder::make_proof_data(
-                        self.right_rollup,
-                        self.right_rollup_vk_index,
-                    ),
-                ],
-                hints: self.hints,
-            }
-                .execute()
+                    hints: self.hints,
+                },
+            )
+        } else {
+            checkpoint_root_rollup::execute(
+                CheckpointRootRollupPrivateInputs {
+                    previous_rollups: [
+                        RollupFixtureBuilder::make_proof_data(
+                            self.left_rollup,
+                            self.left_rollup_vk_index,
+                        ),
+                        RollupFixtureBuilder::make_proof_data(
+                            self.right_rollup,
+                            self.right_rollup_vk_index,
+                        ),
+                    ],
+                    hints: self.hints,
+                },
+            )
         }
     }
 

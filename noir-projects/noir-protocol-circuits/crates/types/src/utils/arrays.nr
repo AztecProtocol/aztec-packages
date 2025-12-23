@@ -8,7 +8,7 @@ pub use find_index::{find_first_index, find_last_index};
 pub use get_sorted_tuples::{get_sorted_tuples, SortedTuple};
 
 use crate::traits::{Deserialize, Empty, Serialize};
-use super::for_loop::{for_i_in_0_, for_i_only_in_0_};
+use super::for_loop::for_i_in_0_;
 
 //**********************************************************************************
 // ARRAY
@@ -320,20 +320,25 @@ where
     }
 
     pub fn for_each<Env>(self, f: fn[Env](T) -> ()) {
-        // We pass `false`, because by construction, we should know that self.length <= self.array.len().
-        for_i_only_in_0_(self.length, self.array.len(), |i| f(self.array[i]), false);
+        let mut within_range = true;
+        for i in 0..N {
+            within_range &= i != self.length;
+            if within_range {
+                f(self.array[i]);
+            }
+        }
     }
 
     // E.g.
     // dest.for_each_i(|source_item, i| { assert_eq(dest.array[i], source_item, "bad copy"); })
     pub fn for_each_i<Env>(self, f: fn[Env](T, u32) -> ()) {
-        // We pass `false`, because by construction, we should know that self.length <= self.array.len().
-        for_i_only_in_0_(
-            self.length,
-            self.array.len(),
-            |i| f(self.array[i], i),
-            false,
-        );
+        let mut within_range = true;
+        for i in 0..N {
+            within_range &= i != self.length;
+            if within_range {
+                f(self.array[i], i);
+            }
+        }
     }
 
     pub fn from_bounded_vec(vec: BoundedVec<T, N>) -> Self {

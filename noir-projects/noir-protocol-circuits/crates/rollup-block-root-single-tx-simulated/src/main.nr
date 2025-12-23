@@ -1,5 +1,7 @@
-use dep::rollup_lib::block_root::{BlockRollupPublicInputs, BlockRootSingleTxRollupPrivateInputs};
+use dep::rollup_lib::block_root::{
+    block_root_single_tx_rollup, BlockRollupPublicInputs, BlockRootSingleTxRollupPrivateInputs,
+};
 
 unconstrained fn main(inputs: BlockRootSingleTxRollupPrivateInputs) -> pub BlockRollupPublicInputs {
-    inputs.execute()
+    block_root_single_tx_rollup::execute(inputs)
 }
