@@ -990,16 +990,22 @@ export class PXE {
     // delete the same read value, or reading values that another simulation is currently modifying).
     return this.#putInJobQueue(async () => {
       try {
+        if (call.name === 'sync_private_state') {
+          throw new Error(
+            'Forbidden `sync_private_state` invocation. `sync_private_state` can only be invoked by PXE, manual execution can lead to inconsistencies.',
+          );
+        }
+
         const totalTimer = new Timer();
         const syncTimer = new Timer();
         await this.blockStateSynchronizer.sync();
         const syncTime = syncTimer.ms();
         const functionTimer = new Timer();
         const contractFunctionSimulator = this.#getSimulatorForTx();
-        if (call.name !== 'sync_private_state') {
-          const syncCall = await this.contractDataProvider.getFunctionCall('sync_private_state', [], call.to);
-          await this.#simulateUtility(contractFunctionSimulator, syncCall, [], scopes);
-        }
+
+        const syncCall = await this.contractDataProvider.getFunctionCall('sync_private_state', [], call.to);
+        await this.#simulateUtility(contractFunctionSimulator, syncCall, [], scopes);
+
         const executionResult = await this.#simulateUtility(contractFunctionSimulator, call, authwits ?? [], scopes);
         const functionTime = functionTimer.ms();
 
