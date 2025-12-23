@@ -103,6 +103,9 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
   /** The last slot for which we built a validation block in fisherman mode, to prevent duplicate attempts. */
   private lastSlotForValidationBlock: bigint | undefined;
 
+  /** The last epoch for which we logged strategy comparison in fisherman mode. */
+  private lastEpochForStrategyComparison: bigint | undefined;
+
   /** The maximum number of seconds that the sequencer can be into a slot to transition to a particular state. */
   protected timetable!: SequencerTimetable;
   protected enforceTimeTable: boolean = false;
@@ -422,9 +425,22 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     // Wait until the voting promises have resolved, so all requests are enqueued
     await Promise.all(votesPromises);
 
-    // In fisherman mode, we don't publish to L1
+    // In fisherman mode, we don't publish to L1 but analyze the fees
     if (this.config.fishermanMode) {
-      // Clear pending requests
+      // Perform L1 fee analysis before clearing requests
+      // The callback is invoked asynchronously after the next block is mined
+      const feeAnalysis = await publisher.analyzeL1Fees(BigInt(slot), analysis => {
+        this.metrics.recordFishermanFeeAnalysis(analysis);
+      });
+
+      // Check if we've moved to a new epoch and log strategy comparison
+      const currentEpoch = this.epochCache.getEpochAndSlotNow().epoch;
+      if (this.lastEpochForStrategyComparison === undefined || currentEpoch > this.lastEpochForStrategyComparison) {
+        this.logStrategyComparison(currentEpoch, publisher);
+        this.lastEpochForStrategyComparison = currentEpoch;
+      }
+
+      // Clear pending requests (we're not sending them)
       publisher.clearPendingRequests();
 
       if (block) {
@@ -433,6 +449,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
           slot: Number(slot),
           archive: block.archive.toString(),
           txCount: block.body.txEffects.length,
+          feeAnalysisId: feeAnalysis?.id,
         });
         this.lastBlockPublished = block;
         this.metrics.recordBlockProposalSuccess();
@@ -441,6 +458,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
         this.log.warn(`Validation block building FAILED for slot ${slot}`, {
           blockNumber: newBlockNumber,
           slot: Number(slot),
+          feeAnalysisId: feeAnalysis?.id,
         });
         this.metrics.recordBlockProposalFailed('block_build_failed');
       }
@@ -1232,6 +1250,38 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
   private getSecondsIntoSlot(slotNumber: number | bigint): number {
     const slotStartTimestamp = this.getSlotStartBuildTimestamp(slotNumber);
     return Number((this.dateProvider.now() / 1000 - slotStartTimestamp).toFixed(3));
+  }
+
+  /**
+   * Logs strategy comparison statistics at the end of each epoch in fisherman mode
+   */
+  private logStrategyComparison(epoch: bigint, publisher: SequencerPublisher): void {
+    const feeAnalyzer = publisher.getL1FeeAnalyzer();
+    if (!feeAnalyzer) {
+      return;
+    }
+
+    const comparison = feeAnalyzer.getStrategyComparison();
+    if (comparison.length === 0) {
+      this.log.debug(`No strategy data available yet for epoch ${epoch}`);
+      return;
+    }
+
+    this.log.info(`L1 Fee Strategy Performance Report - End of Epoch ${epoch}`, {
+      epoch: Number(epoch),
+      totalAnalyses: comparison[0]?.totalAnalyses,
+      strategies: comparison.map(s => ({
+        id: s.strategyId,
+        name: s.strategyName,
+        inclusionRate: `${(s.inclusionRate * 100).toFixed(1)}%`,
+        inclusionCount: `${s.inclusionCount}/${s.totalAnalyses}`,
+        avgCostEth: s.avgEstimatedCostEth.toFixed(6),
+        totalCostEth: s.totalEstimatedCostEth.toFixed(6),
+        avgOverpaymentEth: s.avgOverpaymentEth.toFixed(6),
+        totalOverpaymentEth: s.totalOverpaymentEth.toFixed(6),
+        avgPriorityFeeDeltaGwei: s.avgPriorityFeeDeltaGwei.toFixed(2),
+      })),
+    });
   }
 
   get aztecSlotDuration() {

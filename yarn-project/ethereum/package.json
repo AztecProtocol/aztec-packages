@@ -8,6 +8,7 @@
     "./contracts": "./dest/contracts/index.js",
     "./deploy-l1-contracts": "./dest/deploy_l1_contracts.js",
     "./l1-contract-addresses": "./dest/l1_contract_addresses.js",
+    "./l1-fee-analysis": "./dest/l1_tx_utils/l1_fee_analyzer.js",
     "./l1-tx-utils-with-blobs": "./dest/l1_tx_utils/index-blobs.js",
     "./utils": "./dest/utils.js"
   },

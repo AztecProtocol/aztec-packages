@@ -86,6 +86,19 @@ export const SEQUENCER_BLOCK_PROPOSAL_SUCCESS_COUNT = 'aztec.sequencer.block.pro
 export const SEQUENCER_BLOCK_PROPOSAL_PRECHECK_FAILED_COUNT = 'aztec.sequencer.block.proposal_precheck_failed_count';
 export const SEQUENCER_SLASHING_ATTEMPTS_COUNT = 'aztec.sequencer.slashing.attempts_count';
 
+// Fisherman fee analysis metrics
+export const FISHERMAN_FEE_ANALYSIS_WOULD_BE_INCLUDED = 'aztec.fisherman.fee_analysis.would_be_included';
+export const FISHERMAN_FEE_ANALYSIS_TIME_BEFORE_BLOCK = 'aztec.fisherman.fee_analysis.time_before_block';
+export const FISHERMAN_FEE_ANALYSIS_PENDING_BLOB_TX_COUNT = 'aztec.fisherman.fee_analysis.pending_blob_tx_count';
+export const FISHERMAN_FEE_ANALYSIS_INCLUDED_BLOB_TX_COUNT = 'aztec.fisherman.fee_analysis.included_blob_tx_count';
+export const FISHERMAN_FEE_ANALYSIS_CALCULATED_PRIORITY_FEE = 'aztec.fisherman.fee_analysis.calculated_priority_fee';
+export const FISHERMAN_FEE_ANALYSIS_PRIORITY_FEE_DELTA = 'aztec.fisherman.fee_analysis.priority_fee_delta';
+export const FISHERMAN_FEE_ANALYSIS_ESTIMATED_COST = 'aztec.fisherman.fee_analysis.estimated_cost';
+export const FISHERMAN_FEE_ANALYSIS_ESTIMATED_OVERPAYMENT = 'aztec.fisherman.fee_analysis.estimated_overpayment';
+export const FISHERMAN_FEE_ANALYSIS_MINED_BLOB_TX_PRIORITY_FEE =
+  'aztec.fisherman.fee_analysis.mined_blob_tx_priority_fee';
+export const FISHERMAN_FEE_ANALYSIS_MINED_BLOB_TX_TOTAL_COST = 'aztec.fisherman.fee_analysis.mined_blob_tx_total_cost';
+
 export const VALIDATOR_INVALID_ATTESTATION_RECEIVED_COUNT = 'aztec.validator.invalid_attestation_received_count';
 
 export const L1_PUBLISHER_GAS_PRICE = 'aztec.l1_publisher.gas_price';
