@@ -9,6 +9,10 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## TBD
 
+### [Low-level protocol] Domain separator names
+
+Domain separators have been renamed to have a `DOM_SEP__` prefix instead of `GENERATOR_INDEX__`. If you do any  low-level hashing, you'll need to make this "find + replace" change.
+
 ### [PXE] deprecated `getNotes`
 
 This function serves only for debugging purposes so we are taking it out of the main PXE API. If you still need to consume it, you can

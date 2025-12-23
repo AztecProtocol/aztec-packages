@@ -230,8 +230,7 @@ void FuzzerWorldStateManager::write_fee_payer_balance(const AztecAddress& fee_pa
         return;
     }
     FF fee_juice_balance_slot = Poseidon2::hash({ FEE_JUICE_BALANCES_SLOT, fee_payer });
-    FF leaf_slot =
-        Poseidon2::hash({ GENERATOR_INDEX__PUBLIC_LEAF_INDEX, FF(FEE_JUICE_ADDRESS), fee_juice_balance_slot });
+    FF leaf_slot = Poseidon2::hash({ DOM_SEP__PUBLIC_LEAF_INDEX, FF(FEE_JUICE_ADDRESS), fee_juice_balance_slot });
 
     // Write to public data tree using current fork
     auto fork_id = fork_ids.top();

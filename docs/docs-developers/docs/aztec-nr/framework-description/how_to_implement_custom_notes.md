@@ -155,7 +155,7 @@ use dep::aztec::{
     macros::notes::custom_note,
     note::note_interface::NoteHash,
     protocol_types::{
-        constants::{GENERATOR_INDEX__NOTE_HASH, GENERATOR_INDEX__NOTE_NULLIFIER},
+        constants::{DOM_SEP__NOTE_HASH, DOM_SEP__NOTE_NULLIFIER},
         hash::poseidon2_hash_with_separator,
         traits::Packable,
     },
@@ -173,7 +173,7 @@ pub struct TransparentNote {
 impl NoteHash for TransparentNote {
     fn compute_note_hash(self, storage_slot: Field) -> Field {
         let inputs = self.pack().concat([storage_slot]);
-        poseidon2_hash_with_separator(inputs, GENERATOR_INDEX__NOTE_HASH)
+        poseidon2_hash_with_separator(inputs, DOM_SEP__NOTE_HASH)
     }
 
     // Custom nullifier that doesn't use owner's key
@@ -185,7 +185,7 @@ impl NoteHash for TransparentNote {
     ) -> Field {
         poseidon2_hash_with_separator(
             [note_hash_for_nullification],
-            GENERATOR_INDEX__NOTE_NULLIFIER as Field,
+            DOM_SEP__NOTE_NULLIFIER as Field,
         )
     }
 

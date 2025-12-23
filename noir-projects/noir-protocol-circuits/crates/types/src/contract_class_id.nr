@@ -1,4 +1,4 @@
-use crate::constants::GENERATOR_INDEX__CONTRACT_LEAF;
+use crate::constants::DOM_SEP__CONTRACT_CLASS_ID;
 use crate::traits::{Deserialize, Empty, FromField, Packable, Serialize, ToField};
 use std::meta::derive;
 
@@ -33,8 +33,8 @@ impl ContractClassId {
     ) -> Self {
         let hash = crate::hash::poseidon2_hash_with_separator(
             [artifact_hash, private_functions_root, public_bytecode_commitment],
-            GENERATOR_INDEX__CONTRACT_LEAF,
-        ); // TODO(@spalladino): Update generator index
+            DOM_SEP__CONTRACT_CLASS_ID,
+        );
         ContractClassId::from_field(hash)
     }
 

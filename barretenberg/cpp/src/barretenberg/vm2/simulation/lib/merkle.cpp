@@ -25,25 +25,25 @@ FF unconstrained_root_from_path(const FF& leaf_value, const uint64_t leaf_index,
 
 FF unconstrained_compute_leaf_slot(const AztecAddress& contract_address, const FF& slot)
 {
-    return Poseidon2::hash({ GENERATOR_INDEX__PUBLIC_LEAF_INDEX, contract_address, slot });
+    return Poseidon2::hash({ DOM_SEP__PUBLIC_LEAF_INDEX, contract_address, slot });
 }
 
 FF unconstrained_silo_nullifier(const AztecAddress& contract_address, const FF& nullifier)
 {
-    return Poseidon2::hash({ GENERATOR_INDEX__OUTER_NULLIFIER, contract_address, nullifier });
+    return Poseidon2::hash({ DOM_SEP__OUTER_NULLIFIER, contract_address, nullifier });
 }
 
 FF unconstrained_silo_note_hash(const AztecAddress& contract_address, const FF& note_hash)
 {
-    return Poseidon2::hash({ GENERATOR_INDEX__SILOED_NOTE_HASH, contract_address, note_hash });
+    return Poseidon2::hash({ DOM_SEP__SILOED_NOTE_HASH, contract_address, note_hash });
 }
 
 FF unconstrained_make_unique_note_hash(const FF& siloed_note_hash,
                                        const FF& first_nullifier,
                                        uint64_t note_hash_counter)
 {
-    FF nonce = Poseidon2::hash({ GENERATOR_INDEX__NOTE_HASH_NONCE, first_nullifier, note_hash_counter });
-    return Poseidon2::hash({ GENERATOR_INDEX__UNIQUE_NOTE_HASH, nonce, siloed_note_hash });
+    FF nonce = Poseidon2::hash({ DOM_SEP__NOTE_HASH_NONCE, first_nullifier, note_hash_counter });
+    return Poseidon2::hash({ DOM_SEP__UNIQUE_NOTE_HASH, nonce, siloed_note_hash });
 }
 
 } // namespace bb::avm2::simulation

@@ -55,14 +55,14 @@ TEST(CalldataTraceGenTest, BasicHashing)
                       ROW_FIELD_EQ(calldata_hashing_index_0_, 0),
                       ROW_FIELD_EQ(calldata_hashing_index_1_, 1),
                       ROW_FIELD_EQ(calldata_hashing_index_2_, 2),
-                      ROW_FIELD_EQ(calldata_hashing_input_0_, GENERATOR_INDEX__PUBLIC_CALLDATA),
+                      ROW_FIELD_EQ(calldata_hashing_input_0_, DOM_SEP__PUBLIC_CALLDATA),
                       ROW_FIELD_EQ(calldata_hashing_input_1_, 10),
                       ROW_FIELD_EQ(calldata_hashing_input_2_, 20),
                       ROW_FIELD_EQ(calldata_hashing_calldata_size, 3),
                       ROW_FIELD_EQ(calldata_hashing_input_len, 4),
                       ROW_FIELD_EQ(calldata_hashing_rounds_rem, 2),
                       ROW_FIELD_EQ(calldata_hashing_output_hash,
-                                   RawPoseidon2::hash({ GENERATOR_INDEX__PUBLIC_CALLDATA, 10, 20, 30 }))));
+                                   RawPoseidon2::hash({ DOM_SEP__PUBLIC_CALLDATA, 10, 20, 30 }))));
 
     // Latched row
     EXPECT_THAT(rows.at(2),
@@ -83,7 +83,7 @@ TEST(CalldataTraceGenTest, BasicHashing)
                       ROW_FIELD_EQ(calldata_hashing_input_len, 4),
                       ROW_FIELD_EQ(calldata_hashing_rounds_rem, 1),
                       ROW_FIELD_EQ(calldata_hashing_output_hash,
-                                   RawPoseidon2::hash({ GENERATOR_INDEX__PUBLIC_CALLDATA, 10, 20, 30 }))));
+                                   RawPoseidon2::hash({ DOM_SEP__PUBLIC_CALLDATA, 10, 20, 30 }))));
 }
 
 TEST(CalldataTraceGenTest, BasicRetrievalAndHashing)
@@ -130,45 +130,44 @@ TEST(CalldataTraceGenTest, BasicRetrievalAndHashing)
                       // Last one and therefore no diff:
                       ROW_FIELD_EQ(calldata_diff_context_id, 0)));
     // Hashing tracegen:
-    EXPECT_THAT(rows.at(1),
-                AllOf(ROW_FIELD_EQ(calldata_hashing_sel, 1),
-                      ROW_FIELD_EQ(calldata_hashing_start, 1),
-                      ROW_FIELD_EQ(calldata_hashing_sel_not_start, 0),
-                      ROW_FIELD_EQ(calldata_hashing_sel_not_padding_1, 1),
-                      ROW_FIELD_EQ(calldata_hashing_sel_not_padding_2, 1),
-                      ROW_FIELD_EQ(calldata_hashing_latch, 1),
-                      ROW_FIELD_EQ(calldata_hashing_context_id, 1),
-                      ROW_FIELD_EQ(calldata_hashing_index_0_, 0),
-                      ROW_FIELD_EQ(calldata_hashing_index_1_, 1),
-                      ROW_FIELD_EQ(calldata_hashing_index_2_, 2),
-                      ROW_FIELD_EQ(calldata_hashing_input_0_, GENERATOR_INDEX__PUBLIC_CALLDATA),
-                      ROW_FIELD_EQ(calldata_hashing_input_1_, 1),
-                      ROW_FIELD_EQ(calldata_hashing_input_2_, 2),
-                      ROW_FIELD_EQ(calldata_hashing_calldata_size, 2),
-                      ROW_FIELD_EQ(calldata_hashing_input_len, 3),
-                      ROW_FIELD_EQ(calldata_hashing_rounds_rem, 1),
-                      ROW_FIELD_EQ(calldata_hashing_output_hash,
-                                   RawPoseidon2::hash({ GENERATOR_INDEX__PUBLIC_CALLDATA, 1, 2 }))));
-
     EXPECT_THAT(
-        rows.at(2),
+        rows.at(1),
         AllOf(ROW_FIELD_EQ(calldata_hashing_sel, 1),
               ROW_FIELD_EQ(calldata_hashing_start, 1),
               ROW_FIELD_EQ(calldata_hashing_sel_not_start, 0),
               ROW_FIELD_EQ(calldata_hashing_sel_not_padding_1, 1),
-              ROW_FIELD_EQ(calldata_hashing_sel_not_padding_2, 0),
+              ROW_FIELD_EQ(calldata_hashing_sel_not_padding_2, 1),
               ROW_FIELD_EQ(calldata_hashing_latch, 1),
-              ROW_FIELD_EQ(calldata_hashing_context_id, 3),
+              ROW_FIELD_EQ(calldata_hashing_context_id, 1),
               ROW_FIELD_EQ(calldata_hashing_index_0_, 0),
               ROW_FIELD_EQ(calldata_hashing_index_1_, 1),
               ROW_FIELD_EQ(calldata_hashing_index_2_, 2),
-              ROW_FIELD_EQ(calldata_hashing_input_0_, GENERATOR_INDEX__PUBLIC_CALLDATA),
-              ROW_FIELD_EQ(calldata_hashing_input_1_, 3),
-              ROW_FIELD_EQ(calldata_hashing_input_2_, 0),
-              ROW_FIELD_EQ(calldata_hashing_calldata_size, 1),
-              ROW_FIELD_EQ(calldata_hashing_input_len, 2),
+              ROW_FIELD_EQ(calldata_hashing_input_0_, DOM_SEP__PUBLIC_CALLDATA),
+              ROW_FIELD_EQ(calldata_hashing_input_1_, 1),
+              ROW_FIELD_EQ(calldata_hashing_input_2_, 2),
+              ROW_FIELD_EQ(calldata_hashing_calldata_size, 2),
+              ROW_FIELD_EQ(calldata_hashing_input_len, 3),
               ROW_FIELD_EQ(calldata_hashing_rounds_rem, 1),
-              ROW_FIELD_EQ(calldata_hashing_output_hash, RawPoseidon2::hash({ GENERATOR_INDEX__PUBLIC_CALLDATA, 3 }))));
+              ROW_FIELD_EQ(calldata_hashing_output_hash, RawPoseidon2::hash({ DOM_SEP__PUBLIC_CALLDATA, 1, 2 }))));
+
+    EXPECT_THAT(rows.at(2),
+                AllOf(ROW_FIELD_EQ(calldata_hashing_sel, 1),
+                      ROW_FIELD_EQ(calldata_hashing_start, 1),
+                      ROW_FIELD_EQ(calldata_hashing_sel_not_start, 0),
+                      ROW_FIELD_EQ(calldata_hashing_sel_not_padding_1, 1),
+                      ROW_FIELD_EQ(calldata_hashing_sel_not_padding_2, 0),
+                      ROW_FIELD_EQ(calldata_hashing_latch, 1),
+                      ROW_FIELD_EQ(calldata_hashing_context_id, 3),
+                      ROW_FIELD_EQ(calldata_hashing_index_0_, 0),
+                      ROW_FIELD_EQ(calldata_hashing_index_1_, 1),
+                      ROW_FIELD_EQ(calldata_hashing_index_2_, 2),
+                      ROW_FIELD_EQ(calldata_hashing_input_0_, DOM_SEP__PUBLIC_CALLDATA),
+                      ROW_FIELD_EQ(calldata_hashing_input_1_, 3),
+                      ROW_FIELD_EQ(calldata_hashing_input_2_, 0),
+                      ROW_FIELD_EQ(calldata_hashing_calldata_size, 1),
+                      ROW_FIELD_EQ(calldata_hashing_input_len, 2),
+                      ROW_FIELD_EQ(calldata_hashing_rounds_rem, 1),
+                      ROW_FIELD_EQ(calldata_hashing_output_hash, RawPoseidon2::hash({ DOM_SEP__PUBLIC_CALLDATA, 3 }))));
 }
 
 TEST(CalldataTraceGenTest, BasicRetrievalAndHashingEmpty)
@@ -195,25 +194,24 @@ TEST(CalldataTraceGenTest, BasicRetrievalAndHashingEmpty)
                       // This is the only case where the index is 0 and sel is on:
                       ROW_FIELD_EQ(calldata_index, 0)));
     // Hashing tracegen should set the output hash as H(sep):
-    EXPECT_THAT(
-        rows.at(1),
-        AllOf(ROW_FIELD_EQ(calldata_hashing_sel, 1),
-              ROW_FIELD_EQ(calldata_hashing_start, 1),
-              ROW_FIELD_EQ(calldata_hashing_sel_not_start, 0),
-              ROW_FIELD_EQ(calldata_hashing_sel_not_padding_1, 0),
-              ROW_FIELD_EQ(calldata_hashing_sel_not_padding_2, 0),
-              ROW_FIELD_EQ(calldata_hashing_latch, 1),
-              ROW_FIELD_EQ(calldata_hashing_context_id, 12),
-              ROW_FIELD_EQ(calldata_hashing_index_0_, 0),
-              ROW_FIELD_EQ(calldata_hashing_index_1_, 1),
-              ROW_FIELD_EQ(calldata_hashing_index_2_, 2),
-              ROW_FIELD_EQ(calldata_hashing_input_0_, GENERATOR_INDEX__PUBLIC_CALLDATA),
-              ROW_FIELD_EQ(calldata_hashing_input_1_, 0),
-              ROW_FIELD_EQ(calldata_hashing_input_2_, 0),
-              ROW_FIELD_EQ(calldata_hashing_calldata_size, 0),
-              ROW_FIELD_EQ(calldata_hashing_input_len, 1),
-              ROW_FIELD_EQ(calldata_hashing_rounds_rem, 1),
-              ROW_FIELD_EQ(calldata_hashing_output_hash, RawPoseidon2::hash({ GENERATOR_INDEX__PUBLIC_CALLDATA }))));
+    EXPECT_THAT(rows.at(1),
+                AllOf(ROW_FIELD_EQ(calldata_hashing_sel, 1),
+                      ROW_FIELD_EQ(calldata_hashing_start, 1),
+                      ROW_FIELD_EQ(calldata_hashing_sel_not_start, 0),
+                      ROW_FIELD_EQ(calldata_hashing_sel_not_padding_1, 0),
+                      ROW_FIELD_EQ(calldata_hashing_sel_not_padding_2, 0),
+                      ROW_FIELD_EQ(calldata_hashing_latch, 1),
+                      ROW_FIELD_EQ(calldata_hashing_context_id, 12),
+                      ROW_FIELD_EQ(calldata_hashing_index_0_, 0),
+                      ROW_FIELD_EQ(calldata_hashing_index_1_, 1),
+                      ROW_FIELD_EQ(calldata_hashing_index_2_, 2),
+                      ROW_FIELD_EQ(calldata_hashing_input_0_, DOM_SEP__PUBLIC_CALLDATA),
+                      ROW_FIELD_EQ(calldata_hashing_input_1_, 0),
+                      ROW_FIELD_EQ(calldata_hashing_input_2_, 0),
+                      ROW_FIELD_EQ(calldata_hashing_calldata_size, 0),
+                      ROW_FIELD_EQ(calldata_hashing_input_len, 1),
+                      ROW_FIELD_EQ(calldata_hashing_rounds_rem, 1),
+                      ROW_FIELD_EQ(calldata_hashing_output_hash, RawPoseidon2::hash({ DOM_SEP__PUBLIC_CALLDATA }))));
 }
 
 TEST(CalldataTraceGenTest, LongerHash)
@@ -222,7 +220,7 @@ TEST(CalldataTraceGenTest, LongerHash)
     CalldataTraceBuilder builder;
 
     std::vector<FF> calldata = random_fields(100);
-    std::vector<FF> preimage = { GENERATOR_INDEX__PUBLIC_CALLDATA };
+    std::vector<FF> preimage = { DOM_SEP__PUBLIC_CALLDATA };
     preimage.insert(preimage.end(), calldata.begin(), calldata.end());
     FF output_hash = RawPoseidon2::hash(preimage);
 

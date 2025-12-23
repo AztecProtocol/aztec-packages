@@ -20,17 +20,17 @@ bool NoteHashTreeCheck::note_hash_exists(const FF& unique_note_hash,
 
 FF NoteHashTreeCheck::make_siloed(AztecAddress contract_address, const FF& note_hash) const
 {
-    return poseidon2.hash({ GENERATOR_INDEX__SILOED_NOTE_HASH, contract_address, note_hash });
+    return poseidon2.hash({ DOM_SEP__SILOED_NOTE_HASH, contract_address, note_hash });
 }
 
 FF NoteHashTreeCheck::make_nonce(uint64_t note_hash_counter) const
 {
-    return poseidon2.hash({ GENERATOR_INDEX__NOTE_HASH_NONCE, first_nullifier, note_hash_counter });
+    return poseidon2.hash({ DOM_SEP__NOTE_HASH_NONCE, first_nullifier, note_hash_counter });
 }
 
 FF NoteHashTreeCheck::make_unique(const FF& siloed_note_hash, const FF& nonce) const
 {
-    return poseidon2.hash({ GENERATOR_INDEX__UNIQUE_NOTE_HASH, nonce, siloed_note_hash });
+    return poseidon2.hash({ DOM_SEP__UNIQUE_NOTE_HASH, nonce, siloed_note_hash });
 }
 
 AppendOnlyTreeSnapshot NoteHashTreeCheck::append_note_hash(const FF& note_hash,

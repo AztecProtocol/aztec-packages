@@ -215,7 +215,7 @@ TEST(AvmSimulationNullifierTree, Siloing)
 
     FF nullifier = 42;
     AztecAddress contract_address = AztecAddress(1);
-    std::vector<FF> siloed_nullifier_hash_inputs = { GENERATOR_INDEX__OUTER_NULLIFIER, contract_address, nullifier };
+    std::vector<FF> siloed_nullifier_hash_inputs = { DOM_SEP__OUTER_NULLIFIER, contract_address, nullifier };
     FF siloed_nullifier = RawPoseidon2::hash(siloed_nullifier_hash_inputs);
 
     NullifierTreeLeafPreimage low_leaf = NullifierTreeLeafPreimage(NullifierLeafValue(siloed_nullifier), 0, 0);

@@ -3,7 +3,7 @@ use crate::{
         append_only_tree_snapshot::AppendOnlyTreeSnapshot, global_variables::GlobalVariables,
         state_reference::StateReference,
     },
-    constants::{BLOCK_HEADER_LENGTH, GENERATOR_INDEX__BLOCK_HASH, GENESIS_BLOCK_HEADER_HASH},
+    constants::{BLOCK_HEADER_LENGTH, DOM_SEP__BLOCK_HASH, GENESIS_BLOCK_HEADER_HASH},
     hash::poseidon2_hash_with_separator,
     traits::{Deserialize, Empty, Hash, Serialize},
 };
@@ -43,7 +43,7 @@ impl Empty for BlockHeader {
 
 impl Hash for BlockHeader {
     fn hash(self) -> Field {
-        poseidon2_hash_with_separator(self.serialize(), GENERATOR_INDEX__BLOCK_HASH)
+        poseidon2_hash_with_separator(self.serialize(), DOM_SEP__BLOCK_HASH)
     }
 }
 

@@ -2,7 +2,7 @@ use crate::{
     address::public_keys_hash::PublicKeysHash,
     constants::{
         DEFAULT_IVPK_M_X, DEFAULT_IVPK_M_Y, DEFAULT_NPK_M_X, DEFAULT_NPK_M_Y, DEFAULT_OVPK_M_X,
-        DEFAULT_OVPK_M_Y, DEFAULT_TPK_M_X, DEFAULT_TPK_M_Y, GENERATOR_INDEX__PUBLIC_KEYS_HASH,
+        DEFAULT_OVPK_M_Y, DEFAULT_TPK_M_X, DEFAULT_TPK_M_Y, DOM_SEP__PUBLIC_KEYS_HASH,
     },
     hash::poseidon2_hash_with_separator,
     traits::{Deserialize, Hash, Serialize},
@@ -103,7 +103,7 @@ impl PublicKeys {
     pub fn hash(self) -> PublicKeysHash {
         PublicKeysHash::from_field(poseidon2_hash_with_separator(
             self.serialize(),
-            GENERATOR_INDEX__PUBLIC_KEYS_HASH as Field,
+            DOM_SEP__PUBLIC_KEYS_HASH as Field,
         ))
     }
 }

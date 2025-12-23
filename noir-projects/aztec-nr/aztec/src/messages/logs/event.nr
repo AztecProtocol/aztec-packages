@@ -7,7 +7,7 @@ use crate::{
     utils::array,
 };
 use protocol_types::{
-    constants::GENERATOR_INDEX__EVENT_COMMITMENT,
+    constants::DOM_SEP__EVENT_COMMITMENT,
     hash::poseidon2_hash_with_separator_bounded_vec,
     traits::{FromField, Serialize, ToField},
 };
@@ -91,7 +91,7 @@ pub(crate) unconstrained fn decode_private_event_message(
 
     let event_commitment = poseidon2_hash_with_separator_bounded_vec(
         serialized_event_with_randomness,
-        GENERATOR_INDEX__EVENT_COMMITMENT,
+        DOM_SEP__EVENT_COMMITMENT,
     );
 
     // Randomness was injected into the event payload in `emit_event_in_private` but we have already used it

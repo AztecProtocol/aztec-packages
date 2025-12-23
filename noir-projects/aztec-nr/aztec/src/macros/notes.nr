@@ -73,7 +73,7 @@ comptime fn generate_note_hash_trait_impl(s: TypeDefinition) -> Quoted {
         impl aztec::note::note_interface::NoteHash for $name {
             fn compute_note_hash(self, owner: aztec::protocol_types::address::AztecAddress, storage_slot: Field, randomness: Field) -> Field {
                 let inputs = aztec::protocol_types::traits::Packable::pack(self).concat( [aztec::protocol_types::traits::ToField::to_field(owner), storage_slot, randomness]);
-                aztec::protocol_types::hash::poseidon2_hash_with_separator(inputs, aztec::protocol_types::constants::GENERATOR_INDEX__NOTE_HASH)
+                aztec::protocol_types::hash::poseidon2_hash_with_separator(inputs, aztec::protocol_types::constants::DOM_SEP__NOTE_HASH)
             }
 
             fn compute_nullifier(
@@ -89,7 +89,7 @@ comptime fn generate_note_hash_trait_impl(s: TypeDefinition) -> Quoted {
                 let secret = context.request_nsk_app(owner_npk_m_hash);
                 aztec::protocol_types::hash::poseidon2_hash_with_separator(
                     [note_hash_for_nullification, secret],
-                    aztec::protocol_types::constants::GENERATOR_INDEX__NOTE_NULLIFIER as Field,
+                    aztec::protocol_types::constants::DOM_SEP__NOTE_NULLIFIER as Field,
                 )
             }
 
@@ -105,7 +105,7 @@ comptime fn generate_note_hash_trait_impl(s: TypeDefinition) -> Quoted {
                 let secret = aztec::keys::getters::get_nsk_app(owner_npk_m_hash);
                 aztec::protocol_types::hash::poseidon2_hash_with_separator(
                     [note_hash_for_nullification, secret],
-                    aztec::protocol_types::constants::GENERATOR_INDEX__NOTE_NULLIFIER as Field,
+                    aztec::protocol_types::constants::DOM_SEP__NOTE_NULLIFIER as Field,
                 )
             }
         }
