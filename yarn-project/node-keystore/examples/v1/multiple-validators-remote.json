@@ -32,14 +32,14 @@
         "address": "0x1111111111111111111111111111111111111111",
         "remoteSignerUrl": "https://localhost:8082"
       },
-      "feeRecipient": "0xabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd"
+      "feeRecipient": "0x0bcdef0bcdef0bcdef0bcdef0bcdef0bcdef0bcdef0bcdef0bcdef0bcdef0bcd"
     },
     {
       "attester": {
-        "eth": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-        "bls": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        "eth": "0x0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a",
+        "bls": "0x0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b"
       },
-      "feeRecipient": "0x9999999999999999999999999999999999999999999999999999999999999999"
+      "feeRecipient": "0x0909090909090909090909090909090909090909090909090909090909090909"
     }
   ]
 }
