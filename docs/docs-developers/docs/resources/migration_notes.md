@@ -9,6 +9,29 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## TBD
 
+### [AVM] Gas cost multipliers for public execution to reach simulation/proving parity
+
+Gas costs for several AVM opcodes have been adjusted with multipliers to better align public simulation costs with actual proving costs.
+
+| Opcode | Multiplier | Previous Cost | New Cost |
+|--------|------------|---------------|----------|
+| FDIV | 25x | 9 | 225 |
+| SLOAD | 10x | 129 | 1,290 |
+| SSTORE | 20x | 1,657 | 33,140 |
+| NOTEHASHEXISTS | 4x | 126 | 504 |
+| EMITNOTEHASH | 15x | 1,285 | 19,275 |
+| NULLIFIEREXISTS | 7x | 132 | 924 |
+| EMITNULLIFIER | 20x | 1,540 | 30,800 |
+| L1TOL2MSGEXISTS | 5x | 108 | 540 |
+| SENDL2TOL1MSG | 2x | 209 | 418 |
+| CALL | 3x | 3,312 | 9,936 |
+| STATICCALL | 3x | 3,312 | 9,936 |
+| GETCONTRACTINSTANCE | 4x | 1,527 | 6,108 |
+| POSEIDON2 | 15x | 24 | 360 |
+| ECADD | 10x | 27 | 270 |
+
+**Impact**: Contracts with public bytecode performing any of these operations will see increased gas consumption.
+
 ### [PXE] deprecated `getNotes`
 
 This function serves only for debugging purposes so we are taking it out of the main PXE API. If you still need to consume it, you can
