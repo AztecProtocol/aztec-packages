@@ -77,11 +77,11 @@ bool AvmProvingHelper::check_circuit(tracegen::TraceContainer&& trace)
     // of the circuit.
     const size_t num_rows = trace.get_num_rows_without_clk() + 1;
     const bool skippable_enabled = (getenv("AVM_DISABLE_SKIPPABLE") == nullptr);
-    info("Running check ",
-         skippable_enabled ? "(with skippable)" : "(without skippable)",
-         " circuit over ",
-         num_rows,
-         " rows.");
+    vinfo("Running check ",
+          skippable_enabled ? "(with skippable)" : "(without skippable)",
+          " circuit over ",
+          num_rows,
+          " rows.");
 
     // Warning: this destroys the trace.
     auto polynomials = AVM_TRACK_TIME_V("proving/prove:compute_polynomials", constraining::compute_polynomials(trace));
@@ -91,7 +91,7 @@ bool AvmProvingHelper::check_circuit(tracegen::TraceContainer&& trace)
     } catch (std::runtime_error& e) {
         // FIXME: This exception is never caught because it's thrown in a different thread.
         // Execution never gets here!
-        info("Circuit check failed: ", e.what());
+        vinfo("Circuit check failed: ", e.what());
     }
 
     return true;
