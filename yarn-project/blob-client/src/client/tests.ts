@@ -35,7 +35,7 @@ export function runBlobClientTests(
 
     const retrievedBlobs = await client.getBlobSidecar(blockId, [blobHash]);
     expect(retrievedBlobs).toHaveLength(1);
-    expect(retrievedBlobs[0].blob).toEqual(blob);
+    expect(retrievedBlobs[0]).toEqual(blob);
   });
 
   it('should handle multiple blobs', async () => {
@@ -48,7 +48,7 @@ export function runBlobClientTests(
     expect(retrievedBlobs.length).toBe(3);
 
     for (let i = 0; i < blobs.length; i++) {
-      expect(retrievedBlobs[i].blob).toEqual(blobs[i]);
+      expect(retrievedBlobs[i]).toEqual(blobs[i]);
     }
   });
 
@@ -58,21 +58,5 @@ export function runBlobClientTests(
 
     const retrievedBlobs = await client.getBlobSidecar(blockId, [nonExistentHash]);
     expect(retrievedBlobs).toEqual([]);
-  });
-
-  it('should preserve blob indices', async () => {
-    const blobs = Array.from({ length: 3 }, () => makeRandomBlob(7));
-    const blobHashes = blobs.map(blob => blob.getEthVersionedBlobHash());
-
-    await client.sendBlobsToFilestore(blobs);
-
-    const retrievedBlobs = await client.getBlobSidecar(blockId, blobHashes);
-    expect(retrievedBlobs.length).toBe(blobs.length);
-
-    // Indices should be assigned sequentially based on the order they were sent
-    for (let i = 0; i < blobs.length; i++) {
-      expect(retrievedBlobs[i].blob).toEqual(blobs[i]);
-      expect(retrievedBlobs[i].index).toBe(i);
-    }
   });
 }

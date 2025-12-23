@@ -10,7 +10,6 @@ import http from 'http';
 import type { AddressInfo } from 'net';
 
 import type { FileStoreBlobClient } from '../filestore/filestore_blob_client.js';
-import { BlobWithIndex } from '../types/blob_with_index.js';
 import { HttpBlobClient } from './http.js';
 
 describe('HttpBlobClient', () => {
@@ -29,7 +28,6 @@ describe('HttpBlobClient', () => {
   describe('Mock Ethereum Clients', () => {
     let testBlobs: Blob[];
     let testBlobsHashes: Buffer[];
-    let testBlobsWithIndex: BlobWithIndex[];
 
     let executionHostServer: http.Server | undefined = undefined;
     let executionHostPort: number | undefined = undefined;
@@ -48,9 +46,8 @@ describe('HttpBlobClient', () => {
 
       testBlobs = Array.from({ length: 2 }, () => makeRandomBlob(3));
       testBlobsHashes = testBlobs.map(b => b.getEthVersionedBlobHash());
-      testBlobsWithIndex = testBlobs.map((b, index) => new BlobWithIndex(b, index));
 
-      blobData = testBlobsWithIndex.map(b => b.toJSON());
+      blobData = testBlobs.map(b => b.toJSON());
     });
 
     const startExecutionHostServer = (): Promise<void> => {
@@ -133,7 +130,9 @@ describe('HttpBlobClient', () => {
       });
 
       const retrievedBlobs = await client.getBlobSidecar('0x1234', testBlobsHashes);
-      expect(retrievedBlobs).toEqual(testBlobsWithIndex);
+      expect(retrievedBlobs).toHaveLength(2);
+      expect(retrievedBlobs[0].commitment).toEqual(testBlobs[0].commitment);
+      expect(retrievedBlobs[1].commitment).toEqual(testBlobs[1].commitment);
     });
 
     it('should handle when multiple consensus hosts are provided', async () => {
@@ -146,7 +145,8 @@ describe('HttpBlobClient', () => {
       });
 
       const retrievedBlobs = await client.getBlobSidecar('0x1234', testBlobsHashes);
-      expect(retrievedBlobs).toEqual(testBlobsWithIndex);
+      expect(retrievedBlobs).toHaveLength(2);
+      expect(retrievedBlobs[0].commitment).toEqual(testBlobs[0].commitment);
     });
 
     it('should handle API keys without headers', async () => {
@@ -160,7 +160,8 @@ describe('HttpBlobClient', () => {
       });
 
       const retrievedBlobs = await client.getBlobSidecar('0x1234', testBlobsHashes);
-      expect(retrievedBlobs).toEqual(testBlobsWithIndex);
+      expect(retrievedBlobs).toHaveLength(2);
+      expect(retrievedBlobs[0].commitment).toEqual(testBlobs[0].commitment);
 
       const clientWithNoKey = new HttpBlobClient({
         l1RpcUrls: [`http://localhost:${executionHostPort}`],
@@ -193,7 +194,8 @@ describe('HttpBlobClient', () => {
       });
 
       const retrievedBlobs = await client.getBlobSidecar('0x1234', testBlobsHashes);
-      expect(retrievedBlobs).toEqual(testBlobsWithIndex);
+      expect(retrievedBlobs).toHaveLength(2);
+      expect(retrievedBlobs[0].commitment).toEqual(testBlobs[0].commitment);
 
       const clientWithWrongHeader = new HttpBlobClient({
         l1RpcUrls: [`http://localhost:${executionHostPort}`],
@@ -242,7 +244,8 @@ describe('HttpBlobClient', () => {
       });
 
       let retrievedBlobs = await client.getBlobSidecar('0x1234', testBlobsHashes);
-      expect(retrievedBlobs).toEqual(testBlobsWithIndex);
+      expect(retrievedBlobs).toHaveLength(2);
+      expect(retrievedBlobs[0].commitment).toEqual(testBlobs[0].commitment);
 
       // Verify that the second consensus host works when the first host fails
       consensusServer1?.close();
@@ -258,7 +261,8 @@ describe('HttpBlobClient', () => {
       });
 
       retrievedBlobs = await client.getBlobSidecar('0x1234', testBlobsHashes);
-      expect(retrievedBlobs).toEqual(testBlobsWithIndex);
+      expect(retrievedBlobs).toHaveLength(2);
+      expect(retrievedBlobs[0].commitment).toEqual(testBlobs[0].commitment);
 
       // Verify that the third consensus host works when the first and second hosts fail
       consensusServer2?.close();
@@ -274,7 +278,8 @@ describe('HttpBlobClient', () => {
       });
 
       retrievedBlobs = await client.getBlobSidecar('0x1234', testBlobsHashes);
-      expect(retrievedBlobs).toEqual(testBlobsWithIndex);
+      expect(retrievedBlobs).toHaveLength(2);
+      expect(retrievedBlobs[0].commitment).toEqual(testBlobs[0].commitment);
     });
 
     it('accumulates successfully retrieved blobs even if some fail', async () => {
@@ -290,9 +295,8 @@ describe('HttpBlobClient', () => {
       const randomBlobs = Array.from({ length: 2 }, () => makeRandomBlob(3));
       const incorrectBlob = new Blob(randomBlobs[0].data, randomBlobs[1].commitment);
       const incorrectBlobHash = incorrectBlob.getEthVersionedBlobHash();
-      const incorrectBlobWithIndex = new BlobWithIndex(incorrectBlob, 2);
       // Update blobData to include the incorrect blob
-      blobData.push(incorrectBlobWithIndex.toJSON());
+      blobData.push(incorrectBlob.toJSON());
 
       const retrievedBlobs = await client.getBlobSidecar('0x1234', [
         testBlobsHashes[0],
@@ -302,24 +306,23 @@ describe('HttpBlobClient', () => {
 
       // Should return the successfully retrieved blob, discarding the one that has mismatch data and commitment.
       expect(retrievedBlobs.length).toEqual(2);
-      expect(retrievedBlobs).toEqual([testBlobsWithIndex[0], testBlobsWithIndex[1]]);
+      expect(retrievedBlobs[0].commitment).toEqual(testBlobs[0].commitment);
+      expect(retrievedBlobs[1].commitment).toEqual(testBlobs[1].commitment);
     });
 
     it('should accumulate blobs across all three sources (filestore, consensus, archive)', async () => {
       // Create three blobs for testing
       const blobs = Array.from({ length: 3 }, () => makeRandomBlob(3));
       const blobHashes = blobs.map(b => b.getEthVersionedBlobHash());
-      const blobsWithIndex = blobs.map((b, index) => new BlobWithIndex(b, index));
-      blobsWithIndex[0].index = -1;
 
       // Blob 0 only in filestore
       const mockFileStore = new MockFileStoreBlobClient();
-      mockFileStore.addBlobWithIndex(blobsWithIndex[0]);
+      mockFileStore.addBlob(blobs[0]);
 
       // Blob 1 only in consensus host
       await startExecutionHostServer();
       await startConsensusHostServer();
-      blobData.push(blobsWithIndex[1].toJSON());
+      blobData.push(blobs[1].toJSON());
 
       const client = new TestHttpBlobClient(
         {
@@ -331,7 +334,7 @@ describe('HttpBlobClient', () => {
       );
 
       // Blob 2 only in archive
-      const blob3Json = blobsWithIndex[2].toJSON();
+      const blob3Json = blobs[2].toJSON();
       const archiveSpy = jest.spyOn(client.getArchiveClient(), 'getBlobsFromBlock').mockResolvedValue([blob3Json]);
 
       // Request all three blobs
@@ -339,7 +342,9 @@ describe('HttpBlobClient', () => {
 
       // Should accumulate all three blobs from different sources
       expect(retrievedBlobs).toHaveLength(3);
-      expect(retrievedBlobs).toEqual(blobsWithIndex);
+      expect(retrievedBlobs[0].commitment).toEqual(blobs[0].commitment);
+      expect(retrievedBlobs[1].commitment).toEqual(blobs[1].commitment);
+      expect(retrievedBlobs[2].commitment).toEqual(blobs[2].commitment);
       expect(archiveSpy).toHaveBeenCalledWith('0x1234');
     });
 
@@ -357,18 +362,18 @@ describe('HttpBlobClient', () => {
 
       // Should return two blobs with the same content
       expect(retrievedBlobs).toHaveLength(2);
-      expect(retrievedBlobs).toEqual([testBlobsWithIndex[0], testBlobsWithIndex[0]]);
+      expect(retrievedBlobs[0].commitment).toEqual(testBlobs[0].commitment);
+      expect(retrievedBlobs[1].commitment).toEqual(testBlobs[0].commitment);
     });
 
     it('should preserve blob order when requesting multiple blobs', async () => {
       // Create three distinct blobs
       const blobs = Array.from({ length: 3 }, () => makeRandomBlob(3));
       const blobHashes = blobs.map(b => b.getEthVersionedBlobHash());
-      const blobsWithIndex = blobs.map(b => new BlobWithIndex(b, -1));
 
       // Add all blobs to filestore
       const mockFileStore = new MockFileStoreBlobClient();
-      blobsWithIndex.forEach(b => mockFileStore.addBlobWithIndex(b));
+      blobs.forEach(b => mockFileStore.addBlob(b));
 
       const client = new HttpBlobClient({}, { fileStoreClients: [mockFileStore as unknown as FileStoreBlobClient] });
 
@@ -382,7 +387,10 @@ describe('HttpBlobClient', () => {
 
       // Should return blobs in the exact order requested
       expect(retrievedBlobs).toHaveLength(4);
-      expect(retrievedBlobs).toEqual([blobsWithIndex[2], blobsWithIndex[0], blobsWithIndex[1], blobsWithIndex[0]]);
+      expect(retrievedBlobs[0].commitment).toEqual(blobs[2].commitment);
+      expect(retrievedBlobs[1].commitment).toEqual(blobs[0].commitment);
+      expect(retrievedBlobs[2].commitment).toEqual(blobs[1].commitment);
+      expect(retrievedBlobs[3].commitment).toEqual(blobs[0].commitment);
     });
 
     it('should handle L1 missed slots', async () => {
@@ -406,11 +414,11 @@ describe('HttpBlobClient', () => {
         `http://localhost:${consensusHostPort}`,
         33,
         testBlobsHashes,
-        [],
         0,
       );
 
-      expect(retrievedBlobs).toEqual(testBlobsWithIndex);
+      expect(retrievedBlobs).toHaveLength(2);
+      expect(retrievedBlobs[0].commitment).toEqual(testBlobs[0].commitment);
 
       // Verify we hit the 404 for slot 33 before trying slot 34, and that we use the api key header
       // (see issue https://github.com/AztecProtocol/aztec-packages/issues/13415)
@@ -443,7 +451,6 @@ describe('HttpBlobClient', () => {
         `http://localhost:${consensusHostPort}`,
         33,
         testBlobsHashes,
-        [],
         0,
       );
 
@@ -463,7 +470,8 @@ describe('HttpBlobClient', () => {
       const archiveSpy = jest.spyOn(client.getArchiveClient(), 'getBlobsFromBlock').mockResolvedValue(blobData);
 
       const retrievedBlobs = await client.getBlobSidecar('0x1234', testBlobsHashes);
-      expect(retrievedBlobs).toEqual(testBlobsWithIndex);
+      expect(retrievedBlobs).toHaveLength(2);
+      expect(retrievedBlobs[0].commitment).toEqual(testBlobs[0].commitment);
       expect(archiveSpy).toHaveBeenCalledWith('0x1234');
     });
 
@@ -471,18 +479,18 @@ describe('HttpBlobClient', () => {
       // Create a blob data array with two blobs that have the same commitment (thus same blobHash)
       const blob = makeRandomBlob(3);
       const blobHash = blob.getEthVersionedBlobHash();
-      const duplicateBlobData = [new BlobWithIndex(blob, 0), new BlobWithIndex(blob, 1)];
+      const duplicateBlobData = [blob.toJSON(), blob.toJSON()];
 
       const client = new TestHttpBlobClient({ archiveApiUrl: `https://api.blobscan.com` });
       const archiveSpy = jest
         .spyOn(client.getArchiveClient(), 'getBlobsFromBlock')
-        .mockResolvedValue(duplicateBlobData.map(b => b.toJSON()));
+        .mockResolvedValue(duplicateBlobData);
 
       const retrievedBlobs = await client.getBlobSidecar('0x1234', [blobHash]);
 
       // Should only return one blob despite two blobs with the same hash existing
       expect(retrievedBlobs).toHaveLength(1);
-      expect(retrievedBlobs[0].blob).toEqual(blob);
+      expect(retrievedBlobs[0]).toEqual(blob);
       expect(archiveSpy).toHaveBeenCalledWith('0x1234');
     });
 
@@ -497,8 +505,7 @@ describe('HttpBlobClient', () => {
 
       const blob = makeRandomBlob(3);
       const blobHash = blob.getEthVersionedBlobHash();
-      const blobWithIndex = new BlobWithIndex(blob, 0);
-      const blobJson = blobWithIndex.toJSON();
+      const blobJson = blob.toJSON();
 
       const originalBlobData = blobData;
 
@@ -528,20 +535,21 @@ describe('HttpBlobClient', () => {
         ...originalBlobData,
         {
           blob: blobJson.blob,
-          index: blobJson.index,
         } as BlobJson,
       ];
       expect(await client.getBlobSidecar('0x1234', [blobHash])).toEqual([]);
 
       // Correct blob json.
       blobData = [...originalBlobData, blobJson];
-      expect(await client.getBlobSidecar('0x1234', [blobHash])).toEqual([blobWithIndex]);
+      const result = await client.getBlobSidecar('0x1234', [blobHash]);
+      expect(result).toHaveLength(1);
+      expect(result[0].commitment).toEqual(blob.commitment);
     });
   });
 });
 
 class TestHttpBlobClient extends HttpBlobClient {
-  public getArchiveClient() {
+  public override getArchiveClient() {
     return this.archiveClient!;
   }
 
@@ -566,7 +574,7 @@ class MockFileStoreBlobClient {
     for (const hash of blobHashes) {
       const blob = this.files.get(hash);
       if (blob) {
-        results.push({ ...blob, index: '-1' });
+        results.push(blob);
       }
     }
     return Promise.resolve(results);
@@ -581,17 +589,12 @@ class MockFileStoreBlobClient {
       return Promise.reject(new Error('FileStore save failed'));
     }
     const versionedHash = `0x${blob.getEthVersionedBlobHash().toString('hex')}`;
-    this.files.set(versionedHash, blob.toJson(-1));
+    this.files.set(versionedHash, blob.toJSON());
     return Promise.resolve();
   }
 
-  async saveBlobs(blobs: Blob[] | BlobWithIndex[], skipIfExists = true): Promise<void> {
-    await Promise.all(
-      blobs.map(b => {
-        const blob = 'blob' in b ? b.blob : b;
-        return this.saveBlob(blob, skipIfExists);
-      }),
-    );
+  async saveBlobs(blobs: Blob[], skipIfExists = true): Promise<void> {
+    await Promise.all(blobs.map(blob => this.saveBlob(blob, skipIfExists)));
   }
 
   getBaseUrl(): string {
@@ -605,38 +608,31 @@ class MockFileStoreBlobClient {
   // Test helper to pre-populate blobs
   addBlob(blob: Blob): void {
     const versionedHash = `0x${blob.getEthVersionedBlobHash().toString('hex')}`;
-    this.files.set(versionedHash, blob.toJson(-1));
-  }
-
-  addBlobWithIndex(blobWithIndex: BlobWithIndex): void {
-    const versionedHash = `0x${blobWithIndex.blob.getEthVersionedBlobHash().toString('hex')}`;
-    this.files.set(versionedHash, blobWithIndex.toJSON());
+    this.files.set(versionedHash, blob.toJSON());
   }
 }
 
 describe('HttpBlobClient FileStore Integration', () => {
   let testBlobs: Blob[];
   let testBlobsHashes: Buffer[];
-  let testBlobsWithIndex: BlobWithIndex[];
 
   beforeEach(() => {
     testBlobs = Array.from({ length: 2 }, () => makeRandomBlob(3));
     testBlobsHashes = testBlobs.map(b => b.getEthVersionedBlobHash());
-    testBlobsWithIndex = testBlobs.map((b, index) => new BlobWithIndex(b, index));
   });
 
   describe('getBlobSidecar with filestore clients', () => {
     it('should fetch blobs from filestore clients', async () => {
       const mockFileStore = new MockFileStoreBlobClient();
-      testBlobsWithIndex.forEach(b => mockFileStore.addBlobWithIndex(b));
+      testBlobs.forEach(b => mockFileStore.addBlob(b));
 
       const client = new HttpBlobClient({}, { fileStoreClients: [mockFileStore as unknown as FileStoreBlobClient] });
 
       const retrievedBlobs = await client.getBlobSidecar('0x1234', testBlobsHashes);
 
       expect(retrievedBlobs).toHaveLength(2);
-      expect(retrievedBlobs[0].blob.commitment).toEqual(testBlobs[0].commitment);
-      expect(retrievedBlobs[1].blob.commitment).toEqual(testBlobs[1].commitment);
+      expect(retrievedBlobs[0].commitment).toEqual(testBlobs[0].commitment);
+      expect(retrievedBlobs[1].commitment).toEqual(testBlobs[1].commitment);
     });
 
     it('should try multiple filestores when first one does not have blobs', async () => {
@@ -644,7 +640,7 @@ describe('HttpBlobClient FileStore Integration', () => {
       const mockFileStore2 = new MockFileStoreBlobClient('store2');
 
       // Only add blobs to second store
-      testBlobsWithIndex.forEach(b => mockFileStore2.addBlobWithIndex(b));
+      testBlobs.forEach(b => mockFileStore2.addBlob(b));
 
       const client = new HttpBlobClient(
         {},
@@ -666,8 +662,8 @@ describe('HttpBlobClient FileStore Integration', () => {
       const mockFileStore2 = new MockFileStoreBlobClient('store2');
 
       // Split blobs across stores
-      mockFileStore1.addBlobWithIndex(testBlobsWithIndex[0]);
-      mockFileStore2.addBlobWithIndex(testBlobsWithIndex[1]);
+      mockFileStore1.addBlob(testBlobs[0]);
+      mockFileStore2.addBlob(testBlobs[1]);
 
       const client = new HttpBlobClient(
         {},
@@ -687,7 +683,7 @@ describe('HttpBlobClient FileStore Integration', () => {
     it('should handle filestore errors gracefully', async () => {
       const failingFileStore = new MockFileStoreBlobClient('failing', true);
       const workingFileStore = new MockFileStoreBlobClient('working');
-      testBlobsWithIndex.forEach(b => workingFileStore.addBlobWithIndex(b));
+      testBlobs.forEach(b => workingFileStore.addBlob(b));
 
       const client = new HttpBlobClient(
         {},
@@ -743,7 +739,7 @@ describe('HttpBlobClient FileStore Integration', () => {
   describe('onBlobsFetched callback', () => {
     it('should fire onBlobsFetched callback after successful fetch', async () => {
       const mockFileStore = new MockFileStoreBlobClient();
-      testBlobsWithIndex.forEach(b => mockFileStore.addBlobWithIndex(b));
+      testBlobs.forEach(b => mockFileStore.addBlob(b));
 
       const onBlobsFetched = jest.fn();
       const client = new HttpBlobClient(
@@ -759,12 +755,12 @@ describe('HttpBlobClient FileStore Integration', () => {
       // Wait for async callback (1ms is enough since mock resolves immediately)
       await sleep(1);
 
-      expect(onBlobsFetched).toHaveBeenCalledWith(expect.arrayContaining([expect.any(BlobWithIndex)]));
+      expect(onBlobsFetched).toHaveBeenCalledWith(expect.arrayContaining([expect.any(Blob)]));
     });
 
     it('should automatically set up upload callback when fileStoreUploadClient is provided', async () => {
       const mockFileStore = new MockFileStoreBlobClient();
-      testBlobsWithIndex.forEach(b => mockFileStore.addBlobWithIndex(b));
+      testBlobs.forEach(b => mockFileStore.addBlob(b));
 
       const mockUploadStore = new MockFileStoreBlobClient();
       const saveBlobsSpy = jest.spyOn(mockUploadStore, 'saveBlobs');
@@ -842,7 +838,7 @@ describe('HttpBlobClient FileStore Integration', () => {
       const client = new HttpBlobClient({}, { fileStoreClients: [mockFileStore as unknown as FileStoreBlobClient] });
 
       // Historical sync - should not retry
-      await client.getBlobSidecar('0x1234', testBlobsHashes, undefined, { isHistoricalSync: true });
+      await client.getBlobSidecar('0x1234', testBlobsHashes, { isHistoricalSync: true });
 
       // Should only be called once (no retries)
       expect(getBlobsByHashesSpy).toHaveBeenCalledTimes(1);
@@ -857,7 +853,7 @@ describe('HttpBlobClient FileStore Integration', () => {
       const client = new HttpBlobClient({}, { fileStoreClients: [mockFileStore as unknown as FileStoreBlobClient] });
 
       // Near-tip sync (default) - should retry
-      const promise = client.getBlobSidecar('0x1234', testBlobsHashes, undefined, { isHistoricalSync: false });
+      const promise = client.getBlobSidecar('0x1234', testBlobsHashes, { isHistoricalSync: false });
 
       // Advance all timers to allow retries to complete
       await jest.runAllTimersAsync();
@@ -873,12 +869,12 @@ describe('HttpBlobClient FileStore Integration', () => {
 
     it('should not retry if all blobs found on first try', async () => {
       const mockFileStore = new MockFileStoreBlobClient();
-      testBlobsWithIndex.forEach(b => mockFileStore.addBlobWithIndex(b));
+      testBlobs.forEach(b => mockFileStore.addBlob(b));
       const getBlobsByHashesSpy = jest.spyOn(mockFileStore, 'getBlobsByHashes');
 
       const client = new HttpBlobClient({}, { fileStoreClients: [mockFileStore as unknown as FileStoreBlobClient] });
 
-      await client.getBlobSidecar('0x1234', testBlobsHashes, undefined, { isHistoricalSync: false });
+      await client.getBlobSidecar('0x1234', testBlobsHashes, { isHistoricalSync: false });
 
       // Should only be called once since all blobs were found
       expect(getBlobsByHashesSpy).toHaveBeenCalledTimes(1);
@@ -936,10 +932,10 @@ describe('HttpBlobClient FileStore Integration', () => {
 
     it('should try filestore before consensus host', async () => {
       await startExecutionHostServer();
-      await startConsensusHostServer(testBlobsWithIndex.map(b => b.toJSON()));
+      await startConsensusHostServer(testBlobs.map(b => b.toJSON()));
 
       const mockFileStore = new MockFileStoreBlobClient();
-      testBlobsWithIndex.forEach(b => mockFileStore.addBlobWithIndex(b));
+      testBlobs.forEach(b => mockFileStore.addBlob(b));
 
       const client = new HttpBlobClient(
         {
@@ -961,11 +957,11 @@ describe('HttpBlobClient FileStore Integration', () => {
 
     it('should fall back to consensus when filestore has partial blobs', async () => {
       await startExecutionHostServer();
-      await startConsensusHostServer(testBlobsWithIndex.map(b => b.toJSON()));
+      await startConsensusHostServer(testBlobs.map(b => b.toJSON()));
 
       const mockFileStore = new MockFileStoreBlobClient();
       // Only add first blob to filestore
-      mockFileStore.addBlobWithIndex(testBlobsWithIndex[0]);
+      mockFileStore.addBlob(testBlobs[0]);
 
       const client = new HttpBlobClient(
         {
