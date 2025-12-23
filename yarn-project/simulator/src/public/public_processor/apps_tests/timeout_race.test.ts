@@ -43,7 +43,11 @@ const SSTORE_SPAMMER = SPAM_CONFIGS[Opcode.SSTORE]![0]; // "Same slot (no limit)
 jest.setTimeout(120_000);
 
 describe('PublicProcessor C++ Timeout Race Condition', () => {
-  const NUM_ITERATIONS = 5;
+  // BUG PROOF tests - this is the race condition and is flaky so we run more iterations
+  const MAX_BUG_PROOF_ITERATIONS = 10;
+  // FIX PROOF tests - just confirm that the fix always works
+  const FIX_PROOF_ITERATIONS = 5;
+
   const logger = createLogger('public-processor-timeout-race');
 
   const admin = AztecAddress.fromNumber(42);
@@ -70,10 +74,12 @@ describe('PublicProcessor C++ Timeout Race Condition', () => {
    * For the FIX proof: Call cancel(100) → wait for C++ to stop → then revert → no corruption
    *
    * @param useCancellation - Whether to call cancel() before reverts
+   * @param numIterations - Number of iterations to run
    * @param spammer - Which spammer config to use (defaults to SSTORE for continuous writes)
    */
   async function runRaceConditionTest(
     useCancellation: boolean,
+    numIterations: number,
     spamConfig: SpamConfig = SSTORE_SPAMMER, // Default to SSTORE for continuous writes
   ): Promise<number> {
     let raceObservedCount = 0;
@@ -97,7 +103,7 @@ describe('PublicProcessor C++ Timeout Race Condition', () => {
     const contractAddress = contract.address;
     const callArgs: Fr[] = [];
 
-    for (let iteration = 0; iteration < NUM_ITERATIONS; iteration++) {
+    for (let iteration = 0; iteration < numIterations; iteration++) {
       // Ensure any previous simulation is fully stopped before starting a new one
       await simulator.cancel(1000);
 
@@ -154,11 +160,15 @@ describe('PublicProcessor C++ Timeout Race Condition', () => {
       if (anyTreeCorrupted) {
         raceObservedCount++;
         // Early exit - bug exists, no need to continue
+        // Always cancel simulation for clean test shutdown (prevent crash during afterEach)
+        await simulator.cancel(1000);
         logger.verbose(`Early exit`);
         return raceObservedCount;
       }
     }
 
+    // Always cancel simulation for clean test shutdown (prevent crash during afterEach)
+    await simulator.cancel(1000);
     return raceObservedCount;
   }
 
@@ -173,8 +183,8 @@ describe('PublicProcessor C++ Timeout Race Condition', () => {
    * This test PASSES if we observe corruption (proving the bug exists).
    */
   it('CppPublicTxSimulator BUG PROOF: race condition exists WITHOUT cancellation', async () => {
-    const raceObservedCount = await runRaceConditionTest(false);
-    logger.info(`Race condition observed in ${raceObservedCount}/${NUM_ITERATIONS} iterations (expected: >0)`);
+    const raceObservedCount = await runRaceConditionTest(false, MAX_BUG_PROOF_ITERATIONS);
+    logger.info(`Race condition observed in >0/${MAX_BUG_PROOF_ITERATIONS} iterations (expected: >0)`);
     expect(raceObservedCount).toBeGreaterThan(0);
   });
 
@@ -189,8 +199,8 @@ describe('PublicProcessor C++ Timeout Race Condition', () => {
    * This test PASSES if we observe NO corruption (proving the fix works).
    */
   it('CppPublicTxSimulator FIX PROOF: no race condition WITH cancellation', async () => {
-    const raceObservedCount = await runRaceConditionTest(true);
-    logger.info(`Race condition observed in ${raceObservedCount}/${NUM_ITERATIONS} iterations (expected: 0)`);
+    const raceObservedCount = await runRaceConditionTest(true, FIX_PROOF_ITERATIONS);
+    logger.info(`Race condition observed in ${raceObservedCount}/${FIX_PROOF_ITERATIONS} iterations (expected: 0)`);
     expect(raceObservedCount).toBe(0);
   });
 
@@ -209,10 +219,12 @@ describe('PublicProcessor C++ Timeout Race Condition', () => {
    * Returns the number of times state corruption was observed.
    *
    * @param useCancellation - Whether to provide cancel() method to PublicProcessor
+   * @param numIterations - Number of iterations to run
    * @param spammer - Which spammer config to use (defaults to SSTORE for continuous writes)
    */
   async function runPublicProcessorTimeoutTest(
     useCancellation: boolean,
+    numIterations: number,
     spamConfig: SpamConfig = SSTORE_SPAMMER, // Default to SSTORE for continuous writes
   ): Promise<number> {
     let corruptionCount = 0;
@@ -235,7 +247,7 @@ describe('PublicProcessor C++ Timeout Race Condition', () => {
     const contractAddress = contract.address;
     const callArgs: Fr[] = [];
 
-    for (let iteration = 0; iteration < NUM_ITERATIONS; iteration++) {
+    for (let iteration = 0; iteration < numIterations; iteration++) {
       // Create fresh guarded tree and processor for each iteration because
       // GuardedMerkleTreeOperations.stop() is called on timeout and can't be reused.
       const guardedMerkleTrees = new GuardedMerkleTreeOperations(merkleTrees);
@@ -337,11 +349,16 @@ describe('PublicProcessor C++ Timeout Race Condition', () => {
       if (anyTreeCorrupted) {
         corruptionCount++;
         // Early exit - bug exists, no need to continue
+        // Always cancel simulation for clean test shutdown (prevent crash during afterEach)
+        await realSimulator.cancel(1000);
         logger.verbose(
           `Early exit: checkWorldStateUnchanged caught=${checkWorldStateUnchangedCaughtIt}, our check caught=true`,
         );
         return corruptionCount;
       }
+
+      // Cancel simulation before next iteration or function end
+      await realSimulator.cancel(1000);
     }
 
     return corruptionCount;
@@ -355,8 +372,8 @@ describe('PublicProcessor C++ Timeout Race Condition', () => {
    * cause of CI failures like "Fork state reference changed by tx after error".
    */
   it('PublicProcessor BUG PROOF: state corruption occurs WITHOUT cancellation', async () => {
-    const corruptionCount = await runPublicProcessorTimeoutTest(false);
-    logger.info(`State corruption detected in ${corruptionCount}/${NUM_ITERATIONS} iterations (expected: >0)`);
+    const corruptionCount = await runPublicProcessorTimeoutTest(false, MAX_BUG_PROOF_ITERATIONS);
+    logger.info(`State corruption detected in >0/${MAX_BUG_PROOF_ITERATIONS} iterations (expected: >0)`);
     // BUG - Without cancellation, C++ corrupts state after process() completes
     expect(corruptionCount).toBeGreaterThan(0);
   });
@@ -368,8 +385,8 @@ describe('PublicProcessor C++ Timeout Race Condition', () => {
    * State remains unchanged after process() returns.
    */
   it('PublicProcessor FIX PROOF: no state corruption WITH cancellation', async () => {
-    const corruptionCount = await runPublicProcessorTimeoutTest(true);
-    logger.info(`State corruption detected in ${corruptionCount}/${NUM_ITERATIONS} iterations (expected: 0)`);
+    const corruptionCount = await runPublicProcessorTimeoutTest(true, FIX_PROOF_ITERATIONS);
+    logger.info(`State corruption detected in ${corruptionCount}/${FIX_PROOF_ITERATIONS} iterations (expected: 0)`);
     // FIX - With cancellation, state should remain unchanged
     expect(corruptionCount).toBe(0);
   });
