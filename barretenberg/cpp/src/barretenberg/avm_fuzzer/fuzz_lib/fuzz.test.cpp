@@ -1091,7 +1091,7 @@ TEST(fuzz, GetEnvVarSmoke)
 {
     EXPECT_EQ(
         getenvvar_helper(0),
-        FF("0x0eef563acf421c26743cea39f09b489599fda1ae169754cd181de40c377ee0af")); // address with bytecode commitment
+        FF("0x02fea672ef18fe4b8d13dcfd8943797c99b9885da7b338d224dd5136a0cc8a6f")); // address with bytecode commitment
     EXPECT_EQ(getenvvar_helper(1), MSG_SENDER);                                    // sender, see simulator.cpp globals
     EXPECT_EQ(getenvvar_helper(2), TRANSACTION_FEE);                   // transaction fee, see simulator.cpp globals
     EXPECT_EQ(getenvvar_helper(3), CHAIN_ID);                          // chain id, see simulator.cpp globals
