@@ -296,6 +296,14 @@ AZTEC_ADMIN_PORT=8880
 Find your public IP address with: `curl ipv4.icanhazip.com`
 :::
 
+:::warning Nethermind Users
+If you are using Nethermind as your L1 execution client, you must add the following environment variable:
+```bash
+# Required for Nethermind
+L1_FIXED_PRIORITY_FEE_PER_GAS=1
+```
+:::
+
 ### Step 5: Create Docker Compose File
 
 Create a `docker-compose.yml` file in your `aztec-sequencer` directory:
