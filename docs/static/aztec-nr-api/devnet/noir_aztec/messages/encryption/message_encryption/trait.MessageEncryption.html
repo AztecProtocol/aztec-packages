@@ -3,9 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../../../styles.css">
+<script defer src="../../../../nargo_doc.js"></script>
 <title>Trait MessageEncryption documentation</title>
 </head>
 <body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">MessageEncryption</div>
+</div>
+<span id="main-contents">
 <nav class="sidebar">
 <h1><a href="../../../../index.html">aztec-nr</a></h1>
 <div><a href="../../../../all.html">All items</a></div>
@@ -38,13 +44,13 @@
     pub unconstrained fn <a href="#decrypt"><span class="fn">decrypt</span></a>(
         ciphertext: <a href="../../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>, 17&gt;,
         recipient: <a href="../../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
-    ) -> <a href="../../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>, 14&gt;;
+    ) -> <a href="../../../../std/option/struct.Option.html" class="struct">Option</a>&lt;<a href="../../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>, 14&gt;&gt;;
 }</code></pre>
 
 <div class="comments">
-<p>Trait for encrypting and decrypting private logs in the Aztec protocol.</p>
-<p>This trait defines the interface for encrypting plaintext data into private logs that can be
-emitted onchain or delivered offchain, and decrypting those logs back into their original plaintext.</p>
+<p>Trait for encrypting and decrypting messages in the Aztec protocol.</p>
+<p>This trait defines the interface for encrypting plaintext data into messages that are delivered either onchain (via
+logs) or offchain, as well as decrypting those messages back into their original plaintext.</p>
 <h2>Type Parameters</h2>
 <ul>
 <li><code>PLAINTEXT_LEN</code>: Length of the plaintext array in fields</li>
@@ -52,48 +58,41 @@ emitted onchain or delivered offchain, and decrypting those logs back into their
 <li><code>MESSAGE_PLAINTEXT_LEN</code>: Maximum size of decrypted plaintext (defined globally)</li>
 </ul>
 <h2>Note on privacy sets</h2>
-<p>To preserve privacy, <code>encrypt</code> returns a fixed-length array ensuring all log types are indistinguishable
-onchain. Implementations of this trait must handle padding the encrypted log to match this standardized length.</p>
-</div>
+<p>To preserve privacy, <a href="../../../../noir_aztec/messages/encryption/message_encryption/trait.MessageEncryption.html#encrypt">MessageEncryption::encrypt</a> returns a fixed-length array ensuring all log types are
+indistinguishable onchain. Implementations of this trait must handle padding the encrypted log to match this
+standardized length.</p></div>
 <h2>Required methods</h2>
-<div class="padded-methods"><code id="encrypt" class="code-header">pub fn <span class="fn">encrypt</span>&lt;let PlaintextLen: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(
+<div class="padded-methods"><code id="encrypt" class="code-header">pub fn <a href="#encrypt"><span class="fn">encrypt</span></a>&lt;let PlaintextLen: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(
     plaintext: [<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>; PlaintextLen],
     recipient: <a href="../../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
 ) -> [<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>; 17]</code>
 
 <div class="padded-description"><div class="comments">
-<p>Encrypts a plaintext field array into a private log that can be emitted onchain.</p>
-<h3>Arguments</h3>
-<ul>
-<li><code>plaintext</code> - Array of Field elements to encrypt</li>
-<li><code>recipient</code> - Aztec address of intended recipient who can decrypt the log</li>
-</ul>
-<h3>Returns</h3>
-<p>Fixed-size array of encrypted Field elements representing the private log</p>
-</div>
-</div><code id="decrypt" class="code-header">pub unconstrained fn <span class="fn">decrypt</span>(
+<p>Encrypts a plaintext message (a field array) such that only <code>recipient</code> can decrypt it.</p>
+<p>The returned message ciphertext can be passed to <a href="../../../../noir_aztec/messages/encryption/message_encryption/trait.MessageEncryption.html#decrypt">MessageEncryption::decrypt</a> in order to obtain the original
+<code>plaintext</code>.</p>
+<h3>Privacy</h3>
+<p>Knowledge of the returned ciphertext provides no information to third parties - <code>recipients</code> encryption keys
+(specifically their ivsk and pre-address) are required in order to decrypt. Additionally, [encrypt] adds random
+padding in order to always produce equal length message ciphertexts regardless of the input, hiding its length.</p>
+<p>These properties make it secure to distribute the ciphertext publicly, e.g. on blockchain logs (assuming the
+encryption function is itself secure).</p></div>
+</div><code id="decrypt" class="code-header">pub unconstrained fn <a href="#decrypt"><span class="fn">decrypt</span></a>(
     ciphertext: <a href="../../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>, 17&gt;,
     recipient: <a href="../../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
-) -> <a href="../../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>, 14&gt;</code>
+) -> <a href="../../../../std/option/struct.Option.html" class="struct">Option</a>&lt;<a href="../../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>, 14&gt;&gt;</code>
 
 <div class="padded-description"><div class="comments">
-<p>Decrypts a private log back into its original plaintext fields.
-This function is unconstrained since decryption happens when processing logs in an unconstrained context.</p>
-<h3>Arguments</h3>
-<ul>
-<li><code>ciphertext</code> - Bounded vector containing the encrypted log fields</li>
-<li><code>recipient</code> - Aztec address of the recipient who can decrypt</li>
-</ul>
-<h3>Returns</h3>
-<p>Bounded vector containing the decrypted plaintext fields</p>
-<h3>Note on use of BoundedVec</h3>
-<p><code>BoundedVec</code> is required since the log length cannot be determined at compile time. This is because
-the <code>Contract::process_log</code> function is designed to work with all the private logs, emitted by a given contract
-and not just by 1 log type.</p>
-</div>
+<p>Decrypts a message ciphertext obtained via <a href="../../../../noir_aztec/messages/encryption/message_encryption/trait.MessageEncryption.html#encrypt">MessageEncryption::encrypt</a> to <code>recipient</code> back into its original
+plaintext.</p>
+<p>Note that this function is unconstrained: decryption typically happens when processing messages in utility
+functions.</p>
+<p>Not all ciphertexts are valid - among other things, the ephemeral public key included in it may not correspond
+to a point on the curve. In all such cases, <a href="../../../../std/option/struct.Option.html#none">Option::none</a> is returned instead.</p></div>
 </div></div><h2>Implementors</h2>
 <h3 id="impl-MessageEncryption-for-AES128"><code class="code-header">impl <a href="../../../../noir_aztec/messages/encryption/message_encryption/trait.MessageEncryption.html" class="trait">MessageEncryption</a> for <a href="../../../../noir_aztec/messages/encryption/aes128/struct.AES128.html" class="struct">AES128</a></code></h3>
 
 </main>
+</span>
 </body>
 </html>

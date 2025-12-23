@@ -3,9 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../../styles.css">
+<script defer src="../../../nargo_doc.js"></script>
 <title>Struct MessageDeliveryEnum documentation</title>
 </head>
 <body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">MessageDeliveryEnum</div>
+</div>
+<span id="main-contents">
 <nav class="sidebar">
 <h1><a href="../../../index.html">aztec-nr</a></h1>
 <div><a href="../../../all.html">All items</a></div>
@@ -14,9 +20,9 @@
 <h2><a href="#struct">Struct MessageDeliveryEnum</a></h2>
 <h3>Fields</h3>
 <ul class="sidebar-list">
-<li><a href="#CONSTRAINED_ONCHAIN">CONSTRAINED_ONCHAIN</a></li>
-<li><a href="#UNCONSTRAINED_OFFCHAIN">UNCONSTRAINED_OFFCHAIN</a></li>
-<li><a href="#UNCONSTRAINED_ONCHAIN">UNCONSTRAINED_ONCHAIN</a></li>
+<li><a href="#structfield.CONSTRAINED_ONCHAIN">CONSTRAINED_ONCHAIN</a></li>
+<li><a href="#structfield.UNCONSTRAINED_OFFCHAIN">UNCONSTRAINED_OFFCHAIN</a></li>
+<li><a href="#structfield.UNCONSTRAINED_ONCHAIN">UNCONSTRAINED_ONCHAIN</a></li>
 </ul>
 <h2>In module message_delivery</h2>
 <h3>Structs</h3><ul class="item-list">
@@ -59,7 +65,7 @@ over unconstrained encryption and is slower to prove (requiring more constraints
 <p>There are three available delivery modes described below.</p>
 </div>
 <h2>Fields</h2>
-<div id="CONSTRAINED_ONCHAIN" class="struct-field"><code class="code-header">CONSTRAINED_ONCHAIN: <a href="../../../std/primitive.u8.html" class="primitive">u8</a></code></div>
+<div id="structfield.CONSTRAINED_ONCHAIN" class="struct-field"><code class="code-header">CONSTRAINED_ONCHAIN: <a href="../../../std/primitive.u8.html" class="primitive">u8</a></code></div>
 <div class="padded-description"><div class="comments">
 <ol>
 <li>Constrained Onchain</li>
@@ -81,7 +87,7 @@ functions. This pattern applies to all critical events that require universal br
 The tag prefixing is unconstrained, meaning a malicious sender could manipulate the tag to prevent
 recipient decryption. TODO(#14565): Implement proper constrained tag prefixing.</p>
 </div>
-</div><div id="UNCONSTRAINED_ONCHAIN" class="struct-field"><code class="code-header">UNCONSTRAINED_ONCHAIN: <a href="../../../std/primitive.u8.html" class="primitive">u8</a></code></div>
+</div><div id="structfield.UNCONSTRAINED_ONCHAIN" class="struct-field"><code class="code-header">UNCONSTRAINED_ONCHAIN: <a href="../../../std/primitive.u8.html" class="primitive">u8</a></code></div>
 <div class="padded-description"><div class="comments">
 <ol start="2">
 <li>Unconstrained Onchain</li>
@@ -98,7 +104,7 @@ contract's decryption keys, they receive the message onchain and are willing to 
 contained in the message is legitimate.</li>
 </ul>
 </div>
-</div><div id="UNCONSTRAINED_OFFCHAIN" class="struct-field"><code class="code-header">UNCONSTRAINED_OFFCHAIN: <a href="../../../std/primitive.u8.html" class="primitive">u8</a></code></div>
+</div><div id="structfield.UNCONSTRAINED_OFFCHAIN" class="struct-field"><code class="code-header">UNCONSTRAINED_OFFCHAIN: <a href="../../../std/primitive.u8.html" class="primitive">u8</a></code></div>
 <div class="padded-description"><div class="comments">
 <ol start="3">
 <li>Offchain</li>
@@ -115,5 +121,6 @@ a legitimate token note - note with note commitment in the note hash tree).</li>
 </ul>
 </div>
 </div></main>
+</span>
 </body>
 </html>
