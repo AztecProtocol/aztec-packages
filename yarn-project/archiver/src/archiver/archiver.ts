@@ -64,7 +64,15 @@ import {
 } from '@aztec/stdlib/epoch-helpers';
 import type { GetContractClassLogsResponse, GetPublicLogsResponse } from '@aztec/stdlib/interfaces/client';
 import type { L2LogsSource } from '@aztec/stdlib/interfaces/server';
-import { ContractClassLog, type LogFilter, type PrivateLog, type PublicLog, TxScopedL2Log } from '@aztec/stdlib/logs';
+import {
+  ContractClassLog,
+  type LogFilter,
+  type PrivateLog,
+  type PublicLog,
+  type SiloedTag,
+  Tag,
+  TxScopedL2Log,
+} from '@aztec/stdlib/logs';
 import { type L1ToL2MessageSource, computeInHashFromL1ToL2Messages } from '@aztec/stdlib/messaging';
 import type { CheckpointHeader } from '@aztec/stdlib/rollup';
 import { type BlockHeader, type IndexedTxEffect, TxHash, TxReceipt } from '@aztec/stdlib/tx';
@@ -1407,14 +1415,16 @@ export class Archiver
     return this.store.getSettledTxReceipt(txHash);
   }
 
-  /**
-   * Gets all logs that match any of the received tags (i.e. logs with their first field equal to a tag).
-   * @param tags - The tags to filter the logs by.
-   * @returns For each received tag, an array of matching logs is returned. An empty array implies no logs match
-   * that tag.
-   */
-  getLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]> {
-    return this.store.getLogsByTags(tags);
+  getPrivateLogsByTags(tags: SiloedTag[], logsPerTag?: number): Promise<TxScopedL2Log[][]> {
+    return this.store.getPrivateLogsByTags(tags, logsPerTag);
+  }
+
+  getPublicLogsByTagsFromContract(
+    contractAddress: AztecAddress,
+    tags: Tag[],
+    logsPerTag?: number,
+  ): Promise<TxScopedL2Log[][]> {
+    return this.store.getPublicLogsByTagsFromContract(contractAddress, tags, logsPerTag);
   }
 
   /**
@@ -2072,8 +2082,15 @@ export class ArchiverStoreHelper
   getL1ToL2MessageIndex(l1ToL2Message: Fr): Promise<bigint | undefined> {
     return this.store.getL1ToL2MessageIndex(l1ToL2Message);
   }
-  getLogsByTags(tags: Fr[], logsPerTag?: number): Promise<TxScopedL2Log[][]> {
-    return this.store.getLogsByTags(tags, logsPerTag);
+  getPrivateLogsByTags(tags: SiloedTag[], logsPerTag?: number): Promise<TxScopedL2Log[][]> {
+    return this.store.getPrivateLogsByTags(tags, logsPerTag);
+  }
+  getPublicLogsByTagsFromContract(
+    contractAddress: AztecAddress,
+    tags: Tag[],
+    logsPerTag?: number,
+  ): Promise<TxScopedL2Log[][]> {
+    return this.store.getPublicLogsByTagsFromContract(contractAddress, tags, logsPerTag);
   }
   getPublicLogs(filter: LogFilter): Promise<GetPublicLogsResponse> {
     return this.store.getPublicLogs(filter);

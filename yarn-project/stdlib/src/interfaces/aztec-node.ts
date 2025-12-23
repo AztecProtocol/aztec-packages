@@ -36,8 +36,8 @@ import {
   ProtocolContractAddressesSchema,
 } from '../contract/index.js';
 import { GasFees } from '../gas/gas_fees.js';
+import { SiloedTag, Tag, TxScopedL2Log } from '../logs/index.js';
 import { type LogFilter, LogFilterSchema } from '../logs/log_filter.js';
-import { TxScopedL2Log } from '../logs/tx_scoped_l2_log.js';
 import { type ApiSchemaFor, optional, schemas } from '../schemas/schemas.js';
 import { MerkleTreeId } from '../trees/merkle_tree_id.js';
 import { NullifierMembershipWitness } from '../trees/nullifier_membership_witness.js';
@@ -338,14 +338,29 @@ export interface AztecNode
   getContractClassLogs(filter: LogFilter): Promise<GetContractClassLogsResponse>;
 
   /**
-   * Gets all logs that match any of the received tags (i.e. logs with their first field equal to a tag).
-   * @param tags - The tags to filter the logs by.
+   * Gets all private logs that match any of the received tags (i.e. logs with their first field equal to a SiloedTag).
+   * @param tags - The SiloedTags to filter the logs by.
    * @param logsPerTag - How many logs to return per tag. Default 10 logs are returned for each tag
-   * @returns For each received tag, an array of matching logs and metadata (e.g. tx hash) is returned. An empty
+   * @returns For each received tag, an array of matching private logs and metadata (e.g. tx hash) is returned. An empty
    * array implies no logs match that tag. There can be multiple logs for 1 tag because tag reuse can happen
    * --> e.g. when sending a note from multiple unsynched devices.
    */
-  getLogsByTags(tags: Fr[], logsPerTag?: number): Promise<TxScopedL2Log[][]>;
+  getPrivateLogsByTags(tags: SiloedTag[], logsPerTag?: number): Promise<TxScopedL2Log[][]>;
+
+  /**
+   * Gets all public logs that match any of the received tags from the specified contract (i.e. logs with their first field equal to a Tag).
+   * @param contractAddress - The contract that emitted the public logs.
+   * @param tags - The Tags to filter the logs by.
+   * @param logsPerTag - How many logs to return per tag. Default 10 logs are returned for each tag
+   * @returns For each received tag, an array of matching public logs and metadata (e.g. tx hash) is returned. An empty
+   * array implies no logs match that tag. There can be multiple logs for 1 tag because tag reuse can happen
+   * --> e.g. when sending a note from multiple unsynched devices.
+   */
+  getPublicLogsByTagsFromContract(
+    contractAddress: AztecAddress,
+    tags: Tag[],
+    logsPerTag?: number,
+  ): Promise<TxScopedL2Log[][]>;
 
   /**
    * Method to submit a transaction to the p2p pool.
@@ -601,10 +616,19 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
 
   getContractClassLogs: z.function().args(LogFilterSchema).returns(GetContractClassLogsResponseSchema),
 
-  getLogsByTags: z
+  getPrivateLogsByTags: z
     .function()
     .args(
-      z.array(schemas.Fr).max(MAX_RPC_LEN),
+      z.array(SiloedTag.schema).max(MAX_RPC_LEN),
+      optional(z.number().gte(1).lte(MAX_LOGS_PER_TAG).default(MAX_LOGS_PER_TAG)),
+    )
+    .returns(z.array(z.array(TxScopedL2Log.schema))),
+
+  getPublicLogsByTagsFromContract: z
+    .function()
+    .args(
+      schemas.AztecAddress,
+      z.array(Tag.schema).max(MAX_RPC_LEN),
       optional(z.number().gte(1).lte(MAX_LOGS_PER_TAG).default(MAX_LOGS_PER_TAG)),
     )
     .returns(z.array(z.array(TxScopedL2Log.schema))),
