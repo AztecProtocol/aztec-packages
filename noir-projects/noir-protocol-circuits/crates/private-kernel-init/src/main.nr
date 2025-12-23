@@ -6,7 +6,9 @@ use types::abis::protocol_contracts::ProtocolContracts;
 use types::abis::transaction::tx_request::TxRequest;
 
 /**
- * @param first_nullifier_hint: 0 if there is no nullifier yet; otherwise it's a claim on whatever has been pushed as the 0th nullifier already by some private call.
+ * @param first_nullifier_hint: 0 if there is no nullifier yet; otherwise it's a claim on whatever 
+ * has been pushed as the 0th nullifier already by some private call. (Note: the 0th nullifier is
+ * used to compute note nonces, which are injected into notes to prevent Faerie-Gold attacks).
  */
 fn main(
     tx_request: TxRequest,

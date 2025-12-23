@@ -74,6 +74,7 @@ impl BlobAccumulator {
     * For all blobs i > 0 accumulated, see the below documentation for accumulate().
     *
     */
+    // AUDIT_COMMENT: we might be able to optimise this `init` branch away
     pub fn init(first_output: BlobAccumulationInputs, final_gamma: BLS12_381_Fr) -> Self {
         // TODO(#13608): use a BLS12 based hash? Is using BN based safe - since the output is smaller is there a skew?
         let hashed_y_0 = poseidon2_hash(first_output.y_i.get_limbs().map(|l| l as Field));
@@ -94,7 +95,7 @@ impl BlobAccumulator {
     * NB: blob_commitments_hash is written as v below
     *
     * Each accumulation:
-    * - v_acc := sha256(v_acc, C_i)
+    * - v_acc := sha256(v_acc, C_i) // TODO: this name doesn't seem to appear anymore. Rename in this comment.
     * - z_acc := poseidon2(z_acc, z_i)
     * - y_acc := y_acc + (gamma^i * y_i)
     * - c_acc := c_acc + (gamma^i * c_i)

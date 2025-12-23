@@ -2,6 +2,7 @@ use crate::{abis::BlockRollupPublicInputs, tx_merge::accumulate_out_hash};
 use types::hash::poseidon2_hash;
 
 pub fn accumulate_block_headers_hash(left_hash: Field, right_hash: Field) -> Field {
+    // TODO: this needs a domain separator, to be safe.
     poseidon2_hash([left_hash, right_hash])
 }
 
@@ -9,6 +10,7 @@ pub fn merge_block_rollups(
     left: BlockRollupPublicInputs,
     right: BlockRollupPublicInputs,
 ) -> BlockRollupPublicInputs {
+    // Q: what is this block_headers_hash and where does it get used?
     let block_headers_hash =
         accumulate_block_headers_hash(left.block_headers_hash, right.block_headers_hash);
 

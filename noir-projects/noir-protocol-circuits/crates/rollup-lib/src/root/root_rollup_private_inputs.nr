@@ -12,6 +12,12 @@ use types::{
     traits::Empty,
 };
 
+// Q: Maybe we should also be distinguishing between "allowed left" and "allowed right" in the other circuits?
+// I see we make the distinction in the block root, but not the checkpoint root. See comments in those circuits
+// which suggests we should go a step further and establish valid pairs of left & right circuits (because not all combinations of pairs are valid).
+// Similar comment for this circuit: not all Left & Right pairs are valid.
+// - E.g. Right = CHECKPOINT_MERGE_ROLLUP_VK_INDEX; Left = CHECKPOINT_ROOT_SINGLE_BLOCK_ROLLUP_VK_INDEX is invalid.
+// Sure, the greedy tree logic might protect against this already, but a 2nd line of defense sounds prudent in case there's a bug elsewhere.
 global ALLOWED_LEFT_ROLLUP_VK_INDICES: [u32; 3] = [
     CHECKPOINT_ROOT_ROLLUP_VK_INDEX,
     CHECKPOINT_ROOT_SINGLE_BLOCK_ROLLUP_VK_INDEX,
@@ -33,6 +39,10 @@ pub struct RootRollupPrivateInputs {
 impl RootRollupPrivateInputs {
     /// VkIndex: ROOT_ROLLUP_VK_INDEX
     pub fn execute(self) -> RootRollupPublicInputs {
+        // Q: why do some circuits perform checks through a `...Validator` struct and a `...Composer` struct,
+        // but the Root-Rollup and Checkpoint-Merge rollup circuits (for example) do not?
+        // Tbf, I kind of like the readability of this fn.
+
         // Verify the previous rollup proofs
         if !dep::std::runtime::is_unconstrained() {
             self.previous_rollups[0].verify_proof_in_root();
@@ -75,6 +85,8 @@ impl RootRollupPrivateInputs {
         //
         // Below we check:
         // 1. The first accumulator of the entire epoch (left.start_blob_accumulator) is empty.
+        //    Notice: the "empty" representation of C_acc is rightly the canonical representation of
+        //    the point at infinity with is_infinity=true.
         merged.start_blob_accumulator.assert_empty("Epoch did not start with empty blob state.");
         // 2. The claimed `final_blob_challenges` match the final state of the accumulator.
         validate_final_blob_batching_challenges(

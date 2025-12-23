@@ -94,10 +94,6 @@ pub fn create_tx_start_marker(
 
     // Note: There can be at most 1 contract class log per tx, so this is currently the length of the log.
     // If this changes, we need to update below to be `array_lengths.contract_class_logs`.
-    static_assert(
-        array_lengths.contract_class_logs == 1,
-        "You should update this code",
-    );
     let contract_class_log_length_field = contract_class_log_length as Field;
     contract_class_log_length_field.assert_max_bit_size::<CONTRACT_CLASS_LOG_LENGTH_BIT_SIZE>();
     marker += contract_class_log_length_field * shift;

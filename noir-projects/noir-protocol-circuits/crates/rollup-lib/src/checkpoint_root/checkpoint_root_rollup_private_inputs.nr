@@ -16,6 +16,8 @@ use types::{
     proof::proof_data::RollupHonkProofData,
 };
 
+// TODO: we should establish lists of valid Left VKs and valid Right VKs, like you've done for the block-root and root circuits.
+// TODO: we should establish valid _pairs_ of Left VKs and Right VKs (because not all pairs are valid). This is an extra measure of security against accidental bugs in the rest of the circuits.
 global ALLOWED_PREVIOUS_VK_INDICES: [u32; 6] = [
     BLOCK_ROOT_FIRST_ROLLUP_VK_INDEX,
     BLOCK_ROOT_SINGLE_TX_FIRST_ROLLUP_VK_INDEX,

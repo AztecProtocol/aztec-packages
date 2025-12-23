@@ -37,6 +37,7 @@ impl BlockRootEmptyTxFirstRollupPrivateInputs {
         validate_parity_root(self.parity_root, self.constants.vk_tree_root);
 
         // Since it's the first block in a checkpoint, the start sponge blob is empty.
+        // Refactor: Consider just assigning this within `new_from_no_rollups`, much like we set `num_txs = 0`, etc.
         let start_sponge_blob = SpongeBlob::init();
 
         BlockRollupPublicInputsComposer::new_from_no_rollups(
