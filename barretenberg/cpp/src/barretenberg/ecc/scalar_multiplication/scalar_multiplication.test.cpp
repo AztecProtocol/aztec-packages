@@ -107,36 +107,7 @@ TYPED_TEST(ScalarMultiplicationTest, GetScalarSlice)
             slices[num_slices - 1 - i] = static_cast<uint32_t>((acc & mask).data[0]);
             acc = acc >> shift;
         }
-        // uint256_t input_u256 = 0;
 
-        // for (size_t i = 0; i < num_slices; ++i) {
-        //     bool valid_slice = false;
-        //     while (!valid_slice) {
-        //         size_t mask = ((1 << slice_bits) - 1);
-        //         if (i == num_slices - 1) {
-        //             mask = ((1 << last_slice_bits) - 1);
-        //         }
-        //         const uint32_t slice = engine.get_random_uint32() & mask;
-
-        //         size_t shift = (fr_size - slice_bits - (i * slice_bits));
-        //         if (i == num_slices - 1) {
-        //             shift = 0;
-        //         }
-
-        //         const uint256_t new_input_u256 = input_u256 + (uint256_t(slice) << shift);
-        //         //   BB_ASSERT(new_input_u256 < fr::modulus);
-        //         if (new_input_u256 < fr::modulus) {
-        //             input_u256 = new_input_u256;
-        //             slices[i] = slice;
-        //             valid_slice = true;
-        //         }
-        //     }
-        // }
-
-        // BB_ASSERT(input_u256 < fr::modulus);
-        // while (input_u256 > fr::modulus) {
-        //     input_u256 -= fr::modulus;
-        // }
         ScalarField input(input_u256);
         input.self_from_montgomery_form();
 

@@ -79,21 +79,21 @@ void MSM<Curve>::transform_scalar_and_get_nonzero_scalar_indices(std::span<typen
         }
     });
 
-    size_t num_entries = 0;
-    for (const auto& indices : thread_indices) {
-        num_entries += indices.size();
+    // Pre-compute prefix sums for thread offsets (avoids O(thread_index) computation per thread)
+    const size_t num_threads = thread_indices.size();
+    std::vector<size_t> thread_offsets(num_threads + 1);
+    thread_offsets[0] = 0;
+    for (size_t i = 0; i < num_threads; ++i) {
+        thread_offsets[i + 1] = thread_offsets[i] + thread_indices[i].size();
     }
-    consolidated_indices.resize(num_entries);
+    consolidated_indices.resize(thread_offsets[num_threads]);
 
     parallel_for([&](const ThreadChunk& chunk) {
-        // parallel_for with ThreadChunk uses get_num_cpus() threads
         BB_ASSERT_EQ(chunk.total_threads, thread_indices.size());
-        size_t offset = 0;
-        for (size_t i = 0; i < chunk.thread_index; ++i) {
-            offset += thread_indices[i].size();
-        }
-        for (size_t i = offset; i < offset + thread_indices[chunk.thread_index].size(); ++i) {
-            consolidated_indices[i] = thread_indices[chunk.thread_index][i - offset];
+        const size_t offset = thread_offsets[chunk.thread_index];
+        const auto& src = thread_indices[chunk.thread_index];
+        for (size_t i = 0; i < src.size(); ++i) {
+            consolidated_indices[offset + i] = src[i];
         }
     });
 }
@@ -199,7 +199,6 @@ uint32_t MSM<Curve>::get_scalar_slice(const typename Curve::ScalarField& scalar,
                                       size_t slice_size) noexcept
 {
     size_t hi_bit = NUM_BITS_IN_FIELD - (round * slice_size);
-    // todo remove
     bool last_slice = hi_bit < slice_size;
     size_t target_slice_size = last_slice ? hi_bit : slice_size;
     size_t lo_bit = last_slice ? 0 : hi_bit - slice_size;
@@ -460,19 +459,19 @@ typename Curve::Element MSM<Curve>::evaluate_small_pippenger_round(MSMData& msm_
             }
         }
     }
-    Element round_output;
-    round_output.self_set_infinity();
-    round_output = accumulate_buckets(bucket_data);
+    Element round_output = accumulate_buckets(bucket_data);
     bucket_data.bucket_exists.clear();
-    Element result = previous_round_output;
+
+    // Compute number of doublings for this round
     const size_t num_rounds = numeric::ceil_div(NUM_BITS_IN_FIELD, bits_per_slice);
-    size_t num_doublings = ((round_index == num_rounds - 1) && (NUM_BITS_IN_FIELD % bits_per_slice != 0))
-                               ? NUM_BITS_IN_FIELD % bits_per_slice
-                               : bits_per_slice;
+    const bool is_last_round = (round_index == num_rounds - 1);
+    const size_t remainder = NUM_BITS_IN_FIELD % bits_per_slice;
+    size_t num_doublings = (is_last_round && remainder != 0) ? remainder : bits_per_slice;
+
+    Element result = std::move(previous_round_output);
     for (size_t i = 0; i < num_doublings; ++i) {
         result.self_dbl();
     }
-
     result += round_output;
     return result;
 }
@@ -528,15 +527,16 @@ typename Curve::Element MSM<Curve>::evaluate_pippenger_round(MSMData& msm_data,
         bucket_data.bucket_exists.clear();
     }
 
-    Element result = previous_round_output;
+    // Compute number of doublings for this round
     const size_t num_rounds = numeric::ceil_div(NUM_BITS_IN_FIELD, bits_per_slice);
-    size_t num_doublings = ((round_index == num_rounds - 1) && (NUM_BITS_IN_FIELD % bits_per_slice != 0))
-                               ? NUM_BITS_IN_FIELD % bits_per_slice
-                               : bits_per_slice;
+    const bool is_last_round = (round_index == num_rounds - 1);
+    const size_t remainder = NUM_BITS_IN_FIELD % bits_per_slice;
+    size_t num_doublings = (is_last_round && remainder != 0) ? remainder : bits_per_slice;
+
+    Element result = std::move(previous_round_output);
     for (size_t i = 0; i < num_doublings; ++i) {
         result.self_dbl();
     }
-
     result += round_output;
     return result;
 }
@@ -594,9 +594,8 @@ void MSM<Curve>::consume_point_schedule(std::span<const uint64_t> point_schedule
             }
         }
 
-        // We do some branchless programming here to minimize instruction pipeline flushes
-        // TODO(@zac-williamson, cc @ludamad) check these ternary operators are not branching! -> (ludamad: they don't,
-        // but its not clear that the conditional move is fundamentally less expensive)
+        // We do some branchless programming here to minimize instruction pipeline flushes.
+        // Ternary operators compile to conditional moves (cmov) rather than branches.
         // We are iterating through our points and
         // can come across the following scenarios: 1: The next 2 points in `point_schedule` belong to the *same* bucket
         //    (happy path - can put both points into affine_addition_scratch_space)
@@ -777,6 +776,7 @@ std::vector<typename Curve::AffineElement> MSM<Curve>::batch_multi_scalar_mul(
         if (!thread_work_units[thread_idx].empty()) {
             const std::vector<MSMWorkUnit>& msms = thread_work_units[thread_idx];
             std::vector<std::pair<Element, size_t>>& msm_results = thread_msm_results[thread_idx];
+            msm_results.reserve(msms.size());
             for (const MSMWorkUnit& msm : msms) {
                 std::span<const ScalarField> work_scalars = scalars[msm.batch_msm_index];
                 std::span<const AffineElement> work_points = points[msm.batch_msm_index];
@@ -817,6 +817,7 @@ std::vector<typename Curve::AffineElement> MSM<Curve>::batch_multi_scalar_mul(
     Element::batch_normalize(&results[0], num_msms);
 
     std::vector<AffineElement> affine_results;
+    affine_results.reserve(num_msms);
     for (const auto& ele : results) {
         affine_results.emplace_back(AffineElement(ele.x, ele.y));
     }

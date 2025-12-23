@@ -183,5 +183,4 @@ typename Curve::Element pippenger_unsafe(PolynomialSpan<const typename Curve::Sc
 extern template class MSM<curve::Grumpkin>;
 extern template class MSM<curve::BN254>;
 
-// NEXT STEP ACCUMULATE BUVKETS
 } // namespace bb::scalar_multiplication
