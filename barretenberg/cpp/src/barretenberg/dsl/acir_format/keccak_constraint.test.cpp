@@ -30,6 +30,8 @@ template <class BuilderType> class KeccakTestingFunctions {
         static std::vector<std::string> get_labels() { return { "None", "Input", "Output" }; }
     };
 
+    static ProgramMetadata generate_metadata() { return ProgramMetadata{}; }
+
     static std::pair<AcirConstraint, WitnessVector> invalidate_witness(
         Keccakf1600 constraint, WitnessVector witness_values, const InvalidWitness::Target& invalid_witness_target)
     {
