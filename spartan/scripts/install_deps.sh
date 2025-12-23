@@ -142,3 +142,9 @@ require_cmd cast
 require_cmd jq
 require_cmd gcloud
 require_cmd helm
+
+# Update helm repos if any are configured (prevents stale cache issues)
+if helm repo list &>/dev/null; then
+  log "Updating helm repositories..."
+  helm repo update || log "Warning: helm repo update failed, continuing anyway"
+fi

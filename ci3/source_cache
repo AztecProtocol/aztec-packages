@@ -42,7 +42,7 @@ function cache_persistent {
   cat "$tmpfile" | redis_cli -x SETEX "$key" "$expire" &>/dev/null
 
   # Transfer to bastion disk in background (only if disk logging enabled)
-  if [ "${CI_ENABLE_DISK_LOGS:-0}" -eq 1 ]; then
+  if [ "${CI_USE_BUILD_INSTANCE_KEY:-0}" -eq 1 ]; then
     {
       cat "$tmpfile" | cache_disk_transfer "$key"
       rm -f "$tmpfile"
