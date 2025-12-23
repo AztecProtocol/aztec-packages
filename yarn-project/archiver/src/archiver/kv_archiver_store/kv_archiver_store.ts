@@ -318,21 +318,17 @@ export class KVArchiverDataStore implements ArchiverDataStore, ContractDataSourc
     return this.#messageStore.getL1ToL2Messages(checkpointNumber);
   }
 
-  getPrivateLogsByTags(tags: SiloedTag[], logsPerTag?: number): Promise<TxScopedL2Log[][]> {
+  getPrivateLogsByTags(tags: SiloedTag[]): Promise<TxScopedL2Log[][]> {
     try {
-      return this.#logStore.getPrivateLogsByTags(tags, logsPerTag);
+      return this.#logStore.getPrivateLogsByTags(tags);
     } catch (err) {
       return Promise.reject(err);
     }
   }
 
-  getPublicLogsByTagsFromContract(
-    contractAddress: AztecAddress,
-    tags: Tag[],
-    logsPerTag?: number,
-  ): Promise<TxScopedL2Log[][]> {
+  getPublicLogsByTagsFromContract(contractAddress: AztecAddress, tags: Tag[]): Promise<TxScopedL2Log[][]> {
     try {
-      return this.#logStore.getPublicLogsByTagsFromContract(contractAddress, tags, logsPerTag);
+      return this.#logStore.getPublicLogsByTagsFromContract(contractAddress, tags);
     } catch (err) {
       return Promise.reject(err);
     }
