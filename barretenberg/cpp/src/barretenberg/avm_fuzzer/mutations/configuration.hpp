@@ -555,11 +555,12 @@ enum class CFGInstructionGenerationOptions {
     JumpToBlock,
     JumpIfToBlock,
     FinalizeWithReturn,
+    FinalizeWithRevert,
     SwitchToNonTerminatedBlock,
     InsertInternalCall,
 };
 
-using CFGInstructionGenerationConfig = WeightedSelectionConfig<CFGInstructionGenerationOptions, 8>;
+using CFGInstructionGenerationConfig = WeightedSelectionConfig<CFGInstructionGenerationOptions, 9>;
 
 constexpr CFGInstructionGenerationConfig BASIC_CFG_INSTRUCTION_GENERATION_CONFIGURATION =
     CFGInstructionGenerationConfig({
@@ -569,6 +570,7 @@ constexpr CFGInstructionGenerationConfig BASIC_CFG_INSTRUCTION_GENERATION_CONFIG
         { CFGInstructionGenerationOptions::JumpToBlock, 15 },
         { CFGInstructionGenerationOptions::JumpIfToBlock, 15 },
         { CFGInstructionGenerationOptions::FinalizeWithReturn, 7 },
+        { CFGInstructionGenerationOptions::FinalizeWithRevert, 3 },
         { CFGInstructionGenerationOptions::SwitchToNonTerminatedBlock, 8 },
         { CFGInstructionGenerationOptions::InsertInternalCall, 3 },
     });
