@@ -8,6 +8,8 @@
 #include "barretenberg/avm_fuzzer/mutations/basic_types/uint8_t.hpp"
 #include "barretenberg/avm_fuzzer/mutations/basic_types/vector.hpp"
 #include "barretenberg/avm_fuzzer/mutations/configuration.hpp"
+#include "barretenberg/vm2/common/field.hpp"
+#include <optional>
 
 AddressingMode generate_addressing_mode(std::mt19937_64& rng)
 {
@@ -28,221 +30,300 @@ VariableRef generate_variable_ref(std::mt19937_64& rng)
                         .mode = mode };
 }
 
-AddressRef generate_address_ref(std::mt19937_64& rng)
+// Maximum operand values based on instruction operand size
+constexpr uint32_t MAX_8BIT_OPERAND = 255;
+constexpr uint32_t MAX_16BIT_OPERAND = 65535;
+
+AddressRef generate_address_ref(std::mt19937_64& rng, uint32_t max_operand_value)
 {
     auto address = generate_random_uint32(rng);
     auto pointer_address = generate_random_uint16(rng);
     auto base_offset = generate_random_uint32(rng);
     auto mode = generate_addressing_mode(rng);
+    // For Direct mode, constrain address to fit in the operand
+    if (mode == AddressingMode::Direct) {
+        address = address % (max_operand_value + 1);
+    }
     return AddressRef{
         .address = address, .pointer_address_seed = pointer_address, .base_offset_seed = base_offset, .mode = mode
     };
 }
 
-FuzzInstruction generate_instruction(std::mt19937_64& rng)
+std::vector<FuzzInstruction> generate_ecadd_instruction(std::mt19937_64& rng)
+{
+    bool use_backfill = std::uniform_int_distribution<int>(0, 1)(rng) == 0;
+
+    if (!use_backfill) {
+        // Random mode: use existing memory values (may fail if not valid points on curve)
+        return { ECADD_Instruction{ .p1_x = generate_variable_ref(rng),
+                                    .p1_y = generate_variable_ref(rng),
+                                    .p1_infinite = generate_variable_ref(rng),
+                                    .p2_x = generate_variable_ref(rng),
+                                    .p2_y = generate_variable_ref(rng),
+                                    .p2_infinite = generate_variable_ref(rng),
+                                    .result = generate_address_ref(rng, MAX_16BIT_OPERAND) } };
+    }
+
+    // Backfill mode: generate valid points on the Grumpkin curve and SET them
+    // 6 SET instructions (2 points * 3 fields each) + 1 ECADD = 7 instructions
+    std::vector<FuzzInstruction> instructions;
+    instructions.reserve(7);
+
+    // Generate a valid point via scalar multiplication of the generator (always on curve)
+    auto generate_point = [&rng]() {
+        bb::avm2::Fq scalar(generate_random_field(rng));
+        return bb::avm2::EmbeddedCurvePoint::one() * scalar;
+    };
+
+    // Generate SET instructions to backfill a point at the given addresses
+    auto backfill_point = [&instructions](const bb::avm2::EmbeddedCurvePoint& point,
+                                          AddressRef x_addr,
+                                          AddressRef y_addr,
+                                          AddressRef inf_addr) {
+        instructions.push_back(
+            SET_FF_Instruction{ .value_tag = bb::avm2::MemoryTag::FF, .result_address = x_addr, .value = point.x() });
+        instructions.push_back(
+            SET_FF_Instruction{ .value_tag = bb::avm2::MemoryTag::FF, .result_address = y_addr, .value = point.y() });
+        instructions.push_back(SET_8_Instruction{ .value_tag = bb::avm2::MemoryTag::U1,
+                                                  .result_address = inf_addr,
+                                                  .value = static_cast<uint8_t>(point.is_infinity() ? 1 : 0) });
+    };
+
+    auto p1 = generate_point();
+    auto p2 = generate_point();
+
+    // Generate addresses (SET_FF uses 16-bit, SET_8 uses 8-bit operands)
+    AddressRef p1_x_addr = generate_address_ref(rng, MAX_16BIT_OPERAND);
+    AddressRef p1_y_addr = generate_address_ref(rng, MAX_16BIT_OPERAND);
+    AddressRef p1_inf_addr = generate_address_ref(rng, MAX_8BIT_OPERAND);
+    AddressRef p2_x_addr = generate_address_ref(rng, MAX_16BIT_OPERAND);
+    AddressRef p2_y_addr = generate_address_ref(rng, MAX_16BIT_OPERAND);
+    AddressRef p2_inf_addr = generate_address_ref(rng, MAX_8BIT_OPERAND);
+
+    backfill_point(p1, p1_x_addr, p1_y_addr, p1_inf_addr);
+    backfill_point(p2, p2_x_addr, p2_y_addr, p2_inf_addr);
+
+    instructions.push_back(ECADD_Instruction{ .p1_x = p1_x_addr,
+                                              .p1_y = p1_y_addr,
+                                              .p1_infinite = p1_inf_addr,
+                                              .p2_x = p2_x_addr,
+                                              .p2_y = p2_y_addr,
+                                              .p2_infinite = p2_inf_addr,
+                                              .result = generate_address_ref(rng, MAX_16BIT_OPERAND) });
+
+    return instructions;
+}
+
+std::vector<FuzzInstruction> generate_instruction(std::mt19937_64& rng)
 {
     InstructionGenerationOptions option = BASIC_INSTRUCTION_GENERATION_CONFIGURATION.select(rng);
     // forgive me
     switch (option) {
     case InstructionGenerationOptions::ADD_8:
-        return ADD_8_Instruction{ .a_address = generate_variable_ref(rng),
-                                  .b_address = generate_variable_ref(rng),
-                                  .result_address = generate_address_ref(rng) };
+        return { ADD_8_Instruction{ .a_address = generate_variable_ref(rng),
+                                    .b_address = generate_variable_ref(rng),
+                                    .result_address = generate_address_ref(rng, MAX_8BIT_OPERAND) } };
     case InstructionGenerationOptions::SUB_8:
-        return SUB_8_Instruction{ .a_address = generate_variable_ref(rng),
-                                  .b_address = generate_variable_ref(rng),
-                                  .result_address = generate_address_ref(rng) };
+        return { SUB_8_Instruction{ .a_address = generate_variable_ref(rng),
+                                    .b_address = generate_variable_ref(rng),
+                                    .result_address = generate_address_ref(rng, MAX_8BIT_OPERAND) } };
     case InstructionGenerationOptions::MUL_8:
-        return MUL_8_Instruction{ .a_address = generate_variable_ref(rng),
-                                  .b_address = generate_variable_ref(rng),
-                                  .result_address = generate_address_ref(rng) };
+        return { MUL_8_Instruction{ .a_address = generate_variable_ref(rng),
+                                    .b_address = generate_variable_ref(rng),
+                                    .result_address = generate_address_ref(rng, MAX_8BIT_OPERAND) } };
     case InstructionGenerationOptions::DIV_8:
-        return DIV_8_Instruction{ .a_address = generate_variable_ref(rng),
-                                  .b_address = generate_variable_ref(rng),
-                                  .result_address = generate_address_ref(rng) };
+        return { DIV_8_Instruction{ .a_address = generate_variable_ref(rng),
+                                    .b_address = generate_variable_ref(rng),
+                                    .result_address = generate_address_ref(rng, MAX_8BIT_OPERAND) } };
     case InstructionGenerationOptions::EQ_8:
-        return EQ_8_Instruction{ .a_address = generate_variable_ref(rng),
-                                 .b_address = generate_variable_ref(rng),
-                                 .result_address = generate_address_ref(rng) };
+        return { EQ_8_Instruction{ .a_address = generate_variable_ref(rng),
+                                   .b_address = generate_variable_ref(rng),
+                                   .result_address = generate_address_ref(rng, MAX_8BIT_OPERAND) } };
     case InstructionGenerationOptions::LT_8:
-        return LT_8_Instruction{ .a_address = generate_variable_ref(rng),
-                                 .b_address = generate_variable_ref(rng),
-                                 .result_address = generate_address_ref(rng) };
+        return { LT_8_Instruction{ .a_address = generate_variable_ref(rng),
+                                   .b_address = generate_variable_ref(rng),
+                                   .result_address = generate_address_ref(rng, MAX_8BIT_OPERAND) } };
     case InstructionGenerationOptions::LTE_8:
-        return LTE_8_Instruction{ .a_address = generate_variable_ref(rng),
-                                  .b_address = generate_variable_ref(rng),
-                                  .result_address = generate_address_ref(rng) };
+        return { LTE_8_Instruction{ .a_address = generate_variable_ref(rng),
+                                    .b_address = generate_variable_ref(rng),
+                                    .result_address = generate_address_ref(rng, MAX_8BIT_OPERAND) } };
     case InstructionGenerationOptions::AND_8:
-        return AND_8_Instruction{ .a_address = generate_variable_ref(rng),
-                                  .b_address = generate_variable_ref(rng),
-                                  .result_address = generate_address_ref(rng) };
+        return { AND_8_Instruction{ .a_address = generate_variable_ref(rng),
+                                    .b_address = generate_variable_ref(rng),
+                                    .result_address = generate_address_ref(rng, MAX_8BIT_OPERAND) } };
     case InstructionGenerationOptions::OR_8:
-        return OR_8_Instruction{ .a_address = generate_variable_ref(rng),
-                                 .b_address = generate_variable_ref(rng),
-                                 .result_address = generate_address_ref(rng) };
+        return { OR_8_Instruction{ .a_address = generate_variable_ref(rng),
+                                   .b_address = generate_variable_ref(rng),
+                                   .result_address = generate_address_ref(rng, MAX_8BIT_OPERAND) } };
     case InstructionGenerationOptions::XOR_8:
-        return XOR_8_Instruction{ .a_address = generate_variable_ref(rng),
-                                  .b_address = generate_variable_ref(rng),
-                                  .result_address = generate_address_ref(rng) };
+        return { XOR_8_Instruction{ .a_address = generate_variable_ref(rng),
+                                    .b_address = generate_variable_ref(rng),
+                                    .result_address = generate_address_ref(rng, MAX_8BIT_OPERAND) } };
     case InstructionGenerationOptions::SHL_8:
-        return SHL_8_Instruction{ .a_address = generate_variable_ref(rng),
-                                  .b_address = generate_variable_ref(rng),
-                                  .result_address = generate_address_ref(rng) };
+        return { SHL_8_Instruction{ .a_address = generate_variable_ref(rng),
+                                    .b_address = generate_variable_ref(rng),
+                                    .result_address = generate_address_ref(rng, MAX_8BIT_OPERAND) } };
 
     case InstructionGenerationOptions::SHR_8:
-        return SHR_8_Instruction{ .a_address = generate_variable_ref(rng),
-                                  .b_address = generate_variable_ref(rng),
-                                  .result_address = generate_address_ref(rng) };
-    case InstructionGenerationOptions::SET_8:
-        return SET_8_Instruction{ .value_tag = generate_memory_tag(rng, BASIC_MEMORY_TAG_GENERATION_CONFIGURATION),
-                                  .result_address = generate_address_ref(rng),
-                                  .value = generate_random_uint8(rng) };
-    case InstructionGenerationOptions::SET_16:
-        return SET_16_Instruction{ .value_tag = generate_memory_tag(rng, BASIC_MEMORY_TAG_GENERATION_CONFIGURATION),
-                                   .result_address = generate_address_ref(rng),
-                                   .value = generate_random_uint16(rng) };
-    case InstructionGenerationOptions::SET_32:
-        return SET_32_Instruction{ .value_tag = generate_memory_tag(rng, BASIC_MEMORY_TAG_GENERATION_CONFIGURATION),
-                                   .result_address = generate_address_ref(rng),
-                                   .value = generate_random_uint32(rng) };
-    case InstructionGenerationOptions::SET_64:
-        return SET_64_Instruction{ .value_tag = generate_memory_tag(rng, BASIC_MEMORY_TAG_GENERATION_CONFIGURATION),
-                                   .result_address = generate_address_ref(rng),
-                                   .value = generate_random_uint64(rng) };
-    case InstructionGenerationOptions::SET_128:
-        return SET_128_Instruction{ .value_tag = generate_memory_tag(rng, BASIC_MEMORY_TAG_GENERATION_CONFIGURATION),
-                                    .result_address = generate_address_ref(rng),
-                                    .value_low = generate_random_uint64(rng),
-                                    .value_high = generate_random_uint64(rng) };
-    case InstructionGenerationOptions::SET_FF:
-        return SET_FF_Instruction{ .value_tag = generate_memory_tag(rng, BASIC_MEMORY_TAG_GENERATION_CONFIGURATION),
-                                   .result_address = generate_address_ref(rng),
-                                   .value = generate_random_field(rng) };
-    case InstructionGenerationOptions::ADD_16:
-        return ADD_16_Instruction{ .a_address = generate_variable_ref(rng),
-                                   .b_address = generate_variable_ref(rng),
-                                   .result_address = generate_address_ref(rng) };
-    case InstructionGenerationOptions::SUB_16:
-        return SUB_16_Instruction{ .a_address = generate_variable_ref(rng),
-                                   .b_address = generate_variable_ref(rng),
-                                   .result_address = generate_address_ref(rng) };
-    case InstructionGenerationOptions::MUL_16:
-        return MUL_16_Instruction{ .a_address = generate_variable_ref(rng),
-                                   .b_address = generate_variable_ref(rng),
-                                   .result_address = generate_address_ref(rng) };
-    case InstructionGenerationOptions::DIV_16:
-        return DIV_16_Instruction{ .a_address = generate_variable_ref(rng),
-                                   .b_address = generate_variable_ref(rng),
-                                   .result_address = generate_address_ref(rng) };
-    case InstructionGenerationOptions::FDIV_16:
-        return FDIV_16_Instruction{ .a_address = generate_variable_ref(rng),
+        return { SHR_8_Instruction{ .a_address = generate_variable_ref(rng),
                                     .b_address = generate_variable_ref(rng),
-                                    .result_address = generate_address_ref(rng) };
+                                    .result_address = generate_address_ref(rng, MAX_8BIT_OPERAND) } };
+    case InstructionGenerationOptions::SET_8:
+        return { SET_8_Instruction{ .value_tag = generate_memory_tag(rng, BASIC_MEMORY_TAG_GENERATION_CONFIGURATION),
+                                    .result_address = generate_address_ref(rng, MAX_8BIT_OPERAND),
+                                    .value = generate_random_uint8(rng) } };
+    case InstructionGenerationOptions::SET_16:
+        return { SET_16_Instruction{ .value_tag = generate_memory_tag(rng, BASIC_MEMORY_TAG_GENERATION_CONFIGURATION),
+                                     .result_address = generate_address_ref(rng, MAX_16BIT_OPERAND),
+                                     .value = generate_random_uint16(rng) } };
+    case InstructionGenerationOptions::SET_32:
+        return { SET_32_Instruction{ .value_tag = generate_memory_tag(rng, BASIC_MEMORY_TAG_GENERATION_CONFIGURATION),
+                                     .result_address = generate_address_ref(rng, MAX_16BIT_OPERAND),
+                                     .value = generate_random_uint32(rng) } };
+    case InstructionGenerationOptions::SET_64:
+        return { SET_64_Instruction{ .value_tag = generate_memory_tag(rng, BASIC_MEMORY_TAG_GENERATION_CONFIGURATION),
+                                     .result_address = generate_address_ref(rng, MAX_16BIT_OPERAND),
+                                     .value = generate_random_uint64(rng) } };
+    case InstructionGenerationOptions::SET_128:
+        return { SET_128_Instruction{ .value_tag = generate_memory_tag(rng, BASIC_MEMORY_TAG_GENERATION_CONFIGURATION),
+                                      .result_address = generate_address_ref(rng, MAX_16BIT_OPERAND),
+                                      .value_low = generate_random_uint64(rng),
+                                      .value_high = generate_random_uint64(rng) } };
+    case InstructionGenerationOptions::SET_FF:
+        return { SET_FF_Instruction{ .value_tag = generate_memory_tag(rng, BASIC_MEMORY_TAG_GENERATION_CONFIGURATION),
+                                     .result_address = generate_address_ref(rng, MAX_16BIT_OPERAND),
+                                     .value = generate_random_field(rng) } };
+    case InstructionGenerationOptions::ADD_16:
+        return { ADD_16_Instruction{ .a_address = generate_variable_ref(rng),
+                                     .b_address = generate_variable_ref(rng),
+                                     .result_address = generate_address_ref(rng, MAX_16BIT_OPERAND) } };
+    case InstructionGenerationOptions::SUB_16:
+        return { SUB_16_Instruction{ .a_address = generate_variable_ref(rng),
+                                     .b_address = generate_variable_ref(rng),
+                                     .result_address = generate_address_ref(rng, MAX_16BIT_OPERAND) } };
+    case InstructionGenerationOptions::MUL_16:
+        return { MUL_16_Instruction{ .a_address = generate_variable_ref(rng),
+                                     .b_address = generate_variable_ref(rng),
+                                     .result_address = generate_address_ref(rng, MAX_16BIT_OPERAND) } };
+    case InstructionGenerationOptions::DIV_16:
+        return { DIV_16_Instruction{ .a_address = generate_variable_ref(rng),
+                                     .b_address = generate_variable_ref(rng),
+                                     .result_address = generate_address_ref(rng, MAX_16BIT_OPERAND) } };
+    case InstructionGenerationOptions::FDIV_16:
+        return { FDIV_16_Instruction{ .a_address = generate_variable_ref(rng),
+                                      .b_address = generate_variable_ref(rng),
+                                      .result_address = generate_address_ref(rng, MAX_16BIT_OPERAND) } };
     case InstructionGenerationOptions::EQ_16:
-        return EQ_16_Instruction{ .a_address = generate_variable_ref(rng),
-                                  .b_address = generate_variable_ref(rng),
-                                  .result_address = generate_address_ref(rng) };
+        return { EQ_16_Instruction{ .a_address = generate_variable_ref(rng),
+                                    .b_address = generate_variable_ref(rng),
+                                    .result_address = generate_address_ref(rng, MAX_16BIT_OPERAND) } };
     case InstructionGenerationOptions::LT_16:
-        return LT_16_Instruction{ .a_address = generate_variable_ref(rng),
-                                  .b_address = generate_variable_ref(rng),
-                                  .result_address = generate_address_ref(rng) };
+        return { LT_16_Instruction{ .a_address = generate_variable_ref(rng),
+                                    .b_address = generate_variable_ref(rng),
+                                    .result_address = generate_address_ref(rng, MAX_16BIT_OPERAND) } };
     case InstructionGenerationOptions::LTE_16:
-        return LTE_16_Instruction{ .a_address = generate_variable_ref(rng),
-                                   .b_address = generate_variable_ref(rng),
-                                   .result_address = generate_address_ref(rng) };
+        return { LTE_16_Instruction{ .a_address = generate_variable_ref(rng),
+                                     .b_address = generate_variable_ref(rng),
+                                     .result_address = generate_address_ref(rng, MAX_16BIT_OPERAND) } };
     case InstructionGenerationOptions::AND_16:
-        return AND_16_Instruction{ .a_address = generate_variable_ref(rng),
-                                   .b_address = generate_variable_ref(rng),
-                                   .result_address = generate_address_ref(rng) };
+        return { AND_16_Instruction{ .a_address = generate_variable_ref(rng),
+                                     .b_address = generate_variable_ref(rng),
+                                     .result_address = generate_address_ref(rng, MAX_16BIT_OPERAND) } };
     case InstructionGenerationOptions::OR_16:
-        return OR_16_Instruction{ .a_address = generate_variable_ref(rng),
-                                  .b_address = generate_variable_ref(rng),
-                                  .result_address = generate_address_ref(rng) };
+        return { OR_16_Instruction{ .a_address = generate_variable_ref(rng),
+                                    .b_address = generate_variable_ref(rng),
+                                    .result_address = generate_address_ref(rng, MAX_16BIT_OPERAND) } };
     case InstructionGenerationOptions::XOR_16:
-        return XOR_16_Instruction{ .a_address = generate_variable_ref(rng),
-                                   .b_address = generate_variable_ref(rng),
-                                   .result_address = generate_address_ref(rng) };
+        return { XOR_16_Instruction{ .a_address = generate_variable_ref(rng),
+                                     .b_address = generate_variable_ref(rng),
+                                     .result_address = generate_address_ref(rng, MAX_16BIT_OPERAND) } };
     case InstructionGenerationOptions::NOT_16:
-        return NOT_16_Instruction{ .a_address = generate_variable_ref(rng),
-                                   .result_address = generate_address_ref(rng) };
+        return { NOT_16_Instruction{ .a_address = generate_variable_ref(rng),
+                                     .result_address = generate_address_ref(rng, MAX_16BIT_OPERAND) } };
     case InstructionGenerationOptions::SHL_16:
-        return SHL_16_Instruction{ .a_address = generate_variable_ref(rng),
-                                   .b_address = generate_variable_ref(rng),
-                                   .result_address = generate_address_ref(rng) };
+        return { SHL_16_Instruction{ .a_address = generate_variable_ref(rng),
+                                     .b_address = generate_variable_ref(rng),
+                                     .result_address = generate_address_ref(rng, MAX_16BIT_OPERAND) } };
     case InstructionGenerationOptions::SHR_16:
-        return SHR_16_Instruction{ .a_address = generate_variable_ref(rng),
-                                   .b_address = generate_variable_ref(rng),
-                                   .result_address = generate_address_ref(rng) };
+        return { SHR_16_Instruction{ .a_address = generate_variable_ref(rng),
+                                     .b_address = generate_variable_ref(rng),
+                                     .result_address = generate_address_ref(rng, MAX_16BIT_OPERAND) } };
     case InstructionGenerationOptions::CAST_8:
-        return CAST_8_Instruction{ .src_address = generate_variable_ref(rng),
-                                   .result_address = generate_address_ref(rng),
-                                   .target_tag = generate_memory_tag(rng, BASIC_MEMORY_TAG_GENERATION_CONFIGURATION) };
+        return { CAST_8_Instruction{ .src_address = generate_variable_ref(rng),
+                                     .result_address = generate_address_ref(rng, MAX_8BIT_OPERAND),
+                                     .target_tag =
+                                         generate_memory_tag(rng, BASIC_MEMORY_TAG_GENERATION_CONFIGURATION) } };
     case InstructionGenerationOptions::CAST_16:
-        return CAST_16_Instruction{ .src_address = generate_variable_ref(rng),
-                                    .result_address = generate_address_ref(rng),
-                                    .target_tag = generate_memory_tag(rng, BASIC_MEMORY_TAG_GENERATION_CONFIGURATION) };
+        return { CAST_16_Instruction{ .src_address = generate_variable_ref(rng),
+                                      .result_address = generate_address_ref(rng, MAX_16BIT_OPERAND),
+                                      .target_tag =
+                                          generate_memory_tag(rng, BASIC_MEMORY_TAG_GENERATION_CONFIGURATION) } };
     case InstructionGenerationOptions::SSTORE:
-        return SSTORE_Instruction{ .src_address = generate_variable_ref(rng),
-                                   .result_address = generate_address_ref(rng),
-                                   .slot = generate_random_field(rng) };
+        return { SSTORE_Instruction{ .src_address = generate_variable_ref(rng),
+                                     .result_address = generate_address_ref(rng, MAX_16BIT_OPERAND),
+                                     .slot = generate_random_field(rng) } };
     case InstructionGenerationOptions::SLOAD:
-        return SLOAD_Instruction{ .slot_index = generate_random_uint16(rng),
-                                  .slot_address = generate_address_ref(rng),
-                                  .result_address = generate_address_ref(rng) };
+        return { SLOAD_Instruction{ .slot_index = generate_random_uint16(rng),
+                                    .slot_address = generate_address_ref(rng, MAX_16BIT_OPERAND),
+                                    .result_address = generate_address_ref(rng, MAX_16BIT_OPERAND) } };
     case InstructionGenerationOptions::GETENVVAR:
-        return GETENVVAR_Instruction{ .result_address = generate_address_ref(rng), .type = generate_random_uint8(rng) };
+        return { GETENVVAR_Instruction{ .result_address = generate_address_ref(rng, MAX_16BIT_OPERAND),
+                                        .type = generate_random_uint8(rng) } };
     case InstructionGenerationOptions::EMITNULLIFIER:
-        return EMITNULLIFIER_Instruction{ .nullifier_address = generate_variable_ref(rng) };
+        return { EMITNULLIFIER_Instruction{ .nullifier_address = generate_variable_ref(rng) } };
     case InstructionGenerationOptions::NULLIFIEREXISTS:
-        return NULLIFIEREXISTS_Instruction{ .nullifier_address = generate_variable_ref(rng),
-                                            .contract_address_address = generate_address_ref(rng),
-                                            .result_address = generate_address_ref(rng) };
+        return { NULLIFIEREXISTS_Instruction{ .nullifier_address = generate_variable_ref(rng),
+                                              .contract_address_address = generate_address_ref(rng, MAX_16BIT_OPERAND),
+                                              .result_address = generate_address_ref(rng, MAX_16BIT_OPERAND) } };
     case InstructionGenerationOptions::EMITNOTEHASH:
-        return EMITNOTEHASH_Instruction{ .note_hash_address = generate_address_ref(rng),
-                                         .note_hash = generate_random_field(rng) };
+        return { EMITNOTEHASH_Instruction{ .note_hash_address = generate_address_ref(rng, MAX_16BIT_OPERAND),
+                                           .note_hash = generate_random_field(rng) } };
     case InstructionGenerationOptions::NOTEHASHEXISTS:
-        return NOTEHASHEXISTS_Instruction{ .notehash_index = generate_random_uint16(rng),
-                                           .notehash_address = generate_address_ref(rng),
-                                           .leaf_index_address = generate_address_ref(rng),
-                                           .result_address = generate_address_ref(rng) };
+        return { NOTEHASHEXISTS_Instruction{ .notehash_index = generate_random_uint16(rng),
+                                             .notehash_address = generate_address_ref(rng, MAX_16BIT_OPERAND),
+                                             .leaf_index_address = generate_address_ref(rng, MAX_16BIT_OPERAND),
+                                             .result_address = generate_address_ref(rng, MAX_16BIT_OPERAND) } };
     case InstructionGenerationOptions::CALLDATACOPY:
-        return CALLDATACOPY_Instruction{ .dst_address = generate_address_ref(rng),
-                                         .copy_size = generate_random_uint8(rng),
-                                         .copy_size_address = generate_address_ref(rng),
-                                         .cd_start = generate_random_uint16(rng),
-                                         .cd_start_address = generate_address_ref(rng) };
+        return { CALLDATACOPY_Instruction{ .dst_address = generate_address_ref(rng, MAX_16BIT_OPERAND),
+                                           .copy_size = generate_random_uint8(rng),
+                                           .copy_size_address = generate_address_ref(rng, MAX_16BIT_OPERAND),
+                                           .cd_start = generate_random_uint16(rng),
+                                           .cd_start_address = generate_address_ref(rng, MAX_16BIT_OPERAND) } };
     case InstructionGenerationOptions::SENDL2TOL1MSG:
-        return SENDL2TOL1MSG_Instruction{ .recipient = generate_random_field(rng),
-                                          .recipient_address = generate_address_ref(rng),
-                                          .content = generate_random_field(rng),
-                                          .content_address = generate_address_ref(rng) };
+        return { SENDL2TOL1MSG_Instruction{ .recipient = generate_random_field(rng),
+                                            .recipient_address = generate_address_ref(rng, MAX_16BIT_OPERAND),
+                                            .content = generate_random_field(rng),
+                                            .content_address = generate_address_ref(rng, MAX_16BIT_OPERAND) } };
     case InstructionGenerationOptions::EMITUNENCRYPTEDLOG:
-        return EMITUNENCRYPTEDLOG_Instruction{ .log_size = generate_random_uint8(rng),
-                                               .log_size_address = generate_address_ref(rng),
-                                               .log_values = { generate_random_field(rng) },
-                                               .log_values_address_start = generate_random_uint16(rng) };
+        return { EMITUNENCRYPTEDLOG_Instruction{ .log_size = generate_random_uint8(rng),
+                                                 .log_size_address = generate_address_ref(rng, MAX_16BIT_OPERAND),
+                                                 .log_values = { generate_random_field(rng) },
+                                                 .log_values_address_start = generate_random_uint16(rng) } };
     case InstructionGenerationOptions::CALL:
-        return CALL_Instruction{ .function_index = generate_random_uint16(rng),
-                                 .address_offset = generate_random_uint16(rng),
-                                 .l2_gas = generate_random_uint32(rng),
-                                 .l2_gas_address = generate_random_uint16(rng),
-                                 .da_gas = generate_random_uint32(rng),
-                                 .da_gas_address = generate_random_uint16(rng),
-                                 .arg_size_offset = generate_random_uint16(rng),
-                                 .args_offset = generate_random_uint16(rng),
-                                 .args = { generate_random_field(rng) },
-                                 .is_static_call = rng() % 2 == 0 };
+        return { CALL_Instruction{ .function_index = generate_random_uint16(rng),
+                                   .address_offset = generate_random_uint16(rng),
+                                   .l2_gas = generate_random_uint32(rng),
+                                   .l2_gas_address = generate_random_uint16(rng),
+                                   .da_gas = generate_random_uint32(rng),
+                                   .da_gas_address = generate_random_uint16(rng),
+                                   .arg_size_offset = generate_random_uint16(rng),
+                                   .args_offset = generate_random_uint16(rng),
+                                   .args = { generate_random_field(rng) },
+                                   .is_static_call = rng() % 2 == 0 } };
     case InstructionGenerationOptions::RETURNDATASIZE_WITH_RETURNDATACOPY:
-        return RETURNDATASIZE_WITH_RETURNDATACOPY_Instruction{ .copy_size_offset = generate_random_uint16(rng),
-                                                               .dst_address = generate_random_uint16(rng),
-                                                               .rd_start_offset = generate_random_uint16(rng) };
+        return { RETURNDATASIZE_WITH_RETURNDATACOPY_Instruction{ .copy_size_offset = generate_random_uint16(rng),
+                                                                 .dst_address = generate_random_uint16(rng),
+                                                                 .rd_start_offset = generate_random_uint16(rng) } };
     case InstructionGenerationOptions::GETCONTRACTINSTANCE:
-        return GETCONTRACTINSTANCE_Instruction{ .contract_index = generate_random_uint16(rng),
-                                                .contract_address_address = generate_address_ref(rng),
-                                                .dst_address = generate_address_ref(rng),
-                                                .member_enum = generate_random_uint8(rng) };
+        return { GETCONTRACTINSTANCE_Instruction{ .contract_index = generate_random_uint16(rng),
+                                                  .contract_address_address =
+                                                      generate_address_ref(rng, MAX_16BIT_OPERAND),
+                                                  .dst_address = generate_address_ref(rng, MAX_16BIT_OPERAND),
+                                                  .member_enum = generate_random_uint8(rng) } };
     case InstructionGenerationOptions::SUCCESSCOPY:
-        return SUCCESSCOPY_Instruction{ .dst_address = generate_address_ref(rng) };
+        return { SUCCESSCOPY_Instruction{ .dst_address = generate_address_ref(rng, MAX_16BIT_OPERAND) } };
+    case InstructionGenerationOptions::ECADD:
+        return generate_ecadd_instruction(rng);
     }
 }
 /// Most of the tags will be equal to the default tag
@@ -272,12 +353,16 @@ void mutate_variable_ref(VariableRef& variable, std::mt19937_64& rng, std::optio
     }
 }
 
-void mutate_address_ref(AddressRef& address, std::mt19937_64& rng)
+void mutate_address_ref(AddressRef& address, std::mt19937_64& rng, uint32_t max_operand_value)
 {
     AddressRefMutationOptions option = BASIC_ADDRESS_REF_MUTATION_CONFIGURATION.select(rng);
     switch (option) {
     case AddressRefMutationOptions::address:
         mutate_uint32_t(address.address, rng, BASIC_UINT32_T_MUTATION_CONFIGURATION);
+        // Constrain address for Direct mode
+        if (address.mode == AddressingMode::Direct) {
+            address.address = address.address % (max_operand_value + 1);
+        }
         break;
     case AddressRefMutationOptions::pointer_address:
         mutate_uint16_t(address.pointer_address_seed, rng, BASIC_UINT16_T_MUTATION_CONFIGURATION);
@@ -287,8 +372,29 @@ void mutate_address_ref(AddressRef& address, std::mt19937_64& rng)
         break;
     case AddressRefMutationOptions::mode:
         address.mode = generate_addressing_mode(rng);
+        // Constrain address if mode changed to Direct
+        if (address.mode == AddressingMode::Direct) {
+            address.address = address.address % (max_operand_value + 1);
+        }
         break;
     }
+}
+
+void mutate_param_ref(ParamRef& param,
+                      std::mt19937_64& rng,
+                      std::optional<MemoryTag> default_tag,
+                      uint32_t max_operand_value)
+{
+    std::visit(overloaded{ [&](VariableRef& var) { mutate_variable_ref(var, rng, default_tag); },
+                           [&](AddressRef& addr) { mutate_address_ref(addr, rng, max_operand_value); } },
+               param);
+}
+
+std::optional<MemoryTag> get_param_ref_tag(const ParamRef& param)
+{
+    return std::visit(overloaded{ [](const VariableRef& var) -> std::optional<MemoryTag> { return var.tag.value; },
+                                  [](const AddressRef&) -> std::optional<MemoryTag> { return std::nullopt; } },
+                      param);
 }
 
 template <typename BinaryInstructionType>
@@ -297,13 +403,13 @@ void mutate_binary_instruction_8(BinaryInstructionType& instruction, std::mt1993
     BinaryInstruction8MutationOptions option = BASIC_BINARY_INSTRUCTION_8_MUTATION_CONFIGURATION.select(rng);
     switch (option) {
     case BinaryInstruction8MutationOptions::a_address:
-        mutate_variable_ref(instruction.a_address, rng, std::nullopt);
+        mutate_param_ref(instruction.a_address, rng, std::nullopt, MAX_8BIT_OPERAND);
         break;
     case BinaryInstruction8MutationOptions::b_address:
-        mutate_variable_ref(instruction.b_address, rng, instruction.a_address.tag);
+        mutate_param_ref(instruction.b_address, rng, get_param_ref_tag(instruction.a_address), MAX_8BIT_OPERAND);
         break;
     case BinaryInstruction8MutationOptions::result_address:
-        mutate_address_ref(instruction.result_address, rng);
+        mutate_address_ref(instruction.result_address, rng, MAX_8BIT_OPERAND);
         break;
     }
 }
@@ -314,13 +420,13 @@ void mutate_binary_instruction_16(BinaryInstructionType& instruction, std::mt199
     BinaryInstruction8MutationOptions option = BASIC_BINARY_INSTRUCTION_8_MUTATION_CONFIGURATION.select(rng);
     switch (option) {
     case BinaryInstruction8MutationOptions::a_address:
-        mutate_variable_ref(instruction.a_address, rng, std::nullopt);
+        mutate_param_ref(instruction.a_address, rng, std::nullopt, MAX_16BIT_OPERAND);
         break;
     case BinaryInstruction8MutationOptions::b_address:
-        mutate_variable_ref(instruction.b_address, rng, instruction.a_address.tag);
+        mutate_param_ref(instruction.b_address, rng, get_param_ref_tag(instruction.a_address), MAX_16BIT_OPERAND);
         break;
     case BinaryInstruction8MutationOptions::result_address:
-        mutate_address_ref(instruction.result_address, rng);
+        mutate_address_ref(instruction.result_address, rng, MAX_16BIT_OPERAND);
         break;
     }
 }
@@ -331,10 +437,10 @@ void mutate_not_8_instruction(NOT_8_Instruction& instruction, std::mt19937_64& r
     UnaryInstruction8MutationOptions option = BASIC_UNARY_INSTRUCTION_8_MUTATION_CONFIGURATION.select(rng);
     switch (option) {
     case UnaryInstruction8MutationOptions::a_address:
-        mutate_variable_ref(instruction.a_address, rng, std::nullopt);
+        mutate_param_ref(instruction.a_address, rng, std::nullopt, MAX_8BIT_OPERAND);
         break;
     case UnaryInstruction8MutationOptions::result_address:
-        mutate_address_ref(instruction.result_address, rng);
+        mutate_address_ref(instruction.result_address, rng, MAX_8BIT_OPERAND);
         break;
     }
 }
@@ -348,7 +454,7 @@ void mutate_set_8_instruction(SET_8_Instruction& instruction, std::mt19937_64& r
         mutate_memory_tag(instruction.value_tag.value, rng, BASIC_MEMORY_TAG_MUTATION_CONFIGURATION);
         break;
     case Set8MutationOptions::result_address:
-        mutate_address_ref(instruction.result_address, rng);
+        mutate_address_ref(instruction.result_address, rng, MAX_8BIT_OPERAND);
         break;
     case Set8MutationOptions::value:
         mutate_uint8_t(instruction.value, rng, BASIC_UINT8_T_MUTATION_CONFIGURATION);
@@ -365,7 +471,7 @@ void mutate_set_16_instruction(SET_16_Instruction& instruction, std::mt19937_64&
         mutate_memory_tag(instruction.value_tag.value, rng, BASIC_MEMORY_TAG_MUTATION_CONFIGURATION);
         break;
     case Set16MutationOptions::result_address:
-        mutate_address_ref(instruction.result_address, rng);
+        mutate_address_ref(instruction.result_address, rng, MAX_16BIT_OPERAND);
         break;
     case Set16MutationOptions::value:
         mutate_uint16_t(instruction.value, rng, BASIC_UINT16_T_MUTATION_CONFIGURATION);
@@ -382,7 +488,7 @@ void mutate_set_32_instruction(SET_32_Instruction& instruction, std::mt19937_64&
         mutate_memory_tag(instruction.value_tag.value, rng, BASIC_MEMORY_TAG_MUTATION_CONFIGURATION);
         break;
     case Set32MutationOptions::result_address:
-        mutate_address_ref(instruction.result_address, rng);
+        mutate_address_ref(instruction.result_address, rng, MAX_16BIT_OPERAND);
         break;
     case Set32MutationOptions::value:
         mutate_uint32_t(instruction.value, rng, BASIC_UINT32_T_MUTATION_CONFIGURATION);
@@ -399,7 +505,7 @@ void mutate_set_64_instruction(SET_64_Instruction& instruction, std::mt19937_64&
         mutate_memory_tag(instruction.value_tag.value, rng, BASIC_MEMORY_TAG_MUTATION_CONFIGURATION);
         break;
     case Set64MutationOptions::result_address:
-        mutate_address_ref(instruction.result_address, rng);
+        mutate_address_ref(instruction.result_address, rng, MAX_16BIT_OPERAND);
         break;
     case Set64MutationOptions::value:
         mutate_uint64_t(instruction.value, rng, BASIC_UINT64_T_MUTATION_CONFIGURATION);
@@ -416,7 +522,7 @@ void mutate_set_128_instruction(SET_128_Instruction& instruction, std::mt19937_6
         mutate_memory_tag(instruction.value_tag.value, rng, BASIC_MEMORY_TAG_MUTATION_CONFIGURATION);
         break;
     case Set128MutationOptions::result_address:
-        mutate_address_ref(instruction.result_address, rng);
+        mutate_address_ref(instruction.result_address, rng, MAX_16BIT_OPERAND);
         break;
     case Set128MutationOptions::value_low:
         mutate_uint64_t(instruction.value_low, rng, BASIC_UINT64_T_MUTATION_CONFIGURATION);
@@ -436,7 +542,7 @@ void mutate_set_ff_instruction(SET_FF_Instruction& instruction, std::mt19937_64&
         mutate_memory_tag(instruction.value_tag.value, rng, BASIC_MEMORY_TAG_MUTATION_CONFIGURATION);
         break;
     case SetFFMutationOptions::result_address:
-        mutate_address_ref(instruction.result_address, rng);
+        mutate_address_ref(instruction.result_address, rng, MAX_16BIT_OPERAND);
         break;
     case SetFFMutationOptions::value:
         mutate_field(instruction.value, rng, BASIC_FIELD_MUTATION_CONFIGURATION);
@@ -450,10 +556,10 @@ void mutate_not_16_instruction(NOT_16_Instruction& instruction, std::mt19937_64&
     UnaryInstruction8MutationOptions option = BASIC_UNARY_INSTRUCTION_8_MUTATION_CONFIGURATION.select(rng);
     switch (option) {
     case UnaryInstruction8MutationOptions::a_address:
-        mutate_variable_ref(instruction.a_address, rng, std::nullopt);
+        mutate_param_ref(instruction.a_address, rng, std::nullopt, MAX_16BIT_OPERAND);
         break;
     case UnaryInstruction8MutationOptions::result_address:
-        mutate_address_ref(instruction.result_address, rng);
+        mutate_address_ref(instruction.result_address, rng, MAX_16BIT_OPERAND);
         break;
     }
 }
@@ -464,10 +570,10 @@ void mutate_cast_8_instruction(CAST_8_Instruction& instruction, std::mt19937_64&
     BinaryInstruction8MutationOptions option = BASIC_BINARY_INSTRUCTION_8_MUTATION_CONFIGURATION.select(rng);
     switch (option) {
     case BinaryInstruction8MutationOptions::a_address:
-        mutate_variable_ref(instruction.src_address, rng, std::nullopt);
+        mutate_param_ref(instruction.src_address, rng, std::nullopt, MAX_8BIT_OPERAND);
         break;
     case BinaryInstruction8MutationOptions::b_address:
-        mutate_address_ref(instruction.result_address, rng);
+        mutate_address_ref(instruction.result_address, rng, MAX_8BIT_OPERAND);
         break;
     case BinaryInstruction8MutationOptions::result_address:
         mutate_memory_tag(instruction.target_tag.value, rng, BASIC_MEMORY_TAG_MUTATION_CONFIGURATION);
@@ -481,10 +587,10 @@ void mutate_cast_16_instruction(CAST_16_Instruction& instruction, std::mt19937_6
     BinaryInstruction8MutationOptions option = BASIC_BINARY_INSTRUCTION_8_MUTATION_CONFIGURATION.select(rng);
     switch (option) {
     case BinaryInstruction8MutationOptions::a_address:
-        mutate_variable_ref(instruction.src_address, rng, std::nullopt);
+        mutate_param_ref(instruction.src_address, rng, std::nullopt, MAX_16BIT_OPERAND);
         break;
     case BinaryInstruction8MutationOptions::b_address:
-        mutate_address_ref(instruction.result_address, rng);
+        mutate_address_ref(instruction.result_address, rng, MAX_16BIT_OPERAND);
         break;
     case BinaryInstruction8MutationOptions::result_address:
         mutate_memory_tag(instruction.target_tag.value, rng, BASIC_MEMORY_TAG_MUTATION_CONFIGURATION);
@@ -498,10 +604,10 @@ void mutate_sstore_instruction(SSTORE_Instruction& instruction, std::mt19937_64&
     SStoreMutationOptions option = BASIC_SSTORE_MUTATION_CONFIGURATION.select(rng);
     switch (option) {
     case SStoreMutationOptions::src_address:
-        mutate_variable_ref(instruction.src_address, rng, MemoryTag::FF);
+        mutate_param_ref(instruction.src_address, rng, MemoryTag::FF, MAX_16BIT_OPERAND);
         break;
     case SStoreMutationOptions::result_address:
-        mutate_address_ref(instruction.result_address, rng);
+        mutate_address_ref(instruction.result_address, rng, MAX_16BIT_OPERAND);
         break;
     case SStoreMutationOptions::slot:
         mutate_field(instruction.slot, rng, BASIC_FIELD_MUTATION_CONFIGURATION);
@@ -518,10 +624,10 @@ void mutate_sload_instruction(SLOAD_Instruction& instruction, std::mt19937_64& r
         mutate_uint16_t(instruction.slot_index, rng, BASIC_UINT16_T_MUTATION_CONFIGURATION);
         break;
     case SLoadMutationOptions::slot_address:
-        mutate_address_ref(instruction.slot_address, rng);
+        mutate_address_ref(instruction.slot_address, rng, MAX_16BIT_OPERAND);
         break;
     case SLoadMutationOptions::result_address:
-        mutate_address_ref(instruction.result_address, rng);
+        mutate_address_ref(instruction.result_address, rng, MAX_16BIT_OPERAND);
         break;
     }
 }
@@ -532,7 +638,7 @@ void mutate_getenvvar_instruction(GETENVVAR_Instruction& instruction, std::mt199
     GetEnvVarMutationOptions option = BASIC_GETENVVAR_MUTATION_CONFIGURATION.select(rng);
     switch (option) {
     case GetEnvVarMutationOptions::result_address:
-        mutate_address_ref(instruction.result_address, rng);
+        mutate_address_ref(instruction.result_address, rng, MAX_16BIT_OPERAND);
         break;
     case GetEnvVarMutationOptions::type:
         mutate_uint8_t(instruction.type, rng, BASIC_UINT8_T_MUTATION_CONFIGURATION);
@@ -544,7 +650,7 @@ void mutate_emit_nullifier_instruction(EMITNULLIFIER_Instruction& instruction, s
 {
     // emitnulifier only has one field
 
-    mutate_variable_ref(instruction.nullifier_address, rng, MemoryTag::FF);
+    mutate_param_ref(instruction.nullifier_address, rng, MemoryTag::FF, MAX_16BIT_OPERAND);
 }
 
 void mutate_nullifier_exists_instruction(NULLIFIEREXISTS_Instruction& instruction, std::mt19937_64& rng)
@@ -553,13 +659,13 @@ void mutate_nullifier_exists_instruction(NULLIFIEREXISTS_Instruction& instructio
     NullifierExistsMutationOptions option = BASIC_NULLIFIER_EXISTS_MUTATION_CONFIGURATION.select(rng);
     switch (option) {
     case NullifierExistsMutationOptions::nullifier_address:
-        mutate_variable_ref(instruction.nullifier_address, rng, MemoryTag::FF);
+        mutate_param_ref(instruction.nullifier_address, rng, MemoryTag::FF, MAX_16BIT_OPERAND);
         break;
     case NullifierExistsMutationOptions::contract_address_address:
-        mutate_address_ref(instruction.contract_address_address, rng);
+        mutate_address_ref(instruction.contract_address_address, rng, MAX_16BIT_OPERAND);
         break;
     case NullifierExistsMutationOptions::result_address:
-        mutate_address_ref(instruction.result_address, rng);
+        mutate_address_ref(instruction.result_address, rng, MAX_16BIT_OPERAND);
         break;
     }
 }
@@ -570,7 +676,7 @@ void mutate_emit_note_hash_instruction(EMITNOTEHASH_Instruction& instruction, st
     EmitNoteHashMutationOptions option = BASIC_EMITNOTEHASH_MUTATION_CONFIGURATION.select(rng);
     switch (option) {
     case EmitNoteHashMutationOptions::note_hash_address:
-        mutate_address_ref(instruction.note_hash_address, rng);
+        mutate_address_ref(instruction.note_hash_address, rng, MAX_16BIT_OPERAND);
         break;
     case EmitNoteHashMutationOptions::note_hash:
         mutate_field(instruction.note_hash, rng, BASIC_FIELD_MUTATION_CONFIGURATION);
@@ -586,13 +692,13 @@ void mutate_note_hash_exists_instruction(NOTEHASHEXISTS_Instruction& instruction
         mutate_uint16_t(instruction.notehash_index, rng, BASIC_UINT16_T_MUTATION_CONFIGURATION);
         break;
     case NoteHashExistsMutationOptions::notehash_address:
-        mutate_address_ref(instruction.notehash_address, rng);
+        mutate_address_ref(instruction.notehash_address, rng, MAX_16BIT_OPERAND);
         break;
     case NoteHashExistsMutationOptions::leaf_index_address:
-        mutate_address_ref(instruction.leaf_index_address, rng);
+        mutate_address_ref(instruction.leaf_index_address, rng, MAX_16BIT_OPERAND);
         break;
     case NoteHashExistsMutationOptions::result_address:
-        mutate_address_ref(instruction.result_address, rng);
+        mutate_address_ref(instruction.result_address, rng, MAX_16BIT_OPERAND);
         break;
     }
 }
@@ -603,19 +709,19 @@ void mutate_calldatacopy_instruction(CALLDATACOPY_Instruction& instruction, std:
     CalldataCopyMutationOptions option = BASIC_CALLDATACOPY_MUTATION_CONFIGURATION.select(rng);
     switch (option) {
     case CalldataCopyMutationOptions::dst_address:
-        mutate_address_ref(instruction.dst_address, rng);
+        mutate_address_ref(instruction.dst_address, rng, MAX_16BIT_OPERAND);
         break;
     case CalldataCopyMutationOptions::copy_size:
         mutate_uint8_t(instruction.copy_size, rng, BASIC_UINT8_T_MUTATION_CONFIGURATION);
         break;
     case CalldataCopyMutationOptions::copy_size_address:
-        mutate_address_ref(instruction.copy_size_address, rng);
+        mutate_address_ref(instruction.copy_size_address, rng, MAX_16BIT_OPERAND);
         break;
     case CalldataCopyMutationOptions::cd_start:
         mutate_uint16_t(instruction.cd_start, rng, BASIC_UINT16_T_MUTATION_CONFIGURATION);
         break;
     case CalldataCopyMutationOptions::cd_start_address:
-        mutate_address_ref(instruction.cd_start_address, rng);
+        mutate_address_ref(instruction.cd_start_address, rng, MAX_16BIT_OPERAND);
         break;
     }
 }
@@ -628,13 +734,13 @@ void mutate_sendl2tol1msg_instruction(SENDL2TOL1MSG_Instruction& instruction, st
         mutate_field(instruction.recipient, rng, BASIC_FIELD_MUTATION_CONFIGURATION);
         break;
     case SendL2ToL1MsgMutationOptions::recipient_address:
-        mutate_address_ref(instruction.recipient_address, rng);
+        mutate_address_ref(instruction.recipient_address, rng, MAX_16BIT_OPERAND);
         break;
     case SendL2ToL1MsgMutationOptions::content:
         mutate_field(instruction.content, rng, BASIC_FIELD_MUTATION_CONFIGURATION);
         break;
     case SendL2ToL1MsgMutationOptions::content_address:
-        mutate_address_ref(instruction.content_address, rng);
+        mutate_address_ref(instruction.content_address, rng, MAX_16BIT_OPERAND);
         break;
     }
 }
@@ -647,7 +753,7 @@ void mutate_emitunencryptedlog_instruction(EMITUNENCRYPTEDLOG_Instruction& instr
         mutate_uint8_t(instruction.log_size, rng, BASIC_UINT8_T_MUTATION_CONFIGURATION);
         break;
     case EmitUnencryptedLogMutationOptions::log_size_address:
-        mutate_address_ref(instruction.log_size_address, rng);
+        mutate_address_ref(instruction.log_size_address, rng, MAX_16BIT_OPERAND);
         break;
     case EmitUnencryptedLogMutationOptions::log_values:
         mutate_vec<bb::avm2::FF>(
@@ -706,10 +812,8 @@ void mutate_call_instruction(CALL_Instruction& instruction, std::mt19937_64& rng
     case CallMutationOptions::is_static_call:
         // with 0.5 probability, set to true, otherwise false
         instruction.is_static_call = rng() % 2 == 0;
-        break;
     }
 }
-
 void mutate_returndatasize_with_returndatacopy_instruction(RETURNDATASIZE_WITH_RETURNDATACOPY_Instruction& instruction,
                                                            std::mt19937_64& rng)
 {
@@ -736,10 +840,10 @@ void mutate_getcontractinstance_instruction(GETCONTRACTINSTANCE_Instruction& ins
         mutate_uint16_t(instruction.contract_index, rng, BASIC_UINT16_T_MUTATION_CONFIGURATION);
         break;
     case GetContractInstanceMutationOptions::contract_address_address:
-        mutate_address_ref(instruction.contract_address_address, rng);
+        mutate_address_ref(instruction.contract_address_address, rng, MAX_16BIT_OPERAND);
         break;
     case GetContractInstanceMutationOptions::dst_address:
-        mutate_address_ref(instruction.dst_address, rng);
+        mutate_address_ref(instruction.dst_address, rng, MAX_16BIT_OPERAND);
         break;
     case GetContractInstanceMutationOptions::member_enum:
         mutate_uint8_t(instruction.member_enum, rng, BASIC_UINT8_T_MUTATION_CONFIGURATION);
@@ -752,7 +856,36 @@ void mutate_successcopy_instruction(SUCCESSCOPY_Instruction& instruction, std::m
     SuccessCopyMutationOptions option = BASIC_SUCCESSCOPY_MUTATION_CONFIGURATION.select(rng);
     switch (option) {
     case SuccessCopyMutationOptions::dst_address:
-        mutate_address_ref(instruction.dst_address, rng);
+        mutate_address_ref(instruction.dst_address, rng, MAX_16BIT_OPERAND);
+        break;
+    }
+}
+
+void mutate_ecadd_instruction(ECADD_Instruction& instruction, std::mt19937_64& rng)
+{
+    // ECADD has 7 operands, select one to mutate
+    int choice = std::uniform_int_distribution<int>(0, 6)(rng);
+    switch (choice) {
+    case 0:
+        mutate_param_ref(instruction.p1_x, rng, MemoryTag::FF, MAX_16BIT_OPERAND);
+        break;
+    case 1:
+        mutate_param_ref(instruction.p1_y, rng, MemoryTag::FF, MAX_16BIT_OPERAND);
+        break;
+    case 2:
+        mutate_param_ref(instruction.p1_infinite, rng, MemoryTag::U1, MAX_16BIT_OPERAND);
+        break;
+    case 3:
+        mutate_param_ref(instruction.p2_x, rng, MemoryTag::FF, MAX_16BIT_OPERAND);
+        break;
+    case 4:
+        mutate_param_ref(instruction.p2_y, rng, MemoryTag::FF, MAX_16BIT_OPERAND);
+        break;
+    case 5:
+        mutate_param_ref(instruction.p2_infinite, rng, MemoryTag::U1, MAX_16BIT_OPERAND);
+        break;
+    case 6:
+        mutate_address_ref(instruction.result, rng, MAX_16BIT_OPERAND);
         break;
     }
 }
@@ -760,7 +893,7 @@ void mutate_successcopy_instruction(SUCCESSCOPY_Instruction& instruction, std::m
 void mutate_instruction(FuzzInstruction& instruction, std::mt19937_64& rng)
 {
     std::visit(
-        overloaded_instruction{
+        overloaded{
             [&rng](ADD_8_Instruction& instr) { mutate_binary_instruction_8(instr, rng); },
             [&rng](SUB_8_Instruction& instr) { mutate_binary_instruction_8(instr, rng); },
             [&rng](MUL_8_Instruction& instr) { mutate_binary_instruction_8(instr, rng); },
@@ -813,6 +946,7 @@ void mutate_instruction(FuzzInstruction& instruction, std::mt19937_64& rng)
             },
             [&rng](GETCONTRACTINSTANCE_Instruction& instr) { mutate_getcontractinstance_instruction(instr, rng); },
             [&rng](SUCCESSCOPY_Instruction& instr) { mutate_successcopy_instruction(instr, rng); },
+            [&rng](ECADD_Instruction& instr) { mutate_ecadd_instruction(instr, rng); },
             [](auto&) { throw std::runtime_error("Unknown instruction"); } },
         instruction);
 }

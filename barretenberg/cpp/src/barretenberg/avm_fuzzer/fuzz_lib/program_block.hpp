@@ -51,6 +51,7 @@ class ProgramBlock {
     /// Sets M[0] = base_offset for Relative/IndirectRelative modes
     /// Sets M[pointer_address] = pointer_value for Indirect/IndirectRelative modes
     void preprocess_memory_addresses(ResolvedAddress resolved_address);
+    void record_result_tag_from_param_tags(std::initializer_list<ParamRef> params, ResolvedAddress result_address);
 
     void process_add_8_instruction(ADD_8_Instruction instruction);
     void process_sub_8_instruction(SUB_8_Instruction instruction);
@@ -105,6 +106,7 @@ class ProgramBlock {
         RETURNDATASIZE_WITH_RETURNDATACOPY_Instruction instruction);
     void process_getcontractinstance_instruction(GETCONTRACTINSTANCE_Instruction instruction);
     void process_successcopy_instruction(SUCCESSCOPY_Instruction instruction);
+    void process_ecadd_instruction(ECADD_Instruction instruction);
 
   public:
     std::vector<ProgramBlock*> successors;
