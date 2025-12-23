@@ -78,6 +78,8 @@ FF compute_contract_address(const ContractInstance& contract_instance)
     FF h = poseidon2::hash({ GENERATOR_INDEX__CONTRACT_ADDRESS_V1, public_keys_hash, partial_address });
     // This is safe since BN254_Fr < GRUMPKIN_Fr so we know there is no modulo reduction
     grumpkin::fr h_fq = grumpkin::fr(h);
+    BB_ASSERT(contract_instance.public_keys.incoming_viewing_key.on_curve(),
+              "Incoming viewing key is not on the curve when computing contract address");
     return (grumpkin::g1::affine_one * h_fq + contract_instance.public_keys.incoming_viewing_key).x;
 }
 

@@ -5,6 +5,7 @@
 #include <tuple>
 #include <vector>
 
+#include "barretenberg/avm_fuzzer/common/interfaces/dbs.hpp"
 #include "barretenberg/avm_fuzzer/fuzz_lib/fuzzer_data.hpp"
 #include "barretenberg/avm_fuzzer/fuzz_lib/simulator.hpp"
 #include "barretenberg/serialize/msgpack_impl.hpp"
@@ -17,6 +18,7 @@ struct FuzzerTxData {
     // Enqueued calls data
     std::vector<FuzzerData> input_programs;
     // These are the contract classes and instances that will be registered to addresses in the WS
+    // The contract addresses may contain duplicates if multiple contracts derive to the same address
     std::vector<ContractClass> contract_classes;
     std::vector<ContractInstance> contract_instances;
     std::vector<AztecAddress> contract_addresses;
@@ -61,10 +63,27 @@ enum class TxDataMutationType : uint8_t {
 ContractArtifacts build_bytecode_and_artifacts(FuzzerData& fuzzer_data);
 
 // Create a default FuzzerTxData with sensible defaults
+FuzzerTxData create_default_tx_data(std::mt19937_64& rng);
 FuzzerTxData create_default_tx_data();
 
+// Setup fuzzer state: register contracts and addresses in the world state
+void setup_fuzzer_state(bb::avm2::fuzzer::FuzzerWorldStateManager& ws_mgr,
+                        bb::avm2::fuzzer::FuzzerContractDB& contract_db,
+                        const FuzzerTxData& tx_data);
+
+// Fund the fee payer with enough balance for the transaction
+void fund_fee_payer(bb::avm2::fuzzer::FuzzerWorldStateManager& ws_mgr, const Tx& tx);
+
 // Run the differential fuzzer comparing CPP vs JS simulator
-SimulatorResult fuzz_tx(FuzzerTxData& tx_data);
+SimulatorResult fuzz_tx(bb::avm2::fuzzer::FuzzerWorldStateManager& ws_mgr,
+                        bb::avm2::fuzzer::FuzzerContractDB& contract_db,
+                        FuzzerTxData& tx_data);
+
+// Run the prover fuzzer: fast simulation, hint collection, comparison, and check_circuit
+// Returns 0 on success, -1 if the input should be rejected
+int fuzz_prover(bb::avm2::fuzzer::FuzzerWorldStateManager& ws_mgr,
+                bb::avm2::fuzzer::FuzzerContractDB& contract_db,
+                FuzzerTxData& tx_data);
 
 // Common custom mutator logic shared between fuzzers
 // Returns the new size of the mutated data, or 0 if mutation failed
@@ -72,3 +91,5 @@ size_t mutate_tx_data(uint8_t* serialized_fuzzer_data,
                       size_t serialized_fuzzer_data_size,
                       size_t max_size,
                       unsigned int seed);
+
+bool compare_cpp_simulator_results(const std::vector<TxSimulationResult>& results);

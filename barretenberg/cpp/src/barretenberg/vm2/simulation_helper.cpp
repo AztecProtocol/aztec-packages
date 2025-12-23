@@ -625,11 +625,9 @@ EventsContainer AvmSimulationHelper::simulate_for_witgen(const ExecutionHints& h
     return std::move(events);
 }
 
-TxSimulationResult AvmSimulationHelper::simulate_fast_with_hinted_dbs(const ExecutionHints& hints)
+TxSimulationResult AvmSimulationHelper::simulate_fast_with_hinted_dbs(const ExecutionHints& hints,
+                                                                      const PublicSimulatorConfig& config)
 {
-    // TODO(fcarreiro): decide if we want to pass a config here.
-    const PublicSimulatorConfig config{};
-
     HintedRawContractDB raw_contract_db(hints);
     HintedRawMerkleDB raw_merkle_db(hints);
     return simulate_fast_internal(

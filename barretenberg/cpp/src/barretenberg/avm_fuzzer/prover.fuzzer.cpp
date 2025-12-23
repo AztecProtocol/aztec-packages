@@ -1,24 +1,20 @@
 #include "barretenberg/avm_fuzzer/fuzzer_lib.hpp"
 
 #include <cstdint>
+#include <filesystem>
 #include <string>
 
 #include "barretenberg/avm_fuzzer/common/interfaces/dbs.hpp"
 #include "barretenberg/avm_fuzzer/fuzz_lib/constants.hpp"
-#include "barretenberg/avm_fuzzer/fuzz_lib/fuzz.hpp"
+#include "barretenberg/common/log.hpp"
+#include "barretenberg/vm2/tooling/stats.hpp"
 
 using namespace bb::avm2::fuzzer;
-using namespace bb::avm2::simulation;
 
 extern "C" int LLVMFuzzerInitialize(int*, char***)
 {
-    const char* simulator_path = std::getenv("AVM_SIMULATOR_BIN");
-    if (simulator_path == nullptr) {
-        throw std::runtime_error("AVM_SIMULATOR_BIN is not set");
-    }
-    std::string simulator_path_str(simulator_path);
-    JsSimulator::initialize(simulator_path_str);
     FuzzerWorldStateManager::initialize();
+    std::filesystem::create_directories("proving_inputs");
     return 0;
 }
 
@@ -45,11 +41,16 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
     ws_mgr->fork();
 
     // Setup contracts and fund fee payer
+    // Fuzzer state is dependent on the tx data
     setup_fuzzer_state(*ws_mgr, contract_db, tx_data);
     fund_fee_payer(*ws_mgr, tx_data.tx);
 
-    fuzz_tx(*ws_mgr, contract_db, tx_data);
+    int result = fuzz_prover(*ws_mgr, contract_db, tx_data);
+
+    // Print timing stats for this iteration
+    vinfo("Timing stats:\n", bb::avm2::Stats::get().to_string());
+
     ws_mgr->reset_world_state();
 
-    return 0;
+    return result;
 }

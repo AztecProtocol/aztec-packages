@@ -7,6 +7,7 @@
 #include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/tagged_value.hpp"
+#include "barretenberg/vm2/simulation/lib/contract_crypto.hpp"
 
 #include <random>
 
@@ -323,7 +324,7 @@ PublicCallRequestWithCalldata generate_public_call_request(std::vector<AztecAddr
     fuzz_info("Generating new public call request");
     // Generate random calldata
     size_t calldata_size = std::uniform_int_distribution<size_t>(0, 256)(rng);
-    std::vector<FF> calldata;
+    std::vector<FF> calldata{};
     for (size_t i = 0; i < calldata_size; ++i) {
         calldata.push_back(generate_random_field(rng));
     }
@@ -333,13 +334,14 @@ PublicCallRequestWithCalldata generate_public_call_request(std::vector<AztecAddr
             ? generate_random_field(rng)
             : contract_addresses[std::uniform_int_distribution<size_t>(0, contract_addresses.size() - 1)(rng)];
     fuzz_info("Using contract address: ", contract_address);
+    FF calldata_hash = simulation::compute_calldata_hash(calldata);
     return PublicCallRequestWithCalldata{
         .request =
             PublicCallRequest{
                 .msg_sender = generate_random_field(rng),
                 .contract_address = contract_address,
                 .is_static_call = (std::uniform_int_distribution<uint8_t>(0, 1)(rng) == 1),
-                .calldata_hash = 0, // fixme: compute hash when we do tracegen versions
+                .calldata_hash = calldata_hash,
             },
         .calldata = calldata,
     };
