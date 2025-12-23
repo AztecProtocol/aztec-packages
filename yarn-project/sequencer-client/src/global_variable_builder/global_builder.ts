@@ -71,7 +71,7 @@ export class GlobalVariableBuilder implements GlobalVariableBuilderInterface {
 
     const lastBlock = await this.rollupContract.getPendingCheckpoint();
     const earliestTimestamp = await this.rollupContract.getTimestampForSlot(
-      SlotNumber.fromBigInt(lastBlock.slotNumber + 1n),
+      SlotNumber.fromBigInt(BigInt(lastBlock.slotNumber) + 1n),
     );
     const nextEthTimestamp = BigInt((await this.publicClient.getBlock()).timestamp + BigInt(this.ethereumSlotDuration));
     const timestamp = earliestTimestamp > nextEthTimestamp ? earliestTimestamp : nextEthTimestamp;
