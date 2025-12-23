@@ -24,7 +24,17 @@ TEST(stdlib_keccak, keccak_format_input_table)
     for (size_t i = 0; i < 25; ++i) {
         uint64_t limb_native = engine.get_random_uint64();
         field_ct limb(witness_ct(&builder, limb_native));
-        stdlib::plookup_read<Builder>::read_from_1_to_2_table(plookup::KECCAK_FORMAT_INPUT, limb);
+
+        auto accumulators = stdlib::plookup_read<Builder>::get_lookup_accumulators(plookup::KECCAK_FORMAT_INPUT, limb);
+
+        field_ct sparse_limb = accumulators[plookup::ColumnIdx::C2][0];
+        field_ct msb = accumulators[plookup::ColumnIdx::C3][accumulators[plookup::ColumnIdx::C3].size() - 1];
+
+        uint256_t expected_sparse = stdlib::keccak<Builder>::convert_to_sparse(limb_native);
+        uint64_t expected_msb = (limb_native >> 63) & 1ULL;
+
+        EXPECT_EQ(static_cast<uint256_t>(sparse_limb.get_value()), expected_sparse);
+        EXPECT_EQ(static_cast<uint64_t>(msb.get_value()), expected_msb);
     }
 
     bool proof_result = CircuitChecker::check(builder);
@@ -39,7 +49,10 @@ TEST(stdlib_keccak, keccak_format_output_table)
         uint64_t limb_native = engine.get_random_uint64();
         uint256_t extended_native = stdlib::keccak<Builder>::convert_to_sparse(limb_native);
         field_ct limb(witness_ct(&builder, extended_native));
-        stdlib::plookup_read<Builder>::read_from_1_to_2_table(plookup::KECCAK_FORMAT_OUTPUT, limb);
+
+        auto accumulators = stdlib::plookup_read<Builder>::get_lookup_accumulators(plookup::KECCAK_FORMAT_OUTPUT, limb);
+        field_ct normalized_limb = accumulators[plookup::ColumnIdx::C2][0];
+        EXPECT_EQ(static_cast<uint256_t>(normalized_limb.get_value()), limb_native);
     }
     bool proof_result = CircuitChecker::check(builder);
     EXPECT_EQ(proof_result, true);
@@ -51,22 +64,28 @@ TEST(stdlib_keccak, keccak_theta_output_table)
 
     for (size_t i = 0; i < 25; ++i) {
         uint256_t extended_native = 0;
+        uint256_t expected_normalized = 0;
         for (size_t j = 0; j < 8; ++j) {
             extended_native *= 11;
+            expected_normalized *= 11;
             uint64_t base_value = (engine.get_random_uint64() % 11);
+            uint64_t bit = base_value & 1;
             extended_native += base_value;
+            expected_normalized += bit;
         }
+
         field_ct limb(witness_ct(&builder, extended_native));
-        stdlib::plookup_read<Builder>::read_from_1_to_2_table(plookup::KECCAK_THETA_OUTPUT, limb);
+        field_ct normalized = stdlib::plookup_read<Builder>::read_from_1_to_2_table(plookup::KECCAK_THETA_OUTPUT, limb);
+
+        EXPECT_EQ(static_cast<uint256_t>(normalized.get_value()), expected_normalized);
     }
+
     bool proof_result = CircuitChecker::check(builder);
     EXPECT_EQ(proof_result, true);
 }
 
 TEST(stdlib_keccak, keccak_rho_output_table)
 {
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/662)
-    GTEST_SKIP() << "Bug in constant case?";
     Builder builder = Builder();
 
     constexpr_for<0, 25, 1>([&]<size_t i> {
@@ -86,7 +105,7 @@ TEST(stdlib_keccak, keccak_rho_output_table)
         const uint256_t binary_rotated = left + (right << left_bits);
 
         const uint256_t expected_limb = stdlib::keccak<Builder>::convert_to_sparse(binary_rotated);
-        // msb only is correct iff rotation == 0 (no need to get msb for rotated lookups)
+        // msb is the MSB of the normalized limb without rotation
         const uint256_t expected_msb = (binary_native >> 63);
         field_ct limb(witness_ct(&builder, extended_native));
         field_ct result_msb;
