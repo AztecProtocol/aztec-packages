@@ -276,11 +276,17 @@ export class ReadOnlyL1TxUtils {
         ..._blobInputs,
         maxFeePerBlobGas: gasPrice.maxFeePerBlobGas!,
         gas: LARGE_GAS_LIMIT,
+        blockTag: 'latest',
       });
 
       this.logger?.trace(`Estimated gas for blob tx: ${initialEstimate}`);
     } else {
-      initialEstimate = await this.client.estimateGas({ account, ...request, gas: LARGE_GAS_LIMIT });
+      initialEstimate = await this.client.estimateGas({
+        account,
+        ...request,
+        gas: LARGE_GAS_LIMIT,
+        blockTag: 'latest',
+      });
       this.logger?.trace(`Estimated gas for non-blob tx: ${initialEstimate}`);
     }
 
