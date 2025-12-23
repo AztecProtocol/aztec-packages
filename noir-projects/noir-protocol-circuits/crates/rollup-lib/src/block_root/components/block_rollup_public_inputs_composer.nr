@@ -1,5 +1,7 @@
-use crate::{abis::{BlockRollupPublicInputs, TxRollupPublicInputs}, tx_merge::merge_tx_rollups};
-use parity_lib::ParityPublicInputs;
+use crate::{
+    abis::{BlockRollupPublicInputs, ParityPublicInputs, TxRollupPublicInputs},
+    tx_merge::merge_tx_rollups,
+};
 use types::{
     abis::{
         append_only_tree_snapshot::AppendOnlyTreeSnapshot, block_header::BlockHeader,

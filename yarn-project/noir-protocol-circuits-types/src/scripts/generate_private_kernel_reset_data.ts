@@ -5,7 +5,7 @@ import {
   MAX_NULLIFIERS_PER_TX,
   MAX_NULLIFIER_READ_REQUESTS_PER_TX,
   MAX_PRIVATE_LOGS_PER_TX,
-  PRIVATE_KERNEL_RESET_INDEX,
+  PRIVATE_KERNEL_RESET_VK_INDEX,
   VK_TREE_HEIGHT,
 } from '@aztec/constants';
 import { createConsoleLogger } from '@aztec/foundation/log';
@@ -137,7 +137,7 @@ function generateVks(resetVariantTags: string[], importTags: string[]) {
 }
 
 function generateVkIndexes(resetVariantTags: string[]) {
-  const artifacts = resetVariantTags.map((tag, i) => `${getArtifactName(tag)}: ${PRIVATE_KERNEL_RESET_INDEX + i},`);
+  const artifacts = resetVariantTags.map((tag, i) => `${getArtifactName(tag)}: ${PRIVATE_KERNEL_RESET_VK_INDEX + i},`);
   return `
     export const PrivateKernelResetVkIndexes: Record<PrivateResetArtifact, number> = {
       ${artifacts.join('\n')}
@@ -163,7 +163,7 @@ function checkMaxDimensions(dimensionsList: number[][]) {
 
 function checkVkTreeSize(numResetCircuits: number) {
   const treeSize = 2 ** VK_TREE_HEIGHT;
-  const maxIndex = numResetCircuits + PRIVATE_KERNEL_RESET_INDEX;
+  const maxIndex = numResetCircuits + PRIVATE_KERNEL_RESET_VK_INDEX;
   if (maxIndex >= treeSize) {
     throw new Error(
       `Insufficient VK tree height. Maximum private kernel reset index: ${maxIndex}. Required tree height at lease: ${Math.ceil(

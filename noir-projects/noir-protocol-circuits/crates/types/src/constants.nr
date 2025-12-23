@@ -96,10 +96,10 @@ pub global MAX_CONTRACT_CLASS_LOGS_PER_CALL: u32 = 1;
 pub global NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP: u32 = 1 << L1_TO_L2_MSG_SUBTREE_HEIGHT;
 
 // VK TREE CONSTANTS
-pub comptime global PRIVATE_KERNEL_INIT_INDEX: u32 = 0;
-pub comptime global PRIVATE_KERNEL_INNER_INDEX: u32 = 1;
-pub comptime global PRIVATE_KERNEL_TAIL_INDEX: u32 = 2;
-pub comptime global PRIVATE_KERNEL_TAIL_TO_PUBLIC_INDEX: u32 = 3;
+pub comptime global PRIVATE_KERNEL_INIT_VK_INDEX: u32 = 0;
+pub comptime global PRIVATE_KERNEL_INNER_VK_INDEX: u32 = 1;
+pub comptime global PRIVATE_KERNEL_TAIL_VK_INDEX: u32 = 2;
+pub comptime global PRIVATE_KERNEL_TAIL_TO_PUBLIC_VK_INDEX: u32 = 3;
 pub comptime global HIDING_KERNEL_TO_ROLLUP_VK_INDEX: u32 = 4;
 pub comptime global HIDING_KERNEL_TO_PUBLIC_VK_INDEX: u32 = 5;
 pub comptime global PUBLIC_CHONK_VERIFIER_VK_INDEX: u32 = 6;
@@ -119,8 +119,8 @@ pub comptime global CHECKPOINT_MERGE_ROLLUP_VK_INDEX: u32 = 19;
 pub comptime global ROOT_ROLLUP_VK_INDEX: u32 = 20;
 pub comptime global PARITY_BASE_VK_INDEX: u32 = 21;
 pub comptime global PARITY_ROOT_VK_INDEX: u32 = 22;
-pub comptime global PRIVATE_KERNEL_RESET_INDEX: u32 = 23;
-// Important: Do not define indexes after the PRIVATE_KERNEL_RESET_INDEX. They are allocated for the variants of private kernel reset.
+pub comptime global PRIVATE_KERNEL_RESET_VK_INDEX: u32 = 23;
+// Important: Do not define indexes after the PRIVATE_KERNEL_RESET_VK_INDEX. They are allocated for the variants of private kernel reset.
 
 // SIDE EFFECT RELATED CONSTANTS
 // Global indices allow us to uniquely index side effects in PrivateCircuitPublicInputs
@@ -131,10 +131,12 @@ pub global GLOBAL_INDEX_NOTE_HASH_OFFSET: u32 =
     GLOBAL_INDEX_NULLIFIER_READ_REQUEST_OFFSET + MAX_NULLIFIER_READ_REQUESTS_PER_CALL;
 pub global GLOBAL_INDEX_NULLIFIER_OFFSET: u32 =
     GLOBAL_INDEX_NOTE_HASH_OFFSET + MAX_NOTE_HASHES_PER_CALL;
-pub global GLOBAL_INDEX_PRIVATE_CALL_REQUEST_OFFSET: u32 =
+pub global GLOBAL_INDEX_PRIVATE_CALL_REQUEST_START_OFFSET: u32 =
     GLOBAL_INDEX_NULLIFIER_OFFSET + MAX_NULLIFIERS_PER_CALL;
+pub global GLOBAL_INDEX_PRIVATE_CALL_REQUEST_END_OFFSET: u32 =
+    GLOBAL_INDEX_PRIVATE_CALL_REQUEST_START_OFFSET + MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL;
 pub global GLOBAL_INDEX_PUBLIC_CALL_REQUEST_OFFSET: u32 =
-    GLOBAL_INDEX_PRIVATE_CALL_REQUEST_OFFSET + MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL;
+    GLOBAL_INDEX_PRIVATE_CALL_REQUEST_END_OFFSET + MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL;
 pub global GLOBAL_INDEX_L2_TO_L1_MSG_OFFSET: u32 =
     GLOBAL_INDEX_PUBLIC_CALL_REQUEST_OFFSET + MAX_ENQUEUED_CALLS_PER_CALL;
 pub global GLOBAL_INDEX_PRIVATE_LOG_OFFSET: u32 =
@@ -144,15 +146,7 @@ pub global GLOBAL_INDEX_CONTRACT_CLASS_LOG_HASH_OFFSET: u32 =
 pub global GLOBAL_INDEX_CONTRACT_MIN_REVERTIBLE_SIDE_EFFECT_COUNTER_OFFSET: u32 =
     GLOBAL_INDEX_CONTRACT_CLASS_LOG_HASH_OFFSET + MAX_CONTRACT_CLASS_LOGS_PER_CALL;
 
-pub global TOTAL_COUNTED_SIDE_EFFECTS_PER_CALL: u32 = MAX_NOTE_HASH_READ_REQUESTS_PER_CALL
-    + MAX_NULLIFIER_READ_REQUESTS_PER_CALL
-    + MAX_NOTE_HASHES_PER_CALL
-    + MAX_NULLIFIERS_PER_CALL
-    + MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL
-    + MAX_ENQUEUED_CALLS_PER_CALL
-    + MAX_L2_TO_L1_MSGS_PER_CALL
-    + MAX_PRIVATE_LOGS_PER_CALL
-    + MAX_CONTRACT_CLASS_LOGS_PER_CALL
+pub global TOTAL_COUNTED_SIDE_EFFECTS_PER_CALL: u32 = GLOBAL_INDEX_CONTRACT_MIN_REVERTIBLE_SIDE_EFFECT_COUNTER_OFFSET
     + 1 /* min_revertible_side_effect_counter */;
 
 // MISC CONSTANTS
@@ -224,15 +218,22 @@ pub global CONTRACT_INSTANCE_UPDATED_MAGIC_VALUE: Field =
     0x0e92f9f8a534e858fcf777da206e08b0c620ecf9deb21d13479813f6;
 
 // CANONICAL CONTRACT ADDRESSES
-pub global MAX_PROTOCOL_CONTRACTS: u32 = 11; // Chosen to be a multiple of 3 (12) - 1 for the separator, to optimize the poseidon2 hash.
+// The maximum number of protocol contracts that can be supported.
+// Chosen to be a multiple of 3 (-1 to account for the separator), to optimize the poseidon2 hash.
+pub global MAX_PROTOCOL_CONTRACTS: u32 = 11;
+// Address 0 is not a protocol contract.
 pub global CANONICAL_AUTH_REGISTRY_ADDRESS: AztecAddress = AztecAddress::from_field(1);
 pub global CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS: AztecAddress = AztecAddress::from_field(2);
 pub global CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS: AztecAddress = AztecAddress::from_field(3);
 pub global MULTI_CALL_ENTRYPOINT_ADDRESS: AztecAddress = AztecAddress::from_field(4);
 pub global FEE_JUICE_ADDRESS: AztecAddress = AztecAddress::from_field(5);
 pub global ROUTER_ADDRESS: AztecAddress = AztecAddress::from_field(6);
-// MAX_PROTOCOL_CONTRACTS + 1, but can't automatically derive or constants generator fails
-pub global SIDE_EFFECT_MASKING_ADDRESS: AztecAddress = AztecAddress::from_field(12);
+
+// `SIDE_EFFECT_MASKING_ADDRESS` is used by the protocol circuits to silo the padding side effects. It's not a protocol
+// contract (hence its address is greater than `MAX_PROTOCOL_CONTRACTS`).
+// It's not possible to create an actual contract whose address equals this value. If it were possible, it would mean
+// that anyone can freely change the state of the contract by adding padding side effects to their transactions.
+pub global SIDE_EFFECT_MASKING_ADDRESS: AztecAddress = AztecAddress::from_field(12); // MAX_PROTOCOL_CONTRACTS + 1, but can't automatically derive or constants generator fails
 
 // NULL MSG_SENDER CONTRACT ADDRESS (not part of the protocol contracts tree).
 pub global NULL_MSG_SENDER_CONTRACT_ADDRESS: AztecAddress = AztecAddress::from_field(
@@ -1236,7 +1237,8 @@ mod test {
         GLOBAL_INDEX_CONTRACT_CLASS_LOG_HASH_OFFSET, GLOBAL_INDEX_L2_TO_L1_MSG_OFFSET,
         GLOBAL_INDEX_NOTE_HASH_OFFSET, GLOBAL_INDEX_NOTE_HASH_READ_REQUEST_OFFSET,
         GLOBAL_INDEX_NULLIFIER_OFFSET, GLOBAL_INDEX_NULLIFIER_READ_REQUEST_OFFSET,
-        GLOBAL_INDEX_PRIVATE_CALL_REQUEST_OFFSET, GLOBAL_INDEX_PRIVATE_LOG_OFFSET,
+        GLOBAL_INDEX_PRIVATE_CALL_REQUEST_END_OFFSET,
+        GLOBAL_INDEX_PRIVATE_CALL_REQUEST_START_OFFSET, GLOBAL_INDEX_PRIVATE_LOG_OFFSET,
         GLOBAL_INDEX_PUBLIC_CALL_REQUEST_OFFSET, MAX_CONTRACT_CLASS_LOGS_PER_CALL,
         MAX_ENQUEUED_CALLS_PER_CALL, MAX_L2_TO_L1_MSGS_PER_CALL,
         MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NOTE_HASHES_PER_CALL,
@@ -1307,7 +1309,11 @@ mod test {
             (GLOBAL_INDEX_NULLIFIER_READ_REQUEST_OFFSET, MAX_NULLIFIER_READ_REQUESTS_PER_CALL),
             (GLOBAL_INDEX_NOTE_HASH_OFFSET, MAX_NOTE_HASHES_PER_CALL),
             (GLOBAL_INDEX_NULLIFIER_OFFSET, MAX_NULLIFIERS_PER_CALL),
-            (GLOBAL_INDEX_PRIVATE_CALL_REQUEST_OFFSET, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL),
+            (
+                GLOBAL_INDEX_PRIVATE_CALL_REQUEST_START_OFFSET,
+                MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
+            ),
+            (GLOBAL_INDEX_PRIVATE_CALL_REQUEST_END_OFFSET, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL),
             (GLOBAL_INDEX_PUBLIC_CALL_REQUEST_OFFSET, MAX_ENQUEUED_CALLS_PER_CALL),
             (GLOBAL_INDEX_L2_TO_L1_MSG_OFFSET, MAX_L2_TO_L1_MSGS_PER_CALL),
             (GLOBAL_INDEX_PRIVATE_LOG_OFFSET, MAX_PRIVATE_LOGS_PER_CALL),

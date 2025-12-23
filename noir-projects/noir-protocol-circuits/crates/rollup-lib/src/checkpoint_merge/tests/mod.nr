@@ -4,7 +4,7 @@ mod rollup_structure_tests;
 
 use crate::{
     abis::CheckpointRollupPublicInputs,
-    checkpoint_merge::checkpoint_merge_rollup_private_inputs::CheckpointMergeRollupPrivateInputs,
+    checkpoint_merge::checkpoint_merge_rollup::{self, CheckpointMergeRollupPrivateInputs},
     tests::RollupFixtureBuilder,
 };
 use types::{
@@ -82,7 +82,8 @@ impl TestBuilder {
             RollupFixtureBuilder::make_proof_data(self.left_rollup, self.left_rollup_vk_index),
             RollupFixtureBuilder::make_proof_data(self.right_rollup, self.right_rollup_vk_index),
         ];
-        CheckpointMergeRollupPrivateInputs { previous_rollups }.execute()
+        let inputs = CheckpointMergeRollupPrivateInputs { previous_rollups };
+        checkpoint_merge_rollup::execute(inputs)
     }
 
     pub fn execute_and_fail(self) {

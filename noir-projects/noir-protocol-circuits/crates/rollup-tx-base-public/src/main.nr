@@ -1,5 +1,7 @@
-use dep::rollup_lib::tx_base::{PublicTxBaseRollupPrivateInputs, TxRollupPublicInputs};
+use dep::rollup_lib::tx_base::{
+    public_tx_base_rollup, PublicTxBaseRollupPrivateInputs, TxRollupPublicInputs,
+};
 
 fn main(inputs: PublicTxBaseRollupPrivateInputs) -> pub TxRollupPublicInputs {
-    inputs.execute()
+    public_tx_base_rollup::execute(inputs)
 }
