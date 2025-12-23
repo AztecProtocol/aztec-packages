@@ -130,14 +130,15 @@ jobs:
       - name: Create Aztec nightly docs version (Developer docs only)
         working-directory: ./docs
         run: |
-          # Set the commit tag for version macros
+          # Set the commit tag and release type for version macros
           export COMMIT_TAG=${{ env.NIGHTLY_TAG }}
+          export RELEASE_TYPE=nightly
 
           # Install dependencies
           yarn install
 
           # Build docs to ensure everything works
-          COMMIT_TAG=${{ env.NIGHTLY_TAG }} yarn build
+          COMMIT_TAG=${{ env.NIGHTLY_TAG }} RELEASE_TYPE=nightly yarn build
 
           # Create the versioned docs for Developer docs only
           # Network docs have separate versions for testnet/ignition releases
