@@ -88,7 +88,7 @@ import {
   type WorldStateSynchronizer,
   tryStop,
 } from '@aztec/stdlib/interfaces/server';
-import type { LogFilter, TxScopedL2Log } from '@aztec/stdlib/logs';
+import type { LogFilter, SiloedTag, Tag, TxScopedL2Log } from '@aztec/stdlib/logs';
 import { InboxLeaf, type L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { P2PClientType } from '@aztec/stdlib/p2p';
 import type { Offense, SlashPayloadRound } from '@aztec/stdlib/slashing';
@@ -695,15 +695,16 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     return this.contractDataSource.getContract(address);
   }
 
-  /**
-   * Gets all logs that match any of the received tags (i.e. logs with their first field equal to a tag).
-   * @param tags - The tags to filter the logs by.
-   * @param logsPerTag - The maximum number of logs to return for each tag. By default no limit is set
-   * @returns For each received tag, an array of matching logs is returned. An empty array implies no logs match
-   * that tag.
-   */
-  public getLogsByTags(tags: Fr[], logsPerTag?: number): Promise<TxScopedL2Log[][]> {
-    return this.logsSource.getLogsByTags(tags, logsPerTag);
+  public getPrivateLogsByTags(tags: SiloedTag[], logsPerTag?: number): Promise<TxScopedL2Log[][]> {
+    return this.logsSource.getPrivateLogsByTags(tags, logsPerTag);
+  }
+
+  public getPublicLogsByTagsFromContract(
+    contractAddress: AztecAddress,
+    tags: Tag[],
+    logsPerTag?: number,
+  ): Promise<TxScopedL2Log[][]> {
+    return this.logsSource.getPublicLogsByTagsFromContract(contractAddress, tags, logsPerTag);
   }
 
   /**

@@ -2,14 +2,14 @@ import type { Fr } from '@aztec/foundation/curves/bn254';
 import type { KeyStore } from '@aztec/key-store';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { CompleteAddress } from '@aztec/stdlib/contract';
-import { siloPrivateLog } from '@aztec/stdlib/hash';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import {
   DirectionalAppTaggingSecret,
   PendingTaggedLog,
   PrivateLogWithTxData,
-  PublicLog,
   PublicLogWithTxData,
+  SiloedTag,
+  Tag,
   TxScopedL2Log,
 } from '@aztec/stdlib/logs';
 
@@ -20,8 +20,6 @@ import { AnchorBlockDataProvider } from '../storage/anchor_block_data_provider/a
 import { CapsuleDataProvider } from '../storage/capsule_data_provider/capsule_data_provider.js';
 import { RecipientTaggingDataProvider } from '../storage/tagging_data_provider/recipient_tagging_data_provider.js';
 import { WINDOW_HALF_SIZE } from '../tagging/constants.js';
-import { SiloedTag } from '../tagging/siloed_tag.js';
-import { Tag } from '../tagging/tag.js';
 import { getInitialIndexesMap, getPreTagsForTheWindow } from '../tagging/utils.js';
 
 export class LogService {
@@ -37,16 +35,16 @@ export class LogService {
   public async bulkRetrieveLogs(logRetrievalRequests: LogRetrievalRequest[]): Promise<(LogRetrievalResponse | null)[]> {
     return await Promise.all(
       logRetrievalRequests.map(async request => {
-        // TODO(#14555): remove these internal functions and have node endpoints that do this instead
+        // TODO(F-231): remove these internal functions and have node endpoints that do this instead
         const [publicLog, privateLog] = await Promise.all([
-          this.getPublicLogByTag(request.unsiloedTag, request.contractAddress),
-          this.getPrivateLogByTag(await siloPrivateLog(request.contractAddress, request.unsiloedTag)),
+          this.getPublicLogByTag(request.tag, request.contractAddress),
+          this.getPrivateLogByTag(await SiloedTag.compute(request.tag, request.contractAddress)),
         ]);
 
         if (publicLog !== null) {
           if (privateLog !== null) {
             throw new Error(
-              `Found both a public and private log when searching for tag ${request.unsiloedTag} from contract ${request.contractAddress}`,
+              `Found both a public and private log when searching for tag ${request.tag} from contract ${request.contractAddress}`,
             );
           }
 
@@ -70,9 +68,9 @@ export class LogService {
     );
   }
 
-  // TODO(#14555): delete this function and implement this behavior in the node instead
-  public async getPublicLogByTag(tag: Fr, contractAddress: AztecAddress): Promise<PublicLogWithTxData | null> {
-    const logs = await this.#getPublicLogsByTagsFromContract([tag], contractAddress);
+  // TODO(F-231): delete this function and implement this behavior in the node instead
+  public async getPublicLogByTag(tag: Tag, contractAddress: AztecAddress): Promise<PublicLogWithTxData | null> {
+    const logs = await this.aztecNode.getPublicLogsByTagsFromContract(contractAddress, [tag]);
     const logsForTag = logs[0];
 
     if (logsForTag.length == 0) {
@@ -102,9 +100,9 @@ export class LogService {
     );
   }
 
-  // TODO(#14555): delete this function and implement this behavior in the node instead
-  public async getPrivateLogByTag(siloedTag: Fr): Promise<PrivateLogWithTxData | null> {
-    const logs = await this.#getPrivateLogsByTags([siloedTag]);
+  // TODO(F-231): delete this function and implement this behavior in the node instead
+  public async getPrivateLogByTag(siloedTag: SiloedTag): Promise<PrivateLogWithTxData | null> {
+    const logs = await this.aztecNode.getPrivateLogsByTags([siloedTag]);
     const logsForTag = logs[0];
 
     if (logsForTag.length == 0) {
@@ -132,23 +130,6 @@ export class LogService {
       txEffect.data.noteHashes,
       txEffect.data.nullifiers[0],
     );
-  }
-
-  // TODO(#12656): Make this a public function on the AztecNode interface and remove the original getLogsByTags. This
-  // was not done yet as we were unsure about the API and we didn't want to introduce a breaking change.
-  async #getPublicLogsByTagsFromContract(tags: Fr[], contractAddress: AztecAddress): Promise<TxScopedL2Log[][]> {
-    const allLogs = await this.aztecNode.getLogsByTags(tags);
-    const allPublicLogs = allLogs.map(logs => logs.filter(log => log.isFromPublic));
-    return allPublicLogs.map(logs =>
-      logs.filter(log => (log.log as PublicLog).contractAddress.equals(contractAddress)),
-    );
-  }
-
-  // TODO(#12656): Make this a public function on the AztecNode interface and remove the original getLogsByTags. This
-  // was not done yet as we were unsure about the API and we didn't want to introduce a breaking change.
-  async #getPrivateLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]> {
-    const allLogs = await this.aztecNode.getLogsByTags(tags);
-    return allLogs.map(logs => logs.filter(log => !log.isFromPublic));
   }
 
   // TODO(#17775): Replace this implementation of this function with one implementing an approach similar
@@ -215,10 +196,7 @@ export class LogService {
         const newLargestIndexMapForIteration: { [k: string]: number } = {};
 
         // Fetch the private logs for the tags and iterate over them
-        // TODO: The following conversion is unfortunate and we should most likely just type the #getPrivateLogsByTags
-        // to accept SiloedTag[] instead of Fr[]. That would result in a large change so I didn't do it yet.
-        const tagsForTheWholeWindowAsFr = tagsForTheWholeWindow.map(tag => tag.value);
-        const logsByTags = await this.#getPrivateLogsByTags(tagsForTheWholeWindowAsFr);
+        const logsByTags = await this.aztecNode.getPrivateLogsByTags(tagsForTheWholeWindow);
 
         for (let logIndex = 0; logIndex < logsByTags.length; logIndex++) {
           const logsByTag = logsByTags[logIndex];

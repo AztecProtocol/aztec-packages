@@ -1,7 +1,9 @@
 import type { BlockNumber } from '@aztec/foundation/branded-types';
-import type { Fr } from '@aztec/foundation/curves/bn254';
 
+import type { AztecAddress } from '../aztec-address/index.js';
 import type { LogFilter } from '../logs/log_filter.js';
+import type { SiloedTag } from '../logs/siloed_tag.js';
+import type { Tag } from '../logs/tag.js';
 import type { TxScopedL2Log } from '../logs/tx_scoped_l2_log.js';
 import type { GetContractClassLogsResponse, GetPublicLogsResponse } from './get_logs_response.js';
 
@@ -10,13 +12,28 @@ import type { GetContractClassLogsResponse, GetPublicLogsResponse } from './get_
  */
 export interface L2LogsSource {
   /**
-   * Gets all logs that match any of the received tags (i.e. logs with their first field equal to a tag).
-   * @param tags - The tags to filter the logs by.
+   * Gets all private logs that match any of the received tags (i.e. logs with their first field equal to a SiloedTag).
+   * @param tags - The SiloedTags to filter the logs by.
    * @param logsPerTag - The maximum number of logs to return for each tag. Default returns everything
-   * @returns For each received tag, an array of matching logs is returned. An empty array implies no logs match
+   * @returns For each received tag, an array of matching private logs is returned. An empty array implies no logs match
    * that tag.
    */
-  getLogsByTags(tags: Fr[], logsPerTag?: number): Promise<TxScopedL2Log[][]>;
+  getPrivateLogsByTags(tags: SiloedTag[], logsPerTag?: number): Promise<TxScopedL2Log[][]>;
+
+  /**
+   * Gets all public logs that match any of the received tags from the specified contract (i.e. logs with their first
+   * field equal to a Tag).
+   * @param contractAddress - The contract that emitted the public logs.
+   * @param tags - The Tags to filter the logs by.
+   * @param logsPerTag - The maximum number of logs to return for each tag. Default returns everything
+   * @returns For each received tag, an array of matching public logs is returned. An empty array implies no logs match
+   * that tag.
+   */
+  getPublicLogsByTagsFromContract(
+    contractAddress: AztecAddress,
+    tags: Tag[],
+    logsPerTag?: number,
+  ): Promise<TxScopedL2Log[][]>;
 
   /**
    * Gets public logs based on the provided filter.
