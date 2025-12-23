@@ -87,7 +87,7 @@ case "$FUZZER_ALIAS" in
     internal_call) FUZZER_TYPE="harness_internal_call_fuzzer" ;;
     *)
         echo "Error: Invalid fuzzer type '$FUZZER_ALIAS'"
-        echo "Valid options: 'avm', 'tx', 'prover', 'alu', 'bitwise', 'ecc', 'gt', 'merkle_check', 'calldata', or 'emit_unencrypted_log'"
+        echo "Valid options: 'avm', 'tx', 'prover', 'alu', 'bitwise', 'ecc', 'gt', 'merkle_check', 'calldata', 'emit_unencrypted_log', or 'internal_call'"
         exit 1
         ;;
 esac
