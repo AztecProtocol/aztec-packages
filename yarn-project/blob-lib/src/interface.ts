@@ -3,6 +3,5 @@
  */
 export interface BlobJson {
   blob: string;
-  index: string;
   kzg_commitment: string;
 }

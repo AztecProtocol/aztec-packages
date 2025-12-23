@@ -1,5 +1,5 @@
 pub(crate) mod utils;
-pub(crate) mod tx_merge_rollup_private_inputs;
+pub mod tx_merge_rollup;
 mod tests;
 
 pub(crate) use utils::{
@@ -7,4 +7,4 @@ pub(crate) use utils::{
     validate_consecutive_tx_rollups::assert_rollups_filled_greedily,
 };
 pub use crate::abis::TxRollupPublicInputs;
-pub use tx_merge_rollup_private_inputs::TxMergeRollupPrivateInputs;
+pub use tx_merge_rollup::TxMergeRollupPrivateInputs;

@@ -1,6 +1,5 @@
 import type { BlobClientInterface } from '@aztec/blob-client/client';
-import { BlobWithIndex } from '@aztec/blob-client/types';
-import { getBlobsPerL1Block, getPrefixedEthBlobCommitments } from '@aztec/blob-lib';
+import { type Blob, getBlobsPerL1Block, getPrefixedEthBlobCommitments } from '@aztec/blob-lib';
 import { makeRandomBlob } from '@aztec/blob-lib/testing';
 import { GENESIS_ARCHIVE_ROOT } from '@aztec/constants';
 import type { EpochCache, EpochCommitteeInfo } from '@aztec/epoch-cache';
@@ -199,7 +198,7 @@ describe('Archiver', () => {
   // REFACTOR: we should have a single method that creates all these artifacts, as well as the l2 proposed event
   let allRollupTxs: Map<`0x${string}`, Transaction>;
   let allVersionedBlobHashes: Map<`0x${string}`, `0x${string}`[]>;
-  let allBlobs: Map<`0x${string}`, BlobWithIndex[]>;
+  let allBlobs: Map<`0x${string}`, Blob[]>;
 
   let logger: Logger;
 
@@ -1207,8 +1206,8 @@ describe('Archiver', () => {
 
     mockRollup.read.status.mockResolvedValue([0n, GENESIS_ROOT, 1n, checkpoint.archive.root.toString(), GENESIS_ROOT]);
 
-    const randomBlob = new BlobWithIndex(makeRandomBlob(3), 0);
-    const randomBlobHash = randomBlob.blob.getEthVersionedBlobHash();
+    const randomBlob = makeRandomBlob(3);
+    const randomBlobHash = randomBlob.getEthVersionedBlobHash();
 
     makeCheckpointProposedEvent(70n, checkpoint.number, checkpoint.archive.root.toString(), [
       `0x${randomBlobHash.toString()}`,
@@ -2023,7 +2022,7 @@ describe('Archiver', () => {
    */
   const makeBlobsFromCheckpoint = (checkpoint: Checkpoint) => {
     const blobFields = checkpoint.toBlobFields();
-    const blobs = getBlobsPerL1Block(blobFields).map((blob, index) => new BlobWithIndex(blob, index));
+    const blobs = getBlobsPerL1Block(blobFields);
     allBlobs.set(checkpoint.archive.root.toString(), blobs);
     return blobs;
   };

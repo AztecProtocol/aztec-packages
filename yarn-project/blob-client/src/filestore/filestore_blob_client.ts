@@ -3,7 +3,6 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import type { FileStore, ReadOnlyFileStore } from '@aztec/stdlib/file-store';
 
 import { inboundTransform, outboundTransform } from '../encoding/index.js';
-import { BlobWithIndex } from '../types/blob_with_index.js';
 
 /**
  * A blob client that uses a FileStore (S3/GCS/local) as the data source.
@@ -45,8 +44,7 @@ export class FileStoreBlobClient {
 
         const data = await this.store.read(path);
         const json = JSON.parse(inboundTransform(data).toString()) as BlobJson;
-        // We don't know the actual index when fetching from filestore - use -1 to indicate this deliberately
-        blobs.push({ ...json, index: '-1' });
+        blobs.push(json);
       } catch (err) {
         this.log.warn(`Failed to read blob ${blobHashes[i]} from filestore`, err);
       }
@@ -81,8 +79,7 @@ export class FileStoreBlobClient {
       return;
     }
 
-    // index=-1 is deliberate as we don't know the actual blob index in most cases when the filestores are used (blobs are saved in the filestores before we ever fetch them from L1)
-    const json = blob.toJson(-1);
+    const json = blob.toJSON();
     await (this.store as FileStore).save(
       this.blobPath(versionedHash),
       outboundTransform(Buffer.from(JSON.stringify(json))),
@@ -92,16 +89,11 @@ export class FileStoreBlobClient {
 
   /**
    * Save multiple blobs to the store in parallel.
-   * @param blobs - The blobs to save (either Blob[] or BlobWithIndex[])
+   * @param blobs - The blobs to save
    * @param skipIfExists - Skip saving if blob already exists (default: true)
    */
-  async saveBlobs(blobs: Blob[] | BlobWithIndex[], skipIfExists = true): Promise<void> {
-    await Promise.all(
-      blobs.map(b => {
-        const blob = 'blob' in b ? b.blob : b;
-        return this.saveBlob(blob, skipIfExists);
-      }),
-    );
+  async saveBlobs(blobs: Blob[], skipIfExists = true): Promise<void> {
+    await Promise.all(blobs.map(blob => this.saveBlob(blob, skipIfExists)));
   }
 
   /**

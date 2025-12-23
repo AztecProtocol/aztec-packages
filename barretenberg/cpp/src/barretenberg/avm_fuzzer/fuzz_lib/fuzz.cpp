@@ -17,7 +17,8 @@ SimulatorResult fuzz_against_ts_simulator(FuzzerData& fuzzer_data)
     for (const auto& cfg_instruction : fuzzer_data.cfg_instructions) {
         control_flow.process_cfg_instruction(cfg_instruction);
     }
-    fuzz_info("Fuzzer data: ", fuzzer_data.instruction_blocks);
+    fuzz_info("Instructions: ", fuzzer_data.instruction_blocks);
+    fuzz_info("Calldata: ", fuzzer_data.calldata);
 
     auto bytecode = control_flow.build_bytecode(fuzzer_data.return_options);
     fuzz_info("Bytecode: ", bytecode);
@@ -37,6 +38,10 @@ SimulatorResult fuzz_against_ts_simulator(FuzzerData& fuzzer_data)
     // Create the transaction
     auto tx = create_default_tx(
         contract_address, MSG_SENDER, fuzzer_data.calldata, TRANSACTION_FEE, IS_STATIC_CALL, GAS_LIMIT);
+
+    FF fee_required_da = FF(tx.effective_gas_fees.fee_per_da_gas) * FF(tx.gas_settings.gas_limits.da_gas);
+    FF fee_required_l2 = FF(tx.effective_gas_fees.fee_per_l2_gas) * FF(tx.gas_settings.gas_limits.l2_gas);
+    ws_mgr->write_fee_payer_balance(tx.fee_payer, fee_required_da + fee_required_l2);
 
     try {
         ws_mgr->checkpoint();

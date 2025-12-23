@@ -2,6 +2,7 @@
 #include "acir_format.hpp"
 #include "acir_format_mocks.hpp"
 #include "barretenberg/chonk/chonk.hpp"
+#include "barretenberg/chonk/chonk_verifier.hpp"
 #include "barretenberg/eccvm/eccvm_flavor.hpp"
 #include "barretenberg/flavor/mega_flavor.hpp"
 #include "barretenberg/flavor/multilinear_batching_flavor.hpp"
@@ -10,7 +11,6 @@
 #include "barretenberg/flavor/ultra_zk_flavor.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
 #include "barretenberg/honk/types/public_inputs_type.hpp"
-#include "barretenberg/stdlib/chonk_verifier/chonk_recursive_verifier.hpp"
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/ultra_honk/prover_instance.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
@@ -246,7 +246,7 @@ TEST(MockVerifierInputsTest, MockChonkProofSize)
     // to update the Prover.toml file for rollup-tx-private to reflect the new length of the Chonk proof.
     size_t CURRENT_CHONK_PROOF_SIZE_WITHOUT_PUB_INPUTS = 1907;
     HonkProof chonk_proof = create_mock_chonk_proof<Builder>();
-    EXPECT_EQ(chonk_proof.size(), Chonk::Proof::PROOF_LENGTH());
+    EXPECT_EQ(chonk_proof.size(), ChonkProof::PROOF_LENGTH);
     EXPECT_EQ(chonk_proof.size(),
               CURRENT_CHONK_PROOF_SIZE_WITHOUT_PUB_INPUTS +
                   stdlib::recursion::honk::HidingKernelIO<Builder>::PUBLIC_INPUTS_SIZE)

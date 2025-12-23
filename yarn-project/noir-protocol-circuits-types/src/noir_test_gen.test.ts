@@ -44,11 +44,24 @@ describe('Data generation for noir tests', () => {
     toString: () => 'parentContract',
   };
 
+  const updatedContract: FixtureContractData = {
+    artifactHash: new Fr(345345),
+    packedBytecode: Buffer.from([5, 6, 7, 8, 9, 0]),
+    publicKeys: PublicKeys.default(),
+    salt: new Fr(789),
+    privateFunctions: [
+      { selector: FunctionSelector.fromField(new Fr(1010101)), vkHash: new Fr(7788) },
+      { selector: FunctionSelector.fromField(new Fr(2020202)), vkHash: new Fr(9900) },
+    ],
+    toString: () => 'updatedContract',
+  };
+
   const constructorSelector = new FunctionSelector(999);
 
   const contracts: [FixtureContractData, string][] = [
     [defaultContract, 'default'],
     [parentContract, 'parent'],
+    [updatedContract, 'updated'],
   ];
 
   const format = (obj: Record<string, string>, indent = 4) =>
@@ -104,8 +117,7 @@ describe('Data generation for noir tests', () => {
     );
   });
 
-  it('Computes function tree for the private functions', async () => {
-    const [contract, namePrefix] = contracts[0];
+  test.each(contracts)('Computes function tree for the private functions', async (contract, namePrefix) => {
     const tree = await computePrivateFunctionsTree(contract.privateFunctions);
 
     const index = 0;

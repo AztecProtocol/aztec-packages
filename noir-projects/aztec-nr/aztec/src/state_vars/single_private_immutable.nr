@@ -12,7 +12,7 @@ use crate::{
 };
 
 use protocol_types::{
-    constants::GENERATOR_INDEX__INITIALIZATION_NULLIFIER,
+    constants::DOM_SEP__INITIALIZATION_NULLIFIER,
     hash::poseidon2_hash_with_separator,
     traits::{Hash, Packable},
 };
@@ -72,7 +72,7 @@ impl<Note, Context> SinglePrivateImmutable<Note, Context> {
     fn compute_initialization_nullifier(self, secret: Field) -> Field {
         poseidon2_hash_with_separator(
             [self.storage_slot, secret],
-            GENERATOR_INDEX__INITIALIZATION_NULLIFIER,
+            DOM_SEP__INITIALIZATION_NULLIFIER,
         )
     }
 }

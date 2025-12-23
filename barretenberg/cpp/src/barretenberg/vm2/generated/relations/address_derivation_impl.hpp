@@ -18,9 +18,9 @@ void address_derivationImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     const auto constants_GRUMPKIN_ONE_X = FF(1);
     const auto constants_GRUMPKIN_ONE_Y =
         FF(uint256_t{ 9457493854555940652UL, 3253583849847263892UL, 14921373847124204899UL, 2UL });
-    const auto constants_GENERATOR_INDEX__CONTRACT_ADDRESS_V1 = FF(15);
-    const auto constants_GENERATOR_INDEX__PARTIAL_ADDRESS = FF(27);
-    const auto constants_GENERATOR_INDEX__PUBLIC_KEYS_HASH = FF(52);
+    const auto constants_DOM_SEP__PUBLIC_KEYS_HASH = FF(52);
+    const auto constants_DOM_SEP__PARTIAL_ADDRESS = FF(27);
+    const auto constants_DOM_SEP__CONTRACT_ADDRESS_V1 = FF(15);
 
     {
         using View = typename std::tuple_element_t<0, ContainerOverSubrelations>::View;
@@ -32,7 +32,7 @@ void address_derivationImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
         using View = typename std::tuple_element_t<1, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::address_derivation_sel)) *
                    (static_cast<View>(in.get(C::address_derivation_partial_address_domain_separator)) -
-                    CView(constants_GENERATOR_INDEX__PARTIAL_ADDRESS));
+                    CView(constants_DOM_SEP__PARTIAL_ADDRESS));
         std::get<1>(evals) += (tmp * scaling_factor);
     }
     {
@@ -63,14 +63,14 @@ void address_derivationImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
         using View = typename std::tuple_element_t<6, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::address_derivation_sel)) *
                    (static_cast<View>(in.get(C::address_derivation_public_keys_hash_domain_separator)) -
-                    CView(constants_GENERATOR_INDEX__PUBLIC_KEYS_HASH));
+                    CView(constants_DOM_SEP__PUBLIC_KEYS_HASH));
         std::get<6>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<7, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::address_derivation_sel)) *
                    (static_cast<View>(in.get(C::address_derivation_preaddress_domain_separator)) -
-                    CView(constants_GENERATOR_INDEX__CONTRACT_ADDRESS_V1));
+                    CView(constants_DOM_SEP__CONTRACT_ADDRESS_V1));
         std::get<7>(evals) += (tmp * scaling_factor);
     }
     {

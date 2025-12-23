@@ -24,6 +24,7 @@
  */
 
 #include "barretenberg/chonk/chonk.hpp"
+#include "barretenberg/chonk/chonk_verifier.hpp"
 #include "barretenberg/chonk/mock_circuit_producer.hpp"
 #include "barretenberg/common/test.hpp"
 #include "barretenberg/goblin/merge_prover.hpp"
@@ -35,7 +36,6 @@
 #include "barretenberg/hypernova/hypernova_verifier.hpp"
 #include "barretenberg/multilinear_batching/multilinear_batching_prover.hpp"
 #include "barretenberg/multilinear_batching/multilinear_batching_verifier.hpp"
-#include "barretenberg/stdlib/chonk_verifier/chonk_recursive_verifier.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 #include "barretenberg/stdlib_circuit_builders/mock_circuits.hpp"
 #include "barretenberg/transcript/transcript_manifest.hpp"
@@ -119,8 +119,9 @@ TEST_F(ChonkTranscriptInvariantTests, AccumulationTranscriptCount)
 
     // Generate and verify proof
     auto proof = ivc.prove();
-    auto vk = ivc.get_vk();
-    EXPECT_TRUE(Chonk::verify(proof, vk)) << "IVC proof should verify";
+    auto vk_and_hash = ivc.get_hiding_kernel_vk_and_hash();
+    ChonkNativeVerifier verifier(vk_and_hash);
+    EXPECT_TRUE(verifier.verify(proof)) << "IVC proof should verify";
 }
 
 /**
@@ -136,7 +137,7 @@ TEST_F(ChonkTranscriptInvariantTests, AccumulationTranscriptCount)
  */
 TEST_F(ChonkTranscriptInvariantTests, RecursiveVerificationTranscriptCount)
 {
-    using RecursiveVerifier = bb::stdlib::recursion::honk::ChonkRecursiveVerifier;
+    using RecursiveVerifier = ChonkRecursiveVerifier;
 
     // Create a minimal IVC and generate proof
     constexpr size_t NUM_APP_CIRCUITS = 1;
@@ -149,7 +150,7 @@ TEST_F(ChonkTranscriptInvariantTests, RecursiveVerificationTranscriptCount)
     }
 
     auto proof = ivc.prove();
-    auto vk = ivc.get_vk();
+    auto vk_and_hash = ivc.get_hiding_kernel_vk_and_hash();
 
     // Perform recursive verification and track transcript creation
     // unique_transcript_index is only incremented for in-circuit transcripts (in_circuit == true)
@@ -157,18 +158,18 @@ TEST_F(ChonkTranscriptInvariantTests, RecursiveVerificationTranscriptCount)
     size_t index_before_verify = bb::unique_transcript_index.load();
 
     // Create stdlib VK from native VK and wrap it in VKAndHash
-    auto stdlib_vk = std::make_shared<RecursiveVerifier::RecursiveVK>(&builder, vk.mega);
-    auto stdlib_vk_and_hash = std::make_shared<RecursiveVerifier::RecursiveVKAndHash>(stdlib_vk);
+    auto stdlib_vk = std::make_shared<RecursiveVerifier::VK>(&builder, vk_and_hash->vk);
+    auto stdlib_vk_and_hash = std::make_shared<RecursiveVerifier::VKAndHash>(stdlib_vk);
 
     RecursiveVerifier verifier(stdlib_vk_and_hash);
-    RecursiveVerifier::StdlibProof stdlib_proof(builder, proof);
+    ChonkStdlibProof stdlib_proof(builder, proof);
     [[maybe_unused]] auto output = verifier.verify(stdlib_proof);
 
     size_t index_after_verify = bb::unique_transcript_index.load();
     size_t transcripts_created = index_after_verify - index_before_verify;
 
     // Pin the exact number of transcripts created during recursive verification
-    constexpr size_t EXPECTED_TRANSCRIPTS_DURING_RECURSIVE_VERIFY = 4;
+    constexpr size_t EXPECTED_TRANSCRIPTS_DURING_RECURSIVE_VERIFY = 2;
     EXPECT_EQ(transcripts_created, EXPECTED_TRANSCRIPTS_DURING_RECURSIVE_VERIFY)
         << "ChonkRecursiveVerifier transcript count changed. "
         << "If intentional, update EXPECTED_TRANSCRIPTS_DURING_RECURSIVE_VERIFY. "

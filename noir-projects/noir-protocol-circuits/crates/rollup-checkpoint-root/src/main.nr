@@ -1,7 +1,7 @@
 use dep::rollup_lib::checkpoint_root::{
-    CheckpointRollupPublicInputs, CheckpointRootRollupPrivateInputs,
+    checkpoint_root_rollup, CheckpointRollupPublicInputs, CheckpointRootRollupPrivateInputs,
 };
 
 fn main(inputs: CheckpointRootRollupPrivateInputs) -> pub CheckpointRollupPublicInputs {
-    inputs.execute()
+    checkpoint_root_rollup::execute(inputs)
 }

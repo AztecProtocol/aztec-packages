@@ -134,14 +134,12 @@ std::unique_ptr<ContextInterface> GadgetFuzzerContextHelper::make_nested_fuzzing
         0);
 }
 
-SideEffectTrackingDB GadgetFuzzerContextHelper::make_empty_merkle_db()
+PureMerkleDB GadgetFuzzerContextHelper::make_empty_merkle_db()
 {
     // DBs: Just for now - TODO(MW) use fuzzing dbs?
     HintedRawMerkleDB raw_merkle_db(hints);
     PureMerkleDB base_merkle_db(
         hints.tx.non_revertible_accumulated_data.nullifiers[0], raw_merkle_db, written_public_data_slots_tree_check);
-    SideEffectTrackingDB merkle_db(
-        hints.tx.non_revertible_accumulated_data.nullifiers[0], base_merkle_db, side_effect_tracker);
-    return merkle_db;
+    return base_merkle_db;
 }
 } // namespace bb::avm2::fuzzing

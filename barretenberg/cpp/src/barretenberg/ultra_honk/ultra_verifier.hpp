@@ -201,6 +201,37 @@ template <typename Flavor, class IO> class UltraVerifier_ {
      */
     const std::shared_ptr<Instance>& get_verifier_instance() const { return verifier_instance; }
 
+    /**
+     * @brief Get public inputs from the verifier instance
+     */
+    const PublicInputs& get_public_inputs() const { return verifier_instance->public_inputs; }
+
+    /**
+     * @brief Get witness commitments from the verifier instance
+     */
+    const typename Flavor::WitnessCommitments& get_witness_commitments() const
+    {
+        return verifier_instance->witness_commitments;
+    }
+
+    /**
+     * @brief Get calldata commitment (MegaFlavor only)
+     */
+    const Commitment& get_calldata_commitment() const
+        requires IsMegaFlavor<Flavor>
+    {
+        return verifier_instance->witness_commitments.calldata;
+    }
+
+    /**
+     * @brief Get ECC op wire commitments as an array (MegaFlavor only)
+     */
+    auto get_ecc_op_wires() const
+        requires IsMegaFlavor<Flavor>
+    {
+        return verifier_instance->witness_commitments.get_ecc_op_wires().get_copy();
+    }
+
   private:
     std::shared_ptr<VKAndHash> vk_and_hash;
     std::shared_ptr<Instance> verifier_instance;
@@ -223,5 +254,7 @@ using UltraStarknetZKVerifier = UltraVerifier_<UltraStarknetZKFlavor, DefaultIO>
 #endif
 using MegaVerifier = UltraVerifier_<MegaFlavor, DefaultIO>;
 using MegaZKVerifier = UltraVerifier_<MegaZKFlavor, HidingKernelIO>;
+using MegaZKRecursiveVerifier = UltraVerifier_<MegaZKRecursiveFlavor_<UltraCircuitBuilder>,
+                                               stdlib::recursion::honk::HidingKernelIO<UltraCircuitBuilder>>;
 
 } // namespace bb

@@ -3,7 +3,7 @@ use types::{
     abis::block_header::BlockHeader,
     blob_data::SpongeBlob,
     constants::{ARCHIVE_HEIGHT, BLOBS_PER_CHECKPOINT, FIELDS_PER_BLOB},
-    merkle_tree::check_membership,
+    merkle_tree::{check_membership, MembershipWitness},
     proof::proof_data::RollupHonkProofData,
     traits::Hash,
 };
@@ -107,8 +107,10 @@ impl<let NumPreviousRollups: u32, let NumVkIndices: u32> CheckpointRootInputsVal
         assert(
             check_membership(
                 previous_block_hash,
-                last_leaf_index as Field,
-                self.previous_archive_sibling_path,
+                MembershipWitness {
+                    leaf_index: last_leaf_index as Field,
+                    sibling_path: self.previous_archive_sibling_path,
+                },
                 previous_archive.root,
             ),
             "Hash of the previous block header is not the last leaf in the archive tree",

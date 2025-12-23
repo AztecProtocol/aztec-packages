@@ -112,7 +112,7 @@ export async function createTestLibP2PService<T extends P2PClientType>(
   archiver: L2BlockSource & ContractDataSource,
   worldStateSynchronizer: WorldStateSynchronizer,
   epochCache: EpochCache,
-  mempools: MemPools<T>,
+  mempools: MemPools,
   telemetry: TelemetryClient,
   port: number = 0,
   peerId?: PeerId,

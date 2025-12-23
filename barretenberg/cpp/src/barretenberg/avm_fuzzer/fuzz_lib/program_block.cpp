@@ -1110,10 +1110,10 @@ void ProgramBlock::process_call_instruction(CALL_Instruction instruction)
         this->process_set_ff_instruction(set_arg_instruction);
         arg_index++;
     }
-    auto call_instruction_builde = instruction.is_static_call
-                                       ? bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::STATICCALL)
-                                       : bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::CALL);
-    auto call_instruction = call_instruction_builde.operand(instruction.l2_gas_address)
+    auto call_instruction_builder = instruction.is_static_call
+                                        ? bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::STATICCALL)
+                                        : bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::CALL);
+    auto call_instruction = call_instruction_builder.operand(instruction.l2_gas_address)
                                 .operand(instruction.da_gas_address)
                                 .operand(instruction.address_offset)
                                 .operand(instruction.arg_size_offset)
@@ -1145,6 +1145,50 @@ void ProgramBlock::process_returndatasize_with_returndatacopy_instruction(
     instructions.push_back(returndatacopy_instruction);
 }
 
+void ProgramBlock::process_getcontractinstance_instruction(GETCONTRACTINSTANCE_Instruction instruction)
+{
+    auto contract_address =
+        bb::avm2::fuzzer::ContractDBProxy::get_instance()->get_function_address(instruction.contract_index);
+    auto set_function_address_instruction = SET_FF_Instruction{ .value_tag = bb::avm2::MemoryTag::FF,
+                                                                .result_address = instruction.contract_address_address,
+                                                                .value = contract_address };
+    this->process_set_ff_instruction(set_function_address_instruction);
+    auto contract_address_address_operand =
+        memory_manager.get_resolved_address_and_operand_16(instruction.contract_address_address);
+    if (!contract_address_address_operand.has_value()) {
+        return;
+    }
+    preprocess_memory_addresses(contract_address_address_operand.value().first);
+    auto dst_address_operand = memory_manager.get_resolved_address_and_operand_16(instruction.dst_address);
+    if (!dst_address_operand.has_value()) {
+        return;
+    }
+    preprocess_memory_addresses(dst_address_operand.value().first);
+    auto get_contract_instance_instruction =
+        bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::GETCONTRACTINSTANCE)
+            .operand(contract_address_address_operand.value().second)
+            .operand(dst_address_operand.value().second)
+            .operand(
+                static_cast<uint8_t>(instruction.member_enum % 3)) // taking modulo 3 to ensure the member enum is valid
+            .build();
+    instructions.push_back(get_contract_instance_instruction);
+    memory_manager.set_memory_address(bb::avm2::MemoryTag::U1, dst_address_operand.value().first.absolute_address);
+    memory_manager.set_memory_address(bb::avm2::MemoryTag::FF, dst_address_operand.value().first.absolute_address + 1);
+}
+
+void ProgramBlock::process_successcopy_instruction(SUCCESSCOPY_Instruction instruction)
+{
+    auto dst_address_operand = memory_manager.get_resolved_address_and_operand_16(instruction.dst_address);
+    if (!dst_address_operand.has_value()) {
+        return;
+    }
+    preprocess_memory_addresses(dst_address_operand.value().first);
+    auto successcopy_instruction = bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::SUCCESSCOPY)
+                                       .operand(dst_address_operand.value().second)
+                                       .build();
+    instructions.push_back(successcopy_instruction);
+    memory_manager.set_memory_address(bb::avm2::MemoryTag::U1, dst_address_operand.value().first.absolute_address);
+}
 void ProgramBlock::finalize_with_return(uint8_t return_size,
                                         MemoryTagWrapper return_value_tag,
                                         uint16_t return_value_offset_index)
@@ -1321,6 +1365,10 @@ void ProgramBlock::process_instruction(FuzzInstruction instruction)
             [this](RETURNDATASIZE_WITH_RETURNDATACOPY_Instruction instruction) {
                 return this->process_returndatasize_with_returndatacopy_instruction(instruction);
             },
+            [this](GETCONTRACTINSTANCE_Instruction instruction) {
+                return this->process_getcontractinstance_instruction(instruction);
+            },
+            [this](SUCCESSCOPY_Instruction instruction) { return this->process_successcopy_instruction(instruction); },
             [](auto) { throw std::runtime_error("Unknown instruction"); },
         },
         instruction);

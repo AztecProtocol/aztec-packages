@@ -37,6 +37,7 @@ template <typename Builder> class keccak {
     // 1 "lane" = 64 bits. Instead of interpreting the keccak sponge as 1,600 bits, it's easier to work over 64-bit
     // "lanes". 1,600 / 64 = 25.
     static constexpr size_t NUM_KECCAK_LANES = 25;
+    static constexpr size_t KECCAK_LANE_SIZE = 64;
 
     // round constants. Used in IOTA round
     static constexpr std::array<uint64_t, NUM_KECCAK_ROUNDS> RC = {
@@ -110,12 +111,12 @@ template <typename Builder> class keccak {
     /**
      * @brief Get the sparse round constants object
      *
-     * @return constexpr std::array<uint256_t, 24>
+     * @return constexpr std::array<uint256_t, NUM_KECCAK_ROUNDS>
      */
     static constexpr std::array<uint256_t, NUM_KECCAK_ROUNDS> get_sparse_round_constants()
     {
-        std::array<uint256_t, 24> output;
-        for (size_t i = 0; i < 24; ++i) {
+        std::array<uint256_t, NUM_KECCAK_ROUNDS> output;
+        for (size_t i = 0; i < NUM_KECCAK_ROUNDS; ++i) {
             output[i] = convert_to_sparse(RC[i]);
         }
         return output;

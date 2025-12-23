@@ -172,11 +172,11 @@ case "$cmd" in
     source_env_basic "$env_file"
 
     # Run the network deploy script
-    ./scripts/network_deploy.sh "$env_file"
+    DENOISE=1 denoise "./scripts/network_deploy.sh $env_file"
 
     if [[ "${RUN_TESTS:-}" == "true" ]]; then
       echo "Running tests"
-      network_tests "$env_file"
+      denoise "./bootstrap.sh network_tests $env_file"
     fi
     ;;
   "single_test")
@@ -323,6 +323,13 @@ case "$cmd" in
     OVERRIDES="telemetry.enabled=false" \
     FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false \
       ./scripts/test_k8s.sh gke src/spartan/upgrade_via_cli.test.ts 1-validators.yaml ${NAMESPACE:-"upgrade-via-cli${NAME_POSTFIX:-}"}
+    ;;
+  "network_teardown")
+    env_file="$1"
+    # Sets up basic env vars like CLUSTER for gcp auth
+    source_env_basic "$env_file"
+    gcp_auth
+    ./scripts/network_teardown.sh
     ;;
   *)
     echo "Unknown command: $cmd"

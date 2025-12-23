@@ -2,6 +2,7 @@ import { MAX_FR_CALLDATA_TO_ALL_ENQUEUED_CALLS, PRIVATE_CONTEXT_INPUTS_LENGTH } 
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
+import type { KeyStore } from '@aztec/key-store';
 import { type CircuitSimulator, toACVMWitness } from '@aztec/simulator/client';
 import {
   type FunctionAbi,
@@ -13,8 +14,9 @@ import {
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/stdlib/hash';
+import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import { PrivateContextInputs } from '@aztec/stdlib/kernel';
-import type { ContractClassLog, DirectionalAppTaggingSecret, PreTag } from '@aztec/stdlib/logs';
+import { type ContractClassLog, DirectionalAppTaggingSecret, type PreTag } from '@aztec/stdlib/logs';
 import { Note, type NoteStatus } from '@aztec/stdlib/note';
 import {
   type BlockHeader,
@@ -26,9 +28,17 @@ import {
   type TxContext,
 } from '@aztec/stdlib/tx';
 
+import { NoteService } from '../../notes/note_service.js';
+import type { AddressDataProvider } from '../../storage/address_data_provider/address_data_provider.js';
+import type { AnchorBlockDataProvider } from '../../storage/anchor_block_data_provider/anchor_block_data_provider.js';
+import type { CapsuleDataProvider } from '../../storage/capsule_data_provider/capsule_data_provider.js';
+import type { ContractDataProvider } from '../../storage/contract_data_provider/contract_data_provider.js';
+import type { NoteDataProvider } from '../../storage/note_data_provider/note_data_provider.js';
+import type { PrivateEventDataProvider } from '../../storage/private_event_data_provider/private_event_data_provider.js';
+import type { RecipientTaggingDataProvider } from '../../storage/tagging_data_provider/recipient_tagging_data_provider.js';
+import type { SenderTaggingDataProvider } from '../../storage/tagging_data_provider/sender_tagging_data_provider.js';
 import { syncSenderTaggingIndexes } from '../../tagging/sync/sync_sender_tagging_indexes.js';
 import { Tag } from '../../tagging/tag.js';
-import type { ExecutionDataProvider } from '../execution_data_provider.js';
 import type { ExecutionNoteCache } from '../execution_note_cache.js';
 import { ExecutionTaggingIndexCache } from '../execution_tagging_index_cache.js';
 import type { HashedValuesCache } from '../hashed_values_cache.js';
@@ -79,7 +89,16 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     private readonly executionCache: HashedValuesCache,
     private readonly noteCache: ExecutionNoteCache,
     private readonly taggingIndexCache: ExecutionTaggingIndexCache,
-    executionDataProvider: ExecutionDataProvider,
+    contractDataProvider: ContractDataProvider,
+    noteDataProvider: NoteDataProvider,
+    keyStore: KeyStore,
+    addressDataProvider: AddressDataProvider,
+    aztecNode: AztecNode,
+    anchorBlockDataProvider: AnchorBlockDataProvider,
+    senderTaggingDataProvider: SenderTaggingDataProvider,
+    recipientTaggingDataProvider: RecipientTaggingDataProvider,
+    capsuleDataProvider: CapsuleDataProvider,
+    privateEventDataProvider: PrivateEventDataProvider,
     private totalPublicCalldataCount: number = 0,
     protected sideEffectCounter: number = 0,
     log = createLogger('simulator:client_execution_context'),
@@ -87,7 +106,24 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     private senderForTags?: AztecAddress,
     private simulator?: CircuitSimulator,
   ) {
-    super(callContext.contractAddress, authWitnesses, capsules, anchorBlockHeader, executionDataProvider, log, scopes);
+    super(
+      callContext.contractAddress,
+      authWitnesses,
+      capsules,
+      anchorBlockHeader,
+      contractDataProvider,
+      noteDataProvider,
+      keyStore,
+      addressDataProvider,
+      aztecNode,
+      anchorBlockDataProvider,
+      senderTaggingDataProvider,
+      recipientTaggingDataProvider,
+      capsuleDataProvider,
+      privateEventDataProvider,
+      log,
+      scopes,
+    );
   }
 
   public getPrivateContextInputs(): PrivateContextInputs {
@@ -203,11 +239,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
    * @returns An app tag to be used in a log.
    */
   public async privateGetNextAppTagAsSender(sender: AztecAddress, recipient: AztecAddress): Promise<Tag> {
-    const secret = await this.executionDataProvider.calculateDirectionalAppTaggingSecret(
-      this.contractAddress,
-      sender,
-      recipient,
-    );
+    const secret = await this.#calculateDirectionalAppTaggingSecret(this.contractAddress, sender, recipient);
 
     const index = await this.#getIndexToUseForSecret(secret);
     this.log.debug(
@@ -218,6 +250,22 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     return Tag.compute({ secret, index });
   }
 
+  async #calculateDirectionalAppTaggingSecret(
+    contractAddress: AztecAddress,
+    sender: AztecAddress,
+    recipient: AztecAddress,
+  ) {
+    const senderCompleteAddress = await this.getCompleteAddress(sender);
+    const senderIvsk = await this.keyStore.getMasterIncomingViewingSecretKey(sender);
+    return DirectionalAppTaggingSecret.compute(
+      senderCompleteAddress,
+      senderIvsk,
+      recipient,
+      contractAddress,
+      recipient,
+    );
+  }
+
   async #getIndexToUseForSecret(secret: DirectionalAppTaggingSecret): Promise<number> {
     // If we have the tagging index in the cache, we use it. If not we obtain it from the execution data provider.
     const lastUsedIndexInTx = this.taggingIndexCache.getLastUsedIndex(secret);
@@ -225,16 +273,12 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     if (lastUsedIndexInTx !== undefined) {
       return lastUsedIndexInTx + 1;
     } else {
-      // TODO(#17776): Don't access the Aztec node and senderTaggingDataProvider via the executionDataProvider.
-      const aztecNode = this.executionDataProvider.aztecNode;
-      const senderTaggingDataProvider = this.executionDataProvider.senderTaggingDataProvider;
-
       // This is a tagging secret we've not yet used in this tx, so first sync our store to make sure its indices
       // are up to date. We do this here because this store is not synced as part of the global sync because
       // that'd be wasteful as most tagging secrets are not used in each tx.
-      await syncSenderTaggingIndexes(secret, this.contractAddress, aztecNode, senderTaggingDataProvider);
+      await syncSenderTaggingIndexes(secret, this.contractAddress, this.aztecNode, this.senderTaggingDataProvider);
 
-      const lastUsedIndex = await senderTaggingDataProvider.getLastUsedIndex(secret);
+      const lastUsedIndex = await this.senderTaggingDataProvider.getLastUsedIndex(secret);
       // If lastUsedIndex is undefined, we've never used this secret, so start from 0
       // Otherwise, the next index to use is one past the last used index
       return lastUsedIndex === undefined ? 0 : lastUsedIndex + 1;
@@ -322,7 +366,9 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     const pendingNotes = this.noteCache.getNotes(this.callContext.contractAddress, owner, storageSlot);
 
     const pendingNullifiers = this.noteCache.getNullifiers(this.callContext.contractAddress);
-    const dbNotes = await this.executionDataProvider.getNotes(
+
+    const noteService = new NoteService(this.noteDataProvider, this.aztecNode, this.anchorBlockDataProvider);
+    const dbNotes = await noteService.getNotes(
       this.callContext.contractAddress,
       owner,
       storageSlot,
@@ -500,9 +546,14 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
 
     isStaticCall = isStaticCall || this.callContext.isStaticCall;
 
-    await verifyCurrentClassId(targetContractAddress, this.executionDataProvider, this.anchorBlockHeader);
+    await verifyCurrentClassId(
+      targetContractAddress,
+      this.aztecNode,
+      this.contractDataProvider,
+      this.anchorBlockHeader,
+    );
 
-    const targetArtifact = await this.executionDataProvider.getFunctionArtifact(
+    const targetArtifact = await this.contractDataProvider.getFunctionArtifactWithDebugMetadata(
       targetContractAddress,
       functionSelector,
     );
@@ -521,7 +572,16 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       this.executionCache,
       this.noteCache,
       this.taggingIndexCache,
-      this.executionDataProvider,
+      this.contractDataProvider,
+      this.noteDataProvider,
+      this.keyStore,
+      this.addressDataProvider,
+      this.aztecNode,
+      this.anchorBlockDataProvider,
+      this.senderTaggingDataProvider,
+      this.recipientTaggingDataProvider,
+      this.capsuleDataProvider,
+      this.privateEventDataProvider,
       this.totalPublicCalldataCount,
       sideEffectCounter,
       this.log,
@@ -634,7 +694,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
   }
 
   public getDebugFunctionName() {
-    return this.executionDataProvider.getDebugFunctionName(this.contractAddress, this.callContext.functionSelector);
+    return this.contractDataProvider.getDebugFunctionName(this.contractAddress, this.callContext.functionSelector);
   }
 
   public utilityEmitOffchainEffect(data: Fr[]): Promise<void> {
