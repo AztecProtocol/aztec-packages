@@ -2,11 +2,13 @@
 mod public_chonk_verifier_public_inputs;
 mod tx_rollup_public_inputs;
 mod block_rollup_public_inputs;
+mod parity_public_inputs;
 mod checkpoint_rollup_public_inputs;
 mod root_rollup_public_inputs;
 
 pub use block_rollup_public_inputs::BlockRollupPublicInputs;
 pub use checkpoint_rollup_public_inputs::CheckpointRollupPublicInputs;
+pub use parity_public_inputs::ParityPublicInputs;
 pub use public_chonk_verifier_public_inputs::PublicChonkVerifierPublicInputs;
 pub use root_rollup_public_inputs::RootRollupPublicInputs;
 pub use tx_rollup_public_inputs::TxRollupPublicInputs;

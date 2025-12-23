@@ -1,5 +1,5 @@
-use dep::parity_lib::{ParityBasePrivateInputs, ParityPublicInputs};
+use dep::rollup_lib::parity::{parity_base, ParityBasePrivateInputs, ParityPublicInputs};
 
 fn main(inputs: ParityBasePrivateInputs) -> pub ParityPublicInputs {
-    inputs.execute()
+    parity_base::execute(inputs)
 }

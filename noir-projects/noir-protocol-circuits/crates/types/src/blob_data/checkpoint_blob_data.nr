@@ -20,7 +20,6 @@ pub fn create_checkpoint_end_marker(num_blob_fields: u32) -> Field {
 fn correct_checkpoint_end_marker() {
     let num_blob_fields = 1234;
     let marker = create_checkpoint_end_marker(num_blob_fields);
-    println(marker);
 
     let checkpoint_end_marker_from_ts =
         0x0000000000000000000000000000636865636b706f696e745f656e64000004d2;

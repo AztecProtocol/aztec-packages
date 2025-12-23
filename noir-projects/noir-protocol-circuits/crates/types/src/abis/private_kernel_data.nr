@@ -1,7 +1,7 @@
 use crate::{
     abis::kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
     constants::{
-        MEGA_VK_LENGTH_IN_FIELDS, PRIVATE_KERNEL_RESET_INDEX, PROOF_TYPE_HN, PROOF_TYPE_HN_TAIL,
+        MEGA_VK_LENGTH_IN_FIELDS, PRIVATE_KERNEL_RESET_VK_INDEX, PROOF_TYPE_HN, PROOF_TYPE_HN_TAIL,
     },
     proof::vk_data::VkData,
     utils::arrays::find_first_index,
@@ -15,12 +15,12 @@ pub struct PrivateKernelData {
 impl PrivateKernelData {
     /// Validates that the vk hash exists in the vk tree at the expected index.
     /// Note: There's a similar function in vk_data.nr. This function is slightly different but necessary, because it
-    /// lets us set only `PRIVATE_KERNEL_RESET_INDEX` in the `allowed_indices` to allow all the reset circuits.
+    /// lets us set only `PRIVATE_KERNEL_RESET_VK_INDEX` in the `allowed_indices` to allow all the reset circuits.
     pub fn validate_vk_in_vk_tree<let N: u32>(self, allowed_indices: [u32; N]) {
-        let vk_index = if self.vk_data.leaf_index >= PRIVATE_KERNEL_RESET_INDEX {
-            // Kernel circuits only need to include `PRIVATE_KERNEL_RESET_INDEX` in the list to allow all private kernel
+        let vk_index = if self.vk_data.leaf_index >= PRIVATE_KERNEL_RESET_VK_INDEX {
+            // Kernel circuits only need to include `PRIVATE_KERNEL_RESET_VK_INDEX` in the list to allow all private kernel
             // reset variants.
-            PRIVATE_KERNEL_RESET_INDEX
+            PRIVATE_KERNEL_RESET_VK_INDEX
         } else {
             self.vk_data.leaf_index
         };
