@@ -190,7 +190,7 @@ Note: Finalization is typically called automatically by the proving system, but 
 
 ## Mega-Specific Features
 
-Mega is used exclusively in the context of client-side proving of Aztec transactions. It extends Ultra with support for efficiently passing large amounts of public data between circuits (Databus) and for tracking deferred elliptic curve operations to be performed efficiently by the custom-built ECCVM later on.
+Mega is used in the context of client-side proving of Aztec transactions and for AVM recursion. It extends Ultra with support for efficiently passing large amounts of public data between circuits (Databus) and for tracking deferred elliptic curve operations to be performed efficiently by the custom-built ECCVM later on.
 
 ### DataBus
 
