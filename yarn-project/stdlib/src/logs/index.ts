@@ -13,3 +13,5 @@ export * from './shared_secret_derivation.js';
 export * from './tx_scoped_l2_log.js';
 export * from './message_context.js';
 export * from './debug_log.js';
+export * from './tag.js';
+export * from './siloed_tag.js';

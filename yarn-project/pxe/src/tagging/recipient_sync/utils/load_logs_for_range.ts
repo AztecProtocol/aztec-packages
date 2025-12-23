@@ -2,9 +2,7 @@ import type { BlockNumber } from '@aztec/foundation/branded-types';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import type { DirectionalAppTaggingSecret, PreTag, TxScopedL2Log } from '@aztec/stdlib/logs';
-
-import { SiloedTag } from '../../siloed_tag.js';
-import { Tag } from '../../tag.js';
+import { SiloedTag, Tag } from '@aztec/stdlib/logs';
 
 /**
  * Gets private logs with their corresponding block timestamps and tagging indexes for the given index range, `app` and
@@ -27,21 +25,19 @@ export async function loadLogsForRange(
     Promise.all(tags.map(tag => SiloedTag.compute(tag, app))),
   );
 
-  // Get logs for these tags
-  const tagsAsFr = siloedTags.map(tag => tag.value);
-  const allLogs = await aztecNode.getLogsByTags(tagsAsFr);
+  const logs = await aztecNode.getPrivateLogsByTags(siloedTags);
 
-  // Collect all private logs with their corresponding tagging indexes
-  const privateLogsWithIndexes: Array<{ log: TxScopedL2Log; taggingIndex: number }> = [];
-  for (let i = 0; i < allLogs.length; i++) {
-    const logs = allLogs[i];
+  // Pair logs with their corresponding tagging indexes
+  const logsWithIndexes: Array<{ log: TxScopedL2Log; taggingIndex: number }> = [];
+  for (let i = 0; i < logs.length; i++) {
+    const logsForTag = logs[i];
     const taggingIndex = preTags[i].index;
-    for (const log of logs) {
-      if (!log.isFromPublic && log.blockNumber <= anchorBlockNumber) {
-        privateLogsWithIndexes.push({ log, taggingIndex });
+    for (const log of logsForTag) {
+      if (log.blockNumber <= anchorBlockNumber) {
+        logsWithIndexes.push({ log, taggingIndex });
       }
     }
   }
 
-  return privateLogsWithIndexes;
+  return logsWithIndexes;
 }

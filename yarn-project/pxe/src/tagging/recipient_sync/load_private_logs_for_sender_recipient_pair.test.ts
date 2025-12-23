@@ -5,15 +5,13 @@ import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { L2BlockHash } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
-import { DirectionalAppTaggingSecret, PrivateLog, TxScopedL2Log } from '@aztec/stdlib/logs';
+import { DirectionalAppTaggingSecret, PrivateLog, SiloedTag, Tag, TxScopedL2Log } from '@aztec/stdlib/logs';
 import { makeBlockHeader } from '@aztec/stdlib/testing';
 import { TxHash } from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-import { SiloedTag } from '../siloed_tag.js';
 import { UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN } from '../sync/sync_sender_tagging_indexes.js';
-import { Tag } from '../tag.js';
 import { loadPrivateLogsForSenderRecipientPair } from './load_private_logs_for_sender_recipient_pair.js';
 import { NewRecipientTaggingDataProvider } from './new_recipient_tagging_data_provider.js';
 
@@ -55,7 +53,7 @@ describe('loadPrivateLogsForSenderRecipientPair', () => {
   });
 
   beforeEach(async () => {
-    aztecNode.getLogsByTags.mockReset();
+    aztecNode.getPrivateLogsByTags.mockReset();
     aztecNode.getL2Tips.mockReset();
     aztecNode.getBlockHeader.mockReset();
     taggingDataProvider = new NewRecipientTaggingDataProvider(await openTmpStore('test'));
@@ -69,8 +67,8 @@ describe('loadPrivateLogsForSenderRecipientPair', () => {
     aztecNode.getBlockHeader.mockResolvedValue(makeBlockHeader(0, { timestamp: currentTimestamp }));
 
     // no logs found for any tag
-    aztecNode.getLogsByTags.mockImplementation((tags: Fr[]) => {
-      return Promise.resolve(tags.map((_tag: Fr) => []));
+    aztecNode.getPrivateLogsByTags.mockImplementation((tags: SiloedTag[]) => {
+      return Promise.resolve(tags.map((_tag: SiloedTag) => []));
     });
 
     const logs = await loadPrivateLogsForSenderRecipientPair(
@@ -101,10 +99,10 @@ describe('loadPrivateLogsForSenderRecipientPair', () => {
     aztecNode.getBlockHeader.mockResolvedValue(makeBlockHeader(0, { timestamp: currentTimestamp }));
 
     // The log is finalized
-    aztecNode.getLogsByTags.mockImplementation((tags: Fr[]) => {
+    aztecNode.getPrivateLogsByTags.mockImplementation((tags: SiloedTag[]) => {
       return Promise.all(
-        tags.map(async (t: Fr) =>
-          t.equals(logTag.value)
+        tags.map(async (t: SiloedTag) =>
+          t.equals(logTag)
             ? [makeLog(await logBlockHeader.hash(), finalizedBlockNumber, logBlockTimestamp, logTag.value)]
             : [],
         ),
@@ -139,10 +137,10 @@ describe('loadPrivateLogsForSenderRecipientPair', () => {
     aztecNode.getBlockHeader.mockResolvedValue(makeBlockHeader(0, { timestamp: currentTimestamp }));
 
     // The log is finalized
-    aztecNode.getLogsByTags.mockImplementation((tags: Fr[]) => {
+    aztecNode.getPrivateLogsByTags.mockImplementation((tags: SiloedTag[]) => {
       return Promise.all(
-        tags.map(async (t: Fr) =>
-          t.equals(logTag.value)
+        tags.map(async (t: SiloedTag) =>
+          t.equals(logTag)
             ? [makeLog(await logBlockHeader.hash(), finalizedBlockNumber, logBlockTimestamp, logTag.value)]
             : [],
         ),
@@ -189,13 +187,13 @@ describe('loadPrivateLogsForSenderRecipientPair', () => {
     // We record the number of queried tags to be able to verify that the window was moved forward correctly.
     let numQueriedTags = 0;
 
-    aztecNode.getLogsByTags.mockImplementation((tags: Fr[]) => {
+    aztecNode.getPrivateLogsByTags.mockImplementation((tags: SiloedTag[]) => {
       numQueriedTags += tags.length;
       return Promise.all(
-        tags.map(async (t: Fr) => {
-          if (t.equals(log1Tag.value)) {
+        tags.map(async (t: SiloedTag) => {
+          if (t.equals(log1Tag)) {
             return [makeLog(await log1BlockHeader.hash(), finalizedBlockNumber, log1BlockTimestamp, log1Tag.value)];
-          } else if (t.equals(log2Tag.value)) {
+          } else if (t.equals(log2Tag)) {
             return [makeLog(await log2BlockHeader.hash(), finalizedBlockNumber, log2BlockTimestamp, log2Tag.value)];
           }
           return [];

@@ -95,7 +95,7 @@ export class TxScopedL2Log {
 
   static async random(isFromPublic = Math.random() < 0.5) {
     const log = isFromPublic ? await PublicLog.random() : PrivateLog.random();
-    return new TxScopedL2Log(TxHash.random(), 1, 1, BlockNumber(1), L2BlockHash.random(), BigInt(1), log);
+    return new TxScopedL2Log(TxHash.random(), 1, 1, BlockNumber(1), L2BlockHash.random(), 1n, log);
   }
 
   equals(other: TxScopedL2Log) {
