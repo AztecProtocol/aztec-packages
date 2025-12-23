@@ -147,6 +147,7 @@ FF ContractDBProxy::get_function_address(size_t index)
 void ContractDBProxy::reset_instance()
 {
     if (instance != nullptr) {
+        delete instance->contract_db;
         delete instance;
         instance = new ContractDBProxy();
     }
