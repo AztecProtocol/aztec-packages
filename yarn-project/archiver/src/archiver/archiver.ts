@@ -1415,16 +1415,12 @@ export class Archiver
     return this.store.getSettledTxReceipt(txHash);
   }
 
-  getPrivateLogsByTags(tags: SiloedTag[], logsPerTag?: number): Promise<TxScopedL2Log[][]> {
-    return this.store.getPrivateLogsByTags(tags, logsPerTag);
+  getPrivateLogsByTags(tags: SiloedTag[]): Promise<TxScopedL2Log[][]> {
+    return this.store.getPrivateLogsByTags(tags);
   }
 
-  getPublicLogsByTagsFromContract(
-    contractAddress: AztecAddress,
-    tags: Tag[],
-    logsPerTag?: number,
-  ): Promise<TxScopedL2Log[][]> {
-    return this.store.getPublicLogsByTagsFromContract(contractAddress, tags, logsPerTag);
+  getPublicLogsByTagsFromContract(contractAddress: AztecAddress, tags: Tag[]): Promise<TxScopedL2Log[][]> {
+    return this.store.getPublicLogsByTagsFromContract(contractAddress, tags);
   }
 
   /**
@@ -2082,15 +2078,11 @@ export class ArchiverStoreHelper
   getL1ToL2MessageIndex(l1ToL2Message: Fr): Promise<bigint | undefined> {
     return this.store.getL1ToL2MessageIndex(l1ToL2Message);
   }
-  getPrivateLogsByTags(tags: SiloedTag[], logsPerTag?: number): Promise<TxScopedL2Log[][]> {
-    return this.store.getPrivateLogsByTags(tags, logsPerTag);
+  getPrivateLogsByTags(tags: SiloedTag[]): Promise<TxScopedL2Log[][]> {
+    return this.store.getPrivateLogsByTags(tags);
   }
-  getPublicLogsByTagsFromContract(
-    contractAddress: AztecAddress,
-    tags: Tag[],
-    logsPerTag?: number,
-  ): Promise<TxScopedL2Log[][]> {
-    return this.store.getPublicLogsByTagsFromContract(contractAddress, tags, logsPerTag);
+  getPublicLogsByTagsFromContract(contractAddress: AztecAddress, tags: Tag[]): Promise<TxScopedL2Log[][]> {
+    return this.store.getPublicLogsByTagsFromContract(contractAddress, tags);
   }
   getPublicLogs(filter: LogFilter): Promise<GetPublicLogsResponse> {
     return this.store.getPublicLogs(filter);
