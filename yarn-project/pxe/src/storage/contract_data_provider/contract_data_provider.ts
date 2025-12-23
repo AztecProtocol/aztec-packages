@@ -316,4 +316,20 @@ export class ContractDataProvider {
       returnTypes: functionDao.returnTypes,
     };
   }
+
+  // Synchronize target contract data
+  public async syncPrivateState(
+    contractAddress: AztecAddress,
+    functionToInvokeAfterSync: FunctionSelector | null,
+    utilityExecutor: (privateSyncCall: FunctionCall) => Promise<any>,
+  ) {
+    const syncPrivateStateFunctionCall = await this.getFunctionCall('sync_private_state', [], contractAddress);
+    if (functionToInvokeAfterSync && functionToInvokeAfterSync.equals(syncPrivateStateFunctionCall.selector)) {
+      throw new Error(
+        'Forbidden `sync_private_state` invocation. `sync_private_state` can only be invoked by PXE, manual execution can lead to inconsistencies.',
+      );
+    }
+
+    return utilityExecutor(syncPrivateStateFunctionCall);
+  }
 }

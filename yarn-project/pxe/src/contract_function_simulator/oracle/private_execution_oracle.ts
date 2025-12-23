@@ -555,20 +555,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       this.anchorBlockHeader,
     );
 
-    // Synchronize target contract data
-    // TODO: should we also synchronize the calling contract here? If it is generating notes that the target contract can immediately
-    // use maybe it makes sense
-    const syncPrivateStateFunctionCall = await this.contractDataProvider.getFunctionCall(
-      'sync_private_state',
-      [],
-      targetContractAddress,
-    );
-    if (functionSelector.equals(syncPrivateStateFunctionCall.selector)) {
-      throw new Error(
-        'Forbidden `sync_private_state` invocation. `sync_private_state` can only be invoked by PXE, manual execution can lead to inconsistencies.',
-      );
-    }
-    await this.utilityExecutor(syncPrivateStateFunctionCall);
+    await this.contractDataProvider.syncPrivateState(targetContractAddress, functionSelector, this.utilityExecutor);
 
     const targetArtifact = await this.contractDataProvider.getFunctionArtifactWithDebugMetadata(
       targetContractAddress,
