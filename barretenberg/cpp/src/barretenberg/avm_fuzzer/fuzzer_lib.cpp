@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 #include "barretenberg/api/file_io.hpp"
@@ -34,17 +35,13 @@ void setup_fuzzer_state(FuzzerWorldStateManager& ws_mgr, FuzzerContractDB& contr
         contract_db.add_contract_instance(contract_address, contract_instance);
     }
 
-    // Register the de-duplicated set of contract addresses to the world state
-    auto contract_addresses = tx_data.contract_addresses;
-    std::ranges::sort(contract_addresses.begin(),
-                      contract_addresses.end(),
-                      [](const AztecAddress& a, const AztecAddress& b) { return uint256_t(a) < uint256_t(b); });
-    contract_addresses.erase(std::unique(contract_addresses.begin(), contract_addresses.end()),
-                             contract_addresses.end());
-
-    for (const auto& addr : contract_addresses) {
-        fuzz_info("Registering contract address in world state: ", addr);
-        ws_mgr.register_contract_address(addr);
+    // Register the de-duplicated set of contract addresses to the world state (in insertion order)
+    std::unordered_set<AztecAddress> seen_addresses;
+    for (const auto& addr : tx_data.contract_addresses) {
+        if (seen_addresses.insert(addr).second) {
+            fuzz_info("Registering contract address in world state: ", addr);
+            ws_mgr.register_contract_address(addr);
+        }
     }
 }
 
