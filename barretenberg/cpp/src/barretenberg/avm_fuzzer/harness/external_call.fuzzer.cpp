@@ -2,39 +2,26 @@
 #include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/common/opcodes.hpp"
-#include "barretenberg/vm2/generated/relations/internal_call.hpp"
 #include <array>
-#include <cassert>
 #include <cstddef>
 #include <cstdint>
-#include <fuzzer/FuzzedDataProvider.h>
 #include <memory>
-#include <optional>
-#include <string>
-#include <tuple>
 #include <vector>
 
 #include "barretenberg/avm_fuzzer/fuzz_lib/constants.hpp"
 #include "barretenberg/avm_fuzzer/harness/context_helper.hpp"
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
-#include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/simulation/events/context_events.hpp"
 #include "barretenberg/vm2/simulation/events/execution_event.hpp"
 #include "barretenberg/vm2/simulation/events/gas_event.hpp"
-#include "barretenberg/vm2/simulation/gadgets/context.hpp"
-#include "barretenberg/vm2/simulation/gadgets/context_provider.hpp"
 #include "barretenberg/vm2/simulation/gadgets/execution_components.hpp"
 #include "barretenberg/vm2/simulation/interfaces/context.hpp"
-#include "barretenberg/vm2/simulation/interfaces/execution.hpp"
-#include "barretenberg/vm2/simulation/interfaces/internal_call_stack_manager.hpp"
 #include "barretenberg/vm2/simulation/interfaces/memory.hpp"
 #include "barretenberg/vm2/simulation/lib/instruction_info.hpp"
 #include "barretenberg/vm2/testing/instruction_builder.hpp"
 #include "barretenberg/vm2/tooling/debugger.hpp"
 #include "barretenberg/vm2/tracegen/execution_trace.hpp"
 #include "barretenberg/vm2/tracegen/gt_trace.hpp"
-#include "barretenberg/vm2/tracegen/internal_call_stack_trace.hpp"
-#include "barretenberg/vm2/tracegen/precomputed_trace.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
 
 using namespace bb::avm2::simulation;
@@ -434,8 +421,8 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 
     check_relation<external_call_rel>(trace);
     check_interaction<ExecutionTraceBuilder,
-                      lookup_external_call_call_is_l2_gas_allocated_lt_left_settings,
-                      lookup_external_call_call_is_da_gas_allocated_lt_left_settings>(trace);
+                      lookup_external_call_is_l2_gas_left_gt_alllocated_settings,
+                      lookup_external_call_is_da_gas_left_gt_alllocated_settings>(trace);
 
     return 0;
 }
