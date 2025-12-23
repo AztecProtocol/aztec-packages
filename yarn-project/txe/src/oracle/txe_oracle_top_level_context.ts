@@ -27,18 +27,28 @@ import {
   ExecutionTaggingIndexCache,
   HashedValuesCache,
   type IMiscOracle,
+  Oracle,
   PrivateExecutionOracle,
+  UtilityExecutionOracle,
   executePrivateFunction,
   generateSimulatedProvingResult,
 } from '@aztec/pxe/simulator';
-import { createSimulationError } from '@aztec/simulator/client';
+import {
+  ExecutionError,
+  WASMSimulator,
+  createSimulationError,
+  extractCallStack,
+  resolveAssertionMessageFromError,
+  toACVMWitness,
+  witnessMapToFields,
+} from '@aztec/simulator/client';
 import {
   CppPublicTxSimulator,
   GuardedMerkleTreeOperations,
   PublicContractsDB,
   PublicProcessor,
 } from '@aztec/simulator/server';
-import { type ContractArtifact, EventSelector, FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
+import { type ContractArtifact, EventSelector, FunctionCall, FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
 import { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { PublicSimulatorConfig } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -73,7 +83,6 @@ import type { TXEStateMachine } from '../state_machine/index.js';
 import { DEFAULT_ADDRESS } from '../txe_session.js';
 import type { TXEAccountDataProvider } from '../util/txe_account_data_provider.js';
 import type { TXEContractDataProvider } from '../util/txe_contract_data_provider.js';
-import { createUtilityExecutor } from '../util/txe_contract_function_simulator.js';
 import { TXEPublicContractDataSource } from '../util/txe_public_contract_data_source.js';
 import { getSingleTxBlockRequestHash, insertTxEffectIntoWorldTrees, makeTXEBlock } from '../utils/block_creation.js';
 import type { ITxeExecutionOracle } from './interfaces.js';
@@ -301,21 +310,10 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     const noteCache = new ExecutionNoteCache(protocolNullifier);
     const taggingIndexCache = new ExecutionTaggingIndexCache();
 
-    const { simulator, utilityExecutor } = createUtilityExecutor({
-      contractDataProvider: this.contractDataProvider,
-      noteDataProvider: this.noteDataProvider,
-      keyStore: this.keyStore,
-      addressDataProvider: this.addressDataProvider,
-      aztecNode: this.stateMachine.node,
-      anchorBlockDataProvider: this.stateMachine.anchorBlockDataProvider,
-      senderTaggingDataProvider: this.senderTaggingDataProvider,
-      recipientTaggingDataProvider: this.recipientTaggingDataProvider,
-      capsuleDataProvider: this.capsuleDataProvider,
-      privateEventDataProvider: this.privateEventDataProvider,
-      anchorBlockHeader: blockHeader,
-    });
-    const syncCall = await this.contractDataProvider.getFunctionCall('sync_private_state', [], targetContractAddress);
-    await utilityExecutor(syncCall);
+    const simulator = new WASMSimulator();
+    const utilityExecutor = async (call: FunctionCall) => {
+      await this.executeUtilityCall(call);
+    };
 
     const privateExecutionOracle = new PrivateExecutionOracle(
       argsHash,
@@ -626,32 +624,22 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     functionSelector: FunctionSelector,
     args: Fr[],
   ) {
-    const anchorBlockHeader = await this.stateMachine.anchorBlockDataProvider.getBlockHeader();
-
-    const { contractFunctionSimulator } = createUtilityExecutor({
-      contractDataProvider: this.contractDataProvider,
-      noteDataProvider: this.noteDataProvider,
-      keyStore: this.keyStore,
-      addressDataProvider: this.addressDataProvider,
-      aztecNode: this.stateMachine.node,
-      anchorBlockDataProvider: this.stateMachine.anchorBlockDataProvider,
-      senderTaggingDataProvider: this.senderTaggingDataProvider,
-      recipientTaggingDataProvider: this.recipientTaggingDataProvider,
-      capsuleDataProvider: this.capsuleDataProvider,
-      privateEventDataProvider: this.privateEventDataProvider,
-      anchorBlockHeader,
-    });
-    const call = {
-      name: functionSelector.toString(),
+    const artifact = await this.contractDataProvider.getFunctionArtifact(targetContractAddress, functionSelector);
+    if (!artifact) {
+      throw new Error(`Cannot call ${functionSelector} as there is no artifact found at ${targetContractAddress}.`);
+    }
+    const call = new FunctionCall(
+      artifact.name,
+      targetContractAddress,
+      functionSelector,
+      FunctionType.UTILITY,
+      false,
+      false,
       args,
-      selector: functionSelector,
-      type: FunctionType.UTILITY,
-      to: targetContractAddress,
-      hideMsgSender: false,
-      isStatic: false,
-      returnTypes: [],
-    };
-    return contractFunctionSimulator.runUtility(call, [], anchorBlockHeader);
+      [],
+    );
+
+    return this.executeUtilityCall(call);
   }
 
   close(): [bigint, Map<string, AuthWitness>] {
@@ -662,5 +650,59 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
   private async getLastBlockNumber(): Promise<BlockNumber> {
     const header = await this.stateMachine.node.getBlockHeader('latest');
     return header ? header.globalVariables.blockNumber : BlockNumber.ZERO;
+  }
+
+  private async executeUtilityCall(call: FunctionCall): Promise<Fr[]> {
+    const entryPointArtifact = await this.contractDataProvider.getFunctionArtifactWithDebugMetadata(
+      call.to,
+      call.selector,
+    );
+    if (entryPointArtifact.functionType !== FunctionType.UTILITY) {
+      throw new Error(`Cannot run ${entryPointArtifact.functionType} function as utility`);
+    }
+
+    this.logger.verbose(`Executing utility function ${entryPointArtifact.name}`, {
+      contract: call.to,
+      selector: call.selector,
+    });
+
+    try {
+      const anchorBlockHeader = await this.stateMachine.anchorBlockDataProvider.getBlockHeader();
+      const oracle = new UtilityExecutionOracle(
+        call.to,
+        [],
+        [],
+        anchorBlockHeader,
+        this.contractDataProvider,
+        this.noteDataProvider,
+        this.keyStore,
+        this.addressDataProvider,
+        this.stateMachine.node,
+        this.stateMachine.anchorBlockDataProvider,
+        this.senderTaggingDataProvider,
+        this.recipientTaggingDataProvider,
+        this.capsuleDataProvider,
+        this.privateEventDataProvider,
+      );
+      const acirExecutionResult = await new WASMSimulator()
+        .executeUserCircuit(toACVMWitness(0, call.args), entryPointArtifact, new Oracle(oracle).toACIRCallback())
+        .catch((err: Error) => {
+          err.message = resolveAssertionMessageFromError(err, entryPointArtifact);
+          throw new ExecutionError(
+            err.message,
+            {
+              contractAddress: call.to,
+              functionSelector: call.selector,
+            },
+            extractCallStack(err, entryPointArtifact.debug),
+            { cause: err },
+          );
+        });
+
+      this.logger.verbose(`Utility simulation for ${call.to}.${call.selector} completed`);
+      return witnessMapToFields(acirExecutionResult.returnWitness);
+    } catch (err) {
+      throw createSimulationError(err instanceof Error ? err : new Error('Unknown error during utility simulation'));
+    }
   }
 }

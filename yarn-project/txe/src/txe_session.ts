@@ -19,10 +19,19 @@ import {
   HashedValuesCache,
   type IPrivateExecutionOracle,
   type IUtilityExecutionOracle,
+  Oracle,
   PrivateExecutionOracle,
   UtilityExecutionOracle,
 } from '@aztec/pxe/simulator';
-import { FunctionSelector } from '@aztec/stdlib/abi';
+import {
+  ExecutionError,
+  WASMSimulator,
+  createSimulationError,
+  extractCallStack,
+  resolveAssertionMessageFromError,
+  toACVMWitness,
+} from '@aztec/simulator/client';
+import { FunctionCall, FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { GasSettings } from '@aztec/stdlib/gas';
@@ -41,7 +50,6 @@ import { TXEStateMachine } from './state_machine/index.js';
 import type { ForeignCallArgs, ForeignCallResult } from './util/encoding.js';
 import { TXEAccountDataProvider } from './util/txe_account_data_provider.js';
 import { TXEContractDataProvider } from './util/txe_contract_data_provider.js';
-import { createUtilityExecutor } from './util/txe_contract_function_simulator.js';
 import { getSingleTxBlockRequestHash, insertTxEffectIntoWorldTrees, makeTXEBlock } from './utils/block_creation.js';
 import { makeTxEffect } from './utils/tx_effect_creation.js';
 
@@ -277,17 +285,6 @@ export class TXESession implements TXESessionStateHandler {
   ): Promise<PrivateContextInputs> {
     this.exitTopLevelState();
 
-    // There is no automatic message discovery and contract-driven syncing process in inlined private or utility
-    // contexts, which means that known nullifiers are also not searched for, since it is during the tagging sync that
-    // we perform this. We therefore search for known nullifiers now, as otherwise notes that were nullified would not
-    // be removed from the database.
-    // TODO(#12553): make the synchronizer sync here instead and remove this
-    await new NoteService(
-      this.noteDataProvider,
-      this.stateMachine.node,
-      this.stateMachine.anchorBlockDataProvider,
-    ).syncNoteNullifiers(contractAddress);
-
     // Private execution has two associated block numbers: the anchor block (i.e. the historical block that is used to
     // build the proof), and the *next* block, i.e. the one we'll create once the execution ends, and which will contain
     // a single transaction with the effects of what was done in the test.
@@ -306,20 +303,7 @@ export class TXESession implements TXESessionStateHandler {
     const noteCache = new ExecutionNoteCache(protocolNullifier);
     const taggingIndexCache = new ExecutionTaggingIndexCache();
 
-    const { utilityExecutor } = createUtilityExecutor({
-      contractDataProvider: this.contractDataProvider,
-      noteDataProvider: this.noteDataProvider,
-      keyStore: this.keyStore,
-      addressDataProvider: this.addressDataProvider,
-      aztecNode: this.stateMachine.node,
-      anchorBlockDataProvider: this.stateMachine.anchorBlockDataProvider,
-      senderTaggingDataProvider: this.senderTaggingDataProvider,
-      recipientTaggingDataProvider: this.recipientTaggingDataProvider,
-      capsuleDataProvider: this.capsuleDataProvider,
-      privateEventDataProvider: this.privateEventDataProvider,
-      anchorBlockHeader: anchorBlock!,
-    });
-
+    const utilityExecutor = this.utilityExecutorForContractSync(anchorBlock);
     this.oracleHandler = new PrivateExecutionOracle(
       Fr.ZERO,
       new TxContext(this.chainId, this.version, GasSettings.empty()),
@@ -478,5 +462,52 @@ export class TXESession implements TXESessionStateHandler {
     if (this.state.name != 'UTILITY') {
       throw new Error(`Expected to be in state 'UTILITY', but got '${this.state.name}' instead`);
     }
+  }
+
+  private utilityExecutorForContractSync(anchorBlock: any) {
+    return async (call: FunctionCall) => {
+      const entryPointArtifact = await this.contractDataProvider.getFunctionArtifactWithDebugMetadata(
+        call.to,
+        call.selector,
+      );
+      if (entryPointArtifact.functionType !== FunctionType.UTILITY) {
+        throw new Error(`Cannot run ${entryPointArtifact.functionType} function as utility`);
+      }
+
+      try {
+        const oracle = new UtilityExecutionOracle(
+          call.to,
+          [],
+          [],
+          anchorBlock!,
+          this.contractDataProvider,
+          this.noteDataProvider,
+          this.keyStore,
+          this.addressDataProvider,
+          this.stateMachine.node,
+          this.stateMachine.anchorBlockDataProvider,
+          this.senderTaggingDataProvider,
+          this.recipientTaggingDataProvider,
+          this.capsuleDataProvider,
+          this.privateEventDataProvider,
+        );
+        await new WASMSimulator()
+          .executeUserCircuit(toACVMWitness(0, call.args), entryPointArtifact, new Oracle(oracle).toACIRCallback())
+          .catch((err: Error) => {
+            err.message = resolveAssertionMessageFromError(err, entryPointArtifact);
+            throw new ExecutionError(
+              err.message,
+              {
+                contractAddress: call.to,
+                functionSelector: call.selector,
+              },
+              extractCallStack(err, entryPointArtifact.debug),
+              { cause: err },
+            );
+          });
+      } catch (err) {
+        throw createSimulationError(err instanceof Error ? err : new Error('Unknown error during utility execution'));
+      }
+    };
   }
 }
