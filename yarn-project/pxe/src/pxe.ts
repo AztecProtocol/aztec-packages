@@ -1052,10 +1052,6 @@ export class PXE {
       this.#simulateUtility(contractFunctionSimulator, privateSyncCall),
     );
 
-    // We need to manually trigger private state sync to have a guarantee that all the events are available.
-    const call = await this.contractDataProvider.getFunctionCall('sync_private_state', [], filter.contractAddress);
-    await this.simulateUtility(call);
-
     const sanitizedFilter = await new PrivateEventFilterValidator(this.anchorBlockDataProvider).validate(filter);
 
     this.log.debug(
