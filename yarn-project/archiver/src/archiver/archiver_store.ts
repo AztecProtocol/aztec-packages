@@ -206,27 +206,17 @@ export interface ArchiverDataStore {
   getTotalL1ToL2MessageCount(): Promise<bigint>;
 
   /**
-   * Gets all private logs that match any of the received tags (i.e. logs with their first field equal to a SiloedTag).
-   * @param tags - The SiloedTags to filter the logs by.
-   * @param logsPerTag - The number of logs to return per tag. Defaults to everything
-   * @returns For each received tag, an array of matching private logs is returned. An empty array implies no logs match
-   * that tag.
+  /**
+   * Gets all private logs that match any of the `tags`. For each tag, an array of matching logs is returned. An empty
+   * array implies no logs match that tag.
    */
-  getPrivateLogsByTags(tags: SiloedTag[], logsPerTag?: number): Promise<TxScopedL2Log[][]>;
+  getPrivateLogsByTags(tags: SiloedTag[]): Promise<TxScopedL2Log[][]>;
 
   /**
-   * Gets all public logs that match any of the received tags from the specified contract (i.e. logs with their first field equal to a Tag).
-   * @param contractAddress - The contract that emitted the public logs.
-   * @param tags - The Tags to filter the logs by.
-   * @param logsPerTag - The number of logs to return per tag. Defaults to everything
-   * @returns For each received tag, an array of matching public logs is returned. An empty array implies no logs match
-   * that tag.
+   * Gets all public logs that match any of the `tags` from the specified contract. For each tag, an array of matching
+   * logs is returned. An empty array implies no logs match that tag.
    */
-  getPublicLogsByTagsFromContract(
-    contractAddress: AztecAddress,
-    tags: Tag[],
-    logsPerTag?: number,
-  ): Promise<TxScopedL2Log[][]>;
+  getPublicLogsByTagsFromContract(contractAddress: AztecAddress, tags: Tag[]): Promise<TxScopedL2Log[][]>;
 
   /**
    * Gets public logs based on the provided filter.
