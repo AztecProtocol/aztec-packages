@@ -1,4 +1,5 @@
 import type { Gossipable } from '@aztec/stdlib/p2p';
+import type { Tx, TxHash } from '@aztec/stdlib/tx';
 import {
   Attributes,
   type BatchObservableResult,
@@ -22,6 +23,7 @@ type MetricsLabels = {
   objectInMempool: MetricsType;
   objectSize: MetricsType;
   itemsAdded: MetricsType;
+  itemMinedDelay: MetricsType;
 };
 
 /**
@@ -35,12 +37,14 @@ function getMetricsLabels(name: PoolName): MetricsLabels {
       objectInMempool: Metrics.MEMPOOL_TX_COUNT,
       objectSize: Metrics.MEMPOOL_TX_SIZE,
       itemsAdded: Metrics.MEMPOOL_TX_ADDED_COUNT,
+      itemMinedDelay: Metrics.MEMPOOL_TX_MINED_DELAY,
     };
   } else if (name === PoolName.ATTESTATION_POOL) {
     return {
       objectInMempool: Metrics.MEMPOOL_ATTESTATIONS_COUNT,
       objectSize: Metrics.MEMPOOL_ATTESTATIONS_SIZE,
       itemsAdded: Metrics.MEMPOOL_ATTESTATIONS_ADDED_COUNT,
+      itemMinedDelay: Metrics.MEMPOOL_ATTESTATIONS_MINED_DELAY,
     };
   }
 
@@ -60,11 +64,15 @@ export class PoolInstrumentation<PoolObject extends Gossipable> {
   private addObjectCounter: UpDownCounter;
   /** Tracks tx size */
   private objectSize: Histogram;
+  /** Track delay between transaction added and evicted */
+  private minedDelay: Histogram;
 
   private dbMetrics: LmdbMetrics;
 
   private defaultAttributes;
   private meter: Meter;
+
+  private txAddedTimestamp: Map<string, number> = new Map<string, number>();
 
   constructor(
     telemetry: TelemetryClient,
@@ -98,6 +106,10 @@ export class PoolInstrumentation<PoolObject extends Gossipable> {
       description: 'The number of transactions added to the mempool',
     });
 
+    this.minedDelay = this.meter.createHistogram(metricsLabels.itemMinedDelay, {
+      description: 'Delay between transaction added and evicted from the mempool',
+    });
+
     this.meter.addBatchObservableCallback(this.observeStats, [this.objectsInMempool]);
   }
 
@@ -107,6 +119,25 @@ export class PoolInstrumentation<PoolObject extends Gossipable> {
 
   public incrementAddedObjects(count: number) {
     this.addObjectCounter.add(count);
+  }
+
+  public transactionsAdded(transactions: Tx[]) {
+    const timestamp = Date.now();
+    for (const transaction of transactions) {
+      this.txAddedTimestamp.set(transaction.txHash.toString(), timestamp);
+    }
+  }
+
+  public transactionsRemoved(hashes: TxHash[]) {
+    const timestamp = Date.now();
+    for (const hash of hashes) {
+      const key = hash.toString();
+      const addedAt = this.txAddedTimestamp.get(key);
+      if (addedAt) {
+        this.txAddedTimestamp.delete(key);
+        this.minedDelay.record(addedAt - timestamp);
+      }
+    }
   }
 
   private observeStats = async (observer: BatchObservableResult) => {
