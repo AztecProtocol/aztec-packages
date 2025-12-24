@@ -45,21 +45,22 @@ typename Curve::Element small_mul(std::span<const typename Curve::ScalarField>& 
 }
 
 /**
- * @brief Convert scalar out of Montgomery form. Populate `consolidated_indices` with nonzero scalar indices
+ * @brief Populate `consolidated_indices` with indices of nonzero scalars
+ * @details Scalars must already be in non-Montgomery (standard) form for correct zero-detection
  *
  * @tparam Curve
- * @param scalars
+ * @param scalars (must be in non-Montgomery form)
  * @param consolidated_indices
  */
 template <typename Curve>
-void MSM<Curve>::transform_scalar_and_get_nonzero_scalar_indices(std::span<typename Curve::ScalarField> scalars,
-                                                                 std::vector<uint32_t>& consolidated_indices) noexcept
+void MSM<Curve>::get_nonzero_scalar_indices(std::span<const typename Curve::ScalarField> scalars,
+                                            std::vector<uint32_t>& consolidated_indices) noexcept
 {
     std::vector<std::vector<uint32_t>> thread_indices(get_num_cpus());
 
     parallel_for([&](const ThreadChunk& chunk) {
         // parallel_for with ThreadChunk uses get_num_cpus() threads
-        BB_ASSERT_EQ(chunk.total_threads, thread_indices.size());
+        BB_ASSERT_DEBUG(chunk.total_threads == thread_indices.size());
         auto range = chunk.range(scalars.size());
         if (range.empty()) {
             return;
@@ -68,12 +69,7 @@ void MSM<Curve>::transform_scalar_and_get_nonzero_scalar_indices(std::span<typen
         thread_scalar_indices.reserve(range.size());
         for (size_t i : range) {
             BB_ASSERT_DEBUG(i < scalars.size());
-            auto& scalar = scalars[i];
-            scalar.self_from_montgomery_form();
-
-            bool is_zero =
-                (scalar.data[0] == 0) && (scalar.data[1] == 0) && (scalar.data[2] == 0) && (scalar.data[3] == 0);
-            if (!is_zero) {
+            if (!scalars[i].is_zero()) {
                 thread_scalar_indices.push_back(static_cast<uint32_t>(i));
             }
         }
@@ -89,7 +85,7 @@ void MSM<Curve>::transform_scalar_and_get_nonzero_scalar_indices(std::span<typen
     consolidated_indices.resize(thread_offsets[num_threads]);
 
     parallel_for([&](const ThreadChunk& chunk) {
-        BB_ASSERT_EQ(chunk.total_threads, thread_indices.size());
+        BB_ASSERT_DEBUG(chunk.total_threads == thread_indices.size());
         const size_t offset = thread_offsets[chunk.thread_index];
         const auto& src = thread_indices[chunk.thread_index];
         for (size_t i = 0; i < src.size(); ++i) {
@@ -105,7 +101,7 @@ void MSM<Curve>::transform_scalar_and_get_nonzero_scalar_indices(std::span<typen
  *          We will split up an MSM into multiple MSMs if this is required.
  *
  * @tparam Curve
- * @param scalars
+ * @param scalars (must be in non-Montgomery form)
  * @param msm_scalar_indices
  * @return std::vector<typename MSM<Curve>::ThreadWorkUnits>
  */
@@ -118,7 +114,7 @@ std::vector<typename MSM<Curve>::ThreadWorkUnits> MSM<Curve>::get_work_units(
     msm_scalar_indices.resize(num_msms);
     for (size_t i = 0; i < num_msms; ++i) {
         BB_ASSERT_LT(i, scalars.size());
-        transform_scalar_and_get_nonzero_scalar_indices(scalars[i], msm_scalar_indices[i]);
+        get_nonzero_scalar_indices(scalars[i], msm_scalar_indices[i]);
     }
 
     size_t total_work = 0;
@@ -760,11 +756,10 @@ void MSM<Curve>::consume_point_schedule(std::span<const uint64_t> point_schedule
  *          msms up so much.
  *          The Pippenger algorithm runtime is O(N/log(N)) so there will be slight gains as each inner-thread MSM will
  *          have a larger N.
- *          The input scalars are not const because the algorithm converts them out of Montgomery form and then back.
  *
  * @tparam Curve
  * @param points
- * @param scalars
+ * @param scalars (must be in non-Montgomery form)
  * @return std::vector<typename Curve::AffineElement>
  */
 template <typename Curve>
@@ -773,14 +768,14 @@ std::vector<typename Curve::AffineElement> MSM<Curve>::batch_multi_scalar_mul(
     std::span<std::span<ScalarField>> scalars,
     bool handle_edge_cases) noexcept
 {
-    BB_ASSERT_EQ(points.size(), scalars.size());
+    BB_ASSERT_DEBUG(points.size() == scalars.size());
     const size_t num_msms = points.size();
 
     std::vector<std::vector<uint32_t>> msm_scalar_indices;
     std::vector<ThreadWorkUnits> thread_work_units = get_work_units(scalars, msm_scalar_indices);
     const size_t num_cpus = get_num_cpus();
     std::vector<std::vector<std::pair<Element, size_t>>> thread_msm_results(num_cpus);
-    BB_ASSERT_EQ(thread_work_units.size(), num_cpus);
+    BB_ASSERT_DEBUG(thread_work_units.size() == num_cpus);
 
     // Once we have our work units, each thread can independently evaluate its assigned msms
     parallel_for(num_cpus, [&](size_t thread_idx) {
@@ -833,44 +828,52 @@ std::vector<typename Curve::AffineElement> MSM<Curve>::batch_multi_scalar_mul(
         affine_results.emplace_back(AffineElement(ele.x, ele.y));
     }
 
-    // Convert our scalars back into Montgomery form so they remain unchanged
-    for (auto& msm_scalars : scalars) {
-        parallel_for_range(msm_scalars.size(), [&](size_t start, size_t end) {
-            for (size_t i = start; i < end; ++i) {
-                msm_scalars[i].self_to_montgomery_form();
-            }
-        });
-    }
     return affine_results;
 }
 
 /**
  * @brief Helper method to evaluate a single MSM. Internally calls `batch_multi_scalar_mul`
+ * @details This is the main entry point for MSM computation. It handles the Montgomery form conversion:
+ *          scalars are converted FROM Montgomery form at entry, and back TO Montgomery form at exit.
+ *          This ensures the scalars remain unchanged from the caller's perspective while allowing
+ *          the internal algorithm to work with non-Montgomery form scalars.
  *
  * @tparam Curve
  * @param points
- * @param _scalars
+ * @param scalars (non-const: temporarily modified for Montgomery conversion, restored before return)
  * @return Curve::AffineElement
  */
 template <typename Curve>
 typename Curve::AffineElement MSM<Curve>::msm(std::span<const typename Curve::AffineElement> points,
-                                              PolynomialSpan<const ScalarField> _scalars,
+                                              PolynomialSpan</*const*/ ScalarField> scalars,
                                               bool handle_edge_cases) noexcept
 {
-    if (_scalars.size() == 0) {
+    if (scalars.size() == 0) {
         return Curve::Group::affine_point_at_infinity;
     }
-    BB_ASSERT_GTE(points.size(), _scalars.start_index + _scalars.size());
+    BB_ASSERT_GTE(points.size(), scalars.start_index + scalars.size());
 
-    // unfortnately we need to remove const on this data type to prevent duplicating _scalars (which is typically
-    // large) We need to convert `_scalars` out of montgomery form for the MSM. We then convert the scalars back
-    // into Montgomery form at the end of the algorithm. NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1449): handle const correctness.
-    ScalarField* scalars = const_cast<ScalarField*>(&_scalars[_scalars.start_index]);
+    ScalarField* scalar_ptr = &scalars[scalars.start_index];
+    const size_t num_scalars = scalars.size();
 
-    std::vector<std::span<const AffineElement>> pp{ points.subspan(_scalars.start_index) };
-    std::vector<std::span<ScalarField>> ss{ std::span<ScalarField>(scalars, _scalars.size()) };
+    // Convert scalars FROM Montgomery form for the MSM algorithm
+    parallel_for_range(num_scalars, [&](size_t start, size_t end) {
+        for (size_t i = start; i < end; ++i) {
+            scalar_ptr[i].self_from_montgomery_form();
+        }
+    });
+
+    std::vector<std::span<const AffineElement>> pp{ points.subspan(scalars.start_index) };
+    std::vector<std::span<ScalarField>> ss{ std::span<ScalarField>(scalar_ptr, num_scalars) };
     AffineElement result = batch_multi_scalar_mul(pp, ss, handle_edge_cases)[0];
+
+    // Convert scalars back TO Montgomery form so they remain unchanged from caller's perspective
+    parallel_for_range(num_scalars, [&](size_t start, size_t end) {
+        for (size_t i = start; i < end; ++i) {
+            scalar_ptr[i].self_to_montgomery_form();
+        }
+    });
+
     return result;
 }
 
@@ -879,29 +882,41 @@ typename Curve::Element pippenger(PolynomialSpan<const typename Curve::ScalarFie
                                   std::span<const typename Curve::AffineElement> points,
                                   [[maybe_unused]] bool handle_edge_cases) noexcept
 {
-    return MSM<Curve>::msm(points, scalars, handle_edge_cases);
+    // const_cast is safe here: msm() temporarily converts scalars from Montgomery form and back,
+    // leaving them unchanged from the caller's perspective. See msm() for details.
+    using ScalarField = typename Curve::ScalarField;
+    std::span<ScalarField> mutable_span{ const_cast<ScalarField*>(scalars.span.data()), scalars.size() };
+    PolynomialSpan<ScalarField> mutable_scalars{ scalars.start_index, mutable_span };
+    return MSM<Curve>::msm(points, mutable_scalars, handle_edge_cases);
 }
 
 template <typename Curve>
 typename Curve::Element pippenger_unsafe(PolynomialSpan<const typename Curve::ScalarField> scalars,
                                          std::span<const typename Curve::AffineElement> points) noexcept
 {
-    return MSM<Curve>::msm(points, scalars, false);
+    // const_cast is safe here: msm() temporarily converts scalars from Montgomery form and back,
+    // leaving them unchanged from the caller's perspective. See msm() for details.
+    using ScalarField = typename Curve::ScalarField;
+    std::span<ScalarField> mutable_span{ const_cast<ScalarField*>(scalars.span.data()), scalars.size() };
+    PolynomialSpan<ScalarField> mutable_scalars{ scalars.start_index, mutable_span };
+    return MSM<Curve>::msm(points, mutable_scalars, false);
 }
 
 template curve::Grumpkin::Element pippenger<curve::Grumpkin>(PolynomialSpan<const curve::Grumpkin::ScalarField> scalars,
                                                              std::span<const curve::Grumpkin::AffineElement> points,
-                                                             bool handle_edge_cases = true) noexcept;
+                                                             bool handle_edge_cases) noexcept;
 
 template curve::Grumpkin::Element pippenger_unsafe<curve::Grumpkin>(
-    PolynomialSpan<const curve::Grumpkin::ScalarField> scalars, std::span<const curve::Grumpkin::AffineElement> points);
+    PolynomialSpan<const curve::Grumpkin::ScalarField> scalars,
+    std::span<const curve::Grumpkin::AffineElement> points) noexcept;
 
 template curve::BN254::Element pippenger<curve::BN254>(PolynomialSpan<const curve::BN254::ScalarField> scalars,
                                                        std::span<const curve::BN254::AffineElement> points,
-                                                       bool handle_edge_cases = true);
+                                                       bool handle_edge_cases) noexcept;
 
-template curve::BN254::Element pippenger_unsafe<curve::BN254>(PolynomialSpan<const curve::BN254::ScalarField> scalars,
-                                                              std::span<const curve::BN254::AffineElement> points);
+template curve::BN254::Element pippenger_unsafe<curve::BN254>(
+    PolynomialSpan<const curve::BN254::ScalarField> scalars,
+    std::span<const curve::BN254::AffineElement> points) noexcept;
 
 } // namespace bb::scalar_multiplication
 
