@@ -76,6 +76,7 @@ export class InMemoryTxPool extends (EventEmitter as new () => TypedEventEmitter
       this.minedTxs.set(key, blockHeader.globalVariables.blockNumber);
       this.pendingTxs.delete(key);
     }
+    this.metrics.transactionsRemoved(txHashes);
     return Promise.resolve();
   }
 
@@ -190,6 +191,7 @@ export class InMemoryTxPool extends (EventEmitter as new () => TypedEventEmitter
     if (added.length > 0) {
       this.emit('txs-added', { ...opts, txs: added });
     }
+    this.metrics.transactionsAdded(added);
     return Promise.resolve(added.length);
   }
 
@@ -224,6 +226,7 @@ export class InMemoryTxPool extends (EventEmitter as new () => TypedEventEmitter
         }
       }
     }
+    this.metrics.transactionsRemoved(txHashes);
 
     return Promise.resolve();
   }
