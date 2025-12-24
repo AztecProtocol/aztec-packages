@@ -107,7 +107,36 @@ TYPED_TEST(ScalarMultiplicationTest, GetScalarSlice)
             slices[num_slices - 1 - i] = static_cast<uint32_t>((acc & mask).data[0]);
             acc = acc >> shift;
         }
+        // uint256_t input_u256 = 0;
 
+        // for (size_t i = 0; i < num_slices; ++i) {
+        //     bool valid_slice = false;
+        //     while (!valid_slice) {
+        //         size_t mask = ((1 << slice_bits) - 1);
+        //         if (i == num_slices - 1) {
+        //             mask = ((1 << last_slice_bits) - 1);
+        //         }
+        //         const uint32_t slice = engine.get_random_uint32() & mask;
+
+        //         size_t shift = (fr_size - slice_bits - (i * slice_bits));
+        //         if (i == num_slices - 1) {
+        //             shift = 0;
+        //         }
+
+        //         const uint256_t new_input_u256 = input_u256 + (uint256_t(slice) << shift);
+        //         //   BB_ASSERT(new_input_u256 < fr::modulus);
+        //         if (new_input_u256 < fr::modulus) {
+        //             input_u256 = new_input_u256;
+        //             slices[i] = slice;
+        //             valid_slice = true;
+        //         }
+        //     }
+        // }
+
+        // BB_ASSERT(input_u256 < fr::modulus);
+        // while (input_u256 > fr::modulus) {
+        //     input_u256 -= fr::modulus;
+        // }
         ScalarField input(input_u256);
         input.self_from_montgomery_form();
 
@@ -281,13 +310,8 @@ TYPED_TEST(ScalarMultiplicationTest, EvaluatePippengerRound)
             scalars[i].self_to_montgomery_form();
         }
 
-        // Convert scalars from Montgomery form (as msm() would do)
-        for (size_t i = 0; i < num_points; ++i) {
-            scalars[i].self_from_montgomery_form();
-        }
-
         std::vector<uint32_t> indices;
-        scalar_multiplication::MSM<Curve>::get_nonzero_scalar_indices(scalars, indices);
+        scalar_multiplication::MSM<Curve>::transform_scalar_and_get_nonzero_scalar_indices(scalars, indices);
 
         Element previous_round_output;
         previous_round_output.self_set_infinity();
@@ -340,8 +364,6 @@ TYPED_TEST(ScalarMultiplicationTest, BatchMultiScalarMul)
     const size_t num_msms = static_cast<size_t>(engine.get_random_uint8());
     std::vector<AffineElement> expected(num_msms);
 
-    // Make local copies of scalars since batch_multi_scalar_mul expects non-Montgomery form
-    std::vector<std::vector<ScalarField>> batch_scalars_copies(num_msms);
     std::vector<std::span<const AffineElement>> batch_points_span;
     std::vector<std::span<ScalarField>> batch_scalars_spans;
 
@@ -350,25 +372,14 @@ TYPED_TEST(ScalarMultiplicationTest, BatchMultiScalarMul)
         const size_t num_points = static_cast<size_t>(engine.get_random_uint16()) % 400;
 
         ASSERT_LT(vector_offset + num_points, TestFixture::num_points);
+        std::span<ScalarField> batch_scalars(&TestFixture::scalars[vector_offset], num_points);
         std::span<const AffineElement> batch_points(&TestFixture::generators[vector_offset], num_points);
-
-        // Copy scalars and compute expected result with Montgomery form
-        batch_scalars_copies[k].resize(num_points);
-        for (size_t i = 0; i < num_points; ++i) {
-            batch_scalars_copies[k][i] = TestFixture::scalars[vector_offset + i];
-        }
 
         vector_offset += num_points;
         batch_points_span.push_back(batch_points);
-        batch_scalars_spans.push_back(batch_scalars_copies[k]);
+        batch_scalars_spans.push_back(batch_scalars);
 
-        // Compute expected with Montgomery form scalars
         expected[k] = TestFixture::naive_msm(batch_scalars_spans[k], batch_points_span[k]);
-
-        // Convert to non-Montgomery form for batch_multi_scalar_mul
-        for (auto& scalar : batch_scalars_copies[k]) {
-            scalar.self_from_montgomery_form();
-        }
     }
 
     std::vector<AffineElement> result =
@@ -411,13 +422,7 @@ TYPED_TEST(ScalarMultiplicationTest, BatchMultiScalarMulSparse)
         batch_points_span.push_back(batch_points);
         batch_scalars_spans.push_back(batch_scalars[k]);
 
-        // Compute expected with Montgomery form scalars
         expected[k] = TestFixture::naive_msm(batch_scalars[k], batch_points);
-
-        // Convert to non-Montgomery form for batch_multi_scalar_mul
-        for (auto& scalar : scalars) {
-            scalar.self_from_montgomery_form();
-        }
     }
 
     std::vector<AffineElement> result =

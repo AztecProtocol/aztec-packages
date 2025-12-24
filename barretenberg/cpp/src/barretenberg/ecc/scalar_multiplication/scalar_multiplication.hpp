@@ -19,6 +19,7 @@ template <typename Curve> class MSM {
     using BaseField = typename Curve::BaseField;
     using AffineElement = typename Curve::AffineElement;
 
+    using G1 = AffineElement;
     static constexpr size_t NUM_BITS_IN_FIELD = ScalarField::modulus.get_msb() + 1;
 
     /**
@@ -90,8 +91,8 @@ template <typename Curve> class MSM {
     static void add_affine_points(AffineElement* points,
                                   const size_t num_points,
                                   typename Curve::BaseField* scratch_space) noexcept;
-    static void get_nonzero_scalar_indices(std::span<const ScalarField> scalars,
-                                           std::vector<uint32_t>& consolidated_indices) noexcept;
+    static void transform_scalar_and_get_nonzero_scalar_indices(std::span<typename Curve::ScalarField> scalars,
+                                                                std::vector<uint32_t>& consolidated_indices) noexcept;
 
     static std::vector<ThreadWorkUnits> get_work_units(std::span<std::span<ScalarField>> scalars,
                                                        std::vector<std::vector<uint32_t>>& msm_scalar_indices) noexcept;
@@ -125,7 +126,7 @@ template <typename Curve> class MSM {
                                                              std::span<std::span<ScalarField>> scalars,
                                                              bool handle_edge_cases = true) noexcept;
     static AffineElement msm(std::span<const AffineElement> points,
-                             PolynomialSpan</*const*/ ScalarField> scalars,
+                             PolynomialSpan<const ScalarField> _scalars,
                              bool handle_edge_cases = false) noexcept;
 
     template <typename BucketType> static Element accumulate_buckets(BucketType& bucket_accumulators) noexcept
@@ -182,4 +183,5 @@ typename Curve::Element pippenger_unsafe(PolynomialSpan<const typename Curve::Sc
 extern template class MSM<curve::Grumpkin>;
 extern template class MSM<curve::BN254>;
 
+// NEXT STEP ACCUMULATE BUVKETS
 } // namespace bb::scalar_multiplication
