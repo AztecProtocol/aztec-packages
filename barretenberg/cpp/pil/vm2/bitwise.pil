@@ -42,7 +42,7 @@ namespace bitwise;
 //    1     1      0      1       0x52        0x42          0x52        0x42
 
 // Selector for Bitwise Operation
-pol commit sel;
+pol commit sel; // @boolean
 sel * (1 - sel) = 0;
 
 // No relations will be checked if this identity is satisfied.
@@ -54,9 +54,10 @@ pol commit start; // Identifies when we want to capture the output to the main t
 start * (1 - start) = 0;
 
 // This is used to decouple generation of inverses of lookups into this trace.
-pol commit start_keccak;
-pol commit start_sha256;
+pol commit start_keccak; // @boolean
+pol commit start_sha256; // @boolean
 start_keccak * (1 - start_keccak) = 0;
+start_sha256 * (1 - start_sha256) = 0;
 // If any of the above selectors is 1, then start must be 1.
 (start_keccak + start_sha256) * (1 - start) = 0;
 
@@ -169,7 +170,7 @@ last * (acc_ic - ic_byte) = 0;
 
 // If we encounter an error, we do not want to perform a lookup to retrieve ctr.
 // In the case of an error, ctr is unconstrained (ideally set to 0).
-pol commit sel_get_ctr;
+pol commit sel_get_ctr; // @boolean
 sel_get_ctr = start * (1 - err);
 
 #[INTEGRAL_TAG_LENGTH]
