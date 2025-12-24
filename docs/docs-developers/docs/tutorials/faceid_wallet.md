@@ -2,11 +2,11 @@
 title: Using FaceID to Sign Transactions
 tags: [local_network, wallet, cli]
 keywords: [wallet, cli wallet, faceid]
-sidebar_position: 5
+sidebar_position: 1
 description: In this tutorial, we will use Apple Mac's Secure Enclave to store the private key, and use it in Aztec's CLI Wallet. This enables fully private, native, and ...
 ---
 
-In this tutorial, we will use Apple Mac's Secure Enclave to store the private key, and use it in Aztec's [CLI Wallet](./cli_wallet_reference.md). This enables fully private, native, and seedless account abstraction!
+In this tutorial, we will use Apple Mac's Secure Enclave to store the private key, and use it in Aztec's [CLI Wallet](../cli/aztec_wallet_cli_reference.md). This enables fully private, native, and seedless account abstraction!
 
 :::warning
 
@@ -15,12 +15,12 @@ Aztec is in active development and this has only been tested on MacOS. Please re
 :::
 
 :::note
-This tutorial is for the local network and will need adjustments if you want to use it on testnet. Install the local network [here](../../getting_started_on_local_network.md).
+This tutorial is for the local network and will need adjustments if you want to use it on testnet.
 :::
 
 ## Prerequisites
 
-For this tutorial, we will need to have the [Local Network](../aztec-cli/local-network-reference.md) installed.
+For this tutorial, we will need to have the [Local Network](../../getting_started_on_local_network.md) installed.
 
 We also need to install Secretive, a nice open-source package that allows us to store keys on the Secure Enclave. You can head to the [secretive releases page](https://github.com/maxgoedjen/secretive/releases) and get the last release's `zip`, unzip and move to Applications, or use [Homebrew](https://brew.sh/):
 
@@ -84,10 +84,10 @@ aztec-wallet get-alias accounts:my-faceid-wallet
 
 From here, you can deploy contracts, send transactions, and interact with the network - each transaction will prompt you to authenticate with TouchID or your password.
 
-Check out the [CLI Wallet Reference](./cli_wallet_reference.md) for the full set of available commands, or follow the [Getting Started on Local Network](../../getting_started_on_local_network.md) guide to deploy contracts and interact with the network using your new wallet.
+Check out the [CLI Wallet Reference](../cli/aztec_wallet_cli_reference.md) for the full set of available commands, or follow the [Getting Started on Local Network](../../getting_started_on_local_network.md) guide to deploy contracts and interact with the network using your new wallet.
 
 ### What next
 
-In this tutorial, we created an account with the Aztec's [CLI Wallet](./cli_wallet_reference.md), using the Apple Mac's Secure Enclave to store the private key.
+In this tutorial, we created an account with the Aztec's [CLI Wallet](../cli/aztec_wallet_cli_reference.md), using the Apple Mac's Secure Enclave to store the private key.
 
 You can use a multitude of authentication methods, for example with RSA you could use a passport as a recovery, or even as a signer in a multisig. All of this is based on the [account contract](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/noir-contracts/contracts/account).
