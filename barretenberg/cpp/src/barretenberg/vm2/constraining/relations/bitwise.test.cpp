@@ -579,5 +579,91 @@ TEST(BitwiseConstrainingTest, ExecBitwiseDispatchOnErrorFF)
     check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_bitwise_settings>(trace);
 }
 
+// =========================================================================
+// Audit-generated edge case tests
+// =========================================================================
+
+// Tests that start_sha256 must be boolean (0 or 1).
+// This test verifies that the constraint `start_sha256 * (1 - start_sha256) = 0` is enforced.
+TEST(BitwiseConstrainingTest, NegativeStartSha256NonBoolean)
+{
+    // Test with start_sha256 = 2 (non-boolean value)
+    TestTraceContainer trace({
+        {
+            { C::bitwise_start_sha256, 2 }, // Non-boolean value should fail
+        },
+    });
+
+    // Subrelation 3 is: start_sha256 * (1 - start_sha256) = 0
+    EXPECT_THROW_WITH_MESSAGE(check_relation<bitwise>(trace, 3UL), "");
+}
+
+// Tests that start_keccak must be boolean
+TEST(BitwiseConstrainingTest, NegativeStartKeccakNonBoolean)
+{
+    TestTraceContainer trace({
+        {
+            { C::bitwise_start_keccak, 2 }, // Non-boolean value should fail
+        },
+    });
+
+    // Subrelation 2 is: start_keccak * (1 - start_keccak) = 0
+    EXPECT_THROW_WITH_MESSAGE(check_relation<bitwise>(trace, 2UL), "");
+}
+
+// Edge case: XOR of identical values should yield 0
+TEST(BitwiseConstrainingTest, XorIdenticalValuesYieldsZero)
+{
+    TestTraceContainer trace;
+    BitwiseTraceBuilder builder;
+
+    std::vector<simulation::BitwiseEvent> events = {
+        { .operation = BitwiseOperation::XOR,
+          .a = MemoryValue::from<uint32_t>(0xDEADBEEF),
+          .b = MemoryValue::from<uint32_t>(0xDEADBEEF),
+          .res = 0 }, // x XOR x = 0
+    };
+
+    builder.process(events, trace);
+
+    check_relation<bitwise>(trace);
+}
+
+// Edge case: OR with all 1s should yield all 1s
+TEST(BitwiseConstrainingTest, OrWithMaxValue)
+{
+    TestTraceContainer trace;
+    BitwiseTraceBuilder builder;
+
+    std::vector<simulation::BitwiseEvent> events = {
+        { .operation = BitwiseOperation::OR,
+          .a = MemoryValue::from<uint32_t>(0xFFFFFFFF),
+          .b = MemoryValue::from<uint32_t>(0x12345678),
+          .res = 0xFFFFFFFF },
+    };
+
+    builder.process(events, trace);
+
+    check_relation<bitwise>(trace);
+}
+
+// Edge case: AND with 0 should yield 0
+TEST(BitwiseConstrainingTest, AndWithZero)
+{
+    TestTraceContainer trace;
+    BitwiseTraceBuilder builder;
+
+    std::vector<simulation::BitwiseEvent> events = {
+        { .operation = BitwiseOperation::AND,
+          .a = MemoryValue::from<uint32_t>(0xDEADBEEF),
+          .b = MemoryValue::from<uint32_t>(0x00000000),
+          .res = 0 },
+    };
+
+    builder.process(events, trace);
+
+    check_relation<bitwise>(trace);
+}
+
 } // namespace
 } // namespace bb::avm2::constraining
