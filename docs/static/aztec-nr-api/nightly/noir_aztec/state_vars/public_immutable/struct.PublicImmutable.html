@@ -87,57 +87,11 @@ typically useful for configuration data set during contract initialization. E.g.
     ...
 }</code></pre></div>
 <h2>Implementations</h2>
-<h3><code class="code-header">impl&lt;T&gt; <a href="../../../noir_aztec/state_vars/public_immutable/struct.PublicImmutable.html" class="struct">PublicImmutable</a>&lt;T, <a href="../../../noir_aztec/context/utility_context/struct.UtilityContext.html" class="struct">UtilityContext</a>&gt;</code></h3>
+<h3><code class="code-header">impl&lt;Context, T&gt; <a href="../../../noir_aztec/state_vars/public_immutable/struct.PublicImmutable.html" class="struct">PublicImmutable</a>&lt;T, Context&gt;</code></h3>
 
-<div class="padded-methods"><code id="read" class="code-header">pub unconstrained fn <a href="#read"><span class="fn">read</span></a>(self) -> T
-<div class="where-clause">where
-    T: <a href="../../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>,
-    T: <a href="../../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code>
+<div class="padded-methods"><code id="compute_initialization_nullifier" class="code-header">pub fn <a href="#compute_initialization_nullifier"><span class="fn">compute_initialization_nullifier</span></a>(self) -> <a href="../../../std/primitive.Field.html" class="primitive">Field</a></code>
 
-<div class="padded-description"><div class="comments">
-<p>Reads the permanent value stored in this PublicImmutable state variable.</p>
-<p>Notice that this function is executable only within a UtilityContext, which
-is an unconstrained environment on the user's local device.</p>
-<h4>Returns</h4>
-<ul>
-<li><code>T</code> - The permanent value stored in this PublicImmutable.</li>
-</ul>
-</div>
-</div></div><h3><code class="code-header">impl&lt;T&gt; <a href="../../../noir_aztec/state_vars/public_immutable/struct.PublicImmutable.html" class="struct">PublicImmutable</a>&lt;T, &mut <a href="../../../noir_aztec/context/private_context/struct.PrivateContext.html" class="struct">PrivateContext</a>&gt;</code></h3>
-
-<div class="padded-methods"><code id="read" class="code-header">pub fn <a href="#read"><span class="fn">read</span></a>(self) -> T
-<div class="where-clause">where
-    T: <a href="../../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>,
-    T: <a href="../../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code>
-
-<div class="padded-description"><div class="comments">
-<p>Reads the permanent value stored in this PublicImmutable from the anchor
-block.</p>
-<p>Private functions execute asynchronously and offchain. When a user begins
-private execution, their view of the chain 'branches off' from the current
-public state, since public state continues to advance while they execute
-privately. Therefore, private functions read from a historical snapshot of
-public state rather than the current state.</p>
-<h4>Returns</h4>
-<ul>
-<li><code>T</code> - The permanent value stored in this PublicImmutable at the historical
-block referenced by the private context.</li>
-</ul>
-<h4>Advanced</h4>
-<p>This function performs a historical read using the block header from the private
-context. The <code>WithHash</code> optimization is particularly valuable here because it
-reduces the number of required inclusion proofs by proving membership of
-only the hash instead of the full packed value.</p>
-<p>The historical read mechanism:</p>
-<ul>
-<li>Uses an oracle to obtain the value from the anchor block</li>
-<li>Proves inclusion of the value's hash in the public data tree</li>
-<li>Proves that the root of this public data tree is correct, relative to the
-anchor block header.</li>
-<li>Verifies that the oracle-provided value matches the stored hash</li>
-</ul>
-</div>
-</div></div><h3><code class="code-header">impl&lt;T&gt; <a href="../../../noir_aztec/state_vars/public_immutable/struct.PublicImmutable.html" class="struct">PublicImmutable</a>&lt;T, <a href="../../../noir_aztec/context/public_context/struct.PublicContext.html" class="struct">PublicContext</a>&gt;</code></h3>
+</div><h3><code class="code-header">impl&lt;T&gt; <a href="../../../noir_aztec/state_vars/public_immutable/struct.PublicImmutable.html" class="struct">PublicImmutable</a>&lt;T, <a href="../../../noir_aztec/context/public_context/struct.PublicContext.html" class="struct">PublicContext</a>&gt;</code></h3>
 
 <div class="padded-methods"><code id="initialize" class="code-header">pub fn <a href="#initialize"><span class="fn">initialize</span></a>(self, value: T)
 <div class="where-clause">where
@@ -209,11 +163,57 @@ to call than <code>read</code>.</p>
 uninitialized.</li>
 </ul>
 </div>
-</div></div><h3><code class="code-header">impl&lt;Context, T&gt; <a href="../../../noir_aztec/state_vars/public_immutable/struct.PublicImmutable.html" class="struct">PublicImmutable</a>&lt;T, Context&gt;</code></h3>
+</div></div><h3><code class="code-header">impl&lt;T&gt; <a href="../../../noir_aztec/state_vars/public_immutable/struct.PublicImmutable.html" class="struct">PublicImmutable</a>&lt;T, &mut <a href="../../../noir_aztec/context/private_context/struct.PrivateContext.html" class="struct">PrivateContext</a>&gt;</code></h3>
 
-<div class="padded-methods"><code id="compute_initialization_nullifier" class="code-header">pub fn <a href="#compute_initialization_nullifier"><span class="fn">compute_initialization_nullifier</span></a>(self) -> <a href="../../../std/primitive.Field.html" class="primitive">Field</a></code>
+<div class="padded-methods"><code id="read" class="code-header">pub fn <a href="#read"><span class="fn">read</span></a>(self) -> T
+<div class="where-clause">where
+    T: <a href="../../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>,
+    T: <a href="../../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code>
 
-</div><h2>Trait implementations</h2>
+<div class="padded-description"><div class="comments">
+<p>Reads the permanent value stored in this PublicImmutable from the anchor
+block.</p>
+<p>Private functions execute asynchronously and offchain. When a user begins
+private execution, their view of the chain 'branches off' from the current
+public state, since public state continues to advance while they execute
+privately. Therefore, private functions read from a historical snapshot of
+public state rather than the current state.</p>
+<h4>Returns</h4>
+<ul>
+<li><code>T</code> - The permanent value stored in this PublicImmutable at the historical
+block referenced by the private context.</li>
+</ul>
+<h4>Advanced</h4>
+<p>This function performs a historical read using the block header from the private
+context. The <code>WithHash</code> optimization is particularly valuable here because it
+reduces the number of required inclusion proofs by proving membership of
+only the hash instead of the full packed value.</p>
+<p>The historical read mechanism:</p>
+<ul>
+<li>Uses an oracle to obtain the value from the anchor block</li>
+<li>Proves inclusion of the value's hash in the public data tree</li>
+<li>Proves that the root of this public data tree is correct, relative to the
+anchor block header.</li>
+<li>Verifies that the oracle-provided value matches the stored hash</li>
+</ul>
+</div>
+</div></div><h3><code class="code-header">impl&lt;T&gt; <a href="../../../noir_aztec/state_vars/public_immutable/struct.PublicImmutable.html" class="struct">PublicImmutable</a>&lt;T, <a href="../../../noir_aztec/context/utility_context/struct.UtilityContext.html" class="struct">UtilityContext</a>&gt;</code></h3>
+
+<div class="padded-methods"><code id="read" class="code-header">pub unconstrained fn <a href="#read"><span class="fn">read</span></a>(self) -> T
+<div class="where-clause">where
+    T: <a href="../../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>,
+    T: <a href="../../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code>
+
+<div class="padded-description"><div class="comments">
+<p>Reads the permanent value stored in this PublicImmutable state variable.</p>
+<p>Notice that this function is executable only within a UtilityContext, which
+is an unconstrained environment on the user's local device.</p>
+<h4>Returns</h4>
+<ul>
+<li><code>T</code> - The permanent value stored in this PublicImmutable.</li>
+</ul>
+</div>
+</div></div><h2>Trait implementations</h2>
 <h3 id="impl-StateVariable&lt;M+1, Context&gt;-for-PublicImmutable<T, Context>"><code class="code-header">impl&lt;Context, let M: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, T&gt; <a href="../../../noir_aztec/state_vars/state_variable/trait.StateVariable.html" class="trait">StateVariable</a>&lt;M + 1, Context&gt; for <a href="../../../noir_aztec/state_vars/public_immutable/struct.PublicImmutable.html" class="struct">PublicImmutable</a>&lt;T, Context&gt;
 <div class="where-clause">where
     T: <a href="../../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>&lt;N = M&gt;</div></code></h3>
