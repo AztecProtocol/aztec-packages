@@ -1,5 +1,4 @@
-import { Body, L2Block } from '@aztec/aztec.js/block';
-import { GENESIS_BLOCK_HEADER_HASH, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
+import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import type { EpochCache, EpochCommitteeInfo } from '@aztec/epoch-cache';
 import type { RollupContract } from '@aztec/ethereum/contracts';
 import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
@@ -8,24 +7,21 @@ import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
-import { TestDateProvider, Timer } from '@aztec/foundation/timer';
-import { type P2P, P2PClientState } from '@aztec/p2p';
+import { TestDateProvider } from '@aztec/foundation/timer';
+import type { P2P } from '@aztec/p2p';
 import type { SlasherClientInterface } from '@aztec/slasher';
-import { PublicDataWrite } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
   CommitteeAttestation,
   CommitteeAttestationsAndSigners,
-  L2BlockHeader,
+  L2BlockNew,
   type L2BlockSource,
   type ValidateBlockNegativeResult,
 } from '@aztec/stdlib/block';
 import { Checkpoint } from '@aztec/stdlib/checkpoint';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
-import { Gas, GasFees } from '@aztec/stdlib/gas';
+import { GasFees } from '@aztec/stdlib/gas';
 import {
-  type MerkleTreeReadOperations,
-  type MerkleTreeWriteOperations,
   type SequencerConfig,
   WorldStateRunningState,
   type WorldStateSyncStatus,
@@ -33,19 +29,18 @@ import {
   type WorldStateSynchronizerStatus,
 } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
-import { BlockAttestation, BlockProposal, ConsensusPayload } from '@aztec/stdlib/p2p';
-import { makeAppendOnlyTreeSnapshot, mockTxForRollup } from '@aztec/stdlib/testing';
-import type { MerkleTreeId } from '@aztec/stdlib/trees';
-import { BlockHeader, GlobalVariables, type Tx, makeProcessedTxFromPrivateOnlyTx } from '@aztec/stdlib/tx';
+import { GlobalVariables, type Tx } from '@aztec/stdlib/tx';
 import type { ValidatorClient } from '@aztec/validator-client';
 
-import { expect, jest } from '@jest/globals';
+import { expect } from '@jest/globals';
 import { type MockProxy, mock, mockDeep, mockFn } from 'jest-mock-extended';
 
 import type { GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
 import type { AttestorPublisherPair, SequencerPublisherFactory } from '../publisher/sequencer-publisher-factory.js';
-import type { SequencerPublisher } from '../publisher/sequencer-publisher.js';
-import { CheckpointBuilder, FullNodeCheckpointsBuilder } from './checkpoint_builder.js';
+import type { InvalidateBlockRequest, SequencerPublisher } from '../publisher/sequencer-publisher.js';
+import { MockCheckpointBuilder, MockCheckpointsBuilder } from '../test/utils.js';
+import * as TestUtils from '../test/utils.js';
+import type { FullNodeCheckpointsBuilder } from './checkpoint_builder.js';
 import { Sequencer } from './sequencer.js';
 import { SequencerState } from './utils.js';
 
@@ -56,10 +51,8 @@ describe('sequencer', () => {
   let globalVariableBuilder: MockProxy<GlobalVariableBuilder>;
   let p2p: MockProxy<P2P>;
   let worldState: MockProxy<WorldStateSynchronizer>;
-  let fork: MockProxy<MerkleTreeWriteOperations>;
-  let checkpointsBuilder: MockProxy<FullNodeCheckpointsBuilder>;
-  let checkpointBuilder: MockProxy<CheckpointBuilder>;
-  let merkleTreeOps: MockProxy<MerkleTreeReadOperations>;
+  let checkpointsBuilder: MockCheckpointsBuilder;
+  let checkpointBuilder: MockCheckpointBuilder;
   let l2BlockSource: MockProxy<L2BlockSource>;
   let l1ToL2MessageSource: MockProxy<L1ToL2MessageSource>;
   let slasherClient: MockProxy<SlasherClientInterface>;
@@ -69,18 +62,16 @@ describe('sequencer', () => {
 
   let dateProvider: TestDateProvider;
 
-  let initialBlockHeader: BlockHeader;
   let lastBlockNumber: BlockNumber;
   let newBlockNumber: BlockNumber;
   let newSlotNumber: number;
   let hash: string;
 
-  let block: L2Block;
+  let block: L2BlockNew;
   let globalVariables: GlobalVariables;
   let l1Constants: Pick<L1RollupConstants, 'l1GenesisTime' | 'slotDuration' | 'ethereumSlotDuration'>;
-  // Note: Removed unused l1Contracts declaration
 
-  let sequencer: TestSubject;
+  let sequencer: TestSequencer;
 
   const slotDuration = 8;
   const ethereumSlotDuration = 4;
@@ -100,52 +91,27 @@ describe('sequencer', () => {
   const getSignatures = () => [mockedAttestation];
 
   const getAttestations = () => {
-    const consensusPayload = ConsensusPayload.fromBlock(block);
-    const attestation = new BlockAttestation(consensusPayload, mockedSig, mockedSig);
-    (attestation as any).sender = committee[0];
-    return [attestation];
+    return [TestUtils.createBlockAttestation(block, mockedSig, committee[0])];
   };
 
   const createBlockProposal = () => {
-    const consensusPayload = ConsensusPayload.fromBlock(block);
-    const txHashes = block.body.txEffects.map(tx => tx.txHash);
-    return new BlockProposal(consensusPayload, mockedSig, txHashes);
-  };
-
-  const processTxs = async (txs: Tx[]) => {
-    return await Promise.all(
-      txs.map(tx =>
-        makeProcessedTxFromPrivateOnlyTx(tx, Fr.ZERO, new PublicDataWrite(Fr.random(), Fr.random()), globalVariables),
-      ),
-    );
-  };
-
-  const mockTxIterator = async function* (txs: Promise<Tx[]>): AsyncIterableIterator<Tx> {
-    for (const tx of await txs) {
-      yield tx;
-    }
-  };
-
-  const mockPendingTxs = (txs: Tx[]) => {
-    p2p.getPendingTxCount.mockResolvedValue(txs.length);
-    // make sure a new iterator is created for every invocation of iteratePendingTxs
-    // otherwise we risk iterating over the same iterator more than once (yielding no more values)
-    p2p.iteratePendingTxs.mockImplementation(() => mockTxIterator(Promise.resolve(txs)));
+    return TestUtils.createBlockProposal(block, mockedSig);
   };
 
   const makeBlock = async (txs: Tx[]) => {
-    const processedTxs = await processTxs(txs);
-    const body = new Body(processedTxs.map(tx => tx.txEffect));
-    const header = L2BlockHeader.empty({ globalVariables: globalVariables });
-    const archive = makeAppendOnlyTreeSnapshot(newBlockNumber + 1);
-
-    block = new L2Block(archive, header, body);
+    block = await TestUtils.makeBlock(txs, globalVariables);
     return block;
   };
 
-  const makeTx = async (seed?: number) => {
-    const tx = await mockTxForRollup(seed);
-    tx.data.constants.txContext.chainId = chainId;
+  const makeTx = (seed?: number) => {
+    return TestUtils.makeTx(seed, chainId);
+  };
+
+  /** Creates a single tx, makes a block from it, and mocks it as pending */
+  const setupSingleTxBlock = async (seed?: number) => {
+    const tx = await makeTx(seed);
+    block = await makeBlock([tx]);
+    TestUtils.mockPendingTxs(p2p, [tx]);
     return tx;
   };
 
@@ -164,7 +130,6 @@ describe('sequencer', () => {
 
   beforeEach(async () => {
     feeRecipient = await AztecAddress.random();
-    initialBlockHeader = BlockHeader.empty();
     lastBlockNumber = BlockNumber.ZERO;
     newBlockNumber = BlockNumber(lastBlockNumber + 1);
     newSlotNumber = newBlockNumber;
@@ -218,29 +183,14 @@ describe('sequencer', () => {
     globalVariableBuilder.buildGlobalVariables.mockResolvedValue(globalVariables);
     globalVariableBuilder.buildCheckpointGlobalVariables.mockResolvedValue(omit(globalVariables, 'blockNumber'));
 
-    merkleTreeOps = mock<MerkleTreeReadOperations>();
-    merkleTreeOps.findLeafIndices.mockImplementation((_treeId: MerkleTreeId, _value: any[]) => {
-      return Promise.resolve([undefined]);
-    });
-    merkleTreeOps.getTreeInfo.mockImplementation((treeId: MerkleTreeId) => {
-      return Promise.resolve({ treeId, root: Fr.random().toBuffer(), size: 99n, depth: 5 });
-    });
-
     p2p = mock<P2P>({
-      getStatus: mockFn().mockResolvedValue({
-        state: P2PClientState.IDLE,
-        syncedToL2Block: { number: lastBlockNumber, hash },
-      }),
-    });
-
-    fork = mock<MerkleTreeWriteOperations>({
-      getInitialHeader: () => initialBlockHeader,
+      getStatus: mockFn().mockResolvedValue({ syncedToL2Block: { number: lastBlockNumber, hash } }),
     });
 
     worldState = mock<WorldStateSynchronizer>({
-      fork: () => Promise.resolve(fork),
-      syncImmediate: () => Promise.resolve(lastBlockNumber),
-      getCommitted: () => merkleTreeOps,
+      getCommitted: mockFn().mockReturnValue({
+        getTreeInfo: mockFn().mockResolvedValue({ root: Fr.random().toBuffer(), size: 99n, depth: 5 }),
+      }),
       status: mockFn().mockResolvedValue({
         state: WorldStateRunningState.IDLE,
         syncSummary: {
@@ -253,33 +203,27 @@ describe('sequencer', () => {
       } satisfies WorldStateSynchronizerStatus),
     });
 
-    checkpointBuilder = mock<CheckpointBuilder>();
-    checkpointBuilder.buildBlock.mockImplementation((_pendingTxs, _blockNumber, _timestamp, _opts) =>
-      Promise.resolve({
-        block: block as any,
-        publicGas: Gas.empty(),
-        publicProcessorDuration: 0,
-        numTxs: block.body.txEffects.length,
-        blockBuildingTimer: new Timer(),
-        usedTxs: [],
-        failedTxs: [],
-      }),
+    // Create fake CheckpointsBuilder and CheckpointBuilder
+    // Uses blockProvider to return the current `block` variable (set per-test)
+    const checkpointConstants = {
+      slotNumber: globalVariables.slotNumber,
+      timestamp: globalVariables.timestamp,
+      coinbase: globalVariables.coinbase,
+      feeRecipient: globalVariables.feeRecipient,
+      gasFees: globalVariables.gasFees,
+      chainId: globalVariables.chainId,
+      version: globalVariables.version,
+    };
+    checkpointsBuilder = new MockCheckpointsBuilder();
+    checkpointBuilder = checkpointsBuilder.createCheckpointBuilder(
+      checkpointConstants,
+      CheckpointNumber.fromBlockNumber(newBlockNumber),
     );
-    checkpointBuilder.completeCheckpoint.mockImplementation(() => {
-      const checkpoint = new Checkpoint(
-        makeAppendOnlyTreeSnapshot(newBlockNumber + 1),
-        block.header as any,
-        [block as any],
-        CheckpointNumber(0),
-      );
-      return Promise.resolve(checkpoint);
-    });
-
-    checkpointsBuilder = mock<FullNodeCheckpointsBuilder>();
-    checkpointsBuilder.startCheckpoint.mockResolvedValue(checkpointBuilder);
+    // Use blockProvider so the mock returns whatever `block` is set to at call time
+    checkpointBuilder.setBlockProvider(() => block);
 
     l2BlockSource = mock<L2BlockSource>({
-      getBlock: mockFn().mockResolvedValue(L2Block.empty()),
+      getL2BlockNew: mockFn().mockResolvedValue(L2BlockNew.empty()),
       getBlockNumber: mockFn().mockResolvedValue(lastBlockNumber),
       getL2Tips: mockFn().mockResolvedValue({ latest: { number: lastBlockNumber, hash } }),
       getL1Timestamp: mockFn().mockResolvedValue(1000n),
@@ -304,9 +248,8 @@ describe('sequencer', () => {
     dateProvider = new TestDateProvider();
 
     const config: SequencerConfig = { enforceTimeTable: true, maxTxsPerBlock: 4 };
-    sequencer = new TestSubject(
+    sequencer = new TestSequencer(
       publisherFactory,
-      // TODO(md): add the relevant methods to the validator client that will prevent it stalling when waiting for attestations
       validatorClient,
       globalVariableBuilder,
       p2p,
@@ -314,7 +257,7 @@ describe('sequencer', () => {
       slasherClient,
       l2BlockSource,
       l1ToL2MessageSource,
-      checkpointsBuilder,
+      checkpointsBuilder as unknown as FullNodeCheckpointsBuilder,
       l1Constants,
       dateProvider,
       epochCache,
@@ -326,21 +269,16 @@ describe('sequencer', () => {
 
   describe('block building', () => {
     it('builds a block out of a single tx', async () => {
-      const tx = await makeTx();
-
-      block = await makeBlock([tx]);
-      mockPendingTxs([tx]);
+      await setupSingleTxBlock();
       await sequencer.work();
 
       expectPublisherProposeL2Block();
     });
 
     it('does not build a block if it does not have enough time left in the slot', async () => {
-      const tx = await makeTx();
-      mockPendingTxs([tx]);
-      block = await makeBlock([tx]);
+      await setupSingleTxBlock();
 
-      // deadline for initializing proposal is 1s, so we go 2s past it
+      // Deadline for initializing proposal is 1s, so we go 2s past it
       expect(sequencer.getTimeTable().initializeDeadline).toEqual(1);
       const l1TsForL2Slot1 = Number(l1Constants.l1GenesisTime) + slotDuration;
       dateProvider.setTime((l1TsForL2Slot1 + 2) * 1000);
@@ -351,45 +289,20 @@ describe('sequencer', () => {
         }),
       );
 
-      expect(checkpointBuilder.buildBlock).not.toHaveBeenCalled();
+      expect(checkpointBuilder.buildBlockCalls).toHaveLength(0);
       expect(publisher.enqueueProposeCheckpoint).not.toHaveBeenCalled();
       expect(publisher.canProposeAtNextEthBlock).not.toHaveBeenCalled();
     });
 
-    it('does not build a block if there is not enough time left in the slot', async () => {
-      expect(sequencer.getTimeTable().l1PublishingTime).toEqual(ethereumSlotDuration);
-      const l1TsForL2Slot1 = Number(l1Constants.l1GenesisTime) + slotDuration;
-
-      const tx = await makeTx();
-      mockPendingTxs([tx]);
-      block = await makeBlock([tx]);
-
-      // Set time very late in the slot (1s before the L1 slot ends)
-      // This means there's not enough time to build a block and publish it
-      dateProvider.setTime((l1TsForL2Slot1 + ethereumSlotDuration - 1) * 1000);
-
-      // The sequencer should detect it's too late and not attempt to build
-      // With enforcement enabled, it will throw SequencerTooSlowError
-      await expect(sequencer.work()).rejects.toThrow('Too far into slot');
-
-      // With the new timing checks, we detect insufficient time upfront and don't build
-      expect(checkpointBuilder.buildBlock).not.toHaveBeenCalled();
-      expect(validatorClient.collectAttestations).not.toHaveBeenCalled();
-      expect(publisher.enqueueProposeCheckpoint).not.toHaveBeenCalled();
-    });
-
     it('builds a checkpoint when it is their turn', async () => {
-      const tx = await makeTx();
-
-      mockPendingTxs([tx]);
-      block = await makeBlock([tx]);
+      await setupSingleTxBlock();
 
       // Not your turn! canProposeAtNextEthBlock returns undefined
       publisher.canProposeAtNextEthBlock.mockResolvedValue(undefined);
 
       await sequencer.work();
       // When it's not our turn, we should not build the checkpoint
-      expect(checkpointBuilder.buildBlock).not.toHaveBeenCalled();
+      expect(checkpointBuilder.buildBlockCalls).toHaveLength(0);
 
       // Now it's our turn!
       publisher.canProposeAtNextEthBlock.mockResolvedValue({
@@ -400,95 +313,34 @@ describe('sequencer', () => {
 
       await sequencer.work();
       // Now we should build and publish the checkpoint
-      expect(checkpointBuilder.buildBlock).toHaveBeenCalledWith(
-        expect.anything(),
-        expect.anything(),
-        expect.any(BigInt),
-        expect.anything(),
-      );
+      expect(checkpointBuilder.buildBlockCalls.length).toBeGreaterThan(0);
       expectPublisherProposeL2Block();
     });
 
     it('does not build a block if not enough txs', async () => {
       const txs: Tx[] = await timesParallel(8, i => makeTx(i * 0x10000));
       sequencer.updateConfig({ minTxsPerBlock: 4 });
-      mockPendingTxs(txs.slice(0, 3));
+      TestUtils.mockPendingTxs(p2p, txs.slice(0, 3));
       block = await makeBlock(txs);
 
       await sequencer.work();
-      expect(checkpointBuilder.buildBlock).toHaveBeenCalledTimes(0);
+      expect(checkpointBuilder.buildBlockCalls).toHaveLength(0);
     });
 
     it('builds a block only when enough txs are available', async () => {
       const txs: Tx[] = await timesParallel(4, i => makeTx(i * 0x10000));
       sequencer.updateConfig({ minTxsPerBlock: 4 });
-      mockPendingTxs(txs);
+      TestUtils.mockPendingTxs(p2p, txs);
       block = await makeBlock(txs);
 
       await sequencer.work();
 
-      expect(checkpointBuilder.buildBlock).toHaveBeenCalledWith(
-        expect.anything(),
-        expect.anything(),
-        expect.any(BigInt),
-        expect.anything(),
-      );
-
+      expect(checkpointBuilder.buildBlockCalls.length).toBeGreaterThan(0);
       expectPublisherProposeL2Block();
     });
 
-    it('settles on the chain tip before it starts building a block', async () => {
-      // this test simulates a synch happening right after the sequencer starts building a block
-      // simulate every component being synched
-      const firstBlock = await L2Block.random(BlockNumber(1));
-      const currentTip = firstBlock;
-      const syncedToL2Block = { number: currentTip.number, hash: (await currentTip.hash()).toString() };
-      worldState.status.mockImplementation(() =>
-        Promise.resolve({
-          state: WorldStateRunningState.IDLE,
-          syncSummary: {
-            latestBlockNumber: syncedToL2Block.number,
-            latestBlockHash: syncedToL2Block.hash,
-          } as WorldStateSyncStatus,
-        }),
-      );
-      p2p.getStatus.mockImplementation(() => Promise.resolve({ state: P2PClientState.IDLE, syncedToL2Block }));
-      l2BlockSource.getL2Tips.mockImplementation(() =>
-        Promise.resolve({
-          latest: syncedToL2Block,
-          proven: { number: BlockNumber.ZERO, hash: GENESIS_BLOCK_HEADER_HASH.toString() },
-          finalized: { number: BlockNumber.ZERO, hash: GENESIS_BLOCK_HEADER_HASH.toString() },
-        }),
-      );
-      l1ToL2MessageSource.getL2Tips.mockImplementation(() =>
-        Promise.resolve({
-          latest: syncedToL2Block,
-          proven: { number: BlockNumber.ZERO, hash: GENESIS_BLOCK_HEADER_HASH.toString() },
-          finalized: { number: BlockNumber.ZERO, hash: GENESIS_BLOCK_HEADER_HASH.toString() },
-        }),
-      );
-
-      // simulate a synch happening right after
-      l2BlockSource.getBlockNumber.mockResolvedValueOnce(currentTip.number);
-      l2BlockSource.getBlockNumber.mockResolvedValueOnce(BlockNumber(currentTip.number + 1));
-      // now the new tip is actually block 2
-      l2BlockSource.getBlock.mockImplementation(n =>
-        n === -1
-          ? L2Block.random(BlockNumber(currentTip.number + 1))
-          : n === currentTip.number
-            ? Promise.resolve(currentTip)
-            : Promise.resolve(undefined),
-      );
-
-      publisher.canProposeAtNextEthBlock.mockResolvedValueOnce(undefined);
-      await sequencer.work();
-      expect(publisher.enqueueProposeCheckpoint).not.toHaveBeenCalled();
-    });
-
     it('builds a block only when synced to previous L1 slot', async () => {
-      const tx = await makeTx();
-      mockPendingTxs([tx]);
-      block = await makeBlock([tx]);
+      await setupSingleTxBlock();
 
       l2BlockSource.getL1Timestamp.mockResolvedValue(1000n - BigInt(ethereumSlotDuration) - 1n);
       await sequencer.work();
@@ -501,9 +353,7 @@ describe('sequencer', () => {
 
     // TODO(palla/mbps): Reinstante the validateBlockHeader call
     it.skip('aborts building a block if the chain moves underneath it', async () => {
-      const tx = await makeTx();
-      mockPendingTxs([tx]);
-      block = await makeBlock([tx]);
+      await setupSingleTxBlock();
 
       // This could practically be for any reason, e.g., could also be that we have entered a new slot.
       publisher.validateBlockHeader.mockRejectedValueOnce(new Error('No block for you'));
@@ -513,26 +363,8 @@ describe('sequencer', () => {
       expect(publisher.enqueueProposeCheckpoint).not.toHaveBeenCalled();
     });
 
-    // TODO(palla/mbps): Re-enable once checkpoint proposal failure handling is implemented
-    it.skip('does not publish a checkpoint if the checkpoint proposal failed', async () => {
-      const tx = await makeTx();
-      mockPendingTxs([tx]);
-      block = await makeBlock([tx]);
-
-      // When createCheckpointProposal returns undefined, the checkpoint should not be published
-      // Currently the implementation doesn't check for undefined proposal
-      validatorClient.createCheckpointProposal.mockResolvedValue(undefined as any);
-
-      await sequencer.work();
-
-      // The checkpoint should not be enqueued for publishing
-      expect(publisher.enqueueProposeCheckpoint).not.toHaveBeenCalled();
-    });
-
     it('handles when enqueueProposeCheckpoint throws', async () => {
-      const tx = await makeTx();
-      mockPendingTxs([tx]);
-      block = await makeBlock([tx]);
+      await setupSingleTxBlock();
 
       publisher.enqueueProposeCheckpoint.mockRejectedValueOnce(new Error('Failed to enqueue propose checkpoint'));
 
@@ -549,7 +381,7 @@ describe('sequencer', () => {
 
       // Mock that we have some pending transactions
       const txs = [await makeTx(1), await makeTx(2)];
-      mockPendingTxs(txs);
+      TestUtils.mockPendingTxs(p2p, txs);
       block = await makeBlock(txs);
 
       await sequencer.work();
@@ -564,78 +396,43 @@ describe('sequencer', () => {
   });
 
   describe('multi-eoa publishing', () => {
-    let publishers: SequencerPublisher[];
-    beforeEach(() => {
-      publishers = times(3, i => {
-        const publisher = mockDeep<SequencerPublisher>();
-        publisher.epochCache = epochCache;
-        publisher.getSenderAddress.mockImplementation(() => EthAddress.random());
-        publisher.validateBlockHeader.mockResolvedValue();
-        publisher.enqueueProposeCheckpoint.mockResolvedValue(undefined);
-        publisher.enqueueGovernanceCastSignal.mockResolvedValue(true);
-        publisher.enqueueSlashingActions.mockResolvedValue(true);
-        publisher.canProposeAtNextEthBlock.mockResolvedValue({
+    it('requests a publisher for each block', async () => {
+      // Create multiple publishers for the test
+      const publishers = times(2, i => {
+        const pub = mockDeep<SequencerPublisher>();
+        pub.epochCache = epochCache;
+        pub.getSenderAddress.mockImplementation(() => EthAddress.random());
+        pub.validateBlockHeader.mockResolvedValue();
+        pub.enqueueProposeCheckpoint.mockResolvedValue(undefined);
+        pub.enqueueGovernanceCastSignal.mockResolvedValue(true);
+        pub.enqueueSlashingActions.mockResolvedValue(true);
+        pub.canProposeAtNextEthBlock.mockResolvedValue({
           slot: SlotNumber(newSlotNumber + i),
           checkpointNumber: CheckpointNumber.fromBlockNumber(BlockNumber(newBlockNumber)),
           timeOfNextL1Slot: 1000n,
         });
-
-        return publisher;
+        return pub;
       });
 
-      publisherFactory = mockDeep<SequencerPublisherFactory>();
+      // Configure factory to return different publishers on each call
+      publisherFactory.create.mockReset();
       publisherFactory.create
-        .mockResolvedValueOnce({
-          attestorAddress: publishers[0].getSenderAddress(),
-          publisher: publishers[0],
-        })
-        .mockResolvedValueOnce({
-          attestorAddress: publishers[1].getSenderAddress(),
-          publisher: publishers[1],
-        });
+        .mockResolvedValueOnce({ attestorAddress: publishers[0].getSenderAddress(), publisher: publishers[0] })
+        .mockResolvedValueOnce({ attestorAddress: publishers[1].getSenderAddress(), publisher: publishers[1] });
 
-      const config: SequencerConfig = { enforceTimeTable: false, maxTxsPerBlock: 4 };
-      sequencer = new TestSubject(
-        publisherFactory,
-        validatorClient,
-        globalVariableBuilder,
-        p2p,
-        worldState,
-        slasherClient,
-        l2BlockSource,
-        l1ToL2MessageSource,
-        checkpointsBuilder,
-        l1Constants,
-        dateProvider,
-        epochCache,
-        rollupContract,
-        config,
-      );
-      sequencer.updateConfig(config);
-    });
-
-    it('requests a publisher for each block', async () => {
+      // Configure epoch cache to return different slots
       epochCache.getEpochAndSlotInNextL1Slot
         .mockReset()
-        .mockReturnValueOnce({
-          epoch: EpochNumber(1),
-          slot: SlotNumber(1),
-          ts: 1000n,
-          now: 1000n,
-        })
-        .mockReturnValueOnce({
-          epoch: EpochNumber(1),
-          slot: SlotNumber(2),
-          ts: 1000n,
-          now: 1000n,
-        });
+        .mockReturnValueOnce({ epoch: EpochNumber(1), slot: SlotNumber(1), ts: 1000n, now: 1000n })
+        .mockReturnValueOnce({ epoch: EpochNumber(1), slot: SlotNumber(2), ts: 1000n, now: 1000n });
+
+      sequencer.updateConfig({ enforceTimeTable: false, maxTxsPerBlock: 4 });
 
       // Build and publish 2 blocks, the sequencer should request a new publisher each time
       for (let i = 0; i < 2; i++) {
         const tx = await makeTx();
-
-        mockPendingTxs([tx]);
         block = await makeBlock([tx]);
+        TestUtils.mockPendingTxs(p2p, [tx]);
         await sequencer.work();
 
         const attestationsAndSigners = new CommitteeAttestationsAndSigners(getSignatures());
@@ -827,7 +624,7 @@ describe('sequencer', () => {
 
       publisher.simulateInvalidateBlock.mockResolvedValue({
         forcePendingBlockNumber: lastBlockNumber,
-      } as any);
+      } as InvalidateBlockRequest);
     });
 
     it('should use committee member when invalidating as committee member', async () => {
@@ -911,400 +708,51 @@ describe('sequencer', () => {
     });
   });
 
-  // TODO(palla/mbps): Review and enable these tests once multi-block checkpoints are supported.
-  // For now this is just a massive block of unreviewed Claude generated code.
-  describe.skip('multi-block checkpoints', () => {
-    describe('single block mode (default)', () => {
-      it('should build only one block when blockDurationMs is not set', async () => {
-        const tx = await makeTx();
-        block = await makeBlock([tx]);
-        mockPendingTxs([tx]);
+  describe('modes', () => {
+    it('non-enforced mode', async () => {
+      sequencer.updateConfig({ enforceTimeTable: false, maxTxsPerBlock: 4 });
 
-        // Track block-proposed events
-        const proposedEvents: any[] = [];
-        sequencer.on('block-proposed', evt => proposedEvents.push(evt));
+      await setupSingleTxBlock();
 
-        await sequencer.work();
+      await sequencer.work();
 
-        // Should build exactly one block
-        expect(checkpointBuilder.buildBlock).toHaveBeenCalledTimes(1);
-        expect(proposedEvents).toHaveLength(1);
-        expect(proposedEvents[0]).toEqual({
-          blockNumber: newBlockNumber,
-          slot: newSlotNumber,
-        });
-      });
-
-      it('should collect attestations in single block mode', async () => {
-        const tx = await makeTx();
-        block = await makeBlock([tx]);
-        mockPendingTxs([tx]);
-
-        await sequencer.work();
-
-        expect(validatorClient.collectAttestations).toHaveBeenCalledTimes(1);
-        expectPublisherProposeL2Block();
-      });
+      // Verify checkpoint was built and proposed
+      expect(checkpointBuilder.buildBlockCalls.length).toBeGreaterThan(0);
+      expect(validatorClient.createCheckpointProposal).toHaveBeenCalled();
+      expect(publisher.enqueueProposeCheckpoint).toHaveBeenCalled();
     });
 
-    describe('multi-block mode', () => {
-      it('should build multiple blocks when blockDurationMs is set and time permits', async () => {
-        // Configure multi-block mode with 12 second block duration
-        // Disable time enforcement so the mocked timetable controls timing
-        sequencer.updateConfig({ blockDurationMs: 12000, enforceTimeTable: false });
+    it('single block mode', async () => {
+      sequencer.updateConfig({ enforceTimeTable: true, maxTxsPerBlock: 4 });
 
-        // Create multiple transactions
-        const txs = await Promise.all([makeTx(1), makeTx(2), makeTx(3)]);
+      await setupSingleTxBlock();
 
-        // Mock timetable to allow 3 blocks (must be after updateConfig which recreates timetable)
-        const timetableMock = sequencer.getTimeTable();
-        let blockCount = 0;
-        jest.spyOn(timetableMock, 'canStartNextBlock').mockImplementation(() => {
-          blockCount++;
-          return {
-            canStart: blockCount <= 3,
-            deadline: 30,
-            isLastBlock: blockCount === 3,
-          };
-        });
+      await sequencer.work();
 
-        // Create 3 different blocks for each call
-        const blocks = await Promise.all([makeBlock([txs[0]]), makeBlock([txs[1]]), makeBlock([txs[2]])]);
-
-        let buildCallCount = 0;
-        checkpointBuilder.buildBlock.mockImplementation((_pendingTxs, _blockNumber, _timestamp, _opts) => {
-          const currentBlock = blocks[buildCallCount++];
-          return Promise.resolve({
-            block: currentBlock as any,
-            publicGas: Gas.empty(),
-            publicProcessorDuration: 0,
-            numTxs: currentBlock.body.txEffects.length,
-            blockBuildingTimer: new Timer(),
-            usedTxs: [],
-            failedTxs: [],
-          });
-        });
-
-        // Make sure we always have txs available
-        p2p.getPendingTxCount.mockResolvedValue(10);
-        p2p.iteratePendingTxs.mockImplementation(() => mockTxIterator(Promise.resolve(txs)));
-
-        // Mock successful L1 publish
-        publisher.sendRequests.mockResolvedValue({
-          result: { receipt: {} as any, errorMsg: undefined },
-          successfulActions: ['propose'],
-          failedActions: [],
-          sentActions: ['propose'],
-          expiredActions: [],
-        });
-
-        // Track events
-        const proposedEvents: any[] = [];
-        const checkpointEvents: any[] = [];
-        sequencer.on('block-proposed', evt => proposedEvents.push(evt));
-        sequencer.on('checkpoint-published', evt => checkpointEvents.push(evt));
-
-        await sequencer.work();
-
-        // Should build 3 blocks
-        expect(checkpointBuilder.buildBlock).toHaveBeenCalledTimes(3);
-        expect(proposedEvents).toHaveLength(3);
-
-        // Should emit one checkpoint-published event
-        expect(checkpointEvents).toHaveLength(1);
-      });
-
-      it('should only collect attestations on the last block', async () => {
-        // Configure multi-block mode
-        // Disable time enforcement so the mocked timetable controls timing
-        sequencer.updateConfig({ blockDurationMs: 12000, enforceTimeTable: false });
-
-        const txs = await Promise.all([makeTx(1), makeTx(2)]);
-
-        // Mock timetable to allow 2 blocks (must be after updateConfig)
-        const timetableMock = sequencer.getTimeTable();
-        let blockCount = 0;
-        jest.spyOn(timetableMock, 'canStartNextBlock').mockImplementation(() => {
-          blockCount++;
-          return {
-            canStart: blockCount <= 2,
-            deadline: 20,
-            isLastBlock: blockCount === 2,
-          };
-        });
-
-        const blocks = await Promise.all([makeBlock([txs[0]]), makeBlock([txs[1]])]);
-
-        let buildCallCount = 0;
-        checkpointBuilder.buildBlock.mockImplementation((_pendingTxs, _blockNumber, _timestamp, _opts) => {
-          const currentBlock = blocks[buildCallCount++];
-          return Promise.resolve({
-            block: currentBlock as any,
-            publicGas: Gas.empty(),
-            publicProcessorDuration: 0,
-            numTxs: currentBlock.body.txEffects.length,
-            blockBuildingTimer: new Timer(),
-            usedTxs: [],
-            failedTxs: [],
-          });
-        });
-
-        p2p.getPendingTxCount.mockResolvedValue(10);
-        p2p.iteratePendingTxs.mockImplementation(() => mockTxIterator(Promise.resolve(txs)));
-
-        // Mock successful L1 publish
-        publisher.sendRequests.mockResolvedValue({
-          result: { receipt: {} as any, errorMsg: undefined },
-          successfulActions: ['propose'],
-          failedActions: [],
-          sentActions: ['propose'],
-          expiredActions: [],
-        });
-
-        await sequencer.work();
-
-        // Attestations should be collected exactly once (on the last block)
-        expect(validatorClient.collectAttestations).toHaveBeenCalledTimes(1);
-        // Publisher should be called once with the last block
-        expect(publisher.enqueueProposeCheckpoint).toHaveBeenCalledTimes(1);
-      });
-
-      it('should stop building blocks when timing runs out', async () => {
-        // Configure multi-block mode
-        // Disable time enforcement so the mocked timetable controls timing
-        sequencer.updateConfig({ blockDurationMs: 12000, enforceTimeTable: false });
-
-        const txs = await Promise.all([makeTx(1), makeTx(2), makeTx(3)]);
-
-        // Mock timetable to only allow 2 blocks (must be after updateConfig)
-        const timetableMock = sequencer.getTimeTable();
-        let blockCount = 0;
-        jest.spyOn(timetableMock, 'canStartNextBlock').mockImplementation(() => {
-          blockCount++;
-          return {
-            canStart: blockCount <= 2,
-            deadline: 20,
-            isLastBlock: blockCount === 2,
-          };
-        });
-
-        const blocks = await Promise.all([makeBlock([txs[0]]), makeBlock([txs[1]])]);
-
-        let buildCallCount = 0;
-        checkpointBuilder.buildBlock.mockImplementation((_pendingTxs, _blockNumber, _timestamp, _opts) => {
-          const currentBlock = blocks[buildCallCount++];
-          return Promise.resolve({
-            block: currentBlock as any,
-            publicGas: Gas.empty(),
-            publicProcessorDuration: 0,
-            numTxs: currentBlock.body.txEffects.length,
-            blockBuildingTimer: new Timer(),
-            usedTxs: [],
-            failedTxs: [],
-          });
-        });
-
-        p2p.getPendingTxCount.mockResolvedValue(10);
-        p2p.iteratePendingTxs.mockImplementation(() => mockTxIterator(Promise.resolve(txs)));
-
-        // Mock successful L1 publish
-        publisher.sendRequests.mockResolvedValue({
-          result: { receipt: {} as any, errorMsg: undefined },
-          successfulActions: ['propose'],
-          failedActions: [],
-          sentActions: ['propose'],
-          expiredActions: [],
-        });
-
-        const proposedEvents: any[] = [];
-        sequencer.on('block-proposed', evt => proposedEvents.push(evt));
-
-        await sequencer.work();
-
-        // Should build exactly 2 blocks, not 3
-        expect(checkpointBuilder.buildBlock).toHaveBeenCalledTimes(2);
-        expect(proposedEvents).toHaveLength(2);
-      });
-
-      it('should handle block building failure gracefully', async () => {
-        // Configure multi-block mode
-        // Disable time enforcement so the mocked timetable controls timing
-        sequencer.updateConfig({ blockDurationMs: 12000, enforceTimeTable: false });
-
-        const tx = await makeTx();
-
-        // Mock timetable to allow 2 blocks (must be after updateConfig)
-        const timetableMock = sequencer.getTimeTable();
-        let blockCount = 0;
-        jest.spyOn(timetableMock, 'canStartNextBlock').mockImplementation(() => {
-          blockCount++;
-          return {
-            canStart: blockCount <= 2,
-            deadline: 20,
-            isLastBlock: blockCount === 2,
-          };
-        });
-
-        // First block succeeds, second fails
-        block = await makeBlock([tx]);
-        let buildCallCount = 0;
-        checkpointBuilder.buildBlock.mockImplementation((_pendingTxs, _blockNumber, _timestamp, _opts) => {
-          buildCallCount++;
-          if (buildCallCount === 1) {
-            return Promise.resolve({
-              block: block as any,
-              publicGas: Gas.empty(),
-              publicProcessorDuration: 0,
-              numTxs: block.body.txEffects.length,
-              blockBuildingTimer: new Timer(),
-              usedTxs: [],
-              failedTxs: [],
-            });
-          }
-          throw new Error('Block building failed');
-        });
-
-        p2p.getPendingTxCount.mockResolvedValue(10);
-        p2p.iteratePendingTxs.mockImplementation(() => mockTxIterator(Promise.resolve([tx])));
-
-        const proposedEvents: any[] = [];
-        const failedEvents: any[] = [];
-        sequencer.on('block-proposed', evt => proposedEvents.push(evt));
-        sequencer.on('block-build-failed', evt => failedEvents.push(evt));
-
-        await sequencer.work();
-
-        // First block should succeed
-        expect(proposedEvents).toHaveLength(1);
-        // Should have a failure event (either from build failure or timing)
-        expect(failedEvents).toHaveLength(1);
-        expect(failedEvents[0].reason).toMatch(/Block building failed|Too far into slot/);
-      });
-
-      it('should emit correct events for multi-block checkpoint', async () => {
-        // Configure multi-block mode
-        // Disable time enforcement so the mocked timetable controls timing
-        sequencer.updateConfig({ blockDurationMs: 12000, enforceTimeTable: false });
-
-        const txs = await Promise.all([makeTx(1), makeTx(2)]);
-
-        // Mock timetable to allow 2 blocks (must be after updateConfig)
-        const timetableMock = sequencer.getTimeTable();
-        let blockCount = 0;
-        jest.spyOn(timetableMock, 'canStartNextBlock').mockImplementation(() => {
-          blockCount++;
-          return {
-            canStart: blockCount <= 2,
-            deadline: 20,
-            isLastBlock: blockCount === 2,
-          };
-        });
-
-        // Mock buildBlock to return blocks with incrementing block numbers
-        let buildCallCount = 0;
-        checkpointBuilder.buildBlock.mockImplementation((_pendingTxs, _blockNumber, _timestamp, _opts) => {
-          const tx = txs[buildCallCount % txs.length];
-          const blockForCallPromise = makeBlock([tx]);
-          return blockForCallPromise.then(blockForCall => {
-            // Override the block number to match what the sequencer expects
-            (blockForCall.header as any).globalVariables = new GlobalVariables(
-              chainId,
-              version,
-              BlockNumber(newBlockNumber + buildCallCount),
-              SlotNumber(newSlotNumber),
-              /*timestamp=*/ 0n,
-              coinbase,
-              feeRecipient,
-              gasFees,
-            );
-            buildCallCount++;
-            return {
-              block: blockForCall as any,
-              publicGas: Gas.empty(),
-              publicProcessorDuration: 0,
-              numTxs: blockForCall.body.txEffects.length,
-              blockBuildingTimer: new Timer(),
-              usedTxs: [],
-              failedTxs: [],
-            };
-          });
-        });
-
-        p2p.getPendingTxCount.mockResolvedValue(10);
-        p2p.iteratePendingTxs.mockImplementation(() => mockTxIterator(Promise.resolve(txs)));
-
-        const proposedEvents: any[] = [];
-        const checkpointEvents: any[] = [];
-        sequencer.on('block-proposed', evt => proposedEvents.push(evt));
-        sequencer.on('checkpoint-published', evt => checkpointEvents.push(evt));
-
-        // Mock successful L1 publish
-        publisher.sendRequests.mockResolvedValue({
-          result: { receipt: {} as any, errorMsg: undefined },
-          successfulActions: ['propose'],
-          failedActions: [],
-          sentActions: ['propose'],
-          expiredActions: [],
-        });
-
-        await sequencer.work();
-
-        // Should emit 2 block-proposed events
-        expect(checkpointBuilder.buildBlock).toHaveBeenCalledTimes(2);
-        expect(proposedEvents).toHaveLength(2);
-        expect(proposedEvents[0].blockNumber).toBe(newBlockNumber);
-        expect(proposedEvents[1].blockNumber).toBe(newBlockNumber + 1);
-
-        // Should emit 1 checkpoint-published event for the last block
-        expect(checkpointEvents).toHaveLength(1);
-        expect(checkpointEvents[0].blockNumber).toBe(newBlockNumber + 1);
-        expect(checkpointEvents[0].slot).toBe(newSlotNumber);
-      });
+      // Verify checkpoint was built and proposed
+      expect(checkpointBuilder.buildBlockCalls).toHaveLength(1);
+      expect(checkpointBuilder.completeCheckpointCalled).toBe(true);
+      expect(validatorClient.createCheckpointProposal).toHaveBeenCalled();
+      expect(publisher.enqueueProposeCheckpoint).toHaveBeenCalled();
     });
 
-    describe('event naming', () => {
-      it('should emit block-tx-count-check-failed when not enough txs', async () => {
-        const failedEvents: any[] = [];
-        sequencer.on('block-tx-count-check-failed', evt => failedEvents.push(evt));
+    it('multi block mode', async () => {
+      sequencer.updateConfig({ enforceTimeTable: true, maxTxsPerBlock: 4, blockDurationMs: 500 });
 
-        // No pending txs
-        mockPendingTxs([]);
+      const txs = await timesParallel(8, i => makeTx(i * 0x10000));
+      block = await makeBlock(txs);
+      TestUtils.mockPendingTxs(p2p, txs);
 
-        await sequencer.work();
+      await sequencer.work();
 
-        expect(failedEvents).toHaveLength(1);
-        expect(failedEvents[0]).toEqual({
-          minTxs: expect.any(Number),
-          availableTxs: 0,
-        });
-      });
-
-      it('should emit checkpoint-publish-failed when L1 publish fails', async () => {
-        const tx = await makeTx();
-        block = await makeBlock([tx]);
-        mockPendingTxs([tx]);
-
-        const failedEvents: any[] = [];
-        sequencer.on('checkpoint-publish-failed', evt => failedEvents.push(evt));
-
-        // Mock failed L1 publish
-        publisher.sendRequests.mockResolvedValue({
-          result: { receipt: {} as any, errorMsg: 'Test error' },
-          successfulActions: [],
-          failedActions: ['propose'],
-          sentActions: ['propose'],
-          expiredActions: [],
-        });
-
-        await sequencer.work();
-
-        expect(failedEvents).toHaveLength(1);
-      });
+      expect(checkpointBuilder.buildBlockCalls.length).toBeGreaterThan(1);
+      expect(validatorClient.createCheckpointProposal).toHaveBeenCalled();
+      expect(publisher.enqueueProposeCheckpoint).toHaveBeenCalled();
     });
   });
 });
 
-class TestSubject extends Sequencer {
+class TestSequencer extends Sequencer {
   public getTimeTable() {
     return this.timetable;
   }

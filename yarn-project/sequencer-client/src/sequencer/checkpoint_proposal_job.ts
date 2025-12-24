@@ -48,9 +48,6 @@ import { SequencerState } from './utils.js';
 /** How much time to sleep while waiting for min transactions to accumulate for a block */
 const TXS_POLLING_MS = 500;
 
-/** What's the latest time before a block build deadline we're willing to *start* building it */
-const MIN_BLOCK_BUILD_TIME_MS = 1000;
-
 /**
  * Handles the execution of a checkpoint proposal after the initial preparation phase.
  * This includes building blocks, collecting attestations, and publishing the checkpoint to L1,
@@ -74,15 +71,15 @@ export class CheckpointProposalJob {
     private readonly l1ToL2MessageSource: L1ToL2MessageSource,
     private readonly checkpointsBuilder: FullNodeCheckpointsBuilder,
     private readonly l1Constants: SequencerRollupConstants,
-    private readonly config: ResolvedSequencerConfig,
-    private readonly timetable: SequencerTimetable,
+    protected config: ResolvedSequencerConfig,
+    protected timetable: SequencerTimetable,
     private readonly slasherClient: SlasherClientInterface | undefined,
     private readonly epochCache: EpochCache,
     private readonly dateProvider: DateProvider,
     private readonly metrics: SequencerMetrics,
     private readonly eventEmitter: TypedEventEmitter<SequencerEvents>,
     private readonly setStateFn: (state: SequencerState, slot?: SlotNumber) => void,
-    private readonly log: Logger,
+    protected readonly log: Logger,
   ) {}
 
   /**
@@ -188,7 +185,7 @@ export class CheckpointProposalJob {
 
       // Assemble and broadcast the checkpoint proposal, including the last block that was not
       // broadcasted yet, and wait to collect the committee attestations.
-      this.setStateFn(SequencerState.FINALIZING_CHECKPOINT, this.slot);
+      this.setStateFn(SequencerState.ASSEMBLING_CHECKPOINT, this.slot);
       const checkpoint = await checkpointBuilder.completeCheckpoint();
 
       // Do not collect attestations nor publish to L1 in fisherman mode
@@ -294,12 +291,15 @@ export class CheckpointProposalJob {
       });
 
       if (!buildResult && timingInfo.isLastBlock) {
-        // If no block was produced due to not enough txs and this was the last one, exit
+        // If no block was produced due to not enough txs and this was the last subslot, exit
         break;
-      } else if (!buildResult) {
-        // But if there is still time for more blocks, wait until the next block time and try again
-        await this.waitUntilNextBlock(secondsIntoSlot);
+      } else if (!buildResult && timingInfo.deadline !== undefined) {
+        // But if there is still time for more blocks, wait until the next subslot and try again
+        await this.waitUntilNextSubslot(timingInfo.deadline);
         continue;
+      } else if (!buildResult) {
+        // Exit if there is no possibility of building more blocks
+        break;
       } else if ('error' in buildResult) {
         // If there was an error building the block, just exit the loop and give up the rest of the slot
         if (!(buildResult.error instanceof SequencerInterruptedError)) {
@@ -347,7 +347,7 @@ export class CheckpointProposalJob {
       }
 
       // Wait until the next block's start time
-      await this.waitUntilNextBlock(secondsIntoSlot);
+      await this.waitUntilNextSubslot(timingInfo.deadline);
     }
 
     this.log.verbose(`Block building loop completed for slot ${this.slot}`, {
@@ -362,12 +362,10 @@ export class CheckpointProposalJob {
   }
 
   /** Sleeps until it is time to produce the next block in the slot */
-  private async waitUntilNextBlock(blockStartedAtSecondsIntoSlot: number) {
+  private async waitUntilNextSubslot(nextSubslotStart: number) {
     this.setStateFn(SequencerState.WAITING_UNTIL_NEXT_BLOCK, this.slot);
-    const blockDurationSeconds = this.timetable.blockDuration!;
-    const nextBlockStart = blockStartedAtSecondsIntoSlot + blockDurationSeconds;
-    this.log.verbose(`Waiting until time for the next block at ${nextBlockStart}s into slot`, { slot: this.slot });
-    await this.waitUntilTimeInSlot(nextBlockStart);
+    this.log.verbose(`Waiting until time for the next block at ${nextSubslotStart}s into slot`, { slot: this.slot });
+    await this.waitUntilTimeInSlot(nextSubslotStart);
   }
 
   /** Builds a single block. Called from the main block building loop. */
@@ -493,7 +491,7 @@ export class CheckpointProposalJob {
 
     // Deadline is undefined if we are not enforcing the timetable, meaning we'll exit immediately when out of time
     const startBuildingDeadline = buildDeadline
-      ? new Date(buildDeadline.getTime() - MIN_BLOCK_BUILD_TIME_MS)
+      ? new Date(buildDeadline.getTime() - this.timetable.minExecutionTime * 1000)
       : undefined;
 
     let availableTxs = await this.p2pClient.getPendingTxCount();
@@ -684,7 +682,7 @@ export class CheckpointProposalJob {
   }
 
   /** Waits until a specific time within the current slot */
-  private async waitUntilTimeInSlot(targetSecondsIntoSlot: number): Promise<void> {
+  protected async waitUntilTimeInSlot(targetSecondsIntoSlot: number): Promise<void> {
     const slotStartTimestamp = this.getSlotStartBuildTimestamp();
     const targetTimestamp = slotStartTimestamp + targetSecondsIntoSlot;
     await sleepUntil(new Date(targetTimestamp * 1000), this.dateProvider.nowAsDate());

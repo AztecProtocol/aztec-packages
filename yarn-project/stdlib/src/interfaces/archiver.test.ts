@@ -105,6 +105,11 @@ describe('ArchiverApiSchema', () => {
     expect(result).toBeInstanceOf(BlockHeader);
   });
 
+  it('getL2BlockNew', async () => {
+    const result = await context.client.getL2BlockNew(BlockNumber(1));
+    expect(result).toBeInstanceOf(L2BlockNew);
+  });
+
   it('getBlocks', async () => {
     const result = await context.client.getBlocks(BlockNumber(1), BlockNumber(1));
     expect(result).toEqual([expect.any(L2Block)]);
@@ -401,6 +406,9 @@ class MockArchiver implements ArchiverApi {
   }
   getBlockHeaderByArchive(_archive: Fr): Promise<BlockHeader | undefined> {
     return Promise.resolve(BlockHeader.empty());
+  }
+  getL2BlockNew(number: BlockNumber): Promise<L2BlockNew | undefined> {
+    return L2BlockNew.random(number);
   }
   async getTxEffect(_txHash: TxHash): Promise<IndexedTxEffect | undefined> {
     expect(_txHash).toBeInstanceOf(TxHash);
