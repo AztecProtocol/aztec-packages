@@ -1,5 +1,5 @@
 ---
-title: Testing Aztec.nr contracts with TypeScript
+title: Testing Smart Contracts
 tags: [contracts, tests]
 sidebar_position: 8
 description: Learn how to write and run tests for your Aztec.js applications.
