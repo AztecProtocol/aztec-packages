@@ -57,6 +57,7 @@ start * (1 - start) = 0;
 pol commit start_keccak;
 pol commit start_sha256;
 start_keccak * (1 - start_keccak) = 0;
+start_sha256 * (1 - start_sha256) = 0;
 // If any of the above selectors is 1, then start must be 1.
 (start_keccak + start_sha256) * (1 - start) = 0;
 
