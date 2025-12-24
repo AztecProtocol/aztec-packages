@@ -681,7 +681,7 @@ void MSM<Curve>::consume_point_schedule(std::span<const uint64_t> point_schedule
             add_affine_points(&affine_addition_scratch_space[0], num_affine_points_to_add, &scalar_scratch_space[0]);
         }
         // `add_affine_points` stores the result in the top-half of the used scratch space
-        G1* affine_output = &affine_addition_scratch_space[0] + (num_affine_points_to_add / 2);
+        AffineElement* affine_output = &affine_addition_scratch_space[0] + (num_affine_points_to_add / 2);
 
         // Process the addition outputs.
         // We either need to feed the addition outputs back into affine_addition_scratch_space for more addition

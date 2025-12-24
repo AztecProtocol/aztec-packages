@@ -19,7 +19,6 @@ template <typename Curve> class MSM {
     using BaseField = typename Curve::BaseField;
     using AffineElement = typename Curve::AffineElement;
 
-    using G1 = AffineElement;
     static constexpr size_t NUM_BITS_IN_FIELD = ScalarField::modulus.get_msb() + 1;
 
     /**
