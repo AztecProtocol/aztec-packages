@@ -100,7 +100,7 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
     if (event.type !== 'checkpoint-added') {
       return;
     }
-    const checkpointNumber = CheckpointNumber(event.checkpoint.number);
+    const checkpointNumber = event.checkpoint.number;
     const [checkpoint] = await this.archiver.getPublishedCheckpoints(checkpointNumber, 1);
     if (!checkpoint) {
       this.logger.error(`Failed to get checkpoint ${checkpointNumber}`, { checkpoint });

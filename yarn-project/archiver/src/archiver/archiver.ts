@@ -583,9 +583,6 @@ export class Archiver
       );
       const newBlocks = blockPromises.filter(isDefined).flat();
 
-      // TODO(pw/mbps): Don't convert to legacy blocks here
-      //const blocks: L2Block[] = (await Promise.all(newBlocks.map(x => this.getBlock(x.number)))).filter(isDefined);
-
       // Emit an event for listening services to react to the chain prune
       this.emit(L2BlockSourceEvents.L2PruneDetected, {
         type: L2BlockSourceEvents.L2PruneDetected,
