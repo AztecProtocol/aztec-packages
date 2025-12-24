@@ -109,7 +109,7 @@ async function execute(base64Line: string): Promise<void> {
   }
 }
 
-async function mainLoop() {
+function mainLoop() {
   const rl = createInterface({ input: process.stdin, terminal: false });
 
   // Process lines sequentially to avoid race conditions in responses
