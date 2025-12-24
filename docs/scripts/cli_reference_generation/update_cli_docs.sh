@@ -106,7 +106,7 @@ readonly TEMP_WITH_FRONTMATTER="$TEMP_DIR/cli_final.md"
 case "$CLI_NAME" in
   aztec)
     DISPLAY_NAME="Aztec CLI Reference"
-    TITLE="Aztec Reference"
+    TITLE="Aztec CLI Reference"
     OUTPUT_FILE="aztec_cli_reference.md"
     SIDEBAR_POSITION="1"
     COMMAND="aztec"
