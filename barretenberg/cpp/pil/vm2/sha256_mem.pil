@@ -113,9 +113,38 @@ namespace sha256;
     pol commit latch;
     latch * (1 - latch) = 0;
 
-    #[LATCH_HAS_SEL_ON] // sel = 1 when latch = 1, sel = 0 at first row because of shift relations
+    #[LATCH_HAS_SEL_ON]
     latch * (1 - sel) = 0;
-    // This is now guaranteed to be mututally exclusive because of the above condition and since sel = 0 at row = 0 (since it has shifts)
+
+    // LATCH_CONDITION is the sum of latch and first_row. We need to ensure these are mutually
+    // exclusive (i.e., LATCH_CONDITION is always 0 or 1, never 2) for start to remain boolean.
+    //
+    // Proof that latch = 0 when first_row = 1 (i.e., on row 0):
+    //
+    // For latch_0 = 1, the zero-check constraint (sha256.pil) requires rounds_remaining_0 = 0.
+    // Also, LATCH_HAS_SEL_ON requires sel_0 = 1.
+    //
+    // From START_AFTER_LAST on the last row (N-1): sel_0 * (start_0 - LATCH_CONDITION_{N-1}) = 0
+    // Since sel_0 = 1: start_0 = LATCH_CONDITION_{N-1}
+    //
+    // Case A: LATCH_CONDITION_{N-1} = 1 (last row has latch = 1)
+    //   - start_0 = 1
+    //   - Round initialization constraint: start * (rounds_remaining - 64) = 0
+    //   - This forces rounds_remaining_0 = 64
+    //   - CONTRADICTION: rounds_remaining_0 cannot be both 0 (for latch=1) and 64 (for start=1)
+    //   - This case is impossible - constraints are unsatisfiable.
+    //
+    // Case B: LATCH_CONDITION_{N-1} = 0 (last row has latch = 0, boundary-spanning computation)
+    //   - start_0 = 0
+    //   - LATCH_CONDITION_0 = latch_0 + first_row_0 = 1 + 1 = 2
+    //   - perform_round_0 = (1 - LATCH_CONDITION_0) * SEL_NO_ERR = (1 - 2) * 1 = -1
+    //   - sel_compute_w and other selectors derived from perform_round become non-boolean (-1)
+    //   - Lookups using these selectors contribute -1 to the grand product
+    //   - Destination selectors are boolean (0 or 1), so lookups CANNOT balance
+    //   - This case fails lookup constraints - no valid proof can be generated.
+    //
+    // Therefore, latch = 1 on row 0 is impossible in any valid trace, and LATCH_CONDITION
+    // is guaranteed to be 0 or 1.
     pol LATCH_CONDITION = latch + precomputed.first_row;
 
     #[START_AFTER_LAST]
