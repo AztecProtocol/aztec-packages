@@ -2,7 +2,7 @@
 title: Using FaceID to Sign Transactions
 tags: [local_network, wallet, cli]
 keywords: [wallet, cli wallet, faceid]
-sidebar_position: 1
+sidebar_position: 3
 description: In this tutorial, we will use Apple Mac's Secure Enclave to store the private key, and use it in Aztec's CLI Wallet. This enables fully private, native, and ...
 ---
 

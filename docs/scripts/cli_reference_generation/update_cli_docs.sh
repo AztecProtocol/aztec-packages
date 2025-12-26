@@ -113,7 +113,7 @@ case "$CLI_NAME" in
     ;;
   aztec-wallet)
     DISPLAY_NAME="Aztec Wallet CLI Reference"
-    TITLE="Aztec Wallet Reference"
+    TITLE="Aztec Wallet CLI Reference"
     OUTPUT_FILE="aztec_wallet_cli_reference.md"
     SIDEBAR_POSITION="2"
     COMMAND="aztec-wallet"
