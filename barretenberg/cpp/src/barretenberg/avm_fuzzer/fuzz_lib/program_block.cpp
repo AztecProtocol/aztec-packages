@@ -1586,6 +1586,34 @@ void ProgramBlock::finalize_with_return(uint8_t return_size,
     instructions.push_back(return_instruction);
 }
 
+void ProgramBlock::finalize_with_revert(uint8_t revert_size,
+                                        MemoryTagWrapper revert_value_tag,
+                                        uint16_t revert_value_offset_index)
+{
+    this->terminator_type = TerminatorType::REVERT;
+
+    auto revert_addr = memory_manager.get_memory_offset_16(revert_value_tag.value, revert_value_offset_index);
+    if (!revert_addr.has_value()) {
+        revert_addr = std::optional<uint32_t>(0);
+    }
+
+    // Once we do more of the randomness in Instruction selection, revert_size_offset we shouldnt need to hardcode
+    uint16_t revert_size_offset = 5U;
+    // Ensure operands are created as U16 to match wire format (UINT16)
+    auto set_size_instruction = bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::SET_16)
+                                    .operand(revert_size_offset)
+                                    .operand(bb::avm2::MemoryTag::U32)
+                                    .operand(static_cast<uint16_t>(revert_size))
+                                    .build();
+    instructions.push_back(set_size_instruction);
+    // REVERT_16 expects UINT16 operands, ensure we cast to uint16_t explicitly
+    auto revert_instruction = bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::REVERT_16)
+                                  .operand(static_cast<uint16_t>(revert_size_offset))
+                                  .operand(revert_addr.value())
+                                  .build();
+    instructions.push_back(revert_instruction);
+}
+
 void ProgramBlock::finalize_with_jump(ProgramBlock* target_block, bool copy_memory_manager)
 {
     this->terminator_type = TerminatorType::JUMP;
