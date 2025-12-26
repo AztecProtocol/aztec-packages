@@ -29,6 +29,7 @@
 
 enum class TerminatorType {
     RETURN,
+    REVERT,
     JUMP,
     JUMP_IF,
     NONE,
@@ -138,6 +139,13 @@ class ProgramBlock {
     void finalize_with_return(uint8_t return_size,
                               MemoryTagWrapper return_value_tag,
                               uint16_t return_value_offset_index);
+
+    /// @brief finalize the program block with a revert instruction
+    /// Similar to finalize_with_return but uses REVERT opcode instead.
+    /// Sets the terminator type to REVERT.
+    void finalize_with_revert(uint8_t revert_size,
+                              MemoryTagWrapper revert_value_tag,
+                              uint16_t revert_value_offset_index);
 
     /// @brief finalize the block with a jump
     /// Sets the terminator type to JUMP, adds the target block to the successors and the current block to the
