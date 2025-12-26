@@ -328,7 +328,7 @@ Options:
   -c, --l1-chain-id <number>  Chain ID of the ethereum host (default: 31337,
                               env: L1_CHAIN_ID)
   --json                      Output the claim in JSON format
-  --no-wait                   Wait for the brigded funds to be available in L2,
+  --no-wait                   Wait for the bridged funds to be available in L2,
                               polling every 60 seconds
   --interval <number>         The polling interval in seconds for the bridged
                               funds (default: "60")
@@ -398,14 +398,14 @@ Options:
   --payment <options>                                       Fee payment method and arguments.
      Parameters:
        method            Valid values: "fee_juice", "fpc-public", "fpc-private", "fpc-sponsored" Default: fee_juice
-       feePayer          The account paying the fee. 
-       asset             The asset used for fee payment. Required for "fpc-public" and "fpc-private". 
-       fpc               The FPC contract that pays in fee juice. Not required for the "fee_juice" method. 
-       claim             Whether to use a previously stored claim to bridge fee juice. 
-       claimSecret       The secret to claim fee juice on L1. 
-       claimAmount       The amount of fee juice to be claimed. 
-       messageLeafIndex  The index of the claim in the l1toL2Message tree. 
-       feeRecipient      Recipient of the fee. 
+       feePayer          The account paying the fee.
+       asset             The asset used for fee payment. Required for "fpc-public" and "fpc-private".
+       fpc               The FPC contract that pays in fee juice. Not required for the "fee_juice" method.
+       claim             Whether to use a previously stored claim to bridge fee juice.
+       claimSecret       The secret to claim fee juice on L1.
+       claimAmount       The amount of fee juice to be claimed.
+       messageLeafIndex  The index of the claim in the l1toL2Message tree.
+       feeRecipient      Recipient of the fee.
   Format: --payment method=name,feePayer=address,asset=address ...
   --gas-limits <da=100,l2=100,teardownDA=10,teardownL2=10>  Gas limits for the tx.
   --max-fees-per-gas <da=100,l2=100>                        Maximum fees per gas unit for DA and L2 computation.
@@ -501,13 +501,13 @@ Options:
   --payment <options>                                       Fee payment method and arguments.
      Parameters:
        method            Valid values: "fee_juice", "fpc-public", "fpc-private", "fpc-sponsored" Default: fee_juice
-       asset             The asset used for fee payment. Required for "fpc-public" and "fpc-private". 
-       fpc               The FPC contract that pays in fee juice. Not required for the "fee_juice" method. 
-       claim             Whether to use a previously stored claim to bridge fee juice. 
-       claimSecret       The secret to claim fee juice on L1. 
-       claimAmount       The amount of fee juice to be claimed. 
-       messageLeafIndex  The index of the claim in the l1toL2Message tree. 
-       feeRecipient      Recipient of the fee. 
+       asset             The asset used for fee payment. Required for "fpc-public" and "fpc-private".
+       fpc               The FPC contract that pays in fee juice. Not required for the "fee_juice" method.
+       claim             Whether to use a previously stored claim to bridge fee juice.
+       claimSecret       The secret to claim fee juice on L1.
+       claimAmount       The amount of fee juice to be claimed.
+       messageLeafIndex  The index of the claim in the l1toL2Message tree.
+       feeRecipient      Recipient of the fee.
   Format: --payment method=name,asset=address,fpc=address ...
   --gas-limits <da=100,l2=100,teardownDA=10,teardownL2=10>  Gas limits for the tx.
   --max-fees-per-gas <da=100,l2=100>                        Maximum fees per gas unit for DA and L2 computation.
@@ -536,14 +536,14 @@ Options:
   --payment <options>                                       Fee payment method and arguments.
      Parameters:
        method            Valid values: "fee_juice", "fpc-public", "fpc-private", "fpc-sponsored" Default: fee_juice
-       feePayer          The account paying the fee. 
-       asset             The asset used for fee payment. Required for "fpc-public" and "fpc-private". 
-       fpc               The FPC contract that pays in fee juice. Not required for the "fee_juice" method. 
-       claim             Whether to use a previously stored claim to bridge fee juice. 
-       claimSecret       The secret to claim fee juice on L1. 
-       claimAmount       The amount of fee juice to be claimed. 
-       messageLeafIndex  The index of the claim in the l1toL2Message tree. 
-       feeRecipient      Recipient of the fee. 
+       feePayer          The account paying the fee.
+       asset             The asset used for fee payment. Required for "fpc-public" and "fpc-private".
+       fpc               The FPC contract that pays in fee juice. Not required for the "fee_juice" method.
+       claim             Whether to use a previously stored claim to bridge fee juice.
+       claimSecret       The secret to claim fee juice on L1.
+       claimAmount       The amount of fee juice to be claimed.
+       messageLeafIndex  The index of the claim in the l1toL2Message tree.
+       feeRecipient      Recipient of the fee.
   Format: --payment method=name,feePayer=address,asset=address ...
   --gas-limits <da=100,l2=100,teardownDA=10,teardownL2=10>  Gas limits for the tx.
   --max-fees-per-gas <da=100,l2=100>                        Maximum fees per gas unit for DA and L2 computation.
@@ -1116,13 +1116,13 @@ Options:
   --payment <options>                                       Fee payment method and arguments.
      Parameters:
        method            Valid values: "fee_juice", "fpc-public", "fpc-private", "fpc-sponsored" Default: fee_juice
-       asset             The asset used for fee payment. Required for "fpc-public" and "fpc-private". 
-       fpc               The FPC contract that pays in fee juice. Not required for the "fee_juice" method. 
-       claim             Whether to use a previously stored claim to bridge fee juice. 
-       claimSecret       The secret to claim fee juice on L1. 
-       claimAmount       The amount of fee juice to be claimed. 
-       messageLeafIndex  The index of the claim in the l1toL2Message tree. 
-       feeRecipient      Recipient of the fee. 
+       asset             The asset used for fee payment. Required for "fpc-public" and "fpc-private".
+       fpc               The FPC contract that pays in fee juice. Not required for the "fee_juice" method.
+       claim             Whether to use a previously stored claim to bridge fee juice.
+       claimSecret       The secret to claim fee juice on L1.
+       claimAmount       The amount of fee juice to be claimed.
+       messageLeafIndex  The index of the claim in the l1toL2Message tree.
+       feeRecipient      Recipient of the fee.
   Format: --payment method=name,asset=address,fpc=address ...
   --gas-limits <da=100,l2=100,teardownDA=10,teardownL2=10>  Gas limits for the tx.
   --max-fees-per-gas <da=100,l2=100>                        Maximum fees per gas unit for DA and L2 computation.
@@ -1282,13 +1282,13 @@ Options:
   --payment <options>                                       Fee payment method and arguments.
      Parameters:
        method            Valid values: "fee_juice", "fpc-public", "fpc-private", "fpc-sponsored" Default: fee_juice
-       asset             The asset used for fee payment. Required for "fpc-public" and "fpc-private". 
-       fpc               The FPC contract that pays in fee juice. Not required for the "fee_juice" method. 
-       claim             Whether to use a previously stored claim to bridge fee juice. 
-       claimSecret       The secret to claim fee juice on L1. 
-       claimAmount       The amount of fee juice to be claimed. 
-       messageLeafIndex  The index of the claim in the l1toL2Message tree. 
-       feeRecipient      Recipient of the fee. 
+       asset             The asset used for fee payment. Required for "fpc-public" and "fpc-private".
+       fpc               The FPC contract that pays in fee juice. Not required for the "fee_juice" method.
+       claim             Whether to use a previously stored claim to bridge fee juice.
+       claimSecret       The secret to claim fee juice on L1.
+       claimAmount       The amount of fee juice to be claimed.
+       messageLeafIndex  The index of the claim in the l1toL2Message tree.
+       feeRecipient      Recipient of the fee.
   Format: --payment method=name,asset=address,fpc=address ...
   --gas-limits <da=100,l2=100,teardownDA=10,teardownL2=10>  Gas limits for the tx.
   --max-fees-per-gas <da=100,l2=100>                        Maximum fees per gas unit for DA and L2 computation.
@@ -1365,13 +1365,13 @@ Options:
   --payment <options>                                       Fee payment method and arguments.
      Parameters:
        method            Valid values: "fee_juice", "fpc-public", "fpc-private", "fpc-sponsored" Default: fee_juice
-       asset             The asset used for fee payment. Required for "fpc-public" and "fpc-private". 
-       fpc               The FPC contract that pays in fee juice. Not required for the "fee_juice" method. 
-       claim             Whether to use a previously stored claim to bridge fee juice. 
-       claimSecret       The secret to claim fee juice on L1. 
-       claimAmount       The amount of fee juice to be claimed. 
-       messageLeafIndex  The index of the claim in the l1toL2Message tree. 
-       feeRecipient      Recipient of the fee. 
+       asset             The asset used for fee payment. Required for "fpc-public" and "fpc-private".
+       fpc               The FPC contract that pays in fee juice. Not required for the "fee_juice" method.
+       claim             Whether to use a previously stored claim to bridge fee juice.
+       claimSecret       The secret to claim fee juice on L1.
+       claimAmount       The amount of fee juice to be claimed.
+       messageLeafIndex  The index of the claim in the l1toL2Message tree.
+       feeRecipient      Recipient of the fee.
   Format: --payment method=name,asset=address,fpc=address ...
   --gas-limits <da=100,l2=100,teardownDA=10,teardownL2=10>  Gas limits for the tx.
   --max-fees-per-gas <da=100,l2=100>                        Maximum fees per gas unit for DA and L2 computation.
@@ -2365,8 +2365,7 @@ Usage: aztec update [options] [projectPath]
 Updates Nodejs and Noir dependencies
 
 Arguments:
-  projectPath               Path to the project directory (default:
-                            "/Users/alejoamiras/Projects/aztec-packages/docs")
+  projectPath               Path to the project directory
 
 Options:
   --contract [paths...]     Paths to contracts to update dependencies (default:
