@@ -558,6 +558,7 @@ void Sha256TraceBuilder::process(
         trace.set(row,
                   { {
                       { C::sha256_latch, 1 },
+                      { C::sha256_last, 1 },
                       { C::sha256_sel, 1 },
                       { C::sha256_xor_sel, 2 },
                       { C::sha256_round_count, 64 },
