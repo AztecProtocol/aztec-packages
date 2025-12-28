@@ -145,6 +145,21 @@ void ControlFlow::process_finalize_with_return(FinalizeWithReturn instruction)
     current_block = non_terminated_blocks.at(0);
 }
 
+void ControlFlow::process_finalize_with_revert(FinalizeWithRevert instruction)
+{
+    if (this->current_block->terminator_type != TerminatorType::NONE) {
+        return;
+    }
+    current_block->finalize_with_revert(instruction.revert_options.return_size,
+                                        instruction.revert_options.return_value_tag,
+                                        instruction.revert_options.return_value_offset_index);
+    std::vector<ProgramBlock*> non_terminated_blocks = get_non_terminated_blocks();
+    if (non_terminated_blocks.size() == 0) {
+        return;
+    }
+    current_block = non_terminated_blocks.at(0);
+}
+
 void ControlFlow::process_switch_to_non_terminated_block(SwitchToNonTerminatedBlock instruction)
 {
     std::vector<ProgramBlock*> non_terminated_blocks = get_non_terminated_blocks();
@@ -214,6 +229,7 @@ void ControlFlow::process_cfg_instruction(CFGInstruction instruction)
                    [&](JumpToBlock arg) { process_jump_to_block(arg); },
                    [&](JumpIfToBlock arg) { process_jump_if_to_block(arg); },
                    [&](FinalizeWithReturn arg) { process_finalize_with_return(arg); },
+                   [&](FinalizeWithRevert arg) { process_finalize_with_revert(arg); },
                    [&](SwitchToNonTerminatedBlock arg) { process_switch_to_non_terminated_block(arg); },
                    [&](InsertInternalCall arg) { process_insert_internal_call(arg); } },
                instruction);
@@ -239,7 +255,8 @@ int predict_block_size(ProgramBlock* block)
     auto bytecode_length = static_cast<int>(create_bytecode(block->get_instructions()).size());
     switch (block->terminator_type) {
     case TerminatorType::RETURN:
-        return bytecode_length; // finalized with return, already counted
+    case TerminatorType::REVERT:
+        return bytecode_length; // finalized with return/revert, already counted
     case TerminatorType::JUMP:
         return bytecode_length + JMP_SIZE; // finalized with jump
     case TerminatorType::JUMP_IF: {
@@ -263,9 +280,9 @@ int predict_block_size(ProgramBlock* block)
         return bytecode_length + JMP_IF_SIZE + JMP_SIZE; // finalized with jumpi
     }
     default:
-        throw std::runtime_error("Predict block size: Every block should be terminated with return, jump, or jumpi, "
-                                 "got " +
-                                 std::to_string(static_cast<int>(block->terminator_type)));
+        throw std::runtime_error(
+            "Predict block size: Every block should be terminated with return, revert, jump, or jumpi, got " +
+            std::to_string(static_cast<int>(block->terminator_type)));
     }
     throw std::runtime_error("Unreachable");
 }
@@ -315,6 +332,9 @@ std::vector<uint8_t> ControlFlow::build_bytecode(const ReturnOptions& return_opt
         case TerminatorType::RETURN: // finalized with return
             // already terminated with return
             break;
+        case TerminatorType::REVERT: // finalized with revert
+            // already terminated with revert
+            break;
         case TerminatorType::JUMP: { // finalized with jump
             ProgramBlock* target_block = block->successors.at(0);
             size_t target_block_idx = find_block_idx(target_block, blocks);
@@ -347,7 +367,7 @@ std::vector<uint8_t> ControlFlow::build_bytecode(const ReturnOptions& return_opt
         }
         default:
             throw std::runtime_error(
-                "Inject terminators: Every block should be terminated with return, jump, or jumpi");
+                "Inject terminators: Every block should be terminated with return, revert, jump, or jumpi");
         }
         block_bytecodes.push_back(create_bytecode(instructions));
     }
