@@ -33,6 +33,26 @@
     from = "/developers/reference/smart_contract_reference/storage/*"
     to = "/developers/docs/aztec-nr/framework-description/how_to_define_storage"
 
+# [[redirects]]
+#     from = "/developers/docs/aztec-cli/cli_reference"
+#     to = "/developers/docs/cli/aztec_cli_reference"
+
+# [[redirects]]
+#     from = "/developers/docs/aztec-cli/local-network-reference"
+#     to = "/developers/docs/cli/aztec_cli_reference"
+
+# [[redirects]]
+#     from = "/developers/docs/wallet-cli/cli_wallet_reference"
+#     to = "/developers/docs/cli/aztec_wallet_cli_reference"
+
+# [[redirects]]
+#     from = "/developers/docs/wallet-cli/cli_wallet_reference_autogen"
+#     to = "/developers/docs/cli/aztec_wallet_cli_reference"
+
+# [[redirects]]
+#     from = "/developers/docs/wallet-cli/faceid_wallet"
+#     to = "/developers/docs/tutorials/faceid_wallet"
+
 [[redirects]]
     from = "/getting_started"
     to = "/developers/getting_started_on_local_network"

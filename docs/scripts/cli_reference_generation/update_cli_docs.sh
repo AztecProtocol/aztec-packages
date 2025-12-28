@@ -6,7 +6,7 @@
 #   ./scripts/cli_reference_generation/update_cli_docs.sh aztec                    # Updates aztec CLI, all versions
 #   ./scripts/cli_reference_generation/update_cli_docs.sh aztec-wallet current     # Updates aztec-wallet CLI, current only
 #   ./scripts/cli_reference_generation/update_cli_docs.sh aztec v2.0.2             # Updates aztec CLI, v2.0.2 only
-#   ./scripts/cli_reference_generation/update_cli_docs.sh aztec v2.0.2 /tmp/       # Outputs to /tmp/cli_reference.md
+#   ./scripts/cli_reference_generation/update_cli_docs.sh aztec v2.0.2 /tmp/       # Outputs to /tmp/aztec_cli_reference.md
 
 set -euo pipefail  # Added 'u' for undefined variable check, 'o pipefail' for pipe failures
 
@@ -105,17 +105,17 @@ readonly TEMP_WITH_FRONTMATTER="$TEMP_DIR/cli_final.md"
 # Configuration per CLI (compatible with bash 3.2+)
 case "$CLI_NAME" in
   aztec)
-    DISPLAY_NAME="Aztec CLI"
+    DISPLAY_NAME="Aztec CLI Reference"
     TITLE="Aztec CLI Reference"
-    OUTPUT_FILE="cli_reference.md"
-    SIDEBAR_POSITION="3"
+    OUTPUT_FILE="aztec_cli_reference.md"
+    SIDEBAR_POSITION="1"
     COMMAND="aztec"
     ;;
   aztec-wallet)
-    DISPLAY_NAME="Aztec Wallet CLI"
-    TITLE="Reference"
-    OUTPUT_FILE="cli_wallet_reference.md"
-    SIDEBAR_POSITION="10"
+    DISPLAY_NAME="Aztec Wallet CLI Reference"
+    TITLE="Aztec Wallet CLI Reference"
+    OUTPUT_FILE="aztec_wallet_cli_reference.md"
+    SIDEBAR_POSITION="2"
     COMMAND="aztec-wallet"
     ;;
 esac
@@ -183,22 +183,13 @@ fi
 update_version() {
   local version=$1
   local target_dir=""
-  local cli_dir=""
 
-  # Determine CLI-specific directory
-  case "$CLI_NAME" in
-    aztec)
-      cli_dir="aztec-cli"
-      ;;
-    aztec-wallet)
-      cli_dir="wallet-cli"
-      ;;
-  esac
-
+  # All CLI docs now go to the unified 'cli' directory
   if [[ "$version" == "current" ]]; then
-    target_dir="$DOCS_ROOT/docs-developers/docs/${cli_dir}"
+    target_dir="$DOCS_ROOT/docs-developers/docs/cli"
   else
-    target_dir="$DOCS_ROOT/developer_versioned_docs/version-${version}/docs/${cli_dir}"
+    # Versioned docs also use the unified cli directory
+    target_dir="$DOCS_ROOT/developer_versioned_docs/version-${version}/docs/cli"
   fi
 
   if [[ ! -d "$target_dir" ]]; then
