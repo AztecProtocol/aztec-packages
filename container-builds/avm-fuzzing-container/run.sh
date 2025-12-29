@@ -4,7 +4,7 @@ set -euo pipefail
 IFS=$'\n\t'
 
 timeout='2592000' # 1 month
-cpus='4'
+cpus='1'
 mem="8G"
 jobs_="$cpus"
 workers='1'
@@ -77,12 +77,9 @@ image_name=avm-tx-fuzzer
 
 # Get the directory where this script is located
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# Get aztec-packages root (two levels up from container-builds/avm-fuzzing-container)
-REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 echo "Building container image: $image_name"
-echo "Build context: $REPO_ROOT"
-docker build -t "$image_name":latest -f "$SCRIPT_DIR/src/Dockerfile" "$REPO_ROOT"
+docker build -t "$image_name":latest "$SCRIPT_DIR/src"
 
 mkdir -p crash-reports output corpus artifacts
 
