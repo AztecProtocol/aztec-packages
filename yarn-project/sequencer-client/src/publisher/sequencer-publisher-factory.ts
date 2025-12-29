@@ -33,7 +33,7 @@ export class SequencerPublisherFactory {
     private deps: {
       telemetry: TelemetryClient;
       publisherManager: PublisherManager<L1TxUtilsWithBlobs>;
-      blobClient?: BlobClientInterface;
+      blobClient: BlobClientInterface;
       dateProvider: DateProvider;
       epochCache: EpochCache;
       rollupContract: RollupContract;
