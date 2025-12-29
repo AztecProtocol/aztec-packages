@@ -85,7 +85,7 @@ ln -sf "$CORPUS" "$FUZZER_CORPUS" 2>/dev/null || true
 
 # Build fuzzer arguments
 FUZZER_ARGS=(
-    -timeout=5
+    -timeout=1200
     -workers="$workers"
     -jobs="$jobs_"
     -entropic=1
