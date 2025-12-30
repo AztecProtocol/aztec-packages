@@ -137,6 +137,7 @@ export class TxProvider implements ITxProvider {
     );
 
     if (missingTxHashes.size === 0) {
+      this.instrumentation.incTxsFromP2P(0, txHashes.length);
       return { txsFromMempool };
     }
 
@@ -155,6 +156,7 @@ export class TxProvider implements ITxProvider {
 
     if (missingTxHashes.size === 0) {
       await this.processProposalTxs(txsFromProposal);
+      this.instrumentation.incTxsFromP2P(0, txHashes.length);
       return { txsFromMempool, txsFromProposal };
     }
 
@@ -166,12 +168,13 @@ export class TxProvider implements ITxProvider {
 
     if (txsFromNetwork.length > 0) {
       txsFromNetwork.forEach(tx => missingTxHashes.delete(tx.txHash.toString()));
-      this.instrumentation.incTxsFromP2P(txsFromNetwork.length, txHashes.length);
       this.log.debug(
         `Retrieved ${txsFromNetwork.length} txs from network for block proposal (${missingTxHashes.size} pending)`,
         { ...blockInfo, missingTxHashes: [...missingTxHashes] },
       );
     }
+
+    this.instrumentation.incTxsFromP2P(txsFromNetwork.length, txHashes.length);
 
     if (missingTxHashes.size === 0) {
       return { txsFromNetwork, txsFromMempool, txsFromProposal };
