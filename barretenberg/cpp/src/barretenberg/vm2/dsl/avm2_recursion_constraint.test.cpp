@@ -136,7 +136,7 @@ TEST_F(AvmRecursionConstraintTest, GateCountAndVKCheck)
     using ProverInstance = ProverInstance_<UltraRollupFlavor>;
 
     static constexpr FF EXPECTED_OUTER_VK_HASH =
-        FF("0x0c17c44b4c643765ef2ffc77cb6b77104910b0d4fc38de7ea0115301346e2b51");
+        FF("0x2b6a12d8695a0dc9a25d2a87df02dc42246be0eed271c41aab603d91901d71b7");
 
     AcirConstraint constraint;
     WitnessVector witness;
@@ -167,7 +167,7 @@ class AvmRecursionInnerCircuitTests : public ::testing::Test {
     using FF = Builder::FF;
 
     static constexpr FF EXPECTED_INNER_VK_HASH =
-        FF("0x0822fef4f7d002ccf7f18512598d0fc1a6b8b13143221330bcb1ce0990eba291");
+        FF("0x0efaaaece4a7b764beaa079f4e75156c56d2d14ea2e99f2421d0fc20c2acaa63");
 
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
