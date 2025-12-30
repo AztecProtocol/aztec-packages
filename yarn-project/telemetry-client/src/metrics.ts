@@ -143,6 +143,7 @@ export const PEER_MANAGER_GOODBYES_SENT = 'aztec.peer_manager.goodbyes_sent';
 export const PEER_MANAGER_GOODBYES_RECEIVED = 'aztec.peer_manager.goodbyes_received';
 export const PEER_MANAGER_PEER_COUNT = 'aztec.peer_manager.peer_count';
 export const PEER_MANAGER_LOW_SCORE_DISCONNECTS = 'aztec.peer_manager.low_score_disconnects';
+export const PEER_MANAGER_PEER_CONNECTION_DURATION = 'aztec.peer_manager.peer_connection_duration';
 export const P2P_PEER_STATE_COUNT = 'aztec.p2p.peer_state_count';
 
 export const P2P_REQ_RESP_SENT_REQUESTS = 'aztec.p2p.req_resp.sent_requests';
