@@ -233,8 +233,8 @@ Authwits require **contract accounts**, not light accounts.
 
 ```rust
 use aztec::test::helpers::authwit::{
-    add_private_authwit_from_call_interface,
-    add_public_authwit_from_call_interface,
+    add_private_authwit_from_call,
+    add_public_authwit_from_call,
 };
 ```
 
@@ -252,7 +252,7 @@ unconstrained fn test_private_authwit() {
     let burn_call = Token::at(token_address).burn_private(owner, amount, nonce);
 
     // Grant authorization from owner to spender
-    add_private_authwit_from_call_interface(owner, spender, burn_call);
+    add_private_authwit_from_call(env, owner, spender, burn_call);
 
     // Spender can now execute the authorized action
     env.call_private(spender, burn_call);
@@ -261,7 +261,7 @@ unconstrained fn test_private_authwit() {
 
 ### Public authwits
 
-````rust
+```rust
 #[test]
 unconstrained fn test_public_authwit() {
     let (env, token_address, owner, spender) = setup(true);
@@ -270,11 +270,12 @@ unconstrained fn test_public_authwit() {
     let transfer_call = Token::at(token_address).transfer_public(owner, recipient, 100, nonce);
 
     // Grant public authorization
-    add_public_authwit_from_call_interface(owner, spender, transfer_call);
+    add_public_authwit_from_call(env, owner, spender, transfer_call);
 
     // Execute with authorization
     env.call_public(spender, transfer_call);
 }
+```
 
 ## Time traveling
 

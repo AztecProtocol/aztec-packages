@@ -5,75 +5,97 @@ sidebar_position: 7
 description: Learn how to emit events from your Aztec smart contracts for offchain applications to consume.
 ---
 
-This guide shows you how to emit events and logs from your Aztec contracts to communicate with offchain applications.
+Events allow contracts to communicate with offchain applications. Private events are encrypted and delivered to specific recipients, while public events are visible to everyone.
 
 ## Prerequisites
 
 - An Aztec contract project set up with `aztec-nr` dependency
 - Understanding of private vs public functions in Aztec
-- Basic knowledge of event handling in blockchain applications
+
+## Define an event
+
+Declare events using the `#[event]` attribute:
+
+```rust
+#[event]
+struct Transfer {
+    from: AztecAddress,
+    to: AztecAddress,
+    amount: u128,
+}
+```
 
 ## Emit private events
 
-### Emit encrypted events
-
-Use encrypted events to send private data to specific recipients:
+In private functions, emit events using `self.emit()` and deliver them to recipients:
 
 ```rust
-// Import from aztec.nr
-use aztec::event::event_emission::emit_event_in_private;
+use aztec::messages::message_delivery::MessageDelivery;
 
-emit_event_in_private(
-    MyEvent { param1, param2, param3 },
-    &mut context,
-    recipient,
-    MessageDelivery.UNCONSTRAINED_ONCHAIN,
-);
+#[external("private")]
+fn transfer(to: AztecAddress, amount: u128) {
+    let from = self.msg_sender().unwrap();
+
+    // ... transfer logic ...
+
+    self.emit(Transfer { from, to, amount }).deliver_to(
+        to,
+        MessageDelivery.UNCONSTRAINED_ONCHAIN,
+    );
+}
 ```
 
-:::note
-Developer can choose whether to emit encrypted events or not. Emitting the events means that they will be posted to Ethereum, in blobs, and will inherit the availability guarantees of Ethereum. Developers may choose not to emit events and to share information with recipients offchain, or through alternative mechanisms that are to be developed (e.g. alternative, cheaper data availability solutions).
+:::warning
+You **must** call `deliver_to()` on the returned `EventMessage`. If you don't, the event information is lost forever. The compiler will warn you about unused `EventMessage` values.
 :::
 
-The `MessageDelivery` enum provides three modes:
+### Deliver to multiple recipients
 
-- `MessageDelivery.CONSTRAINED_ONCHAIN` (value: 1): Constrained encryption, guarantees correct recipient
-- `MessageDelivery.UNCONSTRAINED_ONCHAIN` (value: 2): Faster but trusts sender, may lose events if tagged incorrectly
-- `MessageDelivery.UNCONSTRAINED_OFFCHAIN` (value: 3): Lowest cost, requires custom offchain infrastructure
+You can deliver the same event to multiple recipients with different delivery modes:
 
-### Event processing
+```rust
+let message = self.emit(Transfer { from, to, amount });
+message.deliver_to(from, MessageDelivery.UNCONSTRAINED_OFFCHAIN);
+message.deliver_to(to, MessageDelivery.CONSTRAINED_ONCHAIN);
+```
 
-Events are automatically discovered and decrypted by the wallet when contract functions are invoked.
+The `MessageDelivery` options are:
+
+- **`CONSTRAINED_ONCHAIN`** - Constrained encryption with onchain delivery. Slowest proving but provides cryptographic guarantees that recipients can decrypt messages.
+- **`UNCONSTRAINED_ONCHAIN`** - Unconstrained encryption with onchain delivery. Faster proving, but trusts the sender to encrypt correctly.
+- **`UNCONSTRAINED_OFFCHAIN`** - Unconstrained encryption with offchain delivery. Lowest cost, but requires custom infrastructure to deliver messages to recipients.
+
+:::note
+Emitting private events is optional. Onchain delivery publishes encrypted data to Ethereum blobs, inheriting Ethereum's data availability guarantees. You can choose to share information offchain instead.
+:::
 
 ## Emit public events
 
-Emit structured public events using the `emit` function:
+In public functions, emit events using `self.emit()`:
 
 ```rust
-// Import from aztec.nr
-use aztec::event::event_emission::emit_event_in_public;
+#[external("public")]
+fn update_value(value: Field) {
+    // ... update logic ...
 
-emit_event_in_public(
-    MyPublicEvent { field1: values[0], field2: values[1] },
-    &mut context,
-);
+    self.emit(ValueUpdated { value });
+}
 ```
 
-## Emit public logs
+Public events are emitted as plaintext logs, similar to Solidity events.
 
-### Emit unstructured data
+## Emit unstructured public logs
 
-Emit unstructured public logs using `emit_public_log`:
+For unstructured data, use `emit_public_log` directly on the context:
 
 ```rust
-context.emit_public_log(my_value);
-context.emit_public_log([1, 2, 3]);
-context.emit_public_log("My message");
+self.context.emit_public_log("My message");
+self.context.emit_public_log([1, 2, 3]);
 ```
 
-### Query public events
+## Query public logs
 
-Query public events from offchain applications:
+Query public logs from offchain applications using the Aztec node:
 
 ```typescript
 const fromBlock = await node.getBlockNumber();
@@ -84,10 +106,15 @@ const logFilter = {
 const publicLogs = (await node.getPublicLogs(logFilter)).logs;
 ```
 
-## Consider costs
+## Cost considerations
 
-Event data is published to Ethereum as blobs, which incurs costs. Consider:
+Event data published onchain is stored in Ethereum blobs, which incurs costs. Consider:
 
-- Encrypted events are optional - use alternative communication methods if needed
-- Future alternatives for data availability may become available
-- Balance event utility with cost implications
+- Use `UNCONSTRAINED_OFFCHAIN` delivery for lower costs when you have custom delivery infrastructure
+- Only emit events when necessary for your application's functionality
+
+## Next steps
+
+- Learn about [storage](./how_to_define_storage.md) to persist data in your contracts
+- Explore [calling other contracts](./how_to_call_contracts.md) for cross-contract interactions
+- Understand [cross-chain communication](./how_to_communicate_cross_chain.md) between Ethereum and Aztec
