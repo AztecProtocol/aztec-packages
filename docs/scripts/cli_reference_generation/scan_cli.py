@@ -66,7 +66,8 @@ class CLIScanner:
             "usage": "",
             "description": "",
             "options": [],
-            "commands": []
+            "commands": [],
+            "additional_commands": []
         }
 
         lines = help_text.split('\n')
@@ -78,10 +79,12 @@ class CLIScanner:
                 result["usage"] = line.replace('Usage:', '').strip()
 
             # Section headers (check these before description parsing)
-            elif 'Options:' in line:
+            elif 'Options:' in line and current_section != 'additional':
                 current_section = 'options'
-            elif 'Commands:' in line or 'Arguments:' in line:
+            elif line.strip() == 'Commands:' or 'Arguments:' in line:
                 current_section = 'commands'
+            elif 'Additional commands:' in line:
+                current_section = 'additional'
 
             # Extract description (usually after Usage, before Options/Commands)
             elif line.strip() and not line.startswith(' ') and current_section is None:
@@ -104,7 +107,7 @@ class CLIScanner:
                     })
 
             # Parse commands
-            elif current_section == 'commands' and line.strip() and not line.strip().startswith('Additional'):
+            elif current_section == 'commands' and line.strip():
                 # Match patterns like: command-name [options] <args>  Description
                 # Commander.js pads to a fixed column width, so split on multiple spaces
                 # First strip leading space, then split on 2+ consecutive spaces
@@ -124,6 +127,32 @@ class CLIScanner:
                             "signature": cmd_full,
                             "description": description
                         })
+
+            # Parse additional commands (custom format with colon separator)
+            elif current_section == 'additional' and line.strip():
+                stripped = line.strip()
+                # Match patterns like: "compile [options]: description" or "init [folder] [options]: description"
+                # Command lines start with a word (possibly hyphenated) followed by optional args and a colon
+                additional_match = re.match(r'^([\w-]+)(\s+[^:]+)?:\s*(.+)$', stripped)
+                if additional_match:
+                    cmd_name = additional_match.group(1)
+                    cmd_args = additional_match.group(2) or ""
+                    description = additional_match.group(3).strip()
+
+                    cmd_full = f"{cmd_name}{cmd_args}".strip()
+
+                    result["additional_commands"].append({
+                        "name": cmd_name,
+                        "signature": cmd_full,
+                        "description": description
+                    })
+
+        # Merge additional_commands into commands list, avoiding duplicates
+        existing_cmd_names = {cmd["name"] for cmd in result["commands"]}
+        for cmd in result["additional_commands"]:
+            if cmd["name"] not in existing_cmd_names:
+                result["commands"].append(cmd)
+        del result["additional_commands"]
 
         return result
 
