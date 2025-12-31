@@ -13,17 +13,12 @@ import json
 import re
 import argparse
 import os
-import sys
 import time
 import random
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from typing import Dict, List, Optional, Any
-
-# Force line-buffered stdout to prevent interleaved output in parallel execution
-if hasattr(sys.stdout, 'reconfigure'):
-    sys.stdout.reconfigure(line_buffering=True)
 
 try:
     import yaml
@@ -54,20 +49,12 @@ class CLIScanner:
                 if message.strip().startswith("Scanning:"):
                     with self.scan_count_lock:
                         self.scan_count += 1
-                    # Silent in parallel mode
                     return
                 elif message.strip().startswith("⏳"):
                     # Skip retry messages in parallel mode
                     return
-                elif "⚠️" in message:
-                    # Show warnings but make them concise
-                    # Extract just the command name from the message
-                    sys.stdout.write(message.strip() + "\n")
-                    sys.stdout.flush()
-            else:
-                # Print normally for sequential mode
-                sys.stdout.write(message + "\n")
-                sys.stdout.flush()
+            # Print all other messages (warnings, errors, sequential mode)
+            print(message, flush=True)
 
     def run_command(self, cmd: List[str], max_retries: int = 3) -> Optional[str]:
         """Execute a command and return its output.
@@ -81,10 +68,11 @@ class CLIScanner:
                 env = os.environ.copy()
                 env['COLUMNS'] = '200'
 
-                # Use unique container name to avoid conflicts in parallel execution
+                # Use unique container name only in parallel mode to avoid conflicts
                 # The aztec CLI's .aztec-run script respects CONTAINER_NAME env var
-                unique_id = f"{threading.current_thread().ident}-{random.randint(0, 999999):06d}"
-                env['CONTAINER_NAME'] = f"aztec-cli-scan-{unique_id}"
+                if self.max_workers > 1:
+                    unique_id = f"{random.randint(0, 999999):06d}"
+                    env['CONTAINER_NAME'] = f"aztec-scan-{unique_id}"
 
                 result = subprocess.run(
                     cmd,

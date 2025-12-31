@@ -8,7 +8,7 @@
 #
 # Environment variables for performance tuning:
 #   CLI_SCAN_WORKERS  - Number of parallel workers (default: 1, use 4-8 for faster scans)
-#   CLI_SCAN_TIMEOUT  - Timeout per command in seconds (default: 15)
+#   CLI_SCAN_TIMEOUT  - Timeout per command in seconds (default: 30)
 #
 # Example with parallel scanning:
 #   CLI_SCAN_WORKERS=4 ./scripts/cli_reference_generation/generate_cli_docs.sh aztec
@@ -17,7 +17,7 @@ set -euo pipefail
 
 # Performance tuning via environment variables
 CLI_SCAN_WORKERS="${CLI_SCAN_WORKERS:-1}"
-CLI_SCAN_TIMEOUT="${CLI_SCAN_TIMEOUT:-15}"
+CLI_SCAN_TIMEOUT="${CLI_SCAN_TIMEOUT:-30}"
 
 # Validate arguments
 if [[ $# -lt 1 ]]; then

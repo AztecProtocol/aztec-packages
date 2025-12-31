@@ -10,877 +10,61 @@ sidebar_position: 1
 *This documentation is auto-generated from the `aztec` CLI help output.*
 
 
-*Generated: Wed 31 Dec 2025 17:31:35 UTC*
+*Generated: Wed 31 Dec 2025 18:04:41 UTC*
 
 *Command: `aztec`*
 
 ## Table of Contents
 
 - [aztec](#aztec)
-  - [aztec fast-forward-epochs](#aztec-fast-forward-epochs)
-  - [aztec codegen](#aztec-codegen)
-  - [aztec decode-enr](#aztec-decode-enr)
+  - [aztec advance-epoch](#aztec-advance-epoch)
+  - [aztec block-number](#aztec-block-number)
+  - [aztec bridge-erc20](#aztec-bridge-erc20)
+  - [aztec add-l1-validator](#aztec-add-l1-validator)
   - [aztec compute-selector](#aztec-compute-selector)
   - [aztec debug-rollup](#aztec-debug-rollup)
-  - [aztec deploy-l1-contracts](#aztec-deploy-l1-contracts)
-  - [aztec deploy-new-rollup](#aztec-deploy-new-rollup)
-  - [aztec block-number](#aztec-block-number)
-  - [aztec generate-bls-keypair](#aztec-generate-bls-keypair)
-  - [aztec advance-epoch](#aztec-advance-epoch)
-  - [aztec add-l1-validator](#aztec-add-l1-validator)
-  - [aztec example-contracts](#aztec-example-contracts)
-  - [aztec execute-governance-proposal](#aztec-execute-governance-proposal)
+  - [aztec codegen](#aztec-codegen)
+  - [aztec decode-enr](#aztec-decode-enr)
   - [aztec deposit-governance-tokens](#aztec-deposit-governance-tokens)
-  - [aztec bridge-erc20](#aztec-bridge-erc20)
+  - [aztec deploy-l1-contracts](#aztec-deploy-l1-contracts)
+  - [aztec example-contracts](#aztec-example-contracts)
+  - [aztec deploy-new-rollup](#aztec-deploy-new-rollup)
+  - [aztec execute-governance-proposal](#aztec-execute-governance-proposal)
+  - [aztec fast-forward-epochs](#aztec-fast-forward-epochs)
+  - [aztec generate-bls-keypair](#aztec-generate-bls-keypair)
   - [aztec generate-bootnode-enr](#aztec-generate-bootnode-enr)
-  - [aztec get-block](#aztec-get-block)
-  - [aztec generate-l1-account](#aztec-generate-l1-account)
-  - [aztec generate-keys](#aztec-generate-keys)
-  - [aztec get-l1-addresses](#aztec-get-l1-addresses)
-  - [aztec get-current-base-fee](#aztec-get-current-base-fee)
-  - [aztec get-l1-to-l2-message-witness](#aztec-get-l1-to-l2-message-witness)
-  - [aztec inspect-contract](#aztec-inspect-contract)
-  - [aztec get-node-info](#aztec-get-node-info)
-  - [aztec generate-secret-and-hash](#aztec-generate-secret-and-hash)
   - [aztec generate-p2p-private-key](#aztec-generate-p2p-private-key)
+  - [aztec generate-keys](#aztec-generate-keys)
+  - [aztec generate-l1-account](#aztec-generate-l1-account)
+  - [aztec generate-secret-and-hash](#aztec-generate-secret-and-hash)
+  - [aztec get-canonical-sponsored-fpc-address](#aztec-get-canonical-sponsored-fpc-address)
+  - [aztec get-block](#aztec-get-block)
+  - [aztec get-current-base-fee](#aztec-get-current-base-fee)
+  - [aztec get-l1-addresses](#aztec-get-l1-addresses)
+  - [aztec get-l1-balance](#aztec-get-l1-balance)
+  - [aztec get-l1-to-l2-message-witness](#aztec-get-l1-to-l2-message-witness)
+  - [aztec get-logs](#aztec-get-logs)
+  - [aztec get-node-info](#aztec-get-node-info)
+  - [aztec inspect-contract](#aztec-inspect-contract)
+  - [aztec parse-parameter-struct](#aztec-parse-parameter-struct)
+  - [aztec preload-crs](#aztec-preload-crs)
+  - [aztec propose-with-lock](#aztec-propose-with-lock)
+  - [aztec prune-rollup](#aztec-prune-rollup)
+  - [aztec remove-l1-validator](#aztec-remove-l1-validator)
+  - [aztec sequencers](#aztec-sequencers)
+  - [aztec setup-protocol-contracts](#aztec-setup-protocol-contracts)
+  - [aztec trigger-seed-snapshot](#aztec-trigger-seed-snapshot)
+  - [aztec update](#aztec-update)
   - [aztec init](#aztec-init)
   - [aztec new](#aztec-new)
-  - [aztec preload-crs](#aztec-preload-crs)
-  - [aztec get-canonical-sponsored-fpc-address](#aztec-get-canonical-sponsored-fpc-address)
-  - [aztec parse-parameter-struct](#aztec-parse-parameter-struct)
-  - [aztec get-logs](#aztec-get-logs)
-  - [aztec get-l1-balance](#aztec-get-l1-balance)
-  - [aztec propose-with-lock](#aztec-propose-with-lock)
+  - [aztec validator-keys|valKeys](#aztec-validator-keys|valkeys)
   - [aztec compile](#aztec-compile)
   - [aztec fmt](#aztec-fmt)
   - [aztec check](#aztec-check)
-  - [aztec test](#aztec-test)
-  - [aztec prune-rollup](#aztec-prune-rollup)
-  - [aztec sequencers](#aztec-sequencers)
-  - [aztec remove-l1-validator](#aztec-remove-l1-validator)
-  - [aztec setup-protocol-contracts](#aztec-setup-protocol-contracts)
-  - [aztec update](#aztec-update)
   - [aztec vote-on-governance-proposal](#aztec-vote-on-governance-proposal)
-  - [aztec trigger-seed-snapshot](#aztec-trigger-seed-snapshot)
   - [aztec start](#aztec-start)
+  - [aztec test](#aztec-test)
   - [aztec lsp](#aztec-lsp)
-  - [aztec validator-keys|valKeys](#aztec-validator-keys|valkeys)
-    - [aztec validator-keys|valKeys add-l1-validator](#aztec-validator-keys|valkeys-add-l1-validator)
-    - [aztec validator-keys|valKeys generate-bls-keypair](#aztec-validator-keys|valkeys-generate-bls-keypair)
-      - [aztec validator-keys|valKeys generate-bls-keypair codegen](#aztec-validator-keys|valkeys-generate-bls-keypair-codegen)
-      - [aztec validator-keys|valKeys generate-bls-keypair bridge-erc20](#aztec-validator-keys|valkeys-generate-bls-keypair-bridge-erc20)
-      - [aztec validator-keys|valKeys generate-bls-keypair block-number](#aztec-validator-keys|valkeys-generate-bls-keypair-block-number)
-      - [aztec validator-keys|valKeys generate-bls-keypair add-l1-validator](#aztec-validator-keys|valkeys-generate-bls-keypair-add-l1-validator)
-      - [aztec validator-keys|valKeys generate-bls-keypair deploy-new-rollup](#aztec-validator-keys|valkeys-generate-bls-keypair-deploy-new-rollup)
-      - [aztec validator-keys|valKeys generate-bls-keypair advance-epoch](#aztec-validator-keys|valkeys-generate-bls-keypair-advance-epoch)
-      - [aztec validator-keys|valKeys generate-bls-keypair deploy-l1-contracts](#aztec-validator-keys|valkeys-generate-bls-keypair-deploy-l1-contracts)
-      - [aztec validator-keys|valKeys generate-bls-keypair compute-selector](#aztec-validator-keys|valkeys-generate-bls-keypair-compute-selector)
-      - [aztec validator-keys|valKeys generate-bls-keypair generate-bootnode-enr](#aztec-validator-keys|valkeys-generate-bls-keypair-generate-bootnode-enr)
-      - [aztec validator-keys|valKeys generate-bls-keypair debug-rollup](#aztec-validator-keys|valkeys-generate-bls-keypair-debug-rollup)
-      - [aztec validator-keys|valKeys generate-bls-keypair execute-governance-proposal](#aztec-validator-keys|valkeys-generate-bls-keypair-execute-governance-proposal)
-      - [aztec validator-keys|valKeys generate-bls-keypair generate-bls-keypair](#aztec-validator-keys|valkeys-generate-bls-keypair-generate-bls-keypair)
-      - [aztec validator-keys|valKeys generate-bls-keypair deposit-governance-tokens](#aztec-validator-keys|valkeys-generate-bls-keypair-deposit-governance-tokens)
-      - [aztec validator-keys|valKeys generate-bls-keypair example-contracts](#aztec-validator-keys|valkeys-generate-bls-keypair-example-contracts)
-      - [aztec validator-keys|valKeys generate-bls-keypair decode-enr](#aztec-validator-keys|valkeys-generate-bls-keypair-decode-enr)
-      - [aztec validator-keys|valKeys generate-bls-keypair fast-forward-epochs](#aztec-validator-keys|valkeys-generate-bls-keypair-fast-forward-epochs)
-      - [aztec validator-keys|valKeys generate-bls-keypair generate-keys](#aztec-validator-keys|valkeys-generate-bls-keypair-generate-keys)
-      - [aztec validator-keys|valKeys generate-bls-keypair generate-l1-account](#aztec-validator-keys|valkeys-generate-bls-keypair-generate-l1-account)
-      - [aztec validator-keys|valKeys generate-bls-keypair get-canonical-sponsored-fpc-address](#aztec-validator-keys|valkeys-generate-bls-keypair-get-canonical-sponsored-fpc-address)
-      - [aztec validator-keys|valKeys generate-bls-keypair get-l1-to-l2-message-witness](#aztec-validator-keys|valkeys-generate-bls-keypair-get-l1-to-l2-message-witness)
-      - [aztec validator-keys|valKeys generate-bls-keypair propose-with-lock](#aztec-validator-keys|valkeys-generate-bls-keypair-propose-with-lock)
-      - [aztec validator-keys|valKeys generate-bls-keypair parse-parameter-struct](#aztec-validator-keys|valkeys-generate-bls-keypair-parse-parameter-struct)
-      - [aztec validator-keys|valKeys generate-bls-keypair get-logs](#aztec-validator-keys|valkeys-generate-bls-keypair-get-logs)
-      - [aztec validator-keys|valKeys generate-bls-keypair generate-p2p-private-key](#aztec-validator-keys|valkeys-generate-bls-keypair-generate-p2p-private-key)
-      - [aztec validator-keys|valKeys generate-bls-keypair get-node-info](#aztec-validator-keys|valkeys-generate-bls-keypair-get-node-info)
-      - [aztec validator-keys|valKeys generate-bls-keypair get-l1-balance](#aztec-validator-keys|valkeys-generate-bls-keypair-get-l1-balance)
-      - [aztec validator-keys|valKeys generate-bls-keypair generate-secret-and-hash](#aztec-validator-keys|valkeys-generate-bls-keypair-generate-secret-and-hash)
-      - [aztec validator-keys|valKeys generate-bls-keypair get-l1-addresses](#aztec-validator-keys|valkeys-generate-bls-keypair-get-l1-addresses)
-      - [aztec validator-keys|valKeys generate-bls-keypair preload-crs](#aztec-validator-keys|valkeys-generate-bls-keypair-preload-crs)
-      - [aztec validator-keys|valKeys generate-bls-keypair get-block](#aztec-validator-keys|valkeys-generate-bls-keypair-get-block)
-      - [aztec validator-keys|valKeys generate-bls-keypair get-current-base-fee](#aztec-validator-keys|valkeys-generate-bls-keypair-get-current-base-fee)
-      - [aztec validator-keys|valKeys generate-bls-keypair inspect-contract](#aztec-validator-keys|valkeys-generate-bls-keypair-inspect-contract)
-      - [aztec validator-keys|valKeys generate-bls-keypair prune-rollup](#aztec-validator-keys|valkeys-generate-bls-keypair-prune-rollup)
-      - [aztec validator-keys|valKeys generate-bls-keypair remove-l1-validator](#aztec-validator-keys|valkeys-generate-bls-keypair-remove-l1-validator)
-      - [aztec validator-keys|valKeys generate-bls-keypair sequencers](#aztec-validator-keys|valkeys-generate-bls-keypair-sequencers)
-      - [aztec validator-keys|valKeys generate-bls-keypair vote-on-governance-proposal](#aztec-validator-keys|valkeys-generate-bls-keypair-vote-on-governance-proposal)
-      - [aztec validator-keys|valKeys generate-bls-keypair start](#aztec-validator-keys|valkeys-generate-bls-keypair-start)
-      - [aztec validator-keys|valKeys generate-bls-keypair new](#aztec-validator-keys|valkeys-generate-bls-keypair-new)
-      - [aztec validator-keys|valKeys generate-bls-keypair setup-protocol-contracts](#aztec-validator-keys|valkeys-generate-bls-keypair-setup-protocol-contracts)
-      - [aztec validator-keys|valKeys generate-bls-keypair update](#aztec-validator-keys|valkeys-generate-bls-keypair-update)
-      - [aztec validator-keys|valKeys generate-bls-keypair compile](#aztec-validator-keys|valkeys-generate-bls-keypair-compile)
-      - [aztec validator-keys|valKeys generate-bls-keypair validator-keys|valKeys](#aztec-validator-keys|valkeys-generate-bls-keypair-validator-keys|valkeys)
-      - [aztec validator-keys|valKeys generate-bls-keypair init](#aztec-validator-keys|valkeys-generate-bls-keypair-init)
-      - [aztec validator-keys|valKeys generate-bls-keypair trigger-seed-snapshot](#aztec-validator-keys|valkeys-generate-bls-keypair-trigger-seed-snapshot)
-      - [aztec validator-keys|valKeys generate-bls-keypair test](#aztec-validator-keys|valkeys-generate-bls-keypair-test)
-      - [aztec validator-keys|valKeys generate-bls-keypair check](#aztec-validator-keys|valkeys-generate-bls-keypair-check)
-      - [aztec validator-keys|valKeys generate-bls-keypair fmt](#aztec-validator-keys|valkeys-generate-bls-keypair-fmt)
-      - [aztec validator-keys|valKeys generate-bls-keypair lsp](#aztec-validator-keys|valkeys-generate-bls-keypair-lsp)
-    - [aztec validator-keys|valKeys deposit-governance-tokens](#aztec-validator-keys|valkeys-deposit-governance-tokens)
-      - [aztec validator-keys|valKeys deposit-governance-tokens add-l1-validator](#aztec-validator-keys|valkeys-deposit-governance-tokens-add-l1-validator)
-      - [aztec validator-keys|valKeys deposit-governance-tokens advance-epoch](#aztec-validator-keys|valkeys-deposit-governance-tokens-advance-epoch)
-      - [aztec validator-keys|valKeys deposit-governance-tokens block-number](#aztec-validator-keys|valkeys-deposit-governance-tokens-block-number)
-      - [aztec validator-keys|valKeys deposit-governance-tokens debug-rollup](#aztec-validator-keys|valkeys-deposit-governance-tokens-debug-rollup)
-      - [aztec validator-keys|valKeys deposit-governance-tokens codegen](#aztec-validator-keys|valkeys-deposit-governance-tokens-codegen)
-      - [aztec validator-keys|valKeys deposit-governance-tokens decode-enr](#aztec-validator-keys|valkeys-deposit-governance-tokens-decode-enr)
-      - [aztec validator-keys|valKeys deposit-governance-tokens compute-selector](#aztec-validator-keys|valkeys-deposit-governance-tokens-compute-selector)
-      - [aztec validator-keys|valKeys deposit-governance-tokens bridge-erc20](#aztec-validator-keys|valkeys-deposit-governance-tokens-bridge-erc20)
-      - [aztec validator-keys|valKeys deposit-governance-tokens deposit-governance-tokens](#aztec-validator-keys|valkeys-deposit-governance-tokens-deposit-governance-tokens)
-      - [aztec validator-keys|valKeys deposit-governance-tokens deploy-l1-contracts](#aztec-validator-keys|valkeys-deposit-governance-tokens-deploy-l1-contracts)
-      - [aztec validator-keys|valKeys deposit-governance-tokens fast-forward-epochs](#aztec-validator-keys|valkeys-deposit-governance-tokens-fast-forward-epochs)
-      - [aztec validator-keys|valKeys deposit-governance-tokens example-contracts](#aztec-validator-keys|valkeys-deposit-governance-tokens-example-contracts)
-      - [aztec validator-keys|valKeys deposit-governance-tokens generate-bls-keypair](#aztec-validator-keys|valkeys-deposit-governance-tokens-generate-bls-keypair)
-      - [aztec validator-keys|valKeys deposit-governance-tokens deploy-new-rollup](#aztec-validator-keys|valkeys-deposit-governance-tokens-deploy-new-rollup)
-      - [aztec validator-keys|valKeys deposit-governance-tokens generate-bootnode-enr](#aztec-validator-keys|valkeys-deposit-governance-tokens-generate-bootnode-enr)
-      - [aztec validator-keys|valKeys deposit-governance-tokens execute-governance-proposal](#aztec-validator-keys|valkeys-deposit-governance-tokens-execute-governance-proposal)
-      - [aztec validator-keys|valKeys deposit-governance-tokens generate-keys](#aztec-validator-keys|valkeys-deposit-governance-tokens-generate-keys)
-      - [aztec validator-keys|valKeys deposit-governance-tokens generate-p2p-private-key](#aztec-validator-keys|valkeys-deposit-governance-tokens-generate-p2p-private-key)
-      - [aztec validator-keys|valKeys deposit-governance-tokens generate-l1-account](#aztec-validator-keys|valkeys-deposit-governance-tokens-generate-l1-account)
-      - [aztec validator-keys|valKeys deposit-governance-tokens get-current-base-fee](#aztec-validator-keys|valkeys-deposit-governance-tokens-get-current-base-fee)
-      - [aztec validator-keys|valKeys deposit-governance-tokens get-canonical-sponsored-fpc-address](#aztec-validator-keys|valkeys-deposit-governance-tokens-get-canonical-sponsored-fpc-address)
-      - [aztec validator-keys|valKeys deposit-governance-tokens inspect-contract](#aztec-validator-keys|valkeys-deposit-governance-tokens-inspect-contract)
-      - [aztec validator-keys|valKeys deposit-governance-tokens get-node-info](#aztec-validator-keys|valkeys-deposit-governance-tokens-get-node-info)
-      - [aztec validator-keys|valKeys deposit-governance-tokens get-block](#aztec-validator-keys|valkeys-deposit-governance-tokens-get-block)
-      - [aztec validator-keys|valKeys deposit-governance-tokens get-l1-balance](#aztec-validator-keys|valkeys-deposit-governance-tokens-get-l1-balance)
-      - [aztec validator-keys|valKeys deposit-governance-tokens get-logs](#aztec-validator-keys|valkeys-deposit-governance-tokens-get-logs)
-      - [aztec validator-keys|valKeys deposit-governance-tokens get-l1-addresses](#aztec-validator-keys|valkeys-deposit-governance-tokens-get-l1-addresses)
-      - [aztec validator-keys|valKeys deposit-governance-tokens generate-secret-and-hash](#aztec-validator-keys|valkeys-deposit-governance-tokens-generate-secret-and-hash)
-      - [aztec validator-keys|valKeys deposit-governance-tokens get-l1-to-l2-message-witness](#aztec-validator-keys|valkeys-deposit-governance-tokens-get-l1-to-l2-message-witness)
-      - [aztec validator-keys|valKeys deposit-governance-tokens preload-crs](#aztec-validator-keys|valkeys-deposit-governance-tokens-preload-crs)
-      - [aztec validator-keys|valKeys deposit-governance-tokens propose-with-lock](#aztec-validator-keys|valkeys-deposit-governance-tokens-propose-with-lock)
-      - [aztec validator-keys|valKeys deposit-governance-tokens parse-parameter-struct](#aztec-validator-keys|valkeys-deposit-governance-tokens-parse-parameter-struct)
-      - [aztec validator-keys|valKeys deposit-governance-tokens start](#aztec-validator-keys|valkeys-deposit-governance-tokens-start)
-      - [aztec validator-keys|valKeys deposit-governance-tokens remove-l1-validator](#aztec-validator-keys|valkeys-deposit-governance-tokens-remove-l1-validator)
-      - [aztec validator-keys|valKeys deposit-governance-tokens sequencers](#aztec-validator-keys|valkeys-deposit-governance-tokens-sequencers)
-      - [aztec validator-keys|valKeys deposit-governance-tokens setup-protocol-contracts](#aztec-validator-keys|valkeys-deposit-governance-tokens-setup-protocol-contracts)
-      - [aztec validator-keys|valKeys deposit-governance-tokens prune-rollup](#aztec-validator-keys|valkeys-deposit-governance-tokens-prune-rollup)
-      - [aztec validator-keys|valKeys deposit-governance-tokens validator-keys|valKeys](#aztec-validator-keys|valkeys-deposit-governance-tokens-validator-keys|valkeys)
-      - [aztec validator-keys|valKeys deposit-governance-tokens trigger-seed-snapshot](#aztec-validator-keys|valkeys-deposit-governance-tokens-trigger-seed-snapshot)
-      - [aztec validator-keys|valKeys deposit-governance-tokens compile](#aztec-validator-keys|valkeys-deposit-governance-tokens-compile)
-      - [aztec validator-keys|valKeys deposit-governance-tokens new](#aztec-validator-keys|valkeys-deposit-governance-tokens-new)
-      - [aztec validator-keys|valKeys deposit-governance-tokens update](#aztec-validator-keys|valkeys-deposit-governance-tokens-update)
-      - [aztec validator-keys|valKeys deposit-governance-tokens init](#aztec-validator-keys|valkeys-deposit-governance-tokens-init)
-      - [aztec validator-keys|valKeys deposit-governance-tokens lsp](#aztec-validator-keys|valkeys-deposit-governance-tokens-lsp)
-      - [aztec validator-keys|valKeys deposit-governance-tokens fmt](#aztec-validator-keys|valkeys-deposit-governance-tokens-fmt)
-      - [aztec validator-keys|valKeys deposit-governance-tokens test](#aztec-validator-keys|valkeys-deposit-governance-tokens-test)
-      - [aztec validator-keys|valKeys deposit-governance-tokens check](#aztec-validator-keys|valkeys-deposit-governance-tokens-check)
-      - [aztec validator-keys|valKeys deposit-governance-tokens vote-on-governance-proposal](#aztec-validator-keys|valkeys-deposit-governance-tokens-vote-on-governance-proposal)
-    - [aztec validator-keys|valKeys example-contracts](#aztec-validator-keys|valkeys-example-contracts)
-      - [aztec validator-keys|valKeys example-contracts block-number](#aztec-validator-keys|valkeys-example-contracts-block-number)
-      - [aztec validator-keys|valKeys example-contracts compute-selector](#aztec-validator-keys|valkeys-example-contracts-compute-selector)
-      - [aztec validator-keys|valKeys example-contracts add-l1-validator](#aztec-validator-keys|valkeys-example-contracts-add-l1-validator)
-      - [aztec validator-keys|valKeys example-contracts codegen](#aztec-validator-keys|valkeys-example-contracts-codegen)
-      - [aztec validator-keys|valKeys example-contracts advance-epoch](#aztec-validator-keys|valkeys-example-contracts-advance-epoch)
-      - [aztec validator-keys|valKeys example-contracts decode-enr](#aztec-validator-keys|valkeys-example-contracts-decode-enr)
-      - [aztec validator-keys|valKeys example-contracts bridge-erc20](#aztec-validator-keys|valkeys-example-contracts-bridge-erc20)
-      - [aztec validator-keys|valKeys example-contracts generate-bootnode-enr](#aztec-validator-keys|valkeys-example-contracts-generate-bootnode-enr)
-      - [aztec validator-keys|valKeys example-contracts deploy-l1-contracts](#aztec-validator-keys|valkeys-example-contracts-deploy-l1-contracts)
-      - [aztec validator-keys|valKeys example-contracts deposit-governance-tokens](#aztec-validator-keys|valkeys-example-contracts-deposit-governance-tokens)
-      - [aztec validator-keys|valKeys example-contracts generate-bls-keypair](#aztec-validator-keys|valkeys-example-contracts-generate-bls-keypair)
-      - [aztec validator-keys|valKeys example-contracts example-contracts](#aztec-validator-keys|valkeys-example-contracts-example-contracts)
-      - [aztec validator-keys|valKeys example-contracts execute-governance-proposal](#aztec-validator-keys|valkeys-example-contracts-execute-governance-proposal)
-      - [aztec validator-keys|valKeys example-contracts debug-rollup](#aztec-validator-keys|valkeys-example-contracts-debug-rollup)
-      - [aztec validator-keys|valKeys example-contracts deploy-new-rollup](#aztec-validator-keys|valkeys-example-contracts-deploy-new-rollup)
-      - [aztec validator-keys|valKeys example-contracts fast-forward-epochs](#aztec-validator-keys|valkeys-example-contracts-fast-forward-epochs)
-      - [aztec validator-keys|valKeys example-contracts generate-keys](#aztec-validator-keys|valkeys-example-contracts-generate-keys)
-      - [aztec validator-keys|valKeys example-contracts generate-p2p-private-key](#aztec-validator-keys|valkeys-example-contracts-generate-p2p-private-key)
-      - [aztec validator-keys|valKeys example-contracts generate-l1-account](#aztec-validator-keys|valkeys-example-contracts-generate-l1-account)
-      - [aztec validator-keys|valKeys example-contracts generate-secret-and-hash](#aztec-validator-keys|valkeys-example-contracts-generate-secret-and-hash)
-      - [aztec validator-keys|valKeys example-contracts get-l1-balance](#aztec-validator-keys|valkeys-example-contracts-get-l1-balance)
-      - [aztec validator-keys|valKeys example-contracts get-l1-addresses](#aztec-validator-keys|valkeys-example-contracts-get-l1-addresses)
-      - [aztec validator-keys|valKeys example-contracts get-current-base-fee](#aztec-validator-keys|valkeys-example-contracts-get-current-base-fee)
-      - [aztec validator-keys|valKeys example-contracts get-node-info](#aztec-validator-keys|valkeys-example-contracts-get-node-info)
-      - [aztec validator-keys|valKeys example-contracts get-l1-to-l2-message-witness](#aztec-validator-keys|valkeys-example-contracts-get-l1-to-l2-message-witness)
-      - [aztec validator-keys|valKeys example-contracts get-block](#aztec-validator-keys|valkeys-example-contracts-get-block)
-      - [aztec validator-keys|valKeys example-contracts inspect-contract](#aztec-validator-keys|valkeys-example-contracts-inspect-contract)
-      - [aztec validator-keys|valKeys example-contracts parse-parameter-struct](#aztec-validator-keys|valkeys-example-contracts-parse-parameter-struct)
-      - [aztec validator-keys|valKeys example-contracts get-canonical-sponsored-fpc-address](#aztec-validator-keys|valkeys-example-contracts-get-canonical-sponsored-fpc-address)
-      - [aztec validator-keys|valKeys example-contracts get-logs](#aztec-validator-keys|valkeys-example-contracts-get-logs)
-      - [aztec validator-keys|valKeys example-contracts propose-with-lock](#aztec-validator-keys|valkeys-example-contracts-propose-with-lock)
-      - [aztec validator-keys|valKeys example-contracts preload-crs](#aztec-validator-keys|valkeys-example-contracts-preload-crs)
-      - [aztec validator-keys|valKeys example-contracts prune-rollup](#aztec-validator-keys|valkeys-example-contracts-prune-rollup)
-      - [aztec validator-keys|valKeys example-contracts remove-l1-validator](#aztec-validator-keys|valkeys-example-contracts-remove-l1-validator)
-      - [aztec validator-keys|valKeys example-contracts setup-protocol-contracts](#aztec-validator-keys|valkeys-example-contracts-setup-protocol-contracts)
-      - [aztec validator-keys|valKeys example-contracts sequencers](#aztec-validator-keys|valkeys-example-contracts-sequencers)
-      - [aztec validator-keys|valKeys example-contracts start](#aztec-validator-keys|valkeys-example-contracts-start)
-      - [aztec validator-keys|valKeys example-contracts update](#aztec-validator-keys|valkeys-example-contracts-update)
-      - [aztec validator-keys|valKeys example-contracts trigger-seed-snapshot](#aztec-validator-keys|valkeys-example-contracts-trigger-seed-snapshot)
-      - [aztec validator-keys|valKeys example-contracts init](#aztec-validator-keys|valkeys-example-contracts-init)
-      - [aztec validator-keys|valKeys example-contracts vote-on-governance-proposal](#aztec-validator-keys|valkeys-example-contracts-vote-on-governance-proposal)
-      - [aztec validator-keys|valKeys example-contracts new](#aztec-validator-keys|valkeys-example-contracts-new)
-      - [aztec validator-keys|valKeys example-contracts check](#aztec-validator-keys|valkeys-example-contracts-check)
-      - [aztec validator-keys|valKeys example-contracts compile](#aztec-validator-keys|valkeys-example-contracts-compile)
-      - [aztec validator-keys|valKeys example-contracts validator-keys|valKeys](#aztec-validator-keys|valkeys-example-contracts-validator-keys|valkeys)
-      - [aztec validator-keys|valKeys example-contracts fmt](#aztec-validator-keys|valkeys-example-contracts-fmt)
-      - [aztec validator-keys|valKeys example-contracts test](#aztec-validator-keys|valkeys-example-contracts-test)
-      - [aztec validator-keys|valKeys example-contracts lsp](#aztec-validator-keys|valkeys-example-contracts-lsp)
-    - [aztec validator-keys|valKeys fast-forward-epochs](#aztec-validator-keys|valkeys-fast-forward-epochs)
-      - [aztec validator-keys|valKeys fast-forward-epochs deploy-new-rollup](#aztec-validator-keys|valkeys-fast-forward-epochs-deploy-new-rollup)
-      - [aztec validator-keys|valKeys fast-forward-epochs generate-bootnode-enr](#aztec-validator-keys|valkeys-fast-forward-epochs-generate-bootnode-enr)
-      - [aztec validator-keys|valKeys fast-forward-epochs deploy-l1-contracts](#aztec-validator-keys|valkeys-fast-forward-epochs-deploy-l1-contracts)
-      - [aztec validator-keys|valKeys fast-forward-epochs compute-selector](#aztec-validator-keys|valkeys-fast-forward-epochs-compute-selector)
-      - [aztec validator-keys|valKeys fast-forward-epochs fast-forward-epochs](#aztec-validator-keys|valkeys-fast-forward-epochs-fast-forward-epochs)
-      - [aztec validator-keys|valKeys fast-forward-epochs execute-governance-proposal](#aztec-validator-keys|valkeys-fast-forward-epochs-execute-governance-proposal)
-      - [aztec validator-keys|valKeys fast-forward-epochs generate-bls-keypair](#aztec-validator-keys|valkeys-fast-forward-epochs-generate-bls-keypair)
-      - [aztec validator-keys|valKeys fast-forward-epochs codegen](#aztec-validator-keys|valkeys-fast-forward-epochs-codegen)
-      - [aztec validator-keys|valKeys fast-forward-epochs add-l1-validator](#aztec-validator-keys|valkeys-fast-forward-epochs-add-l1-validator)
-      - [aztec validator-keys|valKeys fast-forward-epochs example-contracts](#aztec-validator-keys|valkeys-fast-forward-epochs-example-contracts)
-      - [aztec validator-keys|valKeys fast-forward-epochs debug-rollup](#aztec-validator-keys|valkeys-fast-forward-epochs-debug-rollup)
-      - [aztec validator-keys|valKeys fast-forward-epochs block-number](#aztec-validator-keys|valkeys-fast-forward-epochs-block-number)
-      - [aztec validator-keys|valKeys fast-forward-epochs advance-epoch](#aztec-validator-keys|valkeys-fast-forward-epochs-advance-epoch)
-      - [aztec validator-keys|valKeys fast-forward-epochs bridge-erc20](#aztec-validator-keys|valkeys-fast-forward-epochs-bridge-erc20)
-      - [aztec validator-keys|valKeys fast-forward-epochs deposit-governance-tokens](#aztec-validator-keys|valkeys-fast-forward-epochs-deposit-governance-tokens)
-      - [aztec validator-keys|valKeys fast-forward-epochs decode-enr](#aztec-validator-keys|valkeys-fast-forward-epochs-decode-enr)
-      - [aztec validator-keys|valKeys fast-forward-epochs generate-l1-account](#aztec-validator-keys|valkeys-fast-forward-epochs-generate-l1-account)
-      - [aztec validator-keys|valKeys fast-forward-epochs generate-keys](#aztec-validator-keys|valkeys-fast-forward-epochs-generate-keys)
-      - [aztec validator-keys|valKeys fast-forward-epochs get-block](#aztec-validator-keys|valkeys-fast-forward-epochs-get-block)
-      - [aztec validator-keys|valKeys fast-forward-epochs get-canonical-sponsored-fpc-address](#aztec-validator-keys|valkeys-fast-forward-epochs-get-canonical-sponsored-fpc-address)
-      - [aztec validator-keys|valKeys fast-forward-epochs generate-p2p-private-key](#aztec-validator-keys|valkeys-fast-forward-epochs-generate-p2p-private-key)
-      - [aztec validator-keys|valKeys fast-forward-epochs get-current-base-fee](#aztec-validator-keys|valkeys-fast-forward-epochs-get-current-base-fee)
-      - [aztec validator-keys|valKeys fast-forward-epochs get-l1-addresses](#aztec-validator-keys|valkeys-fast-forward-epochs-get-l1-addresses)
-      - [aztec validator-keys|valKeys fast-forward-epochs generate-secret-and-hash](#aztec-validator-keys|valkeys-fast-forward-epochs-generate-secret-and-hash)
-      - [aztec validator-keys|valKeys fast-forward-epochs get-l1-to-l2-message-witness](#aztec-validator-keys|valkeys-fast-forward-epochs-get-l1-to-l2-message-witness)
-      - [aztec validator-keys|valKeys fast-forward-epochs inspect-contract](#aztec-validator-keys|valkeys-fast-forward-epochs-inspect-contract)
-      - [aztec validator-keys|valKeys fast-forward-epochs parse-parameter-struct](#aztec-validator-keys|valkeys-fast-forward-epochs-parse-parameter-struct)
-      - [aztec validator-keys|valKeys fast-forward-epochs preload-crs](#aztec-validator-keys|valkeys-fast-forward-epochs-preload-crs)
-      - [aztec validator-keys|valKeys fast-forward-epochs propose-with-lock](#aztec-validator-keys|valkeys-fast-forward-epochs-propose-with-lock)
-      - [aztec validator-keys|valKeys fast-forward-epochs get-logs](#aztec-validator-keys|valkeys-fast-forward-epochs-get-logs)
-      - [aztec validator-keys|valKeys fast-forward-epochs get-l1-balance](#aztec-validator-keys|valkeys-fast-forward-epochs-get-l1-balance)
-      - [aztec validator-keys|valKeys fast-forward-epochs get-node-info](#aztec-validator-keys|valkeys-fast-forward-epochs-get-node-info)
-      - [aztec validator-keys|valKeys fast-forward-epochs remove-l1-validator](#aztec-validator-keys|valkeys-fast-forward-epochs-remove-l1-validator)
-      - [aztec validator-keys|valKeys fast-forward-epochs start](#aztec-validator-keys|valkeys-fast-forward-epochs-start)
-      - [aztec validator-keys|valKeys fast-forward-epochs validator-keys|valKeys](#aztec-validator-keys|valkeys-fast-forward-epochs-validator-keys|valkeys)
-      - [aztec validator-keys|valKeys fast-forward-epochs prune-rollup](#aztec-validator-keys|valkeys-fast-forward-epochs-prune-rollup)
-      - [aztec validator-keys|valKeys fast-forward-epochs trigger-seed-snapshot](#aztec-validator-keys|valkeys-fast-forward-epochs-trigger-seed-snapshot)
-      - [aztec validator-keys|valKeys fast-forward-epochs sequencers](#aztec-validator-keys|valkeys-fast-forward-epochs-sequencers)
-      - [aztec validator-keys|valKeys fast-forward-epochs update](#aztec-validator-keys|valkeys-fast-forward-epochs-update)
-      - [aztec validator-keys|valKeys fast-forward-epochs setup-protocol-contracts](#aztec-validator-keys|valkeys-fast-forward-epochs-setup-protocol-contracts)
-      - [aztec validator-keys|valKeys fast-forward-epochs init](#aztec-validator-keys|valkeys-fast-forward-epochs-init)
-      - [aztec validator-keys|valKeys fast-forward-epochs check](#aztec-validator-keys|valkeys-fast-forward-epochs-check)
-      - [aztec validator-keys|valKeys fast-forward-epochs vote-on-governance-proposal](#aztec-validator-keys|valkeys-fast-forward-epochs-vote-on-governance-proposal)
-      - [aztec validator-keys|valKeys fast-forward-epochs new](#aztec-validator-keys|valkeys-fast-forward-epochs-new)
-      - [aztec validator-keys|valKeys fast-forward-epochs fmt](#aztec-validator-keys|valkeys-fast-forward-epochs-fmt)
-      - [aztec validator-keys|valKeys fast-forward-epochs compile](#aztec-validator-keys|valkeys-fast-forward-epochs-compile)
-      - [aztec validator-keys|valKeys fast-forward-epochs test](#aztec-validator-keys|valkeys-fast-forward-epochs-test)
-      - [aztec validator-keys|valKeys fast-forward-epochs lsp](#aztec-validator-keys|valkeys-fast-forward-epochs-lsp)
-    - [aztec validator-keys|valKeys block-number](#aztec-validator-keys|valkeys-block-number)
-      - [aztec validator-keys|valKeys block-number example-contracts](#aztec-validator-keys|valkeys-block-number-example-contracts)
-      - [aztec validator-keys|valKeys block-number deploy-l1-contracts](#aztec-validator-keys|valkeys-block-number-deploy-l1-contracts)
-      - [aztec validator-keys|valKeys block-number deploy-new-rollup](#aztec-validator-keys|valkeys-block-number-deploy-new-rollup)
-      - [aztec validator-keys|valKeys block-number bridge-erc20](#aztec-validator-keys|valkeys-block-number-bridge-erc20)
-      - [aztec validator-keys|valKeys block-number compute-selector](#aztec-validator-keys|valkeys-block-number-compute-selector)
-      - [aztec validator-keys|valKeys block-number add-l1-validator](#aztec-validator-keys|valkeys-block-number-add-l1-validator)
-      - [aztec validator-keys|valKeys block-number block-number](#aztec-validator-keys|valkeys-block-number-block-number)
-      - [aztec validator-keys|valKeys block-number generate-bls-keypair](#aztec-validator-keys|valkeys-block-number-generate-bls-keypair)
-      - [aztec validator-keys|valKeys block-number deposit-governance-tokens](#aztec-validator-keys|valkeys-block-number-deposit-governance-tokens)
-      - [aztec validator-keys|valKeys block-number execute-governance-proposal](#aztec-validator-keys|valkeys-block-number-execute-governance-proposal)
-      - [aztec validator-keys|valKeys block-number decode-enr](#aztec-validator-keys|valkeys-block-number-decode-enr)
-      - [aztec validator-keys|valKeys block-number fast-forward-epochs](#aztec-validator-keys|valkeys-block-number-fast-forward-epochs)
-      - [aztec validator-keys|valKeys block-number generate-bootnode-enr](#aztec-validator-keys|valkeys-block-number-generate-bootnode-enr)
-      - [aztec validator-keys|valKeys block-number codegen](#aztec-validator-keys|valkeys-block-number-codegen)
-      - [aztec validator-keys|valKeys block-number advance-epoch](#aztec-validator-keys|valkeys-block-number-advance-epoch)
-      - [aztec validator-keys|valKeys block-number debug-rollup](#aztec-validator-keys|valkeys-block-number-debug-rollup)
-      - [aztec validator-keys|valKeys block-number generate-p2p-private-key](#aztec-validator-keys|valkeys-block-number-generate-p2p-private-key)
-      - [aztec validator-keys|valKeys block-number generate-secret-and-hash](#aztec-validator-keys|valkeys-block-number-generate-secret-and-hash)
-      - [aztec validator-keys|valKeys block-number get-canonical-sponsored-fpc-address](#aztec-validator-keys|valkeys-block-number-get-canonical-sponsored-fpc-address)
-      - [aztec validator-keys|valKeys block-number generate-keys](#aztec-validator-keys|valkeys-block-number-generate-keys)
-      - [aztec validator-keys|valKeys block-number get-current-base-fee](#aztec-validator-keys|valkeys-block-number-get-current-base-fee)
-      - [aztec validator-keys|valKeys block-number get-l1-addresses](#aztec-validator-keys|valkeys-block-number-get-l1-addresses)
-      - [aztec validator-keys|valKeys block-number get-l1-balance](#aztec-validator-keys|valkeys-block-number-get-l1-balance)
-      - [aztec validator-keys|valKeys block-number get-l1-to-l2-message-witness](#aztec-validator-keys|valkeys-block-number-get-l1-to-l2-message-witness)
-      - [aztec validator-keys|valKeys block-number get-block](#aztec-validator-keys|valkeys-block-number-get-block)
-      - [aztec validator-keys|valKeys block-number get-node-info](#aztec-validator-keys|valkeys-block-number-get-node-info)
-      - [aztec validator-keys|valKeys block-number inspect-contract](#aztec-validator-keys|valkeys-block-number-inspect-contract)
-      - [aztec validator-keys|valKeys block-number generate-l1-account](#aztec-validator-keys|valkeys-block-number-generate-l1-account)
-      - [aztec validator-keys|valKeys block-number parse-parameter-struct](#aztec-validator-keys|valkeys-block-number-parse-parameter-struct)
-      - [aztec validator-keys|valKeys block-number preload-crs](#aztec-validator-keys|valkeys-block-number-preload-crs)
-      - [aztec validator-keys|valKeys block-number get-logs](#aztec-validator-keys|valkeys-block-number-get-logs)
-      - [aztec validator-keys|valKeys block-number propose-with-lock](#aztec-validator-keys|valkeys-block-number-propose-with-lock)
-      - [aztec validator-keys|valKeys block-number sequencers](#aztec-validator-keys|valkeys-block-number-sequencers)
-      - [aztec validator-keys|valKeys block-number remove-l1-validator](#aztec-validator-keys|valkeys-block-number-remove-l1-validator)
-      - [aztec validator-keys|valKeys block-number prune-rollup](#aztec-validator-keys|valkeys-block-number-prune-rollup)
-      - [aztec validator-keys|valKeys block-number setup-protocol-contracts](#aztec-validator-keys|valkeys-block-number-setup-protocol-contracts)
-      - [aztec validator-keys|valKeys block-number start](#aztec-validator-keys|valkeys-block-number-start)
-      - [aztec validator-keys|valKeys block-number vote-on-governance-proposal](#aztec-validator-keys|valkeys-block-number-vote-on-governance-proposal)
-      - [aztec validator-keys|valKeys block-number trigger-seed-snapshot](#aztec-validator-keys|valkeys-block-number-trigger-seed-snapshot)
-      - [aztec validator-keys|valKeys block-number validator-keys|valKeys](#aztec-validator-keys|valkeys-block-number-validator-keys|valkeys)
-      - [aztec validator-keys|valKeys block-number init](#aztec-validator-keys|valkeys-block-number-init)
-      - [aztec validator-keys|valKeys block-number new](#aztec-validator-keys|valkeys-block-number-new)
-      - [aztec validator-keys|valKeys block-number update](#aztec-validator-keys|valkeys-block-number-update)
-      - [aztec validator-keys|valKeys block-number compile](#aztec-validator-keys|valkeys-block-number-compile)
-      - [aztec validator-keys|valKeys block-number fmt](#aztec-validator-keys|valkeys-block-number-fmt)
-      - [aztec validator-keys|valKeys block-number lsp](#aztec-validator-keys|valkeys-block-number-lsp)
-      - [aztec validator-keys|valKeys block-number test](#aztec-validator-keys|valkeys-block-number-test)
-      - [aztec validator-keys|valKeys block-number check](#aztec-validator-keys|valkeys-block-number-check)
-    - [aztec validator-keys|valKeys debug-rollup](#aztec-validator-keys|valkeys-debug-rollup)
-      - [aztec validator-keys|valKeys debug-rollup add-l1-validator](#aztec-validator-keys|valkeys-debug-rollup-add-l1-validator)
-      - [aztec validator-keys|valKeys debug-rollup bridge-erc20](#aztec-validator-keys|valkeys-debug-rollup-bridge-erc20)
-      - [aztec validator-keys|valKeys debug-rollup example-contracts](#aztec-validator-keys|valkeys-debug-rollup-example-contracts)
-      - [aztec validator-keys|valKeys debug-rollup execute-governance-proposal](#aztec-validator-keys|valkeys-debug-rollup-execute-governance-proposal)
-      - [aztec validator-keys|valKeys debug-rollup decode-enr](#aztec-validator-keys|valkeys-debug-rollup-decode-enr)
-      - [aztec validator-keys|valKeys debug-rollup fast-forward-epochs](#aztec-validator-keys|valkeys-debug-rollup-fast-forward-epochs)
-      - [aztec validator-keys|valKeys debug-rollup advance-epoch](#aztec-validator-keys|valkeys-debug-rollup-advance-epoch)
-      - [aztec validator-keys|valKeys debug-rollup deposit-governance-tokens](#aztec-validator-keys|valkeys-debug-rollup-deposit-governance-tokens)
-      - [aztec validator-keys|valKeys debug-rollup generate-bls-keypair](#aztec-validator-keys|valkeys-debug-rollup-generate-bls-keypair)
-      - [aztec validator-keys|valKeys debug-rollup block-number](#aztec-validator-keys|valkeys-debug-rollup-block-number)
-      - [aztec validator-keys|valKeys debug-rollup deploy-l1-contracts](#aztec-validator-keys|valkeys-debug-rollup-deploy-l1-contracts)
-      - [aztec validator-keys|valKeys debug-rollup compute-selector](#aztec-validator-keys|valkeys-debug-rollup-compute-selector)
-      - [aztec validator-keys|valKeys debug-rollup generate-bootnode-enr](#aztec-validator-keys|valkeys-debug-rollup-generate-bootnode-enr)
-      - [aztec validator-keys|valKeys debug-rollup deploy-new-rollup](#aztec-validator-keys|valkeys-debug-rollup-deploy-new-rollup)
-      - [aztec validator-keys|valKeys debug-rollup debug-rollup](#aztec-validator-keys|valkeys-debug-rollup-debug-rollup)
-      - [aztec validator-keys|valKeys debug-rollup codegen](#aztec-validator-keys|valkeys-debug-rollup-codegen)
-      - [aztec validator-keys|valKeys debug-rollup generate-l1-account](#aztec-validator-keys|valkeys-debug-rollup-generate-l1-account)
-      - [aztec validator-keys|valKeys debug-rollup generate-p2p-private-key](#aztec-validator-keys|valkeys-debug-rollup-generate-p2p-private-key)
-      - [aztec validator-keys|valKeys debug-rollup generate-secret-and-hash](#aztec-validator-keys|valkeys-debug-rollup-generate-secret-and-hash)
-      - [aztec validator-keys|valKeys debug-rollup generate-keys](#aztec-validator-keys|valkeys-debug-rollup-generate-keys)
-      - [aztec validator-keys|valKeys debug-rollup get-block](#aztec-validator-keys|valkeys-debug-rollup-get-block)
-      - [aztec validator-keys|valKeys debug-rollup get-logs](#aztec-validator-keys|valkeys-debug-rollup-get-logs)
-      - [aztec validator-keys|valKeys debug-rollup get-l1-balance](#aztec-validator-keys|valkeys-debug-rollup-get-l1-balance)
-      - [aztec validator-keys|valKeys debug-rollup get-l1-addresses](#aztec-validator-keys|valkeys-debug-rollup-get-l1-addresses)
-      - [aztec validator-keys|valKeys debug-rollup get-l1-to-l2-message-witness](#aztec-validator-keys|valkeys-debug-rollup-get-l1-to-l2-message-witness)
-      - [aztec validator-keys|valKeys debug-rollup preload-crs](#aztec-validator-keys|valkeys-debug-rollup-preload-crs)
-      - [aztec validator-keys|valKeys debug-rollup inspect-contract](#aztec-validator-keys|valkeys-debug-rollup-inspect-contract)
-      - [aztec validator-keys|valKeys debug-rollup get-node-info](#aztec-validator-keys|valkeys-debug-rollup-get-node-info)
-      - [aztec validator-keys|valKeys debug-rollup parse-parameter-struct](#aztec-validator-keys|valkeys-debug-rollup-parse-parameter-struct)
-      - [aztec validator-keys|valKeys debug-rollup get-canonical-sponsored-fpc-address](#aztec-validator-keys|valkeys-debug-rollup-get-canonical-sponsored-fpc-address)
-      - [aztec validator-keys|valKeys debug-rollup get-current-base-fee](#aztec-validator-keys|valkeys-debug-rollup-get-current-base-fee)
-      - [aztec validator-keys|valKeys debug-rollup propose-with-lock](#aztec-validator-keys|valkeys-debug-rollup-propose-with-lock)
-      - [aztec validator-keys|valKeys debug-rollup remove-l1-validator](#aztec-validator-keys|valkeys-debug-rollup-remove-l1-validator)
-      - [aztec validator-keys|valKeys debug-rollup sequencers](#aztec-validator-keys|valkeys-debug-rollup-sequencers)
-      - [aztec validator-keys|valKeys debug-rollup prune-rollup](#aztec-validator-keys|valkeys-debug-rollup-prune-rollup)
-      - [aztec validator-keys|valKeys debug-rollup setup-protocol-contracts](#aztec-validator-keys|valkeys-debug-rollup-setup-protocol-contracts)
-      - [aztec validator-keys|valKeys debug-rollup trigger-seed-snapshot](#aztec-validator-keys|valkeys-debug-rollup-trigger-seed-snapshot)
-      - [aztec validator-keys|valKeys debug-rollup start](#aztec-validator-keys|valkeys-debug-rollup-start)
-      - [aztec validator-keys|valKeys debug-rollup init](#aztec-validator-keys|valkeys-debug-rollup-init)
-      - [aztec validator-keys|valKeys debug-rollup fmt](#aztec-validator-keys|valkeys-debug-rollup-fmt)
-      - [aztec validator-keys|valKeys debug-rollup update](#aztec-validator-keys|valkeys-debug-rollup-update)
-      - [aztec validator-keys|valKeys debug-rollup vote-on-governance-proposal](#aztec-validator-keys|valkeys-debug-rollup-vote-on-governance-proposal)
-      - [aztec validator-keys|valKeys debug-rollup new](#aztec-validator-keys|valkeys-debug-rollup-new)
-      - [aztec validator-keys|valKeys debug-rollup test](#aztec-validator-keys|valkeys-debug-rollup-test)
-      - [aztec validator-keys|valKeys debug-rollup validator-keys|valKeys](#aztec-validator-keys|valkeys-debug-rollup-validator-keys|valkeys)
-      - [aztec validator-keys|valKeys debug-rollup check](#aztec-validator-keys|valkeys-debug-rollup-check)
-      - [aztec validator-keys|valKeys debug-rollup compile](#aztec-validator-keys|valkeys-debug-rollup-compile)
-      - [aztec validator-keys|valKeys debug-rollup lsp](#aztec-validator-keys|valkeys-debug-rollup-lsp)
-    - [aztec validator-keys|valKeys codegen](#aztec-validator-keys|valkeys-codegen)
-      - [aztec validator-keys|valKeys codegen execute-governance-proposal](#aztec-validator-keys|valkeys-codegen-execute-governance-proposal)
-      - [aztec validator-keys|valKeys codegen debug-rollup](#aztec-validator-keys|valkeys-codegen-debug-rollup)
-      - [aztec validator-keys|valKeys codegen compute-selector](#aztec-validator-keys|valkeys-codegen-compute-selector)
-      - [aztec validator-keys|valKeys codegen codegen](#aztec-validator-keys|valkeys-codegen-codegen)
-      - [aztec validator-keys|valKeys codegen generate-bls-keypair](#aztec-validator-keys|valkeys-codegen-generate-bls-keypair)
-      - [aztec validator-keys|valKeys codegen fast-forward-epochs](#aztec-validator-keys|valkeys-codegen-fast-forward-epochs)
-      - [aztec validator-keys|valKeys codegen generate-bootnode-enr](#aztec-validator-keys|valkeys-codegen-generate-bootnode-enr)
-      - [aztec validator-keys|valKeys codegen deploy-new-rollup](#aztec-validator-keys|valkeys-codegen-deploy-new-rollup)
-      - [aztec validator-keys|valKeys codegen advance-epoch](#aztec-validator-keys|valkeys-codegen-advance-epoch)
-      - [aztec validator-keys|valKeys codegen block-number](#aztec-validator-keys|valkeys-codegen-block-number)
-      - [aztec validator-keys|valKeys codegen bridge-erc20](#aztec-validator-keys|valkeys-codegen-bridge-erc20)
-      - [aztec validator-keys|valKeys codegen deposit-governance-tokens](#aztec-validator-keys|valkeys-codegen-deposit-governance-tokens)
-      - [aztec validator-keys|valKeys codegen deploy-l1-contracts](#aztec-validator-keys|valkeys-codegen-deploy-l1-contracts)
-      - [aztec validator-keys|valKeys codegen example-contracts](#aztec-validator-keys|valkeys-codegen-example-contracts)
-      - [aztec validator-keys|valKeys codegen decode-enr](#aztec-validator-keys|valkeys-codegen-decode-enr)
-      - [aztec validator-keys|valKeys codegen add-l1-validator](#aztec-validator-keys|valkeys-codegen-add-l1-validator)
-      - [aztec validator-keys|valKeys codegen generate-secret-and-hash](#aztec-validator-keys|valkeys-codegen-generate-secret-and-hash)
-      - [aztec validator-keys|valKeys codegen generate-l1-account](#aztec-validator-keys|valkeys-codegen-generate-l1-account)
-      - [aztec validator-keys|valKeys codegen get-current-base-fee](#aztec-validator-keys|valkeys-codegen-get-current-base-fee)
-      - [aztec validator-keys|valKeys codegen get-l1-addresses](#aztec-validator-keys|valkeys-codegen-get-l1-addresses)
-      - [aztec validator-keys|valKeys codegen get-l1-balance](#aztec-validator-keys|valkeys-codegen-get-l1-balance)
-      - [aztec validator-keys|valKeys codegen get-canonical-sponsored-fpc-address](#aztec-validator-keys|valkeys-codegen-get-canonical-sponsored-fpc-address)
-      - [aztec validator-keys|valKeys codegen get-logs](#aztec-validator-keys|valkeys-codegen-get-logs)
-      - [aztec validator-keys|valKeys codegen generate-keys](#aztec-validator-keys|valkeys-codegen-generate-keys)
-      - [aztec validator-keys|valKeys codegen get-node-info](#aztec-validator-keys|valkeys-codegen-get-node-info)
-      - [aztec validator-keys|valKeys codegen generate-p2p-private-key](#aztec-validator-keys|valkeys-codegen-generate-p2p-private-key)
-      - [aztec validator-keys|valKeys codegen get-block](#aztec-validator-keys|valkeys-codegen-get-block)
-      - [aztec validator-keys|valKeys codegen parse-parameter-struct](#aztec-validator-keys|valkeys-codegen-parse-parameter-struct)
-      - [aztec validator-keys|valKeys codegen get-l1-to-l2-message-witness](#aztec-validator-keys|valkeys-codegen-get-l1-to-l2-message-witness)
-      - [aztec validator-keys|valKeys codegen preload-crs](#aztec-validator-keys|valkeys-codegen-preload-crs)
-      - [aztec validator-keys|valKeys codegen propose-with-lock](#aztec-validator-keys|valkeys-codegen-propose-with-lock)
-      - [aztec validator-keys|valKeys codegen inspect-contract](#aztec-validator-keys|valkeys-codegen-inspect-contract)
-      - [aztec validator-keys|valKeys codegen prune-rollup](#aztec-validator-keys|valkeys-codegen-prune-rollup)
-      - [aztec validator-keys|valKeys codegen remove-l1-validator](#aztec-validator-keys|valkeys-codegen-remove-l1-validator)
-      - [aztec validator-keys|valKeys codegen sequencers](#aztec-validator-keys|valkeys-codegen-sequencers)
-      - [aztec validator-keys|valKeys codegen setup-protocol-contracts](#aztec-validator-keys|valkeys-codegen-setup-protocol-contracts)
-      - [aztec validator-keys|valKeys codegen trigger-seed-snapshot](#aztec-validator-keys|valkeys-codegen-trigger-seed-snapshot)
-      - [aztec validator-keys|valKeys codegen start](#aztec-validator-keys|valkeys-codegen-start)
-      - [aztec validator-keys|valKeys codegen update](#aztec-validator-keys|valkeys-codegen-update)
-      - [aztec validator-keys|valKeys codegen validator-keys|valKeys](#aztec-validator-keys|valkeys-codegen-validator-keys|valkeys)
-      - [aztec validator-keys|valKeys codegen vote-on-governance-proposal](#aztec-validator-keys|valkeys-codegen-vote-on-governance-proposal)
-      - [aztec validator-keys|valKeys codegen init](#aztec-validator-keys|valkeys-codegen-init)
-      - [aztec validator-keys|valKeys codegen new](#aztec-validator-keys|valkeys-codegen-new)
-      - [aztec validator-keys|valKeys codegen compile](#aztec-validator-keys|valkeys-codegen-compile)
-      - [aztec validator-keys|valKeys codegen fmt](#aztec-validator-keys|valkeys-codegen-fmt)
-      - [aztec validator-keys|valKeys codegen check](#aztec-validator-keys|valkeys-codegen-check)
-      - [aztec validator-keys|valKeys codegen test](#aztec-validator-keys|valkeys-codegen-test)
-      - [aztec validator-keys|valKeys codegen lsp](#aztec-validator-keys|valkeys-codegen-lsp)
-    - [aztec validator-keys|valKeys deploy-l1-contracts](#aztec-validator-keys|valkeys-deploy-l1-contracts)
-      - [aztec validator-keys|valKeys deploy-l1-contracts advance-epoch](#aztec-validator-keys|valkeys-deploy-l1-contracts-advance-epoch)
-      - [aztec validator-keys|valKeys deploy-l1-contracts deploy-l1-contracts](#aztec-validator-keys|valkeys-deploy-l1-contracts-deploy-l1-contracts)
-      - [aztec validator-keys|valKeys deploy-l1-contracts block-number](#aztec-validator-keys|valkeys-deploy-l1-contracts-block-number)
-      - [aztec validator-keys|valKeys deploy-l1-contracts bridge-erc20](#aztec-validator-keys|valkeys-deploy-l1-contracts-bridge-erc20)
-      - [aztec validator-keys|valKeys deploy-l1-contracts debug-rollup](#aztec-validator-keys|valkeys-deploy-l1-contracts-debug-rollup)
-      - [aztec validator-keys|valKeys deploy-l1-contracts deposit-governance-tokens](#aztec-validator-keys|valkeys-deploy-l1-contracts-deposit-governance-tokens)
-      - [aztec validator-keys|valKeys deploy-l1-contracts add-l1-validator](#aztec-validator-keys|valkeys-deploy-l1-contracts-add-l1-validator)
-      - [aztec validator-keys|valKeys deploy-l1-contracts generate-bls-keypair](#aztec-validator-keys|valkeys-deploy-l1-contracts-generate-bls-keypair)
-      - [aztec validator-keys|valKeys deploy-l1-contracts deploy-new-rollup](#aztec-validator-keys|valkeys-deploy-l1-contracts-deploy-new-rollup)
-      - [aztec validator-keys|valKeys deploy-l1-contracts codegen](#aztec-validator-keys|valkeys-deploy-l1-contracts-codegen)
-      - [aztec validator-keys|valKeys deploy-l1-contracts example-contracts](#aztec-validator-keys|valkeys-deploy-l1-contracts-example-contracts)
-      - [aztec validator-keys|valKeys deploy-l1-contracts generate-bootnode-enr](#aztec-validator-keys|valkeys-deploy-l1-contracts-generate-bootnode-enr)
-      - [aztec validator-keys|valKeys deploy-l1-contracts decode-enr](#aztec-validator-keys|valkeys-deploy-l1-contracts-decode-enr)
-      - [aztec validator-keys|valKeys deploy-l1-contracts fast-forward-epochs](#aztec-validator-keys|valkeys-deploy-l1-contracts-fast-forward-epochs)
-      - [aztec validator-keys|valKeys deploy-l1-contracts compute-selector](#aztec-validator-keys|valkeys-deploy-l1-contracts-compute-selector)
-      - [aztec validator-keys|valKeys deploy-l1-contracts execute-governance-proposal](#aztec-validator-keys|valkeys-deploy-l1-contracts-execute-governance-proposal)
-      - [aztec validator-keys|valKeys deploy-l1-contracts generate-keys](#aztec-validator-keys|valkeys-deploy-l1-contracts-generate-keys)
-      - [aztec validator-keys|valKeys deploy-l1-contracts generate-secret-and-hash](#aztec-validator-keys|valkeys-deploy-l1-contracts-generate-secret-and-hash)
-      - [aztec validator-keys|valKeys deploy-l1-contracts generate-p2p-private-key](#aztec-validator-keys|valkeys-deploy-l1-contracts-generate-p2p-private-key)
-      - [aztec validator-keys|valKeys deploy-l1-contracts get-canonical-sponsored-fpc-address](#aztec-validator-keys|valkeys-deploy-l1-contracts-get-canonical-sponsored-fpc-address)
-      - [aztec validator-keys|valKeys deploy-l1-contracts generate-l1-account](#aztec-validator-keys|valkeys-deploy-l1-contracts-generate-l1-account)
-      - [aztec validator-keys|valKeys deploy-l1-contracts get-l1-addresses](#aztec-validator-keys|valkeys-deploy-l1-contracts-get-l1-addresses)
-      - [aztec validator-keys|valKeys deploy-l1-contracts get-current-base-fee](#aztec-validator-keys|valkeys-deploy-l1-contracts-get-current-base-fee)
-      - [aztec validator-keys|valKeys deploy-l1-contracts get-block](#aztec-validator-keys|valkeys-deploy-l1-contracts-get-block)
-      - [aztec validator-keys|valKeys deploy-l1-contracts inspect-contract](#aztec-validator-keys|valkeys-deploy-l1-contracts-inspect-contract)
-      - [aztec validator-keys|valKeys deploy-l1-contracts get-node-info](#aztec-validator-keys|valkeys-deploy-l1-contracts-get-node-info)
-      - [aztec validator-keys|valKeys deploy-l1-contracts get-l1-balance](#aztec-validator-keys|valkeys-deploy-l1-contracts-get-l1-balance)
-      - [aztec validator-keys|valKeys deploy-l1-contracts parse-parameter-struct](#aztec-validator-keys|valkeys-deploy-l1-contracts-parse-parameter-struct)
-      - [aztec validator-keys|valKeys deploy-l1-contracts preload-crs](#aztec-validator-keys|valkeys-deploy-l1-contracts-preload-crs)
-      - [aztec validator-keys|valKeys deploy-l1-contracts get-l1-to-l2-message-witness](#aztec-validator-keys|valkeys-deploy-l1-contracts-get-l1-to-l2-message-witness)
-      - [aztec validator-keys|valKeys deploy-l1-contracts get-logs](#aztec-validator-keys|valkeys-deploy-l1-contracts-get-logs)
-      - [aztec validator-keys|valKeys deploy-l1-contracts propose-with-lock](#aztec-validator-keys|valkeys-deploy-l1-contracts-propose-with-lock)
-      - [aztec validator-keys|valKeys deploy-l1-contracts prune-rollup](#aztec-validator-keys|valkeys-deploy-l1-contracts-prune-rollup)
-      - [aztec validator-keys|valKeys deploy-l1-contracts remove-l1-validator](#aztec-validator-keys|valkeys-deploy-l1-contracts-remove-l1-validator)
-      - [aztec validator-keys|valKeys deploy-l1-contracts sequencers](#aztec-validator-keys|valkeys-deploy-l1-contracts-sequencers)
-      - [aztec validator-keys|valKeys deploy-l1-contracts setup-protocol-contracts](#aztec-validator-keys|valkeys-deploy-l1-contracts-setup-protocol-contracts)
-      - [aztec validator-keys|valKeys deploy-l1-contracts trigger-seed-snapshot](#aztec-validator-keys|valkeys-deploy-l1-contracts-trigger-seed-snapshot)
-      - [aztec validator-keys|valKeys deploy-l1-contracts update](#aztec-validator-keys|valkeys-deploy-l1-contracts-update)
-      - [aztec validator-keys|valKeys deploy-l1-contracts start](#aztec-validator-keys|valkeys-deploy-l1-contracts-start)
-      - [aztec validator-keys|valKeys deploy-l1-contracts validator-keys|valKeys](#aztec-validator-keys|valkeys-deploy-l1-contracts-validator-keys|valkeys)
-      - [aztec validator-keys|valKeys deploy-l1-contracts vote-on-governance-proposal](#aztec-validator-keys|valkeys-deploy-l1-contracts-vote-on-governance-proposal)
-      - [aztec validator-keys|valKeys deploy-l1-contracts init](#aztec-validator-keys|valkeys-deploy-l1-contracts-init)
-      - [aztec validator-keys|valKeys deploy-l1-contracts new](#aztec-validator-keys|valkeys-deploy-l1-contracts-new)
-      - [aztec validator-keys|valKeys deploy-l1-contracts compile](#aztec-validator-keys|valkeys-deploy-l1-contracts-compile)
-      - [aztec validator-keys|valKeys deploy-l1-contracts fmt](#aztec-validator-keys|valkeys-deploy-l1-contracts-fmt)
-      - [aztec validator-keys|valKeys deploy-l1-contracts check](#aztec-validator-keys|valkeys-deploy-l1-contracts-check)
-      - [aztec validator-keys|valKeys deploy-l1-contracts test](#aztec-validator-keys|valkeys-deploy-l1-contracts-test)
-      - [aztec validator-keys|valKeys deploy-l1-contracts lsp](#aztec-validator-keys|valkeys-deploy-l1-contracts-lsp)
-    - [aztec validator-keys|valKeys deploy-new-rollup](#aztec-validator-keys|valkeys-deploy-new-rollup)
-      - [aztec validator-keys|valKeys deploy-new-rollup execute-governance-proposal](#aztec-validator-keys|valkeys-deploy-new-rollup-execute-governance-proposal)
-      - [aztec validator-keys|valKeys deploy-new-rollup codegen](#aztec-validator-keys|valkeys-deploy-new-rollup-codegen)
-      - [aztec validator-keys|valKeys deploy-new-rollup bridge-erc20](#aztec-validator-keys|valkeys-deploy-new-rollup-bridge-erc20)
-      - [aztec validator-keys|valKeys deploy-new-rollup generate-bootnode-enr](#aztec-validator-keys|valkeys-deploy-new-rollup-generate-bootnode-enr)
-      - [aztec validator-keys|valKeys deploy-new-rollup decode-enr](#aztec-validator-keys|valkeys-deploy-new-rollup-decode-enr)
-      - [aztec validator-keys|valKeys deploy-new-rollup advance-epoch](#aztec-validator-keys|valkeys-deploy-new-rollup-advance-epoch)
-      - [aztec validator-keys|valKeys deploy-new-rollup generate-bls-keypair](#aztec-validator-keys|valkeys-deploy-new-rollup-generate-bls-keypair)
-      - [aztec validator-keys|valKeys deploy-new-rollup deploy-new-rollup](#aztec-validator-keys|valkeys-deploy-new-rollup-deploy-new-rollup)
-      - [aztec validator-keys|valKeys deploy-new-rollup add-l1-validator](#aztec-validator-keys|valkeys-deploy-new-rollup-add-l1-validator)
-      - [aztec validator-keys|valKeys deploy-new-rollup deposit-governance-tokens](#aztec-validator-keys|valkeys-deploy-new-rollup-deposit-governance-tokens)
-      - [aztec validator-keys|valKeys deploy-new-rollup block-number](#aztec-validator-keys|valkeys-deploy-new-rollup-block-number)
-      - [aztec validator-keys|valKeys deploy-new-rollup compute-selector](#aztec-validator-keys|valkeys-deploy-new-rollup-compute-selector)
-      - [aztec validator-keys|valKeys deploy-new-rollup example-contracts](#aztec-validator-keys|valkeys-deploy-new-rollup-example-contracts)
-      - [aztec validator-keys|valKeys deploy-new-rollup deploy-l1-contracts](#aztec-validator-keys|valkeys-deploy-new-rollup-deploy-l1-contracts)
-      - [aztec validator-keys|valKeys deploy-new-rollup debug-rollup](#aztec-validator-keys|valkeys-deploy-new-rollup-debug-rollup)
-      - [aztec validator-keys|valKeys deploy-new-rollup fast-forward-epochs](#aztec-validator-keys|valkeys-deploy-new-rollup-fast-forward-epochs)
-      - [aztec validator-keys|valKeys deploy-new-rollup generate-l1-account](#aztec-validator-keys|valkeys-deploy-new-rollup-generate-l1-account)
-      - [aztec validator-keys|valKeys deploy-new-rollup generate-secret-and-hash](#aztec-validator-keys|valkeys-deploy-new-rollup-generate-secret-and-hash)
-      - [aztec validator-keys|valKeys deploy-new-rollup get-canonical-sponsored-fpc-address](#aztec-validator-keys|valkeys-deploy-new-rollup-get-canonical-sponsored-fpc-address)
-      - [aztec validator-keys|valKeys deploy-new-rollup generate-p2p-private-key](#aztec-validator-keys|valkeys-deploy-new-rollup-generate-p2p-private-key)
-      - [aztec validator-keys|valKeys deploy-new-rollup get-logs](#aztec-validator-keys|valkeys-deploy-new-rollup-get-logs)
-      - [aztec validator-keys|valKeys deploy-new-rollup get-node-info](#aztec-validator-keys|valkeys-deploy-new-rollup-get-node-info)
-      - [aztec validator-keys|valKeys deploy-new-rollup inspect-contract](#aztec-validator-keys|valkeys-deploy-new-rollup-inspect-contract)
-      - [aztec validator-keys|valKeys deploy-new-rollup generate-keys](#aztec-validator-keys|valkeys-deploy-new-rollup-generate-keys)
-      - [aztec validator-keys|valKeys deploy-new-rollup get-l1-to-l2-message-witness](#aztec-validator-keys|valkeys-deploy-new-rollup-get-l1-to-l2-message-witness)
-      - [aztec validator-keys|valKeys deploy-new-rollup get-l1-balance](#aztec-validator-keys|valkeys-deploy-new-rollup-get-l1-balance)
-      - [aztec validator-keys|valKeys deploy-new-rollup parse-parameter-struct](#aztec-validator-keys|valkeys-deploy-new-rollup-parse-parameter-struct)
-      - [aztec validator-keys|valKeys deploy-new-rollup get-l1-addresses](#aztec-validator-keys|valkeys-deploy-new-rollup-get-l1-addresses)
-      - [aztec validator-keys|valKeys deploy-new-rollup get-block](#aztec-validator-keys|valkeys-deploy-new-rollup-get-block)
-      - [aztec validator-keys|valKeys deploy-new-rollup preload-crs](#aztec-validator-keys|valkeys-deploy-new-rollup-preload-crs)
-      - [aztec validator-keys|valKeys deploy-new-rollup get-current-base-fee](#aztec-validator-keys|valkeys-deploy-new-rollup-get-current-base-fee)
-      - [aztec validator-keys|valKeys deploy-new-rollup propose-with-lock](#aztec-validator-keys|valkeys-deploy-new-rollup-propose-with-lock)
-      - [aztec validator-keys|valKeys deploy-new-rollup prune-rollup](#aztec-validator-keys|valkeys-deploy-new-rollup-prune-rollup)
-      - [aztec validator-keys|valKeys deploy-new-rollup remove-l1-validator](#aztec-validator-keys|valkeys-deploy-new-rollup-remove-l1-validator)
-      - [aztec validator-keys|valKeys deploy-new-rollup sequencers](#aztec-validator-keys|valkeys-deploy-new-rollup-sequencers)
-      - [aztec validator-keys|valKeys deploy-new-rollup setup-protocol-contracts](#aztec-validator-keys|valkeys-deploy-new-rollup-setup-protocol-contracts)
-      - [aztec validator-keys|valKeys deploy-new-rollup start](#aztec-validator-keys|valkeys-deploy-new-rollup-start)
-      - [aztec validator-keys|valKeys deploy-new-rollup trigger-seed-snapshot](#aztec-validator-keys|valkeys-deploy-new-rollup-trigger-seed-snapshot)
-      - [aztec validator-keys|valKeys deploy-new-rollup update](#aztec-validator-keys|valkeys-deploy-new-rollup-update)
-      - [aztec validator-keys|valKeys deploy-new-rollup vote-on-governance-proposal](#aztec-validator-keys|valkeys-deploy-new-rollup-vote-on-governance-proposal)
-      - [aztec validator-keys|valKeys deploy-new-rollup init](#aztec-validator-keys|valkeys-deploy-new-rollup-init)
-      - [aztec validator-keys|valKeys deploy-new-rollup validator-keys|valKeys](#aztec-validator-keys|valkeys-deploy-new-rollup-validator-keys|valkeys)
-      - [aztec validator-keys|valKeys deploy-new-rollup new](#aztec-validator-keys|valkeys-deploy-new-rollup-new)
-      - [aztec validator-keys|valKeys deploy-new-rollup check](#aztec-validator-keys|valkeys-deploy-new-rollup-check)
-      - [aztec validator-keys|valKeys deploy-new-rollup compile](#aztec-validator-keys|valkeys-deploy-new-rollup-compile)
-      - [aztec validator-keys|valKeys deploy-new-rollup fmt](#aztec-validator-keys|valkeys-deploy-new-rollup-fmt)
-      - [aztec validator-keys|valKeys deploy-new-rollup test](#aztec-validator-keys|valkeys-deploy-new-rollup-test)
-      - [aztec validator-keys|valKeys deploy-new-rollup lsp](#aztec-validator-keys|valkeys-deploy-new-rollup-lsp)
-    - [aztec validator-keys|valKeys advance-epoch](#aztec-validator-keys|valkeys-advance-epoch)
-      - [aztec validator-keys|valKeys advance-epoch compute-selector](#aztec-validator-keys|valkeys-advance-epoch-compute-selector)
-      - [aztec validator-keys|valKeys advance-epoch block-number](#aztec-validator-keys|valkeys-advance-epoch-block-number)
-      - [aztec validator-keys|valKeys advance-epoch debug-rollup](#aztec-validator-keys|valkeys-advance-epoch-debug-rollup)
-      - [aztec validator-keys|valKeys advance-epoch example-contracts](#aztec-validator-keys|valkeys-advance-epoch-example-contracts)
-      - [aztec validator-keys|valKeys advance-epoch decode-enr](#aztec-validator-keys|valkeys-advance-epoch-decode-enr)
-      - [aztec validator-keys|valKeys advance-epoch add-l1-validator](#aztec-validator-keys|valkeys-advance-epoch-add-l1-validator)
-      - [aztec validator-keys|valKeys advance-epoch generate-bootnode-enr](#aztec-validator-keys|valkeys-advance-epoch-generate-bootnode-enr)
-      - [aztec validator-keys|valKeys advance-epoch deposit-governance-tokens](#aztec-validator-keys|valkeys-advance-epoch-deposit-governance-tokens)
-      - [aztec validator-keys|valKeys advance-epoch deploy-l1-contracts](#aztec-validator-keys|valkeys-advance-epoch-deploy-l1-contracts)
-      - [aztec validator-keys|valKeys advance-epoch deploy-new-rollup](#aztec-validator-keys|valkeys-advance-epoch-deploy-new-rollup)
-      - [aztec validator-keys|valKeys advance-epoch advance-epoch](#aztec-validator-keys|valkeys-advance-epoch-advance-epoch)
-      - [aztec validator-keys|valKeys advance-epoch fast-forward-epochs](#aztec-validator-keys|valkeys-advance-epoch-fast-forward-epochs)
-      - [aztec validator-keys|valKeys advance-epoch generate-bls-keypair](#aztec-validator-keys|valkeys-advance-epoch-generate-bls-keypair)
-      - [aztec validator-keys|valKeys advance-epoch execute-governance-proposal](#aztec-validator-keys|valkeys-advance-epoch-execute-governance-proposal)
-      - [aztec validator-keys|valKeys advance-epoch bridge-erc20](#aztec-validator-keys|valkeys-advance-epoch-bridge-erc20)
-      - [aztec validator-keys|valKeys advance-epoch codegen](#aztec-validator-keys|valkeys-advance-epoch-codegen)
-      - [aztec validator-keys|valKeys advance-epoch generate-secret-and-hash](#aztec-validator-keys|valkeys-advance-epoch-generate-secret-and-hash)
-      - [aztec validator-keys|valKeys advance-epoch get-canonical-sponsored-fpc-address](#aztec-validator-keys|valkeys-advance-epoch-get-canonical-sponsored-fpc-address)
-      - [aztec validator-keys|valKeys advance-epoch generate-l1-account](#aztec-validator-keys|valkeys-advance-epoch-generate-l1-account)
-      - [aztec validator-keys|valKeys advance-epoch generate-p2p-private-key](#aztec-validator-keys|valkeys-advance-epoch-generate-p2p-private-key)
-      - [aztec validator-keys|valKeys advance-epoch get-block](#aztec-validator-keys|valkeys-advance-epoch-get-block)
-      - [aztec validator-keys|valKeys advance-epoch get-l1-addresses](#aztec-validator-keys|valkeys-advance-epoch-get-l1-addresses)
-      - [aztec validator-keys|valKeys advance-epoch generate-keys](#aztec-validator-keys|valkeys-advance-epoch-generate-keys)
-      - [aztec validator-keys|valKeys advance-epoch get-node-info](#aztec-validator-keys|valkeys-advance-epoch-get-node-info)
-      - [aztec validator-keys|valKeys advance-epoch get-logs](#aztec-validator-keys|valkeys-advance-epoch-get-logs)
-      - [aztec validator-keys|valKeys advance-epoch get-l1-balance](#aztec-validator-keys|valkeys-advance-epoch-get-l1-balance)
-      - [aztec validator-keys|valKeys advance-epoch parse-parameter-struct](#aztec-validator-keys|valkeys-advance-epoch-parse-parameter-struct)
-      - [aztec validator-keys|valKeys advance-epoch inspect-contract](#aztec-validator-keys|valkeys-advance-epoch-inspect-contract)
-      - [aztec validator-keys|valKeys advance-epoch preload-crs](#aztec-validator-keys|valkeys-advance-epoch-preload-crs)
-      - [aztec validator-keys|valKeys advance-epoch get-l1-to-l2-message-witness](#aztec-validator-keys|valkeys-advance-epoch-get-l1-to-l2-message-witness)
-      - [aztec validator-keys|valKeys advance-epoch propose-with-lock](#aztec-validator-keys|valkeys-advance-epoch-propose-with-lock)
-      - [aztec validator-keys|valKeys advance-epoch get-current-base-fee](#aztec-validator-keys|valkeys-advance-epoch-get-current-base-fee)
-      - [aztec validator-keys|valKeys advance-epoch prune-rollup](#aztec-validator-keys|valkeys-advance-epoch-prune-rollup)
-      - [aztec validator-keys|valKeys advance-epoch remove-l1-validator](#aztec-validator-keys|valkeys-advance-epoch-remove-l1-validator)
-      - [aztec validator-keys|valKeys advance-epoch sequencers](#aztec-validator-keys|valkeys-advance-epoch-sequencers)
-      - [aztec validator-keys|valKeys advance-epoch setup-protocol-contracts](#aztec-validator-keys|valkeys-advance-epoch-setup-protocol-contracts)
-      - [aztec validator-keys|valKeys advance-epoch start](#aztec-validator-keys|valkeys-advance-epoch-start)
-      - [aztec validator-keys|valKeys advance-epoch trigger-seed-snapshot](#aztec-validator-keys|valkeys-advance-epoch-trigger-seed-snapshot)
-      - [aztec validator-keys|valKeys advance-epoch update](#aztec-validator-keys|valkeys-advance-epoch-update)
-      - [aztec validator-keys|valKeys advance-epoch validator-keys|valKeys](#aztec-validator-keys|valkeys-advance-epoch-validator-keys|valkeys)
-      - [aztec validator-keys|valKeys advance-epoch init](#aztec-validator-keys|valkeys-advance-epoch-init)
-      - [aztec validator-keys|valKeys advance-epoch vote-on-governance-proposal](#aztec-validator-keys|valkeys-advance-epoch-vote-on-governance-proposal)
-      - [aztec validator-keys|valKeys advance-epoch new](#aztec-validator-keys|valkeys-advance-epoch-new)
-      - [aztec validator-keys|valKeys advance-epoch compile](#aztec-validator-keys|valkeys-advance-epoch-compile)
-      - [aztec validator-keys|valKeys advance-epoch fmt](#aztec-validator-keys|valkeys-advance-epoch-fmt)
-      - [aztec validator-keys|valKeys advance-epoch check](#aztec-validator-keys|valkeys-advance-epoch-check)
-      - [aztec validator-keys|valKeys advance-epoch test](#aztec-validator-keys|valkeys-advance-epoch-test)
-      - [aztec validator-keys|valKeys advance-epoch lsp](#aztec-validator-keys|valkeys-advance-epoch-lsp)
-    - [aztec validator-keys|valKeys generate-bootnode-enr](#aztec-validator-keys|valkeys-generate-bootnode-enr)
-      - [aztec validator-keys|valKeys generate-bootnode-enr advance-epoch](#aztec-validator-keys|valkeys-generate-bootnode-enr-advance-epoch)
-      - [aztec validator-keys|valKeys generate-bootnode-enr decode-enr](#aztec-validator-keys|valkeys-generate-bootnode-enr-decode-enr)
-      - [aztec validator-keys|valKeys generate-bootnode-enr debug-rollup](#aztec-validator-keys|valkeys-generate-bootnode-enr-debug-rollup)
-      - [aztec validator-keys|valKeys generate-bootnode-enr deposit-governance-tokens](#aztec-validator-keys|valkeys-generate-bootnode-enr-deposit-governance-tokens)
-      - [aztec validator-keys|valKeys generate-bootnode-enr deploy-new-rollup](#aztec-validator-keys|valkeys-generate-bootnode-enr-deploy-new-rollup)
-      - [aztec validator-keys|valKeys generate-bootnode-enr add-l1-validator](#aztec-validator-keys|valkeys-generate-bootnode-enr-add-l1-validator)
-      - [aztec validator-keys|valKeys generate-bootnode-enr execute-governance-proposal](#aztec-validator-keys|valkeys-generate-bootnode-enr-execute-governance-proposal)
-      - [aztec validator-keys|valKeys generate-bootnode-enr codegen](#aztec-validator-keys|valkeys-generate-bootnode-enr-codegen)
-      - [aztec validator-keys|valKeys generate-bootnode-enr bridge-erc20](#aztec-validator-keys|valkeys-generate-bootnode-enr-bridge-erc20)
-      - [aztec validator-keys|valKeys generate-bootnode-enr block-number](#aztec-validator-keys|valkeys-generate-bootnode-enr-block-number)
-      - [aztec validator-keys|valKeys generate-bootnode-enr generate-bootnode-enr](#aztec-validator-keys|valkeys-generate-bootnode-enr-generate-bootnode-enr)
-      - [aztec validator-keys|valKeys generate-bootnode-enr fast-forward-epochs](#aztec-validator-keys|valkeys-generate-bootnode-enr-fast-forward-epochs)
-      - [aztec validator-keys|valKeys generate-bootnode-enr example-contracts](#aztec-validator-keys|valkeys-generate-bootnode-enr-example-contracts)
-      - [aztec validator-keys|valKeys generate-bootnode-enr generate-bls-keypair](#aztec-validator-keys|valkeys-generate-bootnode-enr-generate-bls-keypair)
-      - [aztec validator-keys|valKeys generate-bootnode-enr deploy-l1-contracts](#aztec-validator-keys|valkeys-generate-bootnode-enr-deploy-l1-contracts)
-      - [aztec validator-keys|valKeys generate-bootnode-enr compute-selector](#aztec-validator-keys|valkeys-generate-bootnode-enr-compute-selector)
-      - [aztec validator-keys|valKeys generate-bootnode-enr generate-l1-account](#aztec-validator-keys|valkeys-generate-bootnode-enr-generate-l1-account)
-      - [aztec validator-keys|valKeys generate-bootnode-enr get-current-base-fee](#aztec-validator-keys|valkeys-generate-bootnode-enr-get-current-base-fee)
-      - [aztec validator-keys|valKeys generate-bootnode-enr get-block](#aztec-validator-keys|valkeys-generate-bootnode-enr-get-block)
-      - [aztec validator-keys|valKeys generate-bootnode-enr generate-keys](#aztec-validator-keys|valkeys-generate-bootnode-enr-generate-keys)
-      - [aztec validator-keys|valKeys generate-bootnode-enr generate-p2p-private-key](#aztec-validator-keys|valkeys-generate-bootnode-enr-generate-p2p-private-key)
-      - [aztec validator-keys|valKeys generate-bootnode-enr generate-secret-and-hash](#aztec-validator-keys|valkeys-generate-bootnode-enr-generate-secret-and-hash)
-      - [aztec validator-keys|valKeys generate-bootnode-enr get-l1-to-l2-message-witness](#aztec-validator-keys|valkeys-generate-bootnode-enr-get-l1-to-l2-message-witness)
-      - [aztec validator-keys|valKeys generate-bootnode-enr get-logs](#aztec-validator-keys|valkeys-generate-bootnode-enr-get-logs)
-      - [aztec validator-keys|valKeys generate-bootnode-enr get-canonical-sponsored-fpc-address](#aztec-validator-keys|valkeys-generate-bootnode-enr-get-canonical-sponsored-fpc-address)
-      - [aztec validator-keys|valKeys generate-bootnode-enr get-l1-addresses](#aztec-validator-keys|valkeys-generate-bootnode-enr-get-l1-addresses)
-      - [aztec validator-keys|valKeys generate-bootnode-enr get-l1-balance](#aztec-validator-keys|valkeys-generate-bootnode-enr-get-l1-balance)
-      - [aztec validator-keys|valKeys generate-bootnode-enr inspect-contract](#aztec-validator-keys|valkeys-generate-bootnode-enr-inspect-contract)
-      - [aztec validator-keys|valKeys generate-bootnode-enr preload-crs](#aztec-validator-keys|valkeys-generate-bootnode-enr-preload-crs)
-      - [aztec validator-keys|valKeys generate-bootnode-enr propose-with-lock](#aztec-validator-keys|valkeys-generate-bootnode-enr-propose-with-lock)
-      - [aztec validator-keys|valKeys generate-bootnode-enr parse-parameter-struct](#aztec-validator-keys|valkeys-generate-bootnode-enr-parse-parameter-struct)
-      - [aztec validator-keys|valKeys generate-bootnode-enr get-node-info](#aztec-validator-keys|valkeys-generate-bootnode-enr-get-node-info)
-      - [aztec validator-keys|valKeys generate-bootnode-enr prune-rollup](#aztec-validator-keys|valkeys-generate-bootnode-enr-prune-rollup)
-      - [aztec validator-keys|valKeys generate-bootnode-enr remove-l1-validator](#aztec-validator-keys|valkeys-generate-bootnode-enr-remove-l1-validator)
-      - [aztec validator-keys|valKeys generate-bootnode-enr sequencers](#aztec-validator-keys|valkeys-generate-bootnode-enr-sequencers)
-      - [aztec validator-keys|valKeys generate-bootnode-enr start](#aztec-validator-keys|valkeys-generate-bootnode-enr-start)
-      - [aztec validator-keys|valKeys generate-bootnode-enr setup-protocol-contracts](#aztec-validator-keys|valkeys-generate-bootnode-enr-setup-protocol-contracts)
-      - [aztec validator-keys|valKeys generate-bootnode-enr trigger-seed-snapshot](#aztec-validator-keys|valkeys-generate-bootnode-enr-trigger-seed-snapshot)
-      - [aztec validator-keys|valKeys generate-bootnode-enr update](#aztec-validator-keys|valkeys-generate-bootnode-enr-update)
-      - [aztec validator-keys|valKeys generate-bootnode-enr validator-keys|valKeys](#aztec-validator-keys|valkeys-generate-bootnode-enr-validator-keys|valkeys)
-      - [aztec validator-keys|valKeys generate-bootnode-enr vote-on-governance-proposal](#aztec-validator-keys|valkeys-generate-bootnode-enr-vote-on-governance-proposal)
-      - [aztec validator-keys|valKeys generate-bootnode-enr init](#aztec-validator-keys|valkeys-generate-bootnode-enr-init)
-      - [aztec validator-keys|valKeys generate-bootnode-enr new](#aztec-validator-keys|valkeys-generate-bootnode-enr-new)
-      - [aztec validator-keys|valKeys generate-bootnode-enr compile](#aztec-validator-keys|valkeys-generate-bootnode-enr-compile)
-      - [aztec validator-keys|valKeys generate-bootnode-enr fmt](#aztec-validator-keys|valkeys-generate-bootnode-enr-fmt)
-      - [aztec validator-keys|valKeys generate-bootnode-enr check](#aztec-validator-keys|valkeys-generate-bootnode-enr-check)
-      - [aztec validator-keys|valKeys generate-bootnode-enr test](#aztec-validator-keys|valkeys-generate-bootnode-enr-test)
-      - [aztec validator-keys|valKeys generate-bootnode-enr lsp](#aztec-validator-keys|valkeys-generate-bootnode-enr-lsp)
-    - [aztec validator-keys|valKeys bridge-erc20](#aztec-validator-keys|valkeys-bridge-erc20)
-      - [aztec validator-keys|valKeys bridge-erc20 advance-epoch](#aztec-validator-keys|valkeys-bridge-erc20-advance-epoch)
-      - [aztec validator-keys|valKeys bridge-erc20 codegen](#aztec-validator-keys|valkeys-bridge-erc20-codegen)
-      - [aztec validator-keys|valKeys bridge-erc20 bridge-erc20](#aztec-validator-keys|valkeys-bridge-erc20-bridge-erc20)
-      - [aztec validator-keys|valKeys bridge-erc20 add-l1-validator](#aztec-validator-keys|valkeys-bridge-erc20-add-l1-validator)
-      - [aztec validator-keys|valKeys bridge-erc20 compute-selector](#aztec-validator-keys|valkeys-bridge-erc20-compute-selector)
-      - [aztec validator-keys|valKeys bridge-erc20 example-contracts](#aztec-validator-keys|valkeys-bridge-erc20-example-contracts)
-      - [aztec validator-keys|valKeys bridge-erc20 generate-bls-keypair](#aztec-validator-keys|valkeys-bridge-erc20-generate-bls-keypair)
-      - [aztec validator-keys|valKeys bridge-erc20 execute-governance-proposal](#aztec-validator-keys|valkeys-bridge-erc20-execute-governance-proposal)
-      - [aztec validator-keys|valKeys bridge-erc20 debug-rollup](#aztec-validator-keys|valkeys-bridge-erc20-debug-rollup)
-      - [aztec validator-keys|valKeys bridge-erc20 deposit-governance-tokens](#aztec-validator-keys|valkeys-bridge-erc20-deposit-governance-tokens)
-      - [aztec validator-keys|valKeys bridge-erc20 deploy-new-rollup](#aztec-validator-keys|valkeys-bridge-erc20-deploy-new-rollup)
-      - [aztec validator-keys|valKeys bridge-erc20 fast-forward-epochs](#aztec-validator-keys|valkeys-bridge-erc20-fast-forward-epochs)
-      - [aztec validator-keys|valKeys bridge-erc20 deploy-l1-contracts](#aztec-validator-keys|valkeys-bridge-erc20-deploy-l1-contracts)
-      - [aztec validator-keys|valKeys bridge-erc20 block-number](#aztec-validator-keys|valkeys-bridge-erc20-block-number)
-      - [aztec validator-keys|valKeys bridge-erc20 decode-enr](#aztec-validator-keys|valkeys-bridge-erc20-decode-enr)
-      - [aztec validator-keys|valKeys bridge-erc20 generate-bootnode-enr](#aztec-validator-keys|valkeys-bridge-erc20-generate-bootnode-enr)
-      - [aztec validator-keys|valKeys bridge-erc20 generate-keys](#aztec-validator-keys|valkeys-bridge-erc20-generate-keys)
-      - [aztec validator-keys|valKeys bridge-erc20 generate-l1-account](#aztec-validator-keys|valkeys-bridge-erc20-generate-l1-account)
-      - [aztec validator-keys|valKeys bridge-erc20 generate-p2p-private-key](#aztec-validator-keys|valkeys-bridge-erc20-generate-p2p-private-key)
-      - [aztec validator-keys|valKeys bridge-erc20 get-block](#aztec-validator-keys|valkeys-bridge-erc20-get-block)
-      - [aztec validator-keys|valKeys bridge-erc20 generate-secret-and-hash](#aztec-validator-keys|valkeys-bridge-erc20-generate-secret-and-hash)
-      - [aztec validator-keys|valKeys bridge-erc20 get-l1-addresses](#aztec-validator-keys|valkeys-bridge-erc20-get-l1-addresses)
-      - [aztec validator-keys|valKeys bridge-erc20 get-node-info](#aztec-validator-keys|valkeys-bridge-erc20-get-node-info)
-      - [aztec validator-keys|valKeys bridge-erc20 get-l1-to-l2-message-witness](#aztec-validator-keys|valkeys-bridge-erc20-get-l1-to-l2-message-witness)
-      - [aztec validator-keys|valKeys bridge-erc20 get-current-base-fee](#aztec-validator-keys|valkeys-bridge-erc20-get-current-base-fee)
-      - [aztec validator-keys|valKeys bridge-erc20 get-logs](#aztec-validator-keys|valkeys-bridge-erc20-get-logs)
-      - [aztec validator-keys|valKeys bridge-erc20 get-canonical-sponsored-fpc-address](#aztec-validator-keys|valkeys-bridge-erc20-get-canonical-sponsored-fpc-address)
-      - [aztec validator-keys|valKeys bridge-erc20 preload-crs](#aztec-validator-keys|valkeys-bridge-erc20-preload-crs)
-      - [aztec validator-keys|valKeys bridge-erc20 parse-parameter-struct](#aztec-validator-keys|valkeys-bridge-erc20-parse-parameter-struct)
-      - [aztec validator-keys|valKeys bridge-erc20 inspect-contract](#aztec-validator-keys|valkeys-bridge-erc20-inspect-contract)
-      - [aztec validator-keys|valKeys bridge-erc20 get-l1-balance](#aztec-validator-keys|valkeys-bridge-erc20-get-l1-balance)
-      - [aztec validator-keys|valKeys bridge-erc20 propose-with-lock](#aztec-validator-keys|valkeys-bridge-erc20-propose-with-lock)
-      - [aztec validator-keys|valKeys bridge-erc20 prune-rollup](#aztec-validator-keys|valkeys-bridge-erc20-prune-rollup)
-      - [aztec validator-keys|valKeys bridge-erc20 sequencers](#aztec-validator-keys|valkeys-bridge-erc20-sequencers)
-      - [aztec validator-keys|valKeys bridge-erc20 remove-l1-validator](#aztec-validator-keys|valkeys-bridge-erc20-remove-l1-validator)
-      - [aztec validator-keys|valKeys bridge-erc20 setup-protocol-contracts](#aztec-validator-keys|valkeys-bridge-erc20-setup-protocol-contracts)
-      - [aztec validator-keys|valKeys bridge-erc20 start](#aztec-validator-keys|valkeys-bridge-erc20-start)
-      - [aztec validator-keys|valKeys bridge-erc20 trigger-seed-snapshot](#aztec-validator-keys|valkeys-bridge-erc20-trigger-seed-snapshot)
-      - [aztec validator-keys|valKeys bridge-erc20 update](#aztec-validator-keys|valkeys-bridge-erc20-update)
-      - [aztec validator-keys|valKeys bridge-erc20 validator-keys|valKeys](#aztec-validator-keys|valkeys-bridge-erc20-validator-keys|valkeys)
-      - [aztec validator-keys|valKeys bridge-erc20 vote-on-governance-proposal](#aztec-validator-keys|valkeys-bridge-erc20-vote-on-governance-proposal)
-      - [aztec validator-keys|valKeys bridge-erc20 init](#aztec-validator-keys|valkeys-bridge-erc20-init)
-      - [aztec validator-keys|valKeys bridge-erc20 new](#aztec-validator-keys|valkeys-bridge-erc20-new)
-      - [aztec validator-keys|valKeys bridge-erc20 compile](#aztec-validator-keys|valkeys-bridge-erc20-compile)
-      - [aztec validator-keys|valKeys bridge-erc20 fmt](#aztec-validator-keys|valkeys-bridge-erc20-fmt)
-      - [aztec validator-keys|valKeys bridge-erc20 test](#aztec-validator-keys|valkeys-bridge-erc20-test)
-      - [aztec validator-keys|valKeys bridge-erc20 check](#aztec-validator-keys|valkeys-bridge-erc20-check)
-      - [aztec validator-keys|valKeys bridge-erc20 lsp](#aztec-validator-keys|valkeys-bridge-erc20-lsp)
-    - [aztec validator-keys|valKeys compute-selector](#aztec-validator-keys|valkeys-compute-selector)
-      - [aztec validator-keys|valKeys compute-selector bridge-erc20](#aztec-validator-keys|valkeys-compute-selector-bridge-erc20)
-      - [aztec validator-keys|valKeys compute-selector codegen](#aztec-validator-keys|valkeys-compute-selector-codegen)
-      - [aztec validator-keys|valKeys compute-selector block-number](#aztec-validator-keys|valkeys-compute-selector-block-number)
-      - [aztec validator-keys|valKeys compute-selector fast-forward-epochs](#aztec-validator-keys|valkeys-compute-selector-fast-forward-epochs)
-      - [aztec validator-keys|valKeys compute-selector decode-enr](#aztec-validator-keys|valkeys-compute-selector-decode-enr)
-      - [aztec validator-keys|valKeys compute-selector deploy-new-rollup](#aztec-validator-keys|valkeys-compute-selector-deploy-new-rollup)
-      - [aztec validator-keys|valKeys compute-selector deploy-l1-contracts](#aztec-validator-keys|valkeys-compute-selector-deploy-l1-contracts)
-      - [aztec validator-keys|valKeys compute-selector compute-selector](#aztec-validator-keys|valkeys-compute-selector-compute-selector)
-      - [aztec validator-keys|valKeys compute-selector deposit-governance-tokens](#aztec-validator-keys|valkeys-compute-selector-deposit-governance-tokens)
-      - [aztec validator-keys|valKeys compute-selector generate-bls-keypair](#aztec-validator-keys|valkeys-compute-selector-generate-bls-keypair)
-      - [aztec validator-keys|valKeys compute-selector debug-rollup](#aztec-validator-keys|valkeys-compute-selector-debug-rollup)
-      - [aztec validator-keys|valKeys compute-selector execute-governance-proposal](#aztec-validator-keys|valkeys-compute-selector-execute-governance-proposal)
-      - [aztec validator-keys|valKeys compute-selector add-l1-validator](#aztec-validator-keys|valkeys-compute-selector-add-l1-validator)
-      - [aztec validator-keys|valKeys compute-selector example-contracts](#aztec-validator-keys|valkeys-compute-selector-example-contracts)
-      - [aztec validator-keys|valKeys compute-selector generate-bootnode-enr](#aztec-validator-keys|valkeys-compute-selector-generate-bootnode-enr)
-      - [aztec validator-keys|valKeys compute-selector advance-epoch](#aztec-validator-keys|valkeys-compute-selector-advance-epoch)
-      - [aztec validator-keys|valKeys compute-selector generate-secret-and-hash](#aztec-validator-keys|valkeys-compute-selector-generate-secret-and-hash)
-      - [aztec validator-keys|valKeys compute-selector get-block](#aztec-validator-keys|valkeys-compute-selector-get-block)
-      - [aztec validator-keys|valKeys compute-selector generate-l1-account](#aztec-validator-keys|valkeys-compute-selector-generate-l1-account)
-      - [aztec validator-keys|valKeys compute-selector get-logs](#aztec-validator-keys|valkeys-compute-selector-get-logs)
-      - [aztec validator-keys|valKeys compute-selector generate-p2p-private-key](#aztec-validator-keys|valkeys-compute-selector-generate-p2p-private-key)
-      - [aztec validator-keys|valKeys compute-selector get-l1-balance](#aztec-validator-keys|valkeys-compute-selector-get-l1-balance)
-      - [aztec validator-keys|valKeys compute-selector get-node-info](#aztec-validator-keys|valkeys-compute-selector-get-node-info)
-      - [aztec validator-keys|valKeys compute-selector get-current-base-fee](#aztec-validator-keys|valkeys-compute-selector-get-current-base-fee)
-      - [aztec validator-keys|valKeys compute-selector get-canonical-sponsored-fpc-address](#aztec-validator-keys|valkeys-compute-selector-get-canonical-sponsored-fpc-address)
-      - [aztec validator-keys|valKeys compute-selector get-l1-to-l2-message-witness](#aztec-validator-keys|valkeys-compute-selector-get-l1-to-l2-message-witness)
-      - [aztec validator-keys|valKeys compute-selector generate-keys](#aztec-validator-keys|valkeys-compute-selector-generate-keys)
-      - [aztec validator-keys|valKeys compute-selector get-l1-addresses](#aztec-validator-keys|valkeys-compute-selector-get-l1-addresses)
-      - [aztec validator-keys|valKeys compute-selector inspect-contract](#aztec-validator-keys|valkeys-compute-selector-inspect-contract)
-      - [aztec validator-keys|valKeys compute-selector parse-parameter-struct](#aztec-validator-keys|valkeys-compute-selector-parse-parameter-struct)
-      - [aztec validator-keys|valKeys compute-selector preload-crs](#aztec-validator-keys|valkeys-compute-selector-preload-crs)
-      - [aztec validator-keys|valKeys compute-selector propose-with-lock](#aztec-validator-keys|valkeys-compute-selector-propose-with-lock)
-      - [aztec validator-keys|valKeys compute-selector prune-rollup](#aztec-validator-keys|valkeys-compute-selector-prune-rollup)
-      - [aztec validator-keys|valKeys compute-selector remove-l1-validator](#aztec-validator-keys|valkeys-compute-selector-remove-l1-validator)
-      - [aztec validator-keys|valKeys compute-selector sequencers](#aztec-validator-keys|valkeys-compute-selector-sequencers)
-      - [aztec validator-keys|valKeys compute-selector start](#aztec-validator-keys|valkeys-compute-selector-start)
-      - [aztec validator-keys|valKeys compute-selector update](#aztec-validator-keys|valkeys-compute-selector-update)
-      - [aztec validator-keys|valKeys compute-selector setup-protocol-contracts](#aztec-validator-keys|valkeys-compute-selector-setup-protocol-contracts)
-      - [aztec validator-keys|valKeys compute-selector init](#aztec-validator-keys|valkeys-compute-selector-init)
-      - [aztec validator-keys|valKeys compute-selector trigger-seed-snapshot](#aztec-validator-keys|valkeys-compute-selector-trigger-seed-snapshot)
-      - [aztec validator-keys|valKeys compute-selector vote-on-governance-proposal](#aztec-validator-keys|valkeys-compute-selector-vote-on-governance-proposal)
-      - [aztec validator-keys|valKeys compute-selector validator-keys|valKeys](#aztec-validator-keys|valkeys-compute-selector-validator-keys|valkeys)
-      - [aztec validator-keys|valKeys compute-selector new](#aztec-validator-keys|valkeys-compute-selector-new)
-      - [aztec validator-keys|valKeys compute-selector fmt](#aztec-validator-keys|valkeys-compute-selector-fmt)
-      - [aztec validator-keys|valKeys compute-selector compile](#aztec-validator-keys|valkeys-compute-selector-compile)
-      - [aztec validator-keys|valKeys compute-selector test](#aztec-validator-keys|valkeys-compute-selector-test)
-      - [aztec validator-keys|valKeys compute-selector check](#aztec-validator-keys|valkeys-compute-selector-check)
-      - [aztec validator-keys|valKeys compute-selector lsp](#aztec-validator-keys|valkeys-compute-selector-lsp)
-    - [aztec validator-keys|valKeys decode-enr](#aztec-validator-keys|valkeys-decode-enr)
-      - [aztec validator-keys|valKeys decode-enr fast-forward-epochs](#aztec-validator-keys|valkeys-decode-enr-fast-forward-epochs)
-      - [aztec validator-keys|valKeys decode-enr bridge-erc20](#aztec-validator-keys|valkeys-decode-enr-bridge-erc20)
-      - [aztec validator-keys|valKeys decode-enr advance-epoch](#aztec-validator-keys|valkeys-decode-enr-advance-epoch)
-      - [aztec validator-keys|valKeys decode-enr deploy-new-rollup](#aztec-validator-keys|valkeys-decode-enr-deploy-new-rollup)
-      - [aztec validator-keys|valKeys decode-enr compute-selector](#aztec-validator-keys|valkeys-decode-enr-compute-selector)
-      - [aztec validator-keys|valKeys decode-enr debug-rollup](#aztec-validator-keys|valkeys-decode-enr-debug-rollup)
-      - [aztec validator-keys|valKeys decode-enr deposit-governance-tokens](#aztec-validator-keys|valkeys-decode-enr-deposit-governance-tokens)
-      - [aztec validator-keys|valKeys decode-enr block-number](#aztec-validator-keys|valkeys-decode-enr-block-number)
-      - [aztec validator-keys|valKeys decode-enr generate-bootnode-enr](#aztec-validator-keys|valkeys-decode-enr-generate-bootnode-enr)
-      - [aztec validator-keys|valKeys decode-enr generate-bls-keypair](#aztec-validator-keys|valkeys-decode-enr-generate-bls-keypair)
-      - [aztec validator-keys|valKeys decode-enr example-contracts](#aztec-validator-keys|valkeys-decode-enr-example-contracts)
-      - [aztec validator-keys|valKeys decode-enr deploy-l1-contracts](#aztec-validator-keys|valkeys-decode-enr-deploy-l1-contracts)
-      - [aztec validator-keys|valKeys decode-enr decode-enr](#aztec-validator-keys|valkeys-decode-enr-decode-enr)
-      - [aztec validator-keys|valKeys decode-enr codegen](#aztec-validator-keys|valkeys-decode-enr-codegen)
-      - [aztec validator-keys|valKeys decode-enr add-l1-validator](#aztec-validator-keys|valkeys-decode-enr-add-l1-validator)
-      - [aztec validator-keys|valKeys decode-enr execute-governance-proposal](#aztec-validator-keys|valkeys-decode-enr-execute-governance-proposal)
-      - [aztec validator-keys|valKeys decode-enr generate-p2p-private-key](#aztec-validator-keys|valkeys-decode-enr-generate-p2p-private-key)
-      - [aztec validator-keys|valKeys decode-enr generate-l1-account](#aztec-validator-keys|valkeys-decode-enr-generate-l1-account)
-      - [aztec validator-keys|valKeys decode-enr get-canonical-sponsored-fpc-address](#aztec-validator-keys|valkeys-decode-enr-get-canonical-sponsored-fpc-address)
-      - [aztec validator-keys|valKeys decode-enr generate-keys](#aztec-validator-keys|valkeys-decode-enr-generate-keys)
-      - [aztec validator-keys|valKeys decode-enr get-current-base-fee](#aztec-validator-keys|valkeys-decode-enr-get-current-base-fee)
-      - [aztec validator-keys|valKeys decode-enr get-node-info](#aztec-validator-keys|valkeys-decode-enr-get-node-info)
-      - [aztec validator-keys|valKeys decode-enr get-l1-addresses](#aztec-validator-keys|valkeys-decode-enr-get-l1-addresses)
-      - [aztec validator-keys|valKeys decode-enr get-block](#aztec-validator-keys|valkeys-decode-enr-get-block)
-      - [aztec validator-keys|valKeys decode-enr get-l1-balance](#aztec-validator-keys|valkeys-decode-enr-get-l1-balance)
-      - [aztec validator-keys|valKeys decode-enr get-logs](#aztec-validator-keys|valkeys-decode-enr-get-logs)
-      - [aztec validator-keys|valKeys decode-enr parse-parameter-struct](#aztec-validator-keys|valkeys-decode-enr-parse-parameter-struct)
-      - [aztec validator-keys|valKeys decode-enr inspect-contract](#aztec-validator-keys|valkeys-decode-enr-inspect-contract)
-      - [aztec validator-keys|valKeys decode-enr propose-with-lock](#aztec-validator-keys|valkeys-decode-enr-propose-with-lock)
-      - [aztec validator-keys|valKeys decode-enr generate-secret-and-hash](#aztec-validator-keys|valkeys-decode-enr-generate-secret-and-hash)
-      - [aztec validator-keys|valKeys decode-enr get-l1-to-l2-message-witness](#aztec-validator-keys|valkeys-decode-enr-get-l1-to-l2-message-witness)
-      - [aztec validator-keys|valKeys decode-enr preload-crs](#aztec-validator-keys|valkeys-decode-enr-preload-crs)
-      - [aztec validator-keys|valKeys decode-enr prune-rollup](#aztec-validator-keys|valkeys-decode-enr-prune-rollup)
-      - [aztec validator-keys|valKeys decode-enr remove-l1-validator](#aztec-validator-keys|valkeys-decode-enr-remove-l1-validator)
-      - [aztec validator-keys|valKeys decode-enr sequencers](#aztec-validator-keys|valkeys-decode-enr-sequencers)
-      - [aztec validator-keys|valKeys decode-enr setup-protocol-contracts](#aztec-validator-keys|valkeys-decode-enr-setup-protocol-contracts)
-      - [aztec validator-keys|valKeys decode-enr start](#aztec-validator-keys|valkeys-decode-enr-start)
-      - [aztec validator-keys|valKeys decode-enr update](#aztec-validator-keys|valkeys-decode-enr-update)
-      - [aztec validator-keys|valKeys decode-enr trigger-seed-snapshot](#aztec-validator-keys|valkeys-decode-enr-trigger-seed-snapshot)
-      - [aztec validator-keys|valKeys decode-enr init](#aztec-validator-keys|valkeys-decode-enr-init)
-      - [aztec validator-keys|valKeys decode-enr vote-on-governance-proposal](#aztec-validator-keys|valkeys-decode-enr-vote-on-governance-proposal)
-      - [aztec validator-keys|valKeys decode-enr validator-keys|valKeys](#aztec-validator-keys|valkeys-decode-enr-validator-keys|valkeys)
-      - [aztec validator-keys|valKeys decode-enr fmt](#aztec-validator-keys|valkeys-decode-enr-fmt)
-      - [aztec validator-keys|valKeys decode-enr new](#aztec-validator-keys|valkeys-decode-enr-new)
-      - [aztec validator-keys|valKeys decode-enr compile](#aztec-validator-keys|valkeys-decode-enr-compile)
-      - [aztec validator-keys|valKeys decode-enr test](#aztec-validator-keys|valkeys-decode-enr-test)
-      - [aztec validator-keys|valKeys decode-enr check](#aztec-validator-keys|valkeys-decode-enr-check)
-      - [aztec validator-keys|valKeys decode-enr lsp](#aztec-validator-keys|valkeys-decode-enr-lsp)
-    - [aztec validator-keys|valKeys execute-governance-proposal](#aztec-validator-keys|valkeys-execute-governance-proposal)
-      - [aztec validator-keys|valKeys execute-governance-proposal fast-forward-epochs](#aztec-validator-keys|valkeys-execute-governance-proposal-fast-forward-epochs)
-      - [aztec validator-keys|valKeys execute-governance-proposal compute-selector](#aztec-validator-keys|valkeys-execute-governance-proposal-compute-selector)
-      - [aztec validator-keys|valKeys execute-governance-proposal codegen](#aztec-validator-keys|valkeys-execute-governance-proposal-codegen)
-      - [aztec validator-keys|valKeys execute-governance-proposal deploy-new-rollup](#aztec-validator-keys|valkeys-execute-governance-proposal-deploy-new-rollup)
-      - [aztec validator-keys|valKeys execute-governance-proposal advance-epoch](#aztec-validator-keys|valkeys-execute-governance-proposal-advance-epoch)
-      - [aztec validator-keys|valKeys execute-governance-proposal deposit-governance-tokens](#aztec-validator-keys|valkeys-execute-governance-proposal-deposit-governance-tokens)
-      - [aztec validator-keys|valKeys execute-governance-proposal add-l1-validator](#aztec-validator-keys|valkeys-execute-governance-proposal-add-l1-validator)
-      - [aztec validator-keys|valKeys execute-governance-proposal deploy-l1-contracts](#aztec-validator-keys|valkeys-execute-governance-proposal-deploy-l1-contracts)
-      - [aztec validator-keys|valKeys execute-governance-proposal generate-bls-keypair](#aztec-validator-keys|valkeys-execute-governance-proposal-generate-bls-keypair)
-      - [aztec validator-keys|valKeys execute-governance-proposal bridge-erc20](#aztec-validator-keys|valkeys-execute-governance-proposal-bridge-erc20)
-      - [aztec validator-keys|valKeys execute-governance-proposal block-number](#aztec-validator-keys|valkeys-execute-governance-proposal-block-number)
-      - [aztec validator-keys|valKeys execute-governance-proposal decode-enr](#aztec-validator-keys|valkeys-execute-governance-proposal-decode-enr)
-      - [aztec validator-keys|valKeys execute-governance-proposal execute-governance-proposal](#aztec-validator-keys|valkeys-execute-governance-proposal-execute-governance-proposal)
-      - [aztec validator-keys|valKeys execute-governance-proposal debug-rollup](#aztec-validator-keys|valkeys-execute-governance-proposal-debug-rollup)
-      - [aztec validator-keys|valKeys execute-governance-proposal example-contracts](#aztec-validator-keys|valkeys-execute-governance-proposal-example-contracts)
-      - [aztec validator-keys|valKeys execute-governance-proposal generate-bootnode-enr](#aztec-validator-keys|valkeys-execute-governance-proposal-generate-bootnode-enr)
-      - [aztec validator-keys|valKeys execute-governance-proposal get-block](#aztec-validator-keys|valkeys-execute-governance-proposal-get-block)
-      - [aztec validator-keys|valKeys execute-governance-proposal generate-keys](#aztec-validator-keys|valkeys-execute-governance-proposal-generate-keys)
-      - [aztec validator-keys|valKeys execute-governance-proposal generate-secret-and-hash](#aztec-validator-keys|valkeys-execute-governance-proposal-generate-secret-and-hash)
-      - [aztec validator-keys|valKeys execute-governance-proposal generate-l1-account](#aztec-validator-keys|valkeys-execute-governance-proposal-generate-l1-account)
-      - [aztec validator-keys|valKeys execute-governance-proposal get-l1-balance](#aztec-validator-keys|valkeys-execute-governance-proposal-get-l1-balance)
-      - [aztec validator-keys|valKeys execute-governance-proposal get-canonical-sponsored-fpc-address](#aztec-validator-keys|valkeys-execute-governance-proposal-get-canonical-sponsored-fpc-address)
-      - [aztec validator-keys|valKeys execute-governance-proposal get-node-info](#aztec-validator-keys|valkeys-execute-governance-proposal-get-node-info)
-      - [aztec validator-keys|valKeys execute-governance-proposal inspect-contract](#aztec-validator-keys|valkeys-execute-governance-proposal-inspect-contract)
-      - [aztec validator-keys|valKeys execute-governance-proposal generate-p2p-private-key](#aztec-validator-keys|valkeys-execute-governance-proposal-generate-p2p-private-key)
-      - [aztec validator-keys|valKeys execute-governance-proposal get-current-base-fee](#aztec-validator-keys|valkeys-execute-governance-proposal-get-current-base-fee)
-      - [aztec validator-keys|valKeys execute-governance-proposal get-logs](#aztec-validator-keys|valkeys-execute-governance-proposal-get-logs)
-      - [aztec validator-keys|valKeys execute-governance-proposal get-l1-to-l2-message-witness](#aztec-validator-keys|valkeys-execute-governance-proposal-get-l1-to-l2-message-witness)
-      - [aztec validator-keys|valKeys execute-governance-proposal parse-parameter-struct](#aztec-validator-keys|valkeys-execute-governance-proposal-parse-parameter-struct)
-      - [aztec validator-keys|valKeys execute-governance-proposal get-l1-addresses](#aztec-validator-keys|valkeys-execute-governance-proposal-get-l1-addresses)
-      - [aztec validator-keys|valKeys execute-governance-proposal propose-with-lock](#aztec-validator-keys|valkeys-execute-governance-proposal-propose-with-lock)
-      - [aztec validator-keys|valKeys execute-governance-proposal preload-crs](#aztec-validator-keys|valkeys-execute-governance-proposal-preload-crs)
-      - [aztec validator-keys|valKeys execute-governance-proposal prune-rollup](#aztec-validator-keys|valkeys-execute-governance-proposal-prune-rollup)
-      - [aztec validator-keys|valKeys execute-governance-proposal remove-l1-validator](#aztec-validator-keys|valkeys-execute-governance-proposal-remove-l1-validator)
-      - [aztec validator-keys|valKeys execute-governance-proposal sequencers](#aztec-validator-keys|valkeys-execute-governance-proposal-sequencers)
-      - [aztec validator-keys|valKeys execute-governance-proposal setup-protocol-contracts](#aztec-validator-keys|valkeys-execute-governance-proposal-setup-protocol-contracts)
-      - [aztec validator-keys|valKeys execute-governance-proposal start](#aztec-validator-keys|valkeys-execute-governance-proposal-start)
-      - [aztec validator-keys|valKeys execute-governance-proposal trigger-seed-snapshot](#aztec-validator-keys|valkeys-execute-governance-proposal-trigger-seed-snapshot)
-      - [aztec validator-keys|valKeys execute-governance-proposal update](#aztec-validator-keys|valkeys-execute-governance-proposal-update)
-      - [aztec validator-keys|valKeys execute-governance-proposal init](#aztec-validator-keys|valkeys-execute-governance-proposal-init)
-      - [aztec validator-keys|valKeys execute-governance-proposal vote-on-governance-proposal](#aztec-validator-keys|valkeys-execute-governance-proposal-vote-on-governance-proposal)
-      - [aztec validator-keys|valKeys execute-governance-proposal validator-keys|valKeys](#aztec-validator-keys|valkeys-execute-governance-proposal-validator-keys|valkeys)
-      - [aztec validator-keys|valKeys execute-governance-proposal new](#aztec-validator-keys|valkeys-execute-governance-proposal-new)
-      - [aztec validator-keys|valKeys execute-governance-proposal compile](#aztec-validator-keys|valkeys-execute-governance-proposal-compile)
-      - [aztec validator-keys|valKeys execute-governance-proposal fmt](#aztec-validator-keys|valkeys-execute-governance-proposal-fmt)
-      - [aztec validator-keys|valKeys execute-governance-proposal check](#aztec-validator-keys|valkeys-execute-governance-proposal-check)
-      - [aztec validator-keys|valKeys execute-governance-proposal lsp](#aztec-validator-keys|valkeys-execute-governance-proposal-lsp)
-      - [aztec validator-keys|valKeys execute-governance-proposal test](#aztec-validator-keys|valkeys-execute-governance-proposal-test)
-    - [aztec validator-keys|valKeys generate-keys](#aztec-validator-keys|valkeys-generate-keys)
-      - [aztec validator-keys|valKeys generate-keys block-number](#aztec-validator-keys|valkeys-generate-keys-block-number)
-      - [aztec validator-keys|valKeys generate-keys add-l1-validator](#aztec-validator-keys|valkeys-generate-keys-add-l1-validator)
-      - [aztec validator-keys|valKeys generate-keys bridge-erc20](#aztec-validator-keys|valkeys-generate-keys-bridge-erc20)
-      - [aztec validator-keys|valKeys generate-keys debug-rollup](#aztec-validator-keys|valkeys-generate-keys-debug-rollup)
-      - [aztec validator-keys|valKeys generate-keys decode-enr](#aztec-validator-keys|valkeys-generate-keys-decode-enr)
-      - [aztec validator-keys|valKeys generate-keys example-contracts](#aztec-validator-keys|valkeys-generate-keys-example-contracts)
-      - [aztec validator-keys|valKeys generate-keys compute-selector](#aztec-validator-keys|valkeys-generate-keys-compute-selector)
-      - [aztec validator-keys|valKeys generate-keys deposit-governance-tokens](#aztec-validator-keys|valkeys-generate-keys-deposit-governance-tokens)
-      - [aztec validator-keys|valKeys generate-keys fast-forward-epochs](#aztec-validator-keys|valkeys-generate-keys-fast-forward-epochs)
-      - [aztec validator-keys|valKeys generate-keys codegen](#aztec-validator-keys|valkeys-generate-keys-codegen)
-      - [aztec validator-keys|valKeys generate-keys execute-governance-proposal](#aztec-validator-keys|valkeys-generate-keys-execute-governance-proposal)
-      - [aztec validator-keys|valKeys generate-keys advance-epoch](#aztec-validator-keys|valkeys-generate-keys-advance-epoch)
-      - [aztec validator-keys|valKeys generate-keys deploy-new-rollup](#aztec-validator-keys|valkeys-generate-keys-deploy-new-rollup)
-      - [aztec validator-keys|valKeys generate-keys generate-bootnode-enr](#aztec-validator-keys|valkeys-generate-keys-generate-bootnode-enr)
-      - [aztec validator-keys|valKeys generate-keys generate-bls-keypair](#aztec-validator-keys|valkeys-generate-keys-generate-bls-keypair)
-      - [aztec validator-keys|valKeys generate-keys deploy-l1-contracts](#aztec-validator-keys|valkeys-generate-keys-deploy-l1-contracts)
-      - [aztec validator-keys|valKeys generate-keys generate-p2p-private-key](#aztec-validator-keys|valkeys-generate-keys-generate-p2p-private-key)
-      - [aztec validator-keys|valKeys generate-keys generate-l1-account](#aztec-validator-keys|valkeys-generate-keys-generate-l1-account)
-      - [aztec validator-keys|valKeys generate-keys generate-keys](#aztec-validator-keys|valkeys-generate-keys-generate-keys)
-      - [aztec validator-keys|valKeys generate-keys generate-secret-and-hash](#aztec-validator-keys|valkeys-generate-keys-generate-secret-and-hash)
-      - [aztec validator-keys|valKeys generate-keys get-l1-addresses](#aztec-validator-keys|valkeys-generate-keys-get-l1-addresses)
-      - [aztec validator-keys|valKeys generate-keys get-current-base-fee](#aztec-validator-keys|valkeys-generate-keys-get-current-base-fee)
-      - [aztec validator-keys|valKeys generate-keys get-node-info](#aztec-validator-keys|valkeys-generate-keys-get-node-info)
-      - [aztec validator-keys|valKeys generate-keys get-l1-to-l2-message-witness](#aztec-validator-keys|valkeys-generate-keys-get-l1-to-l2-message-witness)
-      - [aztec validator-keys|valKeys generate-keys get-l1-balance](#aztec-validator-keys|valkeys-generate-keys-get-l1-balance)
-      - [aztec validator-keys|valKeys generate-keys get-canonical-sponsored-fpc-address](#aztec-validator-keys|valkeys-generate-keys-get-canonical-sponsored-fpc-address)
-      - [aztec validator-keys|valKeys generate-keys parse-parameter-struct](#aztec-validator-keys|valkeys-generate-keys-parse-parameter-struct)
-      - [aztec validator-keys|valKeys generate-keys get-logs](#aztec-validator-keys|valkeys-generate-keys-get-logs)
-      - [aztec validator-keys|valKeys generate-keys get-block](#aztec-validator-keys|valkeys-generate-keys-get-block)
-      - [aztec validator-keys|valKeys generate-keys inspect-contract](#aztec-validator-keys|valkeys-generate-keys-inspect-contract)
-      - [aztec validator-keys|valKeys generate-keys preload-crs](#aztec-validator-keys|valkeys-generate-keys-preload-crs)
-      - [aztec validator-keys|valKeys generate-keys propose-with-lock](#aztec-validator-keys|valkeys-generate-keys-propose-with-lock)
-      - [aztec validator-keys|valKeys generate-keys prune-rollup](#aztec-validator-keys|valkeys-generate-keys-prune-rollup)
-      - [aztec validator-keys|valKeys generate-keys remove-l1-validator](#aztec-validator-keys|valkeys-generate-keys-remove-l1-validator)
-      - [aztec validator-keys|valKeys generate-keys sequencers](#aztec-validator-keys|valkeys-generate-keys-sequencers)
-      - [aztec validator-keys|valKeys generate-keys trigger-seed-snapshot](#aztec-validator-keys|valkeys-generate-keys-trigger-seed-snapshot)
-      - [aztec validator-keys|valKeys generate-keys setup-protocol-contracts](#aztec-validator-keys|valkeys-generate-keys-setup-protocol-contracts)
-      - [aztec validator-keys|valKeys generate-keys start](#aztec-validator-keys|valkeys-generate-keys-start)
-      - [aztec validator-keys|valKeys generate-keys validator-keys|valKeys](#aztec-validator-keys|valkeys-generate-keys-validator-keys|valkeys)
-      - [aztec validator-keys|valKeys generate-keys vote-on-governance-proposal](#aztec-validator-keys|valkeys-generate-keys-vote-on-governance-proposal)
-      - [aztec validator-keys|valKeys generate-keys new](#aztec-validator-keys|valkeys-generate-keys-new)
-      - [aztec validator-keys|valKeys generate-keys compile](#aztec-validator-keys|valkeys-generate-keys-compile)
-      - [aztec validator-keys|valKeys generate-keys test](#aztec-validator-keys|valkeys-generate-keys-test)
-      - [aztec validator-keys|valKeys generate-keys check](#aztec-validator-keys|valkeys-generate-keys-check)
-      - [aztec validator-keys|valKeys generate-keys update](#aztec-validator-keys|valkeys-generate-keys-update)
-      - [aztec validator-keys|valKeys generate-keys init](#aztec-validator-keys|valkeys-generate-keys-init)
-      - [aztec validator-keys|valKeys generate-keys fmt](#aztec-validator-keys|valkeys-generate-keys-fmt)
-      - [aztec validator-keys|valKeys generate-keys lsp](#aztec-validator-keys|valkeys-generate-keys-lsp)
-    - [aztec validator-keys|valKeys generate-l1-account](#aztec-validator-keys|valkeys-generate-l1-account)
-    - [aztec validator-keys|valKeys generate-p2p-private-key](#aztec-validator-keys|valkeys-generate-p2p-private-key)
-    - [aztec validator-keys|valKeys generate-secret-and-hash](#aztec-validator-keys|valkeys-generate-secret-and-hash)
-    - [aztec validator-keys|valKeys get-block](#aztec-validator-keys|valkeys-get-block)
-    - [aztec validator-keys|valKeys get-canonical-sponsored-fpc-address](#aztec-validator-keys|valkeys-get-canonical-sponsored-fpc-address)
-    - [aztec validator-keys|valKeys get-current-base-fee](#aztec-validator-keys|valkeys-get-current-base-fee)
-    - [aztec validator-keys|valKeys get-l1-addresses](#aztec-validator-keys|valkeys-get-l1-addresses)
-    - [aztec validator-keys|valKeys get-l1-balance](#aztec-validator-keys|valkeys-get-l1-balance)
-    - [aztec validator-keys|valKeys get-l1-to-l2-message-witness](#aztec-validator-keys|valkeys-get-l1-to-l2-message-witness)
-    - [aztec validator-keys|valKeys get-logs](#aztec-validator-keys|valkeys-get-logs)
-    - [aztec validator-keys|valKeys get-node-info](#aztec-validator-keys|valkeys-get-node-info)
-    - [aztec validator-keys|valKeys inspect-contract](#aztec-validator-keys|valkeys-inspect-contract)
-    - [aztec validator-keys|valKeys parse-parameter-struct](#aztec-validator-keys|valkeys-parse-parameter-struct)
-    - [aztec validator-keys|valKeys preload-crs](#aztec-validator-keys|valkeys-preload-crs)
-    - [aztec validator-keys|valKeys propose-with-lock](#aztec-validator-keys|valkeys-propose-with-lock)
-    - [aztec validator-keys|valKeys prune-rollup](#aztec-validator-keys|valkeys-prune-rollup)
-    - [aztec validator-keys|valKeys remove-l1-validator](#aztec-validator-keys|valkeys-remove-l1-validator)
-    - [aztec validator-keys|valKeys sequencers](#aztec-validator-keys|valkeys-sequencers)
-    - [aztec validator-keys|valKeys setup-protocol-contracts](#aztec-validator-keys|valkeys-setup-protocol-contracts)
-    - [aztec validator-keys|valKeys start](#aztec-validator-keys|valkeys-start)
-    - [aztec validator-keys|valKeys trigger-seed-snapshot](#aztec-validator-keys|valkeys-trigger-seed-snapshot)
-    - [aztec validator-keys|valKeys update](#aztec-validator-keys|valkeys-update)
-    - [aztec validator-keys|valKeys validator-keys|valKeys](#aztec-validator-keys|valkeys-validator-keys|valkeys)
-    - [aztec validator-keys|valKeys vote-on-governance-proposal](#aztec-validator-keys|valkeys-vote-on-governance-proposal)
-    - [aztec validator-keys|valKeys init](#aztec-validator-keys|valkeys-init)
-    - [aztec validator-keys|valKeys new](#aztec-validator-keys|valkeys-new)
-    - [aztec validator-keys|valKeys compile](#aztec-validator-keys|valkeys-compile)
-    - [aztec validator-keys|valKeys fmt](#aztec-validator-keys|valkeys-fmt)
-    - [aztec validator-keys|valKeys check](#aztec-validator-keys|valkeys-check)
-    - [aztec validator-keys|valKeys lsp](#aztec-validator-keys|valkeys-lsp)
-    - [aztec validator-keys|valKeys test](#aztec-validator-keys|valkeys-test)
 ## aztec
 
 Aztec command line interface
@@ -950,41 +134,105 @@ aztec [options] [command]
 
 ### Subcommands
 
-### aztec fast-forward-epochs
-
-*Help for this command is currently unavailable due to a technical issue with option serialization.*
-
-
-### aztec codegen
+### aztec advance-epoch
 
 ```
-Usage: aztec codegen [options] <noir-abi-path>
+Usage: aztec advance-epoch [options]
 
-Validates and generates an Aztec Contract ABI from Noir ABI.
-
-Arguments:
-  noir-abi-path        Path to the Noir ABI or project dir.
+Use L1 cheat codes to warp time until the next epoch.
 
 Options:
-  -o, --outdir <path>  Output folder for the generated code.
-  -f, --force          Force code generation even when the contract has not
-                       changed.
-  -h, --help           display help for command
+  --l1-rpc-urls <string>   List of Ethereum host URLs. Chain identifiers
+                           localhost and testnet can be used (comma separated)
+                           (default: ["http://host.docker.internal:8545"], env:
+                           ETHEREUM_HOSTS)
+  -n, --node-url <string>  URL of the Aztec node (default:
+                           "http://host.docker.internal:8080", env:
+                           AZTEC_NODE_URL)
+  -h, --help               display help for command
 
 ```
 
-### aztec decode-enr
+### aztec block-number
 
 ```
-Usage: aztec decode-enr [options] <enr>
+Usage: aztec block-number [options]
 
-Decodes and ENR record
-
-Arguments:
-  enr         The encoded ENR string
+Gets the current Aztec L2 block number.
 
 Options:
-  -h, --help  display help for command
+  -n, --node-url <string>  URL of the Aztec node (default:
+                           "http://host.docker.internal:8080", env:
+                           AZTEC_NODE_URL)
+  -h, --help               display help for command
+
+```
+
+### aztec bridge-erc20
+
+```
+Usage: aztec bridge-erc20 [options] <amount> <recipient>
+
+Bridges ERC20 tokens to L2.
+
+Arguments:
+  amount                      The amount of Fee Juice to mint and bridge.
+  recipient                   Aztec address of the recipient.
+
+Options:
+  --l1-rpc-urls <string>      List of Ethereum host URLs. Chain identifiers
+                              localhost and testnet can be used (comma
+                              separated) (default:
+                              ["http://host.docker.internal:8545"], env:
+                              ETHEREUM_HOSTS)
+  -m, --mnemonic <string>     The mnemonic to use for deriving the Ethereum
+                              address that will mint and bridge (default: "test
+                              test test test test test test test test test test
+                              junk")
+  --mint                      Mint the tokens on L1 (default: false)
+  --private                   If the bridge should use the private flow
+                              (default: false)
+  -c, --l1-chain-id <number>  Chain ID of the ethereum host (default: 31337,
+                              env: L1_CHAIN_ID)
+  -t, --token <string>        The address of the token to bridge
+  -p, --portal <string>       The address of the portal contract
+  -f, --faucet <string>       The address of the faucet contract (only used if
+                              minting)
+  --l1-private-key <string>   The private key to use for deployment
+  --json                      Output the claim in JSON format
+  -h, --help                  display help for command
+
+```
+
+### aztec add-l1-validator
+
+```
+Usage: aztec add-l1-validator [options]
+
+Adds a validator to the L1 rollup contract via a direct deposit.
+
+Options:
+  --l1-rpc-urls <string>       List of Ethereum host URLs. Chain identifiers
+                               localhost and testnet can be used (comma
+                               separated) (default:
+                               ["http://host.docker.internal:8545"], env:
+                               ETHEREUM_HOSTS)
+  --network <string>           Network to execute against (env: NETWORK)
+  -pk, --private-key <string>  The private key to use sending the transaction
+  -m, --mnemonic <string>      The mnemonic to use sending the transaction
+                               (default: "test test test test test test test
+                               test test test test junk")
+  -c, --l1-chain-id <number>   Chain ID of the ethereum host (default: 31337,
+                               env: L1_CHAIN_ID)
+  --attester <address>         ethereum address of the attester
+  --withdrawer <address>       ethereum address of the withdrawer
+  --bls-secret-key <string>    The BN254 scalar field element used as a secret
+                               key for BLS signatures. Will be associated with
+                               the attester address.
+  --move-with-latest-rollup    Whether to move with the latest rollup (default:
+                               true)
+  --rollup <string>            Rollup contract address
+  -h, --help                   display help for command
 
 ```
 
@@ -1020,6 +268,68 @@ Options:
                               env: L1_CHAIN_ID)
   --rollup <address>          ethereum address of the rollup contract
   -h, --help                  display help for command
+
+```
+
+### aztec codegen
+
+```
+Usage: aztec codegen [options] <noir-abi-path>
+
+Validates and generates an Aztec Contract ABI from Noir ABI.
+
+Arguments:
+  noir-abi-path        Path to the Noir ABI or project dir.
+
+Options:
+  -o, --outdir <path>  Output folder for the generated code.
+  -f, --force          Force code generation even when the contract has not
+                       changed.
+  -h, --help           display help for command
+
+```
+
+### aztec decode-enr
+
+```
+Usage: aztec decode-enr [options] <enr>
+
+Decodes and ENR record
+
+Arguments:
+  enr         The encoded ENR string
+
+Options:
+  -h, --help  display help for command
+
+```
+
+### aztec deposit-governance-tokens
+
+```
+Usage: aztec deposit-governance-tokens [options]
+
+Deposits governance tokens to the governance contract.
+
+Options:
+  -r, --registry-address <string>  The address of the registry contract
+  --recipient <string>             The recipient of the tokens
+  -a, --amount <string>            The amount of tokens to deposit
+  --mint                           Mint the tokens on L1 (default: false)
+  --l1-rpc-urls <string>           List of Ethereum host URLs. Chain
+                                   identifiers localhost and testnet can be
+                                   used (comma separated) (default:
+                                   ["http://host.docker.internal:8545"], env:
+                                   ETHEREUM_HOSTS)
+  -c, --l1-chain-id <number>       Chain ID of the ethereum host (default:
+                                   31337, env: L1_CHAIN_ID)
+  -p, --private-key <string>       The private key to use to deposit
+  -m, --mnemonic <string>          The mnemonic to use to deposit (default:
+                                   "test test test test test test test test
+                                   test test test junk")
+  -i, --mnemonic-index <number>    The index of the mnemonic to use to deposit
+                                   (default: 0)
+  -h, --help                       display help for command
 
 ```
 
@@ -1063,6 +373,18 @@ Options:
 
 ```
 
+### aztec example-contracts
+
+```
+Usage: aztec example-contracts [options]
+
+Lists the example contracts available to deploy from @aztec/noir-contracts.js
+
+Options:
+  -h, --help  display help for command
+
+```
+
 ### aztec deploy-new-rollup
 
 ```
@@ -1101,104 +423,6 @@ Options:
 
 ```
 
-### aztec block-number
-
-```
-Usage: aztec block-number [options]
-
-Gets the current Aztec L2 block number.
-
-Options:
-  -n, --node-url <string>  URL of the Aztec node (default:
-                           "http://host.docker.internal:8080", env:
-                           AZTEC_NODE_URL)
-  -h, --help               display help for command
-
-```
-
-### aztec generate-bls-keypair
-
-```
-Usage: aztec generate-bls-keypair [options]
-
-Generate a BLS keypair with convenience flags
-
-Options:
-  --mnemonic <mnemonic>  Mnemonic for BLS derivation
-  --ikm <hex>            Initial keying material for BLS (alternative to
-                         mnemonic)
-  --bls-path <path>      EIP-2334 path (default m/12381/3600/0/0/0)
-  --g2                   Derive on G2 subgroup
-  --compressed           Output compressed public key
-  --json                 Print JSON output to stdout
-  --out <file>           Write output to file
-  -h, --help             display help for command
-
-```
-
-### aztec advance-epoch
-
-```
-Usage: aztec advance-epoch [options]
-
-Use L1 cheat codes to warp time until the next epoch.
-
-Options:
-  --l1-rpc-urls <string>   List of Ethereum host URLs. Chain identifiers
-                           localhost and testnet can be used (comma separated)
-                           (default: ["http://host.docker.internal:8545"], env:
-                           ETHEREUM_HOSTS)
-  -n, --node-url <string>  URL of the Aztec node (default:
-                           "http://host.docker.internal:8080", env:
-                           AZTEC_NODE_URL)
-  -h, --help               display help for command
-
-```
-
-### aztec add-l1-validator
-
-```
-Usage: aztec add-l1-validator [options]
-
-Adds a validator to the L1 rollup contract via a direct deposit.
-
-Options:
-  --l1-rpc-urls <string>       List of Ethereum host URLs. Chain identifiers
-                               localhost and testnet can be used (comma
-                               separated) (default:
-                               ["http://host.docker.internal:8545"], env:
-                               ETHEREUM_HOSTS)
-  --network <string>           Network to execute against (env: NETWORK)
-  -pk, --private-key <string>  The private key to use sending the transaction
-  -m, --mnemonic <string>      The mnemonic to use sending the transaction
-                               (default: "test test test test test test test
-                               test test test test junk")
-  -c, --l1-chain-id <number>   Chain ID of the ethereum host (default: 31337,
-                               env: L1_CHAIN_ID)
-  --attester <address>         ethereum address of the attester
-  --withdrawer <address>       ethereum address of the withdrawer
-  --bls-secret-key <string>    The BN254 scalar field element used as a secret
-                               key for BLS signatures. Will be associated with
-                               the attester address.
-  --move-with-latest-rollup    Whether to move with the latest rollup (default:
-                               true)
-  --rollup <string>            Rollup contract address
-  -h, --help                   display help for command
-
-```
-
-### aztec example-contracts
-
-```
-Usage: aztec example-contracts [options]
-
-Lists the example contracts available to deploy from @aztec/noir-contracts.js
-
-Options:
-  -h, --help  display help for command
-
-```
-
 ### aztec execute-governance-proposal
 
 ```
@@ -1228,68 +452,28 @@ Options:
 
 ```
 
-### aztec deposit-governance-tokens
+### aztec fast-forward-epochs
+
+*Help for this command is currently unavailable due to a technical issue with option serialization.*
+
+
+### aztec generate-bls-keypair
 
 ```
-Usage: aztec deposit-governance-tokens [options]
+Usage: aztec generate-bls-keypair [options]
 
-Deposits governance tokens to the governance contract.
+Generate a BLS keypair with convenience flags
 
 Options:
-  -r, --registry-address <string>  The address of the registry contract
-  --recipient <string>             The recipient of the tokens
-  -a, --amount <string>            The amount of tokens to deposit
-  --mint                           Mint the tokens on L1 (default: false)
-  --l1-rpc-urls <string>           List of Ethereum host URLs. Chain
-                                   identifiers localhost and testnet can be
-                                   used (comma separated) (default:
-                                   ["http://host.docker.internal:8545"], env:
-                                   ETHEREUM_HOSTS)
-  -c, --l1-chain-id <number>       Chain ID of the ethereum host (default:
-                                   31337, env: L1_CHAIN_ID)
-  -p, --private-key <string>       The private key to use to deposit
-  -m, --mnemonic <string>          The mnemonic to use to deposit (default:
-                                   "test test test test test test test test
-                                   test test test junk")
-  -i, --mnemonic-index <number>    The index of the mnemonic to use to deposit
-                                   (default: 0)
-  -h, --help                       display help for command
-
-```
-
-### aztec bridge-erc20
-
-```
-Usage: aztec bridge-erc20 [options] <amount> <recipient>
-
-Bridges ERC20 tokens to L2.
-
-Arguments:
-  amount                      The amount of Fee Juice to mint and bridge.
-  recipient                   Aztec address of the recipient.
-
-Options:
-  --l1-rpc-urls <string>      List of Ethereum host URLs. Chain identifiers
-                              localhost and testnet can be used (comma
-                              separated) (default:
-                              ["http://host.docker.internal:8545"], env:
-                              ETHEREUM_HOSTS)
-  -m, --mnemonic <string>     The mnemonic to use for deriving the Ethereum
-                              address that will mint and bridge (default: "test
-                              test test test test test test test test test test
-                              junk")
-  --mint                      Mint the tokens on L1 (default: false)
-  --private                   If the bridge should use the private flow
-                              (default: false)
-  -c, --l1-chain-id <number>  Chain ID of the ethereum host (default: 31337,
-                              env: L1_CHAIN_ID)
-  -t, --token <string>        The address of the token to bridge
-  -p, --portal <string>       The address of the portal contract
-  -f, --faucet <string>       The address of the faucet contract (only used if
-                              minting)
-  --l1-private-key <string>   The private key to use for deployment
-  --json                      Output the claim in JSON format
-  -h, --help                  display help for command
+  --mnemonic <mnemonic>  Mnemonic for BLS derivation
+  --ikm <hex>            Initial keying material for BLS (alternative to
+                         mnemonic)
+  --bls-path <path>      EIP-2334 path (default m/12381/3600/0/0/0)
+  --g2                   Derive on G2 subgroup
+  --compressed           Output compressed public key
+  --json                 Print JSON output to stdout
+  --out <file>           Write output to file
+  -h, --help             display help for command
 
 ```
 
@@ -1312,10 +496,74 @@ Options:
 
 ```
 
+### aztec generate-p2p-private-key
+
+```
+Usage: aztec generate-p2p-private-key [options]
+
+Generates a private key that can be used for running a node on a LibP2P
+network.
+
+Options:
+  -h, --help  display help for command
+
+```
+
+### aztec generate-keys
+
+```
+Usage: aztec generate-keys [options]
+
+Generates and encryption and signing private key pair.
+
+Options:
+  --json      Output the keys in JSON format
+  -h, --help  display help for command
+
+```
+
+### aztec generate-l1-account
+
+```
+Usage: aztec generate-l1-account [options]
+
+Generates a new private key for an account on L1.
+
+Options:
+  --json      Output the private key in JSON format
+  -h, --help  display help for command
+
+```
+
+### aztec generate-secret-and-hash
+
+```
+Usage: aztec generate-secret-and-hash [options]
+
+Generates an arbitrary secret (Fr), and its hash (using aztec-nr defaults)
+
+Options:
+  -h, --help  display help for command
+
+```
+
+### aztec get-canonical-sponsored-fpc-address
+
+```
+Usage: aztec get-canonical-sponsored-fpc-address [options]
+
+Gets the canonical SponsoredFPC address for this any testnet running on the
+same version as this CLI
+
+Options:
+  -h, --help  display help for command
+
+```
+
 ### aztec get-block
 
 ```
-^CUsage: aztec get-block [options] [blockNumber]
+Usage: aztec get-block [options] [blockNumber]
 
 Gets info for a given block or latest.
 
@@ -1330,36 +578,25 @@ Options:
 
 ```
 
-### aztec generate-l1-account
+### aztec get-current-base-fee
 
 ```
-^C^C^C^CUsage: aztec generate-l1-account [options]
+Usage: aztec get-current-base-fee [options]
 
-Generates a new private key for an account on L1.
+Gets the current base fee.
 
 Options:
-  --json      Output the private key in JSON format
-  -h, --help  display help for command
-
-```
-
-### aztec generate-keys
-
-```
-^C^C^C^C^C^C^CUsage: aztec generate-keys [options]
-
-Generates and encryption and signing private key pair.
-
-Options:
-  --json      Output the keys in JSON format
-  -h, --help  display help for command
+  -n, --node-url <string>  URL of the Aztec node (default:
+                           "http://host.docker.internal:8080", env:
+                           AZTEC_NODE_URL)
+  -h, --help               display help for command
 
 ```
 
 ### aztec get-l1-addresses
 
 ```
-^CUsage: aztec get-l1-addresses [options]
+Usage: aztec get-l1-addresses [options]
 
 Gets the addresses of the L1 contracts.
 
@@ -1378,18 +615,27 @@ Options:
 
 ```
 
-### aztec get-current-base-fee
+### aztec get-l1-balance
 
 ```
-Usage: aztec get-current-base-fee [options]
+Usage: aztec get-l1-balance [options] <who>
 
-Gets the current base fee.
+Gets the balance of an ERC token in L1 for the given Ethereum address.
+
+Arguments:
+  who                         Ethereum address to check.
 
 Options:
-  -n, --node-url <string>  URL of the Aztec node (default:
-                           "http://host.docker.internal:8080", env:
-                           AZTEC_NODE_URL)
-  -h, --help               display help for command
+  --l1-rpc-urls <string>      List of Ethereum host URLs. Chain identifiers
+                              localhost and testnet can be used (comma
+                              separated) (default:
+                              ["http://host.docker.internal:8545"], env:
+                              ETHEREUM_HOSTS)
+  -t, --token <string>        The address of the token to check the balance of
+  -c, --l1-chain-id <number>  Chain ID of the ethereum host (default: 31337,
+                              env: L1_CHAIN_ID)
+  --json                      Output the balance in JSON format
+  -h, --help                  display help for command
 
 ```
 
@@ -1412,121 +658,10 @@ Options:
 
 ```
 
-### aztec inspect-contract
-
-```
-^CUsage: aztec inspect-contract [options] <contractArtifactFile>
-
-Shows list of external callable functions for a contract
-
-Arguments:
-  contractArtifactFile  A compiled Noir contract's artifact in JSON format or
-                        name of a contract artifact exported by
-                        @aztec/noir-contracts.js
-
-Options:
-  -h, --help            display help for command
-
-```
-
-### aztec get-node-info
-
-```
-^CUsage: aztec get-node-info [options]
-
-Gets the information of an Aztec node from a PXE or directly from an Aztec
-node.
-
-Options:
-  --json                   Emit output as json
-  -n, --node-url <string>  URL of the Aztec node (default:
-                           "http://host.docker.internal:8080", env:
-                           AZTEC_NODE_URL)
-  -h, --help               display help for command
-^C
-```
-
-### aztec generate-secret-and-hash
-
-```
-Usage: aztec generate-secret-and-hash [options]
-
-Generates an arbitrary secret (Fr), and its hash (using aztec-nr defaults)
-
-Options:
-  -h, --help  display help for command
-
-```
-
-### aztec generate-p2p-private-key
-
-```
-^CUsage: aztec generate-p2p-private-key [options]
-
-Generates a private key that can be used for running a node on a LibP2P
-network.
-
-Options:
-  -h, --help  display help for command
-^C
-```
-
-### aztec init
-
-*No help information available for this command.*
-
-
-### aztec new
-
-*No help information available for this command.*
-
-
-### aztec preload-crs
-
-```
-Usage: aztec preload-crs [options]
-
-Preload the points data needed for proving and verifying
-
-Options:
-  -h, --help  display help for command
-
-```
-
-### aztec get-canonical-sponsored-fpc-address
-
-```
-^C^CUsage: aztec get-canonical-sponsored-fpc-address [options]
-
-Gets the canonical SponsoredFPC address for this any testnet running on the
-same version as this CLI
-
-Options:
-  -h, --help  display help for command
-^C
-```
-
-### aztec parse-parameter-struct
-
-```
-Usage: aztec parse-parameter-struct [options] <encodedString>
-
-Helper for parsing an encoded string into a contract's parameter struct.
-
-Arguments:
-  encodedString                           The encoded hex string
-
-Options:
-  -c, --contract-artifact <fileLocation>  A compiled Aztec.nr contract's ABI in JSON format or name of a contract ABI exported by @aztec/noir-contracts.js
-  -p, --parameter <parameterName>         The name of the struct parameter to decode into
-  -h, --help                              display help for command
-
-```
-
 ### aztec get-logs
 
 ```
-^CUsage: aztec get-logs [options]
+Usage: aztec get-logs [options]
 
 Gets all the public logs from an intersection of all the filter params.
 
@@ -1547,28 +682,67 @@ Options:
 
 ```
 
-### aztec get-l1-balance
+### aztec get-node-info
 
 ```
-^C^CUsage: aztec get-l1-balance [options] <who>
+Usage: aztec get-node-info [options]
 
-Gets the balance of an ERC token in L1 for the given Ethereum address.
-
-Arguments:
-  who                         Ethereum address to check.
+Gets the information of an Aztec node from a PXE or directly from an Aztec
+node.
 
 Options:
-  --l1-rpc-urls <string>      List of Ethereum host URLs. Chain identifiers
-                              localhost and testnet can be used (comma
-                              separated) (default:
-                              ["http://host.docker.internal:8545"], env:
-                              ETHEREUM_HOSTS)
-  -t, --token <string>        The address of the token to check the balance of
-  -c, --l1-chain-id <number>  Chain ID of the ethereum host (default: 31337,
-                              env: L1_CHAIN_ID)
-  --json                      Output the balance in JSON format
-  -h, --help                  display help for command
-^C
+  --json                   Emit output as json
+  -n, --node-url <string>  URL of the Aztec node (default:
+                           "http://host.docker.internal:8080", env:
+                           AZTEC_NODE_URL)
+  -h, --help               display help for command
+
+```
+
+### aztec inspect-contract
+
+```
+Usage: aztec inspect-contract [options] <contractArtifactFile>
+
+Shows list of external callable functions for a contract
+
+Arguments:
+  contractArtifactFile  A compiled Noir contract's artifact in JSON format or
+                        name of a contract artifact exported by
+                        @aztec/noir-contracts.js
+
+Options:
+  -h, --help            display help for command
+
+```
+
+### aztec parse-parameter-struct
+
+```
+Usage: aztec parse-parameter-struct [options] <encodedString>
+
+Helper for parsing an encoded string into a contract's parameter struct.
+
+Arguments:
+  encodedString                           The encoded hex string
+
+Options:
+  -c, --contract-artifact <fileLocation>  A compiled Aztec.nr contract's ABI in JSON format or name of a contract ABI exported by @aztec/noir-contracts.js
+  -p, --parameter <parameterName>         The name of the struct parameter to decode into
+  -h, --help                              display help for command
+
+```
+
+### aztec preload-crs
+
+```
+Usage: aztec preload-crs [options]
+
+Preload the points data needed for proving and verifying
+
+Options:
+  -h, --help  display help for command
+
 ```
 
 ### aztec propose-with-lock
@@ -1596,8 +770,161 @@ Options:
                                    (default: 0)
   --json                           Output the proposal ID in JSON format
   -h, --help                       display help for command
-^C
+
 ```
+
+### aztec prune-rollup
+
+```
+Usage: aztec prune-rollup [options]
+
+Prunes the pending chain on the rollup contract.
+
+Options:
+  --l1-rpc-urls <string>       List of Ethereum host URLs. Chain identifiers
+                               localhost and testnet can be used (comma
+                               separated) (default:
+                               ["http://host.docker.internal:8545"], env:
+                               ETHEREUM_HOSTS)
+  -pk, --private-key <string>  The private key to use for deployment
+  -m, --mnemonic <string>      The mnemonic to use in deployment (default:
+                               "test test test test test test test test test
+                               test test junk")
+  -c, --l1-chain-id <number>   Chain ID of the ethereum host (default: 31337,
+                               env: L1_CHAIN_ID)
+  --rollup <address>           ethereum address of the rollup contract
+  -h, --help                   display help for command
+
+```
+
+### aztec remove-l1-validator
+
+```
+Usage: aztec remove-l1-validator [options]
+
+Removes a validator to the L1 rollup contract.
+
+Options:
+  --l1-rpc-urls <string>       List of Ethereum host URLs. Chain identifiers
+                               localhost and testnet can be used (comma
+                               separated) (default:
+                               ["http://host.docker.internal:8545"], env:
+                               ETHEREUM_HOSTS)
+  -pk, --private-key <string>  The private key to use for deployment
+  -m, --mnemonic <string>      The mnemonic to use in deployment (default:
+                               "test test test test test test test test test
+                               test test junk")
+  -c, --l1-chain-id <number>   Chain ID of the ethereum host (default: 31337,
+                               env: L1_CHAIN_ID)
+  --validator <address>        ethereum address of the validator
+  --rollup <address>           ethereum address of the rollup contract
+  -h, --help                   display help for command
+
+```
+
+### aztec sequencers
+
+```
+Usage: aztec sequencers [options] <command> [who]
+
+Manages or queries registered sequencers on the L1 rollup contract.
+
+Arguments:
+  command                     Command to run: list, add, remove, who-next
+  who                         Who to add/remove
+
+Options:
+  --l1-rpc-urls <string>      List of Ethereum host URLs. Chain identifiers
+                              localhost and testnet can be used (comma
+                              separated) (default:
+                              ["http://host.docker.internal:8545"])
+  -m, --mnemonic <string>     The mnemonic for the sender of the tx (default:
+                              "test test test test test test test test test
+                              test test junk")
+  --block-number <number>     Block number to query next sequencer for
+  -n, --node-url <string>     URL of the Aztec node (default:
+                              "http://host.docker.internal:8080", env:
+                              AZTEC_NODE_URL)
+  -c, --l1-chain-id <number>  Chain ID of the ethereum host (default: 31337,
+                              env: L1_CHAIN_ID)
+  -h, --help                  display help for command
+
+```
+
+### aztec setup-protocol-contracts
+
+```
+Usage: aztec setup-protocol-contracts [options]
+
+Bootstrap the blockchain by initializing all the protocol contracts
+
+Options:
+  -n, --node-url <string>  URL of the Aztec node (default:
+                           "http://host.docker.internal:8080", env:
+                           AZTEC_NODE_URL)
+  --testAccounts           Deploy funded test accounts.
+  --json                   Output the contract addresses in JSON format
+  -h, --help               display help for command
+
+```
+
+### aztec trigger-seed-snapshot
+
+```
+Usage: aztec trigger-seed-snapshot [options]
+
+Triggers a seed snapshot for the next epoch.
+
+Options:
+  -pk, --private-key <string>  The private key to use for deployment
+  -m, --mnemonic <string>      The mnemonic to use in deployment (default:
+                               "test test test test test test test test test
+                               test test junk")
+  --rollup <address>           ethereum address of the rollup contract
+  --l1-rpc-urls <string>       List of Ethereum host URLs. Chain identifiers
+                               localhost and testnet can be used (comma
+                               separated) (default:
+                               ["http://host.docker.internal:8545"], env:
+                               ETHEREUM_HOSTS)
+  -c, --l1-chain-id <number>   Chain ID of the ethereum host (default: 31337,
+                               env: L1_CHAIN_ID)
+  -h, --help                   display help for command
+
+```
+
+### aztec update
+
+```
+Usage: aztec update [options] [projectPath]
+
+Updates Nodejs and Noir dependencies
+
+Arguments:
+  projectPath               Path to the project directory
+
+Options:
+  --contract [paths...]     Paths to contracts to update dependencies (default:
+                            [])
+  --aztec-version <semver>  The version to update Aztec packages to. Defaults
+                            to latest (default: "latest")
+  -h, --help                display help for command
+
+```
+
+### aztec init
+
+*No help information available for this command.*
+
+
+### aztec new
+
+*No help information available for this command.*
+
+
+### aztec validator-keys|valKeys
+
+*This subcommand does not provide its own help information.*
+
 
 ### aztec compile
 
@@ -1670,7 +997,7 @@ Options:
 
       --inliner-aggressiveness <INLINER_AGGRESSIVENESS>
           Setting to decide on an inlining strategy for Brillig functions. A more aggressive inliner should generate larger programs but more optimized A less aggressive inliner should generate smaller programs
-          
+
           [default: 9223372036854775807]
 
       --pedantic-solving
@@ -1678,7 +1005,7 @@ Options:
 
   -Z, --unstable-features <UNSTABLE_FEATURES>
           Unstable features to enable for this current build.
-          
+
           If non-empty, it disables unstable features required in crate manifests.
 
       --no-unstable-features
@@ -1756,7 +1083,7 @@ Options:
 
       --inliner-aggressiveness <INLINER_AGGRESSIVENESS>
           Setting to decide on an inlining strategy for Brillig functions. A more aggressive inliner should generate larger programs but more optimized A less aggressive inliner should generate smaller programs
-          
+
           [default: 9223372036854775807]
 
       --pedantic-solving
@@ -1764,7 +1091,7 @@ Options:
 
   -Z, --unstable-features <UNSTABLE_FEATURES>
           Unstable features to enable for this current build.
-          
+
           If non-empty, it disables unstable features required in crate manifests.
 
       --no-unstable-features
@@ -1775,131 +1102,10 @@ Options:
 
 ```
 
-### aztec test
-
-```
-^C
-```
-
-### aztec prune-rollup
-
-```
-^C^CUsage: aztec prune-rollup [options]
-
-Prunes the pending chain on the rollup contract.
-
-Options:
-  --l1-rpc-urls <string>       List of Ethereum host URLs. Chain identifiers
-                               localhost and testnet can be used (comma
-                               separated) (default:
-                               ["http://host.docker.internal:8545"], env:
-                               ETHEREUM_HOSTS)
-  -pk, --private-key <string>  The private key to use for deployment
-  -m, --mnemonic <string>      The mnemonic to use in deployment (default:
-                               "test test test test test test test test test
-                               test test junk")
-  -c, --l1-chain-id <number>   Chain ID of the ethereum host (default: 31337,
-                               env: L1_CHAIN_ID)
-  --rollup <address>           ethereum address of the rollup contract
-  -h, --help                   display help for command
-
-```
-
-### aztec sequencers
-
-```
-^CUsage: aztec sequencers [options] <command> [who]
-
-Manages or queries registered sequencers on the L1 rollup contract.
-
-Arguments:
-  command                     Command to run: list, add, remove, who-next
-  who                         Who to add/remove
-
-Options:
-  --l1-rpc-urls <string>      List of Ethereum host URLs. Chain identifiers
-                              localhost and testnet can be used (comma
-                              separated) (default:
-                              ["http://host.docker.internal:8545"])
-  -m, --mnemonic <string>     The mnemonic for the sender of the tx (default:
-                              "test test test test test test test test test
-                              test test junk")
-  --block-number <number>     Block number to query next sequencer for
-  -n, --node-url <string>     URL of the Aztec node (default:
-                              "http://host.docker.internal:8080", env:
-                              AZTEC_NODE_URL)
-  -c, --l1-chain-id <number>  Chain ID of the ethereum host (default: 31337,
-                              env: L1_CHAIN_ID)
-  -h, --help                  display help for command
-^C
-```
-
-### aztec remove-l1-validator
-
-```
-^C^C^C^CUsage: aztec remove-l1-validator [options]
-
-Removes a validator to the L1 rollup contract.
-
-Options:
-  --l1-rpc-urls <string>       List of Ethereum host URLs. Chain identifiers
-                               localhost and testnet can be used (comma
-                               separated) (default:
-                               ["http://host.docker.internal:8545"], env:
-                               ETHEREUM_HOSTS)
-  -pk, --private-key <string>  The private key to use for deployment
-  -m, --mnemonic <string>      The mnemonic to use in deployment (default:
-                               "test test test test test test test test test
-                               test test junk")
-  -c, --l1-chain-id <number>   Chain ID of the ethereum host (default: 31337,
-                               env: L1_CHAIN_ID)
-  --validator <address>        ethereum address of the validator
-  --rollup <address>           ethereum address of the rollup contract
-  -h, --help                   display help for command
-
-```
-
-### aztec setup-protocol-contracts
-
-```
-^CUsage: aztec setup-protocol-contracts [options]
-
-Bootstrap the blockchain by initializing all the protocol contracts
-
-Options:
-  -n, --node-url <string>  URL of the Aztec node (default:
-                           "http://host.docker.internal:8080", env:
-                           AZTEC_NODE_URL)
-  --testAccounts           Deploy funded test accounts.
-  --json                   Output the contract addresses in JSON format
-  -h, --help               display help for command
-
-```
-
-### aztec update
-
-```
-^C^C^CUsage: aztec update [options] [projectPath]
-
-Updates Nodejs and Noir dependencies
-
-Arguments:
-  projectPath               Path to the project directory (default:
-                            "/Users/alejoamiras/Projects/aztec-packages/docs")
-
-Options:
-  --contract [paths...]     Paths to contracts to update dependencies (default:
-                            [])
-  --aztec-version <semver>  The version to update Aztec packages to. Defaults
-                            to latest (default: "latest")
-  -h, --help                display help for command
-^C
-```
-
 ### aztec vote-on-governance-proposal
 
 ```
-^CUsage: aztec vote-on-governance-proposal [options]
+Usage: aztec vote-on-governance-proposal [options]
 
 Votes on a governance proposal.
 
@@ -1925,30 +1131,6 @@ Options:
   -i, --mnemonic-index <number>    The index of the mnemonic to use to vote
                                    (default: 0)
   -h, --help                       display help for command
-
-```
-
-### aztec trigger-seed-snapshot
-
-```
-^C^C^CUsage: aztec trigger-seed-snapshot [options]
-
-Triggers a seed snapshot for the next epoch.
-
-Options:
-  -pk, --private-key <string>  The private key to use for deployment
-  -m, --mnemonic <string>      The mnemonic to use in deployment (default:
-                               "test test test test test test test test test
-                               test test junk")
-  --rollup <address>           ethereum address of the rollup contract
-  --l1-rpc-urls <string>       List of Ethereum host URLs. Chain identifiers
-                               localhost and testnet can be used (comma
-                               separated) (default:
-                               ["http://host.docker.internal:8545"], env:
-                               ETHEREUM_HOSTS)
-  -c, --l1-chain-id <number>   Chain ID of the ethereum host (default: 31337,
-                               env: L1_CHAIN_ID)
-  -h, --help                   display help for command
 
 ```
 
@@ -2896,5177 +2078,134 @@ Options:
 - `--txe`
   Starts Aztec TXE with options
 
+### aztec test
+
+```
+[18:05:31.401] INFO: cli Setting up TXE...
+[18:05:31.403] INFO: cli TXE listening on port 8081
+Run the tests for this program
+
+Usage: nargo test [OPTIONS] [TEST_NAMES]...
+
+Arguments:
+  [TEST_NAMES]...
+          If given, only tests with names containing this string will be run
+
+Options:
+      --show-output
+          Display output of `println` statements
+
+      --exact
+          Only run tests that match exactly
+
+      --package <PACKAGE>
+          The name of the package to run the command on. By default run on the first one found moving up along the ancestors of the current directory
+
+      --workspace
+          Run on all packages in the workspace
+
+      --expression-width <EXPRESSION_WIDTH>
+          Specify the backend expression width that should be targeted
+
+      --bounded-codegen
+          Generate ACIR with the target backend expression width. The default is to generate ACIR without a bound and split expressions after code generation. Activating this flag can sometimes provide optimizations for certain programs
+
+      --force
+          Force a full recompilation
+
+      --print-acir
+          Display the ACIR for compiled circuit
+
+      --deny-warnings
+          Treat all warnings as errors
+
+      --silence-warnings
+          Suppress warnings
+
+      --debug-comptime-in-file <DEBUG_COMPTIME_IN_FILE>
+          Enable printing results of comptime evaluation: provide a path suffix for the module to debug, e.g. "package_name/src/main.nr"
+
+      --skip-underconstrained-check
+          Flag to turn off the compiler check for under constrained values. Warning: This can improve compilation speed but can also lead to correctness errors. This check should always be run on production code
+
+      --skip-brillig-constraints-check
+          Flag to turn off the compiler check for missing Brillig call constraints. Warning: This can improve compilation speed but can also lead to correctness errors. This check should always be run on production code
+
+      --count-array-copies
+          Count the number of arrays that are copied in an unconstrained context for performance debugging
+
+      --enable-brillig-constraints-check-lookback
+          Flag to turn on the lookback feature of the Brillig call constraints check, allowing tracking argument values before the call happens preventing certain rare false positives (leads to a slowdown on large rollout functions)
+
+      --inliner-aggressiveness <INLINER_AGGRESSIVENESS>
+          Setting to decide on an inlining strategy for Brillig functions. A more aggressive inliner should generate larger programs but more optimized A less aggressive inliner should generate smaller programs
+
+          [default: 9223372036854775807]
+
+      --pedantic-solving
+          Use pedantic ACVM solving, i.e. double-check some black-box function assumptions when solving. This is disabled by default
+
+  -Z, --unstable-features <UNSTABLE_FEATURES>
+          Unstable features to enable for this current build.
+
+          If non-empty, it disables unstable features required in crate manifests.
+
+      --no-unstable-features
+          Disable any unstable features required in crate manifests
+
+      --oracle-resolver <ORACLE_RESOLVER>
+          JSON RPC url to solve oracle calls
+
+      --test-threads <TEST_THREADS>
+          Number of threads used for running tests in parallel
+
+          [default: 14]
+
+      --format <FORMAT>
+          Configure formatting of output
+
+          Possible values:
+          - pretty: Print verbose output
+          - terse:  Display one character per test
+          - json:   Output a JSON Lines document
+
+  -q, --quiet
+          Display one character per test instead of one line
+
+      --no-fuzz
+          Do not run fuzz tests (tests that have arguments)
+
+      --only-fuzz
+          Only run fuzz tests (tests that have arguments)
+
+      --corpus-dir <CORPUS_DIR>
+          If given, load/store fuzzer corpus from this folder
+
+      --minimized-corpus-dir <MINIMIZED_CORPUS_DIR>
+          If given, perform corpus minimization instead of fuzzing and store results in the given folder
+
+      --fuzzing-failure-dir <FUZZING_FAILURE_DIR>
+          If given, store the failing input in the given folder
+
+      --fuzz-timeout <FUZZ_TIMEOUT>
+          Maximum time in seconds to spend fuzzing (default: 1 seconds)
+
+          [default: 1]
+
+      --fuzz-max-executions <FUZZ_MAX_EXECUTIONS>
+          Maximum number of executions to run for each fuzz test (default: 100000)
+
+          [default: 100000]
+
+      --fuzz-show-progress
+          Show progress of fuzzing (default: false)
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+```
+
 ### aztec lsp
-
-*No help information available for this command.*
-
-
-### aztec validator-keys|valKeys
-
-**Available Commands:**
-
-- `add-l1-validator [options]` - Adds a validator to the L1 rollup contract via a direct deposit.
-- `advance-epoch [options]` - Use L1 cheat codes to warp time until the next epoch.
-- `block-number [options]` - Gets the current Aztec L2 block number.
-- `bridge-erc20 [options] <amount> <recipient>` - Bridges ERC20 tokens to L2.
-- `codegen [options] <noir-abi-path>` - Validates and generates an Aztec Contract ABI from Noir ABI.
-- `compute-selector <functionSignature>` - Given a function signature, it computes a selector
-- `debug-rollup [options]` - Debugs the rollup contract.
-- `decode-enr <enr>` - Decodes an ENR record
-- `deploy-l1-contracts [options]` - Deploys all necessary Ethereum contracts for Aztec.
-- `deploy-new-rollup [options]` - Deploys a new rollup contract and adds it to the registry (if you are the owner).
-- `deposit-governance-tokens [options]` - Deposits governance tokens to the governance contract.
-- `example-contracts` - Lists the example contracts available to deploy from @aztec/noir-contracts.js
-- `execute-governance-proposal [options]` - Executes a governance proposal.
-- `fast-forward-epochs [options]` - Fast forwards the epoch of the L1 rollup contract.
-- `generate-bls-keypair [options]` - Generate a BLS keypair with convenience flags
-- `generate-bootnode-enr [options] <privateKey> <p2pIp> <p2pPort>` - Generates the encoded ENR record for a bootnode.
-- `generate-keys [options]` - Generates encryption and signing private keys.
-- `generate-l1-account [options]` - Generates a new private key for an account on L1.
-- `generate-p2p-private-key` - Generates a LibP2P peer private key.
-- `generate-secret-and-hash` - Generates an arbitrary secret (Fr), and its hash (using aztec-nr defaults)
-- `get-block [options] [blockNumber]` - Gets info for a given block or latest.
-- `get-canonical-sponsored-fpc-address` - Gets the canonical SponsoredFPC address for this any testnet running on the same version as this CLI
-- `get-current-base-fee [options]` - Gets the current base fee.
-- `get-l1-addresses [options]` - Gets the addresses of the L1 contracts.
-- `get-l1-balance [options] <who>` - Gets the balance of an ERC token in L1 for the given Ethereum address.
-- `get-l1-to-l2-message-witness [options]` - Gets a L1 to L2 message witness.
-- `get-logs [options]` - Gets all the public logs from an intersection of all the filter params.
-- `get-node-info [options]` - Gets the information of an Aztec node from a PXE or directly from an Aztec node.
-- `help [command]` - display help for command
-- `inspect-contract <contractArtifactFile>` - Shows list of external callable functions for a contract
-- `parse-parameter-struct [options] <encodedString>` - Helper for parsing an encoded string into a contract's parameter struct.
-- `preload-crs` - Preload the points data needed for proving and verifying
-- `propose-with-lock [options]` - Makes a proposal to governance with a lock
-- `prune-rollup [options]` - Prunes the pending chain on the rollup contract.
-- `remove-l1-validator [options]` - Removes a validator to the L1 rollup contract.
-- `sequencers [options] <command> [who]` - Manages or queries registered sequencers on the L1 rollup contract.
-- `setup-protocol-contracts [options]` - Bootstrap the blockchain by initializing all the protocol contracts
-- `start [options]` - Starts Aztec modules. Options for each module can be set as key-value pairs (e.g. "option1=value1,option2=value2") or as environment variables.
-- `trigger-seed-snapshot [options]` - Triggers a seed snapshot for the next epoch.
-- `update [options] [projectPath]` - Updates Nodejs and Noir dependencies
-- `validator-keys|valKeys` - Manage validator keystores for node operators
-- `vote-on-governance-proposal [options]` - Votes on a governance proposal.
-- `init [folder] [options]` - creates a new Noir project
-- `new <path> [options]` - creates a new Noir project in a new directory
-- `compile [options]` - compiles Aztec Noir contracts
-- `fmt [options]` - formats Noir code using nargo fmt
-- `check [options]` - type-checks Noir code without compiling using nargo check
-- `test [options]` - starts a dockerized TXE node via
-- `lsp` - starts the Nargo Language Server Protocol server
-
-**Options:**
-
-- `-V --version` - output the version number
-- `-h --help` - display help for command
-
-
-#### Subcommands
-
-#### aztec validator-keys|valKeys add-l1-validator
-
-```
-^Cdocker: Error response from daemon: bind-mount /proc/96456/ns/net -> /var/run/docker/netns/20ba228f9369: no such file or directory
-
-Run 'docker run --help' for more information
-
-```
-
-#### aztec validator-keys|valKeys generate-bls-keypair
-
-Aztec command line interface
-
-**Usage:**
-```bash
-aztec [options] [command]
-```
-
-**Available Commands:**
-
-- `add-l1-validator [options]` - Adds a validator to the L1 rollup contract via a direct deposit.
-- `advance-epoch [options]` - Use L1 cheat codes to warp time until the next epoch.
-- `block-number [options]` - Gets the current Aztec L2 block number.
-- `bridge-erc20 [options] <amount> <recipient>` - Bridges ERC20 tokens to L2.
-- `codegen [options] <noir-abi-path>` - Validates and generates an Aztec Contract ABI from Noir ABI.
-- `compute-selector <functionSignature>` - Given a function signature, it computes a selector
-- `debug-rollup [options]` - Debugs the rollup contract.
-- `decode-enr <enr>` - Decodes an ENR record
-- `deploy-l1-contracts [options]` - Deploys all necessary Ethereum contracts for Aztec.
-- `deploy-new-rollup [options]` - Deploys a new rollup contract and adds it to the registry (if you are the owner).
-- `deposit-governance-tokens [options]` - Deposits governance tokens to the governance contract.
-- `example-contracts` - Lists the example contracts available to deploy from @aztec/noir-contracts.js
-- `execute-governance-proposal [options]` - Executes a governance proposal.
-- `fast-forward-epochs [options]` - Fast forwards the epoch of the L1 rollup contract.
-- `generate-bls-keypair [options]` - Generate a BLS keypair with convenience flags
-- `generate-bootnode-enr [options] <privateKey> <p2pIp> <p2pPort>` - Generates the encoded ENR record for a bootnode.
-- `generate-keys [options]` - Generates encryption and signing private keys.
-- `generate-l1-account [options]` - Generates a new private key for an account on L1.
-- `generate-p2p-private-key` - Generates a LibP2P peer private key.
-- `generate-secret-and-hash` - Generates an arbitrary secret (Fr), and its hash (using aztec-nr defaults)
-- `get-block [options] [blockNumber]` - Gets info for a given block or latest.
-- `get-canonical-sponsored-fpc-address` - Gets the canonical SponsoredFPC address for this any testnet running on the same version as this CLI
-- `get-current-base-fee [options]` - Gets the current base fee.
-- `get-l1-addresses [options]` - Gets the addresses of the L1 contracts.
-- `get-l1-balance [options] <who>` - Gets the balance of an ERC token in L1 for the given Ethereum address.
-- `get-l1-to-l2-message-witness [options]` - Gets a L1 to L2 message witness.
-- `get-logs [options]` - Gets all the public logs from an intersection of all the filter params.
-- `get-node-info [options]` - Gets the information of an Aztec node from a PXE or directly from an Aztec node.
-- `help [command]` - display help for command
-- `inspect-contract <contractArtifactFile>` - Shows list of external callable functions for a contract
-- `parse-parameter-struct [options] <encodedString>` - Helper for parsing an encoded string into a contract's parameter struct.
-- `preload-crs` - Preload the points data needed for proving and verifying
-- `propose-with-lock [options]` - Makes a proposal to governance with a lock
-- `prune-rollup [options]` - Prunes the pending chain on the rollup contract.
-- `remove-l1-validator [options]` - Removes a validator to the L1 rollup contract.
-- `sequencers [options] <command> [who]` - Manages or queries registered sequencers on the L1 rollup contract.
-- `setup-protocol-contracts [options]` - Bootstrap the blockchain by initializing all the protocol contracts
-- `start [options]` - Starts Aztec modules. Options for each module can be set as key-value pairs (e.g. "option1=value1,option2=value2") or as environment variables.
-- `trigger-seed-snapshot [options]` - Triggers a seed snapshot for the next epoch.
-- `update [options] [projectPath]` - Updates Nodejs and Noir dependencies
-- `validator-keys|valKeys` - Manage validator keystores for node operators
-- `vote-on-governance-proposal [options]` - Votes on a governance proposal.
-- `init [folder] [options]` - creates a new Noir project
-- `new <path> [options]` - creates a new Noir project in a new directory
-- `compile [options]` - compiles Aztec Noir contracts
-- `fmt [options]` - formats Noir code using nargo fmt
-- `check [options]` - type-checks Noir code without compiling using nargo check
-- `test [options]` - starts a dockerized TXE node via
-- `lsp` - starts the Nargo Language Server Protocol server
-
-**Options:**
-
-- `-V --version` - output the version number
-- `-h --help` - display help for command
-
-
-##### Subcommands
-
-##### aztec validator-keys|valKeys generate-bls-keypair codegen
-
-*This subcommand does not provide its own help information.*
-
-
-##### aztec validator-keys|valKeys generate-bls-keypair bridge-erc20
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-bls-keypair block-number
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-bls-keypair add-l1-validator
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-bls-keypair deploy-new-rollup
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-bls-keypair advance-epoch
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-bls-keypair deploy-l1-contracts
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-bls-keypair compute-selector
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-bls-keypair generate-bootnode-enr
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-bls-keypair debug-rollup
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-bls-keypair execute-governance-proposal
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-bls-keypair generate-bls-keypair
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-bls-keypair deposit-governance-tokens
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-bls-keypair example-contracts
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-bls-keypair decode-enr
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-bls-keypair fast-forward-epochs
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-bls-keypair generate-keys
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-bls-keypair generate-l1-account
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-bls-keypair get-canonical-sponsored-fpc-address
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-bls-keypair get-l1-to-l2-message-witness
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-bls-keypair propose-with-lock
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-bls-keypair parse-parameter-struct
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-bls-keypair get-logs
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-bls-keypair generate-p2p-private-key
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-bls-keypair get-node-info
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-bls-keypair get-l1-balance
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-bls-keypair generate-secret-and-hash
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-bls-keypair get-l1-addresses
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-bls-keypair preload-crs
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-bls-keypair get-block
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-bls-keypair get-current-base-fee
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-bls-keypair inspect-contract
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-bls-keypair prune-rollup
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-bls-keypair remove-l1-validator
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-bls-keypair sequencers
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-bls-keypair vote-on-governance-proposal
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-bls-keypair start
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-bls-keypair new
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-bls-keypair setup-protocol-contracts
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-bls-keypair update
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-bls-keypair compile
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-bls-keypair validator-keys|valKeys
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-bls-keypair init
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-bls-keypair trigger-seed-snapshot
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-bls-keypair test
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-bls-keypair check
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-bls-keypair fmt
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-bls-keypair lsp
-
-*No help information available for this command.*
-
-
-#### aztec validator-keys|valKeys deposit-governance-tokens
-
-Aztec command line interface
-
-**Usage:**
-```bash
-aztec [options] [command]
-```
-
-**Available Commands:**
-
-- `add-l1-validator [options]` - Adds a validator to the L1 rollup contract via a direct deposit.
-- `advance-epoch [options]` - Use L1 cheat codes to warp time until the next epoch.
-- `block-number [options]` - Gets the current Aztec L2 block number.
-- `bridge-erc20 [options] <amount> <recipient>` - Bridges ERC20 tokens to L2.
-- `codegen [options] <noir-abi-path>` - Validates and generates an Aztec Contract ABI from Noir ABI.
-- `compute-selector <functionSignature>` - Given a function signature, it computes a selector
-- `debug-rollup [options]` - Debugs the rollup contract.
-- `decode-enr <enr>` - Decodes an ENR record
-- `deploy-l1-contracts [options]` - Deploys all necessary Ethereum contracts for Aztec.
-- `deploy-new-rollup [options]` - Deploys a new rollup contract and adds it to the registry (if you are the owner).
-- `deposit-governance-tokens [options]` - Deposits governance tokens to the governance contract.
-- `example-contracts` - Lists the example contracts available to deploy from @aztec/noir-contracts.js
-- `execute-governance-proposal [options]` - Executes a governance proposal.
-- `fast-forward-epochs [options]` - Fast forwards the epoch of the L1 rollup contract.
-- `generate-bls-keypair [options]` - Generate a BLS keypair with convenience flags
-- `generate-bootnode-enr [options] <privateKey> <p2pIp> <p2pPort>` - Generates the encoded ENR record for a bootnode.
-- `generate-keys [options]` - Generates encryption and signing private keys.
-- `generate-l1-account [options]` - Generates a new private key for an account on L1.
-- `generate-p2p-private-key` - Generates a LibP2P peer private key.
-- `generate-secret-and-hash` - Generates an arbitrary secret (Fr), and its hash (using aztec-nr defaults)
-- `get-block [options] [blockNumber]` - Gets info for a given block or latest.
-- `get-canonical-sponsored-fpc-address` - Gets the canonical SponsoredFPC address for this any testnet running on the same version as this CLI
-- `get-current-base-fee [options]` - Gets the current base fee.
-- `get-l1-addresses [options]` - Gets the addresses of the L1 contracts.
-- `get-l1-balance [options] <who>` - Gets the balance of an ERC token in L1 for the given Ethereum address.
-- `get-l1-to-l2-message-witness [options]` - Gets a L1 to L2 message witness.
-- `get-logs [options]` - Gets all the public logs from an intersection of all the filter params.
-- `get-node-info [options]` - Gets the information of an Aztec node from a PXE or directly from an Aztec node.
-- `help [command]` - display help for command
-- `inspect-contract <contractArtifactFile>` - Shows list of external callable functions for a contract
-- `parse-parameter-struct [options] <encodedString>` - Helper for parsing an encoded string into a contract's parameter struct.
-- `preload-crs` - Preload the points data needed for proving and verifying
-- `propose-with-lock [options]` - Makes a proposal to governance with a lock
-- `prune-rollup [options]` - Prunes the pending chain on the rollup contract.
-- `remove-l1-validator [options]` - Removes a validator to the L1 rollup contract.
-- `sequencers [options] <command> [who]` - Manages or queries registered sequencers on the L1 rollup contract.
-- `setup-protocol-contracts [options]` - Bootstrap the blockchain by initializing all the protocol contracts
-- `start [options]` - Starts Aztec modules. Options for each module can be set as key-value pairs (e.g. "option1=value1,option2=value2") or as environment variables.
-- `trigger-seed-snapshot [options]` - Triggers a seed snapshot for the next epoch.
-- `update [options] [projectPath]` - Updates Nodejs and Noir dependencies
-- `validator-keys|valKeys` - Manage validator keystores for node operators
-- `vote-on-governance-proposal [options]` - Votes on a governance proposal.
-- `init [folder] [options]` - creates a new Noir project
-- `new <path> [options]` - creates a new Noir project in a new directory
-- `compile [options]` - compiles Aztec Noir contracts
-- `fmt [options]` - formats Noir code using nargo fmt
-- `check [options]` - type-checks Noir code without compiling using nargo check
-- `test [options]` - starts a dockerized TXE node via
-- `lsp` - starts the Nargo Language Server Protocol server
-
-**Options:**
-
-- `-V --version` - output the version number
-- `-h --help` - display help for command
-
-
-##### Subcommands
-
-##### aztec validator-keys|valKeys deposit-governance-tokens add-l1-validator
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deposit-governance-tokens advance-epoch
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deposit-governance-tokens block-number
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deposit-governance-tokens debug-rollup
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deposit-governance-tokens codegen
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deposit-governance-tokens decode-enr
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deposit-governance-tokens compute-selector
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deposit-governance-tokens bridge-erc20
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deposit-governance-tokens deposit-governance-tokens
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deposit-governance-tokens deploy-l1-contracts
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deposit-governance-tokens fast-forward-epochs
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deposit-governance-tokens example-contracts
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deposit-governance-tokens generate-bls-keypair
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deposit-governance-tokens deploy-new-rollup
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deposit-governance-tokens generate-bootnode-enr
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deposit-governance-tokens execute-governance-proposal
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deposit-governance-tokens generate-keys
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deposit-governance-tokens generate-p2p-private-key
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deposit-governance-tokens generate-l1-account
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deposit-governance-tokens get-current-base-fee
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deposit-governance-tokens get-canonical-sponsored-fpc-address
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deposit-governance-tokens inspect-contract
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deposit-governance-tokens get-node-info
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deposit-governance-tokens get-block
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deposit-governance-tokens get-l1-balance
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deposit-governance-tokens get-logs
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deposit-governance-tokens get-l1-addresses
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deposit-governance-tokens generate-secret-and-hash
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deposit-governance-tokens get-l1-to-l2-message-witness
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deposit-governance-tokens preload-crs
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deposit-governance-tokens propose-with-lock
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deposit-governance-tokens parse-parameter-struct
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deposit-governance-tokens start
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deposit-governance-tokens remove-l1-validator
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deposit-governance-tokens sequencers
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deposit-governance-tokens setup-protocol-contracts
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deposit-governance-tokens prune-rollup
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deposit-governance-tokens validator-keys|valKeys
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deposit-governance-tokens trigger-seed-snapshot
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deposit-governance-tokens compile
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deposit-governance-tokens new
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deposit-governance-tokens update
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deposit-governance-tokens init
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deposit-governance-tokens lsp
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deposit-governance-tokens fmt
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deposit-governance-tokens test
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deposit-governance-tokens check
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deposit-governance-tokens vote-on-governance-proposal
-
-*No help information available for this command.*
-
-
-#### aztec validator-keys|valKeys example-contracts
-
-Aztec command line interface
-
-**Usage:**
-```bash
-aztec [options] [command]
-```
-
-**Available Commands:**
-
-- `add-l1-validator [options]` - Adds a validator to the L1 rollup contract via a direct deposit.
-- `advance-epoch [options]` - Use L1 cheat codes to warp time until the next epoch.
-- `block-number [options]` - Gets the current Aztec L2 block number.
-- `bridge-erc20 [options] <amount> <recipient>` - Bridges ERC20 tokens to L2.
-- `codegen [options] <noir-abi-path>` - Validates and generates an Aztec Contract ABI from Noir ABI.
-- `compute-selector <functionSignature>` - Given a function signature, it computes a selector
-- `debug-rollup [options]` - Debugs the rollup contract.
-- `decode-enr <enr>` - Decodes an ENR record
-- `deploy-l1-contracts [options]` - Deploys all necessary Ethereum contracts for Aztec.
-- `deploy-new-rollup [options]` - Deploys a new rollup contract and adds it to the registry (if you are the owner).
-- `deposit-governance-tokens [options]` - Deposits governance tokens to the governance contract.
-- `example-contracts` - Lists the example contracts available to deploy from @aztec/noir-contracts.js
-- `execute-governance-proposal [options]` - Executes a governance proposal.
-- `fast-forward-epochs [options]` - Fast forwards the epoch of the L1 rollup contract.
-- `generate-bls-keypair [options]` - Generate a BLS keypair with convenience flags
-- `generate-bootnode-enr [options] <privateKey> <p2pIp> <p2pPort>` - Generates the encoded ENR record for a bootnode.
-- `generate-keys [options]` - Generates encryption and signing private keys.
-- `generate-l1-account [options]` - Generates a new private key for an account on L1.
-- `generate-p2p-private-key` - Generates a LibP2P peer private key.
-- `generate-secret-and-hash` - Generates an arbitrary secret (Fr), and its hash (using aztec-nr defaults)
-- `get-block [options] [blockNumber]` - Gets info for a given block or latest.
-- `get-canonical-sponsored-fpc-address` - Gets the canonical SponsoredFPC address for this any testnet running on the same version as this CLI
-- `get-current-base-fee [options]` - Gets the current base fee.
-- `get-l1-addresses [options]` - Gets the addresses of the L1 contracts.
-- `get-l1-balance [options] <who>` - Gets the balance of an ERC token in L1 for the given Ethereum address.
-- `get-l1-to-l2-message-witness [options]` - Gets a L1 to L2 message witness.
-- `get-logs [options]` - Gets all the public logs from an intersection of all the filter params.
-- `get-node-info [options]` - Gets the information of an Aztec node from a PXE or directly from an Aztec node.
-- `help [command]` - display help for command
-- `inspect-contract <contractArtifactFile>` - Shows list of external callable functions for a contract
-- `parse-parameter-struct [options] <encodedString>` - Helper for parsing an encoded string into a contract's parameter struct.
-- `preload-crs` - Preload the points data needed for proving and verifying
-- `propose-with-lock [options]` - Makes a proposal to governance with a lock
-- `prune-rollup [options]` - Prunes the pending chain on the rollup contract.
-- `remove-l1-validator [options]` - Removes a validator to the L1 rollup contract.
-- `sequencers [options] <command> [who]` - Manages or queries registered sequencers on the L1 rollup contract.
-- `setup-protocol-contracts [options]` - Bootstrap the blockchain by initializing all the protocol contracts
-- `start [options]` - Starts Aztec modules. Options for each module can be set as key-value pairs (e.g. "option1=value1,option2=value2") or as environment variables.
-- `trigger-seed-snapshot [options]` - Triggers a seed snapshot for the next epoch.
-- `update [options] [projectPath]` - Updates Nodejs and Noir dependencies
-- `validator-keys|valKeys` - Manage validator keystores for node operators
-- `vote-on-governance-proposal [options]` - Votes on a governance proposal.
-- `init [folder] [options]` - creates a new Noir project
-- `new <path> [options]` - creates a new Noir project in a new directory
-- `compile [options]` - compiles Aztec Noir contracts
-- `fmt [options]` - formats Noir code using nargo fmt
-- `check [options]` - type-checks Noir code without compiling using nargo check
-- `test [options]` - starts a dockerized TXE node via
-- `lsp` - starts the Nargo Language Server Protocol server
-
-**Options:**
-
-- `-V --version` - output the version number
-- `-h --help` - display help for command
-
-
-##### Subcommands
-
-##### aztec validator-keys|valKeys example-contracts block-number
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys example-contracts compute-selector
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys example-contracts add-l1-validator
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys example-contracts codegen
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys example-contracts advance-epoch
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys example-contracts decode-enr
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys example-contracts bridge-erc20
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys example-contracts generate-bootnode-enr
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys example-contracts deploy-l1-contracts
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys example-contracts deposit-governance-tokens
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys example-contracts generate-bls-keypair
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys example-contracts example-contracts
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys example-contracts execute-governance-proposal
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys example-contracts debug-rollup
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys example-contracts deploy-new-rollup
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys example-contracts fast-forward-epochs
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys example-contracts generate-keys
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys example-contracts generate-p2p-private-key
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys example-contracts generate-l1-account
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys example-contracts generate-secret-and-hash
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys example-contracts get-l1-balance
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys example-contracts get-l1-addresses
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys example-contracts get-current-base-fee
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys example-contracts get-node-info
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys example-contracts get-l1-to-l2-message-witness
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys example-contracts get-block
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys example-contracts inspect-contract
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys example-contracts parse-parameter-struct
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys example-contracts get-canonical-sponsored-fpc-address
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys example-contracts get-logs
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys example-contracts propose-with-lock
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys example-contracts preload-crs
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys example-contracts prune-rollup
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys example-contracts remove-l1-validator
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys example-contracts setup-protocol-contracts
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys example-contracts sequencers
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys example-contracts start
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys example-contracts update
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys example-contracts trigger-seed-snapshot
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys example-contracts init
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys example-contracts vote-on-governance-proposal
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys example-contracts new
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys example-contracts check
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys example-contracts compile
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys example-contracts validator-keys|valKeys
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys example-contracts fmt
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys example-contracts test
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys example-contracts lsp
-
-*No help information available for this command.*
-
-
-#### aztec validator-keys|valKeys fast-forward-epochs
-
-Aztec command line interface
-
-**Usage:**
-```bash
-aztec [options] [command]
-```
-
-**Available Commands:**
-
-- `add-l1-validator [options]` - Adds a validator to the L1 rollup contract via a direct deposit.
-- `advance-epoch [options]` - Use L1 cheat codes to warp time until the next epoch.
-- `block-number [options]` - Gets the current Aztec L2 block number.
-- `bridge-erc20 [options] <amount> <recipient>` - Bridges ERC20 tokens to L2.
-- `codegen [options] <noir-abi-path>` - Validates and generates an Aztec Contract ABI from Noir ABI.
-- `compute-selector <functionSignature>` - Given a function signature, it computes a selector
-- `debug-rollup [options]` - Debugs the rollup contract.
-- `decode-enr <enr>` - Decodes an ENR record
-- `deploy-l1-contracts [options]` - Deploys all necessary Ethereum contracts for Aztec.
-- `deploy-new-rollup [options]` - Deploys a new rollup contract and adds it to the registry (if you are the owner).
-- `deposit-governance-tokens [options]` - Deposits governance tokens to the governance contract.
-- `example-contracts` - Lists the example contracts available to deploy from @aztec/noir-contracts.js
-- `execute-governance-proposal [options]` - Executes a governance proposal.
-- `fast-forward-epochs [options]` - Fast forwards the epoch of the L1 rollup contract.
-- `generate-bls-keypair [options]` - Generate a BLS keypair with convenience flags
-- `generate-bootnode-enr [options] <privateKey> <p2pIp> <p2pPort>` - Generates the encoded ENR record for a bootnode.
-- `generate-keys [options]` - Generates encryption and signing private keys.
-- `generate-l1-account [options]` - Generates a new private key for an account on L1.
-- `generate-p2p-private-key` - Generates a LibP2P peer private key.
-- `generate-secret-and-hash` - Generates an arbitrary secret (Fr), and its hash (using aztec-nr defaults)
-- `get-block [options] [blockNumber]` - Gets info for a given block or latest.
-- `get-canonical-sponsored-fpc-address` - Gets the canonical SponsoredFPC address for this any testnet running on the same version as this CLI
-- `get-current-base-fee [options]` - Gets the current base fee.
-- `get-l1-addresses [options]` - Gets the addresses of the L1 contracts.
-- `get-l1-balance [options] <who>` - Gets the balance of an ERC token in L1 for the given Ethereum address.
-- `get-l1-to-l2-message-witness [options]` - Gets a L1 to L2 message witness.
-- `get-logs [options]` - Gets all the public logs from an intersection of all the filter params.
-- `get-node-info [options]` - Gets the information of an Aztec node from a PXE or directly from an Aztec node.
-- `help [command]` - display help for command
-- `inspect-contract <contractArtifactFile>` - Shows list of external callable functions for a contract
-- `parse-parameter-struct [options] <encodedString>` - Helper for parsing an encoded string into a contract's parameter struct.
-- `preload-crs` - Preload the points data needed for proving and verifying
-- `propose-with-lock [options]` - Makes a proposal to governance with a lock
-- `prune-rollup [options]` - Prunes the pending chain on the rollup contract.
-- `remove-l1-validator [options]` - Removes a validator to the L1 rollup contract.
-- `sequencers [options] <command> [who]` - Manages or queries registered sequencers on the L1 rollup contract.
-- `setup-protocol-contracts [options]` - Bootstrap the blockchain by initializing all the protocol contracts
-- `start [options]` - Starts Aztec modules. Options for each module can be set as key-value pairs (e.g. "option1=value1,option2=value2") or as environment variables.
-- `trigger-seed-snapshot [options]` - Triggers a seed snapshot for the next epoch.
-- `update [options] [projectPath]` - Updates Nodejs and Noir dependencies
-- `validator-keys|valKeys` - Manage validator keystores for node operators
-- `vote-on-governance-proposal [options]` - Votes on a governance proposal.
-- `init [folder] [options]` - creates a new Noir project
-- `new <path> [options]` - creates a new Noir project in a new directory
-- `compile [options]` - compiles Aztec Noir contracts
-- `fmt [options]` - formats Noir code using nargo fmt
-- `check [options]` - type-checks Noir code without compiling using nargo check
-- `test [options]` - starts a dockerized TXE node via
-- `lsp` - starts the Nargo Language Server Protocol server
-
-**Options:**
-
-- `-V --version` - output the version number
-- `-h --help` - display help for command
-
-
-##### Subcommands
-
-##### aztec validator-keys|valKeys fast-forward-epochs deploy-new-rollup
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys fast-forward-epochs generate-bootnode-enr
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys fast-forward-epochs deploy-l1-contracts
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys fast-forward-epochs compute-selector
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys fast-forward-epochs fast-forward-epochs
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys fast-forward-epochs execute-governance-proposal
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys fast-forward-epochs generate-bls-keypair
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys fast-forward-epochs codegen
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys fast-forward-epochs add-l1-validator
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys fast-forward-epochs example-contracts
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys fast-forward-epochs debug-rollup
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys fast-forward-epochs block-number
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys fast-forward-epochs advance-epoch
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys fast-forward-epochs bridge-erc20
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys fast-forward-epochs deposit-governance-tokens
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys fast-forward-epochs decode-enr
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys fast-forward-epochs generate-l1-account
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys fast-forward-epochs generate-keys
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys fast-forward-epochs get-block
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys fast-forward-epochs get-canonical-sponsored-fpc-address
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys fast-forward-epochs generate-p2p-private-key
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys fast-forward-epochs get-current-base-fee
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys fast-forward-epochs get-l1-addresses
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys fast-forward-epochs generate-secret-and-hash
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys fast-forward-epochs get-l1-to-l2-message-witness
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys fast-forward-epochs inspect-contract
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys fast-forward-epochs parse-parameter-struct
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys fast-forward-epochs preload-crs
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys fast-forward-epochs propose-with-lock
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys fast-forward-epochs get-logs
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys fast-forward-epochs get-l1-balance
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys fast-forward-epochs get-node-info
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys fast-forward-epochs remove-l1-validator
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys fast-forward-epochs start
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys fast-forward-epochs validator-keys|valKeys
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys fast-forward-epochs prune-rollup
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys fast-forward-epochs trigger-seed-snapshot
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys fast-forward-epochs sequencers
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys fast-forward-epochs update
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys fast-forward-epochs setup-protocol-contracts
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys fast-forward-epochs init
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys fast-forward-epochs check
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys fast-forward-epochs vote-on-governance-proposal
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys fast-forward-epochs new
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys fast-forward-epochs fmt
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys fast-forward-epochs compile
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys fast-forward-epochs test
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys fast-forward-epochs lsp
-
-*No help information available for this command.*
-
-
-#### aztec validator-keys|valKeys block-number
-
-Aztec command line interface
-
-**Usage:**
-```bash
-aztec [options] [command]
-```
-
-**Available Commands:**
-
-- `add-l1-validator [options]` - Adds a validator to the L1 rollup contract via a direct deposit.
-- `advance-epoch [options]` - Use L1 cheat codes to warp time until the next epoch.
-- `block-number [options]` - Gets the current Aztec L2 block number.
-- `bridge-erc20 [options] <amount> <recipient>` - Bridges ERC20 tokens to L2.
-- `codegen [options] <noir-abi-path>` - Validates and generates an Aztec Contract ABI from Noir ABI.
-- `compute-selector <functionSignature>` - Given a function signature, it computes a selector
-- `debug-rollup [options]` - Debugs the rollup contract.
-- `decode-enr <enr>` - Decodes an ENR record
-- `deploy-l1-contracts [options]` - Deploys all necessary Ethereum contracts for Aztec.
-- `deploy-new-rollup [options]` - Deploys a new rollup contract and adds it to the registry (if you are the owner).
-- `deposit-governance-tokens [options]` - Deposits governance tokens to the governance contract.
-- `example-contracts` - Lists the example contracts available to deploy from @aztec/noir-contracts.js
-- `execute-governance-proposal [options]` - Executes a governance proposal.
-- `fast-forward-epochs [options]` - Fast forwards the epoch of the L1 rollup contract.
-- `generate-bls-keypair [options]` - Generate a BLS keypair with convenience flags
-- `generate-bootnode-enr [options] <privateKey> <p2pIp> <p2pPort>` - Generates the encoded ENR record for a bootnode.
-- `generate-keys [options]` - Generates encryption and signing private keys.
-- `generate-l1-account [options]` - Generates a new private key for an account on L1.
-- `generate-p2p-private-key` - Generates a LibP2P peer private key.
-- `generate-secret-and-hash` - Generates an arbitrary secret (Fr), and its hash (using aztec-nr defaults)
-- `get-block [options] [blockNumber]` - Gets info for a given block or latest.
-- `get-canonical-sponsored-fpc-address` - Gets the canonical SponsoredFPC address for this any testnet running on the same version as this CLI
-- `get-current-base-fee [options]` - Gets the current base fee.
-- `get-l1-addresses [options]` - Gets the addresses of the L1 contracts.
-- `get-l1-balance [options] <who>` - Gets the balance of an ERC token in L1 for the given Ethereum address.
-- `get-l1-to-l2-message-witness [options]` - Gets a L1 to L2 message witness.
-- `get-logs [options]` - Gets all the public logs from an intersection of all the filter params.
-- `get-node-info [options]` - Gets the information of an Aztec node from a PXE or directly from an Aztec node.
-- `help [command]` - display help for command
-- `inspect-contract <contractArtifactFile>` - Shows list of external callable functions for a contract
-- `parse-parameter-struct [options] <encodedString>` - Helper for parsing an encoded string into a contract's parameter struct.
-- `preload-crs` - Preload the points data needed for proving and verifying
-- `propose-with-lock [options]` - Makes a proposal to governance with a lock
-- `prune-rollup [options]` - Prunes the pending chain on the rollup contract.
-- `remove-l1-validator [options]` - Removes a validator to the L1 rollup contract.
-- `sequencers [options] <command> [who]` - Manages or queries registered sequencers on the L1 rollup contract.
-- `setup-protocol-contracts [options]` - Bootstrap the blockchain by initializing all the protocol contracts
-- `start [options]` - Starts Aztec modules. Options for each module can be set as key-value pairs (e.g. "option1=value1,option2=value2") or as environment variables.
-- `trigger-seed-snapshot [options]` - Triggers a seed snapshot for the next epoch.
-- `update [options] [projectPath]` - Updates Nodejs and Noir dependencies
-- `validator-keys|valKeys` - Manage validator keystores for node operators
-- `vote-on-governance-proposal [options]` - Votes on a governance proposal.
-- `init [folder] [options]` - creates a new Noir project
-- `new <path> [options]` - creates a new Noir project in a new directory
-- `compile [options]` - compiles Aztec Noir contracts
-- `fmt [options]` - formats Noir code using nargo fmt
-- `check [options]` - type-checks Noir code without compiling using nargo check
-- `test [options]` - starts a dockerized TXE node via
-- `lsp` - starts the Nargo Language Server Protocol server
-
-**Options:**
-
-- `-V --version` - output the version number
-- `-h --help` - display help for command
-
-
-##### Subcommands
-
-##### aztec validator-keys|valKeys block-number example-contracts
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys block-number deploy-l1-contracts
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys block-number deploy-new-rollup
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys block-number bridge-erc20
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys block-number compute-selector
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys block-number add-l1-validator
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys block-number block-number
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys block-number generate-bls-keypair
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys block-number deposit-governance-tokens
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys block-number execute-governance-proposal
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys block-number decode-enr
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys block-number fast-forward-epochs
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys block-number generate-bootnode-enr
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys block-number codegen
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys block-number advance-epoch
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys block-number debug-rollup
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys block-number generate-p2p-private-key
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys block-number generate-secret-and-hash
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys block-number get-canonical-sponsored-fpc-address
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys block-number generate-keys
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys block-number get-current-base-fee
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys block-number get-l1-addresses
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys block-number get-l1-balance
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys block-number get-l1-to-l2-message-witness
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys block-number get-block
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys block-number get-node-info
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys block-number inspect-contract
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys block-number generate-l1-account
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys block-number parse-parameter-struct
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys block-number preload-crs
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys block-number get-logs
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys block-number propose-with-lock
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys block-number sequencers
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys block-number remove-l1-validator
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys block-number prune-rollup
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys block-number setup-protocol-contracts
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys block-number start
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys block-number vote-on-governance-proposal
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys block-number trigger-seed-snapshot
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys block-number validator-keys|valKeys
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys block-number init
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys block-number new
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys block-number update
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys block-number compile
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys block-number fmt
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys block-number lsp
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys block-number test
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys block-number check
-
-*No help information available for this command.*
-
-
-#### aztec validator-keys|valKeys debug-rollup
-
-Aztec command line interface
-
-**Usage:**
-```bash
-aztec [options] [command]
-```
-
-**Available Commands:**
-
-- `add-l1-validator [options]` - Adds a validator to the L1 rollup contract via a direct deposit.
-- `advance-epoch [options]` - Use L1 cheat codes to warp time until the next epoch.
-- `block-number [options]` - Gets the current Aztec L2 block number.
-- `bridge-erc20 [options] <amount> <recipient>` - Bridges ERC20 tokens to L2.
-- `codegen [options] <noir-abi-path>` - Validates and generates an Aztec Contract ABI from Noir ABI.
-- `compute-selector <functionSignature>` - Given a function signature, it computes a selector
-- `debug-rollup [options]` - Debugs the rollup contract.
-- `decode-enr <enr>` - Decodes an ENR record
-- `deploy-l1-contracts [options]` - Deploys all necessary Ethereum contracts for Aztec.
-- `deploy-new-rollup [options]` - Deploys a new rollup contract and adds it to the registry (if you are the owner).
-- `deposit-governance-tokens [options]` - Deposits governance tokens to the governance contract.
-- `example-contracts` - Lists the example contracts available to deploy from @aztec/noir-contracts.js
-- `execute-governance-proposal [options]` - Executes a governance proposal.
-- `fast-forward-epochs [options]` - Fast forwards the epoch of the L1 rollup contract.
-- `generate-bls-keypair [options]` - Generate a BLS keypair with convenience flags
-- `generate-bootnode-enr [options] <privateKey> <p2pIp> <p2pPort>` - Generates the encoded ENR record for a bootnode.
-- `generate-keys [options]` - Generates encryption and signing private keys.
-- `generate-l1-account [options]` - Generates a new private key for an account on L1.
-- `generate-p2p-private-key` - Generates a LibP2P peer private key.
-- `generate-secret-and-hash` - Generates an arbitrary secret (Fr), and its hash (using aztec-nr defaults)
-- `get-block [options] [blockNumber]` - Gets info for a given block or latest.
-- `get-canonical-sponsored-fpc-address` - Gets the canonical SponsoredFPC address for this any testnet running on the same version as this CLI
-- `get-current-base-fee [options]` - Gets the current base fee.
-- `get-l1-addresses [options]` - Gets the addresses of the L1 contracts.
-- `get-l1-balance [options] <who>` - Gets the balance of an ERC token in L1 for the given Ethereum address.
-- `get-l1-to-l2-message-witness [options]` - Gets a L1 to L2 message witness.
-- `get-logs [options]` - Gets all the public logs from an intersection of all the filter params.
-- `get-node-info [options]` - Gets the information of an Aztec node from a PXE or directly from an Aztec node.
-- `help [command]` - display help for command
-- `inspect-contract <contractArtifactFile>` - Shows list of external callable functions for a contract
-- `parse-parameter-struct [options] <encodedString>` - Helper for parsing an encoded string into a contract's parameter struct.
-- `preload-crs` - Preload the points data needed for proving and verifying
-- `propose-with-lock [options]` - Makes a proposal to governance with a lock
-- `prune-rollup [options]` - Prunes the pending chain on the rollup contract.
-- `remove-l1-validator [options]` - Removes a validator to the L1 rollup contract.
-- `sequencers [options] <command> [who]` - Manages or queries registered sequencers on the L1 rollup contract.
-- `setup-protocol-contracts [options]` - Bootstrap the blockchain by initializing all the protocol contracts
-- `start [options]` - Starts Aztec modules. Options for each module can be set as key-value pairs (e.g. "option1=value1,option2=value2") or as environment variables.
-- `trigger-seed-snapshot [options]` - Triggers a seed snapshot for the next epoch.
-- `update [options] [projectPath]` - Updates Nodejs and Noir dependencies
-- `validator-keys|valKeys` - Manage validator keystores for node operators
-- `vote-on-governance-proposal [options]` - Votes on a governance proposal.
-- `init [folder] [options]` - creates a new Noir project
-- `new <path> [options]` - creates a new Noir project in a new directory
-- `compile [options]` - compiles Aztec Noir contracts
-- `fmt [options]` - formats Noir code using nargo fmt
-- `check [options]` - type-checks Noir code without compiling using nargo check
-- `test [options]` - starts a dockerized TXE node via
-- `lsp` - starts the Nargo Language Server Protocol server
-
-**Options:**
-
-- `-V --version` - output the version number
-- `-h --help` - display help for command
-
-
-##### Subcommands
-
-##### aztec validator-keys|valKeys debug-rollup add-l1-validator
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys debug-rollup bridge-erc20
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys debug-rollup example-contracts
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys debug-rollup execute-governance-proposal
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys debug-rollup decode-enr
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys debug-rollup fast-forward-epochs
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys debug-rollup advance-epoch
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys debug-rollup deposit-governance-tokens
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys debug-rollup generate-bls-keypair
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys debug-rollup block-number
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys debug-rollup deploy-l1-contracts
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys debug-rollup compute-selector
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys debug-rollup generate-bootnode-enr
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys debug-rollup deploy-new-rollup
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys debug-rollup debug-rollup
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys debug-rollup codegen
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys debug-rollup generate-l1-account
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys debug-rollup generate-p2p-private-key
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys debug-rollup generate-secret-and-hash
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys debug-rollup generate-keys
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys debug-rollup get-block
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys debug-rollup get-logs
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys debug-rollup get-l1-balance
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys debug-rollup get-l1-addresses
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys debug-rollup get-l1-to-l2-message-witness
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys debug-rollup preload-crs
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys debug-rollup inspect-contract
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys debug-rollup get-node-info
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys debug-rollup parse-parameter-struct
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys debug-rollup get-canonical-sponsored-fpc-address
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys debug-rollup get-current-base-fee
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys debug-rollup propose-with-lock
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys debug-rollup remove-l1-validator
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys debug-rollup sequencers
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys debug-rollup prune-rollup
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys debug-rollup setup-protocol-contracts
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys debug-rollup trigger-seed-snapshot
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys debug-rollup start
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys debug-rollup init
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys debug-rollup fmt
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys debug-rollup update
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys debug-rollup vote-on-governance-proposal
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys debug-rollup new
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys debug-rollup test
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys debug-rollup validator-keys|valKeys
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys debug-rollup check
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys debug-rollup compile
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys debug-rollup lsp
-
-*No help information available for this command.*
-
-
-#### aztec validator-keys|valKeys codegen
-
-Aztec command line interface
-
-**Usage:**
-```bash
-aztec [options] [command]
-```
-
-**Available Commands:**
-
-- `add-l1-validator [options]` - Adds a validator to the L1 rollup contract via a direct deposit.
-- `advance-epoch [options]` - Use L1 cheat codes to warp time until the next epoch.
-- `block-number [options]` - Gets the current Aztec L2 block number.
-- `bridge-erc20 [options] <amount> <recipient>` - Bridges ERC20 tokens to L2.
-- `codegen [options] <noir-abi-path>` - Validates and generates an Aztec Contract ABI from Noir ABI.
-- `compute-selector <functionSignature>` - Given a function signature, it computes a selector
-- `debug-rollup [options]` - Debugs the rollup contract.
-- `decode-enr <enr>` - Decodes an ENR record
-- `deploy-l1-contracts [options]` - Deploys all necessary Ethereum contracts for Aztec.
-- `deploy-new-rollup [options]` - Deploys a new rollup contract and adds it to the registry (if you are the owner).
-- `deposit-governance-tokens [options]` - Deposits governance tokens to the governance contract.
-- `example-contracts` - Lists the example contracts available to deploy from @aztec/noir-contracts.js
-- `execute-governance-proposal [options]` - Executes a governance proposal.
-- `fast-forward-epochs [options]` - Fast forwards the epoch of the L1 rollup contract.
-- `generate-bls-keypair [options]` - Generate a BLS keypair with convenience flags
-- `generate-bootnode-enr [options] <privateKey> <p2pIp> <p2pPort>` - Generates the encoded ENR record for a bootnode.
-- `generate-keys [options]` - Generates encryption and signing private keys.
-- `generate-l1-account [options]` - Generates a new private key for an account on L1.
-- `generate-p2p-private-key` - Generates a LibP2P peer private key.
-- `generate-secret-and-hash` - Generates an arbitrary secret (Fr), and its hash (using aztec-nr defaults)
-- `get-block [options] [blockNumber]` - Gets info for a given block or latest.
-- `get-canonical-sponsored-fpc-address` - Gets the canonical SponsoredFPC address for this any testnet running on the same version as this CLI
-- `get-current-base-fee [options]` - Gets the current base fee.
-- `get-l1-addresses [options]` - Gets the addresses of the L1 contracts.
-- `get-l1-balance [options] <who>` - Gets the balance of an ERC token in L1 for the given Ethereum address.
-- `get-l1-to-l2-message-witness [options]` - Gets a L1 to L2 message witness.
-- `get-logs [options]` - Gets all the public logs from an intersection of all the filter params.
-- `get-node-info [options]` - Gets the information of an Aztec node from a PXE or directly from an Aztec node.
-- `help [command]` - display help for command
-- `inspect-contract <contractArtifactFile>` - Shows list of external callable functions for a contract
-- `parse-parameter-struct [options] <encodedString>` - Helper for parsing an encoded string into a contract's parameter struct.
-- `preload-crs` - Preload the points data needed for proving and verifying
-- `propose-with-lock [options]` - Makes a proposal to governance with a lock
-- `prune-rollup [options]` - Prunes the pending chain on the rollup contract.
-- `remove-l1-validator [options]` - Removes a validator to the L1 rollup contract.
-- `sequencers [options] <command> [who]` - Manages or queries registered sequencers on the L1 rollup contract.
-- `setup-protocol-contracts [options]` - Bootstrap the blockchain by initializing all the protocol contracts
-- `start [options]` - Starts Aztec modules. Options for each module can be set as key-value pairs (e.g. "option1=value1,option2=value2") or as environment variables.
-- `trigger-seed-snapshot [options]` - Triggers a seed snapshot for the next epoch.
-- `update [options] [projectPath]` - Updates Nodejs and Noir dependencies
-- `validator-keys|valKeys` - Manage validator keystores for node operators
-- `vote-on-governance-proposal [options]` - Votes on a governance proposal.
-- `init [folder] [options]` - creates a new Noir project
-- `new <path> [options]` - creates a new Noir project in a new directory
-- `compile [options]` - compiles Aztec Noir contracts
-- `fmt [options]` - formats Noir code using nargo fmt
-- `check [options]` - type-checks Noir code without compiling using nargo check
-- `test [options]` - starts a dockerized TXE node via
-- `lsp` - starts the Nargo Language Server Protocol server
-
-**Options:**
-
-- `-V --version` - output the version number
-- `-h --help` - display help for command
-
-
-##### Subcommands
-
-##### aztec validator-keys|valKeys codegen execute-governance-proposal
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys codegen debug-rollup
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys codegen compute-selector
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys codegen codegen
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys codegen generate-bls-keypair
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys codegen fast-forward-epochs
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys codegen generate-bootnode-enr
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys codegen deploy-new-rollup
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys codegen advance-epoch
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys codegen block-number
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys codegen bridge-erc20
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys codegen deposit-governance-tokens
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys codegen deploy-l1-contracts
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys codegen example-contracts
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys codegen decode-enr
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys codegen add-l1-validator
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys codegen generate-secret-and-hash
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys codegen generate-l1-account
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys codegen get-current-base-fee
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys codegen get-l1-addresses
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys codegen get-l1-balance
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys codegen get-canonical-sponsored-fpc-address
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys codegen get-logs
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys codegen generate-keys
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys codegen get-node-info
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys codegen generate-p2p-private-key
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys codegen get-block
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys codegen parse-parameter-struct
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys codegen get-l1-to-l2-message-witness
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys codegen preload-crs
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys codegen propose-with-lock
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys codegen inspect-contract
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys codegen prune-rollup
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys codegen remove-l1-validator
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys codegen sequencers
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys codegen setup-protocol-contracts
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys codegen trigger-seed-snapshot
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys codegen start
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys codegen update
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys codegen validator-keys|valKeys
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys codegen vote-on-governance-proposal
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys codegen init
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys codegen new
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys codegen compile
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys codegen fmt
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys codegen check
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys codegen test
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys codegen lsp
-
-*No help information available for this command.*
-
-
-#### aztec validator-keys|valKeys deploy-l1-contracts
-
-Aztec command line interface
-
-**Usage:**
-```bash
-aztec [options] [command]
-```
-
-**Available Commands:**
-
-- `add-l1-validator [options]` - Adds a validator to the L1 rollup contract via a direct deposit.
-- `advance-epoch [options]` - Use L1 cheat codes to warp time until the next epoch.
-- `block-number [options]` - Gets the current Aztec L2 block number.
-- `bridge-erc20 [options] <amount> <recipient>` - Bridges ERC20 tokens to L2.
-- `codegen [options] <noir-abi-path>` - Validates and generates an Aztec Contract ABI from Noir ABI.
-- `compute-selector <functionSignature>` - Given a function signature, it computes a selector
-- `debug-rollup [options]` - Debugs the rollup contract.
-- `decode-enr <enr>` - Decodes an ENR record
-- `deploy-l1-contracts [options]` - Deploys all necessary Ethereum contracts for Aztec.
-- `deploy-new-rollup [options]` - Deploys a new rollup contract and adds it to the registry (if you are the owner).
-- `deposit-governance-tokens [options]` - Deposits governance tokens to the governance contract.
-- `example-contracts` - Lists the example contracts available to deploy from @aztec/noir-contracts.js
-- `execute-governance-proposal [options]` - Executes a governance proposal.
-- `fast-forward-epochs [options]` - Fast forwards the epoch of the L1 rollup contract.
-- `generate-bls-keypair [options]` - Generate a BLS keypair with convenience flags
-- `generate-bootnode-enr [options] <privateKey> <p2pIp> <p2pPort>` - Generates the encoded ENR record for a bootnode.
-- `generate-keys [options]` - Generates encryption and signing private keys.
-- `generate-l1-account [options]` - Generates a new private key for an account on L1.
-- `generate-p2p-private-key` - Generates a LibP2P peer private key.
-- `generate-secret-and-hash` - Generates an arbitrary secret (Fr), and its hash (using aztec-nr defaults)
-- `get-block [options] [blockNumber]` - Gets info for a given block or latest.
-- `get-canonical-sponsored-fpc-address` - Gets the canonical SponsoredFPC address for this any testnet running on the same version as this CLI
-- `get-current-base-fee [options]` - Gets the current base fee.
-- `get-l1-addresses [options]` - Gets the addresses of the L1 contracts.
-- `get-l1-balance [options] <who>` - Gets the balance of an ERC token in L1 for the given Ethereum address.
-- `get-l1-to-l2-message-witness [options]` - Gets a L1 to L2 message witness.
-- `get-logs [options]` - Gets all the public logs from an intersection of all the filter params.
-- `get-node-info [options]` - Gets the information of an Aztec node from a PXE or directly from an Aztec node.
-- `help [command]` - display help for command
-- `inspect-contract <contractArtifactFile>` - Shows list of external callable functions for a contract
-- `parse-parameter-struct [options] <encodedString>` - Helper for parsing an encoded string into a contract's parameter struct.
-- `preload-crs` - Preload the points data needed for proving and verifying
-- `propose-with-lock [options]` - Makes a proposal to governance with a lock
-- `prune-rollup [options]` - Prunes the pending chain on the rollup contract.
-- `remove-l1-validator [options]` - Removes a validator to the L1 rollup contract.
-- `sequencers [options] <command> [who]` - Manages or queries registered sequencers on the L1 rollup contract.
-- `setup-protocol-contracts [options]` - Bootstrap the blockchain by initializing all the protocol contracts
-- `start [options]` - Starts Aztec modules. Options for each module can be set as key-value pairs (e.g. "option1=value1,option2=value2") or as environment variables.
-- `trigger-seed-snapshot [options]` - Triggers a seed snapshot for the next epoch.
-- `update [options] [projectPath]` - Updates Nodejs and Noir dependencies
-- `validator-keys|valKeys` - Manage validator keystores for node operators
-- `vote-on-governance-proposal [options]` - Votes on a governance proposal.
-- `init [folder] [options]` - creates a new Noir project
-- `new <path> [options]` - creates a new Noir project in a new directory
-- `compile [options]` - compiles Aztec Noir contracts
-- `fmt [options]` - formats Noir code using nargo fmt
-- `check [options]` - type-checks Noir code without compiling using nargo check
-- `test [options]` - starts a dockerized TXE node via
-- `lsp` - starts the Nargo Language Server Protocol server
-
-**Options:**
-
-- `-V --version` - output the version number
-- `-h --help` - display help for command
-
-
-##### Subcommands
-
-##### aztec validator-keys|valKeys deploy-l1-contracts advance-epoch
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deploy-l1-contracts deploy-l1-contracts
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deploy-l1-contracts block-number
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deploy-l1-contracts bridge-erc20
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deploy-l1-contracts debug-rollup
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deploy-l1-contracts deposit-governance-tokens
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deploy-l1-contracts add-l1-validator
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deploy-l1-contracts generate-bls-keypair
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deploy-l1-contracts deploy-new-rollup
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deploy-l1-contracts codegen
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deploy-l1-contracts example-contracts
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deploy-l1-contracts generate-bootnode-enr
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deploy-l1-contracts decode-enr
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deploy-l1-contracts fast-forward-epochs
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deploy-l1-contracts compute-selector
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deploy-l1-contracts execute-governance-proposal
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deploy-l1-contracts generate-keys
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deploy-l1-contracts generate-secret-and-hash
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deploy-l1-contracts generate-p2p-private-key
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deploy-l1-contracts get-canonical-sponsored-fpc-address
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deploy-l1-contracts generate-l1-account
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deploy-l1-contracts get-l1-addresses
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deploy-l1-contracts get-current-base-fee
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deploy-l1-contracts get-block
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deploy-l1-contracts inspect-contract
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deploy-l1-contracts get-node-info
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deploy-l1-contracts get-l1-balance
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deploy-l1-contracts parse-parameter-struct
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deploy-l1-contracts preload-crs
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deploy-l1-contracts get-l1-to-l2-message-witness
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deploy-l1-contracts get-logs
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deploy-l1-contracts propose-with-lock
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deploy-l1-contracts prune-rollup
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deploy-l1-contracts remove-l1-validator
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deploy-l1-contracts sequencers
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deploy-l1-contracts setup-protocol-contracts
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deploy-l1-contracts trigger-seed-snapshot
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deploy-l1-contracts update
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deploy-l1-contracts start
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deploy-l1-contracts validator-keys|valKeys
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deploy-l1-contracts vote-on-governance-proposal
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deploy-l1-contracts init
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deploy-l1-contracts new
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deploy-l1-contracts compile
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deploy-l1-contracts fmt
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deploy-l1-contracts check
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deploy-l1-contracts test
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deploy-l1-contracts lsp
-
-*No help information available for this command.*
-
-
-#### aztec validator-keys|valKeys deploy-new-rollup
-
-Aztec command line interface
-
-**Usage:**
-```bash
-aztec [options] [command]
-```
-
-**Available Commands:**
-
-- `add-l1-validator [options]` - Adds a validator to the L1 rollup contract via a direct deposit.
-- `advance-epoch [options]` - Use L1 cheat codes to warp time until the next epoch.
-- `block-number [options]` - Gets the current Aztec L2 block number.
-- `bridge-erc20 [options] <amount> <recipient>` - Bridges ERC20 tokens to L2.
-- `codegen [options] <noir-abi-path>` - Validates and generates an Aztec Contract ABI from Noir ABI.
-- `compute-selector <functionSignature>` - Given a function signature, it computes a selector
-- `debug-rollup [options]` - Debugs the rollup contract.
-- `decode-enr <enr>` - Decodes an ENR record
-- `deploy-l1-contracts [options]` - Deploys all necessary Ethereum contracts for Aztec.
-- `deploy-new-rollup [options]` - Deploys a new rollup contract and adds it to the registry (if you are the owner).
-- `deposit-governance-tokens [options]` - Deposits governance tokens to the governance contract.
-- `example-contracts` - Lists the example contracts available to deploy from @aztec/noir-contracts.js
-- `execute-governance-proposal [options]` - Executes a governance proposal.
-- `fast-forward-epochs [options]` - Fast forwards the epoch of the L1 rollup contract.
-- `generate-bls-keypair [options]` - Generate a BLS keypair with convenience flags
-- `generate-bootnode-enr [options] <privateKey> <p2pIp> <p2pPort>` - Generates the encoded ENR record for a bootnode.
-- `generate-keys [options]` - Generates encryption and signing private keys.
-- `generate-l1-account [options]` - Generates a new private key for an account on L1.
-- `generate-p2p-private-key` - Generates a LibP2P peer private key.
-- `generate-secret-and-hash` - Generates an arbitrary secret (Fr), and its hash (using aztec-nr defaults)
-- `get-block [options] [blockNumber]` - Gets info for a given block or latest.
-- `get-canonical-sponsored-fpc-address` - Gets the canonical SponsoredFPC address for this any testnet running on the same version as this CLI
-- `get-current-base-fee [options]` - Gets the current base fee.
-- `get-l1-addresses [options]` - Gets the addresses of the L1 contracts.
-- `get-l1-balance [options] <who>` - Gets the balance of an ERC token in L1 for the given Ethereum address.
-- `get-l1-to-l2-message-witness [options]` - Gets a L1 to L2 message witness.
-- `get-logs [options]` - Gets all the public logs from an intersection of all the filter params.
-- `get-node-info [options]` - Gets the information of an Aztec node from a PXE or directly from an Aztec node.
-- `help [command]` - display help for command
-- `inspect-contract <contractArtifactFile>` - Shows list of external callable functions for a contract
-- `parse-parameter-struct [options] <encodedString>` - Helper for parsing an encoded string into a contract's parameter struct.
-- `preload-crs` - Preload the points data needed for proving and verifying
-- `propose-with-lock [options]` - Makes a proposal to governance with a lock
-- `prune-rollup [options]` - Prunes the pending chain on the rollup contract.
-- `remove-l1-validator [options]` - Removes a validator to the L1 rollup contract.
-- `sequencers [options] <command> [who]` - Manages or queries registered sequencers on the L1 rollup contract.
-- `setup-protocol-contracts [options]` - Bootstrap the blockchain by initializing all the protocol contracts
-- `start [options]` - Starts Aztec modules. Options for each module can be set as key-value pairs (e.g. "option1=value1,option2=value2") or as environment variables.
-- `trigger-seed-snapshot [options]` - Triggers a seed snapshot for the next epoch.
-- `update [options] [projectPath]` - Updates Nodejs and Noir dependencies
-- `validator-keys|valKeys` - Manage validator keystores for node operators
-- `vote-on-governance-proposal [options]` - Votes on a governance proposal.
-- `init [folder] [options]` - creates a new Noir project
-- `new <path> [options]` - creates a new Noir project in a new directory
-- `compile [options]` - compiles Aztec Noir contracts
-- `fmt [options]` - formats Noir code using nargo fmt
-- `check [options]` - type-checks Noir code without compiling using nargo check
-- `test [options]` - starts a dockerized TXE node via
-- `lsp` - starts the Nargo Language Server Protocol server
-
-**Options:**
-
-- `-V --version` - output the version number
-- `-h --help` - display help for command
-
-
-##### Subcommands
-
-##### aztec validator-keys|valKeys deploy-new-rollup execute-governance-proposal
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deploy-new-rollup codegen
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deploy-new-rollup bridge-erc20
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deploy-new-rollup generate-bootnode-enr
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deploy-new-rollup decode-enr
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deploy-new-rollup advance-epoch
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deploy-new-rollup generate-bls-keypair
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deploy-new-rollup deploy-new-rollup
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deploy-new-rollup add-l1-validator
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deploy-new-rollup deposit-governance-tokens
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deploy-new-rollup block-number
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deploy-new-rollup compute-selector
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deploy-new-rollup example-contracts
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deploy-new-rollup deploy-l1-contracts
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deploy-new-rollup debug-rollup
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deploy-new-rollup fast-forward-epochs
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deploy-new-rollup generate-l1-account
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deploy-new-rollup generate-secret-and-hash
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deploy-new-rollup get-canonical-sponsored-fpc-address
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deploy-new-rollup generate-p2p-private-key
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deploy-new-rollup get-logs
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deploy-new-rollup get-node-info
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deploy-new-rollup inspect-contract
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deploy-new-rollup generate-keys
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deploy-new-rollup get-l1-to-l2-message-witness
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deploy-new-rollup get-l1-balance
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deploy-new-rollup parse-parameter-struct
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deploy-new-rollup get-l1-addresses
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deploy-new-rollup get-block
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deploy-new-rollup preload-crs
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deploy-new-rollup get-current-base-fee
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deploy-new-rollup propose-with-lock
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deploy-new-rollup prune-rollup
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deploy-new-rollup remove-l1-validator
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deploy-new-rollup sequencers
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deploy-new-rollup setup-protocol-contracts
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deploy-new-rollup start
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deploy-new-rollup trigger-seed-snapshot
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deploy-new-rollup update
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deploy-new-rollup vote-on-governance-proposal
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deploy-new-rollup init
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deploy-new-rollup validator-keys|valKeys
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deploy-new-rollup new
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deploy-new-rollup check
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deploy-new-rollup compile
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deploy-new-rollup fmt
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deploy-new-rollup test
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys deploy-new-rollup lsp
-
-*No help information available for this command.*
-
-
-#### aztec validator-keys|valKeys advance-epoch
-
-Aztec command line interface
-
-**Usage:**
-```bash
-aztec [options] [command]
-```
-
-**Available Commands:**
-
-- `add-l1-validator [options]` - Adds a validator to the L1 rollup contract via a direct deposit.
-- `advance-epoch [options]` - Use L1 cheat codes to warp time until the next epoch.
-- `block-number [options]` - Gets the current Aztec L2 block number.
-- `bridge-erc20 [options] <amount> <recipient>` - Bridges ERC20 tokens to L2.
-- `codegen [options] <noir-abi-path>` - Validates and generates an Aztec Contract ABI from Noir ABI.
-- `compute-selector <functionSignature>` - Given a function signature, it computes a selector
-- `debug-rollup [options]` - Debugs the rollup contract.
-- `decode-enr <enr>` - Decodes an ENR record
-- `deploy-l1-contracts [options]` - Deploys all necessary Ethereum contracts for Aztec.
-- `deploy-new-rollup [options]` - Deploys a new rollup contract and adds it to the registry (if you are the owner).
-- `deposit-governance-tokens [options]` - Deposits governance tokens to the governance contract.
-- `example-contracts` - Lists the example contracts available to deploy from @aztec/noir-contracts.js
-- `execute-governance-proposal [options]` - Executes a governance proposal.
-- `fast-forward-epochs [options]` - Fast forwards the epoch of the L1 rollup contract.
-- `generate-bls-keypair [options]` - Generate a BLS keypair with convenience flags
-- `generate-bootnode-enr [options] <privateKey> <p2pIp> <p2pPort>` - Generates the encoded ENR record for a bootnode.
-- `generate-keys [options]` - Generates encryption and signing private keys.
-- `generate-l1-account [options]` - Generates a new private key for an account on L1.
-- `generate-p2p-private-key` - Generates a LibP2P peer private key.
-- `generate-secret-and-hash` - Generates an arbitrary secret (Fr), and its hash (using aztec-nr defaults)
-- `get-block [options] [blockNumber]` - Gets info for a given block or latest.
-- `get-canonical-sponsored-fpc-address` - Gets the canonical SponsoredFPC address for this any testnet running on the same version as this CLI
-- `get-current-base-fee [options]` - Gets the current base fee.
-- `get-l1-addresses [options]` - Gets the addresses of the L1 contracts.
-- `get-l1-balance [options] <who>` - Gets the balance of an ERC token in L1 for the given Ethereum address.
-- `get-l1-to-l2-message-witness [options]` - Gets a L1 to L2 message witness.
-- `get-logs [options]` - Gets all the public logs from an intersection of all the filter params.
-- `get-node-info [options]` - Gets the information of an Aztec node from a PXE or directly from an Aztec node.
-- `help [command]` - display help for command
-- `inspect-contract <contractArtifactFile>` - Shows list of external callable functions for a contract
-- `parse-parameter-struct [options] <encodedString>` - Helper for parsing an encoded string into a contract's parameter struct.
-- `preload-crs` - Preload the points data needed for proving and verifying
-- `propose-with-lock [options]` - Makes a proposal to governance with a lock
-- `prune-rollup [options]` - Prunes the pending chain on the rollup contract.
-- `remove-l1-validator [options]` - Removes a validator to the L1 rollup contract.
-- `sequencers [options] <command> [who]` - Manages or queries registered sequencers on the L1 rollup contract.
-- `setup-protocol-contracts [options]` - Bootstrap the blockchain by initializing all the protocol contracts
-- `start [options]` - Starts Aztec modules. Options for each module can be set as key-value pairs (e.g. "option1=value1,option2=value2") or as environment variables.
-- `trigger-seed-snapshot [options]` - Triggers a seed snapshot for the next epoch.
-- `update [options] [projectPath]` - Updates Nodejs and Noir dependencies
-- `validator-keys|valKeys` - Manage validator keystores for node operators
-- `vote-on-governance-proposal [options]` - Votes on a governance proposal.
-- `init [folder] [options]` - creates a new Noir project
-- `new <path> [options]` - creates a new Noir project in a new directory
-- `compile [options]` - compiles Aztec Noir contracts
-- `fmt [options]` - formats Noir code using nargo fmt
-- `check [options]` - type-checks Noir code without compiling using nargo check
-- `test [options]` - starts a dockerized TXE node via
-- `lsp` - starts the Nargo Language Server Protocol server
-
-**Options:**
-
-- `-V --version` - output the version number
-- `-h --help` - display help for command
-
-
-##### Subcommands
-
-##### aztec validator-keys|valKeys advance-epoch compute-selector
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys advance-epoch block-number
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys advance-epoch debug-rollup
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys advance-epoch example-contracts
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys advance-epoch decode-enr
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys advance-epoch add-l1-validator
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys advance-epoch generate-bootnode-enr
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys advance-epoch deposit-governance-tokens
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys advance-epoch deploy-l1-contracts
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys advance-epoch deploy-new-rollup
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys advance-epoch advance-epoch
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys advance-epoch fast-forward-epochs
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys advance-epoch generate-bls-keypair
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys advance-epoch execute-governance-proposal
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys advance-epoch bridge-erc20
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys advance-epoch codegen
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys advance-epoch generate-secret-and-hash
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys advance-epoch get-canonical-sponsored-fpc-address
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys advance-epoch generate-l1-account
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys advance-epoch generate-p2p-private-key
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys advance-epoch get-block
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys advance-epoch get-l1-addresses
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys advance-epoch generate-keys
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys advance-epoch get-node-info
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys advance-epoch get-logs
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys advance-epoch get-l1-balance
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys advance-epoch parse-parameter-struct
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys advance-epoch inspect-contract
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys advance-epoch preload-crs
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys advance-epoch get-l1-to-l2-message-witness
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys advance-epoch propose-with-lock
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys advance-epoch get-current-base-fee
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys advance-epoch prune-rollup
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys advance-epoch remove-l1-validator
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys advance-epoch sequencers
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys advance-epoch setup-protocol-contracts
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys advance-epoch start
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys advance-epoch trigger-seed-snapshot
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys advance-epoch update
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys advance-epoch validator-keys|valKeys
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys advance-epoch init
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys advance-epoch vote-on-governance-proposal
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys advance-epoch new
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys advance-epoch compile
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys advance-epoch fmt
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys advance-epoch check
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys advance-epoch test
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys advance-epoch lsp
-
-*No help information available for this command.*
-
-
-#### aztec validator-keys|valKeys generate-bootnode-enr
-
-Aztec command line interface
-
-**Usage:**
-```bash
-aztec [options] [command]
-```
-
-**Available Commands:**
-
-- `add-l1-validator [options]` - Adds a validator to the L1 rollup contract via a direct deposit.
-- `advance-epoch [options]` - Use L1 cheat codes to warp time until the next epoch.
-- `block-number [options]` - Gets the current Aztec L2 block number.
-- `bridge-erc20 [options] <amount> <recipient>` - Bridges ERC20 tokens to L2.
-- `codegen [options] <noir-abi-path>` - Validates and generates an Aztec Contract ABI from Noir ABI.
-- `compute-selector <functionSignature>` - Given a function signature, it computes a selector
-- `debug-rollup [options]` - Debugs the rollup contract.
-- `decode-enr <enr>` - Decodes an ENR record
-- `deploy-l1-contracts [options]` - Deploys all necessary Ethereum contracts for Aztec.
-- `deploy-new-rollup [options]` - Deploys a new rollup contract and adds it to the registry (if you are the owner).
-- `deposit-governance-tokens [options]` - Deposits governance tokens to the governance contract.
-- `example-contracts` - Lists the example contracts available to deploy from @aztec/noir-contracts.js
-- `execute-governance-proposal [options]` - Executes a governance proposal.
-- `fast-forward-epochs [options]` - Fast forwards the epoch of the L1 rollup contract.
-- `generate-bls-keypair [options]` - Generate a BLS keypair with convenience flags
-- `generate-bootnode-enr [options] <privateKey> <p2pIp> <p2pPort>` - Generates the encoded ENR record for a bootnode.
-- `generate-keys [options]` - Generates encryption and signing private keys.
-- `generate-l1-account [options]` - Generates a new private key for an account on L1.
-- `generate-p2p-private-key` - Generates a LibP2P peer private key.
-- `generate-secret-and-hash` - Generates an arbitrary secret (Fr), and its hash (using aztec-nr defaults)
-- `get-block [options] [blockNumber]` - Gets info for a given block or latest.
-- `get-canonical-sponsored-fpc-address` - Gets the canonical SponsoredFPC address for this any testnet running on the same version as this CLI
-- `get-current-base-fee [options]` - Gets the current base fee.
-- `get-l1-addresses [options]` - Gets the addresses of the L1 contracts.
-- `get-l1-balance [options] <who>` - Gets the balance of an ERC token in L1 for the given Ethereum address.
-- `get-l1-to-l2-message-witness [options]` - Gets a L1 to L2 message witness.
-- `get-logs [options]` - Gets all the public logs from an intersection of all the filter params.
-- `get-node-info [options]` - Gets the information of an Aztec node from a PXE or directly from an Aztec node.
-- `help [command]` - display help for command
-- `inspect-contract <contractArtifactFile>` - Shows list of external callable functions for a contract
-- `parse-parameter-struct [options] <encodedString>` - Helper for parsing an encoded string into a contract's parameter struct.
-- `preload-crs` - Preload the points data needed for proving and verifying
-- `propose-with-lock [options]` - Makes a proposal to governance with a lock
-- `prune-rollup [options]` - Prunes the pending chain on the rollup contract.
-- `remove-l1-validator [options]` - Removes a validator to the L1 rollup contract.
-- `sequencers [options] <command> [who]` - Manages or queries registered sequencers on the L1 rollup contract.
-- `setup-protocol-contracts [options]` - Bootstrap the blockchain by initializing all the protocol contracts
-- `start [options]` - Starts Aztec modules. Options for each module can be set as key-value pairs (e.g. "option1=value1,option2=value2") or as environment variables.
-- `trigger-seed-snapshot [options]` - Triggers a seed snapshot for the next epoch.
-- `update [options] [projectPath]` - Updates Nodejs and Noir dependencies
-- `validator-keys|valKeys` - Manage validator keystores for node operators
-- `vote-on-governance-proposal [options]` - Votes on a governance proposal.
-- `init [folder] [options]` - creates a new Noir project
-- `new <path> [options]` - creates a new Noir project in a new directory
-- `compile [options]` - compiles Aztec Noir contracts
-- `fmt [options]` - formats Noir code using nargo fmt
-- `check [options]` - type-checks Noir code without compiling using nargo check
-- `test [options]` - starts a dockerized TXE node via
-- `lsp` - starts the Nargo Language Server Protocol server
-
-**Options:**
-
-- `-V --version` - output the version number
-- `-h --help` - display help for command
-
-
-##### Subcommands
-
-##### aztec validator-keys|valKeys generate-bootnode-enr advance-epoch
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-bootnode-enr decode-enr
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-bootnode-enr debug-rollup
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-bootnode-enr deposit-governance-tokens
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-bootnode-enr deploy-new-rollup
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-bootnode-enr add-l1-validator
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-bootnode-enr execute-governance-proposal
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-bootnode-enr codegen
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-bootnode-enr bridge-erc20
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-bootnode-enr block-number
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-bootnode-enr generate-bootnode-enr
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-bootnode-enr fast-forward-epochs
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-bootnode-enr example-contracts
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-bootnode-enr generate-bls-keypair
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-bootnode-enr deploy-l1-contracts
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-bootnode-enr compute-selector
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-bootnode-enr generate-l1-account
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-bootnode-enr get-current-base-fee
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-bootnode-enr get-block
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-bootnode-enr generate-keys
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-bootnode-enr generate-p2p-private-key
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-bootnode-enr generate-secret-and-hash
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-bootnode-enr get-l1-to-l2-message-witness
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-bootnode-enr get-logs
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-bootnode-enr get-canonical-sponsored-fpc-address
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-bootnode-enr get-l1-addresses
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-bootnode-enr get-l1-balance
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-bootnode-enr inspect-contract
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-bootnode-enr preload-crs
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-bootnode-enr propose-with-lock
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-bootnode-enr parse-parameter-struct
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-bootnode-enr get-node-info
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-bootnode-enr prune-rollup
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-bootnode-enr remove-l1-validator
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-bootnode-enr sequencers
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-bootnode-enr start
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-bootnode-enr setup-protocol-contracts
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-bootnode-enr trigger-seed-snapshot
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-bootnode-enr update
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-bootnode-enr validator-keys|valKeys
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-bootnode-enr vote-on-governance-proposal
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-bootnode-enr init
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-bootnode-enr new
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-bootnode-enr compile
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-bootnode-enr fmt
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-bootnode-enr check
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-bootnode-enr test
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-bootnode-enr lsp
-
-*No help information available for this command.*
-
-
-#### aztec validator-keys|valKeys bridge-erc20
-
-Aztec command line interface
-
-**Usage:**
-```bash
-aztec [options] [command]
-```
-
-**Available Commands:**
-
-- `add-l1-validator [options]` - Adds a validator to the L1 rollup contract via a direct deposit.
-- `advance-epoch [options]` - Use L1 cheat codes to warp time until the next epoch.
-- `block-number [options]` - Gets the current Aztec L2 block number.
-- `bridge-erc20 [options] <amount> <recipient>` - Bridges ERC20 tokens to L2.
-- `codegen [options] <noir-abi-path>` - Validates and generates an Aztec Contract ABI from Noir ABI.
-- `compute-selector <functionSignature>` - Given a function signature, it computes a selector
-- `debug-rollup [options]` - Debugs the rollup contract.
-- `decode-enr <enr>` - Decodes an ENR record
-- `deploy-l1-contracts [options]` - Deploys all necessary Ethereum contracts for Aztec.
-- `deploy-new-rollup [options]` - Deploys a new rollup contract and adds it to the registry (if you are the owner).
-- `deposit-governance-tokens [options]` - Deposits governance tokens to the governance contract.
-- `example-contracts` - Lists the example contracts available to deploy from @aztec/noir-contracts.js
-- `execute-governance-proposal [options]` - Executes a governance proposal.
-- `fast-forward-epochs [options]` - Fast forwards the epoch of the L1 rollup contract.
-- `generate-bls-keypair [options]` - Generate a BLS keypair with convenience flags
-- `generate-bootnode-enr [options] <privateKey> <p2pIp> <p2pPort>` - Generates the encoded ENR record for a bootnode.
-- `generate-keys [options]` - Generates encryption and signing private keys.
-- `generate-l1-account [options]` - Generates a new private key for an account on L1.
-- `generate-p2p-private-key` - Generates a LibP2P peer private key.
-- `generate-secret-and-hash` - Generates an arbitrary secret (Fr), and its hash (using aztec-nr defaults)
-- `get-block [options] [blockNumber]` - Gets info for a given block or latest.
-- `get-canonical-sponsored-fpc-address` - Gets the canonical SponsoredFPC address for this any testnet running on the same version as this CLI
-- `get-current-base-fee [options]` - Gets the current base fee.
-- `get-l1-addresses [options]` - Gets the addresses of the L1 contracts.
-- `get-l1-balance [options] <who>` - Gets the balance of an ERC token in L1 for the given Ethereum address.
-- `get-l1-to-l2-message-witness [options]` - Gets a L1 to L2 message witness.
-- `get-logs [options]` - Gets all the public logs from an intersection of all the filter params.
-- `get-node-info [options]` - Gets the information of an Aztec node from a PXE or directly from an Aztec node.
-- `help [command]` - display help for command
-- `inspect-contract <contractArtifactFile>` - Shows list of external callable functions for a contract
-- `parse-parameter-struct [options] <encodedString>` - Helper for parsing an encoded string into a contract's parameter struct.
-- `preload-crs` - Preload the points data needed for proving and verifying
-- `propose-with-lock [options]` - Makes a proposal to governance with a lock
-- `prune-rollup [options]` - Prunes the pending chain on the rollup contract.
-- `remove-l1-validator [options]` - Removes a validator to the L1 rollup contract.
-- `sequencers [options] <command> [who]` - Manages or queries registered sequencers on the L1 rollup contract.
-- `setup-protocol-contracts [options]` - Bootstrap the blockchain by initializing all the protocol contracts
-- `start [options]` - Starts Aztec modules. Options for each module can be set as key-value pairs (e.g. "option1=value1,option2=value2") or as environment variables.
-- `trigger-seed-snapshot [options]` - Triggers a seed snapshot for the next epoch.
-- `update [options] [projectPath]` - Updates Nodejs and Noir dependencies
-- `validator-keys|valKeys` - Manage validator keystores for node operators
-- `vote-on-governance-proposal [options]` - Votes on a governance proposal.
-- `init [folder] [options]` - creates a new Noir project
-- `new <path> [options]` - creates a new Noir project in a new directory
-- `compile [options]` - compiles Aztec Noir contracts
-- `fmt [options]` - formats Noir code using nargo fmt
-- `check [options]` - type-checks Noir code without compiling using nargo check
-- `test [options]` - starts a dockerized TXE node via
-- `lsp` - starts the Nargo Language Server Protocol server
-
-**Options:**
-
-- `-V --version` - output the version number
-- `-h --help` - display help for command
-
-
-##### Subcommands
-
-##### aztec validator-keys|valKeys bridge-erc20 advance-epoch
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys bridge-erc20 codegen
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys bridge-erc20 bridge-erc20
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys bridge-erc20 add-l1-validator
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys bridge-erc20 compute-selector
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys bridge-erc20 example-contracts
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys bridge-erc20 generate-bls-keypair
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys bridge-erc20 execute-governance-proposal
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys bridge-erc20 debug-rollup
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys bridge-erc20 deposit-governance-tokens
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys bridge-erc20 deploy-new-rollup
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys bridge-erc20 fast-forward-epochs
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys bridge-erc20 deploy-l1-contracts
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys bridge-erc20 block-number
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys bridge-erc20 decode-enr
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys bridge-erc20 generate-bootnode-enr
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys bridge-erc20 generate-keys
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys bridge-erc20 generate-l1-account
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys bridge-erc20 generate-p2p-private-key
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys bridge-erc20 get-block
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys bridge-erc20 generate-secret-and-hash
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys bridge-erc20 get-l1-addresses
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys bridge-erc20 get-node-info
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys bridge-erc20 get-l1-to-l2-message-witness
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys bridge-erc20 get-current-base-fee
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys bridge-erc20 get-logs
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys bridge-erc20 get-canonical-sponsored-fpc-address
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys bridge-erc20 preload-crs
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys bridge-erc20 parse-parameter-struct
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys bridge-erc20 inspect-contract
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys bridge-erc20 get-l1-balance
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys bridge-erc20 propose-with-lock
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys bridge-erc20 prune-rollup
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys bridge-erc20 sequencers
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys bridge-erc20 remove-l1-validator
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys bridge-erc20 setup-protocol-contracts
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys bridge-erc20 start
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys bridge-erc20 trigger-seed-snapshot
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys bridge-erc20 update
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys bridge-erc20 validator-keys|valKeys
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys bridge-erc20 vote-on-governance-proposal
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys bridge-erc20 init
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys bridge-erc20 new
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys bridge-erc20 compile
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys bridge-erc20 fmt
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys bridge-erc20 test
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys bridge-erc20 check
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys bridge-erc20 lsp
-
-*No help information available for this command.*
-
-
-#### aztec validator-keys|valKeys compute-selector
-
-Aztec command line interface
-
-**Usage:**
-```bash
-aztec [options] [command]
-```
-
-**Available Commands:**
-
-- `add-l1-validator [options]` - Adds a validator to the L1 rollup contract via a direct deposit.
-- `advance-epoch [options]` - Use L1 cheat codes to warp time until the next epoch.
-- `block-number [options]` - Gets the current Aztec L2 block number.
-- `bridge-erc20 [options] <amount> <recipient>` - Bridges ERC20 tokens to L2.
-- `codegen [options] <noir-abi-path>` - Validates and generates an Aztec Contract ABI from Noir ABI.
-- `compute-selector <functionSignature>` - Given a function signature, it computes a selector
-- `debug-rollup [options]` - Debugs the rollup contract.
-- `decode-enr <enr>` - Decodes an ENR record
-- `deploy-l1-contracts [options]` - Deploys all necessary Ethereum contracts for Aztec.
-- `deploy-new-rollup [options]` - Deploys a new rollup contract and adds it to the registry (if you are the owner).
-- `deposit-governance-tokens [options]` - Deposits governance tokens to the governance contract.
-- `example-contracts` - Lists the example contracts available to deploy from @aztec/noir-contracts.js
-- `execute-governance-proposal [options]` - Executes a governance proposal.
-- `fast-forward-epochs [options]` - Fast forwards the epoch of the L1 rollup contract.
-- `generate-bls-keypair [options]` - Generate a BLS keypair with convenience flags
-- `generate-bootnode-enr [options] <privateKey> <p2pIp> <p2pPort>` - Generates the encoded ENR record for a bootnode.
-- `generate-keys [options]` - Generates encryption and signing private keys.
-- `generate-l1-account [options]` - Generates a new private key for an account on L1.
-- `generate-p2p-private-key` - Generates a LibP2P peer private key.
-- `generate-secret-and-hash` - Generates an arbitrary secret (Fr), and its hash (using aztec-nr defaults)
-- `get-block [options] [blockNumber]` - Gets info for a given block or latest.
-- `get-canonical-sponsored-fpc-address` - Gets the canonical SponsoredFPC address for this any testnet running on the same version as this CLI
-- `get-current-base-fee [options]` - Gets the current base fee.
-- `get-l1-addresses [options]` - Gets the addresses of the L1 contracts.
-- `get-l1-balance [options] <who>` - Gets the balance of an ERC token in L1 for the given Ethereum address.
-- `get-l1-to-l2-message-witness [options]` - Gets a L1 to L2 message witness.
-- `get-logs [options]` - Gets all the public logs from an intersection of all the filter params.
-- `get-node-info [options]` - Gets the information of an Aztec node from a PXE or directly from an Aztec node.
-- `help [command]` - display help for command
-- `inspect-contract <contractArtifactFile>` - Shows list of external callable functions for a contract
-- `parse-parameter-struct [options] <encodedString>` - Helper for parsing an encoded string into a contract's parameter struct.
-- `preload-crs` - Preload the points data needed for proving and verifying
-- `propose-with-lock [options]` - Makes a proposal to governance with a lock
-- `prune-rollup [options]` - Prunes the pending chain on the rollup contract.
-- `remove-l1-validator [options]` - Removes a validator to the L1 rollup contract.
-- `sequencers [options] <command> [who]` - Manages or queries registered sequencers on the L1 rollup contract.
-- `setup-protocol-contracts [options]` - Bootstrap the blockchain by initializing all the protocol contracts
-- `start [options]` - Starts Aztec modules. Options for each module can be set as key-value pairs (e.g. "option1=value1,option2=value2") or as environment variables.
-- `trigger-seed-snapshot [options]` - Triggers a seed snapshot for the next epoch.
-- `update [options] [projectPath]` - Updates Nodejs and Noir dependencies
-- `validator-keys|valKeys` - Manage validator keystores for node operators
-- `vote-on-governance-proposal [options]` - Votes on a governance proposal.
-- `init [folder] [options]` - creates a new Noir project
-- `new <path> [options]` - creates a new Noir project in a new directory
-- `compile [options]` - compiles Aztec Noir contracts
-- `fmt [options]` - formats Noir code using nargo fmt
-- `check [options]` - type-checks Noir code without compiling using nargo check
-- `test [options]` - starts a dockerized TXE node via
-- `lsp` - starts the Nargo Language Server Protocol server
-
-**Options:**
-
-- `-V --version` - output the version number
-- `-h --help` - display help for command
-
-
-##### Subcommands
-
-##### aztec validator-keys|valKeys compute-selector bridge-erc20
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys compute-selector codegen
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys compute-selector block-number
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys compute-selector fast-forward-epochs
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys compute-selector decode-enr
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys compute-selector deploy-new-rollup
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys compute-selector deploy-l1-contracts
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys compute-selector compute-selector
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys compute-selector deposit-governance-tokens
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys compute-selector generate-bls-keypair
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys compute-selector debug-rollup
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys compute-selector execute-governance-proposal
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys compute-selector add-l1-validator
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys compute-selector example-contracts
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys compute-selector generate-bootnode-enr
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys compute-selector advance-epoch
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys compute-selector generate-secret-and-hash
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys compute-selector get-block
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys compute-selector generate-l1-account
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys compute-selector get-logs
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys compute-selector generate-p2p-private-key
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys compute-selector get-l1-balance
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys compute-selector get-node-info
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys compute-selector get-current-base-fee
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys compute-selector get-canonical-sponsored-fpc-address
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys compute-selector get-l1-to-l2-message-witness
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys compute-selector generate-keys
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys compute-selector get-l1-addresses
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys compute-selector inspect-contract
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys compute-selector parse-parameter-struct
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys compute-selector preload-crs
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys compute-selector propose-with-lock
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys compute-selector prune-rollup
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys compute-selector remove-l1-validator
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys compute-selector sequencers
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys compute-selector start
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys compute-selector update
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys compute-selector setup-protocol-contracts
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys compute-selector init
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys compute-selector trigger-seed-snapshot
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys compute-selector vote-on-governance-proposal
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys compute-selector validator-keys|valKeys
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys compute-selector new
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys compute-selector fmt
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys compute-selector compile
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys compute-selector test
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys compute-selector check
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys compute-selector lsp
-
-*No help information available for this command.*
-
-
-#### aztec validator-keys|valKeys decode-enr
-
-Aztec command line interface
-
-**Usage:**
-```bash
-aztec [options] [command]
-```
-
-**Available Commands:**
-
-- `add-l1-validator [options]` - Adds a validator to the L1 rollup contract via a direct deposit.
-- `advance-epoch [options]` - Use L1 cheat codes to warp time until the next epoch.
-- `block-number [options]` - Gets the current Aztec L2 block number.
-- `bridge-erc20 [options] <amount> <recipient>` - Bridges ERC20 tokens to L2.
-- `codegen [options] <noir-abi-path>` - Validates and generates an Aztec Contract ABI from Noir ABI.
-- `compute-selector <functionSignature>` - Given a function signature, it computes a selector
-- `debug-rollup [options]` - Debugs the rollup contract.
-- `decode-enr <enr>` - Decodes an ENR record
-- `deploy-l1-contracts [options]` - Deploys all necessary Ethereum contracts for Aztec.
-- `deploy-new-rollup [options]` - Deploys a new rollup contract and adds it to the registry (if you are the owner).
-- `deposit-governance-tokens [options]` - Deposits governance tokens to the governance contract.
-- `example-contracts` - Lists the example contracts available to deploy from @aztec/noir-contracts.js
-- `execute-governance-proposal [options]` - Executes a governance proposal.
-- `fast-forward-epochs [options]` - Fast forwards the epoch of the L1 rollup contract.
-- `generate-bls-keypair [options]` - Generate a BLS keypair with convenience flags
-- `generate-bootnode-enr [options] <privateKey> <p2pIp> <p2pPort>` - Generates the encoded ENR record for a bootnode.
-- `generate-keys [options]` - Generates encryption and signing private keys.
-- `generate-l1-account [options]` - Generates a new private key for an account on L1.
-- `generate-p2p-private-key` - Generates a LibP2P peer private key.
-- `generate-secret-and-hash` - Generates an arbitrary secret (Fr), and its hash (using aztec-nr defaults)
-- `get-block [options] [blockNumber]` - Gets info for a given block or latest.
-- `get-canonical-sponsored-fpc-address` - Gets the canonical SponsoredFPC address for this any testnet running on the same version as this CLI
-- `get-current-base-fee [options]` - Gets the current base fee.
-- `get-l1-addresses [options]` - Gets the addresses of the L1 contracts.
-- `get-l1-balance [options] <who>` - Gets the balance of an ERC token in L1 for the given Ethereum address.
-- `get-l1-to-l2-message-witness [options]` - Gets a L1 to L2 message witness.
-- `get-logs [options]` - Gets all the public logs from an intersection of all the filter params.
-- `get-node-info [options]` - Gets the information of an Aztec node from a PXE or directly from an Aztec node.
-- `help [command]` - display help for command
-- `inspect-contract <contractArtifactFile>` - Shows list of external callable functions for a contract
-- `parse-parameter-struct [options] <encodedString>` - Helper for parsing an encoded string into a contract's parameter struct.
-- `preload-crs` - Preload the points data needed for proving and verifying
-- `propose-with-lock [options]` - Makes a proposal to governance with a lock
-- `prune-rollup [options]` - Prunes the pending chain on the rollup contract.
-- `remove-l1-validator [options]` - Removes a validator to the L1 rollup contract.
-- `sequencers [options] <command> [who]` - Manages or queries registered sequencers on the L1 rollup contract.
-- `setup-protocol-contracts [options]` - Bootstrap the blockchain by initializing all the protocol contracts
-- `start [options]` - Starts Aztec modules. Options for each module can be set as key-value pairs (e.g. "option1=value1,option2=value2") or as environment variables.
-- `trigger-seed-snapshot [options]` - Triggers a seed snapshot for the next epoch.
-- `update [options] [projectPath]` - Updates Nodejs and Noir dependencies
-- `validator-keys|valKeys` - Manage validator keystores for node operators
-- `vote-on-governance-proposal [options]` - Votes on a governance proposal.
-- `init [folder] [options]` - creates a new Noir project
-- `new <path> [options]` - creates a new Noir project in a new directory
-- `compile [options]` - compiles Aztec Noir contracts
-- `fmt [options]` - formats Noir code using nargo fmt
-- `check [options]` - type-checks Noir code without compiling using nargo check
-- `test [options]` - starts a dockerized TXE node via
-- `lsp` - starts the Nargo Language Server Protocol server
-
-**Options:**
-
-- `-V --version` - output the version number
-- `-h --help` - display help for command
-
-
-##### Subcommands
-
-##### aztec validator-keys|valKeys decode-enr fast-forward-epochs
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys decode-enr bridge-erc20
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys decode-enr advance-epoch
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys decode-enr deploy-new-rollup
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys decode-enr compute-selector
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys decode-enr debug-rollup
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys decode-enr deposit-governance-tokens
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys decode-enr block-number
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys decode-enr generate-bootnode-enr
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys decode-enr generate-bls-keypair
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys decode-enr example-contracts
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys decode-enr deploy-l1-contracts
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys decode-enr decode-enr
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys decode-enr codegen
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys decode-enr add-l1-validator
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys decode-enr execute-governance-proposal
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys decode-enr generate-p2p-private-key
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys decode-enr generate-l1-account
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys decode-enr get-canonical-sponsored-fpc-address
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys decode-enr generate-keys
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys decode-enr get-current-base-fee
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys decode-enr get-node-info
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys decode-enr get-l1-addresses
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys decode-enr get-block
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys decode-enr get-l1-balance
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys decode-enr get-logs
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys decode-enr parse-parameter-struct
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys decode-enr inspect-contract
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys decode-enr propose-with-lock
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys decode-enr generate-secret-and-hash
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys decode-enr get-l1-to-l2-message-witness
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys decode-enr preload-crs
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys decode-enr prune-rollup
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys decode-enr remove-l1-validator
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys decode-enr sequencers
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys decode-enr setup-protocol-contracts
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys decode-enr start
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys decode-enr update
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys decode-enr trigger-seed-snapshot
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys decode-enr init
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys decode-enr vote-on-governance-proposal
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys decode-enr validator-keys|valKeys
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys decode-enr fmt
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys decode-enr new
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys decode-enr compile
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys decode-enr test
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys decode-enr check
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys decode-enr lsp
-
-*No help information available for this command.*
-
-
-#### aztec validator-keys|valKeys execute-governance-proposal
-
-Aztec command line interface
-
-**Usage:**
-```bash
-aztec [options] [command]
-```
-
-**Available Commands:**
-
-- `add-l1-validator [options]` - Adds a validator to the L1 rollup contract via a direct deposit.
-- `advance-epoch [options]` - Use L1 cheat codes to warp time until the next epoch.
-- `block-number [options]` - Gets the current Aztec L2 block number.
-- `bridge-erc20 [options] <amount> <recipient>` - Bridges ERC20 tokens to L2.
-- `codegen [options] <noir-abi-path>` - Validates and generates an Aztec Contract ABI from Noir ABI.
-- `compute-selector <functionSignature>` - Given a function signature, it computes a selector
-- `debug-rollup [options]` - Debugs the rollup contract.
-- `decode-enr <enr>` - Decodes an ENR record
-- `deploy-l1-contracts [options]` - Deploys all necessary Ethereum contracts for Aztec.
-- `deploy-new-rollup [options]` - Deploys a new rollup contract and adds it to the registry (if you are the owner).
-- `deposit-governance-tokens [options]` - Deposits governance tokens to the governance contract.
-- `example-contracts` - Lists the example contracts available to deploy from @aztec/noir-contracts.js
-- `execute-governance-proposal [options]` - Executes a governance proposal.
-- `fast-forward-epochs [options]` - Fast forwards the epoch of the L1 rollup contract.
-- `generate-bls-keypair [options]` - Generate a BLS keypair with convenience flags
-- `generate-bootnode-enr [options] <privateKey> <p2pIp> <p2pPort>` - Generates the encoded ENR record for a bootnode.
-- `generate-keys [options]` - Generates encryption and signing private keys.
-- `generate-l1-account [options]` - Generates a new private key for an account on L1.
-- `generate-p2p-private-key` - Generates a LibP2P peer private key.
-- `generate-secret-and-hash` - Generates an arbitrary secret (Fr), and its hash (using aztec-nr defaults)
-- `get-block [options] [blockNumber]` - Gets info for a given block or latest.
-- `get-canonical-sponsored-fpc-address` - Gets the canonical SponsoredFPC address for this any testnet running on the same version as this CLI
-- `get-current-base-fee [options]` - Gets the current base fee.
-- `get-l1-addresses [options]` - Gets the addresses of the L1 contracts.
-- `get-l1-balance [options] <who>` - Gets the balance of an ERC token in L1 for the given Ethereum address.
-- `get-l1-to-l2-message-witness [options]` - Gets a L1 to L2 message witness.
-- `get-logs [options]` - Gets all the public logs from an intersection of all the filter params.
-- `get-node-info [options]` - Gets the information of an Aztec node from a PXE or directly from an Aztec node.
-- `help [command]` - display help for command
-- `inspect-contract <contractArtifactFile>` - Shows list of external callable functions for a contract
-- `parse-parameter-struct [options] <encodedString>` - Helper for parsing an encoded string into a contract's parameter struct.
-- `preload-crs` - Preload the points data needed for proving and verifying
-- `propose-with-lock [options]` - Makes a proposal to governance with a lock
-- `prune-rollup [options]` - Prunes the pending chain on the rollup contract.
-- `remove-l1-validator [options]` - Removes a validator to the L1 rollup contract.
-- `sequencers [options] <command> [who]` - Manages or queries registered sequencers on the L1 rollup contract.
-- `setup-protocol-contracts [options]` - Bootstrap the blockchain by initializing all the protocol contracts
-- `start [options]` - Starts Aztec modules. Options for each module can be set as key-value pairs (e.g. "option1=value1,option2=value2") or as environment variables.
-- `trigger-seed-snapshot [options]` - Triggers a seed snapshot for the next epoch.
-- `update [options] [projectPath]` - Updates Nodejs and Noir dependencies
-- `validator-keys|valKeys` - Manage validator keystores for node operators
-- `vote-on-governance-proposal [options]` - Votes on a governance proposal.
-- `init [folder] [options]` - creates a new Noir project
-- `new <path> [options]` - creates a new Noir project in a new directory
-- `compile [options]` - compiles Aztec Noir contracts
-- `fmt [options]` - formats Noir code using nargo fmt
-- `check [options]` - type-checks Noir code without compiling using nargo check
-- `test [options]` - starts a dockerized TXE node via
-- `lsp` - starts the Nargo Language Server Protocol server
-
-**Options:**
-
-- `-V --version` - output the version number
-- `-h --help` - display help for command
-
-
-##### Subcommands
-
-##### aztec validator-keys|valKeys execute-governance-proposal fast-forward-epochs
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys execute-governance-proposal compute-selector
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys execute-governance-proposal codegen
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys execute-governance-proposal deploy-new-rollup
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys execute-governance-proposal advance-epoch
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys execute-governance-proposal deposit-governance-tokens
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys execute-governance-proposal add-l1-validator
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys execute-governance-proposal deploy-l1-contracts
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys execute-governance-proposal generate-bls-keypair
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys execute-governance-proposal bridge-erc20
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys execute-governance-proposal block-number
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys execute-governance-proposal decode-enr
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys execute-governance-proposal execute-governance-proposal
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys execute-governance-proposal debug-rollup
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys execute-governance-proposal example-contracts
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys execute-governance-proposal generate-bootnode-enr
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys execute-governance-proposal get-block
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys execute-governance-proposal generate-keys
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys execute-governance-proposal generate-secret-and-hash
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys execute-governance-proposal generate-l1-account
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys execute-governance-proposal get-l1-balance
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys execute-governance-proposal get-canonical-sponsored-fpc-address
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys execute-governance-proposal get-node-info
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys execute-governance-proposal inspect-contract
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys execute-governance-proposal generate-p2p-private-key
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys execute-governance-proposal get-current-base-fee
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys execute-governance-proposal get-logs
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys execute-governance-proposal get-l1-to-l2-message-witness
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys execute-governance-proposal parse-parameter-struct
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys execute-governance-proposal get-l1-addresses
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys execute-governance-proposal propose-with-lock
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys execute-governance-proposal preload-crs
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys execute-governance-proposal prune-rollup
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys execute-governance-proposal remove-l1-validator
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys execute-governance-proposal sequencers
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys execute-governance-proposal setup-protocol-contracts
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys execute-governance-proposal start
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys execute-governance-proposal trigger-seed-snapshot
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys execute-governance-proposal update
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys execute-governance-proposal init
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys execute-governance-proposal vote-on-governance-proposal
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys execute-governance-proposal validator-keys|valKeys
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys execute-governance-proposal new
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys execute-governance-proposal compile
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys execute-governance-proposal fmt
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys execute-governance-proposal check
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys execute-governance-proposal lsp
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys execute-governance-proposal test
-
-*No help information available for this command.*
-
-
-#### aztec validator-keys|valKeys generate-keys
-
-Aztec command line interface
-
-**Usage:**
-```bash
-aztec [options] [command]
-```
-
-**Available Commands:**
-
-- `add-l1-validator [options]` - Adds a validator to the L1 rollup contract via a direct deposit.
-- `advance-epoch [options]` - Use L1 cheat codes to warp time until the next epoch.
-- `block-number [options]` - Gets the current Aztec L2 block number.
-- `bridge-erc20 [options] <amount> <recipient>` - Bridges ERC20 tokens to L2.
-- `codegen [options] <noir-abi-path>` - Validates and generates an Aztec Contract ABI from Noir ABI.
-- `compute-selector <functionSignature>` - Given a function signature, it computes a selector
-- `debug-rollup [options]` - Debugs the rollup contract.
-- `decode-enr <enr>` - Decodes an ENR record
-- `deploy-l1-contracts [options]` - Deploys all necessary Ethereum contracts for Aztec.
-- `deploy-new-rollup [options]` - Deploys a new rollup contract and adds it to the registry (if you are the owner).
-- `deposit-governance-tokens [options]` - Deposits governance tokens to the governance contract.
-- `example-contracts` - Lists the example contracts available to deploy from @aztec/noir-contracts.js
-- `execute-governance-proposal [options]` - Executes a governance proposal.
-- `fast-forward-epochs [options]` - Fast forwards the epoch of the L1 rollup contract.
-- `generate-bls-keypair [options]` - Generate a BLS keypair with convenience flags
-- `generate-bootnode-enr [options] <privateKey> <p2pIp> <p2pPort>` - Generates the encoded ENR record for a bootnode.
-- `generate-keys [options]` - Generates encryption and signing private keys.
-- `generate-l1-account [options]` - Generates a new private key for an account on L1.
-- `generate-p2p-private-key` - Generates a LibP2P peer private key.
-- `generate-secret-and-hash` - Generates an arbitrary secret (Fr), and its hash (using aztec-nr defaults)
-- `get-block [options] [blockNumber]` - Gets info for a given block or latest.
-- `get-canonical-sponsored-fpc-address` - Gets the canonical SponsoredFPC address for this any testnet running on the same version as this CLI
-- `get-current-base-fee [options]` - Gets the current base fee.
-- `get-l1-addresses [options]` - Gets the addresses of the L1 contracts.
-- `get-l1-balance [options] <who>` - Gets the balance of an ERC token in L1 for the given Ethereum address.
-- `get-l1-to-l2-message-witness [options]` - Gets a L1 to L2 message witness.
-- `get-logs [options]` - Gets all the public logs from an intersection of all the filter params.
-- `get-node-info [options]` - Gets the information of an Aztec node from a PXE or directly from an Aztec node.
-- `help [command]` - display help for command
-- `inspect-contract <contractArtifactFile>` - Shows list of external callable functions for a contract
-- `parse-parameter-struct [options] <encodedString>` - Helper for parsing an encoded string into a contract's parameter struct.
-- `preload-crs` - Preload the points data needed for proving and verifying
-- `propose-with-lock [options]` - Makes a proposal to governance with a lock
-- `prune-rollup [options]` - Prunes the pending chain on the rollup contract.
-- `remove-l1-validator [options]` - Removes a validator to the L1 rollup contract.
-- `sequencers [options] <command> [who]` - Manages or queries registered sequencers on the L1 rollup contract.
-- `setup-protocol-contracts [options]` - Bootstrap the blockchain by initializing all the protocol contracts
-- `start [options]` - Starts Aztec modules. Options for each module can be set as key-value pairs (e.g. "option1=value1,option2=value2") or as environment variables.
-- `trigger-seed-snapshot [options]` - Triggers a seed snapshot for the next epoch.
-- `update [options] [projectPath]` - Updates Nodejs and Noir dependencies
-- `validator-keys|valKeys` - Manage validator keystores for node operators
-- `vote-on-governance-proposal [options]` - Votes on a governance proposal.
-- `init [folder] [options]` - creates a new Noir project
-- `new <path> [options]` - creates a new Noir project in a new directory
-- `compile [options]` - compiles Aztec Noir contracts
-- `fmt [options]` - formats Noir code using nargo fmt
-- `check [options]` - type-checks Noir code without compiling using nargo check
-- `test [options]` - starts a dockerized TXE node via
-- `lsp` - starts the Nargo Language Server Protocol server
-
-**Options:**
-
-- `-V --version` - output the version number
-- `-h --help` - display help for command
-
-
-##### Subcommands
-
-##### aztec validator-keys|valKeys generate-keys block-number
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-keys add-l1-validator
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-keys bridge-erc20
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-keys debug-rollup
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-keys decode-enr
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-keys example-contracts
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-keys compute-selector
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-keys deposit-governance-tokens
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-keys fast-forward-epochs
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-keys codegen
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-keys execute-governance-proposal
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-keys advance-epoch
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-keys deploy-new-rollup
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-keys generate-bootnode-enr
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-keys generate-bls-keypair
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-keys deploy-l1-contracts
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-keys generate-p2p-private-key
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-keys generate-l1-account
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-keys generate-keys
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-keys generate-secret-and-hash
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-keys get-l1-addresses
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-keys get-current-base-fee
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-keys get-node-info
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-keys get-l1-to-l2-message-witness
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-keys get-l1-balance
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-keys get-canonical-sponsored-fpc-address
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-keys parse-parameter-struct
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-keys get-logs
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-keys get-block
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-keys inspect-contract
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-keys preload-crs
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-keys propose-with-lock
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-keys prune-rollup
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-keys remove-l1-validator
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-keys sequencers
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-keys trigger-seed-snapshot
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-keys setup-protocol-contracts
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-keys start
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-keys validator-keys|valKeys
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-keys vote-on-governance-proposal
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-keys new
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-keys compile
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-keys test
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-keys check
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-keys update
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-keys init
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-keys fmt
-
-*No help information available for this command.*
-
-
-##### aztec validator-keys|valKeys generate-keys lsp
-
-*No help information available for this command.*
-
-
-#### aztec validator-keys|valKeys generate-l1-account
-
-*No help information available for this command.*
-
-
-#### aztec validator-keys|valKeys generate-p2p-private-key
-
-*No help information available for this command.*
-
-
-#### aztec validator-keys|valKeys generate-secret-and-hash
-
-*No help information available for this command.*
-
-
-#### aztec validator-keys|valKeys get-block
-
-*No help information available for this command.*
-
-
-#### aztec validator-keys|valKeys get-canonical-sponsored-fpc-address
-
-*No help information available for this command.*
-
-
-#### aztec validator-keys|valKeys get-current-base-fee
-
-*No help information available for this command.*
-
-
-#### aztec validator-keys|valKeys get-l1-addresses
-
-*No help information available for this command.*
-
-
-#### aztec validator-keys|valKeys get-l1-balance
-
-*No help information available for this command.*
-
-
-#### aztec validator-keys|valKeys get-l1-to-l2-message-witness
-
-*No help information available for this command.*
-
-
-#### aztec validator-keys|valKeys get-logs
-
-*No help information available for this command.*
-
-
-#### aztec validator-keys|valKeys get-node-info
-
-*No help information available for this command.*
-
-
-#### aztec validator-keys|valKeys inspect-contract
-
-*No help information available for this command.*
-
-
-#### aztec validator-keys|valKeys parse-parameter-struct
-
-*No help information available for this command.*
-
-
-#### aztec validator-keys|valKeys preload-crs
-
-*No help information available for this command.*
-
-
-#### aztec validator-keys|valKeys propose-with-lock
-
-*No help information available for this command.*
-
-
-#### aztec validator-keys|valKeys prune-rollup
-
-*No help information available for this command.*
-
-
-#### aztec validator-keys|valKeys remove-l1-validator
-
-*No help information available for this command.*
-
-
-#### aztec validator-keys|valKeys sequencers
-
-*No help information available for this command.*
-
-
-#### aztec validator-keys|valKeys setup-protocol-contracts
-
-*No help information available for this command.*
-
-
-#### aztec validator-keys|valKeys start
-
-*No help information available for this command.*
-
-
-#### aztec validator-keys|valKeys trigger-seed-snapshot
-
-*No help information available for this command.*
-
-
-#### aztec validator-keys|valKeys update
-
-*No help information available for this command.*
-
-
-#### aztec validator-keys|valKeys validator-keys|valKeys
-
-*No help information available for this command.*
-
-
-#### aztec validator-keys|valKeys vote-on-governance-proposal
-
-*No help information available for this command.*
-
-
-#### aztec validator-keys|valKeys init
-
-*No help information available for this command.*
-
-
-#### aztec validator-keys|valKeys new
-
-*No help information available for this command.*
-
-
-#### aztec validator-keys|valKeys compile
-
-*No help information available for this command.*
-
-
-#### aztec validator-keys|valKeys fmt
-
-*No help information available for this command.*
-
-
-#### aztec validator-keys|valKeys check
-
-*No help information available for this command.*
-
-
-#### aztec validator-keys|valKeys lsp
-
-*No help information available for this command.*
-
-
-#### aztec validator-keys|valKeys test
 
 *No help information available for this command.*
 
