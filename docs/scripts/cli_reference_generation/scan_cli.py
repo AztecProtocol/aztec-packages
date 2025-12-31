@@ -43,12 +43,31 @@ class CLIScanner:
         self.visited_lock = threading.Lock()  # Thread-safe access to visited set
         self.help_cache = {}  # Cache help output to detect duplicates
         self.print_lock = threading.Lock()  # Thread-safe printing
+        self.scan_count = 0  # Track number of commands scanned
+        self.scan_count_lock = threading.Lock()
 
     def _print(self, message: str):
-        """Thread-safe printing with immediate flush to prevent interleaved output."""
+        """Thread-safe printing - in parallel mode, suppress verbose output."""
         with self.print_lock:
-            sys.stdout.write(message + "\n")
-            sys.stdout.flush()
+            if self.max_workers > 1:
+                # In parallel mode, only count scans silently and show warnings
+                if message.strip().startswith("Scanning:"):
+                    with self.scan_count_lock:
+                        self.scan_count += 1
+                    # Silent in parallel mode
+                    return
+                elif message.strip().startswith("⏳"):
+                    # Skip retry messages in parallel mode
+                    return
+                elif "⚠️" in message:
+                    # Show warnings but make them concise
+                    # Extract just the command name from the message
+                    sys.stdout.write(message.strip() + "\n")
+                    sys.stdout.flush()
+            else:
+                # Print normally for sequential mode
+                sys.stdout.write(message + "\n")
+                sys.stdout.flush()
 
     def run_command(self, cmd: List[str], max_retries: int = 3) -> Optional[str]:
         """Execute a command and return its output.
@@ -379,11 +398,15 @@ class CLIScanner:
 
     def scan(self) -> Dict[str, Any]:
         """Start the recursive scan from the base command."""
-        return {
+        result = {
             "command": self.base_command,
             "scanned_at": datetime.now(timezone.utc).strftime('%a %d %b %Y %H:%M:%S UTC'),
             "data": self.scan_command([self.base_command])
         }
+        # Print summary after parallel scanning
+        if self.max_workers > 1:
+            print(f"  Scanned {self.scan_count} commands.")
+        return result
 
 
 def main():
