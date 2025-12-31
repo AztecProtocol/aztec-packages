@@ -5,8 +5,19 @@
 # Examples:
 #   ./scripts/cli_reference_generation/generate_cli_docs.sh aztec
 #   ./scripts/cli_reference_generation/generate_cli_docs.sh aztec-wallet /tmp
+#
+# Environment variables for performance tuning:
+#   CLI_SCAN_WORKERS  - Number of parallel workers (default: 1, use 4-8 for faster scans)
+#   CLI_SCAN_TIMEOUT  - Timeout per command in seconds (default: 15)
+#
+# Example with parallel scanning:
+#   CLI_SCAN_WORKERS=4 ./scripts/cli_reference_generation/generate_cli_docs.sh aztec
 
 set -euo pipefail
+
+# Performance tuning via environment variables
+CLI_SCAN_WORKERS="${CLI_SCAN_WORKERS:-1}"
+CLI_SCAN_TIMEOUT="${CLI_SCAN_TIMEOUT:-15}"
 
 # Validate arguments
 if [[ $# -lt 1 ]]; then
@@ -52,7 +63,9 @@ echo "=== ${DISPLAY_NAME} Documentation Generator ==="
 echo ""
 
 echo "Step 1: Scanning ${COMMAND} CLI commands..."
-python3 "$SCRIPT_DIR/scan_cli.py" --command "$COMMAND" --output "$JSON_FILE"
+echo "  Workers: $CLI_SCAN_WORKERS, Timeout: ${CLI_SCAN_TIMEOUT}s"
+python3 "$SCRIPT_DIR/scan_cli.py" --command "$COMMAND" --output "$JSON_FILE" \
+  --workers "$CLI_SCAN_WORKERS" --timeout "$CLI_SCAN_TIMEOUT"
 
 echo ""
 echo "Step 2: Generating markdown documentation..."

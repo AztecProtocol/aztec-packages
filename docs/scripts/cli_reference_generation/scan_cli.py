@@ -5,6 +5,7 @@ Script to recursively scan the Aztec CLI and generate structured documentation.
 Usage:
     python scan_cli.py --output docs.json
     python scan_cli.py --output docs.yaml --format yaml
+    python scan_cli.py --output docs.json --workers 8  # Parallel with 8 workers
 """
 
 import subprocess
@@ -12,8 +13,17 @@ import json
 import re
 import argparse
 import os
+import sys
+import time
+import random
+import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from typing import Dict, List, Optional, Any
+
+# Force line-buffered stdout to prevent interleaved output in parallel execution
+if hasattr(sys.stdout, 'reconfigure'):
+    sys.stdout.reconfigure(line_buffering=True)
 
 try:
     import yaml
@@ -25,40 +35,74 @@ except ImportError:
 class CLIScanner:
     """Recursively scans a CLI command tree and extracts help information."""
 
-    def __init__(self, base_command: str = "aztec"):
+    def __init__(self, base_command: str = "aztec", max_workers: int = 1, timeout: int = 60):
         self.base_command = base_command
+        self.max_workers = max_workers
+        self.timeout = timeout
         self.visited = set()  # Track visited commands to avoid loops
+        self.visited_lock = threading.Lock()  # Thread-safe access to visited set
         self.help_cache = {}  # Cache help output to detect duplicates
+        self.print_lock = threading.Lock()  # Thread-safe printing
 
-    def run_command(self, cmd: List[str]) -> Optional[str]:
-        """Execute a command and return its output."""
-        try:
-            # Set a large terminal width to prevent output truncation
-            env = os.environ.copy()
-            env['COLUMNS'] = '200'
+    def _print(self, message: str):
+        """Thread-safe printing with immediate flush to prevent interleaved output."""
+        with self.print_lock:
+            sys.stdout.write(message + "\n")
+            sys.stdout.flush()
 
-            result = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                timeout=60,  # Increased timeout for commands that may pull Docker images
-                env=env
-            )
-            # Combine stdout and stderr as help can appear in either
-            output = result.stdout + result.stderr
+    def run_command(self, cmd: List[str], max_retries: int = 3) -> Optional[str]:
+        """Execute a command and return its output.
 
-            # Strip ANSI escape codes (color/formatting codes)
-            # Pattern matches: ESC[ followed by any number of digits/semicolons, ending with a letter
-            ansi_pattern = re.compile(r'\x1b\[[0-9;]*[a-zA-Z]')
-            output = ansi_pattern.sub('', output)
+        Includes retry logic for Docker container name conflicts that can occur
+        when running multiple commands in parallel.
+        """
+        for attempt in range(max_retries):
+            try:
+                # Set a large terminal width to prevent output truncation
+                env = os.environ.copy()
+                env['COLUMNS'] = '200'
 
-            return output
-        except subprocess.TimeoutExpired:
-            print(f"Warning: Command {' '.join(cmd)} timed out")
-            return None
-        except Exception as e:
-            print(f"Warning: Error running {' '.join(cmd)}: {e}")
-            return None
+                # Use unique container name to avoid conflicts in parallel execution
+                # The aztec CLI's .aztec-run script respects CONTAINER_NAME env var
+                unique_id = f"{threading.current_thread().ident}-{random.randint(0, 999999):06d}"
+                env['CONTAINER_NAME'] = f"aztec-cli-scan-{unique_id}"
+
+                result = subprocess.run(
+                    cmd,
+                    capture_output=True,
+                    text=True,
+                    timeout=self.timeout,
+                    env=env
+                )
+                # Combine stdout and stderr as help can appear in either
+                output = result.stdout + result.stderr
+
+                # Check for Docker container name conflict (retry-able error)
+                if 'container name' in output and 'is already in use' in output:
+                    if attempt < max_retries - 1:
+                        # Random backoff to avoid thundering herd
+                        wait_time = (0.5 + random.random()) * (attempt + 1)
+                        self._print(f"  ⏳ Container conflict, retrying in {wait_time:.1f}s... (attempt {attempt + 1}/{max_retries})")
+                        time.sleep(wait_time)
+                        continue
+                    else:
+                        self._print(f"  ⚠️  Container conflict persisted after {max_retries} attempts")
+                        return output  # Return the error output for proper handling
+
+                # Strip ANSI escape codes (color/formatting codes)
+                # Pattern matches: ESC[ followed by any number of digits/semicolons, ending with a letter
+                ansi_pattern = re.compile(r'\x1b\[[0-9;]*[a-zA-Z]')
+                output = ansi_pattern.sub('', output)
+
+                return output
+            except subprocess.TimeoutExpired:
+                self._print(f"Warning: Command {' '.join(cmd)} timed out")
+                return None
+            except Exception as e:
+                self._print(f"Warning: Error running {' '.join(cmd)}: {e}")
+                return None
+
+        return None
 
     def parse_commander_help(self, help_text: str) -> Dict[str, Any]:
         """Parse Commander.js style help output."""
@@ -213,17 +257,17 @@ class CLIScanner:
         """Recursively scan a command and its subcommands."""
         cmd_str = ' '.join(cmd_path)
 
-        # Avoid infinite loops
-        if cmd_str in self.visited:
-            return {"error": "already_visited"}
-
-        self.visited.add(cmd_str)
+        # Thread-safe check and add to visited set
+        with self.visited_lock:
+            if cmd_str in self.visited:
+                return {"error": "already_visited"}
+            self.visited.add(cmd_str)
 
         # Limit depth to prevent runaway recursion
         if depth > 5:
             return {"error": "max_depth_exceeded"}
 
-        print(f"{'  ' * depth}Scanning: {cmd_str}")
+        self._print(f"{'  ' * depth}Scanning: {cmd_str}")
 
         # Get help output
         help_output = self.run_command(cmd_path + ['--help'])
@@ -232,7 +276,7 @@ class CLIScanner:
 
         # Check if help output is identical to parent (indicates invalid subcommand)
         if parent_help and help_output.strip() == parent_help.strip():
-            print(f"{'  ' * depth}  ⚠️  Invalid subcommand (returns parent help), skipping")
+            self._print(f"{'  ' * depth}  ⚠️  Invalid subcommand (returns parent help), skipping")
             return {"error": "invalid_subcommand"}
 
         # Check for errors in help output
@@ -245,7 +289,7 @@ class CLIScanner:
         ]
 
         if any(marker in help_output for marker in error_markers):
-            print(f"{'  ' * depth}  ⚠️  Command failed with error, skipping")
+            self._print(f"{'  ' * depth}  ⚠️  Command failed with error, skipping")
             return {
                 "error": "command_execution_error",
                 "error_type": "bigint_serialization" if "BigInt" in help_output else "unknown",
@@ -258,15 +302,25 @@ class CLIScanner:
             parsed = self.parse_commander_help(help_output)
             parsed["format"] = "commander"
 
-            # Recursively scan subcommands
+            # Scan subcommands (in parallel if workers > 1)
             subcommands = {}
-            for cmd in parsed.get("commands", []):
-                cmd_name = cmd["name"]
-                if cmd_name != "help":  # Skip help command
-                    sub_result = self.scan_command(cmd_path + [cmd_name], depth + 1, help_output)
-                    # Include all subcommands, even ones with errors
-                    # Error commands will be rendered with stub sections
-                    subcommands[cmd_name] = sub_result
+            commands_to_scan = [
+                cmd for cmd in parsed.get("commands", [])
+                if cmd["name"] != "help"  # Skip help command
+            ]
+
+            if commands_to_scan:
+                if self.max_workers > 1:
+                    # Parallel scanning of subcommands
+                    subcommands = self._scan_subcommands_parallel(
+                        cmd_path, commands_to_scan, depth, help_output
+                    )
+                else:
+                    # Sequential scanning (original behavior)
+                    for cmd in commands_to_scan:
+                        cmd_name = cmd["name"]
+                        sub_result = self.scan_command(cmd_path + [cmd_name], depth + 1, help_output)
+                        subcommands[cmd_name] = sub_result
 
             if subcommands:
                 parsed["subcommands"] = subcommands
@@ -286,6 +340,43 @@ class CLIScanner:
 
         return parsed
 
+    def _scan_subcommands_parallel(
+        self,
+        parent_path: List[str],
+        commands: List[Dict[str, Any]],
+        depth: int,
+        parent_help: str
+    ) -> Dict[str, Any]:
+        """Scan multiple subcommands in parallel using a thread pool."""
+        subcommands = {}
+
+        with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
+            # Submit all subcommand scans to the thread pool
+            future_to_cmd = {
+                executor.submit(
+                    self.scan_command,
+                    parent_path + [cmd["name"]],
+                    depth + 1,
+                    parent_help
+                ): cmd["name"]
+                for cmd in commands
+            }
+
+            # Collect results as they complete
+            for future in as_completed(future_to_cmd):
+                cmd_name = future_to_cmd[future]
+                try:
+                    result = future.result()
+                    subcommands[cmd_name] = result
+                except Exception as e:
+                    self._print(f"  ⚠️  Error scanning {cmd_name}: {e}")
+                    subcommands[cmd_name] = {
+                        "error": "scan_exception",
+                        "error_message": str(e)
+                    }
+
+        return subcommands
+
     def scan(self) -> Dict[str, Any]:
         """Start the recursive scan from the base command."""
         return {
@@ -302,6 +393,10 @@ def main():
                         help='Output format (default: json)')
     parser.add_argument('--command', '-c', default='aztec',
                         help='Base command to scan (default: aztec)')
+    parser.add_argument('--workers', '-w', type=int, default=1,
+                        help='Number of parallel workers for scanning subcommands (default: 1, sequential)')
+    parser.add_argument('--timeout', '-t', type=int, default=15,
+                        help='Timeout in seconds for each command (default: 15)')
 
     args = parser.parse_args()
 
@@ -313,8 +408,14 @@ def main():
         if not args.output.endswith('.json'):
             args.output = args.output.replace('.yaml', '.json').replace('.yml', '.json')
 
+    # Print configuration
+    if args.workers > 1:
+        print(f"Scanning with {args.workers} parallel workers (timeout: {args.timeout}s per command)")
+    else:
+        print(f"Scanning sequentially (timeout: {args.timeout}s per command)")
+
     # Scan the CLI
-    scanner = CLIScanner(base_command=args.command)
+    scanner = CLIScanner(base_command=args.command, max_workers=args.workers, timeout=args.timeout)
     result = scanner.scan()
 
     # Write output

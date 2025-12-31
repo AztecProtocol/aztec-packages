@@ -10,7 +10,7 @@ sidebar_position: 2
 *This documentation is auto-generated from the `aztec-wallet` CLI help output.*
 
 
-*Generated: Wed 31 Dec 2025 16:23:14 UTC*
+*Generated: Wed 31 Dec 2025 17:24:38 UTC*
 
 *Command: `aztec-wallet`*
 
@@ -18,21 +18,21 @@ sidebar_position: 2
 
 - [aztec-wallet](#aztec-wallet)
   - [aztec-wallet import-test-accounts](#aztec-wallet-import-test-accounts)
-  - [aztec-wallet create-account](#aztec-wallet-create-account)
-  - [aztec-wallet deploy-account](#aztec-wallet-deploy-account)
-  - [aztec-wallet deploy](#aztec-wallet-deploy)
-  - [aztec-wallet send](#aztec-wallet-send)
-  - [aztec-wallet simulate](#aztec-wallet-simulate)
-  - [aztec-wallet profile](#aztec-wallet-profile)
-  - [aztec-wallet bridge-fee-juice](#aztec-wallet-bridge-fee-juice)
   - [aztec-wallet create-authwit](#aztec-wallet-create-authwit)
+  - [aztec-wallet create-account](#aztec-wallet-create-account)
   - [aztec-wallet authorize-action](#aztec-wallet-authorize-action)
-  - [aztec-wallet get-tx](#aztec-wallet-get-tx)
+  - [aztec-wallet profile](#aztec-wallet-profile)
+  - [aztec-wallet simulate](#aztec-wallet-simulate)
   - [aztec-wallet register-sender](#aztec-wallet-register-sender)
-  - [aztec-wallet register-contract](#aztec-wallet-register-contract)
-  - [aztec-wallet alias](#aztec-wallet-alias)
-  - [aztec-wallet get-alias](#aztec-wallet-get-alias)
+  - [aztec-wallet send](#aztec-wallet-send)
+  - [aztec-wallet deploy-account](#aztec-wallet-deploy-account)
   - [aztec-wallet create-secret](#aztec-wallet-create-secret)
+  - [aztec-wallet deploy](#aztec-wallet-deploy)
+  - [aztec-wallet get-tx](#aztec-wallet-get-tx)
+  - [aztec-wallet register-contract](#aztec-wallet-register-contract)
+  - [aztec-wallet get-alias](#aztec-wallet-get-alias)
+  - [aztec-wallet bridge-fee-juice](#aztec-wallet-bridge-fee-juice)
+  - [aztec-wallet alias](#aztec-wallet-alias)
 ## aztec-wallet
 
 Aztec wallet
@@ -83,7 +83,30 @@ Import test accounts from pxe.
 Options:
   --json      Emit output as json
   -h, --help  display help for command
-2025/12/31 13:23:15 socat[26144] E exactly 2 addresses required (there are 3); use option "-h" for help
+2025/12/31 14:24:39 socat[82171] E exactly 2 addresses required (there are 3); use option "-h" for help
+
+```
+
+### aztec-wallet create-authwit
+
+```
+Usage: wallet create-authwit [options] <functionName> <caller>
+
+Creates an authorization witness that can be privately sent to a caller so they
+can perform an action on behalf of the provided account
+
+Arguments:
+  functionName                            Name of function to authorize
+  caller                                  Account to be authorized to perform the action
+
+Options:
+  --args [args...]                        Function  arguments (default: [])
+  -ca, --contract-address <address>       Aztec address of the contract.
+  -c, --contract-artifact <fileLocation>  Path to a compiled Aztec contract's artifact in JSON format. If executed inside a nargo workspace, a package and contract name can be specified as package@contract
+  -f, --from <string>                     Alias or address of the account to simulate from
+  -a, --alias <string>                    Alias for the authorization witness. Used for easy reference in subsequent commands.
+  -h, --help                              display help for command
+2025/12/31 14:24:39 socat[82212] E exactly 2 addresses required (there are 3); use option "-h" for help
 
 ```
 
@@ -125,7 +148,160 @@ Options:
   --max-priority-fees-per-gas <da=0,l2=0>                   Maximum priority fees per gas unit for DA and L2 computation.
   --estimate-gas-only                                       Only report gas estimation for the tx, do not send it.
   -h, --help                                                display help for command
-2025/12/31 13:23:16 socat[26181] E exactly 2 addresses required (there are 3); use option "-h" for help
+2025/12/31 14:24:39 socat[82161] E exactly 2 addresses required (there are 3); use option "-h" for help
+
+```
+
+### aztec-wallet authorize-action
+
+```
+Usage: wallet authorize-action [options] <functionName> <caller>
+
+Authorizes a public call on the caller, so they can perform an action on behalf
+of the provided account
+
+Arguments:
+  functionName                            Name of function to authorize
+  caller                                  Account to be authorized to perform the action
+
+Options:
+  --args [args...]                        Function  arguments (default: [])
+  -ca, --contract-address <address>       Aztec address of the contract.
+  -c, --contract-artifact <fileLocation>  Path to a compiled Aztec contract's artifact in JSON format. If executed inside a nargo workspace, a package and contract name can be specified as package@contract
+  -f, --from <string>                     Alias or address of the account to simulate from
+  -h, --help                              display help for command
+2025/12/31 14:24:39 socat[82201] E exactly 2 addresses required (there are 3); use option "-h" for help
+
+```
+
+### aztec-wallet profile
+
+```
+Usage: wallet profile [options] <functionName>
+
+Profiles a private function by counting the unconditional operations in its
+execution steps
+
+Arguments:
+  functionName                                              Name of function to simulate
+
+Options:
+  --args [args...]                                          Function  arguments (default: [])
+  -ca, --contract-address <address>                         Aztec address of the contract.
+  -c, --contract-artifact <fileLocation>                    Path to a compiled Aztec contract's artifact in JSON format. If executed inside a nargo workspace, a package and contract name can be specified as package@contract
+  --debug-execution-steps-dir <address>                     Directory to write execution step artifacts for bb profiling/debugging.
+  -aw, --auth-witness <string,...>                          Authorization witness to use for the simulation
+  -f, --from <string>                                       Alias or address of the account to simulate from
+  --payment <options>                                       Fee payment method and arguments.
+     Parameters:
+       method            Valid values: "fee_juice", "fpc-public", "fpc-private", "fpc-sponsored" Default: fee_juice
+       asset             The asset used for fee payment. Required for "fpc-public" and "fpc-private". 
+       fpc               The FPC contract that pays in fee juice. Not required for the "fee_juice" method. 
+       claim             Whether to use a previously stored claim to bridge fee juice. 
+       claimSecret       The secret to claim fee juice on L1. 
+       claimAmount       The amount of fee juice to be claimed. 
+       messageLeafIndex  The index of the claim in the l1toL2Message tree. 
+  Format: --payment method=name,asset=address,fpc=address ...
+  --gas-limits <da=100,l2=100,teardownDA=10,teardownL2=10>  Gas limits for the tx.
+  --max-fees-per-gas <da=100,l2=100>                        Maximum fees per gas unit for DA and L2 computation.
+  --max-priority-fees-per-gas <da=0,l2=0>                   Maximum priority fees per gas unit for DA and L2 computation.
+  --estimate-gas-only                                       Only report gas estimation for the tx, do not send it.
+  -h, --help                                                display help for command
+2025/12/31 14:24:39 socat[82198] E exactly 2 addresses required (there are 3); use option "-h" for help
+
+```
+
+### aztec-wallet simulate
+
+```
+Usage: wallet simulate [options] <functionName>
+
+Simulates the execution of a function on an Aztec contract.
+
+Arguments:
+  functionName                                              Name of function to simulate
+
+Options:
+  --args [args...]                                          Function  arguments (default: [])
+  -ca, --contract-address <address>                         Aztec address of the contract.
+  -c, --contract-artifact <fileLocation>                    Path to a compiled Aztec contract's artifact in JSON format. If executed inside a nargo workspace, a package and contract name can be specified as package@contract
+  -sk, --secret-key <string>                                The sender's secret key (env: SECRET_KEY)
+  -aw, --auth-witness <string,...>                          Authorization witness to use for the simulation
+  -f, --from <string>                                       Alias or address of the account to simulate from
+  -v, --verbose                                             Provide timings on all executed operations (synching, simulating, proving) (default: false)
+  --payment <options>                                       Fee payment method and arguments.
+     Parameters:
+       method            Valid values: "fee_juice", "fpc-public", "fpc-private", "fpc-sponsored" Default: fee_juice
+       asset             The asset used for fee payment. Required for "fpc-public" and "fpc-private". 
+       fpc               The FPC contract that pays in fee juice. Not required for the "fee_juice" method. 
+       claim             Whether to use a previously stored claim to bridge fee juice. 
+       claimSecret       The secret to claim fee juice on L1. 
+       claimAmount       The amount of fee juice to be claimed. 
+       messageLeafIndex  The index of the claim in the l1toL2Message tree. 
+  Format: --payment method=name,asset=address,fpc=address ...
+  --gas-limits <da=100,l2=100,teardownDA=10,teardownL2=10>  Gas limits for the tx.
+  --max-fees-per-gas <da=100,l2=100>                        Maximum fees per gas unit for DA and L2 computation.
+  --max-priority-fees-per-gas <da=0,l2=0>                   Maximum priority fees per gas unit for DA and L2 computation.
+  --estimate-gas-only                                       Only report gas estimation for the tx, do not send it.
+  -h, --help                                                display help for command
+2025/12/31 14:24:39 socat[82180] E exactly 2 addresses required (there are 3); use option "-h" for help
+
+```
+
+### aztec-wallet register-sender
+
+```
+Usage: wallet register-sender [options] [address]
+
+Registers a sender's address in the wallet, so the note synching process will
+look for notes sent by them
+
+Arguments:
+  address               The address of the sender to register
+
+Options:
+  -a, --alias <string>  Alias for the sender. Used for easy reference in
+                        subsequent commands.
+  -h, --help            display help for command
+2025/12/31 14:24:39 socat[82240] E exactly 2 addresses required (there are 3); use option "-h" for help
+
+```
+
+### aztec-wallet send
+
+```
+Usage: wallet send [options] <functionName>
+
+Calls a function on an Aztec contract.
+
+Arguments:
+  functionName                                              Name of function to execute
+
+Options:
+  --args [args...]                                          Function  arguments (default: [])
+  -c, --contract-artifact <fileLocation>                    Path to a compiled Aztec contract's artifact in JSON format. If executed inside a nargo workspace, a package and contract name can be specified as package@contract
+  -ca, --contract-address <address>                         Aztec address of the contract.
+  -a, --alias <string>                                      Alias for the transaction hash. Used for easy reference in subsequent commands.
+  -aw, --auth-witness <string,...>                          Authorization witness to use for the transaction. If using multiple, pass a comma separated string
+  -f, --from <string>                                       Alias or address of the account to send the transaction from
+  --no-wait                                                 Print transaction hash without waiting for it to be mined
+  -v, --verbose                                             Provide timings on all executed operations (synching, simulating, proving) (default: false)
+  --payment <options>                                       Fee payment method and arguments.
+     Parameters:
+       method            Valid values: "fee_juice", "fpc-public", "fpc-private", "fpc-sponsored" Default: fee_juice
+       asset             The asset used for fee payment. Required for "fpc-public" and "fpc-private". 
+       fpc               The FPC contract that pays in fee juice. Not required for the "fee_juice" method. 
+       claim             Whether to use a previously stored claim to bridge fee juice. 
+       claimSecret       The secret to claim fee juice on L1. 
+       claimAmount       The amount of fee juice to be claimed. 
+       messageLeafIndex  The index of the claim in the l1toL2Message tree. 
+  Format: --payment method=name,asset=address,fpc=address ...
+  --gas-limits <da=100,l2=100,teardownDA=10,teardownL2=10>  Gas limits for the tx.
+  --max-fees-per-gas <da=100,l2=100>                        Maximum fees per gas unit for DA and L2 computation.
+  --max-priority-fees-per-gas <da=0,l2=0>                   Maximum priority fees per gas unit for DA and L2 computation.
+  --estimate-gas-only                                       Only report gas estimation for the tx, do not send it.
+  -h, --help                                                display help for command
+2025/12/31 14:24:39 socat[82195] E exactly 2 addresses required (there are 3); use option "-h" for help
 
 ```
 
@@ -163,7 +339,21 @@ Options:
   --max-priority-fees-per-gas <da=0,l2=0>                   Maximum priority fees per gas unit for DA and L2 computation.
   --estimate-gas-only                                       Only report gas estimation for the tx, do not send it.
   -h, --help                                                display help for command
-2025/12/31 13:23:17 socat[26191] E exactly 2 addresses required (there are 3); use option "-h" for help
+2025/12/31 14:24:39 socat[82176] E exactly 2 addresses required (there are 3); use option "-h" for help
+
+```
+
+### aztec-wallet create-secret
+
+```
+Usage: wallet create-secret [options]
+
+Creates an aliased secret to use in other commands
+
+Options:
+  -a, --alias <string>  Key to alias the secret with
+  -h, --help            display help for command
+2025/12/31 14:24:39 socat[82252] E exactly 2 addresses required (there are 3); use option "-h" for help
 
 ```
 
@@ -207,119 +397,76 @@ Options:
   --max-priority-fees-per-gas <da=0,l2=0>                   Maximum priority fees per gas unit for DA and L2 computation.
   --estimate-gas-only                                       Only report gas estimation for the tx, do not send it.
   -h, --help                                                display help for command
-2025/12/31 13:23:17 socat[26219] E exactly 2 addresses required (there are 3); use option "-h" for help
+2025/12/31 14:24:39 socat[82184] E exactly 2 addresses required (there are 3); use option "-h" for help
 
 ```
 
-### aztec-wallet send
+### aztec-wallet get-tx
 
 ```
-Usage: wallet send [options] <functionName>
+Usage: wallet get-tx [options] [txHash]
 
-Calls a function on an Aztec contract.
+Gets the status of the recent txs, or a detailed view if a specific transaction
+hash is provided
 
 Arguments:
-  functionName                                              Name of function to execute
+  txHash                    A transaction hash to get the receipt for.
 
 Options:
-  --args [args...]                                          Function  arguments (default: [])
-  -c, --contract-artifact <fileLocation>                    Path to a compiled Aztec contract's artifact in JSON format. If executed inside a nargo workspace, a package and contract name can be specified as package@contract
-  -ca, --contract-address <address>                         Aztec address of the contract.
-  -a, --alias <string>                                      Alias for the transaction hash. Used for easy reference in subsequent commands.
-  -aw, --auth-witness <string,...>                          Authorization witness to use for the transaction. If using multiple, pass a comma separated string
-  -f, --from <string>                                       Alias or address of the account to send the transaction from
-  --no-wait                                                 Print transaction hash without waiting for it to be mined
-  -v, --verbose                                             Provide timings on all executed operations (synching, simulating, proving) (default: false)
-  --payment <options>                                       Fee payment method and arguments.
-     Parameters:
-       method            Valid values: "fee_juice", "fpc-public", "fpc-private", "fpc-sponsored" Default: fee_juice
-       asset             The asset used for fee payment. Required for "fpc-public" and "fpc-private". 
-       fpc               The FPC contract that pays in fee juice. Not required for the "fee_juice" method. 
-       claim             Whether to use a previously stored claim to bridge fee juice. 
-       claimSecret       The secret to claim fee juice on L1. 
-       claimAmount       The amount of fee juice to be claimed. 
-       messageLeafIndex  The index of the claim in the l1toL2Message tree. 
-  Format: --payment method=name,asset=address,fpc=address ...
-  --gas-limits <da=100,l2=100,teardownDA=10,teardownL2=10>  Gas limits for the tx.
-  --max-fees-per-gas <da=100,l2=100>                        Maximum fees per gas unit for DA and L2 computation.
-  --max-priority-fees-per-gas <da=0,l2=0>                   Maximum priority fees per gas unit for DA and L2 computation.
-  --estimate-gas-only                                       Only report gas estimation for the tx, do not send it.
-  -h, --help                                                display help for command
-2025/12/31 13:23:18 socat[26229] E exactly 2 addresses required (there are 3); use option "-h" for help
+  -p, --page <number>       The page number to display (default: 1)
+  -s, --page-size <number>  The number of transactions to display per page
+                            (default: 10)
+  -h, --help                display help for command
+2025/12/31 14:24:39 socat[82254] E exactly 2 addresses required (there are 3); use option "-h" for help
 
 ```
 
-### aztec-wallet simulate
+### aztec-wallet register-contract
 
 ```
-Usage: wallet simulate [options] <functionName>
+Usage: wallet register-contract [options] [address] [artifact]
 
-Simulates the execution of a function on an Aztec contract.
+Registers a contract in this wallet's PXE
 
 Arguments:
-  functionName                                              Name of function to simulate
+  address                    The address of the contract to register
+  artifact                   Path to a compiled Aztec contract's artifact in
+                             JSON format. If executed inside a nargo workspace,
+                             a package and contract name can be specified as
+                             package@contract
 
 Options:
-  --args [args...]                                          Function  arguments (default: [])
-  -ca, --contract-address <address>                         Aztec address of the contract.
-  -c, --contract-artifact <fileLocation>                    Path to a compiled Aztec contract's artifact in JSON format. If executed inside a nargo workspace, a package and contract name can be specified as package@contract
-  -sk, --secret-key <string>                                The sender's secret key (env: SECRET_KEY)
-  -aw, --auth-witness <string,...>                          Authorization witness to use for the simulation
-  -f, --from <string>                                       Alias or address of the account to simulate from
-  -v, --verbose                                             Provide timings on all executed operations (synching, simulating, proving) (default: false)
-  --payment <options>                                       Fee payment method and arguments.
-     Parameters:
-       method            Valid values: "fee_juice", "fpc-public", "fpc-private", "fpc-sponsored" Default: fee_juice
-       asset             The asset used for fee payment. Required for "fpc-public" and "fpc-private". 
-       fpc               The FPC contract that pays in fee juice. Not required for the "fee_juice" method. 
-       claim             Whether to use a previously stored claim to bridge fee juice. 
-       claimSecret       The secret to claim fee juice on L1. 
-       claimAmount       The amount of fee juice to be claimed. 
-       messageLeafIndex  The index of the claim in the l1toL2Message tree. 
-  Format: --payment method=name,asset=address,fpc=address ...
-  --gas-limits <da=100,l2=100,teardownDA=10,teardownL2=10>  Gas limits for the tx.
-  --max-fees-per-gas <da=100,l2=100>                        Maximum fees per gas unit for DA and L2 computation.
-  --max-priority-fees-per-gas <da=0,l2=0>                   Maximum priority fees per gas unit for DA and L2 computation.
-  --estimate-gas-only                                       Only report gas estimation for the tx, do not send it.
-  -h, --help                                                display help for command
-2025/12/31 13:23:19 socat[26239] E exactly 2 addresses required (there are 3); use option "-h" for help
+  --init <string>            The contract initializer function to call
+                             (default: "constructor")
+  -k, --public-key <string>  Optional encryption public key for this address.
+                             Set this value only if this contract is expected
+                             to receive private notes, which will be encrypted
+                             using this public key.
+  -s, --salt <hex string>    Optional deployment salt as a hex string for
+                             generating the deployment address.
+  --deployer <string>        The address of the account that deployed the
+                             contract
+  --args [args...]           Constructor  arguments (default: [])
+  -a, --alias <string>       Alias for the contact. Used for easy reference in
+                             subsequent commands.
+  -h, --help                 display help for command
+2025/12/31 14:24:39 socat[82229] E exactly 2 addresses required (there are 3); use option "-h" for help
 
 ```
 
-### aztec-wallet profile
+### aztec-wallet get-alias
 
 ```
-Usage: wallet profile [options] <functionName>
+Usage: wallet get-alias [options] [alias]
 
-Profiles a private function by counting the unconditional operations in its
-execution steps
+Shows stored aliases
 
 Arguments:
-  functionName                                              Name of function to simulate
+  alias       Alias to retrieve
 
 Options:
-  --args [args...]                                          Function  arguments (default: [])
-  -ca, --contract-address <address>                         Aztec address of the contract.
-  -c, --contract-artifact <fileLocation>                    Path to a compiled Aztec contract's artifact in JSON format. If executed inside a nargo workspace, a package and contract name can be specified as package@contract
-  --debug-execution-steps-dir <address>                     Directory to write execution step artifacts for bb profiling/debugging.
-  -aw, --auth-witness <string,...>                          Authorization witness to use for the simulation
-  -f, --from <string>                                       Alias or address of the account to simulate from
-  --payment <options>                                       Fee payment method and arguments.
-     Parameters:
-       method            Valid values: "fee_juice", "fpc-public", "fpc-private", "fpc-sponsored" Default: fee_juice
-       asset             The asset used for fee payment. Required for "fpc-public" and "fpc-private". 
-       fpc               The FPC contract that pays in fee juice. Not required for the "fee_juice" method. 
-       claim             Whether to use a previously stored claim to bridge fee juice. 
-       claimSecret       The secret to claim fee juice on L1. 
-       claimAmount       The amount of fee juice to be claimed. 
-       messageLeafIndex  The index of the claim in the l1toL2Message tree. 
-  Format: --payment method=name,asset=address,fpc=address ...
-  --gas-limits <da=100,l2=100,teardownDA=10,teardownL2=10>  Gas limits for the tx.
-  --max-fees-per-gas <da=100,l2=100>                        Maximum fees per gas unit for DA and L2 computation.
-  --max-priority-fees-per-gas <da=0,l2=0>                   Maximum priority fees per gas unit for DA and L2 computation.
-  --estimate-gas-only                                       Only report gas estimation for the tx, do not send it.
-  -h, --help                                                display help for command
-2025/12/31 13:23:20 socat[26288] E exactly 2 addresses required (there are 3); use option "-h" for help
+  -h, --help  display help for command
+2025/12/31 14:24:39 socat[82250] E exactly 2 addresses required (there are 3); use option "-h" for help
 
 ```
 
@@ -353,124 +500,7 @@ Options:
   --interval <number>         The polling interval in seconds for the bridged
                               funds (default: "60")
   -h, --help                  display help for command
-2025/12/31 13:23:21 socat[26299] E exactly 2 addresses required (there are 3); use option "-h" for help
-
-```
-
-### aztec-wallet create-authwit
-
-```
-Usage: wallet create-authwit [options] <functionName> <caller>
-
-Creates an authorization witness that can be privately sent to a caller so they
-can perform an action on behalf of the provided account
-
-Arguments:
-  functionName                            Name of function to authorize
-  caller                                  Account to be authorized to perform the action
-
-Options:
-  --args [args...]                        Function  arguments (default: [])
-  -ca, --contract-address <address>       Aztec address of the contract.
-  -c, --contract-artifact <fileLocation>  Path to a compiled Aztec contract's artifact in JSON format. If executed inside a nargo workspace, a package and contract name can be specified as package@contract
-  -f, --from <string>                     Alias or address of the account to simulate from
-  -a, --alias <string>                    Alias for the authorization witness. Used for easy reference in subsequent commands.
-  -h, --help                              display help for command
-2025/12/31 13:23:22 socat[26327] E exactly 2 addresses required (there are 3); use option "-h" for help
-
-```
-
-### aztec-wallet authorize-action
-
-```
-Usage: wallet authorize-action [options] <functionName> <caller>
-
-Authorizes a public call on the caller, so they can perform an action on behalf
-of the provided account
-
-Arguments:
-  functionName                            Name of function to authorize
-  caller                                  Account to be authorized to perform the action
-
-Options:
-  --args [args...]                        Function  arguments (default: [])
-  -ca, --contract-address <address>       Aztec address of the contract.
-  -c, --contract-artifact <fileLocation>  Path to a compiled Aztec contract's artifact in JSON format. If executed inside a nargo workspace, a package and contract name can be specified as package@contract
-  -f, --from <string>                     Alias or address of the account to simulate from
-  -h, --help                              display help for command
-2025/12/31 13:23:23 socat[26337] E exactly 2 addresses required (there are 3); use option "-h" for help
-
-```
-
-### aztec-wallet get-tx
-
-```
-Usage: wallet get-tx [options] [txHash]
-
-Gets the status of the recent txs, or a detailed view if a specific transaction
-hash is provided
-
-Arguments:
-  txHash                    A transaction hash to get the receipt for.
-
-Options:
-  -p, --page <number>       The page number to display (default: 1)
-  -s, --page-size <number>  The number of transactions to display per page
-                            (default: 10)
-  -h, --help                display help for command
-2025/12/31 13:23:24 socat[26365] E exactly 2 addresses required (there are 3); use option "-h" for help
-
-```
-
-### aztec-wallet register-sender
-
-```
-Usage: wallet register-sender [options] [address]
-
-Registers a sender's address in the wallet, so the note synching process will
-look for notes sent by them
-
-Arguments:
-  address               The address of the sender to register
-
-Options:
-  -a, --alias <string>  Alias for the sender. Used for easy reference in
-                        subsequent commands.
-  -h, --help            display help for command
-2025/12/31 13:23:25 socat[26381] E exactly 2 addresses required (there are 3); use option "-h" for help
-
-```
-
-### aztec-wallet register-contract
-
-```
-Usage: wallet register-contract [options] [address] [artifact]
-
-Registers a contract in this wallet's PXE
-
-Arguments:
-  address                    The address of the contract to register
-  artifact                   Path to a compiled Aztec contract's artifact in
-                             JSON format. If executed inside a nargo workspace,
-                             a package and contract name can be specified as
-                             package@contract
-
-Options:
-  --init <string>            The contract initializer function to call
-                             (default: "constructor")
-  -k, --public-key <string>  Optional encryption public key for this address.
-                             Set this value only if this contract is expected
-                             to receive private notes, which will be encrypted
-                             using this public key.
-  -s, --salt <hex string>    Optional deployment salt as a hex string for
-                             generating the deployment address.
-  --deployer <string>        The address of the account that deployed the
-                             contract
-  --args [args...]           Constructor  arguments (default: [])
-  -a, --alias <string>       Alias for the contact. Used for easy reference in
-                             subsequent commands.
-  -h, --help                 display help for command
-2025/12/31 13:23:26 socat[26411] E exactly 2 addresses required (there are 3); use option "-h" for help
+2025/12/31 14:24:39 socat[82228] E exactly 2 addresses required (there are 3); use option "-h" for help
 
 ```
 
@@ -489,36 +519,6 @@ Arguments:
 
 Options:
   -h, --help  display help for command
-2025/12/31 13:23:26 socat[26421] E exactly 2 addresses required (there are 3); use option "-h" for help
-
-```
-
-### aztec-wallet get-alias
-
-```
-Usage: wallet get-alias [options] [alias]
-
-Shows stored aliases
-
-Arguments:
-  alias       Alias to retrieve
-
-Options:
-  -h, --help  display help for command
-2025/12/31 13:23:27 socat[26455] E exactly 2 addresses required (there are 3); use option "-h" for help
-
-```
-
-### aztec-wallet create-secret
-
-```
-Usage: wallet create-secret [options]
-
-Creates an aliased secret to use in other commands
-
-Options:
-  -a, --alias <string>  Key to alias the secret with
-  -h, --help            display help for command
-2025/12/31 13:23:28 socat[26465] E exactly 2 addresses required (there are 3); use option "-h" for help
+2025/12/31 14:24:39 socat[82249] E exactly 2 addresses required (there are 3); use option "-h" for help
 
 ```

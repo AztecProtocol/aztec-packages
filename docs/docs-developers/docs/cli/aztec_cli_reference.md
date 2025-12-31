@@ -10,60 +10,60 @@ sidebar_position: 1
 *This documentation is auto-generated from the `aztec` CLI help output.*
 
 
-*Generated: Wed 31 Dec 2025 16:21:23 UTC*
+*Generated: Wed 31 Dec 2025 17:24:15 UTC*
 
 *Command: `aztec`*
 
 ## Table of Contents
 
 - [aztec](#aztec)
-  - [aztec add-l1-validator](#aztec-add-l1-validator)
   - [aztec advance-epoch](#aztec-advance-epoch)
-  - [aztec block-number](#aztec-block-number)
-  - [aztec bridge-erc20](#aztec-bridge-erc20)
-  - [aztec codegen](#aztec-codegen)
-  - [aztec compute-selector](#aztec-compute-selector)
   - [aztec debug-rollup](#aztec-debug-rollup)
   - [aztec decode-enr](#aztec-decode-enr)
+  - [aztec generate-bootnode-enr](#aztec-generate-bootnode-enr)
+  - [aztec codegen](#aztec-codegen)
+  - [aztec compute-selector](#aztec-compute-selector)
+  - [aztec example-contracts](#aztec-example-contracts)
+  - [aztec fast-forward-epochs](#aztec-fast-forward-epochs)
+  - [aztec add-l1-validator](#aztec-add-l1-validator)
+  - [aztec block-number](#aztec-block-number)
+  - [aztec execute-governance-proposal](#aztec-execute-governance-proposal)
   - [aztec deploy-l1-contracts](#aztec-deploy-l1-contracts)
+  - [aztec generate-bls-keypair](#aztec-generate-bls-keypair)
   - [aztec deploy-new-rollup](#aztec-deploy-new-rollup)
   - [aztec deposit-governance-tokens](#aztec-deposit-governance-tokens)
-  - [aztec example-contracts](#aztec-example-contracts)
-  - [aztec execute-governance-proposal](#aztec-execute-governance-proposal)
-  - [aztec fast-forward-epochs](#aztec-fast-forward-epochs)
-  - [aztec generate-bls-keypair](#aztec-generate-bls-keypair)
-  - [aztec generate-bootnode-enr](#aztec-generate-bootnode-enr)
+  - [aztec bridge-erc20](#aztec-bridge-erc20)
   - [aztec generate-keys](#aztec-generate-keys)
-  - [aztec generate-l1-account](#aztec-generate-l1-account)
   - [aztec generate-p2p-private-key](#aztec-generate-p2p-private-key)
   - [aztec generate-secret-and-hash](#aztec-generate-secret-and-hash)
+  - [aztec generate-l1-account](#aztec-generate-l1-account)
   - [aztec get-block](#aztec-get-block)
+  - [aztec inspect-contract](#aztec-inspect-contract)
   - [aztec get-canonical-sponsored-fpc-address](#aztec-get-canonical-sponsored-fpc-address)
-  - [aztec get-current-base-fee](#aztec-get-current-base-fee)
-  - [aztec get-l1-addresses](#aztec-get-l1-addresses)
   - [aztec get-l1-balance](#aztec-get-l1-balance)
+  - [aztec get-current-base-fee](#aztec-get-current-base-fee)
+  - [aztec parse-parameter-struct](#aztec-parse-parameter-struct)
+  - [aztec init](#aztec-init)
+  - [aztec get-l1-addresses](#aztec-get-l1-addresses)
+  - [aztec new](#aztec-new)
   - [aztec get-l1-to-l2-message-witness](#aztec-get-l1-to-l2-message-witness)
   - [aztec get-logs](#aztec-get-logs)
-  - [aztec get-node-info](#aztec-get-node-info)
-  - [aztec inspect-contract](#aztec-inspect-contract)
-  - [aztec parse-parameter-struct](#aztec-parse-parameter-struct)
-  - [aztec preload-crs](#aztec-preload-crs)
   - [aztec propose-with-lock](#aztec-propose-with-lock)
-  - [aztec prune-rollup](#aztec-prune-rollup)
-  - [aztec remove-l1-validator](#aztec-remove-l1-validator)
-  - [aztec sequencers](#aztec-sequencers)
-  - [aztec setup-protocol-contracts](#aztec-setup-protocol-contracts)
-  - [aztec start](#aztec-start)
-  - [aztec trigger-seed-snapshot](#aztec-trigger-seed-snapshot)
-  - [aztec update](#aztec-update)
-  - [aztec validator-keys|valKeys](#aztec-validator-keys|valkeys)
-  - [aztec vote-on-governance-proposal](#aztec-vote-on-governance-proposal)
-  - [aztec init](#aztec-init)
-  - [aztec new](#aztec-new)
+  - [aztec get-node-info](#aztec-get-node-info)
+  - [aztec preload-crs](#aztec-preload-crs)
   - [aztec compile](#aztec-compile)
   - [aztec fmt](#aztec-fmt)
   - [aztec check](#aztec-check)
+  - [aztec sequencers](#aztec-sequencers)
+  - [aztec setup-protocol-contracts](#aztec-setup-protocol-contracts)
+  - [aztec remove-l1-validator](#aztec-remove-l1-validator)
+  - [aztec prune-rollup](#aztec-prune-rollup)
+  - [aztec trigger-seed-snapshot](#aztec-trigger-seed-snapshot)
+  - [aztec validator-keys|valKeys](#aztec-validator-keys|valkeys)
+  - [aztec update](#aztec-update)
+  - [aztec vote-on-governance-proposal](#aztec-vote-on-governance-proposal)
   - [aztec test](#aztec-test)
+  - [aztec start](#aztec-start)
   - [aztec lsp](#aztec-lsp)
 ## aztec
 
@@ -134,38 +134,6 @@ aztec [options] [command]
 
 ### Subcommands
 
-### aztec add-l1-validator
-
-```
-Usage: aztec add-l1-validator [options]
-
-Adds a validator to the L1 rollup contract via a direct deposit.
-
-Options:
-  --l1-rpc-urls <string>       List of Ethereum host URLs. Chain identifiers
-                               localhost and testnet can be used (comma
-                               separated) (default:
-                               ["http://host.docker.internal:8545"], env:
-                               ETHEREUM_HOSTS)
-  --network <string>           Network to execute against (env: NETWORK)
-  -pk, --private-key <string>  The private key to use sending the transaction
-  -m, --mnemonic <string>      The mnemonic to use sending the transaction
-                               (default: "test test test test test test test
-                               test test test test junk")
-  -c, --l1-chain-id <number>   Chain ID of the ethereum host (default: 31337,
-                               env: L1_CHAIN_ID)
-  --attester <address>         ethereum address of the attester
-  --withdrawer <address>       ethereum address of the withdrawer
-  --bls-secret-key <string>    The BN254 scalar field element used as a secret
-                               key for BLS signatures. Will be associated with
-                               the attester address.
-  --move-with-latest-rollup    Whether to move with the latest rollup (default:
-                               true)
-  --rollup <string>            Rollup contract address
-  -h, --help                   display help for command
-
-```
-
 ### aztec advance-epoch
 
 ```
@@ -185,31 +153,12 @@ Options:
 
 ```
 
-### aztec block-number
+### aztec debug-rollup
 
 ```
-Usage: aztec block-number [options]
+Usage: aztec debug-rollup [options]
 
-Gets the current Aztec L2 block number.
-
-Options:
-  -n, --node-url <string>  URL of the Aztec node (default:
-                           "http://host.docker.internal:8080", env:
-                           AZTEC_NODE_URL)
-  -h, --help               display help for command
-
-```
-
-### aztec bridge-erc20
-
-```
-Usage: aztec bridge-erc20 [options] <amount> <recipient>
-
-Bridges ERC20 tokens to L2.
-
-Arguments:
-  amount                      The amount of Fee Juice to mint and bridge.
-  recipient                   Aztec address of the recipient.
+Debugs the rollup contract.
 
 Options:
   --l1-rpc-urls <string>      List of Ethereum host URLs. Chain identifiers
@@ -217,21 +166,43 @@ Options:
                               separated) (default:
                               ["http://host.docker.internal:8545"], env:
                               ETHEREUM_HOSTS)
-  -m, --mnemonic <string>     The mnemonic to use for deriving the Ethereum
-                              address that will mint and bridge (default: "test
-                              test test test test test test test test test test
-                              junk")
-  --mint                      Mint the tokens on L1 (default: false)
-  --private                   If the bridge should use the private flow
-                              (default: false)
   -c, --l1-chain-id <number>  Chain ID of the ethereum host (default: 31337,
                               env: L1_CHAIN_ID)
-  -t, --token <string>        The address of the token to bridge
-  -p, --portal <string>       The address of the portal contract
-  -f, --faucet <string>       The address of the faucet contract (only used if
-                              minting)
-  --l1-private-key <string>   The private key to use for deployment
-  --json                      Output the claim in JSON format
+  --rollup <address>          ethereum address of the rollup contract
+  -h, --help                  display help for command
+
+```
+
+### aztec decode-enr
+
+```
+Usage: aztec decode-enr [options] <enr>
+
+Decodes and ENR record
+
+Arguments:
+  enr         The encoded ENR string
+
+Options:
+  -h, --help  display help for command
+
+```
+
+### aztec generate-bootnode-enr
+
+```
+Usage: aztec generate-bootnode-enr [options] <privateKey> <p2pIp> <p2pPort>
+
+Generates the encoded ENR record for a bootnode.
+
+Arguments:
+  privateKey                  The peer id private key of the bootnode
+  p2pIp                       The bootnode P2P IP address
+  p2pPort                     The bootnode P2P port
+
+Options:
+  -c, --l1-chain-id <number>  Chain ID of the ethereum host (default: 31337,
+                              env: L1_CHAIN_ID)
   -h, --help                  display help for command
 
 ```
@@ -269,38 +240,96 @@ Options:
 
 ```
 
-### aztec debug-rollup
+### aztec example-contracts
 
 ```
-Usage: aztec debug-rollup [options]
+Usage: aztec example-contracts [options]
 
-Debugs the rollup contract.
-
-Options:
-  --l1-rpc-urls <string>      List of Ethereum host URLs. Chain identifiers
-                              localhost and testnet can be used (comma
-                              separated) (default:
-                              ["http://host.docker.internal:8545"], env:
-                              ETHEREUM_HOSTS)
-  -c, --l1-chain-id <number>  Chain ID of the ethereum host (default: 31337,
-                              env: L1_CHAIN_ID)
-  --rollup <address>          ethereum address of the rollup contract
-  -h, --help                  display help for command
-
-```
-
-### aztec decode-enr
-
-```
-Usage: aztec decode-enr [options] <enr>
-
-Decodes and ENR record
-
-Arguments:
-  enr         The encoded ENR string
+Lists the example contracts available to deploy from @aztec/noir-contracts.js
 
 Options:
   -h, --help  display help for command
+
+```
+
+### aztec fast-forward-epochs
+
+*Help for this command is currently unavailable due to a technical issue with option serialization.*
+
+
+### aztec add-l1-validator
+
+```
+Usage: aztec add-l1-validator [options]
+
+Adds a validator to the L1 rollup contract via a direct deposit.
+
+Options:
+  --l1-rpc-urls <string>       List of Ethereum host URLs. Chain identifiers
+                               localhost and testnet can be used (comma
+                               separated) (default:
+                               ["http://host.docker.internal:8545"], env:
+                               ETHEREUM_HOSTS)
+  --network <string>           Network to execute against (env: NETWORK)
+  -pk, --private-key <string>  The private key to use sending the transaction
+  -m, --mnemonic <string>      The mnemonic to use sending the transaction
+                               (default: "test test test test test test test
+                               test test test test junk")
+  -c, --l1-chain-id <number>   Chain ID of the ethereum host (default: 31337,
+                               env: L1_CHAIN_ID)
+  --attester <address>         ethereum address of the attester
+  --withdrawer <address>       ethereum address of the withdrawer
+  --bls-secret-key <string>    The BN254 scalar field element used as a secret
+                               key for BLS signatures. Will be associated with
+                               the attester address.
+  --move-with-latest-rollup    Whether to move with the latest rollup (default:
+                               true)
+  --rollup <string>            Rollup contract address
+  -h, --help                   display help for command
+
+```
+
+### aztec block-number
+
+```
+Usage: aztec block-number [options]
+
+Gets the current Aztec L2 block number.
+
+Options:
+  -n, --node-url <string>  URL of the Aztec node (default:
+                           "http://host.docker.internal:8080", env:
+                           AZTEC_NODE_URL)
+  -h, --help               display help for command
+
+```
+
+### aztec execute-governance-proposal
+
+```
+Usage: aztec execute-governance-proposal [options]
+
+Executes a governance proposal.
+
+Options:
+  -p, --proposal-id <string>       The ID of the proposal
+  -r, --registry-address <string>  The address of the registry contract
+  --wait <boolean>                 Whether to wait until the proposal is
+                                   executable
+  --l1-rpc-urls <string>           List of Ethereum host URLs. Chain
+                                   identifiers localhost and testnet can be
+                                   used (comma separated) (default:
+                                   ["http://host.docker.internal:8545"], env:
+                                   ETHEREUM_HOSTS)
+  -c, --l1-chain-id <number>       Chain ID of the ethereum host (default:
+                                   31337, env: L1_CHAIN_ID)
+  -pk, --private-key <string>      The private key to use to vote
+  -m, --mnemonic <string>          The mnemonic to use to vote (default: "test
+                                   test test test test test test test test test
+                                   test junk")
+  -i, --mnemonic-index <number>    The index of the mnemonic to use to vote
+                                   (default: 0)
+  -h, --help                       display help for command
 
 ```
 
@@ -341,6 +370,26 @@ Options:
   --create-verification-json [path]  Create JSON file for etherscan contract
                                      verification (default: false)
   -h, --help                         display help for command
+
+```
+
+### aztec generate-bls-keypair
+
+```
+Usage: aztec generate-bls-keypair [options]
+
+Generate a BLS keypair with convenience flags
+
+Options:
+  --mnemonic <mnemonic>  Mnemonic for BLS derivation
+  --ikm <hex>            Initial keying material for BLS (alternative to
+                         mnemonic)
+  --bls-path <path>      EIP-2334 path (default m/12381/3600/0/0/0)
+  --g2                   Derive on G2 subgroup
+  --compressed           Output compressed public key
+  --json                 Print JSON output to stdout
+  --out <file>           Write output to file
+  -h, --help             display help for command
 
 ```
 
@@ -411,87 +460,38 @@ Options:
 
 ```
 
-### aztec example-contracts
+### aztec bridge-erc20
 
 ```
-Usage: aztec example-contracts [options]
+Usage: aztec bridge-erc20 [options] <amount> <recipient>
 
-Lists the example contracts available to deploy from @aztec/noir-contracts.js
-
-Options:
-  -h, --help  display help for command
-
-```
-
-### aztec execute-governance-proposal
-
-```
-Usage: aztec execute-governance-proposal [options]
-
-Executes a governance proposal.
-
-Options:
-  -p, --proposal-id <string>       The ID of the proposal
-  -r, --registry-address <string>  The address of the registry contract
-  --wait <boolean>                 Whether to wait until the proposal is
-                                   executable
-  --l1-rpc-urls <string>           List of Ethereum host URLs. Chain
-                                   identifiers localhost and testnet can be
-                                   used (comma separated) (default:
-                                   ["http://host.docker.internal:8545"], env:
-                                   ETHEREUM_HOSTS)
-  -c, --l1-chain-id <number>       Chain ID of the ethereum host (default:
-                                   31337, env: L1_CHAIN_ID)
-  -pk, --private-key <string>      The private key to use to vote
-  -m, --mnemonic <string>          The mnemonic to use to vote (default: "test
-                                   test test test test test test test test test
-                                   test junk")
-  -i, --mnemonic-index <number>    The index of the mnemonic to use to vote
-                                   (default: 0)
-  -h, --help                       display help for command
-
-```
-
-### aztec fast-forward-epochs
-
-*Help for this command is currently unavailable due to a technical issue with option serialization.*
-
-
-### aztec generate-bls-keypair
-
-```
-Usage: aztec generate-bls-keypair [options]
-
-Generate a BLS keypair with convenience flags
-
-Options:
-  --mnemonic <mnemonic>  Mnemonic for BLS derivation
-  --ikm <hex>            Initial keying material for BLS (alternative to
-                         mnemonic)
-  --bls-path <path>      EIP-2334 path (default m/12381/3600/0/0/0)
-  --g2                   Derive on G2 subgroup
-  --compressed           Output compressed public key
-  --json                 Print JSON output to stdout
-  --out <file>           Write output to file
-  -h, --help             display help for command
-
-```
-
-### aztec generate-bootnode-enr
-
-```
-Usage: aztec generate-bootnode-enr [options] <privateKey> <p2pIp> <p2pPort>
-
-Generates the encoded ENR record for a bootnode.
+Bridges ERC20 tokens to L2.
 
 Arguments:
-  privateKey                  The peer id private key of the bootnode
-  p2pIp                       The bootnode P2P IP address
-  p2pPort                     The bootnode P2P port
+  amount                      The amount of Fee Juice to mint and bridge.
+  recipient                   Aztec address of the recipient.
 
 Options:
+  --l1-rpc-urls <string>      List of Ethereum host URLs. Chain identifiers
+                              localhost and testnet can be used (comma
+                              separated) (default:
+                              ["http://host.docker.internal:8545"], env:
+                              ETHEREUM_HOSTS)
+  -m, --mnemonic <string>     The mnemonic to use for deriving the Ethereum
+                              address that will mint and bridge (default: "test
+                              test test test test test test test test test test
+                              junk")
+  --mint                      Mint the tokens on L1 (default: false)
+  --private                   If the bridge should use the private flow
+                              (default: false)
   -c, --l1-chain-id <number>  Chain ID of the ethereum host (default: 31337,
                               env: L1_CHAIN_ID)
+  -t, --token <string>        The address of the token to bridge
+  -p, --portal <string>       The address of the portal contract
+  -f, --faucet <string>       The address of the faucet contract (only used if
+                              minting)
+  --l1-private-key <string>   The private key to use for deployment
+  --json                      Output the claim in JSON format
   -h, --help                  display help for command
 
 ```
@@ -505,19 +505,6 @@ Generates and encryption and signing private key pair.
 
 Options:
   --json      Output the keys in JSON format
-  -h, --help  display help for command
-
-```
-
-### aztec generate-l1-account
-
-```
-Usage: aztec generate-l1-account [options]
-
-Generates a new private key for an account on L1.
-
-Options:
-  --json      Output the private key in JSON format
   -h, --help  display help for command
 
 ```
@@ -547,6 +534,19 @@ Options:
 
 ```
 
+### aztec generate-l1-account
+
+```
+Usage: aztec generate-l1-account [options]
+
+Generates a new private key for an account on L1.
+
+Options:
+  --json      Output the private key in JSON format
+  -h, --help  display help for command
+
+```
+
 ### aztec get-block
 
 ```
@@ -565,6 +565,23 @@ Options:
 
 ```
 
+### aztec inspect-contract
+
+```
+Usage: aztec inspect-contract [options] <contractArtifactFile>
+
+Shows list of external callable functions for a contract
+
+Arguments:
+  contractArtifactFile  A compiled Noir contract's artifact in JSON format or
+                        name of a contract artifact exported by
+                        @aztec/noir-contracts.js
+
+Options:
+  -h, --help            display help for command
+
+```
+
 ### aztec get-canonical-sponsored-fpc-address
 
 ```
@@ -575,43 +592,6 @@ same version as this CLI
 
 Options:
   -h, --help  display help for command
-
-```
-
-### aztec get-current-base-fee
-
-```
-Usage: aztec get-current-base-fee [options]
-
-Gets the current base fee.
-
-Options:
-  -n, --node-url <string>  URL of the Aztec node (default:
-                           "http://host.docker.internal:8080", env:
-                           AZTEC_NODE_URL)
-  -h, --help               display help for command
-
-```
-
-### aztec get-l1-addresses
-
-```
-Usage: aztec get-l1-addresses [options]
-
-Gets the addresses of the L1 contracts.
-
-Options:
-  -r, --registry-address <string>  The address of the registry contract
-  --l1-rpc-urls <string>           List of Ethereum host URLs. Chain
-                                   identifiers localhost and testnet can be
-                                   used (comma separated) (default:
-                                   ["http://host.docker.internal:8545"], env:
-                                   ETHEREUM_HOSTS)
-  -v, --rollup-version <number>    The version of the rollup
-  -c, --l1-chain-id <number>       Chain ID of the ethereum host (default:
-                                   31337, env: L1_CHAIN_ID)
-  --json                           Output the addresses in JSON format
-  -h, --help                       display help for command
 
 ```
 
@@ -638,6 +618,70 @@ Options:
   -h, --help                  display help for command
 
 ```
+
+### aztec get-current-base-fee
+
+```
+Usage: aztec get-current-base-fee [options]
+
+Gets the current base fee.
+
+Options:
+  -n, --node-url <string>  URL of the Aztec node (default:
+                           "http://host.docker.internal:8080", env:
+                           AZTEC_NODE_URL)
+  -h, --help               display help for command
+
+```
+
+### aztec parse-parameter-struct
+
+```
+Usage: aztec parse-parameter-struct [options] <encodedString>
+
+Helper for parsing an encoded string into a contract's parameter struct.
+
+Arguments:
+  encodedString                           The encoded hex string
+
+Options:
+  -c, --contract-artifact <fileLocation>  A compiled Aztec.nr contract's ABI in JSON format or name of a contract ABI exported by @aztec/noir-contracts.js
+  -p, --parameter <parameterName>         The name of the struct parameter to decode into
+  -h, --help                              display help for command
+
+```
+
+### aztec init
+
+*No help information available for this command.*
+
+
+### aztec get-l1-addresses
+
+```
+Usage: aztec get-l1-addresses [options]
+
+Gets the addresses of the L1 contracts.
+
+Options:
+  -r, --registry-address <string>  The address of the registry contract
+  --l1-rpc-urls <string>           List of Ethereum host URLs. Chain
+                                   identifiers localhost and testnet can be
+                                   used (comma separated) (default:
+                                   ["http://host.docker.internal:8545"], env:
+                                   ETHEREUM_HOSTS)
+  -v, --rollup-version <number>    The version of the rollup
+  -c, --l1-chain-id <number>       Chain ID of the ethereum host (default:
+                                   31337, env: L1_CHAIN_ID)
+  --json                           Output the addresses in JSON format
+  -h, --help                       display help for command
+
+```
+
+### aztec new
+
+*No help information available for this command.*
+
 
 ### aztec get-l1-to-l2-message-witness
 
@@ -682,69 +726,6 @@ Options:
 
 ```
 
-### aztec get-node-info
-
-```
-Usage: aztec get-node-info [options]
-
-Gets the information of an Aztec node from a PXE or directly from an Aztec
-node.
-
-Options:
-  --json                   Emit output as json
-  -n, --node-url <string>  URL of the Aztec node (default:
-                           "http://host.docker.internal:8080", env:
-                           AZTEC_NODE_URL)
-  -h, --help               display help for command
-
-```
-
-### aztec inspect-contract
-
-```
-Usage: aztec inspect-contract [options] <contractArtifactFile>
-
-Shows list of external callable functions for a contract
-
-Arguments:
-  contractArtifactFile  A compiled Noir contract's artifact in JSON format or
-                        name of a contract artifact exported by
-                        @aztec/noir-contracts.js
-
-Options:
-  -h, --help            display help for command
-
-```
-
-### aztec parse-parameter-struct
-
-```
-Usage: aztec parse-parameter-struct [options] <encodedString>
-
-Helper for parsing an encoded string into a contract's parameter struct.
-
-Arguments:
-  encodedString                           The encoded hex string
-
-Options:
-  -c, --contract-artifact <fileLocation>  A compiled Aztec.nr contract's ABI in JSON format or name of a contract ABI exported by @aztec/noir-contracts.js
-  -p, --parameter <parameterName>         The name of the struct parameter to decode into
-  -h, --help                              display help for command
-
-```
-
-### aztec preload-crs
-
-```
-Usage: aztec preload-crs [options]
-
-Preload the points data needed for proving and verifying
-
-Options:
-  -h, --help  display help for command
-
-```
-
 ### aztec propose-with-lock
 
 ```
@@ -773,52 +754,208 @@ Options:
 
 ```
 
-### aztec prune-rollup
+### aztec get-node-info
 
 ```
-Usage: aztec prune-rollup [options]
+Usage: aztec get-node-info [options]
 
-Prunes the pending chain on the rollup contract.
+Gets the information of an Aztec node from a PXE or directly from an Aztec
+node.
 
 Options:
-  --l1-rpc-urls <string>       List of Ethereum host URLs. Chain identifiers
-                               localhost and testnet can be used (comma
-                               separated) (default:
-                               ["http://host.docker.internal:8545"], env:
-                               ETHEREUM_HOSTS)
-  -pk, --private-key <string>  The private key to use for deployment
-  -m, --mnemonic <string>      The mnemonic to use in deployment (default:
-                               "test test test test test test test test test
-                               test test junk")
-  -c, --l1-chain-id <number>   Chain ID of the ethereum host (default: 31337,
-                               env: L1_CHAIN_ID)
-  --rollup <address>           ethereum address of the rollup contract
-  -h, --help                   display help for command
+  --json                   Emit output as json
+  -n, --node-url <string>  URL of the Aztec node (default:
+                           "http://host.docker.internal:8080", env:
+                           AZTEC_NODE_URL)
+  -h, --help               display help for command
 
 ```
 
-### aztec remove-l1-validator
+### aztec preload-crs
 
 ```
-Usage: aztec remove-l1-validator [options]
+Usage: aztec preload-crs [options]
 
-Removes a validator to the L1 rollup contract.
+Preload the points data needed for proving and verifying
 
 Options:
-  --l1-rpc-urls <string>       List of Ethereum host URLs. Chain identifiers
-                               localhost and testnet can be used (comma
-                               separated) (default:
-                               ["http://host.docker.internal:8545"], env:
-                               ETHEREUM_HOSTS)
-  -pk, --private-key <string>  The private key to use for deployment
-  -m, --mnemonic <string>      The mnemonic to use in deployment (default:
-                               "test test test test test test test test test
-                               test test junk")
-  -c, --l1-chain-id <number>   Chain ID of the ethereum host (default: 31337,
-                               env: L1_CHAIN_ID)
-  --validator <address>        ethereum address of the validator
-  --rollup <address>           ethereum address of the rollup contract
-  -h, --help                   display help for command
+  -h, --help  display help for command
+
+```
+
+### aztec compile
+
+```
+Aztec Compile - Compile Aztec Noir contracts
+
+This command compiles Aztec Noir contracts using nargo and then automatically
+postprocesses them to generate Aztec-specific artifacts including:
+  - Transpiled contract artifacts
+  - Verification keys
+
+The compiled contracts will be placed in the target/ directory by default.
+
+AZTEC-SPECIFIC NOTES:
+  - Working directory must be under $HOME due to Docker containerization
+  - Compilation automatically includes contract postprocessing
+  - Use standard nargo compile options (see below)
+
+ENVIRONMENT VARIABLES:
+  AZTEC_PATH    Path to Aztec installation (default: $HOME/.aztec)
+  VERSION       Aztec version to use (default: from $AZTEC_PATH/default_version)
+  DOCKER_REPO   Docker repository (default: aztecprotocol/aztec)
+
+---
+Underlying nargo compile options:
+
+Compile the program and its secret execution trace into ACIR format
+
+Usage: nargo compile [OPTIONS]
+
+Options:
+      --package <PACKAGE>
+          The name of the package to run the command on. By default run on the first one found moving up along the ancestors of the current directory
+
+      --workspace
+          Run on all packages in the workspace
+
+      --expression-width <EXPRESSION_WIDTH>
+          Specify the backend expression width that should be targeted
+
+      --bounded-codegen
+          Generate ACIR with the target backend expression width. The default is to generate ACIR without a bound and split expressions after code generation. Activating this flag can sometimes provide optimizations for certain programs
+
+      --force
+          Force a full recompilation
+
+      --print-acir
+          Display the ACIR for compiled circuit
+
+      --deny-warnings
+          Treat all warnings as errors
+
+      --silence-warnings
+          Suppress warnings
+
+      --debug-comptime-in-file <DEBUG_COMPTIME_IN_FILE>
+          Enable printing results of comptime evaluation: provide a path suffix for the module to debug, e.g. "package_name/src/main.nr"
+
+      --skip-underconstrained-check
+          Flag to turn off the compiler check for under constrained values. Warning: This can improve compilation speed but can also lead to correctness errors. This check should always be run on production code
+
+      --skip-brillig-constraints-check
+          Flag to turn off the compiler check for missing Brillig call constraints. Warning: This can improve compilation speed but can also lead to correctness errors. This check should always be run on production code
+
+      --count-array-copies
+          Count the number of arrays that are copied in an unconstrained context for performance debugging
+
+      --enable-brillig-constraints-check-lookback
+          Flag to turn on the lookback feature of the Brillig call constraints check, allowing tracking argument values before the call happens preventing certain rare false positives (leads to a slowdown on large rollout functions)
+
+      --inliner-aggressiveness <INLINER_AGGRESSIVENESS>
+          Setting to decide on an inlining strategy for Brillig functions. A more aggressive inliner should generate larger programs but more optimized A less aggressive inliner should generate smaller programs
+          
+          [default: 9223372036854775807]
+
+      --pedantic-solving
+          Use pedantic ACVM solving, i.e. double-check some black-box function assumptions when solving. This is disabled by default
+
+  -Z, --unstable-features <UNSTABLE_FEATURES>
+          Unstable features to enable for this current build.
+          
+          If non-empty, it disables unstable features required in crate manifests.
+
+      --no-unstable-features
+          Disable any unstable features required in crate manifests
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+```
+
+### aztec fmt
+
+```
+Format the Noir files in a workspace
+
+Usage: nargo fmt [OPTIONS]
+
+Options:
+      --check              Run noirfmt in check mode
+      --package <PACKAGE>  The name of the package to run the command on. By default run on the first one found moving up along the ancestors of the current directory
+      --workspace          Run on all packages in the workspace
+  -h, --help               Print help
+
+```
+
+### aztec check
+
+```
+Check a local package and all of its dependencies for errors
+
+Usage: nargo check [OPTIONS]
+
+Options:
+      --package <PACKAGE>
+          The name of the package to run the command on. By default run on the first one found moving up along the ancestors of the current directory
+
+      --workspace
+          Run on all packages in the workspace
+
+      --overwrite
+          Force overwrite of existing files
+
+      --expression-width <EXPRESSION_WIDTH>
+          Specify the backend expression width that should be targeted
+
+      --bounded-codegen
+          Generate ACIR with the target backend expression width. The default is to generate ACIR without a bound and split expressions after code generation. Activating this flag can sometimes provide optimizations for certain programs
+
+      --force
+          Force a full recompilation
+
+      --print-acir
+          Display the ACIR for compiled circuit
+
+      --deny-warnings
+          Treat all warnings as errors
+
+      --silence-warnings
+          Suppress warnings
+
+      --debug-comptime-in-file <DEBUG_COMPTIME_IN_FILE>
+          Enable printing results of comptime evaluation: provide a path suffix for the module to debug, e.g. "package_name/src/main.nr"
+
+      --skip-underconstrained-check
+          Flag to turn off the compiler check for under constrained values. Warning: This can improve compilation speed but can also lead to correctness errors. This check should always be run on production code
+
+      --skip-brillig-constraints-check
+          Flag to turn off the compiler check for missing Brillig call constraints. Warning: This can improve compilation speed but can also lead to correctness errors. This check should always be run on production code
+
+      --count-array-copies
+          Count the number of arrays that are copied in an unconstrained context for performance debugging
+
+      --enable-brillig-constraints-check-lookback
+          Flag to turn on the lookback feature of the Brillig call constraints check, allowing tracking argument values before the call happens preventing certain rare false positives (leads to a slowdown on large rollout functions)
+
+      --inliner-aggressiveness <INLINER_AGGRESSIVENESS>
+          Setting to decide on an inlining strategy for Brillig functions. A more aggressive inliner should generate larger programs but more optimized A less aggressive inliner should generate smaller programs
+          
+          [default: 9223372036854775807]
+
+      --pedantic-solving
+          Use pedantic ACVM solving, i.e. double-check some black-box function assumptions when solving. This is disabled by default
+
+  -Z, --unstable-features <UNSTABLE_FEATURES>
+          Unstable features to enable for this current build.
+          
+          If non-empty, it disables unstable features required in crate manifests.
+
+      --no-unstable-features
+          Disable any unstable features required in crate manifests
+
+  -h, --help
+          Print help (see a summary with '-h')
 
 ```
 
@@ -865,6 +1002,261 @@ Options:
   --testAccounts           Deploy funded test accounts.
   --json                   Output the contract addresses in JSON format
   -h, --help               display help for command
+
+```
+
+### aztec remove-l1-validator
+
+```
+Usage: aztec remove-l1-validator [options]
+
+Removes a validator to the L1 rollup contract.
+
+Options:
+  --l1-rpc-urls <string>       List of Ethereum host URLs. Chain identifiers
+                               localhost and testnet can be used (comma
+                               separated) (default:
+                               ["http://host.docker.internal:8545"], env:
+                               ETHEREUM_HOSTS)
+  -pk, --private-key <string>  The private key to use for deployment
+  -m, --mnemonic <string>      The mnemonic to use in deployment (default:
+                               "test test test test test test test test test
+                               test test junk")
+  -c, --l1-chain-id <number>   Chain ID of the ethereum host (default: 31337,
+                               env: L1_CHAIN_ID)
+  --validator <address>        ethereum address of the validator
+  --rollup <address>           ethereum address of the rollup contract
+  -h, --help                   display help for command
+
+```
+
+### aztec prune-rollup
+
+```
+Usage: aztec prune-rollup [options]
+
+Prunes the pending chain on the rollup contract.
+
+Options:
+  --l1-rpc-urls <string>       List of Ethereum host URLs. Chain identifiers
+                               localhost and testnet can be used (comma
+                               separated) (default:
+                               ["http://host.docker.internal:8545"], env:
+                               ETHEREUM_HOSTS)
+  -pk, --private-key <string>  The private key to use for deployment
+  -m, --mnemonic <string>      The mnemonic to use in deployment (default:
+                               "test test test test test test test test test
+                               test test junk")
+  -c, --l1-chain-id <number>   Chain ID of the ethereum host (default: 31337,
+                               env: L1_CHAIN_ID)
+  --rollup <address>           ethereum address of the rollup contract
+  -h, --help                   display help for command
+
+```
+
+### aztec trigger-seed-snapshot
+
+```
+Usage: aztec trigger-seed-snapshot [options]
+
+Triggers a seed snapshot for the next epoch.
+
+Options:
+  -pk, --private-key <string>  The private key to use for deployment
+  -m, --mnemonic <string>      The mnemonic to use in deployment (default:
+                               "test test test test test test test test test
+                               test test junk")
+  --rollup <address>           ethereum address of the rollup contract
+  --l1-rpc-urls <string>       List of Ethereum host URLs. Chain identifiers
+                               localhost and testnet can be used (comma
+                               separated) (default:
+                               ["http://host.docker.internal:8545"], env:
+                               ETHEREUM_HOSTS)
+  -c, --l1-chain-id <number>   Chain ID of the ethereum host (default: 31337,
+                               env: L1_CHAIN_ID)
+  -h, --help                   display help for command
+
+```
+
+### aztec validator-keys|valKeys
+
+*This subcommand does not provide its own help information.*
+
+
+### aztec update
+
+```
+Usage: aztec update [options] [projectPath]
+
+Updates Nodejs and Noir dependencies
+
+Arguments:
+  projectPath               Path to the project directory (default:
+                            "/Users/alejoamiras/Projects/aztec-packages/docs")
+
+Options:
+  --contract [paths...]     Paths to contracts to update dependencies (default:
+                            [])
+  --aztec-version <semver>  The version to update Aztec packages to. Defaults
+                            to latest (default: "latest")
+  -h, --help                display help for command
+
+```
+
+### aztec vote-on-governance-proposal
+
+```
+Usage: aztec vote-on-governance-proposal [options]
+
+Votes on a governance proposal.
+
+Options:
+  -p, --proposal-id <string>       The ID of the proposal
+  -a, --vote-amount <string>       The amount of tokens to vote
+  --in-favor <boolean>             Whether to vote in favor of the proposal.
+                                   Use "yea" for true, any other value for
+                                   false.
+  --wait <boolean>                 Whether to wait until the proposal is active
+  -r, --registry-address <string>  The address of the registry contract
+  --l1-rpc-urls <string>           List of Ethereum host URLs. Chain
+                                   identifiers localhost and testnet can be
+                                   used (comma separated) (default:
+                                   ["http://host.docker.internal:8545"], env:
+                                   ETHEREUM_HOSTS)
+  -c, --l1-chain-id <number>       Chain ID of the ethereum host (default:
+                                   31337, env: L1_CHAIN_ID)
+  -pk, --private-key <string>      The private key to use to vote
+  -m, --mnemonic <string>          The mnemonic to use to vote (default: "test
+                                   test test test test test test test test test
+                                   test junk")
+  -i, --mnemonic-index <number>    The index of the mnemonic to use to vote
+                                   (default: 0)
+  -h, --help                       display help for command
+
+```
+
+### aztec test
+
+```
+Run the tests for this program
+
+Usage: nargo test [OPTIONS] [TEST_NAMES]...
+
+Arguments:
+  [TEST_NAMES]...
+          If given, only tests with names containing this string will be run
+
+Options:
+      --show-output
+          Display output of `println` statements
+
+      --exact
+          Only run tests that match exactly
+
+      --package <PACKAGE>
+          The name of the package to run the command on. By default run on the first one found moving up along the ancestors of the current directory
+
+      --workspace
+          Run on all packages in the workspace
+
+      --expression-width <EXPRESSION_WIDTH>
+          Specify the backend expression width that should be targeted
+
+      --bounded-codegen
+          Generate ACIR with the target backend expression width. The default is to generate ACIR without a bound and split expressions after code generation. Activating this flag can sometimes provide optimizations for certain programs
+
+      --force
+          Force a full recompilation
+
+      --print-acir
+          Display the ACIR for compiled circuit
+
+      --deny-warnings
+          Treat all warnings as errors
+
+      --silence-warnings
+          Suppress warnings
+
+      --debug-comptime-in-file <DEBUG_COMPTIME_IN_FILE>
+          Enable printing results of comptime evaluation: provide a path suffix for the module to debug, e.g. "package_name/src/main.nr"
+
+      --skip-underconstrained-check
+          Flag to turn off the compiler check for under constrained values. Warning: This can improve compilation speed but can also lead to correctness errors. This check should always be run on production code
+
+      --skip-brillig-constraints-check
+          Flag to turn off the compiler check for missing Brillig call constraints. Warning: This can improve compilation speed but can also lead to correctness errors. This check should always be run on production code
+
+      --count-array-copies
+          Count the number of arrays that are copied in an unconstrained context for performance debugging
+
+      --enable-brillig-constraints-check-lookback
+          Flag to turn on the lookback feature of the Brillig call constraints check, allowing tracking argument values before the call happens preventing certain rare false positives (leads to a slowdown on large rollout functions)
+
+      --inliner-aggressiveness <INLINER_AGGRESSIVENESS>
+          Setting to decide on an inlining strategy for Brillig functions. A more aggressive inliner should generate larger programs but more optimized A less aggressive inliner should generate smaller programs
+          
+          [default: 9223372036854775807]
+
+      --pedantic-solving
+          Use pedantic ACVM solving, i.e. double-check some black-box function assumptions when solving. This is disabled by default
+
+  -Z, --unstable-features <UNSTABLE_FEATURES>
+          Unstable features to enable for this current build.
+          
+          If non-empty, it disables unstable features required in crate manifests.
+
+      --no-unstable-features
+          Disable any unstable features required in crate manifests
+
+      --oracle-resolver <ORACLE_RESOLVER>
+          JSON RPC url to solve oracle calls
+
+      --test-threads <TEST_THREADS>
+          Number of threads used for running tests in parallel
+          
+          [default: 14]
+
+      --format <FORMAT>
+          Configure formatting of output
+
+          Possible values:
+          - pretty: Print verbose output
+          - terse:  Display one character per test
+          - json:   Output a JSON Lines document
+
+  -q, --quiet
+          Display one character per test instead of one line
+
+      --no-fuzz
+          Do not run fuzz tests (tests that have arguments)
+
+      --only-fuzz
+          Only run fuzz tests (tests that have arguments)
+
+      --corpus-dir <CORPUS_DIR>
+          If given, load/store fuzzer corpus from this folder
+
+      --minimized-corpus-dir <MINIMIZED_CORPUS_DIR>
+          If given, perform corpus minimization instead of fuzzing and store results in the given folder
+
+      --fuzzing-failure-dir <FUZZING_FAILURE_DIR>
+          If given, store the failing input in the given folder
+
+      --fuzz-timeout <FUZZ_TIMEOUT>
+          Maximum time in seconds to spend fuzzing (default: 1 seconds)
+          
+          [default: 1]
+
+      --fuzz-max-executions <FUZZ_MAX_EXECUTIONS>
+          Maximum number of executions to run for each fuzz test (default: 100000)
+          
+          [default: 100000]
+
+      --fuzz-show-progress
+          Show progress of fuzzing (default: false)
+
+  -h, --help
+          Print help (see a summary with '-h')
 
 ```
 
@@ -1811,397 +2203,6 @@ Options:
 
 - `--txe`
   Starts Aztec TXE with options
-
-### aztec trigger-seed-snapshot
-
-```
-Usage: aztec trigger-seed-snapshot [options]
-
-Triggers a seed snapshot for the next epoch.
-
-Options:
-  -pk, --private-key <string>  The private key to use for deployment
-  -m, --mnemonic <string>      The mnemonic to use in deployment (default:
-                               "test test test test test test test test test
-                               test test junk")
-  --rollup <address>           ethereum address of the rollup contract
-  --l1-rpc-urls <string>       List of Ethereum host URLs. Chain identifiers
-                               localhost and testnet can be used (comma
-                               separated) (default:
-                               ["http://host.docker.internal:8545"], env:
-                               ETHEREUM_HOSTS)
-  -c, --l1-chain-id <number>   Chain ID of the ethereum host (default: 31337,
-                               env: L1_CHAIN_ID)
-  -h, --help                   display help for command
-
-```
-
-### aztec update
-
-```
-Usage: aztec update [options] [projectPath]
-
-Updates Nodejs and Noir dependencies
-
-Arguments:
-  projectPath               Path to the project directory
-
-Options:
-  --contract [paths...]     Paths to contracts to update dependencies (default:
-                            [])
-  --aztec-version <semver>  The version to update Aztec packages to. Defaults
-                            to latest (default: "latest")
-  -h, --help                display help for command
-
-```
-
-### aztec validator-keys|valKeys
-
-*This subcommand does not provide its own help information.*
-
-
-### aztec vote-on-governance-proposal
-
-```
-Usage: aztec vote-on-governance-proposal [options]
-
-Votes on a governance proposal.
-
-Options:
-  -p, --proposal-id <string>       The ID of the proposal
-  -a, --vote-amount <string>       The amount of tokens to vote
-  --in-favor <boolean>             Whether to vote in favor of the proposal.
-                                   Use "yea" for true, any other value for
-                                   false.
-  --wait <boolean>                 Whether to wait until the proposal is active
-  -r, --registry-address <string>  The address of the registry contract
-  --l1-rpc-urls <string>           List of Ethereum host URLs. Chain
-                                   identifiers localhost and testnet can be
-                                   used (comma separated) (default:
-                                   ["http://host.docker.internal:8545"], env:
-                                   ETHEREUM_HOSTS)
-  -c, --l1-chain-id <number>       Chain ID of the ethereum host (default:
-                                   31337, env: L1_CHAIN_ID)
-  -pk, --private-key <string>      The private key to use to vote
-  -m, --mnemonic <string>          The mnemonic to use to vote (default: "test
-                                   test test test test test test test test test
-                                   test junk")
-  -i, --mnemonic-index <number>    The index of the mnemonic to use to vote
-                                   (default: 0)
-  -h, --help                       display help for command
-
-```
-
-### aztec init
-
-*No help information available for this command.*
-
-
-### aztec new
-
-*No help information available for this command.*
-
-
-### aztec compile
-
-```
-Aztec Compile - Compile Aztec Noir contracts
-
-This command compiles Aztec Noir contracts using nargo and then automatically
-postprocesses them to generate Aztec-specific artifacts including:
-  - Transpiled contract artifacts
-  - Verification keys
-
-The compiled contracts will be placed in the target/ directory by default.
-
-AZTEC-SPECIFIC NOTES:
-  - Working directory must be under $HOME due to Docker containerization
-  - Compilation automatically includes contract postprocessing
-  - Use standard nargo compile options (see below)
-
-ENVIRONMENT VARIABLES:
-  AZTEC_PATH    Path to Aztec installation (default: $HOME/.aztec)
-  VERSION       Aztec version to use (default: from $AZTEC_PATH/default_version)
-  DOCKER_REPO   Docker repository (default: aztecprotocol/aztec)
-
----
-Underlying nargo compile options:
-
-Compile the program and its secret execution trace into ACIR format
-
-Usage: nargo compile [OPTIONS]
-
-Options:
-      --package <PACKAGE>
-          The name of the package to run the command on. By default run on the first one found moving up along the ancestors of the current directory
-
-      --workspace
-          Run on all packages in the workspace
-
-      --expression-width <EXPRESSION_WIDTH>
-          Specify the backend expression width that should be targeted
-
-      --bounded-codegen
-          Generate ACIR with the target backend expression width. The default is to generate ACIR without a bound and split expressions after code generation. Activating this flag can sometimes provide optimizations for certain programs
-
-      --force
-          Force a full recompilation
-
-      --print-acir
-          Display the ACIR for compiled circuit
-
-      --deny-warnings
-          Treat all warnings as errors
-
-      --silence-warnings
-          Suppress warnings
-
-      --debug-comptime-in-file <DEBUG_COMPTIME_IN_FILE>
-          Enable printing results of comptime evaluation: provide a path suffix for the module to debug, e.g. "package_name/src/main.nr"
-
-      --skip-underconstrained-check
-          Flag to turn off the compiler check for under constrained values. Warning: This can improve compilation speed but can also lead to correctness errors. This check should always be run on production code
-
-      --skip-brillig-constraints-check
-          Flag to turn off the compiler check for missing Brillig call constraints. Warning: This can improve compilation speed but can also lead to correctness errors. This check should always be run on production code
-
-      --count-array-copies
-          Count the number of arrays that are copied in an unconstrained context for performance debugging
-
-      --enable-brillig-constraints-check-lookback
-          Flag to turn on the lookback feature of the Brillig call constraints check, allowing tracking argument values before the call happens preventing certain rare false positives (leads to a slowdown on large rollout functions)
-
-      --inliner-aggressiveness <INLINER_AGGRESSIVENESS>
-          Setting to decide on an inlining strategy for Brillig functions. A more aggressive inliner should generate larger programs but more optimized A less aggressive inliner should generate smaller programs
-
-          [default: 9223372036854775807]
-
-      --pedantic-solving
-          Use pedantic ACVM solving, i.e. double-check some black-box function assumptions when solving. This is disabled by default
-
-  -Z, --unstable-features <UNSTABLE_FEATURES>
-          Unstable features to enable for this current build.
-
-          If non-empty, it disables unstable features required in crate manifests.
-
-      --no-unstable-features
-          Disable any unstable features required in crate manifests
-
-  -h, --help
-          Print help (see a summary with '-h')
-
-```
-
-### aztec fmt
-
-```
-Format the Noir files in a workspace
-
-Usage: nargo fmt [OPTIONS]
-
-Options:
-      --check              Run noirfmt in check mode
-      --package <PACKAGE>  The name of the package to run the command on. By default run on the first one found moving up along the ancestors of the current directory
-      --workspace          Run on all packages in the workspace
-  -h, --help               Print help
-
-```
-
-### aztec check
-
-```
-Check a local package and all of its dependencies for errors
-
-Usage: nargo check [OPTIONS]
-
-Options:
-      --package <PACKAGE>
-          The name of the package to run the command on. By default run on the first one found moving up along the ancestors of the current directory
-
-      --workspace
-          Run on all packages in the workspace
-
-      --overwrite
-          Force overwrite of existing files
-
-      --expression-width <EXPRESSION_WIDTH>
-          Specify the backend expression width that should be targeted
-
-      --bounded-codegen
-          Generate ACIR with the target backend expression width. The default is to generate ACIR without a bound and split expressions after code generation. Activating this flag can sometimes provide optimizations for certain programs
-
-      --force
-          Force a full recompilation
-
-      --print-acir
-          Display the ACIR for compiled circuit
-
-      --deny-warnings
-          Treat all warnings as errors
-
-      --silence-warnings
-          Suppress warnings
-
-      --debug-comptime-in-file <DEBUG_COMPTIME_IN_FILE>
-          Enable printing results of comptime evaluation: provide a path suffix for the module to debug, e.g. "package_name/src/main.nr"
-
-      --skip-underconstrained-check
-          Flag to turn off the compiler check for under constrained values. Warning: This can improve compilation speed but can also lead to correctness errors. This check should always be run on production code
-
-      --skip-brillig-constraints-check
-          Flag to turn off the compiler check for missing Brillig call constraints. Warning: This can improve compilation speed but can also lead to correctness errors. This check should always be run on production code
-
-      --count-array-copies
-          Count the number of arrays that are copied in an unconstrained context for performance debugging
-
-      --enable-brillig-constraints-check-lookback
-          Flag to turn on the lookback feature of the Brillig call constraints check, allowing tracking argument values before the call happens preventing certain rare false positives (leads to a slowdown on large rollout functions)
-
-      --inliner-aggressiveness <INLINER_AGGRESSIVENESS>
-          Setting to decide on an inlining strategy for Brillig functions. A more aggressive inliner should generate larger programs but more optimized A less aggressive inliner should generate smaller programs
-
-          [default: 9223372036854775807]
-
-      --pedantic-solving
-          Use pedantic ACVM solving, i.e. double-check some black-box function assumptions when solving. This is disabled by default
-
-  -Z, --unstable-features <UNSTABLE_FEATURES>
-          Unstable features to enable for this current build.
-
-          If non-empty, it disables unstable features required in crate manifests.
-
-      --no-unstable-features
-          Disable any unstable features required in crate manifests
-
-  -h, --help
-          Print help (see a summary with '-h')
-
-```
-
-### aztec test
-
-```
-Run the tests for this program
-
-Usage: nargo test [OPTIONS] [TEST_NAMES]...
-
-Arguments:
-  [TEST_NAMES]...
-          If given, only tests with names containing this string will be run
-
-Options:
-      --show-output
-          Display output of `println` statements
-
-      --exact
-          Only run tests that match exactly
-
-      --package <PACKAGE>
-          The name of the package to run the command on. By default run on the first one found moving up along the ancestors of the current directory
-
-      --workspace
-          Run on all packages in the workspace
-
-      --expression-width <EXPRESSION_WIDTH>
-          Specify the backend expression width that should be targeted
-
-      --bounded-codegen
-          Generate ACIR with the target backend expression width. The default is to generate ACIR without a bound and split expressions after code generation. Activating this flag can sometimes provide optimizations for certain programs
-
-      --force
-          Force a full recompilation
-
-      --print-acir
-          Display the ACIR for compiled circuit
-
-      --deny-warnings
-          Treat all warnings as errors
-
-      --silence-warnings
-          Suppress warnings
-
-      --debug-comptime-in-file <DEBUG_COMPTIME_IN_FILE>
-          Enable printing results of comptime evaluation: provide a path suffix for the module to debug, e.g. "package_name/src/main.nr"
-
-      --skip-underconstrained-check
-          Flag to turn off the compiler check for under constrained values. Warning: This can improve compilation speed but can also lead to correctness errors. This check should always be run on production code
-
-      --skip-brillig-constraints-check
-          Flag to turn off the compiler check for missing Brillig call constraints. Warning: This can improve compilation speed but can also lead to correctness errors. This check should always be run on production code
-
-      --count-array-copies
-          Count the number of arrays that are copied in an unconstrained context for performance debugging
-
-      --enable-brillig-constraints-check-lookback
-          Flag to turn on the lookback feature of the Brillig call constraints check, allowing tracking argument values before the call happens preventing certain rare false positives (leads to a slowdown on large rollout functions)
-
-      --inliner-aggressiveness <INLINER_AGGRESSIVENESS>
-          Setting to decide on an inlining strategy for Brillig functions. A more aggressive inliner should generate larger programs but more optimized A less aggressive inliner should generate smaller programs
-
-          [default: 9223372036854775807]
-
-      --pedantic-solving
-          Use pedantic ACVM solving, i.e. double-check some black-box function assumptions when solving. This is disabled by default
-
-  -Z, --unstable-features <UNSTABLE_FEATURES>
-          Unstable features to enable for this current build.
-
-          If non-empty, it disables unstable features required in crate manifests.
-
-      --no-unstable-features
-          Disable any unstable features required in crate manifests
-
-      --oracle-resolver <ORACLE_RESOLVER>
-          JSON RPC url to solve oracle calls
-
-      --test-threads <TEST_THREADS>
-          Number of threads used for running tests in parallel
-
-          [default: 14]
-
-      --format <FORMAT>
-          Configure formatting of output
-
-          Possible values:
-          - pretty: Print verbose output
-          - terse:  Display one character per test
-          - json:   Output a JSON Lines document
-
-  -q, --quiet
-          Display one character per test instead of one line
-
-      --no-fuzz
-          Do not run fuzz tests (tests that have arguments)
-
-      --only-fuzz
-          Only run fuzz tests (tests that have arguments)
-
-      --corpus-dir <CORPUS_DIR>
-          If given, load/store fuzzer corpus from this folder
-
-      --minimized-corpus-dir <MINIMIZED_CORPUS_DIR>
-          If given, perform corpus minimization instead of fuzzing and store results in the given folder
-
-      --fuzzing-failure-dir <FUZZING_FAILURE_DIR>
-          If given, store the failing input in the given folder
-
-      --fuzz-timeout <FUZZ_TIMEOUT>
-          Maximum time in seconds to spend fuzzing (default: 1 seconds)
-
-          [default: 1]
-
-      --fuzz-max-executions <FUZZ_MAX_EXECUTIONS>
-          Maximum number of executions to run for each fuzz test (default: 100000)
-
-          [default: 100000]
-
-      --fuzz-show-progress
-          Show progress of fuzzing (default: false)
-
-  -h, --help
-          Print help (see a summary with '-h')
-
-```
 
 ### aztec lsp
 
