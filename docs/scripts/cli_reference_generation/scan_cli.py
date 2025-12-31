@@ -227,8 +227,8 @@ class CLIScanner:
 
         # Get help output
         help_output = self.run_command(cmd_path + ['--help'])
-        if not help_output:
-            return {"error": "no_help_output"}
+        if not help_output or not help_output.strip():
+            return {"error": "no_help_available", "error_type": "empty_output"}
 
         # Check if help output is identical to parent (indicates invalid subcommand)
         if parent_help and help_output.strip() == parent_help.strip():

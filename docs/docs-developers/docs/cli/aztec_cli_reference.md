@@ -10,7 +10,7 @@ sidebar_position: 1
 *This documentation is auto-generated from the `aztec` CLI help output.*
 
 
-*Generated: Wed 31 Dec 2025 15:41:55 UTC*
+*Generated: Wed 31 Dec 2025 16:21:23 UTC*
 
 *Command: `aztec`*
 
@@ -1844,8 +1844,7 @@ Usage: aztec update [options] [projectPath]
 Updates Nodejs and Noir dependencies
 
 Arguments:
-  projectPath               Path to the project directory (default:
-                            "/Users/alejoamiras/Projects/aztec-packages/docs")
+  projectPath               Path to the project directory
 
 Options:
   --contract [paths...]     Paths to contracts to update dependencies (default:
@@ -1858,7 +1857,7 @@ Options:
 
 ### aztec validator-keys|valKeys
 
-*This command help is currently unavailable due to a technical issue.*
+*This subcommand does not provide its own help information.*
 
 
 ### aztec vote-on-governance-proposal
@@ -1895,12 +1894,12 @@ Options:
 
 ### aztec init
 
-*This command help is currently unavailable due to a technical issue.*
+*No help information available for this command.*
 
 
 ### aztec new
 
-*This command help is currently unavailable due to a technical issue.*
+*No help information available for this command.*
 
 
 ### aztec compile
@@ -1974,7 +1973,7 @@ Options:
 
       --inliner-aggressiveness <INLINER_AGGRESSIVENESS>
           Setting to decide on an inlining strategy for Brillig functions. A more aggressive inliner should generate larger programs but more optimized A less aggressive inliner should generate smaller programs
-          
+
           [default: 9223372036854775807]
 
       --pedantic-solving
@@ -1982,7 +1981,7 @@ Options:
 
   -Z, --unstable-features <UNSTABLE_FEATURES>
           Unstable features to enable for this current build.
-          
+
           If non-empty, it disables unstable features required in crate manifests.
 
       --no-unstable-features
@@ -2060,7 +2059,7 @@ Options:
 
       --inliner-aggressiveness <INLINER_AGGRESSIVENESS>
           Setting to decide on an inlining strategy for Brillig functions. A more aggressive inliner should generate larger programs but more optimized A less aggressive inliner should generate smaller programs
-          
+
           [default: 9223372036854775807]
 
       --pedantic-solving
@@ -2068,7 +2067,7 @@ Options:
 
   -Z, --unstable-features <UNSTABLE_FEATURES>
           Unstable features to enable for this current build.
-          
+
           If non-empty, it disables unstable features required in crate manifests.
 
       --no-unstable-features
@@ -2138,7 +2137,7 @@ Options:
 
       --inliner-aggressiveness <INLINER_AGGRESSIVENESS>
           Setting to decide on an inlining strategy for Brillig functions. A more aggressive inliner should generate larger programs but more optimized A less aggressive inliner should generate smaller programs
-          
+
           [default: 9223372036854775807]
 
       --pedantic-solving
@@ -2146,7 +2145,7 @@ Options:
 
   -Z, --unstable-features <UNSTABLE_FEATURES>
           Unstable features to enable for this current build.
-          
+
           If non-empty, it disables unstable features required in crate manifests.
 
       --no-unstable-features
@@ -2157,7 +2156,7 @@ Options:
 
       --test-threads <TEST_THREADS>
           Number of threads used for running tests in parallel
-          
+
           [default: 14]
 
       --format <FORMAT>
@@ -2188,12 +2187,12 @@ Options:
 
       --fuzz-timeout <FUZZ_TIMEOUT>
           Maximum time in seconds to spend fuzzing (default: 1 seconds)
-          
+
           [default: 1]
 
       --fuzz-max-executions <FUZZ_MAX_EXECUTIONS>
           Maximum number of executions to run for each fuzz test (default: 100000)
-          
+
           [default: 100000]
 
       --fuzz-show-progress
@@ -2206,5 +2205,5 @@ Options:
 
 ### aztec lsp
 
-*This command help is currently unavailable due to a technical issue.*
+*No help information available for this command.*
 

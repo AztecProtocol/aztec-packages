@@ -10,7 +10,7 @@ sidebar_position: 2
 *This documentation is auto-generated from the `aztec-wallet` CLI help output.*
 
 
-*Generated: Wed 31 Dec 2025 15:43:45 UTC*
+*Generated: Wed 31 Dec 2025 16:23:14 UTC*
 
 *Command: `aztec-wallet`*
 
@@ -83,7 +83,7 @@ Import test accounts from pxe.
 Options:
   --json      Emit output as json
   -h, --help  display help for command
-2025/12/31 12:43:46 socat[226] E exactly 2 addresses required (there are 3); use option "-h" for help
+2025/12/31 13:23:15 socat[26144] E exactly 2 addresses required (there are 3); use option "-h" for help
 
 ```
 
@@ -125,7 +125,7 @@ Options:
   --max-priority-fees-per-gas <da=0,l2=0>                   Maximum priority fees per gas unit for DA and L2 computation.
   --estimate-gas-only                                       Only report gas estimation for the tx, do not send it.
   -h, --help                                                display help for command
-2025/12/31 12:43:46 socat[237] E exactly 2 addresses required (there are 3); use option "-h" for help
+2025/12/31 13:23:16 socat[26181] E exactly 2 addresses required (there are 3); use option "-h" for help
 
 ```
 
@@ -163,7 +163,7 @@ Options:
   --max-priority-fees-per-gas <da=0,l2=0>                   Maximum priority fees per gas unit for DA and L2 computation.
   --estimate-gas-only                                       Only report gas estimation for the tx, do not send it.
   -h, --help                                                display help for command
-2025/12/31 12:43:47 socat[265] E exactly 2 addresses required (there are 3); use option "-h" for help
+2025/12/31 13:23:17 socat[26191] E exactly 2 addresses required (there are 3); use option "-h" for help
 
 ```
 
@@ -207,7 +207,7 @@ Options:
   --max-priority-fees-per-gas <da=0,l2=0>                   Maximum priority fees per gas unit for DA and L2 computation.
   --estimate-gas-only                                       Only report gas estimation for the tx, do not send it.
   -h, --help                                                display help for command
-2025/12/31 12:43:48 socat[275] E exactly 2 addresses required (there are 3); use option "-h" for help
+2025/12/31 13:23:17 socat[26219] E exactly 2 addresses required (there are 3); use option "-h" for help
 
 ```
 
@@ -245,7 +245,7 @@ Options:
   --max-priority-fees-per-gas <da=0,l2=0>                   Maximum priority fees per gas unit for DA and L2 computation.
   --estimate-gas-only                                       Only report gas estimation for the tx, do not send it.
   -h, --help                                                display help for command
-2025/12/31 12:43:49 socat[285] E exactly 2 addresses required (there are 3); use option "-h" for help
+2025/12/31 13:23:18 socat[26229] E exactly 2 addresses required (there are 3); use option "-h" for help
 
 ```
 
@@ -282,7 +282,7 @@ Options:
   --max-priority-fees-per-gas <da=0,l2=0>                   Maximum priority fees per gas unit for DA and L2 computation.
   --estimate-gas-only                                       Only report gas estimation for the tx, do not send it.
   -h, --help                                                display help for command
-2025/12/31 12:43:50 socat[313] E exactly 2 addresses required (there are 3); use option "-h" for help
+2025/12/31 13:23:19 socat[26239] E exactly 2 addresses required (there are 3); use option "-h" for help
 
 ```
 
@@ -319,7 +319,7 @@ Options:
   --max-priority-fees-per-gas <da=0,l2=0>                   Maximum priority fees per gas unit for DA and L2 computation.
   --estimate-gas-only                                       Only report gas estimation for the tx, do not send it.
   -h, --help                                                display help for command
-2025/12/31 12:43:51 socat[330] E exactly 2 addresses required (there are 3); use option "-h" for help
+2025/12/31 13:23:20 socat[26288] E exactly 2 addresses required (there are 3); use option "-h" for help
 
 ```
 
@@ -353,7 +353,7 @@ Options:
   --interval <number>         The polling interval in seconds for the bridged
                               funds (default: "60")
   -h, --help                  display help for command
-2025/12/31 12:43:52 socat[432] E exactly 2 addresses required (there are 3); use option "-h" for help
+2025/12/31 13:23:21 socat[26299] E exactly 2 addresses required (there are 3); use option "-h" for help
 
 ```
 
@@ -376,7 +376,7 @@ Options:
   -f, --from <string>                     Alias or address of the account to simulate from
   -a, --alias <string>                    Alias for the authorization witness. Used for easy reference in subsequent commands.
   -h, --help                              display help for command
-2025/12/31 12:43:53 socat[444] E exactly 2 addresses required (there are 3); use option "-h" for help
+2025/12/31 13:23:22 socat[26327] E exactly 2 addresses required (there are 3); use option "-h" for help
 
 ```
 
@@ -398,7 +398,7 @@ Options:
   -c, --contract-artifact <fileLocation>  Path to a compiled Aztec contract's artifact in JSON format. If executed inside a nargo workspace, a package and contract name can be specified as package@contract
   -f, --from <string>                     Alias or address of the account to simulate from
   -h, --help                              display help for command
-2025/12/31 12:43:54 socat[472] E exactly 2 addresses required (there are 3); use option "-h" for help
+2025/12/31 13:23:23 socat[26337] E exactly 2 addresses required (there are 3); use option "-h" for help
 
 ```
 
@@ -418,7 +418,7 @@ Options:
   -s, --page-size <number>  The number of transactions to display per page
                             (default: 10)
   -h, --help                display help for command
-2025/12/31 12:43:54 socat[482] E exactly 2 addresses required (there are 3); use option "-h" for help
+2025/12/31 13:23:24 socat[26365] E exactly 2 addresses required (there are 3); use option "-h" for help
 
 ```
 
@@ -437,7 +437,7 @@ Options:
   -a, --alias <string>  Alias for the sender. Used for easy reference in
                         subsequent commands.
   -h, --help            display help for command
-2025/12/31 12:43:55 socat[657] E exactly 2 addresses required (there are 3); use option "-h" for help
+2025/12/31 13:23:25 socat[26381] E exactly 2 addresses required (there are 3); use option "-h" for help
 
 ```
 
@@ -470,7 +470,7 @@ Options:
   -a, --alias <string>       Alias for the contact. Used for easy reference in
                              subsequent commands.
   -h, --help                 display help for command
-2025/12/31 12:43:56 socat[737] E exactly 2 addresses required (there are 3); use option "-h" for help
+2025/12/31 13:23:26 socat[26411] E exactly 2 addresses required (there are 3); use option "-h" for help
 
 ```
 
@@ -489,7 +489,7 @@ Arguments:
 
 Options:
   -h, --help  display help for command
-2025/12/31 12:43:57 socat[764] E exactly 2 addresses required (there are 3); use option "-h" for help
+2025/12/31 13:23:26 socat[26421] E exactly 2 addresses required (there are 3); use option "-h" for help
 
 ```
 
@@ -505,7 +505,7 @@ Arguments:
 
 Options:
   -h, --help  display help for command
-2025/12/31 12:43:58 socat[860] E exactly 2 addresses required (there are 3); use option "-h" for help
+2025/12/31 13:23:27 socat[26455] E exactly 2 addresses required (there are 3); use option "-h" for help
 
 ```
 
@@ -519,6 +519,6 @@ Creates an aliased secret to use in other commands
 Options:
   -a, --alias <string>  Key to alias the secret with
   -h, --help            display help for command
-2025/12/31 12:43:59 socat[881] E exactly 2 addresses required (there are 3); use option "-h" for help
+2025/12/31 13:23:28 socat[26465] E exactly 2 addresses required (there are 3); use option "-h" for help
 
 ```
