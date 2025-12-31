@@ -1646,3 +1646,231 @@ TEST(fuzz, StaticCallToNonStaticFunctionSuccessCopy)
     EXPECT_EQ(result.reverted, false);
 }
 } // namespace external_calls
+
+namespace crypto_ops {
+
+TEST(fuzz, Poseidon2PermSmoke)
+{
+    // Set up 4 FF values for Poseidon2 permutation input
+    std::vector<FuzzInstruction> instructions;
+    for (uint32_t i = 0; i < 4; i++) {
+        instructions.push_back(
+            SET_FF_Instruction{ .value_tag = bb::avm2::MemoryTag::FF,
+                                .result_address = AddressRef{ .address = i, .mode = AddressingMode::Direct },
+                                .value = FF(i + 1) });
+    }
+    // Poseidon2 permutation: reads from address 0-3, writes to address 10-13
+    instructions.push_back(
+        POSEIDON2PERM_Instruction{ .src_address = AddressRef{ .address = 0, .mode = AddressingMode::Direct },
+                                   .dst_address = AddressRef{ .address = 10, .mode = AddressingMode::Direct } });
+
+    auto instruction_blocks = std::vector<std::vector<FuzzInstruction>>{ instructions };
+    auto control_flow = ControlFlow(instruction_blocks);
+    control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
+    auto bytecode = control_flow.build_bytecode(
+        ReturnOptions{ .return_size = 1, .return_value_tag = bb::avm2::MemoryTag::FF, .return_value_offset_index = 2 });
+
+    auto result = simulate_with_default_tx(bytecode, {});
+    EXPECT_FALSE(result.reverted);
+}
+
+TEST(fuzz, Keccakf1600Smoke)
+{
+    // Set up 25 U64 values for Keccak-f[1600] permutation input
+    std::vector<FuzzInstruction> instructions;
+    for (uint32_t i = 0; i < 25; i++) {
+        instructions.push_back(
+            SET_64_Instruction{ .value_tag = bb::avm2::MemoryTag::U64,
+                                .result_address = AddressRef{ .address = i, .mode = AddressingMode::Direct },
+                                .value = static_cast<uint64_t>(i + 1) });
+    }
+    // Keccak-f[1600]: reads from address 0-24, writes to address 100-124
+    instructions.push_back(
+        KECCAKF1600_Instruction{ .src_address = AddressRef{ .address = 0, .mode = AddressingMode::Direct },
+                                 .dst_address = AddressRef{ .address = 100, .mode = AddressingMode::Direct } });
+
+    auto instruction_blocks = std::vector<std::vector<FuzzInstruction>>{ instructions };
+    auto control_flow = ControlFlow(instruction_blocks);
+    control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
+    auto bytecode = control_flow.build_bytecode(ReturnOptions{
+        .return_size = 1, .return_value_tag = bb::avm2::MemoryTag::U64, .return_value_offset_index = 25 });
+
+    auto result = simulate_with_default_tx(bytecode, {});
+    EXPECT_FALSE(result.reverted);
+}
+
+TEST(fuzz, Sha256CompressionSmoke)
+{
+    // Set up 8 U32 values for state and 16 U32 values for input
+    std::vector<FuzzInstruction> instructions;
+
+    // State: addresses 0-7
+    for (uint32_t i = 0; i < 8; i++) {
+        instructions.push_back(
+            SET_32_Instruction{ .value_tag = bb::avm2::MemoryTag::U32,
+                                .result_address = AddressRef{ .address = i, .mode = AddressingMode::Direct },
+                                .value = i + 1 });
+    }
+    // Input: addresses 20-35
+    for (uint32_t i = 0; i < 16; i++) {
+        instructions.push_back(
+            SET_32_Instruction{ .value_tag = bb::avm2::MemoryTag::U32,
+                                .result_address = AddressRef{ .address = 20 + i, .mode = AddressingMode::Direct },
+                                .value = i + 100 });
+    }
+    // SHA256 compression: state at 0-7, input at 20-35, output at 50-57
+    instructions.push_back(
+        SHA256COMPRESSION_Instruction{ .state_address = AddressRef{ .address = 0, .mode = AddressingMode::Direct },
+                                       .input_address = AddressRef{ .address = 20, .mode = AddressingMode::Direct },
+                                       .dst_address = AddressRef{ .address = 50, .mode = AddressingMode::Direct } });
+
+    auto instruction_blocks = std::vector<std::vector<FuzzInstruction>>{ instructions };
+    auto control_flow = ControlFlow(instruction_blocks);
+    control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
+    auto bytecode = control_flow.build_bytecode(ReturnOptions{
+        .return_size = 1, .return_value_tag = bb::avm2::MemoryTag::U32, .return_value_offset_index = 12 });
+
+    auto result = simulate_with_default_tx(bytecode, {});
+    EXPECT_FALSE(result.reverted);
+}
+
+TEST(fuzz, EcaddSmoke)
+{
+    std::vector<FuzzInstruction> instructions;
+
+    // Use the generator point G = (1, sqrt(-16)) as p1
+    // For simplicity, we'll use infinity points which should work
+    // Set p1 as infinity: x=0, y=0, infinite=1
+    instructions.push_back(
+        SET_FF_Instruction{ .value_tag = bb::avm2::MemoryTag::FF,
+                            .result_address = AddressRef{ .address = 0, .mode = AddressingMode::Direct },
+                            .value = FF(0) }); // p1.x
+    instructions.push_back(
+        SET_FF_Instruction{ .value_tag = bb::avm2::MemoryTag::FF,
+                            .result_address = AddressRef{ .address = 1, .mode = AddressingMode::Direct },
+                            .value = FF(0) }); // p1.y
+    instructions.push_back(
+        SET_8_Instruction{ .value_tag = bb::avm2::MemoryTag::U1,
+                           .result_address = AddressRef{ .address = 2, .mode = AddressingMode::Direct },
+                           .value = 1 }); // p1.infinite = true
+
+    // Set p2 as infinity too
+    instructions.push_back(
+        SET_FF_Instruction{ .value_tag = bb::avm2::MemoryTag::FF,
+                            .result_address = AddressRef{ .address = 3, .mode = AddressingMode::Direct },
+                            .value = FF(0) }); // p2.x
+    instructions.push_back(
+        SET_FF_Instruction{ .value_tag = bb::avm2::MemoryTag::FF,
+                            .result_address = AddressRef{ .address = 4, .mode = AddressingMode::Direct },
+                            .value = FF(0) }); // p2.y
+    instructions.push_back(
+        SET_8_Instruction{ .value_tag = bb::avm2::MemoryTag::U1,
+                           .result_address = AddressRef{ .address = 5, .mode = AddressingMode::Direct },
+                           .value = 1 }); // p2.infinite = true
+
+    // ECADD instruction: infinity + infinity = infinity
+    instructions.push_back(ECADD_Instruction{ .p1_x = AddressRef{ .address = 0, .mode = AddressingMode::Direct },
+                                              .p1_y = AddressRef{ .address = 1, .mode = AddressingMode::Direct },
+                                              .p1_infinite = AddressRef{ .address = 2, .mode = AddressingMode::Direct },
+                                              .p2_x = AddressRef{ .address = 3, .mode = AddressingMode::Direct },
+                                              .p2_y = AddressRef{ .address = 4, .mode = AddressingMode::Direct },
+                                              .p2_infinite = AddressRef{ .address = 5, .mode = AddressingMode::Direct },
+                                              .result = AddressRef{ .address = 10, .mode = AddressingMode::Direct } });
+
+    auto instruction_blocks = std::vector<std::vector<FuzzInstruction>>{ instructions };
+    auto control_flow = ControlFlow(instruction_blocks);
+    control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
+    // Return the infinite flag of the result (should be 1)
+    auto bytecode = control_flow.build_bytecode(
+        ReturnOptions{ .return_size = 1, .return_value_tag = bb::avm2::MemoryTag::U1, .return_value_offset_index = 3 });
+
+    auto result = simulate_with_default_tx(bytecode, {});
+    EXPECT_FALSE(result.reverted);
+}
+
+} // namespace crypto_ops
+
+namespace conversions {
+
+TEST(fuzz, ToRadixBESmoke)
+{
+    std::vector<FuzzInstruction> instructions;
+
+    // Set value to convert (FF)
+    instructions.push_back(
+        SET_FF_Instruction{ .value_tag = bb::avm2::MemoryTag::FF,
+                            .result_address = AddressRef{ .address = 0, .mode = AddressingMode::Direct },
+                            .value = FF(255) });
+    // Set radix (U32) = 2 (binary)
+    instructions.push_back(
+        SET_32_Instruction{ .value_tag = bb::avm2::MemoryTag::U32,
+                            .result_address = AddressRef{ .address = 1, .mode = AddressingMode::Direct },
+                            .value = 2 });
+    // Set num_limbs (U32) = 8
+    instructions.push_back(
+        SET_32_Instruction{ .value_tag = bb::avm2::MemoryTag::U32,
+                            .result_address = AddressRef{ .address = 2, .mode = AddressingMode::Direct },
+                            .value = 8 });
+    // Set output_bits (U1) = 1 (since radix is 2)
+    instructions.push_back(
+        SET_8_Instruction{ .value_tag = bb::avm2::MemoryTag::U1,
+                           .result_address = AddressRef{ .address = 3, .mode = AddressingMode::Direct },
+                           .value = 1 });
+
+    // TORADIXBE instruction
+    instructions.push_back(
+        TORADIXBE_Instruction{ .value_address = AddressRef{ .address = 0, .mode = AddressingMode::Direct },
+                               .radix_address = AddressRef{ .address = 1, .mode = AddressingMode::Direct },
+                               .num_limbs_address = AddressRef{ .address = 2, .mode = AddressingMode::Direct },
+                               .output_bits_address = AddressRef{ .address = 3, .mode = AddressingMode::Direct },
+                               .dst_address = AddressRef{ .address = 10, .mode = AddressingMode::Direct },
+                               .is_output_bits = true });
+
+    auto instruction_blocks = std::vector<std::vector<FuzzInstruction>>{ instructions };
+    auto control_flow = ControlFlow(instruction_blocks);
+    control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
+    auto bytecode = control_flow.build_bytecode(
+        ReturnOptions{ .return_size = 1, .return_value_tag = bb::avm2::MemoryTag::U1, .return_value_offset_index = 2 });
+
+    auto result = simulate_with_default_tx(bytecode, {});
+    EXPECT_FALSE(result.reverted);
+}
+
+} // namespace conversions
+
+namespace l1_l2_messaging {
+
+TEST(fuzz, L1ToL2MsgExistsSmoke)
+{
+    std::vector<FuzzInstruction> instructions;
+
+    // Set msg_hash (FF)
+    instructions.push_back(
+        SET_FF_Instruction{ .value_tag = bb::avm2::MemoryTag::FF,
+                            .result_address = AddressRef{ .address = 0, .mode = AddressingMode::Direct },
+                            .value = FF(12345) });
+    // Set leaf_index (U64)
+    instructions.push_back(
+        SET_64_Instruction{ .value_tag = bb::avm2::MemoryTag::U64,
+                            .result_address = AddressRef{ .address = 1, .mode = AddressingMode::Direct },
+                            .value = 0 });
+
+    // L1TOL2MSGEXISTS instruction - check if message exists (it won't, but shouldn't revert)
+    instructions.push_back(
+        L1TOL2MSGEXISTS_Instruction{ .msg_hash_address = AddressRef{ .address = 0, .mode = AddressingMode::Direct },
+                                     .leaf_index_address = AddressRef{ .address = 1, .mode = AddressingMode::Direct },
+                                     .result_address = AddressRef{ .address = 2, .mode = AddressingMode::Direct } });
+
+    auto instruction_blocks = std::vector<std::vector<FuzzInstruction>>{ instructions };
+    auto control_flow = ControlFlow(instruction_blocks);
+    control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
+    auto bytecode = control_flow.build_bytecode(
+        ReturnOptions{ .return_size = 1, .return_value_tag = bb::avm2::MemoryTag::U1, .return_value_offset_index = 0 });
+
+    auto result = simulate_with_default_tx(bytecode, {});
+    EXPECT_FALSE(result.reverted);
+    // Message doesn't exist, so result should be 0
+    EXPECT_EQ(result.output.at(0), FF::zero());
+}
+
+} // namespace l1_l2_messaging
