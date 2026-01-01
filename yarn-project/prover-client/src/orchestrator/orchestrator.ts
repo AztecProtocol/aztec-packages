@@ -309,7 +309,7 @@ export class ProvingOrchestrator implements EpochProver {
 
         validateTx(tx);
 
-        logger.info(`Received transaction: ${tx.hash}`);
+        logger.debug(`Received transaction: ${tx.hash}`);
 
         const startSpongeBlob = spongeBlobState.clone();
         const [hints, treeSnapshots] = await this.prepareBaseRollupInputs(
