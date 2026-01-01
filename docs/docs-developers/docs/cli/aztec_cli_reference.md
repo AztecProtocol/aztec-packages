@@ -10,29 +10,21 @@ sidebar_position: 1
 *This documentation is auto-generated from the `aztec` CLI help output.*
 
 
-*Generated: Wed 24 Dec 2025 17:46:59 UTC*
+*Generated: Wed 31 Dec 2025 16:21:23 UTC*
 
 *Command: `aztec`*
 
 ## Table of Contents
 
 - [aztec](#aztec)
-  - [aztec add-contract](#aztec-add-contract)
   - [aztec add-l1-validator](#aztec-add-l1-validator)
   - [aztec advance-epoch](#aztec-advance-epoch)
-  - [aztec authorize-action](#aztec-authorize-action)
   - [aztec block-number](#aztec-block-number)
   - [aztec bridge-erc20](#aztec-bridge-erc20)
-  - [aztec bridge-fee-juice](#aztec-bridge-fee-juice)
-  - [aztec cancel-tx](#aztec-cancel-tx)
   - [aztec codegen](#aztec-codegen)
   - [aztec compute-selector](#aztec-compute-selector)
-  - [aztec create-account](#aztec-create-account)
-  - [aztec create-authwit](#aztec-create-authwit)
   - [aztec debug-rollup](#aztec-debug-rollup)
   - [aztec decode-enr](#aztec-decode-enr)
-  - [aztec deploy](#aztec-deploy)
-  - [aztec deploy-account](#aztec-deploy-account)
   - [aztec deploy-l1-contracts](#aztec-deploy-l1-contracts)
   - [aztec deploy-new-rollup](#aztec-deploy-new-rollup)
   - [aztec deposit-governance-tokens](#aztec-deposit-governance-tokens)
@@ -45,38 +37,34 @@ sidebar_position: 1
   - [aztec generate-l1-account](#aztec-generate-l1-account)
   - [aztec generate-p2p-private-key](#aztec-generate-p2p-private-key)
   - [aztec generate-secret-and-hash](#aztec-generate-secret-and-hash)
-  - [aztec get-account](#aztec-get-account)
-  - [aztec get-accounts](#aztec-get-accounts)
   - [aztec get-block](#aztec-get-block)
   - [aztec get-canonical-sponsored-fpc-address](#aztec-get-canonical-sponsored-fpc-address)
-  - [aztec get-contract-data](#aztec-get-contract-data)
   - [aztec get-current-base-fee](#aztec-get-current-base-fee)
   - [aztec get-l1-addresses](#aztec-get-l1-addresses)
   - [aztec get-l1-balance](#aztec-get-l1-balance)
   - [aztec get-l1-to-l2-message-witness](#aztec-get-l1-to-l2-message-witness)
   - [aztec get-logs](#aztec-get-logs)
   - [aztec get-node-info](#aztec-get-node-info)
-  - [aztec get-pxe-info](#aztec-get-pxe-info)
-  - [aztec get-tx](#aztec-get-tx)
-  - [aztec import-test-accounts](#aztec-import-test-accounts)
   - [aztec inspect-contract](#aztec-inspect-contract)
   - [aztec parse-parameter-struct](#aztec-parse-parameter-struct)
   - [aztec preload-crs](#aztec-preload-crs)
-  - [aztec profile](#aztec-profile)
   - [aztec propose-with-lock](#aztec-propose-with-lock)
   - [aztec prune-rollup](#aztec-prune-rollup)
-  - [aztec register-contract](#aztec-register-contract)
-  - [aztec register-sender](#aztec-register-sender)
   - [aztec remove-l1-validator](#aztec-remove-l1-validator)
-  - [aztec send](#aztec-send)
   - [aztec sequencers](#aztec-sequencers)
   - [aztec setup-protocol-contracts](#aztec-setup-protocol-contracts)
-  - [aztec simulate](#aztec-simulate)
   - [aztec start](#aztec-start)
   - [aztec trigger-seed-snapshot](#aztec-trigger-seed-snapshot)
   - [aztec update](#aztec-update)
   - [aztec validator-keys|valKeys](#aztec-validator-keys|valkeys)
   - [aztec vote-on-governance-proposal](#aztec-vote-on-governance-proposal)
+  - [aztec init](#aztec-init)
+  - [aztec new](#aztec-new)
+  - [aztec compile](#aztec-compile)
+  - [aztec fmt](#aztec-fmt)
+  - [aztec check](#aztec-check)
+  - [aztec test](#aztec-test)
+  - [aztec lsp](#aztec-lsp)
 ## aztec
 
 Aztec command line interface
@@ -88,22 +76,14 @@ aztec [options] [command]
 
 **Available Commands:**
 
-- `add-contract [options]` - Adds an existing contract to the PXE. This is useful if you have deployed a contract outside of the PXE and want to use it with the PXE.
 - `add-l1-validator [options]` - Adds a validator to the L1 rollup contract via a direct deposit.
 - `advance-epoch [options]` - Use L1 cheat codes to warp time until the next epoch.
-- `authorize-action [options] <functionName> <caller>` - Authorizes a public call on the caller, so they can perform an action on behalf of the provided account
 - `block-number [options]` - Gets the current Aztec L2 block number.
 - `bridge-erc20 [options] <amount> <recipient>` - Bridges ERC20 tokens to L2.
-- `bridge-fee-juice [options] <amount> <recipient>` - Mints L1 Fee Juice and pushes them to L2.
-- `cancel-tx [options] <txHash>` - Cancels a pending tx by reusing its nonce with a higher fee and an empty payload
 - `codegen [options] <noir-abi-path>` - Validates and generates an Aztec Contract ABI from Noir ABI.
 - `compute-selector <functionSignature>` - Given a function signature, it computes a selector
-- `create-account [options]` - Creates an aztec account that can be used for sending transactions.
-- `create-authwit [options] <functionName> <caller>` - Creates an authorization witness that can be privately sent to a caller so they can perform an action on behalf of the provided account
 - `debug-rollup [options]` - Debugs the rollup contract.
 - `decode-enr <enr>` - Decodes an ENR record
-- `deploy [options] [artifact]` - Deploys a compiled Aztec.nr contract to Aztec.
-- `deploy-account [options]` - Deploys an already registered aztec account that can be used for sending transactions.
 - `deploy-l1-contracts [options]` - Deploys all necessary Ethereum contracts for Aztec.
 - `deploy-new-rollup [options]` - Deploys a new rollup contract and adds it to the registry (if you are the owner).
 - `deposit-governance-tokens [options]` - Deposits governance tokens to the governance contract.
@@ -116,39 +96,35 @@ aztec [options] [command]
 - `generate-l1-account [options]` - Generates a new private key for an account on L1.
 - `generate-p2p-private-key` - Generates a LibP2P peer private key.
 - `generate-secret-and-hash` - Generates an arbitrary secret (Fr), and its hash (using aztec-nr defaults)
-- `get-account [options] <address>` - Gets an account given its Aztec address.
-- `get-accounts [options]` - Gets all the Aztec accounts stored in the PXE.
 - `get-block [options] [blockNumber]` - Gets info for a given block or latest.
 - `get-canonical-sponsored-fpc-address` - Gets the canonical SponsoredFPC address for this any testnet running on the same version as this CLI
-- `get-contract-data [options] <contractAddress>` - Gets information about the Aztec contract deployed at the specified address.
 - `get-current-base-fee [options]` - Gets the current base fee.
 - `get-l1-addresses [options]` - Gets the addresses of the L1 contracts.
 - `get-l1-balance [options] <who>` - Gets the balance of an ERC token in L1 for the given Ethereum address.
 - `get-l1-to-l2-message-witness [options]` - Gets a L1 to L2 message witness.
 - `get-logs [options]` - Gets all the public logs from an intersection of all the filter params.
 - `get-node-info [options]` - Gets the information of an Aztec node from a PXE or directly from an Aztec node.
-- `get-pxe-info [options]` - Gets the information of a PXE at a URL.
-- `get-tx [options] [txHash]` - Gets the status of the recent txs, or a detailed view if a specific transaction hash is provided
 - `help [command]` - display help for command
-- `import-test-accounts [options]` - Import test accounts from pxe.
 - `inspect-contract <contractArtifactFile>` - Shows list of external callable functions for a contract
 - `parse-parameter-struct [options] <encodedString>` - Helper for parsing an encoded string into a contract's parameter struct.
 - `preload-crs` - Preload the points data needed for proving and verifying
-- `profile [options] <functionName>` - Profiles a private function by counting the unconditional operations in its execution steps
 - `propose-with-lock [options]` - Makes a proposal to governance with a lock
 - `prune-rollup [options]` - Prunes the pending chain on the rollup contract.
-- `register-contract [options] [address] [artifact]` - Registers a contract in this wallet's PXE
-- `register-sender [options] [address]` - Registers a sender's address in the wallet, so the note synching process will look for notes sent by them
 - `remove-l1-validator [options]` - Removes a validator to the L1 rollup contract.
-- `send [options] <functionName>` - Calls a function on an Aztec contract.
 - `sequencers [options] <command> [who]` - Manages or queries registered sequencers on the L1 rollup contract.
 - `setup-protocol-contracts [options]` - Bootstrap the blockchain by initializing all the protocol contracts
-- `simulate [options] <functionName>` - Simulates the execution of a function on an Aztec contract.
 - `start [options]` - Starts Aztec modules. Options for each module can be set as key-value pairs (e.g. "option1=value1,option2=value2") or as environment variables.
 - `trigger-seed-snapshot [options]` - Triggers a seed snapshot for the next epoch.
 - `update [options] [projectPath]` - Updates Nodejs and Noir dependencies
 - `validator-keys|valKeys` - Manage validator keystores for node operators
 - `vote-on-governance-proposal [options]` - Votes on a governance proposal.
+- `init [folder] [options]` - creates a new Noir project
+- `new <path> [options]` - creates a new Noir project in a new directory
+- `compile [options]` - compiles Aztec Noir contracts
+- `fmt [options]` - formats Noir code using nargo fmt
+- `check [options]` - type-checks Noir code without compiling using nargo check
+- `test [options]` - starts a dockerized TXE node via
+- `lsp` - starts the Nargo Language Server Protocol server
 
 **Options:**
 
@@ -157,27 +133,6 @@ aztec [options] [command]
 
 
 ### Subcommands
-
-### aztec add-contract
-
-```
-Usage: aztec add-contract [options]
-
-Adds an existing contract to the PXE. This is useful if you have deployed a
-contract outside of the PXE and want to use it with the PXE.
-
-Options:
-  -c, --contract-artifact <fileLocation>  A compiled Aztec.nr contract's ABI in JSON format or name of a contract ABI exported by @aztec/noir-contracts.js
-  -ca, --contract-address <address>       Aztec address of the contract.
-  --init-hash <init hash>                 Initialization hash
-  --salt <salt>                           Optional deployment salt
-  -p, --public-key <public key>           Optional public key for this contract
-  --portal-address <address>              Optional address to a portal contract on L1
-  --deployer-address <address>            Optional address of the contract deployer
-  -u, --rpc-url <string>                  URL of the PXE (default: "http://host.docker.internal:8080", env: PXE_URL)
-  -h, --help                              display help for command
-
-```
 
 ### aztec add-l1-validator
 
@@ -219,35 +174,14 @@ Usage: aztec advance-epoch [options]
 Use L1 cheat codes to warp time until the next epoch.
 
 Options:
-  --l1-rpc-urls <string>  List of Ethereum host URLs. Chain identifiers
-                          localhost and testnet can be used (comma separated)
-                          (default: ["http://host.docker.internal:8545"], env:
-                          ETHEREUM_HOSTS)
-  -u, --rpc-url <string>  URL of the PXE (default:
-                          "http://host.docker.internal:8080", env: PXE_URL)
-  -h, --help              display help for command
-
-```
-
-### aztec authorize-action
-
-```
-Usage: aztec authorize-action [options] <functionName> <caller>
-
-Authorizes a public call on the caller, so they can perform an action on behalf
-of the provided account
-
-Arguments:
-  functionName                            Name of function to authorize
-  caller                                  Account to be authorized to perform the action
-
-Options:
-  -u, --rpc-url <string>                  URL of the PXE (default: "http://host.docker.internal:8080", env: PXE_URL)
-  --args [args...]                        Function  arguments (default: [])
-  -ca, --contract-address <address>       Aztec address of the contract.
-  -c, --contract-artifact <fileLocation>  Path to a compiled Aztec contract's artifact in JSON format. If executed inside a nargo workspace, a package and contract name can be specified as package@contract
-  -sk, --secret-key <string>              The sender's secret key (env: SECRET_KEY)
-  -h, --help                              display help for command
+  --l1-rpc-urls <string>   List of Ethereum host URLs. Chain identifiers
+                           localhost and testnet can be used (comma separated)
+                           (default: ["http://host.docker.internal:8545"], env:
+                           ETHEREUM_HOSTS)
+  -n, --node-url <string>  URL of the Aztec node (default:
+                           "http://host.docker.internal:8080", env:
+                           AZTEC_NODE_URL)
+  -h, --help               display help for command
 
 ```
 
@@ -259,9 +193,10 @@ Usage: aztec block-number [options]
 Gets the current Aztec L2 block number.
 
 Options:
-  -u, --rpc-url <string>  URL of the PXE (default:
-                          "http://host.docker.internal:8080", env: PXE_URL)
-  -h, --help              display help for command
+  -n, --node-url <string>  URL of the Aztec node (default:
+                           "http://host.docker.internal:8080", env:
+                           AZTEC_NODE_URL)
+  -h, --help               display help for command
 
 ```
 
@@ -301,46 +236,6 @@ Options:
 
 ```
 
-### aztec bridge-fee-juice
-
-```
-Usage: aztec bridge-fee-juice [options] <amount> <recipient>
-
-Mints L1 Fee Juice and pushes them to L2.
-
-Arguments:
-  amount                      The amount of Fee Juice to mint and bridge.
-  recipient                   Aztec address of the recipient.
-
-Options:
-  --l1-rpc-urls <string>      List of Ethereum host URLs. Chain identifiers
-                              localhost and testnet can be used (comma
-                              separated) (default:
-                              ["http://host.docker.internal:8545"])
-  -m, --mnemonic <string>     The mnemonic to use for deriving the Ethereum
-                              address that will mint and bridge (default: "test
-                              test test test test test test test test test test
-                              junk")
-  --mint                      Mint the tokens on L1 (default: false)
-  --l1-private-key <string>   The private key to the eth account bridging
-  -u, --rpc-url <string>      URL of the PXE (default:
-                              "http://host.docker.internal:8080", env: PXE_URL)
-  -c, --l1-chain-id <number>  Chain ID of the ethereum host (default: 31337,
-                              env: L1_CHAIN_ID)
-  --json                      Output the claim in JSON format
-  --no-wait                   Wait for the bridged funds to be available in L2,
-                              polling every 60 seconds
-  --interval <number>         The polling interval in seconds for the bridged
-                              funds (default: "60")
-  -h, --help                  display help for command
-
-```
-
-### aztec cancel-tx
-
-*Help for this command is currently unavailable due to a technical issue with option serialization.*
-
-
 ### aztec codegen
 
 ```
@@ -371,70 +266,6 @@ Arguments:
 
 Options:
   -h, --help         display help for command
-
-```
-
-### aztec create-account
-
-```
-Usage: aztec create-account [options]
-
-Creates an aztec account that can be used for sending transactions. Registers
-the account on the PXE and deploys an account contract. Uses a Schnorr
-single-key account which uses the same key for encryption and authentication
-(not secure for production usage).
-
-Options:
-  --skip-initialization                                     Skip initializing the account contract. Useful for publicly deploying an existing account.
-  --public-deploy                                           Publishes the account contract instance (and the class, if needed). Needed if the contract contains public functions.
-  -p, --public-key <string>                                 Public key that identifies a private signing key stored outside of the wallet. Used for ECDSA SSH accounts over the secp256r1 curve.
-  -u, --rpc-url <string>                                    URL of the PXE (default: "http://host.docker.internal:8080", env: PXE_URL)
-  -sk, --secret-key <string>                                Secret key for account. Uses random by default. (env: SECRET_KEY)
-  -t, --type <string>                                       Type of account to create (choices: "schnorr", "ecdsasecp256r1", "ecdsasecp256r1ssh", "ecdsasecp256k1", default: "schnorr")
-  --register-only                                           Just register the account on the PXE. Do not deploy or initialize the account contract.
-  --json                                                    Emit output as json
-  --no-wait                                                 Skip waiting for the contract to be deployed. Print the hash of deployment transaction
-  -v, --verbose                                             Provide timings on all executed operations (synching, simulating, proving) (default: false)
-  --payment <options>                                       Fee payment method and arguments.
-     Parameters:
-       method            Valid values: "fee_juice", "fpc-public", "fpc-private", "fpc-sponsored" Default: fee_juice
-       feePayer          The account paying the fee.
-       asset             The asset used for fee payment. Required for "fpc-public" and "fpc-private".
-       fpc               The FPC contract that pays in fee juice. Not required for the "fee_juice" method.
-       claim             Whether to use a previously stored claim to bridge fee juice.
-       claimSecret       The secret to claim fee juice on L1.
-       claimAmount       The amount of fee juice to be claimed.
-       messageLeafIndex  The index of the claim in the l1toL2Message tree.
-       feeRecipient      Recipient of the fee.
-  Format: --payment method=name,feePayer=address,asset=address ...
-  --gas-limits <da=100,l2=100,teardownDA=10,teardownL2=10>  Gas limits for the tx.
-  --max-fees-per-gas <da=100,l2=100>                        Maximum fees per gas unit for DA and L2 computation.
-  --max-priority-fees-per-gas <da=0,l2=0>                   Maximum priority fees per gas unit for DA and L2 computation.
-  --estimate-gas                                            Whether to automatically estimate gas limits for the tx.
-  --estimate-gas-only                                       Only report gas estimation for the tx, do not send it.
-  -h, --help                                                display help for command
-
-```
-
-### aztec create-authwit
-
-```
-Usage: aztec create-authwit [options] <functionName> <caller>
-
-Creates an authorization witness that can be privately sent to a caller so they
-can perform an action on behalf of the provided account
-
-Arguments:
-  functionName                            Name of function to authorize
-  caller                                  Account to be authorized to perform the action
-
-Options:
-  -u, --rpc-url <string>                  URL of the PXE (default: "http://host.docker.internal:8080", env: PXE_URL)
-  --args [args...]                        Function  arguments (default: [])
-  -ca, --contract-address <address>       Aztec address of the contract.
-  -c, --contract-artifact <fileLocation>  Path to a compiled Aztec contract's artifact in JSON format. If executed inside a nargo workspace, a package and contract name can be specified as package@contract
-  -sk, --secret-key <string>              The sender's secret key (env: SECRET_KEY)
-  -h, --help                              display help for command
 
 ```
 
@@ -470,87 +301,6 @@ Arguments:
 
 Options:
   -h, --help  display help for command
-
-```
-
-### aztec deploy
-
-```
-Usage: aztec deploy [options] [artifact]
-
-Deploys a compiled Aztec.nr contract to Aztec.
-
-Arguments:
-  artifact                                                  Path to a compiled Aztec contract's artifact in JSON format. If executed inside a nargo workspace, a package and contract name can be specified as package@contract
-
-Options:
-  --init <string>                                           The contract initializer function to call (default: "constructor")
-  --no-init                                                 Leave the contract uninitialized
-  -k, --public-key <string>                                 Optional encryption public key for this address. Set this value only if this contract is expected to receive private notes, which will be encrypted using this public key.
-  -s, --salt <hex string>                                   Optional deployment salt as a hex string for generating the deployment address.
-  --universal                                               Do not mix the sender address into the deployment.
-  -u, --rpc-url <string>                                    URL of the PXE (default: "http://host.docker.internal:8080", env: PXE_URL)
-  --args [args...]                                          Constructor  arguments (default: [])
-  -sk, --secret-key <string>                                The sender's secret key (env: SECRET_KEY)
-  --json                                                    Emit output as json
-  --no-wait                                                 Skip waiting for the contract to be deployed. Print the hash of deployment transaction
-  --no-class-registration                                   Don't register this contract class
-  --no-public-deployment                                    Don't emit this contract's public bytecode
-  --timeout <number>                                        The amount of time in seconds to wait for the deployment to post to L2
-  -v, --verbose                                             Provide timings on all executed operations (synching, simulating, proving) (default: false)
-  --payment <options>                                       Fee payment method and arguments.
-     Parameters:
-       method            Valid values: "fee_juice", "fpc-public", "fpc-private", "fpc-sponsored" Default: fee_juice
-       asset             The asset used for fee payment. Required for "fpc-public" and "fpc-private".
-       fpc               The FPC contract that pays in fee juice. Not required for the "fee_juice" method.
-       claim             Whether to use a previously stored claim to bridge fee juice.
-       claimSecret       The secret to claim fee juice on L1.
-       claimAmount       The amount of fee juice to be claimed.
-       messageLeafIndex  The index of the claim in the l1toL2Message tree.
-       feeRecipient      Recipient of the fee.
-  Format: --payment method=name,asset=address,fpc=address ...
-  --gas-limits <da=100,l2=100,teardownDA=10,teardownL2=10>  Gas limits for the tx.
-  --max-fees-per-gas <da=100,l2=100>                        Maximum fees per gas unit for DA and L2 computation.
-  --max-priority-fees-per-gas <da=0,l2=0>                   Maximum priority fees per gas unit for DA and L2 computation.
-  --estimate-gas                                            Whether to automatically estimate gas limits for the tx.
-  --estimate-gas-only                                       Only report gas estimation for the tx, do not send it.
-  -h, --help                                                display help for command
-
-```
-
-### aztec deploy-account
-
-```
-Usage: aztec deploy-account [options]
-
-Deploys an already registered aztec account that can be used for sending
-transactions.
-
-Options:
-  -u, --rpc-url <string>                                    URL of the PXE (default: "http://host.docker.internal:8080", env: PXE_URL)
-  --json                                                    Emit output as json
-  --no-wait                                                 Skip waiting for the contract to be deployed. Print the hash of deployment transaction
-  --register-class                                          Register the contract class (useful for when the contract class has not been deployed yet).
-  --public-deploy                                           Publishes the account contract instance (and the class, if needed). Needed if the contract contains public functions.
-  -v, --verbose                                             Provide timings on all executed operations (synching, simulating, proving) (default: false)
-  --payment <options>                                       Fee payment method and arguments.
-     Parameters:
-       method            Valid values: "fee_juice", "fpc-public", "fpc-private", "fpc-sponsored" Default: fee_juice
-       feePayer          The account paying the fee.
-       asset             The asset used for fee payment. Required for "fpc-public" and "fpc-private".
-       fpc               The FPC contract that pays in fee juice. Not required for the "fee_juice" method.
-       claim             Whether to use a previously stored claim to bridge fee juice.
-       claimSecret       The secret to claim fee juice on L1.
-       claimAmount       The amount of fee juice to be claimed.
-       messageLeafIndex  The index of the claim in the l1toL2Message tree.
-       feeRecipient      Recipient of the fee.
-  Format: --payment method=name,feePayer=address,asset=address ...
-  --gas-limits <da=100,l2=100,teardownDA=10,teardownL2=10>  Gas limits for the tx.
-  --max-fees-per-gas <da=100,l2=100>                        Maximum fees per gas unit for DA and L2 computation.
-  --max-priority-fees-per-gas <da=0,l2=0>                   Maximum priority fees per gas unit for DA and L2 computation.
-  --estimate-gas                                            Whether to automatically estimate gas limits for the tx.
-  --estimate-gas-only                                       Only report gas estimation for the tx, do not send it.
-  -h, --help                                                display help for command
 
 ```
 
@@ -797,38 +547,6 @@ Options:
 
 ```
 
-### aztec get-account
-
-```
-Usage: aztec get-account [options] <address>
-
-Gets an account given its Aztec address.
-
-Arguments:
-  address                 The Aztec address to get account for
-
-Options:
-  -u, --rpc-url <string>  URL of the PXE (default:
-                          "http://host.docker.internal:8080", env: PXE_URL)
-  -h, --help              display help for command
-
-```
-
-### aztec get-accounts
-
-```
-Usage: aztec get-accounts [options]
-
-Gets all the Aztec accounts stored in the PXE.
-
-Options:
-  -u, --rpc-url <string>  URL of the PXE (default:
-                          "http://host.docker.internal:8080", env: PXE_URL)
-  --json                  Emit output as json
-  -h, --help              display help for command
-
-```
-
 ### aztec get-block
 
 ```
@@ -837,12 +555,13 @@ Usage: aztec get-block [options] [blockNumber]
 Gets info for a given block or latest.
 
 Arguments:
-  blockNumber             Block height
+  blockNumber              Block height
 
 Options:
-  -u, --rpc-url <string>  URL of the PXE (default:
-                          "http://host.docker.internal:8080", env: PXE_URL)
-  -h, --help              display help for command
+  -n, --node-url <string>  URL of the Aztec node (default:
+                           "http://host.docker.internal:8080", env:
+                           AZTEC_NODE_URL)
+  -h, --help               display help for command
 
 ```
 
@@ -859,26 +578,6 @@ Options:
 
 ```
 
-### aztec get-contract-data
-
-```
-Usage: aztec get-contract-data [options] <contractAddress>
-
-Gets information about the Aztec contract deployed at the specified address.
-
-Arguments:
-  contractAddress                   Aztec address of the contract.
-
-Options:
-  -u, --rpc-url <string>            URL of the PXE (default:
-                                    "http://host.docker.internal:8080", env:
-                                    PXE_URL)
-  -b, --include-bytecode <boolean>  Include the contract's public function
-                                    bytecode, if any. (default: false)
-  -h, --help                        display help for command
-
-```
-
 ### aztec get-current-base-fee
 
 ```
@@ -887,9 +586,10 @@ Usage: aztec get-current-base-fee [options]
 Gets the current base fee.
 
 Options:
-  -u, --rpc-url <string>  URL of the PXE (default:
-                          "http://host.docker.internal:8080", env: PXE_URL)
-  -h, --help              display help for command
+  -n, --node-url <string>  URL of the Aztec node (default:
+                           "http://host.docker.internal:8080", env:
+                           AZTEC_NODE_URL)
+  -h, --help               display help for command
 
 ```
 
@@ -951,9 +651,9 @@ Options:
   --message-hash <messageHash>       The L1 to L2 message hash.
   --secret <secret>                  The secret used to claim the L1 to L2
                                      message
-  -u, --rpc-url <string>             URL of the PXE (default:
+  -n, --node-url <string>            URL of the Aztec node (default:
                                      "http://host.docker.internal:8080", env:
-                                     PXE_URL)
+                                     AZTEC_NODE_URL)
   -h, --help                         display help for command
 
 ```
@@ -973,9 +673,9 @@ Options:
                                      to latest).
   -al --after-log <logId>            ID of a log after which to fetch the logs.
   -ca, --contract-address <address>  Contract address to filter logs by.
-  -u, --rpc-url <string>             URL of the PXE (default:
+  -n, --node-url <string>            URL of the Aztec node (default:
                                      "http://host.docker.internal:8080", env:
-                                     PXE_URL)
+                                     AZTEC_NODE_URL)
   --follow                           If set, will keep polling for new logs
                                      until interrupted.
   -h, --help                         display help for command
@@ -991,61 +691,11 @@ Gets the information of an Aztec node from a PXE or directly from an Aztec
 node.
 
 Options:
-  --node-url <string>     URL of the node.
-  --json                  Emit output as json
-  -u, --rpc-url <string>  URL of the PXE (default:
-                          "http://host.docker.internal:8080", env: PXE_URL)
-  -h, --help              display help for command
-
-```
-
-### aztec get-pxe-info
-
-```
-Usage: aztec get-pxe-info [options]
-
-Gets the information of a PXE at a URL.
-
-Options:
-  -u, --rpc-url <string>  URL of the PXE (default:
-                          "http://host.docker.internal:8080", env: PXE_URL)
-  -h, --help              display help for command
-
-```
-
-### aztec get-tx
-
-```
-Usage: aztec get-tx [options] [txHash]
-
-Gets the status of the recent txs, or a detailed view if a specific transaction
-hash is provided
-
-Arguments:
-  txHash                    A transaction hash to get the receipt for.
-
-Options:
-  -u, --rpc-url <string>    URL of the PXE (default:
-                            "http://host.docker.internal:8080", env: PXE_URL)
-  -p, --page <number>       The page number to display (default: 1)
-  -s, --page-size <number>  The number of transactions to display per page
-                            (default: 10)
-  -h, --help                display help for command
-
-```
-
-### aztec import-test-accounts
-
-```
-Usage: aztec import-test-accounts [options]
-
-Import test accounts from pxe.
-
-Options:
-  -u, --rpc-url <string>  URL of the PXE (default:
-                          "http://host.docker.internal:8080", env: PXE_URL)
-  --json                  Emit output as json
-  -h, --help              display help for command
+  --json                   Emit output as json
+  -n, --node-url <string>  URL of the Aztec node (default:
+                           "http://host.docker.internal:8080", env:
+                           AZTEC_NODE_URL)
+  -h, --help               display help for command
 
 ```
 
@@ -1092,44 +742,6 @@ Preload the points data needed for proving and verifying
 
 Options:
   -h, --help  display help for command
-
-```
-
-### aztec profile
-
-```
-Usage: aztec profile [options] <functionName>
-
-Profiles a private function by counting the unconditional operations in its
-execution steps
-
-Arguments:
-  functionName                                              Name of function to simulate
-
-Options:
-  -u, --rpc-url <string>                                    URL of the PXE (default: "http://host.docker.internal:8080", env: PXE_URL)
-  --args [args...]                                          Function  arguments (default: [])
-  -ca, --contract-address <address>                         Aztec address of the contract.
-  -c, --contract-artifact <fileLocation>                    Path to a compiled Aztec contract's artifact in JSON format. If executed inside a nargo workspace, a package and contract name can be specified as package@contract
-  --debug-execution-steps-dir <address>                     Directory to write execution step artifacts for bb profiling/debugging.
-  -sk, --secret-key <string>                                The sender's secret key (env: SECRET_KEY)
-  --payment <options>                                       Fee payment method and arguments.
-     Parameters:
-       method            Valid values: "fee_juice", "fpc-public", "fpc-private", "fpc-sponsored" Default: fee_juice
-       asset             The asset used for fee payment. Required for "fpc-public" and "fpc-private".
-       fpc               The FPC contract that pays in fee juice. Not required for the "fee_juice" method.
-       claim             Whether to use a previously stored claim to bridge fee juice.
-       claimSecret       The secret to claim fee juice on L1.
-       claimAmount       The amount of fee juice to be claimed.
-       messageLeafIndex  The index of the claim in the l1toL2Message tree.
-       feeRecipient      Recipient of the fee.
-  Format: --payment method=name,asset=address,fpc=address ...
-  --gas-limits <da=100,l2=100,teardownDA=10,teardownL2=10>  Gas limits for the tx.
-  --max-fees-per-gas <da=100,l2=100>                        Maximum fees per gas unit for DA and L2 computation.
-  --max-priority-fees-per-gas <da=0,l2=0>                   Maximum priority fees per gas unit for DA and L2 computation.
-  --estimate-gas                                            Whether to automatically estimate gas limits for the tx.
-  --estimate-gas-only                                       Only report gas estimation for the tx, do not send it.
-  -h, --help                                                display help for command
 
 ```
 
@@ -1185,56 +797,6 @@ Options:
 
 ```
 
-### aztec register-contract
-
-```
-Usage: aztec register-contract [options] [address] [artifact]
-
-Registers a contract in this wallet's PXE
-
-Arguments:
-  address                    The address of the contract to register
-  artifact                   Path to a compiled Aztec contract's artifact in
-                             JSON format. If executed inside a nargo workspace,
-                             a package and contract name can be specified as
-                             package@contract
-
-Options:
-  --init <string>            The contract initializer function to call
-                             (default: "constructor")
-  -k, --public-key <string>  Optional encryption public key for this address.
-                             Set this value only if this contract is expected
-                             to receive private notes, which will be encrypted
-                             using this public key.
-  -s, --salt <hex string>    Optional deployment salt as a hex string for
-                             generating the deployment address.
-  --deployer <string>        The address of the account that deployed the
-                             contract
-  --args [args...]           Constructor  arguments (default: [])
-  -u, --rpc-url <string>     URL of the PXE (default:
-                             "http://host.docker.internal:8080", env: PXE_URL)
-  -h, --help                 display help for command
-
-```
-
-### aztec register-sender
-
-```
-Usage: aztec register-sender [options] [address]
-
-Registers a sender's address in the wallet, so the note synching process will
-look for notes sent by them
-
-Arguments:
-  address                 The address of the sender to register
-
-Options:
-  -u, --rpc-url <string>  URL of the PXE (default:
-                          "http://host.docker.internal:8080", env: PXE_URL)
-  -h, --help              display help for command
-
-```
-
 ### aztec remove-l1-validator
 
 ```
@@ -1260,45 +822,6 @@ Options:
 
 ```
 
-### aztec send
-
-```
-Usage: aztec send [options] <functionName>
-
-Calls a function on an Aztec contract.
-
-Arguments:
-  functionName                                              Name of function to execute
-
-Options:
-  -u, --rpc-url <string>                                    URL of the PXE (default: "http://host.docker.internal:8080", env: PXE_URL)
-  --args [args...]                                          Function  arguments (default: [])
-  -c, --contract-artifact <fileLocation>                    Path to a compiled Aztec contract's artifact in JSON format. If executed inside a nargo workspace, a package and contract name can be specified as package@contract
-  -ca, --contract-address <address>                         Aztec address of the contract.
-  -sk, --secret-key <string>                                The sender's secret key (env: SECRET_KEY)
-  --no-wait                                                 Print transaction hash without waiting for it to be mined
-  --no-cancel                                               Do not allow the transaction to be cancelled. This makes for cheaper transactions.
-  -v, --verbose                                             Provide timings on all executed operations (synching, simulating, proving) (default: false)
-  --payment <options>                                       Fee payment method and arguments.
-     Parameters:
-       method            Valid values: "fee_juice", "fpc-public", "fpc-private", "fpc-sponsored" Default: fee_juice
-       asset             The asset used for fee payment. Required for "fpc-public" and "fpc-private".
-       fpc               The FPC contract that pays in fee juice. Not required for the "fee_juice" method.
-       claim             Whether to use a previously stored claim to bridge fee juice.
-       claimSecret       The secret to claim fee juice on L1.
-       claimAmount       The amount of fee juice to be claimed.
-       messageLeafIndex  The index of the claim in the l1toL2Message tree.
-       feeRecipient      Recipient of the fee.
-  Format: --payment method=name,asset=address,fpc=address ...
-  --gas-limits <da=100,l2=100,teardownDA=10,teardownL2=10>  Gas limits for the tx.
-  --max-fees-per-gas <da=100,l2=100>                        Maximum fees per gas unit for DA and L2 computation.
-  --max-priority-fees-per-gas <da=0,l2=0>                   Maximum priority fees per gas unit for DA and L2 computation.
-  --estimate-gas                                            Whether to automatically estimate gas limits for the tx.
-  --estimate-gas-only                                       Only report gas estimation for the tx, do not send it.
-  -h, --help                                                display help for command
-
-```
-
 ### aztec sequencers
 
 ```
@@ -1319,8 +842,9 @@ Options:
                               "test test test test test test test test test
                               test test junk")
   --block-number <number>     Block number to query next sequencer for
-  -u, --rpc-url <string>      URL of the PXE (default:
-                              "http://host.docker.internal:8080", env: PXE_URL)
+  -n, --node-url <string>     URL of the Aztec node (default:
+                              "http://host.docker.internal:8080", env:
+                              AZTEC_NODE_URL)
   -c, --l1-chain-id <number>  Chain ID of the ethereum host (default: 31337,
                               env: L1_CHAIN_ID)
   -h, --help                  display help for command
@@ -1335,50 +859,12 @@ Usage: aztec setup-protocol-contracts [options]
 Bootstrap the blockchain by initializing all the protocol contracts
 
 Options:
-  -u, --rpc-url <string>  URL of the PXE (default:
-                          "http://host.docker.internal:8080", env: PXE_URL)
-  --testAccounts          Deploy funded test accounts.
-  --sponsoredFPC          Deploy a sponsored FPC.
-  --json                  Output the contract addresses in JSON format
-  --skipProofWait         Don't wait for proofs to land.
-  -h, --help              display help for command
-
-```
-
-### aztec simulate
-
-```
-Usage: aztec simulate [options] <functionName>
-
-Simulates the execution of a function on an Aztec contract.
-
-Arguments:
-  functionName                                              Name of function to simulate
-
-Options:
-  -u, --rpc-url <string>                                    URL of the PXE (default: "http://host.docker.internal:8080", env: PXE_URL)
-  --args [args...]                                          Function  arguments (default: [])
-  -ca, --contract-address <address>                         Aztec address of the contract.
-  -c, --contract-artifact <fileLocation>                    Path to a compiled Aztec contract's artifact in JSON format. If executed inside a nargo workspace, a package and contract name can be specified as package@contract
-  -sk, --secret-key <string>                                The sender's secret key (env: SECRET_KEY)
-  -v, --verbose                                             Provide timings on all executed operations (synching, simulating, proving) (default: false)
-  --payment <options>                                       Fee payment method and arguments.
-     Parameters:
-       method            Valid values: "fee_juice", "fpc-public", "fpc-private", "fpc-sponsored" Default: fee_juice
-       asset             The asset used for fee payment. Required for "fpc-public" and "fpc-private".
-       fpc               The FPC contract that pays in fee juice. Not required for the "fee_juice" method.
-       claim             Whether to use a previously stored claim to bridge fee juice.
-       claimSecret       The secret to claim fee juice on L1.
-       claimAmount       The amount of fee juice to be claimed.
-       messageLeafIndex  The index of the claim in the l1toL2Message tree.
-       feeRecipient      Recipient of the fee.
-  Format: --payment method=name,asset=address,fpc=address ...
-  --gas-limits <da=100,l2=100,teardownDA=10,teardownL2=10>  Gas limits for the tx.
-  --max-fees-per-gas <da=100,l2=100>                        Maximum fees per gas unit for DA and L2 computation.
-  --max-priority-fees-per-gas <da=0,l2=0>                   Maximum priority fees per gas unit for DA and L2 computation.
-  --estimate-gas                                            Whether to automatically estimate gas limits for the tx.
-  --estimate-gas-only                                       Only report gas estimation for the tx, do not send it.
-  -h, --help                                                display help for command
+  -n, --node-url <string>  URL of the Aztec node (default:
+                           "http://host.docker.internal:8080", env:
+                           AZTEC_NODE_URL)
+  --testAccounts           Deploy funded test accounts.
+  --json                   Output the contract addresses in JSON format
+  -h, --help               display help for command
 
 ```
 
@@ -1410,21 +896,15 @@ Options:
   Whether to run in fisherman mode.
   *Environment: `$FISHERMAN_MODE`*
 
-**SANDBOX**
+- `--local-network`
+  Starts Aztec Local Network
 
-- `--sandbox`
-  Starts Aztec Sandbox
-
-- `--sandbox.noPXE`
-  Do not expose PXE service on sandbox start
-  *Environment: `$NO_PXE`*
-
-- `--sandbox.l1Mnemonic <value>` (default: `test test test test test test test test test test test junk`)
+- `--local-network.l1Mnemonic <value>` (default: `test test test test test test test test test test test junk`)
   Mnemonic for L1 accounts. Will be used
   *Environment: `$MNEMONIC`*
 
-- `--sandbox.deployAztecContractsSalt <value>`
-  Numeric salt for deploying L1 Aztec contracts before starting the sandbox. Needs mnemonic or private key to be set.
+- `--local-network.deployAztecContractsSalt <value>`
+  Numeric salt for deploying L1 Aztec contracts before starting the local network. Needs mnemonic or private key to be set.
   *Environment: `$DEPLOY_AZTEC_CONTRACTS_SALT`*
 
 **API**
@@ -1434,7 +914,7 @@ Options:
   *Environment: `$AZTEC_PORT`*
 
 - `--admin-port <value>` (default: `8880`)
-  Port to run admin APIs of Aztec Services on on
+  Port to run admin APIs of Aztec Services on
   *Environment: `$AZTEC_ADMIN_PORT`*
 
 - `--api-prefix <value>`
@@ -1448,11 +928,11 @@ Options:
   *Environment: `$L1_CHAIN_ID`*
 
 - `--l1-rpc-urls <value>`
-  The RPC Url of the ethereum host.
+  List of URLs of Ethereum RPC nodes that services will connect to (comma separated).
   *Environment: `$ETHEREUM_HOSTS`*
 
 - `--l1-consensus-host-urls <value>`
-  List of URLS for L1 consensus clients
+  List of URLs of the Ethereum consensus nodes that services will connect to (comma separated)
   *Environment: `$L1_CONSENSUS_HOST_URLS`*
 
 - `--l1-consensus-host-api-keys <value>`
@@ -1478,7 +958,7 @@ Options:
   *Environment: `$DATA_DIRECTORY`*
 
 - `--data-store-map-size-kb <value>` (default: `134217728`)
-  DB mapping size to be applied to all key/value stores
+  The maximum possible size of a data store DB in KB. Can be overridden by component-specific options.
   *Environment: `$DATA_STORE_MAP_SIZE_KB`*
 
 **WORLD STATE**
@@ -1652,6 +1132,9 @@ Options:
   How many seconds to wait before trying to invalidate a block from the pending chain as a non-committee member (zero to never invalidate). The next proposer is expected to invalidate, then the committee, so other sequencers act as a fallback.
   *Environment: `$SEQ_SECONDS_BEFORE_INVALIDATING_BLOCK_AS_NON_COMMITTEE_MEMBER`*
 
+- `--sequencer.broadcastInvalidBlockProposal <value>`
+  Broadcast invalid block proposals with corrupted state (for testing only)
+
 - `--sequencer.injectFakeAttestation <value>`
   Inject a fake attestation (for testing only)
 
@@ -1745,7 +1228,7 @@ Options:
   *Environment: `$BB_SKIP_CLEANUP`*
 
 - `--proverNode.numConcurrentIVCVerifiers <value>` (default: `8`)
-  Max number of client IVC verifiers to run concurrently
+  Max number of chonk verifiers to run concurrently
   *Environment: `$BB_NUM_IVC_VERIFIERS`*
 
 - `--proverNode.bbIVCConcurrency <value>` (default: `1`)
@@ -1888,6 +1371,10 @@ Options:
 - `--proverAgent.proverTestDelayFactor <value>` (default: `1`)
   If using realistic delays, what percentage of realistic times to apply.
   *Environment: `$PROVER_TEST_DELAY_FACTOR`*
+
+- `--proverAgent.proverTestVerificationDelayMs <value>` (default: `10`)
+  The delay (ms) to inject during fake proof verification
+  *Environment: `$PROVER_TEST_VERIFICATION_DELAY_MS`*
 
 - `--p2p-enabled [value]`
   Enable P2P subsystem
@@ -2070,7 +1557,7 @@ Options:
   *Environment: `$P2P_DROP_TX`*
 
 - `--p2p.dropTransactionsProbability <value>`
-  The probability that a transaction is discarded. - For testing purposes only
+  The probability that a transaction is discarded (0 - 1). - For testing purposes only
   *Environment: `$P2P_DROP_TX_CHANCE`*
 
 - `--p2p.disableTransactions <value>`
@@ -2080,6 +1567,10 @@ Options:
 - `--p2p.txPoolDeleteTxsAfterReorg <value>`
   Whether to delete transactions from the pool after a reorg instead of moving them back to pending.
   *Environment: `$P2P_TX_POOL_DELETE_TXS_AFTER_REORG`*
+
+- `--p2p.debugP2PInstrumentMessages <value>`
+  Alters the format of p2p messages to include things like broadcast timestamp FOR TESTING ONLY
+  *Environment: `$DEBUG_P2P_INSTRUMENT_MESSAGES`*
 
 - `--p2p.overallRequestTimeoutMs <value>` (default: `10000`)
   The overall timeout for a request response operation.
@@ -2178,6 +1669,10 @@ Options:
   A list of metric prefixes to exclude from export
   *Environment: `$OTEL_EXCLUDE_METRICS`*
 
+- `--tel.otelIncludeMetrics <value>`
+  A list of metric prefixes to include in export (ignored if OTEL_EXCLUDE_METRICS is set)
+  *Environment: `$OTEL_INCLUDE_METRICS`*
+
 - `--tel.publicMetricsCollectorUrl <value>`
   A URL to publish a subset of metrics for public consumption
   *Environment: `$PUBLIC_OTEL_EXPORTER_OTLP_METRICS_ENDPOINT`*
@@ -2207,10 +1702,6 @@ Options:
   The URL to the Aztec node admin API to force-flush txs if configured.
   *Environment: `$AZTEC_NODE_ADMIN_URL`*
 
-- `--bot.pxeUrl <value>`
-  URL to the PXE for sending txs, or undefined if an in-proc PXE is used.
-  *Environment: `$BOT_PXE_URL`*
-
 - `--bot.l1Mnemonic <value>`
   The mnemonic for the account to bridge fee juice from L1.
   *Environment: `$BOT_L1_MNEMONIC`*
@@ -2228,15 +1719,11 @@ Options:
   *Environment: `$BOT_PRIVATE_KEY`*
 
 - `--bot.senderSalt <value>`
-  The salt to use to deploys the sender account.
+  The salt to use to deploy the sender account.
   *Environment: `$BOT_ACCOUNT_SALT`*
 
-- `--bot.recipientEncryptionSecret <value>` (default: `0x00000000000000000000000000000000000000000000000000000000cafecafe`)
-  Encryption secret for a recipient account.
-  *Environment: `$BOT_RECIPIENT_ENCRYPTION_SECRET`*
-
 - `--bot.tokenSalt <value>` (default: `0x0000000000000000000000000000000000000000000000000000000000000001`)
-  Salt for the token contract deployment.
+  The salt to use to deploy the token contract.
   *Environment: `$BOT_TOKEN_SALT`*
 
 - `--bot.txIntervalSeconds <value>` (default: `60`)
@@ -2254,6 +1741,10 @@ Options:
 - `--bot.feePaymentMethod <value>` (default: `fee_juice`)
   How to handle fee payments. (Options: fee_juice)
   *Environment: `$BOT_FEE_PAYMENT_METHOD`*
+
+- `--bot.baseFeePadding <value>` (default: `3`)
+  How much is the bot willing to overpay vs. the current base fee
+  *Environment: `$BOT_BASE_FEE_PADDING`*
 
 - `--bot.noStart <value>`
   True to not automatically setup or start the bot on initialization.
@@ -2307,18 +1798,6 @@ Options:
 - `--pxe.l2BlockBatchSize <value>` (default: `50`)
   Maximum amount of blocks to pull from the stream in one request when synchronizing
   *Environment: `$PXE_L2_BLOCK_BATCH_SIZE`*
-
-- `--pxe.bbBinaryPath <value>`
-  Path to the BB binary
-  *Environment: `$BB_BINARY_PATH`*
-
-- `--pxe.bbWorkingDirectory <value>`
-  Working directory for the BB binary
-  *Environment: `$BB_WORKING_DIRECTORY`*
-
-- `--pxe.bbSkipCleanup <value>`
-  True to skip cleanup of temporary files for debugging purposes
-  *Environment: `$BB_SKIP_CLEANUP`*
 
 - `--pxe.proverEnabled <value>` (default: `true`)
   Enable real proofs
@@ -2378,7 +1857,7 @@ Options:
 
 ### aztec validator-keys|valKeys
 
-*This command help is currently unavailable due to a technical issue.*
+*This subcommand does not provide its own help information.*
 
 
 ### aztec vote-on-governance-proposal
@@ -2412,3 +1891,319 @@ Options:
   -h, --help                       display help for command
 
 ```
+
+### aztec init
+
+*No help information available for this command.*
+
+
+### aztec new
+
+*No help information available for this command.*
+
+
+### aztec compile
+
+```
+Aztec Compile - Compile Aztec Noir contracts
+
+This command compiles Aztec Noir contracts using nargo and then automatically
+postprocesses them to generate Aztec-specific artifacts including:
+  - Transpiled contract artifacts
+  - Verification keys
+
+The compiled contracts will be placed in the target/ directory by default.
+
+AZTEC-SPECIFIC NOTES:
+  - Working directory must be under $HOME due to Docker containerization
+  - Compilation automatically includes contract postprocessing
+  - Use standard nargo compile options (see below)
+
+ENVIRONMENT VARIABLES:
+  AZTEC_PATH    Path to Aztec installation (default: $HOME/.aztec)
+  VERSION       Aztec version to use (default: from $AZTEC_PATH/default_version)
+  DOCKER_REPO   Docker repository (default: aztecprotocol/aztec)
+
+---
+Underlying nargo compile options:
+
+Compile the program and its secret execution trace into ACIR format
+
+Usage: nargo compile [OPTIONS]
+
+Options:
+      --package <PACKAGE>
+          The name of the package to run the command on. By default run on the first one found moving up along the ancestors of the current directory
+
+      --workspace
+          Run on all packages in the workspace
+
+      --expression-width <EXPRESSION_WIDTH>
+          Specify the backend expression width that should be targeted
+
+      --bounded-codegen
+          Generate ACIR with the target backend expression width. The default is to generate ACIR without a bound and split expressions after code generation. Activating this flag can sometimes provide optimizations for certain programs
+
+      --force
+          Force a full recompilation
+
+      --print-acir
+          Display the ACIR for compiled circuit
+
+      --deny-warnings
+          Treat all warnings as errors
+
+      --silence-warnings
+          Suppress warnings
+
+      --debug-comptime-in-file <DEBUG_COMPTIME_IN_FILE>
+          Enable printing results of comptime evaluation: provide a path suffix for the module to debug, e.g. "package_name/src/main.nr"
+
+      --skip-underconstrained-check
+          Flag to turn off the compiler check for under constrained values. Warning: This can improve compilation speed but can also lead to correctness errors. This check should always be run on production code
+
+      --skip-brillig-constraints-check
+          Flag to turn off the compiler check for missing Brillig call constraints. Warning: This can improve compilation speed but can also lead to correctness errors. This check should always be run on production code
+
+      --count-array-copies
+          Count the number of arrays that are copied in an unconstrained context for performance debugging
+
+      --enable-brillig-constraints-check-lookback
+          Flag to turn on the lookback feature of the Brillig call constraints check, allowing tracking argument values before the call happens preventing certain rare false positives (leads to a slowdown on large rollout functions)
+
+      --inliner-aggressiveness <INLINER_AGGRESSIVENESS>
+          Setting to decide on an inlining strategy for Brillig functions. A more aggressive inliner should generate larger programs but more optimized A less aggressive inliner should generate smaller programs
+
+          [default: 9223372036854775807]
+
+      --pedantic-solving
+          Use pedantic ACVM solving, i.e. double-check some black-box function assumptions when solving. This is disabled by default
+
+  -Z, --unstable-features <UNSTABLE_FEATURES>
+          Unstable features to enable for this current build.
+
+          If non-empty, it disables unstable features required in crate manifests.
+
+      --no-unstable-features
+          Disable any unstable features required in crate manifests
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+```
+
+### aztec fmt
+
+```
+Format the Noir files in a workspace
+
+Usage: nargo fmt [OPTIONS]
+
+Options:
+      --check              Run noirfmt in check mode
+      --package <PACKAGE>  The name of the package to run the command on. By default run on the first one found moving up along the ancestors of the current directory
+      --workspace          Run on all packages in the workspace
+  -h, --help               Print help
+
+```
+
+### aztec check
+
+```
+Check a local package and all of its dependencies for errors
+
+Usage: nargo check [OPTIONS]
+
+Options:
+      --package <PACKAGE>
+          The name of the package to run the command on. By default run on the first one found moving up along the ancestors of the current directory
+
+      --workspace
+          Run on all packages in the workspace
+
+      --overwrite
+          Force overwrite of existing files
+
+      --expression-width <EXPRESSION_WIDTH>
+          Specify the backend expression width that should be targeted
+
+      --bounded-codegen
+          Generate ACIR with the target backend expression width. The default is to generate ACIR without a bound and split expressions after code generation. Activating this flag can sometimes provide optimizations for certain programs
+
+      --force
+          Force a full recompilation
+
+      --print-acir
+          Display the ACIR for compiled circuit
+
+      --deny-warnings
+          Treat all warnings as errors
+
+      --silence-warnings
+          Suppress warnings
+
+      --debug-comptime-in-file <DEBUG_COMPTIME_IN_FILE>
+          Enable printing results of comptime evaluation: provide a path suffix for the module to debug, e.g. "package_name/src/main.nr"
+
+      --skip-underconstrained-check
+          Flag to turn off the compiler check for under constrained values. Warning: This can improve compilation speed but can also lead to correctness errors. This check should always be run on production code
+
+      --skip-brillig-constraints-check
+          Flag to turn off the compiler check for missing Brillig call constraints. Warning: This can improve compilation speed but can also lead to correctness errors. This check should always be run on production code
+
+      --count-array-copies
+          Count the number of arrays that are copied in an unconstrained context for performance debugging
+
+      --enable-brillig-constraints-check-lookback
+          Flag to turn on the lookback feature of the Brillig call constraints check, allowing tracking argument values before the call happens preventing certain rare false positives (leads to a slowdown on large rollout functions)
+
+      --inliner-aggressiveness <INLINER_AGGRESSIVENESS>
+          Setting to decide on an inlining strategy for Brillig functions. A more aggressive inliner should generate larger programs but more optimized A less aggressive inliner should generate smaller programs
+
+          [default: 9223372036854775807]
+
+      --pedantic-solving
+          Use pedantic ACVM solving, i.e. double-check some black-box function assumptions when solving. This is disabled by default
+
+  -Z, --unstable-features <UNSTABLE_FEATURES>
+          Unstable features to enable for this current build.
+
+          If non-empty, it disables unstable features required in crate manifests.
+
+      --no-unstable-features
+          Disable any unstable features required in crate manifests
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+```
+
+### aztec test
+
+```
+Run the tests for this program
+
+Usage: nargo test [OPTIONS] [TEST_NAMES]...
+
+Arguments:
+  [TEST_NAMES]...
+          If given, only tests with names containing this string will be run
+
+Options:
+      --show-output
+          Display output of `println` statements
+
+      --exact
+          Only run tests that match exactly
+
+      --package <PACKAGE>
+          The name of the package to run the command on. By default run on the first one found moving up along the ancestors of the current directory
+
+      --workspace
+          Run on all packages in the workspace
+
+      --expression-width <EXPRESSION_WIDTH>
+          Specify the backend expression width that should be targeted
+
+      --bounded-codegen
+          Generate ACIR with the target backend expression width. The default is to generate ACIR without a bound and split expressions after code generation. Activating this flag can sometimes provide optimizations for certain programs
+
+      --force
+          Force a full recompilation
+
+      --print-acir
+          Display the ACIR for compiled circuit
+
+      --deny-warnings
+          Treat all warnings as errors
+
+      --silence-warnings
+          Suppress warnings
+
+      --debug-comptime-in-file <DEBUG_COMPTIME_IN_FILE>
+          Enable printing results of comptime evaluation: provide a path suffix for the module to debug, e.g. "package_name/src/main.nr"
+
+      --skip-underconstrained-check
+          Flag to turn off the compiler check for under constrained values. Warning: This can improve compilation speed but can also lead to correctness errors. This check should always be run on production code
+
+      --skip-brillig-constraints-check
+          Flag to turn off the compiler check for missing Brillig call constraints. Warning: This can improve compilation speed but can also lead to correctness errors. This check should always be run on production code
+
+      --count-array-copies
+          Count the number of arrays that are copied in an unconstrained context for performance debugging
+
+      --enable-brillig-constraints-check-lookback
+          Flag to turn on the lookback feature of the Brillig call constraints check, allowing tracking argument values before the call happens preventing certain rare false positives (leads to a slowdown on large rollout functions)
+
+      --inliner-aggressiveness <INLINER_AGGRESSIVENESS>
+          Setting to decide on an inlining strategy for Brillig functions. A more aggressive inliner should generate larger programs but more optimized A less aggressive inliner should generate smaller programs
+
+          [default: 9223372036854775807]
+
+      --pedantic-solving
+          Use pedantic ACVM solving, i.e. double-check some black-box function assumptions when solving. This is disabled by default
+
+  -Z, --unstable-features <UNSTABLE_FEATURES>
+          Unstable features to enable for this current build.
+
+          If non-empty, it disables unstable features required in crate manifests.
+
+      --no-unstable-features
+          Disable any unstable features required in crate manifests
+
+      --oracle-resolver <ORACLE_RESOLVER>
+          JSON RPC url to solve oracle calls
+
+      --test-threads <TEST_THREADS>
+          Number of threads used for running tests in parallel
+
+          [default: 14]
+
+      --format <FORMAT>
+          Configure formatting of output
+
+          Possible values:
+          - pretty: Print verbose output
+          - terse:  Display one character per test
+          - json:   Output a JSON Lines document
+
+  -q, --quiet
+          Display one character per test instead of one line
+
+      --no-fuzz
+          Do not run fuzz tests (tests that have arguments)
+
+      --only-fuzz
+          Only run fuzz tests (tests that have arguments)
+
+      --corpus-dir <CORPUS_DIR>
+          If given, load/store fuzzer corpus from this folder
+
+      --minimized-corpus-dir <MINIMIZED_CORPUS_DIR>
+          If given, perform corpus minimization instead of fuzzing and store results in the given folder
+
+      --fuzzing-failure-dir <FUZZING_FAILURE_DIR>
+          If given, store the failing input in the given folder
+
+      --fuzz-timeout <FUZZ_TIMEOUT>
+          Maximum time in seconds to spend fuzzing (default: 1 seconds)
+
+          [default: 1]
+
+      --fuzz-max-executions <FUZZ_MAX_EXECUTIONS>
+          Maximum number of executions to run for each fuzz test (default: 100000)
+
+          [default: 100000]
+
+      --fuzz-show-progress
+          Show progress of fuzzing (default: false)
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+```
+
+### aztec lsp
+
+*No help information available for this command.*
+

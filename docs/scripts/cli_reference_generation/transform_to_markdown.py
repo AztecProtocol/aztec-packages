@@ -114,11 +114,20 @@ class MarkdownGenerator:
         if "error" in cmd_data:
             heading = "#" * (depth + 1)
             error_type = cmd_data.get("error_type", "unknown")
+            error_code = cmd_data.get("error", "")
 
             if error_type == "bigint_serialization":
                 return f"{heading} {cmd_name}\n\n*Help for this command is currently unavailable due to a technical issue with option serialization.*\n\n"
+            elif error_type == "empty_output" or error_code == "no_help_available":
+                return f"{heading} {cmd_name}\n\n*No help information available for this command.*\n\n"
+            elif error_code == "invalid_subcommand":
+                return f"{heading} {cmd_name}\n\n*This subcommand does not provide its own help information.*\n\n"
+            elif error_code == "already_visited":
+                return ""  # Skip already visited commands to avoid duplicates
+            elif error_code == "max_depth_exceeded":
+                return f"{heading} {cmd_name}\n\n*Documentation truncated due to nesting depth.*\n\n"
             else:
-                return f"{heading} {cmd_name}\n\n*This command help is currently unavailable due to a technical issue.*\n\n"
+                return f"{heading} {cmd_name}\n\n*Help for this command is currently unavailable.*\n\n"
 
         sections = []
         heading = "#" * (depth + 1)
