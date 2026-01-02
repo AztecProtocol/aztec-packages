@@ -10,7 +10,7 @@ sidebar_position: 2
 *This documentation is auto-generated from the `aztec-wallet` CLI help output.*
 
 
-*Generated: Fri 02 Jan 2026 14:24:03 UTC*
+*Generated: Fri 02 Jan 2026 14:37:08 UTC*
 
 *Command: `aztec-wallet`*
 
@@ -65,7 +65,7 @@ wallet [options] [command]
 **Options:**
 
 - `-V --version` - output the version number
-- `-d --data-dir <string>` - Storage directory for wallet data (default: "/Users/alejoamiras/.aztec/wallet")
+- `-d --data-dir <string>` - Storage directory for wallet data
 - `-p --prover <string>` - The type of prover the wallet uses (choices: "wasm", "native", "none", default: "native", env: PXE_PROVER)
 - `-n --node-url <string>` - URL of the Aztec node to connect to (default: "http://host.docker.internal:8080", env: AZTEC_NODE_URL)
 - `-h --help` - display help for command
@@ -88,7 +88,7 @@ Arguments:
 
 Options:
   -h, --help  display help for command
-2026/01/02 11:24:04 socat[5753] E exactly 2 addresses required (there are 3); use option "-h" for help
+2026/01/02 11:37:09 socat[17245] E exactly 2 addresses required (there are 3); use option "-h" for help
 
 ```
 
@@ -110,7 +110,7 @@ Options:
   -c, --contract-artifact <fileLocation>  Path to a compiled Aztec contract's artifact in JSON format. If executed inside a nargo workspace, a package and contract name can be specified as package@contract
   -f, --from <string>                     Alias or address of the account to simulate from
   -h, --help                              display help for command
-2026/01/02 11:24:04 socat[5757] E exactly 2 addresses required (there are 3); use option "-h" for help
+2026/01/02 11:37:09 socat[17247] E exactly 2 addresses required (there are 3); use option "-h" for help
 
 ```
 
@@ -144,7 +144,7 @@ Options:
   --interval <number>         The polling interval in seconds for the bridged
                               funds (default: "60")
   -h, --help                  display help for command
-2026/01/02 11:24:04 socat[5752] E exactly 2 addresses required (there are 3); use option "-h" for help
+2026/01/02 11:37:09 socat[17249] E exactly 2 addresses required (there are 3); use option "-h" for help
 
 ```
 
@@ -174,19 +174,19 @@ Options:
   --payment <options>                                       Fee payment method and arguments.
      Parameters:
        method            Valid values: "fee_juice", "fpc-public", "fpc-private", "fpc-sponsored" Default: fee_juice
-       asset             The asset used for fee payment. Required for "fpc-public" and "fpc-private". 
-       fpc               The FPC contract that pays in fee juice. Not required for the "fee_juice" method. 
-       claim             Whether to use a previously stored claim to bridge fee juice. 
-       claimSecret       The secret to claim fee juice on L1. 
-       claimAmount       The amount of fee juice to be claimed. 
-       messageLeafIndex  The index of the claim in the l1toL2Message tree. 
+       asset             The asset used for fee payment. Required for "fpc-public" and "fpc-private".
+       fpc               The FPC contract that pays in fee juice. Not required for the "fee_juice" method.
+       claim             Whether to use a previously stored claim to bridge fee juice.
+       claimSecret       The secret to claim fee juice on L1.
+       claimAmount       The amount of fee juice to be claimed.
+       messageLeafIndex  The index of the claim in the l1toL2Message tree.
   Format: --payment method=name,asset=address,fpc=address ...
   --gas-limits <da=100,l2=100,teardownDA=10,teardownL2=10>  Gas limits for the tx.
   --max-fees-per-gas <da=100,l2=100>                        Maximum fees per gas unit for DA and L2 computation.
   --max-priority-fees-per-gas <da=0,l2=0>                   Maximum priority fees per gas unit for DA and L2 computation.
   --estimate-gas-only                                       Only report gas estimation for the tx, do not send it.
   -h, --help                                                display help for command
-2026/01/02 11:24:04 socat[5751] E exactly 2 addresses required (there are 3); use option "-h" for help
+2026/01/02 11:37:09 socat[17252] E exactly 2 addresses required (there are 3); use option "-h" for help
 
 ```
 
@@ -209,7 +209,7 @@ Options:
   -f, --from <string>                     Alias or address of the account to simulate from
   -a, --alias <string>                    Alias for the authorization witness. Used for easy reference in subsequent commands.
   -h, --help                              display help for command
-2026/01/02 11:24:05 socat[5796] E exactly 2 addresses required (there are 3); use option "-h" for help
+2026/01/02 11:37:10 socat[17290] E exactly 2 addresses required (there are 3); use option "-h" for help
 
 ```
 
@@ -223,7 +223,7 @@ Creates an aliased secret to use in other commands
 Options:
   -a, --alias <string>  Key to alias the secret with
   -h, --help            display help for command
-2026/01/02 11:24:05 socat[5807] E exactly 2 addresses required (there are 3); use option "-h" for help
+2026/01/02 11:37:10 socat[17305] E exactly 2 addresses required (there are 3); use option "-h" for help
 
 ```
 
@@ -255,19 +255,19 @@ Options:
   --payment <options>                                       Fee payment method and arguments.
      Parameters:
        method            Valid values: "fee_juice", "fpc-public", "fpc-private", "fpc-sponsored" Default: fee_juice
-       asset             The asset used for fee payment. Required for "fpc-public" and "fpc-private". 
-       fpc               The FPC contract that pays in fee juice. Not required for the "fee_juice" method. 
-       claim             Whether to use a previously stored claim to bridge fee juice. 
-       claimSecret       The secret to claim fee juice on L1. 
-       claimAmount       The amount of fee juice to be claimed. 
-       messageLeafIndex  The index of the claim in the l1toL2Message tree. 
+       asset             The asset used for fee payment. Required for "fpc-public" and "fpc-private".
+       fpc               The FPC contract that pays in fee juice. Not required for the "fee_juice" method.
+       claim             Whether to use a previously stored claim to bridge fee juice.
+       claimSecret       The secret to claim fee juice on L1.
+       claimAmount       The amount of fee juice to be claimed.
+       messageLeafIndex  The index of the claim in the l1toL2Message tree.
   Format: --payment method=name,asset=address,fpc=address ...
   --gas-limits <da=100,l2=100,teardownDA=10,teardownL2=10>  Gas limits for the tx.
   --max-fees-per-gas <da=100,l2=100>                        Maximum fees per gas unit for DA and L2 computation.
   --max-priority-fees-per-gas <da=0,l2=0>                   Maximum priority fees per gas unit for DA and L2 computation.
   --estimate-gas-only                                       Only report gas estimation for the tx, do not send it.
   -h, --help                                                display help for command
-2026/01/02 11:24:05 socat[5816] E exactly 2 addresses required (there are 3); use option "-h" for help
+2026/01/02 11:37:10 socat[17315] E exactly 2 addresses required (there are 3); use option "-h" for help
 
 ```
 
@@ -293,19 +293,19 @@ Options:
   --payment <options>                                       Fee payment method and arguments.
      Parameters:
        method            Valid values: "fee_juice", "fpc-public", "fpc-private", "fpc-sponsored" Default: fee_juice
-       asset             The asset used for fee payment. Required for "fpc-public" and "fpc-private". 
-       fpc               The FPC contract that pays in fee juice. Not required for the "fee_juice" method. 
-       claim             Whether to use a previously stored claim to bridge fee juice. 
-       claimSecret       The secret to claim fee juice on L1. 
-       claimAmount       The amount of fee juice to be claimed. 
-       messageLeafIndex  The index of the claim in the l1toL2Message tree. 
+       asset             The asset used for fee payment. Required for "fpc-public" and "fpc-private".
+       fpc               The FPC contract that pays in fee juice. Not required for the "fee_juice" method.
+       claim             Whether to use a previously stored claim to bridge fee juice.
+       claimSecret       The secret to claim fee juice on L1.
+       claimAmount       The amount of fee juice to be claimed.
+       messageLeafIndex  The index of the claim in the l1toL2Message tree.
   Format: --payment method=name,asset=address,fpc=address ...
   --gas-limits <da=100,l2=100,teardownDA=10,teardownL2=10>  Gas limits for the tx.
   --max-fees-per-gas <da=100,l2=100>                        Maximum fees per gas unit for DA and L2 computation.
   --max-priority-fees-per-gas <da=0,l2=0>                   Maximum priority fees per gas unit for DA and L2 computation.
   --estimate-gas-only                                       Only report gas estimation for the tx, do not send it.
   -h, --help                                                display help for command
-2026/01/02 11:24:05 socat[5826] E exactly 2 addresses required (there are 3); use option "-h" for help
+2026/01/02 11:37:10 socat[17320] E exactly 2 addresses required (there are 3); use option "-h" for help
 
 ```
 
@@ -321,7 +321,7 @@ Arguments:
 
 Options:
   -h, --help  display help for command
-2026/01/02 11:24:06 socat[5845] E exactly 2 addresses required (there are 3); use option "-h" for help
+2026/01/02 11:37:11 socat[17339] E exactly 2 addresses required (there are 3); use option "-h" for help
 
 ```
 
@@ -341,7 +341,7 @@ Options:
   -s, --page-size <number>  The number of transactions to display per page
                             (default: 10)
   -h, --help                display help for command
-2026/01/02 11:24:06 socat[5860] E exactly 2 addresses required (there are 3); use option "-h" for help
+2026/01/02 11:37:11 socat[17361] E exactly 2 addresses required (there are 3); use option "-h" for help
 
 ```
 
@@ -355,7 +355,7 @@ Import test accounts from pxe.
 Options:
   --json      Emit output as json
   -h, --help  display help for command
-2026/01/02 11:24:06 socat[5865] E exactly 2 addresses required (there are 3); use option "-h" for help
+2026/01/02 11:37:11 socat[17370] E exactly 2 addresses required (there are 3); use option "-h" for help
 
 ```
 
@@ -380,19 +380,19 @@ Options:
   --payment <options>                                       Fee payment method and arguments.
      Parameters:
        method            Valid values: "fee_juice", "fpc-public", "fpc-private", "fpc-sponsored" Default: fee_juice
-       asset             The asset used for fee payment. Required for "fpc-public" and "fpc-private". 
-       fpc               The FPC contract that pays in fee juice. Not required for the "fee_juice" method. 
-       claim             Whether to use a previously stored claim to bridge fee juice. 
-       claimSecret       The secret to claim fee juice on L1. 
-       claimAmount       The amount of fee juice to be claimed. 
-       messageLeafIndex  The index of the claim in the l1toL2Message tree. 
+       asset             The asset used for fee payment. Required for "fpc-public" and "fpc-private".
+       fpc               The FPC contract that pays in fee juice. Not required for the "fee_juice" method.
+       claim             Whether to use a previously stored claim to bridge fee juice.
+       claimSecret       The secret to claim fee juice on L1.
+       claimAmount       The amount of fee juice to be claimed.
+       messageLeafIndex  The index of the claim in the l1toL2Message tree.
   Format: --payment method=name,asset=address,fpc=address ...
   --gas-limits <da=100,l2=100,teardownDA=10,teardownL2=10>  Gas limits for the tx.
   --max-fees-per-gas <da=100,l2=100>                        Maximum fees per gas unit for DA and L2 computation.
   --max-priority-fees-per-gas <da=0,l2=0>                   Maximum priority fees per gas unit for DA and L2 computation.
   --estimate-gas-only                                       Only report gas estimation for the tx, do not send it.
   -h, --help                                                display help for command
-2026/01/02 11:24:06 socat[5875] E exactly 2 addresses required (there are 3); use option "-h" for help
+2026/01/02 11:37:11 socat[17380] E exactly 2 addresses required (there are 3); use option "-h" for help
 
 ```
 
@@ -425,7 +425,7 @@ Options:
   -a, --alias <string>       Alias for the contact. Used for easy reference in
                              subsequent commands.
   -h, --help                 display help for command
-2026/01/02 11:24:07 socat[5894] E exactly 2 addresses required (there are 3); use option "-h" for help
+2026/01/02 11:37:12 socat[17390] E exactly 2 addresses required (there are 3); use option "-h" for help
 
 ```
 
@@ -444,7 +444,7 @@ Options:
   -a, --alias <string>  Alias for the sender. Used for easy reference in
                         subsequent commands.
   -h, --help            display help for command
-2026/01/02 11:24:07 socat[5909] E exactly 2 addresses required (there are 3); use option "-h" for help
+2026/01/02 11:37:12 socat[17400] E exactly 2 addresses required (there are 3); use option "-h" for help
 
 ```
 
@@ -470,19 +470,19 @@ Options:
   --payment <options>                                       Fee payment method and arguments.
      Parameters:
        method            Valid values: "fee_juice", "fpc-public", "fpc-private", "fpc-sponsored" Default: fee_juice
-       asset             The asset used for fee payment. Required for "fpc-public" and "fpc-private". 
-       fpc               The FPC contract that pays in fee juice. Not required for the "fee_juice" method. 
-       claim             Whether to use a previously stored claim to bridge fee juice. 
-       claimSecret       The secret to claim fee juice on L1. 
-       claimAmount       The amount of fee juice to be claimed. 
-       messageLeafIndex  The index of the claim in the l1toL2Message tree. 
+       asset             The asset used for fee payment. Required for "fpc-public" and "fpc-private".
+       fpc               The FPC contract that pays in fee juice. Not required for the "fee_juice" method.
+       claim             Whether to use a previously stored claim to bridge fee juice.
+       claimSecret       The secret to claim fee juice on L1.
+       claimAmount       The amount of fee juice to be claimed.
+       messageLeafIndex  The index of the claim in the l1toL2Message tree.
   Format: --payment method=name,asset=address,fpc=address ...
   --gas-limits <da=100,l2=100,teardownDA=10,teardownL2=10>  Gas limits for the tx.
   --max-fees-per-gas <da=100,l2=100>                        Maximum fees per gas unit for DA and L2 computation.
   --max-priority-fees-per-gas <da=0,l2=0>                   Maximum priority fees per gas unit for DA and L2 computation.
   --estimate-gas-only                                       Only report gas estimation for the tx, do not send it.
   -h, --help                                                display help for command
-2026/01/02 11:24:07 socat[5914] E exactly 2 addresses required (there are 3); use option "-h" for help
+2026/01/02 11:37:12 socat[17410] E exactly 2 addresses required (there are 3); use option "-h" for help
 
 ```
 
@@ -507,18 +507,18 @@ Options:
   --payment <options>                                       Fee payment method and arguments.
      Parameters:
        method            Valid values: "fee_juice", "fpc-public", "fpc-private", "fpc-sponsored" Default: fee_juice
-       asset             The asset used for fee payment. Required for "fpc-public" and "fpc-private". 
-       fpc               The FPC contract that pays in fee juice. Not required for the "fee_juice" method. 
-       claim             Whether to use a previously stored claim to bridge fee juice. 
-       claimSecret       The secret to claim fee juice on L1. 
-       claimAmount       The amount of fee juice to be claimed. 
-       messageLeafIndex  The index of the claim in the l1toL2Message tree. 
+       asset             The asset used for fee payment. Required for "fpc-public" and "fpc-private".
+       fpc               The FPC contract that pays in fee juice. Not required for the "fee_juice" method.
+       claim             Whether to use a previously stored claim to bridge fee juice.
+       claimSecret       The secret to claim fee juice on L1.
+       claimAmount       The amount of fee juice to be claimed.
+       messageLeafIndex  The index of the claim in the l1toL2Message tree.
   Format: --payment method=name,asset=address,fpc=address ...
   --gas-limits <da=100,l2=100,teardownDA=10,teardownL2=10>  Gas limits for the tx.
   --max-fees-per-gas <da=100,l2=100>                        Maximum fees per gas unit for DA and L2 computation.
   --max-priority-fees-per-gas <da=0,l2=0>                   Maximum priority fees per gas unit for DA and L2 computation.
   --estimate-gas-only                                       Only report gas estimation for the tx, do not send it.
   -h, --help                                                display help for command
-2026/01/02 11:24:07 socat[5933] E exactly 2 addresses required (there are 3); use option "-h" for help
+2026/01/02 11:37:12 socat[17420] E exactly 2 addresses required (there are 3); use option "-h" for help
 
 ```
