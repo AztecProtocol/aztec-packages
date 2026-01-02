@@ -122,6 +122,10 @@ abstract class BaseField {
     return this.asBigInt === rhsBigInt ? 0 : this.asBigInt < rhsBigInt ? -1 : 1;
   }
 
+  static cmp(lhs: BaseField, rhs: BaseField): -1 | 0 | 1 {
+    return lhs.cmp(rhs);
+  }
+
   isZero(): boolean {
     return this.asBigInt === 0n;
   }

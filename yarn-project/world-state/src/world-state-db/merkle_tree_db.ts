@@ -3,7 +3,11 @@ import type { BlockNumber } from '@aztec/foundation/branded-types';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import type { IndexedTreeSnapshot, TreeSnapshot } from '@aztec/merkle-tree';
 import type { L2BlockNew } from '@aztec/stdlib/block';
-import type { ForkMerkleTreeOperations, MerkleTreeReadOperations } from '@aztec/stdlib/interfaces/server';
+import type {
+  ForkMerkleTreeOperations,
+  MerkleTreeReadOperations,
+  ReadonlyWorldStateAccess,
+} from '@aztec/stdlib/interfaces/server';
 import type { MerkleTreeId } from '@aztec/stdlib/trees';
 
 import type { WorldStateStatusFull, WorldStateStatusSummary } from '../native/message.js';
@@ -35,7 +39,7 @@ export type TreeSnapshots = {
   [MerkleTreeId.ARCHIVE]: TreeSnapshot<Fr>;
 };
 
-export interface MerkleTreeAdminDatabase extends ForkMerkleTreeOperations {
+export interface MerkleTreeAdminDatabase extends ForkMerkleTreeOperations, ReadonlyWorldStateAccess {
   /**
    * Handles a single L2 block (i.e. Inserts the new note hashes into the merkle tree).
    * @param block - The L2 block to handle.

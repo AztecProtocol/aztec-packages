@@ -71,11 +71,11 @@ describe('mempool limiter test', () => {
     // set a large pool size so that deploy txs fit and allow blocks with few txs
     const configs = await getSequencersConfig(config);
     originalMinTxsPerBlock = configs[0]?.minTxsPerBlock;
-    await updateSequencersConfig(config, { maxTxPoolSize: 1e9, minTxsPerBlock: 0 });
+    await updateSequencersConfig(config, { maxPendingTxCount: 10_000, minTxsPerBlock: 0 });
     await retryUntil(
       async () => {
         const applied = await getSequencersConfig(config);
-        return applied.every(c => c.minTxsPerBlock === 0 && c.maxTxPoolSize === 1e9);
+        return applied.every(c => c.minTxsPerBlock === 0 && c.maxPendingTxCount === 1e9);
       },
       'admin config propagate',
       60,
@@ -113,19 +113,18 @@ describe('mempool limiter test', () => {
     );
     sampleTx = Tx.clone(baseTx);
     const sampleTxSize = sampleTx.getSize();
-    const maxTxPoolSize = TX_MEMPOOL_LIMIT * sampleTxSize;
+    const maxPendingTxCount = TX_MEMPOOL_LIMIT * sampleTxSize;
 
-    await updateSequencersConfig(config, { maxTxPoolSize });
+    await updateSequencersConfig(config, { maxPendingTxCount });
 
-    debugLogger.info(`Sample tx size: ${sampleTxSize} bytes`);
-    debugLogger.info(`Mempool limited to: ${maxTxPoolSize} bytes`);
+    debugLogger.info(`Mempool limited to: ${maxPendingTxCount}`);
   });
 
   afterAll(async () => {
     if (originalMinTxsPerBlock !== undefined) {
-      await updateSequencersConfig(config, { maxTxPoolSize: 1e9, minTxsPerBlock: originalMinTxsPerBlock });
+      await updateSequencersConfig(config, { maxPendingTxCount: 1e9, minTxsPerBlock: originalMinTxsPerBlock });
     } else {
-      await updateSequencersConfig(config, { maxTxPoolSize: 1e9 });
+      await updateSequencersConfig(config, { maxPendingTxCount: 1e9 });
     }
     await cleanup?.();
     forwardProcesses.forEach(p => p.kill());

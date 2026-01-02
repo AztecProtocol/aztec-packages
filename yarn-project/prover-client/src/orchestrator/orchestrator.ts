@@ -22,6 +22,7 @@ import type {
   ForkMerkleTreeOperations,
   MerkleTreeWriteOperations,
   PublicInputsAndRecursiveProof,
+  ReadonlyWorldStateAccess,
   ServerCircuitProver,
 } from '@aztec/stdlib/interfaces/server';
 import type { Proof } from '@aztec/stdlib/proofs';
@@ -96,7 +97,7 @@ export class ProvingOrchestrator implements EpochProver {
   private dbs: Map<BlockNumber, MerkleTreeWriteOperations> = new Map();
 
   constructor(
-    private dbProvider: ForkMerkleTreeOperations,
+    private dbProvider: ReadonlyWorldStateAccess & ForkMerkleTreeOperations,
     private prover: ServerCircuitProver,
     private readonly proverId: EthAddress,
     telemetryClient: TelemetryClient = getTelemetryClient(),

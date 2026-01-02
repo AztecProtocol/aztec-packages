@@ -56,6 +56,7 @@ function mockTxPool(): TxPool {
     hasTx: () => Promise.resolve(false),
     updateConfig: () => {},
     markTxsAsNonEvictable: () => Promise.resolve(),
+    clearNonEvictableTxs: () => Promise.resolve(),
     cleanupDeletedMinedTxs: () => Promise.resolve(0),
   };
   return Object.assign(new EventEmitter(), pool);
