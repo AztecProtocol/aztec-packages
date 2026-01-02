@@ -71,7 +71,8 @@ describe('BlockSynchronizer', () => {
     });
     await synchronizer.handleBlockStreamEvent({ type: 'chain-pruned', block: { number: BlockNumber(3), hash: '0x3' } });
 
-    expect(rollbackNotesAndNullifiers).toHaveBeenCalledWith(3, 4);
-    expect(resetNoteSyncData).toHaveBeenCalled();
+    // Third argument is the optional JobContext, which is undefined when sync is called without a context
+    expect(rollbackNotesAndNullifiers).toHaveBeenCalledWith(3, 4, undefined);
+    expect(resetNoteSyncData).toHaveBeenCalledWith(undefined);
   });
 });

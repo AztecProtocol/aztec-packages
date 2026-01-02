@@ -19,6 +19,8 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
   private log: Logger;
   private isSyncing: Promise<void> | undefined;
   protected readonly blockStream: L2BlockStream;
+  /** Job context for staged writes during sync. Set before sync, cleared after. */
+  private currentJobContext?: JobContext;
 
   constructor(
     private node: AztecNode,
@@ -48,6 +50,7 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
   /** Handle events emitted by the block stream. */
   public async handleBlockStreamEvent(event: L2BlockStreamEvent): Promise<void> {
     await this.l2TipsStore.handleBlockStreamEvent(event);
+    const context = this.currentJobContext;
 
     switch (event.type) {
       case 'blocks-added': {
@@ -57,26 +60,38 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
           archive: lastBlock.archive.root.toString(),
           header: lastBlock.header.toInspect(),
         });
-        await this.anchorBlockDataProvider.setHeader(lastBlock.getBlockHeader());
+        await this.anchorBlockDataProvider.setHeader(lastBlock.getBlockHeader(), context);
+        if (context) {
+          context.registerWrite(this.anchorBlockDataProvider.storeName);
+        }
         break;
       }
       case 'chain-pruned': {
         this.log.warn(`Pruning data after block ${event.block.number} due to reorg`);
         // We first unnullify and then remove so that unnullified notes that were created after the block number end up deleted.
-        const lastSynchedBlockNumber = (await this.anchorBlockDataProvider.getBlockHeader()).getBlockNumber();
-        await this.noteDataProvider.rollbackNotesAndNullifiers(event.block.number, lastSynchedBlockNumber);
+        const lastSynchedBlockNumber = (await this.anchorBlockDataProvider.getBlockHeader(context)).getBlockNumber();
+        await this.noteDataProvider.rollbackNotesAndNullifiers(event.block.number, lastSynchedBlockNumber, context);
+        if (context) {
+          context.registerWrite(this.noteDataProvider.storeName);
+        }
         // Remove all note tagging indexes to force a full resync. This is suboptimal, but unless we track the
         // block number in which each index is used it's all we can do.
         // Note: This is now unnecessary for the sender tagging data provider because the new algorithm handles reorgs.
         // TODO(#17775): Once this issue is implemented we will have the index-block number mapping, so we can
         // implement this more intelligently.
-        await this.recipientTaggingDataProvider.resetNoteSyncData();
+        await this.recipientTaggingDataProvider.resetNoteSyncData(context);
+        if (context) {
+          context.registerWrite(this.recipientTaggingDataProvider.storeName);
+        }
         // Update the header to the last block.
         const newHeader = await this.node.getBlockHeader(event.block.number);
         if (!newHeader) {
           this.log.error(`Block header not found for block number ${event.block.number} during chain prune`);
         } else {
-          await this.anchorBlockDataProvider.setHeader(newHeader);
+          await this.anchorBlockDataProvider.setHeader(newHeader, context);
+          if (context) {
+            context.registerWrite(this.anchorBlockDataProvider.storeName);
+          }
         }
         break;
       }
@@ -91,8 +106,10 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
    * so this component doesn't proactively stay up to date with the blockchain.
    *
    * We do this so PXE can ensure data consistency.
+   *
+   * @param context - Optional job context for staged writes during sync.
    */
-  public async sync() {
+  public async sync(context?: JobContext) {
     if (this.isSyncing !== undefined) {
       this.log.debug(`Waiting for the ongoing sync to finish`);
       await this.isSyncing;
@@ -100,12 +117,14 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
     }
 
     this.log.debug(`Syncing PXE with the node`);
+    this.currentJobContext = context;
     const isSyncing = this.doSync();
     this.isSyncing = isSyncing;
     try {
       await isSyncing;
     } finally {
       this.isSyncing = undefined;
+      this.currentJobContext = undefined;
     }
   }
 

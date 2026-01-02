@@ -159,8 +159,19 @@ export class NoteDataProvider implements StagingDataProvider {
    *
    * @param blockNumber - The new chain tip after a reorg
    * @param synchedBlockNumber - The block number up to which PXE managed to sync before the reorg happened.
+   * @param context - Optional job context for staging writes
    */
-  public async rollbackNotesAndNullifiers(blockNumber: number, synchedBlockNumber: number): Promise<void> {
+  public async rollbackNotesAndNullifiers(
+    blockNumber: number,
+    synchedBlockNumber: number,
+    context?: JobContext,
+  ): Promise<void> {
+    // TODO(#crash-resilience): Implement proper staging for reorg operations.
+    // For now, these operations write directly without staging since they're complex
+    // and involve reading + writing multiple data structures atomically.
+    // The block synchronizer only runs during sync() which happens before simulation,
+    // so if a crash occurs here, the next startup will re-sync anyway.
+    void context;
     await this.#rewindNullifiersAfterBlock(blockNumber, synchedBlockNumber);
     await this.#deleteActiveNotesAfterBlock(blockNumber);
   }
