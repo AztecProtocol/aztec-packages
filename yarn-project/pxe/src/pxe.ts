@@ -696,7 +696,7 @@ export class PXE {
       const totalTimer = new Timer();
       try {
         const syncTimer = new Timer();
-        await this.blockStateSynchronizer.sync(context);
+        await this.blockStateSynchronizer.sync();
         const syncTime = syncTimer.ms();
         const contractFunctionSimulator = this.#getSimulatorForTx();
         privateExecutionResult = await this.#executePrivate(contractFunctionSimulator, txRequest);
@@ -777,7 +777,7 @@ export class PXE {
     skipProofGeneration: boolean = true,
   ): Promise<TxProfileResult> {
     // We disable concurrent profiles for consistency with simulateTx.
-    return this.#putInJobQueue(async context => {
+    return this.#putInJobQueue(async () => {
       const totalTimer = new Timer();
       try {
         const txInfo = {
@@ -793,7 +793,7 @@ export class PXE {
           txInfo,
         );
         const syncTimer = new Timer();
-        await this.blockStateSynchronizer.sync(context);
+        await this.blockStateSynchronizer.sync();
         const syncTime = syncTimer.ms();
 
         const contractFunctionSimulator = this.#getSimulatorForTx();
@@ -877,7 +877,7 @@ export class PXE {
     // We disable concurrent simulations since those might execute oracles which read and write to the PXE stores (e.g.
     // to the capsules), and we need to prevent concurrent runs from interfering with one another (e.g. attempting to
     // delete the same read value, or reading values that another simulation is currently modifying).
-    return this.#putInJobQueue(async context => {
+    return this.#putInJobQueue(async () => {
       try {
         const totalTimer = new Timer();
         const txInfo = {
@@ -893,7 +893,7 @@ export class PXE {
           txInfo,
         );
         const syncTimer = new Timer();
-        await this.blockStateSynchronizer.sync(context);
+        await this.blockStateSynchronizer.sync();
         const syncTime = syncTimer.ms();
 
         const contractFunctionSimulator = this.#getSimulatorForTx(overrides);
@@ -1018,11 +1018,11 @@ export class PXE {
     // We disable concurrent simulations since those might execute oracles which read and write to the PXE stores (e.g.
     // to the capsules), and we need to prevent concurrent runs from interfering with one another (e.g. attempting to
     // delete the same read value, or reading values that another simulation is currently modifying).
-    return this.#putInJobQueue(async context => {
+    return this.#putInJobQueue(async () => {
       try {
         const totalTimer = new Timer();
         const syncTimer = new Timer();
-        await this.blockStateSynchronizer.sync(context);
+        await this.blockStateSynchronizer.sync();
         const syncTime = syncTimer.ms();
         const functionTimer = new Timer();
         const contractFunctionSimulator = this.#getSimulatorForTx();
@@ -1076,8 +1076,8 @@ export class PXE {
    * @returns - The packed events with block and tx metadata.
    */
   public getPrivateEvents(eventSelector: EventSelector, filter: PrivateEventFilter): Promise<PackedPrivateEvent[]> {
-    return this.#putInJobQueue(async context => {
-      await this.blockStateSynchronizer.sync(context);
+    return this.#putInJobQueue(async _context => {
+      await this.blockStateSynchronizer.sync();
       const contractFunctionSimulator = this.#getSimulatorForTx();
       // Protocol contracts don't have private state to sync
       if (!isProtocolContract(filter.contractAddress)) {
