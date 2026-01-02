@@ -7,8 +7,19 @@
 #   ./scripts/cli_reference_generation/update_cli_docs.sh aztec-wallet current     # Updates aztec-wallet CLI, current only
 #   ./scripts/cli_reference_generation/update_cli_docs.sh aztec v2.0.2             # Updates aztec CLI, v2.0.2 only
 #   ./scripts/cli_reference_generation/update_cli_docs.sh aztec v2.0.2 /tmp/       # Outputs to /tmp/aztec_cli_reference.md
+#
+# Environment variables for performance tuning:
+#   CLI_SCAN_WORKERS  - Number of parallel workers (default: 1, use 4-8 for faster scans)
+#   CLI_SCAN_TIMEOUT  - Timeout per command in seconds (default: 15)
+#
+# Example with parallel scanning:
+#   CLI_SCAN_WORKERS=4 ./scripts/cli_reference_generation/update_cli_docs.sh aztec
 
 set -euo pipefail  # Added 'u' for undefined variable check, 'o pipefail' for pipe failures
+
+# Performance tuning via environment variables
+CLI_SCAN_WORKERS="${CLI_SCAN_WORKERS:-1}"
+CLI_SCAN_TIMEOUT="${CLI_SCAN_TIMEOUT:-15}"
 
 # Validate arguments
 if [[ $# -lt 1 ]]; then
@@ -125,7 +136,9 @@ echo ""
 
 # Step 1: Generate JSON from CLI
 echo "Step 1: Scanning ${COMMAND} CLI commands..."
-python3 "$SCRIPT_DIR/scan_cli.py" --command "$COMMAND" --output "$TEMP_JSON"
+echo "  Workers: $CLI_SCAN_WORKERS, Timeout: ${CLI_SCAN_TIMEOUT}s"
+python3 "$SCRIPT_DIR/scan_cli.py" --command "$COMMAND" --output "$TEMP_JSON" \
+  --workers "$CLI_SCAN_WORKERS" --timeout "$CLI_SCAN_TIMEOUT"
 
 # Step 2: Generate markdown
 echo ""
