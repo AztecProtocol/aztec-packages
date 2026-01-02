@@ -193,6 +193,115 @@ describe('JobCoordinator', () => {
   });
 });
 
+describe('JobCoordinator with Uint8Array storage (IndexedDB simulation)', () => {
+  // This tests the cross-platform compatibility fix where IndexedDB returns Uint8Array
+  // instead of Buffer, and Uint8Array.toString() returns "1,2,3,4" instead of UTF-8 string
+
+  it('correctly reads job marker stored as Uint8Array', async () => {
+    // Create a mock store that returns Uint8Array instead of Buffer (like IndexedDB does)
+    let storedValue: Uint8Array | undefined;
+
+    const mockSingleton = {
+      getAsync: jest.fn<() => Promise<Uint8Array | undefined>>().mockImplementation(() => Promise.resolve(storedValue)),
+      set: jest.fn<(val: Buffer) => Promise<boolean>>().mockImplementation((val: Buffer) => {
+        // Convert Buffer to pure Uint8Array (simulating IndexedDB behavior)
+        storedValue = new Uint8Array(val);
+        return Promise.resolve(true);
+      }),
+      delete: jest.fn<() => Promise<boolean>>().mockImplementation(() => {
+        storedValue = undefined;
+        return Promise.resolve(true);
+      }),
+    };
+
+    const mockStore = {
+      openSingleton: jest.fn().mockReturnValue(mockSingleton),
+    } as unknown as AztecAsyncKVStore;
+
+    const coordinator = new JobCoordinator(mockStore);
+
+    // Begin a job - this stores the job marker
+    const context = await coordinator.beginJob('test_job');
+    expect(context.jobType).toBe('test_job');
+
+    // Verify job is in progress - this reads back the Uint8Array
+    expect(await coordinator.hasJobInProgress()).toBe(true);
+
+    // Commit should work with Uint8Array storage
+    await coordinator.commitJob(context);
+
+    // Job should be cleared
+    expect(await coordinator.hasJobInProgress()).toBe(false);
+  });
+
+  it('handles Uint8Array correctly after simulated restart', async () => {
+    let storedValue: Uint8Array | undefined;
+
+    const mockSingleton = {
+      getAsync: jest.fn<() => Promise<Uint8Array | undefined>>().mockImplementation(() => Promise.resolve(storedValue)),
+      set: jest.fn<(val: Buffer) => Promise<boolean>>().mockImplementation((val: Buffer) => {
+        storedValue = new Uint8Array(val);
+        return Promise.resolve(true);
+      }),
+      delete: jest.fn<() => Promise<boolean>>().mockImplementation(() => {
+        storedValue = undefined;
+        return Promise.resolve(true);
+      }),
+    };
+
+    const mockStore = {
+      openSingleton: jest.fn().mockReturnValue(mockSingleton),
+    } as unknown as AztecAsyncKVStore;
+
+    // First coordinator starts a job
+    const coordinator1 = new JobCoordinator(mockStore);
+    await coordinator1.beginJob('test_job');
+
+    // Simulate restart - new coordinator reads the Uint8Array marker
+    const coordinator2 = new JobCoordinator(mockStore);
+    expect(await coordinator2.hasJobInProgress()).toBe(true);
+
+    // Recovery should work with Uint8Array storage
+    await coordinator2.recover();
+    expect(await coordinator2.hasJobInProgress()).toBe(false);
+  });
+
+  it('TextDecoder correctly decodes job marker JSON from Uint8Array', () => {
+    // Direct test of the encoding/decoding logic
+    const testData = { jobId: 'abc123', jobType: 'test', startedAt: Date.now(), affectedStoreNames: ['store1'] };
+    const jsonString = JSON.stringify(testData);
+
+    // Encode as we do in setCurrentJob
+    const encoded = new TextEncoder().encode(jsonString);
+
+    // Store as Uint8Array (simulating IndexedDB)
+    const storedAsUint8Array = new Uint8Array(encoded);
+
+    // Decode as we do in getCurrentJob
+    const decoded = new TextDecoder().decode(storedAsUint8Array);
+
+    expect(JSON.parse(decoded)).toEqual(testData);
+  });
+
+  it('verifies Uint8Array.toString() does NOT produce valid JSON', () => {
+    // This test documents the bug that was fixed
+    const testData = { jobId: 'abc123' };
+    const jsonString = JSON.stringify(testData);
+    const encoded = new TextEncoder().encode(jsonString);
+    const storedAsUint8Array = new Uint8Array(encoded);
+
+    // This is what was happening before the fix - Uint8Array.toString() produces garbage
+    const badDecode = storedAsUint8Array.toString();
+
+    // It produces something like "123,34,106,111,98,73,100,34..." not JSON
+    expect(() => JSON.parse(badDecode)).toThrow();
+
+    // TextDecoder is the correct way
+    const goodDecode = new TextDecoder().decode(storedAsUint8Array);
+    expect(JSON.parse(goodDecode)).toEqual(testData);
+  });
+});
+
 describe('JobContext', () => {
   it('generates staging keys', () => {
     const context = new JobContext('abc123', 'test');

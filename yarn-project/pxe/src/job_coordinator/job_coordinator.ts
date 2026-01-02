@@ -227,7 +227,9 @@ export class JobCoordinator {
       return undefined;
     }
     try {
-      return JSON.parse(buffer.toString()) as SerializedJobContext;
+      // Use TextDecoder for cross-platform compatibility (Node.js Buffer vs browser Uint8Array)
+      const text = new TextDecoder().decode(buffer);
+      return JSON.parse(text) as SerializedJobContext;
     } catch {
       this.log.warn('Failed to parse current job marker, treating as no job');
       return undefined;
@@ -236,7 +238,8 @@ export class JobCoordinator {
 
   async #setCurrentJob(context: JobContext): Promise<void> {
     const serialized = serializeJobContext(context);
-    await this.#currentJob.set(Buffer.from(JSON.stringify(serialized)));
+    // Use TextEncoder for cross-platform compatibility
+    await this.#currentJob.set(Buffer.from(new TextEncoder().encode(JSON.stringify(serialized))));
   }
 
   async #clearCurrentJob(): Promise<void> {
