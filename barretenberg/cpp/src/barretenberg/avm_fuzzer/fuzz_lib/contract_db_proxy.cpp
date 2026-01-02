@@ -6,6 +6,7 @@
 #include "barretenberg/avm_fuzzer/fuzz_lib/fuzzer_data.hpp"
 #include "barretenberg/avm_fuzzer/fuzz_lib/simulator.hpp"
 #include "barretenberg/common/log.hpp"
+#include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/vm2/simulation/lib/contract_crypto.hpp"
 
 using namespace bb::avm2::fuzzer;
@@ -29,13 +30,21 @@ ContractClass create_default_class(const std::vector<uint8_t>& bytecode)
 // Temp Helper function to create a default contract instance from a class ID
 ContractInstance create_default_instance(const ContractClassId& class_id)
 {
+    // To avoid  Assertion failed: (contract_instance.public_keys.incoming_viewing_key.on_curve())
+    auto affine_one = grumpkin::g1::affine_one;
     return ContractInstance{
         .salt = 0,
         .deployer = MSG_SENDER,
         .current_contract_class_id = class_id,
         .original_contract_class_id = class_id,
         .initialization_hash = 0,
-        .public_keys = PublicKeys{},
+        .public_keys =
+            PublicKeys{
+                .nullifier_key = affine_one,
+                .incoming_viewing_key = affine_one,
+                .outgoing_viewing_key = affine_one,
+                .tagging_key = affine_one,
+            },
     };
 }
 
@@ -80,7 +89,7 @@ Tx create_default_tx(const AztecAddress& contract_address,
                     .msg_sender = MSG_SENDER,
                     .contract_address = contract_address,
                     .is_static_call = is_static_call,
-                    .calldata_hash = 0,
+                    .calldata_hash = compute_calldata_hash(calldata),
                 },
                 .calldata = calldata,
             },
@@ -138,6 +147,7 @@ FF ContractDBProxy::get_function_address(size_t index)
 void ContractDBProxy::reset_instance()
 {
     if (instance != nullptr) {
+        delete instance->contract_db;
         delete instance;
         instance = new ContractDBProxy();
     }

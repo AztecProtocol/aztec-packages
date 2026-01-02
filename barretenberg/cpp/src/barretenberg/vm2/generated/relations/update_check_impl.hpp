@@ -21,7 +21,7 @@ void update_checkImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     const auto constants_TIMESTAMP_OF_CHANGE_BIT_SIZE = FF(32);
     const auto constants_UPDATES_DELAYED_PUBLIC_MUTABLE_VALUES_LEN = FF(3);
     const auto constants_UPDATES_DELAYED_PUBLIC_MUTABLE_METADATA_BIT_SIZE = FF(144);
-    const auto constants_GENERATOR_INDEX__PUBLIC_LEAF_INDEX = FF(23);
+    const auto constants_DOM_SEP__PUBLIC_LEAF_INDEX = FF(23);
     const auto update_check_HASH_IS_ZERO = (FF(1) - in.get(C::update_check_hash_not_zero));
     const auto update_check_TWO_POW_32 = FF(4294967296UL);
 
@@ -56,7 +56,7 @@ void update_checkImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     {
         using View = typename std::tuple_element_t<4, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::update_check_sel)) *
-                   (CView(constants_GENERATOR_INDEX__PUBLIC_LEAF_INDEX) -
+                   (CView(constants_DOM_SEP__PUBLIC_LEAF_INDEX) -
                     static_cast<View>(in.get(C::update_check_public_leaf_index_domain_separator)));
         std::get<4>(evals) += (tmp * scaling_factor);
     }

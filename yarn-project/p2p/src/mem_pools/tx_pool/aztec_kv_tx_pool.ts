@@ -187,6 +187,7 @@ export class AztecKVTxPool extends (EventEmitter as new () => TypedEventEmitter<
 
       await this.evictInvalidTxsAfterMining(txHashes, blockHeader, minedNullifiers, minedFeePayers);
     });
+    this.#metrics.transactionsRemoved(txHashes.map(hash => hash.toBigInt()));
     // We update this after the transaction above. This ensures that the non-evictable transactions are not evicted
     // until any that have been mined are marked as such.
     // The non-evictable set is not considered when evicting transactions that are invalid after a block is mined.
@@ -329,6 +330,7 @@ export class AztecKVTxPool extends (EventEmitter as new () => TypedEventEmitter<
     });
 
     if (addedTxs.length > 0) {
+      this.#metrics.transactionsAdded(addedTxs);
       this.emit('txs-added', { ...opts, txs: addedTxs });
     }
     return addedTxs.length;
@@ -384,6 +386,7 @@ export class AztecKVTxPool extends (EventEmitter as new () => TypedEventEmitter<
 
       await this.#pendingTxSize.set(pendingTxSize);
     });
+    this.#metrics.transactionsRemoved(txHashes.map(hash => hash.toBigInt()));
     this.#log.debug(`Deleted ${txHashes.length} txs from pool`, { txHashes });
     return this.#archivedTxLimit ? poolDbTx.then(() => this.archiveTxs(deletedTxs)) : poolDbTx;
   }
@@ -461,6 +464,7 @@ export class AztecKVTxPool extends (EventEmitter as new () => TypedEventEmitter<
           deletedCount++;
         }
       }
+      this.#metrics.transactionsRemoved(txHashesToDelete);
 
       // Clean up block-to-hash mapping - delete all values for each block
       for (const block of blocksToDelete) {

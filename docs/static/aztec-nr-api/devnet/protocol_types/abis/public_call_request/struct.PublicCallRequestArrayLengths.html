@@ -3,9 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../../styles.css">
+<script defer src="../../../nargo_doc.js"></script>
 <title>Struct PublicCallRequestArrayLengths documentation</title>
 </head>
 <body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">PublicCallRequestArrayLengths</div>
+</div>
+<span id="main-contents">
 <nav class="sidebar">
 <h1><a href="../../../index.html">aztec-nr</a></h1>
 <div><a href="../../../all.html">All items</a></div>
@@ -14,9 +20,9 @@
 <h2><a href="#struct">Struct PublicCallRequestArrayLengths</a></h2>
 <h3>Fields</h3>
 <ul class="sidebar-list">
-<li><a href="#app_logic_calls">app_logic_calls</a></li>
-<li><a href="#setup_calls">setup_calls</a></li>
-<li><a href="#teardown_call">teardown_call</a></li>
+<li><a href="#structfield.app_logic_calls">app_logic_calls</a></li>
+<li><a href="#structfield.setup_calls">setup_calls</a></li>
+<li><a href="#structfield.teardown_call">teardown_call</a></li>
 </ul>
 <h3>Methods</h3>
 <ul class="sidebar-list">
@@ -45,13 +51,13 @@
 }
 </code></pre>
 <h2>Fields</h2>
-<div id="setup_calls" class="struct-field"><code class="code-header">setup_calls: <a href="../../../std/primitive.u32.html" class="primitive">u32</a></code></div>
-<div class="padded-description"></div><div id="app_logic_calls" class="struct-field"><code class="code-header">app_logic_calls: <a href="../../../std/primitive.u32.html" class="primitive">u32</a></code></div>
-<div class="padded-description"></div><div id="teardown_call" class="struct-field"><code class="code-header">teardown_call: <a href="../../../std/primitive.bool.html" class="primitive">bool</a></code></div>
+<div id="structfield.setup_calls" class="struct-field"><code class="code-header">setup_calls: <a href="../../../std/primitive.u32.html" class="primitive">u32</a></code></div>
+<div class="padded-description"></div><div id="structfield.app_logic_calls" class="struct-field"><code class="code-header">app_logic_calls: <a href="../../../std/primitive.u32.html" class="primitive">u32</a></code></div>
+<div class="padded-description"></div><div id="structfield.teardown_call" class="struct-field"><code class="code-header">teardown_call: <a href="../../../std/primitive.bool.html" class="primitive">bool</a></code></div>
 <div class="padded-description"></div><h2>Implementations</h2>
 <h3><code class="code-header">impl <a href="../../../protocol_types/abis/public_call_request/struct.PublicCallRequestArrayLengths.html" class="struct">PublicCallRequestArrayLengths</a></code></h3>
 
-<div class="padded-methods"><code id="new" class="code-header">pub fn <span class="fn">new</span>(
+<div class="padded-methods"><code id="new" class="code-header">pub fn <a href="#new"><span class="fn">new</span></a>(
     setup_call_requests: [<a href="../../../protocol_types/abis/public_call_request/struct.PublicCallRequest.html" class="struct">PublicCallRequest</a>; 32],
     app_logic_call_requests: [<a href="../../../protocol_types/abis/public_call_request/struct.PublicCallRequest.html" class="struct">PublicCallRequest</a>; 32],
     teardown_call_request: <a href="../../../protocol_types/abis/public_call_request/struct.PublicCallRequest.html" class="struct">PublicCallRequest</a>,
@@ -79,5 +85,6 @@
 <div class="padded-methods"><code class="code-header">pub fn <span class="fn">serialize</span>(self) -> [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; 3]</code>
 
 </div></main>
+</span>
 </body>
 </html>

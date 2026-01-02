@@ -64,7 +64,7 @@ use crate::{
     delayed_public_mutable::{
         delayed_public_mutable_values::DelayedPublicMutableValues,
         scheduled_delay_change::ScheduledDelayChange, scheduled_value_change::ScheduledValueChange,
-        with_hash::compute_with_hash_hash_storage_slot,
+        with_hash::derive_storage_slot_of_packed_values_hash,
     },
     hash::{
         compute_contract_class_log_hash, compute_siloed_note_hash, compute_siloed_nullifier,
@@ -86,35 +86,13 @@ use crate::{
         vk_tree::{get_vk_data, vk_tree_root},
     },
     traits::{Deserialize, Empty, FromField, Hash, Packable},
-    utils::arrays::ClaimedLengthArray,
+    utils::arrays::{ClaimedLengthArray, subarray},
 };
-
-/// For testing only.
-fn subarray<T, let N: u32, let M: u32>(arr: [T; N]) -> [T; M] {
-    assert(N >= M, "cannot call subarray on a smaller array");
-    let mut new_arr = [arr[0]; M];
-    for i in 0..M {
-        new_arr[i] = arr[i];
-    }
-    new_arr
-}
-
-/// For testing only.
-fn vec_reverse<T, let N: u32>(vec: BoundedVec<T, N>) -> BoundedVec<T, N> {
-    let mut reversed = BoundedVec::new();
-    let len = vec.len();
-    for i in 0..N {
-        if i < len {
-            reversed.push(vec.get_unchecked(len - i - 1));
-        }
-    }
-    reversed
-}
 
 /// For testing only. Not safe.
 /// Not part of the ClaimedLengthArray methods, because we don't want it
 /// to be accidentally called in production code.
-pub fn claimed_length_array_from_bounded_vec<T, let N: u32>(
+fn claimed_length_array_from_bounded_vec<T, let N: u32>(
     vec: BoundedVec<T, N>,
 ) -> ClaimedLengthArray<T, N> {
     ClaimedLengthArray { array: vec.storage(), length: vec.len() }
@@ -191,6 +169,7 @@ pub struct FixtureBuilder {
     pub protocol_contracts: ProtocolContracts,
 
     // Contract updates
+    pub original_class_id: ContractClassId,
     pub updated_class_id_witness: MembershipWitness<PUBLIC_DATA_TREE_HEIGHT>,
     pub updated_class_id_leaf: PublicDataTreeLeafPreimage,
     pub updated_class_id_value_change: ScheduledValueChange<ContractClassId>,
@@ -272,6 +251,7 @@ impl FixtureBuilder {
 
         *self
     }
+
     // contract_index should be the same as contract address.
     pub fn use_protocol_contract(&mut self, contract_index: u32) -> Self {
         let contract_data = fixtures::contracts::get_protocol_contract(contract_index);
@@ -284,8 +264,33 @@ impl FixtureBuilder {
         self.use_function(function_data, fixtures::contract_functions::default_vk)
     }
 
+    pub fn use_updated_contract(&mut self, timestamp_of_change: u64) {
+        let new_contract = fixtures::contracts::updated_contract;
+
+        // Use the updated contract class.
+        self.salted_initialization_hash = new_contract.salted_initialization_hash;
+        self.public_keys = new_contract.public_keys;
+        self.contract_class_artifact_hash = new_contract.artifact_hash;
+        self.contract_class_public_bytecode_commitment = new_contract.public_bytecode_commitment;
+
+        // Use the updated function.
+        let _ = self.use_function(
+            fixtures::contract_functions::updated_private_function,
+            fixtures::contract_functions::default_vk,
+        );
+
+        self.updated_class_id_value_change = ScheduledValueChange::new(
+            self.original_class_id,
+            new_contract.contract_class_id,
+            timestamp_of_change,
+        );
+
+        self.compute_update_tree_and_hints();
+    }
+
     pub fn use_contract(&mut self, contract_data: ContractData) -> Self {
         self.contract_address = contract_data.address;
+        self.original_class_id = contract_data.contract_class_id;
         self.salted_initialization_hash = contract_data.salted_initialization_hash;
         self.public_keys = contract_data.public_keys;
         self.contract_class_artifact_hash = contract_data.artifact_hash;
@@ -333,7 +338,7 @@ impl FixtureBuilder {
         }
     }
 
-    pub fn build_tx_request(self) -> TxRequest {
+    pub fn to_tx_request(self) -> TxRequest {
         TxRequest {
             origin: self.contract_address,
             args_hash: self.args_hash,
@@ -343,7 +348,7 @@ impl FixtureBuilder {
         }
     }
 
-    pub fn build_call_context(self) -> CallContext {
+    pub fn to_call_context(self) -> CallContext {
         CallContext {
             msg_sender: self.msg_sender,
             contract_address: self.contract_address,
@@ -352,9 +357,9 @@ impl FixtureBuilder {
         }
     }
 
-    pub fn build_private_call_request(self) -> PrivateCallRequest {
+    pub fn to_private_call_request(self) -> PrivateCallRequest {
         PrivateCallRequest {
-            call_context: self.build_call_context(),
+            call_context: self.to_call_context(),
             args_hash: self.args_hash,
             returns_hash: self.returns_hash,
             start_side_effect_counter: self.counter_start,
@@ -364,49 +369,49 @@ impl FixtureBuilder {
 
     pub fn to_private_circuit_public_inputs(self) -> PrivateCircuitPublicInputs {
         PrivateCircuitPublicInputs {
-            call_context: self.build_call_context(),
+            call_context: self.to_call_context(),
             args_hash: self.args_hash,
             returns_hash: self.returns_hash,
             min_revertible_side_effect_counter: self.min_revertible_side_effect_counter,
             is_fee_payer: self.is_fee_payer,
             include_by_timestamp: self.include_by_timestamp,
             note_hash_read_requests: ClaimedLengthArray {
-                array: subarray(self.note_hash_read_requests.storage()),
+                array: subarray(self.note_hash_read_requests.storage(), 0),
                 length: self.note_hash_read_requests.len(),
             },
             nullifier_read_requests: ClaimedLengthArray {
-                array: subarray(self.nullifier_read_requests.storage()),
+                array: subarray(self.nullifier_read_requests.storage(), 0),
                 length: self.nullifier_read_requests.len(),
             },
             key_validation_requests_and_generators: ClaimedLengthArray {
-                array: subarray(self
-                    .scoped_key_validation_requests_and_generators
-                    .storage()
-                    .map(|r| r.inner)),
+                array: subarray(
+                    self.scoped_key_validation_requests_and_generators.storage().map(|r| r.inner),
+                    0,
+                ),
                 length: self.scoped_key_validation_requests_and_generators.len(),
             },
             note_hashes: ClaimedLengthArray {
-                array: subarray(self.note_hashes.storage().map(|n| n.inner)),
+                array: subarray(self.note_hashes.storage().map(|n| n.inner), 0),
                 length: self.note_hashes.len(),
             },
             nullifiers: ClaimedLengthArray {
-                array: subarray(self.nullifiers.storage().map(|n| n.inner)),
+                array: subarray(self.nullifiers.storage().map(|n| n.inner), 0),
                 length: self.nullifiers.len(),
             },
             private_call_requests: ClaimedLengthArray {
-                array: subarray(self.private_call_requests.storage()),
+                array: subarray(self.private_call_requests.storage(), 0),
                 length: self.private_call_requests.len(),
             },
             public_call_requests: ClaimedLengthArray {
-                array: subarray(self.public_call_requests.storage()),
+                array: subarray(self.public_call_requests.storage(), 0),
                 length: self.public_call_requests.len(),
             },
             public_teardown_call_request: self.public_teardown_call_request,
             l2_to_l1_msgs: ClaimedLengthArray {
-                array: subarray(self
-                    .l2_to_l1_msgs
-                    .storage()
-                    .map(|r: Scoped<Counted<L2ToL1Message>>| r.inner)),
+                array: subarray(
+                    self.l2_to_l1_msgs.storage().map(|r: Scoped<Counted<L2ToL1Message>>| r.inner),
+                    0,
+                ),
                 length: self.l2_to_l1_msgs.len(),
             },
             start_side_effect_counter: self.counter_start,
@@ -415,14 +420,16 @@ impl FixtureBuilder {
                 .expected_non_revertible_side_effect_counter,
             expected_revertible_side_effect_counter: self.expected_revertible_side_effect_counter,
             private_logs: ClaimedLengthArray {
-                array: subarray(self.private_logs.storage().map(|l| l.inner)),
+                array: subarray(self.private_logs.storage().map(|l| l.inner), 0),
                 length: self.private_logs.len(),
             },
             contract_class_logs_hashes: ClaimedLengthArray {
-                array: subarray(self
-                    .contract_class_logs_hashes
-                    .storage()
-                    .map(|l: Scoped<Counted<LogHash>>| l.inner)),
+                array: subarray(
+                    self.contract_class_logs_hashes.storage().map(|l: Scoped<Counted<LogHash>>| {
+                        l.inner
+                    }),
+                    0,
+                ),
                 length: self.contract_class_logs_hashes.len(),
             },
             anchor_block_header: self.anchor_block_header,
@@ -479,7 +486,7 @@ impl FixtureBuilder {
                 .hash();
             let delayed_public_mutable_slot =
                 derive_storage_slot_in_map(UPDATED_CLASS_IDS_SLOT as Field, self.contract_address);
-            let hash_slot = compute_with_hash_hash_storage_slot::<DelayedPublicMutableValues<ContractClassId, DEFAULT_UPDATE_DELAY>>(
+            let hash_slot = derive_storage_slot_of_packed_values_hash::<DelayedPublicMutableValues<ContractClassId, DEFAULT_UPDATE_DELAY>>(
                 delayed_public_mutable_slot,
             );
             let hash_leaf_slot = compute_public_data_leaf_slot(
@@ -514,11 +521,7 @@ impl FixtureBuilder {
         }
     }
 
-    pub fn set_anchor_block_header_from_call_data(&mut self, private_call: PrivateCallData) {
-        self.anchor_block_header = private_call.public_inputs.anchor_block_header;
-    }
-
-    pub fn to_private_call_data(mut self) -> PrivateCallData {
+    pub fn to_private_call_data(self) -> PrivateCallData {
         let public_inputs = self.to_private_circuit_public_inputs();
         PrivateCallData {
             public_inputs,
@@ -537,9 +540,7 @@ impl FixtureBuilder {
                 self.contract_class_logs_hashes,
             ),
             public_call_requests: claimed_length_array_from_bounded_vec(self.public_call_requests),
-            private_call_stack: claimed_length_array_from_bounded_vec(vec_reverse(
-                self.private_call_requests,
-            )),
+            private_call_stack: claimed_length_array_from_bounded_vec(self.private_call_requests),
         }
     }
 
@@ -829,7 +830,7 @@ impl FixtureBuilder {
 
     pub fn set_protocol_nullifier(&mut self) {
         assert_eq(self.nullifiers.len(), 0, "first nullifier already set");
-        let tx_request = self.build_tx_request();
+        let tx_request = self.to_tx_request();
         let protocol_nullifier = create_protocol_nullifier(tx_request);
         self.nullifiers.push(protocol_nullifier);
         self.claimed_first_nullifier = protocol_nullifier.innermost().value;
@@ -1124,23 +1125,6 @@ impl FixtureBuilder {
         }
     }
 
-    pub fn add_private_call_request_for_private_call(&mut self, private_call: PrivateCallData) {
-        let public_inputs = private_call.public_inputs;
-        let start_counter = public_inputs.start_side_effect_counter;
-        let end_counter = public_inputs.end_side_effect_counter;
-        self.counter = end_counter + 1;
-
-        self.private_call_requests.push(
-            PrivateCallRequest {
-                call_context: public_inputs.call_context,
-                args_hash: public_inputs.args_hash,
-                returns_hash: public_inputs.returns_hash,
-                start_side_effect_counter: start_counter,
-                end_side_effect_counter: end_counter,
-            },
-        );
-    }
-
     pub fn add_private_call_request(&mut self) {
         let index_offset = self.private_call_requests.len();
         let mut request = self.mock_private_call_request(index_offset);
@@ -1159,6 +1143,19 @@ impl FixtureBuilder {
             if i < num {
                 self.add_private_call_request();
             }
+        }
+    }
+
+    pub fn reverse_append_private_call_requests(&mut self, num: u32) {
+        self.append_private_call_requests(num);
+
+        // Reverse the requests just added.
+        let mut copy = self.private_call_requests;
+        for _i in 0..num {
+            let _ = self.private_call_requests.pop();
+        }
+        for _i in 0..num {
+            self.private_call_requests.push(copy.pop());
         }
     }
 

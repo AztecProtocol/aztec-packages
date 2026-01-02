@@ -13,7 +13,7 @@ use crate::{
             fees::{compute_fee_payer_fee_juice_balance_leaf_slot, compute_transaction_fee},
             TreeSnapshotDiffHints,
         },
-        private_tx_base_rollup_private_inputs::PrivateTxBaseRollupPrivateInputs,
+        private_tx_base_rollup::{self, PrivateTxBaseRollupPrivateInputs},
     },
 };
 use dep::types::{
@@ -305,7 +305,7 @@ impl TestBuilder {
         let fee_payer_balance_leaf_preimage =
             self.pre_existing_public_data_preimages[self.fee_payer_preimage_index];
 
-        PrivateTxBaseRollupPrivateInputs {
+        let inputs = PrivateTxBaseRollupPrivateInputs {
             hiding_kernel_proof_data,
             constants: self.constants,
             contract_class_log_fields: self.contract_class_log_fields,
@@ -314,8 +314,9 @@ impl TestBuilder {
             fee_payer_balance_leaf_preimage,
             anchor_block_archive_sibling_path: self.anchor_block_archive_sibling_path,
             tree_snapshot_diff_hints: self.tree_snapshot_diff_hints,
-        }
-            .execute()
+        };
+
+        private_tx_base_rollup::execute(inputs)
     }
 
     pub fn execute_and_fail(self) {

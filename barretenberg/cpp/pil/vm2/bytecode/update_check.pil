@@ -69,7 +69,7 @@ namespace update_check;
 
     // TODO: Remove this as a column when we can lookup with constants
     pol commit public_leaf_index_domain_separator;
-    sel * (constants.GENERATOR_INDEX__PUBLIC_LEAF_INDEX - public_leaf_index_domain_separator) = 0;
+    sel * (constants.DOM_SEP__PUBLIC_LEAF_INDEX - public_leaf_index_domain_separator) = 0;
 
     // TODO: Remove this as a column when we can lookup with constants
     pol commit deployer_protocol_contract_address;

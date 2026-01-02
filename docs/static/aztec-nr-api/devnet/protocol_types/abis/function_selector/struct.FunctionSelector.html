@@ -3,9 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../../styles.css">
+<script defer src="../../../nargo_doc.js"></script>
 <title>Struct FunctionSelector documentation</title>
 </head>
 <body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">FunctionSelector</div>
+</div>
+<span id="main-contents">
 <nav class="sidebar">
 <h1><a href="../../../index.html">aztec-nr</a></h1>
 <div><a href="../../../all.html">All items</a></div>
@@ -14,7 +20,7 @@
 <h2><a href="#struct">Struct FunctionSelector</a></h2>
 <h3>Fields</h3>
 <ul class="sidebar-list">
-<li><a href="#inner">inner</a></li>
+<li><a href="#structfield.inner">inner</a></li>
 </ul>
 <h3>Methods</h3>
 <ul class="sidebar-list">
@@ -44,15 +50,15 @@
 }
 </code></pre>
 <h2>Fields</h2>
-<div id="inner" class="struct-field"><code class="code-header">inner: <a href="../../../std/primitive.u32.html" class="primitive">u32</a></code></div>
+<div id="structfield.inner" class="struct-field"><code class="code-header">inner: <a href="../../../std/primitive.u32.html" class="primitive">u32</a></code></div>
 <div class="padded-description"></div><h2>Implementations</h2>
 <h3><code class="code-header">impl <a href="../../../protocol_types/abis/function_selector/struct.FunctionSelector.html" class="struct">FunctionSelector</a></code></h3>
 
-<div class="padded-methods"><code id="from_u32" class="code-header">pub fn <span class="fn">from_u32</span>(value: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>) -> Self</code>
+<div class="padded-methods"><code id="from_u32" class="code-header">pub fn <a href="#from_u32"><span class="fn">from_u32</span></a>(value: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>) -> Self</code>
 
-<code id="from_signature" class="code-header">pub fn <span class="fn">from_signature</span>&lt;let N: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(signature: <a href="../../../std/primitive.str.html" class="primitive">str</a>&lt;N&gt;) -> Self</code>
+<code id="from_signature" class="code-header">pub fn <a href="#from_signature"><span class="fn">from_signature</span></a>&lt;let N: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(signature: <a href="../../../std/primitive.str.html" class="primitive">str</a>&lt;N&gt;) -> Self</code>
 
-<code id="zero" class="code-header">pub fn <span class="fn">zero</span>() -> Self</code>
+<code id="zero" class="code-header">pub fn <a href="#zero"><span class="fn">zero</span></a>() -> Self</code>
 
 </div><h2>Trait implementations</h2>
 <h3 id="impl-Deserialize-for-FunctionSelector"><code class="code-header">impl <a href="../../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../../protocol_types/abis/function_selector/struct.FunctionSelector.html" class="struct">FunctionSelector</a></code></h3>
@@ -84,5 +90,6 @@
 <div class="padded-methods"><code class="code-header">pub fn <span class="fn">to_field</span>(self) -> <a href="../../../std/primitive.Field.html" class="primitive">Field</a></code>
 
 </div></main>
+</span>
 </body>
 </html>

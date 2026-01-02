@@ -339,12 +339,12 @@ const config = {
                 className: "dropdown-subtitle",
               },
               {
-                to: "/developers/docs/reference/glossary",
+                to: "/developers/docs/resources/glossary",
                 label: "Glossary",
                 className: "no-external-icon",
               },
               {
-                to: "/developers/migration_notes",
+                to: "/developers/docs/resources/migration_notes",
                 label: "Migration Notes",
                 className: "no-external-icon",
               },

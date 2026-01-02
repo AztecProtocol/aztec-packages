@@ -9,76 +9,85 @@ use crate::{
 use dep::types::{
     abis::{
         kernel_circuit_public_inputs::PrivateToPublicKernelCircuitPublicInputs,
-        private_kernel_data::{PrivateKernelData, PrivateKernelDataWithoutPublicInputs},
+        private_kernel_data::PrivateKernelData,
     },
-    constants::{PRIVATE_KERNEL_INIT_INDEX, PRIVATE_KERNEL_INNER_INDEX, PRIVATE_KERNEL_RESET_INDEX},
-    PrivateKernelCircuitPublicInputs,
+    constants::{
+        PRIVATE_KERNEL_INIT_VK_INDEX, PRIVATE_KERNEL_INNER_VK_INDEX, PRIVATE_KERNEL_RESET_VK_INDEX,
+    },
 };
 
 global ALLOWED_PREVIOUS_CIRCUITS: [u32; 3] =
-    [PRIVATE_KERNEL_INIT_INDEX, PRIVATE_KERNEL_INNER_INDEX, PRIVATE_KERNEL_RESET_INDEX];
+    [PRIVATE_KERNEL_INIT_VK_INDEX, PRIVATE_KERNEL_INNER_VK_INDEX, PRIVATE_KERNEL_RESET_VK_INDEX];
 
 pub struct PrivateKernelTailToPublicCircuitPrivateInputs {
-    previous_kernel: PrivateKernelData,
-    padded_side_effect_amounts: PaddedSideEffectAmounts,
+    pub previous_kernel: PrivateKernelData,
+    pub padded_side_effect_amounts: PaddedSideEffectAmounts,
     // The `include_by_timestamp` set by the wallet. The wallet should take the value aggregated during the transaction
     // and decide whether to keep it or lower it.
     // For example, it may round the value down to the nearest hour to improve privacy.
-    // If this value is higher than the `include_by_timestamp` requested during tx execution, it will be ignored.
-    include_by_timestamp_upper_bound: u64,
+    // This value will be ignored if it's larger than the `include_by_timestamp` requested during private execution.
+    pub include_by_timestamp_upper_bound: u64,
 }
 
-impl PrivateKernelTailToPublicCircuitPrivateInputs {
-    pub fn new(
-        previous_kernel: PrivateKernelDataWithoutPublicInputs,
-        previous_kernel_public_inputs: PrivateKernelCircuitPublicInputs,
-        padded_side_effect_amounts: PaddedSideEffectAmounts,
-        include_by_timestamp_upper_bound: u64,
-    ) -> Self {
-        Self {
-            previous_kernel: previous_kernel.to_private_kernel_data(previous_kernel_public_inputs),
-            padded_side_effect_amounts,
-            include_by_timestamp_upper_bound,
-        }
-    }
+unconstrained fn generate_output(
+    inputs: PrivateKernelTailToPublicCircuitPrivateInputs,
+) -> PrivateToPublicKernelCircuitPublicInputs {
+    TailToPublicOutputComposer::new(
+        inputs.previous_kernel.public_inputs,
+        inputs.padded_side_effect_amounts,
+        inputs.include_by_timestamp_upper_bound,
+    )
+        .finish()
+}
 
-    unconstrained fn generate_output(self) -> PrivateToPublicKernelCircuitPublicInputs {
-        TailToPublicOutputComposer::new(
-            self.previous_kernel.public_inputs,
-            self.padded_side_effect_amounts,
-            self.include_by_timestamp_upper_bound,
+/// The Private Kernel Tail To Public circuit finalizes the private portion of a transaction that includes public
+/// function calls.
+/// This is the terminal private kernel circuit for transactions that will continue with public execution.
+/// It bridges the private and public phases of the transaction.
+///
+/// This circuit:
+/// - Verifies the previous kernel proof as the final private kernel
+/// - Validates that the private call stack is empty (all private calls have been processed)
+/// - Validates that there ARE public call requests (otherwise regular Tail should be used)
+/// - Ensures all transient data has been squashed
+/// - Validates that all read requests and key validation requests have been processed
+/// - Validates the hints `is_private_only`, `claimed_first_nullifier`, `claimed_revertible_counter` against the values
+///   in the last kernel
+/// - Splits accumulated data into non-revertible and revertible sets for public execution
+/// - Sorts public call requests by counter and splits them into non-revertible and revertible sets
+/// - Applies the `include_by_timestamp_upper_bound` for privacy (allows rounding timestamps)
+///
+/// The output separates non-revertible effects (that persist even if public execution fails) from revertible effects,
+/// and includes the sorted public call requests for the AVM.
+///
+/// VkIndex: PRIVATE_KERNEL_TAIL_TO_PUBLIC_VK_INDEX
+pub fn execute(
+    inputs: PrivateKernelTailToPublicCircuitPrivateInputs,
+) -> PrivateToPublicKernelCircuitPublicInputs {
+    // Validate inputs.
+    if !dep::std::runtime::is_unconstrained() {
+        inputs.previous_kernel.verify(true /* is_last_kernel */);
+        inputs.previous_kernel.validate_vk_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
+    }
+    validate_previous_kernel_for_tail(
+        inputs.previous_kernel.public_inputs,
+        true, /* is_for_public */
+    );
+
+    // Generate output.
+    // Safety: The output is validated below by TailToPublicOutputValidator.
+    let output = unsafe { generate_output(inputs) };
+
+    // Validate output.
+    if dep::types::validate::should_validate_output() {
+        TailToPublicOutputValidator::new(
+            output,
+            inputs.previous_kernel.public_inputs,
+            inputs.padded_side_effect_amounts,
+            inputs.include_by_timestamp_upper_bound,
         )
-            .finish()
+            .validate();
     }
 
-    pub fn execute(self) -> PrivateToPublicKernelCircuitPublicInputs {
-        // Validate inputs.
-
-        if !dep::std::runtime::is_unconstrained() {
-            self.previous_kernel.verify(true /* is_last_kernel */);
-            self.previous_kernel.validate_vk_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
-        }
-
-        validate_previous_kernel_for_tail(
-            self.previous_kernel.public_inputs,
-            true, /* is_for_public */
-        );
-
-        // Generate output.
-        // Safety: The output is validated below by TailToPublicOutputValidator.
-        let output = unsafe { self.generate_output() };
-
-        // Validate output.
-        if dep::types::validate::should_validate_output() {
-            TailToPublicOutputValidator::new(
-                output,
-                self.previous_kernel.public_inputs,
-                self.padded_side_effect_amounts,
-                self.include_by_timestamp_upper_bound,
-            )
-                .validate();
-        }
-
-        output
-    }
+    output
 }

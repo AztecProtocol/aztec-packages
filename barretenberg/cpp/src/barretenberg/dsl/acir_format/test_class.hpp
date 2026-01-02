@@ -595,7 +595,7 @@ template <TestBase Base_> class TestClass {
         AcirFormat constraint_system = constraint_to_acir_format(
             updated_constraint, /*max_witness_index=*/static_cast<uint32_t>(updated_witness_values.size()) - 1);
         AcirProgram program{ constraint_system, updated_witness_values };
-        auto builder = create_circuit<Builder>(program);
+        auto builder = create_circuit<Builder>(program, Base::generate_metadata());
 
         return { CircuitChecker::check(builder), builder.failed(), builder.err() };
     }
@@ -628,7 +628,7 @@ template <TestBase Base_> class TestClass {
         std::shared_ptr<VerificationKey> vk_from_witness;
         {
             AcirProgram program{ constraint_system, witness_values };
-            auto builder = create_circuit<Builder>(program);
+            auto builder = create_circuit<Builder>(program, Base::generate_metadata());
             num_gates = builder.get_num_finalized_gates_inefficient();
 
             auto prover_instance = std::make_shared<ProverInstance>(builder);
@@ -641,7 +641,7 @@ template <TestBase Base_> class TestClass {
         std::shared_ptr<VerificationKey> vk_from_constraint;
         {
             AcirProgram program{ constraint_system, /*witness=*/{} };
-            auto builder = create_circuit<Builder>(program);
+            auto builder = create_circuit<Builder>(program, Base::generate_metadata());
             auto prover_instance = std::make_shared<ProverInstance>(builder);
             vk_from_constraint = std::make_shared<VerificationKey>(prover_instance->get_precomputed());
         }

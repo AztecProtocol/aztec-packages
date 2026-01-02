@@ -6,6 +6,7 @@
 
 #include "c_bind.hpp"
 #include "../acir_format/acir_to_constraint_buf.hpp"
+#include "barretenberg/chonk/chonk_verifier.hpp"
 #include "barretenberg/chonk/private_execution_steps.hpp"
 #include "barretenberg/common/mem.hpp"
 #include "barretenberg/common/net.hpp"
@@ -87,7 +88,7 @@ WASM_EXPORT void acir_prove_aztec_client(uint8_t const* ivc_inputs_buf, uint8_t*
     vinfo("time to construct and accumulate all circuits: ", diff.count());
 
     vinfo("calling ivc.prove ...");
-    Chonk::Proof proof = ivc->prove();
+    ChonkProof proof = ivc->prove();
     end = std::chrono::steady_clock::now();
 
     diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
@@ -100,18 +101,24 @@ WASM_EXPORT void acir_prove_aztec_client(uint8_t const* ivc_inputs_buf, uint8_t*
     vinfo("time to serialize proof: ", diff.count());
 
     start = std::chrono::steady_clock::now();
-    *out_vk = to_heap_buffer(to_buffer(ivc->get_vk()));
+    auto vk_and_hash = ivc->get_hiding_kernel_vk_and_hash();
+    *out_vk = to_heap_buffer(to_buffer(*vk_and_hash->vk));
     end = std::chrono::steady_clock::now();
     diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-    vinfo("time to serialize vk: ", diff.count());
+    vinfo("time to serialize hiding kernel vk: ", diff.count());
 }
 
 WASM_EXPORT void acir_verify_aztec_client(uint8_t const* proof_buf, uint8_t const* vk_buf, bool* result)
 {
-    const auto proof = Chonk::Proof::from_msgpack_buffer(proof_buf);
-    const auto vk = from_buffer<Chonk::VerificationKey>(from_buffer<std::vector<uint8_t>>(vk_buf));
+    using HidingKernelVK = Chonk::MegaVerificationKey;
+    using HidingKernelVKAndHash = ChonkNativeVerifier::VKAndHash;
 
-    *result = Chonk::verify(proof, vk);
+    const auto proof = ChonkProof::from_msgpack_buffer(proof_buf);
+    auto hiding_kernel_vk = from_buffer<HidingKernelVK>(from_buffer<std::vector<uint8_t>>(vk_buf));
+    auto vk_and_hash = std::make_shared<HidingKernelVKAndHash>(std::make_shared<HidingKernelVK>(hiding_kernel_vk));
+
+    ChonkNativeVerifier verifier(vk_and_hash);
+    *result = verifier.verify(proof);
 }
 
 WASM_EXPORT void acir_prove_ultra_zk_honk(uint8_t const* acir_vec,

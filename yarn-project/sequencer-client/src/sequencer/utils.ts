@@ -17,8 +17,8 @@ export enum SequencerState {
   CREATING_BLOCK = 'CREATING_BLOCK',
   /** Waiting until the next block can be created. */
   WAITING_UNTIL_NEXT_BLOCK = 'WAITING_UNTIL_NEXT_BLOCK',
-  /** Finalizing and broadcasting the checkpoint. */
-  FINALIZING_CHECKPOINT = 'FINALIZING_CHECKPOINT',
+  /** Assembling and broadcasting the checkpoint. */
+  ASSEMBLING_CHECKPOINT = 'ASSEMBLING_CHECKPOINT',
   /** Collecting attestations from its peers. */
   COLLECTING_ATTESTATIONS = 'COLLECTING_ATTESTATIONS',
   /** Sending the tx to L1 with the L2 checkpoint data and awaiting it to be mined.. */
@@ -33,7 +33,7 @@ export type SequencerStateWithSlot =
   | SequencerState.COLLECTING_ATTESTATIONS
   | SequencerState.PUBLISHING_CHECKPOINT
   | SequencerState.PROPOSER_CHECK
-  | SequencerState.FINALIZING_CHECKPOINT;
+  | SequencerState.ASSEMBLING_CHECKPOINT;
 
 export type SequencerStateCallback = () => SequencerState;
 

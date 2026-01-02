@@ -18,9 +18,9 @@ void note_hash_tree_checkImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     const auto constants_NOTE_HASH_TREE_HEIGHT = FF(42);
     const auto constants_AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX = FF(169);
     const auto constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX = FF(386);
-    const auto constants_GENERATOR_INDEX__NOTE_HASH_NONCE = FF(2);
-    const auto constants_GENERATOR_INDEX__UNIQUE_NOTE_HASH = FF(3);
-    const auto constants_GENERATOR_INDEX__SILOED_NOTE_HASH = FF(4);
+    const auto constants_DOM_SEP__NOTE_HASH_NONCE = FF(2);
+    const auto constants_DOM_SEP__UNIQUE_NOTE_HASH = FF(3);
+    const auto constants_DOM_SEP__SILOED_NOTE_HASH = FF(4);
     const auto note_hash_tree_check_READ = (FF(1) - in.get(C::note_hash_tree_check_write));
     const auto note_hash_tree_check_PREV_LEAF_VALUE_UNIQUE_NOTE_HASH_DIFF =
         (in.get(C::note_hash_tree_check_prev_leaf_value) - in.get(C::note_hash_tree_check_unique_note_hash));
@@ -77,7 +77,7 @@ void note_hash_tree_checkImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     {
         using View = typename std::tuple_element_t<8, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::note_hash_tree_check_sel)) *
-                   (CView(constants_GENERATOR_INDEX__SILOED_NOTE_HASH) -
+                   (CView(constants_DOM_SEP__SILOED_NOTE_HASH) -
                     static_cast<View>(in.get(C::note_hash_tree_check_siloing_separator)));
         std::get<8>(evals) += (tmp * scaling_factor);
     }
@@ -104,14 +104,14 @@ void note_hash_tree_checkImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     {
         using View = typename std::tuple_element_t<12, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::note_hash_tree_check_sel)) *
-                   (CView(constants_GENERATOR_INDEX__NOTE_HASH_NONCE) -
+                   (CView(constants_DOM_SEP__NOTE_HASH_NONCE) -
                     static_cast<View>(in.get(C::note_hash_tree_check_nonce_separator)));
         std::get<12>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<13, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::note_hash_tree_check_sel)) *
-                   (CView(constants_GENERATOR_INDEX__UNIQUE_NOTE_HASH) -
+                   (CView(constants_DOM_SEP__UNIQUE_NOTE_HASH) -
                     static_cast<View>(in.get(C::note_hash_tree_check_unique_note_hash_separator)));
         std::get<13>(evals) += (tmp * scaling_factor);
     }

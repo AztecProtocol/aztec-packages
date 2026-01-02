@@ -14,7 +14,7 @@ void BytecodeHasher::assert_public_bytecode_commitment(const BytecodeId& bytecod
     // TODO(MW): Remove bytecode length from event?
     [[maybe_unused]] auto bytecode_length_in_bytes = static_cast<uint32_t>(bytecode.size());
 
-    std::vector<FF> inputs = { GENERATOR_INDEX__PUBLIC_BYTECODE };
+    std::vector<FF> inputs = { DOM_SEP__PUBLIC_BYTECODE };
     auto bytecode_as_fields = encode_bytecode(bytecode);
     inputs.insert(inputs.end(), bytecode_as_fields.begin(), bytecode_as_fields.end());
 

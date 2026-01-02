@@ -161,7 +161,7 @@ void BytecodeTraceBuilder::process_hashing(
     for (const auto& event : events) {
         const auto id = event.bytecode_id;
         // Note that bytecode fields from the BytecodeHashingEvent do not contain the prepended separator
-        std::vector<FF> fields = { GENERATOR_INDEX__PUBLIC_BYTECODE };
+        std::vector<FF> fields = { DOM_SEP__PUBLIC_BYTECODE };
         fields.insert(fields.end(), event.bytecode_fields.begin(), event.bytecode_fields.end());
         auto bytecode_field_at = [&fields](size_t i) -> FF { return i < fields.size() ? fields[i] : 0; };
         FF output_hash = Poseidon2::hash(fields);

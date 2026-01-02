@@ -35,7 +35,7 @@ TEST(AvmSimulationClassIdDerivationTest, Positive)
         .packed_bytecode = { 0x01, 0x02, 0x03, 0x04 },
         .public_bytecode_commitment = FF::random_element(),
     };
-    ContractClassId expected_class_id = poseidon2.hash(std::vector<FF>{ GENERATOR_INDEX__CONTRACT_LEAF,
+    ContractClassId expected_class_id = poseidon2.hash(std::vector<FF>{ DOM_SEP__CONTRACT_CLASS_ID,
                                                                         klass.artifact_hash,
                                                                         klass.private_functions_root,
                                                                         klass.public_bytecode_commitment });

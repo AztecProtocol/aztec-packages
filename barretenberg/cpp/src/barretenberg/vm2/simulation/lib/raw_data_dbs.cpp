@@ -754,6 +754,9 @@ IndexedLeaf<NullifierLeafValue> PureRawMerkleDB::get_leaf_preimage_nullifier_tre
 SequentialInsertionResult<PublicDataLeafValue> PureRawMerkleDB::insert_indexed_leaves_public_data_tree(
     const PublicDataLeafValue& leaf_value)
 {
+    // Throws CancelledException if cancelled.
+    throw_if_cancelled();
+
     // Invalidate the cached tree roots.
     cached_tree_snapshots = std::nullopt;
 
@@ -765,6 +768,9 @@ SequentialInsertionResult<PublicDataLeafValue> PureRawMerkleDB::insert_indexed_l
 SequentialInsertionResult<NullifierLeafValue> PureRawMerkleDB::insert_indexed_leaves_nullifier_tree(
     const NullifierLeafValue& leaf_value)
 {
+    // Throws CancelledException if cancelled.
+    throw_if_cancelled();
+
     // Invalidate the cached tree roots.
     cached_tree_snapshots = std::nullopt;
 
@@ -775,6 +781,9 @@ SequentialInsertionResult<NullifierLeafValue> PureRawMerkleDB::insert_indexed_le
 
 void PureRawMerkleDB::append_leaves(MerkleTreeId tree_id, std::span<const FF> leaves)
 {
+    // Throws CancelledException if cancelled.
+    throw_if_cancelled();
+
     // Invalidate the cached tree roots.
     cached_tree_snapshots = std::nullopt;
 
@@ -783,6 +792,9 @@ void PureRawMerkleDB::append_leaves(MerkleTreeId tree_id, std::span<const FF> le
 
 void PureRawMerkleDB::pad_tree(MerkleTreeId tree_id, size_t num_leaves)
 {
+    // Throws CancelledException if cancelled.
+    throw_if_cancelled();
+
     // Invalidate the cached tree roots.
     cached_tree_snapshots = std::nullopt;
 

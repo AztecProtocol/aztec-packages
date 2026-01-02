@@ -786,17 +786,17 @@ TEST_F(TxExecutionConstrainingWithCalldataTest, SimpleHandleCalldata)
 
     std::vector<FF> dummy_setup_calldata = { 1, 2 };
     std::vector<FF> dummy_setup_calldata_preimage = dummy_setup_calldata;
-    dummy_setup_calldata_preimage.insert(dummy_setup_calldata_preimage.begin(), GENERATOR_INDEX__PUBLIC_CALLDATA);
+    dummy_setup_calldata_preimage.insert(dummy_setup_calldata_preimage.begin(), DOM_SEP__PUBLIC_CALLDATA);
     FF dummy_setup_calldata_hash = poseidon2.hash(dummy_setup_calldata_preimage);
     test_public_inputs.public_setup_call_requests[0].calldata_hash = dummy_setup_calldata_hash;
 
     std::vector<FF> non_empty_calldata = { 2, 3, 4 };
     std::vector<FF> non_empty_calldata_preimage = non_empty_calldata;
-    non_empty_calldata_preimage.insert(non_empty_calldata_preimage.begin(), GENERATOR_INDEX__PUBLIC_CALLDATA);
+    non_empty_calldata_preimage.insert(non_empty_calldata_preimage.begin(), DOM_SEP__PUBLIC_CALLDATA);
     FF non_empty_calldata_hash = poseidon2.hash(non_empty_calldata_preimage);
     test_public_inputs.public_app_logic_call_requests[0].calldata_hash = non_empty_calldata_hash;
 
-    FF empty_calldata_hash = poseidon2.hash({ GENERATOR_INDEX__PUBLIC_CALLDATA });
+    FF empty_calldata_hash = poseidon2.hash({ DOM_SEP__PUBLIC_CALLDATA });
     test_public_inputs.public_app_logic_call_requests[1].calldata_hash = empty_calldata_hash;
 
     std::vector<simulation::CalldataEvent> calldata_events = {

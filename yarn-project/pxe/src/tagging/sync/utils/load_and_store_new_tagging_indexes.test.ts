@@ -4,14 +4,12 @@ import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { L2BlockHash } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
-import { DirectionalAppTaggingSecret, PrivateLog, TxScopedL2Log } from '@aztec/stdlib/logs';
+import { DirectionalAppTaggingSecret, PrivateLog, SiloedTag, Tag, TxScopedL2Log } from '@aztec/stdlib/logs';
 import { TxHash } from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { SenderTaggingDataProvider } from '../../../storage/tagging_data_provider/sender_tagging_data_provider.js';
-import { SiloedTag } from '../../siloed_tag.js';
-import { Tag } from '../../tag.js';
 import { loadAndStoreNewTaggingIndexes } from './load_and_store_new_tagging_indexes.js';
 
 describe('loadAndStoreNewTaggingIndexes', () => {
@@ -28,7 +26,7 @@ describe('loadAndStoreNewTaggingIndexes', () => {
   }
 
   function makeLog(txHash: TxHash, tag: Fr) {
-    return new TxScopedL2Log(txHash, 0, 0, BlockNumber(0), L2BlockHash.random(), PrivateLog.random(tag));
+    return new TxScopedL2Log(txHash, 0, 0, BlockNumber(0), L2BlockHash.random(), 0n, PrivateLog.random(tag));
   }
 
   beforeAll(async () => {
@@ -39,14 +37,14 @@ describe('loadAndStoreNewTaggingIndexes', () => {
 
   // Unlike for secret, app address and aztecNode we need a fresh instance of the tagging data provider for each test.
   beforeEach(async () => {
-    aztecNode.getLogsByTags.mockReset();
+    aztecNode.getPrivateLogsByTags.mockReset();
     taggingDataProvider = new SenderTaggingDataProvider(await openTmpStore('test'));
   });
 
   it('no logs found for the given window', async () => {
-    aztecNode.getLogsByTags.mockImplementation((tags: Fr[]) => {
+    aztecNode.getPrivateLogsByTags.mockImplementation((tags: SiloedTag[]) => {
       // No log found for any tag
-      return Promise.resolve(tags.map((_tag: Fr) => []));
+      return Promise.resolve(tags.map((_tag: SiloedTag) => []));
     });
 
     await loadAndStoreNewTaggingIndexes(secret, app, 0, 10, aztecNode, taggingDataProvider);
@@ -65,8 +63,8 @@ describe('loadAndStoreNewTaggingIndexes', () => {
     const index = 5;
     const tag = await computeSiloedTagForIndex(index);
 
-    aztecNode.getLogsByTags.mockImplementation((tags: Fr[]) => {
-      return Promise.resolve(tags.map((t: Fr) => (t.equals(tag.value) ? [makeLog(txHash, tag.value)] : [])));
+    aztecNode.getPrivateLogsByTags.mockImplementation((tags: SiloedTag[]) => {
+      return Promise.resolve(tags.map((t: SiloedTag) => (t.equals(tag) ? [makeLog(txHash, tag.value)] : [])));
     });
 
     await loadAndStoreNewTaggingIndexes(secret, app, 0, 10, aztecNode, taggingDataProvider);
@@ -87,12 +85,12 @@ describe('loadAndStoreNewTaggingIndexes', () => {
     const tag1 = await computeSiloedTagForIndex(index1);
     const tag2 = await computeSiloedTagForIndex(index2);
 
-    aztecNode.getLogsByTags.mockImplementation((tags: Fr[]) => {
+    aztecNode.getPrivateLogsByTags.mockImplementation((tags: SiloedTag[]) => {
       return Promise.resolve(
-        tags.map((t: Fr) => {
-          if (t.equals(tag1.value)) {
+        tags.map((t: SiloedTag) => {
+          if (t.equals(tag1)) {
             return [makeLog(txHash, tag1.value)];
-          } else if (t.equals(tag2.value)) {
+          } else if (t.equals(tag2)) {
             return [makeLog(txHash, tag2.value)];
           }
           return [];
@@ -123,12 +121,12 @@ describe('loadAndStoreNewTaggingIndexes', () => {
     const tag1 = await computeSiloedTagForIndex(index1);
     const tag2 = await computeSiloedTagForIndex(index2);
 
-    aztecNode.getLogsByTags.mockImplementation((tags: Fr[]) => {
+    aztecNode.getPrivateLogsByTags.mockImplementation((tags: SiloedTag[]) => {
       return Promise.resolve(
-        tags.map((t: Fr) => {
-          if (t.equals(tag1.value)) {
+        tags.map((t: SiloedTag) => {
+          if (t.equals(tag1)) {
             return [makeLog(txHash1, tag1.value)];
-          } else if (t.equals(tag2.value)) {
+          } else if (t.equals(tag2)) {
             return [makeLog(txHash2, tag2.value)];
           }
           return [];
@@ -158,9 +156,9 @@ describe('loadAndStoreNewTaggingIndexes', () => {
     const index = 4;
     const tag = await computeSiloedTagForIndex(index);
 
-    aztecNode.getLogsByTags.mockImplementation((tags: Fr[]) => {
+    aztecNode.getPrivateLogsByTags.mockImplementation((tags: SiloedTag[]) => {
       return Promise.resolve(
-        tags.map((t: Fr) => (t.equals(tag.value) ? [makeLog(txHash1, tag.value), makeLog(txHash2, tag.value)] : [])),
+        tags.map((t: SiloedTag) => (t.equals(tag) ? [makeLog(txHash1, tag.value), makeLog(txHash2, tag.value)] : [])),
       );
     });
 
@@ -191,18 +189,18 @@ describe('loadAndStoreNewTaggingIndexes', () => {
     const tag8 = await computeSiloedTagForIndex(8);
     const tag9 = await computeSiloedTagForIndex(9);
 
-    aztecNode.getLogsByTags.mockImplementation((tags: Fr[]) => {
+    aztecNode.getPrivateLogsByTags.mockImplementation((tags: SiloedTag[]) => {
       return Promise.resolve(
-        tags.map((t: Fr) => {
-          if (t.equals(tag1.value)) {
+        tags.map((t: SiloedTag) => {
+          if (t.equals(tag1)) {
             return [makeLog(txHash1, tag1.value)];
-          } else if (t.equals(tag3.value)) {
+          } else if (t.equals(tag3)) {
             return [makeLog(txHash2, tag3.value)];
-          } else if (t.equals(tag5.value)) {
+          } else if (t.equals(tag5)) {
             return [makeLog(txHash2, tag5.value)];
-          } else if (t.equals(tag8.value)) {
+          } else if (t.equals(tag8)) {
             return [makeLog(txHash1, tag8.value)];
-          } else if (t.equals(tag9.value)) {
+          } else if (t.equals(tag9)) {
             return [makeLog(txHash3, tag9.value)];
           }
           return [];
@@ -245,12 +243,12 @@ describe('loadAndStoreNewTaggingIndexes', () => {
     const tagAtStart = await computeSiloedTagForIndex(start);
     const tagAtEnd = await computeSiloedTagForIndex(end);
 
-    aztecNode.getLogsByTags.mockImplementation((tags: Fr[]) => {
+    aztecNode.getPrivateLogsByTags.mockImplementation((tags: SiloedTag[]) => {
       return Promise.resolve(
-        tags.map((t: Fr) => {
-          if (t.equals(tagAtStart.value)) {
+        tags.map((t: SiloedTag) => {
+          if (t.equals(tagAtStart)) {
             return [makeLog(txHashAtStart, tagAtStart.value)];
-          } else if (t.equals(tagAtEnd.value)) {
+          } else if (t.equals(tagAtEnd)) {
             return [makeLog(txHashAtEnd, tagAtEnd.value)];
           }
           return [];

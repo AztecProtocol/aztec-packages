@@ -5,7 +5,7 @@ mod rollup_structure_tests;
 
 use crate::{
     abis::{CheckpointRollupPublicInputs, RootRollupPublicInputs},
-    root::root_rollup_private_inputs::RootRollupPrivateInputs,
+    root::root_rollup::{self, RootRollupPrivateInputs},
     tests::RollupFixtureBuilder,
 };
 use types::{
@@ -96,7 +96,7 @@ impl TestBuilder {
             RollupFixtureBuilder::make_proof_data(self.left_rollup, self.left_rollup_vk_index),
             RollupFixtureBuilder::make_proof_data(self.right_rollup, self.right_rollup_vk_index),
         ];
-        RootRollupPrivateInputs { previous_rollups }.execute()
+        root_rollup::execute(RootRollupPrivateInputs { previous_rollups })
     }
 
     pub fn execute_and_fail(self) {

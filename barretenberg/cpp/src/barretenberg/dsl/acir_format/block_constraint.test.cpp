@@ -97,6 +97,8 @@ template <typename Builder_, size_t table_size, size_t num_reads, bool perform_c
         };
     };
 
+    static ProgramMetadata generate_metadata() { return ProgramMetadata{}; }
+
     static void generate_constraints(AcirConstraint& memory_constraint, WitnessVector& witness_values)
     {
         // Create initial memory values "natively"
@@ -243,6 +245,8 @@ class RAMTestingFunctions {
             return labels;
         };
     };
+
+    static ProgramMetadata generate_metadata() { return ProgramMetadata{}; }
 
     static void generate_constraints(AcirConstraint& memory_constraint, WitnessVector& witness_values)
     {
@@ -437,6 +441,8 @@ class CallDataTestingFunctions {
         }
     };
 
+    static ProgramMetadata generate_metadata() { return ProgramMetadata{}; }
+
     static void generate_constraints(AcirConstraint& memory_constraint, WitnessVector& witness_values)
     {
 
@@ -551,6 +557,8 @@ class ReturnDataTestingFunctions {
 
         static std::vector<std::string> get_labels() { return { "None" }; };
     };
+
+    static ProgramMetadata generate_metadata() { return ProgramMetadata{}; }
 
     static void generate_constraints(AcirConstraint& memory_constraint, WitnessVector& witness_values)
     {

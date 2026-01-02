@@ -12,7 +12,7 @@ use dep::types::{
         MAX_CONTRACT_CLASS_LOGS_PER_TX,
     },
     hash::compute_contract_class_log_hash,
-    merkle_tree::check_membership,
+    merkle_tree::{check_membership, MembershipWitness},
     side_effect::Scoped,
     traits::Hash,
     utils::arrays::array_padded_with,
@@ -56,8 +56,10 @@ pub fn validate_tx_constant_data(
     assert(
         check_membership(
             archive_leaf_value,
-            archive_leaf_index as Field,
-            anchor_block_archive_sibling_path,
+            MembershipWitness {
+                leaf_index: archive_leaf_index as Field,
+                sibling_path: anchor_block_archive_sibling_path,
+            },
             block_last_archive_root,
         ),
         "Membership check failed: previous block hash not found in archive tree",

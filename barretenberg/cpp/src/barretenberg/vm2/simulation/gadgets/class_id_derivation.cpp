@@ -17,7 +17,7 @@ void ClassIdDerivation::assert_derivation(const ContractClassWithCommitment& kla
     }
 
     // First time seeing this class_id - do the actual derivation
-    FF computed_class_id = poseidon2.hash({ GENERATOR_INDEX__CONTRACT_LEAF,
+    FF computed_class_id = poseidon2.hash({ DOM_SEP__CONTRACT_CLASS_ID,
                                             klass.artifact_hash,
                                             klass.private_functions_root,
                                             klass.public_bytecode_commitment });

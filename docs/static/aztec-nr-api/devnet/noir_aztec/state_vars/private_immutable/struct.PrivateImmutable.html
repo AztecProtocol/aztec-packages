@@ -3,9 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../../styles.css">
+<script defer src="../../../nargo_doc.js"></script>
 <title>Struct PrivateImmutable documentation</title>
 </head>
 <body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">PrivateImmutable</div>
+</div>
+<span id="main-contents">
 <nav class="sidebar">
 <h1><a href="../../../index.html">aztec-nr</a></h1>
 <div><a href="../../../all.html">All items</a></div>
@@ -14,16 +20,14 @@
 <h2><a href="#struct">Struct PrivateImmutable</a></h2>
 <h3>Methods</h3>
 <ul class="sidebar-list">
-<li><a href="#compute_initialization_nullifier">compute_initialization_nullifier</a></li>
 <li><a href="#get_note">get_note</a></li>
 <li><a href="#initialize">initialize</a></li>
 <li><a href="#is_initialized">is_initialized</a></li>
-<li><a href="#new">new</a></li>
 <li><a href="#view_note">view_note</a></li>
 </ul>
 <h3>Trait implementations</h3>
 <ul class="sidebar-list">
-<li><a href="#impl-HasStorageSlot&lt;1&gt;-for-PrivateImmutable<T, Context>">HasStorageSlot&lt;1&gt;</a></li>
+<li><a href="#impl-OwnedStateVariable&lt;Context&gt;-for-PrivateImmutable<Note, Context>">OwnedStateVariable&lt;Context&gt;</a></li>
 </ul>
 <h2>In module private_immutable</h2>
 <h3>Structs</h3><ul class="item-list">
@@ -37,108 +41,74 @@
 { <span class="comment">/* private fields */</span> }
 </code></pre>
 <div class="comments">
-<p>PrivateImmutable</p>
-<p>PrivateImmutable is a private state variable type for values that are set once
-and remain permanently unchanged.</p>
-<p>You can declare a state variable of type PrivateImmutable within your contract's
-#[storage] struct:</p>
-<p>E.g.:
-<code>your_variable: PrivateImmutable&lt;YourNote, Context&gt;</code></p>
-<p>The value is represented as a single note that persists for the lifetime of
-the state variable. Once initialized, this note is never nullified or replaced
-through the state variable interface - it can only be read.</p>
-<p>The PrivateImmutable type facilitates: inserting the permanent note during
-initialization, and reading that note.</p>
-<p>The methods of PrivateImmutable are:</p>
-<ul>
-<li><code>initialize</code></li>
-<li><code>get_note</code>
-(see the methods' own doc comments for more info).</li>
-</ul>
-<h2>Example.</h2>
-<p>A contract's configuration parameters can be represented as a PrivateImmutable.
-Once set during contract deployment or initial setup, these parameters remain
-constant for the lifetime of the contract.</p>
-<h2>Privacy</h2>
-<p>PrivateImmutable has the same privacy properties as PrivateMutable (see
-PrivateMutable documentation), including the same privacy considerations
-regarding the initialization nullifier potentially leaking information about
-which storage slot was initialized.</p>
+<p>PrivateImmutable is an owned state variable type that represents a private value that is set once and remains
+unchanged forever. Because it is &quot;owned,&quot; you must wrap a PrivateImmutable inside an Owned state variable when
+storing it:</p>
+<pre><code>#[storage]
+<span class="kw">struct</span> Storage&lt;Context&gt; {
+    your_variable: Owned&lt;PrivateImmutable&lt;YourNote, Context&gt;, Context&gt;,
+}</code></pre>
+<p>For more details on what &quot;owned&quot; means, see the documentation for the <a href="../../../noir_aztec/state_vars/owned_state_variable/trait.OwnedStateVariable.html">OwnedStateVariable</a> trait.</p>
+<p>The value of a PrivateImmutable is stored in the Aztec's private state and hence is represented as a note.</p>
+<p>The PrivateImmutable type facilitates: inserting the permanent note during initialization, and reading that note.</p>
+<h2>Example</h2>
+<p>A user's permanent configuration can be represented as a PrivateImmutable. For example, in a vesting contract, each
+user's vesting parameters (start date, total amount, etc.) could be stored as a PrivateImmutable owned by that user.
+Once initialized during registration, these parameters remain constant for that specific user, while different users
+can have their own distinct parameters.</p>
+<p>Note: For contract-wide configuration (one value for the entire contract), use SinglePrivateImmutable instead.</p>
 <h2>Generic Parameters:</h2>
 <ul>
 <li><code>Note</code> - A single note of this type will represent the PrivateImmutable's
 value at the given storage_slot.</li>
 <li><code>Context</code> - The execution context (PrivateContext or UtilityContext).</li>
-</ul>
-<p>docs:start:struct</p>
-</div>
+</ul></div>
 <h2>Implementations</h2>
-<h3><code class="code-header">impl&lt;Context, Note&gt; <a href="../../../noir_aztec/state_vars/private_immutable/struct.PrivateImmutable.html" class="struct">PrivateImmutable</a>&lt;Note, Context&gt;</code></h3>
+<h3><code class="code-header">impl&lt;Note&gt; <a href="../../../noir_aztec/state_vars/private_immutable/struct.PrivateImmutable.html" class="struct">PrivateImmutable</a>&lt;Note, &mut <a href="../../../noir_aztec/context/private_context/struct.PrivateContext.html" class="struct">PrivateContext</a>&gt;</code></h3>
 
-<div class="padded-methods"><code id="new" class="code-header">pub fn <span class="fn">new</span>(context: Context, storage_slot: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>) -> Self</code>
-
-<div class="padded-description"><div class="comments">
-<p>Initializes a new PrivateImmutable state variable.</p>
-<p>This function is usually automatically called within the #[storage] macro.
-You typically don't need to call this directly when writing smart contracts.</p>
-<h4>Arguments</h4>
-<ul>
-<li><code>context</code> - One of <code>PrivateContext</code>/<code>PublicContext</code>/<code>UtilityContext</code>. The
-Context determines which methods of this struct will be made
-available to the calling smart contract function.</li>
-<li><code>storage_slot</code> - A unique identifier for this state variable within the
-contract. The permanent note for this PrivateImmutable
-state variable will have this <code>storage_slot</code>.
-Usually, the #[storage] macro will determine an
-appropriate storage_slot automatically. A smart contract
-dev shouldn't have to worry about this, as it's managed
-behind the scenes.</li>
-</ul>
-<p>docs:start:new</p>
-</div>
-</div><code id="compute_initialization_nullifier" class="code-header">pub fn <span class="fn">compute_initialization_nullifier</span>(self) -> <a href="../../../std/primitive.Field.html" class="primitive">Field</a></code>
+<div class="padded-methods"><code id="initialize" class="code-header">pub fn <a href="#initialize"><span class="fn">initialize</span></a>(self, note: Note) -> <a href="../../../noir_aztec/note/note_message/struct.NoteMessage.html" class="struct">NoteMessage</a>&lt;Note&gt;
+<div class="where-clause">where
+    Note: <a href="../../../noir_aztec/note/note_interface/trait.NoteType.html" class="trait">NoteType</a>,
+    Note: <a href="../../../noir_aztec/note/note_interface/trait.NoteHash.html" class="trait">NoteHash</a>,
+    Note: <a href="../../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a></div></code>
 
 <div class="padded-description"><div class="comments">
-<p>Computes the nullifier that will be created when this PrivateImmutable is
-initialized.</p>
-<p>This function is primarily used internally by the <code>initialize</code> method, but
-may also be useful for contracts that need to check if a PrivateImmutable
-has been initialized.</p>
-<p><strong>IMPORTANT PRIVACY CONSIDERATION:</strong>
-This computation has the same privacy implications as PrivateMutable's
-initialization nullifier (see PrivateMutable documentation for detailed
-explanation). The initialization nullifier can leak information about which
-storage slot was initialized.</p>
-<p>See https://github.com/AztecProtocol/aztec-packages/issues/15568 for ideas to
-improve this privacy footgun in future.</p>
-<h4>Returns</h4>
+<p>Initializes a PrivateImmutable state variable instance with a permanent <code>note</code> and returns a [NoteEmission] that
+allows you to decide what method of note message delivery to use.</p>
+<p>This function inserts the single, permanent note for this state variable. It can only be called once per
+PrivateImmutable. Subsequent calls will fail because the initialization nullifier will already exist.</p>
+<p>Unlike PrivateMutable, this note will never be nullified or replaced through the state variable interface</p>
 <ul>
-<li><code>Field</code> - The nullifier that will be emitted when this PrivateImmutable is
-initialized.</li>
+<li>it persists for the lifetime of the state variable.</li>
 </ul>
-<h4>Advanced</h4>
-<p>The computation uses the Poseidon2 hash function with a specific generator
-index to hash the storage slot, creating a deterministic nullifier based on
-the storage location.</p>
 </div>
-</div></div><h3><code class="code-header">impl&lt;Note&gt; <a href="../../../noir_aztec/state_vars/private_immutable/struct.PrivateImmutable.html" class="struct">PrivateImmutable</a>&lt;Note, <a href="../../../noir_aztec/context/utility_context/struct.UtilityContext.html" class="struct">UtilityContext</a>&gt;</code></h3>
+</div><code id="get_note" class="code-header">pub fn <a href="#get_note"><span class="fn">get_note</span></a>(self) -> Note
+<div class="where-clause">where
+    Note: <a href="../../../noir_aztec/note/note_interface/trait.NoteType.html" class="trait">NoteType</a>,
+    Note: <a href="../../../noir_aztec/note/note_interface/trait.NoteHash.html" class="trait">NoteHash</a>,
+    Note: <a href="../../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a></div></code>
 
-<div class="padded-methods"><code id="is_initialized" class="code-header">pub unconstrained fn <span class="fn">is_initialized</span>(self) -> <a href="../../../std/primitive.bool.html" class="primitive">bool</a>
+<div class="padded-description"><div class="comments">
+<p>Reads the permanent note of a PrivateImmutable state variable instance.</p>
+<p>If this PrivateImmutable state variable has not yet been initialized, no note will exist: the call will fail and
+the transaction will not be provable.</p>
+<p>Since the note is immutable, there's no risk of reading stale data or race conditions - the note never changes
+after initialization.</p>
+</div>
+</div></div><h3><code class="code-header">impl&lt;Context, Note&gt; <a href="../../../noir_aztec/state_vars/private_immutable/struct.PrivateImmutable.html" class="struct">PrivateImmutable</a>&lt;Note, Context&gt;</code></h3>
+
+<div class="padded-methods"></div><h3><code class="code-header">impl&lt;Note&gt; <a href="../../../noir_aztec/state_vars/private_immutable/struct.PrivateImmutable.html" class="struct">PrivateImmutable</a>&lt;Note, <a href="../../../noir_aztec/context/utility_context/struct.UtilityContext.html" class="struct">UtilityContext</a>&gt;</code></h3>
+
+<div class="padded-methods"><code id="is_initialized" class="code-header">pub unconstrained fn <a href="#is_initialized"><span class="fn">is_initialized</span></a>(self) -> <a href="../../../std/primitive.bool.html" class="primitive">bool</a>
 <div class="where-clause">where
     Note: <a href="../../../noir_aztec/note/note_interface/trait.NoteType.html" class="trait">NoteType</a>,
     Note: <a href="../../../noir_aztec/note/note_interface/trait.NoteHash.html" class="trait">NoteHash</a>,
     Note: <a href="../../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code>
 
 <div class="padded-description"><div class="comments">
-<p>Checks whether this PrivateImmutable has been initialized.</p>
-<h4>Returns</h4>
-<ul>
-<li><code>bool</code> - <code>true</code> if the PrivateImmutable has been initialized (the initialization
-nullifier exists), <code>false</code> otherwise.</li>
-</ul>
-<p>docs:start:is_initialized</p>
+<p>Returns whether this PrivateImmutable has been initialized.</p>
 </div>
-</div><code id="view_note" class="code-header">pub unconstrained fn <span class="fn">view_note</span>(self) -> Note
+</div><code id="view_note" class="code-header">pub unconstrained fn <a href="#view_note"><span class="fn">view_note</span></a>(self) -> Note
 <div class="where-clause">where
     Note: <a href="../../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>,
     Note: <a href="../../../noir_aztec/note/note_interface/trait.NoteType.html" class="trait">NoteType</a>,
@@ -147,90 +117,17 @@ nullifier exists), <code>false</code> otherwise.</li>
 
 <div class="padded-description"><div class="comments">
 <p>Returns the permanent note in this PrivateImmutable without consuming it.</p>
-<p>This function is only available in a UtilityContext (unconstrained environment)
-and is typically used for offchain queries, view functions, or testing.</p>
-<p>Unlike the constrained <code>get_note()</code>, this function does not push read requests
-or perform validation. It simply reads the note from the PXE's database.</p>
-<h4>Returns</h4>
-<ul>
-<li><code>Note</code> - The permanent note stored in this PrivateImmutable.</li>
-</ul>
-<p>docs:start:view_note</p>
-</div>
-</div></div><h3><code class="code-header">impl&lt;Note&gt; <a href="../../../noir_aztec/state_vars/private_immutable/struct.PrivateImmutable.html" class="struct">PrivateImmutable</a>&lt;Note, &mut <a href="../../../noir_aztec/context/private_context/struct.PrivateContext.html" class="struct">PrivateContext</a>&gt;</code></h3>
-
-<div class="padded-methods"><code id="initialize" class="code-header">pub fn <span class="fn">initialize</span>(self, note: Note) -> <a href="../../../noir_aztec/note/note_emission/struct.NoteEmission.html" class="struct">NoteEmission</a>&lt;Note&gt;
-<div class="where-clause">where
-    Note: <a href="../../../noir_aztec/note/note_interface/trait.NoteType.html" class="trait">NoteType</a>,
-    Note: <a href="../../../noir_aztec/note/note_interface/trait.NoteHash.html" class="trait">NoteHash</a>,
-    Note: <a href="../../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a></div></code>
-
-<div class="padded-description"><div class="comments">
-<p>Initializes a PrivateImmutable state variable instance with a permanent note.</p>
-<p>This function inserts the single, permanent note for this state variable. It can
-only be called once per PrivateImmutable. Subsequent calls will fail because
-the initialization nullifier will already exist.</p>
-<p>Unlike PrivateMutable, this note will never be nullified or replaced through
-the state variable interface - it persists for the lifetime of the state variable.</p>
-<h4>Arguments</h4>
-<ul>
-<li><code>note</code> - The permanent note to store in this PrivateImmutable. This note
-contains the unchanging value of the state variable.</li>
-</ul>
-<h4>Returns</h4>
-<ul>
-<li><code>NoteEmission&lt;Note&gt;</code> - A type-safe wrapper that requires you to decide
-whether to encrypt and send the note to someone.
-You can call <code>.emit()</code> on it to encrypt and log
-the note, or <code>.discard()</code> to skip emission.
-See NoteEmission for more details.</li>
-</ul>
-<h4>Advanced</h4>
-<p>This function performs the following operations:</p>
-<ul>
-<li>Creates and emits an initialization nullifier to mark this storage slot
-as initialized. This prevents double-initialization.</li>
-<li>Inserts the provided note into the protocol's Note Hash Tree.</li>
-<li>Returns a NoteEmission type that allows the caller to decide how to encrypt
-and deliver the note to its intended recipient.</li>
-</ul>
-<p>The initialization nullifier is deterministically computed from the storage
-slot and can leak privacy information (see <code>compute_initialization_nullifier</code>
-documentation).</p>
-<p>docs:start:initialize</p>
-</div>
-</div><code id="get_note" class="code-header">pub fn <span class="fn">get_note</span>(self) -> Note
-<div class="where-clause">where
-    Note: <a href="../../../noir_aztec/note/note_interface/trait.NoteType.html" class="trait">NoteType</a>,
-    Note: <a href="../../../noir_aztec/note/note_interface/trait.NoteHash.html" class="trait">NoteHash</a>,
-    Note: <a href="../../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a></div></code>
-
-<div class="padded-description"><div class="comments">
-<p>Reads the permanent note of a PrivateImmutable state variable instance.</p>
-<p>If this PrivateImmutable state variable has not yet been initialized,
-no note will exist: the call will fail and the transaction will not
-be provable.</p>
-<h4>Returns</h4>
-<ul>
-<li><code>Note</code> - The permanent note stored in this PrivateImmutable.</li>
-</ul>
-<h4>Advanced</h4>
-<p>This function performs the following operations:</p>
-<ul>
-<li>Retrieves the note from the PXE via an oracle call</li>
-<li>Validates that the note exists and belongs to this contract address and
-storage slot by pushing a read request to the context</li>
-<li>Returns the note content directly without nullification</li>
-</ul>
-<p>Since the note is immutable, there's no risk of reading stale data or
-race conditions - the note never changes after initialization.</p>
-<p>docs:start:get_note</p>
+<p>This function is only available in a UtilityContext (unconstrained environment) and is typically used for
+offchain queries, view functions, or testing.</p>
+<p>Unlike the constrained <code>get_note()</code>, this function does not push read requests or perform validation. It simply
+reads the note from the PXE's database.</p>
 </div>
 </div></div><h2>Trait implementations</h2>
-<h3 id="impl-HasStorageSlot&lt;1&gt;-for-PrivateImmutable<T, Context>"><code class="code-header">impl&lt;Context, T&gt; <a href="../../../noir_aztec/state_vars/storage/trait.HasStorageSlot.html" class="trait">HasStorageSlot</a>&lt;1&gt; for <a href="../../../noir_aztec/state_vars/private_immutable/struct.PrivateImmutable.html" class="struct">PrivateImmutable</a>&lt;T, Context&gt;</code></h3>
+<h3 id="impl-OwnedStateVariable&lt;Context&gt;-for-PrivateImmutable<Note, Context>"><code class="code-header">impl&lt;Context, Note&gt; <a href="../../../noir_aztec/state_vars/owned_state_variable/trait.OwnedStateVariable.html" class="trait">OwnedStateVariable</a>&lt;Context&gt; for <a href="../../../noir_aztec/state_vars/private_immutable/struct.PrivateImmutable.html" class="struct">PrivateImmutable</a>&lt;Note, Context&gt;</code></h3>
 
-<div class="padded-methods"><code class="code-header">pub fn <span class="fn">get_storage_slot</span>(self) -> <a href="../../../std/primitive.Field.html" class="primitive">Field</a></code>
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">new</span>(context: Context, storage_slot: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>, owner: <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>) -> Self</code>
 
 </div></main>
+</span>
 </body>
 </html>

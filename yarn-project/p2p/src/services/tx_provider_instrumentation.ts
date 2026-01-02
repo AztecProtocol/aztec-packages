@@ -1,10 +1,13 @@
-import { Metrics, type TelemetryClient, type UpDownCounter } from '@aztec/telemetry-client';
+import { type Histogram, Metrics, type TelemetryClient, type UpDownCounter } from '@aztec/telemetry-client';
 
 export class TxProviderInstrumentation {
   private txFromProposalCount: UpDownCounter;
   private txFromMempoolCount: UpDownCounter;
   private txFromP2PCount: UpDownCounter;
   private missingTxsCount: UpDownCounter;
+
+  private fractionOfTxsRequestedFromP2P: Histogram;
+  private txsRequestDelay: Histogram;
 
   constructor(client: TelemetryClient, name: string) {
     const meter = client.getMeter(name);
@@ -24,6 +27,15 @@ export class TxProviderInstrumentation {
     this.missingTxsCount = meter.createUpDownCounter(Metrics.TX_PROVIDER_MISSING_TXS_COUNT, {
       description: 'The number of txs not found anywhere',
     });
+
+    this.fractionOfTxsRequestedFromP2P = meter.createHistogram(Metrics.TX_PROVIDER_P2P_TXS_REQUESTED_FRACTION, {
+      description: 'The fraction of transaction requested from peers',
+    });
+
+    this.txsRequestDelay = meter.createHistogram(Metrics.TX_PROVIDER_P2P_TXS_REQUEST_DELAY, {
+      unit: 'ms',
+      description: 'The time it took to request missing transactions from p2p',
+    });
   }
 
   incTxsFromProposals(count: number) {
@@ -34,8 +46,13 @@ export class TxProviderInstrumentation {
     this.txFromMempoolCount.add(count);
   }
 
-  incTxsFromP2P(count: number) {
+  incTxsFromP2P(count: number, total: number) {
     this.txFromP2PCount.add(count);
+    this.fractionOfTxsRequestedFromP2P.record(count / total);
+  }
+
+  recordTxsRequestDelay(delay: number) {
+    this.txsRequestDelay.record(delay);
   }
 
   incMissingTxs(count: number) {

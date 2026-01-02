@@ -4,7 +4,7 @@ use crate::{
     utils::with_hash::WithHash,
 };
 use protocol_types::{
-    constants::GENERATOR_INDEX__INITIALIZATION_NULLIFIER, hash::poseidon2_hash_with_separator,
+    constants::DOM_SEP__INITIALIZATION_NULLIFIER, hash::poseidon2_hash_with_separator,
     traits::Packable,
 };
 
@@ -85,10 +85,7 @@ where
 
 impl<T, Context> PublicImmutable<T, Context> {
     pub fn compute_initialization_nullifier(self) -> Field {
-        poseidon2_hash_with_separator(
-            [self.storage_slot],
-            GENERATOR_INDEX__INITIALIZATION_NULLIFIER,
-        )
+        poseidon2_hash_with_separator([self.storage_slot], DOM_SEP__INITIALIZATION_NULLIFIER)
     }
 }
 

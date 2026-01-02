@@ -58,6 +58,7 @@ import {
 import { L1PublishedData } from '@aztec/stdlib/checkpoint';
 import { type L1RollupConstants, getSlotStartBuildTimestamp } from '@aztec/stdlib/epoch-helpers';
 import { GasFees, GasSettings } from '@aztec/stdlib/gas';
+import { tryStop } from '@aztec/stdlib/interfaces/server';
 import { SlashFactoryContract } from '@aztec/stdlib/l1-contracts';
 import { orderAttestations } from '@aztec/stdlib/p2p';
 import {
@@ -162,8 +163,9 @@ describe('L1Publisher integration', () => {
     }
   };
 
+  let port = 8545; // We increase the port for each test to avoid anvil conflicts
   const setup = async (deployL1ContractsArgs: Partial<DeployAztecL1ContractsArgs> = {}) => {
-    ({ rpcUrl, anvil } = await startAnvil());
+    ({ rpcUrl, anvil } = await startAnvil({ port: port++ }));
     config.l1RpcUrls = [rpcUrl];
 
     deployerAccount = privateKeyToAccount(deployerPK);
@@ -299,8 +301,8 @@ describe('L1Publisher integration', () => {
   };
 
   afterEach(async () => {
-    await anvil.stop();
-    await worldStateSynchronizer.stop();
+    await tryStop(anvil);
+    await tryStop(worldStateSynchronizer);
   });
 
   const makeProcessedTx = (seed = 0x1): Promise<ProcessedTx> =>

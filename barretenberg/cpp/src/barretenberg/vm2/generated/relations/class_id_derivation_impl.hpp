@@ -15,7 +15,7 @@ void class_id_derivationImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    const auto constants_GENERATOR_INDEX__CONTRACT_LEAF = FF(16);
+    const auto constants_DOM_SEP__CONTRACT_CLASS_ID = FF(16);
 
     {
         using View = typename std::tuple_element_t<0, ContainerOverSubrelations>::View;
@@ -26,8 +26,8 @@ void class_id_derivationImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     {
         using View = typename std::tuple_element_t<1, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::class_id_derivation_sel)) *
-                   (static_cast<View>(in.get(C::class_id_derivation_gen_index_contract_leaf)) -
-                    CView(constants_GENERATOR_INDEX__CONTRACT_LEAF));
+                   (static_cast<View>(in.get(C::class_id_derivation_gen_index_contract_class_id)) -
+                    CView(constants_DOM_SEP__CONTRACT_CLASS_ID));
         std::get<1>(evals) += (tmp * scaling_factor);
     }
     {

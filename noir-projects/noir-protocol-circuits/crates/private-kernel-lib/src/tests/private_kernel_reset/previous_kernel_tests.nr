@@ -1,6 +1,6 @@
 use crate::private_kernel_reset::ALLOWED_PREVIOUS_CIRCUITS;
 use super::TestBuilder;
-use types::constants::PRIVATE_KERNEL_TAIL_INDEX;
+use types::constants::PRIVATE_KERNEL_TAIL_VK_INDEX;
 
 #[test]
 fn valid_previous_kernels() {
@@ -14,6 +14,6 @@ fn valid_previous_kernels() {
 #[test(should_fail_with = "Vk index not in allowed list")]
 fn previous_kernel_not_in_allowed_list() {
     let mut builder = TestBuilder::new();
-    builder.previous_kernel = builder.previous_kernel.in_vk_tree(PRIVATE_KERNEL_TAIL_INDEX);
+    builder.previous_kernel = builder.previous_kernel.in_vk_tree(PRIVATE_KERNEL_TAIL_VK_INDEX);
     builder.failed();
 }

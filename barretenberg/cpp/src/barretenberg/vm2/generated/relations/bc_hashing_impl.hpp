@@ -15,7 +15,7 @@ void bc_hashingImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    const auto constants_GENERATOR_INDEX__PUBLIC_BYTECODE = FF(60);
+    const auto constants_DOM_SEP__PUBLIC_BYTECODE = FF(60);
     const auto bc_hashing_LATCH_CONDITION = in.get(C::bc_hashing_latch) + in.get(C::precomputed_first_row);
     const auto bc_hashing_PADDING_1 = in.get(C::bc_hashing_sel) * (FF(1) - in.get(C::bc_hashing_sel_not_padding_1));
     const auto bc_hashing_PADDING_2 = in.get(C::bc_hashing_sel) * (FF(1) - in.get(C::bc_hashing_sel_not_padding_2));
@@ -100,8 +100,8 @@ void bc_hashingImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     { // START_IS_SEPARATOR
         using View = typename std::tuple_element_t<11, ContainerOverSubrelations>::View;
         auto tmp =
-            static_cast<View>(in.get(C::bc_hashing_start)) * (static_cast<View>(in.get(C::bc_hashing_packed_fields_0)) -
-                                                              CView(constants_GENERATOR_INDEX__PUBLIC_BYTECODE));
+            static_cast<View>(in.get(C::bc_hashing_start)) *
+            (static_cast<View>(in.get(C::bc_hashing_packed_fields_0)) - CView(constants_DOM_SEP__PUBLIC_BYTECODE));
         std::get<11>(evals) += (tmp * scaling_factor);
     }
     {

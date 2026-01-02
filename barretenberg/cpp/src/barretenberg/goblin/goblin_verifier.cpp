@@ -73,9 +73,6 @@ typename GoblinVerifier_<Curve>::ReductionResult GoblinVerifier_<Curve>::reduce_
         }
     }
 
-    // Aggregate pairing points for final verification
-    translator_result.pairing_points.aggregate(merge_result.pairing_points);
-
     // Combine all check results
     // Recursive: must evaluate all booleans (circuit structure must be fixed)
     // Native: redundant check (already returned early on failure), but kept for consistency
@@ -86,7 +83,9 @@ typename GoblinVerifier_<Curve>::ReductionResult GoblinVerifier_<Curve>::reduce_
     // Native mode: pairing checks already performed above (fail-fast), included in all_checks_passed
     // Recursive mode: pairing checks deferred, excluded from all_checks_passed (for in-circuit batching)
     // In recursive mode, boolean flags are for circuit structure only (not actual verification).
-    ReductionResult result{ .pairing_points = std::move(translator_result.pairing_points),
+    // Note: Pairing points are NOT aggregated here - caller should use aggregate_multiple for efficiency
+    ReductionResult result{ .merge_pairing_points = std::move(merge_result.pairing_points),
+                            .translator_pairing_points = std::move(translator_result.pairing_points),
                             .ipa_claim = std::move(eccvm_result.ipa_claim),
                             .ipa_proof = proof.ipa_proof,
                             .all_checks_passed = all_checks_passed };

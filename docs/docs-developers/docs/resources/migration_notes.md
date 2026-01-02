@@ -9,6 +9,29 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## TBD
 
+### [AVM] Gas cost multipliers for public execution to reach simulation/proving parity
+
+Gas costs for several AVM opcodes have been adjusted with multipliers to better align public simulation costs with actual proving costs.
+
+| Opcode | Multiplier | Previous Cost | New Cost |
+|--------|------------|---------------|----------|
+| FDIV | 25x | 9 | 225 |
+| SLOAD | 10x | 129 | 1,290 |
+| SSTORE | 20x | 1,657 | 33,140 |
+| NOTEHASHEXISTS | 4x | 126 | 504 |
+| EMITNOTEHASH | 15x | 1,285 | 19,275 |
+| NULLIFIEREXISTS | 7x | 132 | 924 |
+| EMITNULLIFIER | 20x | 1,540 | 30,800 |
+| L1TOL2MSGEXISTS | 5x | 108 | 540 |
+| SENDL2TOL1MSG | 2x | 209 | 418 |
+| CALL | 3x | 3,312 | 9,936 |
+| STATICCALL | 3x | 3,312 | 9,936 |
+| GETCONTRACTINSTANCE | 4x | 1,527 | 6,108 |
+| POSEIDON2 | 15x | 24 | 360 |
+| ECADD | 10x | 27 | 270 |
+
+**Impact**: Contracts with public bytecode performing any of these operations will see increased gas consumption.
+
 ### [PXE] deprecated `getNotes`
 
 This function serves only for debugging purposes so we are taking it out of the main PXE API. If you still need to consume it, you can
@@ -431,7 +454,7 @@ impl UintPartialNotePrivateContent {
         poseidon2_hash_with_separator(
 -           self.pack().concat([storage_slot]),
 +           self.pack().concat([storage_slot, randomness]),
-            GENERATOR_INDEX__NOTE_HASH,
+            DOM_SEP__NOTE_HASH,
         )
     }
 }
@@ -2198,7 +2221,7 @@ If you have no need for a custom implementation of the `compute_note_hash` funct
 ```
 fn compute_note_hash(self, storage_slot: Field) -> Field {
     let inputs = aztec::protocol_types::utils::arrays::array_concat(self.pack(), [storage_slot]);
-    aztec::protocol_types::hash::poseidon2_hash_with_separator(inputs, aztec::protocol_types::constants::GENERATOR_INDEX__NOTE_HASH)
+    aztec::protocol_types::hash::poseidon2_hash_with_separator(inputs, aztec::protocol_types::constants::DOM_SEP__NOTE_HASH)
 }
 ```
 
@@ -3112,7 +3135,7 @@ impl NoteInterface<VALUE_NOTE_LEN, VALUE_NOTE_BYTES_LEN> for ValueNote {
 -            note_hash_for_nullify,
 -            secret,
 -        ],
--            GENERATOR_INDEX__NOTE_NULLIFIER as Field,
+-            DOM_SEP__NOTE_NULLIFIER as Field,
 -        );
 -        (note_hash_for_nullify, nullifier)
 -    }
@@ -3123,7 +3146,7 @@ impl NoteInterface<VALUE_NOTE_LEN, VALUE_NOTE_BYTES_LEN> for ValueNote {
 -            note_hash_for_nullify,
 -            secret,
 -        ],
--            GENERATOR_INDEX__NOTE_NULLIFIER as Field,
+-            DOM_SEP__NOTE_NULLIFIER as Field,
 -        );
 -        (note_hash_for_nullify, nullifier)
 -    }
@@ -3134,7 +3157,7 @@ impl NoteInterface<VALUE_NOTE_LEN, VALUE_NOTE_BYTES_LEN> for ValueNote {
 +            note_hash_for_nullify,
 +            secret
 +        ],
-+            GENERATOR_INDEX__NOTE_NULLIFIER as Field,
++            DOM_SEP__NOTE_NULLIFIER as Field,
 +        )
 +    }
 +    fn compute_nullifier_without_context(self) -> Field {
@@ -3144,7 +3167,7 @@ impl NoteInterface<VALUE_NOTE_LEN, VALUE_NOTE_BYTES_LEN> for ValueNote {
 +            note_hash_for_nullify,
 +            secret,
 +        ],
-+            GENERATOR_INDEX__NOTE_NULLIFIER as Field,
++            DOM_SEP__NOTE_NULLIFIER as Field,
 +        )
 +    }
 }
@@ -3287,7 +3310,7 @@ These changes were done because having the note hash exposed allowed us to not h
 -        poseidon2_hash([
 -            note_hash_for_nullify,
 -            secret,
--            GENERATOR_INDEX__NOTE_NULLIFIER as Field,
+-            DOM_SEP__NOTE_NULLIFIER as Field,
 -        ])
 -    }
 -
@@ -3297,7 +3320,7 @@ These changes were done because having the note hash exposed allowed us to not h
 -        poseidon2_hash([
 -            note_hash_for_nullify,
 -            secret,
--            GENERATOR_INDEX__NOTE_NULLIFIER as Field,
+-            DOM_SEP__NOTE_NULLIFIER as Field,
 -        ])
 -    }
 - }
@@ -3308,7 +3331,7 @@ These changes were done because having the note hash exposed allowed us to not h
 +        let nullifier = poseidon2_hash([
 +            note_hash_for_nullify,
 +            secret,
-+            GENERATOR_INDEX__NOTE_NULLIFIER as Field,
++            DOM_SEP__NOTE_NULLIFIER as Field,
 +        ]);
 +        (note_hash_for_nullify, nullifier)
 +    }
@@ -3319,7 +3342,7 @@ These changes were done because having the note hash exposed allowed us to not h
 +        let nullifier = poseidon2_hash([
 +            note_hash_for_nullify,
 +            secret,
-+            GENERATOR_INDEX__NOTE_NULLIFIER as Field,
++            DOM_SEP__NOTE_NULLIFIER as Field,
 +        ]);
 +        (note_hash_for_nullify, nullifier)
 +    }

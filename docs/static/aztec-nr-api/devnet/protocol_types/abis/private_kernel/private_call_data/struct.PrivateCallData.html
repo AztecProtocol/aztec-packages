@@ -3,9 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../../../styles.css">
+<script defer src="../../../../nargo_doc.js"></script>
 <title>Struct PrivateCallData documentation</title>
 </head>
 <body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">PrivateCallData</div>
+</div>
+<span id="main-contents">
 <nav class="sidebar">
 <h1><a href="../../../../index.html">aztec-nr</a></h1>
 <div><a href="../../../../all.html">All items</a></div>
@@ -14,10 +20,9 @@
 <h2><a href="#struct">Struct PrivateCallData</a></h2>
 <h3>Fields</h3>
 <ul class="sidebar-list">
-<li><a href="#public_inputs">public_inputs</a></li>
-<li><a href="#side_effect_uniqueness_hints">side_effect_uniqueness_hints</a></li>
-<li><a href="#verification_key_hints">verification_key_hints</a></li>
-<li><a href="#vk">vk</a></li>
+<li><a href="#structfield.public_inputs">public_inputs</a></li>
+<li><a href="#structfield.verification_key_hints">verification_key_hints</a></li>
+<li><a href="#structfield.vk">vk</a></li>
 </ul>
 <h3>Methods</h3>
 <ul class="sidebar-list">
@@ -28,8 +33,6 @@
 <li><a href="struct.PrivateCallData.html">PrivateCallData</a></div></li>
 <li><a href="struct.PrivateCallDataWithoutPublicInputs.html">PrivateCallDataWithoutPublicInputs</a></div></li>
 <li><a href="struct.PrivateVerificationKeyHints.html">PrivateVerificationKeyHints</a></div></li>
-<li><a href="struct.SideEffectCounterRange.html">SideEffectCounterRange</a></div></li>
-<li><a href="struct.SideEffectUniquenessHints.html">SideEffectUniquenessHints</a></div></li>
 </ul>
 </nav>
 <main>
@@ -39,23 +42,22 @@
     pub public_inputs: <a href="../../../../protocol_types/abis/private_circuit_public_inputs/struct.PrivateCircuitPublicInputs.html" class="struct">PrivateCircuitPublicInputs</a>,
     pub vk: <a href="../../../../protocol_types/proof/verification_key/type.ChonkVerificationKey.html" class="type">ChonkVerificationKey</a>,
     pub verification_key_hints: <a href="../../../../protocol_types/abis/private_kernel/private_call_data/struct.PrivateVerificationKeyHints.html" class="struct">PrivateVerificationKeyHints</a>,
-    pub side_effect_uniqueness_hints: <a href="../../../../protocol_types/abis/private_kernel/private_call_data/struct.SideEffectUniquenessHints.html" class="struct">SideEffectUniquenessHints</a>,
 }
 </code></pre>
 <h2>Fields</h2>
-<div id="public_inputs" class="struct-field"><code class="code-header">public_inputs: <a href="../../../../protocol_types/abis/private_circuit_public_inputs/struct.PrivateCircuitPublicInputs.html" class="struct">PrivateCircuitPublicInputs</a></code></div>
-<div class="padded-description"></div><div id="vk" class="struct-field"><code class="code-header">vk: <a href="../../../../protocol_types/proof/verification_key/type.ChonkVerificationKey.html" class="type">ChonkVerificationKey</a></code></div>
-<div class="padded-description"></div><div id="verification_key_hints" class="struct-field"><code class="code-header">verification_key_hints: <a href="../../../../protocol_types/abis/private_kernel/private_call_data/struct.PrivateVerificationKeyHints.html" class="struct">PrivateVerificationKeyHints</a></code></div>
-<div class="padded-description"></div><div id="side_effect_uniqueness_hints" class="struct-field"><code class="code-header">side_effect_uniqueness_hints: <a href="../../../../protocol_types/abis/private_kernel/private_call_data/struct.SideEffectUniquenessHints.html" class="struct">SideEffectUniquenessHints</a></code></div>
+<div id="structfield.public_inputs" class="struct-field"><code class="code-header">public_inputs: <a href="../../../../protocol_types/abis/private_circuit_public_inputs/struct.PrivateCircuitPublicInputs.html" class="struct">PrivateCircuitPublicInputs</a></code></div>
+<div class="padded-description"></div><div id="structfield.vk" class="struct-field"><code class="code-header">vk: <a href="../../../../protocol_types/proof/verification_key/type.ChonkVerificationKey.html" class="type">ChonkVerificationKey</a></code></div>
+<div class="padded-description"></div><div id="structfield.verification_key_hints" class="struct-field"><code class="code-header">verification_key_hints: <a href="../../../../protocol_types/abis/private_kernel/private_call_data/struct.PrivateVerificationKeyHints.html" class="struct">PrivateVerificationKeyHints</a></code></div>
 <div class="padded-description"></div><h2>Implementations</h2>
 <h3><code class="code-header">impl <a href="../../../../protocol_types/abis/private_kernel/private_call_data/struct.PrivateCallData.html" class="struct">PrivateCallData</a></code></h3>
 
-<div class="padded-methods"><code id="verify" class="code-header">pub fn <span class="fn">verify</span>(self, is_first_app: <a href="../../../../std/primitive.bool.html" class="primitive">bool</a>)</code>
+<div class="padded-methods"><code id="verify" class="code-header">pub fn <a href="#verify"><span class="fn">verify</span></a>(self, is_first_app: <a href="../../../../std/primitive.bool.html" class="primitive">bool</a>)</code>
 
 <div class="padded-description"><div class="comments">
 <p>Verifies the proof against the verification key and public inputs.
 The vk hash is also checked in the backend to match the key.</p>
 </div>
 </div></div></main>
+</span>
 </body>
 </html>

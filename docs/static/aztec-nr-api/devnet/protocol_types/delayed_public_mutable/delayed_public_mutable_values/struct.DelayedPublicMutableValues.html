@@ -3,9 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../../styles.css">
+<script defer src="../../../nargo_doc.js"></script>
 <title>Struct DelayedPublicMutableValues documentation</title>
 </head>
 <body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">DelayedPublicMutableValues</div>
+</div>
+<span id="main-contents">
 <nav class="sidebar">
 <h1><a href="../../../index.html">aztec-nr</a></h1>
 <div><a href="../../../all.html">All items</a></div>
@@ -14,8 +20,8 @@
 <h2><a href="#struct">Struct DelayedPublicMutableValues</a></h2>
 <h3>Fields</h3>
 <ul class="sidebar-list">
-<li><a href="#sdc">sdc</a></li>
-<li><a href="#svc">svc</a></li>
+<li><a href="#structfield.sdc">sdc</a></li>
+<li><a href="#structfield.svc">svc</a></li>
 </ul>
 <h3>Methods</h3>
 <ul class="sidebar-list">
@@ -55,12 +61,12 @@ svc.timestamp_of_change are stored in the same slot). For that reason we expose 
 is &quot;hacky&quot; but there is no way around it.</p>
 </div>
 <h2>Fields</h2>
-<div id="svc" class="struct-field"><code class="code-header">svc: <a href="../../../protocol_types/delayed_public_mutable/scheduled_value_change/struct.ScheduledValueChange.html" class="struct">ScheduledValueChange</a>&lt;T&gt;</code></div>
-<div class="padded-description"></div><div id="sdc" class="struct-field"><code class="code-header">sdc: <a href="../../../protocol_types/delayed_public_mutable/scheduled_delay_change/struct.ScheduledDelayChange.html" class="struct">ScheduledDelayChange</a>&lt;INITIAL_DELAY&gt;</code></div>
+<div id="structfield.svc" class="struct-field"><code class="code-header">svc: <a href="../../../protocol_types/delayed_public_mutable/scheduled_value_change/struct.ScheduledValueChange.html" class="struct">ScheduledValueChange</a>&lt;T&gt;</code></div>
+<div class="padded-description"></div><div id="structfield.sdc" class="struct-field"><code class="code-header">sdc: <a href="../../../protocol_types/delayed_public_mutable/scheduled_delay_change/struct.ScheduledDelayChange.html" class="struct">ScheduledDelayChange</a>&lt;INITIAL_DELAY&gt;</code></div>
 <div class="padded-description"></div><h2>Implementations</h2>
 <h3><code class="code-header">impl&lt;let INITIAL_DELAY: <a href="../../../std/primitive.u64.html" class="primitive">u64</a>, T&gt; <a href="../../../protocol_types/delayed_public_mutable/delayed_public_mutable_values/struct.DelayedPublicMutableValues.html" class="struct">DelayedPublicMutableValues</a>&lt;T, INITIAL_DELAY&gt;</code></h3>
 
-<div class="padded-methods"><code id="new" class="code-header">pub fn <span class="fn">new</span>(
+<div class="padded-methods"><code id="new" class="code-header">pub fn <a href="#new"><span class="fn">new</span></a>(
     svc: <a href="../../../protocol_types/delayed_public_mutable/scheduled_value_change/struct.ScheduledValueChange.html" class="struct">ScheduledValueChange</a>&lt;T&gt;,
     sdc: <a href="../../../protocol_types/delayed_public_mutable/scheduled_delay_change/struct.ScheduledDelayChange.html" class="struct">ScheduledDelayChange</a>&lt;INITIAL_DELAY&gt;,
 ) -> Self</code>
@@ -87,5 +93,6 @@ is &quot;hacky&quot; but there is no way around it.</p>
 <code class="code-header">pub fn <span class="fn">unpack</span>(fields: [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; &lt;T as Packable&gt;::N * 2 + 1]) -> Self</code>
 
 </div></main>
+</span>
 </body>
 </html>

@@ -9,7 +9,6 @@ import { type RpcBlock, createPublicClient, fallback, http } from 'viem';
 import { createBlobArchiveClient } from '../archive/factory.js';
 import type { BlobArchiveClient } from '../archive/interface.js';
 import type { FileStoreBlobClient } from '../filestore/filestore_blob_client.js';
-import { BlobWithIndex } from '../types/blob_with_index.js';
 import { type BlobClientConfig, getBlobClientConfigFromEnv } from './config.js';
 import type { BlobClientInterface, GetBlobSidecarOptions } from './interface.js';
 
@@ -31,7 +30,7 @@ export class HttpBlobClient implements BlobClientInterface {
       fileStoreClients?: FileStoreBlobClient[];
       fileStoreUploadClient?: FileStoreBlobClient;
       /** Callback fired when blobs are successfully fetched from any source */
-      onBlobsFetched?: (blobs: BlobWithIndex[]) => void;
+      onBlobsFetched?: (blobs: Blob[]) => void;
     } = {},
   ) {
     this.config = config ?? getBlobClientConfigFromEnv();
@@ -62,7 +61,7 @@ export class HttpBlobClient implements BlobClientInterface {
    * Upload fetched blobs to filestore (fire-and-forget).
    * Called automatically when blobs are fetched from any source.
    */
-  private uploadBlobsToFileStore(blobs: BlobWithIndex[]): void {
+  private uploadBlobsToFileStore(blobs: Blob[]): void {
     if (!this.fileStoreUploadClient) {
       return;
     }
@@ -186,16 +185,14 @@ export class HttpBlobClient implements BlobClientInterface {
    *
    * @param blockHash - The block hash
    * @param blobHashes - The blob hashes to fetch
-   * @param indices - The indices of the blobs to get
    * @param opts - Options including isHistoricalSync flag
    * @returns The blobs
    */
   public async getBlobSidecar(
     blockHash: `0x${string}`,
     blobHashes: Buffer[],
-    indices?: number[],
     opts?: GetBlobSidecarOptions,
-  ): Promise<BlobWithIndex[]> {
+  ): Promise<Blob[]> {
     if (this.disabled) {
       this.log.warn('Blob storage is disabled, returning empty blob sidecar');
       return [];
@@ -204,7 +201,7 @@ export class HttpBlobClient implements BlobClientInterface {
     const isHistoricalSync = opts?.isHistoricalSync ?? false;
     // Accumulate blobs across sources, preserving order and handling duplicates
     // resultBlobs[i] will contain the blob for blobHashes[i], or undefined if not yet found
-    const resultBlobs: (BlobWithIndex | undefined)[] = new Array(blobHashes.length).fill(undefined);
+    const resultBlobs: (Blob | undefined)[] = new Array(blobHashes.length).fill(undefined);
 
     // Helper to get  missing blob hashes that we still need to fetch
     const getMissingBlobHashes = (): Buffer[] =>
@@ -213,10 +210,10 @@ export class HttpBlobClient implements BlobClientInterface {
         .filter((bh): bh is Buffer => bh !== undefined);
 
     // Return the result, ignoring any undefined ones
-    const getFilledBlobs = (): BlobWithIndex[] => resultBlobs.filter((b): b is BlobWithIndex => b !== undefined);
+    const getFilledBlobs = (): Blob[] => resultBlobs.filter((b): b is Blob => b !== undefined);
 
     // Helper to fill in results from fetched blobs
-    const fillResults = (fetchedBlobs: BlobJson[]): BlobWithIndex[] => {
+    const fillResults = (fetchedBlobs: BlobJson[]): Blob[] => {
       const blobs = processFetchedBlobs(fetchedBlobs, blobHashes, this.log);
       // Fill in any missing positions with matching blobs
       for (let i = 0; i < blobHashes.length; i++) {
@@ -228,7 +225,7 @@ export class HttpBlobClient implements BlobClientInterface {
     };
 
     // Fire callback when returning blobs (fire-and-forget)
-    const returnWithCallback = (blobs: BlobWithIndex[]): BlobWithIndex[] => {
+    const returnWithCallback = (blobs: Blob[]): Blob[] => {
       if (blobs.length > 0 && this.opts.onBlobsFetched) {
         void Promise.resolve().then(() => this.opts.onBlobsFetched!(blobs));
       }
@@ -237,7 +234,7 @@ export class HttpBlobClient implements BlobClientInterface {
 
     const { l1ConsensusHostUrls } = this.config;
 
-    const ctx = { blockHash, blobHashes: blobHashes.map(bufferToHex), indices };
+    const ctx = { blockHash, blobHashes: blobHashes.map(bufferToHex) };
 
     // Try filestore (quick, no retries) - useful for both historical and near-tip sync
     if (this.fileStoreClients.length > 0 && getMissingBlobHashes().length > 0) {
@@ -269,7 +266,7 @@ export class HttpBlobClient implements BlobClientInterface {
             l1ConsensusHostUrl,
             ...ctx,
           });
-          const blobs = await this.getBlobsFromHost(l1ConsensusHostUrl, slotNumber, indices, l1ConsensusHostIndex);
+          const blobs = await this.getBlobsFromHost(l1ConsensusHostUrl, slotNumber, l1ConsensusHostIndex);
           const result = fillResults(blobs);
           this.log.debug(
             `Got ${blobs.length} blobs from consensus host (total: ${result.length}/${blobHashes.length})`,
@@ -346,8 +343,8 @@ export class HttpBlobClient implements BlobClientInterface {
    */
   private async tryFileStores(
     getMissingBlobHashes: () => Buffer[],
-    fillResults: (blobs: BlobJson[]) => BlobWithIndex[],
-    ctx: { blockHash: string; blobHashes: string[]; indices?: number[] },
+    fillResults: (blobs: BlobJson[]) => Blob[],
+    ctx: { blockHash: string; blobHashes: string[] },
   ): Promise<void> {
     // Shuffle clients for load distribution
     const shuffledClients = [...this.fileStoreClients];
@@ -386,21 +383,19 @@ export class HttpBlobClient implements BlobClientInterface {
     hostUrl: string,
     blockHashOrSlot: string | number,
     blobHashes: Buffer[] = [],
-    indices: number[] = [],
     l1ConsensusHostIndex?: number,
-  ): Promise<BlobWithIndex[]> {
-    const blobs = await this.getBlobsFromHost(hostUrl, blockHashOrSlot, indices, l1ConsensusHostIndex);
-    return processFetchedBlobs(blobs, blobHashes, this.log).filter((b): b is BlobWithIndex => b !== undefined);
+  ): Promise<Blob[]> {
+    const blobs = await this.getBlobsFromHost(hostUrl, blockHashOrSlot, l1ConsensusHostIndex);
+    return processFetchedBlobs(blobs, blobHashes, this.log).filter((b): b is Blob => b !== undefined);
   }
 
   public async getBlobsFromHost(
     hostUrl: string,
     blockHashOrSlot: string | number,
-    indices: number[] = [],
     l1ConsensusHostIndex?: number,
   ): Promise<BlobJson[]> {
     try {
-      let res = await this.fetchBlobSidecars(hostUrl, blockHashOrSlot, indices, l1ConsensusHostIndex);
+      let res = await this.fetchBlobSidecars(hostUrl, blockHashOrSlot, l1ConsensusHostIndex);
       if (res.ok) {
         return parseBlobJsonsFromResponse(await res.json(), this.log);
       }
@@ -416,8 +411,8 @@ export class HttpBlobClient implements BlobClientInterface {
         let maxRetries = 10;
         let currentSlot = blockHashOrSlot + 1;
         while (res.status === 404 && maxRetries > 0 && latestSlot !== undefined && currentSlot <= latestSlot) {
-          this.log.debug(`Trying slot ${currentSlot} for blob indices ${indices.join(', ')}`);
-          res = await this.fetchBlobSidecars(hostUrl, currentSlot, indices, l1ConsensusHostIndex);
+          this.log.debug(`Trying slot ${currentSlot}`);
+          res = await this.fetchBlobSidecars(hostUrl, currentSlot, l1ConsensusHostIndex);
           if (res.ok) {
             return parseBlobJsonsFromResponse(await res.json(), this.log);
           }
@@ -441,13 +436,9 @@ export class HttpBlobClient implements BlobClientInterface {
   private fetchBlobSidecars(
     hostUrl: string,
     blockHashOrSlot: string | number,
-    indices: number[],
     l1ConsensusHostIndex?: number,
   ): Promise<Response> {
-    let baseUrl = `${hostUrl}/eth/v1/beacon/blob_sidecars/${blockHashOrSlot}`;
-    if (indices.length > 0) {
-      baseUrl += `?indices=${indices.join(',')}`;
-    }
+    const baseUrl = `${hostUrl}/eth/v1/beacon/blob_sidecars/${blockHashOrSlot}`;
 
     const { url, ...options } = getBeaconNodeFetchOptions(baseUrl, this.config, l1ConsensusHostIndex);
     this.log.debug(`Fetching blob sidecar for ${blockHashOrSlot}`, { url, ...options });
@@ -549,6 +540,11 @@ export class HttpBlobClient implements BlobClientInterface {
 
     return undefined;
   }
+
+  /** @internal - exposed for testing */
+  public getArchiveClient(): BlobArchiveClient | undefined {
+    return this.archiveClient;
+  }
 }
 
 function parseBlobJsonsFromResponse(response: any, logger: Logger): BlobJson[] {
@@ -564,28 +560,28 @@ function parseBlobJsonsFromResponse(response: any, logger: Logger): BlobJson[] {
 // Blobs will be in this form when requested from the blob client, or from the beacon chain via `getBlobSidecars`:
 // https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/getBlobSidecars
 // Here we attempt to parse the response data to Buffer, and check the lengths (via Blob's constructor), to avoid
-// throwing an error down the line when calling BlobWithIndex.fromJson().
+// throwing an error down the line when calling Blob.fromJson().
 function parseBlobJson(data: any): BlobJson {
   const blobBuffer = Buffer.from(data.blob.slice(2), 'hex');
   const commitmentBuffer = Buffer.from(data.kzg_commitment.slice(2), 'hex');
   const blob = new Blob(blobBuffer, commitmentBuffer);
-  return blob.toJson(parseInt(data.index));
+  return blob.toJSON();
 }
 
-// Returns an array that maps each blob hash to the corresponding blob with index, or undefined if the blob is not found
+// Returns an array that maps each blob hash to the corresponding blob, or undefined if the blob is not found
 // or the data does not match the commitment.
-function processFetchedBlobs(blobs: BlobJson[], blobHashes: Buffer[], logger: Logger): (BlobWithIndex | undefined)[] {
+function processFetchedBlobs(blobs: BlobJson[], blobHashes: Buffer[], logger: Logger): (Blob | undefined)[] {
   const requestedBlobHashes = new Set<string>(blobHashes.map(bufferToHex));
-  const hashToBlob = new Map<string, BlobWithIndex>();
-  for (const blob of blobs) {
-    const hashHex = bufferToHex(computeEthVersionedBlobHash(hexToBuffer(blob.kzg_commitment)));
+  const hashToBlob = new Map<string, Blob>();
+  for (const blobJson of blobs) {
+    const hashHex = bufferToHex(computeEthVersionedBlobHash(hexToBuffer(blobJson.kzg_commitment)));
     if (!requestedBlobHashes.has(hashHex) || hashToBlob.has(hashHex)) {
       continue;
     }
 
     try {
-      const blobWithIndex = BlobWithIndex.fromJson(blob);
-      hashToBlob.set(hashHex, blobWithIndex);
+      const blob = Blob.fromJson(blobJson);
+      hashToBlob.set(hashHex, blob);
     } catch (err) {
       // If the above throws, it's likely that the blob commitment does not match the hash of the blob data.
       logger.error(`Error converting blob from json`, err);

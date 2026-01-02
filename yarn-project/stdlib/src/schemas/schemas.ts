@@ -40,6 +40,9 @@ export const schemas = {
   /** Coerces input to UInt32. */
   UInt32: foundationSchemas.UInt32,
 
+  /** Coerces input to UInt64. */
+  UInt64: foundationSchemas.UInt64,
+
   /** Accepts a hex string as a Buffer32 type. */
   Buffer32: foundationSchemas.Buffer32 as ZodFor<Buffer32>,
 

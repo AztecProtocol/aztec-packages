@@ -1,29 +1,101 @@
-#!/bin/bash
-# Redacts sensitive environment variables from stdin.
-# Matches env vars containing: KEY, TOKEN, PASSWORD, SECRET, MNEMONIC
-patterns=""
-for var in $(compgen -e); do
-  if [[ "$var" =~ (KEY|TOKEN|PASSWORD|SECRET|MNEMONIC) ]]; then
-    val="${!var}"
-    [[ -z "$val" ]] && continue
-    while IFS= read -r line; do
-      [[ -n "$line" ]] && patterns+="$line"$'\n'
-    done <<< "$val"
-  fi
-done
+#!/usr/bin/env perl
+# See redact_test for the testing of this script.
+#
+# We support github actions-style ::add-mask::some-value lines to add secrets on the fly.
+# We do not recommend its use lightly however, instead relying on this script or not printing secrets.
+#
+# Change note (Adam Dec 19, 2025)
+#   Moved to perl when adding ::add::mask:: handling.
+#   This was the fastest of the redact scripts I tried crafting.
+#   The previous bash version was quadratic:
+# ● With 40 secrets, 50k lines:
 
-if [[ -z "$patterns" ]]; then
-  exec cat
-fi
+#   | Version  | Time  | Speedup     |
+#   |----------|-------|-------------|
+#   | Bash/awk | 527ms | -           |
+#   | Perl     | 68ms  | 7.7x faster |
+#
+# ● With 900 secrets, 50k lines:
+#   | Version  | Time  | Speedup    |
+#   |----------|-------|------------|
+#   | Bash/awk | 9.84s | -          |
+#   | Perl     | 0.41s | 24x faster |
 
-# Use ENVIRON to avoid awk -v escape sequence interpretation
-export __REDACT_PATTERNS="$patterns"
-awk '
-BEGIN { n = split(ENVIRON["__REDACT_PATTERNS"], p, "\n") }
-{
-  for (i = 1; i <= n; i++)
-    if (p[i] != "") while ((j = index($0, p[i])) > 0)
-      $0 = substr($0, 1, j-1) "***" substr($0, j + length(p[i]))
-  print
-  fflush()
-}'
+use strict;
+use warnings;
+
+# Enable auto-flush so logs appear immediately (crucial for CI/CD)
+$| = 1;
+
+my @secrets = ();
+my $re;
+
+# --- 1. Initial Secret Collection from ENV ---
+
+# Iterate over all environment variables
+while (my ($key, $val) = each %ENV) {
+    # Check if the KEY name matches our sensitive keywords
+    if ($key =~ /(?:KEY|TOKEN|PASSWORD|SECRET|MNEMONIC)$/) {
+        next unless defined $val and $val ne '';
+
+        # NOTE: We assume anything with 6 or less characters is a poor secret and bail.
+        if (length($val) < 6) {
+            next;
+        }
+
+        # Handle multi-line environment variables by splitting them
+        # so we mask each line independently if needed.
+        # Naughty example: 'PUBLISHERS_PER_VALIDATOR_KEY: 2'
+        for my $line (split /\n/, $val) {
+            push @secrets, $line if $line ne '' ;
+        }
+    }
+}
+
+# Compile the initial regex if we found secrets
+$re = build_regex(@secrets);
+
+# --- 2. Helper Function ---
+
+sub build_regex {
+    my @list = @_;
+    return undef unless @list;
+
+    # 1. Sort by length descending (Longest Match First).
+    #    This prevents "supersecret" becoming "***secret" if "super" is also masked.
+    # 2. Use 'quotemeta' to escape regex special chars (., *, ?, etc.)
+    # 3. Use 'u' (unique) logic or a hash if duplicate secrets are common,
+    #    but sort handles priority well enough here.
+    @list = sort { length($b) <=> length($a) } @list;
+
+    my $pattern = join("|", map { quotemeta $_ } @list);
+    return qr/$pattern/;
+}
+
+# --- 3. Main Processing Loop ---
+
+while (my $line = <STDIN>) {
+
+    # Check for GitHub Actions syntax: ::add-mask::some-value
+    if ($line =~ /^::add-mask::(.*)$/) {
+        my $new_secret = $1;
+
+        # Strip potential Windows carriage return
+        $new_secret =~ s/\r$//;
+
+        if ($new_secret ne "") {
+            push @secrets, $new_secret;
+            $re = build_regex(@secrets);
+        }
+
+        # Swallow this line (do not print it)
+        next;
+    }
+
+    # Apply redaction if we have an active regex
+    if (defined $re) {
+        $line =~ s/$re/***/g;
+    }
+
+    print $line;
+}

@@ -2,6 +2,7 @@
 #include "barretenberg/avm_fuzzer/fuzz_lib/constants.hpp"
 #include "barretenberg/avm_fuzzer/fuzz_lib/contract_db_proxy.hpp"
 #include "barretenberg/avm_fuzzer/fuzz_lib/instruction.hpp"
+#include "barretenberg/avm_fuzzer/fuzz_lib/instruction_settings.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/common/opcodes.hpp"
 #include "barretenberg/vm2/common/tagged_value.hpp"
@@ -45,8 +46,26 @@ void ProgramBlock::preprocess_memory_addresses(ResolvedAddress resolved_address)
     }
 }
 
+void ProgramBlock::record_result_tag_from_param_tags(std::initializer_list<ParamRef> params,
+                                                     ResolvedAddress result_address)
+{
+    for (const auto& param : params) {
+        auto tag =
+            std::visit(overloaded{ [](const VariableRef& var) -> std::optional<MemoryTag> { return var.tag.value; },
+                                   [](const AddressRef&) -> std::optional<MemoryTag> { return std::nullopt; } },
+                       param);
+        if (tag.has_value()) {
+            memory_manager.set_memory_address(tag.value(), result_address.absolute_address);
+            return;
+        }
+    }
+}
+
 void ProgramBlock::process_add_8_instruction(ADD_8_Instruction instruction)
 {
+#ifdef DISABLE_ADD_8_INSTRUCTION
+    return;
+#endif
     auto a = memory_manager.get_resolved_address_and_operand_8(instruction.a_address);
     auto b = memory_manager.get_resolved_address_and_operand_8(instruction.b_address);
     auto result = memory_manager.get_resolved_address_and_operand_8(instruction.result_address);
@@ -63,12 +82,14 @@ void ProgramBlock::process_add_8_instruction(ADD_8_Instruction instruction)
                                  .operand(result.value().second)
                                  .build();
     instructions.push_back(add_8_instruction);
-    memory_manager.set_memory_address(instruction.a_address.tag, result.value().first.absolute_address);
+    record_result_tag_from_param_tags({ instruction.a_address, instruction.b_address }, result.value().first);
 }
 
 void ProgramBlock::process_sub_8_instruction(SUB_8_Instruction instruction)
 {
-
+#ifdef DISABLE_SUB_8_INSTRUCTION
+    return;
+#endif
     auto a = memory_manager.get_resolved_address_and_operand_8(instruction.a_address);
     auto b = memory_manager.get_resolved_address_and_operand_8(instruction.b_address);
     auto result = memory_manager.get_resolved_address_and_operand_8(instruction.result_address);
@@ -84,11 +105,14 @@ void ProgramBlock::process_sub_8_instruction(SUB_8_Instruction instruction)
                                  .operand(result.value().second)
                                  .build();
     instructions.push_back(sub_8_instruction);
-    memory_manager.set_memory_address(instruction.a_address.tag, result.value().first.absolute_address);
+    record_result_tag_from_param_tags({ instruction.a_address, instruction.b_address }, result.value().first);
 }
 
 void ProgramBlock::process_mul_8_instruction(MUL_8_Instruction instruction)
 {
+#ifdef DISABLE_MUL_8_INSTRUCTION
+    return;
+#endif
     auto a = memory_manager.get_resolved_address_and_operand_8(instruction.a_address);
     auto b = memory_manager.get_resolved_address_and_operand_8(instruction.b_address);
     auto result = memory_manager.get_resolved_address_and_operand_8(instruction.result_address);
@@ -104,11 +128,14 @@ void ProgramBlock::process_mul_8_instruction(MUL_8_Instruction instruction)
                                  .operand(result.value().second)
                                  .build();
     instructions.push_back(mul_8_instruction);
-    memory_manager.set_memory_address(instruction.a_address.tag, result.value().first.absolute_address);
+    record_result_tag_from_param_tags({ instruction.a_address, instruction.b_address }, result.value().first);
 }
 
 void ProgramBlock::process_div_8_instruction(DIV_8_Instruction instruction)
 {
+#ifdef DISABLE_DIV_8_INSTRUCTION
+    return;
+#endif
     auto a = memory_manager.get_resolved_address_and_operand_8(instruction.a_address);
     auto b = memory_manager.get_resolved_address_and_operand_8(instruction.b_address);
     auto result = memory_manager.get_resolved_address_and_operand_8(instruction.result_address);
@@ -124,11 +151,14 @@ void ProgramBlock::process_div_8_instruction(DIV_8_Instruction instruction)
                                  .operand(result.value().second)
                                  .build();
     instructions.push_back(div_8_instruction);
-    memory_manager.set_memory_address(instruction.a_address.tag, result.value().first.absolute_address);
+    record_result_tag_from_param_tags({ instruction.a_address, instruction.b_address }, result.value().first);
 }
 
 void ProgramBlock::process_eq_8_instruction(EQ_8_Instruction instruction)
 {
+#ifdef DISABLE_EQ_8_INSTRUCTION
+    return;
+#endif
     auto a = memory_manager.get_resolved_address_and_operand_8(instruction.a_address);
     auto b = memory_manager.get_resolved_address_and_operand_8(instruction.b_address);
     auto result = memory_manager.get_resolved_address_and_operand_8(instruction.result_address);
@@ -149,7 +179,9 @@ void ProgramBlock::process_eq_8_instruction(EQ_8_Instruction instruction)
 
 void ProgramBlock::process_lt_8_instruction(LT_8_Instruction instruction)
 {
-
+#ifdef DISABLE_LT_8_INSTRUCTION
+    return;
+#endif
     auto a = memory_manager.get_resolved_address_and_operand_8(instruction.a_address);
     auto b = memory_manager.get_resolved_address_and_operand_8(instruction.b_address);
     auto result = memory_manager.get_resolved_address_and_operand_8(instruction.result_address);
@@ -170,6 +202,9 @@ void ProgramBlock::process_lt_8_instruction(LT_8_Instruction instruction)
 
 void ProgramBlock::process_lte_8_instruction(LTE_8_Instruction instruction)
 {
+#ifdef DISABLE_LTE_8_INSTRUCTION
+    return;
+#endif
     auto a = memory_manager.get_resolved_address_and_operand_8(instruction.a_address);
     auto b = memory_manager.get_resolved_address_and_operand_8(instruction.b_address);
     auto result = memory_manager.get_resolved_address_and_operand_8(instruction.result_address);
@@ -190,6 +225,9 @@ void ProgramBlock::process_lte_8_instruction(LTE_8_Instruction instruction)
 
 void ProgramBlock::process_and_8_instruction(AND_8_Instruction instruction)
 {
+#ifdef DISABLE_AND_8_INSTRUCTION
+    return;
+#endif
     auto a = memory_manager.get_resolved_address_and_operand_8(instruction.a_address);
     auto b = memory_manager.get_resolved_address_and_operand_8(instruction.b_address);
     auto result = memory_manager.get_resolved_address_and_operand_8(instruction.result_address);
@@ -206,11 +244,14 @@ void ProgramBlock::process_and_8_instruction(AND_8_Instruction instruction)
                                  .operand(result.value().second)
                                  .build();
     instructions.push_back(and_8_instruction);
-    memory_manager.set_memory_address(instruction.a_address.tag, result.value().first.absolute_address);
+    record_result_tag_from_param_tags({ instruction.a_address, instruction.b_address }, result.value().first);
 }
 
 void ProgramBlock::process_or_8_instruction(OR_8_Instruction instruction)
 {
+#ifdef DISABLE_OR_8_INSTRUCTION
+    return;
+#endif
     auto a = memory_manager.get_resolved_address_and_operand_8(instruction.a_address);
     auto b = memory_manager.get_resolved_address_and_operand_8(instruction.b_address);
     auto result = memory_manager.get_resolved_address_and_operand_8(instruction.result_address);
@@ -227,11 +268,14 @@ void ProgramBlock::process_or_8_instruction(OR_8_Instruction instruction)
                                 .operand(result.value().second)
                                 .build();
     instructions.push_back(or_8_instruction);
-    memory_manager.set_memory_address(instruction.a_address.tag, result.value().first.absolute_address);
+    record_result_tag_from_param_tags({ instruction.a_address, instruction.b_address }, result.value().first);
 }
 
 void ProgramBlock::process_xor_8_instruction(XOR_8_Instruction instruction)
 {
+#ifdef DISABLE_XOR_8_INSTRUCTION
+    return;
+#endif
     auto a = memory_manager.get_resolved_address_and_operand_8(instruction.a_address);
     auto b = memory_manager.get_resolved_address_and_operand_8(instruction.b_address);
     auto result = memory_manager.get_resolved_address_and_operand_8(instruction.result_address);
@@ -248,12 +292,14 @@ void ProgramBlock::process_xor_8_instruction(XOR_8_Instruction instruction)
                                  .operand(result.value().second)
                                  .build();
     instructions.push_back(xor_8_instruction);
-    memory_manager.set_memory_address(instruction.a_address.tag, result.value().first.absolute_address);
+    record_result_tag_from_param_tags({ instruction.a_address, instruction.b_address }, result.value().first);
 }
 
 void ProgramBlock::process_shl_8_instruction(SHL_8_Instruction instruction)
 {
-
+#ifdef DISABLE_SHL_8_INSTRUCTION
+    return;
+#endif
     auto a = memory_manager.get_resolved_address_and_operand_8(instruction.a_address);
     auto b = memory_manager.get_resolved_address_and_operand_8(instruction.b_address);
     auto result = memory_manager.get_resolved_address_and_operand_8(instruction.result_address);
@@ -270,12 +316,14 @@ void ProgramBlock::process_shl_8_instruction(SHL_8_Instruction instruction)
                                  .operand(result.value().second)
                                  .build();
     instructions.push_back(shl_8_instruction);
-    memory_manager.set_memory_address(instruction.a_address.tag, result.value().first.absolute_address);
+    record_result_tag_from_param_tags({ instruction.a_address, instruction.b_address }, result.value().first);
 }
 
 void ProgramBlock::process_shr_8_instruction(SHR_8_Instruction instruction)
 {
-
+#ifdef DISABLE_SHR_8_INSTRUCTION
+    return;
+#endif
     auto a = memory_manager.get_resolved_address_and_operand_8(instruction.a_address);
     auto b = memory_manager.get_resolved_address_and_operand_8(instruction.b_address);
     auto result = memory_manager.get_resolved_address_and_operand_8(instruction.result_address);
@@ -292,11 +340,14 @@ void ProgramBlock::process_shr_8_instruction(SHR_8_Instruction instruction)
                                  .operand(result.value().second)
                                  .build();
     instructions.push_back(shr_8_instruction);
-    memory_manager.set_memory_address(instruction.a_address.tag, result.value().first.absolute_address);
+    record_result_tag_from_param_tags({ instruction.a_address, instruction.b_address }, result.value().first);
 }
 
 void ProgramBlock::process_set_8_instruction(SET_8_Instruction instruction)
 {
+#ifdef DISABLE_SET_8_INSTRUCTION
+    return;
+#endif
     auto effective_address_operand = memory_manager.get_resolved_address_and_operand_8(instruction.result_address);
     if (!effective_address_operand.has_value()) {
         return;
@@ -313,6 +364,9 @@ void ProgramBlock::process_set_8_instruction(SET_8_Instruction instruction)
 
 void ProgramBlock::process_set_16_instruction(SET_16_Instruction instruction)
 {
+#ifdef DISABLE_SET_16_INSTRUCTION
+    return;
+#endif
     auto effective_address_operand = memory_manager.get_resolved_address_and_operand_16(instruction.result_address);
     if (!effective_address_operand.has_value()) {
         return;
@@ -329,6 +383,9 @@ void ProgramBlock::process_set_16_instruction(SET_16_Instruction instruction)
 
 void ProgramBlock::process_set_32_instruction(SET_32_Instruction instruction)
 {
+#ifdef DISABLE_SET_32_INSTRUCTION
+    return;
+#endif
     auto effective_address_operand = memory_manager.get_resolved_address_and_operand_16(instruction.result_address);
     if (!effective_address_operand.has_value()) {
         return;
@@ -345,6 +402,9 @@ void ProgramBlock::process_set_32_instruction(SET_32_Instruction instruction)
 
 void ProgramBlock::process_set_64_instruction(SET_64_Instruction instruction)
 {
+#ifdef DISABLE_SET_64_INSTRUCTION
+    return;
+#endif
     auto effective_address_operand = memory_manager.get_resolved_address_and_operand_16(instruction.result_address);
     if (!effective_address_operand.has_value()) {
         return;
@@ -361,6 +421,9 @@ void ProgramBlock::process_set_64_instruction(SET_64_Instruction instruction)
 
 void ProgramBlock::process_set_128_instruction(SET_128_Instruction instruction)
 {
+#ifdef DISABLE_SET_128_INSTRUCTION
+    return;
+#endif
     auto effective_address_operand = memory_manager.get_resolved_address_and_operand_16(instruction.result_address);
     if (!effective_address_operand.has_value()) {
         return;
@@ -379,6 +442,9 @@ void ProgramBlock::process_set_128_instruction(SET_128_Instruction instruction)
 
 void ProgramBlock::process_set_ff_instruction(SET_FF_Instruction instruction)
 {
+#ifdef DISABLE_SET_FF_INSTRUCTION
+    return;
+#endif
     auto effective_address_operand = memory_manager.get_resolved_address_and_operand_16(instruction.result_address);
     if (!effective_address_operand.has_value()) {
         return;
@@ -395,6 +461,9 @@ void ProgramBlock::process_set_ff_instruction(SET_FF_Instruction instruction)
 
 void ProgramBlock::process_mov_8_instruction(MOV_8_Instruction instruction)
 {
+#ifdef DISABLE_MOV_8_INSTRUCTION
+    return;
+#endif
     auto src_address_operand = memory_manager.get_resolved_address_and_operand_8(instruction.src_address);
     auto result_address_operand = memory_manager.get_resolved_address_and_operand_8(instruction.result_address);
     if (!src_address_operand.has_value() || !result_address_operand.has_value()) {
@@ -407,12 +476,14 @@ void ProgramBlock::process_mov_8_instruction(MOV_8_Instruction instruction)
                                  .operand(result_address_operand.value().second)
                                  .build();
     instructions.push_back(mov_8_instruction);
-    memory_manager.set_memory_address(instruction.src_address.tag,
-                                      result_address_operand.value().first.absolute_address);
+    record_result_tag_from_param_tags({ instruction.src_address }, result_address_operand.value().first);
 }
 
 void ProgramBlock::process_mov_16_instruction(MOV_16_Instruction instruction)
 {
+#ifdef DISABLE_MOV_16_INSTRUCTION
+    return;
+#endif
     auto src_address_operand = memory_manager.get_resolved_address_and_operand_16(instruction.src_address);
     auto result_address_operand = memory_manager.get_resolved_address_and_operand_16(instruction.result_address);
     if (!src_address_operand.has_value() || !result_address_operand.has_value()) {
@@ -426,12 +497,14 @@ void ProgramBlock::process_mov_16_instruction(MOV_16_Instruction instruction)
                                   .operand(result_address_operand.value().second)
                                   .build();
     instructions.push_back(mov_16_instruction);
-    memory_manager.set_memory_address(instruction.src_address.tag,
-                                      result_address_operand.value().first.absolute_address);
+    record_result_tag_from_param_tags({ instruction.src_address }, result_address_operand.value().first);
 }
 
 void ProgramBlock::process_fdiv_8_instruction(FDIV_8_Instruction instruction)
 {
+#ifdef DISABLE_FDIV_8_INSTRUCTION
+    return;
+#endif
     auto a_address_operand = memory_manager.get_resolved_address_and_operand_8(instruction.a_address);
     auto b_address_operand = memory_manager.get_resolved_address_and_operand_8(instruction.b_address);
     auto result_address_operand = memory_manager.get_resolved_address_and_operand_8(instruction.result_address);
@@ -448,11 +521,15 @@ void ProgramBlock::process_fdiv_8_instruction(FDIV_8_Instruction instruction)
                                   .operand(result_address_operand.value().second)
                                   .build();
     instructions.push_back(fdiv_8_instruction);
-    memory_manager.set_memory_address(instruction.a_address.tag, result_address_operand.value().first.absolute_address);
+    record_result_tag_from_param_tags({ instruction.a_address, instruction.b_address },
+                                      result_address_operand.value().first);
 }
 
 void ProgramBlock::process_not_8_instruction(NOT_8_Instruction instruction)
 {
+#ifdef DISABLE_NOT_8_INSTRUCTION
+    return;
+#endif
     auto a_address_operand = memory_manager.get_resolved_address_and_operand_8(instruction.a_address);
     auto result_address_operand = memory_manager.get_resolved_address_and_operand_8(instruction.result_address);
     if (!a_address_operand.has_value() || !result_address_operand.has_value()) {
@@ -466,11 +543,14 @@ void ProgramBlock::process_not_8_instruction(NOT_8_Instruction instruction)
                                  .operand(result_address_operand.value().second)
                                  .build();
     instructions.push_back(not_8_instruction);
-    memory_manager.set_memory_address(instruction.a_address.tag, result_address_operand.value().first.absolute_address);
+    record_result_tag_from_param_tags({ instruction.a_address }, result_address_operand.value().first);
 }
 
 void ProgramBlock::process_add_16_instruction(ADD_16_Instruction instruction)
 {
+#ifdef DISABLE_ADD_16_INSTRUCTION
+    return;
+#endif
     auto a_address_operand = memory_manager.get_resolved_address_and_operand_16(instruction.a_address);
     auto b_address_operand = memory_manager.get_resolved_address_and_operand_16(instruction.b_address);
     auto result_address_operand = memory_manager.get_resolved_address_and_operand_16(instruction.result_address);
@@ -487,11 +567,15 @@ void ProgramBlock::process_add_16_instruction(ADD_16_Instruction instruction)
                                   .operand(result_address_operand.value().second)
                                   .build();
     instructions.push_back(add_16_instruction);
-    memory_manager.set_memory_address(instruction.a_address.tag, result_address_operand.value().first.absolute_address);
+    record_result_tag_from_param_tags({ instruction.a_address, instruction.b_address },
+                                      result_address_operand.value().first);
 }
 
 void ProgramBlock::process_sub_16_instruction(SUB_16_Instruction instruction)
 {
+#ifdef DISABLE_SUB_16_INSTRUCTION
+    return;
+#endif
     auto a_address_operand = memory_manager.get_resolved_address_and_operand_16(instruction.a_address);
     auto b_address_operand = memory_manager.get_resolved_address_and_operand_16(instruction.b_address);
     auto result_address_operand = memory_manager.get_resolved_address_and_operand_16(instruction.result_address);
@@ -508,11 +592,15 @@ void ProgramBlock::process_sub_16_instruction(SUB_16_Instruction instruction)
                                   .operand(result_address_operand.value().second)
                                   .build();
     instructions.push_back(sub_16_instruction);
-    memory_manager.set_memory_address(instruction.a_address.tag, result_address_operand.value().first.absolute_address);
+    record_result_tag_from_param_tags({ instruction.a_address, instruction.b_address },
+                                      result_address_operand.value().first);
 }
 
 void ProgramBlock::process_mul_16_instruction(MUL_16_Instruction instruction)
 {
+#ifdef DISABLE_MUL_16_INSTRUCTION
+    return;
+#endif
     auto a_address_operand = memory_manager.get_resolved_address_and_operand_16(instruction.a_address);
     auto b_address_operand = memory_manager.get_resolved_address_and_operand_16(instruction.b_address);
     auto result_address_operand = memory_manager.get_resolved_address_and_operand_16(instruction.result_address);
@@ -529,11 +617,15 @@ void ProgramBlock::process_mul_16_instruction(MUL_16_Instruction instruction)
                                   .operand(result_address_operand.value().second)
                                   .build();
     instructions.push_back(mul_16_instruction);
-    memory_manager.set_memory_address(instruction.a_address.tag, result_address_operand.value().first.absolute_address);
+    record_result_tag_from_param_tags({ instruction.a_address, instruction.b_address },
+                                      result_address_operand.value().first);
 }
 
 void ProgramBlock::process_div_16_instruction(DIV_16_Instruction instruction)
 {
+#ifdef DISABLE_DIV_16_INSTRUCTION
+    return;
+#endif
     auto a_address_operand = memory_manager.get_resolved_address_and_operand_16(instruction.a_address);
     auto b_address_operand = memory_manager.get_resolved_address_and_operand_16(instruction.b_address);
     auto result_address_operand = memory_manager.get_resolved_address_and_operand_16(instruction.result_address);
@@ -550,11 +642,15 @@ void ProgramBlock::process_div_16_instruction(DIV_16_Instruction instruction)
                                   .operand(result_address_operand.value().second)
                                   .build();
     instructions.push_back(div_16_instruction);
-    memory_manager.set_memory_address(instruction.a_address.tag, result_address_operand.value().first.absolute_address);
+    record_result_tag_from_param_tags({ instruction.a_address, instruction.b_address },
+                                      result_address_operand.value().first);
 }
 
 void ProgramBlock::process_fdiv_16_instruction(FDIV_16_Instruction instruction)
 {
+#ifdef DISABLE_FDIV_16_INSTRUCTION
+    return;
+#endif
     auto a_address_operand = memory_manager.get_resolved_address_and_operand_16(instruction.a_address);
     auto b_address_operand = memory_manager.get_resolved_address_and_operand_16(instruction.b_address);
     auto result_address_operand = memory_manager.get_resolved_address_and_operand_16(instruction.result_address);
@@ -571,11 +667,15 @@ void ProgramBlock::process_fdiv_16_instruction(FDIV_16_Instruction instruction)
                                    .operand(result_address_operand.value().second)
                                    .build();
     instructions.push_back(fdiv_16_instruction);
-    memory_manager.set_memory_address(instruction.a_address.tag, result_address_operand.value().first.absolute_address);
+    record_result_tag_from_param_tags({ instruction.a_address, instruction.b_address },
+                                      result_address_operand.value().first);
 }
 
 void ProgramBlock::process_eq_16_instruction(EQ_16_Instruction instruction)
 {
+#ifdef DISABLE_EQ_16_INSTRUCTION
+    return;
+#endif
     auto a_address_operand = memory_manager.get_resolved_address_and_operand_16(instruction.a_address);
     auto b_address_operand = memory_manager.get_resolved_address_and_operand_16(instruction.b_address);
     auto result_address_operand = memory_manager.get_resolved_address_and_operand_16(instruction.result_address);
@@ -597,6 +697,9 @@ void ProgramBlock::process_eq_16_instruction(EQ_16_Instruction instruction)
 
 void ProgramBlock::process_lt_16_instruction(LT_16_Instruction instruction)
 {
+#ifdef DISABLE_LT_16_INSTRUCTION
+    return;
+#endif
     auto a_address_operand = memory_manager.get_resolved_address_and_operand_16(instruction.a_address);
     auto b_address_operand = memory_manager.get_resolved_address_and_operand_16(instruction.b_address);
     auto result_address_operand = memory_manager.get_resolved_address_and_operand_16(instruction.result_address);
@@ -618,6 +721,9 @@ void ProgramBlock::process_lt_16_instruction(LT_16_Instruction instruction)
 
 void ProgramBlock::process_lte_16_instruction(LTE_16_Instruction instruction)
 {
+#ifdef DISABLE_LTE_16_INSTRUCTION
+    return;
+#endif
     auto a_address_operand = memory_manager.get_resolved_address_and_operand_16(instruction.a_address);
     auto b_address_operand = memory_manager.get_resolved_address_and_operand_16(instruction.b_address);
     auto result_address_operand = memory_manager.get_resolved_address_and_operand_16(instruction.result_address);
@@ -639,6 +745,9 @@ void ProgramBlock::process_lte_16_instruction(LTE_16_Instruction instruction)
 
 void ProgramBlock::process_and_16_instruction(AND_16_Instruction instruction)
 {
+#ifdef DISABLE_AND_16_INSTRUCTION
+    return;
+#endif
     auto a_address_operand = memory_manager.get_resolved_address_and_operand_16(instruction.a_address);
     auto b_address_operand = memory_manager.get_resolved_address_and_operand_16(instruction.b_address);
     auto result_address_operand = memory_manager.get_resolved_address_and_operand_16(instruction.result_address);
@@ -655,11 +764,15 @@ void ProgramBlock::process_and_16_instruction(AND_16_Instruction instruction)
                                   .operand(result_address_operand.value().second)
                                   .build();
     instructions.push_back(and_16_instruction);
-    memory_manager.set_memory_address(instruction.a_address.tag, result_address_operand.value().first.absolute_address);
+    record_result_tag_from_param_tags({ instruction.a_address, instruction.b_address },
+                                      result_address_operand.value().first);
 }
 
 void ProgramBlock::process_or_16_instruction(OR_16_Instruction instruction)
 {
+#ifdef DISABLE_OR_16_INSTRUCTION
+    return;
+#endif
     auto a_address_operand = memory_manager.get_resolved_address_and_operand_16(instruction.a_address);
     auto b_address_operand = memory_manager.get_resolved_address_and_operand_16(instruction.b_address);
     auto result_address_operand = memory_manager.get_resolved_address_and_operand_16(instruction.result_address);
@@ -676,11 +789,15 @@ void ProgramBlock::process_or_16_instruction(OR_16_Instruction instruction)
                                  .operand(result_address_operand.value().second)
                                  .build();
     instructions.push_back(or_16_instruction);
-    memory_manager.set_memory_address(instruction.a_address.tag, result_address_operand.value().first.absolute_address);
+    record_result_tag_from_param_tags({ instruction.a_address, instruction.b_address },
+                                      result_address_operand.value().first);
 }
 
 void ProgramBlock::process_xor_16_instruction(XOR_16_Instruction instruction)
 {
+#ifdef DISABLE_XOR_16_INSTRUCTION
+    return;
+#endif
     auto a_address_operand = memory_manager.get_resolved_address_and_operand_16(instruction.a_address);
     auto b_address_operand = memory_manager.get_resolved_address_and_operand_16(instruction.b_address);
     auto result_address_operand = memory_manager.get_resolved_address_and_operand_16(instruction.result_address);
@@ -697,11 +814,15 @@ void ProgramBlock::process_xor_16_instruction(XOR_16_Instruction instruction)
                                   .operand(result_address_operand.value().second)
                                   .build();
     instructions.push_back(xor_16_instruction);
-    memory_manager.set_memory_address(instruction.a_address.tag, result_address_operand.value().first.absolute_address);
+    record_result_tag_from_param_tags({ instruction.a_address, instruction.b_address },
+                                      result_address_operand.value().first);
 }
 
 void ProgramBlock::process_not_16_instruction(NOT_16_Instruction instruction)
 {
+#ifdef DISABLE_NOT_16_INSTRUCTION
+    return;
+#endif
     auto a_address_operand = memory_manager.get_resolved_address_and_operand_16(instruction.a_address);
     auto result_address_operand = memory_manager.get_resolved_address_and_operand_16(instruction.result_address);
     if (!a_address_operand.has_value() || !result_address_operand.has_value()) {
@@ -715,11 +836,14 @@ void ProgramBlock::process_not_16_instruction(NOT_16_Instruction instruction)
                                   .operand(result_address_operand.value().second)
                                   .build();
     instructions.push_back(not_16_instruction);
-    memory_manager.set_memory_address(instruction.a_address.tag, result_address_operand.value().first.absolute_address);
+    record_result_tag_from_param_tags({ instruction.a_address }, result_address_operand.value().first);
 }
 
 void ProgramBlock::process_shl_16_instruction(SHL_16_Instruction instruction)
 {
+#ifdef DISABLE_SHL_16_INSTRUCTION
+    return;
+#endif
     auto a_address_operand = memory_manager.get_resolved_address_and_operand_16(instruction.a_address);
     auto b_address_operand = memory_manager.get_resolved_address_and_operand_16(instruction.b_address);
     auto result_address_operand = memory_manager.get_resolved_address_and_operand_16(instruction.result_address);
@@ -736,11 +860,15 @@ void ProgramBlock::process_shl_16_instruction(SHL_16_Instruction instruction)
                                   .operand(result_address_operand.value().second)
                                   .build();
     instructions.push_back(shl_16_instruction);
-    memory_manager.set_memory_address(instruction.a_address.tag, result_address_operand.value().first.absolute_address);
+    record_result_tag_from_param_tags({ instruction.a_address, instruction.b_address },
+                                      result_address_operand.value().first);
 }
 
 void ProgramBlock::process_shr_16_instruction(SHR_16_Instruction instruction)
 {
+#ifdef DISABLE_SHR_16_INSTRUCTION
+    return;
+#endif
     auto a_address_operand = memory_manager.get_resolved_address_and_operand_16(instruction.a_address);
     auto b_address_operand = memory_manager.get_resolved_address_and_operand_16(instruction.b_address);
     auto result_address_operand = memory_manager.get_resolved_address_and_operand_16(instruction.result_address);
@@ -757,11 +885,15 @@ void ProgramBlock::process_shr_16_instruction(SHR_16_Instruction instruction)
                                   .operand(result_address_operand.value().second)
                                   .build();
     instructions.push_back(shr_16_instruction);
-    memory_manager.set_memory_address(instruction.a_address.tag, result_address_operand.value().first.absolute_address);
+    record_result_tag_from_param_tags({ instruction.a_address, instruction.b_address },
+                                      result_address_operand.value().first);
 }
 
 void ProgramBlock::process_cast_8_instruction(CAST_8_Instruction instruction)
 {
+#ifdef DISABLE_CAST_8_INSTRUCTION
+    return;
+#endif
     auto src_address_operand = memory_manager.get_resolved_address_and_operand_8(instruction.src_address);
     auto result_address_operand = memory_manager.get_resolved_address_and_operand_8(instruction.result_address);
     if (!src_address_operand.has_value() || !result_address_operand.has_value()) {
@@ -782,6 +914,9 @@ void ProgramBlock::process_cast_8_instruction(CAST_8_Instruction instruction)
 
 void ProgramBlock::process_cast_16_instruction(CAST_16_Instruction instruction)
 {
+#ifdef DISABLE_CAST_16_INSTRUCTION
+    return;
+#endif
     auto src_address_operand = memory_manager.get_resolved_address_and_operand_16(instruction.src_address);
     auto result_address_operand = memory_manager.get_resolved_address_and_operand_16(instruction.result_address);
     if (!src_address_operand.has_value() || !result_address_operand.has_value()) {
@@ -802,6 +937,9 @@ void ProgramBlock::process_cast_16_instruction(CAST_16_Instruction instruction)
 
 void ProgramBlock::process_sstore_instruction(SSTORE_Instruction instruction)
 {
+#ifdef DISABLE_SSTORE_INSTRUCTION
+    return;
+#endif
     auto src_address_operand = memory_manager.get_resolved_address_and_operand_16(instruction.src_address);
     auto result_address_operand = memory_manager.get_resolved_address_and_operand_16(instruction.result_address);
     if (!src_address_operand.has_value() || !result_address_operand.has_value()) {
@@ -823,6 +961,9 @@ void ProgramBlock::process_sstore_instruction(SSTORE_Instruction instruction)
 
 void ProgramBlock::process_sload_instruction(SLOAD_Instruction instruction)
 {
+#ifdef DISABLE_SLOAD_INSTRUCTION
+    return;
+#endif
     auto slot_addr = memory_manager.get_slot(instruction.slot_index);
     if (!slot_addr.has_value()) {
         return;
@@ -850,6 +991,9 @@ void ProgramBlock::process_sload_instruction(SLOAD_Instruction instruction)
 
 void ProgramBlock::process_getenvvar_instruction(GETENVVAR_Instruction instruction)
 {
+#ifdef DISABLE_GETENVVAR_INSTRUCTION
+    return;
+#endif
     auto instruction_type = static_cast<uint8_t>(instruction.type % 12);
     auto result_address_operand = memory_manager.get_resolved_address_and_operand_16(instruction.result_address);
     if (!result_address_operand.has_value()) {
@@ -873,6 +1017,9 @@ void ProgramBlock::process_getenvvar_instruction(GETENVVAR_Instruction instructi
 
 void ProgramBlock::process_emitnulifier_instruction(EMITNULLIFIER_Instruction instruction)
 {
+#ifdef DISABLE_EMITNULLIFIER_INSTRUCTION
+    return;
+#endif
     auto nullifier_address_operand = memory_manager.get_resolved_address_and_operand_16(instruction.nullifier_address);
     if (!nullifier_address_operand.has_value()) {
         return;
@@ -886,6 +1033,9 @@ void ProgramBlock::process_emitnulifier_instruction(EMITNULLIFIER_Instruction in
 
 void ProgramBlock::process_nullifierexists_instruction(NULLIFIEREXISTS_Instruction instruction)
 {
+#ifdef DISABLE_NULLIFIEREXISTS_INSTRUCTION
+    return;
+#endif
     auto nullifier_address_operand = memory_manager.get_resolved_address_and_operand_16(instruction.nullifier_address);
     auto contract_address_operand =
         memory_manager.get_resolved_address_and_operand_16(instruction.contract_address_address);
@@ -913,6 +1063,9 @@ void ProgramBlock::process_nullifierexists_instruction(NULLIFIEREXISTS_Instructi
 
 void ProgramBlock::process_emitnotehash_instruction(EMITNOTEHASH_Instruction instruction)
 {
+#ifdef DISABLE_EMITNOTEHASH_INSTRUCTION
+    return;
+#endif
     auto set_note_hash_instruction = SET_FF_Instruction{ .value_tag = bb::avm2::MemoryTag::FF,
                                                          .result_address = instruction.note_hash_address,
                                                          .value = instruction.note_hash };
@@ -934,6 +1087,9 @@ void ProgramBlock::process_emitnotehash_instruction(EMITNOTEHASH_Instruction ins
 
 void ProgramBlock::process_notehashexists_instruction(NOTEHASHEXISTS_Instruction instruction)
 {
+#ifdef DISABLE_NOTEHASHEXISTS_INSTRUCTION
+    return;
+#endif
     auto note_hash = memory_manager.get_emitted_note_hash(instruction.notehash_index);
     if (!note_hash.has_value()) {
         return;
@@ -980,6 +1136,9 @@ void ProgramBlock::process_notehashexists_instruction(NOTEHASHEXISTS_Instruction
 
 void ProgramBlock::process_calldatacopy_instruction(CALLDATACOPY_Instruction instruction)
 {
+#ifdef DISABLE_CALLDATACOPY_INSTRUCTION
+    return;
+#endif
     auto copy_size_set_instruction = SET_32_Instruction{ .value_tag = bb::avm2::MemoryTag::U32,
                                                          .result_address = instruction.copy_size_address,
                                                          .value = instruction.copy_size };
@@ -1017,6 +1176,9 @@ void ProgramBlock::process_calldatacopy_instruction(CALLDATACOPY_Instruction ins
 
 void ProgramBlock::process_sendl2tol1msg_instruction(SENDL2TOL1MSG_Instruction instruction)
 {
+#ifdef DISABLE_SENDL2TOL1MSG_INSTRUCTION
+    return;
+#endif
     auto set_recipient_instruction = SET_FF_Instruction{ .value_tag = bb::avm2::MemoryTag::FF,
                                                          .result_address = instruction.recipient_address,
                                                          .value = instruction.recipient };
@@ -1042,6 +1204,9 @@ void ProgramBlock::process_sendl2tol1msg_instruction(SENDL2TOL1MSG_Instruction i
 
 void ProgramBlock::process_emitunencryptedlog_instruction(EMITUNENCRYPTEDLOG_Instruction instruction)
 {
+#ifdef DISABLE_EMITUNENCRYPTEDLOG_INSTRUCTION
+    return;
+#endif
     auto log_size_set_instruction = SET_32_Instruction{ .value_tag = bb::avm2::MemoryTag::U32,
                                                         .result_address = instruction.log_size_address,
                                                         .value = instruction.log_size };
@@ -1072,6 +1237,9 @@ void ProgramBlock::process_emitunencryptedlog_instruction(EMITUNENCRYPTEDLOG_Ins
 
 void ProgramBlock::process_call_instruction(CALL_Instruction instruction)
 {
+#ifdef DISABLE_CALL_INSTRUCTION
+    return;
+#endif
     FF function_address =
         bb::avm2::fuzzer::ContractDBProxy::get_instance()->get_function_address(instruction.function_index);
     auto set_function_address_instruction =
@@ -1110,10 +1278,10 @@ void ProgramBlock::process_call_instruction(CALL_Instruction instruction)
         this->process_set_ff_instruction(set_arg_instruction);
         arg_index++;
     }
-    auto call_instruction_builde = instruction.is_static_call
-                                       ? bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::STATICCALL)
-                                       : bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::CALL);
-    auto call_instruction = call_instruction_builde.operand(instruction.l2_gas_address)
+    auto call_instruction_builder = instruction.is_static_call
+                                        ? bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::STATICCALL)
+                                        : bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::CALL);
+    auto call_instruction = call_instruction_builder.operand(instruction.l2_gas_address)
                                 .operand(instruction.da_gas_address)
                                 .operand(instruction.address_offset)
                                 .operand(instruction.arg_size_offset)
@@ -1125,6 +1293,9 @@ void ProgramBlock::process_call_instruction(CALL_Instruction instruction)
 void ProgramBlock::process_returndatasize_with_returndatacopy_instruction(
     RETURNDATASIZE_WITH_RETURNDATACOPY_Instruction instruction)
 {
+#ifdef DISABLE_RETURNDATASIZE_WITH_RETURNDATACOPY_INSTRUCTION
+    return;
+#endif
     auto returndatasize_instruction = bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::RETURNDATASIZE)
                                           .operand(instruction.copy_size_offset)
                                           .build();
@@ -1143,6 +1314,240 @@ void ProgramBlock::process_returndatasize_with_returndatacopy_instruction(
     // TODO(defkit): function can return more than one value :D
     memory_manager.set_memory_address(bb::avm2::MemoryTag::FF, instruction.dst_address);
     instructions.push_back(returndatacopy_instruction);
+}
+
+void ProgramBlock::process_getcontractinstance_instruction(GETCONTRACTINSTANCE_Instruction instruction)
+{
+#ifdef DISABLE_GETCONTRACTINSTANCE_INSTRUCTION
+    return;
+#endif
+    auto contract_address =
+        bb::avm2::fuzzer::ContractDBProxy::get_instance()->get_function_address(instruction.contract_index);
+    auto set_function_address_instruction = SET_FF_Instruction{ .value_tag = bb::avm2::MemoryTag::FF,
+                                                                .result_address = instruction.contract_address_address,
+                                                                .value = contract_address };
+    this->process_set_ff_instruction(set_function_address_instruction);
+    auto contract_address_address_operand =
+        memory_manager.get_resolved_address_and_operand_16(instruction.contract_address_address);
+    if (!contract_address_address_operand.has_value()) {
+        return;
+    }
+    preprocess_memory_addresses(contract_address_address_operand.value().first);
+    auto dst_address_operand = memory_manager.get_resolved_address_and_operand_16(instruction.dst_address);
+    if (!dst_address_operand.has_value()) {
+        return;
+    }
+    preprocess_memory_addresses(dst_address_operand.value().first);
+    auto get_contract_instance_instruction =
+        bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::GETCONTRACTINSTANCE)
+            .operand(contract_address_address_operand.value().second)
+            .operand(dst_address_operand.value().second)
+            .operand(
+                static_cast<uint8_t>(instruction.member_enum % 3)) // taking modulo 3 to ensure the member enum is valid
+            .build();
+    instructions.push_back(get_contract_instance_instruction);
+    memory_manager.set_memory_address(bb::avm2::MemoryTag::U1, dst_address_operand.value().first.absolute_address);
+    memory_manager.set_memory_address(bb::avm2::MemoryTag::FF, dst_address_operand.value().first.absolute_address + 1);
+}
+
+void ProgramBlock::process_successcopy_instruction(SUCCESSCOPY_Instruction instruction)
+{
+#ifdef DISABLE_SUCCESSCOPY_INSTRUCTION
+    return;
+#endif
+    auto dst_address_operand = memory_manager.get_resolved_address_and_operand_16(instruction.dst_address);
+    if (!dst_address_operand.has_value()) {
+        return;
+    }
+    preprocess_memory_addresses(dst_address_operand.value().first);
+    auto successcopy_instruction = bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::SUCCESSCOPY)
+                                       .operand(dst_address_operand.value().second)
+                                       .build();
+    instructions.push_back(successcopy_instruction);
+    memory_manager.set_memory_address(bb::avm2::MemoryTag::U1, dst_address_operand.value().first.absolute_address);
+}
+
+void ProgramBlock::process_ecadd_instruction(ECADD_Instruction instruction)
+{
+#ifdef DISABLE_ECADD_INSTRUCTION
+    return;
+#endif
+    auto p1_x = memory_manager.get_resolved_address_and_operand_16(instruction.p1_x);
+    auto p1_y = memory_manager.get_resolved_address_and_operand_16(instruction.p1_y);
+    auto p1_inf = memory_manager.get_resolved_address_and_operand_16(instruction.p1_infinite);
+    auto p2_x = memory_manager.get_resolved_address_and_operand_16(instruction.p2_x);
+    auto p2_y = memory_manager.get_resolved_address_and_operand_16(instruction.p2_y);
+    auto p2_inf = memory_manager.get_resolved_address_and_operand_16(instruction.p2_infinite);
+    auto result = memory_manager.get_resolved_address_and_operand_16(instruction.result);
+
+    if (!p1_x.has_value() || !p1_y.has_value() || !p1_inf.has_value() || !p2_x.has_value() || !p2_y.has_value() ||
+        !p2_inf.has_value() || !result.has_value()) {
+        return;
+    }
+
+    preprocess_memory_addresses(p1_x.value().first);
+    preprocess_memory_addresses(p1_y.value().first);
+    preprocess_memory_addresses(p1_inf.value().first);
+    preprocess_memory_addresses(p2_x.value().first);
+    preprocess_memory_addresses(p2_y.value().first);
+    preprocess_memory_addresses(p2_inf.value().first);
+    preprocess_memory_addresses(result.value().first);
+
+    auto ecadd_instruction = bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::ECADD)
+                                 .operand(p1_x.value().second)
+                                 .operand(p1_y.value().second)
+                                 .operand(p1_inf.value().second)
+                                 .operand(p2_x.value().second)
+                                 .operand(p2_y.value().second)
+                                 .operand(p2_inf.value().second)
+                                 .operand(result.value().second)
+                                 .build();
+    instructions.push_back(ecadd_instruction);
+
+    // ECADD writes 3 consecutive memory locations: result_x (FF), result_y (FF), result_is_inf (U1)
+    memory_manager.set_memory_address(bb::avm2::MemoryTag::FF, result.value().first.absolute_address);
+    memory_manager.set_memory_address(bb::avm2::MemoryTag::FF, result.value().first.absolute_address + 1);
+    memory_manager.set_memory_address(bb::avm2::MemoryTag::U1, result.value().first.absolute_address + 2);
+}
+
+void ProgramBlock::process_poseidon2perm_instruction(POSEIDON2PERM_Instruction instruction)
+{
+#ifdef DISABLE_POSEIDON2PERM_INSTRUCTION
+    return;
+#endif
+    auto src = memory_manager.get_resolved_address_and_operand_16(instruction.src_address);
+    auto dst = memory_manager.get_resolved_address_and_operand_16(instruction.dst_address);
+
+    if (!src.has_value() || !dst.has_value()) {
+        return;
+    }
+
+    preprocess_memory_addresses(src.value().first);
+    preprocess_memory_addresses(dst.value().first);
+
+    auto poseidon2perm_instruction = bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::POSEIDON2PERM)
+                                         .operand(src.value().second)
+                                         .operand(dst.value().second)
+                                         .build();
+    instructions.push_back(poseidon2perm_instruction);
+
+    // Poseidon2 permutation writes 4 consecutive FF values to dst
+    for (uint32_t i = 0; i < 4; i++) {
+        memory_manager.set_memory_address(bb::avm2::MemoryTag::FF, dst.value().first.absolute_address + i);
+    }
+}
+
+void ProgramBlock::process_keccakf1600_instruction(KECCAKF1600_Instruction instruction)
+{
+#ifdef DISABLE_KECCAKF1600_INSTRUCTION
+    return;
+#endif
+    auto src = memory_manager.get_resolved_address_and_operand_16(instruction.src_address);
+    auto dst = memory_manager.get_resolved_address_and_operand_16(instruction.dst_address);
+
+    if (!src.has_value() || !dst.has_value()) {
+        return;
+    }
+
+    preprocess_memory_addresses(src.value().first);
+    preprocess_memory_addresses(dst.value().first);
+
+    auto keccakf1600_instruction = bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::KECCAKF1600)
+                                       .operand(src.value().second)
+                                       .operand(dst.value().second)
+                                       .build();
+    instructions.push_back(keccakf1600_instruction);
+
+    // Keccak-f[1600] permutation writes 25 consecutive U64 values to dst
+    for (uint32_t i = 0; i < 25; i++) {
+        memory_manager.set_memory_address(bb::avm2::MemoryTag::U64, dst.value().first.absolute_address + i);
+    }
+}
+
+void ProgramBlock::process_sha256compression_instruction(SHA256COMPRESSION_Instruction instruction)
+{
+#ifdef DISABLE_SHA256COMPRESSION_INSTRUCTION
+    return;
+#endif
+    auto state = memory_manager.get_resolved_address_and_operand_16(instruction.state_address);
+    auto input = memory_manager.get_resolved_address_and_operand_16(instruction.input_address);
+    auto dst = memory_manager.get_resolved_address_and_operand_16(instruction.dst_address);
+
+    if (!state.has_value() || !input.has_value() || !dst.has_value()) {
+        return;
+    }
+
+    preprocess_memory_addresses(state.value().first);
+    preprocess_memory_addresses(input.value().first);
+    preprocess_memory_addresses(dst.value().first);
+
+    auto sha256compression_instruction = bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::SHA256COMPRESSION)
+                                             .operand(dst.value().second)
+                                             .operand(state.value().second)
+                                             .operand(input.value().second)
+                                             .build();
+    instructions.push_back(sha256compression_instruction);
+
+    // SHA256 compression writes 8 consecutive U32 values to dst
+    for (uint32_t i = 0; i < 8; i++) {
+        memory_manager.set_memory_address(bb::avm2::MemoryTag::U32, dst.value().first.absolute_address + i);
+    }
+}
+
+void ProgramBlock::process_l1tol2msgexists_instruction(L1TOL2MSGEXISTS_Instruction instruction)
+{
+    auto msg_hash_operand = memory_manager.get_resolved_address_and_operand_16(instruction.msg_hash_address);
+    auto leaf_index_operand = memory_manager.get_resolved_address_and_operand_16(instruction.leaf_index_address);
+    auto result_operand = memory_manager.get_resolved_address_and_operand_16(instruction.result_address);
+
+    if (!msg_hash_operand.has_value() || !leaf_index_operand.has_value() || !result_operand.has_value()) {
+        return;
+    }
+
+    preprocess_memory_addresses(msg_hash_operand.value().first);
+    preprocess_memory_addresses(leaf_index_operand.value().first);
+    preprocess_memory_addresses(result_operand.value().first);
+
+    auto l1tol2msgexists_instruction = bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::L1TOL2MSGEXISTS)
+                                           .operand(msg_hash_operand.value().second)
+                                           .operand(leaf_index_operand.value().second)
+                                           .operand(result_operand.value().second)
+                                           .build();
+    instructions.push_back(l1tol2msgexists_instruction);
+    memory_manager.set_memory_address(bb::avm2::MemoryTag::U1, result_operand.value().first.absolute_address);
+}
+
+void ProgramBlock::process_toradixbe_instruction(TORADIXBE_Instruction instruction)
+{
+    auto value_operand = memory_manager.get_resolved_address_and_operand_16(instruction.value_address);
+    auto radix_operand = memory_manager.get_resolved_address_and_operand_16(instruction.radix_address);
+    auto num_limbs_operand = memory_manager.get_resolved_address_and_operand_16(instruction.num_limbs_address);
+    auto output_bits_operand = memory_manager.get_resolved_address_and_operand_16(instruction.output_bits_address);
+    auto dst_operand = memory_manager.get_resolved_address_and_operand_16(instruction.dst_address);
+
+    if (!value_operand.has_value() || !radix_operand.has_value() || !num_limbs_operand.has_value() ||
+        !output_bits_operand.has_value() || !dst_operand.has_value()) {
+        return;
+    }
+
+    preprocess_memory_addresses(value_operand.value().first);
+    preprocess_memory_addresses(radix_operand.value().first);
+    preprocess_memory_addresses(num_limbs_operand.value().first);
+    preprocess_memory_addresses(output_bits_operand.value().first);
+    preprocess_memory_addresses(dst_operand.value().first);
+
+    auto toradixbe_instruction = bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::TORADIXBE)
+                                     .operand(dst_operand.value().second)
+                                     .operand(value_operand.value().second)
+                                     .operand(radix_operand.value().second)
+                                     .operand(num_limbs_operand.value().second)
+                                     .operand(output_bits_operand.value().second)
+                                     .build();
+    instructions.push_back(toradixbe_instruction);
+
+    // Use is_output_bits to determine the output memory tag
+    auto output_tag = instruction.is_output_bits ? bb::avm2::MemoryTag::U1 : bb::avm2::MemoryTag::U8;
+    memory_manager.set_memory_address(output_tag, dst_operand.value().first.absolute_address);
 }
 
 void ProgramBlock::finalize_with_return(uint8_t return_size,
@@ -1179,6 +1584,34 @@ void ProgramBlock::finalize_with_return(uint8_t return_size,
                                   .operand(return_addr.value())
                                   .build();
     instructions.push_back(return_instruction);
+}
+
+void ProgramBlock::finalize_with_revert(uint8_t revert_size,
+                                        MemoryTagWrapper revert_value_tag,
+                                        uint16_t revert_value_offset_index)
+{
+    this->terminator_type = TerminatorType::REVERT;
+
+    auto revert_addr = memory_manager.get_memory_offset_16(revert_value_tag.value, revert_value_offset_index);
+    if (!revert_addr.has_value()) {
+        revert_addr = std::optional<uint32_t>(0);
+    }
+
+    // Once we do more of the randomness in Instruction selection, revert_size_offset we shouldnt need to hardcode
+    uint16_t revert_size_offset = 5U;
+    // Ensure operands are created as U16 to match wire format (UINT16)
+    auto set_size_instruction = bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::SET_16)
+                                    .operand(revert_size_offset)
+                                    .operand(bb::avm2::MemoryTag::U32)
+                                    .operand(static_cast<uint16_t>(revert_size))
+                                    .build();
+    instructions.push_back(set_size_instruction);
+    // REVERT_16 expects UINT16 operands, ensure we cast to uint16_t explicitly
+    auto revert_instruction = bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::REVERT_16)
+                                  .operand(static_cast<uint16_t>(revert_size_offset))
+                                  .operand(revert_addr.value())
+                                  .build();
+    instructions.push_back(revert_instruction);
 }
 
 void ProgramBlock::finalize_with_jump(ProgramBlock* target_block, bool copy_memory_manager)
@@ -1254,7 +1687,7 @@ bool ProgramBlock::is_memory_address_set(uint16_t address)
 void ProgramBlock::process_instruction(FuzzInstruction instruction)
 {
     std::visit(
-        overloaded_instruction{
+        overloaded{
             [this](ADD_8_Instruction instruction) { return this->process_add_8_instruction(instruction); },
             [this](SUB_8_Instruction instruction) { return this->process_sub_8_instruction(instruction); },
             [this](MUL_8_Instruction instruction) { return this->process_mul_8_instruction(instruction); },
@@ -1321,6 +1754,22 @@ void ProgramBlock::process_instruction(FuzzInstruction instruction)
             [this](RETURNDATASIZE_WITH_RETURNDATACOPY_Instruction instruction) {
                 return this->process_returndatasize_with_returndatacopy_instruction(instruction);
             },
+            [this](GETCONTRACTINSTANCE_Instruction instruction) {
+                return this->process_getcontractinstance_instruction(instruction);
+            },
+            [this](SUCCESSCOPY_Instruction instruction) { return this->process_successcopy_instruction(instruction); },
+            [this](ECADD_Instruction instruction) { return this->process_ecadd_instruction(instruction); },
+            [this](POSEIDON2PERM_Instruction instruction) {
+                return this->process_poseidon2perm_instruction(instruction);
+            },
+            [this](KECCAKF1600_Instruction instruction) { return this->process_keccakf1600_instruction(instruction); },
+            [this](SHA256COMPRESSION_Instruction instruction) {
+                return this->process_sha256compression_instruction(instruction);
+            },
+            [this](L1TOL2MSGEXISTS_Instruction instruction) {
+                return this->process_l1tol2msgexists_instruction(instruction);
+            },
+            [this](TORADIXBE_Instruction instruction) { return this->process_toradixbe_instruction(instruction); },
             [](auto) { throw std::runtime_error("Unknown instruction"); },
         },
         instruction);

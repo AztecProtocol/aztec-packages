@@ -1,11 +1,10 @@
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import type { DirectionalAppTaggingSecret, PreTag } from '@aztec/stdlib/logs';
+import { SiloedTag, Tag } from '@aztec/stdlib/logs';
 import { TxHash } from '@aztec/stdlib/tx';
 
 import type { SenderTaggingDataProvider } from '../../../storage/tagging_data_provider/sender_tagging_data_provider.js';
-import { SiloedTag } from '../../siloed_tag.js';
-import { Tag } from '../../tag.js';
 
 /**
  * Loads tagging indexes from the Aztec node and stores them in the tagging data provider.
@@ -48,9 +47,8 @@ export async function loadAndStoreNewTaggingIndexes(
 // Returns txs that used the given tags. A tag might have been used in multiple txs and for this reason we return
 // an array for each tag.
 async function getTxsContainingTags(tags: SiloedTag[], aztecNode: AztecNode): Promise<TxHash[][]> {
-  const tagsAsFr = tags.map(tag => tag.value);
-  const allLogs = await aztecNode.getLogsByTags(tagsAsFr);
-  return allLogs.map(logs => logs.filter(log => !log.isFromPublic).map(log => log.txHash));
+  const allLogs = await aztecNode.getPrivateLogsByTags(tags);
+  return allLogs.map(logs => logs.map(log => log.txHash));
 }
 
 // Returns a map of txHash to the highest index for that txHash.

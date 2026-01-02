@@ -1,7 +1,6 @@
 use dep::protocol_types::{
-    abis::block_header::BlockHeader, address::AztecAddress,
-    constants::GENERATOR_INDEX__PUBLIC_LEAF_INDEX, hash::poseidon2_hash_with_separator,
-    utils::field::full_field_less_than,
+    abis::block_header::BlockHeader, address::AztecAddress, constants::DOM_SEP__PUBLIC_LEAF_INDEX,
+    hash::poseidon2_hash_with_separator, utils::field::full_field_less_than,
 };
 use dep::protocol_types::merkle_tree::root::root_from_sibling_path;
 
@@ -27,7 +26,7 @@ impl PublicStorageHistoricalRead for BlockHeader {
         // 1) Compute the leaf index by siloing the storage slot with the contract address
         let public_data_tree_index = poseidon2_hash_with_separator(
             [contract_address.to_field(), storage_slot],
-            GENERATOR_INDEX__PUBLIC_LEAF_INDEX,
+            DOM_SEP__PUBLIC_LEAF_INDEX,
         );
 
         // 2) Get the membership witness for the tree index.

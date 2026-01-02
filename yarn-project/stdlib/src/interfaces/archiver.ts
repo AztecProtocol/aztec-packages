@@ -6,6 +6,7 @@ import { z } from 'zod';
 
 import { CheckpointedL2Block, PublishedL2Block } from '../block/checkpointed_l2_block.js';
 import { L2Block } from '../block/l2_block.js';
+import { L2BlockNew } from '../block/l2_block_new.js';
 import { type L2BlockSource, L2TipsSchema } from '../block/l2_block_source.js';
 import { ValidateBlockResultSchema } from '../block/validate_block_result.js';
 import { Checkpoint } from '../checkpoint/checkpoint.js';
@@ -17,6 +18,8 @@ import {
 } from '../contract/index.js';
 import { L1RollupConstantsSchema } from '../epoch-helpers/index.js';
 import { LogFilterSchema } from '../logs/log_filter.js';
+import { SiloedTag } from '../logs/siloed_tag.js';
+import { Tag } from '../logs/tag.js';
 import { TxScopedL2Log } from '../logs/tx_scoped_l2_log.js';
 import type { L1ToL2MessageSource } from '../messaging/l1_to_l2_message_source.js';
 import { optional, schemas } from '../schemas/schemas.js';
@@ -102,6 +105,7 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
   getPublishedBlockByArchive: z.function().args(schemas.Fr).returns(PublishedL2Block.schema.optional()),
   getBlockHeaderByHash: z.function().args(schemas.Fr).returns(BlockHeader.schema.optional()),
   getBlockHeaderByArchive: z.function().args(schemas.Fr).returns(BlockHeader.schema.optional()),
+  getL2BlockNew: z.function().args(BlockNumberSchema).returns(L2BlockNew.schema.optional()),
   getTxEffect: z.function().args(TxHash.schema).returns(indexedTxSchema().optional()),
   getSettledTxReceipt: z.function().args(TxHash.schema).returns(TxReceipt.schema.optional()),
   getL2SlotNumber: z.function().args().returns(schemas.SlotNumber.optional()),
@@ -111,9 +115,13 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
   getBlockHeadersForEpoch: z.function().args(EpochNumberSchema).returns(z.array(BlockHeader.schema)),
   isEpochComplete: z.function().args(EpochNumberSchema).returns(z.boolean()),
   getL2Tips: z.function().args().returns(L2TipsSchema),
-  getLogsByTags: z
+  getPrivateLogsByTags: z
     .function()
-    .args(z.array(schemas.Fr))
+    .args(z.array(SiloedTag.schema))
+    .returns(z.array(z.array(TxScopedL2Log.schema))),
+  getPublicLogsByTagsFromContract: z
+    .function()
+    .args(schemas.AztecAddress, z.array(Tag.schema))
     .returns(z.array(z.array(TxScopedL2Log.schema))),
   getPublicLogs: z.function().args(LogFilterSchema).returns(GetPublicLogsResponseSchema),
   getContractClassLogs: z.function().args(LogFilterSchema).returns(GetContractClassLogsResponseSchema),

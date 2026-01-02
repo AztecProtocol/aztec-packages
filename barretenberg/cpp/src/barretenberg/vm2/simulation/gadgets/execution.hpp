@@ -30,6 +30,7 @@
 #include "barretenberg/vm2/simulation/interfaces/poseidon2.hpp"
 #include "barretenberg/vm2/simulation/interfaces/sha256.hpp"
 #include "barretenberg/vm2/simulation/interfaces/to_radix.hpp"
+#include "barretenberg/vm2/simulation/lib/cancellation_token.hpp"
 #include "barretenberg/vm2/simulation/lib/execution_id_manager.hpp"
 #include "barretenberg/vm2/simulation/lib/instruction_info.hpp"
 #include "barretenberg/vm2/simulation/lib/serialization.hpp"
@@ -79,7 +80,8 @@ class Execution : public ExecutionInterface {
               EmitUnencryptedLogInterface& emit_unencrypted_log_component,
               DebugLoggerInterface& debug_log_component,
               HighLevelMerkleDBInterface& merkle_db,
-              CallStackMetadataCollectorInterface& call_stack_metadata_collector)
+              CallStackMetadataCollectorInterface& call_stack_metadata_collector,
+              CancellationTokenPtr cancellation_token = nullptr)
         : execution_components(execution_components)
         , instruction_info_db(instruction_info_db)
         , alu(alu)
@@ -100,6 +102,7 @@ class Execution : public ExecutionInterface {
         , events(event_emitter)
         , ctx_stack_events(ctx_stack_emitter)
         , call_stack_metadata_collector(call_stack_metadata_collector)
+        , cancellation_token_(std::move(cancellation_token))
     {}
 
     EnqueuedCallResult execute(std::unique_ptr<ContextInterface> enqueued_call_context) override;
@@ -265,6 +268,10 @@ class Execution : public ExecutionInterface {
     std::vector<MemoryValue> inputs;
     MemoryValue output;
     std::unique_ptr<GasTrackerInterface> gas_tracker;
+
+    // Optional cancellation token for stopping simulation on timeout.
+    // When nullptr, cancellation checks are skipped (no overhead for non-NAPI paths).
+    CancellationTokenPtr cancellation_token_;
 };
 
 } // namespace bb::avm2::simulation

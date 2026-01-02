@@ -3,188 +3,20 @@
 #include <cstdint>
 #include <vector>
 
+#include "barretenberg/avm_fuzzer/fuzz_lib/constants.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
 #include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
+#include "barretenberg/vm2/simulation/lib/contract_crypto.hpp"
+#include "barretenberg/vm2/simulation/lib/merkle.hpp"
 
 using namespace bb::avm2::simulation;
 using Poseidon2 = bb::crypto::Poseidon2<bb::crypto::Poseidon2Bn254ScalarFieldParams>;
-using namespace bb::crypto::merkle_tree;
 using namespace bb::world_state;
 
-// TODO(ilyas): implement other methods as needed
 namespace bb::avm2::fuzzer {
-
-TreeSnapshots FuzzerLowLevelDB::get_tree_roots() const
-{
-    return {
-        .l1_to_l2_message_tree = { .root = FF(0), .next_available_leaf_index = 0 },
-        .note_hash_tree = { .root = FF(0), .next_available_leaf_index = next_available_note_hash_index },
-        .nullifier_tree = { .root = FF(0), .next_available_leaf_index = next_available_nullifier_index },
-        .public_data_tree = { .root = FF(0), .next_available_leaf_index = next_available_public_data_index },
-    };
-}
-
-SiblingPath FuzzerLowLevelDB::get_sibling_path([[maybe_unused]] MerkleTreeId tree_id,
-                                               [[maybe_unused]] index_t leaf_index) const
-{
-    throw_or_abort("FuzzerLowLevelDB::get_sibling_path not implemented");
-}
-
-std::pair<FF, index_t> FuzzerLowLevelDB::get_indexed_low_leaf_helper(
-    const std::vector<std::pair<FF, index_t>>& value_sorted_leaves, const FF& value) const
-{
-    for (size_t i = 0; i < value_sorted_leaves.size(); ++i) {
-        if (value_sorted_leaves[i].first == value) {
-            return value_sorted_leaves[i];
-        }
-        if (value_sorted_leaves[i].first > value) {
-            return value_sorted_leaves[i - 1];
-        }
-    }
-    // If we reach here, the value is larger than any leaf in the tree, return the last leaf
-    return value_sorted_leaves.back();
-}
-
-GetLowIndexedLeafResponse FuzzerLowLevelDB::get_low_indexed_leaf(MerkleTreeId tree_id, const FF& value) const
-{
-    switch (tree_id) {
-    case MerkleTreeId::NULLIFIER_TREE: {
-        auto [low_value, low_index] = get_indexed_low_leaf_helper(nullifier_values, value);
-        return GetLowIndexedLeafResponse(low_value == value, low_index);
-        break;
-    }
-    case MerkleTreeId::PUBLIC_DATA_TREE: {
-        auto [low_value, low_index] = get_indexed_low_leaf_helper(public_data_slots, value);
-        return GetLowIndexedLeafResponse(low_value == value, low_index);
-        break;
-    }
-    default:
-        break;
-    }
-    return GetLowIndexedLeafResponse(false, 0);
-}
-FF FuzzerLowLevelDB::get_leaf_value(MerkleTreeId tree_id, index_t leaf_index) const
-{
-    switch (tree_id) {
-    case MerkleTreeId::NULLIFIER_TREE:
-        return nullifier_leaves.at(leaf_index).nullifier;
-    case MerkleTreeId::PUBLIC_DATA_TREE:
-        return public_data_leaves.at(leaf_index).value;
-    case MerkleTreeId::NOTE_HASH_TREE:
-        return note_hash_leaves.at(leaf_index);
-    default:
-        break;
-    }
-    return FF(0);
-}
-simulation::IndexedLeaf<PublicDataLeafValue> FuzzerLowLevelDB::get_leaf_preimage_public_data_tree(
-    index_t leaf_index) const
-{
-    PublicDataLeafValue leaf_value = public_data_leaves.at(leaf_index);
-    std::pair<FF, index_t> value_index_pair = { leaf_value.value, leaf_index };
-    // Find index in public_data_slots
-    auto it = std::ranges::find_if(
-        public_data_slots.begin(), public_data_slots.end(), [&value_index_pair](const std::pair<FF, index_t>& pair) {
-            return pair.second == value_index_pair.second;
-        });
-    if (it == public_data_slots.end()) {
-        throw_or_abort("FuzzerLowLevelDB::get_leaf_preimage_public_data_tree: leaf not found in public_data_slots");
-    }
-    it++; // Now iterator is at the next element
-    if (it == public_data_slots.end()) {
-        // If this is the last leaf, return with index 0
-        return simulation::IndexedLeaf<PublicDataLeafValue>(leaf_value, 0, 0);
-    }
-    auto [next_value, next_index] = *it;
-    return bb::crypto::merkle_tree::IndexedLeaf<PublicDataLeafValue>(leaf_value, next_index, next_value);
-}
-
-simulation::IndexedLeaf<NullifierLeafValue> FuzzerLowLevelDB::get_leaf_preimage_nullifier_tree(index_t leaf_index) const
-{
-    auto leaf_value = nullifier_leaves.at(leaf_index);
-    std::pair<FF, index_t> value_index_pair = { leaf_value.nullifier, leaf_index };
-    // Find index in nullifiers_values
-    auto it = std::ranges::find_if(
-        nullifier_values.begin(), nullifier_values.end(), [&value_index_pair](const std::pair<FF, index_t>& pair) {
-            return pair.second == value_index_pair.second;
-        });
-    if (it == nullifier_values.end()) {
-        throw_or_abort("FuzzerLowLevelDB::get_leaf_preimage_nullifier_tree: leaf not found in nullifier_values");
-    }
-
-    it++; // Now iterator is at the next element
-
-    if (it == nullifier_values.end()) {
-        // If this is the last leaf, return with index 0
-        return simulation::IndexedLeaf<NullifierLeafValue>(leaf_value, 0, 0);
-    }
-    auto [next_value, next_index] = *it;
-    return simulation::IndexedLeaf<NullifierLeafValue>(leaf_value, next_index, next_value);
-}
-
-simulation::SequentialInsertionResult<PublicDataLeafValue> FuzzerLowLevelDB::insert_indexed_leaves_public_data_tree(
-    const PublicDataLeafValue& leaf_value)
-{
-    // Add to map
-    public_data_leaves[next_available_public_data_index] = leaf_value;
-    // Add to sorted vector
-    public_data_slots.push_back({ leaf_value.slot, next_available_public_data_index });
-    // Sort vector
-    std::ranges::sort(
-        public_data_slots.begin(),
-        public_data_slots.end(),
-        [](const std::pair<FF, index_t>& a, const std::pair<FF, index_t>& b) { return a.first < b.first; });
-
-    // Increment next available index
-    next_available_public_data_index++;
-    // Don't return any witness data for now, as it's not used for pure calls.
-    return {};
-}
-
-simulation::SequentialInsertionResult<NullifierLeafValue> FuzzerLowLevelDB::insert_indexed_leaves_nullifier_tree(
-    const NullifierLeafValue& leaf_value)
-{
-    // Add to map
-    nullifier_leaves[next_available_nullifier_index] = leaf_value;
-    // Add to sorted vector
-    nullifier_values.push_back({ leaf_value.nullifier, next_available_nullifier_index });
-    // Sort vector
-    std::ranges::sort(
-        nullifier_values.begin(),
-        nullifier_values.end(),
-        [](const std::pair<FF, index_t>& a, const std::pair<FF, index_t>& b) { return a.first < b.first; });
-
-    // Increment next available index
-    next_available_nullifier_index++;
-    // Don't return any witness data for now, as it's not used for pure calls.
-    return {};
-}
-
-void FuzzerLowLevelDB::append_leaves([[maybe_unused]] MerkleTreeId tree_id, std::span<const FF> leaves)
-{
-    note_hash_leaves.insert(note_hash_leaves.end(), leaves.begin(), leaves.end());
-    next_available_note_hash_index += leaves.size();
-}
-void FuzzerLowLevelDB::pad_tree([[maybe_unused]] MerkleTreeId tree_id, [[maybe_unused]] size_t num_leaves) {}
-
-void FuzzerLowLevelDB::create_checkpoint() {}
-void FuzzerLowLevelDB::commit_checkpoint() {}
-void FuzzerLowLevelDB::revert_checkpoint() {}
-uint32_t FuzzerLowLevelDB::get_checkpoint_id() const
-{
-    return 0;
-}
-
-// Helper to insert a contract address into the nullifier tree
-void FuzzerLowLevelDB::insert_contract_address(const AztecAddress& contract_address)
-{
-    auto contract_nullifier =
-        simulation::unconstrained_silo_nullifier(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS, contract_address);
-    insert_indexed_leaves_nullifier_tree(contract_nullifier);
-}
 
 ////////////////////////////////
 /// ContractDBInterface methods
@@ -207,13 +39,12 @@ std::optional<ContractClass> FuzzerContractDB::get_contract_class(const Contract
 
 std::optional<FF> FuzzerContractDB::get_bytecode_commitment(const ContractClassId& class_id) const
 {
-    // Return 0 might be an issue, in the pure bytecode manager we cache based on this value
-    // This might cause different classes to be treated as the same if they return 0 here.
-    // For now we just return the class_id as it should be as unique as the bytecode commitment
     if (!contract_classes.contains(class_id)) {
         return std::nullopt;
     }
-    return class_id;
+    // Compute the actual bytecode commitment from the stored bytecode
+    const auto& klass = contract_classes.at(class_id);
+    return compute_public_bytecode_commitment(klass.packed_bytecode);
 }
 std::optional<std::string> FuzzerContractDB::get_debug_function_name(
     [[maybe_unused]] const AztecAddress& address, [[maybe_unused]] const FunctionSelector& selector) const
@@ -239,12 +70,21 @@ void FuzzerContractDB::add_contracts(const ContractDeploymentData& contract_depl
 
 void FuzzerContractDB::add_contract_class(const ContractClassId& class_id, const ContractClass& contract_class)
 {
-    contract_classes[class_id] = contract_class;
+    // todo(ilyas): think of a nicer way without both map and vector
+    // Only push to vector if not already present, otherwise we get duplicates sent to the TS simulator
+    if (contract_classes.contains(class_id)) {
+        return;
+    }
     contract_classes_vector.push_back(contract_class);
+    contract_classes[class_id] = contract_class;
 }
 
 void FuzzerContractDB::add_contract_instance(const AztecAddress& address, const ContractInstance& contract_instance)
 {
+    // todo(ilyas): think of a nicer way without both map and vector
+    if (contract_instances.contains(address)) {
+        return;
+    }
     contract_instances[address] = contract_instance;
     contract_instances_vector.push_back({ address, contract_instance });
 }
@@ -379,6 +219,7 @@ void FuzzerWorldStateManager::register_contract_address(const AztecAddress& cont
 {
     NullifierLeafValue contract_nullifier =
         unconstrained_silo_nullifier(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS, contract_address);
+    fuzz_info("Registering contract address in world state: ", contract_nullifier.nullifier);
     auto fork_id = fork_ids.top();
     ws->insert_indexed_leaves<NullifierLeafValue>(MerkleTreeId::NULLIFIER_TREE, { contract_nullifier }, fork_id);
 }
@@ -389,8 +230,7 @@ void FuzzerWorldStateManager::write_fee_payer_balance(const AztecAddress& fee_pa
         return;
     }
     FF fee_juice_balance_slot = Poseidon2::hash({ FEE_JUICE_BALANCES_SLOT, fee_payer });
-    FF leaf_slot =
-        Poseidon2::hash({ GENERATOR_INDEX__PUBLIC_LEAF_INDEX, FF(FEE_JUICE_ADDRESS), fee_juice_balance_slot });
+    FF leaf_slot = Poseidon2::hash({ DOM_SEP__PUBLIC_LEAF_INDEX, FF(FEE_JUICE_ADDRESS), fee_juice_balance_slot });
 
     // Write to public data tree using current fork
     auto fork_id = fork_ids.top();

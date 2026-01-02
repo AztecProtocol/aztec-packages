@@ -12,8 +12,8 @@ use dep::protocol_types::{
     abis::function_selector::FunctionSelector,
     address::AztecAddress,
     constants::{
-        CANONICAL_AUTH_REGISTRY_ADDRESS, GENERATOR_INDEX__AUTHWIT_INNER,
-        GENERATOR_INDEX__AUTHWIT_NULLIFIER, GENERATOR_INDEX__AUTHWIT_OUTER,
+        CANONICAL_AUTH_REGISTRY_ADDRESS, DOM_SEP__AUTHWIT_INNER, DOM_SEP__AUTHWIT_NULLIFIER,
+        DOM_SEP__AUTHWIT_OUTER,
     },
     hash::poseidon2_hash_with_separator,
     traits::{Serialize, ToField},
@@ -388,7 +388,7 @@ pub fn compute_authwit_message_hash_from_call<let N: u32>(
  * @param args The arguments to hash
  */
 pub fn compute_inner_authwit_hash<let N: u32>(args: [Field; N]) -> Field {
-    poseidon2_hash_with_separator(args, GENERATOR_INDEX__AUTHWIT_INNER)
+    poseidon2_hash_with_separator(args, DOM_SEP__AUTHWIT_INNER)
 }
 
 /**
@@ -402,7 +402,7 @@ pub fn compute_inner_authwit_hash<let N: u32>(args: [Field; N]) -> Field {
 pub fn compute_authwit_nullifier(on_behalf_of: AztecAddress, inner_hash: Field) -> Field {
     poseidon2_hash_with_separator(
         [on_behalf_of.to_field(), inner_hash],
-        GENERATOR_INDEX__AUTHWIT_NULLIFIER,
+        DOM_SEP__AUTHWIT_NULLIFIER,
     )
 }
 
@@ -422,7 +422,7 @@ pub fn compute_authwit_message_hash(
 ) -> Field {
     poseidon2_hash_with_separator(
         [consumer.to_field(), chain_id, version, inner_hash],
-        GENERATOR_INDEX__AUTHWIT_OUTER,
+        DOM_SEP__AUTHWIT_OUTER,
     )
 }
 

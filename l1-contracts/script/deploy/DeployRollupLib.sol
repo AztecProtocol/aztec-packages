@@ -110,7 +110,7 @@ library DeployRollupLib {
           TestERC20(address(input.feeAsset)).mint(feeAssetPortal, initialFeeAssetAmount);
         }
       } catch {
-        // Ignore if fee asset is not mintable or ownerable
+        // Ignore if fee asset is not mintable or ownable
       }
     }
   }

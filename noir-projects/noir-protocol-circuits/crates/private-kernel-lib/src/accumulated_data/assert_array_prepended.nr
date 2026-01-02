@@ -1,4 +1,4 @@
-use types::{traits::Empty, utils::{arrays::ClaimedLengthArray, for_loop::for_i_only_in_0_}};
+use types::{traits::Empty, utils::arrays::ClaimedLengthArray};
 
 /// Validates that source items are prepended to the destination array.
 pub fn assert_array_prepended<T, let N: u32>(
@@ -22,10 +22,11 @@ pub fn assert_array_prepended_up_to_some_length<T, let N: u32>(
 where
     T: Eq,
 {
-    for_i_only_in_0_(
-        source_length,
-        source.array.len(),
-        |i| { assert_eq(dest.array[i], source.array[i], "source item does not prepend to dest"); },
-        true,
-    );
+    let mut within_range = true;
+    for i in 0..N {
+        within_range &= i != source_length;
+        if within_range {
+            assert_eq(dest.array[i], source.array[i], "source item does not prepend to dest");
+        }
+    }
 }

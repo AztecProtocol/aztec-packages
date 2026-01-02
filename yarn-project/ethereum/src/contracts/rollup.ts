@@ -2,6 +2,7 @@ import { CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/bra
 import { memoize } from '@aztec/foundation/decorators';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { ViemSignature } from '@aztec/foundation/eth-signature';
+import { makeBackoff, retry } from '@aztec/foundation/retry';
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 import { RollupStorage } from '@aztec/l1-artifacts/RollupStorage';
 
@@ -418,6 +419,21 @@ export class RollupContract {
 
   getCheckpoint(checkpointNumber: CheckpointNumber) {
     return this.rollup.read.getCheckpoint([BigInt(checkpointNumber)]);
+  }
+
+  /** Returns the pending checkpoint from the rollup contract */
+  getPendingCheckpoint() {
+    // We retry because of race conditions during prunes: we may get a pending checkpoint number which is immediately
+    // reorged out due to a prune happening, causing the subsequent getCheckpoint call to fail. So we try again in that case.
+    return retry(
+      async () => {
+        const pendingCheckpointNumber = await this.getCheckpointNumber();
+        const pendingCheckpoint = await this.getCheckpoint(pendingCheckpointNumber);
+        return pendingCheckpoint;
+      },
+      'getting pending checkpoint',
+      makeBackoff([0.5, 0.5, 0.5]),
+    );
   }
 
   async getTips(): Promise<{ pending: CheckpointNumber; proven: CheckpointNumber }> {

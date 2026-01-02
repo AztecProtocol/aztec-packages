@@ -7,6 +7,7 @@
 #pragma once
 
 #include "barretenberg/chonk/chonk_base.hpp"
+#include "barretenberg/chonk/chonk_proof.hpp"
 #include "barretenberg/flavor/mega_zk_recursive_flavor.hpp"
 #include "barretenberg/goblin/goblin.hpp"
 #include "barretenberg/hypernova/hypernova_decider_prover.hpp"
@@ -78,146 +79,6 @@ class Chonk : public IVCBase {
     using ProverAccumulator = FoldingProver::Accumulator;
     using VerifierAccumulator = FoldingVerifier::Accumulator;
     using RecursiveVerifierAccumulator = RecursiveFoldingVerifier::Accumulator;
-
-    /**
-     * @brief A full proof for the IVC scheme containing a Mega proof showing correctness of the Hiding kernel (which
-     * recursive verified the last folding and decider proof) and a Goblin proof (translator VM, ECCVM and last merge
-     * proof).
-     *
-     * @details This proof will be zero-knowledge.
-     */
-    struct Proof {
-        HonkProof mega_proof;
-        GoblinProof goblin_proof;
-
-        /**
-         * @brief The size of a Chonk proof without backend-added public inputs
-         *
-         * @param virtual_log_n
-         * @return constexpr size_t
-         */
-        static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS(size_t virtual_log_n = MegaZKFlavor::VIRTUAL_LOG_N)
-        {
-            return /*mega_proof*/ MegaZKFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS(virtual_log_n) +
-                   /*merge_proof*/ MERGE_PROOF_SIZE +
-                   /*eccvm proof*/ ECCVMFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS +
-                   /*ipa proof*/ IPA_PROOF_LENGTH +
-                   /*translator*/ TranslatorFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS;
-        }
-
-        /**
-         * @brief The size of a Chonk proof with backend-added public inputs: HidingKernelIO
-         *
-         * @param virtual_log_n
-         * @return constexpr size_t
-         */
-        static constexpr size_t PROOF_LENGTH(size_t virtual_log_n = MegaZKFlavor::VIRTUAL_LOG_N)
-        {
-            return PROOF_LENGTH_WITHOUT_PUB_INPUTS(virtual_log_n) +
-                   /*public_inputs*/ bb::HidingKernelIO::PUBLIC_INPUTS_SIZE;
-        }
-
-        size_t size() const;
-
-        /**
-         * @brief Serialize proof to field elements
-         *
-         * @return std::vector<FF>
-         */
-        std::vector<FF> to_field_elements() const;
-
-        static Proof from_field_elements(const std::vector<Chonk::FF>& fields);
-
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1299): The following msgpack methods are generic
-        // and should leverage some kind of shared msgpack utility.
-        msgpack::sbuffer to_msgpack_buffer() const;
-
-        /**
-         * @brief Very quirky method to convert a msgpack buffer to a "heap" buffer
-         * @details This method results in a buffer that is double-size-prefixed with the buffer size. This is to mimmic
-         * the original bb.js behavior which did a *out_proof = to_heap_buffer(to_buffer(proof));
-         *
-         * @return uint8_t* Double size-prefixed msgpack buffer
-         */
-        uint8_t* to_msgpack_heap_buffer() const;
-        static constexpr const char MSGPACK_SCHEMA_NAME[] = "ChonkProof";
-
-        class DeserializationError : public std::runtime_error {
-          public:
-            DeserializationError(const std::string& msg)
-                : std::runtime_error(std::string("Chonk Proof deserialization error: ") + msg)
-            {}
-        };
-
-        static Proof from_msgpack_buffer(uint8_t const*& buffer);
-        static Proof from_msgpack_buffer(const msgpack::sbuffer& buffer);
-
-        void to_file_msgpack(const std::string& filename) const;
-        static Proof from_file_msgpack(const std::string& filename);
-
-        MSGPACK_FIELDS(mega_proof, goblin_proof);
-        bool operator==(const Proof& other) const = default;
-    };
-
-    struct VerificationKey {
-        std::shared_ptr<MegaVerificationKey> mega;
-        std::shared_ptr<ECCVMVerificationKey> eccvm;
-        std::shared_ptr<TranslatorVerificationKey> translator;
-
-        /**
-         * @brief Calculate the number of field elements needed for serialization
-         * @return size_t Number of field elements
-         */
-        static size_t calc_num_data_types()
-        {
-            return MegaVerificationKey::calc_num_data_types() + ECCVMVerificationKey::calc_num_data_types() +
-                   TranslatorVerificationKey::calc_num_data_types();
-        }
-
-        /**
-         * @brief Serialize verification key to field elements
-         * @return std::vector<bb::fr> The serialized field elements
-         */
-        std::vector<bb::fr> to_field_elements() const
-        {
-            std::vector<bb::fr> elements;
-
-            auto mega_elements = mega->to_field_elements();
-            elements.insert(elements.end(), mega_elements.begin(), mega_elements.end());
-
-            auto eccvm_elements = eccvm->to_field_elements();
-            elements.insert(elements.end(), eccvm_elements.begin(), eccvm_elements.end());
-
-            auto translator_elements = translator->to_field_elements();
-            elements.insert(elements.end(), translator_elements.begin(), translator_elements.end());
-
-            return elements;
-        }
-
-        /**
-         * @brief Deserialize verification key from field elements
-         * @param elements The field elements to deserialize from
-         * @return size_t Number of field elements read
-         */
-        size_t from_field_elements(std::span<const bb::fr> elements)
-        {
-            size_t read_idx = 0;
-
-            mega = std::make_shared<MegaVerificationKey>();
-            size_t mega_read = mega->from_field_elements(elements.subspan(read_idx));
-            read_idx += mega_read;
-
-            eccvm = std::make_shared<ECCVMVerificationKey>();
-            size_t eccvm_read = eccvm->from_field_elements(elements.subspan(read_idx));
-            read_idx += eccvm_read;
-
-            translator = std::make_shared<TranslatorVerificationKey>();
-            size_t translator_read = translator->from_field_elements(elements.subspan(read_idx));
-            read_idx += translator_read;
-
-            return read_idx;
-        }
-    };
 
     /**
      * @brief Proof type determining recursive verification logic in kernel circuits.
@@ -329,15 +190,17 @@ class Chonk : public IVCBase {
      */
     void accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVerificationKey>& precomputed_vk) override;
 
-    Proof prove();
+    ChonkProof prove();
 
     static void hide_op_queue_accumulation_result(ClientCircuit& circuit);
     static void hide_op_queue_content_in_tail(ClientCircuit& circuit);
     static void hide_op_queue_content_in_hiding(ClientCircuit& circuit);
 
-    static bool verify(const Proof& proof, const VerificationKey& vk);
-
-    VerificationKey get_vk() const;
+    /**
+     * @brief Get the hiding kernel verification key and hash for Chonk verification
+     * @return VKAndHash containing the MegaZK verification key and its hash
+     */
+    std::shared_ptr<MegaZKFlavor::VKAndHash> get_hiding_kernel_vk_and_hash() const;
 
   private:
 #ifndef NDEBUG
@@ -360,33 +223,5 @@ class Chonk : public IVCBase {
 
     QUEUE_TYPE get_queue_type() const;
 };
-
-// Serialization methods for Chonk::VerificationKey
-inline void read(uint8_t const*& it, Chonk::VerificationKey& vk)
-{
-    using serialize::read;
-
-    size_t num_frs = Chonk::VerificationKey::calc_num_data_types();
-
-    // Read exactly num_frs field elements from the buffer
-    std::vector<bb::fr> field_elements(num_frs);
-    for (auto& element : field_elements) {
-        read(it, element);
-    }
-
-    // Then use from_field_elements to populate the verification key
-    vk.from_field_elements(field_elements);
-}
-
-inline void write(std::vector<uint8_t>& buf, Chonk::VerificationKey const& vk)
-{
-    using serialize::write;
-
-    // Convert to field elements and write them directly without length prefix
-    auto field_elements = vk.to_field_elements();
-    for (const auto& element : field_elements) {
-        write(buf, element);
-    }
-}
 
 } // namespace bb

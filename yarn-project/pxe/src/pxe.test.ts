@@ -13,6 +13,7 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { L2BlockHash } from '@aztec/stdlib/block';
 import { getContractClassFromArtifact } from '@aztec/stdlib/contract';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
+import { SiloedTag } from '@aztec/stdlib/logs';
 import {
   randomContractArtifact,
   randomContractInstanceWithAddress,
@@ -180,7 +181,7 @@ describe('PXE', () => {
 
       // Used to sync private logs from the node - the return array needs to have the same length as the number of tags
       // on the input.
-      node.getLogsByTags.mockImplementation((tags: Fr[]) => Promise.resolve(tags.map(() => [])));
+      node.getPrivateLogsByTags.mockImplementation((tags: SiloedTag[]) => Promise.resolve(tags.map(() => [])));
 
       // Necessary to sync contract private state
       await pxe.registerContractClass(TestContractArtifact);

@@ -1,7 +1,9 @@
 #include "barretenberg/dsl/acir_format/avm2_recursion_constraint.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/dsl/acir_format/acir_format_mocks.hpp"
+#include "barretenberg/dsl/acir_format/gate_count_constants.hpp"
 #include "barretenberg/dsl/acir_format/proof_surgeon.hpp"
+#include "barretenberg/dsl/acir_format/test_class.hpp"
 #include "barretenberg/dsl/acir_format/utils.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
@@ -9,6 +11,7 @@
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 #include "barretenberg/vm2/common/avm_io.hpp"
 #include "barretenberg/vm2/constraining/prover.hpp"
+#include "barretenberg/vm2/constraining/recursion/goblin_avm_recursive_verifier.hpp"
 #include "barretenberg/vm2/constraining/recursion/recursive_flavor.hpp"
 #include "barretenberg/vm2/constraining/recursion/recursive_verifier.hpp"
 #include "barretenberg/vm2/constraining/verifier.hpp"
@@ -23,161 +26,252 @@ using namespace acir_format;
 using namespace bb;
 using namespace bb::avm2;
 
-struct InnerCircuitData {
-    AvmProvingHelper::Proof proof;
-    std::vector<FF> public_inputs_flat;
-};
-
-class AcirAvm2RecursionConstraint : public ::testing::Test {
+class AvmRecursionConstraintTestingFunctions {
   public:
-    using InnerProver = bb::avm2::AvmProvingHelper;
-    using InnerVerifier = bb::avm2::AvmVerifier;
+    using AcirConstraint = RecursionConstraint;
+    using Builder = UltraCircuitBuilder;
 
-    using OuterFlavor = UltraRollupFlavor;
-    using OuterProver = UltraProver_<OuterFlavor>;
-    using OuterProverInstance = ProverInstance_<OuterFlavor>;
+    using AvmProver = bb::avm2::AvmProvingHelper;
+    using FF = Builder::FF;
 
-    using OuterVerificationKey = OuterFlavor::VerificationKey;
-    using OuterBuilder = UltraCircuitBuilder;
+    class InvalidWitness {
+      public:
+        enum class Target : uint8_t { None, PublicInputs, Proof };
+        static std::vector<Target> get_all()
+        {
+            std::vector<Target> targets = { Target::None, Target::PublicInputs, Target::Proof };
+            return targets;
+        };
+        static std::vector<std::string> get_labels()
+        {
+            std::vector<std::string> labels = { "None", "PublicInputs", "Proof" };
+            return labels;
+        };
+    };
 
-    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
-
-    static InnerCircuitData create_inner_circuit_data()
+    static std::pair<AvmProver::Proof, std::vector<FF>> create_avm_data()
     {
         auto [trace, public_inputs] = avm2::testing::get_minimal_trace_with_pi();
 
-        InnerProver prover;
+        AvmProver prover;
         auto [proof, vk_data] = prover.prove(std::move(trace));
+        proof.resize(AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED, FF::zero()); // Pad proof
 
         const bool verified = prover.verify(proof, public_inputs, vk_data);
         EXPECT_TRUE(verified) << "native proof verification failed";
 
-        const auto public_inputs_flat = PublicInputs::columns_to_flat(public_inputs.to_columns());
+        auto public_inputs_flat = PublicInputs::columns_to_flat(public_inputs.to_columns());
+        public_inputs_flat.resize(AVM_PUBLIC_INPUTS_COLUMNS_COMBINED_LENGTH, FF::zero()); // Pad public inputs
 
         return { proof, public_inputs_flat };
     }
 
-    /**
-     * @brief Create a circuit that recursively verifies one or more inner avm2 circuits
-     */
-    static AcirProgram construct_avm_verifier_program(const std::vector<InnerCircuitData>& inner_circuits)
+    static ProgramMetadata generate_metadata() { return ProgramMetadata{ .has_ipa_claim = true }; }
+
+    static void generate_constraints(AcirConstraint& avm_recursion_constraint, WitnessVector& witness_values)
     {
-        std::vector<RecursionConstraint> avm_recursion_constraints;
+        const auto [proof, public_inputs_flat] = create_avm_data();
+        avm_recursion_constraint = RecursionConstraint{
+            .key = {}, // Unused, the key is hard-coded in the circuit
+            .proof = add_to_witness_and_track_indices(witness_values, proof),
+            .public_inputs = add_to_witness_and_track_indices(witness_values, public_inputs_flat),
+            .key_hash = IS_CONSTANT, // Unused, the key hash is hard-coded in the circuit
+            .proof_type = AVM,
+            .predicate = WitnessOrConstant<typename Builder::FF>::from_constant(1),
+        };
+    }
 
-        AcirProgram program;
-
-        std::vector<fr>& witness = program.witness;
-
-        for (const auto& inner_circuit_data : inner_circuits) {
-            const std::vector<fr> proof_witnesses = inner_circuit_data.proof;
-            const std::vector<fr> public_inputs_witnesses = inner_circuit_data.public_inputs_flat;
-
-            RecursionConstraint avm_recursion_constraint{
-                .proof = add_to_witness_and_track_indices(witness, proof_witnesses),
-                .public_inputs = add_to_witness_and_track_indices(witness, public_inputs_witnesses),
-                .key_hash = 0, // not used
-                .proof_type = AVM,
-            };
-            avm_recursion_constraints.push_back(avm_recursion_constraint);
+    static std::pair<AcirConstraint, WitnessVector> invalidate_witness(
+        AcirConstraint constraint, WitnessVector witness_values, const InvalidWitness::Target& invalid_witness_target)
+    {
+        switch (invalid_witness_target) {
+        case InvalidWitness::Target::None:
+            break;
+        case InvalidWitness::Target::PublicInputs: {
+            // Tamper with the public inputs
+            witness_values[constraint.public_inputs[0]] += FF::one();
+            break;
+        }
+        case InvalidWitness::Target::Proof: {
+            // Tamper with the proof by changing one of the univariate coefficients
+            witness_values[constraint.proof[FrCodec::calc_num_fields<AvmFlavor::Commitment>() *
+                                            AvmFlavor::NUM_WITNESS_ENTITIES]] += FF::one();
+            break;
+        }
         }
 
-        std::vector<size_t> avm_recursion_opcode_indices(avm_recursion_constraints.size());
-        std::iota(avm_recursion_opcode_indices.begin(), avm_recursion_opcode_indices.end(), 0);
-
-        AcirFormat& constraint_system = program.constraints;
-        constraint_system.max_witness_index = static_cast<uint32_t>(witness.size() - 1);
-        constraint_system.num_acir_opcodes = static_cast<uint32_t>(avm_recursion_constraints.size());
-        constraint_system.avm_recursion_constraints = avm_recursion_constraints;
-        constraint_system.original_opcode_indices = create_empty_original_opcode_indices();
-
-        mock_opcode_indices(constraint_system);
-
-        return program;
+        return { constraint, witness_values };
     }
 };
 
-TEST_F(AcirAvm2RecursionConstraint, TestBasicSingleAvm2RecursionConstraint)
-{
-    // Skip this test since it is redundant with the one below (which also does proving and verification for the AVM
-    // recursive verifier circuit) and both are expensive to run. It would be nice to reinstate this as a standalone in
-    // the future if possible.
-    GTEST_SKIP();
+class AvmRecursionConstraintTest : public ::testing::Test, public TestClass<AvmRecursionConstraintTestingFunctions> {
+  protected:
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
+};
 
-    std::vector<InnerCircuitData> layer_1_circuits;
-    layer_1_circuits.push_back(create_inner_circuit_data());
-    AcirProgram avm_verifier_program = construct_avm_verifier_program(layer_1_circuits);
-    auto layer_2_circuit = create_circuit<OuterBuilder>(avm_verifier_program);
-
-    info("circuit gates = ", layer_2_circuit.get_num_finalized_gates_inefficient());
-
-    auto prover_instance = std::make_shared<OuterProverInstance>(layer_2_circuit);
-    auto verification_key = std::make_shared<OuterVerificationKey>(prover_instance->get_precomputed());
-    OuterProver prover(prover_instance, verification_key);
-    info("prover gates = ", prover_instance->dyadic_size());
-    auto proof = prover.construct_proof();
-    UltraRollupVerifier verifier(std::make_shared<UltraRollupFlavor::VKAndHash>(verification_key));
-    bool result = verifier.verify_proof(proof).result;
-    EXPECT_TRUE(result);
-}
-
-/**
- * @brief Ensure that an AVM2 recursive verifier circuit VK can be constructed from a corresponding acir program without
- * a witness.
- * @details This is the logic required, for example, to write the VK of the public base circuit without knowledge of a
- * particular satisfying witness.
- *
- */
-TEST_F(AcirAvm2RecursionConstraint, TestGenerateVKFromConstraintsWithoutWitness)
+TEST_F(AvmRecursionConstraintTest, GenerateVKFromConstraints)
 {
     if (avm2::testing::skip_slow_tests()) {
         GTEST_SKIP() << "Skipping slow test";
     }
+    // AVM constraints are always proven with UltraRollupFlavor (they are part of the base rollup circuit)
+    size_t num_gates = test_vk_independence<UltraRollupFlavor>();
 
-    // Generate AVM proof, verification key and public inputs
-    InnerCircuitData avm_prover_output = create_inner_circuit_data();
+    EXPECT_EQ(num_gates, FINALIZED_GOBLIN_AVM_GATE_COUNT);
+}
 
-    // First, construct an AVM2 recursive verifier circuit VK by providing a valid program witness
-    std::shared_ptr<OuterVerificationKey> expected_vk;
+TEST_F(AvmRecursionConstraintTest, Tampering)
+{
+    if (avm2::testing::skip_slow_tests()) {
+        GTEST_SKIP() << "Skipping slow test";
+    }
+    std::vector<std::string> _ = test_tampering();
+}
+
+TEST_F(AvmRecursionConstraintTest, GateCountAndVKCheck)
+{
+    if (avm2::testing::skip_slow_tests()) {
+        GTEST_SKIP() << "Skipping slow test";
+    }
+    using ProverInstance = ProverInstance_<UltraRollupFlavor>;
+
+    static constexpr FF EXPECTED_OUTER_VK_HASH =
+        FF("0x2db814b00aa8881bf5701dc7f203e4c7c7c976cfff151d8bfe477779c75bd96c");
+
+    AcirConstraint constraint;
+    WitnessVector witness;
+    Base::generate_constraints(constraint, witness);
+
+    AcirFormat acir_format = constraint_to_acir_format(constraint, static_cast<uint32_t>(witness.size() - 1));
+
+    AcirProgram program = { acir_format, {} };
+    ProgramMetadata metadata = Base::generate_metadata();
+    metadata.collect_gates_per_opcode = true;
+    auto builder = create_circuit<Builder>(program, metadata);
+
+    EXPECT_EQ(program.constraints.gates_per_opcode.size(), 1);
+    EXPECT_EQ(program.constraints.gates_per_opcode[0], GOBLIN_AVM_GATE_COUNT);
+
+    auto prover_instance = std::make_shared<ProverInstance>(builder);
+    auto vk = std::make_shared<typename UltraRollupFlavor::VerificationKey>(prover_instance->get_precomputed());
+    EXPECT_EQ(vk->hash(), EXPECTED_OUTER_VK_HASH)
+        << "The VK hash of the outer circuit in the Goblinized AVM recursive verifier has changed. If this is "
+           "expected, update the expected value in the test.";
+}
+
+class AvmRecursionInnerCircuitTests : public ::testing::Test {
+  public:
+    using Builder = UltraCircuitBuilder;
+    using InnerProverOutput = AvmGoblinRecursiveVerifier::InnerProverOutput;
+    using RecursiveAvmGoblinOutput = AvmGoblinRecursiveVerifier::RecursiveAvmGoblinOutput;
+    using FF = Builder::FF;
+
+    static constexpr FF EXPECTED_INNER_VK_HASH =
+        FF("0x2370e99c105d4dd689b626c376de4ee5f257ed99163094d57720159ac1e96881");
+
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
+
+    static std::tuple<stdlib::Proof<Builder>, std::vector<std::vector<field_t<Builder>>>, InnerProverOutput>
+    create_and_prove_inner_circuit(Builder& outer_builder,
+                                   const HonkProof& proof,
+                                   const std::vector<FF>& public_inputs_flat)
     {
-        AcirProgram avm_verifier_program = construct_avm_verifier_program({ avm_prover_output });
-        const ProgramMetadata metadata{
-            .has_ipa_claim = true,
-        };
-        auto layer_2_circuit = create_circuit<OuterBuilder>(avm_verifier_program, metadata);
+        std::vector<field_t<Builder>> stdlib_public_inputs_flat;
+        stdlib_public_inputs_flat.reserve(AVM_PUBLIC_INPUTS_COLUMNS_COMBINED_LENGTH);
+        for (const auto public_input : public_inputs_flat) {
+            stdlib_public_inputs_flat.emplace_back(field_t<Builder>::from_witness(&outer_builder, public_input));
+        }
+        stdlib::Proof<Builder> stdlib_proof;
+        stdlib_proof.reserve(AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED);
+        for (const auto proof_element : proof) {
+            stdlib_proof.emplace_back(field_t<Builder>::from_witness(&outer_builder, proof_element));
+        }
 
-        info("circuit gates = ", layer_2_circuit.get_num_finalized_gates_inefficient());
+        AvmGoblinRecursiveVerifier goblin_avm_verifier(outer_builder);
+        std::vector<std::vector<field_t<Builder>>> public_inputs =
+            PublicInputs::flat_to_columns<field_t<Builder>>(stdlib_public_inputs_flat);
+        auto [mega_proof, goblin_proof, mega_vk] =
+            goblin_avm_verifier.construct_and_prove_inner_recursive_verification_circuit(stdlib_proof, public_inputs);
 
-        auto prover_instance = std::make_shared<OuterProverInstance>(layer_2_circuit);
-        expected_vk = std::make_shared<OuterVerificationKey>(prover_instance->get_precomputed());
-        OuterProver prover(prover_instance, expected_vk);
-        info("prover gates = ", prover_instance->dyadic_size());
+        return { stdlib_proof, public_inputs, { mega_proof, goblin_proof, mega_vk } };
+    }
+};
 
-        // Construct and verify a proof of the outer AVM verifier circuits
-        auto proof = prover.construct_proof();
-        UltraRollupVerifier verifier(std::make_shared<UltraRollupFlavor::VKAndHash>(expected_vk));
+TEST_F(AvmRecursionInnerCircuitTests, VKCheck)
+{
+    if (avm2::testing::skip_slow_tests()) {
+        GTEST_SKIP() << "Skipping slow test";
+    }
+    const auto [proof, public_inputs_flat] = AvmRecursionConstraintTestingFunctions::create_avm_data();
 
-        bool result = verifier.verify_proof(proof).result;
-        EXPECT_TRUE(result);
+    Builder outer_builder;
+    auto [_stdlib_proof, _public_inputs, inner_prover_output] =
+        create_and_prove_inner_circuit(outer_builder, proof, public_inputs_flat);
+    EXPECT_EQ(inner_prover_output.mega_vk->hash(), EXPECTED_INNER_VK_HASH)
+        << "The VK hash of the inner circuit in the Goblinized AVM recursive verifier has changed. If this is "
+           "expected, update the expected value in the test.";
+}
+
+/**
+ * @brief Test that if the data passed to the outer circuit construction is not valid (mega proof/goblin proof are
+ * invalid, vk is different from the one of the inner circuit), then the outer circuit fails.
+ *
+ */
+TEST_F(AvmRecursionInnerCircuitTests, Tampering)
+{
+    if (avm2::testing::skip_slow_tests()) {
+        GTEST_SKIP() << "Skipping slow test";
+    }
+    const auto [proof, public_inputs_flat] = AvmRecursionConstraintTestingFunctions::create_avm_data();
+
+    {
+        Builder outer_builder;
+        auto [stdlib_proof, public_inputs, inner_prover_output] =
+            create_and_prove_inner_circuit(outer_builder, proof, public_inputs_flat);
+
+        auto mega_proof_tampered = inner_prover_output.mega_proof;
+        mega_proof_tampered[0] += FF::one(); // Tamper with the first public input
+
+        AvmGoblinRecursiveVerifier goblin_avm_verifier(outer_builder);
+        RecursiveAvmGoblinOutput output = goblin_avm_verifier.construct_outer_recursive_verification_circuit(
+            stdlib_proof,
+            public_inputs,
+            { mega_proof_tampered, inner_prover_output.goblin_proof, inner_prover_output.mega_vk });
+
+        EXPECT_TRUE(outer_builder.failed());
     }
 
-    // Now, construct the AVM2 recursive verifier circuit VK by providing the program without a witness
-    std::shared_ptr<OuterVerificationKey> actual_vk;
     {
-        AcirProgram avm_verifier_program = construct_avm_verifier_program({ avm_prover_output });
+        Builder outer_builder;
+        auto [stdlib_proof, public_inputs, inner_prover_output] =
+            create_and_prove_inner_circuit(outer_builder, proof, public_inputs_flat);
 
-        // Clear the program witness then construct the bberg circuit as normal
-        avm_verifier_program.witness.clear();
-        const ProgramMetadata metadata{ .has_ipa_claim = true };
-        auto layer_2_circuit = create_circuit<OuterBuilder>(avm_verifier_program, metadata);
+        auto goblin_proof_tampered = inner_prover_output.goblin_proof;
+        goblin_proof_tampered.merge_proof[0] -= FF::one(); // Tamper with merge proof shift size
 
-        info("circuit gates = ", layer_2_circuit.get_num_finalized_gates_inefficient());
+        AvmGoblinRecursiveVerifier goblin_avm_verifier(outer_builder);
+        RecursiveAvmGoblinOutput output = goblin_avm_verifier.construct_outer_recursive_verification_circuit(
+            stdlib_proof,
+            public_inputs,
+            { inner_prover_output.mega_proof, goblin_proof_tampered, inner_prover_output.mega_vk });
 
-        auto prover_instance = std::make_shared<OuterProverInstance>(layer_2_circuit);
-        actual_vk = std::make_shared<OuterVerificationKey>(prover_instance->get_precomputed());
-        OuterProver prover(prover_instance, actual_vk);
-        info("prover gates = ", prover_instance->dyadic_size());
+        EXPECT_TRUE(outer_builder.failed());
     }
 
-    // Compare the VK constructed via running the IVC with the one constructed via mocking
-    EXPECT_EQ(*actual_vk.get(), *expected_vk.get());
+    {
+        Builder outer_builder;
+        auto [stdlib_proof, public_inputs, inner_prover_output] =
+            create_and_prove_inner_circuit(outer_builder, proof, public_inputs_flat);
+
+        auto mega_vk_tampered = inner_prover_output.mega_vk;
+        mega_vk_tampered->q_m = mega_vk_tampered->q_m + MegaAvmFlavor::Commitment::one(); // Tamper with q_m commitment
+
+        AvmGoblinRecursiveVerifier goblin_avm_verifier(outer_builder);
+        RecursiveAvmGoblinOutput output = goblin_avm_verifier.construct_outer_recursive_verification_circuit(
+            stdlib_proof,
+            public_inputs,
+            { inner_prover_output.mega_proof, inner_prover_output.goblin_proof, mega_vk_tampered });
+
+        EXPECT_TRUE(outer_builder.failed());
+    }
 }

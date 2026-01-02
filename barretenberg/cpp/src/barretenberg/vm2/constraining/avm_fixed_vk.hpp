@@ -66,9 +66,9 @@ class AvmFixedVKCommitments {
                 uint256_t(
                     "0x090dda25e7d64ab5cabe09fd80fbb731af2a98de7a608157dc10394b4fc022a4")), // precomputed_exec_opcode_dynamic_l2_gas
             Commitment(
-                uint256_t("0x1de2201730f35721687604adf0035c8213a4b19caf17756063b9e516a0904cca"),
+                uint256_t("0x1139e8df5eabbe4201a0d73a0cfa7e12833955b6e190ec05fcdc0002d2756736"),
                 uint256_t(
-                    "0x1efb2dc65f3d27cdde93c07d042a0da3050355239d3e2d7908797b1780c10f40")), // precomputed_exec_opcode_opcode_gas
+                    "0x1ed8930b01998a1ba6c2df226f9e9a2aa93606228ed6d74b568c93cbdd6fb77f")), // precomputed_exec_opcode_opcode_gas
             Commitment(
                 uint256_t("0x296def9415d1c96b4d8ab91df5f59ad8522a726f98461b1ab5c4d4c5b22471a4"),
                 uint256_t(
