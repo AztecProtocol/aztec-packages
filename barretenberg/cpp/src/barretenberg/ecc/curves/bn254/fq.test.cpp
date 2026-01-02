@@ -77,6 +77,152 @@ TEST(BN254Fq, CompileTimeInversion)
 }
 
 // ================================
+// Montgomery Form
+// ================================
+
+TEST(BN254Fq, FromMontgomeryForm)
+{
+    constexpr fq t0 = fq::one();
+    constexpr fq result = t0.from_montgomery_form();
+    constexpr fq expected{ 0x01, 0x00, 0x00, 0x00 };
+    EXPECT_EQ(result, expected);
+}
+
+TEST(BN254Fq, MontgomeryConsistencyCheck)
+{
+    fq a = fq::random_element();
+    fq b = fq::random_element();
+    fq aR;
+    fq bR;
+    fq aRR;
+    fq bRR;
+    fq bRRR;
+    fq result_a;
+    fq result_b;
+    fq result_c;
+    fq result_d;
+    aR = a.to_montgomery_form();
+    aRR = aR.to_montgomery_form();
+    bR = b.to_montgomery_form();
+    bRR = bR.to_montgomery_form();
+    bRRR = bRR.to_montgomery_form();
+    result_a = aRR * bRR; // abRRR
+    result_b = aR * bRRR; // abRRR
+    result_c = aR * bR;   // abR
+    result_d = a * b;     // abR^-1
+    EXPECT_EQ((result_a == result_b), true);
+    result_a.self_from_montgomery_form(); // abRR
+    result_a.self_from_montgomery_form(); // abR
+    result_a.self_from_montgomery_form(); // ab
+    result_c.self_from_montgomery_form(); // ab
+    result_d.self_to_montgomery_form();   // ab
+    EXPECT_EQ((result_a == result_c), true);
+    EXPECT_EQ((result_a == result_d), true);
+}
+
+// ================================
+// Arithmetic Consistency
+// ================================
+
+TEST(BN254Fq, AddMulConsistency)
+{
+    fq multiplicand = { 0x09, 0, 0, 0 };
+    multiplicand.self_to_montgomery_form();
+
+    fq a = fq::random_element();
+    fq result;
+    result = a + a;   // 2
+    result += result; // 4
+    result += result; // 8
+    result += a;      // 9
+
+    fq expected;
+    expected = a * multiplicand;
+
+    EXPECT_EQ((result == expected), true);
+}
+
+TEST(BN254Fq, SubMulConsistency)
+{
+    fq multiplicand = { 0x05, 0, 0, 0 };
+    multiplicand.self_to_montgomery_form();
+
+    fq a = fq::random_element();
+    fq result;
+    result = a + a;   // 2
+    result += result; // 4
+    result += result; // 8
+    result -= a;      // 7
+    result -= a;      // 6
+    result -= a;      // 5
+
+    fq expected;
+    expected = a * multiplicand;
+
+    EXPECT_EQ((result == expected), true);
+}
+
+TEST(BN254Fq, Invert)
+{
+    fq input = fq::random_element();
+    fq inverse = input.invert();
+    fq result = input * inverse;
+    result = result.reduce_once();
+    result = result.reduce_once();
+    EXPECT_EQ(result, fq::one());
+}
+
+TEST(BN254Fq, InvertOneIsOne)
+{
+    fq result = fq::one();
+    result = result.invert();
+    EXPECT_EQ((result == fq::one()), true);
+}
+
+TEST(BN254Fq, Sqrt)
+{
+    fq input = fq::one();
+    auto [is_sqr, root] = input.sqrt();
+    fq result = root.sqr();
+    EXPECT_EQ(result, input);
+}
+
+TEST(BN254Fq, SqrtRandom)
+{
+    for (size_t i = 0; i < 1; ++i) {
+        fq input = fq::random_element().sqr();
+        auto [is_sqr, root] = input.sqrt();
+        fq root_test = root.sqr();
+        EXPECT_EQ(root_test, input);
+    }
+}
+
+TEST(BN254Fq, OneAndZero)
+{
+    fq result;
+    result = fq::one() - fq::one();
+    EXPECT_EQ((result == fq::zero()), true);
+}
+
+TEST(BN254Fq, Copy)
+{
+    fq result = fq::random_element();
+    fq expected;
+    fq::__copy(result, expected);
+    EXPECT_EQ((result == expected), true);
+}
+
+TEST(BN254Fq, Neg)
+{
+    fq a = fq::random_element();
+    fq b;
+    b = -a;
+    fq result;
+    result = a + b;
+    EXPECT_EQ((result == fq::zero()), true);
+}
+
+// ================================
 // Endomorphism
 // ================================
 
@@ -220,6 +366,14 @@ TEST(BN254Fq, SerializeFromBuffer)
 // ================================
 // Regression Tests
 // ================================
+
+// TEST to check we don't have 0^0=0
+TEST(BN254Fq, PowRegressionCheck)
+{
+    fq zero = fq::zero();
+    fq one = fq::one();
+    EXPECT_EQ(zero.pow(uint256_t(0)), one);
+}
 
 // AUDITTODO: should we remove this test?
 TEST(BN254Fq, SqrRegression)
