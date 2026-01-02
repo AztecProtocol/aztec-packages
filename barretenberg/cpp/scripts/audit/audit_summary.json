@@ -1,108 +1,108 @@
 {
   "commitment_schemes": {
     "internal": {
-      "not started": 13,
+      "not started": 8,
       "complete": 8
     },
     "external_1": {
-      "not started": 21
+      "not started": 16
     },
     "external_2": {
-      "not started": 21
+      "not started": 16
     }
   },
   "crypto": {
     "internal": {
-      "not started": 62,
+      "not started": 59,
       "complete": 12
     },
     "external_1": {
-      "not started": 74
+      "not started": 71
     },
     "external_2": {
-      "not started": 74
+      "not started": 71
     }
   },
   "dsl": {
     "internal": {
-      "not started": 37,
+      "not started": 33,
       "complete": 25
     },
     "external_1": {
-      "not started": 62
+      "not started": 58
     },
     "external_2": {
-      "not started": 62
+      "not started": 58
     }
   },
   "ecc": {
     "internal": {
-      "not started": 44
+      "not started": 42
     },
     "external_1": {
-      "not started": 44
+      "not started": 42
     },
     "external_2": {
-      "not started": 44
+      "not started": 42
     }
   },
   "eccvm": {
     "internal": {
-      "not started": 13,
+      "not started": 12,
       "complete": 2
     },
     "external_1": {
-      "not started": 15
+      "not started": 14
     },
     "external_2": {
-      "not started": 15
+      "not started": 14
     }
   },
   "flavor": {
     "internal": {
-      "not started": 22
+      "not started": 21
     },
     "external_1": {
-      "not started": 22
+      "not started": 21
     },
     "external_2": {
-      "not started": 22
+      "not started": 21
     }
   },
   "goblin": {
     "internal": {
-      "not started": 7,
+      "not started": 6,
       "complete": 4
     },
     "external_1": {
-      "not started": 11
+      "not started": 10
     },
     "external_2": {
-      "not started": 11
+      "not started": 10
     }
   },
   "honk": {
     "internal": {
-      "not started": 15,
+      "not started": 13,
       "complete": 3
     },
     "external_1": {
-      "not started": 18
+      "not started": 16
     },
     "external_2": {
-      "not started": 18
+      "not started": 16
     }
   },
   "numeric": {
     "internal": {
-      "not started": 15,
+      "not started": 14,
       "complete": 1
     },
     "external_1": {
-      "not started": 16
+      "not started": 15
     },
     "external_2": {
-      "not started": 16
+      "not started": 15
     }
   },
   "op_queue": {
@@ -118,14 +118,14 @@
   },
   "polynomials": {
     "internal": {
-      "not started": 13,
+      "not started": 12,
       "complete": 3
     },
     "external_1": {
-      "not started": 16
+      "not started": 15
     },
     "external_2": {
-      "not started": 16
+      "not started": 15
     }
   },
   "relations": {
@@ -142,26 +142,26 @@
   },
   "stdlib": {
     "internal": {
-      "not started": 38,
+      "not started": 37,
       "complete": 56
     },
     "external_1": {
-      "not started": 94
+      "not started": 93
     },
     "external_2": {
-      "not started": 94
+      "not started": 93
     }
   },
   "stdlib_circuit_builders": {
     "internal": {
       "complete": 23,
-      "not started": 8
+      "not started": 7
     },
     "external_1": {
-      "not started": 31
+      "not started": 30
     },
     "external_2": {
-      "not started": 31
+      "not started": 30
     }
   },
   "sumcheck": {
@@ -212,13 +212,13 @@
   },
   "ultra_honk": {
     "internal": {
-      "not started": 14
+      "not started": 13
     },
     "external_1": {
-      "not started": 14
+      "not started": 13
     },
     "external_2": {
-      "not started": 14
+      "not started": 13
     }
   },
   "vm2": {
@@ -257,13 +257,13 @@
   "chonk": {
     "internal": {
       "complete": 8,
-      "not started": 3
+      "not started": 1
     },
     "external_1": {
-      "not started": 11
+      "not started": 9
     },
     "external_2": {
-      "not started": 11
+      "not started": 9
     }
   },
   "hypernova": {
