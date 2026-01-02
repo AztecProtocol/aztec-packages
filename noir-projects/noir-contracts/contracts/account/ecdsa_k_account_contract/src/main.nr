@@ -74,6 +74,7 @@ pub contract EcdsaKAccount {
         actions.verify_private_authwit(inner_hash)
     }
 
+    // docs:start:is_valid_impl
     #[contract_library_method]
     fn is_valid_impl(context: &mut PrivateContext, outer_hash: Field) -> bool {
         // Load public key from storage
@@ -100,4 +101,5 @@ pub contract EcdsaKAccount {
             hashed_message,
         )
     }
+    // docs:end:is_valid_impl
 }

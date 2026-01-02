@@ -24,6 +24,7 @@ import { TxHash } from './tx_hash.js';
 /**
  * The interface of an L2 transaction.
  */
+// docs:start:tx_class
 export class Tx extends Gossipable {
   static override p2pTopic = TopicType.tx;
 
@@ -53,6 +54,7 @@ export class Tx extends Gossipable {
   ) {
     super();
   }
+  // docs:end:tx_class
 
   // Gossipable method
   override generateP2PMessageIdentifier(): Promise<Buffer32> {
