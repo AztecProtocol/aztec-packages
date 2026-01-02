@@ -205,6 +205,9 @@ class CLIScanner:
                 result["commands"].append(cmd)
         del result["additional_commands"]
 
+        # Sort commands alphabetically for deterministic output
+        result["commands"] = sorted(result["commands"], key=lambda x: x["name"])
+
         return result
 
     def parse_custom_help(self, help_text: str) -> Dict[str, Any]:
@@ -328,6 +331,8 @@ class CLIScanner:
                         cmd_name = cmd["name"]
                         sub_result = self.scan_command(cmd_path + [cmd_name], depth + 1, help_output)
                         subcommands[cmd_name] = sub_result
+                    # Sort subcommands alphabetically for deterministic output
+                    subcommands = dict(sorted(subcommands.items()))
 
             if subcommands:
                 parsed["subcommands"] = subcommands
@@ -382,7 +387,8 @@ class CLIScanner:
                         "error_message": str(e)
                     }
 
-        return subcommands
+        # Sort subcommands alphabetically for deterministic output
+        return dict(sorted(subcommands.items()))
 
     def scan(self) -> Dict[str, Any]:
         """Start the recursive scan from the base command."""
