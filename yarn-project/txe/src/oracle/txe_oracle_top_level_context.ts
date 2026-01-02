@@ -292,6 +292,11 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       throw new Error(message);
     }
 
+    // Sync notes before executing private function to discover notes from previous transactions
+    await this.contractDataProvider.syncPrivateState(targetContractAddress, functionSelector, async call => {
+      await this.executeUtilityCall(call);
+    });
+
     const blockNumber = await this.txeGetNextBlockNumber();
 
     const callContext = new CallContext(from, targetContractAddress, functionSelector, isStaticCall);
