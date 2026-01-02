@@ -4,15 +4,7 @@ import type { KeyStore } from '@aztec/key-store';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { CompleteAddress } from '@aztec/stdlib/contract';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
-import {
-  DirectionalAppTaggingSecret,
-  PendingTaggedLog,
-  PrivateLogWithTxData,
-  PublicLogWithTxData,
-  SiloedTag,
-  Tag,
-  TxScopedL2Log,
-} from '@aztec/stdlib/logs';
+import { DirectionalAppTaggingSecret, PendingTaggedLog, SiloedTag, Tag, TxScopedL2Log } from '@aztec/stdlib/logs';
 
 import type { LogRetrievalRequest } from '../contract_function_simulator/noir-structs/log_retrieval_request.js';
 import { LogRetrievalResponse } from '../contract_function_simulator/noir-structs/log_retrieval_response.js';
@@ -39,41 +31,23 @@ export class LogService {
   public async bulkRetrieveLogs(logRetrievalRequests: LogRetrievalRequest[]): Promise<(LogRetrievalResponse | null)[]> {
     return await Promise.all(
       logRetrievalRequests.map(async request => {
-        // TODO(F-231): remove these internal functions and have node endpoints that do this instead
         const [publicLog, privateLog] = await Promise.all([
-          this.getPublicLogByTag(request.tag, request.contractAddress),
-          this.getPrivateLogByTag(await SiloedTag.compute(request.tag, request.contractAddress)),
+          this.#getPublicLogByTag(request.tag, request.contractAddress),
+          this.#getPrivateLogByTag(await SiloedTag.compute(request.tag, request.contractAddress)),
         ]);
 
-        if (publicLog !== null) {
-          if (privateLog !== null) {
-            throw new Error(
-              `Found both a public and private log when searching for tag ${request.tag} from contract ${request.contractAddress}`,
-            );
-          }
-
-          return new LogRetrievalResponse(
-            publicLog.logPayload,
-            publicLog.txHash,
-            publicLog.uniqueNoteHashesInTx,
-            publicLog.firstNullifierInTx,
+        if (publicLog !== null && privateLog !== null) {
+          throw new Error(
+            `Found both a public and private log when searching for tag ${request.tag} from contract ${request.contractAddress}`,
           );
-        } else if (privateLog !== null) {
-          return new LogRetrievalResponse(
-            privateLog.logPayload,
-            privateLog.txHash,
-            privateLog.uniqueNoteHashesInTx,
-            privateLog.firstNullifierInTx,
-          );
-        } else {
-          return null;
         }
+
+        return publicLog ?? privateLog;
       }),
     );
   }
 
-  // TODO(F-231): delete this function and implement this behavior in the node instead
-  public async getPublicLogByTag(tag: Tag, contractAddress: AztecAddress): Promise<PublicLogWithTxData | null> {
+  async #getPublicLogByTag(tag: Tag, contractAddress: AztecAddress): Promise<LogRetrievalResponse | null> {
     const logs = await this.aztecNode.getPublicLogsByTagsFromContract(contractAddress, [tag]);
     const logsForTag = logs[0];
 
@@ -88,24 +62,15 @@ export class LogService {
 
     const scopedLog = logsForTag[0];
 
-    // getLogsByTag doesn't have all of the information that we need (notably note hashes and the first nullifier), so
-    // we need to make a second call to the node for `getTxEffect`.
-    // TODO(#9789): bundle this information in the `getLogsByTag` call.
-    const txEffect = await this.aztecNode.getTxEffect(scopedLog.txHash);
-    if (txEffect == undefined) {
-      throw new Error(`Unexpected: failed to retrieve tx effects for tx ${scopedLog.txHash} which is known to exist`);
-    }
-
-    return new PublicLogWithTxData(
-      scopedLog.log.getEmittedFieldsWithoutTag(),
+    return new LogRetrievalResponse(
+      scopedLog.logData.slice(1), // Skip the tag
       scopedLog.txHash,
-      txEffect.data.noteHashes,
-      txEffect.data.nullifiers[0],
+      scopedLog.noteHashes,
+      scopedLog.firstNullifier,
     );
   }
 
-  // TODO(F-231): delete this function and implement this behavior in the node instead
-  public async getPrivateLogByTag(siloedTag: SiloedTag): Promise<PrivateLogWithTxData | null> {
+  async #getPrivateLogByTag(siloedTag: SiloedTag): Promise<LogRetrievalResponse | null> {
     const logs = await this.aztecNode.getPrivateLogsByTags([siloedTag]);
     const logsForTag = logs[0];
 
@@ -120,19 +85,11 @@ export class LogService {
 
     const scopedLog = logsForTag[0];
 
-    // getLogsByTag doesn't have all of the information that we need (notably note hashes and the first nullifier), so
-    // we need to make a second call to the node for `getTxEffect`.
-    // TODO(#9789): bundle this information in the `getLogsByTag` call.
-    const txEffect = await this.aztecNode.getTxEffect(scopedLog.txHash);
-    if (txEffect == undefined) {
-      throw new Error(`Unexpected: failed to retrieve tx effects for tx ${scopedLog.txHash} which is known to exist`);
-    }
-
-    return new PrivateLogWithTxData(
-      scopedLog.log.getEmittedFieldsWithoutTag(),
+    return new LogRetrievalResponse(
+      scopedLog.logData.slice(1), // Skip the tag
       scopedLog.txHash,
-      txEffect.data.noteHashes,
-      txEffect.data.nullifiers[0],
+      scopedLog.noteHashes,
+      scopedLog.firstNullifier,
     );
   }
 
@@ -209,32 +166,24 @@ export class LogService {
     );
   }
 
-  async #storePendingTaggedLogs(
+  #storePendingTaggedLogs(
     contractAddress: AztecAddress,
     capsuleArrayBaseSlot: Fr,
     recipient: AztecAddress,
     privateLogs: TxScopedL2Log[],
   ) {
-    // Build all pending tagged logs upfront with their tx effects
-    const pendingTaggedLogs = await Promise.all(
-      privateLogs.map(async scopedLog => {
-        // TODO(#9789): get these effects along with the log
-        const txEffect = await this.aztecNode.getTxEffect(scopedLog.txHash);
-        if (!txEffect) {
-          throw new Error(`Could not find tx effect for tx hash ${scopedLog.txHash}`);
-        }
+    // Build all pending tagged logs from the scoped logs
+    const pendingTaggedLogs = privateLogs.map(scopedLog => {
+      const pendingTaggedLog = new PendingTaggedLog(
+        scopedLog.logData,
+        scopedLog.txHash,
+        scopedLog.noteHashes,
+        scopedLog.firstNullifier,
+        recipient,
+      );
 
-        const pendingTaggedLog = new PendingTaggedLog(
-          scopedLog.log.fields,
-          scopedLog.txHash,
-          txEffect.data.noteHashes,
-          txEffect.data.nullifiers[0],
-          recipient,
-        );
-
-        return pendingTaggedLog.toFields();
-      }),
-    );
+      return pendingTaggedLog.toFields();
+    });
 
     // TODO: This looks like it could belong more at the oracle interface level
     return this.capsuleDataProvider.appendToCapsuleArray(contractAddress, capsuleArrayBaseSlot, pendingTaggedLogs);
