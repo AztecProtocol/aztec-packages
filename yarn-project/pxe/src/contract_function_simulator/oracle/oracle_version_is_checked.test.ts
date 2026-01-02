@@ -18,8 +18,9 @@ import type { CapsuleDataProvider } from '../../storage/capsule_data_provider/ca
 import type { ContractDataProvider } from '../../storage/contract_data_provider/contract_data_provider.js';
 import type { NoteDataProvider } from '../../storage/note_data_provider/note_data_provider.js';
 import type { PrivateEventDataProvider } from '../../storage/private_event_data_provider/private_event_data_provider.js';
-import type { RecipientTaggingDataProvider } from '../../storage/tagging_data_provider/recipient_tagging_data_provider.js';
+import type { SenderAddressBook } from '../../storage/tagging_data_provider/sender_address_book.js';
 import type { SenderTaggingDataProvider } from '../../storage/tagging_data_provider/sender_tagging_data_provider.js';
+import type { RecipientTaggingDataProvider } from '../../tagging/recipient_sync/recipient_tagging_data_provider.js';
 import { ContractFunctionSimulator } from '../contract_function_simulator.js';
 import { UtilityExecutionOracle } from './utility_execution_oracle.js';
 
@@ -34,6 +35,7 @@ describe('Oracle Version Check test suite', () => {
   let anchorBlockDataProvider: ReturnType<typeof mock<AnchorBlockDataProvider>>;
   let senderTaggingDataProvider: ReturnType<typeof mock<SenderTaggingDataProvider>>;
   let recipientTaggingDataProvider: ReturnType<typeof mock<RecipientTaggingDataProvider>>;
+  let senderAddressBook: ReturnType<typeof mock<SenderAddressBook>>;
   let capsuleDataProvider: ReturnType<typeof mock<CapsuleDataProvider>>;
   let privateEventDataProvider: ReturnType<typeof mock<PrivateEventDataProvider>>;
   let acirSimulator: ContractFunctionSimulator;
@@ -52,6 +54,7 @@ describe('Oracle Version Check test suite', () => {
     anchorBlockDataProvider = mock<AnchorBlockDataProvider>();
     senderTaggingDataProvider = mock<SenderTaggingDataProvider>();
     recipientTaggingDataProvider = mock<RecipientTaggingDataProvider>();
+    senderAddressBook = mock<SenderAddressBook>();
     capsuleDataProvider = mock<CapsuleDataProvider>();
     privateEventDataProvider = mock<PrivateEventDataProvider>();
     utilityAssertCompatibleOracleVersionSpy = jest.spyOn(
@@ -69,10 +72,7 @@ describe('Oracle Version Check test suite', () => {
     senderTaggingDataProvider.getLastUsedIndex.mockResolvedValue(undefined);
     senderTaggingDataProvider.getTxHashesOfPendingIndexes.mockResolvedValue([]);
     senderTaggingDataProvider.storePendingIndexes.mockResolvedValue();
-    recipientTaggingDataProvider.getSenderAddresses.mockResolvedValue([]);
-    recipientTaggingDataProvider.getLastUsedIndexes.mockImplementation(secrets =>
-      Promise.resolve(secrets.map(() => undefined)),
-    );
+
     noteDataProvider.getNotes.mockResolvedValue([]);
     keyStore.getAccounts.mockResolvedValue([]);
 
@@ -100,6 +100,7 @@ describe('Oracle Version Check test suite', () => {
       anchorBlockDataProvider,
       senderTaggingDataProvider,
       recipientTaggingDataProvider,
+      senderAddressBook,
       capsuleDataProvider,
       privateEventDataProvider,
       simulator,

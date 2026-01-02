@@ -13,7 +13,7 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN } from '../sync/sync_sender_tagging_indexes.js';
 import { loadPrivateLogsForSenderRecipientPair } from './load_private_logs_for_sender_recipient_pair.js';
-import { NewRecipientTaggingDataProvider } from './new_recipient_tagging_data_provider.js';
+import { RecipientTaggingDataProvider } from './recipient_tagging_data_provider.js';
 
 // In this test suite we don't care about the anchor block behavior as that is sufficiently tested by
 // the loadLogsForRange test suite, so we use a high block number to ensure it occurs after all logs.
@@ -24,7 +24,7 @@ describe('loadPrivateLogsForSenderRecipientPair', () => {
   let app: AztecAddress;
 
   let aztecNode: MockProxy<AztecNode>;
-  let taggingDataProvider: NewRecipientTaggingDataProvider;
+  let taggingDataProvider: RecipientTaggingDataProvider;
 
   const currentTimestamp = BigInt(Math.floor(Date.now() / 1000));
 
@@ -56,7 +56,7 @@ describe('loadPrivateLogsForSenderRecipientPair', () => {
     aztecNode.getPrivateLogsByTags.mockReset();
     aztecNode.getL2Tips.mockReset();
     aztecNode.getBlockHeader.mockReset();
-    taggingDataProvider = new NewRecipientTaggingDataProvider(await openTmpStore('test'));
+    taggingDataProvider = new RecipientTaggingDataProvider(await openTmpStore('test'));
   });
 
   it('returns empty array when no logs found', async () => {
