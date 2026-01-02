@@ -444,7 +444,7 @@ WitnessVector witness_map_to_witness_vector(Witnesses::WitnessMap const& witness
         // To ensure that witnesses sit at the correct indices in the `WitnessVector`, we fill any indices
         // which do not exist within the `WitnessMap` with the dummy value of zero.
         while (index < e.first.value) {
-            witness_vector.emplace_back(0);
+            witness_vector.emplace_back(fr::random_element());
             index++;
         }
         witness_vector.emplace_back(from_buffer_with_bound_checks(e.second));
