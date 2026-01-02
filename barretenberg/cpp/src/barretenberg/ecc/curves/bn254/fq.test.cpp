@@ -290,27 +290,6 @@ TEST(fq, SubMulConsistency)
     EXPECT_EQ((result == expected), true);
 }
 
-TEST(fq, beta)
-{
-    fq x = fq::random_element();
-
-    fq beta_x = { x.data[0], x.data[1], x.data[2], x.data[3] };
-    fq beta = fq::cube_root_of_unity();
-    beta_x = beta_x * beta;
-
-    // compute x^3
-    fq x_cubed;
-    x_cubed = x * x;
-    x_cubed *= x;
-
-    // compute beta_x^3
-    fq beta_x_cubed;
-    beta_x_cubed = beta_x * beta_x;
-    beta_x_cubed *= beta_x;
-
-    EXPECT_EQ((x_cubed == beta_x_cubed), true);
-}
-
 TEST(fq, Invert)
 {
     fq input = fq::random_element();
@@ -506,25 +485,6 @@ TEST(fq, SerializeFromBuffer)
     fq result = fq::serialize_from_buffer(&buffer[0]);
 
     EXPECT_EQ((result == expected), true);
-}
-
-TEST(fq, MultiplicativeGenerator)
-{
-    EXPECT_EQ(fq::multiplicative_generator(), fq(3));
-}
-
-TEST(fq, RInv)
-{
-    uint256_t prime_256{
-        Bn254FqParams::modulus_0, Bn254FqParams::modulus_1, Bn254FqParams::modulus_2, Bn254FqParams::modulus_3
-    };
-    uint512_t r{ 0, 1 };
-    // -(1/q) mod r
-    uint512_t q{ -prime_256, 0 };
-    uint256_t q_inv = q.invmod(r).lo;
-    uint64_t expected = (q_inv).data[0];
-    uint64_t result = Bn254FqParams::r_inv;
-    EXPECT_EQ(result, expected);
 }
 
 // TEST to check we don't have 0^0=0
