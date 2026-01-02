@@ -451,9 +451,9 @@ class AvmFixedVKCommitments {
                 uint256_t(
                     "0x1f4f53d8c274f2019474fe304b7ec352663f08b2a128de79bdf7bc65e5db32b3")), // precomputed_sel_tag_parameters
             Commitment(
-                uint256_t("0x2437c8d0dbe47dc612ccf4a5ad9cee871c4f57bc794166dcfb96b127fed46398"),
+                uint256_t("0x122c377cad49f6338188909ccb858cf8304b3b00383bd44be42861a3d4158090"),
                 uint256_t(
-                    "0x1fc575fca116894d05b386b745949a6f438122e256d7dd889cc6bd0df5a4d20b")), // precomputed_sel_to_radix_p_limb_counts
+                    "0x2af6b300db680f1713472c2c931cd10ec804eb227a659b7928dbc2bc01a33791")), // precomputed_sel_to_radix_p_limb_counts
             Commitment(
                 uint256_t("0x1aad75d8502dcfee5df4a491c540577ad095025f94405a19bb3c314d9b88af45"),
                 uint256_t(
