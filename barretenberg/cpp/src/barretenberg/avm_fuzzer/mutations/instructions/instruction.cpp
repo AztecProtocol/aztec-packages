@@ -339,23 +339,31 @@ std::vector<FuzzInstruction> generate_toradixbe_instruction(std::mt19937_64& rng
     instructions.push_back(
         SET_32_Instruction{ .value_tag = bb::avm2::MemoryTag::U32, .result_address = radix_addr, .value = radix });
 
-    // SET the num_limbs (U32) - reasonable range based on radix
-    uint32_t num_limbs = std::uniform_int_distribution<uint32_t>(1, 256)(rng);
-    instructions.push_back(SET_32_Instruction{
-        .value_tag = bb::avm2::MemoryTag::U32, .result_address = num_limbs_addr, .value = num_limbs });
-
     // SET the output_bits (U1)
     bool is_output_bits = radix == 2;
     instructions.push_back(SET_8_Instruction{ .value_tag = bb::avm2::MemoryTag::U1,
                                               .result_address = output_bits_addr,
                                               .value = static_cast<uint8_t>(is_output_bits ? 1 : 0) });
-    // Pick the value such that it fits within the specified number of limbs and radix, if we truncate it will error
+
+    // Generate value with num_limbs digits
+    uint32_t num_limbs = std::uniform_int_distribution<uint32_t>(1, 256)(rng);
     bb::avm2::FF value = 0;
-    bb::avm2::FF exponent = radix;
+    bb::avm2::FF exponent = 1;
     for (uint32_t i = 0; i < num_limbs; i++) {
-        value += bb::avm2::FF(generate_random_uint32(rng) % radix) * exponent;
+        uint32_t digit = std::uniform_int_distribution<uint32_t>(0, radix - 1)(rng);
+        value += bb::avm2::FF(digit) * exponent;
         exponent *= radix;
     }
+
+    // 20% chance to truncate - reduce the number of limbs we request
+    if (std::uniform_int_distribution<int>(0, 4)(rng) == 0) {
+        num_limbs--;
+    }
+
+    // SET the num_limbs (U32)
+    instructions.push_back(SET_32_Instruction{
+        .value_tag = bb::avm2::MemoryTag::U32, .result_address = num_limbs_addr, .value = num_limbs });
+
     // SET the value (FF)
     instructions.push_back(
         SET_FF_Instruction{ .value_tag = bb::avm2::MemoryTag::FF, .result_address = value_addr, .value = value });
