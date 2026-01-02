@@ -25,25 +25,25 @@
   },
   "dsl": {
     "internal": {
-      "not started": 33,
+      "not started": 34,
       "complete": 25
     },
     "external_1": {
-      "not started": 58
+      "not started": 59
     },
     "external_2": {
-      "not started": 58
+      "not started": 59
     }
   },
   "ecc": {
     "internal": {
-      "not started": 42
+      "not started": 44
     },
     "external_1": {
-      "not started": 42
+      "not started": 44
     },
     "external_2": {
-      "not started": 42
+      "not started": 44
     }
   },
   "eccvm": {
@@ -83,26 +83,26 @@
   },
   "honk": {
     "internal": {
-      "not started": 13,
+      "not started": 14,
       "complete": 3
     },
     "external_1": {
-      "not started": 16
+      "not started": 17
     },
     "external_2": {
-      "not started": 16
+      "not started": 17
     }
   },
   "numeric": {
     "internal": {
-      "not started": 14,
+      "not started": 15,
       "complete": 1
     },
     "external_1": {
-      "not started": 15
+      "not started": 16
     },
     "external_2": {
-      "not started": 15
+      "not started": 16
     }
   },
   "op_queue": {
@@ -118,14 +118,14 @@
   },
   "polynomials": {
     "internal": {
-      "not started": 12,
+      "not started": 13,
       "complete": 3
     },
     "external_1": {
-      "not started": 15
+      "not started": 16
     },
     "external_2": {
-      "not started": 15
+      "not started": 16
     }
   },
   "relations": {
@@ -142,14 +142,14 @@
   },
   "stdlib": {
     "internal": {
-      "not started": 37,
+      "not started": 38,
       "complete": 56
     },
     "external_1": {
-      "not started": 93
+      "not started": 94
     },
     "external_2": {
-      "not started": 93
+      "not started": 94
     }
   },
   "stdlib_circuit_builders": {
@@ -280,14 +280,14 @@
   },
   "multilinear_batching": {
     "internal": {
-      "not started": 4,
+      "not started": 5,
       "complete": 2
     },
     "external_1": {
-      "not started": 6
+      "not started": 7
     },
     "external_2": {
-      "not started": 6
+      "not started": 7
     }
   },
   "vm2_stub": {
