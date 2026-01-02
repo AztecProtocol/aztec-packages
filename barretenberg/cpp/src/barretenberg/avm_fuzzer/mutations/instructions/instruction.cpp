@@ -101,16 +101,6 @@ std::vector<FuzzInstruction> generate_ecadd_instruction(std::mt19937_64& rng)
     AddressRef p2_y_addr = generate_address_ref(rng, MAX_16BIT_OPERAND);
     AddressRef p2_inf_addr = generate_address_ref(rng, MAX_8BIT_OPERAND);
 
-    // Force Direct addressing so SET instructions write to the same addresses that ECADD reads from.
-    // TODO: Implement smart backfilling for indirect addressing modes by also setting up
-    // the pointer addresses (e.g., M[pointer_address_seed] = target_address).
-    p1_x_addr.mode = AddressingMode::Direct;
-    p1_y_addr.mode = AddressingMode::Direct;
-    p1_inf_addr.mode = AddressingMode::Direct;
-    p2_x_addr.mode = AddressingMode::Direct;
-    p2_y_addr.mode = AddressingMode::Direct;
-    p2_inf_addr.mode = AddressingMode::Direct;
-
     backfill_point(p1, p1_x_addr, p1_y_addr, p1_inf_addr);
     backfill_point(p2, p2_x_addr, p2_y_addr, p2_inf_addr);
 
@@ -129,10 +119,11 @@ std::vector<FuzzInstruction> generate_ecadd_instruction(std::mt19937_64& rng)
 FuzzInstruction generate_set_for_tag(bb::avm2::MemoryTag tag, AddressRef addr, std::mt19937_64& rng)
 {
     switch (tag) {
+        // We use set 16 for u1 and u8 because using set_8 will limit the address range to 255.
     case bb::avm2::MemoryTag::U1:
-        return SET_8_Instruction{ .value_tag = tag, .result_address = addr, .value = static_cast<uint8_t>(rng() & 1) };
+        return SET_16_Instruction{ .value_tag = tag, .result_address = addr, .value = static_cast<uint8_t>(rng() & 1) };
     case bb::avm2::MemoryTag::U8:
-        return SET_8_Instruction{ .value_tag = tag, .result_address = addr, .value = generate_random_uint8(rng) };
+        return SET_16_Instruction{ .value_tag = tag, .result_address = addr, .value = generate_random_uint8(rng) };
     case bb::avm2::MemoryTag::U16:
         return SET_16_Instruction{ .value_tag = tag, .result_address = addr, .value = generate_random_uint16(rng) };
     case bb::avm2::MemoryTag::U32:
@@ -167,12 +158,6 @@ std::vector<FuzzInstruction> generate_alu_with_matching_tags(std::mt19937_64& rn
     AddressRef a_addr = generate_address_ref(rng, max_operand);
     AddressRef b_addr = generate_address_ref(rng, max_operand);
 
-    // Force Direct addressing so SET instructions write to the same addresses that ALU reads from.
-    // TODO: Implement smart backfilling for indirect addressing modes by also setting up
-    // the pointer addresses (e.g., M[pointer_address_seed] = target_address).
-    a_addr.mode = AddressingMode::Direct;
-    b_addr.mode = AddressingMode::Direct;
-
     std::vector<FuzzInstruction> instructions;
     instructions.push_back(generate_set_for_tag(tag, a_addr, rng));
     instructions.push_back(generate_set_for_tag(tag, b_addr, rng));
@@ -204,12 +189,6 @@ std::vector<FuzzInstruction> generate_alu_with_matching_tags_not_ff(std::mt19937
 
     AddressRef a_addr = generate_address_ref(rng, max_operand);
     AddressRef b_addr = generate_address_ref(rng, max_operand);
-
-    // Force Direct addressing so SET instructions write to the same addresses that ALU reads from.
-    // TODO: Implement smart backfilling for indirect addressing modes by also setting up
-    // the pointer addresses (e.g., M[pointer_address_seed] = target_address).
-    a_addr.mode = AddressingMode::Direct;
-    b_addr.mode = AddressingMode::Direct;
 
     std::vector<FuzzInstruction> instructions;
     instructions.push_back(generate_set_for_tag(tag, a_addr, rng));
@@ -247,12 +226,6 @@ std::vector<FuzzInstruction> generate_fdiv_instruction(std::mt19937_64& rng, uin
     AddressRef a_addr = generate_address_ref(rng, max_operand);
     AddressRef b_addr = generate_address_ref(rng, max_operand);
 
-    // Force Direct addressing so SET instructions write to the same addresses that FDIV reads from.
-    // TODO: Implement smart backfilling for indirect addressing modes by also setting up
-    // the pointer addresses (e.g., M[pointer_address_seed] = target_address).
-    a_addr.mode = AddressingMode::Direct;
-    b_addr.mode = AddressingMode::Direct;
-
     // SET the dividend (a)
     instructions.push_back(SET_FF_Instruction{
         .value_tag = bb::avm2::MemoryTag::FF, .result_address = a_addr, .value = generate_nonzero_field() });
@@ -279,19 +252,15 @@ std::vector<FuzzInstruction> generate_keccakf_instruction(std::mt19937_64& rng)
     }
     // Backfill mode
     std::vector<FuzzInstruction> instructions;
-    // Keccak needs to backfill 25 U64 values, these need be contiguous in memory
 
+    // Keccak needs to backfill 25 U64 values, these need be contiguous in memory
     AddressRef src_address = generate_address_ref(rng, MAX_16BIT_OPERAND - 24);
-    // Force Direct addressing so SET instructions write to the same addresses that KECCAKF1600 reads from.
-    // TODO: Implement smart backfilling for indirect addressing modes by also setting up
-    // the pointer addresses (e.g., M[pointer_address_seed] = target_address).
-    src_address.mode = AddressingMode::Direct;
     for (size_t i = 0; i < 25; i++) {
-        instructions.push_back(
-            SET_64_Instruction{ .value_tag = bb::avm2::MemoryTag::U64,
-                                .result_address = AddressRef{ .address = src_address.address + static_cast<uint32_t>(i),
-                                                              .mode = AddressingMode::Direct },
-                                .value = generate_random_uint64(rng) });
+        AddressRef item_address = src_address;
+        item_address.address += static_cast<uint32_t>(i);
+        instructions.push_back(SET_64_Instruction{ .value_tag = bb::avm2::MemoryTag::U64,
+                                                   .result_address = item_address,
+                                                   .value = generate_random_uint64(rng) });
     }
     instructions.push_back(KECCAKF1600_Instruction{ .src_address = src_address,
                                                     .dst_address = generate_address_ref(rng, MAX_16BIT_OPERAND) });
@@ -315,27 +284,24 @@ std::vector<FuzzInstruction> generate_sha256compression_instruction(std::mt19937
 
     // Generate state address (8 contiguous U32 values)
     AddressRef state_address = generate_address_ref(rng, MAX_16BIT_OPERAND - 7);
-    // Force Direct addressing so SET instructions write to the same addresses that SHA256COMPRESSION reads from.
-    // TODO: Implement smart backfilling for indirect addressing modes by also setting up
-    // the pointer addresses (e.g., M[pointer_address_seed] = target_address).
-    state_address.mode = AddressingMode::Direct;
+
     for (size_t i = 0; i < 8; i++) {
-        instructions.push_back(SET_32_Instruction{
-            .value_tag = bb::avm2::MemoryTag::U32,
-            .result_address = AddressRef{ .address = state_address.address + static_cast<uint32_t>(i),
-                                          .mode = AddressingMode::Direct },
-            .value = generate_random_uint32(rng) });
+        AddressRef item_address = state_address;
+        item_address.address += static_cast<uint32_t>(i);
+        instructions.push_back(SET_32_Instruction{ .value_tag = bb::avm2::MemoryTag::U32,
+                                                   .result_address = item_address,
+                                                   .value = generate_random_uint32(rng) });
     }
 
     // Generate input address (16 contiguous U32 values)
     AddressRef input_address = generate_address_ref(rng, MAX_16BIT_OPERAND - 15);
-    input_address.mode = AddressingMode::Direct;
+
     for (size_t i = 0; i < 16; i++) {
-        instructions.push_back(SET_32_Instruction{
-            .value_tag = bb::avm2::MemoryTag::U32,
-            .result_address = AddressRef{ .address = input_address.address + static_cast<uint32_t>(i),
-                                          .mode = AddressingMode::Direct },
-            .value = generate_random_uint32(rng) });
+        AddressRef item_address = input_address;
+        item_address.address += static_cast<uint32_t>(i);
+        instructions.push_back(SET_32_Instruction{ .value_tag = bb::avm2::MemoryTag::U32,
+                                                   .result_address = item_address,
+                                                   .value = generate_random_uint32(rng) });
     }
 
     instructions.push_back(
@@ -367,14 +333,6 @@ std::vector<FuzzInstruction> generate_toradixbe_instruction(std::mt19937_64& rng
     AddressRef radix_addr = generate_address_ref(rng, MAX_16BIT_OPERAND);
     AddressRef num_limbs_addr = generate_address_ref(rng, MAX_16BIT_OPERAND);
     AddressRef output_bits_addr = generate_address_ref(rng, MAX_8BIT_OPERAND);
-
-    // Force Direct addressing so SET instructions write to the same addresses that TORADIXBE reads from.
-    // TODO: Implement smart backfilling for indirect addressing modes by also setting up
-    // the pointer addresses (e.g., M[pointer_address_seed] = target_address).
-    value_addr.mode = AddressingMode::Direct;
-    radix_addr.mode = AddressingMode::Direct;
-    num_limbs_addr.mode = AddressingMode::Direct;
-    output_bits_addr.mode = AddressingMode::Direct;
 
     // SET the radix (U32) - pick radix between 2 and 256
     uint32_t radix = std::uniform_int_distribution<uint32_t>(2, 256)(rng);
@@ -432,9 +390,6 @@ std::vector<FuzzInstruction> generate_sload_instruction(std::mt19937_64& rng)
     instructions.reserve(3);
 
     AddressRef sstore_src = generate_address_ref(rng, MAX_16BIT_OPERAND);
-    // Force Direct addressing so SET writes to the same address that SSTORE reads from.
-    // TODO: Implement smart backfilling for indirect addressing modes.
-    sstore_src.mode = AddressingMode::Direct;
 
     // SET a value to store
     instructions.push_back(SET_FF_Instruction{

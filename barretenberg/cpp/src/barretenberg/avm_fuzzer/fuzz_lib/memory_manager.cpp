@@ -158,8 +158,9 @@ ResolvedAddress MemoryManager::resolve_address(AddressRef address, uint32_t max_
             address.base_offset_seed, address.pointer_address_seed, max_operand_address);
         break;
     case AddressingMode::Direct:
-        // Constrain address to fit in the operand (deserialized/mutated data may exceed max)
-        resolved_address.absolute_address = address.address % (max_operand_address + 1);
+        // Do not delete this assert, if it fails, it means that some address was generated / mutated incorrectly in
+        // instruction.cpp. Check all the `max_operand` parameters that you're passing to generate_address_ref.
+        BB_ASSERT_LTE(address.address, max_operand_address);
         resolved_address.operand_address = resolved_address.absolute_address;
         break;
     }
