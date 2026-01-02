@@ -10,7 +10,7 @@ sidebar_position: 1
 *This documentation is auto-generated from the `aztec` CLI help output.*
 
 
-*Generated: Wed 31 Dec 2025 16:21:23 UTC*
+*Generated: Fri 02 Jan 2026 14:36:39 UTC*
 
 *Command: `aztec`*
 
@@ -21,7 +21,9 @@ sidebar_position: 1
   - [aztec advance-epoch](#aztec-advance-epoch)
   - [aztec block-number](#aztec-block-number)
   - [aztec bridge-erc20](#aztec-bridge-erc20)
+  - [aztec check](#aztec-check)
   - [aztec codegen](#aztec-codegen)
+  - [aztec compile](#aztec-compile)
   - [aztec compute-selector](#aztec-compute-selector)
   - [aztec debug-rollup](#aztec-debug-rollup)
   - [aztec decode-enr](#aztec-decode-enr)
@@ -31,6 +33,7 @@ sidebar_position: 1
   - [aztec example-contracts](#aztec-example-contracts)
   - [aztec execute-governance-proposal](#aztec-execute-governance-proposal)
   - [aztec fast-forward-epochs](#aztec-fast-forward-epochs)
+  - [aztec fmt](#aztec-fmt)
   - [aztec generate-bls-keypair](#aztec-generate-bls-keypair)
   - [aztec generate-bootnode-enr](#aztec-generate-bootnode-enr)
   - [aztec generate-keys](#aztec-generate-keys)
@@ -45,7 +48,10 @@ sidebar_position: 1
   - [aztec get-l1-to-l2-message-witness](#aztec-get-l1-to-l2-message-witness)
   - [aztec get-logs](#aztec-get-logs)
   - [aztec get-node-info](#aztec-get-node-info)
+  - [aztec init](#aztec-init)
   - [aztec inspect-contract](#aztec-inspect-contract)
+  - [aztec lsp](#aztec-lsp)
+  - [aztec new](#aztec-new)
   - [aztec parse-parameter-struct](#aztec-parse-parameter-struct)
   - [aztec preload-crs](#aztec-preload-crs)
   - [aztec propose-with-lock](#aztec-propose-with-lock)
@@ -54,17 +60,11 @@ sidebar_position: 1
   - [aztec sequencers](#aztec-sequencers)
   - [aztec setup-protocol-contracts](#aztec-setup-protocol-contracts)
   - [aztec start](#aztec-start)
+  - [aztec test](#aztec-test)
   - [aztec trigger-seed-snapshot](#aztec-trigger-seed-snapshot)
   - [aztec update](#aztec-update)
   - [aztec validator-keys|valKeys](#aztec-validator-keys|valkeys)
   - [aztec vote-on-governance-proposal](#aztec-vote-on-governance-proposal)
-  - [aztec init](#aztec-init)
-  - [aztec new](#aztec-new)
-  - [aztec compile](#aztec-compile)
-  - [aztec fmt](#aztec-fmt)
-  - [aztec check](#aztec-check)
-  - [aztec test](#aztec-test)
-  - [aztec lsp](#aztec-lsp)
 ## aztec
 
 Aztec command line interface
@@ -80,7 +80,9 @@ aztec [options] [command]
 - `advance-epoch [options]` - Use L1 cheat codes to warp time until the next epoch.
 - `block-number [options]` - Gets the current Aztec L2 block number.
 - `bridge-erc20 [options] <amount> <recipient>` - Bridges ERC20 tokens to L2.
+- `check [options]` - type-checks Noir code without compiling using nargo check
 - `codegen [options] <noir-abi-path>` - Validates and generates an Aztec Contract ABI from Noir ABI.
+- `compile [options]` - compiles Aztec Noir contracts
 - `compute-selector <functionSignature>` - Given a function signature, it computes a selector
 - `debug-rollup [options]` - Debugs the rollup contract.
 - `decode-enr <enr>` - Decodes an ENR record
@@ -90,6 +92,7 @@ aztec [options] [command]
 - `example-contracts` - Lists the example contracts available to deploy from @aztec/noir-contracts.js
 - `execute-governance-proposal [options]` - Executes a governance proposal.
 - `fast-forward-epochs [options]` - Fast forwards the epoch of the L1 rollup contract.
+- `fmt [options]` - formats Noir code using nargo fmt
 - `generate-bls-keypair [options]` - Generate a BLS keypair with convenience flags
 - `generate-bootnode-enr [options] <privateKey> <p2pIp> <p2pPort>` - Generates the encoded ENR record for a bootnode.
 - `generate-keys [options]` - Generates encryption and signing private keys.
@@ -105,7 +108,10 @@ aztec [options] [command]
 - `get-logs [options]` - Gets all the public logs from an intersection of all the filter params.
 - `get-node-info [options]` - Gets the information of an Aztec node from a PXE or directly from an Aztec node.
 - `help [command]` - display help for command
+- `init [folder] [options]` - creates a new Noir project
 - `inspect-contract <contractArtifactFile>` - Shows list of external callable functions for a contract
+- `lsp` - starts the Nargo Language Server Protocol server
+- `new <path> [options]` - creates a new Noir project in a new directory
 - `parse-parameter-struct [options] <encodedString>` - Helper for parsing an encoded string into a contract's parameter struct.
 - `preload-crs` - Preload the points data needed for proving and verifying
 - `propose-with-lock [options]` - Makes a proposal to governance with a lock
@@ -114,17 +120,11 @@ aztec [options] [command]
 - `sequencers [options] <command> [who]` - Manages or queries registered sequencers on the L1 rollup contract.
 - `setup-protocol-contracts [options]` - Bootstrap the blockchain by initializing all the protocol contracts
 - `start [options]` - Starts Aztec modules. Options for each module can be set as key-value pairs (e.g. "option1=value1,option2=value2") or as environment variables.
+- `test [options]` - starts a dockerized TXE node via
 - `trigger-seed-snapshot [options]` - Triggers a seed snapshot for the next epoch.
 - `update [options] [projectPath]` - Updates Nodejs and Noir dependencies
 - `validator-keys|valKeys` - Manage validator keystores for node operators
 - `vote-on-governance-proposal [options]` - Votes on a governance proposal.
-- `init [folder] [options]` - creates a new Noir project
-- `new <path> [options]` - creates a new Noir project in a new directory
-- `compile [options]` - compiles Aztec Noir contracts
-- `fmt [options]` - formats Noir code using nargo fmt
-- `check [options]` - type-checks Noir code without compiling using nargo check
-- `test [options]` - starts a dockerized TXE node via
-- `lsp` - starts the Nargo Language Server Protocol server
 
 **Options:**
 
@@ -236,6 +236,77 @@ Options:
 
 ```
 
+### aztec check
+
+```
+Check a local package and all of its dependencies for errors
+
+Usage: nargo check [OPTIONS]
+
+Options:
+      --package <PACKAGE>
+          The name of the package to run the command on. By default run on the first one found moving up along the ancestors of the current directory
+
+      --workspace
+          Run on all packages in the workspace
+
+      --overwrite
+          Force overwrite of existing files
+
+      --expression-width <EXPRESSION_WIDTH>
+          Specify the backend expression width that should be targeted
+
+      --bounded-codegen
+          Generate ACIR with the target backend expression width. The default is to generate ACIR without a bound and split expressions after code generation. Activating this flag can sometimes provide optimizations for certain programs
+
+      --force
+          Force a full recompilation
+
+      --print-acir
+          Display the ACIR for compiled circuit
+
+      --deny-warnings
+          Treat all warnings as errors
+
+      --silence-warnings
+          Suppress warnings
+
+      --debug-comptime-in-file <DEBUG_COMPTIME_IN_FILE>
+          Enable printing results of comptime evaluation: provide a path suffix for the module to debug, e.g. "package_name/src/main.nr"
+
+      --skip-underconstrained-check
+          Flag to turn off the compiler check for under constrained values. Warning: This can improve compilation speed but can also lead to correctness errors. This check should always be run on production code
+
+      --skip-brillig-constraints-check
+          Flag to turn off the compiler check for missing Brillig call constraints. Warning: This can improve compilation speed but can also lead to correctness errors. This check should always be run on production code
+
+      --count-array-copies
+          Count the number of arrays that are copied in an unconstrained context for performance debugging
+
+      --enable-brillig-constraints-check-lookback
+          Flag to turn on the lookback feature of the Brillig call constraints check, allowing tracking argument values before the call happens preventing certain rare false positives (leads to a slowdown on large rollout functions)
+
+      --inliner-aggressiveness <INLINER_AGGRESSIVENESS>
+          Setting to decide on an inlining strategy for Brillig functions. A more aggressive inliner should generate larger programs but more optimized A less aggressive inliner should generate smaller programs
+
+          [default: 9223372036854775807]
+
+      --pedantic-solving
+          Use pedantic ACVM solving, i.e. double-check some black-box function assumptions when solving. This is disabled by default
+
+  -Z, --unstable-features <UNSTABLE_FEATURES>
+          Unstable features to enable for this current build.
+
+          If non-empty, it disables unstable features required in crate manifests.
+
+      --no-unstable-features
+          Disable any unstable features required in crate manifests
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+```
+
 ### aztec codegen
 
 ```
@@ -251,6 +322,96 @@ Options:
   -f, --force          Force code generation even when the contract has not
                        changed.
   -h, --help           display help for command
+
+```
+
+### aztec compile
+
+```
+Aztec Compile - Compile Aztec Noir contracts
+
+This command compiles Aztec Noir contracts using nargo and then automatically
+postprocesses them to generate Aztec-specific artifacts including:
+  - Transpiled contract artifacts
+  - Verification keys
+
+The compiled contracts will be placed in the target/ directory by default.
+
+AZTEC-SPECIFIC NOTES:
+  - Working directory must be under $HOME due to Docker containerization
+  - Compilation automatically includes contract postprocessing
+  - Use standard nargo compile options (see below)
+
+ENVIRONMENT VARIABLES:
+  AZTEC_PATH    Path to Aztec installation (default: $HOME/.aztec)
+  VERSION       Aztec version to use (default: from $AZTEC_PATH/default_version)
+  DOCKER_REPO   Docker repository (default: aztecprotocol/aztec)
+
+---
+Underlying nargo compile options:
+
+Compile the program and its secret execution trace into ACIR format
+
+Usage: nargo compile [OPTIONS]
+
+Options:
+      --package <PACKAGE>
+          The name of the package to run the command on. By default run on the first one found moving up along the ancestors of the current directory
+
+      --workspace
+          Run on all packages in the workspace
+
+      --expression-width <EXPRESSION_WIDTH>
+          Specify the backend expression width that should be targeted
+
+      --bounded-codegen
+          Generate ACIR with the target backend expression width. The default is to generate ACIR without a bound and split expressions after code generation. Activating this flag can sometimes provide optimizations for certain programs
+
+      --force
+          Force a full recompilation
+
+      --print-acir
+          Display the ACIR for compiled circuit
+
+      --deny-warnings
+          Treat all warnings as errors
+
+      --silence-warnings
+          Suppress warnings
+
+      --debug-comptime-in-file <DEBUG_COMPTIME_IN_FILE>
+          Enable printing results of comptime evaluation: provide a path suffix for the module to debug, e.g. "package_name/src/main.nr"
+
+      --skip-underconstrained-check
+          Flag to turn off the compiler check for under constrained values. Warning: This can improve compilation speed but can also lead to correctness errors. This check should always be run on production code
+
+      --skip-brillig-constraints-check
+          Flag to turn off the compiler check for missing Brillig call constraints. Warning: This can improve compilation speed but can also lead to correctness errors. This check should always be run on production code
+
+      --count-array-copies
+          Count the number of arrays that are copied in an unconstrained context for performance debugging
+
+      --enable-brillig-constraints-check-lookback
+          Flag to turn on the lookback feature of the Brillig call constraints check, allowing tracking argument values before the call happens preventing certain rare false positives (leads to a slowdown on large rollout functions)
+
+      --inliner-aggressiveness <INLINER_AGGRESSIVENESS>
+          Setting to decide on an inlining strategy for Brillig functions. A more aggressive inliner should generate larger programs but more optimized A less aggressive inliner should generate smaller programs
+
+          [default: 9223372036854775807]
+
+      --pedantic-solving
+          Use pedantic ACVM solving, i.e. double-check some black-box function assumptions when solving. This is disabled by default
+
+  -Z, --unstable-features <UNSTABLE_FEATURES>
+          Unstable features to enable for this current build.
+
+          If non-empty, it disables unstable features required in crate manifests.
+
+      --no-unstable-features
+          Disable any unstable features required in crate manifests
+
+  -h, --help
+          Print help (see a summary with '-h')
 
 ```
 
@@ -456,6 +617,21 @@ Options:
 
 *Help for this command is currently unavailable due to a technical issue with option serialization.*
 
+
+### aztec fmt
+
+```
+Format the Noir files in a workspace
+
+Usage: nargo fmt [OPTIONS]
+
+Options:
+      --check              Run noirfmt in check mode
+      --package <PACKAGE>  The name of the package to run the command on. By default run on the first one found moving up along the ancestors of the current directory
+      --workspace          Run on all packages in the workspace
+  -h, --help               Print help
+
+```
 
 ### aztec generate-bls-keypair
 
@@ -699,6 +875,11 @@ Options:
 
 ```
 
+### aztec init
+
+*No help information available for this command.*
+
+
 ### aztec inspect-contract
 
 ```
@@ -715,6 +896,16 @@ Options:
   -h, --help            display help for command
 
 ```
+
+### aztec lsp
+
+*No help information available for this command.*
+
+
+### aztec new
+
+*No help information available for this command.*
+
 
 ### aztec parse-parameter-struct
 
@@ -1812,272 +2003,6 @@ Options:
 - `--txe`
   Starts Aztec TXE with options
 
-### aztec trigger-seed-snapshot
-
-```
-Usage: aztec trigger-seed-snapshot [options]
-
-Triggers a seed snapshot for the next epoch.
-
-Options:
-  -pk, --private-key <string>  The private key to use for deployment
-  -m, --mnemonic <string>      The mnemonic to use in deployment (default:
-                               "test test test test test test test test test
-                               test test junk")
-  --rollup <address>           ethereum address of the rollup contract
-  --l1-rpc-urls <string>       List of Ethereum host URLs. Chain identifiers
-                               localhost and testnet can be used (comma
-                               separated) (default:
-                               ["http://host.docker.internal:8545"], env:
-                               ETHEREUM_HOSTS)
-  -c, --l1-chain-id <number>   Chain ID of the ethereum host (default: 31337,
-                               env: L1_CHAIN_ID)
-  -h, --help                   display help for command
-
-```
-
-### aztec update
-
-```
-Usage: aztec update [options] [projectPath]
-
-Updates Nodejs and Noir dependencies
-
-Arguments:
-  projectPath               Path to the project directory
-
-Options:
-  --contract [paths...]     Paths to contracts to update dependencies (default:
-                            [])
-  --aztec-version <semver>  The version to update Aztec packages to. Defaults
-                            to latest (default: "latest")
-  -h, --help                display help for command
-
-```
-
-### aztec validator-keys|valKeys
-
-*This subcommand does not provide its own help information.*
-
-
-### aztec vote-on-governance-proposal
-
-```
-Usage: aztec vote-on-governance-proposal [options]
-
-Votes on a governance proposal.
-
-Options:
-  -p, --proposal-id <string>       The ID of the proposal
-  -a, --vote-amount <string>       The amount of tokens to vote
-  --in-favor <boolean>             Whether to vote in favor of the proposal.
-                                   Use "yea" for true, any other value for
-                                   false.
-  --wait <boolean>                 Whether to wait until the proposal is active
-  -r, --registry-address <string>  The address of the registry contract
-  --l1-rpc-urls <string>           List of Ethereum host URLs. Chain
-                                   identifiers localhost and testnet can be
-                                   used (comma separated) (default:
-                                   ["http://host.docker.internal:8545"], env:
-                                   ETHEREUM_HOSTS)
-  -c, --l1-chain-id <number>       Chain ID of the ethereum host (default:
-                                   31337, env: L1_CHAIN_ID)
-  -pk, --private-key <string>      The private key to use to vote
-  -m, --mnemonic <string>          The mnemonic to use to vote (default: "test
-                                   test test test test test test test test test
-                                   test junk")
-  -i, --mnemonic-index <number>    The index of the mnemonic to use to vote
-                                   (default: 0)
-  -h, --help                       display help for command
-
-```
-
-### aztec init
-
-*No help information available for this command.*
-
-
-### aztec new
-
-*No help information available for this command.*
-
-
-### aztec compile
-
-```
-Aztec Compile - Compile Aztec Noir contracts
-
-This command compiles Aztec Noir contracts using nargo and then automatically
-postprocesses them to generate Aztec-specific artifacts including:
-  - Transpiled contract artifacts
-  - Verification keys
-
-The compiled contracts will be placed in the target/ directory by default.
-
-AZTEC-SPECIFIC NOTES:
-  - Working directory must be under $HOME due to Docker containerization
-  - Compilation automatically includes contract postprocessing
-  - Use standard nargo compile options (see below)
-
-ENVIRONMENT VARIABLES:
-  AZTEC_PATH    Path to Aztec installation (default: $HOME/.aztec)
-  VERSION       Aztec version to use (default: from $AZTEC_PATH/default_version)
-  DOCKER_REPO   Docker repository (default: aztecprotocol/aztec)
-
----
-Underlying nargo compile options:
-
-Compile the program and its secret execution trace into ACIR format
-
-Usage: nargo compile [OPTIONS]
-
-Options:
-      --package <PACKAGE>
-          The name of the package to run the command on. By default run on the first one found moving up along the ancestors of the current directory
-
-      --workspace
-          Run on all packages in the workspace
-
-      --expression-width <EXPRESSION_WIDTH>
-          Specify the backend expression width that should be targeted
-
-      --bounded-codegen
-          Generate ACIR with the target backend expression width. The default is to generate ACIR without a bound and split expressions after code generation. Activating this flag can sometimes provide optimizations for certain programs
-
-      --force
-          Force a full recompilation
-
-      --print-acir
-          Display the ACIR for compiled circuit
-
-      --deny-warnings
-          Treat all warnings as errors
-
-      --silence-warnings
-          Suppress warnings
-
-      --debug-comptime-in-file <DEBUG_COMPTIME_IN_FILE>
-          Enable printing results of comptime evaluation: provide a path suffix for the module to debug, e.g. "package_name/src/main.nr"
-
-      --skip-underconstrained-check
-          Flag to turn off the compiler check for under constrained values. Warning: This can improve compilation speed but can also lead to correctness errors. This check should always be run on production code
-
-      --skip-brillig-constraints-check
-          Flag to turn off the compiler check for missing Brillig call constraints. Warning: This can improve compilation speed but can also lead to correctness errors. This check should always be run on production code
-
-      --count-array-copies
-          Count the number of arrays that are copied in an unconstrained context for performance debugging
-
-      --enable-brillig-constraints-check-lookback
-          Flag to turn on the lookback feature of the Brillig call constraints check, allowing tracking argument values before the call happens preventing certain rare false positives (leads to a slowdown on large rollout functions)
-
-      --inliner-aggressiveness <INLINER_AGGRESSIVENESS>
-          Setting to decide on an inlining strategy for Brillig functions. A more aggressive inliner should generate larger programs but more optimized A less aggressive inliner should generate smaller programs
-
-          [default: 9223372036854775807]
-
-      --pedantic-solving
-          Use pedantic ACVM solving, i.e. double-check some black-box function assumptions when solving. This is disabled by default
-
-  -Z, --unstable-features <UNSTABLE_FEATURES>
-          Unstable features to enable for this current build.
-
-          If non-empty, it disables unstable features required in crate manifests.
-
-      --no-unstable-features
-          Disable any unstable features required in crate manifests
-
-  -h, --help
-          Print help (see a summary with '-h')
-
-```
-
-### aztec fmt
-
-```
-Format the Noir files in a workspace
-
-Usage: nargo fmt [OPTIONS]
-
-Options:
-      --check              Run noirfmt in check mode
-      --package <PACKAGE>  The name of the package to run the command on. By default run on the first one found moving up along the ancestors of the current directory
-      --workspace          Run on all packages in the workspace
-  -h, --help               Print help
-
-```
-
-### aztec check
-
-```
-Check a local package and all of its dependencies for errors
-
-Usage: nargo check [OPTIONS]
-
-Options:
-      --package <PACKAGE>
-          The name of the package to run the command on. By default run on the first one found moving up along the ancestors of the current directory
-
-      --workspace
-          Run on all packages in the workspace
-
-      --overwrite
-          Force overwrite of existing files
-
-      --expression-width <EXPRESSION_WIDTH>
-          Specify the backend expression width that should be targeted
-
-      --bounded-codegen
-          Generate ACIR with the target backend expression width. The default is to generate ACIR without a bound and split expressions after code generation. Activating this flag can sometimes provide optimizations for certain programs
-
-      --force
-          Force a full recompilation
-
-      --print-acir
-          Display the ACIR for compiled circuit
-
-      --deny-warnings
-          Treat all warnings as errors
-
-      --silence-warnings
-          Suppress warnings
-
-      --debug-comptime-in-file <DEBUG_COMPTIME_IN_FILE>
-          Enable printing results of comptime evaluation: provide a path suffix for the module to debug, e.g. "package_name/src/main.nr"
-
-      --skip-underconstrained-check
-          Flag to turn off the compiler check for under constrained values. Warning: This can improve compilation speed but can also lead to correctness errors. This check should always be run on production code
-
-      --skip-brillig-constraints-check
-          Flag to turn off the compiler check for missing Brillig call constraints. Warning: This can improve compilation speed but can also lead to correctness errors. This check should always be run on production code
-
-      --count-array-copies
-          Count the number of arrays that are copied in an unconstrained context for performance debugging
-
-      --enable-brillig-constraints-check-lookback
-          Flag to turn on the lookback feature of the Brillig call constraints check, allowing tracking argument values before the call happens preventing certain rare false positives (leads to a slowdown on large rollout functions)
-
-      --inliner-aggressiveness <INLINER_AGGRESSIVENESS>
-          Setting to decide on an inlining strategy for Brillig functions. A more aggressive inliner should generate larger programs but more optimized A less aggressive inliner should generate smaller programs
-
-          [default: 9223372036854775807]
-
-      --pedantic-solving
-          Use pedantic ACVM solving, i.e. double-check some black-box function assumptions when solving. This is disabled by default
-
-  -Z, --unstable-features <UNSTABLE_FEATURES>
-          Unstable features to enable for this current build.
-
-          If non-empty, it disables unstable features required in crate manifests.
-
-      --no-unstable-features
-          Disable any unstable features required in crate manifests
-
-  -h, --help
-          Print help (see a summary with '-h')
-
-```
-
 ### aztec test
 
 ```
@@ -2203,7 +2128,82 @@ Options:
 
 ```
 
-### aztec lsp
+### aztec trigger-seed-snapshot
 
-*No help information available for this command.*
+```
+Usage: aztec trigger-seed-snapshot [options]
 
+Triggers a seed snapshot for the next epoch.
+
+Options:
+  -pk, --private-key <string>  The private key to use for deployment
+  -m, --mnemonic <string>      The mnemonic to use in deployment (default:
+                               "test test test test test test test test test
+                               test test junk")
+  --rollup <address>           ethereum address of the rollup contract
+  --l1-rpc-urls <string>       List of Ethereum host URLs. Chain identifiers
+                               localhost and testnet can be used (comma
+                               separated) (default:
+                               ["http://host.docker.internal:8545"], env:
+                               ETHEREUM_HOSTS)
+  -c, --l1-chain-id <number>   Chain ID of the ethereum host (default: 31337,
+                               env: L1_CHAIN_ID)
+  -h, --help                   display help for command
+
+```
+
+### aztec update
+
+```
+Usage: aztec update [options] [projectPath]
+
+Updates Nodejs and Noir dependencies
+
+Arguments:
+  projectPath               Path to the project directory
+
+Options:
+  --contract [paths...]     Paths to contracts to update dependencies (default:
+                            [])
+  --aztec-version <semver>  The version to update Aztec packages to. Defaults
+                            to latest (default: "latest")
+  -h, --help                display help for command
+
+```
+
+### aztec validator-keys|valKeys
+
+*This subcommand does not provide its own help information.*
+
+
+### aztec vote-on-governance-proposal
+
+```
+Usage: aztec vote-on-governance-proposal [options]
+
+Votes on a governance proposal.
+
+Options:
+  -p, --proposal-id <string>       The ID of the proposal
+  -a, --vote-amount <string>       The amount of tokens to vote
+  --in-favor <boolean>             Whether to vote in favor of the proposal.
+                                   Use "yea" for true, any other value for
+                                   false.
+  --wait <boolean>                 Whether to wait until the proposal is active
+  -r, --registry-address <string>  The address of the registry contract
+  --l1-rpc-urls <string>           List of Ethereum host URLs. Chain
+                                   identifiers localhost and testnet can be
+                                   used (comma separated) (default:
+                                   ["http://host.docker.internal:8545"], env:
+                                   ETHEREUM_HOSTS)
+  -c, --l1-chain-id <number>       Chain ID of the ethereum host (default:
+                                   31337, env: L1_CHAIN_ID)
+  -pk, --private-key <string>      The private key to use to vote
+  -m, --mnemonic <string>          The mnemonic to use to vote (default: "test
+                                   test test test test test test test test test
+                                   test junk")
+  -i, --mnemonic-index <number>    The index of the mnemonic to use to vote
+                                   (default: 0)
+  -h, --help                       display help for command
+
+```
