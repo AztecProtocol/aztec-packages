@@ -5,7 +5,7 @@ mod rollup_structure_tests;
 use crate::{
     abis::BlockRollupPublicInputs,
     block_merge::{
-        block_merge_rollup_private_inputs::BlockMergeRollupPrivateInputs,
+        block_merge_rollup::{self, BlockMergeRollupPrivateInputs},
         utils::merge_block_rollups::accumulate_block_headers_hash,
     },
     tests::RollupFixtureBuilder,
@@ -106,7 +106,8 @@ impl TestBuilder {
             RollupFixtureBuilder::make_proof_data(self.left_rollup, self.left_rollup_vk_index),
             RollupFixtureBuilder::make_proof_data(self.right_rollup, self.right_rollup_vk_index),
         ];
-        BlockMergeRollupPrivateInputs { previous_rollups }.execute()
+        let inputs = BlockMergeRollupPrivateInputs { previous_rollups };
+        block_merge_rollup::execute(inputs)
     }
 
     pub fn execute_and_fail(self) {

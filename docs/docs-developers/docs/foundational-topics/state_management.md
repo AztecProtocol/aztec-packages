@@ -1,215 +1,133 @@
 ---
 title: State Management
-description: How are storage slots derived for public and private state
+description: How public and private state work in Aztec, including storage slots, notes, and the UTXO model
 sidebar_position: 0
 tags: [protocol, storage]
 ---
 
 import Image from "@theme/IdealImage";
 
-<!-- Include about execution envs and pub and priv state plus notes etc -->
+Aztec has a hybrid public/private state model. Contract developers can specify which data is public and which is private, as well as the functions that operate on that data.
 
-In Aztec, private data and public data are stored in two trees; a public data tree and a note hashes tree.
+Private and public data are stored in two separate trees: a **public data tree** and a **note hashes tree**. Both trees store state for all accounts on the network directly as leaves, unlike Ethereum where a state trie contains smaller tries for individual accounts.
 
-These trees have in common that they store state for _all_ accounts on the Aztec network directly as leaves. This is different from Ethereum, where a state trie contains smaller tries that hold the individual accounts' storage.
-
-It also means that we need to be careful about how we allocate storage to ensure that they don't collide! We say that storage should be _siloed_ to its contract. The exact way of siloing differs a little for public and private storage. Which we will see in the following sections.
-
-Aztec has a hybrid public/private state model. Aztec contract developers can specify which data is public and which data is private, as well as the functions that can operate on that data.
+This means storage must be carefully allocated to prevent collisions. Storage is _siloed_ to each contract, though the exact siloing mechanism differs slightly between public and private storage.
 
 ## Public State
 
-Aztec has public state that will be familiar to developers coming that have worked on other blockchains. Public state is transparent and is managed by the associated smart contract logic.
+Public state in Aztec works similarly to other blockchains. It is transparent and managed by smart contract logic.
 
-Internal to the Aztec network, public state is stored and updated by the sequencer. The sequencer executes state transitions, generates proofs of correct execution (or delegates proof generation to the prover network), and publishes the associated data to Ethereum.
+The sequencer stores and updates public state. It executes state transitions, generates proofs of correct execution (or delegates to the prover network), and publishes data to Ethereum.
 
 ## Private State
 
-Private state must be treated differently from public state. Private state is encrypted and therefore is "owned" by a user or a set of users (via shared secrets) that are able to decrypt the state.
+Private state is encrypted and owned by users who hold the decryption keys. It uses an append-only data structure since updating records directly would leak information about the transaction graph.
 
-Private state is represented in an append-only database since updating a record would leak information about the transaction graph.
+To "delete" private state, you add an associated nullifier to a nullifier set. The nullifier is computed such that observers cannot link a state record to its nullifier without the owner's keys.
 
-The act of "deleting" a private state variable can be represented by adding an associated nullifier to a nullifier set. The nullifier is generated such that, without knowing the decryption key of the owner, an observer cannot link a state record with a nullifier.
-
-Modification of state variables can be emulated by nullifying the state record and creating a new record to represent the variable. Private state has an intrinsic UTXO structure.
+Modifying state is accomplished by nullifying the existing record and creating a new one. This gives private state an intrinsic UTXO (unspent transaction output) structure.
 
 ## Notes
 
-As explained above, there is a difference between public and private state. Private state uses UTXOs (unspent transaction outputs), also known as notes. This section introduces the concept of UTXOs and how notes are abstracted on Aztec.
+Private state uses UTXOs, commonly called **notes**. Notes are encrypted pieces of data that only their owner can decrypt.
 
-## What are notes?
+### How Notes Work
 
-In an account-based model such as Ethereum, each account is typically associated with a specific location in the data tree. In a UTXO model, each note specifies its owner and there is no relationship between an account and data's location in the data tree. Notes are encrypted pieces of data that can only be decrypted by their owner.
+In Ethereum's account-based model, each account maps to a specific storage location. In Aztec's UTXO model, notes specify their owner and have no fixed relationship between accounts and data locations.
 
-Rather than storing entire notes in a data tree, note commitments (hashes of the notes) are stored in a merkle tree, aptly named the note hash tree. Users will prove that they have the note pre-image information when they update private state in a contract.
+Rather than storing entire notes, the protocol stores **note commitments** (hashes) in a Merkle tree called the note hash tree. Users prove they know the note preimage when updating private state.
 
-When a note is updated, Aztec nullifies the original commitment in the note hash tree by creating a nullifier from the note data, and may create a new note with the updated information, encrypted to a new owner if necessary. This helps to decouple actions of creating, updating and deleting private state.
+When a note is consumed, Aztec creates a nullifier from the note data and may create new notes with updated information. This decouples the actions of creating, updating, and deleting private state.
 
 <Image img={require("@site/static/img/public-and-private-state-diagram.png")} />
 
-Notes are comparable to cash, with some slight differences. When you want to spend \$3.50 USD in real life, you give your \$5 note to a cashier who will keep \$3.50 and give you separate notes that add up to \$1.50. Using private notes on Aztec, when you want to spend a \$5 note, you nullify it and create a \$1.5 note with yourself as the owner and a \$3.5 note with the recipient as the owner. Only you and the recipient are aware of \$3.5 transaction, they are not aware that you "split" the \$5 note.
+Notes work like cash. To spend a 5 dollar note on a \$3.50 purchase, you nullify the \$5 note and create two new notes: \$1.50 for yourself and \$3.50 for the recipient. Only you and the recipient know about the \$3.50 transfer.
 
-## Sending notes
+### Sending Notes
 
-When creating notes for a recipient, you need a way to send the note to them. There are a few ways to do this:
+When creating notes for a recipient, you need a way to deliver them:
 
-### Onchain (encrypted logs):
+**Onchain (encrypted logs):** The standard method. Emit an encrypted log as part of your transaction. The encrypted note data is posted onchain, allowing recipients to find notes through [note discovery](./advanced/storage/note_discovery.md).
 
-This is the common method and works well for most use cases. You can emit an encrypted log as part of a transaction. The encrypted note data will be posted onchain, allowing the recipient to find the note through [note discovery](./advanced/storage/note_discovery.md).
+**Offchain:** If you know the recipient directly, share the note data with them. They store it in their PXE and can spend it later.
 
-### Offchain:
+**Self-created notes:** Notes you create for yourself don't need broadcasting. Store them in your PXE to prove ownership and spend them later.
 
-In some cases, if you know the recipient offchain, you might choose to share the note data directly with them. The recipient can store that note in their PXE and later spend it.
+### Abstracting Notes
 
-### Self-created notes (not emitted):
+Users don't need to think about individual notes. The Aztec.nr library abstracts notes by letting developers define custom note types that specify how notes are created, nullified, transferred, and displayed. Aztec.nr also handles [note discovery](./advanced/storage/note_discovery.md) for notes encrypted to a user's account.
 
-If you create a note for yourself, you don’t need to broadcast it to the network or share anything. You will only need to keep the note somewhere, such as in your PXE, so you can prove ownership and spend it in future transactions.
+## Technical Details
 
-## Abstracting notes from apps & users
+### Storage Slots
 
-When using the Aztec protocol, users may not be aware of the specific notes that they own. Their experience should be similar to Ethereum, and should instead see the amount of their assets inside their account.
+Public storage uses literal storage slots. Private storage uses logical storage slots that associate multiple notes together. See [storage slots](./advanced/storage/storage_slots.md) for details.
 
-This is accomplished through the smart contract library, Aztec.nr, which abstracts notes by allowing developers to specify custom note types. This means they can specify how notes are interacted with, nullified, transferred, and displayed. Aztec.nr also helps users discover all of the notes that have been encrypted to their account and posted to the chain, known as [note discovery](./advanced/storage/note_discovery.md).
+### Contract Address Siloing
 
-## Technical details
+The contract address is included when computing note hashes to ensure different contracts don't produce identical hashes. The protocol handles this automatically.
 
-### Some context
+### Note Types
 
-- Public functions and storage work much like other blockchains in terms of having dedicated storage slots and being publicly visible
-- Private functions are executed locally with proofs generated for sound execution, and commitments to private variable updates are stored using append-only trees
-- "Note" types are part of Aztec.nr, a framework that facilitates use of Aztec's different storage trees to achieve things such as private variables
+Aztec.nr provides several note types:
 
-This page will focus on how private variables are implemented with Notes and storage trees.
+- **`PrivateSet`** - A collection of notes, useful for balances represented as multiple value notes
+- **`PrivateMutable`** - A single note representing one value that can be replaced
+- **`PrivateImmutable`** - A single note that cannot be changed after initialization
 
-#### Side-note about execution
+These state variables must be wrapped in an `Owned<>` type that specifies the note owner. The `Owned<>` wrapper binds a note collection to a specific owner address, ensuring notes are correctly associated with their owner for nullifier computation and access control.
 
-Under the hood, the Aztec protocol handles some important details around public and private function calls. Calls between them are asynchronous due to different execution contexts (local execution vs. node execution).
-A detailed explanation of the transaction lifecycle can be found [here](./transactions.md#simple-example-of-the-private-transaction-lifecycle).
+```rust
+#[storage]
+struct Storage<Context> {
+    balance: Owned<PrivateSet<UintNote, Context>, Context>,
+}
+```
 
-## Private state variables in Aztec
+Notes can also be custom types storing any values your application needs. Use the `#[note]` macro for standard notes or `#[custom_note]` for notes requiring custom hash or nullifier computation.
 
-State variables in an Aztec contract are defined inside a struct specifically named `Storage`, and must satisfy the [Note Interface (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/aztec-nr/aztec/src/note/note_interface.nr) and contain a [Note header (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/aztec-nr/aztec/src/note/note_header.nr).
+### Built-in Note Types
 
-The Note header struct contains the contract address which the value is effectively siloed to, a nonce to ensure unique Note hashes, and a storage "slot" (or ID) to associate multiple notes.
+**`UintNote`** - Stores a numeric value (`u128`). Supports partial notes for scenarios where the value is determined in public execution.
 
-A couple of things to unpack here:
+#include_code uint_note_def noir-projects/aztec-nr/uint-note/src/uint_note.nr rust
 
-#### Storage "slot"
+**`FieldNote`** - Stores a single `Field` value.
 
-Storage slots are more literal for public storage, a place where a value is stored. For private storage, a storage slot is logical (more [here](./advanced/storage/storage_slots.md)).
+### Creating and Destroying Notes
 
-#### Silos
+The [lifecycle module](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/aztec-nr/aztec/src/note/lifecycle.nr) contains functions for note management:
 
-The address of the contract is included in a Note's data to ensure that different contracts don't arrive at the same hash with an identical variable. This is handled in the protocol's execution.
+- `create_note` - Creates a new note, computing its hash and pushing it to the context
+- `destroy_note` - Nullifies a note by computing and emitting its nullifier
 
-### Note types
+Notes created and nullified within the same transaction are called **transient notes**. The kernel circuits automatically squash these, avoiding unnecessary tree insertions and improving efficiency.
 
-There is more than one Note type, such as the `PrivateSet` type is used for private variables. There are also `PrivateMutable` and `PrivateImmutable` types.
+### Note Interface
 
-Furthermore, notes can be completely custom types, storing any value or set of values that are desired by an application.
+Notes must implement the `NoteHash` trait from [note_interface.nr](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/aztec-nr/aztec/src/note/note_interface.nr):
 
-### Initialization
+- `compute_note_hash(self, owner, storage_slot, randomness)` - Computes the note's commitment
+- `compute_nullifier(self, context, owner, note_hash_for_nullification)` - Computes the nullifier for consumption
+- `compute_nullifier_unconstrained(self, owner, note_hash_for_nullification)` - Unconstrained nullifier computation
 
-Private state variables are stored locally when the contract is created. Depending on the application, values may be privately shared by the creator with others via encrypted logs onchain.
-A hash of a note is stored in the append-only note hash tree on the network so as to prove existence of the current state of the note in a privacy preserving way.
-
-#### Note Hash Tree
-
-By virtue of being append only, notes are not edited. If two transactions amend a private value, multiple notes will be inserted into the tree to the note hash tree and the nullifier tree. The header will contain the same logical storage slot.
+The `#[note]` macro generates default implementations using `poseidon2_hash_with_separator`.
 
 ### Reading Notes
 
-:::info
+Only users with appropriate keys can read private values they have permission to access. Notes can be read offchain without modifying onchain state.
 
-Only those with appropriate keys/information will be able to successfully read private values that they have permission to. Notes can be read outside of a transaction or "offchain" with no changes to data structures onchain.
+When reading a note in a transaction, subsequent reads of the same note would reveal a link between transactions. To preserve privacy, notes read in transactions are typically "consumed" (nullified) and new notes created.
 
-:::
+With `PrivateSet`, a private variable's value can be interpreted as the sum of all notes at that storage slot. Nullifying is done by inserting a nullifier into the nullifier tree, not by deleting the note hash.
 
-When a note is read in a transaction, a subsequent read from another transaction of the same note would reveal a link between the two. So to preserve privacy, notes that are read in a transaction are said to be "consumed" (defined below), and new note(s) are then created with a unique hash.
+### Updating Notes
 
-With type `PrviateSet`, a private variable's value is interpreted as the sum of values of notes with the same logical storage slot.
+To update a value, nullify the existing note hash(es) and insert a new note hash for the updated value. The PXE tracks note state locally while the note hash tree records the cryptographic commitments.
 
-Consuming, deleting, or otherwise "nullifying" a note is NOT done by deleting the Note hash; this would leak information. Rather a nullifier is created deterministically linked to the value. This nullifier is inserted into another the nullifier storage tree.
+## Further Reading
 
-When reading a value, the local private execution checks that its notes (of the corresponding storage slot/ID) have not been nullified.
-
-### Updating
-
-:::note
-Only those with appropriate keys/information will be able to successfully nullify a value that they have permission to.
-:::
-
-To update a value, its previous note hash(es) are nullified. The new note value is updated in the user's private execution environment (PXE), and the updated note hash inserted into the note hash tree.
-
-## Supplementary components
-
-Some optional background resources on notes can be found here:
-
-- [High level network architecture](./index.md), specifically the Private Execution Environment
-- [Transaction lifecycle (simple diagram)](./transactions.md#simple-example-of-the-private-transaction-lifecycle)
-- [Public State](#public-state) and [Private State](#private-state)
-
-Notes touch several core components of the protocol, but we will focus on a the essentials first.
-
-### Some code context
-
-The way Aztec benefits from the Noir language is via three important components:
-
-- `Aztec.nr` - a Noir framework enabling contracts on Aztec, written in Noir. Includes useful Note implementations
-- `noir contracts` - example Aztec contracts
-- `noir-protocol-circuits` - a crate containing essential circuits for the protocol (public circuits and private wrappers)
-
-A lot of what we will look at will be in [aztec-nr/aztec/src/note (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/aztec-nr/aztec/src/note), specifically the lifecycle and note interface.
-
-Looking at the noir circuits in these components, you will see references to the distinction between public/private execution and state.
-
-### Lifecycle functions
-
-Inside the [lifecycle (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/aztec-nr/aztec/src/note/lifecycle.nr) circuits we see the functions to create and destroy a note, implemented as insertions of note hashes and nullifiers respectively. This is helpful for regular private variables.
-
-We also see a function to create a note hash from the public context, a way of creating a private variable from a public call (run in the sequencer). This could be used in application contracts to give private digital assets to users.
-
-### Note Interface functions
-
-To see a [note_interface (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/aztec-nr/aztec/src/note/note_interface.nr) implementation, we will look at a simple [ValueNote GitHub link](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/aztec-nr/value-note/src/value_note.nr).
-
-The interface is required to work within an Aztec contract's storage, and a ValueNote is a specific type of note to hold a number (as a `Field`).
-
-#### Computing hashes and nullifiers
-
-A few key functions in the note interface are around computing the note hash and nullifier, with logic to get/use secret keys from the private context.
-
-In the ValueNote implementation you'll notice that it uses the `pedersen_hash` function. This is currently required by the protocol, but may be updated to another hashing function, like poseidon.
-
-As a convenience, the outer [note/utils.nr (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/aztec-nr/aztec/src/note/utils.nr) contains implementations of functions that may be needed in Aztec contracts, for example computing note hashes.
-
-#### Serialization and deserialization
-
-Serialization/deserialization of content is used to convert between the Note's variables and a generic array of Field elements. The Field type is understood and used by lower level crypographic libraries.
-This is analogous to the encoding/decoding between variables and bytes in solidity.
-
-For example in ValueNote, the `serialize_content` function simply returns: the value, nullifying public key hash (as a field) and the note randomness; as an array of Field elements.
-
-### Value as a sum of Notes
-
-We recall that multiple notes are associated with a "slot" (or ID), and so the value of a numerical note (like ValueNote) is the sum of each note's value.
-The helper function in [balance_utils (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/#include_/noir-projects/aztec-nr/value-note/src/balance_utils.nr) implements this logic taking a `PrivateSet` of `ValueNotes`.
-
-A couple of things worth clarifying:
-
-- A `PrivateSet` takes a Generic type, specified here as `ValueNote`, but can be any `Note` type (for all notes in the set)
-- A `PrivateSet` of notes also specifies _the_ slot of all Notes that it holds
-
-### Example - Notes in action
-
-The Aztec.nr framework includes examples of high-level states [easy_private_uint (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/aztec-nr/easy-private-state/src/easy_private_uint.nr) for use in contracts.
-
-The struct (`EasyPrivateUint`) contains a Context, Set of ValueNotes, and storage_slot (used when setting the Set).
-
-Notice how the `add` function shows the simplicity of appending a new note to all existing ones. On the other hand, `sub` (subtraction), needs to first add up all existing values (consuming them in the process), and then insert a single new value of the difference between the sum and parameter.
-
----
-
-### References
-
-- ["Stable" state variable (GitHub link)](https://github.com/AztecProtocol/aztec-packages/issues/4130)
+- [High level network architecture](./index.md)
+- [Transaction lifecycle](./transactions.md#simple-example-of-the-private-transaction-lifecycle)
+- [Storage slots](./advanced/storage/storage_slots.md)
+- [Note discovery](./advanced/storage/note_discovery.md)

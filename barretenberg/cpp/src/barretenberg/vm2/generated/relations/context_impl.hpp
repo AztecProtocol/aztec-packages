@@ -36,9 +36,8 @@ void contextImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     {
         using View = typename std::tuple_element_t<1, ContainerOverSubrelations>::View;
         auto tmp = (static_cast<View>(in.get(C::execution_sel_exit_call)) -
-                    (FF(1) - ((FF(1) - static_cast<View>(in.get(C::execution_sel_execute_revert))) -
-                              static_cast<View>(in.get(C::execution_sel_execute_return))) *
-                                 (FF(1) - static_cast<View>(in.get(C::execution_sel_error)))));
+                    (static_cast<View>(in.get(C::execution_sel_failure)) +
+                     static_cast<View>(in.get(C::execution_sel_execute_return))));
         std::get<1>(evals) += (tmp * scaling_factor);
     }
     {
@@ -293,9 +292,9 @@ void contextImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     }
     {
         using View = typename std::tuple_element_t<37, ContainerOverSubrelations>::View;
-        auto tmp = (static_cast<View>(in.get(C::execution_nested_revert_or_error)) -
-                    static_cast<View>(in.get(C::execution_nested_exit_call)) *
-                        (FF(1) - static_cast<View>(in.get(C::execution_sel_execute_return))));
+        auto tmp = (static_cast<View>(in.get(C::execution_nested_failure)) -
+                    static_cast<View>(in.get(C::execution_has_parent_ctx)) *
+                        static_cast<View>(in.get(C::execution_sel_failure)));
         std::get<37>(evals) += (tmp * scaling_factor);
     }
     { // NESTED_RETURN_LAST_CHILD_SUCCESS
@@ -307,7 +306,7 @@ void contextImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     { // LAST_CHILD_SUCCESS_NEXT_ROW_ZERO
         using View = typename std::tuple_element_t<39, ContainerOverSubrelations>::View;
         auto tmp = CView(execution_NOT_LAST_EXEC) *
-                   (static_cast<View>(in.get(C::execution_nested_revert_or_error)) +
+                   (static_cast<View>(in.get(C::execution_nested_failure)) +
                     static_cast<View>(in.get(C::execution_sel_enter_call))) *
                    static_cast<View>(in.get(C::execution_last_child_success_shift));
         std::get<39>(evals) += (tmp * scaling_factor);
@@ -454,9 +453,8 @@ void contextImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     {
         using View = typename std::tuple_element_t<60, ContainerOverSubrelations>::View;
         auto tmp = (static_cast<View>(in.get(C::execution_nested_return)) -
-                    static_cast<View>(in.get(C::execution_nested_exit_call)) *
-                        static_cast<View>(in.get(C::execution_sel_execute_return)) *
-                        (FF(1) - static_cast<View>(in.get(C::execution_sel_error))));
+                    static_cast<View>(in.get(C::execution_has_parent_ctx)) *
+                        static_cast<View>(in.get(C::execution_sel_execute_return)));
         std::get<60>(evals) += (tmp * scaling_factor);
     }
     {

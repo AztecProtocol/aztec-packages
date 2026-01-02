@@ -2,6 +2,7 @@
 #include "acir_format.hpp"
 #include "barretenberg/bbapi/bbapi_shared.hpp"
 #include "barretenberg/chonk/chonk.hpp"
+#include "barretenberg/chonk/chonk_verifier.hpp"
 #include "barretenberg/dsl/acir_format/gate_count_constants.hpp"
 #include "barretenberg/dsl/acir_format/mock_verifier_inputs.hpp"
 #include "barretenberg/dsl/acir_format/utils.hpp"
@@ -303,7 +304,11 @@ TEST_F(HypernovaRecursionConstraintTest, AccumulateSingleApp)
     construct_and_accumulate_trailing_kernels(ivc);
 
     auto proof = ivc->prove();
-    EXPECT_TRUE(Chonk::verify(proof, ivc->get_vk()));
+    {
+        auto vk_and_hash = ivc->get_hiding_kernel_vk_and_hash();
+        ChonkNativeVerifier verifier(vk_and_hash);
+        EXPECT_TRUE(verifier.verify(proof));
+    }
 }
 
 /**
@@ -333,7 +338,10 @@ TEST_F(HypernovaRecursionConstraintTest, AccumulateTwoApps)
     construct_and_accumulate_trailing_kernels(ivc);
 
     auto proof = ivc->prove();
-    EXPECT_TRUE(Chonk::verify(proof, ivc->get_vk()));
+    {
+        ChonkNativeVerifier verifier(ivc->get_hiding_kernel_vk_and_hash());
+        EXPECT_TRUE(verifier.verify(proof));
+    }
 }
 
 // Test generation of "init" kernel VK via dummy IVC data
@@ -507,7 +515,7 @@ TEST_F(HypernovaRecursionConstraintTest, GenerateInnerKernelVKFromConstraints)
 }
 
 // Test generation of "hiding" kernel VK via dummy IVC data
-TEST_F(HypernovaRecursionConstraintTest, GenerateHidingKernelVKFromConstraints)
+TEST_F(HypernovaRecursionConstraintTest, GenerateMegaVerificationKeyFromConstraints)
 {
     BB_DISABLE_ASSERTS();
     // First, construct the kernel VK by running the full IVC
@@ -570,7 +578,10 @@ TEST_F(HypernovaRecursionConstraintTest, RecursiveVerifierAppCircuit)
     construct_and_accumulate_trailing_kernels(ivc);
 
     auto proof = ivc->prove();
-    EXPECT_TRUE(Chonk::verify(proof, ivc->get_vk()));
+    {
+        ChonkNativeVerifier verifier(ivc->get_hiding_kernel_vk_and_hash());
+        EXPECT_TRUE(verifier.verify(proof));
+    }
 }
 
 /**
@@ -595,7 +606,10 @@ TEST_F(HypernovaRecursionConstraintTest, RecursiveVerifierAppCircuitFailure)
 
     // We expect the Chonk proof to fail due to the app with a failed UH recursive verification
     auto proof = ivc->prove();
-    EXPECT_FALSE(Chonk::verify(proof, ivc->get_vk()));
+    {
+        ChonkNativeVerifier verifier(ivc->get_hiding_kernel_vk_and_hash());
+        EXPECT_FALSE(verifier.verify(proof));
+    }
 }
 
 /**

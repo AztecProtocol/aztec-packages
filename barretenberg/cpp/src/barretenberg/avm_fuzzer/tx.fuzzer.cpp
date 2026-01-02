@@ -1,4 +1,4 @@
-#include "barretenberg/avm_fuzzer/tx.fuzzer.hpp"
+#include "barretenberg/avm_fuzzer/fuzzer_lib.hpp"
 
 #include <cstdint>
 #include <string>
@@ -36,13 +36,19 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
     try {
         msgpack::unpack((reinterpret_cast<const char*>(data)), size).get().convert(tx_data);
     } catch (const std::exception& e) {
-        fuzz_info("Failed to deserialize input in TestOneInput, creating default FuzzerTxData, exception: ", e.what());
-        return 0;
+        fuzz_info("Failed to deserialize input in TestOneInput, using default. Exception: ", e.what());
+        tx_data = create_default_tx_data();
     }
 
     FuzzerWorldStateManager* ws_mgr = FuzzerWorldStateManager::getInstance();
+    FuzzerContractDB contract_db;
     ws_mgr->fork();
-    fuzz_tx(tx_data);
+
+    // Setup contracts and fund fee payer
+    setup_fuzzer_state(*ws_mgr, contract_db, tx_data);
+    fund_fee_payer(*ws_mgr, tx_data.tx);
+
+    fuzz_tx(*ws_mgr, contract_db, tx_data);
     ws_mgr->reset_world_state();
 
     return 0;

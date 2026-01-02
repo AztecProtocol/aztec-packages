@@ -36,7 +36,7 @@ void external_callImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
         auto tmp = static_cast<View>(in.get(C::execution_sel_enter_call)) *
                    (((static_cast<View>(in.get(C::execution_register_0_)) -
                       static_cast<View>(in.get(C::execution_l2_gas_left))) *
-                         static_cast<View>(in.get(C::execution_call_is_l2_gas_allocated_lt_left)) +
+                         static_cast<View>(in.get(C::execution_is_l2_gas_left_gt_allocated)) +
                      static_cast<View>(in.get(C::execution_l2_gas_left))) -
                     static_cast<View>(in.get(C::execution_l2_gas_limit_shift)));
         std::get<2>(evals) += (tmp * scaling_factor);
@@ -46,7 +46,7 @@ void external_callImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
         auto tmp = static_cast<View>(in.get(C::execution_sel_enter_call)) *
                    (((static_cast<View>(in.get(C::execution_register_1_)) -
                       static_cast<View>(in.get(C::execution_da_gas_left))) *
-                         static_cast<View>(in.get(C::execution_call_is_da_gas_allocated_lt_left)) +
+                         static_cast<View>(in.get(C::execution_is_da_gas_left_gt_allocated)) +
                      static_cast<View>(in.get(C::execution_da_gas_left))) -
                     static_cast<View>(in.get(C::execution_da_gas_limit_shift)));
         std::get<3>(evals) += (tmp * scaling_factor);

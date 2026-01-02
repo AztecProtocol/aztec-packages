@@ -6,7 +6,7 @@ use crate::{
     abis::PaddedSideEffectAmounts,
     components::{
         gas_meter::meter_gas_used,
-        private_kernel_circuit_public_inputs_composer::PrivateKernelCircuitPublicInputsComposer,
+        private_kernel_circuit_output_composer::PrivateKernelCircuitOutputComposer,
     },
 };
 use dep::types::abis::kernel_circuit_public_inputs::{
@@ -33,9 +33,8 @@ impl TailToPublicOutputComposer {
     }
 
     pub unconstrained fn finish(self) -> PrivateToPublicKernelCircuitPublicInputs {
-        let mut output_composer = PrivateKernelCircuitPublicInputsComposer::new_from_previous_kernel(
-            self.previous_kernel,
-        );
+        let mut output_composer =
+            PrivateKernelCircuitOutputComposer::new_from_previous_kernel(self.previous_kernel);
         output_composer.sort_ordered_values();
         let source = output_composer.finish();
 

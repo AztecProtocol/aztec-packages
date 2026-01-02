@@ -6,7 +6,7 @@ namespace bb::avm2::simulation {
 
 FF PureWrittenPublicDataSlotsTreeCheck::compute_leaf_slot(const AztecAddress& contract_address, const FF& slot)
 {
-    return poseidon2.hash({ GENERATOR_INDEX__PUBLIC_LEAF_INDEX, contract_address, slot });
+    return poseidon2.hash({ DOM_SEP__PUBLIC_LEAF_INDEX, contract_address, slot });
 }
 
 bool PureWrittenPublicDataSlotsTreeCheck::contains(const AztecAddress& contract_address, const FF& slot)

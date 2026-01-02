@@ -17,7 +17,7 @@ import type {
   UtilityFunctionWithMembershipProof,
 } from '@aztec/stdlib/contract';
 import type { GetContractClassLogsResponse, GetPublicLogsResponse } from '@aztec/stdlib/interfaces/client';
-import type { LogFilter, TxScopedL2Log } from '@aztec/stdlib/logs';
+import type { LogFilter, SiloedTag, Tag, TxScopedL2Log } from '@aztec/stdlib/logs';
 import type { BlockHeader, TxHash, TxReceipt } from '@aztec/stdlib/tx';
 import type { UInt64 } from '@aztec/stdlib/types';
 
@@ -318,16 +318,17 @@ export class KVArchiverDataStore implements ArchiverDataStore, ContractDataSourc
     return this.#messageStore.getL1ToL2Messages(checkpointNumber);
   }
 
-  /**
-   * Gets all logs that match any of the received tags (i.e. logs with their first field equal to a tag).
-   * @param tags - The tags to filter the logs by.
-   * @param logsPerTag - How many logs to return per tag. Default returns everything
-   * @returns For each received tag, an array of matching logs is returned. An empty array implies no logs match
-   * that tag.
-   */
-  getLogsByTags(tags: Fr[], logsPerTag?: number): Promise<TxScopedL2Log[][]> {
+  getPrivateLogsByTags(tags: SiloedTag[]): Promise<TxScopedL2Log[][]> {
     try {
-      return this.#logStore.getLogsByTags(tags, logsPerTag);
+      return this.#logStore.getPrivateLogsByTags(tags);
+    } catch (err) {
+      return Promise.reject(err);
+    }
+  }
+
+  getPublicLogsByTagsFromContract(contractAddress: AztecAddress, tags: Tag[]): Promise<TxScopedL2Log[][]> {
+    try {
+      return this.#logStore.getPublicLogsByTagsFromContract(contractAddress, tags);
     } catch (err) {
       return Promise.reject(err);
     }

@@ -1,7 +1,8 @@
 use dep::rollup_lib::block_root::{
-    BlockRollupPublicInputs, BlockRootSingleTxFirstRollupPrivateInputs,
+    block_root_single_tx_first_rollup, BlockRollupPublicInputs,
+    BlockRootSingleTxFirstRollupPrivateInputs,
 };
 
 fn main(inputs: BlockRootSingleTxFirstRollupPrivateInputs) -> pub BlockRollupPublicInputs {
-    inputs.execute()
+    block_root_single_tx_first_rollup::execute(inputs)
 }

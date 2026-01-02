@@ -309,6 +309,13 @@ Goblin::MergeProof create_mock_merge_proof()
     return proof;
 }
 
+/**
+ * @brief Create a mock pre-ipa proof which has the correct structure but is not necessarily valid
+ *
+ * @details An ECCVM proof is made of a pre-ipa proof and an ipa-proof. Here we mock the pre-ipa part.
+ *
+ * @return HonkProof
+ */
 HonkProof create_mock_eccvm_proof()
 {
     using FF = ECCVMFlavor::FF;
@@ -452,7 +459,7 @@ template <typename Builder> HonkProof create_mock_chonk_proof(const size_t acir_
     HonkProof ipa_proof = create_mock_ipa_proof();
     HonkProof translator_proof = create_mock_translator_proof();
 
-    Chonk::Proof chonk_proof{ mega_proof, { merge_proof, eccvm_proof, ipa_proof, translator_proof } };
+    ChonkProof chonk_proof{ mega_proof, GoblinProof{ merge_proof, eccvm_proof, ipa_proof, translator_proof } };
     proof = chonk_proof.to_field_elements();
 
     return proof;

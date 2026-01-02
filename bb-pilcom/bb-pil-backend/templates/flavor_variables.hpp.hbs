@@ -26,7 +26,7 @@ struct AvmFlavorVariables {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = {{len fixed}};
     static constexpr size_t NUM_WITNESS_ENTITIES = {{len witness}};
     static constexpr size_t NUM_SHIFTED_ENTITIES = {{len shifted}};
-    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
+    static constexpr size_t NUM_WIRES = {{len witness_without_inverses}};
     static constexpr size_t NUM_ALL_ENTITIES = {{len all_cols_and_shifts}};
 
     // Need to be templated for recursive verifier

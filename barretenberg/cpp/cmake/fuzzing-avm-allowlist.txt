@@ -1,0 +1,2 @@
+# Instrument vm2
+src:*/vm2/*

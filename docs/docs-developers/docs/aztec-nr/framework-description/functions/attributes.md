@@ -19,7 +19,7 @@ We will describe each type in the following sections.
 
 A private function operates on private information, and is executed by the user on their device. Annotate the function with the `#[external("private")]` attribute to tell the compiler it's a private function. This will make the [private context](./context.md#the-private-context) available within the function's execution scope. The compiler will create a circuit to define this function.
 
-`#[external("private")]` is just syntactic sugar. At compile time, the Aztec.nr framework inserts code that allows the function to interact with the [kernel](../../../foundational-topics/advanced/circuits/kernels/private_kernel.md).
+`#[external("private")]` is just syntactic sugar. At compile time, the Aztec.nr framework inserts code that allows the function to interact with the [kernel](../../../foundational-topics/advanced/circuits/private_kernel.md).
 
 If you are interested in what exactly the macros are doing we encourage you to run `nargo expand` on your contract.
 This will display your contract's code after the transformations are performed.
@@ -221,7 +221,7 @@ impl NoteType for CustomNote {
 impl NoteHash for CustomNote {
     fn compute_note_hash(self, storage_slot: Field) -> Field {
         let inputs = array_concat(self.pack(), [storage_slot]);
-        poseidon2_hash_with_separator(inputs, GENERATOR_INDEX__NOTE_HASH)
+        poseidon2_hash_with_separator(inputs, DOM_SEP__NOTE_HASH)
     }
 
     fn compute_nullifier(self, context: &mut PrivateContext, note_hash_for_nullification: Field) -> Field {
@@ -232,7 +232,7 @@ impl NoteHash for CustomNote {
             note_hash_for_nullification,
             secret
         ],
-            GENERATOR_INDEX__NOTE_NULLIFIER as Field
+            DOM_SEP__NOTE_NULLIFIER as Field
         )
     }
 
@@ -248,7 +248,7 @@ impl NoteHash for CustomNote {
             note_hash_for_nullification,
             secret
         ],
-            GENERATOR_INDEX__NOTE_NULLIFIER as Field
+            DOM_SEP__NOTE_NULLIFIER as Field
         )
     }
 }

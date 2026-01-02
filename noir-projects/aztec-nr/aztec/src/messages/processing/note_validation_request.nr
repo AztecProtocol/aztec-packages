@@ -1,4 +1,4 @@
-use crate::messages::discovery::private_notes::MAX_NOTE_PACKED_LEN;
+use crate::messages::logs::note::MAX_NOTE_PACKED_LEN;
 use protocol_types::{address::AztecAddress, traits::Serialize};
 
 /// Intermediate struct used to perform batch note validation by PXE. The `utilityValidateEnqueuedNotesAndEvents` oracle

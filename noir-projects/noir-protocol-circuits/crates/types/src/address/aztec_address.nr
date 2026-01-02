@@ -2,10 +2,7 @@ use crate::{
     address::{
         partial_address::PartialAddress, salted_initialization_hash::SaltedInitializationHash,
     },
-    constants::{
-        AZTEC_ADDRESS_LENGTH, GENERATOR_INDEX__CONTRACT_ADDRESS_V1, MAX_FIELD_VALUE,
-        MAX_PROTOCOL_CONTRACTS,
-    },
+    constants::{AZTEC_ADDRESS_LENGTH, DOM_SEP__CONTRACT_ADDRESS_V1, MAX_FIELD_VALUE},
     contract_class_id::ContractClassId,
     hash::poseidon2_hash_with_separator,
     public_keys::{IvpkM, NpkM, OvpkM, PublicKeys, ToPoint, TpkM},
@@ -88,7 +85,7 @@ impl AztecAddress {
 
         let pre_address = poseidon2_hash_with_separator(
             [public_keys_hash.to_field(), partial_address.to_field()],
-            GENERATOR_INDEX__CONTRACT_ADDRESS_V1,
+            DOM_SEP__CONTRACT_ADDRESS_V1,
         );
 
         let address_point = derive_public_key(EmbeddedCurveScalar::from_field(pre_address)).add(
@@ -116,10 +113,6 @@ impl AztecAddress {
         );
 
         AztecAddress::compute(public_keys, partial_address)
-    }
-
-    pub fn is_protocol_contract(self) -> bool {
-        self.inner.lt(MAX_PROTOCOL_CONTRACTS as Field)
     }
 
     pub fn is_zero(self) -> bool {
@@ -179,7 +172,7 @@ fn compute_address_from_partial_and_pub_keys() {
 
 #[test]
 fn compute_preaddress_from_partial_and_pub_keys() {
-    let pre_address = poseidon2_hash_with_separator([1, 2], GENERATOR_INDEX__CONTRACT_ADDRESS_V1);
+    let pre_address = poseidon2_hash_with_separator([1, 2], DOM_SEP__CONTRACT_ADDRESS_V1);
     let expected_computed_preaddress_from_partial_and_pubkey =
         0x23ce9be3fa3c846b0f9245cc796902e731d04f086e8a42473bb29e405fc98075;
     assert(pre_address == expected_computed_preaddress_from_partial_and_pubkey);

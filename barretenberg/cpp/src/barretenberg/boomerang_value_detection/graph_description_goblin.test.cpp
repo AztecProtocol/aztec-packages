@@ -88,8 +88,11 @@ TEST_F(BoomerangGoblinRecursiveVerifierTests, graph_description_basic)
     GoblinRecursiveVerifier verifier{ transcript, stdlib_proof, recursive_merge_commitments, MergeSettings::APPEND };
     GoblinRecursiveVerifier::ReductionResult output = verifier.reduce_to_pairing_check_and_ipa_opening();
 
+    // Aggregate merge + translator pairing points
+    output.translator_pairing_points.aggregate(output.merge_pairing_points);
+
     stdlib::recursion::honk::DefaultIO<Builder> inputs;
-    inputs.pairing_inputs = output.pairing_points;
+    inputs.pairing_inputs = output.translator_pairing_points;
     inputs.set_public();
 
     // Construct and verify a proof for the Goblin Recursive Verifier circuit
@@ -105,7 +108,8 @@ TEST_F(BoomerangGoblinRecursiveVerifierTests, graph_description_basic)
 
         ASSERT_TRUE(verified);
     }
-    auto translator_pairing_points = output.pairing_points;
+    // Use the already aggregated pairing points (merge + translator)
+    auto translator_pairing_points = output.translator_pairing_points;
 
     // The pairing points are public outputs from the recursive verifier that will be verified externally via a pairing
     // check. While they are computed within the circuit (via batch_mul for P0 and negation for P1), their output

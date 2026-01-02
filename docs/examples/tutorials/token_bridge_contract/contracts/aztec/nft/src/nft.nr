@@ -1,12 +1,5 @@
 // docs:start:nft_note_struct
-use dep::aztec::{
-    macros::notes::note,
-    protocol_types::{
-        address::AztecAddress,
-        traits::Packable,
-    },
-    oracle::random::random,
-};
+use dep::aztec::{macros::notes::note, protocol_types::traits::Packable};
 
 #[derive(Eq, Packable)]
 #[note]

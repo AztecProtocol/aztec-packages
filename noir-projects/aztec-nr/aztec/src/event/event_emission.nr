@@ -12,7 +12,6 @@ use protocol_types::traits::{Serialize, ToField};
 pub struct NewEvent<Event> {
     pub(crate) event: Event,
     pub(crate) randomness: Field,
-    pub(crate) commitment: Field,
 }
 
 /// Equivalent to `self.emit(event)`: see [crate::contract_self::ContractSelf::emit].
@@ -38,7 +37,7 @@ where
     let commitment = compute_private_event_commitment(event, randomness);
     context.push_nullifier(commitment);
 
-    EventMessage::new(NewEvent { event, randomness, commitment }, context)
+    EventMessage::new(NewEvent { event, randomness }, context)
 }
 
 /// Equivalent to `self.emit(event)`: see [crate::contract_self::ContractSelf::emit].

@@ -77,7 +77,12 @@ function network_test_cmds {
   local run_test_script="yarn-project/end-to-end/scripts/run_test.sh"
   echo $prefix $run_test_script simple src/spartan/smoke.test.ts
   echo $prefix $run_test_script simple src/spartan/transfer.test.ts
-  echo $prefix $run_test_script simple src/spartan/slash_inactivity.test.ts
+  # echo $prefix $run_test_script simple src/spartan/slash_inactivity.test.ts
+  # echo $prefix $run_test_script simple src/spartan/gating-passive.test.ts
+  # echo $prefix $run_test_script simple src/spartan/proving.test.ts
+  # echo $prefix $run_test_script simple src/spartan/prover-node.test.ts
+  # echo $prefix $run_test_script simple src/spartan/invalidate_blocks.test.ts
+  # echo $prefix $run_test_script simple src/spartan/4epochs.test.ts
 }
 
 function single_test {
@@ -167,11 +172,11 @@ case "$cmd" in
     source_env_basic "$env_file"
 
     # Run the network deploy script
-    ./scripts/network_deploy.sh "$env_file"
+    DENOISE=1 denoise "./scripts/network_deploy.sh $env_file"
 
     if [[ "${RUN_TESTS:-}" == "true" ]]; then
       echo "Running tests"
-      network_tests "$env_file"
+      denoise "./bootstrap.sh network_tests $env_file"
     fi
     ;;
   "single_test")
@@ -251,27 +256,27 @@ case "$cmd" in
     ;;
   "test-kind-transfer")
     # TODO(#12163) reenable bot once not conflicting with transfer
-    OVERRIDES="blobSink.enabled=true,bot.enabled=false" \
+    OVERRIDES="bot.enabled=false" \
     FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false \
       ./scripts/test_k8s.sh kind src/spartan/transfer.test.ts ci.yaml transfer${NAME_POSTFIX:-}
     ;;
   "test-kind-1tps")
-    OVERRIDES="blobSink.enabled=true,bot.enabled=false" \
+    OVERRIDES="bot.enabled=false" \
     FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false RESOURCES_FILE=gcloud-1tps-sim.yaml \
       ./scripts/test_k8s.sh kind src/spartan/1tps.test.ts ci-1tps.yaml one-tps${NAME_POSTFIX:-}
     ;;
   "test-kind-10tps-10%-drop")
-    OVERRIDES="telemetry.enabled=false,blobSink.enabled=true,bot.enabled=false,validator.p2p.dropTransactions=true,validator.p2p.dropTransactionsProbability=0.1" \
+    OVERRIDES="telemetry.enabled=false,bot.enabled=false,validator.p2p.dropTransactions=true,validator.p2p.dropTransactionsProbability=0.1" \
     FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false \
     ./scripts/test_k8s.sh kind src/spartan/n_tps.test.ts ci-1tps.yaml ten-tps${NAME_POSTFIX:-}
   ;;
   "test-kind-10tps-30%-drop")
-    OVERRIDES="telemetry.enabled=false,blobSink.enabled=true,bot.enabled=false,validator.p2p.dropTransactions=true,validator.p2p.dropTransactionsProbability=0.3" \
+    OVERRIDES="telemetry.enabled=false,bot.enabled=false,validator.p2p.dropTransactions=true,validator.p2p.dropTransactionsProbability=0.3" \
     FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false \
     ./scripts/test_k8s.sh kind src/spartan/n_tps.test.ts ci-tx-drop.yaml ten-tps${NAME_POSTFIX:-}
   ;;
   "test-kind-10tps-50%-drop")
-    OVERRIDES="telemetry.enabled=false,blobSink.enabled=true,bot.enabled=false,validator.p2p.dropTransactions=true,validator.p2p.dropTransactionsProbability=0.5" \
+    OVERRIDES="telemetry.enabled=false,bot.enabled=false,validator.p2p.dropTransactions=true,validator.p2p.dropTransactionsProbability=0.5" \
     FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false \
     ./scripts/test_k8s.sh kind src/spartan/n_tps.test.ts ci-tx-drop.yaml ten-tps${NAME_POSTFIX:-}
   ;;
@@ -291,7 +296,7 @@ case "$cmd" in
   "test-gke-transfer")
     execution_client="$1"
     # TODO(#12163) reenable bot once not conflicting with transfer
-    OVERRIDES="blobSink.enabled=true,bot.enabled=false"
+    OVERRIDES="bot.enabled=false"
     if [ -n "$execution_client" ]; then
       OVERRIDES="$OVERRIDES,ethereum.execution.client=$execution_client"
     fi
@@ -299,7 +304,7 @@ case "$cmd" in
       ./scripts/test_k8s.sh gke src/spartan/transfer.test.ts ci-fast-epoch.yaml ${NAMESPACE:-"transfer${NAME_POSTFIX:-}"}
     ;;
   "test-gke-1tps")
-    OVERRIDES="blobSink.enabled=true,bot.enabled=false" \
+    OVERRIDES="bot.enabled=false" \
     FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false RESOURCES_FILE=gcloud-1tps-sim.yaml \
       ./scripts/test_k8s.sh gke src/spartan/1tps.test.ts ci-1tps.yaml ${NAMESPACE:-"one-tps${NAME_POSTFIX:-}"}
     ;;
@@ -318,6 +323,13 @@ case "$cmd" in
     OVERRIDES="telemetry.enabled=false" \
     FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false \
       ./scripts/test_k8s.sh gke src/spartan/upgrade_via_cli.test.ts 1-validators.yaml ${NAMESPACE:-"upgrade-via-cli${NAME_POSTFIX:-}"}
+    ;;
+  "network_teardown")
+    env_file="$1"
+    # Sets up basic env vars like CLUSTER for gcp auth
+    source_env_basic "$env_file"
+    gcp_auth
+    ./scripts/network_teardown.sh
     ;;
   *)
     echo "Unknown command: $cmd"

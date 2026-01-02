@@ -535,6 +535,57 @@ struct EMITUNENCRYPTEDLOG_Instruction {
     MSGPACK_FIELDS(log_size, log_size_address, log_values);
 };
 
+/// @brief CALL: call function by index (resolved by contract db proxy)
+/// All addresses are DIRECT, because this opcode is already way too heavy
+struct CALL_Instruction {
+    uint16_t function_index;
+    uint16_t address_offset; // where the function address will be stored
+    uint32_t l2_gas;
+    uint16_t l2_gas_address;
+    uint32_t da_gas;
+    uint16_t da_gas_address;
+    uint16_t arg_size_offset; // where calldata.size() will be stored
+    uint16_t args_offset;     // where the args will be stored
+    std::vector<bb::avm2::FF> args;
+    bool is_static_call; // use STATICCALL/CALL opcodes
+    MSGPACK_FIELDS(function_index,
+                   address_offset,
+                   l2_gas,
+                   l2_gas_address,
+                   da_gas,
+                   da_gas_address,
+                   arg_size_offset,
+                   args_offset,
+                   args,
+                   is_static_call);
+};
+
+/// @brief: RETURNDATASIZE + RETURNDATACOPY:
+// M[copySizeOffset] = nestedReturndata.size()
+// M[dstOffset:dstOffset+M[copySizeOffset]] =
+/// nestedReturndata[M[rdStartOffset]:M[rdStartOffset]+M[copySizeOffset]]
+/// All addresses are DIRECT
+struct RETURNDATASIZE_WITH_RETURNDATACOPY_Instruction {
+    uint16_t copy_size_offset;
+    uint16_t dst_address;
+    uint32_t rd_start;
+    uint16_t rd_start_offset;
+    MSGPACK_FIELDS(copy_size_offset, dst_address, rd_start, rd_start_offset);
+};
+
+struct GETCONTRACTINSTANCE_Instruction {
+    uint16_t contract_index;             // index of the contract in the contract db
+    AddressRef contract_address_address; // where the contract address will be stored
+    AddressRef dst_address;
+    uint8_t member_enum; // taken modulo 3. 0 -> DEPLOYER, 1 -> CLASS_ID, 2 -> INIT_HASH
+    MSGPACK_FIELDS(contract_index, contract_address_address, dst_address, member_enum);
+};
+
+struct SUCCESSCOPY_Instruction {
+    AddressRef dst_address;
+    MSGPACK_FIELDS(dst_address);
+};
+
 using FuzzInstruction = std::variant<ADD_8_Instruction,
                                      FDIV_8_Instruction,
                                      SET_8_Instruction,
@@ -582,7 +633,11 @@ using FuzzInstruction = std::variant<ADD_8_Instruction,
                                      NOTEHASHEXISTS_Instruction,
                                      CALLDATACOPY_Instruction,
                                      SENDL2TOL1MSG_Instruction,
-                                     EMITUNENCRYPTEDLOG_Instruction>;
+                                     EMITUNENCRYPTEDLOG_Instruction,
+                                     CALL_Instruction,
+                                     RETURNDATASIZE_WITH_RETURNDATACOPY_Instruction,
+                                     GETCONTRACTINSTANCE_Instruction,
+                                     SUCCESSCOPY_Instruction>;
 
 template <class... Ts> struct overloaded_instruction : Ts... {
     using Ts::operator()...;
@@ -759,6 +814,15 @@ inline std::ostream& operator<<(std::ostream& os, const FuzzInstruction& instruc
                     os << value << " ";
                 }
                 os << std::endl;
+            },
+            [&](CALL_Instruction arg) {
+                os << "CALL_Instruction " << arg.function_index << " " << arg.address_offset << " " << arg.l2_gas << " "
+                   << arg.l2_gas_address << " " << arg.da_gas << " " << arg.da_gas_address << " " << arg.arg_size_offset
+                   << " " << arg.args.size() << " " << arg.is_static_call;
+            },
+            [&](RETURNDATASIZE_WITH_RETURNDATACOPY_Instruction arg) {
+                os << "RETURNDATASIZE_WITH_RETURNDATACOPY_Instruction " << arg.copy_size_offset << " "
+                   << arg.dst_address << " " << arg.rd_start_offset;
             },
             [&](auto) { os << "Unknown instruction"; },
         },

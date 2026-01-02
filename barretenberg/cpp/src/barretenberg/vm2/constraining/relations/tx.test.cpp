@@ -578,9 +578,9 @@ TEST(TxExecutionConstrainingTest, WriteTreeValue)
     tracegen::PrecomputedTraceBuilder precomputed_builder;
     precomputed_builder.process_misc(trace, AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH);
 
-    TxTraceBuilder::interactions.get_test_job<lookup_tx_read_tree_insert_value_settings>()->process(trace);
-    TxTraceBuilder::interactions.get_test_job<lookup_tx_read_l2_l1_msg_settings>()->process(trace);
-    TxTraceBuilder::interactions.get_test_job<lookup_tx_write_l2_l1_msg_settings>()->process(trace);
+    check_interaction<TxTraceBuilder, lookup_tx_read_tree_insert_value_settings>(trace);
+    check_interaction<TxTraceBuilder, lookup_tx_read_l2_l1_msg_settings>(trace);
+    check_interaction<TxTraceBuilder, lookup_tx_write_l2_l1_msg_settings>(trace);
 }
 
 TEST_F(TxExecutionConstrainingTestHelper, CollectFees)
@@ -691,11 +691,11 @@ TEST_F(TxExecutionConstrainingTestHelper, CollectFees)
     precomputed_builder.process_misc(trace, AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH);
 
     check_relation<tx>(trace);
-    TxTraceBuilder::interactions.get_test_job<lookup_tx_read_phase_spec_settings>()->process(trace);
-    TxTraceBuilder::interactions.get_test_job<lookup_tx_read_phase_length_settings>()->process(trace);
-    TxTraceBuilder::interactions.get_test_job<lookup_tx_read_public_call_request_phase_settings>()->process(trace);
-    TxTraceBuilder::interactions.get_test_job<lookup_tx_read_effective_fee_public_inputs_settings>()->process(trace);
-    TxTraceBuilder::interactions.get_test_job<lookup_tx_read_fee_payer_public_inputs_settings>()->process(trace);
+    check_interaction<TxTraceBuilder, lookup_tx_read_phase_spec_settings>(trace);
+    check_interaction<TxTraceBuilder, lookup_tx_read_phase_length_settings>(trace);
+    check_interaction<TxTraceBuilder, lookup_tx_read_public_call_request_phase_settings>(trace);
+    check_interaction<TxTraceBuilder, lookup_tx_read_effective_fee_public_inputs_settings>(trace);
+    check_interaction<TxTraceBuilder, lookup_tx_read_fee_payer_public_inputs_settings>(trace);
 }
 
 TEST(TxExecutionConstrainingTest, NegativeTreePaddingChecks)
@@ -786,17 +786,17 @@ TEST_F(TxExecutionConstrainingWithCalldataTest, SimpleHandleCalldata)
 
     std::vector<FF> dummy_setup_calldata = { 1, 2 };
     std::vector<FF> dummy_setup_calldata_preimage = dummy_setup_calldata;
-    dummy_setup_calldata_preimage.insert(dummy_setup_calldata_preimage.begin(), GENERATOR_INDEX__PUBLIC_CALLDATA);
+    dummy_setup_calldata_preimage.insert(dummy_setup_calldata_preimage.begin(), DOM_SEP__PUBLIC_CALLDATA);
     FF dummy_setup_calldata_hash = poseidon2.hash(dummy_setup_calldata_preimage);
     test_public_inputs.public_setup_call_requests[0].calldata_hash = dummy_setup_calldata_hash;
 
     std::vector<FF> non_empty_calldata = { 2, 3, 4 };
     std::vector<FF> non_empty_calldata_preimage = non_empty_calldata;
-    non_empty_calldata_preimage.insert(non_empty_calldata_preimage.begin(), GENERATOR_INDEX__PUBLIC_CALLDATA);
+    non_empty_calldata_preimage.insert(non_empty_calldata_preimage.begin(), DOM_SEP__PUBLIC_CALLDATA);
     FF non_empty_calldata_hash = poseidon2.hash(non_empty_calldata_preimage);
     test_public_inputs.public_app_logic_call_requests[0].calldata_hash = non_empty_calldata_hash;
 
-    FF empty_calldata_hash = poseidon2.hash({ GENERATOR_INDEX__PUBLIC_CALLDATA });
+    FF empty_calldata_hash = poseidon2.hash({ DOM_SEP__PUBLIC_CALLDATA });
     test_public_inputs.public_app_logic_call_requests[1].calldata_hash = empty_calldata_hash;
 
     std::vector<simulation::CalldataEvent> calldata_events = {

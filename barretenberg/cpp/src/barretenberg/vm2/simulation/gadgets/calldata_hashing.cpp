@@ -9,7 +9,7 @@ namespace bb::avm2::simulation {
 FF CalldataHasher::compute_calldata_hash(std::span<const FF> calldata)
 {
     // todo(ilyas): this probably simulates faster at the cost of re-work in tracegen
-    std::vector<FF> calldata_with_sep = { GENERATOR_INDEX__PUBLIC_CALLDATA };
+    std::vector<FF> calldata_with_sep = { DOM_SEP__PUBLIC_CALLDATA };
     for (const auto& value : calldata) {
         // Note: Using `insert` breaks GCC.
         calldata_with_sep.push_back(value);

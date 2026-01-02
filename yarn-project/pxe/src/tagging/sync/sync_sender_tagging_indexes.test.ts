@@ -11,7 +11,7 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { SenderTaggingDataProvider } from '../../storage/tagging_data_provider/sender_tagging_data_provider.js';
 import { DirectionalAppTaggingSecret, SiloedTag, Tag } from '../index.js';
-import { WINDOW_LEN, syncSenderTaggingIndexes } from './sync_sender_tagging_indexes.js';
+import { UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN, syncSenderTaggingIndexes } from './sync_sender_tagging_indexes.js';
 
 describe('syncSenderTaggingIndexes', () => {
   // Contract address and secret to be used on the input of the syncSenderTaggingIndexes function.
@@ -27,7 +27,7 @@ describe('syncSenderTaggingIndexes', () => {
   }
 
   function makeLog(txHash: TxHash, tag: Fr) {
-    return new TxScopedL2Log(txHash, 0, 0, BlockNumber(0), L2BlockHash.random(), PrivateLog.random(tag));
+    return new TxScopedL2Log(txHash, 0, 0, BlockNumber(0), L2BlockHash.random(), 0n, PrivateLog.random(tag));
   }
 
   async function setUp() {
@@ -41,9 +41,9 @@ describe('syncSenderTaggingIndexes', () => {
   it('no new logs found for a given secret', async () => {
     await setUp();
 
-    aztecNode.getLogsByTags.mockImplementation((tags: Fr[]) => {
+    aztecNode.getPrivateLogsByTags.mockImplementation((tags: SiloedTag[]) => {
       // No log found for any tag
-      return Promise.resolve(tags.map((_tag: Fr) => []));
+      return Promise.resolve(tags.map((_tag: SiloedTag) => []));
     });
 
     await syncSenderTaggingIndexes(secret, contractAddress, aztecNode, taggingDataProvider);
@@ -69,10 +69,10 @@ describe('syncSenderTaggingIndexes', () => {
       // Create a log with tag index 3
       const index3Tag = await computeSiloedTagForIndex(finalizedIndexStep1);
 
-      aztecNode.getLogsByTags.mockImplementation((tags: Fr[]) => {
+      aztecNode.getPrivateLogsByTags.mockImplementation((tags: SiloedTag[]) => {
         // Return empty arrays for all tags except the one at index 3
         return Promise.resolve(
-          tags.map((tag: Fr) => (tag.equals(index3Tag.value) ? [makeLog(TxHash.random(), index3Tag.value)] : [])),
+          tags.map((tag: SiloedTag) => (tag.equals(index3Tag) ? [makeLog(TxHash.random(), index3Tag.value)] : [])),
         );
       });
 
@@ -100,10 +100,10 @@ describe('syncSenderTaggingIndexes', () => {
     it('step 2: pending log is synced', async () => {
       const pendingTag = await computeSiloedTagForIndex(pendingIndexStep2);
 
-      aztecNode.getLogsByTags.mockImplementation((tags: Fr[]) => {
+      aztecNode.getPrivateLogsByTags.mockImplementation((tags: SiloedTag[]) => {
         // Return empty arrays for all tags except the one at the pending index
         return Promise.resolve(
-          tags.map((tag: Fr) => (tag.equals(pendingTag.value) ? [makeLog(pendingTxHashStep2, pendingTag.value)] : [])),
+          tags.map((tag: SiloedTag) => (tag.equals(pendingTag) ? [makeLog(pendingTxHashStep2, pendingTag.value)] : [])),
         );
       });
 
@@ -129,7 +129,7 @@ describe('syncSenderTaggingIndexes', () => {
       // Move finalized block into the future
       const newFinalizedBlockNumber = finalizedBlockNumberStep1 + 5;
       const newHighestFinalizedIndex = finalizedIndexStep1 + 4;
-      const newHighestUsedIndex = newHighestFinalizedIndex + WINDOW_LEN;
+      const newHighestUsedIndex = newHighestFinalizedIndex + UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN;
 
       // Create tx hashes for new logs
       const newHighestFinalizedTxHash = TxHash.random();
@@ -140,15 +140,15 @@ describe('syncSenderTaggingIndexes', () => {
       const newHighestFinalizedTag = await computeSiloedTagForIndex(newHighestFinalizedIndex); // New finalized log
       const newHighestUsedTag = await computeSiloedTagForIndex(newHighestUsedIndex); // New pending log
 
-      // Mock getLogsByTags to return logs for multiple indices
-      aztecNode.getLogsByTags.mockImplementation((tags: Fr[]) => {
+      // Mock getPrivateLogsByTags to return logs for multiple indices
+      aztecNode.getPrivateLogsByTags.mockImplementation((tags: SiloedTag[]) => {
         return Promise.resolve(
-          tags.map((tag: Fr) => {
-            if (tag.equals(nowFinalizedTag.value)) {
+          tags.map((tag: SiloedTag) => {
+            if (tag.equals(nowFinalizedTag)) {
               return [makeLog(pendingTxHashStep2, nowFinalizedTag.value)];
-            } else if (tag.equals(newHighestFinalizedTag.value)) {
+            } else if (tag.equals(newHighestFinalizedTag)) {
               return [makeLog(newHighestFinalizedTxHash, newHighestFinalizedTag.value)];
-            } else if (tag.equals(newHighestUsedTag.value)) {
+            } else if (tag.equals(newHighestUsedTag)) {
               return [makeLog(newHighestUsedTxHash, newHighestUsedTag.value)];
             }
             return [];
@@ -208,11 +208,11 @@ describe('syncSenderTaggingIndexes', () => {
 
     const index3Tag = await computeSiloedTagForIndex(pendingAndFinalizedIndex);
 
-    aztecNode.getLogsByTags.mockImplementation((tags: Fr[]) => {
+    aztecNode.getPrivateLogsByTags.mockImplementation((tags: SiloedTag[]) => {
       // Return both the pending and finalized logs for the tag at index 3
       return Promise.resolve(
-        tags.map((tag: Fr) =>
-          tag.equals(index3Tag.value)
+        tags.map((tag: SiloedTag) =>
+          tag.equals(index3Tag)
             ? [makeLog(pendingTxHash, index3Tag.value), makeLog(finalizedTxHash, index3Tag.value)]
             : [],
         ),

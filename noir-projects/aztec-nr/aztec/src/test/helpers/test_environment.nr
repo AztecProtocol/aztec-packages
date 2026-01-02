@@ -1,7 +1,7 @@
 use protocol_types::{
     abis::function_selector::FunctionSelector,
     address::AztecAddress,
-    traits::{Deserialize, Packable},
+    traits::{Deserialize, Packable, Serialize},
 };
 
 use crate::{
@@ -9,13 +9,15 @@ use crate::{
         PrivateCall, PrivateContext, PrivateStaticCall, PublicCall, PublicContext, PublicStaticCall,
         UtilityCall, UtilityContext,
     },
+    event::{event_interface::EventInterface, event_message::EventMessage},
     hash::hash_args,
     messages::{
         discovery::{
             ComputeNoteHashAndNullifier, NoteHashAndNullifier,
             process_message::process_message_plaintext,
         },
-        logs::note::private_note_to_message_plaintext,
+        encoding::MESSAGE_PLAINTEXT_LEN,
+        logs::{event::encode_private_event_message, note::encode_private_note_message},
         processing::{message_context::MessageContext, validate_enqueued_notes_and_events},
     },
     note::{
@@ -128,6 +130,10 @@ struct NoteDiscoveryOptions {
     contract_address: Option<AztecAddress>,
 }
 
+struct EventDiscoveryOptions {
+    contract_address: Option<AztecAddress>,
+}
+
 impl TestEnvironment {
     /// Creates a new `TestEnvironment`. This function should only be called once per test.
     pub unconstrained fn new() -> Self {
@@ -137,6 +143,12 @@ impl TestEnvironment {
             contract_account_secret: Counter::new(),
             contract_deployment_secret: Counter::new(),
         }
+    }
+
+    /// Returns the default address used by [TestEnvironment::private_context] and other functions that do not take a
+    /// contract address.
+    pub(crate) unconstrained fn get_default_address() -> AztecAddress {
+        txe_oracles::get_default_address()
     }
 
     /// Creates a `PublicContext`, which allows using aztec-nr features as if inside a public contract function. Useful
@@ -667,13 +679,13 @@ impl TestEnvironment {
         T::deserialize(serialized_return_values)
     }
 
-    /// Discovers a note from a [NewNoteMessage], which is expected to have been created in the last transaction
-    /// (typically via `private_context()`) so that it can be retrieved in later transactions. This mimics the normal
-    /// note discovery process that takes place automatically in contracts.
+    /// Discovers a note from a [NoteMessage], which is expected to have been created in the last transaction
+    /// (typically via [TestEnvironment::private_context]) so that it can be retrieved in later transactions. This
+    /// mimics the normal message processing that takes place automatically in contracts.
     ///
-    /// [NewNoteMessage] values are typically returned by aztec-nr state variables that create notes and need to notify
+    /// [NoteMessage] values are typically returned by aztec-nr state variables that create notes and need to notify
     /// a recipient of their existence. Instead of going through the message encoding, encryption and delivery that
-    /// would regularly take place in a contract, this function simply takes the [NewNoteMessage] and processes it as
+    /// would regularly take place in a contract, this function simply takes the [NoteMessage] and processes it as
     /// needed to discover the underlying note.
     ///
     /// See [TestEnvironment::discover_note_at] for a variant that allows specifying the contract address the note
@@ -682,7 +694,7 @@ impl TestEnvironment {
     /// ### Sample usage
     ///
     /// The most common way to invoke this function is to obtain a note message created during the execution of a
-    /// `private_context`:
+    /// [TestEnvironment::private_context]:
     ///
     /// ```noir
     /// let note_message = env.private_context(|context| create_note(context, storage_slot, note));
@@ -701,8 +713,9 @@ impl TestEnvironment {
         );
     }
 
-    /// Variant of `discover_note` which allows specifying the contract address the note belongs to, which is required
-    /// when the note was not emitted in the default address used by `private_context`.
+    /// Variant of [TestEnvironment::discover_note] which allows specifying the contract address the note belongs to,
+    /// which is required when the note was not emitted in the default address used by
+    /// [TestEnvironment::private_context].
     ///
     /// ```noir
     /// let note_message = env.private_context_at(contract_address, |context| {
@@ -740,34 +753,16 @@ impl TestEnvironment {
         // This function will emulate the message discovery and processing that would happen in a real contract, based
         // on a message created from the received note message.
 
-        // First we produce the message itself. We skip encryption/decryption since we're not interested in that here.
+        // First we produce the message plaintext. We skip encryption/decryption since we're not interested in that here.
         // Note that we need to convert the fixed-size array produced by the encoding functions into a BoundedVec, which
         // is what the decoding functions expect (because they are built to manage protocol logs, which are arbitrarily
         // sized).
-        let message_plaintext = BoundedVec::from_array(private_note_to_message_plaintext(
+        let message_plaintext = BoundedVec::from_array(encode_private_note_message(
             note_message.new_note.note,
             note_message.new_note.owner,
             note_message.new_note.storage_slot,
             note_message.new_note.randomness,
         ));
-
-        // Then we fetch the transaction effects from the latest transaction, in which the note from the message is
-        // expected to have been created. In a real contract this data would have either been supplied by the
-        // `process_message` caller, of retrieved along with the message from a tagged log.
-        let (tx_hash, unique_note_hashes_in_tx, nullifiers_in_tx) =
-            txe_oracles::get_last_tx_effects();
-
-        // Real messages would also have a recipient, a concept which does not translate to anything in
-        // `TestEnvironment` since it works with a single PXE with global scopes. We therefore simply set the zero
-        // address as the recipient, which PXE accepts as a note scope despite this not being a registered account.
-        let recipient = AztecAddress::zero();
-
-        let message_context = MessageContext {
-            tx_hash,
-            unique_note_hashes_in_tx,
-            first_nullifier_in_tx: nullifiers_in_tx.get(0),
-            recipient,
-        };
 
         // We also need to provide an implementation for the `compute_note_hash_and_nullifier` function, which would
         // typically be created by the macros for the different notes in a given contract. Here we build one specialized
@@ -796,21 +791,163 @@ impl TestEnvironment {
             Option::some(NoteHashAndNullifier { note_hash, inner_nullifier })
         };
 
-        // Both private and utility functions perform message processing and note discovery. We do it in an utility
-        // context here as that one is more lightweight and does not create new blocks, which also allows for
-        // `discover_notes` to be called repeatedly with multiple messages from the same transaction.
-        self.utility_context_opts(
-            UtilityContextOptions { contract_address: opts.contract_address },
-            |context| {
-                process_message_plaintext(
-                    context.this_address(),
-                    compute_note_hash_and_nullifier,
-                    message_plaintext,
-                    message_context,
-                );
-
-                validate_enqueued_notes_and_events(context.this_address());
-            },
+        self.discover_data_in_message_plaintext(
+            message_plaintext,
+            opts.contract_address,
+            Option::none(),
+            compute_note_hash_and_nullifier,
         );
+    }
+
+    /// EXPERIMENTAL - not yet part of the public API
+    ///
+    /// Discovers an event from an [EventMessage], which is expected to have been created in the last transaction
+    /// (typically via [TestEnvironment::private_context]) so that it can be retrieved in queries. This mimics the
+    /// normal message processing that takes place automatically in contracts.
+    ///
+    /// [EventMessage] values are returned by aztec-nr private event emitting functions, like
+    /// [crate::contract_self::ContractSelf::emit], which need to notify a `recipient` of their existence. Instead of
+    /// going through the message encoding, encryption and delivery that would regularly take place in a contract, this
+    /// function simply takes the [EventMessage] and processes it as needed to discover the underlying event.
+    ///
+    /// As this mimics regular event processing, only `recipient` will have knowledge of the event: other accounts will
+    /// not be able to read it.
+    ///
+    /// See [TestEnvironment::discover_event_at] for a variant that allows specifying the contract address the event
+    /// belongs to.
+    ///
+    /// ### Sample usage
+    ///
+    /// The most common way to invoke this function is to obtain a note message created during the execution of a
+    /// [TestEnvironment::private_context]:
+    ///
+    /// ```noir
+    /// let event_message = env.private_context(|context| emit_event_in_private(context, event));
+    ///
+    /// env.discover_event(event_message, recipient);
+    /// ```
+    pub(crate) unconstrained fn discover_event<Event>(
+        self: Self,
+        event_message: EventMessage<Event>,
+        recipient: AztecAddress,
+    )
+    where
+        Event: Serialize + EventInterface,
+    {
+        self.discover_event_opts(
+            EventDiscoveryOptions { contract_address: Option::none() },
+            event_message,
+            recipient,
+        );
+    }
+
+    /// EXPERIMENTAL - not yet part of the public API
+    ///
+    /// Variant of [TestEnvironment::discover_event] which allows specifying the contract address the event belongs to,
+    /// which is required when the event was not emitted in the default address used by
+    /// [TestEnvironment::private_context].
+    ///
+    /// ```noir
+    /// let event_message = env.private_context_at(contract_address, |context| {
+    ///     emit_event_in_private(context, event)
+    /// });
+    ///
+    /// env.discover_event_at(contract_address, event_message);
+    /// ```
+    pub(crate) unconstrained fn discover_event_at<Event>(
+        self: Self,
+        addr: AztecAddress,
+        event_message: EventMessage<Event>,
+        recipient: AztecAddress,
+    )
+    where
+        Event: Serialize + EventInterface,
+    {
+        self.discover_event_opts(
+            EventDiscoveryOptions { contract_address: Option::some(addr) },
+            event_message,
+            recipient,
+        );
+    }
+
+    unconstrained fn discover_event_opts<Event>(
+        self: Self,
+        opts: EventDiscoveryOptions,
+        event_message: EventMessage<Event>,
+        recipient: AztecAddress,
+    )
+    where
+        Event: Serialize + EventInterface,
+    {
+        // This function will emulate the message discovery and processing that would happen in a real contract, based
+        // on a message created from the received event message.
+
+        // First we produce the message plaintext. We skip encryption/decryption since we're not interested in that here.
+        // Note that we need to convert the fixed-size array produced by the encoding functions into a BoundedVec, which
+        // is what the decoding functions expect (because they are built to manage protocol logs, which are arbitrarily
+        // sized).
+        let message_plaintext = BoundedVec::from_array(encode_private_event_message(
+            event_message.new_event.event,
+            event_message.new_event.randomness,
+        ));
+
+        // We also need to provide an implementation for the `compute_note_hash_and_nullifier` function, which would
+        // typically be created by the macros for the different notes in a given contract. Here we build an empty one,
+        // since it will never be invoked as this is an event and not a note message.
+        let compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<_> = |_packed_note, _owner, _storage_slot, _note_type_id, _contract_address, _randomness, _note_nonce| {
+            panic(
+                f"Unexpected compute_note_hash_and_nullifier invocation in TestEnvironment::discover_event",
+            )
+        };
+
+        self.discover_data_in_message_plaintext(
+            message_plaintext,
+            opts.contract_address,
+            Option::some(recipient),
+            compute_note_hash_and_nullifier,
+        );
+    }
+
+    unconstrained fn discover_data_in_message_plaintext<Env>(
+        self,
+        message_plaintext: BoundedVec<Field, MESSAGE_PLAINTEXT_LEN>,
+        contract_address: Option<AztecAddress>,
+        recipient: Option<AztecAddress>,
+        compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<Env>,
+    ) {
+        // This function will emulate the message discovery and processing that would happen in a real contract, based
+        // on a message plaintext.
+
+        // First we fetch the transaction effects from the latest transaction, which are required to create the
+        // `MessageContext`, and might contain information about data (e.g. notes, events) contained in the message. In
+        // a real contract this data would have either been supplied by the `process_message` caller, of retrieved
+        // along with the message from a tagged log.
+        let (tx_hash, unique_note_hashes_in_tx, nullifiers_in_tx) =
+            txe_oracles::get_last_tx_effects();
+
+        // Real messages would also have a recipient, a concept which is currently half-supported in `TestEnvironment`
+        // as events are properly scoped by recipient, but notes use a global scope instead. We therefore simply set the
+        // zero address as the recipient if one is not supplied, which PXE accepts as a scope despite this not being a
+        // registered account.
+        let message_context = MessageContext {
+            tx_hash,
+            unique_note_hashes_in_tx,
+            first_nullifier_in_tx: nullifiers_in_tx.get(0),
+            recipient: recipient.unwrap_or(AztecAddress::zero()),
+        };
+
+        // Both private and utility functions perform message processing . We do it in an utility context here as that
+        // one is more lightweight and does not create new blocks, which also allows for `discover_note` and
+        // `discover_event` to be called repeatedly with multiple messages from the same transaction.
+        self.utility_context_opts(UtilityContextOptions { contract_address }, |context| {
+            process_message_plaintext(
+                context.this_address(),
+                compute_note_hash_and_nullifier,
+                message_plaintext,
+                message_context,
+            );
+
+            validate_enqueued_notes_and_events(context.this_address());
+        });
     }
 }

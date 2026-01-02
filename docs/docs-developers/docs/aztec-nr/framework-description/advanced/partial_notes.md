@@ -13,7 +13,7 @@ Partial notes are notes created with incomplete data, usually during private exe
 
 Let's say, for example, we have a `UintNote`:
 
-```rust title="uint_note_def" showLineNumbers 
+```rust title="uint_note_def" showLineNumbers
 #[derive(Deserialize, Eq, Serialize, Packable)]
 #[custom_note]
 pub struct UintNote {
@@ -46,7 +46,7 @@ All notes in Aztec use the partial note format internally. This ensures that not
 
 The `UintNote` struct contains only the `value` field:
 
-```rust title="uint_note_def" showLineNumbers 
+```rust title="uint_note_def" showLineNumbers
 #[derive(Deserialize, Eq, Serialize, Packable)]
 #[custom_note]
 pub struct UintNote {
@@ -63,7 +63,7 @@ pub struct UintNote {
 
 The private fields (`owner`, `randomness`, and `storage_slot`) are committed during local, private execution:
 
-```rust title="compute_partial_commitment" showLineNumbers 
+```rust title="compute_partial_commitment" showLineNumbers
 fn compute_partial_commitment(
     owner: AztecAddress,
     storage_slot: Field,
@@ -71,7 +71,7 @@ fn compute_partial_commitment(
 ) -> Field {
     poseidon2_hash_with_separator(
         [owner.to_field(), storage_slot, randomness],
-        GENERATOR_INDEX__NOTE_HASH,
+        DOM_SEP__NOTE_HASH,
     )
 }
 ```
@@ -88,13 +88,13 @@ partial_commitment = H(owner, storage_slot, randomness)
 
 The note is completed by hashing the partial commitment with the public value:
 
-```rust title="compute_complete_note_hash" showLineNumbers 
+```rust title="compute_complete_note_hash" showLineNumbers
 fn compute_complete_note_hash(self, value: u128) -> Field {
     // Here we finalize the note hash by including the (public) value into the partial note commitment. Note that we
     // use the same generator index as we used for the first round of poseidon - this is not an issue.
     poseidon2_hash_with_separator(
         [self.commitment, value.to_field()],
-        GENERATOR_INDEX__NOTE_HASH,
+        DOM_SEP__NOTE_HASH,
     )
 }
 ```
@@ -117,7 +117,7 @@ When a note is created with all fields known (including `owner`, `storage_slot`,
 1. A partial commitment is computed from the private fields (`owner`, `storage_slot`, `randomness`)
 2. The partial commitment is immediately completed with the `value` field
 
-```rust title="compute_note_hash" showLineNumbers 
+```rust title="compute_note_hash" showLineNumbers
 fn compute_note_hash(
     self,
     owner: AztecAddress,
