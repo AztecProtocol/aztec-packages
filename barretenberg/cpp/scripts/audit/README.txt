@@ -10,9 +10,9 @@ HOW IT WORKS
    Each file being audited includes a structured comment block with audit status for multiple roles, e.g.:
 
    // === AUDIT STATUS ===
-   // internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-   // external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-   // external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+   // internal:    { status: not started, auditors: [], commit: }
+   // external_1:  { status: not started, auditors: [], commit: }
+   // external_2:  { status: not started, auditors: [], commit: }
    // =====================
 
    The script generate_audit_status_headers.sh populates all source files (in included dirs) with this header, unless one is already present.
@@ -20,9 +20,9 @@ HOW IT WORKS
 2. The header in each file should be manually updated when the audit status changes, e.g.:
 
    // === AUDIT STATUS ===
-   // internal:    { status: complete, auditors: [luke], date: 2025-04-17 }
-   // external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-   // external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+   // internal:    { status: complete, auditors: [luke], commit: abc123def }
+   // external_1:  { status: not started, auditors: [], commit: }
+   // external_2:  { status: not started, auditors: [], commit: }
    // =====================
 
 3. Summary generation
