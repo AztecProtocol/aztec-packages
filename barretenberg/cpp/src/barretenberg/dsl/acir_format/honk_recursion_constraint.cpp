@@ -45,7 +45,6 @@ HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recur
     using RecursiveVerifier = bb::UltraVerifier_<Flavor, IO>;
     using NativeFlavor = Flavor::NativeFlavor;
     using NativeVerificationKey = NativeFlavor::VerificationKey;
-    using NativeIO = std::conditional_t<HasIPAAccumulator<NativeFlavor>, bb::RollupIO, bb::DefaultIO>;
 
     BB_ASSERT(input.proof_type == HONK || input.proof_type == HONK_ZK || input.proof_type == ROLLUP_HONK ||
                   input.proof_type == ROOT_ROLLUP_HONK,
@@ -70,11 +69,11 @@ HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recur
                 honk_vk_to_be_set] = [&]() -> std::pair<HonkProof, std::shared_ptr<NativeVerificationKey>> {
         if (builder.is_write_vk_mode()) {
             return std::make_pair(
-                create_mock_honk_proof<NativeFlavor, NativeIO>(/*acir_public_inputs_size=*/input.public_inputs.size()),
-                std::make_shared<NativeVerificationKey>(create_mock_honk_vk<NativeFlavor, NativeIO>(
+                create_mock_honk_proof<NativeFlavor, IO>(/*acir_public_inputs_size=*/input.public_inputs.size()),
+                create_mock_honk_vk<NativeFlavor, IO>(
                     /*dyadic_size=*/1 << NativeFlavor::VIRTUAL_LOG_N,
                     /*pub_inputs_offset=*/NativeFlavor::has_zero_row ? 1 : 0,
-                    /*acir_public_inputs_size=*/input.public_inputs.size())));
+                    /*acir_public_inputs_size=*/input.public_inputs.size()));
         }
 
         return construct_arbitrary_valid_honk_proof_and_vk<NativeFlavor>(
