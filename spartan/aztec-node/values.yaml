@@ -116,9 +116,13 @@ node:
   startupProbe:
     # -- Period seconds
     periodSeconds: 30
+    # -- Timeout seconds for each probe request
+    timeoutSeconds: 1
+    # -- Initial delay before starting probes
+    initialDelaySeconds: 0
     # -- Failure threshold
-    # 10 minutes default but this might not be enough if the node has to download a lot of blocks.
-    failureThreshold: 20
+    # 20 minutes default but this might not be enough if the node has to download a lot of blocks.
+    failureThreshold: 40
 
   resources: {}
 

@@ -86,6 +86,7 @@ function network_test_cmds {
   echo $prefix $run_test_script simple src/spartan/mempool_limit.test.ts
   echo $prefix $run_test_script simple src/spartan/upgrade_governance_proposer.test.ts
   # echo $prefix $run_test_script simple src/spartan/reorg.test.ts #takes too long >~5 epochs
+  echo $prefix $run_test_script simple src/spartan/validator_nuke_and_suppression.test.ts
 }
 
 function single_test {
@@ -214,7 +215,7 @@ case "$cmd" in
     docker update --restart=no kind-control-plane >/dev/null || true
     ;;
   "chaos-mesh")
-    chaos-mesh/install.sh
+    scripts/deploy_chaos_mesh.sh
     ;;
   "metrics-kind")
     metrics/install-kind.sh
