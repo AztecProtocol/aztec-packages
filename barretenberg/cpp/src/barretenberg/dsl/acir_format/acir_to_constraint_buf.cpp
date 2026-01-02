@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Completed, auditors: [Federico], date: 2025-12-04 }
+// internal:    { status: Completed, auditors: [Federico], commit: }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
