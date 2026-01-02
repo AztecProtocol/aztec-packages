@@ -43,6 +43,7 @@ import type { LogFilter } from '../logs/log_filter.js';
 import { SiloedTag } from '../logs/siloed_tag.js';
 import { Tag } from '../logs/tag.js';
 import { TxScopedL2Log } from '../logs/tx_scoped_l2_log.js';
+import { randomTxScopedPrivateL2Log } from '../tests/factories.js';
 import { getTokenContractArtifact } from '../tests/fixtures.js';
 import { MerkleTreeId } from '../trees/merkle_tree_id.js';
 import { NullifierMembershipWitness } from '../trees/nullifier_membership_witness.js';
@@ -721,12 +722,12 @@ class MockAztecNode implements AztecNode {
     expect(filter.contractAddress).toBeInstanceOf(AztecAddress);
     return Promise.resolve({ logs: [await ExtendedContractClassLog.random()], maxLogsHit: true });
   }
-  async getPrivateLogsByTags(tags: SiloedTag[], _logsPerTag?: number): Promise<TxScopedL2Log[][]> {
+  getPrivateLogsByTags(tags: SiloedTag[], _logsPerTag?: number): Promise<TxScopedL2Log[][]> {
     expect(tags).toHaveLength(1);
     expect(tags[0]).toBeInstanceOf(SiloedTag);
-    return [[await TxScopedL2Log.random(false)]];
+    return Promise.resolve([[randomTxScopedPrivateL2Log()]]);
   }
-  async getPublicLogsByTagsFromContract(
+  getPublicLogsByTagsFromContract(
     contractAddress: AztecAddress,
     tags: Tag[],
     _logsPerTag?: number,
@@ -734,7 +735,7 @@ class MockAztecNode implements AztecNode {
     expect(contractAddress).toBeInstanceOf(AztecAddress);
     expect(tags).toHaveLength(1);
     expect(tags[0]).toBeInstanceOf(Tag);
-    return [[await TxScopedL2Log.random(true)]];
+    return Promise.resolve([[randomTxScopedPrivateL2Log()]]);
   }
   sendTx(tx: Tx): Promise<void> {
     expect(tx).toBeInstanceOf(Tx);

@@ -1,10 +1,9 @@
-import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { L2BlockHash } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
-import { DirectionalAppTaggingSecret, PrivateLog, SiloedTag, Tag, TxScopedL2Log } from '@aztec/stdlib/logs';
+import { DirectionalAppTaggingSecret, SiloedTag, Tag } from '@aztec/stdlib/logs';
+import { randomTxScopedPrivateL2Log } from '@aztec/stdlib/testing';
 import { TxHash } from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -26,7 +25,7 @@ describe('loadAndStoreNewTaggingIndexes', () => {
   }
 
   function makeLog(txHash: TxHash, tag: Fr) {
-    return new TxScopedL2Log(txHash, 0, 0, BlockNumber(0), L2BlockHash.random(), 0n, PrivateLog.random(tag));
+    return randomTxScopedPrivateL2Log({ txHash, tag });
   }
 
   beforeAll(async () => {
