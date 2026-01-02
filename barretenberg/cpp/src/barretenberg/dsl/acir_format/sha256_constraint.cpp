@@ -15,8 +15,8 @@ void create_sha256_compression_constraints(Builder& builder, const Sha256Compres
 {
     using field_ct = bb::stdlib::field_t<Builder>;
 
-    std::array<field_ct, 16> inputs;
-    std::array<field_ct, 8> hash_inputs;
+    std::array<field_ct, 8> hash_inputs; // previous  (or initial) hash state
+    std::array<field_ct, 16> inputs;     // message block to compress
 
     // Get the witness assignment for each witness index
     // AUDITTODO: We do not range-check the inputs here, assuming lookup tables in sha256_block

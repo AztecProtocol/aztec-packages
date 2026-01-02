@@ -22,7 +22,7 @@ template <class BuilderType, bool IsInputConstant> class Sha256TestingFunctions 
         enum class Target : uint8_t {
             None,
             Input,     // Tamper with an input value
-            HashValue, // Tamper with a hash value
+            HashValue, // Tamper with a previous hash state value
             Output,    // Tamper with an output value
         };
 

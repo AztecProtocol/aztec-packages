@@ -29,7 +29,7 @@
  *
  *   1. **Input Table** (decomposition): Converts a 32-bit word into sparse limbs
  *      - Splits the word into limbs at boundaries aligned with rotation parameters
- *      - Produces sparse form (C2) and rotated sparse form (C3) for each limb
+ *      - Produces sparse form (C2) and rotated sparse form corrections (C3) (for certain limbs)
  *
  *   2. **Sparse Computation** (in sha256.cpp): Combines sparse limbs via arithmetic
  *      - Multiplies limbs by rotation coefficients to position them correctly

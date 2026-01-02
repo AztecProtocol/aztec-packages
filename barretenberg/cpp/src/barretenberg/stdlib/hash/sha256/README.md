@@ -129,7 +129,7 @@ Correctness is verified through a layered approach:
 
 ### Native Implementation (`crypto/sha256/`)
 
-The native (non-circuit) SHA-256 implementation is tested against official NIST test vectors, verifying the core algorithm is correct.
+The native (non-circuit) SHA-256 implementation (full hash algorithm with padding) is tested against official NIST test vectors, verifying the core algorithm is correct.
 
 ### Circuit Implementation (`stdlib/hash/sha256/`)
 
@@ -137,7 +137,7 @@ The circuit tests use NIST vectors with manual padding - `sha256.test.cpp` tests
 
 ### Differential Fuzzing (`sha256.fuzzer.cpp`)
 
-The fuzzer generates random inputs and compares circuit output against native output. This provides broad coverage without requiring exhaustive test vectors.
+The fuzzer generates random inputs and compares circuit output against native output for the compression function. This provides broad coverage without requiring exhaustive test vectors.
 
 ---
 
@@ -181,7 +181,7 @@ digit = 7 * rotation_sum + (e + 2f + 3g)
 Where:
 - `rotation_sum` ∈ {0,1,2,3} (sum of 3 rotated bits)
 - `e + 2f + 3g` ∈ {0,1,2,3,4,5,6}
-- Max digit = 7×3 + 6 = 27, hence base-28
+- Max digit = 7*3 + 6 = 27, hence base-28
 
 The constant 7 is `SPARSE_MULT` in `choose_with_sigma1()`.
 

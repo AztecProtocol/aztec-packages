@@ -10,14 +10,15 @@
  *
  * This implementation uses "sparse form" representations to efficiently compute SHA-256 operations:
  * - XOR operations become additions in sparse form (one digit per bit)
- * - Rotations become coefficient multiplications
+ * - Rotations become coefficient multiplications or table lookups
  * - Boolean functions (Choose, Majority) are computed via lookup tables
  *
  * Two sparse bases are used:
  * - Base-28 for Choose + Σ₁: encodes 7*rotation + (e + 2f + 3g)
  * - Base-16 for Majority + Σ₀: encodes 4*rotation + (a + b + c)
+ * - Base-16 with pre-rotated limbs for message schedule extension
  *
- * See plookup_tables/sha256.hpp for the mathematical foundations of the lookup tables.
+ * See plookup_tables/sha256.hpp for the details of the lookup tables used herein.
  */
 
 #include "sha256.hpp"
@@ -255,12 +256,12 @@ field_t<Builder> SHA256<Builder>::choose_with_sigma1(sparse_value& e, const spar
     e.sparse = lookup[ColumnIdx::C2][0];
     field_pt sparse_L2 = lookup[ColumnIdx::C2][2];
 
-    // Compute e + SPARSE_MULT*Σ₁(e) in sparse form
+    // Compute e + 7*Σ₁(e) in sparse form
     field_pt xor_result = (rotation_result * SPARSE_MULT)
                               .add_two(e.sparse * (rotation_coefficients[0] * SPARSE_MULT + fr(1)),
                                        sparse_L2 * (rotation_coefficients[2] * SPARSE_MULT));
 
-    // Add 2f + 3g to get e + SPARSE_MULT*Σ₁(e) + 2f + 3g (each digit in 0..27)
+    // Add 2f + 3g to get e + 7*Σ₁(e) + 2f + 3g (each digit in 0..27)
     field_pt choose_result_sparse = xor_result.add_two(f.sparse + f.sparse, g.sparse + g.sparse + g.sparse);
 
     // Normalize via lookup: each digit maps to Σ₁(e)_i + Ch(e,f,g)_i
@@ -296,16 +297,17 @@ field_t<Builder> SHA256<Builder>::majority_with_sigma0(sparse_value& a, const sp
     const auto lookup = plookup_read<Builder>::get_lookup_accumulators(SHA256_MAJ_INPUT, a.normal);
     const auto rotation_coefficients = sha256_tables::get_majority_rotation_multipliers();
 
+    // first row of 3rd column gives accumulating sum of "non-trivial" wraps
     field_pt rotation_result = lookup[ColumnIdx::C3][0];
     a.sparse = lookup[ColumnIdx::C2][0];
     field_pt sparse_L1_acc = lookup[ColumnIdx::C2][1];
 
-    // Compute a + SPARSE_MULT*Σ₀(a) in sparse form
+    // Compute a + 4*Σ₀(a) in sparse form
     field_pt xor_result = (rotation_result * SPARSE_MULT)
                               .add_two(a.sparse * (rotation_coefficients[0] * SPARSE_MULT + fr(1)),
                                        sparse_L1_acc * (rotation_coefficients[1] * SPARSE_MULT));
 
-    // Add b + c to get a + SPARSE_MULT*Σ₀(a) + b + c (each digit in 0..15)
+    // Add b + c to get a + 4*Σ₀(a) + b + c (each digit in 0..15)
     field_pt majority_result_sparse = xor_result.add_two(b.sparse, c.sparse);
 
     // Normalize via lookup: each digit maps to Σ₀(a)_i + Maj(a,b,c)_i
@@ -397,7 +399,7 @@ std::array<field_t<Builder>, 8> SHA256<Builder>::sha256_block(const std::array<f
     // This is not practically exploitable (finding inputs that produce a specific hash still
     // requires ~2^208 work), but deviates from the SHA-256 spec which assumes 32-bit words.
     //
-    // Recommended fix: Use lookups (cheaper than create_range_constraint, ~1 gate vs multiple):
+    // Potential fix: Use lookups (cheaper than create_range_constraint, ~1 gate vs multiple):
     // - For h_init[3], h_init[7]: convert immediately via map_into_*_sparse_form instead of
     //   wrapping in sparse_value(). The lookup constrains the input as a side effect.
     // - For input[0]: add a lookup in extend_witness via convert_witness() or SHA256_WITNESS_INPUT.
@@ -419,9 +421,7 @@ std::array<field_t<Builder>, 8> SHA256<Builder>::sha256_block(const std::array<f
     auto g = map_into_choose_sparse_form(h_init[6]);
     sparse_value h = sparse_value(h_init[7]);
 
-    /**
-     * Extend the 16-word message block to 64 words per SHA-256 specification
-     **/
+    // Extend the 16-word message block to 64 words per SHA-256 specification
     const std::array<field_t<Builder>, 64> w = extend_witness(input);
 
     /**
@@ -450,9 +450,7 @@ std::array<field_t<Builder>, 8> SHA256<Builder>::sha256_block(const std::array<f
         a.normal = add_normalize(temp1, maj);
     }
 
-    /**
-     * Add into previous block output and return
-     **/
+    // Add into previous block output and return
     std::array<field_pt, 8> output;
     output[0] = add_normalize(a.normal, h_init[0]);
     output[1] = add_normalize(b.normal, h_init[1]);

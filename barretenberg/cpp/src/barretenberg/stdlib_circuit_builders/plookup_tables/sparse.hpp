@@ -18,15 +18,13 @@ namespace bb::plookup::sparse_tables {
 /**
  * @brief Computes the C2 and C3 column values for a sparse lookup table with optional rotation.
  *
- * @tparam base The sparse form base (e.g., 28 for Choose, 16 for Majority)
+ * @tparam base The sparse form base
  * @tparam num_rotated_bits The number of bits to rotate the input by for the C3 value (0 = no rotation)
  * @param key The lookup key; key[0] is the input value (a limb), key[1] is unused
  * @return {C2, C3} where:
  *   - C2 = sparse(input): the input converted to sparse base form
  *   - C3 = sparse(rotate32(input, num_rotated_bits)): the rotated input in sparse form
  *         (equals C2 if num_rotated_bits == 0)
- *
- * Used by MultiTable lookups to simultaneously obtain sparse form and rotation results for SHA-256.
  */
 template <uint64_t base, uint64_t num_rotated_bits>
 inline std::array<bb::fr, 2> get_sparse_table_with_rotation_values(const std::array<uint64_t, 2> key)
@@ -56,7 +54,7 @@ inline std::array<bb::fr, 2> get_sparse_table_with_rotation_values(const std::ar
  *
  * Also sets get_values_from_key to enable on-the-fly value computation during lookups.
  *
- * @tparam base The sparse form base (e.g., 28 for Choose, 16 for Majority)
+ * @tparam base The sparse form base
  * @tparam bits_per_slice Number of bits in each table entry (determines table size = 2^bits_per_slice)
  * @tparam num_rotated_bits The number of bits to rotate for C3 values (0 = no rotation)
  */
@@ -100,7 +98,7 @@ inline BasicTable generate_sparse_table_with_rotation(BasicTableId id, const siz
 /**
  * @brief Computes the normalized output for a sparse value based on a provided normalization table
  *
- * @tparam base The sparse form base (e.g., 16 or 28)
+ * @tparam base The sparse form base
  * @tparam base_table The normalization lookup table (maps sparse digit → normalized bit(s))
  * @param key The lookup key; key[0] is the sparse input value, key[1] is unused
  * @return {normalized_value, 0} where normalized_value has one output bit per input sparse digit
