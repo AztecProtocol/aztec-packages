@@ -1,5 +1,5 @@
-import type { AztecAddress } from '@aztec/aztec.js/addresses';
-import { Fr } from '@aztec/aztec.js/fields';
+import { AztecAddress } from '@aztec/aztec.js/addresses';
+import { Fr, GrumpkinScalar } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import {
@@ -289,12 +289,23 @@ describe('e2e_pending_note_hashes_contract', () => {
   it('Should handle overflowing the kernel data structures in nested calls', async () => {
     // This test verifies that a transaction can emit more notes than MAX_NOTE_HASHES_PER_TX without failing, since
     // the notes are nullified and will be squashed by the kernel reset circuit.
-    const sender = owner;
+
     const notesPerIteration = Math.min(MAX_NOTE_HASHES_PER_CALL, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL);
     const minToNeedReset = Math.min(MAX_NOTE_HASHES_PER_TX, MAX_NOTE_HASH_READ_REQUESTS_PER_TX) + 1;
     const deployedContract = await deployContract();
+
+    // We use 10 different recipients to send private logs to in order to avoid exceeding
+    // UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN logs emitted for any single sender-recipient pair.
+    const recipients = (
+      await Promise.all(
+        Array.from({ length: 10 }, () =>
+          wallet.createSchnorrAccount(Fr.random(), Fr.random(), GrumpkinScalar.random()),
+        ),
+      )
+    ).map(a => a.address);
+
     await deployedContract.methods
-      .test_recursively_create_notes(owner, sender, Math.ceil(minToNeedReset / notesPerIteration))
+      .test_recursively_create_notes(recipients, Math.ceil(minToNeedReset / notesPerIteration))
       .send({ from: owner })
       .wait();
   });

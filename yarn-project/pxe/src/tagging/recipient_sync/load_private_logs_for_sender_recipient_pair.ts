@@ -4,7 +4,7 @@ import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import type { DirectionalAppTaggingSecret, TxScopedL2Log } from '@aztec/stdlib/logs';
 
 import { UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN } from '../sync/sync_sender_tagging_indexes.js';
-import type { NewRecipientTaggingDataProvider } from './new_recipient_tagging_data_provider.js';
+import type { RecipientTaggingDataProvider } from './recipient_tagging_data_provider.js';
 import { findHighestIndexes } from './utils/find_highest_indexes.js';
 import { loadLogsForRange } from './utils/load_logs_for_range.js';
 
@@ -19,7 +19,7 @@ export async function loadPrivateLogsForSenderRecipientPair(
   secret: DirectionalAppTaggingSecret,
   app: AztecAddress,
   aztecNode: AztecNode,
-  taggingDataProvider: NewRecipientTaggingDataProvider,
+  taggingDataProvider: RecipientTaggingDataProvider,
   anchorBlockNumber: BlockNumber,
 ): Promise<TxScopedL2Log[]> {
   // # Explanation of how the algorithm works

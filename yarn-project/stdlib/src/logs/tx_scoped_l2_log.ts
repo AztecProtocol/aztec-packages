@@ -10,7 +10,7 @@ import type { UInt64 } from '../types/shared.js';
 import { PrivateLog } from './private_log.js';
 import { PublicLog } from './public_log.js';
 
-// TODO(#14460): Split to private and public versions instead of having this weird mix.
+// TODO(F-231): Drop this and return the PrivateLogWithTxData and PublicLogWithTxData from Aztec node instead.
 export class TxScopedL2Log {
   constructor(
     /*

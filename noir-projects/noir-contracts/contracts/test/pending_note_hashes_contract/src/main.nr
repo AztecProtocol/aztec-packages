@@ -294,50 +294,66 @@ pub contract PendingNoteHashes {
     //}
 
     #[external("private")]
-    fn test_recursively_create_notes(
-        owner: AztecAddress,
-        sender: AztecAddress,
-        how_many_recursions: u64,
-    ) {
-        self.internal.create_max_notes(owner);
+    fn test_recursively_create_notes(recipients: [AztecAddress; 10], how_many_recursions: u64) {
+        let initial_offset: u64 = 0;
+        self.internal.create_max_notes(recipients, initial_offset);
 
-        self.call_self.recursively_destroy_and_create_notes(owner, sender, how_many_recursions);
+        let max_notes = self.internal.max_notes_per_call() as u64;
+        self.call_self.recursively_destroy_and_create_notes(
+            recipients,
+            how_many_recursions,
+            max_notes,
+        );
     }
 
     #[external("private")]
     fn recursively_destroy_and_create_notes(
-        owner: AztecAddress,
-        sender: AztecAddress,
+        recipients: [AztecAddress; 10],
         executions_left: u64,
+        current_offset: u64,
     ) {
         assert(executions_left > 0);
 
-        self.internal.destroy_max_notes(owner);
-        self.internal.create_max_notes(owner);
+        self.internal.destroy_max_notes(recipients);
+        self.internal.create_max_notes(recipients, current_offset);
 
         let executions_left = executions_left - 1;
 
         if executions_left > 0 {
-            self.call_self.recursively_destroy_and_create_notes(owner, sender, executions_left);
+            let max_notes = self.internal.max_notes_per_call() as u64;
+            self.call_self.recursively_destroy_and_create_notes(
+                recipients,
+                executions_left,
+                current_offset + max_notes,
+            );
         }
     }
 
     #[internal("private")]
-    fn create_max_notes(owner: AztecAddress) {
-        let owner_balance = self.storage.balances.at(owner);
-
+    fn create_max_notes(recipients: [AztecAddress; 10], offset: u64) {
+        // Distribute notes across recipients using global offset to ensure
+        // no recipient receives more than 10 notes (UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN)
         for i in 0..self.internal.max_notes_per_call() {
+            let global_index = offset + i as u64;
+            let recipient_index = (global_index % 10) as u32;
+            let recipient = recipients[recipient_index];
+            let recipient_balance = self.storage.balances.at(recipient);
+
             let note = FieldNote { value: i as Field };
-            owner_balance.insert(note).deliver(MessageDelivery.CONSTRAINED_ONCHAIN);
+            recipient_balance.insert(note).deliver(MessageDelivery.CONSTRAINED_ONCHAIN);
         }
     }
 
     #[internal("private")]
-    fn destroy_max_notes(owner: AztecAddress) {
-        let owner_balance = self.storage.balances.at(owner);
-        // Note that we're relying on PXE actually returning the notes, we're not constraining that any specific
-        // number of notes are deleted.
-        let _ = owner_balance.pop_notes(NoteGetterOptions::new());
+    fn destroy_max_notes(recipients: [AztecAddress; 10]) {
+        // Pop notes from all recipients
+        for i in 0..10 {
+            let recipient = recipients[i];
+            let recipient_balance = self.storage.balances.at(recipient);
+            // Note that we're relying on PXE actually returning the notes, we're not constraining that any specific
+            // number of notes are deleted.
+            let _ = recipient_balance.pop_notes(NoteGetterOptions::new());
+        }
     }
 
     #[internal("private")]
