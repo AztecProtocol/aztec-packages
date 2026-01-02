@@ -587,7 +587,7 @@ export class NoteDataProvider implements StagingDataProvider {
         } else if (data.type === 'nullify_note') {
           const noteIndex = data.noteIndex;
           const noteBuffer = Buffer.from(data.noteBuffer, 'hex');
-          const note = NoteDao.fromBuffer(noteBuffer);
+          // const note = NoteDao.fromBuffer(noteBuffer);
 
           // Get scopes for the note
           const noteScopes = await toArray(this.#notesToScope.getValuesAsync(noteIndex));

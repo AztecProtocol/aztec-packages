@@ -269,7 +269,7 @@ export class SenderTaggingDataProvider implements StagingDataProvider {
    * Commits staged data to main storage.
    * Called by JobCoordinator when a job completes successfully.
    */
-  async commitStaging(context: JobContext): Promise<void> {
+  commitStaging(context: JobContext): Promise<void> {
     return this.#store.transactionAsync(async () => {
       // Iterate through all staging keys and promote to main
       for await (const key of this.#stagingMap.keysAsync()) {

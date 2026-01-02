@@ -2,7 +2,7 @@ import { randomBytes } from '@aztec/foundation/crypto/random';
 import { createLogger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore, AztecAsyncSingleton } from '@aztec/kv-store';
 
-import { JobContext, type SerializedJobContext, deserializeJobContext, serializeJobContext } from './job_context.js';
+import { JobContext, type SerializedJobContext, serializeJobContext } from './job_context.js';
 
 /**
  * Interface that data providers must implement to support staged writes.
