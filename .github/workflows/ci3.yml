@@ -150,7 +150,7 @@ jobs:
           # For release tags, use the release image; for PRs, omit to build and push to aztecdev
           if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
             tag="${{ github.ref_name }}"
-            tag="${tag#refs/tags/v}"
+            tag="${tag#v}"
             major_version=$(./ci3/semver major "$tag")
             namespace="v${major_version}-scenario"
             docker_image="aztecprotocol/aztec:${tag}"
