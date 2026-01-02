@@ -94,6 +94,8 @@ spec:
           path: /status
           port: {{ .Values.service.rpc.port }}
         periodSeconds: {{ .Values.node.startupProbe.periodSeconds }}
+        timeoutSeconds: {{ .Values.node.startupProbe.timeoutSeconds }}
+        initialDelaySeconds: {{ .Values.node.startupProbe.initialDelaySeconds }}
         failureThreshold: {{ .Values.node.startupProbe.failureThreshold }}
       volumeMounts:
         - name: shared
