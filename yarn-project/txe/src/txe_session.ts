@@ -285,6 +285,12 @@ export class TXESession implements TXESessionStateHandler {
   ): Promise<PrivateContextInputs> {
     this.exitTopLevelState();
 
+    await new NoteService(
+      this.noteDataProvider,
+      this.stateMachine.node,
+      this.stateMachine.anchorBlockDataProvider,
+    ).syncNoteNullifiers(contractAddress);
+
     // Private execution has two associated block numbers: the anchor block (i.e. the historical block that is used to
     // build the proof), and the *next* block, i.e. the one we'll create once the execution ends, and which will contain
     // a single transaction with the effects of what was done in the test.
