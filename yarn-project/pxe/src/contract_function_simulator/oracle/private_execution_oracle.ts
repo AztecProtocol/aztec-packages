@@ -84,6 +84,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     private readonly callContext: CallContext,
     /** Header of a block whose state is used during private execution (not the block the transaction is included in). */
     protected override readonly anchorBlockHeader: BlockHeader,
+    /** Needed to trigger contract synchronization before nested calls */
     private readonly utilityExecutor: (call: FunctionCall) => Promise<void>,
     /** List of transient auth witnesses to be used during this simulation */
     authWitnesses: AuthWitness[],

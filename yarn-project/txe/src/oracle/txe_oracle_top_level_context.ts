@@ -628,6 +628,12 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     if (!artifact) {
       throw new Error(`Cannot call ${functionSelector} as there is no artifact found at ${targetContractAddress}.`);
     }
+
+    // Sync notes before executing utility function to discover notes from previous transactions
+    await this.contractDataProvider.syncPrivateState(targetContractAddress, functionSelector, async call => {
+      await this.executeUtilityCall(call);
+    });
+
     const call = new FunctionCall(
       artifact.name,
       targetContractAddress,
