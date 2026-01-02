@@ -282,8 +282,8 @@ function test_cmds_native {
       while read -r test; do
         local prefix=$hash
         # A little extra resource for these tests.
-        # IPARecursiveTests and AcirHonkRecursionConstraint fail with 2 threads.
-        if [[ "$test" =~ ^(AcirAvmRecursionConstraint|ChonkKernelCapacity|AvmRecursiveTests|IPARecursiveTests|AcirHonkRecursionConstraint) ]]; then
+        # IPARecursiveTests fails with 2 threads.
+        if [[ "$test" =~ ^(AcirAvmRecursionConstraint|ChonkKernelCapacity|AvmRecursiveTests|IPARecursiveTests|HonkRecursionConstraintTest) ]]; then
           prefix="$prefix:CPUS=4:MEM=8g"
         fi
         echo -e "$prefix barretenberg/cpp/scripts/run_test.sh $bin_name $test"
@@ -306,7 +306,7 @@ function test_cmds_asan {
     ["commitment_schemes_recursion_tests"]="IPARecursiveTests.AccumulationAndFullRecursiveVerifier"
     ["chonk_tests"]="ChonkTests.Basic"
     ["ultra_honk_tests"]="MegaHonkTests/0.Basic"
-    ["dsl_tests"]="AcirHonkRecursionConstraint/1.TestBasicDoubleHonkRecursionConstraints"
+    ["dsl_tests"]="HonkRecursionConstraintTestWithoutPredicate/2.Tampering"
   )
   for bin_name in "${!asan_tests[@]}"; do
     local filter=${asan_tests[$bin_name]}
