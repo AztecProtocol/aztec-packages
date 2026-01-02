@@ -1,6 +1,5 @@
 #include "barretenberg/dsl/acir_format/ecdsa_constraints.hpp"
 #include "acir_format.hpp"
-#include "acir_format_mocks.hpp"
 #include "barretenberg/crypto/ecdsa/ecdsa.hpp"
 #include "barretenberg/dsl/acir_format/test_class_predicate.hpp"
 #include "barretenberg/dsl/acir_format/utils.hpp"
@@ -51,6 +50,8 @@ template <class Curve> class EcdsaTestingFunctions {
     // Reproducible test
     static constexpr FrNative private_key =
         FrNative("0xd67abee717b3fc725adf59e2cc8cd916435c348b277dd814a34e3ceb279436c2");
+
+    static ProgramMetadata generate_metadata() { return ProgramMetadata{}; }
 
     static std::pair<AcirConstraint, WitnessVector> invalidate_witness(
         AcirConstraint ecdsa_constraints,

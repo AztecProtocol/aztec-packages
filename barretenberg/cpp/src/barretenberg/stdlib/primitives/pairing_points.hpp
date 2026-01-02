@@ -217,7 +217,7 @@ template <typename Curve> struct PairingPoints {
 
 #ifndef NDEBUG
         bb::PairingPoints<typename Curve::NativeCurve> native_pp(P0.get_value(), P1.get_value());
-        info("Aggregated Pairing Points with tag ", tag_index, ": valid: ", native_pp.check() ? "true" : "false");
+        info("Are aggregated Pairing Points with tag ", tag_index, " valid? ", native_pp.check() ? "true" : "false");
 #endif
     }
 
