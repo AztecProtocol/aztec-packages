@@ -6,7 +6,7 @@ import { Timer } from '@aztec/foundation/timer';
 import { KeyStore } from '@aztec/key-store';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { L2TipsKVStore } from '@aztec/kv-store/stores';
-import { type ProtocolContractsProvider, protocolContractNames } from '@aztec/protocol-contracts';
+import { type ProtocolContractsProvider, isProtocolContract, protocolContractNames } from '@aztec/protocol-contracts';
 import type { CircuitSimulator } from '@aztec/simulator/client';
 import {
   type ContractArtifact,
@@ -997,9 +997,12 @@ export class PXE {
         const functionTimer = new Timer();
         const contractFunctionSimulator = this.#getSimulatorForTx();
 
-        await this.contractDataProvider.syncPrivateState(call.to, call.selector, privateSyncCall =>
-          this.#simulateUtility(contractFunctionSimulator, privateSyncCall),
-        );
+        // Protocol contracts don't have private state to sync
+        if (!isProtocolContract(call.to)) {
+          await this.contractDataProvider.syncPrivateState(call.to, call.selector, privateSyncCall =>
+            this.#simulateUtility(contractFunctionSimulator, privateSyncCall),
+          );
+        }
 
         const executionResult = await this.#simulateUtility(contractFunctionSimulator, call, authwits ?? [], scopes);
         const functionTime = functionTimer.ms();
@@ -1046,11 +1049,14 @@ export class PXE {
     return this.#putInJobQueue(async () => {
       await this.blockStateSynchronizer.sync();
       const contractFunctionSimulator = this.#getSimulatorForTx();
-      await this.contractDataProvider.syncPrivateState(
-        filter.contractAddress,
-        null,
-        async privateSyncCall => await this.#simulateUtility(contractFunctionSimulator, privateSyncCall),
-      );
+      // Protocol contracts don't have private state to sync
+      if (!isProtocolContract(filter.contractAddress)) {
+        await this.contractDataProvider.syncPrivateState(
+          filter.contractAddress,
+          null,
+          async privateSyncCall => await this.#simulateUtility(contractFunctionSimulator, privateSyncCall),
+        );
+      }
 
       const sanitizedFilter = await new PrivateEventFilterValidator(this.anchorBlockDataProvider).validate(filter);
 

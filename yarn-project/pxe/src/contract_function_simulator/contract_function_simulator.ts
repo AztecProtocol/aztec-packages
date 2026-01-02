@@ -23,7 +23,7 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import type { KeyStore } from '@aztec/key-store';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
-import { protocolContractsHash } from '@aztec/protocol-contracts';
+import { isProtocolContract, protocolContractsHash } from '@aztec/protocol-contracts';
 import {
   type CircuitSimulator,
   ExecutionError,
@@ -134,9 +134,12 @@ export class ContractFunctionSimulator {
   ): Promise<PrivateExecutionResult> {
     const simulatorSetupTimer = new Timer();
 
-    await this.contractDataProvider.syncPrivateState(contractAddress, selector, privateSyncCall =>
-      this.runUtility(privateSyncCall, [], anchorBlockHeader, scopes),
-    );
+    // Protocol contracts don't have private state to sync
+    if (!isProtocolContract(contractAddress)) {
+      await this.contractDataProvider.syncPrivateState(contractAddress, selector, privateSyncCall =>
+        this.runUtility(privateSyncCall, [], anchorBlockHeader, scopes),
+      );
+    }
 
     await verifyCurrentClassId(contractAddress, this.aztecNode, this.contractDataProvider, anchorBlockHeader);
 

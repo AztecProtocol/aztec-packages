@@ -108,16 +108,16 @@ export class CircuitRecorder {
    * contracts as protocol circuits artifacts always contain a single entrypoint function called 'main'.
    */
   start(input: ACVMWitness, circuitBytecode: Buffer, circuitName: string, functionName: string): Promise<void> {
-    const parentRef = this.recording;
     if (this.newCircuit) {
+      const parentRef = this.recording;
       this.recording = new CircuitRecording(
         circuitName,
         functionName,
         sha512(circuitBytecode).toString('hex'),
         Object.fromEntries(input),
       );
+      this.recording.setParent(parentRef);
     }
-    this.recording!.setParent(parentRef);
 
     return Promise.resolve();
   }
@@ -173,22 +173,22 @@ export class CircuitRecorder {
         if (result instanceof Promise) {
           return result.then(async r => {
             // Once we leave the nested circuit, we decrease the stack depth and set newCircuit to false
-            // since we are going back to the "parent" circuit which can never be new
+            // so that the parent circuit continues with its existing recording
+            // Note: recording restoration is handled by finish()
             if (isExternalCall) {
               this.stackDepth--;
               this.newCircuit = false;
-              this.recording = this.recording!.parent;
             }
             await this.recordCall(name, args, r, timer.ms(), this.stackDepth);
             return r;
           }) as ReturnType<typeof fn>;
         }
         // Once we leave the nested circuit, we decrease the stack depth and set newCircuit to false
-        // since we are going back to the "parent" circuit which can never be new
+        // so that the parent circuit continues with its existing recording
+        // Note: recording restoration is handled by finish()
         if (isExternalCall) {
           this.stackDepth--;
           this.newCircuit = false;
-          this.recording = this.recording!.parent;
         }
         void this.recordCall(name, args, result, timer.ms(), this.stackDepth);
         return result;
@@ -239,6 +239,12 @@ export class CircuitRecorder {
     if (!result!.parent) {
       this.newCircuit = true;
       this.recording = undefined;
+    } else {
+      // For nested circuits (utility calls, nested contract calls), restore to parent recording
+      // Note: we don't set newCircuit=false here because:
+      // - For privateCallPrivateFunction, the callback wrapper will set it to false
+      // - For utility calls, we want newCircuit to remain true so the next circuit creates its own recording
+      this.recording = result!.parent;
     }
     return Promise.resolve(result!);
   }
@@ -253,6 +259,10 @@ export class CircuitRecorder {
     if (!result!.parent) {
       this.newCircuit = true;
       this.recording = undefined;
+    } else {
+      // For nested circuits (utility calls, nested contract calls), restore to parent recording
+      // Note: we don't set newCircuit=false here - see finish() comment for explanation
+      this.recording = result!.parent;
     }
     result!.error = JSON.stringify(error);
     return Promise.resolve(result!);
