@@ -236,7 +236,7 @@ template <typename Flavor, class PublicInputs> HonkProof create_mock_honk_proof(
 }
 
 template <typename Flavor>
-std::pair<HonkProof, std::shared_ptr<typename Flavor::VerificationKey>> construct_honk_proof_for_simple_circuit(
+std::pair<HonkProof, std::shared_ptr<typename Flavor::VerificationKey>> construct_arbitrary_valid_honk_proof_and_vk(
     const size_t acir_public_inputs_size)
 {
     using ProverInstance = ProverInstance_<Flavor>;
@@ -515,12 +515,12 @@ template HonkProof create_mock_honk_proof<UltraZKFlavor, stdlib::recursion::honk
     const size_t);
 template HonkProof create_mock_honk_proof<UltraRollupFlavor, stdlib::recursion::honk::RollupIO>(const size_t);
 
-template std::pair<HonkProof, std::shared_ptr<UltraFlavor::VerificationKey>> construct_honk_proof_for_simple_circuit<
-    UltraFlavor>(const size_t);
-template std::pair<HonkProof, std::shared_ptr<UltraZKFlavor::VerificationKey>> construct_honk_proof_for_simple_circuit<
-    UltraZKFlavor>(const size_t);
+template std::pair<HonkProof, std::shared_ptr<UltraFlavor::VerificationKey>>
+construct_arbitrary_valid_honk_proof_and_vk<UltraFlavor>(const size_t);
+template std::pair<HonkProof, std::shared_ptr<UltraZKFlavor::VerificationKey>>
+construct_arbitrary_valid_honk_proof_and_vk<UltraZKFlavor>(const size_t);
 template std::pair<HonkProof, std::shared_ptr<UltraRollupFlavor::VerificationKey>>
-construct_honk_proof_for_simple_circuit<UltraRollupFlavor>(const size_t);
+construct_arbitrary_valid_honk_proof_and_vk<UltraRollupFlavor>(const size_t);
 
 template HonkProof create_mock_hyper_nova_proof<MegaFlavor, stdlib::recursion::honk::AppIO>(bool);
 template HonkProof create_mock_hyper_nova_proof<MegaFlavor, stdlib::recursion::honk::KernelIO>(bool);

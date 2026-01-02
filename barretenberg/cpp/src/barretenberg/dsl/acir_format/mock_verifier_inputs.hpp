@@ -83,14 +83,14 @@ template <typename Flavor, class PublicInputs>
 bb::HonkProof create_mock_honk_proof(const size_t acir_public_inputs_size = 0);
 
 /**
- * @brief Create a honk proof for a circuit with a single big add gate. Adds random public inputs to match
+ * @brief Create a valid honk proof and vk for a circuit with a single big add gate. Adds random public inputs to match
  * num_public_inputs provided.
  *
  * @param acir_public_inputs_size Number of public inputs coming from the ACIR constraints
  * @param make_proof_invalid If true, the proof is an invalid proof
  */
 template <typename Flavor>
-std::pair<bb::HonkProof, std::shared_ptr<typename Flavor::VerificationKey>> construct_honk_proof_for_simple_circuit(
+std::pair<bb::HonkProof, std::shared_ptr<typename Flavor::VerificationKey>> construct_arbitrary_valid_honk_proof_and_vk(
     size_t acir_public_inputs_size);
 
 /**

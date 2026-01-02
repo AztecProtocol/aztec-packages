@@ -34,7 +34,7 @@ HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recur
     typename Flavor::CircuitBuilder& builder, const RecursionConstraint& input)
     requires(IsRecursiveFlavor<Flavor> && IsUltraHonk<typename Flavor::NativeFlavor>)
 {
-    using Builder = typename Flavor::CircuitBuilder;
+    using Builder = Flavor::CircuitBuilder;
     using field_ct = stdlib::field_t<Builder>;
     using bool_ct = bb::stdlib::bool_t<Builder>;
     using RecursiveVerificationKey = Flavor::VerificationKey;
@@ -43,6 +43,9 @@ HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recur
                                   stdlib::recursion::honk::RollupIO,
                                   stdlib::recursion::honk::DefaultIO<Builder>>;
     using RecursiveVerifier = bb::UltraVerifier_<Flavor, IO>;
+    using NativeFlavor = Flavor::NativeFlavor;
+    using NativeVerificationKey = NativeFlavor::VerificationKey;
+    using NativeIO = std::conditional_t<HasIPAAccumulator<NativeFlavor>, bb::RollupIO, bb::DefaultIO>;
 
     BB_ASSERT(input.proof_type == HONK || input.proof_type == HONK_ZK || input.proof_type == ROLLUP_HONK ||
                   input.proof_type == ROOT_ROLLUP_HONK,
@@ -61,40 +64,54 @@ HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recur
         fields_from_witnesses(builder, add_public_inputs_to_proof(input.proof, input.public_inputs));
     bool_ct predicate(to_field_ct(input.predicate, builder)); // Constructor enforces predicate = 0 or 1
 
-    // Step 2. and 3.
-    // Construct an Honk proof and vk with the correct number of public inputs.
-    const auto [honk_proof, honk_vk] = construct_honk_proof_for_simple_circuit<typename Flavor::NativeFlavor>(
-        /*acir_public_inputs_size=*/input.public_inputs.size());
+    // Construct a Honk proof and vk with the correct number of public inputs.
+    // If we are in a write vk scenario, the proof and vk are not necessarily valid
+    const auto [honk_proof_to_be_set,
+                honk_vk_to_be_set] = [&]() -> std::pair<HonkProof, std::shared_ptr<NativeVerificationKey>> {
+        if (builder.is_write_vk_mode()) {
+            return std::make_pair(
+                create_mock_honk_proof<NativeFlavor, NativeIO>(/*acir_public_inputs_size=*/input.public_inputs.size()),
+                std::make_shared<NativeVerificationKey>(create_mock_honk_vk<NativeFlavor, NativeIO>(
+                    /*dyadic_size=*/1 << NativeFlavor::VIRTUAL_LOG_N,
+                    /*pub_inputs_offset=*/NativeFlavor::has_zero_row ? 1 : 0,
+                    /*acir_public_inputs_size=*/input.public_inputs.size())));
+        }
 
+        return construct_arbitrary_valid_honk_proof_and_vk<NativeFlavor>(
+            /*acir_public_inputs_size=*/input.public_inputs.size());
+    }();
+
+    // Step 2.
     if (builder.is_write_vk_mode()) {
         // Set honk vk in builder
-        populate_fields(builder, vk_fields, honk_vk->to_field_elements());
+        populate_fields(builder, vk_fields, honk_vk_to_be_set->to_field_elements());
 
         // Set honk proof in builder
-        populate_fields(builder, proof_fields, honk_proof);
+        populate_fields(builder, proof_fields, honk_proof_to_be_set);
     }
 
+    // Step 3.
     if (!predicate.is_constant()) {
         // If the predicate is a witness, we conditionally assign a valid vk, proof and vk hash so that verification
-        // suceeds. Note: in doing this, we create some new witnesses that are only used in the conditional assignment.
+        // succeeds. Note: in doing this, we create some new witnesses that are only used in the conditional assignment.
         // It would be optimal to hard-code these values in the selectors, but due to the randomness needed to generate
         // valid ZK proofs, we cannot do that without adding a dependency of the VKs on the witness values. Note that
         // the new witnesses are used only in the recursive verification when the predicate is set to true, so they
         // don't create a soundness issue and can be filled with anything - as long as they contain a valid vk, proof
         // and vk hash)
-        for (auto [vk_witness, vk_element] : zip_view(vk_fields, honk_vk->to_field_elements())) {
+        for (auto [vk_witness, vk_element] : zip_view(vk_fields, honk_vk_to_be_set->to_field_elements())) {
             field_ct valid_vk_witness = field_ct::from_witness(&builder, vk_element);
             valid_vk_witness.unset_free_witness_tag(); // Avoid tooling catching this as a free witness
             vk_witness = field_ct::conditional_assign(predicate, vk_witness, valid_vk_witness);
         }
 
-        for (auto [proof_witness, proof_element] : zip_view(proof_fields, honk_proof)) {
+        for (auto [proof_witness, proof_element] : zip_view(proof_fields, honk_proof_to_be_set)) {
             field_ct valid_proof_witness = field_ct::from_witness(&builder, proof_element);
             valid_proof_witness.unset_free_witness_tag(); // Avoid tooling catching this as a free witness
             proof_witness = field_ct::conditional_assign(predicate, proof_witness, valid_proof_witness);
         }
 
-        field_ct valid_vk_hash = field_ct::from_witness(&builder, honk_vk->hash());
+        field_ct valid_vk_hash = field_ct::from_witness(&builder, honk_vk_to_be_set->hash());
         valid_vk_hash.unset_free_witness_tag();
         vk_hash = field_ct::conditional_assign(predicate, vk_hash, valid_vk_hash);
     }

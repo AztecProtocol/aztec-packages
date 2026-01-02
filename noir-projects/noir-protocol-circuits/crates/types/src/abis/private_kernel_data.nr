@@ -56,9 +56,9 @@ impl PrivateKernelData {
         // Note 2: There are no public inputs because CHONK uses that databus to propagate public inputs. This means that the public inputs of the kernel
         //         are not represented as single field elements, but rather as commitments (points on BN254). Barretenberg handles these public inputs internally
         //         and requires no input from Noir.
-        // Note on public inputs: While from Noir it looks like kernel circuit have not public inputs, this is not the case. Barretenberg adds public inputs
+        // Note on public inputs: While from Noir it looks like kernel circuits have no public inputs, this is not the case. Barretenberg adds public inputs
         //                        to kernels for a series of reasons. Among these inputs, there are the databus public inputs. As mentioned above, these
-        //                        public inputs are completed handled by barretenberg and decoupled from Noir. This is way Noir sends to barretenberg an
+        //                        public inputs are completely handled by barretenberg and decoupled from Noir. This is why Noir sends to barretenberg an
         //                        empty vector as public inputs.
         std::verify_proof_with_type(
             self.vk_data.vk.key,

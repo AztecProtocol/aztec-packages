@@ -21,7 +21,7 @@ using namespace bb;
  * These functions are used to generate the constraints for testing Honk recursive verification.
  *
  * We wish to test the following scenarios:
- * 1. Vanilla recursion
+ * 1. Single recursive verification
  * 2. Rollup circuits: Merge/Base (2 recursive verifications), Root (2 recursive verifications + full IPA)
  * 3. Recursive verification of non recursive circuit and recursive circuit
  *
@@ -43,7 +43,7 @@ using namespace bb;
  *
  * NOTE: We add another template parameter: IsRootRollup so that we can force finalization of IPA claims.
  *
- * EXAMPLE: If N = 1, s_1 = 1, then C = { recursively verify A_1 }. This is what we call vanilla recursion
+ * EXAMPLE: If N = 1, s_1 = 1, then C = { recursively verify A_1 } performs a single recursive verification.
  * EXAMPLE: If N = 1, s_1 = 2, IsRootRollup = false, then C = { recursively verify A_1, A_2 }. This is a Base/Merge
  *          rollup.
  * EXAMPLE: If N = 1, s_1 = 2, IsRootRollup = true, then C = { recursively verify A_1, A_2  + IPA verification}.
@@ -104,9 +104,9 @@ class HonkRecursionConstraintTestingFunctions {
         return HONK;
     }();
 
-    static constexpr bool IS_VANILLA_RECURSION = N == 1 && LayerSizes[0] == 1;
+    static constexpr bool IS_SINGLE_RECURSIVE_VERIFICATION = N == 1 && LayerSizes[0] == 1;
     using AcirConstraint =
-        std::conditional_t<IS_VANILLA_RECURSION, RecursionConstraint, std::vector<RecursionConstraint>>;
+        std::conditional_t<IS_SINGLE_RECURSIVE_VERIFICATION, RecursionConstraint, std::vector<RecursionConstraint>>;
     using Builder = RecursiveFlavor::CircuitBuilder;
 
     // All the circuits have the same number of public inputs, this tests the slicing of public inputs from the proof at
@@ -191,7 +191,7 @@ class HonkRecursionConstraintTestingFunctions {
             witness_values.insert(witness_values.end(), witnesses.begin(), witnesses.end());
         }
 
-        if constexpr (IS_VANILLA_RECURSION) {
+        if constexpr (IS_SINGLE_RECURSIVE_VERIFICATION) {
             return constraints[0];
         } else {
             return constraints;
@@ -247,7 +247,7 @@ class HonkRecursionConstraintTestingFunctions {
             break;
         case InvalidWitness::Target::VKHash: {
             // Invalidate the circuit by modifying the vk hash
-            if constexpr (IS_VANILLA_RECURSION) {
+            if constexpr (IS_SINGLE_RECURSIVE_VERIFICATION) {
                 witness_values[honk_recursion_constraints.key_hash] += fr::one();
             } else {
                 witness_values[honk_recursion_constraints[0].key_hash] += fr::one();
@@ -257,7 +257,7 @@ class HonkRecursionConstraintTestingFunctions {
         case InvalidWitness::Target::VK: {
             // Invalidate the circuit by modifying the first element of the vk (log circuit size)
             std::vector<uint32_t> vk_indices;
-            if constexpr (IS_VANILLA_RECURSION) {
+            if constexpr (IS_SINGLE_RECURSIVE_VERIFICATION) {
                 witness_values[honk_recursion_constraints.key[0]] += fr::one();
             } else {
                 witness_values[honk_recursion_constraints[0].key[0]] += fr::one();
@@ -268,7 +268,7 @@ class HonkRecursionConstraintTestingFunctions {
             // Invalidate the circuit by modifying the first element of the proof after the public inputs, which is a
             // group element (vk commitment)
             std::vector<uint32_t> proof_indices;
-            if constexpr (IS_VANILLA_RECURSION) {
+            if constexpr (IS_SINGLE_RECURSIVE_VERIFICATION) {
                 proof_indices = honk_recursion_constraints.proof;
             } else {
                 proof_indices = honk_recursion_constraints[0].proof;
