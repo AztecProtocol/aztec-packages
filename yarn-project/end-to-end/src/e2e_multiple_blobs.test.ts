@@ -54,15 +54,19 @@ describe('e2e_multiple_blobs', () => {
     const utilityFunctions = contractArtifact.functions.filter(fn => fn.functionType == FunctionType.UTILITY);
 
     // Increase the minimum number of txs per block so that all txs will be mined in the same block.
-    const TX_COUNT = 5;
+    // We need enough function broadcasts to produce more than FIELDS_PER_BLOB (4096) fields.
+    const TX_COUNT = 8;
     await aztecNodeAdmin.setConfig({ minTxsPerBlock: TX_COUNT });
 
     const provenTxs = [
       // 1 contract deployment tx.
       await publishContractClass(wallet, AvmTestContract.artifact),
-      // 2 private function broadcast txs.
+      // 5 private function broadcast txs.
       await broadcastFunction(privateFunctions[0]),
       await broadcastFunction(privateFunctions[1]),
+      await broadcastFunction(privateFunctions[2]),
+      await broadcastFunction(privateFunctions[3]),
+      await broadcastFunction(privateFunctions[4]),
       // 1 utility function broadcast tx.
       await broadcastFunction(utilityFunctions[0]),
       // 1 tx to emit note hash, nullifier, l2_to_l1_message, private log and public log.
