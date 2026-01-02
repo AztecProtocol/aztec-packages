@@ -77,13 +77,28 @@ XOR and bitwise operations are expensive in circuits. We use "sparse form" to co
 
 - Each bit is stored in its own digit (base B, one digit per bit position)
 - XOR of bits becomes addition of digits (mod B)
-- Rotations become multiplication by powers of B
 
-Two sparse bases are used:
+Two sparse bases are used across three contexts:
+
 - **Base-28** for Choose + Σ₁: encodes `7*rotation_sum + (e + 2f + 3g)` per digit
 - **Base-16** for Majority + Σ₀: encodes `4*rotation_sum + (a + b + c)` per digit
+- **Base-16** for Message Extension (σ₀ + σ₁): encodes `4*σ₀_digit + σ₁_digit` per digit
 
-The multipliers (7 and 4) separate the rotation result from the Boolean function encoding within each digit.
+The multipliers (4 and 7) separate the two XOR results or the rotation result from the Boolean function encoding within each digit.
+
+### Handling Rotations
+
+In sparse form, rotating a value by `r` bits is equivalent to multiplying by `B^r` (where B is the base). However, 32-bit values are decomposed into 3-4 limbs by the input lookup tables, and this creates complications:
+
+**Simple case (contiguous after rotation):** When a limb's bits remain contiguous and don't land at bit position 0, the rotation is handled by multiplying that limb by the appropriate power of B. These are called "rotation multipliers" or "rotation coefficients" (e.g., `get_choose_rotation_multipliers()`).
+
+**Complex cases (handled by lookup tables):**
+- **Bits split across limb boundary:** When rotation causes a limb's bits to wrap around (some bits go to high positions, others to low), a lookup table is used to compute this contribution.
+- **Bits land at position 0:** Handled by existing lookup tables containing the raw limb values.
+
+The input lookup tables (C3 column) return the combined contribution from all complex cases, while the code applies rotation multipliers to handle the simple cases. Correction factors reconcile any coefficient mismatches between limbs.
+
+See the appendix "Detailed Example: Choose + Σ₁" for a worked example showing how Σ₁'s three rotations (6, 11, 25) are split between multipliers and lookup tables.
 
 ### Lookup Tables
 
@@ -118,27 +133,11 @@ The native (non-circuit) SHA-256 implementation is tested against official NIST 
 
 ### Circuit Implementation (`stdlib/hash/sha256/`)
 
-The circuit tests use:
-
-1. **NIST vectors with manual padding** - `sha256.test.cpp` tests `sha256_block` directly against NIST vectors ("abc" and 56-byte messages), manually constructing padded blocks to verify the compression function produces correct output.
-
-2. **Witness constraint tests** - Security regression tests verify that all witness values are properly constrained (e.g., `ExtendWitnessTamperingFailure` checks that modifying any extended witness causes circuit failure).
+The circuit tests use NIST vectors with manual padding - `sha256.test.cpp` tests `sha256_block` directly against NIST vectors ("abc" and 56-byte messages), manually constructing padded blocks to verify the compression function produces correct output.
 
 ### Differential Fuzzing (`sha256.fuzzer.cpp`)
 
 The fuzzer generates random inputs and compares circuit output against native output. This provides broad coverage without requiring exhaustive test vectors.
-
-### Coverage Philosophy
-
-The lookup tables are internal implementation details. Any table error would produce incorrect hash output, caught by either NIST vectors (deterministic) or the fuzzer (randomized). No table-specific unit tests are needed.
-
-## Security Considerations
-
-1. **Witness constraints** - All intermediate values (message schedule, round computations) must be properly constrained. The `ExtendWitnessTamperingFailure` test verifies this for the message schedule extension.
-
-2. **Input range constraints** - Inputs are NOT explicitly range-constrained to 32 bits. Most values are implicitly constrained via lookup tables, but some (notably `input[0]`, `h_init[3]`, `h_init[7]`) are only weakly bounded by `add_normalize` overflow constraints (~35 bits). This is not practically exploitable but deviates from the SHA-256 spec. See `AUDITTODO` in `sha256.cpp` for details.
-
-3. **Padding** - Only the compression function is implemented. Callers are responsible for correct SHA-256 padding (message + 0x80 + zeros + 64-bit length).
 
 ---
 
