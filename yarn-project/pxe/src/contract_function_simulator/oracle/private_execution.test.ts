@@ -433,6 +433,9 @@ describe('Private Execution test suite', () => {
         returnTypes: functionArtifact.returnTypes,
       };
     });
+    contractDataProvider.syncPrivateState.mockImplementation(async (contractAddress, _functionSelector, _executor) => {
+      await contractDataProvider.getFunctionCall('sync_private_state', [], contractAddress);
+    });
 
     capsuleDataProvider.loadCapsule.mockImplementation((_, __) => Promise.resolve(null));
 
@@ -701,7 +704,7 @@ describe('Private Execution test suite', () => {
       );
     });
 
-    it('syncs private state for parent and child in nested calls', async () => {
+    it('syncs private state for child in nested calls', async () => {
       const childArtifact = getFunctionArtifactByName(ChildContractArtifact, 'value');
       const parentAddress = await AztecAddress.random();
       const childAddress = await AztecAddress.random();
@@ -720,7 +723,6 @@ describe('Private Execution test suite', () => {
         contractAddress: parentAddress,
       });
 
-      expect(contractDataProvider.getFunctionCall).toHaveBeenCalledWith('sync_private_state', [], parentAddress);
       expect(contractDataProvider.getFunctionCall).toHaveBeenCalledWith('sync_private_state', [], childAddress);
     });
   });
