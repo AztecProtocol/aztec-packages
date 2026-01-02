@@ -1,8 +1,6 @@
 import { MAX_INCLUDE_BY_TIMESTAMP_DURATION } from '@aztec/constants';
-import { BlockNumber } from '@aztec/foundation/branded-types';
-import { L2BlockHash } from '@aztec/stdlib/block';
-import { PrivateLog, TxScopedL2Log } from '@aztec/stdlib/logs';
-import { TxHash } from '@aztec/stdlib/tx';
+import { TxScopedL2Log } from '@aztec/stdlib/logs';
+import { randomTxScopedPrivateL2Log } from '@aztec/stdlib/testing';
 
 import { findHighestIndexes } from './find_highest_indexes.js';
 
@@ -10,15 +8,7 @@ describe('findHighestIndexes', () => {
   const currentTimestamp = BigInt(Math.floor(Date.now() / 1000));
 
   function makeLog(blockNumber: number, blockTimestamp: bigint): TxScopedL2Log {
-    return new TxScopedL2Log(
-      TxHash.random(),
-      0,
-      0,
-      BlockNumber(blockNumber),
-      L2BlockHash.random(),
-      blockTimestamp,
-      PrivateLog.random(),
-    );
+    return randomTxScopedPrivateL2Log({ blockNumber, blockTimestamp });
   }
 
   it('returns undefined for highestAgedIndex when no logs are at least 24 hours old', () => {
