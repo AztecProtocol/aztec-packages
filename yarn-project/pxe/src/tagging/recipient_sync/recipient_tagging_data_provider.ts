@@ -9,9 +9,9 @@ import type { DirectionalAppTaggingSecret } from '@aztec/stdlib/logs';
  * @dev Chain reorgs do not need to be handled here because both the finalized and aged indexes refer to finalized
  * blocks, which by definition cannot be affected by reorgs.
  *
- * TODO(benesjan): Rename as to RecipientTaggingDataProvider and relocate once the old tagging sync is purged.
+ * TODO(benesjan): Relocate to yarn-project/pxe/src/storage/tagging_data_provider
  */
-export class NewRecipientTaggingDataProvider {
+export class RecipientTaggingDataProvider {
   #store: AztecAsyncKVStore;
 
   #highestAgedIndex: AztecAsyncMap<string, number>;

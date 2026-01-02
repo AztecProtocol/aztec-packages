@@ -27,8 +27,8 @@ import type { CapsuleDataProvider } from '../../storage/capsule_data_provider/ca
 import type { ContractDataProvider } from '../../storage/contract_data_provider/contract_data_provider.js';
 import type { NoteDataProvider } from '../../storage/note_data_provider/note_data_provider.js';
 import type { PrivateEventDataProvider } from '../../storage/private_event_data_provider/private_event_data_provider.js';
-import type { RecipientTaggingDataProvider } from '../../storage/tagging_data_provider/recipient_tagging_data_provider.js';
-import type { SenderTaggingDataProvider } from '../../storage/tagging_data_provider/sender_tagging_data_provider.js';
+import type { SenderAddressBook } from '../../storage/tagging_data_provider/sender_address_book.js';
+import type { RecipientTaggingDataProvider } from '../../tagging/recipient_sync/recipient_tagging_data_provider.js';
 import { TreeMembershipService } from '../../tree_membership/tree_membership_service.js';
 import { EventValidationRequest } from '../noir-structs/event_validation_request.js';
 import { LogRetrievalRequest } from '../noir-structs/log_retrieval_request.js';
@@ -60,8 +60,8 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     protected readonly addressDataProvider: AddressDataProvider,
     protected readonly aztecNode: AztecNode,
     protected readonly anchorBlockDataProvider: AnchorBlockDataProvider,
-    protected readonly senderTaggingDataProvider: SenderTaggingDataProvider,
     protected readonly recipientTaggingDataProvider: RecipientTaggingDataProvider,
+    protected readonly senderAddressBook: SenderAddressBook,
     protected readonly capsuleDataProvider: CapsuleDataProvider,
     protected readonly privateEventDataProvider: PrivateEventDataProvider,
     protected log = createLogger('simulator:client_view_context'),
@@ -351,6 +351,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       this.keyStore,
       this.capsuleDataProvider,
       this.recipientTaggingDataProvider,
+      this.senderAddressBook,
       this.addressDataProvider,
     );
 
@@ -447,6 +448,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       this.keyStore,
       this.capsuleDataProvider,
       this.recipientTaggingDataProvider,
+      this.senderAddressBook,
       this.addressDataProvider,
     );
 

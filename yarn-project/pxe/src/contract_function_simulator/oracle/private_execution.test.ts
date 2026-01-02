@@ -70,8 +70,9 @@ import type { CapsuleDataProvider } from '../../storage/capsule_data_provider/ca
 import type { ContractDataProvider } from '../../storage/contract_data_provider/contract_data_provider.js';
 import type { NoteDataProvider } from '../../storage/note_data_provider/note_data_provider.js';
 import type { PrivateEventDataProvider } from '../../storage/private_event_data_provider/private_event_data_provider.js';
-import type { RecipientTaggingDataProvider } from '../../storage/tagging_data_provider/recipient_tagging_data_provider.js';
+import type { SenderAddressBook } from '../../storage/tagging_data_provider/sender_address_book.js';
 import type { SenderTaggingDataProvider } from '../../storage/tagging_data_provider/sender_tagging_data_provider.js';
+import type { RecipientTaggingDataProvider } from '../../tagging/recipient_sync/recipient_tagging_data_provider.js';
 import { ContractFunctionSimulator } from '../contract_function_simulator.js';
 
 jest.setTimeout(60_000);
@@ -116,12 +117,12 @@ describe('Private Execution test suite', () => {
   let keyStore: MockProxy<KeyStore>;
   let senderTaggingDataProvider: MockProxy<SenderTaggingDataProvider>;
   let recipientTaggingDataProvider: MockProxy<RecipientTaggingDataProvider>;
+  let senderAddressBook: MockProxy<SenderAddressBook>;
   let aztecNode: MockProxy<AztecNode>;
   let anchorBlockDataProvider: MockProxy<AnchorBlockDataProvider>;
   let capsuleDataProvider: MockProxy<CapsuleDataProvider>;
   let privateEventDataProvider: MockProxy<PrivateEventDataProvider>;
   let acirSimulator: ContractFunctionSimulator;
-
   let anchorBlockHeader = BlockHeader.empty();
   let logger: Logger;
 
@@ -310,6 +311,7 @@ describe('Private Execution test suite', () => {
     anchorBlockDataProvider = mock<AnchorBlockDataProvider>();
     capsuleDataProvider = mock<CapsuleDataProvider>();
     privateEventDataProvider = mock<PrivateEventDataProvider>();
+    senderAddressBook = mock<SenderAddressBook>();
     contracts = {};
     anchorBlockHeader = makeBlockHeader();
     anchorBlockDataProvider.getBlockHeader.mockImplementation(() => Promise.resolve(anchorBlockHeader));
@@ -320,14 +322,23 @@ describe('Private Execution test suite', () => {
     senderTaggingDataProvider.getLastUsedIndex.mockResolvedValue(undefined);
     senderTaggingDataProvider.getTxHashesOfPendingIndexes.mockResolvedValue([]);
     senderTaggingDataProvider.storePendingIndexes.mockResolvedValue();
-    recipientTaggingDataProvider.getSenderAddresses.mockResolvedValue([]);
-    recipientTaggingDataProvider.getLastUsedIndexes.mockImplementation(secrets =>
-      Promise.resolve(new Array(secrets?.length ?? 0).fill(undefined)),
-    );
+
+    senderAddressBook.getSenders.mockResolvedValue([]);
 
     // Mock aztec node methods - the return array needs to have the same length as the number of tags
     // on the input.
     aztecNode.getPrivateLogsByTags.mockImplementation((tags: SiloedTag[]) => Promise.resolve(tags.map(() => [])));
+
+    // Mock getL2Tips and getBlockHeader for loadPrivateLogsForSenderRecipientPair
+    aztecNode.getL2Tips.mockResolvedValue({
+      finalized: { number: anchorBlockHeader.globalVariables.blockNumber },
+    } as any);
+    aztecNode.getBlockHeader.mockImplementation((blockNumber: BlockNumber | 'latest') => {
+      if (blockNumber === 'latest') {
+        return Promise.resolve(anchorBlockHeader);
+      }
+      return Promise.resolve(anchorBlockHeader);
+    });
 
     // TODO: refactor. Maybe it's worth stubbing a key store
     // and cleaning up the mess that is setting up keys.
@@ -434,6 +445,7 @@ describe('Private Execution test suite', () => {
       anchorBlockDataProvider,
       senderTaggingDataProvider,
       recipientTaggingDataProvider,
+      senderAddressBook,
       capsuleDataProvider,
       privateEventDataProvider,
       simulator,
