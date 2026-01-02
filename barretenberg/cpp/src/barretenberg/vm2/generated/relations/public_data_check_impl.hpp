@@ -18,7 +18,7 @@ void public_data_checkImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     const auto constants_PUBLIC_DATA_TREE_HEIGHT = FF(40);
     const auto constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_PUBLIC_DATA_WRITES_ROW_IDX = FF(385);
     const auto constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_DATA_WRITES_ROW_IDX = FF(4619);
-    const auto constants_GENERATOR_INDEX__PUBLIC_LEAF_INDEX = FF(23);
+    const auto constants_DOM_SEP__PUBLIC_LEAF_INDEX = FF(23);
     const auto public_data_check_CLK_DIFF = in.get(C::public_data_check_not_end) *
                                             (in.get(C::public_data_check_clk_shift) - in.get(C::public_data_check_clk));
     const auto public_data_check_LEAF_EXISTS = (FF(1) - in.get(C::public_data_check_leaf_not_exists));
@@ -101,7 +101,7 @@ void public_data_checkImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     {
         using View = typename std::tuple_element_t<11, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::public_data_check_sel)) *
-                   (CView(constants_GENERATOR_INDEX__PUBLIC_LEAF_INDEX) -
+                   (CView(constants_DOM_SEP__PUBLIC_LEAF_INDEX) -
                     static_cast<View>(in.get(C::public_data_check_siloing_separator)));
         std::get<11>(evals) += (tmp * scaling_factor);
     }

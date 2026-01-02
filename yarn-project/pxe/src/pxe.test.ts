@@ -13,6 +13,7 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { L2BlockHash } from '@aztec/stdlib/block';
 import { getContractClassFromArtifact } from '@aztec/stdlib/contract';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
+import { SiloedTag } from '@aztec/stdlib/logs';
 import {
   randomContractArtifact,
   randomContractInstanceWithAddress,
@@ -25,7 +26,7 @@ import type { MockProxy } from 'jest-mock-extended/lib/Mock.js';
 
 import type { PXEConfig } from './config/index.js';
 import { PXE, type PackedPrivateEvent } from './pxe.js';
-import { PrivateEventDataProvider } from './storage/index.js';
+import { PrivateEventDataProvider } from './storage/private_event_data_provider/private_event_data_provider.js';
 
 describe('PXE', () => {
   let pxe: PXE;
@@ -178,8 +179,9 @@ describe('PXE', () => {
       // class id of a contract instance
       node.getPublicStorageAt.mockResolvedValue(Fr.ZERO);
 
-      // Used to sync private logs from the node.
-      node.getLogsByTags.mockResolvedValue([]);
+      // Used to sync private logs from the node - the return array needs to have the same length as the number of tags
+      // on the input.
+      node.getPrivateLogsByTags.mockImplementation((tags: SiloedTag[]) => Promise.resolve(tags.map(() => [])));
 
       // Necessary to sync contract private state
       await pxe.registerContractClass(TestContractArtifact);

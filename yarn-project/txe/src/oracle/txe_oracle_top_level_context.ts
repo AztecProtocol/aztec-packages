@@ -14,8 +14,12 @@ import { TestDateProvider } from '@aztec/foundation/timer';
 import type { KeyStore } from '@aztec/key-store';
 import {
   AddressDataProvider,
+  CapsuleDataProvider,
+  NoteDataProvider,
   ORACLE_VERSION,
-  PXEOracleInterface,
+  PrivateEventDataProvider,
+  RecipientTaggingDataProvider,
+  SenderTaggingDataProvider,
   enrichPublicSimulationError,
 } from '@aztec/pxe/server';
 import {
@@ -44,7 +48,7 @@ import {
   PublicContractsDB,
   PublicProcessor,
 } from '@aztec/simulator/server';
-import { type ContractArtifact, FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
+import { type ContractArtifact, EventSelector, FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
 import { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { PublicSimulatorConfig } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -76,6 +80,7 @@ import type { UInt64 } from '@aztec/stdlib/types';
 import { ForkCheckpoint } from '@aztec/world-state';
 
 import type { TXEStateMachine } from '../state_machine/index.js';
+import { DEFAULT_ADDRESS } from '../txe_session.js';
 import type { TXEAccountDataProvider } from '../util/txe_account_data_provider.js';
 import type { TXEContractDataProvider } from '../util/txe_contract_data_provider.js';
 import { TXEPublicContractDataSource } from '../util/txe_public_contract_data_source.js';
@@ -91,10 +96,14 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
   constructor(
     private stateMachine: TXEStateMachine,
     private contractDataProvider: TXEContractDataProvider,
+    private noteDataProvider: NoteDataProvider,
     private keyStore: KeyStore,
     private addressDataProvider: AddressDataProvider,
     private accountDataProvider: TXEAccountDataProvider,
-    private pxeOracleInterface: PXEOracleInterface,
+    private senderTaggingDataProvider: SenderTaggingDataProvider,
+    private recipientTaggingDataProvider: RecipientTaggingDataProvider,
+    private capsuleDataProvider: CapsuleDataProvider,
+    private privateEventDataProvider: PrivateEventDataProvider,
     private nextBlockTimestamp: bigint,
     private version: Fr,
     private chainId: Fr,
@@ -128,6 +137,10 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     this.logger[levelName](`${applyStringFormatting(message, fields)}`, { module: `${this.logger.module}:debug_log` });
   }
 
+  txeGetDefaultAddress(): AztecAddress {
+    return DEFAULT_ADDRESS;
+  }
+
   async txeGetNextBlockNumber(): Promise<BlockNumber> {
     return BlockNumber((await this.getLastBlockNumber()) + 1);
   }
@@ -151,6 +164,17 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     const txEffects = block!.body.txEffects[0];
 
     return { txHash: txEffects.txHash, noteHashes: txEffects.noteHashes, nullifiers: txEffects.nullifiers };
+  }
+
+  async txeGetPrivateEvents(selector: EventSelector, contractAddress: AztecAddress, scope: AztecAddress) {
+    return (
+      await this.privateEventDataProvider.getPrivateEvents(selector, {
+        contractAddress,
+        scopes: [scope],
+        fromBlock: 0,
+        toBlock: (await this.getLastBlockNumber()) + 1,
+      })
+    ).map(e => e.packedEvent);
   }
 
   async txeAdvanceBlocksBy(blocks: number) {
@@ -202,7 +226,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
   }
 
   async txeCreateAccount(secret: Fr) {
-    // This is a footgun !
+    // This is a foot gun !
     const completeAddress = await this.keyStore.addAccount(secret, secret);
     await this.accountDataProvider.setAccount(completeAddress.address, completeAddress);
     await this.addressDataProvider.addCompleteAddress(completeAddress);
@@ -301,7 +325,16 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       HashedValuesCache.create([new HashedValues(args, argsHash)]),
       noteCache,
       taggingIndexCache,
-      this.pxeOracleInterface,
+      this.contractDataProvider,
+      this.noteDataProvider,
+      this.keyStore,
+      this.addressDataProvider,
+      this.stateMachine.node,
+      this.stateMachine.anchorBlockDataProvider,
+      this.senderTaggingDataProvider,
+      this.recipientTaggingDataProvider,
+      this.capsuleDataProvider,
+      this.privateEventDataProvider,
       0,
       1,
       undefined, // log
@@ -598,7 +631,10 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       to: targetContractAddress,
     };
 
-    const entryPointArtifact = await this.pxeOracleInterface.getFunctionArtifact(call.to, call.selector);
+    const entryPointArtifact = await this.contractDataProvider.getFunctionArtifactWithDebugMetadata(
+      call.to,
+      call.selector,
+    );
     if (entryPointArtifact.functionType !== FunctionType.UTILITY) {
       throw new Error(`Cannot run ${entryPointArtifact.functionType} function as utility`);
     }
@@ -610,7 +646,22 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
 
     try {
       const anchorBlockHeader = await this.stateMachine.anchorBlockDataProvider.getBlockHeader();
-      const oracle = new UtilityExecutionOracle(call.to, [], [], anchorBlockHeader, this.pxeOracleInterface);
+      const oracle = new UtilityExecutionOracle(
+        call.to,
+        [],
+        [],
+        anchorBlockHeader,
+        this.contractDataProvider,
+        this.noteDataProvider,
+        this.keyStore,
+        this.addressDataProvider,
+        this.stateMachine.node,
+        this.stateMachine.anchorBlockDataProvider,
+        this.senderTaggingDataProvider,
+        this.recipientTaggingDataProvider,
+        this.capsuleDataProvider,
+        this.privateEventDataProvider,
+      );
       const acirExecutionResult = await new WASMSimulator()
         .executeUserCircuit(toACVMWitness(0, args), entryPointArtifact, new Oracle(oracle).toACIRCallback())
         .catch((err: Error) => {

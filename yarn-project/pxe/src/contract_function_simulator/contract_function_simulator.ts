@@ -21,6 +21,7 @@ import { poseidon2Hash } from '@aztec/foundation/crypto/poseidon';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
+import type { KeyStore } from '@aztec/key-store';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractsHash } from '@aztec/protocol-contracts';
 import {
@@ -44,6 +45,7 @@ import {
   siloNoteHash,
   siloNullifier,
 } from '@aztec/stdlib/hash';
+import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import {
   PartialPrivateTailPublicInputsForPublic,
   PartialPrivateTailPublicInputsForRollup,
@@ -69,8 +71,14 @@ import {
   getFinalMinRevertibleSideEffectCounter,
 } from '@aztec/stdlib/tx';
 
-import type { ContractDataProvider } from '../storage/index.js';
-import type { ExecutionDataProvider } from './execution_data_provider.js';
+import type { AddressDataProvider } from '../storage/address_data_provider/address_data_provider.js';
+import type { AnchorBlockDataProvider } from '../storage/anchor_block_data_provider/anchor_block_data_provider.js';
+import type { CapsuleDataProvider } from '../storage/capsule_data_provider/capsule_data_provider.js';
+import type { ContractDataProvider } from '../storage/contract_data_provider/contract_data_provider.js';
+import type { NoteDataProvider } from '../storage/note_data_provider/note_data_provider.js';
+import type { PrivateEventDataProvider } from '../storage/private_event_data_provider/private_event_data_provider.js';
+import type { RecipientTaggingDataProvider } from '../storage/tagging_data_provider/recipient_tagging_data_provider.js';
+import type { SenderTaggingDataProvider } from '../storage/tagging_data_provider/sender_tagging_data_provider.js';
 import { ExecutionNoteCache } from './execution_note_cache.js';
 import { ExecutionTaggingIndexCache } from './execution_tagging_index_cache.js';
 import { HashedValuesCache } from './hashed_values_cache.js';
@@ -78,6 +86,7 @@ import { Oracle } from './oracle/oracle.js';
 import { executePrivateFunction, verifyCurrentClassId } from './oracle/private_execution.js';
 import { PrivateExecutionOracle } from './oracle/private_execution_oracle.js';
 import { UtilityExecutionOracle } from './oracle/utility_execution_oracle.js';
+import type { ProxiedNode } from './proxied_node.js';
 
 /**
  * The contract function simulator.
@@ -86,7 +95,16 @@ export class ContractFunctionSimulator {
   private log: Logger;
 
   constructor(
-    private executionDataProvider: ExecutionDataProvider,
+    private contractDataProvider: ContractDataProvider,
+    private noteDataProvider: NoteDataProvider,
+    private keyStore: KeyStore,
+    private addressDataProvider: AddressDataProvider,
+    private aztecNode: AztecNode,
+    private anchorBlockDataProvider: AnchorBlockDataProvider,
+    private senderTaggingDataProvider: SenderTaggingDataProvider,
+    private recipientTaggingDataProvider: RecipientTaggingDataProvider,
+    private capsuleDataProvider: CapsuleDataProvider,
+    private privateEventDataProvider: PrivateEventDataProvider,
     private simulator: CircuitSimulator,
   ) {
     this.log = createLogger('simulator');
@@ -116,9 +134,12 @@ export class ContractFunctionSimulator {
   ): Promise<PrivateExecutionResult> {
     const simulatorSetupTimer = new Timer();
 
-    await verifyCurrentClassId(contractAddress, this.executionDataProvider, anchorBlockHeader);
+    await verifyCurrentClassId(contractAddress, this.aztecNode, this.contractDataProvider, anchorBlockHeader);
 
-    const entryPointArtifact = await this.executionDataProvider.getFunctionArtifact(contractAddress, selector);
+    const entryPointArtifact = await this.contractDataProvider.getFunctionArtifactWithDebugMetadata(
+      contractAddress,
+      selector,
+    );
 
     if (entryPointArtifact.functionType !== FunctionType.PRIVATE) {
       throw new Error(`Cannot run ${entryPointArtifact.functionType} function as private`);
@@ -154,7 +175,16 @@ export class ContractFunctionSimulator {
       HashedValuesCache.create(request.argsOfCalls),
       noteCache,
       taggingIndexCache,
-      this.executionDataProvider,
+      this.contractDataProvider,
+      this.noteDataProvider,
+      this.keyStore,
+      this.addressDataProvider,
+      this.aztecNode,
+      this.anchorBlockDataProvider,
+      this.senderTaggingDataProvider,
+      this.recipientTaggingDataProvider,
+      this.capsuleDataProvider,
+      this.privateEventDataProvider,
       0, // totalPublicArgsCount
       startSideEffectCounter,
       undefined, // log
@@ -226,9 +256,12 @@ export class ContractFunctionSimulator {
     anchorBlockHeader: BlockHeader,
     scopes?: AztecAddress[],
   ): Promise<Fr[]> {
-    await verifyCurrentClassId(call.to, this.executionDataProvider, anchorBlockHeader);
+    await verifyCurrentClassId(call.to, this.aztecNode, this.contractDataProvider, anchorBlockHeader);
 
-    const entryPointArtifact = await this.executionDataProvider.getFunctionArtifact(call.to, call.selector);
+    const entryPointArtifact = await this.contractDataProvider.getFunctionArtifactWithDebugMetadata(
+      call.to,
+      call.selector,
+    );
 
     if (entryPointArtifact.functionType !== FunctionType.UTILITY) {
       throw new Error(`Cannot run ${entryPointArtifact.functionType} function as utility`);
@@ -239,7 +272,16 @@ export class ContractFunctionSimulator {
       authwits,
       [],
       anchorBlockHeader,
-      this.executionDataProvider,
+      this.contractDataProvider,
+      this.noteDataProvider,
+      this.keyStore,
+      this.addressDataProvider,
+      this.aztecNode,
+      this.anchorBlockDataProvider,
+      this.senderTaggingDataProvider,
+      this.recipientTaggingDataProvider,
+      this.capsuleDataProvider,
+      this.privateEventDataProvider,
       undefined,
       scopes,
     );
@@ -274,8 +316,15 @@ export class ContractFunctionSimulator {
   }
   // docs:end:execute_utility_function
 
+  /**
+   * Returns the execution statistics collected during the simulator run.
+   * @returns The execution statistics.
+   */
   getStats() {
-    return this.executionDataProvider.getStats();
+    const nodeRPCCalls =
+      typeof (this.aztecNode as ProxiedNode).getStats === 'function' ? (this.aztecNode as ProxiedNode).getStats() : {};
+
+    return { nodeRPCCalls };
   }
 }
 

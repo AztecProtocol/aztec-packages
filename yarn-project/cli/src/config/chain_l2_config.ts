@@ -19,7 +19,7 @@ const tbMapSizeKb = 1_024 * 1_024 * 1_024; // 1 TB
 export type L2ChainConfig = Omit<L1ContractsConfig, keyof L1TxUtilsConfig> &
   Omit<SlasherConfig, 'slashValidatorsNever' | 'slashValidatorsAlways' | 'slashOverridePayload' | 'slashSelfAllowed'> &
   Pick<P2PConfig, 'bootstrapNodes' | 'p2pEnabled' | 'txPoolDeleteTxsAfterReorg'> &
-  Pick<SequencerConfig, 'minTxsPerBlock' | 'maxTxsPerBlock'> & {
+  Pick<SequencerConfig, 'buildCheckpointIfEmpty' | 'minTxsPerBlock' | 'maxTxsPerBlock' | 'blockDurationMs'> & {
     l1ChainId: number;
     testAccounts: boolean;
     sponsoredFPC: boolean;
@@ -104,6 +104,7 @@ export const stagingIgnitionL2ChainConfig: L2ChainConfig = {
   bootstrapNodes: [],
   minTxsPerBlock: 0,
   maxTxsPerBlock: 0,
+  buildCheckpointIfEmpty: true,
   realProofs: true,
   snapshotsUrls: [`${SNAPSHOTS_URL}/staging-ignition/`],
   autoUpdate: 'config-and-version',
@@ -189,6 +190,7 @@ export const stagingPublicL2ChainConfig: L2ChainConfig = {
   bootstrapNodes: [],
   minTxsPerBlock: 0,
   maxTxsPerBlock: 20,
+  buildCheckpointIfEmpty: true,
   realProofs: true,
   snapshotsUrls: [`${SNAPSHOTS_URL}/staging-public/`],
   autoUpdate: 'config-and-version',
@@ -246,6 +248,7 @@ export const nextNetL2ChainConfig: L2ChainConfig = {
   bootstrapNodes: [],
   minTxsPerBlock: 0,
   maxTxsPerBlock: 8,
+  buildCheckpointIfEmpty: true,
   realProofs: true,
   snapshotsUrls: [],
   autoUpdate: 'config-and-version',
@@ -302,7 +305,8 @@ export const testnetL2ChainConfig: L2ChainConfig = {
   disableTransactions: true,
   bootstrapNodes: [],
   minTxsPerBlock: 0,
-  maxTxsPerBlock: 0,
+  maxTxsPerBlock: 20,
+  buildCheckpointIfEmpty: true,
   realProofs: true,
   snapshotsUrls: [`${SNAPSHOTS_URL}/testnet/`],
   autoUpdate: 'config-and-version',
@@ -323,7 +327,7 @@ export const testnetL2ChainConfig: L2ChainConfig = {
   /** How many L2 slots an epoch lasts. */
   aztecEpochDuration: 32,
   /** The target validator committee size. */
-  aztecTargetCommitteeSize: 24,
+  aztecTargetCommitteeSize: 48,
   /** The number of epochs to lag behind the current epoch for validator selection. */
   lagInEpochsForValidatorSet: 2,
   /** The number of epochs to lag behind the current epoch for randao selection. */
@@ -331,47 +335,47 @@ export const testnetL2ChainConfig: L2ChainConfig = {
   /** The number of epochs after an epoch ends that proofs are still accepted. */
   aztecProofSubmissionEpochs: 1,
 
-  // This is a diff from mainnet: we have 2-strikes you're out, rather than 3 on mainnet.
-  localEjectionThreshold: 198_000n * 10n ** 18n,
+  // This is a diff from mainnet: we have 1-strike you're out, rather than 3 on mainnet.
+  localEjectionThreshold: 199_000n * 10n ** 18n,
   /** How many sequencers must agree with a slash for it to be executed. */
-  slashingQuorum: 65,
-  slashingRoundSizeInEpochs: 4,
-  slashingExecutionDelayInRounds: 28,
-  slashingLifetimeInRounds: 34,
-  slashingVetoer: EthAddress.fromString('0xBbB4aF368d02827945748b28CD4b2D42e4A37480'),
+  slashingQuorum: 33,
+  slashingRoundSizeInEpochs: 2,
+  slashingExecutionDelayInRounds: 2,
+  slashingLifetimeInRounds: 5,
+  slashingVetoer: EthAddress.fromString('0xdfe19Da6a717b7088621d8bBB66be59F2d78e924'),
   slashingOffsetInRounds: 2,
 
-  slashingDisableDuration: 259_200, // 3 days
+  slashingDisableDuration: 5 * 24 * 60 * 60, // 5 days
   slasherFlavor: 'tally',
 
-  slashAmountSmall: 2_000n * 10n ** 18n,
-  slashAmountMedium: 2_000n * 10n ** 18n,
-  slashAmountLarge: 2_000n * 10n ** 18n,
+  slashAmountSmall: 10_000n * 10n ** 18n,
+  slashAmountMedium: 50_000n * 10n ** 18n,
+  slashAmountLarge: 200_000n * 10n ** 18n,
 
   /** The mana target for the rollup */
-  manaTarget: 0n,
+  manaTarget: 150_000_000n,
 
   /** The proving cost per mana */
-  provingCostPerMana: 0n,
+  provingCostPerMana: 100n,
 
   exitDelaySeconds: 4 * 24 * 60 * 60, // 4 days
 
   activationThreshold: 200_000n * 10n ** 18n,
   ejectionThreshold: 100_000n * 10n ** 18n,
 
-  governanceProposerRoundSize: 300,
-  governanceProposerQuorum: 151,
+  governanceProposerRoundSize: 100,
+  governanceProposerQuorum: 60,
 
   // Node slashing config
   slashInactivityTargetPercentage: 0.8,
   slashInactivityConsecutiveEpochThreshold: 2,
-  slashInactivityPenalty: 2_000n * 10n ** 18n,
+  slashInactivityPenalty: 10_000n * 10n ** 18n,
   slashPrunePenalty: 0n, // 2_000n * 10n ** 18n, We disable slashing for prune offenses right now
   slashDataWithholdingPenalty: 0n, // 2_000n * 10n ** 18n, We disable slashing for data withholding offenses right now
-  slashProposeInvalidAttestationsPenalty: 2_000n * 10n ** 18n,
-  slashAttestDescendantOfInvalidPenalty: 2_000n * 10n ** 18n,
-  slashUnknownPenalty: 2_000n * 10n ** 18n,
-  slashBroadcastedInvalidBlockPenalty: 2_000n * 10n ** 18n, // 10_000n * 10n ** 18n, Disabled for now until further testing
+  slashProposeInvalidAttestationsPenalty: 10_000n * 10n ** 18n,
+  slashAttestDescendantOfInvalidPenalty: 10_000n * 10n ** 18n,
+  slashUnknownPenalty: 10_000n * 10n ** 18n,
+  slashBroadcastedInvalidBlockPenalty: 10_000n * 10n ** 18n, // 10_000n * 10n ** 18n, Disabled for now until further testing
   slashGracePeriodL2Slots: 1_200, // One day from deployment
   slashOffenseExpirationRounds: 8,
 
@@ -396,6 +400,7 @@ export const mainnetL2ChainConfig: L2ChainConfig = {
   bootstrapNodes: [],
   minTxsPerBlock: 0,
   maxTxsPerBlock: 0,
+  buildCheckpointIfEmpty: true,
   realProofs: true,
   snapshotsUrls: [`${SNAPSHOTS_URL}/mainnet/`],
   autoUpdate: 'notify',
@@ -484,6 +489,7 @@ export const devnetL2ChainConfig: L2ChainConfig = {
   bootstrapNodes: [],
   minTxsPerBlock: 0,
   maxTxsPerBlock: 8,
+  buildCheckpointIfEmpty: true,
   realProofs: false,
   snapshotsUrls: [],
   autoUpdate: 'config-and-version',
@@ -577,6 +583,12 @@ export function enrichEnvironmentWithChainConfig(config: L2ChainConfig) {
   enrichVar('L1_CHAIN_ID', config.l1ChainId.toString());
   enrichVar('SEQ_MIN_TX_PER_BLOCK', config.minTxsPerBlock.toString());
   enrichVar('SEQ_MAX_TX_PER_BLOCK', config.maxTxsPerBlock.toString());
+  if (config.blockDurationMs !== undefined) {
+    enrichVar('SEQ_BLOCK_DURATION_MS', config.blockDurationMs.toString());
+  }
+  if (config.buildCheckpointIfEmpty !== undefined) {
+    enrichVar('SEQ_BUILD_CHECKPOINT_IF_EMPTY', config.buildCheckpointIfEmpty.toString());
+  }
   enrichVar('PROVER_REAL_PROOFS', config.realProofs.toString());
   enrichVar('PXE_PROVER_ENABLED', config.realProofs.toString());
   enrichVar('SYNC_SNAPSHOTS_URLS', config.snapshotsUrls.join(','));

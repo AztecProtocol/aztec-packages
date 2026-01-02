@@ -1,16 +1,16 @@
 #include "barretenberg/dsl/acir_format/hypernova_recursion_constraint.hpp"
 #include "acir_format.hpp"
-#include "acir_format_mocks.hpp"
 #include "barretenberg/bbapi/bbapi_shared.hpp"
 #include "barretenberg/chonk/chonk.hpp"
+#include "barretenberg/chonk/chonk_verifier.hpp"
 #include "barretenberg/dsl/acir_format/gate_count_constants.hpp"
 #include "barretenberg/dsl/acir_format/mock_verifier_inputs.hpp"
+#include "barretenberg/dsl/acir_format/utils.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
 #include "barretenberg/ultra_honk/prover_instance.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 #include "honk_recursion_constraint.hpp"
-#include "proof_surgeon.hpp"
 
 #include <gtest/gtest.h>
 #include <vector>
@@ -133,15 +133,16 @@ class HypernovaRecursionConstraintTest : public ::testing::Test {
 
             if (tamper_vk) {
                 honk_vk->q_l = g1::one;
-                UltraVerifier_<UltraFlavor> verifier(honk_vk);
-                EXPECT_FALSE(verifier.template verify_proof<DefaultIO>(inner_proof).result);
+                auto honk_vk_and_hash = std::make_shared<UltraFlavor::VKAndHash>(honk_vk);
+                UltraVerifier_<UltraFlavor, DefaultIO> verifier(honk_vk_and_hash);
+                EXPECT_FALSE(verifier.verify_proof(inner_proof).result);
             }
             // Instantiate the recursive verifier using the native verification key
             auto stdlib_vk_and_hash = std::make_shared<RecursiveFlavor::VKAndHash>(circuit, honk_vk);
-            stdlib::recursion::honk::UltraRecursiveVerifier_<RecursiveFlavor> verifier(&circuit, stdlib_vk_and_hash);
+            bb::UltraVerifier_<RecursiveFlavor, StdlibIO> verifier(stdlib_vk_and_hash);
 
             StdlibProof stdlib_inner_proof(circuit, inner_proof);
-            VerifierOutput output = verifier.template verify_proof<StdlibIO>(stdlib_inner_proof);
+            VerifierOutput output = verifier.verify_proof(stdlib_inner_proof);
 
             // IO
             StdlibIO inputs;
@@ -162,16 +163,6 @@ class HypernovaRecursionConstraintTest : public ::testing::Test {
      */
     static RecursionConstraint create_recursion_constraint(const VerifierInputs& input, std::vector<FF>& witness)
     {
-        // Assemble simple vectors of witnesses for vkey and proof
-        std::vector<FF> key_witnesses = input.honk_vk->to_field_elements();
-        FF key_hash_witness = input.honk_vk->hash();
-        std::vector<FF> proof_witnesses = input.proof; // proof contains the public inputs at this stage
-
-        // Construct witness indices for each component in the constraint; populate the witness array
-        auto [key_indices, key_hash_index, proof_indices, public_inputs_indices] =
-            ProofSurgeon<FF>::populate_recursion_witness_data(
-                witness, proof_witnesses, key_witnesses, key_hash_witness, /*num_public_inputs_to_extract=*/0);
-
         // The proof type can be either Oink or HN or PG_FINAL
         PROOF_TYPE proof_type;
         switch (input.type) {
@@ -191,13 +182,18 @@ class HypernovaRecursionConstraintTest : public ::testing::Test {
             throw std::runtime_error("Invalid proof type");
         }
 
-        return RecursionConstraint{
-            .key = key_indices,
-            .proof = {}, // the proof witness indices are not needed in an ivc recursion constraint
-            .public_inputs = public_inputs_indices,
-            .key_hash = key_hash_index,
-            .proof_type = proof_type,
-        };
+        RecursionConstraint constraint =
+            recursion_data_to_recursion_constraint(witness,
+                                                   input.proof, // proof contains the public inputs at this stage
+                                                   input.honk_vk->to_field_elements(),
+                                                   input.honk_vk->hash(),
+                                                   bb::fr::zero(),
+                                                   /*num_public_inputs_to_extract=*/0,
+                                                   proof_type);
+
+        constraint.proof = {}; // the proof witness indices are not needed in an ivc recursion constraint
+
+        return constraint;
     }
 
     /**
@@ -228,8 +224,10 @@ class HypernovaRecursionConstraintTest : public ::testing::Test {
         program.constraints.max_witness_index = static_cast<uint32_t>(program.witness.size() - 1);
         program.constraints.num_acir_opcodes = static_cast<uint32_t>(hn_recursion_constraints.size());
         program.constraints.hn_recursion_constraints = hn_recursion_constraints;
-        program.constraints.original_opcode_indices = create_empty_original_opcode_indices();
-        mock_opcode_indices(program.constraints);
+        program.constraints.original_opcode_indices =
+            hn_recursion_constraints.size() == 1
+                ? AcirFormatOriginalOpcodeIndices{ .hn_recursion_constraints = { 0 } }
+                : AcirFormatOriginalOpcodeIndices{ .hn_recursion_constraints = { 0, 1 } };
 
         return program;
     }
@@ -306,7 +304,11 @@ TEST_F(HypernovaRecursionConstraintTest, AccumulateSingleApp)
     construct_and_accumulate_trailing_kernels(ivc);
 
     auto proof = ivc->prove();
-    EXPECT_TRUE(Chonk::verify(proof, ivc->get_vk()));
+    {
+        auto vk_and_hash = ivc->get_hiding_kernel_vk_and_hash();
+        ChonkNativeVerifier verifier(vk_and_hash);
+        EXPECT_TRUE(verifier.verify(proof));
+    }
 }
 
 /**
@@ -336,7 +338,10 @@ TEST_F(HypernovaRecursionConstraintTest, AccumulateTwoApps)
     construct_and_accumulate_trailing_kernels(ivc);
 
     auto proof = ivc->prove();
-    EXPECT_TRUE(Chonk::verify(proof, ivc->get_vk()));
+    {
+        ChonkNativeVerifier verifier(ivc->get_hiding_kernel_vk_and_hash());
+        EXPECT_TRUE(verifier.verify(proof));
+    }
 }
 
 // Test generation of "init" kernel VK via dummy IVC data
@@ -510,7 +515,7 @@ TEST_F(HypernovaRecursionConstraintTest, GenerateInnerKernelVKFromConstraints)
 }
 
 // Test generation of "hiding" kernel VK via dummy IVC data
-TEST_F(HypernovaRecursionConstraintTest, GenerateHidingKernelVKFromConstraints)
+TEST_F(HypernovaRecursionConstraintTest, GenerateMegaVerificationKeyFromConstraints)
 {
     BB_DISABLE_ASSERTS();
     // First, construct the kernel VK by running the full IVC
@@ -573,7 +578,10 @@ TEST_F(HypernovaRecursionConstraintTest, RecursiveVerifierAppCircuit)
     construct_and_accumulate_trailing_kernels(ivc);
 
     auto proof = ivc->prove();
-    EXPECT_TRUE(Chonk::verify(proof, ivc->get_vk()));
+    {
+        ChonkNativeVerifier verifier(ivc->get_hiding_kernel_vk_and_hash());
+        EXPECT_TRUE(verifier.verify(proof));
+    }
 }
 
 /**
@@ -598,7 +606,10 @@ TEST_F(HypernovaRecursionConstraintTest, RecursiveVerifierAppCircuitFailure)
 
     // We expect the Chonk proof to fail due to the app with a failed UH recursive verification
     auto proof = ivc->prove();
-    EXPECT_FALSE(Chonk::verify(proof, ivc->get_vk()));
+    {
+        ChonkNativeVerifier verifier(ivc->get_hiding_kernel_vk_and_hash());
+        EXPECT_FALSE(verifier.verify(proof));
+    }
 }
 
 /**

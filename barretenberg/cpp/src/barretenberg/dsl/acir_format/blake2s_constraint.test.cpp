@@ -1,6 +1,5 @@
 #include "blake2s_constraint.hpp"
 #include "acir_format.hpp"
-#include "acir_format_mocks.hpp"
 #include "barretenberg/crypto/blake2s/blake2s.hpp"
 #include "barretenberg/dsl/acir_format/test_class.hpp"
 #include "barretenberg/dsl/acir_format/utils.hpp"
@@ -31,9 +30,10 @@ template <class BuilderType, bool IsInputConstant> class Blake2sTestingFunctions
         static std::vector<std::string> get_labels() { return { "None", "Input", "Output" }; }
     };
 
-    void invalidate_witness(Blake2sConstraint& constraint,
-                            WitnessVector& witness_values,
-                            const InvalidWitness::Target& invalid_witness_target)
+    static ProgramMetadata generate_metadata() { return ProgramMetadata{}; }
+
+    static std::pair<AcirConstraint, WitnessVector> invalidate_witness(
+        AcirConstraint constraint, WitnessVector witness_values, const InvalidWitness::Target& invalid_witness_target)
     {
         switch (invalid_witness_target) {
         case InvalidWitness::Target::Input: {
@@ -54,12 +54,14 @@ template <class BuilderType, bool IsInputConstant> class Blake2sTestingFunctions
         case InvalidWitness::Target::None:
             break;
         }
+
+        return { constraint, witness_values };
     }
 
     /**
      * @brief Generate a valid Blake2sConstraint with correct witness values
      */
-    void generate_constraints(Blake2sConstraint& blake2s_constraint, WitnessVector& witness_values)
+    static void generate_constraints(Blake2sConstraint& blake2s_constraint, WitnessVector& witness_values)
     {
         // Helper to add a state: either as witness or constant
         auto construct_state = [&](const std::vector<uint8_t>& state,

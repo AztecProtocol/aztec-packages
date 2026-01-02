@@ -32,13 +32,14 @@ function get_helm_from_cache {
       sudo mv helm /usr/local/bin/helm
     elif [ -f ./usr/local/bin/helm ]; then
       sudo mv ./usr/local/bin/helm /usr/local/bin/helm
-    else 
+    else
       err "Could not extract helm from cache"
       return 1
     fi
     sudo chmod +x /usr/local/bin/helm
     return 0
   fi
+  return 1 # return non-zero if cache miss
 }
 
 # Install helm if it is not installed
@@ -123,8 +124,9 @@ fi
 FOUNDRY_VERSION="v1.4.1"
 if ! command -v cast &> /dev/null; then
   log "Installing cast (foundry $FOUNDRY_VERSION)..."
+  export FOUNDRY_DIR="$HOME/.foundry"
   curl -L https://foundry.paradigm.xyz | bash
-  FOUNDRY_BIN_DIR="${FOUNDRY_DIR:-$HOME/.foundry}/bin"
+  FOUNDRY_BIN_DIR="$FOUNDRY_DIR/bin"
   "$FOUNDRY_BIN_DIR/foundryup" -i "$FOUNDRY_VERSION"
   sudo mv "$FOUNDRY_BIN_DIR/cast" /usr/local/bin/cast
   sudo chmod +x /usr/local/bin/cast
@@ -139,3 +141,10 @@ require_cmd tr
 require_cmd cast
 require_cmd jq
 require_cmd gcloud
+require_cmd helm
+
+# Update helm repos if any are configured (prevents stale cache issues)
+if helm repo list &>/dev/null; then
+  log "Updating helm repositories..."
+  helm repo update || log "Warning: helm repo update failed, continuing anyway"
+fi

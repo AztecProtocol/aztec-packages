@@ -106,7 +106,7 @@ struct ChonkProve {
         static constexpr const char MSGPACK_SCHEMA_NAME[] = "ChonkProveResponse";
 
         /** @brief Complete IVC proof for all accumulated circuits */
-        Chonk::Proof proof;
+        ChonkProof proof;
         MSGPACK_FIELDS(proof);
         bool operator==(const Response&) const = default;
     };
@@ -136,7 +136,7 @@ struct ChonkVerify {
     };
 
     /** @brief The Chonk proof to verify */
-    Chonk::Proof proof;
+    ChonkProof proof;
     /** @brief The verification key */
     std::vector<uint8_t> vk;
     Response execute(const BBApiRequest& request = {}) &&;

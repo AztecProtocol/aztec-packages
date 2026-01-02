@@ -1,6 +1,5 @@
 #include "sha256_constraint.hpp"
 #include "acir_format.hpp"
-#include "acir_format_mocks.hpp"
 #include "barretenberg/crypto/sha256/sha256.hpp"
 #include "barretenberg/dsl/acir_format/test_class.hpp"
 #include "barretenberg/dsl/acir_format/utils.hpp"
@@ -34,9 +33,10 @@ template <class BuilderType, bool IsInputConstant> class Sha256TestingFunctions 
         static std::vector<std::string> get_labels() { return { "None", "Input", "HashValue", "Output" }; }
     };
 
-    void invalidate_witness(Sha256Compression& constraint,
-                            WitnessVector& witness_values,
-                            const InvalidWitness::Target& invalid_witness_target)
+    static ProgramMetadata generate_metadata() { return ProgramMetadata{}; }
+
+    static std::pair<AcirConstraint, WitnessVector> invalidate_witness(
+        AcirConstraint constraint, WitnessVector witness_values, const InvalidWitness::Target& invalid_witness_target)
     {
         switch (invalid_witness_target) {
         case InvalidWitness::Target::Input: {
@@ -63,12 +63,14 @@ template <class BuilderType, bool IsInputConstant> class Sha256TestingFunctions 
         case InvalidWitness::Target::None:
             break;
         }
+
+        return { constraint, witness_values };
     }
 
     /**
      * @brief Generate a valid Sha256Compression constraint with correct witness values
      */
-    void generate_constraints(Sha256Compression& sha256_constraint, WitnessVector& witness_values)
+    static void generate_constraints(Sha256Compression& sha256_constraint, WitnessVector& witness_values)
     {
         // Helper to create WitnessOrConstant from a value
         auto make_witness_or_constant = [&](uint32_t value) -> WitnessOrConstant<FF> {

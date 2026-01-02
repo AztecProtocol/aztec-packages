@@ -8,7 +8,9 @@
 #include <shared_mutex>
 #include <span>
 #include <unordered_map>
+#include <utility>
 
+#include "barretenberg/common/tuple.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/common/map.hpp"
 #include "barretenberg/vm2/constraining/flavor_settings.hpp"
@@ -24,18 +26,12 @@ class TraceContainer {
     TraceContainer();
 
     const FF& get(Column col, uint32_t row) const;
-    template <size_t N> std::array<FF, N> get_multiple(const std::array<ColumnAndShifts, N>& cols, uint32_t row) const
+    // Returns a tuple of const references to the values in the specified columns.
+    template <size_t N> auto get_multiple(const std::array<ColumnAndShifts, N>& cols, uint32_t row) const
     {
-        std::array<FF, N> result;
-        for (size_t i = 0; i < N; ++i) {
-            if (!is_shift(cols[i])) {
-                result[i] = get(static_cast<Column>(cols[i]), row);
-            } else {
-                Column unshifted_col = unshift_column(cols[i]).value();
-                result[i] = get(unshifted_col, row + 1);
-            }
-        }
-        return result;
+        return [&]<size_t... Is>(std::index_sequence<Is...>) {
+            return flat_tuple::forward_as_tuple(get_column_or_shift(cols[Is], row)...);
+        }(std::make_index_sequence<N>{});
     }
     // Extended version of get that works with shifted columns. More expensive.
     const FF& get_column_or_shift(ColumnAndShifts col, uint32_t row) const;

@@ -1,6 +1,5 @@
 #include "multi_scalar_mul.hpp"
 #include "acir_format.hpp"
-#include "acir_format_mocks.hpp"
 #include "barretenberg/dsl/acir_format/test_class_predicate.hpp"
 #include "barretenberg/dsl/acir_format/utils.hpp"
 #include "barretenberg/stdlib/primitives/group/cycle_group.hpp"
@@ -45,6 +44,8 @@ template <typename Builder_, InputConstancy Constancy> class MultiScalarMulTesti
 
         static std::vector<std::string> get_labels() { return { "None", "Points", "Scalars", "Result" }; }
     };
+
+    static ProgramMetadata generate_metadata() { return ProgramMetadata{}; }
 
     static void generate_constraints(AcirConstraint& msm_constraint, WitnessVector& witness_values)
     {
@@ -115,9 +116,8 @@ template <typename Builder_, InputConstancy Constancy> class MultiScalarMulTesti
         };
     }
 
-    static void invalidate_witness(AcirConstraint& constraint,
-                                   WitnessVector& witness_values,
-                                   const InvalidWitness::Target& invalid_witness_target)
+    static std::pair<AcirConstraint, WitnessVector> invalidate_witness(
+        AcirConstraint constraint, WitnessVector witness_values, const InvalidWitness::Target& invalid_witness_target)
     {
         switch (invalid_witness_target) {
         case InvalidWitness::Target::Points: {
@@ -149,6 +149,8 @@ template <typename Builder_, InputConstancy Constancy> class MultiScalarMulTesti
         default:
             break;
         }
+
+        return { constraint, witness_values };
     };
 };
 

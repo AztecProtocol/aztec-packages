@@ -9,7 +9,7 @@
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 
 #include "barretenberg/constants.hpp"
-#include "barretenberg/dsl/acir_format/proof_surgeon.hpp"
+#include "barretenberg/dsl/acir_format/utils.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/ultra_flavor.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
@@ -67,12 +67,8 @@ void create_dummy_proof(Builder& builder, [[maybe_unused]] size_t proof_size, co
         offset++;
     };
 
-    size_t offset = 0;
-
     // This routine is adding some placeholders for avm proof and avm vk in the case where witnesses are not present.
-    // TODO(#14234)[Unconditional PIs validation]: Remove next line and use offset == 0 for subsequent line.
-    builder.set_variable(proof_fields[0].get_witness_index(), 1);
-    offset = 1; // TODO(#14234)[Unconditional PIs validation]: reset offset = 1
+    size_t offset = 0;
 
     // Witness Commitments
     for (size_t i = 0; i < Flavor::NUM_WITNESS_ENTITIES; i++) {

@@ -60,8 +60,6 @@ import {
 } from './contract_function_simulator/contract_function_simulator.js';
 import { readCurrentClassId } from './contract_function_simulator/oracle/private_execution.js';
 import { ProxiedContractDataProviderFactory } from './contract_function_simulator/proxied_contract_data_source.js';
-import { ProxiedNodeFactory } from './contract_function_simulator/proxied_node.js';
-import { PXEOracleInterface } from './contract_function_simulator/pxe_oracle_interface.js';
 import { PXEDebugUtils } from './debug/pxe_debug_utils.js';
 import { enrichPublicSimulationError, enrichSimulationError } from './error_enriching.js';
 import { PrivateEventFilterValidator } from './events/private_event_filter_validator.js';
@@ -76,7 +74,8 @@ import { CapsuleDataProvider } from './storage/capsule_data_provider/capsule_dat
 import { ContractDataProvider } from './storage/contract_data_provider/contract_data_provider.js';
 import { NoteDataProvider } from './storage/note_data_provider/note_data_provider.js';
 import { PrivateEventDataProvider } from './storage/private_event_data_provider/private_event_data_provider.js';
-import { TaggingDataProvider } from './storage/tagging_data_provider/tagging_data_provider.js';
+import { RecipientTaggingDataProvider } from './storage/tagging_data_provider/recipient_tagging_data_provider.js';
+import { SenderTaggingDataProvider } from './storage/tagging_data_provider/sender_tagging_data_provider.js';
 
 export type PackedPrivateEvent = InTx & {
   packedEvent: Fr[];
@@ -96,7 +95,8 @@ export class PXE {
     private noteDataProvider: NoteDataProvider,
     private capsuleDataProvider: CapsuleDataProvider,
     private anchorBlockDataProvider: AnchorBlockDataProvider,
-    private taggingDataProvider: TaggingDataProvider,
+    private senderTaggingDataProvider: SenderTaggingDataProvider,
+    private recipientTaggingDataProvider: RecipientTaggingDataProvider,
     private addressDataProvider: AddressDataProvider,
     private privateEventDataProvider: PrivateEventDataProvider,
     private simulator: CircuitSimulator,
@@ -135,7 +135,8 @@ export class PXE {
     const contractDataProvider = new ContractDataProvider(store);
     const noteDataProvider = await NoteDataProvider.create(store);
     const anchorBlockDataProvider = new AnchorBlockDataProvider(store);
-    const taggingDataProvider = new TaggingDataProvider(store);
+    const senderTaggingDataProvider = new SenderTaggingDataProvider(store);
+    const recipientTaggingDataProvider = new RecipientTaggingDataProvider(store);
     const capsuleDataProvider = new CapsuleDataProvider(store);
     const keyStore = new KeyStore(store);
     const tipsStore = new L2TipsKVStore(store, 'pxe');
@@ -143,7 +144,7 @@ export class PXE {
       node,
       anchorBlockDataProvider,
       noteDataProvider,
-      taggingDataProvider,
+      recipientTaggingDataProvider,
       tipsStore,
       config,
       loggerOrSuffix,
@@ -161,7 +162,8 @@ export class PXE {
       noteDataProvider,
       capsuleDataProvider,
       anchorBlockDataProvider,
-      taggingDataProvider,
+      senderTaggingDataProvider,
+      recipientTaggingDataProvider,
       addressDataProvider,
       privateEventDataProvider,
       simulator,
@@ -186,19 +188,24 @@ export class PXE {
   // Internal methods
 
   #getSimulatorForTx(overrides?: { contracts?: ContractOverrides }) {
-    const pxeOracleInterface = new PXEOracleInterface(
-      ProxiedNodeFactory.create(this.node),
-      this.keyStore,
-      ProxiedContractDataProviderFactory.create(this.contractDataProvider, overrides?.contracts),
-      this.noteDataProvider,
-      this.capsuleDataProvider,
-      this.anchorBlockDataProvider,
-      this.taggingDataProvider,
-      this.addressDataProvider,
-      this.privateEventDataProvider,
-      this.log,
+    const proxyContractDataProvider = ProxiedContractDataProviderFactory.create(
+      this.contractDataProvider,
+      overrides?.contracts,
     );
-    return new ContractFunctionSimulator(pxeOracleInterface, this.simulator);
+
+    return new ContractFunctionSimulator(
+      proxyContractDataProvider,
+      this.noteDataProvider,
+      this.keyStore,
+      this.addressDataProvider,
+      this.node,
+      this.anchorBlockDataProvider,
+      this.senderTaggingDataProvider,
+      this.recipientTaggingDataProvider,
+      this.capsuleDataProvider,
+      this.privateEventDataProvider,
+      this.simulator,
+    );
   }
 
   #contextualizeError(err: Error, ...context: string[]): Error {
@@ -468,50 +475,52 @@ export class PXE {
   }
 
   /**
-   * Registers a user contact in PXE.
+   * Registers a sender in this PXE.
    *
-   * Once a new contact is registered, the PXE will be able to receive notes tagged from this contact.
-   * Will do nothing if the account is already registered.
+   * After registering a new sender, the PXE will sync private logs that are tagged with this sender's address.
+   * Will do nothing if the address is already registered.
    *
-   * @param address - Address of the user to add to the address book
-   * @returns The address address of the account.
+   * @param sender - Address of the sender to register.
+   * @returns The address of the sender.
+   * TODO: It's strange that we return the address here and I (benesjan) think we should drop the return value.
    */
-  public async registerSender(address: AztecAddress): Promise<AztecAddress> {
+  public async registerSender(sender: AztecAddress): Promise<AztecAddress> {
     const accounts = await this.keyStore.getAccounts();
-    if (accounts.includes(address)) {
-      this.log.info(`Sender:\n "${address.toString()}"\n already registered.`);
-      return address;
+    if (accounts.includes(sender)) {
+      this.log.info(`Sender:\n "${sender.toString()}"\n already registered.`);
+      return sender;
     }
 
-    const wasAdded = await this.taggingDataProvider.addSenderAddress(address);
+    const wasAdded = await this.recipientTaggingDataProvider.addSenderAddress(sender);
 
     if (wasAdded) {
-      this.log.info(`Added sender:\n ${address.toString()}`);
+      this.log.info(`Added sender:\n ${sender.toString()}`);
     } else {
-      this.log.info(`Sender:\n "${address.toString()}"\n already registered.`);
+      this.log.info(`Sender:\n "${sender.toString()}"\n already registered.`);
     }
 
-    return address;
+    return sender;
   }
 
   /**
-   * Retrieves the addresses stored as senders on this PXE.
-   * @returns An array of the senders on this PXE.
+   * Retrieves senders registered in this PXE.
+   * @returns Senders registered in this PXE.
    */
   public getSenders(): Promise<AztecAddress[]> {
-    return this.taggingDataProvider.getSenderAddresses();
+    return this.recipientTaggingDataProvider.getSenderAddresses();
   }
 
   /**
-   * Removes a sender in the address book.
+   * Removes a sender registered in this PXE.
+   * @param sender - The address of the sender to remove.
    */
-  public async removeSender(address: AztecAddress): Promise<void> {
-    const wasRemoved = await this.taggingDataProvider.removeSenderAddress(address);
+  public async removeSender(sender: AztecAddress): Promise<void> {
+    const wasRemoved = await this.recipientTaggingDataProvider.removeSenderAddress(sender);
 
     if (wasRemoved) {
-      this.log.info(`Removed sender:\n ${address.toString()}`);
+      this.log.info(`Removed sender:\n ${sender.toString()}`);
     } else {
-      this.log.info(`Sender:\n "${address.toString()}"\n not in address book.`);
+      this.log.info(`Sender:\n "${sender.toString()}"\n not registered in PXE.`);
     }
   }
 
@@ -698,14 +707,22 @@ export class PXE {
           nodeRPCCalls: contractFunctionSimulator?.getStats().nodeRPCCalls,
         });
 
+        // While not strictly necessary to store tagging cache contents in the DB since we sync tagging indexes from
+        // chain before sending new logs, the sync can only see logs already included in blocks. If we send another
+        // transaction before this one is included in a block from this PXE, and that transaction contains a log with
+        // a tag derived from the same secret, we would reuse the tag and the transactions would be linked. Hence
+        // storing the tags here prevents linkage of txs sent from the same PXE.
         const preTagsUsedInTheTx = privateExecutionResult.entrypoint.preTags;
         if (preTagsUsedInTheTx.length > 0) {
-          await this.taggingDataProvider.setLastUsedIndexesAsSender(preTagsUsedInTheTx);
-          this.log.debug(`Stored used pre tags as sender for the tx`, {
+          // TODO(benesjan): The following is an expensive operation. Figure out a way to avoid it.
+          const txHash = (await txProvingResult.toTx()).txHash;
+
+          await this.senderTaggingDataProvider.storePendingIndexes(preTagsUsedInTheTx, txHash);
+          this.log.debug(`Stored used pre-tags as sender for the tx`, {
             preTagsUsedInTheTx,
           });
         } else {
-          this.log.debug(`No pre tags used in the tx`);
+          this.log.debug(`No pre-tags used in the tx`);
         }
 
         return txProvingResult;
@@ -1030,7 +1047,7 @@ export class PXE {
 
     const sanitizedFilter = await new PrivateEventFilterValidator(this.anchorBlockDataProvider).validate(filter);
 
-    this.log.error(
+    this.log.debug(
       `Getting private events for ${sanitizedFilter.contractAddress.toString()} from ${sanitizedFilter.fromBlock} to ${sanitizedFilter.toBlock}`,
     );
 

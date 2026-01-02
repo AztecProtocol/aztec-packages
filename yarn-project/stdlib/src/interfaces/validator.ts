@@ -2,7 +2,7 @@ import type { SecretValue } from '@aztec/foundation/config';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { Signature } from '@aztec/foundation/eth-signature';
-import { type ZodFor, schemas } from '@aztec/foundation/schemas';
+import { schemas, zodFor } from '@aztec/foundation/schemas';
 import type { SequencerConfig, SlasherConfig } from '@aztec/stdlib/interfaces/server';
 import type { BlockAttestation, BlockProposal, BlockProposalOptions } from '@aztec/stdlib/p2p';
 import type { Tx } from '@aztec/stdlib/tx';
@@ -56,23 +56,27 @@ export type ValidatorClientFullConfig = ValidatorClientConfig &
     disableTransactions?: boolean;
   };
 
-export const ValidatorClientConfigSchema = z.object({
-  validatorAddresses: z.array(schemas.EthAddress).optional(),
-  disableValidator: z.boolean(),
-  disabledValidators: z.array(schemas.EthAddress),
-  attestationPollingIntervalMs: z.number().min(0),
-  validatorReexecute: z.boolean(),
-  validatorReexecuteDeadlineMs: z.number().min(0),
-  alwaysReexecuteBlockProposals: z.boolean().optional(),
-  fishermanMode: z.boolean().optional(),
-}) satisfies ZodFor<Omit<ValidatorClientConfig, 'validatorPrivateKeys'>>;
+export const ValidatorClientConfigSchema = zodFor<Omit<ValidatorClientConfig, 'validatorPrivateKeys'>>()(
+  z.object({
+    validatorAddresses: z.array(schemas.EthAddress).optional(),
+    disableValidator: z.boolean(),
+    disabledValidators: z.array(schemas.EthAddress),
+    attestationPollingIntervalMs: z.number().min(0),
+    validatorReexecute: z.boolean(),
+    validatorReexecuteDeadlineMs: z.number().min(0),
+    alwaysReexecuteBlockProposals: z.boolean().optional(),
+    fishermanMode: z.boolean().optional(),
+  }),
+);
 
-export const ValidatorClientFullConfigSchema = ValidatorClientConfigSchema.extend({
-  txPublicSetupAllowList: z.array(AllowedElementSchema).optional(),
-  broadcastInvalidBlockProposal: z.boolean().optional(),
-  slashBroadcastedInvalidBlockPenalty: schemas.BigInt,
-  disableTransactions: z.boolean().optional(),
-}) satisfies ZodFor<Omit<ValidatorClientFullConfig, 'validatorPrivateKeys'>>;
+export const ValidatorClientFullConfigSchema = zodFor<Omit<ValidatorClientFullConfig, 'validatorPrivateKeys'>>()(
+  ValidatorClientConfigSchema.extend({
+    txPublicSetupAllowList: z.array(AllowedElementSchema).optional(),
+    broadcastInvalidBlockProposal: z.boolean().optional(),
+    slashBroadcastedInvalidBlockPenalty: schemas.BigInt,
+    disableTransactions: z.boolean().optional(),
+  }),
+);
 
 export interface Validator {
   start(): Promise<void>;

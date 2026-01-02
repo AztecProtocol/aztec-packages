@@ -420,18 +420,18 @@ executable in a static context, and these produce no side effects).</p>
     Note: <a href="../../../../noir_aztec/note/note_interface/trait.NoteHash.html" class="trait">NoteHash</a></div></code>
 
 <div class="padded-description"><div class="comments">
-<p>Discovers a note from a [NewNoteMessage], which is expected to have been created in the last transaction
-(typically via <code>private_context()</code>) so that it can be retrieved in later transactions. This mimics the normal
-note discovery process that takes place automatically in contracts.</p>
-<p>[NewNoteMessage] values are typically returned by aztec-nr state variables that create notes and need to notify
+<p>Discovers a note from a <a href="../../../../noir_aztec/note/note_message/struct.NoteMessage.html">NoteMessage</a>, which is expected to have been created in the last transaction
+(typically via <a href="../../../../noir_aztec/test/helpers/test_environment/struct.TestEnvironment.html#private_context">TestEnvironment::private_context</a>) so that it can be retrieved in later transactions. This
+mimics the normal message processing that takes place automatically in contracts.</p>
+<p><a href="../../../../noir_aztec/note/note_message/struct.NoteMessage.html">NoteMessage</a> values are typically returned by aztec-nr state variables that create notes and need to notify
 a recipient of their existence. Instead of going through the message encoding, encryption and delivery that
-would regularly take place in a contract, this function simply takes the [NewNoteMessage] and processes it as
+would regularly take place in a contract, this function simply takes the <a href="../../../../noir_aztec/note/note_message/struct.NoteMessage.html">NoteMessage</a> and processes it as
 needed to discover the underlying note.</p>
 <p>See <a href="../../../../noir_aztec/test/helpers/test_environment/struct.TestEnvironment.html#discover_note_at">TestEnvironment::discover_note_at</a> for a variant that allows specifying the contract address the note
 belongs to.</p>
 <h4>Sample usage</h4>
 <p>The most common way to invoke this function is to obtain a note message created during the execution of a
-<code>private_context</code>:</p>
+<a href="../../../../noir_aztec/test/helpers/test_environment/struct.TestEnvironment.html#private_context">TestEnvironment::private_context</a>:</p>
 <pre><code><span class="kw">let</span> note_message = env.private_context(|context| create_note(context, storage_slot, note));
 
 env.discover_note(note_message);
@@ -448,8 +448,9 @@ env.private_context(|context| { <span class="kw">let</span> (retrieved_note, _) 
     Note: <a href="../../../../noir_aztec/note/note_interface/trait.NoteHash.html" class="trait">NoteHash</a></div></code>
 
 <div class="padded-description"><div class="comments">
-<p>Variant of <code>discover_note</code> which allows specifying the contract address the note belongs to, which is required
-when the note was not emitted in the default address used by <code>private_context</code>.</p>
+<p>Variant of <a href="../../../../noir_aztec/test/helpers/test_environment/struct.TestEnvironment.html#discover_note">TestEnvironment::discover_note</a> which allows specifying the contract address the note belongs to,
+which is required when the note was not emitted in the default address used by
+<a href="../../../../noir_aztec/test/helpers/test_environment/struct.TestEnvironment.html#private_context">TestEnvironment::private_context</a>.</p>
 <pre><code><span class="kw">let</span> note_message = env.private_context_at(contract_address, |context| {
     create_note(context, storage_slot, note)
 });

@@ -16,7 +16,6 @@ import { assertLength } from '@aztec/foundation/serialize';
 import { pushTestData } from '@aztec/foundation/testing';
 import { elapsed } from '@aztec/foundation/timer';
 import type { TreeNodeLocation } from '@aztec/foundation/trees';
-import { readAvmMinimalPublicTxInputsFromFile } from '@aztec/simulator/public/fixtures';
 import { EthAddress } from '@aztec/stdlib/block';
 import type {
   EpochProver,
@@ -1207,8 +1206,6 @@ export class ProvingOrchestrator implements EpochProver {
 
     const txProvingState = provingState.getTxProvingState(txIndex);
 
-    // This function tries to do AVM proving. If there is a failure, it fakes the proof unless AVM_PROVING_STRICT is defined.
-    // Nothing downstream depends on the AVM proof yet. So having this mode lets us incrementally build the AVM circuit.
     const doAvmProving = wrapCallbackInSpan(
       this.tracer,
       'ProvingOrchestrator.prover.getAvmProof',
@@ -1217,30 +1214,7 @@ export class ProvingOrchestrator implements EpochProver {
       },
       async (signal: AbortSignal) => {
         const inputs = txProvingState.getAvmInputs();
-        try {
-          // TODO(#14234)[Unconditional PIs validation]: Remove the whole try-catch logic and
-          // just keep the next line but removing the second argument (false).
-          return await this.prover.getAvmProof(inputs, false, signal, provingState.epochNumber);
-        } catch (err) {
-          if (process.env.AVM_PROVING_STRICT) {
-            logger.error(`Error thrown when proving AVM circuit with AVM_PROVING_STRICT on`, err);
-            throw err;
-          } else {
-            logger.warn(
-              `Error thrown when proving AVM circuit but AVM_PROVING_STRICT is off. Use snapshotted
-               AVM inputs and carrying on. ${inspect(err)}.`,
-            );
-
-            try {
-              this.metrics.incAvmFallback();
-              const snapshotAvmPrivateInputs = readAvmMinimalPublicTxInputsFromFile();
-              return await this.prover.getAvmProof(snapshotAvmPrivateInputs, true, signal, provingState.epochNumber);
-            } catch (err) {
-              logger.error(`Error thrown when proving snapshotted AVM inputs.`, err);
-              throw err;
-            }
-          }
-        }
+        return await this.prover.getAvmProof(inputs, signal, provingState.epochNumber);
       },
     );
 

@@ -1,6 +1,5 @@
-import { L2Block } from '@aztec/aztec.js/block';
+import { type BlobClientInterface, createBlobClient } from '@aztec/blob-client/client';
 import { Blob, getBlobsPerL1Block, getPrefixedEthBlobCommitments } from '@aztec/blob-lib';
-import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-sink/client';
 import type { EpochCache } from '@aztec/epoch-cache';
 import type { L1ContractsConfig } from '@aztec/ethereum/config';
 import {
@@ -14,6 +13,7 @@ import {
   type ViemCommitteeAttestations,
   type ViemHeader,
 } from '@aztec/ethereum/contracts';
+import { type L1FeeAnalysisResult, L1FeeAnalyzer } from '@aztec/ethereum/l1-fee-analysis';
 import {
   type L1BlobInputs,
   type L1TxConfig,
@@ -26,6 +26,7 @@ import { FormattedViemError, formatViemError, tryExtractEvent } from '@aztec/eth
 import { sumBigint } from '@aztec/foundation/bigint';
 import { toHex as toPaddedHex } from '@aztec/foundation/bigint-buffer';
 import { BlockNumber, CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { pick } from '@aztec/foundation/collection';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature, type ViemSignature } from '@aztec/foundation/eth-signature';
@@ -34,10 +35,11 @@ import { bufferToHex } from '@aztec/foundation/string';
 import { DateProvider, Timer } from '@aztec/foundation/timer';
 import { EmpireBaseAbi, ErrorsAbi, RollupAbi } from '@aztec/l1-artifacts';
 import { type ProposerSlashAction, encodeSlashConsensusVotes } from '@aztec/slasher';
-import { CommitteeAttestation, CommitteeAttestationsAndSigners, type ValidateBlockResult } from '@aztec/stdlib/block';
+import { CommitteeAttestationsAndSigners, type ValidateBlockResult } from '@aztec/stdlib/block';
+import type { Checkpoint } from '@aztec/stdlib/checkpoint';
 import { SlashFactoryContract } from '@aztec/stdlib/l1-contracts';
 import type { CheckpointHeader } from '@aztec/stdlib/rollup';
-import type { L1PublishBlockStats } from '@aztec/stdlib/stats';
+import type { L1PublishCheckpointStats } from '@aztec/stdlib/stats';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { type StateOverride, type TransactionReceipt, type TypedDataDefinition, encodeFunctionData, toHex } from 'viem';
@@ -108,13 +110,18 @@ export class SequencerPublisher {
 
   protected lastActions: Partial<Record<Action, SlotNumber>> = {};
 
+  private isPayloadEmptyCache: Map<string, boolean> = new Map<string, boolean>();
+
   protected log: Logger;
   protected ethereumSlotDuration: bigint;
 
-  private blobSinkClient: BlobSinkClientInterface;
+  private blobClient: BlobClientInterface;
 
   /** Address to use for simulations in fisherman mode (actual proposer's address) */
   private proposerAddressForSimulation?: EthAddress;
+
+  /** L1 fee analyzer for fisherman mode */
+  private l1FeeAnalyzer?: L1FeeAnalyzer;
   // @note - with blobs, the below estimate seems too large.
   // Total used for full block from int_l1_pub e2e test: 1m (of which 86k is 1x blob)
   // Total used for emptier block from above test: 429k (of which 84k is 1x blob)
@@ -138,7 +145,7 @@ export class SequencerPublisher {
     private config: TxSenderConfig & PublisherConfig & Pick<L1ContractsConfig, 'ethereumSlotDuration'>,
     deps: {
       telemetry?: TelemetryClient;
-      blobSinkClient?: BlobSinkClientInterface;
+      blobClient?: BlobClientInterface;
       l1TxUtils: L1TxUtilsWithBlobs;
       rollupContract: RollupContract;
       slashingProposerContract: EmpireSlashingProposerContract | TallySlashingProposerContract | undefined;
@@ -156,8 +163,8 @@ export class SequencerPublisher {
     this.epochCache = deps.epochCache;
     this.lastActions = deps.lastActions;
 
-    this.blobSinkClient =
-      deps.blobSinkClient ?? createBlobSinkClient(config, { logger: createLogger('sequencer:blob-sink:client') });
+    this.blobClient =
+      deps.blobClient ?? createBlobClient(config, { logger: createLogger('sequencer:blob-client:client') });
 
     const telemetry = deps.telemetry ?? getTelemetryClient();
     this.metrics = deps.metrics ?? new SequencerPublisherMetrics(telemetry, 'SequencerPublisher');
@@ -174,6 +181,15 @@ export class SequencerPublisher {
       this.slashingProposerContract = newSlashingProposer;
     });
     this.slashFactoryContract = deps.slashFactoryContract;
+
+    // Initialize L1 fee analyzer for fisherman mode
+    if (config.fishermanMode) {
+      this.l1FeeAnalyzer = new L1FeeAnalyzer(
+        this.l1TxUtils.client,
+        deps.dateProvider,
+        createLogger('sequencer:publisher:fee-analyzer'),
+      );
+    }
   }
 
   public getRollupContract(): RollupContract {
@@ -182,6 +198,13 @@ export class SequencerPublisher {
 
   public getSenderAddress() {
     return this.l1TxUtils.getSenderAddress();
+  }
+
+  /**
+   * Gets the L1 fee analyzer instance (only available in fisherman mode)
+   */
+  public getL1FeeAnalyzer(): L1FeeAnalyzer | undefined {
+    return this.l1FeeAnalyzer;
   }
 
   /**
@@ -212,6 +235,62 @@ export class SequencerPublisher {
   }
 
   /**
+   * Analyzes L1 fees for the pending requests without sending them.
+   * This is used in fisherman mode to validate fee calculations.
+   * @param l2SlotNumber - The L2 slot number for this analysis
+   * @param onComplete - Optional callback to invoke when analysis completes (after block is mined)
+   * @returns The analysis result (incomplete until block mines), or undefined if no requests
+   */
+  public async analyzeL1Fees(
+    l2SlotNumber: SlotNumber,
+    onComplete?: (analysis: L1FeeAnalysisResult) => void,
+  ): Promise<L1FeeAnalysisResult | undefined> {
+    if (!this.l1FeeAnalyzer) {
+      this.log.warn('L1 fee analyzer not available (not in fisherman mode)');
+      return undefined;
+    }
+
+    const requestsToAnalyze = [...this.requests];
+    if (requestsToAnalyze.length === 0) {
+      this.log.debug('No requests to analyze for L1 fees');
+      return undefined;
+    }
+
+    // Extract blob config from requests (if any)
+    const blobConfigs = requestsToAnalyze.filter(request => request.blobConfig).map(request => request.blobConfig);
+    const blobConfig = blobConfigs[0];
+
+    // Get gas configs
+    const gasConfigs = requestsToAnalyze.filter(request => request.gasConfig).map(request => request.gasConfig);
+    const gasLimits = gasConfigs.map(g => g?.gasLimit).filter((g): g is bigint => g !== undefined);
+    const gasLimit = gasLimits.length > 0 ? gasLimits.reduce((sum, g) => sum + g, 0n) : 0n;
+
+    // Get the transaction requests
+    const l1Requests = requestsToAnalyze.map(r => r.request);
+
+    // Start the analysis
+    const analysisId = await this.l1FeeAnalyzer.startAnalysis(
+      l2SlotNumber,
+      gasLimit > 0n ? gasLimit : SequencerPublisher.PROPOSE_GAS_GUESS,
+      l1Requests,
+      blobConfig,
+      onComplete,
+    );
+
+    this.log.info('Started L1 fee analysis', {
+      analysisId,
+      l2SlotNumber: l2SlotNumber.toString(),
+      requestCount: requestsToAnalyze.length,
+      hasBlobConfig: !!blobConfig,
+      gasLimit: gasLimit.toString(),
+      actions: requestsToAnalyze.map(r => r.action),
+    });
+
+    // Return the analysis result (will be incomplete until block mines)
+    return this.l1FeeAnalyzer.getAnalysis(analysisId);
+  }
+
+  /**
    * Sends all requests that are still valid.
    * @returns one of:
    * - A receipt and stats if the tx succeeded
@@ -221,7 +300,7 @@ export class SequencerPublisher {
   public async sendRequests() {
     const requestsToProcess = [...this.requests];
     this.requests = [];
-    if (this.interrupted) {
+    if (this.interrupted || requestsToProcess.length === 0) {
       return undefined;
     }
     const currentL2Slot = this.getCurrentL2Slot();
@@ -509,45 +588,38 @@ export class SequencerPublisher {
     }
   }
 
-  /**
-   * @notice  Will simulate `propose` to make sure that the block is valid for submission
-   *
-   * @dev     Throws if unable to propose
-   *
-   * @param block - The block to propose
-   * @param attestationData - The block's attestation data
-   *
-   */
-  public async validateBlockForSubmission(
-    block: L2Block,
+  /** Simulates `propose` to make sure that the checkpoint is valid for submission */
+  public async validateCheckpointForSubmission(
+    checkpoint: Checkpoint,
     attestationsAndSigners: CommitteeAttestationsAndSigners,
     attestationsAndSignersSignature: Signature,
-    options: { forcePendingBlockNumber?: BlockNumber },
+    options: { forcePendingBlockNumber?: BlockNumber }, // TODO(palla/mbps): Should this be forcePendingCheckpointNumber?
   ): Promise<bigint> {
     const ts = BigInt((await this.l1TxUtils.getBlock()).timestamp + this.ethereumSlotDuration);
 
+    // TODO(palla/mbps): This should not be needed, there's no flow where we propose with zero attestations. Or is there?
     // If we have no attestations, we still need to provide the empty attestations
     // so that the committee is recalculated correctly
-    const ignoreSignatures = attestationsAndSigners.attestations.length === 0;
-    if (ignoreSignatures) {
-      const { committee } = await this.epochCache.getCommittee(block.header.globalVariables.slotNumber);
-      if (!committee) {
-        this.log.warn(`No committee found for slot ${block.header.globalVariables.slotNumber}`);
-        throw new Error(`No committee found for slot ${block.header.globalVariables.slotNumber}`);
-      }
-      attestationsAndSigners.attestations = committee.map(committeeMember =>
-        CommitteeAttestation.fromAddress(committeeMember),
-      );
-    }
+    // const ignoreSignatures = attestationsAndSigners.attestations.length === 0;
+    // if (ignoreSignatures) {
+    //   const { committee } = await this.epochCache.getCommittee(block.header.globalVariables.slotNumber);
+    //   if (!committee) {
+    //     this.log.warn(`No committee found for slot ${block.header.globalVariables.slotNumber}`);
+    //     throw new Error(`No committee found for slot ${block.header.globalVariables.slotNumber}`);
+    //   }
+    //   attestationsAndSigners.attestations = committee.map(committeeMember =>
+    //     CommitteeAttestation.fromAddress(committeeMember),
+    //   );
+    // }
 
-    const blobFields = block.getCheckpointBlobFields();
+    const blobFields = checkpoint.toBlobFields();
     const blobs = getBlobsPerL1Block(blobFields);
     const blobInput = getPrefixedEthBlobCommitments(blobs);
 
     const args = [
       {
-        header: block.getCheckpointHeader().toViem(),
-        archive: toHex(block.archive.root.toBuffer()),
+        header: checkpoint.header.toViem(),
+        archive: toHex(checkpoint.archive.root.toBuffer()),
         oracleInput: {
           feeAssetPriceModifier: 0n,
         },
@@ -585,7 +657,16 @@ export class SequencerPublisher {
     const round = await base.computeRound(slotNumber);
     const roundInfo = await base.getRoundInfo(this.rollupContract.address, round);
 
+    if (roundInfo.quorumReached) {
+      return false;
+    }
+
     if (roundInfo.lastSignalSlot >= slotNumber) {
+      return false;
+    }
+
+    if (await this.isPayloadEmpty(payload)) {
+      this.log.warn(`Skipping vote cast for payload with empty code`);
       return false;
     }
 
@@ -631,14 +712,14 @@ export class SequencerPublisher {
         const logData = { ...result, slotNumber, round, payload: payload.toString() };
         if (!success) {
           this.log.error(
-            `Signaling in [${action}] for ${payload} at slot ${slotNumber} in round ${round} failed`,
+            `Signaling in ${action} for ${payload} at slot ${slotNumber} in round ${round} failed`,
             logData,
           );
           this.lastActions[signalType] = cachedLastVote;
           return false;
         } else {
           this.log.info(
-            `Signaling in [${action}] for ${payload} at slot ${slotNumber} in round ${round} succeeded`,
+            `Signaling in ${action} for ${payload} at slot ${slotNumber} in round ${round} succeeded`,
             logData,
           );
           return true;
@@ -646,6 +727,17 @@ export class SequencerPublisher {
       },
     });
     return true;
+  }
+
+  private async isPayloadEmpty(payload: EthAddress): Promise<boolean> {
+    const key = payload.toString();
+    const cached = this.isPayloadEmptyCache.get(key);
+    if (cached) {
+      return cached;
+    }
+    const isEmpty = !(await this.l1TxUtils.getCode(payload));
+    this.isPayloadEmptyCache.set(key, isEmpty);
+    return isEmpty;
   }
 
   /**
@@ -795,27 +887,21 @@ export class SequencerPublisher {
     return true;
   }
 
-  /**
-   * Proposes a L2 block on L1.
-   *
-   * @param block - L2 block to propose.
-   * @returns True if the tx has been enqueued, throws otherwise. See #9315
-   */
-  public async enqueueProposeL2Block(
-    block: L2Block,
+  /** Simulates and enqueues a proposal for a checkpoint on L1 */
+  public async enqueueProposeCheckpoint(
+    checkpoint: Checkpoint,
     attestationsAndSigners: CommitteeAttestationsAndSigners,
     attestationsAndSignersSignature: Signature,
     opts: { txTimeoutAt?: Date; forcePendingBlockNumber?: BlockNumber } = {},
-  ): Promise<boolean> {
-    const checkpointHeader = block.getCheckpointHeader();
+  ): Promise<void> {
+    const checkpointHeader = checkpoint.header;
 
-    const blobFields = block.getCheckpointBlobFields();
+    const blobFields = checkpoint.toBlobFields();
     const blobs = getBlobsPerL1Block(blobFields);
 
     const proposeTxArgs = {
       header: checkpointHeader,
-      archive: block.archive.root.toBuffer(),
-      body: block.body.toBuffer(),
+      archive: checkpoint.archive.root.toBuffer(),
       blobs,
       attestationsAndSigners,
       attestationsAndSignersSignature,
@@ -829,19 +915,23 @@ export class SequencerPublisher {
       //        By simulation issue, I mean the fact that the block.timestamp is equal to the last block, not the next, which
       //        make time consistency checks break.
       // TODO(palla): Check whether we're validating twice, once here and once within addProposeTx, since we call simulateProposeTx in both places.
-      ts = await this.validateBlockForSubmission(block, attestationsAndSigners, attestationsAndSignersSignature, opts);
+      ts = await this.validateCheckpointForSubmission(
+        checkpoint,
+        attestationsAndSigners,
+        attestationsAndSignersSignature,
+        opts,
+      );
     } catch (err: any) {
-      this.log.error(`Block validation failed. ${err instanceof Error ? err.message : 'No error message'}`, err, {
-        ...block.getStats(),
-        slotNumber: block.header.globalVariables.slotNumber,
+      this.log.error(`Checkpoint validation failed. ${err instanceof Error ? err.message : 'No error message'}`, err, {
+        ...checkpoint.getStats(),
+        slotNumber: checkpoint.header.slotNumber,
         forcePendingBlockNumber: opts.forcePendingBlockNumber,
       });
       throw err;
     }
 
-    this.log.verbose(`Enqueuing block propose transaction`, { ...block.toBlockInfo(), ...opts });
-    await this.addProposeTx(block, proposeTxArgs, opts, ts);
-    return true;
+    this.log.verbose(`Enqueuing checkpoint propose transaction`, { ...checkpoint.toCheckpointInfo(), ...opts });
+    await this.addProposeTx(checkpoint, proposeTxArgs, opts, ts);
   }
 
   public enqueueInvalidateBlock(request: InvalidateBlockRequest | undefined, opts: { txTimeoutAt?: Date } = {}) {
@@ -1106,11 +1196,12 @@ export class SequencerPublisher {
   }
 
   private async addProposeTx(
-    block: L2Block,
+    checkpoint: Checkpoint,
     encodedData: L1ProcessArgs,
     opts: { txTimeoutAt?: Date; forcePendingBlockNumber?: BlockNumber } = {},
     timestamp: bigint,
   ): Promise<void> {
+    const slot = checkpoint.header.slotNumber;
     const timer = new Timer();
     const kzg = Blob.getViemKzgInstance();
     const { rollupData, simulationResult, blobEvaluationGas } = await this.prepareProposeTx(
@@ -1125,11 +1216,11 @@ export class SequencerPublisher {
         SequencerPublisher.MULTICALL_OVERHEAD_GAS_GUESS, // We issue the simulation against the rollup contract, so we need to account for the overhead of the multicall3
     );
 
-    // Send the blobs to the blob sink preemptively. This helps in tests where the sequencer mistakingly thinks that the propose
-    // tx fails but it does get mined. We make sure that the blobs are sent to the blob sink regardless of the tx outcome.
+    // Send the blobs to the blob client preemptively. This helps in tests where the sequencer mistakingly thinks that the propose
+    // tx fails but it does get mined. We make sure that the blobs are sent to the blob client regardless of the tx outcome.
     void Promise.resolve().then(() =>
-      this.blobSinkClient.sendBlobsToBlobSink(encodedData.blobs).catch(_err => {
-        this.log.error('Failed to send blobs to blob sink');
+      this.blobClient.sendBlobsToFilestore(encodedData.blobs).catch(_err => {
+        this.log.error('Failed to send blobs to blob client');
       }),
     );
 
@@ -1139,7 +1230,7 @@ export class SequencerPublisher {
         to: this.rollupContract.address,
         data: rollupData,
       },
-      lastValidL2Slot: block.header.globalVariables.slotNumber,
+      lastValidL2Slot: checkpoint.header.slotNumber,
       gasConfig: { ...opts, gasLimit },
       blobConfig: {
         blobs: encodedData.blobs.map(b => b.data),
@@ -1154,11 +1245,12 @@ export class SequencerPublisher {
           receipt &&
           receipt.status === 'success' &&
           tryExtractEvent(receipt.logs, this.rollupContract.address, RollupAbi, 'CheckpointProposed');
+
         if (success) {
           const endBlock = receipt.blockNumber;
           const inclusionBlocks = Number(endBlock - startBlock);
           const { calldataGas, calldataSize, sender } = stats!;
-          const publishStats: L1PublishBlockStats = {
+          const publishStats: L1PublishCheckpointStats = {
             gasPrice: receipt.effectiveGasPrice,
             gasUsed: receipt.gasUsed,
             blobGasUsed: receipt.blobGasUsed ?? 0n,
@@ -1167,23 +1259,26 @@ export class SequencerPublisher {
             calldataGas,
             calldataSize,
             sender,
-            ...block.getStats(),
+            ...checkpoint.getStats(),
             eventName: 'rollup-published-to-l1',
             blobCount: encodedData.blobs.length,
             inclusionBlocks,
           };
-          this.log.info(`Published L2 block to L1 rollup contract`, { ...stats, ...block.getStats(), ...receipt });
+          this.log.info(`Published checkpoint ${checkpoint.number} at slot ${slot} to rollup contract`, {
+            ...stats,
+            ...checkpoint.getStats(),
+            ...pick(receipt, 'transactionHash', 'blockHash'),
+          });
           this.metrics.recordProcessBlockTx(timer.ms(), publishStats);
 
           return true;
         } else {
           this.metrics.recordFailedTx('process');
-          this.log.error(`Rollup process tx failed: ${errorMsg ?? 'no error message'}`, undefined, {
-            ...block.getStats(),
-            receipt,
-            txHash: receipt.transactionHash,
-            slotNumber: block.header.globalVariables.slotNumber,
-          });
+          this.log.error(
+            `Publishing checkpoint at slot ${slot} failed with ${errorMsg ?? 'no error message'}`,
+            undefined,
+            { ...checkpoint.getStats(), ...receipt },
+          );
           return false;
         }
       },

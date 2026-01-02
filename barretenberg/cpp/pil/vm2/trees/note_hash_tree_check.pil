@@ -79,7 +79,7 @@ namespace note_hash_tree_check;
 
     // TODO: We need this temporarily while we do not allow for aliases in the lookup tuple
     pol commit siloing_separator;
-    sel * (constants.GENERATOR_INDEX__SILOED_NOTE_HASH - siloing_separator) = 0;
+    sel * (constants.DOM_SEP__SILOED_NOTE_HASH - siloing_separator) = 0;
 
     #[SILO_POSEIDON2]
     should_silo { sel, siloing_separator, address, note_hash, siloed_note_hash }
@@ -115,7 +115,7 @@ namespace note_hash_tree_check;
 
     // TODO: We need this temporarily while we do not allow for aliases in the lookup tuple
     pol commit nonce_separator;
-    sel * (constants.GENERATOR_INDEX__NOTE_HASH_NONCE - nonce_separator) = 0;
+    sel * (constants.DOM_SEP__NOTE_HASH_NONCE - nonce_separator) = 0;
 
     #[NONCE_COMPUTATION_POSEIDON2]
     should_unique { sel, nonce_separator, first_nullifier, note_hash_index, nonce }
@@ -123,7 +123,7 @@ namespace note_hash_tree_check;
 
     // TODO: We need this temporarily while we do not allow for aliases in the lookup tuple
     pol commit unique_note_hash_separator;
-    sel * (constants.GENERATOR_INDEX__UNIQUE_NOTE_HASH - unique_note_hash_separator) = 0;
+    sel * (constants.DOM_SEP__UNIQUE_NOTE_HASH - unique_note_hash_separator) = 0;
 
     #[UNIQUE_NOTE_HASH_POSEIDON2]
     should_unique { sel, unique_note_hash_separator, nonce, siloed_note_hash, unique_note_hash }

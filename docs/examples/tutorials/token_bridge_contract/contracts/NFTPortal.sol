@@ -66,5 +66,5 @@ contract NFTPortal {
         // Unlock NFT
         nftContract.transferFrom(address(this), msg.sender, tokenId);
     }
+    // docs:end:portal_deposit_and_withdraw
 }
-// docs:end:portal_deposit_and_withdraw

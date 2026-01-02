@@ -42,7 +42,7 @@ The `MegaCircuitBuilder` is purpose built to construct circuits representing tra
 
 The `UltraCircuitBuilder` is used for everything else, e.g. in the Barretenberg-as-noir-backend for non-Aztec use cases and in Aztec rollup circuits (which don't utilize Goblin).
 
-## Wires, Selectors & Blocks
+## Wires, Selectors, Blocks & Tags
 
 ### Wires, Variables & Witnesses
 
@@ -82,7 +82,7 @@ builder.assert_equal(idx_a, idx_b);
 | `q_poseidon2_internal` | Poseidon2 internal rounds |
 | `q_busread` | Databus read (Mega only) |
 
-Note: no `q_*` selector exists for gates represeting deferred ECC operations in the Mega builder. This is an implementation detail having to do with the trivial structure that such a selector would take.
+Note: no selector exists for gates representing deferred ECC operations in the Mega builder. However, there is a selector in the Mega circuit itself for deferred ECC ops: `lagrange_ecc_op`. This is not stored in the builder; the selector is populated later, in `trace_to_polynomials.cpp`, as it can be efficiently derived once the builder phase has completed.
 
 **Non-gate selectors** are general coefficients used within relations. Note that the naming stems from their usage in the Arithmetic constraint but they are reused in other constraints for various purposes:
 
@@ -114,6 +114,17 @@ The execution trace is constructed in the form of **blocks** (`ExecutionTraceBlo
 Within a given block, the corresponding gate selector is not always non-zero (hence why we have to track its values at all). This is because many gates make use of a shift mechanism that allow the constraint at row `i` to incorporate wire values at row `i+1`. In this case, row `i+1` may or may not be otherwise constrained, i.e. the gate selector at row `i+1` may take value 0.
 
 Note: The `pub_inputs` block is the only one which does not correspond to a particular gate type / selector. Public inputs are handled via the permutation argument, which enforces that public input witness values appear in a designated portion of the trace.
+
+### Tags and the multiset-equality check
+Tags are a mechanism to enforce multiset-equality checks. Tags are stored in `std::vector<uint32_t> real_variable_tags`; in particular, every `real_variable` has a tag. Real variables that are _not_ used in any non-trivial multiset-equality check are given the `DEFAULT_TAG == 0`. All other tags signify "one side" of a multiset-equality check.
+
+Let $T$ be the set of all real variables (indices) with tag $t$ and $S$ be the set of all real variables with tag $s$. The constraint that $T = S$ as multisets is enforced by adding a transposition $s \leftrightarrow t$ to to `_tau`, the "permutation over tags". (`DEFAULT_TAG` is sent to itself under this permutation.) In other words, `_tau` is a permutation on the set of tags; it has order two, meaning it is the product of disjoint transpositions. Each transposition witnesses a multiset-equality check.
+
+There are two types of tags that occur in Barretenberg.
+* For any "regular" (i.e., non-derived) witness, having a non-trivial tag $t$ corresponds to a (small) range constraint.
+* In memory operations, we have several derived (a.k.a. post Fiat-Shamir) witnesses that have non-trivial tags.
+
+In both of these examples, tags are used because the underlying arguments, which are similar to plookup, involve duplicating and then sorting witnesses; the multiset-equality check is used to show that the sorted and the unsorted witness multisets agree.
 
 ## Arithmetization & Custom Gates
 
@@ -179,7 +190,7 @@ Note: Finalization is typically called automatically by the proving system, but 
 
 ## Mega-Specific Features
 
-Mega is used exclusively in the context of client-side proving of Aztec transactions. It extends Ultra with support for efficiently passing large amounts of public data between circuits (Databus) and for tracking deferred elliptic curve operations to be performed efficiently by the purpose built ECCVM later on.
+Mega is used in the context of client-side proving of Aztec transactions and for AVM recursion. It extends Ultra with support for efficiently passing large amounts of public data between circuits (Databus) and for tracking deferred elliptic curve operations to be performed efficiently by the custom-built ECCVM later on.
 
 ### DataBus
 

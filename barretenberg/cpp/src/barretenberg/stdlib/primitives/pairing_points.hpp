@@ -9,7 +9,9 @@
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
+#include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 #include "barretenberg/transcript/transcript.hpp"
+#include <type_traits>
 
 namespace bb::stdlib::recursion {
 
@@ -83,12 +85,23 @@ template <typename Curve> struct PairingPoints {
     typename Curve::bool_ct operator==(PairingPoints const& other) const { return P0 == other.P0 && P1 == other.P1; };
 
     /**
-     * @brief Aggregate multiple PairingPoints
+     * @brief Aggregate multiple PairingPoints using random linear combination
      *
      * @details The pairing points are aggregated using challenges generated as the consecutive hashes of the pairing
-     * points being aggregated.
+     * points being aggregated. Computes: P_agg = P₀ + r₁·P₁ + r₂·P₂ + ... + rₙ₋₁·Pₙ₋₁
+     * where r₁,...,rₙ₋₁ are 128-bit challenges derived from hashing all input points.
+     *
+     * @param pairing_points Vector of pairing points to aggregate (requires size > 1)
+     * @param handle_edge_cases If true, batch_mul handles edge cases where points might be zero or challenges might
+     * cause numerical issues. If false, assumes all points are non-zero and non-colliding (saves circuit gates).
+     *
+     * Safety of handle_edge_cases=false:
+     * - Safe when all points are verifier-computed (deterministic, won't collide)
+     * - Safe even with untrusted public input points, as the random challenges maintain binding
+     * - Provides significant circuit gate savings in recursive verification
+     * - Should only be disabled when the caller can guarantee point validity
      */
-    static PairingPoints aggregate_multiple(std::vector<PairingPoints>& pairing_points)
+    static PairingPoints aggregate_multiple(std::vector<PairingPoints>& pairing_points, bool handle_edge_cases = true)
     {
         size_t num_points = pairing_points.size();
         BB_ASSERT_GT(num_points, 1UL, "This method should be used only with more than one pairing point.");
@@ -102,22 +115,48 @@ template <typename Curve> struct PairingPoints {
             second_components.emplace_back(points.P1);
         }
 
-        // Fiat-Shamir
+        // Fiat-Shamir: hash all points for binding, but only need n-1 challenges
         StdlibTranscript<Builder> transcript{};
         std::vector<std::string> labels;
-        labels.reserve(num_points);
+        labels.reserve(num_points - 1); // Only need n-1 challenges
         for (size_t idx = 0; auto [first, second] : zip_view(first_components, second_components)) {
             transcript.add_to_hash_buffer("first_component_" + std::to_string(idx), first);
             transcript.add_to_hash_buffer("second_component_" + std::to_string(idx), second);
-            labels.emplace_back("pp_aggregation_challenge_" + std::to_string(idx));
+            // Generate challenges for points 1..n-1 (skip the first point)
+            if (idx > 0) {
+                labels.emplace_back("pp_aggregation_challenge_" + std::to_string(idx));
+            }
             idx++;
         }
 
         std::vector<Fr> challenges = transcript.template get_challenges<Fr>(labels);
 
-        // Batch mul
-        auto P0 = Group::batch_mul(first_components, challenges);
-        auto P1 = Group::batch_mul(second_components, challenges);
+        // Aggregate: P_agg = P₀ + r₁·P₁ + r₂·P₂ + ... + rₙ₋₁·Pₙ₋₁
+        Group P0, P1;
+
+        // For MegaCircuitBuilder (Goblin): batch_mul optimizes constant scalar 1 (uses add instead of mul)
+        // so we can include all points in a single batch_mul with scalar [1, r₁, r₂, ..., rₙ₋₁]
+        // For UltraCircuitBuilder: no optimization for witness point × constant(1), so keep first point separate
+        if constexpr (std::is_same_v<Builder, MegaCircuitBuilder>) {
+            // Single batch_mul for all points (efficient for Goblin with constant scalar 1)
+            std::vector<Fr> scalars;
+            scalars.reserve(num_points);
+            scalars.push_back(Fr(1)); // Optimized by Goblin: add instead of mul
+            scalars.insert(scalars.end(), challenges.begin(), challenges.end());
+
+            P0 = Group::batch_mul(first_components, scalars, 128, handle_edge_cases);
+            P1 = Group::batch_mul(second_components, scalars, 128, handle_edge_cases);
+        } else {
+            // Use first point as base, then batch_mul remaining points
+            std::vector<Group> remaining_first(first_components.begin() + 1, first_components.end());
+            std::vector<Group> remaining_second(second_components.begin() + 1, second_components.end());
+
+            P0 = first_components[0];
+            P1 = second_components[0];
+
+            P0 += Group::batch_mul(remaining_first, challenges, 128, handle_edge_cases);
+            P1 += Group::batch_mul(remaining_second, challenges, 128, handle_edge_cases);
+        }
 
         PairingPoints aggregated_points(P0, P1);
 
@@ -178,7 +217,7 @@ template <typename Curve> struct PairingPoints {
 
 #ifndef NDEBUG
         bb::PairingPoints<typename Curve::NativeCurve> native_pp(P0.get_value(), P1.get_value());
-        info("Aggregated Pairing Points with tag ", tag_index, ": valid: ", native_pp.check() ? "true" : "false");
+        info("Are aggregated Pairing Points with tag ", tag_index, " valid? ", native_pp.check() ? "true" : "false");
 #endif
     }
 

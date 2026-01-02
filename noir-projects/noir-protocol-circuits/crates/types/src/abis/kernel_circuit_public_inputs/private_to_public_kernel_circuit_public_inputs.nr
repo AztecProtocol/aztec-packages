@@ -4,7 +4,7 @@ use crate::{
         public_call_request::PublicCallRequest, tx_constant_data::TxConstantData,
     },
     address::AztecAddress,
-    constants::GENERATOR_INDEX__PUBLIC_TX_HASH,
+    constants::DOM_SEP__PUBLIC_TX_HASH,
     hash::poseidon2_hash_with_separator,
     traits::{Deserialize, Empty, Hash, Serialize},
 };
@@ -37,7 +37,7 @@ impl Empty for PrivateToPublicKernelCircuitPublicInputs {
 
 impl Hash for PrivateToPublicKernelCircuitPublicInputs {
     fn hash(self) -> Field {
-        poseidon2_hash_with_separator(self.serialize(), GENERATOR_INDEX__PUBLIC_TX_HASH)
+        poseidon2_hash_with_separator(self.serialize(), DOM_SEP__PUBLIC_TX_HASH)
     }
 }
 

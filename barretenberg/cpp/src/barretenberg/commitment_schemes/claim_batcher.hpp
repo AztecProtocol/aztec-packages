@@ -158,7 +158,7 @@ template <typename Curve> struct ClaimBatcher_ {
             aggregate_claim_data_and_update_batched_evaluation(*unshifted, rho_power);
         }
         if (shifted) {
-            // i-th shifted commitments will be multiplied by ρ^i and r⁻¹ ⋅ (1/(z−r) − ν/(z+r))
+            // i-th shifted commitments will be multiplied by ρ^{num_unshifted + i} and r⁻¹ ⋅ (1/(z−r) − ν/(z+r))
             aggregate_claim_data_and_update_batched_evaluation(*shifted, rho_power);
         }
         if (interleaved) {
@@ -169,8 +169,8 @@ template <typename Curve> struct ClaimBatcher_ {
             size_t group_idx = 0;
             for (size_t j = 0; j < interleaved->commitments_groups.size(); j++) {
                 for (size_t i = 0; i < get_groups_to_be_interleaved_size(); i++) {
-                    // The j-th commitment in group i is multiplied by ρ^{m+i} and ν^{n+1} \cdot r^j + ν^{n+2} ⋅(-r)^j
-                    //  where n is the log_circuit_size
+                    // The j-th commitment in group i is multiplied by ρ^{m+i} and ν^{d+1} \cdot r^j + ν^{d+2} ⋅(-r)^j
+                    //  where d is the log_circuit_size
                     commitments.emplace_back(std::move(interleaved->commitments_groups[j][i]));
                     scalars.emplace_back(-rho_power * interleaved->shplonk_denominator *
                                          (shplonk_batching_pos * interleaved->scalars_pos[i] +

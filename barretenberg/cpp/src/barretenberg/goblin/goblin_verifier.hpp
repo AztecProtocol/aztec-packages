@@ -57,12 +57,13 @@ template <typename Curve> class GoblinVerifier_ {
         using IPAClaim = OpeningClaim<typename ECCVMVerifier::Curve>;
         using IPAProof = std::conditional_t<IsRecursive, stdlib::Proof<UltraCircuitBuilder>, HonkProof>;
 
-        PairingPoints pairing_points;   // Aggregated KZG pairing points (Merge + Translator)
-        IPAClaim ipa_claim;             // IPA opening claim from ECCVM (Grumpkin curve)
-        IPAProof ipa_proof;             // IPA proof for verifying the claim
-        bool all_checks_passed = false; // Native: includes pairing checks (already performed)
-                                        // Recursive: excludes pairing (deferred for batching)
-                                        // Both: excludes IPA verification (always deferred)
+        PairingPoints merge_pairing_points;      // KZG pairing points from Merge
+        PairingPoints translator_pairing_points; // KZG pairing points from Translator
+        IPAClaim ipa_claim;                      // IPA opening claim from ECCVM (Grumpkin curve)
+        IPAProof ipa_proof;                      // IPA proof for verifying the claim
+        bool all_checks_passed = false;          // Native: includes pairing checks (already performed)
+                                                 // Recursive: excludes pairing (deferred for batching)
+                                                 // Both: excludes IPA verification (always deferred)
     };
 
     /**

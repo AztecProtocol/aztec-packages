@@ -81,6 +81,66 @@ class HypernovaFoldingVerifierTests : public ::testing::Test {
         return true;
     }
 
+    /**
+     * @brief Test helper to create a recursive verifier instance from a native one
+     * @details Converts all fields from native to stdlib types for recursive verification testing
+     */
+    static std::shared_ptr<RecursiveVerifierInstance> create_recursive_verifier_instance(
+        Builder* builder, const std::shared_ptr<NativeVerifierInstance>& native_instance)
+    {
+        using FF = RecursiveFlavor::FF;
+        using Commitment = RecursiveFlavor::Commitment;
+        using VerificationKey = RecursiveFlavor::VerificationKey;
+        using VKAndHash = RecursiveFlavor::VKAndHash;
+
+        // Create recursive VK from native VK
+        auto recursive_vk =
+            std::make_shared<VKAndHash>(std::make_shared<VerificationKey>(builder, native_instance->get_vk()),
+                                        FF::from_witness(builder, native_instance->get_vk()->hash()));
+
+        // Create recursive instance with the recursive VK
+        auto recursive_instance = std::make_shared<RecursiveVerifierInstance>(recursive_vk);
+
+        // Convert alpha
+        recursive_instance->alpha = FF::from_witness(builder, native_instance->alpha);
+
+        // Convert witness commitments
+        auto native_comms = native_instance->witness_commitments.get_all();
+        for (auto [native_comm, recursive_comm] :
+             zip_view(native_comms, recursive_instance->witness_commitments.get_all())) {
+            recursive_comm = Commitment::from_witness(builder, native_comm);
+        }
+
+        // Convert gate challenges
+        recursive_instance->gate_challenges = std::vector<FF>(native_instance->gate_challenges.size());
+        for (auto [native_challenge, recursive_challenge] :
+             zip_view(native_instance->gate_challenges, recursive_instance->gate_challenges)) {
+            recursive_challenge = FF::from_witness(builder, native_challenge);
+        }
+
+        // Convert relation parameters
+        recursive_instance->relation_parameters.eta =
+            FF::from_witness(builder, native_instance->relation_parameters.eta);
+        recursive_instance->relation_parameters.eta_two =
+            FF::from_witness(builder, native_instance->relation_parameters.eta_two);
+        recursive_instance->relation_parameters.eta_three =
+            FF::from_witness(builder, native_instance->relation_parameters.eta_three);
+        recursive_instance->relation_parameters.beta =
+            FF::from_witness(builder, native_instance->relation_parameters.beta);
+        recursive_instance->relation_parameters.gamma =
+            FF::from_witness(builder, native_instance->relation_parameters.gamma);
+        recursive_instance->relation_parameters.public_input_delta =
+            FF::from_witness(builder, native_instance->relation_parameters.public_input_delta);
+
+        // For ZK flavors: convert gemini_masking_commitment
+        if constexpr (NativeFlavor::HasZK) {
+            recursive_instance->gemini_masking_commitment =
+                Commitment::from_witness(builder, native_instance->gemini_masking_commitment);
+        }
+
+        return recursive_instance;
+    }
+
     static void tampering(std::shared_ptr<ProverInstance>& instance, const TamperingMode& mode)
     {
         switch (mode) {
@@ -196,7 +256,8 @@ class HypernovaFoldingVerifierTests : public ::testing::Test {
         auto incoming_instance = generate_new_instance(5);
         tampering(incoming_instance, mode);
         auto incoming_vk = std::make_shared<NativeVerificationKey>(incoming_instance->get_precomputed());
-        auto incoming_verifier_instance = std::make_shared<NativeVerifierInstance>(incoming_vk);
+        auto incoming_verifier_instance =
+            std::make_shared<NativeVerifierInstance>(std::make_shared<NativeFlavor::VKAndHash>(incoming_vk));
 
         auto folding_transcript = std::make_shared<NativeTranscript>();
         HypernovaFoldingProver folding_prover(folding_transcript);
@@ -212,8 +273,7 @@ class HypernovaFoldingVerifierTests : public ::testing::Test {
         // Recursively verify the folding
         Builder builder;
 
-        auto stdlib_incoming_instance =
-            std::make_shared<RecursiveVerifierInstance>(&builder, incoming_verifier_instance);
+        auto stdlib_incoming_instance = create_recursive_verifier_instance(&builder, incoming_verifier_instance);
         auto recursive_verifier_transcript = std::make_shared<RecursiveTranscript>();
         RecursiveHypernovaVerifier recursive_verifier(recursive_verifier_transcript);
         RecursiveProof proof(builder, folding_proof);

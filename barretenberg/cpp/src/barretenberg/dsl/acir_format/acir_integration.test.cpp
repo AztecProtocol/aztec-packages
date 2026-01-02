@@ -1,4 +1,5 @@
 #include "barretenberg/chonk/chonk.hpp"
+#include "barretenberg/chonk/chonk_verifier.hpp"
 #include "barretenberg/common/get_bytecode.hpp"
 #ifndef __wasm__
 #include "barretenberg/chonk/private_execution_steps.hpp"
@@ -40,7 +41,8 @@ class AcirIntegrationTest : public ::testing::Test {
     template <class Flavor> bool prove_and_verify_honk(Flavor::CircuitBuilder& builder)
     {
         using Prover = UltraProver_<Flavor>;
-        using Verifier = UltraVerifier_<Flavor>;
+        using IO = std::conditional_t<HasIPAAccumulator<Flavor>, RollupIO, DefaultIO>;
+        using Verifier = UltraVerifier_<Flavor, IO>;
         using VerificationKey = Flavor::VerificationKey;
 
         auto prover_instance = std::make_shared<ProverInstance_<Flavor>>(builder);
@@ -56,8 +58,9 @@ class AcirIntegrationTest : public ::testing::Test {
         auto proof = prover.construct_proof();
 
         // Verify Honk proof
-        Verifier verifier{ verification_key };
-        bool result = verifier.template verify_proof<DefaultIO>(proof).result;
+        auto vk_and_hash = std::make_shared<typename Flavor::VKAndHash>(verification_key);
+        Verifier verifier{ vk_and_hash };
+        bool result = verifier.verify_proof(proof).result;
 
         return result;
     }
@@ -459,9 +462,9 @@ TEST_F(AcirIntegrationTest, DISABLED_ChonkMsgpackInputs)
     steps.parse(PrivateExecutionStepRaw::load_and_decompress(input_path));
 
     std::shared_ptr<Chonk> ivc = steps.accumulate();
-    Chonk::Proof proof = ivc->prove();
-
-    EXPECT_TRUE(ivc->verify(proof, ivc->get_vk()));
+    ChonkProof proof = ivc->prove();
+    ChonkNativeVerifier chonk_verifier(ivc->get_hiding_kernel_vk_and_hash());
+    EXPECT_TRUE(chonk_verifier.verify(proof));
 }
 
 /**

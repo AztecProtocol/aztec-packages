@@ -1,5 +1,7 @@
-use dep::rollup_lib::block_root::{BlockRollupPublicInputs, BlockRootRollupPrivateInputs};
+use dep::rollup_lib::block_root::{
+    block_root_rollup, BlockRollupPublicInputs, BlockRootRollupPrivateInputs,
+};
 
 fn main(inputs: BlockRootRollupPrivateInputs) -> pub BlockRollupPublicInputs {
-    inputs.execute()
+    block_root_rollup::execute(inputs)
 }

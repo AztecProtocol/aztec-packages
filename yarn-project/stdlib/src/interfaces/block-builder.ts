@@ -60,7 +60,17 @@ export interface BuildBlockResult {
 
 export type FullNodeBlockBuilderConfig = Pick<L1RollupConstants, 'l1GenesisTime' | 'slotDuration'> &
   Pick<ChainConfig, 'l1ChainId' | 'rollupVersion'> &
-  Pick<SequencerConfig, 'txPublicSetupAllowList' | 'fakeProcessingDelayPerTxMs'>;
+  Pick<SequencerConfig, 'txPublicSetupAllowList' | 'fakeProcessingDelayPerTxMs' | 'fakeThrowAfterProcessingTxCount'>;
+
+export const FullNodeBlockBuilderConfigKeys: (keyof FullNodeBlockBuilderConfig)[] = [
+  'l1GenesisTime',
+  'slotDuration',
+  'l1ChainId',
+  'rollupVersion',
+  'txPublicSetupAllowList',
+  'fakeProcessingDelayPerTxMs',
+  'fakeThrowAfterProcessingTxCount',
+] as const;
 
 export interface IFullNodeBlockBuilder {
   getConfig(): FullNodeBlockBuilderConfig;

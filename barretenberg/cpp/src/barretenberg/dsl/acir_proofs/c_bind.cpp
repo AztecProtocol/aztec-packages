@@ -6,6 +6,7 @@
 
 #include "c_bind.hpp"
 #include "../acir_format/acir_to_constraint_buf.hpp"
+#include "barretenberg/chonk/chonk_verifier.hpp"
 #include "barretenberg/chonk/private_execution_steps.hpp"
 #include "barretenberg/common/mem.hpp"
 #include "barretenberg/common/net.hpp"
@@ -49,9 +50,9 @@ WASM_EXPORT void acir_prove_and_verify_ultra_honk(uint8_t const* acir_vec, uint8
     UltraProver prover{ prover_instance, verification_key };
     auto proof = prover.construct_proof();
 
-    UltraVerifier verifier{ verification_key };
+    UltraVerifier verifier{ std::make_shared<UltraFlavor::VKAndHash>(verification_key) };
 
-    *result = verifier.template verify_proof<DefaultIO>(proof).result;
+    *result = verifier.verify_proof(proof).result;
     info("verified: ", *result);
 }
 
@@ -69,9 +70,9 @@ WASM_EXPORT void acir_prove_and_verify_mega_honk(uint8_t const* acir_vec, uint8_
     MegaProver prover{ prover_instance, verification_key };
     auto proof = prover.construct_proof();
 
-    MegaVerifier verifier{ verification_key };
+    MegaVerifier verifier{ std::make_shared<MegaFlavor::VKAndHash>(verification_key) };
 
-    *result = verifier.template verify_proof<DefaultIO>(proof).result;
+    *result = verifier.verify_proof(proof).result;
 }
 
 WASM_EXPORT void acir_prove_aztec_client(uint8_t const* ivc_inputs_buf, uint8_t** out_proof, uint8_t** out_vk)
@@ -87,7 +88,7 @@ WASM_EXPORT void acir_prove_aztec_client(uint8_t const* ivc_inputs_buf, uint8_t*
     vinfo("time to construct and accumulate all circuits: ", diff.count());
 
     vinfo("calling ivc.prove ...");
-    Chonk::Proof proof = ivc->prove();
+    ChonkProof proof = ivc->prove();
     end = std::chrono::steady_clock::now();
 
     diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
@@ -100,18 +101,24 @@ WASM_EXPORT void acir_prove_aztec_client(uint8_t const* ivc_inputs_buf, uint8_t*
     vinfo("time to serialize proof: ", diff.count());
 
     start = std::chrono::steady_clock::now();
-    *out_vk = to_heap_buffer(to_buffer(ivc->get_vk()));
+    auto vk_and_hash = ivc->get_hiding_kernel_vk_and_hash();
+    *out_vk = to_heap_buffer(to_buffer(*vk_and_hash->vk));
     end = std::chrono::steady_clock::now();
     diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-    vinfo("time to serialize vk: ", diff.count());
+    vinfo("time to serialize hiding kernel vk: ", diff.count());
 }
 
 WASM_EXPORT void acir_verify_aztec_client(uint8_t const* proof_buf, uint8_t const* vk_buf, bool* result)
 {
-    const auto proof = Chonk::Proof::from_msgpack_buffer(proof_buf);
-    const auto vk = from_buffer<Chonk::VerificationKey>(from_buffer<std::vector<uint8_t>>(vk_buf));
+    using HidingKernelVK = Chonk::MegaVerificationKey;
+    using HidingKernelVKAndHash = ChonkNativeVerifier::VKAndHash;
 
-    *result = Chonk::verify(proof, vk);
+    const auto proof = ChonkProof::from_msgpack_buffer(proof_buf);
+    auto hiding_kernel_vk = from_buffer<HidingKernelVK>(from_buffer<std::vector<uint8_t>>(vk_buf));
+    auto vk_and_hash = std::make_shared<HidingKernelVKAndHash>(std::make_shared<HidingKernelVK>(hiding_kernel_vk));
+
+    ChonkNativeVerifier verifier(vk_and_hash);
+    *result = verifier.verify(proof);
 }
 
 WASM_EXPORT void acir_prove_ultra_zk_honk(uint8_t const* acir_vec,
@@ -230,40 +237,40 @@ WASM_EXPORT void acir_prove_ultra_starknet_zk_honk([[maybe_unused]] uint8_t cons
 WASM_EXPORT void acir_verify_ultra_zk_honk(uint8_t const* proof_buf, uint8_t const* vk_buf, bool* result)
 {
     using VerificationKey = UltraZKFlavor::VerificationKey;
-    using Verifier = UltraVerifier_<UltraZKFlavor>;
+    using Verifier = UltraVerifier_<UltraZKFlavor, DefaultIO>;
 
     auto proof = many_from_buffer<bb::fr>(from_buffer<std::vector<uint8_t>>(proof_buf));
     auto verification_key = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(vk_buf));
 
-    Verifier verifier{ verification_key };
+    Verifier verifier{ std::make_shared<UltraZKFlavor::VKAndHash>(verification_key) };
 
-    *result = verifier.template verify_proof<DefaultIO>(proof).result;
+    *result = verifier.verify_proof(proof).result;
 }
 
 WASM_EXPORT void acir_verify_ultra_keccak_honk(uint8_t const* proof_buf, uint8_t const* vk_buf, bool* result)
 {
     using VerificationKey = UltraKeccakFlavor::VerificationKey;
-    using Verifier = UltraVerifier_<UltraKeccakFlavor>;
+    using Verifier = UltraVerifier_<UltraKeccakFlavor, DefaultIO>;
 
     auto proof = many_from_buffer<uint256_t>(from_buffer<std::vector<uint8_t>>(proof_buf));
     auto verification_key = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(vk_buf));
 
-    Verifier verifier{ verification_key };
+    Verifier verifier{ std::make_shared<UltraKeccakFlavor::VKAndHash>(verification_key) };
 
-    *result = verifier.template verify_proof<DefaultIO>(proof).result;
+    *result = verifier.verify_proof(proof).result;
 }
 
 WASM_EXPORT void acir_verify_ultra_keccak_zk_honk(uint8_t const* proof_buf, uint8_t const* vk_buf, bool* result)
 {
     using VerificationKey = UltraKeccakZKFlavor::VerificationKey;
-    using Verifier = UltraVerifier_<UltraKeccakZKFlavor>;
+    using Verifier = UltraVerifier_<UltraKeccakZKFlavor, DefaultIO>;
 
     auto proof = many_from_buffer<uint256_t>(from_buffer<std::vector<uint8_t>>(proof_buf));
     auto verification_key = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(vk_buf));
 
-    Verifier verifier{ verification_key };
+    Verifier verifier{ std::make_shared<UltraKeccakZKFlavor::VKAndHash>(verification_key) };
 
-    *result = verifier.template verify_proof<DefaultIO>(proof).result;
+    *result = verifier.verify_proof(proof).result;
 }
 
 WASM_EXPORT void acir_verify_ultra_starknet_honk([[maybe_unused]] uint8_t const* proof_buf,
@@ -272,15 +279,14 @@ WASM_EXPORT void acir_verify_ultra_starknet_honk([[maybe_unused]] uint8_t const*
 {
 #ifdef STARKNET_GARAGA_FLAVORS
     using VerificationKey = UltraStarknetFlavor::VerificationKey;
-    using Verifier = UltraVerifier_<UltraStarknetFlavor>;
+    using Verifier = UltraVerifier_<UltraStarknetFlavor, DefaultIO>;
 
     auto proof = from_buffer<std::vector<bb::fr>>(from_buffer<std::vector<uint8_t>>(proof_buf));
     auto verification_key = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(vk_buf));
 
-    Verifier verifier{ verification_key };
+    Verifier verifier{ std::make_shared<UltraStarknetFlavor::VKAndHash>(verification_key) };
 
-    *result = verifier.template verify_proof<DefaultIO>(proof).result;
-    ;
+    *result = verifier.verify_proof(proof).result;
 #else
     throw_or_abort("bb wasm was not compiled with starknet garaga flavors!");
 #endif
@@ -292,14 +298,13 @@ WASM_EXPORT void acir_verify_ultra_starknet_zk_honk([[maybe_unused]] uint8_t con
 {
 #ifdef STARKNET_GARAGA_FLAVORS
     using VerificationKey = UltraStarknetZKFlavor::VerificationKey;
-    using Verifier = UltraVerifier_<UltraStarknetZKFlavor>;
+    using Verifier = UltraVerifier_<UltraStarknetZKFlavor, DefaultIO>;
 
     auto proof = many_from_buffer<bb::fr>(from_buffer<std::vector<uint8_t>>(proof_buf));
     auto verification_key = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(vk_buf));
+    Verifier verifier{ std::make_shared<UltraStarknetZKFlavor::VKAndHash>(verification_key) };
 
-    Verifier verifier{ verification_key };
-
-    *result = verifier.template verify_proof<DefaultIO>(proof).result;
+    *result = verifier.verify_proof(proof).result;
 #else
     throw_or_abort("bb wasm was not compiled with starknet garaga flavors!");
 #endif

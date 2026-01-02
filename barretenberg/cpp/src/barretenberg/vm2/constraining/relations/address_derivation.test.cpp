@@ -71,14 +71,14 @@ TEST(AddressDerivationConstrainingTest, Basic)
 
     auto instance = testing::random_contract_instance();
 
-    FF salted_initialization_hash = poseidon2::hash(
-        { GENERATOR_INDEX__PARTIAL_ADDRESS, instance.salt, instance.initialization_hash, instance.deployer });
+    FF salted_initialization_hash =
+        poseidon2::hash({ DOM_SEP__PARTIAL_ADDRESS, instance.salt, instance.initialization_hash, instance.deployer });
 
-    FF partial_address = poseidon2::hash(
-        { GENERATOR_INDEX__PARTIAL_ADDRESS, instance.original_contract_class_id, salted_initialization_hash });
+    FF partial_address =
+        poseidon2::hash({ DOM_SEP__PARTIAL_ADDRESS, instance.original_contract_class_id, salted_initialization_hash });
 
     FF public_keys_hash = hash_public_keys(instance.public_keys);
-    FF preaddress = poseidon2::hash({ GENERATOR_INDEX__CONTRACT_ADDRESS_V1, public_keys_hash, partial_address });
+    FF preaddress = poseidon2::hash({ DOM_SEP__CONTRACT_ADDRESS_V1, public_keys_hash, partial_address });
 
     EmbeddedCurvePoint g1 = EmbeddedCurvePoint::one();
     EmbeddedCurvePoint preaddress_public_key = g1 * Fq(preaddress);

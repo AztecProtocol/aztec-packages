@@ -4,14 +4,19 @@ pub mod nft;
 
 #[aztec]
 pub contract NFTPunk {
-    use dep::aztec::{
-        macros::{storage::storage, functions::{external, utility, initializer, only_self}},
-        protocol_types::{address::AztecAddress},
-        state_vars::{PrivateSet, PublicImmutable, delayed_public_mutable::DelayedPublicMutable, Map}
-    };
     use crate::nft::NFTNote;
+    use dep::aztec::{
+        macros::{functions::{external, initializer, only_self}, storage::storage},
+        protocol_types::address::AztecAddress,
+        state_vars::{
+            delayed_public_mutable::DelayedPublicMutable, Map, Owned, PrivateSet, PublicImmutable,
+        },
+    };
     use dep::aztec::messages::message_delivery::MessageDelivery;
-    use aztec::note::{note_getter_options::NoteGetterOptions, note_interface::NoteProperties, note_viewer_options::NoteViewerOptions};
+    use aztec::note::{
+        note_getter_options::NoteGetterOptions, note_interface::NoteProperties,
+        note_viewer_options::NoteViewerOptions,
+    };
     use aztec::utils::comparison::Comparator;
 
     #[storage]
@@ -19,7 +24,7 @@ pub contract NFTPunk {
         admin: PublicImmutable<AztecAddress, Context>,
         minter: PublicImmutable<AztecAddress, Context>,
         nfts: Map<Field, DelayedPublicMutable<bool, 2, Context>, Context>,
-        owners: PrivateSet<NFTNote, Context>,
+        owners: Owned<PrivateSet<NFTNote, Context>, Context>,
     }
     #[external("public")]
     #[initializer]
@@ -47,7 +52,10 @@ pub contract NFTPunk {
     // docs:start:mint
     #[external("private")]
     fn mint(to: AztecAddress, token_id: Field) {
-        assert(self.storage.minter.read().eq(self.msg_sender().unwrap()), "caller is not the authorized minter");
+        assert(
+            self.storage.minter.read().eq(self.msg_sender().unwrap()),
+            "caller is not the authorized minter",
+        );
 
         // we create an NFT note and insert it to the PrivateSet - a collection of notes meant to be read in private
         let new_nft = NFTNote { token_id };
@@ -69,10 +77,15 @@ pub contract NFTPunk {
     // docs:start:burn
     #[external("private")]
     fn burn(from: AztecAddress, token_id: Field) {
-        assert(self.storage.minter.read().eq(self.msg_sender().unwrap()), "caller is not the authorized minter");
+        assert(
+            self.storage.minter.read().eq(self.msg_sender().unwrap()),
+            "caller is not the authorized minter",
+        );
 
         // from the NFTNote properties, selects token_id and compares it against the token_id to be burned
-        let options = NoteGetterOptions::new().select(NFTNote::properties().token_id, Comparator.EQ, token_id).set_limit(1);
+        let options = NoteGetterOptions::new()
+            .select(NFTNote::properties().token_id, Comparator.EQ, token_id)
+            .set_limit(1);
         let notes = self.storage.owners.at(from).pop_notes(options);
         assert(notes.len() == 1, "NFT not found");
 

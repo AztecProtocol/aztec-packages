@@ -9,7 +9,7 @@ use crate::{
 
 use dep::protocol_types::{
     address::AztecAddress,
-    constants::{GENERATOR_INDEX__NOTE_HASH, GENERATOR_INDEX__NOTE_NULLIFIER},
+    constants::{DOM_SEP__NOTE_HASH, DOM_SEP__NOTE_NULLIFIER},
     hash::poseidon2_hash_with_separator,
     traits::{Packable, ToField},
 };
@@ -34,7 +34,7 @@ impl NoteHash for MockNote {
         randomness: Field,
     ) -> Field {
         let input = self.pack().concat([owner.to_field(), storage_slot, randomness]);
-        poseidon2_hash_with_separator(input, GENERATOR_INDEX__NOTE_HASH)
+        poseidon2_hash_with_separator(input, DOM_SEP__NOTE_HASH)
     }
 
     fn compute_nullifier(
@@ -47,7 +47,7 @@ impl NoteHash for MockNote {
         // more cumbersome
         poseidon2_hash_with_separator(
             [note_hash_for_nullification],
-            GENERATOR_INDEX__NOTE_NULLIFIER as Field,
+            DOM_SEP__NOTE_NULLIFIER as Field,
         )
     }
 
@@ -60,7 +60,7 @@ impl NoteHash for MockNote {
         // more cumbersome
         poseidon2_hash_with_separator(
             [note_hash_for_nullification],
-            GENERATOR_INDEX__NOTE_NULLIFIER as Field,
+            DOM_SEP__NOTE_NULLIFIER as Field,
         )
     }
 }

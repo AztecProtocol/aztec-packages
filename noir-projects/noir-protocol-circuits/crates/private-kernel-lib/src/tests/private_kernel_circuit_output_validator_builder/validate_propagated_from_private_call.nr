@@ -1,5 +1,4 @@
 use crate::tests::private_kernel_circuit_output_validator_builder::PrivateKernelCircuitOutputValidatorBuilder;
-use dep::types::tests::utils::swap_items;
 
 #[test]
 fn validate_propagated_from_private_call__empty_data_succeeds() {
@@ -394,7 +393,7 @@ fn validate_propagated_from_private_call__private_call_requests_succeeds() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
     builder.private_call.append_private_call_requests(2);
-    builder.output.append_private_call_requests(2);
+    builder.output.reverse_append_private_call_requests(2);
 
     builder.validate_as_inner_call();
 }
@@ -404,9 +403,8 @@ fn validate_propagated_from_private_call__private_call_requests_not_reversed_fai
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
     builder.private_call.append_private_call_requests(2);
+    // Append the requests in regular order.
     builder.output.append_private_call_requests(2);
-    // Swap the call requests.
-    swap_items(&mut builder.output.private_call_requests, 0, 1);
 
     builder.validate_as_inner_call();
 }
@@ -415,16 +413,15 @@ fn validate_propagated_from_private_call__private_call_requests_not_reversed_fai
 fn validate_propagated_from_private_call__private_call_requests_with_previous_output_succeeds() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
-    builder.output.append_private_call_requests(5);
+    builder.output.reverse_append_private_call_requests(5);
     let requests = builder.output.private_call_requests.storage();
-    // The private_call_stack in the output will be: [requests[4], requests[3], requests[2], requests[1], requests[0]].
     // First 2 are propagated from the previous kernel.
-    builder.previous_kernel.private_call_requests.push(requests[3]);
-    builder.previous_kernel.private_call_requests.push(requests[4]);
+    builder.previous_kernel.private_call_requests.push(requests[0]);
+    builder.previous_kernel.private_call_requests.push(requests[1]);
 
     // Next 3 are propagated in reversed order from the private call.
-    builder.private_call.private_call_requests.push(requests[0]);
-    builder.private_call.private_call_requests.push(requests[1]);
+    builder.private_call.private_call_requests.push(requests[4]);
+    builder.private_call.private_call_requests.push(requests[3]);
     builder.private_call.private_call_requests.push(requests[2]);
 
     builder.validate_as_inner_call();
@@ -437,8 +434,8 @@ fn validate_propagated_from_private_call__private_call_requests_with_previous_ou
     // Make the previous array to be full, therefore no more items can be added.
     // Minus one because an extra request for the current call will be added in validate_as_inner_call().
     let max_len = builder.previous_kernel.private_call_requests.max_len() - 1;
-    builder.previous_kernel.append_private_call_requests(max_len);
-    builder.output.append_private_call_requests(max_len);
+    builder.previous_kernel.reverse_append_private_call_requests(max_len);
+    builder.output.reverse_append_private_call_requests(max_len);
     // Add 2 item to the current call.
     builder.private_call.append_private_call_requests(2);
 

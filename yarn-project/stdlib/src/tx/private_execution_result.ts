@@ -139,7 +139,7 @@ export class PrivateCallExecutionResult {
     public returnValues: Fr[],
     /** The offchain effects emitted during execution of this function call via the `emit_offchain_effect` oracle. */
     public offchainEffects: { data: Fr[] }[],
-    /** The pre tags used in this tx to compute tags for private logs */
+    /** The pre-tags used in this tx to compute tags for private logs */
     public preTags: PreTag[],
     /** The nested executions. */
     public nestedExecutionResults: PrivateCallExecutionResult[],

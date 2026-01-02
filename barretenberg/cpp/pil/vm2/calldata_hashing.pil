@@ -87,7 +87,7 @@ namespace calldata_hashing;
 
     // At the start of a new calldata hash, the initial field has to be the separator, and we skip the lookup:
     #[START_IS_SEPARATOR]
-    start * (input[0] - constants.GENERATOR_INDEX__PUBLIC_CALLDATA) = 0;
+    start * (input[0] - constants.DOM_SEP__PUBLIC_CALLDATA) = 0;
 
     // The index increments by 3 each row (unless we are at latch):
     #[INDEX_INCREMENTS]

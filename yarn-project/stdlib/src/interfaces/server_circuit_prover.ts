@@ -186,7 +186,6 @@ export interface ServerCircuitProver {
    */
   getAvmProof(
     inputs: AvmCircuitInputs,
-    skipPublicInputsValidation?: boolean, // TODO(#14234)[Unconditional PIs validation]: Remove.
     signal?: AbortSignal,
     epochNumber?: number,
   ): Promise<ProofAndVerificationKey<typeof AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED>>;

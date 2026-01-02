@@ -18,7 +18,7 @@ import { UpdatedClassIdHints } from '@aztec/stdlib/kernel';
 import type { NullifierMembershipWitness } from '@aztec/stdlib/trees';
 import type { VerificationKeyAsFields } from '@aztec/stdlib/vks';
 
-import type { ContractDataProvider } from '../storage/index.js';
+import type { ContractDataProvider } from '../storage/contract_data_provider/contract_data_provider.js';
 import type { PrivateKernelOracle } from './private_kernel_oracle.js';
 
 // TODO: Block number should not be "latest".

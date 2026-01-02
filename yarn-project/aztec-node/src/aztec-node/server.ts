@@ -1,11 +1,11 @@
 import { Archiver, createArchiver } from '@aztec/archiver';
 import { BBCircuitVerifier, QueuedIVCVerifier, TestCircuitVerifier } from '@aztec/bb-prover';
-import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-sink/client';
+import { type BlobClientInterface, createBlobClient } from '@aztec/blob-client/client';
 import {
   type BlobFileStoreMetadata,
   createReadOnlyFileStoreBlobClients,
   createWritableFileStoreBlobClient,
-} from '@aztec/blob-sink/filestore';
+} from '@aztec/blob-client/filestore';
 import {
   ARCHIVE_HEIGHT,
   INITIAL_L2_BLOCK_NUM,
@@ -43,6 +43,7 @@ import {
   type SequencerPublisher,
   createValidatorForAcceptingTxs,
 } from '@aztec/sequencer-client';
+import { CheckpointsBuilder } from '@aztec/sequencer-client';
 import { PublicProcessorFactory } from '@aztec/simulator/server';
 import {
   AttestationsBlockWatcher,
@@ -87,7 +88,7 @@ import {
   type WorldStateSynchronizer,
   tryStop,
 } from '@aztec/stdlib/interfaces/server';
-import type { LogFilter, TxScopedL2Log } from '@aztec/stdlib/logs';
+import type { LogFilter, SiloedTag, Tag, TxScopedL2Log } from '@aztec/stdlib/logs';
 import { InboxLeaf, type L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { P2PClientType } from '@aztec/stdlib/p2p';
 import type { Offense, SlashPayloadRound } from '@aztec/stdlib/slashing';
@@ -189,7 +190,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       logger?: Logger;
       publisher?: SequencerPublisher;
       dateProvider?: DateProvider;
-      blobSinkClient?: BlobSinkClientInterface;
+      blobClient?: BlobClientInterface;
       p2pClientDeps?: P2PClientDeps<P2PClientType.Full>;
     } = {},
     options: {
@@ -241,7 +242,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
 
     const publicClient = createPublicClient({
       chain: ethereumChain.chainInfo,
-      transport: fallback(config.l1RpcUrls.map((url: string) => http(url))),
+      transport: fallback(config.l1RpcUrls.map((url: string) => http(url, { batch: false }))),
       pollingInterval: config.viemPollingIntervalMS,
     });
 
@@ -280,10 +281,10 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       createWritableFileStoreBlobClient(config.blobFileStoreUploadUrl, blobFileStoreMetadata, log),
     ]);
 
-    const blobSinkClient =
-      deps.blobSinkClient ??
-      createBlobSinkClient(config, {
-        logger: createLogger('node:blob-sink:client'),
+    const blobClient =
+      deps.blobClient ??
+      createBlobClient(config, {
+        logger: createLogger('node:blob-client:client'),
         fileStoreClients,
         fileStoreUploadClient,
       });
@@ -295,7 +296,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
 
     const archiver = await createArchiver(
       config,
-      { blobSinkClient, epochCache, telemetry, dateProvider },
+      { blobClient, epochCache, telemetry, dateProvider },
       { blockUntilSync: !config.skipArchiverInitialSync },
     );
 
@@ -427,7 +428,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     // Validator enabled, create/start relevant service
     let sequencer: SequencerClient | undefined;
     let slasherClient: SlasherClientInterface | undefined;
-    if (!config.disableValidator) {
+    if (!config.disableValidator && validatorClient) {
       // We create a slasher only if we have a sequencer, since all slashing actions go through the sequencer publisher
       // as they are executed when the node is selected as proposer.
       const validatorAddresses = keyStoreManager
@@ -462,6 +463,13 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
           );
 
       // Create and start the sequencer client
+      const checkpointsBuilder = new CheckpointsBuilder(
+        { ...config, l1GenesisTime, slotDuration: Number(slotDuration) },
+        archiver,
+        dateProvider,
+        telemetry,
+      );
+
       sequencer = await SequencerClient.new(config, {
         ...deps,
         epochCache,
@@ -470,12 +478,12 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
         p2pClient,
         worldStateSynchronizer,
         slasherClient,
-        blockBuilder,
+        checkpointsBuilder,
         l2BlockSource: archiver,
         l1ToL2MessageSource: archiver,
         telemetry,
         dateProvider,
-        blobSinkClient,
+        blobClient,
         nodeKeyStore: keyStoreManager!,
       });
     }
@@ -486,6 +494,13 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     } else if (sequencer) {
       log.warn(`Sequencer created but not started`);
     }
+
+    const globalVariableBuilder = new GlobalVariableBuilder({
+      ...config,
+      rollupVersion: BigInt(config.rollupVersion),
+      l1GenesisTime,
+      slotDuration: Number(slotDuration),
+    });
 
     return new AztecNodeService(
       config,
@@ -501,7 +516,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       epochPruneWatcher,
       ethereumChain.chainInfo.id,
       config.rollupVersion,
-      new GlobalVariableBuilder(config),
+      globalVariableBuilder,
       epochCache,
       packageVersion,
       proofVerifier,
@@ -680,15 +695,12 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     return this.contractDataSource.getContract(address);
   }
 
-  /**
-   * Gets all logs that match any of the received tags (i.e. logs with their first field equal to a tag).
-   * @param tags - The tags to filter the logs by.
-   * @param logsPerTag - The maximum number of logs to return for each tag. By default no limit is set
-   * @returns For each received tag, an array of matching logs is returned. An empty array implies no logs match
-   * that tag.
-   */
-  public getLogsByTags(tags: Fr[], logsPerTag?: number): Promise<TxScopedL2Log[][]> {
-    return this.logsSource.getLogsByTags(tags, logsPerTag);
+  public getPrivateLogsByTags(tags: SiloedTag[]): Promise<TxScopedL2Log[][]> {
+    return this.logsSource.getPrivateLogsByTags(tags);
+  }
+
+  public getPublicLogsByTagsFromContract(contractAddress: AztecAddress, tags: Tag[]): Promise<TxScopedL2Log[][]> {
+    return this.logsSource.getPublicLogsByTagsFromContract(contractAddress, tags);
   }
 
   /**

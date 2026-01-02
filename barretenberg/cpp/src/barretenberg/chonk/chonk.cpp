@@ -5,6 +5,7 @@
 // =====================
 
 #include "barretenberg/chonk/chonk.hpp"
+#include "barretenberg/chonk/chonk_verifier.hpp"
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/streams.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
@@ -109,7 +110,7 @@ Chonk::perform_recursive_verification_and_databus_consistency_checks(
     // Input commitments to be passed to the merge recursive verification
     MergeCommitments merge_commitments{ .T_prev_commitments = T_prev_commitments };
 
-    auto verifier_instance = std::make_shared<RecursiveVerifierInstance>(&circuit, verifier_inputs.honk_vk_and_hash);
+    auto verifier_instance = std::make_shared<RecursiveVerifierInstance>(verifier_inputs.honk_vk_and_hash);
 
     std::optional<RecursiveVerifierAccumulator> output_verifier_accumulator;
     std::optional<StdlibFF> prev_accum_hash = std::nullopt;
@@ -539,11 +540,11 @@ HonkProof Chonk::construct_honk_proof_for_hiding_kernel(ClientCircuit& circuit,
 }
 
 /**
- * @brief Construct a proof for the IVC, which, if verified, fully establishes its correctness
+ * @brief Construct Chonk proof, which, if verified, fully establishes the correctness of RCG
  *
- * @return Proof
+ * @return ChonkProof
  */
-Chonk::Proof Chonk::prove()
+ChonkProof Chonk::prove()
 {
     // deallocate the accumulator
     prover_accumulator = ProverAccumulator();
@@ -557,190 +558,14 @@ Chonk::Proof Chonk::prove()
     // final merging is done via appending to facilitate creating a zero-knowledge merge proof. This enables us to add
     // randomness to the beginning of the tail kernel and the end of the hiding kernel, hiding the commitments and
     // evaluations of both the previous table and the incoming subtable.
-    return { mega_proof, goblin.prove(MergeSettings::APPEND) };
+    return ChonkProof{ mega_proof, goblin.prove(MergeSettings::APPEND) };
 };
 
-bool Chonk::verify(const Proof& proof, const VerificationKey& vk)
+std::shared_ptr<MegaZKFlavor::VKAndHash> Chonk::get_hiding_kernel_vk_and_hash() const
 {
-    using TableCommitments = Goblin::TableCommitments;
-    // Create a transcript to be shared by MegaZK-, Merge-, ECCVM-, and Translator- Verifiers.
-    std::shared_ptr<Goblin::Transcript> chonk_verifier_transcript = std::make_shared<Goblin::Transcript>();
-
-    // Step 1: Verify the Hiding kernel proof
-    MegaZKVerifier verifier{ vk.mega, /*ipa_verification_key=*/{}, chonk_verifier_transcript };
-    auto [mega_verified, kernel_return_data, T_prev_commitments] =
-        verifier.template verify_proof<bb::HidingKernelIO>(proof.mega_proof);
-    vinfo("Mega verified: ", mega_verified);
-    if (!mega_verified) {
-        info("Chonk verification failed at Mega step");
-        return false;
-    }
-
-    // Step 2: Perform databus consistency checks
-    bool databus_consistency_verified = kernel_return_data == verifier.verifier_instance->witness_commitments.calldata;
-    vinfo("Databus consistency verified: ", databus_consistency_verified);
-    if (!databus_consistency_verified) {
-        info("Chonk verification failed at databus consistency check");
-        return false;
-    }
-
-    // Extract the commitments to the subtable corresponding to the incoming circuit
-    TableCommitments t_commitments = verifier.verifier_instance->witness_commitments.get_ecc_op_wires().get_copy();
-
-    // Step 3: Goblin verification (merge, eccvm, translator)
-    // Reduces Goblin proof to pairing points and IPA claim. In native mode, pairing checks are performed
-    // immediately for fail-fast. goblin_checks_passed includes reduction checks + pairing checks (pairing performed).
-    GoblinVerifier goblin_verifier{
-        chonk_verifier_transcript, proof.goblin_proof, { t_commitments, T_prev_commitments }, MergeSettings::APPEND
-    };
-    auto [_, ipa_claim, ipa_proof, goblin_checks_passed] = goblin_verifier.reduce_to_pairing_check_and_ipa_opening();
-    if (!goblin_checks_passed) {
-        info("Chonk verification failed at Goblin checks (merge/eccvm/translator reduction + pairing)");
-        return false;
-    }
-
-    // Step 4: Verify IPA opening
-    auto ipa_transcript = std::make_shared<Goblin::Transcript>(ipa_proof);
-    auto ipa_vk = VerifierCommitmentKey<curve::Grumpkin>{ ECCVMFlavor::ECCVM_FIXED_SIZE };
-    bool ipa_verified = IPA<curve::Grumpkin>::reduce_verify(ipa_vk, ipa_claim, ipa_transcript);
-    vinfo("Goblin IPA verified: ", ipa_verified);
-    if (!ipa_verified) {
-        info("Chonk verification failed at IPA check");
-        return false;
-    }
-
-    return true;
-}
-
-// Proof methods
-size_t Chonk::Proof::size() const
-{
-    return mega_proof.size() + goblin_proof.size();
-}
-
-std::vector<Chonk::FF> Chonk::Proof::to_field_elements() const
-{
-    HonkProof proof;
-
-    proof.insert(proof.end(), mega_proof.begin(), mega_proof.end());
-    proof.insert(proof.end(), goblin_proof.merge_proof.begin(), goblin_proof.merge_proof.end());
-    proof.insert(proof.end(), goblin_proof.eccvm_proof.begin(), goblin_proof.eccvm_proof.end());
-    proof.insert(proof.end(), goblin_proof.ipa_proof.begin(), goblin_proof.ipa_proof.end());
-    proof.insert(proof.end(), goblin_proof.translator_proof.begin(), goblin_proof.translator_proof.end());
-    return proof;
-};
-
-Chonk::Proof Chonk::Proof::from_field_elements(const std::vector<Chonk::FF>& fields)
-{
-    HonkProof mega_proof;
-    GoblinProof goblin_proof;
-
-    size_t custom_public_inputs_size = fields.size() - Chonk::Proof::PROOF_LENGTH();
-
-    // Mega proof
-    auto start_idx = fields.begin();
-    auto end_idx = start_idx + static_cast<std::ptrdiff_t>(
-                                   MegaZKFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS(MegaZKFlavor::VIRTUAL_LOG_N) +
-                                   bb::HidingKernelIO::PUBLIC_INPUTS_SIZE + custom_public_inputs_size);
-    mega_proof.insert(mega_proof.end(), start_idx, end_idx);
-
-    // Merge proof
-    start_idx = end_idx;
-    end_idx += static_cast<std::ptrdiff_t>(MERGE_PROOF_SIZE);
-    goblin_proof.merge_proof.insert(goblin_proof.merge_proof.end(), start_idx, end_idx);
-
-    // ECCVM proof
-    start_idx = end_idx;
-    end_idx += static_cast<std::ptrdiff_t>(ECCVMFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS);
-    goblin_proof.eccvm_proof.insert(goblin_proof.eccvm_proof.end(), start_idx, end_idx);
-
-    // IPA proof
-    start_idx = end_idx;
-    end_idx += static_cast<std::ptrdiff_t>(IPA_PROOF_LENGTH);
-    goblin_proof.ipa_proof.insert(goblin_proof.ipa_proof.end(), start_idx, end_idx);
-
-    // Translator proof
-    start_idx = end_idx;
-    end_idx += static_cast<std::ptrdiff_t>(TranslatorFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS);
-    goblin_proof.translator_proof.insert(goblin_proof.translator_proof.end(), start_idx, end_idx);
-
-    return { mega_proof, goblin_proof };
-};
-
-msgpack::sbuffer Chonk::Proof::to_msgpack_buffer() const
-{
-    msgpack::sbuffer buffer;
-    msgpack::pack(buffer, *this);
-    return buffer;
-}
-
-uint8_t* Chonk::Proof::to_msgpack_heap_buffer() const
-{
-    msgpack::sbuffer buffer = to_msgpack_buffer();
-
-    std::vector<uint8_t> buf(buffer.data(), buffer.data() + buffer.size());
-    return to_heap_buffer(buf);
-}
-
-Chonk::Proof Chonk::Proof::from_msgpack_buffer(uint8_t const*& buffer)
-{
-    auto uint8_buffer = from_buffer<std::vector<uint8_t>>(buffer);
-
-    msgpack::sbuffer sbuf;
-    sbuf.write(reinterpret_cast<char*>(uint8_buffer.data()), uint8_buffer.size());
-
-    return from_msgpack_buffer(sbuf);
-}
-
-Chonk::Proof Chonk::Proof::from_msgpack_buffer(const msgpack::sbuffer& buffer)
-{
-    msgpack::object_handle oh = msgpack::unpack(buffer.data(), buffer.size());
-    msgpack::object obj = oh.get();
-    Proof proof;
-    obj.convert(proof);
-    return proof;
-}
-
-void Chonk::Proof::to_file_msgpack(const std::string& filename) const
-{
-    msgpack::sbuffer buffer = to_msgpack_buffer();
-    std::ofstream ofs(filename, std::ios::binary);
-    if (!ofs.is_open()) {
-        throw_or_abort("Failed to open file for writing.");
-    }
-    ofs.write(buffer.data(), static_cast<std::streamsize>(buffer.size()));
-    ofs.close();
-}
-
-Chonk::Proof Chonk::Proof::from_file_msgpack(const std::string& filename)
-{
-    std::ifstream ifs(filename, std::ios::binary);
-    if (!ifs.is_open()) {
-        throw_or_abort("Failed to open file for reading.");
-    }
-
-    ifs.seekg(0, std::ios::end);
-    size_t file_size = static_cast<size_t>(ifs.tellg());
-    ifs.seekg(0, std::ios::beg);
-
-    std::vector<char> buffer(file_size);
-    ifs.read(buffer.data(), static_cast<std::streamsize>(file_size));
-    ifs.close();
-    msgpack::sbuffer msgpack_buffer;
-    msgpack_buffer.write(buffer.data(), file_size);
-
-    return Proof::from_msgpack_buffer(msgpack_buffer);
-}
-
-// VerificationKey construction
-Chonk::VerificationKey Chonk::get_vk() const
-{
-    BB_ASSERT_EQ(verification_queue.size(), 1UL);
-    BB_ASSERT_EQ(verification_queue.front().type == QUEUE_TYPE::MEGA, true);
-    auto verification_key = verification_queue.front().honk_vk;
-    return { verification_key,
-             std::make_shared<ECCVMVerificationKey>(),
-             std::make_shared<TranslatorVerificationKey>() };
+    BB_ASSERT_EQ(verification_queue.size(), 1UL, "Expected single hiding kernel VK in queue");
+    BB_ASSERT(verification_queue.front().type == QUEUE_TYPE::MEGA, "Expected MEGA proof type");
+    return std::make_shared<MegaZKFlavor::VKAndHash>(verification_queue.front().honk_vk);
 }
 
 #ifndef NDEBUG
@@ -749,7 +574,8 @@ void Chonk::update_native_verifier_accumulator(const VerifierInputs& queue_entry
 {
     info("======= DEBUGGING INFO FOR NATIVE FOLDING STEP =======");
 
-    auto verifier_inst = std::make_shared<VerifierInstance>(queue_entry.honk_vk);
+    auto verifier_inst =
+        std::make_shared<VerifierInstance>(std::make_shared<MegaFlavor::VKAndHash>(queue_entry.honk_vk));
 
     FoldingVerifier native_verifier(verifier_transcript);
     if (queue_entry.type == QUEUE_TYPE::OINK) {

@@ -96,10 +96,10 @@ pub global MAX_CONTRACT_CLASS_LOGS_PER_CALL: u32 = 1;
 pub global NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP: u32 = 1 << L1_TO_L2_MSG_SUBTREE_HEIGHT;
 
 // VK TREE CONSTANTS
-pub comptime global PRIVATE_KERNEL_INIT_INDEX: u32 = 0;
-pub comptime global PRIVATE_KERNEL_INNER_INDEX: u32 = 1;
-pub comptime global PRIVATE_KERNEL_TAIL_INDEX: u32 = 2;
-pub comptime global PRIVATE_KERNEL_TAIL_TO_PUBLIC_INDEX: u32 = 3;
+pub comptime global PRIVATE_KERNEL_INIT_VK_INDEX: u32 = 0;
+pub comptime global PRIVATE_KERNEL_INNER_VK_INDEX: u32 = 1;
+pub comptime global PRIVATE_KERNEL_TAIL_VK_INDEX: u32 = 2;
+pub comptime global PRIVATE_KERNEL_TAIL_TO_PUBLIC_VK_INDEX: u32 = 3;
 pub comptime global HIDING_KERNEL_TO_ROLLUP_VK_INDEX: u32 = 4;
 pub comptime global HIDING_KERNEL_TO_PUBLIC_VK_INDEX: u32 = 5;
 pub comptime global PUBLIC_CHONK_VERIFIER_VK_INDEX: u32 = 6;
@@ -119,8 +119,8 @@ pub comptime global CHECKPOINT_MERGE_ROLLUP_VK_INDEX: u32 = 19;
 pub comptime global ROOT_ROLLUP_VK_INDEX: u32 = 20;
 pub comptime global PARITY_BASE_VK_INDEX: u32 = 21;
 pub comptime global PARITY_ROOT_VK_INDEX: u32 = 22;
-pub comptime global PRIVATE_KERNEL_RESET_INDEX: u32 = 23;
-// Important: Do not define indexes after the PRIVATE_KERNEL_RESET_INDEX. They are allocated for the variants of private kernel reset.
+pub comptime global PRIVATE_KERNEL_RESET_VK_INDEX: u32 = 23;
+// Important: Do not define indexes after the PRIVATE_KERNEL_RESET_VK_INDEX. They are allocated for the variants of private kernel reset.
 
 // SIDE EFFECT RELATED CONSTANTS
 // Global indices allow us to uniquely index side effects in PrivateCircuitPublicInputs
@@ -131,10 +131,12 @@ pub global GLOBAL_INDEX_NOTE_HASH_OFFSET: u32 =
     GLOBAL_INDEX_NULLIFIER_READ_REQUEST_OFFSET + MAX_NULLIFIER_READ_REQUESTS_PER_CALL;
 pub global GLOBAL_INDEX_NULLIFIER_OFFSET: u32 =
     GLOBAL_INDEX_NOTE_HASH_OFFSET + MAX_NOTE_HASHES_PER_CALL;
-pub global GLOBAL_INDEX_PRIVATE_CALL_REQUEST_OFFSET: u32 =
+pub global GLOBAL_INDEX_PRIVATE_CALL_REQUEST_START_OFFSET: u32 =
     GLOBAL_INDEX_NULLIFIER_OFFSET + MAX_NULLIFIERS_PER_CALL;
+pub global GLOBAL_INDEX_PRIVATE_CALL_REQUEST_END_OFFSET: u32 =
+    GLOBAL_INDEX_PRIVATE_CALL_REQUEST_START_OFFSET + MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL;
 pub global GLOBAL_INDEX_PUBLIC_CALL_REQUEST_OFFSET: u32 =
-    GLOBAL_INDEX_PRIVATE_CALL_REQUEST_OFFSET + MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL;
+    GLOBAL_INDEX_PRIVATE_CALL_REQUEST_END_OFFSET + MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL;
 pub global GLOBAL_INDEX_L2_TO_L1_MSG_OFFSET: u32 =
     GLOBAL_INDEX_PUBLIC_CALL_REQUEST_OFFSET + MAX_ENQUEUED_CALLS_PER_CALL;
 pub global GLOBAL_INDEX_PRIVATE_LOG_OFFSET: u32 =
@@ -144,15 +146,7 @@ pub global GLOBAL_INDEX_CONTRACT_CLASS_LOG_HASH_OFFSET: u32 =
 pub global GLOBAL_INDEX_CONTRACT_MIN_REVERTIBLE_SIDE_EFFECT_COUNTER_OFFSET: u32 =
     GLOBAL_INDEX_CONTRACT_CLASS_LOG_HASH_OFFSET + MAX_CONTRACT_CLASS_LOGS_PER_CALL;
 
-pub global TOTAL_COUNTED_SIDE_EFFECTS_PER_CALL: u32 = MAX_NOTE_HASH_READ_REQUESTS_PER_CALL
-    + MAX_NULLIFIER_READ_REQUESTS_PER_CALL
-    + MAX_NOTE_HASHES_PER_CALL
-    + MAX_NULLIFIERS_PER_CALL
-    + MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL
-    + MAX_ENQUEUED_CALLS_PER_CALL
-    + MAX_L2_TO_L1_MSGS_PER_CALL
-    + MAX_PRIVATE_LOGS_PER_CALL
-    + MAX_CONTRACT_CLASS_LOGS_PER_CALL
+pub global TOTAL_COUNTED_SIDE_EFFECTS_PER_CALL: u32 = GLOBAL_INDEX_CONTRACT_MIN_REVERTIBLE_SIDE_EFFECT_COUNTER_OFFSET
     + 1 /* min_revertible_side_effect_counter */;
 
 // MISC CONSTANTS
@@ -224,15 +218,22 @@ pub global CONTRACT_INSTANCE_UPDATED_MAGIC_VALUE: Field =
     0x0e92f9f8a534e858fcf777da206e08b0c620ecf9deb21d13479813f6;
 
 // CANONICAL CONTRACT ADDRESSES
-pub global MAX_PROTOCOL_CONTRACTS: u32 = 11; // Chosen to be a multiple of 3 (12) - 1 for the separator, to optimize the poseidon2 hash.
+// The maximum number of protocol contracts that can be supported.
+// Chosen to be a multiple of 3 (-1 to account for the separator), to optimize the poseidon2 hash.
+pub global MAX_PROTOCOL_CONTRACTS: u32 = 11;
+// Address 0 is not a protocol contract.
 pub global CANONICAL_AUTH_REGISTRY_ADDRESS: AztecAddress = AztecAddress::from_field(1);
 pub global CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS: AztecAddress = AztecAddress::from_field(2);
 pub global CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS: AztecAddress = AztecAddress::from_field(3);
 pub global MULTI_CALL_ENTRYPOINT_ADDRESS: AztecAddress = AztecAddress::from_field(4);
 pub global FEE_JUICE_ADDRESS: AztecAddress = AztecAddress::from_field(5);
 pub global ROUTER_ADDRESS: AztecAddress = AztecAddress::from_field(6);
-// MAX_PROTOCOL_CONTRACTS + 1, but can't automatically derive or constants generator fails
-pub global SIDE_EFFECT_MASKING_ADDRESS: AztecAddress = AztecAddress::from_field(12);
+
+// `SIDE_EFFECT_MASKING_ADDRESS` is used by the protocol circuits to silo the padding side effects. It's not a protocol
+// contract (hence its address is greater than `MAX_PROTOCOL_CONTRACTS`).
+// It's not possible to create an actual contract whose address equals this value. If it were possible, it would mean
+// that anyone can freely change the state of the contract by adding padding side effects to their transactions.
+pub global SIDE_EFFECT_MASKING_ADDRESS: AztecAddress = AztecAddress::from_field(12); // MAX_PROTOCOL_CONTRACTS + 1, but can't automatically derive or constants generator fails
 
 // NULL MSG_SENDER CONTRACT ADDRESS (not part of the protocol contracts tree).
 pub global NULL_MSG_SENDER_CONTRACT_ADDRESS: AztecAddress = AztecAddress::from_field(
@@ -627,65 +628,94 @@ pub global AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS: u32 = 2 + 21 * 4;
 pub global MAX_PUBLIC_BYTECODE_SIZE_IN_BYTES: u32 = MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS * 32;
 pub global MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS: u32 = 21;
 
+// ---------------------------------------------------------------
+// DOMAIN SEPARATORS
+
+// TODO: see ./domain-separators.nr tests for the domain separators that we should migrate to. I just didn't have time to make the changes, as I predict thousands of tests with hard-coded hashes breaking everywhere.
+
+// ---------------------------------------------------------------
+
 // Note hash generator index which can be used by custom implementations of NoteHash::compute_note_hash
-pub global GENERATOR_INDEX__NOTE_HASH: u32 = 1;
-pub global GENERATOR_INDEX__NOTE_HASH_NONCE: u32 = 2;
-pub global GENERATOR_INDEX__UNIQUE_NOTE_HASH: u32 = 3;
-pub global GENERATOR_INDEX__SILOED_NOTE_HASH: u32 = 4;
-pub global GENERATOR_INDEX__MESSAGE_NULLIFIER: u32 = 5;
-pub global GENERATOR_INDEX__INITIALIZATION_NULLIFIER: u32 = 6;
-pub global GENERATOR_INDEX__OUTER_NULLIFIER: u32 = 7;
-pub global GENERATOR_INDEX__PUBLIC_DATA_READ: u32 = 8;
-pub global GENERATOR_INDEX__PUBLIC_DATA_UPDATE_REQUEST: u32 = 9;
-pub global GENERATOR_INDEX__FUNCTION_DATA: u32 = 10;
-pub global GENERATOR_INDEX__FUNCTION_LEAF: u32 = 11;
-pub global GENERATOR_INDEX__CONTRACT_DEPLOYMENT_DATA: u32 = 12;
-pub global GENERATOR_INDEX__CONSTRUCTOR: u32 = 13;
-pub global GENERATOR_INDEX__CONSTRUCTOR_ARGS: u32 = 14;
-pub global GENERATOR_INDEX__CONTRACT_ADDRESS_V1: u32 = 15;
-pub global GENERATOR_INDEX__CONTRACT_LEAF: u32 = 16;
-pub global GENERATOR_INDEX__CALL_CONTEXT: u32 = 17;
-pub global GENERATOR_INDEX__CALL_STACK_ITEM: u32 = 18;
-pub global GENERATOR_INDEX__CALL_STACK_ITEM_2: u32 = 19;
-pub global GENERATOR_INDEX__SECRET_HASH: u32 = 20;
-pub global GENERATOR_INDEX__L2_TO_L1_MSG: u32 = 21;
-pub global GENERATOR_INDEX__TX_CONTEXT: u32 = 22;
-pub global GENERATOR_INDEX__PUBLIC_LEAF_INDEX: u32 = 23;
-pub global GENERATOR_INDEX__PUBLIC_DATA_LEAF: u32 = 24;
-pub global GENERATOR_INDEX__SIGNED_TX_REQUEST: u32 = 25;
-pub global GENERATOR_INDEX__GLOBAL_VARIABLES: u32 = 26;
-pub global GENERATOR_INDEX__PARTIAL_ADDRESS: u32 = 27;
-pub global GENERATOR_INDEX__BLOCK_HASH: u32 = 28;
-pub global GENERATOR_INDEX__SIDE_EFFECT: u32 = 29;
-pub global GENERATOR_INDEX__FEE_PAYLOAD: u32 = 30;
-pub global GENERATOR_INDEX__COMBINED_PAYLOAD: u32 = 31;
-pub global GENERATOR_INDEX__TX_NULLIFIER: u32 = 32;
-pub global GENERATOR_INDEX__TX_REQUEST: u32 = 33;
-pub global GENERATOR_INDEX__SIGNATURE_PAYLOAD: u32 = 34;
-pub global GENERATOR_INDEX__VK: u32 = 41;
-pub global GENERATOR_INDEX__PUBLIC_CALLDATA: u32 = 43;
-pub global GENERATOR_INDEX__FUNCTION_ARGS: u32 = 44;
-pub global GENERATOR_INDEX__AUTHWIT_INNER: u32 = 45;
-pub global GENERATOR_INDEX__AUTHWIT_OUTER: u32 = 46;
-pub global GENERATOR_INDEX__AUTHWIT_NULLIFIER: u32 = 47;
-// Key related generators follow
-pub global GENERATOR_INDEX__NSK_M: u32 = 48;
-pub global GENERATOR_INDEX__IVSK_M: u32 = 49;
-pub global GENERATOR_INDEX__OVSK_M: u32 = 50;
-pub global GENERATOR_INDEX__TSK_M: u32 = 51;
-pub global GENERATOR_INDEX__PUBLIC_KEYS_HASH: u32 = 52;
-pub global GENERATOR_INDEX__NOTE_NULLIFIER: u32 = 53;
-pub global GENERATOR_INDEX__SYMMETRIC_KEY: u8 = 54;
-pub global GENERATOR_INDEX__SYMMETRIC_KEY_2: u8 = 55;
-pub global GENERATOR_INDEX__PUBLIC_TX_HASH: u32 = 56;
-pub global GENERATOR_INDEX__PRIVATE_TX_HASH: u32 = 57;
-pub global GENERATOR_INDEX__PARTIAL_NOTE_VALIDITY_COMMITMENT: u32 = 58;
-pub global GENERATOR_INDEX__EVENT_COMMITMENT: u32 = 59;
-// Misc generators
-// TODO(8974): this likely belongs in the middle of the list, but was placed
-// here to avoid changing all of the key generators.
-pub global GENERATOR_INDEX__PUBLIC_BYTECODE: u32 = 60;
-pub global GENERATOR_INDEX__PROTOCOL_CONTRACTS: u32 = 61;
+pub global DOM_SEP__NOTE_HASH: u32 = 1;
+pub global DOM_SEP__NOTE_HASH_NONCE: u32 = 2;
+pub global DOM_SEP__UNIQUE_NOTE_HASH: u32 = 3;
+pub global DOM_SEP__SILOED_NOTE_HASH: u32 = 4;
+
+pub global DOM_SEP__NOTE_NULLIFIER: u32 = 53;
+pub global DOM_SEP__OUTER_NULLIFIER: u32 = 7;
+
+pub global DOM_SEP__PUBLIC_LEAF_INDEX: u32 = 23;
+
+pub global DOM_SEP__MESSAGE_NULLIFIER: u32 = 5;
+
+// ---------------------------------------------------------------
+// Contract Address
+
+// Class Id
+pub global DOM_SEP__FUNCTION_LEAF: u32 = 11;
+pub global DOM_SEP__PUBLIC_BYTECODE: u32 = 60;
+pub global DOM_SEP__CONTRACT_CLASS_ID: u32 = 16;
+
+// Salted Initialization Hash
+pub global DOM_SEP__CONSTRUCTOR: u32 = 13;
+
+// Keys
+pub global DOM_SEP__NSK_M: u32 = 48;
+pub global DOM_SEP__IVSK_M: u32 = 49;
+pub global DOM_SEP__OVSK_M: u32 = 50;
+pub global DOM_SEP__TSK_M: u32 = 51;
+pub global DOM_SEP__PUBLIC_KEYS_HASH: u32 = 52;
+
+// Address
+pub global DOM_SEP__PARTIAL_ADDRESS: u32 = 27;
+
+pub global DOM_SEP__CONTRACT_ADDRESS_V1: u32 = 15;
+
+// ---------------------------------------------------------------
+
+pub global DOM_SEP__BLOCK_HASH: u32 = 28; // Consider renaming to BLOCK_HEADER_HASH
+
+pub global DOM_SEP__TX_REQUEST: u32 = 33;
+pub global DOM_SEP__PUBLIC_TX_HASH: u32 = 56;
+pub global DOM_SEP__PRIVATE_TX_HASH: u32 = 57;
+
+// Hashing the calldata of public functions:
+pub global DOM_SEP__PUBLIC_CALLDATA: u32 = 43;
+// Hashing the args to private functions:
+pub global DOM_SEP__FUNCTION_ARGS: u32 = 44;
+
+pub global DOM_SEP__PROTOCOL_CONTRACTS: u32 = 61;
+// Part of the protocol, because some protocol contracts emit events.
+pub global DOM_SEP__EVENT_COMMITMENT: u32 = 59;
+
+// ---------------------------------------------------------------
+// Not protocol, but possibly protocol in future.
+
+// The following might (in future) be justifiable as protocol constants, as they might get used by the protocol's "Protocol Contracts", e.g. if the protocol enables FeeJuice to be shielded in future.
+// It will depend on the chosen functionality of FeeJuice:
+// - It might not support partial notes.
+// - It might not support encrypted messages.
+// - It might not support authwits (instead using the fee_payer field as evidence of authorization).
+// If FeeJuice doesn't end up supporting those things, then these constants should be moved into aztec.nr.
+
+pub global DOM_SEP__AUTHWIT_INNER: u32 = 45;
+pub global DOM_SEP__AUTHWIT_OUTER: u32 = 46;
+pub global DOM_SEP__AUTHWIT_NULLIFIER: u32 = 47;
+
+pub global DOM_SEP__SYMMETRIC_KEY: u8 = 54;
+pub global DOM_SEP__SYMMETRIC_KEY_2: u8 = 55;
+
+pub global DOM_SEP__PARTIAL_NOTE_VALIDITY_COMMITMENT: u32 = 58;
+
+// ---------------------------------------------------------------
+// TODO: consider moving these to aztec-nr
+
+pub global DOM_SEP__INITIALIZATION_NULLIFIER: u32 = 6;
+pub global DOM_SEP__SECRET_HASH: u32 = 20;
+pub global DOM_SEP__TX_NULLIFIER: u32 = 32;
+pub global DOM_SEP__SIGNATURE_PAYLOAD: u32 = 34;
+
+// ---------------------------------------------------------------
 
 // TODO: Move this to bb's constant noir lib when created.
 // AVM memory tags
@@ -996,7 +1026,7 @@ pub global AVM_PUBLIC_INPUTS_COLUMNS_COMBINED_LENGTH: u32 =
 // We introduce padded version for two AVM constants and we will use the padded ones
 // until we freeze the number of columns in AVM.
 // TODO(#13390): Remove these constants and use the above ones (commented out) in noir/TS.
-pub global AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED: u32 = 20000;
+pub global AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED: u32 = 16200;
 pub global AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED: u32 = 1000;
 
 // GAS DEFAULTS
@@ -1207,7 +1237,8 @@ mod test {
         GLOBAL_INDEX_CONTRACT_CLASS_LOG_HASH_OFFSET, GLOBAL_INDEX_L2_TO_L1_MSG_OFFSET,
         GLOBAL_INDEX_NOTE_HASH_OFFSET, GLOBAL_INDEX_NOTE_HASH_READ_REQUEST_OFFSET,
         GLOBAL_INDEX_NULLIFIER_OFFSET, GLOBAL_INDEX_NULLIFIER_READ_REQUEST_OFFSET,
-        GLOBAL_INDEX_PRIVATE_CALL_REQUEST_OFFSET, GLOBAL_INDEX_PRIVATE_LOG_OFFSET,
+        GLOBAL_INDEX_PRIVATE_CALL_REQUEST_END_OFFSET,
+        GLOBAL_INDEX_PRIVATE_CALL_REQUEST_START_OFFSET, GLOBAL_INDEX_PRIVATE_LOG_OFFSET,
         GLOBAL_INDEX_PUBLIC_CALL_REQUEST_OFFSET, MAX_CONTRACT_CLASS_LOGS_PER_CALL,
         MAX_ENQUEUED_CALLS_PER_CALL, MAX_L2_TO_L1_MSGS_PER_CALL,
         MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NOTE_HASHES_PER_CALL,
@@ -1278,7 +1309,11 @@ mod test {
             (GLOBAL_INDEX_NULLIFIER_READ_REQUEST_OFFSET, MAX_NULLIFIER_READ_REQUESTS_PER_CALL),
             (GLOBAL_INDEX_NOTE_HASH_OFFSET, MAX_NOTE_HASHES_PER_CALL),
             (GLOBAL_INDEX_NULLIFIER_OFFSET, MAX_NULLIFIERS_PER_CALL),
-            (GLOBAL_INDEX_PRIVATE_CALL_REQUEST_OFFSET, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL),
+            (
+                GLOBAL_INDEX_PRIVATE_CALL_REQUEST_START_OFFSET,
+                MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
+            ),
+            (GLOBAL_INDEX_PRIVATE_CALL_REQUEST_END_OFFSET, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL),
             (GLOBAL_INDEX_PUBLIC_CALL_REQUEST_OFFSET, MAX_ENQUEUED_CALLS_PER_CALL),
             (GLOBAL_INDEX_L2_TO_L1_MSG_OFFSET, MAX_L2_TO_L1_MSGS_PER_CALL),
             (GLOBAL_INDEX_PRIVATE_LOG_OFFSET, MAX_PRIVATE_LOGS_PER_CALL),

@@ -6,7 +6,7 @@ import {
   getArchiverConfigFromEnv,
 } from '@aztec/archiver';
 import { createLogger } from '@aztec/aztec.js/log';
-import { type BlobSinkConfig, blobSinkConfigMapping, createBlobSinkClient } from '@aztec/blob-sink/client';
+import { type BlobClientConfig, blobClientConfigMapping, createBlobClient } from '@aztec/blob-client/client';
 import { getL1Config } from '@aztec/cli/config';
 import type { NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
 import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
@@ -25,9 +25,9 @@ export async function startArchiver(
   services: NamespacedApiHandlers,
 ): Promise<{ config: ArchiverConfig & DataStoreConfig }> {
   const envConfig = getArchiverConfigFromEnv();
-  const cliOptions = extractRelevantOptions<ArchiverConfig & DataStoreConfig & BlobSinkConfig>(
+  const cliOptions = extractRelevantOptions<ArchiverConfig & DataStoreConfig & BlobClientConfig>(
     options,
-    { ...archiverConfigMappings, ...dataConfigMappings, ...blobSinkConfigMapping },
+    { ...archiverConfigMappings, ...dataConfigMappings, ...blobClientConfigMapping },
     'archiver',
   );
 
@@ -52,8 +52,8 @@ export async function startArchiver(
   const archiverStore = new KVArchiverDataStore(store, archiverConfig.maxLogs);
 
   const telemetry = await initTelemetryClient(getTelemetryClientConfig());
-  const blobSinkClient = createBlobSinkClient(archiverConfig, { logger: createLogger('archiver:blob-sink:client') });
-  const archiver = await Archiver.createAndSync(archiverConfig, archiverStore, { telemetry, blobSinkClient }, true);
+  const blobClient = createBlobClient(archiverConfig, { logger: createLogger('archiver:blob-client:client') });
+  const archiver = await Archiver.createAndSync(archiverConfig, archiverStore, { telemetry, blobClient }, true);
   services.archiver = [archiver, ArchiverApiSchema];
   signalHandlers.push(archiver.stop);
 

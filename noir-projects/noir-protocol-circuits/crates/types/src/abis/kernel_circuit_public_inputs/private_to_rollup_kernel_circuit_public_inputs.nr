@@ -4,7 +4,7 @@ use crate::{
         tx_constant_data::TxConstantData,
     },
     address::AztecAddress,
-    constants::GENERATOR_INDEX__PRIVATE_TX_HASH,
+    constants::DOM_SEP__PRIVATE_TX_HASH,
     hash::poseidon2_hash_with_separator,
     traits::{Deserialize, Empty, Hash, Serialize},
 };
@@ -33,7 +33,7 @@ impl Empty for PrivateToRollupKernelCircuitPublicInputs {
 
 impl Hash for PrivateToRollupKernelCircuitPublicInputs {
     fn hash(self) -> Field {
-        poseidon2_hash_with_separator(self.serialize(), GENERATOR_INDEX__PRIVATE_TX_HASH)
+        poseidon2_hash_with_separator(self.serialize(), DOM_SEP__PRIVATE_TX_HASH)
     }
 }
 

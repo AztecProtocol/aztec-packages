@@ -40,7 +40,7 @@ export async function computeContractClassIdWithPreimage(
       : await computePublicBytecodeCommitment(contractClass.packedBytecode);
   const id = await poseidon2HashWithSeparator(
     [artifactHash, privateFunctionsRoot, publicBytecodeCommitment],
-    GeneratorIndex.CONTRACT_LEAF, // TODO(@spalladino): Review all generator indices in this file
+    GeneratorIndex.CONTRACT_CLASS_ID,
   );
   return { id, artifactHash, privateFunctionsRoot, publicBytecodeCommitment };
 }

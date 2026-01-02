@@ -40,7 +40,10 @@ TxSimulationResult AvmSimAPI::simulate_with_hinted_dbs(const ProvingInputs& inpu
 {
     vinfo("Simulating...");
     AvmSimulationHelper simulation_helper;
-    return AVM_TRACK_TIME_V("simulation/all", simulation_helper.simulate_fast_with_hinted_dbs(inputs.hints));
+
+    // Placeholder for future use of config from inputs.
+    const PublicSimulatorConfig config = {};
+    return AVM_TRACK_TIME_V("simulation/all", simulation_helper.simulate_fast_with_hinted_dbs(inputs.hints, config));
 }
 
 } // namespace bb::avm2

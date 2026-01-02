@@ -1,5 +1,6 @@
 #pragma once
 
+#include "barretenberg/dsl/acir_format/test_class_predicate.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
@@ -54,36 +55,71 @@ template <typename Builder> inline constexpr size_t ASSERT_EQUALITY = ZERO_GATE 
 // Honk Recursion Constants
 // ========================================
 
-// Gate counts for Honk recursion vary by recursive flavor
-// Returns tuple of (gate_count, ecc_rows, ultra_ops)
+inline constexpr size_t ROOT_ROLLUP_GATE_COUNT = 12986977;
+
 template <typename RecursiveFlavor>
-inline constexpr std::tuple<size_t, size_t, size_t> HONK_RECURSION_CONSTANTS = []() {
+constexpr std::tuple<size_t, size_t> HONK_RECURSION_CONSTANTS(
+    const PredicateTestCase& mode = PredicateTestCase::ConstantTrue)
+{
     using UltraCircuitBuilder = bb::UltraCircuitBuilder;
     using MegaCircuitBuilder = bb::MegaCircuitBuilder;
 
     if constexpr (std::is_same_v<RecursiveFlavor, bb::UltraRecursiveFlavor_<UltraCircuitBuilder>>) {
-        return std::make_tuple(723994, 0, 0);
-    } else if constexpr (std::is_same_v<RecursiveFlavor, bb::UltraRollupRecursiveFlavor_<UltraCircuitBuilder>>) {
-        return std::make_tuple(724461, 0, 0);
-    } else if constexpr (std::is_same_v<RecursiveFlavor, bb::UltraRecursiveFlavor_<MegaCircuitBuilder>>) {
-        return std::make_tuple(24328, 1250, 76);
+        switch (mode) {
+        case PredicateTestCase::ConstantTrue:
+            return std::make_tuple(722844, 0);
+        case PredicateTestCase::WitnessTrue:
+        case PredicateTestCase::WitnessFalse:
+            return std::make_tuple(723995, 0);
+        }
     } else if constexpr (std::is_same_v<RecursiveFlavor, bb::UltraZKRecursiveFlavor_<UltraCircuitBuilder>>) {
-        return std::make_tuple(767514, 0, 0);
+        switch (mode) {
+        case PredicateTestCase::ConstantTrue:
+            return std::make_tuple(766262, 0);
+        case PredicateTestCase::WitnessTrue:
+        case PredicateTestCase::WitnessFalse:
+            return std::make_tuple(767515, 0);
+        }
+    } else if constexpr (std::is_same_v<RecursiveFlavor, bb::UltraRollupRecursiveFlavor_<UltraCircuitBuilder>>) {
+        switch (mode) {
+        case PredicateTestCase::ConstantTrue:
+            return std::make_tuple(723163, 0);
+        case PredicateTestCase::WitnessTrue:
+        case PredicateTestCase::WitnessFalse:
+            return std::make_tuple(724462, 0);
+        }
+    } else if constexpr (std::is_same_v<RecursiveFlavor, bb::UltraRecursiveFlavor_<MegaCircuitBuilder>>) {
+        switch (mode) {
+        case PredicateTestCase::ConstantTrue:
+            return std::make_tuple(23178, 76);
+        case PredicateTestCase::WitnessTrue:
+        case PredicateTestCase::WitnessFalse:
+            return std::make_tuple(24329, 76);
+        }
     } else if constexpr (std::is_same_v<RecursiveFlavor, bb::UltraZKRecursiveFlavor_<MegaCircuitBuilder>>) {
-        return std::make_tuple(29301, 1052, 80);
+        switch (mode) {
+        case PredicateTestCase::ConstantTrue:
+            return std::make_tuple(28049, 80);
+        case PredicateTestCase::WitnessTrue:
+        case PredicateTestCase::WitnessFalse:
+            return std::make_tuple(29302, 80);
+        }
     } else if constexpr (std::is_same_v<RecursiveFlavor, bb::MegaZKRecursiveFlavor_<UltraCircuitBuilder>>) {
-        return std::make_tuple(814519, 0, 0);
+        if (mode != PredicateTestCase::ConstantTrue) {
+            bb::assert_failure("Unhandled mode in MegaZKRecursiveFlavor.");
+        }
+        return std::make_tuple(814519, 0);
     } else {
         bb::assert_failure("Unhandled recursive flavor.");
     }
-}();
+}
 
 // ========================================
 // Chonk Recursion Constants
 // ========================================
 
 // Gate count for Chonk recursive verification (UltraRollup builder)
-inline constexpr size_t CHONK_RECURSION_GATES = 2495031;
+inline constexpr size_t CHONK_RECURSION_GATES = 2368439;
 
 // ========================================
 // Hypernova Recursion Constants
@@ -93,22 +129,22 @@ inline constexpr size_t CHONK_RECURSION_GATES = 2495031;
 inline constexpr size_t MSM_ROWS_OFFSET = 2;
 
 // Init kernel gate counts (verifies OINK proof)
-inline constexpr size_t INIT_KERNEL_GATE_COUNT = 26038;
+inline constexpr size_t INIT_KERNEL_GATE_COUNT = 26036;
 inline constexpr size_t INIT_KERNEL_ECC_ROWS = 881 + MSM_ROWS_OFFSET;
 inline constexpr size_t INIT_KERNEL_ULTRA_OPS = 89;
 
 // Inner kernel gate counts (verifies HN proof for previous kernel + HN for app)
-inline constexpr size_t INNER_KERNEL_GATE_COUNT_HN = 61020;
+inline constexpr size_t INNER_KERNEL_GATE_COUNT_HN = 61018;
 inline constexpr size_t INNER_KERNEL_ECC_ROWS = 1700 + MSM_ROWS_OFFSET;
 inline constexpr size_t INNER_KERNEL_ULTRA_OPS = 179;
 
 // Tail kernel gate counts (verifies HN_TAIL proof)
-inline constexpr size_t TAIL_KERNEL_GATE_COUNT = 33968;
+inline constexpr size_t TAIL_KERNEL_GATE_COUNT = 33966;
 inline constexpr size_t TAIL_KERNEL_ECC_ROWS = 914 + MSM_ROWS_OFFSET;
 inline constexpr size_t TAIL_KERNEL_ULTRA_OPS = 96;
 
 // Hiding kernel gate counts (verifies HN_FINAL proof)
-inline constexpr size_t HIDING_KERNEL_GATE_COUNT = 37211;
+inline constexpr size_t HIDING_KERNEL_GATE_COUNT = 37106;
 inline constexpr size_t HIDING_KERNEL_ECC_ROWS = 1341 + MSM_ROWS_OFFSET;
 inline constexpr size_t HIDING_KERNEL_ULTRA_OPS = 124;
 
@@ -117,6 +153,13 @@ inline constexpr size_t HIDING_KERNEL_ULTRA_OPS = 124;
 // ========================================
 
 // Gate count for ECCVM recursive verifier (Ultra-arithmetized)
-inline constexpr size_t ECCVM_RECURSIVE_VERIFIER_GATE_COUNT = 215188;
+inline constexpr size_t ECCVM_RECURSIVE_VERIFIER_GATE_COUNT = 214950;
+
+// ========================================
+// Goblin AVM Recursive Verifier Constants
+// ========================================
+
+inline constexpr size_t GOBLIN_AVM_GATE_COUNT = 3325906;
+inline constexpr size_t FINALIZED_GOBLIN_AVM_GATE_COUNT = 3325922;
 
 } // namespace acir_format
