@@ -5,6 +5,7 @@ import { L2BlockStream, type L2BlockStreamEvent, type L2BlockStreamEventHandler 
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 
 import type { PXEConfig } from '../config/index.js';
+import type { JobContext } from '../job_coordinator/index.js';
 import type { AnchorBlockDataProvider } from '../storage/anchor_block_data_provider/anchor_block_data_provider.js';
 import type { NoteDataProvider } from '../storage/note_data_provider/note_data_provider.js';
 import type { RecipientTaggingDataProvider } from '../storage/tagging_data_provider/recipient_tagging_data_provider.js';
