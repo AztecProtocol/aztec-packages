@@ -3,7 +3,7 @@ import type { AztecAsyncArray, AztecAsyncKVStore, AztecAsyncMap } from '@aztec/k
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { CompleteAddress } from '@aztec/stdlib/contract';
 
-export class AddressDataProvider {
+export class AddressStore {
   #store: AztecAsyncKVStore;
   #completeAddresses: AztecAsyncArray<Buffer>;
   #completeAddressIndex: AztecAsyncMap<string, number>;

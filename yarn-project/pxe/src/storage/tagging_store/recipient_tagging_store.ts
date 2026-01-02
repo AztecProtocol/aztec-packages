@@ -3,15 +3,15 @@ import type { DirectionalAppTaggingSecret } from '@aztec/stdlib/logs';
 
 /**
  * Data provider of tagging data used when syncing the logs as a recipient. The sender counterpart of this class
- * is called SenderTaggingDataProvider. We have the providers separate for the sender and recipient because
+ * is called SenderTaggingStore. We have the providers separate for the sender and recipient because
  * the algorithms are completely disjoint and there is not data reuse between the two.
  *
  * @dev Chain reorgs do not need to be handled here because both the finalized and aged indexes refer to finalized
  * blocks, which by definition cannot be affected by reorgs.
  *
- * TODO(benesjan): Relocate to yarn-project/pxe/src/storage/tagging_data_provider
+ * TODO(benesjan): Relocate to yarn-project/pxe/src/storage/tagging_store
  */
-export class RecipientTaggingDataProvider {
+export class RecipientTaggingStore {
   #store: AztecAsyncKVStore;
 
   #highestAgedIndex: AztecAsyncMap<string, number>;

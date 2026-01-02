@@ -4,15 +4,15 @@ import { DirectionalAppTaggingSecret, type PreTag } from '@aztec/stdlib/logs';
 import { TxHash } from '@aztec/stdlib/tx';
 
 import { UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN } from '../../tagging/index.js';
-import { SenderTaggingDataProvider } from './sender_tagging_data_provider.js';
+import { SenderTaggingStore } from './sender_tagging_store.js';
 
-describe('SenderTaggingDataProvider', () => {
-  let taggingDataProvider: SenderTaggingDataProvider;
+describe('SenderTaggingStore', () => {
+  let taggingStore: SenderTaggingStore;
   let secret1: DirectionalAppTaggingSecret;
   let secret2: DirectionalAppTaggingSecret;
 
   beforeEach(async () => {
-    taggingDataProvider = new SenderTaggingDataProvider(await openTmpStore('test'));
+    taggingStore = new SenderTaggingStore(await openTmpStore('test'));
     secret1 = DirectionalAppTaggingSecret.fromString(Fr.random().toString());
     secret2 = DirectionalAppTaggingSecret.fromString(Fr.random().toString());
   });
@@ -22,9 +22,9 @@ describe('SenderTaggingDataProvider', () => {
       const txHash = TxHash.random();
       const preTag: PreTag = { secret: secret1, index: 5 };
 
-      await taggingDataProvider.storePendingIndexes([preTag], txHash);
+      await taggingStore.storePendingIndexes([preTag], txHash);
 
-      const txHashes = await taggingDataProvider.getTxHashesOfPendingIndexes(secret1, 0, 10);
+      const txHashes = await taggingStore.getTxHashesOfPendingIndexes(secret1, 0, 10);
       expect(txHashes).toHaveLength(1);
       expect(txHashes[0]).toEqual(txHash);
     });
@@ -36,13 +36,13 @@ describe('SenderTaggingDataProvider', () => {
         { secret: secret2, index: 7 },
       ];
 
-      await taggingDataProvider.storePendingIndexes(preTags, txHash);
+      await taggingStore.storePendingIndexes(preTags, txHash);
 
-      const txHashes1 = await taggingDataProvider.getTxHashesOfPendingIndexes(secret1, 0, 10);
+      const txHashes1 = await taggingStore.getTxHashesOfPendingIndexes(secret1, 0, 10);
       expect(txHashes1).toHaveLength(1);
       expect(txHashes1[0]).toEqual(txHash);
 
-      const txHashes2 = await taggingDataProvider.getTxHashesOfPendingIndexes(secret2, 0, 10);
+      const txHashes2 = await taggingStore.getTxHashesOfPendingIndexes(secret2, 0, 10);
       expect(txHashes2).toHaveLength(1);
       expect(txHashes2[0]).toEqual(txHash);
     });
@@ -51,10 +51,10 @@ describe('SenderTaggingDataProvider', () => {
       const txHash1 = TxHash.random();
       const txHash2 = TxHash.random();
 
-      await taggingDataProvider.storePendingIndexes([{ secret: secret1, index: 3 }], txHash1);
-      await taggingDataProvider.storePendingIndexes([{ secret: secret1, index: 7 }], txHash2);
+      await taggingStore.storePendingIndexes([{ secret: secret1, index: 3 }], txHash1);
+      await taggingStore.storePendingIndexes([{ secret: secret1, index: 7 }], txHash2);
 
-      const txHashes = await taggingDataProvider.getTxHashesOfPendingIndexes(secret1, 0, 10);
+      const txHashes = await taggingStore.getTxHashesOfPendingIndexes(secret1, 0, 10);
       expect(txHashes).toHaveLength(2);
       expect(txHashes).toContainEqual(txHash1);
       expect(txHashes).toContainEqual(txHash2);
@@ -64,10 +64,10 @@ describe('SenderTaggingDataProvider', () => {
       const txHash = TxHash.random();
       const preTag: PreTag = { secret: secret1, index: 5 };
 
-      await taggingDataProvider.storePendingIndexes([preTag], txHash);
-      await taggingDataProvider.storePendingIndexes([preTag], txHash);
+      await taggingStore.storePendingIndexes([preTag], txHash);
+      await taggingStore.storePendingIndexes([preTag], txHash);
 
-      const txHashes = await taggingDataProvider.getTxHashesOfPendingIndexes(secret1, 0, 10);
+      const txHashes = await taggingStore.getTxHashesOfPendingIndexes(secret1, 0, 10);
       expect(txHashes).toHaveLength(1);
       expect(txHashes[0]).toEqual(txHash);
     });
@@ -79,7 +79,7 @@ describe('SenderTaggingDataProvider', () => {
         { secret: secret1, index: 7 },
       ];
 
-      await expect(taggingDataProvider.storePendingIndexes(preTags, txHash)).rejects.toThrow(
+      await expect(taggingStore.storePendingIndexes(preTags, txHash)).rejects.toThrow(
         'Duplicate secrets found when storing pending indexes',
       );
     });
@@ -88,10 +88,10 @@ describe('SenderTaggingDataProvider', () => {
       const txHash = TxHash.random();
 
       // First store an index
-      await taggingDataProvider.storePendingIndexes([{ secret: secret1, index: 5 }], txHash);
+      await taggingStore.storePendingIndexes([{ secret: secret1, index: 5 }], txHash);
 
       // Try to store a different index for the same secret + txHash pair
-      await expect(taggingDataProvider.storePendingIndexes([{ secret: secret1, index: 7 }], txHash)).rejects.toThrow(
+      await expect(taggingStore.storePendingIndexes([{ secret: secret1, index: 7 }], txHash)).rejects.toThrow(
         /Cannot store index 7.*a different index 5 already exists/,
       );
     });
@@ -101,11 +101,11 @@ describe('SenderTaggingDataProvider', () => {
       const txHash2 = TxHash.random();
 
       // First store and finalize an index
-      await taggingDataProvider.storePendingIndexes([{ secret: secret1, index: 10 }], txHash1);
-      await taggingDataProvider.finalizePendingIndexes([txHash1]);
+      await taggingStore.storePendingIndexes([{ secret: secret1, index: 10 }], txHash1);
+      await taggingStore.finalizePendingIndexes([txHash1]);
 
       // Try to store a pending index lower than the finalized index
-      await expect(taggingDataProvider.storePendingIndexes([{ secret: secret1, index: 5 }], txHash2)).rejects.toThrow(
+      await expect(taggingStore.storePendingIndexes([{ secret: secret1, index: 5 }], txHash2)).rejects.toThrow(
         /Cannot store pending index 5.*lower than or equal to the last finalized index 10/,
       );
     });
@@ -115,11 +115,11 @@ describe('SenderTaggingDataProvider', () => {
       const txHash2 = TxHash.random();
 
       // First store and finalize an index
-      await taggingDataProvider.storePendingIndexes([{ secret: secret1, index: 10 }], txHash1);
-      await taggingDataProvider.finalizePendingIndexes([txHash1]);
+      await taggingStore.storePendingIndexes([{ secret: secret1, index: 10 }], txHash1);
+      await taggingStore.finalizePendingIndexes([txHash1]);
 
       // Try to store a pending index equal to the finalized index
-      await expect(taggingDataProvider.storePendingIndexes([{ secret: secret1, index: 10 }], txHash2)).rejects.toThrow(
+      await expect(taggingStore.storePendingIndexes([{ secret: secret1, index: 10 }], txHash2)).rejects.toThrow(
         /Cannot store pending index 10.*lower than or equal to the last finalized index 10/,
       );
     });
@@ -129,15 +129,13 @@ describe('SenderTaggingDataProvider', () => {
       const txHash2 = TxHash.random();
 
       // First store and finalize an index
-      await taggingDataProvider.storePendingIndexes([{ secret: secret1, index: 10 }], txHash1);
-      await taggingDataProvider.finalizePendingIndexes([txHash1]);
+      await taggingStore.storePendingIndexes([{ secret: secret1, index: 10 }], txHash1);
+      await taggingStore.finalizePendingIndexes([txHash1]);
 
       // Store a pending index higher than the finalized index - should succeed
-      await expect(
-        taggingDataProvider.storePendingIndexes([{ secret: secret1, index: 15 }], txHash2),
-      ).resolves.not.toThrow();
+      await expect(taggingStore.storePendingIndexes([{ secret: secret1, index: 15 }], txHash2)).resolves.not.toThrow();
 
-      const txHashes = await taggingDataProvider.getTxHashesOfPendingIndexes(secret1, 0, 20);
+      const txHashes = await taggingStore.getTxHashesOfPendingIndexes(secret1, 0, 20);
       expect(txHashes).toHaveLength(1);
       expect(txHashes[0]).toEqual(txHash2);
     });
@@ -150,12 +148,12 @@ describe('SenderTaggingDataProvider', () => {
         const indexBeyondWindow = finalizedIndex + UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN + 1;
 
         // First store and finalize an index
-        await taggingDataProvider.storePendingIndexes([{ secret: secret1, index: finalizedIndex }], txHash1);
-        await taggingDataProvider.finalizePendingIndexes([txHash1]);
+        await taggingStore.storePendingIndexes([{ secret: secret1, index: finalizedIndex }], txHash1);
+        await taggingStore.finalizePendingIndexes([txHash1]);
 
         // Try to store an index beyond the window
         await expect(
-          taggingDataProvider.storePendingIndexes([{ secret: secret1, index: indexBeyondWindow }], txHash2),
+          taggingStore.storePendingIndexes([{ secret: secret1, index: indexBeyondWindow }], txHash2),
         ).rejects.toThrow(
           `Highest used index ${indexBeyondWindow} is further than window length from the highest finalized index ${finalizedIndex}`,
         );
@@ -168,15 +166,15 @@ describe('SenderTaggingDataProvider', () => {
         const indexAtBoundary = finalizedIndex + UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN;
 
         // First store and finalize an index
-        await taggingDataProvider.storePendingIndexes([{ secret: secret1, index: finalizedIndex }], txHash1);
-        await taggingDataProvider.finalizePendingIndexes([txHash1]);
+        await taggingStore.storePendingIndexes([{ secret: secret1, index: finalizedIndex }], txHash1);
+        await taggingStore.finalizePendingIndexes([txHash1]);
 
         // Store an index at the boundary, but check is >, so it should succeed
         await expect(
-          taggingDataProvider.storePendingIndexes([{ secret: secret1, index: indexAtBoundary }], txHash2),
+          taggingStore.storePendingIndexes([{ secret: secret1, index: indexAtBoundary }], txHash2),
         ).resolves.not.toThrow();
 
-        const txHashes = await taggingDataProvider.getTxHashesOfPendingIndexes(secret1, 0, indexAtBoundary + 5);
+        const txHashes = await taggingStore.getTxHashesOfPendingIndexes(secret1, 0, indexAtBoundary + 5);
         expect(txHashes).toHaveLength(1);
         expect(txHashes[0]).toEqual(txHash2);
       });
@@ -185,7 +183,7 @@ describe('SenderTaggingDataProvider', () => {
 
   describe('getTxHashesOfPendingIndexes', () => {
     it('returns empty array when no pending indexes exist', async () => {
-      const txHashes = await taggingDataProvider.getTxHashesOfPendingIndexes(secret1, 0, 10);
+      const txHashes = await taggingStore.getTxHashesOfPendingIndexes(secret1, 0, 10);
       expect(txHashes).toEqual([]);
     });
 
@@ -194,11 +192,11 @@ describe('SenderTaggingDataProvider', () => {
       const txHash2 = TxHash.random();
       const txHash3 = TxHash.random();
 
-      await taggingDataProvider.storePendingIndexes([{ secret: secret1, index: 3 }], txHash1);
-      await taggingDataProvider.storePendingIndexes([{ secret: secret1, index: 5 }], txHash2);
-      await taggingDataProvider.storePendingIndexes([{ secret: secret1, index: 8 }], txHash3);
+      await taggingStore.storePendingIndexes([{ secret: secret1, index: 3 }], txHash1);
+      await taggingStore.storePendingIndexes([{ secret: secret1, index: 5 }], txHash2);
+      await taggingStore.storePendingIndexes([{ secret: secret1, index: 8 }], txHash3);
 
-      const txHashes = await taggingDataProvider.getTxHashesOfPendingIndexes(secret1, 4, 9);
+      const txHashes = await taggingStore.getTxHashesOfPendingIndexes(secret1, 4, 9);
       expect(txHashes).toHaveLength(2);
       expect(txHashes).toContainEqual(txHash2);
       expect(txHashes).toContainEqual(txHash3);
@@ -209,10 +207,10 @@ describe('SenderTaggingDataProvider', () => {
       const txHash1 = TxHash.random();
       const txHash2 = TxHash.random();
 
-      await taggingDataProvider.storePendingIndexes([{ secret: secret1, index: 5 }], txHash1);
-      await taggingDataProvider.storePendingIndexes([{ secret: secret1, index: 10 }], txHash2);
+      await taggingStore.storePendingIndexes([{ secret: secret1, index: 5 }], txHash1);
+      await taggingStore.storePendingIndexes([{ secret: secret1, index: 10 }], txHash2);
 
-      const txHashes = await taggingDataProvider.getTxHashesOfPendingIndexes(secret1, 5, 10);
+      const txHashes = await taggingStore.getTxHashesOfPendingIndexes(secret1, 5, 10);
       expect(txHashes).toHaveLength(1);
       expect(txHashes[0]).toEqual(txHash1);
     });
@@ -223,15 +221,15 @@ describe('SenderTaggingDataProvider', () => {
       const txHash3 = TxHash.random();
       const txHash4 = TxHash.random();
 
-      await taggingDataProvider.storePendingIndexes([{ secret: secret1, index: 3 }], txHash1);
-      await taggingDataProvider.storePendingIndexes([{ secret: secret1, index: 5 }], txHash2);
+      await taggingStore.storePendingIndexes([{ secret: secret1, index: 3 }], txHash1);
+      await taggingStore.storePendingIndexes([{ secret: secret1, index: 5 }], txHash2);
       // We store different secret with txHash1 to check we correctly don't return it in the result
-      await taggingDataProvider.storePendingIndexes([{ secret: secret2, index: 7 }], txHash1);
+      await taggingStore.storePendingIndexes([{ secret: secret2, index: 7 }], txHash1);
       // Store "parallel" index for secret1 with a different tx (can happen when sending logs from multiple PXEs)
-      await taggingDataProvider.storePendingIndexes([{ secret: secret1, index: 7 }], txHash3);
-      await taggingDataProvider.storePendingIndexes([{ secret: secret1, index: 7 }], txHash4);
+      await taggingStore.storePendingIndexes([{ secret: secret1, index: 7 }], txHash3);
+      await taggingStore.storePendingIndexes([{ secret: secret1, index: 7 }], txHash4);
 
-      const txHashes = await taggingDataProvider.getTxHashesOfPendingIndexes(secret1, 0, 10);
+      const txHashes = await taggingStore.getTxHashesOfPendingIndexes(secret1, 0, 10);
       // Should have 3 unique tx hashes for secret1
       expect(txHashes).toEqual(expect.arrayContaining([txHash1, txHash2, txHash3, txHash4]));
     });
@@ -239,32 +237,32 @@ describe('SenderTaggingDataProvider', () => {
 
   describe('getLastFinalizedIndex', () => {
     it('returns undefined when no finalized index exists', async () => {
-      const lastFinalized = await taggingDataProvider.getLastFinalizedIndex(secret1);
+      const lastFinalized = await taggingStore.getLastFinalizedIndex(secret1);
       expect(lastFinalized).toBeUndefined();
     });
 
     it('returns the last finalized index after finalizePendingIndexes', async () => {
       const txHash = TxHash.random();
-      await taggingDataProvider.storePendingIndexes([{ secret: secret1, index: 5 }], txHash);
-      await taggingDataProvider.finalizePendingIndexes([txHash]);
+      await taggingStore.storePendingIndexes([{ secret: secret1, index: 5 }], txHash);
+      await taggingStore.finalizePendingIndexes([txHash]);
 
-      const lastFinalized = await taggingDataProvider.getLastFinalizedIndex(secret1);
+      const lastFinalized = await taggingStore.getLastFinalizedIndex(secret1);
       expect(lastFinalized).toBe(5);
     });
   });
 
   describe('getLastUsedIndex', () => {
     it('returns undefined when no indexes exist', async () => {
-      const lastUsed = await taggingDataProvider.getLastUsedIndex(secret1);
+      const lastUsed = await taggingStore.getLastUsedIndex(secret1);
       expect(lastUsed).toBeUndefined();
     });
 
     it('returns the last finalized index when no pending indexes exist', async () => {
       const txHash = TxHash.random();
-      await taggingDataProvider.storePendingIndexes([{ secret: secret1, index: 5 }], txHash);
-      await taggingDataProvider.finalizePendingIndexes([txHash]);
+      await taggingStore.storePendingIndexes([{ secret: secret1, index: 5 }], txHash);
+      await taggingStore.finalizePendingIndexes([txHash]);
 
-      const lastUsed = await taggingDataProvider.getLastUsedIndex(secret1);
+      const lastUsed = await taggingStore.getLastUsedIndex(secret1);
       expect(lastUsed).toBe(5);
     });
 
@@ -273,13 +271,13 @@ describe('SenderTaggingDataProvider', () => {
       const txHash2 = TxHash.random();
 
       // First, finalize an index
-      await taggingDataProvider.storePendingIndexes([{ secret: secret1, index: 3 }], txHash1);
-      await taggingDataProvider.finalizePendingIndexes([txHash1]);
+      await taggingStore.storePendingIndexes([{ secret: secret1, index: 3 }], txHash1);
+      await taggingStore.finalizePendingIndexes([txHash1]);
 
       // Then add a higher pending index
-      await taggingDataProvider.storePendingIndexes([{ secret: secret1, index: 7 }], txHash2);
+      await taggingStore.storePendingIndexes([{ secret: secret1, index: 7 }], txHash2);
 
-      const lastUsed = await taggingDataProvider.getLastUsedIndex(secret1);
+      const lastUsed = await taggingStore.getLastUsedIndex(secret1);
       expect(lastUsed).toBe(7);
     });
 
@@ -288,11 +286,11 @@ describe('SenderTaggingDataProvider', () => {
       const txHash2 = TxHash.random();
       const txHash3 = TxHash.random();
 
-      await taggingDataProvider.storePendingIndexes([{ secret: secret1, index: 3 }], txHash1);
-      await taggingDataProvider.storePendingIndexes([{ secret: secret1, index: 7 }], txHash2);
-      await taggingDataProvider.storePendingIndexes([{ secret: secret1, index: 5 }], txHash3);
+      await taggingStore.storePendingIndexes([{ secret: secret1, index: 3 }], txHash1);
+      await taggingStore.storePendingIndexes([{ secret: secret1, index: 7 }], txHash2);
+      await taggingStore.storePendingIndexes([{ secret: secret1, index: 5 }], txHash3);
 
-      const lastUsed = await taggingDataProvider.getLastUsedIndex(secret1);
+      const lastUsed = await taggingStore.getLastUsedIndex(secret1);
       expect(lastUsed).toBe(7);
     });
   });
@@ -302,19 +300,19 @@ describe('SenderTaggingDataProvider', () => {
       const txHash1 = TxHash.random();
       const txHash2 = TxHash.random();
 
-      await taggingDataProvider.storePendingIndexes([{ secret: secret1, index: 3 }], txHash1);
-      await taggingDataProvider.storePendingIndexes([{ secret: secret2, index: 5 }], txHash1);
-      await taggingDataProvider.storePendingIndexes([{ secret: secret1, index: 7 }], txHash2);
+      await taggingStore.storePendingIndexes([{ secret: secret1, index: 3 }], txHash1);
+      await taggingStore.storePendingIndexes([{ secret: secret2, index: 5 }], txHash1);
+      await taggingStore.storePendingIndexes([{ secret: secret1, index: 7 }], txHash2);
 
-      await taggingDataProvider.dropPendingIndexes([txHash1]);
+      await taggingStore.dropPendingIndexes([txHash1]);
 
       // txHash1 should be removed
-      const txHashes1 = await taggingDataProvider.getTxHashesOfPendingIndexes(secret1, 0, 10);
+      const txHashes1 = await taggingStore.getTxHashesOfPendingIndexes(secret1, 0, 10);
       expect(txHashes1).toHaveLength(1);
       expect(txHashes1[0]).toEqual(txHash2);
 
       // txHash1 should also be removed from secret2
-      const txHashes2 = await taggingDataProvider.getTxHashesOfPendingIndexes(secret2, 0, 10);
+      const txHashes2 = await taggingStore.getTxHashesOfPendingIndexes(secret2, 0, 10);
       expect(txHashes2).toEqual([]);
     });
   });
@@ -322,15 +320,15 @@ describe('SenderTaggingDataProvider', () => {
   describe('finalizePendingIndexes', () => {
     it('moves pending index to finalized for a given tx hash', async () => {
       const txHash = TxHash.random();
-      await taggingDataProvider.storePendingIndexes([{ secret: secret1, index: 5 }], txHash);
+      await taggingStore.storePendingIndexes([{ secret: secret1, index: 5 }], txHash);
 
-      await taggingDataProvider.finalizePendingIndexes([txHash]);
+      await taggingStore.finalizePendingIndexes([txHash]);
 
-      const lastFinalized = await taggingDataProvider.getLastFinalizedIndex(secret1);
+      const lastFinalized = await taggingStore.getLastFinalizedIndex(secret1);
       expect(lastFinalized).toBe(5);
 
       // Pending index should be removed
-      const txHashes = await taggingDataProvider.getTxHashesOfPendingIndexes(secret1, 0, 10);
+      const txHashes = await taggingStore.getTxHashesOfPendingIndexes(secret1, 0, 10);
       expect(txHashes).toEqual([]);
     });
 
@@ -338,13 +336,13 @@ describe('SenderTaggingDataProvider', () => {
       const txHash1 = TxHash.random();
       const txHash2 = TxHash.random();
 
-      await taggingDataProvider.storePendingIndexes([{ secret: secret1, index: 3 }], txHash1);
-      await taggingDataProvider.finalizePendingIndexes([txHash1]);
+      await taggingStore.storePendingIndexes([{ secret: secret1, index: 3 }], txHash1);
+      await taggingStore.finalizePendingIndexes([txHash1]);
 
-      await taggingDataProvider.storePendingIndexes([{ secret: secret1, index: 7 }], txHash2);
-      await taggingDataProvider.finalizePendingIndexes([txHash2]);
+      await taggingStore.storePendingIndexes([{ secret: secret1, index: 7 }], txHash2);
+      await taggingStore.finalizePendingIndexes([txHash2]);
 
-      const lastFinalized = await taggingDataProvider.getLastFinalizedIndex(secret1);
+      const lastFinalized = await taggingStore.getLastFinalizedIndex(secret1);
       expect(lastFinalized).toBe(7);
     });
 
@@ -353,16 +351,16 @@ describe('SenderTaggingDataProvider', () => {
       const txHash2 = TxHash.random();
 
       // Store both pending indexes first
-      await taggingDataProvider.storePendingIndexes([{ secret: secret1, index: 7 }], txHash1);
-      await taggingDataProvider.storePendingIndexes([{ secret: secret1, index: 3 }], txHash2);
+      await taggingStore.storePendingIndexes([{ secret: secret1, index: 7 }], txHash1);
+      await taggingStore.storePendingIndexes([{ secret: secret1, index: 3 }], txHash2);
 
       // Finalize the higher index first
-      await taggingDataProvider.finalizePendingIndexes([txHash1]);
+      await taggingStore.finalizePendingIndexes([txHash1]);
 
       // Then try to finalize the lower index
-      await taggingDataProvider.finalizePendingIndexes([txHash2]);
+      await taggingStore.finalizePendingIndexes([txHash2]);
 
-      const lastFinalized = await taggingDataProvider.getLastFinalizedIndex(secret1);
+      const lastFinalized = await taggingStore.getLastFinalizedIndex(secret1);
       expect(lastFinalized).toBe(7); // Should remain at 7
     });
 
@@ -371,23 +369,23 @@ describe('SenderTaggingDataProvider', () => {
       const txHash2 = TxHash.random();
       const txHash3 = TxHash.random();
 
-      await taggingDataProvider.storePendingIndexes([{ secret: secret1, index: 3 }], txHash1);
-      await taggingDataProvider.storePendingIndexes([{ secret: secret1, index: 5 }], txHash2);
-      await taggingDataProvider.storePendingIndexes([{ secret: secret1, index: 7 }], txHash3);
+      await taggingStore.storePendingIndexes([{ secret: secret1, index: 3 }], txHash1);
+      await taggingStore.storePendingIndexes([{ secret: secret1, index: 5 }], txHash2);
+      await taggingStore.storePendingIndexes([{ secret: secret1, index: 7 }], txHash3);
 
       // Finalize txHash2 (index 5)
-      await taggingDataProvider.finalizePendingIndexes([txHash2]);
+      await taggingStore.finalizePendingIndexes([txHash2]);
 
       // txHash1 (index 3) should be pruned as it's lower than finalized
       // txHash3 (index 7) should remain
-      const txHashes = await taggingDataProvider.getTxHashesOfPendingIndexes(secret1, 0, 10);
+      const txHashes = await taggingStore.getTxHashesOfPendingIndexes(secret1, 0, 10);
       expect(txHashes).toHaveLength(1);
       expect(txHashes[0]).toEqual(txHash3);
     });
 
     it('handles multiple secrets in the same tx', async () => {
       const txHash = TxHash.random();
-      await taggingDataProvider.storePendingIndexes(
+      await taggingStore.storePendingIndexes(
         [
           { secret: secret1, index: 3 },
           { secret: secret2, index: 7 },
@@ -395,10 +393,10 @@ describe('SenderTaggingDataProvider', () => {
         txHash,
       );
 
-      await taggingDataProvider.finalizePendingIndexes([txHash]);
+      await taggingStore.finalizePendingIndexes([txHash]);
 
-      const lastFinalized1 = await taggingDataProvider.getLastFinalizedIndex(secret1);
-      const lastFinalized2 = await taggingDataProvider.getLastFinalizedIndex(secret2);
+      const lastFinalized1 = await taggingStore.getLastFinalizedIndex(secret1);
+      const lastFinalized2 = await taggingStore.getLastFinalizedIndex(secret2);
 
       expect(lastFinalized1).toBe(3);
       expect(lastFinalized2).toBe(7);
@@ -406,16 +404,16 @@ describe('SenderTaggingDataProvider', () => {
 
     it('does nothing when tx hash does not exist', async () => {
       const txHash = TxHash.random();
-      await taggingDataProvider.storePendingIndexes([{ secret: secret1, index: 3 }], txHash);
+      await taggingStore.storePendingIndexes([{ secret: secret1, index: 3 }], txHash);
 
-      await taggingDataProvider.finalizePendingIndexes([TxHash.random()]);
+      await taggingStore.finalizePendingIndexes([TxHash.random()]);
 
       // Original pending index should still be there
-      const txHashes = await taggingDataProvider.getTxHashesOfPendingIndexes(secret1, 0, 10);
+      const txHashes = await taggingStore.getTxHashesOfPendingIndexes(secret1, 0, 10);
       expect(txHashes).toHaveLength(1);
 
       // Finalized index should not be set
-      const lastFinalized = await taggingDataProvider.getLastFinalizedIndex(secret1);
+      const lastFinalized = await taggingStore.getLastFinalizedIndex(secret1);
       expect(lastFinalized).toBeUndefined();
     });
   });
@@ -426,39 +424,39 @@ describe('SenderTaggingDataProvider', () => {
       const txHash2 = TxHash.random();
 
       // Step 1: Add pending index
-      await taggingDataProvider.storePendingIndexes([{ secret: secret1, index: 3 }], txHash1);
-      expect(await taggingDataProvider.getLastUsedIndex(secret1)).toBe(3);
-      expect(await taggingDataProvider.getLastFinalizedIndex(secret1)).toBeUndefined();
+      await taggingStore.storePendingIndexes([{ secret: secret1, index: 3 }], txHash1);
+      expect(await taggingStore.getLastUsedIndex(secret1)).toBe(3);
+      expect(await taggingStore.getLastFinalizedIndex(secret1)).toBeUndefined();
 
       // Step 2: Finalize the index
-      await taggingDataProvider.finalizePendingIndexes([txHash1]);
-      expect(await taggingDataProvider.getLastUsedIndex(secret1)).toBe(3);
-      expect(await taggingDataProvider.getLastFinalizedIndex(secret1)).toBe(3);
+      await taggingStore.finalizePendingIndexes([txHash1]);
+      expect(await taggingStore.getLastUsedIndex(secret1)).toBe(3);
+      expect(await taggingStore.getLastFinalizedIndex(secret1)).toBe(3);
 
       // Step 3: Add a new higher pending index
-      await taggingDataProvider.storePendingIndexes([{ secret: secret1, index: 7 }], txHash2);
-      expect(await taggingDataProvider.getLastUsedIndex(secret1)).toBe(7);
-      expect(await taggingDataProvider.getLastFinalizedIndex(secret1)).toBe(3);
+      await taggingStore.storePendingIndexes([{ secret: secret1, index: 7 }], txHash2);
+      expect(await taggingStore.getLastUsedIndex(secret1)).toBe(7);
+      expect(await taggingStore.getLastFinalizedIndex(secret1)).toBe(3);
 
       // Step 4: Finalize the new index
-      await taggingDataProvider.finalizePendingIndexes([txHash2]);
-      expect(await taggingDataProvider.getLastUsedIndex(secret1)).toBe(7);
-      expect(await taggingDataProvider.getLastFinalizedIndex(secret1)).toBe(7);
+      await taggingStore.finalizePendingIndexes([txHash2]);
+      expect(await taggingStore.getLastUsedIndex(secret1)).toBe(7);
+      expect(await taggingStore.getLastFinalizedIndex(secret1)).toBe(7);
     });
 
     it('handles dropped transactions', async () => {
       const txHash1 = TxHash.random();
       const txHash2 = TxHash.random();
 
-      await taggingDataProvider.storePendingIndexes([{ secret: secret1, index: 3 }], txHash1);
-      await taggingDataProvider.storePendingIndexes([{ secret: secret1, index: 5 }], txHash2);
+      await taggingStore.storePendingIndexes([{ secret: secret1, index: 3 }], txHash1);
+      await taggingStore.storePendingIndexes([{ secret: secret1, index: 5 }], txHash2);
 
-      expect(await taggingDataProvider.getLastUsedIndex(secret1)).toBe(5);
+      expect(await taggingStore.getLastUsedIndex(secret1)).toBe(5);
 
       // Drop txHash2
-      await taggingDataProvider.dropPendingIndexes([txHash2]);
+      await taggingStore.dropPendingIndexes([txHash2]);
 
-      expect(await taggingDataProvider.getLastUsedIndex(secret1)).toBe(3);
+      expect(await taggingStore.getLastUsedIndex(secret1)).toBe(3);
     });
 
     it('handles multiple secrets with different lifecycles', async () => {
@@ -467,19 +465,19 @@ describe('SenderTaggingDataProvider', () => {
       const txHash3 = TxHash.random();
 
       // Secret1: pending -> finalized
-      await taggingDataProvider.storePendingIndexes([{ secret: secret1, index: 3 }], txHash1);
-      await taggingDataProvider.finalizePendingIndexes([txHash1]);
+      await taggingStore.storePendingIndexes([{ secret: secret1, index: 3 }], txHash1);
+      await taggingStore.finalizePendingIndexes([txHash1]);
 
       // Secret2: pending (not finalized)
-      await taggingDataProvider.storePendingIndexes([{ secret: secret2, index: 5 }], txHash2);
+      await taggingStore.storePendingIndexes([{ secret: secret2, index: 5 }], txHash2);
 
       // Secret1: new pending
-      await taggingDataProvider.storePendingIndexes([{ secret: secret1, index: 7 }], txHash3);
+      await taggingStore.storePendingIndexes([{ secret: secret1, index: 7 }], txHash3);
 
-      expect(await taggingDataProvider.getLastFinalizedIndex(secret1)).toBe(3);
-      expect(await taggingDataProvider.getLastUsedIndex(secret1)).toBe(7);
-      expect(await taggingDataProvider.getLastFinalizedIndex(secret2)).toBeUndefined();
-      expect(await taggingDataProvider.getLastUsedIndex(secret2)).toBe(5);
+      expect(await taggingStore.getLastFinalizedIndex(secret1)).toBe(3);
+      expect(await taggingStore.getLastUsedIndex(secret1)).toBe(7);
+      expect(await taggingStore.getLastFinalizedIndex(secret2)).toBeUndefined();
+      expect(await taggingStore.getLastUsedIndex(secret2)).toBe(5);
     });
   });
 });

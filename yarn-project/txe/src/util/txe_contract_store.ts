@@ -1,15 +1,15 @@
 import type { ContractArtifact } from '@aztec/aztec.js/abi';
 import { Fr } from '@aztec/aztec.js/fields';
-import { ContractDataProvider } from '@aztec/pxe/server';
+import { ContractStore } from '@aztec/pxe/server';
 
 export type ContractArtifactWithHash = ContractArtifact & { artifactHash: Fr };
 
 /*
- * A contract data provider that stores contract artifacts with their hashes. Since
+ * A contract store that stores contract artifacts with their hashes. Since
  * TXE typically deploys the same contract again and again for multiple tests, caching
  * the *very* expensive artifact hash computation improves testing speed significantly.
  */
-export class TXEContractDataProvider extends ContractDataProvider {
+export class TXEContractStore extends ContractStore {
   #artifactHashes: Map<string, Buffer> = new Map();
 
   public override async addContractArtifact(

@@ -5,7 +5,7 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { L2BlockHash } from '@aztec/stdlib/block';
 import { NoteDao, NoteStatus } from '@aztec/stdlib/note';
 
-import { NoteDataProvider } from './note_data_provider.js';
+import { NoteStore } from './note_store.js';
 
 // -----------------------------------------------------------------------------
 // Shared constants for deterministic fixtures
@@ -35,7 +35,7 @@ const DUMMY_SILOED_NULLIFIER_3 = new Fr(3n);
 //
 // ───────────────────────────────────────────────────────────────────────────
 
-describe('NoteDataProvider', () => {
+describe('NoteStore', () => {
   // Helper to create a deterministic note with sensible defaults, override any field as needed.
   function mkNote(overrides: Partial<NoteDao> = {}) {
     return NoteDao.random({
@@ -48,10 +48,10 @@ describe('NoteDataProvider', () => {
     });
   }
 
-  // Sets up a fresh NoteDataProvider with two scopes and three notes.
+  // Sets up a fresh NoteStore with two scopes and three notes.
   async function setupProviderWithNotes(storeName: string) {
     const store = await openTmpStore(storeName);
-    const provider = await NoteDataProvider.create(store);
+    const provider = await NoteStore.create(store);
 
     await provider.addScope(SCOPE_1);
     await provider.addScope(SCOPE_2);
@@ -96,10 +96,10 @@ describe('NoteDataProvider', () => {
   }
 
   // In these tests, we verify the presence/absence of notes by their `index`.
-  describe('NoteDataProvider.create', () => {
+  describe('NoteStore.create', () => {
     it('creates provider on an empty store and confirms getNotes returns an empty array', async () => {
-      const store = await openTmpStore('note_data_provider_fresh_store');
-      const provider = await NoteDataProvider.create(store);
+      const store = await openTmpStore('note_store_fresh_store');
+      const provider = await NoteStore.create(store);
 
       const res = await provider.getNotes({ contractAddress: CONTRACT_A });
       expect(Array.isArray(res)).toBe(true);
@@ -109,10 +109,10 @@ describe('NoteDataProvider', () => {
     });
 
     it('re-initializes from an existing store and restores previously added notes', async () => {
-      const store = await openTmpStore('note_data_provider_re-init_test');
+      const store = await openTmpStore('note_store_re-init_test');
 
       // First provider populates the store; second reopens it to verify persistence
-      const provider1 = await NoteDataProvider.create(store);
+      const provider1 = await NoteStore.create(store);
 
       await provider1.addScope(SCOPE_1);
       await provider1.addScope(SCOPE_2);
@@ -121,7 +121,7 @@ describe('NoteDataProvider', () => {
       const noteB = await mkNote({ contractAddress: CONTRACT_B, index: 2n });
       await provider1.addNotes([noteA, noteB], FAKE_ADDRESS);
 
-      const provider2 = await NoteDataProvider.create(store);
+      const provider2 = await NoteStore.create(store);
 
       const notesA = await provider2.getNotes({ contractAddress: CONTRACT_A });
       const notesB = await provider2.getNotes({ contractAddress: CONTRACT_B });
@@ -133,15 +133,15 @@ describe('NoteDataProvider', () => {
     });
   });
 
-  describe('NoteDataProvider.getNotes filtering happy path', () => {
+  describe('NoteStore.getNotes filtering happy path', () => {
     let store: AztecLMDBStoreV2;
-    let provider: NoteDataProvider;
+    let provider: NoteStore;
     let note1: NoteDao;
     let note2: NoteDao;
     let note3: NoteDao;
 
     beforeEach(async () => {
-      ({ store, provider, note1, note2, note3 } = await setupProviderWithNotes('note_data_provider_get_notes_happy'));
+      ({ store, provider, note1, note2, note3 } = await setupProviderWithNotes('note_store_get_notes_happy'));
     });
 
     afterEach(async () => {
@@ -260,13 +260,13 @@ describe('NoteDataProvider', () => {
     });
   });
 
-  describe('NoteDataProvider.getNotes filtering edge cases', () => {
+  describe('NoteStore.getNotes filtering edge cases', () => {
     let store: AztecLMDBStoreV2;
-    let provider: NoteDataProvider;
+    let provider: NoteStore;
     let note2: NoteDao;
 
     beforeEach(async () => {
-      ({ store, provider, note2 } = await setupProviderWithNotes('note_data_provider_get_notes_edge'));
+      ({ store, provider, note2 } = await setupProviderWithNotes('note_store_get_notes_edge'));
     });
 
     afterEach(async () => {
@@ -321,17 +321,15 @@ describe('NoteDataProvider', () => {
     });
   });
 
-  describe('NoteDataProvider.applyNullifiers happy path', () => {
+  describe('NoteStore.applyNullifiers happy path', () => {
     let store: AztecLMDBStoreV2;
-    let provider: NoteDataProvider;
+    let provider: NoteStore;
     let note1: NoteDao;
     let note2: NoteDao;
     let note3: NoteDao;
 
     beforeEach(async () => {
-      ({ store, provider, note1, note2, note3 } = await setupProviderWithNotes(
-        'note_data_provider_apply_nullifiers_happy',
-      ));
+      ({ store, provider, note1, note2, note3 } = await setupProviderWithNotes('note_store_apply_nullifiers_happy'));
     });
 
     afterEach(async () => {
@@ -383,14 +381,14 @@ describe('NoteDataProvider', () => {
     });
   });
 
-  describe('NoteDataProvider.applyNullifiers edge cases', () => {
+  describe('NoteStore.applyNullifiers edge cases', () => {
     let store: AztecLMDBStoreV2;
-    let provider: NoteDataProvider;
+    let provider: NoteStore;
     let note1: NoteDao;
     let note2: NoteDao;
 
     beforeEach(async () => {
-      ({ store, provider, note1, note2 } = await setupProviderWithNotes('note_data_provider_apply_nullifiers_edge'));
+      ({ store, provider, note1, note2 } = await setupProviderWithNotes('note_store_apply_nullifiers_edge'));
     });
 
     afterEach(async () => {
@@ -490,13 +488,13 @@ describe('NoteDataProvider', () => {
     });
   });
 
-  describe('NoteDataProvider.rollbackNotesAndNullifiers', () => {
-    let provider: NoteDataProvider;
+  describe('NoteStore.rollbackNotesAndNullifiers', () => {
+    let provider: NoteStore;
     let store: AztecLMDBStoreV2;
 
     beforeEach(async () => {
-      store = await openTmpStore('note_data_provider_rollback_test');
-      provider = await NoteDataProvider.create(store);
+      store = await openTmpStore('note_store_rollback_test');
+      provider = await NoteStore.create(store);
       await provider.addScope(SCOPE_1);
       await provider.addScope(SCOPE_2);
     });
