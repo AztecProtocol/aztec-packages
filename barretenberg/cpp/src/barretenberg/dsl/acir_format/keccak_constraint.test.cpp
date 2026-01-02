@@ -1,6 +1,5 @@
 #include "keccak_constraint.hpp"
 #include "acir_format.hpp"
-#include "acir_format_mocks.hpp"
 #include "barretenberg/crypto/keccak/keccak.hpp"
 #include "barretenberg/crypto/keccak/keccakf1600.cpp"
 #include "barretenberg/dsl/acir_format/test_class.hpp"
