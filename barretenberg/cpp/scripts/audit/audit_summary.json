@@ -1,162 +1,172 @@
 {
-  "chonk": {
-    "internal": {
-      "not started": 4
-    },
-    "external_1": {
-      "not started": 4
-    },
-    "external_2": {
-      "not started": 4
-    }
-  },
   "commitment_schemes": {
     "internal": {
-      "not started": 23
+      "not started": 13,
+      "complete": 8
     },
     "external_1": {
-      "not started": 23
+      "not started": 21
     },
     "external_2": {
-      "not started": 23
+      "not started": 21
     }
   },
   "crypto": {
     "internal": {
-      "not started": 75
+      "not started": 62,
+      "complete": 12
     },
     "external_1": {
-      "not started": 75
+      "not started": 74
     },
     "external_2": {
-      "not started": 75
+      "not started": 74
     }
   },
   "dsl": {
     "internal": {
-      "not started": 59
+      "not started": 37,
+      "complete": 25
     },
     "external_1": {
-      "not started": 59
+      "not started": 62
     },
     "external_2": {
-      "not started": 59
+      "not started": 62
     }
   },
   "ecc": {
     "internal": {
-      "not started": 51
+      "not started": 44
     },
     "external_1": {
-      "not started": 51
+      "not started": 44
     },
     "external_2": {
-      "not started": 51
+      "not started": 44
     }
   },
   "eccvm": {
     "internal": {
-      "not started": 14
+      "not started": 13,
+      "complete": 2
     },
     "external_1": {
-      "not started": 14
+      "not started": 15
     },
     "external_2": {
-      "not started": 14
+      "not started": 15
     }
   },
   "flavor": {
     "internal": {
-      "not started": 6
+      "not started": 22
     },
     "external_1": {
-      "not started": 6
+      "not started": 22
     },
     "external_2": {
-      "not started": 6
+      "not started": 22
     }
   },
   "goblin": {
     "internal": {
-      "not started": 5
+      "not started": 7,
+      "complete": 4
     },
     "external_1": {
-      "not started": 5
+      "not started": 11
     },
     "external_2": {
-      "not started": 5
+      "not started": 11
     }
   },
   "honk": {
     "internal": {
-      "not started": 5
+      "not started": 15,
+      "complete": 3
     },
     "external_1": {
-      "not started": 5
+      "not started": 18
     },
     "external_2": {
-      "not started": 5
+      "not started": 18
     }
   },
   "numeric": {
     "internal": {
-      "not started": 15
+      "not started": 15,
+      "complete": 1
     },
     "external_1": {
-      "not started": 15
+      "not started": 16
     },
     "external_2": {
-      "not started": 15
+      "not started": 16
+    }
+  },
+  "op_queue": {
+    "internal": {
+      "not started": 4
+    },
+    "external_1": {
+      "not started": 4
+    },
+    "external_2": {
+      "not started": 4
     }
   },
   "polynomials": {
     "internal": {
-      "not started": 24
+      "not started": 13,
+      "complete": 3
     },
     "external_1": {
-      "not started": 24
+      "not started": 16
     },
     "external_2": {
-      "not started": 24
+      "not started": 16
     }
   },
   "relations": {
     "internal": {
-      "not started": 53
+      "complete": 12,
+      "not started": 43
     },
     "external_1": {
-      "not started": 53
+      "not started": 55
     },
     "external_2": {
-      "not started": 53
+      "not started": 55
     }
   },
   "stdlib": {
     "internal": {
-      "not started": 167
+      "not started": 38,
+      "complete": 56
     },
     "external_1": {
-      "not started": 167
+      "not started": 94
     },
     "external_2": {
-      "not started": 167
+      "not started": 94
     }
   },
   "stdlib_circuit_builders": {
     "internal": {
-      "not started": 43
+      "complete": 23,
+      "not started": 8
     },
     "external_1": {
-      "not started": 43
+      "not started": 31
     },
     "external_2": {
-      "not started": 43
+      "not started": 31
     }
   },
   "sumcheck": {
     "internal": {
-      "not started": 4,
-      "complete": 1
+      "complete": 5
     },
     "external_1": {
       "not started": 5
@@ -178,7 +188,8 @@
   },
   "transcript": {
     "internal": {
-      "not started": 4
+      "not started": 3,
+      "complete": 1
     },
     "external_1": {
       "not started": 4
@@ -189,35 +200,105 @@
   },
   "translator_vm": {
     "internal": {
-      "not started": 14
+      "not started": 8,
+      "complete": 2
     },
     "external_1": {
-      "not started": 14
+      "not started": 10
     },
     "external_2": {
-      "not started": 14
+      "not started": 10
     }
   },
   "ultra_honk": {
     "internal": {
-      "not started": 22
+      "not started": 14
     },
     "external_1": {
-      "not started": 22
+      "not started": 14
     },
     "external_2": {
-      "not started": 22
+      "not started": 14
     }
   },
-  "op_queue": {
+  "vm2": {
     "internal": {
-      "not started": 4
+      "not started": 2
     },
     "external_1": {
-      "not started": 4
+      "not started": 2
     },
     "external_2": {
-      "not started": 4
+      "not started": 2
+    }
+  },
+  "public_input_component": {
+    "internal": {
+      "not started": 2
+    },
+    "external_1": {
+      "not started": 2
+    },
+    "external_2": {
+      "not started": 2
+    }
+  },
+  "special_public_inputs": {
+    "internal": {
+      "complete": 1
+    },
+    "external_1": {
+      "not started": 1
+    },
+    "external_2": {
+      "not started": 1
+    }
+  },
+  "chonk": {
+    "internal": {
+      "complete": 8,
+      "not started": 3
+    },
+    "external_1": {
+      "not started": 11
+    },
+    "external_2": {
+      "not started": 11
+    }
+  },
+  "hypernova": {
+    "internal": {
+      "not started": 5,
+      "complete": 4
+    },
+    "external_1": {
+      "not started": 9
+    },
+    "external_2": {
+      "not started": 9
+    }
+  },
+  "multilinear_batching": {
+    "internal": {
+      "not started": 4,
+      "complete": 2
+    },
+    "external_1": {
+      "not started": 6
+    },
+    "external_2": {
+      "not started": 6
+    }
+  },
+  "vm2_stub": {
+    "internal": {
+      "not started": 2
+    },
+    "external_1": {
+      "not started": 2
+    },
+    "external_2": {
+      "not started": 2
     }
   }
 }
