@@ -158,11 +158,19 @@ std::array<field_t<Builder>, 64> SHA256<Builder>::extend_witness(const std::arra
             field_pt w_out_raw_inv_pow_two = w_out_raw * inv_pow_two;
             field_pt w_out_inv_pow_two = w_out * inv_pow_two;
             field_pt divisor = w_out_raw_inv_pow_two - w_out_inv_pow_two;
-            // AUDITTODO: The exact requirement here seems to be 2, not 3. The three inputs to w_out_raw are
-            // constrained to 32 bits: xor_result from lookup table, and w[i-16]/w[i-7] from either the original
-            // input or previous iterations (where they were constrained by this same range check). Therefore
-            // their sum is at most 3*(2^32 - 1), and thus divisor <= 3*(2^32 - 1)/2^32 = 2. Confirm that a 2-bit
-            // constraint would suffice.
+            // AUDITTODO: The 3-bit constraint is currently necessary due to unconstrained inputs.
+            //
+            // w_out_raw = xor_result + w[i-16] + w[i-7], where:
+            // - xor_result: 32-bit (from SHA256_WITNESS_OUTPUT lookup)
+            // - w[i-16]: At i=16, this is input[0] which is NEVER lookup-constrained
+            // - w[i-7]: At i=16..20, this is input[9..13] which are used BEFORE being converted
+            //
+            // If all three inputs were 32-bit constrained, max sum = 3*(2^32-1), so divisor <= 2
+            // and a 2-bit constraint would suffice. However, with unconstrained inputs (~35 bits
+            // per the add_normalize overflow slack), divisor could exceed 7 and reject the proof.
+            //
+            // This constraint implicitly enforces input bounds - if we add explicit 32-bit input
+            // constraints (see AUDITTODO in sha256_block), this could be tightened to 2 bits.
             divisor.create_range_constraint(3);
         }
 
@@ -334,8 +342,20 @@ field_t<Builder> SHA256<Builder>::add_normalize(const field_t<Builder>& a, const
     field_pt overflow = witness_pt(ctx, overflow_value);
 
     field_pt result = a.add_two(b, overflow * field_pt(ctx, -fr(1ULL << 32ULL)));
-    // AUDITTODO: 3-bit constraint allows overflow in [0,7], but max possible is 1 (sum of two 32-bit values).
-    // Could tighten to 1-bit, but would need to verify all call sites have 32-bit inputs.
+    // AUDITTODO: The 3-bit constraint is necessary. Analysis of call sites:
+    //
+    // Compression loop (lines ~428, 432):
+    //   temp1 = ch + h.normal + w[i] + K[i]  (4 values, max ~4*2^32)
+    //   add_normalize(d.normal, temp1): max sum = 2^32 + 4*2^32 = 5*2^32, overflow <= 4
+    //   add_normalize(temp1, maj): max sum = 4*2^32 + 2^32 = 5*2^32, overflow <= 4
+    //   => Requires 3 bits (to represent overflow values 0-4)
+    //
+    // Final output (lines ~439-446):
+    //   add_normalize(X.normal, h_init[i]): both 32-bit, max sum = 2*2^32, overflow <= 1
+    //   => Could use 1 bit, but we use 3 for uniformity
+    //
+    // The 3-bit constraint is correct and necessary for the compression loop.
+    // Consider adding argument overflow_bits to customize constraint size and make it more explicit.
     overflow.create_range_constraint(3);
     return result;
 }
@@ -364,12 +384,15 @@ std::array<field_t<Builder>, 8> SHA256<Builder>::sha256_block(const std::array<f
     // - h_init[0,4] are lookup-constrained in round 0 via choose/majority functions
     // - h_init[3,7] are used in round 0 arithmetic BEFORE being lookup-constrained (they cycle
     //   through working variables and get constrained in later rounds)
-    // - input[1..15] are lookup-constrained during extend_witness (as w[i-15] or w[i-2])
     // - input[0] is NEVER lookup-constrained (only used as w[i-16] and in round 0, both additions)
+    // - input[1..8] are lookup-constrained during extend_witness as w[i-15] (at i=16..23)
+    // - input[9..13] are used as w[i-7] at i=16..20 BEFORE being constrained (converted later
+    //   as w[i-15] at i=24..28)
+    // - input[14..15] are lookup-constrained during extend_witness as w[i-2] (at i=16..17)
     //
-    // The add_normalize overflow constraints (3-bit, allowing overflow in [0,7]) provide a weak
-    // bound: the sum of unconstrained values feeding any single add_normalize must be < 8*2^32.
-    // This allows individual inputs up to ~35 bits rather than strict 32-bit.
+    // The overflow constraints in extend_witness (3-bit divisor) and add_normalize (3-bit overflow)
+    // provide weak implicit bounds. If unconstrained inputs exceed ~35 bits, these constraints
+    // will reject the proof. This is safe (rejects invalid proofs) but not ideal.
     //
     // This is not practically exploitable (finding inputs that produce a specific hash still
     // requires ~2^208 work), but deviates from the SHA-256 spec which assumes 32-bit words.
@@ -378,6 +401,9 @@ std::array<field_t<Builder>, 8> SHA256<Builder>::sha256_block(const std::array<f
     // - For h_init[3], h_init[7]: convert immediately via map_into_*_sparse_form instead of
     //   wrapping in sparse_value(). The lookup constrains the input as a side effect.
     // - For input[0]: add a lookup in extend_witness via convert_witness() or SHA256_WITNESS_INPUT.
+    // - For input[9..13]: reorder extend_witness to convert these before use, or add explicit lookups.
+    //
+    // After fixing, the extend_witness divisor constraint could be tightened to 2 bits.
 
     /**
      * Initialize round variables with previous block output.
