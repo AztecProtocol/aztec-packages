@@ -7,6 +7,7 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { L2BlockHash } from '@aztec/stdlib/block';
 import { TxHash } from '@aztec/stdlib/tx';
 
+import { JobContext } from '../../job_coordinator/index.js';
 import type { PackedPrivateEvent } from '../../pxe.js';
 import { PrivateEventDataProvider } from './private_event_data_provider.js';
 
@@ -233,6 +234,122 @@ describe('PrivateEventDataProvider', () => {
       });
 
       expect(events.map(e => e.packedEvent)).toEqual([msgContent1, msgContent2, msgContent3]);
+    });
+  });
+
+  describe('staging', () => {
+    it('stages events without affecting committed storage', async () => {
+      const context = new JobContext('test123', 'test');
+
+      // Store committed event
+      await privateEventDataProvider.storePrivateEventLog(eventSelector, msgContent, eventCommitmentIndex, {
+        contractAddress,
+        scope,
+        txHash,
+        l2BlockNumber,
+        l2BlockHash,
+      });
+
+      // Store staged event
+      const stagedMsgContent = getRandomMsgContent();
+      await privateEventDataProvider.storePrivateEventLog(
+        eventSelector,
+        stagedMsgContent,
+        eventCommitmentIndex + 1,
+        {
+          contractAddress,
+          scope,
+          txHash: TxHash.random(),
+          l2BlockNumber,
+          l2BlockHash,
+        },
+        context,
+      );
+
+      // Without context, should only see committed event
+      const events = await privateEventDataProvider.getPrivateEvents(eventSelector, {
+        contractAddress,
+        fromBlock: l2BlockNumber,
+        toBlock: l2BlockNumber + 1,
+        scopes: [scope],
+      });
+      expect(events).toHaveLength(1);
+      expect(events[0].packedEvent).toEqual(msgContent);
+    });
+
+    it('commitStaging promotes staged events to main storage', async () => {
+      const context = new JobContext('test123', 'test');
+
+      const stagedMsgContent = getRandomMsgContent();
+      await privateEventDataProvider.storePrivateEventLog(
+        eventSelector,
+        stagedMsgContent,
+        eventCommitmentIndex,
+        {
+          contractAddress,
+          scope,
+          txHash,
+          l2BlockNumber,
+          l2BlockHash,
+        },
+        context,
+      );
+      context.registerWrite(privateEventDataProvider.storeName);
+
+      // Commit staging
+      await privateEventDataProvider.commitStaging(context);
+
+      // Now should see the event
+      const events = await privateEventDataProvider.getPrivateEvents(eventSelector, {
+        contractAddress,
+        fromBlock: l2BlockNumber,
+        toBlock: l2BlockNumber + 1,
+        scopes: [scope],
+      });
+      expect(events).toHaveLength(1);
+      expect(events[0].packedEvent).toEqual(stagedMsgContent);
+    });
+
+    it('discardStaging removes staged events without affecting main', async () => {
+      const context = new JobContext('test123', 'test');
+
+      // Store committed event
+      await privateEventDataProvider.storePrivateEventLog(eventSelector, msgContent, eventCommitmentIndex, {
+        contractAddress,
+        scope,
+        txHash,
+        l2BlockNumber,
+        l2BlockHash,
+      });
+
+      // Store staged event
+      const stagedMsgContent = getRandomMsgContent();
+      await privateEventDataProvider.storePrivateEventLog(
+        eventSelector,
+        stagedMsgContent,
+        eventCommitmentIndex + 1,
+        {
+          contractAddress,
+          scope,
+          txHash: TxHash.random(),
+          l2BlockNumber,
+          l2BlockHash,
+        },
+        context,
+      );
+
+      // Discard staging
+      await privateEventDataProvider.discardStaging(context.stagingPrefix);
+
+      // Should only see committed event
+      const events = await privateEventDataProvider.getPrivateEvents(eventSelector, {
+        contractAddress,
+        fromBlock: l2BlockNumber,
+        toBlock: l2BlockNumber + 1,
+        scopes: [scope],
+      });
+      expect(events).toHaveLength(1);
+      expect(events[0].packedEvent).toEqual(msgContent);
     });
   });
 });

@@ -7,13 +7,18 @@ import type { DataInBlock } from '@aztec/stdlib/block';
 import { NoteStatus, type NotesFilter } from '@aztec/stdlib/note';
 import { NoteDao } from '@aztec/stdlib/note';
 
+import type { JobContext } from '../../job_coordinator/index.js';
+import type { StagingDataProvider } from '../../job_coordinator/job_coordinator.js';
+
 /**
  * NoteDataProvider manages the storage and retrieval of notes.
  *
  * Notes can be active or nullified. This class processes new notes, nullifications,
  * and performs rollback handling in the case of a reorg.
  **/
-export class NoteDataProvider {
+export class NoteDataProvider implements StagingDataProvider {
+  readonly storeName = 'notes';
+
   #store: AztecAsyncKVStore;
   #notes: AztecAsyncMap<string, Buffer>;
   #nullifiedNotes: AztecAsyncMap<string, Buffer>;
@@ -29,6 +34,9 @@ export class NoteDataProvider {
   #notesToScope: AztecAsyncMultiMap<string, string>;
   #notesByContractAndScope: Map<string, AztecAsyncMultiMap<string, string>>;
   #notesByStorageSlotAndScope: Map<string, AztecAsyncMultiMap<string, string>>;
+
+  // Staging map for all staged data (serialized as JSON with type prefix)
+  #stagingMap: AztecAsyncMap<string, Buffer>;
 
   private constructor(store: AztecAsyncKVStore) {
     this.#store = store;
@@ -46,6 +54,8 @@ export class NoteDataProvider {
     this.#notesToScope = store.openMultiMap('notes_to_scope');
     this.#notesByContractAndScope = new Map<string, AztecAsyncMultiMap<string, string>>();
     this.#notesByStorageSlotAndScope = new Map<string, AztecAsyncMultiMap<string, string>>();
+
+    this.#stagingMap = store.openMap('notes_staging');
   }
 
   /**
@@ -98,8 +108,13 @@ export class NoteDataProvider {
    *
    * @param notes - Notes to store
    * @param scope - The scope (user/account) under which to store the notes
+   * @param context - Optional job context for staging writes
    */
-  addNotes(notes: NoteDao[], scope: AztecAddress): Promise<void> {
+  addNotes(notes: NoteDao[], scope: AztecAddress, context?: JobContext): Promise<void> {
+    if (context) {
+      return this.#addNotesStaging(notes, scope, context);
+    }
+
     return this.#store.transactionAsync(async () => {
       if (!(await this.#scopes.hasAsync(scope.toString()))) {
         await this.addScope(scope);
@@ -115,6 +130,24 @@ export class NoteDataProvider {
         await this.#notesByStorageSlotAndScope.get(scope.toString())!.set(dao.storageSlot.toString(), noteIndex);
       }
     });
+  }
+
+  async #addNotesStaging(notes: NoteDao[], scope: AztecAddress, context: JobContext): Promise<void> {
+    // For staging, we store the note data along with metadata needed for commit
+    for (const dao of notes) {
+      const noteIndex = toBufferBE(dao.index, 32).toString('hex');
+      const stagingData = {
+        type: 'add_note',
+        noteIndex,
+        noteBuffer: dao.toBuffer().toString('hex'),
+        scope: scope.toString(),
+        contractAddress: dao.contractAddress.toString(),
+        storageSlot: dao.storageSlot.toString(),
+        siloedNullifier: dao.siloedNullifier.toString(),
+      };
+      const stagingKey = context.stagingKey(`note:${noteIndex}`);
+      await this.#stagingMap.set(stagingKey, Buffer.from(JSON.stringify(stagingData)));
+    }
   }
 
   /**
@@ -343,12 +376,17 @@ export class NoteDataProvider {
    * the entire operation fails and no notes are modified.
    *
    * @param nullifiers - Array of nullifiers with their block numbers to process
+   * @param context - Optional job context for staging writes
    * @returns Promise resolving to array of nullified NoteDao objects
    * @throws Error if any nullifier is not found in the active notes
    */
-  applyNullifiers(nullifiers: DataInBlock<Fr>[]): Promise<NoteDao[]> {
+  applyNullifiers(nullifiers: DataInBlock<Fr>[], context?: JobContext): Promise<NoteDao[]> {
     if (nullifiers.length === 0) {
       return Promise.resolve([]);
+    }
+
+    if (context) {
+      return this.#applyNullifiersStaging(nullifiers, context);
     }
 
     return this.#store.transactionAsync(async () => {
@@ -408,5 +446,176 @@ export class NoteDataProvider {
       }
       return nullifiedNotes;
     });
+  }
+
+  async #applyNullifiersStaging(nullifiers: DataInBlock<Fr>[], context: JobContext): Promise<NoteDao[]> {
+    const nullifiedNotes: NoteDao[] = [];
+
+    for (const blockScopedNullifier of nullifiers) {
+      const { data: nullifier, l2BlockNumber: blockNumber } = blockScopedNullifier;
+      const nullifierKey = nullifier.toString();
+
+      // Check staging first for the note
+      const noteIndex = await this.#getNoteIndexForNullifier(nullifierKey, context);
+      if (!noteIndex) {
+        const alreadyNullified = await this.#nullifiedNotesByNullifier.getAsync(nullifierKey);
+        if (alreadyNullified) {
+          throw new Error(`Nullifier already applied in applyNullifiers`);
+        }
+        throw new Error('Nullifier not found in applyNullifiers');
+      }
+
+      const noteBuffer = await this.#getNoteBuffer(noteIndex, context);
+      if (!noteBuffer) {
+        throw new Error('Note not found in applyNullifiers');
+      }
+
+      const note = NoteDao.fromBuffer(noteBuffer);
+      nullifiedNotes.push(note);
+
+      // Stage the nullification
+      const stagingData = {
+        type: 'nullify_note',
+        noteIndex,
+        noteBuffer: noteBuffer.toString('hex'),
+        nullifier: nullifierKey,
+        blockNumber,
+        contractAddress: note.contractAddress.toString(),
+        storageSlot: note.storageSlot.toString(),
+      };
+      const stagingKey = context.stagingKey(`nullify:${noteIndex}`);
+      await this.#stagingMap.set(stagingKey, Buffer.from(JSON.stringify(stagingData)));
+    }
+
+    return nullifiedNotes;
+  }
+
+  async #getNoteIndexForNullifier(nullifierKey: string, context?: JobContext): Promise<string | undefined> {
+    if (context) {
+      // Check staging for notes that might have been added in this job
+      const allKeys = await toArray(this.#stagingMap.keysAsync());
+      const stagingKeys = allKeys.filter(key => key.startsWith(context.stagingPrefix));
+      for (const key of stagingKeys) {
+        const buffer = await this.#stagingMap.getAsync(key);
+        if (buffer) {
+          const data = JSON.parse(buffer.toString());
+          if (data.type === 'add_note' && data.siloedNullifier === nullifierKey) {
+            return data.noteIndex;
+          }
+        }
+      }
+    }
+    return this.#nullifierToNoteId.getAsync(nullifierKey);
+  }
+
+  async #getNoteBuffer(noteIndex: string, context?: JobContext): Promise<Buffer | undefined> {
+    if (context) {
+      // Check staging first
+      const stagingKey = context.stagingKey(`note:${noteIndex}`);
+      const staged = await this.#stagingMap.getAsync(stagingKey);
+      if (staged) {
+        const data = JSON.parse(staged.toString());
+        if (data.type === 'add_note') {
+          return Buffer.from(data.noteBuffer, 'hex');
+        }
+      }
+    }
+    return this.#notes.getAsync(noteIndex);
+  }
+
+  // StagingDataProvider implementation
+
+  /**
+   * Commits staged data to main storage.
+   * @param context - The job context containing the staging prefix
+   */
+  async commitStaging(context: JobContext): Promise<void> {
+    await this.#store.transactionAsync(async () => {
+      const stagingPrefix = context.stagingPrefix;
+      const allKeys = await toArray(this.#stagingMap.keysAsync());
+      const stagingKeys = allKeys.filter(key => key.startsWith(stagingPrefix));
+
+      // First pass: collect all add_note operations to ensure scopes exist
+      const scopesToAdd = new Set<string>();
+      for (const stagingKey of stagingKeys) {
+        const buffer = await this.#stagingMap.getAsync(stagingKey);
+        if (!buffer) {
+          continue;
+        }
+        const data = JSON.parse(buffer.toString());
+        if (data.type === 'add_note') {
+          scopesToAdd.add(data.scope);
+        }
+      }
+
+      // Ensure all required scopes exist
+      for (const scope of scopesToAdd) {
+        if (!(await this.#scopes.hasAsync(scope))) {
+          await this.addScope(AztecAddress.fromString(scope));
+        }
+      }
+
+      // Second pass: apply all staged operations
+      for (const stagingKey of stagingKeys) {
+        const buffer = await this.#stagingMap.getAsync(stagingKey);
+        if (!buffer) {
+          continue;
+        }
+
+        const data = JSON.parse(buffer.toString());
+
+        if (data.type === 'add_note') {
+          const noteIndex = data.noteIndex;
+          const noteBuffer = Buffer.from(data.noteBuffer, 'hex');
+
+          await this.#notes.set(noteIndex, noteBuffer);
+          await this.#notesToScope.set(noteIndex, data.scope);
+          await this.#nullifierToNoteId.set(data.siloedNullifier, noteIndex);
+          await this.#notesByContractAndScope.get(data.scope)!.set(data.contractAddress, noteIndex);
+          await this.#notesByStorageSlotAndScope.get(data.scope)!.set(data.storageSlot, noteIndex);
+        } else if (data.type === 'nullify_note') {
+          const noteIndex = data.noteIndex;
+          const noteBuffer = Buffer.from(data.noteBuffer, 'hex');
+          const note = NoteDao.fromBuffer(noteBuffer);
+
+          // Get scopes for the note
+          const noteScopes = await toArray(this.#notesToScope.getValuesAsync(noteIndex));
+
+          // Remove from active notes
+          await this.#notes.delete(noteIndex);
+          await this.#notesToScope.delete(noteIndex);
+
+          const scopes = await toArray(this.#scopes.keysAsync());
+          for (const scope of scopes) {
+            await this.#notesByContractAndScope.get(scope)?.deleteValue(data.contractAddress, noteIndex);
+            await this.#notesByStorageSlotAndScope.get(scope)?.deleteValue(data.storageSlot, noteIndex);
+          }
+
+          // Add to nullified notes
+          for (const scope of noteScopes) {
+            await this.#nullifiedNotesToScope.set(noteIndex, scope);
+          }
+          await this.#nullifiedNotes.set(noteIndex, noteBuffer);
+          await this.#nullifiersByBlockNumber.set(data.blockNumber, data.nullifier);
+          await this.#nullifiedNotesByContract.set(data.contractAddress, noteIndex);
+          await this.#nullifiedNotesByStorageSlot.set(data.storageSlot, noteIndex);
+          await this.#nullifiedNotesByNullifier.set(data.nullifier, noteIndex);
+          await this.#nullifierToNoteId.delete(data.nullifier);
+        }
+
+        await this.#stagingMap.delete(stagingKey);
+      }
+    });
+  }
+
+  /**
+   * Discards staged data without committing.
+   * @param stagingPrefix - The prefix used for staging keys
+   */
+  async discardStaging(stagingPrefix: string): Promise<void> {
+    const allKeys = await toArray(this.#stagingMap.keysAsync());
+    const stagingKeys = allKeys.filter(key => key.startsWith(stagingPrefix));
+
+    await Promise.all(stagingKeys.map(key => this.#stagingMap.delete(key)));
   }
 }

@@ -5,6 +5,7 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { L2BlockHash } from '@aztec/stdlib/block';
 import { NoteDao, NoteStatus } from '@aztec/stdlib/note';
 
+import { JobContext } from '../../job_coordinator/index.js';
 import { NoteDataProvider } from './note_data_provider.js';
 
 // -----------------------------------------------------------------------------
@@ -650,6 +651,181 @@ describe('NoteDataProvider', () => {
         const notes = await provider.getNotes({ contractAddress: CONTRACT_A });
         expect(notes).toHaveLength(0);
       });
+    });
+  });
+
+  describe('NoteDataProvider staging', () => {
+    let store: AztecLMDBStoreV2;
+    let provider: NoteDataProvider;
+
+    beforeEach(async () => {
+      store = await openTmpStore('note_data_provider_staging_test');
+      provider = await NoteDataProvider.create(store);
+      await provider.addScope(SCOPE_1);
+    });
+
+    afterEach(async () => {
+      await store.close();
+    });
+
+    it('stages notes without affecting committed storage', async () => {
+      const committedNote = await NoteDao.random({
+        contractAddress: CONTRACT_A,
+        storageSlot: SLOT_X,
+        index: 1n,
+        l2BlockNumber: BlockNumber(1),
+      });
+      const stagedNote = await NoteDao.random({
+        contractAddress: CONTRACT_A,
+        storageSlot: SLOT_X,
+        index: 2n,
+        l2BlockNumber: BlockNumber(2),
+      });
+
+      const context = new JobContext('test123', 'test');
+
+      // Add committed note
+      await provider.addNotes([committedNote], SCOPE_1);
+
+      // Add staged note with context
+      await provider.addNotes([stagedNote], SCOPE_1, context);
+
+      // Without context, should only see committed note
+      const notesWithoutContext = await provider.getNotes({ contractAddress: CONTRACT_A });
+      expect(notesWithoutContext).toHaveLength(1);
+      expect(notesWithoutContext[0].index).toBe(1n);
+    });
+
+    it('commitStaging promotes staged notes to main storage', async () => {
+      const stagedNote = await NoteDao.random({
+        contractAddress: CONTRACT_A,
+        storageSlot: SLOT_X,
+        index: 1n,
+        l2BlockNumber: BlockNumber(1),
+      });
+
+      const context = new JobContext('test123', 'test');
+
+      // Add staged note
+      await provider.addNotes([stagedNote], SCOPE_1, context);
+      context.registerWrite(provider.storeName);
+
+      // Commit staging
+      await provider.commitStaging(context);
+
+      // Now should see the note without context
+      const notes = await provider.getNotes({ contractAddress: CONTRACT_A });
+      expect(notes).toHaveLength(1);
+      expect(notes[0].index).toBe(1n);
+    });
+
+    it('discardStaging removes staged notes without affecting main', async () => {
+      const committedNote = await NoteDao.random({
+        contractAddress: CONTRACT_A,
+        storageSlot: SLOT_X,
+        index: 1n,
+        l2BlockNumber: BlockNumber(1),
+      });
+      const stagedNote = await NoteDao.random({
+        contractAddress: CONTRACT_A,
+        storageSlot: SLOT_X,
+        index: 2n,
+        l2BlockNumber: BlockNumber(2),
+      });
+
+      const context = new JobContext('test123', 'test');
+
+      // Add committed note
+      await provider.addNotes([committedNote], SCOPE_1);
+
+      // Add staged note
+      await provider.addNotes([stagedNote], SCOPE_1, context);
+
+      // Discard staging
+      await provider.discardStaging(context.stagingPrefix);
+
+      // Should only see committed note
+      const notes = await provider.getNotes({ contractAddress: CONTRACT_A });
+      expect(notes).toHaveLength(1);
+      expect(notes[0].index).toBe(1n);
+    });
+
+    it('stages nullification operations correctly', async () => {
+      const note = await NoteDao.random({
+        contractAddress: CONTRACT_A,
+        storageSlot: SLOT_X,
+        index: 1n,
+        l2BlockNumber: BlockNumber(1),
+        siloedNullifier: new Fr(123n),
+      });
+
+      const context = new JobContext('test123', 'test');
+
+      // Add committed note
+      await provider.addNotes([note], SCOPE_1);
+
+      // Stage nullification
+      const nullifier = {
+        data: note.siloedNullifier,
+        l2BlockNumber: BlockNumber(2),
+        l2BlockHash: L2BlockHash.random(),
+      };
+      await provider.applyNullifiers([nullifier], context);
+
+      // Without context, note should still be active
+      const activeNotes = await provider.getNotes({ contractAddress: CONTRACT_A });
+      expect(activeNotes).toHaveLength(1);
+
+      // Commit staging
+      context.registerWrite(provider.storeName);
+      await provider.commitStaging(context);
+
+      // Now note should be nullified
+      const activeNotesAfterCommit = await provider.getNotes({ contractAddress: CONTRACT_A });
+      expect(activeNotesAfterCommit).toHaveLength(0);
+
+      const allNotes = await provider.getNotes({
+        contractAddress: CONTRACT_A,
+        status: NoteStatus.ACTIVE_OR_NULLIFIED,
+      });
+      expect(allNotes).toHaveLength(1);
+    });
+
+    it('can stage both add and nullify in same job', async () => {
+      const note = await NoteDao.random({
+        contractAddress: CONTRACT_A,
+        storageSlot: SLOT_X,
+        index: 1n,
+        l2BlockNumber: BlockNumber(1),
+        siloedNullifier: new Fr(456n),
+      });
+
+      const context = new JobContext('test123', 'test');
+
+      // Stage add note
+      await provider.addNotes([note], SCOPE_1, context);
+
+      // Stage nullify the same note
+      const nullifier = {
+        data: note.siloedNullifier,
+        l2BlockNumber: BlockNumber(2),
+        l2BlockHash: L2BlockHash.random(),
+      };
+      await provider.applyNullifiers([nullifier], context);
+
+      // Commit both operations
+      context.registerWrite(provider.storeName);
+      await provider.commitStaging(context);
+
+      // Note should exist but be nullified
+      const activeNotes = await provider.getNotes({ contractAddress: CONTRACT_A });
+      expect(activeNotes).toHaveLength(0);
+
+      const allNotes = await provider.getNotes({
+        contractAddress: CONTRACT_A,
+        status: NoteStatus.ACTIVE_OR_NULLIFIED,
+      });
+      expect(allNotes).toHaveLength(1);
     });
   });
 });
