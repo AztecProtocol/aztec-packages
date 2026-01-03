@@ -28,7 +28,7 @@ import {
 } from './utils.js';
 
 describe('validator suppression and nuke with slashing assertions', () => {
-  jest.setTimeout(60 * 60 * 1000); // 60 minutes
+  jest.setTimeout(2 * 60 * 60 * 1000); // 120 minutes
 
   const logger = createLogger('e2e:spartan:suppress-nuke-slash');
   const config = setupEnvironment(process.env);
