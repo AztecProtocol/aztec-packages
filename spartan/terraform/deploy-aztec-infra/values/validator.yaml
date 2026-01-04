@@ -7,7 +7,7 @@ validator:
       periodSeconds: 30
       timeoutSeconds: 5
       initialDelaySeconds: 0
-      failureThreshold: 40
+      failureThreshold: 60
     preStartScript: |
       source /scripts/setup-attester-keystore.sh
 
