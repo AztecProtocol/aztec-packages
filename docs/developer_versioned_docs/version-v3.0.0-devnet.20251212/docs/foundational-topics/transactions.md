@@ -27,8 +27,8 @@ The accompanying diagram illustrates the flow of interactions between a user, th
 1. **The user initiates a transaction** – In this example, the user decides to privately send 10 DAI to gudcause.eth. After inputting the amount and the receiving address, the user clicks the confirmation button on their wallet.
 2. **The PXE executes transfer locally** – The PXE, running locally on the user's device, executes the transfer method on the DAI token contract on Aztec and computes the state difference based on the user's intention. At this point, the transaction exists solely within the context of the PXE.
 3. **The PXE proves correct execution** – The PXE proves correct execution (via zero-knowledge proofs) of the authorization and of the private transfer method. Once the proofs have been generated, the PXE sends the proofs and required inputs (new note commitments and nullifiers) to the sequencer.
-4. **The sequencer processes the transaction** – The randomly-selected sequencer (based on the Fernet sequencer selection protocol) validates the transaction proofs along with required inputs for this private transfer. The sequencer also executes public functions and requests proofs of public execution from a prover network. When the sequencer receives proofs from the prover network, the proofs are bundled into a final rollup proof.
-5. **The transaction settles to L1** – The verifier contract on Ethereum validates the rollup proof and records a new state root. Once the state root is verified in an Ethereum transaction, the private transfer has settled and the transaction is considered final.
+4. **The sequencer processes the transaction** – The pseudorandomly-selected sequencer validates the transaction proofs. The sequencer also executes public functions and updates state: public state is updated by directly modifying entries in the sparse Merkle tree, while private state is updated by adding the newly created note commitments and nullifiers to the indexed Merkle trees. The sequencer then computes the new state root and posts the block to L1.
+5. **The transaction settles to L1** – The block is posted to L1, and later, provers submit epoch proofs to the verifier contract on Ethereum. Once the epoch proof is verified, the state transitions are considered final and the private transfer has settled.
 
 ### Detailed Diagram
 
@@ -58,6 +58,7 @@ constructor(
   public salt: Fr,
 ) {}
 ```
+
 > <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v3.0.0-devnet.20251212/yarn-project/stdlib/src/tx/tx_request.ts#L15-L28" target="_blank" rel="noopener noreferrer">Source code: yarn-project/stdlib/src/tx/tx_request.ts#L15-L28</a></sub></sup>
 
 Where:
@@ -105,6 +106,7 @@ public async simulate(
   options: SimulateInteractionOptions,
 ): Promise<SimulationReturn<typeof options.includeMetadata>> {
 ```
+
 > <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v3.0.0-devnet.20251212/yarn-project/aztec.js/src/contract/contract_function_interaction.ts#L81-L104" target="_blank" rel="noopener noreferrer">Source code: yarn-project/aztec.js/src/contract/contract_function_interaction.ts#L81-L104</a></sub></sup>
 
 ##### `send`
@@ -121,6 +123,7 @@ public async simulate(
  */
 public send(options: SendInteractionOptions): SentTx {
 ```
+
 > <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v3.0.0-devnet.20251212/yarn-project/aztec.js/src/contract/base_contract_interaction.ts#L30-L41" target="_blank" rel="noopener noreferrer">Source code: yarn-project/aztec.js/src/contract/base_contract_interaction.ts#L30-L41</a></sub></sup>
 
 ### Batch Transactions
