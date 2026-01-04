@@ -14,7 +14,6 @@ using namespace bb::avm2::fuzzer;
 extern "C" int LLVMFuzzerInitialize(int*, char***)
 {
     FuzzerWorldStateManager::initialize();
-    std::filesystem::create_directories("proving_inputs");
     return 0;
 }
 

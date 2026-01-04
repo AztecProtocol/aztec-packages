@@ -255,7 +255,8 @@ TxExecutionResult TxExecution::simulate(const Tx& tx)
         merkle_db.commit_checkpoint();
         contract_db.commit_checkpoint();
     } catch (const TxExecutionException& e) {
-        important("Teardown failure while simulating tx ", tx.hash, ": ", e.what());
+        // TODO(fcarreiro): move these back to important log once/if we have log levels properly set up.
+        vinfo("Teardown failure while simulating tx ", tx.hash, ": ", e.what());
         tx_context.revert_code = tx_context.revert_code == RevertCode::APP_LOGIC_REVERTED
                                      ? RevertCode::BOTH_REVERTED
                                      : RevertCode::TEARDOWN_REVERTED;
