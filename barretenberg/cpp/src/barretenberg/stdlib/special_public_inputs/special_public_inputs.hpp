@@ -228,7 +228,8 @@ template <typename Builder_> class GoblinAvmIO {
     using PublicFF = stdlib::PublicInputComponent<FF>;
     using PublicPairingPoints = stdlib::PublicInputComponent<PairingInputs>;
 
-    FF mega_hash;
+    FF evaluation;
+    FF challenge;
     PairingInputs pairing_inputs;
 
     // Total size of the IO public inputs
@@ -243,7 +244,9 @@ template <typename Builder_> class GoblinAvmIO {
     {
         // Assumes that the GoblinAvm-io public inputs are at the end of the public_inputs vector
         uint32_t index = static_cast<uint32_t>(public_inputs.size() - PUBLIC_INPUTS_SIZE);
-        mega_hash = PublicFF::reconstruct(public_inputs, PublicComponentKey{ index });
+        evaluation = PublicFF::reconstruct(public_inputs, PublicComponentKey{ index });
+        index += FF::PUBLIC_INPUTS_SIZE;
+        challenge = PublicFF::reconstruct(public_inputs, PublicComponentKey{ index });
         index += FF::PUBLIC_INPUTS_SIZE;
         pairing_inputs = PublicPairingPoints::reconstruct(public_inputs, PublicComponentKey{ index });
     }
@@ -256,7 +259,8 @@ template <typename Builder_> class GoblinAvmIO {
     {
         Builder* builder = pairing_inputs.P0.get_context();
 
-        mega_hash.set_public();
+        evaluation.set_public();
+        challenge.set_public();
         pairing_inputs.set_public();
 
         // Record that pairing points have been set to public

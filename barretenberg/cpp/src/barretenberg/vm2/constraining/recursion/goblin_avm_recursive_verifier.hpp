@@ -1,6 +1,7 @@
 #pragma once
 
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
+#include "barretenberg/common/map.hpp"
 #include "barretenberg/flavor/mega_avm_flavor.hpp"
 #include "barretenberg/flavor/mega_avm_recursive_flavor.hpp"
 #include "barretenberg/flavor/mega_flavor.hpp"
@@ -11,6 +12,7 @@
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
+#include "barretenberg/vm2/common/avm_io.hpp"
 #include "barretenberg/vm2/constraining/recursion/recursive_flavor.hpp"
 #include "barretenberg/vm2/constraining/recursion/recursive_verifier.hpp"
 
@@ -44,17 +46,15 @@ namespace bb::avm2 {
  */
 class AvmGoblinRecursiveVerifier {
   public:
-    using UltraBuilder = UltraCircuitBuilder;
-    using MegaBuilder = MegaCircuitBuilder;
+    using UltraPairingPoints = bb::stdlib::recursion::PairingPoints<stdlib::bn254<UltraCircuitBuilder>>;
+    using MegaPairingPoints = bb::stdlib::recursion::PairingPoints<stdlib::bn254<MegaCircuitBuilder>>;
 
-    using PairingPoints = bb::stdlib::recursion::PairingPoints<stdlib::bn254<UltraBuilder>>;
-    using MegaPairingPoints = bb::stdlib::recursion::PairingPoints<stdlib::bn254<MegaBuilder>>;
-
-    using UltraFF = stdlib::bn254<UltraBuilder>::ScalarField;
+    using UltraFF = stdlib::field_t<UltraCircuitBuilder>;
+    using MegaFF = stdlib::field_t<MegaCircuitBuilder>;
 
     // The structure of the final output of the goblinized AVM2 recursive verifier. The IPA data comes from recursive
     // verification of the ECCVM proof as part of Goblin recursive verification.
-    using RecursiveAvmGoblinOutput = stdlib::recursion::honk::UltraRecursiveVerifierOutput<UltraBuilder>;
+    using RecursiveAvmGoblinOutput = stdlib::recursion::honk::UltraRecursiveVerifierOutput<UltraCircuitBuilder>;
 
     // Output of prover for inner Mega-arithmetized AVM recursive verifier circuit; input to the outer verifier
     struct InnerProverOutput {
@@ -63,11 +63,50 @@ class AvmGoblinRecursiveVerifier {
         std::shared_ptr<MegaAvmFlavor::VerificationKey> mega_vk; // VK_M
     };
 
-    UltraBuilder& ultra_builder;
+  private:
+    static constexpr size_t NUM_CHALLENGES =
+        AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED + AVM_PUBLIC_INPUTS_COLUMNS_COMBINED_LENGTH;
+    UltraCircuitBuilder* builder;
 
-    explicit AvmGoblinRecursiveVerifier(UltraBuilder& builder)
-        : ultra_builder(builder)
-    {}
+  public:
+    explicit AvmGoblinRecursiveVerifier(UltraCircuitBuilder& builder)
+        : builder(&builder) {};
+
+    template <typename Builder>
+    static stdlib::field_t<Builder> compute_commitment_to_public_inputs_and_proof(
+        const stdlib::Proof<Builder>& stdlib_proof,
+        const std::vector<std::vector<stdlib::field_t<Builder>>>& public_inputs,
+        const stdlib::field_t<Builder>& challenge)
+    {
+        using FF = stdlib::field_t<Builder>;
+
+        // Compute the required powers of the challenge
+        std::vector<FF> powers_of_challenge = { FF(1) };
+        powers_of_challenge.reserve(NUM_CHALLENGES);
+        for (size_t idx = 0; idx < NUM_CHALLENGES - 1; idx++) {
+            powers_of_challenge.emplace_back(powers_of_challenge.back() * challenge);
+        }
+
+        // Evaluate the polynomial whose coefficients are given by the elements in the proof and the elements in the
+        // public inputs
+        FF evaluation(0);
+        size_t challenge_idx = 0;
+        for (const auto& proof_element : stdlib_proof) {
+            // CAN WE REMOVE THIS? Needed for now because the proof is a free witness in the inner circuit and it is not
+            // modified by the verifier
+            if (proof_element.tag.is_free_witness()) {
+                proof_element.unset_free_witness_tag();
+            }
+            evaluation += powers_of_challenge[challenge_idx++] * proof_element;
+        }
+        for (const auto& public_input_column : public_inputs) {
+            for (const auto& public_input : public_input_column) {
+                evaluation += powers_of_challenge[challenge_idx++] * public_input;
+            }
+        }
+
+        return evaluation;
+    };
 
     /**
      * @brief Recursively verify an AVM proof using Goblin and two layers of recursive verification.
@@ -80,7 +119,8 @@ class AvmGoblinRecursiveVerifier {
      * @return RecursiveAvmGoblinOutput {ipa_proof, ipa_claim, points_accumulator}
      */
     [[nodiscard("IPA claim and Pairing points should be accumulated")]] RecursiveAvmGoblinOutput verify_proof(
-        const stdlib::Proof<UltraBuilder>& stdlib_proof, const std::vector<std::vector<UltraFF>>& public_inputs) const
+        const stdlib::Proof<UltraCircuitBuilder>& stdlib_proof,
+        const std::vector<std::vector<UltraFF>>& public_inputs) const
     {
         // Construct and prove the inner Mega-arithmetized AVM recursive verifier circuit; proof is {\pi_M, \pi_G}
         InnerProverOutput inner_output =
@@ -103,45 +143,38 @@ class AvmGoblinRecursiveVerifier {
      * @return RecursiveAvmGoblinOutput
      */
     [[nodiscard("IPA claim and Pairing points should be accumulated")]] RecursiveAvmGoblinOutput
-    construct_outer_recursive_verification_circuit(const stdlib::Proof<UltraBuilder>& stdlib_proof,
+    construct_outer_recursive_verification_circuit(const stdlib::Proof<UltraCircuitBuilder>& stdlib_proof,
                                                    const std::vector<std::vector<UltraFF>>& public_inputs,
                                                    const InnerProverOutput& inner_output) const
     {
         // Types for MegaHonk and Goblin recursive verifiers arithmetized with Ultra
-        using MegaAvmRecursiveFlavor = MegaAvmRecursiveFlavor_<UltraBuilder>;
+        using MegaAvmRecursiveFlavor = MegaAvmRecursiveFlavor_<UltraCircuitBuilder>;
         using MegaRecursiveVKAndHash = MegaAvmRecursiveFlavor::VKAndHash;
         using GoblinRecursiveVerifier = bb::GoblinRecursiveVerifier;
         using MergeCommitments = GoblinRecursiveVerifier::MergeCommitments;
         using FF = MegaAvmRecursiveFlavor::FF;
-        using IO = stdlib::recursion::honk::GoblinAvmIO<UltraBuilder>;
+        using IO = stdlib::recursion::honk::GoblinAvmIO<UltraCircuitBuilder>;
         using MegaRecursiveVerifier = UltraVerifier_<MegaAvmRecursiveFlavor, IO>;
-
-        // Construct hash buffer containing the AVM proof and public inputs
-        std::vector<FF> hash_buffer;
-        hash_buffer.insert(hash_buffer.end(), stdlib_proof.begin(), stdlib_proof.end());
-        for (const std::vector<FF>& input_vec : public_inputs) {
-            hash_buffer.insert(hash_buffer.end(), input_vec.begin(), input_vec.end());
-        }
 
         // Recursively verify the Mega proof \pi_M in the Ultra circuit
         // All verifier components share a single transcript
         auto transcript = std::make_shared<MegaAvmRecursiveFlavor::Transcript>();
-        auto mega_vk_and_hash = std::make_shared<MegaRecursiveVKAndHash>(ultra_builder, inner_output.mega_vk);
+        auto mega_vk_and_hash = std::make_shared<MegaRecursiveVKAndHash>(*builder, inner_output.mega_vk);
         // Fix the inner mega vk and vk hash to be constants in the outer circuit.
         mega_vk_and_hash->vk->fix_witness();
         mega_vk_and_hash->hash.fix_witness();
 
         MegaRecursiveVerifier mega_verifier(mega_vk_and_hash, transcript);
-        stdlib::Proof<UltraBuilder> mega_proof(ultra_builder, inner_output.mega_proof);
+        stdlib::Proof<UltraCircuitBuilder> mega_proof(*builder, inner_output.mega_proof);
         auto mega_verifier_output = mega_verifier.verify_proof(mega_proof);
 
         // Recursively verify the goblin proof\pi_G in the Ultra circuit
         MergeCommitments merge_commitments{
             .t_commitments = mega_verifier.get_verifier_instance()->witness_commitments.get_ecc_op_wires().get_copy(),
             .T_prev_commitments = stdlib::recursion::honk::empty_ecc_op_tables(
-                ultra_builder) // Empty ecc op tables because there is only one layer of Goblin
+                *builder) // Empty ecc op tables because there is only one layer of Goblin
         };
-        GoblinStdlibProof stdlib_goblin_proof(ultra_builder, inner_output.goblin_proof);
+        GoblinStdlibProof stdlib_goblin_proof(*builder, inner_output.goblin_proof);
         GoblinRecursiveVerifier goblin_verifier{
             transcript, stdlib_goblin_proof, merge_commitments, MergeSettings::PREPEND
         };
@@ -151,20 +184,23 @@ class AvmGoblinRecursiveVerifier {
         // Batch aggregate all pairing points: Mega + Merge + Translator
         // Edge case handling disabled: Safe because all points are verifier-computed (deterministic, won't collide)
         // and the random challenges maintain binding. Saves significant circuit gates.
-        std::vector<PairingPoints> all_pairing_points;
+        std::vector<UltraPairingPoints> all_pairing_points;
         all_pairing_points.reserve(3);
         all_pairing_points.push_back(mega_verifier_output.points_accumulator);
         all_pairing_points.push_back(std::move(goblin_verifier_output.merge_pairing_points));
         all_pairing_points.push_back(std::move(goblin_verifier_output.translator_pairing_points));
 
         constexpr bool handle_edge_cases = false;
-        PairingPoints aggregated_pairing_points =
-            PairingPoints::aggregate_multiple(all_pairing_points, handle_edge_cases);
+        UltraPairingPoints aggregated_pairing_points =
+            UltraPairingPoints::aggregate_multiple(all_pairing_points, handle_edge_cases);
 
         // Validate the consistency of the AVM2 verifier inputs {\pi, pub_inputs, VK}_{AVM2} between the inner (Mega)
         // circuit and the outer (Ultra) by asserting equality on the independently computed hashes of this data.
-        const FF ultra_hash = stdlib::poseidon2<UltraBuilder>::hash(hash_buffer);
-        mega_verifier_output.mega_hash.assert_equal(ultra_hash);
+        const FF challenge = mega_verifier_output.challenge;
+        const FF claimed_evaluation = mega_verifier_output.evaluation;
+        const FF computed_evaluation = AvmGoblinRecursiveVerifier::compute_commitment_to_public_inputs_and_proof(
+            stdlib_proof, public_inputs, challenge);
+        claimed_evaluation.assert_equal(computed_evaluation);
 
         // Return ipa proof, ipa claim and output aggregation object produced from verifying the Mega + Goblin proofs
         RecursiveAvmGoblinOutput output;
@@ -182,10 +218,10 @@ class AvmGoblinRecursiveVerifier {
      * @return InnerCircuitOutput proof and verification key for Mega + Goblin; {\pi_M, \pi_G}, {VK_M, VK_G}
      */
     InnerProverOutput construct_and_prove_inner_recursive_verification_circuit(
-        const stdlib::Proof<UltraBuilder>& stdlib_proof, const std::vector<std::vector<UltraFF>>& public_inputs) const
+        const stdlib::Proof<UltraCircuitBuilder>& stdlib_proof,
+        const std::vector<std::vector<UltraFF>>& public_inputs) const
     {
-        using FF = AvmRecursiveFlavor::FF;
-        using IO = stdlib::recursion::honk::GoblinAvmIO<MegaBuilder>;
+        using IO = stdlib::recursion::honk::GoblinAvmIO<MegaCircuitBuilder>;
         using MegaAvmProverInstance = ProverInstance_<MegaAvmFlavor>;
         using MegaAvmVerificationKey = MegaAvmFlavor::VerificationKey;
         using MegaAvmProver = UltraProver_<MegaAvmFlavor>;
@@ -193,38 +229,35 @@ class AvmGoblinRecursiveVerifier {
         // Instantiate Mega builder for the inner circuit (AVM2 proof recursive verifier)
         Goblin goblin;
         goblin.avm_mode = true;
-        MegaBuilder mega_builder(goblin.op_queue);
+        MegaCircuitBuilder mega_builder(goblin.op_queue);
         goblin.ensure_well_formed_op_queue_for_avm(mega_builder);
-        // lambda to convert from Ultra to Mega stdlib field buffer and add all elements to respective hash buffers
-        std::vector<FF> mega_hash_buffer;
-        auto convert_stdlib_ultra_to_stdlib_mega = [&](const std::vector<UltraFF>& ultra_object) {
-            std::vector<FF> mega_object;
-            for (const UltraFF& ultra_element : ultra_object) {
-                FF mega_element = FF::from_witness(&mega_builder, ultra_element.get_value());
-                mega_object.emplace_back(mega_element);
-                mega_hash_buffer.emplace_back(mega_element);
-            }
-            return mega_object;
-        };
 
         // Convert the AVM proof, public inputs, and VK to stdlib Mega representations and add them to the hash buffer.
-        stdlib::Proof<MegaBuilder> mega_stdlib_proof = convert_stdlib_ultra_to_stdlib_mega(stdlib_proof);
-        std::vector<std::vector<FF>> mega_public_inputs;
-        mega_public_inputs.reserve(public_inputs.size());
-        for (const std::vector<UltraFF>& input_vec : public_inputs) {
-            mega_public_inputs.emplace_back(convert_stdlib_ultra_to_stdlib_mega(input_vec));
+        stdlib::Proof<MegaCircuitBuilder> mega_stdlib_proof(mega_builder, stdlib_proof.get_value());
+        std::vector<std::vector<MegaFF>> mega_public_inputs;
+        mega_public_inputs.reserve(AVM_NUM_PUBLIC_INPUT_COLUMNS);
+        for (const auto& public_input_column : public_inputs) {
+            std::vector<MegaFF> mega_public_input_column;
+            mega_public_input_column.reserve(AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH);
+            for (const auto& public_input : public_input_column) {
+                mega_public_input_column.push_back(MegaFF::from_witness(&mega_builder, public_input.get_value()));
+            }
+            mega_public_inputs.push_back(mega_public_input_column);
         }
-
-        // Compute the hash and set it public
-        const FF mega_hash = stdlib::poseidon2<MegaBuilder>::hash(mega_hash_buffer);
 
         // Construct a Mega-arithmetized AVM2 recursive verifier circuit
         AvmRecursiveVerifier recursive_verifier{ mega_builder };
         MegaPairingPoints points_accumulator = recursive_verifier.verify_proof(mega_stdlib_proof, mega_public_inputs);
 
+        // Generate the challenges
+        MegaFF challenge = recursive_verifier.transcript->get_challenge<MegaFF>("Consistency challenge");
+        MegaFF evaluation = AvmGoblinRecursiveVerifier::compute_commitment_to_public_inputs_and_proof(
+            mega_stdlib_proof, mega_public_inputs, challenge);
+
         // Public inputs
         IO inputs;
-        inputs.mega_hash = mega_hash;
+        inputs.evaluation = evaluation;
+        inputs.challenge = challenge;
         inputs.pairing_inputs = points_accumulator;
         inputs.set_public();
 

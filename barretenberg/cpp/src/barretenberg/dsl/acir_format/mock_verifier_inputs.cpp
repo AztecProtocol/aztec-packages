@@ -256,7 +256,7 @@ HonkProof create_mock_avm_proof_without_pub_inputs()
                      bb::DefaultIO::PUBLIC_INPUTS_SIZE, // Skip the Oink public inputs as they are not needed
                  oink_proof.end());
     proof.insert(proof.end(), decider_proof.begin(), decider_proof.end());
-    proof.resize(AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED - proof.size(), 0); // Pad the proof to the required length
+    proof.resize(AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED, 0); // Pad the proof to the required length
 
     return proof;
 }
