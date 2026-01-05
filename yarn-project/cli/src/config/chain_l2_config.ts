@@ -129,6 +129,8 @@ export const stagingIgnitionL2ChainConfig: L2ChainConfig = {
   lagInEpochsForValidatorSet: 2,
   /** The number of epochs to lag behind the current epoch for randao selection. */
   lagInEpochsForRandao: 2,
+  /** The number of checkpoints to lag in the inbox (prevents sequencer DOS attacks). */
+  inboxLag: 1,
   /** The number of epochs after an epoch ends that proofs are still accepted. */
   aztecProofSubmissionEpochs: 1,
   /** How many sequencers must agree with a slash for it to be executed. */
@@ -215,6 +217,8 @@ export const stagingPublicL2ChainConfig: L2ChainConfig = {
   lagInEpochsForValidatorSet: DefaultL1ContractsConfig.lagInEpochsForValidatorSet,
   /** The number of epochs to lag behind the current epoch for randao selection. */
   lagInEpochsForRandao: DefaultL1ContractsConfig.lagInEpochsForRandao,
+  /** The number of checkpoints to lag in the inbox (prevents sequencer DOS attacks). */
+  inboxLag: DefaultL1ContractsConfig.inboxLag,
   /** The local ejection threshold for a validator. Stricter than ejectionThreshold but local to a specific rollup */
   localEjectionThreshold: DefaultL1ContractsConfig.localEjectionThreshold,
   /** The number of epochs after an epoch ends that proofs are still accepted. */
@@ -273,6 +277,8 @@ export const nextNetL2ChainConfig: L2ChainConfig = {
   lagInEpochsForValidatorSet: DefaultL1ContractsConfig.lagInEpochsForValidatorSet,
   /** The number of epochs to lag behind the current epoch for randao selection. */
   lagInEpochsForRandao: DefaultL1ContractsConfig.lagInEpochsForRandao,
+  /** The number of checkpoints to lag in the inbox (prevents sequencer DOS attacks). */
+  inboxLag: DefaultL1ContractsConfig.inboxLag,
   /** The local ejection threshold for a validator. Stricter than ejectionThreshold but local to a specific rollup */
   localEjectionThreshold: DefaultL1ContractsConfig.localEjectionThreshold,
   /** The number of epochs after an epoch ends that proofs are still accepted. */
@@ -332,6 +338,8 @@ export const testnetL2ChainConfig: L2ChainConfig = {
   lagInEpochsForValidatorSet: 2,
   /** The number of epochs to lag behind the current epoch for randao selection. */
   lagInEpochsForRandao: 2,
+  /** The number of checkpoints to lag in the inbox (prevents sequencer DOS attacks). */
+  inboxLag: 1,
   /** The number of epochs after an epoch ends that proofs are still accepted. */
   aztecProofSubmissionEpochs: 1,
 
@@ -424,6 +432,8 @@ export const mainnetL2ChainConfig: L2ChainConfig = {
   lagInEpochsForValidatorSet: 2,
   /** The number of epochs to lag behind the current epoch for randao selection. */
   lagInEpochsForRandao: 2,
+  /** The number of checkpoints to lag in the inbox (prevents sequencer DOS attacks). */
+  inboxLag: 1,
   /** The number of epochs after an epoch ends that proofs are still accepted. */
   aztecProofSubmissionEpochs: 1,
 
@@ -514,6 +524,8 @@ export const devnetL2ChainConfig: L2ChainConfig = {
   lagInEpochsForValidatorSet: 1,
   /** The number of epochs to lag behind the current epoch for randao selection. */
   lagInEpochsForRandao: 1,
+  /** The number of checkpoints to lag in the inbox (prevents sequencer DOS attacks). */
+  inboxLag: DefaultL1ContractsConfig.inboxLag,
   /** The local ejection threshold for a validator. Stricter than ejectionThreshold but local to a specific rollup */
   localEjectionThreshold: DefaultL1ContractsConfig.localEjectionThreshold,
   /** The number of epochs after an epoch ends that proofs are still accepted. */
@@ -638,6 +650,7 @@ export function enrichEnvironmentWithChainConfig(config: L2ChainConfig) {
   enrichVar('AZTEC_TARGET_COMMITTEE_SIZE', config.aztecTargetCommitteeSize.toString());
   enrichVar('AZTEC_LAG_IN_EPOCHS_FOR_VALIDATOR_SET', config.lagInEpochsForValidatorSet.toString());
   enrichVar('AZTEC_LAG_IN_EPOCHS_FOR_RANDAO', config.lagInEpochsForRandao.toString());
+  enrichVar('AZTEC_INBOX_LAG', config.inboxLag.toString());
   enrichVar('AZTEC_PROOF_SUBMISSION_EPOCHS', config.aztecProofSubmissionEpochs.toString());
   enrichVar('AZTEC_ACTIVATION_THRESHOLD', config.activationThreshold.toString());
   enrichVar('AZTEC_EJECTION_THRESHOLD', config.ejectionThreshold.toString());

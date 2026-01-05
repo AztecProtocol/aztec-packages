@@ -33,7 +33,7 @@ contract TokenPortalTest is Test {
 
   event MessageConsumed(bytes32 indexed messageHash, address indexed recipient);
 
-  uint256 internal constant FIRST_REAL_TREE_NUM = Constants.INITIAL_CHECKPOINT_NUMBER + 1;
+  uint256 internal constant FIRST_REAL_TREE_NUM = Constants.INITIAL_CHECKPOINT_NUMBER + TestConstants.AZTEC_INBOX_LAG;
   uint256 internal constant L1_TO_L2_MSG_SUBTREE_SIZE = 2 ** Constants.L1_TO_L2_MSG_SUBTREE_HEIGHT;
 
   Registry internal registry;
