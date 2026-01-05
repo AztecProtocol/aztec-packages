@@ -442,7 +442,9 @@ WitnessVector witness_map_to_witness_vector(Witnesses::WitnessMap const& witness
     for (size_t index = 0; const auto& e : witness_map.value) {
         // ACIR uses a sparse format for WitnessMap where unused witness indices may be left unassigned.
         // To ensure that witnesses sit at the correct indices in the `WitnessVector`, we fill any indices
-        // which do not exist within the `WitnessMap` with the dummy value of zero.
+        // which do not exist within the `WitnessMap` with the random values. We use random values instead of zero
+        // because unassigned witnesses indices are not supposed to be used in any constraint, so filling them with a
+        // random value helps catching bugs.
         while (index < e.first.value) {
             witness_vector.emplace_back(fr::random_element());
             index++;
