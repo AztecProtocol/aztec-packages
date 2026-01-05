@@ -23,25 +23,43 @@ Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg`
 12. `trace_to_polynomials/trace_to_polynomials.cpp`
 13. `trace_to_polynomials/trace_to_polynomials.hpp`
 
+### Flavor Definitions
+14. `flavor/flavor.cpp`
+15. `flavor/flavor.hpp`
+16. `flavor/flavor_macros.hpp`
+17. `flavor/mega_flavor.hpp`
+18. `flavor/mega_recursive_flavor.hpp`
+19. `flavor/mega_zk_flavor.hpp`
+20. `flavor/mega_zk_recursive_flavor.hpp`
+21. `flavor/relation_definitions.hpp`
+22. `flavor/repeated_commitments_data.hpp`
+23. `flavor/ultra_flavor.hpp`
+24. `flavor/ultra_keccak_flavor.hpp`
+25. `flavor/ultra_keccak_zk_flavor.hpp`
+26. `flavor/ultra_recursive_flavor.hpp`
+27. `flavor/ultra_rollup_flavor.hpp`
+28. `flavor/ultra_rollup_recursive_flavor.hpp`
+29. `flavor/ultra_zk_flavor.hpp`
+30. `flavor/ultra_zk_recursive_flavor.hpp`
+
 ### Ultra Honk Prover/Verifier
-14. `ultra_honk/failure_test_utils.hpp`
-15. `ultra_honk/oink_prover.cpp`
-16. `ultra_honk/oink_prover.hpp`
-17. `ultra_honk/oink_verifier.cpp`
-18. `ultra_honk/oink_verifier.hpp`
-19. `ultra_honk/prover_instance.cpp`
-20. `ultra_honk/prover_instance.hpp`
-21. `ultra_honk/ultra_prover.cpp`
-22. `ultra_honk/ultra_prover.hpp`
-23. `ultra_honk/ultra_verifier.cpp`
-24. `ultra_honk/ultra_verifier.hpp`
-25. `ultra_honk/verifier_instance.hpp`
-26. `ultra_honk/witness_computation.cpp`
-27. `ultra_honk/witness_computation.hpp`
+31. `ultra_honk/oink_prover.cpp`
+32. `ultra_honk/oink_prover.hpp`
+33. `ultra_honk/oink_verifier.cpp`
+34. `ultra_honk/oink_verifier.hpp`
+35. `ultra_honk/prover_instance.cpp`
+36. `ultra_honk/prover_instance.hpp`
+37. `ultra_honk/ultra_prover.cpp`
+38. `ultra_honk/ultra_prover.hpp`
+39. `ultra_honk/ultra_verifier.cpp`
+40. `ultra_honk/ultra_verifier.hpp`
+41. `ultra_honk/verifier_instance.hpp`
+42. `ultra_honk/witness_computation.cpp`
+43. `ultra_honk/witness_computation.hpp`
 
 ## Summary of Module
 
-The Honk proving system is Barretenberg's core SNARK proving system implementing Ultra and Mega arithmetization schemes with Sumcheck-based argument of knowledge. The module handles proof generation and verification for complex arithmetic circuits using the Sumcheck protocol, log-derivative lookup arguments for table lookups, and grand product permutation checks for copy constraints. The Oink protocol separates preprocessing rounds (wire commitments, sorted list accumulator) from the main proving phase. The trace_to_polynomials component converts execution traces from circuit builders into polynomial representations, populating wires, selectors, and permutation polynomials. The ultra_honk implementation provides the main prover and verifier logic, witness computation, and integration with polynomial commitment schemes (KZG and IPA).
+The Honk proving system is Barretenberg's core SNARK proving system implementing Ultra and Mega arithmetization schemes with Sumcheck-based argument of knowledge. The module handles proof generation and verification for complex arithmetic circuits using the Sumcheck protocol, log-derivative lookup arguments for table lookups, and grand product permutation checks for copy constraints. The flavor definitions provide compile-time configuration for different proving system variants (Ultra, Mega, UltraRollup, UltraKeccak) including their recursive and zero-knowledge versions, specifying polynomial types, commitment schemes, and relation sets. The Oink protocol separates preprocessing rounds (wire commitments, sorted list accumulator) from the main proving phase. The trace_to_polynomials component converts execution traces from circuit builders into polynomial representations, populating wires, selectors, and permutation polynomials. The ultra_honk implementation provides the main prover and verifier logic, witness computation, and integration with polynomial commitment schemes (KZG and IPA).
 
 ## Test Files
 1. `honk/relation_checker.cpp`
