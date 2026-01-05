@@ -3,7 +3,6 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import type { KeyStore } from '@aztec/key-store';
-import { isProtocolContract } from '@aztec/protocol-contracts';
 import { type CircuitSimulator, toACVMWitness } from '@aztec/simulator/client';
 import {
   type FunctionAbi,
@@ -557,10 +556,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       this.anchorBlockHeader,
     );
 
-    // Protocol contracts don't have private state to sync
-    if (!isProtocolContract(targetContractAddress)) {
-      await this.contractDataProvider.syncPrivateState(targetContractAddress, functionSelector, this.utilityExecutor);
-    }
+    await this.contractDataProvider.syncPrivateState(targetContractAddress, functionSelector, this.utilityExecutor);
 
     const targetArtifact = await this.contractDataProvider.getFunctionArtifactWithDebugMetadata(
       targetContractAddress,

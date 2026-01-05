@@ -512,7 +512,7 @@ export class TXESession implements TXESessionStateHandler {
             );
           });
       } catch (err) {
-        throw createSimulationError(err instanceof Error ? err : new Error('Unknown error during utility execution'));
+        throw createSimulationError(err instanceof Error ? err : new Error('Unknown error contract data sync'));
       }
     };
   }
