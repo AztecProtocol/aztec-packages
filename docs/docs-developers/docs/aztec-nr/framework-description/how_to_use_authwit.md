@@ -11,85 +11,62 @@ Authentication witnesses (authwit) allow other contracts to execute actions on b
 
 - An Aztec contract project set up with `aztec-nr` dependency
 - Understanding of private and public functions in Aztec
-- Access to the `authwit` library in your contract
 
 For conceptual background, see [Authentication Witnesses](../../foundational-topics/advanced/authwit.md).
 
-## Set up the authwit library
+## Import the authwit library
 
-Add the `authwit` library to your `Nargo.toml` file:
-
-```toml
-[dependencies]
-aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/smart-contracts/aztec" }
-```
-
-Import the authwit library in your contract:
+The `aztec` library includes authwit functionality. Import the necessary components:
 
 ```rust
-use aztec::authwit::auth::compute_authwit_nullifier;
+use aztec::{
+    authwit::auth::{compute_authwit_message_hash_from_call, set_authorized},
+    macros::functions::authorize_once,
+};
 ```
 
-## Implement authwit in private functions
+## Using the `authorize_once` macro
 
-### Validate authentication in a private function
+The `#[authorize_once]` macro validates that a caller has authorization from the `from` address. It handles authwit verification and nullifier emission automatically.
 
-Check if the current call is authenticated using the `authorize_once` macro:
+### Private function example
 
-```rust
-#[authorize_once("from", "authwit_nonce")]
-#[external("private")]
-fn execute_private_action(
-    from: AztecAddress,
-    to: AztecAddress,
-    value: u128,
-    authwit_nonce: Field,
-) {
-    storage.values.at(from).sub(from, value).deliver(encode_and_encrypt_note(&mut context, from));
-    storage.values.at(to).add(to, value).deliver(encode_and_encrypt_note(&mut context, to));
-}
-```
+#include_code transfer_in_private noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr rust
 
-This allows anyone with a valid authwit (created by `from`) to execute an action on its behalf.
+### Public function example
 
-## Set approval state from contracts
+#include_code transfer_in_public noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr rust
 
-Enable contracts to approve actions on their behalf by updating the public auth registry:
+The macro parameters specify:
+
+- `"from"` - the parameter name containing the address that must have authorized the call
+- `"authwit_nonce"` - the parameter name containing the nonce for replay protection
+
+## Setting authorization from contracts
+
+When a contract needs to authorize another contract to act on its behalf, use `set_authorized` to update the auth registry. This is common in bridge contracts where contract A authorizes contract B to perform actions.
+
+#include_code authwit_uniswap_set noir-projects/noir-contracts/contracts/app/uniswap_contract/src/main.nr rust
+
+Key steps:
 
 1. Compute the message hash using `compute_authwit_message_hash_from_call`
-2. Set the authorization using `set_authorized`
+2. Call `set_authorized` to store the approval in the registry
+3. Execute the authorized action
 
-This pattern is commonly used in bridge contracts (like the [uniswap example contract](https://github.com/AztecProtocol/aztec-packages/tree/next/noir-projects/noir-contracts/contracts/app/uniswap_contract)) where one contract needs to authorize another to perform actions on its behalf:
+When authorization and consumption happen in the same transaction, state changes are squashed, saving gas.
 
-```rust
-#[external("public")]
-#[only_self]
-fn _approve_and_execute_action(
-    target_contract: AztecAddress,
-    bridge_contract: AztecAddress,
-    value: u128,
-) {
-    // Since we will authorize and instantly execute the action, all in public, we can use the same nonce
-    // every interaction. In practice, the authwit should be squashed, so this is also cheap!
-    let authwit_nonce = 0xdeadbeef;
+## Canceling authwits
 
-    let selector = FunctionSelector::from_signature("execute_action((Field),u128,Field)");
-    let message_hash = compute_authwit_message_hash_from_call(
-        bridge_contract,
-        target_contract,
-        context.chain_id(),
-        context.version(),
-        selector,
-        [context.this_address().to_field(), value as Field, authwit_nonce],
-    );
+Users can revoke an authwit before it's used by emitting its nullifier:
 
-    // We need to make a call to update it.
-    set_authorized(&mut context, message_hash, true);
+#include_code cancel_authwit noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr rust
 
-    let this_address = storage.my_address.read();
-    // Execute the action!
-    OtherContract::at(bridge_contract)
-        .execute_external_action(this_address, value, this_address, authwit_nonce)
-        .call(&mut context)
-}
-```
+:::note
+The cancel transaction must be finalized before any transaction attempts to use the authwit. If both are pending simultaneously, the outcome depends on which the sequencer includes first.
+:::
+
+## Next steps
+
+- [Using authwits in aztec.js](../../aztec-js/how_to_use_authwit.md) - Create and manage authwits from your client application
+- [Authentication Witnesses concepts](../../foundational-topics/advanced/authwit.md) - Deeper explanation of the authwit mechanism

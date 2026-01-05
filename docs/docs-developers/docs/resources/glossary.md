@@ -18,13 +18,13 @@ Aztec is a privacy-first Layer 2 rollup on Ethereum. It supports smart contracts
 
 `aztec` is a CLI tool (with an extensive set of parameters) that enables users to perform a wide range of tasks. It can: compile and test contracts, run a node, run a local network, execute tests, generate contract interfaces for javascript and more.
 
-Full reference [here](../aztec-cli/cli_reference).
+Full reference [here](../cli/aztec_cli_reference).
 
 ### Aztec Wallet
 
 The Aztec Wallet is a CLI wallet, `aztec-wallet`, that allows a user to manage accounts and interact with an Aztec network. It includes a PXE.
 
-Full reference [here](../wallet-cli/cli_wallet_reference).
+Full reference [here](../cli/aztec_wallet_cli_reference).
 
 ### `aztec-up`
 

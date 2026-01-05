@@ -41,8 +41,6 @@ impl<let NumPreviousRollups: u32, let NumVkIndices: u32> CheckpointRootInputsVal
         }
 
         self.validate_start_states();
-
-        self.validate_end_states();
     }
 
     fn validate_previous_rollup_proofs_and_vks(self) {
@@ -115,21 +113,5 @@ impl<let NumPreviousRollups: u32, let NumVkIndices: u32> CheckpointRootInputsVal
             ),
             "Hash of the previous block header is not the last leaf in the archive tree",
         );
-    }
-
-    fn validate_end_states(self) {
-        let end_sponge_blob =
-            self.previous_rollups[NumPreviousRollups - 1].public_inputs.end_sponge_blob;
-
-        // Check that the number of absorbed blob fields is not larger than the maximum number of fields allowed.
-        // Note: It must not equal the max allowed number because an additional checkpoint end marker will be absorbed
-        // in `checkpoint_rollup_public_inputs_composer`.
-        assert(
-            end_sponge_blob.num_absorbed_fields < FIELDS_PER_BLOB * BLOBS_PER_CHECKPOINT,
-            "Attempted to overfill blobs",
-        );
-
-        // The `end_sponge_blob` is validated against the injected blob fields in
-        // `checkpoint_rollup_public_inputs_composer.nr`, after the checkpoint end marker is absorbed.
     }
 }

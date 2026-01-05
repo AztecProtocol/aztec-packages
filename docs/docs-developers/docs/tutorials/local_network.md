@@ -103,7 +103,7 @@ cd your/aztec/project
 aztec update . --contract src/contract1 --contract src/contract2
 ```
 
-The local network must be running for the update command to work. Make sure it is [installed and running](../aztec-cli/local-network-reference.md).
+The local network must be running for the update command to work. Make sure it is [installed and running](../../getting_started_on_local_network.md).
 
 Follow [updating Aztec.nr packages](#updating-aztecnr-packages) and [updating JavaScript packages](#updating-aztecjs-packages) guides.
 
@@ -201,7 +201,7 @@ You can enable proving on a per-transaction basis using the `aztec-wallet` CLI b
 PXE_PROVER_ENABLED=1 aztec-wallet create-account -a test
 ```
 
-Check the [Quickstart](../../getting_started_on_local_network.md) for a refresher on how to send transactions using `aztec-wallet` or check the [reference here](../wallet-cli/cli_wallet_reference.md)
+Check the [Getting Started on Local Network](../../getting_started_on_local_network.md) for a refresher on how to send transactions using `aztec-wallet` or check the [reference here](../cli/aztec_wallet_cli_reference.md)
 
 Note that you do not need to restart the local network in order to start sending proven transactions. You can optionally set this for one-off transactions.
 
@@ -211,4 +211,4 @@ If this is the first time you are sending transactions with proving enabled, it 
 You can also profile your transactions to get gate count, if you don't want to prove your transactions but check how many constraints it is. Follow the [guide here](../aztec-nr/framework-description/advanced/how_to_profile_transactions.md)
 :::
 
-You can learn more about custom commands in the [local network reference](../aztec-cli/local-network-reference.md).
+You can learn more about custom commands in the [Aztec CLI Reference](../cli/aztec_cli_reference.md).

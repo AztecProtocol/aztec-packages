@@ -132,13 +132,17 @@ export class Sha256Compression extends Instruction {
     const [outputOffset, stateOffset, inputsOffset] = addressing.resolve(operands, memory);
 
     // Note: size of output is same as size of state
-    const inputs = Uint32Array.from(memory.getSlice(inputsOffset, INPUTS_SIZE).map(word => word.toNumber()));
-    const state = Uint32Array.from(memory.getSlice(stateOffset, STATE_SIZE).map(word => word.toNumber()));
+    const inputs = memory.getSlice(inputsOffset, INPUTS_SIZE).map(word => word.toBigInt());
+    const state = memory.getSlice(stateOffset, STATE_SIZE).map(word => word.toBigInt());
 
     memory.checkTagsRange(TypeTag.UINT32, inputsOffset, INPUTS_SIZE);
     memory.checkTagsRange(TypeTag.UINT32, stateOffset, STATE_SIZE);
 
-    const output = sha256Compression(state, inputs);
+    // At this point both state and inputs are Uint32Array-compatible
+    const inputsArray = new Uint32Array(inputs.map(i => Number(i)));
+    const stateArray = new Uint32Array(state.map(i => Number(i)));
+
+    const output = sha256Compression(stateArray, inputsArray);
 
     // Conversion required from Uint32Array to Uint32[] (can't map directly, need `...`)
     const res = [...output].map(word => new Uint32(word));

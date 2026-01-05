@@ -30,10 +30,10 @@ Retrieves the current rollup contract.
 
 ## `getRollup(uint256 _version)`
 
-Retrieves the rollup contract for a specfic version.
+Retrieves the rollup contract for a specific version.
 
 #include_code registry_get_rollup l1-contracts/src/governance/interfaces/IRegistry.sol solidity
 
-| Name        | Description        |
-| ----------- | ------------------ |
-| ReturnValue | The current rollup |
+| Name        | Description                          |
+| ----------- | ------------------------------------ |
+| ReturnValue | The rollup for the specified version |

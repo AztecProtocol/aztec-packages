@@ -13,7 +13,9 @@
     "serve": "docusaurus serve",
     "spellcheck": "yarn cspell",
     "spellcheck:appendwords": "yarn cspell --words-only --unique | sort --ignore-case >> docs-words.txt",
-    "start": "yarn clean && yarn preprocess && yarn generate:aztec-nr-api && docusaurus start --host ${HOST:-localhost}"
+    "start": "yarn clean && yarn preprocess && yarn generate:aztec-nr-api && docusaurus start --host ${HOST:-localhost}",
+    "test": "node --test src/preprocess/__tests__/*.test.js",
+    "test:preprocess": "node --test src/preprocess/__tests__/*.test.js"
   },
   "dependencies": {
     "@cookbookdev/docsbot": "^4.25.15",

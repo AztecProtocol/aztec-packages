@@ -57,7 +57,7 @@ export type AztecNodeAdminConfig = ValidatorClientFullConfig &
   ProverConfig &
   SlasherConfig &
   Pick<ArchiverSpecificConfig, 'archiverPollingIntervalMS' | 'skipValidateBlockAttestations' | 'archiverBatchSize'> & {
-    maxTxPoolSize: number;
+    maxPendingTxCount: number;
   };
 
 export const AztecNodeAdminConfigSchema = SequencerConfigSchema.merge(ProverConfigSchema)
@@ -70,7 +70,7 @@ export const AztecNodeAdminConfigSchema = SequencerConfigSchema.merge(ProverConf
       archiverBatchSize: true,
     }),
   )
-  .merge(z.object({ maxTxPoolSize: z.number() }));
+  .merge(z.object({ maxPendingTxCount: z.number() }));
 
 export const AztecNodeAdminApiSchema: ApiSchemaFor<AztecNodeAdmin> = {
   getConfig: z.function().returns(AztecNodeAdminConfigSchema),

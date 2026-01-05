@@ -79,6 +79,7 @@ struct RollupConfigInput {
   StakingQueueConfig stakingQueueConfig;
   uint256 localEjectionThreshold;
   Timestamp earliestRewardsClaimableTimestamp;
+  uint256 inboxLag;
 }
 
 struct RollupConfig {

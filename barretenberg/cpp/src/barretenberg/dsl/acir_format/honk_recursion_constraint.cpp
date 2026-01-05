@@ -25,9 +25,6 @@ namespace acir_format {
 
 using namespace bb;
 using namespace bb::stdlib::recursion::honk;
-template <typename Builder> using field_ct = stdlib::field_t<Builder>;
-template <typename Builder> using bn254 = stdlib::bn254<Builder>;
-template <typename Builder> using PairingPoints = bb::stdlib::recursion::PairingPoints<Builder>;
 
 template <typename Flavor>
 HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recursion_constraints(
@@ -53,7 +50,7 @@ HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recur
     BB_ASSERT_EQ(input.proof_type == ROLLUP_HONK || input.proof_type == ROOT_ROLLUP_HONK,
                  HasIPAAccumulator<Flavor>,
                  "create_honk_recursion_constraints: ROLLUP_HONK and ROOT_ROLLUP_HONK must be recursively verified "
-                 "using a Flavor with IPA accumulator.s");
+                 "using a Flavor with IPA accumulator.");
 
     // Step 1.
     // Construct in-circuit representations of the recursion data
@@ -97,7 +94,7 @@ HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recur
         // valid ZK proofs, we cannot do that without adding a dependency of the VKs on the witness values. Note that
         // the new witnesses are used only in the recursive verification when the predicate is set to true, so they
         // don't create a soundness issue and can be filled with anything - as long as they contain a valid vk, proof
-        // and vk hash)
+        // and vk hash
         for (auto [vk_witness, vk_element] : zip_view(vk_fields, honk_vk_to_be_set->to_field_elements())) {
             field_ct valid_vk_witness = field_ct::from_witness(&builder, vk_element);
             valid_vk_witness.unset_free_witness_tag(); // Avoid tooling catching this as a free witness

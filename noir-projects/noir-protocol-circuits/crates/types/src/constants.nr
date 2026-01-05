@@ -1096,11 +1096,13 @@ pub global L2_GAS_PER_PRIVATE_LOG: u32 = 0;
 pub global L2_GAS_PER_CONTRACT_CLASS_LOG: u32 = 0; // TODO: this should be nonzero, because the sequencer is doing work to hash this, as part of tx validation
 // Note: magic numbers here are derived from each op's AVM circuit trace area
 // https://docs.google.com/spreadsheets/d/1FPyLfJFPOfZTmZC-T6b_4yB5dSrOAofz3dufte23_TA/edit?usp=sharing
+// Some have a "SLOW_SIM_MUL" multiplier because they are slower to simulate and their trace-area-derived gas cost
+// is not sufficient to cover the simulation effort.
 pub global AVM_ADD_BASE_L2_GAS: u32 = 12;
 pub global AVM_SUB_BASE_L2_GAS: u32 = 12;
 pub global AVM_MUL_BASE_L2_GAS: u32 = 27;
 pub global AVM_DIV_BASE_L2_GAS: u32 = 27;
-pub global AVM_FDIV_BASE_L2_GAS: u32 = 9;
+pub global AVM_FDIV_BASE_L2_GAS: u32 = 9 * 25; // SLOW_SIM_MUL = 25
 pub global AVM_EQ_BASE_L2_GAS: u32 = 12;
 pub global AVM_LT_BASE_L2_GAS: u32 = 42;
 pub global AVM_LTE_BASE_L2_GAS: u32 = 42;
@@ -1122,26 +1124,26 @@ pub global AVM_INTERNALCALL_BASE_L2_GAS: u32 = 9;
 pub global AVM_INTERNALRETURN_BASE_L2_GAS: u32 = 9;
 pub global AVM_SET_BASE_L2_GAS: u32 = 27;
 pub global AVM_MOV_BASE_L2_GAS: u32 = 12;
-pub global AVM_SLOAD_BASE_L2_GAS: u32 = 129;
-pub global AVM_SSTORE_BASE_L2_GAS: u32 = 633 + L2_GAS_DISTRIBUTED_STORAGE_PREMIUM;
-pub global AVM_NOTEHASHEXISTS_BASE_L2_GAS: u32 = 126;
-pub global AVM_EMITNOTEHASH_BASE_L2_GAS: u32 = 261 + L2_GAS_DISTRIBUTED_STORAGE_PREMIUM;
-pub global AVM_NULLIFIEREXISTS_BASE_L2_GAS: u32 = 132;
-pub global AVM_EMITNULLIFIER_BASE_L2_GAS: u32 = 516 + L2_GAS_DISTRIBUTED_STORAGE_PREMIUM;
-pub global AVM_L1TOL2MSGEXISTS_BASE_L2_GAS: u32 = 108;
-pub global AVM_GETCONTRACTINSTANCE_BASE_L2_GAS: u32 = 1527; // does scalar mul
+pub global AVM_SLOAD_BASE_L2_GAS: u32 = 129 * 10; // SLOW_SIM_MUL = 10
+pub global AVM_SSTORE_BASE_L2_GAS: u32 = (633 + L2_GAS_DISTRIBUTED_STORAGE_PREMIUM) * 20; // SLOW_SIM_MUL = 20
+pub global AVM_NOTEHASHEXISTS_BASE_L2_GAS: u32 = 126 * 4; // SLOW_SIM_MUL = 3 (+1 for slow proving)
+pub global AVM_EMITNOTEHASH_BASE_L2_GAS: u32 = (261 + L2_GAS_DISTRIBUTED_STORAGE_PREMIUM) * 15; // SLOW_SIM_MUL = 15
+pub global AVM_NULLIFIEREXISTS_BASE_L2_GAS: u32 = 132 * 7; // SLOW_SIM_MUL = 6 (+1 for slow proving)
+pub global AVM_EMITNULLIFIER_BASE_L2_GAS: u32 = (516 + L2_GAS_DISTRIBUTED_STORAGE_PREMIUM) * 20; // SLOW_SIM_MUL = 20
+pub global AVM_L1TOL2MSGEXISTS_BASE_L2_GAS: u32 = 108 * 5; // SLOW_SIM_MUL = 4 (+1 for slow proving)
+pub global AVM_GETCONTRACTINSTANCE_BASE_L2_GAS: u32 = 1527 * 4; // SLOW_SIM_MUL = 4
 pub global AVM_EMITUNENCRYPTEDLOG_BASE_L2_GAS: u32 = 15;
-pub global AVM_SENDL2TOL1MSG_BASE_L2_GAS: u32 = 9 + L2_GAS_PER_L2_TO_L1_MSG;
+pub global AVM_SENDL2TOL1MSG_BASE_L2_GAS: u32 = (9 + L2_GAS_PER_L2_TO_L1_MSG) * 2; // SLOW_SIM_MUL = 2
 // See PR https://github.com/AztecProtocol/aztec-packages/pull/15495 on why we need this buffer.
-pub global AVM_CALL_BASE_L2_GAS: u32 = 3312; // hashes bytecode (1k rows for 3k fields)
-pub global AVM_STATICCALL_BASE_L2_GAS: u32 = 3312; // hashes bytecode (1k rows for 3k fields)
+pub global AVM_CALL_BASE_L2_GAS: u32 = 3312 * 3; // SLOW_SIM_MUL = 3
+pub global AVM_STATICCALL_BASE_L2_GAS: u32 = 3312 * 3; // SLOW_SIM_MUL = 3
 pub global AVM_RETURN_BASE_L2_GAS: u32 = 9;
 pub global AVM_REVERT_BASE_L2_GAS: u32 = 9;
 pub global AVM_DEBUGLOG_BASE_L2_GAS: u32 = 9;
-pub global AVM_POSEIDON2_BASE_L2_GAS: u32 = 24;
+pub global AVM_POSEIDON2_BASE_L2_GAS: u32 = 24 * 15; // SLOW_SIM_MUL = 15
 pub global AVM_SHA256COMPRESSION_BASE_L2_GAS: u32 = 12288;
 pub global AVM_KECCAKF1600_BASE_L2_GAS: u32 = 58176;
-pub global AVM_ECADD_BASE_L2_GAS: u32 = 27;
+pub global AVM_ECADD_BASE_L2_GAS: u32 = 27 * 10; // SLOW_SIM_MUL = 10
 pub global AVM_TORADIXBE_BASE_L2_GAS: u32 = 24;
 
 // Dynamic L2 GAS

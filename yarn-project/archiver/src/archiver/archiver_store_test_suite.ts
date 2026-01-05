@@ -2276,17 +2276,13 @@ export function describeArchiverDataStore(
           [
             expect.objectContaining({
               blockNumber: 2,
-              blockHash: L2BlockHash.fromField(await logsCheckpoints[2 - 1].checkpoint.blocks[0].header.hash()),
-              log: makePrivateLog(tags[0]),
-              isFromPublic: false,
+              logData: makePrivateLog(tags[0]).getEmittedFields(),
             }),
           ],
           [
             expect.objectContaining({
               blockNumber: 1,
-              blockHash: L2BlockHash.fromField(await logsCheckpoints[1 - 1].checkpoint.blocks[0].header.hash()),
-              log: makePrivateLog(tags[1]),
-              isFromPublic: false,
+              logData: makePrivateLog(tags[1]).getEmittedFields(),
             }),
           ],
         ]);
@@ -2312,15 +2308,11 @@ export function describeArchiverDataStore(
           [
             expect.objectContaining({
               blockNumber: 1,
-              blockHash: L2BlockHash.fromField(await logsCheckpoints[1 - 1].checkpoint.blocks[0].header.hash()),
-              log: makePrivateLog(tags[0]),
-              isFromPublic: false,
+              logData: makePrivateLog(tags[0]).getEmittedFields(),
             }),
             expect.objectContaining({
               blockNumber: newBlockNumber,
-              blockHash: L2BlockHash.fromField(await newCheckpoint.checkpoint.blocks[0].header.hash()),
-              log: newLog,
-              isFromPublic: false,
+              logData: newLog.getEmittedFields(),
             }),
           ],
         ]);
@@ -2338,9 +2330,7 @@ export function describeArchiverDataStore(
           [
             expect.objectContaining({
               blockNumber: 1,
-              blockHash: L2BlockHash.fromField(await logsCheckpoints[1 - 1].checkpoint.blocks[0].header.hash()),
-              log: makePrivateLog(tags[1]),
-              isFromPublic: false,
+              logData: makePrivateLog(tags[1]).getEmittedFields(),
             }),
           ],
         ]);
@@ -2425,17 +2415,13 @@ export function describeArchiverDataStore(
           [
             expect.objectContaining({
               blockNumber: 2,
-              blockHash: L2BlockHash.fromField(await logsCheckpoints[2 - 1].checkpoint.blocks[0].header.hash()),
-              log: makePublicLog(tags[0]),
-              isFromPublic: true,
+              logData: makePublicLog(tags[0]).getEmittedFields(),
             }),
           ],
           [
             expect.objectContaining({
               blockNumber: 1,
-              blockHash: L2BlockHash.fromField(await logsCheckpoints[1 - 1].checkpoint.blocks[0].header.hash()),
-              log: makePublicLog(tags[1]),
-              isFromPublic: true,
+              logData: makePublicLog(tags[1]).getEmittedFields(),
             }),
           ],
         ]);
@@ -2461,15 +2447,11 @@ export function describeArchiverDataStore(
           [
             expect.objectContaining({
               blockNumber: 1,
-              blockHash: L2BlockHash.fromField(await logsCheckpoints[1 - 1].checkpoint.blocks[0].header.hash()),
-              log: makePublicLog(tags[0]),
-              isFromPublic: true,
+              logData: makePublicLog(tags[0]).getEmittedFields(),
             }),
             expect.objectContaining({
               blockNumber: newBlockNumber,
-              blockHash: L2BlockHash.fromField(await newCheckpoint.checkpoint.blocks[0].header.hash()),
-              log: newLog,
-              isFromPublic: true,
+              logData: newLog.getEmittedFields(),
             }),
           ],
         ]);
@@ -2487,9 +2469,7 @@ export function describeArchiverDataStore(
           [
             expect.objectContaining({
               blockNumber: 1,
-              blockHash: L2BlockHash.fromField(await logsCheckpoints[1 - 1].checkpoint.blocks[0].header.hash()),
-              log: makePublicLog(tags[1]),
-              isFromPublic: true,
+              logData: makePublicLog(tags[1]).getEmittedFields(),
             }),
           ],
         ]);

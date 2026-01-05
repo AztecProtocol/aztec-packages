@@ -133,11 +133,8 @@ export interface P2PConfig extends P2PReqRespConfig, ChainConfig, TxCollectionCo
   /** Which calls are allowed in the public setup phase of a tx. */
   txPublicSetupAllowList: AllowedElement[];
 
-  /** The maximum cumulative tx size (in bytes) of pending txs before evicting lower priority txs. */
-  maxTxPoolSize: number;
-
-  /** If the pool is full, it will still accept a few more txs until it reached maxTxPoolOverspillFactor * maxTxPoolSize. Then it will evict */
-  txPoolOverflowFactor: number;
+  /** The maximum number of pending txs before evicting lower priority txs. */
+  maxPendingTxCount: number;
 
   /** The node's seen message ID cache size */
   seenMessageCacheSize: number;
@@ -375,15 +372,12 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     printDefault: () =>
       'AuthRegistry, FeeJuice.increase_public_balance, Token.increase_public_balance, FPC.prepare_fee',
   },
-  maxTxPoolSize: {
-    env: 'P2P_MAX_TX_POOL_SIZE',
-    description: 'The maximum cumulative tx size of pending txs (in bytes) before evicting lower priority txs.',
-    ...numberConfigHelper(100_000_000), // 100MB
-  },
-  txPoolOverflowFactor: {
-    env: 'P2P_TX_POOL_OVERFLOW_FACTOR',
-    description: 'How much the tx pool can overflow before it starts evicting txs. Must be greater than 1',
-    ...floatConfigHelper(1.1), // 10% overflow
+  maxPendingTxCount: {
+    env: 'P2P_MAX_PENDING_TX_COUNT',
+    description: 'The maximum number of pending txs before evicting lower priority txs.',
+    // Worst case scenario: Uncompressed public/private tx is ~ 156kb
+    // This implies we are using ~156MB of memory for pending pool
+    ...numberConfigHelper(1_000),
   },
   seenMessageCacheSize: {
     env: 'P2P_SEEN_MSG_CACHE_SIZE',

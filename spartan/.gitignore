@@ -18,4 +18,5 @@ environments/*
 !environments/next-scenario.env
 !environments/ignition-fisherman.env
 !environments/tps-scenario.env
+!environments/10-tps-scenario.env
 *.tfvars

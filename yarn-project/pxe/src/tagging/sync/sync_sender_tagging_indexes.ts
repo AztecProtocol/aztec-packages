@@ -12,16 +12,10 @@ import { loadAndStoreNewTaggingIndexes } from './utils/load_and_store_new_taggin
 // MAX_PRIVATE_LOGS_PER_TX indexes consumed in case the logs are squashed. This happens when the log contains a note
 // and the note is nullified in the same tx.
 //
-// Rationale for value 95:
-// - The `e2e_pending_note_hashes_contract` test's "Should handle overflowing the kernel data structures in nested
-//   calls" test case hits 95 tagging indexes emitted in a single transaction. This test creates and nullifies many
-//   notes recursively to test kernel reset circuit behavior, which causes logs to be squashed but still consume
-//   tagging indexes during the sync process. Since this is testing MAX_PRIVATE_LOGS_PER_TX overflow we can be
-//   reasonably certain that this value is large enough for standard use cases.
-// - This value is below MAX_RPC_LEN (100) which is the limit for array parameters in the JSON RPC schema for
-//   `getLogsByTags`. Any test that would perform sync over JSON RPC (not by having access to the Aztec node instance
-//   directly) would error out if that maximum was hit (docs_examples.test.ts is an example of this).
-export const UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN = 95;
+// Having a large window significantly slowed down `e2e_l1_with_wall_time` test as there we perform sync for more than
+// 1000 secrets. For this reason we set it to a relatively low value of 20. 20 should be sufficient for all the use
+// cases.
+export const UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN = 20;
 
 /**
  * Syncs tagging indexes. This function needs to be called whenever a private log is being sent.

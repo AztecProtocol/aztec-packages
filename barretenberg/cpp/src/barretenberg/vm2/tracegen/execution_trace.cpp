@@ -456,7 +456,8 @@ void ExecutionTraceBuilder::process(
             trace.set(row,
                       { {
                           { C::execution_next_pc,
-                            ex_event.before_context_event.pc + ex_event.wire_instruction.size_in_bytes() },
+                            static_cast<uint32_t>(ex_event.before_context_event.pc +
+                                                  ex_event.wire_instruction.size_in_bytes()) },
                       } });
 
             // Along this function we need to set the info we get from the #[EXEC_SPEC_READ] lookup.

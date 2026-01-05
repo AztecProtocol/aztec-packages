@@ -161,6 +161,7 @@ pub contract Token {
         self.storage.total_supply.write(supply);
     }
 
+    // docs:start:transfer_in_public
     #[authorize_once("from", "authwit_nonce")]
     #[external("public")]
     fn transfer_in_public(
@@ -174,6 +175,7 @@ pub contract Token {
         let to_balance = self.storage.public_balances.at(to).read().add(amount);
         self.storage.public_balances.at(to).write(to_balance);
     }
+    // docs:end:transfer_in_public
 
     #[authorize_once("from", "authwit_nonce")]
     #[external("public")]
@@ -290,13 +292,16 @@ pub contract Token {
      * Cancel a private authentication witness.
      * @param inner_hash The inner hash of the authwit to cancel.
      */
+    // docs:start:cancel_authwit
     #[external("private")]
     fn cancel_authwit(inner_hash: Field) {
         let on_behalf_of = self.msg_sender().unwrap();
         let nullifier = compute_authwit_nullifier(on_behalf_of, inner_hash);
         self.context.push_nullifier(nullifier);
     }
+    // docs:end:cancel_authwit
 
+    // docs:start:transfer_in_private
     #[authorize_once("from", "authwit_nonce")]
     #[external("private")]
     fn transfer_in_private(
@@ -310,6 +315,7 @@ pub contract Token {
         // docs:end:increase_private_balance
         self.storage.balances.at(to).add(amount).deliver(MessageDelivery.CONSTRAINED_ONCHAIN);
     }
+    // docs:end:transfer_in_private
 
     #[authorize_once("from", "authwit_nonce")]
     #[external("private")]
@@ -344,6 +350,7 @@ pub contract Token {
     /// us to have it inlined in the `transfer_to_private` function which results in one fewer kernel iteration. Note
     /// that in this case we don't pass `completer` as an argument to this function because in all the callsites we
     /// want to use the message sender as the completer anyway.
+    // docs:start:prepare_private_balance_increase
     #[internal("private")]
     fn _prepare_private_balance_increase(to: AztecAddress) -> PartialUintNote {
         let partial_note = UintNote::partial(
@@ -356,6 +363,7 @@ pub contract Token {
 
         partial_note
     }
+    // docs:end:prepare_private_balance_increase
 
     /// Finalizes a transfer of token `amount` from public balance of `msg_sender` to a private balance of `to`.
     /// The transfer must be prepared by calling `prepare_private_balance_increase` from `msg_sender` account and
@@ -411,6 +419,7 @@ pub contract Token {
     // In all the flows in this contract, `from` (the account from which we're subtracting the `amount`) and
     // `completer` (the entity that can complete the partial note) are the same so we represent them with a single
     // argument.
+    // docs:start:finalize_transfer_to_private
     #[internal("public")]
     fn _finalize_transfer_to_private(
         from_and_completer: AztecAddress,
@@ -426,6 +435,7 @@ pub contract Token {
         // We finalize the transfer by completing the partial note.
         partial_note.complete(self.context, from_and_completer, amount);
     }
+    // docs:end:finalize_transfer_to_private
 
     /// Mints token `amount` to a private balance of `to`. Message sender has to have minter permissions (checked
     /// in the enqueued call).

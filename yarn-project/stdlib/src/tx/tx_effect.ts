@@ -214,12 +214,14 @@ export class TxEffect {
     maxEffects?: number;
   } = {}): Promise<TxEffect> {
     const count = (max: number, num?: number) => num ?? Math.min(maxEffects ?? randomInt(max), max);
+    // Every tx effect must have at least 1 nullifier (the first nullifier is used for log indexing)
+    const countNullifiers = (max: number, num?: number) => Math.max(1, count(max, num));
     return new TxEffect(
       RevertCode.random(),
       TxHash.random(),
       new Fr(Math.floor(Math.random() * 100_000)),
       makeTuple(count(MAX_NOTE_HASHES_PER_TX, numNoteHashes), Fr.random),
-      makeTuple(count(MAX_NULLIFIERS_PER_TX, numNullifiers), Fr.random),
+      makeTuple(countNullifiers(MAX_NULLIFIERS_PER_TX, numNullifiers), Fr.random),
       makeTuple(count(MAX_L2_TO_L1_MSGS_PER_TX, numL2ToL1Msgs), Fr.random),
       makeTuple(count(MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, numPublicDataWrites), PublicDataWrite.random),
       makeTuple(count(MAX_PRIVATE_LOGS_PER_TX, numPrivateLogs), () => PrivateLog.random()),

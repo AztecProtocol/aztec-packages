@@ -1,9 +1,11 @@
 pub(crate) mod assert_trailing_zeros;
+pub(crate) mod copy_items_into_array;
 pub(crate) mod find_index;
 pub(crate) mod get_sorted_tuples;
 
 // Re-exports.
 pub use assert_trailing_zeros::assert_trailing_zeros;
+pub use copy_items_into_array::copy_items_into_array;
 pub use find_index::{find_first_index, find_last_index};
 pub use get_sorted_tuples::{get_sorted_tuples, SortedTuple};
 

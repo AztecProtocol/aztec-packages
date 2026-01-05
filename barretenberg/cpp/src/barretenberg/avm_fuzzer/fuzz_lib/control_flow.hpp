@@ -64,6 +64,12 @@ struct FinalizeWithReturn {
     MSGPACK_FIELDS(return_options);
 };
 
+/// @brief finalizes the current block with Revert and switches to the first non-terminated block
+struct FinalizeWithRevert {
+    ReturnOptions revert_options;
+    MSGPACK_FIELDS(revert_options);
+};
+
 /// @brief switches to the non-terminated block with the chosen index
 struct SwitchToNonTerminatedBlock {
     uint16_t non_terminated_block_idx;
@@ -83,6 +89,7 @@ using CFGInstruction = std::variant<InsertSimpleInstructionBlock,
                                     JumpToBlock,
                                     JumpIfToBlock,
                                     FinalizeWithReturn,
+                                    FinalizeWithRevert,
                                     SwitchToNonTerminatedBlock,
                                     InsertInternalCall>;
 template <class... Ts> struct overloaded_cfg_instruction : Ts... {
@@ -110,6 +117,10 @@ inline std::ostream& operator<<(std::ostream& os, const CFGInstruction& instruct
             [&](FinalizeWithReturn arg) {
                 os << "FinalizeWithReturn " << arg.return_options.return_size << " "
                    << arg.return_options.return_value_tag << " " << arg.return_options.return_value_offset_index;
+            },
+            [&](FinalizeWithRevert arg) {
+                os << "FinalizeWithRevert " << arg.revert_options.return_size << " "
+                   << arg.revert_options.return_value_tag << " " << arg.revert_options.return_value_offset_index;
             },
             [&](SwitchToNonTerminatedBlock arg) {
                 os << "SwitchToNonTerminatedBlock " << arg.non_terminated_block_idx;
@@ -159,6 +170,10 @@ class ControlFlow {
     /// @note if the current block has caller, it inserts INTERNALRETURN only and switches to the caller
     /// @param instruction the instruction to process
     void process_finalize_with_return(FinalizeWithReturn instruction);
+
+    /// @brief terminates the current block with Revert and switches to the first non-terminated block
+    /// @param instruction the instruction to process
+    void process_finalize_with_revert(FinalizeWithRevert instruction);
 
     /// @brief switches to the non-terminated block with the chosen index
     /// @param instruction the instruction to process

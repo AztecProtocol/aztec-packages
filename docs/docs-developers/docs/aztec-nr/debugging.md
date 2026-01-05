@@ -33,7 +33,7 @@ Log values from your contract using `debug_log`:
 
 ```rust
 // Import debug logging
-use dep::aztec::oracle::debug_log::{ debug_log, debug_log_format, debug_log_field, debug_log_array };
+use dep::aztec::oracle::debug_log::{ debug_log, debug_log_format };
 
 // Log simple messages
 debug_log("checkpoint reached");
@@ -41,11 +41,11 @@ debug_log("checkpoint reached");
 // Log field values with context
 debug_log_format("slot:{0}, hash:{1}", [storage_slot, note_hash]);
 
-// Log single field
-debug_log_field(my_field);
+// Log a single value
+debug_log_format("my_field: {0}", [my_field]);
 
-// Log arrays
-debug_log_array(my_array);
+// Log multiple values
+debug_log_format("values: {0}, {1}, {2}", [val1, val2, val3]);
 ```
 
 :::note
@@ -230,5 +230,5 @@ Check hex errors against [Errors.sol](https://github.com/AztecProtocol/aztec-pac
 ## Next steps
 
 - [Circuit Architecture](../foundational-topics/advanced/circuits/index.md)
-- [Private-Public Execution](./framework-description/functions/public_private_calls.md)
+- [Call Types](../foundational-topics/call_types.md)
 - [Aztec.nr Dependencies](./framework-description/dependencies.md)
