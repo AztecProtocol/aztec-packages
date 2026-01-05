@@ -400,12 +400,12 @@ export class BatchTxRequester {
           failedMakeRequestCount++;
           if (failedMakeRequestCount >= FAILED_MAKE_REQUEST_THRESHOLD) {
             this.logger.debug(
-              `Worker loop dumb: Could not create next batch request ${FAILED_MAKE_REQUEST_THRESHOLD} times, exiting`,
+              `Worker loop smart: Could not create next batch request ${FAILED_MAKE_REQUEST_THRESHOLD} times, exiting`,
             );
             break;
           }
 
-          this.logger.debug(`Worker loop dumb: Could not create next batch request`);
+          this.logger.debug(`Worker loop smart: Could not create next batch request`);
           continue;
         }
 
@@ -454,7 +454,7 @@ export class BatchTxRequester {
       const blockResponse = BlockTxsResponse.fromBuffer(response.data);
       await this.handleSuccessResponseFromPeer(peerId, blockResponse);
     } catch (err: any) {
-      this.logger.error(`Failed to deserialize response from peer ${peerId.toString()}: ${err.message}`, {
+      this.logger.error(`Failed to get valid response from peer ${peerId.toString()}: ${err.message}`, {
         peerId,
         error: err,
       });
@@ -505,6 +505,10 @@ export class BatchTxRequester {
    * */
   private async handleReceivedTxs(peerId: PeerId, txs: TxArray) {
     const newTxs = txs.filter(tx => !this.txsMetadata.alreadyFetched(tx.txHash));
+
+    if (newTxs.length === 0) {
+      return;
+    }
 
     //TODO: this validation can be slow, maybe spawn worker just for validation
     // We could use the async queue for communication.
