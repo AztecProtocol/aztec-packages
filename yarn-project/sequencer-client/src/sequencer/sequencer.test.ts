@@ -327,48 +327,11 @@ describe('sequencer', () => {
       expect(checkpointBuilder.buildBlockCalls).toHaveLength(0);
     });
 
-<<<<<<< HEAD
-    it('settles on the chain tip before it starts building a block', async () => {
-      // this test simulates a synch happening right after the sequencer starts building a block
-      // simulate every component being synched
-      const firstBlock = await L2Block.random(BlockNumber(1));
-      const currentTip = firstBlock;
-      const syncedToL2Block = { number: currentTip.number, hash: (await currentTip.hash()).toString() };
-      worldState.status.mockImplementation(() =>
-        Promise.resolve({
-          state: WorldStateRunningState.IDLE,
-          syncSummary: {
-            latestBlockNumber: syncedToL2Block.number,
-            latestBlockHash: syncedToL2Block.hash,
-          } as WorldStateSyncStatus,
-        }),
-      );
-      p2p.getStatus.mockImplementation(() => Promise.resolve({ state: P2PClientState.IDLE, syncedToL2Block }));
-      l2BlockSource.getL2Tips.mockImplementation(() =>
-        Promise.resolve({
-          blocks: {
-            latest: syncedToL2Block,
-            proven: { number: BlockNumber.ZERO, hash: GENESIS_BLOCK_HEADER_HASH.toString() },
-            finalized: { number: BlockNumber.ZERO, hash: GENESIS_BLOCK_HEADER_HASH.toString() },
-          },
-        }),
-      );
-      l1ToL2MessageSource.getL2Tips.mockImplementation(() =>
-        Promise.resolve({
-          blocks: {
-            latest: syncedToL2Block,
-            proven: { number: BlockNumber.ZERO, hash: GENESIS_BLOCK_HEADER_HASH.toString() },
-            finalized: { number: BlockNumber.ZERO, hash: GENESIS_BLOCK_HEADER_HASH.toString() },
-          },
-        }),
-      );
-=======
     it('builds a block only when enough txs are available', async () => {
       const txs: Tx[] = await timesParallel(4, i => makeTx(i * 0x10000));
       sequencer.updateConfig({ minTxsPerBlock: 4 });
       TestUtils.mockPendingTxs(p2p, txs);
       block = await makeBlock(txs);
->>>>>>> origin/next
 
       await sequencer.work();
 
