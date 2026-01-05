@@ -421,8 +421,8 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 
     check_relation<external_call_rel>(trace);
     check_interaction<ExecutionTraceBuilder,
-                      lookup_external_call_is_l2_gas_left_gt_alllocated_settings,
-                      lookup_external_call_is_da_gas_left_gt_alllocated_settings>(trace);
+                      lookup_external_call_is_l2_gas_left_gt_allocated_settings,
+                      lookup_external_call_is_da_gas_left_gt_allocated_settings>(trace);
 
     return 0;
 }
