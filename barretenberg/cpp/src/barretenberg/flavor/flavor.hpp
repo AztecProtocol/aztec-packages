@@ -356,11 +356,6 @@ class StdlibVerificationKey_ : public PrecomputedCommitments {
     bool operator==(const StdlibVerificationKey_&) const = default;
     virtual ~StdlibVerificationKey_() = default;
     StdlibVerificationKey_() = default;
-    StdlibVerificationKey_(const size_t circuit_size, const size_t num_public_inputs)
-    {
-        this->log_circuit_size = numeric::get_msb(circuit_size);
-        this->num_public_inputs = num_public_inputs;
-    };
 
     /**
      * @brief Construct a new Verification Key with stdlib types from a provided native verification key
@@ -443,45 +438,6 @@ class StdlibVerificationKey_ : public PrecomputedCommitments {
         return native_vk;
     }
 #endif
-
-    /**
-     * @brief Serialize verification key to field elements.
-     *
-     * @return std::vector<FF>
-     */
-    virtual std::vector<FF> to_field_elements() const
-    {
-        using Codec = stdlib::StdlibCodec<FF>;
-
-        auto serialize_to_field_buffer = []<typename T>(const T& input, std::vector<FF>& buffer) {
-            std::vector<FF> input_fields = Codec::template serialize_to_fields<T>(input);
-            buffer.insert(buffer.end(), input_fields.begin(), input_fields.end());
-        };
-
-        std::vector<FF> elements;
-
-        serialize_to_field_buffer(this->log_circuit_size, elements);
-        serialize_to_field_buffer(this->num_public_inputs, elements);
-        serialize_to_field_buffer(this->pub_inputs_offset, elements);
-
-        for (const Commitment& commitment : this->get_all()) {
-            serialize_to_field_buffer(commitment, elements);
-        }
-
-        return elements;
-    };
-
-    /**
-     * @brief A model function to show how to compute the VK hash (without the Transcript abstracting things away).
-     * @details Currently only used in testing.
-     * @param builder
-     * @return FF
-     */
-    FF hash()
-    {
-        FF vk_hash = stdlib::poseidon2<Builder>::hash(to_field_elements());
-        return vk_hash;
-    }
 
     /**
      * @brief Tag VK components and hash.
@@ -582,12 +538,6 @@ template <typename FF, typename VerificationKey> class VKAndHash_ {
     {}
     std::shared_ptr<VerificationKey> vk;
     FF hash;
-};
-
-// Because of how Gemini is written, it is important to put the polynomials out in this order.
-auto get_unshifted_then_shifted(const auto& all_entities)
-{
-    return concatenate(all_entities.get_unshifted(), all_entities.get_shifted());
 };
 
 /**
