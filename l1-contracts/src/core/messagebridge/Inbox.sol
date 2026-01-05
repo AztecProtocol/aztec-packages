@@ -27,6 +27,8 @@ contract Inbox is IInbox {
   uint256 public immutable VERSION;
   address public immutable FEE_ASSET_PORTAL;
 
+  uint256 public immutable LAG;
+
   uint256 internal immutable HEIGHT;
   uint256 internal immutable SIZE;
   bytes32 internal immutable EMPTY_ROOT; // The root of an empty frontier tree
@@ -38,19 +40,22 @@ contract Inbox is IInbox {
 
   InboxState internal state;
 
-  constructor(address _rollup, IERC20 _feeAsset, uint256 _version, uint256 _height) {
+  constructor(address _rollup, IERC20 _feeAsset, uint256 _version, uint256 _height, uint256 _lag) {
     ROLLUP = _rollup;
     VERSION = _version;
 
     HEIGHT = _height;
     SIZE = 2 ** _height;
 
+    require(_lag > 0, "LAG TOO SMALL");
+    LAG = _lag;
+
     state = InboxState({
-      rollingHash: 0, totalMessagesInserted: 0, inProgress: uint64(Constants.INITIAL_CHECKPOINT_NUMBER) + 1
+      rollingHash: 0, totalMessagesInserted: 0, inProgress: SafeCast.toUint64(Constants.INITIAL_CHECKPOINT_NUMBER + LAG)
     });
 
     forest.initialize(_height);
-    EMPTY_ROOT = trees[uint64(Constants.INITIAL_CHECKPOINT_NUMBER) + 1].root(forest, HEIGHT, SIZE);
+    EMPTY_ROOT = trees[type(uint256).max].root(forest, HEIGHT, SIZE);
 
     FEE_ASSET_PORTAL = address(new FeeJuicePortal(IRollup(_rollup), _feeAsset, IInbox(this), VERSION));
   }
@@ -146,7 +151,7 @@ contract Inbox is IInbox {
     }
 
     // If we are "catching up" we skip the tree creation as it is already there
-    if (_toConsume + 1 == inProgress) {
+    if (_toConsume + LAG == inProgress) {
       state.inProgress = inProgress + 1;
     }
 
@@ -163,8 +168,8 @@ contract Inbox is IInbox {
    */
   function catchUp(uint256 _pendingCheckpointNumber) external override(IInbox) {
     require(msg.sender == ROLLUP, Errors.Inbox__Unauthorized());
-    // The next expected will be 1 ahead of the next checkpoint, e.g., + 2 from current.
-    state.inProgress = SafeCast.toUint64(_pendingCheckpointNumber + 2);
+    // The next expected will be LAG ahead of the next checkpoint, e.g., + LAG + 1 from current.
+    state.inProgress = SafeCast.toUint64(_pendingCheckpointNumber + LAG + 1);
     emit InboxSynchronized(state.inProgress);
   }
 
