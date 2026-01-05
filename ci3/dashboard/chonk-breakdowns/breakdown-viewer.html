@@ -1,0 +1,855 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Barretenberg Benchmark Breakdown Viewer</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background-color: #f5f5f5;
+      padding: 20px;
+      color: #333;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      padding: 30px;
+    }
+
+    h1 {
+      font-size: 2rem;
+      margin-bottom: 10px;
+      color: #2c3e50;
+    }
+
+    .subtitle {
+      color: #7f8c8d;
+      margin-bottom: 30px;
+      font-size: 1rem;
+    }
+
+    .controls {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin-bottom: 30px;
+      padding: 20px;
+      background: #f8f9fa;
+      border-radius: 6px;
+    }
+
+    .control-group {
+      display: flex;
+      flex-direction: column;
+    }
+
+    label {
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: #2c3e50;
+      font-size: 0.9rem;
+    }
+
+    input, select {
+      padding: 10px;
+      border: 2px solid #e0e0e0;
+      border-radius: 4px;
+      font-size: 0.95rem;
+      transition: border-color 0.2s;
+    }
+
+    input:focus, select:focus {
+      outline: none;
+      border-color: #3498db;
+    }
+
+    button {
+      padding: 12px 24px;
+      background: #3498db;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+      align-self: flex-end;
+      margin-top: 10px;
+    }
+
+    button:hover {
+      background: #2980b9;
+    }
+
+    button:disabled {
+      background: #bdc3c7;
+      cursor: not-allowed;
+    }
+
+    .chart-container {
+      margin-top: 30px;
+      padding: 20px;
+      background: white;
+      border-radius: 6px;
+    }
+
+    .chart-title {
+      font-size: 1.5rem;
+      margin-bottom: 20px;
+      color: #2c3e50;
+      text-align: center;
+    }
+
+    .chart-wrapper {
+      position: relative;
+      height: 600px;
+      width: 100%;
+      margin: 0 auto;
+    }
+
+    canvas {
+      max-width: 100% !important;
+      max-height: 100% !important;
+    }
+
+    .error {
+      color: #e74c3c;
+      padding: 15px;
+      background: #fadbd8;
+      border-radius: 4px;
+      margin-top: 20px;
+    }
+
+    .info {
+      color: #3498db;
+      padding: 15px;
+      background: #d6eaf8;
+      border-radius: 4px;
+      margin-top: 20px;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: #7f8c8d;
+      font-size: 1.1rem;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin-top: 20px;
+      padding: 20px;
+      background: #ecf0f1;
+      border-radius: 6px;
+    }
+
+    .stat-item {
+      text-align: center;
+    }
+
+    .stat-label {
+      font-size: 0.85rem;
+      color: #7f8c8d;
+      margin-bottom: 5px;
+    }
+
+    .stat-value {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: #2c3e50;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔍 Barretenberg Benchmark Breakdown Viewer</h1>
+    <p class="subtitle">Visualize hierarchical benchmark data showing time spent in each component</p>
+
+    <!-- Step 1: SHA Input -->
+    <div class="controls" id="step1">
+      <h3 style="margin: 0 0 15px 0; color: #2c3e50;">Step 1: Enter Commit SHA</h3>
+      <div class="control-group">
+        <label for="sha">Commit SHA (7-40 chars):</label>
+        <input type="text" id="sha" placeholder="e.g., abc1234 or full SHA" />
+      </div>
+      <div class="control-group">
+        <button id="fetchFlowsBtn">Fetch Available Flows</button>
+      </div>
+    </div>
+
+    <!-- Step 2: Runtime/Flow Selection (hidden initially) -->
+    <div class="controls" id="step2" style="display: none; margin-top: 20px; border-top: 2px solid #e0e0e0; padding-top: 20px;">
+      <h3 style="margin: 0 0 15px 0; color: #2c3e50;">Step 2: Select Runtime and Flow</h3>
+      <div class="control-group">
+        <label for="runtime">Runtime:</label>
+        <select id="runtime">
+          <option value="native">Native</option>
+          <option value="wasm">Wasm</option>
+        </select>
+      </div>
+
+      <div class="control-group" style="margin-top: 15px;">
+        <label for="flow">Flow Name:</label>
+        <select id="flow">
+          <option value="">Select a flow...</option>
+        </select>
+      </div>
+
+      <div class="control-group">
+        <button id="loadBtn">Load Breakdown</button>
+      </div>
+    </div>
+
+    <div id="message"></div>
+
+    <div id="searchContainer" style="display: none; margin: 20px 0; padding: 20px; background: #f8f9fa; border-radius: 6px;">
+      <label for="componentSearch" style="display: block; font-weight: 600; margin-bottom: 8px; color: #2c3e50;">Search Component:</label>
+      <input type="text" id="componentSearch" list="componentSuggestions" placeholder="Type to search components..."
+             style="width: 100%; padding: 10px; border: 2px solid #e0e0e0; border-radius: 4px; font-size: 0.95rem;" />
+      <datalist id="componentSuggestions"></datalist>
+      <button id="searchBtn" style="margin-top: 10px; padding: 10px 20px; background: #27ae60; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600;">
+        Find & Expand
+      </button>
+      <button id="clearSearchBtn" style="margin-top: 10px; margin-left: 10px; padding: 10px 20px; background: #95a5a6; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600;">
+        Clear
+      </button>
+    </div>
+
+    <div id="stats"></div>
+    <div id="chartContainer"></div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+  <script>
+    let currentChart = null;
+    let benchmarkData = null; // Store the full data for drill-down
+    let expandedComponents = new Set(); // Track which components are expanded
+    let currentSha = null; // Store current SHA for display
+
+    // Generate nice colors for the pie chart
+    function generateColors(count) {
+      const colors = [
+        '#3498db', '#e74c3c', '#2ecc71', '#f39c12', '#9b59b6',
+        '#1abc9c', '#34495e', '#e67e22', '#95a5a6', '#d35400',
+        '#c0392b', '#16a085', '#27ae60', '#2980b9', '#8e44ad',
+        '#2c3e50', '#f1c40f', '#e84393', '#00b894', '#0984e3'
+      ];
+
+      if (count <= colors.length) {
+        return colors.slice(0, count);
+      }
+
+      // Generate more colors if needed
+      const additional = [];
+      for (let i = colors.length; i < count; i++) {
+        const hue = (i * 137.5) % 360; // Golden angle
+        additional.push(`hsl(${hue}, 65%, 55%)`);
+      }
+      return [...colors, ...additional];
+    }
+
+    // Format large numbers with commas
+    function formatNumber(num) {
+      return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    }
+
+    // Get children of a specific component
+    function getChildren(parentName) {
+      const children = [];
+      for (const [name, value] of Object.entries(benchmarkData)) {
+        const valueArray = Array.isArray(value) ? value : [value];
+        const hasThisParent = valueArray.some(obj => obj.parent === parentName);
+        if (hasThisParent) {
+          const totalTimeNs = valueArray.reduce((sum, obj) => sum + (obj.time || 0), 0);
+          const totalTimeSec = totalTimeNs / 1000000000;
+          children.push({ name, time: totalTimeSec });
+        }
+      }
+      return children;
+    }
+
+    // Get total time for a component
+    function getComponentTime(componentName) {
+      const value = benchmarkData[componentName];
+      if (!value) return 0;
+      const valueArray = Array.isArray(value) ? value : [value];
+      const totalTimeNs = valueArray.reduce((sum, obj) => sum + (obj.time || 0), 0);
+      return totalTimeNs / 1000000000;
+    }
+
+    // Build current view based on expanded components (recursive)
+    function buildCurrentView() {
+      const componentsToShow = {};
+
+      // Start with root components
+      const rootComponents = getChildren('_root');
+      let rootTotalTime = 0;
+
+      for (const component of rootComponents) {
+        rootTotalTime += component.time;
+      }
+
+      // Recursively process components
+      function processComponent(componentName, componentTime) {
+        if (expandedComponents.has(componentName)) {
+          // Show children of this expanded component
+          const children = getChildren(componentName);
+          let childrenTotalTime = 0;
+
+          for (const child of children) {
+            childrenTotalTime += child.time;
+            // Recursively process each child
+            processComponent(child.name, child.time);
+          }
+
+          // Add "Other" for this expanded component if there's unaccounted time
+          const otherTime = componentTime - childrenTotalTime;
+          if (otherTime > 0.01) {
+            componentsToShow[`${componentName}::Other`] = otherTime;
+          }
+        } else {
+          // Show the component as-is (collapsed)
+          componentsToShow[componentName] = componentTime;
+        }
+      }
+
+      // Process all root components
+      for (const component of rootComponents) {
+        processComponent(component.name, component.time);
+      }
+
+      return { componentsToShow, rootTotalTime };
+    }
+
+    // Update URL with current parameters (only non-default values)
+    function updateUrl(params) {
+      const url = new URL(window.location);
+      const defaults = {
+        runtime: 'native',
+        flow: 'ecdsar1+transfer_1_recursions+sponsored_fpc'
+      };
+
+      // Clear existing params
+      url.search = '';
+
+      // Add non-default parameters
+      for (const [key, value] of Object.entries(params)) {
+        if (value && value !== defaults[key]) {
+          url.searchParams.set(key, value);
+        }
+      }
+
+      // Add expanded components if any
+      if (expandedComponents.size > 0) {
+        url.searchParams.set('expanded', Array.from(expandedComponents).join(','));
+      }
+
+      // Update URL without reloading
+      window.history.replaceState({}, '', url);
+    }
+
+    // Render the chart with current view
+    function renderChart() {
+      const { componentsToShow, rootTotalTime } = buildCurrentView();
+      const entries = Object.entries(componentsToShow);
+
+      // Sort by value (descending) and calculate percentages
+      const sorted = entries
+        .map(([name, value]) => ({
+          name,
+          value,
+          percentage: (value / rootTotalTime * 100).toFixed(2)
+        }))
+        .sort((a, b) => b.value - a.value);
+
+      // Update statistics
+      const statsDiv = document.getElementById('stats');
+      const topComponents = sorted.slice(0, 5);
+      const allComponentCount = Object.keys(benchmarkData).length;
+
+      statsDiv.innerHTML = `
+        <div class="stats">
+          <div class="stat-item">
+            <div class="stat-label">Total Time</div>
+            <div class="stat-value">${rootTotalTime.toFixed(2)} s</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-label">Displayed Components</div>
+            <div class="stat-value">${entries.length}</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-label">Largest Component</div>
+            <div class="stat-value">${topComponents[0].percentage}%</div>
+          </div>
+        </div>
+      `;
+
+      // Destroy old chart
+      if (currentChart) {
+        currentChart.destroy();
+      }
+
+      // Create new chart
+      const chartContainer = document.getElementById('chartContainer');
+      const runtime = document.getElementById('runtime').value;
+      const flow = document.getElementById('flow').value;
+
+      chartContainer.innerHTML = `
+        <div class="chart-container">
+          <h2 class="chart-title">${runtime.toUpperCase()} - ${flow}</h2>
+          <h3 style="text-align: center; color: #7f8c8d; font-size: 1rem; margin-bottom: 20px;">Click on a slice to drill down (${currentSha})</h3>
+          <div class="chart-wrapper">
+            <canvas id="pieChart"></canvas>
+          </div>
+        </div>
+      `;
+
+      const ctx = document.getElementById('pieChart').getContext('2d');
+      const colors = generateColors(sorted.length);
+
+      currentChart = new Chart(ctx, {
+        type: 'pie',
+        data: {
+          labels: sorted.map(item => item.name),
+          datasets: [{
+            data: sorted.map(item => item.value),
+            backgroundColor: colors,
+            borderColor: '#fff',
+            borderWidth: 2
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: true,
+          onHover: (event, elements) => {
+            event.native.target.style.cursor = elements.length > 0 ? 'zoom-in' : 'default';
+          },
+          onClick: (event, elements) => {
+            if (elements.length > 0) {
+              const index = elements[0].index;
+              const clickedComponent = sorted[index].name;
+
+              // Don't expand "Other" slices
+              if (clickedComponent.endsWith('::Other')) {
+                return;
+              }
+
+              // Toggle expansion
+              if (expandedComponents.has(clickedComponent)) {
+                expandedComponents.delete(clickedComponent);
+              } else {
+                expandedComponents.add(clickedComponent);
+              }
+
+              // Update URL with expanded state
+              updateUrl({
+                runtime: document.getElementById('runtime').value,
+                flow: document.getElementById('flow').value,
+                sha: document.getElementById('sha').value
+              });
+
+              // Re-render chart
+              renderChart();
+            }
+          },
+          plugins: {
+            legend: {
+              position: 'right',
+              labels: {
+                boxWidth: 15,
+                padding: 10,
+                font: {
+                  size: 11
+                },
+                generateLabels: function(chart) {
+                  const data = chart.data;
+                  return data.labels.map((label, i) => {
+                    const percentage = sorted[i].percentage;
+                    const isExpanded = expandedComponents.has(label);
+                    const expandIcon = isExpanded ? '[-] ' : '[+] ';
+                    const displayLabel = label.endsWith('::Other') ? label : expandIcon + label;
+
+                    return {
+                      text: `${displayLabel}: ${percentage}%`,
+                      fillStyle: data.datasets[0].backgroundColor[i],
+                      hidden: false,
+                      index: i
+                    };
+                  });
+                }
+              }
+            },
+            tooltip: {
+              callbacks: {
+                label: function(context) {
+                  const item = sorted[context.dataIndex];
+                  return [
+                    `${item.name}`,
+                    `Time: ${item.value.toFixed(2)} s`,
+                    `Percentage: ${item.percentage}%`
+                  ];
+                }
+              }
+            }
+          }
+        }
+      });
+    }
+
+    // Load and visualize breakdown data
+    async function loadBreakdown(preserveExpanded = false) {
+      const runtime = document.getElementById('runtime').value;
+      const flow = document.getElementById('flow').value.trim();
+      const sha = document.getElementById('sha').value.trim();
+      const messageDiv = document.getElementById('message');
+
+      if (!flow) {
+        messageDiv.innerHTML = '<div class="error">Please provide a flow name</div>';
+        return;
+      }
+
+      if (!sha) {
+        messageDiv.innerHTML = '<div class="error">Please provide a commit SHA (7-40 characters)</div>';
+        return;
+      }
+
+      // Reset expansion state unless we're preserving it from URL
+      if (!preserveExpanded) {
+        expandedComponents.clear();
+      }
+
+      // Update URL with current parameters (will include expanded if they exist)
+      updateUrl({
+        runtime: runtime,
+        flow: flow,
+        sha: sha
+      });
+
+      // Clear previous state
+      const statsDiv = document.getElementById('stats');
+      const chartContainer = document.getElementById('chartContainer');
+
+      statsDiv.innerHTML = '';
+      chartContainer.innerHTML = '';
+      if (currentChart) {
+        currentChart.destroy();
+        currentChart = null;
+      }
+
+      try {
+        messageDiv.innerHTML = '<div class="loading">Loading benchmark data for commit ' + sha + '...</div>';
+
+        // Fetch from Flask API endpoint
+        const url = `/api/breakdown/${runtime}/${flow}/${sha}`;
+
+        // Fetch the data
+        const response = await fetch(url);
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          const errorMsg = `Failed to fetch data (${response.status}). ${errorData.error || 'The breakdown might not exist for this runtime/flow/commit combination.'}`;
+          throw new Error(errorMsg);
+        }
+
+        benchmarkData = await response.json();
+        currentSha = sha;
+
+        // Clear loading message
+        messageDiv.innerHTML = '';
+
+        // Populate search autocomplete
+        const datalist = document.getElementById('componentSuggestions');
+        datalist.innerHTML = '';
+        Object.keys(benchmarkData).forEach(name => {
+          const option = document.createElement('option');
+          option.value = name;
+          datalist.appendChild(option);
+        });
+
+        // Show search container
+        document.getElementById('searchContainer').style.display = 'block';
+
+        // Render initial chart (showing root level)
+        renderChart();
+
+      } catch (error) {
+        const messageDiv = document.getElementById('message');
+        messageDiv.innerHTML = `<div class="error">Error: ${error.message}</div>`;
+        console.error('Error loading breakdown:', error);
+      }
+    }
+
+    // Get URL query parameter
+    function getQueryParam(param) {
+      const urlParams = new URLSearchParams(window.location.search);
+      return urlParams.get(param);
+    }
+
+    // Helper function to find parent chain for a component
+    function getParentChain(componentName) {
+      const chain = [];
+      let current = componentName;
+
+      while (current) {
+        const component = benchmarkData[current];
+        if (!component) break;
+
+        const valueArray = Array.isArray(component) ? component : [component];
+        const parent = valueArray[0]?.parent;
+
+        if (parent === '_root') break;
+        chain.unshift(parent);
+        current = parent;
+      }
+
+      return chain;
+    }
+
+    // Event listeners
+    document.getElementById('fetchFlowsBtn').addEventListener('click', async () => {
+      const sha = document.getElementById('sha').value.trim();
+      if (!sha) {
+        const messageDiv = document.getElementById('message');
+        messageDiv.innerHTML = '<div class="error">Please enter a commit SHA</div>';
+        return;
+      }
+
+      const messageDiv = document.getElementById('message');
+      messageDiv.innerHTML = '<div class="info">Fetching available flows...</div>';
+
+      try {
+        // Fetch flows for both runtimes to populate options
+        const nativeFlows = await loadAvailableFlows('native', sha);
+        const wasmFlows = await loadAvailableFlows('wasm', sha);
+
+        if (nativeFlows.length === 0 && wasmFlows.length === 0) {
+          messageDiv.innerHTML = '<div class="error">No flows found for this SHA. Please check the commit SHA and try again.</div>';
+          return;
+        }
+
+        // Show step 2
+        document.getElementById('step2').style.display = 'block';
+        messageDiv.innerHTML = `<div class="info">Found ${nativeFlows.length} native flows and ${wasmFlows.length} wasm flows. Select runtime and flow below.</div>`;
+
+        // Set default runtime based on what has more flows
+        if (nativeFlows.length >= wasmFlows.length) {
+          document.getElementById('runtime').value = 'native';
+        } else {
+          document.getElementById('runtime').value = 'wasm';
+        }
+      } catch (error) {
+        messageDiv.innerHTML = `<div class="error">Error fetching flows: ${error.message}</div>`;
+      }
+    });
+
+    document.getElementById('loadBtn').addEventListener('click', loadBreakdown);
+
+    // Search button handler
+    document.getElementById('searchBtn').addEventListener('click', () => {
+      const searchTerm = document.getElementById('componentSearch').value.trim();
+      if (!searchTerm || !benchmarkData[searchTerm]) {
+        alert('Component not found: ' + searchTerm);
+        return;
+      }
+
+      // Expand all parents
+      const parentChain = getParentChain(searchTerm);
+      parentChain.forEach(parent => expandedComponents.add(parent));
+
+      // Also expand the component itself to show its children
+      expandedComponents.add(searchTerm);
+
+      // Update URL with expanded state
+      updateUrl({
+        runtime: document.getElementById('runtime').value,
+        flow: document.getElementById('flow').value,
+        sha: document.getElementById('sha').value
+      });
+
+      // Re-render to show the component
+      renderChart();
+    });
+
+    // Clear search button handler
+    document.getElementById('clearSearchBtn').addEventListener('click', () => {
+      document.getElementById('componentSearch').value = '';
+      expandedComponents.clear();
+
+      // Update URL to remove expanded state
+      updateUrl({
+        runtime: document.getElementById('runtime').value,
+        flow: document.getElementById('flow').value,
+        sha: document.getElementById('sha').value
+      });
+
+      renderChart();
+    });
+
+    // Allow Enter key to trigger fetch flows
+    document.getElementById('sha').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        document.getElementById('fetchFlowsBtn').click();
+      }
+    });
+
+    // Allow Enter key to trigger search
+    document.getElementById('componentSearch').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        document.getElementById('searchBtn').click();
+      }
+    });
+
+    // Fetch latest commit SHA from aztec-packages next branch
+    async function fetchLatestNextSha() {
+      try {
+        const response = await fetch('https://api.github.com/repos/AztecProtocol/aztec-packages/commits/next');
+        if (!response.ok) throw new Error('Failed to fetch latest commit');
+        const data = await response.json();
+        return data.sha.substring(0, 7);
+      } catch (error) {
+        console.error('Error fetching latest SHA:', error);
+        return null;
+      }
+    }
+
+    // Fetch available flows from the API based on runtime and SHA
+    async function loadAvailableFlows(runtime, sha) {
+      try {
+        let url = '/api/breakdown/flows';
+        const params = new URLSearchParams();
+        if (runtime) params.append('runtime', runtime);
+        if (sha) params.append('sha', sha);
+        if (params.toString()) {
+          url += '?' + params.toString();
+        }
+
+        const response = await fetch(url);
+        if (!response.ok) throw new Error('Failed to fetch available flows');
+        const flows = await response.json();
+
+        const flowSelect = document.getElementById('flow');
+        const currentSelection = flowSelect.value;
+        flowSelect.innerHTML = '';
+
+        if (flows.length === 0) {
+          flowSelect.innerHTML = '<option value="">No flows available for this runtime/SHA</option>';
+          return [];
+        }
+
+        // Add flows to dropdown
+        const defaultFlow = 'ecdsar1+transfer_1_recursions+sponsored_fpc';
+        let foundCurrent = false;
+        let foundDefault = false;
+
+        flows.forEach(flow => {
+          const option = document.createElement('option');
+          option.value = flow;
+          option.textContent = flow;
+
+          // Try to preserve current selection, otherwise use default
+          if (flow === currentSelection) {
+            option.selected = true;
+            foundCurrent = true;
+          } else if (!foundCurrent && flow === defaultFlow) {
+            option.selected = true;
+            foundDefault = true;
+          }
+
+          flowSelect.appendChild(option);
+        });
+
+        // If neither current nor default found, select first
+        if (!foundCurrent && !foundDefault && flows.length > 0) {
+          flowSelect.selectedIndex = 0;
+        }
+
+        return flows;
+      } catch (error) {
+        console.error('Error loading flows:', error);
+        const flowSelect = document.getElementById('flow');
+        flowSelect.innerHTML = '<option value="">Error loading flows</option>';
+        return [];
+      }
+    }
+
+    // Initialize from URL query parameters on page load
+    window.addEventListener('DOMContentLoaded', async () => {
+      const runtimeParam = getQueryParam('runtime');
+      const flowParam = getQueryParam('flow');
+      const shaParam = getQueryParam('sha');
+      const expandedParam = getQueryParam('expanded');
+
+      const messageDiv = document.getElementById('message');
+
+      // Set SHA from URL or fetch latest from next branch
+      let currentSha = shaParam;
+      if (shaParam) {
+        document.getElementById('sha').value = shaParam;
+      } else {
+        // Fetch and set latest SHA from next branch
+        messageDiv.innerHTML = '<div class="info">Fetching latest commit from next branch...</div>';
+        const latestSha = await fetchLatestNextSha();
+        if (latestSha) {
+          document.getElementById('sha').value = latestSha;
+          currentSha = latestSha;
+          document.getElementById('sha').placeholder = `Latest: ${latestSha}`;
+          messageDiv.innerHTML = `<div class="info">Loaded latest commit from next: ${latestSha}. Click "Fetch Available Flows" to continue.</div>`;
+        } else {
+          messageDiv.innerHTML = '<div class="info">Enter a commit SHA (7-40 characters) and click "Fetch Available Flows".</div>';
+        }
+      }
+
+      // If we have SHA and flow from URL, automatically show step 2 and load
+      if (currentSha && (runtimeParam || flowParam)) {
+        // Set runtime from URL if provided
+        if (runtimeParam) {
+          document.getElementById('runtime').value = runtimeParam;
+        }
+
+        // Load available flows
+        const runtime = document.getElementById('runtime').value;
+        await loadAvailableFlows(runtime, currentSha);
+
+        // Set flow from URL if provided
+        if (flowParam) {
+          document.getElementById('flow').value = flowParam;
+        }
+
+        // Show step 2
+        document.getElementById('step2').style.display = 'block';
+
+        // Restore expanded components from URL
+        if (expandedParam) {
+          const expandedList = expandedParam.split(',').filter(s => s.trim());
+          expandedList.forEach(component => expandedComponents.add(component));
+        }
+
+        // Auto-load the breakdown
+        loadBreakdown(expandedParam ? true : false);
+      }
+
+      // Add listener to reload flows when runtime changes
+      document.getElementById('runtime').addEventListener('change', async () => {
+        const runtime = document.getElementById('runtime').value;
+        const sha = document.getElementById('sha').value;
+        if (sha) {
+          await loadAvailableFlows(runtime, sha);
+        }
+      });
+    });
+  </script>
+</body>
+</html>

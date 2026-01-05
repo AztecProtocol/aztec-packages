@@ -256,10 +256,10 @@ function build_and_test {
   echo_header "build and test"
 
   # Start the test engine.
-  # setsid will put it in it's own process group we can terminate on cleanup.
   rm -f $test_cmds_file
   touch $test_cmds_file
-  setsid color_prefix "test-engine" "denoise test_engine_start" &
+  # put it in it's own process group via background subshell, we can terminate on cleanup.
+  (color_prefix "test-engine" "denoise test_engine_start") &
   test_engine_pid=$!
   test_engine_pgid=$(ps -o pgid= -p $test_engine_pid)
 
