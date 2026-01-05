@@ -1,9 +1,3 @@
-// === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], commit: }
-// external_1:  { status: not started, auditors: [], commit: }
-// external_2:  { status: not started, auditors: [], commit: }
-// =====================
-
 #include "avm2_recursion_constraint.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include <stdexcept>
