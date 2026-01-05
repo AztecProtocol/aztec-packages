@@ -433,29 +433,23 @@ constexpr EmitUnencryptedLogMutationConfig BASIC_EMITUNENCRYPTEDLOG_MUTATION_CON
     });
 
 enum class CallMutationOptions {
-    function_index,
-    address_offset,
-    l2_gas,
     l2_gas_address,
-    da_gas,
     da_gas_address,
-    arg_size_offset,
-    args,
-    args_offset,
+    contract_address_address,
+    calldata_size_address,
+    calldata_size,
+    calldata_address,
     is_static_call
 };
-using CallMutationConfig = WeightedSelectionConfig<CallMutationOptions, 10>;
+using CallMutationConfig = WeightedSelectionConfig<CallMutationOptions, 7>;
 
 constexpr CallMutationConfig BASIC_CALL_MUTATION_CONFIGURATION = CallMutationConfig({
-    { CallMutationOptions::function_index, 1 },
-    { CallMutationOptions::address_offset, 1 },
-    { CallMutationOptions::l2_gas, 1 },
     { CallMutationOptions::l2_gas_address, 1 },
-    { CallMutationOptions::da_gas, 1 },
     { CallMutationOptions::da_gas_address, 1 },
-    { CallMutationOptions::arg_size_offset, 1 },
-    { CallMutationOptions::args_offset, 1 },
-    { CallMutationOptions::args, 1 },
+    { CallMutationOptions::contract_address_address, 1 },
+    { CallMutationOptions::calldata_size_address, 1 },
+    { CallMutationOptions::calldata_size, 1 },
+    { CallMutationOptions::calldata_address, 1 },
     { CallMutationOptions::is_static_call, 1 },
 });
 

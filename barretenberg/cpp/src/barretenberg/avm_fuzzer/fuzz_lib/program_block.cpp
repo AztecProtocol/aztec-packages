@@ -1228,52 +1228,34 @@ void ProgramBlock::process_call_instruction(CALL_Instruction instruction)
 #ifdef DISABLE_CALL_INSTRUCTION
     return;
 #endif
-    FF function_address =
-        bb::avm2::fuzzer::ContractDBProxy::get_instance()->get_function_address(instruction.function_index);
-    auto set_function_address_instruction =
-        SET_FF_Instruction{ .value_tag = bb::avm2::MemoryTag::FF,
-                            .result_address =
-                                AddressRef{ .address = instruction.address_offset, .mode = AddressingMode::Direct },
-                            .value = function_address };
-    this->process_set_ff_instruction(set_function_address_instruction);
-    auto set_l2_gas_instruction =
-        SET_32_Instruction{ .value_tag = bb::avm2::MemoryTag::U32,
-                            .result_address =
-                                AddressRef{ .address = instruction.l2_gas_address, .mode = AddressingMode::Direct },
-                            .value = instruction.l2_gas };
-    this->process_set_32_instruction(set_l2_gas_instruction);
-    auto set_da_gas_instruction =
-        SET_32_Instruction{ .value_tag = bb::avm2::MemoryTag::U32,
-                            .result_address =
-                                AddressRef{ .address = instruction.da_gas_address, .mode = AddressingMode::Direct },
-                            .value = instruction.da_gas };
-    this->process_set_32_instruction(set_da_gas_instruction);
-    auto set_arg_size_instruction =
-        SET_32_Instruction{ .value_tag = bb::avm2::MemoryTag::U32,
-                            .result_address =
-                                AddressRef{ .address = instruction.arg_size_offset, .mode = AddressingMode::Direct },
-                            .value = static_cast<uint32_t>(instruction.args.size()) };
-    this->process_set_32_instruction(set_arg_size_instruction);
-
-    uint16_t arg_index = 0;
-    for (const auto& arg : instruction.args) {
-        auto set_arg_instruction =
-            SET_FF_Instruction{ .value_tag = bb::avm2::MemoryTag::FF,
-                                .result_address =
-                                    AddressRef{ .address = static_cast<uint32_t>(instruction.args_offset + arg_index),
-                                                .mode = AddressingMode::Direct },
-                                .value = arg };
-        this->process_set_ff_instruction(set_arg_instruction);
-        arg_index++;
+    auto l2_gas = memory_manager.get_resolved_address_and_operand_16(instruction.l2_gas_address);
+    auto da_gas = memory_manager.get_resolved_address_and_operand_16(instruction.da_gas_address);
+    auto contract_address_address =
+        memory_manager.get_resolved_address_and_operand_16(instruction.contract_address_address);
+    auto calldata_size_address = memory_manager.get_resolved_address_and_operand_16(instruction.calldata_size_address);
+    auto calldata_address = memory_manager.get_resolved_address_and_operand_16(instruction.calldata_address);
+    if (!l2_gas.has_value() || !da_gas.has_value() || !contract_address_address.has_value() ||
+        !calldata_size_address.has_value() || !calldata_address.has_value()) {
+        return;
     }
+    preprocess_memory_addresses(l2_gas.value().first);
+    preprocess_memory_addresses(da_gas.value().first);
+    preprocess_memory_addresses(contract_address_address.value().first);
+    preprocess_memory_addresses(calldata_size_address.value().first);
+    preprocess_memory_addresses(calldata_address.value().first);
+
+    this->process_set_32_instruction(SET_32_Instruction{ .value_tag = bb::avm2::MemoryTag::U32,
+                                                         .result_address = instruction.calldata_size_address,
+                                                         .value = static_cast<uint32_t>(instruction.calldata_size) });
+
     auto call_instruction_builder = instruction.is_static_call
                                         ? bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::STATICCALL)
                                         : bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::CALL);
-    auto call_instruction = call_instruction_builder.operand(instruction.l2_gas_address)
-                                .operand(instruction.da_gas_address)
-                                .operand(instruction.address_offset)
-                                .operand(instruction.arg_size_offset)
-                                .operand(instruction.args_offset)
+    auto call_instruction = call_instruction_builder.operand(l2_gas.value().second)
+                                .operand(da_gas.value().second)
+                                .operand(contract_address_address.value().second)
+                                .operand(calldata_size_address.value().second)
+                                .operand(calldata_address.value().second)
                                 .build();
     instructions.push_back(call_instruction);
 }
