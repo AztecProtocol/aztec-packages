@@ -156,45 +156,49 @@ if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
   fi
 fi
 
-# Reset timer.
-# Disable exit on error so we can capture code.
-# Run the test. Bind it to the given or default range of CPUs.
-# Timeout uses foreground so we only signal the test process, not the whole group (better cleanup control).
-# Append timestamps. Use process substitution to avoid a subshell which interferes with signal processing.
-SECONDS=0
-set +e
-if [ "${ISOLATE:-0}" -eq 1 ]; then
-  docker_isolate "timeout -v $TIMEOUT bash -c '$test_cmd'" &> >(add_timestamps >> $tmp_file) &
-else
-  [ "${ONLY_TERM_PARENT:-0}" -eq 1 ] && fg_arg="--foreground"
-  taskset -c $CPU_LIST timeout ${fg_arg:-} -v $TIMEOUT bash -c "$test_cmd" &> >(add_timestamps >> $tmp_file) &
-fi
-test_pid=$!
-# echo "RTC waiting on $test_pid" >/dev/tty
-wait $test_pid
-code=$?
-
-# If the test received a SIGTERM or SIGINT, we don't want to track or print anything.
-if [ "$code" -eq 143 ] || [ "$code" -eq 130 ]; then
-  exit $code
-fi
-
-if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
-  # If the test succeeded and we're in CI, set success flag for test. This key is unique to the test.
-  # If the test succeeded and we're in CI, save the test log.
-  # If the test failed, regardless of CI state, save the test log.
-  if [ $code -eq 0 ]; then
-    if [ "$CI" -eq 1 ]; then
-      redis_cli SETEX $key 604800 $log_key &>/dev/null
-      publish_log_final
-    else
-      log_info=""
-    fi
+function run_test {
+  # Reset timer.
+  # Disable exit on error so we can capture code.
+  # Run the test. Bind it to the given or default range of CPUs.
+  # Timeout uses foreground so we only signal the test process, not the whole group (better cleanup control).
+  # Append timestamps. Use process substitution to avoid a subshell which interferes with signal processing.
+  SECONDS=0
+  set +e
+  if [ "${ISOLATE:-0}" -eq 1 ]; then
+    docker_isolate "timeout -v $TIMEOUT bash -c '$test_cmd'" &> >(add_timestamps >> $tmp_file) &
   else
-    # Extend lifetime of failed test logs to 12 weeks.
-    publish_log_final $((60 * 60 * 24 * 7 * 12))
+    [ "${ONLY_TERM_PARENT:-0}" -eq 1 ] && fg_arg="--foreground"
+    taskset -c $CPU_LIST timeout ${fg_arg:-} -v $TIMEOUT bash -c "$test_cmd" &> >(add_timestamps >> $tmp_file) &
   fi
-fi
+  test_pid=$!
+  # echo "RTC waiting on $test_pid" >/dev/tty
+  wait $test_pid
+  code=$?
+
+  # If the test received a SIGTERM or SIGINT, we don't want to track or print anything.
+  if [ "$code" -eq 143 ] || [ "$code" -eq 130 ]; then
+    exit $code
+  fi
+}
+
+function finalize_test {
+  if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
+    # If the test succeeded and we're in CI, set success flag for test. This key is unique to the test.
+    # If the test succeeded and we're in CI, save the test log.
+    # If the test failed, regardless of CI state, save the test log.
+    if [ $code -eq 0 ]; then
+      if [ "$CI" -eq 1 ]; then
+        redis_cli SETEX $key 604800 $log_key &>/dev/null
+        publish_log_final
+      else
+        log_info=""
+      fi
+    else
+      # Extend lifetime of failed test logs to 12 weeks.
+      publish_log_final $((60 * 60 * 24 * 7 * 12))
+    fi
+  fi
+}
 
 function track_test {
   if [ "$CI" -eq 0 ]; then
@@ -214,6 +218,8 @@ function track_test {
 
 # Show PASSED and early out on success.
 function pass {
+  finalize_test
+
   local line="${green}PASSED${reset}${log_info:-}: $test_cmd (${SECONDS}s)"
   echo -e "$line"
 
@@ -224,6 +230,8 @@ function pass {
 
 # Show FAILED and exit with error code.
 function fail {
+  finalize_test
+
   local line="${red}FAILED${reset}${log_info:-}: $test_cmd (${SECONDS}s) (code: $code)"
   echo -e "$line"
 
@@ -305,7 +313,7 @@ function flake {
 
   # Early out if no token or not in merge queue (unless on backport-to-v2-staging).
   if [ -z "${SLACK_BOT_TOKEN:-}" ] || { [ "$is_merge_queue" -eq 0 ] && [ "$REF_NAME" != "backport-to-v2-staging" ]; }; then
-    return
+    exit
   fi
 
   # Send slack message to owners.
@@ -325,6 +333,8 @@ function flake {
   exit 0
 }
 
+run_test
+
 # Test passed.
 [ $code -eq 0 ] && pass
 
@@ -340,9 +350,18 @@ owners=$(echo "$test_entries" | jq -r '.owners[]' | sort -u)
 # Extract flake_group_id from first matching entry
 flake_group_id=$(echo "$test_entries" | jq -r '.flake_group_id // empty' | head -1)
 
-# To not fail a test, we at least need an owner to notify.
+# If there's no owner for a failed test, we consider it a hard fail.
+# Otherwise we perform a single retry.
 if [ -z "$owners" ]; then
   fail
 else
-  flake
+  echo -e "${yellow}RETRYING${reset}${log_info:-}: $test_cmd"
+
+  run_test
+
+  # Test passed. Signal it as a flake, but pass.
+  [ $code -eq 0 ] && flake
+
+  # Otherwise we failed twice in a row, so hard fail.
+  fail
 fi
