@@ -277,6 +277,48 @@ describe('PrivateEventDataProvider', () => {
       expect(events[0].packedEvent).toEqual(msgContent);
     });
 
+    it('staged events are visible when reading with context', async () => {
+      const context = new JobContext('test123', 'test');
+
+      const stagedMsgContent = getRandomMsgContent();
+      await privateEventDataProvider.storePrivateEventLog(
+        eventSelector,
+        stagedMsgContent,
+        eventCommitmentIndex,
+        {
+          contractAddress,
+          scope,
+          txHash,
+          l2BlockNumber,
+          l2BlockHash,
+        },
+        context,
+      );
+
+      // Without context, should not see the staged event
+      const eventsWithoutContext = await privateEventDataProvider.getPrivateEvents(eventSelector, {
+        contractAddress,
+        fromBlock: l2BlockNumber,
+        toBlock: l2BlockNumber + 1,
+        scopes: [scope],
+      });
+      expect(eventsWithoutContext).toHaveLength(0);
+
+      // With context, should see the staged event
+      const eventsWithContext = await privateEventDataProvider.getPrivateEvents(
+        eventSelector,
+        {
+          contractAddress,
+          fromBlock: l2BlockNumber,
+          toBlock: l2BlockNumber + 1,
+          scopes: [scope],
+        },
+        context,
+      );
+      expect(eventsWithContext).toHaveLength(1);
+      expect(eventsWithContext[0].packedEvent).toEqual(stagedMsgContent);
+    });
+
     it('commitStaged promotes staged events to main storage', async () => {
       const context = new JobContext('test123', 'test');
 
@@ -298,7 +340,7 @@ describe('PrivateEventDataProvider', () => {
       // Commit staging
       await privateEventDataProvider.commitStaged(context);
 
-      // Now should see the event
+      // Now should see the event without context
       const events = await privateEventDataProvider.getPrivateEvents(eventSelector, {
         contractAddress,
         fromBlock: l2BlockNumber,

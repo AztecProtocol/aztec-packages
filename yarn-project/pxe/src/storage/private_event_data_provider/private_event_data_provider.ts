@@ -1,6 +1,5 @@
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { toArray } from '@aztec/foundation/iterable';
 import { createLogger } from '@aztec/foundation/log';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import type { AztecAsyncArray, AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
@@ -47,8 +46,8 @@ export class PrivateEventDataProvider implements StagedStore {
   #eventLogIndex: AztecAsyncMap<string, number[]>;
   /** Map from eventCommitmentIndex to boolean indicating if log has been seen. */
   #seenLogs: AztecAsyncMap<number, boolean>;
-  /** Staging map for staged data */
-  #stagingMap: AztecAsyncMap<string, Buffer>;
+  /** In-memory staging: jobId -> eventCommitmentIndex -> staged data. Discarded on crash, committed on job success. */
+  #stagedEvents: Map<string, Map<number, { entry: PrivateEventEntry; key: string }>>;
 
   logger = createLogger('private_event_data_provider');
 
@@ -57,11 +56,46 @@ export class PrivateEventDataProvider implements StagedStore {
     this.#eventLogs = this.#store.openArray('private_event_logs');
     this.#eventLogIndex = this.#store.openMap('private_event_log_index');
     this.#seenLogs = this.#store.openMap('seen_logs');
-    this.#stagingMap = this.#store.openMap('private_events_staging');
+    this.#stagedEvents = new Map();
   }
 
   #keyFor(contractAddress: AztecAddress, scope: AztecAddress, eventSelector: EventSelector): string {
     return `${contractAddress.toString()}_${scope.toString()}_${eventSelector.toString()}`;
+  }
+
+  /** Converts a PrivateEventEntry to a PackedPrivateEvent */
+  #entryToEvent(entry: PrivateEventEntry, eventSelector: EventSelector): PackedPrivateEvent {
+    const reader = BufferReader.asReader(entry.msgContent);
+    const numFields = entry.msgContent.length / Fr.SIZE_IN_BYTES;
+    return {
+      packedEvent: reader.readArray(numFields, Fr),
+      l2BlockNumber: BlockNumber(entry.l2BlockNumber),
+      txHash: TxHash.fromBuffer(entry.txHash),
+      l2BlockHash: L2BlockHash.fromBuffer(entry.l2BlockHash),
+      eventSelector,
+    };
+  }
+
+  /** Checks if an event entry matches the filter criteria */
+  #entryMatchesFilter(entry: PrivateEventEntry, filter: PrivateEventDataProviderFilter): boolean {
+    return (
+      entry.l2BlockNumber >= filter.fromBlock &&
+      entry.l2BlockNumber < filter.toBlock &&
+      (!filter?.txHash || TxHash.fromBuffer(entry.txHash).equals(filter.txHash))
+    );
+  }
+
+  /** Checks if an event has been seen (committed or staged) */
+  async #hasBeenSeen(eventCommitmentIndex: number, context?: JobContext): Promise<boolean> {
+    // Check staging first (fast in-memory check)
+    if (context) {
+      const jobStaging = this.#stagedEvents.get(context.jobId);
+      if (jobStaging?.has(eventCommitmentIndex)) {
+        return true;
+      }
+    }
+    // Check committed
+    return !!(await this.#seenLogs.getAsync(eventCommitmentIndex));
   }
 
   /**
@@ -76,7 +110,7 @@ export class PrivateEventDataProvider implements StagedStore {
    *  blockNumber - The block number in which the event was emitted.
    * @param context - Optional job context for staging writes
    */
-  storePrivateEventLog(
+  async storePrivateEventLog(
     eventSelector: EventSelector,
     msgContent: Fr[],
     eventCommitmentIndex: number,
@@ -84,134 +118,100 @@ export class PrivateEventDataProvider implements StagedStore {
     context?: JobContext,
   ): Promise<void> {
     const { contractAddress, scope, txHash, l2BlockNumber, l2BlockHash } = metadata;
-
-    if (context) {
-      return this.#storePrivateEventLogStaging(eventSelector, msgContent, eventCommitmentIndex, metadata, context);
-    }
-
-    return this.#store.transactionAsync(async () => {
-      const key = this.#keyFor(contractAddress, scope, eventSelector);
-
-      // Check if this exact log has already been stored using eventCommitmentIndex as unique identifier
-      const hasBeenSeen = await this.#seenLogs.getAsync(eventCommitmentIndex);
-      if (hasBeenSeen) {
-        this.logger.verbose('Ignoring duplicate event log', { txHash: txHash.toString(), eventCommitmentIndex });
-        return;
-      }
-
-      this.logger.verbose('storing private event log', { contractAddress, scope, msgContent, l2BlockNumber });
-
-      const index = await this.#eventLogs.lengthAsync();
-      await this.#eventLogs.push({
-        msgContent: serializeToBuffer(msgContent),
-        l2BlockNumber,
-        l2BlockHash: l2BlockHash.toBuffer(),
-        eventCommitmentIndex,
-        txHash: txHash.toBuffer(),
-      });
-
-      const existingIndices = (await this.#eventLogIndex.getAsync(key)) || [];
-      await this.#eventLogIndex.set(key, [...existingIndices, index]);
-
-      // Mark this log as seen using eventCommitmentIndex
-      await this.#seenLogs.set(eventCommitmentIndex, true);
-    });
-  }
-
-  async #storePrivateEventLogStaging(
-    eventSelector: EventSelector,
-    msgContent: Fr[],
-    eventCommitmentIndex: number,
-    metadata: PrivateEventMetadata,
-    context: JobContext,
-  ): Promise<void> {
-    const { contractAddress, scope, txHash, l2BlockNumber, l2BlockHash } = metadata;
     const key = this.#keyFor(contractAddress, scope, eventSelector);
 
-    // Check if this exact log has already been stored
-    const hasBeenSeen = await this.#seenLogs.getAsync(eventCommitmentIndex);
-    if (hasBeenSeen) {
+    // Check for duplicates (both committed and staged)
+    if (await this.#hasBeenSeen(eventCommitmentIndex, context)) {
       this.logger.verbose('Ignoring duplicate event log', { txHash: txHash.toString(), eventCommitmentIndex });
       return;
     }
 
-    // Also check staging for duplicates
-    const stagingKey = context.stagingKey(`event:${eventCommitmentIndex}`);
-    const stagedEvent = await this.#stagingMap.getAsync(stagingKey);
-    if (stagedEvent) {
-      this.logger.verbose('Ignoring duplicate staged event log', { txHash: txHash.toString(), eventCommitmentIndex });
-      return;
-    }
-
-    this.logger.verbose('staging private event log', { contractAddress, scope, msgContent, l2BlockNumber });
-
-    const stagingData = {
-      type: 'store_event',
-      key,
-      eventCommitmentIndex,
-      msgContent: serializeToBuffer(msgContent).toString('hex'),
+    const entry: PrivateEventEntry = {
+      msgContent: serializeToBuffer(msgContent),
       l2BlockNumber,
-      l2BlockHash: l2BlockHash.toBuffer().toString('hex'),
-      txHash: txHash.toBuffer().toString('hex'),
+      l2BlockHash: l2BlockHash.toBuffer(),
+      eventCommitmentIndex,
+      txHash: txHash.toBuffer(),
     };
 
-    await this.#stagingMap.set(stagingKey, Buffer.from(JSON.stringify(stagingData)));
+    if (context) {
+      this.logger.verbose('staging private event log', { contractAddress, scope, msgContent, l2BlockNumber });
+      let jobStaging = this.#stagedEvents.get(context.jobId);
+      if (!jobStaging) {
+        jobStaging = new Map();
+        this.#stagedEvents.set(context.jobId, jobStaging);
+      }
+      jobStaging.set(eventCommitmentIndex, { entry, key });
+    } else {
+      this.logger.verbose('storing private event log', { contractAddress, scope, msgContent, l2BlockNumber });
+
+      await this.#store.transactionAsync(async () => {
+        const index = await this.#eventLogs.lengthAsync();
+        await this.#eventLogs.push(entry);
+
+        const existingIndices = (await this.#eventLogIndex.getAsync(key)) || [];
+        await this.#eventLogIndex.set(key, [...existingIndices, index]);
+
+        await this.#seenLogs.set(eventCommitmentIndex, true);
+      });
+    }
   }
 
   /**
    * Returns the private events given search parameters.
+   *
    * @param eventSelector - The event selector to filter by.
    * @param filter - Filtering criteria:
    *  contractAddress: The address of the contract to get events from.
    *  fromBlock: The block number to search from (inclusive).
    *  toBlock: The block number to search upto (exclusive).
    *  scope: - The addresses that decrypted the logs.
+   * @param context - Optional job context to include staged events
    * @returns - The event log contents, augmented with metadata about
    *  the transaction and block it the event was included in .
    */
   public async getPrivateEvents(
     eventSelector: EventSelector,
     filter: PrivateEventDataProviderFilter,
+    context?: JobContext,
   ): Promise<PackedPrivateEvent[]> {
-    const events: Array<{ eventCommitmentIndex: number; event: PackedPrivateEvent }> = [];
+    const eventsMap = new Map<number, PackedPrivateEvent>();
 
+    // Build set of valid keys for this query
+    const validKeys = new Set<string>();
     for (const scope of filter.scopes) {
-      const key = this.#keyFor(filter.contractAddress, scope, eventSelector);
+      validKeys.add(this.#keyFor(filter.contractAddress, scope, eventSelector));
+    }
+
+    // Get committed events
+    for (const key of validKeys) {
       const indices = (await this.#eventLogIndex.getAsync(key)) || [];
 
       for (const index of indices) {
         const entry = await this.#eventLogs.atAsync(index);
-        if (!entry || entry.l2BlockNumber < filter.fromBlock || entry.l2BlockNumber >= filter.toBlock) {
+        if (!entry || !this.#entryMatchesFilter(entry, filter)) {
           continue;
         }
-
-        // Convert buffer back to Fr array
-        const reader = BufferReader.asReader(entry.msgContent);
-        const numFields = entry.msgContent.length / Fr.SIZE_IN_BYTES;
-        const msgContent = reader.readArray(numFields, Fr);
-        const txHash = TxHash.fromBuffer(entry.txHash);
-        const l2BlockHash = L2BlockHash.fromBuffer(entry.l2BlockHash);
-
-        if (filter.txHash && !txHash.equals(filter.txHash)) {
-          continue;
-        }
-
-        events.push({
-          eventCommitmentIndex: entry.eventCommitmentIndex,
-          event: {
-            packedEvent: msgContent,
-            l2BlockNumber: BlockNumber(entry.l2BlockNumber),
-            txHash,
-            l2BlockHash,
-            eventSelector,
-          },
-        });
+        eventsMap.set(entry.eventCommitmentIndex, this.#entryToEvent(entry, eventSelector));
       }
     }
 
-    // Sort by eventCommitmentIndex only
-    events.sort((a, b) => a.eventCommitmentIndex - b.eventCommitmentIndex);
-    return events.map(ev => ev.event);
+    // Get staged events if context is provided
+    if (context) {
+      const jobStaging = this.#stagedEvents.get(context.jobId);
+      if (jobStaging) {
+        for (const [eventCommitmentIndex, { entry, key }] of jobStaging) {
+          if (!validKeys.has(key) || !this.#entryMatchesFilter(entry, filter)) {
+            continue;
+          }
+          eventsMap.set(eventCommitmentIndex, this.#entryToEvent(entry, eventSelector));
+        }
+      }
+    }
+
+    // Sort by eventCommitmentIndex and return
+    const sortedEntries = Array.from(eventsMap.entries()).sort((a, b) => a[0] - b[0]);
+    return sortedEntries.map(([_, event]) => event);
   }
 
   // StagedStore implementation
@@ -219,49 +219,35 @@ export class PrivateEventDataProvider implements StagedStore {
   /**
    * Commits staged data to main storage.
    * Must be called within a transaction by the JobCoordinator.
-   * @param context - The job context containing the staging prefix
+   * @param context - The job context identifying which staged data to commit
    */
   async commitStaged(context: JobContext): Promise<void> {
-    const stagingPrefix = context.stagingPrefix;
-    const allKeys = await toArray(this.#stagingMap.keysAsync());
-    const stagingKeys = allKeys.filter(key => key.startsWith(stagingPrefix));
-
-    for (const stagingKey of stagingKeys) {
-      const buffer = await this.#stagingMap.getAsync(stagingKey);
-      if (!buffer) {
-        continue;
-      }
-
-      const data = JSON.parse(buffer.toString());
-
-      if (data.type === 'store_event') {
-        const index = await this.#eventLogs.lengthAsync();
-        await this.#eventLogs.push({
-          msgContent: Buffer.from(data.msgContent, 'hex'),
-          l2BlockNumber: data.l2BlockNumber,
-          l2BlockHash: Buffer.from(data.l2BlockHash, 'hex'),
-          eventCommitmentIndex: data.eventCommitmentIndex,
-          txHash: Buffer.from(data.txHash, 'hex'),
-        });
-
-        const existingIndices = (await this.#eventLogIndex.getAsync(data.key)) || [];
-        await this.#eventLogIndex.set(data.key, [...existingIndices, index]);
-
-        await this.#seenLogs.set(data.eventCommitmentIndex, true);
-      }
-
-      await this.#stagingMap.delete(stagingKey);
+    const jobStaging = this.#stagedEvents.get(context.jobId);
+    if (!jobStaging) {
+      return;
     }
+
+    for (const [eventCommitmentIndex, { entry, key }] of jobStaging) {
+      const index = await this.#eventLogs.lengthAsync();
+      await this.#eventLogs.push(entry);
+
+      const existingIndices = (await this.#eventLogIndex.getAsync(key)) || [];
+      await this.#eventLogIndex.set(key, [...existingIndices, index]);
+
+      await this.#seenLogs.set(eventCommitmentIndex, true);
+    }
+
+    this.#stagedEvents.delete(context.jobId);
   }
 
   /**
    * Discards staged data without committing.
-   * @param stagingPrefix - The prefix used for staging keys
+   * @param stagingPrefix - The staging prefix (format: "job_{jobId}:")
    */
-  async discardStaged(stagingPrefix: string): Promise<void> {
-    const allKeys = await toArray(this.#stagingMap.keysAsync());
-    const stagingKeys = allKeys.filter(key => key.startsWith(stagingPrefix));
-
-    await Promise.all(stagingKeys.map(key => this.#stagingMap.delete(key)));
+  discardStaged(stagingPrefix: string): Promise<void> {
+    // Extract jobId from prefix format "job_{jobId}:"
+    const jobId = stagingPrefix.slice(4, -1);
+    this.#stagedEvents.delete(jobId);
+    return Promise.resolve();
   }
 }
