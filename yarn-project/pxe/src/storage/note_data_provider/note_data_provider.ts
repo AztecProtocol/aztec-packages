@@ -8,7 +8,7 @@ import { NoteStatus, type NotesFilter } from '@aztec/stdlib/note';
 import { NoteDao } from '@aztec/stdlib/note';
 
 import type { JobContext } from '../../job_coordinator/index.js';
-import type { StagingDataProvider } from '../../job_coordinator/job_coordinator.js';
+import type { StagedStore } from '../../job_coordinator/job_coordinator.js';
 
 /**
  * NoteDataProvider manages the storage and retrieval of notes.
@@ -16,7 +16,7 @@ import type { StagingDataProvider } from '../../job_coordinator/job_coordinator.
  * Notes can be active or nullified. This class processes new notes, nullifications,
  * and performs rollback handling in the case of a reorg.
  **/
-export class NoteDataProvider implements StagingDataProvider {
+export class NoteDataProvider implements StagedStore {
   readonly storeName = 'notes';
 
   #store: AztecAsyncKVStore;
@@ -534,13 +534,13 @@ export class NoteDataProvider implements StagingDataProvider {
     return this.#notes.getAsync(noteIndex);
   }
 
-  // StagingDataProvider implementation
+  // StagedStore implementation
 
   /**
    * Commits staged data to main storage.
    * @param context - The job context containing the staging prefix
    */
-  async commitStaging(context: JobContext): Promise<void> {
+  async commitStaged(context: JobContext): Promise<void> {
     await this.#store.transactionAsync(async () => {
       const stagingPrefix = context.stagingPrefix;
       const allKeys = await toArray(this.#stagingMap.keysAsync());
@@ -623,7 +623,7 @@ export class NoteDataProvider implements StagingDataProvider {
    * Discards staged data without committing.
    * @param stagingPrefix - The prefix used for staging keys
    */
-  async discardStaging(stagingPrefix: string): Promise<void> {
+  async discardStaged(stagingPrefix: string): Promise<void> {
     const allKeys = await toArray(this.#stagingMap.keysAsync());
     const stagingKeys = allKeys.filter(key => key.startsWith(stagingPrefix));
 

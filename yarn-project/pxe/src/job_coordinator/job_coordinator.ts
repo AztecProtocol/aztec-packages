@@ -7,7 +7,7 @@ import { JobContext, type SerializedJobContext, serializeJobContext } from './jo
 /**
  * Interface that data providers must implement to support staged writes.
  */
-export interface StagingDataProvider {
+export interface StagedStore {
   /** Unique name identifying this provider (used for tracking affected stores) */
   readonly storeName: string;
 
@@ -17,7 +17,7 @@ export interface StagingDataProvider {
    *
    * @param context - The job context containing the staging prefix
    */
-  commitStaging(context: JobContext): Promise<void>;
+  commitStaged(context: JobContext): Promise<void>;
 
   /**
    * Discards staged data without committing.
@@ -25,7 +25,7 @@ export interface StagingDataProvider {
    *
    * @param stagingPrefix - The prefix used for staging keys
    */
-  discardStaging(stagingPrefix: string): Promise<void>;
+  discardStaged(stagingPrefix: string): Promise<void>;
 }
 
 /**
@@ -44,7 +44,7 @@ export class JobCoordinator {
   #currentJob: AztecAsyncSingleton<Buffer>;
 
   /** All registered staging providers */
-  #providers: Map<string, StagingDataProvider> = new Map();
+  #providers: Map<string, StagedStore> = new Map();
 
   constructor(store: AztecAsyncKVStore) {
     this.#currentJob = store.openSingleton('pxe_current_job');
@@ -54,7 +54,7 @@ export class JobCoordinator {
    * Registers a data provider that supports staging.
    * Must be called during initialization for all providers that need staging support.
    */
-  registerProvider(provider: StagingDataProvider): void {
+  registerProvider(provider: StagedStore): void {
     if (this.#providers.has(provider.storeName)) {
       throw new Error(`Provider "${provider.storeName}" is already registered`);
     }
@@ -113,14 +113,14 @@ export class JobCoordinator {
     await this.#setCurrentJob(context);
 
     // Commit each affected store
-    // Each store's commitStaging should be atomic within itself
+    // Each store's commitStaged should be atomic within itself
     for (const storeName of affectedStores) {
       const provider = this.#providers.get(storeName);
       if (!provider) {
         this.log.warn(`Provider "${storeName}" not found, skipping commit`);
         continue;
       }
-      await provider.commitStaging(context);
+      await provider.commitStaged(context);
       this.log.debug(`Committed staging for ${storeName}`);
     }
 
@@ -152,7 +152,7 @@ export class JobCoordinator {
         this.log.warn(`Provider "${storeName}" not found, skipping discard`);
         continue;
       }
-      await provider.discardStaging(context.stagingPrefix);
+      await provider.discardStaged(context.stagingPrefix);
       this.log.debug(`Discarded staging for ${storeName}`);
     }
 
@@ -198,7 +198,7 @@ export class JobCoordinator {
         continue;
       }
       try {
-        await provider.discardStaging(context.stagingPrefix);
+        await provider.discardStaged(context.stagingPrefix);
         this.log.debug(`Recovered: discarded staging for ${storeName}`);
       } catch (err) {
         this.log.error(`Failed to discard staging for ${storeName}:`, err);

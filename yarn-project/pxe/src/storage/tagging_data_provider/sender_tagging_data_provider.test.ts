@@ -528,7 +528,7 @@ describe('SenderTaggingDataProvider', () => {
       expect(await taggingDataProvider.getLastFinalizedIndex(secret1, context)).toBe(7);
     });
 
-    it('commitStaging promotes staged data to main', async () => {
+    it('commitStaged promotes staged data to main', async () => {
       const txHash1 = TxHash.random();
       const txHash2 = TxHash.random();
       const context = new JobContext('test123', 'test');
@@ -541,13 +541,13 @@ describe('SenderTaggingDataProvider', () => {
       context.registerWrite(taggingDataProvider.storeName);
 
       // Commit the staging
-      await taggingDataProvider.commitStaging(context);
+      await taggingDataProvider.commitStaged(context);
 
       // Now without context should get the previously staged data
       expect(await taggingDataProvider.getLastFinalizedIndex(secret1)).toBe(7);
     });
 
-    it('discardStaging removes staged data without affecting main', async () => {
+    it('discardStaged removes staged data without affecting main', async () => {
       const txHash1 = TxHash.random();
       const txHash2 = TxHash.random();
       const context = new JobContext('test123', 'test');
@@ -559,7 +559,7 @@ describe('SenderTaggingDataProvider', () => {
       await taggingDataProvider.finalizePendingIndexes([txHash2], context);
 
       // Discard the staging
-      await taggingDataProvider.discardStaging(context.stagingPrefix);
+      await taggingDataProvider.discardStaged(context.stagingPrefix);
 
       // Should still get the committed finalized index
       expect(await taggingDataProvider.getLastFinalizedIndex(secret1)).toBe(3);

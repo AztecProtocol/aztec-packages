@@ -1,7 +1,7 @@
 import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncSingleton } from '@aztec/kv-store';
 import { BlockHeader } from '@aztec/stdlib/tx';
 
-import type { JobContext, StagingDataProvider } from '../../job_coordinator/index.js';
+import type { JobContext, StagedStore } from '../../job_coordinator/index.js';
 
 const HEADER_KEY = 'header';
 
@@ -13,7 +13,7 @@ const HEADER_KEY = 'header';
  *
  * Supports staged writes via JobContext for crash resilience.
  */
-export class AnchorBlockDataProvider implements StagingDataProvider {
+export class AnchorBlockDataProvider implements StagedStore {
   readonly storeName = 'anchor_block';
 
   #store: AztecAsyncKVStore;
@@ -75,7 +75,7 @@ export class AnchorBlockDataProvider implements StagingDataProvider {
    * Commits staged data to main storage.
    * Called by JobCoordinator when a job completes successfully.
    */
-  commitStaging(context: JobContext): Promise<void> {
+  commitStaged(context: JobContext): Promise<void> {
     return this.#store.transactionAsync(async () => {
       const stagingKey = context.stagingKey(HEADER_KEY);
       const stagedBuffer = await this.#stagingMap.getAsync(stagingKey);
@@ -91,7 +91,7 @@ export class AnchorBlockDataProvider implements StagingDataProvider {
    * Discards staged data without committing.
    * Called by JobCoordinator on abort or during recovery.
    */
-  async discardStaging(stagingPrefix: string): Promise<void> {
+  async discardStaged(stagingPrefix: string): Promise<void> {
     const stagingKey = `${stagingPrefix}${HEADER_KEY}`;
     await this.#stagingMap.delete(stagingKey);
   }

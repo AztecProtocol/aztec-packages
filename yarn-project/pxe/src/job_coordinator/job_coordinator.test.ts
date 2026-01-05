@@ -4,7 +4,7 @@ import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { jest } from '@jest/globals';
 
 import { JobContext } from './job_context.js';
-import { JobCoordinator, type StagingDataProvider } from './job_coordinator.js';
+import { JobCoordinator, type StagedStore } from './job_coordinator.js';
 
 describe('JobCoordinator', () => {
   let store: AztecAsyncKVStore;
@@ -54,13 +54,13 @@ describe('JobCoordinator', () => {
       await expect(coordinator.commitJob(context)).rejects.toThrow(/no matching job/);
     });
 
-    it('calls commitStaging on affected providers', async () => {
-      const commitStagingMock = jest.fn<() => Promise<void>>().mockResolvedValue(undefined);
-      const discardStagingMock = jest.fn<() => Promise<void>>().mockResolvedValue(undefined);
-      const mockProvider: StagingDataProvider = {
+    it('calls commitStaged on affected providers', async () => {
+      const commitStagedMock = jest.fn<() => Promise<void>>().mockResolvedValue(undefined);
+      const discardStagedMock = jest.fn<() => Promise<void>>().mockResolvedValue(undefined);
+      const mockProvider: StagedStore = {
         storeName: 'mock_store',
-        commitStaging: commitStagingMock,
-        discardStaging: discardStagingMock,
+        commitStaged: commitStagedMock,
+        discardStaged: discardStagedMock,
       };
 
       coordinator.registerProvider(mockProvider);
@@ -70,16 +70,16 @@ describe('JobCoordinator', () => {
 
       await coordinator.commitJob(context);
 
-      expect(commitStagingMock).toHaveBeenCalledWith(context);
+      expect(commitStagedMock).toHaveBeenCalledWith(context);
     });
 
-    it('does not call commitStaging on unaffected providers', async () => {
-      const commitStagingMock = jest.fn<() => Promise<void>>().mockResolvedValue(undefined);
-      const discardStagingMock = jest.fn<() => Promise<void>>().mockResolvedValue(undefined);
-      const mockProvider: StagingDataProvider = {
+    it('does not call commitStaged on unaffected providers', async () => {
+      const commitStagedMock = jest.fn<() => Promise<void>>().mockResolvedValue(undefined);
+      const discardStagedMock = jest.fn<() => Promise<void>>().mockResolvedValue(undefined);
+      const mockProvider: StagedStore = {
         storeName: 'mock_store',
-        commitStaging: commitStagingMock,
-        discardStaging: discardStagingMock,
+        commitStaged: commitStagedMock,
+        discardStaged: discardStagedMock,
       };
 
       coordinator.registerProvider(mockProvider);
@@ -89,7 +89,7 @@ describe('JobCoordinator', () => {
 
       await coordinator.commitJob(context);
 
-      expect(commitStagingMock).not.toHaveBeenCalled();
+      expect(commitStagedMock).not.toHaveBeenCalled();
     });
   });
 
@@ -102,13 +102,13 @@ describe('JobCoordinator', () => {
       expect(await coordinator.hasJobInProgress()).toBe(false);
     });
 
-    it('calls discardStaging on affected providers', async () => {
-      const commitStagingMock = jest.fn<() => Promise<void>>().mockResolvedValue(undefined);
-      const discardStagingMock = jest.fn<() => Promise<void>>().mockResolvedValue(undefined);
-      const mockProvider: StagingDataProvider = {
+    it('calls discardStaged on affected providers', async () => {
+      const commitStagedMock = jest.fn<() => Promise<void>>().mockResolvedValue(undefined);
+      const discardStagedMock = jest.fn<() => Promise<void>>().mockResolvedValue(undefined);
+      const mockProvider: StagedStore = {
         storeName: 'mock_store',
-        commitStaging: commitStagingMock,
-        discardStaging: discardStagingMock,
+        commitStaged: commitStagedMock,
+        discardStaged: discardStagedMock,
       };
 
       coordinator.registerProvider(mockProvider);
@@ -118,7 +118,7 @@ describe('JobCoordinator', () => {
 
       await coordinator.abortJob(context);
 
-      expect(discardStagingMock).toHaveBeenCalledWith(context.stagingPrefix);
+      expect(discardStagedMock).toHaveBeenCalledWith(context.stagingPrefix);
     });
   });
 
@@ -142,13 +142,13 @@ describe('JobCoordinator', () => {
       expect(await newCoordinator.hasJobInProgress()).toBe(false);
     });
 
-    it('calls discardStaging on all registered providers', async () => {
-      const commitStagingMock = jest.fn<() => Promise<void>>().mockResolvedValue(undefined);
-      const discardStagingMock = jest.fn<() => Promise<void>>().mockResolvedValue(undefined);
-      const mockProvider: StagingDataProvider = {
+    it('calls discardStaged on all registered providers', async () => {
+      const commitStagedMock = jest.fn<() => Promise<void>>().mockResolvedValue(undefined);
+      const discardStagedMock = jest.fn<() => Promise<void>>().mockResolvedValue(undefined);
+      const mockProvider: StagedStore = {
         storeName: 'mock_store',
-        commitStaging: commitStagingMock,
-        discardStaging: discardStagingMock,
+        commitStaged: commitStagedMock,
+        discardStaged: discardStagedMock,
       };
 
       const context = await coordinator.beginJob('test_job');
@@ -160,30 +160,30 @@ describe('JobCoordinator', () => {
 
       await newCoordinator.recover();
 
-      expect(discardStagingMock).toHaveBeenCalled();
+      expect(discardStagedMock).toHaveBeenCalled();
     });
   });
 
   describe('registerProvider', () => {
     it('registers a provider', () => {
-      const commitStagingMock = jest.fn<() => Promise<void>>().mockResolvedValue(undefined);
-      const discardStagingMock = jest.fn<() => Promise<void>>().mockResolvedValue(undefined);
-      const mockProvider: StagingDataProvider = {
+      const commitStagedMock = jest.fn<() => Promise<void>>().mockResolvedValue(undefined);
+      const discardStagedMock = jest.fn<() => Promise<void>>().mockResolvedValue(undefined);
+      const mockProvider: StagedStore = {
         storeName: 'mock_store',
-        commitStaging: commitStagingMock,
-        discardStaging: discardStagingMock,
+        commitStaged: commitStagedMock,
+        discardStaged: discardStagedMock,
       };
 
       expect(() => coordinator.registerProvider(mockProvider)).not.toThrow();
     });
 
     it('throws on duplicate registration', () => {
-      const commitStagingMock = jest.fn<() => Promise<void>>().mockResolvedValue(undefined);
-      const discardStagingMock = jest.fn<() => Promise<void>>().mockResolvedValue(undefined);
-      const mockProvider: StagingDataProvider = {
+      const commitStagedMock = jest.fn<() => Promise<void>>().mockResolvedValue(undefined);
+      const discardStagedMock = jest.fn<() => Promise<void>>().mockResolvedValue(undefined);
+      const mockProvider: StagedStore = {
         storeName: 'mock_store',
-        commitStaging: commitStagingMock,
-        discardStaging: discardStagingMock,
+        commitStaged: commitStagedMock,
+        discardStaged: discardStagedMock,
       };
 
       coordinator.registerProvider(mockProvider);

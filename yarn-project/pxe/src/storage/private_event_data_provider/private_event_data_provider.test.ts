@@ -277,7 +277,7 @@ describe('PrivateEventDataProvider', () => {
       expect(events[0].packedEvent).toEqual(msgContent);
     });
 
-    it('commitStaging promotes staged events to main storage', async () => {
+    it('commitStaged promotes staged events to main storage', async () => {
       const context = new JobContext('test123', 'test');
 
       const stagedMsgContent = getRandomMsgContent();
@@ -297,7 +297,7 @@ describe('PrivateEventDataProvider', () => {
       context.registerWrite(privateEventDataProvider.storeName);
 
       // Commit staging
-      await privateEventDataProvider.commitStaging(context);
+      await privateEventDataProvider.commitStaged(context);
 
       // Now should see the event
       const events = await privateEventDataProvider.getPrivateEvents(eventSelector, {
@@ -310,7 +310,7 @@ describe('PrivateEventDataProvider', () => {
       expect(events[0].packedEvent).toEqual(stagedMsgContent);
     });
 
-    it('discardStaging removes staged events without affecting main', async () => {
+    it('discardStaged removes staged events without affecting main', async () => {
       const context = new JobContext('test123', 'test');
 
       // Store committed event
@@ -339,7 +339,7 @@ describe('PrivateEventDataProvider', () => {
       );
 
       // Discard staging
-      await privateEventDataProvider.discardStaging(context.stagingPrefix);
+      await privateEventDataProvider.discardStaged(context.stagingPrefix);
 
       // Should only see committed event
       const events = await privateEventDataProvider.getPrivateEvents(eventSelector, {

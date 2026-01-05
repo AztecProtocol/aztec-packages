@@ -3,7 +3,7 @@ import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
 import type { DirectionalAppTaggingSecret, PreTag } from '@aztec/stdlib/logs';
 import { TxHash } from '@aztec/stdlib/tx';
 
-import type { JobContext, StagingDataProvider } from '../../job_coordinator/index.js';
+import type { JobContext, StagedStore } from '../../job_coordinator/index.js';
 import { UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN } from '../../tagging/sync/sync_sender_tagging_indexes.js';
 
 // Key constants for staging
@@ -17,7 +17,7 @@ const FINALIZED_INDEXES_PREFIX = 'finalized:';
  *
  * Supports staged writes via JobContext for crash resilience.
  */
-export class SenderTaggingDataProvider implements StagingDataProvider {
+export class SenderTaggingDataProvider implements StagedStore {
   readonly storeName = 'sender_tagging';
 
   #store: AztecAsyncKVStore;
@@ -269,7 +269,7 @@ export class SenderTaggingDataProvider implements StagingDataProvider {
    * Commits staged data to main storage.
    * Called by JobCoordinator when a job completes successfully.
    */
-  commitStaging(context: JobContext): Promise<void> {
+  commitStaged(context: JobContext): Promise<void> {
     return this.#store.transactionAsync(async () => {
       // Iterate through all staging keys and promote to main
       for await (const key of this.#stagingMap.keysAsync()) {
@@ -305,7 +305,7 @@ export class SenderTaggingDataProvider implements StagingDataProvider {
    * Discards staged data without committing.
    * Called by JobCoordinator on abort or during recovery.
    */
-  async discardStaging(stagingPrefix: string): Promise<void> {
+  async discardStaged(stagingPrefix: string): Promise<void> {
     const keysToDelete: string[] = [];
     for await (const key of this.#stagingMap.keysAsync()) {
       if (key.startsWith(stagingPrefix)) {

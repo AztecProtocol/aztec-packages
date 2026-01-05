@@ -696,7 +696,7 @@ describe('NoteDataProvider', () => {
       expect(notesWithoutContext[0].index).toBe(1n);
     });
 
-    it('commitStaging promotes staged notes to main storage', async () => {
+    it('commitStaged promotes staged notes to main storage', async () => {
       const stagedNote = await NoteDao.random({
         contractAddress: CONTRACT_A,
         storageSlot: SLOT_X,
@@ -711,7 +711,7 @@ describe('NoteDataProvider', () => {
       context.registerWrite(provider.storeName);
 
       // Commit staging
-      await provider.commitStaging(context);
+      await provider.commitStaged(context);
 
       // Now should see the note without context
       const notes = await provider.getNotes({ contractAddress: CONTRACT_A });
@@ -719,7 +719,7 @@ describe('NoteDataProvider', () => {
       expect(notes[0].index).toBe(1n);
     });
 
-    it('discardStaging removes staged notes without affecting main', async () => {
+    it('discardStaged removes staged notes without affecting main', async () => {
       const committedNote = await NoteDao.random({
         contractAddress: CONTRACT_A,
         storageSlot: SLOT_X,
@@ -742,7 +742,7 @@ describe('NoteDataProvider', () => {
       await provider.addNotes([stagedNote], SCOPE_1, context);
 
       // Discard staging
-      await provider.discardStaging(context.stagingPrefix);
+      await provider.discardStaged(context.stagingPrefix);
 
       // Should only see committed note
       const notes = await provider.getNotes({ contractAddress: CONTRACT_A });
@@ -778,7 +778,7 @@ describe('NoteDataProvider', () => {
 
       // Commit staging
       context.registerWrite(provider.storeName);
-      await provider.commitStaging(context);
+      await provider.commitStaged(context);
 
       // Now note should be nullified
       const activeNotesAfterCommit = await provider.getNotes({ contractAddress: CONTRACT_A });
@@ -815,7 +815,7 @@ describe('NoteDataProvider', () => {
 
       // Commit both operations
       context.registerWrite(provider.storeName);
-      await provider.commitStaging(context);
+      await provider.commitStaged(context);
 
       // Note should exist but be nullified
       const activeNotes = await provider.getNotes({ contractAddress: CONTRACT_A });

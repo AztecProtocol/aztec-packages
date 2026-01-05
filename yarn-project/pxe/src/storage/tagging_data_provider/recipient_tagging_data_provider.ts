@@ -4,14 +4,14 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { DirectionalAppTaggingSecret, PreTag } from '@aztec/stdlib/logs';
 
 import type { JobContext } from '../../job_coordinator/index.js';
-import type { StagingDataProvider } from '../../job_coordinator/job_coordinator.js';
+import type { StagedStore } from '../../job_coordinator/job_coordinator.js';
 
 /**
  * Data provider of tagging data used when syncing the logs as a recipient. The sender counterpart of this class is
  * called SenderTaggingDataProvider. We have the providers separate for the sender and recipient because
  * the algorithms are completely disjoint and there is not data reuse between the 2.
  */
-export class RecipientTaggingDataProvider implements StagingDataProvider {
+export class RecipientTaggingDataProvider implements StagedStore {
   readonly storeName = 'recipient_tagging';
 
   #store: AztecAsyncKVStore;
@@ -105,13 +105,13 @@ export class RecipientTaggingDataProvider implements StagingDataProvider {
     });
   }
 
-  // StagingDataProvider implementation
+  // StagedStore implementation
 
   /**
    * Commits staged data to main storage.
    * @param context - The job context containing the staging prefix
    */
-  async commitStaging(context: JobContext): Promise<void> {
+  async commitStaged(context: JobContext): Promise<void> {
     await this.#store.transactionAsync(async () => {
       const stagingPrefix = context.stagingPrefix;
       const allKeys = await toArray(this.#stagingMap.keysAsync());
@@ -143,7 +143,7 @@ export class RecipientTaggingDataProvider implements StagingDataProvider {
    * Discards staged data without committing.
    * @param stagingPrefix - The prefix used for staging keys
    */
-  async discardStaging(stagingPrefix: string): Promise<void> {
+  async discardStaged(stagingPrefix: string): Promise<void> {
     const allKeys = await toArray(this.#stagingMap.keysAsync());
     const stagingKeys = allKeys.filter(key => key.startsWith(stagingPrefix));
 

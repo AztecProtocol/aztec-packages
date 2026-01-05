@@ -80,7 +80,7 @@ describe('RecipientTaggingDataProvider', () => {
       expect(indexesWithContext).toEqual([10]);
     });
 
-    it('commitStaging promotes staged data to main', async () => {
+    it('commitStaged promotes staged data to main', async () => {
       const context = new JobContext('test123', 'test');
 
       await taggingDataProvider.setLastUsedIndexes([{ secret: secret1, index: 5 }]);
@@ -88,21 +88,21 @@ describe('RecipientTaggingDataProvider', () => {
       context.registerWrite(taggingDataProvider.storeName);
 
       // Commit the staging
-      await taggingDataProvider.commitStaging(context);
+      await taggingDataProvider.commitStaged(context);
 
       // Now without context should get the previously staged data
       const indexes = await taggingDataProvider.getLastUsedIndexes([secret1]);
       expect(indexes).toEqual([10]);
     });
 
-    it('discardStaging removes staged data without affecting main', async () => {
+    it('discardStaged removes staged data without affecting main', async () => {
       const context = new JobContext('test123', 'test');
 
       await taggingDataProvider.setLastUsedIndexes([{ secret: secret1, index: 5 }]);
       await taggingDataProvider.setLastUsedIndexes([{ secret: secret1, index: 10 }], context);
 
       // Discard the staging
-      await taggingDataProvider.discardStaging(context.stagingPrefix);
+      await taggingDataProvider.discardStaged(context.stagingPrefix);
 
       // Should still get the committed data
       const indexes = await taggingDataProvider.getLastUsedIndexes([secret1]);
@@ -130,7 +130,7 @@ describe('RecipientTaggingDataProvider', () => {
 
       // Commit the reset
       context.registerWrite(taggingDataProvider.storeName);
-      await taggingDataProvider.commitStaging(context);
+      await taggingDataProvider.commitStaged(context);
 
       // Now data should be cleared
       const indexesAfterCommit = await taggingDataProvider.getLastUsedIndexes([secret1, secret2]);

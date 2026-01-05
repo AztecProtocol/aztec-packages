@@ -47,7 +47,7 @@ describe('block header', () => {
       await expect(anchorBlockDataProvider.getBlockHeader(context)).resolves.toEqual(stagedHeader);
     });
 
-    it('commitStaging promotes staged data to main', async () => {
+    it('commitStaged promotes staged data to main', async () => {
       const committedHeader = makeBlockHeader(randomInt(1000), { blockNumber: BlockNumber(1) });
       const stagedHeader = makeBlockHeader(randomInt(1000), { blockNumber: BlockNumber(2) });
       const context = new JobContext('test123', 'test');
@@ -57,13 +57,13 @@ describe('block header', () => {
       context.registerWrite(anchorBlockDataProvider.storeName);
 
       // Commit the staging
-      await anchorBlockDataProvider.commitStaging(context);
+      await anchorBlockDataProvider.commitStaged(context);
 
       // Now without context should get the previously staged header
       await expect(anchorBlockDataProvider.getBlockHeader()).resolves.toEqual(stagedHeader);
     });
 
-    it('discardStaging removes staged data without affecting main', async () => {
+    it('discardStaged removes staged data without affecting main', async () => {
       const committedHeader = makeBlockHeader(randomInt(1000), { blockNumber: BlockNumber(1) });
       const stagedHeader = makeBlockHeader(randomInt(1000), { blockNumber: BlockNumber(2) });
       const context = new JobContext('test123', 'test');
@@ -72,7 +72,7 @@ describe('block header', () => {
       await anchorBlockDataProvider.setHeader(stagedHeader, context);
 
       // Discard the staging
-      await anchorBlockDataProvider.discardStaging(context.stagingPrefix);
+      await anchorBlockDataProvider.discardStaged(context.stagingPrefix);
 
       // Should still get committed header
       await expect(anchorBlockDataProvider.getBlockHeader()).resolves.toEqual(committedHeader);

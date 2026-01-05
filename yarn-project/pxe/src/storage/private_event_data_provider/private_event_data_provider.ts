@@ -10,7 +10,7 @@ import { L2BlockHash } from '@aztec/stdlib/block';
 import { type InTx, TxHash } from '@aztec/stdlib/tx';
 
 import type { JobContext } from '../../job_coordinator/index.js';
-import type { StagingDataProvider } from '../../job_coordinator/job_coordinator.js';
+import type { StagedStore } from '../../job_coordinator/job_coordinator.js';
 import type { PackedPrivateEvent } from '../../pxe.js';
 
 export type PrivateEventDataProviderFilter = {
@@ -37,7 +37,7 @@ type PrivateEventMetadata = InTx & {
 /**
  * Stores decrypted private event logs.
  */
-export class PrivateEventDataProvider implements StagingDataProvider {
+export class PrivateEventDataProvider implements StagedStore {
   readonly storeName = 'private_events';
 
   #store: AztecAsyncKVStore;
@@ -214,13 +214,13 @@ export class PrivateEventDataProvider implements StagingDataProvider {
     return events.map(ev => ev.event);
   }
 
-  // StagingDataProvider implementation
+  // StagedStore implementation
 
   /**
    * Commits staged data to main storage.
    * @param context - The job context containing the staging prefix
    */
-  async commitStaging(context: JobContext): Promise<void> {
+  async commitStaged(context: JobContext): Promise<void> {
     await this.#store.transactionAsync(async () => {
       const stagingPrefix = context.stagingPrefix;
       const allKeys = await toArray(this.#stagingMap.keysAsync());
@@ -259,7 +259,7 @@ export class PrivateEventDataProvider implements StagingDataProvider {
    * Discards staged data without committing.
    * @param stagingPrefix - The prefix used for staging keys
    */
-  async discardStaging(stagingPrefix: string): Promise<void> {
+  async discardStaged(stagingPrefix: string): Promise<void> {
     const allKeys = await toArray(this.#stagingMap.keysAsync());
     const stagingKeys = allKeys.filter(key => key.startsWith(stagingPrefix));
 
