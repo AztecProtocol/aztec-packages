@@ -79,8 +79,8 @@ import {
 import type { UInt64 } from '@aztec/stdlib/types';
 import { ForkCheckpoint } from '@aztec/world-state';
 
+import { DEFAULT_ADDRESS } from '../constants.js';
 import type { TXEStateMachine } from '../state_machine/index.js';
-import { DEFAULT_ADDRESS } from '../txe_session.js';
 import type { TXEAccountDataProvider } from '../util/txe_account_data_provider.js';
 import type { TXEContractDataProvider } from '../util/txe_contract_data_provider.js';
 import { TXEPublicContractDataSource } from '../util/txe_public_contract_data_source.js';
@@ -293,18 +293,18 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     }
 
     // Sync notes before executing private function to discover notes from previous transactions
-    await this.contractDataProvider.syncPrivateState(targetContractAddress, functionSelector, async call => {
+    const utilityExecutor = async (call: FunctionCall) => {
       await this.executeUtilityCall(call);
-    });
+    };
+
+    await this.contractDataProvider.syncPrivateState(targetContractAddress, functionSelector, utilityExecutor);
 
     const blockNumber = await this.txeGetNextBlockNumber();
 
     const callContext = new CallContext(from, targetContractAddress, functionSelector, isStaticCall);
 
     const gasLimits = new Gas(DEFAULT_DA_GAS_LIMIT, DEFAULT_L2_GAS_LIMIT);
-
     const teardownGasLimits = new Gas(DEFAULT_TEARDOWN_DA_GAS_LIMIT, DEFAULT_TEARDOWN_L2_GAS_LIMIT);
-
     const gasSettings = new GasSettings(gasLimits, teardownGasLimits, GasFees.empty(), GasFees.empty());
 
     const txContext = new TxContext(this.chainId, this.version, gasSettings);
@@ -316,9 +316,6 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     const taggingIndexCache = new ExecutionTaggingIndexCache();
 
     const simulator = new WASMSimulator();
-    const utilityExecutor = async (call: FunctionCall) => {
-      await this.executeUtilityCall(call);
-    };
 
     const privateExecutionOracle = new PrivateExecutionOracle(
       argsHash,
@@ -653,16 +650,6 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     return this.executeUtilityCall(call);
   }
 
-  close(): [bigint, Map<string, AuthWitness>] {
-    this.logger.debug('Exiting Top Level Context');
-    return [this.nextBlockTimestamp, this.authwits];
-  }
-
-  private async getLastBlockNumber(): Promise<BlockNumber> {
-    const header = await this.stateMachine.node.getBlockHeader('latest');
-    return header ? header.globalVariables.blockNumber : BlockNumber.ZERO;
-  }
-
   private async executeUtilityCall(call: FunctionCall): Promise<Fr[]> {
     const entryPointArtifact = await this.contractDataProvider.getFunctionArtifactWithDebugMetadata(
       call.to,
@@ -715,5 +702,15 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     } catch (err) {
       throw createSimulationError(err instanceof Error ? err : new Error('Unknown error during utility simulation'));
     }
+  }
+
+  close(): [bigint, Map<string, AuthWitness>] {
+    this.logger.debug('Exiting Top Level Context');
+    return [this.nextBlockTimestamp, this.authwits];
+  }
+
+  private async getLastBlockNumber(): Promise<BlockNumber> {
+    const header = await this.stateMachine.node.getBlockHeader('latest');
+    return header ? header.globalVariables.blockNumber : BlockNumber.ZERO;
   }
 }

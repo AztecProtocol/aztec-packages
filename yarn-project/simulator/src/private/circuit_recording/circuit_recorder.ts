@@ -253,18 +253,9 @@ export class CircuitRecorder {
    * Finalizes the recording by resetting the state and returning the recording object with an attached error.
    * @param error - The error that occurred during circuit execution
    */
-  finishWithError(error: unknown): Promise<CircuitRecording> {
-    const result = this.recording;
-    // If this is the top-level circuit recording, we reset the state for the next simulator call
-    if (!result!.parent) {
-      this.newCircuit = true;
-      this.recording = undefined;
-    } else {
-      // For nested circuits (utility calls, nested contract calls), restore to parent recording
-      // Note: we don't set newCircuit=false here - see finish() comment for explanation
-      this.recording = result!.parent;
-    }
-    result!.error = JSON.stringify(error);
-    return Promise.resolve(result!);
+  async finishWithError(error: unknown): Promise<CircuitRecording> {
+    const result = await this.finish();
+    result.error = JSON.stringify(error);
+    return result;
   }
 }
