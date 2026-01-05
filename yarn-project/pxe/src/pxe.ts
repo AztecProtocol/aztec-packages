@@ -74,9 +74,9 @@ import { CapsuleDataProvider } from './storage/capsule_data_provider/capsule_dat
 import { ContractDataProvider } from './storage/contract_data_provider/contract_data_provider.js';
 import { NoteDataProvider } from './storage/note_data_provider/note_data_provider.js';
 import { PrivateEventDataProvider } from './storage/private_event_data_provider/private_event_data_provider.js';
+import { RecipientTaggingDataProvider } from './storage/tagging_data_provider/recipient_tagging_data_provider.js';
 import { SenderAddressBook } from './storage/tagging_data_provider/sender_address_book.js';
 import { SenderTaggingDataProvider } from './storage/tagging_data_provider/sender_tagging_data_provider.js';
-import { RecipientTaggingDataProvider } from './tagging/recipient_sync/recipient_tagging_data_provider.js';
 
 export type PackedPrivateEvent = InTx & {
   packedEvent: Fr[];

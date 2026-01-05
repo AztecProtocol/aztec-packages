@@ -77,9 +77,9 @@ import type { CapsuleDataProvider } from '../storage/capsule_data_provider/capsu
 import type { ContractDataProvider } from '../storage/contract_data_provider/contract_data_provider.js';
 import type { NoteDataProvider } from '../storage/note_data_provider/note_data_provider.js';
 import type { PrivateEventDataProvider } from '../storage/private_event_data_provider/private_event_data_provider.js';
+import type { RecipientTaggingDataProvider } from '../storage/tagging_data_provider/recipient_tagging_data_provider.js';
 import type { SenderAddressBook } from '../storage/tagging_data_provider/sender_address_book.js';
 import type { SenderTaggingDataProvider } from '../storage/tagging_data_provider/sender_tagging_data_provider.js';
-import type { RecipientTaggingDataProvider } from '../tagging/recipient_sync/recipient_tagging_data_provider.js';
 import { ExecutionNoteCache } from './execution_note_cache.js';
 import { ExecutionTaggingIndexCache } from './execution_tagging_index_cache.js';
 import { HashedValuesCache } from './hashed_values_cache.js';
