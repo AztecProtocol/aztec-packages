@@ -33,7 +33,7 @@ void PurePoseidon2::permutation(MemoryInterface& memory, MemoryAddress src_addre
 
     // Read 4 elements from memory starting at src_address
     for (uint32_t i = 0; i < 4; i++) {
-        auto item = memory.get(src_address + i);
+        const auto& item = memory.get(src_address + i);
         if (item.get_tag() != MemoryTag::FF) {
             throw Poseidon2Exception("An input tag is not FF");
         }
