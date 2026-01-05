@@ -278,7 +278,7 @@ z_{\textsf{perm}}[i+1] \cdot \prod_{j=1}^{\textsf{NUM\_COLS}} (\textsf{ordered}[
 z_{\textsf{perm}}[i] \cdot \prod_{j=1}^{\textsf{NUM\_COLS}} (\textsf{interleaved}[j] + \gamma)
 $$
 
-The Problem: Permuting all ~64 microlimb columns simultaneously yields degree $1 + 64 = 65$, making sumcheck impractical.
+The Problem: Permuting all ~64 microlimb columns simultaneously would require us to commit to all of them. Further, since the relation degree would be $1 + 64 = 65$, computing the sumcheck univariates could be a significant overhead for the prover. The prover would need to then commit to the univariates (instead of sending evaluations directly).
 
 The Solution: Interleave 16 logical columns into one virtual column, and create 4 such columns (plus 1 for the extra column). Each group can then perform an independent permutation check with degree $1 + 5 = 6$ (or 7 with Lagrange selector). This reduces the relation degree from 65 to 7.
 
@@ -315,23 +315,22 @@ n-1 & \textcolor{skyblue}{a_{n-1}} & \textcolor{orange}{b_{n-1}} & \textcolor{li
 0 & 2 & \textcolor{lightgreen}{c_0} \\
 \vdots & \vdots & \vdots \\[3pt]
 0 & 15 & \textcolor{firebrick}{p_0} \\ \hline
-1 & 4 & \textcolor{skyblue}{a_1} \\
-1 & 5 & \textcolor{orange}{b_1} \\
-1 & 6 & \textcolor{lightgreen}{c_1} \\
+1 & 16 & \textcolor{skyblue}{a_1} \\
+1 & 17 & \textcolor{orange}{b_1} \\
+1 & 18 & \textcolor{lightgreen}{c_1} \\
 \vdots & \vdots & \vdots \\[3pt]
-1 & 7 & \textcolor{firebrick}{p_1} \\ \hline
+1 & 31 & \textcolor{firebrick}{p_1} \\ \hline
 \vdots & \vdots & \vdots \\ \hline
-n-1 & 4n-4 & \textcolor{skyblue}{a_{n-1}} \\
-n-1 & 4n-3 & \textcolor{orange}{b_{n-1}} \\
-n-1 & 4n-2 & \textcolor{lightgreen}{c_{n-1}} \\
+n-1 & 16n-16 & \textcolor{skyblue}{a_{n-1}} \\
+n-1 & 16n-15 & \textcolor{orange}{b_{n-1}} \\
+n-1 & 16n-14 & \textcolor{lightgreen}{c_{n-1}} \\
 \vdots & \vdots & \vdots \\[3pt]
-n-1 & 4n-1 & \textcolor{firebrick}{p_{n-1}} \\
+n-1 & 16n-1 & \textcolor{firebrick}{p_{n-1}} \\
 \hline
 \end{array}
 $$
 
-The resulting interleaved polynomial has size $16n = 2^{17}$.
-For 64 microlimb columns, we have 4 groups of 16 columns each, resulting in four interleaved polynomials. Note that the interleaved polynomials are not "physical" wires in the circuit trace: we refer to them as virtual polynomials. Each of these groups performs an independent permutation check:
+For 64 microlimb columns, we have 4 groups of 16 columns each, resulting in four interleaved polynomials each of size $16n = 2^{17}$. Note that the interleaved polynomials are not "physical" wires in the circuit trace: we refer to them as virtual polynomials. Each of these groups performs an independent permutation check:
 
 - Numerator: 4 interleaved wires + 1 extra = 5 terms
 - Denominator: 5 ordered wires = 5 terms
@@ -341,9 +340,7 @@ The permutation argument verifies that within each group, the interleaved values
 
 > **Effect on Commitment Scheme**: For polynomials $p_0, \dots, p_{15}$ of size $n$, the interleaved polynomial of size $16n$ is:
 > $$p_{\textsf{interleaved}}(x) = \sum_{i=0}^{15} x^i \cdot p_{i}(x^{16})$$
-> The interleaved polynomials do not require separate commitments because they can be derived from the original polynomials' commitments. In the Gemini PCS phase, the prover sends only two additional field element evaluations $P_+(r^{16})$ and $P_-(r^{16})$ where $r$ is the Gemini challenge:
-> $$P_{\pm}(x) = \sum_{i=0}^{15} (\pm r)^i \cdot p_{i}(x)$$
-> The verifier reconstructs full batched polynomial evaluations as $A_0(r) = A_{0+}(r) + P_+(r^{16})$ and $A_0(-r) = A_{0-}(-r) + P_-(r^{16})$. Since $P_{\pm}(r^{16})$ relates to evaluations $p_i(r^{16})$ already in the Gemini protocol, no additional commitments are needed.
+> The interleaved polynomials don't need to be committed explicitly; they can be opened (at, say $\gamma$) by using the commitments to the original polynomials and their evaluations (at $\gamma^{16}$). This is explained in more detail in the [Gemini](../commitment_schemes/gemini/README.md) documentation.
 
 ---
 
