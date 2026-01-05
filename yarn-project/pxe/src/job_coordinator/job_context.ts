@@ -18,38 +18,11 @@ export class JobContext {
   /** Timestamp when job started */
   readonly startedAt: number;
 
-  /** Tracks which stores have been written to during this job */
-  private readonly affectedStoreNames: Set<string> = new Set();
-
   constructor(jobId: string, jobType: string) {
     this.jobId = jobId;
     this.jobType = jobType;
     this.stagingPrefix = `job_${jobId}:`;
     this.startedAt = Date.now();
-  }
-
-  /**
-   * Registers that a store has been written to during this job.
-   * Used by JobCoordinator to know which stores need commit/rollback.
-   *
-   * @param storeName - Unique identifier for the store
-   */
-  registerWrite(storeName: string): void {
-    this.affectedStoreNames.add(storeName);
-  }
-
-  /**
-   * Returns the names of stores that have been written to.
-   */
-  getAffectedStoreNames(): string[] {
-    return Array.from(this.affectedStoreNames);
-  }
-
-  /**
-   * Checks if a specific store has been written to.
-   */
-  hasWrittenTo(storeName: string): boolean {
-    return this.affectedStoreNames.has(storeName);
   }
 
   /**
@@ -79,7 +52,6 @@ export interface SerializedJobContext {
   jobId: string;
   jobType: string;
   startedAt: number;
-  affectedStoreNames: string[];
 }
 
 /**
@@ -90,7 +62,6 @@ export function serializeJobContext(context: JobContext): SerializedJobContext {
     jobId: context.jobId,
     jobType: context.jobType,
     startedAt: context.startedAt,
-    affectedStoreNames: context.getAffectedStoreNames(),
   };
 }
 
@@ -99,10 +70,5 @@ export function serializeJobContext(context: JobContext): SerializedJobContext {
  * Note: The returned context is for recovery purposes only.
  */
 export function deserializeJobContext(serialized: SerializedJobContext): JobContext {
-  const context = new JobContext(serialized.jobId, serialized.jobType);
-  // Restore affected stores for recovery
-  for (const storeName of serialized.affectedStoreNames) {
-    context.registerWrite(storeName);
-  }
-  return context;
+  return new JobContext(serialized.jobId, serialized.jobType);
 }

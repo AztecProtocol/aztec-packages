@@ -54,7 +54,6 @@ describe('block header', () => {
 
       await anchorBlockDataProvider.setHeader(committedHeader);
       await anchorBlockDataProvider.setHeader(stagedHeader, context);
-      context.registerWrite(anchorBlockDataProvider.storeName);
 
       // Commit the staging
       await anchorBlockDataProvider.commitStaged(context);

@@ -38,7 +38,6 @@ export class AnchorBlockDataProvider implements StagedStore {
       // Write to staging
       const stagingKey = context.stagingKey(HEADER_KEY);
       await this.#stagingMap.set(stagingKey, header.toBuffer());
-      context.registerWrite(this.storeName);
     } else {
       // Direct write
       await this.#synchronizedHeader.set(header.toBuffer());

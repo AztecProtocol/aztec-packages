@@ -54,7 +54,7 @@ describe('JobCoordinator', () => {
       await expect(coordinator.commitJob(context)).rejects.toThrow(/no matching job/);
     });
 
-    it('calls commitStaged on affected providers', async () => {
+    it('calls commitStaged on all registered providers', async () => {
       const commitStagedMock = jest.fn<() => Promise<void>>().mockResolvedValue(undefined);
       const discardStagedMock = jest.fn<() => Promise<void>>().mockResolvedValue(undefined);
       const mockProvider: StagedStore = {
@@ -66,30 +66,10 @@ describe('JobCoordinator', () => {
       coordinator.registerProvider(mockProvider);
 
       const context = await coordinator.beginJob('test_job');
-      context.registerWrite('mock_store');
 
       await coordinator.commitJob(context);
 
       expect(commitStagedMock).toHaveBeenCalledWith(context);
-    });
-
-    it('does not call commitStaged on unaffected providers', async () => {
-      const commitStagedMock = jest.fn<() => Promise<void>>().mockResolvedValue(undefined);
-      const discardStagedMock = jest.fn<() => Promise<void>>().mockResolvedValue(undefined);
-      const mockProvider: StagedStore = {
-        storeName: 'mock_store',
-        commitStaged: commitStagedMock,
-        discardStaged: discardStagedMock,
-      };
-
-      coordinator.registerProvider(mockProvider);
-
-      const context = await coordinator.beginJob('test_job');
-      // Don't register any writes
-
-      await coordinator.commitJob(context);
-
-      expect(commitStagedMock).not.toHaveBeenCalled();
     });
   });
 
@@ -102,7 +82,7 @@ describe('JobCoordinator', () => {
       expect(await coordinator.hasJobInProgress()).toBe(false);
     });
 
-    it('calls discardStaged on affected providers', async () => {
+    it('calls discardStaged on all registered providers', async () => {
       const commitStagedMock = jest.fn<() => Promise<void>>().mockResolvedValue(undefined);
       const discardStagedMock = jest.fn<() => Promise<void>>().mockResolvedValue(undefined);
       const mockProvider: StagedStore = {
@@ -114,7 +94,6 @@ describe('JobCoordinator', () => {
       coordinator.registerProvider(mockProvider);
 
       const context = await coordinator.beginJob('test_job');
-      context.registerWrite('mock_store');
 
       await coordinator.abortJob(context);
 
@@ -151,8 +130,7 @@ describe('JobCoordinator', () => {
         discardStaged: discardStagedMock,
       };
 
-      const context = await coordinator.beginJob('test_job');
-      context.registerWrite('mock_store');
+      await coordinator.beginJob('test_job');
 
       // Simulate restart
       const newCoordinator = new JobCoordinator(store);
@@ -323,17 +301,5 @@ describe('JobContext', () => {
     const context = new JobContext('abc123', 'test');
 
     expect(() => context.mainKey('notes')).toThrow(/does not have staging prefix/);
-  });
-
-  it('tracks affected stores', () => {
-    const context = new JobContext('abc123', 'test');
-
-    context.registerWrite('store1');
-    context.registerWrite('store2');
-    context.registerWrite('store1'); // Duplicate
-
-    expect(context.getAffectedStoreNames()).toEqual(['store1', 'store2']);
-    expect(context.hasWrittenTo('store1')).toBe(true);
-    expect(context.hasWrittenTo('store3')).toBe(false);
   });
 });

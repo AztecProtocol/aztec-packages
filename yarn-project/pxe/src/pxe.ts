@@ -747,7 +747,6 @@ export class PXE {
           const txHash = (await txProvingResult.toTx()).txHash;
 
           await this.senderTaggingDataProvider.storePendingIndexes(preTagsUsedInTheTx, txHash, context);
-          context.registerWrite(this.senderTaggingDataProvider.storeName);
           this.log.debug(`Stored used pre-tags as sender for the tx`, {
             preTagsUsedInTheTx,
           });

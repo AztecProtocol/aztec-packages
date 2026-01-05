@@ -294,7 +294,6 @@ describe('PrivateEventDataProvider', () => {
         },
         context,
       );
-      context.registerWrite(privateEventDataProvider.storeName);
 
       // Commit staging
       await privateEventDataProvider.commitStaged(context);

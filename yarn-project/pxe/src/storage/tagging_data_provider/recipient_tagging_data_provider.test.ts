@@ -85,7 +85,6 @@ describe('RecipientTaggingDataProvider', () => {
 
       await taggingDataProvider.setLastUsedIndexes([{ secret: secret1, index: 5 }]);
       await taggingDataProvider.setLastUsedIndexes([{ secret: secret1, index: 10 }], context);
-      context.registerWrite(taggingDataProvider.storeName);
 
       // Commit the staging
       await taggingDataProvider.commitStaged(context);
@@ -129,7 +128,6 @@ describe('RecipientTaggingDataProvider', () => {
       expect(indexesWithoutContext).toEqual([5, 10]);
 
       // Commit the reset
-      context.registerWrite(taggingDataProvider.storeName);
       await taggingDataProvider.commitStaged(context);
 
       // Now data should be cleared

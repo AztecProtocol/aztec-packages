@@ -538,7 +538,6 @@ describe('SenderTaggingDataProvider', () => {
 
       await taggingDataProvider.storePendingIndexes([{ secret: secret1, index: 7 }], txHash2, context);
       await taggingDataProvider.finalizePendingIndexes([txHash2], context);
-      context.registerWrite(taggingDataProvider.storeName);
 
       // Commit the staging
       await taggingDataProvider.commitStaged(context);

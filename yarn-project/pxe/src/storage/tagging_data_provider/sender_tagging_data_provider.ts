@@ -338,7 +338,6 @@ export class SenderTaggingDataProvider implements StagedStore {
     if (context) {
       const stagingKey = context.stagingKey(`${PENDING_INDEXES_PREFIX}${secret}`);
       await this.#stagingMap.set(stagingKey, Buffer.from(JSON.stringify(value)));
-      context.registerWrite(this.storeName);
     } else {
       await this.#pendingIndexes.set(secret, value);
     }
@@ -349,7 +348,6 @@ export class SenderTaggingDataProvider implements StagedStore {
       // Store null to indicate deletion in staging
       const stagingKey = context.stagingKey(`${PENDING_INDEXES_PREFIX}${secret}`);
       await this.#stagingMap.set(stagingKey, Buffer.from(JSON.stringify(null)));
-      context.registerWrite(this.storeName);
     } else {
       await this.#pendingIndexes.delete(secret);
     }
@@ -370,7 +368,6 @@ export class SenderTaggingDataProvider implements StagedStore {
     if (context) {
       const stagingKey = context.stagingKey(`${FINALIZED_INDEXES_PREFIX}${secret}`);
       await this.#stagingMap.set(stagingKey, Buffer.from(JSON.stringify(value)));
-      context.registerWrite(this.storeName);
     } else {
       await this.#lastFinalizedIndexes.set(secret, value);
     }

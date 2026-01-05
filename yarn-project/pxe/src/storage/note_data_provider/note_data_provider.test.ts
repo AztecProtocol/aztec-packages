@@ -708,7 +708,6 @@ describe('NoteDataProvider', () => {
 
       // Add staged note
       await provider.addNotes([stagedNote], SCOPE_1, context);
-      context.registerWrite(provider.storeName);
 
       // Commit staging
       await provider.commitStaged(context);
@@ -777,7 +776,6 @@ describe('NoteDataProvider', () => {
       expect(activeNotes).toHaveLength(1);
 
       // Commit staging
-      context.registerWrite(provider.storeName);
       await provider.commitStaged(context);
 
       // Now note should be nullified
@@ -814,7 +812,6 @@ describe('NoteDataProvider', () => {
       await provider.applyNullifiers([nullifier], context);
 
       // Commit both operations
-      context.registerWrite(provider.storeName);
       await provider.commitStaged(context);
 
       // Note should exist but be nullified

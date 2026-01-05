@@ -107,25 +107,13 @@ export class JobCoordinator {
       );
     }
 
-    const affectedStores = context.getAffectedStoreNames();
-    this.log.debug(
-      `Committing job ${context.jobId} affecting ${affectedStores.length} stores: ${affectedStores.join(', ')}`,
-    );
+    this.log.debug(`Committing job ${context.jobId}`);
 
-    // Update the job marker with affected stores before committing
-    // This ensures recovery knows which stores to clean up if we crash during commit
-    await this.#setCurrentJob(context);
-
-    // Commit all affected stores atomically in a single transaction
+    // Commit all providers atomically in a single transaction.
+    // Each provider's commitStaged is a no-op if it has no staged data.
     await this.#store.transactionAsync(async () => {
-      for (const storeName of affectedStores) {
-        const provider = this.#providers.get(storeName);
-        if (!provider) {
-          this.log.warn(`Provider "${storeName}" not found, skipping commit`);
-          continue;
-        }
+      for (const provider of this.#providers.values()) {
         await provider.commitStaged(context);
-        this.log.debug(`Committed staging for ${storeName}`);
       }
 
       // Clear the job marker within the same transaction
@@ -147,18 +135,11 @@ export class JobCoordinator {
       this.log.warn(`Abort called for job ${context.jobId} but current job is ${currentJob?.jobId ?? 'none'}`);
     }
 
-    const affectedStores = context.getAffectedStoreNames();
-    this.log.debug(`Aborting job ${context.jobId} affecting ${affectedStores.length} stores`);
+    this.log.debug(`Aborting job ${context.jobId}`);
 
-    // Discard staging for each affected store
-    for (const storeName of affectedStores) {
-      const provider = this.#providers.get(storeName);
-      if (!provider) {
-        this.log.warn(`Provider "${storeName}" not found, skipping discard`);
-        continue;
-      }
+    // Discard staging for all providers (each is a no-op if no staged data)
+    for (const provider of this.#providers.values()) {
       await provider.discardStaged(context.stagingPrefix);
-      this.log.debug(`Discarded staging for ${storeName}`);
     }
 
     // Clear the job marker
@@ -188,25 +169,13 @@ export class JobCoordinator {
 
     // Reconstruct the context for recovery
     const context = new JobContext(job.jobId, job.jobType);
-    for (const storeName of job.affectedStoreNames) {
-      context.registerWrite(storeName);
-    }
 
-    // Discard staging from all potentially affected stores
-    // We also check all registered providers in case the job marker was written
-    // before all affected stores were recorded
-    const storeNames = new Set([...job.affectedStoreNames, ...this.#providers.keys()]);
-
-    for (const storeName of storeNames) {
-      const provider = this.#providers.get(storeName);
-      if (!provider) {
-        continue;
-      }
+    // Discard staging from all registered providers
+    for (const provider of this.#providers.values()) {
       try {
         await provider.discardStaged(context.stagingPrefix);
-        this.log.debug(`Recovered: discarded staging for ${storeName}`);
       } catch (err) {
-        this.log.error(`Failed to discard staging for ${storeName}:`, err);
+        this.log.error(`Failed to discard staging for ${provider.storeName}:`, err);
         // Continue with other stores
       }
     }
