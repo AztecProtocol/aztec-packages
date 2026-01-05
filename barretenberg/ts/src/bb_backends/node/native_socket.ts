@@ -4,7 +4,6 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { IMsgpackBackendAsync } from '../interface.js';
-import { findPackageRoot } from './platform.js';
 import readline from 'readline';
 
 /**
@@ -58,9 +57,9 @@ export class BarretenbergNativeSocketAsyncBackend implements IMsgpackBackendAsyn
       connectionReject = reject;
     });
 
-    // If threads not set use num cpu cores, max 32.
-    const hwc = threads ? threads.toString() : Math.min(32, os.cpus.length).toString();
-    const env = { ...process.env, HARDWARE_CONCURRENCY: '1' };
+    // If threads not set use num cpu cores, max 16.
+    const hwc = threads ? threads.toString() : Math.min(16, os.cpus().length).toString();
+    const env = { ...process.env, HARDWARE_CONCURRENCY: hwc };
 
     // Spawn bb process - it will create the socket server
     const args = ['msgpack', 'run', '--input', this.socketPath];
