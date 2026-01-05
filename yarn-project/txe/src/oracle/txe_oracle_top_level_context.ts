@@ -79,8 +79,8 @@ import {
 import type { UInt64 } from '@aztec/stdlib/types';
 import { ForkCheckpoint } from '@aztec/world-state';
 
+import { DEFAULT_ADDRESS } from '../constants.js';
 import type { TXEStateMachine } from '../state_machine/index.js';
-import { DEFAULT_ADDRESS } from '../txe_session.js';
 import type { TXEAccountDataProvider } from '../util/txe_account_data_provider.js';
 import type { TXEContractDataProvider } from '../util/txe_contract_data_provider.js';
 import { TXEPublicContractDataSource } from '../util/txe_public_contract_data_source.js';

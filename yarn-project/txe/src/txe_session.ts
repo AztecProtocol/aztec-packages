@@ -42,6 +42,7 @@ import { CallContext, GlobalVariables, TxContext } from '@aztec/stdlib/tx';
 
 import { z } from 'zod';
 
+import { DEFAULT_ADDRESS } from './constants.js';
 import type { IAvmExecutionOracle, ITxeExecutionOracle } from './oracle/interfaces.js';
 import { TXEOraclePublicContext } from './oracle/txe_oracle_public_context.js';
 import { TXEOracleTopLevelContext } from './oracle/txe_oracle_top_level_context.js';
@@ -110,8 +111,6 @@ export interface TXESessionStateHandler {
   enterPrivateState(contractAddress?: AztecAddress, anchorBlockNumber?: BlockNumber): Promise<PrivateContextInputs>;
   enterUtilityState(contractAddress?: AztecAddress): Promise<void>;
 }
-
-export const DEFAULT_ADDRESS = AztecAddress.fromNumber(42);
 
 /**
  * A `TXESession` corresponds to a Noir `#[test]` function, and handles all of its oracle calls, stores test-specific
