@@ -3,6 +3,7 @@ import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
 import type { DirectionalAppTaggingSecret, PreTag } from '@aztec/stdlib/logs';
 import { TxHash } from '@aztec/stdlib/tx';
 
+import type { JobContext } from '../../job_coordinator/index.js';
 import { UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN } from '../../tagging/index.js';
 
 // Key constants for staging
