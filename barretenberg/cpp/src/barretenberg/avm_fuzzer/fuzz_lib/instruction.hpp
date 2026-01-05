@@ -538,11 +538,9 @@ struct SENDL2TOL1MSG_Instruction {
 };
 
 struct EMITUNENCRYPTEDLOG_Instruction {
-    uint8_t log_size;
-    AddressRef log_size_address;
-    std::vector<bb::avm2::FF> log_values;
-    uint16_t log_values_address_start;
-    MSGPACK_FIELDS(log_size, log_size_address, log_values);
+    ParamRef log_size_address;
+    ParamRef log_values_address;
+    MSGPACK_FIELDS(log_size_address, log_values_address);
 };
 
 /// @brief CALL: call function by index (resolved by contract db proxy)
@@ -884,11 +882,7 @@ inline std::ostream& operator<<(std::ostream& os, const FuzzInstruction& instruc
                    << arg.content << " " << arg.content_address;
             },
             [&](EMITUNENCRYPTEDLOG_Instruction arg) {
-                os << "EMITUNENCRYPTEDLOG_Instruction " << arg.log_size << " " << arg.log_size_address << " ";
-                for (const auto& value : arg.log_values) {
-                    os << value << " ";
-                }
-                os << std::endl;
+                os << "EMITUNENCRYPTEDLOG_Instruction " << arg.log_size_address << " " << arg.log_values_address;
             },
             [&](CALL_Instruction arg) {
                 os << "CALL_Instruction " << arg.function_index << " " << arg.address_offset << " " << arg.l2_gas << " "

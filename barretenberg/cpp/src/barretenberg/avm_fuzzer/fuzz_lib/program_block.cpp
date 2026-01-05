@@ -1207,30 +1207,18 @@ void ProgramBlock::process_emitunencryptedlog_instruction(EMITUNENCRYPTEDLOG_Ins
 #ifdef DISABLE_EMITUNENCRYPTEDLOG_INSTRUCTION
     return;
 #endif
-    auto log_size_set_instruction = SET_32_Instruction{ .value_tag = bb::avm2::MemoryTag::U32,
-                                                        .result_address = instruction.log_size_address,
-                                                        .value = instruction.log_size };
-    this->process_set_32_instruction(log_size_set_instruction);
-    size_t counter = 0;
-    for (const auto& value : instruction.log_values) {
-        auto log_values_address =
-            AddressRef{ .address = static_cast<uint32_t>(instruction.log_values_address_start + counter),
-                        .mode = AddressingMode::Direct };
-        auto set_value_instruction = SET_FF_Instruction{ .value_tag = bb::avm2::MemoryTag::FF,
-                                                         .result_address = log_values_address,
-                                                         .value = value };
-        this->process_set_ff_instruction(set_value_instruction);
-        counter++;
-    }
     auto log_size_address_operand = memory_manager.get_resolved_address_and_operand_16(instruction.log_size_address);
-    if (!log_size_address_operand.has_value()) {
+    auto log_values_address_operand =
+        memory_manager.get_resolved_address_and_operand_16(instruction.log_values_address);
+    if (!log_size_address_operand.has_value() || !log_values_address_operand.has_value()) {
         return;
     }
     preprocess_memory_addresses(log_size_address_operand.value().first);
+    preprocess_memory_addresses(log_values_address_operand.value().first);
     auto emitunencryptedlog_instruction =
         bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::EMITUNENCRYPTEDLOG)
             .operand(log_size_address_operand.value().second)
-            .operand(instruction.log_values_address_start)
+            .operand(log_values_address_operand.value().second)
             .build();
     instructions.push_back(emitunencryptedlog_instruction);
 }

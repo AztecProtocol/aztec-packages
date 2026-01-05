@@ -423,15 +423,13 @@ constexpr SendL2ToL1MsgMutationConfig BASIC_SENDL2TOL1MSG_MUTATION_CONFIGURATION
     { SendL2ToL1MsgMutationOptions::content_address, 1 },
 });
 
-enum class EmitUnencryptedLogMutationOptions { log_size, log_size_address, log_values, log_values_address_start };
-using EmitUnencryptedLogMutationConfig = WeightedSelectionConfig<EmitUnencryptedLogMutationOptions, 4>;
+enum class EmitUnencryptedLogMutationOptions { log_size_address, log_values_address };
+using EmitUnencryptedLogMutationConfig = WeightedSelectionConfig<EmitUnencryptedLogMutationOptions, 2>;
 
 constexpr EmitUnencryptedLogMutationConfig BASIC_EMITUNENCRYPTEDLOG_MUTATION_CONFIGURATION =
     EmitUnencryptedLogMutationConfig({
-        { EmitUnencryptedLogMutationOptions::log_size, 1 },
         { EmitUnencryptedLogMutationOptions::log_size_address, 1 },
-        { EmitUnencryptedLogMutationOptions::log_values, 1 },
-        { EmitUnencryptedLogMutationOptions::log_values_address_start, 1 },
+        { EmitUnencryptedLogMutationOptions::log_values_address, 1 },
     });
 
 enum class CallMutationOptions {
