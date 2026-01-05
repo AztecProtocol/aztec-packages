@@ -8,12 +8,12 @@ import { NoteStatus, type NotesFilter } from '@aztec/stdlib/note';
 import { NoteDao } from '@aztec/stdlib/note';
 
 /**
- * NoteDataProvider manages the storage and retrieval of notes.
+ * NoteStore manages the storage and retrieval of notes.
  *
  * Notes can be active or nullified. This class processes new notes, nullifications,
  * and performs rollback handling in the case of a reorg.
  **/
-export class NoteDataProvider {
+export class NoteStore {
   #store: AztecAsyncKVStore;
   #notes: AztecAsyncMap<string, Buffer>;
   #nullifiedNotes: AztecAsyncMap<string, Buffer>;
@@ -49,16 +49,16 @@ export class NoteDataProvider {
   }
 
   /**
-   * Creates and initializes a new NoteDataProvider instance.
+   * Creates and initializes a new NoteStore instance.
    *
-   * This factory method creates a NoteDataProvider and restores any existing
+   * This factory method creates a NoteStore and restores any existing
    * scope-specific indexes from the database.
    *
    * @param store - The key-value store to use for persistence
-   * @returns Promise resolving to a fully initialized NoteDataProvider instance
+   * @returns Promise resolving to a fully initialized NoteStore instance
    */
-  public static async create(store: AztecAsyncKVStore): Promise<NoteDataProvider> {
-    const pxeDB = new NoteDataProvider(store);
+  public static async create(store: AztecAsyncKVStore): Promise<NoteStore> {
+    const pxeDB = new NoteStore(store);
     for await (const scope of pxeDB.#scopes.keysAsync()) {
       pxeDB.#notesByContractAndScope.set(scope, store.openMultiMap(`${scope}:notes_by_contract`));
       pxeDB.#notesByStorageSlotAndScope.set(scope, store.openMultiMap(`${scope}:notes_by_storage_slot`));

@@ -7,10 +7,10 @@ import { UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN } from '../../tagging/index.js';
 
 /**
  * Data provider of tagging data used when syncing the sender tagging indexes. The recipient counterpart of this class
- * is called RecipientTaggingDataProvider. We have the providers separate for the sender and recipient because
+ * is called RecipientTaggingStore. We have the providers separate for the sender and recipient because
  * the algorithms are completely disjoint and there is not data reuse between the two.
  */
-export class SenderTaggingDataProvider {
+export class SenderTaggingStore {
   #store: AztecAsyncKVStore;
 
   // Stores the pending indexes for each directional app tagging secret. Pending here means that the tx that contained

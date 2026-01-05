@@ -2,7 +2,7 @@ import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import type { DirectionalAppTaggingSecret } from '@aztec/stdlib/logs';
 
-import type { SenderTaggingDataProvider } from '../../storage/tagging_data_provider/sender_tagging_data_provider.js';
+import type { SenderTaggingStore } from '../../storage/tagging_store/sender_tagging_store.js';
 import { UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN } from '../index.js';
 import { getStatusChangeOfPending } from './utils/get_status_change_of_pending.js';
 import { loadAndStoreNewTaggingIndexes } from './utils/load_and_store_new_tagging_indexes.js';
@@ -25,7 +25,7 @@ export async function syncSenderTaggingIndexes(
   secret: DirectionalAppTaggingSecret,
   app: AztecAddress,
   aztecNode: AztecNode,
-  taggingDataProvider: SenderTaggingDataProvider,
+  taggingStore: SenderTaggingStore,
 ): Promise<void> {
   // # Explanation of how syncing works
   //
@@ -45,7 +45,7 @@ export async function syncSenderTaggingIndexes(
   // Each window advance requires two queries (logs + tx status). For example, syncing indexes 0–500 with a window of
   // 100 takes at least 10 round trips (5 windows × 2 queries).
 
-  const finalizedIndex = await taggingDataProvider.getLastFinalizedIndex(secret);
+  const finalizedIndex = await taggingStore.getLastFinalizedIndex(secret);
 
   let start = finalizedIndex === undefined ? 0 : finalizedIndex + 1;
   let end = start + UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN;
@@ -56,21 +56,21 @@ export async function syncSenderTaggingIndexes(
   while (true) {
     // Load and store indexes for the current window. These indexes may already exist in the database if txs using
     // them were previously sent from this PXE. Any duplicates are handled by the tagging data provider.
-    await loadAndStoreNewTaggingIndexes(secret, app, start, end, aztecNode, taggingDataProvider);
+    await loadAndStoreNewTaggingIndexes(secret, app, start, end, aztecNode, taggingStore);
 
     // Retrieve all indexes within the current window from storage and update their status accordingly.
-    const pendingTxHashes = await taggingDataProvider.getTxHashesOfPendingIndexes(secret, start, end);
+    const pendingTxHashes = await taggingStore.getTxHashesOfPendingIndexes(secret, start, end);
     if (pendingTxHashes.length === 0) {
       break;
     }
 
     const { txHashesToFinalize, txHashesToDrop } = await getStatusChangeOfPending(pendingTxHashes, aztecNode);
 
-    await taggingDataProvider.dropPendingIndexes(txHashesToDrop);
-    await taggingDataProvider.finalizePendingIndexes(txHashesToFinalize);
+    await taggingStore.dropPendingIndexes(txHashesToDrop);
+    await taggingStore.finalizePendingIndexes(txHashesToFinalize);
 
     // We check if the finalized index has been updated.
-    newFinalizedIndex = await taggingDataProvider.getLastFinalizedIndex(secret);
+    newFinalizedIndex = await taggingStore.getLastFinalizedIndex(secret);
     if (previousFinalizedIndex !== newFinalizedIndex) {
       // A new finalized index was found, so we'll run the loop again. For example:
       // - Previous finalized index: 10

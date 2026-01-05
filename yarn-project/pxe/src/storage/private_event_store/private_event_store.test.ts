@@ -8,14 +8,14 @@ import { L2BlockHash } from '@aztec/stdlib/block';
 import { TxHash } from '@aztec/stdlib/tx';
 
 import type { PackedPrivateEvent } from '../../pxe.js';
-import { PrivateEventDataProvider } from './private_event_data_provider.js';
+import { PrivateEventStore } from './private_event_store.js';
 
 const getRandomMsgContent = () => {
   return [Fr.random(), Fr.random(), Fr.random()];
 };
 
-describe('PrivateEventDataProvider', () => {
-  let privateEventDataProvider: PrivateEventDataProvider;
+describe('PrivateEventStore', () => {
+  let privateEventStore: PrivateEventStore;
   let contractAddress: AztecAddress;
   let scope: AztecAddress;
   let msgContent: Fr[];
@@ -27,8 +27,8 @@ describe('PrivateEventDataProvider', () => {
   let expectedEvent: PackedPrivateEvent;
 
   beforeEach(async () => {
-    const store = await openTmpStore('private_event_data_provider_test');
-    privateEventDataProvider = new PrivateEventDataProvider(store);
+    const store = await openTmpStore('private_event_store_test');
+    privateEventStore = new PrivateEventStore(store);
     contractAddress = await AztecAddress.random();
     scope = await AztecAddress.random();
     msgContent = getRandomMsgContent();
@@ -48,14 +48,14 @@ describe('PrivateEventDataProvider', () => {
   });
 
   it('stores and retrieves private events', async () => {
-    await privateEventDataProvider.storePrivateEventLog(eventSelector, msgContent, eventCommitmentIndex, {
+    await privateEventStore.storePrivateEventLog(eventSelector, msgContent, eventCommitmentIndex, {
       contractAddress,
       scope,
       txHash,
       l2BlockNumber,
       l2BlockHash,
     });
-    const events = await privateEventDataProvider.getPrivateEvents(eventSelector, {
+    const events = await privateEventStore.getPrivateEvents(eventSelector, {
       contractAddress,
       fromBlock: l2BlockNumber,
       toBlock: l2BlockNumber + 1,
@@ -65,7 +65,7 @@ describe('PrivateEventDataProvider', () => {
   });
 
   it('ignores duplicate events with same eventCommitmentIndex', async () => {
-    await privateEventDataProvider.storePrivateEventLog(eventSelector, msgContent, eventCommitmentIndex, {
+    await privateEventStore.storePrivateEventLog(eventSelector, msgContent, eventCommitmentIndex, {
       contractAddress,
       scope,
       txHash,
@@ -73,7 +73,7 @@ describe('PrivateEventDataProvider', () => {
       l2BlockHash,
     });
 
-    const events = await privateEventDataProvider.getPrivateEvents(eventSelector, {
+    const events = await privateEventStore.getPrivateEvents(eventSelector, {
       contractAddress,
       fromBlock: l2BlockNumber,
       toBlock: l2BlockNumber + 1,
@@ -86,14 +86,14 @@ describe('PrivateEventDataProvider', () => {
   it('allows multiple events with same content but different eventCommitmentIndex', async () => {
     const otherEventCommitmentIndex = eventCommitmentIndex + 1;
 
-    await privateEventDataProvider.storePrivateEventLog(eventSelector, msgContent, eventCommitmentIndex, {
+    await privateEventStore.storePrivateEventLog(eventSelector, msgContent, eventCommitmentIndex, {
       contractAddress,
       scope,
       txHash,
       l2BlockNumber,
       l2BlockHash,
     });
-    await privateEventDataProvider.storePrivateEventLog(eventSelector, msgContent, otherEventCommitmentIndex, {
+    await privateEventStore.storePrivateEventLog(eventSelector, msgContent, otherEventCommitmentIndex, {
       contractAddress,
       scope,
       txHash,
@@ -101,7 +101,7 @@ describe('PrivateEventDataProvider', () => {
       l2BlockHash,
     });
 
-    const events = await privateEventDataProvider.getPrivateEvents(eventSelector, {
+    const events = await privateEventStore.getPrivateEvents(eventSelector, {
       contractAddress,
       fromBlock: l2BlockNumber,
       toBlock: l2BlockNumber + 1,
@@ -118,21 +118,21 @@ describe('PrivateEventDataProvider', () => {
       l2BlockNumber: BlockNumber(200),
     };
 
-    await privateEventDataProvider.storePrivateEventLog(eventSelector, getRandomMsgContent(), 0, {
+    await privateEventStore.storePrivateEventLog(eventSelector, getRandomMsgContent(), 0, {
       contractAddress,
       scope,
       txHash: TxHash.random(),
       l2BlockNumber: BlockNumber(100),
       l2BlockHash,
     });
-    await privateEventDataProvider.storePrivateEventLog(eventSelector, msgContent, 1, {
+    await privateEventStore.storePrivateEventLog(eventSelector, msgContent, 1, {
       contractAddress,
       scope,
       txHash: expectedEvent.txHash,
       l2BlockNumber: expectedEvent.l2BlockNumber,
       l2BlockHash: expectedEvent.l2BlockHash,
     });
-    await privateEventDataProvider.storePrivateEventLog(eventSelector, getRandomMsgContent(), 2, {
+    await privateEventStore.storePrivateEventLog(eventSelector, getRandomMsgContent(), 2, {
       contractAddress,
       scope,
       txHash: TxHash.random(),
@@ -140,7 +140,7 @@ describe('PrivateEventDataProvider', () => {
       l2BlockHash,
     });
 
-    const events = await privateEventDataProvider.getPrivateEvents(eventSelector, {
+    const events = await privateEventStore.getPrivateEvents(eventSelector, {
       contractAddress,
       fromBlock: 150,
       toBlock: 150 + 100,
@@ -153,14 +153,14 @@ describe('PrivateEventDataProvider', () => {
   it('filters events by recipient', async () => {
     const otherScope = await AztecAddress.random();
 
-    await privateEventDataProvider.storePrivateEventLog(eventSelector, msgContent, eventCommitmentIndex, {
+    await privateEventStore.storePrivateEventLog(eventSelector, msgContent, eventCommitmentIndex, {
       contractAddress,
       scope,
       txHash,
       l2BlockNumber,
       l2BlockHash,
     });
-    await privateEventDataProvider.storePrivateEventLog(eventSelector, msgContent, eventCommitmentIndex + 1, {
+    await privateEventStore.storePrivateEventLog(eventSelector, msgContent, eventCommitmentIndex + 1, {
       contractAddress,
       scope: otherScope,
       txHash: TxHash.random(),
@@ -168,7 +168,7 @@ describe('PrivateEventDataProvider', () => {
       l2BlockHash,
     });
 
-    const events = await privateEventDataProvider.getPrivateEvents(eventSelector, {
+    const events = await privateEventStore.getPrivateEvents(eventSelector, {
       contractAddress,
       fromBlock: l2BlockNumber,
       toBlock: l2BlockNumber + 1,
@@ -179,7 +179,7 @@ describe('PrivateEventDataProvider', () => {
   });
 
   it('returns empty array when no events match criteria', async () => {
-    const events = await privateEventDataProvider.getPrivateEvents(eventSelector, {
+    const events = await privateEventStore.getPrivateEvents(eventSelector, {
       contractAddress,
       fromBlock: l2BlockNumber,
       toBlock: l2BlockNumber + 1,
@@ -201,7 +201,7 @@ describe('PrivateEventDataProvider', () => {
     });
 
     it('returns events in order by eventCommitmentIndex', async () => {
-      await privateEventDataProvider.storePrivateEventLog(eventSelector, msgContent2, 1, {
+      await privateEventStore.storePrivateEventLog(eventSelector, msgContent2, 1, {
         contractAddress,
         scope,
         txHash: TxHash.random(),
@@ -209,7 +209,7 @@ describe('PrivateEventDataProvider', () => {
         l2BlockHash,
       });
 
-      await privateEventDataProvider.storePrivateEventLog(eventSelector, msgContent1, 0, {
+      await privateEventStore.storePrivateEventLog(eventSelector, msgContent1, 0, {
         contractAddress,
         scope,
         txHash: TxHash.random(),
@@ -217,7 +217,7 @@ describe('PrivateEventDataProvider', () => {
         l2BlockHash,
       });
 
-      await privateEventDataProvider.storePrivateEventLog(eventSelector, msgContent3, 2, {
+      await privateEventStore.storePrivateEventLog(eventSelector, msgContent3, 2, {
         contractAddress,
         scope,
         txHash: TxHash.random(),
@@ -225,7 +225,7 @@ describe('PrivateEventDataProvider', () => {
         l2BlockHash,
       });
 
-      const events = await privateEventDataProvider.getPrivateEvents(eventSelector, {
+      const events = await privateEventStore.getPrivateEvents(eventSelector, {
         contractAddress,
         fromBlock: 0,
         toBlock: 0 + 1000,
