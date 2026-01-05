@@ -82,7 +82,11 @@ spec:
             export P2P_IP=$(hostname -i)
           {{- end }}
 
+          {{- if .Values.node.enableInspector }}
+          start_cmd=("node" "--inspect=0.0.0.0:9229" "/usr/src/yarn-project/aztec/dest/bin/index.js" "start" {{ join " " .Values.node.startCmd }})
+          {{- else }}
           start_cmd=("node" "/usr/src/yarn-project/aztec/dest/bin/index.js" "start" {{ join " " .Values.node.startCmd }})
+          {{- end }}
           source /scripts/setup-otel-resource.sh
 
           {{- if .Values.node.preStartScript }}
