@@ -21,24 +21,29 @@ FF PurePoseidon2::hash(const std::vector<FF>& input)
 
 void PurePoseidon2::permutation(MemoryInterface& memory, MemoryAddress src_address, MemoryAddress dst_address)
 {
-    try {
-        std::array<FF, 4> input = { 0, 0, 0, 0 };
+    uint64_t max_read_address = static_cast<uint64_t>(src_address) + 3;
+    if (max_read_address > AVM_HIGHEST_MEM_ADDRESS) {
+        throw Poseidon2Exception("Read address out of range");
+    }
+    uint64_t max_write_address = static_cast<uint64_t>(dst_address) + 3;
+    if (max_write_address > AVM_HIGHEST_MEM_ADDRESS) {
+        throw Poseidon2Exception("Write address out of range");
+    }
 
-        // Read 4 elements from memory starting at src_address
-        for (uint32_t i = 0; i < 4; i++) {
-            auto item = memory.get(src_address + i);
-            if (item.get_tag() != MemoryTag::FF) {
-                throw std::runtime_error("An input tag is not FF");
-            }
-            input[i] = item.as_ff();
-        }
+    std::array<FF, 4> input = { 0, 0, 0, 0 };
 
-        const std::array<FF, 4> output = Poseidon2Perm::permutation(input);
-        for (uint32_t i = 0; i < 4; i++) {
-            memory.set(dst_address + i, MemoryValue::from<FF>(output[i]));
+    // Read 4 elements from memory starting at src_address
+    for (uint32_t i = 0; i < 4; i++) {
+        auto item = memory.get(src_address + i);
+        if (item.get_tag() != MemoryTag::FF) {
+            throw Poseidon2Exception("An input tag is not FF");
         }
-    } catch (const std::exception& e) {
-        throw Poseidon2Exception("Permutation failed, " + std::string(e.what()));
+        input[i] = item.as_ff();
+    }
+
+    const std::array<FF, 4> output = Poseidon2Perm::permutation(input);
+    for (uint32_t i = 0; i < 4; i++) {
+        memory.set(dst_address + i, MemoryValue::from<FF>(output[i]));
     }
 }
 
