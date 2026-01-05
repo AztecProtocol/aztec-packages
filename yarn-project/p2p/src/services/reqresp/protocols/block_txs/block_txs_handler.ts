@@ -1,4 +1,4 @@
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { TxArray } from '@aztec/stdlib/tx';
 
 import type { PeerId } from '@libp2p/interface';

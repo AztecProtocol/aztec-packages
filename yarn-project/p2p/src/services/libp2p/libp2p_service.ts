@@ -1320,7 +1320,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
 
       // Double spend validator has a special case handler
       if (name === 'doubleSpendValidator') {
-        const txBlockNumber = currentBlockNumber + 1; // tx is expected to be in the next block
+        const txBlockNumber = BlockNumber(currentBlockNumber + 1); // tx is expected to be in the next block
         const _severity = await this.handleDoubleSpendFailure(tx, txBlockNumber);
       }
 
