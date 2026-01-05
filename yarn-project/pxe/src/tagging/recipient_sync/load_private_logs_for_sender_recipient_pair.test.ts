@@ -9,9 +9,9 @@ import { makeBlockHeader, randomTxScopedPrivateL2Log } from '@aztec/stdlib/testi
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-import { UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN } from '../sync/sync_sender_tagging_indexes.js';
+import { RecipientTaggingDataProvider } from '../../storage/tagging_data_provider/recipient_tagging_data_provider.js';
+import { UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN } from '../index.js';
 import { loadPrivateLogsForSenderRecipientPair } from './load_private_logs_for_sender_recipient_pair.js';
-import { RecipientTaggingDataProvider } from './recipient_tagging_data_provider.js';
 
 // In this test suite we don't care about the anchor block behavior as that is sufficiently tested by
 // the loadLogsForRange test suite, so we use a high block number to ensure it occurs after all logs.
