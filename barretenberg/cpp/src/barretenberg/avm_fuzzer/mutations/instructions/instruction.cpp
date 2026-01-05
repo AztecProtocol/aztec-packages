@@ -416,6 +416,35 @@ std::vector<FuzzInstruction> generate_sload_instruction(std::mt19937_64& rng)
     return instructions;
 }
 
+std::vector<FuzzInstruction> generate_emitunencryptedlog_instruction(std::mt19937_64& rng)
+{
+    // 80% chance to use backfill (4 out of 5) to increase success rate
+    bool use_backfill = std::uniform_int_distribution<int>(0, 4)(rng) != 0;
+
+    if (!use_backfill) {
+        return { EMITUNENCRYPTEDLOG_Instruction{ .log_size_address = generate_variable_ref(rng),
+                                                 .log_values_address = generate_variable_ref(rng) } };
+    }
+
+    // TODO: use constant
+    uint32_t log_size = std::uniform_int_distribution<uint32_t>(0, 4096)(rng);
+    std::vector<FuzzInstruction> instructions;
+    auto log_size_address = generate_address_ref(rng, MAX_16BIT_OPERAND);
+    auto log_values_address = generate_address_ref(rng, MAX_16BIT_OPERAND - log_size);
+
+    instructions.push_back(SET_32_Instruction{
+        .value_tag = bb::avm2::MemoryTag::U32, .result_address = log_size_address, .value = log_size });
+
+    instructions.push_back(SET_FF_Instruction{ .value_tag = bb::avm2::MemoryTag::FF,
+                                               .result_address = log_values_address,
+                                               .value = generate_random_field(rng) });
+
+    instructions.push_back(EMITUNENCRYPTEDLOG_Instruction{ .log_size_address = log_size_address,
+                                                           .log_values_address = log_values_address });
+
+    return instructions;
+}
+
 std::vector<FuzzInstruction> generate_instruction(std::mt19937_64& rng)
 {
     InstructionGenerationOptions option = BASIC_INSTRUCTION_GENERATION_CONFIGURATION.select(rng);
@@ -584,10 +613,7 @@ std::vector<FuzzInstruction> generate_instruction(std::mt19937_64& rng)
                                             .content = generate_random_field(rng),
                                             .content_address = generate_address_ref(rng, MAX_16BIT_OPERAND) } };
     case InstructionGenerationOptions::EMITUNENCRYPTEDLOG:
-        return { EMITUNENCRYPTEDLOG_Instruction{ .log_size = generate_random_uint8(rng),
-                                                 .log_size_address = generate_address_ref(rng, MAX_16BIT_OPERAND),
-                                                 .log_values = { generate_random_field(rng) },
-                                                 .log_values_address_start = generate_random_uint16(rng) } };
+        return generate_emitunencryptedlog_instruction(rng);
     case InstructionGenerationOptions::CALL:
         return { CALL_Instruction{ .function_index = generate_random_uint16(rng),
                                    .address_offset = generate_random_uint16(rng),
@@ -731,7 +757,6 @@ void mutate_binary_instruction_16(BinaryInstructionType& instruction, std::mt199
 
 void mutate_not_8_instruction(NOT_8_Instruction& instruction, std::mt19937_64& rng)
 {
-
     UnaryInstruction8MutationOptions option = BASIC_UNARY_INSTRUCTION_8_MUTATION_CONFIGURATION.select(rng);
     switch (option) {
     case UnaryInstruction8MutationOptions::a_address:
@@ -745,7 +770,6 @@ void mutate_not_8_instruction(NOT_8_Instruction& instruction, std::mt19937_64& r
 
 void mutate_set_8_instruction(SET_8_Instruction& instruction, std::mt19937_64& rng)
 {
-
     Set8MutationOptions option = BASIC_SET_8_MUTATION_CONFIGURATION.select(rng);
     switch (option) {
     case Set8MutationOptions::value_tag:
@@ -762,7 +786,6 @@ void mutate_set_8_instruction(SET_8_Instruction& instruction, std::mt19937_64& r
 
 void mutate_set_16_instruction(SET_16_Instruction& instruction, std::mt19937_64& rng)
 {
-
     Set16MutationOptions option = BASIC_SET_16_MUTATION_CONFIGURATION.select(rng);
     switch (option) {
     case Set16MutationOptions::value_tag:
@@ -779,7 +802,6 @@ void mutate_set_16_instruction(SET_16_Instruction& instruction, std::mt19937_64&
 
 void mutate_set_32_instruction(SET_32_Instruction& instruction, std::mt19937_64& rng)
 {
-
     Set32MutationOptions option = BASIC_SET_32_MUTATION_CONFIGURATION.select(rng);
     switch (option) {
     case Set32MutationOptions::value_tag:
@@ -796,7 +818,6 @@ void mutate_set_32_instruction(SET_32_Instruction& instruction, std::mt19937_64&
 
 void mutate_set_64_instruction(SET_64_Instruction& instruction, std::mt19937_64& rng)
 {
-
     Set64MutationOptions option = BASIC_SET_64_MUTATION_CONFIGURATION.select(rng);
     switch (option) {
     case Set64MutationOptions::value_tag:
@@ -813,7 +834,6 @@ void mutate_set_64_instruction(SET_64_Instruction& instruction, std::mt19937_64&
 
 void mutate_set_128_instruction(SET_128_Instruction& instruction, std::mt19937_64& rng)
 {
-
     Set128MutationOptions option = BASIC_SET_128_MUTATION_CONFIGURATION.select(rng);
     switch (option) {
     case Set128MutationOptions::value_tag:
@@ -833,7 +853,6 @@ void mutate_set_128_instruction(SET_128_Instruction& instruction, std::mt19937_6
 
 void mutate_set_ff_instruction(SET_FF_Instruction& instruction, std::mt19937_64& rng)
 {
-
     SetFFMutationOptions option = BASIC_SET_FF_MUTATION_CONFIGURATION.select(rng);
     switch (option) {
     case SetFFMutationOptions::value_tag:
@@ -882,7 +901,6 @@ void mutate_mov_16_instruction(MOV_16_Instruction& instruction, std::mt19937_64&
 
 void mutate_not_16_instruction(NOT_16_Instruction& instruction, std::mt19937_64& rng)
 {
-
     UnaryInstruction8MutationOptions option = BASIC_UNARY_INSTRUCTION_8_MUTATION_CONFIGURATION.select(rng);
     switch (option) {
     case UnaryInstruction8MutationOptions::a_address:
@@ -896,7 +914,6 @@ void mutate_not_16_instruction(NOT_16_Instruction& instruction, std::mt19937_64&
 
 void mutate_cast_8_instruction(CAST_8_Instruction& instruction, std::mt19937_64& rng)
 {
-
     BinaryInstruction8MutationOptions option = BASIC_BINARY_INSTRUCTION_8_MUTATION_CONFIGURATION.select(rng);
     switch (option) {
     case BinaryInstruction8MutationOptions::a_address:
@@ -913,7 +930,6 @@ void mutate_cast_8_instruction(CAST_8_Instruction& instruction, std::mt19937_64&
 
 void mutate_cast_16_instruction(CAST_16_Instruction& instruction, std::mt19937_64& rng)
 {
-
     BinaryInstruction8MutationOptions option = BASIC_BINARY_INSTRUCTION_8_MUTATION_CONFIGURATION.select(rng);
     switch (option) {
     case BinaryInstruction8MutationOptions::a_address:
@@ -930,7 +946,6 @@ void mutate_cast_16_instruction(CAST_16_Instruction& instruction, std::mt19937_6
 
 void mutate_sstore_instruction(SSTORE_Instruction& instruction, std::mt19937_64& rng)
 {
-
     SStoreMutationOptions option = BASIC_SSTORE_MUTATION_CONFIGURATION.select(rng);
     switch (option) {
     case SStoreMutationOptions::src_address:
@@ -947,7 +962,6 @@ void mutate_sstore_instruction(SSTORE_Instruction& instruction, std::mt19937_64&
 
 void mutate_sload_instruction(SLOAD_Instruction& instruction, std::mt19937_64& rng)
 {
-
     SLoadMutationOptions option = BASIC_SLOAD_MUTATION_CONFIGURATION.select(rng);
     switch (option) {
     case SLoadMutationOptions::slot_index:
@@ -964,7 +978,6 @@ void mutate_sload_instruction(SLOAD_Instruction& instruction, std::mt19937_64& r
 
 void mutate_getenvvar_instruction(GETENVVAR_Instruction& instruction, std::mt19937_64& rng)
 {
-
     GetEnvVarMutationOptions option = BASIC_GETENVVAR_MUTATION_CONFIGURATION.select(rng);
     switch (option) {
     case GetEnvVarMutationOptions::result_address:
@@ -985,7 +998,6 @@ void mutate_emit_nullifier_instruction(EMITNULLIFIER_Instruction& instruction, s
 
 void mutate_nullifier_exists_instruction(NULLIFIEREXISTS_Instruction& instruction, std::mt19937_64& rng)
 {
-
     NullifierExistsMutationOptions option = BASIC_NULLIFIER_EXISTS_MUTATION_CONFIGURATION.select(rng);
     switch (option) {
     case NullifierExistsMutationOptions::nullifier_address:
@@ -1018,7 +1030,6 @@ void mutate_l1tol2msgexists_instruction(L1TOL2MSGEXISTS_Instruction& instruction
 
 void mutate_emit_note_hash_instruction(EMITNOTEHASH_Instruction& instruction, std::mt19937_64& rng)
 {
-
     EmitNoteHashMutationOptions option = BASIC_EMITNOTEHASH_MUTATION_CONFIGURATION.select(rng);
     switch (option) {
     case EmitNoteHashMutationOptions::note_hash_address:
@@ -1031,7 +1042,6 @@ void mutate_emit_note_hash_instruction(EMITNOTEHASH_Instruction& instruction, st
 }
 void mutate_note_hash_exists_instruction(NOTEHASHEXISTS_Instruction& instruction, std::mt19937_64& rng)
 {
-
     NoteHashExistsMutationOptions option = BASIC_NOTEHASHEXISTS_MUTATION_CONFIGURATION.select(rng);
     switch (option) {
     case NoteHashExistsMutationOptions::notehash_index:
@@ -1051,7 +1061,6 @@ void mutate_note_hash_exists_instruction(NOTEHASHEXISTS_Instruction& instruction
 
 void mutate_calldatacopy_instruction(CALLDATACOPY_Instruction& instruction, std::mt19937_64& rng)
 {
-
     CalldataCopyMutationOptions option = BASIC_CALLDATACOPY_MUTATION_CONFIGURATION.select(rng);
     switch (option) {
     case CalldataCopyMutationOptions::dst_address:
@@ -1095,24 +1104,11 @@ void mutate_emitunencryptedlog_instruction(EMITUNENCRYPTEDLOG_Instruction& instr
 {
     EmitUnencryptedLogMutationOptions option = BASIC_EMITUNENCRYPTEDLOG_MUTATION_CONFIGURATION.select(rng);
     switch (option) {
-    case EmitUnencryptedLogMutationOptions::log_size:
-        mutate_uint8_t(instruction.log_size, rng, BASIC_UINT8_T_MUTATION_CONFIGURATION);
-        break;
     case EmitUnencryptedLogMutationOptions::log_size_address:
-        mutate_address_ref(instruction.log_size_address, rng, MAX_16BIT_OPERAND);
+        mutate_param_ref(instruction.log_size_address, rng, MemoryTag::U32, MAX_16BIT_OPERAND);
         break;
-    case EmitUnencryptedLogMutationOptions::log_values:
-        mutate_vec<bb::avm2::FF>(
-            instruction.log_values,
-            rng,
-            [](bb::avm2::FF& value, std::mt19937_64& rng) {
-                mutate_field(value, rng, BASIC_FIELD_MUTATION_CONFIGURATION);
-            },
-            generate_random_field,
-            BASIC_VEC_MUTATION_CONFIGURATION);
-        break;
-    case EmitUnencryptedLogMutationOptions::log_values_address_start:
-        mutate_uint16_t(instruction.log_values_address_start, rng, BASIC_UINT16_T_MUTATION_CONFIGURATION);
+    case EmitUnencryptedLogMutationOptions::log_values_address:
+        mutate_param_ref(instruction.log_values_address, rng, MemoryTag::FF, MAX_16BIT_OPERAND);
         break;
     }
 }
