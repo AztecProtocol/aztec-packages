@@ -1573,8 +1573,8 @@ export class Archiver
   public async rollbackTo(targetL2BlockNumber: BlockNumber): Promise<void> {
     // TODO(pw/mbps): This still assumes 1 block per checkpoint
     const currentBlocks = await this.getL2Tips();
-    const currentL2Block = currentBlocks.blocks.latest.number;
-    const currentProvenBlock = currentBlocks.blocks.proven.number;
+    const currentL2Block = currentBlocks.proposed.number;
+    const currentProvenBlock = currentBlocks.proven.number;
 
     if (targetL2BlockNumber >= currentL2Block) {
       throw new Error(`Target L2 block ${targetL2BlockNumber} must be less than current L2 block ${currentL2Block}`);

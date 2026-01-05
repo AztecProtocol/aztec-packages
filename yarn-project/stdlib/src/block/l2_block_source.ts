@@ -243,12 +243,19 @@ export interface L2BlockSourceEventEmitter extends L2BlockSource, ArchiverEmitte
 export type L2BlockTag = 'latest' | 'proven' | 'finalized';
 
 /** Tips of the L2 chain. */
-export type L2Tips = { blocks: Record<L2BlockTag, L2BlockId>; checkpoint?: CheckpointId };
+export type L2Tips = {
+  proposed: L2BlockId;
+  checkpointed: L2TipId;
+  proven: L2TipId;
+  finalized: L2TipId;
+};
 
 /** Identifies a block by number and hash. */
 export type L2BlockId = { number: BlockNumber; hash: string };
 
 export type CheckpointId = { number: CheckpointNumber; blockHeadersHash: string };
+
+export type L2TipId = { block: L2BlockId, checkpoint: CheckpointId };
 
 /** Creates an L2 block id */
 export function makeL2BlockId(number: BlockNumber, hash?: string): L2BlockId {
@@ -263,18 +270,21 @@ const L2BlockIdSchema = z.object({
   hash: z.string(),
 });
 
-const L2CheckpointSchema = z.object({
+const L2CheckpointIdSchema = z.object({
   number: CheckpointNumberSchema,
   blockHeadersHash: z.string(),
 });
 
+const L2TipIdSchema = z.object({
+  block: L2BlockIdSchema,
+  checkpoint: L2CheckpointIdSchema,
+});
+
 export const L2TipsSchema = z.object({
-  blocks: z.object({
-    latest: L2BlockIdSchema,
-    proven: L2BlockIdSchema,
-    finalized: L2BlockIdSchema,
-  }),
-  checkpoint: L2CheckpointSchema.optional(),
+  proposed: L2BlockIdSchema,
+  checkpointed: L2TipIdSchema,
+  proven: L2TipIdSchema,
+  finalized: L2TipIdSchema,
 });
 
 export enum L2BlockSourceEvents {
@@ -299,7 +309,7 @@ export type L2BlockPruneEvent = {
 
 export type L2CheckpointEvent = {
   type: 'l2BlocksCheckpointed';
-  checkpointNumber: CheckpointNumber;
+  checkpoint: Checkpoint;
 };
 
 export type InvalidBlockDetectedEvent = {
