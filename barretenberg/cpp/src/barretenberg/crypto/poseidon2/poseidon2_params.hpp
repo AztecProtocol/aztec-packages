@@ -21,7 +21,9 @@ struct Poseidon2Bn254ScalarFieldParams {
     static constexpr size_t rounds_f = 8;
     static constexpr size_t rounds_p = 56;
     static constexpr size_t sbox_size = 254;
-    static constexpr std::array<FF, t> internal_matrix_diagonal = {
+    // We store D_i - 1, as the algorithm computes: result[i] = internal_matrix_diagonal_minus_one[i] * x[i] + sum
+    // which equals: (D_i - 1) * x[i] + (x[0] + x[1] + x[2] + x[3]) = D_i * x[i] + (sum of other elements)
+    static constexpr std::array<FF, t> internal_matrix_diagonal_minus_one = {
         FF(std::string("0x10dc6e9c006ea38b04b1e03b4bd9490c0d03f98929ca1d7fb56821fd19d3b6e7")),
         FF(std::string("0x0c28145b6a44df3e0149b3d0a30b3bb599df9756d4dd9b84a86b38cfb45a740b")),
         FF(std::string("0x00544b8338791518b2c7645a50392798b21f75bb60e3596170067d00141cac15")),

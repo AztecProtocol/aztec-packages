@@ -39,7 +39,7 @@ template <typename Params> class Poseidon2Permutation {
     using MatrixDiagonal = std::array<FF, t>;
     using RoundConstantsContainer = std::array<RoundConstants, NUM_ROUNDS>;
 
-    static constexpr MatrixDiagonal internal_matrix_diagonal = Params::internal_matrix_diagonal;
+    static constexpr MatrixDiagonal internal_matrix_diagonal_minus_one = Params::internal_matrix_diagonal_minus_one;
     static constexpr RoundConstantsContainer round_constants = Params::round_constants;
 
     static constexpr void matrix_multiplication_4x4(State& input)
@@ -85,12 +85,14 @@ template <typename Params> class Poseidon2Permutation {
     static constexpr void matrix_multiplication_internal(State& input)
     {
         // for t = 4
+        // Computes: result[i] = (D_i - 1) * input[i] + sum = D_i * input[i] + (sum of other elements)
+        // where D_i are the actual diagonal values and internal_matrix_diagonal_minus_one[i] = D_i - 1
         auto sum = input[0];
         for (size_t i = 1; i < t; ++i) {
             sum += input[i];
         }
         for (size_t i = 0; i < t; ++i) {
-            input[i] *= internal_matrix_diagonal[i];
+            input[i] *= internal_matrix_diagonal_minus_one[i];
             input[i] += sum;
         }
     }
