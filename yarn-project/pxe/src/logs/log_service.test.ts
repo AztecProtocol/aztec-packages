@@ -9,22 +9,22 @@ import { randomTxScopedPrivateL2Log } from '@aztec/stdlib/testing';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { LogRetrievalRequest } from '../contract_function_simulator/noir-structs/log_retrieval_request.js';
-import { AddressDataProvider } from '../storage/address_data_provider/address_data_provider.js';
-import { AnchorBlockDataProvider } from '../storage/anchor_block_data_provider/anchor_block_data_provider.js';
-import { CapsuleDataProvider } from '../storage/capsule_data_provider/capsule_data_provider.js';
-import { RecipientTaggingDataProvider } from '../storage/tagging_data_provider/recipient_tagging_data_provider.js';
-import { SenderAddressBook } from '../storage/tagging_data_provider/sender_address_book.js';
+import { AddressStore } from '../storage/address_store/address_store.js';
+import { AnchorBlockStore } from '../storage/anchor_block_store/anchor_block_store.js';
+import { CapsuleStore } from '../storage/capsule_store/capsule_store.js';
+import { RecipientTaggingStore } from '../storage/tagging_store/recipient_tagging_store.js';
+import { SenderAddressBookStore } from '../storage/tagging_store/sender_address_book_store.js';
 import { LogService } from './log_service.js';
 
 describe('LogService', () => {
   let contractAddress: AztecAddress;
   let aztecNode: MockProxy<AztecNode>;
-  let anchorBlockDataProvider: AnchorBlockDataProvider;
+  let anchorBlockStore: AnchorBlockStore;
   let keyStore: KeyStore;
-  let capsuleDataProvider: CapsuleDataProvider;
-  let recipientTaggingDataProvider: RecipientTaggingDataProvider;
-  let addressDataProvider: AddressDataProvider;
-  let senderAddressBook: SenderAddressBook;
+  let capsuleStore: CapsuleStore;
+  let recipientTaggingStore: RecipientTaggingStore;
+  let addressStore: AddressStore;
+  let senderAddressBookStore: SenderAddressBookStore;
   let logService: LogService;
 
   describe('bulkRetrieveLogs', () => {
@@ -33,23 +33,23 @@ describe('LogService', () => {
     beforeEach(async () => {
       // Set up contract address
       contractAddress = await AztecAddress.random();
-      anchorBlockDataProvider = new AnchorBlockDataProvider(await openTmpStore('test'));
+      anchorBlockStore = new AnchorBlockStore(await openTmpStore('test'));
       keyStore = new KeyStore(await openTmpStore('test'));
-      capsuleDataProvider = new CapsuleDataProvider(await openTmpStore('test'));
-      recipientTaggingDataProvider = new RecipientTaggingDataProvider(await openTmpStore('test'));
-      senderAddressBook = new SenderAddressBook(await openTmpStore('test'));
-      addressDataProvider = new AddressDataProvider(await openTmpStore('test'));
+      capsuleStore = new CapsuleStore(await openTmpStore('test'));
+      recipientTaggingStore = new RecipientTaggingStore(await openTmpStore('test'));
+      senderAddressBookStore = new SenderAddressBookStore(await openTmpStore('test'));
+      addressStore = new AddressStore(await openTmpStore('test'));
 
       aztecNode = mock<AztecNode>();
 
       logService = new LogService(
         aztecNode,
-        anchorBlockDataProvider,
+        anchorBlockStore,
         keyStore,
-        capsuleDataProvider,
-        recipientTaggingDataProvider,
-        senderAddressBook,
-        addressDataProvider,
+        capsuleStore,
+        recipientTaggingStore,
+        senderAddressBookStore,
+        addressStore,
       );
 
       aztecNode.getPrivateLogsByTags.mockReset();

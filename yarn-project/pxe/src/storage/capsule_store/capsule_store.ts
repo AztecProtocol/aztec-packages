@@ -3,7 +3,7 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 
-export class CapsuleDataProvider {
+export class CapsuleStore {
   #store: AztecAsyncKVStore;
 
   // Arbitrary data stored by contracts. Key is computed as `${contractAddress}:${key}`

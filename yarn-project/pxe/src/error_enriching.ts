@@ -4,18 +4,14 @@ import { FunctionSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { type SimulationError, isNoirCallStackUnresolved } from '@aztec/stdlib/errors';
 
-import type { ContractDataProvider } from './storage/contract_data_provider/contract_data_provider.js';
+import type { ContractStore } from './storage/contract_store/contract_store.js';
 
 /**
  * Adds contract and function names to a simulation error, if they
  * can be found in the PXE database
  * @param err - The error to enrich.
  */
-export async function enrichSimulationError(
-  err: SimulationError,
-  contractDataProvider: ContractDataProvider,
-  logger: Logger,
-) {
+export async function enrichSimulationError(err: SimulationError, contractStore: ContractStore, logger: Logger) {
   // Maps contract addresses to the set of function selectors that were in error.
   // Map and Set do reference equality for their keys instead of value equality, so we store the string
   // representation to get e.g. different contract address objects with the same address value to match.
@@ -34,7 +30,7 @@ export async function enrichSimulationError(
   await Promise.all(
     [...mentionedFunctions.entries()].map(async ([contractAddress, fnSelectors]) => {
       const parsedContractAddress = AztecAddress.fromString(contractAddress);
-      const contract = await contractDataProvider.getContract(parsedContractAddress);
+      const contract = await contractStore.getContract(parsedContractAddress);
       if (contract) {
         err.enrichWithContractName(parsedContractAddress, contract.name);
         // Map from function selector to function name. It uses a stringified key for the same reason as mentionedFunctions.
@@ -68,11 +64,7 @@ export async function enrichSimulationError(
   );
 }
 
-export async function enrichPublicSimulationError(
-  err: SimulationError,
-  contractDataProvider: ContractDataProvider,
-  logger: Logger,
-) {
+export async function enrichPublicSimulationError(err: SimulationError, contractStore: ContractStore, logger: Logger) {
   const callStack = err.getCallStack();
   const originalFailingFunction = callStack[callStack.length - 1];
 
@@ -80,7 +72,7 @@ export async function enrichPublicSimulationError(
     throw new Error(`Original failing function not found when enriching public simulation, missing callstack`);
   }
 
-  const artifact = await contractDataProvider.getPublicFunctionArtifact(originalFailingFunction.contractAddress);
+  const artifact = await contractStore.getPublicFunctionArtifact(originalFailingFunction.contractAddress);
   if (!artifact) {
     throw new Error(
       `Artifact not found when enriching public simulation error. Contract address: ${originalFailingFunction.contractAddress}.`,
@@ -92,7 +84,7 @@ export async function enrichPublicSimulationError(
     err.setOriginalMessage(err.getOriginalMessage() + `${assertionMessage}`);
   }
 
-  const debugInfo = await contractDataProvider.getPublicFunctionDebugMetadata(originalFailingFunction.contractAddress);
+  const debugInfo = await contractStore.getPublicFunctionDebugMetadata(originalFailingFunction.contractAddress);
 
   const noirCallStack = err.getNoirCallStack();
   if (debugInfo) {
@@ -110,6 +102,6 @@ export async function enrichPublicSimulationError(
         );
       }
     }
-    await enrichSimulationError(err, contractDataProvider, logger);
+    await enrichSimulationError(err, contractStore, logger);
   }
 }

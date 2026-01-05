@@ -28,13 +28,13 @@ import {
 import { PrivateFunctionsTree } from './private_functions_tree.js';
 
 /**
- * ContractDataProvider serves as a data manager and retriever for Aztec.nr contracts.
+ * ContractStore serves as a data manager and retriever for Aztec.nr contracts.
  * It provides methods to obtain contract addresses, function ABI, bytecode, and membership witnesses
  * from a given contract address and function selector. The class maintains a cache of ContractTree instances
  * to efficiently serve the requested data. It interacts with the ContractDatabase and AztecNode to fetch
  * the required information and facilitate cryptographic proof generation.
  */
-export class ContractDataProvider {
+export class ContractStore {
   /** Map from contract class id to private function tree. */
   // TODO: Update it to be LRU cache so that it doesn't keep all the data all the time.
   #privateFunctionTrees: Map<string, PrivateFunctionsTree> = new Map();

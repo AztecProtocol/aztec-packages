@@ -6,7 +6,7 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
  * Stores sender addresses. During recipient log synchronization, these senders are used, along with a given recipient,
  * to derive directional app tagging secrets that are then used to sync the logs.
  */
-export class SenderAddressBook {
+export class SenderAddressBookStore {
   #store: AztecAsyncKVStore;
   #addressBook: AztecAsyncMap<string, true>;
 

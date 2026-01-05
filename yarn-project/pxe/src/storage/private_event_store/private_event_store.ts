@@ -10,7 +10,7 @@ import { type InTx, TxHash } from '@aztec/stdlib/tx';
 
 import type { PackedPrivateEvent } from '../../pxe.js';
 
-export type PrivateEventDataProviderFilter = {
+export type PrivateEventStoreFilter = {
   contractAddress: AztecAddress;
   fromBlock: number;
   toBlock: number;
@@ -34,7 +34,7 @@ type PrivateEventMetadata = InTx & {
 /**
  * Stores decrypted private event logs.
  */
-export class PrivateEventDataProvider {
+export class PrivateEventStore {
   #store: AztecAsyncKVStore;
   /** Array storing the actual private event log entries containing the log content and block number */
   #eventLogs: AztecAsyncArray<PrivateEventEntry>;
@@ -43,7 +43,7 @@ export class PrivateEventDataProvider {
   /** Map from eventCommitmentIndex to boolean indicating if log has been seen. */
   #seenLogs: AztecAsyncMap<number, boolean>;
 
-  logger = createLogger('private_event_data_provider');
+  logger = createLogger('private_event_store');
 
   constructor(store: AztecAsyncKVStore) {
     this.#store = store;
@@ -117,7 +117,7 @@ export class PrivateEventDataProvider {
    */
   public async getPrivateEvents(
     eventSelector: EventSelector,
-    filter: PrivateEventDataProviderFilter,
+    filter: PrivateEventStoreFilter,
   ): Promise<PackedPrivateEvent[]> {
     const events: Array<{ eventCommitmentIndex: number; event: PackedPrivateEvent }> = [];
 

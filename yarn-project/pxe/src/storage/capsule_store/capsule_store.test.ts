@@ -4,18 +4,18 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 
-import { CapsuleDataProvider } from './capsule_data_provider.js';
+import { CapsuleStore } from './capsule_store.js';
 
 describe('capsule data provider', () => {
   let contract: AztecAddress;
-  let capsuleDataProvider: CapsuleDataProvider;
+  let capsuleStore: CapsuleStore;
 
   beforeEach(async () => {
     // Setup mock contract address
     contract = await AztecAddress.random();
     // Setup data provider
-    const store = await openTmpStore('capsule_data_provider_test');
-    capsuleDataProvider = new CapsuleDataProvider(store);
+    const store = await openTmpStore('capsule_store_test');
+    capsuleStore = new CapsuleStore(store);
   });
 
   describe('store and load', () => {
@@ -23,8 +23,8 @@ describe('capsule data provider', () => {
       const slot = new Fr(1);
       const values = [new Fr(42)];
 
-      await capsuleDataProvider.storeCapsule(contract, slot, values);
-      const result = await capsuleDataProvider.loadCapsule(contract, slot);
+      await capsuleStore.storeCapsule(contract, slot, values);
+      const result = await capsuleStore.loadCapsule(contract, slot);
       expect(result).toEqual(values);
     });
 
@@ -32,8 +32,8 @@ describe('capsule data provider', () => {
       const slot = new Fr(1);
       const values = [new Fr(42), new Fr(43), new Fr(44)];
 
-      await capsuleDataProvider.storeCapsule(contract, slot, values);
-      const result = await capsuleDataProvider.loadCapsule(contract, slot);
+      await capsuleStore.storeCapsule(contract, slot, values);
+      const result = await capsuleStore.loadCapsule(contract, slot);
       expect(result).toEqual(values);
     });
 
@@ -42,10 +42,10 @@ describe('capsule data provider', () => {
       const initialValues = [new Fr(42)];
       const newValues = [new Fr(100)];
 
-      await capsuleDataProvider.storeCapsule(contract, slot, initialValues);
-      await capsuleDataProvider.storeCapsule(contract, slot, newValues);
+      await capsuleStore.storeCapsule(contract, slot, initialValues);
+      await capsuleStore.storeCapsule(contract, slot, newValues);
 
-      const result = await capsuleDataProvider.loadCapsule(contract, slot);
+      const result = await capsuleStore.loadCapsule(contract, slot);
       expect(result).toEqual(newValues);
     });
 
@@ -55,11 +55,11 @@ describe('capsule data provider', () => {
       const values1 = [new Fr(42)];
       const values2 = [new Fr(100)];
 
-      await capsuleDataProvider.storeCapsule(contract, slot, values1);
-      await capsuleDataProvider.storeCapsule(anotherContract, slot, values2);
+      await capsuleStore.storeCapsule(contract, slot, values1);
+      await capsuleStore.storeCapsule(anotherContract, slot, values2);
 
-      const result1 = await capsuleDataProvider.loadCapsule(contract, slot);
-      const result2 = await capsuleDataProvider.loadCapsule(anotherContract, slot);
+      const result1 = await capsuleStore.loadCapsule(contract, slot);
+      const result2 = await capsuleStore.loadCapsule(anotherContract, slot);
 
       expect(result1).toEqual(values1);
       expect(result2).toEqual(values2);
@@ -67,7 +67,7 @@ describe('capsule data provider', () => {
 
     it('returns null for non-existent slots', async () => {
       const slot = Fr.random();
-      const result = await capsuleDataProvider.loadCapsule(contract, slot);
+      const result = await capsuleStore.loadCapsule(contract, slot);
       expect(result).toBeNull();
     });
   });
@@ -77,17 +77,17 @@ describe('capsule data provider', () => {
       const slot = new Fr(1);
       const values = [new Fr(42)];
 
-      await capsuleDataProvider.storeCapsule(contract, slot, values);
-      await capsuleDataProvider.deleteCapsule(contract, slot);
+      await capsuleStore.storeCapsule(contract, slot, values);
+      await capsuleStore.deleteCapsule(contract, slot);
 
-      expect(await capsuleDataProvider.loadCapsule(contract, slot)).toBeNull();
+      expect(await capsuleStore.loadCapsule(contract, slot)).toBeNull();
     });
 
     it('deletes an empty slot', async () => {
       const slot = new Fr(1);
-      await capsuleDataProvider.deleteCapsule(contract, slot);
+      await capsuleStore.deleteCapsule(contract, slot);
 
-      expect(await capsuleDataProvider.loadCapsule(contract, slot)).toBeNull();
+      expect(await capsuleStore.loadCapsule(contract, slot)).toBeNull();
     });
   });
 
@@ -96,84 +96,82 @@ describe('capsule data provider', () => {
       const slot = new Fr(1);
       const values = [new Fr(42)];
 
-      await capsuleDataProvider.storeCapsule(contract, slot, values);
+      await capsuleStore.storeCapsule(contract, slot, values);
 
       const dstSlot = new Fr(5);
-      await capsuleDataProvider.copyCapsule(contract, slot, dstSlot, 1);
+      await capsuleStore.copyCapsule(contract, slot, dstSlot, 1);
 
-      expect(await capsuleDataProvider.loadCapsule(contract, dstSlot)).toEqual(values);
+      expect(await capsuleStore.loadCapsule(contract, dstSlot)).toEqual(values);
     });
 
     it('copies multiple non-overlapping values', async () => {
       const src = new Fr(1);
       const valuesArray = [[new Fr(42)], [new Fr(1337)], [new Fr(13)]];
 
-      await capsuleDataProvider.storeCapsule(contract, src, valuesArray[0]);
-      await capsuleDataProvider.storeCapsule(contract, src.add(new Fr(1)), valuesArray[1]);
-      await capsuleDataProvider.storeCapsule(contract, src.add(new Fr(2)), valuesArray[2]);
+      await capsuleStore.storeCapsule(contract, src, valuesArray[0]);
+      await capsuleStore.storeCapsule(contract, src.add(new Fr(1)), valuesArray[1]);
+      await capsuleStore.storeCapsule(contract, src.add(new Fr(2)), valuesArray[2]);
 
       const dst = new Fr(5);
-      await capsuleDataProvider.copyCapsule(contract, src, dst, 3);
+      await capsuleStore.copyCapsule(contract, src, dst, 3);
 
-      expect(await capsuleDataProvider.loadCapsule(contract, dst)).toEqual(valuesArray[0]);
-      expect(await capsuleDataProvider.loadCapsule(contract, dst.add(new Fr(1)))).toEqual(valuesArray[1]);
-      expect(await capsuleDataProvider.loadCapsule(contract, dst.add(new Fr(2)))).toEqual(valuesArray[2]);
+      expect(await capsuleStore.loadCapsule(contract, dst)).toEqual(valuesArray[0]);
+      expect(await capsuleStore.loadCapsule(contract, dst.add(new Fr(1)))).toEqual(valuesArray[1]);
+      expect(await capsuleStore.loadCapsule(contract, dst.add(new Fr(2)))).toEqual(valuesArray[2]);
     });
 
     it('copies overlapping values with src ahead', async () => {
       const src = new Fr(1);
       const valuesArray = [[new Fr(42)], [new Fr(1337)], [new Fr(13)]];
 
-      await capsuleDataProvider.storeCapsule(contract, src, valuesArray[0]);
-      await capsuleDataProvider.storeCapsule(contract, src.add(new Fr(1)), valuesArray[1]);
-      await capsuleDataProvider.storeCapsule(contract, src.add(new Fr(2)), valuesArray[2]);
+      await capsuleStore.storeCapsule(contract, src, valuesArray[0]);
+      await capsuleStore.storeCapsule(contract, src.add(new Fr(1)), valuesArray[1]);
+      await capsuleStore.storeCapsule(contract, src.add(new Fr(2)), valuesArray[2]);
 
       const dst = new Fr(2);
-      await capsuleDataProvider.copyCapsule(contract, src, dst, 3);
+      await capsuleStore.copyCapsule(contract, src, dst, 3);
 
-      expect(await capsuleDataProvider.loadCapsule(contract, dst)).toEqual(valuesArray[0]);
-      expect(await capsuleDataProvider.loadCapsule(contract, dst.add(new Fr(1)))).toEqual(valuesArray[1]);
-      expect(await capsuleDataProvider.loadCapsule(contract, dst.add(new Fr(2)))).toEqual(valuesArray[2]);
+      expect(await capsuleStore.loadCapsule(contract, dst)).toEqual(valuesArray[0]);
+      expect(await capsuleStore.loadCapsule(contract, dst.add(new Fr(1)))).toEqual(valuesArray[1]);
+      expect(await capsuleStore.loadCapsule(contract, dst.add(new Fr(2)))).toEqual(valuesArray[2]);
 
       // Slots 2 and 3 (src[1] and src[2]) should have been overwritten since they are also dst[0] and dst[1]
-      expect(await capsuleDataProvider.loadCapsule(contract, src)).toEqual(valuesArray[0]); // src[0] (unchanged)
-      expect(await capsuleDataProvider.loadCapsule(contract, src.add(new Fr(1)))).toEqual(valuesArray[0]); // dst[0]
-      expect(await capsuleDataProvider.loadCapsule(contract, src.add(new Fr(2)))).toEqual(valuesArray[1]); // dst[1]
+      expect(await capsuleStore.loadCapsule(contract, src)).toEqual(valuesArray[0]); // src[0] (unchanged)
+      expect(await capsuleStore.loadCapsule(contract, src.add(new Fr(1)))).toEqual(valuesArray[0]); // dst[0]
+      expect(await capsuleStore.loadCapsule(contract, src.add(new Fr(2)))).toEqual(valuesArray[1]); // dst[1]
     });
 
     it('copies overlapping values with dst ahead', async () => {
       const src = new Fr(5);
       const valuesArray = [[new Fr(42)], [new Fr(1337)], [new Fr(13)]];
 
-      await capsuleDataProvider.storeCapsule(contract, src, valuesArray[0]);
-      await capsuleDataProvider.storeCapsule(contract, src.add(new Fr(1)), valuesArray[1]);
-      await capsuleDataProvider.storeCapsule(contract, src.add(new Fr(2)), valuesArray[2]);
+      await capsuleStore.storeCapsule(contract, src, valuesArray[0]);
+      await capsuleStore.storeCapsule(contract, src.add(new Fr(1)), valuesArray[1]);
+      await capsuleStore.storeCapsule(contract, src.add(new Fr(2)), valuesArray[2]);
 
       const dst = new Fr(4);
-      await capsuleDataProvider.copyCapsule(contract, src, dst, 3);
+      await capsuleStore.copyCapsule(contract, src, dst, 3);
 
-      expect(await capsuleDataProvider.loadCapsule(contract, dst)).toEqual(valuesArray[0]);
-      expect(await capsuleDataProvider.loadCapsule(contract, dst.add(new Fr(1)))).toEqual(valuesArray[1]);
-      expect(await capsuleDataProvider.loadCapsule(contract, dst.add(new Fr(2)))).toEqual(valuesArray[2]);
+      expect(await capsuleStore.loadCapsule(contract, dst)).toEqual(valuesArray[0]);
+      expect(await capsuleStore.loadCapsule(contract, dst.add(new Fr(1)))).toEqual(valuesArray[1]);
+      expect(await capsuleStore.loadCapsule(contract, dst.add(new Fr(2)))).toEqual(valuesArray[2]);
 
       // Slots 5 and 6 (src[0] and src[1]) should have been overwritten since they are also dst[1] and dst[2]
-      expect(await capsuleDataProvider.loadCapsule(contract, src)).toEqual(valuesArray[1]); // dst[1]
-      expect(await capsuleDataProvider.loadCapsule(contract, src.add(new Fr(1)))).toEqual(valuesArray[2]); // dst[2]
-      expect(await capsuleDataProvider.loadCapsule(contract, src.add(new Fr(2)))).toEqual(valuesArray[2]); // src[2] (unchanged)
+      expect(await capsuleStore.loadCapsule(contract, src)).toEqual(valuesArray[1]); // dst[1]
+      expect(await capsuleStore.loadCapsule(contract, src.add(new Fr(1)))).toEqual(valuesArray[2]); // dst[2]
+      expect(await capsuleStore.loadCapsule(contract, src.add(new Fr(2)))).toEqual(valuesArray[2]); // src[2] (unchanged)
     });
 
     it('copying fails if any value is empty', async () => {
       const src = new Fr(1);
       const valuesArray = [[new Fr(42)], [new Fr(1337)], [new Fr(13)]];
 
-      await capsuleDataProvider.storeCapsule(contract, src, valuesArray[0]);
+      await capsuleStore.storeCapsule(contract, src, valuesArray[0]);
       // We skip src[1]
-      await capsuleDataProvider.storeCapsule(contract, src.add(new Fr(2)), valuesArray[2]);
+      await capsuleStore.storeCapsule(contract, src.add(new Fr(2)), valuesArray[2]);
 
       const dst = new Fr(5);
-      await expect(capsuleDataProvider.copyCapsule(contract, src, dst, 3)).rejects.toThrow(
-        'Attempted to copy empty slot',
-      );
+      await expect(capsuleStore.copyCapsule(contract, src, dst, 3)).rejects.toThrow('Attempted to copy empty slot');
     });
   });
 
@@ -183,11 +181,11 @@ describe('capsule data provider', () => {
         const baseSlot = new Fr(3);
         const array = range(4).map(x => [new Fr(x)]);
 
-        await capsuleDataProvider.appendToCapsuleArray(contract, baseSlot, array);
+        await capsuleStore.appendToCapsuleArray(contract, baseSlot, array);
 
-        expect(await capsuleDataProvider.loadCapsule(contract, baseSlot)).toEqual([new Fr(array.length)]);
+        expect(await capsuleStore.loadCapsule(contract, baseSlot)).toEqual([new Fr(array.length)]);
         for (const i of range(array.length)) {
-          expect(await capsuleDataProvider.loadCapsule(contract, baseSlot.add(new Fr(1 + i)))).toEqual(array[i]);
+          expect(await capsuleStore.loadCapsule(contract, baseSlot.add(new Fr(1 + i)))).toEqual(array[i]);
         }
       });
 
@@ -195,16 +193,16 @@ describe('capsule data provider', () => {
         const baseSlot = new Fr(3);
         const originalArray = range(4).map(x => [new Fr(x)]);
 
-        await capsuleDataProvider.appendToCapsuleArray(contract, baseSlot, originalArray);
+        await capsuleStore.appendToCapsuleArray(contract, baseSlot, originalArray);
 
         const newElements = [[new Fr(13)], [new Fr(42)]];
-        await capsuleDataProvider.appendToCapsuleArray(contract, baseSlot, newElements);
+        await capsuleStore.appendToCapsuleArray(contract, baseSlot, newElements);
 
         const expectedLength = originalArray.length + newElements.length;
 
-        expect(await capsuleDataProvider.loadCapsule(contract, baseSlot)).toEqual([new Fr(expectedLength)]);
+        expect(await capsuleStore.loadCapsule(contract, baseSlot)).toEqual([new Fr(expectedLength)]);
         for (const i of range(expectedLength)) {
-          expect(await capsuleDataProvider.loadCapsule(contract, baseSlot.add(new Fr(1 + i)))).toEqual(
+          expect(await capsuleStore.loadCapsule(contract, baseSlot.add(new Fr(1 + i)))).toEqual(
             [...originalArray, ...newElements][i],
           );
         }
@@ -214,7 +212,7 @@ describe('capsule data provider', () => {
     describe('readCapsuleArray', () => {
       it('reads an empty array', async () => {
         const baseSlot = new Fr(3);
-        const retrievedArray = await capsuleDataProvider.readCapsuleArray(contract, baseSlot);
+        const retrievedArray = await capsuleStore.readCapsuleArray(contract, baseSlot);
         expect(retrievedArray).toEqual([]);
       });
 
@@ -222,9 +220,9 @@ describe('capsule data provider', () => {
         const baseSlot = new Fr(3);
         const storedArray = range(4).map(x => [new Fr(x)]);
 
-        await capsuleDataProvider.appendToCapsuleArray(contract, baseSlot, storedArray);
+        await capsuleStore.appendToCapsuleArray(contract, baseSlot, storedArray);
 
-        const retrievedArray = await capsuleDataProvider.readCapsuleArray(contract, baseSlot);
+        const retrievedArray = await capsuleStore.readCapsuleArray(contract, baseSlot);
         expect(retrievedArray).toEqual(storedArray);
       });
 
@@ -232,12 +230,10 @@ describe('capsule data provider', () => {
         const baseSlot = new Fr(3);
 
         // Store in the base slot a non-zero value, indicating a non-zero array length
-        await capsuleDataProvider.storeCapsule(contract, baseSlot, [new Fr(1)]);
+        await capsuleStore.storeCapsule(contract, baseSlot, [new Fr(1)]);
 
         // Reading should now fail as some of the capsules in the array are empty
-        await expect(capsuleDataProvider.readCapsuleArray(contract, baseSlot)).rejects.toThrow(
-          'Expected non-empty value',
-        );
+        await expect(capsuleStore.readCapsuleArray(contract, baseSlot)).rejects.toThrow('Expected non-empty value');
       });
     });
 
@@ -246,9 +242,9 @@ describe('capsule data provider', () => {
         const baseSlot = new Fr(3);
         const newArray = range(4).map(x => [new Fr(x)]);
 
-        await capsuleDataProvider.setCapsuleArray(contract, baseSlot, newArray);
+        await capsuleStore.setCapsuleArray(contract, baseSlot, newArray);
 
-        const retrievedArray = await capsuleDataProvider.readCapsuleArray(contract, baseSlot);
+        const retrievedArray = await capsuleStore.readCapsuleArray(contract, baseSlot);
         expect(retrievedArray).toEqual(newArray);
       });
 
@@ -256,12 +252,12 @@ describe('capsule data provider', () => {
         const baseSlot = new Fr(3);
 
         const originalArray = range(4, 0).map(x => [new Fr(x)]);
-        await capsuleDataProvider.setCapsuleArray(contract, baseSlot, originalArray);
+        await capsuleStore.setCapsuleArray(contract, baseSlot, originalArray);
 
         const newArray = range(10, 10).map(x => [new Fr(x)]);
-        await capsuleDataProvider.setCapsuleArray(contract, baseSlot, newArray);
+        await capsuleStore.setCapsuleArray(contract, baseSlot, newArray);
 
-        const retrievedArray = await capsuleDataProvider.readCapsuleArray(contract, baseSlot);
+        const retrievedArray = await capsuleStore.readCapsuleArray(contract, baseSlot);
         expect(retrievedArray).toEqual(newArray);
       });
 
@@ -269,19 +265,17 @@ describe('capsule data provider', () => {
         const baseSlot = new Fr(3);
 
         const originalArray = range(10, 0).map(x => [new Fr(x)]);
-        await capsuleDataProvider.setCapsuleArray(contract, baseSlot, originalArray);
+        await capsuleStore.setCapsuleArray(contract, baseSlot, originalArray);
 
         const newArray = range(4, 10).map(x => [new Fr(x)]);
-        await capsuleDataProvider.setCapsuleArray(contract, baseSlot, newArray);
+        await capsuleStore.setCapsuleArray(contract, baseSlot, newArray);
 
-        const retrievedArray = await capsuleDataProvider.readCapsuleArray(contract, baseSlot);
+        const retrievedArray = await capsuleStore.readCapsuleArray(contract, baseSlot);
         expect(retrievedArray).toEqual(newArray);
 
         // Not only do we read the expected array, but also all capsules past the new array length have been cleared
         for (const i of range(originalArray.length - newArray.length)) {
-          expect(
-            await capsuleDataProvider.loadCapsule(contract, baseSlot.add(new Fr(1 + newArray.length + i))),
-          ).toBeNull();
+          expect(await capsuleStore.loadCapsule(contract, baseSlot.add(new Fr(1 + newArray.length + i)))).toBeNull();
         }
       });
 
@@ -289,16 +283,16 @@ describe('capsule data provider', () => {
         const baseSlot = new Fr(3);
 
         const originalArray = range(10, 0).map(x => [new Fr(x)]);
-        await capsuleDataProvider.setCapsuleArray(contract, baseSlot, originalArray);
+        await capsuleStore.setCapsuleArray(contract, baseSlot, originalArray);
 
-        await capsuleDataProvider.setCapsuleArray(contract, baseSlot, []);
+        await capsuleStore.setCapsuleArray(contract, baseSlot, []);
 
-        const retrievedArray = await capsuleDataProvider.readCapsuleArray(contract, baseSlot);
+        const retrievedArray = await capsuleStore.readCapsuleArray(contract, baseSlot);
         expect(retrievedArray).toEqual([]);
 
         // All capsules from the original array have been cleared
         for (const i of range(originalArray.length)) {
-          expect(await capsuleDataProvider.loadCapsule(contract, baseSlot.add(new Fr(1 + i)))).toBeNull();
+          expect(await capsuleStore.loadCapsule(contract, baseSlot.add(new Fr(1 + i)))).toBeNull();
         }
       });
     });
@@ -321,7 +315,7 @@ describe('capsule data provider', () => {
     it(
       'create large array by appending',
       async () => {
-        await capsuleDataProvider.appendToCapsuleArray(
+        await capsuleStore.appendToCapsuleArray(
           contract,
           new Fr(0),
           times(NUMBER_OF_ITEMS, () => range(ARRAY_LENGTH).map(x => new Fr(x))),
@@ -333,7 +327,7 @@ describe('capsule data provider', () => {
     it(
       'create large array by resetting',
       async () => {
-        await capsuleDataProvider.setCapsuleArray(
+        await capsuleStore.setCapsuleArray(
           contract,
           new Fr(0),
           times(NUMBER_OF_ITEMS, () => range(ARRAY_LENGTH).map(x => new Fr(x))),
@@ -345,14 +339,14 @@ describe('capsule data provider', () => {
     it(
       'append to large array',
       async () => {
-        await capsuleDataProvider.appendToCapsuleArray(
+        await capsuleStore.appendToCapsuleArray(
           contract,
           new Fr(0),
           times(NUMBER_OF_ITEMS, () => range(ARRAY_LENGTH).map(x => new Fr(x))),
         );
 
         // Append a single element
-        await capsuleDataProvider.appendToCapsuleArray(contract, new Fr(0), [range(ARRAY_LENGTH).map(x => new Fr(x))]);
+        await capsuleStore.appendToCapsuleArray(contract, new Fr(0), [range(ARRAY_LENGTH).map(x => new Fr(x))]);
       },
       TEST_TIMEOUT_MS,
     );
@@ -360,14 +354,14 @@ describe('capsule data provider', () => {
     it(
       'copy large number of elements',
       async () => {
-        await capsuleDataProvider.appendToCapsuleArray(
+        await capsuleStore.appendToCapsuleArray(
           contract,
           new Fr(0),
           times(NUMBER_OF_ITEMS, () => range(ARRAY_LENGTH).map(x => new Fr(x))),
         );
 
         // We just move the entire thing one slot.
-        await capsuleDataProvider.copyCapsule(contract, new Fr(0), new Fr(1), NUMBER_OF_ITEMS);
+        await capsuleStore.copyCapsule(contract, new Fr(0), new Fr(1), NUMBER_OF_ITEMS);
       },
       TEST_TIMEOUT_MS,
     );
@@ -375,13 +369,13 @@ describe('capsule data provider', () => {
     it(
       'read a large array',
       async () => {
-        await capsuleDataProvider.appendToCapsuleArray(
+        await capsuleStore.appendToCapsuleArray(
           contract,
           new Fr(0),
           times(NUMBER_OF_ITEMS, () => range(ARRAY_LENGTH).map(x => new Fr(x))),
         );
 
-        await capsuleDataProvider.readCapsuleArray(contract, new Fr(0));
+        await capsuleStore.readCapsuleArray(contract, new Fr(0));
       },
       TEST_TIMEOUT_MS,
     );
@@ -389,13 +383,13 @@ describe('capsule data provider', () => {
     it(
       'clear a large array',
       async () => {
-        await capsuleDataProvider.appendToCapsuleArray(
+        await capsuleStore.appendToCapsuleArray(
           contract,
           new Fr(0),
           times(NUMBER_OF_ITEMS, () => range(ARRAY_LENGTH).map(x => new Fr(x))),
         );
 
-        await capsuleDataProvider.setCapsuleArray(contract, new Fr(0), []);
+        await capsuleStore.setCapsuleArray(contract, new Fr(0), []);
       },
       TEST_TIMEOUT_MS,
     );
