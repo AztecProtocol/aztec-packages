@@ -434,6 +434,7 @@ std::vector<FuzzInstruction> generate_emitunencryptedlog_instruction(std::mt1993
     instructions.push_back(SET_32_Instruction{
         .value_tag = bb::avm2::MemoryTag::U32, .result_address = log_size_address, .value = log_size });
 
+    // Write one random FF in the log
     instructions.push_back(SET_FF_Instruction{ .value_tag = bb::avm2::MemoryTag::FF,
                                                .result_address = log_values_address,
                                                .value = generate_random_field(rng) });
