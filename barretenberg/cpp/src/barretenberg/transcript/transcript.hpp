@@ -483,6 +483,13 @@ template <typename Codec_, typename HashFunction_> class BaseTranscript {
      * @details Used by test fixtures to verify transcript conversion
      */
     std::ptrdiff_t test_get_proof_start() const { return proof_start; }
+
+    /**
+     * @brief Test utility: Get mutable reference to proof_data
+     * @details Used by test utilities that need to deserialize/serialize proof structure
+     */
+    Proof& test_get_proof_data() { return proof_data; }
+    const Proof& test_get_proof_data() const { return proof_data; }
 };
 
 using NativeTranscript = BaseTranscript<FrCodec, bb::crypto::Poseidon2<bb::crypto::Poseidon2Bn254ScalarFieldParams>>;

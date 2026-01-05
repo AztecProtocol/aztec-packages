@@ -12,7 +12,7 @@ namespace bb {
 
 class UltraKeccakFlavor : public bb::UltraFlavor {
   public:
-    using Transcript = UltraKeccakFlavor::Transcript_<U256Codec, bb::crypto::Keccak>;
+    using Transcript = BaseTranscript<U256Codec, bb::crypto::Keccak>;
 
     static constexpr bool USE_PADDING = false;
 
