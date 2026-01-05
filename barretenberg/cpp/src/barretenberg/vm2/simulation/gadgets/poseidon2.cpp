@@ -82,11 +82,14 @@ void Poseidon2::permutation(MemoryInterface& memory, MemoryAddress src_address, 
 
         // Read 4 elements from memory starting at src_address
         for (uint32_t i = 0; i < 4; i++) {
-            auto item = memory.get(src_address + i);
-            if (item.get_tag() != MemoryTag::FF) {
-                throw std::runtime_error("An input tag is not FF");
-            }
-            input[i] = item;
+            input[i] = memory.get(src_address + i);
+        }
+
+        // If any of the memory values are not tagged as FF, we throw an error. This is only tested after all elements
+        // are loaded as the circuit expects reading and tagging checking to be different temporality groups
+        if (std::ranges::any_of(
+                input.begin(), input.end(), [](const MemoryValue& val) { return val.get_tag() != MemoryTag::FF; })) {
+            throw std::runtime_error("An input tag is not FF");
         }
 
         // This calls the Poseidon2 gadget permutation function and so generates events
