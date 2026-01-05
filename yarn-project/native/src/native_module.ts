@@ -89,8 +89,8 @@ const nativeAvmSimulate = nativeModule.avmSimulate as (
   inputs: Buffer,
   contractProvider: ContractProvider,
   worldStateHandle: any,
-  logFunction: any,
   logLevel: number,
+  logFunction?: any,
   cancellationToken?: any,
 ) => Promise<Buffer>;
 
@@ -148,7 +148,8 @@ const avmSimulationSemaphore = new Semaphore(MAX_CONCURRENT_AVM_SIMULATIONS);
  * @param inputs - Msgpack-serialized AvmFastSimulationInputs buffer
  * @param contractProvider - Object with callbacks for fetching contract instances and classes
  * @param worldStateHandle - Native handle to WorldState instance
- * @param logLevel - Log level to control C++ verbosity
+ * @param logLevel - Optional log level to control C++ verbosity (only used if loggerFunction is provided)
+ * @param logger - Optional logger object for C++ logging callbacks
  * @param cancellationToken - Optional token to enable cancellation support
  * @returns Promise resolving to msgpack-serialized AvmCircuitPublicInputs buffer
  */
@@ -156,21 +157,19 @@ export async function avmSimulate(
   inputs: Buffer,
   contractProvider: ContractProvider,
   worldStateHandle: any,
-  logger: Logger,
   logLevel: LogLevel = 'info',
+  logger?: Logger,
   cancellationToken?: CancellationToken,
 ): Promise<Buffer> {
   await avmSimulationSemaphore.acquire();
-
-  const logFunction = (level: LogLevel, msg: string) => logger[level](msg);
 
   try {
     return await nativeAvmSimulate(
       inputs,
       contractProvider,
       worldStateHandle,
-      logFunction,
       LogLevels.indexOf(logLevel),
+      logger ? (level: LogLevel, msg: string) => logger[level](msg) : null,
       cancellationToken,
     );
   } finally {

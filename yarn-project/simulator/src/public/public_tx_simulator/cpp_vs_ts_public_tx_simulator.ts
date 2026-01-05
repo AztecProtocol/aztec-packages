@@ -112,7 +112,7 @@ export class CppVsTsPublicTxSimulator extends PublicTxSimulator implements Publi
     let resultBuffer: Buffer;
     try {
       this.log.debug(`Calling C++ simulator for tx ${txHash}`);
-      resultBuffer = await avmSimulate(inputBuffer, contractProvider, wsCppHandle, this.log, logLevel);
+      resultBuffer = await avmSimulate(inputBuffer, contractProvider, wsCppHandle, logLevel);
     } catch (error: any) {
       throw new SimulationError(`C++ simulation failed: ${error.message}`, []);
     }

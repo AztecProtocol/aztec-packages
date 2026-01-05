@@ -99,8 +99,8 @@ export class CppPublicTxSimulator extends PublicTxSimulator implements PublicTxS
       inputBuffer,
       contractProvider,
       wsCppHandle,
-      this.log,
       logLevel,
+      this.log,
       this.cancellationToken,
     );
 
