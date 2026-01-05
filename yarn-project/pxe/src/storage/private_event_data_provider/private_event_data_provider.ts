@@ -218,41 +218,40 @@ export class PrivateEventDataProvider implements StagedStore {
 
   /**
    * Commits staged data to main storage.
+   * Must be called within a transaction by the JobCoordinator.
    * @param context - The job context containing the staging prefix
    */
   async commitStaged(context: JobContext): Promise<void> {
-    await this.#store.transactionAsync(async () => {
-      const stagingPrefix = context.stagingPrefix;
-      const allKeys = await toArray(this.#stagingMap.keysAsync());
-      const stagingKeys = allKeys.filter(key => key.startsWith(stagingPrefix));
+    const stagingPrefix = context.stagingPrefix;
+    const allKeys = await toArray(this.#stagingMap.keysAsync());
+    const stagingKeys = allKeys.filter(key => key.startsWith(stagingPrefix));
 
-      for (const stagingKey of stagingKeys) {
-        const buffer = await this.#stagingMap.getAsync(stagingKey);
-        if (!buffer) {
-          continue;
-        }
-
-        const data = JSON.parse(buffer.toString());
-
-        if (data.type === 'store_event') {
-          const index = await this.#eventLogs.lengthAsync();
-          await this.#eventLogs.push({
-            msgContent: Buffer.from(data.msgContent, 'hex'),
-            l2BlockNumber: data.l2BlockNumber,
-            l2BlockHash: Buffer.from(data.l2BlockHash, 'hex'),
-            eventCommitmentIndex: data.eventCommitmentIndex,
-            txHash: Buffer.from(data.txHash, 'hex'),
-          });
-
-          const existingIndices = (await this.#eventLogIndex.getAsync(data.key)) || [];
-          await this.#eventLogIndex.set(data.key, [...existingIndices, index]);
-
-          await this.#seenLogs.set(data.eventCommitmentIndex, true);
-        }
-
-        await this.#stagingMap.delete(stagingKey);
+    for (const stagingKey of stagingKeys) {
+      const buffer = await this.#stagingMap.getAsync(stagingKey);
+      if (!buffer) {
+        continue;
       }
-    });
+
+      const data = JSON.parse(buffer.toString());
+
+      if (data.type === 'store_event') {
+        const index = await this.#eventLogs.lengthAsync();
+        await this.#eventLogs.push({
+          msgContent: Buffer.from(data.msgContent, 'hex'),
+          l2BlockNumber: data.l2BlockNumber,
+          l2BlockHash: Buffer.from(data.l2BlockHash, 'hex'),
+          eventCommitmentIndex: data.eventCommitmentIndex,
+          txHash: Buffer.from(data.txHash, 'hex'),
+        });
+
+        const existingIndices = (await this.#eventLogIndex.getAsync(data.key)) || [];
+        await this.#eventLogIndex.set(data.key, [...existingIndices, index]);
+
+        await this.#seenLogs.set(data.eventCommitmentIndex, true);
+      }
+
+      await this.#stagingMap.delete(stagingKey);
+    }
   }
 
   /**

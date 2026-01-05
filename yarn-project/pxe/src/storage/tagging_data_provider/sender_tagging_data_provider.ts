@@ -268,37 +268,36 @@ export class SenderTaggingDataProvider implements StagedStore {
   /**
    * Commits staged data to main storage.
    * Called by JobCoordinator when a job completes successfully.
+   * Must be called within a transaction by the JobCoordinator.
    */
-  commitStaged(context: JobContext): Promise<void> {
-    return this.#store.transactionAsync(async () => {
-      // Iterate through all staging keys and promote to main
-      for await (const key of this.#stagingMap.keysAsync()) {
-        if (!key.startsWith(context.stagingPrefix)) {
-          continue;
-        }
-
-        const mainKey = key.substring(context.stagingPrefix.length);
-        const value = await this.#stagingMap.getAsync(key);
-
-        if (value) {
-          if (mainKey.startsWith(PENDING_INDEXES_PREFIX)) {
-            const secret = mainKey.substring(PENDING_INDEXES_PREFIX.length);
-            const data = JSON.parse(value.toString()) as { index: number; txHash: string }[] | null;
-            if (data === null) {
-              await this.#pendingIndexes.delete(secret);
-            } else {
-              await this.#pendingIndexes.set(secret, data);
-            }
-          } else if (mainKey.startsWith(FINALIZED_INDEXES_PREFIX)) {
-            const secret = mainKey.substring(FINALIZED_INDEXES_PREFIX.length);
-            const data = JSON.parse(value.toString()) as number;
-            await this.#lastFinalizedIndexes.set(secret, data);
-          }
-        }
-
-        await this.#stagingMap.delete(key);
+  async commitStaged(context: JobContext): Promise<void> {
+    // Iterate through all staging keys and promote to main
+    for await (const key of this.#stagingMap.keysAsync()) {
+      if (!key.startsWith(context.stagingPrefix)) {
+        continue;
       }
-    });
+
+      const mainKey = key.substring(context.stagingPrefix.length);
+      const value = await this.#stagingMap.getAsync(key);
+
+      if (value) {
+        if (mainKey.startsWith(PENDING_INDEXES_PREFIX)) {
+          const secret = mainKey.substring(PENDING_INDEXES_PREFIX.length);
+          const data = JSON.parse(value.toString()) as { index: number; txHash: string }[] | null;
+          if (data === null) {
+            await this.#pendingIndexes.delete(secret);
+          } else {
+            await this.#pendingIndexes.set(secret, data);
+          }
+        } else if (mainKey.startsWith(FINALIZED_INDEXES_PREFIX)) {
+          const secret = mainKey.substring(FINALIZED_INDEXES_PREFIX.length);
+          const data = JSON.parse(value.toString()) as number;
+          await this.#lastFinalizedIndexes.set(secret, data);
+        }
+      }
+
+      await this.#stagingMap.delete(key);
+    }
   }
 
   /**

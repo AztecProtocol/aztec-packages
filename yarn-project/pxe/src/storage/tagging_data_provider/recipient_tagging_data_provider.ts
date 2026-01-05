@@ -109,34 +109,33 @@ export class RecipientTaggingDataProvider implements StagedStore {
 
   /**
    * Commits staged data to main storage.
+   * Must be called within a transaction by the JobCoordinator.
    * @param context - The job context containing the staging prefix
    */
   async commitStaged(context: JobContext): Promise<void> {
-    await this.#store.transactionAsync(async () => {
-      const stagingPrefix = context.stagingPrefix;
-      const allKeys = await toArray(this.#stagingMap.keysAsync());
-      const stagingKeys = allKeys.filter(key => key.startsWith(stagingPrefix));
+    const stagingPrefix = context.stagingPrefix;
+    const allKeys = await toArray(this.#stagingMap.keysAsync());
+    const stagingKeys = allKeys.filter(key => key.startsWith(stagingPrefix));
 
-      for (const stagingKey of stagingKeys) {
-        const mainKey = context.mainKey(stagingKey);
-        const value = await this.#stagingMap.getAsync(stagingKey);
+    for (const stagingKey of stagingKeys) {
+      const mainKey = context.mainKey(stagingKey);
+      const value = await this.#stagingMap.getAsync(stagingKey);
 
-        if (mainKey.startsWith('delete:index:')) {
-          // This is a deletion marker - delete the main key
-          const secretKey = mainKey.substring('delete:index:'.length);
-          await this.#lastUsedIndexes.delete(secretKey);
-        } else if (mainKey.startsWith('index:')) {
-          // This is an index update
-          const secretKey = mainKey.substring('index:'.length);
-          if (value !== undefined) {
-            const index = value.readUInt32BE();
-            await this.#lastUsedIndexes.set(secretKey, index);
-          }
+      if (mainKey.startsWith('delete:index:')) {
+        // This is a deletion marker - delete the main key
+        const secretKey = mainKey.substring('delete:index:'.length);
+        await this.#lastUsedIndexes.delete(secretKey);
+      } else if (mainKey.startsWith('index:')) {
+        // This is an index update
+        const secretKey = mainKey.substring('index:'.length);
+        if (value !== undefined) {
+          const index = value.readUInt32BE();
+          await this.#lastUsedIndexes.set(secretKey, index);
         }
-
-        await this.#stagingMap.delete(stagingKey);
       }
-    });
+
+      await this.#stagingMap.delete(stagingKey);
+    }
   }
 
   /**

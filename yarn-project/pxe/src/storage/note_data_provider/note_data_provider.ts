@@ -538,85 +538,84 @@ export class NoteDataProvider implements StagedStore {
 
   /**
    * Commits staged data to main storage.
+   * Must be called within a transaction by the JobCoordinator.
    * @param context - The job context containing the staging prefix
    */
   async commitStaged(context: JobContext): Promise<void> {
-    await this.#store.transactionAsync(async () => {
-      const stagingPrefix = context.stagingPrefix;
-      const allKeys = await toArray(this.#stagingMap.keysAsync());
-      const stagingKeys = allKeys.filter(key => key.startsWith(stagingPrefix));
+    const stagingPrefix = context.stagingPrefix;
+    const allKeys = await toArray(this.#stagingMap.keysAsync());
+    const stagingKeys = allKeys.filter(key => key.startsWith(stagingPrefix));
 
-      // First pass: collect all add_note operations to ensure scopes exist
-      const scopesToAdd = new Set<string>();
-      for (const stagingKey of stagingKeys) {
-        const buffer = await this.#stagingMap.getAsync(stagingKey);
-        if (!buffer) {
-          continue;
-        }
-        const data = JSON.parse(buffer.toString());
-        if (data.type === 'add_note') {
-          scopesToAdd.add(data.scope);
-        }
+    // First pass: collect all add_note operations to ensure scopes exist
+    const scopesToAdd = new Set<string>();
+    for (const stagingKey of stagingKeys) {
+      const buffer = await this.#stagingMap.getAsync(stagingKey);
+      if (!buffer) {
+        continue;
+      }
+      const data = JSON.parse(buffer.toString());
+      if (data.type === 'add_note') {
+        scopesToAdd.add(data.scope);
+      }
+    }
+
+    // Ensure all required scopes exist
+    for (const scope of scopesToAdd) {
+      if (!(await this.#scopes.hasAsync(scope))) {
+        await this.addScope(AztecAddress.fromString(scope));
+      }
+    }
+
+    // Second pass: apply all staged operations
+    for (const stagingKey of stagingKeys) {
+      const buffer = await this.#stagingMap.getAsync(stagingKey);
+      if (!buffer) {
+        continue;
       }
 
-      // Ensure all required scopes exist
-      for (const scope of scopesToAdd) {
-        if (!(await this.#scopes.hasAsync(scope))) {
-          await this.addScope(AztecAddress.fromString(scope));
+      const data = JSON.parse(buffer.toString());
+
+      if (data.type === 'add_note') {
+        const noteIndex = data.noteIndex;
+        const noteBuffer = Buffer.from(data.noteBuffer, 'hex');
+
+        await this.#notes.set(noteIndex, noteBuffer);
+        await this.#notesToScope.set(noteIndex, data.scope);
+        await this.#nullifierToNoteId.set(data.siloedNullifier, noteIndex);
+        await this.#notesByContractAndScope.get(data.scope)!.set(data.contractAddress, noteIndex);
+        await this.#notesByStorageSlotAndScope.get(data.scope)!.set(data.storageSlot, noteIndex);
+      } else if (data.type === 'nullify_note') {
+        const noteIndex = data.noteIndex;
+        const noteBuffer = Buffer.from(data.noteBuffer, 'hex');
+        // const note = NoteDao.fromBuffer(noteBuffer);
+
+        // Get scopes for the note
+        const noteScopes = await toArray(this.#notesToScope.getValuesAsync(noteIndex));
+
+        // Remove from active notes
+        await this.#notes.delete(noteIndex);
+        await this.#notesToScope.delete(noteIndex);
+
+        const scopes = await toArray(this.#scopes.keysAsync());
+        for (const scope of scopes) {
+          await this.#notesByContractAndScope.get(scope)?.deleteValue(data.contractAddress, noteIndex);
+          await this.#notesByStorageSlotAndScope.get(scope)?.deleteValue(data.storageSlot, noteIndex);
         }
+
+        // Add to nullified notes
+        for (const scope of noteScopes) {
+          await this.#nullifiedNotesToScope.set(noteIndex, scope);
+        }
+        await this.#nullifiedNotes.set(noteIndex, noteBuffer);
+        await this.#nullifiersByBlockNumber.set(data.blockNumber, data.nullifier);
+        await this.#nullifiedNotesByContract.set(data.contractAddress, noteIndex);
+        await this.#nullifiedNotesByStorageSlot.set(data.storageSlot, noteIndex);
+        await this.#nullifiedNotesByNullifier.set(data.nullifier, noteIndex);
+        await this.#nullifierToNoteId.delete(data.nullifier);
       }
 
-      // Second pass: apply all staged operations
-      for (const stagingKey of stagingKeys) {
-        const buffer = await this.#stagingMap.getAsync(stagingKey);
-        if (!buffer) {
-          continue;
-        }
-
-        const data = JSON.parse(buffer.toString());
-
-        if (data.type === 'add_note') {
-          const noteIndex = data.noteIndex;
-          const noteBuffer = Buffer.from(data.noteBuffer, 'hex');
-
-          await this.#notes.set(noteIndex, noteBuffer);
-          await this.#notesToScope.set(noteIndex, data.scope);
-          await this.#nullifierToNoteId.set(data.siloedNullifier, noteIndex);
-          await this.#notesByContractAndScope.get(data.scope)!.set(data.contractAddress, noteIndex);
-          await this.#notesByStorageSlotAndScope.get(data.scope)!.set(data.storageSlot, noteIndex);
-        } else if (data.type === 'nullify_note') {
-          const noteIndex = data.noteIndex;
-          const noteBuffer = Buffer.from(data.noteBuffer, 'hex');
-          // const note = NoteDao.fromBuffer(noteBuffer);
-
-          // Get scopes for the note
-          const noteScopes = await toArray(this.#notesToScope.getValuesAsync(noteIndex));
-
-          // Remove from active notes
-          await this.#notes.delete(noteIndex);
-          await this.#notesToScope.delete(noteIndex);
-
-          const scopes = await toArray(this.#scopes.keysAsync());
-          for (const scope of scopes) {
-            await this.#notesByContractAndScope.get(scope)?.deleteValue(data.contractAddress, noteIndex);
-            await this.#notesByStorageSlotAndScope.get(scope)?.deleteValue(data.storageSlot, noteIndex);
-          }
-
-          // Add to nullified notes
-          for (const scope of noteScopes) {
-            await this.#nullifiedNotesToScope.set(noteIndex, scope);
-          }
-          await this.#nullifiedNotes.set(noteIndex, noteBuffer);
-          await this.#nullifiersByBlockNumber.set(data.blockNumber, data.nullifier);
-          await this.#nullifiedNotesByContract.set(data.contractAddress, noteIndex);
-          await this.#nullifiedNotesByStorageSlot.set(data.storageSlot, noteIndex);
-          await this.#nullifiedNotesByNullifier.set(data.nullifier, noteIndex);
-          await this.#nullifierToNoteId.delete(data.nullifier);
-        }
-
-        await this.#stagingMap.delete(stagingKey);
-      }
-    });
+      await this.#stagingMap.delete(stagingKey);
+    }
   }
 
   /**

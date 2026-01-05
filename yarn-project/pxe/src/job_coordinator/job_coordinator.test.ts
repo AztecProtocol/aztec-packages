@@ -216,6 +216,7 @@ describe('JobCoordinator with Uint8Array storage (IndexedDB simulation)', () => 
 
     const mockStore = {
       openSingleton: jest.fn().mockReturnValue(mockSingleton),
+      transactionAsync: (fn: () => Promise<unknown>) => fn(),
     } as unknown as AztecAsyncKVStore;
 
     const coordinator = new JobCoordinator(mockStore);
@@ -251,6 +252,7 @@ describe('JobCoordinator with Uint8Array storage (IndexedDB simulation)', () => 
 
     const mockStore = {
       openSingleton: jest.fn().mockReturnValue(mockSingleton),
+      transactionAsync: (fn: () => Promise<unknown>) => fn(),
     } as unknown as AztecAsyncKVStore;
 
     // First coordinator starts a job

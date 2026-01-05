@@ -40,6 +40,9 @@ export interface StagedStore {
 export class JobCoordinator {
   private readonly log = createLogger('pxe:job_coordinator');
 
+  /** The underlying KV store */
+  #store: AztecAsyncKVStore;
+
   /** Persisted job marker - indicates a job is in progress */
   #currentJob: AztecAsyncSingleton<Buffer>;
 
@@ -47,6 +50,7 @@ export class JobCoordinator {
   #providers: Map<string, StagedStore> = new Map();
 
   constructor(store: AztecAsyncKVStore) {
+    this.#store = store;
     this.#currentJob = store.openSingleton('pxe_current_job');
   }
 
@@ -112,20 +116,21 @@ export class JobCoordinator {
     // This ensures recovery knows which stores to clean up if we crash during commit
     await this.#setCurrentJob(context);
 
-    // Commit each affected store
-    // Each store's commitStaged should be atomic within itself
-    for (const storeName of affectedStores) {
-      const provider = this.#providers.get(storeName);
-      if (!provider) {
-        this.log.warn(`Provider "${storeName}" not found, skipping commit`);
-        continue;
+    // Commit all affected stores atomically in a single transaction
+    await this.#store.transactionAsync(async () => {
+      for (const storeName of affectedStores) {
+        const provider = this.#providers.get(storeName);
+        if (!provider) {
+          this.log.warn(`Provider "${storeName}" not found, skipping commit`);
+          continue;
+        }
+        await provider.commitStaged(context);
+        this.log.debug(`Committed staging for ${storeName}`);
       }
-      await provider.commitStaged(context);
-      this.log.debug(`Committed staging for ${storeName}`);
-    }
 
-    // Clear the job marker
-    await this.#clearCurrentJob();
+      // Clear the job marker within the same transaction
+      await this.#currentJob.delete();
+    });
 
     this.log.debug(`Job ${context.jobId} committed successfully`);
   }
@@ -218,8 +223,6 @@ export class JobCoordinator {
   async hasJobInProgress(): Promise<boolean> {
     return (await this.#getCurrentJob()) !== undefined;
   }
-
-  // Private helpers
 
   async #getCurrentJob(): Promise<SerializedJobContext | undefined> {
     const buffer = await this.#currentJob.getAsync();

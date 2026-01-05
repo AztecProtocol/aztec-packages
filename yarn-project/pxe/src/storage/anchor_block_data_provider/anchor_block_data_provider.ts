@@ -74,17 +74,16 @@ export class AnchorBlockDataProvider implements StagedStore {
   /**
    * Commits staged data to main storage.
    * Called by JobCoordinator when a job completes successfully.
+   * Must be called within a transaction by the JobCoordinator.
    */
-  commitStaged(context: JobContext): Promise<void> {
-    return this.#store.transactionAsync(async () => {
-      const stagingKey = context.stagingKey(HEADER_KEY);
-      const stagedBuffer = await this.#stagingMap.getAsync(stagingKey);
+  async commitStaged(context: JobContext): Promise<void> {
+    const stagingKey = context.stagingKey(HEADER_KEY);
+    const stagedBuffer = await this.#stagingMap.getAsync(stagingKey);
 
-      if (stagedBuffer) {
-        await this.#synchronizedHeader.set(stagedBuffer);
-        await this.#stagingMap.delete(stagingKey);
-      }
-    });
+    if (stagedBuffer) {
+      await this.#synchronizedHeader.set(stagedBuffer);
+      await this.#stagingMap.delete(stagingKey);
+    }
   }
 
   /**
