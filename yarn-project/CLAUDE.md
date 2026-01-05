@@ -37,12 +37,17 @@ yarn tsc -b                      # Full project (from yarn-project)
 cd <package-name> && yarn tsc -b  # Specific package
 ```
 
-### Before Committing
+### Before Committing (Quality Checklist)
 
-1. **Build**: Ensure project compiles (`yarn tsc -b`)
-2. **Format/Lint**: Run on modified packages
-3. **Test**: Run unit tests for modified files and ensure they pass
-4. **Breaking Changes**: Update `docs/docs/developers/migration_notes.md` if applicable
+Run from `yarn-project`:
+
+1. **Build**: Ensure entire project compiles (`yarn tsgo -b --emitDeclarationOnly`)
+2. **Format**: Run on modified packages (`./bootstrap.sh format <package-name>`)
+3. **Lint**: Run on modified packages (`./bootstrap.sh lint <package-name>`)
+4. **Test**: Run unit tests for modified packages
+5. **Breaking Changes**: Update `docs/docs/developers/migration_notes.md` if applicable
+
+If breaking changes: update `docs/docs/developers/migration_notes.md`
 
 ## Testing
 
@@ -89,7 +94,7 @@ env LOG_LEVEL='info; debug:sequencer,archiver' yarn test src/file.test.ts
 
 ## Format & Lint
 
-All commands run from git root.
+All commands run from `yarn-project`.
 
 ### Single Package (Preferred)
 
@@ -192,11 +197,23 @@ When porting PRs between branches, include reference to original PR(s) in the PR
 
 ### PR Merging
 
-By default, every PR is squashed to a single commit when merged.
+Every PR is required by CI to consist of a single commit in order to be merged.
 
 For PRs with multiple commits that should be preserved (e.g., porting multiple PRs):
 1. Ensure each commit follows conventional commit format
 2. Add label `ci-no-squash` to the PR
+
+### Fixing PRs
+
+When fixing an existing PR (CI failures, review feedback, etc.), always amend the existing commit - never create new commits.
+
+```bash
+git add .
+git commit --amend --no-edit
+git push --force-with-lease
+```
+
+This keeps the PR as a single commit. CI enforces PRs have a single commit.
 
 ### Breaking Changes
 
