@@ -216,49 +216,6 @@ where
 // ARRAY WRAPPERS
 //**********************************************************************************
 
-/*
- *
- *
- *                                                                                                    
- *                          |-----------------------------------------|------------------------------| 
- *                          | LHS                                     | RHS                          |
- *                          |-----------------------------------------|------------------------------|
- *       ClaimedLengthArray | Interspersed 0s possible.               | Unvalidated.                 |
- *                          | Possibly not fully trimmed.             | Nonempty elements possible.  |
- *                          |-----------------------------------------|------------------------------|
- *            EmptyRHSArray | Interspersed 0s possible.               | All 0s (validated).          |
- *                          | Possibly not fully trimmed.             |                              |
- *                          |-----------------------------------------|------------------------------|
- *             TrimmedArray | Interspersed 0s possible.               | All 0s (validated)           |
- *                          | Last lhs element validated as nonempty. |                              |
- *                          | (I.e. fully trimmed)                    |                              |
- *                          |-----------------------------------------|------------------------------|
- *        DenseTrimmedArray | Dense (validated).                      | All 0s (validated)           |
- *                          |-----------------------------------------|------------------------------|
- *
- *
- *                          | What guarantees do we have?                      |
- *                          |--------|--------|--------------------------------| 
- *                          | Dense? | RHS    | Length vs Fully Trimmed Length |
- *                          |--------|--------|--------------------------------|
- *       ClaimedLengthArray | ?      | ?      | ?                              |
- *                          |        |        |                                |
- *                          |--------|--------|--------------------------------|
- *            EmptyRHSArray | ?      | All 0s | Length >= Fully Trimmed Length |
- *                          |        |        |                                |
- *                          |--------|--------|--------------------------------|
- *             TrimmedArray | ?      | All 0s | Length == Fully Trimmed Length |
- *                          |        |        |                                |
- *                          |        |        |                                |
- *                          |--------|--------|--------------------------------|
- *        DenseTrimmedArray | Yes    | All 0s | Length == Fully Trimmed Length |
- *                          |--------|--------|--------------------------------|
- *
- *
- * An ClaimedLengthArray is distinct from a regular array [T; N], because it carries a length.
- * 
- */
-
 /// ClaimedLengthArray - An array interpreted by Kernel circuits.
 /// Its `length` is merely a claim that must eventually be validated.
 /// Validation must include:
