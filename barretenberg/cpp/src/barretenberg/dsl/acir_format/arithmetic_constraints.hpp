@@ -5,15 +5,45 @@
 // =====================
 
 #pragma once
-#include "acir_format.hpp"
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/honk/execution_trace/gate_data.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
+#include "barretenberg/stdlib/primitives/witness/witness.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include <vector>
 
 namespace acir_format {
+
+using namespace bb;
+using namespace bb::stdlib;
+
+/**
+ * @brief Standard UltraHonk arithmetic constraint of width 4
+ */
+using QuadConstraint = mul_quad_<bb::fr>;
+
+/**
+ * @brief Constraint representing a polynomial of degree 1 or 2 that does not fit into a standard UltraHonk arithmetic
+ * constraint of width 4
+ *
+ * @details Each BigQuadConstraint represents an expression
+ * \f[
+ *          \sum_{i, j} c_{ij} w_i * w_j + \sum_i c_i w_i + const = 0
+ * \f]
+ * that has been split into multiple QuadConstraint gates using w4_shift (the 4th wire of the next gate) to reduce the
+ * number of intermediate variables. See also the documentation for create_big_quad_constraint
+ */
+class BigQuadConstraint : public std::vector<QuadConstraint> {
+  public:
+    using Base = std::vector<QuadConstraint>;
+    using Base::Base; // Inherit all constructors from std::vector
+
+    // Explicitly define vector copy constructor (not inherited by default)
+    BigQuadConstraint(const std::vector<QuadConstraint>& fields)
+        : Base(fields)
+    {}
+};
 
 /**
  * @brief Replace indices which are set to IS_CONSTANT with the zero index of the builder
@@ -22,7 +52,7 @@ namespace acir_format {
  * the builder, we replace these indices with the zero index. Note that we don't do this replacement for a, so that
  * we implicitly get a check that the gate is non-zero when adding it to the Builder.
  */
-template <typename Builder> void set_zero_idx(const Builder& builder, mul_quad_<typename Builder::FF>& mul_quad);
+template <typename Builder> void set_zero_idx(const Builder& builder, QuadConstraint& mul_quad);
 
 /**
  * @brief Check if a mul add gate is valid.
@@ -30,7 +60,7 @@ template <typename Builder> void set_zero_idx(const Builder& builder, mul_quad_<
  */
 template <typename Builder>
 void check_mul_add_gate(Builder& builder,
-                        const mul_quad_<typename Builder::FF>& mul_quad,
+                        const QuadConstraint& mul_quad,
                         const typename Builder::FF next_wire_w4 = Builder::FF::zero());
 
 /**
@@ -41,8 +71,7 @@ void check_mul_add_gate(Builder& builder,
  * \f]
  *
  */
-template <typename Builder>
-void create_quad_constraint(Builder& builder, bb::mul_quad_<typename Builder::FF>& mul_quad);
+template <typename Builder> void create_quad_constraint(Builder& builder, QuadConstraint& mul_quad);
 
 // clang-format off
 /**
@@ -76,7 +105,6 @@ void create_quad_constraint(Builder& builder, bb::mul_quad_<typename Builder::FF
  * don't know the witness index of the witness -(w1 * w2 + w5 + w6 + const) when we split the expression into multiple gates.
  */
 // clang-format on
-template <typename Builder>
-void create_big_quad_constraint(Builder& builder, std::vector<bb::mul_quad_<typename Builder::FF>>& big_constraint);
+template <typename Builder> void create_big_quad_constraint(Builder& builder, BigQuadConstraint& big_constraint);
 
 } // namespace acir_format

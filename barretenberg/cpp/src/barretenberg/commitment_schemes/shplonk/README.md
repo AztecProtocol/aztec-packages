@@ -40,41 +40,21 @@ Where:
 
 | Method | Description |
 |--------|-------------|
-| `update()` | updates the internal state of the verifier given a linear combination and the inverse of the vanishing eval |
+| `reduce_verification()` | Static method that processes all claims and returns an `OpeningClaim` |
+| `reduce_verification_no_finalize()` | Static method that processes claims and returns a verifier instance for further operations |
 | `finalize()` | Executes the MSM and returns an `OpeningClaim` |
 | `export_batch_opening_claim()` | Exports `BatchOpeningClaim` without executing MSM (allows combining with KZG's $ [W] $) |
 
 **Usage Pattern:**
 ```cpp
-// 1. Initialize verifier with commitments
-ShplonkVerifier_<Curve> verifier(polynomial_commitments, transcript, num_claims);
+// Simple usage - processes all claims and returns result
+OpeningClaim<Curve> result = ShplonkVerifier::reduce_verification(
+    g1_identity, claims, transcript);
 
-// 2. Accumulate claims (updates scalars internally)
-for (auto& claim : claims) {
-    verifier.update(claim, inverse_vanishing_eval);
-}
-
-// 3a. Finalize with MSM execution
-OpeningClaim<Curve> result = verifier.finalize(g1_identity);
-
-// 3b. OR export for deferred MSM (e.g., to combine with KZG)
+// Or for deferred MSM (e.g., to combine with KZG)
+auto verifier = ShplonkVerifier::reduce_verification_no_finalize(claims, transcript);
 BatchOpeningClaim<Curve> batch_claim = verifier.export_batch_opening_claim(g1_identity);
 ```
-
-### Handling Linear Combinations
-
-When polynomials share commitments (e.g., $ p_2 = a \cdot p_1 $), Shplonk avoids redundant MSM entries by accumulating scalars:
-
-Instead of computing:
-$$ [Q] - \frac{1}{z - x_1}[p_1] - \frac{\nu}{z - x_2}[p_2] + \ldots $$
-
-We compute:
-$$ [Q] - \left(\frac{1}{z - x_1} + \frac{a\nu}{z - x_2}\right)[p_1] + \ldots $$
-
-This is achieved via the `LinearCombinationOfClaims` structure which stores:
-- `indices`: which base commitments are involved
-- `scalars`: the coefficients in the linear combination
-- `opening_pair`: the evaluation point and claimed value
 
 ## Shplemini
 

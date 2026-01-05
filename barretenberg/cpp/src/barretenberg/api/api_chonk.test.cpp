@@ -8,7 +8,6 @@
 #include "barretenberg/chonk/private_execution_steps.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
-#include "barretenberg/dsl/acir_format/acir_format_mocks.hpp"
 #include "barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp"
 #include "barretenberg/dsl/acir_format/serde/acir.hpp"
 #include "barretenberg/dsl/acir_format/serde/witness_stack.hpp"
