@@ -12,6 +12,7 @@
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
+#include "barretenberg/vm2/common/standard_affine_point.hpp"
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/simulation/events/ecc_events.hpp"
@@ -39,6 +40,7 @@ using namespace bb::avm2::tracegen;
 using namespace bb::avm2::constraining;
 
 using avm2::AffinePoint;
+using StandardAffinePoint = avm2::StandardAffinePoint<AffinePoint>;
 using bb::avm2::EmbeddedCurvePoint;
 using bb::avm2::FF;
 using bb::avm2::MemoryAddress;
@@ -136,7 +138,7 @@ extern "C" size_t LLVMFuzzerCustomMutator(uint8_t* data, size_t size, size_t max
 
     // We want to define sensible mutation of points as random bits are unlikely to yield valid points.
     // Lib Fuzzer will stack 5-6 mutations on top of each other by default
-    std::uniform_int_distribution<int> dist(0, 4);
+    std::uniform_int_distribution<int> dist(0, 5);
     int choice = dist(rng);
 
     switch (choice) {
@@ -169,6 +171,11 @@ extern "C" size_t LLVMFuzzerCustomMutator(uint8_t* data, size_t size, size_t max
         break;
     }
     case 4: {
+        // Set P = -Q
+        input.p = input.q * avm2::Fq(-1);
+        break;
+    }
+    case 5: {
         // Mutate memory addresses
         // Select a random address to mutate
         std::uniform_int_distribution<size_t> addr_dist(0, 6);
@@ -243,7 +250,8 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
         error = true;
     }
     if (!error) {
-        AffinePoint expected_result = input.p + input.q;
+        // StandardAffinePoint, unlike AffinePoint, normalises infinity to (0, 0) to match EmbeddedCurvePoint
+        StandardAffinePoint expected_result = StandardAffinePoint(input.p) + StandardAffinePoint(input.q);
 
         // Verify output in memory
         MemoryValue res_x = mem->get(input.addresses[6]);
@@ -252,10 +260,9 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 
         EmbeddedCurvePoint result_point = EmbeddedCurvePoint(res_x.as_ff(), res_y.as_ff(), res_inf.as_ff() == FF(1));
 
-        BB_ASSERT(result_point.x() == expected_result.x, "Result x-coordinate mismatch");
-        BB_ASSERT(result_point.y() == expected_result.y, "Result y-coordinate mismatch");
-        BB_ASSERT(result_point.is_infinity() == expected_result.is_point_at_infinity(),
-                  "Result infinity flag mismatch");
+        BB_ASSERT(result_point.x() == expected_result.x(), "Result x-coordinate mismatch");
+        BB_ASSERT(result_point.y() == expected_result.y(), "Result y-coordinate mismatch");
+        BB_ASSERT(result_point.is_infinity() == expected_result.is_infinity(), "Result infinity flag mismatch");
     }
 
     // Initialize trace container and execution trace columns
