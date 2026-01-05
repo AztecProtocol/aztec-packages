@@ -130,13 +130,18 @@ template <typename Polynomial, size_t NUM_PRECOMPUTED_ENTITIES> struct Precomput
  * have a native equivalent, and Builder also doesn't have a native equivalent.
  *
  * @tparam PrecomputedEntities An instance of PrecomputedEntities_ with affine_element data type and handle type.
+ * @tparam Codec The codec used for serialization (e.g., FrCodec, U256Codec)
+ * @tparam HashFunction The hash function used for VK hashing (e.g., Poseidon2, Keccak)
  */
 template <typename PrecomputedCommitments,
-          typename Transcript,
+          typename Codec,
+          typename HashFunction,
+          typename CommitmentKeyType = void,
           VKSerializationMode SerializeMetadata = VKSerializationMode::FULL>
 class NativeVerificationKey_ : public PrecomputedCommitments {
   public:
     using Commitment = typename PrecomputedCommitments::DataType;
+    using DataType = typename Codec::DataType;
     uint64_t log_circuit_size = 0;
     uint64_t num_public_inputs = 0;
     uint64_t pub_inputs_offset = 0;
@@ -183,18 +188,35 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
     };
 
     /**
+     * @brief Construct VK from precomputed data by committing to polynomials
+     * @details Only available when CommitmentKeyType is specified (not void)
+     */
+    template <typename PrecomputedData>
+        requires(!std::is_void_v<CommitmentKeyType>)
+    explicit NativeVerificationKey_(const PrecomputedData& precomputed)
+    {
+        this->log_circuit_size = numeric::get_msb(precomputed.metadata.dyadic_size);
+        this->num_public_inputs = precomputed.metadata.num_public_inputs;
+        this->pub_inputs_offset = precomputed.metadata.pub_inputs_offset;
+
+        CommitmentKeyType commitment_key{ precomputed.metadata.dyadic_size };
+        for (auto [polynomial, commitment] : zip_view(precomputed.polynomials, this->get_all())) {
+            commitment = commitment_key.commit(polynomial);
+        }
+    }
+
+    /**
      * @brief Calculate the number of field elements needed for serialization
      * @return size_t Number of field elements
      */
     static size_t calc_num_data_types()
     {
         // Create a temporary instance to get the number of precomputed entities
-        size_t commitments_size =
-            PrecomputedCommitments::size() * Transcript::Codec::template calc_num_fields<Commitment>();
+        size_t commitments_size = PrecomputedCommitments::size() * Codec::template calc_num_fields<Commitment>();
         size_t metadata_size = 0;
         if constexpr (SerializeMetadata == VKSerializationMode::FULL) {
             // 3 metadata fields + commitments
-            metadata_size = 3 * Transcript::Codec::template calc_num_fields<uint64_t>();
+            metadata_size = 3 * Codec::template calc_num_fields<uint64_t>();
         }
         // else NO_METADATA: metadata_size remains 0
         return metadata_size + commitments_size;
@@ -205,15 +227,15 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
      *
      * @return std::vector<FF>
      */
-    virtual std::vector<typename Transcript::DataType> to_field_elements() const
+    virtual std::vector<DataType> to_field_elements() const
     {
 
-        auto serialize = [](const auto& input, std::vector<typename Transcript::DataType>& buffer) {
-            std::vector<typename Transcript::DataType> input_fields = Transcript::serialize(input);
+        auto serialize = [](const auto& input, std::vector<DataType>& buffer) {
+            std::vector<DataType> input_fields = Codec::serialize_to_fields(input);
             buffer.insert(buffer.end(), input_fields.begin(), input_fields.end());
         };
 
-        std::vector<typename Transcript::DataType> elements;
+        std::vector<DataType> elements;
 
         if constexpr (SerializeMetadata == VKSerializationMode::FULL) {
             serialize(this->log_circuit_size, elements);
@@ -235,13 +257,13 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
      * @brief Populate verification key from field elements
      * @param elements Field elements to deserialize from
      */
-    size_t from_field_elements(const std::span<const typename Transcript::DataType>& elements)
+    size_t from_field_elements(const std::span<const DataType>& elements)
     {
 
         size_t idx = 0;
         auto deserialize = [&idx, &elements]<typename T>(T& target) {
-            size_t size = Transcript::Codec::template calc_num_fields<T>();
-            target = Transcript::template deserialize<T>(elements.subspan(idx, size));
+            size_t size = Codec::template calc_num_fields<T>();
+            target = Codec::template deserialize_from_fields<T>(elements.subspan(idx, size));
             idx += size;
         };
 
@@ -264,7 +286,7 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
      */
     fr hash() const
     {
-        fr vk_hash = Transcript::HashFunction::hash(this->to_field_elements());
+        fr vk_hash = HashFunction::hash(this->to_field_elements());
         return vk_hash;
     }
 
@@ -275,21 +297,18 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
      * properly. By tagging the VK components directly, we ensure all VK witnesses have proper origin tags.
      *
      * @param domain_separator (currently unused, kept for API compatibility)
-     * @param transcript Used to extract tag context (transcript_index, round_index)
+     * @param tag The origin tag extracted from the transcript
      * @returns The hash of the verification key
      */
-    virtual typename Transcript::DataType hash_with_origin_tagging([[maybe_unused]] const std::string& domain_separator,
-                                                                   Transcript& transcript) const
+    virtual DataType hash_with_origin_tagging([[maybe_unused]] const std::string& domain_separator,
+                                              const OriginTag& tag) const
     {
-        using DataType = typename Transcript::DataType;
-        using Codec = typename Transcript::Codec;
+        static constexpr bool in_circuit = InCircuit<DataType>;
         std::vector<DataType> vk_elements;
-
-        const OriginTag tag = bb::extract_transcript_tag(transcript);
 
         // Tag, serialize, and append to vk_elements
         auto tag_and_append = [&]<typename T>(const T& component) {
-            auto frs = bb::tag_and_serialize<Transcript::in_circuit, Codec>(component, tag);
+            auto frs = bb::tag_and_serialize<in_circuit, Codec>(component, tag);
             vk_elements.insert(vk_elements.end(), frs.begin(), frs.end());
         };
 
@@ -304,10 +323,10 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
         }
 
         // Sanitize free witness tags before hashing
-        bb::unset_free_witness_tags<Transcript::in_circuit, DataType>(vk_elements);
+        bb::unset_free_witness_tags<in_circuit, DataType>(vk_elements);
 
         // Hash the tagged elements directly
-        return Transcript::HashFunction::hash(vk_elements);
+        return HashFunction::hash(vk_elements);
     }
 };
 
@@ -387,20 +406,19 @@ class StdlibVerificationKey_ : public PrecomputedCommitments {
      * properly. By tagging the VK components directly, we ensure all VK witnesses have proper origin tags.
      *
      * @param domain_separator (currently unused, kept for API compatibility)
-     * @param transcript Used to extract tag context (transcript_index, round_index)
+     * @param tag The origin tag extracted from the transcript
      * @returns The hash of the verification key
      */
     virtual FF hash_with_origin_tagging([[maybe_unused]] const std::string& domain_separator,
-                                        Transcript& transcript) const
+                                        const OriginTag& tag) const
     {
         using Codec = stdlib::StdlibCodec<FF>;
+        static constexpr bool in_circuit = true; // StdlibVerificationKey_ is always in-circuit
         std::vector<FF> vk_elements;
-
-        const OriginTag tag = bb::extract_transcript_tag(transcript);
 
         // Tag, serialize, and append to vk_elements
         auto append_tagged = [&]<typename T>(const T& component) {
-            auto frs = bb::tag_and_serialize<Transcript::in_circuit, Codec>(component, tag);
+            auto frs = bb::tag_and_serialize<in_circuit, Codec>(component, tag);
             vk_elements.insert(vk_elements.end(), frs.begin(), frs.end());
         };
 
@@ -415,10 +433,10 @@ class StdlibVerificationKey_ : public PrecomputedCommitments {
         }
 
         // Sanitize free witness tags before hashing
-        bb::unset_free_witness_tags<Transcript::in_circuit, FF>(vk_elements);
+        bb::unset_free_witness_tags<in_circuit, FF>(vk_elements);
 
         // Hash the tagged elements directly
-        return Transcript::HashFunction::hash(vk_elements);
+        return stdlib::poseidon2<Builder>::hash(vk_elements);
     }
 };
 
@@ -583,17 +601,24 @@ template <typename BuilderType> class MegaAvmRecursiveFlavor_;
 // Serialization methods for NativeVerificationKey_.
 // These should cover all base classes that do not need additional members, as long as the appropriate SerializeMetadata
 // is set in the template parameters.
-template <typename PrecomputedCommitments, typename Transcript, VKSerializationMode SerializeMetadata>
-inline void read(uint8_t const*& it, NativeVerificationKey_<PrecomputedCommitments, Transcript, SerializeMetadata>& vk)
+template <typename PrecomputedCommitments,
+          typename Codec,
+          typename HashFunction,
+          typename CommitmentKeyType,
+          VKSerializationMode SerializeMetadata>
+inline void read(
+    uint8_t const*& it,
+    NativeVerificationKey_<PrecomputedCommitments, Codec, HashFunction, CommitmentKeyType, SerializeMetadata>& vk)
 {
     using serialize::read;
+    using VK =
+        NativeVerificationKey_<PrecomputedCommitments, Codec, HashFunction, CommitmentKeyType, SerializeMetadata>;
 
     // Get the size directly from the static method
-    size_t num_frs =
-        NativeVerificationKey_<PrecomputedCommitments, Transcript, SerializeMetadata>::calc_num_data_types();
+    size_t num_frs = VK::calc_num_data_types();
 
     // Read exactly num_frs field elements from the buffer
-    std::vector<typename Transcript::DataType> field_elements(num_frs);
+    std::vector<typename Codec::DataType> field_elements(num_frs);
     for (auto& element : field_elements) {
         read(it, element);
     }
@@ -601,11 +626,19 @@ inline void read(uint8_t const*& it, NativeVerificationKey_<PrecomputedCommitmen
     vk.from_field_elements(field_elements);
 }
 
-template <typename PrecomputedCommitments, typename Transcript, VKSerializationMode SerializeMetadata>
-inline void write(std::vector<uint8_t>& buf,
-                  NativeVerificationKey_<PrecomputedCommitments, Transcript, SerializeMetadata> const& vk)
+template <typename PrecomputedCommitments,
+          typename Codec,
+          typename HashFunction,
+          typename CommitmentKeyType,
+          VKSerializationMode SerializeMetadata>
+inline void write(
+    std::vector<uint8_t>& buf,
+    NativeVerificationKey_<PrecomputedCommitments, Codec, HashFunction, CommitmentKeyType, SerializeMetadata> const& vk)
 {
     using serialize::write;
+    using VK =
+        NativeVerificationKey_<PrecomputedCommitments, Codec, HashFunction, CommitmentKeyType, SerializeMetadata>;
+
     size_t before = buf.size();
     // Convert to field elements and write them directly without length prefix
     auto field_elements = vk.to_field_elements();
@@ -613,8 +646,7 @@ inline void write(std::vector<uint8_t>& buf,
         write(buf, element);
     }
     size_t after = buf.size();
-    size_t num_frs =
-        NativeVerificationKey_<PrecomputedCommitments, Transcript, SerializeMetadata>::calc_num_data_types();
+    size_t num_frs = VK::calc_num_data_types();
     BB_ASSERT_EQ(after - before, num_frs * sizeof(bb::fr), "VK serialization mismatch");
 }
 

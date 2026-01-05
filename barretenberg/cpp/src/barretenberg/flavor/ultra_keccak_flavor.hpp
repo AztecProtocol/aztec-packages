@@ -40,46 +40,10 @@ class UltraKeccakFlavor : public bb::UltraFlavor {
         return OINK_PROOF_LENGTH_WITHOUT_PUB_INPUTS + DECIDER_PROOF_LENGTH(virtual_log_n);
     }
 
-    /**
-     * @brief The verification key is responsible for storing the commitments to the precomputed (non-witnessk)
-     * polynomials used by the verifier.
-     *
-     * @note Note the discrepancy with what sort of data is stored here vs in the proving key. We may want to resolve
-     * that, and split out separate PrecomputedPolynomials/Commitments data for clarity but also for portability of our
-     * circuits.
-     */
+    // Reuse UltraFlavor's VerificationKey template with Keccak codec and hash function
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1094): Add aggregation to the verifier contract so the
     // VerificationKey from UltraFlavor can be used
-    class VerificationKey : public NativeVerificationKey_<PrecomputedEntities<Commitment>, Transcript> {
-      public:
-        static constexpr size_t VERIFICATION_KEY_LENGTH =
-            /* 1. Metadata (log_circuit_size, num_public_inputs, pub_inputs_offset) */ (3 * num_elements_fr) +
-            /* 2. NUM_PRECOMPUTED_ENTITIES commitments */ (NUM_PRECOMPUTED_ENTITIES * num_elements_comm);
-        VerificationKey() = default;
-        VerificationKey(const size_t circuit_size, const size_t num_public_inputs)
-            : NativeVerificationKey_(circuit_size, num_public_inputs)
-        {}
-
-        VerificationKey(const PrecomputedData& precomputed)
-        {
-            this->log_circuit_size = numeric::get_msb(precomputed.metadata.dyadic_size);
-            this->num_public_inputs = precomputed.metadata.num_public_inputs;
-            this->pub_inputs_offset = precomputed.metadata.pub_inputs_offset;
-
-            CommitmentKey commitment_key{ precomputed.metadata.dyadic_size };
-            for (auto [polynomial, commitment] : zip_view(precomputed.polynomials, this->get_all())) {
-                commitment = commitment_key.commit(polynomial);
-            }
-        }
-
-#ifndef NDEBUG
-        bool compare(const VerificationKey& other)
-        {
-            return NativeVerificationKey_<PrecomputedEntities<Commitment>, Transcript>::compare<
-                NUM_PRECOMPUTED_ENTITIES>(other, CommitmentLabels().get_precomputed());
-        }
-#endif
-    };
+    using VerificationKey = UltraFlavor::VerificationKey_<U256Codec, crypto::Keccak>;
 
     // Specialize for Ultra (general case used in UltraRecursive).
     using VerifierCommitments = VerifierCommitments_<Commitment, VerificationKey>;

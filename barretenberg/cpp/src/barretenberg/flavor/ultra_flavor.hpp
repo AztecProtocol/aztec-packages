@@ -373,35 +373,16 @@ class UltraFlavor {
      * @note Note the discrepancy with what sort of data is stored here vs in the proving key. We may want to resolve
      * that, and split out separate PrecomputedPolynomials/Commitments data for clarity but also for portability of our
      * circuits.
+     *
+     * @tparam Codec_ The codec for serialization (defaults to Transcript::Codec)
+     * @tparam HashFunction_ The hash function for VK hashing (defaults to Transcript::HashFunction)
      */
-    class VerificationKey : public NativeVerificationKey_<PrecomputedEntities<Commitment>, Transcript> {
-      public:
-        bool operator==(const VerificationKey&) const = default;
-        VerificationKey() = default;
-        VerificationKey(const size_t circuit_size, const size_t num_public_inputs)
-            : NativeVerificationKey_(circuit_size, num_public_inputs)
-        {}
+    template <typename Codec_ = typename Transcript::Codec, typename HashFunction_ = typename Transcript::HashFunction>
+    using VerificationKey_ =
+        NativeVerificationKey_<PrecomputedEntities<Commitment>, Codec_, HashFunction_, CommitmentKey>;
 
-        VerificationKey(const PrecomputedData& precomputed)
-        {
-            this->log_circuit_size = numeric::get_msb(precomputed.metadata.dyadic_size);
-            this->num_public_inputs = precomputed.metadata.num_public_inputs;
-            this->pub_inputs_offset = precomputed.metadata.pub_inputs_offset;
-
-            CommitmentKey commitment_key{ precomputed.metadata.dyadic_size };
-            for (auto [polynomial, commitment] : zip_view(precomputed.polynomials, this->get_all())) {
-                commitment = commitment_key.commit(polynomial);
-            }
-        }
-
-#ifndef NDEBUG
-        bool compare(const VerificationKey& other)
-        {
-            return NativeVerificationKey_<PrecomputedEntities<Commitment>, Transcript>::compare<
-                NUM_PRECOMPUTED_ENTITIES>(other, CommitmentLabels().get_precomputed());
-        }
-#endif
-    };
+    // Default VerificationKey using the flavor's Transcript codec and hash function
+    using VerificationKey = VerificationKey_<>;
 
     using VKAndHash = VKAndHash_<FF, VerificationKey>;
 

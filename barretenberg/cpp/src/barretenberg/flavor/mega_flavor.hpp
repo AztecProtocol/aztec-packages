@@ -451,40 +451,10 @@ class MegaFlavor {
      * circuits.
      * @todo TODO(https://github.com/AztecProtocol/barretenberg/issues/876)
      */
-    class VerificationKey : public NativeVerificationKey_<PrecomputedEntities<Commitment>, Transcript> {
-      public:
-        VerificationKey() = default;
-        VerificationKey(const size_t circuit_size, const size_t num_public_inputs)
-            : NativeVerificationKey_(circuit_size, num_public_inputs)
-        {}
-
-        VerificationKey(const VerificationKey& vk) = default;
-
-        void set_metadata(const MetaData& metadata)
-        {
-            this->log_circuit_size = numeric::get_msb(metadata.dyadic_size);
-            this->num_public_inputs = metadata.num_public_inputs;
-            this->pub_inputs_offset = metadata.pub_inputs_offset;
-        }
-
-        VerificationKey(const PrecomputedData& precomputed)
-        {
-            set_metadata(precomputed.metadata);
-
-            CommitmentKey commitment_key{ precomputed.metadata.dyadic_size };
-            for (auto [polynomial, commitment] : zip_view(precomputed.polynomials, this->get_all())) {
-                commitment = commitment_key.commit(polynomial);
-            }
-        }
-
-#ifndef NDEBUG
-        bool compare(const VerificationKey& other)
-        {
-            return NativeVerificationKey_<PrecomputedEntities<Commitment>, Transcript>::compare<
-                NUM_PRECOMPUTED_ENTITIES>(other, CommitmentLabels().get_precomputed());
-        }
-#endif
-    };
+    using VerificationKey = NativeVerificationKey_<PrecomputedEntities<Commitment>,
+                                                   typename Transcript::Codec,
+                                                   typename Transcript::HashFunction,
+                                                   CommitmentKey>;
 
     using VKAndHash = VKAndHash_<FF, VerificationKey>;
 
