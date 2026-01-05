@@ -1,5 +1,5 @@
 import { findNapiBinary } from '@aztec/bb.js';
-import { type LogLevel, LogLevels } from '@aztec/foundation/log';
+import { type LogLevel, LogLevels, type Logger } from '@aztec/foundation/log';
 import { Semaphore } from '@aztec/foundation/queue';
 
 import { createRequire } from 'module';
@@ -89,6 +89,7 @@ const nativeAvmSimulate = nativeModule.avmSimulate as (
   inputs: Buffer,
   contractProvider: ContractProvider,
   worldStateHandle: any,
+  logFunction: any,
   logLevel: number,
   cancellationToken?: any,
 ) => Promise<Buffer>;
@@ -155,15 +156,20 @@ export async function avmSimulate(
   inputs: Buffer,
   contractProvider: ContractProvider,
   worldStateHandle: any,
+  logger: Logger,
   logLevel: LogLevel = 'info',
   cancellationToken?: CancellationToken,
 ): Promise<Buffer> {
   await avmSimulationSemaphore.acquire();
+
+  const logFunction = (level: LogLevel, msg: string) => logger[level](msg);
+
   try {
     return await nativeAvmSimulate(
       inputs,
       contractProvider,
       worldStateHandle,
+      logFunction,
       LogLevels.indexOf(logLevel),
       cancellationToken,
     );
