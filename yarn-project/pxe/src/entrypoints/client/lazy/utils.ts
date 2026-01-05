@@ -1,3 +1,4 @@
+import { BBPrivateKernelProver } from '@aztec/bb-prover/client';
 import { BBLazyPrivateKernelProver } from '@aztec/bb-prover/client/lazy';
 import { randomBytes } from '@aztec/foundation/crypto/random';
 import { createLogger } from '@aztec/foundation/log';
@@ -48,8 +49,12 @@ export async function createPXE(
     ? loggers.prover
     : createLogger('pxe:bb:wasm:bundle' + (logSuffix ? `:${logSuffix}` : ''));
 
-  const prover = options.prover ?? new BBLazyPrivateKernelProver(simulator, proverLogger);
-
+  let prover;
+  if (options.proverOrOptions instanceof BBPrivateKernelProver) {
+    prover = options.proverOrOptions;
+  } else {
+    prover = new BBLazyPrivateKernelProver(simulator, { ...options.proverOrOptions, logger: proverLogger });
+  }
   const protocolContractsProvider = new LazyProtocolContractsProvider();
 
   const pxeLogger = loggers.pxe ? loggers.pxe : createLogger('pxe:service' + (logSuffix ? `:${logSuffix}` : ''));
