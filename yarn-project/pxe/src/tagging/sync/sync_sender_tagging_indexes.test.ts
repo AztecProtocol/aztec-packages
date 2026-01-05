@@ -1,10 +1,8 @@
-import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { L2BlockHash } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
-import { PrivateLog, TxScopedL2Log } from '@aztec/stdlib/logs';
+import { randomTxScopedPrivateL2Log } from '@aztec/stdlib/testing';
 import { TxHash, TxStatus } from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -27,7 +25,7 @@ describe('syncSenderTaggingIndexes', () => {
   }
 
   function makeLog(txHash: TxHash, tag: Fr) {
-    return new TxScopedL2Log(txHash, 0, 0, BlockNumber(0), L2BlockHash.random(), 0n, PrivateLog.random(tag));
+    return randomTxScopedPrivateL2Log({ txHash, tag });
   }
 
   async function setUp() {

@@ -148,12 +148,10 @@ describe('a test that passively observes the network in the presence of network 
     // note, don't forget that normally an epoch doesn't need epochDuration worth of checkpoints,
     // but here we do double duty:
     // we want a handful of checkpoints, and we want to pass the epoch boundary
-    await awaitCheckpointNumber(
-      rollupCheatCodes,
-      CheckpointNumber.fromBigInt(epochDuration * BigInt(slotDuration)),
-      60 * 6,
-      debugLogger,
-    );
+    const initialTips = await rollupCheatCodes.getTips();
+    const checkpointWaitTarget = CheckpointNumber(initialTips.pending + Number(epochDuration));
+    const epochDurationSeconds = Number(BigInt(epochDuration) * BigInt(slotDuration));
+    await awaitCheckpointNumber(rollupCheatCodes, checkpointWaitTarget, epochDurationSeconds * 2, debugLogger);
 
     let deploymentOutput: string = '';
     deploymentOutput = await applyNetworkShaping({

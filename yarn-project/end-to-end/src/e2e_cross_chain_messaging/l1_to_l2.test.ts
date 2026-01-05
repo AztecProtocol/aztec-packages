@@ -30,7 +30,7 @@ describe('e2e_cross_chain_messaging l1_to_l2', () => {
     t = new CrossChainMessagingTest(
       'l1_to_l2',
       { minTxsPerBlock: 1 },
-      { aztecProofSubmissionEpochs: 2, aztecEpochDuration: 4 },
+      { aztecProofSubmissionEpochs: 2, aztecEpochDuration: 4, inboxLag: 2 },
     );
     await t.applyBaseSnapshots();
     await t.setup();

@@ -710,6 +710,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     }
 
     await this.markTxsAsMinedFromBlocks(blocks);
+    await this.txPool.clearNonEvictableTxs();
     await this.startCollectingMissingTxs(blocks);
 
     const lastBlock = blocks.at(-1)!;
@@ -828,8 +829,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
       this.log.info(`Deleting ${minedTxsFromReorg.length} mined txs from reorg`);
       await this.txPool.deleteTxs(minedTxsFromReorg);
     } else {
-      this.log.info(`Moving ${minedTxsFromReorg.length} mined txs from reorg back to pending`);
-      await this.txPool.markMinedAsPending(minedTxsFromReorg);
+      await this.txPool.markMinedAsPending(minedTxsFromReorg, latestBlock);
     }
 
     await this.synchedLatestBlockNumber.set(latestBlock);

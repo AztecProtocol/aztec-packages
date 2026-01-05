@@ -10,6 +10,7 @@ import {
   CommitteeAttestation,
   L2Block,
   type L2BlockId,
+  type L2BlockNew,
   type L2BlockSource,
   type L2Tips,
   PublishedL2Block,
@@ -134,6 +135,18 @@ export class TXEArchiver extends ArchiverStoreHelper implements L2BlockSource {
    */
   public getL2Block(number: BlockNumber | 'latest'): Promise<L2Block | undefined> {
     return this.getPublishedBlock(number != 'latest' ? number : -1).then(b => b?.block);
+  }
+
+  /**
+   * Gets an L2 block (new format).
+   * @param number - The block number to return.
+   * @returns The requested L2 block.
+   */
+  public getL2BlockNew(number: BlockNumber): Promise<L2BlockNew | undefined> {
+    if (number === 0) {
+      return Promise.resolve(undefined);
+    }
+    return this.store.getBlock(number);
   }
 
   /**

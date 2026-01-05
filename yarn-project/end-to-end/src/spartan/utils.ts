@@ -246,7 +246,10 @@ export async function deleteResourceByLabel({
   force?: boolean;
 }) {
   try {
-    await execAsync(`kubectl api-resources --no-headers -o name | grep -Eq "^${resource}(\\\\..+)?$"`);
+    // Match both plain and group-qualified names (e.g., "podchaos" or "podchaos.chaos-mesh.org")
+    const escaped = resource.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
+    const regex = `(^|\\.)${escaped}(\\.|$)`;
+    await execAsync(`kubectl api-resources --no-headers -o name | grep -Eq '${regex}'`);
   } catch (error) {
     logger.warn(`Resource type '${resource}' not found in cluster, skipping deletion ${error}`);
     return '';
@@ -277,6 +280,58 @@ export async function waitForResourceByLabel({
   logger.info(`command: ${command}`);
   const { stdout } = await execAsync(command);
   return stdout;
+}
+
+export async function waitForResourceByName({
+  resource,
+  name,
+  namespace,
+  condition = 'Ready',
+  timeout = '10m',
+}: {
+  resource: string;
+  name: string;
+  namespace: string;
+  condition?: string;
+  timeout?: string;
+}) {
+  const command = `kubectl wait ${resource}/${name} --for=condition=${condition} -n ${namespace} --timeout=${timeout}`;
+  logger.info(`command: ${command}`);
+  const { stdout } = await execAsync(command);
+  return stdout;
+}
+
+export async function waitForResourcesByName({
+  resource,
+  names,
+  namespace,
+  condition = 'Ready',
+  timeout = '10m',
+}: {
+  resource: string;
+  names: string[];
+  namespace: string;
+  condition?: string;
+  timeout?: string;
+}) {
+  if (!names.length) {
+    throw new Error(`No ${resource} names provided to waitForResourcesByName`);
+  }
+
+  // Wait all in parallel; if any fails, surface which one.
+  await Promise.all(
+    names.map(async name => {
+      try {
+        await waitForResourceByName({ resource, name, namespace, condition, timeout });
+      } catch (err) {
+        throw new Error(
+          `Failed waiting for ${resource}/${name} condition=${condition} timeout=${timeout} namespace=${namespace}: ${String(
+            err,
+          )}`,
+        );
+      }
+    }),
+  );
 }
 
 export function getChartDir(spartanDir: string, chartName: string) {
@@ -458,6 +513,29 @@ export function applyProverFailure({
   });
 }
 
+export function applyValidatorFailure({
+  namespace,
+  spartanDir,
+  logger,
+  values,
+  instanceName,
+}: {
+  namespace: string;
+  spartanDir: string;
+  logger: Logger;
+  values?: Record<string, string | number>;
+  instanceName?: string;
+}) {
+  return installChaosMeshChart({
+    instanceName: instanceName ?? 'validator-failure',
+    targetNamespace: namespace,
+    valuesFile: 'validator-failure.yaml',
+    helmChartDir: getChartDir(spartanDir, 'aztec-chaos-scenarios'),
+    values,
+    logger,
+  });
+}
+
 export function applyProverKill({
   namespace,
   spartanDir,
@@ -537,18 +615,21 @@ export function applyValidatorKill({
   spartanDir,
   logger,
   values,
+  clean = true,
 }: {
   instanceName?: string;
   namespace: string;
   spartanDir: string;
   logger: Logger;
   values?: Record<string, string | number>;
+  clean?: boolean;
 }) {
   return installChaosMeshChart({
-    instanceName,
+    instanceName: instanceName ?? 'validator-kill',
     targetNamespace: namespace,
     valuesFile: 'validator-kill.yaml',
     helmChartDir: getChartDir(spartanDir, 'aztec-chaos-scenarios'),
+    clean,
     logger,
     values,
   });

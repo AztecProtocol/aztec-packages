@@ -273,31 +273,36 @@ ContentAddressedCachedTreeStore<LeafValueType>::ContentAddressedCachedTreeStore(
 }
 
 // Much Like the commit/rollback/set finalized/remove historic blocks apis
-// These 3 apis (checkpoint/revert_checkpoint/commit_checkpoint) all assume they are not called
-// during the process of reading/writing uncommitted state
-// This is reasonable, they intended for use by forks at the point of starting/ending a function call
+// These checkpoint apis modify the cache's internal state.
+// They acquire the mutex to prevent races with concurrent read/write operations (e.g., when C++ AVM simulation
+// runs on a worker thread while TypeScript calls revert_checkpoint from a timeout handler).
 template <typename LeafValueType> void ContentAddressedCachedTreeStore<LeafValueType>::checkpoint()
 {
+    std::unique_lock lock(mtx_);
     cache_.checkpoint();
 }
 
 template <typename LeafValueType> void ContentAddressedCachedTreeStore<LeafValueType>::revert_checkpoint()
 {
+    std::unique_lock lock(mtx_);
     cache_.revert();
 }
 
 template <typename LeafValueType> void ContentAddressedCachedTreeStore<LeafValueType>::commit_checkpoint()
 {
+    std::unique_lock lock(mtx_);
     cache_.commit();
 }
 
 template <typename LeafValueType> void ContentAddressedCachedTreeStore<LeafValueType>::revert_all_checkpoints()
 {
+    std::unique_lock lock(mtx_);
     cache_.revert_all();
 }
 
 template <typename LeafValueType> void ContentAddressedCachedTreeStore<LeafValueType>::commit_all_checkpoints()
 {
+    std::unique_lock lock(mtx_);
     cache_.commit_all();
 }
 

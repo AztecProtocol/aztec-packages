@@ -3,9 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../../styles.css">
+<script defer src="../../../nargo_doc.js"></script>
 <title>Struct PublicImmutable documentation</title>
 </head>
 <body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">PublicImmutable</div>
+</div>
+<span id="main-contents">
 <nav class="sidebar">
 <h1><a href="../../../index.html">aztec-nr</a></h1>
 <div><a href="../../../all.html">All items</a></div>
@@ -16,7 +22,6 @@
 <ul class="sidebar-list">
 <li><a href="#compute_initialization_nullifier">compute_initialization_nullifier</a></li>
 <li><a href="#initialize">initialize</a></li>
-<li><a href="#new">new</a></li>
 <li><a href="#read">read</a></li>
 <li><a href="#read">read</a></li>
 <li><a href="#read">read</a></li>
@@ -24,7 +29,7 @@
 </ul>
 <h3>Trait implementations</h3>
 <ul class="sidebar-list">
-<li><a href="#impl-HasStorageSlot&lt;M+1&gt;-for-PublicImmutable<T, Context>">HasStorageSlot&lt;M+1&gt;</a></li>
+<li><a href="#impl-StateVariable&lt;M+1, Context&gt;-for-PublicImmutable<T, Context>">StateVariable&lt;M+1, Context&gt;</a></li>
 </ul>
 <h2>In module public_immutable</h2>
 <h3>Structs</h3><ul class="item-list">
@@ -71,94 +76,20 @@ original data size.</p>
 constant&quot; constraint costs regardless of T's size, it's recommended to group
 multiple values into a single struct when they are to be read together. This is
 typically useful for configuration data set during contract initialization. E.g.:</p>
-<pre><code class="language-noir">use dep::aztec::protocol_types::{address::AztecAddress, traits::Packable};
-use std::meta::derive;
+<pre><code><span class="kw">use</span> <span class="kw">dep</span>::aztec::protocol_types::{address::AztecAddress, traits::Packable};
+<span class="kw">use</span> std::meta::derive;
 
 #[derive(Eq, Packable)]
-pub struct Config \{
-    pub address_1: AztecAddress,
-    pub value_1: u128,
-    pub value_2: u64,
+<span class="kw">pub</span> <span class="kw">struct</span> Config \{
+    <span class="kw">pub</span> address_1: AztecAddress,
+    <span class="kw">pub</span> value_1: u128,
+    <span class="kw">pub</span> value_2: u64,
     ...
-}
-</code></pre>
-</div>
+}</code></pre></div>
 <h2>Implementations</h2>
-<h3><code class="code-header">impl&lt;T&gt; <a href="../../../noir_aztec/state_vars/public_immutable/struct.PublicImmutable.html" class="struct">PublicImmutable</a>&lt;T, <a href="../../../noir_aztec/context/public_context/struct.PublicContext.html" class="struct">PublicContext</a>&gt;</code></h3>
+<h3><code class="code-header">impl&lt;T&gt; <a href="../../../noir_aztec/state_vars/public_immutable/struct.PublicImmutable.html" class="struct">PublicImmutable</a>&lt;T, <a href="../../../noir_aztec/context/utility_context/struct.UtilityContext.html" class="struct">UtilityContext</a>&gt;</code></h3>
 
-<div class="padded-methods"><code id="initialize" class="code-header">pub fn <span class="fn">initialize</span>(self, value: T)
-<div class="where-clause">where
-    T: <a href="../../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>,
-    T: <a href="../../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code>
-
-<div class="padded-description"><div class="comments">
-<p>Initializes a PublicImmutable state variable instance with a permanent value.</p>
-<p>This function sets the immutable value for this state variable. It can only
-be called once per PublicImmutable. Subsequent calls will fail because the
-initialization nullifier will already exist.</p>
-<h4>Arguments</h4>
-<ul>
-<li><code>value</code> - The permanent value to store in this PublicImmutable.</li>
-</ul>
-<h4>Panics</h4>
-<p>Panics if the value is already initialized.</p>
-<h4>Advanced</h4>
-<p>This function performs the following operations:</p>
-<ul>
-<li>Creates and emits an initialization nullifier to mark this storage slot
-as initialized. This prevents double-initialization.</li>
-<li>Wraps the value in <code>WithHash&lt;T&gt;</code> for efficient private reads.</li>
-<li>Stores the wrapped value in Aztec's public data tree.</li>
-</ul>
-<p>docs:start:public_immutable_struct_write</p>
-</div>
-</div><code id="read" class="code-header">pub fn <span class="fn">read</span>(self) -> T
-<div class="where-clause">where
-    T: <a href="../../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>,
-    T: <a href="../../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code>
-
-<div class="padded-description"><div class="comments">
-<p>Reads the permanent value stored in this PublicImmutable state variable.</p>
-<h4>Returns</h4>
-<ul>
-<li><code>T</code> - The permanent value stored in this PublicImmutable.</li>
-</ul>
-<h4>Panics</h4>
-<p>Panics if the value is not initialized.</p>
-<h4>Advanced</h4>
-<p>This function performs the following operations:</p>
-<ul>
-<li>Checks that the state variable has been initialized by verifying the
-initialization nullifier exists</li>
-<li>Reads the <code>WithHash&lt;T&gt;</code> wrapper from public storage</li>
-<li>Extracts and returns the original value T</li>
-</ul>
-<p>The function will panic if called on an uninitialized PublicImmutable.</p>
-<p>docs:start:public_immutable_struct_read</p>
-</div>
-</div><code id="read_unsafe" class="code-header">pub fn <span class="fn">read_unsafe</span>(self) -> T
-<div class="where-clause">where
-    T: <a href="../../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>,
-    T: <a href="../../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code>
-
-<div class="padded-description"><div class="comments">
-<p>Reads the value stored in this PublicImmutable without checking if the value
-is initialized.</p>
-<p>This function bypasses the initialization check and directly reads from
-storage.
-If the PublicImmutable has not been initialized, this will return a
-zeroed value.
-However, if the variable is <em>known</em> to be initialized, this is cheaper
-to call than <code>read</code>.</p>
-<h4>Returns</h4>
-<ul>
-<li><code>T</code> - The value stored in this PublicImmutable, or empty/default values if
-uninitialized.</li>
-</ul>
-</div>
-</div></div><h3><code class="code-header">impl&lt;T&gt; <a href="../../../noir_aztec/state_vars/public_immutable/struct.PublicImmutable.html" class="struct">PublicImmutable</a>&lt;T, <a href="../../../noir_aztec/context/utility_context/struct.UtilityContext.html" class="struct">UtilityContext</a>&gt;</code></h3>
-
-<div class="padded-methods"><code id="read" class="code-header">pub unconstrained fn <span class="fn">read</span>(self) -> T
+<div class="padded-methods"><code id="read" class="code-header">pub unconstrained fn <a href="#read"><span class="fn">read</span></a>(self) -> T
 <div class="where-clause">where
     T: <a href="../../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>,
     T: <a href="../../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code>
@@ -174,7 +105,7 @@ is an unconstrained environment on the user's local device.</p>
 </div>
 </div></div><h3><code class="code-header">impl&lt;T&gt; <a href="../../../noir_aztec/state_vars/public_immutable/struct.PublicImmutable.html" class="struct">PublicImmutable</a>&lt;T, &mut <a href="../../../noir_aztec/context/private_context/struct.PrivateContext.html" class="struct">PrivateContext</a>&gt;</code></h3>
 
-<div class="padded-methods"><code id="read" class="code-header">pub fn <span class="fn">read</span>(self) -> T
+<div class="padded-methods"><code id="read" class="code-header">pub fn <a href="#read"><span class="fn">read</span></a>(self) -> T
 <div class="where-clause">where
     T: <a href="../../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>,
     T: <a href="../../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code>
@@ -206,36 +137,92 @@ anchor block header.</li>
 <li>Verifies that the oracle-provided value matches the stored hash</li>
 </ul>
 </div>
-</div></div><h3><code class="code-header">impl&lt;Context, T&gt; <a href="../../../noir_aztec/state_vars/public_immutable/struct.PublicImmutable.html" class="struct">PublicImmutable</a>&lt;T, Context&gt;</code></h3>
+</div></div><h3><code class="code-header">impl&lt;T&gt; <a href="../../../noir_aztec/state_vars/public_immutable/struct.PublicImmutable.html" class="struct">PublicImmutable</a>&lt;T, <a href="../../../noir_aztec/context/public_context/struct.PublicContext.html" class="struct">PublicContext</a>&gt;</code></h3>
 
-<div class="padded-methods"><code id="new" class="code-header">pub fn <span class="fn">new</span>(context: Context, storage_slot: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>) -> Self</code>
+<div class="padded-methods"><code id="initialize" class="code-header">pub fn <a href="#initialize"><span class="fn">initialize</span></a>(self, value: T)
+<div class="where-clause">where
+    T: <a href="../../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>,
+    T: <a href="../../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code>
 
 <div class="padded-description"><div class="comments">
-<p>Initializes a new PublicImmutable state variable.</p>
-<p>This function is usually automatically called within the #[storage] macro.
-You typically don't need to call this directly when writing smart contracts.</p>
+<p>Initializes a PublicImmutable state variable instance with a permanent value.</p>
+<p>This function sets the immutable value for this state variable. It can only
+be called once per PublicImmutable. Subsequent calls will fail because the
+initialization nullifier will already exist.</p>
 <h4>Arguments</h4>
 <ul>
-<li><code>context</code> - One of <code>PublicContext</code>/<code>PrivateContext</code>/<code>UtilityContext</code>. The
-Context determines which methods of this struct will be made
-available to the calling smart contract function.</li>
-<li><code>storage_slot</code> - A unique identifier for this state variable within the
-contract. Usually, the #[storage] macro will determine an
-appropriate storage_slot automatically. A smart contract
-dev shouldn't have to worry about this, as it's managed
-behind the scenes.</li>
+<li><code>value</code> - The permanent value to store in this PublicImmutable.</li>
 </ul>
-<p>docs:start:public_immutable_struct_new</p>
+<h4>Panics</h4>
+<p>Panics if the value is already initialized.</p>
+<h4>Advanced</h4>
+<p>This function performs the following operations:</p>
+<ul>
+<li>Creates and emits an initialization nullifier to mark this storage slot
+as initialized. This prevents double-initialization.</li>
+<li>Wraps the value in <code>WithHash&lt;T&gt;</code> for efficient private reads.</li>
+<li>Stores the wrapped value in Aztec's public data tree.</li>
+</ul>
+<p>docs:start:public_immutable_struct_write</p>
 </div>
-</div><code id="compute_initialization_nullifier" class="code-header">pub fn <span class="fn">compute_initialization_nullifier</span>(self) -> <a href="../../../std/primitive.Field.html" class="primitive">Field</a></code>
+</div><code id="read" class="code-header">pub fn <a href="#read"><span class="fn">read</span></a>(self) -> T
+<div class="where-clause">where
+    T: <a href="../../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>,
+    T: <a href="../../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code>
+
+<div class="padded-description"><div class="comments">
+<p>Reads the permanent value stored in this PublicImmutable state variable.</p>
+<h4>Returns</h4>
+<ul>
+<li><code>T</code> - The permanent value stored in this PublicImmutable.</li>
+</ul>
+<h4>Panics</h4>
+<p>Panics if the value is not initialized.</p>
+<h4>Advanced</h4>
+<p>This function performs the following operations:</p>
+<ul>
+<li>Checks that the state variable has been initialized by verifying the
+initialization nullifier exists</li>
+<li>Reads the <code>WithHash&lt;T&gt;</code> wrapper from public storage</li>
+<li>Extracts and returns the original value T</li>
+</ul>
+<p>The function will panic if called on an uninitialized PublicImmutable.</p>
+<p>docs:start:public_immutable_struct_read</p>
+</div>
+</div><code id="read_unsafe" class="code-header">pub fn <a href="#read_unsafe"><span class="fn">read_unsafe</span></a>(self) -> T
+<div class="where-clause">where
+    T: <a href="../../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>,
+    T: <a href="../../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code>
+
+<div class="padded-description"><div class="comments">
+<p>Reads the value stored in this PublicImmutable without checking if the value
+is initialized.</p>
+<p>This function bypasses the initialization check and directly reads from
+storage.
+If the PublicImmutable has not been initialized, this will return a
+zeroed value.
+However, if the variable is <em>known</em> to be initialized, this is cheaper
+to call than <code>read</code>.</p>
+<h4>Returns</h4>
+<ul>
+<li><code>T</code> - The value stored in this PublicImmutable, or empty/default values if
+uninitialized.</li>
+</ul>
+</div>
+</div></div><h3><code class="code-header">impl&lt;Context, T&gt; <a href="../../../noir_aztec/state_vars/public_immutable/struct.PublicImmutable.html" class="struct">PublicImmutable</a>&lt;T, Context&gt;</code></h3>
+
+<div class="padded-methods"><code id="compute_initialization_nullifier" class="code-header">pub fn <a href="#compute_initialization_nullifier"><span class="fn">compute_initialization_nullifier</span></a>(self) -> <a href="../../../std/primitive.Field.html" class="primitive">Field</a></code>
 
 </div><h2>Trait implementations</h2>
-<h3 id="impl-HasStorageSlot&lt;M+1&gt;-for-PublicImmutable<T, Context>"><code class="code-header">impl&lt;Context, let M: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, T&gt; <a href="../../../noir_aztec/state_vars/storage/trait.HasStorageSlot.html" class="trait">HasStorageSlot</a>&lt;M + 1&gt; for <a href="../../../noir_aztec/state_vars/public_immutable/struct.PublicImmutable.html" class="struct">PublicImmutable</a>&lt;T, Context&gt;
+<h3 id="impl-StateVariable&lt;M+1, Context&gt;-for-PublicImmutable<T, Context>"><code class="code-header">impl&lt;Context, let M: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, T&gt; <a href="../../../noir_aztec/state_vars/state_variable/trait.StateVariable.html" class="trait">StateVariable</a>&lt;M + 1, Context&gt; for <a href="../../../noir_aztec/state_vars/public_immutable/struct.PublicImmutable.html" class="struct">PublicImmutable</a>&lt;T, Context&gt;
 <div class="where-clause">where
     T: <a href="../../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>&lt;N = M&gt;</div></code></h3>
 
-<div class="padded-methods"><code class="code-header">pub fn <span class="fn">get_storage_slot</span>(self) -> <a href="../../../std/primitive.Field.html" class="primitive">Field</a></code>
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">new</span>(context: Context, storage_slot: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>) -> Self</code>
+
+<code class="code-header">pub fn <span class="fn">get_storage_slot</span>(self) -> <a href="../../../std/primitive.Field.html" class="primitive">Field</a></code>
 
 </div></main>
+</span>
 </body>
 </html>

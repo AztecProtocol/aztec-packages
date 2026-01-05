@@ -21,20 +21,34 @@ template <typename AffinePoint> class StandardAffinePoint {
 
     constexpr StandardAffinePoint(AffinePoint val) noexcept
         : point(val)
+        , x_coord(val.x)
+        , y_coord(val.y)
     {}
 
     constexpr StandardAffinePoint(BaseField x, BaseField y, bool is_infinity) noexcept
         : point(is_infinity ? AffinePoint::infinity() : AffinePoint(x, y))
+        , x_coord(x)
+        , y_coord(y)
     {}
 
     constexpr StandardAffinePoint operator+(const StandardAffinePoint& other) const noexcept
     {
-        return StandardAffinePoint(point + other.point);
+        AffinePoint result = point + other.point;
+        if (result.is_point_at_infinity()) {
+            // If the result is infinity, we need to normalise it to (0,0) to match noir outputs.
+            return StandardAffinePoint::infinity();
+        }
+        return StandardAffinePoint(result);
     }
 
     constexpr StandardAffinePoint operator*(const ScalarField& exponent) const noexcept
     {
-        return StandardAffinePoint(point * exponent);
+        AffinePoint result = point * exponent;
+        if (result.is_point_at_infinity()) {
+            // If the result is infinity, we need to normalise it to (0,0) to match noir outputs.
+            return StandardAffinePoint::infinity();
+        }
+        return StandardAffinePoint(result);
     }
 
     constexpr bool operator==(const StandardAffinePoint& other) const noexcept
@@ -42,19 +56,28 @@ template <typename AffinePoint> class StandardAffinePoint {
         return (this == &other || point == other.point);
     }
 
-    constexpr StandardAffinePoint operator-() const noexcept { return StandardAffinePoint(-point); }
+    constexpr StandardAffinePoint operator-() const noexcept
+    {
+        // Negating infinity returns itself, preserving raw coordinates.
+        if (point.is_point_at_infinity()) {
+            return *this;
+        }
+        return StandardAffinePoint(-point);
+    }
 
     [[nodiscard]] constexpr bool is_infinity() const noexcept { return point.is_point_at_infinity(); }
 
     [[nodiscard]] constexpr bool on_curve() const noexcept { return point.on_curve(); }
 
-    constexpr const BaseField& x() const noexcept { return point.is_point_at_infinity() ? zero : point.x; }
+    // Always returns the raw coordinates, when an operation results in infinity these will be (0,0).
+    // If a point at infinity is constructed with non-zero coordinates, we likely want to preserve those.
+    constexpr const BaseField& x() const noexcept { return x_coord; }
 
-    constexpr const BaseField& y() const noexcept { return point.is_point_at_infinity() ? zero : point.y; }
+    constexpr const BaseField& y() const noexcept { return y_coord; }
 
     static const StandardAffinePoint& infinity()
     {
-        static auto infinity = StandardAffinePoint(AffinePoint::infinity());
+        static auto infinity = StandardAffinePoint(zero, zero, true);
         return infinity;
     }
 
@@ -65,7 +88,13 @@ template <typename AffinePoint> class StandardAffinePoint {
     }
 
   private:
+    // The affine point for operations, this will always match the raw coordinates unless the point is infinity.
+    // In that case, the point will be set to barretenberg's infinity representation - which is not (0,0).
     AffinePoint point;
+    // These are the raw x and y coordinates, that are set when constructing the point. When an operation results
+    // in infinity, these will be set to (0,0) to match noir's expected representation.
+    BaseField x_coord = zero;
+    BaseField y_coord = zero;
     static constexpr const auto zero = BaseField::zero();
 };
 

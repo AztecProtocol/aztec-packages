@@ -40,9 +40,13 @@ class MemoryManager {
     bool is_memory_address_set(uint16_t address);
 
     std::optional<std::pair<ResolvedAddress, bb::avm2::testing::OperandBuilder>> get_resolved_address_and_operand_8(
+        ParamRef address);
+    std::optional<std::pair<ResolvedAddress, bb::avm2::testing::OperandBuilder>> get_resolved_address_and_operand_8(
         VariableRef address);
     std::optional<std::pair<ResolvedAddress, bb::avm2::testing::OperandBuilder>> get_resolved_address_and_operand_8(
         AddressRef address);
+    std::optional<std::pair<ResolvedAddress, bb::avm2::testing::OperandBuilder>> get_resolved_address_and_operand_16(
+        ParamRef address);
     std::optional<std::pair<ResolvedAddress, bb::avm2::testing::OperandBuilder>> get_resolved_address_and_operand_16(
         VariableRef address);
     std::optional<std::pair<ResolvedAddress, bb::avm2::testing::OperandBuilder>> get_resolved_address_and_operand_16(

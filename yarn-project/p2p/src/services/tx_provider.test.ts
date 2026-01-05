@@ -203,7 +203,7 @@ describe('TxProvider', () => {
     // Check instrumentation calls
     expect(incTxsFromMempoolSpy).toHaveBeenCalledWith(5);
     expect(incTxsFromProposalsSpy).toHaveBeenCalledWith(1);
-    expect(incTxsFromP2PSpy).toHaveBeenCalledWith(2);
+    expect(incTxsFromP2PSpy).toHaveBeenCalledWith(2, 10);
     expect(incMissingTxsSpy).toHaveBeenCalledWith(2);
   });
 

@@ -103,7 +103,7 @@ These scripts generate the documentation and deploy it to the docs directories:
 ./docs/scripts/cli_reference_generation/update_all_cli_docs.sh v2.0.2
 
 # Output both CLIs to a custom directory instead of deploying to docs folders
-# Uses default filenames: cli_reference.md and cli_wallet_reference.md
+# Uses default filenames: aztec_cli_reference.md and aztec_wallet_cli_reference.md
 ./docs/scripts/cli_reference_generation/update_all_cli_docs.sh v2.0.2 /tmp/
 
 # Output a single CLI to a custom directory
@@ -173,12 +173,42 @@ python transform_to_markdown.py \
 ### scan_cli.py
 
 ```
-usage: scan_cli.py [-h] --output OUTPUT [--format {json,yaml}] [--command COMMAND]
+usage: scan_cli.py [-h] --output OUTPUT [--format {json,yaml}] [--command COMMAND] [--workers WORKERS] [--timeout TIMEOUT]
 
 options:
   -o, --output OUTPUT       Output file path
   -f, --format FORMAT       Output format: json or yaml (default: json)
   -c, --command COMMAND     Base command to scan (default: aztec)
+  -w, --workers WORKERS     Number of parallel workers (default: 1, sequential)
+  -t, --timeout TIMEOUT     Timeout in seconds per command (default: 15)
+```
+
+### Performance Tuning
+
+For faster documentation generation, use parallel workers:
+
+```bash
+# Sequential (default, safest)
+python scan_cli.py --output cli_docs.json
+
+# Parallel with 4 workers (4x faster, recommended)
+python scan_cli.py --output cli_docs.json --workers 4
+
+# Parallel with 8 workers (use with caution - may spawn many Docker containers)
+python scan_cli.py --output cli_docs.json --workers 8
+
+# Custom timeout (default is 15s, increase if commands are slow)
+python scan_cli.py --output cli_docs.json --workers 4 --timeout 30
+```
+
+When using shell scripts, set environment variables:
+
+```bash
+# Fast parallel scan
+CLI_SCAN_WORKERS=4 ./scripts/cli_reference_generation/generate_cli_docs.sh aztec
+
+# Parallel with longer timeout
+CLI_SCAN_WORKERS=4 CLI_SCAN_TIMEOUT=30 ./scripts/cli_reference_generation/update_cli_docs.sh aztec
 ```
 
 ### transform_to_markdown.py
@@ -309,7 +339,15 @@ python scan_cli.py --command "npm" --output npm_docs.json
 
 ### Command Times Out
 
-If scanning hangs on certain commands, the scanner has a 10-second timeout per command. Check the output for warnings.
+If scanning hangs on certain commands, the default timeout is 15 seconds per command. You can adjust this:
+
+```bash
+# Increase timeout for slow commands
+python scan_cli.py --output docs.json --timeout 30
+
+# Or via environment variable
+CLI_SCAN_TIMEOUT=30 ./scripts/cli_reference_generation/generate_cli_docs.sh aztec
+```
 
 ### Formatting Issues
 

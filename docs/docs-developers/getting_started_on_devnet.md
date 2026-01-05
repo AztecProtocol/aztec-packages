@@ -1,11 +1,9 @@
 ---
 title: Setting up for Devnet
 sidebar_position: 3
-tags: [testnet]
+tags: [devnet]
 description: Guide for developers to get started with the Aztec devnet, including account creation and contract deployment.
 ---
-
-import { AztecTestnetVersion } from '@site/src/components/Snippets/general_snippets';
 
 This guide explains the differences between the local network and devnet, how to migrate from the local network to devnet, and how to start developing directly on devnet.
 
@@ -38,16 +36,10 @@ If you're new to Aztec and want to understand local development first, check out
 Before working with devnet, ensure you have:
 
 1. [Docker](https://docs.docker.com/get-started/get-docker/) installed
-2. Aztec CLI installed:
+2. Aztec CLI with Devnet version installed:
 
 ```sh
-bash -i <(curl -s https://install.aztec.network)
-```
-
-3. The devnet version installed:
-
-```bash
-aztec-up #include_devnet_version
+bash -i <(curl -s https://install.aztec.network/#include_devnet_version/)
 ```
 
 :::warning
@@ -88,7 +80,7 @@ aztec-wallet create-account \
 ```
 
 :::note
-The first transaction will take longer as it downloads proving keys. If you see `Timeout awaiting isMined`, the transaction is still processing - this is normal on testnet.
+The first transaction will take longer as it downloads proving keys. If you see `Timeout awaiting isMined`, the transaction is still processing - this is normal on devnet.
 :::
 
 ### Step 3: Deploy and interact with contracts
@@ -118,16 +110,16 @@ aztec-wallet send mint_to_private \
     --args accounts:my-wallet 10
 ```
 
-## Migrating from the Local Network to Testnet
+## Migrating from the Local Network to Devnet
 
-If you have an existing app running on your local network, here's how to migrate it to testnet:
+If you have an existing app running on your local network, here's how to migrate it to devnet:
 
-### 1. Connect to Testnet Node
+### 1. Connect to Devnet Node
 
-Instead of running a local network, connect to the testnet node:
+Instead of running a local network, connect to the devnet node:
 
 ```sh
-export NODE_URL=https://aztec-testnet-fullnode.zkv.xyz
+export NODE_URL=https://next.devnet.aztec-labs.com/
 ```
 
 When running `aztec-wallet` commands, include the node URL:
@@ -138,7 +130,7 @@ aztec-wallet create-account -a main --node-url $NODE_URL
 
 ### 2. Initialize a TestWallet for Devnet
 
-You can connect to testnet directly from your app using AztecJS:
+You can connect to devnet directly from your app using AztecJS:
 
 In the browser:
 

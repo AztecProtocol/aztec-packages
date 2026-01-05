@@ -19,6 +19,7 @@ import {
   ORACLE_VERSION,
   PrivateEventDataProvider,
   RecipientTaggingDataProvider,
+  SenderAddressBook,
   SenderTaggingDataProvider,
   enrichPublicSimulationError,
 } from '@aztec/pxe/server';
@@ -102,6 +103,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     private accountDataProvider: TXEAccountDataProvider,
     private senderTaggingDataProvider: SenderTaggingDataProvider,
     private recipientTaggingDataProvider: RecipientTaggingDataProvider,
+    private senderAddressBook: SenderAddressBook,
     private capsuleDataProvider: CapsuleDataProvider,
     private privateEventDataProvider: PrivateEventDataProvider,
     private nextBlockTimestamp: bigint,
@@ -333,6 +335,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       this.stateMachine.anchorBlockDataProvider,
       this.senderTaggingDataProvider,
       this.recipientTaggingDataProvider,
+      this.senderAddressBook,
       this.capsuleDataProvider,
       this.privateEventDataProvider,
       0,
@@ -657,8 +660,8 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
         this.addressDataProvider,
         this.stateMachine.node,
         this.stateMachine.anchorBlockDataProvider,
-        this.senderTaggingDataProvider,
         this.recipientTaggingDataProvider,
+        this.senderAddressBook,
         this.capsuleDataProvider,
         this.privateEventDataProvider,
       );
