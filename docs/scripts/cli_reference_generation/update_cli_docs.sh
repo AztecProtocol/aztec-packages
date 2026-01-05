@@ -6,9 +6,20 @@
 #   ./scripts/cli_reference_generation/update_cli_docs.sh aztec                    # Updates aztec CLI, all versions
 #   ./scripts/cli_reference_generation/update_cli_docs.sh aztec-wallet current     # Updates aztec-wallet CLI, current only
 #   ./scripts/cli_reference_generation/update_cli_docs.sh aztec v2.0.2             # Updates aztec CLI, v2.0.2 only
-#   ./scripts/cli_reference_generation/update_cli_docs.sh aztec v2.0.2 /tmp/       # Outputs to /tmp/cli_reference.md
+#   ./scripts/cli_reference_generation/update_cli_docs.sh aztec v2.0.2 /tmp/       # Outputs to /tmp/aztec_cli_reference.md
+#
+# Environment variables for performance tuning:
+#   CLI_SCAN_WORKERS  - Number of parallel workers (default: 1, use 4-8 for faster scans)
+#   CLI_SCAN_TIMEOUT  - Timeout per command in seconds (default: 15)
+#
+# Example with parallel scanning:
+#   CLI_SCAN_WORKERS=4 ./scripts/cli_reference_generation/update_cli_docs.sh aztec
 
 set -euo pipefail  # Added 'u' for undefined variable check, 'o pipefail' for pipe failures
+
+# Performance tuning via environment variables
+CLI_SCAN_WORKERS="${CLI_SCAN_WORKERS:-1}"
+CLI_SCAN_TIMEOUT="${CLI_SCAN_TIMEOUT:-15}"
 
 # Validate arguments
 if [[ $# -lt 1 ]]; then
@@ -105,17 +116,17 @@ readonly TEMP_WITH_FRONTMATTER="$TEMP_DIR/cli_final.md"
 # Configuration per CLI (compatible with bash 3.2+)
 case "$CLI_NAME" in
   aztec)
-    DISPLAY_NAME="Aztec CLI"
+    DISPLAY_NAME="Aztec CLI Reference"
     TITLE="Aztec CLI Reference"
-    OUTPUT_FILE="cli_reference.md"
-    SIDEBAR_POSITION="3"
+    OUTPUT_FILE="aztec_cli_reference.md"
+    SIDEBAR_POSITION="1"
     COMMAND="aztec"
     ;;
   aztec-wallet)
-    DISPLAY_NAME="Aztec Wallet CLI"
-    TITLE="Reference"
-    OUTPUT_FILE="cli_wallet_reference.md"
-    SIDEBAR_POSITION="10"
+    DISPLAY_NAME="Aztec Wallet CLI Reference"
+    TITLE="Aztec Wallet CLI Reference"
+    OUTPUT_FILE="aztec_wallet_cli_reference.md"
+    SIDEBAR_POSITION="2"
     COMMAND="aztec-wallet"
     ;;
 esac
@@ -125,7 +136,9 @@ echo ""
 
 # Step 1: Generate JSON from CLI
 echo "Step 1: Scanning ${COMMAND} CLI commands..."
-python3 "$SCRIPT_DIR/scan_cli.py" --command "$COMMAND" --output "$TEMP_JSON"
+echo "  Workers: $CLI_SCAN_WORKERS, Timeout: ${CLI_SCAN_TIMEOUT}s"
+python3 "$SCRIPT_DIR/scan_cli.py" --command "$COMMAND" --output "$TEMP_JSON" \
+  --workers "$CLI_SCAN_WORKERS" --timeout "$CLI_SCAN_TIMEOUT"
 
 # Step 2: Generate markdown
 echo ""
@@ -183,22 +196,13 @@ fi
 update_version() {
   local version=$1
   local target_dir=""
-  local cli_dir=""
 
-  # Determine CLI-specific directory
-  case "$CLI_NAME" in
-    aztec)
-      cli_dir="aztec-cli"
-      ;;
-    aztec-wallet)
-      cli_dir="wallet-cli"
-      ;;
-  esac
-
+  # All CLI docs now go to the unified 'cli' directory
   if [[ "$version" == "current" ]]; then
-    target_dir="$DOCS_ROOT/docs-developers/docs/${cli_dir}"
+    target_dir="$DOCS_ROOT/docs-developers/docs/cli"
   else
-    target_dir="$DOCS_ROOT/developer_versioned_docs/version-${version}/docs/${cli_dir}"
+    # Versioned docs also use the unified cli directory
+    target_dir="$DOCS_ROOT/developer_versioned_docs/version-${version}/docs/cli"
   fi
 
   if [[ ! -d "$target_dir" ]]; then

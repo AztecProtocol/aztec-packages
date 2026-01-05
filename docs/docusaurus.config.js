@@ -89,7 +89,7 @@ const config = {
         theme: {
           customCss: require.resolve("./src/css/custom.css"),
         },
-        // Enable pages for root-level content (index.mdx, ignition_info, etc.)
+        // Enable pages for root-level content (index.mdx, networks, etc.)
         pages: {
           path: "src/pages",
         },
@@ -191,7 +191,7 @@ const config = {
         rehypePlugins,
       },
     ],
-    // Root pages (index, ignition_info, etc.) - no versioning
+    // Root pages (index, networks, etc.) - no versioning
     [
       "@docusaurus/plugin-content-docs",
       {
@@ -291,8 +291,8 @@ const config = {
             label: "Run a node",
           },
           {
-            to: "/ignition_info",
-            label: "Ignition Info",
+            to: "/networks",
+            label: "Networks",
             position: "right",
           },
           {

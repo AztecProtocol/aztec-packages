@@ -6,7 +6,6 @@
 
 #pragma once
 #include "barretenberg/dsl/acir_format/witness_constant.hpp"
-#include "barretenberg/serialize/msgpack.hpp"
 #include <cstdint>
 
 namespace acir_format {
@@ -44,17 +43,6 @@ struct EcAdd {
     uint32_t result_y;
     uint32_t result_infinite;
 
-    // for serialization, update with any new fields
-    MSGPACK_FIELDS(input1_x,
-                   input1_y,
-                   input1_infinite,
-                   input2_x,
-                   input2_y,
-                   input2_infinite,
-                   predicate,
-                   result_x,
-                   result_y,
-                   result_infinite);
     friend bool operator==(EcAdd const& lhs, EcAdd const& rhs) = default;
 };
 

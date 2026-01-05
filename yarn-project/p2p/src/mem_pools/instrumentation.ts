@@ -1,5 +1,5 @@
 import type { Gossipable } from '@aztec/stdlib/p2p';
-import type { Tx, TxHash } from '@aztec/stdlib/tx';
+import type { Tx } from '@aztec/stdlib/tx';
 import {
   Attributes,
   type BatchObservableResult,
@@ -72,7 +72,7 @@ export class PoolInstrumentation<PoolObject extends Gossipable> {
   private defaultAttributes;
   private meter: Meter;
 
-  private txAddedTimestamp: Map<string, number> = new Map<string, number>();
+  private txAddedTimestamp: Map<bigint, number> = new Map<bigint, number>();
 
   constructor(
     telemetry: TelemetryClient,
@@ -124,18 +124,20 @@ export class PoolInstrumentation<PoolObject extends Gossipable> {
   public transactionsAdded(transactions: Tx[]) {
     const timestamp = Date.now();
     for (const transaction of transactions) {
-      this.txAddedTimestamp.set(transaction.txHash.toString(), timestamp);
+      this.txAddedTimestamp.set(transaction.txHash.toBigInt(), timestamp);
     }
   }
 
-  public transactionsRemoved(hashes: TxHash[]) {
+  public transactionsRemoved(hashes: Iterable<bigint> | Iterable<string>) {
     const timestamp = Date.now();
     for (const hash of hashes) {
-      const key = hash.toString();
+      const key = BigInt(hash);
       const addedAt = this.txAddedTimestamp.get(key);
-      if (addedAt) {
+      if (addedAt !== undefined) {
         this.txAddedTimestamp.delete(key);
-        this.minedDelay.record(addedAt - timestamp);
+        if (addedAt < timestamp) {
+          this.minedDelay.record(timestamp - addedAt);
+        }
       }
     }
   }

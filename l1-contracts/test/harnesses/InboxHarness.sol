@@ -10,8 +10,8 @@ import {FrontierLib} from "@aztec/core/libraries/crypto/FrontierLib.sol";
 contract InboxHarness is Inbox {
   using FrontierLib for FrontierLib.Tree;
 
-  constructor(address _rollup, IERC20 _feeAsset, uint256 _version, uint256 _height)
-    Inbox(_rollup, _feeAsset, _version, _height)
+  constructor(address _rollup, IERC20 _feeAsset, uint256 _version, uint256 _height, uint256 _lag)
+    Inbox(_rollup, _feeAsset, _version, _height, _lag)
   {}
 
   function getSize() external view returns (uint256) {

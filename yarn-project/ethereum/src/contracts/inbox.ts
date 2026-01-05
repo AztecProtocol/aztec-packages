@@ -45,6 +45,11 @@ export class InboxContract {
     return this.inbox;
   }
 
+  public async getLag(opts: { blockTag?: BlockTag; blockNumber?: bigint } = {}): Promise<bigint> {
+    await checkBlockTag(opts.blockNumber, this.client);
+    return await this.inbox.read.LAG(opts);
+  }
+
   public async getState(opts: { blockTag?: BlockTag; blockNumber?: bigint } = {}): Promise<InboxContractState> {
     await checkBlockTag(opts.blockNumber, this.client);
     const state = await this.inbox.read.getState(opts);

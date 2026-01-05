@@ -18,13 +18,13 @@ Aztec is a privacy-first Layer 2 rollup on Ethereum. It supports smart contracts
 
 `aztec` is a CLI tool (with an extensive set of parameters) that enables users to perform a wide range of tasks. It can: compile and test contracts, run a node, run a local network, execute tests, generate contract interfaces for javascript and more.
 
-Full reference [here](../aztec-cli/cli_reference).
+Full reference [here](../cli/aztec_cli_reference).
 
 ### Aztec Wallet
 
 The Aztec Wallet is a CLI wallet, `aztec-wallet`, that allows a user to manage accounts and interact with an Aztec network. It includes a PXE.
 
-Full reference [here](../wallet-cli/cli_wallet_reference).
+Full reference [here](../cli/aztec_wallet_cli_reference).
 
 ### `aztec-up`
 
@@ -68,7 +68,7 @@ Merkle trees in Aztec are used to store cryptographic commitments. They are used
 
 With `nargo`, you can start new projects, compile, execute, and test your Noir programs.
 
-You can find more information in the nargo installation docs [here](https://noir-lang.org/docs/getting_started/installation/) and the nargo command reference [here](https://noir-lang.org/docs/reference/nargo_commands).
+You can find more information in the nargo installation docs [here](https://noir-lang.org/docs/getting_started/quick_start#installation) and the nargo command reference [here](https://noir-lang.org/docs/reference/nargo_commands).
 
 ### Noir
 
@@ -166,7 +166,7 @@ Previously in [Aztec Connect](https://medium.com/aztec-protocol/sunsetting-aztec
 
 Programs that run on the Aztec network are called smart contracts, similar to [programs](https://ethereum.org/en/developers/docs/smart-contracts/) that run on Ethereum.
 
-However, these will be written in the [Noir](https://noir-lang.org/index.html) programming language, and may optionally include private state and private functions.
+However, these will be written in the [Noir](https://noir-lang.org/) programming language, and may optionally include private state and private functions.
 
 ### Statement
 

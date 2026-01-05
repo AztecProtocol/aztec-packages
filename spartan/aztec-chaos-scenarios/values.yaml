@@ -94,6 +94,11 @@ validatorKill:
   enabled: false
   percent: 30
 
+validatorFailure:
+  enabled: false
+  duration: 60s
+  percent: "100"
+
 bootNodeFailure:
   enabled: false
   duration: 60m

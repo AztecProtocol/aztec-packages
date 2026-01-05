@@ -108,6 +108,10 @@ export class CheckpointProposalJob {
     // Wait until the voting promises have resolved, so all requests are enqueued (not sent)
     await Promise.all(votesPromises);
 
+    if (checkpoint) {
+      this.metrics.recordBlockProposalSuccess();
+    }
+
     // Do not post anything to L1 if we are fishermen, but do perform L1 fee analysis
     if (this.config.fishermanMode) {
       await this.handleCheckpointEndAsFisherman(checkpoint);
@@ -669,7 +673,6 @@ export class CheckpointProposalJob {
         ...checkpoint.getStats(),
         feeAnalysisId: feeAnalysis?.id,
       });
-      this.metrics.recordBlockProposalSuccess();
     } else {
       this.log.warn(`Validation block building FAILED for slot ${this.slot}`, {
         slot: this.slot,

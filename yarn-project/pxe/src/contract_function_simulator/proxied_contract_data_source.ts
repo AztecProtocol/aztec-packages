@@ -2,21 +2,21 @@ import { FunctionSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractOverrides } from '@aztec/stdlib/tx';
 
-import type { ContractDataProvider } from '../storage/contract_data_provider/contract_data_provider.js';
+import type { ContractStore } from '../storage/contract_store/contract_store.js';
 
 /*
- * Proxy generator for a ContractDataProvider that allows overriding contract instances and artifacts, so
+ * Proxy generator for a ContractStore that allows overriding contract instances and artifacts, so
  * the contract function simulator can execute different bytecode on certain addresses. An example use case
  * would be overriding your own account contract so that valid signatures don't have to be provided while simulating.
  */
-export class ProxiedContractDataProviderFactory {
-  static create(contractDataProvider: ContractDataProvider, overrides?: ContractOverrides) {
+export class ProxiedContractStoreFactory {
+  static create(contractStore: ContractStore, overrides?: ContractOverrides) {
     if (!overrides) {
-      return contractDataProvider;
+      return contractStore;
     }
 
-    return new Proxy(contractDataProvider, {
-      get(target, prop: keyof ContractDataProvider) {
+    return new Proxy(contractStore, {
+      get(target, prop: keyof ContractStore) {
         switch (prop) {
           case 'getContractInstance': {
             return async (address: AztecAddress) => {

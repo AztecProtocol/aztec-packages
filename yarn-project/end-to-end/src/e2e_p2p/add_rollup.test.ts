@@ -159,6 +159,7 @@ describe('e2e_p2p_add_rollup', () => {
         aztecTargetCommitteeSize: t.ctx.aztecNodeConfig.aztecTargetCommitteeSize,
         lagInEpochsForValidatorSet: t.ctx.aztecNodeConfig.lagInEpochsForValidatorSet,
         lagInEpochsForRandao: t.ctx.aztecNodeConfig.lagInEpochsForRandao,
+        inboxLag: t.ctx.aztecNodeConfig.inboxLag,
         aztecProofSubmissionEpochs: t.ctx.aztecNodeConfig.aztecProofSubmissionEpochs,
         slashingQuorum: t.ctx.aztecNodeConfig.slashingQuorum,
         slashingRoundSizeInEpochs: t.ctx.aztecNodeConfig.slashingRoundSizeInEpochs,
