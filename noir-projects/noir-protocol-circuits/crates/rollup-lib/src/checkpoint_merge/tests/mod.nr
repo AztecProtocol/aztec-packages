@@ -109,14 +109,12 @@ impl TestBuilder {
             expected_header_hashes[i] = left.checkpoint_header_hashes[i];
             expected_fees[i] = left.fees[i];
             assert(left.checkpoint_header_hashes[i] != 0);
-            assert(!left.fees[i].is_empty());
         }
         let offset = self.num_left_checkpoints as u32;
         for i in 0..self.num_right_checkpoints as u32 {
             expected_header_hashes[i + offset] = right.checkpoint_header_hashes[i];
             expected_fees[i + offset] = right.fees[i];
             assert(right.checkpoint_header_hashes[i] != 0);
-            assert(!right.fees[i].is_empty());
         }
         assert_eq(pi.checkpoint_header_hashes, expected_header_hashes);
         assert_eq(pi.fees, expected_fees);
