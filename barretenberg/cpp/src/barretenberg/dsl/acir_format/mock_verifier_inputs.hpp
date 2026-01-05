@@ -10,6 +10,7 @@
 #include "barretenberg/goblin/goblin.hpp"
 #include "barretenberg/stdlib/primitives/bigfield/bigfield.hpp"
 #include "barretenberg/ultra_honk/verifier_instance.hpp"
+#include "barretenberg/vm2/constraining/flavor.hpp"
 #include <vector>
 
 namespace acir_format {
@@ -83,8 +84,14 @@ template <typename Flavor, class PublicInputs>
 bb::HonkProof create_mock_honk_proof(const size_t acir_public_inputs_size = 0);
 
 /**
- * @brief Create a valid honk proof and vk for a circuit with a single big add gate. Adds random public inputs to match
- * num_public_inputs provided.
+ * @brief Create a mock AVM proof without public inputs that has the correct structure but is not in general valid
+ *
+ */
+bb::HonkProof create_mock_avm_proof_without_pub_inputs();
+
+/**
+ * @brief Create a valid honk proof and vk for a circuit with a single big add gate. Adds random public inputs to
+ * match num_public_inputs provided.
  *
  * @param acir_public_inputs_size Number of public inputs coming from the ACIR constraints
  * @param make_proof_invalid If true, the proof is an invalid proof
