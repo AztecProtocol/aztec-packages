@@ -143,13 +143,15 @@ export class PXE {
     const keyStore = new KeyStore(store);
     const tipsStore = new L2TipsKVStore(store, 'pxe');
 
-    // Create JobCoordinator and register staging providers
+    // Create JobCoordinator and register staged stores
     const jobCoordinator = new JobCoordinator(store);
-    jobCoordinator.registerProvider(anchorBlockDataProvider);
-    jobCoordinator.registerProvider(noteDataProvider);
-    jobCoordinator.registerProvider(senderTaggingDataProvider);
-    jobCoordinator.registerProvider(recipientTaggingDataProvider);
-    jobCoordinator.registerProvider(privateEventDataProvider);
+    jobCoordinator.registerStores([
+      anchorBlockDataProvider,
+      noteDataProvider,
+      senderTaggingDataProvider,
+      recipientTaggingDataProvider,
+      privateEventDataProvider,
+    ]);
 
     // Recover from any incomplete job on startup
     await jobCoordinator.recover();

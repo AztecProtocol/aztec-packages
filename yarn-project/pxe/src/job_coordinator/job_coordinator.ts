@@ -41,29 +41,38 @@ export class JobCoordinator {
   private readonly log = createLogger('pxe:job_coordinator');
 
   /** The underlying KV store */
-  #store: AztecAsyncKVStore;
+  kvStore: AztecAsyncKVStore;
 
   /** Persisted job marker - indicates a job is in progress */
   #currentJob: AztecAsyncSingleton<Buffer>;
 
-  /** All registered staging providers */
-  #providers: Map<string, StagedStore> = new Map();
+  /** All registered staged stores */
+  #stores: Map<string, StagedStore> = new Map();
 
-  constructor(store: AztecAsyncKVStore) {
-    this.#store = store;
-    this.#currentJob = store.openSingleton('pxe_current_job');
+  constructor(kvStore: AztecAsyncKVStore) {
+    this.kvStore = kvStore;
+    this.#currentJob = kvStore.openSingleton('pxe_current_job');
   }
 
   /**
-   * Registers a data provider that supports staging.
-   * Must be called during initialization for all providers that need staging support.
+   * Registers a staged store.
+   * Must be called during initialization for all stores that need staging support.
    */
-  registerProvider(provider: StagedStore): void {
-    if (this.#providers.has(provider.storeName)) {
-      throw new Error(`Provider "${provider.storeName}" is already registered`);
+  registerStore(store: StagedStore): void {
+    if (this.#stores.has(store.storeName)) {
+      throw new Error(`Store "${store.storeName}" is already registered`);
     }
-    this.#providers.set(provider.storeName, provider);
-    this.log.debug(`Registered staging provider: ${provider.storeName}`);
+    this.#stores.set(store.storeName, store);
+    this.log.debug(`Registered staged store: ${store.storeName}`);
+  }
+
+  /**
+   * Registers multiple staged stores.
+   */
+  registerStores(stores: StagedStore[]): void {
+    for (const store of stores) {
+      this.registerStore(store);
+    }
   }
 
   /**
@@ -109,11 +118,11 @@ export class JobCoordinator {
 
     this.log.debug(`Committing job ${context.jobId}`);
 
-    // Commit all providers atomically in a single transaction.
-    // Each provider's commitStaged is a no-op if it has no staged data.
-    await this.#store.transactionAsync(async () => {
-      for (const provider of this.#providers.values()) {
-        await provider.commitStaged(context);
+    // Commit all stores atomically in a single transaction.
+    // Each store's commitStaged is a no-op if it has no staged data.
+    await this.kvStore.transactionAsync(async () => {
+      for (const store of this.#stores.values()) {
+        await store.commitStaged(context);
       }
 
       // Clear the job marker within the same transaction
@@ -137,9 +146,9 @@ export class JobCoordinator {
 
     this.log.debug(`Aborting job ${context.jobId}`);
 
-    // Discard staging for all providers (each is a no-op if no staged data)
-    for (const provider of this.#providers.values()) {
-      await provider.discardStaged(context.stagingPrefix);
+    // Discard staging for all stores (each is a no-op if no staged data)
+    for (const store of this.#stores.values()) {
+      await store.discardStaged(context.stagingPrefix);
     }
 
     // Clear the job marker
@@ -170,12 +179,12 @@ export class JobCoordinator {
     // Reconstruct the context for recovery
     const context = new JobContext(job.jobId, job.jobType);
 
-    // Discard staging from all registered providers
-    for (const provider of this.#providers.values()) {
+    // Discard staging from all registered stores
+    for (const store of this.#stores.values()) {
       try {
-        await provider.discardStaged(context.stagingPrefix);
+        await store.discardStaged(context.stagingPrefix);
       } catch (err) {
-        this.log.error(`Failed to discard staging for ${provider.storeName}:`, err);
+        this.log.error(`Failed to discard staging for ${store.storeName}:`, err);
         // Continue with other stores
       }
     }

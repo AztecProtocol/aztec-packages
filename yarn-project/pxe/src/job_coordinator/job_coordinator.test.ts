@@ -54,16 +54,16 @@ describe('JobCoordinator', () => {
       await expect(coordinator.commitJob(context)).rejects.toThrow(/no matching job/);
     });
 
-    it('calls commitStaged on all registered providers', async () => {
+    it('calls commitStaged on all registered stores', async () => {
       const commitStagedMock = jest.fn<() => Promise<void>>().mockResolvedValue(undefined);
       const discardStagedMock = jest.fn<() => Promise<void>>().mockResolvedValue(undefined);
-      const mockProvider: StagedStore = {
+      const mockStore: StagedStore = {
         storeName: 'mock_store',
         commitStaged: commitStagedMock,
         discardStaged: discardStagedMock,
       };
 
-      coordinator.registerProvider(mockProvider);
+      coordinator.registerStore(mockStore);
 
       const context = await coordinator.beginJob('test_job');
 
@@ -82,16 +82,16 @@ describe('JobCoordinator', () => {
       expect(await coordinator.hasJobInProgress()).toBe(false);
     });
 
-    it('calls discardStaged on all registered providers', async () => {
+    it('calls discardStaged on all registered stores', async () => {
       const commitStagedMock = jest.fn<() => Promise<void>>().mockResolvedValue(undefined);
       const discardStagedMock = jest.fn<() => Promise<void>>().mockResolvedValue(undefined);
-      const mockProvider: StagedStore = {
+      const mockStore: StagedStore = {
         storeName: 'mock_store',
         commitStaged: commitStagedMock,
         discardStaged: discardStagedMock,
       };
 
-      coordinator.registerProvider(mockProvider);
+      coordinator.registerStore(mockStore);
 
       const context = await coordinator.beginJob('test_job');
 
@@ -121,10 +121,10 @@ describe('JobCoordinator', () => {
       expect(await newCoordinator.hasJobInProgress()).toBe(false);
     });
 
-    it('calls discardStaged on all registered providers', async () => {
+    it('calls discardStaged on all registered stores', async () => {
       const commitStagedMock = jest.fn<() => Promise<void>>().mockResolvedValue(undefined);
       const discardStagedMock = jest.fn<() => Promise<void>>().mockResolvedValue(undefined);
-      const mockProvider: StagedStore = {
+      const mockStore: StagedStore = {
         storeName: 'mock_store',
         commitStaged: commitStagedMock,
         discardStaged: discardStagedMock,
@@ -134,7 +134,7 @@ describe('JobCoordinator', () => {
 
       // Simulate restart
       const newCoordinator = new JobCoordinator(store);
-      newCoordinator.registerProvider(mockProvider);
+      newCoordinator.registerStore(mockStore);
 
       await newCoordinator.recover();
 
@@ -142,31 +142,31 @@ describe('JobCoordinator', () => {
     });
   });
 
-  describe('registerProvider', () => {
-    it('registers a provider', () => {
+  describe('registerStore', () => {
+    it('registers a store', () => {
       const commitStagedMock = jest.fn<() => Promise<void>>().mockResolvedValue(undefined);
       const discardStagedMock = jest.fn<() => Promise<void>>().mockResolvedValue(undefined);
-      const mockProvider: StagedStore = {
+      const mockStore: StagedStore = {
         storeName: 'mock_store',
         commitStaged: commitStagedMock,
         discardStaged: discardStagedMock,
       };
 
-      expect(() => coordinator.registerProvider(mockProvider)).not.toThrow();
+      expect(() => coordinator.registerStore(mockStore)).not.toThrow();
     });
 
     it('throws on duplicate registration', () => {
       const commitStagedMock = jest.fn<() => Promise<void>>().mockResolvedValue(undefined);
       const discardStagedMock = jest.fn<() => Promise<void>>().mockResolvedValue(undefined);
-      const mockProvider: StagedStore = {
+      const mockStore: StagedStore = {
         storeName: 'mock_store',
         commitStaged: commitStagedMock,
         discardStaged: discardStagedMock,
       };
 
-      coordinator.registerProvider(mockProvider);
+      coordinator.registerStore(mockStore);
 
-      expect(() => coordinator.registerProvider(mockProvider)).toThrow(/already registered/);
+      expect(() => coordinator.registerStore(mockStore)).toThrow(/already registered/);
     });
   });
 });
