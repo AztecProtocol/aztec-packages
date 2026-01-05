@@ -26,9 +26,10 @@ Lagrange selectors for activation:
 3. [Decomposition Relation](#decomposition-relation)
 4. [Permutation Relation](#permutation-relation)
 5. [Delta Range Constraint Relation](#delta-range-constraint-relation)
-6. [Opcode Constraint Relation](#opcode-constraint-relation)
-7. [Accumulator Transfer Relation](#accumulator-transfer-relation)
-8. [Zero Constraints Relation](#zero-constraints-relation)
+6. [Extra Relations](#extra-relations)
+   - (a) [Opcode Constraint Relation](#opcode-constraint-relation)
+   - (b) [Accumulator Transfer Relation](#accumulator-transfer-relation)
+   - (c) [Zero Constraints Relation](#zero-constraints-relation)
 
 ---
 
@@ -36,33 +37,33 @@ Lagrange selectors for activation:
 
 This table establishes all notation used in the relations:
 
-| Value                           | Native (𝔽q)          | Binary Limbs                                                                         | Native (𝔽r)     |
-| ------------------------------- | -------------------- | ------------------------------------------------------------------------------------ | --------------- |
+| Value                           | Description          | Binary Limbs                                                                         | Native $\mathbb{F}_r$ |
+| ------------------------------- | -------------------- | ------------------------------------------------------------------------------------ | --------------------- |
 | **Evaluation challenge**        |
-| $x$                             | Evaluation point     | $x_0, x_1, x_2, x_3$                                                                 | $x_4$           |
+| $x$                             | Evaluation point     | $x_0, x_1, x_2, x_3$                                                                 | $x_4$                 |
 | **Batching challenges**         |
-| $v$                             | Batching challenge   | $v_0, v_1, v_2, v_3$                                                                 | $v_4$           |
-| $v^2$                           | v squared            | $(v^2)_0, (v^2)_1, (v^2)_2, (v^2)_3$                                                 | $(v^2)_4$       |
-| $v^3$                           | v cubed              | $(v^3)_0, (v^3)_1, (v^3)_2, (v^3)_3$                                                 | $(v^3)_4$       |
-| $v^4$                           | v to fourth          | $(v^4)_0, (v^4)_1, (v^4)_2, (v^4)_3$                                                 | $(v^4)_4$       |
+| $v$                             | Batching challenge   | $v_0, v_1, v_2, v_3$                                                                 | $v_4$                 |
+| $v^2$                           | v squared            | $(v^2)_0, (v^2)_1, (v^2)_2, (v^2)_3$                                                 | $(v^2)_4$             |
+| $v^3$                           | v cubed              | $(v^3)_0, (v^3)_1, (v^3)_2, (v^3)_3$                                                 | $(v^3)_4$             |
+| $v^4$                           | v to fourth          | $(v^4)_0, (v^4)_1, (v^4)_2, (v^4)_3$                                                 | $(v^4)_4$             |
 | **Point coordinates (witness)** |
-| $P_x$                           | Point x-coordinate   | $P_{x,0}^{\text{lo}}, P_{x,1}^{\text{lo}}, P_{x,0}^{\text{hi}}, P_{x,1}^{\text{hi}}$ | (reconstructed) |
-| $P_y$                           | Point y-coordinate   | $P_{y,0}^{\text{lo}}, P_{y,1}^{\text{lo}}, P_{y,0}^{\text{hi}}, P_{y,1}^{\text{hi}}$ | (reconstructed) |
+| $P_x$                           | Point x-coordinate   | $P_{x,0}^{\text{lo}}, P_{x,1}^{\text{lo}}, P_{x,0}^{\text{hi}}, P_{x,1}^{\text{hi}}$ | (reconstructed)       |
+| $P_y$                           | Point y-coordinate   | $P_{y,0}^{\text{lo}}, P_{y,1}^{\text{lo}}, P_{y,0}^{\text{hi}}, P_{y,1}^{\text{hi}}$ | (reconstructed)       |
 | **Z-values (witness, 128-bit)** |
-| $z_1$                           | 128-bit value        | $z_{1,0}, z_{1,1}$ (only 2 limbs)                                                    | (reconstructed) |
-| $z_2$                           | 128-bit value        | $z_{2,0}, z_{2,1}$ (only 2 limbs)                                                    | (reconstructed) |
+| $z_1$                           | 128-bit value        | $z_{1,0}, z_{1,1}$ (only 2 limbs)                                                    | (reconstructed)       |
+| $z_2$                           | 128-bit value        | $z_{2,0}, z_{2,1}$ (only 2 limbs)                                                    | (reconstructed)       |
 | **Accumulator (witness)**       |
-| $a^{\text{prev}}$               | Previous accumulator | $a_0^{\text{prev}}, a_1^{\text{prev}}, a_2^{\text{prev}}, a_3^{\text{prev}}$         | (reconstructed) |
-| $a^{\text{curr}}$               | Current accumulator  | $a_0^{\text{curr}}, a_1^{\text{curr}}, a_2^{\text{curr}}, a_3^{\text{curr}}$         | (reconstructed) |
+| $a^{\text{prev}}$               | Previous accumulator | $a_0^{\text{prev}}, a_1^{\text{prev}}, a_2^{\text{prev}}, a_3^{\text{prev}}$         | (reconstructed)       |
+| $a^{\text{curr}}$               | Current accumulator  | $a_0^{\text{curr}}, a_1^{\text{curr}}, a_2^{\text{curr}}, a_3^{\text{curr}}$         | (reconstructed)       |
 | **Quotient (witness)**          |
-| $\mathcal{Q}$                   | Division quotient    | $q_0, q_1, q_2, q_3$                                                                 | (reconstructed) |
+| $\mathcal{Q}$                   | Division quotient    | $q_0, q_1, q_2, q_3$                                                                 | (reconstructed)       |
 | **Negative $q$ constant**       |
-| $\bar{q}$                       | $-q \pmod{2^{272}}$  | $\bar{q}_0, \bar{q}_1, \bar{q}_2, \bar{q}_3$                                         | $\bar{q}_4$     |
+| $\bar{q}$                       | $-q \pmod{2^{272}}$  | $\bar{q}_0, \bar{q}_1, \bar{q}_2, \bar{q}_3$                                         | $\bar{q}_4$           |
 | **Carries (witness)**           |
-| $c^{\text{lo}}$                 | Lower carry          | (single 84-bit value)                                                                | -               |
-| $c^{\text{hi}}$                 | Higher carry         | (single 84-bit value)                                                                | -               |
+| $c^{\text{lo}}$                 | Lower carry          | (single 84-bit value)                                                                | -                     |
+| $c^{\text{hi}}$                 | Higher carry         | (single 84-bit value)                                                                | -                     |
 | **Opcode (witness, small)**     |
-| $\texttt{op}$                   | Operation code       | (no decomposition, ≤ 8)                                                              | $\texttt{op}$   |
+| $\texttt{op}$                   | Operation code       | (no decomposition, ≤ 8)                                                              | $\texttt{op}$         |
 
 #### Reconstruction Formula (General)
 
@@ -111,19 +112,18 @@ If this equation holds:
 2. Modulo $r$ (native $\mathbb{F}_r$ computation), and
 3. All values are properly range-constrained
 
-Using Chinese Remainder Theorem, then it holds in integers (since $2^{272} \cdot r > 2^{514}$ > max possible value), which implies it holds modulo $q$. See [bigfield documentation](barretenberg/cpp/src/barretenberg/stdlib/primitives/bigfield/README.md) for more details on non-native field arithmetic.
+then it must hold in integers. This is because the Chinese Remainder Theorem guarantees that if an equation holds modulo two coprime moduli whose product exceeds the maximum possible value of the equation, then it holds over the integers. Here, the maximum possible value of the left-hand side is less than $2^{514}$, while the moduli product is $2^{272} \cdot r > 2^{525} > 2^{514}$.
+See [bigfield documentation](barretenberg/cpp/src/barretenberg/stdlib/primitives/bigfield/README.md) for more details on non-native field arithmetic.
 
 The non-native field relation is enforced through three separate subrelations:
 
-| Subrelation | Purpose                    | Modulus   | Limbs checked                         |
-| ----------- | -------------------------- | --------- | ------------------------------------- |
-| 1           | Lower mod $2^{272}$ check  | $2^{136}$ | Limbs 0, 1                            |
-| 2           | Higher mod $2^{272}$ check | $2^{136}$ | Limbs 2, 3 (with carry from subrel 1) |
-| 3           | Native field check         | $r$       | Full native reconstruction            |
+| Subrelation | Purpose                    | Modulus   | Limbs checked                              |
+| ----------- | -------------------------- | --------- | ------------------------------------------ |
+| 1           | Lower mod $2^{272}$ check  | $2^{136}$ | Limbs 0, 1                                 |
+| 2           | Higher mod $2^{272}$ check | $2^{136}$ | Limbs 2, 3 (with carry from subrelation 1) |
+| 3           | Native field check         | $r$       | Full native reconstruction                 |
 
 Together, these prove the relation holds in integers.
-
----
 
 ### Subrelation 1: Lower Mod $2^{136}$ Check
 
@@ -197,7 +197,7 @@ The limb 2 contribution (with carry) is:
 
 $$
 \boxed{\begin{align*}
-T_2 := &\; c^{\text{lo}} \quad \text{(carry from subrelation 1)} & \\
+T_2 := &\; c^{\text{lo}} \quad \textsf{(carry from subrelation 1)} & \\
 &+ a_2^{\text{prev}} \cdot x_0 + a_1^{\text{prev}} \cdot x_1 + a_0^{\text{prev}} \cdot x_2 \\
 &+ P_{x,0}^{\text{hi}} \cdot v_0 + P_{x,1}^{\text{lo}} \cdot v_1 + P_{x,0}^{\text{lo}} \cdot v_2 \\
 &+ P_{y,0}^{\text{hi}} \cdot (v^2)_0 + P_{y,1}^{\text{lo}} \cdot (v^2)_1 + P_{y,0}^{\text{lo}} \cdot (v^2)_2 \\
@@ -238,7 +238,7 @@ Together with Subrelation 1: We've proven the relation holds modulo $2^{272}$.
 
 ### Subrelation 3: Native Field Check
 
-Prove the accumulation formula holds when computed directly in 𝔽r (the native field).
+Prove the accumulation formula holds when computed directly in $\mathbb{F}_r$ (the native field).
 First, reconstruct all values from their limbs:
 
 $$
@@ -253,7 +253,7 @@ $$
 \end{align*}
 $$
 
-**Note:** The tilde indicates these are native field reconstructions in 𝔽r, not the original 𝔽q values.
+**Note:** The tilde indicates these are native field reconstructions in $\mathbb{F}_r$, not the original $\mathbb{F}_q$ values.
 
 The subrelation 3 is then:
 
@@ -289,13 +289,13 @@ The Decomposition Relation enforces the integrity of the limb decomposition syst
 | Category                               | No. of Subrelations | Note                                                |
 | -------------------------------------- | ------------------- | --------------------------------------------------- |
 | Accumulator microlimb decomposition    | 4                   | Active when $L_{\text{even}} \cdot \texttt{op} = 1$ |
-| Point & Scalar microlimb decomposition | 18                  | Active when $L_{\text{even}} = 1$                   |
+| Point & scalar microlimb decomposition | 16                  | Active when $L_{\text{even}} = 1$                   |
 | Wide limb decomposition                | 2                   | Decompose 84-bit carry limbs                        |
 | Range constraint tightening            | 20                  | Enforce stricter bounds on highest microlimbs       |
-| Transcript composition                 | 6                   | Prove 68-bit limbs reconstruct transcript values    |
+| Transcript decomposition               | 6                   | Prove 68-bit limbs reconstruct transcript values    |
 |                                        |                     |                                                     |
 
-These work with the **Permutation Relation** and **Delta Range Constraint** which together prove each microlimb is in $[0, 2^{14})$.
+These work with the Permutation Relation and Delta Range Constraint which together prove each microlimb is in $[0, 2^{14})$.
 
 ---
 
@@ -431,8 +431,6 @@ The relation consists of 2 subrelations:
 1. Grand product identity (degree 7)
 2. Finalization check (degree 3)
 
----
-
 #### Interaction with the Delta Range Constraints
 
 The Permutation Relation works alongside the Delta Range Constraints to enforce microlimb ranges. We use a permutation argument to show that the multiset of microlimb values used in the circuit matches an ordered multiset containing all integers from $0$ to $2^{14} - 1 = 16383$. Instead of including all integers in the range $[0, 2^{14} - 1]$ explicitly, we use a "step" sequence with a fixed step size of 3:
@@ -468,10 +466,11 @@ $$\boxed{\left( z_{\text{perm}} + L_{\text{first}} \right) \cdot \prod_{j=0}^{4}
 
 where:
 
-- $L_{\text{first}}$: Lagrange polynomial for first row (initializes $z_{\text{perm}}[0] = 0$)
-- $L_{\text{last}}$: Lagrange polynomial for last row (finalizes $z_{\text{perm}}[\text{last}] = 0$)
+- $L_{\text{first}}$: Lagrange polynomial for first row ($z_{\text{perm}}[0] = 0$ is enforced implicitly)
+- $L_{\text{last}}$: Lagrange polynomial for last row (we enforce $z_{\text{perm}}[\text{last}] = 0$ in subrelation 2)
 - $z_{\text{perm}}^{\text{shift}}$: Shifted grand product polynomial ($z_{\text{perm}}[i+1]$)
 
+Note that $z_{\text{perm}}[0] = 0$ follows implicitly from the fact that we are opening $z_{\text{perm}}$ and $z_{\text{perm}}^{\text{shift}}$ both at the same challenge.
 If the two multisets are equal:
 
 1. At each step, the products telescope: contributions cancel out
@@ -480,7 +479,7 @@ If the two multisets are equal:
 
 Active when: All rows (both even and odd in the full interleaved circuit)
 
-Degree: 6 (each side is degree 1 polynomial × product of 5 degree-1 terms)
+Degree: 6 (each side is linear polynomial × product of 5 linear terms)
 
 ---
 
@@ -499,8 +498,6 @@ Interpretation:
 Active when: Last row only ($L_{\text{last}} = 1$)
 
 Degree: 2 (Lagrange × shifted polynomial)
-
----
 
 ## Delta Range Constraint Relation
 
@@ -550,7 +547,7 @@ Between these steps, actual microlimbs fill in the gaps. With $\Delta \in \{0, 1
 - Every value $\leq 16383$ has a step value within distance 3
 - Therefore, all values in range can be represented
 
-Degree: 6 (product of 6 degree-1 polynomials: $(L_{\text{real\_last}} - 1) \cdot (L_{\text{mask}} - 1) \cdot \Delta \cdot (\Delta-1) \cdot (\Delta-2) \cdot (\Delta-3)$)
+Degree: 6 (product of 6 linear polynomials)
 
 ---
 
@@ -574,135 +571,91 @@ Active when: Last real row only ($L_{\text{real\_last}} = 1$)
 
 Degree: 2 (Lagrange × difference)
 
----
+## Extra Relations
 
-## Opcode Constraint Relation
+To enforce the correctness of the opcodes and the accumulator lifecycle, we have a few additional relations.
 
-The Opcode Constraint Relation enforces that all operation codes (`op`) belong to the valid set:
+### Opcode Validity Check
 
-$$\boxed{\texttt{op} \in \{0, 1, 2, 3, 4, 8\}}$$
+The Opcode Validity Check enforces that all operation codes (`op`) belong to the valid set:
 
-Why needed: The `op` value is used in selector logic and potentially affects witness generation. Invalid opcodes could:
-
-- Inject arbitrary values into the accumulation formula
-- Bypass range constraints (if `op = 0` has special handling)
-- Break the integrity of the EccOpQueue transcript
+$$\boxed{\texttt{op} \in \{0, 3, 4, 8\}}$$
 
 Valid opcodes:
 
-- `0`: NULL / No-op
-- `1`: Point addition
-- `2`: Scalar multiplication
-- `3`: Equality check
-- `4`: Reset accumulator
-- `8`: [Special operation]
+- `0`: No-op
+- `3`: Equality and reset accumulator
+- `4`: Scalar multiplication
+- `8`: Point addition
 
 The constraint is expressed as a polynomial that has roots at the valid opcode values:
 
-$$\boxed{\left( L_{\text{even}} + L_{\text{mini\_mask}} \right) \cdot \texttt{op} \cdot (\texttt{op} - 1) \cdot (\texttt{op} - 2) \cdot (\texttt{op} - 3) \cdot (\texttt{op} - 4) \cdot (\texttt{op} - 8) = 0}$$
+$$\boxed{\left( L_{\text{mini\_mask}} - 1 \right) \cdot \texttt{op} \cdot (\texttt{op} - 3) \cdot (\texttt{op} - 4) \cdot (\texttt{op} - 8) = 0}$$
 
-The constraint is active when:
+The constraint is active when $L_{\text{mini\_mask}} = 0$ (i.e., not a masking row in the mini-circuit).
 
-- $L_{\text{even}} = 1$ (even rows in mini-circuit), OR
-- $L_{\text{mini\_mask}} = 1$ (masking rows in mini-circuit)
-
-When active:
-
-- If $\texttt{op} \in \{0, 1, 2, 3, 4, 8\}$, then $P(\texttt{op}) = 0$ ✓
-- If $\texttt{op} \notin \{0, 1, 2, 3, 4, 8\}$, then $P(\texttt{op}) \neq 0$ ✗ (constraint fails)
-
-Active when: Even rows and mini-circuit masking rows
-
-Degree: 7 (degree-1 Lagrange × degree-6 polynomial in `op`)
-
-Implementation as 5 Subrelations: For efficiency in the sumcheck protocol, the constraint is split into 5 subrelations:
-
-$$
-\boxed{\begin{align*}
-&\text{Subrel 1:} \quad \left( L_{\text{even}} + L_{\text{mini\_mask}} \right) \cdot \texttt{op} \cdot (\texttt{op} - 1) \cdot (\texttt{op} - 2) = 0 \\
-&\text{Subrel 2:} \quad \left( L_{\text{even}} + L_{\text{mini\_mask}} \right) \cdot \texttt{op} \cdot (\texttt{op} - 1) \cdot (\texttt{op} - 3) = 0 \\
-&\text{Subrel 3:} \quad \left( L_{\text{even}} + L_{\text{mini\_mask}} \right) \cdot \texttt{op} \cdot (\texttt{op} - 1) \cdot (\texttt{op} - 4) = 0 \\
-&\text{Subrel 4:} \quad \left( L_{\text{even}} + L_{\text{mini\_mask}} \right) \cdot \texttt{op} \cdot (\texttt{op} - 2) \cdot (\texttt{op} - 3) = 0 \\
-&\text{Subrel 5:} \quad \left( L_{\text{even}} + L_{\text{mini\_mask}} \right) \cdot \texttt{op} \cdot (\texttt{op} - 8) = 0
-\end{align*}}
-$$
-
-Why split?
-
-- Each subrelation has lower degree (3-4 instead of 7)
-- More efficient in sumcheck univariate polynomial computation
-
-Together, these 5 subrelations are equivalent to the full polynomial constraint.
+Degree: 5 (degree-1 Lagrange × degree-4 polynomial in `op`)
 
 ---
 
-## Accumulator Transfer Relation
+### Accumulator Consistency with No-op
+
+These subrelations ensure that when the opcode is `0` (no-op), the accumulator remains unchanged between even rows.
+For the other opcodes (`3`, `4`, `8`), this constraint does not apply and must be skipped.
+Thus, for each accumulator limb $i \in \{0, 1, 2, 3\}$, we must enforce:
+
+$$\boxed{L_{\text{even}} \cdot (\texttt{op} - 3) \cdot (\texttt{op} - 4) \cdot (\texttt{op} - 8) \cdot \left( a_i^{\text{current}} - a_i^{\text{shifted}} \right) = 0}$$
+
+Degree: 5
+
+---
+
+### Accumulator Transfer Relation
 
 The Accumulator Transfer Relation manages the lifecycle of the accumulator across the circuit:
 
 1. Initialization: Start with zero accumulator
-2. Propagation: Copy accumulator from even rows to odd rows (data storage)
-3. Computation: Update accumulator on even rows (handled by Non-Native Field Relation)
-4. Finalization: Verify final accumulator matches expected result
+2. Propagation: Copy accumulator from each odd row to the next even row
+3. Finalization: Verify final accumulator matches expected result
 
 The relation consists of 12 subrelations:
 
-- 4 for odd row propagation (copy previous value)
+- 4 for propagation
 - 4 for initialization (set to zero)
 - 4 for finalization (check against expected result)
 
----
+#### Subrelations 1-4: Odd Row Propagation
 
-### Accumulator Structure
+Ensure that we correctly copy the accumulator from each odd row to the next even row.
+This is because the previous accumulator value (in this iteration) becomes the "current" value on the next iteration.
+Refer to the [Witness Trace Structure](../translator_vm/README.md#witness-trace-structure) for details on how we compute the accumulator iteratively.
 
-The accumulator is a 254-bit value decomposed into 4 limbs:
+Thus, for each limb $i \in \{0, 1, 2, 3\}$:
 
-$$a^{\text{curr}} = a_0^{\text{curr}} + 2^{68} \cdot a_1^{\text{curr}} + 2^{136} \cdot a_2^{\text{curr}} + 2^{204} \cdot a_3^{\text{curr}}$$
+$$\boxed{L_{\text{odd}} \cdot (L_{\text{real\_last}} - 1) \cdot \left( a_i^{\text{current}} - a_i^{\text{shifted}} \right) = 0}$$
 
-Row-by-row behavior:
+This correctly "propagates" the accumulator value in computing the final accumulator.
 
-- Even row $2i$: Accumulator updated via Non-Native Field Relation (computation)
-- Odd row $2i+1$: Accumulator copied from even row $2i$ (storage for next cycle)
+Active when: Odd rows only except the last real row in the mini-circuit (before masking).
 
-### Subrelations 1-4: Odd Row Propagation
+Degree: 3
 
-Ensure accumulator does not change on odd rows (data storage rows).
+#### Subrelations 5-8: Initialization
 
-For each limb $i \in \{0, 1, 2, 3\}$:
+Ensure the accumulator starts at zero at the beginning of the computation. Recall that we process the opcodes in reverse order, so the first "previous" accumulator corresponds to the last opcode processed. Thus, for each limb $i \in \{0, 1, 2, 3\}$:
 
-$$\boxed{L_{\text{odd}} \cdot \left( a_i^{\text{curr}} - a_i^{\text{shift}} \right) = 0}$$
+$$\boxed{L_{\text{real\_last}} \cdot a_i^{\text{current}} = 0}$$
 
-This creates the "storage" pattern:
+This implies that at the last real row (before masking), all limbs of the accumulator are zero, ensuring the accumulator starts at 0.
 
-- Even row $2i$: Computes new accumulator value
-- Odd row $2i+1$: Stores this value unchanged
-- Even row $2i+2$: Accesses odd row $2i+1$ via shift to get "previous" value
+Degree: 2 (Lagrange × limb)
 
-Active when: Odd rows only ($L_{\text{odd}} = 1$)
-
-Degree: 2 (Lagrange × difference)
-
-### Subrelations 5-8: Initialization
-
-Ensure the accumulator starts at zero at the beginning of the circuit.
-
-For each limb $i \in \{0, 1, 2, 3\}$:
-
-$$\boxed{L_{\text{first}} \cdot a_i^{\text{curr}} = 0}$$
-
-This implies that at the first row, all limbs of the accumulator are zero, ensuring the accumulator starts at 0.
-
-Active when: First row only ($L_{\text{first}} = 1$)
-
-Degree: 2 (Lagrange × limb value)
-
-### Subrelations 9-12: Finalization
+#### Subrelations 9-12: Finalization
 
 Verify the final accumulator value matches the expected result from ECCVM.
-
 For each limb $i \in \{0, 1, 2, 3\}$:
 
-$$\boxed{L_{\text{result}} \cdot \left( a_i^{\text{curr}} - a_i^{\text{expected}} \right) = 0}$$
+$$\boxed{L_{\text{result}} \cdot \left( a_i^{\text{current}} - a_i^{\text{expected}} \right) = 0}$$
 
 where $a_i^{\text{expected}}$ is provided as a relation parameter (derived from ECCVM output). The ECCVM circuit computes the batched evaluation:
 
@@ -710,63 +663,26 @@ $$a^{\text{expected}} = \sum_{j=0}^{n-1} x^{n-1-j} \cdot \left( \texttt{op}_j + 
 
 The Translator must prove it computed the same value. The finalization check ensures that Translator's computation matches ECCVM's computation
 
-Active when: Result row only ($L_{\text{result}} = 1$)
+Active when: Result row only ($L_{\text{result}} = 1$), this row corresponds to the first real opcode in the mini-circuit.
 
 Degree: 2 (Lagrange × difference)
 
-## Zero Constraints Relation
+---
 
-The Zero Constraints Relation enforces that all witness wires are zero outside the mini-circuit.
+### Zero Constraints Relation
+
+The Zero Constraints Relation enforces that certain witness wires are zero outside the mini-circuit.
 Due to interleaving, the full circuit is 16× larger than the mini-circuit:
 
 - Mini-circuit: $2^{13} = 8,192$ rows (actual computation)
 - Full circuit: $2^{17} = 131,072$ rows (for interleaving optimization)
 
-Rows outside the mini-circuit (rows 8,192 to 131,071) must be zero. The relation consists of **68 subrelations**:
+Rows outside the mini-circuit (rows 8,192 to 131,071) must be zero. All the range constraint microlimb wires and transcript wires should be zero outside the mini-circuit. Thus, for each such wire $w$, we enforce:
 
-Range constraint microlimb wires (64 total):
+$$\boxed{\left( L_{\text{even}} + L_{\text{odd}} - 1 \right) \cdot (L_{\text{mini\_mask}} - 1) \cdot w = 0}$$
 
-- All `*_RANGE_CONSTRAINT_*` columns (see [Witness Trace Structure](#witness-trace-structure))
-- These hold 14-bit microlimbs for decomposition
-- Must be zero outside mini-circuit to avoid polluting the permutation
+Note that the Lagrange product is $0$ in the mini-circuit and $-1$ outside the mini-circuit, so this forces $w = 0$ there.
 
-Transcript wires (4 total):
+Degree: 3 (Lagrange product × wire)
 
-- `OP`: Opcode
-- `X_LO_Y_HI`: Encodes $P_{x,\text{lo}}$ / $P_{y,\text{hi}}$
-- `X_HI_Z_1`: Encodes $P_{x,\text{hi}}$ / $z_1$
-- `Y_LO_Z_2`: Encodes $P_{y,\text{lo}}$ / $z_2$
-
-### Subrelations 1-68: Zero Outside Mini-Circuit
-
-General pattern for each wire $w$:
-
-$$\boxed{\neg \left( L_{\text{in\_mini}} \lor L_{\text{mask}} \right) \implies w = 0}$$
-
-Equivalently (using De Morgan's law and constraint form):
-
-$$\boxed{\left( 1 - L_{\text{even}} - L_{\text{odd}} - L_{\text{mini\_mask}} + \text{products} \right) \cdot w = 0}$$
-
-where:
-
-- $L_{\text{even}}$: Lagrange for even rows in mini-circuit
-- $L_{\text{odd}}$: Lagrange for odd rows in mini-circuit
-- $L_{\text{mini\_mask}}$: Lagrange for masking rows in mini-circuit
-
-Active when: All rows outside the mini-circuit
-
-Degree: 2 (Lagrange polynomial products × wire value)
-
-### Special Case: No-Op Rows
-
-When `op = 0` (no-op) on even rows, additional constraints force range wires to zero even within the mini-circuit.
-
-No-op rows don't contribute to the accumulation, so their witness values should be zero.
-
-$$\boxed{L_{\text{even}} \cdot (1 - \texttt{op}) \cdot w = 0}$$
-
-Active when: Even rows with `op = 0`
-
-Degree: 3
-
-Additional no-op constraints: All range wires also zero when `op = 0` on even rows.
+---
