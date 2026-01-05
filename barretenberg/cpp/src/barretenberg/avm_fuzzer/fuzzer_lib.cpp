@@ -13,6 +13,7 @@
 #include "barretenberg/avm_fuzzer/fuzzer_comparison_helper.hpp"
 #include "barretenberg/avm_fuzzer/mutations/fuzzer_data.hpp"
 #include "barretenberg/avm_fuzzer/mutations/tx_data.hpp"
+#include "barretenberg/avm_fuzzer/mutations/tx_types/gas.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/vm2/avm_api.hpp"
 #include "barretenberg/vm2/common/avm_io.hpp"
@@ -333,6 +334,12 @@ size_t mutate_tx_data(FuzzerContext& context,
                                                                          .calldata_hash = calldata_hash },
                                            .calldata = calldata });
     }
+
+    // Compute effective gas fees matching TS computeEffectiveGasFees
+    // This must be done after any mutation that could affect gas settings or global variables
+    tx_data.tx.effective_gas_fees =
+        compute_effective_gas_fees(tx_data.global_variables.gas_fees, tx_data.tx.gas_settings);
+
     auto [mutated_serialized_fuzzer_data, mutated_serialized_fuzzer_data_size] = msgpack_encode_buffer(tx_data);
     if (mutated_serialized_fuzzer_data_size > max_size) {
         delete[] mutated_serialized_fuzzer_data;
