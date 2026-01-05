@@ -103,6 +103,7 @@ class TranslatorRecursiveFlavor {
      */
     class VerificationKey : public StdlibVerificationKey_<CircuitBuilder,
                                                           TranslatorFlavor::PrecomputedEntities<Commitment>,
+                                                          NativeVerificationKey,
                                                           VKSerializationMode::NO_METADATA> {
       public:
         VerificationKey(CircuitBuilder* builder, const std::shared_ptr<NativeVerificationKey>& native_key)

@@ -7,7 +7,6 @@
 #pragma once
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/commitment_schemes/kzg/kzg.hpp"
-#include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/flavor_macros.hpp"
@@ -100,115 +99,10 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
         using Base::Base;
     };
 
-    /**
-     * @brief The verification key is responsible for storing the commitments to the precomputed (non-witnessk)
-     * polynomials used by the verifier.
-     *
-     * @note Note the discrepancy with what sort of data is stored here vs in the proving key. We may want to resolve
-     * that, and split out separate PrecomputedPolynomials/Commitments data for clarity but also for portability of our
-     * circuits.
-     * This differs from Mega in how we construct the commitments.
-     */
-    class VerificationKey : public StdlibVerificationKey_<BuilderType, MegaFlavor::PrecomputedEntities<Commitment>> {
-
-      public:
-        using NativeVerificationKey = NativeFlavor::VerificationKey;
-
-        /**
-         * @brief Construct a new Verification Key with stdlib types from a provided native verification
-         * key
-         *
-         * @param builder
-         * @param native_key Native verification key from which to extract the precomputed commitments
-         */
-        VerificationKey(CircuitBuilder* builder, const std::shared_ptr<NativeVerificationKey>& native_key)
-        {
-            this->log_circuit_size = FF::from_witness(builder, typename FF::native(native_key->log_circuit_size));
-            this->num_public_inputs = FF::from_witness(builder, typename FF::native(native_key->num_public_inputs));
-            this->pub_inputs_offset = FF::from_witness(builder, typename FF::native(native_key->pub_inputs_offset));
-
-            // Generate stdlib commitments (biggroup) from the native counterparts
-            for (auto [commitment, native_commitment] : zip_view(this->get_all(), native_key->get_all())) {
-                commitment = Commitment::from_witness(builder, native_commitment);
-            }
-        };
-
-        /**
-         * @brief Deserialize a verification key from a vector of field elements
-         *
-         * @param builder
-         * @param elements
-         */
-        VerificationKey(std::span<FF> elements)
-        {
-            using Codec = stdlib::StdlibCodec<FF>;
-
-            size_t num_frs_read = 0;
-
-            this->log_circuit_size = Codec::template deserialize_from_frs<FF>(elements, num_frs_read);
-            this->num_public_inputs = Codec::template deserialize_from_frs<FF>(elements, num_frs_read);
-            this->pub_inputs_offset = Codec::template deserialize_from_frs<FF>(elements, num_frs_read);
-
-            for (Commitment& commitment : this->get_all()) {
-                commitment = Codec::template deserialize_from_frs<Commitment>(elements, num_frs_read);
-            }
-
-            if (num_frs_read != elements.size()) {
-                throw_or_abort("Invalid buffer length in VerificationKey constuctor from fields!");
-            }
-        }
-
-        /**
-         * @brief Construct a VerificationKey from a set of corresponding witness indices
-         *
-         * @param builder
-         * @param witness_indices
-         * @return VerificationKey
-         */
-        static VerificationKey from_witness_indices(CircuitBuilder& builder,
-                                                    const std::span<const uint32_t>& witness_indices)
-        {
-            std::vector<FF> vk_fields;
-            vk_fields.reserve(witness_indices.size());
-            for (const auto& idx : witness_indices) {
-                vk_fields.emplace_back(FF::from_witness_index(&builder, idx));
-            }
-            return VerificationKey(vk_fields);
-        }
-
-        /**
-         * @brief Fixes witnesses of VK to be constants.
-         *
-         */
-        void fix_witness()
-        {
-            this->log_circuit_size.fix_witness();
-            this->num_public_inputs.fix_witness();
-            this->pub_inputs_offset.fix_witness();
-            for (Commitment& commitment : this->get_all()) {
-                commitment.fix_witness();
-            }
-        }
-
-#ifndef NDEBUG
-        /**
-         * @brief Get the native verification key corresponding to this stdlib verification key
-         *
-         * @return NativeVerificationKey
-         */
-        NativeVerificationKey get_value() const
-        {
-            NativeVerificationKey native_vk;
-            native_vk.log_circuit_size = static_cast<uint64_t>(this->log_circuit_size.get_value());
-            native_vk.num_public_inputs = static_cast<uint64_t>(this->num_public_inputs.get_value());
-            native_vk.pub_inputs_offset = static_cast<uint64_t>(this->pub_inputs_offset.get_value());
-            for (auto [commitment, native_commitment] : zip_view(this->get_all(), native_vk.get_all())) {
-                native_commitment = commitment.get_value();
-            }
-            return native_vk;
-        }
-#endif
-    };
+    // Reuse StdlibVerificationKey_ with NativeFlavor's VerificationKey for native<->stdlib conversion
+    using VerificationKey = StdlibVerificationKey_<BuilderType,
+                                                   MegaFlavor::PrecomputedEntities<Commitment>,
+                                                   typename NativeFlavor::VerificationKey>;
 
     /**
      * @brief A container for the witness commitments.

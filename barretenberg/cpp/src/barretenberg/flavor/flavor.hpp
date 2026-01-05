@@ -333,13 +333,14 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
 /**
  * @brief Base Stdlib verification key class.
  *
- * @tparam Builder
- * @tparam FF
- * @tparam PrecomputedCommitments
+ * @tparam Builder_ The circuit builder type
+ * @tparam PrecomputedCommitments The precomputed entities type
+ * @tparam NativeVerificationKey_ The native VK type (optional, enables native<->stdlib conversion)
  * @tparam SerializeMetadata Controls how metadata is serialized (FULL, NO_METADATA)
  */
 template <typename Builder_,
           typename PrecomputedCommitments,
+          typename NativeVerificationKey_ = void,
           VKSerializationMode SerializeMetadata = VKSerializationMode::FULL>
 class StdlibVerificationKey_ : public PrecomputedCommitments {
   public:
@@ -347,6 +348,7 @@ class StdlibVerificationKey_ : public PrecomputedCommitments {
     using FF = stdlib::field_t<Builder>;
     using Commitment = typename PrecomputedCommitments::DataType;
     using Transcript = StdlibTranscript<Builder>;
+    using NativeVerificationKey = NativeVerificationKey_;
     FF log_circuit_size;
     FF num_public_inputs;
     FF pub_inputs_offset = 0;
@@ -359,6 +361,88 @@ class StdlibVerificationKey_ : public PrecomputedCommitments {
         this->log_circuit_size = numeric::get_msb(circuit_size);
         this->num_public_inputs = num_public_inputs;
     };
+
+    /**
+     * @brief Construct a new Verification Key with stdlib types from a provided native verification key
+     * @details Only available when NativeVerificationKey is specified (not void)
+     */
+    template <typename T = NativeVerificationKey_>
+        requires(!std::is_void_v<T>)
+    StdlibVerificationKey_(Builder* builder, const std::shared_ptr<T>& native_key)
+        : log_circuit_size(FF::from_witness(builder, typename FF::native(native_key->log_circuit_size)))
+        , num_public_inputs(FF::from_witness(builder, typename FF::native(native_key->num_public_inputs)))
+        , pub_inputs_offset(FF::from_witness(builder, typename FF::native(native_key->pub_inputs_offset)))
+    {
+
+        for (auto [commitment, native_commitment] : zip_view(this->get_all(), native_key->get_all())) {
+            commitment = Commitment::from_witness(builder, native_commitment);
+        }
+    }
+
+    /**
+     * @brief Deserialize a verification key from a vector of field elements
+     */
+    explicit StdlibVerificationKey_(std::span<FF> elements)
+    {
+        using Codec = stdlib::StdlibCodec<FF>;
+
+        size_t num_frs_read = 0;
+
+        this->log_circuit_size = Codec::template deserialize_from_frs<FF>(elements, num_frs_read);
+        this->num_public_inputs = Codec::template deserialize_from_frs<FF>(elements, num_frs_read);
+        this->pub_inputs_offset = Codec::template deserialize_from_frs<FF>(elements, num_frs_read);
+
+        for (Commitment& commitment : this->get_all()) {
+            commitment = Codec::template deserialize_from_frs<Commitment>(elements, num_frs_read);
+        }
+    }
+
+    /**
+     * @brief Construct a VerificationKey from a set of corresponding witness indices
+     */
+    static StdlibVerificationKey_ from_witness_indices(Builder& builder,
+                                                       const std::span<const uint32_t>& witness_indices)
+    {
+        std::vector<FF> vk_fields;
+        vk_fields.reserve(witness_indices.size());
+        for (const auto& idx : witness_indices) {
+            vk_fields.emplace_back(FF::from_witness_index(&builder, idx));
+        }
+        return StdlibVerificationKey_(vk_fields);
+    }
+
+    /**
+     * @brief Fixes witnesses of VK to be constants.
+     */
+    void fix_witness()
+    {
+        this->log_circuit_size.fix_witness();
+        this->num_public_inputs.fix_witness();
+        this->pub_inputs_offset.fix_witness();
+        for (Commitment& commitment : this->get_all()) {
+            commitment.fix_witness();
+        }
+    }
+
+#ifndef NDEBUG
+    /**
+     * @brief Get the native verification key corresponding to this stdlib verification key
+     * @details Only available when NativeVerificationKey is specified (not void)
+     */
+    template <typename T = NativeVerificationKey_>
+        requires(!std::is_void_v<T>)
+    T get_value() const
+    {
+        T native_vk;
+        native_vk.log_circuit_size = static_cast<uint64_t>(this->log_circuit_size.get_value());
+        native_vk.num_public_inputs = static_cast<uint64_t>(this->num_public_inputs.get_value());
+        native_vk.pub_inputs_offset = static_cast<uint64_t>(this->pub_inputs_offset.get_value());
+        for (auto [commitment, native_commitment] : zip_view(this->get_all(), native_vk.get_all())) {
+            native_commitment = commitment.get_value();
+        }
+        return native_vk;
+    }
+#endif
 
     /**
      * @brief Serialize verification key to field elements.

@@ -79,6 +79,7 @@ class ECCVMRecursiveFlavor {
      */
     class VerificationKey : public StdlibVerificationKey_<CircuitBuilder,
                                                           ECCVMFlavor::PrecomputedEntities<Commitment>,
+                                                          NativeVerificationKey,
                                                           VKSerializationMode::NO_METADATA> {
       public:
         Commitment pcs_g1_identity;
