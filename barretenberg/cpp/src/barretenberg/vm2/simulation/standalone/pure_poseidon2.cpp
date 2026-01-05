@@ -22,8 +22,7 @@ FF PurePoseidon2::hash(const std::vector<FF>& input)
 void PurePoseidon2::permutation(MemoryInterface& memory, MemoryAddress src_address, MemoryAddress dst_address)
 {
     try {
-        auto zero = MemoryValue::from<FF>(0);
-        std::array<MemoryValue, 4> input = { zero, zero, zero, zero };
+        std::array<FF, 4> input = { 0, 0, 0, 0 };
 
         // Read 4 elements from memory starting at src_address
         for (uint32_t i = 0; i < 4; i++) {
@@ -31,15 +30,10 @@ void PurePoseidon2::permutation(MemoryInterface& memory, MemoryAddress src_addre
             if (item.get_tag() != MemoryTag::FF) {
                 throw std::runtime_error("An input tag is not FF");
             }
-            input[i] = item;
+            input[i] = item.as_ff();
         }
 
-        const std::array<FF, 4> output = Poseidon2Perm::permutation({
-            input[0].as_ff(),
-            input[1].as_ff(),
-            input[2].as_ff(),
-            input[3].as_ff(),
-        });
+        const std::array<FF, 4> output = Poseidon2Perm::permutation(input);
         for (uint32_t i = 0; i < 4; i++) {
             memory.set(dst_address + i, MemoryValue::from<FF>(output[i]));
         }
