@@ -990,6 +990,11 @@ export class PXE {
         const syncTime = syncTimer.ms();
         const functionTimer = new Timer();
         const contractFunctionSimulator = this.#getSimulatorForTx();
+
+        await this.contractStore.syncPrivateState(call.to, call.selector, privateSyncCall =>
+          this.#simulateUtility(contractFunctionSimulator, privateSyncCall),
+        );
+
         const executionResult = await this.#simulateUtility(contractFunctionSimulator, call, authwits ?? [], scopes);
         const functionTime = functionTimer.ms();
 
@@ -1031,21 +1036,25 @@ export class PXE {
    *    Defaults to the latest known block to PXE + 1.
    * @returns - The packed events with block and tx metadata.
    */
-  public async getPrivateEvents(
-    eventSelector: EventSelector,
-    filter: PrivateEventFilter,
-  ): Promise<PackedPrivateEvent[]> {
-    // We need to manually trigger private state sync to have a guarantee that all the events are available.
-    const call = await this.contractStore.getFunctionCall('sync_private_state', [], filter.contractAddress);
-    await this.simulateUtility(call);
+  public getPrivateEvents(eventSelector: EventSelector, filter: PrivateEventFilter): Promise<PackedPrivateEvent[]> {
+    return this.#putInJobQueue(async () => {
+      await this.blockStateSynchronizer.sync();
+      const contractFunctionSimulator = this.#getSimulatorForTx();
 
-    const sanitizedFilter = await new PrivateEventFilterValidator(this.anchorBlockStore).validate(filter);
+      await this.contractStore.syncPrivateState(
+        filter.contractAddress,
+        null,
+        async privateSyncCall => await this.#simulateUtility(contractFunctionSimulator, privateSyncCall),
+      );
 
-    this.log.debug(
-      `Getting private events for ${sanitizedFilter.contractAddress.toString()} from ${sanitizedFilter.fromBlock} to ${sanitizedFilter.toBlock}`,
-    );
+      const sanitizedFilter = await new PrivateEventFilterValidator(this.anchorBlockStore).validate(filter);
 
-    return this.privateEventStore.getPrivateEvents(eventSelector, sanitizedFilter);
+      this.log.debug(
+        `Getting private events for ${sanitizedFilter.contractAddress.toString()} from ${sanitizedFilter.fromBlock} to ${sanitizedFilter.toBlock}`,
+      );
+
+      return this.privateEventStore.getPrivateEvents(eventSelector, sanitizedFilter);
+    });
   }
 
   /**

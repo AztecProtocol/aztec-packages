@@ -136,6 +136,10 @@ export class ContractFunctionSimulator {
   ): Promise<PrivateExecutionResult> {
     const simulatorSetupTimer = new Timer();
 
+    await this.contractStore.syncPrivateState(contractAddress, selector, privateSyncCall =>
+      this.runUtility(privateSyncCall, [], anchorBlockHeader, scopes),
+    );
+
     await verifyCurrentClassId(contractAddress, this.aztecNode, this.contractStore, anchorBlockHeader);
 
     const entryPointArtifact = await this.contractStore.getFunctionArtifactWithDebugMetadata(contractAddress, selector);
@@ -169,6 +173,9 @@ export class ContractFunctionSimulator {
       request.txContext,
       callContext,
       anchorBlockHeader,
+      async call => {
+        await this.runUtility(call, [], anchorBlockHeader, scopes);
+      },
       request.authWitnesses,
       request.capsules,
       HashedValuesCache.create(request.argsOfCalls),
