@@ -18,13 +18,8 @@ void create_sha256_compression_constraints(Builder& builder, const Sha256Compres
     std::array<field_ct, 8> hash_inputs; // previous  (or initial) hash state
     std::array<field_ct, 16> inputs;     // message block to compress
 
-    // Get the witness assignment for each witness index
-    // AUDITTODO: We do not range-check the inputs here, assuming lookup tables in sha256_block
-    // provide implicit 32-bit constraints. However, analysis shows this assumption is incomplete:
-    // - inputs[0] is NEVER lookup-constrained
-    // - hash_values[3] and hash_values[7] are used in arithmetic before being lookup-constrained
-    // These values are only weakly bounded (~35 bits) by add_normalize overflow constraints.
-    // See AUDITTODO in stdlib/hash/sha256/sha256.cpp for details and recommended fix.
+    // Get the witness assignment for each witness index.
+    // No explicit range checks here - sha256_block constrains all inputs to 32 bits via lookups.
     for (auto [input, witness_or_constant] : zip_view(inputs, constraint.inputs)) {
         input = to_field_ct(witness_or_constant, builder);
     }
