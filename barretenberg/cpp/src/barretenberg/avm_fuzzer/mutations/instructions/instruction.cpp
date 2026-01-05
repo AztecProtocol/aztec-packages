@@ -426,8 +426,7 @@ std::vector<FuzzInstruction> generate_emitunencryptedlog_instruction(std::mt1993
                                                  .log_values_address = generate_variable_ref(rng) } };
     }
 
-    // TODO: use constant
-    uint32_t log_size = std::uniform_int_distribution<uint32_t>(0, 4096)(rng);
+    uint32_t log_size = std::uniform_int_distribution<uint32_t>(0, FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH)(rng);
     std::vector<FuzzInstruction> instructions;
     auto log_size_address = generate_address_ref(rng, MAX_16BIT_OPERAND);
     auto log_values_address = generate_address_ref(rng, MAX_16BIT_OPERAND - log_size);
