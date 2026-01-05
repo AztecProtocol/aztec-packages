@@ -49,7 +49,7 @@ import {
   PublicContractsDB,
   PublicProcessor,
 } from '@aztec/simulator/server';
-import { type ContractArtifact, EventSelector, FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
+import { type ContractArtifact, EventSelector, FunctionCall, FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
 import { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { PublicSimulatorConfig } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -80,8 +80,8 @@ import {
 import type { UInt64 } from '@aztec/stdlib/types';
 import { ForkCheckpoint } from '@aztec/world-state';
 
+import { DEFAULT_ADDRESS } from '../constants.js';
 import type { TXEStateMachine } from '../state_machine/index.js';
-import { DEFAULT_ADDRESS } from '../txe_session.js';
 import type { TXEAccountStore } from '../util/txe_account_store.js';
 import type { TXEContractStore } from '../util/txe_contract_store.js';
 import { TXEPublicContractDataSource } from '../util/txe_public_contract_data_source.js';
@@ -294,14 +294,19 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       throw new Error(message);
     }
 
+    // Sync notes before executing private function to discover notes from previous transactions
+    const utilityExecutor = async (call: FunctionCall) => {
+      await this.executeUtilityCall(call);
+    };
+
+    await this.contractStore.syncPrivateState(targetContractAddress, functionSelector, utilityExecutor);
+
     const blockNumber = await this.txeGetNextBlockNumber();
 
     const callContext = new CallContext(from, targetContractAddress, functionSelector, isStaticCall);
 
     const gasLimits = new Gas(DEFAULT_DA_GAS_LIMIT, DEFAULT_L2_GAS_LIMIT);
-
     const teardownGasLimits = new Gas(DEFAULT_TEARDOWN_DA_GAS_LIMIT, DEFAULT_TEARDOWN_L2_GAS_LIMIT);
-
     const gasSettings = new GasSettings(gasLimits, teardownGasLimits, GasFees.empty(), GasFees.empty());
 
     const txContext = new TxContext(this.chainId, this.version, gasSettings);
@@ -320,6 +325,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       callContext,
       /** Header of a block whose state is used during private execution (not the block the transaction is included in). */
       blockHeader,
+      utilityExecutor,
       /** List of transient auth witnesses to be used during this simulation */
       Array.from(this.authwits.values()),
       /** List of transient auth witnesses to be used during this simulation */
@@ -628,12 +634,26 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       throw new Error(`Cannot call ${functionSelector} as there is no artifact found at ${targetContractAddress}.`);
     }
 
-    const call = {
-      name: artifact.name,
-      selector: functionSelector,
-      to: targetContractAddress,
-    };
+    // Sync notes before executing utility function to discover notes from previous transactions
+    await this.contractStore.syncPrivateState(targetContractAddress, functionSelector, async call => {
+      await this.executeUtilityCall(call);
+    });
 
+    const call = new FunctionCall(
+      artifact.name,
+      targetContractAddress,
+      functionSelector,
+      FunctionType.UTILITY,
+      false,
+      false,
+      args,
+      [],
+    );
+
+    return this.executeUtilityCall(call);
+  }
+
+  private async executeUtilityCall(call: FunctionCall): Promise<Fr[]> {
     const entryPointArtifact = await this.contractStore.getFunctionArtifactWithDebugMetadata(call.to, call.selector);
     if (entryPointArtifact.functionType !== FunctionType.UTILITY) {
       throw new Error(`Cannot run ${entryPointArtifact.functionType} function as utility`);
@@ -663,7 +683,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
         this.privateEventStore,
       );
       const acirExecutionResult = await new WASMSimulator()
-        .executeUserCircuit(toACVMWitness(0, args), entryPointArtifact, new Oracle(oracle).toACIRCallback())
+        .executeUserCircuit(toACVMWitness(0, call.args), entryPointArtifact, new Oracle(oracle).toACIRCallback())
         .catch((err: Error) => {
           err.message = resolveAssertionMessageFromError(err, entryPointArtifact);
           throw new ExecutionError(
