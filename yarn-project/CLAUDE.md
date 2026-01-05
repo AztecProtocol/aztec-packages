@@ -227,11 +227,13 @@ git config user.initials "jd"
 git config --global user.initials "jd"
 ```
 
-**How Claude Determines Author Initials:**
+**Fetching Author Initials:**
 
-1. First checks `git config user.initials`
-2. If not set, derives from `git config user.name` (e.g., "John Doe" → "jd")
-3. Uses lowercase initials for branch names
+```bash
+git config user.initials
+```
+
+This must be set for branch naming to work. If not set, ask the user for them, and offer to set them permanently by running `git config --global` as described above.
 
 ### Commit Messages - Conventional Commits
 
