@@ -134,6 +134,18 @@ class MegaFlavor {
     /**
      * @brief A base class labelling precomputed entities and (ordered) subsets of interest.
      * @details Used to build the proving key and verification key.
+     *
+     * These polynomials fall into several categories based on their origin:
+     * - **Circuit selectors** (q_m, q_c, q_l, q_r, q_o, q_4, q_busread, q_lookup, q_arith, q_delta_range,
+     *   q_elliptic, q_memory, q_nnf, q_poseidon2_external, q_poseidon2_internal): Populated directly from
+     *   the circuit builder's execution trace blocks.
+     * - **Permutation polynomials** (sigma_1-4, id_1-4): Computed from wire copy cycles.
+     * - **Table polynomials** (table_1-4): Populated from lookup tables in the circuit.
+     * - **Lagrange polynomials** (lagrange_first, lagrange_last): Standard Lagrange basis polynomials.
+     * - **Derived indicator polynomials** (lagrange_ecc_op): Constructed during TraceToPolynomials as a
+     *   binary indicator (1 inside the ecc_op block, 0 elsewhere). Unlike gate selectors, this is NOT
+     *   stored in the circuit builder - it's derived from the ecc_op block's position and size.
+     * - **Identity polynomial** (databus_id): The identity polynomial id_i = i for databus lookups.
      */
     template <typename DataType_> class PrecomputedEntities {
       public:

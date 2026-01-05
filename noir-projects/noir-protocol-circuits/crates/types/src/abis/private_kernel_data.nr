@@ -39,10 +39,27 @@ impl PrivateKernelData {
     }
     pub fn verify(self, is_last_kernel: bool) {
         let mut proof_type = PROOF_TYPE_HN;
-        // Chonk public inputs are linked in the backend via the databus
         if is_last_kernel {
             proof_type = PROOF_TYPE_HN_TAIL;
         }
+
+        // verify_proof_with_type sends the verification data to barretenberg, which adds to the circuit the required
+        // constraints to recursively verify the proof. For recursive verification happening inside the kernels, barretenberg
+        // only needs the vk, the proof type, and the purported vk hash. Then, barretenberg adds to the circuit:
+        // 1. Witnesses for the proofs. These are added based on the proofs generated during the accumulation steps.
+        //    The function in barretenberg that generates these proofs is `accumulate`.
+        // 2. Constraints that enforce self.vk.hash = Hash(self.vk.key)
+        // 3. Constraints that recursively verify the proofs.
+        //
+        // Note: We talk about proofs because if proof_type = PROOF_TYPE_OINK, then there is only one proof (the accumulation of the first app)
+        //       If proof_type = PROOF_TYPE_HN, then there are two proofs (the accumulation of the previous kernel and that of the new app).
+        // Note 2: There are no public inputs because CHONK uses that databus to propagate public inputs. This means that the public inputs of the kernel
+        //         are not represented as single field elements, but rather as commitments (points on BN254). Barretenberg handles these public inputs internally
+        //         and requires no input from Noir.
+        // Note on public inputs: While from Noir it looks like kernel circuits have no public inputs, this is not the case. Barretenberg adds public inputs
+        //                        to kernels for a series of reasons. Among these inputs, there are the databus public inputs. As mentioned above, these
+        //                        public inputs are completely handled by barretenberg and decoupled from Noir. This is why Noir sends to barretenberg an
+        //                        empty vector as public inputs.
         std::verify_proof_with_type(
             self.vk_data.vk.key,
             [],

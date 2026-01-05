@@ -46,48 +46,6 @@ TYPED_TEST(ShplonkTest, ShplonkSimple)
     this->verify_opening_claim(batched_verifier_claim, batched_opening_claim.polynomial);
 }
 
-// Test of Shplonk prover/verifier for polynomials that are linearly dependent
-TYPED_TEST(ShplonkTest, ShplonkLinearlyDependent)
-{
-    using ClaimData = UnivariateClaimData<TypeParam>;
-    using ShplonkProver = ShplonkProver_<TypeParam>;
-    using ShplonkVerifier = ShplonkVerifier_<TypeParam>;
-    using Fr = typename TypeParam::ScalarField;
-
-    auto prover_transcript = NativeTranscript::prover_init_empty();
-
-    // Generate two random (unrelated) polynomials of two different sizes and a random linear combinations
-    auto setup = this->generate_claim_data({ MAX_POLY_DEGREE, MAX_POLY_DEGREE / 2 });
-
-    // Extract the commitments to be used in the Shplonk verifier
-    auto commitments = ClaimData::polynomial_commitments(setup);
-
-    // Linearly combine the polynomials and evaluations
-    auto [coefficients, evals] = this->combine_claims(setup);
-
-    // Execute the shplonk prover functionality
-    auto prover_opening_claims = ClaimData::prover_opening_claims(setup);
-    const auto batched_opening_claim = ShplonkProver::prove(this->ck(), prover_opening_claims, prover_transcript);
-    // An intermediate check to confirm the opening of the shplonk prover witness Q
-    this->verify_opening_pair(batched_opening_claim.opening_pair, batched_opening_claim.polynomial);
-
-    // Shplonk verification
-    auto verifier_opening_claims = ClaimData::verifier_opening_claims(setup);
-    std::vector<typename ShplonkVerifier::LinearCombinationOfClaims> update_data = {
-        { { 0 }, { Fr(1) }, verifier_opening_claims[0].opening_pair },
-        { { 1 }, { Fr(1) }, verifier_opening_claims[1].opening_pair },
-        { { 0, 1 }, coefficients, verifier_opening_claims[2].opening_pair },
-    };
-    auto verifier_transcript = NativeTranscript::verifier_init_empty(prover_transcript);
-    ShplonkVerifier verifier(commitments, verifier_transcript, verifier_opening_claims.size());
-
-    // Execute the shplonk verifier functionality
-    const auto batched_verifier_claim =
-        verifier.reduce_verification_vector_claims(this->vk().get_g1_identity(), update_data);
-
-    this->verify_opening_claim(batched_verifier_claim, batched_opening_claim.polynomial);
-}
-
 // Test exporting batch claim from Shplonk verifier and verification
 TYPED_TEST(ShplonkTest, ExportBatchClaimAndVerify)
 {

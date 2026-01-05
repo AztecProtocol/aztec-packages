@@ -7,7 +7,6 @@
 #pragma once
 
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
-#include "barretenberg/dsl/acir_format/acir_format_mocks.hpp"
 #include "barretenberg/dsl/acir_format/test_class.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "gtest/gtest.h"
@@ -92,6 +91,12 @@ concept TestBaseWithPredicate = requires {
          *
          */
         { T::generate_constraints(constraint, witness_values) } -> std::same_as<void>;
+
+        /**
+         * @brief Method to generate ProgramMetadata to be passed to create_circuit
+         *
+         */
+        { T::generate_metadata() } -> std::same_as<ProgramMetadata>;
     };
 };
 
@@ -171,7 +176,7 @@ template <TestBaseWithPredicate Base_> class TestClassWithPredicate {
         AcirFormat constraint_system = constraint_to_acir_format(
             updated_constraint, /*max_witness_index=*/static_cast<uint32_t>(updated_witness_values.size()) - 1);
         AcirProgram program{ constraint_system, updated_witness_values };
-        auto builder = create_circuit<Builder>(program);
+        auto builder = create_circuit<Builder>(program, Base::generate_metadata());
 
         return { CircuitChecker::check(builder), builder.failed(), builder.err() };
     }
@@ -216,7 +221,7 @@ template <TestBaseWithPredicate Base_> class TestClassWithPredicate {
             std::shared_ptr<VerificationKey> vk_from_witness;
             {
                 AcirProgram program{ constraint_system, updated_witness_values };
-                auto builder = create_circuit<Builder>(program);
+                auto builder = create_circuit<Builder>(program, Base::generate_metadata());
                 num_gates.emplace_back(builder.get_num_finalized_gates_inefficient());
 
                 auto prover_instance = std::make_shared<ProverInstance>(builder);
@@ -224,12 +229,13 @@ template <TestBaseWithPredicate Base_> class TestClassWithPredicate {
 
                 // Validate the builder
                 EXPECT_TRUE(CircuitChecker::check(builder));
+                EXPECT_FALSE(builder.failed());
             }
 
             std::shared_ptr<VerificationKey> vk_from_constraint;
             {
                 AcirProgram program{ constraint_system, /*witness=*/{} };
-                auto builder = create_circuit<Builder>(program);
+                auto builder = create_circuit<Builder>(program, Base::generate_metadata());
                 auto prover_instance = std::make_shared<ProverInstance>(builder);
                 vk_from_constraint = std::make_shared<VerificationKey>(prover_instance->get_precomputed());
             }

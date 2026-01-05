@@ -34,10 +34,6 @@ template <typename FF> void MegaCircuitBuilder_<FF>::finalize_circuit(const bool
  *
  * @param in Structure containing variables and witness selectors
  */
-// TODO(https://github.com/AztecProtocol/barretenberg/issues/1066): This function adds valid (but arbitrary) gates to
-// ensure that the circuit which includes them will not result in any zero-polynomials. This method is designed to be
-// used in conjunction with the corresponding method on the Ultra builder. It handles databus and ecc-op related
-// polynomials.
 template <typename FF> void MegaCircuitBuilder_<FF>::add_mega_gates_to_ensure_all_polys_are_non_zero()
 {
     // Add a single default value to all databus columns. Note: This value must be equal across all columns in order for
@@ -76,9 +72,6 @@ template <typename FF> void MegaCircuitBuilder_<FF>::add_mega_gates_to_ensure_al
  *
  * @param in Structure containing variables and witness selectors
  */
-// TODO(https://github.com/AztecProtocol/barretenberg/issues/1066): This function adds valid (but arbitrary) gates to
-// ensure that the circuit which includes them will not result in any zero-polynomials. It also ensures that the first
-// coefficient of the wire polynomials is zero, which is required for them to be shiftable.
 template <typename FF> void MegaCircuitBuilder_<FF>::add_ultra_and_mega_gates_to_ensure_all_polys_are_non_zero()
 {
     // Most polynomials are handled via the conventional Ultra method
@@ -160,10 +153,14 @@ template <typename FF> ecc_op_tuple MegaCircuitBuilder_<FF>::queue_ecc_no_op()
 /**
  * @brief Add goblin ecc op gates for a single operation
  *
+ * @details Given an `UltraOp`, corresponding to a point (x,y) on the curve and a scalar z, write this data in an
+ * Ultra-legible way to the trace. This information will eventually be captured in certain derived witnesses, and we
+ * delegate computation of the logged elliptic curve operations to the ECCVM.
  * @param ultra_op Operation data expressed in the ultra format
- * @param in_finalize It's used in boomerang catcher to mark
+ * @param in_finalize Used in boomerang catcher to mark
  * that all variables from some connected component were created after finalize method was called
  * @note All selectors are set to 0 since the ecc op selector is derived later based on the block size/location.
+ * @note No on-curve checks, this is done in ECCVM.
  */
 template <typename FF>
 ecc_op_tuple MegaCircuitBuilder_<FF>::populate_ecc_op_wires(const UltraOp& ultra_op, bool in_finalize)
@@ -185,12 +182,13 @@ ecc_op_tuple MegaCircuitBuilder_<FF>::populate_ecc_op_wires(const UltraOp& ultra
         op_val_idx_1 = this->add_variable(ultra_op.op_code.random_value_1);
         op_val_idx_2 = this->add_variable(ultra_op.op_code.random_value_2);
     }
-
+    // Populate the ecc_op block with TWO rows (matching Ultra format)
+    // Row 1: OP   | x_lo | x_hi | y_lo
+    // Row 2: 0    | y_hi | z_1  | z_2
     this->blocks.ecc_op.populate_wires(op_val_idx_1, op_tuple.x_lo, op_tuple.x_hi, op_tuple.y_lo);
     for (auto& selector : this->blocks.ecc_op.get_selectors()) {
         selector.emplace_back(0);
     }
-
     this->blocks.ecc_op.populate_wires(op_val_idx_2, op_tuple.y_hi, op_tuple.z_1, op_tuple.z_2);
     for (auto& selector : this->blocks.ecc_op.get_selectors()) {
         selector.emplace_back(0);

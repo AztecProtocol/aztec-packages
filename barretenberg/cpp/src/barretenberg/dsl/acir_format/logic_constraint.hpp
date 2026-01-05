@@ -6,7 +6,6 @@
 
 #pragma once
 #include "barretenberg/dsl/acir_format/witness_constant.hpp"
-#include "barretenberg/serialize/msgpack.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
 #include <cstdint>
 
@@ -32,9 +31,6 @@ struct LogicConstraint {
     bool is_xor_gate;
 
     friend bool operator==(LogicConstraint const& lhs, LogicConstraint const& rhs) = default;
-
-    // for serialization, update with any new fields
-    MSGPACK_FIELDS(a, b, result, num_bits, is_xor_gate);
 };
 
 template <typename Builder>
