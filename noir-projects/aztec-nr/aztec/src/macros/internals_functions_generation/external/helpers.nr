@@ -25,21 +25,6 @@ pub(crate) comptime fn get_abi_relevant_attributes(f: FunctionDefinition) -> Quo
     attributes
 }
 
-/// Injects a call to `aztec::messages::discovery::discover_new_messages`, causing for new notes to be added to PXE and made
-/// available for the current execution.
-pub(crate) comptime fn create_message_discovery_call() -> Quoted {
-    quote {
-        /// Safety: message discovery returns nothing and is performed solely for its side-effects. It is therefore
-        /// always safe to call.
-        unsafe {
-            dep::aztec::messages::discovery::discover_new_messages(
-                self.address,
-                _compute_note_hash_and_nullifier,
-            );
-        };
-    }
-}
-
 /// Injects an authwit verification check of the form:
 /// ```
 ///   if (!from.eq(context.msg_sender().unwrap())) {

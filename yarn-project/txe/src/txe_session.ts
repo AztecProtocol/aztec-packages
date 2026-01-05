@@ -20,10 +20,19 @@ import {
   HashedValuesCache,
   type IPrivateExecutionOracle,
   type IUtilityExecutionOracle,
+  Oracle,
   PrivateExecutionOracle,
   UtilityExecutionOracle,
 } from '@aztec/pxe/simulator';
-import { FunctionSelector } from '@aztec/stdlib/abi';
+import {
+  ExecutionError,
+  WASMSimulator,
+  createSimulationError,
+  extractCallStack,
+  resolveAssertionMessageFromError,
+  toACVMWitness,
+} from '@aztec/simulator/client';
+import { FunctionCall, FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { GasSettings } from '@aztec/stdlib/gas';
@@ -34,6 +43,7 @@ import { CallContext, GlobalVariables, TxContext } from '@aztec/stdlib/tx';
 
 import { z } from 'zod';
 
+import { DEFAULT_ADDRESS } from './constants.js';
 import type { IAvmExecutionOracle, ITxeExecutionOracle } from './oracle/interfaces.js';
 import { TXEOraclePublicContext } from './oracle/txe_oracle_public_context.js';
 import { TXEOracleTopLevelContext } from './oracle/txe_oracle_top_level_context.js';
@@ -102,8 +112,6 @@ export interface TXESessionStateHandler {
   enterPrivateState(contractAddress?: AztecAddress, anchorBlockNumber?: BlockNumber): Promise<PrivateContextInputs>;
   enterUtilityState(contractAddress?: AztecAddress): Promise<void>;
 }
-
-export const DEFAULT_ADDRESS = AztecAddress.fromNumber(42);
 
 /**
  * A `TXESession` corresponds to a Noir `#[test]` function, and handles all of its oracle calls, stores test-specific
@@ -282,11 +290,6 @@ export class TXESession implements TXESessionStateHandler {
   ): Promise<PrivateContextInputs> {
     this.exitTopLevelState();
 
-    // There is no automatic message discovery and contract-driven syncing process in inlined private or utility
-    // contexts, which means that known nullifiers are also not searched for, since it is during the tagging sync that
-    // we perform this. We therefore search for known nullifiers now, as otherwise notes that were nullified would not
-    // be removed from the database.
-    // TODO(#12553): make the synchronizer sync here instead and remove this
     await new NoteService(
       this.noteStore,
       this.stateMachine.node,
@@ -311,11 +314,13 @@ export class TXESession implements TXESessionStateHandler {
     const noteCache = new ExecutionNoteCache(protocolNullifier);
     const taggingIndexCache = new ExecutionTaggingIndexCache();
 
+    const utilityExecutor = this.utilityExecutorForContractSync(anchorBlock);
     this.oracleHandler = new PrivateExecutionOracle(
       Fr.ZERO,
       new TxContext(this.chainId, this.version, GasSettings.empty()),
       new CallContext(AztecAddress.ZERO, contractAddress, FunctionSelector.empty(), false),
       anchorBlock!,
+      utilityExecutor,
       [],
       [],
       new HashedValuesCache(),
@@ -469,5 +474,49 @@ export class TXESession implements TXESessionStateHandler {
     if (this.state.name != 'UTILITY') {
       throw new Error(`Expected to be in state 'UTILITY', but got '${this.state.name}' instead`);
     }
+  }
+
+  private utilityExecutorForContractSync(anchorBlock: any) {
+    return async (call: FunctionCall) => {
+      const entryPointArtifact = await this.contractStore.getFunctionArtifactWithDebugMetadata(call.to, call.selector);
+      if (entryPointArtifact.functionType !== FunctionType.UTILITY) {
+        throw new Error(`Cannot run ${entryPointArtifact.functionType} function as utility`);
+      }
+
+      try {
+        const oracle = new UtilityExecutionOracle(
+          call.to,
+          [],
+          [],
+          anchorBlock!,
+          this.contractStore,
+          this.noteStore,
+          this.keyStore,
+          this.addressStore,
+          this.stateMachine.node,
+          this.stateMachine.anchorBlockStore,
+          this.recipientTaggingStore,
+          this.senderAddressBookStore,
+          this.capsuleStore,
+          this.privateEventStore,
+        );
+        await new WASMSimulator()
+          .executeUserCircuit(toACVMWitness(0, call.args), entryPointArtifact, new Oracle(oracle).toACIRCallback())
+          .catch((err: Error) => {
+            err.message = resolveAssertionMessageFromError(err, entryPointArtifact);
+            throw new ExecutionError(
+              err.message,
+              {
+                contractAddress: call.to,
+                functionSelector: call.selector,
+              },
+              extractCallStack(err, entryPointArtifact.debug),
+              { cause: err },
+            );
+          });
+      } catch (err) {
+        throw createSimulationError(err instanceof Error ? err : new Error('Unknown error contract data sync'));
+      }
+    };
   }
 }
