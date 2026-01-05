@@ -8,9 +8,10 @@ import {
   AddressDataProvider,
   CapsuleDataProvider,
   NoteDataProvider,
-  PXEOracleInterface,
+  NoteService,
   PrivateEventDataProvider,
   RecipientTaggingDataProvider,
+  SenderAddressBook,
   SenderTaggingDataProvider,
 } from '@aztec/pxe/server';
 import {
@@ -102,7 +103,7 @@ export interface TXESessionStateHandler {
   enterUtilityState(contractAddress?: AztecAddress): Promise<void>;
 }
 
-const DEFAULT_ADDRESS = AztecAddress.fromNumber(42);
+export const DEFAULT_ADDRESS = AztecAddress.fromNumber(42);
 
 /**
  * A `TXESession` corresponds to a Noir `#[test]` function, and handles all of its oracle calls, stores test-specific
@@ -121,13 +122,18 @@ export class TXESession implements TXESessionStateHandler {
       | IAvmExecutionOracle
       | ITxeExecutionOracle,
     private contractDataProvider: TXEContractDataProvider,
+    private noteDataProvider: NoteDataProvider,
     private keyStore: KeyStore,
     private addressDataProvider: AddressDataProvider,
     private accountDataProvider: TXEAccountDataProvider,
+    private senderTaggingDataProvider: SenderTaggingDataProvider,
+    private recipientTaggingDataProvider: RecipientTaggingDataProvider,
+    private senderAddressBook: SenderAddressBook,
+    private capsuleDataProvider: CapsuleDataProvider,
+    private privateEventDataProvider: PrivateEventDataProvider,
     private chainId: Fr,
     private version: Fr,
     private nextBlockTimestamp: bigint,
-    private pxeOracleInterface: PXEOracleInterface,
   ) {}
 
   static async init(protocolContracts: ProtocolContract[]) {
@@ -139,6 +145,7 @@ export class TXESession implements TXESessionStateHandler {
     const noteDataProvider = await NoteDataProvider.create(store);
     const senderTaggingDataProvider = new SenderTaggingDataProvider(store);
     const recipientTaggingDataProvider = new RecipientTaggingDataProvider(store);
+    const senderAddressBook = new SenderAddressBook(store);
     const capsuleDataProvider = new CapsuleDataProvider(store);
     const keyStore = new KeyStore(store);
     const accountDataProvider = new TXEAccountDataProvider(store);
@@ -155,26 +162,18 @@ export class TXESession implements TXESessionStateHandler {
     const version = new Fr(await stateMachine.node.getVersion());
     const chainId = new Fr(await stateMachine.node.getChainId());
 
-    const pxeOracleInterface = new PXEOracleInterface(
-      stateMachine.node,
-      keyStore,
-      contractDataProvider,
-      noteDataProvider,
-      capsuleDataProvider,
-      stateMachine.anchorBlockDataProvider,
-      senderTaggingDataProvider,
-      recipientTaggingDataProvider,
-      addressDataProvider,
-      privateEventDataProvider,
-    );
-
     const topLevelOracleHandler = new TXEOracleTopLevelContext(
       stateMachine,
       contractDataProvider,
+      noteDataProvider,
       keyStore,
       addressDataProvider,
       accountDataProvider,
-      pxeOracleInterface,
+      senderTaggingDataProvider,
+      recipientTaggingDataProvider,
+      senderAddressBook,
+      capsuleDataProvider,
+      privateEventDataProvider,
       nextBlockTimestamp,
       version,
       chainId,
@@ -187,13 +186,18 @@ export class TXESession implements TXESessionStateHandler {
       stateMachine,
       topLevelOracleHandler,
       contractDataProvider,
+      noteDataProvider,
       keyStore,
       addressDataProvider,
       accountDataProvider,
+      senderTaggingDataProvider,
+      recipientTaggingDataProvider,
+      senderAddressBook,
+      capsuleDataProvider,
+      privateEventDataProvider,
       version,
       chainId,
       nextBlockTimestamp,
-      pxeOracleInterface,
     );
   }
 
@@ -253,10 +257,15 @@ export class TXESession implements TXESessionStateHandler {
     this.oracleHandler = new TXEOracleTopLevelContext(
       this.stateMachine,
       this.contractDataProvider,
+      this.noteDataProvider,
       this.keyStore,
       this.addressDataProvider,
       this.accountDataProvider,
-      this.pxeOracleInterface,
+      this.senderTaggingDataProvider,
+      this.recipientTaggingDataProvider,
+      this.senderAddressBook,
+      this.capsuleDataProvider,
+      this.privateEventDataProvider,
       this.nextBlockTimestamp,
       this.version,
       this.chainId,
@@ -278,7 +287,11 @@ export class TXESession implements TXESessionStateHandler {
     // we perform this. We therefore search for known nullifiers now, as otherwise notes that were nullified would not
     // be removed from the database.
     // TODO(#12553): make the synchronizer sync here instead and remove this
-    await this.pxeOracleInterface.syncNoteNullifiers(contractAddress);
+    await new NoteService(
+      this.noteDataProvider,
+      this.stateMachine.node,
+      this.stateMachine.anchorBlockDataProvider,
+    ).syncNoteNullifiers(contractAddress);
 
     // Private execution has two associated block numbers: the anchor block (i.e. the historical block that is used to
     // build the proof), and the *next* block, i.e. the one we'll create once the execution ends, and which will contain
@@ -308,7 +321,17 @@ export class TXESession implements TXESessionStateHandler {
       new HashedValuesCache(),
       noteCache,
       taggingIndexCache,
-      this.pxeOracleInterface,
+      this.contractDataProvider,
+      this.noteDataProvider,
+      this.keyStore,
+      this.addressDataProvider,
+      this.stateMachine.node,
+      this.stateMachine.anchorBlockDataProvider,
+      this.senderTaggingDataProvider,
+      this.recipientTaggingDataProvider,
+      this.senderAddressBook,
+      this.capsuleDataProvider,
+      this.privateEventDataProvider,
     );
 
     // We store the note and tagging index caches fed into the PrivateExecutionOracle (along with some other auxiliary
@@ -354,7 +377,11 @@ export class TXESession implements TXESessionStateHandler {
     // we perform this. We therefore search for known nullifiers now, as otherwise notes that were nullified would not
     // be removed from the database.
     // TODO(#12553): make the synchronizer sync here instead and remove this
-    await this.pxeOracleInterface.syncNoteNullifiers(contractAddress);
+    await new NoteService(
+      this.noteDataProvider,
+      this.stateMachine.node,
+      this.stateMachine.anchorBlockDataProvider,
+    ).syncNoteNullifiers(contractAddress);
 
     const anchorBlockHeader = await this.stateMachine.anchorBlockDataProvider.getBlockHeader();
 
@@ -363,7 +390,16 @@ export class TXESession implements TXESessionStateHandler {
       [],
       [],
       anchorBlockHeader,
-      this.pxeOracleInterface,
+      this.contractDataProvider,
+      this.noteDataProvider,
+      this.keyStore,
+      this.addressDataProvider,
+      this.stateMachine.node,
+      this.stateMachine.anchorBlockDataProvider,
+      this.recipientTaggingDataProvider,
+      this.senderAddressBook,
+      this.capsuleDataProvider,
+      this.privateEventDataProvider,
     );
 
     this.state = { name: 'UTILITY' };
@@ -398,6 +434,7 @@ export class TXESession implements TXESessionStateHandler {
 
     // We rely on the note cache to determine the effects of the transaction. This is incomplete as it doesn't private
     // logs (other effects like enqueued public calls don't need to be considered since those are not allowed).
+
     const txEffect = await makeTxEffect(
       this.state.noteCache,
       this.state.protocolNullifier,

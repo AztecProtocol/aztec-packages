@@ -3,9 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../../styles.css">
+<script defer src="../../../nargo_doc.js"></script>
 <title>Struct SaltedInitializationHash documentation</title>
 </head>
 <body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">SaltedInitializationHash</div>
+</div>
+<span id="main-contents">
 <nav class="sidebar">
 <h1><a href="../../../index.html">aztec-nr</a></h1>
 <div><a href="../../../all.html">All items</a></div>
@@ -14,7 +20,7 @@
 <h2><a href="#struct">Struct SaltedInitializationHash</a></h2>
 <h3>Fields</h3>
 <ul class="sidebar-list">
-<li><a href="#inner">inner</a></li>
+<li><a href="#structfield.inner">inner</a></li>
 </ul>
 <h3>Methods</h3>
 <ul class="sidebar-list">
@@ -40,15 +46,15 @@
 }
 </code></pre>
 <h2>Fields</h2>
-<div id="inner" class="struct-field"><code class="code-header">inner: <a href="../../../std/primitive.Field.html" class="primitive">Field</a></code></div>
+<div id="structfield.inner" class="struct-field"><code class="code-header">inner: <a href="../../../std/primitive.Field.html" class="primitive">Field</a></code></div>
 <div class="padded-description"></div><h2>Implementations</h2>
 <h3><code class="code-header">impl <a href="../../../protocol_types/address/salted_initialization_hash/struct.SaltedInitializationHash.html" class="struct">SaltedInitializationHash</a></code></h3>
 
-<div class="padded-methods"><code id="from_field" class="code-header">pub fn <span class="fn">from_field</span>(field: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>) -> Self</code>
+<div class="padded-methods"><code id="from_field" class="code-header">pub fn <a href="#from_field"><span class="fn">from_field</span></a>(field: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>) -> Self</code>
 
-<code id="compute" class="code-header">pub fn <span class="fn">compute</span>(salt: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>, initialization_hash: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>, deployer: <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>) -> Self</code>
+<code id="compute" class="code-header">pub fn <a href="#compute"><span class="fn">compute</span></a>(salt: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>, initialization_hash: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>, deployer: <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>) -> Self</code>
 
-<code id="assert_is_zero" class="code-header">pub fn <span class="fn">assert_is_zero</span>(self)</code>
+<code id="assert_is_zero" class="code-header">pub fn <a href="#assert_is_zero"><span class="fn">assert_is_zero</span></a>(self)</code>
 
 </div><h2>Trait implementations</h2>
 <h3 id="impl-Eq-for-SaltedInitializationHash"><code class="code-header">impl <a href="../../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../../protocol_types/address/salted_initialization_hash/struct.SaltedInitializationHash.html" class="struct">SaltedInitializationHash</a></code></h3>
@@ -60,5 +66,6 @@
 <div class="padded-methods"><code class="code-header">pub fn <span class="fn">to_field</span>(self) -> <a href="../../../std/primitive.Field.html" class="primitive">Field</a></code>
 
 </div></main>
+</span>
 </body>
 </html>

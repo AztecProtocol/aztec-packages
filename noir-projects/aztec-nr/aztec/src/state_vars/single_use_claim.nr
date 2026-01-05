@@ -1,6 +1,6 @@
 use dep::protocol_types::{
-    address::AztecAddress, constants::GENERATOR_INDEX__NOTE_HASH,
-    hash::poseidon2_hash_with_separator, traits::Hash,
+    address::AztecAddress, constants::DOM_SEP__NOTE_HASH, hash::poseidon2_hash_with_separator,
+    traits::Hash,
 };
 
 use crate::{
@@ -80,10 +80,7 @@ impl<Context> SingleUseClaim<Context> {
     /// [SingleUseClaim::has_claimed] to coherently write and read state.
     fn compute_nullifier(self, owner_nsk_app: Field) -> Field {
         // TODO(F-180): make sure we follow the nullifier convention
-        poseidon2_hash_with_separator(
-            [owner_nsk_app, self.storage_slot],
-            GENERATOR_INDEX__NOTE_HASH,
-        )
+        poseidon2_hash_with_separator([owner_nsk_app, self.storage_slot], DOM_SEP__NOTE_HASH)
     }
 }
 

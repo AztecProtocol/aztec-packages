@@ -26,6 +26,8 @@ describe('enrichEnvironmentWithChainConfig', () => {
       publicMetricsCollectFrom: ['bar'],
       skipArchiverInitialSync: true,
       blobAllowEmptySources: true,
+      blockDurationMs: 12000,
+      buildCheckpointIfEmpty: true,
     };
 
     // Enrich env with those
@@ -50,6 +52,7 @@ describe('enrichEnvironmentWithChainConfig', () => {
 
     // Regression: verify the four previously missing properties are now set
     expect(process.env['AZTEC_LAG_IN_EPOCHS_FOR_VALIDATOR_SET']).toBe(config.lagInEpochsForValidatorSet.toString());
+    expect(process.env['AZTEC_INBOX_LAG']).toBe(config.inboxLag.toString());
     expect(process.env['AZTEC_LAG_IN_EPOCHS_FOR_RANDAO']).toBe(config.lagInEpochsForRandao.toString());
     expect(process.env['AZTEC_SLASHING_DISABLE_DURATION']).toBe(config.slashingDisableDuration.toString());
     expect(process.env['SLASH_GRACE_PERIOD_L2_SLOTS']).toBe(config.slashGracePeriodL2Slots.toString());

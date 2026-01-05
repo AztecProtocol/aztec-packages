@@ -4,7 +4,6 @@ import { AztecAddress, EthAddress } from '@aztec/aztec.js/addresses';
 import { generateClaimSecret } from '@aztec/aztec.js/ethereum';
 import { Fr } from '@aztec/aztec.js/fields';
 import { RollupCheatCodes } from '@aztec/aztec/testing';
-import { createBlobSinkServer } from '@aztec/blob-sink/server';
 import { RegistryContract, RollupContract } from '@aztec/ethereum/contracts';
 import { deployRollupForUpgrade } from '@aztec/ethereum/deploy-aztec-l1-contracts';
 import { deployL1Contract } from '@aztec/ethereum/deploy-l1-contract';
@@ -33,7 +32,6 @@ import { getGenesisValues } from '@aztec/world-state/testing';
 
 import { jest } from '@jest/globals';
 import fs from 'fs';
-import getPort from 'get-port';
 import os from 'os';
 import path from 'path';
 import { type Hex, decodeEventLog, encodeFunctionData, getAddress, getContract } from 'viem';
@@ -42,6 +40,7 @@ import { foundry } from 'viem/chains';
 import { shouldCollectMetrics } from '../fixtures/fixtures.js';
 import { sendL1ToL2Message } from '../fixtures/l1_to_l2_messaging.js';
 import { createNodes } from '../fixtures/setup_p2p_test.js';
+import { setupSharedBlobStorage } from '../fixtures/utils.js';
 import { P2PNetworkTest, SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES } from './p2p_network.js';
 
 // Don't set this to a higher value than 9 because each node will use a different L1 publisher account and anvil seeds
@@ -160,6 +159,7 @@ describe('e2e_p2p_add_rollup', () => {
         aztecTargetCommitteeSize: t.ctx.aztecNodeConfig.aztecTargetCommitteeSize,
         lagInEpochsForValidatorSet: t.ctx.aztecNodeConfig.lagInEpochsForValidatorSet,
         lagInEpochsForRandao: t.ctx.aztecNodeConfig.lagInEpochsForRandao,
+        inboxLag: t.ctx.aztecNodeConfig.inboxLag,
         aztecProofSubmissionEpochs: t.ctx.aztecNodeConfig.aztecProofSubmissionEpochs,
         slashingQuorum: t.ctx.aztecNodeConfig.slashingQuorum,
         slashingRoundSizeInEpochs: t.ctx.aztecNodeConfig.slashingRoundSizeInEpochs,
@@ -494,27 +494,16 @@ describe('e2e_p2p_add_rollup', () => {
       newVersion,
     );
 
-    const blobSinkPort = await getPort();
+    // Set up shared blob storage for the new rollup using FileStore
     const newConfig = {
       ...t.ctx.aztecNodeConfig,
+      dataDirectory: DATA_DIR_NEW,
       rollupVersion: Number(newVersion),
       governanceProposerPayload: EthAddress.ZERO,
       l1Contracts: { ...t.ctx.deployL1ContractsValues.l1ContractAddresses, ...addresses },
-      blobSinkUrl: `http://127.0.0.1:${blobSinkPort}`,
     };
+    await setupSharedBlobStorage(newConfig);
 
-    // Start a new blob sink service
-    // @note: The blob sink service uses the ROLLUP_ADDRESS directly, so we need to update as above
-    //        since we cannot
-    const blobSink = await createBlobSinkServer({
-      l1ChainId: newConfig.l1ChainId,
-      l1RpcUrls: newConfig.l1RpcUrls,
-      l1Contracts: newConfig.l1Contracts,
-      port: blobSinkPort,
-      dataDirectory: newConfig.dataDirectory,
-      dataStoreMapSizeKb: newConfig.dataStoreMapSizeKb,
-    });
-    await blobSink.start();
     await sleep(4000);
 
     nodes = await createNodes(
@@ -547,7 +536,5 @@ describe('e2e_p2p_add_rollup', () => {
     // Both rollups should have a checkpoint number greater than 0
     expect(await rollup.getCheckpointNumber()).toBeGreaterThan(CheckpointNumber(0));
     expect(await newRollup.getCheckpointNumber()).toBeGreaterThan(CheckpointNumber(0));
-
-    await blobSink.stop();
   }, 10_000_000);
 });

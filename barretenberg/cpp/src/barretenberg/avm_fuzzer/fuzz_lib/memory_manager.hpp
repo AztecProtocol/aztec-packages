@@ -23,8 +23,9 @@ class MemoryManager {
 
     bb::avm2::testing::OperandBuilder get_memory_address_operand(bb::avm2::testing::OperandBuilder operand,
                                                                  AddressingMode mode);
-    std::optional<uint32_t> get_memory_address_to_resolve(AddressRef address);
-    std::optional<uint32_t> get_memory_address_to_resolve(ResultAddressRef address);
+    ResolvedAddress resolve_address(VariableRef address, uint32_t absolute_address, uint32_t max_operand_address);
+    ResolvedAddress resolve_address(AddressRef address, uint32_t max_operand_address);
+    std::optional<uint32_t> get_variable_address(bb::avm2::MemoryTag tag, uint32_t index, uint32_t max_value);
 
   public:
     MemoryManager() = default;
@@ -34,18 +35,22 @@ class MemoryManager {
     MemoryManager& operator=(MemoryManager&& other) = default;
     ~MemoryManager() = default;
     void set_memory_address(bb::avm2::MemoryTag tag, uint32_t address);
-    std::optional<uint32_t> get_memory_offset(bb::avm2::MemoryTag tag, uint32_t address_index);
-    std::optional<uint8_t> get_memory_offset_8_bit(bb::avm2::MemoryTag tag, uint16_t address_index);
+    std::optional<uint16_t> get_memory_offset_16(bb::avm2::MemoryTag tag, uint32_t address_index);
+    std::optional<uint8_t> get_memory_offset_8(bb::avm2::MemoryTag tag, uint32_t address_index);
     bool is_memory_address_set(uint16_t address);
 
-    std::optional<std::pair<uint32_t, bb::avm2::testing::OperandBuilder>> get_memory_address_and_operand_8(
+    std::optional<std::pair<ResolvedAddress, bb::avm2::testing::OperandBuilder>> get_resolved_address_and_operand_8(
+        ParamRef address);
+    std::optional<std::pair<ResolvedAddress, bb::avm2::testing::OperandBuilder>> get_resolved_address_and_operand_8(
+        VariableRef address);
+    std::optional<std::pair<ResolvedAddress, bb::avm2::testing::OperandBuilder>> get_resolved_address_and_operand_8(
         AddressRef address);
-    std::optional<std::pair<uint32_t, bb::avm2::testing::OperandBuilder>> get_memory_address_and_operand_8(
-        ResultAddressRef address);
-    std::optional<std::pair<uint32_t, bb::avm2::testing::OperandBuilder>> get_memory_address_and_operand_16(
+    std::optional<std::pair<ResolvedAddress, bb::avm2::testing::OperandBuilder>> get_resolved_address_and_operand_16(
+        ParamRef address);
+    std::optional<std::pair<ResolvedAddress, bb::avm2::testing::OperandBuilder>> get_resolved_address_and_operand_16(
+        VariableRef address);
+    std::optional<std::pair<ResolvedAddress, bb::avm2::testing::OperandBuilder>> get_resolved_address_and_operand_16(
         AddressRef address);
-    std::optional<std::pair<uint32_t, bb::avm2::testing::OperandBuilder>> get_memory_address_and_operand_16(
-        ResultAddressRef address);
 
     // Append used slot to storage_addresses
     void append_slot(bb::avm2::FF slot);

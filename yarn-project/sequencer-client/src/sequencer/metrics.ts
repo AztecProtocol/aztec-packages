@@ -18,6 +18,7 @@ import { type Hex, formatUnits } from 'viem';
 
 import type { SequencerState } from './utils.js';
 
+// TODO(palla/mbps): Review all metrics and add any missing ones per checkpoint
 export class SequencerMetrics {
   public readonly tracer: Tracer;
   private meter: Meter;
@@ -41,7 +42,9 @@ export class SequencerMetrics {
   private blockProposalFailed: UpDownCounter;
   private blockProposalSuccess: UpDownCounter;
   private blockProposalPrecheckFailed: UpDownCounter;
+  private checkpointSuccess: UpDownCounter;
   private slashingAttempts: UpDownCounter;
+  private blockAttestationDelay: Histogram;
 
   // Fisherman fee analysis metrics
   private fishermanWouldBeIncluded: UpDownCounter;
@@ -88,6 +91,12 @@ export class SequencerMetrics {
         valueType: ValueType.INT,
       },
     );
+
+    this.blockAttestationDelay = this.meter.createHistogram(Metrics.SEQUENCER_BLOCK_ATTESTATION_DELAY, {
+      unit: 'ms',
+      description: 'The time difference between block proposal and minimal attestation count reached,',
+      valueType: ValueType.INT,
+    });
 
     // Init gauges and counters
     this.blockCounter.add(0, {
@@ -149,6 +158,11 @@ export class SequencerMetrics {
     this.blockProposalSuccess = this.meter.createUpDownCounter(Metrics.SEQUENCER_BLOCK_PROPOSAL_SUCCESS_COUNT, {
       valueType: ValueType.INT,
       description: 'The number of times block proposal succeeded (including validation builds)',
+    });
+
+    this.checkpointSuccess = this.meter.createUpDownCounter(Metrics.SEQUENCER_CHECKPOINT_SUCCESS_COUNT, {
+      valueType: ValueType.INT,
+      description: 'The number of times checkpoint publishing succeeded',
     });
 
     this.blockProposalPrecheckFailed = this.meter.createUpDownCounter(
@@ -250,6 +264,10 @@ export class SequencerMetrics {
     this.timeToCollectAttestations.record(0);
   }
 
+  public recordBlockAttestationDelay(duration: number) {
+    this.blockAttestationDelay.record(duration);
+  }
+
   public recordCollectedAttestations(count: number, durationMs: number) {
     this.collectedAttestions.record(count);
     this.timeToCollectAttestations.record(Math.ceil(durationMs));
@@ -305,6 +323,10 @@ export class SequencerMetrics {
         // no-op
       }
     }
+  }
+
+  recordCheckpointSuccess() {
+    this.checkpointSuccess.add(1);
   }
 
   recordBlockProposalFailed(reason?: string) {

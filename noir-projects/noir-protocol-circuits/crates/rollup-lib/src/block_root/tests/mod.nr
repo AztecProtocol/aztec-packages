@@ -4,17 +4,16 @@ mod failures_tests;
 mod rollup_structure_tests;
 
 use crate::{
-    abis::{BlockRollupPublicInputs, TxRollupPublicInputs},
+    abis::{BlockRollupPublicInputs, ParityPublicInputs, TxRollupPublicInputs},
     block_root::{
-        block_root_empty_tx_first_rollup_private_inputs::BlockRootEmptyTxFirstRollupPrivateInputs,
-        block_root_first_rollup_private_inputs::BlockRootFirstRollupPrivateInputs,
-        block_root_rollup_private_inputs::BlockRootRollupPrivateInputs,
-        block_root_single_tx_first_rollup_private_inputs::BlockRootSingleTxFirstRollupPrivateInputs,
-        block_root_single_tx_rollup_private_inputs::BlockRootSingleTxRollupPrivateInputs,
+        block_root_empty_tx_first_rollup::{self, BlockRootEmptyTxFirstRollupPrivateInputs},
+        block_root_first_rollup::{self, BlockRootFirstRollupPrivateInputs},
+        block_root_rollup::{self, BlockRootRollupPrivateInputs},
+        block_root_single_tx_first_rollup::{self, BlockRootSingleTxFirstRollupPrivateInputs},
+        block_root_single_tx_rollup::{self, BlockRootSingleTxRollupPrivateInputs},
     },
     tests::RollupFixtureBuilder,
 };
-use parity_lib::ParityPublicInputs;
 use types::{
     abis::{
         append_only_tree_snapshot::AppendOnlyTreeSnapshot, block_header::BlockHeader,
@@ -173,34 +172,37 @@ impl TestBuilder {
                 l1_to_l2_message_tree: self.previous_l1_to_l2,
                 partial: self.left_rollup.start_tree_snapshots,
             };
-            BlockRootEmptyTxFirstRollupPrivateInputs {
-                parity_root,
-                previous_archive: left.constants.last_archive,
-                previous_state,
-                constants: self.checkpoint_constants,
-                timestamp: left.constants.global_variables.timestamp,
-                new_l1_to_l2_message_subtree_root_sibling_path,
-                new_archive_sibling_path,
-            }
-                .execute()
+            block_root_empty_tx_first_rollup::execute(
+                BlockRootEmptyTxFirstRollupPrivateInputs {
+                    parity_root,
+                    previous_archive: left.constants.last_archive,
+                    previous_state,
+                    constants: self.checkpoint_constants,
+                    timestamp: left.constants.global_variables.timestamp,
+                    new_l1_to_l2_message_subtree_root_sibling_path,
+                    new_archive_sibling_path,
+                },
+            )
         } else if self.num_right_txs == 0 {
-            BlockRootSingleTxFirstRollupPrivateInputs {
-                parity_root,
-                previous_rollup: previous_rollups[0],
-                previous_l1_to_l2: self.previous_l1_to_l2,
-                new_l1_to_l2_message_subtree_root_sibling_path,
-                new_archive_sibling_path,
-            }
-                .execute()
+            block_root_single_tx_first_rollup::execute(
+                BlockRootSingleTxFirstRollupPrivateInputs {
+                    parity_root,
+                    previous_rollup: previous_rollups[0],
+                    previous_l1_to_l2: self.previous_l1_to_l2,
+                    new_l1_to_l2_message_subtree_root_sibling_path,
+                    new_archive_sibling_path,
+                },
+            )
         } else {
-            BlockRootFirstRollupPrivateInputs {
-                parity_root,
-                previous_rollups,
-                previous_l1_to_l2: self.previous_l1_to_l2,
-                new_l1_to_l2_message_subtree_root_sibling_path,
-                new_archive_sibling_path,
-            }
-                .execute()
+            block_root_first_rollup::execute(
+                BlockRootFirstRollupPrivateInputs {
+                    parity_root,
+                    previous_rollups,
+                    previous_l1_to_l2: self.previous_l1_to_l2,
+                    new_l1_to_l2_message_subtree_root_sibling_path,
+                    new_archive_sibling_path,
+                },
+            )
         }
     }
 
@@ -213,13 +215,16 @@ impl TestBuilder {
         let new_archive_sibling_path = self.new_archive_sibling_path;
 
         if self.num_right_txs == 0 {
-            BlockRootSingleTxRollupPrivateInputs {
-                previous_rollup: previous_rollups[0],
-                new_archive_sibling_path,
-            }
-                .execute()
+            block_root_single_tx_rollup::execute(
+                BlockRootSingleTxRollupPrivateInputs {
+                    previous_rollup: previous_rollups[0],
+                    new_archive_sibling_path,
+                },
+            )
         } else {
-            BlockRootRollupPrivateInputs { previous_rollups, new_archive_sibling_path }.execute()
+            block_root_rollup::execute(
+                BlockRootRollupPrivateInputs { previous_rollups, new_archive_sibling_path },
+            )
         }
     }
 

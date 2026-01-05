@@ -1,7 +1,7 @@
 use crate::context::PrivateContext;
 
 use dep::protocol_types::{
-    constants::GENERATOR_INDEX__TX_NULLIFIER, hash::poseidon2_hash_with_separator, traits::Hash,
+    constants::DOM_SEP__TX_NULLIFIER, hash::poseidon2_hash_with_separator, traits::Hash,
 };
 
 use crate::authwit::auth::{compute_authwit_message_hash, IS_VALID_SELECTOR};
@@ -74,10 +74,8 @@ impl AccountActions<&mut PrivateContext> {
         app_payload.execute_calls(self.context);
 
         if cancellable {
-            let tx_nullifier = poseidon2_hash_with_separator(
-                [app_payload.tx_nonce],
-                GENERATOR_INDEX__TX_NULLIFIER,
-            );
+            let tx_nullifier =
+                poseidon2_hash_with_separator([app_payload.tx_nonce], DOM_SEP__TX_NULLIFIER);
             self.context.push_nullifier(tx_nullifier);
         }
     }

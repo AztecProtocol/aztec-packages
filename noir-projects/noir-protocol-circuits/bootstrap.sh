@@ -157,7 +157,6 @@ function build {
   echo_stderr "Checking libraries for warnings..."
   parallel -v --line-buffer --tag $NARGO --program-dir {} check ::: \
     ./crates/blob \
-    ./crates/parity-lib \
     ./crates/private-kernel-lib \
     ./crates/rollup-lib \
     ./crates/types \

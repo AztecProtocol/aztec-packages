@@ -42,18 +42,28 @@ export interface WorldStateSynchronizerStatus {
 
 /** Provides writeable forks of the world state at a given block number. */
 export interface ForkMerkleTreeOperations {
-  /** Forks the world state at the given block number, defaulting to the latest one. */
-  fork(block?: BlockNumber): Promise<MerkleTreeWriteOperations>;
-
-  /** Gets a handle that allows reading the state as it was at the given block number. */
-  getSnapshot(blockNumber: BlockNumber): MerkleTreeReadOperations;
+  /**
+   * Forks the world state at the given block number, defaulting to the latest one.
+   * @param block - The block number to fork at.
+   * @param opts - Optional parameters:
+   *  - closeDelayMs: number of milliseconds to wait before closing the fork on dispose.
+   */
+  fork(block?: BlockNumber, opts?: { closeDelayMs?: number }): Promise<MerkleTreeWriteOperations>;
 
   /** Backups the db to the target path. */
   backupTo(dstPath: string, compact?: boolean): Promise<Record<Exclude<SnapshotDataKeys, 'archiver'>, string>>;
 }
 
+export interface ReadonlyWorldStateAccess {
+  /** Returns an instance of MerkleTreeAdminOperations that will not include uncommitted data. */
+  getCommitted(): MerkleTreeReadOperations;
+
+  /** Gets a handle that allows reading the state as it was at the given block number. */
+  getSnapshot(blockNumber: number): MerkleTreeReadOperations;
+}
+
 /** Defines the interface for a world state synchronizer. */
-export interface WorldStateSynchronizer extends ForkMerkleTreeOperations {
+export interface WorldStateSynchronizer extends ReadonlyWorldStateAccess, ForkMerkleTreeOperations {
   /** Starts the synchronizer. */
   start(): Promise<void | PromiseWithResolvers<void>>;
 
@@ -76,9 +86,6 @@ export interface WorldStateSynchronizer extends ForkMerkleTreeOperations {
    * @returns A promise that resolves with the block number the world state was synced to
    */
   syncImmediate(minBlockNumber?: BlockNumber, skipThrowIfTargetNotReached?: boolean): Promise<BlockNumber>;
-
-  /** Returns an instance of MerkleTreeAdminOperations that will not include uncommitted data. */
-  getCommitted(): MerkleTreeReadOperations;
 
   /** Deletes the db */
   clear(): Promise<void>;

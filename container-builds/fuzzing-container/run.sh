@@ -13,6 +13,7 @@ mem="16G"
 jobs_="$cpus"
 workers='0'
 avm='off'
+rss_limit='2048	'
 
 show_help() {
 	echo "Usage: $0 [options]"
@@ -28,6 +29,7 @@ show_help() {
 	echo "  -m, --mode <mode>           Set the mode of operation (fuzzing, coverage or regress-only) (default: $mode)"
 	echo "  -a, --asm <mode>            Set the flag to enable/disable asm instructions (on/off) (default: $asm)"
 	echo "  -A, --avm                   Enable AVM fuzzing mode (uses build-fuzzing-avm) (default: $avm)"
+	echo "  -r, --rss-limit <MB>        Set RSS limit in megabytes (default: 2048 MB)"
 	echo "  -h, --help                  Display this help and exit"
 	echo "  --show-fuzzers              Display the available fuzzers"
 	echo ""
@@ -72,6 +74,10 @@ while [[ $# -gt 0 ]]; do
 	-A | --avm)
 		avm='on'
 		shift
+		;;
+	-r | --rss-limit)
+		rss_limit="$2"
+		shift 2
 		;;
 	-c | --cpus)
 		cpus="$2"
@@ -147,6 +153,7 @@ entrypoint_args=(
 	--workers "$workers"
 	--jobs "$jobs_"
 	--verbosity "$verbosity"
+	--rss-limit "$rss_limit"
 )
 
 docker run "${docker_args[@]}" "${entrypoint_args[@]}"

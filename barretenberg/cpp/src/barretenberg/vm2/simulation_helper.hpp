@@ -5,6 +5,7 @@
 #include "barretenberg/vm2/simulation/events/events_container.hpp"
 #include "barretenberg/vm2/simulation/interfaces/db.hpp"
 #include "barretenberg/vm2/simulation/interfaces/execution.hpp"
+#include "barretenberg/vm2/simulation/lib/cancellation_token.hpp"
 
 namespace bb::avm2 {
 
@@ -17,7 +18,8 @@ class AvmSimulationHelper {
                                                       const PublicSimulatorConfig& config,
                                                       const Tx& tx,
                                                       const GlobalVariables& global_variables,
-                                                      const ProtocolContracts& protocol_contracts);
+                                                      const ProtocolContracts& protocol_contracts,
+                                                      simulation::CancellationTokenPtr cancellation_token = nullptr);
 
     // Simulation to collect hints (used by the prover node).
     TxSimulationResult simulate_for_hint_collection(simulation::ContractDBInterface& raw_contract_db,
@@ -26,13 +28,14 @@ class AvmSimulationHelper {
                                                     const PublicSimulatorConfig& config,
                                                     const Tx& tx,
                                                     const GlobalVariables& global_variables,
-                                                    const ProtocolContracts& protocol_contracts);
+                                                    const ProtocolContracts& protocol_contracts,
+                                                    simulation::CancellationTokenPtr cancellation_token = nullptr);
 
     // Simulation with event collection (used in witgen and proving).
     simulation::EventsContainer simulate_for_witgen(const ExecutionHints& hints);
 
     // An extra entry point that is not used in production.
-    TxSimulationResult simulate_fast_with_hinted_dbs(const ExecutionHints& hints);
+    TxSimulationResult simulate_fast_with_hinted_dbs(const ExecutionHints& hints, const PublicSimulatorConfig& config);
 
   protected:
     TxSimulationResult simulate_fast_internal(simulation::ContractDBInterface& raw_contract_db,
@@ -40,7 +43,8 @@ class AvmSimulationHelper {
                                               const PublicSimulatorConfig& config,
                                               const Tx& tx,
                                               const GlobalVariables& global_variables,
-                                              const ProtocolContracts& protocol_contracts);
+                                              const ProtocolContracts& protocol_contracts,
+                                              simulation::CancellationTokenPtr cancellation_token = nullptr);
 
     template <template <typename> class DefaultEventEmitter, template <typename> class DefaultDeduplicatingEventEmitter>
     std::tuple<simulation::EventsContainer, TxSimulationResult> simulate_for_witgen_internal(

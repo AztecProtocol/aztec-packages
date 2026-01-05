@@ -3,8 +3,7 @@ import type { TypedEventEmitter } from '@aztec/foundation/types';
 import type { BlockHeader, Tx, TxHash } from '@aztec/stdlib/tx';
 
 export type TxPoolOptions = {
-  maxTxPoolSize?: number;
-  txPoolOverflowFactor?: number;
+  maxPendingTxCount?: number;
   archivedTxLimit?: number;
 };
 
@@ -69,8 +68,9 @@ export interface TxPool extends TypedEventEmitter<TxPoolEvents> {
    * Moves mined txs back to the pending set in the case of a reorg.
    * Note: txs not known by this peer will be ignored.
    * @param txHashes - Hashes of the txs to flag as pending.
+   * @param latestBlock - The block number the chain was pruned to.
    */
-  markMinedAsPending(txHashes: TxHash[]): Promise<void>;
+  markMinedAsPending(txHashes: TxHash[], latestBlock: BlockNumber): Promise<void>;
 
   /**
    * Deletes transactions from the pool. Tx hashes that are not present are ignored.
@@ -126,6 +126,11 @@ export interface TxPool extends TypedEventEmitter<TxPoolEvents> {
    * @param txHashes - Hashes of the transactions to mark as non-evictible.
    */
   markTxsAsNonEvictable(txHashes: TxHash[]): Promise<void>;
+
+  /**
+   * Clears collection of non-evictable transactions in the pool
+   */
+  clearNonEvictableTxs(): Promise<void>;
 
   /**
    * Permanently deletes deleted mined transactions from blocks up to and including the specified block number.

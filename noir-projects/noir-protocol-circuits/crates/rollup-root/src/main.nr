@@ -1,5 +1,5 @@
-use dep::rollup_lib::root::{RootRollupPrivateInputs, RootRollupPublicInputs};
+use dep::rollup_lib::root::{root_rollup, RootRollupPrivateInputs, RootRollupPublicInputs};
 
 fn main(inputs: RootRollupPrivateInputs) -> pub RootRollupPublicInputs {
-    inputs.execute()
+    root_rollup::execute(inputs)
 }

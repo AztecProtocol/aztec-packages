@@ -1,13 +1,33 @@
 ---
-title: Function Attributes and Macros
+title: Attributes and Macros
 sidebar_position: 6
 tags: [functions]
-description: Explore function attributes in Aztec contracts that control visibility, mutability, and execution context.
+description: Reference for Aztec contract attributes that control function visibility, execution context, storage, and notes.
 ---
 
-On this page you will learn about function attributes and macros.
+This page documents the attributes (macros) available in Aztec.nr for defining contract functions, storage, and notes.
 
-If you are looking for a reference of function macros, go [here](../macros.md).
+## Quick reference
+
+| Attribute | Applies to | Purpose |
+|-----------|-----------|---------|
+| `#[external("private")]` | functions | Client-side private execution with proofs |
+| `#[external("public")]` | functions | Sequencer-side public execution |
+| `#[external("utility")]` | functions | Unconstrained queries, not included in transactions |
+| `#[internal("private")]` | functions | Private helper functions, inlined at call sites |
+| `#[internal("public")]` | functions | Public helper functions, inlined at call sites |
+| `#[view]` | functions | Prevents state modification |
+| `#[initializer]` | functions | Contract constructor |
+| `#[noinitcheck]` | functions | Callable before contract initialization |
+| `#[nophasecheck]` | functions | Skips transaction phase validation |
+| `#[only_self]` | functions | Only callable by the same contract |
+| `#[authorize_once]` | functions | Requires authwit authorization with replay protection |
+| `#[note]` | structs | Defines a private note type |
+| `#[custom_note]` | structs | Defines a note with custom hash/nullifier logic |
+| `#[storage]` | structs | Defines contract storage layout |
+| `#[storage_no_init]` | structs | Storage with manual slot allocation |
+
+For macro internals, see the [macros reference](../macros.md).
 
 # External functions #[external("...")]
 
@@ -19,89 +39,30 @@ We will describe each type in the following sections.
 
 A private function operates on private information, and is executed by the user on their device. Annotate the function with the `#[external("private")]` attribute to tell the compiler it's a private function. This will make the [private context](./context.md#the-private-context) available within the function's execution scope. The compiler will create a circuit to define this function.
 
-`#[external("private")]` is just syntactic sugar. At compile time, the Aztec.nr framework inserts code that allows the function to interact with the [kernel](../../../foundational-topics/advanced/circuits/kernels/private_kernel.md).
+`#[external("private")]` is just syntactic sugar. At compile time, the Aztec.nr framework inserts code that allows the function to interact with the [kernel](../../../foundational-topics/advanced/circuits/private_kernel.md).
 
 If you are interested in what exactly the macros are doing we encourage you to run `nargo expand` on your contract.
 This will display your contract's code after the transformations are performed.
 
-(If you are using VSCode you can display the expanded code by pressing `CMD + Shift + P` and typing `nargo expand` and selecting `Noir: nargo expand on current package.)
+(If you are using VSCode you can display the expanded code by pressing `CMD + Shift + P` and typing `nargo expand` and selecting `Noir: nargo expand on current package`.)
 
-#### The expansion broken down
+Under the hood, the macro:
 
-Viewing the expanded Aztec contract uncovers a lot about how Aztec contracts interact with the kernel. To aid with developing intuition, we will break down each inserted line.
-
-**Receiving context from the kernel.**
-
-Private function calls are able to interact with each other through orchestration from within the kernel circuits. The kernel circuit forwards information to each contract function (recall each contract function is a circuit). This information then becomes part of the private context.
-For example, within each private function we can access some global variables. To access them we can call on the `self.context`, e.g. `self.context.chain_id()`. The value of the chain ID comes from the values passed into the circuit from the kernel.
-
-The kernel checks that all of the values passed to each circuit in a function call are the same.
-
-**Creating the function's `self.`**
-
-Each Aztec function has access to a `self` object. Upon creation it accepts storage and context. Context is initialized from the inputs provided by the kernel, and a hash of the function's inputs.
-
-We use the kernel to pass information between circuits. This means that the return values of functions must also be passed to the kernel (where they can be later passed on to another function).
-We achieve this by pushing return values to the execution context, which we then pass to the kernel.
-
-**Hashing the function inputs.**
-
-Inside the kernel circuits, the inputs to functions are reduced to a single value; the inputs hash. This prevents the need for multiple different kernel circuits; each supporting differing numbers of inputs. Hashing the inputs allows to reduce all of the inputs to a single value.
-
-**Returning the context to the kernel.**
-
-The contract function must return information about the execution back to the kernel. This is done through a rigid structure we call the `PrivateCircuitPublicInputs`.
-
-> _Why is it called the `PrivateCircuitPublicInputs`?_
-> When verifying zk programs, return values are not computed at verification runtime, rather expected return values are provided as inputs and checked for correctness. Hence, the return values are considered public inputs.
-
-This structure contains a host of information about the executed program. It will contain any newly created nullifiers, any messages to be sent to l2 and most importantly it will contain the return values of the function.
-
-**Making the contract's storage available**
-
-Each `self` has a `storage` variable exposed on it.
-When a `Storage` struct is declared within a contract, the `self.storage` contains real variables.
-
-If Storage is note defined `self.storage` contains only a placeholder value.
-
-Any state variables declared in the `Storage` struct can now be accessed as normal struct members.
-
-**Returning the function context to the kernel.**
-
-This function takes the application context, and converts it into the `PrivateCircuitPublicInputs` structure. This structure is then passed to the kernel circuit.
+- Creates a `PrivateContext` from kernel-provided inputs (chain ID, block data, etc.)
+- Initializes the `self` object with context and storage
+- Hashes function inputs for the kernel (enabling variable argument counts)
+- Returns execution results via `PrivateCircuitPublicInputs` (nullifiers, messages, return values)
 
 ## Utility functions #[external("utility")]
 
-Contract functions marked with `#[external("utility")]` are used to perform state queries from an offchain client (from both private and public state!) or to modify local contract-related PXE state (e.g. when processing logs in Aztec.nr), and are never included in any transaction. No guarantees are made on the correctness of the result since the entire execution is unconstrained and heavily reliant on [oracle calls](https://noir-lang.org/docs/explainers/explainer-oracle).
+Utility functions perform state queries from an offchain client and are never included in transactions. They can access both private and public state, and can modify local PXE state (e.g., processing logs). Since execution is unconstrained and relies on [oracle calls](https://noir-lang.org/docs/explainers/explainer-oracle), no guarantees are made on result correctness.
 
-Any programming language could be used to construct these queries, since all they do is perform arbitrary computation on data that is either publicly available from any node, or locally available from the PXE. Utility functions exist as Noir contract code because they let developers utilize the rest of the contract code directly by being part of the same Noir crate, and e.g. use the same libraries, structs, etc. instead of having to rely on manual computation of storage slots, struct layout and padding, and so on.
-
-A reasonable mental model for them is that of a Solidity `view` function that can never be called in any transaction, and is only ever invoked via `eth_call`. Note that in these the caller assumes that the node is acting honestly by executing the true contract bytecode with correct blockchain state, the same way the Aztec version assumes the oracles are returning legitimate data. Unlike `view` functions however, `utility` functions can modify local offchain PXE state via oracle calls - this can be leveraged for example to process messages delivered offchain and then notify PXE of newly discovered notes.
-
-When a utility function is called, it prompts the ACIR simulator to
-
-1. generate the execution environment
-2. execute the function within this environment
-
-To generate the environment, the simulator gets the block header from the [PXE database](../../../foundational-topics/pxe/index.md#database) and passes it along with the contract address to `UtilityExecutionOracle`. This creates a context that simulates the state of the blockchain at a specific block, allowing the utility function to access and interact with blockchain data as it would appear in that block, but without affecting the actual blockchain state.
-
-Once the execution environment is created, `runUtility` function is invoked on the simulator:
-
-#include_code execute_utility_function yarn-project/pxe/src/contract_function_simulator/contract_function_simulator.ts typescript
-
-This:
-
-1. Prepares the ACIR for execution
-2. Converts `args` into a format suitable for the ACVM (Abstract Circuit Virtual Machine), creating an initial witness (witness = set of inputs required to compute the function). `args` might be an oracle to request a user's balance
-3. Executes the function in the ACVM, which involves running the ACIR with the initial witness and the context. If requesting a user's balance, this would query the balance from the PXE database
-4. Extracts the return values from the `partialWitness` and decodes them based on the artifact to get the final function output. The artifact is the compiled output of the contract, and has information like the function signature, parameter types, and return types
-
-Beyond using them inside your other functions, they are convenient for providing an interface that reads storage, applies logic and returns values to a UI or test. Below is a snippet from exposing the `balance_of_private` function from a token implementation, which allows a user to easily read their balance, similar to the `balanceOf` function in the ERC20 standard.
+A reasonable mental model is a Solidity `view` function that can only be invoked via `eth_call`, never in a transaction. Unlike Solidity `view` functions, utility functions can also modify local offchain PXE state.
 
 #include_code balance_of_private /noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr rust
 
 :::info
-Note, that utility functions can have access to both private and (historical) public data when executed on the user's device. This is possible since these functions are not invoked as part of transactions, so we don't need to worry about preventing a contract from e.g. accidentally using stale or unverified public state.
+Utility functions can access both private and historical public data since they're not part of transactions—there's no risk of using stale or unverified state.
 :::
 
 ## Public functions #[external("public")]
@@ -116,25 +77,14 @@ To create a public function you can annotate it with the `#[external("public")]`
 
 #include_code set_minter /noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr rust
 
-Under the hood:
+Under the hood, the macro:
 
-- Context Creation: The macro inserts code at the beginning of the function to create a`PublicContext` object:
+- Creates a `PublicContext` object that provides access to public state and transaction information
+- Initializes the storage struct if one is defined
+- Wraps the function body in a scope that handles context setup and return values
+- Marks the function as `pub` and `unconstrained`, meaning it doesn't generate proofs and is executed directly by the sequencer
 
-```rust
-let mut context = PublicContext::new(args_hasher);
-```
-
-This context provides access to public state and transaction information
-
-- Storage Access: If the contract has a storage struct defined, the macro inserts code to initialize the storage:
-
-```rust
-let storage = Storage::init(&mut context);
-```
-
-- Function Body Wrapping: The original function body is wrapped in a new scope that handles the context and return value
-- Visibility Control: The function is marked as pub, making it accessible from outside the contract.
-- Unconstrained Execution: Public functions are marked as unconstrained, meaning they don't generate proofs and are executed directly by the sequencer.
+To see the exact generated code, run `nargo expand` on your contract.
 
 ## Constrained `view` Functions #[view]
 
@@ -175,8 +125,66 @@ It is also useful in private functions when dealing with tasks of an unknown siz
 This macro inserts a check at the beginning of the function to ensure that the caller is the contract itself. This is done by adding the following assertion:
 
 ```rust
-assert(self.msg_sender() == self.address, "Function can only be called by the same contract");
+assert(self.msg_sender().unwrap() == self.address, "Function can only be called internally");
 ```
+
+## #[nophasecheck]
+
+Private functions normally include a check to validate the current transaction phase. The `#[nophasecheck]` attribute skips this validation, allowing the function to handle phase transitions internally.
+
+This is primarily used in account contract entrypoints that need to handle fee payment methods spanning multiple phases:
+
+```rust
+#[external("private")]
+#[nophasecheck]
+fn entrypoint(app_payload: AppPayload, fee_payment_method: u8, cancellable: bool) {
+    // Handle different fee payment methods that may span phases
+}
+```
+
+## #[authorize_once]
+
+The `#[authorize_once]` attribute enables authorization checks via the [authwit mechanism](../../../foundational-topics/advanced/authwit.md) with replay protection. Use this when a function performs actions on behalf of someone who is not the caller.
+
+```rust
+#[authorize_once("from", "authwit_nonce")]
+#[external("public")]
+fn transfer_in_public(from: AztecAddress, to: AztecAddress, amount: u128, authwit_nonce: Field) {
+    // Transfer tokens from 'from' to 'to'
+}
+```
+
+The macro:
+- Verifies the caller is authorized to act on behalf of the `from` address
+- Emits the authorization request as an offchain effect for wallet verification
+- Consumes a nullifier with the provided nonce, preventing replay attacks
+
+## Internal functions #[internal("...")]
+
+Internal functions are callable only from within the same contract and are inlined at call sites (like Solidity's internal functions). Unlike `#[only_self]`, they don't create a separate call—the code is directly inserted where called.
+
+```rust
+#[internal("private")]
+fn _prepare_private_balance_increase(to: AztecAddress) -> PartialNote {
+    // Helper logic for private balance operations
+}
+
+#[internal("public")]
+fn _finalize_transfer(from: AztecAddress, amount: u128) {
+    // Helper logic for public finalization
+}
+```
+
+Call internal functions via `self.internal`:
+
+```rust
+let partial = self.internal._prepare_private_balance_increase(recipient);
+```
+
+Key differences from `#[only_self]`:
+- **Inlined**: Code is inserted at call site, not a separate circuit/call
+- **Private internal**: Can only be called from private external or internal functions
+- **Public internal**: Can only be called from public external or internal functions
 
 ## Implementing notes
 
@@ -184,156 +192,93 @@ The `#[note]` attribute is used to define notes in Aztec contracts.
 
 When a struct is annotated with `#[note]`, the Aztec macro applies a series of transformations and generates implementations to turn it into a note that can be used in contracts to store private data.
 
-1. **Note Interface Implementation**: The macro automatically implements the `NoteType`, `NoteHash` and `Packable<N>` traits for the annotated struct. This includes the following methods:
+1. **NoteType trait**: Provides a unique identifier for the note type via `get_id()`
 
-   - `get_id`
-   - `compute_note_hash`
-   - `compute_nullifier`
-   - `pack`
-   - `unpack`
+2. **NoteHash trait**: Implements note hash and nullifier computation:
+   - `compute_note_hash(self, owner, storage_slot, randomness)` - computes the note's hash
+   - `compute_nullifier(self, context, owner, note_hash_for_nullification)` - computes the nullifier using the owner's nullifying key
+   - `compute_nullifier_unconstrained(self, owner, note_hash_for_nullification)` - unconstrained version for use outside circuits
 
-2. **Property Metadata**: A separate struct is generated to describe the note's fields, which is used for efficient retrieval of note data
+3. **NoteProperties struct**: A separate struct is generated to describe the note's fields, which is used for efficient retrieval of note data
 
-3. **Export Information**: The note type and its ID are automatically exported
-
-### Before expansion
-
-Here is how you could define a custom note:
+### Example
 
 ```rust
 #[note]
 struct CustomNote {
-    data: Field,
-    owner: Address,
+    value: Field,
 }
 ```
 
-### After expansion
+The `owner` is passed as a runtime parameter to the `compute_note_hash` and `compute_nullifier` functions, not stored as a field on the note.
 
-```rust
-impl NoteType for CustomNote {
-    fn get_id() -> Field {
-        // Assigned by macros by incrementing a counter
-        2
-    }
-}
-
-impl NoteHash for CustomNote {
-    fn compute_note_hash(self, storage_slot: Field) -> Field {
-        let inputs = array_concat(self.pack(), [storage_slot]);
-        poseidon2_hash_with_separator(inputs, GENERATOR_INDEX__NOTE_HASH)
-    }
-
-    fn compute_nullifier(self, context: &mut PrivateContext, note_hash_for_nullification: Field) -> Field {
-        let owner_npk_m_hash = get_public_keys(self.owner).npk_m.hash();
-        let secret = context.request_nsk_app(owner_npk_m_hash);
-        poseidon2_hash_with_separator(
-            [
-            note_hash_for_nullification,
-            secret
-        ],
-            GENERATOR_INDEX__NOTE_NULLIFIER as Field
-        )
-    }
-
-    unconstrained fn compute_nullifier_unconstrained(self, storage_slot: Field, contract_address: AztecAddress, note_nonce: Field) -> Field {
-        // We set the note_hash_counter to 0 as the note is not transient and the concept of transient note does
-        // not make sense in an unconstrained context.
-        let retrieved_note = RetrievedNote { note: self, contract_address, nonce: note_nonce, note_hash_counter: 0 };
-        let note_hash_for_nullification = compute_note_hash_for_nullification(retrieved_note, storage_slot);
-        let owner_npk_m_hash = get_public_keys(self.owner).npk_m.hash();
-        let secret = get_nsk_app(owner_npk_m_hash);
-        poseidon2_hash_with_separator(
-            [
-            note_hash_for_nullification,
-            secret
-        ],
-            GENERATOR_INDEX__NOTE_NULLIFIER as Field
-        )
-    }
-}
-
-impl CustomNote {
-    pub fn new(x: [u8; 32], y: [u8; 32], owner: AztecAddress) -> Self {
-        CustomNote { x, y, owner }
-    }
-}
-
-struct CustomNoteProperties {
-    data: aztec::note::note_getter_options::PropertySelector,
-    owner: aztec::note::note_getter_options::PropertySelector,
-}
-```
+To see the exact generated code, run `nargo expand` on your contract.
 
 Key things to keep in mind:
 
-- Developers can override any of the auto-generated methods by specifying a note interface
+- The note struct must implement or derive the `Packable` trait
+- Developers can use `#[custom_note]` instead of `#[note]` to provide their own `NoteHash` implementation
 - The note's fields are automatically serialized and deserialized in the order they are defined in the struct
 
 ## Storage struct #[storage]
 
 The `#[storage]` attribute is used to define the storage structure for an Aztec contract.
 
-When a struct is annotated with `#[storage]`, the macro does this under the hood:
+When a struct is annotated with `#[storage]`, the macro:
 
-1. **Context Injection**: injects a `Context` generic parameter into the storage struct and all its fields. This allows the storage to interact with the Aztec context, eg when using `context.msg_sender()`
+1. **Context Injection**: Injects a `Context` generic parameter into the storage struct and all its fields, allowing storage to interact with the Aztec context
 
-2. **Storage Implementation Generation**: generates an `impl` block for the storage struct with an `init` function. The developer can override this by implementing a `impl` block themselves
+2. **Storage Implementation Generation**: Generates an `impl` block with an `init` function that initializes each storage variable with its assigned slot
 
-3. **Storage Slot Assignment**: automatically assigns storage slots to each field in the struct based on their serialized length
+3. **Storage Slot Assignment**: Automatically assigns storage slots to each field based on their serialized length
 
-4. **Storage Layout Generation**: a `StorageLayout` struct and a global variable are generated to export the storage layout information for use in the contract artifact
+4. **Storage Layout Generation**: Creates a `StorageLayout` struct exported via `#[abi(storage)]` for use in the contract artifact
 
-### Before expansion
+### Example
 
 ```rust
 #[storage]
 struct Storage {
     balance: PublicMutable<Field>,
-    owner: PublicMutable<Address>,
-    token_map: Map<Address, Field>,
+    owner: PublicMutable<AztecAddress>,
+    token_map: Map<AztecAddress, Field>,
 }
 ```
 
-### After expansion
+To see the exact generated code, run `nargo expand` on your contract. Alternatively, use `#[storage_no_init]` if you need manual control over storage slot allocation.
+
+Key things to keep in mind:
+
+- Only one storage struct can be defined per contract, and it must be named `Storage`
+- `Map` types and private `Note` types always occupy a single storage slot
+
+## #[storage_no_init]
+
+The `#[storage_no_init]` attribute is an alternative to `#[storage]` that gives you manual control over storage slot allocation. Use this when you need custom slot assignments or want to maintain compatibility with existing storage layouts.
+
+With `#[storage_no_init]`, you must provide your own `init` function:
 
 ```rust
+#[storage_no_init]
 struct Storage<Context> {
     balance: PublicMutable<Field, Context>,
-    owner: PublicMutable<Address, Context>,
-    token_map: Map<Address, Field, Context>,
+    owner: PublicMutable<AztecAddress, Context>,
 }
 
 impl<Context> Storage<Context> {
     fn init(context: Context) -> Self {
         Storage {
-            balance: PublicMutable::new(context, 1),
-            owner: PublicMutable::new(context, 2),
-            token_map: Map::new(context, 3, |context, slot| Field::new(context, slot)),
+            balance: PublicMutable::new(context, 1),  // Explicit slot assignment
+            owner: PublicMutable::new(context, 5),    // Non-sequential slot
         }
     }
 }
-
-struct StorageLayout {
-    balance: dep::aztec::prelude::Storable,
-    owner: dep::aztec::prelude::Storable,
-    token_map: dep::aztec::prelude::Storable,
-}
-
-#[abi(storage)]
-global CONTRACT_NAME_STORAGE_LAYOUT = StorageLayout {
-    balance: dep::aztec::prelude::Storable { slot: 1 },
-    owner: dep::aztec::prelude::Storable { slot: 2 },
-    token_map: dep::aztec::prelude::Storable { slot: 3 },
-};
 ```
 
-Key things to keep in mind:
-
-- Only one storage struct can be defined per contract
-- `Map` types and private `Note` types always occupy a single storage slot
+Unlike `#[storage]`, this macro does not generate:
+- The `init` function (you must implement it)
+- The `StorageLayout` struct for the contract artifact
 
 ## Further reading
 
 - [Macros reference](../macros.md)
-- [How do macros work](./attributes.md)

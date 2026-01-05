@@ -40,7 +40,10 @@ import { PublicKeys } from '../keys/public_keys.js';
 import { ExtendedContractClassLog } from '../logs/extended_contract_class_log.js';
 import { ExtendedPublicLog } from '../logs/extended_public_log.js';
 import type { LogFilter } from '../logs/log_filter.js';
+import { SiloedTag } from '../logs/siloed_tag.js';
+import { Tag } from '../logs/tag.js';
 import { TxScopedL2Log } from '../logs/tx_scoped_l2_log.js';
+import { randomTxScopedPrivateL2Log } from '../tests/factories.js';
 import { getTokenContractArtifact } from '../tests/fixtures.js';
 import { MerkleTreeId } from '../trees/merkle_tree_id.js';
 import { NullifierMembershipWitness } from '../trees/nullifier_membership_witness.js';
@@ -311,8 +314,14 @@ describe('AztecNodeApiSchema', () => {
     expect(response).toEqual({ logs: [expect.any(ExtendedContractClassLog)], maxLogsHit: true });
   });
 
-  it('getLogsByTags', async () => {
-    const response = await context.client.getLogsByTags([Fr.random()]);
+  it('getPrivateLogsByTags', async () => {
+    const response = await context.client.getPrivateLogsByTags([new SiloedTag(Fr.random())]);
+    expect(response).toEqual([[expect.any(TxScopedL2Log)]]);
+  });
+
+  it('getPublicLogsByTagsFromContract', async () => {
+    const contractAddress = await AztecAddress.random();
+    const response = await context.client.getPublicLogsByTagsFromContract(contractAddress, [new Tag(Fr.random())]);
     expect(response).toEqual([[expect.any(TxScopedL2Log)]]);
   });
 
@@ -733,10 +742,20 @@ class MockAztecNode implements AztecNode {
     expect(filter.contractAddress).toBeInstanceOf(AztecAddress);
     return Promise.resolve({ logs: [await ExtendedContractClassLog.random()], maxLogsHit: true });
   }
-  async getLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]> {
+  getPrivateLogsByTags(tags: SiloedTag[], _logsPerTag?: number): Promise<TxScopedL2Log[][]> {
     expect(tags).toHaveLength(1);
-    expect(tags[0]).toBeInstanceOf(Fr);
-    return [[await TxScopedL2Log.random()]];
+    expect(tags[0]).toBeInstanceOf(SiloedTag);
+    return Promise.resolve([[randomTxScopedPrivateL2Log()]]);
+  }
+  getPublicLogsByTagsFromContract(
+    contractAddress: AztecAddress,
+    tags: Tag[],
+    _logsPerTag?: number,
+  ): Promise<TxScopedL2Log[][]> {
+    expect(contractAddress).toBeInstanceOf(AztecAddress);
+    expect(tags).toHaveLength(1);
+    expect(tags[0]).toBeInstanceOf(Tag);
+    return Promise.resolve([[randomTxScopedPrivateL2Log()]]);
   }
   sendTx(tx: Tx): Promise<void> {
     expect(tx).toBeInstanceOf(Tx);

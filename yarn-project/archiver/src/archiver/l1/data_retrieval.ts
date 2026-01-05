@@ -1,3 +1,4 @@
+import type { BlobClientInterface } from '@aztec/blob-client/client';
 import {
   BlobDeserializationError,
   type CheckpointBlobData,
@@ -5,7 +6,6 @@ import {
   decodeCheckpointBlobDataFromBlobs,
   encodeBlockBlobData,
 } from '@aztec/blob-lib';
-import type { BlobSinkClientInterface } from '@aztec/blob-sink/client';
 import type { EpochProofPublicInputArgs } from '@aztec/ethereum/contracts';
 import type { ViemClient, ViemPublicClient, ViemPublicDebugClient } from '@aztec/ethereum/types';
 import { asyncPool } from '@aztec/foundation/async-pool';
@@ -140,7 +140,7 @@ export async function retrievedToPublishedCheckpoint({
  * @param rollup - The rollup contract instance.
  * @param publicClient - The viem public client to use for transaction retrieval.
  * @param debugClient - The viem debug client to use for trace/debug RPC methods (optional).
- * @param blobSinkClient - The blob sink client for fetching blob data.
+ * @param blobClient - The blob client client for fetching blob data.
  * @param searchStartBlock - The block number to use for starting the search.
  * @param searchEndBlock - The highest block number that we should search up to.
  * @param contractAddresses - The contract addresses (governanceProposerAddress, slashFactoryAddress, slashingProposerAddress).
@@ -153,7 +153,7 @@ export async function retrieveCheckpointsFromRollup(
   rollup: GetContractReturnType<typeof RollupAbi, ViemPublicClient>,
   publicClient: ViemPublicClient,
   debugClient: ViemPublicDebugClient,
-  blobSinkClient: BlobSinkClientInterface,
+  blobClient: BlobClientInterface,
   searchStartBlock: bigint,
   searchEndBlock: bigint,
   contractAddresses: {
@@ -209,7 +209,7 @@ export async function retrieveCheckpointsFromRollup(
       rollup,
       publicClient,
       debugClient,
-      blobSinkClient,
+      blobClient,
       checkpointProposedLogs,
       rollupConstants,
       contractAddresses,
@@ -230,7 +230,7 @@ export async function retrieveCheckpointsFromRollup(
  * @param rollup - The rollup contract instance.
  * @param publicClient - The viem public client to use for transaction retrieval.
  * @param debugClient - The viem debug client to use for trace/debug RPC methods (optional).
- * @param blobSinkClient - The blob sink client for fetching blob data.
+ * @param blobClient - The blob client client for fetching blob data.
  * @param logs - CheckpointProposed logs.
  * @param rollupConstants - The rollup constants (chainId, version, targetCommitteeSize).
  * @param contractAddresses - The contract addresses (governanceProposerAddress, slashFactoryAddress, slashingProposerAddress).
@@ -243,7 +243,7 @@ async function processCheckpointProposedLogs(
   rollup: GetContractReturnType<typeof RollupAbi, ViemPublicClient>,
   publicClient: ViemPublicClient,
   debugClient: ViemPublicDebugClient,
-  blobSinkClient: BlobSinkClientInterface,
+  blobClient: BlobClientInterface,
   logs: GetContractEventsReturnType<typeof RollupAbi, 'CheckpointProposed'>,
   { chainId, version, targetCommitteeSize }: { chainId: Fr; version: Fr; targetCommitteeSize: number },
   contractAddresses: {
@@ -286,7 +286,7 @@ async function processCheckpointProposedLogs(
         expectedHashes,
       );
       const checkpointBlobData = await getCheckpointBlobDataFromBlobs(
-        blobSinkClient,
+        blobClient,
         checkpoint.blockHash,
         blobHashes,
         checkpointNumber,
@@ -324,14 +324,14 @@ export async function getL1BlockTime(publicClient: ViemPublicClient, blockNumber
 }
 
 export async function getCheckpointBlobDataFromBlobs(
-  blobSinkClient: BlobSinkClientInterface,
+  blobClient: BlobClientInterface,
   blockHash: string,
   blobHashes: Buffer<ArrayBufferLike>[],
   checkpointNumber: CheckpointNumber,
   logger: Logger,
   isHistoricalSync: boolean,
 ): Promise<CheckpointBlobData> {
-  const blobBodies = await blobSinkClient.getBlobSidecar(blockHash, blobHashes, undefined, { isHistoricalSync });
+  const blobBodies = await blobClient.getBlobSidecar(blockHash, blobHashes, { isHistoricalSync });
   if (blobBodies.length === 0) {
     throw new NoBlobBodiesFoundError(checkpointNumber);
   }
@@ -339,7 +339,7 @@ export async function getCheckpointBlobDataFromBlobs(
   let checkpointBlobData: CheckpointBlobData;
   try {
     // Attempt to decode the checkpoint blob data.
-    checkpointBlobData = decodeCheckpointBlobDataFromBlobs(blobBodies.map(b => b.blob));
+    checkpointBlobData = decodeCheckpointBlobDataFromBlobs(blobBodies);
   } catch (err: any) {
     if (err instanceof BlobDeserializationError) {
       logger.fatal(err.message);

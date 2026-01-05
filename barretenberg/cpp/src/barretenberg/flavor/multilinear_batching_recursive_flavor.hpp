@@ -23,7 +23,7 @@ class MultilinearBatchingRecursiveFlavor {
     using Transcript = StdlibTranscript<Builder>;
 
     // An upper bound on the size of the MultilinearBatching-circuits. `CONST_FOLDING_LOG_N` bounds the log circuit
-    // sizes in the Chonk context. `MEGA_AVM_LOG_N` is determined by the size of the AVMRecursiveVerifier.
+    // sizes in the Chonk context.
     static constexpr size_t VIRTUAL_LOG_N = NativeFlavor::VIRTUAL_LOG_N;
     // Indicates that this flavor runs with non-ZK Sumcheck.
     static constexpr bool HasZK = NativeFlavor::HasZK;

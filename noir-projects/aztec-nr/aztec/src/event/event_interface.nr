@@ -1,7 +1,6 @@
 use crate::event::event_selector::EventSelector;
 use protocol_types::{
-    constants::GENERATOR_INDEX__EVENT_COMMITMENT, hash::poseidon2_hash_with_separator,
-    traits::Serialize,
+    constants::DOM_SEP__EVENT_COMMITMENT, hash::poseidon2_hash_with_separator, traits::Serialize,
 };
 
 pub trait EventInterface {
@@ -20,6 +19,6 @@ where
 {
     poseidon2_hash_with_separator(
         [randomness].concat(event.serialize()),
-        GENERATOR_INDEX__EVENT_COMMITMENT,
+        DOM_SEP__EVENT_COMMITMENT,
     )
 }

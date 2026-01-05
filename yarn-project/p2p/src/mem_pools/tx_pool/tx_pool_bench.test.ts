@@ -1,8 +1,9 @@
 import { GENESIS_BLOCK_HEADER_HASH } from '@aztec/constants';
-import { shuffle } from '@aztec/foundation/array';
+import { insertIntoSortedArray, shuffle } from '@aztec/foundation/array';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { timesAsync } from '@aztec/foundation/collection';
 import { getDefaultConfig } from '@aztec/foundation/config';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { Timer } from '@aztec/foundation/timer';
 import { AztecLMDBStoreV2, createStore } from '@aztec/kv-store/lmdb-v2';
 import type { L2BlockSource } from '@aztec/stdlib/block';
@@ -219,6 +220,110 @@ describe('TxPool: Benchmarks', () => {
       const timer = new Timer();
       await pool.deleteTxs(hashesToRemove);
       delHistogram[batchSize].record(Math.max(1, Math.ceil(timer.ms())));
+    }
+  });
+});
+
+describe('Fr deduplication: insertIntoSortedArray vs Set<string>', () => {
+  const BENCH_RUNS = 100;
+  const elementCounts = [10, 50, 100, 500] as const;
+  const duplicateRatios = [0, 0.25, 0.5] as const;
+
+  let sortedArrayHistogram: Record<(typeof elementCounts)[number], Record<(typeof duplicateRatios)[number], number[]>>;
+  let setHistogram: Record<(typeof elementCounts)[number], Record<(typeof duplicateRatios)[number], number[]>>;
+
+  beforeAll(() => {
+    sortedArrayHistogram = Object.fromEntries(
+      elementCounts.map(count => [count, Object.fromEntries(duplicateRatios.map(ratio => [ratio, []]))]),
+    ) as any;
+    setHistogram = Object.fromEntries(
+      elementCounts.map(count => [count, Object.fromEntries(duplicateRatios.map(ratio => [ratio, []]))]),
+    ) as any;
+  });
+
+  afterAll(async () => {
+    if (process.env.BENCH_OUTPUT) {
+      const data: any[] = [];
+      for (const count of elementCounts) {
+        for (const ratio of duplicateRatios) {
+          const sortedTimes = sortedArrayHistogram[count][ratio];
+          const setTimes = setHistogram[count][ratio];
+          const sortedAvg = sortedTimes.reduce((a, b) => a + b, 0) / sortedTimes.length;
+          const setAvg = setTimes.reduce((a, b) => a + b, 0) / setTimes.length;
+
+          data.push({
+            name: `FrDedup/${count} elements/${ratio * 100}% duplicates/sortedArray/avg`,
+            value: sortedAvg,
+            unit: 'ms',
+          });
+          data.push({
+            name: `FrDedup/${count} elements/${ratio * 100}% duplicates/set/avg`,
+            value: setAvg,
+            unit: 'ms',
+          });
+        }
+      }
+
+      await fs.mkdir(path.dirname(process.env.BENCH_OUTPUT), { recursive: true });
+      await fs.writeFile(process.env.BENCH_OUTPUT, JSON.stringify(data, null, 2));
+    } else if (process.env.BENCH_OUTPUT_MD) {
+      await fs.mkdir(path.dirname(process.env.BENCH_OUTPUT_MD), { recursive: true });
+      await using f = await fs.open(process.env.BENCH_OUTPUT_MD!, 'w');
+      await f.write('| Elements | Dup Ratio | SortedArray Avg (ms) | Set Avg (ms) | Winner |\n');
+      await f.write('|----------|-----------|----------------------|--------------|--------|\n');
+      for (const count of elementCounts) {
+        for (const ratio of duplicateRatios) {
+          const sortedTimes = sortedArrayHistogram[count][ratio];
+          const setTimes = setHistogram[count][ratio];
+          const sortedAvg = sortedTimes.reduce((a, b) => a + b, 0) / sortedTimes.length;
+          const setAvg = setTimes.reduce((a, b) => a + b, 0) / setTimes.length;
+          const winner = sortedAvg < setAvg ? 'SortedArray' : 'Set';
+          await f.write(
+            `| ${count.toString().padStart(8)} | ${(ratio * 100).toFixed(0).padStart(7)}% | ${sortedAvg.toFixed(4).padStart(20)} | ${setAvg.toFixed(4).padStart(12)} | ${winner.padStart(6)} |\n`,
+          );
+        }
+      }
+    }
+  });
+
+  function generateFrValues(count: number, duplicateRatio: number): Fr[] {
+    const uniqueCount = Math.floor(count * (1 - duplicateRatio));
+    const uniqueValues = Array.from({ length: uniqueCount }, () => Fr.random());
+    const result = [...uniqueValues];
+
+    while (result.length < count) {
+      const randomIndex = Math.floor(Math.random() * uniqueValues.length);
+      result.push(uniqueValues[randomIndex]);
+    }
+
+    shuffle(result);
+    return result;
+  }
+
+  it.each(elementCounts)('benchmark with %d elements', count => {
+    for (const duplicateRatio of duplicateRatios) {
+      for (let run = 0; run < BENCH_RUNS; run++) {
+        const values = generateFrValues(count, duplicateRatio);
+
+        // Benchmark insertIntoSortedArray approach
+        const sortedArray: Fr[] = [];
+        const sortedTimer = new Timer();
+        for (const value of values) {
+          insertIntoSortedArray(sortedArray, value, Fr.cmp, false);
+        }
+        sortedArrayHistogram[count][duplicateRatio].push(sortedTimer.ms());
+
+        // Benchmark Set<string> approach
+        const set = new Set<string>();
+        const setTimer = new Timer();
+        for (const value of values) {
+          const key = value.toString();
+          if (!set.has(key)) {
+            set.add(key);
+          }
+        }
+        setHistogram[count][duplicateRatio].push(setTimer.ms());
+      }
     }
   });
 });

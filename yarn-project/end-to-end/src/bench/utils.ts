@@ -1,4 +1,5 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
+import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { BatchCall, type SentTx, type WaitOpts } from '@aztec/aztec.js/contracts';
 import { mean, stdDev, times } from '@aztec/foundation/collection';
 import { BenchmarkingContract } from '@aztec/noir-test-contracts.js/Benchmarking';
@@ -103,19 +104,22 @@ function getMetricValues(points: BenchmarkDataPoint[]) {
  * @param heavyPublicCompute - Whether the transactions include heavy public compute (like a big sha256).
  * @returns A BatchCall instance.
  */
-function makeCall(
+async function makeCall(
   index: number,
   context: EndToEndContext,
   contract: BenchmarkingContract,
   heavyPublicCompute: boolean,
 ) {
-  const [owner] = context.accounts;
   if (heavyPublicCompute) {
     return new BatchCall(context.wallet, [contract.methods.sha256_hash_1024(randomBytesAsBigInts(1024))]);
   } else {
+    // We use random address for the new note owner because we can emit at most UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN
+    // logs for a given sender-recipient-contract tuple.
+    const ownerOfNewNote = await AztecAddress.random();
+    const [ownerOfBalance] = context.accounts;
     return new BatchCall(context.wallet, [
-      contract.methods.create_note(owner, index + 1),
-      contract.methods.increment_balance(owner, index + 1),
+      contract.methods.create_note(ownerOfNewNote, index + 1),
+      contract.methods.increment_balance(ownerOfBalance, index + 1),
     ]);
   }
 }
@@ -129,13 +133,13 @@ function makeCall(
  * @param heavyPublicCompute - Whether the transactions include heavy public compute (like a big sha256).
  * @returns Array of sent txs.
  */
-export function sendTxs(
+export async function sendTxs(
   txCount: number,
   context: EndToEndContext,
   contract: BenchmarkingContract,
   heavyPublicCompute: boolean = false,
-): SentTx[] {
-  const calls = times(txCount, index => makeCall(index, context, contract, heavyPublicCompute));
+): Promise<SentTx[]> {
+  const calls = await Promise.all(times(txCount, index => makeCall(index, context, contract, heavyPublicCompute)));
   context.logger.info(`Creating ${txCount} txs`);
   const [from] = context.accounts;
   context.logger.info(`Sending ${txCount} txs`);

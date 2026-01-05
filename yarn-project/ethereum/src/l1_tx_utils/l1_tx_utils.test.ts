@@ -823,7 +823,7 @@ describe('L1TxUtils', () => {
     it('strips ABI from non-revert errors', async () => {
       // Create a client with an invalid RPC URL to trigger a real error
       const invalidClient = createPublicClient({
-        transport: http('https://foobar.com'),
+        transport: http('https://foobar.com', { batch: false }),
         chain: foundry,
       });
 

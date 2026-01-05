@@ -33,9 +33,12 @@ template <class BuilderType> class Poseidon2TestingFunctions {
         static std::vector<std::string> get_labels() { return { "None", "Input", "Output" }; }
     };
 
-    void invalidate_witness(Poseidon2Constraint& constraint,
-                            WitnessVector& witness_values,
-                            const InvalidWitness::Target& invalid_witness_target)
+    static ProgramMetadata generate_metadata() { return ProgramMetadata{}; }
+
+    static std::pair<AcirConstraint, WitnessVector> invalidate_witness(
+        Poseidon2Constraint constraint,
+        WitnessVector witness_values,
+        const InvalidWitness::Target& invalid_witness_target)
     {
         switch (invalid_witness_target) {
         case InvalidWitness::Target::Input:
@@ -49,12 +52,14 @@ template <class BuilderType> class Poseidon2TestingFunctions {
         case InvalidWitness::Target::None:
             break;
         }
+
+        return { constraint, witness_values };
     }
 
     /**
      * @brief Generate valid Poseidon2 constraint with correct witness values
      */
-    void generate_constraints(Poseidon2Constraint& poseidon2_constraint, WitnessVector& witness_values)
+    static void generate_constraints(Poseidon2Constraint& poseidon2_constraint, WitnessVector& witness_values)
     {
         // Start with the zero variable at index 0
         witness_values.emplace_back(bb::fr(0));

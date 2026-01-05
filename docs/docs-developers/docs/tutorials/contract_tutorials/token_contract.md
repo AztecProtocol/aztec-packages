@@ -22,7 +22,7 @@ This is an intermediate tutorial that assumes you have:
 - Completed the [Counter Contract tutorial](./counter_contract.md)
 - A Running Aztec local network (see the Counter tutorial for setup)
 - Basic understanding of Aztec.nr syntax and structure
-- Aztec toolchain installed (`aztec-up -v #include_version_without_prefix`)
+- Aztec toolchain installed (`bash -i <(curl -s https://install.aztec.network/#include_version_without_prefix/)`)
 
 If you haven't completed the Counter Contract tutorial, please do so first as we'll skip the basic setup steps covered there.
 
@@ -38,6 +38,8 @@ We'll create BOB tokens with:
 Let's create a simple yarn + aztec.nr project:
 
 ```bash
+mkdir bob_token_contract
+cd bob_token_contract
 yarn init
 # This is to ensure yarn uses node_modules instead of pnp for dependency installation
 yarn config set nodeLinker node-modules
@@ -55,7 +57,7 @@ We have a messy, but working structure. In `src/main.nr` we even have a proto-co
 }
 ```
 
-The `#[aztec]` macro transforms our contract code to work with Aztec's privacy protocol. We'll rename it from `StarterToken` to `BobToken` to reflect our use case.
+The `#[aztec]` macro transforms our contract code to work with Aztec's privacy protocol.
 
 Let's import the Aztec.nr library by adding it to our dependencies in `Nargo.toml`:
 
@@ -65,7 +67,7 @@ name = "bob_token_contract"
 type = "contract"
 
 [dependencies]
-aztec = { git = "https://github.com/AztecProtocol/aztec-packages/", tag = "#include_aztec_version", directory = "noir-projects/aztec-nr/aztec" }
+aztec = { git = "https://github.com/AztecProtocol/aztec-nr/", tag = "#include_aztec_version", directory = "aztec" }
 ```
 
 Since we're here, let's import more specific stuff from this library:
@@ -184,7 +186,11 @@ You should now have a nice typescript interface in a new `artifacts` folder. Pre
 
 ### Deploy and Test
 
-Create `index.ts`. We will connect to our running local network and its wallet, then deploy the test accounts and get three wallets out of it.
+Create `index.ts`. We will connect to our running local network and its wallet, then deploy the test accounts and get three wallets out of it. Ensure that your local network is running:
+
+```bash
+aztec start --local-network
+```
 
 Then we will use the `giggleWallet` to deploy our contract, mint 100 BOB to Alice, then transfer 10 of those to Bob's Clinic publicly... for now. Let's go:
 
@@ -251,10 +257,11 @@ For something like balances, you can use a simple library called `easy_private_s
 
 ```toml
 [dependencies]
-easy_private_state = { git = "https://github.com/AztecProtocol/aztec-packages/", tag = "#include_aztec_version", directory = "noir-projects/aztec-nr/easy-private-state" }
+aztec = { git="https://github.com/AztecProtocol/aztec-nr", tag="#include_aztec_version", directory="aztec" }
+balance_set = { git = "https://github.com/AztecProtocol/aztec-nr/", tag = "#include_aztec_version", directory = "balance-set" }
 ```
 
-Then import `EasyPrivateUint` in our contract:
+Then import `BalanceSet` in our contract:
 
 ```rust
 use aztec::macros::aztec;
@@ -262,7 +269,7 @@ use aztec::macros::aztec;
 #[aztec]
 pub contract BobToken {
     // ... other imports
-    use easy_private_state::EasyPrivateUint;
+    use balance_set::BalanceSet;
     // ...
 }
 ```
@@ -271,7 +278,7 @@ We need to update the contract storage to have private balances as well:
 
 #include_code storage /docs/examples/contracts/bob_token_contract/src/main.nr rust
 
-The `private_balances` use `EasyPrivateUint` which manages encrypted notes automatically.
+The `private_balances` use `BalanceSet` which manages encrypted notes automatically.
 
 ### Moving Tokens to Privateland
 

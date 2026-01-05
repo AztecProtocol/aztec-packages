@@ -11,8 +11,8 @@ enum class VecMutationOptions { Insertion, Deletion, Swap, ElementMutation };
 using VecMutationConfig = WeightedSelectionConfig<VecMutationOptions, 5>;
 
 constexpr VecMutationConfig BASIC_VEC_MUTATION_CONFIGURATION = VecMutationConfig({
-    { VecMutationOptions::Insertion, 7 },
-    { VecMutationOptions::Deletion, 22 },
+    { VecMutationOptions::Insertion, 30 },
+    { VecMutationOptions::Deletion, 15 },
     { VecMutationOptions::Swap, 20 },
     { VecMutationOptions::ElementMutation, 100 },
 });
@@ -105,25 +105,24 @@ constexpr MemoryTagMutationConfig BASIC_MEMORY_TAG_MUTATION_CONFIGURATION = Memo
     { MemoryTagOptions::FF, 1 },
 });
 
-enum class AddressRefMutationOptions { tag, index, pointer_address, base_offset, mode };
-using AddressRefMutationConfig = WeightedSelectionConfig<AddressRefMutationOptions, 5>;
-constexpr AddressRefMutationConfig BASIC_ADDRESS_REF_MUTATION_CONFIGURATION = AddressRefMutationConfig({
-    { AddressRefMutationOptions::tag, 3 },
-    { AddressRefMutationOptions::index, 4 },
-    { AddressRefMutationOptions::pointer_address, 1 },
-    { AddressRefMutationOptions::base_offset, 1 },
-    { AddressRefMutationOptions::mode, 2 },
+enum class VariableRefMutationOptions { tag, index, pointer_address, base_offset, mode };
+using VariableRefMutationConfig = WeightedSelectionConfig<VariableRefMutationOptions, 5>;
+constexpr VariableRefMutationConfig BASIC_VARIABLE_REF_MUTATION_CONFIGURATION = VariableRefMutationConfig({
+    { VariableRefMutationOptions::tag, 3 },
+    { VariableRefMutationOptions::index, 4 },
+    { VariableRefMutationOptions::pointer_address, 1 },
+    { VariableRefMutationOptions::base_offset, 1 },
+    { VariableRefMutationOptions::mode, 2 },
 });
 
-enum class ResultAddressRefMutationOptions { address, pointer_address, base_offset, mode };
-using ResultAddressRefMutationConfig = WeightedSelectionConfig<ResultAddressRefMutationOptions, 5>;
-constexpr ResultAddressRefMutationConfig BASIC_RESULT_ADDRESS_REF_MUTATION_CONFIGURATION =
-    ResultAddressRefMutationConfig({
-        { ResultAddressRefMutationOptions::address, 1 },
-        { ResultAddressRefMutationOptions::pointer_address, 1 },
-        { ResultAddressRefMutationOptions::base_offset, 1 },
-        { ResultAddressRefMutationOptions::mode, 1 },
-    });
+enum class AddressRefMutationOptions { address, pointer_address, base_offset, mode };
+using AddressRefMutationConfig = WeightedSelectionConfig<AddressRefMutationOptions, 5>;
+constexpr AddressRefMutationConfig BASIC_ADDRESS_REF_MUTATION_CONFIGURATION = AddressRefMutationConfig({
+    { AddressRefMutationOptions::address, 1 },
+    { AddressRefMutationOptions::pointer_address, 1 },
+    { AddressRefMutationOptions::base_offset, 1 },
+    { AddressRefMutationOptions::mode, 1 },
+});
 
 enum class UnaryInstruction8MutationOptions { a_address, result_address };
 
@@ -222,12 +221,14 @@ enum class InstructionGenerationOptions {
     SUB_8,
     MUL_8,
     DIV_8,
+    FDIV_8,
     EQ_8,
     LT_8,
     LTE_8,
     AND_8,
     OR_8,
     XOR_8,
+    NOT_8,
     SHL_8,
     SHR_8,
     SET_8,
@@ -236,6 +237,8 @@ enum class InstructionGenerationOptions {
     SET_64,
     SET_128,
     SET_FF,
+    MOV_8,
+    MOV_16,
     ADD_16,
     SUB_16,
     MUL_16,
@@ -257,26 +260,38 @@ enum class InstructionGenerationOptions {
     GETENVVAR,
     EMITNULLIFIER,
     NULLIFIEREXISTS,
+    L1TOL2MSGEXISTS,
     EMITNOTEHASH,
     NOTEHASHEXISTS,
     CALLDATACOPY,
     SENDL2TOL1MSG,
     EMITUNENCRYPTEDLOG,
+    CALL,
+    RETURNDATASIZE_WITH_RETURNDATACOPY,
+    GETCONTRACTINSTANCE,
+    SUCCESSCOPY,
+    ECADD,
+    POSEIDON2PERM,
+    KECCAKF1600,
+    SHA256COMPRESSION,
+    TORADIXBE,
 };
 
-using InstructionGenerationConfig = WeightedSelectionConfig<InstructionGenerationOptions, 44>;
+using InstructionGenerationConfig = WeightedSelectionConfig<InstructionGenerationOptions, 58>;
 
 constexpr InstructionGenerationConfig BASIC_INSTRUCTION_GENERATION_CONFIGURATION = InstructionGenerationConfig({
     { InstructionGenerationOptions::ADD_8, 1 },
     { InstructionGenerationOptions::SUB_8, 1 },
     { InstructionGenerationOptions::MUL_8, 1 },
     { InstructionGenerationOptions::DIV_8, 1 },
+    { InstructionGenerationOptions::FDIV_8, 1 },
     { InstructionGenerationOptions::EQ_8, 1 },
     { InstructionGenerationOptions::LT_8, 1 },
     { InstructionGenerationOptions::LTE_8, 1 },
     { InstructionGenerationOptions::AND_8, 1 },
     { InstructionGenerationOptions::OR_8, 1 },
     { InstructionGenerationOptions::XOR_8, 1 },
+    { InstructionGenerationOptions::NOT_8, 1 },
     { InstructionGenerationOptions::SHL_8, 1 },
     { InstructionGenerationOptions::SHR_8, 1 },
     { InstructionGenerationOptions::SET_8, 1 },
@@ -285,6 +300,8 @@ constexpr InstructionGenerationConfig BASIC_INSTRUCTION_GENERATION_CONFIGURATION
     { InstructionGenerationOptions::SET_64, 1 },
     { InstructionGenerationOptions::SET_128, 1 },
     { InstructionGenerationOptions::SET_FF, 1 },
+    { InstructionGenerationOptions::MOV_8, 1 },
+    { InstructionGenerationOptions::MOV_16, 1 },
     { InstructionGenerationOptions::ADD_16, 1 },
     { InstructionGenerationOptions::SUB_16, 1 },
     { InstructionGenerationOptions::MUL_16, 1 },
@@ -306,11 +323,21 @@ constexpr InstructionGenerationConfig BASIC_INSTRUCTION_GENERATION_CONFIGURATION
     { InstructionGenerationOptions::GETENVVAR, 1 },
     { InstructionGenerationOptions::EMITNULLIFIER, 1 },
     { InstructionGenerationOptions::NULLIFIEREXISTS, 1 },
+    { InstructionGenerationOptions::L1TOL2MSGEXISTS, 1 },
     { InstructionGenerationOptions::EMITNOTEHASH, 1 },
     { InstructionGenerationOptions::NOTEHASHEXISTS, 1 },
     { InstructionGenerationOptions::CALLDATACOPY, 1 },
     { InstructionGenerationOptions::SENDL2TOL1MSG, 1 },
     { InstructionGenerationOptions::EMITUNENCRYPTEDLOG, 1 },
+    { InstructionGenerationOptions::CALL, 1 },
+    { InstructionGenerationOptions::RETURNDATASIZE_WITH_RETURNDATACOPY, 1 },
+    { InstructionGenerationOptions::GETCONTRACTINSTANCE, 1 },
+    { InstructionGenerationOptions::SUCCESSCOPY, 1 },
+    { InstructionGenerationOptions::ECADD, 1 },
+    { InstructionGenerationOptions::POSEIDON2PERM, 1 },
+    { InstructionGenerationOptions::KECCAKF1600, 1 },
+    { InstructionGenerationOptions::SHA256COMPRESSION, 1 },
+    { InstructionGenerationOptions::TORADIXBE, 1 },
 });
 
 enum class SStoreMutationOptions { src_address, result_address, slot };
@@ -346,6 +373,15 @@ constexpr NullifierExistsMutationConfig BASIC_NULLIFIER_EXISTS_MUTATION_CONFIGUR
     { NullifierExistsMutationOptions::nullifier_address, 1 },
     { NullifierExistsMutationOptions::contract_address_address, 1 },
     { NullifierExistsMutationOptions::result_address, 1 },
+});
+
+enum class L1ToL2MsgExistsMutationOptions { msg_hash_address, leaf_index_address, result_address };
+using L1ToL2MsgExistsMutationConfig = WeightedSelectionConfig<L1ToL2MsgExistsMutationOptions, 3>;
+
+constexpr L1ToL2MsgExistsMutationConfig BASIC_L1TOL2MSGEXISTS_MUTATION_CONFIGURATION = L1ToL2MsgExistsMutationConfig({
+    { L1ToL2MsgExistsMutationOptions::msg_hash_address, 1 },
+    { L1ToL2MsgExistsMutationOptions::leaf_index_address, 1 },
+    { L1ToL2MsgExistsMutationOptions::result_address, 1 },
 });
 
 enum class EmitNoteHashMutationOptions { note_hash_address, note_hash };
@@ -398,6 +434,81 @@ constexpr EmitUnencryptedLogMutationConfig BASIC_EMITUNENCRYPTEDLOG_MUTATION_CON
         { EmitUnencryptedLogMutationOptions::log_values_address_start, 1 },
     });
 
+enum class CallMutationOptions {
+    function_index,
+    address_offset,
+    l2_gas,
+    l2_gas_address,
+    da_gas,
+    da_gas_address,
+    arg_size_offset,
+    args,
+    args_offset,
+    is_static_call
+};
+using CallMutationConfig = WeightedSelectionConfig<CallMutationOptions, 10>;
+
+constexpr CallMutationConfig BASIC_CALL_MUTATION_CONFIGURATION = CallMutationConfig({
+    { CallMutationOptions::function_index, 1 },
+    { CallMutationOptions::address_offset, 1 },
+    { CallMutationOptions::l2_gas, 1 },
+    { CallMutationOptions::l2_gas_address, 1 },
+    { CallMutationOptions::da_gas, 1 },
+    { CallMutationOptions::da_gas_address, 1 },
+    { CallMutationOptions::arg_size_offset, 1 },
+    { CallMutationOptions::args_offset, 1 },
+    { CallMutationOptions::args, 1 },
+    { CallMutationOptions::is_static_call, 1 },
+});
+
+enum class ReturndatasizeWithReturndatacopyMutationOptions { copy_size_offset, dst_address, rd_start_offset };
+using ReturndatasizeWithReturndatacopyMutationConfig =
+    WeightedSelectionConfig<ReturndatasizeWithReturndatacopyMutationOptions, 3>;
+
+constexpr ReturndatasizeWithReturndatacopyMutationConfig
+    BASIC_RETURNDATASIZE_WITH_RETURNDATACOPY_MUTATION_CONFIGURATION = ReturndatasizeWithReturndatacopyMutationConfig({
+        { ReturndatasizeWithReturndatacopyMutationOptions::copy_size_offset, 1 },
+        { ReturndatasizeWithReturndatacopyMutationOptions::dst_address, 1 },
+        { ReturndatasizeWithReturndatacopyMutationOptions::rd_start_offset, 1 },
+    });
+
+enum class GetContractInstanceMutationOptions { contract_index, contract_address_address, dst_address, member_enum };
+using GetContractInstanceMutationConfig = WeightedSelectionConfig<GetContractInstanceMutationOptions, 4>;
+
+constexpr GetContractInstanceMutationConfig BASIC_GETCONTRACTINSTANCE_MUTATION_CONFIGURATION =
+    GetContractInstanceMutationConfig({
+        { GetContractInstanceMutationOptions::contract_index, 1 },
+        { GetContractInstanceMutationOptions::contract_address_address, 1 },
+        { GetContractInstanceMutationOptions::dst_address, 1 },
+        { GetContractInstanceMutationOptions::member_enum, 1 },
+    });
+
+enum class SuccessCopyMutationOptions { dst_address };
+using SuccessCopyMutationConfig = WeightedSelectionConfig<SuccessCopyMutationOptions, 1>;
+
+constexpr SuccessCopyMutationConfig BASIC_SUCCESSCOPY_MUTATION_CONFIGURATION = SuccessCopyMutationConfig({
+    { SuccessCopyMutationOptions::dst_address, 1 },
+});
+
+enum class ToRadixBEMutationOptions {
+    value_address,
+    radix_address,
+    num_limbs_address,
+    output_bits_address,
+    dst_address,
+    is_output_bits
+};
+using ToRadixBEMutationConfig = WeightedSelectionConfig<ToRadixBEMutationOptions, 6>;
+
+constexpr ToRadixBEMutationConfig BASIC_TORADIXBE_MUTATION_CONFIGURATION = ToRadixBEMutationConfig({
+    { ToRadixBEMutationOptions::value_address, 1 },
+    { ToRadixBEMutationOptions::radix_address, 1 },
+    { ToRadixBEMutationOptions::num_limbs_address, 1 },
+    { ToRadixBEMutationOptions::output_bits_address, 1 },
+    { ToRadixBEMutationOptions::dst_address, 1 },
+    { ToRadixBEMutationOptions::is_output_bits, 1 },
+});
+
 enum class ReturnOptionsMutationOptions { return_size, return_value_tag, return_value_offset_index };
 
 using ReturnOptionsMutationConfig = WeightedSelectionConfig<ReturnOptionsMutationOptions, 3>;
@@ -444,11 +555,12 @@ enum class CFGInstructionGenerationOptions {
     JumpToBlock,
     JumpIfToBlock,
     FinalizeWithReturn,
+    FinalizeWithRevert,
     SwitchToNonTerminatedBlock,
     InsertInternalCall,
 };
 
-using CFGInstructionGenerationConfig = WeightedSelectionConfig<CFGInstructionGenerationOptions, 8>;
+using CFGInstructionGenerationConfig = WeightedSelectionConfig<CFGInstructionGenerationOptions, 9>;
 
 constexpr CFGInstructionGenerationConfig BASIC_CFG_INSTRUCTION_GENERATION_CONFIGURATION =
     CFGInstructionGenerationConfig({
@@ -458,6 +570,7 @@ constexpr CFGInstructionGenerationConfig BASIC_CFG_INSTRUCTION_GENERATION_CONFIG
         { CFGInstructionGenerationOptions::JumpToBlock, 15 },
         { CFGInstructionGenerationOptions::JumpIfToBlock, 15 },
         { CFGInstructionGenerationOptions::FinalizeWithReturn, 7 },
+        { CFGInstructionGenerationOptions::FinalizeWithRevert, 3 },
         { CFGInstructionGenerationOptions::SwitchToNonTerminatedBlock, 8 },
         { CFGInstructionGenerationOptions::InsertInternalCall, 3 },
     });

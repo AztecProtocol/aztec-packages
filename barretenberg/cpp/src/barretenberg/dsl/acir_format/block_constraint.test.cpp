@@ -97,6 +97,8 @@ template <typename Builder_, size_t table_size, size_t num_reads, bool perform_c
         };
     };
 
+    static ProgramMetadata generate_metadata() { return ProgramMetadata{}; }
+
     static void generate_constraints(AcirConstraint& memory_constraint, WitnessVector& witness_values)
     {
         // Create initial memory values "natively"
@@ -143,9 +145,10 @@ template <typename Builder_, size_t table_size, size_t num_reads, bool perform_c
         memory_constraint = AcirConstraint{ .init = init_indices, .trace = trace, .type = BlockType::ROM };
     }
 
-    static void invalidate_witness([[maybe_unused]] AcirConstraint& memory_constraint,
-                                   WitnessVector& witness_values,
-                                   const InvalidWitness::Target& invalid_witness_target)
+    static std::pair<AcirConstraint, WitnessVector> invalidate_witness(
+        [[maybe_unused]] AcirConstraint memory_constraint,
+        WitnessVector witness_values,
+        const InvalidWitness::Target& invalid_witness_target)
     {
         switch (invalid_witness_target) {
         case InvalidWitness::Target::None:
@@ -161,6 +164,8 @@ template <typename Builder_, size_t table_size, size_t num_reads, bool perform_c
             }
             break;
         }
+
+        return { memory_constraint, witness_values };
     }
 };
 template <typename Params>
@@ -220,9 +225,6 @@ class RAMTestingFunctions {
         uint32_t witness_index;
     };
 
-    // Instance member to track reads for invalidating witnesses.
-    std::vector<WitnessValue> read_values;
-
     class InvalidWitness {
       public:
         enum class Target : uint8_t { None, ReadValueIncremented };
@@ -244,11 +246,10 @@ class RAMTestingFunctions {
         };
     };
 
-    void generate_constraints(AcirConstraint& memory_constraint, WitnessVector& witness_values)
-    {
-        // Clear any previous state
-        read_values.clear();
+    static ProgramMetadata generate_metadata() { return ProgramMetadata{}; }
 
+    static void generate_constraints(AcirConstraint& memory_constraint, WitnessVector& witness_values)
+    {
         // Create initial memory values "natively". RAM tables always start out initialized.
         std::vector<bb::fr> table_values;
         table_values.reserve(table_size);
@@ -299,9 +300,6 @@ class RAMTestingFunctions {
                     bb::fr read_value = table_values[ram_index_to_read];
                     const uint32_t value_for_read = add_to_witness_and_track_indices(witness_values, read_value);
 
-                    // Record this read value and its witness index
-                    read_values.push_back({ .value = read_value, .witness_index = value_for_read });
-
                     mem_op = { .access_type = AccessType::Read,
                                .index = WitnessOrConstant<bb::fr>::from_index(index_for_read),
                                .value = WitnessOrConstant<bb::fr>::from_index(value_for_read) };
@@ -330,31 +328,35 @@ class RAMTestingFunctions {
                 add_constant_ops<AccessType::Read>(table_size, table_values, witness_values, trace);
                 add_constant_ops<AccessType::Write>(table_size, table_values, witness_values, trace);
             }
-
-            BB_ASSERT_EQ(read_values.size(), num_reads); // sanity check to make sure the number of reads is correct.
-            // Create the MemoryConstraint
         }
+
+        // Create the MemoryConstraint
         memory_constraint = AcirConstraint{ .init = init_indices, .trace = trace, .type = BlockType::RAM };
     }
 
-    void invalidate_witness([[maybe_unused]] AcirConstraint& memory_constraint,
-                            WitnessVector& witness_values,
-                            const InvalidWitness::Target& invalid_witness_target)
+    static std::pair<AcirConstraint, WitnessVector> invalidate_witness(
+        [[maybe_unused]] AcirConstraint memory_constraint,
+        WitnessVector witness_values,
+        const InvalidWitness::Target& invalid_witness_target)
     {
         switch (invalid_witness_target) {
         case InvalidWitness::Target::None:
             break;
         case InvalidWitness::Target::ReadValueIncremented:
             if constexpr (num_reads > 0 && table_size > 0) {
-                // Tamper with a random read value using the recorded witness index
-                if (!read_values.empty()) {
-                    const size_t random_read_idx = static_cast<size_t>(engine.get_random_uint32() % read_values.size());
-                    const uint32_t witness_idx = read_values[random_read_idx].witness_index;
-                    witness_values[witness_idx] += bb::fr(1);
+                // Tamper with a random read value
+                size_t random_read_idx = static_cast<size_t>(engine.get_random_uint32() % (num_reads + num_writes));
+                while (memory_constraint.trace[random_read_idx].access_type != AccessType::Read) {
+                    // Find a read operation
+                    random_read_idx = static_cast<size_t>(engine.get_random_uint32() % (num_reads + num_writes));
                 }
+                const uint32_t witness_idx = memory_constraint.trace[random_read_idx].value.index;
+                witness_values[witness_idx] += bb::fr(1);
             }
             break;
         }
+
+        return { memory_constraint, witness_values };
     }
 };
 
@@ -439,7 +441,9 @@ class CallDataTestingFunctions {
         }
     };
 
-    void generate_constraints(AcirConstraint& memory_constraint, WitnessVector& witness_values)
+    static ProgramMetadata generate_metadata() { return ProgramMetadata{}; }
+
+    static void generate_constraints(AcirConstraint& memory_constraint, WitnessVector& witness_values)
     {
 
         // Create initial memory values "natively". Memory tables always start out initialized.
@@ -484,9 +488,10 @@ class CallDataTestingFunctions {
         };
     }
 
-    void invalidate_witness(AcirConstraint& memory_constraint,
-                            WitnessVector& witness_values,
-                            const InvalidWitness::Target& invalid_witness_target)
+    static std::pair<AcirConstraint, WitnessVector> invalidate_witness(
+        AcirConstraint memory_constraint,
+        WitnessVector witness_values,
+        const InvalidWitness::Target& invalid_witness_target)
     {
         switch (invalid_witness_target) {
         case InvalidWitness::Target::None:
@@ -500,6 +505,8 @@ class CallDataTestingFunctions {
             }
             break;
         }
+
+        return { memory_constraint, witness_values };
     }
 };
 
@@ -551,7 +558,9 @@ class ReturnDataTestingFunctions {
         static std::vector<std::string> get_labels() { return { "None" }; };
     };
 
-    void generate_constraints(AcirConstraint& memory_constraint, WitnessVector& witness_values)
+    static ProgramMetadata generate_metadata() { return ProgramMetadata{}; }
+
+    static void generate_constraints(AcirConstraint& memory_constraint, WitnessVector& witness_values)
     {
         // Create initial memory values "natively". Memory tables always start out initialized.
         std::vector<bb::fr> returndata_values;
@@ -571,14 +580,17 @@ class ReturnDataTestingFunctions {
         memory_constraint = AcirConstraint{ .init = init_indices, .trace = {}, .type = BlockType::ReturnData };
     }
 
-    void invalidate_witness([[maybe_unused]] AcirConstraint& memory_constraint,
-                            [[maybe_unused]] WitnessVector& witness_values,
-                            const InvalidWitness::Target& invalid_witness_target)
+    static std::pair<AcirConstraint, WitnessVector> invalidate_witness(
+        [[maybe_unused]] AcirConstraint memory_constraint,
+        [[maybe_unused]] WitnessVector witness_values,
+        const InvalidWitness::Target& invalid_witness_target)
     {
         switch (invalid_witness_target) {
         case InvalidWitness::Target::None:
             break;
         }
+
+        return { memory_constraint, witness_values };
     }
 };
 

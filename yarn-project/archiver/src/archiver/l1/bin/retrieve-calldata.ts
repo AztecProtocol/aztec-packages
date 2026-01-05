@@ -76,7 +76,7 @@ async function main() {
     // Create viem public client
     const publicClient = createPublicClient({
       chain: mainnet,
-      transport: http(rpcUrl),
+      transport: http(rpcUrl, { batch: false }),
     });
 
     logger.info('Fetching transaction...');

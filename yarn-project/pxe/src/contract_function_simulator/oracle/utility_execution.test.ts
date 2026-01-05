@@ -1,23 +1,51 @@
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { GrumpkinScalar } from '@aztec/foundation/curves/grumpkin';
+import type { KeyStore } from '@aztec/key-store';
 import { StatefulTestContractArtifact } from '@aztec/noir-test-contracts.js/StatefulTest';
 import { WASMSimulator } from '@aztec/simulator/client';
 import { FunctionCall, FunctionSelector, FunctionType, encodeArguments } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { CompleteAddress, type ContractInstance } from '@aztec/stdlib/contract';
-import { Note } from '@aztec/stdlib/note';
-import { BlockHeader } from '@aztec/stdlib/tx';
+import { L2BlockHash } from '@aztec/stdlib/block';
+import { CompleteAddress, type ContractInstanceWithAddress } from '@aztec/stdlib/contract';
+import type { AztecNode } from '@aztec/stdlib/interfaces/server';
+import { deriveKeys } from '@aztec/stdlib/keys';
+import { Note, NoteDao } from '@aztec/stdlib/note';
+import { BlockHeader, GlobalVariables, TxHash } from '@aztec/stdlib/tx';
 
 import { mock } from 'jest-mock-extended';
+import type { _MockProxy } from 'jest-mock-extended/lib/Mock.js';
 
+import type { AddressDataProvider } from '../../storage/address_data_provider/address_data_provider.js';
+import type { AnchorBlockDataProvider } from '../../storage/anchor_block_data_provider/anchor_block_data_provider.js';
+import type { CapsuleDataProvider } from '../../storage/capsule_data_provider/capsule_data_provider.js';
+import type { ContractDataProvider } from '../../storage/contract_data_provider/contract_data_provider.js';
+import type { NoteDataProvider } from '../../storage/note_data_provider/note_data_provider.js';
+import type { PrivateEventDataProvider } from '../../storage/private_event_data_provider/private_event_data_provider.js';
+import type { RecipientTaggingDataProvider } from '../../storage/tagging_data_provider/recipient_tagging_data_provider.js';
+import type { SenderAddressBook } from '../../storage/tagging_data_provider/sender_address_book.js';
+import type { SenderTaggingDataProvider } from '../../storage/tagging_data_provider/sender_tagging_data_provider.js';
 import { ContractFunctionSimulator } from '../contract_function_simulator.js';
-import type { ExecutionDataProvider } from '../execution_data_provider.js';
+import { UtilityExecutionOracle } from './utility_execution_oracle.js';
 
 describe('Utility Execution test suite', () => {
   const simulator = new WASMSimulator();
 
-  let executionDataProvider: ReturnType<typeof mock<ExecutionDataProvider>>;
+  let contractDataProvider: ReturnType<typeof mock<ContractDataProvider>>;
+  let noteDataProvider: ReturnType<typeof mock<NoteDataProvider>>;
+  let keyStore: ReturnType<typeof mock<KeyStore>>;
+  let addressDataProvider: ReturnType<typeof mock<AddressDataProvider>>;
+  let aztecNode: ReturnType<typeof mock<AztecNode>>;
+  let anchorBlockDataProvider: ReturnType<typeof mock<AnchorBlockDataProvider>>;
+  let senderTaggingDataProvider: ReturnType<typeof mock<SenderTaggingDataProvider>>;
+  let recipientTaggingDataProvider: ReturnType<typeof mock<RecipientTaggingDataProvider>>;
+  let senderAddressBook: ReturnType<typeof mock<SenderAddressBook>>;
+  let capsuleDataProvider: ReturnType<typeof mock<CapsuleDataProvider>>;
+  let privateEventDataProvider: ReturnType<typeof mock<PrivateEventDataProvider>>;
   let acirSimulator: ContractFunctionSimulator;
   let owner: AztecAddress;
+  let ownerCompleteAddress: CompleteAddress;
+  let anchorBlockHeader: BlockHeader;
   const ownerSecretKey = Fr.fromHexString('2dcc5485a58316776299be08c78fa3788a1a7961ae30dc747fb1be17692a8d32');
 
   const buildNote = (amount: bigint) => {
@@ -25,13 +53,80 @@ describe('Utility Execution test suite', () => {
   };
 
   beforeEach(async () => {
-    executionDataProvider = mock<ExecutionDataProvider>();
-    acirSimulator = new ContractFunctionSimulator(executionDataProvider, simulator);
+    contractDataProvider = mock<ContractDataProvider>();
+    noteDataProvider = mock<NoteDataProvider>();
+    keyStore = mock<KeyStore>();
+    addressDataProvider = mock<AddressDataProvider>();
+    aztecNode = mock<AztecNode>();
+    anchorBlockDataProvider = mock<AnchorBlockDataProvider>();
+    senderTaggingDataProvider = mock<SenderTaggingDataProvider>();
+    recipientTaggingDataProvider = mock<RecipientTaggingDataProvider>();
+    senderAddressBook = mock<SenderAddressBook>();
+    capsuleDataProvider = mock<CapsuleDataProvider>();
+    privateEventDataProvider = mock<PrivateEventDataProvider>();
+    const capsuleArrays = new Map<string, Fr[][]>();
+    anchorBlockHeader = BlockHeader.random();
+    anchorBlockDataProvider.getBlockHeader.mockImplementation(() => Promise.resolve(anchorBlockHeader));
+    senderTaggingDataProvider.getLastFinalizedIndex.mockResolvedValue(undefined);
+    senderTaggingDataProvider.getLastUsedIndex.mockResolvedValue(undefined);
+    senderTaggingDataProvider.getTxHashesOfPendingIndexes.mockResolvedValue([]);
+    senderTaggingDataProvider.storePendingIndexes.mockResolvedValue();
+    senderAddressBook.getSenders.mockResolvedValue([]);
 
-    const ownerCompleteAddress = await CompleteAddress.fromSecretKeyAndPartialAddress(ownerSecretKey, Fr.random());
+    // Mock getL2Tips and getBlockHeader for loadPrivateLogsForSenderRecipientPair
+    aztecNode.getL2Tips.mockResolvedValue({
+      finalized: { number: anchorBlockHeader.globalVariables.blockNumber },
+    } as any);
+    aztecNode.getBlockHeader.mockImplementation((blockNumber: BlockNumber | 'latest') => {
+      if (blockNumber === 'latest') {
+        return Promise.resolve(anchorBlockHeader);
+      }
+      return Promise.resolve(anchorBlockHeader);
+    });
+    aztecNode.getPrivateLogsByTags.mockImplementation((tags: any[]) => Promise.resolve(tags.map(() => [])));
+
+    capsuleDataProvider.setCapsuleArray.mockImplementation((address, slot, content) => {
+      capsuleArrays.set(`${address.toString()}:${slot.toString()}`, content);
+      return Promise.resolve();
+    });
+    capsuleDataProvider.readCapsuleArray.mockImplementation((address, slot) => {
+      return Promise.resolve(capsuleArrays.get(`${address.toString()}:${slot.toString()}`) ?? []);
+    });
+    acirSimulator = new ContractFunctionSimulator(
+      contractDataProvider,
+      noteDataProvider,
+      keyStore,
+      addressDataProvider,
+      aztecNode,
+      anchorBlockDataProvider,
+      senderTaggingDataProvider,
+      recipientTaggingDataProvider,
+      senderAddressBook,
+      capsuleDataProvider,
+      privateEventDataProvider,
+      simulator,
+    );
+
+    const ownerPartialAddress = Fr.random();
+    ownerCompleteAddress = await CompleteAddress.fromSecretKeyAndPartialAddress(ownerSecretKey, ownerPartialAddress);
     owner = ownerCompleteAddress.address;
 
-    executionDataProvider.getCompleteAddress.mockImplementation((account: AztecAddress) => {
+    // Derive keys to get the incoming viewing secret key
+    const { masterIncomingViewingSecretKey: ownerIvskM } = await deriveKeys(ownerSecretKey);
+
+    keyStore.getAccounts.mockResolvedValue([owner]);
+
+    // Mock getMasterIncomingViewingSecretKey to return a valid scalar
+    // This is needed when LogService tries to compute directional app tagging secrets
+    keyStore.getMasterIncomingViewingSecretKey.mockImplementation((address: AztecAddress) => {
+      if (address.equals(owner)) {
+        return Promise.resolve(ownerIvskM);
+      }
+      // Return a default value for any other address
+      return Promise.resolve(GrumpkinScalar.random());
+    });
+
+    addressDataProvider.getCompleteAddress.mockImplementation((account: AztecAddress) => {
       if (account.equals(owner)) {
         return Promise.resolve(ownerCompleteAddress);
       }
@@ -48,28 +143,41 @@ describe('Utility Execution test suite', () => {
 
     const notes: Note[] = [...Array(5).fill(buildNote(1n)), ...Array(2).fill(buildNote(2n))];
 
-    executionDataProvider.getPublicStorageAt.mockResolvedValue(Fr.ZERO);
-    executionDataProvider.getFunctionArtifact.mockResolvedValue(artifact);
-    executionDataProvider.getContractInstance.mockResolvedValue({
+    aztecNode.getPublicStorageAt.mockResolvedValue(Fr.ZERO);
+    contractDataProvider.getFunctionArtifact.mockResolvedValue(artifact);
+    contractDataProvider.getContractInstance.mockResolvedValue({
       currentContractClassId: new Fr(42),
       originalContractClassId: new Fr(42),
-    } as ContractInstance);
-    executionDataProvider.getNotes.mockResolvedValue(
-      notes.map((note, index) => ({
-        contractAddress,
-        owner,
-        storageSlot: Fr.random(),
-        randomness: Fr.random(),
-        noteNonce: Fr.random(),
-        isSome: new Fr(1),
-        note,
-        noteHash: Fr.random(),
-        siloedNullifier: Fr.random(),
-        index: BigInt(index),
-      })),
+      address: contractAddress,
+    } as ContractInstanceWithAddress);
+    contractDataProvider.getFunctionArtifactWithDebugMetadata.mockImplementation(async (address, selector) => {
+      const artifact = await contractDataProvider.getFunctionArtifact(address, selector);
+      if (!artifact) {
+        throw new Error(`Function not found: ${selector.toString()} in contract ${address}`);
+      }
+      return { ...artifact, debug: undefined };
+    });
+    noteDataProvider.getNotes.mockResolvedValue(
+      notes.map(
+        (note, index) =>
+          new NoteDao(
+            note,
+            contractAddress,
+            owner,
+            Fr.random(),
+            Fr.random(),
+            Fr.random(),
+            Fr.random(),
+            Fr.random(),
+            TxHash.random(),
+            BlockNumber(42),
+            L2BlockHash.random().toString(),
+            BigInt(index),
+          ),
+      ),
     );
 
-    executionDataProvider.loadCapsule.mockImplementation((_, __) => Promise.resolve(null));
+    capsuleDataProvider.loadCapsule.mockImplementation((_, __) => Promise.resolve(null));
 
     const execRequest: FunctionCall = {
       name: artifact.name,
@@ -82,8 +190,73 @@ describe('Utility Execution test suite', () => {
       returnTypes: artifact.returnTypes,
     };
 
-    const result = await acirSimulator.runUtility(execRequest, [], BlockHeader.random(), []);
+    const result = await acirSimulator.runUtility(execRequest, [], anchorBlockHeader, []);
 
     expect(result).toEqual([new Fr(9)]);
   }, 30_000);
+
+  describe('UtilityExecutionOracle', () => {
+    let contractAddress: AztecAddress;
+    let utilityExecutionOracle: UtilityExecutionOracle;
+    const syncedBlockNumber = 100;
+
+    beforeEach(async () => {
+      contractAddress = await AztecAddress.random();
+      anchorBlockHeader = BlockHeader.empty({
+        globalVariables: GlobalVariables.empty({ blockNumber: BlockNumber(syncedBlockNumber) }),
+      });
+      anchorBlockDataProvider.getBlockHeader.mockResolvedValue(anchorBlockHeader);
+
+      utilityExecutionOracle = new UtilityExecutionOracle(
+        contractAddress,
+        [],
+        [],
+        anchorBlockHeader,
+        contractDataProvider,
+        noteDataProvider,
+        keyStore,
+        addressDataProvider,
+        aztecNode,
+        anchorBlockDataProvider,
+        recipientTaggingDataProvider,
+        senderAddressBook,
+        capsuleDataProvider,
+        privateEventDataProvider,
+      );
+    });
+
+    describe('Respects synced block number', () => {
+      let nullifier: Fr;
+      let leafSlot: Fr;
+
+      beforeEach(() => {
+        leafSlot = Fr.random();
+        nullifier = Fr.random();
+      });
+
+      it('throws when getting low nullifier membership witness for future block', async () => {
+        await expect(
+          utilityExecutionOracle.utilityGetLowNullifierMembershipWitness(BlockNumber(syncedBlockNumber + 1), nullifier),
+        ).rejects.toThrow(`Block number ${syncedBlockNumber + 1} is higher than current block ${syncedBlockNumber}`);
+      });
+
+      it('throws when getting block for future block number', async () => {
+        await expect(utilityExecutionOracle.utilityGetBlockHeader(BlockNumber(syncedBlockNumber + 1))).rejects.toThrow(
+          `Block number ${syncedBlockNumber + 1} is higher than current block ${syncedBlockNumber}`,
+        );
+      });
+
+      it('throws when getting public data witness for future block', async () => {
+        await expect(
+          utilityExecutionOracle.utilityGetPublicDataWitness(BlockNumber(syncedBlockNumber + 1), leafSlot),
+        ).rejects.toThrow(`Block number ${syncedBlockNumber + 1} is higher than current block ${syncedBlockNumber}`);
+      });
+
+      it('throws when getting public storage for future block', async () => {
+        await expect(
+          utilityExecutionOracle.utilityStorageRead(contractAddress, leafSlot, BlockNumber(syncedBlockNumber + 1), 1),
+        ).rejects.toThrow(`Block number ${syncedBlockNumber + 1} is higher than current block ${syncedBlockNumber}`);
+      });
+    });
+  });
 });

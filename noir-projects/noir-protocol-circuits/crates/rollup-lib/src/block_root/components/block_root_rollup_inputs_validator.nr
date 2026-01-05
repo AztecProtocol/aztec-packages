@@ -1,8 +1,7 @@
 use crate::{
-    abis::TxRollupPublicInputs,
+    abis::{ParityPublicInputs, TxRollupPublicInputs},
     tx_merge::utils::validate_consecutive_tx_rollups::validate_consecutive_tx_rollups,
 };
-use parity_lib::ParityPublicInputs;
 use types::{
     abis::{
         append_only_tree_snapshot::AppendOnlyTreeSnapshot, block_constant_data::BlockConstantData,

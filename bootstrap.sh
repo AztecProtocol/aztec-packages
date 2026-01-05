@@ -488,6 +488,10 @@ function release_dryrun {
   DRY_RUN=1 release
 }
 
+# Handle our command line arguments.
+# All the commands that start with ci-* are intended to be callable from
+# a fresh repo. They are ideal for calling into from github actions on a new runner
+# Current flow: ci3.yml -> .github/ci3.sh -> ci.sh -> this script on a fresh EC2 runner.
 case "$cmd" in
   "clean")
     echo "WARNING: This will erase *all* untracked files, including hooks and submodules."
@@ -516,6 +520,9 @@ case "$cmd" in
     install_hooks
     build
   ;;
+  ######################################
+  # VARIANTS ON NORMAL PULL-REQUEST CI #
+  ######################################
   "ci-fast")
     export CI=1
     export USE_TEST_CACHE=1
@@ -546,11 +553,26 @@ case "$cmd" in
     build_and_test
     bench
     ;;
+  ##########################################
+  # NETWORK DEPLOYMENTS WITH BENCHES/TESTS #
+  ##########################################
   "ci-network-deploy")
+    # Args: <env_file> <namespace> [docker_image]
     export CI=1
+    env_file="${1:?env_file is required}"
+    namespace="${2:?namespace is required}"
+    docker_image="${3:-}"
     build
+    # If no docker image provided, build and push to aztecdev
+    if [ -z "$docker_image" ]; then
+      release-image/bootstrap.sh push_pr
+      docker_image="aztecprotocol/aztecdev:$(git rev-parse HEAD)"
+    fi
+    # Set up environment and deploy using spartan
+    export NAMESPACE="$namespace"
+    export AZTEC_DOCKER_IMAGE="$docker_image"
     deploy_exit_code=0
-    spartan/bootstrap.sh network_deploy $NETWORK_ENV_FILE || deploy_exit_code=$?
+    spartan/bootstrap.sh network_deploy "${env_file}" || deploy_exit_code=$?
     # Merge and upload deploy benchmarks (deploy_network.sh writes to spartan/bench-out/)
     rm -rf bench-out
     mkdir -p bench-out
@@ -559,17 +581,50 @@ case "$cmd" in
     exit $deploy_exit_code
     ;;
   "ci-network-tests")
+    # Args: <env_file> <namespace>
     export CI=1
+    env_file="${1:?env_file is required}"
+    namespace="${2:?namespace is required}"
     build
-    spartan/bootstrap.sh network_tests $NETWORK_ENV_FILE
+    # Set up environment for tests
+    export NAMESPACE="$namespace"
+    spartan/bootstrap.sh network_tests "${env_file}"
     ;;
   "ci-network-bench")
+    # Args: <env_file> <namespace> [docker_image]
+    # Deploys network and runs benchmarks. Cleanup should be done separately.
     export CI=1
+    env_file="${1:?env_file is required}"
+    namespace="${2:?namespace is required}"
+    docker_image="${3:-}"
     build
-    spartan/bootstrap.sh network_bench $NETWORK_ENV_FILE
+    # If no docker image provided, build and push to aztecdev
+    if [ -z "$docker_image" ]; then
+      release-image/bootstrap.sh push_pr
+      docker_image="aztecprotocol/aztecdev:$(git rev-parse HEAD)"
+    fi
+    # Set up environment and deploy using spartan
+    export NAMESPACE="$namespace"
+    export AZTEC_DOCKER_IMAGE="$docker_image"
+    spartan/bootstrap.sh network_deploy "${env_file}"
+    # Run benchmarks
+    spartan/bootstrap.sh network_bench "${env_file}"
     bench_merge
     cache_upload spartan-bench-$(git rev-parse HEAD^{tree}).tar.gz bench-out/bench.json
     ;;
+  "ci-network-teardown")
+    # Args: <env_file> <namespace>
+    # Tears down a deployed network.
+    export CI=1
+    env_file="${1:?env_file is required}"
+    namespace="${2:?namespace is required}"
+    # Set up environment for teardown
+    export NAMESPACE="$namespace"
+    denoise "spartan/bootstrap.sh network_teardown ${env_file}"
+    ;;
+  ############
+  # RELEASES #
+  ############
   "ci-release")
     export CI=1
     export USE_TEST_CACHE=1
@@ -579,6 +634,10 @@ case "$cmd" in
     build
     release
     ;;
+
+  ##########################
+  # MERGE TRAIN CI SUBSETS #
+  ##########################
   "ci-docs")
     export CI=1
     export USE_TEST_CACHE=1
@@ -592,6 +651,17 @@ case "$cmd" in
     export AVM_TRANSPILER=0
     barretenberg/cpp/bootstrap.sh ci
     ;;
+"ci-barretenberg-full")
+    export CI=1
+    export USE_TEST_CACHE=1
+    export AVM=0
+    export AVM_TRANSPILER=0
+    barretenberg/bootstrap.sh ci
+    ;;
+
+  #######################
+  # AVM QA ONE OFF JOBS #
+  #######################
   "ci-avm-inputs-collection")
     # Nightly job: Run e2e tests with AVM circuit inputs dumping, upload to cache
     export CI=1
@@ -608,6 +678,9 @@ case "$cmd" in
     build
     yarn-project/end-to-end/bootstrap.sh avm_check_circuit
     ;;
+  ##############################################
+  # Default handler, calls our above functions #
+  ##############################################
   *)
     default_cmd_handler "$@"
     ;;

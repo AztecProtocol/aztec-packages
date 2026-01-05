@@ -6,6 +6,7 @@
 
 #include "barretenberg/ultra_honk/oink_prover.hpp"
 #include "barretenberg/common/bb_bench.hpp"
+#include "barretenberg/flavor/mega_avm_flavor.hpp"
 #include "barretenberg/honk/prover_instance_inspector.hpp"
 #include "barretenberg/relations/logderiv_lookup_relation.hpp"
 #include "barretenberg/ultra_honk/witness_computation.hpp"
@@ -43,8 +44,6 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::prove()
     // Free the commitment key
     prover_instance->commitment_key = CommitmentKey();
     // #endif
-
-    prover_instance->is_complete = true;
 }
 
 /**
@@ -296,5 +295,6 @@ template class OinkProver<UltraKeccakZKFlavor>;
 template class OinkProver<UltraRollupFlavor>;
 template class OinkProver<MegaFlavor>;
 template class OinkProver<MegaZKFlavor>;
+template class OinkProver<MegaAvmFlavor>;
 
 } // namespace bb

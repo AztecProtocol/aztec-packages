@@ -116,7 +116,7 @@ const CPP_CONSTANTS = [
 const CPP_GENERATORS: string[] = [
   'PARTIAL_ADDRESS',
   'CONTRACT_ADDRESS_V1',
-  'CONTRACT_LEAF',
+  'CONTRACT_CLASS_ID',
   'PUBLIC_KEYS_HASH',
   'NOTE_HASH_NONCE',
   'UNIQUE_NOTE_HASH',
@@ -302,7 +302,7 @@ const PIL_CONSTANTS = [
 const PIL_GENERATORS: string[] = [
   'PARTIAL_ADDRESS',
   'CONTRACT_ADDRESS_V1',
-  'CONTRACT_LEAF',
+  'CONTRACT_CLASS_ID',
   'PUBLIC_KEYS_HASH',
   'NOTE_HASH_NONCE',
   'UNIQUE_NOTE_HASH',
@@ -380,7 +380,7 @@ function processConstantsCpp(
   });
   Object.entries(generatorIndices).forEach(([key, value]) => {
     if (CPP_GENERATORS.includes(key)) {
-      code.push(`#define GENERATOR_INDEX__${key} ${value}`);
+      code.push(`#define DOM_SEP__${key} ${value}`);
     }
   });
   return code.join('\n');
@@ -405,7 +405,7 @@ function processConstantsPil(
   });
   Object.entries(generatorIndices).forEach(([key, value]) => {
     if (PIL_GENERATORS.includes(key)) {
-      code.push(`    pol GENERATOR_INDEX__${key} = ${value};`);
+      code.push(`    pol DOM_SEP__${key} = ${value};`);
     }
   });
 
@@ -537,7 +537,7 @@ function parseNoirFile(fileContent: string): ParsedContent {
     {
       const [, name, _type, value, end] = line.match(/global\s+(\w+)(\s*:\s*\w+)?\s*=\s*([^;]*)(;)?/) || [];
       if (name && value) {
-        const [, indexName] = name.match(/GENERATOR_INDEX__(\w+)/) || [];
+        const [, indexName] = name.match(/DOM_SEP__(\w+)/) || [];
         if (indexName) {
           // Generator index.
           generatorIndexEnum[indexName] = +value;

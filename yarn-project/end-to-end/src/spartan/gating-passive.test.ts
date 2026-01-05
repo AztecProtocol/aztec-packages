@@ -14,6 +14,7 @@ import {
   applyNetworkShaping,
   applyValidatorKill,
   awaitCheckpointNumber,
+  deleteResourceByLabel,
   getGitProjectRoot,
   installTransferBot,
   restartBot,
@@ -53,6 +54,8 @@ describe('a test that passively observes the network in the presence of network 
   let alertChecker: AlertChecker;
   let spartanDir: string;
   const forwardProcesses: ChildProcess[] = [];
+  const podChaosInstances: string[] = [];
+  const networkShapingInstance = `${NAMESPACE}-network-shaping`;
 
   beforeAll(async () => {
     // Try Prometheus in a dedicated metrics namespace first; if not present, fall back to the network namespace
@@ -108,6 +111,15 @@ describe('a test that passively observes the network in the presence of network 
     if (alertChecker) {
       await alertChecker.runAlertCheck(qosAlerts);
     }
+
+    // Teardown chaos experiments created during the test
+    for (const instanceName of podChaosInstances) {
+      const label = `app.kubernetes.io/instance=${instanceName}`;
+      await deleteResourceByLabel({ resource: 'podchaos', namespace: NAMESPACE, label }).catch(() => undefined);
+    }
+    const label = `app.kubernetes.io/instance=${networkShapingInstance}`;
+    await deleteResourceByLabel({ resource: 'workflows', namespace: NAMESPACE, label }).catch(() => undefined);
+
     // Teardown transfer bot installed for this test
     await uninstallTransferBot(NAMESPACE, debugLogger);
     forwardProcesses.forEach(p => p.kill());
@@ -136,26 +148,29 @@ describe('a test that passively observes the network in the presence of network 
     // note, don't forget that normally an epoch doesn't need epochDuration worth of checkpoints,
     // but here we do double duty:
     // we want a handful of checkpoints, and we want to pass the epoch boundary
-    await awaitCheckpointNumber(
-      rollupCheatCodes,
-      CheckpointNumber.fromBigInt(epochDuration * BigInt(slotDuration)),
-      60 * 6,
-      debugLogger,
-    );
+    const initialTips = await rollupCheatCodes.getTips();
+    const checkpointWaitTarget = CheckpointNumber(initialTips.pending + Number(epochDuration));
+    const epochDurationSeconds = Number(BigInt(epochDuration) * BigInt(slotDuration));
+    await awaitCheckpointNumber(rollupCheatCodes, checkpointWaitTarget, epochDurationSeconds * 2, debugLogger);
 
     let deploymentOutput: string = '';
     deploymentOutput = await applyNetworkShaping({
+      instanceName: `${NAMESPACE}-network-shaping`,
       valuesFile: 'network-requirements.yaml',
       namespace: NAMESPACE,
       spartanDir,
       logger: debugLogger,
     });
     debugLogger.info(deploymentOutput);
+    const bootNodeFailureInstance = `${NAMESPACE}-boot-node-failure`;
+    podChaosInstances.push(bootNodeFailureInstance);
     deploymentOutput = await applyBootNodeFailure({
+      instanceName: bootNodeFailureInstance,
       durationSeconds: 60 * 60 * 24,
       namespace: NAMESPACE,
       spartanDir,
       logger: debugLogger,
+      values: { 'global.chaosResourceNamespace': NAMESPACE },
     });
     debugLogger.info(deploymentOutput);
     await restartBot(NAMESPACE, debugLogger);
@@ -163,10 +178,14 @@ describe('a test that passively observes the network in the presence of network 
     const rounds = 3;
     for (let i = 0; i < rounds; i++) {
       debugLogger.info(`Round ${i + 1}/${rounds}`);
+      const validatorKillInstance = `${NAMESPACE}-validator-kill-${i + 1}`;
+      podChaosInstances.push(validatorKillInstance);
       deploymentOutput = await applyValidatorKill({
+        instanceName: validatorKillInstance,
         namespace: NAMESPACE,
         spartanDir,
         logger: debugLogger,
+        values: { 'global.chaosResourceNamespace': NAMESPACE },
       });
       debugLogger.info(deploymentOutput);
       debugLogger.info(`Waiting for chain to progress by at least 1 checkpoint`);

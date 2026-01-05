@@ -18,7 +18,7 @@ class GoblinRecursiveVerifierTests : public testing::Test {
 
     using OuterFlavor = UltraFlavor;
     using OuterProver = UltraProver_<OuterFlavor>;
-    using OuterVerifier = UltraVerifier_<OuterFlavor>;
+    using OuterVerifier = UltraVerifier_<OuterFlavor, bb::DefaultIO>;
     using OuterProverInstance = ProverInstance_<OuterFlavor>;
 
     using Commitment = MergeVerifier::Commitment;
@@ -130,8 +130,9 @@ TEST_F(GoblinRecursiveVerifierTests, NativeVerification)
     bb::GoblinVerifier verifier(transcript, proof, merge_commitments, MergeSettings::APPEND);
     auto result = verifier.reduce_to_pairing_check_and_ipa_opening();
 
-    // Check pairing points
-    bool pairing_verified = result.pairing_points.check();
+    // Check pairing points (aggregate merge + translator)
+    result.translator_pairing_points.aggregate(result.merge_pairing_points);
+    bool pairing_verified = result.translator_pairing_points.check();
 
     // Verify IPA opening
     auto ipa_transcript = std::make_shared<NativeTranscript>(result.ipa_proof);
@@ -158,8 +159,11 @@ TEST_F(GoblinRecursiveVerifierTests, Basic)
     };
     auto output = verifier.reduce_to_pairing_check_and_ipa_opening();
 
+    // Aggregate merge + translator pairing points
+    output.translator_pairing_points.aggregate(output.merge_pairing_points);
+
     stdlib::recursion::honk::DefaultIO<Builder> inputs;
-    inputs.pairing_inputs = output.pairing_points;
+    inputs.pairing_inputs = output.translator_pairing_points;
     inputs.set_public();
 
     info("Recursive Verifier: num gates = ", builder.num_gates());
@@ -173,10 +177,11 @@ TEST_F(GoblinRecursiveVerifierTests, Basic)
         auto prover_instance = std::make_shared<OuterProverInstance>(builder);
         auto verification_key =
             std::make_shared<typename OuterFlavor::VerificationKey>(prover_instance->get_precomputed());
+        auto vk_and_hash = std::make_shared<typename OuterFlavor::VKAndHash>(verification_key);
         OuterProver prover(prover_instance, verification_key);
-        OuterVerifier verifier(verification_key);
+        OuterVerifier verifier(vk_and_hash);
         auto proof = prover.construct_proof();
-        bool verified = verifier.template verify_proof<bb::DefaultIO>(proof).result;
+        bool verified = verifier.verify_proof(proof).result;
 
         ASSERT_TRUE(verified);
     }
@@ -200,8 +205,11 @@ TEST_F(GoblinRecursiveVerifierTests, IndependentVKHash)
         };
         auto output = verifier.reduce_to_pairing_check_and_ipa_opening();
 
+        // Aggregate merge + translator pairing points
+        output.translator_pairing_points.aggregate(output.merge_pairing_points);
+
         stdlib::recursion::honk::DefaultIO<Builder> inputs;
-        inputs.pairing_inputs = output.pairing_points;
+        inputs.pairing_inputs = output.translator_pairing_points;
         inputs.set_public();
 
         info("Recursive Verifier: num gates = ", builder.num_gates());
@@ -210,8 +218,9 @@ TEST_F(GoblinRecursiveVerifierTests, IndependentVKHash)
         auto prover_instance = std::make_shared<OuterProverInstance>(builder);
         auto outer_verification_key =
             std::make_shared<typename OuterFlavor::VerificationKey>(prover_instance->get_precomputed());
+        auto vk_and_hash = std::make_shared<typename OuterFlavor::VKAndHash>(outer_verification_key);
         OuterProver prover(prover_instance, outer_verification_key);
-        OuterVerifier outer_verifier(outer_verification_key);
+        OuterVerifier outer_verifier(vk_and_hash);
         return { builder.blocks, outer_verification_key };
     };
 
@@ -291,12 +300,16 @@ TEST_F(GoblinRecursiveVerifierTests, TranslatorFailure)
         };
         auto goblin_rec_verifier_output = verifier.reduce_to_pairing_check_and_ipa_opening();
 
+        // Aggregate merge + translator pairing points
+        goblin_rec_verifier_output.translator_pairing_points.aggregate(goblin_rec_verifier_output.merge_pairing_points);
+
         // Circuit is correct but pairing check should fail
         EXPECT_TRUE(CircuitChecker::check(builder));
 
         // Check that the pairing fails natively
-        bb::PairingPoints<curve::BN254> native_pairing_points(goblin_rec_verifier_output.pairing_points.P0.get_value(),
-                                                              goblin_rec_verifier_output.pairing_points.P1.get_value());
+        bb::PairingPoints<curve::BN254> native_pairing_points(
+            goblin_rec_verifier_output.translator_pairing_points.P0.get_value(),
+            goblin_rec_verifier_output.translator_pairing_points.P1.get_value());
         bool pairing_result = native_pairing_points.check();
         EXPECT_FALSE(pairing_result);
     }
@@ -367,7 +380,9 @@ TEST_F(GoblinRecursiveVerifierTests, TranslatorMergeConsistencyFailure)
         auto native_transcript = std::make_shared<NativeTranscript>();
         bb::GoblinVerifier native_verifier(native_transcript, proof, merge_commitments, MergeSettings::APPEND);
         auto native_result = native_verifier.reduce_to_pairing_check_and_ipa_opening();
-        bool pairing_verified = native_result.pairing_points.check();
+        // Aggregate merge + translator pairing points before checking
+        native_result.translator_pairing_points.aggregate(native_result.merge_pairing_points);
+        bool pairing_verified = native_result.translator_pairing_points.check();
         auto ipa_transcript = std::make_shared<NativeTranscript>(native_result.ipa_proof);
         auto ipa_vk = VerifierCommitmentKey<curve::Grumpkin>{ ECCVMFlavor::ECCVM_FIXED_SIZE };
         bool ipa_verified = IPA<curve::Grumpkin>::reduce_verify(ipa_vk, native_result.ipa_claim, ipa_transcript);
@@ -396,12 +411,16 @@ TEST_F(GoblinRecursiveVerifierTests, TranslatorMergeConsistencyFailure)
         };
         auto goblin_rec_verifier_output = verifier.reduce_to_pairing_check_and_ipa_opening();
 
+        // Aggregate merge + translator pairing points
+        goblin_rec_verifier_output.translator_pairing_points.aggregate(goblin_rec_verifier_output.merge_pairing_points);
+
         // Circuit is correct but pairing check should fail
         EXPECT_TRUE(CircuitChecker::check(builder));
 
         // Check that the pairing fails natively
-        bb::PairingPoints<curve::BN254> native_pairing_points(goblin_rec_verifier_output.pairing_points.P0.get_value(),
-                                                              goblin_rec_verifier_output.pairing_points.P1.get_value());
+        bb::PairingPoints<curve::BN254> native_pairing_points(
+            goblin_rec_verifier_output.translator_pairing_points.P0.get_value(),
+            goblin_rec_verifier_output.translator_pairing_points.P1.get_value());
         bool pairing_result = native_pairing_points.check();
         EXPECT_FALSE(pairing_result);
     }

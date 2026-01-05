@@ -1,11 +1,77 @@
 import { Fq, Fr } from './field.js';
 
-describe('Fr Serialization via schema', () => {
-  it('should serialize and deserialize correctly (hex)', () => {
+describe('Fr Serialization', () => {
+  it('should serialize and deserialize correctly through hex schema', () => {
     const original = Fr.random();
     const string = original.toString();
     const obtained = Fr.schema.parse(string);
     expect(obtained).toEqual(original);
+  });
+});
+
+describe('Fr Modulus Validation', () => {
+  it('throws when constructing from bigint >= modulus', () => {
+    expect(() => new Fr(Fr.MODULUS)).toThrow('greater or equal to field modulus');
+    expect(() => new Fr(Fr.MODULUS + 1n)).toThrow('greater or equal to field modulus');
+  });
+
+  it('throws when constructing from negative bigint', () => {
+    expect(() => new Fr(-1n)).toThrow('is negative');
+  });
+
+  it('throws when constructing from Buffer with value >= modulus', () => {
+    const buf = Buffer.from(Fr.MODULUS.toString(16).padStart(64, '0'), 'hex');
+    expect(() => new Fr(buf)).toThrow('greater or equal to field modulus');
+  });
+
+  it('throws when using fromBuffer with value >= modulus', () => {
+    const buf = Buffer.from(Fr.MODULUS.toString(16).padStart(64, '0'), 'hex');
+    expect(() => Fr.fromBuffer(buf)).toThrow('greater or equal to field modulus');
+  });
+
+  it('throws when using fromString with numeric string >= modulus', () => {
+    expect(() => Fr.fromString(Fr.MODULUS.toString())).toThrow('greater or equal to field modulus');
+  });
+
+  it('throws when using fromHexString with value >= modulus', () => {
+    expect(() => Fr.fromHexString(Fr.MODULUS.toString(16))).toThrow('greater or equal to field modulus');
+  });
+
+  it('accepts MAX_FIELD_VALUE (modulus - 1)', () => {
+    expect(() => new Fr(Fr.MODULUS - 1n)).not.toThrow();
+  });
+});
+
+describe('Fq Modulus Validation', () => {
+  it('throws when constructing from bigint >= modulus', () => {
+    expect(() => new Fq(Fq.MODULUS)).toThrow('greater or equal to field modulus');
+    expect(() => new Fq(Fq.MODULUS + 1n)).toThrow('greater or equal to field modulus');
+  });
+
+  it('throws when constructing from negative bigint', () => {
+    expect(() => new Fq(-1n)).toThrow('is negative');
+  });
+
+  it('throws when constructing from Buffer with value >= modulus', () => {
+    const buf = Buffer.from(Fq.MODULUS.toString(16).padStart(64, '0'), 'hex');
+    expect(() => new Fq(buf)).toThrow('greater or equal to field modulus');
+  });
+
+  it('throws when using fromBuffer with value >= modulus', () => {
+    const buf = Buffer.from(Fq.MODULUS.toString(16).padStart(64, '0'), 'hex');
+    expect(() => Fq.fromBuffer(buf)).toThrow('greater or equal to field modulus');
+  });
+
+  it('throws when using fromString with numeric string >= modulus', () => {
+    expect(() => Fq.fromString(Fq.MODULUS.toString())).toThrow('greater or equal to field modulus');
+  });
+
+  it('throws when using fromHexString with value >= modulus', () => {
+    expect(() => Fq.fromHexString(Fq.MODULUS.toString(16))).toThrow('greater or equal to field modulus');
+  });
+
+  it('accepts modulus - 1', () => {
+    expect(() => new Fq(Fq.MODULUS - 1n)).not.toThrow();
   });
 });
 

@@ -1,27 +1,17 @@
 #include "barretenberg/crypto/generators/generator_data.hpp"
 #include "barretenberg/crypto/pedersen_commitment/pedersen.hpp"
 #include "barretenberg/eccvm/eccvm_flavor.hpp"
+#include "barretenberg/eccvm/eccvm_test_utils.hpp"
 #include "barretenberg/eccvm/eccvm_trace_checker.hpp"
 #include <gtest/gtest.h>
 
 using namespace bb;
 using G1 = bb::g1;
 using Fr = typename G1::Fr;
+using eccvm_test_utils::add_hiding_op_for_test;
 
 namespace {
 auto& engine = numeric::get_debug_randomness();
-
-/**
- * @brief Add a hiding op with random Px, Py to the op_queue for testing.
- * @details The ECCVM relation constraints expect q_eq = 1 at row 1 (lagrange_second).
- * This mirrors production behavior where random field elements are used for statistical hiding.
- */
-void add_hiding_op_for_test(const std::shared_ptr<ECCOpQueue>& op_queue)
-{
-    using Fq = curve::BN254::BaseField;
-    // Prepend an eq op with random coordinates - same as production
-    op_queue->append_hiding_op(Fq::random_element(), Fq::random_element());
-}
 } // namespace
 
 TEST(ECCVMCircuitBuilderTests, BaseCase)

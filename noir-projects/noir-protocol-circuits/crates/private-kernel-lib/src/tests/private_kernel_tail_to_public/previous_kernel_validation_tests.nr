@@ -2,7 +2,7 @@ use super::TestBuilder;
 use dep::types::{
     address::AztecAddress,
     constants::{
-        CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, GENERATOR_INDEX__TSK_M, PRIVATE_KERNEL_TAIL_INDEX,
+        CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, DOM_SEP__TSK_M, PRIVATE_KERNEL_TAIL_VK_INDEX,
         PRIVATE_LOG_SIZE_IN_FIELDS,
     },
     point::Point,
@@ -41,7 +41,7 @@ fn non_empty_key_validations() {
     builder.previous_kernel.add_request_for_key_validation(
         Point { x: 1, y: 2, is_infinite: false },
         27,
-        GENERATOR_INDEX__TSK_M as Field,
+        DOM_SEP__TSK_M as Field,
     );
     let _ = builder.execute();
 }
@@ -189,7 +189,7 @@ fn can_run_with_only_teardown() {
 #[test(should_fail_with = "Vk index not in allowed list")]
 fn invalid_previous_kernel() {
     let mut builder = TestBuilder::new();
-    builder.previous_kernel = builder.previous_kernel.in_vk_tree(PRIVATE_KERNEL_TAIL_INDEX);
+    builder.previous_kernel = builder.previous_kernel.in_vk_tree(PRIVATE_KERNEL_TAIL_VK_INDEX);
     let _res = builder.execute();
 }
 

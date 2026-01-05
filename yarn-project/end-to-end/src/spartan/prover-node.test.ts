@@ -7,6 +7,7 @@ import { AlertChecker, AlertTriggeredError } from '../quality_of_service/alert_c
 import {
   applyProverBrokerKill,
   applyProverKill,
+  deleteResourceByLabel,
   getGitProjectRoot,
   setupEnvironment,
   startPortForward,
@@ -15,6 +16,8 @@ import {
 const config = setupEnvironment(process.env);
 
 const logger = createLogger('e2e:spartan-test:prover-node');
+
+const epochDurationSeconds = config.AZTEC_EPOCH_DURATION * config.AZTEC_SLOT_DURATION;
 
 /**
  * This test aims to check that a prover node is able to recover after a crash.
@@ -89,10 +92,17 @@ describe('prover node recovery', () => {
     const grafanaEndpoint = `http://127.0.0.1:${promPort}/api/v1`;
     const grafanaCredentials = '';
     alertChecker = new AlertChecker(logger, { grafanaEndpoint, grafanaCredentials });
+
     spartanDir = `${getGitProjectRoot()}/spartan`;
   });
 
-  afterAll(() => {
+  afterAll(async () => {
+    const cleanup = async (instanceName: string) => {
+      const label = `app.kubernetes.io/instance=${instanceName}`;
+      await deleteResourceByLabel({ resource: 'podchaos', namespace: config.NAMESPACE, label }).catch(() => undefined);
+    };
+    await cleanup('prover-kill');
+    await cleanup('prover-broker-kill');
     forwardProcesses.forEach(p => p.kill());
   });
 
@@ -109,7 +119,7 @@ describe('prover node recovery', () => {
         }
       },
       'wait for proofs',
-      600,
+      900,
       5,
     );
 
@@ -119,6 +129,7 @@ describe('prover node recovery', () => {
       namespace: config.NAMESPACE,
       spartanDir,
       logger,
+      values: { 'global.chaosResourceNamespace': config.NAMESPACE },
     });
 
     // wait for the node to start proving again and
@@ -145,17 +156,16 @@ describe('prover node recovery', () => {
   it('should recover after a broker crash', async () => {
     logger.info(`Waiting for epoch proving job to start`);
 
-    // use the alert checker to wait until grafana picks up a proof has started
     await retryUntil(
       async () => {
         try {
           await alertChecker.runAlertCheck([enqueuedBlockRollupJobs]);
-        } catch {
-          return true;
+        } catch (err) {
+          return err && err instanceof AlertTriggeredError;
         }
       },
       'wait for epoch',
-      600,
+      900,
       5,
     );
 
@@ -165,9 +175,9 @@ describe('prover node recovery', () => {
       namespace: config.NAMESPACE,
       spartanDir,
       logger,
+      values: { 'global.chaosResourceNamespace': config.NAMESPACE },
     });
 
-    // wait for the broker to come back online and for proving to continue
     const result = await retryUntil(
       async () => {
         try {
@@ -177,13 +187,14 @@ describe('prover node recovery', () => {
             return true;
           }
         }
+
         return false;
       },
       'wait for root rollup',
-      600,
+      epochDurationSeconds * 3,
       5,
     );
 
     expect(result).toBeTrue();
-  }, 1_800_000);
+  }, 3_600_000);
 });

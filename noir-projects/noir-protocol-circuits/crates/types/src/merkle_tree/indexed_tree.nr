@@ -1,4 +1,4 @@
-pub(crate) mod check_valid_low_leaf;
+pub(crate) mod low_leaf;
 
 use crate::{
     abis::append_only_tree_snapshot::AppendOnlyTreeSnapshot,
@@ -12,7 +12,7 @@ use crate::{
     utils::arrays::check_permutation,
 };
 
-pub use check_valid_low_leaf::assert_check_valid_low_leaf;
+pub use low_leaf::is_valid_low_leaf;
 
 /// Batch insert values into the indexed tree by creating a subtree of the values and inserting the subtree root.
 /// This function does not allow updating the values of existing leaves.
@@ -56,16 +56,14 @@ where
 
             // Validate the relation: low leaf < value < low leaf's next leaf
             let value_key = value.get_key();
-            assert_check_valid_low_leaf(value_key, low_leaf_preimage);
+            let (_, is_greater_than_low, is_less_than_next) =
+                is_valid_low_leaf(value_key, low_leaf_preimage);
+            assert(is_greater_than_low, "Invalid low leaf: Value is not greater than the low leaf");
+            assert(is_less_than_next, "Invalid low leaf: Value is not less than the next leaf");
 
             // Validate that the low leaf exists in the tree.
             assert(
-                check_membership(
-                    low_leaf_preimage.as_leaf(),
-                    witness.leaf_index,
-                    witness.sibling_path,
-                    current_tree_root,
-                ),
+                check_membership(low_leaf_preimage.as_leaf(), witness, current_tree_root),
                 "Membership check failed: low leaf does not exist in tree",
             );
 

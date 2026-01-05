@@ -44,6 +44,16 @@ describe('invalidate blocks test', () => {
   let origSlashProposeInvalidAttestationsPenalty: bigint | undefined;
   let origSlashAttestDescendantOfInvalidPenalty: bigint | undefined;
 
+  const waitForSequencersToApplyConfig = async (expected: Partial<AztecNodeAdminConfig>, description: string) => {
+    const keys = Object.keys(expected) as (keyof AztecNodeAdminConfig)[];
+    await retryUntil(async () => {
+      const configs = await getSequencersConfig(config);
+      return configs.every(c =>
+        keys.every(k => expected[k] === undefined || (c as AztecNodeAdminConfig)[k] === expected[k]),
+      );
+    }, `sequencers to apply config (${description})`);
+  };
+
   beforeAll(async () => {
     const deployAddresses = await getL1DeploymentAddresses(config);
     ({ client } = await getPublicViemClient(config, forwardProcesses));
@@ -65,6 +75,8 @@ describe('invalidate blocks test', () => {
       slashAttestDescendantOfInvalidPenalty: origSlashAttestDescendantOfInvalidPenalty,
     };
     await updateSequencersConfig(config, restoreConfig);
+    // Ensure config has actually propagated before the next scenario test starts
+    await waitForSequencersToApplyConfig(restoreConfig, 'restore after invalidate-blocks');
     monitor.removeAllListeners();
     await monitor.stop();
     forwardProcesses.forEach(p => p.kill());
@@ -107,6 +119,8 @@ describe('invalidate blocks test', () => {
 
     // Restore sequencer configs to normal
     await updateSequencersConfig(config, { skipCollectingAttestations: false });
+    // Ensure we don't leak `skipCollectingAttestations=true` into subsequent tests
+    await waitForSequencersToApplyConfig({ skipCollectingAttestations: false }, 'disable skipCollectingAttestations');
 
     // Wait until a few more checkpoints have been mined to ensure the chain can progress after the invalid checkpoint
     // Note that we should expect more invalidations depending on when the patched config hits

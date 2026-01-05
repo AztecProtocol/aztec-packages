@@ -77,4 +77,18 @@ TEST_F(AvmVerifierTests, NegativeBadPublicInputs)
     const bool verified = verifier.verify_proof(proof, public_inputs_cols);
     ASSERT_TRUE(verified) << "native proof verification failed, but should have succeeded";
 }
+
+// Verify that the actual proof size matches COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS
+TEST_F(AvmVerifierTests, ProofSizeMatchesComputedConstant)
+{
+    NativeProofResult proof_result = create_proof_and_vk();
+
+    const size_t actual_proof_size = proof_result.proof.size();
+    const size_t computed_proof_size = AvmFlavor::COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS;
+
+    EXPECT_EQ(actual_proof_size, computed_proof_size)
+        << "Actual proof size (" << actual_proof_size << ") does not match COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS ("
+        << computed_proof_size << "). The formula in flavor.hpp needs to be updated.";
+}
+
 } // namespace bb::avm2::constraining

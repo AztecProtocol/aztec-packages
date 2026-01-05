@@ -10,12 +10,10 @@ import { fileURLToPath } from '@aztec/foundation/url';
 import { bn254 } from '@noble/curves/bn254';
 import type { Abi, Narrow } from 'abitype';
 import { spawn } from 'child_process';
-import { cp, mkdtemp, rm } from 'fs/promises';
-import { tmpdir } from 'os';
-import { dirname, join, resolve } from 'path';
+import { dirname, resolve } from 'path';
 import readline from 'readline';
 import type { Hex } from 'viem';
-import { foundry, mainnet } from 'viem/chains';
+import { foundry, mainnet, sepolia } from 'viem/chains';
 
 import { createEthereumChain, isAnvilTestChain } from './chain.js';
 import { createExtendedL1Client } from './client.js';
@@ -75,17 +73,6 @@ function runProcess<T>(
   });
 
   return promise;
-}
-
-/**
- * Copies the foundry cache folder to a temporary location to avoid conflicts when running forge in parallel.
- * The cache folder is small metadata that links to the out folder, so this is a fast operation.
- */
-async function copyFoundryCacheToTemp(l1ContractsPath: string): Promise<string> {
-  const cacheFolder = join(l1ContractsPath, 'cache');
-  const tempCacheFolder = await mkdtemp(join(tmpdir(), 'foundry-cache-'));
-  await cp(cacheFolder, tempCacheFolder, { recursive: true });
-  return tempCacheFolder;
 }
 
 // Covers an edge where where we may have a cached BlobLib that is not meant for production.
@@ -216,7 +203,6 @@ export async function deployAztecL1Contracts(
   privateKey: `0x${string}`,
   chainId: number,
   args: DeployAztecL1ContractsArgs,
-  verifyContracts = false,
 ): Promise<DeployAztecL1ContractsReturnType> {
   logger.info(`Deploying L1 contracts with config: ${jsonStringify(args)}`);
   if (args.initialValidators && args.initialValidators.length > 0 && args.existingTokenAddress) {
@@ -260,101 +246,101 @@ export async function deployAztecL1Contracts(
   const FORGE_SCRIPT = 'script/deploy/DeployAztecL1Contracts.s.sol';
   await maybeForgeForceProductionBuild(l1ContractsPath, FORGE_SCRIPT, chainId);
 
-  // Copy cache to temp location to avoid conflicts when running forge in parallel
-  const tempCachePath = await copyFoundryCacheToTemp(l1ContractsPath);
+  // Verify contracts on Etherscan when on mainnet/sepolia and ETHERSCAN_API_KEY is available.
+  const isVerifiableChain = chainId === mainnet.id || chainId === sepolia.id;
+  const shouldVerify = isVerifiableChain && !!process.env.ETHERSCAN_API_KEY;
 
-  try {
-    // From heuristic testing. More caused issues with anvil.
-    const MAGIC_ANVIL_BATCH_SIZE = 12;
-    // Anvil seems to stall with unbounded batch size. Otherwise no max batch size is desirable.
-    // On sepolia and mainnet, we verify on etherscan (if etherscan API key is in env)
-    const forgeArgs = [
-      'script',
-      FORGE_SCRIPT,
-      '--sig',
-      'run()',
-      '--private-key',
-      privateKey,
-      '--rpc-url',
-      rpcUrl,
-      '--broadcast',
-      ...(chainId === foundry.id ? ['--batch-size', MAGIC_ANVIL_BATCH_SIZE.toString()] : []),
-      ...(verifyContracts ? ['--verify'] : []),
-    ];
-    const forgeEnv = {
-      // Protect against root leaving deployment files in docker that cannot be used later.
-      FOUNDRY_BROADCAST: process.getuid?.() === 0 ? 'broadcast-root' : tempCachePath,
-      // Env vars required by l1-contracts/script/deploy/DeploymentConfiguration.sol.
-      NETWORK: getActiveNetworkName(),
-      FOUNDRY_PROFILE: chainId === mainnet.id ? 'production' : undefined,
-      FOUNDRY_CACHE_PATH: tempCachePath,
-      ...getDeployAztecL1ContractsEnvVars(args),
-    };
-    const result = await runProcess<ForgeL1ContractsDeployResult>('forge', forgeArgs, forgeEnv, l1ContractsPath);
-    if (!result) {
-      throw new Error('Forge script did not output deployment result');
-    }
-    logger.info(`Deployed L1 contracts with L1 addresses: ${jsonStringify(result)}`);
+  if (isVerifiableChain && !process.env.ETHERSCAN_API_KEY) {
+    logger.warn(
+      `Deploying to chain ${chainId} (${chainId === mainnet.id ? 'mainnet' : 'sepolia'}) without ETHERSCAN_API_KEY. ` +
+        `Contracts will NOT be verified on Etherscan. Set ETHERSCAN_API_KEY environment variable to enable verification.`,
+    );
+  }
 
-    const rollup = new RollupContract(l1Client, result.rollupAddress);
+  // From heuristic testing. More caused issues with anvil.
+  const MAGIC_ANVIL_BATCH_SIZE = 12;
+  // Anvil seems to stall with unbounded batch size. Otherwise no max batch size is desirable.
+  const forgeArgs = [
+    'script',
+    FORGE_SCRIPT,
+    '--sig',
+    'run()',
+    '--private-key',
+    privateKey,
+    '--rpc-url',
+    rpcUrl,
+    '--broadcast',
+    ...(chainId === foundry.id ? ['--batch-size', MAGIC_ANVIL_BATCH_SIZE.toString()] : []),
+    ...(shouldVerify ? ['--verify'] : []),
+  ];
+  const forgeEnv = {
+    // Env vars required by l1-contracts/script/deploy/DeploymentConfiguration.sol.
+    NETWORK: getActiveNetworkName(),
+    FOUNDRY_PROFILE: chainId === mainnet.id ? 'production' : undefined,
+    ...getDeployAztecL1ContractsEnvVars(args),
+  };
+  const result = await runProcess<ForgeL1ContractsDeployResult>('forge', forgeArgs, forgeEnv, l1ContractsPath);
+  if (!result) {
+    throw new Error('Forge script did not output deployment result');
+  }
+  logger.info(`Deployed L1 contracts with L1 addresses: ${jsonStringify(result)}`);
 
-    if (isAnvilTestChain(chainId)) {
-      // @note  We make a time jump PAST the very first slot to not have to deal with the edge case of the first slot.
-      //        The edge case being that the genesis block is already occupying slot 0, so we cannot have another block.
-      try {
-        // Need to get the time
+  const rollup = new RollupContract(l1Client, result.rollupAddress);
+
+  if (isAnvilTestChain(chainId)) {
+    // @note  We make a time jump PAST the very first slot to not have to deal with the edge case of the first slot.
+    //        The edge case being that the genesis block is already occupying slot 0, so we cannot have another block.
+    try {
+      // Need to get the time
+      const currentSlot = await rollup.getSlotNumber();
+
+      if (currentSlot === 0) {
+        const ts = Number(await rollup.getTimestampForSlot(SlotNumber(1)));
+        await rpcCall('evm_setNextBlockTimestamp', [ts]);
+        await rpcCall('hardhat_mine', [1]);
         const currentSlot = await rollup.getSlotNumber();
 
-        if (currentSlot === 0) {
-          const ts = Number(await rollup.getTimestampForSlot(SlotNumber(1)));
-          await rpcCall('evm_setNextBlockTimestamp', [ts]);
-          await rpcCall('hardhat_mine', [1]);
-          const currentSlot = await rollup.getSlotNumber();
-
-          if (currentSlot !== 1) {
-            throw new Error(`Error jumping time: current slot is ${currentSlot}`);
-          }
-          logger.info(`Jumped to slot 1`);
+        if (currentSlot !== 1) {
+          throw new Error(`Error jumping time: current slot is ${currentSlot}`);
         }
-      } catch (e) {
-        throw new Error(`Error jumping time: ${e}`);
+        logger.info(`Jumped to slot 1`);
       }
+    } catch (e) {
+      throw new Error(`Error jumping time: ${e}`);
     }
-
-    return {
-      l1Client,
-      rollupVersion: result.rollupVersion,
-      l1ContractAddresses: {
-        rollupAddress: EthAddress.fromString(result.rollupAddress),
-        registryAddress: EthAddress.fromString(result.registryAddress),
-        inboxAddress: EthAddress.fromString(result.inboxAddress),
-        outboxAddress: EthAddress.fromString(result.outboxAddress),
-        feeJuiceAddress: EthAddress.fromString(result.feeAssetAddress),
-        feeJuicePortalAddress: EthAddress.fromString(result.feeJuicePortalAddress),
-        coinIssuerAddress: EthAddress.fromString(result.coinIssuerAddress),
-        rewardDistributorAddress: EthAddress.fromString(result.rewardDistributorAddress),
-        governanceProposerAddress: EthAddress.fromString(result.governanceProposerAddress),
-        governanceAddress: EthAddress.fromString(result.governanceAddress),
-        stakingAssetAddress: EthAddress.fromString(result.stakingAssetAddress),
-        slashFactoryAddress: result.slashFactoryAddress ? EthAddress.fromString(result.slashFactoryAddress) : undefined,
-        feeAssetHandlerAddress: result.feeAssetHandlerAddress
-          ? EthAddress.fromString(result.feeAssetHandlerAddress)
-          : undefined,
-        stakingAssetHandlerAddress: result.stakingAssetHandlerAddress
-          ? EthAddress.fromString(result.stakingAssetHandlerAddress)
-          : undefined,
-        zkPassportVerifierAddress: result.zkPassportVerifierAddress
-          ? EthAddress.fromString(result.zkPassportVerifierAddress)
-          : undefined,
-        gseAddress: result.gseAddress ? EthAddress.fromString(result.gseAddress) : undefined,
-        dateGatedRelayerAddress: result.dateGatedRelayerAddress
-          ? EthAddress.fromString(result.dateGatedRelayerAddress)
-          : undefined,
-      },
-    };
-  } finally {
-    await rm(tempCachePath, { recursive: true, force: true });
   }
+
+  return {
+    l1Client,
+    rollupVersion: result.rollupVersion,
+    l1ContractAddresses: {
+      rollupAddress: EthAddress.fromString(result.rollupAddress),
+      registryAddress: EthAddress.fromString(result.registryAddress),
+      inboxAddress: EthAddress.fromString(result.inboxAddress),
+      outboxAddress: EthAddress.fromString(result.outboxAddress),
+      feeJuiceAddress: EthAddress.fromString(result.feeAssetAddress),
+      feeJuicePortalAddress: EthAddress.fromString(result.feeJuicePortalAddress),
+      coinIssuerAddress: EthAddress.fromString(result.coinIssuerAddress),
+      rewardDistributorAddress: EthAddress.fromString(result.rewardDistributorAddress),
+      governanceProposerAddress: EthAddress.fromString(result.governanceProposerAddress),
+      governanceAddress: EthAddress.fromString(result.governanceAddress),
+      stakingAssetAddress: EthAddress.fromString(result.stakingAssetAddress),
+      slashFactoryAddress: result.slashFactoryAddress ? EthAddress.fromString(result.slashFactoryAddress) : undefined,
+      feeAssetHandlerAddress: result.feeAssetHandlerAddress
+        ? EthAddress.fromString(result.feeAssetHandlerAddress)
+        : undefined,
+      stakingAssetHandlerAddress: result.stakingAssetHandlerAddress
+        ? EthAddress.fromString(result.stakingAssetHandlerAddress)
+        : undefined,
+      zkPassportVerifierAddress: result.zkPassportVerifierAddress
+        ? EthAddress.fromString(result.zkPassportVerifierAddress)
+        : undefined,
+      gseAddress: result.gseAddress ? EthAddress.fromString(result.gseAddress) : undefined,
+      dateGatedRelayerAddress: result.dateGatedRelayerAddress
+        ? EthAddress.fromString(result.dateGatedRelayerAddress)
+        : undefined,
+    },
+  };
 }
 
 export const DEPLOYER_ADDRESS: Hex = '0x4e59b44847b379578588920cA78FbF26c0B4956C';
@@ -491,6 +477,7 @@ export function getDeployRollupForUpgradeEnvVars(
     AZTEC_TARGET_COMMITTEE_SIZE: args.aztecTargetCommitteeSize.toString(),
     AZTEC_LAG_IN_EPOCHS_FOR_VALIDATOR_SET: args.lagInEpochsForValidatorSet.toString(),
     AZTEC_LAG_IN_EPOCHS_FOR_RANDAO: args.lagInEpochsForRandao.toString(),
+    AZTEC_INBOX_LAG: args.inboxLag?.toString(),
     AZTEC_PROOF_SUBMISSION_EPOCHS: args.aztecProofSubmissionEpochs.toString(),
     AZTEC_LOCAL_EJECTION_THRESHOLD: args.localEjectionThreshold.toString(),
     AZTEC_SLASHING_LIFETIME_IN_ROUNDS: args.slashingLifetimeInRounds.toString(),
@@ -534,46 +521,37 @@ export const deployRollupForUpgrade = async (
   const FORGE_SCRIPT = 'script/deploy/DeployRollupForUpgrade.s.sol';
   await maybeForgeForceProductionBuild(l1ContractsPath, FORGE_SCRIPT, chainId);
 
-  // Copy cache to temp location to avoid conflicts when running forge in parallel
-  const tempCachePath = await copyFoundryCacheToTemp(l1ContractsPath);
+  const forgeArgs = [
+    'script',
+    FORGE_SCRIPT,
+    '--sig',
+    'run()',
+    '--private-key',
+    privateKey,
+    '--rpc-url',
+    rpcUrl,
+    '--broadcast',
+  ];
+  const forgeEnv = {
+    FOUNDRY_PROFILE: chainId === mainnet.id ? 'production' : undefined,
+    // Env vars required by l1-contracts/script/deploy/RollupConfiguration.sol.
+    REGISTRY_ADDRESS: registryAddress.toString(),
+    NETWORK: getActiveNetworkName(),
+    ...getDeployRollupForUpgradeEnvVars(args),
+  };
 
-  try {
-    const forgeArgs = [
-      'script',
-      FORGE_SCRIPT,
-      '--sig',
-      'run()',
-      '--private-key',
-      privateKey,
-      '--rpc-url',
-      rpcUrl,
-      '--broadcast',
-    ];
-    const forgeEnv = {
-      FOUNDRY_PROFILE: chainId === mainnet.id ? 'production' : undefined,
-      // Env vars required by l1-contracts/script/deploy/RollupConfiguration.sol.
-      REGISTRY_ADDRESS: registryAddress.toString(),
-      NETWORK: getActiveNetworkName(),
-      FOUNDRY_CACHE_PATH: tempCachePath,
-      FOUNDRY_BROADCAST: tempCachePath,
-      ...getDeployRollupForUpgradeEnvVars(args),
-    };
-
-    const result = await runProcess<ForgeRollupUpgradeResult>('forge', forgeArgs, forgeEnv, l1ContractsPath);
-    if (!result) {
-      throw new Error('Forge script did not output deployment result');
-    }
-
-    const extendedClient = createExtendedL1Client([rpcUrl], privateKey);
-
-    // Create RollupContract wrapper for the deployed rollup
-    const rollup = new RollupContract(extendedClient, result.rollupAddress);
-
-    return {
-      rollup,
-      slashFactoryAddress: result.slashFactoryAddress,
-    };
-  } finally {
-    await rm(tempCachePath, { recursive: true, force: true });
+  const result = await runProcess<ForgeRollupUpgradeResult>('forge', forgeArgs, forgeEnv, l1ContractsPath);
+  if (!result) {
+    throw new Error('Forge script did not output deployment result');
   }
+
+  const extendedClient = createExtendedL1Client([rpcUrl], privateKey);
+
+  // Create RollupContract wrapper for the deployed rollup
+  const rollup = new RollupContract(extendedClient, result.rollupAddress);
+
+  return {
+    rollup,
+    slashFactoryAddress: result.slashFactoryAddress,
+  };
 };

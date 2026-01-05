@@ -56,6 +56,7 @@ function mockTxPool(): TxPool {
     hasTx: () => Promise.resolve(false),
     updateConfig: () => {},
     markTxsAsNonEvictable: () => Promise.resolve(),
+    clearNonEvictableTxs: () => Promise.resolve(),
     cleanupDeletedMinedTxs: () => Promise.resolve(0),
   };
   return Object.assign(new EventEmitter(), pool);
@@ -126,7 +127,7 @@ class TestLibP2PService<T extends P2PClientType = P2PClientType.Full> extends Li
     peerDiscoveryService: PeerDiscoveryService,
     reqresp: ReqResp,
     peerManager: PeerManager,
-    mempools: MemPools<T>,
+    mempools: MemPools,
     archiver: L2BlockSource & ContractDataSource,
     epochCache: EpochCacheInterface,
     proofVerifier: ClientProtocolCircuitVerifier,

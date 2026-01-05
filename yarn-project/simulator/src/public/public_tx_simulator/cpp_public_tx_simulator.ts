@@ -1,5 +1,6 @@
 import { type Logger, createLogger, logLevel } from '@aztec/foundation/log';
-import { avmSimulate } from '@aztec/native';
+import { sleep } from '@aztec/foundation/sleep';
+import { type CancellationToken, avmSimulate, cancelSimulation, createCancellationToken } from '@aztec/native';
 import { ProtocolContractsList } from '@aztec/protocol-contracts';
 import {
   AvmFastSimulationInputs,
@@ -33,6 +34,10 @@ import type {
  */
 export class CppPublicTxSimulator extends PublicTxSimulator implements PublicTxSimulatorInterface {
   protected override log: Logger;
+  /** Current cancellation token for in-flight simulation. */
+  private cancellationToken?: CancellationToken;
+  /** Current simulation promise, used to wait for completion after cancellation. */
+  private simulationPromise?: Promise<Buffer>;
 
   constructor(
     merkleTree: MerkleTreeWriteOperations,
@@ -85,12 +90,25 @@ export class CppPublicTxSimulator extends PublicTxSimulator implements PublicTxS
     this.log.trace(`Serializing fast simulation inputs to msgpack...`);
     const inputBuffer = fastSimInputs.serializeWithMessagePack();
 
+    // Create cancellation token for this simulation
+    this.cancellationToken = createCancellationToken();
+
+    // Store the promise so cancel() can wait for it
+    this.log.debug(`Calling C++ simulator for tx ${txHash}`);
+    this.simulationPromise = avmSimulate(inputBuffer, contractProvider, wsCppHandle, logLevel, this.cancellationToken);
+
     let resultBuffer: Buffer;
     try {
-      this.log.debug(`Calling C++ simulator for tx ${txHash}`);
-      resultBuffer = await avmSimulate(inputBuffer, contractProvider, wsCppHandle, logLevel);
+      resultBuffer = await this.simulationPromise;
     } catch (error: any) {
+      // Check if this was a cancellation
+      if (error.message?.includes('Simulation cancelled')) {
+        throw new SimulationError(`C++ simulation cancelled`, []);
+      }
       throw new SimulationError(`C++ simulation failed: ${error.message}`, []);
+    } finally {
+      this.cancellationToken = undefined;
+      this.simulationPromise = undefined;
     }
 
     // If we've reached this point, C++ succeeded during simulation,
@@ -108,6 +126,33 @@ export class CppPublicTxSimulator extends PublicTxSimulator implements PublicTxS
     });
 
     return cppResult;
+  }
+
+  /**
+   * Cancel the current simulation if one is in progress.
+   * This signals the C++ simulator to stop at the next opcode or before the next WorldState write.
+   * Safe to call even if no simulation is in progress.
+   *
+   * @param waitTimeoutMs - If provided, wait up to this many ms for the simulation to actually stop.
+   *                        This is important because C++ might be in the middle of a slow operation
+   *                        (e.g., pad_trees) and won't check the cancellation flag until it completes.
+   *                        Default timeout of 100ms after cancellation.
+   */
+  public async cancel(waitTimeoutMs: number = 100): Promise<void> {
+    if (this.cancellationToken) {
+      this.log.debug('Cancelling C++ simulation');
+      cancelSimulation(this.cancellationToken);
+    }
+
+    // Wait for the simulation to actually complete if not already done
+    if (this.simulationPromise) {
+      this.log.debug(`Waiting up to ${waitTimeoutMs}ms for C++ simulation to stop`);
+      await Promise.race([
+        this.simulationPromise.catch(() => {}), // Ignore rejection, just wait for completion
+        sleep(waitTimeoutMs),
+      ]);
+      this.log.debug('C++ simulation stopped or wait timed out');
+    }
   }
 }
 

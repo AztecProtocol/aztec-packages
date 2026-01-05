@@ -30,6 +30,21 @@ exports[`Data generation for noir tests Computes contract info for parentContrac
 }
 `;
 
+exports[`Data generation for noir tests Computes contract info for updatedContract 1`] = `
+{
+  "address": "AztecAddress { inner: 0x2dd3ecb9b3937c680a20d06c2994999d5e8a72e8901bfe0f7e31b2e6ccb7e80e }",
+  "artifact_hash": "0x0000000000000000000000000000000000000000000000000000000000054501",
+  "contract_address_salt": "0x0000000000000000000000000000000000000000000000000000000000000315",
+  "contract_class_id": "ContractClassId { inner: 0x218c779f08028a0e6581034d3ee3debfb78d7ba8ece5b84f8ac3bac760b6310e }",
+  "deployer": "AztecAddress { inner: 0x0000000000000000000000000000000000000000000000000000000000000000 }",
+  "partial_address": "PartialAddress { inner: 0x05af9078f69f9bad9fd33b81fcfcd88e3d360a2378555effffee13b1932c8cf7 }",
+  "private_functions_root": "0x1b8462562b1df0f1e94258ecfb5f1829e2a849193b903dc30d104ca10e6fc74a",
+  "public_bytecode_commitment": "0x169c8c76eb583c568c282a65efd575aee36469420e546e374a6ccb01ce9907cd",
+  "public_keys": "PublicKeys { inner: 0x01498945581e0eb9f8427ad6021184c700ef091d570892c437d12c7d90364bbd170ae506787c5c43d6ca9255d571c10fa9ffa9d141666e290c347c5c9ab7e34400c044b05b6ca83b9c2dbae79cc1135155956a64e136819136e9947fe5e5866c1c1f0ca244c7cd46b682552bff8ae77dea40b966a71de076ec3b7678f2bdb1511b00316144359e9a3ec8e49c1cdb7eeb0cedd190dfd9dc90eea5115aa779e287080ffc74d7a8b0bccb88ac11f45874172f3847eb8b92654aaa58a3d2b8dc7833019c111f36ad3fc1d9b7a7a14344314d2864b94f030594cd67f753ef774a1efb2039907fe37f08d10739255141bb066c506a12f7d1e8dfec21abc58494705b6f }",
+  "salted_initialization_hash": "SaltedInitializationHash { inner: 0x2168f485e821a180e08604f018f041f683bb0f510c34f5441bc2241b24998242 }",
+}
+`;
+
 exports[`Data generation for noir tests Computes function tree for the private functions 1`] = `
 {
   "data": "FunctionData { selector: FunctionSelector { inner: 0x000f69b5 }, is_private: true }",
@@ -46,5 +61,43 @@ exports[`Data generation for noir tests Computes function tree for the private f
 ],
     }",
   "vk_hash": "0x000000000000000000000000000000000000000000000000000000000001e0f3",
+}
+`;
+
+exports[`Data generation for noir tests Computes function tree for the private functions 2`] = `
+{
+  "data": "FunctionData { selector: FunctionSelector { inner: 0x00051a77 }, is_private: true }",
+  "membership_witness": "MembershipWitness {
+        leaf_index: 0,
+        sibling_path: [
+0x27b1d0839a5b23baf12a8d195b18ac288fcf401afb2f70b8a4b529ede5fa9fed,
+0x233d10e0c959338e062b1c76fb81e17fcf61643da568eac372bb7feac8bfa357,
+0x0e1ce4f11f4d51a7d3136abbd625315fff3876d322e46ad8401da96f8e43a614,
+0x1a0ca5eecb1430479902264f04e557160a4666fb42bb8b283c6397e3d17ac937,
+0x2a6595890719fef7967c209488728aa5342438ba52058a3c770202f55acf6854,
+0x0a43a7d0ff038f2492a51b4465c73f28c0644cdde523cb652668b167eab21b7a,
+0x2a9072ec897e59149199988f87258e75d43dea6ccb509eb1f6f864c3294dd512
+],
+    }",
+  "vk_hash": "0x00000000000000000000000000000000000000000000000000000000000c0d1d",
+}
+`;
+
+exports[`Data generation for noir tests Computes function tree for the private functions 3`] = `
+{
+  "data": "FunctionData { selector: FunctionSelector { inner: 0x000f69b5 }, is_private: true }",
+  "membership_witness": "MembershipWitness {
+        leaf_index: 0,
+        sibling_path: [
+0x2bcb577804e7496d0fcea84772c2801ee2e0c90f64472b6e8c5809fac00deb77,
+0x233d10e0c959338e062b1c76fb81e17fcf61643da568eac372bb7feac8bfa357,
+0x0e1ce4f11f4d51a7d3136abbd625315fff3876d322e46ad8401da96f8e43a614,
+0x1a0ca5eecb1430479902264f04e557160a4666fb42bb8b283c6397e3d17ac937,
+0x2a6595890719fef7967c209488728aa5342438ba52058a3c770202f55acf6854,
+0x0a43a7d0ff038f2492a51b4465c73f28c0644cdde523cb652668b167eab21b7a,
+0x2a9072ec897e59149199988f87258e75d43dea6ccb509eb1f6f864c3294dd512
+],
+    }",
+  "vk_hash": "0x0000000000000000000000000000000000000000000000000000000000001e6c",
 }
 `;

@@ -165,6 +165,11 @@ contract RollupBuilder is Test {
     return this;
   }
 
+  function setInboxLag(uint256 _inboxLag) public returns (RollupBuilder) {
+    config.rollupConfigInput.inboxLag = _inboxLag;
+    return this;
+  }
+
   function setSlotDuration(uint256 _slotDuration) public returns (RollupBuilder) {
     config.rollupConfigInput.aztecSlotDuration = _slotDuration;
     return this;

@@ -3,8 +3,8 @@
 #include "barretenberg/common/test.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/ultra_rollup_recursive_flavor.hpp"
-#include "barretenberg/stdlib/honk_verifier/ultra_recursive_verifier.hpp"
 #include "barretenberg/stdlib/honk_verifier/ultra_verification_keys_comparator.hpp"
+#include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/stdlib/test_utils/tamper_proof.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
@@ -25,7 +25,8 @@ template <typename RecursiveFlavor> class BoomerangRecursiveVerifierTest : publi
     // Define types for the inner circuit, i.e. the circuit whose proof will be recursively verified
     using InnerFlavor = typename RecursiveFlavor::NativeFlavor;
     using InnerProver = UltraProver_<InnerFlavor>;
-    using InnerVerifier = UltraVerifier_<InnerFlavor>;
+    using InnerIO = std::conditional_t<HasIPAAccumulator<InnerFlavor>, bb::RollupIO, bb::DefaultIO>;
+    using InnerVerifier = UltraVerifier_<InnerFlavor, InnerIO>;
     using InnerBuilder = typename InnerFlavor::CircuitBuilder;
     using InnerProverInstance = ProverInstance_<InnerFlavor>;
     using InnerCurve = bn254<InnerBuilder>;
@@ -39,10 +40,11 @@ template <typename RecursiveFlavor> class BoomerangRecursiveVerifierTest : publi
                            MegaFlavor,
                            std::conditional_t<HasIPAAccumulator<RecursiveFlavor>, UltraRollupFlavor, UltraFlavor>>;
     using OuterProver = UltraProver_<OuterFlavor>;
-    using OuterVerifier = UltraVerifier_<OuterFlavor>;
+    using OuterIO = std::conditional_t<HasIPAAccumulator<OuterFlavor>, bb::RollupIO, bb::DefaultIO>;
+    using OuterVerifier = UltraVerifier_<OuterFlavor, OuterIO>;
     using OuterProverInstance = ProverInstance_<OuterFlavor>;
 
-    using RecursiveVerifier = UltraRecursiveVerifier_<RecursiveFlavor>;
+    using RecursiveVerifier = bb::UltraVerifier_<RecursiveFlavor, DefaultRecursiveIO<RecursiveFlavor>>;
     using VerificationKey = typename RecursiveVerifier::VerificationKey;
 
     using PairingObject = PairingPoints<bn254<OuterBuilder>>;
@@ -109,14 +111,14 @@ template <typename RecursiveFlavor> class BoomerangRecursiveVerifierTest : publi
         OuterBuilder outer_circuit;
         auto stdlib_vk_and_hash =
             std::make_shared<typename RecursiveFlavor::VKAndHash>(outer_circuit, verification_key);
-        RecursiveVerifier verifier{ &outer_circuit, stdlib_vk_and_hash };
-        verifier.verifier_instance->vk_and_hash->vk->num_public_inputs.fix_witness();
-        verifier.verifier_instance->vk_and_hash->vk->pub_inputs_offset.fix_witness();
+        RecursiveVerifier verifier{ stdlib_vk_and_hash };
+        verifier.get_verifier_instance()->vk_and_hash->vk->num_public_inputs.fix_witness();
+        verifier.get_verifier_instance()->vk_and_hash->vk->pub_inputs_offset.fix_witness();
         // It's currently un-used
-        verifier.verifier_instance->vk_and_hash->vk->log_circuit_size.fix_witness();
+        verifier.get_verifier_instance()->vk_and_hash->vk->log_circuit_size.fix_witness();
 
         StdlibProof stdlib_inner_proof(outer_circuit, inner_proof);
-        VerifierOutput output = verifier.template verify_proof<DefaultIO<OuterBuilder>>(stdlib_inner_proof);
+        VerifierOutput output = verifier.verify_proof(stdlib_inner_proof);
         PairingObject pairing_points = output.points_accumulator;
 
         // The pairing points are public outputs from the recursive verifier that will be verified externally via a

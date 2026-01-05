@@ -1,165 +1,101 @@
 use crate::components::{
     private_call_data_validator::PrivateCallDataValidator,
+    private_kernel_circuit_output_composer::PrivateKernelCircuitOutputComposer,
     private_kernel_circuit_output_validator::PrivateKernelCircuitOutputValidator,
-    private_kernel_circuit_public_inputs_composer::PrivateKernelCircuitPublicInputsComposer,
 };
 use dep::types::abis::{
     kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
-    private_circuit_public_inputs::PrivateCircuitPublicInputs,
-    private_kernel::private_call_data::{PrivateCallData, PrivateCallDataWithoutPublicInputs},
-    protocol_contracts::ProtocolContracts,
+    private_kernel::private_call_data::PrivateCallData, protocol_contracts::ProtocolContracts,
     transaction::tx_request::TxRequest,
 };
 
-// Initialization struct for private inputs to the private kernel
 pub struct PrivateKernelInitCircuitPrivateInputs {
-    tx_request: TxRequest,
-    vk_tree_root: Field,
-    protocol_contracts: ProtocolContracts,
-    private_call: PrivateCallData,
-    is_private_only: bool,
-    first_nullifier_hint: Field,
-    revertible_counter_hint: u32,
+    // The user's intent to start the execution of the transaction.
+    pub tx_request: TxRequest,
+    // The data for the first private function call in the transaction.
+    pub private_call: PrivateCallData,
+    // The root of the vk tree. Used for validating the protocol circuits being used.
+    // This value must remain the same throughout the private execution and the rollups. It will be output from the root
+    // rollup and checked on L1.
+    pub vk_tree_root: Field,
+    // A list of the protocol contract addresses. Used for validating the "magic" addresses called by the apps.
+    // It must remain the same throughout the tx execution. The hash of this list will be output from the
+    // Tail(-to-Public) circuits, which must remain the same for all rollups and output from the root rollup to be
+    // checked on L1.
+    pub protocol_contracts: ProtocolContracts,
+    // Whether this tx only makes private calls. `false` if at least one public call will be made throughout the tx.
+    // This value remains constant throughout the private execution and is verified in the Tail(-to-Public) circuit.
+    pub is_private_only: bool,
+    // A hint to what will be the first nullifier of the transaction.
+    // @dev: This hint should be set to 0 if no nullifiers will be emitted by any private call. The Init circuit will
+    // create a protocol nullifier if the hint is 0.
+    pub first_nullifier_hint: Field,
+    // A hint for the revertible counter of the transaction. The revertible counter separates non-revertible side
+    // effects (which persist even if the tx reverts) from revertible ones. This hint is necessary to avoid using a
+    // Reset circuit before the counter is set. It also enables private functions to check whether they're in the
+    // revertible or non-revertible phase. The value is propagated through private execution and verified in the
+    // Tail(-to-Public) circuit.
+    pub revertible_counter_hint: u32,
 }
 
-impl PrivateKernelInitCircuitPrivateInputs {
-    pub fn new(
-        tx_request: TxRequest,
-        vk_tree_root: Field,
-        protocol_contracts: ProtocolContracts,
-        private_call: PrivateCallDataWithoutPublicInputs,
-        app_public_inputs: PrivateCircuitPublicInputs,
-        is_private_only: bool,
-        first_nullifier_hint: Field,
-        revertible_counter_hint: u32,
-    ) -> Self {
-        Self {
-            tx_request,
-            vk_tree_root,
-            protocol_contracts,
-            private_call: private_call.to_private_call_data(app_public_inputs),
-            is_private_only,
-            first_nullifier_hint,
-            revertible_counter_hint,
-        }
-    }
-
-    unconstrained fn generate_output(self) -> PrivateKernelCircuitPublicInputs {
-        PrivateKernelCircuitPublicInputsComposer::new_from_tx_request(
-            self.tx_request,
-            self.private_call.public_inputs,
-            self.vk_tree_root,
-            self.protocol_contracts,
-            self.is_private_only,
-            self.first_nullifier_hint,
-            self.revertible_counter_hint,
-        )
-            .with_private_call(
-                // TODO: consider moving this call into `new_from_tx_request`?
-                self.private_call,
-            )
-            .finish()
-    }
-
-    pub fn execute(self) -> PrivateKernelCircuitPublicInputs {
-        // Validate inputs.
-
-        let private_call_data_validator = PrivateCallDataValidator::new(self.private_call);
-
-        private_call_data_validator.verify_proof(true /* is_first_app */);
-
-        private_call_data_validator.validate_common(self.protocol_contracts);
-
-        private_call_data_validator.validate_as_first_call(self.revertible_counter_hint);
-
-        private_call_data_validator.validate_against_tx_request(self.tx_request);
-        // Q: missing some checks that are included in `validate_against_call_request`?
-
-        // Generate output.
-        // Note: the 0th nullifier is computed within here from the txRequest.
-        // Safety: The output is validated below by PrivateKernelCircuitOutputValidator.
-        let output = unsafe { self.generate_output() };
-
-        // Validate output.
-        if dep::types::validate::should_validate_output() {
-            PrivateKernelCircuitOutputValidator::new(output).validate_as_first_call(
-                self.tx_request,
-                self.private_call,
-                self.vk_tree_root,
-                self.protocol_contracts,
-                self.is_private_only,
-                self.first_nullifier_hint,
-                self.revertible_counter_hint,
-            );
-        }
-        output
-    }
+unconstrained fn generate_output(
+    inputs: PrivateKernelInitCircuitPrivateInputs,
+) -> PrivateKernelCircuitPublicInputs {
+    PrivateKernelCircuitOutputComposer::new_from_tx_request(
+        inputs.tx_request,
+        inputs.private_call.public_inputs,
+        inputs.vk_tree_root,
+        inputs.protocol_contracts,
+        inputs.is_private_only,
+        inputs.first_nullifier_hint,
+        inputs.revertible_counter_hint,
+    )
+        .with_private_call(inputs.private_call)
+        .finish()
 }
 
-mod tests {
-    use crate::private_kernel_init::PrivateKernelInitCircuitPrivateInputs;
-    use dep::types::{
-        abis::{
-            kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
-            transaction::tx_request::TxRequest,
-        },
-        tests::{
-            fixture_builder::{claimed_length_array_from_bounded_vec, FixtureBuilder},
-            utils::assert_array_eq,
-        },
-    };
+/// The Private Kernel Init circuit is the entry point for executing a private transaction.
+/// It processes the first private function call in a transaction and initializes the kernel state.
+///
+/// This circuit:
+/// - Validates the initial private call data (proof verification, contract address validation, etc.)
+/// - Verifies the call matches the `tx_request` provided by the user
+/// - Creates the protocol nullifier from the `tx_request` hash if no nullifiers will be emitted throughout the
+///   private execution (i.e. `first_nullifier_hint` is 0)
+/// - Establishes the `tx_context` (chain ID, version, protocol contracts, etc.)
+/// - Initializes the accumulated data arrays for note hashes, nullifiers, read requests, and other side effects from
+///   the private call
+/// - Sets up the hints `is_private_only`, `claimed_first_nullifier`, `claimed_revertible_counter` for the transaction
+///
+/// The output feeds into subsequent Private Kernel Inner circuits if there are more private calls,
+/// into Private Kernel Reset if any resettable data array becomes too large and cannot accept more items,
+/// or directly into Private Kernel Reset followed by Private Kernel Tail if this is the only private call.
+///
+/// VkIndex: PRIVATE_KERNEL_INIT_VK_INDEX
+pub fn execute(inputs: PrivateKernelInitCircuitPrivateInputs) -> PrivateKernelCircuitPublicInputs {
+    // Validate inputs.
+    PrivateCallDataValidator::new(inputs.private_call).validate_as_first_call(
+        inputs.tx_request,
+        inputs.protocol_contracts,
+        inputs.revertible_counter_hint,
+    );
 
-    struct PrivateKernelInitInputsBuilder {
-        tx_request: TxRequest,
-        private_call: FixtureBuilder,
-    }
+    // Generate output.
+    // Safety: The output is validated below by PrivateKernelCircuitOutputValidator.
+    let output = unsafe { generate_output(inputs) };
 
-    impl PrivateKernelInitInputsBuilder {
-        pub fn new() -> Self {
-            let private_call = FixtureBuilder::new().is_first_call();
-            let tx_request = private_call.build_tx_request();
-
-            PrivateKernelInitInputsBuilder { tx_request, private_call }
-        }
-
-        pub fn execute(mut self) -> PrivateKernelCircuitPublicInputs {
-            self.private_call.compute_update_tree_and_hints();
-            let private_call = self.private_call.to_private_call_data();
-
-            PrivateKernelInitCircuitPrivateInputs {
-                tx_request: self.tx_request,
-                private_call,
-                vk_tree_root: self.private_call.vk_tree_root,
-                protocol_contracts: self.private_call.protocol_contracts,
-                is_private_only: false,
-                first_nullifier_hint: 0,
-                revertible_counter_hint: 0,
-            }
-                .execute()
-        }
-    }
-
-    #[test]
-    fn private_kernel_init_output_as_expected() {
-        let mut builder = PrivateKernelInitInputsBuilder::new();
-
-        // note_hash_read_requests
-        builder.private_call.append_note_hash_read_requests(2);
-        let note_hash_read_requests =
-            claimed_length_array_from_bounded_vec(builder.private_call.note_hash_read_requests);
-
-        // private_logs
-        builder.private_call.append_private_logs(2);
-        let private_logs = claimed_length_array_from_bounded_vec(builder.private_call.private_logs);
-
-        let public_inputs = builder.execute();
-        assert_array_eq(
-            public_inputs.validation_requests.note_hash_read_requests.array,
-            [note_hash_read_requests.array[0], note_hash_read_requests.array[1]],
-        );
-        assert_array_eq(
-            public_inputs.end.private_logs.array,
-            [private_logs.array[0], private_logs.array[1]],
+    // Validate output.
+    if dep::types::validate::should_validate_output() {
+        PrivateKernelCircuitOutputValidator::new(output).validate_as_first_call(
+            inputs.tx_request,
+            inputs.private_call,
+            inputs.vk_tree_root,
+            inputs.protocol_contracts,
+            inputs.is_private_only,
+            inputs.first_nullifier_hint,
+            inputs.revertible_counter_hint,
         );
     }
+
+    output
 }

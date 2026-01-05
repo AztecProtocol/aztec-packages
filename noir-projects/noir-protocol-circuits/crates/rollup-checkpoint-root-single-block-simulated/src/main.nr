@@ -1,9 +1,10 @@
 use dep::rollup_lib::checkpoint_root::{
-    CheckpointRollupPublicInputs, CheckpointRootSingleBlockRollupPrivateInputs,
+    checkpoint_root_single_block_rollup, CheckpointRollupPublicInputs,
+    CheckpointRootSingleBlockRollupPrivateInputs,
 };
 
 unconstrained fn main(
     inputs: CheckpointRootSingleBlockRollupPrivateInputs,
 ) -> pub CheckpointRollupPublicInputs {
-    inputs.execute()
+    checkpoint_root_single_block_rollup::execute(inputs)
 }

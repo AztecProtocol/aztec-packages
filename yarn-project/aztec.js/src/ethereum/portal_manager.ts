@@ -132,7 +132,7 @@ export class L1FeeJuicePortalManager {
   constructor(
     portalAddress: EthAddress,
     tokenAddress: EthAddress,
-    handlerAddress: EthAddress,
+    handlerAddress: EthAddress | undefined,
     private readonly extendedClient: ExtendedViemWalletClient,
     private readonly logger: Logger,
   ) {
@@ -157,9 +157,9 @@ export class L1FeeJuicePortalManager {
    */
   public async bridgeTokensPublic(to: AztecAddress, amount: bigint | undefined, mint = false): Promise<L2AmountClaim> {
     const [claimSecret, claimSecretHash] = await generateClaimSecret();
-    const mintableAmount = await this.tokenManager.getMintAmount();
-    const amountToBridge = amount ?? mintableAmount;
+    const amountToBridge = amount ?? (await this.tokenManager.getMintAmount());
     if (mint) {
+      const mintableAmount = await this.tokenManager.getMintAmount();
       if (amountToBridge !== mintableAmount) {
         throw new Error(`Minting amount must be ${mintableAmount}`);
       }
@@ -233,17 +233,12 @@ export class L1FeeJuicePortalManager {
     if (feeJuiceAddress.isZero() || feeJuicePortalAddress.isZero()) {
       throw new Error('Portal or token not deployed on L1');
     }
-    if (!feeAssetHandlerAddress || feeAssetHandlerAddress.isZero()) {
-      throw new Error('Handler not deployed on L1, or handler address is zero');
-    }
 
-    return new L1FeeJuicePortalManager(
-      feeJuicePortalAddress,
-      feeJuiceAddress,
-      feeAssetHandlerAddress,
-      extendedClient,
-      logger,
-    );
+    // Handler is optional - it's only needed for minting tokens during testing
+    const handlerAddress =
+      feeAssetHandlerAddress && !feeAssetHandlerAddress.isZero() ? feeAssetHandlerAddress : undefined;
+
+    return new L1FeeJuicePortalManager(feeJuicePortalAddress, feeJuiceAddress, handlerAddress, extendedClient, logger);
   }
 }
 

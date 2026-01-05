@@ -107,6 +107,16 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
   }
 
   /**
+   * Gets an L2 block (new format).
+   * @param number - The block number to return.
+   * @returns The requested L2 block.
+   */
+  public getL2BlockNew(number: BlockNumber): Promise<L2BlockNew | undefined> {
+    const block = this.l2Blocks[number - 1];
+    return Promise.resolve(block?.toL2Block());
+  }
+
+  /**
    * Gets up to `limit` amount of L2 blocks starting from `from`.
    * @param from - Number of the first block to return (inclusive).
    * @param limit - The maximum number of blocks to return.

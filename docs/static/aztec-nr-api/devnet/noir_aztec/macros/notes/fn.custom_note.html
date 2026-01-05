@@ -3,9 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../../styles.css">
+<script defer src="../../../nargo_doc.js"></script>
 <title>Function custom_note documentation</title>
 </head>
 <body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">custom_note</div>
+</div>
+<span id="main-contents">
 <nav class="sidebar">
 <h1><a href="../../../index.html">aztec-nr</a></h1>
 <div><a href="../../../all.html">All items</a></div>
@@ -38,7 +44,6 @@
 <li>Implement the <code>Packable</code> trait</li>
 <li>Not exceed <code>MAX_NOTE_PACKED_LEN</code> when packed</li>
 </ul>
-<p>Unlike the <code>#[note]</code> macro, there is no requirement for an <code>owner</code> field.</p>
 <h2>Registration</h2>
 <p>Registers the note in the global <code>NOTES</code> BoundedVec to enable note processing functionality.</p>
 <h2>Use Cases</h2>
@@ -50,21 +55,20 @@
 <p>The macro omits generating default NoteHash trait implementation, allowing you to provide your own.</p>
 <h2>Example</h2>
 <pre><code>#[custom_note]
-struct CustomNote {
+<span class="kw">struct</span> CustomNote {
     value: Field,
     metadata: Field
 }
 
-impl NoteHash for CustomNote {
-    // Custom note hash computation...
-    fn compute_note_hash(...) -&gt; Field { ... }
+<span class="kw">impl</span> NoteHash <span class="kw">for</span> CustomNote {
+    <span class="comment">// Custom note hash computation...</span>
+    <span class="kw">fn</span> compute_note_hash(...) -&gt; Field { ... }
 
-    // Custom nullifier computation...
-    fn compute_nullifier(...) -&gt; Field { ... }
-    fn compute_nullifier_unconstrained(...) -&gt; Field { ... }
-}
-</code></pre>
-</div>
+    <span class="comment">// Custom nullifier computation...</span>
+    <span class="kw">fn</span> compute_nullifier(...) -&gt; Field { ... }
+    <span class="kw">fn</span> compute_nullifier_unconstrained(...) -&gt; Field { ... }
+}</code></pre></div>
 </main>
+</span>
 </body>
 </html>

@@ -536,51 +536,42 @@ concept TestBase = requires {
     { T::InvalidWitness::get_all() } -> std::same_as<std::vector<typename T::InvalidWitness::Target>>;
     { T::InvalidWitness::get_labels() } -> std::same_as<std::vector<std::string>>;
 
-    // Required constraint manipulation methods (can be static or non-static)
-    requires requires(T& instance,
-                      typename T::AcirConstraint& constraint,
-                      WitnessVector& witness_values,
-                      const typename T::InvalidWitness::Target& invalid_witness_target) {
+    // Required constraint manipulation methods
+    requires requires(T& instance, typename T::AcirConstraint& constraint, WitnessVector& witness_values) {
         /**
          * @brief Generate valid constraints.
          *
          */
-        { instance.generate_constraints(constraint, witness_values) } -> std::same_as<void>;
+        { T::generate_constraints(constraint, witness_values) } -> std::same_as<void>;
+    };
 
+    requires requires(T& instance,
+                      typename T::AcirConstraint constraint,
+                      WitnessVector witness_values,
+                      const typename T::InvalidWitness::Target& invalid_witness_target) {
         /**
          * @brief Invalidate witness values to test that invalid witnesses produce unsatisfied constraints.
          *
+         * @note The constraint and witness values must be copied otherwise this would affect later calls to this
+         * function
+         *
          */
-        { instance.invalidate_witness(constraint, witness_values, invalid_witness_target) } -> std::same_as<void>;
+        {
+            T::invalidate_witness(constraint, witness_values, invalid_witness_target)
+        } -> std::same_as<std::pair<typename T::AcirConstraint, WitnessVector>>;
     };
 };
 
-template <TestBase Base> class TestClass {
+template <TestBase Base_> class TestClass {
   public:
+    using Base = Base_;
     using Builder = Base::Builder;
     using AcirConstraint = Base::AcirConstraint;
     using InvalidWitness = Base::InvalidWitness;
     using InvalidWitnessTarget = Base::InvalidWitness::Target;
 
     /**
-     * @brief Generate constraints and witness values based on the invalidation target.
-     */
-    static std::pair<AcirConstraint, WitnessVector> generate_constraints(
-        const InvalidWitnessTarget& invalid_witness_target = InvalidWitnessTarget::None)
-    {
-        AcirConstraint constraint;
-        WitnessVector witness_values;
-
-        // Create an instance to allow for non-static methods
-        Base base_instance;
-        base_instance.generate_constraints(constraint, witness_values);
-        base_instance.invalidate_witness(constraint, witness_values, invalid_witness_target);
-
-        return { constraint, witness_values };
-    }
-
-    /**
-     * @brief General purpose testing function. It generates the test based on the predicate and invalidation target.
+     * @brief General purpose testing function. It tests the constraints based on the invalidation target.
      *
      * @details In a real flow, we have:
      *          Noir --> ACIR --> Bytes --> AcirFormat (via circuit_buf_to_acir_format) --> Builder
@@ -593,16 +584,18 @@ template <TestBase Base> class TestClass {
      * tests circuit_serde_to_acir_format, which would otherwise only be tested via the tests in acir_tests.
      *
      */
-    static std::tuple<bool, bool, std::string> test_constraints(const InvalidWitnessTarget& invalid_witness_target)
+    static std::tuple<bool, bool, std::string> test_constraints(AcirConstraint& constraint,
+                                                                WitnessVector& witness_values,
+                                                                const InvalidWitnessTarget& invalid_witness_target)
     {
-        auto [constraint, witness_values] = generate_constraints(invalid_witness_target);
+        auto [updated_constraint, updated_witness_values] =
+            Base::invalidate_witness(constraint, witness_values, invalid_witness_target);
 
         // Use the full ACIR flow: constraint -> Acir::Opcode -> Acir::Circuit -> circuit_serde_to_acir_format
         AcirFormat constraint_system = constraint_to_acir_format(
-            constraint, /*max_witness_index=*/static_cast<uint32_t>(witness_values.size()) - 1);
-
-        AcirProgram program{ constraint_system, witness_values };
-        auto builder = create_circuit<Builder>(program);
+            updated_constraint, /*max_witness_index=*/static_cast<uint32_t>(updated_witness_values.size()) - 1);
+        AcirProgram program{ constraint_system, updated_witness_values };
+        auto builder = create_circuit<Builder>(program, Base::generate_metadata());
 
         return { CircuitChecker::check(builder), builder.failed(), builder.err() };
     }
@@ -623,7 +616,9 @@ template <TestBase Base> class TestClass {
         size_t num_gates = 0;
 
         // Generate the constraint system
-        auto [constraint, witness_values] = generate_constraints();
+        AcirConstraint constraint;
+        WitnessVector witness_values;
+        Base::generate_constraints(constraint, witness_values);
 
         // Use the full ACIR flow: constraint -> Acir::Opcode -> Acir::Circuit -> circuit_serde_to_acir_format
         AcirFormat constraint_system = constraint_to_acir_format(
@@ -633,7 +628,7 @@ template <TestBase Base> class TestClass {
         std::shared_ptr<VerificationKey> vk_from_witness;
         {
             AcirProgram program{ constraint_system, witness_values };
-            auto builder = create_circuit<Builder>(program);
+            auto builder = create_circuit<Builder>(program, Base::generate_metadata());
             num_gates = builder.get_num_finalized_gates_inefficient();
 
             auto prover_instance = std::make_shared<ProverInstance>(builder);
@@ -646,7 +641,7 @@ template <TestBase Base> class TestClass {
         std::shared_ptr<VerificationKey> vk_from_constraint;
         {
             AcirProgram program{ constraint_system, /*witness=*/{} };
-            auto builder = create_circuit<Builder>(program);
+            auto builder = create_circuit<Builder>(program, Base::generate_metadata());
             auto prover_instance = std::make_shared<ProverInstance>(builder);
             vk_from_constraint = std::make_shared<VerificationKey>(prover_instance->get_precomputed());
         }
@@ -664,8 +659,15 @@ template <TestBase Base> class TestClass {
     static std::vector<std::string> test_tampering()
     {
         std::vector<std::string> error_msgs;
+
+        // Generate the constraint system
+        AcirConstraint constraint;
+        WitnessVector witness_values;
+        Base::generate_constraints(constraint, witness_values);
+
         for (auto [target, label] : zip_view(InvalidWitness::get_all(), InvalidWitness::get_labels())) {
-            auto [circuit_checker_result, builder_failed, builder_err] = test_constraints(target);
+            auto [circuit_checker_result, builder_failed, builder_err] =
+                test_constraints(constraint, witness_values, target);
             error_msgs.emplace_back(builder_err);
 
             if (target != InvalidWitness::Target::None) {

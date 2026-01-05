@@ -1,1 +1,1 @@
-barretenberg_module(chonk_bench chonk stdlib_honk_verifier stdlib_sha256 stdlib_primitives)
+barretenberg_module(chonk_bench vm2_stub dsl chonk stdlib_honk_verifier stdlib_sha256 stdlib_primitives)

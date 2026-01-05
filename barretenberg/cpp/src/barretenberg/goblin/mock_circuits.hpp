@@ -17,10 +17,10 @@
 #include "barretenberg/stdlib/encryption/ecdsa/ecdsa.hpp"
 #include "barretenberg/stdlib/hash/keccak/keccak.hpp"
 #include "barretenberg/stdlib/hash/sha256/sha256.hpp"
-#include "barretenberg/stdlib/honk_verifier/ultra_recursive_verifier.hpp"
 #include "barretenberg/stdlib/primitives/curves/secp256k1.hpp"
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/stdlib_circuit_builders/mock_circuits.hpp"
+#include "barretenberg/ultra_honk/ultra_verifier.hpp"
 
 namespace bb {
 
@@ -69,9 +69,9 @@ class GoblinMockCircuits {
     using MegaBuilder = bb::MegaCircuitBuilder;
     using Flavor = bb::MegaFlavor;
     using RecursiveFlavor = bb::MegaRecursiveFlavor_<MegaBuilder>;
-    using RecursiveVerifier = bb::stdlib::recursion::honk::UltraRecursiveVerifier_<RecursiveFlavor>;
-    using VerifierInstance = bb::VerifierInstance_<Flavor>;
-    using RecursiveVerifierInstance = ::bb::stdlib::recursion::honk::RecursiveVerifierInstance_<RecursiveFlavor>;
+    using RecursiveVerifier = bb::UltraVerifier_<RecursiveFlavor, bb::stdlib::recursion::honk::DefaultIO<MegaBuilder>>;
+    using VerifierInstance = VerifierInstance_<Flavor>;
+    using RecursiveVerifierInstance = VerifierInstance_<RecursiveFlavor>;
     using RecursiveVKAndHash = RecursiveVerifierInstance::VKAndHash;
     using RecursiveVerifierAccumulator = std::shared_ptr<RecursiveVerifierInstance>;
     using VerificationKey = Flavor::VerificationKey;

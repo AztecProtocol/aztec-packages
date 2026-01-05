@@ -7,7 +7,7 @@ mod validate_public_chonk_verifier_against_avm_tests;
 use crate::{
     abis::{PublicChonkVerifierPublicInputs, TxRollupPublicInputs},
     tests::RollupFixtureBuilder,
-    tx_base::public_tx_base_rollup_private_inputs::PublicTxBaseRollupPrivateInputs,
+    tx_base::public_tx_base_rollup::{self, PublicTxBaseRollupPrivateInputs},
 };
 use dep::types::{
     abis::{
@@ -145,15 +145,16 @@ impl TestBuilder {
 
         let avm_proof_data = RollupFixtureBuilder::make_avm_proof_data(self.avm);
 
-        PublicTxBaseRollupPrivateInputs {
+        let inputs = PublicTxBaseRollupPrivateInputs {
             public_chonk_verifier_proof_data,
             avm_proof_data,
             start_sponge_blob: self.start_sponge_blob,
             last_archive: self.last_archive,
             anchor_block_archive_sibling_path: self.anchor_block_archive_sibling_path,
             contract_class_log_fields: self.contract_class_log_fields,
-        }
-            .execute()
+        };
+
+        public_tx_base_rollup::execute(inputs)
     }
 
     pub fn execute_and_fail(self) {

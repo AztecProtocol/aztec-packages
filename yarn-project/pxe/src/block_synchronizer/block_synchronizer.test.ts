@@ -10,7 +10,6 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { AnchorBlockDataProvider } from '../storage/anchor_block_data_provider/anchor_block_data_provider.js';
 import { NoteDataProvider } from '../storage/note_data_provider/note_data_provider.js';
-import { RecipientTaggingDataProvider } from '../storage/tagging_data_provider/recipient_tagging_data_provider.js';
 import { BlockSynchronizer } from './block_synchronizer.js';
 
 describe('BlockSynchronizer', () => {
@@ -18,7 +17,6 @@ describe('BlockSynchronizer', () => {
   let tipsStore: L2TipsKVStore;
   let anchorBlockDataProvider: AnchorBlockDataProvider;
   let noteDataProvider: NoteDataProvider;
-  let recipientTaggingDataProvider: RecipientTaggingDataProvider;
   let aztecNode: MockProxy<AztecNode>;
   let blockStream: MockProxy<L2BlockStream>;
 
@@ -35,14 +33,7 @@ describe('BlockSynchronizer', () => {
     tipsStore = new L2TipsKVStore(store, 'pxe');
     anchorBlockDataProvider = new AnchorBlockDataProvider(store);
     noteDataProvider = await NoteDataProvider.create(store);
-    recipientTaggingDataProvider = new RecipientTaggingDataProvider(store);
-    synchronizer = new TestSynchronizer(
-      aztecNode,
-      anchorBlockDataProvider,
-      noteDataProvider,
-      recipientTaggingDataProvider,
-      tipsStore,
-    );
+    synchronizer = new TestSynchronizer(aztecNode, anchorBlockDataProvider, noteDataProvider, tipsStore);
   });
 
   it('sets header from latest block', async () => {
@@ -57,11 +48,8 @@ describe('BlockSynchronizer', () => {
     const rollbackNotesAndNullifiers = jest
       .spyOn(noteDataProvider, 'rollbackNotesAndNullifiers')
       .mockImplementation(() => Promise.resolve());
-    const resetNoteSyncData = jest
-      .spyOn(recipientTaggingDataProvider, 'resetNoteSyncData')
-      .mockImplementation(() => Promise.resolve());
-    aztecNode.getBlockHeader.mockImplementation(
-      async blockNumber => (await L2BlockNew.random(BlockNumber(blockNumber as number))).header,
+    aztecNode.getBlockHeader.mockImplementation(async blockNumber =>
+      (await L2Block.random(BlockNumber(blockNumber as number))).getBlockHeader(),
     );
 
     await synchronizer.handleBlockStreamEvent({
@@ -71,6 +59,5 @@ describe('BlockSynchronizer', () => {
     await synchronizer.handleBlockStreamEvent({ type: 'chain-pruned', block: { number: BlockNumber(3), hash: '0x3' } });
 
     expect(rollbackNotesAndNullifiers).toHaveBeenCalledWith(3, 4);
-    expect(resetNoteSyncData).toHaveBeenCalled();
   });
 });

@@ -271,7 +271,7 @@ describe('aztec node', () => {
     describe('config', () => {
       it('returns the correct config', async () => {
         const config = await node.getConfig();
-        expect(config.maxTxPoolSize).toEqual(nodeConfig.maxTxPoolSize);
+        expect(config.maxPendingTxCount).toEqual(nodeConfig.maxPendingTxCount);
         expect('nonExistingConfig' in config).toBe(false);
       });
     });

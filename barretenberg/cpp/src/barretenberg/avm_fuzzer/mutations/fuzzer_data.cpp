@@ -8,12 +8,16 @@
 #include "barretenberg/avm_fuzzer/mutations/control_flow/control_flow_vec.hpp"
 #include "barretenberg/avm_fuzzer/mutations/control_flow/return_options.hpp"
 #include "barretenberg/avm_fuzzer/mutations/instructions/instruction_block.hpp"
+#include "barretenberg/vm2/common/tagged_value.hpp"
+
+using ValueTag = bb::avm2::ValueTag;
 
 void mutate_fuzzer_data(FuzzerData& fuzzer_data, std::mt19937_64& rng)
 {
     auto num_of_mutation = std::uniform_int_distribution<uint8_t>(0, MAX_MUTATION_NUM)(rng);
-    auto mutation_config = BASIC_FUZZER_DATA_MUTATION_CONFIGURATION.select(rng);
     for (uint8_t i = 0; i < num_of_mutation; i++) {
+        // Select mutation type each iteration for more variety
+        auto mutation_config = BASIC_FUZZER_DATA_MUTATION_CONFIGURATION.select(rng);
         switch (mutation_config) {
         case FuzzerDataMutationOptions::InstructionMutation:
             mutate_vec<std::vector<FuzzInstruction>>(fuzzer_data.instruction_blocks,
@@ -38,4 +42,37 @@ void mutate_fuzzer_data(FuzzerData& fuzzer_data, std::mt19937_64& rng)
             break;
         }
     }
+}
+
+void add_default_instruction_block_if_empty(FuzzerData& fuzzer_data, std::mt19937_64& rng)
+{
+    if (fuzzer_data.instruction_blocks.empty()) {
+        std::vector<FuzzInstruction> instruction_block;
+        uint32_t num_tags = static_cast<uint32_t>(ValueTag::MAX);
+        instruction_block.reserve(num_tags);
+        // Add one set per memory tag type
+        for (uint32_t i = 0; i < num_tags; i++) {
+            // TODO: Randomize address, value. Keep address < 255 so it can be used anywhere.
+            auto tag = static_cast<ValueTag>(i);
+            instruction_block.push_back(SET_8_Instruction{
+                .value_tag = tag,
+                .result_address =
+                    AddressRef{
+                        .address = i + 1, // Skip address 0
+                    },
+                .value = 1,
+            });
+        }
+        auto preamble = generate_instruction_block(rng);
+        instruction_block.insert(instruction_block.end(), preamble.begin(), preamble.end());
+        fuzzer_data.instruction_blocks.push_back(instruction_block);
+        fuzzer_data.cfg_instructions.push_back(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
+    }
+}
+
+FuzzerData generate_fuzzer_data(std::mt19937_64& rng)
+{
+    FuzzerData fuzzer_data = FuzzerData();
+    add_default_instruction_block_if_empty(fuzzer_data, rng);
+    return fuzzer_data;
 }

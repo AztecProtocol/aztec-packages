@@ -31,6 +31,7 @@
 #include "barretenberg/vm2/tracegen/keccakf1600_trace.hpp"
 #include "barretenberg/vm2/tracegen/l1_to_l2_message_tree_trace.hpp"
 #include "barretenberg/vm2/tracegen/lib/interaction_builder.hpp"
+#include "barretenberg/vm2/tracegen/lib/shared_index_cache.hpp"
 #include "barretenberg/vm2/tracegen/memory_trace.hpp"
 #include "barretenberg/vm2/tracegen/merkle_check_trace.hpp"
 #include "barretenberg/vm2/tracegen/note_hash_tree_check_trace.hpp"
@@ -436,36 +437,45 @@ void AvmTraceGenHelper::fill_trace_interactions(TraceContainer& trace)
 {
     // Now we can compute lookups and permutations.
     {
+        // We use a shared index cache so that lookups targeting the same destination columns
+        // can share the same index, avoiding redundant computation and memory usage.
+        SharedIndexCache index_cache;
+
         auto jobs_interactions =
-            concatenate_jobs(MemoryTraceBuilder::interactions.get_all_jobs(),
-                             TxTraceBuilder::interactions.get_all_jobs(),
-                             ExecutionTraceBuilder::interactions.get_all_jobs(),
-                             AluTraceBuilder::interactions.get_all_jobs(),
-                             Poseidon2TraceBuilder::interactions.get_all_jobs(),
-                             RangeCheckTraceBuilder::interactions.get_all_jobs(),
-                             BitwiseTraceBuilder::interactions.get_all_jobs(),
-                             Sha256TraceBuilder::interactions.get_all_jobs(),
-                             KeccakF1600TraceBuilder::interactions.get_all_jobs(),
-                             BytecodeTraceBuilder::interactions.get_all_jobs(),
-                             ClassIdDerivationTraceBuilder::interactions.get_all_jobs(),
-                             EccTraceBuilder::interactions.get_all_jobs(),
-                             ToRadixTraceBuilder::interactions.get_all_jobs(),
-                             AddressDerivationTraceBuilder::interactions.get_all_jobs(),
-                             FieldGreaterThanTraceBuilder::interactions.get_all_jobs(),
-                             MerkleCheckTraceBuilder::interactions.get_all_jobs(),
-                             PublicDataTreeTraceBuilder::interactions.get_all_jobs(),
-                             UpdateCheckTraceBuilder::interactions.get_all_jobs(),
-                             NullifierTreeCheckTraceBuilder::interactions.get_all_jobs(),
-                             DataCopyTraceBuilder::interactions.get_all_jobs(),
-                             CalldataTraceBuilder::interactions.get_all_jobs(),
-                             NoteHashTreeCheckTraceBuilder::interactions.get_all_jobs(),
-                             WrittenPublicDataSlotsTreeCheckTraceBuilder::interactions.get_all_jobs(),
-                             GreaterThanTraceBuilder::interactions.get_all_jobs(),
-                             ContractInstanceRetrievalTraceBuilder::interactions.get_all_jobs(),
-                             GetContractInstanceTraceBuilder::interactions.get_all_jobs(),
-                             L1ToL2MessageTreeCheckTraceBuilder::interactions.get_all_jobs(),
-                             EmitUnencryptedLogTraceBuilder::interactions.get_all_jobs(),
-                             RetrievedBytecodesTreeCheckTraceBuilder::interactions.get_all_jobs());
+            concatenate_jobs(MemoryTraceBuilder::interactions.get_all_jobs(index_cache),
+                             TxTraceBuilder::interactions.get_all_jobs(index_cache),
+                             ExecutionTraceBuilder::interactions.get_all_jobs(index_cache),
+                             AluTraceBuilder::interactions.get_all_jobs(index_cache),
+                             Poseidon2TraceBuilder::interactions.get_all_jobs(index_cache),
+                             RangeCheckTraceBuilder::interactions.get_all_jobs(index_cache),
+                             BitwiseTraceBuilder::interactions.get_all_jobs(index_cache),
+                             Sha256TraceBuilder::interactions.get_all_jobs(index_cache),
+                             KeccakF1600TraceBuilder::interactions.get_all_jobs(index_cache),
+                             BytecodeTraceBuilder::interactions.get_all_jobs(index_cache),
+                             ClassIdDerivationTraceBuilder::interactions.get_all_jobs(index_cache),
+                             EccTraceBuilder::interactions.get_all_jobs(index_cache),
+                             ToRadixTraceBuilder::interactions.get_all_jobs(index_cache),
+                             AddressDerivationTraceBuilder::interactions.get_all_jobs(index_cache),
+                             FieldGreaterThanTraceBuilder::interactions.get_all_jobs(index_cache),
+                             MerkleCheckTraceBuilder::interactions.get_all_jobs(index_cache),
+                             PublicDataTreeTraceBuilder::interactions.get_all_jobs(index_cache),
+                             UpdateCheckTraceBuilder::interactions.get_all_jobs(index_cache),
+                             NullifierTreeCheckTraceBuilder::interactions.get_all_jobs(index_cache),
+                             DataCopyTraceBuilder::interactions.get_all_jobs(index_cache),
+                             CalldataTraceBuilder::interactions.get_all_jobs(index_cache),
+                             NoteHashTreeCheckTraceBuilder::interactions.get_all_jobs(index_cache),
+                             WrittenPublicDataSlotsTreeCheckTraceBuilder::interactions.get_all_jobs(index_cache),
+                             GreaterThanTraceBuilder::interactions.get_all_jobs(index_cache),
+                             ContractInstanceRetrievalTraceBuilder::interactions.get_all_jobs(index_cache),
+                             GetContractInstanceTraceBuilder::interactions.get_all_jobs(index_cache),
+                             L1ToL2MessageTreeCheckTraceBuilder::interactions.get_all_jobs(index_cache),
+                             EmitUnencryptedLogTraceBuilder::interactions.get_all_jobs(index_cache),
+                             RetrievedBytecodesTreeCheckTraceBuilder::interactions.get_all_jobs(index_cache));
+
+        // Order jobs to minimize index building contention:
+        // Jobs with unique destination columns come first, then jobs that share destinations with earlier ones.
+        AVM_TRACK_TIME("tracegen/order_jobs_by_destination_columns",
+                       order_jobs_by_destination_columns(jobs_interactions));
 
         AVM_TRACK_TIME("tracegen/interactions",
                        parallel_for(jobs_interactions.size(), [&](size_t i) { jobs_interactions[i]->process(trace); }));

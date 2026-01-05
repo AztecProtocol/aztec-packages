@@ -1,9 +1,9 @@
+#include "barretenberg/chonk/chonk_verifier.hpp"
 #include "barretenberg/chonk/mock_circuit_producer.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/dsl/acir_format/acir_format_mocks.hpp"
 #include "barretenberg/dsl/acir_format/gate_count_constants.hpp"
 #include "barretenberg/dsl/acir_format/proof_surgeon.hpp"
-#include "barretenberg/stdlib/chonk_verifier/chonk_recursive_verifier.hpp"
 
 #include <gtest/gtest.h>
 
@@ -19,8 +19,6 @@ class ChonkRecursionConstraintTest : public ::testing::Test {
     using Flavor = UltraRollupFlavor;
     using ProverInstance = ProverInstance_<Flavor>;
     using VerificationKey = Flavor::VerificationKey;
-    using ChonkRecursiveVerifier = stdlib::recursion::honk::ChonkRecursiveVerifier;
-
     // Types for Chonk
     using DeciderZKProvingKey = ProverInstance_<MegaZKFlavor>;
     using MegaZKVerificationKey = MegaZKFlavor::VerificationKey;
@@ -30,7 +28,7 @@ class ChonkRecursionConstraintTest : public ::testing::Test {
 
     struct ChonkData {
         std::shared_ptr<MegaZKVerificationKey> mega_vk;
-        Chonk::Proof proof;
+        ChonkProof proof;
     };
 
     static ChonkData get_chonk_data()
@@ -45,8 +43,8 @@ class ChonkRecursionConstraintTest : public ::testing::Test {
             circuit_producer.construct_and_accumulate_next_circuit(ivc);
         }
 
-        Chonk::Proof proof = ivc.prove();
-        return { ivc.get_vk().mega, proof };
+        ChonkProof proof = ivc.prove();
+        return { ivc.get_hiding_kernel_vk_and_hash()->vk, proof };
     }
 
     static AcirProgram create_acir_program(const ChonkData& chonk_data)
@@ -116,16 +114,10 @@ TEST_F(ChonkRecursionConstraintTest, GenerateRecursiveChonkVerifierVKFromConstra
         UltraProver_<UltraRollupFlavor> prover(prover_instance, vk_from_valid_witness);
         HonkProof proof = prover.prove();
 
-        VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key(1 << CONST_ECCVM_LOG_N);
-        UltraVerifier_<UltraRollupFlavor> verifier(vk_from_valid_witness, ipa_verification_key);
+        auto vk_and_hash = std::make_shared<UltraRollupFlavor::VKAndHash>(vk_from_valid_witness);
+        UltraVerifier_<UltraRollupFlavor, bb::RollupIO> verifier(vk_and_hash);
 
-        // Split the proof
-        auto ultra_proof =
-            HonkProof(proof.begin(), proof.begin() + static_cast<std::ptrdiff_t>(proof.size() - IPA_PROOF_LENGTH));
-        auto ipa_proof =
-            HonkProof(proof.begin() + static_cast<std::ptrdiff_t>(proof.size() - IPA_PROOF_LENGTH), proof.end());
-
-        EXPECT_TRUE(verifier.verify_proof<bb::RollupIO>(proof, ipa_proof));
+        EXPECT_TRUE(verifier.verify_proof(proof).result);
     }
 
     std::shared_ptr<VerificationKey> vk_from_constraints;

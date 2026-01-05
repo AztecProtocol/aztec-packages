@@ -65,7 +65,7 @@ template <typename... PermutationSettings_> class MultiPermutationBuilder : publ
             }
             // Get one of the available rows for the tuple.
             // TODO: This could be done in parallel, with only a lock on the row vector.
-            std::vector<uint32_t>& possible_dst_rows = index_it->second;
+            auto& possible_dst_rows = index_it->second;
             uint32_t dst_row = possible_dst_rows.back();
             trace.set(PermutationSettings::DST_SELECTOR, dst_row, 1);
             // We remove the used row from the list of possible rows.
@@ -101,9 +101,7 @@ template <typename... PermutationSettings_> class MultiPermutationBuilder : publ
     // (a, b, c, ...) in some destination table. That is, you want a row number in the destination table.
     // The following map contains (a, b, c, ...) -> [row_number_1, row_number_2, ...].
     // That is, you can efficiently find all the rows in the destination table that match the src tuple.
-    // TODO: Using the whole tuple as the key is not memory efficient.
-    using ArrayTuple = std::array<FF, COLUMNS_PER_SET>;
-    unordered_flat_map<ArrayTuple, /*rows*/ std::vector<uint32_t>> row_idx;
+    unordered_flat_map<RefTuple<DST_COLUMNS.size()>, /*rows*/ std::vector<uint32_t>> row_idx;
 };
 
 } // namespace bb::avm2::tracegen

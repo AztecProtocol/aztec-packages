@@ -3,7 +3,7 @@ import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { DirectionalAppTaggingSecret, type PreTag } from '@aztec/stdlib/logs';
 import { TxHash } from '@aztec/stdlib/tx';
 
-import { WINDOW_LEN } from '../../tagging/sync/sync_sender_tagging_indexes.js';
+import { UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN } from '../../tagging/index.js';
 import { SenderTaggingDataProvider } from './sender_tagging_data_provider.js';
 
 describe('SenderTaggingDataProvider', () => {
@@ -147,7 +147,7 @@ describe('SenderTaggingDataProvider', () => {
         const txHash1 = TxHash.random();
         const txHash2 = TxHash.random();
         const finalizedIndex = 10;
-        const indexBeyondWindow = finalizedIndex + WINDOW_LEN + 1;
+        const indexBeyondWindow = finalizedIndex + UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN + 1;
 
         // First store and finalize an index
         await taggingDataProvider.storePendingIndexes([{ secret: secret1, index: finalizedIndex }], txHash1);
@@ -165,7 +165,7 @@ describe('SenderTaggingDataProvider', () => {
         const txHash1 = TxHash.random();
         const txHash2 = TxHash.random();
         const finalizedIndex = 10;
-        const indexAtBoundary = finalizedIndex + WINDOW_LEN;
+        const indexAtBoundary = finalizedIndex + UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN;
 
         // First store and finalize an index
         await taggingDataProvider.storePendingIndexes([{ secret: secret1, index: finalizedIndex }], txHash1);

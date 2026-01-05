@@ -98,6 +98,7 @@ async function execute(base64Line: string): Promise<void> {
     });
     writeSync(process.stdout.fd, resultBuffer.toString('base64') + '\n');
   } catch (error: any) {
+    // If we error, treat as reverted
     const errorResult = serializeWithMessagePack({
       reverted: true,
       output: [] as string[],
@@ -110,12 +111,30 @@ async function execute(base64Line: string): Promise<void> {
 
 function mainLoop() {
   const rl = createInterface({ input: process.stdin, terminal: false });
+
+  // Process lines sequentially to avoid race conditions in responses
+  const lineQueue: string[] = [];
+  let processing = false;
+
+  async function processQueue() {
+    if (processing || lineQueue.length === 0) {
+      return;
+    }
+    processing = true;
+    while (lineQueue.length > 0) {
+      const line = lineQueue.shift()!;
+      await execute(line);
+    }
+    processing = false;
+  }
+
   rl.on('line', (line: string) => {
     if (line.trim()) {
-      void execute(line);
+      lineQueue.push(line);
+      void processQueue();
     }
   });
   rl.on('close', () => process.exit(0));
 }
 
-mainLoop();
+void mainLoop();

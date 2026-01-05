@@ -249,10 +249,12 @@ pub contract NFT {
     ) {
         let nfts = self.storage.private_nfts;
 
+        // docs:start:pop_notes
         let notes = nfts.at(from).pop_notes(NoteGetterOptions::new()
             .select(NFTNote::properties().token_id, Comparator.EQ, token_id)
             .set_limit(1));
         assert(notes.len() == 1, "NFT not found when transferring");
+        // docs:end:pop_notes
 
         let new_note = NFTNote { token_id };
 
@@ -292,6 +294,7 @@ pub contract NFT {
     /// Returns an array of token IDs owned by `owner` in private and a flag indicating whether a page limit was
     /// reached. Starts getting the notes from page with index `page_index`. Zero values in the array are placeholder
     /// values for non-existing notes.
+    // docs:start:view_notes
     #[external("utility")]
     unconstrained fn get_private_nfts(
         owner: AztecAddress,
@@ -311,4 +314,5 @@ pub contract NFT {
         let page_limit_reached = notes.len() == options.limit;
         (owned_nft_ids, page_limit_reached)
     }
+    // docs:end:view_notes
 }

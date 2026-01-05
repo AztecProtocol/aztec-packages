@@ -1,4 +1,5 @@
 import { getKeys, merge, pick, times } from '@aztec/foundation/collection';
+import type { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
 import { DateProvider } from '@aztec/foundation/timer';
@@ -11,6 +12,7 @@ import {
   type BaseError,
   type BlockOverrides,
   type ContractFunctionExecutionError,
+  type GetCodeReturnType,
   type Hex,
   MethodNotFoundRpcError,
   MethodNotSupportedRpcError,
@@ -65,6 +67,10 @@ export class ReadOnlyL1TxUtils {
 
   public getBlockNumber() {
     return this.client.getBlockNumber();
+  }
+
+  public getCode(address: EthAddress): Promise<GetCodeReturnType> {
+    return this.client.getCode({ address: address.toString() });
   }
 
   /**
@@ -276,11 +282,17 @@ export class ReadOnlyL1TxUtils {
         ..._blobInputs,
         maxFeePerBlobGas: gasPrice.maxFeePerBlobGas!,
         gas: LARGE_GAS_LIMIT,
+        blockTag: 'latest',
       });
 
       this.logger?.trace(`Estimated gas for blob tx: ${initialEstimate}`);
     } else {
-      initialEstimate = await this.client.estimateGas({ account, ...request, gas: LARGE_GAS_LIMIT });
+      initialEstimate = await this.client.estimateGas({
+        account,
+        ...request,
+        gas: LARGE_GAS_LIMIT,
+        blockTag: 'latest',
+      });
       this.logger?.trace(`Estimated gas for non-blob tx: ${initialEstimate}`);
     }
 

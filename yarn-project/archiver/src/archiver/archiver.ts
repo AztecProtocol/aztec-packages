@@ -1,4 +1,4 @@
-import type { BlobSinkClientInterface } from '@aztec/blob-sink/client';
+import type { BlobClientInterface } from '@aztec/blob-client/client';
 import { GENESIS_BLOCK_HEADER_HASH } from '@aztec/constants';
 import { EpochCache } from '@aztec/epoch-cache';
 import { createEthereumChain } from '@aztec/ethereum/chain';
@@ -65,7 +65,15 @@ import {
 } from '@aztec/stdlib/epoch-helpers';
 import type { GetContractClassLogsResponse, GetPublicLogsResponse } from '@aztec/stdlib/interfaces/client';
 import type { L2LogsSource } from '@aztec/stdlib/interfaces/server';
-import { ContractClassLog, type LogFilter, type PrivateLog, type PublicLog, TxScopedL2Log } from '@aztec/stdlib/logs';
+import {
+  ContractClassLog,
+  type LogFilter,
+  type PrivateLog,
+  type PublicLog,
+  type SiloedTag,
+  Tag,
+  TxScopedL2Log,
+} from '@aztec/stdlib/logs';
 import { type L1ToL2MessageSource, computeInHashFromL1ToL2Messages } from '@aztec/stdlib/messaging';
 import type { CheckpointHeader } from '@aztec/stdlib/rollup';
 import { type BlockHeader, type IndexedTxEffect, TxHash, TxReceipt } from '@aztec/stdlib/tx';
@@ -111,7 +119,7 @@ type AddBlockRequest = {
 
 export type ArchiverDeps = {
   telemetry?: TelemetryClient;
-  blobSinkClient: BlobSinkClientInterface;
+  blobClient: BlobClientInterface;
   epochCache?: EpochCache;
   dateProvider?: DateProvider;
 };
@@ -189,7 +197,7 @@ export class Archiver
       maxAllowedEthClientDriftSeconds: number;
       ethereumAllowNoDebugHosts?: boolean;
     },
-    private readonly blobSinkClient: BlobSinkClientInterface,
+    private readonly blobClient: BlobClientInterface,
     private readonly epochCache: EpochCache,
     private readonly dateProvider: DateProvider,
     private readonly instrumentation: ArchiverInstrumentation,
@@ -231,7 +239,7 @@ export class Archiver
     const chain = createEthereumChain(config.l1RpcUrls, config.l1ChainId);
     const publicClient = createPublicClient({
       chain: chain.chainInfo,
-      transport: fallback(config.l1RpcUrls.map(url => http(url))),
+      transport: fallback(config.l1RpcUrls.map(url => http(url, { batch: false }))),
       pollingInterval: config.viemPollingIntervalMS,
     });
 
@@ -239,7 +247,7 @@ export class Archiver
     const debugRpcUrls = config.l1DebugRpcUrls.length > 0 ? config.l1DebugRpcUrls : config.l1RpcUrls;
     const debugClient = createPublicClient({
       chain: chain.chainInfo,
-      transport: fallback(debugRpcUrls.map(url => http(url))),
+      transport: fallback(debugRpcUrls.map(url => http(url, { batch: false }))),
       pollingInterval: config.viemPollingIntervalMS,
     }) as ViemPublicDebugClient;
 
@@ -290,7 +298,7 @@ export class Archiver
       { ...config.l1Contracts, slashingProposerAddress },
       archiverStore,
       opts,
-      deps.blobSinkClient,
+      deps.blobClient,
       epochCache,
       deps.dateProvider ?? new DateProvider(),
       await ArchiverInstrumentation.new(telemetry, () => archiverStore.estimateSize()),
@@ -314,7 +322,7 @@ export class Archiver
       throw new Error('Archiver is already running');
     }
 
-    await this.blobSinkClient.testSources();
+    await this.blobClient.testSources();
     await this.testEthereumNodeSynced();
     await validateAndLogTraceAvailability(this.debugClient, this.config.ethereumAllowNoDebugHosts ?? false);
 
@@ -957,12 +965,12 @@ export class Archiver
 
       this.log.trace(`Retrieving checkpoints from L1 block ${searchStartBlock} to ${searchEndBlock}`);
 
-      // TODO(md): Retrieve from blob sink then from consensus client, then from peers
+      // TODO(md): Retrieve from blob client then from consensus client, then from peers
       const retrievedCheckpoints = await retrieveCheckpointsFromRollup(
         this.rollup.getContract() as GetContractReturnType<typeof RollupAbi, ViemPublicClient>,
         this.publicClient,
         this.debugClient,
-        this.blobSinkClient,
+        this.blobClient,
         searchStartBlock, // TODO(palla/reorg): If the L2 reorg was due to an L1 reorg, we need to start search earlier
         searchEndBlock,
         this.l1Addresses,
@@ -1415,14 +1423,12 @@ export class Archiver
     return this.store.getSettledTxReceipt(txHash);
   }
 
-  /**
-   * Gets all logs that match any of the received tags (i.e. logs with their first field equal to a tag).
-   * @param tags - The tags to filter the logs by.
-   * @returns For each received tag, an array of matching logs is returned. An empty array implies no logs match
-   * that tag.
-   */
-  getLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]> {
-    return this.store.getLogsByTags(tags);
+  getPrivateLogsByTags(tags: SiloedTag[]): Promise<TxScopedL2Log[][]> {
+    return this.store.getPrivateLogsByTags(tags);
+  }
+
+  getPublicLogsByTagsFromContract(contractAddress: AztecAddress, tags: Tag[]): Promise<TxScopedL2Log[][]> {
+    return this.store.getPublicLogsByTagsFromContract(contractAddress, tags);
   }
 
   /**
@@ -2092,8 +2098,11 @@ export class ArchiverStoreHelper
   getL1ToL2MessageIndex(l1ToL2Message: Fr): Promise<bigint | undefined> {
     return this.store.getL1ToL2MessageIndex(l1ToL2Message);
   }
-  getLogsByTags(tags: Fr[], logsPerTag?: number): Promise<TxScopedL2Log[][]> {
-    return this.store.getLogsByTags(tags, logsPerTag);
+  getPrivateLogsByTags(tags: SiloedTag[]): Promise<TxScopedL2Log[][]> {
+    return this.store.getPrivateLogsByTags(tags);
+  }
+  getPublicLogsByTagsFromContract(contractAddress: AztecAddress, tags: Tag[]): Promise<TxScopedL2Log[][]> {
+    return this.store.getPublicLogsByTagsFromContract(contractAddress, tags);
   }
   getPublicLogs(filter: LogFilter): Promise<GetPublicLogsResponse> {
     return this.store.getPublicLogs(filter);

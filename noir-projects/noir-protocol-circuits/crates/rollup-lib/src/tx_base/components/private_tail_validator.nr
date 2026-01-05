@@ -12,19 +12,20 @@ use dep::types::{
         MAX_CONTRACT_CLASS_LOGS_PER_TX,
     },
     hash::compute_contract_class_log_hash,
-    merkle_tree::check_membership,
+    merkle_tree::{check_membership, MembershipWitness},
     side_effect::Scoped,
     traits::Hash,
     utils::arrays::array_padded_with,
 };
 
-/// Validate the tx constants against the block constants.
+/// Validate some of the tx constants that were propagated from private-land (from the private_tail's public inputs)
+/// against the corresponding items of this circuit's block constants.
 /// - For private-only txs, the block constants are provided via private inputs.
-/// - For public-inclusive txs, some values are copied over from the AVM proof's public inputs. This function indirectly
-///   checks that the values in `private_tail` match those from the AVM.
+/// - For public-inclusive txs, some values are copied over from the AVM proof's public inputs. This function
+///   checks that the relevant values in `private_tail` match those from the AVM.
 pub fn validate_tx_constant_data(
     tx_constants: TxConstantData,
-    block_constants: BlockConstantData,
+    block_constants: BlockConstantData, // where applicable, these constants have been copied-over from the avm's public inputs.
     anchor_block_archive_sibling_path: [Field; ARCHIVE_HEIGHT],
 ) {
     // Values from `tx_constants` to be checked in this function:
@@ -35,11 +36,13 @@ pub fn validate_tx_constant_data(
     let tx_vk_tree_root = tx_constants.vk_tree_root;
     let tx_protocol_contracts_hash = tx_constants.protocol_contracts_hash;
 
-    // Values from `block_constants` to be checked against those from `tx_constants`:
+    // Values from `block_constants` to be checked against those from `tx_constants`.
+    // (When executing this fn as part of the public tx base, we comment when an item has been copied-over
+    // from the avm's public inputs).
     let block_last_archive_root = block_constants.last_archive.root;
-    let block_chain_id = block_constants.global_variables.chain_id;
-    let block_version = block_constants.global_variables.version;
-    let block_gas_fees = block_constants.global_variables.gas_fees;
+    let block_chain_id = block_constants.global_variables.chain_id; // from avm
+    let block_version = block_constants.global_variables.version; // from avm
+    let block_gas_fees = block_constants.global_variables.gas_fees; // from avm
     let block_vk_tree_root = block_constants.vk_tree_root;
     let block_protocol_contracts_hash = block_constants.protocol_contracts_hash;
 
@@ -56,8 +59,10 @@ pub fn validate_tx_constant_data(
     assert(
         check_membership(
             archive_leaf_value,
-            archive_leaf_index as Field,
-            anchor_block_archive_sibling_path,
+            MembershipWitness {
+                leaf_index: archive_leaf_index as Field,
+                sibling_path: anchor_block_archive_sibling_path,
+            },
             block_last_archive_root,
         ),
         "Membership check failed: previous block hash not found in archive tree",
@@ -75,6 +80,8 @@ pub fn validate_tx_constant_data(
         "Mismatched vk_tree_root between kernel and rollup",
     );
 
+    // This assertion is not strictly necessary for public tx base, since the value in `block_constants` is copied over
+    // from `tx_constants`. However, using this single function for both private and public tx bases is cleaner.
     assert_eq(
         tx_protocol_contracts_hash,
         block_protocol_contracts_hash,
@@ -82,7 +89,8 @@ pub fn validate_tx_constant_data(
     );
 
     // Ensure that the `max_fees_per_gas` specified by the tx is greater than or equal to the `gas_fees` for the block.
-    // Note that for private only txs, the gas against the limit is checked on tail, since it doesn't have public execution.
+    // Note that for private-only txs, the gas against the limit is checked in the private-kernel-tail,
+    // since it doesn't have public execution.
     assert(
         tx_gas_settings.max_fees_per_gas.fee_per_da_gas >= block_gas_fees.fee_per_da_gas,
         "da gas is higher than the maximum specified by the tx",

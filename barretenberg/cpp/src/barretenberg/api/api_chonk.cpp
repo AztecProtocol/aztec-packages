@@ -3,6 +3,7 @@
 #include "barretenberg/api/log.hpp"
 #include "barretenberg/bbapi/bbapi.hpp"
 #include "barretenberg/chonk/chonk.hpp"
+#include "barretenberg/chonk/chonk_verifier.hpp"
 #include "barretenberg/chonk/mock_circuit_producer.hpp"
 #include "barretenberg/chonk/private_execution_steps.hpp"
 #include "barretenberg/common/get_bytecode.hpp"
@@ -21,12 +22,13 @@ namespace bb {
 namespace { // anonymous namespace
 
 /**
- * @brief Compute and write to file a MegaHonk VK for a circuit to be accumulated in the IVC
+ * @brief Compute and write to file a MegaHonk VK for a circuit to be accumulated by Chonk.
  * @note This method differes from write_vk_honk<MegaFlavor> in that it handles kernel circuits which require special
  * treatment (i.e. construction of mock IVC state to correctly complete the kernel logic).
+
  *
- * @param bytecode_path
- * @param witness_path
+ * @param bytecode ACIR bytecode of the circuit
+ * @param output_path Directory to write the VK (or "-" for stdout)
  */
 void write_standalone_vk(std::vector<uint8_t> bytecode, const std::filesystem::path& output_path)
 {
@@ -41,9 +43,19 @@ void write_standalone_vk(std::vector<uint8_t> bytecode, const std::filesystem::p
         write_file(output_path / "vk", response.bytes);
     }
 }
+
+/**
+ * @brief Compute and write the Chonk verification key.
+ *
+ * @details Computes the VK for the hiding kernel circuit. The bytecode parameter should be
+ * the last circuit in the IVC chain (e.g., private-tail in Aztec), as this determines
+ * the public inputs structure of the hiding kernel.
+ *
+ * @param bytecode ACIR bytecode of the final circuit in the IVC chain
+ * @param output_dir Directory to write the VK (or "-" for stdout)
+ */
 void write_chonk_vk(std::vector<uint8_t> bytecode, const std::filesystem::path& output_dir)
 {
-    // compute the hiding kernel's vk
     info("Chonk: computing IVC vk for hiding kernel circuit");
     auto response = bbapi::ChonkComputeIvcVk{ .circuit{ .bytecode = std::move(bytecode) } }.execute();
     const bool output_to_stdout = output_dir == "-";
@@ -109,7 +121,7 @@ bool ChonkAPI::verify([[maybe_unused]] const Flags& flags,
 {
     BB_BENCH_NAME("ChonkAPI::verify");
     auto proof_fields = many_from_buffer<fr>(read_file(proof_path));
-    auto proof = Chonk::Proof::from_field_elements(proof_fields);
+    auto proof = ChonkProof::from_field_elements(proof_fields);
 
     auto vk_buffer = read_file(vk_path);
 
@@ -127,7 +139,9 @@ bool ChonkAPI::prove_and_verify(const std::filesystem::path& input_path)
     // Construct the hiding kernel as the final step of the IVC
 
     auto proof = ivc->prove();
-    const bool verified = Chonk::verify(proof, ivc->get_vk());
+    auto vk_and_hash = ivc->get_hiding_kernel_vk_and_hash();
+    ChonkNativeVerifier verifier(vk_and_hash);
+    const bool verified = verifier.verify(proof);
     return verified;
 }
 

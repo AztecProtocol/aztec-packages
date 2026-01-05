@@ -220,5 +220,7 @@ class UltraKeccakZKFlavor : public UltraKeccakFlavor {
             BB_ASSERT_EQ(proof_data.size(), old_proof_length);
         }
     };
+
+    using VKAndHash = UltraKeccakFlavor::VKAndHash;
 };
 } // namespace bb

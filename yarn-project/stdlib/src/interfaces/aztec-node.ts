@@ -37,8 +37,8 @@ import {
   ProtocolContractAddressesSchema,
 } from '../contract/index.js';
 import { GasFees } from '../gas/gas_fees.js';
+import { SiloedTag, Tag, TxScopedL2Log } from '../logs/index.js';
 import { type LogFilter, LogFilterSchema } from '../logs/log_filter.js';
-import { TxScopedL2Log } from '../logs/tx_scoped_l2_log.js';
 import { type ApiSchemaFor, optional, schemas } from '../schemas/schemas.js';
 import { MerkleTreeId } from '../trees/merkle_tree_id.js';
 import { NullifierMembershipWitness } from '../trees/nullifier_membership_witness.js';
@@ -339,14 +339,16 @@ export interface AztecNode
   getContractClassLogs(filter: LogFilter): Promise<GetContractClassLogsResponse>;
 
   /**
-   * Gets all logs that match any of the received tags (i.e. logs with their first field equal to a tag).
-   * @param tags - The tags to filter the logs by.
-   * @param logsPerTag - How many logs to return per tag. Default 10 logs are returned for each tag
-   * @returns For each received tag, an array of matching logs and metadata (e.g. tx hash) is returned. An empty
-   * array implies no logs match that tag. There can be multiple logs for 1 tag because tag reuse can happen
-   * --> e.g. when sending a note from multiple unsynched devices.
+   * Gets all private logs that match any of the `tags`. For each tag, an array of matching logs is returned. An empty
+   * array implies no logs match that tag.
    */
-  getLogsByTags(tags: Fr[], logsPerTag?: number): Promise<TxScopedL2Log[][]>;
+  getPrivateLogsByTags(tags: SiloedTag[]): Promise<TxScopedL2Log[][]>;
+
+  /**
+   * Gets all public logs that match any of the `tags` from the specified contract. For each tag, an array of matching
+   * logs is returned. An empty array implies no logs match that tag.
+   */
+  getPublicLogsByTagsFromContract(contractAddress: AztecAddress, tags: Tag[]): Promise<TxScopedL2Log[][]>;
 
   /**
    * Method to submit a transaction to the p2p pool.
@@ -482,7 +484,6 @@ export interface AztecNode
   getAllowedPublicSetup(): Promise<AllowedElement[]>;
 }
 
-export const MAX_LOGS_PER_TAG = 10;
 const MAX_SIGNATURES_PER_REGISTER_CALL = 100;
 const MAX_SIGNATURE_LEN = 10000;
 
@@ -607,12 +608,14 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
 
   getContractClassLogs: z.function().args(LogFilterSchema).returns(GetContractClassLogsResponseSchema),
 
-  getLogsByTags: z
+  getPrivateLogsByTags: z
     .function()
-    .args(
-      z.array(schemas.Fr).max(MAX_RPC_LEN),
-      optional(z.number().gte(1).lte(MAX_LOGS_PER_TAG).default(MAX_LOGS_PER_TAG)),
-    )
+    .args(z.array(SiloedTag.schema).max(MAX_RPC_LEN))
+    .returns(z.array(z.array(TxScopedL2Log.schema))),
+
+  getPublicLogsByTagsFromContract: z
+    .function()
+    .args(schemas.AztecAddress, z.array(Tag.schema).max(MAX_RPC_LEN))
     .returns(z.array(z.array(TxScopedL2Log.schema))),
 
   sendTx: z.function().args(Tx.schema).returns(z.void()),

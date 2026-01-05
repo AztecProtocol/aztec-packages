@@ -6,11 +6,15 @@
 set -e
 
 show_usage() {
-    echo "Usage: $0 <command> <fuzzer_type> [options]"
+    echo "Usage: $0 <command> <fuzzer_type> [options] [-- fuzzer_args...]"
     echo "Commands:"
-    echo "  fuzz <fuzzer_type> [--log]     - Run the fuzzer (--log to tail fuzz-0.log)"
-    echo "  coverage <fuzzer_type> [type]  - Generate coverage report (type: html or report, default: html)"
-    echo "  list-targets                   - List all available fuzzing targets"
+    echo "  build <fuzzer_type>                        - Build the fuzzer binary"
+    echo "  fuzz <fuzzer_type> [--log] [-- args...]     - Run the fuzzer (--log to tail fuzz-0.log)"
+    echo "  coverage <fuzzer_type> [type]              - Generate coverage report (type: html or report, default: html)"
+    echo "  list-targets                               - List all available fuzzing targets"
+    echo ""
+    echo "Additional fuzzer arguments can be passed after '--'. For example:"
+    echo "  $0 fuzz tx -- -max_len=4096 -runs=1000"
 }
 
 # Check if command is provided
@@ -26,11 +30,16 @@ shift
 if [ "$COMMAND" = "list-targets" ]; then
     echo "Available fuzzing options (<target_name>):"
     echo "  avm - AVM fuzzer (avm_fuzzer_avm_fuzzer)"
+    echo "  tx - Transaction fuzzer (avm_fuzzer_tx_fuzzer)"
+    echo "  prover - Prover fuzzer (avm_fuzzer_prover_fuzzer)"
     echo "  alu - ALU fuzzer (harness_alu_fuzzer)"
     echo "  bitwise - Bitwise fuzzer (harness_bitwise_fuzzer)"
     echo "  ecc - ECC fuzzer (harness_ecc_fuzzer)"
     echo "  gt - Greater Than fuzzer (harness_gt_fuzzer)"
     echo "  merkle_check - Merkle Check fuzzer (harness_merkle_check_fuzzer)"
+    echo "  calldata - Calldata fuzzer (harness_calldata_fuzzer)"
+    echo "  emit_unencrypted_log - Emit Unencrypted Log fuzzer (harness_emit_unencrypted_log_fuzzer)"
+    echo "  internal_call - Internal Call fuzzer (harness_internal_call_fuzzer)"
     exit 0
 fi
 
@@ -56,17 +65,29 @@ if [ "$COMMAND" = "coverage" ] && [ $# -ge 1 ]; then
     fi
 fi
 
+# Parse additional arguments after '--'
+EXTRA_ARGS=()
+if [ $# -ge 1 ] && [ "$1" = "--" ]; then
+    shift
+    EXTRA_ARGS=("$@")
+fi
+
 # Validate and map fuzzer type
 case "$FUZZER_ALIAS" in
     avm) FUZZER_TYPE="avm_fuzzer_avm_fuzzer" ;;
+    tx) FUZZER_TYPE="avm_fuzzer_tx_fuzzer" ;;
+    prover) FUZZER_TYPE="avm_fuzzer_prover_fuzzer" ;;
     alu) FUZZER_TYPE="harness_alu_fuzzer" ;;
     bitwise) FUZZER_TYPE="harness_bitwise_fuzzer" ;;
     ecc) FUZZER_TYPE="harness_ecc_fuzzer" ;;
     gt) FUZZER_TYPE="harness_gt_fuzzer" ;;
     merkle_check) FUZZER_TYPE="harness_merkle_check_fuzzer" ;;
+    calldata) FUZZER_TYPE="harness_calldata_fuzzer" ;;
+    emit_unencrypted_log) FUZZER_TYPE="harness_emit_unencrypted_log_fuzzer" ;;
+    internal_call) FUZZER_TYPE="harness_internal_call_fuzzer" ;;
     *)
         echo "Error: Invalid fuzzer type '$FUZZER_ALIAS'"
-        echo "Valid options: 'avm', 'alu', 'bitwise', 'ecc', 'gt' or 'merkle_check'"
+        echo "Valid options: 'avm', 'tx', 'prover', 'alu', 'bitwise', 'ecc', 'gt', 'merkle_check', 'calldata', 'emit_unencrypted_log', or 'internal_call'"
         exit 1
         ;;
 esac
@@ -80,8 +101,8 @@ CPP_DIR="$BARRETENBERG_ROOT/cpp"
 # Set AVM_SIMULATOR_BIN environment variable (relative to PROJECT_ROOT)
 export AVM_SIMULATOR_BIN="${AVM_SIMULATOR_BIN:-$PROJECT_ROOT/yarn-project/simulator/dest/public/fuzzing/avm_simulator_bin.js}"
 
-# Check if AVM_SIMULATOR_BIN exists (only for avm fuzzer)
-if [ "$COMMAND" = "fuzz" ] && [ "$FUZZER_ALIAS" = "avm" ] && [ ! -f "$AVM_SIMULATOR_BIN" ]; then
+# Check if AVM_SIMULATOR_BIN exists (only for avm, tx, and prover fuzzers)
+if [ "$COMMAND" = "fuzz" ] && { [ "$FUZZER_ALIAS" = "avm" ] || [ "$FUZZER_ALIAS" = "tx" ] || [ "$FUZZER_ALIAS" = "prover" ]; } && [ ! -f "$AVM_SIMULATOR_BIN" ]; then
     echo "Error: AVM simulator binary not found at: $AVM_SIMULATOR_BIN"
     echo ""
     echo "To build the AVM simulator fuzzer binary:"
@@ -95,35 +116,71 @@ fi
 if [ "$COMMAND" = "coverage" ]; then
     BUILD_DIR="$CPP_DIR/build-coverage"
     BUILD_PRESET="clang20-coverage"
-    BUILD_CMAKE_FLAGS="-DFUZZING=ON -DFUZZING_AVM=ON"
+    BUILD_CMAKE_FLAGS="-DCOVERAGE_AVM=ON -DFUZZING=ON -DFUZZING_AVM=ON"
 else
     BUILD_DIR="$CPP_DIR/build-fuzzing-avm"
     BUILD_PRESET="fuzzing-avm"
     BUILD_CMAKE_FLAGS=""
 fi
 
+# Build function
+build_fuzzer() {
+    echo "Building fuzzer: $FUZZER_TYPE"
+    echo "Build directory: $BUILD_DIR"
+    echo "Preset: $BUILD_PRESET"
+    if [ -n "$BUILD_CMAKE_FLAGS" ]; then
+        echo "Extra CMake flags: $BUILD_CMAKE_FLAGS"
+    fi
+    echo ""
+
+    cd "$CPP_DIR"
+
+    # Configure if build dir doesn't exist or CMakeCache is missing
+    if [ ! -f "$BUILD_DIR/CMakeCache.txt" ]; then
+        echo "Configuring cmake..."
+        if [ -n "$BUILD_CMAKE_FLAGS" ]; then
+            cmake --preset "$BUILD_PRESET" $BUILD_CMAKE_FLAGS
+        else
+            cmake --preset "$BUILD_PRESET"
+        fi
+    fi
+
+    # Build the target
+    echo "Building target: $FUZZER_TYPE"
+    cmake --build "$BUILD_DIR" --target "$FUZZER_TYPE"
+
+    echo ""
+    echo "Build complete: $FUZZER_BIN"
+}
+
 # Check if fuzzer build/binary exists
 FUZZER_BIN="$BUILD_DIR/bin/$FUZZER_TYPE"
-if [ ! -d "$BUILD_DIR" ] || [ ! -f "$FUZZER_BIN" ]; then
-    echo "Error: Fuzzer binary not found: $FUZZER_BIN"
+
+# Handle build command
+if [ "$COMMAND" = "build" ]; then
+    build_fuzzer
+    exit 0
+fi
+
+# Auto-build if binary doesn't exist
+if [ ! -f "$FUZZER_BIN" ]; then
+    echo "Fuzzer binary not found: $FUZZER_BIN"
+    echo "Auto-building..."
     echo ""
-    echo "Please build the fuzzer by running:"
-    echo "  cd $CPP_DIR"
-    if [ -n "$BUILD_CMAKE_FLAGS" ]; then
-        echo "  cmake --preset $BUILD_PRESET $BUILD_CMAKE_FLAGS"
-    else
-        echo "  cmake --preset $BUILD_PRESET"
-    fi
-    echo "  cmake --build --preset $BUILD_PRESET --target $FUZZER_TYPE"
-    echo ""
-    echo "Use './run_fuzzer.sh list-targets' to see all available targets"
-    exit 1
+    build_fuzzer
 fi
 
 # Set corpus directory based on fuzzer type
 CORPUS_DIR="$SCRIPT_DIR/corpus/$FUZZER_ALIAS"
 # Sync corpus is used for parallel fuzzing - allows multiple workers to share discovered inputs
 SYNC_CORPUS_DIR="$SCRIPT_DIR/sync_corpus/$FUZZER_ALIAS"
+
+# Prover fuzzer shares corpus with tx fuzzer
+if [ "$FUZZER_ALIAS" = "prover" ]; then
+    CORPUS_DIR="$SCRIPT_DIR/corpus/tx"
+    SYNC_CORPUS_DIR="$SCRIPT_DIR/sync_corpus/tx"
+fi
+
 CRASHES_DIR="$CORPUS_DIR/crashes"
 
 # Create corpus, sync_corpus, and crashes directories
@@ -156,6 +213,9 @@ if [ "$COMMAND" = "fuzz" ]; then
     echo "  -entropic=$ENTROPIC"
     echo "  -shrink=$SHRINK"
     echo "  -artifact_prefix=$ARTIFACT_PREFIX"
+    if [ ${#EXTRA_ARGS[@]} -gt 0 ]; then
+        echo "Extra arguments: ${EXTRA_ARGS[*]}"
+    fi
 fi
 echo "=========================================="
 echo ""
@@ -164,6 +224,7 @@ echo ""
 if [ "$COMMAND" = "coverage" ]; then
     export LLVM_PROFILE_FILE="${LLVM_PROFILE_FILE:-coverage.profraw}"
     echo "Coverage profiling enabled: LLVM_PROFILE_FILE=$LLVM_PROFILE_FILE"
+    echo "COVERAGE_AVM: check_circuit is skipped in coverage builds"
     echo ""
 fi
 
@@ -171,8 +232,8 @@ fi
 FUZZER_CMD=(./bin/$FUZZER_TYPE)
 
 if [ "$COMMAND" = "coverage" ]; then
-    # When running with coverage, use simplified command
-    FUZZER_CMD+=("$CORPUS_DIR" "$SYNC_CORPUS_DIR" -runs=1)
+    # When running with coverage, run all corpus entries once (runs=0 means corpus only)
+    FUZZER_CMD+=("$CORPUS_DIR" "$SYNC_CORPUS_DIR" -runs=0)
 else
     # Normal fuzzing with full parameters
     FUZZER_CMD+=(
@@ -185,6 +246,11 @@ else
         "$CORPUS_DIR"
         "$SYNC_CORPUS_DIR"
     )
+fi
+
+# Add any extra arguments passed after '--'
+if [ ${#EXTRA_ARGS[@]} -gt 0 ]; then
+    FUZZER_CMD+=("${EXTRA_ARGS[@]}")
 fi
 
 # Run the fuzzer
@@ -225,10 +291,15 @@ if [ "$COMMAND" = "coverage" ] && [ -f "$LLVM_PROFILE_FILE" ]; then
     # Set path filter for vm2 directory
     VM2_PATH_FILTER="$CPP_DIR/src/barretenberg/vm2"
 
+    # Ignore patterns for generated and constraining directories
+    IGNORE_REGEX="(vm2/generated|vm2/constraining|vm2/testing|vm2/tooling)"
+
     if [ "$COVERAGE_FORMAT" = "html" ]; then
         REPORT_DIR="out/report"
         mkdir -p "$REPORT_DIR"
-        llvm-cov-20 show -output-dir="$REPORT_DIR" -format=html ./bin/$FUZZER_TYPE -instr-profile="$COVERAGE_DATA" "$VM2_PATH_FILTER"
+        llvm-cov-20 show -output-dir="$REPORT_DIR" -format=html \
+            -ignore-filename-regex="$IGNORE_REGEX" \
+            ./bin/$FUZZER_TYPE -instr-profile="$COVERAGE_DATA" "$VM2_PATH_FILTER"
 
         if [ $? -eq 0 ]; then
             REPORT_DIR_ABS="$(cd "$REPORT_DIR" && pwd)"
@@ -247,7 +318,9 @@ if [ "$COMMAND" = "coverage" ] && [ -f "$LLVM_PROFILE_FILE" ]; then
         fi
     else
         # report format
-        llvm-cov-20 report ./bin/$FUZZER_TYPE -instr-profile="$COVERAGE_DATA" "$VM2_PATH_FILTER"
+        llvm-cov-20 report \
+            -ignore-filename-regex="$IGNORE_REGEX" \
+            ./bin/$FUZZER_TYPE -instr-profile="$COVERAGE_DATA" "$VM2_PATH_FILTER"
 
         if [ $? -ne 0 ]; then
             echo "Error: Failed to generate coverage report"

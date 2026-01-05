@@ -27,7 +27,6 @@ export class L2BlockNew {
     public checkpointNumber: CheckpointNumber,
     /** Index of the block within the checkpoint. */
     public indexWithinCheckpoint: number,
-    private blockHash: Fr | undefined = undefined,
   ) {}
 
   get number(): BlockNumber {
@@ -80,11 +79,23 @@ export class L2BlockNew {
    * Returns the block's hash (hash of block header).
    * @returns The block's hash.
    */
-  public async hash(): Promise<Fr> {
-    if (this.blockHash === undefined) {
-      this.blockHash = await this.header.hash();
-    }
-    return this.blockHash;
+  public hash(): Promise<Fr> {
+    return this.header.hash();
+  }
+
+  /**
+   * Checks if this block equals another block.
+   * @param other - The other block to compare with.
+   * @returns True if both blocks are equal.
+   */
+  public equals(other: this): boolean {
+    return (
+      this.archive.equals(other.archive) &&
+      this.header.equals(other.header) &&
+      this.body.equals(other.body) &&
+      this.checkpointNumber === other.checkpointNumber &&
+      this.indexWithinCheckpoint === other.indexWithinCheckpoint
+    );
   }
 
   public toBlobFields(): Fr[] {
@@ -185,7 +196,6 @@ export class L2BlockNew {
 
   toBlockInfo(): L2BlockInfo {
     return {
-      blockHash: this.blockHash,
       archive: this.archive.root,
       lastArchive: this.header.lastArchive.root,
       blockNumber: this.number,

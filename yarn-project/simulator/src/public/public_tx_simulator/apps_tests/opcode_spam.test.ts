@@ -25,7 +25,9 @@ const describeOrSkip = process.env.RUN_AVM_OPCODE_SPAM ? describe : describe.ski
  * We leave it enabled by default so that we can validate that these
  * tests revert in the expected ways.
  */
-const COLLECT_META_CHECK_RET = true;
+const COLLECT_META_CHECK_RET = false;
+const MAX_CALL_STACK_ITEMS = COLLECT_META_CHECK_RET ? 10000 : 0;
+const MAX_CALL_STACK_DEPTH = COLLECT_META_CHECK_RET ? 10000 : 0;
 const expectToBeTrue = COLLECT_META_CHECK_RET ? (x: boolean) => expect(x).toBe(true) : () => {};
 
 describeOrSkip('Opcode Spammer Benchmarks', () => {
@@ -45,8 +47,11 @@ describeOrSkip('Opcode Spammer Benchmarks', () => {
     collectHints: false,
     collectPublicInputs: false,
     collectStatistics: false,
-    // Increase call stack limit for nested call tests (default 100 is too low for some opcodes)
-    collectionLimits: CollectionLimitsConfig.from({ maxCallStackItems: 10000 }),
+    // Increase call stack limits for nested call tests (defaults are too low for some opcodes)
+    collectionLimits: CollectionLimitsConfig.from({
+      maxCallStackItems: MAX_CALL_STACK_ITEMS,
+      maxCallStackDepth: MAX_CALL_STACK_DEPTH,
+    }),
   });
 
   afterAll(() => {
@@ -63,7 +68,7 @@ describeOrSkip('Opcode Spammer Benchmarks', () => {
   describe.each([
     // NOTE: Cpp vs TS simulation is very slow (because TS is slow), so we skip it by default.
     // It is useful to manually run to make sure these tests perform identically between simulators.
-    //{ useCppSimulator: false, simulatorName: 'TSvsCpp' },
+    //{ useCppSimulator: false, simulatorName: 'CppVsTs' },
     { useCppSimulator: true, simulatorName: 'Cpp' },
   ])('($simulatorName) Simulator', ({ useCppSimulator, simulatorName }) => {
     const metricsPrefix = simulatorName;

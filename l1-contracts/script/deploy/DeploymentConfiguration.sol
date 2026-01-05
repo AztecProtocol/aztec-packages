@@ -114,16 +114,14 @@ contract DeploymentConfiguration is IDeploymentConfiguration, Test {
       });
     } else if (h == keccak256("testnet")) {
       return GovernanceConfiguration({
-        proposeConfig: ProposeWithLockConfiguration({
-          lockDelay: Timestamp.wrap(10 * 365 * 24 * 60 * 60), lockAmount: 1250 * 200_000e18
-        }),
-        votingDelay: Timestamp.wrap(12 * 60 * 60),
-        votingDuration: Timestamp.wrap(1 * 24 * 60 * 60),
-        executionDelay: Timestamp.wrap(12 * 60 * 60),
-        gracePeriod: Timestamp.wrap(1 * 24 * 60 * 60),
+        proposeConfig: ProposeWithLockConfiguration({lockDelay: Timestamp.wrap(90 days), lockAmount: 258_750_000e18}),
+        votingDelay: Timestamp.wrap(12 hours),
+        votingDuration: Timestamp.wrap(1 days),
+        executionDelay: Timestamp.wrap(12 hours),
+        gracePeriod: Timestamp.wrap(1 days),
         quorum: 0.2e18,
         requiredYeaMargin: 0.1e18,
-        minimumVotes: 100 * 200_000e18
+        minimumVotes: 48 * 200_000e18
       });
     } else if (h == keccak256("staging-ignition")) {
       return GovernanceConfiguration({
