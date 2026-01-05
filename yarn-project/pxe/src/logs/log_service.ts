@@ -11,9 +11,9 @@ import { LogRetrievalResponse } from '../contract_function_simulator/noir-struct
 import { AddressDataProvider } from '../storage/address_data_provider/address_data_provider.js';
 import { AnchorBlockDataProvider } from '../storage/anchor_block_data_provider/anchor_block_data_provider.js';
 import { CapsuleDataProvider } from '../storage/capsule_data_provider/capsule_data_provider.js';
+import type { RecipientTaggingDataProvider } from '../storage/tagging_data_provider/recipient_tagging_data_provider.js';
 import type { SenderAddressBook } from '../storage/tagging_data_provider/sender_address_book.js';
-import { loadPrivateLogsForSenderRecipientPair } from '../tagging/recipient_sync/load_private_logs_for_sender_recipient_pair.js';
-import type { RecipientTaggingDataProvider } from '../tagging/recipient_sync/recipient_tagging_data_provider.js';
+import { loadPrivateLogsForSenderRecipientPair } from '../tagging/index.js';
 
 export class LogService {
   private log = createLogger('log_service');
