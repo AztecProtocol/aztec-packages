@@ -1,9 +1,3 @@
-// === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], commit: }
-// external_1:  { status: not started, auditors: [], commit: }
-// external_2:  { status: not started, auditors: [], commit: }
-// =====================
-
 #include "barretenberg/common/wasm_export.hpp"
 #include <ecc/curves/secp256k1/secp256k1.hpp>
 #include <ecc/curves/secp256r1/secp256r1.hpp>
