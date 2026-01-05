@@ -4,6 +4,7 @@
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/stdlib/test_utils/proof_structure.hpp"
+#include "barretenberg/stdlib/test_utils/tamper_proof.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 #include "barretenberg/ultra_honk/prover_instance.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
@@ -27,7 +28,8 @@ template <typename Flavor> class MegaTranscriptTests : public ::testing::Test {
     static Proof export_serialized_proof(Prover& prover, const size_t num_public_inputs)
     {
         // reset internal variables needed for exporting the proof
-        size_t proof_length = Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS() + num_public_inputs;
+        // Note: compute_proof_length_for_export excludes IPA proof length since export_proof appends it separately
+        size_t proof_length = compute_proof_length_for_export<Flavor>(num_public_inputs);
         prover.transcript->test_set_proof_parsing_state(0, proof_length);
         return prover.export_proof();
     }
