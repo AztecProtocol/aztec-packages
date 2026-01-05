@@ -255,7 +255,7 @@ export type L2BlockId = { number: BlockNumber; hash: string };
 
 export type CheckpointId = { number: CheckpointNumber; blockHeadersHash: string };
 
-export type L2TipId = { block: L2BlockId, checkpoint: CheckpointId };
+export type L2TipId = { block: L2BlockId; checkpoint: CheckpointId };
 
 /** Creates an L2 block id */
 export function makeL2BlockId(number: BlockNumber, hash?: string): L2BlockId {
