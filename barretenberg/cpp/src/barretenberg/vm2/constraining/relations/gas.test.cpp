@@ -415,5 +415,51 @@ TEST(GasConstrainingTest, DynGasFactorInvalidRadix)
                               execution::SR_DYN_GAS_ID_DECOMPOSITION);
 }
 
+TEST(GasConstrainingTest, DynGasFactorToRadixInvalidRadixLt2)
+{
+    PrecomputedTraceBuilder precomputed_builder;
+
+    uint32_t radix = 1; // Invalid radix (must be >= 2)
+    uint32_t num_limbs = 20;
+    uint32_t num_p_limbs = static_cast<uint32_t>(get_p_limbs_per_radix_size(radix)); // Returns 0
+    TestTraceContainer trace({ {
+                                   { C::execution_sel, 1 },
+                                   { C::execution_register_1_, radix },
+                                   { C::execution_register_2_, num_limbs },
+                                   { C::execution_sel_should_check_gas, 1 },
+                                   // To Radix BE Dynamic Gas
+                                   { C::execution_sel_gas_to_radix, 1 },
+                                   { C::execution_dyn_gas_id, AVM_DYN_GAS_ID_TORADIX },
+                                   { C::execution_two_five_six, 256 },
+                                   { C::execution_sel_radix_gt_256, 0 },
+                                   { C::execution_sel_lookup_num_p_limbs, 1 },
+                                   { C::execution_num_p_limbs, num_p_limbs },
+                                   { C::execution_sel_use_num_limbs, 1 }, // num_limbs (20) > num_p_limbs (0)
+                                   { C::execution_dynamic_l2_gas_factor, num_limbs }, // max(20, 0) = 20
+                                   // GT Trace, used to check if radix > 256
+                                   { C::gt_sel, 1 },
+                                   { C::gt_input_a, radix },
+                                   { C::gt_input_b, 256 },
+                                   { C::gt_res, 0 },
+                               },
+                               {
+                                   // Gt Trace, compare num_limbs > num_p_limbs
+                                   { C::gt_sel, 1 },
+                                   { C::gt_input_a, num_limbs },
+                                   { C::gt_input_b, num_p_limbs },
+                                   { C::gt_res, 1 }, // 20 > 0
+                               } });
+
+    precomputed_builder.process_misc(trace, 257);
+    precomputed_builder.process_to_radix_safe_limbs(trace);
+
+    // To Radix fails because radix < 2, but the lookup constraints must still satisfied for the gas relation to hold.
+    check_interaction<ExecutionTraceBuilder,
+                      lookup_execution_check_radix_gt_256_settings,
+                      lookup_execution_get_p_limbs_settings,
+                      lookup_execution_get_max_limbs_settings>(trace);
+    check_relation<execution>(trace, execution::SR_DYN_L2_FACTOR_TO_RADIX_BE, execution::SR_DYN_GAS_ID_DECOMPOSITION);
+}
+
 } // namespace
 } // namespace bb::avm2::constraining
