@@ -342,8 +342,6 @@ The permutation argument verifies that within each group, the interleaved values
 > $$p_{\textsf{interleaved}}(x) = \sum_{i=0}^{15} x^i \cdot p_{i}(x^{16})$$
 > The interleaved polynomials don't need to be committed explicitly; they can be opened (at, say $\gamma$) by using the commitments to the original polynomials and their evaluations (at $\gamma^{16}$). This is explained in more detail in the [Gemini](../commitment_schemes/gemini/README.md) documentation.
 
----
-
 ## Witness Generation and Proving Key Construction
 
 This section details how the Translator circuit's witness polynomials are populated and how zero-knowledge is achieved through masking.
@@ -995,7 +993,7 @@ I_1 \quad I_2 \quad I_3 \quad I_4 \\
    \end{array}
    }}
    \\
-   \\[-10pt]
+   \\[-13pt]
    \textcolor{violet}{
    \boxed{
    \begin{array}{c}
@@ -1158,7 +1156,7 @@ O_1 \quad O_2 \ \ O_3 \quad O_4 \\
    \end{array}
    }}
    \\
-   \\[-10pt]
+   \\[-12pt]
    \textcolor{lightgreen}{
    \boxed{
    \begin{array}{c}
@@ -1166,7 +1164,7 @@ O_1 \quad O_2 \ \ O_3 \quad O_4 \\
    \end{array}
    }}
    \\
-   \\[-10pt]
+   \\[-13pt]
    \textcolor{violet}{
    \boxed{
    \begin{array}{c}
@@ -1194,7 +1192,7 @@ O_1 \quad O_2 \ \ O_3 \quad O_4 \\
 \end{array}
 $$
 
-> In our case, we have $m=4$ and $I_{\textsf{size}}=16$ which results in $(m \cdot I_{\textsf{size}}) = 64$ masked rows in each interleaved polynomials. Thus, each ordered polynomial will have at least $\left\lfloor\frac{4 \cdot 64}{5}\right\rfloor = 51$ masked rows. The remainder masked row is added to the first ordered polynomial. The masking rows in each ordered polynomial are padded with zero values to ensure the multiset equality holds.
+> In our case, we have $m=4$ and $I_{\textsf{size}}=16$ which results in $(m \cdot I_{\textsf{size}}) = 64$ masked rows in each interleaved polynomials. Thus, each ordered polynomial will have at least $\left\lfloor\frac{4 \cdot 64}{5}\right\rfloor = 51$ masked rows. The remainder masked rows are added to the respective ordered polynomials. The masking rows in each ordered polynomial are padded with zero values to ensure the multiset equality holds.
 >
 > As illustrated, the two sets of interleaved and ordered polynomials satisfy the multiset equality:
 > $$\bigcup_{i=1}^5 I_i = \bigcup_{i=1}^5 O_i.$$
@@ -1231,7 +1229,7 @@ Some positions in the ordered masking region contain random values, others conta
 
 ### Step 8: Precomputed Polynomials
 
-Several polynomials are **precomputed** and independent of the witness:
+Several polynomials are precomputed and independent of the witness.
 
 #### Lagrange Polynomials
 
@@ -1258,8 +1256,6 @@ This ensures the multisets balance:
 
 - **Numerator:** 4 interleaved + 1 extra (with 5 copies of each step value)
 - **Denominator:** 5 ordered (each with 1 copy of each step value)
-
----
 
 ## Translator Relations
 
