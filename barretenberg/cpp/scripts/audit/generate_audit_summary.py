@@ -4,10 +4,12 @@ Audit status tracking tool for barretenberg.
 
 Usage:
     python3 generate_audit_summary.py                      # Generate audit_summary.json
-    python3 generate_audit_summary.py --list-unaudited     # List files with incomplete internal audit
-    python3 generate_audit_summary.py --list-unaudited --dir chonk  # Filter by module
+    python3 generate_audit_summary.py --status "not started"  # List only not started files
+    python3 generate_audit_summary.py --status "planned"      # List only planned files
+    python3 generate_audit_summary.py --status "complete"     # List files with complete audit
+    python3 generate_audit_summary.py --status "incomplete"   # List all incomplete files
+    python3 generate_audit_summary.py --status "not started" --dir chonk  # Filter by module
     python3 generate_audit_summary.py --list-missing       # List files without audit headers
-    python3 generate_audit_summary.py --list-complete      # List files with complete internal audit
 """
 
 import argparse
@@ -125,34 +127,40 @@ def generate_summary(files_data):
     return summary
 
 
-def list_unaudited(files_data, role="internal"):
-    """List files where the specified role's audit is not complete."""
-    unaudited = []
+def list_by_status(files_data, role="internal", status_filter=None):
+    """List files filtered by audit status.
+
+    Args:
+        files_data: Scanned file data
+        role: Audit role to check (e.g., 'internal', 'external_1')
+        status_filter: Status to filter by:
+            - Specific status: 'not started', 'planned', 'in progress', 'complete'
+            - 'incomplete': all files where status != 'complete'
+            - None: all files
+    """
+    results = []
 
     for rel_path, top_module, header_data in files_data['files']:
         if role in header_data:
             status = normalize_status(header_data[role].get("status", "unknown"))
-            if status != "complete":
-                unaudited.append((rel_path, status))
 
-    return sorted(unaudited)
+            # Determine if file matches filter
+            matches = False
+            if status_filter is None:
+                matches = True
+            elif normalize_status(status_filter) == "incomplete":
+                matches = (status != "complete")
+            else:
+                matches = (status == normalize_status(status_filter))
 
-
-def list_complete(files_data, role="internal"):
-    """List files where the specified role's audit is complete."""
-    complete = []
-
-    for rel_path, top_module, header_data in files_data['files']:
-        if role in header_data:
-            status = normalize_status(header_data[role].get("status", "unknown"))
-            if status == "complete":
+            if matches:
                 auditors = header_data[role].get("auditors", [])
-                complete.append((rel_path, auditors))
+                results.append((rel_path, status, auditors))
 
-    return sorted(complete)
+    return sorted(results)
 
 
-def print_by_directory(file_list, show_status=True):
+def print_by_directory(file_list, show_status=True, show_auditors=False):
     """Print files grouped by their top-level directory."""
     by_dir = defaultdict(list)
 
@@ -173,7 +181,12 @@ def print_by_directory(file_list, show_status=True):
         print("-" * 40)
         for rel_path, extra in files:
             if extra and show_status:
-                print(f"  {rel_path}  [{extra[0]}]")
+                status = extra[0]
+                output = f"  {rel_path}  [{status}]"
+                if show_auditors and len(extra) > 1 and extra[1]:
+                    auditors = ", ".join(extra[1])
+                    output += f"  (auditors: {auditors})"
+                print(output)
             else:
                 print(f"  {rel_path}")
 
@@ -185,19 +198,15 @@ def main():
         epilog=__doc__
     )
     parser.add_argument(
-        "--list-unaudited",
-        action="store_true",
-        help="List files where internal audit is not complete"
+        "--status",
+        type=str,
+        default=None,
+        help="Filter by status: 'not started', 'planned', 'in progress', 'complete', or 'incomplete' (all non-complete)"
     )
     parser.add_argument(
         "--list-missing",
         action="store_true",
         help="List files without audit headers"
-    )
-    parser.add_argument(
-        "--list-complete",
-        action="store_true",
-        help="List files with complete internal audit"
     )
     parser.add_argument(
         "--dir",
@@ -231,22 +240,15 @@ def main():
             print_by_directory(missing, show_status=False)
         return
 
-    if args.list_unaudited:
-        unaudited = list_unaudited(files_data, role=args.role)
+    if args.status:
+        results = list_by_status(files_data, role=args.role, status_filter=args.status)
         if args.json:
-            print(json.dumps([{"file": f, "status": s} for f, s in unaudited], indent=2))
+            print(json.dumps([{"file": f, "status": s, "auditors": a} for f, s, a in results], indent=2))
         else:
-            print(f"\nFiles with incomplete {args.role} audit: {len(unaudited)}")
-            print_by_directory(unaudited, show_status=True)
-        return
-
-    if args.list_complete:
-        complete = list_complete(files_data, role=args.role)
-        if args.json:
-            print(json.dumps([{"file": f, "auditors": a} for f, a in complete], indent=2))
-        else:
-            print(f"\nFiles with complete {args.role} audit: {len(complete)}")
-            print_by_directory(complete, show_status=True)
+            status_display = args.status if args.status != "incomplete" else "incomplete (not complete)"
+            print(f"\nFiles with {args.role} audit status '{status_display}': {len(results)}")
+            show_auditors = (normalize_status(args.status) == "complete")
+            print_by_directory(results, show_status=True, show_auditors=show_auditors)
         return
 
     # Default: generate summary JSON
