@@ -123,8 +123,9 @@ jobs:
   ci-network-scenario:
     runs-on: ubuntu-latest
     # We either run after a release (tag starting with v), or when the ci-network-scenario label is present in a PR.
+    # We exclude ci-release-pr test tags (v0.0.1-commit.*) which are only for testing the release process.
     needs: ci
-    if: github.event.pull_request.head.repo.fork != true && github.event.pull_request.draft == false && (startsWith(github.ref, 'refs/tags/v') || contains(github.event.pull_request.labels.*.name, 'ci-network-scenario'))
+    if: github.event.pull_request.head.repo.fork != true && github.event.pull_request.draft == false && ((startsWith(github.ref, 'refs/tags/v') && !contains(github.ref_name, '-commit.')) || contains(github.event.pull_request.labels.*.name, 'ci-network-scenario'))
     steps:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
