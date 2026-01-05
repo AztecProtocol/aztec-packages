@@ -1,5 +1,6 @@
 #include "barretenberg/avm_fuzzer/fuzz_lib/instruction.hpp"
 
+#include "barretenberg/avm_fuzzer/fuzz_lib/contract_db_proxy.hpp"
 #include "barretenberg/avm_fuzzer/mutations/basic_types/field.hpp"
 #include "barretenberg/avm_fuzzer/mutations/basic_types/memory_tag.hpp"
 #include "barretenberg/avm_fuzzer/mutations/basic_types/uint16_t.hpp"
@@ -428,6 +429,8 @@ std::vector<FuzzInstruction> generate_emitunencryptedlog_instruction(std::mt1993
 
     uint32_t log_size = std::uniform_int_distribution<uint32_t>(0, FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH)(rng);
     std::vector<FuzzInstruction> instructions;
+    instructions.reserve(3);
+
     auto log_size_address = generate_address_ref(rng, MAX_16BIT_OPERAND);
     auto log_values_address = generate_address_ref(rng, MAX_16BIT_OPERAND - log_size);
 
@@ -441,6 +444,62 @@ std::vector<FuzzInstruction> generate_emitunencryptedlog_instruction(std::mt1993
 
     instructions.push_back(EMITUNENCRYPTEDLOG_Instruction{ .log_size_address = log_size_address,
                                                            .log_values_address = log_values_address });
+
+    return instructions;
+}
+
+std::vector<FuzzInstruction> generate_call_instruction(std::mt19937_64& rng)
+{
+    // 80% chance to use backfill (4 out of 5) to increase success rate
+    bool use_backfill = std::uniform_int_distribution<int>(0, 4)(rng) != 0;
+
+    if (!use_backfill) {
+
+        return { CALL_Instruction{ .l2_gas_address = generate_variable_ref(rng),
+                                   .da_gas_address = generate_variable_ref(rng),
+                                   .contract_address_address = generate_variable_ref(rng),
+                                   .calldata_address = generate_variable_ref(rng),
+                                   .calldata_size_address = generate_address_ref(rng, MAX_16BIT_OPERAND),
+                                   .calldata_size = generate_random_uint16(rng),
+                                   .is_static_call = rng() % 2 == 0 } };
+    }
+
+    std::vector<FuzzInstruction> instructions;
+    instructions.reserve(5);
+
+    auto contract_address_address = generate_address_ref(rng, MAX_16BIT_OPERAND);
+    instructions.push_back(SET_FF_Instruction{
+        .value_tag = bb::avm2::MemoryTag::FF,
+        .result_address = contract_address_address,
+        .value =
+            bb::avm2::fuzzer::ContractDBProxy::get_instance()->get_function_address(generate_random_uint16(rng)) });
+
+    auto l2_gas_address = generate_address_ref(rng, MAX_16BIT_OPERAND);
+    instructions.push_back(SET_32_Instruction{ .value_tag = bb::avm2::MemoryTag::U32,
+                                               .result_address = l2_gas_address,
+                                               .value = generate_random_uint32(rng) });
+
+    auto da_gas_address = generate_address_ref(rng, MAX_16BIT_OPERAND);
+    instructions.push_back(SET_32_Instruction{ .value_tag = bb::avm2::MemoryTag::U32,
+                                               .result_address = da_gas_address,
+                                               .value = generate_random_uint32(rng) });
+
+    auto calldata_size = generate_random_uint16(rng);
+    auto calldata_size_address = generate_address_ref(rng, MAX_16BIT_OPERAND);
+
+    auto calldata_address = generate_address_ref(rng, MAX_16BIT_OPERAND);
+    // Write one random FF in the calldata
+    instructions.push_back(SET_FF_Instruction{ .value_tag = bb::avm2::MemoryTag::FF,
+                                               .result_address = calldata_address,
+                                               .value = generate_random_field(rng) });
+
+    instructions.push_back(CALL_Instruction{ .l2_gas_address = l2_gas_address,
+                                             .da_gas_address = da_gas_address,
+                                             .contract_address_address = contract_address_address,
+                                             .calldata_address = calldata_address,
+                                             .calldata_size_address = calldata_size_address,
+                                             .calldata_size = calldata_size,
+                                             .is_static_call = rng() % 2 == 0 });
 
     return instructions;
 }
@@ -615,16 +674,7 @@ std::vector<FuzzInstruction> generate_instruction(std::mt19937_64& rng)
     case InstructionGenerationOptions::EMITUNENCRYPTEDLOG:
         return generate_emitunencryptedlog_instruction(rng);
     case InstructionGenerationOptions::CALL:
-        return { CALL_Instruction{ .function_index = generate_random_uint16(rng),
-                                   .address_offset = generate_random_uint16(rng),
-                                   .l2_gas = generate_random_uint32(rng),
-                                   .l2_gas_address = generate_random_uint16(rng),
-                                   .da_gas = generate_random_uint32(rng),
-                                   .da_gas_address = generate_random_uint16(rng),
-                                   .arg_size_offset = generate_random_uint16(rng),
-                                   .args_offset = generate_random_uint16(rng),
-                                   .args = { generate_random_field(rng) },
-                                   .is_static_call = rng() % 2 == 0 } };
+        return generate_call_instruction(rng);
     case InstructionGenerationOptions::RETURNDATASIZE_WITH_RETURNDATACOPY:
         return { RETURNDATASIZE_WITH_RETURNDATACOPY_Instruction{ .copy_size_offset = generate_random_uint16(rng),
                                                                  .dst_address = generate_random_uint16(rng),
@@ -1117,45 +1167,30 @@ void mutate_call_instruction(CALL_Instruction& instruction, std::mt19937_64& rng
 {
     CallMutationOptions option = BASIC_CALL_MUTATION_CONFIGURATION.select(rng);
     switch (option) {
-    case CallMutationOptions::function_index:
-        mutate_uint16_t(instruction.function_index, rng, BASIC_UINT16_T_MUTATION_CONFIGURATION);
-        break;
-    case CallMutationOptions::address_offset:
-        mutate_uint16_t(instruction.address_offset, rng, BASIC_UINT16_T_MUTATION_CONFIGURATION);
-        break;
-    case CallMutationOptions::l2_gas:
-        mutate_uint32_t(instruction.l2_gas, rng, BASIC_UINT32_T_MUTATION_CONFIGURATION);
-        break;
     case CallMutationOptions::l2_gas_address:
-        mutate_uint16_t(instruction.l2_gas_address, rng, BASIC_UINT16_T_MUTATION_CONFIGURATION);
-        break;
-    case CallMutationOptions::da_gas:
-        mutate_uint32_t(instruction.da_gas, rng, BASIC_UINT32_T_MUTATION_CONFIGURATION);
+        mutate_param_ref(instruction.l2_gas_address, rng, MemoryTag::U32, MAX_16BIT_OPERAND);
         break;
     case CallMutationOptions::da_gas_address:
-        mutate_uint16_t(instruction.da_gas_address, rng, BASIC_UINT16_T_MUTATION_CONFIGURATION);
+        mutate_param_ref(instruction.da_gas_address, rng, MemoryTag::U32, MAX_16BIT_OPERAND);
         break;
-    case CallMutationOptions::arg_size_offset:
-        mutate_uint16_t(instruction.arg_size_offset, rng, BASIC_UINT16_T_MUTATION_CONFIGURATION);
+    case CallMutationOptions::contract_address_address:
+        mutate_param_ref(instruction.contract_address_address, rng, MemoryTag::FF, MAX_16BIT_OPERAND);
         break;
-    case CallMutationOptions::args:
-        mutate_vec<bb::avm2::FF>(
-            instruction.args,
-            rng,
-            [](bb::avm2::FF& value, std::mt19937_64& rng) {
-                mutate_field(value, rng, BASIC_FIELD_MUTATION_CONFIGURATION);
-            },
-            generate_random_field,
-            BASIC_VEC_MUTATION_CONFIGURATION);
+    case CallMutationOptions::calldata_size_address:
+        mutate_address_ref(instruction.calldata_size_address, rng, MAX_16BIT_OPERAND);
         break;
-    case CallMutationOptions::args_offset:
-        mutate_uint16_t(instruction.args_offset, rng, BASIC_UINT16_T_MUTATION_CONFIGURATION);
+    case CallMutationOptions::calldata_size:
+        mutate_uint16_t(instruction.calldata_size, rng, BASIC_UINT16_T_MUTATION_CONFIGURATION);
+        break;
+    case CallMutationOptions::calldata_address:
+        mutate_param_ref(instruction.calldata_address, rng, MemoryTag::FF, MAX_16BIT_OPERAND);
         break;
     case CallMutationOptions::is_static_call:
         // with 0.5 probability, set to true, otherwise false
         instruction.is_static_call = rng() % 2 == 0;
     }
 }
+
 void mutate_returndatasize_with_returndatacopy_instruction(RETURNDATASIZE_WITH_RETURNDATACOPY_Instruction& instruction,
                                                            std::mt19937_64& rng)
 {
