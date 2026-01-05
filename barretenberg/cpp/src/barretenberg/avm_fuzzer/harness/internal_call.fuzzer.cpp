@@ -223,7 +223,7 @@ void fuzz_internal_return(std::vector<ExecutionEvent>& ex_events,
     try {
         auto next_pc = internal_call_stack_manager.pop();
         context->set_next_pc(next_pc);
-    } catch (const std::exception& e) {
+    } catch (const InternalCallStackException& e) {
         // Do post-dispatch error handling from Execution.execute
         ex_event.error = ExecutionError::OPCODE_EXECUTION;
         context->set_gas_used(context->get_gas_limit()); // Consume all gas.
