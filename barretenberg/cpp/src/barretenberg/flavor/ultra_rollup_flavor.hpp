@@ -11,23 +11,19 @@
 
 namespace bb {
 
+/**
+ * @brief UltraRollupFlavor extends UltraFlavor with IPA proof support.
+ * @details The only differences from UltraFlavor are:
+ * 1. PROOF_LENGTH_WITHOUT_PUB_INPUTS includes IPA_PROOF_LENGTH
+ * 2. BACKEND_PUB_INPUTS_SIZE uses RollupIO::PUBLIC_INPUTS_SIZE
+ * All other types (VerificationKey, VerifierCommitments, etc.) are inherited.
+ */
 class UltraRollupFlavor : public bb::UltraFlavor {
   public:
-    static constexpr size_t num_frs_comm = FrCodec::calc_num_fields<Commitment>();
-    static constexpr size_t num_frs_fr = FrCodec::calc_num_fields<FF>();
     static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS(size_t virtual_log_n = VIRTUAL_LOG_N)
     {
         return UltraFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS(virtual_log_n) + IPA_PROOF_LENGTH;
     }
-    static constexpr size_t BACKEND_PUB_INPUTS_SIZE = RollupIO::PUBLIC_INPUTS_SIZE;
-
-    using UltraFlavor::UltraFlavor;
-
-    // Reuse UltraFlavor's VerificationKey (same codec and hash function)
-    using VerificationKey = UltraFlavor::VerificationKey;
-
-    using VerifierCommitments = VerifierCommitments_<Commitment, VerificationKey>;
-    using VKAndHash = VKAndHash_<FF, VerificationKey>;
 };
 
 } // namespace bb
