@@ -76,6 +76,9 @@ impl<let NumPreviousRollups: u32, let NumVkIndices: u32> CheckpointRootInputsVal
             "The start state of the checkpoint does not match the state in the previous block header",
         );
 
+        // Notice: unlike blocks within the same checkpoint (which can share the same timestamp),
+        // the blocks of _different_ checkpoints must have strictly increasing timestamps.
+        // I.e. the `>` here is _intentional_.
         assert(
             first_rollup.start_timestamp > self.previous_block_header.global_variables.timestamp,
             "The start timestamp must be after the previous block's timestamp",
@@ -85,6 +88,8 @@ impl<let NumPreviousRollups: u32, let NumVkIndices: u32> CheckpointRootInputsVal
         // In `validate_consecutive_block_rollups`, it ensures that the hash only propagates through all merge steps
         // exclusively via the left rollup. The value in the left rollup must not be 0 when it reaches the checkpoint
         // root (this point).
+        // Note: If the L1 subtree being copied to L2 is empty, then the in_hash will be the root of a tree whose
+        // leaves are empty (0) messages.
         assert(
             first_rollup.in_hash != 0,
             "in_hash must be set via the first block root in the checkpoint",
