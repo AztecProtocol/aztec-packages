@@ -25,10 +25,10 @@ The Translator circuit is a critical component of the Goblin Plonk proving syste
 
 When proving recursive circuits with Mega circuit builder, we accumulate elliptic curve operations in an `EccOpQueue`. Proving these ECC operations is delegated to the ECCVM circuit, which operates over the Grumpkin curve. However, the same operations have different representations in the two circuits because:
 
-- Mega circuit operates over the BN254 scalar field $\mathbb{F}_r$ so elements in $\mathbb{F}_q$ are non-native (i.e., they need to decomposed into limbs in $\mathbb{F}_r$)
-- ECCVM operates over the Grumpkin scalar field $\mathbb{F}_q$ so elements in $\mathbb{F}_q$ are circuit native
+- Mega circuit operates over the BN254 scalar field $\mathbb{F}_r$ so elements in $\mathbb{F}_q$ are non-native (i.e., since $q > r$ they need to be decomposed into limbs in $\mathbb{F}_r$)
+- ECCVM operates over the Grumpkin scalar field $\mathbb{F}_q$ so elements in $\mathbb{F}_q$ (as well as $\mathbb{F}_r$) are circuit native
 
-For example, consider the operation $(z \cdot P)$ where $P$ is a point on the curve and $z$ is a scalar. The ECCVM arithmetisation represents this operation (in 1 row) as:
+For example, consider the operation $(z \cdot P)$ where $P \equiv (P_x, P_y) \in \mathbb{F}_q^2$ is a point on the curve and $z \in \mathbb{F}_r$ is a scalar. The ECCVM arithmetisation represents this operation (in 1 row) as:
 
 | Opcode | $x$-coordinate | $y$-coordinate | Scalar $z_1$ | Scalar $z_2$ | Full scalar $z$ |
 | ------ | -------------- | -------------- | ------------ | ------------ | --------------- |
@@ -43,29 +43,25 @@ The Mega circuit arithmetisation represents the same operation (in 2 rows) as:
 | $0$      | $P_{y, \textsf{hi}}$ | $z_1$                | $z_2$                |
 |          |                      |                      |                      |
 
-where $P_x = (P_{x, \textsf{lo}} + 2^{136} \cdot P_{x, \textsf{hi}}), \ P_y = (P_{y, \textsf{lo}} + 2^{136} \cdot P_{y, \textsf{hi}})$ and the scalar $z = (z_1 + 2^{128} \cdot z_2)$.
+where $P_x = (P_{x, \textsf{lo}} + 2^{136} \cdot P_{x, \textsf{hi}}), \ P_y = (P_{y, \textsf{lo}} + 2^{136} \cdot P_{y, \textsf{hi}})$ and the scalar $z = (z_1 + 2^{128} \cdot z_2)$. Note that the limbs $P_{x/y, \textsf{lo}}, P_{x/y, \textsf{hi}}$ are elements in $\mathbb{F}_r$.
 
 We need to prove that these two representations are consistent, i.e., that the polynomial evaluations computed in the ECCVM circuit (over $\mathbb{F}_q$) match those computed in the Mega circuit (over $\mathbb{F}_r$).
-
 The Translator circuit is a custom circuit designed to solve this problem. It:
 
 1. **Receives** the ECC op queue in Mega arithmetisation and the batched polynomial evaluation problem from ECCVM (operating over $\mathbb{F}_q$),
 2. **Computes** the batched polynomial evaluation using non-native field arithmetic in $\mathbb{F}_r$ and,
 3. **Verifies** that the result matches the evaluation provided by ECCVM.
 
----
-
 ## High-Level Statement
 
 The Translator proves that the ECCVM's batched polynomial evaluation of the ECC operations is computed correctly.
-
-**Given:**
+Given:
 
 - A sequence of `UltraOp` operations from the `EccOpQueue` (each containing: $\text{op}, P_x, P_y, z_1, z_2$)
 - An evaluation challenge $x \in \mathbb{F}_q$
 - A batching challenge $v \in \mathbb{F}_q$
 
-**Prove:**
+Prove that:
 $$\boxed{\text{accumulator}_{\text{final}} = \sum_{i=0}^{n-1} x^{n-1-i} \cdot \left( \text{op}_i + v \cdot P_x^{(i)} + v^2 \cdot P_y^{(i)} + v^3 \cdot z_1^{(i)} + v^4 \cdot z_2^{(i)} \right) \pmod{q}}$$
 
 The batching via powers of $v$ combines the 5 values per operation into a single field element, and the powers of $x$ combine all operations into a single accumulator.
@@ -88,7 +84,7 @@ $$
 $$
 
 The final accumulator value $\textcolor{violet}{\text{acc}_{n-1}}$ is what we need to verify against the ECCVM's output.
-Note that the "previous" accumulator in the _last_ step must be 0.
+Note that the "previous" accumulator for the _last_ operation must be 0.
 
 **Method:** Since we cannot directly compute in $\mathbb{F}_q$ using $\mathbb{F}_r$ arithmetic (as $q \neq r$, and in fact $q > r$), we use non-native field arithmetic. Similar to the technique in [bigfield](../stdlib/primitives/bigfield/README.md), we prove the equation holds in integers:
 
@@ -115,11 +111,11 @@ The circuit operates on a 2-row cycle structure. Each `EccOpQueue` entry occupie
 - Row $2i$ (Even rows): Computation rows where the non-native field relation is actively checked
 - Row $2i+1$ (Odd rows): Data storage rows that hold values accessed via shifts
 
-While enforcing constraints on the even rows, we can access values from the "next" odd row using shifted column polynomials.
+While enforcing constraints on the even rows, we can access values from the "next" row (which is odd) using shifted column polynomials.
 As hinted earlier, the "previous" accumulator value needed for computation is stored at odd row $(2i+1)$.
 This value becomes the "current" accumulator for the next even row $(2i+2)$:
 
-| Op index             | $0$                                    | $1$                                   | $\quad \dots \quad$ | $(n-2)$                                  | $(n-1)$                              |
+| Operation index      | $0$                                    | $1$                                   | $\quad \dots \quad$ | $(n-2)$                                  | $(n-1)$                              |
 | -------------------- | -------------------------------------- | ------------------------------------- | ------------------- | ---------------------------------------- | ------------------------------------ |
 | Current accumulator  | $\textcolor{violet}{\text{acc}_{n-1}}$ | $\textcolor{brown}{\text{acc}_{n-2}}$ | $\quad \dots \quad$ | $\textcolor{lightgreen}{\text{acc}_{1}}$ | $\textcolor{orange}{\text{acc}_{0}}$ |
 | Previous accumulator | $\textcolor{brown}{\text{acc}_{n-2}}$  | $\textcolor{grey}{\text{acc}_{n-3}}$  | $\quad \dots \quad$ | $\textcolor{orange}{\text{acc}_{0}}$     | $0$                                  |
@@ -129,7 +125,7 @@ This value becomes the "current" accumulator for the next even row $(2i+2)$:
 
 These columns directly represent the EccOpQueue transcript:
 
-| Column      | Even Row $(2i)$                  | Odd Row $(2i+1)$             | Description                                                        |
+| Column Name | Even Row $(2i)$                  | Odd Row $(2i+1)$             | Description                                                        |
 | ----------- | -------------------------------- | ---------------------------- | ------------------------------------------------------------------ |
 | `OP`        | $\texttt{op} \in \{0, 3, 4, 8\}$ | 0 (no-op)                    | Opcode (the type of elliptic curve operation)                      |
 | `X_LO_Y_HI` | $P_{x,\text{lo}}$ (136 bits)     | $P_{y,\text{hi}}$ (118 bits) | Low 136 bits of $x$-coordinate and high 118 bits of $y$-coordinate |
@@ -196,7 +192,7 @@ Each limb is further decomposed into 14-bit microlimbs for range checking. Each 
 | `P_Y_HIGH_LIMBS_RANGE_CONSTRAINT_2`            | $P_{y,2}[2]$                                             | $P_{y,3}[2]$                                              |
 | `P_Y_HIGH_LIMBS_RANGE_CONSTRAINT_3`            | $P_{y,2}[3]$                                             | $P_{y,3}[3]$                                              |
 | `P_Y_HIGH_LIMBS_RANGE_CONSTRAINT_4`            | $P_{y,2}[4]$                                             | $\textcolor{yellow}{P_{y,3}[\textsf{tail}]}$ (reassigned) |
-| Coordinate $z_1$ microlimbs                    |                                                          |                                                           |
+| Coordinate $z_1$ and $z_2$ microlimbs          |                                                          |                                                           |
 | `Z_LOW_LIMBS_RANGE_CONSTRAINT_0`               | $z_{1,0}[0]$                                             | $z_{2,0}[0]$                                              |
 | `Z_LOW_LIMBS_RANGE_CONSTRAINT_1`               | $z_{1,0}[1]$                                             | $z_{2,0}[1]$                                              |
 | `Z_LOW_LIMBS_RANGE_CONSTRAINT_2`               | $z_{1,0}[2]$                                             | $z_{2,0}[2]$                                              |
@@ -261,7 +257,6 @@ Some columns are "virtual" and not explicitly stored in the witness trace. Inste
 ### Lagrange Polynomials (Precomputed)
 
 The Translator circuit uses ZERO selector polynomials (`NUM_SELECTORS = 0`).
-
 Instead, the circuit uses Lagrange polynomials to control which constraints are active:
 
 | Polynomial                     | Description                     | Active Rows                                                                  |
