@@ -1,4 +1,4 @@
-import { INITIAL_L2_BLOCK_NUM, MAX_NOTE_HASHES_PER_TX } from '@aztec/constants';
+import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
@@ -57,21 +57,16 @@ export class LogStore {
    * @param block - The L2 block to extract logs from.
    * @returns An object containing the private and public tagged logs for the block.
    */
-  async #extractTaggedLogsFromBlock(block: L2BlockNew) {
-    const blockHash = L2BlockHash.fromField(await block.hash());
+  #extractTaggedLogsFromBlock(block: L2BlockNew) {
     // SiloedTag (as string) -> array of log buffers.
     const privateTaggedLogs = new Map<string, Buffer[]>();
     // "{contractAddress}_{tag}" (as string) -> array of log buffers.
     const publicTaggedLogs = new Map<string, Buffer[]>();
-    const dataStartIndexForBlock =
-      block.header.state.partial.noteHashTree.nextAvailableLeafIndex -
-      block.body.txEffects.length * MAX_NOTE_HASHES_PER_TX;
 
-    block.body.txEffects.forEach((txEffect, txIndex) => {
+    block.body.txEffects.forEach(txEffect => {
       const txHash = txEffect.txHash;
-      const dataStartIndexForTx = dataStartIndexForBlock + txIndex * MAX_NOTE_HASHES_PER_TX;
 
-      txEffect.privateLogs.forEach((log, logIndex) => {
+      txEffect.privateLogs.forEach(log => {
         // Private logs use SiloedTag (already siloed by kernel)
         const tag = log.fields[0];
         this.#log.debug(`Found private log with tag ${tag.toString()} in block ${block.number}`);
@@ -80,18 +75,17 @@ export class LogStore {
         currentLogs.push(
           new TxScopedL2Log(
             txHash,
-            dataStartIndexForTx,
-            logIndex,
             block.number,
-            blockHash,
             block.timestamp,
-            log,
+            log.getEmittedFields(),
+            txEffect.noteHashes,
+            txEffect.nullifiers[0],
           ).toBuffer(),
         );
         privateTaggedLogs.set(tag.toString(), currentLogs);
       });
 
-      txEffect.publicLogs.forEach((log, logIndex) => {
+      txEffect.publicLogs.forEach(log => {
         // Public logs use Tag directly (not siloed) and are stored with contract address
         const tag = log.fields[0];
         const contractAddress = log.contractAddress;
@@ -104,12 +98,11 @@ export class LogStore {
         currentLogs.push(
           new TxScopedL2Log(
             txHash,
-            dataStartIndexForTx,
-            logIndex,
             block.number,
-            blockHash,
             block.timestamp,
-            log,
+            log.getEmittedFields(),
+            txEffect.noteHashes,
+            txEffect.nullifiers[0],
           ).toBuffer(),
         );
         publicTaggedLogs.set(key, currentLogs);
@@ -125,10 +118,11 @@ export class LogStore {
    * @returns A map from tag (as string) to an array of serialized private logs belonging to that tag, and a map from
    * "{contractAddress}_{tag}" (as string) to an array of serialized public logs belonging to that key.
    */
-  async #extractTaggedLogs(
-    blocks: L2BlockNew[],
-  ): Promise<{ privateTaggedLogs: Map<string, Buffer[]>; publicTaggedLogs: Map<string, Buffer[]> }> {
-    const taggedLogsInBlocks = await Promise.all(blocks.map(block => this.#extractTaggedLogsFromBlock(block)));
+  #extractTaggedLogs(blocks: L2BlockNew[]): {
+    privateTaggedLogs: Map<string, Buffer[]>;
+    publicTaggedLogs: Map<string, Buffer[]>;
+  } {
+    const taggedLogsInBlocks = blocks.map(block => this.#extractTaggedLogsFromBlock(block));
 
     // Now we merge the maps from each block into a single map.
     const privateTaggedLogs = taggedLogsInBlocks.reduce((acc, { privateTaggedLogs }) => {
@@ -155,8 +149,8 @@ export class LogStore {
    * @param blocks - The blocks for which to add the logs.
    * @returns True if the operation is successful.
    */
-  async addLogs(blocks: L2BlockNew[]): Promise<boolean> {
-    const { privateTaggedLogs, publicTaggedLogs } = await this.#extractTaggedLogs(blocks);
+  addLogs(blocks: L2BlockNew[]): Promise<boolean> {
+    const { privateTaggedLogs, publicTaggedLogs } = this.#extractTaggedLogs(blocks);
 
     const keysOfPrivateLogsToUpdate = Array.from(privateTaggedLogs.keys());
     const keysOfPublicLogsToUpdate = Array.from(publicTaggedLogs.keys());

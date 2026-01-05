@@ -11,6 +11,7 @@ import {
   NoteService,
   PrivateEventDataProvider,
   RecipientTaggingDataProvider,
+  SenderAddressBook,
   SenderTaggingDataProvider,
 } from '@aztec/pxe/server';
 import {
@@ -135,6 +136,7 @@ export class TXESession implements TXESessionStateHandler {
     private accountDataProvider: TXEAccountDataProvider,
     private senderTaggingDataProvider: SenderTaggingDataProvider,
     private recipientTaggingDataProvider: RecipientTaggingDataProvider,
+    private senderAddressBook: SenderAddressBook,
     private capsuleDataProvider: CapsuleDataProvider,
     private privateEventDataProvider: PrivateEventDataProvider,
     private chainId: Fr,
@@ -151,6 +153,7 @@ export class TXESession implements TXESessionStateHandler {
     const noteDataProvider = await NoteDataProvider.create(store);
     const senderTaggingDataProvider = new SenderTaggingDataProvider(store);
     const recipientTaggingDataProvider = new RecipientTaggingDataProvider(store);
+    const senderAddressBook = new SenderAddressBook(store);
     const capsuleDataProvider = new CapsuleDataProvider(store);
     const keyStore = new KeyStore(store);
     const accountDataProvider = new TXEAccountDataProvider(store);
@@ -176,6 +179,7 @@ export class TXESession implements TXESessionStateHandler {
       accountDataProvider,
       senderTaggingDataProvider,
       recipientTaggingDataProvider,
+      senderAddressBook,
       capsuleDataProvider,
       privateEventDataProvider,
       nextBlockTimestamp,
@@ -196,6 +200,7 @@ export class TXESession implements TXESessionStateHandler {
       accountDataProvider,
       senderTaggingDataProvider,
       recipientTaggingDataProvider,
+      senderAddressBook,
       capsuleDataProvider,
       privateEventDataProvider,
       version,
@@ -266,6 +271,7 @@ export class TXESession implements TXESessionStateHandler {
       this.accountDataProvider,
       this.senderTaggingDataProvider,
       this.recipientTaggingDataProvider,
+      this.senderAddressBook,
       this.capsuleDataProvider,
       this.privateEventDataProvider,
       this.nextBlockTimestamp,
@@ -328,6 +334,7 @@ export class TXESession implements TXESessionStateHandler {
       this.stateMachine.anchorBlockDataProvider,
       this.senderTaggingDataProvider,
       this.recipientTaggingDataProvider,
+      this.senderAddressBook,
       this.capsuleDataProvider,
       this.privateEventDataProvider,
     );
@@ -394,8 +401,8 @@ export class TXESession implements TXESessionStateHandler {
       this.addressDataProvider,
       this.stateMachine.node,
       this.stateMachine.anchorBlockDataProvider,
-      this.senderTaggingDataProvider,
       this.recipientTaggingDataProvider,
+      this.senderAddressBook,
       this.capsuleDataProvider,
       this.privateEventDataProvider,
     );

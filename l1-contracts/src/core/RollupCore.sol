@@ -298,7 +298,9 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
     uint32 version = _config.version;
     rollupStore.config.version = version;
 
-    IInbox inbox = IInbox(address(new Inbox(address(this), _feeAsset, version, Constants.L1_TO_L2_MSG_SUBTREE_HEIGHT)));
+    IInbox inbox = IInbox(
+      address(new Inbox(address(this), _feeAsset, version, Constants.L1_TO_L2_MSG_SUBTREE_HEIGHT, _config.inboxLag))
+    );
 
     rollupStore.config.inbox = inbox;
 

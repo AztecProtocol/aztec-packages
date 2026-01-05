@@ -161,6 +161,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     private proofVerifier: ClientProtocolCircuitVerifier,
     private telemetry: TelemetryClient = getTelemetryClient(),
     private log = createLogger('node'),
+    private blobClient?: BlobClientInterface,
   ) {
     this.metrics = new NodeMetrics(telemetry, 'AztecNodeService');
     this.tracer = telemetry.getTracer('AztecNodeService');
@@ -522,6 +523,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       proofVerifier,
       telemetry,
       log,
+      blobClient,
     );
   }
 
@@ -781,6 +783,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     await tryStop(this.p2pClient);
     await tryStop(this.worldStateSynchronizer);
     await tryStop(this.blockSource);
+    await tryStop(this.blobClient);
     await tryStop(this.telemetry);
     this.log.info(`Stopped Aztec Node`);
   }

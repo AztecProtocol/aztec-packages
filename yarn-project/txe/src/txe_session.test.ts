@@ -18,6 +18,7 @@ describe('TXESession.processFunction', () => {
       {} as any, // accountDataProvider
       {} as any, // senderTaggingDataProvider
       {} as any, // recipientTaggingDataProvider
+      {} as any, // senderAddressBook
       {} as any, // capsuleDataProvider
       {} as any, // privateEventDataProvider
       new Fr(1), // chainId
