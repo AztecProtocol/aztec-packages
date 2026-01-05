@@ -293,11 +293,12 @@ void PrecomputedTraceBuilder::process_to_radix_safe_limbs(TraceContainer& trace)
 
     for (size_t i = 0; i < p_limbs_per_radix.size(); ++i) {
         size_t decomposition_len = p_limbs_per_radix[i].size();
-        if (decomposition_len > 0) {
-            trace.set(C::precomputed_sel_to_radix_p_limb_counts, static_cast<uint32_t>(i), 1);
-            trace.set(C::precomputed_to_radix_safe_limbs, static_cast<uint32_t>(i), decomposition_len - 1);
-            trace.set(C::precomputed_to_radix_num_limbs_for_p, static_cast<uint32_t>(i), decomposition_len);
-        }
+        trace.set(C::precomputed_sel_to_radix_p_limb_counts, static_cast<uint32_t>(i), 1);
+        // Use 0 as fallback when decomposition_len == 0 (i.e. p_limbs_per_radix[0] and p_limbs_per_radix[1])
+        trace.set(C::precomputed_to_radix_safe_limbs,
+                  static_cast<uint32_t>(i),
+                  decomposition_len > 0 ? decomposition_len - 1 : 0);
+        trace.set(C::precomputed_to_radix_num_limbs_for_p, static_cast<uint32_t>(i), decomposition_len);
     }
 }
 

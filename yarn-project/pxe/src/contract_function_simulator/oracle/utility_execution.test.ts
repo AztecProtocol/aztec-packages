@@ -1,5 +1,6 @@
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { GrumpkinScalar } from '@aztec/foundation/curves/grumpkin';
 import type { KeyStore } from '@aztec/key-store';
 import { StatefulTestContractArtifact } from '@aztec/noir-test-contracts.js/StatefulTest';
 import { WASMSimulator } from '@aztec/simulator/client';
@@ -8,6 +9,7 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { L2BlockHash } from '@aztec/stdlib/block';
 import { CompleteAddress, type ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
+import { deriveKeys } from '@aztec/stdlib/keys';
 import { Note, NoteDao } from '@aztec/stdlib/note';
 import { BlockHeader, GlobalVariables, TxHash } from '@aztec/stdlib/tx';
 
@@ -21,6 +23,7 @@ import type { ContractDataProvider } from '../../storage/contract_data_provider/
 import type { NoteDataProvider } from '../../storage/note_data_provider/note_data_provider.js';
 import type { PrivateEventDataProvider } from '../../storage/private_event_data_provider/private_event_data_provider.js';
 import type { RecipientTaggingDataProvider } from '../../storage/tagging_data_provider/recipient_tagging_data_provider.js';
+import type { SenderAddressBook } from '../../storage/tagging_data_provider/sender_address_book.js';
 import type { SenderTaggingDataProvider } from '../../storage/tagging_data_provider/sender_tagging_data_provider.js';
 import { ContractFunctionSimulator } from '../contract_function_simulator.js';
 import { UtilityExecutionOracle } from './utility_execution_oracle.js';
@@ -36,6 +39,7 @@ describe('Utility Execution test suite', () => {
   let anchorBlockDataProvider: ReturnType<typeof mock<AnchorBlockDataProvider>>;
   let senderTaggingDataProvider: ReturnType<typeof mock<SenderTaggingDataProvider>>;
   let recipientTaggingDataProvider: ReturnType<typeof mock<RecipientTaggingDataProvider>>;
+  let senderAddressBook: ReturnType<typeof mock<SenderAddressBook>>;
   let capsuleDataProvider: ReturnType<typeof mock<CapsuleDataProvider>>;
   let privateEventDataProvider: ReturnType<typeof mock<PrivateEventDataProvider>>;
   let acirSimulator: ContractFunctionSimulator;
@@ -57,6 +61,7 @@ describe('Utility Execution test suite', () => {
     anchorBlockDataProvider = mock<AnchorBlockDataProvider>();
     senderTaggingDataProvider = mock<SenderTaggingDataProvider>();
     recipientTaggingDataProvider = mock<RecipientTaggingDataProvider>();
+    senderAddressBook = mock<SenderAddressBook>();
     capsuleDataProvider = mock<CapsuleDataProvider>();
     privateEventDataProvider = mock<PrivateEventDataProvider>();
     const capsuleArrays = new Map<string, Fr[][]>();
@@ -66,10 +71,20 @@ describe('Utility Execution test suite', () => {
     senderTaggingDataProvider.getLastUsedIndex.mockResolvedValue(undefined);
     senderTaggingDataProvider.getTxHashesOfPendingIndexes.mockResolvedValue([]);
     senderTaggingDataProvider.storePendingIndexes.mockResolvedValue();
-    recipientTaggingDataProvider.getSenderAddresses.mockResolvedValue([]);
-    recipientTaggingDataProvider.getLastUsedIndexes.mockImplementation(secrets =>
-      Promise.resolve(secrets.map(() => undefined)),
-    );
+    senderAddressBook.getSenders.mockResolvedValue([]);
+
+    // Mock getL2Tips and getBlockHeader for loadPrivateLogsForSenderRecipientPair
+    aztecNode.getL2Tips.mockResolvedValue({
+      finalized: { number: anchorBlockHeader.globalVariables.blockNumber },
+    } as any);
+    aztecNode.getBlockHeader.mockImplementation((blockNumber: BlockNumber | 'latest') => {
+      if (blockNumber === 'latest') {
+        return Promise.resolve(anchorBlockHeader);
+      }
+      return Promise.resolve(anchorBlockHeader);
+    });
+    aztecNode.getPrivateLogsByTags.mockImplementation((tags: any[]) => Promise.resolve(tags.map(() => [])));
+
     capsuleDataProvider.setCapsuleArray.mockImplementation((address, slot, content) => {
       capsuleArrays.set(`${address.toString()}:${slot.toString()}`, content);
       return Promise.resolve();
@@ -86,14 +101,30 @@ describe('Utility Execution test suite', () => {
       anchorBlockDataProvider,
       senderTaggingDataProvider,
       recipientTaggingDataProvider,
+      senderAddressBook,
       capsuleDataProvider,
       privateEventDataProvider,
       simulator,
     );
 
-    ownerCompleteAddress = await CompleteAddress.fromSecretKeyAndPartialAddress(ownerSecretKey, Fr.random());
+    const ownerPartialAddress = Fr.random();
+    ownerCompleteAddress = await CompleteAddress.fromSecretKeyAndPartialAddress(ownerSecretKey, ownerPartialAddress);
     owner = ownerCompleteAddress.address;
+
+    // Derive keys to get the incoming viewing secret key
+    const { masterIncomingViewingSecretKey: ownerIvskM } = await deriveKeys(ownerSecretKey);
+
     keyStore.getAccounts.mockResolvedValue([owner]);
+
+    // Mock getMasterIncomingViewingSecretKey to return a valid scalar
+    // This is needed when LogService tries to compute directional app tagging secrets
+    keyStore.getMasterIncomingViewingSecretKey.mockImplementation((address: AztecAddress) => {
+      if (address.equals(owner)) {
+        return Promise.resolve(ownerIvskM);
+      }
+      // Return a default value for any other address
+      return Promise.resolve(GrumpkinScalar.random());
+    });
 
     addressDataProvider.getCompleteAddress.mockImplementation((account: AztecAddress) => {
       if (account.equals(owner)) {
@@ -187,8 +218,8 @@ describe('Utility Execution test suite', () => {
         addressDataProvider,
         aztecNode,
         anchorBlockDataProvider,
-        senderTaggingDataProvider,
         recipientTaggingDataProvider,
+        senderAddressBook,
         capsuleDataProvider,
         privateEventDataProvider,
       );

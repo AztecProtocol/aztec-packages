@@ -1,4 +1,4 @@
-import { type BlobClientInterface, createBlobClient } from '@aztec/blob-client/client';
+import type { BlobClientInterface } from '@aztec/blob-client/client';
 import { Blob, getBlobsPerL1Block, getPrefixedEthBlobCommitments } from '@aztec/blob-lib';
 import type { EpochCache } from '@aztec/epoch-cache';
 import type { L1ContractsConfig } from '@aztec/ethereum/config';
@@ -145,7 +145,7 @@ export class SequencerPublisher {
     private config: TxSenderConfig & PublisherConfig & Pick<L1ContractsConfig, 'ethereumSlotDuration'>,
     deps: {
       telemetry?: TelemetryClient;
-      blobClient?: BlobClientInterface;
+      blobClient: BlobClientInterface;
       l1TxUtils: L1TxUtilsWithBlobs;
       rollupContract: RollupContract;
       slashingProposerContract: EmpireSlashingProposerContract | TallySlashingProposerContract | undefined;
@@ -163,8 +163,7 @@ export class SequencerPublisher {
     this.epochCache = deps.epochCache;
     this.lastActions = deps.lastActions;
 
-    this.blobClient =
-      deps.blobClient ?? createBlobClient(config, { logger: createLogger('sequencer:blob-client:client') });
+    this.blobClient = deps.blobClient;
 
     const telemetry = deps.telemetry ?? getTelemetryClient();
     this.metrics = deps.metrics ?? new SequencerPublisherMetrics(telemetry, 'SequencerPublisher');

@@ -71,7 +71,8 @@ namespace sha256;
     // We perform a compression operation if we are not at a latched row, or there is not an err
     pol commit perform_round;
     perform_round = (1 - LATCH_CONDITION) * SEL_NO_ERR;
-    pol LAST = SEL_NO_ERR * latch;
+    pol commit last;
+    last = SEL_NO_ERR * latch;
 
     // Counter
     pol NUM_ROUNDS = 64;
@@ -494,84 +495,84 @@ namespace sha256;
 
     // TODO: These constraints could be better - we might have to reverse the order of the rounds
     pol OUT_A = a + init_a;
-    LAST * (OUT_A - (output_a_lhs * 2**32 + output_a_rhs)) = 0;
+    last * (OUT_A - (output_a_lhs * 2**32 + output_a_rhs)) = 0;
     pol OUT_B = b + init_b;
-    LAST * (OUT_B - (output_b_lhs * 2**32 + output_b_rhs)) = 0;
+    last * (OUT_B - (output_b_lhs * 2**32 + output_b_rhs)) = 0;
     pol OUT_C = c + init_c;
-    LAST * (OUT_C - (output_c_lhs * 2**32 + output_c_rhs)) = 0;
+    last * (OUT_C - (output_c_lhs * 2**32 + output_c_rhs)) = 0;
     pol OUT_D = d + init_d;
-    LAST * (OUT_D - (output_d_lhs * 2**32 + output_d_rhs)) = 0;
+    last * (OUT_D - (output_d_lhs * 2**32 + output_d_rhs)) = 0;
     pol OUT_E = e + init_e;
-    LAST * (OUT_E - (output_e_lhs * 2**32 + output_e_rhs)) = 0;
+    last * (OUT_E - (output_e_lhs * 2**32 + output_e_rhs)) = 0;
     pol OUT_F = f + init_f;
-    LAST * (OUT_F - (output_f_lhs * 2**32 + output_f_rhs)) = 0;
+    last * (OUT_F - (output_f_lhs * 2**32 + output_f_rhs)) = 0;
     pol OUT_G = g + init_g;
-    LAST * (OUT_G - (output_g_lhs * 2**32 + output_g_rhs)) = 0;
+    last * (OUT_G - (output_g_lhs * 2**32 + output_g_rhs)) = 0;
     pol OUT_H = h + init_h;
-    LAST * (OUT_H - (output_h_lhs * 2**32 + output_h_rhs)) = 0;
+    last * (OUT_H - (output_h_lhs * 2**32 + output_h_rhs)) = 0;
 
-    // Check Modulo Add Operation
+    // Check Modulo Add Operation for final outputs
     #[RANGE_COMP_A_LHS]
-    perform_round { two_pow_32, output_a_lhs, /*result = 1*/ perform_round }
+    last { two_pow_32, output_a_lhs, /*result = 1*/ last }
     in
     gt.sel_sha256 { gt.input_a, gt.input_b, gt.res };
     #[RANGE_COMP_A_RHS]
-    perform_round { two_pow_32, output_a_rhs, /*result = 1*/ perform_round }
+    last { two_pow_32, output_a_rhs, /*result = 1*/ last }
     in
     gt.sel_sha256 { gt.input_a, gt.input_b, gt.res };
     #[RANGE_COMP_B_LHS]
-    perform_round { two_pow_32, output_b_lhs, /*result = 1*/ perform_round }
+    last { two_pow_32, output_b_lhs, /*result = 1*/ last }
     in
     gt.sel_sha256 { gt.input_a, gt.input_b, gt.res };
     #[RANGE_COMP_B_RHS]
-    perform_round { two_pow_32, output_b_rhs, /*result = 1*/ perform_round }
+    last { two_pow_32, output_b_rhs, /*result = 1*/ last }
     in
     gt.sel_sha256 { gt.input_a, gt.input_b, gt.res };
     #[RANGE_COMP_C_LHS]
-    perform_round { two_pow_32, output_c_lhs, /*result = 1*/ perform_round }
+    last { two_pow_32, output_c_lhs, /*result = 1*/ last }
     in
     gt.sel_sha256 { gt.input_a, gt.input_b, gt.res };
     #[RANGE_COMP_C_RHS]
-    perform_round { two_pow_32, output_c_rhs, /*result = 1*/ perform_round }
+    last { two_pow_32, output_c_rhs, /*result = 1*/ last }
     in
     gt.sel_sha256 { gt.input_a, gt.input_b, gt.res };
     #[RANGE_COMP_D_LHS]
-    perform_round { two_pow_32, output_d_lhs, /*result = 1*/ perform_round }
+    last { two_pow_32, output_d_lhs, /*result = 1*/ last }
     in
     gt.sel_sha256 { gt.input_a, gt.input_b, gt.res };
     #[RANGE_COMP_D_RHS]
-    perform_round { two_pow_32, output_d_rhs, /*result = 1*/ perform_round }
+    last { two_pow_32, output_d_rhs, /*result = 1*/ last }
     in
     gt.sel_sha256 { gt.input_a, gt.input_b, gt.res };
     #[RANGE_COMP_E_LHS]
-    perform_round { two_pow_32, output_e_lhs, /*result = 1*/ perform_round }
+    last { two_pow_32, output_e_lhs, /*result = 1*/ last }
     in
     gt.sel_sha256 { gt.input_a, gt.input_b, gt.res };
     #[RANGE_COMP_E_RHS]
-    perform_round { two_pow_32, output_e_rhs, /*result = 1*/ perform_round }
+    last { two_pow_32, output_e_rhs, /*result = 1*/ last }
     in
     gt.sel_sha256 { gt.input_a, gt.input_b, gt.res };
     #[RANGE_COMP_F_LHS]
-    perform_round { two_pow_32, output_f_lhs, /*result = 1*/ perform_round }
+    last { two_pow_32, output_f_lhs, /*result = 1*/ last }
     in
     gt.sel_sha256 { gt.input_a, gt.input_b, gt.res };
     #[RANGE_COMP_F_RHS]
-    perform_round { two_pow_32, output_f_rhs, /*result = 1*/ perform_round }
+    last { two_pow_32, output_f_rhs, /*result = 1*/ last }
     in
     gt.sel_sha256 { gt.input_a, gt.input_b, gt.res };
     #[RANGE_COMP_G_LHS]
-    perform_round { two_pow_32, output_g_lhs, /*result = 1*/ perform_round }
+    last { two_pow_32, output_g_lhs, /*result = 1*/ last }
     in
     gt.sel_sha256 { gt.input_a, gt.input_b, gt.res };
     #[RANGE_COMP_G_RHS]
-    perform_round { two_pow_32, output_g_rhs, /*result = 1*/ perform_round }
+    last { two_pow_32, output_g_rhs, /*result = 1*/ last }
     in
     gt.sel_sha256 { gt.input_a, gt.input_b, gt.res };
     #[RANGE_COMP_H_LHS]
-    perform_round { two_pow_32, output_h_lhs, /*result = 1*/ perform_round }
+    last { two_pow_32, output_h_lhs, /*result = 1*/ last }
     in
     gt.sel_sha256 { gt.input_a, gt.input_b, gt.res };
     #[RANGE_COMP_H_RHS]
-    perform_round { two_pow_32, output_h_rhs, /*result = 1*/ perform_round }
+    last { two_pow_32, output_h_rhs, /*result = 1*/ last }
     in
     gt.sel_sha256 { gt.input_a, gt.input_b, gt.res };

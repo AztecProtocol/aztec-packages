@@ -34,6 +34,15 @@ Beacon node URLs for fetching recent blobs directly from L1.
 **Archive API URL** (`BLOB_SINK_ARCHIVE_API_URL`):
 Blobscan or similar archive API for historical blob data.
 
+### File Store Connectivity Testing
+
+All file stores (S3, GCS, HTTP, local) test connectivity by checking if a well-known healthcheck file (`.healthcheck`) exists. This approach was chosen because:
+
+1. **HTTP compatibility**: For HTTP-based file stores, requesting a known file is the only reliable way to verify connectivity
+2. **Uniform behavior**: Using the same healthcheck mechanism across all store types ensures consistent behavior and simplifies testing
+
+When uploading is enabled, the sequencer uploads the healthcheck file on startup and then periodically re-uploads it (by default every 60 minutes) to ensure it remains available. This guards against accidental deletion, storage pruning, or other failures that might remove the file.
+
 ### Example Usage
 
 ```typescript

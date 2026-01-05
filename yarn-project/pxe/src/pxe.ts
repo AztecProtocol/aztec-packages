@@ -76,6 +76,7 @@ import { ContractDataProvider } from './storage/contract_data_provider/contract_
 import { NoteDataProvider } from './storage/note_data_provider/note_data_provider.js';
 import { PrivateEventDataProvider } from './storage/private_event_data_provider/private_event_data_provider.js';
 import { RecipientTaggingDataProvider } from './storage/tagging_data_provider/recipient_tagging_data_provider.js';
+import { SenderAddressBook } from './storage/tagging_data_provider/sender_address_book.js';
 import { SenderTaggingDataProvider } from './storage/tagging_data_provider/sender_tagging_data_provider.js';
 
 export type PackedPrivateEvent = InTx & {
@@ -97,6 +98,7 @@ export class PXE {
     private capsuleDataProvider: CapsuleDataProvider,
     private anchorBlockDataProvider: AnchorBlockDataProvider,
     private senderTaggingDataProvider: SenderTaggingDataProvider,
+    private senderAddressBook: SenderAddressBook,
     private recipientTaggingDataProvider: RecipientTaggingDataProvider,
     private addressDataProvider: AddressDataProvider,
     private privateEventDataProvider: PrivateEventDataProvider,
@@ -138,6 +140,7 @@ export class PXE {
     const noteDataProvider = await NoteDataProvider.create(store);
     const anchorBlockDataProvider = new AnchorBlockDataProvider(store);
     const senderTaggingDataProvider = new SenderTaggingDataProvider(store);
+    const senderAddressBook = new SenderAddressBook(store);
     const recipientTaggingDataProvider = new RecipientTaggingDataProvider(store);
     const capsuleDataProvider = new CapsuleDataProvider(store);
     const keyStore = new KeyStore(store);
@@ -160,7 +163,6 @@ export class PXE {
       node,
       anchorBlockDataProvider,
       noteDataProvider,
-      recipientTaggingDataProvider,
       tipsStore,
       config,
       loggerOrSuffix,
@@ -179,6 +181,7 @@ export class PXE {
       capsuleDataProvider,
       anchorBlockDataProvider,
       senderTaggingDataProvider,
+      senderAddressBook,
       recipientTaggingDataProvider,
       addressDataProvider,
       privateEventDataProvider,
@@ -219,6 +222,7 @@ export class PXE {
       this.anchorBlockDataProvider,
       this.senderTaggingDataProvider,
       this.recipientTaggingDataProvider,
+      this.senderAddressBook,
       this.capsuleDataProvider,
       this.privateEventDataProvider,
       this.simulator,
@@ -521,7 +525,7 @@ export class PXE {
       return sender;
     }
 
-    const wasAdded = await this.recipientTaggingDataProvider.addSenderAddress(sender);
+    const wasAdded = await this.senderAddressBook.addSender(sender);
 
     if (wasAdded) {
       this.log.info(`Added sender:\n ${sender.toString()}`);
@@ -537,7 +541,7 @@ export class PXE {
    * @returns Senders registered in this PXE.
    */
   public getSenders(): Promise<AztecAddress[]> {
-    return this.recipientTaggingDataProvider.getSenderAddresses();
+    return this.senderAddressBook.getSenders();
   }
 
   /**
@@ -545,7 +549,7 @@ export class PXE {
    * @param sender - The address of the sender to remove.
    */
   public async removeSender(sender: AztecAddress): Promise<void> {
-    const wasRemoved = await this.recipientTaggingDataProvider.removeSenderAddress(sender);
+    const wasRemoved = await this.senderAddressBook.removeSender(sender);
 
     if (wasRemoved) {
       this.log.info(`Removed sender:\n ${sender.toString()}`);

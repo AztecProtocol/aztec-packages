@@ -77,7 +77,7 @@ export async function createP2PClient<T extends P2PClientType>(
     txPool:
       deps.txPool ??
       new AztecKVTxPool(store, archive, worldStateSynchronizer, telemetry, {
-        maxTxPoolSize: config.maxTxPoolSize,
+        maxPendingTxCount: config.maxPendingTxCount,
         archivedTxLimit: config.archivedTxLimit,
       }),
     attestationPool: deps.attestationPool ?? new KvAttestationPool(attestationStore, telemetry),

@@ -3,8 +3,7 @@ import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
 import type { DirectionalAppTaggingSecret, PreTag } from '@aztec/stdlib/logs';
 import { TxHash } from '@aztec/stdlib/tx';
 
-import type { JobContext, StagedStore } from '../../job_coordinator/index.js';
-import { UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN } from '../../tagging/sync/sync_sender_tagging_indexes.js';
+import { UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN } from '../../tagging/index.js';
 
 // Key constants for staging
 const PENDING_INDEXES_PREFIX = 'pending:';
@@ -17,7 +16,7 @@ const FINALIZED_INDEXES_PREFIX = 'finalized:';
  *
  * Supports staged writes via JobContext for crash resilience.
  */
-export class SenderTaggingDataProvider implements StagedStore {
+export class SenderTaggingDataProvider {
   readonly storeName = 'sender_tagging';
 
   #store: AztecAsyncKVStore;

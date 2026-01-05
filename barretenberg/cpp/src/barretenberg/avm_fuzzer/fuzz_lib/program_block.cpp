@@ -1453,8 +1453,8 @@ void ProgramBlock::process_keccakf1600_instruction(KECCAKF1600_Instruction instr
     preprocess_memory_addresses(dst.value().first);
 
     auto keccakf1600_instruction = bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::KECCAKF1600)
-                                       .operand(src.value().second)
                                        .operand(dst.value().second)
+                                       .operand(src.value().second)
                                        .build();
     instructions.push_back(keccakf1600_instruction);
 
