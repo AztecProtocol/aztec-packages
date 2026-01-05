@@ -1,4 +1,4 @@
-import { Secp256k1Signer } from '@aztec/foundation/crypto';
+import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { BlockProposal } from '@aztec/stdlib/p2p';
 import { makeBlockProposal, makeL2BlockHeader, mockTx } from '@aztec/stdlib/testing';

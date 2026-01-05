@@ -40,7 +40,7 @@ describe('p2p client integration block txs protocol ', () => {
 
   let clients: P2PClient[] = [];
 
-  const blockNumber = 5;
+  const blockNumber = BlockNumber(5);
   const blockHash = Fr.random();
   let txs: Tx[];
   let txHashes: TxHash[];
