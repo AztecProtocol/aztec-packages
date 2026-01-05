@@ -205,7 +205,7 @@ This command runs the preprocess command, generates static content into the `bui
 
 The Aztec.nr API reference is auto-generated from the `noir-projects/aztec-nr/` source code using `nargo doc`. This generates HTML documentation that is served from `static/aztec-nr-api/`.
 
-**Prerequisites:** You need `nargo` installed. Install via [noirup](https://noir-lang.org/docs/getting_started/installation/):
+**Prerequisites:** You need `nargo` installed. Install via [noirup](https://noir-lang.org/docs/getting_started/quick_start#installation):
 
 ```bash
 curl -L https://raw.githubusercontent.com/noir-lang/noirup/refs/heads/main/install | bash
