@@ -90,9 +90,8 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
     static constexpr size_t NUM_SUBRELATIONS = NativeFlavor::NUM_SUBRELATIONS;
     using SubrelationSeparator = FF;
 
-    // Reuse StdlibVerificationKey_ with NativeFlavor's VerificationKey for native<->stdlib conversion
-    using VerificationKey = StdlibVerificationKey_<BuilderType,
-                                                   UltraFlavor::PrecomputedEntities<Commitment>,
+    using VerificationKey = StdlibVerificationKey_<CircuitBuilder,
+                                                   NativeFlavor::PrecomputedEntities<Commitment>,
                                                    typename NativeFlavor::VerificationKey>;
 
     /**

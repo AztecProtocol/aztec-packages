@@ -34,8 +34,6 @@ class UltraZKFlavor : public UltraFlavor {
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = UltraFlavor::BATCHED_RELATION_PARTIAL_LENGTH + 1;
     static_assert(BATCHED_RELATION_PARTIAL_LENGTH == Curve::LIBRA_UNIVARIATES_LENGTH,
                   "LIBRA_UNIVARIATES_LENGTH must be equal to UltraZKFlavor::BATCHED_RELATION_PARTIAL_LENGTH");
-    static constexpr size_t num_frs_comm = FrCodec::calc_num_fields<Commitment>();
-    static constexpr size_t num_frs_fr = FrCodec::calc_num_fields<FF>();
 
     // Override AllEntities to use ZK version (includes gemini_masking_poly via MaskingEntities)
     template <typename DataType> using AllEntities = UltraFlavor::AllEntities_<DataType, HasZK>;
@@ -86,8 +84,5 @@ class UltraZKFlavor : public UltraFlavor {
                /* 12. Shplonk Q commitment */ (num_frs_comm) +
                /* 13. KZG W commitment */ (num_frs_comm);
     }
-
-    using Transcript = UltraFlavor::Transcript;
-    using VKAndHash = UltraFlavor::VKAndHash;
 };
 } // namespace bb

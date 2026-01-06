@@ -136,7 +136,7 @@ template <typename Polynomial, size_t NUM_PRECOMPUTED_ENTITIES> struct Precomput
 template <typename PrecomputedCommitments,
           typename Codec,
           typename HashFunction,
-          typename CommitmentKeyType = void,
+          typename CommitmentKey = void,
           VKSerializationMode SerializeMetadata = VKSerializationMode::FULL>
 class NativeVerificationKey_ : public PrecomputedCommitments {
   public:
@@ -182,24 +182,21 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
     virtual ~NativeVerificationKey_() = default;
     NativeVerificationKey_() = default;
     NativeVerificationKey_(const size_t circuit_size, const size_t num_public_inputs)
-    {
-        this->log_circuit_size = numeric::get_msb(circuit_size);
-        this->num_public_inputs = num_public_inputs;
-    };
+        : log_circuit_size(numeric::get_msb(circuit_size))
+        , num_public_inputs(num_public_inputs) {};
 
     /**
      * @brief Construct VK from precomputed data by committing to polynomials
      * @details Only available when CommitmentKeyType is specified (not void)
      */
     template <typename PrecomputedData>
-        requires(!std::is_void_v<CommitmentKeyType>)
+        requires(!std::is_void_v<CommitmentKey>)
     explicit NativeVerificationKey_(const PrecomputedData& precomputed)
+        : log_circuit_size(numeric::get_msb(precomputed.metadata.dyadic_size))
+        , num_public_inputs(precomputed.metadata.num_public_inputs)
+        , pub_inputs_offset(precomputed.metadata.pub_inputs_offset)
     {
-        this->log_circuit_size = numeric::get_msb(precomputed.metadata.dyadic_size);
-        this->num_public_inputs = precomputed.metadata.num_public_inputs;
-        this->pub_inputs_offset = precomputed.metadata.pub_inputs_offset;
-
-        CommitmentKeyType commitment_key{ precomputed.metadata.dyadic_size };
+        CommitmentKey commitment_key{ precomputed.metadata.dyadic_size };
         for (auto [polynomial, commitment] : zip_view(precomputed.polynomials, this->get_all())) {
             commitment = commitment_key.commit(polynomial);
         }

@@ -15,13 +15,12 @@ namespace bb {
  * @details Nearly identical to UltraRecursiveFlavor_, but with NativeFlavor = UltraRollupFlavor.
  * This distinction is needed for:
  * 1. Concept checks (e.g., HasIPAAccumulator) that trigger different code paths
- * 2. Access to UltraRollupFlavor-specific constants (PROOF_LENGTH_WITHOUT_PUB_INPUTS, BACKEND_PUB_INPUTS_SIZE)
+ * 2. Access to UltraRollupFlavor-specific PROOF_LENGTH_WITHOUT_PUB_INPUTS
  *
  * @tparam BuilderType Determines the arithmetization of the verifier circuit defined based on this flavor.
  */
 template <typename BuilderType> class UltraRollupRecursiveFlavor_ : public UltraRecursiveFlavor_<BuilderType> {
   public:
-    // The only meaningful difference: NativeFlavor points to UltraRollupFlavor instead of UltraFlavor
     using NativeFlavor = UltraRollupFlavor;
 };
 

@@ -3,7 +3,6 @@
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
-#include "barretenberg/stdlib/test_utils/proof_structure.hpp"
 #include "barretenberg/stdlib/test_utils/tamper_proof.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 #include "barretenberg/ultra_honk/prover_instance.hpp"
@@ -325,8 +324,8 @@ TYPED_TEST(MegaTranscriptTests, StructureTest)
 
     const size_t virtual_log_n = Flavor::VIRTUAL_LOG_N;
 
-    // Use ProofStructure test utility to deserialize/serialize proof data
-    ProofStructure<Flavor> proof_structure;
+    // Use StructuredProof test utility to deserialize/serialize proof data
+    StructuredProof<Flavor> proof_structure;
 
     // try deserializing and serializing with no changes and check proof is still valid
     proof_structure.deserialize(

@@ -43,6 +43,9 @@ class UltraFlavor {
     using Polynomial = bb::Polynomial<FF>;
     using CommitmentKey = bb::CommitmentKey<Curve>;
     using VerifierCommitmentKey = bb::VerifierCommitmentKey<Curve>;
+    using Codec = FrCodec;
+    using HashFunction = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>;
+    using Transcript = BaseTranscript<Codec, HashFunction>;
 
     static constexpr size_t VIRTUAL_LOG_N = CONST_PROOF_SIZE_LOG_N;
     // indicates when evaluating sumcheck, edges can be left as degree-1 monomials
@@ -364,8 +367,6 @@ class UltraFlavor {
 
     using PrecomputedData = PrecomputedData_<Polynomial, NUM_PRECOMPUTED_ENTITIES>;
 
-    using Transcript = BaseTranscript<FrCodec, crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>>;
-
     /**
      * @brief The verification key is responsible for storing the commitments to the precomputed (non-witnessk)
      * polynomials used by the verifier.
@@ -373,16 +374,8 @@ class UltraFlavor {
      * @note Note the discrepancy with what sort of data is stored here vs in the proving key. We may want to resolve
      * that, and split out separate PrecomputedPolynomials/Commitments data for clarity but also for portability of our
      * circuits.
-     *
-     * @tparam Codec_ The codec for serialization (defaults to Transcript::Codec)
-     * @tparam HashFunction_ The hash function for VK hashing (defaults to Transcript::HashFunction)
      */
-    template <typename Codec_ = typename Transcript::Codec, typename HashFunction_ = typename Transcript::HashFunction>
-    using VerificationKey_ =
-        NativeVerificationKey_<PrecomputedEntities<Commitment>, Codec_, HashFunction_, CommitmentKey>;
-
-    // Default VerificationKey using the flavor's Transcript codec and hash function
-    using VerificationKey = VerificationKey_<>;
+    using VerificationKey = NativeVerificationKey_<PrecomputedEntities<Commitment>, Codec, HashFunction, CommitmentKey>;
 
     using VKAndHash = VKAndHash_<FF, VerificationKey>;
 

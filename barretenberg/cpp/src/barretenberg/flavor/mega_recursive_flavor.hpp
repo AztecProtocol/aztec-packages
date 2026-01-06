@@ -99,9 +99,8 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
         using Base::Base;
     };
 
-    // Reuse StdlibVerificationKey_ with NativeFlavor's VerificationKey for native<->stdlib conversion
-    using VerificationKey = StdlibVerificationKey_<BuilderType,
-                                                   MegaFlavor::PrecomputedEntities<Commitment>,
+    using VerificationKey = StdlibVerificationKey_<CircuitBuilder,
+                                                   NativeFlavor::PrecomputedEntities<Commitment>,
                                                    typename NativeFlavor::VerificationKey>;
 
     /**

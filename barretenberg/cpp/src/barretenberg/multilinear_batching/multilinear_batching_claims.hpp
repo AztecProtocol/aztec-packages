@@ -64,8 +64,8 @@ template <typename Curve> struct MultilinearBatchingVerifierClaim {
 
     /**
      * @brief Tag claim components and hash.
-     * @tparam Codec The codec to use for serialization (e.g., FrCodec)
-     * @tparam HashFn The hash function to use (e.g., Poseidon2)
+     * @tparam Codec The codec used for serde
+     * @tparam HashFn The hash function to use
      */
     template <typename Codec, typename HashFn> FF hash_with_origin_tagging(const OriginTag& tag) const
     {

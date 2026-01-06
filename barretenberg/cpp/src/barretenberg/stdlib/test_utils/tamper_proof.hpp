@@ -8,7 +8,7 @@
 
 #include "barretenberg/commitment_schemes/ipa/ipa.hpp"
 #include "barretenberg/flavor/flavor_concepts.hpp"
-#include "barretenberg/stdlib/test_utils/proof_structure.hpp"
+#include "barretenberg/flavor/test_utils/proof_structures.hpp"
 
 namespace bb {
 
@@ -45,37 +45,37 @@ void tamper_with_proof(InnerProver& inner_prover, ProofType& inner_proof, Tamper
     static constexpr size_t FIRST_WITNESS_INDEX = InnerFlavor::NUM_PRECOMPUTED_ENTITIES;
 
     // Deserialize proof into structured form
-    ProofStructure<InnerFlavor> proof_structure;
+    StructuredProof<InnerFlavor> structured_proof;
     const auto num_public_inputs = inner_prover.prover_instance->num_public_inputs();
     const size_t log_n =
         InnerFlavor::USE_PADDING ? CONST_PROOF_SIZE_LOG_N : inner_prover.prover_instance->log_dyadic_size();
-    proof_structure.deserialize(inner_prover.transcript->test_get_proof_data(), num_public_inputs, log_n);
+    structured_proof.deserialize(inner_prover.transcript->test_get_proof_data(), num_public_inputs, log_n);
 
     // Apply tampering based on type
     switch (type) {
     case TamperType::MODIFY_SUMCHECK_UNIVARIATE: {
         FF delta = FF::random_element();
         // Preserve S_0(0) + S_0(1) = target_total_sum, but S_0(u_0) = S_1(0) + S_1(1) will fail
-        proof_structure.sumcheck_univariates[0].value_at(0) += delta;
-        proof_structure.sumcheck_univariates[0].value_at(1) -= delta;
+        structured_proof.sumcheck_univariates[0].value_at(0) += delta;
+        structured_proof.sumcheck_univariates[0].value_at(1) -= delta;
         break;
     }
     case TamperType::MODIFY_SUMCHECK_EVAL:
-        proof_structure.sumcheck_evaluations[FIRST_WITNESS_INDEX] = FF::random_element();
+        structured_proof.sumcheck_evaluations[FIRST_WITNESS_INDEX] = FF::random_element();
         break;
     case TamperType::MODIFY_Z_PERM_COMMITMENT:
-        proof_structure.z_perm_comm = proof_structure.z_perm_comm * FF::random_element();
+        structured_proof.z_perm_comm = structured_proof.z_perm_comm * FF::random_element();
         break;
     case TamperType::MODIFY_GEMINI_WITNESS:
-        proof_structure.gemini_fold_comms[0] = proof_structure.gemini_fold_comms[0] * FF::random_element();
-        proof_structure.gemini_fold_evals[0] = FF::zero();
+        structured_proof.gemini_fold_comms[0] = structured_proof.gemini_fold_comms[0] * FF::random_element();
+        structured_proof.gemini_fold_evals[0] = FF::zero();
         break;
     case TamperType::END:
         break;
     }
 
     // Serialize back and re-export the tampered proof
-    proof_structure.serialize(inner_prover.transcript->test_get_proof_data(), log_n);
+    structured_proof.serialize(inner_prover.transcript->test_get_proof_data(), log_n);
     inner_prover.transcript->test_set_proof_parsing_state(
         0, compute_proof_length_for_export<InnerFlavor>(num_public_inputs));
     inner_proof = inner_prover.export_proof();

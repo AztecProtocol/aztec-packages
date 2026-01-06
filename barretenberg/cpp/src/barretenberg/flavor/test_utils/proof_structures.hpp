@@ -24,12 +24,12 @@ namespace bb {
  *
  * @tparam Flavor The proving system flavor
  */
-template <typename Flavor> struct ProofStructure;
+template <typename Flavor> struct StructuredProof;
 
 // ============================================================================
 // Common base with type definitions and helper methods
 // ============================================================================
-template <typename Flavor> struct ProofStructureHelper {
+template <typename Flavor> struct StructuredProofHelper {
     using FF = typename Flavor::FF;
     using Commitment = typename Flavor::Commitment;
     using Transcript = typename Flavor::Transcript;
@@ -58,8 +58,8 @@ template <typename Flavor> struct ProofStructureHelper {
 // ============================================================================
 // Ultra proof structure base with common fields and helper methods
 // ============================================================================
-template <typename Flavor> struct UltraProofStructureBase : ProofStructureHelper<Flavor> {
-    using Base = ProofStructureHelper<Flavor>;
+template <typename Flavor> struct UltraStructuredProofBase : StructuredProofHelper<Flavor> {
+    using Base = StructuredProofHelper<Flavor>;
     using Base::BATCHED_RELATION_PARTIAL_LENGTH;
     using Base::NUM_ALL_ENTITIES;
     using typename Base::Commitment;
@@ -198,8 +198,8 @@ template <typename Flavor> struct UltraProofStructureBase : ProofStructureHelper
 // ============================================================================
 // Ultra ZK proof structure - extends Ultra with ZK-specific fields
 // ============================================================================
-template <typename Flavor> struct UltraZKProofStructureBase : UltraProofStructureBase<Flavor> {
-    using Base = UltraProofStructureBase<Flavor>;
+template <typename Flavor> struct UltraZKStructuredProofBase : UltraStructuredProofBase<Flavor> {
+    using Base = UltraStructuredProofBase<Flavor>;
     using typename Base::Commitment;
     using typename Base::FF;
     using typename Base::ProofData;
@@ -299,8 +299,8 @@ template <typename Flavor> struct UltraZKProofStructureBase : UltraProofStructur
 // ============================================================================
 // Mega proof structure base with common fields and helper methods
 // ============================================================================
-template <typename Flavor> struct MegaProofStructureBase : ProofStructureHelper<Flavor> {
-    using Base = ProofStructureHelper<Flavor>;
+template <typename Flavor> struct MegaStructuredProofBase : StructuredProofHelper<Flavor> {
+    using Base = StructuredProofHelper<Flavor>;
     using Base::BATCHED_RELATION_PARTIAL_LENGTH;
     using Base::NUM_ALL_ENTITIES;
     using typename Base::Commitment;
@@ -487,8 +487,8 @@ template <typename Flavor> struct MegaProofStructureBase : ProofStructureHelper<
 // ============================================================================
 // Mega ZK proof structure - extends Mega with ZK-specific fields
 // ============================================================================
-template <typename Flavor> struct MegaZKProofStructureBase : MegaProofStructureBase<Flavor> {
-    using Base = MegaProofStructureBase<Flavor>;
+template <typename Flavor> struct MegaZKStructuredProofBase : MegaStructuredProofBase<Flavor> {
+    using Base = MegaStructuredProofBase<Flavor>;
     using typename Base::Commitment;
     using typename Base::FF;
     using typename Base::ProofData;
@@ -591,17 +591,17 @@ template <typename Flavor> struct MegaZKProofStructureBase : MegaProofStructureB
 
 // Ultra flavors (non-ZK)
 // Note: UltraRollupFlavor's IPA proof is handled separately by prover_instance->ipa_proof,
-// so ProofStructure only needs to handle the Ultra portion from the transcript.
-template <> struct ProofStructure<UltraFlavor> : UltraProofStructureBase<UltraFlavor> {};
-template <> struct ProofStructure<UltraKeccakFlavor> : UltraProofStructureBase<UltraKeccakFlavor> {};
-template <> struct ProofStructure<UltraRollupFlavor> : UltraProofStructureBase<UltraRollupFlavor> {};
+// so StructuredProof only needs to handle the Ultra portion from the transcript.
+template <> struct StructuredProof<UltraFlavor> : UltraStructuredProofBase<UltraFlavor> {};
+template <> struct StructuredProof<UltraKeccakFlavor> : UltraStructuredProofBase<UltraKeccakFlavor> {};
+template <> struct StructuredProof<UltraRollupFlavor> : UltraStructuredProofBase<UltraRollupFlavor> {};
 
 // Ultra ZK flavors
-template <> struct ProofStructure<UltraZKFlavor> : UltraZKProofStructureBase<UltraZKFlavor> {};
-template <> struct ProofStructure<UltraKeccakZKFlavor> : UltraZKProofStructureBase<UltraKeccakZKFlavor> {};
+template <> struct StructuredProof<UltraZKFlavor> : UltraZKStructuredProofBase<UltraZKFlavor> {};
+template <> struct StructuredProof<UltraKeccakZKFlavor> : UltraZKStructuredProofBase<UltraKeccakZKFlavor> {};
 
 // Mega flavors
-template <> struct ProofStructure<MegaFlavor> : MegaProofStructureBase<MegaFlavor> {};
-template <> struct ProofStructure<MegaZKFlavor> : MegaZKProofStructureBase<MegaZKFlavor> {};
+template <> struct StructuredProof<MegaFlavor> : MegaStructuredProofBase<MegaFlavor> {};
+template <> struct StructuredProof<MegaZKFlavor> : MegaZKStructuredProofBase<MegaZKFlavor> {};
 
 } // namespace bb

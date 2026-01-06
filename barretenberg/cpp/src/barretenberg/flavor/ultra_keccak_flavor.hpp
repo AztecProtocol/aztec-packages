@@ -12,7 +12,9 @@ namespace bb {
 
 class UltraKeccakFlavor : public bb::UltraFlavor {
   public:
-    using Transcript = BaseTranscript<U256Codec, bb::crypto::Keccak>;
+    using Codec = U256Codec;
+    using HashFunction = bb::crypto::Keccak;
+    using Transcript = BaseTranscript<Codec, HashFunction>;
 
     static constexpr bool USE_PADDING = false;
 
@@ -40,7 +42,7 @@ class UltraKeccakFlavor : public bb::UltraFlavor {
         return OINK_PROOF_LENGTH_WITHOUT_PUB_INPUTS + DECIDER_PROOF_LENGTH(virtual_log_n);
     }
 
-    using VerificationKey = UltraFlavor::VerificationKey_<U256Codec, crypto::Keccak>;
+    using VerificationKey = NativeVerificationKey_<PrecomputedEntities<Commitment>, Codec, HashFunction, CommitmentKey>;
 
     // Specialize for Ultra (general case used in UltraRecursive).
     using VerifierCommitments = VerifierCommitments_<Commitment, VerificationKey>;
