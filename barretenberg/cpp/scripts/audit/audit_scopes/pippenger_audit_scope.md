@@ -11,6 +11,8 @@ Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg`
 3. `ecc/scalar_multiplication/process_buckets.hpp`
 4. `ecc/scalar_multiplication/scalar_multiplication.cpp`
 5. `ecc/scalar_multiplication/scalar_multiplication.hpp`
+6. `commitment_schemes/commitment_key.hpp`
+7. `commitment_schemes/utils/batch_mul_native.hpp`
 
 ## Summary of Module
 
