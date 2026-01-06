@@ -19,7 +19,7 @@ namespace execution;
     // When we encounter this case, the internal call information in the next row is constrained to change (incremented, unwound, etc)
     pol NEW_NEXT_CALL_ID = (sel_execute_internal_call + sel_execute_internal_return) * (1 - sel_error) + sel_exit_call;
 
-    // This is an XOR
+    // This is an OR constraint.
     pol RESET_OR_NEW_NEXT_CALL_ID = (RESET_NEXT_CALL_ID + NEW_NEXT_CALL_ID) - (RESET_NEXT_CALL_ID * NEW_NEXT_CALL_ID);
     pol PROPAGATE_CALL_ID = 1 - RESET_OR_NEW_NEXT_CALL_ID;
 
@@ -81,10 +81,11 @@ namespace execution;
     // === Pushing to Call Stack ===
     // =============================
     // We store the current internal call pointer
+    // Crucial to be a permutation to prevent malicious insertions in the internal call stack.
     #[PUSH_CALL_STACK]
     sel_execute_internal_call {
         context_id, next_internal_call_id, internal_call_id, internal_call_return_id, next_pc
-    } in internal_call_stack.sel {
+    } is internal_call_stack.sel {
         internal_call_stack.context_id, internal_call_stack.entered_call_id, internal_call_stack.id, internal_call_stack.return_id, internal_call_stack.return_pc
     };
 
@@ -92,6 +93,7 @@ namespace execution;
     // === Popping from Call Stack ===
     // =============================
     // Retrieve the previous internal call ptr from the stack
+    // Fine to be a lookup since we are not modifying the stack (cannot be a permutation because an error might occur before the read).
     #[UNWIND_CALL_STACK]
     sel_read_unwind_call_stack {
         context_id, internal_call_id, internal_call_id', internal_call_return_id', pc'
