@@ -75,6 +75,7 @@ class GadgetFuzzerContextHelper {
     std::unique_ptr<simulation::ContextInterface> make_nested_fuzzing_context(AztecAddress address,
                                                                               AztecAddress msg_sender,
                                                                               ContextInterface& parent_context,
+                                                                              bool is_static = false,
                                                                               Gas gas_limit = GAS_LIMIT);
 
   private:

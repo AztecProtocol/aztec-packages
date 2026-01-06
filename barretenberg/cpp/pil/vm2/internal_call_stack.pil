@@ -14,6 +14,13 @@ namespace internal_call_stack;
     #[skippable_if]
     sel = 0;
 
+    // Usage from execution subtrace (opcodes/internal_call.pil):
+    // The active rows (where `sel == 1`) of this subtrace are defined by the permutation
+    // #[PUSH_CALL_STACK].
+    // The lookup #[UNWIND_CALL_STACK] read stack entries
+    // using the destination selector `sel`.
+    // Therefore, the "pop/read" lookup can only read from legitimate rows.
+
     pol commit context_id;
     pol commit id;
     pol commit entered_call_id;
