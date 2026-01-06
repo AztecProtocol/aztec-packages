@@ -8,6 +8,9 @@ NO_TERMINATE=${NO_TERMINATE:-0}
 
 # We're always "in CI" if we're running on a remote instance.
 export CI=1
+# Enable build instance key features (disk logging, benchmark uploads) by default.
+# Set to 0 in ci3-external.yml for external contributors who don't have SSH access.
+export CI_USE_BUILD_INSTANCE_KEY=${CI_USE_BUILD_INSTANCE_KEY:-1}
 
 if [ "$arch" == "arm64" ]; then
   cores=64
