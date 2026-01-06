@@ -3,6 +3,7 @@
 pragma solidity >=0.8.27;
 
 import {BlobLib} from "@aztec-blob-lib/BlobLib.sol";
+import {IEscapeHatch} from "@aztec/core/interfaces/IEscapeHatch.sol";
 import {RollupStore, IRollupCore, CheckpointHeaderValidationFlags} from "@aztec/core/interfaces/IRollup.sol";
 import {TempCheckpointLog} from "@aztec/core/libraries/compressed-data/CheckpointLog.sol";
 import {FeeHeader} from "@aztec/core/libraries/compressed-data/fees/FeeStructs.sol";
@@ -41,6 +42,9 @@ struct InterimProposeValues {
   Epoch currentEpoch;
   bool isFirstCheckpointOfEpoch;
   bool isTxsEnabled;
+  bool isEscapeHatch;
+  address escapeHatchProposer;
+  IEscapeHatch escapeHatch;
 }
 
 /**
@@ -222,7 +226,21 @@ library ProposeLib {
       })
     );
 
+    RollupStore storage rollupStore = STFLib.getStorage();
     {
+      v.escapeHatch = ValidatorSelectionLib.getEscapeHatch();
+      if (address(v.escapeHatch) != address(0)) {
+        (v.isEscapeHatch, v.escapeHatchProposer) = v.escapeHatch.isHatchOpen(v.currentEpoch);
+      }
+    }
+
+    if (v.isEscapeHatch) {
+      // During escape hatch, only the designated proposer can propose
+      require(
+        msg.sender == v.escapeHatchProposer,
+        Errors.Rollup__InvalidEscapeHatchProposer(v.escapeHatchProposer, msg.sender)
+      );
+    } else {
       // Verify that the proposer is the correct one for this slot by checking their signature in the attestations
       ValidatorSelectionLib.verifyProposer(
         v.header.slotNumber,
@@ -234,9 +252,6 @@ library ProposeLib {
         true
       );
     }
-
-    // Begin state updates - get storage reference and current chain tips
-    RollupStore storage rollupStore = STFLib.getStorage();
     CompressedChainTips tips = rollupStore.tips;
 
     // Increment checkpoint number and update chain tips
@@ -301,10 +316,15 @@ library ProposeLib {
       rollupStore.config.outbox.insert(checkpointNumber, v.header.contentCommitment.outHash);
     }
 
-    // Emit event for external listeners. Nodes rely on this event to update their state.
-    emit IRollupCore.CheckpointProposed(
-      checkpointNumber, _args.archive, v.blobHashes, v.payloadDigest, v.attestationsHash
-    );
+    {
+      bytes32 archive = _args.archive;
+      if (v.isEscapeHatch) {
+        v.escapeHatch.updateSubmittedArchive(v.escapeHatchProposer, uint128(checkpointNumber), archive);
+      }
+
+      // Emit event for external listeners. Nodes rely on this event to update their state.
+      emit IRollupCore.CheckpointProposed(checkpointNumber, archive, v.blobHashes, v.payloadDigest, v.attestationsHash);
+    }
   }
 
   /**
