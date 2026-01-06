@@ -143,7 +143,15 @@ export class PXE {
     const capsuleStore = new CapsuleStore(store);
     const keyStore = new KeyStore(store);
     const tipsStore = new L2TipsKVStore(store, 'pxe');
-    const synchronizer = new BlockSynchronizer(node, anchorBlockStore, noteStore, tipsStore, config, loggerOrSuffix);
+    const synchronizer = new BlockSynchronizer(
+      node,
+      anchorBlockStore,
+      noteStore,
+      privateEventStore,
+      tipsStore,
+      config,
+      loggerOrSuffix,
+    );
 
     const debugUtils = new PXEDebugUtils(contractStore, noteStore);
 

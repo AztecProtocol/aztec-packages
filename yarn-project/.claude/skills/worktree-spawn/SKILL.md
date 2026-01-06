@@ -1,6 +1,24 @@
-# Working in Parallel with Git Worktrees
+---
+name: worktree-spawn
+description: Spawn an independent Claude instance in a git worktree to work on a task in parallel. Use when the user wants to delegate a task to run independently while continuing the current conversation.
+---
 
-When Claude needs to work on a task independently in a separate worktree:
+# Worktree Spawn
+
+Spawn an independent Claude instance in a separate git worktree to work on a task in parallel.
+
+## When to Use
+
+- User wants to delegate a task to run independently
+- Task can be completed without further interaction
+- User wants to continue working on something else in the current session
+
+## Workflow
+
+1. Determine branch name using author initials (from `git config user.initials` or `git config user.name`) and task description
+2. Choose a worktree directory name (typically `../aztec-<feature-name>`)
+3. Create the worktree with a new branch
+4. Spawn Claude in the worktree with a detailed task prompt
 
 ## Command Template
 
@@ -28,6 +46,8 @@ EOF
 
 ## Example
 
+For a task "Fix bug #123 in the sequencer":
+
 ```bash
 cd $(git rev-parse --show-toplevel) && \
 git worktree add -b jd/fix-bug-123 ../aztec-fix-bug && \
@@ -50,8 +70,9 @@ EOF
 ## Key Points
 
 - Always go to git root first before creating worktree
-- Use `-b` flag to create new branch
+- Use `-b` flag to create a new branch
 - Navigate to `yarn-project` within the worktree
 - Always include "Read CLAUDE.md first" in the prompt
 - Worktree directories are typically named `../aztec-<feature-name>`
-- The spawned Claude instance works independently from your current session
+- The spawned Claude instance works independently from the current session
+- PR target is `next` unless specified otherwise
