@@ -74,10 +74,10 @@ where
         assert_constant(delivery_mode);
 
         // The following maps out the 3 dimensions across which we configure message delivery.
-        let constrained_encryption = delivery_mode == MessageDelivery.CONSTRAINED_ONCHAIN;
-        let deliver_as_offchain_message = delivery_mode == MessageDelivery.UNCONSTRAINED_OFFCHAIN;
+        let constrained_encryption = delivery_mode == MessageDelivery.ONCHAIN_CONSTRAINED;
+        let deliver_as_offchain_message = delivery_mode == MessageDelivery.OFFCHAIN;
         // TODO(#14565): Add constrained tagging
-        let _constrained_tagging = delivery_mode == MessageDelivery.CONSTRAINED_ONCHAIN;
+        let _constrained_tagging = delivery_mode == MessageDelivery.ONCHAIN_CONSTRAINED;
 
         // Technical note: we're about to call a closure that needs access to `new_note`, but we can't pass `self` to it
         // because the closure might execute in unconstrained mode, and since `self` contains a mutable reference to
@@ -104,8 +104,8 @@ where
             // Onchain messages are delivered via private logs, which must be prefixed with a tag such that the
             // recipient will know to fetch and decrypt them.
 
-            // Safety: Currently unsafe. See description of CONSTRAINED_ONCHAIN in messages::MessageDeliveryEnum.
-            // TODO(#14565): Implement proper constrained tag prefixing to make this truly CONSTRAINED_ONCHAIN
+            // Safety: Currently unsafe. See description of ONCHAIN_CONSTRAINED in messages::MessageDeliveryEnum.
+            // TODO(#14565): Implement proper constrained tag prefixing to make this truly ONCHAIN_CONSTRAINED
             let log_content = prefix_with_tag(ciphertext, recipient);
 
             // We associate the log with the new note's side effect counter, so that if the note ends up being squashed
@@ -162,7 +162,7 @@ where
 
     /// Same as [NoteMessage::deliver], except the message will only be delivered if it actually exists.
     ///
-    /// Messages delivered using [crate::messages::message_delivery::MessageDeliveryEnum::CONSTRAINED_ONCHAIN] will pay
+    /// Messages delivered using [crate::messages::message_delivery::MessageDeliveryEnum::ONCHAIN_CONSTRAINED] will pay
     /// proving costs regardless of whether the message exists or not.
     pub fn deliver(self, delivery_mode: u8) {
         if self.maybe_new_note.is_some() {
@@ -174,7 +174,7 @@ where
 
     /// Same as [NoteMessage::deliver_to], except the message will only be delivered if it actually exists.
     ///
-    /// Messages delivered using [crate::messages::message_delivery::MessageDeliveryEnum::CONSTRAINED_ONCHAIN] will pay
+    /// Messages delivered using [crate::messages::message_delivery::MessageDeliveryEnum::ONCHAIN_CONSTRAINED] will pay
     /// proving costs regardless of whether the message exists or not.
     pub fn deliver_to(self, recipient: AztecAddress, delivery_mode: u8) {
         if self.maybe_new_note.is_some() {

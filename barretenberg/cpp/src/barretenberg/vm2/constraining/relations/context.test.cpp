@@ -154,7 +154,7 @@ TEST(ContextConstrainingTest, ContextSwitchingCallReturn)
     check_relation<context>(trace);
 
     check_interaction<tracegen::ExecutionTraceBuilder,
-                      lookup_context_ctx_stack_call_settings,
+                      perm_context_ctx_stack_call_settings,
                       lookup_context_ctx_stack_rollback_settings,
                       lookup_context_ctx_stack_return_settings>(trace);
 }
@@ -284,7 +284,7 @@ TEST(ContextConstrainingTest, ContextSwitchingExceptionalHalt)
     check_relation<context>(trace);
 
     check_interaction<tracegen::ExecutionTraceBuilder,
-                      lookup_context_ctx_stack_call_settings,
+                      perm_context_ctx_stack_call_settings,
                       lookup_context_ctx_stack_rollback_settings,
                       lookup_context_ctx_stack_return_settings>(trace);
 }
