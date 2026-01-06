@@ -1,11 +1,6 @@
 import { Archiver, createArchiver } from '@aztec/archiver';
 import { BBCircuitVerifier, QueuedIVCVerifier, TestCircuitVerifier } from '@aztec/bb-prover';
-import { type BlobClientInterface, createBlobClient } from '@aztec/blob-client/client';
-import {
-  type BlobFileStoreMetadata,
-  createReadOnlyFileStoreBlobClients,
-  createWritableFileStoreBlobClient,
-} from '@aztec/blob-client/filestore';
+import { type BlobClientInterface, createBlobClientWithFileStores } from '@aztec/blob-client/client';
 import {
   ARCHIVE_HEIGHT,
   INITIAL_L2_BLOCK_NUM,
@@ -191,7 +186,6 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       logger?: Logger;
       publisher?: SequencerPublisher;
       dateProvider?: DateProvider;
-      blobClient?: BlobClientInterface;
       p2pClientDeps?: P2PClientDeps<P2PClientType.Full>;
     } = {},
     options: {
@@ -271,24 +265,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       );
     }
 
-    const blobFileStoreMetadata: BlobFileStoreMetadata = {
-      l1ChainId: config.l1ChainId,
-      rollupVersion: config.rollupVersion,
-      rollupAddress: config.l1Contracts.rollupAddress.toString(),
-    };
-
-    const [fileStoreClients, fileStoreUploadClient] = await Promise.all([
-      createReadOnlyFileStoreBlobClients(config.blobFileStoreUrls, blobFileStoreMetadata, log),
-      createWritableFileStoreBlobClient(config.blobFileStoreUploadUrl, blobFileStoreMetadata, log),
-    ]);
-
-    const blobClient =
-      deps.blobClient ??
-      createBlobClient(config, {
-        logger: createLogger('node:blob-client:client'),
-        fileStoreClients,
-        fileStoreUploadClient,
-      });
+    const blobClient = await createBlobClientWithFileStores(config, createLogger('node:blob-client:client'));
 
     // attempt snapshot sync if possible
     await trySnapshotSync(config, log);
@@ -355,7 +332,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       blockSource: archiver,
       l1ToL2MessageSource: archiver,
       keyStoreManager,
-      fileStoreBlobUploadClient: fileStoreUploadClient,
+      blobClient,
     });
 
     // If we have a validator client, register it as a source of offenses for the slasher,
@@ -786,6 +763,14 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     await tryStop(this.blobClient);
     await tryStop(this.telemetry);
     this.log.info(`Stopped Aztec Node`);
+  }
+
+  /**
+   * Returns the blob client used by this node.
+   * @internal - Exposed for testing purposes only.
+   */
+  public getBlobClient(): BlobClientInterface | undefined {
+    return this.blobClient;
   }
 
   /**
