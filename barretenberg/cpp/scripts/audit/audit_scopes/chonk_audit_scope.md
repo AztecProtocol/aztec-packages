@@ -65,6 +65,10 @@ Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg`
 41. `flavor/multilinear_batching_flavor.hpp`
 42. `flavor/multilinear_batching_recursive_flavor.hpp`
 
+### ACIR Integration
+43. `dsl/acir_format/hypernova_recursion_constraint.hpp`
+44. `dsl/acir_format/hypernova_recursion_constraint.cpp`
+
 ---
 
 ## Critical Files
