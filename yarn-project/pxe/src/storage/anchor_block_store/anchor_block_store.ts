@@ -1,4 +1,4 @@
-import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncSingleton } from '@aztec/kv-store';
+import type { AztecAsyncKVStore, AztecAsyncSingleton } from '@aztec/kv-store';
 import { BlockHeader } from '@aztec/stdlib/tx';
 
 import type { JobContext, StagedStore } from '../../job_coordinator/index.js';
@@ -18,13 +18,13 @@ export class AnchorBlockStore implements StagedStore {
 
   #store: AztecAsyncKVStore;
   #synchronizedHeader: AztecAsyncSingleton<Buffer>;
-  /** Map for staging data - keys are staging prefixes */
-  #stagingMap: AztecAsyncMap<string, Buffer>;
+  /** In-memory stage: jobId -> header buffer */
+  #stagedHeader: Map<string, Buffer>;
 
   constructor(store: AztecAsyncKVStore) {
     this.#store = store;
     this.#synchronizedHeader = this.#store.openSingleton(HEADER_KEY);
-    this.#stagingMap = this.#store.openMap('anchor_block_staging');
+    this.#stagedHeader = new Map();
   }
 
   /**
@@ -35,11 +35,8 @@ export class AnchorBlockStore implements StagedStore {
    */
   async setHeader(header: BlockHeader, context?: JobContext): Promise<void> {
     if (context) {
-      // Write to staging
-      const stagingKey = context.stagingKey(HEADER_KEY);
-      await this.#stagingMap.set(stagingKey, header.toBuffer());
+      this.#stagedHeader.set(context.jobId, header.toBuffer());
     } else {
-      // Direct write
       await this.#synchronizedHeader.set(header.toBuffer());
     }
   }
@@ -52,10 +49,8 @@ export class AnchorBlockStore implements StagedStore {
    * @throws If no header has been set
    */
   async getBlockHeader(context?: JobContext): Promise<BlockHeader> {
-    // Check staging first if in a job
     if (context) {
-      const stagingKey = context.stagingKey(HEADER_KEY);
-      const stagedBuffer = await this.#stagingMap.getAsync(stagingKey);
+      const stagedBuffer = this.#stagedHeader.get(context.jobId);
       if (stagedBuffer) {
         return BlockHeader.fromBuffer(stagedBuffer);
       }
@@ -76,12 +71,11 @@ export class AnchorBlockStore implements StagedStore {
    * Must be called within a transaction by the JobCoordinator.
    */
   async commitStaged(context: JobContext): Promise<void> {
-    const stagingKey = context.stagingKey(HEADER_KEY);
-    const stagedBuffer = await this.#stagingMap.getAsync(stagingKey);
+    const stagedBuffer = this.#stagedHeader.get(context.jobId);
 
     if (stagedBuffer) {
       await this.#synchronizedHeader.set(stagedBuffer);
-      await this.#stagingMap.delete(stagingKey);
+      this.#stagedHeader.delete(context.jobId);
     }
   }
 
@@ -89,8 +83,10 @@ export class AnchorBlockStore implements StagedStore {
    * Discards staged data without committing.
    * Called by JobCoordinator on abort or during recovery.
    */
-  async discardStaged(stagingPrefix: string): Promise<void> {
-    const stagingKey = `${stagingPrefix}${HEADER_KEY}`;
-    await this.#stagingMap.delete(stagingKey);
+  discardStaged(stagingPrefix: string): Promise<void> {
+    // Extract jobId from prefix format "job_{jobId}:"
+    const jobId = stagingPrefix.slice(4, -1);
+    this.#stagedHeader.delete(jobId);
+    return Promise.resolve();
   }
 }
