@@ -102,7 +102,7 @@ impl<let NumBlobs: u32> CheckpointRollupPublicInputsComposer<NumBlobs> {
             block_headers_hash: merged_rollup.block_headers_hash,
             content_commitment,
             slot_number: constants.slot_number,
-            timestamp: merged_rollup.end_timestamp,
+            timestamp: merged_rollup.timestamp,
             coinbase: constants.coinbase,
             fee_recipient: constants.fee_recipient,
             gas_fees: constants.gas_fees,
