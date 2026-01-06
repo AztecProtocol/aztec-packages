@@ -234,8 +234,6 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
       block.timestamp, _config.aztecSlotDuration, _config.aztecEpochDuration, _config.aztecProofSubmissionEpochs
     );
 
-    Timestamp exitDelay = Timestamp.wrap(_config.exitDelaySeconds);
-
     // Deploy slasher based on flavor
     ISlasher slasher;
 
@@ -273,7 +271,12 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
     }
 
     StakingLib.initialize(
-      _stakingAsset, _gse, exitDelay, address(slasher), _config.stakingQueueConfig, _config.localEjectionThreshold
+      _stakingAsset,
+      _gse,
+      Timestamp.wrap(_config.exitDelaySeconds),
+      address(slasher),
+      _config.stakingQueueConfig,
+      _config.localEjectionThreshold
     );
     ValidatorOperationsExtLib.initializeValidatorSelection(
       _config.targetCommitteeSize, _config.lagInEpochsForValidatorSet, _config.lagInEpochsForRandao
@@ -388,6 +391,17 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
    */
   function updateStakingQueueConfig(StakingQueueConfig memory _config) external override(IStakingCore) onlyOwner {
     ValidatorOperationsExtLib.updateStakingQueueConfig(_config);
+  }
+
+  /**
+   * @notice Sets the escape hatch contract address
+   * @dev Only callable by owner. Set to address(0) to disable escape hatch functionality.
+   *      The escape hatch provides an alternative block production path when the committee is unavailable.
+   * @param _escapeHatch The address of the EscapeHatch contract, or address(0) to disable
+   */
+  function updateEscapeHatch(address _escapeHatch) external override(IValidatorSelectionCore) onlyOwner {
+    ValidatorOperationsExtLib.updateEscapeHatch(_escapeHatch);
+    emit IValidatorSelectionCore.EscapeHatchUpdated(_escapeHatch);
   }
 
   /**

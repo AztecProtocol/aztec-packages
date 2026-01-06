@@ -1,0 +1,13 @@
+proposeTest
+├── given escape hatch is not configured
+│   └── it should use normal validator selection verification
+└── given escape hatch is configured
+    ├── when escape hatch is not open for current epoch
+    │   └── it should use normal validator selection verification
+    └── when escape hatch is open for current epoch
+        ├── when caller is not the designated proposer
+        │   └── it should revert with Rollup__InvalidEscapeHatchProposer
+        └── when caller is the designated proposer
+            ├── it should allow the proposal
+            ├── it should notify escape hatch of proposal via onCheckpointProposed
+            └── it should record the checkpoint normally
