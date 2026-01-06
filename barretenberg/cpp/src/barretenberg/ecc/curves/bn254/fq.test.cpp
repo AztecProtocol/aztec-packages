@@ -226,6 +226,7 @@ TEST(BN254Fq, Neg)
 // Endomorphism
 // ================================
 
+
 TEST(BN254Fq, SplitIntoEndomorphismScalars)
 {
     fq k = fq::random_element();
@@ -366,7 +367,6 @@ TEST(BN254Fq, SerializeFromBuffer)
 // ================================
 // Regression Tests
 // ================================
-
 // TEST to check we don't have 0^0=0
 TEST(BN254Fq, PowRegressionCheck)
 {

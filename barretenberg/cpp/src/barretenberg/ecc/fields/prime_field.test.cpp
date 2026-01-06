@@ -337,6 +337,23 @@ TYPED_TEST(PrimeFieldTest, BatchInvert)
 // Increment Operators
 // ================================
 
+TYPED_TEST(PrimeFieldTest, PlusEqualsInt)
+{
+    using F = TypeParam;
+
+    F a = F::random_element();
+    F a_copy = a;
+
+    a += 2;
+    F expected = a_copy + F(2);
+    EXPECT_EQ(a, expected);
+
+    a += 3;
+    expected = a_copy + F(5);
+    EXPECT_EQ(a, expected);
+}
+
+
 TYPED_TEST(PrimeFieldTest, PrefixIncrement)
 {
     using F = TypeParam;
