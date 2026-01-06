@@ -61,6 +61,14 @@ export class BenchmarkTelemetryClient implements TelemetryClient {
     return true;
   }
 
+  getTraceContext(): string | undefined {
+    return undefined;
+  }
+
+  extractPropagatedContext() {
+    return undefined;
+  }
+
   getMeters(): BenchmarkMetricsType {
     return this.meters;
   }

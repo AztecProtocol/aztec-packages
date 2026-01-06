@@ -40,7 +40,7 @@ import type { Checkpoint } from '@aztec/stdlib/checkpoint';
 import { SlashFactoryContract } from '@aztec/stdlib/l1-contracts';
 import type { CheckpointHeader } from '@aztec/stdlib/rollup';
 import type { L1PublishCheckpointStats } from '@aztec/stdlib/stats';
-import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
+import { type TelemetryClient, type Tracer, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
 
 import { type StateOverride, type TransactionReceipt, type TypedDataDefinition, encodeFunctionData, toHex } from 'viem';
 
@@ -139,6 +139,8 @@ export class SequencerPublisher {
   public slashingProposerContract: EmpireSlashingProposerContract | TallySlashingProposerContract | undefined;
   public slashFactoryContract: SlashFactoryContract;
 
+  public readonly tracer: Tracer;
+
   protected requests: RequestWithExpiry[] = [];
 
   constructor(
@@ -167,6 +169,7 @@ export class SequencerPublisher {
 
     const telemetry = deps.telemetry ?? getTelemetryClient();
     this.metrics = deps.metrics ?? new SequencerPublisherMetrics(telemetry, 'SequencerPublisher');
+    this.tracer = telemetry.getTracer('SequencerPublisher');
     this.l1TxUtils = deps.l1TxUtils;
 
     this.rollupContract = deps.rollupContract;
@@ -296,6 +299,7 @@ export class SequencerPublisher {
    * - a receipt and errorMsg if it failed on L1
    * - undefined if no valid requests are found OR the tx failed to send.
    */
+  @trackSpan('SequencerPublisher.sendRequests')
   public async sendRequests() {
     const requestsToProcess = [...this.requests];
     this.requests = [];
@@ -442,10 +446,11 @@ export class SequencerPublisher {
    *          It will throw if the block header is invalid.
    * @param header - The block header to validate
    */
+  @trackSpan('SequencerPublisher.validateBlockHeader')
   public async validateBlockHeader(
     header: CheckpointHeader,
     opts?: { forcePendingBlockNumber: BlockNumber | undefined },
-  ) {
+  ): Promise<void> {
     const flags = { ignoreDA: true, ignoreSignatures: true };
 
     const args = [
@@ -588,6 +593,7 @@ export class SequencerPublisher {
   }
 
   /** Simulates `propose` to make sure that the checkpoint is valid for submission */
+  @trackSpan('SequencerPublisher.validateCheckpointForSubmission')
   public async validateCheckpointForSubmission(
     checkpoint: Checkpoint,
     attestationsAndSigners: CommitteeAttestationsAndSigners,

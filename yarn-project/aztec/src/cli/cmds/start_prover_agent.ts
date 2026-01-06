@@ -58,15 +58,7 @@ export async function startProverAgent(
   const proofStore = new InlineProofStore();
   const agents = times(
     config.proverAgentCount,
-    () =>
-      new ProvingAgent(
-        broker,
-        proofStore,
-        prover,
-        config.proverAgentProofTypes,
-        config.proverAgentPollIntervalMs,
-        telemetry,
-      ),
+    () => new ProvingAgent(broker, proofStore, prover, config.proverAgentProofTypes, config.proverAgentPollIntervalMs),
   );
 
   // expose all agents as individual services
