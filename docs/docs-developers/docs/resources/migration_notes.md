@@ -9,6 +9,16 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## TBD
 
+### [Aztec.nr] Renamed message delivery options
+
+The following terms have been renamed:
+
+ - `MessageDelivery::UNCONSTRAINED_OFFCHAIN` -> `MessageDelivery::OFFCHAIN`
+ - `MessageDelivery::UNCONSTRAINED_ONCHAIN` -> `MessageDelivery::OFFCHAIN_UNCONSTRAINED`
+ - `MessageDelivery::CONSTRAINED_ONCHAIN` -> `MessageDelivery::ONCHAIN_CONSTRAINED`
+
+We believe these names will better convey the meaning of the concepts.
+
 ### [Aztec Node] changes to `getLogsByTags` endpoint
 
 `getLogsByTags` endpoint has been optimized for our new log sync algorithm and these are the changes:
