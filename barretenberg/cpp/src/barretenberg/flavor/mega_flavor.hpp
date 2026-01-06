@@ -42,7 +42,9 @@ class MegaFlavor {
     using CommitmentKey = bb::CommitmentKey<Curve>;
     using VerifierCommitmentKey = bb::VerifierCommitmentKey<Curve>;
     using TraceBlocks = MegaExecutionTraceBlocks;
-    using Transcript = NativeTranscript;
+    using Codec = FrCodec;
+    using HashFunction = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>;
+    using Transcript = BaseTranscript<Codec, HashFunction>;
 
     // An upper bound on the size of the Mega-circuits. `CONST_FOLDING_LOG_N` bounds the log circuit sizes in the Chonk
     // context.
@@ -451,10 +453,7 @@ class MegaFlavor {
      * circuits.
      * @todo TODO(https://github.com/AztecProtocol/barretenberg/issues/876)
      */
-    using VerificationKey = NativeVerificationKey_<PrecomputedEntities<Commitment>,
-                                                   typename Transcript::Codec,
-                                                   typename Transcript::HashFunction,
-                                                   CommitmentKey>;
+    using VerificationKey = NativeVerificationKey_<PrecomputedEntities<Commitment>, Codec, HashFunction, CommitmentKey>;
 
     using VKAndHash = VKAndHash_<FF, VerificationKey>;
 

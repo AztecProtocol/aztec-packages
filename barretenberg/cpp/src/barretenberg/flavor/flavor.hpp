@@ -657,15 +657,14 @@ template <typename BuilderType> class MegaAvmRecursiveFlavor_;
 template <typename PrecomputedCommitments,
           typename Codec,
           typename HashFunction,
-          typename CommitmentKeyType,
+          typename CommitmentKey,
           VKSerializationMode SerializeMetadata>
 inline void read(
     uint8_t const*& it,
-    NativeVerificationKey_<PrecomputedCommitments, Codec, HashFunction, CommitmentKeyType, SerializeMetadata>& vk)
+    NativeVerificationKey_<PrecomputedCommitments, Codec, HashFunction, CommitmentKey, SerializeMetadata>& vk)
 {
     using serialize::read;
-    using VK =
-        NativeVerificationKey_<PrecomputedCommitments, Codec, HashFunction, CommitmentKeyType, SerializeMetadata>;
+    using VK = NativeVerificationKey_<PrecomputedCommitments, Codec, HashFunction, CommitmentKey, SerializeMetadata>;
 
     // Get the size directly from the static method
     size_t num_frs = VK::calc_num_data_types();
@@ -682,15 +681,14 @@ inline void read(
 template <typename PrecomputedCommitments,
           typename Codec,
           typename HashFunction,
-          typename CommitmentKeyType,
+          typename CommitmentKey,
           VKSerializationMode SerializeMetadata>
 inline void write(
     std::vector<uint8_t>& buf,
-    NativeVerificationKey_<PrecomputedCommitments, Codec, HashFunction, CommitmentKeyType, SerializeMetadata> const& vk)
+    NativeVerificationKey_<PrecomputedCommitments, Codec, HashFunction, CommitmentKey, SerializeMetadata> const& vk)
 {
     using serialize::write;
-    using VK =
-        NativeVerificationKey_<PrecomputedCommitments, Codec, HashFunction, CommitmentKeyType, SerializeMetadata>;
+    using VK = NativeVerificationKey_<PrecomputedCommitments, Codec, HashFunction, CommitmentKey, SerializeMetadata>;
 
     size_t before = buf.size();
     // Convert to field elements and write them directly without length prefix

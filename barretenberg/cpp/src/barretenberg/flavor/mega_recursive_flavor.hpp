@@ -101,7 +101,7 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
 
     using VerificationKey = StdlibVerificationKey_<CircuitBuilder,
                                                    NativeFlavor::PrecomputedEntities<Commitment>,
-                                                   typename NativeFlavor::VerificationKey>;
+                                                   NativeFlavor::VerificationKey>;
 
     /**
      * @brief A container for the witness commitments.
