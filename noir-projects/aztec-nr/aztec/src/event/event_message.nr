@@ -58,10 +58,10 @@ where
         assert_constant(delivery_mode);
 
         // The following maps out the 3 dimensions across which we configure message delivery.
-        let constrained_encryption = delivery_mode == MessageDelivery.CONSTRAINED_ONCHAIN;
-        let deliver_as_offchain_message = delivery_mode == MessageDelivery.UNCONSTRAINED_OFFCHAIN;
+        let constrained_encryption = delivery_mode == MessageDelivery.ONCHAIN_CONSTRAINED;
+        let deliver_as_offchain_message = delivery_mode == MessageDelivery.OFFCHAIN;
         // TODO(#14565): Add constrained tagging
-        let _constrained_tagging = delivery_mode == MessageDelivery.CONSTRAINED_ONCHAIN;
+        let _constrained_tagging = delivery_mode == MessageDelivery.ONCHAIN_CONSTRAINED;
 
         // Technical note: we're about to call a closure that needs access to `new_event`, but we can't pass `self` to
         // it because the closure might execute in unconstrained mode, and since `self` contains a mutable reference to
@@ -80,8 +80,8 @@ where
         if deliver_as_offchain_message {
             deliver_offchain_message(ciphertext, recipient);
         } else {
-            // Safety: Currently unsafe. See description of CONSTRAINED_ONCHAIN in MessageDeliveryEnum.
-            // TODO(#14565): Implement proper constrained tag prefixing to make this truly CONSTRAINED_ONCHAIN
+            // Safety: Currently unsafe. See description of ONCHAIN_CONSTRAINED in MessageDeliveryEnum.
+            // TODO(#14565): Implement proper constrained tag prefixing to make this truly ONCHAIN_CONSTRAINED
             let log_content = prefix_with_tag(ciphertext, recipient);
 
             self.context.emit_private_log(log_content, log_content.len());

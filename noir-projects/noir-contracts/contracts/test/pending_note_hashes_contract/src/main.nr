@@ -46,7 +46,7 @@ pub contract PendingNoteHashes {
         let note = FieldNote { value: amount };
 
         // Insert note
-        owner_balance.insert(note).deliver(MessageDelivery.CONSTRAINED_ONCHAIN);
+        owner_balance.insert(note).deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
 
         let options = NoteGetterOptions::with_filter(filter_notes_min_sum, amount);
         // get note inserted above
@@ -90,7 +90,7 @@ pub contract PendingNoteHashes {
         let note = FieldNote { value: amount };
 
         // Insert note
-        owner_balance.insert(note).deliver(MessageDelivery.CONSTRAINED_ONCHAIN);
+        owner_balance.insert(note).deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
     }
 
     // Nested/inner function to create and insert a note
@@ -105,7 +105,7 @@ pub contract PendingNoteHashes {
         let note = FieldNote::unpack([amount.to_field()]);
 
         // Insert note
-        owner_balance.insert(note).deliver(MessageDelivery.CONSTRAINED_ONCHAIN);
+        owner_balance.insert(note).deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
     }
 
     // Nested/inner function to create and insert a note
@@ -119,10 +119,10 @@ pub contract PendingNoteHashes {
         // Insert note
         let message = owner_balance.insert(note);
 
-        message.deliver(MessageDelivery.CONSTRAINED_ONCHAIN);
+        message.deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
 
         // Deliver note message again
-        message.deliver(MessageDelivery.CONSTRAINED_ONCHAIN);
+        message.deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
     }
 
     // Nested/inner function to get a note and confirm it matches the expected value
@@ -340,7 +340,7 @@ pub contract PendingNoteHashes {
             let recipient_balance = self.storage.balances.at(recipient);
 
             let note = FieldNote { value: i as Field };
-            recipient_balance.insert(note).deliver(MessageDelivery.CONSTRAINED_ONCHAIN);
+            recipient_balance.insert(note).deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
         }
     }
 
