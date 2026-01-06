@@ -125,12 +125,6 @@ extern "C" size_t LLVMFuzzerCustomMutator(uint8_t* data, size_t size, size_t max
     size_t num_events =
         static_cast<size_t>(input.num_flat_calls) * (input.num_nested_calls == 0 ? 1 : input.num_nested_calls);
 
-    if (input.num_flat_calls == 0) {
-        // TODO(MW): Somehow the number of flat calls can be set as 0, todo more robustly
-        // ensure this does not happen (counter?)
-        input.num_flat_calls++;
-    }
-
     // Choose random mutation
     std::uniform_int_distribution<int> mutation_dist(0, 4);
     int mutation_choice = mutation_dist(rng);

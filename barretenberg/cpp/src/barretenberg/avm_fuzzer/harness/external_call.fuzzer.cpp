@@ -284,9 +284,6 @@ std::unique_ptr<ContextInterface> fuzz_call(std::vector<ExecutionEvent>& ex_even
     AddressingEvent addressing_event;
     GasEvent gas_event;
 
-    // TODO(MW): Fuzz and set operands?
-    // mem.set(call_instr.operands, values);
-
     // Execution.execute pre - dispatch
     parent_context->set_next_pc(parent_context->get_pc() + static_cast<uint32_t>(instr.size_in_bytes()));
     auto addressing = execution_components.make_addressing(addressing_event);
@@ -394,15 +391,14 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
                           execution_components,
                           input.call_instances[current_call_idx++]);
                 fuzz_return(ex_events, child_context, execution_components);
-                // TODO(MW): Handle exit call for nested?
+                // This fuzzer doesn't test beyond the external_call.pil relations/lookups, so we don't need a
+                // handle_exit_call()
             }
             fuzz_return(ex_events, context, execution_components);
-            // This fuzzer doesn't test beyond the external_call.pil relations/lookups, so we don't need a
-            // handle_exit_call() after the top level
         }
 
     } catch (const std::exception& e) {
-        // No opcode errors to test here (TODO(MW): correct?)
+        // No opcode errors to test here
         return 0;
     }
 
