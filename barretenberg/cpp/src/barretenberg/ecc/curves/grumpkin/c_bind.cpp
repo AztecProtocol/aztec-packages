@@ -1,9 +1,3 @@
-// === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], commit: }
-// external_1:  { status: not started, auditors: [], commit: }
-// external_2:  { status: not started, auditors: [], commit: }
-// =====================
-
 // TODO: Delete this cbind once funcs working in root cbind of ecc module.
 #include "barretenberg/common/wasm_export.hpp"
 #include "grumpkin.hpp"
