@@ -72,7 +72,7 @@ namespace calldata;
     // size = 0. This is a different case to a calldata of one field of value 0, where index = 1.
     pol commit index;
     // Designates end of calldata for that context_id
-    pol commit latch;
+    pol commit latch; // @boolean
     latch * (1 - latch) = 0;
 
     // latch == 1 ==> sel == 1

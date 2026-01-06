@@ -142,10 +142,10 @@ pol commit ic_tag;
 // Common helper selectors
 pol commit sel_is_ff; // @boolean (whether input a is a field)
 pol commit sel_is_u128; // @boolean (whether input a is a u128)
-pol IS_NOT_FF = 1 - sel_is_ff; // @boolean Follows from definition.
-pol IS_NOT_U128 = 1 - sel_is_u128; // @boolean Follows from definition.
-pol SHIFT_OPS = sel_op_shl + sel_op_shr; // @boolean Follows from definition and mutual exclusion.
-pol DIV_OPS = sel_op_div + sel_op_fdiv; // @boolean Follows from definition and mutual exclusion.
+pol IS_NOT_FF = 1 - sel_is_ff; // @boolean (by definition)
+pol IS_NOT_U128 = 1 - sel_is_u128; // @boolean (by definition)
+pol SHIFT_OPS = sel_op_shl + sel_op_shr; // @boolean (by definition and mutual exclusion)
+pol DIV_OPS = sel_op_div + sel_op_fdiv; // @boolean (by definition and mutual exclusion)
 
 // Note that #[OP_ID_CHECK] ensures selectors are mutually exclusive.
 // Therefore, SHIFT_OPS and DIV_OPS are boolean.
@@ -173,8 +173,8 @@ sel * (TAG_U128_DIFF * (sel_is_u128 * (1 - tag_u128_diff_inv) + tag_u128_diff_in
 /******************************************************************************
 * Error Handling
 ******************************************************************************/
-pol commit sel_err; // @boolean Follows from definition (see #[ERR_CHECK]).
-pol commit sel_tag_err; // @boolean Follows from definition (see #[TAG_ERR_CHECK]).
+pol commit sel_err; // @boolean (by definition, see #[ERR_CHECK])
+pol commit sel_tag_err; // @boolean (by definition, see #[TAG_ERR_CHECK])
 pol commit sel_ab_tag_mismatch; // @boolean
 pol commit sel_div_0_err; // @boolean
 
@@ -280,7 +280,7 @@ pol SEL_DIV_U128 = sel_div_no_err * sel_is_u128;
 * BIT DECOMPOSITION (Common helper for MUL, DIV, SHL, SHR)
 ******************************************************************************/
 // We use the below to prove correct decomposition of some values into limbs. Currently used by MUL, DIV, SHL, and SHR.
-pol commit sel_decompose_a; // @boolean by definition and mutual exclusion of opcode selectors.
+pol commit sel_decompose_a; // @boolean (by definition and mutual exclusion of opcode selectors)
 sel_decompose_a = (1 - sel_err) * (sel_mul_div_u128 + SHIFT_OPS);
 // Currently, sel_decompose_b would just equal sel_mul_div_u128, so no need for another column.
 pol commit a_lo, a_hi, b_lo, b_hi; // Limbs of the decomposed value. Range values defined by LIMB_SIZE.
@@ -372,7 +372,7 @@ SEL_MUL_U128 * (
     ) = 0;
 
 // We need to range check c_hi < 2^64 for non-FF values and when there is no error.
-pol commit sel_mul_no_err_non_ff; // @boolean Follows from definition.
+pol commit sel_mul_no_err_non_ff; // @boolean (by definition)
 sel_mul_no_err_non_ff = IS_NOT_FF * (1 - sel_err) * sel_op_mul;
 #[RANGE_CHECK_MUL_C_HI]
 sel_mul_no_err_non_ff { c_hi, constant_64 } in range_check.sel_alu { range_check.value, range_check.rng_chk_bits };
@@ -380,7 +380,7 @@ sel_mul_no_err_non_ff { c_hi, constant_64 } in range_check.sel_alu { range_check
 // ------------------------------------------------------------
 // DIV & FDIV
 // ------------------------------------------------------------
-pol commit sel_div_no_err; // @boolean Follows from definition.
+pol commit sel_div_no_err; // @boolean (by definition)
 sel_div_no_err = sel_op_div * (1 - sel_err);
 // We need to show that remainder < b (remainder stored in helper1)
 // We use #[INT_GT] below (see LT/LTE) by setting gt_input_a = b, gt_input_b = helper1, gt_result_c = 1 (gated by sel_div_no_err).
@@ -388,7 +388,7 @@ sel_div_no_err = sel_op_div * (1 - sel_err);
 // DIV - u128
 
 // Using this to switch on the range checks for decomposed u128 integers (#[OP_ID_CHECK] ensures selectors are mutually exclusive)
-pol commit sel_mul_div_u128; // @boolean Follows from definition.
+pol commit sel_mul_div_u128; // @boolean (by definition)
 // SEL_MUL_U128 || SEL_DIV_U128
 sel_mul_div_u128 = SEL_MUL_U128 + SEL_DIV_U128;
 
@@ -452,11 +452,11 @@ sel_op_eq * (1 - sel_err) * (DIFF * (ic * (1 - ab_diff_inv) + ab_diff_inv) - 1 +
 // ------------------------------------------------------------
 pol SEL_LT_OPS = (1 - sel_err) * (sel_op_lt + sel_op_lte);
 
-pol commit sel_ff_gt; // @boolean Follows from definition.
+pol commit sel_ff_gt; // @boolean (by definition)
 // sel_is_ff & SEL_LT_OPS:
 sel_ff_gt = sel_is_ff * SEL_LT_OPS;
 
-pol commit sel_int_gt; // @boolean Follows from definition.
+pol commit sel_int_gt; // @boolean (by definition)
 // (!sel_is_ff & SEL_LT_OPS) || sel_div_no_err:
 sel_int_gt = IS_NOT_FF * SEL_LT_OPS + sel_div_no_err;
 
@@ -623,7 +623,7 @@ sel_trunc_lt_128 * (1 - sel_trunc_lt_128) = 0;
 
 // Truncation separation case
 // Mutually exclusive due to sel_op_truncate being boolean
-pol commit sel_trunc_non_trivial; // @boolean Follows from definition. TODO: Aliases this once lookups support aliases for selectors.
+pol commit sel_trunc_non_trivial; // @boolean (by definition) TODO: Aliases this once lookups support aliases for selectors.
 
 #[SEL_TRUNC_NON_TRIVIAL]
 sel_trunc_non_trivial = sel_trunc_gte_128 + sel_trunc_lt_128;

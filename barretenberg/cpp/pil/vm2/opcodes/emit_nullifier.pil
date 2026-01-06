@@ -33,7 +33,7 @@ namespace execution; // this is a virtual gadget that shares rows with the execu
     pol REMAINING_NULLIFIER_WRITES = constants.MAX_NULLIFIERS_PER_TX -
         prev_num_nullifiers_emitted;
 
-    pol commit sel_reached_max_nullifiers;
+    pol commit sel_reached_max_nullifiers; // @boolean
     sel_reached_max_nullifiers * (1 - sel_reached_max_nullifiers) = 0;
 
     pol commit remaining_nullifiers_inv;
@@ -41,7 +41,7 @@ namespace execution; // this is a virtual gadget that shares rows with the execu
     #[MAX_NULLIFIER_WRITES_REACHED]
     sel_execute_emit_nullifier * (REMAINING_NULLIFIER_WRITES * (sel_reached_max_nullifiers * (1 - remaining_nullifiers_inv) + remaining_nullifiers_inv) - 1 + sel_reached_max_nullifiers) = 0;
 
-    pol commit sel_write_nullifier;
+    pol commit sel_write_nullifier; // @boolean (by definition)
     // Validation errors if we've reached the max nullifiers or if we're in a static context
     #[VALIDATION_ERROR_DISABLE_WRITE]
     sel_execute_emit_nullifier * ((1 - sel_reached_max_nullifiers) * (1 - is_static) - sel_write_nullifier) = 0;

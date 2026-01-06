@@ -41,7 +41,7 @@ namespace execution; // virtual to execution.pil
     sel_failure * (1 - discard) = 0;
 
     // Helper columns for checking if context_id == dying_context_id
-    pol commit is_dying_context; // @boolean (on active rows) 1 iff context_id == dying_context_id
+    pol commit is_dying_context; // @boolean (on active rows - 1 iff context_id == dying_context_id on active rows)
     is_dying_context * (1 - is_dying_context) = 0; // Boolean constraint
     pol DYING_CONTEXT_DIFF = context_id - dying_context_id;
     pol commit dying_context_diff_inv; // Inverse of (context_id - dying_context_id) when they're different

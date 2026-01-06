@@ -80,7 +80,7 @@ include "../bytecode/contract_instance_retrieval.pil";
 namespace get_contract_instance;
 
     // Selector for when this gadget is active
-    pol commit sel;
+    pol commit sel; // @boolean
     sel * (1 - sel) = 0;
 
     // No relations will be checked if this identity is satisfied.
@@ -103,7 +103,7 @@ namespace get_contract_instance;
     // So, here we check that that memory offset is within the bounds.
     // If dst_offset = 0xFFFFFFFF (max valid mem offset), then dst_offset+1 is out of bounds.
     // Otherwise, we know that dst_offset+1 is in-bounds since dst_offset has already been validated by main execution logic.
-    pol commit is_valid_writes_in_bounds;
+    pol commit is_valid_writes_in_bounds; // @boolean
     is_valid_writes_in_bounds * (1 - is_valid_writes_in_bounds) = 0;
     pol WRITES_OUT_OF_BOUNDS = 1 - is_valid_writes_in_bounds;
     pol DST_OFFSET_DIFF_MAX = constants.AVM_HIGHEST_MEM_ADDRESS - dst_offset;
@@ -113,10 +113,10 @@ namespace get_contract_instance;
 
     // Member selection helper columns
     // (from precomputed.pil's GETCONTRACTINSTANCE opcode precomputed columns)
-    pol commit is_valid_member_enum;
-    pol commit is_deployer;
-    pol commit is_class_id;
-    pol commit is_init_hash;
+    pol commit is_valid_member_enum; // @boolean (by lookup)
+    pol commit is_deployer; // @boolean (by lookup)
+    pol commit is_class_id; // @boolean (by lookup)
+    pol commit is_init_hash; // @boolean (by lookup)
     // Note: member_enum is guaranteed to be 8 bits by execution (as a U8 immediate operand),
     // and the precomputed table is populated for the entire 8-bit range (256 rows).
     #[PRECOMPUTED_INFO]

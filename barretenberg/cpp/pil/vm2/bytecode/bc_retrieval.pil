@@ -20,7 +20,7 @@ include "../constants_gen.pil";
 
 namespace bc_retrieval;
 
-pol commit sel;
+pol commit sel; // @boolean
 sel * (1 - sel) = 0;
 
 // No relations will be checked if this identity is satisfied.
@@ -68,7 +68,7 @@ pol commit prev_retrieved_bytecodes_tree_size;
 pol commit next_retrieved_bytecodes_tree_root;
 pol commit next_retrieved_bytecodes_tree_size;
 
-pol commit instance_exists;
+pol commit instance_exists; // @boolean
 instance_exists * (1 - instance_exists) = 0;
 
 #[CONTRACT_INSTANCE_RETRIEVAL]
@@ -86,7 +86,7 @@ sel {
     contract_instance_retrieval.nullifier_tree_root
 };
 
-pol commit no_remaining_bytecodes;
+pol commit no_remaining_bytecodes; // @boolean
 no_remaining_bytecodes * (1 - no_remaining_bytecodes) = 0;
 
 // The tree size is 1 (AVM_RETRIEVED_BYTECODES_TREE_INITIAL_SIZE) + retrieved_bytecodes_count
@@ -97,7 +97,7 @@ pol commit remaining_bytecodes_inv;
 #[NO_REMAINING_BYTECODES]
 sel * (REMAINING_BYTECODES * (no_remaining_bytecodes * (1 - remaining_bytecodes_inv) + remaining_bytecodes_inv) - 1 + no_remaining_bytecodes) = 0;
 
-pol commit is_new_class;
+pol commit is_new_class; // @boolean (by lookup)
 
 #[IS_NEW_CLASS_CHECK]
 instance_exists {
@@ -118,7 +118,7 @@ pol TOO_MANY_BYTECODES = no_remaining_bytecodes * is_new_class;
 // We error if instance doesn't exist or if we have too many bytecodes.
 sel * (instance_exists * (1 - TOO_MANY_BYTECODES) - (1 - error)) = 0;
 
-pol commit should_retrieve;
+pol commit should_retrieve; // @boolean (by definition)
 should_retrieve = sel * (1 - error);
 
 // Observe the following also connects the current_class_id of the instance to the class members.

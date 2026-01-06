@@ -17,7 +17,7 @@ namespace execution;
     // use `sel_failure`.
 
     // Guaranteed to be boolean because sel_execute_call & sel_execute_static_call are mutually exclusive
-    pol commit sel_enter_call;
+    pol commit sel_enter_call; // @boolean (by definition)
     // The following selectors will be 0 if there is an error during execution (before the opcode execution step).
     sel_enter_call = sel_execute_call + sel_execute_static_call;
     // sel_enter_call and precomputed.first_row are mutually exclusive because
@@ -30,7 +30,7 @@ namespace execution;
     // with sel_execute_revert and sel_execute_return. As sel_opcode_error is a specific error of the last temporality
     // group, sel_error is mutually exclusive with sel_execute_revert and sel_execute_return. Namely, if
     // an error occurs earlier neither sel_execute_revert nor sel_execute_return can be activated.
-    pol commit sel_exit_call;
+    pol commit sel_exit_call; // @boolean (by definition)
     sel_exit_call = sel_failure + sel_execute_return; // = sel_execute_revert + sel_error + sel_execute_return
 
     // Context columns
@@ -125,13 +125,13 @@ namespace execution;
 
     pol PC_JUMP = sel_execute_internal_call + sel_execute_internal_return + sel_execute_jump + sel_execute_jumpi;
 
-    pol commit has_parent_ctx; // == 1 if parent_id != 0;
+    pol commit has_parent_ctx; // @boolean - == 1 if parent_id != 0;
     has_parent_ctx * (1 - has_parent_ctx) = 0;
     pol commit is_parent_id_inv; // For zero-check of has_parent_ctx
     parent_id * ((1 - has_parent_ctx) * (1 - is_parent_id_inv) + is_parent_id_inv) - has_parent_ctx = 0;
 
     // We need a flag to indicate when we are exiting a nested context
-    pol commit nested_exit_call;
+    pol commit nested_exit_call; // @boolean (by definition)
     // If we are exiting and we have a parent ctx
     nested_exit_call = has_parent_ctx * sel_exit_call;
 
@@ -472,7 +472,7 @@ namespace execution;
         context_stack.num_l2_to_l1_messages
     };
 
-    pol commit nested_return;
+    pol commit nested_return; // @boolean (by definition)
     nested_return = has_parent_ctx * sel_execute_return;
 
     // We restore a partial context on a nested return. We do not restore trees or side effects though,

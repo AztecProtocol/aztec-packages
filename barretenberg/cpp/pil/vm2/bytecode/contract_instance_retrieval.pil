@@ -42,7 +42,7 @@ include "../ff_gt.pil";
  */
 namespace contract_instance_retrieval;
 
-    pol commit sel;
+    pol commit sel; // @boolean
     sel * (1 - sel) = 0;
 
     // No relations will be checked if this identity is satisfied.
@@ -87,7 +87,7 @@ namespace contract_instance_retrieval;
     sel * (constants.CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS - deployer_protocol_contract_address) = 0;
 
     // Indicates if the instance belongs to a protocol contract
-    pol commit is_protocol_contract;
+    pol commit is_protocol_contract; // @boolean (by lookup)
 
     // Canonical Addresses can be in the range of 1 <= address <= MAX_PROTOCOL_CONTRACTS
     pol commit max_protocol_contracts;
@@ -123,7 +123,7 @@ namespace contract_instance_retrieval;
 
     // Constrain exists and derived address for non-protocol contracts via nullifier check
 
-    pol commit should_check_nullifier;
+    pol commit should_check_nullifier; // @boolean (by definition)
     // Protocol contracts do not have an address nullifier in the nullifier tree.
     should_check_nullifier = sel * (1 - is_protocol_contract);
 
@@ -193,7 +193,7 @@ namespace contract_instance_retrieval;
 
     // Enforce that the class id provided is the _current_ one (only when nullifier exists)
     // If the address nullifier doesn't exist (which excludes protocol contract instances), there is no need to check!
-    pol commit should_check_for_update;
+    pol commit should_check_for_update; // @boolean (by definition)
     should_check_for_update = should_check_nullifier * exists;
     #[UPDATE_CHECK]
     should_check_for_update {
