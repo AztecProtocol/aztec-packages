@@ -22,8 +22,15 @@ void validate_split_in_field_unsafe(const field_t<Builder>& lo,
     const uint256_t r_lo = field_modulus.slice(0, lo_bits);
     const uint256_t r_hi = field_modulus.slice(lo_bits, field_modulus.get_msb() + 1);
 
-    // Check if we need to borrow
-    bool need_borrow = uint256_t(lo.get_value()) > r_lo;
+    // Algorithm: Validate lo + hi * 2^lo_bits < field_modulus using borrow logic
+    //
+    // We compute: hi_diff = r_hi - hi - borrow, lo_diff = r_lo - lo + borrow * 2^lo_bits
+    // Both must be in range [0, 2^bits) for the check to pass.
+    //
+    //   - If lo < r_lo: no borrow, straightforward comparison of hi parts
+    //   - If lo >= r_lo: set borrow=1, which reduces the allowed hi value by 1
+    //     This correctly rejects value == modulus because lo_diff becomes 2^lo_bits (out of range)
+    bool need_borrow = uint256_t(lo.get_value()) >= r_lo;
     field_t<Builder> borrow =
         lo.is_constant()
             ? need_borrow
@@ -86,8 +93,7 @@ std::pair<field_t<Builder>, field_t<Builder>> split_unique(const field_t<Builder
     // Component 3: Range constraints (unless skipped)
     if (!skip_range_constraints) {
         lo.create_range_constraint(lo_bits);
-        // For bn254 scalar field, hi_bits = 254 - lo_bits
-        const size_t hi_bits = 254 - lo_bits;
+        const size_t hi_bits = max_bits - lo_bits;
         hi.create_range_constraint(hi_bits);
     }
 
