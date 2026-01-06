@@ -48,7 +48,10 @@ export class JobCoordinator {
   /** The underlying KV store */
   kvStore: AztecAsyncKVStore;
 
-  /** Persisted job marker - indicates a job is in progress */
+  /**
+   * Persisted job marker - indicates a job is in progress
+   * Should be turned into an array when we want to start relaxing concurrency
+   * */
   #currentJob: AztecAsyncSingleton<Buffer>;
 
   /** All registered staged stores */
@@ -87,7 +90,6 @@ export class JobCoordinator {
    * @returns JobContext to pass to write operations
    */
   async beginJob(jobType: string): Promise<JobContext> {
-    // Check if there's already a job in progress
     const existingJob = await this.#getCurrentJob();
     if (existingJob) {
       throw new Error(
@@ -96,11 +98,9 @@ export class JobCoordinator {
       );
     }
 
-    // Generate unique job ID
     const jobId = randomBytes(8).toString('hex');
     const context = new JobContext(jobId, jobType);
 
-    // Persist the job marker before returning
     await this.#setCurrentJob(context);
 
     this.log.debug(`Started job ${jobId} (type: ${jobType})`);
@@ -124,7 +124,7 @@ export class JobCoordinator {
     this.log.debug(`Committing job ${context.jobId}`);
 
     // Commit all stores atomically in a single transaction.
-    // Each store's commit is a no-op if it has no staged data.
+    // Each store's commit is a no-op if it has no staged data (but that's up to each store to handle).
     await this.kvStore.transactionAsync(async () => {
       for (const store of this.#stores.values()) {
         await store.commit(context);
@@ -143,21 +143,21 @@ export class JobCoordinator {
    * @param context - The job context returned from beginJob
    */
   async abortJob(context: JobContext): Promise<void> {
-    const currentJob = await this.#getCurrentJob();
-    if (!currentJob || currentJob.jobId !== context.jobId) {
-      // Job may have already been aborted or never started properly
-      this.log.warn(`Abort called for job ${context.jobId} but current job is ${currentJob?.jobId ?? 'none'}`);
-    }
+    // Discard staging and clear job marker atomically.
+    await this.kvStore.transactionAsync(async () => {
+      const currentJob = await this.#getCurrentJob();
+      if (!currentJob || currentJob.jobId !== context.jobId) {
+        // Job may have already been aborted or never started properly
+        this.log.warn(`Abort called for job ${context.jobId} but current job is ${currentJob?.jobId ?? 'none'}`);
+      }
 
-    this.log.debug(`Aborting job ${context.jobId}`);
+      this.log.debug(`Aborting job ${context.jobId}`);
+      for (const store of this.#stores.values()) {
+        await store.discardStaged(context.stagingPrefix);
+      }
 
-    // Discard staging for all stores (each is a no-op if no staged data)
-    for (const store of this.#stores.values()) {
-      await store.discardStaged(context.stagingPrefix);
-    }
-
-    // Clear the job marker
-    await this.#clearCurrentJob();
+      await this.#currentJob.delete();
+    });
 
     this.log.debug(`Job ${context.jobId} aborted`);
   }
@@ -184,18 +184,7 @@ export class JobCoordinator {
     // Reconstruct the context for recovery
     const context = new JobContext(job.jobId, job.jobType);
 
-    // Discard staging from all registered stores
-    for (const store of this.#stores.values()) {
-      try {
-        await store.discardStaged(context.stagingPrefix);
-      } catch (err) {
-        this.log.error(`Failed to discard staging for ${store.storeName}:`, err);
-        // Continue with other stores
-      }
-    }
-
-    // Clear the job marker
-    await this.#clearCurrentJob();
+    await this.abortJob(context);
 
     this.log.info(`Recovered from incomplete job ${job.jobId}`);
   }
@@ -226,9 +215,5 @@ export class JobCoordinator {
     const serialized = serializeJobContext(context);
     // Use TextEncoder for cross-platform compatibility
     await this.#currentJob.set(Buffer.from(new TextEncoder().encode(JSON.stringify(serialized))));
-  }
-
-  async #clearCurrentJob(): Promise<void> {
-    await this.#currentJob.delete();
   }
 }
