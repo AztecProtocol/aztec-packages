@@ -62,8 +62,7 @@ template <IsUltraOrMegaHonk Flavor> typename OinkProver<Flavor>::Proof OinkProve
 template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_preamble_round()
 {
     BB_BENCH_NAME("OinkProver::execute_preamble_round");
-    const OriginTag tag = bb::extract_transcript_tag(*transcript);
-    fr vk_hash = honk_vk->hash_with_origin_tagging(tag);
+    fr vk_hash = honk_vk->hash_with_origin_tagging(*transcript);
     transcript->add_to_hash_buffer(domain_separator + "vk_hash", vk_hash);
     vinfo("vk hash in Oink prover: ", vk_hash);
 

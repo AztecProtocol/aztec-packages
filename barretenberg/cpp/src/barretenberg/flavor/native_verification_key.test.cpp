@@ -71,8 +71,7 @@ TYPED_TEST(NativeVerificationKeyTests, VKHashingConsistency)
     // (ECCVM and Translator flavors don't support hash_with_origin_tagging as their VKs are hardcoded)
     if constexpr (!IsAnyOf<Flavor, ECCVMFlavor, TranslatorFlavor>) {
         typename Flavor::Transcript transcript;
-        const OriginTag tag = bb::extract_transcript_tag(transcript);
-        fr vk_hash_2 = vk.hash_with_origin_tagging(tag);
+        fr vk_hash_2 = vk.hash_with_origin_tagging(transcript);
         EXPECT_EQ(vk_hash_1, vk_hash_2);
     }
 }

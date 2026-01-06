@@ -95,6 +95,18 @@ template <typename Curve> struct MultilinearBatchingVerifierClaim {
         // Hash the tagged elements directly
         return HashFn::hash(claim_elements);
     }
+
+    /**
+     * @brief Convenience overload that accepts a transcript and extracts the tag internally
+     * @tparam TranscriptType The transcript type (Codec and HashFn deduced automatically)
+     * @param transcript The transcript to extract the origin tag from
+     * @returns The hash of the claim
+     */
+    template <typename TranscriptType> FF hash_with_origin_tagging(const TranscriptType& transcript) const
+    {
+        const OriginTag tag = bb::extract_transcript_tag(transcript);
+        return hash_with_origin_tagging<typename TranscriptType::Codec, typename TranscriptType::HashFunction>(tag);
+    }
 };
 
 struct MultilinearBatchingProverClaim {

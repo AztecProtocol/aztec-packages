@@ -327,6 +327,18 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
         // Hash the tagged elements directly
         return HashFunction::hash(vk_elements);
     }
+
+    /**
+     * @brief An overload that accepts a transcript and extracts the tag internally
+     * @tparam TranscriptType The transcript type (Codec and HashFunction deduced automatically)
+     * @param transcript The transcript to extract the origin tag from
+     * @returns The hash of the verification key
+     */
+    template <typename Transcript> DataType hash_with_origin_tagging(const Transcript& transcript) const
+    {
+        const OriginTag tag = bb::extract_transcript_tag(transcript);
+        return hash_with_origin_tagging(tag);
+    }
 };
 
 /**
@@ -475,6 +487,18 @@ class StdlibVerificationKey_ : public PrecomputedCommitments {
 
         // Hash the tagged elements directly
         return stdlib::poseidon2<Builder>::hash(vk_elements);
+    }
+
+    /**
+     * @brief An overload that accepts a transcript and extracts the tag internally
+     * @tparam TranscriptType The transcript type (Codec and HashFunction deduced automatically)
+     * @param transcript The transcript to extract the origin tag from
+     * @returns The hash of the verification key
+     */
+    template <typename Transcript> FF hash_with_origin_tagging(const Transcript& transcript) const
+    {
+        const OriginTag tag = bb::extract_transcript_tag(transcript);
+        return hash_with_origin_tagging(tag);
     }
 };
 

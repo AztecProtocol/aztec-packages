@@ -40,9 +40,6 @@ class UltraKeccakFlavor : public bb::UltraFlavor {
         return OINK_PROOF_LENGTH_WITHOUT_PUB_INPUTS + DECIDER_PROOF_LENGTH(virtual_log_n);
     }
 
-    // Reuse UltraFlavor's VerificationKey template with Keccak codec and hash function
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1094): Add aggregation to the verifier contract so the
-    // VerificationKey from UltraFlavor can be used
     using VerificationKey = UltraFlavor::VerificationKey_<U256Codec, crypto::Keccak>;
 
     // Specialize for Ultra (general case used in UltraRecursive).
