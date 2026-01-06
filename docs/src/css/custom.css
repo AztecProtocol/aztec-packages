@@ -444,3 +444,42 @@ html[data-theme="dark"] .sidebar-divider {
 .dropdown-version-section-header-item:hover {
   background: none !important;
 }
+
+/* ============================================
+   Table Wrapping Styles for Long Content
+   ============================================ */
+
+/* Force table layout and wrap long content like addresses */
+.markdown table {
+  table-layout: fixed;
+  width: 100%;
+  word-break: break-word;
+}
+
+/* Allow content in table cells to wrap */
+.markdown td, .markdown th {
+  word-wrap: break-word;
+  word-break: break-all;
+  overflow-wrap: break-word;
+  white-space: normal;
+}
+
+/* Optional: Adjust column widths for specific tables */
+/* Contract address tables - give more space to address columns */
+.markdown table td:nth-child(n+2),
+.markdown table th:nth-child(n+2) {
+  min-width: 200px;
+}
+
+/* First column (contract names) can be narrower */
+.markdown table td:first-child,
+.markdown table th:first-child {
+  min-width: 150px;
+  max-width: 200px;
+}
+
+/* Make code blocks in tables wrap */
+.markdown table code {
+  word-break: break-all;
+  white-space: normal;
+}
