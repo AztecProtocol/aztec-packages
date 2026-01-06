@@ -10,6 +10,7 @@ import {
   BlockNumber,
   BlockNumberPositiveSchema,
   BlockNumberSchema,
+  CheckpointNumber,
   type SlotNumber,
 } from '@aztec/foundation/branded-types';
 import type { Fr } from '@aztec/foundation/curves/bn254';
@@ -19,6 +20,7 @@ import { MembershipWitness, SiblingPath } from '@aztec/foundation/trees';
 
 import { z } from 'zod';
 
+import { CheckpointNumberPositiveSchema } from '../../../foundation/src/branded-types/block_number.js';
 import type { AztecAddress } from '../aztec-address/index.js';
 import { type BlockParameter, BlockParameterSchema } from '../block/block_parameter.js';
 import { PublishedL2Block } from '../block/checkpointed_l2_block.js';
@@ -26,6 +28,7 @@ import { type DataInBlock, dataInBlockSchemaFor } from '../block/in_block.js';
 import { L2Block } from '../block/l2_block.js';
 import { L2BlockNew } from '../block/l2_block_new.js';
 import { type L2BlockSource, type L2Tips, L2TipsSchema } from '../block/l2_block_source.js';
+import { PublishedCheckpoint } from '../checkpoint/published_checkpoint.js';
 import {
   type ContractClassPublic,
   ContractClassPublicSchema,
@@ -58,7 +61,7 @@ import { SingleValidatorStatsSchema, ValidatorsStatsSchema } from '../validators
 import type { SingleValidatorStats, ValidatorsStats } from '../validators/types.js';
 import { type ComponentsVersions, getVersioningResponseHandler } from '../versioning/index.js';
 import { type AllowedElement, AllowedElementSchema } from './allowed_element.js';
-import { MAX_RPC_BLOCKS_LEN, MAX_RPC_LEN, MAX_RPC_TXS_LEN } from './api_limit.js';
+import { MAX_RPC_BLOCKS_LEN, MAX_RPC_CHECKPOINTS_LEN, MAX_RPC_LEN, MAX_RPC_TXS_LEN } from './api_limit.js';
 import {
   type GetContractClassLogsResponse,
   GetContractClassLogsResponseSchema,
@@ -582,6 +585,11 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
     .function()
     .args(BlockNumberPositiveSchema, z.number().gt(0).lte(MAX_RPC_BLOCKS_LEN))
     .returns(z.array(PublishedL2Block.schema)),
+
+  getPublishedCheckpoints: z
+    .function()
+    .args(CheckpointNumberPositiveSchema, z.number().gt(0).lte(MAX_RPC_CHECKPOINTS_LEN))
+    .returns(z.array(PublishedCheckpoint.schema)),
 
   getL2BlocksNew: z
     .function()

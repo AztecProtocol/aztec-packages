@@ -7,11 +7,13 @@ import { isDefined } from '@aztec/foundation/types';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
+  type CheckpointId,
   CommitteeAttestation,
   L2Block,
   type L2BlockId,
   type L2BlockNew,
   type L2BlockSource,
+  type L2TipId,
   type L2Tips,
   PublishedL2Block,
   type ValidateBlockResult,
@@ -221,12 +223,25 @@ export class TXEArchiver extends ArchiverStoreHelper implements L2BlockSource {
 
     const number = blockHeader.globalVariables.blockNumber;
     const hash = (await blockHeader.hash()).toString();
+    const checkpointedBlock = await this.getCheckpointedBlock(number);
+    if (!checkpointedBlock) {
+      throw new Error(`L2Tips requested from TXE Archiver but no checkpointed block found for block number ${number}`);
+    }
+    const checkpoint = await this.store.getRangeOfCheckpoints(CheckpointNumber(number), 1);
+    if (checkpoint.length === 0) {
+      throw new Error(`L2Tips requested from TXE Archiver but no checkpoint found for block number ${number}`);
+    }
+    const blockId: L2BlockId = { number, hash };
+    const checkpointId: CheckpointId = {
+      number: checkpoint[0].checkpointNumber,
+      hash: checkpoint[0].header.hash().toString(),
+    };
+    const tipId: L2TipId = { block: blockId, checkpoint: checkpointId };
     return {
-      blocks: {
-        latest: { number, hash } as L2BlockId,
-        proven: { number, hash } as L2BlockId,
-        finalized: { number, hash } as L2BlockId,
-      },
+      proposed: blockId,
+      proven: tipId,
+      finalized: tipId,
+      checkpointed: tipId,
     };
   }
 

@@ -10,10 +10,9 @@ import type {
   L2TipId,
   L2Tips,
 } from '@aztec/stdlib/block';
-import type { Checkpoint } from '@aztec/stdlib/checkpoint';
+import { type Checkpoint, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 
 import type { AztecAsyncMap } from '../interfaces/map.js';
-import type { AztecAsyncSingleton } from '../interfaces/singleton.js';
 import type { AztecAsyncKVStore } from '../interfaces/store.js';
 
 /** Stores currently synced L2 tips and unfinalized block hashes.
@@ -22,14 +21,16 @@ import type { AztecAsyncKVStore } from '../interfaces/store.js';
 export class L2TipsKVStore implements L2BlockStreamEventHandler, L2BlockStreamLocalDataProvider {
   private readonly l2TipsStore: AztecAsyncMap<L2BlockTag, BlockNumber>;
   private readonly l2BlockHashesStore: AztecAsyncMap<BlockNumber, string>;
-  private readonly l2CheckpointNumberStore: AztecAsyncSingleton<CheckpointNumber>;
-  private readonly l2CheckpointHashStore: AztecAsyncSingleton<string>;
+  private readonly l2BlockNumberToCheckpointNumberStore: AztecAsyncMap<BlockNumber, CheckpointNumber>;
+  private readonly l2CheckpointStore: AztecAsyncMap<CheckpointNumber, Buffer>;
 
   constructor(store: AztecAsyncKVStore, namespace: string) {
     this.l2TipsStore = store.openMap([namespace, 'l2_tips'].join('_'));
     this.l2BlockHashesStore = store.openMap([namespace, 'l2_block_hashes'].join('_'));
-    this.l2CheckpointNumberStore = store.openSingleton([namespace, 'l2_checkpoint_number'].join('_'));
-    this.l2CheckpointHashStore = store.openSingleton([namespace, 'l2_checkpoint_hash'].join('_'));
+    this.l2BlockNumberToCheckpointNumberStore = store.openMap(
+      [namespace, 'l2_block_number_to_checkpoint_number'].join('_'),
+    );
+    this.l2CheckpointStore = store.openMap([namespace, 'l2_checkpoint_store'].join('_'));
   }
 
   public getL2BlockHash(number: BlockNumber): Promise<string | undefined> {
@@ -37,21 +38,47 @@ export class L2TipsKVStore implements L2BlockStreamEventHandler, L2BlockStreamLo
   }
 
   public async getL2Tips(): Promise<L2Tips> {
-    return {
-      proposed: await this.getL2Tip('proposed'),
-      checkpointed: await this.getL2Tip('checkpointed'),
-      proven: await this.getL2Tip('proven'),
-      finalized: await this.getL2Tip('finalized'),
+    const proposedBlockId = await this.getBlockId('proposed');
+    const finalizedBlockId = await this.getBlockId('finalized');
+    const provenBlockId = await this.getBlockId('proven');
+    const checkpointedBlockId = await this.getBlockId('checkpointed');
+
+    const finalizedCheckpointId = await this.getCheckpointId('finalized');
+    const provenCheckpointId = await this.getCheckpointId('proven');
+    const checkpointedCheckpointId = await this.getCheckpointId('checkpointed');
+
+    const l2Tips: L2Tips = {
+      proposed: proposedBlockId,
+      finalized: { block: finalizedBlockId, checkpoint: finalizedCheckpointId },
+      proven: { block: provenBlockId, checkpoint: provenCheckpointId },
+      checkpointed: { block: checkpointedBlockId, checkpoint: checkpointedCheckpointId },
     };
+    return Promise.resolve(l2Tips);
   }
 
-  private async getL2Tip(tag: L2BlockTag): Promise<L2TipId> {
+  private async getCheckpointId(tag: L2BlockTag): Promise<CheckpointId> {
     const blockNumber = await this.l2TipsStore.getAsync(tag);
-    if (blockNumber === undefined || blockNumber === INITIAL_L2_BLOCK_NUM - 1) {
-      return {
-        block: { number: BlockNumber.ZERO, hash: GENESIS_BLOCK_HEADER_HASH.toString() },
-        checkpoint: { number: CheckpointNumber.ZERO, hash: GENESIS_BLOCK_HEADER_HASH.toString() },
-      };
+    if (blockNumber === undefined || blockNumber === 0) {
+      return { number: CheckpointNumber.ZERO, hash: '' };
+    }
+    const checkpointNumber = await this.l2BlockNumberToCheckpointNumberStore.getAsync(blockNumber);
+    if (checkpointNumber === undefined) {
+      throw new Error(`Checkpoint number not found for block number ${blockNumber}`);
+    }
+    const checkpointBuffer = await this.l2CheckpointStore.getAsync(checkpointNumber);
+    if (!checkpointBuffer) {
+      throw new Error(`Checkpoint not found for checkpoint number ${checkpointNumber}`);
+    }
+
+    const checkpoint = PublishedCheckpoint.fromBuffer(checkpointBuffer);
+
+    return { number: checkpointNumber, hash: checkpoint.checkpoint.hash().toString() };
+  }
+
+  private async getBlockId(tag: L2BlockTag): Promise<L2BlockId> {
+    const blockNumber = await this.l2TipsStore.getAsync(tag);
+    if (blockNumber === undefined || blockNumber === 0) {
+      return { number: BlockNumber.ZERO, hash: GENESIS_BLOCK_HEADER_HASH.toString() };
     }
     const blockHash = await this.l2BlockHashesStore.getAsync(blockNumber);
     if (!blockHash) {
@@ -98,22 +125,11 @@ export class L2TipsKVStore implements L2BlockStreamEventHandler, L2BlockStreamLo
 
   private async saveCheckpoint(checkpoint: Checkpoint) {
     await Promise.all([
-      this.l2CheckpointHashStore.set(checkpoint.hash().toString()),
-      this.l2CheckpointNumberStore.set(checkpoint.number),
+      ...Array.from({ length: checkpoint.blocks.length }, (_, i) => i).map(async i => {
+        const block = checkpoint.blocks[i];
+        await this.l2BlockNumberToCheckpointNumberStore.set(block.number, checkpoint.number);
+      }),
+      this.l2CheckpointStore.set(checkpoint.number, checkpoint.toBuffer()),
     ]);
-  }
-
-  private async readCheckpoint(): Promise<CheckpointId | undefined> {
-    const [hash, checkpointNumber] = await Promise.all([
-      this.l2CheckpointHashStore.getAsync(),
-      this.l2CheckpointNumberStore.getAsync(),
-    ]);
-    if (hash === undefined || checkpointNumber === undefined) {
-      return undefined;
-    }
-    return {
-      number: checkpointNumber,
-      hash: hash,
-    };
   }
 }

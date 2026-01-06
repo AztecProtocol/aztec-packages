@@ -1,4 +1,4 @@
-import { GENESIS_BLOCK_HEADER_HASH, INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
+import { GENESIS_BLOCK_HEADER_HASH, INITIAL_L2_BLOCK_NUM, INITIAL_L2_CHECKPOINT_NUM } from '@aztec/constants';
 import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { createLogger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
@@ -10,6 +10,7 @@ import type {
   L2BlockSource,
   L2BlockStream,
   L2BlockStreamEvent,
+  L2TipId,
   L2Tips,
 } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
@@ -205,12 +206,31 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
 
     const genesisHash = GENESIS_BLOCK_HEADER_HASH.toString();
 
-    return {
-      blocks: {
-        latest: { hash: latestBlockHash ?? genesisHash, number: latestBlockNumber },
-        proven: { hash: provenBlockHash ?? genesisHash, number: provenBlockNumber },
-        finalized: { hash: finalizedBlockHash ?? genesisHash, number: finalizedBlockNumber },
+    // P2P layer doesn't track checkpoints. Checkpoint data here set to initial values.
+    const proposed: L2BlockId = {
+      number: latestBlockNumber,
+      hash: latestBlockHash ?? genesisHash,
+    };
+    const proven: L2TipId = {
+      block: {
+        number: provenBlockNumber,
+        hash: provenBlockHash ?? genesisHash,
       },
+      checkpoint: { number: INITIAL_L2_CHECKPOINT_NUM, hash: '' },
+    };
+    const finalized: L2TipId = {
+      block: {
+        number: finalizedBlockNumber,
+        hash: finalizedBlockHash ?? genesisHash,
+      },
+      checkpoint: { number: INITIAL_L2_CHECKPOINT_NUM, hash: '' },
+    };
+
+    return {
+      proposed,
+      proven,
+      finalized,
+      checkpointed: proven, // Set to proven for the time being. P2P layer doesn't track checkpoints
     };
   }
 
@@ -242,7 +262,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
         this.txCollection.stopCollectingForBlocksAfter(event.block.number);
         await this.handlePruneL2Blocks(event.block.number);
         break;
-      case 'checkpoint-added':
+      case 'chain-checkpointed':
         break;
       default: {
         const _: never = event;
@@ -278,9 +298,9 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
 
     // get the current latest block numbers
     const latestBlockNumbers = await this.l2BlockSource.getL2Tips();
-    this.latestBlockNumberAtStart = latestBlockNumbers.blocks.latest.number;
-    this.provenBlockNumberAtStart = latestBlockNumbers.blocks.proven.number;
-    this.finalizedBlockNumberAtStart = latestBlockNumbers.blocks.finalized.number;
+    this.latestBlockNumberAtStart = latestBlockNumbers.proposed.number;
+    this.provenBlockNumberAtStart = latestBlockNumbers.proven.block.number;
+    this.finalizedBlockNumberAtStart = latestBlockNumbers.finalized.block.number;
 
     const syncedLatestBlock = (await this.getSyncedLatestBlockNum()) + 1;
     const syncedProvenBlock = (await this.getSyncedProvenBlockNum()) + 1;

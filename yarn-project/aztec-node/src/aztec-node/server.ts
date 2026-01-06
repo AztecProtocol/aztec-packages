@@ -19,7 +19,7 @@ import { createEthereumChain } from '@aztec/ethereum/chain';
 import { getPublicClient } from '@aztec/ethereum/client';
 import { RegistryContract, RollupContract } from '@aztec/ethereum/contracts';
 import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
-import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { compactArray, pick } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -63,6 +63,7 @@ import {
   type L2BlockSource,
   type PublishedL2Block,
 } from '@aztec/stdlib/block';
+import type { PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import type {
   ContractClassPublic,
   ContractDataSource,
@@ -636,6 +637,10 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
 
   public async getPublishedBlocks(from: BlockNumber, limit: number): Promise<PublishedL2Block[]> {
     return (await this.blockSource.getPublishedBlocks(from, limit)) ?? [];
+  }
+
+  public async getPublishedCheckpoints(from: CheckpointNumber, limit: number): Promise<PublishedCheckpoint[]> {
+    return (await this.blockSource.getPublishedCheckpoints(from, limit)) ?? [];
   }
 
   public async getL2BlocksNew(from: BlockNumber, limit: number): Promise<L2BlockNew[]> {

@@ -26,7 +26,8 @@ import type { DataInBlock } from '../block/in_block.js';
 import { type BlockParameter, CommitteeAttestation, L2BlockHash, L2BlockNew } from '../block/index.js';
 import { L2Block } from '../block/l2_block.js';
 import type { L2Tips } from '../block/l2_block_source.js';
-import { L1PublishedData } from '../checkpoint/published_checkpoint.js';
+import { Checkpoint } from '../checkpoint/checkpoint.js';
+import { L1PublishedData, PublishedCheckpoint } from '../checkpoint/published_checkpoint.js';
 import {
   type ContractClassPublic,
   type ContractInstanceWithAddress,
@@ -276,6 +277,12 @@ describe('AztecNodeApiSchema', () => {
     expect(response[0].block.constructor.name).toEqual('L2Block');
     expect(response[0].attestations[0]).toBeInstanceOf(CommitteeAttestation);
     expect(response[0].l1).toBeDefined();
+  });
+
+  it('getPublishedCheckpoints', async () => {
+    const response = await context.client.getPublishedCheckpoints(CheckpointNumber(1), 1);
+    expect(response).toHaveLength(1);
+    expect(response[0]).toBeInstanceOf(PublishedCheckpoint);
   });
 
   it('getNodeVersion', async () => {
@@ -710,6 +717,15 @@ class MockAztecNode implements AztecNode {
     return timesAsync(limit, async i =>
       PublishedL2Block.fromFields({
         block: await L2Block.random(BlockNumber(from + i)),
+        attestations: [CommitteeAttestation.random()],
+        l1: new L1PublishedData(1n, 1n, Buffer32.random().toString()),
+      }),
+    );
+  }
+  getPublishedCheckpoints(from: CheckpointNumber, limit: number): Promise<PublishedCheckpoint[]> {
+    return timesAsync(limit, async i =>
+      PublishedCheckpoint.from({
+        checkpoint: await Checkpoint.random(CheckpointNumber(from + i)),
         attestations: [CommitteeAttestation.random()],
         l1: new L1PublishedData(1n, 1n, Buffer32.random().toString()),
       }),

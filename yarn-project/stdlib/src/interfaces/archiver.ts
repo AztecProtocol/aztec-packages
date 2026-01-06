@@ -101,7 +101,6 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
     .function()
     .args(BlockNumberSchema, schemas.Integer, optional(z.boolean()))
     .returns(z.array(PublishedL2Block.schema)),
-  getL2BlockNew: z.function().args(BlockNumberSchema).returns(L2BlockNew.schema),
   getL2BlocksNew: z
     .function()
     .args(BlockNumberSchema, schemas.Integer, optional(z.boolean()))

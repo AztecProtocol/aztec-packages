@@ -1,6 +1,7 @@
 import { GENESIS_BLOCK_HEADER_HASH } from '@aztec/constants';
-import { BlockNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 
+import type { PublishedCheckpoint } from '../../checkpoint/published_checkpoint.js';
 import type { L2BlockNew } from '../l2_block_new.js';
 import type { CheckpointId, L2BlockId, L2BlockTag, L2Tips } from '../l2_block_source.js';
 import type { L2BlockStreamEvent, L2BlockStreamEventHandler, L2BlockStreamLocalDataProvider } from './interfaces.js';
@@ -12,24 +13,33 @@ import type { L2BlockStreamEvent, L2BlockStreamEventHandler, L2BlockStreamLocalD
 export class L2TipsMemoryStore implements L2BlockStreamEventHandler, L2BlockStreamLocalDataProvider {
   protected readonly l2TipsStore: Map<L2BlockTag, BlockNumber> = new Map();
   protected readonly l2BlockHashesStore: Map<number, string> = new Map();
-  protected l2Checkpoint: CheckpointId | undefined = undefined;
+  protected readonly l2BlocktoCheckpointStore: Map<BlockNumber, CheckpointNumber> = new Map();
+  protected readonly checkpointStore: Map<CheckpointNumber, PublishedCheckpoint> = new Map();
 
   public getL2BlockHash(number: number): Promise<string | undefined> {
     return Promise.resolve(this.l2BlockHashesStore.get(number));
   }
 
   public getL2Tips(): Promise<L2Tips> {
-    return Promise.resolve({
-      blocks: {
-        latest: this.getL2Tip('latest'),
-        finalized: this.getL2Tip('finalized'),
-        proven: this.getL2Tip('proven'),
-      },
-      checkpoint: this.l2Checkpoint,
-    });
+    const proposedBlockId = this.getBlockId('proposed');
+    const finalizedBlockId = this.getBlockId('finalized');
+    const provenBlockId = this.getBlockId('proven');
+    const checkpointedBlockId = this.getBlockId('checkpointed');
+
+    const finalizedCheckpointId = this.getCheckpointId('finalized');
+    const provenCheckpointId = this.getCheckpointId('proven');
+    const checkpointedCheckpointId = this.getCheckpointId('checkpointed');
+
+    const l2Tips: L2Tips = {
+      proposed: proposedBlockId,
+      finalized: { block: finalizedBlockId, checkpoint: finalizedCheckpointId },
+      proven: { block: provenBlockId, checkpoint: provenCheckpointId },
+      checkpointed: { block: checkpointedBlockId, checkpoint: checkpointedCheckpointId },
+    };
+    return Promise.resolve(l2Tips);
   }
 
-  private getL2Tip(tag: L2BlockTag): L2BlockId {
+  private getBlockId(tag: L2BlockTag): L2BlockId {
     const blockNumber = this.l2TipsStore.get(tag);
     if (blockNumber === undefined || blockNumber === 0) {
       return { number: BlockNumber.ZERO, hash: GENESIS_BLOCK_HEADER_HASH.toString() };
@@ -42,6 +52,23 @@ export class L2TipsMemoryStore implements L2BlockStreamEventHandler, L2BlockStre
     return { number: blockNumber, hash: blockHash };
   }
 
+  private getCheckpointId(tag: L2BlockTag): CheckpointId {
+    const blockNumber = this.l2TipsStore.get(tag);
+    if (blockNumber === undefined || blockNumber === 0) {
+      return { number: CheckpointNumber.ZERO, hash: '' };
+    }
+    const checkpointNumber = this.l2BlocktoCheckpointStore.get(blockNumber);
+    if (checkpointNumber === undefined) {
+      throw new Error(`Checkpoint number not found for block number ${blockNumber}`);
+    }
+    const checkpoint = this.checkpointStore.get(checkpointNumber);
+    if (!checkpoint) {
+      throw new Error(`Checkpoint not found for checkpoint number ${checkpointNumber}`);
+    }
+
+    return { number: checkpointNumber, hash: checkpoint.checkpoint.hash().toString() };
+  }
+
   public async handleBlockStreamEvent(event: L2BlockStreamEvent): Promise<void> {
     switch (event.type) {
       case 'blocks-added': {
@@ -49,14 +76,24 @@ export class L2TipsMemoryStore implements L2BlockStreamEventHandler, L2BlockStre
         for (const block of blocks) {
           this.l2BlockHashesStore.set(block.number, await this.computeBlockHash(block));
         }
-        this.l2TipsStore.set('latest', blocks.at(-1)!.number);
+        this.l2TipsStore.set('proposed', blocks.at(-1)!.number);
         break;
       }
-      case 'checkpoint-added':
-        this.l2Checkpoint = event.checkpoint;
+      case 'chain-checkpointed':
+        const blocks = event.checkpoint.checkpoint.blocks;
+        const blockId: L2BlockId = {
+          number: blocks.at(-1)!.number,
+          hash: await this.computeBlockHash(blocks.at(-1)!),
+        };
+        this.saveTag('checkpointed', blockId);
+        for (let i = 0; i < blocks.length; i++) {
+          const block = blocks[i];
+          this.l2BlocktoCheckpointStore.set(block.number, event.checkpoint.checkpoint.number);
+        }
+        this.checkpointStore.set(event.checkpoint.checkpoint.number, event.checkpoint);
         break;
       case 'chain-pruned':
-        this.saveTag('latest', event.block);
+        this.saveTag('proposed', event.block);
         break;
       case 'chain-proven':
         this.saveTag('proven', event.block);
