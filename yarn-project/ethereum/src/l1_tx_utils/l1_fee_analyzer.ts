@@ -13,7 +13,6 @@ import {
   DEFAULT_PRIORITY_FEE_STRATEGIES,
   type PriorityFeeStrategy,
   type PriorityFeeStrategyContext,
-  executeStrategy,
 } from './fee-strategies/index.js';
 import type { L1BlobInputs, L1TxRequest } from './types.js';
 
@@ -262,7 +261,7 @@ export class L1FeeAnalyzer {
 
   /**
    * Executes all configured strategies and returns their results.
-   * Each strategy defines its own promises which are executed and passed to calculate.
+   * Each strategy handles its own RPC calls internally.
    * @param isBlobTx - Whether this is a blob transaction
    * @returns Array of strategy results
    */
@@ -276,7 +275,7 @@ export class L1FeeAnalyzer {
 
     for (const strategy of this.strategies) {
       try {
-        const result = await executeStrategy(strategy, this.client, context);
+        const result = await strategy.execute(this.client, context);
 
         results.push({
           strategyId: strategy.id,

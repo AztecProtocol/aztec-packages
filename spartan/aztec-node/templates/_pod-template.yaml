@@ -76,6 +76,14 @@ spec:
             source /shared/init-nodeport;
           fi
 
+          if [ -n "${DATA_DIRECTORY:-}" ]; then
+            mkdir -p "$DATA_DIRECTORY"
+          fi
+
+          if [ -n "${CRS_PATH:-}" ]; then
+            mkdir -p "$CRS_PATH"
+          fi
+
           {{- if .Values.service.p2p.publicIP }}
             export P2P_QUERY_FOR_IP=true
           {{- else }}
