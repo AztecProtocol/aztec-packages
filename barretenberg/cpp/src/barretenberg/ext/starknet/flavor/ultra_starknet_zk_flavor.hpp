@@ -35,13 +35,13 @@ class UltraStarknetZKFlavor : public UltraKeccakZKFlavor {
 
         static std::shared_ptr<Transcript> prover_init_empty()
         {
-            auto transcript = Base::prover_init_empty();
+            auto transcript = Base::test_prover_init_empty();
             return std::static_pointer_cast<Transcript>(transcript);
         };
 
         static std::shared_ptr<Transcript> verifier_init_empty(const std::shared_ptr<Transcript>& transcript)
         {
-            auto verifier_transcript = Base::verifier_init_empty(transcript);
+            auto verifier_transcript = Base::test_verifier_init_empty(transcript);
             return std::static_pointer_cast<Transcript>(verifier_transcript);
         };
 

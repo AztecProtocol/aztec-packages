@@ -41,11 +41,11 @@ class KZGTest : public CommitmentTest<Curve> {
 
         auto opening_claim = OpeningClaim<Curve>{ opening_pair, commitment };
 
-        auto prover_transcript = NativeTranscript::prover_init_empty();
+        auto prover_transcript = NativeTranscript::test_prover_init_empty();
 
         PCS::compute_opening_proof(ck, { witness, opening_pair }, prover_transcript);
 
-        auto verifier_transcript = NativeTranscript::verifier_init_empty(prover_transcript);
+        auto verifier_transcript = NativeTranscript::test_verifier_init_empty(prover_transcript);
         const auto pairing_points = PCS::reduce_verify(opening_claim, verifier_transcript);
 
         EXPECT_EQ(vk.pairing_check(pairing_points[0], pairing_points[1]), true);
@@ -83,12 +83,12 @@ TEST_F(KZGTest, WrongEvaluationFails)
     const Fr wrong_evaluation = evaluation + Fr::random_element();
     // Prove with the wrong evaluation
     Commitment commitment = ck.commit(witness);
-    auto prover_transcript = NativeTranscript::prover_init_empty();
+    auto prover_transcript = NativeTranscript::test_prover_init_empty();
     PCS::compute_opening_proof(ck, { witness, { challenge, wrong_evaluation } }, prover_transcript);
 
     auto opening_claim = OpeningClaim<Curve>{ { challenge, wrong_evaluation }, commitment };
     // Run the verifier
-    auto verifier_transcript = NativeTranscript::verifier_init_empty(prover_transcript);
+    auto verifier_transcript = NativeTranscript::test_verifier_init_empty(prover_transcript);
     auto pairing_point = PCS::reduce_verify(opening_claim, verifier_transcript);
     // Make sure that the pairing check fails
     EXPECT_EQ(vk.pairing_check(pairing_point[0], pairing_point[1]), false);
@@ -162,11 +162,11 @@ TEST_F(KZGTest, SingleInLagrangeBasis)
     auto opening_pair = OpeningPair<Curve>{ challenge, evaluation };
     auto opening_claim = OpeningClaim<Curve>{ opening_pair, commitment };
 
-    auto prover_transcript = NativeTranscript::prover_init_empty();
+    auto prover_transcript = NativeTranscript::test_prover_init_empty();
 
     PCS::compute_opening_proof(ck, { witness_polynomial, opening_pair }, prover_transcript);
 
-    auto verifier_transcript = NativeTranscript::verifier_init_empty(prover_transcript);
+    auto verifier_transcript = NativeTranscript::test_verifier_init_empty(prover_transcript);
     auto pairing_points = PCS::reduce_verify(opening_claim, verifier_transcript);
 
     EXPECT_EQ(vk.pairing_check(pairing_points[0], pairing_points[1]), true);
@@ -183,7 +183,7 @@ TEST_F(KZGTest, ShpleminiKzgWithShift)
                                    mle_opening_point,
                                    ck);
 
-    auto prover_transcript = NativeTranscript::prover_init_empty();
+    auto prover_transcript = NativeTranscript::test_prover_init_empty();
 
     // Run the full prover PCS protocol:
 
@@ -204,7 +204,7 @@ TEST_F(KZGTest, ShpleminiKzgWithShift)
 
     // Run the full verifier PCS protocol with genuine opening claims (genuine commitment, genuine evaluation)
 
-    auto verifier_transcript = NativeTranscript::verifier_init_empty(prover_transcript);
+    auto verifier_transcript = NativeTranscript::test_verifier_init_empty(prover_transcript);
 
     // Gemini verifier output:
     // - claim: d+1 commitments to Fold_{r}^(0), Fold_{-r}^(0), Fold^(l), d+1 evaluations a_0_pos, a_l, l = 0:d-1
@@ -238,7 +238,7 @@ TEST_F(KZGTest, ShpleminiKzgWithShiftAndInterleaving)
                                    /*num_interleaved*/ 3,
                                    /*num_to_be_interleaved*/ 2);
 
-    auto prover_transcript = NativeTranscript::prover_init_empty();
+    auto prover_transcript = NativeTranscript::test_prover_init_empty();
 
     // Run the full prover PCS protocol:
 
@@ -259,7 +259,7 @@ TEST_F(KZGTest, ShpleminiKzgWithShiftAndInterleaving)
 
     // Run the full verifier PCS protocol with genuine opening claims (genuine commitment, genuine evaluation)
 
-    auto verifier_transcript = NativeTranscript::verifier_init_empty(prover_transcript);
+    auto verifier_transcript = NativeTranscript::test_verifier_init_empty(prover_transcript);
 
     // Gemini verifier output:
     // - claim: d+1 commitments to Fold_{r}^(0), Fold_{-r}^(0), Fold^(l), d+1 evaluations a_0_pos, a_l, l = 0:d-1
@@ -294,7 +294,7 @@ TEST_F(KZGTest, ShpleminiKzgShiftsRemoval)
                                    mle_opening_point,
                                    ck);
 
-    auto prover_transcript = NativeTranscript::prover_init_empty();
+    auto prover_transcript = NativeTranscript::test_prover_init_empty();
 
     // Run the full prover PCS protocol:
 
@@ -315,7 +315,7 @@ TEST_F(KZGTest, ShpleminiKzgShiftsRemoval)
 
     // Run the full verifier PCS protocol with genuine opening claims (genuine commitment, genuine evaluation)
 
-    auto verifier_transcript = NativeTranscript::verifier_init_empty(prover_transcript);
+    auto verifier_transcript = NativeTranscript::test_verifier_init_empty(prover_transcript);
     // the index of the first commitment to a polynomial to be shifted in the union of unshifted_commitments and
     // shifted_commitments. in our case, it is poly2
     const size_t to_be_shifted_commitments_start = 2;

@@ -394,13 +394,13 @@ class UltraFlavor {
 
         static std::shared_ptr<Transcript_> prover_init_empty()
         {
-            auto transcript = Base::prover_init_empty();
+            auto transcript = Base::test_prover_init_empty();
             return std::static_pointer_cast<Transcript_>(transcript);
         };
 
         static std::shared_ptr<Transcript_> verifier_init_empty(const std::shared_ptr<Transcript_>& transcript)
         {
-            auto verifier_transcript = Base::verifier_init_empty(transcript);
+            auto verifier_transcript = Base::test_verifier_init_empty(transcript);
             return std::static_pointer_cast<Transcript_>(verifier_transcript);
         };
 

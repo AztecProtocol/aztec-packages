@@ -62,7 +62,7 @@ TYPED_TEST(SmallSubgroupIPATest, ProverComputationsCorrectness)
     static constexpr size_t log_subgroup_size = static_cast<size_t>(numeric::get_msb(SUBGROUP_SIZE));
     CK ck = create_commitment_key<CK>(std::max<size_t>(this->circuit_size, 1ULL << (log_subgroup_size + 1)));
 
-    auto prover_transcript = TypeParam::Transcript::prover_init_empty();
+    auto prover_transcript = TypeParam::Transcript::test_prover_init_empty();
 
     ZKData zk_sumcheck_data(this->log_circuit_size, prover_transcript, ck);
     std::vector<FF> multivariate_challenge = this->generate_random_vector(this->log_circuit_size);
@@ -179,7 +179,7 @@ TYPED_TEST(SmallSubgroupIPATest, LibraEvaluationsConsistency)
     using ZKData = ZKSumcheckData<TypeParam>;
     using CK = typename TypeParam::CommitmentKey;
 
-    auto prover_transcript = TypeParam::Transcript::prover_init_empty();
+    auto prover_transcript = TypeParam::Transcript::test_prover_init_empty();
 
     // SmallSubgroupIPAProver requires at least CURVE::SUBGROUP_SIZE + 3 elements in the ck.
     static constexpr size_t log_subgroup_size = static_cast<size_t>(numeric::get_msb(Curve::SUBGROUP_SIZE));
@@ -216,7 +216,7 @@ TYPED_TEST(SmallSubgroupIPATest, LibraEvaluationsConsistencyFailure)
     using ZKData = ZKSumcheckData<TypeParam>;
     using CK = typename TypeParam::CommitmentKey;
 
-    auto prover_transcript = TypeParam::Transcript::prover_init_empty();
+    auto prover_transcript = TypeParam::Transcript::test_prover_init_empty();
 
     // SmallSubgroupIPAProver requires at least CURVE::SUBGROUP_SIZE + 3 elements in the ck.
     static constexpr size_t log_subgroup_size = static_cast<size_t>(numeric::get_msb(Curve::SUBGROUP_SIZE));
@@ -264,7 +264,7 @@ TYPED_TEST(SmallSubgroupIPATest, TranslationMaskingTermConsistency)
         using Prover = SmallSubgroupIPAProver<TypeParam>;
         using CK = typename TypeParam::CommitmentKey;
 
-        auto prover_transcript = TypeParam::Transcript::prover_init_empty();
+        auto prover_transcript = TypeParam::Transcript::test_prover_init_empty();
         // Must satisfy num_wires * NUM_DISABLED_ROWS_IN_SUMCHECK + 1 < SUBGROUP_SIZE
         const size_t num_wires = 5;
 
@@ -316,7 +316,7 @@ TYPED_TEST(SmallSubgroupIPATest, TranslationMaskingTermConsistencyFailure)
         using Prover = SmallSubgroupIPAProver<TypeParam>;
         using CK = typename TypeParam::CommitmentKey;
 
-        auto prover_transcript = TypeParam::Transcript::prover_init_empty();
+        auto prover_transcript = TypeParam::Transcript::test_prover_init_empty();
         // Must satisfy num_wires * NUM_DISABLED_ROWS_IN_SUMCHECK + 1 < SUBGROUP_SIZE
         const size_t num_wires = 5;
 

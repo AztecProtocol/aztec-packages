@@ -269,7 +269,7 @@ TYPED_TEST(MegaTranscriptTests, ChallengeGenerationTest)
     using Flavor = TypeParam;
     using FF = Flavor::FF;
     // initialized with random value sent to verifier
-    auto transcript = Flavor::Transcript::prover_init_empty();
+    auto transcript = Flavor::Transcript::test_prover_init_empty();
     // test a bunch of challenges
     std::vector<std::string> challenge_labels{ "a", "b", "c", "d", "e", "f" };
     auto challenges = transcript->template get_challenges<FF>(challenge_labels);

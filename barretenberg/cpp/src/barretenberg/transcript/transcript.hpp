@@ -429,33 +429,7 @@ template <typename Codec_, typename HashFunction_> class BaseTranscript {
     {
         return Codec::template deserialize_from_fields<T>(frs);
     }
-    /**
-     * @brief For testing: initializes transcript with some arbitrary data so that a challenge can be generated
-     * after initialization. Only intended to be used by Prover.
-     *
-     * @return BaseTranscript
-     */
-    static std::shared_ptr<BaseTranscript> prover_init_empty()
-    {
-        auto transcript = std::make_shared<BaseTranscript>();
-        constexpr uint32_t init{ 42 }; // arbitrary
-        transcript->send_to_verifier("Init", init);
-        return transcript;
-    };
 
-    /**
-     * @brief For testing: initializes transcript based on proof data then receives junk data produced by
-     * BaseTranscript::prover_init_empty(). Only intended to be used by Verifier.
-     *
-     * @param transcript
-     * @return BaseTranscript
-     */
-    static std::shared_ptr<BaseTranscript> verifier_init_empty(const std::shared_ptr<BaseTranscript>& transcript)
-    {
-        auto verifier_transcript = std::make_shared<BaseTranscript>(transcript->proof_data);
-        [[maybe_unused]] auto _ = verifier_transcript->template receive_from_prover<DataType>("Init");
-        return verifier_transcript;
-    };
     [[nodiscard]] TranscriptManifest get_manifest() const { return manifest; };
 
     void print()
@@ -467,6 +441,34 @@ template <typename Codec_, typename HashFunction_> class BaseTranscript {
     }
 
     // Test-specific utils
+
+    /**
+     * @brief For testing: initializes transcript with some arbitrary data so that a challenge can be generated
+     * after initialization. Only intended to be used by Prover.
+     *
+     * @return BaseTranscript
+     */
+    static std::shared_ptr<BaseTranscript> test_prover_init_empty()
+    {
+        auto transcript = std::make_shared<BaseTranscript>();
+        constexpr uint32_t init{ 42 }; // arbitrary
+        transcript->send_to_verifier("Init", init);
+        return transcript;
+    };
+
+    /**
+     * @brief For testing: initializes transcript based on proof data then receives junk data produced by
+     * BaseTranscript::test_prover_init_empty(). Only intended to be used by Verifier.
+     *
+     * @param transcript
+     * @return BaseTranscript
+     */
+    static std::shared_ptr<BaseTranscript> test_verifier_init_empty(const std::shared_ptr<BaseTranscript>& transcript)
+    {
+        auto verifier_transcript = std::make_shared<BaseTranscript>(transcript->proof_data);
+        [[maybe_unused]] auto _ = verifier_transcript->template receive_from_prover<DataType>("Init");
+        return verifier_transcript;
+    };
 
     /**
      * @brief Test utility: Set proof parsing state for export after deserialization

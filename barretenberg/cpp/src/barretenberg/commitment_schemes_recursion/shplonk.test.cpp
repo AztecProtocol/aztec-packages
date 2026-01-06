@@ -53,7 +53,7 @@ TYPED_TEST(ShplonkRecursionTest, Simple)
     using StdlibProof = stdlib::Proof<Builder>;
 
     // Prover transcript
-    auto prover_transcript = NativeTranscript::prover_init_empty();
+    auto prover_transcript = NativeTranscript::test_prover_init_empty();
 
     // Test data
     auto setup = this->generate_claim_data({ MAX_POLY_DEGREE, MAX_POLY_DEGREE / 2 });
