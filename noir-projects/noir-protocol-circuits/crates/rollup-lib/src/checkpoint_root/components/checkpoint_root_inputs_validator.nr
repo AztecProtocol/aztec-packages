@@ -2,7 +2,7 @@ use crate::{abis::BlockRollupPublicInputs, block_merge::validate_consecutive_blo
 use types::{
     abis::block_header::BlockHeader,
     blob_data::SpongeBlob,
-    constants::{ARCHIVE_HEIGHT, BLOBS_PER_CHECKPOINT, FIELDS_PER_BLOB},
+    constants::ARCHIVE_HEIGHT,
     merkle_tree::{check_membership, MembershipWitness},
     proof::proof_data::RollupHonkProofData,
     traits::Hash,
@@ -76,11 +76,11 @@ impl<let NumPreviousRollups: u32, let NumVkIndices: u32> CheckpointRootInputsVal
             "The start state of the checkpoint does not match the state in the previous block header",
         );
 
-        // Notice: unlike blocks within the same checkpoint (which can share the same timestamp),
+        // Notice: unlike blocks within the same checkpoint (which share the same timestamp),
         // the blocks of _different_ checkpoints must have strictly increasing timestamps.
         // I.e. the `>` here is _intentional_.
         assert(
-            first_rollup.start_timestamp > self.previous_block_header.global_variables.timestamp,
+            first_rollup.timestamp > self.previous_block_header.global_variables.timestamp,
             "The start timestamp must be after the previous block's timestamp",
         );
 
