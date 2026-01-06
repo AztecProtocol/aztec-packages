@@ -104,7 +104,7 @@ TYPED_TEST(StdlibVerificationKeyTests, VKHashingConsistency)
     if constexpr (!IsAnyOf<Flavor, TranslatorRecursiveFlavor, ECCVMRecursiveFlavor>) {
         StdlibTranscript transcript;
         const OriginTag tag = bb::extract_transcript_tag(transcript);
-        FF vk_hash_2 = vk.hash_with_origin_tagging("", tag);
+        FF vk_hash_2 = vk.hash_with_origin_tagging(tag);
         EXPECT_EQ(vk_hash_1.get_value(), vk_hash_2.get_value());
     }
 }

@@ -300,8 +300,7 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
      * @param tag The origin tag extracted from the transcript
      * @returns The hash of the verification key
      */
-    virtual DataType hash_with_origin_tagging([[maybe_unused]] const std::string& domain_separator,
-                                              const OriginTag& tag) const
+    virtual DataType hash_with_origin_tagging(const OriginTag& tag) const
     {
         static constexpr bool in_circuit = InCircuit<DataType>;
         std::vector<DataType> vk_elements;
@@ -449,8 +448,7 @@ class StdlibVerificationKey_ : public PrecomputedCommitments {
      * @param tag The origin tag extracted from the transcript
      * @returns The hash of the verification key
      */
-    virtual FF hash_with_origin_tagging([[maybe_unused]] const std::string& domain_separator,
-                                        const OriginTag& tag) const
+    virtual FF hash_with_origin_tagging(const OriginTag& tag) const
     {
         using Codec = stdlib::StdlibCodec<FF>;
         static constexpr bool in_circuit = true; // StdlibVerificationKey_ is always in-circuit

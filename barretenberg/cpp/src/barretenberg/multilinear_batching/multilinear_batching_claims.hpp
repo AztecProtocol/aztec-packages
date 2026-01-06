@@ -67,8 +67,7 @@ template <typename Curve> struct MultilinearBatchingVerifierClaim {
      * @tparam Codec The codec to use for serialization (e.g., FrCodec)
      * @tparam HashFn The hash function to use (e.g., Poseidon2)
      */
-    template <typename Codec, typename HashFn>
-    FF hash_with_origin_tagging([[maybe_unused]] const std::string& domain_separator, const OriginTag& tag) const
+    template <typename Codec, typename HashFn> FF hash_with_origin_tagging(const OriginTag& tag) const
     {
         constexpr bool in_circuit = Curve::is_stdlib_type;
         std::vector<FF> claim_elements;

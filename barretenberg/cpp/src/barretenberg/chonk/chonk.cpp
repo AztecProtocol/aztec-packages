@@ -120,8 +120,7 @@ Chonk::perform_recursive_verification_and_databus_consistency_checks(
         const OriginTag tag = bb::extract_transcript_tag(*accumulation_recursive_transcript);
         prev_accum_hash =
             input_verifier_accumulator
-                ->template hash_with_origin_tagging<RecursiveTranscript::Codec, RecursiveTranscript::HashFunction>("",
-                                                                                                                   tag);
+                ->template hash_with_origin_tagging<RecursiveTranscript::Codec, RecursiveTranscript::HashFunction>(tag);
     }
 
     RecursiveFoldingVerifier folding_verifier(accumulation_recursive_transcript);
@@ -347,7 +346,7 @@ void Chonk::complete_kernel_circuit_logic(ClientCircuit& circuit)
         kernel_output.output_hn_accum_hash =
             current_stdlib_verifier_accumulator
                 ->template hash_with_origin_tagging<RecursiveTranscript::Codec, RecursiveTranscript::HashFunction>(
-                    "", hash_tag);
+                    hash_tag);
         info("Kernel output accumulator hash: ", kernel_output.output_hn_accum_hash);
 #ifndef NDEBUG
         info("Chonk recursive verification: accumulator hash set in the public inputs matches the one "
@@ -611,8 +610,7 @@ void Chonk::update_native_verifier_accumulator(const VerifierInputs& queue_entry
     if (!queue_entry.is_kernel) {
         const OriginTag tag = bb::extract_transcript_tag(*verifier_transcript);
         native_verifier_accum_hash =
-            native_verifier_accum.template hash_with_origin_tagging<Transcript::Codec, Transcript::HashFunction>("",
-                                                                                                                 tag);
+            native_verifier_accum.template hash_with_origin_tagging<Transcript::Codec, Transcript::HashFunction>(tag);
     }
 
     info("Chonk accumulate: prover and verifier accumulators match: ",

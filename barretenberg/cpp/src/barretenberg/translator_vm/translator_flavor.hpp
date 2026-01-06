@@ -884,8 +884,7 @@ class TranslatorFlavor {
          * @param domain_separator
          * @param tag
          */
-        typename Base::DataType hash_with_origin_tagging([[maybe_unused]] const std::string& domain_separator,
-                                                         [[maybe_unused]] const OriginTag& tag) const override
+        typename Base::DataType hash_with_origin_tagging([[maybe_unused]] const OriginTag& tag) const override
         {
             throw_or_abort("Not intended to be used because vk is hardcoded in circuit.");
         }
