@@ -64,7 +64,7 @@ describe('e2e_epochs/epochs_proof_fails', () => {
     const firstCheckpointNumber = (await test.monitor.run()).checkpointNumber;
     expect(firstCheckpointNumber).toBeGreaterThanOrEqual(CheckpointNumber(1));
     const firstCheckpoint = await rollup.getCheckpoint(CheckpointNumber(1));
-    const firstCheckpointEpoch = getEpochAtSlot(SlotNumber.fromBigInt(firstCheckpoint.slotNumber), test.constants);
+    const firstCheckpointEpoch = getEpochAtSlot(firstCheckpoint.slotNumber, test.constants);
     expect(firstCheckpointEpoch).toEqual(EpochNumber(0));
 
     // Create prover node after test setup to avoid early proving. We ensure the prover does not retry txs.

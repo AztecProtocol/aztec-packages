@@ -210,7 +210,7 @@ export class EpochCache implements EpochCacheInterface {
 
   private async computeCommittee(when: { epoch: EpochNumber; ts: bigint }): Promise<EpochCommitteeInfo> {
     const { ts, epoch } = when;
-    const [committeeHex, seed, l1Timestamp] = await Promise.all([
+    const [committee, seedBuffer, l1Timestamp] = await Promise.all([
       this.rollup.getCommitteeAt(ts),
       this.rollup.getSampleSeedAt(ts),
       this.rollup.client.getBlock({ includeTransactions: false }).then(b => b.timestamp),
@@ -222,8 +222,7 @@ export class EpochCache implements EpochCacheInterface {
         `Cannot query committee for future epoch ${epoch} with timestamp ${ts} (current L1 time is ${l1Timestamp}). Check your Ethereum node is synced.`,
       );
     }
-    const committee = committeeHex?.map((v: `0x${string}`) => EthAddress.fromString(v));
-    return { committee, seed, epoch };
+    return { committee, seed: seedBuffer.toBigInt(), epoch };
   }
 
   /**
@@ -351,9 +350,9 @@ export class EpochCache implements EpochCacheInterface {
     const validatorRefreshTime = this.lastValidatorRefresh + validatorRefreshIntervalMs;
     if (validatorRefreshTime < this.dateProvider.now()) {
       const currentSet = await this.rollup.getAttesters();
-      this.allValidators = new Set(currentSet);
+      this.allValidators = new Set(currentSet.map(v => v.toString()));
       this.lastValidatorRefresh = this.dateProvider.now();
     }
-    return Array.from(this.allValidators.keys().map(v => EthAddress.fromString(v)));
+    return Array.from(this.allValidators.keys()).map(v => EthAddress.fromString(v));
   }
 }

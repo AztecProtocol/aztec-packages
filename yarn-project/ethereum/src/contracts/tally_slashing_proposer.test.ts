@@ -189,7 +189,7 @@ describe('TallySlashingProposer', () => {
       await rollupCheatCodes.advanceToEpoch(EpochNumber(12));
       const votes = bufferToHex(Buffer.alloc(testSlashingRoundSize / testConfig.aztecEpochDuration, 1));
       const slot = await rollup.getSlotNumber();
-      const proposer = EthAddress.fromString(await rollup.getCurrentProposer());
+      const proposer = await rollup.getCurrentProposer();
       const proposerIndex = validatorsAddresses.findIndex(addr => addr.equals(proposer));
       expect(proposerIndex).toBeGreaterThanOrEqual(0);
       const proposerKey = validatorsPrivateKeys[proposerIndex];

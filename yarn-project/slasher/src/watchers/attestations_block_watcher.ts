@@ -132,7 +132,12 @@ export class AttestationsBlockWatcher extends (EventEmitter as new () => Watcher
     const { reason, block } = validationResult;
     const blockNumber = block.blockNumber;
     const slot = block.slotNumber;
-    const proposer = this.epochCache.getProposerFromEpochCommittee(validationResult, slot);
+    const epochCommitteeInfo = {
+      committee: validationResult.committee,
+      seed: validationResult.seed,
+      epoch: validationResult.epoch,
+    };
+    const proposer = this.epochCache.getProposerFromEpochCommittee(epochCommitteeInfo, slot);
 
     if (!proposer) {
       this.log.warn(`No proposer found for block ${blockNumber} at slot ${slot}`);
