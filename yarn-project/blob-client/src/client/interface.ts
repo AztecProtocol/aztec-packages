@@ -24,4 +24,6 @@ export interface BlobClientInterface {
   testSources(): Promise<void>;
   /** Stops the blob client, clearing any periodic tasks. */
   stop?(): void;
+  /** Returns true if this client can upload blobs to filestore. */
+  canUpload(): boolean;
 }
