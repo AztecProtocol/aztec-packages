@@ -1,7 +1,7 @@
 import type { SentTx } from '@aztec/aztec.js/contracts';
 import { SponsoredFeePaymentMethod } from '@aztec/aztec.js/fee';
 import { type AztecNode, createAztecNodeClient } from '@aztec/aztec.js/node';
-import { BlockNumber } from '@aztec/foundation/branded-types';
+import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
@@ -107,7 +107,7 @@ describe('sustained N TPS test', () => {
     await retryUntil(
       async () => {
         const blockNumber = await aztecNode.getBlockNumber();
-        if (blockNumber > BlockNumber(1)) {
+        if (blockNumber > INITIAL_L2_BLOCK_NUM) {
           return true;
         }
         logger.info('Waiting for the first block to mine...');

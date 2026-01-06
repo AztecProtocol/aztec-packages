@@ -209,4 +209,80 @@ TEST(MegaCircuitBuilder, CompleteSelectorPartitioningCheck)
     }
 }
 
+/**
+ * @brief Verify that the ecc_op block is first in the trace and starts at offset 1 (after the zero row)
+ */
+TEST(MegaCircuitBuilder, EccOpBlockIsFirstInTrace)
+{
+    auto builder = MegaCircuitBuilder();
+
+    // Add ECC ops
+    auto P1 = g1::affine_element::random_element();
+    builder.queue_ecc_add_accum(P1);
+    builder.queue_ecc_eq();
+
+    // Add some arithmetic gates (goes to a different block)
+    auto a = builder.add_variable(fr::random_element());
+    auto b = builder.add_variable(fr::random_element());
+    auto c = builder.add_variable(builder.get_variable(a) + builder.get_variable(b));
+    builder.create_add_gate({ a, b, c, 1, 1, -1, 0 });
+
+    builder.finalize_circuit(true);
+    builder.blocks.compute_offsets();
+
+    // Verify ecc_op block starts at offset 1 (after zero row)
+    EXPECT_EQ(builder.blocks.ecc_op.trace_offset(), 1);
+
+    // Verify no other non-empty block starts before ecc_op ends
+    size_t ecc_op_end = builder.blocks.ecc_op.trace_offset() + builder.blocks.ecc_op.size();
+    for (auto& block : builder.blocks.get()) {
+        if (&block != &builder.blocks.ecc_op && block.size() > 0) {
+            EXPECT_GE(block.trace_offset(), ecc_op_end) << "Block starts before ecc_op ends";
+        }
+    }
+
+    EXPECT_TRUE(CircuitChecker::check(builder));
+}
+
+/**
+ * @brief Verify that an empty circuit can be finalized and passes circuit checks
+ * @details Finalization should add required gates to ensure all polynomials are non-zero
+ * @note This is a "completeness" test; unlikely to be a use-case.
+ */
+TEST(MegaCircuitBuilder, EmptyCircuitFinalization)
+{
+    auto builder = MegaCircuitBuilder();
+
+    // Completely empty circuit - no gates added
+    EXPECT_EQ(builder.blocks.ecc_op.size(), 0);
+
+    builder.finalize_circuit(true);
+
+    // After finalization, should have non-zero content for required polynomials
+    EXPECT_GT(builder.blocks.ecc_op.size(), 0) << "Finalization should add ECC ops for non-zero polynomials";
+    EXPECT_GT(builder.get_calldata().size(), 0) << "Finalization should add databus entries";
+    EXPECT_GT(builder.get_secondary_calldata().size(), 0);
+    EXPECT_GT(builder.get_return_data().size(), 0);
+
+    EXPECT_TRUE(CircuitChecker::check(builder));
+}
+
+/**
+ * @brief Verify that databus read with out-of-bounds index is caught
+ */
+TEST(MegaCircuitBuilder, DatabusOutOfBoundsReadFails)
+{
+    auto builder = MegaCircuitBuilder();
+
+    // Add single entry to calldata
+    auto val = builder.add_variable(fr(42));
+    builder.add_public_calldata(val);
+
+    // Try to read at index 1 (out of bounds - only index 0 exists)
+    auto bad_idx = builder.add_variable(fr(1));
+
+    // This should trigger an assertion in read_calldata
+    EXPECT_THROW(builder.read_calldata(bad_idx), std::runtime_error);
+}
+
 } // namespace bb

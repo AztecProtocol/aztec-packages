@@ -1,6 +1,5 @@
 #include "barretenberg/dsl/acir_format/mock_verifier_inputs.hpp"
 #include "acir_format.hpp"
-#include "acir_format_mocks.hpp"
 #include "barretenberg/chonk/chonk.hpp"
 #include "barretenberg/chonk/chonk_verifier.hpp"
 #include "barretenberg/eccvm/eccvm_flavor.hpp"
@@ -16,7 +15,6 @@
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 #include "honk_recursion_constraint.hpp"
-#include "proof_surgeon.hpp"
 
 #include <gtest/gtest.h>
 #include <vector>

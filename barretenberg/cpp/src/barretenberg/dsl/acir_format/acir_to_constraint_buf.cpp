@@ -442,9 +442,11 @@ WitnessVector witness_map_to_witness_vector(Witnesses::WitnessMap const& witness
     for (size_t index = 0; const auto& e : witness_map.value) {
         // ACIR uses a sparse format for WitnessMap where unused witness indices may be left unassigned.
         // To ensure that witnesses sit at the correct indices in the `WitnessVector`, we fill any indices
-        // which do not exist within the `WitnessMap` with the dummy value of zero.
+        // which do not exist within the `WitnessMap` with the random values. We use random values instead of zero
+        // because unassigned witnesses indices are not supposed to be used in any constraint, so filling them with a
+        // random value helps catching bugs.
         while (index < e.first.value) {
-            witness_vector.emplace_back(0);
+            witness_vector.emplace_back(fr::random_element());
             index++;
         }
         witness_vector.emplace_back(from_buffer_with_bound_checks(e.second));
@@ -588,7 +590,7 @@ void assert_zero_to_quad_constraints(Acir::Opcode::AssertZero const& arg, AcirFo
         BB_ASSERT_GT(mul_quads.size(),
                      1U,
                      "acir_format::assert_zero_to_quad_constraints: expected multiple gates but found one.");
-        af.big_quad_constraints.push_back(mul_quads);
+        af.big_quad_constraints.push_back(BigQuadConstraint(mul_quads));
         af.original_opcode_indices.big_quad_constraints.push_back(opcode_index);
     }
 

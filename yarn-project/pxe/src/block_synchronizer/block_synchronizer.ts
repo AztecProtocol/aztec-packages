@@ -5,8 +5,8 @@ import { L2BlockStream, type L2BlockStreamEvent, type L2BlockStreamEventHandler 
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 
 import type { PXEConfig } from '../config/index.js';
-import type { AnchorBlockDataProvider } from '../storage/anchor_block_data_provider/anchor_block_data_provider.js';
-import type { NoteDataProvider } from '../storage/note_data_provider/note_data_provider.js';
+import type { AnchorBlockStore } from '../storage/anchor_block_store/anchor_block_store.js';
+import type { NoteStore } from '../storage/note_store/note_store.js';
 
 /**
  * The BlockSynchronizer class orchestrates synchronization between PXE and Aztec node, maintaining an up-to-date
@@ -20,8 +20,8 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
 
   constructor(
     private node: AztecNode,
-    private anchorBlockDataProvider: AnchorBlockDataProvider,
-    private noteDataProvider: NoteDataProvider,
+    private anchorBlockStore: AnchorBlockStore,
+    private noteStore: NoteStore,
     private l2TipsStore: L2TipsKVStore,
     config: Partial<Pick<PXEConfig, 'l2BlockBatchSize'>> = {},
     loggerOrSuffix?: string | Logger,
@@ -58,20 +58,20 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
           archive: lastBlock.archive.root.toString(),
           header: lastBlock.header.toInspect(),
         });
-        await this.anchorBlockDataProvider.setHeader(lastBlock.getBlockHeader());
+        await this.anchorBlockStore.setHeader(lastBlock.getBlockHeader());
         break;
       }
       case 'chain-pruned': {
         this.log.warn(`Pruning data after block ${event.block.number} due to reorg`);
         // We first unnullify and then remove so that unnullified notes that were created after the block number end up deleted.
-        const lastSynchedBlockNumber = (await this.anchorBlockDataProvider.getBlockHeader()).getBlockNumber();
-        await this.noteDataProvider.rollbackNotesAndNullifiers(event.block.number, lastSynchedBlockNumber);
+        const lastSynchedBlockNumber = (await this.anchorBlockStore.getBlockHeader()).getBlockNumber();
+        await this.noteStore.rollbackNotesAndNullifiers(event.block.number, lastSynchedBlockNumber);
         // Update the header to the last block.
         const newHeader = await this.node.getBlockHeader(event.block.number);
         if (!newHeader) {
           this.log.error(`Block header not found for block number ${event.block.number} during chain prune`);
         } else {
-          await this.anchorBlockDataProvider.setHeader(newHeader);
+          await this.anchorBlockStore.setHeader(newHeader);
         }
         break;
       }
@@ -108,13 +108,13 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
     let currentHeader;
 
     try {
-      currentHeader = await this.anchorBlockDataProvider.getBlockHeader();
+      currentHeader = await this.anchorBlockStore.getBlockHeader();
     } catch {
       this.log.debug('Header is not set, requesting from the node');
     }
     if (!currentHeader) {
       // REFACTOR: We should know the header of the genesis block without having to request it from the node.
-      await this.anchorBlockDataProvider.setHeader((await this.node.getBlockHeader(BlockNumber.ZERO))!);
+      await this.anchorBlockStore.setHeader((await this.node.getBlockHeader(BlockNumber.ZERO))!);
     }
     await this.blockStream.sync();
   }

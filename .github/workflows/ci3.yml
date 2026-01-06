@@ -144,7 +144,7 @@ jobs:
           DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
           RUN_ID: ${{ github.run_id }}
-          AWS_SHUTDOWN_TIME: 360
+          AWS_SHUTDOWN_TIME: 180
           NO_SPOT: 1
         run: |
           # For release tags, use the release image; for PRs, omit to build and push to aztecdev

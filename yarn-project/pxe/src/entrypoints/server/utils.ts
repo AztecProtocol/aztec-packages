@@ -1,13 +1,10 @@
+import { BBPrivateKernelProver } from '@aztec/bb-prover/client';
 import { BBBundlePrivateKernelProver } from '@aztec/bb-prover/client/bundle';
 import { randomBytes } from '@aztec/foundation/crypto/random';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
+import { createStore } from '@aztec/kv-store/lmdb-v2';
 import { BundledProtocolContractsProvider } from '@aztec/protocol-contracts/providers/bundle';
-import {
-  type CircuitSimulator,
-  MemoryCircuitRecorder,
-  SimulatorRecorderWrapper,
-  WASMSimulator,
-} from '@aztec/simulator/client';
+import { MemoryCircuitRecorder, SimulatorRecorderWrapper, WASMSimulator } from '@aztec/simulator/client';
 import { FileCircuitRecorder } from '@aztec/simulator/testing';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 
@@ -46,9 +43,6 @@ export async function createPXE(
   };
 
   if (!options.store) {
-    // TODO once https://github.com/AztecProtocol/aztec-packages/issues/13656 is fixed, we can remove this and always
-    // import the lmdb-v2 version
-    const { createStore } = await import('@aztec/kv-store/lmdb-v2');
     const storeLogger = loggers.store
       ? loggers.store
       : createLogger('pxe:data:lmdb' + (logSuffix ? `:${logSuffix}` : ''));
@@ -58,7 +52,13 @@ export async function createPXE(
     ? loggers.prover
     : createLogger('pxe:bb:native' + (logSuffix ? `:${logSuffix}` : ''));
 
-  const prover = options.prover ?? createProver(simulator, proverLogger);
+  let prover;
+  if (options.proverOrOptions instanceof BBPrivateKernelProver) {
+    prover = options.proverOrOptions;
+  } else {
+    prover = new BBBundlePrivateKernelProver(simulator, { ...options.proverOrOptions, logger: proverLogger });
+  }
+
   const protocolContractsProvider = new BundledProtocolContractsProvider();
 
   const pxeLogger = loggers.pxe ? loggers.pxe : createLogger('pxe:service' + (logSuffix ? `:${logSuffix}` : ''));
@@ -72,8 +72,4 @@ export async function createPXE(
     pxeLogger,
   );
   return pxe;
-}
-
-function createProver(simulator: CircuitSimulator, logger?: Logger) {
-  return new BBBundlePrivateKernelProver(simulator, logger);
 }

@@ -5,7 +5,6 @@
 // =====================
 
 #pragma once
-#include "barretenberg/serialize/msgpack.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "serde/index.hpp"
 #include "witness_constant.hpp"
@@ -26,8 +25,6 @@ struct MultiScalarMul {
     uint32_t out_point_y;
     uint32_t out_point_is_infinite;
 
-    // for serialization, update with any new fields
-    MSGPACK_FIELDS(points, scalars, predicate, out_point_x, out_point_y, out_point_is_infinite);
     friend bool operator==(MultiScalarMul const& lhs, MultiScalarMul const& rhs) = default;
 };
 

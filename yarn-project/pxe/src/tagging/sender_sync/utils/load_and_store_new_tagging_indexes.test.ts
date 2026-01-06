@@ -8,7 +8,7 @@ import { TxHash } from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-import { SenderTaggingDataProvider } from '../../../storage/tagging_data_provider/sender_tagging_data_provider.js';
+import { SenderTaggingStore } from '../../../storage/tagging_store/sender_tagging_store.js';
 import { loadAndStoreNewTaggingIndexes } from './load_and_store_new_tagging_indexes.js';
 
 describe('loadAndStoreNewTaggingIndexes', () => {
@@ -17,7 +17,7 @@ describe('loadAndStoreNewTaggingIndexes', () => {
   let app: AztecAddress;
 
   let aztecNode: MockProxy<AztecNode>;
-  let taggingDataProvider: SenderTaggingDataProvider;
+  let taggingStore: SenderTaggingStore;
 
   async function computeSiloedTagForIndex(index: number) {
     const tag = await Tag.compute({ secret, index });
@@ -37,7 +37,7 @@ describe('loadAndStoreNewTaggingIndexes', () => {
   // Unlike for secret, app address and aztecNode we need a fresh instance of the tagging data provider for each test.
   beforeEach(async () => {
     aztecNode.getPrivateLogsByTags.mockReset();
-    taggingDataProvider = new SenderTaggingDataProvider(await openTmpStore('test'));
+    taggingStore = new SenderTaggingStore(await openTmpStore('test'));
   });
 
   it('no logs found for the given window', async () => {
@@ -46,14 +46,14 @@ describe('loadAndStoreNewTaggingIndexes', () => {
       return Promise.resolve(tags.map((_tag: SiloedTag) => []));
     });
 
-    await loadAndStoreNewTaggingIndexes(secret, app, 0, 10, aztecNode, taggingDataProvider);
+    await loadAndStoreNewTaggingIndexes(secret, app, 0, 10, aztecNode, taggingStore);
 
     // Verify that no pending indexes were stored
-    expect(await taggingDataProvider.getLastUsedIndex(secret)).toBeUndefined();
-    expect(await taggingDataProvider.getLastFinalizedIndex(secret)).toBeUndefined();
+    expect(await taggingStore.getLastUsedIndex(secret)).toBeUndefined();
+    expect(await taggingStore.getLastFinalizedIndex(secret)).toBeUndefined();
 
     // Verify the entire window has no pending tx hashes
-    const txHashesInWindow = await taggingDataProvider.getTxHashesOfPendingIndexes(secret, 0, 10);
+    const txHashesInWindow = await taggingStore.getTxHashesOfPendingIndexes(secret, 0, 10);
     expect(txHashesInWindow).toHaveLength(0);
   });
 
@@ -66,15 +66,15 @@ describe('loadAndStoreNewTaggingIndexes', () => {
       return Promise.resolve(tags.map((t: SiloedTag) => (t.equals(tag) ? [makeLog(txHash, tag.value)] : [])));
     });
 
-    await loadAndStoreNewTaggingIndexes(secret, app, 0, 10, aztecNode, taggingDataProvider);
+    await loadAndStoreNewTaggingIndexes(secret, app, 0, 10, aztecNode, taggingStore);
 
     // Verify that the pending index was stored for this txHash
-    const txHashesInRange = await taggingDataProvider.getTxHashesOfPendingIndexes(secret, index, index + 1);
+    const txHashesInRange = await taggingStore.getTxHashesOfPendingIndexes(secret, index, index + 1);
     expect(txHashesInRange).toHaveLength(1);
     expect(txHashesInRange[0].equals(txHash)).toBe(true);
 
     // Verify the last used index is correct
-    expect(await taggingDataProvider.getLastUsedIndex(secret)).toBe(index);
+    expect(await taggingStore.getLastUsedIndex(secret)).toBe(index);
   });
 
   it('for multiple logs with same txHash stores the highest index', async () => {
@@ -97,19 +97,19 @@ describe('loadAndStoreNewTaggingIndexes', () => {
       );
     });
 
-    await loadAndStoreNewTaggingIndexes(secret, app, 0, 10, aztecNode, taggingDataProvider);
+    await loadAndStoreNewTaggingIndexes(secret, app, 0, 10, aztecNode, taggingStore);
 
     // Verify that only the highest index (7) was stored for this txHash and secret
-    const txHashesAtIndex2 = await taggingDataProvider.getTxHashesOfPendingIndexes(secret, index2, index2 + 1);
+    const txHashesAtIndex2 = await taggingStore.getTxHashesOfPendingIndexes(secret, index2, index2 + 1);
     expect(txHashesAtIndex2).toHaveLength(1);
     expect(txHashesAtIndex2[0].equals(txHash)).toBe(true);
 
     // Verify the lower index is not stored separately
-    const txHashesAtIndex1 = await taggingDataProvider.getTxHashesOfPendingIndexes(secret, index1, index1 + 1);
+    const txHashesAtIndex1 = await taggingStore.getTxHashesOfPendingIndexes(secret, index1, index1 + 1);
     expect(txHashesAtIndex1).toHaveLength(0);
 
     // Verify the last used index is the highest
-    expect(await taggingDataProvider.getLastUsedIndex(secret)).toBe(index2);
+    expect(await taggingStore.getLastUsedIndex(secret)).toBe(index2);
   });
 
   it('multiple logs with different txHashes', async () => {
@@ -133,19 +133,19 @@ describe('loadAndStoreNewTaggingIndexes', () => {
       );
     });
 
-    await loadAndStoreNewTaggingIndexes(secret, app, 0, 10, aztecNode, taggingDataProvider);
+    await loadAndStoreNewTaggingIndexes(secret, app, 0, 10, aztecNode, taggingStore);
 
     // Verify that both txHashes have their respective indexes stored
-    const txHashesAtIndex1 = await taggingDataProvider.getTxHashesOfPendingIndexes(secret, index1, index1 + 1);
+    const txHashesAtIndex1 = await taggingStore.getTxHashesOfPendingIndexes(secret, index1, index1 + 1);
     expect(txHashesAtIndex1).toHaveLength(1);
     expect(txHashesAtIndex1[0].equals(txHash1)).toBe(true);
 
-    const txHashesAtIndex2 = await taggingDataProvider.getTxHashesOfPendingIndexes(secret, index2, index2 + 1);
+    const txHashesAtIndex2 = await taggingStore.getTxHashesOfPendingIndexes(secret, index2, index2 + 1);
     expect(txHashesAtIndex2).toHaveLength(1);
     expect(txHashesAtIndex2[0].equals(txHash2)).toBe(true);
 
     // Verify the last used index is the highest
-    expect(await taggingDataProvider.getLastUsedIndex(secret)).toBe(index2);
+    expect(await taggingStore.getLastUsedIndex(secret)).toBe(index2);
   });
 
   // Expected to happen if sending logs from multiple PXEs at a similar time.
@@ -161,17 +161,17 @@ describe('loadAndStoreNewTaggingIndexes', () => {
       );
     });
 
-    await loadAndStoreNewTaggingIndexes(secret, app, 0, 10, aztecNode, taggingDataProvider);
+    await loadAndStoreNewTaggingIndexes(secret, app, 0, 10, aztecNode, taggingStore);
 
     // Verify that both txHashes have the same index stored
-    const txHashesAtIndex = await taggingDataProvider.getTxHashesOfPendingIndexes(secret, index, index + 1);
+    const txHashesAtIndex = await taggingStore.getTxHashesOfPendingIndexes(secret, index, index + 1);
     expect(txHashesAtIndex).toHaveLength(2);
     const txHashStrings = txHashesAtIndex.map(h => h.toString());
     expect(txHashStrings).toContain(txHash1.toString());
     expect(txHashStrings).toContain(txHash2.toString());
 
     // Verify the last used index is correct
-    expect(await taggingDataProvider.getLastUsedIndex(secret)).toBe(index);
+    expect(await taggingStore.getLastUsedIndex(secret)).toBe(index);
   });
 
   it('complex scenario: multiple txHashes with multiple indexes', async () => {
@@ -207,29 +207,29 @@ describe('loadAndStoreNewTaggingIndexes', () => {
       );
     });
 
-    await loadAndStoreNewTaggingIndexes(secret, app, 0, 10, aztecNode, taggingDataProvider);
+    await loadAndStoreNewTaggingIndexes(secret, app, 0, 10, aztecNode, taggingStore);
 
     // Verify txHash1 has highest index 8 (should not be at index 1)
-    const txHashesAtIndex1 = await taggingDataProvider.getTxHashesOfPendingIndexes(secret, 1, 2);
+    const txHashesAtIndex1 = await taggingStore.getTxHashesOfPendingIndexes(secret, 1, 2);
     expect(txHashesAtIndex1).toHaveLength(0);
-    const txHashesAtIndex8 = await taggingDataProvider.getTxHashesOfPendingIndexes(secret, 8, 9);
+    const txHashesAtIndex8 = await taggingStore.getTxHashesOfPendingIndexes(secret, 8, 9);
     expect(txHashesAtIndex8).toHaveLength(1);
     expect(txHashesAtIndex8[0].equals(txHash1)).toBe(true);
 
     // Verify txHash2 has highest index 5 (should not be at index 3)
-    const txHashesAtIndex3 = await taggingDataProvider.getTxHashesOfPendingIndexes(secret, 3, 4);
+    const txHashesAtIndex3 = await taggingStore.getTxHashesOfPendingIndexes(secret, 3, 4);
     expect(txHashesAtIndex3).toHaveLength(0);
-    const txHashesAtIndex5 = await taggingDataProvider.getTxHashesOfPendingIndexes(secret, 5, 6);
+    const txHashesAtIndex5 = await taggingStore.getTxHashesOfPendingIndexes(secret, 5, 6);
     expect(txHashesAtIndex5).toHaveLength(1);
     expect(txHashesAtIndex5[0].equals(txHash2)).toBe(true);
 
     // Verify txHash3 has index 9
-    const txHashesAtIndex9 = await taggingDataProvider.getTxHashesOfPendingIndexes(secret, 9, 10);
+    const txHashesAtIndex9 = await taggingStore.getTxHashesOfPendingIndexes(secret, 9, 10);
     expect(txHashesAtIndex9).toHaveLength(1);
     expect(txHashesAtIndex9[0].equals(txHash3)).toBe(true);
 
     // Verify the last used index is the highest
-    expect(await taggingDataProvider.getLastUsedIndex(secret)).toBe(9);
+    expect(await taggingStore.getLastUsedIndex(secret)).toBe(9);
   });
 
   it('start is inclusive and end is exclusive', async () => {
@@ -255,18 +255,18 @@ describe('loadAndStoreNewTaggingIndexes', () => {
       );
     });
 
-    await loadAndStoreNewTaggingIndexes(secret, app, start, end, aztecNode, taggingDataProvider);
+    await loadAndStoreNewTaggingIndexes(secret, app, start, end, aztecNode, taggingStore);
 
     // Verify that the log at start (inclusive) was processed
-    const txHashesAtStart = await taggingDataProvider.getTxHashesOfPendingIndexes(secret, start, start + 1);
+    const txHashesAtStart = await taggingStore.getTxHashesOfPendingIndexes(secret, start, start + 1);
     expect(txHashesAtStart).toHaveLength(1);
     expect(txHashesAtStart[0].equals(txHashAtStart)).toBe(true);
 
     // Verify that the log at end (exclusive) was NOT processed
-    const txHashesAtEnd = await taggingDataProvider.getTxHashesOfPendingIndexes(secret, end, end + 1);
+    const txHashesAtEnd = await taggingStore.getTxHashesOfPendingIndexes(secret, end, end + 1);
     expect(txHashesAtEnd).toHaveLength(0);
 
     // Verify the last used index is the start index (since end was not processed)
-    expect(await taggingDataProvider.getLastUsedIndex(secret)).toBe(start);
+    expect(await taggingStore.getLastUsedIndex(secret)).toBe(start);
   });
 });
