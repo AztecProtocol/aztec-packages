@@ -28,7 +28,9 @@ Utility functions for SmallSubgroupIPA.
 Data structures: `OpeningClaim`, `BatchOpeningClaim`.
 11. `commitment_schemes/pairing_points.hpp`
 Data structure for accumulating pairing points from KZG batch opening verification.
-12. `stdlib/primitives/pairing_points.hpp`
+12. `commitment_schemes/verification_key.hpp`
+Verification key data structure for PCS verification.
+13. `stdlib/primitives/pairing_points.hpp`
 Stdlib (recursive) data structure for pairing points accumulation.
 
 ## Brief Summary of Module
