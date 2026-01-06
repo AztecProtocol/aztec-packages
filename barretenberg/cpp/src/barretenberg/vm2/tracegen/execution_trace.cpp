@@ -28,7 +28,9 @@
 #include "barretenberg/vm2/generated/relations/lookups_send_l2_to_l1_msg.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_sload.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_sstore.hpp"
+#include "barretenberg/vm2/generated/relations/perms_context.hpp"
 #include "barretenberg/vm2/generated/relations/perms_execution.hpp"
+#include "barretenberg/vm2/generated/relations/perms_internal_call.hpp"
 #include "barretenberg/vm2/tracegen/lib/get_env_var_spec.hpp"
 #include "barretenberg/vm2/tracegen/lib/instruction_spec.hpp"
 
@@ -1124,7 +1126,7 @@ const InteractionDefinition ExecutionTraceBuilder::interactions =
         .add<lookup_addressing_relative_overflow_result_5_settings, InteractionType::LookupGeneric>(C::gt_sel)
         .add<lookup_addressing_relative_overflow_result_6_settings, InteractionType::LookupGeneric>(C::gt_sel)
         // Internal Call Stack
-        .add<lookup_internal_call_push_call_stack_settings_, InteractionType::LookupSequential>()
+        .add<perm_internal_call_push_call_stack_settings_, InteractionType::Permutation>()
         .add<lookup_internal_call_unwind_call_stack_settings_, InteractionType::LookupGeneric>()
         // Gas
         .add<lookup_gas_addressing_gas_read_settings, InteractionType::LookupIntoIndexedByClk>()
@@ -1138,7 +1140,7 @@ const InteractionDefinition ExecutionTraceBuilder::interactions =
         // Dynamic Gas - SStore
         .add<lookup_execution_check_written_storage_slot_settings, InteractionType::LookupSequential>()
         // Context Stack
-        .add<lookup_context_ctx_stack_call_settings, InteractionType::LookupSequential>()
+        .add<perm_context_ctx_stack_call_settings, InteractionType::Permutation>()
         .add<lookup_context_ctx_stack_rollback_settings, InteractionType::LookupGeneric>()
         .add<lookup_context_ctx_stack_return_settings, InteractionType::LookupGeneric>()
         // External Call
