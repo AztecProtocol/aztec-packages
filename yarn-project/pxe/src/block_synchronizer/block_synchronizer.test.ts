@@ -41,7 +41,8 @@ describe('BlockSynchronizer', () => {
     await synchronizer.handleBlockStreamEvent({ type: 'blocks-added', blocks: [block] });
 
     const obtainedHeader = await anchorBlockDataProvider.getBlockHeader();
-    expect(obtainedHeader).toEqual(block.header);
+    // Compare by hash to avoid issues with internal cached state
+    expect(await obtainedHeader?.hash()).toEqual(await block.header.hash());
   });
 
   it('removes notes from db on a reorg', async () => {

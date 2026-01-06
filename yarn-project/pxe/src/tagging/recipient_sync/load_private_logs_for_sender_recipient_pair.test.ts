@@ -1,5 +1,5 @@
 import { MAX_INCLUDE_BY_TIMESTAMP_DURATION } from '@aztec/constants';
-import { BlockNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -50,8 +50,17 @@ describe('loadPrivateLogsForSenderRecipientPair', () => {
 
   it('returns empty array when no logs found', async () => {
     aztecNode.getL2Tips.mockResolvedValue({
-      finalized: { number: BlockNumber(10) },
-    } as any);
+      proposed: { number: BlockNumber(10), hash: '' },
+      checkpointed: {
+        block: { number: BlockNumber(10), hash: '' },
+        checkpoint: { number: CheckpointNumber(0), hash: '' },
+      },
+      proven: { block: { number: BlockNumber(10), hash: '' }, checkpoint: { number: CheckpointNumber(0), hash: '' } },
+      finalized: {
+        block: { number: BlockNumber(10), hash: '' },
+        checkpoint: { number: CheckpointNumber(0), hash: '' },
+      },
+    });
 
     aztecNode.getBlockHeader.mockResolvedValue(makeBlockHeader(0, { timestamp: currentTimestamp }));
 
@@ -81,8 +90,20 @@ describe('loadPrivateLogsForSenderRecipientPair', () => {
     const logTag = await computeSiloedTagForIndex(logIndex);
 
     aztecNode.getL2Tips.mockResolvedValue({
-      finalized: { number: BlockNumber(finalizedBlockNumber) },
-    } as any);
+      proposed: { number: BlockNumber(finalizedBlockNumber), hash: '' },
+      checkpointed: {
+        block: { number: BlockNumber(finalizedBlockNumber), hash: '' },
+        checkpoint: { number: CheckpointNumber(0), hash: '' },
+      },
+      proven: {
+        block: { number: BlockNumber(finalizedBlockNumber), hash: '' },
+        checkpoint: { number: CheckpointNumber(0), hash: '' },
+      },
+      finalized: {
+        block: { number: BlockNumber(finalizedBlockNumber), hash: '' },
+        checkpoint: { number: CheckpointNumber(0), hash: '' },
+      },
+    });
 
     aztecNode.getBlockHeader.mockResolvedValue(makeBlockHeader(0, { timestamp: currentTimestamp }));
 
@@ -116,8 +137,20 @@ describe('loadPrivateLogsForSenderRecipientPair', () => {
     const logTag = await computeSiloedTagForIndex(logIndex);
 
     aztecNode.getL2Tips.mockResolvedValue({
-      finalized: { number: BlockNumber(finalizedBlockNumber) },
-    } as any);
+      proposed: { number: BlockNumber(finalizedBlockNumber), hash: '' },
+      checkpointed: {
+        block: { number: BlockNumber(finalizedBlockNumber), hash: '' },
+        checkpoint: { number: CheckpointNumber(0), hash: '' },
+      },
+      proven: {
+        block: { number: BlockNumber(finalizedBlockNumber), hash: '' },
+        checkpoint: { number: CheckpointNumber(0), hash: '' },
+      },
+      finalized: {
+        block: { number: BlockNumber(finalizedBlockNumber), hash: '' },
+        checkpoint: { number: CheckpointNumber(0), hash: '' },
+      },
+    });
 
     aztecNode.getBlockHeader.mockResolvedValue(makeBlockHeader(0, { timestamp: currentTimestamp }));
 
@@ -160,8 +193,20 @@ describe('loadPrivateLogsForSenderRecipientPair', () => {
     await taggingDataProvider.updateHighestFinalizedIndex(secret, highestFinalizedIndex);
 
     aztecNode.getL2Tips.mockResolvedValue({
-      finalized: { number: BlockNumber(finalizedBlockNumber) },
-    } as any);
+      proposed: { number: BlockNumber(finalizedBlockNumber), hash: '' },
+      checkpointed: {
+        block: { number: BlockNumber(finalizedBlockNumber), hash: '' },
+        checkpoint: { number: CheckpointNumber(0), hash: '' },
+      },
+      proven: {
+        block: { number: BlockNumber(finalizedBlockNumber), hash: '' },
+        checkpoint: { number: CheckpointNumber(0), hash: '' },
+      },
+      finalized: {
+        block: { number: BlockNumber(finalizedBlockNumber), hash: '' },
+        checkpoint: { number: CheckpointNumber(0), hash: '' },
+      },
+    });
 
     aztecNode.getBlockHeader.mockResolvedValue(makeBlockHeader(0, { timestamp: currentTimestamp }));
 

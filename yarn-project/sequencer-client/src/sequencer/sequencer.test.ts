@@ -225,7 +225,15 @@ describe('sequencer', () => {
     l2BlockSource = mock<L2BlockSource>({
       getL2BlockNew: mockFn().mockResolvedValue(L2BlockNew.empty()),
       getBlockNumber: mockFn().mockResolvedValue(lastBlockNumber),
-      getL2Tips: mockFn().mockResolvedValue({ blocks: { latest: { number: lastBlockNumber, hash } } }),
+      getL2Tips: mockFn().mockResolvedValue({
+        proposed: { number: lastBlockNumber, hash },
+        checkpointed: {
+          block: { number: lastBlockNumber, hash },
+          checkpoint: { number: CheckpointNumber(0), hash: '' },
+        },
+        proven: { block: { number: lastBlockNumber, hash }, checkpoint: { number: CheckpointNumber(0), hash: '' } },
+        finalized: { block: { number: lastBlockNumber, hash }, checkpoint: { number: CheckpointNumber(0), hash: '' } },
+      }),
       getL1Timestamp: mockFn().mockResolvedValue(1000n),
       isPendingChainInvalid: mockFn().mockResolvedValue(false),
       getPendingChainValidationStatus: mockFn().mockResolvedValue({ valid: true }),
@@ -233,7 +241,15 @@ describe('sequencer', () => {
 
     l1ToL2MessageSource = mock<L1ToL2MessageSource>({
       getL1ToL2Messages: () => Promise.resolve(Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(Fr.ZERO)),
-      getL2Tips: mockFn().mockResolvedValue({ blocks: { latest: { number: lastBlockNumber, hash } } }),
+      getL2Tips: mockFn().mockResolvedValue({
+        proposed: { number: lastBlockNumber, hash },
+        checkpointed: {
+          block: { number: lastBlockNumber, hash },
+          checkpoint: { number: CheckpointNumber(0), hash: '' },
+        },
+        proven: { block: { number: lastBlockNumber, hash }, checkpoint: { number: CheckpointNumber(0), hash: '' } },
+        finalized: { block: { number: lastBlockNumber, hash }, checkpoint: { number: CheckpointNumber(0), hash: '' } },
+      }),
     });
 
     validatorClient = mock<ValidatorClient>();

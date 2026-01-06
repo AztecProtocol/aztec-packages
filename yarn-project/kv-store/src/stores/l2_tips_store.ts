@@ -151,10 +151,10 @@ export class L2TipsKVStore implements L2BlockStreamEventHandler, L2BlockStreamLo
 
   private async saveCheckpoint(publishedCheckpoint: PublishedCheckpoint) {
     const checkpoint = publishedCheckpoint.checkpoint;
+    const lastBlock = checkpoint.blocks.at(-1)!;
+    // Only store the mapping for the last block since tips only point to checkpoint boundaries
     await Promise.all([
-      ...checkpoint.blocks.map(async block => {
-        await this.l2BlockNumberToCheckpointNumberStore.set(block.number, checkpoint.number);
-      }),
+      this.l2BlockNumberToCheckpointNumberStore.set(lastBlock.number, checkpoint.number),
       this.l2CheckpointStore.set(checkpoint.number, publishedCheckpoint.toBuffer()),
     ]);
   }

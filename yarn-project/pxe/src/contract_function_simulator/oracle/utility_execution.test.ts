@@ -1,4 +1,4 @@
-import { BlockNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { GrumpkinScalar } from '@aztec/foundation/curves/grumpkin';
 import type { KeyStore } from '@aztec/key-store';
@@ -75,8 +75,20 @@ describe('Utility Execution test suite', () => {
 
     // Mock getL2Tips and getBlockHeader for loadPrivateLogsForSenderRecipientPair
     aztecNode.getL2Tips.mockResolvedValue({
-      finalized: { number: anchorBlockHeader.globalVariables.blockNumber },
-    } as any);
+      proposed: { number: anchorBlockHeader.globalVariables.blockNumber, hash: '' },
+      checkpointed: {
+        block: { number: anchorBlockHeader.globalVariables.blockNumber, hash: '' },
+        checkpoint: { number: CheckpointNumber(0), hash: '' },
+      },
+      proven: {
+        block: { number: anchorBlockHeader.globalVariables.blockNumber, hash: '' },
+        checkpoint: { number: CheckpointNumber(0), hash: '' },
+      },
+      finalized: {
+        block: { number: anchorBlockHeader.globalVariables.blockNumber, hash: '' },
+        checkpoint: { number: CheckpointNumber(0), hash: '' },
+      },
+    });
     aztecNode.getBlockHeader.mockImplementation((blockNumber: BlockNumber | 'latest') => {
       if (blockNumber === 'latest') {
         return Promise.resolve(anchorBlockHeader);

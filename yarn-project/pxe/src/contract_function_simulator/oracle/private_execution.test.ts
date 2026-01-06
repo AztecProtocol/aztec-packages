@@ -6,7 +6,7 @@ import {
   PUBLIC_DATA_TREE_HEIGHT,
 } from '@aztec/constants';
 import { asyncMap } from '@aztec/foundation/async-map';
-import { BlockNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import { times } from '@aztec/foundation/collection';
 import { poseidon2Hash, poseidon2HashWithSeparator } from '@aztec/foundation/crypto/poseidon';
 import { randomInt } from '@aztec/foundation/crypto/random';
@@ -331,8 +331,20 @@ describe('Private Execution test suite', () => {
 
     // Mock getL2Tips and getBlockHeader for loadPrivateLogsForSenderRecipientPair
     aztecNode.getL2Tips.mockResolvedValue({
-      finalized: { number: anchorBlockHeader.globalVariables.blockNumber },
-    } as any);
+      proposed: { number: anchorBlockHeader.globalVariables.blockNumber, hash: '' },
+      checkpointed: {
+        block: { number: anchorBlockHeader.globalVariables.blockNumber, hash: '' },
+        checkpoint: { number: CheckpointNumber(0), hash: '' },
+      },
+      proven: {
+        block: { number: anchorBlockHeader.globalVariables.blockNumber, hash: '' },
+        checkpoint: { number: CheckpointNumber(0), hash: '' },
+      },
+      finalized: {
+        block: { number: anchorBlockHeader.globalVariables.blockNumber, hash: '' },
+        checkpoint: { number: CheckpointNumber(0), hash: '' },
+      },
+    });
     aztecNode.getBlockHeader.mockImplementation((blockNumber: BlockNumber | 'latest') => {
       if (blockNumber === 'latest') {
         return Promise.resolve(anchorBlockHeader);

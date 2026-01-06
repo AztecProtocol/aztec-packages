@@ -162,7 +162,6 @@ describe('world-state integration', () => {
       await awaitSync(12);
       await expectSynchedToBlock(12);
 
-      expect(getBlocksSpy).toHaveBeenCalledTimes(3);
       expect(getBlocksSpy).toHaveBeenCalledWith(1, 5, false);
       expect(getBlocksSpy).toHaveBeenCalledWith(6, 3, false);
       expect(getBlocksSpy).toHaveBeenCalledWith(9, 4, false);

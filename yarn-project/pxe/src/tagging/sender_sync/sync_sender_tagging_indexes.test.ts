@@ -1,3 +1,4 @@
+import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -83,8 +84,20 @@ describe('syncSenderTaggingIndexes', () => {
 
       // Mock getL2Tips to return a finalized block number >= the tx block number
       aztecNode.getL2Tips.mockResolvedValue({
-        blocks: { finalized: { number: finalizedBlockNumberStep1 } },
-      } as any);
+        proposed: { number: BlockNumber(finalizedBlockNumberStep1), hash: '' },
+        checkpointed: {
+          block: { number: BlockNumber(finalizedBlockNumberStep1), hash: '' },
+          checkpoint: { number: CheckpointNumber(0), hash: '' },
+        },
+        proven: {
+          block: { number: BlockNumber(finalizedBlockNumberStep1), hash: '' },
+          checkpoint: { number: CheckpointNumber(0), hash: '' },
+        },
+        finalized: {
+          block: { number: BlockNumber(finalizedBlockNumberStep1), hash: '' },
+          checkpoint: { number: CheckpointNumber(0), hash: '' },
+        },
+      });
 
       await syncSenderTaggingIndexes(secret, contractAddress, aztecNode, taggingDataProvider);
 
@@ -112,8 +125,20 @@ describe('syncSenderTaggingIndexes', () => {
       } as any);
 
       aztecNode.getL2Tips.mockResolvedValue({
-        blocks: { finalized: { number: finalizedBlockNumberStep1 } },
-      } as any);
+        proposed: { number: BlockNumber(finalizedBlockNumberStep1), hash: '' },
+        checkpointed: {
+          block: { number: BlockNumber(finalizedBlockNumberStep1), hash: '' },
+          checkpoint: { number: CheckpointNumber(0), hash: '' },
+        },
+        proven: {
+          block: { number: BlockNumber(finalizedBlockNumberStep1), hash: '' },
+          checkpoint: { number: CheckpointNumber(0), hash: '' },
+        },
+        finalized: {
+          block: { number: BlockNumber(finalizedBlockNumberStep1), hash: '' },
+          checkpoint: { number: CheckpointNumber(0), hash: '' },
+        },
+      });
 
       await syncSenderTaggingIndexes(secret, contractAddress, aztecNode, taggingDataProvider);
 
@@ -181,8 +206,20 @@ describe('syncSenderTaggingIndexes', () => {
 
       // Mock getL2Tips with the new finalized block number
       aztecNode.getL2Tips.mockResolvedValue({
-        blocks: { finalized: { number: newFinalizedBlockNumber } },
-      } as any);
+        proposed: { number: BlockNumber(newFinalizedBlockNumber), hash: '' },
+        checkpointed: {
+          block: { number: BlockNumber(newFinalizedBlockNumber), hash: '' },
+          checkpoint: { number: CheckpointNumber(0), hash: '' },
+        },
+        proven: {
+          block: { number: BlockNumber(newFinalizedBlockNumber), hash: '' },
+          checkpoint: { number: CheckpointNumber(0), hash: '' },
+        },
+        finalized: {
+          block: { number: BlockNumber(newFinalizedBlockNumber), hash: '' },
+          checkpoint: { number: CheckpointNumber(0), hash: '' },
+        },
+      });
 
       await syncSenderTaggingIndexes(secret, contractAddress, aztecNode, taggingDataProvider);
 
@@ -234,8 +271,20 @@ describe('syncSenderTaggingIndexes', () => {
     });
 
     aztecNode.getL2Tips.mockResolvedValue({
-      blocks: { finalized: { number: finalizedBlockNumber } },
-    } as any);
+      proposed: { number: BlockNumber(finalizedBlockNumber), hash: '' },
+      checkpointed: {
+        block: { number: BlockNumber(finalizedBlockNumber), hash: '' },
+        checkpoint: { number: CheckpointNumber(0), hash: '' },
+      },
+      proven: {
+        block: { number: BlockNumber(finalizedBlockNumber), hash: '' },
+        checkpoint: { number: CheckpointNumber(0), hash: '' },
+      },
+      finalized: {
+        block: { number: BlockNumber(finalizedBlockNumber), hash: '' },
+        checkpoint: { number: CheckpointNumber(0), hash: '' },
+      },
+    });
 
     // Sync tagged logs
     await syncSenderTaggingIndexes(secret, contractAddress, aztecNode, taggingDataProvider);

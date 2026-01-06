@@ -1689,7 +1689,10 @@ describe('Archiver', () => {
       await archiver.addBlock(block3);
 
       const blocks = await archiver.getL2BlocksNew(BlockNumber(1), 3);
-      expect(blocks).toEqual([block1, block2, block3]);
+      expect(blocks.length).toEqual(3);
+      expect(await blocks[0].hash()).toEqual(await block1.hash());
+      expect(await blocks[1].hash()).toEqual(await block2.hash());
+      expect(await blocks[2].hash()).toEqual(await block3.hash());
     });
 
     it('retrieves blocks with limit in getL2BlocksNew', async () => {
@@ -1704,7 +1707,9 @@ describe('Archiver', () => {
 
       // Request only 2 blocks starting from block 1
       const blocks = await archiver.getL2BlocksNew(BlockNumber(1), 2);
-      expect(blocks).toEqual([block1, block2]);
+      expect(blocks.length).toEqual(2);
+      expect(await blocks[0].hash()).toEqual(await block1.hash());
+      expect(await blocks[1].hash()).toEqual(await block2.hash());
     });
 
     it('retrieves blocks starting from middle with getL2BlocksNew', async () => {
@@ -1719,7 +1724,9 @@ describe('Archiver', () => {
 
       // Start from block 2
       const blocks = await archiver.getL2BlocksNew(BlockNumber(2), 2);
-      expect(blocks).toEqual([block2, block3]);
+      expect(blocks.length).toEqual(2);
+      expect(await blocks[0].hash()).toEqual(await block2.hash());
+      expect(await blocks[1].hash()).toEqual(await block3.hash());
     });
 
     it('returns empty array when requesting blocks beyond available range', async () => {
@@ -1743,7 +1750,9 @@ describe('Archiver', () => {
 
       // Request 10 blocks but only 2 are available
       const blocks = await archiver.getL2BlocksNew(BlockNumber(1), 10);
-      expect(blocks).toEqual([block1, block2]);
+      expect(blocks.length).toEqual(2);
+      expect(await blocks[0].hash()).toEqual(await block1.hash());
+      expect(await blocks[1].hash()).toEqual(await block2.hash());
     });
 
     it('blocks added via addBlock become checkpointed when checkpoint syncs from L1', async () => {

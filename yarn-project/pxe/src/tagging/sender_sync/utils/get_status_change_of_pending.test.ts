@@ -1,4 +1,4 @@
-import { BlockNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import { TxHash, TxStatus } from '@aztec/stdlib/tx';
 
@@ -56,8 +56,20 @@ describe('getStatusChangeOfPending', () => {
     });
 
     aztecNode.getL2Tips.mockResolvedValue({
-      blocks: { finalized: { number: BlockNumber(finalizedBlockNumber) } },
-    } as any);
+      proposed: { number: BlockNumber(finalizedBlockNumber), hash: '' },
+      checkpointed: {
+        block: { number: BlockNumber(finalizedBlockNumber), hash: '' },
+        checkpoint: { number: CheckpointNumber(0), hash: '' },
+      },
+      proven: {
+        block: { number: BlockNumber(finalizedBlockNumber), hash: '' },
+        checkpoint: { number: CheckpointNumber(0), hash: '' },
+      },
+      finalized: {
+        block: { number: BlockNumber(finalizedBlockNumber), hash: '' },
+        checkpoint: { number: CheckpointNumber(0), hash: '' },
+      },
+    });
 
     const result = await getStatusChangeOfPending(
       [
@@ -90,8 +102,20 @@ describe('getStatusChangeOfPending', () => {
     } as any);
 
     aztecNode.getL2Tips.mockResolvedValue({
-      blocks: { finalized: { number: BlockNumber(finalizedBlockNumber) } },
-    } as any);
+      proposed: { number: BlockNumber(finalizedBlockNumber), hash: '' },
+      checkpointed: {
+        block: { number: BlockNumber(finalizedBlockNumber), hash: '' },
+        checkpoint: { number: CheckpointNumber(0), hash: '' },
+      },
+      proven: {
+        block: { number: BlockNumber(finalizedBlockNumber), hash: '' },
+        checkpoint: { number: CheckpointNumber(0), hash: '' },
+      },
+      finalized: {
+        block: { number: BlockNumber(finalizedBlockNumber), hash: '' },
+        checkpoint: { number: CheckpointNumber(0), hash: '' },
+      },
+    });
 
     const result = await getStatusChangeOfPending([txHash], aztecNode);
 

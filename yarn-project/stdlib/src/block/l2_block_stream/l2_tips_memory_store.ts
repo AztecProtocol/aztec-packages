@@ -80,19 +80,18 @@ export class L2TipsMemoryStore implements L2BlockStreamEventHandler, L2BlockStre
         this.l2TipsStore.set('proposed', blocks.at(-1)!.number);
         break;
       }
-      case 'chain-checkpointed':
-        const blocks = event.checkpoint.checkpoint.blocks;
+      case 'chain-checkpointed': {
+        const lastBlock = event.checkpoint.checkpoint.blocks.at(-1)!;
         const blockId: L2BlockId = {
-          number: blocks.at(-1)!.number,
-          hash: await this.computeBlockHash(blocks.at(-1)!),
+          number: lastBlock.number,
+          hash: await this.computeBlockHash(lastBlock),
         };
         this.saveTag('checkpointed', blockId);
-        for (let i = 0; i < blocks.length; i++) {
-          const block = blocks[i];
-          this.l2BlocktoCheckpointStore.set(block.number, event.checkpoint.checkpoint.number);
-        }
+        // Only store the mapping for the last block since tips only point to checkpoint boundaries
+        this.l2BlocktoCheckpointStore.set(lastBlock.number, event.checkpoint.checkpoint.number);
         this.checkpointStore.set(event.checkpoint.checkpoint.number, event.checkpoint);
         break;
+      }
       case 'chain-pruned': {
         this.saveTag('proposed', event.block);
         const currentCheckpointed = this.l2TipsStore.get('checkpointed') ?? 0;
