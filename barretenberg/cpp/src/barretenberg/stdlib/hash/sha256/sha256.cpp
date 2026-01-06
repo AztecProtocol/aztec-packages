@@ -126,7 +126,7 @@ std::array<field_t<Builder>, 64> SHA256<Builder>::extend_witness(const std::arra
             w_right.sparse_limbs[3] * right_multipliers[3],
         };
 
-        // Compute σ₀(w[i-15]) = (x >>> 7) ⊕ (x >>> 18) ⊕ (x >> 3) in sparse form.
+        // Compute σ₀(w[i-15]) in sparse form where σ₀(x) = (x >>> 7) ⊕ (x >>> 18) ⊕ (x >> 3).
         // Each sparse digit holds the sum of contributions from the three rotation/shift operations (digit value in
         // {0,1,2,3}). The fr(4) scaling positions σ₀'s contribution in the upper 2 bits of each 4-bit digit slot: when
         // combined with σ₁ (unscaled, in lower 2 bits), each digit becomes 4*σ₀_digit + σ₁_digit ∈ [0,15].
@@ -346,14 +346,15 @@ field_t<Builder> SHA256<Builder>::add_normalize(const field_t<Builder>& a, const
     field_pt result = a.add_two(b, overflow * field_pt(ctx, -fr(1ULL << 32ULL)));
     // AUDITTODO: The 3-bit constraint is necessary. Analysis of call sites:
     //
-    // Compression loop (lines ~428, 432):
-    //   temp1 = ch + h.normal + w[i] + K[i]  (4 values, max ~4*2^32)
-    //   add_normalize(d.normal, temp1): max sum = 2^32 + 4*2^32 = 5*2^32, overflow <= 4
-    //   add_normalize(temp1, maj): max sum = 4*2^32 + 2^32 = 5*2^32, overflow <= 4
-    //   => Requires 3 bits (to represent overflow values 0-4)
+    // Compression loop (lines ~439-450):
+    //   ch, maj outputs: max = 2(2^32-1) each (lookup output digits are 0-2, see sha256.hpp:79)
+    //   temp1 = ch + h.normal + (w[i] + K[i])  (max = 2(2^32-1) + (2^32-1) + 2(2^32-1) = 5(2^32-1))
+    //   add_normalize(d.normal, temp1): max sum = (2^32-1) + 5(2^32-1) = 6(2^32-1), overflow <= 5
+    //   add_normalize(temp1, maj): max sum = 5(2^32-1) + 2(2^32-1) = 7(2^32-1), overflow <= 6
+    //   => Requires 3 bits (to represent overflow values 0-7)
     //
-    // Final output (lines ~439-446):
-    //   add_normalize(X.normal, h_init[i]): both 32-bit, max sum = 2*2^32, overflow <= 1
+    // Final output (lines ~456-463):
+    //   add_normalize(X.normal, h_init[i]): both 32-bit, max sum = 2(2^32-1), overflow <= 1
     //   => Could use 1 bit, but we use 3 for uniformity
     //
     // The 3-bit constraint is correct and necessary for the compression loop.
