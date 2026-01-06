@@ -628,7 +628,7 @@ void Chonk::debug_incoming_circuit(ClientCircuit& circuit,
     // Compare precomputed VK with the one generated during accumulation
     auto vk = std::make_shared<MegaVerificationKey>(prover_instance->get_precomputed());
     info("Does the precomputed vk match with the one generated during accumulation? ",
-         vk->compare(*precomputed_vk) ? "true" : "false");
+         vk->compare(*precomputed_vk, MegaFlavor::CommitmentLabels().get_precomputed()) ? "true" : "false");
 
     info("======= END OF DEBUGGING INFO FOR INCOMING CIRCUIT =======");
 }
