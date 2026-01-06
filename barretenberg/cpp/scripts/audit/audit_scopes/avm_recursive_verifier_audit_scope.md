@@ -13,9 +13,14 @@ Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg`
 4. `vm2/constraining/recursion/recursive_flavor_settings.hpp`
 5. `vm2/constraining/recursion/goblin_avm_recursive_verifier.hpp`
 
+### Flavor Definitions
+6. `flavor/mega_avm_flavor.hpp`
+7. `flavor/mega_avm_recursive_flavor.hpp`
+
 ### ACIR Integration
-6. `vm2/dsl/avm2_recursion_constraint.hpp`
-7. `vm2/dsl/avm2_recursion_constraint.cpp`
+8. `vm2/dsl/avm2_recursion_constraint.hpp`
+9. `vm2/dsl/avm2_recursion_constraint.cpp`
+10. `dsl/acir_format/avm2_recursion_constraint.hpp`
 
 ## Summary of Module
 
