@@ -204,24 +204,36 @@ export function trackSpan<T extends Traceable, F extends (...args: any[]) => any
       // "active" means the span will be alive for the duration of the function execution
       // and if any other spans are started during the execution of originalMethod, they will be children of this span
       // behind the scenes this uses AsyncLocalStorage https://nodejs.org/dist/latest-v22.x/docs/api/async_context.html
-      return this.tracer.startActiveSpan(name, async (span: Span) => {
-        span.setAttributes(currentAttrs ?? {});
+      return this.tracer.startActiveSpan(
+        name,
+        {
+          attributes: currentAttrs,
+        },
+        async (span: Span) => {
+          try {
+            const res = await originalMethod.call(this, ...args);
+            const extraAttrs = extraAttributes?.call(this, res);
+            span.setAttributes(extraAttrs ?? {});
+            span.setStatus({
+              code: SpanStatusCode.OK,
+            });
+            return res;
+          } catch (err) {
+            span.setStatus({
+              code: SpanStatusCode.ERROR,
+              message: String(err),
+            });
 
-        try {
-          const res = await originalMethod.call(this, ...args);
-          const extraAttrs = extraAttributes?.call(this, res);
-          span.setAttributes(extraAttrs ?? {});
-          return res;
-        } catch (err) {
-          span.setStatus({
-            code: SpanStatusCode.ERROR,
-            message: String(err),
-          });
-          throw err;
-        } finally {
-          span.end();
-        }
-      });
+            if (typeof err === 'string' || (err && err instanceof Error)) {
+              span.recordException(err);
+            }
+
+            throw err;
+          } finally {
+            span.end();
+          }
+        },
+      );
     } as F;
   };
 }
