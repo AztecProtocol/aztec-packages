@@ -96,41 +96,6 @@ export class MockCache {
 }
 ```
 
-## Avoiding Type Casts
-
-### Never Use `as any`
-
-Type casts like `as any` hide type errors and make tests brittle. They indicate either:
-
-1. The test data doesn't match the expected type (fix the test data)
-2. The types are wrong (fix the types)
-3. The test is accessing internals incorrectly (use proper test patterns)
-
-```typescript
-// ❌ Bad: Hiding type mismatches
-const result = someFn() as any;
-mockFn.mockReturnValue({ partial: "data" } as any);
-
-// ✅ Good: Proper typing
-const result: ExpectedType = someFn();
-mockFn.mockReturnValue(createValidMockData());
-```
-
-### Minimize Type Assertions
-
-If you must use type assertions, prefer the most specific type possible:
-
-```typescript
-// ❌ Bad
-const config = {} as any;
-
-// ⚠️ Acceptable when truly needed
-const config = { knownField: "value" } as Partial<Config>;
-
-// ✅ Best: Use factory functions
-const config = createTestConfig({ knownField: "value" });
-```
-
 ## Exposing Internals for Testing
 
 ### Use a Derived Test Class
