@@ -13,8 +13,8 @@ import type { L2BlockStreamEvent, L2BlockStreamEventHandler, L2BlockStreamLocalD
 export class L2TipsMemoryStore implements L2BlockStreamEventHandler, L2BlockStreamLocalDataProvider {
   protected readonly l2TipsStore: Map<L2BlockTag, BlockNumber> = new Map();
   protected readonly l2BlockHashesStore: Map<number, string> = new Map();
-  protected readonly l2BlocktoCheckpointStore: Map<BlockNumber, CheckpointNumber> = new Map();
-  protected readonly checkpointStore: Map<CheckpointNumber, PublishedCheckpoint> = new Map();
+  protected readonly l2BlocktoCheckpointStore: Map<number, CheckpointNumber> = new Map();
+  protected readonly checkpointStore: Map<number, PublishedCheckpoint> = new Map();
 
   public getL2BlockHash(number: number): Promise<string | undefined> {
     return Promise.resolve(this.l2BlockHashesStore.get(number));
@@ -59,7 +59,8 @@ export class L2TipsMemoryStore implements L2BlockStreamEventHandler, L2BlockStre
     }
     const checkpointNumber = this.l2BlocktoCheckpointStore.get(blockNumber);
     if (checkpointNumber === undefined) {
-      throw new Error(`Checkpoint number not found for block number ${blockNumber}`);
+      // No checkpoint associated with this block yet
+      return { number: CheckpointNumber.ZERO, hash: '' };
     }
     const checkpoint = this.checkpointStore.get(checkpointNumber);
     if (!checkpoint) {
@@ -92,20 +93,43 @@ export class L2TipsMemoryStore implements L2BlockStreamEventHandler, L2BlockStre
         }
         this.checkpointStore.set(event.checkpoint.checkpoint.number, event.checkpoint);
         break;
-      case 'chain-pruned':
+      case 'chain-pruned': {
         this.saveTag('proposed', event.block);
+        const currentCheckpointed = this.l2TipsStore.get('checkpointed') ?? 0;
+        if (event.block.number < currentCheckpointed) {
+          this.saveTag('checkpointed', event.block);
+        }
         break;
+      }
       case 'chain-proven':
         this.saveTag('proven', event.block);
         break;
-      case 'chain-finalized':
+      case 'chain-finalized': {
         this.saveTag('finalized', event.block);
+        // Get the checkpoint number for the finalized block before cleanup
+        const finalizedCheckpointNumber = this.l2BlocktoCheckpointStore.get(event.block.number);
+        // Clean up block hashes for blocks before finalized
         for (const key of this.l2BlockHashesStore.keys()) {
           if (key < event.block.number) {
             this.l2BlockHashesStore.delete(key);
           }
         }
+        // Clean up block-to-checkpoint mappings for blocks before finalized
+        for (const key of this.l2BlocktoCheckpointStore.keys()) {
+          if (key < event.block.number) {
+            this.l2BlocktoCheckpointStore.delete(key);
+          }
+        }
+        // Clean up checkpoints older than the finalized checkpoint
+        if (finalizedCheckpointNumber !== undefined) {
+          for (const key of this.checkpointStore.keys()) {
+            if (key < finalizedCheckpointNumber) {
+              this.checkpointStore.delete(key);
+            }
+          }
+        }
         break;
+      }
     }
   }
 
