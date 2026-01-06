@@ -77,7 +77,7 @@ export class PrivateEventStore implements StagedStore {
   }
 
   /** Checks if an event entry matches the filter criteria */
-  #entryMatchesFilter(entry: PrivateEventEntry, filter: PrivateEventDataProviderFilter): boolean {
+  #entryMatchesFilter(entry: PrivateEventEntry, filter: PrivateEventStoreFilter): boolean {
     return (
       entry.l2BlockNumber >= filter.fromBlock &&
       entry.l2BlockNumber < filter.toBlock &&

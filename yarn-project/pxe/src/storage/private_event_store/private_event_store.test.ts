@@ -242,7 +242,7 @@ describe('PrivateEventStore', () => {
       const context = new JobContext('test123', 'test');
 
       // Store committed event
-      await privateEventDataProvider.storePrivateEventLog(eventSelector, msgContent, eventCommitmentIndex, {
+      await privateEventStore.storePrivateEventLog(eventSelector, msgContent, eventCommitmentIndex, {
         contractAddress,
         scope,
         txHash,
@@ -252,7 +252,7 @@ describe('PrivateEventStore', () => {
 
       // Store staged event
       const stagedMsgContent = getRandomMsgContent();
-      await privateEventDataProvider.storePrivateEventLog(
+      await privateEventStore.storePrivateEventLog(
         eventSelector,
         stagedMsgContent,
         eventCommitmentIndex + 1,
@@ -267,7 +267,7 @@ describe('PrivateEventStore', () => {
       );
 
       // Without context, should only see committed event
-      const events = await privateEventDataProvider.getPrivateEvents(eventSelector, {
+      const events = await privateEventStore.getPrivateEvents(eventSelector, {
         contractAddress,
         fromBlock: l2BlockNumber,
         toBlock: l2BlockNumber + 1,
@@ -281,7 +281,7 @@ describe('PrivateEventStore', () => {
       const context = new JobContext('test123', 'test');
 
       const stagedMsgContent = getRandomMsgContent();
-      await privateEventDataProvider.storePrivateEventLog(
+      await privateEventStore.storePrivateEventLog(
         eventSelector,
         stagedMsgContent,
         eventCommitmentIndex,
@@ -296,7 +296,7 @@ describe('PrivateEventStore', () => {
       );
 
       // Without context, should not see the staged event
-      const eventsWithoutContext = await privateEventDataProvider.getPrivateEvents(eventSelector, {
+      const eventsWithoutContext = await privateEventStore.getPrivateEvents(eventSelector, {
         contractAddress,
         fromBlock: l2BlockNumber,
         toBlock: l2BlockNumber + 1,
@@ -305,7 +305,7 @@ describe('PrivateEventStore', () => {
       expect(eventsWithoutContext).toHaveLength(0);
 
       // With context, should see the staged event
-      const eventsWithContext = await privateEventDataProvider.getPrivateEvents(
+      const eventsWithContext = await privateEventStore.getPrivateEvents(
         eventSelector,
         {
           contractAddress,
@@ -323,7 +323,7 @@ describe('PrivateEventStore', () => {
       const context = new JobContext('test123', 'test');
 
       const stagedMsgContent = getRandomMsgContent();
-      await privateEventDataProvider.storePrivateEventLog(
+      await privateEventStore.storePrivateEventLog(
         eventSelector,
         stagedMsgContent,
         eventCommitmentIndex,
@@ -338,10 +338,10 @@ describe('PrivateEventStore', () => {
       );
 
       // Commit staging
-      await privateEventDataProvider.commitStaged(context);
+      await privateEventStore.commitStaged(context);
 
       // Now should see the event without context
-      const events = await privateEventDataProvider.getPrivateEvents(eventSelector, {
+      const events = await privateEventStore.getPrivateEvents(eventSelector, {
         contractAddress,
         fromBlock: l2BlockNumber,
         toBlock: l2BlockNumber + 1,
@@ -355,7 +355,7 @@ describe('PrivateEventStore', () => {
       const context = new JobContext('test123', 'test');
 
       // Store committed event
-      await privateEventDataProvider.storePrivateEventLog(eventSelector, msgContent, eventCommitmentIndex, {
+      await privateEventStore.storePrivateEventLog(eventSelector, msgContent, eventCommitmentIndex, {
         contractAddress,
         scope,
         txHash,
@@ -365,7 +365,7 @@ describe('PrivateEventStore', () => {
 
       // Store staged event
       const stagedMsgContent = getRandomMsgContent();
-      await privateEventDataProvider.storePrivateEventLog(
+      await privateEventStore.storePrivateEventLog(
         eventSelector,
         stagedMsgContent,
         eventCommitmentIndex + 1,
@@ -380,10 +380,10 @@ describe('PrivateEventStore', () => {
       );
 
       // Discard staging
-      await privateEventDataProvider.discardStaged(context.stagingPrefix);
+      await privateEventStore.discardStaged(context.stagingPrefix);
 
       // Should only see committed event
-      const events = await privateEventDataProvider.getPrivateEvents(eventSelector, {
+      const events = await privateEventStore.getPrivateEvents(eventSelector, {
         contractAddress,
         fromBlock: l2BlockNumber,
         toBlock: l2BlockNumber + 1,
