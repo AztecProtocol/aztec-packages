@@ -41,8 +41,6 @@ impl<let NumPreviousRollups: u32, let NumVkIndices: u32> CheckpointRootInputsVal
         }
 
         self.validate_start_states();
-
-        self.validate_end_states();
     }
 
     fn validate_previous_rollup_proofs_and_vks(self) {
@@ -78,6 +76,9 @@ impl<let NumPreviousRollups: u32, let NumVkIndices: u32> CheckpointRootInputsVal
             "The start state of the checkpoint does not match the state in the previous block header",
         );
 
+        // Notice: unlike blocks within the same checkpoint (which can share the same timestamp),
+        // the blocks of _different_ checkpoints must have strictly increasing timestamps.
+        // I.e. the `>` here is _intentional_.
         assert(
             first_rollup.start_timestamp > self.previous_block_header.global_variables.timestamp,
             "The start timestamp must be after the previous block's timestamp",
@@ -87,6 +88,8 @@ impl<let NumPreviousRollups: u32, let NumVkIndices: u32> CheckpointRootInputsVal
         // In `validate_consecutive_block_rollups`, it ensures that the hash only propagates through all merge steps
         // exclusively via the left rollup. The value in the left rollup must not be 0 when it reaches the checkpoint
         // root (this point).
+        // Note: If the L1 subtree being copied to L2 is empty, then the in_hash will be the root of a tree whose
+        // leaves are empty (0) messages.
         assert(
             first_rollup.in_hash != 0,
             "in_hash must be set via the first block root in the checkpoint",
@@ -115,21 +118,5 @@ impl<let NumPreviousRollups: u32, let NumVkIndices: u32> CheckpointRootInputsVal
             ),
             "Hash of the previous block header is not the last leaf in the archive tree",
         );
-    }
-
-    fn validate_end_states(self) {
-        let end_sponge_blob =
-            self.previous_rollups[NumPreviousRollups - 1].public_inputs.end_sponge_blob;
-
-        // Check that the number of absorbed blob fields is not larger than the maximum number of fields allowed.
-        // Note: It must not equal the max allowed number because an additional checkpoint end marker will be absorbed
-        // in `checkpoint_rollup_public_inputs_composer`.
-        assert(
-            end_sponge_blob.num_absorbed_fields < FIELDS_PER_BLOB * BLOBS_PER_CHECKPOINT,
-            "Attempted to overfill blobs",
-        );
-
-        // The `end_sponge_blob` is validated against the injected blob fields in
-        // `checkpoint_rollup_public_inputs_composer.nr`, after the checkpoint end marker is absorbed.
     }
 }

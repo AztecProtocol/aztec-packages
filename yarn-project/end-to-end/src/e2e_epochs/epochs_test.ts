@@ -305,7 +305,7 @@ export class EpochsTestContext {
   }
 
   /** Waits until the given checkpoint number is mined. */
-  public async waitUntilCheckpointNumber(target: CheckpointNumber, timeout = 60) {
+  public async waitUntilCheckpointNumber(target: CheckpointNumber, timeout = 120) {
     await retryUntil(
       () => Promise.resolve(target <= this.monitor.checkpointNumber),
       `Wait until checkpoint ${target}`,
@@ -315,7 +315,7 @@ export class EpochsTestContext {
   }
 
   /** Waits until the given checkpoint number is marked as proven. */
-  public async waitUntilProvenCheckpointNumber(target: CheckpointNumber, timeout = 60) {
+  public async waitUntilProvenCheckpointNumber(target: CheckpointNumber, timeout = 120) {
     await retryUntil(
       () => Promise.resolve(target <= this.monitor.provenCheckpointNumber),
       `Wait proven checkpoint ${target}`,

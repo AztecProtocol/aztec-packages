@@ -21,7 +21,7 @@ import type { BlockAttestation, BlockProposal, BlockProposalOptions } from '@azt
 import type { CheckpointHeader } from '@aztec/stdlib/rollup';
 import type { Tx } from '@aztec/stdlib/tx';
 import { AttestationTimeoutError } from '@aztec/stdlib/validators';
-import { type TelemetryClient, type Tracer, getTelemetryClient } from '@aztec/telemetry-client';
+import { Attributes, type TelemetryClient, type Tracer, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
 
 import { EventEmitter } from 'events';
 import type { TypedDataDefinition } from 'viem';
@@ -264,6 +264,10 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     }
   }
 
+  @trackSpan('validator.attestToProposal', (proposal, proposalSender) => ({
+    [Attributes.BLOCK_HASH]: proposal.payload.header.hash.toString(),
+    [Attributes.PEER_ID]: proposalSender.toString(),
+  }))
   async attestToProposal(proposal: BlockProposal, proposalSender: PeerId): Promise<BlockAttestation[] | undefined> {
     const slotNumber = proposal.slotNumber;
     const proposer = proposal.getSender();

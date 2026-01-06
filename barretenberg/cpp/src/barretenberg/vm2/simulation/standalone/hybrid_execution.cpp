@@ -26,6 +26,11 @@ EnqueuedCallResult HybridExecution::execute(std::unique_ptr<ContextInterface> en
     external_call_stack.push(std::move(enqueued_call_context));
 
     while (!external_call_stack.empty()) {
+        // Throws CancelledException if cancelled. No-op when cancellation_token_ is nullptr (non-NAPI paths).
+        if (cancellation_token_) {
+            cancellation_token_->check_and_throw();
+        }
+
         // We fix the context at this point. Even if the opcode changes the stack
         // we'll always use this in the loop.
         auto& context = *external_call_stack.top();

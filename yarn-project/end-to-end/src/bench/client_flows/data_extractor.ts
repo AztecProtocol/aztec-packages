@@ -22,7 +22,7 @@ async function main() {
   logger.info(`Flows in ${ivcFolder}: \n${flows.map(flowName => `\t- ${flowName}`).join('\n')}`);
   const simulator = new WASMSimulator();
   const log = proxyLogger.createLogger('bb:prover');
-  const prover = new BBBundlePrivateKernelProver(simulator, log);
+  const prover = new BBBundlePrivateKernelProver(simulator, { logger: log });
 
   const userLog = createLogger('chonk_flows:data_processor');
 

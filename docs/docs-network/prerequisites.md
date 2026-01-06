@@ -63,7 +63,7 @@ bash -i <(curl -s https://install.aztec.network)
 Install the correct version for the current network:
 
 ```bash
-aztec-up #include_testnet_version
+aztec-up #release_version
 ```
 
 ### L1 Ethereum Node Access

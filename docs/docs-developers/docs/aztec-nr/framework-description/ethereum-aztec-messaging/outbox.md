@@ -4,27 +4,25 @@ description: Learn about the outbox mechanism in Aztec portals for sending messa
 tags: [portals, contracts]
 ---
 
-The `Outbox` is a contract deployed on L1 that handles message passing from the rollup and to L1.
+The `Outbox` is a contract deployed on L1 that handles message passing from L2 to L1. Portal contracts call `consume()` to receive and process messages that were sent from L2 contracts. The Rollup contract inserts message roots via `insert()` when checkpoints are proven.
 
-**Links**: [Interface (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/master/l1-contracts/src/core/interfaces/messagebridge/IOutbox.sol), [Implementation (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/master/l1-contracts/src/core/messagebridge/Outbox.sol).
+**Links**: [Interface](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/l1-contracts/src/core/interfaces/messagebridge/IOutbox.sol), [Implementation](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/l1-contracts/src/core/messagebridge/Outbox.sol).
 
 ## `insert()`
 
-Inserts the root of a merkle tree containing all of the L2 to L1 messages in a checkpoint specified by checkpointNumber.
+Inserts the root of a merkle tree containing all of the L2 to L1 messages in a checkpoint. This function is only callable by the Rollup contract.
 
 #include_code outbox_insert l1-contracts/src/core/interfaces/messagebridge/IOutbox.sol solidity
 
 | Name                | Type      | Description                                                            |
 | ------------------- | --------- | ---------------------------------------------------------------------- |
-| `_checkpointNumber` | `uint256` | The checkpoint Number in which the L2 to L1 messages reside            |
+| `_checkpointNumber` | `uint256` | The checkpoint number in which the L2 to L1 messages reside            |
 | `_root`             | `bytes32` | The merkle root of the tree where all the L2 to L1 messages are leaves |
-| `_minHeight`        | `uint256` | The minimum height of the merkle tree that the root corresponds to     |
 
-#### Edge cases
+### Edge cases
 
 - Will revert with `Outbox__Unauthorized()` if `msg.sender != ROLLUP_CONTRACT`.
-- Will revert with `Errors.Outbox__RootAlreadySetAtCheckpoint(uint256 checkpointNumber)` if the root for the specific checkpoint has already been set.
-- Will revert with `Errors.Outbox__InsertingInvalidRoot()` if the rollup is trying to insert bytes32(0) as the root.
+- Will revert with `Outbox__CheckpointAlreadyProven(uint256 checkpointNumber)` if the checkpoint has already been proven.
 
 ## `consume()`
 
@@ -34,31 +32,55 @@ Allows a recipient to consume a message from the `Outbox`.
 
 | Name                | Type        | Description                                                                                  |
 | ------------------- | ----------- | -------------------------------------------------------------------------------------------- |
-| `_message`          | `L2ToL1Msg` | The L2 to L1 message we want to consume                                                      |
-| `_checkpointNumber` | `uint256`   | The checkpoint number specifying the checkpoint that contains the message we want to consume |
+| `_message`          | `L2ToL1Msg` | The L2 to L1 message to consume                                                              |
+| `_checkpointNumber` | `uint256`   | The checkpoint number specifying the checkpoint that contains the message to consume         |
 | `_leafIndex`        | `uint256`   | The index inside the merkle tree where the message is located                                |
-| `_path`             | `bytes32[]` | The sibling path used to prove inclusion of the message, the \_path length directly depends  |
+| `_path`             | `bytes32[]` | The sibling path used to prove inclusion of the message                                      |
 
-#### Edge cases
+### Edge cases
 
-- Will revert with `Outbox__InvalidRecipient(address expected, address actual);` if `msg.sender != _message.recipient.actor`.
+- Will revert with `Outbox__PathTooLong()` if the path length is >= 256.
+- Will revert with `Outbox__LeafIndexOutOfBounds(uint256 leafIndex, uint256 pathLength)` if the leaf index exceeds the tree capacity for the given path length.
+- Will revert with `Outbox__CheckpointNotProven(uint256 checkpointNumber)` if the checkpoint has not been proven yet.
+- Will revert with `Outbox__VersionMismatch(uint256 expected, uint256 actual)` if the message version does not match the Outbox version.
+- Will revert with `Outbox__InvalidRecipient(address expected, address actual)` if `msg.sender != _message.recipient.actor`.
 - Will revert with `Outbox__InvalidChainId()` if `block.chainid != _message.recipient.chainId`.
-- Will revert with `Outbox__NothingToConsumeAtCheckpoint(uint256 checkpointNumber)` if the root for the checkpoint has not been set yet.
-- Will revert with `Outbox__AlreadyNullified(uint256 checkpointNumber, uint256 leafIndex)` if the message at leafIndex for the checkpoint has already been consumed.
-- Will revert with `Outbox__InvalidPathLength(uint256 expected, uint256 actual)` if the supplied height is less than the existing minimum height of the L2 to L1 message tree, or the supplied height is greater than the maximum (minimum height + log2(maximum messages)).
-- Will revert with `MerkleLib__InvalidRoot(bytes32 expected, bytes32 actual, bytes32 leaf, uint256 leafIndex)` if unable to verify the message existence in the tree. It returns the message as a leaf, as well as the index of the leaf to expose more info about the error.
+- Will revert with `Outbox__NothingToConsumeAtCheckpoint(uint256 checkpointNumber)` if the root for the checkpoint has not been set.
+- Will revert with `Outbox__AlreadyNullified(uint256 checkpointNumber, uint256 leafIndex)` if the message has already been consumed.
+- Will revert with `MerkleLib__InvalidIndexForPathLength()` if the leaf index has bits set beyond the tree height.
+- Will revert with `MerkleLib__InvalidRoot(bytes32 expected, bytes32 actual, bytes32 leaf, uint256 leafIndex)` if the merkle proof verification fails.
 
-## `hasMessageBeenConsumedAtCheckpointAndIndex()`
+## `hasMessageBeenConsumedAtCheckpoint()`
 
-Checks to see if an index of the L2 to L1 message tree for a specific checkpoint has been consumed.
+Checks if an L2 to L1 message in a specific checkpoint has been consumed.
 
 #include_code outbox_has_message_been_consumed_at_checkpoint_and_index l1-contracts/src/core/interfaces/messagebridge/IOutbox.sol solidity
 
 | Name                | Type      | Description                                                                                             |
 | ------------------- | --------- | ------------------------------------------------------------------------------------------------------- |
-| `_checkpointNumber` | `uint256` | The checkpoint number specifying the checkpoint that contains the index of the message we want to check |
-| `_leafIndex`        | `uint256` | The index of the message inside the merkle tree                                                         |
+| `_checkpointNumber` | `uint256` | The checkpoint number specifying the checkpoint that contains the message to check                      |
+| `_leafId`           | `uint256` | The unique id of the message leaf                                                                       |
 
-#### Edge cases
+### Edge cases
 
 - This function does not throw. Out-of-bounds access is considered valid, but will always return false.
+
+## `getRootData()`
+
+Returns the merkle root for a given checkpoint number. Returns `bytes32(0)` if the checkpoint has not been proven.
+
+```solidity
+function getRootData(uint256 _checkpointNumber) external view returns (bytes32);
+```
+
+| Name                | Type      | Description                                      |
+| ------------------- | --------- | ------------------------------------------------ |
+| `_checkpointNumber` | `uint256` | The checkpoint number to fetch the root data for |
+
+**Returns**: The merkle root of the L2 to L1 message tree for the checkpoint, or `bytes32(0)` if not proven.
+
+## Related pages
+
+- [Inbox](./inbox.md) - L1 to L2 message passing
+- [Data Structures](./data_structures.md) - Message struct definitions
+- [L1-L2 Communication (Portals)](./index.md) - Overview of cross-chain messaging

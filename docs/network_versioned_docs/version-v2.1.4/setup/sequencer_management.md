@@ -127,6 +127,7 @@ aztec validator-keys new \
   - Example: `--count 5` generates 5 validator identities with sequential addresses
   - All identities are derived from the same mnemonic using different derivation paths
   - Useful for operators running multiple sequencer identities or delegated staking providers
+`--publisher-count` Number of publisher accounts per validator (default 1)
 
 
 **This command creates two JSON files:**
@@ -139,7 +140,7 @@ Where `N` is an auto-incrementing number (e.g., `key1.json`, `key2.json`, etc.)
 - Automatically generates a mnemonic for key derivation (or provide your own with `--mnemonic`)
 - Creates an ETH key (for your sequencer identifier) and BLS key (for signing)
 - Computes BLS public keys (G1 and G2) and proof of possession
-- Outputs your attester address and BLS public key to the console
+- Outputs your attester address, publisher address and BLS public keys to the console
 
 **Example output (single validator):**
 ```
@@ -256,9 +257,9 @@ Your sequencer needs ETH to pay for gas when submitting blocks to L1. Fund the a
 
 ```bash
 # Get your attester address (this will be your publisher if no separate publisher is configured)
-jq -r '.validators[0].attester.eth' aztec-sequencer/keys/keystore.json
+jq -r '.[0].attester' ~/.aztec/keystore/keyN_staker_output.json
 
-# If you have a separate publisher configured:
+# If you have a separate publisher configured: (Note this returns the publisher private key)
 jq -r '.validators[0].publisher[0]' aztec-sequencer/keys/keystore.json
 ```
 

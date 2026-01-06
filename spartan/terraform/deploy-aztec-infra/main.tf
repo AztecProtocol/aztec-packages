@@ -136,8 +136,9 @@ locals {
     } : null
 
     validators = tonumber(var.VALIDATOR_REPLICAS) > 0 ? {
-      name  = "${var.RELEASE_PREFIX}-validator"
-      chart = "aztec-validator"
+      name    = "${var.RELEASE_PREFIX}-validator"
+      chart   = "aztec-validator"
+      timeout = 1800
       values = [
         "common.yaml",
         "validator.yaml",
@@ -268,7 +269,7 @@ locals {
       )
       boot_node_host_path  = "node.node.env.BOOT_NODE_HOST"
       bootstrap_nodes_path = "node.node.env.BOOTSTRAP_NODES"
-      wait                 = true
+      wait                 = var.WAIT_FOR_PROVER_DEPLOY
     }
 
     rpc = {
@@ -491,7 +492,7 @@ resource "helm_release" "releases" {
   force_update     = true
   recreate_pods    = true
   reuse_values     = false
-  timeout          = 600
+  timeout          = lookup(each.value, "timeout", 600)
   wait             = each.value.wait
   wait_for_jobs    = true
 

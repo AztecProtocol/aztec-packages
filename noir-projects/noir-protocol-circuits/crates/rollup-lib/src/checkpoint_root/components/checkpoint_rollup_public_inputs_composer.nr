@@ -20,6 +20,7 @@ use types::{
 
 pub struct CheckpointRollupPublicInputsComposer<let NumBlobs: u32> {
     merged_rollup: BlockRollupPublicInputs,
+    // The below are all hints:
     start_blob_accumulator: BlobAccumulator,
     final_blob_challenges: FinalBlobBatchingChallenges,
     blobs_fields: [Field; FIELDS_PER_BLOB * NumBlobs],
@@ -30,6 +31,7 @@ pub struct CheckpointRollupPublicInputsComposer<let NumBlobs: u32> {
 impl<let NumBlobs: u32> CheckpointRollupPublicInputsComposer<NumBlobs> {
     pub fn new<let NumPreviousRollups: u32>(
         previous_rollups: [BlockRollupPublicInputs; NumPreviousRollups],
+        // The below args are all hints:
         start_blob_accumulator: BlobAccumulator,
         final_blob_challenges: FinalBlobBatchingChallenges,
         blobs_fields: [Field; NumBlobs * FIELDS_PER_BLOB],
@@ -114,12 +116,26 @@ impl<let NumBlobs: u32> CheckpointRollupPublicInputsComposer<NumBlobs> {
         end_sponge_blob.absorb_checkpoint_end_marker();
 
         let num_blob_fields = end_sponge_blob.num_absorbed_fields;
-        // Check that the first `num_blob_fields` of the given fields do match what's been absorbed into the sponge.
-        let mut expected_end_sponge = SpongeBlob::init();
-        expected_end_sponge.absorb(self.blobs_fields, num_blob_fields);
+
+        let mut expected_end_sponge_blob = SpongeBlob::init();
+
+        // Check that the first `num_blob_fields` of the hinted `self.blobs_fields` do match what's
+        // been absorbed into the sponge.
+        // Elaboration:
+        // We have an `end_sponge_blob`, which is the result of incrementally absorbing data to the sponge
+        // over many circuits (Tx Base circuits, Block Root circuits, and this Checkpoint Root circuit).
+        // We need to give this Checkpoint Root circuit access to _all_ of that underlying data, flattened,
+        // because later in this circuit we'll be interpolating that data into polynomials (one polynomial
+        // per blob that we've used-up).
+        // The flattened, underlying data is hinted to this circuit as `self.blobs_fields`.
+        // To ensure `self.blobs_fields` actually matches the data that all of the previous circuits saw,
+        // we repeat the entire sponge computation -- the one that was previously split across many
+        // circuits -- entirely within this circuit in the line below.
+        // We hope that `expected_end_sponge_blob == end_sponge_blob`.
+        expected_end_sponge_blob.absorb(self.blobs_fields, num_blob_fields);
         assert_eq(
             end_sponge_blob,
-            expected_end_sponge,
+            expected_end_sponge_blob,
             "Provided blob fields do not match the fields that were absorbed",
         );
         // Check that all fields after `num_blob_fields` are zero.

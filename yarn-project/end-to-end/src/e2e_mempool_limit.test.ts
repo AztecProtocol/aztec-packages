@@ -42,10 +42,9 @@ describe('e2e_mempool_limit', () => {
       token.methods.transfer_in_public(defaultAccountAddress, await AztecAddress.random(), 1, 0),
       { from: defaultAccountAddress },
     );
-    const txSize = tx1.getSize();
 
     // set a min tx greater than the mempool so that the sequencer doesn't all of a sudden build a block
-    await aztecNodeAdmin!.setConfig({ maxTxPoolSize: Math.floor(2.5 * txSize), minTxsPerBlock: 4 });
+    await aztecNodeAdmin!.setConfig({ maxPendingTxCount: 2, minTxsPerBlock: 4 });
 
     const tx2 = await proveInteraction(
       wallet,

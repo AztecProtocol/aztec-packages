@@ -84,7 +84,7 @@ impl PublicTxBaseInputsValidator {
 
         private_tail_validator::validate_tx_constant_data(
             private_tail.constants,
-            self.constants,
+            self.constants, // where applicable, these constants have been copied-over from the avm's public inputs.
             self.anchor_block_archive_sibling_path,
         );
 

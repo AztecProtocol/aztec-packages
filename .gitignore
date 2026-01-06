@@ -32,3 +32,5 @@ docs/docs/protocol-specs/public-vm/gen/
 
 # for those who use Claude Code
 /.claude
+
+__pycache__

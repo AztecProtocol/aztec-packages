@@ -81,45 +81,7 @@ its nullifier.</p>
 <li><code>Context</code> - The execution context (PrivateContext or UtilityContext).</li>
 </ul></div>
 <h2>Implementations</h2>
-<h3><code class="code-header">impl&lt;Note&gt; <a href="../../../noir_aztec/state_vars/private_mutable/struct.PrivateMutable.html" class="struct">PrivateMutable</a>&lt;Note, <a href="../../../noir_aztec/context/utility_context/struct.UtilityContext.html" class="struct">UtilityContext</a>&gt;</code></h3>
-
-<div class="padded-methods"><code id="is_initialized" class="code-header">pub unconstrained fn <a href="#is_initialized"><span class="fn">is_initialized</span></a>(self) -> <a href="../../../std/primitive.bool.html" class="primitive">bool</a>
-<div class="where-clause">where
-    Note: <a href="../../../noir_aztec/note/note_interface/trait.NoteType.html" class="trait">NoteType</a>,
-    Note: <a href="../../../noir_aztec/note/note_interface/trait.NoteHash.html" class="trait">NoteHash</a>,
-    Note: <a href="../../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code>
-
-<div class="padded-description"><div class="comments">
-<p>Checks whether this PrivateMutable has been initialized.</p>
-<p>Notice that this function is executable only within a UtilityContext, which
-is an unconstrained environment on the user's local device.</p>
-<h4>Returns</h4>
-<ul>
-<li><code>bool</code> - <code>true</code> if the PrivateMutable has been initialized (the initialization
-nullifier exists), <code>false</code> otherwise.</li>
-</ul>
-</div>
-</div><code id="view_note" class="code-header">pub unconstrained fn <a href="#view_note"><span class="fn">view_note</span></a>(self) -> Note
-<div class="where-clause">where
-    Note: <a href="../../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>,
-    Note: <a href="../../../noir_aztec/note/note_interface/trait.NoteType.html" class="trait">NoteType</a>,
-    Note: <a href="../../../noir_aztec/note/note_interface/trait.NoteHash.html" class="trait">NoteHash</a>,
-    Note: <a href="../../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code>
-
-<div class="padded-description"><div class="comments">
-<p>Returns the current note in this PrivateMutable without consuming it.</p>
-<p>This function is only available in a UtilityContext (unconstrained environment)
-and is typically used for offchain queries, view functions, or testing.</p>
-<p>Unlike <code>get_note()</code>, this function does NOT nullify and recreate the note.
-It simply reads the current note from the PXE's database without modifying
-the state. This makes it suitable for read-only operations.</p>
-<h4>Returns</h4>
-<ul>
-<li><code>Note</code> - The current note stored in this PrivateMutable.</li>
-</ul>
-<p>docs:start:view_note</p>
-</div>
-</div></div><h3><code class="code-header">impl&lt;Context, Note&gt; <a href="../../../noir_aztec/state_vars/private_mutable/struct.PrivateMutable.html" class="struct">PrivateMutable</a>&lt;Note, Context&gt;</code></h3>
+<h3><code class="code-header">impl&lt;Context, Note&gt; <a href="../../../noir_aztec/state_vars/private_mutable/struct.PrivateMutable.html" class="struct">PrivateMutable</a>&lt;Note, Context&gt;</code></h3>
 
 <div class="padded-methods"></div><h3><code class="code-header">impl&lt;Note&gt; <a href="../../../noir_aztec/state_vars/private_mutable/struct.PrivateMutable.html" class="struct">PrivateMutable</a>&lt;Note, &mut <a href="../../../noir_aztec/context/private_context/struct.PrivateContext.html" class="struct">PrivateContext</a>&gt;</code></h3>
 
@@ -283,6 +245,44 @@ storage slot</li>
 the new note will have a different nullifier, allowing it to be consumed in
 the future.</p>
 <p>docs:start:get_note</p>
+</div>
+</div></div><h3><code class="code-header">impl&lt;Note&gt; <a href="../../../noir_aztec/state_vars/private_mutable/struct.PrivateMutable.html" class="struct">PrivateMutable</a>&lt;Note, <a href="../../../noir_aztec/context/utility_context/struct.UtilityContext.html" class="struct">UtilityContext</a>&gt;</code></h3>
+
+<div class="padded-methods"><code id="is_initialized" class="code-header">pub unconstrained fn <a href="#is_initialized"><span class="fn">is_initialized</span></a>(self) -> <a href="../../../std/primitive.bool.html" class="primitive">bool</a>
+<div class="where-clause">where
+    Note: <a href="../../../noir_aztec/note/note_interface/trait.NoteType.html" class="trait">NoteType</a>,
+    Note: <a href="../../../noir_aztec/note/note_interface/trait.NoteHash.html" class="trait">NoteHash</a>,
+    Note: <a href="../../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code>
+
+<div class="padded-description"><div class="comments">
+<p>Checks whether this PrivateMutable has been initialized.</p>
+<p>Notice that this function is executable only within a UtilityContext, which
+is an unconstrained environment on the user's local device.</p>
+<h4>Returns</h4>
+<ul>
+<li><code>bool</code> - <code>true</code> if the PrivateMutable has been initialized (the initialization
+nullifier exists), <code>false</code> otherwise.</li>
+</ul>
+</div>
+</div><code id="view_note" class="code-header">pub unconstrained fn <a href="#view_note"><span class="fn">view_note</span></a>(self) -> Note
+<div class="where-clause">where
+    Note: <a href="../../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>,
+    Note: <a href="../../../noir_aztec/note/note_interface/trait.NoteType.html" class="trait">NoteType</a>,
+    Note: <a href="../../../noir_aztec/note/note_interface/trait.NoteHash.html" class="trait">NoteHash</a>,
+    Note: <a href="../../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code>
+
+<div class="padded-description"><div class="comments">
+<p>Returns the current note in this PrivateMutable without consuming it.</p>
+<p>This function is only available in a UtilityContext (unconstrained environment)
+and is typically used for offchain queries, view functions, or testing.</p>
+<p>Unlike <code>get_note()</code>, this function does NOT nullify and recreate the note.
+It simply reads the current note from the PXE's database without modifying
+the state. This makes it suitable for read-only operations.</p>
+<h4>Returns</h4>
+<ul>
+<li><code>Note</code> - The current note stored in this PrivateMutable.</li>
+</ul>
+<p>docs:start:view_note</p>
 </div>
 </div></div><h2>Trait implementations</h2>
 <h3 id="impl-OwnedStateVariable&lt;Context&gt;-for-PrivateMutable<Note, Context>"><code class="code-header">impl&lt;Context, Note&gt; <a href="../../../noir_aztec/state_vars/owned_state_variable/trait.OwnedStateVariable.html" class="trait">OwnedStateVariable</a>&lt;Context&gt; for <a href="../../../noir_aztec/state_vars/private_mutable/struct.PrivateMutable.html" class="struct">PrivateMutable</a>&lt;Note, Context&gt;</code></h3>
