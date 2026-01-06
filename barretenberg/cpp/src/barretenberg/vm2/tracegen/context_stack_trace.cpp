@@ -2,9 +2,7 @@
 
 #include <cstdint>
 
-#include "barretenberg/vm2/common/field.hpp"
-#include "barretenberg/vm2/simulation/events/context_events.hpp"
-#include "barretenberg/vm2/simulation/events/event_emitter.hpp"
+#include "barretenberg/vm2/generated/columns.hpp"
 
 namespace bb::avm2::tracegen {
 

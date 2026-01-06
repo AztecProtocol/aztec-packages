@@ -1,6 +1,9 @@
 #include "barretenberg/vm2/simulation/gadgets/context_provider.hpp"
 
-#include "barretenberg/vm2/simulation/events/event_emitter.hpp"
+#include <cassert>
+#include <limits>
+
+#include "barretenberg/vm2/simulation/gadgets/bytecode_manager.hpp"
 #include "barretenberg/vm2/simulation/gadgets/context.hpp"
 
 namespace bb::avm2::simulation {
