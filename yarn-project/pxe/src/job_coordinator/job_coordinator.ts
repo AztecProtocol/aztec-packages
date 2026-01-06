@@ -36,6 +36,11 @@ export interface StagedStore {
  * 2. During the job, all writes go to staging (prefixed keys)
  * 3. On commit, staging is promoted to main storage and marker is cleared
  * 4. On crash, recovery discards staging and clears the marker
+ *
+ *
+ * Note: PXE should only rely on a single JobCoordinator instance, so it can eventually
+ * orchestrate concurrent jobs. Right now it doesn't make a difference because we're
+ * using a job queue with concurrency=1.
  */
 export class JobCoordinator {
   private readonly log = createLogger('pxe:job_coordinator');
