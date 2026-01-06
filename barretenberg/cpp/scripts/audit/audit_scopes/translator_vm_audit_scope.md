@@ -34,14 +34,6 @@ Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg`
 23. `relations/translator_vm/translator_permutation_relation.hpp`
 24. `relations/translator_vm/translator_permutation_relation_impl.hpp`
 
-### Recursive Verifier
-25. `stdlib/translator_vm_verifier/translator_decomposition_relation_ultra.cpp`
-26. `stdlib/translator_vm_verifier/translator_delta_range_constraint_relation.cpp`
-27. `stdlib/translator_vm_verifier/translator_extra_relations.cpp`
-28. `stdlib/translator_vm_verifier/translator_non_native_field_relation.cpp`
-29. `stdlib/translator_vm_verifier/translator_permutation_relation.cpp`
-30. `stdlib/translator_vm_verifier/translator_recursive_flavor.hpp`
-
 ## Summary of Module
 
 ## Test Files
