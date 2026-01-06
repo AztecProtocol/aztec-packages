@@ -221,7 +221,7 @@ export class PrivateEventStore implements StagedStore {
    * Must be called within a transaction by the JobCoordinator.
    * @param context - The job context identifying which staged data to commit
    */
-  async commitStaged(context: JobContext): Promise<void> {
+  async commit(context: JobContext): Promise<void> {
     const jobStaging = this.#stagedEvents.get(context.jobId);
     if (!jobStaging) {
       return;

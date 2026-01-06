@@ -319,7 +319,7 @@ describe('PrivateEventStore', () => {
       expect(eventsWithContext[0].packedEvent).toEqual(stagedMsgContent);
     });
 
-    it('commitStaged promotes staged events to main storage', async () => {
+    it('commit promotes staged events to main storage', async () => {
       const context = new JobContext('test123', 'test');
 
       const stagedMsgContent = getRandomMsgContent();
@@ -338,7 +338,7 @@ describe('PrivateEventStore', () => {
       );
 
       // Commit staging
-      await privateEventStore.commitStaged(context);
+      await privateEventStore.commit(context);
 
       // Now should see the event without context
       const events = await privateEventStore.getPrivateEvents(eventSelector, {

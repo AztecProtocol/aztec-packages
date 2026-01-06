@@ -54,12 +54,12 @@ describe('JobCoordinator', () => {
       await expect(coordinator.commitJob(context)).rejects.toThrow(/no matching job/);
     });
 
-    it('calls commitStaged on all registered stores', async () => {
-      const commitStagedMock = jest.fn<() => Promise<void>>().mockResolvedValue(undefined);
+    it('calls commit on all registered stores', async () => {
+      const commitMock = jest.fn<() => Promise<void>>().mockResolvedValue(undefined);
       const discardStagedMock = jest.fn<() => Promise<void>>().mockResolvedValue(undefined);
       const mockStore: StagedStore = {
         storeName: 'mock_store',
-        commitStaged: commitStagedMock,
+        commit: commitMock,
         discardStaged: discardStagedMock,
       };
 
@@ -69,7 +69,7 @@ describe('JobCoordinator', () => {
 
       await coordinator.commitJob(context);
 
-      expect(commitStagedMock).toHaveBeenCalledWith(context);
+      expect(commitMock).toHaveBeenCalledWith(context);
     });
   });
 
@@ -83,11 +83,11 @@ describe('JobCoordinator', () => {
     });
 
     it('calls discardStaged on all registered stores', async () => {
-      const commitStagedMock = jest.fn<() => Promise<void>>().mockResolvedValue(undefined);
+      const commitMock = jest.fn<() => Promise<void>>().mockResolvedValue(undefined);
       const discardStagedMock = jest.fn<() => Promise<void>>().mockResolvedValue(undefined);
       const mockStore: StagedStore = {
         storeName: 'mock_store',
-        commitStaged: commitStagedMock,
+        commit: commitMock,
         discardStaged: discardStagedMock,
       };
 
@@ -122,11 +122,11 @@ describe('JobCoordinator', () => {
     });
 
     it('calls discardStaged on all registered stores', async () => {
-      const commitStagedMock = jest.fn<() => Promise<void>>().mockResolvedValue(undefined);
+      const commitMock = jest.fn<() => Promise<void>>().mockResolvedValue(undefined);
       const discardStagedMock = jest.fn<() => Promise<void>>().mockResolvedValue(undefined);
       const mockStore: StagedStore = {
         storeName: 'mock_store',
-        commitStaged: commitStagedMock,
+        commit: commitMock,
         discardStaged: discardStagedMock,
       };
 
@@ -144,11 +144,11 @@ describe('JobCoordinator', () => {
 
   describe('registerStore', () => {
     it('registers a store', () => {
-      const commitStagedMock = jest.fn<() => Promise<void>>().mockResolvedValue(undefined);
+      const commitMock = jest.fn<() => Promise<void>>().mockResolvedValue(undefined);
       const discardStagedMock = jest.fn<() => Promise<void>>().mockResolvedValue(undefined);
       const mockStore: StagedStore = {
         storeName: 'mock_store',
-        commitStaged: commitStagedMock,
+        commit: commitMock,
         discardStaged: discardStagedMock,
       };
 
@@ -156,11 +156,11 @@ describe('JobCoordinator', () => {
     });
 
     it('throws on duplicate registration', () => {
-      const commitStagedMock = jest.fn<() => Promise<void>>().mockResolvedValue(undefined);
+      const commitMock = jest.fn<() => Promise<void>>().mockResolvedValue(undefined);
       const discardStagedMock = jest.fn<() => Promise<void>>().mockResolvedValue(undefined);
       const mockStore: StagedStore = {
         storeName: 'mock_store',
-        commitStaged: commitStagedMock,
+        commit: commitMock,
         discardStaged: discardStagedMock,
       };
 

@@ -270,7 +270,7 @@ export class SenderTaggingStore {
    * Called by JobCoordinator when a job completes successfully.
    * Must be called within a transaction by the JobCoordinator.
    */
-  async commitStaged(context: JobContext): Promise<void> {
+  async commit(context: JobContext): Promise<void> {
     // Iterate through all staging keys and promote to main
     for await (const key of this.#stagingMap.keysAsync()) {
       if (!key.startsWith(context.stagingPrefix)) {

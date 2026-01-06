@@ -526,7 +526,7 @@ describe('SenderTaggingStore', () => {
       expect(await taggingStore.getLastFinalizedIndex(secret1, context)).toBe(7);
     });
 
-    it('commitStaged promotes staged data to main', async () => {
+    it('commit promotes staged data to main', async () => {
       const txHash1 = TxHash.random();
       const txHash2 = TxHash.random();
       const context = new JobContext('test123', 'test');
@@ -538,7 +538,7 @@ describe('SenderTaggingStore', () => {
       await taggingStore.finalizePendingIndexes([txHash2], context);
 
       // Commit the staging
-      await taggingStore.commitStaged(context);
+      await taggingStore.commit(context);
 
       // Now without context should get the previously staged data
       expect(await taggingStore.getLastFinalizedIndex(secret1)).toBe(7);

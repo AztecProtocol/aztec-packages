@@ -694,7 +694,7 @@ describe('NoteStore', () => {
       expect(notesWithoutContext[0].index).toBe(1n);
     });
 
-    it('commitStaged promotes staged notes to main storage', async () => {
+    it('commit promotes staged notes to main storage', async () => {
       const stagedNote = await NoteDao.random({
         contractAddress: CONTRACT_A,
         storageSlot: SLOT_X,
@@ -708,7 +708,7 @@ describe('NoteStore', () => {
       await provider.addNotes([stagedNote], SCOPE_1, context);
 
       // Commit staging
-      await provider.commitStaged(context);
+      await provider.commit(context);
 
       // Now should see the note without context
       const notes = await provider.getNotes({ contractAddress: CONTRACT_A });
@@ -774,7 +774,7 @@ describe('NoteStore', () => {
       expect(activeNotes).toHaveLength(1);
 
       // Commit staging
-      await provider.commitStaged(context);
+      await provider.commit(context);
 
       // Now note should be nullified
       const activeNotesAfterCommit = await provider.getNotes({ contractAddress: CONTRACT_A });
@@ -810,7 +810,7 @@ describe('NoteStore', () => {
       await provider.applyNullifiers([nullifier], context);
 
       // Commit both operations
-      await provider.commitStaged(context);
+      await provider.commit(context);
 
       // Note should exist but be nullified
       const activeNotes = await provider.getNotes({ contractAddress: CONTRACT_A });

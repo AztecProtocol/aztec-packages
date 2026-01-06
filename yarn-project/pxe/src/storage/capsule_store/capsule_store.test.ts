@@ -4,6 +4,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 
+import { JobContext } from '../../job_coordinator/index.js';
 import { CapsuleStore } from './capsule_store.js';
 
 describe('capsule data provider', () => {
@@ -393,5 +394,108 @@ describe('capsule data provider', () => {
       },
       TEST_TIMEOUT_MS,
     );
+  });
+
+  describe('staging', () => {
+    it('writes to staging when context provided', async () => {
+      const slot = Fr.random();
+      const committedValues = [Fr.random()];
+      const stagedValues = [Fr.random()];
+      const context = new JobContext('test123', 'test');
+
+      // First set a committed capsule
+      await capsuleStore.storeCapsule(contract, slot, committedValues);
+
+      // Then set a staged capsule
+      await capsuleStore.storeCapsule(contract, slot, stagedValues, context);
+
+      // Without context, should get committed capsule
+      expect(await capsuleStore.loadCapsule(contract, slot)).toEqual(committedValues);
+
+      // With context, should get staged capsule
+      expect(await capsuleStore.loadCapsule(contract, slot, context)).toEqual(stagedValues);
+    });
+
+    it('staged capsules are visible when reading with context', async () => {
+      const slot = Fr.random();
+      const stagedValues = [Fr.random()];
+      const context = new JobContext('test123', 'test');
+
+      // Store only in staging
+      await capsuleStore.storeCapsule(contract, slot, stagedValues, context);
+
+      // Without context, should not see the staged capsule
+      expect(await capsuleStore.loadCapsule(contract, slot)).toBeNull();
+
+      // With context, should see the staged capsule
+      expect(await capsuleStore.loadCapsule(contract, slot, context)).toEqual(stagedValues);
+    });
+
+    it('staged deletions hide committed data', async () => {
+      const slot = Fr.random();
+      const committedValues = [Fr.random()];
+      const context = new JobContext('test123', 'test');
+
+      // First set a committed capsule
+      await capsuleStore.storeCapsule(contract, slot, committedValues);
+
+      // Delete in staging
+      await capsuleStore.deleteCapsule(contract, slot, context);
+
+      // Without context, should still see committed capsule
+      expect(await capsuleStore.loadCapsule(contract, slot)).toEqual(committedValues);
+
+      // With context, should see null (deleted)
+      expect(await capsuleStore.loadCapsule(contract, slot, context)).toBeNull();
+    });
+
+    it('commit promotes staged data to main', async () => {
+      const slot = Fr.random();
+      const committedValues = [Fr.random()];
+      const stagedValues = [Fr.random()];
+      const context = new JobContext('test123', 'test');
+
+      await capsuleStore.storeCapsule(contract, slot, committedValues);
+      await capsuleStore.storeCapsule(contract, slot, stagedValues, context);
+
+      await capsuleStore.commit(context);
+
+      // Now without context should get the previously staged capsule
+      expect(await capsuleStore.loadCapsule(contract, slot)).toEqual(stagedValues);
+    });
+
+    it('commit applies staged deletions', async () => {
+      const slot = Fr.random();
+      const committedValues = [Fr.random()];
+      const context = new JobContext('test123', 'test');
+
+      await capsuleStore.storeCapsule(contract, slot, committedValues);
+      await capsuleStore.deleteCapsule(contract, slot, context);
+
+      // Commit the staging
+      await capsuleStore.commit(context);
+
+      // Now without context should see null (deleted)
+      expect(await capsuleStore.loadCapsule(contract, slot)).toBeNull();
+    });
+
+    it('discardStaged removes staged data without affecting main', async () => {
+      const slot = Fr.random();
+      const committedValues = [Fr.random()];
+      const stagedValues = [Fr.random()];
+      const context = new JobContext('test123', 'test');
+
+      await capsuleStore.storeCapsule(contract, slot, committedValues);
+      await capsuleStore.storeCapsule(contract, slot, stagedValues, context);
+
+      // Discard the staging
+      await capsuleStore.discardStaged(context.stagingPrefix);
+
+      // Should still get committed capsule
+      expect(await capsuleStore.loadCapsule(contract, slot)).toEqual(committedValues);
+
+      // With context should fall back to committed since staging was discarded
+      expect(await capsuleStore.loadCapsule(contract, slot, context)).toEqual(committedValues);
+    });
   });
 });

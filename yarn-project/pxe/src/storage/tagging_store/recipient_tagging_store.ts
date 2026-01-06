@@ -114,7 +114,7 @@ export class RecipientTaggingStore implements StagedStore {
 
   // StagedStore implementation
 
-  async commitStaged(context: JobContext): Promise<void> {
+  async commit(context: JobContext): Promise<void> {
     const jobStaging = this.#stagedIndexes.get(context.jobId);
     if (!jobStaging) {
       return;

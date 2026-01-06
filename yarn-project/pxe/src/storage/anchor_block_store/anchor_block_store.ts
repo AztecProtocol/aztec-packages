@@ -70,7 +70,7 @@ export class AnchorBlockStore implements StagedStore {
    * Called by JobCoordinator when a job completes successfully.
    * Must be called within a transaction by the JobCoordinator.
    */
-  async commitStaged(context: JobContext): Promise<void> {
+  async commit(context: JobContext): Promise<void> {
     const stagedBuffer = this.#stagedHeader.get(context.jobId);
 
     if (stagedBuffer) {

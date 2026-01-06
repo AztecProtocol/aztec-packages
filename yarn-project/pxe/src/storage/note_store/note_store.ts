@@ -541,7 +541,7 @@ export class NoteStore implements StagedStore {
    * Must be called within a transaction by the JobCoordinator.
    * @param context - The job context containing the staging prefix
    */
-  async commitStaged(context: JobContext): Promise<void> {
+  async commit(context: JobContext): Promise<void> {
     const stagingPrefix = context.stagingPrefix;
     const allKeys = await toArray(this.#stagingMap.keysAsync());
     const stagingKeys = allKeys.filter(key => key.startsWith(stagingPrefix));

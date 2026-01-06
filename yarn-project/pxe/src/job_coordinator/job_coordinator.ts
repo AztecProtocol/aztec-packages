@@ -17,7 +17,7 @@ export interface StagedStore {
    *
    * @param context - The job context containing the staging prefix
    */
-  commitStaged(context: JobContext): Promise<void>;
+  commit(context: JobContext): Promise<void>;
 
   /**
    * Discards staged data without committing.
@@ -119,10 +119,10 @@ export class JobCoordinator {
     this.log.debug(`Committing job ${context.jobId}`);
 
     // Commit all stores atomically in a single transaction.
-    // Each store's commitStaged is a no-op if it has no staged data.
+    // Each store's commit is a no-op if it has no staged data.
     await this.kvStore.transactionAsync(async () => {
       for (const store of this.#stores.values()) {
-        await store.commitStaged(context);
+        await store.commit(context);
       }
 
       // Clear the job marker within the same transaction

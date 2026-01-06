@@ -47,7 +47,7 @@ describe('block header', () => {
       await expect(anchorBlockStore.getBlockHeader(context)).resolves.toEqual(stagedHeader);
     });
 
-    it('commitStaged promotes staged data to main', async () => {
+    it('commit promotes staged data to main', async () => {
       const committedHeader = makeBlockHeader(randomInt(1000), { blockNumber: BlockNumber(1) });
       const stagedHeader = makeBlockHeader(randomInt(1000), { blockNumber: BlockNumber(2) });
       const context = new JobContext('test123', 'test');
@@ -56,7 +56,7 @@ describe('block header', () => {
       await anchorBlockStore.setHeader(stagedHeader, context);
 
       // Commit the staging
-      await anchorBlockStore.commitStaged(context);
+      await anchorBlockStore.commit(context);
 
       // Now without context should get the previously staged header
       await expect(anchorBlockStore.getBlockHeader()).resolves.toEqual(stagedHeader);
