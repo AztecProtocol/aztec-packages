@@ -44,31 +44,3 @@ export class JobContext {
     return stagingKey.substring(this.stagingPrefix.length);
   }
 }
-
-/**
- * Serializable representation of a JobContext for persistence.
- */
-export interface SerializedJobContext {
-  jobId: string;
-  jobType: string;
-  startedAt: number;
-}
-
-/**
- * Serializes a JobContext for persistence to the job marker store.
- */
-export function serializeJobContext(context: JobContext): SerializedJobContext {
-  return {
-    jobId: context.jobId,
-    jobType: context.jobType,
-    startedAt: context.startedAt,
-  };
-}
-
-/**
- * Deserializes a JobContext from persistence.
- * Note: The returned context is for recovery purposes only.
- */
-export function deserializeJobContext(serialized: SerializedJobContext): JobContext {
-  return new JobContext(serialized.jobId, serialized.jobType);
-}

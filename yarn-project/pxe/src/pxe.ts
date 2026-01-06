@@ -156,9 +156,6 @@ export class PXE {
       privateEventStore,
     ]);
 
-    // Recover from any incomplete job on startup
-    await jobCoordinator.recover();
-
     const synchronizer = new BlockSynchronizer(node, anchorBlockStore, noteStore, tipsStore, config, loggerOrSuffix);
 
     const debugUtils = new PXEDebugUtils(contractStore, noteStore);
@@ -251,7 +248,7 @@ export class PXE {
     }
 
     return this.jobQueue.put(async () => {
-      const context = await this.jobCoordinator.beginJob(jobType);
+      const context = this.jobCoordinator.beginJob(jobType);
       try {
         const result = await fn(context);
         await this.jobCoordinator.commitJob(context);

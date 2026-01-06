@@ -1,8 +1,8 @@
 import { randomBytes } from '@aztec/foundation/crypto/random';
 import { createLogger } from '@aztec/foundation/log';
-import type { AztecAsyncKVStore, AztecAsyncSingleton } from '@aztec/kv-store';
+import type { AztecAsyncKVStore } from '@aztec/kv-store';
 
-import { JobContext, type SerializedJobContext, serializeJobContext } from './job_context.js';
+import { JobContext } from './job_context.js';
 
 /**
  * Interface that data providers must implement to support staged writes.
@@ -32,11 +32,10 @@ export interface StagedStore {
  * JobCoordinator manages job lifecycle and provides crash resilience for PXE operations.
  *
  * It uses a staged writes pattern:
- * 1. When a job begins, a marker is persisted with the job details
+ * 1. When a job begins, a context is created with a unique staging prefix
  * 2. During the job, all writes go to staging (prefixed keys)
- * 3. On commit, staging is promoted to main storage and marker is cleared
- * 4. On crash, recovery discards staging and clears the marker
- *
+ * 3. On commit, staging is promoted to main storage
+ * 4. On abort, staged data is discarded
  *
  * Note: PXE should only rely on a single JobCoordinator instance, so it can eventually
  * orchestrate concurrent jobs. Right now it doesn't make a difference because we're
@@ -48,18 +47,14 @@ export class JobCoordinator {
   /** The underlying KV store */
   kvStore: AztecAsyncKVStore;
 
-  /**
-   * Persisted job marker - indicates a job is in progress
-   * Should be turned into an array when we want to start relaxing concurrency
-   * */
-  #currentJob: AztecAsyncSingleton<Buffer>;
+  /** Current job context (in-memory only) */
+  #currentJob: JobContext | undefined;
 
   /** All registered staged stores */
   #stores: Map<string, StagedStore> = new Map();
 
   constructor(kvStore: AztecAsyncKVStore) {
     this.kvStore = kvStore;
-    this.#currentJob = kvStore.openSingleton('pxe_current_job');
   }
 
   /**
@@ -89,19 +84,17 @@ export class JobCoordinator {
    * @param jobType - Type of job (for logging/debugging)
    * @returns JobContext to pass to write operations
    */
-  async beginJob(jobType: string): Promise<JobContext> {
-    const existingJob = await this.#getCurrentJob();
-    if (existingJob) {
+  beginJob(jobType: string): JobContext {
+    if (this.#currentJob) {
       throw new Error(
-        `Cannot begin job "${jobType}": job "${existingJob.jobType}" (${existingJob.jobId}) is already in progress. ` +
+        `Cannot begin job "${jobType}": job "${this.#currentJob.jobType}" (${this.#currentJob.jobId}) is already in progress. ` +
           `This should not happen - ensure jobs are properly committed or aborted.`,
       );
     }
 
     const jobId = randomBytes(8).toString('hex');
     const context = new JobContext(jobId, jobType);
-
-    await this.#setCurrentJob(context);
+    this.#currentJob = context;
 
     this.log.debug(`Started job ${jobId} (type: ${jobType})`);
     return context;
@@ -113,11 +106,10 @@ export class JobCoordinator {
    * @param context - The job context returned from beginJob
    */
   async commitJob(context: JobContext): Promise<void> {
-    const currentJob = await this.#getCurrentJob();
-    if (!currentJob || currentJob.jobId !== context.jobId) {
+    if (!this.#currentJob || this.#currentJob.jobId !== context.jobId) {
       throw new Error(
         `Cannot commit job ${context.jobId}: no matching job in progress. ` +
-          `Current job: ${currentJob ? currentJob.jobId : 'none'}`,
+          `Current job: ${this.#currentJob ? this.#currentJob.jobId : 'none'}`,
       );
     }
 
@@ -129,11 +121,9 @@ export class JobCoordinator {
       for (const store of this.#stores.values()) {
         await store.commit(context);
       }
-
-      // Clear the job marker within the same transaction
-      await this.#currentJob.delete();
     });
 
+    this.#currentJob = undefined;
     this.log.debug(`Job ${context.jobId} committed successfully`);
   }
 
@@ -143,77 +133,28 @@ export class JobCoordinator {
    * @param context - The job context returned from beginJob
    */
   async abortJob(context: JobContext): Promise<void> {
-    // Discard staging and clear job marker atomically.
-    await this.kvStore.transactionAsync(async () => {
-      const currentJob = await this.#getCurrentJob();
-      if (!currentJob || currentJob.jobId !== context.jobId) {
-        // Job may have already been aborted or never started properly
-        this.log.warn(`Abort called for job ${context.jobId} but current job is ${currentJob?.jobId ?? 'none'}`);
-      }
+    if (!this.#currentJob || this.#currentJob.jobId !== context.jobId) {
+      // Job may have already been aborted or never started properly
+      this.log.warn(`Abort called for job ${context.jobId} but current job is ${this.#currentJob?.jobId ?? 'none'}`);
+    }
 
-      this.log.debug(`Aborting job ${context.jobId}`);
+    this.log.debug(`Aborting job ${context.jobId}`);
+
+    // Discard staging atomically
+    await this.kvStore.transactionAsync(async () => {
       for (const store of this.#stores.values()) {
         await store.discardStaged(context.stagingPrefix);
       }
-
-      await this.#currentJob.delete();
     });
 
+    this.#currentJob = undefined;
     this.log.debug(`Job ${context.jobId} aborted`);
-  }
-
-  /**
-   * Recovers from an incomplete job on startup.
-   * Should be called before any other operations.
-   *
-   * If a job was in progress when PXE crashed, this will discard
-   * all staged data and clear the job marker.
-   */
-  async recover(): Promise<void> {
-    const job = await this.#getCurrentJob();
-    if (!job) {
-      this.log.debug('No incomplete job found, clean startup');
-      return;
-    }
-
-    this.log.warn(
-      `Found incomplete job ${job.jobId} (type: ${job.jobType}) from ${new Date(job.startedAt).toISOString()}. ` +
-        `Discarding staged data...`,
-    );
-
-    // Reconstruct the context for recovery
-    const context = new JobContext(job.jobId, job.jobType);
-
-    await this.abortJob(context);
-
-    this.log.info(`Recovered from incomplete job ${job.jobId}`);
   }
 
   /**
    * Checks if there's a job currently in progress.
    */
-  async hasJobInProgress(): Promise<boolean> {
-    return (await this.#getCurrentJob()) !== undefined;
-  }
-
-  async #getCurrentJob(): Promise<SerializedJobContext | undefined> {
-    const buffer = await this.#currentJob.getAsync();
-    if (!buffer) {
-      return undefined;
-    }
-    try {
-      // Use TextDecoder for cross-platform compatibility (Node.js Buffer vs browser Uint8Array)
-      const text = new TextDecoder().decode(buffer);
-      return JSON.parse(text) as SerializedJobContext;
-    } catch {
-      this.log.warn('Failed to parse current job marker, treating as no job');
-      return undefined;
-    }
-  }
-
-  async #setCurrentJob(context: JobContext): Promise<void> {
-    const serialized = serializeJobContext(context);
-    // Use TextEncoder for cross-platform compatibility
-    await this.#currentJob.set(Buffer.from(new TextEncoder().encode(JSON.stringify(serialized))));
+  hasJobInProgress(): boolean {
+    return this.#currentJob !== undefined;
   }
 }

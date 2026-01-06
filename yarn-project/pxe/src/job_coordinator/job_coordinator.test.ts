@@ -16,8 +16,8 @@ describe('JobCoordinator', () => {
   });
 
   describe('beginJob', () => {
-    it('creates a new job context', async () => {
-      const context = await coordinator.beginJob('test_job');
+    it('creates a new job context', () => {
+      const context = coordinator.beginJob('test_job');
 
       expect(context).toBeInstanceOf(JobContext);
       expect(context.jobType).toBe('test_job');
@@ -27,26 +27,26 @@ describe('JobCoordinator', () => {
 
     // Note: we could eventually be relax this if we want more concurrency,
     // but it's good to start with this guardrail
-    it('throws if job already in progress', async () => {
-      await coordinator.beginJob('first_job');
-      await expect(coordinator.beginJob('second_job')).rejects.toThrow(/already in progress/);
+    it('throws if job already in progress', () => {
+      coordinator.beginJob('first_job');
+      expect(() => coordinator.beginJob('second_job')).toThrow(/already in progress/);
     });
 
-    it('persists job marker', async () => {
-      await coordinator.beginJob('test_job');
-      expect(await coordinator.hasJobInProgress()).toBe(true);
+    it('tracks job in progress', () => {
+      coordinator.beginJob('test_job');
+      expect(coordinator.hasJobInProgress()).toBe(true);
     });
   });
 
   describe('commitJob', () => {
     it('clears job marker on commit', async () => {
-      const context = await coordinator.beginJob('test_job');
+      const context = coordinator.beginJob('test_job');
       await coordinator.commitJob(context);
-      expect(await coordinator.hasJobInProgress()).toBe(false);
+      expect(coordinator.hasJobInProgress()).toBe(false);
     });
 
     it('throws if no matching job in progress', async () => {
-      const context = await coordinator.beginJob('test_job');
+      const context = coordinator.beginJob('test_job');
       await coordinator.commitJob(context);
       await expect(coordinator.commitJob(context)).rejects.toThrow(/no matching job/);
     });
@@ -62,7 +62,7 @@ describe('JobCoordinator', () => {
 
       coordinator.registerStore(mockStore);
 
-      const context = await coordinator.beginJob('test_job');
+      const context = coordinator.beginJob('test_job');
 
       await coordinator.commitJob(context);
 
@@ -72,11 +72,11 @@ describe('JobCoordinator', () => {
 
   describe('abortJob', () => {
     it('clears job marker on abort', async () => {
-      const context = await coordinator.beginJob('test_job');
+      const context = coordinator.beginJob('test_job');
 
       await coordinator.abortJob(context);
 
-      expect(await coordinator.hasJobInProgress()).toBe(false);
+      expect(coordinator.hasJobInProgress()).toBe(false);
     });
 
     it('calls discardStaged on all registered stores', async () => {
@@ -90,52 +90,11 @@ describe('JobCoordinator', () => {
 
       coordinator.registerStore(mockStore);
 
-      const context = await coordinator.beginJob('test_job');
+      const context = coordinator.beginJob('test_job');
 
       await coordinator.abortJob(context);
 
       expect(discardStagedMock).toHaveBeenCalledWith(context.stagingPrefix);
-    });
-  });
-
-  describe('recover', () => {
-    it('does nothing if no job in progress', async () => {
-      await coordinator.recover();
-
-      expect(await coordinator.hasJobInProgress()).toBe(false);
-    });
-
-    it('clears incomplete job on recovery', async () => {
-      await coordinator.beginJob('test_job');
-
-      // Simulate restart by creating new coordinator with same store
-      const newCoordinator = new JobCoordinator(store);
-
-      expect(await newCoordinator.hasJobInProgress()).toBe(true);
-
-      await newCoordinator.recover();
-
-      expect(await newCoordinator.hasJobInProgress()).toBe(false);
-    });
-
-    it('calls discardStaged on all registered stores', async () => {
-      const commitMock = jest.fn<() => Promise<void>>().mockResolvedValue(undefined);
-      const discardStagedMock = jest.fn<() => Promise<void>>().mockResolvedValue(undefined);
-      const mockStore: StagedStore = {
-        storeName: 'mock_store',
-        commit: commitMock,
-        discardStaged: discardStagedMock,
-      };
-
-      await coordinator.beginJob('test_job');
-
-      // Simulate restart
-      const newCoordinator = new JobCoordinator(store);
-      newCoordinator.registerStore(mockStore);
-
-      await newCoordinator.recover();
-
-      expect(discardStagedMock).toHaveBeenCalled();
     });
   });
 
@@ -153,82 +112,6 @@ describe('JobCoordinator', () => {
 
       expect(() => coordinator.registerStore(mockStore)).toThrow(/already registered/);
     });
-  });
-});
-
-describe('JobCoordinator with Uint8Array storage (IndexedDB simulation)', () => {
-  // This tests the cross-platform compatibility fix where IndexedDB returns Uint8Array
-  // instead of Buffer, and Uint8Array.toString() returns "1,2,3,4" instead of UTF-8 string
-
-  it('correctly reads job marker stored as Uint8Array', async () => {
-    // Create a mock store that returns Uint8Array instead of Buffer (like IndexedDB does)
-    let storedValue: Uint8Array | undefined;
-
-    const mockSingleton = {
-      getAsync: jest.fn<() => Promise<Uint8Array | undefined>>().mockImplementation(() => Promise.resolve(storedValue)),
-      set: jest.fn<(val: Buffer) => Promise<boolean>>().mockImplementation((val: Buffer) => {
-        // Convert Buffer to pure Uint8Array (simulating IndexedDB behavior)
-        storedValue = new Uint8Array(val);
-        return Promise.resolve(true);
-      }),
-      delete: jest.fn<() => Promise<boolean>>().mockImplementation(() => {
-        storedValue = undefined;
-        return Promise.resolve(true);
-      }),
-    };
-
-    const mockStore = {
-      openSingleton: jest.fn().mockReturnValue(mockSingleton),
-      transactionAsync: (fn: () => Promise<unknown>) => fn(),
-    } as unknown as AztecAsyncKVStore;
-
-    const coordinator = new JobCoordinator(mockStore);
-
-    // Begin a job - this stores the job marker
-    const context = await coordinator.beginJob('test_job');
-    expect(context.jobType).toBe('test_job');
-
-    // Verify job is in progress - this reads back the Uint8Array
-    expect(await coordinator.hasJobInProgress()).toBe(true);
-
-    // Commit should work with Uint8Array storage
-    await coordinator.commitJob(context);
-
-    // Job should be cleared
-    expect(await coordinator.hasJobInProgress()).toBe(false);
-  });
-
-  it('handles Uint8Array correctly after simulated restart', async () => {
-    let storedValue: Uint8Array | undefined;
-
-    const mockSingleton = {
-      getAsync: jest.fn<() => Promise<Uint8Array | undefined>>().mockImplementation(() => Promise.resolve(storedValue)),
-      set: jest.fn<(val: Buffer) => Promise<boolean>>().mockImplementation((val: Buffer) => {
-        storedValue = new Uint8Array(val);
-        return Promise.resolve(true);
-      }),
-      delete: jest.fn<() => Promise<boolean>>().mockImplementation(() => {
-        storedValue = undefined;
-        return Promise.resolve(true);
-      }),
-    };
-
-    const mockStore = {
-      openSingleton: jest.fn().mockReturnValue(mockSingleton),
-      transactionAsync: (fn: () => Promise<unknown>) => fn(),
-    } as unknown as AztecAsyncKVStore;
-
-    // First coordinator starts a job
-    const coordinator1 = new JobCoordinator(mockStore);
-    await coordinator1.beginJob('test_job');
-
-    // Simulate restart - new coordinator reads the Uint8Array marker
-    const coordinator2 = new JobCoordinator(mockStore);
-    expect(await coordinator2.hasJobInProgress()).toBe(true);
-
-    // Recovery should work with Uint8Array storage
-    await coordinator2.recover();
-    expect(await coordinator2.hasJobInProgress()).toBe(false);
   });
 });
 
