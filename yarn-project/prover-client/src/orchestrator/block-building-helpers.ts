@@ -282,7 +282,7 @@ export const buildHeaderFromCircuitOutputs = runInSpan(
       chainId: constants.chainId,
       version: constants.version,
       blockNumber: BlockNumber(blockRootRollupOutput.previousArchive.nextAvailableLeafIndex),
-      timestamp: blockRootRollupOutput.endTimestamp,
+      timestamp: blockRootRollupOutput.timestamp,
       slotNumber: constants.slotNumber,
       coinbase: constants.coinbase,
       feeRecipient: constants.feeRecipient,
