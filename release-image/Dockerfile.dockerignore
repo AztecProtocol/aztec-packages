@@ -19,34 +19,5 @@
 !/yarn-project/protocol-contracts/artifacts/
 !/yarn-project/noir-contracts.js/artifacts/
 !/yarn-project/simulator/artifacts/
-
-### Start foundry / l1-contracts files
-
-# There's a bunch of complexity here because foundry is very particular.
-# We want to take our full build from the repo, copy it over, and avoid any
-# recompilation or warnings from forge inside the docker container.
-
-# We need to to run l1-contracts deploy scripts (script/deploy/*)
-# All source/test files needed so forge cache entries match and avoid recompilation
-!/l1-contracts/foundry.toml
-# We have to include the solc binary annoyingly, even if we aim to fully have a cached build.
-!/l1-contracts/solc-*
-!/l1-contracts/script/deploy
-!/l1-contracts/src/
-
-# Needed to prevent rebuilds.
-!/l1-contracts/cache/
-!/l1-contracts/out/
-
-# Remove test files, except for shouting.t.sol that for an undiagnosed reason causes a warning if not present.
-/l1-contracts/out/**/*.t.sol
-!/l1-contracts/test/shouting.t.sol
-
-# Honk verifier.
-!/l1-contracts/generated/
-
-# The minimum needed to run our solidity dependencies.
-!/l1-contracts/lib/**/remappings.txt
-!/l1-contracts/lib/**/foundry.toml
-!/l1-contracts/lib/**/*.sol
-### End foundry / l1-contracts files
+# This includes all files needed for l1-contracts deployment via forge script.
+!/yarn-project/l1-artifacts/l1-contracts/
