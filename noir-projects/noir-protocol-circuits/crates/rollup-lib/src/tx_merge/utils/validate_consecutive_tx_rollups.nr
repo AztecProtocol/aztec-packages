@@ -14,6 +14,8 @@ pub fn validate_consecutive_tx_rollups(left: TxRollupPublicInputs, right: TxRoll
 /// When called from the `block_merge` or `checkpoint_root`, it represents the total number of `block_root` rollups.
 /// When called from the `checkpoint_merge` or `root`, it represents the total number of `checkpoint_root` rollups.
 pub fn assert_rollups_filled_greedily(num_left_rollups: u16, num_right_rollups: u16) {
+    // Q: should we assert that `num_right_rollups != 0`, to be sure?
+
     // The left rollup must be a balanced tree (i.e., `num_left_rollups` is a power of 2).
     assert(
         is_power_of_2(num_left_rollups),

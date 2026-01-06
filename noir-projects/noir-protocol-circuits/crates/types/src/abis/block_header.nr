@@ -13,7 +13,7 @@ use std::meta::derive;
 #[derive(Deserialize, Eq, Serialize)]
 pub struct BlockHeader {
     pub last_archive: AppendOnlyTreeSnapshot,
-    pub state: StateReference,
+    pub state: StateReference, // AUDIT_COMMENT: Use TreeSnapshots instead.
 
     // The hash of the sponge blob for this block, which commits to the tx effects added in this block.
     // Note: it may also include tx effects from previous blocks within the same checkpoint.

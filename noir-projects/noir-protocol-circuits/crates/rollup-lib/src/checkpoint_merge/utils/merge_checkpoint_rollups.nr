@@ -11,9 +11,16 @@ pub fn merge_checkpoint_rollups(
     // Make sure that the total number of checkpoints does not exceed the maximum allowed in an epoch, preventing the
     // merged arrays (`checkpoint_header_hashes`, `fees`) from being truncated.
     let num_checkpoints = num_left_checkpoints + num_right_checkpoints;
+    // Q: is it safe that we're using a constant whose value is `48` here, when I believe in practice (in prod) we're using 32 checkpoints per epoch.
+    // TODO: we could put this check in the epoch root circuit, instead?
     assert(
         num_checkpoints <= AZTEC_MAX_EPOCH_DURATION,
         "total number of checkpoints exceeds max allowed in an epoch",
+    );
+    // Overly cautious check:
+    std::static_assert(
+        AZTEC_MAX_EPOCH_DURATION < 65536,
+        "Your rollup design has gone a bit mental",
     );
 
     // We use `copy_items_into_array` below because we know exactly how many items should be taken from each side when
@@ -31,6 +38,11 @@ pub fn merge_checkpoint_rollups(
         num_right_checkpoints,
     );
 
+    // Q: should we also sum left.num_fees() + right.num_fees() to ensure they fit within the array merge?
+    // Do we have guarantees from the construction of these `fees` arrays that their lengths are equal to the
+    // lengths of the (just checked above) left/right `checkpoint_header_hashes` arrays? If so, we should explain where
+    // in the codebase we guarantee that they're the same lengths. Maybe we should add some static asserts to
+    // protect against future accidental deviations in these constants.
     // We can't merge fees for the same recipient since the l1 contract iterates per checkpoint.
     let fees = copy_items_into_array(
         left.fees,
