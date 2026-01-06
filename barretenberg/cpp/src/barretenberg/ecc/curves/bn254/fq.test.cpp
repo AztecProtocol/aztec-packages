@@ -20,9 +20,12 @@ auto& engine = numeric::get_debug_randomness();
 } // namespace
 
 // ================================
-// Fixed Compile-Time Tests
+// Fixed Compile-Time Tests (field-specific expected values)
+// These tests use hardcoded expected values that are only valid for native builds (R = 2^256).
+// WASM uses R = 2^261.
 // ================================
 
+#if defined(__SIZEOF_INT128__) && !defined(__wasm__)
 TEST(BN254Fq, CompileTimeMultiplication)
 {
     constexpr fq a = uint256_t{ 0xa9b879029c49e60eUL, 0x2517b72250caa7b3UL, 0x6b86c81105dae2d1UL, 0x3a81735d5aec0c3UL };
@@ -63,6 +66,7 @@ TEST(BN254Fq, CompileTimeSubtraction)
     constexpr fq result = a - b;
     static_assert(result == expected);
 }
+#endif
 
 TEST(BN254Fq, CompileTimeInversion)
 {
