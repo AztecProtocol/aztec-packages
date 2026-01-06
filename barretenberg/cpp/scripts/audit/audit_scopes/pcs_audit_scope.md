@@ -4,28 +4,32 @@ Repository: https://github.com/AztecProtocol/aztec-packages
 Commit hash: TBD
 
 ## Files to Audit
-Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg/commitment_schemes`
+Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg`
 
-1. `shplonk/shplemini.hpp`
+1. `commitment_schemes/shplonk/shplemini.hpp`
     - Main PCS verifier. `ShpleminiVerifier_::compute_batch_opening_claim()` batches polynomial commitments/evaluations into `BatchOpeningClaim`.
-2. `shplonk/shplonk.hpp`
+2. `commitment_schemes/shplonk/shplonk.hpp`
 `ShplonkVerifier_` reduces multiple univariate opening claims to one.
-3. `gemini/gemini.hpp`
+3. `commitment_schemes/gemini/gemini.hpp`
 (Stores Shplemini helpers)
 Multilinear to univariate reduction mechanism.
-4. `gemini/gemini_impl.hpp`
+4. `commitment_schemes/gemini/gemini_impl.hpp`
 Implementation details for Gemini.
-5. `kzg/kzg.hpp`
-6. `small_subgroup_ipa/small_subgroup_ipa.hpp`
+5. `commitment_schemes/kzg/kzg.hpp`
+6. `commitment_schemes/small_subgroup_ipa/small_subgroup_ipa.hpp`
 Used by ECCVM (translation) and Libra (ZK). Reduces opening claims to IPA over small multiplicative subgroup.
-7. `small_subgroup_ipa/small_subgroup_ipa.cpp`
+7. `commitment_schemes/small_subgroup_ipa/small_subgroup_ipa.cpp`
 Implementation of SmallSubgroupIPA.
-8. `small_subgroup_ipa/small_subgroup_ipa_utils.hpp`
+8. `commitment_schemes/small_subgroup_ipa/small_subgroup_ipa_utils.hpp`
 Utility functions for SmallSubgroupIPA.
-9. `claim_batcher.hpp`
+9. `commitment_schemes/claim_batcher.hpp`
 `ClaimBatcher_` computes batching scalars for unshifted/shifted/interleaved polynomial batches.
-10. `claim.hpp`
+10. `commitment_schemes/claim.hpp`
 Data structures: `OpeningClaim`, `BatchOpeningClaim`.
+11. `commitment_schemes/pairing_points.hpp`
+Data structure for accumulating pairing points from KZG batch opening verification.
+12. `stdlib/primitives/pairing_points.hpp`
+Stdlib (recursive) data structure for pairing points accumulation.
 
 ## Brief Summary of Module
 This module includes all the polynomial commitment schemes used in barretenberg. The main entry point of the module is often `Shplemini` (`Shplonk + Gemini`).
