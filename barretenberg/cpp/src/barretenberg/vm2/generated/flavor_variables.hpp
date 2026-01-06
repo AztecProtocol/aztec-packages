@@ -147,7 +147,7 @@ struct AvmFlavorVariables {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 124;
     static constexpr size_t NUM_WITNESS_ENTITIES = 3059;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 344;
-    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
+    static constexpr size_t NUM_WIRES = 2593;
     static constexpr size_t NUM_ALL_ENTITIES = 3527;
 
     // Need to be templated for recursive verifier
@@ -299,8 +299,8 @@ struct AvmFlavorVariables {
         lookup_execution_get_p_limbs_relation<FF_>,
         lookup_execution_instruction_fetching_body_relation<FF_>,
         lookup_execution_instruction_fetching_result_relation<FF_>,
-        lookup_external_call_is_da_gas_left_gt_alllocated_relation<FF_>,
-        lookup_external_call_is_l2_gas_left_gt_alllocated_relation<FF_>,
+        lookup_external_call_is_da_gas_left_gt_allocated_relation<FF_>,
+        lookup_external_call_is_l2_gas_left_gt_allocated_relation<FF_>,
         lookup_ff_gt_a_hi_range_relation<FF_>,
         lookup_ff_gt_a_lo_range_relation<FF_>,
         lookup_gas_addressing_gas_read_relation<FF_>,
