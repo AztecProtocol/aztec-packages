@@ -275,7 +275,7 @@ export class Archiver
       slotDuration,
       ethereumSlotDuration,
       proofSubmissionEpochs: Number(proofSubmissionEpochs),
-      genesisArchiveRoot: Fr.fromHexString(genesisArchiveRoot),
+      genesisArchiveRoot: Fr.fromString(genesisArchiveRoot.toString()),
     };
 
     const opts = merge(
@@ -789,20 +789,18 @@ export class Archiver
   private async handleCheckpoints(blocksSynchedTo: bigint, currentL1BlockNumber: bigint): Promise<RollupStatus> {
     const localPendingCheckpointNumber = await this.getSynchedCheckpointNumber();
     const initialValidationResult: ValidateBlockResult | undefined = await this.store.getPendingChainValidationStatus();
-    const [
-      rollupProvenCheckpointNumber,
-      provenArchive,
-      rollupPendingCheckpointNumber,
-      pendingArchive,
-      archiveForLocalPendingCheckpointNumber,
-    ] = await this.rollup.status(localPendingCheckpointNumber, { blockNumber: currentL1BlockNumber });
-    const provenCheckpointNumber = CheckpointNumber.fromBigInt(rollupProvenCheckpointNumber);
-    const pendingCheckpointNumber = CheckpointNumber.fromBigInt(rollupPendingCheckpointNumber);
-    const rollupStatus = {
+    const {
       provenCheckpointNumber,
       provenArchive,
       pendingCheckpointNumber,
       pendingArchive,
+      archiveOfMyCheckpoint: archiveForLocalPendingCheckpointNumber,
+    } = await this.rollup.status(localPendingCheckpointNumber, { blockNumber: currentL1BlockNumber });
+    const rollupStatus: RollupStatus = {
+      provenCheckpointNumber,
+      provenArchive: provenArchive.toString(),
+      pendingCheckpointNumber,
+      pendingArchive: pendingArchive.toString(),
       validationResult: initialValidationResult,
     };
     this.log.trace(`Retrieved rollup status at current L1 block ${currentL1BlockNumber}.`, {
@@ -848,14 +846,12 @@ export class Archiver
 
       if (
         localCheckpointForDestinationProvenCheckpointNumber &&
-        provenArchive === localCheckpointForDestinationProvenCheckpointNumber.archive.root.toString()
+        provenArchive.equals(localCheckpointForDestinationProvenCheckpointNumber.archive.root)
       ) {
         const localProvenCheckpointNumber = await this.getProvenCheckpointNumber();
         if (localProvenCheckpointNumber !== provenCheckpointNumber) {
           await this.setProvenCheckpointNumber(provenCheckpointNumber);
-          this.log.info(`Updated proven chain to checkpoint ${provenCheckpointNumber}`, {
-            provenCheckpointNumber,
-          });
+          this.log.info(`Updated proven chain to checkpoint ${provenCheckpointNumber}`, { provenCheckpointNumber });
           const provenSlotNumber = localCheckpointForDestinationProvenCheckpointNumber.header.slotNumber;
           const provenEpochNumber: EpochNumber = getEpochAtSlot(provenSlotNumber, this.l1constants);
           const lastBlockNumberInCheckpoint =
@@ -898,7 +894,7 @@ export class Archiver
       }
 
       const localPendingArchiveRoot = localPendingCheckpoint.archive.root.toString();
-      const noCheckpointSinceLast = localPendingCheckpoint && pendingArchive === localPendingArchiveRoot;
+      const noCheckpointSinceLast = localPendingCheckpoint && pendingArchive.toString() === localPendingArchiveRoot;
       if (noCheckpointSinceLast) {
         // We believe the following line causes a problem when we encounter L1 re-orgs.
         // Basically, by setting the synched L1 block number here, we are saying that we have
@@ -912,7 +908,9 @@ export class Archiver
         return rollupStatus;
       }
 
-      const localPendingCheckpointInChain = archiveForLocalPendingCheckpointNumber === localPendingArchiveRoot;
+      const localPendingCheckpointInChain = archiveForLocalPendingCheckpointNumber.equals(
+        localPendingCheckpoint.archive.root,
+      );
       if (!localPendingCheckpointInChain) {
         // If our local pending checkpoint tip is not in the chain on L1 a "prune" must have happened
         // or the L1 have reorged.
@@ -938,7 +936,7 @@ export class Archiver
               archiveLocal: candidateCheckpoint.archive.root.toString(),
             },
           );
-          if (archiveAtContract === candidateCheckpoint.archive.root.toString()) {
+          if (archiveAtContract.equals(candidateCheckpoint.archive.root)) {
             break;
           }
           tipAfterUnwind--;

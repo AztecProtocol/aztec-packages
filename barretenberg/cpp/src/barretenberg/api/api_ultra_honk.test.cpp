@@ -5,7 +5,6 @@
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp"
-#include "barretenberg/dsl/acir_format/proof_surgeon.hpp"
 #include "barretenberg/flavor/ultra_flavor.hpp"
 #include "barretenberg/flavor/ultra_rollup_flavor.hpp"
 #include "barretenberg/ultra_honk/prover_instance.hpp"

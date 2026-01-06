@@ -131,10 +131,13 @@ export class PoolInstrumentation<PoolObject extends Gossipable> {
   public transactionsRemoved(hashes: Iterable<bigint> | Iterable<string>) {
     const timestamp = Date.now();
     for (const hash of hashes) {
-      const addedAt = this.txAddedTimestamp.get(BigInt(hash));
-      if (addedAt) {
-        this.txAddedTimestamp.delete(BigInt(hash));
-        this.minedDelay.record(addedAt - timestamp);
+      const key = BigInt(hash);
+      const addedAt = this.txAddedTimestamp.get(key);
+      if (addedAt !== undefined) {
+        this.txAddedTimestamp.delete(key);
+        if (addedAt < timestamp) {
+          this.minedDelay.record(timestamp - addedAt);
+        }
       }
     }
   }

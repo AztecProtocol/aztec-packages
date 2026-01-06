@@ -1,8 +1,7 @@
 use crate::macros::{
     internals_functions_generation::external::helpers::{
-        create_authorize_once_check, create_message_discovery_call, get_abi_relevant_attributes,
+        create_authorize_once_check, get_abi_relevant_attributes,
     },
-    notes::NOTES,
     utils::{
         fn_has_authorize_once, fn_has_noinitcheck, fn_has_nophasecheck, is_fn_initializer,
         is_fn_only_self, is_fn_view, module_has_initializer, module_has_storage,
@@ -120,16 +119,6 @@ pub(crate) comptime fn generate_private_external(f: FunctionDefinition) -> Quote
         }
     };
 
-    // All private functions perform message discovery, since they may need to access notes. This is slightly
-    // inefficient and could be improved by only doing it once we actually attempt to read any. Note that the message
-    // discovery call syncs private events as well. We do not sync those here if there are no notes because we don't
-    // have an API that would access events from private functions.
-    let message_discovery_call = if NOTES.len() > 0 {
-        create_message_discovery_call()
-    } else {
-        quote {}
-    };
-
     // Inject the authwit check if the function is marked with #[authorize_once].
     let authorize_once_check = if fn_has_authorize_once(f) {
         create_authorize_once_check(f, true)
@@ -192,7 +181,6 @@ pub(crate) comptime fn generate_private_external(f: FunctionDefinition) -> Quote
         $init_check
         $internal_check
         $view_check
-        $message_discovery_call
         $authorize_once_check
     };
 

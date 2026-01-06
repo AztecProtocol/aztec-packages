@@ -4,21 +4,6 @@ import { openSync, closeSync } from 'fs';
 import { IMsgpackBackendSync } from '../interface.js';
 import { findNapiBinary, findPackageRoot } from './platform.js';
 
-// Import the NAPI module
-// The addon is built to the nodejs_module directory
-const addonPath = findNapiBinary();
-// Try loading, but don't throw if it doesn't exist (will be caught in constructor)
-let addon: any = null;
-try {
-  if (addonPath) {
-    const require = createRequire(findPackageRoot()!);
-    addon = require(addonPath);
-  }
-} catch (err) {
-  // Addon not built yet or not available
-  addon = null;
-}
-
 let instanceCounter = 0;
 
 /**
@@ -50,11 +35,21 @@ export class BarretenbergNativeShmSyncBackend implements IMsgpackBackendSync {
    */
   static async new(
     bbBinaryPath: string,
+    napiPath: string,
     threads?: number,
     logger?: (msg: string) => void,
   ): Promise<BarretenbergNativeShmSyncBackend> {
-    if (!addon || !addon.MsgpackClient) {
-      throw new Error('Shared memory NAPI not available.');
+    // Import the NAPI module
+    // The addon is built to the nodejs_module directory
+    const addonPath = findNapiBinary(napiPath);
+    // Try loading
+    let addon: any = null;
+    try {
+      const require = createRequire(findPackageRoot()!);
+      addon = require(addonPath!);
+    } catch (err) {
+      // Addon not built yet or not available
+      throw new Error('Shared memory sync NAPI not available.');
     }
 
     // Create a unique shared memory name

@@ -136,11 +136,8 @@ impl TestBuilder {
         assert_eq(pi.end_sponge_blob, right.end_sponge_blob);
         assert(pi.start_sponge_blob != pi.end_sponge_blob);
 
-        assert_eq(pi.start_timestamp, left.start_timestamp);
-        assert_eq(pi.end_timestamp, right.end_timestamp);
-        // Each block's timestamp must be larger than the previous block's timestamp. So the range of timestamps must be
-        // at least the number of blocks.
-        assert(pi.end_timestamp - pi.start_timestamp + 1 >= num_blocks as u64);
+        assert_eq(pi.timestamp, left.timestamp);
+        assert_eq(pi.timestamp, right.timestamp);
 
         let expected_block_headers_hash =
             accumulate_block_headers_hash(left.block_headers_hash, right.block_headers_hash);

@@ -141,23 +141,27 @@ fn mismatch_public_data_tree_next_available_leaf_index() {
 }
 
 #[test(should_fail_with = "The start timestamp must be after the previous block's timestamp")]
-fn start_timestamp_before_previous_block_timestamp() {
+fn timestamp_less_than_previous_checkpoint_timestamp() {
     let mut builder = TestBuilder::default();
 
-    // Tweak the start timestamp of the left rollup to be before the previous block's timestamp.
-    let previous_block_header = builder.hints.previous_block_header;
-    builder.left_rollup.start_timestamp = previous_block_header.global_variables.timestamp - 1;
+    // Tweak the timestamp of the blocks to be less than the previous checkpoint's timestamp.
+    let previous_checkpoint_timestamp =
+        builder.hints.previous_block_header.global_variables.timestamp;
+    builder.left_rollup.timestamp = previous_checkpoint_timestamp - 1;
+    builder.right_rollup.timestamp = previous_checkpoint_timestamp - 1;
 
     builder.execute_with_mock_and_fail();
 }
 
 #[test(should_fail_with = "The start timestamp must be after the previous block's timestamp")]
-fn start_timestamp_equals_previous_block_timestamp() {
+fn timestamp_equals_previous_checkpoint_timestamp() {
     let mut builder = TestBuilder::default();
 
-    // Tweak the start timestamp of the left rollup to be equal to the previous block's timestamp.
-    let previous_block_header = builder.hints.previous_block_header;
-    builder.left_rollup.start_timestamp = previous_block_header.global_variables.timestamp;
+    // Tweak the timestamp of the blocks to be equal to the previous checkpoint's timestamp.
+    let previous_checkpoint_timestamp =
+        builder.hints.previous_block_header.global_variables.timestamp;
+    builder.left_rollup.timestamp = previous_checkpoint_timestamp;
+    builder.right_rollup.timestamp = previous_checkpoint_timestamp;
 
     builder.execute_with_mock_and_fail();
 }

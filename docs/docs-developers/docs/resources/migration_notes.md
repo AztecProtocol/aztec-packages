@@ -9,26 +9,44 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## TBD
 
+### [Aztec.nr] Renamed message delivery options
+
+The following terms have been renamed:
+
+ - `MessageDelivery::UNCONSTRAINED_OFFCHAIN` -> `MessageDelivery::OFFCHAIN`
+ - `MessageDelivery::UNCONSTRAINED_ONCHAIN` -> `MessageDelivery::OFFCHAIN_UNCONSTRAINED`
+ - `MessageDelivery::CONSTRAINED_ONCHAIN` -> `MessageDelivery::ONCHAIN_CONSTRAINED`
+
+We believe these names will better convey the meaning of the concepts.
+
+### [Aztec Node] changes to `getLogsByTags` endpoint
+
+`getLogsByTags` endpoint has been optimized for our new log sync algorithm and these are the changes:
+
+- The `logsPerTag` pagination argument has been removed. Pagination was unnecessary here, since multiple logs per tag typically only occur if several devices are sending logs from the same sender to a recipient, which is unlikely to generate enough logs to require pagination.
+- The structure of `TxScopedL2Log` has been revised to meet the requirements of our new log sync algorithm.
+- The endpoint has been separated into two versions: `getPrivateLogsByTags` and `getPublicLogsByTagsFromContract`. This change was made because it was never desirable in PXE to mix public and private logs. The public version requires both a `Tag` and a contract address as input. In contrast to the private version—which uses `SiloedTag` (a tag that hashes the raw tag with the emitting contract's address)—the public version uses the raw `Tag` type, since kernels do not hash the tag with the contract address for public logs.
+
 ### [AVM] Gas cost multipliers for public execution to reach simulation/proving parity
 
 Gas costs for several AVM opcodes have been adjusted with multipliers to better align public simulation costs with actual proving costs.
 
-| Opcode | Multiplier | Previous Cost | New Cost |
-|--------|------------|---------------|----------|
-| FDIV | 25x | 9 | 225 |
-| SLOAD | 10x | 129 | 1,290 |
-| SSTORE | 20x | 1,657 | 33,140 |
-| NOTEHASHEXISTS | 4x | 126 | 504 |
-| EMITNOTEHASH | 15x | 1,285 | 19,275 |
-| NULLIFIEREXISTS | 7x | 132 | 924 |
-| EMITNULLIFIER | 20x | 1,540 | 30,800 |
-| L1TOL2MSGEXISTS | 5x | 108 | 540 |
-| SENDL2TOL1MSG | 2x | 209 | 418 |
-| CALL | 3x | 3,312 | 9,936 |
-| STATICCALL | 3x | 3,312 | 9,936 |
-| GETCONTRACTINSTANCE | 4x | 1,527 | 6,108 |
-| POSEIDON2 | 15x | 24 | 360 |
-| ECADD | 10x | 27 | 270 |
+| Opcode              | Multiplier | Previous Cost | New Cost |
+| ------------------- | ---------- | ------------- | -------- |
+| FDIV                | 25x        | 9             | 225      |
+| SLOAD               | 10x        | 129           | 1,290    |
+| SSTORE              | 20x        | 1,657         | 33,140   |
+| NOTEHASHEXISTS      | 4x         | 126           | 504      |
+| EMITNOTEHASH        | 15x        | 1,285         | 19,275   |
+| NULLIFIEREXISTS     | 7x         | 132           | 924      |
+| EMITNULLIFIER       | 20x        | 1,540         | 30,800   |
+| L1TOL2MSGEXISTS     | 5x         | 108           | 540      |
+| SENDL2TOL1MSG       | 2x         | 209           | 418      |
+| CALL                | 3x         | 3,312         | 9,936    |
+| STATICCALL          | 3x         | 3,312         | 9,936    |
+| GETCONTRACTINSTANCE | 4x         | 1,527         | 6,108    |
+| POSEIDON2           | 15x        | 24            | 360      |
+| ECADD               | 10x        | 27            | 270      |
 
 **Impact**: Contracts with public bytecode performing any of these operations will see increased gas consumption.
 
@@ -41,6 +59,8 @@ do so through the new `debug` sub-module.
 - this.pxe.getNotes(filter);
 + this.pxe.debug.getNotes(filter);
 ```
+
+## 3.0.0-devnet.20251212
 
 ### [Aztec node, archiver] Deprecated `getPrivateLogs`
 

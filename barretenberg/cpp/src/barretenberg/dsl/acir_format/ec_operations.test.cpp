@@ -1,6 +1,5 @@
 #include "ec_operations.hpp"
 #include "acir_format.hpp"
-#include "acir_format_mocks.hpp"
 
 #include "barretenberg/dsl/acir_format/test_class_predicate.hpp"
 #include "barretenberg/dsl/acir_format/utils.hpp"
@@ -46,6 +45,8 @@ template <typename Builder_, InputConstancy Constancy> class EcOperationsTesting
 
         static std::vector<std::string> get_labels() { return { "None", "Input1", "Input2", "Result" }; }
     };
+
+    static ProgramMetadata generate_metadata() { return ProgramMetadata{}; }
 
     static void generate_constraints(AcirConstraint& ec_add_constraint, WitnessVector& witness_values)
     {

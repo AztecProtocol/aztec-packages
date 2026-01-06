@@ -34,8 +34,10 @@ pub struct PublicTxBaseRollupPrivateInputs {
     pub(crate) anchor_block_archive_sibling_path: [Field; ARCHIVE_HEIGHT],
 
     // Fields of the contract class logs.
-    // These fields are validated against the hashes committed to and propagated from the private tail kernel. The
-    // fields themselves are added to the blobs, instead of the hashes.
+    // These fields are validated against the contract class log hashes that are committed to and propagated
+    // from the private tail kernel. The fields themselves are added to the blobs, instead of the hashes.
+    // Note: if the avm reverted, only the _non-revertible_ contract class logs will be fed into this circuit, and
+    // only the _non-revertible_ contract class log hashes will be reconciled.
     pub(crate) contract_class_log_fields: [[Field; CONTRACT_CLASS_LOG_SIZE_IN_FIELDS]; MAX_CONTRACT_CLASS_LOGS_PER_TX],
 }
 
@@ -68,7 +70,7 @@ pub fn execute(inputs: PublicTxBaseRollupPrivateInputs) -> TxRollupPublicInputs 
     PublicTxBaseInputsValidator::new(
         inputs.public_chonk_verifier_proof_data,
         inputs.avm_proof_data,
-        composer.constants,
+        composer.constants, // where applicable, these constants have been copied-over from the avm's public inputs.
         inputs.anchor_block_archive_sibling_path,
     )
         .validate();

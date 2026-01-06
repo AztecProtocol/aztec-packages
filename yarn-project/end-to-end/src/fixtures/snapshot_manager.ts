@@ -9,7 +9,6 @@ import type { Logger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 import { AnvilTestWatcher, CheatCodes } from '@aztec/aztec/testing';
-import { createBlobClientWithFileStores } from '@aztec/blob-client/client';
 import { createExtendedL1Client } from '@aztec/ethereum/client';
 import { getL1ContractsConfigEnvVars } from '@aztec/ethereum/config';
 import { deployMulticall3 } from '@aztec/ethereum/contracts';
@@ -46,7 +45,7 @@ import type { Hex } from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
-import { MNEMONIC, TEST_MAX_TX_POOL_SIZE, TEST_PEER_CHECK_INTERVAL_MS } from './fixtures.js';
+import { MNEMONIC, TEST_MAX_PENDING_TX_POOL_COUNT, TEST_PEER_CHECK_INTERVAL_MS } from './fixtures.js';
 import { getACVMConfig } from './get_acvm_config.js';
 import { getBBConfig } from './get_bb_config.js';
 import {
@@ -303,7 +302,7 @@ async function setupFromFresh(
   // TODO: For some reason this is currently the union of a bunch of subsystems. That needs fixing.
   const aztecNodeConfig: AztecNodeConfig & SetupOptions = { ...getConfigEnvVars(), ...opts };
   aztecNodeConfig.peerCheckIntervalMS = TEST_PEER_CHECK_INTERVAL_MS;
-  aztecNodeConfig.maxTxPoolSize = opts.maxTxPoolSize ?? TEST_MAX_TX_POOL_SIZE;
+  aztecNodeConfig.maxPendingTxCount = opts.maxPendingTxCount ?? TEST_MAX_PENDING_TX_POOL_COUNT;
   // Only enable proving if specifically requested.
   aztecNodeConfig.realProofs = !!opts.realProofs;
   // Only enforce the time table if requested
@@ -410,12 +409,10 @@ async function setupFromFresh(
 
   const telemetry = await getEndToEndTestTelemetryClient(opts.metricsPort);
 
-  const blobClient = await createBlobClientWithFileStores(aztecNodeConfig, createLogger('node:blob-client:client'));
-
   logger.info('Creating and synching an aztec node...');
   const aztecNode = await AztecNodeService.createAndSync(
     aztecNodeConfig,
-    { telemetry, dateProvider, blobClient },
+    { telemetry, dateProvider },
     { prefilledPublicData },
   );
 
@@ -525,12 +522,10 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
 
   const telemetry = await initTelemetryClient(getTelemetryConfig());
 
-  const blobClient = await createBlobClientWithFileStores(aztecNodeConfig, createLogger('node:blob-client:client'));
-
   logger.verbose('Creating aztec node...');
   const aztecNode = await AztecNodeService.createAndSync(
     aztecNodeConfig,
-    { telemetry, dateProvider, blobClient },
+    { telemetry, dateProvider },
     { prefilledPublicData },
   );
 

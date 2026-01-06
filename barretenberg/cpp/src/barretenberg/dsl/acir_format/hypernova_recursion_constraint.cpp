@@ -14,7 +14,6 @@
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/primitives/pairing_points.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
-#include "proof_surgeon.hpp"
 #include "recursion_constraint.hpp"
 
 namespace acir_format {

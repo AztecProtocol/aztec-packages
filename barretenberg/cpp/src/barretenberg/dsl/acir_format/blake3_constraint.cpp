@@ -26,7 +26,7 @@ template <typename Builder> void create_blake3_constraints(Builder& builder, con
 
         // XXX: The implementation requires us to truncate the element to the nearest byte and not bit
         auto num_bytes = round_to_nearest_byte(num_bits);
-        BB_ASSERT_LTE(num_bytes, 1024U, "barretenberg does not support blake3 inputs with more than 1024 bytes");
+        BB_ASSERT_LTE(num_bytes, 32U, "Input num_bytes exceeds 32 per element in blake3s");
         field_ct element = to_field_ct(witness_index, builder);
 
         // byte_array_ct(field, num_bytes) constructor adds range constraints for each byte
@@ -35,7 +35,7 @@ template <typename Builder> void create_blake3_constraints(Builder& builder, con
         // Safe write: both arr and element_bytes are constrained
         arr.write(element_bytes);
     }
-
+    BB_ASSERT_LTE(arr.size(), 1024U, "Barretenberg does not support blake3 inputs with more than 1024 bytes");
     byte_array_ct output_bytes = bb::stdlib::Blake3s<Builder>::hash(arr);
 
     for (const auto& [output_byte, result_byte_idx] : zip_view(output_bytes.bytes(), constraint.result)) {

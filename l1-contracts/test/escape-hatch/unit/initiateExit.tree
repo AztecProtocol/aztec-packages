@@ -1,0 +1,22 @@
+EscapeHatchInitiateExitTest
+├── given caller is not in candidate set
+│   └── it should revert {EscapeHatch__NotInCandidateSet}
+└── given caller is in candidate set
+    ├── given caller status is not ACTIVE
+    │   └── it should revert {EscapeHatch__InvalidStatus}
+    └── given caller status is ACTIVE
+        ├── when current time is before next freeze timestamp
+        │   ├── it should call selectCandidates
+        │   ├── it should remove caller from active candidates
+        │   ├── it should set caller status to EXITING
+        │   ├── it should set exitableAt to current timestamp
+        │   └── it should emit CandidateExitInitiated event
+        └── when current time is at or after next freeze timestamp
+            ├── given caller is selected as proposer during selectCandidates
+            │   └── it should revert {EscapeHatch__NotInCandidateSet}
+            └── given caller is not selected as proposer during selectCandidates
+                ├── it should call selectCandidates
+                ├── it should remove caller from active candidates
+                ├── it should set caller status to EXITING
+                ├── it should set exitableAt to first epoch after next hatch
+                └── it should emit CandidateExitInitiated event

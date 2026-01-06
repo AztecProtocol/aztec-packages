@@ -50,6 +50,11 @@ export interface BlobClientConfig extends BlobArchiveApiConfig {
    * URL for uploading blobs to filestore (s3://, gs://, file://)
    */
   blobFileStoreUploadUrl?: string;
+
+  /**
+   * Interval in minutes for uploading healthcheck file to file store (default: 60 = 1 hour)
+   */
+  blobHealthcheckUploadIntervalMinutes?: number;
 }
 
 export const blobClientConfigMapping: ConfigMappingsType<BlobClientConfig> = {
@@ -97,6 +102,11 @@ export const blobClientConfigMapping: ConfigMappingsType<BlobClientConfig> = {
   blobFileStoreUploadUrl: {
     env: 'BLOB_FILE_STORE_UPLOAD_URL',
     description: 'URL for uploading blobs to filestore (s3://, gs://, file://)',
+  },
+  blobHealthcheckUploadIntervalMinutes: {
+    env: 'BLOB_HEALTHCHECK_UPLOAD_INTERVAL_MINUTES',
+    description: 'Interval in minutes for uploading healthcheck file to file store (default: 60 = 1 hour)',
+    parseEnv: (val: string | undefined) => (val ? +val : undefined),
   },
   ...blobArchiveApiConfigMappings,
 };

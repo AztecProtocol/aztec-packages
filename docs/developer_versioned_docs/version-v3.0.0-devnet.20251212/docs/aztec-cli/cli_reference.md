@@ -1886,3 +1886,319 @@ Options:
   -h, --help                       display help for command
 
 ```
+
+### aztec init
+
+*No help information available for this command.*
+
+
+### aztec new
+
+*No help information available for this command.*
+
+
+### aztec compile
+
+```
+Aztec Compile - Compile Aztec Noir contracts
+
+This command compiles Aztec Noir contracts using nargo and then automatically
+postprocesses them to generate Aztec-specific artifacts including:
+  - Transpiled contract artifacts
+  - Verification keys
+
+The compiled contracts will be placed in the target/ directory by default.
+
+AZTEC-SPECIFIC NOTES:
+  - Working directory must be under $HOME due to Docker containerization
+  - Compilation automatically includes contract postprocessing
+  - Use standard nargo compile options (see below)
+
+ENVIRONMENT VARIABLES:
+  AZTEC_PATH    Path to Aztec installation (default: $HOME/.aztec)
+  VERSION       Aztec version to use (default: from $AZTEC_PATH/default_version)
+  DOCKER_REPO   Docker repository (default: aztecprotocol/aztec)
+
+---
+Underlying nargo compile options:
+
+Compile the program and its secret execution trace into ACIR format
+
+Usage: nargo compile [OPTIONS]
+
+Options:
+      --package <PACKAGE>
+          The name of the package to run the command on. By default run on the first one found moving up along the ancestors of the current directory
+
+      --workspace
+          Run on all packages in the workspace
+
+      --expression-width <EXPRESSION_WIDTH>
+          Specify the backend expression width that should be targeted
+
+      --bounded-codegen
+          Generate ACIR with the target backend expression width. The default is to generate ACIR without a bound and split expressions after code generation. Activating this flag can sometimes provide optimizations for certain programs
+
+      --force
+          Force a full recompilation
+
+      --print-acir
+          Display the ACIR for compiled circuit
+
+      --deny-warnings
+          Treat all warnings as errors
+
+      --silence-warnings
+          Suppress warnings
+
+      --debug-comptime-in-file <DEBUG_COMPTIME_IN_FILE>
+          Enable printing results of comptime evaluation: provide a path suffix for the module to debug, e.g. "package_name/src/main.nr"
+
+      --skip-underconstrained-check
+          Flag to turn off the compiler check for under constrained values. Warning: This can improve compilation speed but can also lead to correctness errors. This check should always be run on production code
+
+      --skip-brillig-constraints-check
+          Flag to turn off the compiler check for missing Brillig call constraints. Warning: This can improve compilation speed but can also lead to correctness errors. This check should always be run on production code
+
+      --count-array-copies
+          Count the number of arrays that are copied in an unconstrained context for performance debugging
+
+      --enable-brillig-constraints-check-lookback
+          Flag to turn on the lookback feature of the Brillig call constraints check, allowing tracking argument values before the call happens preventing certain rare false positives (leads to a slowdown on large rollout functions)
+
+      --inliner-aggressiveness <INLINER_AGGRESSIVENESS>
+          Setting to decide on an inlining strategy for Brillig functions. A more aggressive inliner should generate larger programs but more optimized A less aggressive inliner should generate smaller programs
+
+          [default: 9223372036854775807]
+
+      --pedantic-solving
+          Use pedantic ACVM solving, i.e. double-check some black-box function assumptions when solving. This is disabled by default
+
+  -Z, --unstable-features <UNSTABLE_FEATURES>
+          Unstable features to enable for this current build.
+
+          If non-empty, it disables unstable features required in crate manifests.
+
+      --no-unstable-features
+          Disable any unstable features required in crate manifests
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+```
+
+### aztec fmt
+
+```
+Format the Noir files in a workspace
+
+Usage: nargo fmt [OPTIONS]
+
+Options:
+      --check              Run noirfmt in check mode
+      --package <PACKAGE>  The name of the package to run the command on. By default run on the first one found moving up along the ancestors of the current directory
+      --workspace          Run on all packages in the workspace
+  -h, --help               Print help
+
+```
+
+### aztec check
+
+```
+Check a local package and all of its dependencies for errors
+
+Usage: nargo check [OPTIONS]
+
+Options:
+      --package <PACKAGE>
+          The name of the package to run the command on. By default run on the first one found moving up along the ancestors of the current directory
+
+      --workspace
+          Run on all packages in the workspace
+
+      --overwrite
+          Force overwrite of existing files
+
+      --expression-width <EXPRESSION_WIDTH>
+          Specify the backend expression width that should be targeted
+
+      --bounded-codegen
+          Generate ACIR with the target backend expression width. The default is to generate ACIR without a bound and split expressions after code generation. Activating this flag can sometimes provide optimizations for certain programs
+
+      --force
+          Force a full recompilation
+
+      --print-acir
+          Display the ACIR for compiled circuit
+
+      --deny-warnings
+          Treat all warnings as errors
+
+      --silence-warnings
+          Suppress warnings
+
+      --debug-comptime-in-file <DEBUG_COMPTIME_IN_FILE>
+          Enable printing results of comptime evaluation: provide a path suffix for the module to debug, e.g. "package_name/src/main.nr"
+
+      --skip-underconstrained-check
+          Flag to turn off the compiler check for under constrained values. Warning: This can improve compilation speed but can also lead to correctness errors. This check should always be run on production code
+
+      --skip-brillig-constraints-check
+          Flag to turn off the compiler check for missing Brillig call constraints. Warning: This can improve compilation speed but can also lead to correctness errors. This check should always be run on production code
+
+      --count-array-copies
+          Count the number of arrays that are copied in an unconstrained context for performance debugging
+
+      --enable-brillig-constraints-check-lookback
+          Flag to turn on the lookback feature of the Brillig call constraints check, allowing tracking argument values before the call happens preventing certain rare false positives (leads to a slowdown on large rollout functions)
+
+      --inliner-aggressiveness <INLINER_AGGRESSIVENESS>
+          Setting to decide on an inlining strategy for Brillig functions. A more aggressive inliner should generate larger programs but more optimized A less aggressive inliner should generate smaller programs
+
+          [default: 9223372036854775807]
+
+      --pedantic-solving
+          Use pedantic ACVM solving, i.e. double-check some black-box function assumptions when solving. This is disabled by default
+
+  -Z, --unstable-features <UNSTABLE_FEATURES>
+          Unstable features to enable for this current build.
+
+          If non-empty, it disables unstable features required in crate manifests.
+
+      --no-unstable-features
+          Disable any unstable features required in crate manifests
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+```
+
+### aztec test
+
+```
+Run the tests for this program
+
+Usage: nargo test [OPTIONS] [TEST_NAMES]...
+
+Arguments:
+  [TEST_NAMES]...
+          If given, only tests with names containing this string will be run
+
+Options:
+      --show-output
+          Display output of `println` statements
+
+      --exact
+          Only run tests that match exactly
+
+      --package <PACKAGE>
+          The name of the package to run the command on. By default run on the first one found moving up along the ancestors of the current directory
+
+      --workspace
+          Run on all packages in the workspace
+
+      --expression-width <EXPRESSION_WIDTH>
+          Specify the backend expression width that should be targeted
+
+      --bounded-codegen
+          Generate ACIR with the target backend expression width. The default is to generate ACIR without a bound and split expressions after code generation. Activating this flag can sometimes provide optimizations for certain programs
+
+      --force
+          Force a full recompilation
+
+      --print-acir
+          Display the ACIR for compiled circuit
+
+      --deny-warnings
+          Treat all warnings as errors
+
+      --silence-warnings
+          Suppress warnings
+
+      --debug-comptime-in-file <DEBUG_COMPTIME_IN_FILE>
+          Enable printing results of comptime evaluation: provide a path suffix for the module to debug, e.g. "package_name/src/main.nr"
+
+      --skip-underconstrained-check
+          Flag to turn off the compiler check for under constrained values. Warning: This can improve compilation speed but can also lead to correctness errors. This check should always be run on production code
+
+      --skip-brillig-constraints-check
+          Flag to turn off the compiler check for missing Brillig call constraints. Warning: This can improve compilation speed but can also lead to correctness errors. This check should always be run on production code
+
+      --count-array-copies
+          Count the number of arrays that are copied in an unconstrained context for performance debugging
+
+      --enable-brillig-constraints-check-lookback
+          Flag to turn on the lookback feature of the Brillig call constraints check, allowing tracking argument values before the call happens preventing certain rare false positives (leads to a slowdown on large rollout functions)
+
+      --inliner-aggressiveness <INLINER_AGGRESSIVENESS>
+          Setting to decide on an inlining strategy for Brillig functions. A more aggressive inliner should generate larger programs but more optimized A less aggressive inliner should generate smaller programs
+
+          [default: 9223372036854775807]
+
+      --pedantic-solving
+          Use pedantic ACVM solving, i.e. double-check some black-box function assumptions when solving. This is disabled by default
+
+  -Z, --unstable-features <UNSTABLE_FEATURES>
+          Unstable features to enable for this current build.
+
+          If non-empty, it disables unstable features required in crate manifests.
+
+      --no-unstable-features
+          Disable any unstable features required in crate manifests
+
+      --oracle-resolver <ORACLE_RESOLVER>
+          JSON RPC url to solve oracle calls
+
+      --test-threads <TEST_THREADS>
+          Number of threads used for running tests in parallel
+
+          [default: 14]
+
+      --format <FORMAT>
+          Configure formatting of output
+
+          Possible values:
+          - pretty: Print verbose output
+          - terse:  Display one character per test
+          - json:   Output a JSON Lines document
+
+  -q, --quiet
+          Display one character per test instead of one line
+
+      --no-fuzz
+          Do not run fuzz tests (tests that have arguments)
+
+      --only-fuzz
+          Only run fuzz tests (tests that have arguments)
+
+      --corpus-dir <CORPUS_DIR>
+          If given, load/store fuzzer corpus from this folder
+
+      --minimized-corpus-dir <MINIMIZED_CORPUS_DIR>
+          If given, perform corpus minimization instead of fuzzing and store results in the given folder
+
+      --fuzzing-failure-dir <FUZZING_FAILURE_DIR>
+          If given, store the failing input in the given folder
+
+      --fuzz-timeout <FUZZ_TIMEOUT>
+          Maximum time in seconds to spend fuzzing (default: 1 seconds)
+
+          [default: 1]
+
+      --fuzz-max-executions <FUZZ_MAX_EXECUTIONS>
+          Maximum number of executions to run for each fuzz test (default: 100000)
+
+          [default: 100000]
+
+      --fuzz-show-progress
+          Show progress of fuzzing (default: false)
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+```
+
+### aztec lsp
+
+*No help information available for this command.*
+

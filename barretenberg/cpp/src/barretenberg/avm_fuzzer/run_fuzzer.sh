@@ -39,6 +39,8 @@ if [ "$COMMAND" = "list-targets" ]; then
     echo "  merkle_check - Merkle Check fuzzer (harness_merkle_check_fuzzer)"
     echo "  calldata - Calldata fuzzer (harness_calldata_fuzzer)"
     echo "  emit_unencrypted_log - Emit Unencrypted Log fuzzer (harness_emit_unencrypted_log_fuzzer)"
+    echo "  internal_call - Internal Call fuzzer (harness_internal_call_fuzzer)"
+    echo "  external_call - External Call fuzzer (harness_external_call_fuzzer)"
     exit 0
 fi
 
@@ -83,9 +85,11 @@ case "$FUZZER_ALIAS" in
     merkle_check) FUZZER_TYPE="harness_merkle_check_fuzzer" ;;
     calldata) FUZZER_TYPE="harness_calldata_fuzzer" ;;
     emit_unencrypted_log) FUZZER_TYPE="harness_emit_unencrypted_log_fuzzer" ;;
+    internal_call) FUZZER_TYPE="harness_internal_call_fuzzer" ;;
+    external_call) FUZZER_TYPE="harness_external_call_fuzzer" ;;
     *)
         echo "Error: Invalid fuzzer type '$FUZZER_ALIAS'"
-        echo "Valid options: 'avm', 'tx', 'prover', 'alu', 'bitwise', 'ecc', 'gt', 'merkle_check', 'calldata', or 'emit_unencrypted_log'"
+        echo "Valid options: 'avm', 'tx', 'prover', 'alu', 'bitwise', 'ecc', 'gt', 'merkle_check', 'calldata', 'emit_unencrypted_log', 'internal_call', or 'external_call'"
         exit 1
         ;;
 esac

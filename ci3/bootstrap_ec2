@@ -8,16 +8,19 @@ NO_TERMINATE=${NO_TERMINATE:-0}
 
 # We're always "in CI" if we're running on a remote instance.
 export CI=1
+# Enable build instance key features (disk logging, benchmark uploads) by default.
+# Set to 0 in ci3-external.yml for external contributors who don't have SSH access.
+export CI_USE_BUILD_INSTANCE_KEY=${CI_USE_BUILD_INSTANCE_KEY:-1}
 
 if [ "$arch" == "arm64" ]; then
   cores=64
   # Allow for 90 minutes as ARM has less cores.
-  export AWS_SHUTDOWN_TIME=90
+  export AWS_SHUTDOWN_TIME=${AWS_SHUTDOWN_TIME:-90}
 else
   cores=192,128,64
   if [ "$CI_FULL" -eq 1 ]; then
     # Allow for 75 minutes as ci-full time has crept up.
-    export AWS_SHUTDOWN_TIME=75
+    export AWS_SHUTDOWN_TIME=${AWS_SHUTDOWN_TIME:-75}
   fi
 fi
 
@@ -134,7 +137,7 @@ container_script=$(
   source ci3/source_redis
   source ci3/source_cache
   ci_log_id=\$(log_ci_run)
-  export PARENT_LOG_URL=${PARENT_LOG_URL:-http://ci.aztec-labs.com/\$ci_log_id}
+  export PARENT_LOG_URL=${PARENT_LOG_URL:-}
 
   if [ -n "\$DOCKERHUB_PASSWORD" ]; then
     echo \$DOCKERHUB_PASSWORD | docker login -u \$DOCKERHUB_USERNAME --password-stdin
@@ -276,6 +279,7 @@ function run {
         -e JOB_ID=${JOB_ID:-} \
         -e REF_NAME=${REF_NAME:-} \
         -e TARGET_BRANCH=${TARGET_BRANCH:-} \
+        -e CI_DASHBOARD=${CI_DASHBOARD:-} \
         -e PARENT_LOG_URL=${PARENT_LOG_URL:-} \
         -e NO_CACHE=${NO_CACHE:-} \
         -e NO_FAIL_FAST=${NO_FAIL_FAST:-} \

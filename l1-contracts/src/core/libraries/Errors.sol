@@ -2,6 +2,7 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
+import {Status, Hatch} from "@aztec/core/interfaces/IEscapeHatch.sol";
 import {SlashRound} from "@aztec/core/libraries/SlashRoundLib.sol";
 import {Timestamp, Slot, Epoch} from "@aztec/core/libraries/TimeLib.sol";
 
@@ -97,6 +98,19 @@ library Errors {
     uint256 checkpointNumber, uint256 pendingCheckpointNumber, uint256 upperLimit
   );
   error Rollup__NoBlobsInCheckpoint();
+  error Rollup__CannotInvalidateEscapeHatch();
+  error Rollup__InvalidEscapeHatchProposer(address expected, address actual);
+
+  // EscapeHatch
+  error EscapeHatch__AlreadyInCandidateSet(address candidate);
+  error EscapeHatch__NotInCandidateSet(address candidate);
+  error EscapeHatch__InvalidStatus(Status expected, Status actual);
+  error EscapeHatch__NotExitableYet(uint256 exitableAt, uint256 currentTime);
+  error EscapeHatch__OnlyRollup(address caller, address rollup);
+  error EscapeHatch__NoDesignatedProposer(Hatch hatch);
+  error EscapeHatch__InvalidConfiguration();
+  error EscapeHatch__SetUnstable(Hatch hatch);
+  error EscapeHatch__AlreadyValidated(Hatch hatch);
 
   // ProposedHeaderLib
   error HeaderLib__InvalidHeaderSize(uint256 expected, uint256 actual); // 0xf3ccb247

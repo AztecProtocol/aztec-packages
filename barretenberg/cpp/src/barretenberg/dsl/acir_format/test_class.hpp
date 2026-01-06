@@ -7,17 +7,24 @@
 #pragma once
 
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
-#include "barretenberg/dsl/acir_format/acir_format_mocks.hpp"
 #include "barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp"
 #include "barretenberg/dsl/acir_format/serde/index.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "gtest/gtest.h"
+#include <type_traits>
 #include <vector>
 
 namespace acir_format {
 
 using namespace bb;
 using namespace bb::stdlib;
+
+// Type trait to detect std::vector
+template <typename T> struct is_std_vector : std::false_type {};
+
+template <typename T, typename Alloc> struct is_std_vector<std::vector<T, Alloc>> : std::true_type {};
+
+template <typename T> inline constexpr bool is_std_vector_v = is_std_vector<T>::value;
 
 /**
  * @brief Convert a WitnessOrConstant back to an Acir::FunctionInput.
@@ -157,10 +164,10 @@ inline std::vector<Acir::Opcode> block_constraint_to_acir_opcodes(const BlockCon
 }
 
 /**
- * @brief Add terms for a QuadConstraints to an Acir::Expression
+ * @brief Add terms for a QuadConstraint to an Acir::Expression
  *
  */
-inline void add_terms_to_expression(Acir::Expression& expr, const QuadConstraints& mul_quad)
+inline void add_terms_to_expression(Acir::Expression& expr, const QuadConstraint& mul_quad)
 {
     // Add multiplication term if both a and b are not constants
     if (mul_quad.a != bb::stdlib::IS_CONSTANT && mul_quad.b != bb::stdlib::IS_CONSTANT &&
@@ -436,7 +443,7 @@ template <typename ConstraintType> std::vector<Acir::Opcode> constraint_to_acir_
                                        } } } } };
     } else if constexpr (std::is_same_v<ConstraintType, BlockConstraint>) {
         return block_constraint_to_acir_opcodes(constraint);
-    } else if constexpr (std::is_same_v<ConstraintType, QuadConstraints>) {
+    } else if constexpr (std::is_same_v<ConstraintType, QuadConstraint>) {
         // Convert a single mul_quad_ to an AssertZero opcode
         Acir::Expression expr{
             .mul_terms = {},
@@ -447,7 +454,7 @@ template <typename ConstraintType> std::vector<Acir::Opcode> constraint_to_acir_
         add_terms_to_expression(expr, constraint);
 
         return { Acir::Opcode{ .value = Acir::Opcode::AssertZero{ .value = expr } } };
-    } else if constexpr (std::is_same_v<ConstraintType, std::vector<QuadConstraints>>) {
+    } else if constexpr (std::is_same_v<ConstraintType, BigQuadConstraint>) {
         // Convert a vector of mul_quad_ (big_quad_constraints) to an AssertZero opcode
         Acir::Expression expr{
             .mul_terms = {},
@@ -488,21 +495,35 @@ inline Acir::Circuit build_acir_circuit(const std::vector<Acir::Opcode>& opcodes
 }
 
 /**
- * @brief Convert an AcirConstraint to AcirFormat by going through the full ACIR serde flow.
+ * @brief Convert an AcirConstraint (single or vector) to AcirFormat by going through the full ACIR serde flow.
  *
  * @details This function:
- * 1. Converts the constraint to Acir::Opcodes
+ * 1. Converts the constraint(s) to Acir::Opcodes
  * 2. Builds an Acir::Circuit with those opcodes
  * 3. Passes the circuit through circuit_serde_to_acir_format
  *
- * @param constraint The constraint to convert
+ * When ConstraintType is a std::vector, iterates over all constraints and collects their opcodes.
+ *
+ * @param constraint The constraint (or vector of constraints) to convert
  * @param varnum The number of witnesses
  * @return AcirFormat The resulting AcirFormat
  */
 template <typename ConstraintType>
 AcirFormat constraint_to_acir_format(const ConstraintType& constraint, uint32_t varnum)
 {
-    std::vector<Acir::Opcode> opcodes = constraint_to_acir_opcode(constraint);
+    std::vector<Acir::Opcode> opcodes;
+
+    if constexpr (is_std_vector_v<ConstraintType>) {
+        // Handle vector of constraints - collect all opcodes
+        for (const auto& c : constraint) {
+            auto c_opcodes = constraint_to_acir_opcode(c);
+            opcodes.insert(opcodes.end(), c_opcodes.begin(), c_opcodes.end());
+        }
+    } else {
+        // Handle single constraint
+        opcodes = constraint_to_acir_opcode(constraint);
+    }
+
     Acir::Circuit circuit = build_acir_circuit(opcodes, varnum);
     return circuit_serde_to_acir_format(circuit);
 }
@@ -543,6 +564,12 @@ concept TestBase = requires {
          *
          */
         { T::generate_constraints(constraint, witness_values) } -> std::same_as<void>;
+
+        /**
+         * @brief Method to generate ProgramMetadata to be passed to create_circuit
+         *
+         */
+        { T::generate_metadata() } -> std::same_as<ProgramMetadata>;
     };
 
     requires requires(T& instance,
@@ -636,6 +663,7 @@ template <TestBase Base_> class TestClass {
 
             // Validate the builder
             EXPECT_TRUE(CircuitChecker::check(builder));
+            EXPECT_FALSE(builder.failed());
         }
 
         std::shared_ptr<VerificationKey> vk_from_constraint;

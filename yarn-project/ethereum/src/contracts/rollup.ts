@@ -1,4 +1,6 @@
 import { CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { Buffer32 } from '@aztec/foundation/buffer';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { memoize } from '@aztec/foundation/decorators';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { ViemSignature } from '@aztec/foundation/eth-signature';
@@ -90,6 +92,103 @@ export enum SlashingProposerType {
   Empire = 2,
 }
 
+/**
+ * Status of a validator/attester in the staking system.
+ * Matches the Status enum in StakingLib.sol
+ */
+export enum AttesterStatus {
+  NONE = 0,
+  VALIDATING = 1,
+  ZOMBIE = 2,
+  EXITING = 3,
+}
+
+/**
+ * Fee header data for a checkpoint
+ */
+export type FeeHeader = {
+  excessMana: bigint;
+  manaUsed: bigint;
+  feeAssetPriceNumerator: bigint;
+  congestionCost: bigint;
+  proverCost: bigint;
+};
+
+/**
+ * Checkpoint log data returned from the rollup contract
+ */
+export type CheckpointLog = {
+  archive: Fr;
+  headerHash: Buffer32;
+  blobCommitmentsHash: Buffer32;
+  attestationsHash: Buffer32;
+  payloadDigest: Buffer32;
+  slotNumber: SlotNumber;
+  feeHeader: FeeHeader;
+};
+
+/**
+ * L1 fee data (base fee and blob fee)
+ */
+export type L1FeeData = {
+  baseFee: bigint;
+  blobFee: bigint;
+};
+
+/**
+ * Reward configuration for the rollup
+ */
+export type RewardConfig = {
+  rewardDistributor: EthAddress;
+  sequencerBps: bigint;
+  booster: EthAddress;
+  checkpointReward: bigint;
+};
+
+/**
+ * Exit information for a validator
+ */
+export type Exit = {
+  withdrawalId: bigint;
+  amount: bigint;
+  exitableAt: bigint;
+  recipientOrWithdrawer: EthAddress;
+  isRecipient: boolean;
+  exists: boolean;
+};
+
+/**
+ * Attester configuration including public key and withdrawer
+ */
+export type AttesterConfig = {
+  publicKey: {
+    x: bigint;
+    y: bigint;
+  };
+  withdrawer: EthAddress;
+};
+
+/**
+ * Complete view of an attester's state
+ */
+export type AttesterView = {
+  status: AttesterStatus;
+  effectiveBalance: bigint;
+  exit: Exit;
+  config: AttesterConfig;
+};
+
+/**
+ * Return for a status call
+ */
+export type RollupStatusResponse = {
+  provenCheckpointNumber: CheckpointNumber;
+  provenArchive: Fr;
+  pendingCheckpointNumber: CheckpointNumber;
+  pendingArchive: Fr;
+  archiveOfMyCheckpoint: Fr;
+};
+
 export class RollupContract {
   private readonly rollup: GetContractReturnType<typeof RollupAbi, ViemClient>;
 
@@ -131,8 +230,8 @@ export class RollupContract {
     this.rollup = getContract({ address, abi: RollupAbi, client });
   }
 
-  getGSE() {
-    return this.rollup.read.getGSE();
+  async getGSE(): Promise<EthAddress> {
+    return EthAddress.fromString(await this.rollup.read.getGSE());
   }
 
   public get address() {
@@ -174,23 +273,23 @@ export class RollupContract {
   }
 
   @memoize
-  getL1StartBlock() {
+  getL1StartBlock(): Promise<bigint> {
     return this.rollup.read.L1_BLOCK_AT_GENESIS();
   }
 
   @memoize
-  getL1GenesisTime() {
+  getL1GenesisTime(): Promise<bigint> {
     return this.rollup.read.getGenesisTime();
   }
 
   @memoize
-  getProofSubmissionEpochs() {
-    return this.rollup.read.getProofSubmissionEpochs();
+  async getProofSubmissionEpochs(): Promise<number> {
+    return Number(await this.rollup.read.getProofSubmissionEpochs());
   }
 
   @memoize
-  getEpochDuration() {
-    return this.rollup.read.getEpochDuration();
+  async getEpochDuration(): Promise<number> {
+    return Number(await this.rollup.read.getEpochDuration());
   }
 
   @memoize
@@ -199,68 +298,68 @@ export class RollupContract {
   }
 
   @memoize
-  getTargetCommitteeSize() {
-    return this.rollup.read.getTargetCommitteeSize();
+  async getTargetCommitteeSize(): Promise<number> {
+    return Number(await this.rollup.read.getTargetCommitteeSize());
   }
 
   @memoize
-  getEjectionThreshold() {
+  getEjectionThreshold(): Promise<bigint> {
     return this.rollup.read.getEjectionThreshold();
   }
 
   @memoize
-  getLocalEjectionThreshold() {
+  getLocalEjectionThreshold(): Promise<bigint> {
     return this.rollup.read.getLocalEjectionThreshold();
   }
 
   @memoize
-  getLagInEpochsForValidatorSet() {
-    return this.rollup.read.getLagInEpochsForValidatorSet();
+  async getLagInEpochsForValidatorSet(): Promise<number> {
+    return Number(await this.rollup.read.getLagInEpochsForValidatorSet());
   }
 
   @memoize
-  getLagInEpochsForRandao() {
-    return this.rollup.read.getLagInEpochsForRandao();
+  async getLagInEpochsForRandao(): Promise<number> {
+    return Number(await this.rollup.read.getLagInEpochsForRandao());
   }
 
   @memoize
-  getActivationThreshold() {
+  getActivationThreshold(): Promise<bigint> {
     return this.rollup.read.getActivationThreshold();
   }
 
   @memoize
-  getExitDelay() {
-    return this.rollup.read.getExitDelay();
+  async getExitDelay(): Promise<number> {
+    return Number(await this.rollup.read.getExitDelay());
   }
 
   @memoize
-  getManaTarget() {
+  getManaTarget(): Promise<bigint> {
     return this.rollup.read.getManaTarget();
   }
 
   @memoize
-  getProvingCostPerMana() {
+  getProvingCostPerMana(): Promise<bigint> {
     return this.rollup.read.getProvingCostPerManaInEth();
   }
 
   @memoize
-  getProvingCostPerManaInFeeAsset() {
+  getProvingCostPerManaInFeeAsset(): Promise<bigint> {
     return this.rollup.read.getProvingCostPerManaInFeeAsset();
   }
 
   @memoize
-  getManaLimit() {
+  getManaLimit(): Promise<bigint> {
     return this.rollup.read.getManaLimit();
   }
 
   @memoize
-  getVersion() {
+  getVersion(): Promise<bigint> {
     return this.rollup.read.getVersion();
   }
 
   @memoize
-  async getGenesisArchiveTreeRoot(): Promise<`0x${string}`> {
-    return await this.rollup.read.archiveAt([0n]);
+  async getGenesisArchiveTreeRoot(): Promise<Fr> {
+    return Fr.fromString(await this.rollup.read.archiveAt([0n]));
   }
 
   /**
@@ -292,27 +391,27 @@ export class RollupContract {
     };
   }
 
-  getSlasherAddress() {
-    return this.rollup.read.getSlasher();
+  async getSlasherAddress(): Promise<EthAddress> {
+    return EthAddress.fromString(await this.rollup.read.getSlasher());
   }
 
   /**
    * Returns a SlasherContract instance for interacting with the slasher contract.
    */
   async getSlasherContract(): Promise<SlasherContract | undefined> {
-    const slasherAddress = EthAddress.fromString(await this.getSlasherAddress());
+    const slasherAddress = await this.getSlasherAddress();
     if (slasherAddress.isZero()) {
       return undefined;
     }
     return new SlasherContract(this.client, slasherAddress);
   }
 
-  getOwner() {
-    return this.rollup.read.owner();
+  async getOwner(): Promise<EthAddress> {
+    return EthAddress.fromString(await this.rollup.read.owner());
   }
 
-  getActiveAttesterCount() {
-    return this.rollup.read.getActiveAttesterCount();
+  async getActiveAttesterCount(): Promise<number> {
+    return Number(await this.rollup.read.getActiveAttesterCount());
   }
 
   public async getSlashingProposerAddress() {
@@ -323,7 +422,7 @@ export class RollupContract {
     return await slasher.getProposer();
   }
 
-  getCheckpointReward() {
+  getCheckpointReward(): Promise<bigint> {
     return this.rollup.read.getCheckpointReward();
   }
 
@@ -339,15 +438,19 @@ export class RollupContract {
     return SlotNumber.fromBigInt(await this.rollup.read.getCurrentSlot());
   }
 
-  getL1FeesAt(timestamp: bigint) {
-    return this.rollup.read.getL1FeesAt([timestamp]);
+  async getL1FeesAt(timestamp: bigint): Promise<L1FeeData> {
+    const result = await this.rollup.read.getL1FeesAt([timestamp]);
+    return {
+      baseFee: result.baseFee,
+      blobFee: result.blobFee,
+    };
   }
 
-  getFeeAssetPerEth() {
+  getFeeAssetPerEth(): Promise<bigint> {
     return this.rollup.read.getFeeAssetPerEth();
   }
 
-  async getCommitteeAt(timestamp: bigint): Promise<readonly `0x${string}`[] | undefined> {
+  async getCommitteeAt(timestamp: bigint): Promise<EthAddress[] | undefined> {
     const { result } = await this.client
       .simulateContract({
         address: this.address,
@@ -362,22 +465,22 @@ export class RollupContract {
         throw e;
       });
 
-    return result;
+    return result ? result.map(addr => EthAddress.fromString(addr)) : undefined;
   }
 
-  getSampleSeedAt(timestamp: bigint) {
-    return this.rollup.read.getSampleSeedAt([timestamp]);
+  async getSampleSeedAt(timestamp: bigint): Promise<Buffer32> {
+    return Buffer32.fromBigInt(await this.rollup.read.getSampleSeedAt([timestamp]));
   }
 
-  getCurrentSampleSeed() {
-    return this.rollup.read.getCurrentSampleSeed();
+  async getCurrentSampleSeed(): Promise<Buffer32> {
+    return Buffer32.fromBigInt(await this.rollup.read.getCurrentSampleSeed());
   }
 
   async getCurrentEpoch(): Promise<EpochNumber> {
     return EpochNumber.fromBigInt(await this.rollup.read.getCurrentEpoch());
   }
 
-  async getCurrentEpochCommittee(): Promise<readonly `0x${string}`[] | undefined> {
+  async getCurrentEpochCommittee(): Promise<EthAddress[] | undefined> {
     const { result } = await this.client
       .simulateContract({
         address: this.address,
@@ -392,10 +495,10 @@ export class RollupContract {
         throw e;
       });
 
-    return result;
+    return result ? result.map(addr => EthAddress.fromString(addr)) : undefined;
   }
 
-  async getCurrentProposer() {
+  async getCurrentProposer(): Promise<EthAddress> {
     const { result } = await this.client.simulateContract({
       address: this.address,
       abi: RollupAbi,
@@ -403,10 +506,10 @@ export class RollupContract {
       args: [],
     });
 
-    return result;
+    return EthAddress.fromString(result);
   }
 
-  async getProposerAt(timestamp: bigint) {
+  async getProposerAt(timestamp: bigint): Promise<EthAddress> {
     const { result } = await this.client.simulateContract({
       address: this.address,
       abi: RollupAbi,
@@ -414,11 +517,26 @@ export class RollupContract {
       args: [timestamp],
     });
 
-    return result;
+    return EthAddress.fromString(result);
   }
 
-  getCheckpoint(checkpointNumber: CheckpointNumber) {
-    return this.rollup.read.getCheckpoint([BigInt(checkpointNumber)]);
+  async getCheckpoint(checkpointNumber: CheckpointNumber): Promise<CheckpointLog> {
+    const result = await this.rollup.read.getCheckpoint([BigInt(checkpointNumber)]);
+    return {
+      archive: Fr.fromString(result.archive),
+      headerHash: Buffer32.fromString(result.headerHash),
+      blobCommitmentsHash: Buffer32.fromString(result.blobCommitmentsHash),
+      attestationsHash: Buffer32.fromString(result.attestationsHash),
+      payloadDigest: Buffer32.fromString(result.payloadDigest),
+      slotNumber: SlotNumber.fromBigInt(result.slotNumber),
+      feeHeader: {
+        excessMana: result.feeHeader.excessMana,
+        manaUsed: result.feeHeader.manaUsed,
+        feeAssetPriceNumerator: result.feeHeader.feeAssetPriceNumerator,
+        congestionCost: result.feeHeader.congestionCost,
+        proverCost: result.feeHeader.proverCost,
+      },
+    };
   }
 
   /** Returns the pending checkpoint from the rollup contract */
@@ -444,16 +562,16 @@ export class RollupContract {
     };
   }
 
-  getTimestampForSlot(slot: SlotNumber) {
+  getTimestampForSlot(slot: SlotNumber): Promise<bigint> {
     return this.rollup.read.getTimestampForSlot([BigInt(slot)]);
   }
 
-  getEntryQueueLength() {
-    return this.rollup.read.getEntryQueueLength();
+  async getEntryQueueLength(): Promise<number> {
+    return Number(await this.rollup.read.getEntryQueueLength());
   }
 
-  getAvailableValidatorFlushes() {
-    return this.rollup.read.getAvailableValidatorFlushes();
+  async getAvailableValidatorFlushes(): Promise<number> {
+    return Number(await this.rollup.read.getAvailableValidatorFlushes());
   }
 
   async getNextFlushableEpoch(): Promise<EpochNumber> {
@@ -509,10 +627,11 @@ export class RollupContract {
     return EpochNumber.fromBigInt(await this.rollup.read.getEpochAtSlot([BigInt(slotNumber)]));
   }
 
-  getEpochProofPublicInputs(
+  async getEpochProofPublicInputs(
     args: readonly [bigint, bigint, EpochProofPublicInputArgs, readonly `0x${string}`[], `0x${string}`],
-  ) {
-    return this.rollup.read.getEpochProofPublicInputs(args);
+  ): Promise<Fr[]> {
+    const result = await this.rollup.read.getEpochProofPublicInputs(args);
+    return result.map(Fr.fromString);
   }
 
   public async validateHeader(
@@ -654,7 +773,7 @@ export class RollupContract {
     return this.rollup.read.getHasSubmitted([BigInt(epochNumber), BigInt(numberOfCheckpointsInEpoch), prover]);
   }
 
-  getManaBaseFeeAt(timestamp: bigint, inFeeAsset: boolean) {
+  getManaBaseFeeAt(timestamp: bigint, inFeeAsset: boolean): Promise<bigint> {
     return this.rollup.read.getManaBaseFeeAt([timestamp, inFeeAsset]);
   }
 
@@ -662,77 +781,110 @@ export class RollupContract {
     return SlotNumber.fromBigInt(await this.rollup.read.getSlotAt([timestamp]));
   }
 
-  async status(checkpointNumber: CheckpointNumber, options?: { blockNumber?: bigint }) {
+  async status(checkpointNumber: CheckpointNumber, options?: { blockNumber?: bigint }): Promise<RollupStatusResponse> {
     await checkBlockTag(options?.blockNumber, this.client);
-    return this.rollup.read.status([BigInt(checkpointNumber)], options);
+    const result = await this.rollup.read.status([BigInt(checkpointNumber)], options);
+    return {
+      provenCheckpointNumber: CheckpointNumber.fromBigInt(result[0]),
+      provenArchive: Fr.fromString(result[1]),
+      pendingCheckpointNumber: CheckpointNumber.fromBigInt(result[2]),
+      pendingArchive: Fr.fromString(result[3]),
+      archiveOfMyCheckpoint: Fr.fromString(result[4]),
+    };
   }
 
-  async canPruneAtTime(timestamp: bigint, options?: { blockNumber?: bigint }) {
+  async canPruneAtTime(timestamp: bigint, options?: { blockNumber?: bigint }): Promise<boolean> {
     await checkBlockTag(options?.blockNumber, this.client);
     return this.rollup.read.canPruneAtTime([timestamp], options);
   }
 
-  archive() {
-    return this.rollup.read.archive();
+  async archive(): Promise<Fr> {
+    return Fr.fromString(await this.rollup.read.archive());
   }
 
-  archiveAt(checkpointNumber: CheckpointNumber) {
-    return this.rollup.read.archiveAt([BigInt(checkpointNumber)]);
+  async archiveAt(checkpointNumber: CheckpointNumber): Promise<Fr> {
+    return Fr.fromString(await this.rollup.read.archiveAt([BigInt(checkpointNumber)]));
   }
 
-  getSequencerRewards(address: Hex | EthAddress) {
+  getSequencerRewards(address: Hex | EthAddress): Promise<bigint> {
     if (address instanceof EthAddress) {
       address = address.toString();
     }
     return this.rollup.read.getSequencerRewards([address]);
   }
 
-  getSpecificProverRewardsForEpoch(epoch: bigint, prover: Hex | EthAddress) {
+  getSpecificProverRewardsForEpoch(epoch: bigint, prover: Hex | EthAddress): Promise<bigint> {
     if (prover instanceof EthAddress) {
       prover = prover.toString();
     }
     return this.rollup.read.getSpecificProverRewardsForEpoch([epoch, prover]);
   }
 
-  async getAttesters() {
+  async getAttesters(): Promise<EthAddress[]> {
     const attesterSize = await this.getActiveAttesterCount();
     const gse = new GSEContract(this.client, await this.getGSE());
     const ts = (await this.client.getBlock()).timestamp;
 
-    const indices = Array.from({ length: Number(attesterSize) }, (_, i) => BigInt(i));
+    const indices = Array.from({ length: attesterSize }, (_, i) => BigInt(i));
     const chunks = chunk(indices, 1000);
 
-    return (await Promise.all(chunks.map(chunk => gse.getAttestersFromIndicesAtTime(this.address, ts, chunk)))).flat();
+    const results = await Promise.all(chunks.map(chunk => gse.getAttestersFromIndicesAtTime(this.address, ts, chunk)));
+    return results.flat().map(addr => EthAddress.fromString(addr));
   }
 
-  getAttesterView(address: Hex | EthAddress) {
+  async getAttesterView(address: Hex | EthAddress): Promise<AttesterView> {
     if (address instanceof EthAddress) {
       address = address.toString();
     }
-    return this.rollup.read.getAttesterView([address]);
+    const result = await this.rollup.read.getAttesterView([address]);
+    return {
+      status: result.status as AttesterStatus,
+      effectiveBalance: result.effectiveBalance,
+      exit: {
+        withdrawalId: result.exit.withdrawalId,
+        amount: result.exit.amount,
+        exitableAt: result.exit.exitableAt,
+        recipientOrWithdrawer: EthAddress.fromString(result.exit.recipientOrWithdrawer),
+        isRecipient: result.exit.isRecipient,
+        exists: result.exit.exists,
+      },
+      config: {
+        publicKey: {
+          x: result.config.publicKey.x,
+          y: result.config.publicKey.y,
+        },
+        withdrawer: EthAddress.fromString(result.config.withdrawer),
+      },
+    };
   }
 
-  getStatus(address: Hex | EthAddress) {
+  async getStatus(address: Hex | EthAddress): Promise<AttesterStatus> {
     if (address instanceof EthAddress) {
       address = address.toString();
     }
-    return this.rollup.read.getStatus([address]);
+    return (await this.rollup.read.getStatus([address])) as AttesterStatus;
   }
 
-  getBlobCommitmentsHash(checkpointNumber: CheckpointNumber) {
-    return this.rollup.read.getBlobCommitmentsHash([BigInt(checkpointNumber)]);
+  async getBlobCommitmentsHash(checkpointNumber: CheckpointNumber): Promise<Buffer32> {
+    return Buffer32.fromString(await this.rollup.read.getBlobCommitmentsHash([BigInt(checkpointNumber)]));
   }
 
-  getCurrentBlobCommitmentsHash() {
-    return this.rollup.read.getCurrentBlobCommitmentsHash();
+  async getCurrentBlobCommitmentsHash(): Promise<Buffer32> {
+    return Buffer32.fromString(await this.rollup.read.getCurrentBlobCommitmentsHash());
   }
 
-  getStakingAsset() {
-    return this.rollup.read.getStakingAsset();
+  async getStakingAsset(): Promise<EthAddress> {
+    return EthAddress.fromString(await this.rollup.read.getStakingAsset());
   }
 
-  getRewardConfig() {
-    return this.rollup.read.getRewardConfig();
+  async getRewardConfig(): Promise<RewardConfig> {
+    const result = await this.rollup.read.getRewardConfig();
+    return {
+      rewardDistributor: EthAddress.fromString(result.rewardDistributor),
+      sequencerBps: BigInt(result.sequencerBps),
+      booster: EthAddress.fromString(result.booster),
+      checkpointReward: result.checkpointReward,
+    };
   }
 
   setupEpoch(l1TxUtils: L1TxUtils) {

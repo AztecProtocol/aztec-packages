@@ -9,17 +9,17 @@ import { randomPublishedL2Block } from '@aztec/stdlib/testing';
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-import { AnchorBlockDataProvider } from '../storage/anchor_block_data_provider/anchor_block_data_provider.js';
-import { NoteDataProvider } from '../storage/note_data_provider/note_data_provider.js';
-import { RecipientTaggingDataProvider } from '../storage/tagging_data_provider/recipient_tagging_data_provider.js';
+import { AnchorBlockStore } from '../storage/anchor_block_store/anchor_block_store.js';
+import { NoteStore } from '../storage/note_store/note_store.js';
+import { PrivateEventStore } from '../storage/private_event_store/private_event_store.js';
 import { BlockSynchronizer } from './block_synchronizer.js';
 
 describe('BlockSynchronizer', () => {
   let synchronizer: BlockSynchronizer;
   let tipsStore: L2TipsKVStore;
-  let anchorBlockDataProvider: AnchorBlockDataProvider;
-  let noteDataProvider: NoteDataProvider;
-  let recipientTaggingDataProvider: RecipientTaggingDataProvider;
+  let anchorBlockStore: AnchorBlockStore;
+  let noteStore: NoteStore;
+  let privateEventStore: PrivateEventStore;
   let aztecNode: MockProxy<AztecNode>;
   let blockStream: MockProxy<L2BlockStream>;
 
@@ -34,32 +34,23 @@ describe('BlockSynchronizer', () => {
     blockStream = mock<L2BlockStream>();
     aztecNode = mock<AztecNode>();
     tipsStore = new L2TipsKVStore(store, 'pxe');
-    anchorBlockDataProvider = new AnchorBlockDataProvider(store);
-    noteDataProvider = await NoteDataProvider.create(store);
-    recipientTaggingDataProvider = new RecipientTaggingDataProvider(store);
-    synchronizer = new TestSynchronizer(
-      aztecNode,
-      anchorBlockDataProvider,
-      noteDataProvider,
-      recipientTaggingDataProvider,
-      tipsStore,
-    );
+    anchorBlockStore = new AnchorBlockStore(store);
+    noteStore = await NoteStore.create(store);
+    privateEventStore = new PrivateEventStore(store);
+    synchronizer = new TestSynchronizer(aztecNode, anchorBlockStore, noteStore, privateEventStore, tipsStore);
   });
 
   it('sets header from latest block', async () => {
     const block = await randomPublishedL2Block(1);
     await synchronizer.handleBlockStreamEvent({ type: 'blocks-added', blocks: [block] });
 
-    const obtainedHeader = await anchorBlockDataProvider.getBlockHeader();
+    const obtainedHeader = await anchorBlockStore.getBlockHeader();
     expect(obtainedHeader).toEqual(block.block.getBlockHeader());
   });
 
   it('removes notes from db on a reorg', async () => {
     const rollbackNotesAndNullifiers = jest
-      .spyOn(noteDataProvider, 'rollbackNotesAndNullifiers')
-      .mockImplementation(() => Promise.resolve());
-    const resetNoteSyncData = jest
-      .spyOn(recipientTaggingDataProvider, 'resetNoteSyncData')
+      .spyOn(noteStore, 'rollbackNotesAndNullifiers')
       .mockImplementation(() => Promise.resolve());
     aztecNode.getBlockHeader.mockImplementation(async blockNumber =>
       (await L2Block.random(BlockNumber(blockNumber as number))).getBlockHeader(),
@@ -72,6 +63,22 @@ describe('BlockSynchronizer', () => {
     await synchronizer.handleBlockStreamEvent({ type: 'chain-pruned', block: { number: BlockNumber(3), hash: '0x3' } });
 
     expect(rollbackNotesAndNullifiers).toHaveBeenCalledWith(3, 4);
-    expect(resetNoteSyncData).toHaveBeenCalled();
+  });
+
+  it('removes private events from db on a reorg', async () => {
+    const rollbackEventsAfterBlock = jest
+      .spyOn(privateEventStore, 'rollbackEventsAfterBlock')
+      .mockImplementation(() => Promise.resolve());
+    aztecNode.getBlockHeader.mockImplementation(async blockNumber =>
+      (await L2Block.random(BlockNumber(blockNumber as number))).getBlockHeader(),
+    );
+
+    await synchronizer.handleBlockStreamEvent({
+      type: 'blocks-added',
+      blocks: await timesParallel(5, randomPublishedL2Block),
+    });
+    await synchronizer.handleBlockStreamEvent({ type: 'chain-pruned', block: { number: BlockNumber(3), hash: '0x3' } });
+
+    expect(rollbackEventsAfterBlock).toHaveBeenCalledWith(3, 4);
   });
 });

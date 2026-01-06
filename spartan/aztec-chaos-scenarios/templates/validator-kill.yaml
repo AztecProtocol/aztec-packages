@@ -17,5 +17,5 @@ spec:
     namespaces:
       - {{ .Values.global.targetNamespace }}
     labelSelectors:
-      app.kubernetes.io/component: validator
+      app.kubernetes.io/component: sequencer-node
 {{- end }}

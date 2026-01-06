@@ -169,8 +169,6 @@ function test_cmds {
   local browser_prefix="$tests_hash:ISOLATE=1:NET=1:CPUS=8"
   echo "$browser_prefix $scripts/browser_prove.sh verify_honk_proof chrome"
   echo "$browser_prefix $scripts/browser_prove.sh a_1_mul chrome"
-  echo "$browser_prefix $scripts/browser_prove.sh verify_honk_proof webkit"
-  echo "$browser_prefix $scripts/browser_prove.sh a_1_mul webkit"
 
   # bb.js tests.
   # ecdsa_secp256r1_3x through bb.js on node to check 256k support.

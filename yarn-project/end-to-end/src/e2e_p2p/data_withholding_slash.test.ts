@@ -185,7 +185,7 @@ describe('e2e_p2p_data_withholding_slash', () => {
     });
 
     // Check offenses are correct
-    expect(offenses.map(o => o.validator.toChecksumString()).sort()).toEqual(committee.map(a => a.toString()).sort());
+    expect(offenses.map(o => o.validator.toString()).sort()).toEqual(committee.map(a => a.toString()).sort());
     expect(offenses.map(o => o.offenseType)).toEqual(times(COMMITTEE_SIZE, () => OffenseType.DATA_WITHHOLDING));
     const offenseEpoch = Number(offenses[0].epochOrSlot);
 

@@ -1,6 +1,5 @@
 #include "poseidon2_constraint.hpp"
 #include "acir_format.hpp"
-#include "acir_format_mocks.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2_params.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2_permutation.hpp"
 #include "barretenberg/dsl/acir_format/test_class.hpp"

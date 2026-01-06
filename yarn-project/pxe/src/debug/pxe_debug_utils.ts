@@ -1,8 +1,8 @@
 import type { NoteDao, NotesFilter } from '@aztec/stdlib/note';
 
 import type { PXE } from '../pxe.js';
-import type { ContractDataProvider } from '../storage/contract_data_provider/contract_data_provider.js';
-import type { NoteDataProvider } from '../storage/note_data_provider/note_data_provider.js';
+import type { ContractStore } from '../storage/contract_store/contract_store.js';
+import type { NoteStore } from '../storage/note_store/note_store.js';
 
 /**
  * Methods provided by this class might help debugging but must not be used in production.
@@ -12,8 +12,8 @@ export class PXEDebugUtils {
   #pxe: PXE | undefined = undefined;
 
   constructor(
-    private contractDataProvider: ContractDataProvider,
-    private noteDataProvider: NoteDataProvider,
+    private contractStore: ContractStore,
+    private noteStore: NoteStore,
   ) {}
 
   /**
@@ -40,9 +40,9 @@ export class PXEDebugUtils {
     }
 
     // We need to manually trigger private state sync to have a guarantee that all the notes are available.
-    const call = await this.contractDataProvider.getFunctionCall('sync_private_state', [], filter.contractAddress);
+    const call = await this.contractStore.getFunctionCall('sync_private_state', [], filter.contractAddress);
     await this.#pxe.simulateUtility(call);
 
-    return this.noteDataProvider.getNotes(filter);
+    return this.noteStore.getNotes(filter);
   }
 }
