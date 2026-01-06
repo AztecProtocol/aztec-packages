@@ -219,3 +219,124 @@ TEST(ECCOpQueueTest, ColumnPolynomialConstructionPrependThenAppendAtFixedOffset)
 
     ECCOpQueueTest::check_opcode_consistency_with_eccvm(op_queue);
 }
+
+// Verify correct handling of point at infinity in add and mul operations
+TEST(ECCOpQueueTest, PointAtInfinityHandling)
+{
+    using G1 = ECCOpQueueTest::G1;
+    using Fr = ECCOpQueueTest::Fr;
+
+    // Test add_accumulate with point at infinity
+    {
+        ECCOpQueue op_queue;
+        auto P1 = G1::random_element();
+        G1 identity;
+        identity.self_set_infinity();
+
+        op_queue.add_accumulate(P1);
+        op_queue.add_accumulate(identity); // Adding identity should not change accumulator
+
+        EXPECT_EQ(op_queue.get_accumulator(), P1);
+    }
+
+    // Test mul_accumulate with point at infinity
+    {
+        ECCOpQueue op_queue;
+        auto P1 = G1::random_element();
+        G1 identity;
+        identity.self_set_infinity();
+        auto scalar = Fr::random_element();
+
+        op_queue.add_accumulate(P1);
+        op_queue.mul_accumulate(identity, scalar); // identity * scalar = identity, adding gives P1
+
+        EXPECT_EQ(op_queue.get_accumulator(), P1);
+    }
+
+    // Test that accumulator starts at identity element and operations work correctly
+    {
+        ECCOpQueue op_queue;
+        auto P1 = G1::random_element();
+
+        // Initial accumulator should be point at infinity
+        EXPECT_TRUE(op_queue.get_accumulator().is_point_at_infinity());
+
+        // Adding P1 to neutral element should give P1
+        op_queue.add_accumulate(P1);
+        EXPECT_EQ(op_queue.get_accumulator(), P1);
+    }
+
+    // Test mul with scalar = 0 (result should be identity)
+    {
+        ECCOpQueue op_queue;
+        auto P1 = G1::random_element();
+        auto P2 = G1::random_element();
+
+        op_queue.add_accumulate(P1);
+        op_queue.mul_accumulate(P2, Fr(0)); // 0 * P2 = infinity
+
+        // Accumulator should still be P1 (P1 + identity = P1)
+        EXPECT_EQ(op_queue.get_accumulator(), P1);
+    }
+}
+
+// Verify that the `append_hiding_op` results in hiding op in the expected positions in both ECCVM and Ultra tables.
+TEST(ECCOpQueueTest, HidingOpPositionConsistency)
+{
+    using G1 = ECCOpQueueTest::G1;
+    using Fr = ECCOpQueueTest::Fr;
+    using Fq = curve::BN254::BaseField;
+
+    auto op_queue = std::make_shared<bb::ECCOpQueue>();
+
+    // Add some regular operations
+    auto P1 = G1::random_element();
+    auto P2 = G1::random_element();
+    auto z = Fr::random_element();
+
+    op_queue->add_accumulate(P1);
+    op_queue->mul_accumulate(P2, z);
+
+    // Add hiding op with known random values
+    Fq hiding_x = Fq::random_element();
+    Fq hiding_y = Fq::random_element();
+    op_queue->append_hiding_op(hiding_x, hiding_y);
+
+    op_queue->eq_and_reset();
+    op_queue->merge();
+
+    // Get the reconstructed tables
+    const auto& eccvm_ops = op_queue->get_eccvm_ops();
+    const auto& ultra_ops = op_queue->get_ultra_ops();
+
+    // === ECCVM Table Checks ===
+    // Hiding op should be at index 0 (prepended during get_eccvm_ops())
+    const auto& eccvm_hiding_op = eccvm_ops[0];
+    EXPECT_TRUE(eccvm_hiding_op.op_code.eq);
+    EXPECT_TRUE(eccvm_hiding_op.op_code.reset);
+    EXPECT_EQ(eccvm_hiding_op.base_point.x, hiding_x);
+    EXPECT_EQ(eccvm_hiding_op.base_point.y, hiding_y);
+
+    // === Ultra Table Checks ===
+    // Without tail kernel padding, the hiding op should be at index 2:
+    //   index 0: add_accumulate(P1)
+    //   index 1: mul_accumulate(P2, z)
+    //   index 2: append_hiding_op (eq+reset opcode)
+    //   index 3: eq_and_reset
+    constexpr size_t EXPECTED_HIDING_OP_ULTRA_IDX = 2;
+    ASSERT_GT(ultra_ops.size(), EXPECTED_HIDING_OP_ULTRA_IDX);
+
+    const auto& ultra_hiding_op = ultra_ops[EXPECTED_HIDING_OP_ULTRA_IDX];
+    EXPECT_TRUE(ultra_hiding_op.op_code.eq) << "Hiding op at index 2 should have eq=true";
+    EXPECT_TRUE(ultra_hiding_op.op_code.reset) << "Hiding op at index 2 should have reset=true";
+    const size_t CHUNK_SIZE = 2 * stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION;
+    uint256_t ultra_x = uint256_t(ultra_hiding_op.x_lo) + (uint256_t(ultra_hiding_op.x_hi) << CHUNK_SIZE);
+    uint256_t ultra_y = uint256_t(ultra_hiding_op.y_lo) + (uint256_t(ultra_hiding_op.y_hi) << CHUNK_SIZE);
+
+    EXPECT_EQ(Fq(ultra_x), eccvm_hiding_op.base_point.x);
+    EXPECT_EQ(Fq(ultra_y), eccvm_hiding_op.base_point.y);
+
+    // Verify opcodes match
+    EXPECT_EQ(ultra_hiding_op.op_code.eq, eccvm_hiding_op.op_code.eq);
+    EXPECT_EQ(ultra_hiding_op.op_code.reset, eccvm_hiding_op.op_code.reset);
+}

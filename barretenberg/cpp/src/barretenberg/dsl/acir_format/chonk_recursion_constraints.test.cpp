@@ -1,9 +1,8 @@
 #include "barretenberg/chonk/chonk_verifier.hpp"
 #include "barretenberg/chonk/mock_circuit_producer.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
-#include "barretenberg/dsl/acir_format/acir_format_mocks.hpp"
 #include "barretenberg/dsl/acir_format/gate_count_constants.hpp"
-#include "barretenberg/dsl/acir_format/proof_surgeon.hpp"
+#include "barretenberg/dsl/acir_format/utils.hpp"
 
 #include <gtest/gtest.h>
 
@@ -51,33 +50,26 @@ class ChonkRecursionConstraintTest : public ::testing::Test {
     {
         AcirProgram program;
 
-        // Extract the witnesses from the provided data
-        auto key_witnesses = chonk_data.mega_vk->to_field_elements();
-        auto key_hash_witness = chonk_data.mega_vk->hash();
-        std::vector<fr> proof_witnesses = chonk_data.proof.to_field_elements();
+        RecursionConstraint constraint = recursion_data_to_recursion_constraint(
+            program.witness,
+            chonk_data.proof.to_field_elements(),
+            chonk_data.mega_vk->to_field_elements(),
+            chonk_data.mega_vk->hash(),
+            bb::fr::zero(),
+            /*num_public_inputs_to_extract=*/static_cast<size_t>(chonk_data.mega_vk->num_public_inputs) -
+                PUBLIC_INPUTS_SIZE,
+            PROOF_TYPE::CHONK);
 
-        // Construct witness indices for each component in the constraint; populate the witness array
-        auto [key_indices, key_hash_index, proof_indices, public_inputs_indices] =
-            ProofSurgeon<fr>::populate_recursion_witness_data(
-                program.witness,
-                proof_witnesses,
-                key_witnesses,
-                key_hash_witness,
-                /*num_public_inputs_to_extract=*/static_cast<size_t>(chonk_data.mega_vk->num_public_inputs) -
-                    PUBLIC_INPUTS_SIZE);
-
-        auto constraint = RecursionConstraint{ .key = key_indices,
-                                               .proof = proof_indices,
-                                               .public_inputs = public_inputs_indices,
-                                               .key_hash = key_hash_index,
-                                               .proof_type = PROOF_TYPE::CHONK };
+        // Remove the predicate as it is not used in Chonk recursion constraints
+        program.witness.pop_back();
+        constraint.predicate = WitnessOrConstant<bb::fr>::from_constant(bb::fr::one());
 
         // Construct a constraint system
         program.constraints.max_witness_index = static_cast<uint32_t>(program.witness.size() - 1);
         program.constraints.num_acir_opcodes = static_cast<uint32_t>(1);
         program.constraints.chonk_recursion_constraints = { constraint };
-        program.constraints.original_opcode_indices = create_empty_original_opcode_indices();
-        mock_opcode_indices(program.constraints);
+        program.constraints.original_opcode_indices =
+            AcirFormatOriginalOpcodeIndices{ .chonk_recursion_constraints = { 0 } };
 
         return program;
     }

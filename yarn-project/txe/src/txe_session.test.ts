@@ -11,16 +11,16 @@ describe('TXESession.processFunction', () => {
       {} as any, // logger
       {} as any, // stateMachine
       {} as any, // oracleHandler
-      {} as any, // contractDataProvider
-      {} as any, // noteDataProvider
+      {} as any, // contractStore
+      {} as any, // noteStore
       {} as any, // keyStore
-      {} as any, // addressDataProvider
-      {} as any, // accountDataProvider
-      {} as any, // senderTaggingDataProvider
-      {} as any, // recipientTaggingDataProvider
+      {} as any, // addressStore
+      {} as any, // accountStore
+      {} as any, // senderTaggingStore
+      {} as any, // recipientTaggingStore
       {} as any, // senderAddressBook
-      {} as any, // capsuleDataProvider
-      {} as any, // privateEventDataProvider
+      {} as any, // capsuleStore
+      {} as any, // privateEventStore
       new Fr(1), // chainId
       new Fr(1), // version
       0n, // nextBlockTimestamp

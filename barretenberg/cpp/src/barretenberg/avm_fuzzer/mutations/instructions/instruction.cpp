@@ -1,5 +1,6 @@
 #include "barretenberg/avm_fuzzer/fuzz_lib/instruction.hpp"
 
+#include "barretenberg/avm_fuzzer/fuzz_lib/contract_db_proxy.hpp"
 #include "barretenberg/avm_fuzzer/mutations/basic_types/field.hpp"
 #include "barretenberg/avm_fuzzer/mutations/basic_types/memory_tag.hpp"
 #include "barretenberg/avm_fuzzer/mutations/basic_types/uint16_t.hpp"
@@ -101,16 +102,6 @@ std::vector<FuzzInstruction> generate_ecadd_instruction(std::mt19937_64& rng)
     AddressRef p2_y_addr = generate_address_ref(rng, MAX_16BIT_OPERAND);
     AddressRef p2_inf_addr = generate_address_ref(rng, MAX_8BIT_OPERAND);
 
-    // Force Direct addressing so SET instructions write to the same addresses that ECADD reads from.
-    // TODO: Implement smart backfilling for indirect addressing modes by also setting up
-    // the pointer addresses (e.g., M[pointer_address_seed] = target_address).
-    p1_x_addr.mode = AddressingMode::Direct;
-    p1_y_addr.mode = AddressingMode::Direct;
-    p1_inf_addr.mode = AddressingMode::Direct;
-    p2_x_addr.mode = AddressingMode::Direct;
-    p2_y_addr.mode = AddressingMode::Direct;
-    p2_inf_addr.mode = AddressingMode::Direct;
-
     backfill_point(p1, p1_x_addr, p1_y_addr, p1_inf_addr);
     backfill_point(p2, p2_x_addr, p2_y_addr, p2_inf_addr);
 
@@ -129,10 +120,11 @@ std::vector<FuzzInstruction> generate_ecadd_instruction(std::mt19937_64& rng)
 FuzzInstruction generate_set_for_tag(bb::avm2::MemoryTag tag, AddressRef addr, std::mt19937_64& rng)
 {
     switch (tag) {
+        // We use set 16 for u1 and u8 because using set_8 will limit the address range to 255.
     case bb::avm2::MemoryTag::U1:
-        return SET_8_Instruction{ .value_tag = tag, .result_address = addr, .value = static_cast<uint8_t>(rng() & 1) };
+        return SET_16_Instruction{ .value_tag = tag, .result_address = addr, .value = static_cast<uint8_t>(rng() & 1) };
     case bb::avm2::MemoryTag::U8:
-        return SET_8_Instruction{ .value_tag = tag, .result_address = addr, .value = generate_random_uint8(rng) };
+        return SET_16_Instruction{ .value_tag = tag, .result_address = addr, .value = generate_random_uint8(rng) };
     case bb::avm2::MemoryTag::U16:
         return SET_16_Instruction{ .value_tag = tag, .result_address = addr, .value = generate_random_uint16(rng) };
     case bb::avm2::MemoryTag::U32:
@@ -167,12 +159,6 @@ std::vector<FuzzInstruction> generate_alu_with_matching_tags(std::mt19937_64& rn
     AddressRef a_addr = generate_address_ref(rng, max_operand);
     AddressRef b_addr = generate_address_ref(rng, max_operand);
 
-    // Force Direct addressing so SET instructions write to the same addresses that ALU reads from.
-    // TODO: Implement smart backfilling for indirect addressing modes by also setting up
-    // the pointer addresses (e.g., M[pointer_address_seed] = target_address).
-    a_addr.mode = AddressingMode::Direct;
-    b_addr.mode = AddressingMode::Direct;
-
     std::vector<FuzzInstruction> instructions;
     instructions.push_back(generate_set_for_tag(tag, a_addr, rng));
     instructions.push_back(generate_set_for_tag(tag, b_addr, rng));
@@ -204,12 +190,6 @@ std::vector<FuzzInstruction> generate_alu_with_matching_tags_not_ff(std::mt19937
 
     AddressRef a_addr = generate_address_ref(rng, max_operand);
     AddressRef b_addr = generate_address_ref(rng, max_operand);
-
-    // Force Direct addressing so SET instructions write to the same addresses that ALU reads from.
-    // TODO: Implement smart backfilling for indirect addressing modes by also setting up
-    // the pointer addresses (e.g., M[pointer_address_seed] = target_address).
-    a_addr.mode = AddressingMode::Direct;
-    b_addr.mode = AddressingMode::Direct;
 
     std::vector<FuzzInstruction> instructions;
     instructions.push_back(generate_set_for_tag(tag, a_addr, rng));
@@ -247,12 +227,6 @@ std::vector<FuzzInstruction> generate_fdiv_instruction(std::mt19937_64& rng, uin
     AddressRef a_addr = generate_address_ref(rng, max_operand);
     AddressRef b_addr = generate_address_ref(rng, max_operand);
 
-    // Force Direct addressing so SET instructions write to the same addresses that FDIV reads from.
-    // TODO: Implement smart backfilling for indirect addressing modes by also setting up
-    // the pointer addresses (e.g., M[pointer_address_seed] = target_address).
-    a_addr.mode = AddressingMode::Direct;
-    b_addr.mode = AddressingMode::Direct;
-
     // SET the dividend (a)
     instructions.push_back(SET_FF_Instruction{
         .value_tag = bb::avm2::MemoryTag::FF, .result_address = a_addr, .value = generate_nonzero_field() });
@@ -279,19 +253,15 @@ std::vector<FuzzInstruction> generate_keccakf_instruction(std::mt19937_64& rng)
     }
     // Backfill mode
     std::vector<FuzzInstruction> instructions;
-    // Keccak needs to backfill 25 U64 values, these need be contiguous in memory
 
+    // Keccak needs to backfill 25 U64 values, these need be contiguous in memory
     AddressRef src_address = generate_address_ref(rng, MAX_16BIT_OPERAND - 24);
-    // Force Direct addressing so SET instructions write to the same addresses that KECCAKF1600 reads from.
-    // TODO: Implement smart backfilling for indirect addressing modes by also setting up
-    // the pointer addresses (e.g., M[pointer_address_seed] = target_address).
-    src_address.mode = AddressingMode::Direct;
     for (size_t i = 0; i < 25; i++) {
-        instructions.push_back(
-            SET_64_Instruction{ .value_tag = bb::avm2::MemoryTag::U64,
-                                .result_address = AddressRef{ .address = src_address.address + static_cast<uint32_t>(i),
-                                                              .mode = AddressingMode::Direct },
-                                .value = generate_random_uint64(rng) });
+        AddressRef item_address = src_address;
+        item_address.address += static_cast<uint32_t>(i);
+        instructions.push_back(SET_64_Instruction{ .value_tag = bb::avm2::MemoryTag::U64,
+                                                   .result_address = item_address,
+                                                   .value = generate_random_uint64(rng) });
     }
     instructions.push_back(KECCAKF1600_Instruction{ .src_address = src_address,
                                                     .dst_address = generate_address_ref(rng, MAX_16BIT_OPERAND) });
@@ -315,27 +285,24 @@ std::vector<FuzzInstruction> generate_sha256compression_instruction(std::mt19937
 
     // Generate state address (8 contiguous U32 values)
     AddressRef state_address = generate_address_ref(rng, MAX_16BIT_OPERAND - 7);
-    // Force Direct addressing so SET instructions write to the same addresses that SHA256COMPRESSION reads from.
-    // TODO: Implement smart backfilling for indirect addressing modes by also setting up
-    // the pointer addresses (e.g., M[pointer_address_seed] = target_address).
-    state_address.mode = AddressingMode::Direct;
+
     for (size_t i = 0; i < 8; i++) {
-        instructions.push_back(SET_32_Instruction{
-            .value_tag = bb::avm2::MemoryTag::U32,
-            .result_address = AddressRef{ .address = state_address.address + static_cast<uint32_t>(i),
-                                          .mode = AddressingMode::Direct },
-            .value = generate_random_uint32(rng) });
+        AddressRef item_address = state_address;
+        item_address.address += static_cast<uint32_t>(i);
+        instructions.push_back(SET_32_Instruction{ .value_tag = bb::avm2::MemoryTag::U32,
+                                                   .result_address = item_address,
+                                                   .value = generate_random_uint32(rng) });
     }
 
     // Generate input address (16 contiguous U32 values)
     AddressRef input_address = generate_address_ref(rng, MAX_16BIT_OPERAND - 15);
-    input_address.mode = AddressingMode::Direct;
+
     for (size_t i = 0; i < 16; i++) {
-        instructions.push_back(SET_32_Instruction{
-            .value_tag = bb::avm2::MemoryTag::U32,
-            .result_address = AddressRef{ .address = input_address.address + static_cast<uint32_t>(i),
-                                          .mode = AddressingMode::Direct },
-            .value = generate_random_uint32(rng) });
+        AddressRef item_address = input_address;
+        item_address.address += static_cast<uint32_t>(i);
+        instructions.push_back(SET_32_Instruction{ .value_tag = bb::avm2::MemoryTag::U32,
+                                                   .result_address = item_address,
+                                                   .value = generate_random_uint32(rng) });
     }
 
     instructions.push_back(
@@ -368,36 +335,36 @@ std::vector<FuzzInstruction> generate_toradixbe_instruction(std::mt19937_64& rng
     AddressRef num_limbs_addr = generate_address_ref(rng, MAX_16BIT_OPERAND);
     AddressRef output_bits_addr = generate_address_ref(rng, MAX_8BIT_OPERAND);
 
-    // Force Direct addressing so SET instructions write to the same addresses that TORADIXBE reads from.
-    // TODO: Implement smart backfilling for indirect addressing modes by also setting up
-    // the pointer addresses (e.g., M[pointer_address_seed] = target_address).
-    value_addr.mode = AddressingMode::Direct;
-    radix_addr.mode = AddressingMode::Direct;
-    num_limbs_addr.mode = AddressingMode::Direct;
-    output_bits_addr.mode = AddressingMode::Direct;
-
     // SET the radix (U32) - pick radix between 2 and 256
     uint32_t radix = std::uniform_int_distribution<uint32_t>(2, 256)(rng);
     instructions.push_back(
         SET_32_Instruction{ .value_tag = bb::avm2::MemoryTag::U32, .result_address = radix_addr, .value = radix });
-
-    // SET the num_limbs (U32) - reasonable range based on radix
-    uint32_t num_limbs = std::uniform_int_distribution<uint32_t>(1, 256)(rng);
-    instructions.push_back(SET_32_Instruction{
-        .value_tag = bb::avm2::MemoryTag::U32, .result_address = num_limbs_addr, .value = num_limbs });
 
     // SET the output_bits (U1)
     bool is_output_bits = radix == 2;
     instructions.push_back(SET_8_Instruction{ .value_tag = bb::avm2::MemoryTag::U1,
                                               .result_address = output_bits_addr,
                                               .value = static_cast<uint8_t>(is_output_bits ? 1 : 0) });
-    // Pick the value such that it fits within the specified number of limbs and radix, if we truncate it will error
+
+    // Generate value with num_limbs digits
+    uint32_t num_limbs = std::uniform_int_distribution<uint32_t>(1, 256)(rng);
     bb::avm2::FF value = 0;
-    bb::avm2::FF exponent = radix;
+    bb::avm2::FF exponent = 1;
     for (uint32_t i = 0; i < num_limbs; i++) {
-        value += bb::avm2::FF(generate_random_uint32(rng) % radix) * exponent;
+        uint32_t digit = std::uniform_int_distribution<uint32_t>(0, radix - 1)(rng);
+        value += bb::avm2::FF(digit) * exponent;
         exponent *= radix;
     }
+
+    // 20% chance to truncate - reduce the number of limbs we request
+    if (std::uniform_int_distribution<int>(0, 4)(rng) == 0) {
+        num_limbs--;
+    }
+
+    // SET the num_limbs (U32)
+    instructions.push_back(SET_32_Instruction{
+        .value_tag = bb::avm2::MemoryTag::U32, .result_address = num_limbs_addr, .value = num_limbs });
+
     // SET the value (FF)
     instructions.push_back(
         SET_FF_Instruction{ .value_tag = bb::avm2::MemoryTag::FF, .result_address = value_addr, .value = value });
@@ -432,9 +399,6 @@ std::vector<FuzzInstruction> generate_sload_instruction(std::mt19937_64& rng)
     instructions.reserve(3);
 
     AddressRef sstore_src = generate_address_ref(rng, MAX_16BIT_OPERAND);
-    // Force Direct addressing so SET writes to the same address that SSTORE reads from.
-    // TODO: Implement smart backfilling for indirect addressing modes.
-    sstore_src.mode = AddressingMode::Direct;
 
     // SET a value to store
     instructions.push_back(SET_FF_Instruction{
@@ -449,6 +413,93 @@ std::vector<FuzzInstruction> generate_sload_instruction(std::mt19937_64& rng)
     instructions.push_back(SLOAD_Instruction{ .slot_index = generate_random_uint16(rng),
                                               .slot_address = generate_address_ref(rng, MAX_16BIT_OPERAND),
                                               .result_address = generate_address_ref(rng, MAX_16BIT_OPERAND) });
+
+    return instructions;
+}
+
+std::vector<FuzzInstruction> generate_emitunencryptedlog_instruction(std::mt19937_64& rng)
+{
+    // 80% chance to use backfill (4 out of 5) to increase success rate
+    bool use_backfill = std::uniform_int_distribution<int>(0, 4)(rng) != 0;
+
+    if (!use_backfill) {
+        return { EMITUNENCRYPTEDLOG_Instruction{ .log_size_address = generate_variable_ref(rng),
+                                                 .log_values_address = generate_variable_ref(rng) } };
+    }
+
+    uint32_t log_size = std::uniform_int_distribution<uint32_t>(0, FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH)(rng);
+    std::vector<FuzzInstruction> instructions;
+    instructions.reserve(3);
+
+    auto log_size_address = generate_address_ref(rng, MAX_16BIT_OPERAND);
+    auto log_values_address = generate_address_ref(rng, MAX_16BIT_OPERAND - log_size);
+
+    instructions.push_back(SET_32_Instruction{
+        .value_tag = bb::avm2::MemoryTag::U32, .result_address = log_size_address, .value = log_size });
+
+    // Write one random FF in the log
+    instructions.push_back(SET_FF_Instruction{ .value_tag = bb::avm2::MemoryTag::FF,
+                                               .result_address = log_values_address,
+                                               .value = generate_random_field(rng) });
+
+    instructions.push_back(EMITUNENCRYPTEDLOG_Instruction{ .log_size_address = log_size_address,
+                                                           .log_values_address = log_values_address });
+
+    return instructions;
+}
+
+std::vector<FuzzInstruction> generate_call_instruction(std::mt19937_64& rng)
+{
+    // 80% chance to use backfill (4 out of 5) to increase success rate
+    bool use_backfill = std::uniform_int_distribution<int>(0, 4)(rng) != 0;
+
+    if (!use_backfill) {
+
+        return { CALL_Instruction{ .l2_gas_address = generate_variable_ref(rng),
+                                   .da_gas_address = generate_variable_ref(rng),
+                                   .contract_address_address = generate_variable_ref(rng),
+                                   .calldata_address = generate_variable_ref(rng),
+                                   .calldata_size_address = generate_address_ref(rng, MAX_16BIT_OPERAND),
+                                   .calldata_size = generate_random_uint16(rng),
+                                   .is_static_call = rng() % 2 == 0 } };
+    }
+
+    std::vector<FuzzInstruction> instructions;
+    instructions.reserve(5);
+
+    auto contract_address_address = generate_address_ref(rng, MAX_16BIT_OPERAND);
+    instructions.push_back(SET_FF_Instruction{
+        .value_tag = bb::avm2::MemoryTag::FF,
+        .result_address = contract_address_address,
+        .value =
+            bb::avm2::fuzzer::ContractDBProxy::get_instance()->get_function_address(generate_random_uint16(rng)) });
+
+    auto l2_gas_address = generate_address_ref(rng, MAX_16BIT_OPERAND);
+    instructions.push_back(SET_32_Instruction{ .value_tag = bb::avm2::MemoryTag::U32,
+                                               .result_address = l2_gas_address,
+                                               .value = generate_random_uint32(rng) });
+
+    auto da_gas_address = generate_address_ref(rng, MAX_16BIT_OPERAND);
+    instructions.push_back(SET_32_Instruction{ .value_tag = bb::avm2::MemoryTag::U32,
+                                               .result_address = da_gas_address,
+                                               .value = generate_random_uint32(rng) });
+
+    auto calldata_size = generate_random_uint16(rng);
+    auto calldata_size_address = generate_address_ref(rng, MAX_16BIT_OPERAND);
+
+    auto calldata_address = generate_address_ref(rng, MAX_16BIT_OPERAND);
+    // Write one random FF in the calldata
+    instructions.push_back(SET_FF_Instruction{ .value_tag = bb::avm2::MemoryTag::FF,
+                                               .result_address = calldata_address,
+                                               .value = generate_random_field(rng) });
+
+    instructions.push_back(CALL_Instruction{ .l2_gas_address = l2_gas_address,
+                                             .da_gas_address = da_gas_address,
+                                             .contract_address_address = contract_address_address,
+                                             .calldata_address = calldata_address,
+                                             .calldata_size_address = calldata_size_address,
+                                             .calldata_size = calldata_size,
+                                             .is_static_call = rng() % 2 == 0 });
 
     return instructions;
 }
@@ -621,21 +672,9 @@ std::vector<FuzzInstruction> generate_instruction(std::mt19937_64& rng)
                                             .content = generate_random_field(rng),
                                             .content_address = generate_address_ref(rng, MAX_16BIT_OPERAND) } };
     case InstructionGenerationOptions::EMITUNENCRYPTEDLOG:
-        return { EMITUNENCRYPTEDLOG_Instruction{ .log_size = generate_random_uint8(rng),
-                                                 .log_size_address = generate_address_ref(rng, MAX_16BIT_OPERAND),
-                                                 .log_values = { generate_random_field(rng) },
-                                                 .log_values_address_start = generate_random_uint16(rng) } };
+        return generate_emitunencryptedlog_instruction(rng);
     case InstructionGenerationOptions::CALL:
-        return { CALL_Instruction{ .function_index = generate_random_uint16(rng),
-                                   .address_offset = generate_random_uint16(rng),
-                                   .l2_gas = generate_random_uint32(rng),
-                                   .l2_gas_address = generate_random_uint16(rng),
-                                   .da_gas = generate_random_uint32(rng),
-                                   .da_gas_address = generate_random_uint16(rng),
-                                   .arg_size_offset = generate_random_uint16(rng),
-                                   .args_offset = generate_random_uint16(rng),
-                                   .args = { generate_random_field(rng) },
-                                   .is_static_call = rng() % 2 == 0 } };
+        return generate_call_instruction(rng);
     case InstructionGenerationOptions::RETURNDATASIZE_WITH_RETURNDATACOPY:
         return { RETURNDATASIZE_WITH_RETURNDATACOPY_Instruction{ .copy_size_offset = generate_random_uint16(rng),
                                                                  .dst_address = generate_random_uint16(rng),
@@ -768,7 +807,6 @@ void mutate_binary_instruction_16(BinaryInstructionType& instruction, std::mt199
 
 void mutate_not_8_instruction(NOT_8_Instruction& instruction, std::mt19937_64& rng)
 {
-
     UnaryInstruction8MutationOptions option = BASIC_UNARY_INSTRUCTION_8_MUTATION_CONFIGURATION.select(rng);
     switch (option) {
     case UnaryInstruction8MutationOptions::a_address:
@@ -782,7 +820,6 @@ void mutate_not_8_instruction(NOT_8_Instruction& instruction, std::mt19937_64& r
 
 void mutate_set_8_instruction(SET_8_Instruction& instruction, std::mt19937_64& rng)
 {
-
     Set8MutationOptions option = BASIC_SET_8_MUTATION_CONFIGURATION.select(rng);
     switch (option) {
     case Set8MutationOptions::value_tag:
@@ -799,7 +836,6 @@ void mutate_set_8_instruction(SET_8_Instruction& instruction, std::mt19937_64& r
 
 void mutate_set_16_instruction(SET_16_Instruction& instruction, std::mt19937_64& rng)
 {
-
     Set16MutationOptions option = BASIC_SET_16_MUTATION_CONFIGURATION.select(rng);
     switch (option) {
     case Set16MutationOptions::value_tag:
@@ -816,7 +852,6 @@ void mutate_set_16_instruction(SET_16_Instruction& instruction, std::mt19937_64&
 
 void mutate_set_32_instruction(SET_32_Instruction& instruction, std::mt19937_64& rng)
 {
-
     Set32MutationOptions option = BASIC_SET_32_MUTATION_CONFIGURATION.select(rng);
     switch (option) {
     case Set32MutationOptions::value_tag:
@@ -833,7 +868,6 @@ void mutate_set_32_instruction(SET_32_Instruction& instruction, std::mt19937_64&
 
 void mutate_set_64_instruction(SET_64_Instruction& instruction, std::mt19937_64& rng)
 {
-
     Set64MutationOptions option = BASIC_SET_64_MUTATION_CONFIGURATION.select(rng);
     switch (option) {
     case Set64MutationOptions::value_tag:
@@ -850,7 +884,6 @@ void mutate_set_64_instruction(SET_64_Instruction& instruction, std::mt19937_64&
 
 void mutate_set_128_instruction(SET_128_Instruction& instruction, std::mt19937_64& rng)
 {
-
     Set128MutationOptions option = BASIC_SET_128_MUTATION_CONFIGURATION.select(rng);
     switch (option) {
     case Set128MutationOptions::value_tag:
@@ -870,7 +903,6 @@ void mutate_set_128_instruction(SET_128_Instruction& instruction, std::mt19937_6
 
 void mutate_set_ff_instruction(SET_FF_Instruction& instruction, std::mt19937_64& rng)
 {
-
     SetFFMutationOptions option = BASIC_SET_FF_MUTATION_CONFIGURATION.select(rng);
     switch (option) {
     case SetFFMutationOptions::value_tag:
@@ -919,7 +951,6 @@ void mutate_mov_16_instruction(MOV_16_Instruction& instruction, std::mt19937_64&
 
 void mutate_not_16_instruction(NOT_16_Instruction& instruction, std::mt19937_64& rng)
 {
-
     UnaryInstruction8MutationOptions option = BASIC_UNARY_INSTRUCTION_8_MUTATION_CONFIGURATION.select(rng);
     switch (option) {
     case UnaryInstruction8MutationOptions::a_address:
@@ -933,7 +964,6 @@ void mutate_not_16_instruction(NOT_16_Instruction& instruction, std::mt19937_64&
 
 void mutate_cast_8_instruction(CAST_8_Instruction& instruction, std::mt19937_64& rng)
 {
-
     BinaryInstruction8MutationOptions option = BASIC_BINARY_INSTRUCTION_8_MUTATION_CONFIGURATION.select(rng);
     switch (option) {
     case BinaryInstruction8MutationOptions::a_address:
@@ -950,7 +980,6 @@ void mutate_cast_8_instruction(CAST_8_Instruction& instruction, std::mt19937_64&
 
 void mutate_cast_16_instruction(CAST_16_Instruction& instruction, std::mt19937_64& rng)
 {
-
     BinaryInstruction8MutationOptions option = BASIC_BINARY_INSTRUCTION_8_MUTATION_CONFIGURATION.select(rng);
     switch (option) {
     case BinaryInstruction8MutationOptions::a_address:
@@ -967,7 +996,6 @@ void mutate_cast_16_instruction(CAST_16_Instruction& instruction, std::mt19937_6
 
 void mutate_sstore_instruction(SSTORE_Instruction& instruction, std::mt19937_64& rng)
 {
-
     SStoreMutationOptions option = BASIC_SSTORE_MUTATION_CONFIGURATION.select(rng);
     switch (option) {
     case SStoreMutationOptions::src_address:
@@ -984,7 +1012,6 @@ void mutate_sstore_instruction(SSTORE_Instruction& instruction, std::mt19937_64&
 
 void mutate_sload_instruction(SLOAD_Instruction& instruction, std::mt19937_64& rng)
 {
-
     SLoadMutationOptions option = BASIC_SLOAD_MUTATION_CONFIGURATION.select(rng);
     switch (option) {
     case SLoadMutationOptions::slot_index:
@@ -1001,7 +1028,6 @@ void mutate_sload_instruction(SLOAD_Instruction& instruction, std::mt19937_64& r
 
 void mutate_getenvvar_instruction(GETENVVAR_Instruction& instruction, std::mt19937_64& rng)
 {
-
     GetEnvVarMutationOptions option = BASIC_GETENVVAR_MUTATION_CONFIGURATION.select(rng);
     switch (option) {
     case GetEnvVarMutationOptions::result_address:
@@ -1022,7 +1048,6 @@ void mutate_emit_nullifier_instruction(EMITNULLIFIER_Instruction& instruction, s
 
 void mutate_nullifier_exists_instruction(NULLIFIEREXISTS_Instruction& instruction, std::mt19937_64& rng)
 {
-
     NullifierExistsMutationOptions option = BASIC_NULLIFIER_EXISTS_MUTATION_CONFIGURATION.select(rng);
     switch (option) {
     case NullifierExistsMutationOptions::nullifier_address:
@@ -1055,7 +1080,6 @@ void mutate_l1tol2msgexists_instruction(L1TOL2MSGEXISTS_Instruction& instruction
 
 void mutate_emit_note_hash_instruction(EMITNOTEHASH_Instruction& instruction, std::mt19937_64& rng)
 {
-
     EmitNoteHashMutationOptions option = BASIC_EMITNOTEHASH_MUTATION_CONFIGURATION.select(rng);
     switch (option) {
     case EmitNoteHashMutationOptions::note_hash_address:
@@ -1068,7 +1092,6 @@ void mutate_emit_note_hash_instruction(EMITNOTEHASH_Instruction& instruction, st
 }
 void mutate_note_hash_exists_instruction(NOTEHASHEXISTS_Instruction& instruction, std::mt19937_64& rng)
 {
-
     NoteHashExistsMutationOptions option = BASIC_NOTEHASHEXISTS_MUTATION_CONFIGURATION.select(rng);
     switch (option) {
     case NoteHashExistsMutationOptions::notehash_index:
@@ -1088,7 +1111,6 @@ void mutate_note_hash_exists_instruction(NOTEHASHEXISTS_Instruction& instruction
 
 void mutate_calldatacopy_instruction(CALLDATACOPY_Instruction& instruction, std::mt19937_64& rng)
 {
-
     CalldataCopyMutationOptions option = BASIC_CALLDATACOPY_MUTATION_CONFIGURATION.select(rng);
     switch (option) {
     case CalldataCopyMutationOptions::dst_address:
@@ -1132,24 +1154,11 @@ void mutate_emitunencryptedlog_instruction(EMITUNENCRYPTEDLOG_Instruction& instr
 {
     EmitUnencryptedLogMutationOptions option = BASIC_EMITUNENCRYPTEDLOG_MUTATION_CONFIGURATION.select(rng);
     switch (option) {
-    case EmitUnencryptedLogMutationOptions::log_size:
-        mutate_uint8_t(instruction.log_size, rng, BASIC_UINT8_T_MUTATION_CONFIGURATION);
-        break;
     case EmitUnencryptedLogMutationOptions::log_size_address:
-        mutate_address_ref(instruction.log_size_address, rng, MAX_16BIT_OPERAND);
+        mutate_param_ref(instruction.log_size_address, rng, MemoryTag::U32, MAX_16BIT_OPERAND);
         break;
-    case EmitUnencryptedLogMutationOptions::log_values:
-        mutate_vec<bb::avm2::FF>(
-            instruction.log_values,
-            rng,
-            [](bb::avm2::FF& value, std::mt19937_64& rng) {
-                mutate_field(value, rng, BASIC_FIELD_MUTATION_CONFIGURATION);
-            },
-            generate_random_field,
-            BASIC_VEC_MUTATION_CONFIGURATION);
-        break;
-    case EmitUnencryptedLogMutationOptions::log_values_address_start:
-        mutate_uint16_t(instruction.log_values_address_start, rng, BASIC_UINT16_T_MUTATION_CONFIGURATION);
+    case EmitUnencryptedLogMutationOptions::log_values_address:
+        mutate_param_ref(instruction.log_values_address, rng, MemoryTag::FF, MAX_16BIT_OPERAND);
         break;
     }
 }
@@ -1158,45 +1167,30 @@ void mutate_call_instruction(CALL_Instruction& instruction, std::mt19937_64& rng
 {
     CallMutationOptions option = BASIC_CALL_MUTATION_CONFIGURATION.select(rng);
     switch (option) {
-    case CallMutationOptions::function_index:
-        mutate_uint16_t(instruction.function_index, rng, BASIC_UINT16_T_MUTATION_CONFIGURATION);
-        break;
-    case CallMutationOptions::address_offset:
-        mutate_uint16_t(instruction.address_offset, rng, BASIC_UINT16_T_MUTATION_CONFIGURATION);
-        break;
-    case CallMutationOptions::l2_gas:
-        mutate_uint32_t(instruction.l2_gas, rng, BASIC_UINT32_T_MUTATION_CONFIGURATION);
-        break;
     case CallMutationOptions::l2_gas_address:
-        mutate_uint16_t(instruction.l2_gas_address, rng, BASIC_UINT16_T_MUTATION_CONFIGURATION);
-        break;
-    case CallMutationOptions::da_gas:
-        mutate_uint32_t(instruction.da_gas, rng, BASIC_UINT32_T_MUTATION_CONFIGURATION);
+        mutate_param_ref(instruction.l2_gas_address, rng, MemoryTag::U32, MAX_16BIT_OPERAND);
         break;
     case CallMutationOptions::da_gas_address:
-        mutate_uint16_t(instruction.da_gas_address, rng, BASIC_UINT16_T_MUTATION_CONFIGURATION);
+        mutate_param_ref(instruction.da_gas_address, rng, MemoryTag::U32, MAX_16BIT_OPERAND);
         break;
-    case CallMutationOptions::arg_size_offset:
-        mutate_uint16_t(instruction.arg_size_offset, rng, BASIC_UINT16_T_MUTATION_CONFIGURATION);
+    case CallMutationOptions::contract_address_address:
+        mutate_param_ref(instruction.contract_address_address, rng, MemoryTag::FF, MAX_16BIT_OPERAND);
         break;
-    case CallMutationOptions::args:
-        mutate_vec<bb::avm2::FF>(
-            instruction.args,
-            rng,
-            [](bb::avm2::FF& value, std::mt19937_64& rng) {
-                mutate_field(value, rng, BASIC_FIELD_MUTATION_CONFIGURATION);
-            },
-            generate_random_field,
-            BASIC_VEC_MUTATION_CONFIGURATION);
+    case CallMutationOptions::calldata_size_address:
+        mutate_address_ref(instruction.calldata_size_address, rng, MAX_16BIT_OPERAND);
         break;
-    case CallMutationOptions::args_offset:
-        mutate_uint16_t(instruction.args_offset, rng, BASIC_UINT16_T_MUTATION_CONFIGURATION);
+    case CallMutationOptions::calldata_size:
+        mutate_uint16_t(instruction.calldata_size, rng, BASIC_UINT16_T_MUTATION_CONFIGURATION);
+        break;
+    case CallMutationOptions::calldata_address:
+        mutate_param_ref(instruction.calldata_address, rng, MemoryTag::FF, MAX_16BIT_OPERAND);
         break;
     case CallMutationOptions::is_static_call:
         // with 0.5 probability, set to true, otherwise false
         instruction.is_static_call = rng() % 2 == 0;
     }
 }
+
 void mutate_returndatasize_with_returndatacopy_instruction(RETURNDATASIZE_WITH_RETURNDATACOPY_Instruction& instruction,
                                                            std::mt19937_64& rng)
 {

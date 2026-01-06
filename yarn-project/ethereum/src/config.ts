@@ -32,6 +32,8 @@ export type L1ContractsConfig = {
   lagInEpochsForValidatorSet: number;
   /** The number of epochs to lag behind the current epoch for randao selection. */
   lagInEpochsForRandao: number;
+  /** The number of checkpoints to lag in the inbox (prevents sequencer DOS attacks). */
+  inboxLag: number;
   /** The number of epochs after an epoch ends that proofs are still accepted. */
   aztecProofSubmissionEpochs: number;
   /** The deposit amount for a validator */
@@ -81,6 +83,7 @@ export const DefaultL1ContractsConfig = {
   aztecTargetCommitteeSize: 48,
   lagInEpochsForValidatorSet: 2,
   lagInEpochsForRandao: 2, // For PROD, this value should be > lagInEpochsForValidatorSet
+  inboxLag: 1, // Default inbox lag to prevent sequencer DOS attacks
   aztecProofSubmissionEpochs: 1, // you have a full epoch to submit a proof after the epoch to prove ends
   activationThreshold: 100n * 10n ** 18n,
   ejectionThreshold: 50n * 10n ** 18n,
@@ -131,6 +134,11 @@ export const l1ContractsConfigMappings: ConfigMappingsType<L1ContractsConfig> = 
     env: 'AZTEC_LAG_IN_EPOCHS_FOR_RANDAO',
     description: 'The number of epochs to lag behind the current epoch for randao selection.',
     ...numberConfigHelper(DefaultL1ContractsConfig.lagInEpochsForRandao),
+  },
+  inboxLag: {
+    env: 'AZTEC_INBOX_LAG',
+    description: 'The number of checkpoints to lag in the inbox (prevents sequencer DOS attacks).',
+    ...numberConfigHelper(DefaultL1ContractsConfig.inboxLag),
   },
   aztecProofSubmissionEpochs: {
     env: 'AZTEC_PROOF_SUBMISSION_EPOCHS',

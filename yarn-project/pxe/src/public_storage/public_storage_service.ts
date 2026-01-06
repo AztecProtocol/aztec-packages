@@ -3,11 +3,11 @@ import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { BlockParameter } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 
-import type { AnchorBlockDataProvider } from '../storage/anchor_block_data_provider/anchor_block_data_provider.js';
+import type { AnchorBlockStore } from '../storage/anchor_block_store/anchor_block_store.js';
 
 export class PublicStorageService {
   constructor(
-    private readonly anchorBlockDataProvider: AnchorBlockDataProvider,
+    private readonly anchorBlockStore: AnchorBlockStore,
     private readonly aztecNode: AztecNode,
   ) {}
 
@@ -24,7 +24,7 @@ export class PublicStorageService {
    * @throws If the contract is not deployed.
    */
   public async getPublicStorageAt(blockNumber: BlockParameter, contract: AztecAddress, slot: Fr): Promise<Fr> {
-    const anchorBlockNumber = (await this.anchorBlockDataProvider.getBlockHeader()).getBlockNumber();
+    const anchorBlockNumber = (await this.anchorBlockStore.getBlockHeader()).getBlockNumber();
     if (blockNumber !== 'latest' && blockNumber > anchorBlockNumber) {
       throw new Error(`Block number ${blockNumber} is higher than current block ${anchorBlockNumber}`);
     }

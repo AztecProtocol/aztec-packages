@@ -167,6 +167,6 @@ describe('spartan_upgrade_governance_proposer', () => {
       expect(receipt.status).toEqual('success');
       debugLogger.info(`Executed proposal ${info.round}`);
     },
-    1000 * 60 * 10,
+    1000 * 60 * 20,
   );
 });

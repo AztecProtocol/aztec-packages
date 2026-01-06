@@ -1,6 +1,5 @@
 #include "blake2s_constraint.hpp"
 #include "acir_format.hpp"
-#include "acir_format_mocks.hpp"
 #include "barretenberg/crypto/blake2s/blake2s.hpp"
 #include "barretenberg/dsl/acir_format/test_class.hpp"
 #include "barretenberg/dsl/acir_format/utils.hpp"

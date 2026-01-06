@@ -3,8 +3,8 @@ import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import type { DirectionalAppTaggingSecret, TxScopedL2Log } from '@aztec/stdlib/logs';
 
-import { UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN } from '../sync/sync_sender_tagging_indexes.js';
-import type { RecipientTaggingDataProvider } from './recipient_tagging_data_provider.js';
+import type { RecipientTaggingStore } from '../../storage/tagging_store/recipient_tagging_store.js';
+import { UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN } from '../index.js';
 import { findHighestIndexes } from './utils/find_highest_indexes.js';
 import { loadLogsForRange } from './utils/load_logs_for_range.js';
 
@@ -19,7 +19,7 @@ export async function loadPrivateLogsForSenderRecipientPair(
   secret: DirectionalAppTaggingSecret,
   app: AztecAddress,
   aztecNode: AztecNode,
-  taggingDataProvider: RecipientTaggingDataProvider,
+  taggingStore: RecipientTaggingStore,
   anchorBlockNumber: BlockNumber,
 ): Promise<TxScopedL2Log[]> {
   // # Explanation of how the algorithm works
@@ -73,8 +73,8 @@ export async function loadPrivateLogsForSenderRecipientPair(
 
   let start: number, end: number;
   {
-    const currentHighestAgedIndex = await taggingDataProvider.getHighestAgedIndex(secret);
-    const currentHighestFinalizedIndex = await taggingDataProvider.getHighestFinalizedIndex(secret);
+    const currentHighestAgedIndex = await taggingStore.getHighestAgedIndex(secret);
+    const currentHighestFinalizedIndex = await taggingStore.getHighestFinalizedIndex(secret);
 
     // We don't want to include the highest aged index so we start from `currentHighestAgedIndex + 1` (or 0 if not set)
     start = currentHighestAgedIndex === undefined ? 0 : currentHighestAgedIndex + 1;
@@ -104,7 +104,7 @@ export async function loadPrivateLogsForSenderRecipientPair(
 
     // Store updates in data provider and update local variables
     if (highestAgedIndex !== undefined) {
-      await taggingDataProvider.updateHighestAgedIndex(secret, highestAgedIndex);
+      await taggingStore.updateHighestAgedIndex(secret, highestAgedIndex);
     }
 
     if (highestFinalizedIndex === undefined) {
@@ -117,7 +117,7 @@ export async function loadPrivateLogsForSenderRecipientPair(
       throw new Error('Highest aged index lower than highest finalized index invariant violated');
     }
 
-    await taggingDataProvider.updateHighestFinalizedIndex(secret, highestFinalizedIndex);
+    await taggingStore.updateHighestFinalizedIndex(secret, highestFinalizedIndex);
 
     // For the next iteration we want to look only at indexes for which we have not attempted to load logs yet while
     // ensuring that we do not look further than WINDOW_LEN ahead of the highest finalized index.

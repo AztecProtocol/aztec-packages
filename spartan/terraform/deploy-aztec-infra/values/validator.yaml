@@ -1,6 +1,13 @@
 validator:
   node:
     logLevel: "debug; info: aztec:simulator, json-rpc"
+    # Validators can take a long time to come up (CRS download, heavy init, catch-up).
+    # Keep startupProbe generous to avoid kubelet killing the container mid-boot.
+    startupProbe:
+      periodSeconds: 30
+      timeoutSeconds: 5
+      initialDelaySeconds: 0
+      failureThreshold: 60
     preStartScript: |
       source /scripts/setup-attester-keystore.sh
 

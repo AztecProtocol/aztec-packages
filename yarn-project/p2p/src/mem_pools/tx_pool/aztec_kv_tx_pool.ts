@@ -57,9 +57,6 @@ export class AztecKVTxPool
 
   #feePayerToTxHash: AztecAsyncMultiMap<string, string>;
 
-  /** In-memory mapping of pending tx hashes to the hydrated pending tx in the pool. */
-  #pendingTxs: Map<string, Tx>;
-
   /** In-memory set of txs that should not be evicted from the pool. */
   #nonEvictableTxs: Set<string>;
 
@@ -124,7 +121,6 @@ export class AztecKVTxPool
     this.#historicalHeaderToTxHash = store.openMultiMap('historicalHeaderToPendingTxHash');
     this.#feePayerToTxHash = store.openMultiMap('feePayerToPendingTxHash');
 
-    this.#pendingTxs = new Map<string, Tx>();
     this.#nonEvictableTxs = new Set<string>();
 
     this.#archivedTxs = archive.openMap('archivedTxs');
@@ -576,20 +572,12 @@ export class AztecKVTxPool
    * @returns The transaction, if found, 'undefined' otherwise.
    */
   private async getPendingTxByHash(txHash: TxHash | string): Promise<Tx | undefined> {
-    let key;
     if (typeof txHash === 'string') {
-      key = txHash;
       txHash = TxHash.fromString(txHash);
-    } else {
-      key = txHash.toString();
     }
 
-    if (this.#pendingTxs.has(key)) {
-      return this.#pendingTxs.get(key);
-    }
     const tx = await this.getTxByHash(txHash);
     if (tx) {
-      this.#pendingTxs.set(key, tx);
       return tx;
     }
     return undefined;
@@ -664,7 +652,6 @@ export class AztecKVTxPool
   // Assumes being called within a DB transaction
   private async removePendingTxIndicesInDbTx(tx: Tx, txHash: string): Promise<void> {
     await this.#pendingTxPriorityToHash.deleteValue(getPendingTxPriority(tx), txHash);
-    this.#pendingTxs.delete(txHash);
     await this.#historicalHeaderToTxHash.deleteValue(
       (await tx.data.constants.anchorBlockHeader.hash()).toString(),
       txHash,

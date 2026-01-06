@@ -8,24 +8,24 @@ import { DirectionalAppTaggingSecret, PendingTaggedLog, SiloedTag, Tag, TxScoped
 
 import type { LogRetrievalRequest } from '../contract_function_simulator/noir-structs/log_retrieval_request.js';
 import { LogRetrievalResponse } from '../contract_function_simulator/noir-structs/log_retrieval_response.js';
-import { AddressDataProvider } from '../storage/address_data_provider/address_data_provider.js';
-import { AnchorBlockDataProvider } from '../storage/anchor_block_data_provider/anchor_block_data_provider.js';
-import { CapsuleDataProvider } from '../storage/capsule_data_provider/capsule_data_provider.js';
-import type { SenderAddressBook } from '../storage/tagging_data_provider/sender_address_book.js';
-import { loadPrivateLogsForSenderRecipientPair } from '../tagging/recipient_sync/load_private_logs_for_sender_recipient_pair.js';
-import type { RecipientTaggingDataProvider } from '../tagging/recipient_sync/recipient_tagging_data_provider.js';
+import { AddressStore } from '../storage/address_store/address_store.js';
+import { AnchorBlockStore } from '../storage/anchor_block_store/anchor_block_store.js';
+import { CapsuleStore } from '../storage/capsule_store/capsule_store.js';
+import type { RecipientTaggingStore } from '../storage/tagging_store/recipient_tagging_store.js';
+import type { SenderAddressBookStore } from '../storage/tagging_store/sender_address_book_store.js';
+import { loadPrivateLogsForSenderRecipientPair } from '../tagging/index.js';
 
 export class LogService {
   private log = createLogger('log_service');
 
   constructor(
     private readonly aztecNode: AztecNode,
-    private readonly anchorBlockDataProvider: AnchorBlockDataProvider,
+    private readonly anchorBlockStore: AnchorBlockStore,
     private readonly keyStore: KeyStore,
-    private readonly capsuleDataProvider: CapsuleDataProvider,
-    private readonly recipientTaggingDataProvider: RecipientTaggingDataProvider,
-    private readonly senderAddressBook: SenderAddressBook,
-    private readonly addressDataProvider: AddressDataProvider,
+    private readonly capsuleStore: CapsuleStore,
+    private readonly recipientTaggingStore: RecipientTaggingStore,
+    private readonly senderAddressBookStore: SenderAddressBookStore,
+    private readonly addressStore: AddressStore,
   ) {}
 
   public async bulkRetrieveLogs(logRetrievalRequests: LogRetrievalRequest[]): Promise<(LogRetrievalResponse | null)[]> {
@@ -101,7 +101,7 @@ export class LogService {
     this.log.verbose('Searching for tagged logs', { contract: contractAddress });
 
     // We only load logs from block up to and including the anchor block number
-    const anchorBlockNumber = (await this.anchorBlockDataProvider.getBlockHeader()).getBlockNumber();
+    const anchorBlockNumber = (await this.anchorBlockStore.getBlockHeader()).getBlockNumber();
 
     // Determine recipients: use scopes if provided, otherwise get all accounts
     const recipients = scopes && scopes.length > 0 ? scopes : await this.keyStore.getAccounts();
@@ -120,7 +120,7 @@ export class LogService {
               secret,
               contractAddress,
               this.aztecNode,
-              this.recipientTaggingDataProvider,
+              this.recipientTaggingStore,
               anchorBlockNumber,
             ),
           ),
@@ -146,7 +146,7 @@ export class LogService {
 
     // We implicitly add all PXE accounts as senders, this helps us decrypt tags on notes that we send to ourselves
     // (recipient = us, sender = us)
-    const allSenders = [...(await this.senderAddressBook.getSenders()), ...(await this.keyStore.getAccounts())];
+    const allSenders = [...(await this.senderAddressBookStore.getSenders()), ...(await this.keyStore.getAccounts())];
 
     // We deduplicate the senders by adding them to a set and then converting the set back to an array
     const deduplicatedSenders = Array.from(new Set(allSenders.map(sender => sender.toString()))).map(sender =>
@@ -186,11 +186,11 @@ export class LogService {
     });
 
     // TODO: This looks like it could belong more at the oracle interface level
-    return this.capsuleDataProvider.appendToCapsuleArray(contractAddress, capsuleArrayBaseSlot, pendingTaggedLogs);
+    return this.capsuleStore.appendToCapsuleArray(contractAddress, capsuleArrayBaseSlot, pendingTaggedLogs);
   }
 
   async #getCompleteAddress(account: AztecAddress): Promise<CompleteAddress> {
-    const completeAddress = await this.addressDataProvider.getCompleteAddress(account);
+    const completeAddress = await this.addressStore.getCompleteAddress(account);
     if (!completeAddress) {
       throw new Error(
         `No public key registered for address ${account}.

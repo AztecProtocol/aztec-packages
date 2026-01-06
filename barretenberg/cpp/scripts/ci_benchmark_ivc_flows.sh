@@ -120,7 +120,7 @@ chonk_flow $1 $2
 runtime="$1"
 flow_name="$(basename $2)"
 
-if [[ "${CI:-}" == "1" ]] && [[ "${CI_ENABLE_DISK_LOGS:-0}" == "1" ]]; then
+if [[ "${CI:-}" == "1" ]] && [[ "${CI_USE_BUILD_INSTANCE_KEY:-0}" == "1" ]]; then
   echo_header "Uploading Barretenberg benchmark breakdowns for $flow_name"
 
   benchmark_breakdown_file="bench-out/app-proving/$flow_name/$runtime/benchmark_breakdown.json"

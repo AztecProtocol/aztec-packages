@@ -7,7 +7,6 @@
 #include "barretenberg/common/map.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp"
-#include "barretenberg/dsl/acir_format/proof_surgeon.hpp"
 #include "barretenberg/dsl/acir_proofs/honk_contract.hpp"
 #include "barretenberg/dsl/acir_proofs/honk_optimized_contract.hpp"
 #include "barretenberg/dsl/acir_proofs/honk_zk_contract.hpp"

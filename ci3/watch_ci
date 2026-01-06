@@ -1,128 +1,99 @@
 #!/usr/bin/env bash
 source $(git rev-parse --show-toplevel)/ci3/source
-source $ci3/source_redis
+source $ci3/source_color
+source $HOME/py-env/bin/activate
 
-filter_property=${1:-}
-filter_string=${2:-}
+# Parse arguments
+sections="next"
+filter_property=""
+filter_string=""
+use_pr=false
+use_user=false
+watch_mode=false
 
-function get_tag {
-  case "$1" in
-    RUNNING) echo -e " ${blue}$1${reset}" ;;
-    PASSED) echo -e "  ${green}$1${reset}" ;;
-    FAILED) echo -e "  ${red}$1${reset}" ;;
-    INACTIVE) echo -e "${bold}$1${reset}" ;;
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    --pr) use_pr=true; shift ;;
+    --user) use_user=true; shift ;;
+    --watch|-w) watch_mode=true; shift ;;
+    --section|-s) sections="$2"; shift 2 ;;
+    --filter-prop|-p) filter_property="$2"; shift 2 ;;
+    --filter|-f) filter_string="$2"; shift 2 ;;
+    *) sections="$1"; shift ;;  # Backwards compat: first positional arg is sections
   esac
-}
+done
 
-function render {
-  while IFS= read -r json_line; do
-    readarray -t arr < <(jq -r '[.timestamp, .status, .msg, .name, .author, .complete // "", .arch // ""][]' <<< "$json_line")
-    ts="${arr[0]}"
-    status="${arr[1]}"
-    msg="${arr[2]}"
-    name="${arr[3]}"
-    author="${arr[4]}"
-    complete="${arr[5]}"
-    arch="${arr[6]}"
-    local date_time=$(date -d @${ts:0:10} "+%m-%d %H:%M:%S")
-    local link="${link_open}http://ci.aztec-labs.com/$ts${link_close}$ts${link_open}${link_close}"
-    if [ -z "$complete" ]; then
-      local from=$(date +%s%3N)
-    else
-      local from=complete
+# Split sections into array
+IFS=',' read -ra section_array <<< "$sections"
+num_sections=${#section_array[@]}
+
+DASHBOARD_PATH="$ci3/dashboard"
+
+# Handle --pr flag: get PR URL for current branch
+if [ "$use_pr" = true ]; then
+  branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
+  if [ -n "$branch" ]; then
+    pr_url=$(gh pr list --head "$branch" --limit 1 --json url -q '.[0].url' 2>/dev/null)
+    if [ -n "$pr_url" ]; then
+      filter_string="${filter_string:+$filter_string,}$pr_url"
+      filter_property="${filter_property:-msg}"
     fi
+  fi
+fi
 
-    if [[ $msg =~ \(#([0-9]+)\) ]]; then
-        pr_number="${BASH_REMATCH[1]}"
-        msg="${link_open}https://github.com/aztecprotocol/aztec-packages/pull/$pr_number${link_close}$msg${link_open}${link_close}"
-    fi
-
-    if [ "$status" != "INACTIVE" ]; then
-      local duration=$(( (from - ts) / 1000 ))
-      local duration_str="($((duration / 60))m$((duration % 60))s)"
-      echo -en "\n$date_time $(get_tag $status) (${yellow}$link${reset}): $arch ${bold}$name${reset} ${purple}$author${reset}: $msg ${duration_str} \e[K"
-    else
-      echo -en "\n$date_time $(get_tag $status) ($link): $arch ${bold}$name${reset} $author: $msg \e[K"
-    fi
-  done
-}
-
-SECONDS=5
+# Handle --user flag: get git user name
+if [ "$use_user" = true ]; then
+  user=$(git config user.name 2>/dev/null)
+  if [ -n "$user" ]; then
+    filter_string="${filter_string:+$filter_string,}$user"
+    filter_property="${filter_property:-author}"
+  fi
+fi
 
 function update_status {
-  # Jump to top left and clear.
-  echo -en "\e[0;0H\e[K"
-  echo -en "${bold}${blue}AZTEC LABS TERMINAL CI SYSTEM${reset}:" \
-    "(offset: $offset) (filter: ${filter_string:-unset}) (filter_prop: ${filter_property:-unset} [status,name,author,msg])"
+  echo -en "\e[0;0H\e[K\n\e[K\e[0;0H"
+  echo -e "${bold}${blue}AZTEC LABS TERMINAL CI SYSTEM${reset}: " \
+    "(sections: $sections) (filter: ${filter_string:-unset}) (filter_prop: ${filter_property:-unset} [status,name,author,msg])"
+  echo
 }
 
 function refresh {
   height=$(tput lines)
-  width=$(tput cols)
-  if [ "$SECONDS" -ge 5 ]; then
-    result=$(redis_cli --eval $ci3/lua/set-filter.lua ci-run , \
-      $offset $((offset + height - 1)) $filter_property $filter_string)
-    SECONDS=0
-  fi
-  update_status
-  if [ -z "$result" ]; then
-    echo -n "\nNothing to see here..."
-  else
-    echo -e "$result" | head -n $((height - 1)) | render
-  fi
-  # Clear remainder.
+
+  cmd="python3 $DASHBOARD_PATH/rk_cli.py --section {}"
+  [ -n "$filter_property" ] && cmd+=" --filter-prop $filter_property"
+  [ -n "$filter_string" ] && cmd+=" --filter '$filter_string'"
+
+  parallel -j${#section_array[@]} -k $cmd ::: "${section_array[@]}" | sort -r | head -n $((height - 2))
   echo -e -n "\e[J"
 }
 
-function cleanup {
-  tput rmcup
-  tput cnorm
-  echo -en '\e[?7h'
-  stty echo
-  exit
-}
+if [ "$watch_mode" = true ]; then
+  # Interactive watch mode with auto-refresh
+  tput smcup  # Save screen
+  tput civis  # Hide cursor
+  echo -en '\e[?7l'  # No wrap
+  stty -echo  # No echo keypress
+  trap 'tput rmcup; tput cnorm; echo -en "\e[?7h"; stty echo; exit' SIGINT EXIT
+  trap 'SECONDS=5' WINCH  # Refresh on terminal resize
 
-tput smcup
-# Hide cursor
-tput civis
-# No wrap
-echo -en '\e[?7l'
-# No echo keypress
-stty -echo
-trap cleanup SIGINT EXIT
-
-offset=0
-
-function offset_up {
-  offset=$(( offset + 1 ))
   SECONDS=5
-  update_status
-}
 
-function offset_down {
-  offset=$(( offset > 0 ? offset - 1 : 0 ))
-  SECONDS=5
-  update_status
-}
+  while true; do
+    if [ "$SECONDS" -ge 5 ]; then
+      update_status
+      refresh
+      SECONDS=0
+    fi
 
-refresh
-while true; do
-  # Read with a timeout.
-  if read -rsn1 -t 1 key; then
-    # Check for escape sequence start.
-    case "$key" in
-      $'\e')
-        read -rsn2 -t 1 key2
-        case "$key2" in
-          "[A") offset_up ;;
-          "[B") offset_down ;;
-        esac
-        ;;
-      j) offset_up ;;
-      k) offset_down ;;
-      q) break ;;
-    esac
-    continue
-  fi
+    # Read with timeout, q to quit
+    if read -rsn1 -t 0.2 key; then
+      case "$key" in
+        q) break ;;
+      esac
+    fi
+  done
+else
+  # One-shot mode
   refresh
-done
+fi

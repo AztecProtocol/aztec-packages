@@ -538,35 +538,27 @@ struct SENDL2TOL1MSG_Instruction {
 };
 
 struct EMITUNENCRYPTEDLOG_Instruction {
-    uint8_t log_size;
-    AddressRef log_size_address;
-    std::vector<bb::avm2::FF> log_values;
-    uint16_t log_values_address_start;
-    MSGPACK_FIELDS(log_size, log_size_address, log_values);
+    ParamRef log_size_address;
+    ParamRef log_values_address;
+    MSGPACK_FIELDS(log_size_address, log_values_address);
 };
 
-/// @brief CALL: call function by index (resolved by contract db proxy)
-/// All addresses are DIRECT, because this opcode is already way too heavy
 struct CALL_Instruction {
-    uint16_t function_index;
-    uint16_t address_offset; // where the function address will be stored
-    uint32_t l2_gas;
-    uint16_t l2_gas_address;
-    uint32_t da_gas;
-    uint16_t da_gas_address;
-    uint16_t arg_size_offset; // where calldata.size() will be stored
-    uint16_t args_offset;     // where the args will be stored
-    std::vector<bb::avm2::FF> args;
-    bool is_static_call; // use STATICCALL/CALL opcodes
-    MSGPACK_FIELDS(function_index,
-                   address_offset,
-                   l2_gas,
-                   l2_gas_address,
-                   da_gas,
+    ParamRef l2_gas_address;
+    ParamRef da_gas_address;
+    ParamRef contract_address_address;
+    ParamRef calldata_address;
+    // Hacked  a bit so we can limit the calldata size to a reasonable value for the TS sim.
+    AddressRef calldata_size_address;
+    uint16_t calldata_size;
+    bool is_static_call;
+
+    MSGPACK_FIELDS(l2_gas_address,
                    da_gas_address,
-                   arg_size_offset,
-                   args_offset,
-                   args,
+                   contract_address_address,
+                   calldata_address,
+                   calldata_size_address,
+                   calldata_size,
                    is_static_call);
 };
 
@@ -884,16 +876,12 @@ inline std::ostream& operator<<(std::ostream& os, const FuzzInstruction& instruc
                    << arg.content << " " << arg.content_address;
             },
             [&](EMITUNENCRYPTEDLOG_Instruction arg) {
-                os << "EMITUNENCRYPTEDLOG_Instruction " << arg.log_size << " " << arg.log_size_address << " ";
-                for (const auto& value : arg.log_values) {
-                    os << value << " ";
-                }
-                os << std::endl;
+                os << "EMITUNENCRYPTEDLOG_Instruction " << arg.log_size_address << " " << arg.log_values_address;
             },
             [&](CALL_Instruction arg) {
-                os << "CALL_Instruction " << arg.function_index << " " << arg.address_offset << " " << arg.l2_gas << " "
-                   << arg.l2_gas_address << " " << arg.da_gas << " " << arg.da_gas_address << " " << arg.arg_size_offset
-                   << " " << arg.args.size() << " " << arg.is_static_call;
+                os << "CALL_Instruction " << arg.l2_gas_address << " " << arg.da_gas_address << " "
+                   << arg.contract_address_address << " " << arg.calldata_size_address << " " << arg.calldata_address
+                   << " " << arg.is_static_call;
             },
             [&](RETURNDATASIZE_WITH_RETURNDATACOPY_Instruction arg) {
                 os << "RETURNDATASIZE_WITH_RETURNDATACOPY_Instruction " << arg.copy_size_offset << " "

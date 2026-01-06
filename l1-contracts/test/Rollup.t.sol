@@ -170,7 +170,11 @@ contract RollupTest is RollupBase {
   function testPrune() public setUpFor("mixed_checkpoint_1") {
     _proposeCheckpoint("mixed_checkpoint_1", 1);
 
-    assertEq(inbox.getInProgress(), 3, "Invalid in progress");
+    assertEq(
+      inbox.getInProgress(),
+      Constants.INITIAL_CHECKPOINT_NUMBER + TestConstants.AZTEC_INBOX_LAG + 1,
+      "Invalid in progress"
+    );
 
     // @note  Fetch the inbox root of checkpoint 2. This should be frozen when checkpoint 1 is proposed.
     //        Even if we end up reverting checkpoint 1, we should still see the same root in the inbox.
@@ -193,7 +197,11 @@ contract RollupTest is RollupBase {
     assertNotEq(rootMixed, bytes32(0), "Invalid root");
 
     rollup.prune();
-    assertEq(inbox.getInProgress(), 3, "Invalid in progress");
+    assertEq(
+      inbox.getInProgress(),
+      Constants.INITIAL_CHECKPOINT_NUMBER + TestConstants.AZTEC_INBOX_LAG + 1,
+      "Invalid in progress"
+    );
     assertEq(rollup.getPendingCheckpointNumber(), 0, "Invalid pending checkpoint number");
     assertEq(rollup.getProvenCheckpointNumber(), 0, "Invalid proven checkpoint number");
 
@@ -205,7 +213,11 @@ contract RollupTest is RollupBase {
     // @note  We prune the pending chain as part of the propose call.
     _proposeCheckpoint("empty_checkpoint_1", Slot.unwrap(prunableAt));
 
-    assertEq(inbox.getInProgress(), 3, "Invalid in progress");
+    assertEq(
+      inbox.getInProgress(),
+      Constants.INITIAL_CHECKPOINT_NUMBER + TestConstants.AZTEC_INBOX_LAG + 1,
+      "Invalid in progress"
+    );
     assertEq(inbox.getRoot(2), inboxRoot2, "Invalid inbox root");
     assertEq(rollup.getPendingCheckpointNumber(), 1, "Invalid pending checkpoint number");
     assertEq(rollup.getProvenCheckpointNumber(), 0, "Invalid proven checkpoint number");
