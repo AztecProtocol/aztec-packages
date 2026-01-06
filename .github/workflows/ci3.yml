@@ -85,6 +85,8 @@ jobs:
           PR_COMMITS: ${{ github.event.pull_request.commits }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           GITHUB_REF_NAME: ${{ github.ref_name }}
+          # Enable build instance key features (disk logging, benchmark uploads, etc.)
+          CI_USE_BUILD_INSTANCE_KEY: "1"
         # NOTE: $CI_MODE is set in the Determine CI Mode step.
         run: ./.github/ci3.sh $CI_MODE
 
