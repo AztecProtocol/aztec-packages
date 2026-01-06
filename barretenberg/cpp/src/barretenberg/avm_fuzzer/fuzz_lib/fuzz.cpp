@@ -42,14 +42,14 @@ SimulatorResult fuzz_against_ts_simulator(FuzzerData& fuzzer_data, FuzzerContext
 
     try {
         ws_mgr->checkpoint();
-        cpp_result = cpp_simulator.simulate(*ws_mgr, contract_db, tx);
+        cpp_result = cpp_simulator.simulate(*ws_mgr, contract_db, tx, /*public_data_writes=*/{});
         ws_mgr->revert();
     } catch (const std::exception& e) {
         throw std::runtime_error(std::string("CppSimulator threw an exception: ") + e.what());
     }
 
     ws_mgr->checkpoint();
-    auto js_result = js_simulator->simulate(*ws_mgr, contract_db, tx);
+    auto js_result = js_simulator->simulate(*ws_mgr, contract_db, tx, /*public_data_writes=*/{});
 
     context.reset();
 

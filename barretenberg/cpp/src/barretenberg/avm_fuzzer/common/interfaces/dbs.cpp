@@ -237,4 +237,10 @@ void FuzzerWorldStateManager::write_fee_payer_balance(const AztecAddress& fee_pa
     ws->update_public_data(PublicDataLeafValue(leaf_slot, balance), fork_id);
 }
 
+void FuzzerWorldStateManager::public_data_write(const bb::crypto::merkle_tree::PublicDataLeafValue& public_data)
+{
+    auto fork_id = fork_ids.top();
+    ws->update_public_data(public_data, fork_id);
+}
+
 } // namespace bb::avm2::fuzzer
