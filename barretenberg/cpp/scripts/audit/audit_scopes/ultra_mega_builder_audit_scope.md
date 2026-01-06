@@ -2,6 +2,7 @@
 
 Repository: https://github.com/AztecProtocol/aztec-packages
 Commit hash: To be added in January
+Status: Planned, [Luke, Raju]
 
 ## Files to Audit
 
@@ -53,6 +54,9 @@ The following is "joint" functionality for the ECCVM and the Mega circuit builde
 ### Databus
 Within this audit, it is important to make sure that the databus "correctly links up" with the Mega circuit builder. Therefore, the following file is also in the scope of the audit.
 30. `stdlib_circuit_builders/databus.hpp`
+
+### ACIR Format
+31. `dsl/acir_format/range_constraint.hpp`
 
 ## Brief Summary of Module
 
