@@ -45,6 +45,7 @@ abstract class ExternalCall extends Instruction {
     memory.checkTag(TypeTag.UINT32, argsSizeOffset);
 
     const calldataSize = memory.get(argsSizeOffset).toNumber();
+    // This is a DOS vector. CalldataSize is chosen by the bytecode, and can be arbitrarily large leading to a OOM here.
     const calldata = memory.getSlice(argsOffset, calldataSize).map(f => f.toFr());
 
     const callAddress = memory.getAs<Field>(addrOffset);
