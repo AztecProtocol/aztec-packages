@@ -837,7 +837,6 @@ export function makeBlockRollupPublicInputs(seed = 0): BlockRollupPublicInputs {
     makeSpongeBlob(seed + 0x600),
     makeSpongeBlob(seed + 0x700),
     BigInt(seed + 0x800),
-    BigInt(seed + 0x810),
     fr(seed + 0x820),
     fr(seed + 0x830),
     fr(seed + 0x840),

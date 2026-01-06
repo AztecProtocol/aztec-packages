@@ -29,12 +29,10 @@ pub struct BlockRollupPublicInputs {
     // Sponge blob after additionally absorbing tx effects and block end markers from this block range.
     pub end_sponge_blob: SpongeBlob,
 
-    // Timestamp of the first block in this block range.
-    // Validated against the previous checkpoint's end timestamp in the checkpoint root.
-    pub start_timestamp: u64,
-    // Timestamp of the last block in this block range.
-    // Validated on L1 to ensure it matches the slot's timestamp.
-    pub end_timestamp: u64,
+    // Timestamp of the blocks in this block range.
+    // All blocks within a checkpoint must share the same timestamp. This value will be set to the checkpoint header and
+    // checked on L1 to match the slot's timestamp.
+    pub timestamp: u64,
 
     // Hash of the headers of all blocks in this block range. It will be combined with the `block_headers_hash` from
     // other blocks in the same checkpoint to form a wonky tree. The root of that tree becomes the final hash stored in

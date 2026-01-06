@@ -30,8 +30,7 @@ pub fn merge_block_rollups(
         end_state: right.end_state,
         start_sponge_blob: left.start_sponge_blob,
         end_sponge_blob: right.end_sponge_blob,
-        start_timestamp: left.start_timestamp,
-        end_timestamp: right.end_timestamp,
+        timestamp: left.timestamp, // Both blocks have the same timestamp.
         block_headers_hash,
         in_hash,
         out_hash,

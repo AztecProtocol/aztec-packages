@@ -36,12 +36,12 @@ fn mismatch_constants() {
     builder.execute_with_mock_and_fail();
 }
 
-#[test(should_fail_with = "Rollup block timestamps do not follow on from each other")]
-fn non_consecutive_timestamps() {
+#[test(should_fail_with = "Mismatched timestamps: expected right.timestamp to match left.timestamp")]
+fn mismatch_timestamps() {
     let mut builder = TestBuilder::default();
 
-    // Tweak the start_timestamp of the right rollup to be smaller than the end_timestamp of the left rollup.
-    builder.right_rollup.start_timestamp = builder.left_rollup.end_timestamp - 1;
+    // Tweak the timestamp of the right rollup to be different to the timestamp of the left rollup.
+    builder.right_rollup.timestamp = builder.left_rollup.timestamp + 1;
 
     builder.execute_with_mock_and_fail();
 }
