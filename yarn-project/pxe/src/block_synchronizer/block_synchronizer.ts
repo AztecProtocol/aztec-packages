@@ -7,6 +7,7 @@ import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import type { PXEConfig } from '../config/index.js';
 import type { AnchorBlockStore } from '../storage/anchor_block_store/anchor_block_store.js';
 import type { NoteStore } from '../storage/note_store/note_store.js';
+import type { PrivateEventStore } from '../storage/private_event_store/private_event_store.js';
 
 /**
  * The BlockSynchronizer class orchestrates synchronization between PXE and Aztec node, maintaining an up-to-date
@@ -22,6 +23,7 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
     private node: AztecNode,
     private anchorBlockStore: AnchorBlockStore,
     private noteStore: NoteStore,
+    private privateEventStore: PrivateEventStore,
     private l2TipsStore: L2TipsKVStore,
     config: Partial<Pick<PXEConfig, 'l2BlockBatchSize'>> = {},
     loggerOrSuffix?: string | Logger,
@@ -62,6 +64,7 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
         // We first unnullify and then remove so that unnullified notes that were created after the block number end up deleted.
         const lastSynchedBlockNumber = (await this.anchorBlockStore.getBlockHeader()).getBlockNumber();
         await this.noteStore.rollbackNotesAndNullifiers(event.block.number, lastSynchedBlockNumber);
+        await this.privateEventStore.rollbackEventsAfterBlock(event.block.number, lastSynchedBlockNumber);
         // Update the header to the last block.
         const newHeader = await this.node.getBlockHeader(event.block.number);
         if (!newHeader) {

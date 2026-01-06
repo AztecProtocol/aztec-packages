@@ -235,4 +235,135 @@ describe('PrivateEventStore', () => {
       expect(events.map(e => e.packedEvent)).toEqual([msgContent1, msgContent2, msgContent3]);
     });
   });
+
+  describe('rollback', () => {
+    let msgContent1: Fr[];
+    let msgContent2: Fr[];
+    let msgContent3: Fr[];
+    let msgContent4: Fr[];
+
+    beforeAll(() => {
+      msgContent1 = getRandomMsgContent();
+      msgContent2 = getRandomMsgContent();
+      msgContent3 = getRandomMsgContent();
+      msgContent4 = getRandomMsgContent();
+    });
+
+    it('removes events after rollback block', async () => {
+      // Store events in blocks 100, 200, 300
+      await privateEventStore.storePrivateEventLog(eventSelector, msgContent1, 0, {
+        contractAddress,
+        scope,
+        txHash: TxHash.random(),
+        l2BlockNumber: BlockNumber(100),
+        l2BlockHash,
+      });
+      // We add another event in the same block to verify that more events per block work.
+      await privateEventStore.storePrivateEventLog(eventSelector, msgContent2, 1, {
+        contractAddress,
+        scope,
+        txHash: TxHash.random(),
+        l2BlockNumber: BlockNumber(100),
+        l2BlockHash,
+      });
+
+      await privateEventStore.storePrivateEventLog(eventSelector, msgContent3, 2, {
+        contractAddress,
+        scope,
+        txHash: TxHash.random(),
+        l2BlockNumber: BlockNumber(200),
+        l2BlockHash,
+      });
+
+      await privateEventStore.storePrivateEventLog(eventSelector, msgContent4, 3, {
+        contractAddress,
+        scope,
+        txHash: TxHash.random(),
+        l2BlockNumber: BlockNumber(300),
+        l2BlockHash,
+      });
+
+      // Rollback to block 150 (should remove events from blocks 200 and 300)
+      await privateEventStore.rollbackEventsAfterBlock(150, 300);
+
+      const events = await privateEventStore.getPrivateEvents(eventSelector, {
+        contractAddress,
+        fromBlock: 0,
+        toBlock: 1000,
+        scopes: [scope],
+      });
+
+      expect(events.length).toBe(2);
+      expect(events[0].packedEvent).toEqual(msgContent1);
+      expect(events[1].packedEvent).toEqual(msgContent2);
+    });
+
+    it('allows re-adding events after rollback', async () => {
+      // After a reorg, the same transaction might be re-included in the chain in the same block and at the same
+      // position in the block. This test verifies that this scenario works - i.e. that there is no collision in keys.
+      const reorgTxHash = TxHash.random();
+
+      // Store event at block 200
+      await privateEventStore.storePrivateEventLog(eventSelector, msgContent1, 0, {
+        contractAddress,
+        scope,
+        txHash: reorgTxHash,
+        l2BlockNumber: BlockNumber(200),
+        l2BlockHash,
+      });
+
+      // Rollback to block 100
+      await privateEventStore.rollbackEventsAfterBlock(100, 200);
+
+      // Verify event was removed
+      let events = await privateEventStore.getPrivateEvents(eventSelector, {
+        contractAddress,
+        fromBlock: 0,
+        toBlock: 1000,
+        scopes: [scope],
+      });
+      expect(events.length).toBe(0);
+
+      // Re-add the same event (same eventCommitmentIndex and txHash, as happens after a reorg)
+      await privateEventStore.storePrivateEventLog(eventSelector, msgContent1, 0, {
+        contractAddress,
+        scope,
+        txHash: reorgTxHash,
+        l2BlockNumber: BlockNumber(200),
+        l2BlockHash,
+      });
+
+      // Verify event can be retrieved again
+      events = await privateEventStore.getPrivateEvents(eventSelector, {
+        contractAddress,
+        fromBlock: 0,
+        toBlock: 1000,
+        scopes: [scope],
+      });
+      expect(events.length).toBe(1);
+    });
+
+    it('handles rollback with no events to remove', async () => {
+      await privateEventStore.storePrivateEventLog(eventSelector, msgContent1, 0, {
+        contractAddress,
+        scope,
+        txHash: TxHash.random(),
+        l2BlockNumber: BlockNumber(100),
+        l2BlockHash,
+      });
+
+      // Rollback after all existing events
+      await privateEventStore.rollbackEventsAfterBlock(200, 300);
+
+      const events = await privateEventStore.getPrivateEvents(eventSelector, {
+        contractAddress,
+        fromBlock: 0,
+        toBlock: 1000,
+        scopes: [scope],
+      });
+
+      expect(events.length).toBe(1);
+      expect(events[0].packedEvent).toEqual(msgContent1);
+    });
+  });
 });
