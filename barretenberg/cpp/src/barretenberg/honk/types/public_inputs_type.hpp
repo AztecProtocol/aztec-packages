@@ -71,6 +71,6 @@ static constexpr std::size_t ROLLUP_PUBLIC_INPUTS_SIZE =
 
 // Number of bb::fr elements used to represent the public inputs of the inner circuit in the GoblinAvmRecursiveVerifier
 static constexpr std::size_t GOBLIN_AVM_PUBLIC_INPUTS_SIZE =
-    FR_PUBLIC_INPUTS_SIZE + FR_PUBLIC_INPUTS_SIZE + PAIRING_POINTS_SIZE;
+    FR_PUBLIC_INPUTS_SIZE + FR_PUBLIC_INPUTS_SIZE + FR_PUBLIC_INPUTS_SIZE + PAIRING_POINTS_SIZE;
 
 } // namespace bb

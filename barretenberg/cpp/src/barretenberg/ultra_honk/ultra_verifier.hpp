@@ -34,8 +34,11 @@ template <typename Builder> struct UltraRecursiveVerifierOutput {
     stdlib::Proof<Builder> ipa_proof;
     G1 kernel_return_data;
     std::array<G1, Builder::NUM_WIRES> ecc_op_tables; // Ecc op tables' commitments (HidingKernel/Chonk only)
-    FF evaluation;
+
+    // GoblinAvmIO data
     FF challenge;
+    FF evaluation;
+    FF hash;
 
     UltraRecursiveVerifierOutput() = default;
 
@@ -47,8 +50,9 @@ template <typename Builder> struct UltraRecursiveVerifierOutput {
             kernel_return_data = inputs.kernel_return_data;
             ecc_op_tables = inputs.ecc_op_tables;
         } else if constexpr (std::is_same_v<IO, GoblinAvmIO<Builder>>) {
-            evaluation = inputs.evaluation;
             challenge = inputs.challenge;
+            evaluation = inputs.evaluation;
+            hash = inputs.hash;
         } else if constexpr (!std::is_same_v<IO, DefaultIO<Builder>>) {
             throw_or_abort("Invalid public input type.");
         }

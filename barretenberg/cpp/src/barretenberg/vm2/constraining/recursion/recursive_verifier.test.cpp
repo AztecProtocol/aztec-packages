@@ -114,6 +114,7 @@ TEST_P(AvmRecursiveTestsParameterized, GoblinRecursion)
         vec_ct.reserve(vec.size());
         for (const auto& val : vec) {
             vec_ct.push_back(UltraFF::from_witness(&outer_circuit, val));
+            vec_ct.back().unset_free_witness_tag();
         }
         public_inputs_ct.push_back(vec_ct);
     }
