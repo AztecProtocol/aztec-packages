@@ -4,11 +4,17 @@ import type { DirectionalAppTaggingSecret, PreTag } from '@aztec/stdlib/logs';
 import { TxHash } from '@aztec/stdlib/tx';
 
 import type { JobContext } from '../../job_coordinator/index.js';
+import type { StagedStore } from '../../job_coordinator/job_coordinator.js';
 import { UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN } from '../../tagging/index.js';
 
-// Key constants for staging
-const PENDING_INDEXES_PREFIX = 'pending:';
-const FINALIZED_INDEXES_PREFIX = 'finalized:';
+/** Staged pending indexes: array of entries or null (deletion sentinel) */
+type StagedPendingData = { index: number; txHash: string }[] | null;
+
+/** In-memory staged data structure for a single job */
+type StagedSenderData = {
+  pendingIndexes: Map<string, StagedPendingData>;
+  finalizedIndexes: Map<string, number>;
+};
 
 /**
  * Data provider of tagging data used when syncing the sender tagging indexes. The recipient counterpart of this class
@@ -17,7 +23,7 @@ const FINALIZED_INDEXES_PREFIX = 'finalized:';
  *
  * Supports staged writes via JobContext for crash resilience.
  */
-export class SenderTaggingStore {
+export class SenderTaggingStore implements StagedStore {
   readonly storeName = 'sender_tagging';
 
   #store: AztecAsyncKVStore;
@@ -37,15 +43,15 @@ export class SenderTaggingStore {
   // we don't need to store the history.
   #lastFinalizedIndexes: AztecAsyncMap<string, number>;
 
-  // Staging map for both pending and finalized indexes
-  #stagingMap: AztecAsyncMap<string, Buffer>;
+  /** In-memory staging: jobId -> { pendingIndexes, finalizedIndexes } */
+  #stagedData: Map<string, StagedSenderData>;
 
   constructor(store: AztecAsyncKVStore) {
     this.#store = store;
 
     this.#pendingIndexes = this.#store.openMap('pending_indexes');
     this.#lastFinalizedIndexes = this.#store.openMap('last_finalized_indexes');
-    this.#stagingMap = this.#store.openMap('sender_tagging_staging');
+    this.#stagedData = new Map();
   }
 
   /**
@@ -271,105 +277,107 @@ export class SenderTaggingStore {
    * Must be called within a transaction by the JobCoordinator.
    */
   async commit(context: JobContext): Promise<void> {
-    // Iterate through all staging keys and promote to main
-    for await (const key of this.#stagingMap.keysAsync()) {
-      if (!key.startsWith(context.stagingPrefix)) {
-        continue;
-      }
-
-      const mainKey = key.substring(context.stagingPrefix.length);
-      const value = await this.#stagingMap.getAsync(key);
-
-      if (value) {
-        if (mainKey.startsWith(PENDING_INDEXES_PREFIX)) {
-          const secret = mainKey.substring(PENDING_INDEXES_PREFIX.length);
-          const data = JSON.parse(value.toString()) as { index: number; txHash: string }[] | null;
-          if (data === null) {
-            await this.#pendingIndexes.delete(secret);
-          } else {
-            await this.#pendingIndexes.set(secret, data);
-          }
-        } else if (mainKey.startsWith(FINALIZED_INDEXES_PREFIX)) {
-          const secret = mainKey.substring(FINALIZED_INDEXES_PREFIX.length);
-          const data = JSON.parse(value.toString()) as number;
-          await this.#lastFinalizedIndexes.set(secret, data);
-        }
-      }
-
-      await this.#stagingMap.delete(key);
+    const jobStaging = this.#stagedData.get(context.jobId);
+    if (!jobStaging) {
+      return;
     }
+
+    // Commit pending indexes
+    for (const [secret, data] of jobStaging.pendingIndexes) {
+      if (data === null) {
+        await this.#pendingIndexes.delete(secret);
+      } else {
+        await this.#pendingIndexes.set(secret, data);
+      }
+    }
+
+    // Commit finalized indexes
+    for (const [secret, value] of jobStaging.finalizedIndexes) {
+      await this.#lastFinalizedIndexes.set(secret, value);
+    }
+
+    this.#stagedData.delete(context.jobId);
   }
 
   /**
    * Discards staged data without committing.
    * Called by JobCoordinator on abort or during recovery.
    */
-  async discardStaged(stagingPrefix: string): Promise<void> {
-    const keysToDelete: string[] = [];
-    for await (const key of this.#stagingMap.keysAsync()) {
-      if (key.startsWith(stagingPrefix)) {
-        keysToDelete.push(key);
-      }
-    }
-    for (const key of keysToDelete) {
-      await this.#stagingMap.delete(key);
-    }
+  discardStaged(stagingPrefix: string): Promise<void> {
+    // Extract jobId from prefix format "job_{jobId}:"
+    const jobId = stagingPrefix.slice(4, -1);
+    this.#stagedData.delete(jobId);
+    return Promise.resolve();
   }
 
   // Internal helpers for staging-aware reads and writes
 
-  async #getPendingIndexesInternal(secret: string, context?: JobContext): Promise<{ index: number; txHash: string }[]> {
+  #getPendingIndexesInternal(secret: string, context?: JobContext): Promise<{ index: number; txHash: string }[]> {
     if (context) {
-      const stagingKey = context.stagingKey(`${PENDING_INDEXES_PREFIX}${secret}`);
-      const staged = await this.#stagingMap.getAsync(stagingKey);
-      if (staged) {
-        const data = JSON.parse(staged.toString());
-        return data === null ? [] : data;
+      const jobStaging = this.#stagedData.get(context.jobId);
+      if (jobStaging?.pendingIndexes.has(secret)) {
+        const staged = jobStaging.pendingIndexes.get(secret);
+        // null means deleted, return empty array; undefined shouldn't happen after has() check
+        return Promise.resolve(staged === null || staged === undefined ? [] : staged);
       }
     }
-    return (await this.#pendingIndexes.getAsync(secret)) ?? [];
+    return this.#pendingIndexes.getAsync(secret).then(data => data ?? []);
   }
 
-  async #setPendingIndexesInternal(
+  #setPendingIndexesInternal(
     secret: string,
     value: { index: number; txHash: string }[],
     context?: JobContext,
   ): Promise<void> {
     if (context) {
-      const stagingKey = context.stagingKey(`${PENDING_INDEXES_PREFIX}${secret}`);
-      await this.#stagingMap.set(stagingKey, Buffer.from(JSON.stringify(value)));
+      let jobStaging = this.#stagedData.get(context.jobId);
+      if (!jobStaging) {
+        jobStaging = { pendingIndexes: new Map(), finalizedIndexes: new Map() };
+        this.#stagedData.set(context.jobId, jobStaging);
+      }
+      jobStaging.pendingIndexes.set(secret, value);
+      return Promise.resolve();
     } else {
-      await this.#pendingIndexes.set(secret, value);
+      return this.#pendingIndexes.set(secret, value);
     }
   }
 
-  async #deletePendingIndexesInternal(secret: string, context?: JobContext): Promise<void> {
+  #deletePendingIndexesInternal(secret: string, context?: JobContext): Promise<void> {
     if (context) {
       // Store null to indicate deletion in staging
-      const stagingKey = context.stagingKey(`${PENDING_INDEXES_PREFIX}${secret}`);
-      await this.#stagingMap.set(stagingKey, Buffer.from(JSON.stringify(null)));
+      let jobStaging = this.#stagedData.get(context.jobId);
+      if (!jobStaging) {
+        jobStaging = { pendingIndexes: new Map(), finalizedIndexes: new Map() };
+        this.#stagedData.set(context.jobId, jobStaging);
+      }
+      jobStaging.pendingIndexes.set(secret, null);
+      return Promise.resolve();
     } else {
-      await this.#pendingIndexes.delete(secret);
+      return this.#pendingIndexes.delete(secret);
     }
   }
 
-  async #getLastFinalizedIndexInternal(secret: string, context?: JobContext): Promise<number | undefined> {
+  #getLastFinalizedIndexInternal(secret: string, context?: JobContext): Promise<number | undefined> {
     if (context) {
-      const stagingKey = context.stagingKey(`${FINALIZED_INDEXES_PREFIX}${secret}`);
-      const staged = await this.#stagingMap.getAsync(stagingKey);
-      if (staged) {
-        return JSON.parse(staged.toString()) as number;
+      const jobStaging = this.#stagedData.get(context.jobId);
+      if (jobStaging?.finalizedIndexes.has(secret)) {
+        return Promise.resolve(jobStaging.finalizedIndexes.get(secret));
       }
     }
     return this.#lastFinalizedIndexes.getAsync(secret);
   }
 
-  async #setLastFinalizedIndexInternal(secret: string, value: number, context?: JobContext): Promise<void> {
+  #setLastFinalizedIndexInternal(secret: string, value: number, context?: JobContext): Promise<void> {
     if (context) {
-      const stagingKey = context.stagingKey(`${FINALIZED_INDEXES_PREFIX}${secret}`);
-      await this.#stagingMap.set(stagingKey, Buffer.from(JSON.stringify(value)));
+      let jobStaging = this.#stagedData.get(context.jobId);
+      if (!jobStaging) {
+        jobStaging = { pendingIndexes: new Map(), finalizedIndexes: new Map() };
+        this.#stagedData.set(context.jobId, jobStaging);
+      }
+      jobStaging.finalizedIndexes.set(secret, value);
+      return Promise.resolve();
     } else {
-      await this.#lastFinalizedIndexes.set(secret, value);
+      return this.#lastFinalizedIndexes.set(secret, value);
     }
   }
 
@@ -381,14 +389,12 @@ export class SenderTaggingStore {
     }
 
     // Also include secrets that only exist in staging
-    const stagingSecrets = new Set<string>();
-    for await (const key of this.#stagingMap.keysAsync()) {
-      if (key.startsWith(context.stagingPrefix + PENDING_INDEXES_PREFIX)) {
-        const secret = key.substring((context.stagingPrefix + PENDING_INDEXES_PREFIX).length);
-        stagingSecrets.add(secret);
-      }
+    const jobStaging = this.#stagedData.get(context.jobId);
+    if (!jobStaging) {
+      return mainSecrets;
     }
 
+    const stagingSecrets = Array.from(jobStaging.pendingIndexes.keys());
     return Array.from(new Set([...mainSecrets, ...stagingSecrets]));
   }
 }
