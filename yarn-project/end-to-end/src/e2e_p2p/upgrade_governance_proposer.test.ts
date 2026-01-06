@@ -114,7 +114,7 @@ describe('e2e_p2p_governance_proposer', () => {
       t.ctx.deployL1ContractsValues.l1Client,
       NewGovernanceProposerPayloadAbi,
       NewGovernanceProposerPayloadBytecode,
-      [t.ctx.deployL1ContractsValues.l1ContractAddresses.registryAddress.toString(), gseAddress],
+      [t.ctx.deployL1ContractsValues.l1ContractAddresses.registryAddress.toString(), gseAddress.toString()],
     );
 
     t.logger.info(`Deployed new payload at ${newPayloadAddress}`);
