@@ -653,17 +653,17 @@ describe('NoteStore', () => {
   });
 
   describe('NoteStore staging', () => {
-    let store: AztecLMDBStoreV2;
-    let provider: NoteStore;
+    let kvStore: AztecLMDBStoreV2;
+    let noteStore: NoteStore;
 
     beforeEach(async () => {
-      store = await openTmpStore('note_data_provider_staging_test');
-      provider = await NoteStore.create(store);
-      await provider.addScope(SCOPE_1);
+      kvStore = await openTmpStore('note_data_provider_staging_test');
+      noteStore = await NoteStore.create(kvStore);
+      await noteStore.addScope(SCOPE_1);
     });
 
     afterEach(async () => {
-      await store.close();
+      await kvStore.close();
     });
 
     it('stages notes without affecting committed storage', async () => {
@@ -683,15 +683,20 @@ describe('NoteStore', () => {
       const context = new JobContext('test123', 'test');
 
       // Add committed note
-      await provider.addNotes([committedNote], SCOPE_1);
+      await noteStore.addNotes([committedNote], SCOPE_1);
 
       // Add staged note with context
-      await provider.addNotes([stagedNote], SCOPE_1, context);
+      await noteStore.addNotes([stagedNote], SCOPE_1, context);
 
       // Without context, should only see committed note
-      const notesWithoutContext = await provider.getNotes({ contractAddress: CONTRACT_A });
+      const notesWithoutContext = await noteStore.getNotes({ contractAddress: CONTRACT_A });
       expect(notesWithoutContext).toHaveLength(1);
       expect(notesWithoutContext[0].index).toBe(1n);
+
+      // With context, should see both committed and staged notes
+      const notesWithContext = await noteStore.getNotes({ contractAddress: CONTRACT_A }, context);
+      expect(notesWithContext).toHaveLength(2);
+      expect(new Set(notesWithContext.map(n => n.index))).toEqual(new Set([1n, 2n]));
     });
 
     it('commit promotes staged notes to main storage', async () => {
@@ -705,13 +710,13 @@ describe('NoteStore', () => {
       const context = new JobContext('test123', 'test');
 
       // Add staged note
-      await provider.addNotes([stagedNote], SCOPE_1, context);
+      await noteStore.addNotes([stagedNote], SCOPE_1, context);
 
       // Commit staging
-      await provider.commit(context);
+      await noteStore.commit(context);
 
       // Now should see the note without context
-      const notes = await provider.getNotes({ contractAddress: CONTRACT_A });
+      const notes = await noteStore.getNotes({ contractAddress: CONTRACT_A });
       expect(notes).toHaveLength(1);
       expect(notes[0].index).toBe(1n);
     });
@@ -733,16 +738,16 @@ describe('NoteStore', () => {
       const context = new JobContext('test123', 'test');
 
       // Add committed note
-      await provider.addNotes([committedNote], SCOPE_1);
+      await noteStore.addNotes([committedNote], SCOPE_1);
 
       // Add staged note
-      await provider.addNotes([stagedNote], SCOPE_1, context);
+      await noteStore.addNotes([stagedNote], SCOPE_1, context);
 
       // Discard staging
-      await provider.discardStaged(context.stagingPrefix);
+      await noteStore.discardStaged(context.stagingPrefix);
 
       // Should only see committed note
-      const notes = await provider.getNotes({ contractAddress: CONTRACT_A });
+      const notes = await noteStore.getNotes({ contractAddress: CONTRACT_A });
       expect(notes).toHaveLength(1);
       expect(notes[0].index).toBe(1n);
     });
@@ -759,7 +764,7 @@ describe('NoteStore', () => {
       const context = new JobContext('test123', 'test');
 
       // Add committed note
-      await provider.addNotes([note], SCOPE_1);
+      await noteStore.addNotes([note], SCOPE_1);
 
       // Stage nullification
       const nullifier = {
@@ -767,20 +772,20 @@ describe('NoteStore', () => {
         l2BlockNumber: BlockNumber(2),
         l2BlockHash: L2BlockHash.random(),
       };
-      await provider.applyNullifiers([nullifier], context);
+      await noteStore.applyNullifiers([nullifier], context);
 
       // Without context, note should still be active
-      const activeNotes = await provider.getNotes({ contractAddress: CONTRACT_A });
+      const activeNotes = await noteStore.getNotes({ contractAddress: CONTRACT_A });
       expect(activeNotes).toHaveLength(1);
 
       // Commit staging
-      await provider.commit(context);
+      await noteStore.commit(context);
 
       // Now note should be nullified
-      const activeNotesAfterCommit = await provider.getNotes({ contractAddress: CONTRACT_A });
+      const activeNotesAfterCommit = await noteStore.getNotes({ contractAddress: CONTRACT_A });
       expect(activeNotesAfterCommit).toHaveLength(0);
 
-      const allNotes = await provider.getNotes({
+      const allNotes = await noteStore.getNotes({
         contractAddress: CONTRACT_A,
         status: NoteStatus.ACTIVE_OR_NULLIFIED,
       });
@@ -799,7 +804,7 @@ describe('NoteStore', () => {
       const context = new JobContext('test123', 'test');
 
       // Stage add note
-      await provider.addNotes([note], SCOPE_1, context);
+      await noteStore.addNotes([note], SCOPE_1, context);
 
       // Stage nullify the same note
       const nullifier = {
@@ -807,20 +812,137 @@ describe('NoteStore', () => {
         l2BlockNumber: BlockNumber(2),
         l2BlockHash: L2BlockHash.random(),
       };
-      await provider.applyNullifiers([nullifier], context);
+      await noteStore.applyNullifiers([nullifier], context);
 
       // Commit both operations
-      await provider.commit(context);
+      await noteStore.commit(context);
 
       // Note should exist but be nullified
-      const activeNotes = await provider.getNotes({ contractAddress: CONTRACT_A });
+      const activeNotes = await noteStore.getNotes({ contractAddress: CONTRACT_A });
       expect(activeNotes).toHaveLength(0);
 
-      const allNotes = await provider.getNotes({
+      const allNotes = await noteStore.getNotes({
         contractAddress: CONTRACT_A,
         status: NoteStatus.ACTIVE_OR_NULLIFIED,
       });
       expect(allNotes).toHaveLength(1);
+    });
+
+    it('getNotes with context excludes committed notes staged for nullification', async () => {
+      const note = await NoteDao.random({
+        contractAddress: CONTRACT_A,
+        storageSlot: SLOT_X,
+        index: 1n,
+        l2BlockNumber: BlockNumber(1),
+        siloedNullifier: new Fr(789n),
+      });
+
+      // Add note to committed storage
+      await noteStore.addNotes([note], SCOPE_1);
+
+      const context = new JobContext('test123', 'test');
+
+      // Stage nullification
+      const nullifier = {
+        data: note.siloedNullifier,
+        l2BlockNumber: BlockNumber(2),
+        l2BlockHash: L2BlockHash.random(),
+      };
+      await noteStore.applyNullifiers([nullifier], context);
+
+      // Without context, note should still be visible (it's committed and active)
+      const notesWithoutContext = await noteStore.getNotes({ contractAddress: CONTRACT_A });
+      expect(notesWithoutContext).toHaveLength(1);
+
+      // With context, note should be excluded (staged for nullification)
+      const notesWithContext = await noteStore.getNotes({ contractAddress: CONTRACT_A }, context);
+      expect(notesWithContext).toHaveLength(0);
+    });
+
+    it('getNotes with context filters staged notes by scope', async () => {
+      await noteStore.addScope(SCOPE_2);
+
+      const note = await NoteDao.random({
+        contractAddress: CONTRACT_A,
+        storageSlot: SLOT_X,
+        index: 1n,
+        l2BlockNumber: BlockNumber(1),
+      });
+
+      const context = new JobContext('test123', 'test');
+
+      // Stage note under SCOPE_1
+      await noteStore.addNotes([note], SCOPE_1, context);
+
+      // Query with SCOPE_1 - should see the staged note
+      const notesScope1 = await noteStore.getNotes({ contractAddress: CONTRACT_A, scopes: [SCOPE_1] }, context);
+      expect(notesScope1).toHaveLength(1);
+
+      // Query with SCOPE_2 - should not see the staged note
+      const notesScope2 = await noteStore.getNotes({ contractAddress: CONTRACT_A, scopes: [SCOPE_2] }, context);
+      expect(notesScope2).toHaveLength(0);
+    });
+
+    it('getNotes with context filters staged notes by storageSlot', async () => {
+      const noteSlotX = await NoteDao.random({
+        contractAddress: CONTRACT_A,
+        storageSlot: SLOT_X,
+        index: 1n,
+        l2BlockNumber: BlockNumber(1),
+      });
+      const noteSlotY = await NoteDao.random({
+        contractAddress: CONTRACT_A,
+        storageSlot: SLOT_Y,
+        index: 2n,
+        l2BlockNumber: BlockNumber(1),
+      });
+
+      const context = new JobContext('test123', 'test');
+
+      // Stage both notes
+      await noteStore.addNotes([noteSlotX, noteSlotY], SCOPE_1, context);
+
+      // Query with SLOT_X filter - should only see noteSlotX
+      const notesSlotX = await noteStore.getNotes({ contractAddress: CONTRACT_A, storageSlot: SLOT_X }, context);
+      expect(notesSlotX).toHaveLength(1);
+      expect(notesSlotX[0].index).toBe(1n);
+
+      // Query with SLOT_Y filter - should only see noteSlotY
+      const notesSlotY = await noteStore.getNotes({ contractAddress: CONTRACT_A, storageSlot: SLOT_Y }, context);
+      expect(notesSlotY).toHaveLength(1);
+      expect(notesSlotY[0].index).toBe(2n);
+    });
+
+    it('getNotes with context filters staged notes by contract', async () => {
+      const noteContractA = await NoteDao.random({
+        contractAddress: CONTRACT_A,
+        storageSlot: SLOT_X,
+        index: 1n,
+        l2BlockNumber: BlockNumber(1),
+      });
+      const noteContractB = await NoteDao.random({
+        contractAddress: CONTRACT_B,
+        storageSlot: SLOT_X,
+        index: 2n,
+        l2BlockNumber: BlockNumber(1),
+      });
+
+      await noteStore.addScope(SCOPE_2);
+      const context = new JobContext('test123', 'test');
+
+      // Stage notes for different contracts
+      await noteStore.addNotes([noteContractA], SCOPE_1, context);
+      await noteStore.addNotes([noteContractB], SCOPE_2, context);
+
+      // Query for CONTRACT_A - should only see noteContractA
+      const notesContractA = await noteStore.getNotes({ contractAddress: CONTRACT_A }, context);
+      expect(notesContractA).toHaveLength(1);
+      expect(notesContractA[0].index).toBe(1n);
+
+      // Query for CONTRACT_B - should only see noteContractB
+      const notesContractB = await noteStore.getNotes({ contractAddress: CONTRACT_B }, context);
+      expect(notesContractB).toHaveLength(1);
+      expect(notesContractB[0].index).toBe(2n);
     });
   });
 });

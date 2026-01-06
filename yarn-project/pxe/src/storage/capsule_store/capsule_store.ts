@@ -14,7 +14,7 @@ export class CapsuleStore implements StagedStore {
   // Arbitrary data stored by contracts. Key is computed as `${contractAddress}:${key}`
   #capsules: AztecAsyncMap<string, Buffer>;
 
-  /** In-memory staging: jobId -> key -> (Buffer or null for deletion) */
+  /** In-memory stage: jobId -> key -> (Buffer or null for deletion) */
   #stagedCapsules: Map<string, Map<string, Buffer | null>>;
 
   logger: Logger;
@@ -146,6 +146,7 @@ export class CapsuleStore implements StagedStore {
       indexes.reverse();
     }
 
+    // TODO(mverzilli): see if convenient to remove some duplication here
     if (context) {
       // Staged copy
       for (const i of indexes) {
@@ -284,8 +285,6 @@ export class CapsuleStore implements StagedStore {
     }
     return this.#store.transactionAsync(doSet);
   }
-
-  // StagedStore implementation
 
   /**
    * Commits staged data to main storage.

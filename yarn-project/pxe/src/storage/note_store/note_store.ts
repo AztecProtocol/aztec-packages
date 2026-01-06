@@ -190,11 +190,14 @@ export class NoteStore implements StagedStore {
     synchedBlockNumber: number,
     context?: JobContext,
   ): Promise<void> {
-    // TODO(#crash-resilience): Implement proper staging for reorg operations.
+    // TODO(mverzilli): Implement proper staging for reorg operations.
     // For now, these operations write directly without staging since they're complex
     // and involve reading + writing multiple data structures atomically.
     // The block synchronizer only runs during sync() which happens before simulation,
     // so if a crash occurs here, the next startup will re-sync anyway.
+    // A rollback should probably always be preceded by a discardStaged call,
+    // since in a reorg scenario we would have to throw away any on-going work
+    // anyway, but I need to think this through.
     void context;
     await this.#rewindNullifiersAfterBlock(blockNumber, synchedBlockNumber);
     await this.#deleteActiveNotesAfterBlock(blockNumber);
@@ -293,11 +296,12 @@ export class NoteStore implements StagedStore {
    *
    * @param filter - Filter criteria including contractAddress (required), and optional
    *                 owner, storageSlot, status, scopes, and siloedNullifier.
+   * @param context - Optional job context for reading staged data
    * @returns Filtered and deduplicated notes (a note might be present in multiple scopes - we ensure it is only
    * returned once if this is the case)
    * @throws If filtering by an empty scopes array. Scopes have to be set to undefined or to a non-empty array.
    */
-  async getNotes(filter: NotesFilter): Promise<NoteDao[]> {
+  async getNotes(filter: NotesFilter, context?: JobContext): Promise<NoteDao[]> {
     filter.status = filter.status ?? NoteStatus.ACTIVE;
 
     // throw early if scopes is an empty array
@@ -312,6 +316,12 @@ export class NoteStore implements StagedStore {
     filter.scopes ??= (await toArray(this.#scopes.keysAsync())).map(addressString =>
       AztecAddress.fromString(addressString),
     );
+
+    // Get staged data if context provided
+    const stagedNotes = context ? this.#stagedData.get(context.jobId) : undefined;
+
+    // Build set of noteIndexes that are staged for nullification
+    const stagedNullifiedIndexes = new Set<string>(stagedNotes?.nullifiedNotes.keys() ?? []);
 
     const activeNoteIdsPerScope: string[][] = [];
 
@@ -366,29 +376,43 @@ export class NoteStore implements StagedStore {
     const result: NoteDao[] = [];
     for (const { ids, notes } of candidateNoteSources) {
       for (const id of ids) {
+        // Skip committed notes that are staged for nullification (for ACTIVE status)
+        // Note: For ACTIVE_OR_NULLIFIED we still want them (they'll appear as nullified)
+        if (filter.status === NoteStatus.ACTIVE && stagedNullifiedIndexes.has(id)) {
+          continue;
+        }
+
         const serializedNote = await notes.getAsync(id);
         if (!serializedNote) {
           continue;
         }
 
         const note = NoteDao.fromBuffer(serializedNote);
-        if (!note.contractAddress.equals(filter.contractAddress)) {
+        if (this.#matchesFilter(note, filter)) {
+          result.push(note);
+        }
+      }
+    }
+
+    // Add staged added notes that match the filter
+    if (stagedNotes) {
+      const scopeSet = new Set(filter.scopes!.map(s => s.toString() as string));
+
+      for (const [noteIndex, data] of stagedNotes.addedNotes) {
+        // Skip if staged for nullification and status is ACTIVE
+        if (filter.status === NoteStatus.ACTIVE && stagedNullifiedIndexes.has(noteIndex)) {
           continue;
         }
 
-        if (filter.owner && !note.owner.equals(filter.owner)) {
+        // Filter by scope (staged notes aren't indexed, so we check scope manually)
+        if (!scopeSet.has(data.scope)) {
           continue;
         }
 
-        if (filter.storageSlot && !note.storageSlot.equals(filter.storageSlot!)) {
-          continue;
+        const note = NoteDao.fromBuffer(data.noteBuffer);
+        if (this.#matchesFilter(note, filter)) {
+          result.push(note);
         }
-
-        if (filter.siloedNullifier && !note.siloedNullifier.equals(filter.siloedNullifier)) {
-          continue;
-        }
-
-        result.push(note);
       }
     }
 
@@ -401,6 +425,25 @@ export class NoteStore implements StagedStore {
     }
 
     return deduplicated;
+  }
+
+  /**
+   * Checks if a note matches the given filter criteria.
+   */
+  #matchesFilter(note: NoteDao, filter: NotesFilter): boolean {
+    if (!note.contractAddress.equals(filter.contractAddress)) {
+      return false;
+    }
+    if (filter.owner && !note.owner.equals(filter.owner)) {
+      return false;
+    }
+    if (filter.storageSlot && !note.storageSlot.equals(filter.storageSlot)) {
+      return false;
+    }
+    if (filter.siloedNullifier && !note.siloedNullifier.equals(filter.siloedNullifier)) {
+      return false;
+    }
+    return true;
   }
 
   /**

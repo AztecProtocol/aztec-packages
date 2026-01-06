@@ -44,7 +44,7 @@ export class AnchorBlockStore implements StagedStore {
   /**
    * Gets the synchronized block header.
    *
-   * @param context - Optional job context to check staging first
+   * @param context - Optional job context to check staged version first
    * @returns The block header
    * @throws If no header has been set
    */
