@@ -63,6 +63,7 @@ Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg`
 
 ### Flavor
 41. `flavor/multilinear_batching_flavor.hpp`
+42. `flavor/multilinear_batching_recursive_flavor.hpp`
 
 ---
 
