@@ -12,7 +12,16 @@ function build {
   crs_size_bytes=$((crs_size*64))
   g1=$crs_path/bn254_g1.dat
   g2=$crs_path/bn254_g2.dat
-  if [ ! -f "$g1" ] || [ $(stat -c%s "$g1") -lt $crs_size_bytes ]; then
+  # stat -c%s is Linux-only, use stat -f%z on macOS
+  local g1_size=0
+  if [ -f "$g1" ]; then
+    if [[ "$(uname)" == "Darwin" ]]; then
+      g1_size=$(stat -f%z "$g1")
+    else
+      g1_size=$(stat -c%s "$g1")
+    fi
+  fi
+  if [ ! -f "$g1" ] || [ $g1_size -lt $crs_size_bytes ]; then
     echo "Downloading crs of size: ${crs_size} ($((crs_size_bytes/(1024*1024)))MB)"
     mkdir -p $crs_path
     curl -s -H "Range: bytes=0-$((crs_size_bytes-1))" -o $g1 \
@@ -28,7 +37,15 @@ function build {
   crs_size=$((2**18))
   crs_size_bytes=$((crs_size*64))
   gg1=$crs_path/grumpkin_g1.flat.dat
-  if [ ! -f "$gg1" ] || [ $(stat -c%s "$gg1") -lt $crs_size_bytes ]; then
+  local gg1_size=0
+  if [ -f "$gg1" ]; then
+    if [[ "$(uname)" == "Darwin" ]]; then
+      gg1_size=$(stat -f%z "$gg1")
+    else
+      gg1_size=$(stat -c%s "$gg1")
+    fi
+  fi
+  if [ ! -f "$gg1" ] || [ $gg1_size -lt $crs_size_bytes ]; then
     echo "Downloading grumpkin crs of size: ${crs_size} ($((crs_size_bytes/(1024*1024)))MB)"
     curl -s -H "Range: bytes=0-$((crs_size_bytes-1))" -o $gg1 \
       https://crs.aztec.network/grumpkin_g1.dat

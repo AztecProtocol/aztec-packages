@@ -77,7 +77,13 @@ function publish_log_final {
 
 function live_publish_log {
   while [ -f $outfile ]; do
-    if [ $(( $(date +%s) - $(stat -c %Y "$outfile") )) -le 5 ]; then
+    local file_mtime
+    if [[ "$(uname)" == "Darwin" ]]; then
+      file_mtime=$(stat -f %m "$outfile")
+    else
+      file_mtime=$(stat -c %Y "$outfile")
+    fi
+    if [ $(( $(date +%s) - $file_mtime )) -le 5 ]; then
       publish_log
     fi
     sleep 5
@@ -94,7 +100,13 @@ fi
 set +e
 echo -e "Executing: $cmd ${log_info:-}"
 echo -n "   0 "
-tail --sleep-interval=0.2 -n +1 -f "$outfile" > >(
+# macOS tail doesn't support --sleep-interval
+if [[ "$(uname)" == "Darwin" ]]; then
+  tail_args="-n +1 -f"
+else
+  tail_args="--sleep-interval=0.2 -n +1 -f"
+fi
+tail $tail_args "$outfile" > >(
   while IFS= read -r line; do
     dot_count=$((dot_count+1))
     [ $realtime -eq 1 ] && printf "."

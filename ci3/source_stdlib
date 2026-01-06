@@ -33,6 +33,8 @@ function get_num_cpus {
     else
       echo $((cpu_quota / cpu_period))
     fi
+  elif [[ "$(uname)" == "Darwin" ]]; then
+    sysctl -n hw.ncpu
   else
     nproc
   fi

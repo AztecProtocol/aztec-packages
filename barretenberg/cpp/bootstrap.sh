@@ -34,6 +34,10 @@ function inject_version {
   # Version starts immediately after the sentinel
   local version_offset=$((sentinel_offset + ${#sentinel}))
   printf "$version\0" | dd of="$binary" bs=1 seek=$version_offset conv=notrunc 2>/dev/null
+  # Re-sign on macOS after modifying the binary (version injection invalidates code signature)
+  if [[ "$(uname)" == "Darwin" ]]; then
+    codesign -s - -f "$binary" 2>/dev/null || true
+  fi
 }
 
 # Define build commands for each preset
