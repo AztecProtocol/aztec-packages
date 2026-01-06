@@ -6,11 +6,7 @@ use crate::{
     },
     utils::array,
 };
-use protocol_types::{
-    constants::DOM_SEP__EVENT_COMMITMENT,
-    hash::poseidon2_hash_with_separator_bounded_vec,
-    traits::{FromField, Serialize, ToField},
-};
+use protocol_types::traits::{FromField, Serialize, ToField};
 
 /// The number of fields in a private event message content that are not the event's serialized representation
 /// (1 field for randomness).
@@ -19,7 +15,7 @@ pub(crate) global PRIVATE_EVENT_MSG_PLAINTEXT_RANDOMNESS_INDEX: u32 = 0;
 
 /// The maximum length of the packed representation of an event's contents. This is limited by private log size,
 /// encryption overhead and extra fields in the message (e.g. message type id, randomness, etc.).
-pub(crate) global MAX_EVENT_SERIALIZED_LEN: u32 =
+pub global MAX_EVENT_SERIALIZED_LEN: u32 =
     MAX_MESSAGE_CONTENT_LEN - PRIVATE_EVENT_MSG_PLAINTEXT_RESERVED_FIELDS_LEN;
 
 /// Creates the plaintext for a private event message (i.e. one of type [PRIVATE_EVENT_MSG_TYPE_ID]).
@@ -53,7 +49,7 @@ where
         msg_plaintext[PRIVATE_EVENT_MSG_PLAINTEXT_RESERVED_FIELDS_LEN + i] = serialized_event[i];
     }
 
-    // Private events use the event type id for metadata
+    // The event type id is stored in the message metadata
     encode_message(
         PRIVATE_EVENT_MSG_TYPE_ID,
         Event::get_event_type_id().to_field() as u64,
@@ -71,8 +67,8 @@ where
 pub(crate) unconstrained fn decode_private_event_message(
     msg_metadata: u64,
     msg_content: BoundedVec<Field, MAX_MESSAGE_CONTENT_LEN>,
-) -> (EventSelector, BoundedVec<Field, MAX_EVENT_SERIALIZED_LEN>, Field) {
-    // In the case of events, the msg metadata is the event selector.
+) -> (EventSelector, Field, BoundedVec<Field, MAX_EVENT_SERIALIZED_LEN>) {
+    // Private event messages contain the event type id in the metadata
     let event_type_id = EventSelector::from_field(msg_metadata as Field);
 
     assert(
@@ -87,21 +83,11 @@ pub(crate) unconstrained fn decode_private_event_message(
         "unexpected value for PRIVATE_EVENT_MSG_PLAINTEXT_RESERVED_FIELDS_LEN",
     );
 
-    let serialized_event_with_randomness = msg_content;
+    let randomness = msg_content.get(PRIVATE_EVENT_MSG_PLAINTEXT_RANDOMNESS_INDEX);
+    let serialized_event =
+        array::subbvec(msg_content, PRIVATE_EVENT_MSG_PLAINTEXT_RESERVED_FIELDS_LEN);
 
-    let event_commitment = poseidon2_hash_with_separator_bounded_vec(
-        serialized_event_with_randomness,
-        DOM_SEP__EVENT_COMMITMENT,
-    );
-
-    // Randomness was injected into the event payload in `emit_event_in_private` but we have already used it
-    // to compute the event commitment, so we can safely discard it now.
-    let serialized_event = array::subbvec(
-        serialized_event_with_randomness,
-        PRIVATE_EVENT_MSG_PLAINTEXT_RESERVED_FIELDS_LEN,
-    );
-
-    (event_type_id, serialized_event, event_commitment)
+    (event_type_id, randomness, serialized_event)
 }
 
 mod test {
@@ -130,10 +116,11 @@ mod test {
 
         assert_eq(msg_type_id, PRIVATE_EVENT_MSG_TYPE_ID);
 
-        let (event_type_id, serialized_event, _) =
+        let (event_type_id, randomness, serialized_event) =
             decode_private_event_message(msg_metadata, msg_content);
 
         assert_eq(event_type_id, MockEvent::get_event_type_id());
+        assert_eq(randomness, RANDOMNESS);
         assert_eq(serialized_event, BoundedVec::from_array(event.serialize()));
     }
 }
