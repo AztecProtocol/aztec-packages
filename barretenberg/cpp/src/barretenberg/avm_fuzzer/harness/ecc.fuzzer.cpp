@@ -12,8 +12,10 @@
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
+#include "barretenberg/vm2/common/standard_affine_point.hpp"
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
+#include "barretenberg/vm2/generated/relations/scalar_mul.hpp"
 #include "barretenberg/vm2/simulation/events/ecc_events.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/field_gt_event.hpp"
@@ -39,6 +41,7 @@ using namespace bb::avm2::tracegen;
 using namespace bb::avm2::constraining;
 
 using avm2::AffinePoint;
+using StandardAffinePoint = avm2::StandardAffinePoint<AffinePoint>;
 using bb::avm2::EmbeddedCurvePoint;
 using bb::avm2::FF;
 using bb::avm2::MemoryAddress;
@@ -46,6 +49,7 @@ using bb::avm2::MemoryTag;
 using bb::avm2::MemoryValue;
 
 using ecc_rel = bb::avm2::ecc<FF>;
+using scalar_mul_rel = bb::avm2::scalar_mul<FF>;
 
 namespace {
 
@@ -88,6 +92,7 @@ MemoryAddress mutate_memory_address(MemoryAddress addr, std::mt19937_64& rng)
 struct EccFuzzerInput {
     AffinePoint p = AffinePoint::one();
     AffinePoint q = AffinePoint::one();
+    avm2::Fq scalar = avm2::Fq::zero();
     // Addresses are organised as:
     // p_x, p_y, p_inf, q_x, q_y, q_inf, output_addr
     std::array<MemoryAddress, 7> addresses{};
@@ -101,6 +106,8 @@ struct EccFuzzerInput {
         offset += sizeof(AffinePoint);
         AffinePoint::serialize_to_buffer(q, buffer + offset);
         offset += sizeof(AffinePoint);
+        avm2::Fq::serialize_to_buffer(scalar, buffer + offset);
+        offset += sizeof(avm2::Fq);
         // Serialize memory addresses
         std::memcpy(buffer + offset, &addresses[0], sizeof(MemoryAddress) * 7);
     }
@@ -113,6 +120,8 @@ struct EccFuzzerInput {
         offset += sizeof(AffinePoint);
         input.q = AffinePoint::serialize_from_buffer(buffer + offset);
         offset += sizeof(AffinePoint);
+        input.scalar = avm2::Fq::serialize_from_buffer(buffer + offset);
+        offset += sizeof(avm2::Fq);
         // Deserialize memory addresses
         std::memcpy(&input.addresses[0], buffer + offset, sizeof(MemoryAddress) * 7);
 
@@ -136,7 +145,7 @@ extern "C" size_t LLVMFuzzerCustomMutator(uint8_t* data, size_t size, size_t max
 
     // We want to define sensible mutation of points as random bits are unlikely to yield valid points.
     // Lib Fuzzer will stack 5-6 mutations on top of each other by default
-    std::uniform_int_distribution<int> dist(0, 4);
+    std::uniform_int_distribution<int> dist(0, 7);
     int choice = dist(rng);
 
     switch (choice) {
@@ -169,6 +178,21 @@ extern "C" size_t LLVMFuzzerCustomMutator(uint8_t* data, size_t size, size_t max
         break;
     }
     case 4: {
+        // Set P = -Q
+        input.p = input.q * avm2::Fq(-1);
+        break;
+    }
+    case 5: {
+        // Set scalar to random point
+        input.scalar = random_fq_scalar(rng);
+        break;
+    }
+    case 6: {
+        // Set scalar to one
+        input.scalar = avm2::Fq::one();
+        break;
+    }
+    case 7: {
         // Mutate memory addresses
         // Select a random address to mutate
         std::uniform_int_distribution<size_t> addr_dist(0, 6);
@@ -236,14 +260,18 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
     mem->set(/*q_y_addr*/ input.addresses[4], MemoryValue::from_tag(MemoryTag::FF, point_q.y()));
     mem->set(/*q_inf*/ input.addresses[5], MemoryValue::from_tag(MemoryTag::U1, point_q.is_infinity() ? FF(1) : FF(0)));
 
+    EmbeddedCurvePoint scalar_mul_result;
+
     try {
         ecc.add(*mem, input.p, input.q, /* output_addr */ input.addresses[6]);
+        scalar_mul_result = ecc.scalar_mul(input.p, FF(uint256_t(input.scalar)));
     } catch (std::exception& e) {
         // info("Caught exception during ECC add: {}", e.what());
         error = true;
     }
     if (!error) {
-        AffinePoint expected_result = input.p + input.q;
+        // StandardAffinePoint, unlike AffinePoint, normalises infinity to (0, 0) to match EmbeddedCurvePoint
+        StandardAffinePoint expected_result = StandardAffinePoint(input.p) + StandardAffinePoint(input.q);
 
         // Verify output in memory
         MemoryValue res_x = mem->get(input.addresses[6]);
@@ -252,10 +280,17 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 
         EmbeddedCurvePoint result_point = EmbeddedCurvePoint(res_x.as_ff(), res_y.as_ff(), res_inf.as_ff() == FF(1));
 
-        BB_ASSERT(result_point.x() == expected_result.x, "Result x-coordinate mismatch");
-        BB_ASSERT(result_point.y() == expected_result.y, "Result y-coordinate mismatch");
-        BB_ASSERT(result_point.is_infinity() == expected_result.is_point_at_infinity(),
-                  "Result infinity flag mismatch");
+        BB_ASSERT(result_point.x() == expected_result.x(), "Result x-coordinate mismatch");
+        BB_ASSERT(result_point.y() == expected_result.y(), "Result y-coordinate mismatch");
+        BB_ASSERT(result_point.is_infinity() == expected_result.is_infinity(), "Result infinity flag mismatch");
+
+        // Non mem-aware ecmul result:
+        expected_result = StandardAffinePoint(input.p) * input.scalar;
+
+        BB_ASSERT(scalar_mul_result.x() == expected_result.x(), "Mul result x-coordinate mismatch");
+        BB_ASSERT(scalar_mul_result.y() == expected_result.y(), "Mul result y-coordinate mismatch");
+        BB_ASSERT(scalar_mul_result.is_infinity() == expected_result.is_infinity(),
+                  "Mul result infinity flag mismatch");
     }
 
     // Initialize trace container and execution trace columns
@@ -289,6 +324,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
     to_radix_builder.process(to_radix_emitter.dump_events(), trace);
     builder.process_add_with_memory(add_memory_emitter.dump_events(), trace);
     builder.process_add(ecadd_emitter.dump_events(), trace);
+    builder.process_scalar_mul(scalar_mul_emitter.dump_events(), trace);
 
     if (getenv("AVM_DEBUG") != nullptr) {
         info("Debugging trace:");
@@ -297,6 +333,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
     }
 
     check_relation<ecc_rel>(trace);
+    check_relation<scalar_mul_rel>(trace);
     check_all_interactions<EccTraceBuilder>(trace);
     check_interaction<ExecutionTraceBuilder, bb::avm2::perm_execution_dispatch_to_ecc_add_settings>(trace);
 
