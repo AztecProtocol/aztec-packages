@@ -319,7 +319,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 
     check_relation<internal_call_rel>(trace);
     check_interaction<ExecutionTraceBuilder,
-                      lookup_internal_call_push_call_stack_settings,
+                      perm_internal_call_push_call_stack_settings,
                       lookup_internal_call_unwind_call_stack_settings>(trace);
 
     return 0;
