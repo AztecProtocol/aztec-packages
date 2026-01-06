@@ -40,18 +40,19 @@ Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg`
 22. `stdlib_circuit_builders/plookup_tables/plookup_tables.hpp`
 23. `stdlib_circuit_builders/plookup_tables/plookup_tables.cpp`
 24. `stdlib_circuit_builders/plookup_tables/types.hpp`
-25. `stdlib/primitives/plookup/plookup.hpp`
-26. `stdlib/primitives/plookup/plookup.cpp`
+25. `stdlib_circuit_builders/plookup_tables/dummy.hpp` (TO BE REVIEWED)
+26. `stdlib/primitives/plookup/plookup.hpp`
+27. `stdlib/primitives/plookup/plookup.cpp`
 
 ### ECC Op Queue
 
 The following is "joint" functionality for the ECCVM and the Mega circuit builder (called `UltraOps`. In this audit, we only care about how things are represented in the Mega circuit builder.
-27. `op_queue/ecc_op_queue.hpp`
-28. `op_queue/ecc_ops_table.hpp` (especially the `UltraEccOpsTable` class and its methods)
+28. `op_queue/ecc_op_queue.hpp`
+29. `op_queue/ecc_ops_table.hpp` (especially the `UltraEccOpsTable` class and its methods)
 
 ### Databus
 Within this audit, it is important to make sure that the databus "correctly links up" with the Mega circuit builder. Therefore, the following file is also in the scope of the audit.
-29. `stdlib_circuit_builders/databus.hpp`
+30. `stdlib_circuit_builders/databus.hpp`
 
 ## Brief Summary of Module
 
