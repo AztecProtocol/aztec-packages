@@ -36,7 +36,7 @@ export class MockL1ToL2MessageSource implements L1ToL2MessageSource {
     const blockId: L2BlockId = { number: BlockNumber(number), hash: new Fr(number).toString() };
     const checkpointId: CheckpointId = {
       number: CheckpointNumber(number),
-      blockHeadersHash: new Fr(number + 1).toString(),
+      hash: new Fr(number + 1).toString(),
     };
     const tip: L2TipId = { block: blockId, checkpoint: checkpointId };
     return Promise.resolve({

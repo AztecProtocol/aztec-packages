@@ -244,11 +244,12 @@ export interface L2BlockSourceEventEmitter extends L2BlockSource, ArchiverEmitte
 
 /**
  * Identifier for L2 block tags.
- * - latest: Latest block pushed to L1.
+ * - proposed: Latest block proposed on L2.
+ * - checkpointed: Checkpointed block on L1.
  * - proven: Proven block on L1.
  * - finalized: Proven block on a finalized L1 block (not implemented, set to proven for now).
  */
-export type L2BlockTag = 'latest' | 'proven' | 'finalized';
+export type L2BlockTag = 'proposed' | 'checkpointed' | 'proven' | 'finalized';
 
 /** Tips of the L2 chain. */
 export type L2Tips = {
@@ -261,7 +262,7 @@ export type L2Tips = {
 /** Identifies a block by number and hash. */
 export type L2BlockId = { number: BlockNumber; hash: string };
 
-export type CheckpointId = { number: CheckpointNumber; blockHeadersHash: string };
+export type CheckpointId = { number: CheckpointNumber; hash: string };
 
 export type L2TipId = { block: L2BlockId; checkpoint: CheckpointId };
 
@@ -280,7 +281,7 @@ const L2BlockIdSchema = z.object({
 
 const L2CheckpointIdSchema = z.object({
   number: CheckpointNumberSchema,
-  blockHeadersHash: z.string(),
+  hash: z.string(),
 });
 
 const L2TipIdSchema = z.object({
@@ -317,7 +318,7 @@ export type L2BlockPruneEvent = {
 
 export type L2CheckpointEvent = {
   type: 'l2BlocksCheckpointed';
-  checkpoint: Checkpoint;
+  checkpoint: PublishedCheckpoint;
 };
 
 export type InvalidBlockDetectedEvent = {

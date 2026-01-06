@@ -1,4 +1,4 @@
-import { GENESIS_BLOCK_HEADER_HASH } from '@aztec/constants';
+import { GENESIS_BLOCK_HEADER_HASH, INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import type {
   CheckpointId,
@@ -7,8 +7,10 @@ import type {
   L2BlockStreamEventHandler,
   L2BlockStreamLocalDataProvider,
   L2BlockTag,
+  L2TipId,
   L2Tips,
 } from '@aztec/stdlib/block';
+import type { Checkpoint } from '@aztec/stdlib/checkpoint';
 
 import type { AztecAsyncMap } from '../interfaces/map.js';
 import type { AztecAsyncSingleton } from '../interfaces/singleton.js';
@@ -36,19 +38,20 @@ export class L2TipsKVStore implements L2BlockStreamEventHandler, L2BlockStreamLo
 
   public async getL2Tips(): Promise<L2Tips> {
     return {
-      blocks: {
-        latest: await this.getL2Tip('latest'),
-        finalized: await this.getL2Tip('finalized'),
-        proven: await this.getL2Tip('proven'),
-      },
-      checkpoint: await this.readCheckpoint(),
+      proposed: await this.getL2Tip('proposed'),
+      checkpointed: await this.getL2Tip('checkpointed'),
+      proven: await this.getL2Tip('proven'),
+      finalized: await this.getL2Tip('finalized'),
     };
   }
 
-  private async getL2Tip(tag: L2BlockTag): Promise<L2BlockId> {
+  private async getL2Tip(tag: L2BlockTag): Promise<L2TipId> {
     const blockNumber = await this.l2TipsStore.getAsync(tag);
-    if (blockNumber === undefined || blockNumber === 0) {
-      return { number: BlockNumber.ZERO, hash: GENESIS_BLOCK_HEADER_HASH.toString() };
+    if (blockNumber === undefined || blockNumber === INITIAL_L2_BLOCK_NUM - 1) {
+      return {
+        block: { number: BlockNumber.ZERO, hash: GENESIS_BLOCK_HEADER_HASH.toString() },
+        checkpoint: { number: CheckpointNumber.ZERO, hash: GENESIS_BLOCK_HEADER_HASH.toString() },
+      };
     }
     const blockHash = await this.l2BlockHashesStore.getAsync(blockNumber);
     if (!blockHash) {
@@ -65,14 +68,14 @@ export class L2TipsKVStore implements L2BlockStreamEventHandler, L2BlockStreamLo
         for (const block of blocks) {
           await this.l2BlockHashesStore.set(block.number, (await block.hash()).toString());
         }
-        await this.l2TipsStore.set('latest', blocks.at(-1)!.number);
+        await this.l2TipsStore.set('proposed', blocks.at(-1)!.number);
         break;
       }
-      case 'checkpoint-added':
-        await this.saveCheckpoint(event.checkpoint);
+      case 'chain-checkpointed':
+        await this.saveCheckpoint(event.checkpoint.checkpoint);
         break;
       case 'chain-pruned':
-        await this.saveTag('latest', event.block);
+        await this.saveTag('proposed', event.block);
         break;
       case 'chain-proven':
         await this.saveTag('proven', event.block);
@@ -93,9 +96,9 @@ export class L2TipsKVStore implements L2BlockStreamEventHandler, L2BlockStreamLo
     }
   }
 
-  private async saveCheckpoint(checkpoint: CheckpointId) {
+  private async saveCheckpoint(checkpoint: Checkpoint) {
     await Promise.all([
-      this.l2CheckpointHashStore.set(checkpoint.blockHeadersHash),
+      this.l2CheckpointHashStore.set(checkpoint.hash().toString()),
       this.l2CheckpointNumberStore.set(checkpoint.number),
     ]);
   }
@@ -110,7 +113,7 @@ export class L2TipsKVStore implements L2BlockStreamEventHandler, L2BlockStreamLo
     }
     return {
       number: checkpointNumber,
-      blockHeadersHash: hash,
+      hash: hash,
     };
   }
 }

@@ -93,10 +93,6 @@ export class TXEArchiver extends ArchiverStoreHelper implements L2BlockSource {
     return this.retrievePublishedBlocks(from, limit, proven);
   }
 
-  getL2BlockNew(number: BlockNumber): Promise<L2BlockNew | undefined> {
-    return this.store.getBlock(number);
-  }
-
   async getL2BlocksNew(from: BlockNumber, limit: number, proven?: boolean): Promise<L2BlockNew[]> {
     const blocks = await this.store.getBlocks(from, limit);
 

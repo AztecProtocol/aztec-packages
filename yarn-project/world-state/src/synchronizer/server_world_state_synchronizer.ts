@@ -1,3 +1,4 @@
+import { INITIAL_L2_BLOCK_NUM, INITIAL_L2_CHECKPOINT_NUM } from '@aztec/constants';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -24,6 +25,8 @@ import type { SnapshotDataKeys } from '@aztec/stdlib/snapshots';
 import type { L2BlockHandledStats } from '@aztec/stdlib/stats';
 import { MerkleTreeId, type MerkleTreeReadOperations, type MerkleTreeWriteOperations } from '@aztec/stdlib/trees';
 import { TraceableL2BlockStream, getTelemetryClient } from '@aztec/telemetry-client';
+
+import { check, number } from 'zod/v4';
 
 import { WorldStateInstrumentation } from '../instrumentation/instrumentation.js';
 import type { WorldStateStatusFull } from '../native/message.js';
@@ -160,7 +163,7 @@ export class ServerWorldStateSynchronizer
   }
 
   public async getLatestBlockNumber() {
-    return (await this.getL2Tips()).blocks.latest.number;
+    return (await this.getL2Tips()).proposed.number;
   }
 
   public async stopSync() {
@@ -257,11 +260,19 @@ export class ServerWorldStateSynchronizer
     const latestBlockId: L2BlockId = { number: status.unfinalizedBlockNumber, hash: unfinalizedBlockHash! };
 
     return {
-      blocks: {
-        latest: latestBlockId,
-        finalized: { number: status.finalizedBlockNumber, hash: '' },
-        proven: { number: this.provenBlockNumber ?? status.finalizedBlockNumber, hash: '' }, // TODO(palla/reorg): Using finalized as proven for now
+      proposed: latestBlockId,
+      checkpointed: {
+        block: { number: INITIAL_L2_BLOCK_NUM, hash: '' },
+        checkpoint: { number: INITIAL_L2_CHECKPOINT_NUM, hash: '' },
       },
+      finalized: {
+        block: { number: status.finalizedBlockNumber, hash: '' },
+        checkpoint: { number: INITIAL_L2_CHECKPOINT_NUM, hash: '' },
+      },
+      proven: {
+        block: { number: this.provenBlockNumber ?? status.finalizedBlockNumber, hash: '' },
+        checkpoint: { number: INITIAL_L2_CHECKPOINT_NUM, hash: '' },
+      }, // TODO(palla/reorg): Using finalized as proven for now
     };
   }
 

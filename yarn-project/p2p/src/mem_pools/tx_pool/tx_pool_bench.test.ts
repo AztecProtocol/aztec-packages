@@ -1,6 +1,6 @@
 import { GENESIS_BLOCK_HEADER_HASH } from '@aztec/constants';
 import { insertIntoSortedArray, shuffle } from '@aztec/foundation/array';
-import { BlockNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import { timesAsync } from '@aztec/foundation/collection';
 import { getDefaultConfig } from '@aztec/foundation/config';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -157,14 +157,18 @@ describe('TxPool: Benchmarks', () => {
       syncImmediate: () => Promise.resolve(),
       getProvenBlockNumber: () => Promise.resolve(BlockNumber.ZERO),
       getBlockNumber: () => Promise.resolve(BlockNumber.ZERO),
-      getL2Tips: () =>
-        Promise.resolve({
-          blocks: {
-            latest: { number: BlockNumber.ZERO, hash: GENESIS_BLOCK_HEADER_HASH.toString() },
-            proven: { number: BlockNumber.ZERO, hash: GENESIS_BLOCK_HEADER_HASH.toString() },
-            finalized: { number: BlockNumber.ZERO, hash: GENESIS_BLOCK_HEADER_HASH.toString() },
-          },
-        }),
+      getL2Tips: () => {
+        const tipId = {
+          block: { number: BlockNumber.ZERO, hash: GENESIS_BLOCK_HEADER_HASH.toString() },
+          checkpoint: { number: CheckpointNumber.ZERO, hash: GENESIS_BLOCK_HEADER_HASH.toString() },
+        };
+        return Promise.resolve({
+          proposed: { number: BlockNumber.ZERO, hash: GENESIS_BLOCK_HEADER_HASH.toString() },
+          checkpointed: tipId,
+          proven: tipId,
+          finalized: tipId,
+        });
+      },
     });
     wsSync = new ServerWorldStateSynchronizer(ws, l2, getDefaultConfig(worldStateConfigMappings));
     await wsSync.start();

@@ -198,12 +198,15 @@ describe('ArchiverApiSchema', () => {
 
   it('getL2Tips', async () => {
     const result = await context.client.getL2Tips();
+    const expectedTipId = {
+      block: { number: 1, hash: `0x01` },
+      checkpoint: { number: 1, hash: `0x01` },
+    };
     expect(result).toEqual({
-      blocks: {
-        latest: { number: 1, hash: `0x01` },
-        proven: { number: 1, hash: `0x01` },
-        finalized: { number: 1, hash: `0x01` },
-      },
+      proposed: { number: 1, hash: `0x01` },
+      checkpointed: expectedTipId,
+      proven: expectedTipId,
+      finalized: expectedTipId,
     });
   });
 
@@ -401,9 +404,6 @@ class MockArchiver implements ArchiverApi {
     ];
   }
 
-  getL2BlockNew(number: BlockNumber): Promise<L2BlockNew | undefined> {
-    return L2BlockNew.random(BlockNumber(number));
-  }
   async getL2BlocksNew(from: BlockNumber, _1: number, _2?: boolean): Promise<L2BlockNew[]> {
     const block = await L2BlockNew.random(from);
     return [block];
@@ -469,12 +469,15 @@ class MockArchiver implements ArchiverApi {
     return Promise.resolve(true);
   }
   getL2Tips(): Promise<L2Tips> {
+    const tipId = {
+      block: { number: BlockNumber(1), hash: `0x01` },
+      checkpoint: { number: CheckpointNumber(1), hash: `0x01` },
+    };
     return Promise.resolve({
-      blocks: {
-        latest: { number: BlockNumber(1), hash: `0x01` },
-        proven: { number: BlockNumber(1), hash: `0x01` },
-        finalized: { number: BlockNumber(1), hash: `0x01` },
-      },
+      proposed: { number: BlockNumber(1), hash: `0x01` },
+      checkpointed: tipId,
+      proven: tipId,
+      finalized: tipId,
     });
   }
   getL2BlockHash(blockNumber: BlockNumber): Promise<string | undefined> {

@@ -80,13 +80,13 @@ describe('world-state integration', () => {
       return finalized > tipFinalized;
     };
 
-    while (tips.blocks.latest.number < blockToSyncTo && sleepTime < maxTimeoutMS) {
+    while (tips.proposed.number < blockToSyncTo && sleepTime < maxTimeoutMS) {
       await sleep(100);
       sleepTime = Date.now() - startTime;
       tips = await synchronizer.getL2Tips();
     }
 
-    while (waitForFinalized(tips.blocks.finalized.number) && sleepTime < maxTimeoutMS) {
+    while (waitForFinalized(tips.finalized.block.number) && sleepTime < maxTimeoutMS) {
       await sleep(100);
       sleepTime = Date.now() - startTime;
       tips = await synchronizer.getL2Tips();
@@ -101,11 +101,11 @@ describe('world-state integration', () => {
 
   const expectSynchedToBlock = async (latest: number, finalized?: number) => {
     const tips = await synchronizer.getL2Tips();
-    expect(tips.blocks.latest.number).toEqual(latest);
+    expect(tips.proposed.number).toEqual(latest);
     await expectSynchedBlockHashMatches(latest);
 
     if (finalized !== undefined) {
-      expect(tips.blocks.finalized.number).toEqual(finalized);
+      expect(tips.finalized.block.number).toEqual(finalized);
       await expectSynchedBlockHashMatches(finalized);
     }
   };

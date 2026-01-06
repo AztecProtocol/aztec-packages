@@ -262,6 +262,15 @@ class TestWorldStateSynchronizer extends ServerWorldStateSynchronizer {
   }
 
   public override getL2Tips() {
-    return Promise.resolve({ blocks: { latest: this.latest, proven: this.proven, finalized: this.finalized } });
+    const makeTipId = (blockId: typeof this.latest) => ({
+      block: blockId,
+      checkpoint: { number: CheckpointNumber(blockId.number), hash: blockId.hash },
+    });
+    return Promise.resolve({
+      proposed: this.latest,
+      checkpointed: makeTipId(this.latest),
+      proven: makeTipId(this.proven),
+      finalized: makeTipId(this.finalized),
+    });
   }
 }

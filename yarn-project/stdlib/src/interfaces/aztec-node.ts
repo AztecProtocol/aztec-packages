@@ -72,7 +72,10 @@ import { type WorldStateSyncStatus, WorldStateSyncStatusSchema } from './world_s
  * We will probably implement the additional interfaces by means other than Aztec Node as it's currently a privacy leak
  */
 export interface AztecNode
-  extends Pick<L2BlockSource, 'getBlocks' | 'getL2BlocksNew' | 'getPublishedBlocks' | 'getBlockHeader' | 'getL2Tips'> {
+  extends Pick<
+    L2BlockSource,
+    'getBlocks' | 'getL2BlocksNew' | 'getPublishedBlocks' | 'getPublishedCheckpoints' | 'getBlockHeader' | 'getL2Tips'
+  > {
   /**
    * Returns the tips of the L2 chain.
    */

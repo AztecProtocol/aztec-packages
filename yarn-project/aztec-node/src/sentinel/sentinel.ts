@@ -89,7 +89,7 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
 
   public async handleBlockStreamEvent(event: L2BlockStreamEvent): Promise<void> {
     await this.l2TipsStore.handleBlockStreamEvent(event);
-    if (event.type === 'checkpoint-added') {
+    if (event.type === 'chain-checkpointed') {
       await this.handleCheckpoint(event);
     } else if (event.type === 'chain-proven') {
       await this.handleChainProven(event);
@@ -97,19 +97,14 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
   }
 
   protected async handleCheckpoint(event: L2BlockStreamEvent) {
-    if (event.type !== 'checkpoint-added') {
+    if (event.type !== 'chain-checkpointed') {
       return;
     }
-    const checkpointNumber = event.checkpoint.number;
-    const [checkpoint] = await this.archiver.getPublishedCheckpoints(checkpointNumber, 1);
-    if (!checkpoint) {
-      this.logger.error(`Failed to get checkpoint ${checkpointNumber}`, { checkpoint });
-      return;
-    }
+    const checkpoint = event.checkpoint;
 
     // Store mapping from slot to archive, block number, and attestors
     this.slotNumberToCheckpoint.set(checkpoint.checkpoint.header.slotNumber, {
-      checkpointNumber: CheckpointNumber(checkpointNumber),
+      checkpointNumber: checkpoint.checkpoint.number,
       archive: checkpoint.checkpoint.archive.root.toString(),
       attestors: getAttestationInfoFromPublishedCheckpoint(checkpoint)
         .filter(a => a.status === 'recovered-from-signature')
@@ -305,8 +300,8 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
       return false;
     }
 
-    const archiverLastBlockHash = await this.l2TipsStore.getL2Tips().then(tip => tip.blocks.latest.hash);
-    const p2pLastBlockHash = await this.p2p.getL2Tips().then(tips => tips.blocks.latest.hash);
+    const archiverLastBlockHash = await this.l2TipsStore.getL2Tips().then(tip => tip.proposed.hash);
+    const p2pLastBlockHash = await this.p2p.getL2Tips().then(tips => tips.proposed.hash);
     const isP2pSynced = archiverLastBlockHash === p2pLastBlockHash;
     if (!isP2pSynced) {
       this.logger.debug(`Waiting for P2P client to sync with archiver`, { archiverLastBlockHash, p2pLastBlockHash });

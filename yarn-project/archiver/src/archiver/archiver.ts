@@ -1,5 +1,5 @@
 import type { BlobClientInterface } from '@aztec/blob-client/client';
-import { GENESIS_BLOCK_HEADER_HASH } from '@aztec/constants';
+import { GENESIS_BLOCK_HEADER_HASH, INITIAL_L2_BLOCK_NUM, INITIAL_L2_CHECKPOINT_NUM } from '@aztec/constants';
 import { EpochCache } from '@aztec/epoch-cache';
 import { createEthereumChain } from '@aztec/ethereum/chain';
 import { BlockTagTooOldError, InboxContract, RollupContract } from '@aztec/ethereum/contracts';
@@ -1411,6 +1411,9 @@ export class Archiver
   getProvenBlockNumber(): Promise<BlockNumber> {
     return this.store.getProvenBlockNumber();
   }
+  getCheckpointedBlockNumber(): Promise<BlockNumber> {
+    return this.store.getCheckpointedL2BlockNumber();
+  }
   getCheckpointedBlockByArchive(archive: Fr): Promise<CheckpointedL2Block | undefined> {
     return this.store.getCheckpointedBlockByArchive(archive);
   }
@@ -1521,9 +1524,10 @@ export class Archiver
   }
 
   async getL2Tips(): Promise<L2Tips> {
-    const [latestBlockNumber, provenBlockNumber] = await Promise.all([
+    const [latestBlockNumber, provenBlockNumber, checkpointedBlockNumber] = await Promise.all([
       this.getBlockNumber(),
       this.getProvenBlockNumber(),
+      this.getCheckpointedBlockNumber(),
     ] as const);
 
     // TODO(#13569): Compute proper finalized block number based on L1 finalized block.
@@ -1531,56 +1535,120 @@ export class Archiver
     // NOTE: update end-to-end/src/e2e_epochs/epochs_empty_blocks.test.ts as that uses finalized blocks in computations
     const finalizedBlockNumber = BlockNumber(Math.max(provenBlockNumber - this.l1constants.epochDuration * 2, 0));
 
-    const [latestBlockHeader, provenBlockHeader, finalizedBlockHeader] = await Promise.all([
-      latestBlockNumber > 0 ? this.getBlockHeader(latestBlockNumber) : undefined,
-      provenBlockNumber > 0 ? this.getBlockHeader(provenBlockNumber) : undefined,
-      finalizedBlockNumber > 0 ? this.getBlockHeader(finalizedBlockNumber) : undefined,
-    ] as const);
+    const beforeInitialblockNumber = BlockNumber(INITIAL_L2_BLOCK_NUM - 1);
 
-    if (latestBlockNumber > 0 && !latestBlockHeader) {
+    const [latestBlockHeader, provenCheckpointedBlock, finalizedCheckpointedBlock, checkpointedBlock] =
+      await Promise.all([
+        latestBlockNumber > beforeInitialblockNumber ? this.getBlockHeader(latestBlockNumber) : undefined,
+        provenBlockNumber > beforeInitialblockNumber ? this.getCheckpointedBlock(provenBlockNumber) : undefined,
+        finalizedBlockNumber > beforeInitialblockNumber ? this.getCheckpointedBlock(finalizedBlockNumber) : undefined,
+        checkpointedBlockNumber > beforeInitialblockNumber
+          ? this.getCheckpointedBlock(checkpointedBlockNumber)
+          : undefined,
+      ] as const);
+
+    const beforeInitialCheckpointNumber = CheckpointNumber(INITIAL_L2_CHECKPOINT_NUM - 1);
+
+    if (latestBlockNumber > beforeInitialblockNumber && !latestBlockHeader) {
       throw new Error(`Failed to retrieve latest block header for block ${latestBlockNumber}`);
     }
 
-    if (provenBlockNumber > 0 && !provenBlockHeader) {
+    // Checkpointed blocks must exist for proven, finalized and checkpointed tips if they are beyond the initial block number.
+    if (checkpointedBlockNumber > beforeInitialblockNumber && !checkpointedBlock?.block.header) {
       throw new Error(
-        `Failed to retrieve proven block header for block ${provenBlockNumber} (latest block is ${latestBlockNumber})`,
+        `Failed to retrieve checkpointed block header for block ${checkpointedBlockNumber} (latest block is ${latestBlockNumber})`,
       );
     }
 
-    if (finalizedBlockNumber > 0 && !finalizedBlockHeader) {
+    if (provenBlockNumber > beforeInitialblockNumber && !provenCheckpointedBlock?.block.header) {
+      throw new Error(
+        `Failed to retrieve proven checkpointed for block ${provenBlockNumber} (latest block is ${latestBlockNumber})`,
+      );
+    }
+
+    if (finalizedBlockNumber > beforeInitialblockNumber && !finalizedCheckpointedBlock?.block.header) {
       throw new Error(
         `Failed to retrieve finalized block header for block ${finalizedBlockNumber} (latest block is ${latestBlockNumber})`,
       );
     }
 
     const latestBlockHeaderHash = (await latestBlockHeader?.hash()) ?? GENESIS_BLOCK_HEADER_HASH;
-    const provenBlockHeaderHash = (await provenBlockHeader?.hash()) ?? GENESIS_BLOCK_HEADER_HASH;
-    const finalizedBlockHeaderHash = (await finalizedBlockHeader?.hash()) ?? GENESIS_BLOCK_HEADER_HASH;
+    const provenBlockHeaderHash = (await provenCheckpointedBlock?.block.header?.hash()) ?? GENESIS_BLOCK_HEADER_HASH;
+    const finalizedBlockHeaderHash =
+      (await finalizedCheckpointedBlock?.block.header?.hash()) ?? GENESIS_BLOCK_HEADER_HASH;
+    const checkpointedBlockHeaderHash = (await checkpointedBlock?.block.header?.hash()) ?? GENESIS_BLOCK_HEADER_HASH;
 
-    const latestCheckpoint = await this.store.getCheckpointData(await this.store.getSynchedCheckpointNumber());
-    const checkpointId: CheckpointId | undefined =
-      latestCheckpoint === undefined
-        ? undefined
-        : {
-            number: latestCheckpoint.checkpointNumber,
-            blockHeadersHash: latestCheckpoint.header.blockHeadersHash.toString(),
-          };
+    const [[provenBlockCheckpoint], [finalizedBlockCheckpoint], [checkpointedBlockCheckpoint]] = await Promise.all([
+      provenCheckpointedBlock !== undefined
+        ? await this.getPublishedCheckpoints(provenCheckpointedBlock?.checkpointNumber, 1)
+        : [undefined],
+      finalizedCheckpointedBlock !== undefined
+        ? await this.getPublishedCheckpoints(finalizedCheckpointedBlock?.checkpointNumber, 1)
+        : [undefined],
+      checkpointedBlock !== undefined
+        ? await this.getPublishedCheckpoints(checkpointedBlock?.checkpointNumber, 1)
+        : [undefined],
+    ]);
 
-    return {
-      blocks: {
-        latest: { number: latestBlockNumber, hash: latestBlockHeaderHash.toString() },
-        proven: { number: provenBlockNumber, hash: provenBlockHeaderHash.toString() },
-        finalized: { number: finalizedBlockNumber, hash: finalizedBlockHeaderHash.toString() },
-      },
-      checkpoint: checkpointId,
+    const initialcheckpointId = {
+      number: beforeInitialCheckpointNumber,
+      hash: '',
     };
+
+    const l2Tips: L2Tips = {
+      proposed: {
+        number: latestBlockNumber,
+        hash: latestBlockHeaderHash.toString(),
+      },
+      proven: {
+        block: {
+          number: provenBlockNumber,
+          hash: provenBlockHeaderHash.toString(),
+        },
+        checkpoint:
+          provenBlockCheckpoint == undefined
+            ? initialcheckpointId
+            : {
+                number: provenBlockCheckpoint.checkpoint.number,
+                hash: provenBlockCheckpoint.checkpoint.hash().toString(),
+              },
+      },
+      finalized: {
+        block: {
+          number: finalizedBlockNumber,
+          hash: finalizedBlockHeaderHash.toString(),
+        },
+        checkpoint:
+          finalizedBlockCheckpoint == undefined
+            ? initialcheckpointId
+            : {
+                number: finalizedBlockCheckpoint.checkpoint.number,
+                hash: finalizedBlockCheckpoint.checkpoint.hash().toString(),
+              },
+      },
+      checkpointed: {
+        block: {
+          number: checkpointedBlockNumber,
+          hash: checkpointedBlockHeaderHash.toString(),
+        },
+        checkpoint:
+          checkpointedBlockCheckpoint == undefined
+            ? initialcheckpointId
+            : {
+                number: checkpointedBlockCheckpoint.checkpoint.number,
+                hash: checkpointedBlockCheckpoint.checkpoint.hash().toString(),
+              },
+      },
+    };
+
+    return l2Tips;
   }
 
   public async rollbackTo(targetL2BlockNumber: BlockNumber): Promise<void> {
     // TODO(pw/mbps): This still assumes 1 block per checkpoint
     const currentBlocks = await this.getL2Tips();
     const currentL2Block = currentBlocks.proposed.number;
-    const currentProvenBlock = currentBlocks.proven.number;
+    const currentProvenBlock = currentBlocks.proven.block.number;
 
     if (targetL2BlockNumber >= currentL2Block) {
       throw new Error(`Target L2 block ${targetL2BlockNumber} must be less than current L2 block ${currentL2Block}`);

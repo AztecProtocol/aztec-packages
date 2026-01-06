@@ -151,10 +151,6 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
     );
   }
 
-  async getL2BlockNew(number: BlockNumber): Promise<L2BlockNew | undefined> {
-    const block = await this.getBlock(number);
-    return block.toL2Block();
-  }
   async getL2BlocksNew(from: BlockNumber, limit: number, proven?: boolean): Promise<L2BlockNew[]> {
     const blocks = await this.getBlocks(from, limit, proven);
     return blocks.map(x => x.toL2Block());
@@ -282,21 +278,29 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
     const provenBlock = this.l2Blocks[proven - 1];
     const finalizedBlock = this.l2Blocks[finalized - 1];
 
+    const latestBlockId = {
+      number: BlockNumber(latest),
+      hash: (await latestBlock?.hash())?.toString(),
+    };
+    const provenBlockId = {
+      number: BlockNumber(proven),
+      hash: (await provenBlock?.hash())?.toString(),
+    };
+    const finalizedBlockId = {
+      number: BlockNumber(finalized),
+      hash: (await finalizedBlock?.hash())?.toString(),
+    };
+
+    const makeTipId = (blockId: typeof latestBlockId) => ({
+      block: blockId,
+      checkpoint: { number: CheckpointNumber(blockId.number), hash: blockId.hash },
+    });
+
     return {
-      blocks: {
-        latest: {
-          number: BlockNumber(latest),
-          hash: (await latestBlock?.hash())?.toString(),
-        },
-        proven: {
-          number: BlockNumber(proven),
-          hash: (await provenBlock?.hash())?.toString(),
-        },
-        finalized: {
-          number: BlockNumber(finalized),
-          hash: (await finalizedBlock?.hash())?.toString(),
-        },
-      },
+      proposed: latestBlockId,
+      checkpointed: makeTipId(latestBlockId),
+      proven: makeTipId(provenBlockId),
+      finalized: makeTipId(finalizedBlockId),
     };
   }
 

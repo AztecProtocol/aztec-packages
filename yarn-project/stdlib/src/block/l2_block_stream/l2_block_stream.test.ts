@@ -30,17 +30,21 @@ describe('L2BlockStream', () => {
 
   const makeBlockId = (number: number): L2BlockId => ({ number: BlockNumber(number), hash: makeHash(number) });
 
+  const makeTipId = (number: number) => ({
+    block: { number: BlockNumber(number), hash: makeHash(number) },
+    checkpoint: { number: CheckpointNumber(number), hash: makeHash(number) },
+  });
+
   const setRemoteTips = (latest_: number, proven?: number, finalized?: number) => {
     proven = proven ?? 0;
     finalized = finalized ?? 0;
     latest = latest_;
 
     blockSource.getL2Tips.mockResolvedValue({
-      blocks: {
-        latest: { number: BlockNumber(latest), hash: makeHash(latest) },
-        proven: { number: BlockNumber(proven), hash: makeHash(proven) },
-        finalized: { number: BlockNumber(finalized), hash: makeHash(finalized) },
-      },
+      proposed: { number: BlockNumber(latest), hash: makeHash(latest) },
+      checkpointed: makeTipId(latest),
+      proven: makeTipId(proven),
+      finalized: makeTipId(finalized),
     });
   };
 
@@ -281,12 +285,15 @@ class TestL2BlockStreamLocalDataProvider implements L2BlockStreamLocalDataProvid
   }
 
   public getL2Tips(): Promise<L2Tips> {
+    const makeTipId = (blockId: L2BlockId) => ({
+      block: blockId,
+      checkpoint: { number: CheckpointNumber(blockId.number), hash: blockId.hash },
+    });
     return Promise.resolve({
-      blocks: {
-        latest: this.latest,
-        proven: this.proven,
-        finalized: this.finalized,
-      },
+      proposed: this.latest,
+      checkpointed: makeTipId(this.latest),
+      proven: makeTipId(this.proven),
+      finalized: makeTipId(this.finalized),
     });
   }
 }
