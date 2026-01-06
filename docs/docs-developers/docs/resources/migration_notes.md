@@ -60,6 +60,8 @@ do so through the new `debug` sub-module.
 + this.pxe.debug.getNotes(filter);
 ```
 
+## 3.0.0-devnet.20251212
+
 ### [Aztec node, archiver] Deprecated `getPrivateLogs`
 
 Aztec node no longer offers a `getPrivateLogs` method. If you need to process the logs of a block, you can instead use `getBlock` and call `getPrivateLogs` on an `L2BlockNew` instance. See the diff below for before/after equivalent code samples.
