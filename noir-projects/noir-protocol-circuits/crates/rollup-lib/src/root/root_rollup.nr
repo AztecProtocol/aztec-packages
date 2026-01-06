@@ -92,7 +92,7 @@ pub fn execute(inputs: RootRollupPrivateInputs) -> RootRollupPublicInputs {
     // Below we check:
     // 1. The first accumulator of the entire epoch (left.start_blob_accumulator) is empty.
     merged.start_blob_accumulator.assert_empty("Epoch did not start with empty blob state.");
-    // 2. The `final_blob_challenges` matches the final state of the accumulator.
+    // 2. The claimed `final_blob_challenges` match the final state of the accumulator.
     validate_final_blob_batching_challenges(
         merged.end_blob_accumulator,
         merged.final_blob_challenges,

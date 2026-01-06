@@ -7,12 +7,12 @@ import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import { getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
 import { MerkleTreeId, NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 
-import type { AnchorBlockDataProvider } from '../storage/anchor_block_data_provider/anchor_block_data_provider.js';
+import type { AnchorBlockStore } from '../storage/anchor_block_store/anchor_block_store.js';
 
 export class TreeMembershipService {
   constructor(
     private readonly aztecNode: AztecNode,
-    private readonly anchorBlockDataProvider: AnchorBlockDataProvider,
+    private readonly anchorBlockStore: AnchorBlockStore,
   ) {}
 
   /**
@@ -51,7 +51,7 @@ export class TreeMembershipService {
     blockNumber: BlockParameter,
     nullifier: Fr,
   ): Promise<NullifierMembershipWitness | undefined> {
-    const anchorBlockNumber = (await this.anchorBlockDataProvider.getBlockHeader()).getBlockNumber();
+    const anchorBlockNumber = (await this.anchorBlockStore.getBlockHeader()).getBlockNumber();
     if (blockNumber !== 'latest' && blockNumber > anchorBlockNumber) {
       throw new Error(`Block number ${blockNumber} is higher than current block ${anchorBlockNumber}`);
     }
@@ -64,7 +64,7 @@ export class TreeMembershipService {
    * @param leafSlot - The slot of the public data in the public data tree.
    */
   public async getPublicDataWitness(blockNumber: BlockParameter, leafSlot: Fr): Promise<PublicDataWitness | undefined> {
-    const anchorBlockNumber = (await this.anchorBlockDataProvider.getBlockHeader()).getBlockNumber();
+    const anchorBlockNumber = (await this.anchorBlockStore.getBlockHeader()).getBlockNumber();
     if (blockNumber !== 'latest' && blockNumber > anchorBlockNumber) {
       throw new Error(`Block number ${blockNumber} is higher than current block ${anchorBlockNumber}`);
     }

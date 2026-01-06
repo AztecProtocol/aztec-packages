@@ -10,6 +10,7 @@ import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
   L2Block,
   L2BlockHash,
+  L2BlockNew,
   type L2BlockSource,
   type L2Tips,
   PublishedL2Block,
@@ -103,6 +104,16 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
    */
   public getBlock(number: number) {
     return Promise.resolve(this.l2Blocks[number - 1]);
+  }
+
+  /**
+   * Gets an L2 block (new format).
+   * @param number - The block number to return.
+   * @returns The requested L2 block.
+   */
+  public getL2BlockNew(number: BlockNumber): Promise<L2BlockNew | undefined> {
+    const block = this.l2Blocks[number - 1];
+    return Promise.resolve(block?.toL2Block());
   }
 
   /**

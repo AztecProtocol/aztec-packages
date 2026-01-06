@@ -99,7 +99,46 @@ the this sponge) before receiving all txs in a checkpoint slot.</p>
     array_lengths: <a href="../../protocol_types/blob_data/struct.TxEffectArrayLengths.html" class="struct">TxEffectArrayLengths</a>,
 )</code>
 
-<code id="absorb_block_end_data" class="code-header">pub fn <a href="#absorb_block_end_data"><span class="fn">absorb_block_end_data</span></a>(
+<div class="padded-description"><div class="comments">
+<p>|----------|--------------------------------|-------------------------------------|
+| Field 0  | TX_START_PREFIX                | 64 bits                             |
+|          | num_note_hashes                | 16 bits                             |
+|          | num_nullifiers                 | 16 bits                             |
+|          | num_l1_to_l2_msgs              | 16 bits                             |
+|          | num_public_data_writes         | 16 bits                             |
+|          | num_private_logs               | 16 bits                             |
+|          | private_logs_length            | 16 bits                             |
+|          | public_logs_length             | 32 bits                             |
+|          | contract_class_log_length      | 16 bits                             |
+|          | revert_code                    |  8 bits                             |
+|          | num_blob_fields                | 32 bits                             |
+|----------|--------------------------------|-------------------------------------|
+| Field 1  | tx_effect.tx_hash              | A field                             |
+|----------|--------------------------------|-------------------------------------|
+| Field 2  | tx_effect.transaction_fee      | A field                             |
+|----------|--------------------------------|-------------------------------------|
+|          | tx_effect.note_hashes          | <code>num_note_hashes</code> fields            |
+|----------|--------------------------------|-------------------------------------|
+|          | tx_effect.nullifiers           | <code>num_nullifiers</code> fields             |
+|----------|--------------------------------|-------------------------------------|
+|          | tx_effect.l2_to_l1_msgs        | <code>num_l1_to_l2_msgs</code> fields          |
+|----------|--------------------------------|-------------------------------------|
+|          | tx_effect.public_data_writes   | <code>num_public_data_writes * 2</code> fields |
+|----------|--------------------------------|-------------------------------------|
+|          | (tx_effect.private_logs):      | (private_logs_length)               |
+|          | Where, for each log:           |                                     |
+|          |     log.length                 | A field                             |
+|          |     log.fields                 | <code>log.length</code> fields                 |
+|----------|--------------------------------|-------------------------------------|
+|          | tx_effect.public_logs.payload  | <code>public_logs.length</code> fields         |
+|----------|--------------------------------|-------------------------------------|
+|          | tx_effect.contract_class_logs  | (contract_class_log_length)         |
+|          | Where, for each log:           |                                     |
+|          |     log.contract_address       | A field                             |
+|          |     log.fields                 | <code>log.length</code> fields                 |
+|----------|--------------------------------|-------------------------------------|</p>
+</div>
+</div><code id="absorb_block_end_data" class="code-header">pub fn <a href="#absorb_block_end_data"><span class="fn">absorb_block_end_data</span></a>(
     &mut self,
     global_variables: <a href="../../protocol_types/abis/global_variables/struct.GlobalVariables.html" class="struct">GlobalVariables</a>,
     last_archive: <a href="../../protocol_types/abis/append_only_tree_snapshot/struct.AppendOnlyTreeSnapshot.html" class="struct">AppendOnlyTreeSnapshot</a>,
@@ -109,9 +148,39 @@ the this sponge) before receiving all txs in a checkpoint slot.</p>
     is_first_block_in_checkpoint: <a href="../../std/primitive.bool.html" class="primitive">bool</a>,
 )</code>
 
-<code id="absorb_checkpoint_end_marker" class="code-header">pub fn <a href="#absorb_checkpoint_end_marker"><span class="fn">absorb_checkpoint_end_marker</span></a>(&mut self)</code>
+<div class="padded-description"><div class="comments">
+<p>|----------|---------------------------------------------|---------|
+| Field 0  | BLOCK_END_PREFIX                            | 72 bits |
+|          | timestamp                                   | 64 bits |
+|          | block_number                                | 32 bits |
+|          | num_txs                                     | 16 bits |
+|----------|---------------------------------------------|---------|
+| Field 1  | l1_to_l2_message_next_available_leaf_index  | 36 bits |
+|          | note_hash_next_available_leaf_index         | 42 bits |
+|          | nullifier_next_available_leaf_index         | 42 bits |
+|          | public_data_next_available_leaf_index       | 40 bits |
+|          | total_mana_used                             | 48 bits |
+|----------|---------------------------------------------|---------|
+| Field 2  | last_archive.root                           | A field |
+|----------|---------------------------------------------|---------|
+| Field 3  | note_hash_tree.root                         | A field |
+|----------|---------------------------------------------|---------|
+| Field 4  | nullifier_tree.root                         | A field |
+|----------|---------------------------------------------|---------|
+| Field 5  | public_data_tree.root                       | A field |
+|----------|---------------------------------------------|---------|
+| Field 6  | l1_to_l2_message_tree.root                  | A field |
+|----------|---------------------------------------------|---------|</p>
+</div>
+</div><code id="absorb_checkpoint_end_marker" class="code-header">pub fn <a href="#absorb_checkpoint_end_marker"><span class="fn">absorb_checkpoint_end_marker</span></a>(&mut self)</code>
 
-<code id="absorb" class="code-header">pub fn <a href="#absorb"><span class="fn">absorb</span></a>&lt;let N: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt;(&mut self, input: [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; N], in_len: <a href="../../std/primitive.u32.html" class="primitive">u32</a>)</code>
+<div class="padded-description"><div class="comments">
+<p>|----------|---------------------------------------------|---------|
+| Field 0  | CHECKPOINT_END_PREFIX                       | 112 bits|
+|          | num_blob_fields                             | 32 bits |
+|----------|---------------------------------------------|---------|</p>
+</div>
+</div><code id="absorb" class="code-header">pub fn <a href="#absorb"><span class="fn">absorb</span></a>&lt;let N: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt;(&mut self, input: [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; N], in_len: <a href="../../std/primitive.u32.html" class="primitive">u32</a>)</code>
 
 <div class="padded-description"><div class="comments">
 <p>Absorb the first <code>in_len</code> fields of the <code>input</code> to the sponge. Fields beyond <code>in_len</code> are ignored.</p>

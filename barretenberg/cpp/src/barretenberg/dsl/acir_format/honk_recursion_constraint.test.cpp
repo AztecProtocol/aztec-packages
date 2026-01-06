@@ -364,16 +364,19 @@ TYPED_TEST(HonkRecursionConstraintTestWithPredicate, GenerateVKFromConstraints)
 
 TYPED_TEST(HonkRecursionConstraintTestWithPredicate, ConstantTrue)
 {
+    BB_DISABLE_ASSERTS();
     TestFixture::test_constant_true(TestFixture::InvalidWitnessTarget::VKHash);
 }
 
 TYPED_TEST(HonkRecursionConstraintTestWithPredicate, WitnessTrue)
 {
+    BB_DISABLE_ASSERTS();
     TestFixture::test_witness_true(TestFixture::InvalidWitnessTarget::VKHash);
 }
 
 TYPED_TEST(HonkRecursionConstraintTestWithPredicate, WitnessFalseSlow)
 {
+    BB_DISABLE_ASSERTS();
     TestFixture::test_witness_false_slow();
 }
 
@@ -468,6 +471,7 @@ TYPED_TEST(HonkRecursionConstraintTestWithoutPredicate, GenerateVKFromConstraint
 
 TYPED_TEST(HonkRecursionConstraintTestWithoutPredicate, Tampering)
 {
+    BB_DISABLE_ASSERTS();
     [[maybe_unused]] std::vector<std::string> _ = TestFixture::test_tampering();
 }
 

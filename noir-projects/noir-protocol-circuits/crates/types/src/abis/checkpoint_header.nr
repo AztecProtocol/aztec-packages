@@ -14,7 +14,7 @@ pub struct CheckpointHeader {
     pub block_headers_hash: Field,
     pub content_commitment: ContentCommitment,
     pub slot_number: Field,
-    // The timestamp of the slot. All blocks in the checkpoint must have a timestamp less than or equal to this value.
+    // The timestamp of the slot. All blocks in the checkpoint share the same timestamp, which must equal to this value.
     pub timestamp: u64,
     pub coinbase: EthAddress,
     // This field is an optional arbitrary l2 address set by the block builder. It's unchecked, and allows

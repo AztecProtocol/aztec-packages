@@ -44,6 +44,7 @@ export class SequencerMetrics {
   private blockProposalPrecheckFailed: UpDownCounter;
   private checkpointSuccess: UpDownCounter;
   private slashingAttempts: UpDownCounter;
+  private blockAttestationDelay: Histogram;
 
   // Fisherman fee analysis metrics
   private fishermanWouldBeIncluded: UpDownCounter;
@@ -90,6 +91,12 @@ export class SequencerMetrics {
         valueType: ValueType.INT,
       },
     );
+
+    this.blockAttestationDelay = this.meter.createHistogram(Metrics.SEQUENCER_BLOCK_ATTESTATION_DELAY, {
+      unit: 'ms',
+      description: 'The time difference between block proposal and minimal attestation count reached,',
+      valueType: ValueType.INT,
+    });
 
     // Init gauges and counters
     this.blockCounter.add(0, {
@@ -255,6 +262,10 @@ export class SequencerMetrics {
     // reset
     this.collectedAttestions.record(0);
     this.timeToCollectAttestations.record(0);
+  }
+
+  public recordBlockAttestationDelay(duration: number) {
+    this.blockAttestationDelay.record(duration);
   }
 
   public recordCollectedAttestations(count: number, durationMs: number) {

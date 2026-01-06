@@ -278,6 +278,7 @@ export class PeerManager implements PeerManagerInterface {
   private handleConnectedPeerEvent(e: CustomEvent<PeerId>) {
     const peerId = e.detail;
     this.logger.verbose(`Connected to peer ${peerId.toString()}`);
+    this.metrics.peerConnected(peerId);
     if (this.config.p2pDisableStatusHandshake) {
       return;
     }
@@ -303,6 +304,7 @@ export class PeerManager implements PeerManagerInterface {
    */
   private handleDisconnectedPeerEvent(e: CustomEvent<PeerId>) {
     const peerId = e.detail;
+    this.metrics.peerDisconnected(peerId);
     this.logger.verbose(`Disconnected from peer ${peerId.toString()}`);
     const validatorAddress = this.authenticatedPeerIdToValidatorAddress.get(peerId.toString());
     if (validatorAddress !== undefined) {

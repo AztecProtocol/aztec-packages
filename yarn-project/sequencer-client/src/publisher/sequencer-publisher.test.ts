@@ -206,7 +206,7 @@ describe('SequencerPublisher', () => {
 
     const { govPayload, voteSig } = mockGovernancePayload();
 
-    rollup.getProposerAt.mockResolvedValueOnce(mockForwarderAddress);
+    rollup.getProposerAt.mockResolvedValueOnce(EthAddress.fromString(mockForwarderAddress));
 
     expect(
       await publisher.enqueueGovernanceCastSignal(

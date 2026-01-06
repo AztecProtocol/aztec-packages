@@ -99,6 +99,8 @@ export const P2P_REQ_RESP_BATCH_REQUESTS_COUNT = 'aztec.p2p.req_resp.batch_reque
 export const P2P_PEER_SCORE_STATE = 'aztec.p2p.peer_score_state';
 export const POOL_NAME = 'aztec.pool.name';
 
+export const PEER_ID = 'aztec.p2p.peer_id';
+
 export const SEQUENCER_STATE = 'aztec.sequencer.state';
 
 export const SIMULATOR_PHASE = 'aztec.simulator.phase';

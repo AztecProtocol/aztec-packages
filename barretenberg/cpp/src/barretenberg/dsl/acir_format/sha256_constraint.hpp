@@ -6,7 +6,6 @@
 
 #pragma once
 #include "barretenberg/dsl/acir_format/witness_constant.hpp"
-#include "barretenberg/serialize/msgpack.hpp"
 #include <array>
 #include <cstdint>
 
@@ -18,8 +17,6 @@ struct Sha256Compression {
     std::array<uint32_t, 8> result;
 
     friend bool operator==(Sha256Compression const& lhs, Sha256Compression const& rhs) = default;
-    // for serialization, update with any new fields
-    MSGPACK_FIELDS(inputs, hash_values, result);
 };
 
 template <typename Builder>

@@ -2,6 +2,7 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
+import {IEscapeHatch} from "@aztec/core/interfaces/IEscapeHatch.sol";
 import {
   IRollup,
   IHaveVersion,
@@ -96,12 +97,11 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     bytes32 _blobsHash,
     CheckpointHeaderValidationFlags memory _flags
   ) external override(IRollup) {
-    Timestamp currentTime = Timestamp.wrap(block.timestamp);
     RollupOperationsExtLib.validateHeaderWithAttestations(
       ValidateHeaderArgs({
         header: _header,
         digest: _digest,
-        manaBaseFee: getManaBaseFeeAt(currentTime, true),
+        manaBaseFee: getManaBaseFeeAt(Timestamp.wrap(block.timestamp), true),
         blobsHashesCommitment: _blobsHash,
         flags: _flags
       }),
@@ -348,8 +348,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
   }
 
   function getCurrentBlobCommitmentsHash() external view override(IRollup) returns (bytes32) {
-    RollupStore storage rollupStore = STFLib.getStorage();
-    return STFLib.getBlobCommitmentsHash(rollupStore.tips.getPending());
+    return STFLib.getBlobCommitmentsHash(STFLib.getStorage().tips.getPending());
   }
 
   function getConfig(address _attester) external view override(IStaking) returns (AttesterConfig memory) {
@@ -405,6 +404,14 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
   }
 
   /**
+   * @notice  Get the escape hatch contract
+   * @return The escape hatch contract interface, or zero-address if disabled
+   */
+  function getEscapeHatch() external view override(IValidatorSelection) returns (IEscapeHatch) {
+    return ValidatorOperationsExtLib.getEscapeHatch();
+  }
+
+  /**
    * @notice  Get the sample seed for the current epoch
    *
    * @return The sample seed for the current epoch
@@ -431,6 +438,17 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
    */
   function getTimestampForSlot(Slot _slotNumber) external view override(IValidatorSelection) returns (Timestamp) {
     return _slotNumber.toTimestamp();
+  }
+
+  /**
+   * @notice  Get the timestamp for a given epoch
+   *
+   * @param _epoch - The epoch to get the timestamp for
+   *
+   * @return The timestamp for the start of the given epoch
+   */
+  function getTimestampForEpoch(Epoch _epoch) external view override(IValidatorSelection) returns (Timestamp) {
+    return _epoch.toTimestamp();
   }
 
   /**

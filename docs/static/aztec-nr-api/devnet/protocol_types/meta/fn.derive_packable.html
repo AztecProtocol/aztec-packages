@@ -3,9 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../styles.css">
+<script defer src="../../nargo_doc.js"></script>
 <title>Function derive_packable documentation</title>
 </head>
 <body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">derive_packable</div>
+</div>
+<span id="main-contents">
 <nav class="sidebar">
 <h1><a href="../../index.html">aztec-nr</a></h1>
 <div><a href="../../all.html">All items</a></div>
@@ -37,29 +43,28 @@
 <p>Each struct member type must implement the <code>Packable</code> trait (it gets used in the generated code).</p>
 <h2>Example</h2>
 <p>For a struct like:</p>
-<pre><code>struct MyStruct {
+<pre><code><span class="kw">struct</span> MyStruct {
     x: AztecAddress,
     y: Field,
-}
-</code></pre>
+}</code></pre>
 <p>This generates:</p>
-<pre><code>impl Packable for MyStruct {
-    let N: u32 = 2;
+<pre><code><span class="kw">impl</span> Packable <span class="kw">for</span> MyStruct {
+    <span class="kw">let</span> N: u32 = <span class="number">2</span>;
 
-    fn pack(self) -&gt; [Field; 2] {
-        let mut result: [Field; 2] = [0_Field; 2];
-        let mut offset: u32 = 0_u32;
-        let packed_member: [Field; 1] = self.x.pack();
-        let packed_member_len: u32 = &lt;Field as Packable&gt;::N;
-        for i in 0_u32..packed_member_len {
+    <span class="kw">fn</span> pack(self) -&gt; [Field; <span class="number">2</span>] {
+        <span class="kw">let</span> <span class="kw">mut</span> result: [Field; <span class="number">2</span>] = [<span class="number">0_Field</span>; <span class="number">2</span>];
+        <span class="kw">let</span> <span class="kw">mut</span> offset: u32 = <span class="number">0_u32</span>;
+        <span class="kw">let</span> packed_member: [Field; <span class="number">1</span>] = self.x.pack();
+        <span class="kw">let</span> packed_member_len: u32 = &lt;Field <span class="kw">as</span> Packable&gt;::N;
+        <span class="kw">for</span> i <span class="kw">in</span> <span class="number">0_u32</span>..packed_member_len {
             {
                 result[i + offset] = packed_member[i];
             }
         }
         offset = offset + packed_member_len;
-        let packed_member: [Field; 1] = self.y.pack();
-        let packed_member_len: u32 = &lt;Field as Packable&gt;::N;
-        for i in 0_u32..packed_member_len {
+        <span class="kw">let</span> packed_member: [Field; <span class="number">1</span>] = self.y.pack();
+        <span class="kw">let</span> packed_member_len: u32 = &lt;Field <span class="kw">as</span> Packable&gt;::N;
+        <span class="kw">for</span> i <span class="kw">in</span> <span class="number">0_u32</span>..packed_member_len {
             {
                 result[i + offset] = packed_member[i];
             }
@@ -68,25 +73,24 @@
         result
     }
 
-    fn unpack(packed: [Field; 2]) -&gt; Self {
-        let mut offset: u32 = 0_u32;
-        let mut member_fields: [Field; 1] = [0_Field; 1];
-        for i in 0_u32..&lt;AztecAddress as Packable&gt;::N {
+    <span class="kw">fn</span> unpack(packed: [Field; <span class="number">2</span>]) -&gt; Self {
+        <span class="kw">let</span> <span class="kw">mut</span> offset: u32 = <span class="number">0_u32</span>;
+        <span class="kw">let</span> <span class="kw">mut</span> member_fields: [Field; <span class="number">1</span>] = [<span class="number">0_Field</span>; <span class="number">1</span>];
+        <span class="kw">for</span> i <span class="kw">in</span> <span class="number">0_u32</span>..&lt;AztecAddress <span class="kw">as</span> Packable&gt;::N {
             member_fields[i] = packed[i + offset];
         }
-        let x: AztecAddress = &lt;AztecAddress as Packable&gt;::unpack(member_fields);
-        offset = offset + &lt;AztecAddress as Packable&gt;::N;
-        let mut member_fields: [Field; 1] = [0_Field; 1];
-        for i in 0_u32..&lt;Field as Packable&gt;::N {
+        <span class="kw">let</span> x: AztecAddress = &lt;AztecAddress <span class="kw">as</span> Packable&gt;::unpack(member_fields);
+        offset = offset + &lt;AztecAddress <span class="kw">as</span> Packable&gt;::N;
+        <span class="kw">let</span> <span class="kw">mut</span> member_fields: [Field; <span class="number">1</span>] = [<span class="number">0_Field</span>; <span class="number">1</span>];
+        <span class="kw">for</span> i <span class="kw">in</span> <span class="number">0_u32</span>..&lt;Field <span class="kw">as</span> Packable&gt;::N {
             member_fields[i] = packed[i + offset];
         }
-        let y: Field = &lt;Field as Packable&gt;::unpack(member_fields);
-        offset = offset + &lt;Field as Packable&gt;::N;
+        <span class="kw">let</span> y: Field = &lt;Field <span class="kw">as</span> Packable&gt;::unpack(member_fields);
+        offset = offset + &lt;Field <span class="kw">as</span> Packable&gt;::N;
         Self { x: x, y: y }
     }
-}
-</code></pre>
-</div>
+}</code></pre></div>
 </main>
+</span>
 </body>
 </html>

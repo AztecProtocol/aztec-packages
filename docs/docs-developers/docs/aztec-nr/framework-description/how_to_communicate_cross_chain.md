@@ -5,188 +5,90 @@ sidebar_position: 12
 description: Send messages and data between L1 and L2 contracts using portal contracts and cross-chain messaging.
 ---
 
-This guide shows you how to implement cross-chain communication between Ethereum (L1) and Aztec (L2) contracts using portal contracts.
+This guide covers cross-chain communication between Ethereum (L1) and Aztec (L2) using portal contracts.
+
+Aztec uses an Inbox/Outbox pattern for cross-chain messaging. Messages sent from L1 are inserted into the `Inbox` contract and later consumed on L2. Messages sent from L2 are inserted into the `Outbox` contract and later consumed on L1. Portal contracts are L1 contracts that facilitate this communication for your application.
 
 ## Prerequisites
 
-- An Aztec contract project set up with `aztec-nr` dependency
-- Understanding of Aztec L1/L2 architecture
+- An Aztec contract project with `aztec-nr` dependency
 - Access to Ethereum development environment for L1 contracts
 - Deployed portal contract on L1 (see [token bridge tutorial](../../tutorials/js_tutorials/token_bridge.md))
 
-## Send messages from L1 to L2
+## L1 to L2 messaging
 
-### Send a message from your L1 portal contract
+### Send a message from L1
 
-Use the `Inbox` contract to send messages from L1 to L2. Call `sendL2Message` with these parameters:
+Use the `Inbox` contract's `sendL2Message` function:
 
 | Parameter     | Type      | Description                                             |
 | ------------- | --------- | ------------------------------------------------------- |
-| `actor`       | `L2Actor` | Your L2 contract address and rollup version             |
-| `contentHash` | `bytes32` | Hash of your message content (use `Hash.sha256ToField`) |
-| `secretHash`  | `bytes32` | Hash of a secret for message consumption                |
+| `_recipient`  | `L2Actor` | L2 contract address and rollup version                  |
+| `_content`    | `bytes32` | Hash of message content (use `Hash.sha256ToField`)      |
+| `_secretHash` | `bytes32` | Hash of secret for message consumption                  |
 
-In your Solidity contract:
+#include_code deposit_public l1-contracts/test/portals/TokenPortal.sol solidity
 
-```solidity
-import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
-import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
-import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
+:::note Message availability
+L1 to L2 messages are not available immediately. The proposer batches messages from the Inbox and includes them in the next L2 block. You must wait for this before consuming the message on L2.
+:::
 
-// ... initialize inbox, get rollupVersion from rollup contract ...
+### Consume the message on L2
 
-DataStructures.L2Actor memory actor = DataStructures.L2Actor(l2ContractAddress, rollupVersion);
+Call `consume_l1_to_l2_message` on the context. The `content` must match the hash sent from L1, and the `secret` must be the pre-image of the `secretHash`. Consuming a message emits a nullifier to prevent double-spending.
 
-// Hash your message content with a unique function signature
-bytes32 contentHash = Hash.sha256ToField(
-    abi.encodeWithSignature("your_action_name(uint256,address)", param1, param2)
-);
+The content hash must be computed identically on both L1 and L2. Create a shared library for your content hash functions—see [`token_portal_content_hash_lib`](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/noir-contracts/contracts/app/token_portal_content_hash_lib) for an example.
 
-// Send the message
-(bytes32 key, uint256 index) = inbox.sendL2Message(actor, contentHash, secretHash);
-```
+#include_code claim_public noir-projects/noir-contracts/contracts/app/token_bridge_contract/src/main.nr rust
 
-### Consume the message in your L2 contract
+This function works in both public and private contexts.
 
-To consume a message coming from L1, use the `consume_l1_to_l2_message` function within the context:
+## L2 to L1 messaging
 
-- The `content_hash` must match the hash that was sent from L1
-- The `secret` is the pre-image of the `secretHash` sent from L1
-- The `sender` is the L1 portal contract address
-- The `message_leaf_index` helps the RPC find the correct message
-- If the content or secret doesn't match, the transaction will revert
-- "Consuming" a message pushes a nullifier to prevent double-spending
+### Send a message from L2
 
-```rust
-#[external("public")]
-fn consume_message_from_l1(
-    secret: Field,
-    message_leaf_index: Field,
-    // your function parameters
-) {
-    // Recreate the same content hash as on L1
-    let content_hash = /* compute your content hash */;
+Call `message_portal` on the context to send messages to your L1 portal:
 
-    // Consume the L1 message
-    context.consume_l1_to_l2_message(
-        content_hash,
-        secret,
-        portal_address, // Your L1 portal contract address
-        message_leaf_index
-    );
+#include_code exit_to_l1_public noir-projects/noir-contracts/contracts/app/token_bridge_contract/src/main.nr rust
 
-    // Execute your contract logic here
-}
-```
+This function works in both public and private contexts.
 
-## Send messages from L2 to L1
+### Consume the message on L1
 
-### Send a message from your L2 contract
+Use the `Outbox` contract to consume L2 messages.
 
-Use `message_portal` in your `context` to send messages from L2 to L1:
+:::note Message availability
+L2 to L1 messages are only available after the epoch proof is submitted to L1. Since multiple L2 blocks fit within an epoch, there may be a delay—especially if the message was sent near the start of an epoch.
+:::
 
-```rust
-#[external("public")]
-fn send_message_to_l1(
-    // your function parameters
-) {
-    // Note: This can be called from both public and private functions
-    // Create your message content (must fit in a single Field)
-    let content = /* compute your content hash */;
+#include_code token_portal_withdraw l1-contracts/test/portals/TokenPortal.sol solidity
 
-    // Send message to L1 portal
-    context.message_portal(portal_address, content);
-}
-```
+:::info Getting the membership witness
 
-### Consume the message in your L1 portal
-
-Use the `Outbox` to consume L2 messages on L1:
-
-```solidity
-import {IOutbox} from "@aztec/core/interfaces/messagebridge/IOutbox.sol";
-import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
-import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
-
-function consumeMessageFromL2(
-    // your parameters
-    uint256 _l2BlockNumber,
-    uint256 _leafIndex,
-    bytes32[] calldata _path
-) external {
-    // Recreate the message structure
-    DataStructures.L2ToL1Msg memory message = DataStructures.L2ToL1Msg({
-        sender: DataStructures.L2Actor(l2ContractAddress, rollupVersion),
-        recipient: DataStructures.L1Actor(address(this), block.chainid),
-        content: Hash.sha256ToField(
-            abi.encodeWithSignature(
-                "your_action_name(address,uint256,address)",
-                param1, param2, param3
-            )
-        )
-    });
-
-    // Consume the message
-    outbox.consume(message, _l2BlockNumber, _leafIndex, _path);
-
-    // Execute your L1 logic here
-}
-```
-
-:::info
-
-You can get the witness for the l2 to l1 message as follows:
+Compute the witness for the L2 to L1 message in TypeScript:
 
 ```ts
 import { computeL2ToL1MembershipWitness } from "@aztec/stdlib/messaging";
 import { computeL2ToL1MessageHash } from "@aztec/stdlib/hash";
 
-// Compute the message hash
 const l2ToL1Message = computeL2ToL1MessageHash({
-  l2Sender: l2ContractAddress,
+  l2Sender: l2BridgeAddress,
   l1Recipient: EthAddress.fromString(portalAddress),
-  content: messageContent,
+  content: withdrawContentHash,
   rollupVersion: new Fr(version),
   chainId: new Fr(chainId),
 });
 
 const witness = await computeL2ToL1MembershipWitness(
-  node,
-  exitReceipt.blockNumber!,
+  aztecNode,
+  txReceipt.blockNumber!,
   l2ToL1Message
 );
+
+// Use witness.leafIndex and witness.siblingPath for the L1 consume call
 ```
 
 :::
-
-## Best practices
-
-### Structure messages properly
-
-Use function signatures to prevent message misinterpretation:
-
-```solidity
-// ❌ Ambiguous format
-bytes memory message = abi.encode(_value, _contract, _recipient);
-
-// ✅ Clear function signature
-bytes memory message = abi.encodeWithSignature(
-  "execute_action(uint256,address,address)",
-  _value, _contract, _recipient
-);
-```
-
-### Use designated callers
-
-Control message execution order with designated callers:
-
-```solidity
-bytes memory message = abi.encodeWithSignature(
-  "execute_action(uint256,address,address)",
-  _value, _recipient,
-  _withCaller ? msg.sender : address(0)
-);
-```
 
 ## Example implementations
 
@@ -195,4 +97,4 @@ bytes memory message = abi.encodeWithSignature(
 
 ## Next steps
 
-Follow the [cross-chain messaging tutorial](../../tutorials/js_tutorials/token_bridge.md) for a complete implementation example.
+Follow the [token bridge tutorial](../../tutorials/js_tutorials/token_bridge.md) for a complete implementation example.
