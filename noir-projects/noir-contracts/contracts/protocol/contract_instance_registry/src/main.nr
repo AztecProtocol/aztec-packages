@@ -117,6 +117,7 @@ pub contract ContractInstanceRegistry {
         let partial_address =
             PartialAddress::compute(contract_class_id, salt, initialization_hash, deployer);
 
+        // TODO: assert that the public keys are on the curve (or are a valid representation of the point at infinity). Check that the `add` fn of the stdlib performs such checks, otherwise add those checks.
         let address = AztecAddress::compute(public_keys, partial_address);
 
         // Emit the address as a nullifier:
@@ -162,6 +163,9 @@ pub contract ContractInstanceRegistry {
             ),
             "New contract class is not registered",
         );
+
+        // TODO: assert that the new_contract_class_id.to_field() is not zero,
+        // because it could trick the avm/kernel into thinking an update hasn't happened before!
 
         let scheduled_value_update = self
             .storage

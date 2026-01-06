@@ -217,7 +217,7 @@ library ProposeLib {
         header: v.header,
         digest: v.payloadDigest,
         manaBaseFee: FeeLib.summedBaseFee(components),
-        blobsHashesCommitment: v.blobsHashesCommitment,
+        blobsHashesCommitment: v.blobsHashesCommitment, // Q: why do we store this ugly (difficult to derive within a snark) representation of the blobs within the header, instead of the blobCommitmentsHash (derived below)? Is it because we want something that doesn't contain accumulated data from earlier checkpoints in the epoch?
         flags: CheckpointHeaderValidationFlags({ignoreDA: false})
       })
     );

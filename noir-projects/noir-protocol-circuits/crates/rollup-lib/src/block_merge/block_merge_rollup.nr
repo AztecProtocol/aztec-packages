@@ -21,6 +21,7 @@ global ALLOWED_LEFT_ROLLUP_VK_INDICES: [u32; 6] = ALLOWED_RIGHT_ROLLUP_VK_INDICE
     // The first block roots may only appear as the left child of the block merge rollup.
     // However, this doesn't prevent having 2 first block roots in the same checkpoint. We rely on the checks in
     // `validate_consecutive_block_rollups` and `checkpoint_root_inputs_validator` to enforce this.
+    // Q: should we add more explicit checks of all the valid _pairs_? It makes me nervous to rely on the greedy tree checks.
     BLOCK_ROOT_FIRST_ROLLUP_VK_INDEX,
     BLOCK_ROOT_SINGLE_TX_FIRST_ROLLUP_VK_INDEX,
     BLOCK_ROOT_EMPTY_TX_FIRST_ROLLUP_VK_INDEX,

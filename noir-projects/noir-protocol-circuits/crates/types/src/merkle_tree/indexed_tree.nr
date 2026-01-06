@@ -29,6 +29,7 @@ where
     Value: IndexedTreeLeafValue,
     Leaf: IndexedTreeLeafPreimage<Value>,
 {
+    // AUDIT_COMMENT: change to static_assert?
     // Sanity check: ensure this function is called with correct generics.
     assert_eq(SubtreeWidth, 1 << SubtreeHeight, "subtree items must be 2^subtree height");
 

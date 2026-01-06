@@ -90,7 +90,7 @@ impl BlockRollupPublicInputsComposer {
             out_hash: rollup.out_hash,
             accumulated_fees: rollup.accumulated_fees,
             accumulated_mana_used: rollup.accumulated_mana_used,
-            num_txs: rollup.num_txs,
+            num_txs: rollup.num_txs, // Q: should we assert that this is `> 0`?
             // The followings are updated by calling `update_l1_to_l2_tree_snapshots` explicitly.
             previous_l1_to_l2: rollup.constants.l1_to_l2_tree_snapshot,
             in_hash: 0,
@@ -180,8 +180,10 @@ impl BlockRollupPublicInputsComposer {
         // Block number equals the index at which the new block header hash is inserted into the archive tree.
         let block_number = self.previous_archive.next_available_leaf_index as u32;
 
+        // TODO: this feels like "validation" that should therefore be done by the "Validator", rather than this "Composer".
+        // TODO: consider doing this as part of the "empty" variant's validation. It doesn't seem to belong here? Or do all variants need this check?
         // Note: For non-empty blocks, a check is performed in `block_root_rollup_inputs_validator.nr` to ensure that
-        // the leaf index matches the block number (u32) in the tx constants, which implies that the leaf index does not
+        // the leaf index (field) matches the block number (u32) in the tx constants, which implies that the leaf index does not
         // exceed u32. However, for empty blocks, without the check below, the block number would be truncated to a
         // smaller value (dropping the high bits) if the leaf index exceeded u32. This would allow the block to follow
         // a block with a much smaller block number, while `last_archive` would still contain the large index.
@@ -190,6 +192,10 @@ impl BlockRollupPublicInputsComposer {
         // Note: An empty block with a mismatched `last_archive` leaf index could be rolled up if it is in the first
         // checkpoint of an epoch, since only the `last_archive.root` is output from the root rollup and checked on L1.
         self.previous_archive.next_available_leaf_index.assert_max_bit_size::<32>();
+        std::static_assert(
+            ARCHIVE_HEIGHT <= 32,
+            "Need up update the max bit size on the line above",
+        ); // TODO: do we need these safety nets for all tree heights?
 
         let global_variables = GlobalVariables {
             chain_id: self.constants.chain_id,
@@ -204,6 +210,7 @@ impl BlockRollupPublicInputsComposer {
 
         // Absorb data for this block into the end sponge blob.
         let mut block_end_sponge_blob = self.end_sponge_blob;
+
         // `in_hash` is not 0 if and only if it's the first block in the checkpoint.
         // Note: the `in_hash` of the first block in the checkpoint is asserted to be nonzero
         // by the Checkpoint Root circuit.
