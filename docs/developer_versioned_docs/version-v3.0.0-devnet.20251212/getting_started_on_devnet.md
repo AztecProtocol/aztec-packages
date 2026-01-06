@@ -208,48 +208,9 @@ const isDevnet = process.env.NODE_URL?.includes("devnet");
 const nodeUrl = process.env.NODE_URL || "http://localhost:8080";
 ```
 
-## Devnet information
+## Devnet Information
 
-## RPC
-
-https://next.devnet.aztec-labs.com
-
-## Packages Versions / Github Tag
-
-3.0.0-devnet.20251212
-
-## Network Configuration
-
-- **l1ChainId**: 11155111
-- **rollupVersion**: 1647720761
-<!-- cspell:disable-next-line -->
-- **enr**: enr:-N24QOknmfktIHJYBqePfUaRLt1NQttmjTJdHE22yEerFtjONWD3_AAcf9vuj0YbMYbnZVKt1AW4a-DvepWbsUbmAu0HhWF6dGVjsTAwLTExMTU1MTExLTVkODRiNjRiLTE2NDc3MjA3NjEtMjM0OGIxMmUtMTk1ODg2ZWSCaWSCdjSCaXCEI-Y9PYlzZWNwMjU2azGhAnE-dCLZNTZIKiFJsu_mi7QYlgndx1lvKCnVu-75zEoig3RjcIKd0IN1ZHCCndCDdmVylTMuMC4wLWRldm5ldC4yMDI1MTIxMg
-
-## Migration Notes
-
-[Migration Notes](./docs/resources/migration_notes.md)
-
-## L1 Contract Addresses
-
-- **registryAddress**: `0x548ed380440c3eef42f222ceda1d6770b8999f8c`
-- **rollupAddress**: `0x5d84b64b0b2f468df065d8cf01fff88a73238a13`
-- **inboxAddress**: `0x8ea98d35d7712ca236ac7a2b2f47d9fb5c9154e8`
-- **outboxAddress**: `0x6628f5648dcee4ee4c3262ed35a995039cadb669`
-- **feeJuiceAddress**: `0x543a5f9ae03f0551ee236edf51987133fb3da3e2`
-- **stakingAssetAddress**: `0x3dae418ad4dbd49e00215d24079a10ac3bc9ef4f`
-- **feeJuicePortalAddress**: `0x5eee7cb811f638b70fe1a04d2318530c55d7bd87`
-- **coinIssuerAddress**: `0xe4805eda5e880355ff4ded78dcf38ae6077b5dba`
-- **rewardDistributorAddress**: `0x9417a0ee4fc66079a32aa7103b2a3d2dc2606dbd`
-- **governanceProposerAddress**: `0x7c5f4cec86ef9a920a8fd03d5a01059e32fccb9a`
-- **governanceAddress**: `0x26af139c092172e5a4ab9a9d7ddeed41c1d68bc7`
-- **gseAddress**: `0xc5cb82799169bb08a20ede20e5b57f337c735ac4`
-
-## Protocol Contract Addresses
-
-- **classRegistry**: `0x0000000000000000000000000000000000000000000000000000000000000003`
-- **feeJuice**: `0x0000000000000000000000000000000000000000000000000000000000000005`
-- **instanceRegistry**: `0x0000000000000000000000000000000000000000000000000000000000000002`
-- **multiCallEntrypoint**: `0x0000000000000000000000000000000000000000000000000000000000000004`
+For complete Devnet technical details including RPC endpoints, contract addresses, and network configuration, see the [Networks page](/networks#devnet).
 
 ## Next Steps
 
