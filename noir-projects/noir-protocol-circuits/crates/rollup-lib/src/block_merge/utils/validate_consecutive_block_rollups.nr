@@ -35,11 +35,11 @@ fn assert_prev_block_rollups_follow_on_from_each_other(
         "Mismatched sponge blobs: expected right.start_sponge_blob to match left.end_sponge_blob",
     );
 
-    // Notice: consecutive blocks within a checkpoint can have the same timestamp.
-    // I.e. the `<=` is _intentional_.
-    assert(
-        left.end_timestamp <= right.start_timestamp,
-        "Rollup block timestamps do not follow on from each other",
+    // All blocks within a checkpoint must have the same timestamp.
+    assert_eq(
+        left.timestamp,
+        right.timestamp,
+        "Mismatched timestamps: expected right.timestamp to match left.timestamp",
     );
 
     // Non-empty `in_hash` originates from the first block root and is propagated through all merge
