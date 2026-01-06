@@ -3,6 +3,7 @@
 pragma solidity >=0.8.27;
 
 import {BlobLib} from "@aztec-blob-lib/BlobLib.sol";
+import {IEscapeHatch} from "@aztec/core/interfaces/IEscapeHatch.sol";
 import {SubmitEpochRootProofArgs, PublicInputArgs, IRollupCore, RollupStore} from "@aztec/core/interfaces/IRollup.sol";
 import {CompressedTempCheckpointLog} from "@aztec/core/libraries/compressed-data/CheckpointLog.sol";
 import {CompressedFeeHeader, FeeHeaderLib} from "@aztec/core/libraries/compressed-data/fees/FeeStructs.sol";
@@ -262,6 +263,9 @@ library EpochProofLib {
    *      2. The attestations have valid signatures from committee members
    *      3. The attestations meet the required threshold (2/3+ of committee)
    *
+   *      For escape hatch epochs, attestation verification is skipped since there is no committee
+   *      involvement - only the designated escape hatch proposer can propose blocks.
+   *
    * @dev Errors Thrown:
    *      - Rollup__InvalidAttestations: Provided attestations don't match stored hash or fail validation
    *
@@ -281,6 +285,19 @@ library EpochProofLib {
     // Get the slot and epoch for the last checkpoint
     Slot slot = checkpointLog.slotNumber.decompress();
     Epoch epoch = STFLib.getEpochForCheckpoint(_endCheckpointNumber);
+
+    // Check if this is an escape hatch epoch - skip attestation verification if so
+    // since escape hatch blocks are proposed without committee attestations
+    {
+      IEscapeHatch escapeHatch = ValidatorSelectionLib.getEscapeHatch();
+      if (address(escapeHatch) != address(0)) {
+        (bool isOpen,) = escapeHatch.isHatchOpen(epoch);
+        if (isOpen) {
+          // Skip attestation verification for escape hatch epochs
+          return;
+        }
+      }
+    }
 
     ValidatorSelectionLib.verifyAttestations(slot, epoch, _attestations, checkpointLog.payloadDigest);
   }
