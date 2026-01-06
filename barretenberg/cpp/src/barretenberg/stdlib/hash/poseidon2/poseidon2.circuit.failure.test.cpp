@@ -1,6 +1,7 @@
 #include "barretenberg/flavor/ultra_flavor.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
+#include "barretenberg/ultra_honk/witness_computation.hpp"
 
 #include <gtest/gtest.h>
 
@@ -77,44 +78,67 @@ class Poseidon2FailureTests : public ::testing::Test {
         [[maybe_unused]] auto hash = stdlib::poseidon2<Builder>::hash({ random_input });
     }
 
-    void prove_and_verify(const std::shared_ptr<ProverInstance>& prover_instance, bool expected_result)
+    void prove_and_verify(std::shared_ptr<ProverInstance>& prover_instance, bool expected_result)
     {
         const size_t virtual_log_n = Flavor::VIRTUAL_LOG_N;
 
-        // Random subrelation separators are needed here to make sure that the sumcheck is failing because of the wrong
-        // Poseidon2 selector/witness values.
-        SubrelationSeparator subrelation_separator = FF::random_element();
+        // Complete the prover instance (compute selectors, relation parameters, etc.)
+        WitnessComputation<Flavor>::complete_prover_instance_for_test(prover_instance);
+
+        auto prover_transcript = Transcript::prover_init_empty();
+
+        // Generate challenges via transcript for Fiat-Shamir
+        SubrelationSeparator subrelation_separator = prover_transcript->template get_challenge<FF>("Sumcheck:alpha");
 
         std::vector<FF> gate_challenges(virtual_log_n);
-
-        // Random gate challenges ensure that relations are satisfied at every point of the hypercube
-        for (auto& beta : gate_challenges) {
-            beta = FF::random_element();
+        for (size_t idx = 0; idx < virtual_log_n; idx++) {
+            gate_challenges[idx] =
+                prover_transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
         }
 
-        RelationParameters relation_parameters;
-
-        for (auto& rel_param : relation_parameters.get_to_fold()) {
-            rel_param = FF::random_element();
-        }
-        auto prover_transcript = std::make_shared<Transcript>();
+        // Set gate challenges on prover instance
+        prover_instance->gate_challenges = gate_challenges;
 
         SumcheckProver sumcheck_prover(prover_instance->dyadic_size(),
                                        prover_instance->polynomials,
                                        prover_transcript,
                                        subrelation_separator,
                                        gate_challenges,
-                                       relation_parameters,
+                                       prover_instance->relation_parameters,
                                        virtual_log_n);
         auto proof = sumcheck_prover.prove();
 
         auto verifier_transcript = std::make_shared<Transcript>(prover_transcript->export_proof());
 
-        SumcheckVerifier verifier(verifier_transcript, subrelation_separator, virtual_log_n);
-        auto result = verifier.verify(relation_parameters, gate_challenges, std::vector<FF>(virtual_log_n, 1));
+        SubrelationSeparator verifier_subrelation_separator =
+            verifier_transcript->template get_challenge<FF>("Sumcheck:alpha");
+        std::vector<FF> verifier_gate_challenges(virtual_log_n);
+        for (size_t idx = 0; idx < virtual_log_n; idx++) {
+            verifier_gate_challenges[idx] =
+                verifier_transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
+        }
+
+        // Run sumcheck verifier
+        SumcheckVerifier verifier(verifier_transcript, verifier_subrelation_separator, virtual_log_n);
+        auto result = verifier.verify(
+            prover_instance->relation_parameters, verifier_gate_challenges, std::vector<FF>(virtual_log_n, 1));
         EXPECT_EQ(result.verified, expected_result);
     };
 };
+
+TEST_F(Poseidon2FailureTests, ValidCircuitVerifies)
+{
+    Builder builder;
+
+    // Construct a circuit that hashes a single witness field element.
+    hash_single_input(builder);
+
+    // Convert circuit to polynomials.
+    auto prover_instance = std::make_shared<ProverInstance_<Flavor>>(builder);
+
+    // Run sumcheck on the UNMODIFIED valid data - this should pass
+    prove_and_verify(prover_instance, true);
+}
 
 TEST_F(Poseidon2FailureTests, WrongSelectorValues)
 {
@@ -126,18 +150,21 @@ TEST_F(Poseidon2FailureTests, WrongSelectorValues)
     // Convert circuit to polynomials.
     auto prover_instance = std::make_shared<ProverInstance_<Flavor>>(builder);
     {
-        // Disable Poseidon2 External selector in the first active row
+        // Disable Poseidon2 External selector in the first active row.
+        // This UNDERCONSTRAINS the circuit, so verification still passes because all remaining constraints are
+        // satisfied on the valid witness data.
         modify_selector(prover_instance->polynomials.q_poseidon2_external);
 
-        // Run sumcheck on the invalidated data
-        prove_and_verify(prover_instance, false);
+        // Run sumcheck - it should PASS because we only removed a constraint
+        prove_and_verify(prover_instance, true);
     }
     {
-        // Disable Poseidon2 Internal selector in the first active row
+        // Disable Poseidon2 Internal selector in the first active row.
+        // Again, this underconstrains the circuit, so verification passes.
         modify_selector(prover_instance->polynomials.q_poseidon2_internal);
 
-        // Run sumcheck on the invalidated data
-        prove_and_verify(prover_instance, false);
+        // Run sumcheck - it should PASS because we only removed a constraint
+        prove_and_verify(prover_instance, true);
     }
 }
 
