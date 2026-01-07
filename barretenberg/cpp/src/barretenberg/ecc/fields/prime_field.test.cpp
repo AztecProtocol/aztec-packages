@@ -353,7 +353,6 @@ TYPED_TEST(PrimeFieldTest, PlusEqualsInt)
     EXPECT_EQ(a, expected);
 }
 
-
 TYPED_TEST(PrimeFieldTest, PrefixIncrement)
 {
     using F = TypeParam;
