@@ -96,10 +96,17 @@ describe('sentinel', () => {
     let proposer: EthAddress;
     let committee: EthAddress[];
 
+    /** Helper to create and emit a chain-checkpointed event */
+    const emitCheckpointEvent = async (checkpoint: Checkpoint, checkpointAttestations: CommitteeAttestation[] = []) => {
+      const published = new PublishedCheckpoint(checkpoint, L1PublishedData.random(), checkpointAttestations);
+      await sentinel.handleBlockStreamEvent({ type: 'chain-checkpointed', checkpoint: published });
+      return published;
+    };
+
     beforeEach(async () => {
       signers = times(4, Secp256k1Signer.random);
       validators = signers.map(signer => signer.address);
-      block = await L2BlockNew.random(BlockNumber(1), { slotNumber: SlotNumber(0) });
+      block = await L2BlockNew.random(BlockNumber(1), { slotNumber: slot });
       attestations = signers.map(signer => makeBlockAttestation({ signer, archive: block.archive.root }));
       proposer = validators[0];
       committee = [...validators];
@@ -108,13 +115,9 @@ describe('sentinel', () => {
     });
 
     it('flags block as mined', async () => {
-      // Set checkpoint data to simulate block being mined
-      sentinel.setCheckpointForSlot(slot, {
-        checkpointNumber: CheckpointNumber(1),
-        archive: block.archive.root.toString(),
-        attestors: [],
-      });
-      await sentinel.handleBlockStreamEvent({ type: 'blocks-added', blocks: [block] });
+      // Create a checkpoint with a block at the target slot and emit chain-checkpointed event
+      const checkpoint = await Checkpoint.random(CheckpointNumber(1), { numBlocks: 1, slotNumber: slot });
+      await emitCheckpointEvent(checkpoint);
 
       const activity = await sentinel.getSlotActivity(slot, epoch, proposer, committee);
       expect(activity[proposer.toString()]).toEqual('block-mined');
@@ -135,12 +138,14 @@ describe('sentinel', () => {
     it('identifies attestors from p2p and archiver', async () => {
       // Create a checkpoint with a block at the target slot
       const checkpoint = await Checkpoint.random(CheckpointNumber(1), { numBlocks: 1, slotNumber: slot });
-      // Create attestations from signers
+      // Create attestations from signers 0 and 1
       const checkpointAttestations = signers.slice(0, 2).map(signer => {
         const blockAttestation = makeAttestationFromCheckpoint(checkpoint, signer, signer);
         return new CommitteeAttestation(signer.address, blockAttestation.signature);
       });
-      publishedCheckpoint = new PublishedCheckpoint(checkpoint, L1PublishedData.random(), checkpointAttestations);
+
+      // Emit the chain-checkpointed event with attestations from signers 0 and 1
+      publishedCheckpoint = await emitCheckpointEvent(checkpoint, checkpointAttestations);
 
       const attestorsFromCheckpoint = compactArray(
         getAttestationInfoFromPublishedCheckpoint(publishedCheckpoint).map(info =>
@@ -153,16 +158,6 @@ describe('sentinel', () => {
         signers.slice(0, 2).map(a => a.address.toString()),
       );
 
-      // Set checkpoint data with attestors from signers 0 and 1 (validators 0 and 1)
-      sentinel.setCheckpointForSlot(slot, {
-        checkpointNumber: CheckpointNumber(1),
-        archive: checkpoint.archive.root.toString(),
-        attestors: attestorsFromCheckpoint,
-      });
-
-      // Use the block from the checkpoint for the event
-      block = checkpoint.blocks[0];
-      await sentinel.handleBlockStreamEvent({ type: 'blocks-added', blocks: [block] });
       // P2P provides attestation from signer 2 (validator 2)
       p2p.getAttestationsForSlot.mockResolvedValue(attestations.slice(2, 3));
 
@@ -190,7 +185,10 @@ describe('sentinel', () => {
 
       // Combine signed and placeholder attestations
       const allAttestations = [...signedAttestations, ...placeholderAttestations];
-      publishedCheckpoint = new PublishedCheckpoint(checkpoint, L1PublishedData.random(), allAttestations);
+
+      // Emit chain-checkpointed event with both signed and placeholder attestations
+      // The Sentinel should only count the recovered-from-signature ones
+      publishedCheckpoint = await emitCheckpointEvent(checkpoint, allAttestations);
 
       // Verify that getAttestationInfoFromPublishedCheckpoint returns 4 entries total:
       // - 2 with status 'recovered-from-signature' (actual attestations with valid signatures)
@@ -201,21 +199,6 @@ describe('sentinel', () => {
       const placeholders = attestationInfo.filter(info => info.status === 'provided-as-address');
       expect(recoveredSignatures).toHaveLength(2);
       expect(placeholders).toHaveLength(2);
-
-      // Set checkpoint data with ONLY the recovered-from-signature attestors (validators 0 and 1)
-      // This simulates how the Sentinel filters attestations when processing checkpoint-added events
-      const realAttestors = compactArray(
-        recoveredSignatures.map(info => (info.status === 'recovered-from-signature' ? info.address : undefined)),
-      );
-      sentinel.setCheckpointForSlot(slot, {
-        checkpointNumber: CheckpointNumber(1),
-        archive: checkpoint.archive.root.toString(),
-        attestors: realAttestors,
-      });
-
-      // Use the block from the checkpoint for the event
-      block = checkpoint.blocks[0];
-      await sentinel.handleBlockStreamEvent({ type: 'blocks-added', blocks: [block] });
 
       // No additional attestations from p2p
       p2p.getAttestationsForSlot.mockResolvedValue([]);
@@ -232,7 +215,11 @@ describe('sentinel', () => {
     });
 
     it('identifies missed attestors if block is mined', async () => {
-      await sentinel.handleBlockStreamEvent({ type: 'blocks-added', blocks: [block] });
+      // Create checkpoint with a block at the target slot
+      const checkpoint = await Checkpoint.random(CheckpointNumber(1), { numBlocks: 1, slotNumber: slot });
+      await emitCheckpointEvent(checkpoint);
+
+      // P2P provides attestations from validators 0, 1, 2 (not validator 3)
       p2p.getAttestationsForSlot.mockResolvedValue(attestations.slice(0, -1));
 
       const activity = await sentinel.getSlotActivity(slot, epoch, proposer, committee);
@@ -580,7 +567,7 @@ describe('sentinel', () => {
         ts,
         now: ts,
       });
-      archiver.getBlock.calledWith(blockNumber).mockResolvedValue(mockBlock as any);
+      archiver.getL2BlockNew.calledWith(blockNumber).mockResolvedValue(mockBlock);
       archiver.getL1Constants.mockResolvedValue(l1Constants);
       epochCache.getL1Constants.mockReturnValue(l1Constants);
 
@@ -882,14 +869,6 @@ class TestSentinel extends Sentinel {
 
   public setLastProcessedSlot(slot: SlotNumber) {
     this.lastProcessedSlot = slot;
-  }
-
-  /** Set checkpoint data for a slot (for testing). */
-  public setCheckpointForSlot(
-    slot: SlotNumber,
-    data: { checkpointNumber: CheckpointNumber; archive: string; attestors: EthAddress[] },
-  ) {
-    this.slotNumberToCheckpoint.set(slot, data);
   }
 
   public getInitialSlot() {
