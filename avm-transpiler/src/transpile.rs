@@ -7,7 +7,7 @@ use acvm::acir::circuit::BrilligOpcodeLocation;
 use acvm::brillig_vm::brillig::{
     BinaryFieldOp, BinaryIntOp, BlackBoxOp, HeapArray, HeapVector, MemoryAddress, ValueOrArray,
 };
-use noirc_errors::debug_info::DebugInfo;
+use noirc_artifacts::debug::DebugInfo;
 
 use crate::bit_traits::{BitsQueryable, bits_needed_for};
 use crate::instructions::{AddressingModeBuilder, AvmInstruction, AvmOperand, AvmTypeTag};
