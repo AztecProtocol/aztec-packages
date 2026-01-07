@@ -14,6 +14,7 @@ export class EventService {
     private readonly anchorBlockStore: AnchorBlockStore,
     private readonly aztecNode: AztecNode,
     private readonly privateEventStore: PrivateEventStore,
+    private readonly jobId?: string,
   ) {}
 
   public async deliverEvent(
@@ -72,6 +73,7 @@ export class EventService {
         l2BlockNumber: nullifierIndex.l2BlockNumber, // Block number in which the event was emitted
         l2BlockHash: nullifierIndex.l2BlockHash, // Block hash in which the event was emitted
       },
+      this.jobId,
     );
   }
 }

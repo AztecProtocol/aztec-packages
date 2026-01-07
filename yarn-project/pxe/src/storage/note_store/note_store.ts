@@ -182,20 +182,8 @@ export class NoteStore implements StagedStore {
    *
    * @param blockNumber - The new chain tip after a reorg
    * @param synchedBlockNumber - The block number up to which PXE managed to sync before the reorg happened.
-   * @param jobId - Optional jobId for staging writes
    */
-  public async rollbackNotesAndNullifiers(
-    blockNumber: number,
-    synchedBlockNumber: number,
-    jobId?: string,
-  ): Promise<void> {
-    // TODO(mverzilli): Should we implement proper staging for reorg operations?
-    // The block synchronizer only runs during sync() which happens before simulation,
-    // so if a crash occurs here, the next startup should re-sync anyway.
-    // Moreover, a rollback should probably always be preceded by a discardStaged call,
-    // since in a reorg scenario we would have to throw away any on-going work
-    // anyway, but I need to think this through.
-    void jobId;
+  public async rollbackNotesAndNullifiers(blockNumber: number, synchedBlockNumber: number): Promise<void> {
     await this.#rewindNullifiersAfterBlock(blockNumber, synchedBlockNumber);
     await this.#deleteActiveNotesAfterBlock(blockNumber);
   }
