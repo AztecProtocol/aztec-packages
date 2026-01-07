@@ -205,8 +205,8 @@ describe('AztecNodeApiSchema', () => {
     expect(response).toBeInstanceOf(BlockHeader);
   });
 
-  it('getCurrentBaseFees', async () => {
-    const response = await context.client.getCurrentBaseFees();
+  it('getCurrentMinFees', async () => {
+    const response = await context.client.getCurrentMinFees();
     expect(response).toEqual(GasFees.empty());
   });
 
@@ -643,7 +643,7 @@ class MockAztecNode implements AztecNode {
   getBlockHeaderByArchive(_archive: Fr): Promise<BlockHeader | undefined> {
     return Promise.resolve(BlockHeader.empty());
   }
-  getCurrentBaseFees(): Promise<GasFees> {
+  getCurrentMinFees(): Promise<GasFees> {
     return Promise.resolve(GasFees.empty());
   }
   getMaxPriorityFees(): Promise<GasFees> {

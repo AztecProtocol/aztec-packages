@@ -133,7 +133,7 @@ curl -s -X POST -H 'Content-Type: application/json' \
 http://localhost:8080 | jq -r ".result.proven.number"
 ```
 
-Compare the output with block explorers (see [Networks page](/networks) for explorer links).
+Compare the output with block explorers like [Aztec Scan](https://aztecscan.xyz/) or [Aztec Explorer](https://aztecexplorer.xyz/).
 
 ### Check Node Status
 

@@ -565,9 +565,9 @@ describe('e2e_node_rpc_perf', () => {
   });
 
   describe('fee APIs', () => {
-    it('benchmarks getCurrentBaseFees', async () => {
-      const { stats } = await benchmark('getCurrentBaseFees', () => aztecNode.getCurrentBaseFees());
-      addResult('getCurrentBaseFees', stats);
+    it('benchmarks getCurrentMinFees', async () => {
+      const { stats } = await benchmark('getCurrentMinFees', () => aztecNode.getCurrentMinFees());
+      addResult('getCurrentMinFees', stats);
       expect(stats.avg).toBeLessThan(1000);
     });
 

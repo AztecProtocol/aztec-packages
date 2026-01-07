@@ -80,7 +80,7 @@ library Errors {
   error Rollup__UnavailableTxs(bytes32 txsHash); // 0x414906c3
   error Rollup__NonZeroDaFee(); // 0xd9c75f52
   error Rollup__InvalidBasisPointFee(uint256 basisPointFee); // 0x4292d136
-  error Rollup__InvalidManaBaseFee(uint256 expected, uint256 actual); // 0x73b6d896
+  error Rollup__InvalidManaMinFee(uint256 expected, uint256 actual); // 0x73b6d896
   error Rollup__StartAndEndNotSameEpoch(Epoch start, Epoch end); // 0xb64ec33e
   error Rollup__StartIsNotFirstCheckpointOfEpoch(); // 0x19ceb206
   error Rollup__StartIsNotBuildingOnProven(); // 0x4a59f42e

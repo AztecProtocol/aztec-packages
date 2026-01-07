@@ -73,9 +73,9 @@ export abstract class BaseBot {
   protected async getSendMethodOpts(
     interaction: ContractFunctionInteraction | BatchCall,
   ): Promise<SendInteractionOptions> {
-    const { l2GasLimit, daGasLimit, baseFeePadding } = this.config;
+    const { l2GasLimit, daGasLimit, minFeePadding } = this.config;
 
-    this.wallet.setBaseFeePadding(baseFeePadding);
+    this.wallet.setMinFeePadding(minFeePadding);
 
     let gasSettings;
     if (l2GasLimit !== undefined && l2GasLimit > 0 && daGasLimit !== undefined && daGasLimit > 0) {
