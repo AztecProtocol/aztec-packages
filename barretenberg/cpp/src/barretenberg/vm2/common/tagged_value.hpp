@@ -12,24 +12,36 @@
 
 namespace bb::avm2 {
 
-class TagMismatchException : public std::runtime_error {
+class TaggedValueException : public std::runtime_error {
+  public:
+    using std::runtime_error::runtime_error; // Inherit the constructor.
+};
+
+class TagMismatchException : public TaggedValueException {
   public:
     TagMismatchException(const std::string& msg)
-        : std::runtime_error("Mismatched tags: " + msg)
+        : TaggedValueException("Mismatched tags: " + msg)
     {}
 };
 
-class InvalidOperationTag : public std::runtime_error {
+class InvalidOperationTag : public TaggedValueException {
   public:
     InvalidOperationTag(const std::string& msg)
-        : std::runtime_error("InvalidOperationTag: " + msg)
+        : TaggedValueException("InvalidOperationTag: " + msg)
     {}
 };
 
-class DivisionByZero : public std::runtime_error {
+class DivisionByZero : public TaggedValueException {
   public:
     DivisionByZero(const std::string& msg)
-        : std::runtime_error("Division by zero: " + msg)
+        : TaggedValueException("Division by zero: " + msg)
+    {}
+};
+
+class CastException : public TaggedValueException {
+  public:
+    CastException(const std::string& msg)
+        : TaggedValueException("CastException: " + msg)
     {}
 };
 
@@ -118,8 +130,8 @@ class TaggedValue {
         if (std::holds_alternative<T>(value)) {
             return std::get<T>(value);
         }
-        throw std::runtime_error("TaggedValue::as(): type mismatch. Wanted type " +
-                                 std::to_string(static_cast<uint32_t>(tag_for_type<T>())) + " but got " + to_string());
+        throw CastException("TaggedValue::as(): type mismatch. Wanted type " +
+                            std::to_string(static_cast<uint32_t>(tag_for_type<T>())) + " but got " + to_string());
     }
 
     // This method try to do the smallest conversion possible.

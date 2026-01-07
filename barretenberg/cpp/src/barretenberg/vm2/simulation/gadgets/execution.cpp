@@ -1810,7 +1810,7 @@ EnqueuedCallResult Execution::execute(std::unique_ptr<ContextInterface> enqueued
             // This is a coding error, we should not get here.
             // All exceptions should fall in the above catch blocks.
             important("An unhandled exception occurred: ", e.what());
-            throw e;
+            throw;
         }
 
         // We always do what follows. "Finally".

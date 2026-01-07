@@ -6,6 +6,15 @@
 
 namespace bb::avm2::simulation {
 
+namespace {
+
+class InternalEccException : public std::runtime_error {
+  public:
+    using std::runtime_error::runtime_error; // Inherit the constructor.
+};
+
+} // namespace
+
 // This function assumes that the points p and q are on the curve. You should only
 // use this function internally if you can guarantee this. Otherwise it is called
 // via the opcode ECADD, see the overloaded function Ecc::add (which performs the curve check)
@@ -66,14 +75,15 @@ void Ecc::add(MemoryInterface& memory,
         // Therefore, the maximum address that needs to be written to is dst_address + 2.
         uint64_t max_write_address = static_cast<uint64_t>(dst_address) + 2;
         if (gt.gt(max_write_address, AVM_HIGHEST_MEM_ADDRESS)) {
-            throw std::runtime_error("dst address out of range");
+            throw InternalEccException("dst address out of range");
         }
 
         if (!p.on_curve() || !q.on_curve()) {
-            throw std::runtime_error("One of the points is not on the curve");
+            throw InternalEccException("One of the points is not on the curve");
         }
 
-        EmbeddedCurvePoint result = add(p, q);
+        EmbeddedCurvePoint result = add(p, q); // Cannot throw.
+
         memory.set(dst_address, MemoryValue::from<FF>(result.x()));
         memory.set(dst_address + 1, MemoryValue::from<FF>(result.y()));
         memory.set(dst_address + 2, MemoryValue::from<uint1_t>(result.is_infinity() ? 1 : 0));
@@ -84,7 +94,7 @@ void Ecc::add(MemoryInterface& memory,
                                  .q = q,
                                  .result = result,
                                  .dst_address = dst_address });
-    } catch (const std::exception& e) {
+    } catch (const InternalEccException& e) {
         // Note this point is not on the curve, but corresponds
         // to default values the circuit will assign.
         EmbeddedCurvePoint res = EmbeddedCurvePoint(0, 0, false);
