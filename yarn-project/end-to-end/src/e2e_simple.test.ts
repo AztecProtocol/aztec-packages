@@ -43,6 +43,7 @@ describe('e2e_simple', () => {
         minTxsPerBlock: 1,
         aztecEpochDuration: 4,
         aztecSlotDuration: 12,
+        ethereumSlotDuration: 4,
         aztecTargetCommitteeSize: 0,
         startProverNode: true,
       }));
