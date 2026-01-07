@@ -10,6 +10,8 @@ Usage:
     python3 generate_audit_summary.py --status "incomplete"   # List all incomplete files
     python3 generate_audit_summary.py --status "not started" --dir chonk  # Filter by module
     python3 generate_audit_summary.py --list-missing       # List files without audit headers
+    python3 generate_audit_summary.py --auditor "Luke"     # List all files assigned to Luke
+    python3 generate_audit_summary.py --auditor "Raju" --status "complete"  # Completed files audited by Raju
 """
 
 import argparse
@@ -127,8 +129,8 @@ def generate_summary(files_data):
     return summary
 
 
-def list_by_status(files_data, role="internal", status_filter=None):
-    """List files filtered by audit status.
+def list_by_status(files_data, role="internal", status_filter=None, auditor_filter=None):
+    """List files filtered by audit status and/or auditor.
 
     Args:
         files_data: Scanned file data
@@ -137,24 +139,34 @@ def list_by_status(files_data, role="internal", status_filter=None):
             - Specific status: 'not started', 'planned', 'in progress', 'complete'
             - 'incomplete': all files where status != 'complete'
             - None: all files
+        auditor_filter: Filter by auditor name (case-insensitive partial match)
     """
     results = []
 
     for rel_path, top_module, header_data in files_data['files']:
         if role in header_data:
             status = normalize_status(header_data[role].get("status", "unknown"))
+            auditors = header_data[role].get("auditors", [])
 
-            # Determine if file matches filter
-            matches = False
+            # Determine if file matches status filter
+            status_matches = False
             if status_filter is None:
-                matches = True
+                status_matches = True
             elif normalize_status(status_filter) == "incomplete":
-                matches = (status != "complete")
+                status_matches = (status != "complete")
             else:
-                matches = (status == normalize_status(status_filter))
+                status_matches = (status == normalize_status(status_filter))
 
-            if matches:
-                auditors = header_data[role].get("auditors", [])
+            # Determine if file matches auditor filter
+            auditor_matches = False
+            if auditor_filter is None:
+                auditor_matches = True
+            else:
+                # Case-insensitive partial match on any auditor in the list
+                auditor_lower = auditor_filter.lower()
+                auditor_matches = any(auditor_lower in str(a).lower() for a in auditors)
+
+            if status_matches and auditor_matches:
                 results.append((rel_path, status, auditors))
 
     return sorted(results)
@@ -225,6 +237,12 @@ def main():
         action="store_true",
         help="Output results as JSON instead of human-readable format"
     )
+    parser.add_argument(
+        "--auditor",
+        type=str,
+        default=None,
+        help="Filter by auditor name (case-insensitive partial match, e.g., 'Luke', 'Raju')"
+    )
 
     args = parser.parse_args()
 
@@ -240,14 +258,24 @@ def main():
             print_by_directory(missing, show_status=False)
         return
 
-    if args.status:
-        results = list_by_status(files_data, role=args.role, status_filter=args.status)
+    if args.status or args.auditor:
+        results = list_by_status(files_data, role=args.role, status_filter=args.status, auditor_filter=args.auditor)
         if args.json:
             print(json.dumps([{"file": f, "status": s, "auditors": a} for f, s, a in results], indent=2))
         else:
-            status_display = args.status if args.status != "incomplete" else "incomplete (not complete)"
-            print(f"\nFiles with {args.role} audit status '{status_display}': {len(results)}")
-            show_auditors = (normalize_status(args.status) == "complete")
+            # Build display message
+            filters = []
+            if args.status:
+                status_display = args.status if args.status != "incomplete" else "incomplete (not complete)"
+                filters.append(f"status '{status_display}'")
+            if args.auditor:
+                filters.append(f"auditor '{args.auditor}'")
+
+            filter_desc = " and ".join(filters) if filters else "all files"
+            print(f"\nFiles with {args.role} audit {filter_desc}: {len(results)}")
+
+            # Always show auditors when filtering by auditor or when status is complete
+            show_auditors = args.auditor or (args.status and normalize_status(args.status) == "complete")
             print_by_directory(results, show_status=True, show_auditors=show_auditors)
         return
 
