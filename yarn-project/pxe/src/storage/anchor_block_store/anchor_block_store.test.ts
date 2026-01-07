@@ -32,7 +32,7 @@ describe('block header', () => {
     it('writes to staging when context provided', async () => {
       const committedHeader = makeBlockHeader(randomInt(1000), { blockNumber: BlockNumber(1) });
       const stagedHeader = makeBlockHeader(randomInt(1000), { blockNumber: BlockNumber(2) });
-      const context = new JobContext('test123', 'test');
+      const context = new JobContext('test123');
 
       // First set a committed header
       await anchorBlockStore.setHeader(committedHeader);
@@ -50,7 +50,7 @@ describe('block header', () => {
     it('commit promotes staged data to main', async () => {
       const committedHeader = makeBlockHeader(randomInt(1000), { blockNumber: BlockNumber(1) });
       const stagedHeader = makeBlockHeader(randomInt(1000), { blockNumber: BlockNumber(2) });
-      const context = new JobContext('test123', 'test');
+      const context = new JobContext('test123');
 
       await anchorBlockStore.setHeader(committedHeader);
       await anchorBlockStore.setHeader(stagedHeader, context);
@@ -65,7 +65,7 @@ describe('block header', () => {
     it('discardStaged removes staged data without affecting main', async () => {
       const committedHeader = makeBlockHeader(randomInt(1000), { blockNumber: BlockNumber(1) });
       const stagedHeader = makeBlockHeader(randomInt(1000), { blockNumber: BlockNumber(2) });
-      const context = new JobContext('test123', 'test');
+      const context = new JobContext('test123');
 
       await anchorBlockStore.setHeader(committedHeader);
       await anchorBlockStore.setHeader(stagedHeader, context);

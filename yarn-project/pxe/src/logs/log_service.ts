@@ -188,7 +188,12 @@ export class LogService {
     });
 
     // TODO: This looks like it could belong more at the oracle interface level
-    return this.capsuleStore.appendToCapsuleArray(contractAddress, capsuleArrayBaseSlot, pendingTaggedLogs, this.jobContext);
+    return this.capsuleStore.appendToCapsuleArray(
+      contractAddress,
+      capsuleArrayBaseSlot,
+      pendingTaggedLogs,
+      this.jobContext,
+    );
   }
 
   async #getCompleteAddress(account: AztecAddress): Promise<CompleteAddress> {

@@ -81,22 +81,21 @@ export class JobCoordinator {
   /**
    * Begins a new job and returns a context for staged writes.
    *
-   * @param jobType - Type of job (for logging/debugging)
-   * @returns JobContext to pass to write operations
+   * @returns JobContext to pass to store operations
    */
-  beginJob(jobType: string): JobContext {
+  beginJob(): JobContext {
     if (this.#currentJob) {
       throw new Error(
-        `Cannot begin job "${jobType}": job "${this.#currentJob.jobType}" (${this.#currentJob.jobId}) is already in progress. ` +
+        `Cannot begin job: job ${this.#currentJob.jobId} is already in progress. ` +
           `This should not happen - ensure jobs are properly committed or aborted.`,
       );
     }
 
     const jobId = randomBytes(8).toString('hex');
-    const context = new JobContext(jobId, jobType);
+    const context = new JobContext(jobId);
     this.#currentJob = context;
 
-    this.log.debug(`Started job ${jobId} (type: ${jobType})`);
+    this.log.debug(`Started job ${jobId}`);
     return context;
   }
 

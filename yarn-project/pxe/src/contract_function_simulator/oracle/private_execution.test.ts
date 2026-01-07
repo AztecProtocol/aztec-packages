@@ -212,8 +212,16 @@ describe('Private Execution test suite', () => {
       salt: Fr.random(),
     });
 
-    const jobContext = new JobContext('test', 'test');
-    return acirSimulator.run(txRequest, contractAddress, selector, msgSender, anchorBlockHeader, senderForTags, undefined, jobContext);
+    return acirSimulator.run(
+      txRequest,
+      contractAddress,
+      selector,
+      msgSender,
+      anchorBlockHeader,
+      senderForTags,
+      undefined,
+      new JobContext('test'),
+    );
   };
 
   const insertLeaves = async (leaves: Fr[], name = 'noteHash') => {

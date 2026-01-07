@@ -486,7 +486,7 @@ describe('SenderTaggingStore', () => {
     it('writes to staging when context provided', async () => {
       const committedTxHash = TxHash.random();
       const stagedTxHash = TxHash.random();
-      const context = new JobContext('test123', 'test');
+      const context = new JobContext('test123');
 
       // First set committed data
       await taggingStore.storePendingIndexes([{ secret: secret1, index: 3 }], committedTxHash);
@@ -509,7 +509,7 @@ describe('SenderTaggingStore', () => {
     it('stages finalized indexes separately', async () => {
       const txHash1 = TxHash.random();
       const txHash2 = TxHash.random();
-      const context = new JobContext('test123', 'test');
+      const context = new JobContext('test123');
 
       // First commit some data without staging
       await taggingStore.storePendingIndexes([{ secret: secret1, index: 3 }], txHash1);
@@ -529,7 +529,7 @@ describe('SenderTaggingStore', () => {
     it('commit promotes staged data to main', async () => {
       const txHash1 = TxHash.random();
       const txHash2 = TxHash.random();
-      const context = new JobContext('test123', 'test');
+      const context = new JobContext('test123');
 
       await taggingStore.storePendingIndexes([{ secret: secret1, index: 3 }], txHash1);
       await taggingStore.finalizePendingIndexes([txHash1]);
@@ -547,7 +547,7 @@ describe('SenderTaggingStore', () => {
     it('discardStaged removes staged data without affecting main', async () => {
       const txHash1 = TxHash.random();
       const txHash2 = TxHash.random();
-      const context = new JobContext('test123', 'test');
+      const context = new JobContext('test123');
 
       await taggingStore.storePendingIndexes([{ secret: secret1, index: 3 }], txHash1);
       await taggingStore.finalizePendingIndexes([txHash1]);
@@ -569,7 +569,7 @@ describe('SenderTaggingStore', () => {
       const txHash1 = TxHash.random();
       const txHash2 = TxHash.random();
       const txHash3 = TxHash.random();
-      const context = new JobContext('test123', 'test');
+      const context = new JobContext('test123');
 
       // Committed: index 3 pending
       await taggingStore.storePendingIndexes([{ secret: secret1, index: 3 }], txHash1);
@@ -598,7 +598,7 @@ describe('SenderTaggingStore', () => {
     it('drops pending indexes in staging correctly', async () => {
       const txHash1 = TxHash.random();
       const txHash2 = TxHash.random();
-      const context = new JobContext('test123', 'test');
+      const context = new JobContext('test123');
 
       // Store both pending indexes with staging
       await taggingStore.storePendingIndexes([{ secret: secret1, index: 3 }], txHash1, context);

@@ -680,7 +680,7 @@ describe('NoteStore', () => {
         l2BlockNumber: BlockNumber(2),
       });
 
-      const context = new JobContext('test123', 'test');
+      const context = new JobContext('test123');
 
       // Add committed note
       await noteStore.addNotes([committedNote], SCOPE_1);
@@ -707,7 +707,7 @@ describe('NoteStore', () => {
         l2BlockNumber: BlockNumber(1),
       });
 
-      const context = new JobContext('test123', 'test');
+      const context = new JobContext('test123');
 
       // Add staged note
       await noteStore.addNotes([stagedNote], SCOPE_1, context);
@@ -735,7 +735,7 @@ describe('NoteStore', () => {
         l2BlockNumber: BlockNumber(2),
       });
 
-      const context = new JobContext('test123', 'test');
+      const context = new JobContext('test123');
 
       // Add committed note
       await noteStore.addNotes([committedNote], SCOPE_1);
@@ -761,7 +761,7 @@ describe('NoteStore', () => {
         siloedNullifier: new Fr(123n),
       });
 
-      const context = new JobContext('test123', 'test');
+      const context = new JobContext('test123');
 
       // Add committed note
       await noteStore.addNotes([note], SCOPE_1);
@@ -801,7 +801,7 @@ describe('NoteStore', () => {
         siloedNullifier: new Fr(456n),
       });
 
-      const context = new JobContext('test123', 'test');
+      const context = new JobContext('test123');
 
       // Stage add note
       await noteStore.addNotes([note], SCOPE_1, context);
@@ -840,7 +840,7 @@ describe('NoteStore', () => {
       // Add note to committed storage
       await noteStore.addNotes([note], SCOPE_1);
 
-      const context = new JobContext('test123', 'test');
+      const context = new JobContext('test123');
 
       // Stage nullification
       const nullifier = {
@@ -869,7 +869,7 @@ describe('NoteStore', () => {
         l2BlockNumber: BlockNumber(1),
       });
 
-      const context = new JobContext('test123', 'test');
+      const context = new JobContext('test123');
 
       // Stage note under SCOPE_1
       await noteStore.addNotes([note], SCOPE_1, context);
@@ -897,7 +897,7 @@ describe('NoteStore', () => {
         l2BlockNumber: BlockNumber(1),
       });
 
-      const context = new JobContext('test123', 'test');
+      const context = new JobContext('test123');
 
       // Stage both notes
       await noteStore.addNotes([noteSlotX, noteSlotY], SCOPE_1, context);
@@ -928,7 +928,7 @@ describe('NoteStore', () => {
       });
 
       await noteStore.addScope(SCOPE_2);
-      const context = new JobContext('test123', 'test');
+      const context = new JobContext('test123');
 
       // Stage notes for different contracts
       await noteStore.addNotes([noteContractA], SCOPE_1, context);

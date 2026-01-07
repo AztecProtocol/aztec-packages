@@ -401,7 +401,7 @@ describe('capsule data provider', () => {
       const slot = Fr.random();
       const committedValues = [Fr.random()];
       const stagedValues = [Fr.random()];
-      const context = new JobContext('test123', 'test');
+      const context = new JobContext('test123');
 
       // First set a committed capsule
       await capsuleStore.storeCapsule(contract, slot, committedValues);
@@ -419,7 +419,7 @@ describe('capsule data provider', () => {
     it('staged capsules are visible when reading with context', async () => {
       const slot = Fr.random();
       const stagedValues = [Fr.random()];
-      const context = new JobContext('test123', 'test');
+      const context = new JobContext('test123');
 
       // Store only in staging
       await capsuleStore.storeCapsule(contract, slot, stagedValues, context);
@@ -434,7 +434,7 @@ describe('capsule data provider', () => {
     it('staged deletions hide committed data', async () => {
       const slot = Fr.random();
       const committedValues = [Fr.random()];
-      const context = new JobContext('test123', 'test');
+      const context = new JobContext('test123');
 
       // First set a committed capsule
       await capsuleStore.storeCapsule(contract, slot, committedValues);
@@ -453,7 +453,7 @@ describe('capsule data provider', () => {
       const slot = Fr.random();
       const committedValues = [Fr.random()];
       const stagedValues = [Fr.random()];
-      const context = new JobContext('test123', 'test');
+      const context = new JobContext('test123');
 
       await capsuleStore.storeCapsule(contract, slot, committedValues);
       await capsuleStore.storeCapsule(contract, slot, stagedValues, context);
@@ -467,7 +467,7 @@ describe('capsule data provider', () => {
     it('commit applies staged deletions', async () => {
       const slot = Fr.random();
       const committedValues = [Fr.random()];
-      const context = new JobContext('test123', 'test');
+      const context = new JobContext('test123');
 
       await capsuleStore.storeCapsule(contract, slot, committedValues);
       await capsuleStore.deleteCapsule(contract, slot, context);
@@ -483,7 +483,7 @@ describe('capsule data provider', () => {
       const slot = Fr.random();
       const committedValues = [Fr.random()];
       const stagedValues = [Fr.random()];
-      const context = new JobContext('test123', 'test');
+      const context = new JobContext('test123');
 
       await capsuleStore.storeCapsule(contract, slot, committedValues);
       await capsuleStore.storeCapsule(contract, slot, stagedValues, context);

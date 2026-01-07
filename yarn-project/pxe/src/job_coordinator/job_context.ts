@@ -3,26 +3,19 @@
  *
  * During a job, all database writes go to a staging area (prefixed keys).
  * Only on job success are they promoted to main storage. This provides
- * job-level atomicity without requiring cross-store transactions.
+ * job-level atomicity without requiring long-running transactions,
+ * which are problematic when the backing data store is IndexedDB.
  */
 export class JobContext {
   /** Unique identifier for this job */
   readonly jobId: string;
 
-  /** Type of job (for logging/debugging) */
-  readonly jobType: string;
-
   /** Prefix for staging keys: "job_{jobId}:" */
   readonly stagingPrefix: string;
 
-  /** Timestamp when job started */
-  readonly startedAt: number;
-
-  constructor(jobId: string, jobType: string) {
+  constructor(jobId: string) {
     this.jobId = jobId;
-    this.jobType = jobType;
     this.stagingPrefix = `job_${jobId}:`;
-    this.startedAt = Date.now();
   }
 
   /**

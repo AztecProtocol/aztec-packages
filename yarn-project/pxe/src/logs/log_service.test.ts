@@ -43,7 +43,6 @@ describe('LogService', () => {
 
       aztecNode = mock<AztecNode>();
 
-      const jobContext = new JobContext('test', 'test');
       logService = new LogService(
         aztecNode,
         anchorBlockStore,
@@ -52,7 +51,7 @@ describe('LogService', () => {
         recipientTaggingStore,
         senderAddressBookStore,
         addressStore,
-        jobContext,
+        new JobContext('test'),
       );
 
       aztecNode.getPrivateLogsByTags.mockReset();

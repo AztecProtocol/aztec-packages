@@ -238,9 +238,8 @@ export class PXE {
    * Useful for tasks that cannot run concurrently, such as contract function simulation.
    *
    * @param fn - The function to execute. Receives a JobContext for staged writes.
-   * @param jobType - A description of the job type for logging/debugging.
    */
-  #putInJobQueue<T>(fn: (context: JobContext) => Promise<T>, jobType: string = 'default'): Promise<T> {
+  #putInJobQueue<T>(fn: (context: JobContext) => Promise<T>): Promise<T> {
     // TODO(#12636): relax the conditions under which we forbid concurrency.
     if (this.jobQueue.length() != 0) {
       this.log.warn(
@@ -249,7 +248,7 @@ export class PXE {
     }
 
     return this.jobQueue.put(async () => {
-      const context = this.jobCoordinator.beginJob(jobType);
+      const context = this.jobCoordinator.beginJob();
       try {
         const result = await fn(context);
         await this.jobCoordinator.commitJob(context);
@@ -794,7 +793,12 @@ export class PXE {
         const syncTime = syncTimer.ms();
 
         const contractFunctionSimulator = this.#getSimulatorForTx();
-        const privateExecutionResult = await this.#executePrivate(contractFunctionSimulator, txRequest, undefined, context);
+        const privateExecutionResult = await this.#executePrivate(
+          contractFunctionSimulator,
+          txRequest,
+          undefined,
+          context,
+        );
 
         const { executionSteps, timings: { proving } = {} } = await this.#prove(
           txRequest,
@@ -900,7 +904,12 @@ export class PXE {
         const skipKernels = overrides?.contracts !== undefined && Object.keys(overrides.contracts ?? {}).length > 0;
 
         // Execution of private functions only; no proving, and no kernel logic.
-        const privateExecutionResult = await this.#executePrivate(contractFunctionSimulator, txRequest, scopes, context);
+        const privateExecutionResult = await this.#executePrivate(
+          contractFunctionSimulator,
+          txRequest,
+          scopes,
+          context,
+        );
 
         let publicInputs: PrivateKernelTailCircuitPublicInputs | undefined;
         let executionSteps: PrivateExecutionStep[] = [];
@@ -1028,7 +1037,13 @@ export class PXE {
           this.#simulateUtility(contractFunctionSimulator, privateSyncCall, [], undefined, context),
         );
 
-        const executionResult = await this.#simulateUtility(contractFunctionSimulator, call, authwits ?? [], scopes, context);
+        const executionResult = await this.#simulateUtility(
+          contractFunctionSimulator,
+          call,
+          authwits ?? [],
+          scopes,
+          context,
+        );
         const functionTime = functionTimer.ms();
 
         const totalTime = totalTimer.ms();
@@ -1077,7 +1092,8 @@ export class PXE {
       await this.contractStore.syncPrivateState(
         filter.contractAddress,
         null,
-        async privateSyncCall => await this.#simulateUtility(contractFunctionSimulator, privateSyncCall, [], undefined, context),
+        async privateSyncCall =>
+          await this.#simulateUtility(contractFunctionSimulator, privateSyncCall, [], undefined, context),
       );
 
       const sanitizedFilter = await new PrivateEventFilterValidator(this.anchorBlockStore).validate(filter);

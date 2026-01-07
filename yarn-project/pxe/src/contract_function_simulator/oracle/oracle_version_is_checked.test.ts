@@ -141,8 +141,16 @@ describe('Oracle Version Check test suite', () => {
       // Call the private function with arbitrary message sender and sender for tags
       const msgSender = await AztecAddress.random();
       const senderForTags = await AztecAddress.random();
-      const jobContext = new JobContext('test', 'test');
-      await acirSimulator.run(txRequest, contractAddress, selector, msgSender, anchorBlockHeader, senderForTags, undefined, jobContext);
+      await acirSimulator.run(
+        txRequest,
+        contractAddress,
+        selector,
+        msgSender,
+        anchorBlockHeader,
+        senderForTags,
+        undefined,
+        new JobContext('test'),
+      );
 
       expect(utilityAssertCompatibleOracleVersionSpy).toHaveBeenCalledTimes(1);
     }, 30_000);
@@ -171,8 +179,7 @@ describe('Oracle Version Check test suite', () => {
       };
 
       // Call the utility function
-      const jobContext = new JobContext('test', 'test');
-      await acirSimulator.runUtility(execRequest, [], anchorBlockHeader, [], jobContext);
+      await acirSimulator.runUtility(execRequest, [], anchorBlockHeader, [], new JobContext('test'));
 
       expect(utilityAssertCompatibleOracleVersionSpy).toHaveBeenCalledTimes(1);
     }, 30_000);

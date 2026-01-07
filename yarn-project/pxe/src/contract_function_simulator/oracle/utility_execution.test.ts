@@ -191,8 +191,7 @@ describe('Utility Execution test suite', () => {
       returnTypes: artifact.returnTypes,
     };
 
-    const jobContext = new JobContext('test', 'test');
-    const result = await acirSimulator.runUtility(execRequest, [], anchorBlockHeader, [], jobContext);
+    const result = await acirSimulator.runUtility(execRequest, [], anchorBlockHeader, [], new JobContext('test'));
 
     expect(result).toEqual([new Fr(9)]);
   }, 30_000);
@@ -209,7 +208,6 @@ describe('Utility Execution test suite', () => {
       });
       anchorBlockStore.getBlockHeader.mockResolvedValue(anchorBlockHeader);
 
-      const jobContext = new JobContext('test', 'test');
       utilityExecutionOracle = new UtilityExecutionOracle(
         contractAddress,
         [],
@@ -225,7 +223,7 @@ describe('Utility Execution test suite', () => {
         senderAddressBookStore,
         capsuleStore,
         privateEventStore,
-        jobContext,
+        new JobContext('test'),
       );
     });
 

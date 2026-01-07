@@ -17,10 +17,9 @@ describe('JobCoordinator', () => {
 
   describe('beginJob', () => {
     it('creates a new job context', () => {
-      const context = coordinator.beginJob('test_job');
+      const context = coordinator.beginJob();
 
       expect(context).toBeInstanceOf(JobContext);
-      expect(context.jobType).toBe('test_job');
       expect(context.jobId).toBeDefined();
       expect(context.stagingPrefix).toContain('job_');
     });
@@ -28,25 +27,25 @@ describe('JobCoordinator', () => {
     // Note: we could eventually be relax this if we want more concurrency,
     // but it's good to start with this guardrail
     it('throws if job already in progress', () => {
-      coordinator.beginJob('first_job');
-      expect(() => coordinator.beginJob('second_job')).toThrow(/already in progress/);
+      coordinator.beginJob();
+      expect(() => coordinator.beginJob()).toThrow(/already in progress/);
     });
 
     it('tracks job in progress', () => {
-      coordinator.beginJob('test_job');
+      coordinator.beginJob();
       expect(coordinator.hasJobInProgress()).toBe(true);
     });
   });
 
   describe('commitJob', () => {
     it('clears job marker on commit', async () => {
-      const context = coordinator.beginJob('test_job');
+      const context = coordinator.beginJob();
       await coordinator.commitJob(context);
       expect(coordinator.hasJobInProgress()).toBe(false);
     });
 
     it('throws if no matching job in progress', async () => {
-      const context = coordinator.beginJob('test_job');
+      const context = coordinator.beginJob();
       await coordinator.commitJob(context);
       await expect(coordinator.commitJob(context)).rejects.toThrow(/no matching job/);
     });
@@ -62,7 +61,7 @@ describe('JobCoordinator', () => {
 
       coordinator.registerStore(mockStore);
 
-      const context = coordinator.beginJob('test_job');
+      const context = coordinator.beginJob();
 
       await coordinator.commitJob(context);
 
@@ -72,7 +71,7 @@ describe('JobCoordinator', () => {
 
   describe('abortJob', () => {
     it('clears job marker on abort', async () => {
-      const context = coordinator.beginJob('test_job');
+      const context = coordinator.beginJob();
 
       await coordinator.abortJob(context);
 
@@ -90,7 +89,7 @@ describe('JobCoordinator', () => {
 
       coordinator.registerStore(mockStore);
 
-      const context = coordinator.beginJob('test_job');
+      const context = coordinator.beginJob();
 
       await coordinator.abortJob(context);
 
@@ -117,19 +116,19 @@ describe('JobCoordinator', () => {
 
 describe('JobContext', () => {
   it('generates staging keys', () => {
-    const context = new JobContext('abc123', 'test');
+    const context = new JobContext('abc123');
     expect(context.stagingKey('notes')).toBe('job_abc123:notes');
     expect(context.stagingKey('data:key')).toBe('job_abc123:data:key');
   });
 
   it('extracts main keys from staging keys', () => {
-    const context = new JobContext('abc123', 'test');
+    const context = new JobContext('abc123');
     expect(context.mainKey('job_abc123:notes')).toBe('notes');
     expect(context.mainKey('job_abc123:data:key')).toBe('data:key');
   });
 
   it('throws when extracting main key from non-staging key', () => {
-    const context = new JobContext('abc123', 'test');
+    const context = new JobContext('abc123');
     expect(() => context.mainKey('notes')).toThrow(/does not have staging prefix/);
   });
 });

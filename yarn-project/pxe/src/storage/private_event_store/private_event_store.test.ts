@@ -239,7 +239,7 @@ describe('PrivateEventStore', () => {
 
   describe('staging', () => {
     it('stages events without affecting committed storage', async () => {
-      const context = new JobContext('test123', 'test');
+      const context = new JobContext('test123');
 
       // Store committed event
       await privateEventStore.storePrivateEventLog(eventSelector, msgContent, eventCommitmentIndex, {
@@ -278,7 +278,7 @@ describe('PrivateEventStore', () => {
     });
 
     it('staged events are visible when reading with context', async () => {
-      const context = new JobContext('test123', 'test');
+      const context = new JobContext('test123');
 
       const stagedMsgContent = getRandomMsgContent();
       await privateEventStore.storePrivateEventLog(
@@ -320,7 +320,7 @@ describe('PrivateEventStore', () => {
     });
 
     it('commit promotes staged events to main storage', async () => {
-      const context = new JobContext('test123', 'test');
+      const context = new JobContext('test123');
 
       const stagedMsgContent = getRandomMsgContent();
       await privateEventStore.storePrivateEventLog(
@@ -352,7 +352,7 @@ describe('PrivateEventStore', () => {
     });
 
     it('discardStaged removes staged events without affecting main', async () => {
-      const context = new JobContext('test123', 'test');
+      const context = new JobContext('test123');
 
       // Store committed event
       await privateEventStore.storePrivateEventLog(eventSelector, msgContent, eventCommitmentIndex, {
