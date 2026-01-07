@@ -308,7 +308,7 @@ export const testnetL2ChainConfig: L2ChainConfig = {
   testAccounts: false,
   sponsoredFPC: true,
   p2pEnabled: true,
-  disableTransactions: true,
+  disableTransactions: false,
   bootstrapNodes: [],
   minTxsPerBlock: 0,
   maxTxsPerBlock: 20,

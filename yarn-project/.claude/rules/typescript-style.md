@@ -109,6 +109,55 @@ export class SequencerTooSlowError extends Error {
   7. Protected methods
   8. Private methods
 
+## JSDoc Comments
+
+Document all classes, types, and interfaces with a JSDoc comment explaining their purpose. Include usage context when relevant (e.g., "Used by the sequencer to track pending transactions").
+
+Document methods and properties unless meaning is obvious from the name. Skip JSDoc for:
+- Trivial getters/setters (`get length()`, `set value()`)
+- Constructor-injected dependencies (`private readonly db: Database`)
+- Standard lifecycle methods (`start`, `stop`)
+
+Interface methods always require JSDoc—interfaces define contracts, and consumers need clear documentation.
+
+Use `@param` and `@returns` only when parameter names or return types don't convey meaning. Prefer descriptive names over annotations.
+
+Keep comments concise. Use single-line format when possible:
+
+```typescript
+/** Computes the Merkle root of pending note hashes. */
+computeRoot(): Fr { ... }
+
+/** Maximum number of transactions per block. */
+private readonly maxTxsPerBlock: number;
+```
+
+Multi-line only when explanation requires it:
+
+```typescript
+/**
+ * Validates a transaction against current world state.
+ * Checks nullifier non-existence and note hash membership.
+ */
+async validate(tx: Tx): Promise<boolean> { ... }
+```
+
+Avoid redundant "title" lines that repeat the name being documented:
+
+```typescript
+// BAD: Repeats class name as a title
+/**
+ * CheckpointProposal
+ *
+ * A checkpoint proposal is created by the leader...
+ */
+export class CheckpointProposal { ... }
+
+// GOOD: Directly explains purpose
+/** Created by the checkpoint leader to collect validator attestations. */
+export class CheckpointProposal { ... }
+```
+
 ## Enums vs Union Types
 
 - **Numeric enums** for protocol constants that serialize to numbers
@@ -131,6 +180,18 @@ export class SequencerTooSlowError extends Error {
 - Prefer `async`/`await` over `.then()`/`.catch()` callbacks
 - Named exports only (no default exports)
 - Explicit return types on public API methods; inferred types acceptable on private/internal methods
+
+## Code Duplication
+
+Avoid duplicating logic unless clarity benefits from keeping it inline. When extracting:
+
+- **Same class**: Extract to a `private` helper method
+- **Same package, multiple files**: Extract to a free function in a dedicated helper file
+- **Complex logic spanning multiple concerns**: Extract to a dedicated class
+
+**For two classes with similar behavior:**
+- If public APIs are nearly identical: use **inheritance** (extend a common base class)
+- If behavior overlaps but APIs differ: use **composition** (inject shared logic as a dependency)
 
 ## Foundation Utilities
 

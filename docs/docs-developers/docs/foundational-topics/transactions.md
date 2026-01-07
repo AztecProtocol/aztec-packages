@@ -49,14 +49,22 @@ In Aztec.js:
 Where:
 
 - `origin` is the account contract where the transaction is initiated from.
-- `argsHash` is the hash of the arguments of the entrypoint call. The complete set of arguments is passed to the PXE as part of the [TxExecutionRequest](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/yarn-project/stdlib/src/tx/tx_execution_request.ts) and checked against this hash.
+- `argsHash` is the hash of the arguments of the entrypoint call. The complete set of arguments is passed to the PXE as part of the `TxExecutionRequest` and checked against this hash.
 - `txContext` contains the chain id, version, and gas settings.
 - `functionData` contains the function selector and indicates whether the function is private or public.
 - `salt` is used to make the transaction request hash difficult to predict. The hash is used as the first nullifier if no nullifier is emitted throughout the transaction.
 
-An account contract validates that the transaction request has been authorized via its specified authorization mechanism, via the `is_valid_impl` function (e.g. [an ECDSA signature](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/noir-contracts/contracts/account/ecdsa_k_account_contract/src/main.nr)).
+The `TxExecutionRequest` class:
 
-Transaction requests are simulated in the PXE in order to generate the necessary inputs for generating proofs. Once transactions are proven, a [transaction object](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/yarn-project/stdlib/src/tx/tx.ts#L26) is created and can be sent to the network to be included in a block.
+#include_code tx_execution_request_class yarn-project/stdlib/src/tx/tx_execution_request.ts javascript
+
+An account contract validates that the transaction request has been authorized via its specified authorization mechanism, via the `is_valid_impl` function. Here is an example using an ECDSA signature:
+
+#include_code is_valid_impl noir-projects/noir-contracts/contracts/account/ecdsa_k_account_contract/src/main.nr rust
+
+Transaction requests are simulated in the PXE in order to generate the necessary inputs for generating proofs. Once transactions are proven, a `Tx` object is created and can be sent to the network to be included in a block:
+
+#include_code tx_class yarn-project/stdlib/src/tx/tx.ts javascript
 
 #### Contract Interaction Methods
 
@@ -75,7 +83,9 @@ Most transaction requests are created as interactions with specific contracts. T
 
 ### Batch Transactions
 
-Batched transactions are a way to send multiple transactions in a single call. They are created by the [`BatchCall` class in Aztec.js](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/yarn-project/aztec.js/src/contract/batch_call.ts). This allows a batch of function calls from a single wallet to be sent as a single transaction through a wallet.
+Batched transactions are a way to send multiple transactions in a single call. They are created by the `BatchCall` class in Aztec.js. This allows a batch of function calls from a single wallet to be sent as a single transaction through a wallet.
+
+#include_code batch_call_class yarn-project/aztec.js/src/contract/batch_call.ts javascript
 
 ### Enabling Transaction Semantics
 

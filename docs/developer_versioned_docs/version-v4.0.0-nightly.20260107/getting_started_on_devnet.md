@@ -202,51 +202,9 @@ const isDevnet = process.env.NODE_URL?.includes("devnet");
 const nodeUrl = process.env.NODE_URL || "http://localhost:8080";
 ```
 
-## Devnet information
+## Devnet Information
 
-## RPC
-
-https://devnet.aztec-labs.com
-
-## Packages Versions / Github Tag
-
-3.0.0-devnet.4
-
-## Network Configuration
-
-- **l1ChainId**: 11155111
-- **rollupVersion**: 1667575857
-<!-- cspell:disable-next-line -->
-- **enr**: -Na4QDO8LfoSfCpWFbMPHwYZegt9P--3X8XCRmwuXD1SEtxdD2kx4K-ue5VuwG4DOWqDbsxLQ9Ja3Mr6OSmjV-8x-ToHhWF6dGVjsTAwLTExMTU1MTExLWIwNWYzNmM5LTE2Njc1NzU4NTctMjc2MzhiZjMtMDY4YTc5ZTiCaWSCdjSCaXCEIpEKG4lzZWNwMjU2azGhAvyGRkH6p8gsIWyI6vmqHxMIqAweVkShKk3mjGfL7e2Gg3RjcIKd0IN1ZH CCndCDdmVyjjMuMC4wLWRldm5ldC4y
-
-## Migration Notes
-
-[Migration Notes](./docs/resources/migration_notes.md)
-
-## L1 Contract Addresses
-
-- **registryAddress**: `0x9017a63e26eaf1197c49b4315a9f32a771abeea7`
-- **slashFactoryAddress**: `0x4926e1bd0ba4c9f477c57ce7311c62d4075dca5c`
-- **feeAssetHandlerAddress**: `0x252a71fc243812f747fc4782dea865a260ef81c9`
-- **rollupAddress**: `0xb05f36c9dffa76f0af639385ef44d5560e0160c1`
-- **inboxAddress**: `0x33631b33f335e249279db08b9b7272c9906c1405`
-- **outboxAddress**: `0xfe37ceedec5674805fdc3cd5ca8aa6ca656cbfb9`
-- **feeJuiceAddress**: `0xa9144418460188c2b59914e6a7cb01deb1e019d7`
-- **stakingAssetAddress**: `0xdcaca47b74caf5c14ce023597f0e3b67e1f14496`
-- **feeJuicePortalAddress**: `0xeea84a878a3fd52d14e7820dddb60d35219b9cd9`
-- **coinIssuerAddress**: `0x48ab541e0f60e3138f6f24c5cc72993ffcdca462`
-- **rewardDistributorAddress**: `0x4833dacefe705e31200d071a04d17bd29e2c740c`
-- **governanceProposerAddress**: `0x4194937ab0bb3b1b4b1b1d770bb8577a0500911b`
-- **governanceAddress**: `0x6af3cc6c09a72b5a0ab772f37fd7b719569f27b9`
-- **gseAddress**: `0xeee2d3289dff43909b935da9ef2121fdcad8773f`
-
-## Protocol Contract Addresses
-
-- **classRegistry**: `0x0000000000000000000000000000000000000000000000000000000000000003`
-- **feeJuice**: `0x0000000000000000000000000000000000000000000000000000000000000005`
-- **instanceRegistry**: `0x0000000000000000000000000000000000000000000000000000000000000002`
-- **multiCallEntrypoint**: `0x0000000000000000000000000000000000000000000000000000000000000004`
-- **sponsoredFPC**: `0x280e5686a148059543f4d0968f9a18cd4992520fcd887444b8689bf2726a1f97`
+For complete Devnet technical details including RPC endpoints, contract addresses, and network configuration, see the [Networks page](/networks#devnet).
 
 ## Next Steps
 
