@@ -99,7 +99,7 @@ export class L2BlockStream {
         // This check is not 100% accurate
         // If the local tips are sufficiently behind the source tips, such that we are missing at least one checkpoint
         // that has now been re-orged due to a proof failure then this will indicate a failure to checkpoint rather than a failure to prove
-        // TODO: (mbps/PhilWindle): Improve re-org detection accuracy.
+        // TODO: (mbps/PhilWindle): Improve re-org detection accuracy when we come to do re-orgs
         let reason: L2BlockPruneReason = 'unproven';
         if (latestBlockNumber === localTips.checkpointed.block.number) {
           reason = 'uncheckpointed';
