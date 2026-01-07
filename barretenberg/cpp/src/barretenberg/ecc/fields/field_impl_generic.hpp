@@ -184,7 +184,7 @@ constexpr uint64_t field<T>::square_accumulate(const uint64_t a,
 
 template <class T> constexpr field<T> field<T>::reduce() const noexcept
 {
-    if constexpr (modulus.data[3] >= 0x4000000000000000ULL) {
+    if constexpr (modulus.data[3] >= MODULUS_TOP_LIMB_LARGE_THRESHOLD) {
         uint256_t val{ data[0], data[1], data[2], data[3] };
         if (val >= modulus) {
             val -= modulus;
@@ -209,7 +209,7 @@ template <class T> constexpr field<T> field<T>::reduce() const noexcept
 
 template <class T> constexpr field<T> field<T>::add(const field& other) const noexcept
 {
-    if constexpr (modulus.data[3] >= 0x4000000000000000ULL) {
+    if constexpr (modulus.data[3] >= MODULUS_TOP_LIMB_LARGE_THRESHOLD) {
         uint64_t r0 = data[0] + other.data[0];
         uint64_t c = r0 < data[0];
         auto r1 = addc(data[1], other.data[1], c, c);
@@ -290,7 +290,7 @@ template <class T> constexpr field<T> field<T>::subtract(const field& other) con
  */
 template <class T> constexpr field<T> field<T>::subtract_coarse(const field& other) const noexcept
 {
-    if constexpr (modulus.data[3] >= 0x4000000000000000ULL) {
+    if constexpr (modulus.data[3] >= MODULUS_TOP_LIMB_LARGE_THRESHOLD) {
         return subtract(other);
     }
     uint64_t borrow = 0;
@@ -568,7 +568,7 @@ template <class T> constexpr std::array<uint64_t, WASM_NUM_LIMBS> field<T>::wasm
 #endif
 template <class T> constexpr field<T> field<T>::montgomery_mul(const field& other) const noexcept
 {
-    if constexpr (modulus.data[3] >= 0x4000000000000000ULL) {
+    if constexpr (modulus.data[3] >= MODULUS_TOP_LIMB_LARGE_THRESHOLD) {
         return montgomery_mul_big(other);
     }
 #if defined(__SIZEOF_INT128__) && !defined(__wasm__)
@@ -706,7 +706,7 @@ template <class T> constexpr field<T> field<T>::montgomery_mul(const field& othe
 
 template <class T> constexpr field<T> field<T>::montgomery_square() const noexcept
 {
-    if constexpr (modulus.data[3] >= 0x4000000000000000ULL) {
+    if constexpr (modulus.data[3] >= MODULUS_TOP_LIMB_LARGE_THRESHOLD) {
         return montgomery_mul_big(*this);
     }
 #if defined(__SIZEOF_INT128__) && !defined(__wasm__)

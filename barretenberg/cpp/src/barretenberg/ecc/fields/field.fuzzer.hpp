@@ -14,6 +14,7 @@
 
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/log.hpp"
+#include "barretenberg/ecc/fields/field_declarations.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/numeric/uintx/uintx.hpp"
 #include <algorithm>
@@ -149,7 +150,7 @@ template <typename Field> struct FieldVM {
      *
      * @details Fields with moduli >= 2^254 require uint512_t for safe addition/subtraction
      */
-    static constexpr bool LARGE_MODULUS = (Field::modulus.data[3] >= 0x4000000000000000ULL);
+    static constexpr bool LARGE_MODULUS = (Field::modulus.data[3] >= MODULUS_TOP_LIMB_LARGE_THRESHOLD);
 
     /**
      * @brief Flag indicating if the field supports square root operations
