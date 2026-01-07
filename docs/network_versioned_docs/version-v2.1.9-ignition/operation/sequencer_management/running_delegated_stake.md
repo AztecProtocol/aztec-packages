@@ -26,10 +26,9 @@ bash -i <(curl -s https://install.aztec.network)
 aztec-up --version 2.1.9
 ```
 
-### Contract Addresses (Sepolia)
+### Contract Addresses
 
-- Staking Registry: `0xc3860c45e5F0b1eF3000dbF93149756f16928ADB`
-- GSE (Governance Staking Escrow): `0xfb243b9112bb65785a4a8edaf32529accf003614`
+For Staking Registry and GSE (Governance Staking Escrow) addresses, see the [Networks page](/networks#l1-contract-addresses).
 
 ## How Delegated Stake Works
 

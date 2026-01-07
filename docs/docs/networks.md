@@ -41,6 +41,7 @@ Not sure which network to use? Jump to our [Network Selection Guide](#network-se
 | **Governance Proposer** | `0x06ef1dcf87e419c48b94a331b252819fadbd63ef` | `0x01c7d4ca153748d2377968fef22894cb162e9480` | `0x7c5f4cec86ef9a920a8fd03d5a01059e32fccb9a` |
 | **Governance** | `0x1102471eb3378fee427121c9efcea452e4b6b75e` | `0xcaf7447721447b22cd0076ac7c63877c3afd329f` | `0x26af139c092172e5a4ab9a9d7ddeed41c1d68bc7` |
 | **Governance Staking Escrow** | `0xa92ecfd0e70c9cd5e5cd76c50af0f7da93567a4f` | `0xb6a38a51a6c1de9012f9d8ea9745ef957212eaac` | `0xc5cb82799169bb08a20ede20e5b57f337c735ac4` |
+| **Staking Registry** | `0x042dF8f42790d6943F41C25C2132400fd727f452` | `0xc3860c45e5F0b1eF3000dbF93149756f16928ADB` | TBD |
 
 ### L2 Contract Addresses
 
