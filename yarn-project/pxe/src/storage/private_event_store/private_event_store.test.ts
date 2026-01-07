@@ -334,7 +334,6 @@ describe('PrivateEventStore', () => {
         stagingJobId,
       );
 
-      // Commit staging
       await privateEventStore.commit(stagingJobId);
 
       // Now should see the event without jobId
