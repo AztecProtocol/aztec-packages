@@ -19,8 +19,6 @@ type StagedSenderData = {
  * Data provider of tagging data used when syncing the sender tagging indexes. The recipient counterpart of this class
  * is called RecipientTaggingStore. We have the providers separate for the sender and recipient because
  * the algorithms are completely disjoint and there is not data reuse between the two.
- *
- * Supports staged writes via JobContext for crash resilience.
  */
 export class SenderTaggingStore implements StagedStore {
   readonly storeName = 'sender_tagging';
