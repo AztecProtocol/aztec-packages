@@ -234,6 +234,8 @@ export class CapsuleStore implements StagedStore {
   /**
    * Commits staged data to main storage.
    * Called by JobCoordinator when a job completes successfully.
+   * Note: JobCoordinator wraps all commits in a single transaction, so we don't
+   * need our own transactionAsync here (and using one would deadlock on IndexedDB).
    * @param jobId - The jobId identifying which staged data to commit
    */
   async commit(jobId: string): Promise<void> {
@@ -242,15 +244,13 @@ export class CapsuleStore implements StagedStore {
       return;
     }
 
-    await this.#store.transactionAsync(async () => {
-      for (const [key, value] of jobStaging) {
-        if (value === null) {
-          await this.#capsules.delete(key);
-        } else {
-          await this.#capsules.set(key, value);
-        }
+    for (const [key, value] of jobStaging) {
+      if (value === null) {
+        await this.#capsules.delete(key);
+      } else {
+        await this.#capsules.set(key, value);
       }
-    });
+    }
 
     this.#stagedCapsules.delete(jobId);
   }

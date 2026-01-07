@@ -1,7 +1,7 @@
 import { range } from '@aztec/foundation/array';
 import { times } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
+import { type AztecLMDBStoreV2, openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 
 import { CapsuleStore } from './capsule_store.js';
@@ -10,14 +10,22 @@ const TEST_JOB_ID = 'test-job';
 
 describe('capsule data provider', () => {
   let contract: AztecAddress;
+  let kvStore: AztecLMDBStoreV2;
   let capsuleStore: CapsuleStore;
+
+  // Helper to commit within a transaction (simulating JobCoordinator behavior)
+  const commitInTransaction = async () => {
+    await kvStore.transactionAsync(async () => {
+      await capsuleStore.commit(TEST_JOB_ID);
+    });
+  };
 
   beforeEach(async () => {
     // Setup mock contract address
     contract = await AztecAddress.random();
     // Setup data provider
-    const store = await openTmpStore('capsule_store_test');
-    capsuleStore = new CapsuleStore(store);
+    kvStore = await openTmpStore('capsule_store_test');
+    capsuleStore = new CapsuleStore(kvStore);
   });
 
   describe('store and load', () => {
@@ -432,7 +440,7 @@ describe('capsule data provider', () => {
           TEST_JOB_ID,
         );
 
-        await capsuleStore.commit(TEST_JOB_ID);
+        await commitInTransaction();
       },
       TEST_TIMEOUT_MS,
     );
@@ -447,7 +455,7 @@ describe('capsule data provider', () => {
           TEST_JOB_ID,
         );
 
-        await capsuleStore.commit(TEST_JOB_ID);
+        await commitInTransaction();
       },
       TEST_TIMEOUT_MS,
     );
@@ -470,7 +478,7 @@ describe('capsule data provider', () => {
           TEST_JOB_ID,
         );
 
-        await capsuleStore.commit(TEST_JOB_ID);
+        await commitInTransaction();
       },
       TEST_TIMEOUT_MS,
     );
@@ -488,7 +496,7 @@ describe('capsule data provider', () => {
         // We just move the entire thing one slot.
         await capsuleStore.copyCapsule(contract, new Fr(0), new Fr(1), NUMBER_OF_ITEMS, TEST_JOB_ID);
 
-        await capsuleStore.commit(TEST_JOB_ID);
+        await commitInTransaction();
       },
       TEST_TIMEOUT_MS,
     );
@@ -505,7 +513,7 @@ describe('capsule data provider', () => {
 
         await capsuleStore.readCapsuleArray(contract, new Fr(0), TEST_JOB_ID);
 
-        await capsuleStore.commit(TEST_JOB_ID);
+        await commitInTransaction();
       },
       TEST_TIMEOUT_MS,
     );
@@ -522,7 +530,7 @@ describe('capsule data provider', () => {
 
         await capsuleStore.setCapsuleArray(contract, new Fr(0), [], TEST_JOB_ID);
 
-        await capsuleStore.commit(TEST_JOB_ID);
+        await commitInTransaction();
       },
       TEST_TIMEOUT_MS,
     );
