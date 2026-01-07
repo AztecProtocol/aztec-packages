@@ -107,7 +107,7 @@ impl PublicContext {
         T: Serialize,
     {
         // Safety: AVM opcodes are constrained by the AVM itself
-        unsafe { emit_public_log(Serialize::serialize(log).as_slice()) };
+        unsafe { emit_public_log(Serialize::serialize(log).as_vector()) };
     }
 
     /// Checks if a given note hash exists in the note hash tree at a particular
