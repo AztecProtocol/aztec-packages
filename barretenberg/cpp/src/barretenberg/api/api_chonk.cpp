@@ -123,7 +123,7 @@ bool ChonkAPI::verify([[maybe_unused]] const Flags& flags,
     auto proof_fields = many_from_buffer<fr>(read_file(proof_path));
     auto proof = ChonkProof::from_field_elements(proof_fields);
 
-    auto vk_buffer = read_file(vk_path);
+    auto vk_buffer = read_vk_file(vk_path);
 
     auto response = bbapi::ChonkVerify{ .proof = std::move(proof), .vk = std::move(vk_buffer) }.execute();
     return response.valid;

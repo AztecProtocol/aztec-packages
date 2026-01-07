@@ -233,3 +233,35 @@ TEST_F(ApiUltraHonkTest, GatesWithOpcodesSmokeTest)
     // Check that output contains per-opcode information
     EXPECT_TRUE(output.find("gates_per_opcode") != std::string::npos);
 }
+
+TEST_F(ApiUltraHonkTest, VerifyWithMissingVkGivesActionableError)
+{
+    auto [bytecode_path, witness_path] = create_test_circuit_files(test_dir);
+
+    API::Flags flags;
+    flags.oracle_hash_type = "poseidon2";
+    flags.write_vk = true;
+
+    UltraHonkAPI api;
+
+    // Generate proof with vk
+    auto proof_output_dir = test_dir / "proof";
+    std::filesystem::create_directories(proof_output_dir);
+    api.prove(flags, bytecode_path, witness_path, "", proof_output_dir);
+
+    // Try to verify with a non-existent vk path
+    auto nonexistent_vk_path = test_dir / "nonexistent_vk";
+    try {
+        api.verify(flags, proof_output_dir / "public_inputs", proof_output_dir / "proof", nonexistent_vk_path);
+        FAIL() << "Expected an exception to be thrown";
+    } catch (const std::runtime_error& e) {
+        std::string error_msg = e.what();
+        // Check that the error message contains actionable guidance
+        EXPECT_TRUE(error_msg.find("--write_vk") != std::string::npos)
+            << "Error message should mention --write_vk flag. Got: " << error_msg;
+        EXPECT_TRUE(error_msg.find("bb write_vk") != std::string::npos)
+            << "Error message should mention bb write_vk command. Got: " << error_msg;
+        EXPECT_TRUE(error_msg.find("--vk_path") != std::string::npos)
+            << "Error message should mention --vk_path option. Got: " << error_msg;
+    }
+}
