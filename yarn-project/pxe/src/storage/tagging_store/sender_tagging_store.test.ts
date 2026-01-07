@@ -13,22 +13,6 @@ describe('SenderTaggingStore', () => {
   let secret1: DirectionalAppTaggingSecret;
   let secret2: DirectionalAppTaggingSecret;
 
-  // Helper functions that write and commit in one step
-  const storeAndCommit = async (preTags: PreTag[], txHash: TxHash) => {
-    await taggingStore.storePendingIndexes(preTags, txHash, TEST_JOB_ID);
-    await taggingStore.commit(TEST_JOB_ID);
-  };
-
-  const dropAndCommit = async (txHashes: TxHash[]) => {
-    await taggingStore.dropPendingIndexes(txHashes, TEST_JOB_ID);
-    await taggingStore.commit(TEST_JOB_ID);
-  };
-
-  const finalizeAndCommit = async (txHashes: TxHash[]) => {
-    await taggingStore.finalizePendingIndexes(txHashes, TEST_JOB_ID);
-    await taggingStore.commit(TEST_JOB_ID);
-  };
-
   beforeEach(async () => {
     taggingStore = new SenderTaggingStore(await openTmpStore('test'));
     secret1 = DirectionalAppTaggingSecret.fromString(Fr.random().toString());
@@ -38,9 +22,11 @@ describe('SenderTaggingStore', () => {
   describe('storePendingIndexes', () => {
     it('stores a single pending index', async () => {
       const txHash = TxHash.random();
+
       const preTag: PreTag = { secret: secret1, index: 5 };
 
-      await storeAndCommit([preTag], txHash);
+      await taggingStore.storePendingIndexes([preTag], txHash, TEST_JOB_ID);
+      await taggingStore.commit(TEST_JOB_ID);
 
       const txHashes = await taggingStore.getTxHashesOfPendingIndexes(secret1, 0, 10);
       expect(txHashes).toHaveLength(1);
@@ -54,7 +40,8 @@ describe('SenderTaggingStore', () => {
         { secret: secret2, index: 7 },
       ];
 
-      await storeAndCommit(preTags, txHash);
+      await taggingStore.storePendingIndexes(preTags, txHash, TEST_JOB_ID);
+      await taggingStore.commit(TEST_JOB_ID);
 
       const txHashes1 = await taggingStore.getTxHashesOfPendingIndexes(secret1, 0, 10);
       expect(txHashes1).toHaveLength(1);
@@ -69,8 +56,9 @@ describe('SenderTaggingStore', () => {
       const txHash1 = TxHash.random();
       const txHash2 = TxHash.random();
 
-      await storeAndCommit([{ secret: secret1, index: 3 }], txHash1);
-      await storeAndCommit([{ secret: secret1, index: 7 }], txHash2);
+      await taggingStore.storePendingIndexes([{ secret: secret1, index: 3 }], txHash1, TEST_JOB_ID);
+      await taggingStore.storePendingIndexes([{ secret: secret1, index: 7 }], txHash2, TEST_JOB_ID);
+      await taggingStore.commit(TEST_JOB_ID);
 
       const txHashes = await taggingStore.getTxHashesOfPendingIndexes(secret1, 0, 10);
       expect(txHashes).toHaveLength(2);
@@ -82,8 +70,9 @@ describe('SenderTaggingStore', () => {
       const txHash = TxHash.random();
       const preTag: PreTag = { secret: secret1, index: 5 };
 
-      await storeAndCommit([preTag], txHash);
-      await storeAndCommit([preTag], txHash);
+      await taggingStore.storePendingIndexes([preTag], txHash, TEST_JOB_ID);
+      await taggingStore.storePendingIndexes([preTag], txHash, TEST_JOB_ID);
+      await taggingStore.commit(TEST_JOB_ID);
 
       const txHashes = await taggingStore.getTxHashesOfPendingIndexes(secret1, 0, 10);
       expect(txHashes).toHaveLength(1);
@@ -106,7 +95,8 @@ describe('SenderTaggingStore', () => {
       const txHash = TxHash.random();
 
       // First store an index
-      await storeAndCommit([{ secret: secret1, index: 5 }], txHash);
+      await taggingStore.storePendingIndexes([{ secret: secret1, index: 5 }], txHash, TEST_JOB_ID);
+      await taggingStore.commit(TEST_JOB_ID);
 
       // Try to store a different index for the same secret + txHash pair
       await expect(
@@ -119,8 +109,9 @@ describe('SenderTaggingStore', () => {
       const txHash2 = TxHash.random();
 
       // First store and finalize an index
-      await storeAndCommit([{ secret: secret1, index: 10 }], txHash1);
-      await finalizeAndCommit([txHash1]);
+      await taggingStore.storePendingIndexes([{ secret: secret1, index: 10 }], txHash1, TEST_JOB_ID);
+      await taggingStore.finalizePendingIndexes([txHash1], TEST_JOB_ID);
+      await taggingStore.commit(TEST_JOB_ID);
 
       // Try to store a pending index lower than the finalized index
       await expect(
@@ -133,8 +124,9 @@ describe('SenderTaggingStore', () => {
       const txHash2 = TxHash.random();
 
       // First store and finalize an index
-      await storeAndCommit([{ secret: secret1, index: 10 }], txHash1);
-      await finalizeAndCommit([txHash1]);
+      await taggingStore.storePendingIndexes([{ secret: secret1, index: 10 }], txHash1, TEST_JOB_ID);
+      await taggingStore.finalizePendingIndexes([txHash1], TEST_JOB_ID);
+      await taggingStore.commit(TEST_JOB_ID);
 
       // Try to store a pending index equal to the finalized index
       await expect(
@@ -147,11 +139,13 @@ describe('SenderTaggingStore', () => {
       const txHash2 = TxHash.random();
 
       // First store and finalize an index
-      await storeAndCommit([{ secret: secret1, index: 10 }], txHash1);
-      await finalizeAndCommit([txHash1]);
+      await taggingStore.storePendingIndexes([{ secret: secret1, index: 10 }], txHash1, TEST_JOB_ID);
+      await taggingStore.finalizePendingIndexes([txHash1], TEST_JOB_ID);
+      await taggingStore.commit(TEST_JOB_ID);
 
       // Store a pending index higher than the finalized index - should succeed
-      await storeAndCommit([{ secret: secret1, index: 15 }], txHash2);
+      await taggingStore.storePendingIndexes([{ secret: secret1, index: 15 }], txHash2, TEST_JOB_ID);
+      await taggingStore.commit(TEST_JOB_ID);
 
       const txHashes = await taggingStore.getTxHashesOfPendingIndexes(secret1, 0, 20);
       expect(txHashes).toHaveLength(1);
@@ -166,8 +160,9 @@ describe('SenderTaggingStore', () => {
         const indexBeyondWindow = finalizedIndex + UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN + 1;
 
         // First store and finalize an index
-        await storeAndCommit([{ secret: secret1, index: finalizedIndex }], txHash1);
-        await finalizeAndCommit([txHash1]);
+        await taggingStore.storePendingIndexes([{ secret: secret1, index: finalizedIndex }], txHash1, TEST_JOB_ID);
+        await taggingStore.finalizePendingIndexes([txHash1], TEST_JOB_ID);
+        await taggingStore.commit(TEST_JOB_ID);
 
         // Try to store an index beyond the window
         await expect(
@@ -184,11 +179,13 @@ describe('SenderTaggingStore', () => {
         const indexAtBoundary = finalizedIndex + UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN;
 
         // First store and finalize an index
-        await storeAndCommit([{ secret: secret1, index: finalizedIndex }], txHash1);
-        await finalizeAndCommit([txHash1]);
+        await taggingStore.storePendingIndexes([{ secret: secret1, index: finalizedIndex }], txHash1, TEST_JOB_ID);
+        await taggingStore.finalizePendingIndexes([txHash1], TEST_JOB_ID);
+        await taggingStore.commit(TEST_JOB_ID);
 
         // Store an index at the boundary, but check is >, so it should succeed
-        await storeAndCommit([{ secret: secret1, index: indexAtBoundary }], txHash2);
+        await taggingStore.storePendingIndexes([{ secret: secret1, index: indexAtBoundary }], txHash2, TEST_JOB_ID);
+        await taggingStore.commit(TEST_JOB_ID);
 
         const txHashes = await taggingStore.getTxHashesOfPendingIndexes(secret1, 0, indexAtBoundary + 5);
         expect(txHashes).toHaveLength(1);
@@ -208,9 +205,10 @@ describe('SenderTaggingStore', () => {
       const txHash2 = TxHash.random();
       const txHash3 = TxHash.random();
 
-      await storeAndCommit([{ secret: secret1, index: 3 }], txHash1);
-      await storeAndCommit([{ secret: secret1, index: 5 }], txHash2);
-      await storeAndCommit([{ secret: secret1, index: 8 }], txHash3);
+      await taggingStore.storePendingIndexes([{ secret: secret1, index: 3 }], txHash1, TEST_JOB_ID);
+      await taggingStore.storePendingIndexes([{ secret: secret1, index: 5 }], txHash2, TEST_JOB_ID);
+      await taggingStore.storePendingIndexes([{ secret: secret1, index: 8 }], txHash3, TEST_JOB_ID);
+      await taggingStore.commit(TEST_JOB_ID);
 
       const txHashes = await taggingStore.getTxHashesOfPendingIndexes(secret1, 4, 9);
       expect(txHashes).toHaveLength(2);
@@ -223,8 +221,9 @@ describe('SenderTaggingStore', () => {
       const txHash1 = TxHash.random();
       const txHash2 = TxHash.random();
 
-      await storeAndCommit([{ secret: secret1, index: 5 }], txHash1);
-      await storeAndCommit([{ secret: secret1, index: 10 }], txHash2);
+      await taggingStore.storePendingIndexes([{ secret: secret1, index: 5 }], txHash1, TEST_JOB_ID);
+      await taggingStore.storePendingIndexes([{ secret: secret1, index: 10 }], txHash2, TEST_JOB_ID);
+      await taggingStore.commit(TEST_JOB_ID);
 
       const txHashes = await taggingStore.getTxHashesOfPendingIndexes(secret1, 5, 10);
       expect(txHashes).toHaveLength(1);
@@ -237,13 +236,14 @@ describe('SenderTaggingStore', () => {
       const txHash3 = TxHash.random();
       const txHash4 = TxHash.random();
 
-      await storeAndCommit([{ secret: secret1, index: 3 }], txHash1);
-      await storeAndCommit([{ secret: secret1, index: 5 }], txHash2);
+      await taggingStore.storePendingIndexes([{ secret: secret1, index: 3 }], txHash1, TEST_JOB_ID);
+      await taggingStore.storePendingIndexes([{ secret: secret1, index: 5 }], txHash2, TEST_JOB_ID);
       // We store different secret with txHash1 to check we correctly don't return it in the result
-      await storeAndCommit([{ secret: secret2, index: 7 }], txHash1);
+      await taggingStore.storePendingIndexes([{ secret: secret2, index: 7 }], txHash1, TEST_JOB_ID);
       // Store "parallel" index for secret1 with a different tx (can happen when sending logs from multiple PXEs)
-      await storeAndCommit([{ secret: secret1, index: 7 }], txHash3);
-      await storeAndCommit([{ secret: secret1, index: 7 }], txHash4);
+      await taggingStore.storePendingIndexes([{ secret: secret1, index: 7 }], txHash3, TEST_JOB_ID);
+      await taggingStore.storePendingIndexes([{ secret: secret1, index: 7 }], txHash4, TEST_JOB_ID);
+      await taggingStore.commit(TEST_JOB_ID);
 
       const txHashes = await taggingStore.getTxHashesOfPendingIndexes(secret1, 0, 10);
       // Should have 3 unique tx hashes for secret1
@@ -259,8 +259,9 @@ describe('SenderTaggingStore', () => {
 
     it('returns the last finalized index after finalizePendingIndexes', async () => {
       const txHash = TxHash.random();
-      await storeAndCommit([{ secret: secret1, index: 5 }], txHash);
-      await finalizeAndCommit([txHash]);
+      await taggingStore.storePendingIndexes([{ secret: secret1, index: 5 }], txHash, TEST_JOB_ID);
+      await taggingStore.finalizePendingIndexes([txHash], TEST_JOB_ID);
+      await taggingStore.commit(TEST_JOB_ID);
 
       const lastFinalized = await taggingStore.getLastFinalizedIndex(secret1);
       expect(lastFinalized).toBe(5);
@@ -275,8 +276,9 @@ describe('SenderTaggingStore', () => {
 
     it('returns the last finalized index when no pending indexes exist', async () => {
       const txHash = TxHash.random();
-      await storeAndCommit([{ secret: secret1, index: 5 }], txHash);
-      await finalizeAndCommit([txHash]);
+      await taggingStore.storePendingIndexes([{ secret: secret1, index: 5 }], txHash, TEST_JOB_ID);
+      await taggingStore.finalizePendingIndexes([txHash], TEST_JOB_ID);
+      await taggingStore.commit(TEST_JOB_ID);
 
       const lastUsed = await taggingStore.getLastUsedIndex(secret1);
       expect(lastUsed).toBe(5);
@@ -287,11 +289,13 @@ describe('SenderTaggingStore', () => {
       const txHash2 = TxHash.random();
 
       // First, finalize an index
-      await storeAndCommit([{ secret: secret1, index: 3 }], txHash1);
-      await finalizeAndCommit([txHash1]);
+      await taggingStore.storePendingIndexes([{ secret: secret1, index: 3 }], txHash1, TEST_JOB_ID);
+      await taggingStore.finalizePendingIndexes([txHash1], TEST_JOB_ID);
+      await taggingStore.commit(TEST_JOB_ID);
 
       // Then add a higher pending index
-      await storeAndCommit([{ secret: secret1, index: 7 }], txHash2);
+      await taggingStore.storePendingIndexes([{ secret: secret1, index: 7 }], txHash2, TEST_JOB_ID);
+      await taggingStore.commit(TEST_JOB_ID);
 
       const lastUsed = await taggingStore.getLastUsedIndex(secret1);
       expect(lastUsed).toBe(7);
@@ -302,9 +306,10 @@ describe('SenderTaggingStore', () => {
       const txHash2 = TxHash.random();
       const txHash3 = TxHash.random();
 
-      await storeAndCommit([{ secret: secret1, index: 3 }], txHash1);
-      await storeAndCommit([{ secret: secret1, index: 7 }], txHash2);
-      await storeAndCommit([{ secret: secret1, index: 5 }], txHash3);
+      await taggingStore.storePendingIndexes([{ secret: secret1, index: 3 }], txHash1, TEST_JOB_ID);
+      await taggingStore.storePendingIndexes([{ secret: secret1, index: 7 }], txHash2, TEST_JOB_ID);
+      await taggingStore.storePendingIndexes([{ secret: secret1, index: 5 }], txHash3, TEST_JOB_ID);
+      await taggingStore.commit(TEST_JOB_ID);
 
       const lastUsed = await taggingStore.getLastUsedIndex(secret1);
       expect(lastUsed).toBe(7);
@@ -316,11 +321,11 @@ describe('SenderTaggingStore', () => {
       const txHash1 = TxHash.random();
       const txHash2 = TxHash.random();
 
-      await storeAndCommit([{ secret: secret1, index: 3 }], txHash1);
-      await storeAndCommit([{ secret: secret2, index: 5 }], txHash1);
-      await storeAndCommit([{ secret: secret1, index: 7 }], txHash2);
-
-      await dropAndCommit([txHash1]);
+      await taggingStore.storePendingIndexes([{ secret: secret1, index: 3 }], txHash1, TEST_JOB_ID);
+      await taggingStore.storePendingIndexes([{ secret: secret2, index: 5 }], txHash1, TEST_JOB_ID);
+      await taggingStore.storePendingIndexes([{ secret: secret1, index: 7 }], txHash2, TEST_JOB_ID);
+      await taggingStore.dropPendingIndexes([txHash1], TEST_JOB_ID);
+      await taggingStore.commit(TEST_JOB_ID);
 
       // txHash1 should be removed
       const txHashes1 = await taggingStore.getTxHashesOfPendingIndexes(secret1, 0, 10);
@@ -336,9 +341,9 @@ describe('SenderTaggingStore', () => {
   describe('finalizePendingIndexes', () => {
     it('moves pending index to finalized for a given tx hash', async () => {
       const txHash = TxHash.random();
-      await storeAndCommit([{ secret: secret1, index: 5 }], txHash);
-
-      await finalizeAndCommit([txHash]);
+      await taggingStore.storePendingIndexes([{ secret: secret1, index: 5 }], txHash, TEST_JOB_ID);
+      await taggingStore.finalizePendingIndexes([txHash], TEST_JOB_ID);
+      await taggingStore.commit(TEST_JOB_ID);
 
       const lastFinalized = await taggingStore.getLastFinalizedIndex(secret1);
       expect(lastFinalized).toBe(5);
@@ -352,11 +357,13 @@ describe('SenderTaggingStore', () => {
       const txHash1 = TxHash.random();
       const txHash2 = TxHash.random();
 
-      await storeAndCommit([{ secret: secret1, index: 3 }], txHash1);
-      await finalizeAndCommit([txHash1]);
+      await taggingStore.storePendingIndexes([{ secret: secret1, index: 3 }], txHash1, TEST_JOB_ID);
+      await taggingStore.finalizePendingIndexes([txHash1], TEST_JOB_ID);
+      await taggingStore.commit(TEST_JOB_ID);
 
-      await storeAndCommit([{ secret: secret1, index: 7 }], txHash2);
-      await finalizeAndCommit([txHash2]);
+      await taggingStore.storePendingIndexes([{ secret: secret1, index: 7 }], txHash2, TEST_JOB_ID);
+      await taggingStore.finalizePendingIndexes([txHash2], TEST_JOB_ID);
+      await taggingStore.commit(TEST_JOB_ID);
 
       const lastFinalized = await taggingStore.getLastFinalizedIndex(secret1);
       expect(lastFinalized).toBe(7);
@@ -367,14 +374,15 @@ describe('SenderTaggingStore', () => {
       const txHash2 = TxHash.random();
 
       // Store both pending indexes first
-      await storeAndCommit([{ secret: secret1, index: 7 }], txHash1);
-      await storeAndCommit([{ secret: secret1, index: 3 }], txHash2);
+      await taggingStore.storePendingIndexes([{ secret: secret1, index: 7 }], txHash1, TEST_JOB_ID);
+      await taggingStore.storePendingIndexes([{ secret: secret1, index: 3 }], txHash2, TEST_JOB_ID);
 
       // Finalize the higher index first
-      await finalizeAndCommit([txHash1]);
+      await taggingStore.finalizePendingIndexes([txHash1], TEST_JOB_ID);
 
       // Then try to finalize the lower index
-      await finalizeAndCommit([txHash2]);
+      await taggingStore.finalizePendingIndexes([txHash2], TEST_JOB_ID);
+      await taggingStore.commit(TEST_JOB_ID);
 
       const lastFinalized = await taggingStore.getLastFinalizedIndex(secret1);
       expect(lastFinalized).toBe(7); // Should remain at 7
@@ -385,12 +393,13 @@ describe('SenderTaggingStore', () => {
       const txHash2 = TxHash.random();
       const txHash3 = TxHash.random();
 
-      await storeAndCommit([{ secret: secret1, index: 3 }], txHash1);
-      await storeAndCommit([{ secret: secret1, index: 5 }], txHash2);
-      await storeAndCommit([{ secret: secret1, index: 7 }], txHash3);
+      await taggingStore.storePendingIndexes([{ secret: secret1, index: 3 }], txHash1, TEST_JOB_ID);
+      await taggingStore.storePendingIndexes([{ secret: secret1, index: 5 }], txHash2, TEST_JOB_ID);
+      await taggingStore.storePendingIndexes([{ secret: secret1, index: 7 }], txHash3, TEST_JOB_ID);
 
       // Finalize txHash2 (index 5)
-      await finalizeAndCommit([txHash2]);
+      await taggingStore.finalizePendingIndexes([txHash2], TEST_JOB_ID);
+      await taggingStore.commit(TEST_JOB_ID);
 
       // txHash1 (index 3) should be pruned as it's lower than finalized
       // txHash3 (index 7) should remain
@@ -401,15 +410,16 @@ describe('SenderTaggingStore', () => {
 
     it('handles multiple secrets in the same tx', async () => {
       const txHash = TxHash.random();
-      await storeAndCommit(
+      await taggingStore.storePendingIndexes(
         [
           { secret: secret1, index: 3 },
           { secret: secret2, index: 7 },
         ],
         txHash,
+        TEST_JOB_ID,
       );
-
-      await finalizeAndCommit([txHash]);
+      await taggingStore.finalizePendingIndexes([txHash], TEST_JOB_ID);
+      await taggingStore.commit(TEST_JOB_ID);
 
       const lastFinalized1 = await taggingStore.getLastFinalizedIndex(secret1);
       const lastFinalized2 = await taggingStore.getLastFinalizedIndex(secret2);
@@ -420,9 +430,9 @@ describe('SenderTaggingStore', () => {
 
     it('does nothing when tx hash does not exist', async () => {
       const txHash = TxHash.random();
-      await storeAndCommit([{ secret: secret1, index: 3 }], txHash);
-
-      await finalizeAndCommit([TxHash.random()]);
+      await taggingStore.storePendingIndexes([{ secret: secret1, index: 3 }], txHash, TEST_JOB_ID);
+      await taggingStore.finalizePendingIndexes([TxHash.random()], TEST_JOB_ID);
+      await taggingStore.commit(TEST_JOB_ID);
 
       // Original pending index should still be there
       const txHashes = await taggingStore.getTxHashesOfPendingIndexes(secret1, 0, 10);
@@ -440,22 +450,26 @@ describe('SenderTaggingStore', () => {
       const txHash2 = TxHash.random();
 
       // Step 1: Add pending index
-      await storeAndCommit([{ secret: secret1, index: 3 }], txHash1);
+      await taggingStore.storePendingIndexes([{ secret: secret1, index: 3 }], txHash1, TEST_JOB_ID);
+      await taggingStore.commit(TEST_JOB_ID);
       expect(await taggingStore.getLastUsedIndex(secret1)).toBe(3);
       expect(await taggingStore.getLastFinalizedIndex(secret1)).toBeUndefined();
 
       // Step 2: Finalize the index
-      await finalizeAndCommit([txHash1]);
+      await taggingStore.finalizePendingIndexes([txHash1], TEST_JOB_ID);
+      await taggingStore.commit(TEST_JOB_ID);
       expect(await taggingStore.getLastUsedIndex(secret1)).toBe(3);
       expect(await taggingStore.getLastFinalizedIndex(secret1)).toBe(3);
 
       // Step 3: Add a new higher pending index
-      await storeAndCommit([{ secret: secret1, index: 7 }], txHash2);
+      await taggingStore.storePendingIndexes([{ secret: secret1, index: 7 }], txHash2, TEST_JOB_ID);
+      await taggingStore.commit(TEST_JOB_ID);
       expect(await taggingStore.getLastUsedIndex(secret1)).toBe(7);
       expect(await taggingStore.getLastFinalizedIndex(secret1)).toBe(3);
 
       // Step 4: Finalize the new index
-      await finalizeAndCommit([txHash2]);
+      await taggingStore.finalizePendingIndexes([txHash2], TEST_JOB_ID);
+      await taggingStore.commit(TEST_JOB_ID);
       expect(await taggingStore.getLastUsedIndex(secret1)).toBe(7);
       expect(await taggingStore.getLastFinalizedIndex(secret1)).toBe(7);
     });
@@ -464,13 +478,15 @@ describe('SenderTaggingStore', () => {
       const txHash1 = TxHash.random();
       const txHash2 = TxHash.random();
 
-      await storeAndCommit([{ secret: secret1, index: 3 }], txHash1);
-      await storeAndCommit([{ secret: secret1, index: 5 }], txHash2);
+      await taggingStore.storePendingIndexes([{ secret: secret1, index: 3 }], txHash1, TEST_JOB_ID);
+      await taggingStore.storePendingIndexes([{ secret: secret1, index: 5 }], txHash2, TEST_JOB_ID);
+      await taggingStore.commit(TEST_JOB_ID);
 
       expect(await taggingStore.getLastUsedIndex(secret1)).toBe(5);
 
       // Drop txHash2
-      await dropAndCommit([txHash2]);
+      await taggingStore.dropPendingIndexes([txHash2], TEST_JOB_ID);
+      await taggingStore.commit(TEST_JOB_ID);
 
       expect(await taggingStore.getLastUsedIndex(secret1)).toBe(3);
     });
@@ -481,14 +497,15 @@ describe('SenderTaggingStore', () => {
       const txHash3 = TxHash.random();
 
       // Secret1: pending -> finalized
-      await storeAndCommit([{ secret: secret1, index: 3 }], txHash1);
-      await finalizeAndCommit([txHash1]);
+      await taggingStore.storePendingIndexes([{ secret: secret1, index: 3 }], txHash1, TEST_JOB_ID);
+      await taggingStore.finalizePendingIndexes([txHash1], TEST_JOB_ID);
 
       // Secret2: pending (not finalized)
-      await storeAndCommit([{ secret: secret2, index: 5 }], txHash2);
+      await taggingStore.storePendingIndexes([{ secret: secret2, index: 5 }], txHash2, TEST_JOB_ID);
 
       // Secret1: new pending
-      await storeAndCommit([{ secret: secret1, index: 7 }], txHash3);
+      await taggingStore.storePendingIndexes([{ secret: secret1, index: 7 }], txHash3, TEST_JOB_ID);
+      await taggingStore.commit(TEST_JOB_ID);
 
       expect(await taggingStore.getLastFinalizedIndex(secret1)).toBe(3);
       expect(await taggingStore.getLastUsedIndex(secret1)).toBe(7);
