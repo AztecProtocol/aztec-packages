@@ -12,30 +12,17 @@ export class TxProviderInstrumentation {
   constructor(client: TelemetryClient, name: string) {
     const meter = client.getMeter(name);
 
-    this.txFromProposalCount = meter.createUpDownCounter(Metrics.TX_PROVIDER_TXS_FROM_PROPOSALS_COUNT, {
-      description: 'The number of txs taken from block proposals',
-    });
+    this.txFromProposalCount = meter.createUpDownCounter(Metrics.TX_PROVIDER_TXS_FROM_PROPOSALS_COUNT);
 
-    this.txFromMempoolCount = meter.createUpDownCounter(Metrics.TX_PROVIDER_TXS_FROM_MEMPOOL_COUNT, {
-      description: 'The number of txs taken from the local mempool',
-    });
+    this.txFromMempoolCount = meter.createUpDownCounter(Metrics.TX_PROVIDER_TXS_FROM_MEMPOOL_COUNT);
 
-    this.txFromP2PCount = meter.createUpDownCounter(Metrics.TX_PROVIDER_TXS_FROM_P2P_COUNT, {
-      description: 'The number of txs taken from the p2p network',
-    });
+    this.txFromP2PCount = meter.createUpDownCounter(Metrics.TX_PROVIDER_TXS_FROM_P2P_COUNT);
 
-    this.missingTxsCount = meter.createUpDownCounter(Metrics.TX_PROVIDER_MISSING_TXS_COUNT, {
-      description: 'The number of txs not found anywhere',
-    });
+    this.missingTxsCount = meter.createUpDownCounter(Metrics.TX_PROVIDER_MISSING_TXS_COUNT);
 
-    this.fractionOfTxsRequestedFromP2P = meter.createHistogram(Metrics.TX_PROVIDER_P2P_TXS_REQUESTED_FRACTION, {
-      description: 'The fraction of transaction requested from peers',
-    });
+    this.fractionOfTxsRequestedFromP2P = meter.createHistogram(Metrics.TX_PROVIDER_P2P_TXS_REQUESTED_FRACTION);
 
-    this.txsRequestDelay = meter.createHistogram(Metrics.TX_PROVIDER_P2P_TXS_REQUEST_DELAY, {
-      unit: 'ms',
-      description: 'The time it took to request missing transactions from p2p',
-    });
+    this.txsRequestDelay = meter.createHistogram(Metrics.TX_PROVIDER_P2P_TXS_REQUEST_DELAY);
   }
 
   incTxsFromProposals(count: number) {

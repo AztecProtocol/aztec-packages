@@ -4,7 +4,7 @@ import { type Chain, type FallbackTransport, type Hex, type HttpTransport, type 
 
 import { L1_SENDER } from './attributes.js';
 import { L1_BALANCE_ETH, L1_BLOB_BASE_FEE_WEI, L1_BLOCK_HEIGHT, L1_GAS_PRICE_WEI } from './metrics.js';
-import { type BatchObservableResult, type Meter, type ObservableGauge, ValueType } from './telemetry.js';
+import type { BatchObservableResult, Meter, ObservableGauge } from './telemetry.js';
 
 export class L1Metrics {
   private l1BlockHeight: ObservableGauge;
@@ -18,25 +18,10 @@ export class L1Metrics {
     private client: PublicClient<FallbackTransport<HttpTransport[]>, Chain>,
     addresses: EthAddress[],
   ) {
-    this.l1BlockHeight = meter.createObservableGauge(L1_BLOCK_HEIGHT, {
-      description: 'The latest L1 block seen',
-      valueType: ValueType.INT,
-    });
-    this.l1BalanceEth = meter.createObservableGauge(L1_BALANCE_ETH, {
-      description: 'Eth balance of an address',
-      unit: 'eth',
-      valueType: ValueType.DOUBLE,
-    });
-    this.gasPriceWei = meter.createObservableGauge(L1_GAS_PRICE_WEI, {
-      description: 'L1 gas price',
-      unit: 'wei',
-      valueType: ValueType.DOUBLE,
-    });
-    this.blobBaseFeeWei = meter.createObservableGauge(L1_BLOB_BASE_FEE_WEI, {
-      description: 'L1 blob fee',
-      unit: 'wei',
-      valueType: ValueType.DOUBLE,
-    });
+    this.l1BlockHeight = meter.createObservableGauge(L1_BLOCK_HEIGHT);
+    this.l1BalanceEth = meter.createObservableGauge(L1_BALANCE_ETH);
+    this.gasPriceWei = meter.createObservableGauge(L1_GAS_PRICE_WEI);
+    this.blobBaseFeeWei = meter.createObservableGauge(L1_BLOB_BASE_FEE_WEI);
 
     this.addresses = addresses.map(addr => addr.toString());
   }

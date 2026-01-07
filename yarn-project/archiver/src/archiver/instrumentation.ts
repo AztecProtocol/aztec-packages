@@ -10,7 +10,6 @@ import {
   type TelemetryClient,
   type Tracer,
   type UpDownCounter,
-  ValueType,
 } from '@aztec/telemetry-client';
 
 export class ArchiverInstrumentation {
@@ -45,81 +44,33 @@ export class ArchiverInstrumentation {
     this.tracer = telemetry.getTracer('Archiver');
     const meter = telemetry.getMeter('Archiver');
 
-    this.blockHeight = meter.createGauge(Metrics.ARCHIVER_BLOCK_HEIGHT, {
-      description: 'The height of the latest block processed by the archiver',
-      valueType: ValueType.INT,
-    });
+    this.blockHeight = meter.createGauge(Metrics.ARCHIVER_BLOCK_HEIGHT);
 
-    this.l1BlockHeight = meter.createGauge(Metrics.ARCHIVER_L1_BLOCK_HEIGHT, {
-      description: 'The height of the latest L1 block processed by the archiver',
-      valueType: ValueType.INT,
-    });
+    this.l1BlockHeight = meter.createGauge(Metrics.ARCHIVER_L1_BLOCK_HEIGHT);
 
-    this.txCount = meter.createUpDownCounter(Metrics.ARCHIVER_TOTAL_TXS, {
-      description: 'The total number of transactions',
-      valueType: ValueType.INT,
-    });
+    this.txCount = meter.createUpDownCounter(Metrics.ARCHIVER_TOTAL_TXS);
 
-    this.proofsSubmittedCount = meter.createUpDownCounter(Metrics.ARCHIVER_ROLLUP_PROOF_COUNT, {
-      description: 'Number of proofs submitted',
-      valueType: ValueType.INT,
-    });
+    this.proofsSubmittedCount = meter.createUpDownCounter(Metrics.ARCHIVER_ROLLUP_PROOF_COUNT);
 
-    this.proofsSubmittedDelay = meter.createHistogram(Metrics.ARCHIVER_ROLLUP_PROOF_DELAY, {
-      unit: 'ms',
-      description: 'Time after a block is submitted until its proof is published',
-      valueType: ValueType.INT,
-    });
+    this.proofsSubmittedDelay = meter.createHistogram(Metrics.ARCHIVER_ROLLUP_PROOF_DELAY);
 
-    this.syncDurationPerBlock = meter.createHistogram(Metrics.ARCHIVER_SYNC_PER_BLOCK, {
-      unit: 'ms',
-      description: 'Duration to sync a block',
-      valueType: ValueType.INT,
-    });
+    this.syncDurationPerBlock = meter.createHistogram(Metrics.ARCHIVER_SYNC_PER_BLOCK);
 
-    this.syncBlockCount = meter.createUpDownCounter(Metrics.ARCHIVER_SYNC_BLOCK_COUNT, {
-      description: 'Number of blocks synced from L1',
-      valueType: ValueType.INT,
-    });
+    this.syncBlockCount = meter.createUpDownCounter(Metrics.ARCHIVER_SYNC_BLOCK_COUNT);
 
-    this.manaPerBlock = meter.createHistogram(Metrics.ARCHIVER_MANA_PER_BLOCK, {
-      description: 'The mana consumed by blocks',
-      valueType: ValueType.DOUBLE,
-      unit: 'Mmana',
-    });
+    this.manaPerBlock = meter.createHistogram(Metrics.ARCHIVER_MANA_PER_BLOCK);
 
-    this.txsPerBlock = meter.createHistogram(Metrics.ARCHIVER_TXS_PER_BLOCK, {
-      description: 'The block tx count',
-      valueType: ValueType.INT,
-      unit: 'tx',
-    });
+    this.txsPerBlock = meter.createHistogram(Metrics.ARCHIVER_TXS_PER_BLOCK);
 
-    this.syncDurationPerMessage = meter.createHistogram(Metrics.ARCHIVER_SYNC_PER_MESSAGE, {
-      unit: 'ms',
-      description: 'Duration to sync a message',
-      valueType: ValueType.INT,
-    });
+    this.syncDurationPerMessage = meter.createHistogram(Metrics.ARCHIVER_SYNC_PER_MESSAGE);
 
-    this.syncMessageCount = meter.createUpDownCounter(Metrics.ARCHIVER_SYNC_MESSAGE_COUNT, {
-      description: 'Number of L1 to L2 messages synced',
-      valueType: ValueType.INT,
-    });
+    this.syncMessageCount = meter.createUpDownCounter(Metrics.ARCHIVER_SYNC_MESSAGE_COUNT);
 
-    this.pruneDuration = meter.createHistogram(Metrics.ARCHIVER_PRUNE_DURATION, {
-      unit: 'ms',
-      description: 'Duration to sync a message',
-      valueType: ValueType.INT,
-    });
+    this.pruneDuration = meter.createHistogram(Metrics.ARCHIVER_PRUNE_DURATION);
 
-    this.pruneCount = meter.createUpDownCounter(Metrics.ARCHIVER_PRUNE_COUNT, {
-      description: 'Number of prunes detected',
-      valueType: ValueType.INT,
-    });
+    this.pruneCount = meter.createUpDownCounter(Metrics.ARCHIVER_PRUNE_COUNT);
 
-    this.blockProposalTxTargetCount = meter.createUpDownCounter(Metrics.ARCHIVER_BLOCK_PROPOSAL_TX_TARGET_COUNT, {
-      description: 'Number of block proposals by tx target',
-      valueType: ValueType.INT,
-    });
+    this.blockProposalTxTargetCount = meter.createUpDownCounter(Metrics.ARCHIVER_BLOCK_PROPOSAL_TX_TARGET_COUNT);
 
     this.dbMetrics = new LmdbMetrics(
       meter,
