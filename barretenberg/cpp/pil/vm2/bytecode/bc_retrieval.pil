@@ -97,7 +97,7 @@ pol commit remaining_bytecodes_inv;
 #[NO_REMAINING_BYTECODES]
 sel * (REMAINING_BYTECODES * (no_remaining_bytecodes * (1 - remaining_bytecodes_inv) + remaining_bytecodes_inv) - 1 + no_remaining_bytecodes) = 0;
 
-pol commit is_new_class; // @boolean (by lookup)
+pol commit is_new_class; // @boolean (by lookup into retrieved_bytecodes_tree_check when instance_exists == 1; constrained to 0 when instance_exists == 0)
 
 #[IS_NEW_CLASS_CHECK]
 instance_exists {
@@ -111,14 +111,14 @@ instance_exists {
 };
 
 // Enforce is_new_class == 0 if the instance does not exist.
-sel * (1 - instance_exists) * is_new_class = 0;
+(1 - instance_exists) * is_new_class = 0;
 
 pol TOO_MANY_BYTECODES = no_remaining_bytecodes * is_new_class;
 
 // We error if instance doesn't exist or if we have too many bytecodes.
 sel * (instance_exists * (1 - TOO_MANY_BYTECODES) - (1 - error)) = 0;
 
-pol commit should_retrieve; // @boolean (by definition)
+pol commit should_retrieve; // @boolean (by definition; sel gating enforces zero on non-active rows)
 should_retrieve = sel * (1 - error);
 
 // Observe the following also connects the current_class_id of the instance to the class members.

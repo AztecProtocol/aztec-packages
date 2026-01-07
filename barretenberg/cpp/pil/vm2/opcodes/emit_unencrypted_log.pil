@@ -65,7 +65,8 @@ include "../constants_gen.pil";
  */
 namespace emit_unencrypted_log;
 
-    pol commit sel; // @boolean (by definition, used as main gadget selector)
+    pol commit sel; // @boolean
+    sel * (1 - sel) = 0;
 
     #[skippable_if]
     sel = 0;
@@ -78,9 +79,9 @@ namespace emit_unencrypted_log;
     pol commit contract_address;
     pol commit prev_num_unencrypted_log_fields;
     pol commit next_num_unencrypted_log_fields;
-    pol commit is_static; // @boolean (from execution context)
-    pol commit error; // @boolean
-    pol commit discard; // @boolean (from execution)
+    pol commit is_static; // @boolean (when start == 1, which is the destination selector of lookup from execution)
+    pol commit error; // @boolean (when start == 1, which is the destination selector of lookup from execution)
+    pol commit discard; // @boolean (when start == 1, which is the destination selector of lookup from execution)
     error * (1 - error) = 0;
 
     // =============== LIFECYCLE ===============
@@ -120,7 +121,7 @@ namespace emit_unencrypted_log;
     // =============== ERROR HANDLING ===============
     // Memory bounds check
 
-    pol commit error_out_of_bounds; // @boolean (by lookup) Constrained to be boolean by the lookup into gt. (provided that start == 1).
+    pol commit error_out_of_bounds; // @boolean (by lookup into gt when start == 1)
 
     // TODO: Column needed until we support constants in lookups
     pol commit max_mem_size;
@@ -140,7 +141,7 @@ namespace emit_unencrypted_log;
 
     // Log fields count check
 
-    pol commit error_too_many_log_fields; // @boolean (by lookup) Constrained to be boolean by the lookup into gt. (provided that start == 1).
+    pol commit error_too_many_log_fields; // @boolean (unconditionally via explicit constraint; also by lookup into gt when start == 1)
     error_too_many_log_fields * (1 - error_too_many_log_fields) = 0;
 
     pol TOTAL_LOG_FIELDS_SIZE = constants.PUBLIC_LOG_HEADER_LENGTH + log_size;
@@ -188,7 +189,7 @@ namespace emit_unencrypted_log;
 
     // error = error_out_of_bounds | error_too_many_logs | error_tag_mismatch | is_static
     // we split the above computation in 2 to reduce the degree of the full relation
-    pol commit error_too_many_logs_wrong_tag_is_static; // @boolean (by definition)
+    pol commit error_too_many_logs_wrong_tag_is_static; // @boolean (by definition, when start == 1)
     start * ((1 - error_too_many_log_fields) * (1 - error_tag_mismatch) * (1 - is_static) - (1 - error_too_many_logs_wrong_tag_is_static)) = 0;
     start * ((1 - error_out_of_bounds) * (1 - error_too_many_logs_wrong_tag_is_static) - (1 - error)) = 0;
 

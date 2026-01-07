@@ -44,7 +44,7 @@ namespace execution; // this is a virtual gadget that shares rows with the execu
     pol commit sel_write_nullifier; // @boolean (by definition)
     // Validation errors if we've reached the max nullifiers or if we're in a static context
     #[VALIDATION_ERROR_DISABLE_WRITE]
-    sel_execute_emit_nullifier * ((1 - sel_reached_max_nullifiers) * (1 - is_static) - sel_write_nullifier) = 0;
+    sel_write_nullifier = sel_execute_emit_nullifier * (1 - sel_reached_max_nullifiers) * (1 - is_static);
 
     // A validation error must cause an "opcode error".
     //     if sel_write_nullifier == 0, sel_opcode_error must be 1

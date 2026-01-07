@@ -113,10 +113,10 @@ namespace get_contract_instance;
 
     // Member selection helper columns
     // (from precomputed.pil's GETCONTRACTINSTANCE opcode precomputed columns)
-    pol commit is_valid_member_enum; // @boolean (by lookup)
-    pol commit is_deployer; // @boolean (by lookup)
-    pol commit is_class_id; // @boolean (by lookup)
-    pol commit is_init_hash; // @boolean (by lookup)
+    pol commit is_valid_member_enum; // @boolean (by lookup when is_valid_writes_in_bounds == 1)
+    pol commit is_deployer; // @boolean (by lookup when is_valid_writes_in_bounds == 1)
+    pol commit is_class_id; // @boolean (by lookup when is_valid_writes_in_bounds == 1)
+    pol commit is_init_hash; // @boolean (by lookup when is_valid_writes_in_bounds == 1)
     // Note: member_enum is guaranteed to be 8 bits by execution (as a U8 immediate operand),
     // and the precomputed table is populated for the entire 8-bit range (256 rows).
     #[PRECOMPUTED_INFO]

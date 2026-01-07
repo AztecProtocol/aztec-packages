@@ -52,7 +52,8 @@ namespace contract_instance_retrieval;
     ////////////////////////////////////////////////////////////////////////////
     // I/O
     pol commit address; // contract address.
-    pol commit exists; // the contract instance exists (its address nullifier exists)
+    pol commit exists; // @boolean the contract instance exists (its address nullifier exists)
+    exists * (1 - exists) = 0;
 
     // address instance members.
     // See barretenberg/cpp/src/barretenberg/vm2/common/aztec_types.hpp
@@ -87,7 +88,8 @@ namespace contract_instance_retrieval;
     sel * (constants.CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS - deployer_protocol_contract_address) = 0;
 
     // Indicates if the instance belongs to a protocol contract
-    pol commit is_protocol_contract; // @boolean (by lookup)
+    pol commit is_protocol_contract; // @boolean (by lookup on active rows)
+    // TODO: review safety of is_protocol_contract being underconstrained on inactive rows
 
     // Canonical Addresses can be in the range of 1 <= address <= MAX_PROTOCOL_CONTRACTS
     pol commit max_protocol_contracts;
