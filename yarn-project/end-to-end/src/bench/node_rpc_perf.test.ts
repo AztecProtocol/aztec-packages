@@ -23,7 +23,7 @@ import { mkdir, writeFile } from 'fs/promises';
 import 'jest-extended';
 import * as path from 'path';
 
-import { setup } from './fixtures/utils.js';
+import { setup } from '../fixtures/utils.js';
 
 /** Number of iterations for fast RPC calls */
 const BENCHMARK_ITERATIONS_FAST = 20;
