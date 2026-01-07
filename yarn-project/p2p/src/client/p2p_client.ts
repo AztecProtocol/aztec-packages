@@ -781,9 +781,10 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     if (this.currentState !== P2PClientState.SYNCHING) {
       return;
     }
-    const syncedFinalizedBlock = await this.getSyncedFinalizedBlockNum();
-    const syncedProvenBlock = await this.getSyncedProvenBlockNum();
-    const syncedLatestBlock = await this.getSyncedLatestBlockNum();
+    const tips = await this.l2Tips.getL2Tips();
+    const syncedFinalizedBlock = tips.finalized.block.number;
+    const syncedProvenBlock = tips.proven.block.number;
+    const syncedLatestBlock = tips.proposed.number;
 
     if (
       syncedLatestBlock >= this.latestBlockNumberAtStart &&
