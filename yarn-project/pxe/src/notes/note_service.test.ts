@@ -92,7 +92,7 @@ describe('NoteService', () => {
     const noteDao = await NoteDao.random({ contractAddress });
 
     // Add the note to storage
-    await noteStore.addNotes([noteDao], recipient.address, 'test-job-id');
+    await noteStore.addNotes([noteDao], recipient.address, TEST_JOB_ID);
 
     // No nullifier found in merkle tree
     aztecNode.findLeavesIndexes.mockResolvedValue([undefined]);
@@ -121,7 +121,7 @@ describe('NoteService', () => {
     const noteDao = await NoteDao.random({ contractAddress });
 
     // Add the note to storage
-    await noteStore.addNotes([noteDao], recipient.address, 'test-job-id');
+    await noteStore.addNotes([noteDao], recipient.address, TEST_JOB_ID);
 
     // Mock nullifier to only exist after synced block
     aztecNode.findLeavesIndexes.mockImplementation(blockNum => {
@@ -164,7 +164,7 @@ describe('NoteService', () => {
     expect(getNotesSpy).toHaveBeenCalledTimes(1);
 
     // Verify getNotes was called with the correct contract address (and jobId for production)
-    expect(getNotesSpy).toHaveBeenCalledWith(expect.objectContaining({ contractAddress }), 'test-job-id');
+    expect(getNotesSpy).toHaveBeenCalledWith(expect.objectContaining({ contractAddress }), TEST_JOB_ID);
   });
 
   describe('deliverNote', () => {
