@@ -15,6 +15,7 @@ export class NoteService {
     private readonly noteStore: NoteStore,
     private readonly aztecNode: AztecNode,
     private readonly anchorBlockStore: AnchorBlockStore,
+    private readonly jobId?: string,
   ) {}
 
   /**
@@ -33,13 +34,16 @@ export class NoteService {
     status: NoteStatus,
     scopes?: AztecAddress[],
   ) {
-    const noteDaos = await this.noteStore.getNotes({
-      contractAddress,
-      owner,
-      storageSlot,
-      status,
-      scopes,
-    });
+    const noteDaos = await this.noteStore.getNotes(
+      {
+        contractAddress,
+        owner,
+        storageSlot,
+        status,
+        scopes,
+      },
+      this.jobId,
+    );
     return noteDaos.map(
       ({ contractAddress, owner, storageSlot, randomness, noteNonce, note, noteHash, siloedNullifier, index }) => ({
         contractAddress,
@@ -71,7 +75,7 @@ export class NoteService {
   public async syncNoteNullifiers(contractAddress: AztecAddress): Promise<void> {
     const syncedBlockNumber = (await this.anchorBlockStore.getBlockHeader()).getBlockNumber();
 
-    const contractNotes = await this.noteStore.getNotes({ contractAddress });
+    const contractNotes = await this.noteStore.getNotes({ contractAddress }, this.jobId);
 
     if (contractNotes.length === 0) {
       return;
@@ -105,7 +109,7 @@ export class NoteService {
       })
       .filter(nullifier => nullifier !== undefined) as DataInBlock<Fr>[];
 
-    await this.noteStore.applyNullifiers(foundNullifiers);
+    await this.noteStore.applyNullifiers(foundNullifiers, this.jobId);
   }
 
   public async deliverNote(
@@ -190,11 +194,11 @@ export class NoteService {
     );
 
     // The note was found by `recipient`, so we use that as the scope when storing the note.
-    await this.noteStore.addNotes([noteDao], recipient);
+    await this.noteStore.addNotes([noteDao], recipient, this.jobId);
 
     if (nullifierIndex !== undefined) {
       const { data: _, ...blockHashAndNum } = nullifierIndex;
-      await this.noteStore.applyNullifiers([{ data: siloedNullifier, ...blockHashAndNum }]);
+      await this.noteStore.applyNullifiers([{ data: siloedNullifier, ...blockHashAndNum }], this.jobId);
     }
   }
 }

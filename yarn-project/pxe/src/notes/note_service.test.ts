@@ -157,8 +157,8 @@ describe('NoteService', () => {
     // Verify applyNullifiers was called once for all accounts
     expect(getNotesSpy).toHaveBeenCalledTimes(1);
 
-    // Verify getNotes was called with the correct contract address
-    expect(getNotesSpy).toHaveBeenCalledWith(expect.objectContaining({ contractAddress }));
+    // Verify getNotes was called with the correct contract address (and no jobId for production)
+    expect(getNotesSpy).toHaveBeenCalledWith(expect.objectContaining({ contractAddress }), undefined);
   });
 
   describe('deliverNote', () => {

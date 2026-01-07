@@ -257,7 +257,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     offset: number,
     status: NoteStatus,
   ): Promise<NoteData[]> {
-    const noteService = new NoteService(this.noteStore, this.aztecNode, this.anchorBlockStore);
+    const noteService = new NoteService(this.noteStore, this.aztecNode, this.anchorBlockStore, this.jobId);
 
     const dbNotes = await noteService.getNotes(this.contractAddress, owner, storageSlot, status, this.scopes);
     return pickNotes<NoteData>(dbNotes, {
@@ -359,7 +359,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
 
     await logService.syncTaggedLogs(this.contractAddress, pendingTaggedLogArrayBaseSlot, this.scopes);
 
-    const noteService = new NoteService(this.noteStore, this.aztecNode, this.anchorBlockStore);
+    const noteService = new NoteService(this.noteStore, this.aztecNode, this.anchorBlockStore, this.jobId);
     await noteService.syncNoteNullifiers(this.contractAddress);
   }
 
@@ -393,7 +393,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       await this.capsuleStore.readCapsuleArray(contractAddress, eventValidationRequestsArrayBaseSlot, this.jobId)
     ).map(EventValidationRequest.fromFields);
 
-    const noteService = new NoteService(this.noteStore, this.aztecNode, this.anchorBlockStore);
+    const noteService = new NoteService(this.noteStore, this.aztecNode, this.anchorBlockStore, this.jobId);
     const noteDeliveries = noteValidationRequests.map(request =>
       noteService.deliverNote(
         request.contractAddress,
