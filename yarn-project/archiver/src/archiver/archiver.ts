@@ -33,7 +33,6 @@ import type { FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
   type ArchiverEmitter,
-  type CheckpointId,
   CheckpointedL2Block,
   CommitteeAttestation,
   L2Block,

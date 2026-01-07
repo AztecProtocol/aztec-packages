@@ -48,6 +48,9 @@ describe('p2p client integration status handshake', () => {
     epochCache.getEpochAndSlotInNextL1Slot.mockReturnValue({ ts: BigInt(0) });
     epochCache.getRegisteredValidators.mockResolvedValue([]);
 
+    txPool.isEmpty.mockResolvedValue(true);
+    attestationPool.isEmpty.mockResolvedValue(true);
+
     worldState.status.mockResolvedValue({
       state: mock(),
       syncSummary: {
@@ -135,6 +138,8 @@ describe('p2p client integration status handshake', () => {
       expect(handshakeSpy).toHaveBeenCalled();
     }
 
+    // Disconnect happens asynchronously after the handshake
+    await retryUntil(() => disconnectSpy.mock.calls.length > 0, 'disconnect called', 10, 0.5);
     expect(disconnectSpy).toHaveBeenCalled();
   });
 

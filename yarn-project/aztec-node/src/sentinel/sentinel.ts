@@ -90,13 +90,13 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
   public async handleBlockStreamEvent(event: L2BlockStreamEvent): Promise<void> {
     await this.l2TipsStore.handleBlockStreamEvent(event);
     if (event.type === 'chain-checkpointed') {
-      await this.handleCheckpoint(event);
+      this.handleCheckpoint(event);
     } else if (event.type === 'chain-proven') {
       await this.handleChainProven(event);
     }
   }
 
-  protected async handleCheckpoint(event: L2BlockStreamEvent) {
+  protected handleCheckpoint(event: L2BlockStreamEvent) {
     if (event.type !== 'chain-checkpointed') {
       return;
     }

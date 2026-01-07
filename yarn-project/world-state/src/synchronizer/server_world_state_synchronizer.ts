@@ -26,8 +26,6 @@ import type { L2BlockHandledStats } from '@aztec/stdlib/stats';
 import { MerkleTreeId, type MerkleTreeReadOperations, type MerkleTreeWriteOperations } from '@aztec/stdlib/trees';
 import { TraceableL2BlockStream, getTelemetryClient } from '@aztec/telemetry-client';
 
-import { check, number } from 'zod/v4';
-
 import { WorldStateInstrumentation } from '../instrumentation/instrumentation.js';
 import type { WorldStateStatusFull } from '../native/message.js';
 import type { MerkleTreeAdminDatabase } from '../world-state-db/merkle_tree_db.js';

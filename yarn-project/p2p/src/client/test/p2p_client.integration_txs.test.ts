@@ -2,6 +2,7 @@ import type { EpochCache } from '@aztec/epoch-cache';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { times } from '@aztec/foundation/collection';
 import { type Logger, createLogger } from '@aztec/foundation/log';
+import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { emptyChainConfig } from '@aztec/stdlib/config';
 import type { WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
@@ -50,6 +51,7 @@ describe('p2p client integration', () => {
     epochCache.getEpochAndSlotInNextL1Slot.mockReturnValue({ ts: BigInt(0) });
     epochCache.getRegisteredValidators.mockResolvedValue([]);
 
+    txPool.isEmpty.mockResolvedValue(true);
     txPool.hasTxs.mockResolvedValue([]);
     txPool.getAllTxs.mockImplementation(() => {
       return Promise.resolve([] as Tx[]);
@@ -58,6 +60,8 @@ describe('p2p client integration', () => {
     txPool.getTxsByHash.mockImplementation(() => {
       return Promise.resolve([] as Tx[]);
     });
+
+    attestationPool.isEmpty.mockResolvedValue(true);
 
     worldState.status.mockResolvedValue({
       state: mock(),
@@ -297,7 +301,8 @@ describe('p2p client integration', () => {
     // Even though we got a response, the proof was deemed invalid
     expect(requestedTxs).toEqual([]);
 
-    // Low tolerance error is due to the invalid proof
+    // Low tolerance error is due to the invalid proof - penalize happens asynchronously
+    await retryUntil(() => penalizePeerSpy.mock.calls.length > 0, 'penalize peer called', 20, 0.5);
     expect(penalizePeerSpy).toHaveBeenCalledWith(client2PeerId, PeerErrorSeverity.LowToleranceError);
   });
 
@@ -335,7 +340,8 @@ describe('p2p client integration', () => {
     // Even though we got a response, the proof was deemed invalid
     expect(requestedTxs).toEqual([]);
 
-    // Received wrong tx
+    // Received wrong tx - penalize happens asynchronously
+    await retryUntil(() => penalizePeerSpy.mock.calls.length > 0, 'penalize peer called', 20, 0.5);
     expect(penalizePeerSpy).toHaveBeenCalledWith(client2PeerId, PeerErrorSeverity.MidToleranceError);
   });
 });

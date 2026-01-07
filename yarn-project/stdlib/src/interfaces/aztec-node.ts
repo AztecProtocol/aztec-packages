@@ -10,7 +10,7 @@ import {
   BlockNumber,
   BlockNumberPositiveSchema,
   BlockNumberSchema,
-  CheckpointNumber,
+  CheckpointNumberPositiveSchema,
   type SlotNumber,
 } from '@aztec/foundation/branded-types';
 import type { Fr } from '@aztec/foundation/curves/bn254';
@@ -20,7 +20,6 @@ import { MembershipWitness, SiblingPath } from '@aztec/foundation/trees';
 
 import { z } from 'zod';
 
-import { CheckpointNumberPositiveSchema } from '../../../foundation/src/branded-types/block_number.js';
 import type { AztecAddress } from '../aztec-address/index.js';
 import { type BlockParameter, BlockParameterSchema } from '../block/block_parameter.js';
 import { PublishedL2Block } from '../block/checkpointed_l2_block.js';
