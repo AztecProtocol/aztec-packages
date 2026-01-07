@@ -48,6 +48,7 @@ class ContextProvider : public ContextProviderInterface {
                                                             AztecAddress msg_sender,
                                                             FF transaction_fee,
                                                             std::span<const FF> calldata,
+                                                            const FF& calldata_hash,
                                                             bool is_static,
                                                             Gas gas_limit,
                                                             Gas gas_used,
