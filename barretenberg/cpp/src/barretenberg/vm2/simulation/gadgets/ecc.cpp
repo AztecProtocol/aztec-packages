@@ -20,9 +20,9 @@ class InternalEccException : public std::runtime_error {
 // via the opcode ECADD, see the overloaded function Ecc::add (which performs the curve check)
 EmbeddedCurvePoint Ecc::add(const EmbeddedCurvePoint& p, const EmbeddedCurvePoint& q)
 {
-    // Check if points are on the curve.
-    assert(p.on_curve() && "Point p is not on the curve");
-    assert(q.on_curve() && "Point q is not on the curve");
+    // Check if points are on the curve. These will throw an unexpected exception if they fail.
+    BB_ASSERT(p.on_curve(), "Point p is not on the curve");
+    BB_ASSERT(q.on_curve(), "Point q is not on the curve");
 
     EmbeddedCurvePoint result = p + q;
     add_events.emit({ .p = p, .q = q, .result = result });
@@ -34,6 +34,7 @@ EmbeddedCurvePoint Ecc::add(const EmbeddedCurvePoint& p, const EmbeddedCurvePoin
 EmbeddedCurvePoint Ecc::scalar_mul(const EmbeddedCurvePoint& point, const FF& scalar)
 {
     // This is bad - the scalar mul circuit assumes that the point is on the curve.
+    // This will throw an unexpected exception if it fails.
     BB_ASSERT(point.on_curve(), "Point must be on the curve for scalar multiplication");
 
     auto intermediate_states = std::vector<ScalarMulIntermediateState>(254);

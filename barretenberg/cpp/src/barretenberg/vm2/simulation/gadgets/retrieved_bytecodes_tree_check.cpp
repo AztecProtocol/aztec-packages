@@ -1,5 +1,6 @@
 #include "barretenberg/vm2/simulation/gadgets/retrieved_bytecodes_tree_check.hpp"
 
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/vm2/simulation/interfaces/db.hpp"
 #include "barretenberg/vm2/simulation/lib/merkle.hpp"
 
@@ -88,7 +89,8 @@ void RetrievedBytecodesTreeCheck::insert(const FF& class_id)
             .root = write_root,
             .next_available_leaf_index = prev_snapshot.next_available_leaf_index + 1,
         };
-        assert(next_snapshot == tree.get_snapshot());
+        // This will throw an unexpected exception if it fails.
+        BB_ASSERT_EQ(next_snapshot, tree.get_snapshot(), "Next snapshot mismatch");
         append_data = RetrievedBytecodeAppendData{
             .updated_low_leaf_hash = updated_low_leaf_hash,
             .new_leaf_hash = new_leaf_hash,

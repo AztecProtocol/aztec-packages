@@ -24,8 +24,8 @@ struct IntermediateGas {
 
     Gas to_gas() const
     {
-        assert(l2_gas <= std::numeric_limits<uint32_t>::max());
-        assert(da_gas <= std::numeric_limits<uint32_t>::max());
+        BB_ASSERT_LTE(l2_gas, std::numeric_limits<uint32_t>::max(), "L2 gas out of bounds");
+        BB_ASSERT_LTE(da_gas, std::numeric_limits<uint32_t>::max(), "DA gas out of bounds");
         return Gas{ .l2_gas = static_cast<uint32_t>(l2_gas), .da_gas = static_cast<uint32_t>(da_gas) };
     }
 };

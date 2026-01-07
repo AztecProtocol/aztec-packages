@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <functional>
+#include <ostream>
 #include <string>
 #include <variant>
 
@@ -38,6 +39,13 @@ class DivisionByZero : public TaggedValueException {
     {}
 };
 
+class ValueOutOfBounds : public TaggedValueException {
+  public:
+    ValueOutOfBounds(const std::string& msg)
+        : TaggedValueException("Value out of bounds: " + msg)
+    {}
+};
+
 class CastException : public TaggedValueException {
   public:
     CastException(const std::string& msg)
@@ -55,6 +63,30 @@ enum class ValueTag {
     U128 = MEM_TAG_U128,
     MAX = U128,
 };
+
+inline std::ostream& operator<<(std::ostream& os, ValueTag tag)
+{
+    switch (tag) {
+    case ValueTag::FF:
+        return os << "FF";
+    case ValueTag::U1:
+        return os << "U1";
+    case ValueTag::U8:
+        return os << "U8";
+    case ValueTag::U16:
+        return os << "U16";
+    case ValueTag::U32:
+        return os << "U32";
+    case ValueTag::U64:
+        return os << "U64";
+    case ValueTag::U128:
+        return os << "U128";
+    default:
+        return os << "Unknown";
+    }
+
+    __builtin_unreachable();
+}
 
 template <typename T> ValueTag tag_for_type()
 {
