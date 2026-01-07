@@ -517,7 +517,6 @@ export class NoteStore implements StagedStore {
       const { data: nullifier, l2BlockNumber: blockNumber } = blockScopedNullifier;
       const nullifierKey = nullifier.toString();
 
-      // Check staging first for the note
       const noteIndex = await this.#getNoteIndexForNullifier(nullifierKey, jobId);
       if (!noteIndex) {
         const alreadyNullified = await this.#nullifiedNotesByNullifier.getAsync(nullifierKey);
@@ -527,7 +526,6 @@ export class NoteStore implements StagedStore {
         throw new Error('Nullifier not found in applyNullifiers');
       }
 
-      // Check if already staged in this job (e.g. duplicate nullifier in same call)
       if (jobStaging.nullifiedNotes.has(noteIndex)) {
         throw new Error(`Nullifier already applied in applyNullifiers`);
       }
@@ -555,7 +553,6 @@ export class NoteStore implements StagedStore {
 
   async #getNoteIndexForNullifier(nullifierKey: string, jobId?: string): Promise<string | undefined> {
     if (jobId) {
-      // Check staging for notes that might have been added in this job
       const jobStaging = this.#stagedData.get(jobId);
       if (jobStaging) {
         for (const [noteIndex, data] of jobStaging.addedNotes) {
@@ -565,13 +562,11 @@ export class NoteStore implements StagedStore {
         }
       }
     }
-    // Fall back to committed data
     return await this.#nullifierToNoteId.getAsync(nullifierKey);
   }
 
   async #getNoteBuffer(noteIndex: string, jobId?: string): Promise<Buffer | undefined> {
     if (jobId) {
-      // Check staging first
       const jobStaging = this.#stagedData.get(jobId);
       if (jobStaging?.addedNotes.has(noteIndex)) {
         return jobStaging.addedNotes.get(noteIndex)!.noteBuffer;
@@ -579,8 +574,6 @@ export class NoteStore implements StagedStore {
     }
     return await this.#notes.getAsync(noteIndex);
   }
-
-  // StagedStore implementation
 
   /**
    * Commits staged data to main storage.
@@ -593,7 +586,15 @@ export class NoteStore implements StagedStore {
       return;
     }
 
-    // First pass: ensure all required scopes exist
+    // Find notes that are both added and nullified in this job (skip active storage for these)
+    const addedThenNullified = new Set<string>();
+    for (const noteIndex of jobStaging.nullifiedNotes.keys()) {
+      if (jobStaging.addedNotes.has(noteIndex)) {
+        addedThenNullified.add(noteIndex);
+      }
+    }
+
+    // Ensure all required scopes exist
     const scopesToAdd = new Set<string>();
     for (const data of jobStaging.addedNotes.values()) {
       scopesToAdd.add(data.scope);
@@ -604,43 +605,77 @@ export class NoteStore implements StagedStore {
       }
     }
 
-    // Second pass: apply all add_note operations
+    // Add notes that aren't immediately nullified
     for (const [noteIndex, data] of jobStaging.addedNotes) {
-      await this.#notes.set(noteIndex, data.noteBuffer);
-      await this.#notesToScope.set(noteIndex, data.scope);
-      await this.#nullifierToNoteId.set(data.siloedNullifier, noteIndex);
-      await this.#notesByContractAndScope.get(data.scope)!.set(data.contractAddress, noteIndex);
-      await this.#notesByStorageSlotAndScope.get(data.scope)!.set(data.storageSlot, noteIndex);
+      if (addedThenNullified.has(noteIndex)) {
+        continue;
+      }
+      await this.#addToActiveDbIndexes(noteIndex, data);
     }
 
-    // Third pass: apply all nullify_note operations
+    // Nullify notes
     for (const [noteIndex, data] of jobStaging.nullifiedNotes) {
-      // Get scopes for the note
-      const noteScopes = await toArray(this.#notesToScope.getValuesAsync(noteIndex));
-
-      // Remove from active notes
-      await this.#notes.delete(noteIndex);
-      await this.#notesToScope.delete(noteIndex);
-
-      const scopes = await toArray(this.#scopes.keysAsync());
-      for (const scope of scopes) {
-        await this.#notesByContractAndScope.get(scope)?.deleteValue(data.contractAddress, noteIndex);
-        await this.#notesByStorageSlotAndScope.get(scope)?.deleteValue(data.storageSlot, noteIndex);
+      let noteScopes: string[];
+      if (addedThenNullified.has(noteIndex)) {
+        // Here we're nullifying a note that was added during this job,
+        // so we just read its scope and skip to indexing it as nullified
+        noteScopes = [jobStaging.addedNotes.get(noteIndex)!.scope];
+      } else {
+        // Here we're nullifying a note that was in the DB before this job,
+        // so we need to remove it from the indexes that track it as active
+        noteScopes = await toArray(this.#notesToScope.getValuesAsync(noteIndex));
+        await this.#removeFromActiveNoteDbIndexes(noteIndex, data.contractAddress, data.storageSlot, data.nullifier);
       }
 
-      // Add to nullified notes
-      for (const scope of noteScopes) {
-        await this.#nullifiedNotesToScope.set(noteIndex, scope);
-      }
-      await this.#nullifiedNotes.set(noteIndex, data.noteBuffer);
-      await this.#nullifiersByBlockNumber.set(data.blockNumber, data.nullifier);
-      await this.#nullifiedNotesByContract.set(data.contractAddress, noteIndex);
-      await this.#nullifiedNotesByStorageSlot.set(data.storageSlot, noteIndex);
-      await this.#nullifiedNotesByNullifier.set(data.nullifier, noteIndex);
-      await this.#nullifierToNoteId.delete(data.nullifier);
+      await this.#addToNullifiedDbIndexes(noteIndex, data, noteScopes);
     }
 
     this.#stagedData.delete(jobId);
+  }
+
+  /**
+   * Adds a note to active storage and scope indexes.
+   */
+  async #addToActiveDbIndexes(noteIndex: string, data: StagedAddNote): Promise<void> {
+    await this.#notes.set(noteIndex, data.noteBuffer);
+    await this.#notesToScope.set(noteIndex, data.scope);
+    await this.#nullifierToNoteId.set(data.siloedNullifier, noteIndex);
+    await this.#notesByContractAndScope.get(data.scope)!.set(data.contractAddress, noteIndex);
+    await this.#notesByStorageSlotAndScope.get(data.scope)!.set(data.storageSlot, noteIndex);
+  }
+
+  /**
+   * Removes a note from active storage and all scope indexes.
+   */
+  async #removeFromActiveNoteDbIndexes(
+    noteIndex: string,
+    contractAddress: string,
+    storageSlot: string,
+    nullifier: string,
+  ): Promise<void> {
+    await this.#notes.delete(noteIndex);
+    await this.#notesToScope.delete(noteIndex);
+    await this.#nullifierToNoteId.delete(nullifier);
+
+    const scopes = await toArray(this.#scopes.keysAsync());
+    for (const scope of scopes) {
+      await this.#notesByContractAndScope.get(scope)?.deleteValue(contractAddress, noteIndex);
+      await this.#notesByStorageSlotAndScope.get(scope)?.deleteValue(storageSlot, noteIndex);
+    }
+  }
+
+  /**
+   * Adds a note to all nullified indexes.
+   */
+  async #addToNullifiedDbIndexes(noteIndex: string, data: StagedNullifyNote, scopes: string[]): Promise<void> {
+    for (const scope of scopes) {
+      await this.#nullifiedNotesToScope.set(noteIndex, scope);
+    }
+    await this.#nullifiedNotes.set(noteIndex, data.noteBuffer);
+    await this.#nullifiersByBlockNumber.set(data.blockNumber, data.nullifier);
+    await this.#nullifiedNotesByContract.set(data.contractAddress, noteIndex);
+    await this.#nullifiedNotesByStorageSlot.set(data.storageSlot, noteIndex);
+    await this.#nullifiedNotesByNullifier.set(data.nullifier, noteIndex);
   }
 
   /**
