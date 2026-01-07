@@ -45,7 +45,7 @@ export class PrivateEventStore implements StagedStore {
   #eventLogIndex: AztecAsyncMap<string, number[]>;
   /** Map from eventCommitmentIndex to boolean indicating if log has been seen. */
   #seenLogs: AztecAsyncMap<number, boolean>;
-  /** In-memory staging: jobId -> eventCommitmentIndex -> staged data. Discarded on crash, committed on job success. */
+  /** In-memory staging: jobId -> eventCommitmentIndex -> staged data */
   #stagedEvents: Map<string, Map<number, { entry: PrivateEventEntry; key: string }>>;
 
   logger = createLogger('private_event_store');
@@ -62,7 +62,6 @@ export class PrivateEventStore implements StagedStore {
     return `${contractAddress.toString()}_${scope.toString()}_${eventSelector.toString()}`;
   }
 
-  /** Converts a PrivateEventEntry to a PackedPrivateEvent */
   #entryToEvent(entry: PrivateEventEntry, eventSelector: EventSelector): PackedPrivateEvent {
     const reader = BufferReader.asReader(entry.msgContent);
     const numFields = entry.msgContent.length / Fr.SIZE_IN_BYTES;
@@ -75,7 +74,6 @@ export class PrivateEventStore implements StagedStore {
     };
   }
 
-  /** Checks if an event entry matches the filter criteria */
   #entryMatchesFilter(entry: PrivateEventEntry, filter: PrivateEventStoreFilter): boolean {
     return (
       entry.l2BlockNumber >= filter.fromBlock &&
@@ -86,14 +84,12 @@ export class PrivateEventStore implements StagedStore {
 
   /** Checks if an event has been seen (committed or staged) */
   async #hasBeenSeen(eventCommitmentIndex: number, jobId?: string): Promise<boolean> {
-    // Check staging first (fast in-memory check)
     if (jobId) {
       const jobStaging = this.#stagedEvents.get(jobId);
       if (jobStaging?.has(eventCommitmentIndex)) {
         return true;
       }
     }
-    // Check committed
     return !!(await this.#seenLogs.getAsync(eventCommitmentIndex));
   }
 
@@ -198,8 +194,6 @@ export class PrivateEventStore implements StagedStore {
     const sortedEntries = Array.from(eventsMap.entries()).sort((a, b) => a[0] - b[0]);
     return sortedEntries.map(([_, event]) => event);
   }
-
-  // StagedStore implementation
 
   /**
    * Commits staged data to main storage.
