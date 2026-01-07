@@ -83,7 +83,7 @@ pub contract BobToken {
         self.enqueue_self._deduct_public_balance(sender, amount);
         // Add to private balance
         self.storage.private_balances.at(sender).add(amount as u128).deliver(
-            MessageDelivery.CONSTRAINED_ONCHAIN,
+            MessageDelivery.ONCHAIN_CONSTRAINED,
         );
     }
     // docs:end:public_to_private
@@ -105,11 +105,11 @@ pub contract BobToken {
         let sender = self.msg_sender().unwrap();
         // Spend sender's notes (consumes existing notes)
         self.storage.private_balances.at(sender).sub(amount as u128).deliver(
-            MessageDelivery.CONSTRAINED_ONCHAIN,
+            MessageDelivery.ONCHAIN_CONSTRAINED,
         );
         // Create new notes for recipient
         self.storage.private_balances.at(to).add(amount as u128).deliver(
-            MessageDelivery.CONSTRAINED_ONCHAIN,
+            MessageDelivery.ONCHAIN_CONSTRAINED,
         );
     }
     // docs:end:transfer_private
@@ -142,7 +142,7 @@ pub contract BobToken {
 
         // If check passes, mint tokens privately
         self.storage.private_balances.at(employee).add(amount as u128).deliver(
-            MessageDelivery.CONSTRAINED_ONCHAIN,
+            MessageDelivery.ONCHAIN_CONSTRAINED,
         );
     }
     // docs:end:mint_private
@@ -154,7 +154,7 @@ pub contract BobToken {
         let sender = self.msg_sender().unwrap();
         // Remove from private balance
         self.storage.private_balances.at(sender).sub(amount as u128).deliver(
-            MessageDelivery.CONSTRAINED_ONCHAIN,
+            MessageDelivery.ONCHAIN_CONSTRAINED,
         );
         // Enqueue public credit
         self.enqueue_self._credit_public_balance(sender, amount);

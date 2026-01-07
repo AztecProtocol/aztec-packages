@@ -174,13 +174,28 @@ impl TestBuilder {
             right_rollup.end_sponge_blob = end_sponge_blob;
         }
 
+        let start_blob_accumulator = fixture_builder.get_blob_accumulator(slot_number - 1);
+        let final_blob_challenges = fixture_builder.get_final_blob_challenges();
+        let blob_commitments = fixture_builder.get_blob_commitments(slot_number);
+
+        // Rollback the start slot number to get the last block header of the previous checkpoint.
+        fixture_builder.start_slot_number = slot_number - 1;
+        let previous_block_number = start_block_number - 1;
+        let previous_block_header = fixture_builder.get_block_header(previous_block_number);
+        // Build the archive tree to include the previous header hash.
+        let (previous_archive, previous_archive_sibling_path) =
+            fixture_builder.build_archive_tree(previous_block_number);
+        left_rollup.previous_archive = previous_archive;
+        // Update the start state of the left rollup to match the state of the previous block.
+        left_rollup.start_state = previous_block_header.state;
+
         let hints = CheckpointRootRollupHints {
-            previous_block_header: fixture_builder.get_block_header(previous_block_number),
+            previous_block_header,
             previous_archive_sibling_path,
-            start_blob_accumulator: fixture_builder.get_blob_accumulator(slot_number - 1),
-            final_blob_challenges: fixture_builder.get_final_blob_challenges(),
+            start_blob_accumulator,
+            final_blob_challenges,
             blobs_fields: pad_end(blob_fields),
-            blob_commitments: fixture_builder.get_blob_commitments(slot_number),
+            blob_commitments,
             blobs_hash: slot_number + 9325034,
         };
 
@@ -303,7 +318,7 @@ impl TestBuilder {
                 out_hash,
             },
             slot_number: left.constants.slot_number,
-            timestamp: right.end_timestamp,
+            timestamp: right.timestamp,
             coinbase: left.constants.coinbase,
             fee_recipient: left.constants.fee_recipient,
             gas_fees: left.constants.gas_fees,

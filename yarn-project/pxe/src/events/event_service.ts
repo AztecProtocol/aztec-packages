@@ -6,14 +6,14 @@ import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import type { TxHash } from '@aztec/stdlib/tx';
 
-import { AnchorBlockDataProvider } from '../storage/anchor_block_data_provider/anchor_block_data_provider.js';
-import { PrivateEventDataProvider } from '../storage/private_event_data_provider/private_event_data_provider.js';
+import { AnchorBlockStore } from '../storage/anchor_block_store/anchor_block_store.js';
+import { PrivateEventStore } from '../storage/private_event_store/private_event_store.js';
 
 export class EventService {
   constructor(
-    private readonly anchorBlockDataProvider: AnchorBlockDataProvider,
+    private readonly anchorBlockStore: AnchorBlockStore,
     private readonly aztecNode: AztecNode,
-    private readonly privateEventDataProvider: PrivateEventDataProvider,
+    private readonly privateEventStore: PrivateEventStore,
   ) {}
 
   public async deliverEvent(
@@ -29,7 +29,7 @@ export class EventService {
     // maintain consistent behavior in the PXE. Additionally, events should never be ahead of the synced block here
     // since `fetchTaggedLogs` only processes logs up to the synced block.
     const [syncedBlockHeader, siloedEventCommitment, txEffect] = await Promise.all([
-      this.anchorBlockDataProvider.getBlockHeader(),
+      this.anchorBlockStore.getBlockHeader(),
       siloNullifier(contractAddress, eventCommitment),
       this.aztecNode.getTxEffect(txHash),
     ]);
@@ -61,7 +61,7 @@ export class EventService {
       );
     }
 
-    return this.privateEventDataProvider.storePrivateEventLog(
+    return this.privateEventStore.storePrivateEventLog(
       selector,
       content,
       Number(nullifierIndex.data), // Index of the event commitment in the nullifier tree

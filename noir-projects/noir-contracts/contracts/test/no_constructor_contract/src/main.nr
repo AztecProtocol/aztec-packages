@@ -32,7 +32,7 @@ pub contract NoConstructor {
         let note = FieldNote { value };
 
         self.storage.private_mutable.at(owner).initialize(note).deliver(
-            MessageDelivery.CONSTRAINED_ONCHAIN,
+            MessageDelivery.ONCHAIN_CONSTRAINED,
         );
     }
 

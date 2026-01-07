@@ -81,12 +81,12 @@ function network_test_cmds {
   echo $prefix $run_test_script simple src/spartan/proving.test.ts
   echo $prefix $run_test_script simple src/spartan/prover-node.test.ts #needs partial epoch proved first
   echo $prefix $run_test_script simple src/spartan/invalidate_blocks.test.ts
-  # echo $prefix $run_test_script simple src/spartan/4epochs.test.ts #takes too long ~4 epochs
+  # echo $prefix $run_test_script simple src/spartan/4epochs.test.ts #runs >~4 epochs
   echo $prefix $run_test_script simple src/spartan/gating-passive.test.ts
   echo $prefix $run_test_script simple src/spartan/mempool_limit.test.ts
   echo $prefix $run_test_script simple src/spartan/upgrade_governance_proposer.test.ts
-  # echo $prefix $run_test_script simple src/spartan/reorg.test.ts #takes too long >~5 epochs
   echo $prefix $run_test_script simple src/spartan/validator_nuke_and_suppression.test.ts
+  echo $prefix $run_test_script simple src/spartan/reorg.test.ts #runs >~5 epochs
 }
 
 function single_test {
@@ -117,7 +117,7 @@ function network_tests {
 }
 
 function network_bench_cmds {
-  echo "$hash:TIMEOUT=3600 BENCH_OUTPUT=bench-out/n_tps.bench.json TPS_TARGET=0.5,1,2 TEST_DURATION=600 $root/yarn-project/end-to-end/scripts/run_test.sh simple n_tps.test.ts"
+  echo "$hash:TIMEOUT=7200 BENCH_OUTPUT=bench-out/n_tps.bench.json TPS_TARGET=0.5,1,2 TEST_DURATION=600 $root/yarn-project/end-to-end/scripts/run_test.sh simple n_tps.test.ts"
 }
 
 function network_bench {

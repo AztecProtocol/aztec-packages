@@ -1,6 +1,5 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
 import { RollupContract } from '@aztec/ethereum/contracts';
-import { EthAddress } from '@aztec/foundation/eth-address';
 import { retryUntil } from '@aztec/foundation/retry';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
 
@@ -155,7 +154,7 @@ describe('e2e_p2p_multiple_validators_sentinel', () => {
     await Promise.all([
       retryUntil(() => t.monitor.l2SlotNumber >= targetSlot, `reached slot ${targetSlot}`, timeout),
       retryUntil(
-        () => rollup.getCurrentProposer().then(p => firstNodeValidators.some(v => v.equals(EthAddress.fromString(p)))),
+        () => rollup.getCurrentProposer().then(p => firstNodeValidators.some(v => v.equals(p))),
         'proposer is first node',
         timeout,
       ),

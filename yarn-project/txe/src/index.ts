@@ -33,7 +33,7 @@ import {
   fromSingle,
   toSingle,
 } from './util/encoding.js';
-import type { ContractArtifactWithHash } from './util/txe_contract_data_provider.js';
+import type { ContractArtifactWithHash } from './util/txe_contract_store.js';
 
 const sessions = new Map<number, TXESession>();
 

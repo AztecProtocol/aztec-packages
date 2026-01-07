@@ -269,7 +269,7 @@ locals {
       )
       boot_node_host_path  = "node.node.env.BOOT_NODE_HOST"
       bootstrap_nodes_path = "node.node.env.BOOTSTRAP_NODES"
-      wait                 = true
+      wait                 = var.WAIT_FOR_PROVER_DEPLOY
     }
 
     rpc = {

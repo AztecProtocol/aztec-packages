@@ -5,6 +5,7 @@
 // =====================
 
 #include "blake2s_constraint.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/stdlib/hash/blake2s/blake2s.hpp"
 #include "barretenberg/stdlib/primitives/byte_array/byte_array.hpp"
 #include "round.hpp"
@@ -27,6 +28,7 @@ template <typename Builder> void create_blake2s_constraints(Builder& builder, co
 
         // XXX: The implementation requires us to truncate the element to the nearest byte and not bit
         auto num_bytes = round_to_nearest_byte(num_bits);
+        BB_ASSERT_LTE(num_bytes, 32U, "Input num_bytes exceeds 32 per element in blake2s");
 
         field_ct element = to_field_ct(witness_index, builder);
 

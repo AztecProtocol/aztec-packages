@@ -1,8 +1,6 @@
 #include "barretenberg/dsl/acir_format/avm2_recursion_constraint.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
-#include "barretenberg/dsl/acir_format/acir_format_mocks.hpp"
 #include "barretenberg/dsl/acir_format/gate_count_constants.hpp"
-#include "barretenberg/dsl/acir_format/proof_surgeon.hpp"
 #include "barretenberg/dsl/acir_format/test_class.hpp"
 #include "barretenberg/dsl/acir_format/utils.hpp"
 #include "barretenberg/srs/global_crs.hpp"
@@ -136,7 +134,7 @@ TEST_F(AvmRecursionConstraintTest, GateCountAndVKCheck)
     using ProverInstance = ProverInstance_<UltraRollupFlavor>;
 
     static constexpr FF EXPECTED_OUTER_VK_HASH =
-        FF("0x2b6a12d8695a0dc9a25d2a87df02dc42246be0eed271c41aab603d91901d71b7");
+        FF("0x195059523571dbadeae1b213250567e17b4994568b736b73a1aae2b0c65fd2cd");
 
     AcirConstraint constraint;
     WitnessVector witness;
@@ -167,7 +165,7 @@ class AvmRecursionInnerCircuitTests : public ::testing::Test {
     using FF = Builder::FF;
 
     static constexpr FF EXPECTED_INNER_VK_HASH =
-        FF("0x0efaaaece4a7b764beaa079f4e75156c56d2d14ea2e99f2421d0fc20c2acaa63");
+        FF("0x16e8f3172e5f14636bd7d73f695d734c326c31a78cb460d389e4555447cc69db");
 
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 

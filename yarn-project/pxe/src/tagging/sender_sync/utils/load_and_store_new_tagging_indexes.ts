@@ -4,7 +4,7 @@ import type { DirectionalAppTaggingSecret, PreTag } from '@aztec/stdlib/logs';
 import { SiloedTag, Tag } from '@aztec/stdlib/logs';
 import { TxHash } from '@aztec/stdlib/tx';
 
-import type { SenderTaggingDataProvider } from '../../../storage/tagging_data_provider/sender_tagging_data_provider.js';
+import type { SenderTaggingStore } from '../../../storage/tagging_store/sender_tagging_store.js';
 
 /**
  * Loads tagging indexes from the Aztec node and stores them in the tagging data provider.
@@ -16,7 +16,7 @@ import type { SenderTaggingDataProvider } from '../../../storage/tagging_data_pr
  * @param start - The starting index (inclusive) of the window to process.
  * @param end - The ending index (exclusive) of the window to process.
  * @param aztecNode - The Aztec node instance to query for logs.
- * @param taggingDataProvider - The data provider to store pending indexes.
+ * @param taggingStore - The data provider to store pending indexes.
  */
 export async function loadAndStoreNewTaggingIndexes(
   secret: DirectionalAppTaggingSecret,
@@ -24,7 +24,7 @@ export async function loadAndStoreNewTaggingIndexes(
   start: number,
   end: number,
   aztecNode: AztecNode,
-  taggingDataProvider: SenderTaggingDataProvider,
+  taggingStore: SenderTaggingStore,
 ) {
   // We compute the tags for the current window of indexes
   const preTagsForWindow: PreTag[] = Array(end - start)
@@ -40,7 +40,7 @@ export async function loadAndStoreNewTaggingIndexes(
   // Now we iterate over the map, reconstruct the preTags and tx hash and store them in the db.
   for (const [txHashStr, highestIndex] of highestIndexMap.entries()) {
     const txHash = TxHash.fromString(txHashStr);
-    await taggingDataProvider.storePendingIndexes([{ secret, index: highestIndex }], txHash);
+    await taggingStore.storePendingIndexes([{ secret, index: highestIndex }], txHash);
   }
 }
 

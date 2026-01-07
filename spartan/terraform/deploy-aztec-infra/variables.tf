@@ -654,3 +654,9 @@ variable "DEBUG_FORCE_TX_PROOF_VERIFICATION" {
   type        = bool
   default     = false
 }
+
+variable "WAIT_FOR_PROVER_DEPLOY" {
+  description = "Whether to wait for the prover helm installation. You might want to turn this off if a large number of prover agents should start"
+  type        = bool
+  default     = true
+}

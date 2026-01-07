@@ -59,7 +59,7 @@ import {
   generateSimulatedProvingResult,
 } from './contract_function_simulator/contract_function_simulator.js';
 import { readCurrentClassId } from './contract_function_simulator/oracle/private_execution.js';
-import { ProxiedContractDataProviderFactory } from './contract_function_simulator/proxied_contract_data_source.js';
+import { ProxiedContractStoreFactory } from './contract_function_simulator/proxied_contract_data_source.js';
 import { PXEDebugUtils } from './debug/pxe_debug_utils.js';
 import { enrichPublicSimulationError, enrichSimulationError } from './error_enriching.js';
 import { PrivateEventFilterValidator } from './events/private_event_filter_validator.js';
@@ -68,15 +68,15 @@ import {
   type PrivateKernelExecutionProverConfig,
 } from './private_kernel/private_kernel_execution_prover.js';
 import { PrivateKernelOracleImpl } from './private_kernel/private_kernel_oracle_impl.js';
-import { AddressDataProvider } from './storage/address_data_provider/address_data_provider.js';
-import { AnchorBlockDataProvider } from './storage/anchor_block_data_provider/anchor_block_data_provider.js';
-import { CapsuleDataProvider } from './storage/capsule_data_provider/capsule_data_provider.js';
-import { ContractDataProvider } from './storage/contract_data_provider/contract_data_provider.js';
-import { NoteDataProvider } from './storage/note_data_provider/note_data_provider.js';
-import { PrivateEventDataProvider } from './storage/private_event_data_provider/private_event_data_provider.js';
-import { RecipientTaggingDataProvider } from './storage/tagging_data_provider/recipient_tagging_data_provider.js';
-import { SenderAddressBook } from './storage/tagging_data_provider/sender_address_book.js';
-import { SenderTaggingDataProvider } from './storage/tagging_data_provider/sender_tagging_data_provider.js';
+import { AddressStore } from './storage/address_store/address_store.js';
+import { AnchorBlockStore } from './storage/anchor_block_store/anchor_block_store.js';
+import { CapsuleStore } from './storage/capsule_store/capsule_store.js';
+import { ContractStore } from './storage/contract_store/contract_store.js';
+import { NoteStore } from './storage/note_store/note_store.js';
+import { PrivateEventStore } from './storage/private_event_store/private_event_store.js';
+import { RecipientTaggingStore } from './storage/tagging_store/recipient_tagging_store.js';
+import { SenderAddressBookStore } from './storage/tagging_store/sender_address_book_store.js';
+import { SenderTaggingStore } from './storage/tagging_store/sender_tagging_store.js';
 
 export type PackedPrivateEvent = InTx & {
   packedEvent: Fr[];
@@ -92,15 +92,15 @@ export class PXE {
     private node: AztecNode,
     private blockStateSynchronizer: BlockSynchronizer,
     private keyStore: KeyStore,
-    private contractDataProvider: ContractDataProvider,
-    private noteDataProvider: NoteDataProvider,
-    private capsuleDataProvider: CapsuleDataProvider,
-    private anchorBlockDataProvider: AnchorBlockDataProvider,
-    private senderTaggingDataProvider: SenderTaggingDataProvider,
-    private senderAddressBook: SenderAddressBook,
-    private recipientTaggingDataProvider: RecipientTaggingDataProvider,
-    private addressDataProvider: AddressDataProvider,
-    private privateEventDataProvider: PrivateEventDataProvider,
+    private contractStore: ContractStore,
+    private noteStore: NoteStore,
+    private capsuleStore: CapsuleStore,
+    private anchorBlockStore: AnchorBlockStore,
+    private senderTaggingStore: SenderTaggingStore,
+    private senderAddressBookStore: SenderAddressBookStore,
+    private recipientTaggingStore: RecipientTaggingStore,
+    private addressStore: AddressStore,
+    private privateEventStore: PrivateEventStore,
     private simulator: CircuitSimulator,
     private proverEnabled: boolean,
     private proofCreator: PrivateKernelProver,
@@ -132,27 +132,28 @@ export class PXE {
         : loggerOrSuffix;
 
     const proverEnabled = !!config.proverEnabled;
-    const addressDataProvider = new AddressDataProvider(store);
-    const privateEventDataProvider = new PrivateEventDataProvider(store);
-    const contractDataProvider = new ContractDataProvider(store);
-    const noteDataProvider = await NoteDataProvider.create(store);
-    const anchorBlockDataProvider = new AnchorBlockDataProvider(store);
-    const senderTaggingDataProvider = new SenderTaggingDataProvider(store);
-    const senderAddressBook = new SenderAddressBook(store);
-    const recipientTaggingDataProvider = new RecipientTaggingDataProvider(store);
-    const capsuleDataProvider = new CapsuleDataProvider(store);
+    const addressStore = new AddressStore(store);
+    const privateEventStore = new PrivateEventStore(store);
+    const contractStore = new ContractStore(store);
+    const noteStore = await NoteStore.create(store);
+    const anchorBlockStore = new AnchorBlockStore(store);
+    const senderTaggingStore = new SenderTaggingStore(store);
+    const senderAddressBookStore = new SenderAddressBookStore(store);
+    const recipientTaggingStore = new RecipientTaggingStore(store);
+    const capsuleStore = new CapsuleStore(store);
     const keyStore = new KeyStore(store);
     const tipsStore = new L2TipsKVStore(store, 'pxe');
     const synchronizer = new BlockSynchronizer(
       node,
-      anchorBlockDataProvider,
-      noteDataProvider,
+      anchorBlockStore,
+      noteStore,
+      privateEventStore,
       tipsStore,
       config,
       loggerOrSuffix,
     );
 
-    const debugUtils = new PXEDebugUtils(contractDataProvider, noteDataProvider);
+    const debugUtils = new PXEDebugUtils(contractStore, noteStore);
 
     const jobQueue = new SerialQueue();
 
@@ -160,15 +161,15 @@ export class PXE {
       node,
       synchronizer,
       keyStore,
-      contractDataProvider,
-      noteDataProvider,
-      capsuleDataProvider,
-      anchorBlockDataProvider,
-      senderTaggingDataProvider,
-      senderAddressBook,
-      recipientTaggingDataProvider,
-      addressDataProvider,
-      privateEventDataProvider,
+      contractStore,
+      noteStore,
+      capsuleStore,
+      anchorBlockStore,
+      senderTaggingStore,
+      senderAddressBookStore,
+      recipientTaggingStore,
+      addressStore,
+      privateEventStore,
       simulator,
       proverEnabled,
       proofCreator,
@@ -191,23 +192,20 @@ export class PXE {
   // Internal methods
 
   #getSimulatorForTx(overrides?: { contracts?: ContractOverrides }) {
-    const proxyContractDataProvider = ProxiedContractDataProviderFactory.create(
-      this.contractDataProvider,
-      overrides?.contracts,
-    );
+    const proxyContractStore = ProxiedContractStoreFactory.create(this.contractStore, overrides?.contracts);
 
     return new ContractFunctionSimulator(
-      proxyContractDataProvider,
-      this.noteDataProvider,
+      proxyContractStore,
+      this.noteStore,
       this.keyStore,
-      this.addressDataProvider,
+      this.addressStore,
       this.node,
-      this.anchorBlockDataProvider,
-      this.senderTaggingDataProvider,
-      this.recipientTaggingDataProvider,
-      this.senderAddressBook,
-      this.capsuleDataProvider,
-      this.privateEventDataProvider,
+      this.anchorBlockStore,
+      this.senderTaggingStore,
+      this.recipientTaggingStore,
+      this.senderAddressBookStore,
+      this.capsuleStore,
+      this.privateEventStore,
       this.simulator,
     );
   }
@@ -248,8 +246,8 @@ export class PXE {
     for (const name of protocolContractNames) {
       const { address, contractClass, instance, artifact } =
         await this.protocolContractsProvider.getProtocolContractArtifact(name);
-      await this.contractDataProvider.addContractArtifact(contractClass.id, artifact);
-      await this.contractDataProvider.addContractInstance(instance);
+      await this.contractStore.addContractArtifact(contractClass.id, artifact);
+      await this.contractStore.addContractInstance(instance);
       registered[name] = address.toString();
     }
     this.log.verbose(`Registered protocol contracts in pxe`, registered);
@@ -278,7 +276,7 @@ export class PXE {
     const { origin: contractAddress, functionSelector } = txRequest;
 
     try {
-      const anchorBlockHeader = await this.anchorBlockDataProvider.getBlockHeader();
+      const anchorBlockHeader = await this.anchorBlockStore.getBlockHeader();
 
       const result = await contractFunctionSimulator.run(
         txRequest,
@@ -295,7 +293,7 @@ export class PXE {
       return result;
     } catch (err) {
       if (err instanceof SimulationError) {
-        await enrichSimulationError(err, this.contractDataProvider, this.log);
+        await enrichSimulationError(err, this.contractStore, this.log);
       }
       throw err;
     }
@@ -317,11 +315,11 @@ export class PXE {
     scopes?: AztecAddress[],
   ) {
     try {
-      const anchorBlockHeader = await this.anchorBlockDataProvider.getBlockHeader();
+      const anchorBlockHeader = await this.anchorBlockStore.getBlockHeader();
       return contractFunctionSimulator.runUtility(call, authWitnesses ?? [], anchorBlockHeader, scopes);
     } catch (err) {
       if (err instanceof SimulationError) {
-        await enrichSimulationError(err, this.contractDataProvider, this.log);
+        await enrichSimulationError(err, this.contractStore, this.log);
       }
       throw err;
     }
@@ -345,7 +343,7 @@ export class PXE {
     } catch (err) {
       if (err instanceof SimulationError) {
         try {
-          await enrichPublicSimulationError(err, this.contractDataProvider, this.log);
+          await enrichPublicSimulationError(err, this.contractStore, this.log);
         } catch (enrichErr) {
           this.log.error(`Failed to enrich public simulation error: ${enrichErr}`);
         }
@@ -373,7 +371,7 @@ export class PXE {
   ): Promise<PrivateKernelExecutionProofOutput<PrivateKernelTailCircuitPublicInputs>> {
     const simulationAnchorBlock = privateExecutionResult.getSimulationAnchorBlockNumber();
     const kernelOracle = new PrivateKernelOracleImpl(
-      this.contractDataProvider,
+      this.contractStore,
       this.keyStore,
       this.node,
       simulationAnchorBlock,
@@ -386,7 +384,7 @@ export class PXE {
   // Public API
 
   public getContractInstance(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
-    return this.contractDataProvider.getContractInstance(address);
+    return this.contractStore.getContractInstance(address);
   }
 
   /**
@@ -411,7 +409,7 @@ export class PXE {
     isContractClassPubliclyRegistered: boolean;
     artifact: ContractArtifact | undefined;
   }> {
-    const artifact = await this.contractDataProvider.getContractArtifact(id);
+    const artifact = await this.contractStore.getContractArtifact(id);
     if (!artifact) {
       this.log.warn(`No artifact found for contract class ${id.toString()} when looking for its metadata`);
     }
@@ -441,7 +439,7 @@ export class PXE {
   }> {
     let instance;
     try {
-      instance = await this.contractDataProvider.getContractInstance(address);
+      instance = await this.contractStore.getContractInstance(address);
     } catch {
       this.log.warn(`No instance found for contract ${address.toString()} when looking for its metadata`);
     }
@@ -473,8 +471,8 @@ export class PXE {
       this.log.debug(`Registered account\n ${accountCompleteAddress.toReadableString()}`);
     }
 
-    await this.addressDataProvider.addCompleteAddress(accountCompleteAddress);
-    await this.noteDataProvider.addScope(accountCompleteAddress.address);
+    await this.addressStore.addCompleteAddress(accountCompleteAddress);
+    await this.noteStore.addScope(accountCompleteAddress.address);
     return accountCompleteAddress;
   }
 
@@ -495,7 +493,7 @@ export class PXE {
       return sender;
     }
 
-    const wasAdded = await this.senderAddressBook.addSender(sender);
+    const wasAdded = await this.senderAddressBookStore.addSender(sender);
 
     if (wasAdded) {
       this.log.info(`Added sender:\n ${sender.toString()}`);
@@ -511,7 +509,7 @@ export class PXE {
    * @returns Senders registered in this PXE.
    */
   public getSenders(): Promise<AztecAddress[]> {
-    return this.senderAddressBook.getSenders();
+    return this.senderAddressBookStore.getSenders();
   }
 
   /**
@@ -519,7 +517,7 @@ export class PXE {
    * @param sender - The address of the sender to remove.
    */
   public async removeSender(sender: AztecAddress): Promise<void> {
-    const wasRemoved = await this.senderAddressBook.removeSender(sender);
+    const wasRemoved = await this.senderAddressBookStore.removeSender(sender);
 
     if (wasRemoved) {
       this.log.info(`Removed sender:\n ${sender.toString()}`);
@@ -534,7 +532,7 @@ export class PXE {
    */
   public async getRegisteredAccounts(): Promise<CompleteAddress[]> {
     // Get complete addresses of both the recipients and the accounts
-    const completeAddresses = await this.addressDataProvider.getCompleteAddresses();
+    const completeAddresses = await this.addressStore.getCompleteAddresses();
     // Filter out the addresses not corresponding to accounts
     const accounts = await this.keyStore.getAccounts();
     return completeAddresses.filter(completeAddress =>
@@ -549,7 +547,7 @@ export class PXE {
    */
   public async registerContractClass(artifact: ContractArtifact): Promise<void> {
     const { id: contractClassId } = await getContractClassFromArtifact(artifact);
-    await this.contractDataProvider.addContractArtifact(contractClassId, artifact);
+    await this.contractStore.addContractArtifact(contractClassId, artifact);
     this.log.info(`Added contract class ${artifact.name} with id ${contractClassId}`);
   }
 
@@ -578,7 +576,7 @@ export class PXE {
       if (!computedAddress.equals(instance.address)) {
         throw new Error('Added a contract in which the address does not match the contract instance.');
       }
-      await this.contractDataProvider.addContractArtifact(contractClass.id, artifact);
+      await this.contractStore.addContractArtifact(contractClass.id, artifact);
 
       const publicFunctionSignatures = artifact.functions
         .filter(fn => fn.functionType === FunctionType.PUBLIC)
@@ -586,7 +584,7 @@ export class PXE {
       await this.node.registerContractFunctionSignatures(publicFunctionSignatures);
     } else {
       // Otherwise, make sure there is an artifact already registered for that class id
-      artifact = await this.contractDataProvider.getContractArtifact(instance.currentContractClassId);
+      artifact = await this.contractStore.getContractArtifact(instance.currentContractClassId);
       if (!artifact) {
         throw new Error(
           `Artifact not found when registering an instance. Contract class: ${instance.currentContractClassId}.`,
@@ -594,7 +592,7 @@ export class PXE {
       }
     }
 
-    await this.contractDataProvider.addContractInstance(instance);
+    await this.contractStore.addContractInstance(instance);
     this.log.info(
       `Added contract ${artifact.name} at ${instance.address.toString()} with class ${instance.currentContractClassId}`,
     );
@@ -613,14 +611,14 @@ export class PXE {
     // We disable concurrently updating contracts to avoid concurrently syncing with the node, or changing a contract's
     // class while we're simulating it.
     return this.#putInJobQueue(async () => {
-      const currentInstance = await this.contractDataProvider.getContractInstance(contractAddress);
+      const currentInstance = await this.contractStore.getContractInstance(contractAddress);
       if (!currentInstance) {
         throw new Error(`Instance not found when updating a contract. Contract address: ${contractAddress}.`);
       }
       const contractClass = await getContractClassFromArtifact(artifact);
       await this.blockStateSynchronizer.sync();
 
-      const header = await this.anchorBlockDataProvider.getBlockHeader();
+      const header = await this.anchorBlockStore.getBlockHeader();
 
       const currentClassId = await readCurrentClassId(
         contractAddress,
@@ -633,7 +631,7 @@ export class PXE {
         throw new Error('Could not update contract to a class different from the current one.');
       }
 
-      await this.contractDataProvider.addContractArtifact(contractClass.id, artifact);
+      await this.contractStore.addContractArtifact(contractClass.id, artifact);
 
       const publicFunctionSignatures = artifact.functions
         .filter(fn => fn.functionType === FunctionType.PUBLIC)
@@ -641,7 +639,7 @@ export class PXE {
       await this.node.registerContractFunctionSignatures(publicFunctionSignatures);
 
       currentInstance.currentContractClassId = contractClass.id;
-      await this.contractDataProvider.addContractInstance(currentInstance);
+      await this.contractStore.addContractInstance(currentInstance);
       this.log.info(`Updated contract ${artifact.name} at ${contractAddress.toString()} to class ${contractClass.id}`);
     });
   }
@@ -651,7 +649,7 @@ export class PXE {
    * @returns An array of contracts addresses registered on this PXE.
    */
   public getContracts(): Promise<AztecAddress[]> {
-    return this.contractDataProvider.getContractsAddresses();
+    return this.contractStore.getContractsAddresses();
   }
 
   /**
@@ -721,7 +719,7 @@ export class PXE {
           // TODO(benesjan): The following is an expensive operation. Figure out a way to avoid it.
           const txHash = (await txProvingResult.toTx()).txHash;
 
-          await this.senderTaggingDataProvider.storePendingIndexes(preTagsUsedInTheTx, txHash);
+          await this.senderTaggingStore.storePendingIndexes(preTagsUsedInTheTx, txHash);
           this.log.debug(`Stored used pre-tags as sender for the tx`, {
             preTagsUsedInTheTx,
           });
@@ -891,7 +889,7 @@ export class PXE {
           ({ publicInputs, executionSteps } = await generateSimulatedProvingResult(
             privateExecutionResult,
             nonceGenerator,
-            this.contractDataProvider,
+            this.contractStore,
           ));
         } else {
           // Kernel logic, plus proving of all private functions and kernels.
@@ -1000,6 +998,11 @@ export class PXE {
         const syncTime = syncTimer.ms();
         const functionTimer = new Timer();
         const contractFunctionSimulator = this.#getSimulatorForTx();
+
+        await this.contractStore.syncPrivateState(call.to, call.selector, privateSyncCall =>
+          this.#simulateUtility(contractFunctionSimulator, privateSyncCall),
+        );
+
         const executionResult = await this.#simulateUtility(contractFunctionSimulator, call, authwits ?? [], scopes);
         const functionTime = functionTimer.ms();
 
@@ -1041,21 +1044,25 @@ export class PXE {
    *    Defaults to the latest known block to PXE + 1.
    * @returns - The packed events with block and tx metadata.
    */
-  public async getPrivateEvents(
-    eventSelector: EventSelector,
-    filter: PrivateEventFilter,
-  ): Promise<PackedPrivateEvent[]> {
-    // We need to manually trigger private state sync to have a guarantee that all the events are available.
-    const call = await this.contractDataProvider.getFunctionCall('sync_private_state', [], filter.contractAddress);
-    await this.simulateUtility(call);
+  public getPrivateEvents(eventSelector: EventSelector, filter: PrivateEventFilter): Promise<PackedPrivateEvent[]> {
+    return this.#putInJobQueue(async () => {
+      await this.blockStateSynchronizer.sync();
+      const contractFunctionSimulator = this.#getSimulatorForTx();
 
-    const sanitizedFilter = await new PrivateEventFilterValidator(this.anchorBlockDataProvider).validate(filter);
+      await this.contractStore.syncPrivateState(
+        filter.contractAddress,
+        null,
+        async privateSyncCall => await this.#simulateUtility(contractFunctionSimulator, privateSyncCall),
+      );
 
-    this.log.debug(
-      `Getting private events for ${sanitizedFilter.contractAddress.toString()} from ${sanitizedFilter.fromBlock} to ${sanitizedFilter.toBlock}`,
-    );
+      const sanitizedFilter = await new PrivateEventFilterValidator(this.anchorBlockStore).validate(filter);
 
-    return this.privateEventDataProvider.getPrivateEvents(eventSelector, sanitizedFilter);
+      this.log.debug(
+        `Getting private events for ${sanitizedFilter.contractAddress.toString()} from ${sanitizedFilter.fromBlock} to ${sanitizedFilter.toBlock}`,
+      );
+
+      return this.privateEventStore.getPrivateEvents(eventSelector, sanitizedFilter);
+    });
   }
 
   /**

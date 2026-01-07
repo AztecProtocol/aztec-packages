@@ -27,7 +27,7 @@ import type { MockProxy } from 'jest-mock-extended/lib/Mock.js';
 
 import type { PXEConfig } from './config/index.js';
 import { PXE, type PackedPrivateEvent } from './pxe.js';
-import { PrivateEventDataProvider } from './storage/private_event_data_provider/private_event_data_provider.js';
+import { PrivateEventStore } from './storage/private_event_store/private_event_store.js';
 
 describe('PXE', () => {
   let pxe: PXE;
@@ -155,14 +155,14 @@ describe('PXE', () => {
   // These tests are meant to quickly exercise PXE as a
   // frontier API so we don't need to rely on slower E2E
   // tests (which in turn are more meaningful for acceptance).
-  // For finer grained tests check out storage/private_event_data_provider.test.ts
+  // For finer grained tests check out storage/private_event_store.test.ts
   describe('getPrivateEvents', () => {
     let contractAddress: AztecAddress;
     let eventSelector: EventSelector;
     let lastKnownBlockNumber: BlockNumber;
     let l2BlockHash: L2BlockHash;
     let scope: AztecAddress;
-    let privateEventDataProvider: PrivateEventDataProvider;
+    let privateEventStore: PrivateEventStore;
     let eventIndex = 0;
 
     beforeEach(async () => {
@@ -211,7 +211,7 @@ describe('PXE', () => {
 
       scope = await AztecAddress.random();
 
-      privateEventDataProvider = new PrivateEventDataProvider(kvStore);
+      privateEventStore = new PrivateEventStore(kvStore);
     });
 
     async function storeEvent(blockNumber?: number): Promise<PackedPrivateEvent> {
@@ -223,7 +223,7 @@ describe('PXE', () => {
         eventSelector,
       };
 
-      await privateEventDataProvider.storePrivateEventLog(eventSelector, event.packedEvent, eventIndex++, {
+      await privateEventStore.storePrivateEventLog(eventSelector, event.packedEvent, eventIndex++, {
         contractAddress,
         scope,
         txHash: event.txHash,
