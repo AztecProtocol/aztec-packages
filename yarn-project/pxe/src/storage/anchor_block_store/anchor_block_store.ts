@@ -10,8 +10,6 @@ const HEADER_KEY = 'header';
  *
  * The anchor block is the latest block PXE has synced to. All simulations
  * use this block as their reference point.
- *
- * Supports staged writes via string for crash resilience.
  */
 export class AnchorBlockStore implements StagedStore {
   readonly storeName = 'anchor_block';
