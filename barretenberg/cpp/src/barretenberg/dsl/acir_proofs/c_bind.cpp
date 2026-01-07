@@ -1,9 +1,3 @@
-// === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], commit: }
-// external_1:  { status: not started, auditors: [], commit: }
-// external_2:  { status: not started, auditors: [], commit: }
-// =====================
-
 #include "c_bind.hpp"
 #include "../acir_format/acir_to_constraint_buf.hpp"
 #include "barretenberg/chonk/chonk_verifier.hpp"

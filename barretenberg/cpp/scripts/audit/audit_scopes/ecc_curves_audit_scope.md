@@ -32,6 +32,12 @@ Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg`
 ### Common Types
 16. `ecc/curves/types.hpp`
 
+### Stdlib Curve Primitives
+17. `stdlib/primitives/curves/bn254.hpp`
+18. `stdlib/primitives/curves/grumpkin.hpp`
+19. `stdlib/primitives/curves/secp256k1.hpp`
+20. `stdlib/primitives/curves/secp256r1.hpp`
+
 ## Summary of Module
 
 The ECC curves module defines the elliptic curves used throughout Barretenberg's cryptographic operations. It implements field arithmetic, curve point operations, and pairing computations for multiple curves including BN254 (the primary curve for proof generation), Grumpkin (used for client-side IVC), secp256k1, and secp256r1 (used for ECDSA signature verification in circuits). The BN254 implementation includes extension field arithmetic (Fq, Fq2, Fq6, Fq12) required for optimal ate pairing computations, which are fundamental to the KZG polynomial commitment scheme. Each curve definition provides group elements (G1, G2 for pairing-friendly curves), scalar field operations, and curve-specific optimizations like endomorphism support for efficient scalar multiplication.

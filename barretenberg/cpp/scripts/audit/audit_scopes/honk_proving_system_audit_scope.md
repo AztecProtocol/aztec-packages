@@ -60,16 +60,18 @@ Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg`
 
 ### Stdlib Honk Verifier
 45. `stdlib/honk_verifier/ipa_accumulator.hpp`
+46. `stdlib/proof/proof.hpp`
 
 ### Public Input Components
-46. `public_input_component/public_component_key.hpp`
-47. `public_input_component/public_input_component.hpp`
+47. `public_input_component/public_component_key.hpp`
+48. `public_input_component/public_input_component.hpp`
 
 ### DSL/ACIR Recursion
-48. `dsl/acir_format/recursion_constraint.hpp`
-49. `dsl/acir_format/recursion_constraint.cpp`
-50. `dsl/acir_format/recursion_constraint_output.hpp`
-51. `dsl/acir_format/recursion_constraint_output.cpp`
+49. `dsl/acir_format/recursion_constraint.hpp`
+50. `dsl/acir_format/recursion_constraint.cpp`
+51. `dsl/acir_format/recursion_constraint_output.hpp`
+52. `dsl/acir_format/recursion_constraint_output.cpp`
+53. `dsl/acir_format/mock_verifier_inputs.hpp`
 
 ## Summary of Module
 

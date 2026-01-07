@@ -6,16 +6,19 @@ Commit hash: TBD (link)
 ## Files to Audit
 Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg`
 
+### Primitives
+1. `stdlib/primitives/witness/witness.hpp`
+
 ### Logic Gadget
-1. `stdlib/primitives/logic/logic.hpp`
-2. `stdlib/primitives/logic/logic.cpp`
+2. `stdlib/primitives/logic/logic.hpp`
+3. `stdlib/primitives/logic/logic.cpp`
 
 ### Lookup Tables
-3. `stdlib_circuit_builders/plookup_tables/uint.hpp`
+4. `stdlib_circuit_builders/plookup_tables/uint.hpp`
 
 ### ACIR Integration
-4. `dsl/acir_format/logic_constraint.hpp`
-5. `dsl/acir_format/logic_constraint.cpp`
+5. `dsl/acir_format/logic_constraint.hpp`
+6. `dsl/acir_format/logic_constraint.cpp`
 
 ## Summary of Module
 

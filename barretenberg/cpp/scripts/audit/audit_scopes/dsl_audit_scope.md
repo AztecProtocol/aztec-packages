@@ -12,6 +12,10 @@ Commit hash: 2094fd1467dd9a94803b2c5007cf60ac357aa7d2 (22.12.2025)
 4. `dsl/acir_format/acir_format.cpp`
 5. `dsl/acir_format/arithmetic_constraints.hpp`
 6. `dsl/acir_format/arithmetic_constraints.cpp`
+7. `dsl/acir_format/round.hpp`
+8. `dsl/acir_format/round.cpp`
+9. `dsl/acir_format/utils.hpp`
+10. `dsl/acir_format/utils.cpp`
 
 ## Brief Summary of Module
 

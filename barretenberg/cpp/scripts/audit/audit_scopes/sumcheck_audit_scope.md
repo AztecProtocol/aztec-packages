@@ -15,6 +15,9 @@ Commit hash: TBD
 | **`polynomials/gate_separator.hpp`** | $pow_{beta}$ polynomials for combining the rows to get the final relation |
 | **`polynomials/univariate.hpp`** | implementation of univariates. Main method audited is `extend_to`|
 | **`stdlib/primitives/padding_indicator_array/*.hpp`**| In circuit computation of the padding indicator array for skipping over padding rounds|
+| **`relations/nested_containers.hpp`** | Nested container utilities for relations |
+| **`relations/relation_types.hpp`** | Type definitions for relations |
+| **`relations/utils.hpp`** | Utility functions for relations |
 
 
 ## Brief Summary of Module
