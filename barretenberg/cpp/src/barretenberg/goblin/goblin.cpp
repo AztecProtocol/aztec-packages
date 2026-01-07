@@ -26,10 +26,10 @@ Goblin::Goblin(CommitmentKey<curve::BN254> bn254_commitment_key, const std::shar
     , transcript(transcript)
 {}
 
-void Goblin::prove_merge(const std::shared_ptr<Transcript>& transcript)
+void Goblin::prove_merge(const std::shared_ptr<Transcript>& transcript, const MergeSettings merge_settings)
 {
     BB_BENCH_NAME("Goblin::prove_merge");
-    MergeProver merge_prover{ op_queue, MergeSettings::APPEND, commitment_key, transcript };
+    MergeProver merge_prover{ op_queue, merge_settings, commitment_key, transcript };
     merge_verification_queue.push_back(merge_prover.construct_proof());
 }
 
@@ -63,7 +63,7 @@ GoblinProof Goblin::prove()
 {
     BB_BENCH_NAME("Goblin::prove");
 
-    prove_merge(transcript); // Use shared transcript for merge proving
+    prove_merge(transcript, MergeSettings::APPEND); // Use shared transcript for merge proving
     info("Goblin: num ultra ops = ", op_queue->get_ultra_ops_count());
 
     BB_ASSERT_EQ(merge_verification_queue.size(),

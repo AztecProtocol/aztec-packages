@@ -46,7 +46,7 @@ class BoomerangGoblinRecursiveVerifierTests : public testing::Test {
         GoblinMockCircuits::construct_and_merge_mock_circuits(goblin, 5);
 
         // Merge the ecc ops from the newly constructed circuit
-        auto goblin_proof = goblin.prove(MergeSettings::APPEND);
+        auto goblin_proof = goblin.prove();
         // Subtable values and commitments - needed for (Recursive)MergeVerifier
         MergeCommitments merge_commitments;
         auto t_current = goblin.op_queue->construct_current_ultra_ops_subtable_columns();

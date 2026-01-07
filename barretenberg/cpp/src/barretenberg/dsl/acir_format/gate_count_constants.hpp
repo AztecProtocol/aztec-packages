@@ -159,7 +159,7 @@ inline constexpr size_t ECCVM_RECURSIVE_VERIFIER_GATE_COUNT = 214950;
 // Goblin AVM Recursive Verifier Constants
 // ========================================
 
-inline constexpr size_t GOBLIN_AVM_GATE_COUNT = 3325906;
-inline constexpr size_t FINALIZED_GOBLIN_AVM_GATE_COUNT = 3325922;
+inline constexpr size_t GOBLIN_AVM_GATE_COUNT = 3316676;
+inline constexpr size_t FINALIZED_GOBLIN_AVM_GATE_COUNT = 3316692;
 
 } // namespace acir_format
