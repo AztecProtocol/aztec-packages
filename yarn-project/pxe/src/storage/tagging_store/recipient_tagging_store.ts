@@ -3,6 +3,8 @@ import type { DirectionalAppTaggingSecret } from '@aztec/stdlib/logs';
 
 import type { StagedStore } from '../../job_coordinator/job_coordinator.js';
 
+type StagedIndexes = { highestAgedIndex?: number; highestFinalizedIndex?: number };
+
 /**
  * Data provider of tagging data used when syncing the logs as a recipient. The sender counterpart of this class
  * is called SenderTaggingStore. We have the providers separate for the sender and recipient because
@@ -13,8 +15,6 @@ import type { StagedStore } from '../../job_coordinator/job_coordinator.js';
  *
  * TODO(benesjan): Relocate to yarn-project/pxe/src/storage/tagging_store
  */
-type StagedIndexes = { highestAgedIndex?: number; highestFinalizedIndex?: number };
-
 export class RecipientTaggingStore implements StagedStore {
   readonly storeName = 'recipient_tagging';
 
@@ -23,7 +23,7 @@ export class RecipientTaggingStore implements StagedStore {
   #highestAgedIndex: AztecAsyncMap<string, number>;
   #highestFinalizedIndex: AztecAsyncMap<string, number>;
 
-  /** In-memory staging: jobId -> secret -> { highestAgedIndex?, highestFinalizedIndex? } */
+  /** In-memory stage: jobId -> secret -> { highestAgedIndex?, highestFinalizedIndex? } */
   #stagedIndexes: Map<string, Map<string, StagedIndexes>>;
 
   constructor(store: AztecAsyncKVStore) {
@@ -42,7 +42,6 @@ export class RecipientTaggingStore implements StagedStore {
         return Promise.resolve(staged.highestAgedIndex);
       }
     }
-    // Fall back to committed data
     return this.#highestAgedIndex.getAsync(secret.toString());
   }
 
@@ -71,7 +70,6 @@ export class RecipientTaggingStore implements StagedStore {
         return Promise.resolve(staged.highestFinalizedIndex);
       }
     }
-    // Fall back to committed data
     return this.#highestFinalizedIndex.getAsync(secret.toString());
   }
 
@@ -83,7 +81,6 @@ export class RecipientTaggingStore implements StagedStore {
       throw new Error(`New highest finalized index (${index}) must be higher than the current one (${currentIndex})`);
     }
 
-    // Stage the update
     let jobStaging = this.#stagedIndexes.get(jobId);
     if (!jobStaging) {
       jobStaging = new Map();
@@ -93,15 +90,12 @@ export class RecipientTaggingStore implements StagedStore {
     jobStaging.set(secret.toString(), { ...existing, highestFinalizedIndex: index });
   }
 
-  // StagedStore implementation
-
   async commit(jobId: string): Promise<void> {
     const jobStaging = this.#stagedIndexes.get(jobId);
     if (!jobStaging) {
       return;
     }
 
-    //TODO(mverzilli): check if it's better to parallelize these writes
     for (const [secretStr, staged] of jobStaging) {
       if (staged.highestAgedIndex !== undefined) {
         await this.#highestAgedIndex.set(secretStr, staged.highestAgedIndex);
