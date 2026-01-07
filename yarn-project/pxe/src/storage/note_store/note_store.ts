@@ -637,11 +637,13 @@ export class NoteStore implements StagedStore {
    * Adds a note to active storage and scope indexes.
    */
   async #addToActiveDbIndexes(noteIndex: string, data: StagedAddNote): Promise<void> {
-    await this.#notes.set(noteIndex, data.noteBuffer);
-    await this.#notesToScope.set(noteIndex, data.scope);
-    await this.#nullifierToNoteId.set(data.siloedNullifier, noteIndex);
-    await this.#notesByContractAndScope.get(data.scope)!.set(data.contractAddress, noteIndex);
-    await this.#notesByStorageSlotAndScope.get(data.scope)!.set(data.storageSlot, noteIndex);
+    await Promise.all([
+      this.#notes.set(noteIndex, data.noteBuffer),
+      this.#notesToScope.set(noteIndex, data.scope),
+      this.#nullifierToNoteId.set(data.siloedNullifier, noteIndex),
+      this.#notesByContractAndScope.get(data.scope)!.set(data.contractAddress, noteIndex),
+      this.#notesByStorageSlotAndScope.get(data.scope)!.set(data.storageSlot, noteIndex),
+    ]);
   }
 
   /**
@@ -653,29 +655,31 @@ export class NoteStore implements StagedStore {
     storageSlot: string,
     nullifier: string,
   ): Promise<void> {
-    await this.#notes.delete(noteIndex);
-    await this.#notesToScope.delete(noteIndex);
-    await this.#nullifierToNoteId.delete(nullifier);
-
     const scopes = await toArray(this.#scopes.keysAsync());
-    for (const scope of scopes) {
-      await this.#notesByContractAndScope.get(scope)?.deleteValue(contractAddress, noteIndex);
-      await this.#notesByStorageSlotAndScope.get(scope)?.deleteValue(storageSlot, noteIndex);
-    }
+
+    await Promise.all([
+      this.#notes.delete(noteIndex),
+      this.#notesToScope.delete(noteIndex),
+      this.#nullifierToNoteId.delete(nullifier),
+      ...scopes.flatMap(scope => [
+        this.#notesByContractAndScope.get(scope)?.deleteValue(contractAddress, noteIndex),
+        this.#notesByStorageSlotAndScope.get(scope)?.deleteValue(storageSlot, noteIndex),
+      ]),
+    ]);
   }
 
   /**
    * Adds a note to all nullified indexes.
    */
   async #addToNullifiedDbIndexes(noteIndex: string, data: StagedNullifyNote, scopes: string[]): Promise<void> {
-    for (const scope of scopes) {
-      await this.#nullifiedNotesToScope.set(noteIndex, scope);
-    }
-    await this.#nullifiedNotes.set(noteIndex, data.noteBuffer);
-    await this.#nullifiersByBlockNumber.set(data.blockNumber, data.nullifier);
-    await this.#nullifiedNotesByContract.set(data.contractAddress, noteIndex);
-    await this.#nullifiedNotesByStorageSlot.set(data.storageSlot, noteIndex);
-    await this.#nullifiedNotesByNullifier.set(data.nullifier, noteIndex);
+    await Promise.all([
+      ...scopes.map(scope => this.#nullifiedNotesToScope.set(noteIndex, scope)),
+      this.#nullifiedNotes.set(noteIndex, data.noteBuffer),
+      this.#nullifiersByBlockNumber.set(data.blockNumber, data.nullifier),
+      this.#nullifiedNotesByContract.set(data.contractAddress, noteIndex),
+      this.#nullifiedNotesByStorageSlot.set(data.storageSlot, noteIndex),
+      this.#nullifiedNotesByNullifier.set(data.nullifier, noteIndex),
+    ]);
   }
 
   /**
