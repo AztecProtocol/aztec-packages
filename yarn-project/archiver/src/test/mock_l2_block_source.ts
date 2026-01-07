@@ -8,6 +8,7 @@ import { createLogger } from '@aztec/foundation/log';
 import type { FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
+  CheckpointedL2Block,
   L2Block,
   L2BlockHash,
   L2BlockNew,
@@ -30,6 +31,7 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
 
   private provenBlockNumber: number = 0;
   private finalizedBlockNumber: number = 0;
+  private checkpointedBlockNumber: number = 0;
 
   private log = createLogger('archiver:mock_l2_block_source');
 
@@ -64,6 +66,10 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
     this.finalizedBlockNumber = finalizedBlockNumber;
   }
 
+  public setCheckpointedBlockNumber(checkpointedBlockNumber: number) {
+    this.checkpointedBlockNumber = checkpointedBlockNumber;
+  }
+
   /**
    * Method to fetch the rollup contract address at the base-layer.
    * @returns The rollup address.
@@ -92,14 +98,39 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
     return Promise.resolve(BlockNumber(this.provenBlockNumber));
   }
 
-  public getCheckpointedBlock(_number: BlockNumber) {
-    // In this mock, we don't track checkpointed blocks separately
-    return Promise.resolve(undefined);
+  public async getCheckpointedBlock(number: BlockNumber): Promise<CheckpointedL2Block | undefined> {
+    if (number > this.checkpointedBlockNumber) {
+      return undefined;
+    }
+    const block = this.l2Blocks[number - 1];
+    if (!block) {
+      return undefined;
+    }
+    return new CheckpointedL2Block(
+      CheckpointNumber(number),
+      block.toL2Block(),
+      new L1PublishedData(BigInt(number), BigInt(number), `0x${number.toString(16).padStart(64, '0')}`),
+      [],
+    );
   }
 
-  public getCheckpointedBlocks(_from: BlockNumber, _limit: number, _proven?: boolean) {
-    // In this mock, we don't track checkpointed blocks separately
-    return Promise.resolve([]);
+  public async getCheckpointedBlocks(
+    from: BlockNumber,
+    limit: number,
+    _proven?: boolean,
+  ): Promise<CheckpointedL2Block[]> {
+    const result: CheckpointedL2Block[] = [];
+    for (let i = 0; i < limit; i++) {
+      const blockNum = from + i;
+      if (blockNum > this.checkpointedBlockNumber) {
+        break;
+      }
+      const block = await this.getCheckpointedBlock(BlockNumber(blockNum));
+      if (block) {
+        result.push(block);
+      }
+    }
+    return result;
   }
 
   /**
@@ -273,15 +304,17 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
   }
 
   async getL2Tips(): Promise<L2Tips> {
-    const [latest, proven, finalized] = [
+    const [latest, proven, finalized, checkpointed] = [
       await this.getBlockNumber(),
       await this.getProvenBlockNumber(),
       this.finalizedBlockNumber,
+      this.checkpointedBlockNumber,
     ] as const;
 
     const latestBlock = this.l2Blocks[latest - 1];
     const provenBlock = this.l2Blocks[proven - 1];
     const finalizedBlock = this.l2Blocks[finalized - 1];
+    const checkpointedBlock = this.l2Blocks[checkpointed - 1];
 
     const latestBlockId = {
       number: BlockNumber(latest),
@@ -295,6 +328,10 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
       number: BlockNumber(finalized),
       hash: (await finalizedBlock?.hash())?.toString(),
     };
+    const checkpointedBlockId = {
+      number: BlockNumber(checkpointed),
+      hash: (await checkpointedBlock?.hash())?.toString(),
+    };
 
     const makeTipId = (blockId: typeof latestBlockId) => ({
       block: blockId,
@@ -303,7 +340,7 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
 
     return {
       proposed: latestBlockId,
-      checkpointed: makeTipId(latestBlockId),
+      checkpointed: makeTipId(checkpointedBlockId),
       proven: makeTipId(provenBlockId),
       finalized: makeTipId(finalizedBlockId),
     };
