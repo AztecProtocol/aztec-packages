@@ -3,10 +3,10 @@ import { createLogger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 
 /**
- * Interface that data providers must implement to support staged writes.
+ * Interface that stores must implement to support staged writes.
  */
 export interface StagedStore {
-  /** Unique name identifying this provider (used for tracking affected stores) */
+  /** Unique name identifying this store (used for tracking staged stores from JobCoordinator) */
   readonly storeName: string;
 
   /**
@@ -19,7 +19,7 @@ export interface StagedStore {
 
   /**
    * Discards staged data without committing.
-   * Called on abort or during recovery.
+   * Called on abort.
    *
    * @param jobId - The job identifier
    */
@@ -45,10 +45,7 @@ export class JobCoordinator {
   /** The underlying KV store */
   kvStore: AztecAsyncKVStore;
 
-  /** Current job ID (in-memory only) */
   #currentJobId: string | undefined;
-
-  /** All registered staged stores */
   #stores: Map<string, StagedStore> = new Map();
 
   constructor(kvStore: AztecAsyncKVStore) {
@@ -135,12 +132,9 @@ export class JobCoordinator {
 
     this.log.debug(`Aborting job ${jobId}`);
 
-    // Discard staging atomically
-    await this.kvStore.transactionAsync(async () => {
-      for (const store of this.#stores.values()) {
-        await store.discardStaged(jobId);
-      }
-    });
+    for (const store of this.#stores.values()) {
+      await store.discardStaged(jobId);
+    }
 
     this.#currentJobId = undefined;
     this.log.debug(`Job ${jobId} aborted`);
