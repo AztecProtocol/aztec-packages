@@ -1,8 +1,8 @@
 /**
  * @brief BN254 base field (fq) specific tests.
  *
- * Generic field arithmetic tests (both compile-time and runtime) are in ecc/fields/field.test.cpp.
- * This file contains only BN254-specific functionality:
+ * Other field arithmetic tests (both compile-time and runtime) are in ecc/fields/generic_field.test.cpp and
+ * ecc/fields/prime_field.test.cpp. This file contains only BN254-specific functionality:
  * - Endomorphism scalar decomposition
  * - Buffer serialization (tests specific byte layout)
  * - Regression tests for specific values

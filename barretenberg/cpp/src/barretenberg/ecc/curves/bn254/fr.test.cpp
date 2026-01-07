@@ -1,8 +1,8 @@
 /**
  * @brief BN254 scalar field (fr) specific tests.
  *
- * Generic field arithmetic tests (both compile-time and runtime) are in ecc/fields/field.test.cpp.
- * This file contains only BN254 scalar field specific functionality:
+ * Other field arithmetic tests (both compile-time and runtime) are in ecc/fields/generic_field.test.cpp and
+ * ecc/fields/prime_field.test.cpp. This file contains only BN254 scalar field specific functionality:
  * - Fixed compile-time tests with field-specific expected values
  * - Multiplicative generator (AUDITTODO: delete)
  * - Endomorphism scalar decomposition
