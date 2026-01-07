@@ -156,7 +156,7 @@ function test_cmds {
   local sol_prefix="$tests_hash:ISOLATE=1"
   # Solidity tests. Isolate because anvil.
   # Test the solidity verifier with and without zk
-  for t in assert_statement a_1_mul slices verify_honk_proof; do
+  for t in assert_statement a_1_mul vectors verify_honk_proof; do
     echo "$sol_prefix $scripts/bb_prove_sol_verify.sh $t --disable_zk"
     echo "$sol_prefix $scripts/bb_prove_sol_verify.sh $t"
     echo "$sol_prefix USE_OPTIMIZED_CONTRACT=true $scripts/bb_prove_sol_verify.sh $t --disable_zk"
