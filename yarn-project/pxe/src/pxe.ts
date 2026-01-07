@@ -146,7 +146,6 @@ export class PXE {
     const keyStore = new KeyStore(store);
     const tipsStore = new L2TipsKVStore(store, 'pxe');
 
-    // Create JobCoordinator and register staged stores
     const jobCoordinator = new JobCoordinator(store);
     jobCoordinator.registerStores([
       anchorBlockStore,
@@ -237,7 +236,7 @@ export class PXE {
    *
    * Useful for tasks that cannot run concurrently, such as contract function simulation.
    *
-   * @param fn - The function to execute. Receives a string for staged writes.
+   * @param fn - The function to execute. Receives a jobId for staged writes.
    */
   #putInJobQueue<T>(fn: (jobId: string) => Promise<T>): Promise<T> {
     // TODO(#12636): relax the conditions under which we forbid concurrency.
