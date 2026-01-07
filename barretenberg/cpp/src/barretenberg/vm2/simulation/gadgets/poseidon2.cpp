@@ -14,6 +14,14 @@ using bb::crypto::Poseidon2Permutation;
 
 namespace bb::avm2::simulation {
 
+namespace {
+
+class InternalPoseidon2Exception : public std::runtime_error {
+    using std::runtime_error::runtime_error; // Inherit the constructor.
+};
+
+} // namespace
+
 FF Poseidon2::hash(const std::vector<FF>& input)
 {
     size_t input_size = input.size();
@@ -77,7 +85,7 @@ void Poseidon2::permutation(MemoryInterface& memory, MemoryAddress src_address, 
 
     try {
         if (read_out_of_range || write_out_of_range) {
-            throw std::runtime_error("src or dst address out of range");
+            throw InternalPoseidon2Exception("src or dst address out of range");
         }
 
         // Read 4 elements from memory starting at src_address
@@ -89,7 +97,7 @@ void Poseidon2::permutation(MemoryInterface& memory, MemoryAddress src_address, 
         // are loaded as the circuit expects reading and tagging checking to be different temporality groups
         if (std::ranges::any_of(
                 input.begin(), input.end(), [](const MemoryValue& val) { return val.get_tag() != MemoryTag::FF; })) {
-            throw std::runtime_error("An input tag is not FF");
+            throw InternalPoseidon2Exception("An input tag is not FF");
         }
 
         // This calls the Poseidon2 gadget permutation function and so generates events
@@ -111,7 +119,7 @@ void Poseidon2::permutation(MemoryInterface& memory, MemoryAddress src_address, 
                                .input = input,
                                .output = output });
 
-    } catch (const std::exception& e) {
+    } catch (const InternalPoseidon2Exception& e) {
         perm_mem_events.emit({ .space_id = space_id,
                                .execution_clk = execution_clk,
                                .src_address = src_address,

@@ -438,12 +438,12 @@ bool check_tag(const Instruction& instruction)
 
     size_t pos = 0; // Position in instruction operands
 
-    for (size_t i = 0; i < wire_format.size(); i++) {
-        if (wire_format[i] == OperandType::INDIRECT8 || wire_format[i] == OperandType::INDIRECT16) {
+    for (const OperandType& i : wire_format) {
+        if (i == OperandType::INDIRECT8 || i == OperandType::INDIRECT16) {
             continue; // No pos increment
         }
 
-        if (wire_format[i] == OperandType::TAG) {
+        if (i == OperandType::TAG) {
             if (pos >= instruction.operands.size()) {
                 vinfo("Instruction operands size is too small. Tag position: ",
                       pos,
@@ -455,7 +455,7 @@ bool check_tag(const Instruction& instruction)
             }
 
             try {
-                uint8_t tag = instruction.operands.at(pos).as<uint8_t>(); // Cast to uint8_t might throw
+                uint8_t tag = instruction.operands.at(pos).as<uint8_t>(); // Cast to uint8_t might throw CastException
 
                 if (tag > static_cast<uint8_t>(MemoryTag::MAX)) {
                     vinfo("Instruction tag operand at position: ",
@@ -467,8 +467,7 @@ bool check_tag(const Instruction& instruction)
                           instruction.opcode);
                     return false;
                 }
-
-            } catch (const std::runtime_error&) {
+            } catch (const CastException&) {
                 vinfo("Instruction operand at position: ",
                       pos,
                       " is longer than a byte.",

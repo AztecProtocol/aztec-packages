@@ -124,51 +124,24 @@ CalldataProvider make_calldata_provider(const ContextInterface& context)
 {
     auto cd_size = context.get_parent_cd_size();
     return [&context, cd_size](uint32_t max_size) -> std::vector<FF> {
-        try {
-            // NOTE: get_calldata will handle offsetting into parent memory for nested contexts
-            // TODO: check if this will pad to size. We don't want that.
-            auto data = context.get_calldata(0, std::min(max_size, cd_size));
-            return std::vector<FF>(data.begin(), data.end());
-        } catch (...) {
-            vinfo("Failed to collect calldata (to:",
-                  context.get_address(),
-                  " pc:",
-                  context.get_pc(),
-                  " cd_size:",
-                  cd_size,
-                  " max_size:",
-                  max_size,
-                  ")");
-            return {};
-        }
+        // NOTE: get_calldata will handle offsetting into parent memory for nested contexts
+        // TODO(AVM-186): check if this will pad to size. We don't want that.
+        auto data = context.get_calldata(0, std::min(max_size, cd_size));
+        return std::vector<FF>(data.begin(), data.end());
     };
 }
 
 ReturnDataProvider make_return_data_provider(const ContextInterface& context, uint32_t rd_offset, uint32_t rd_size)
 {
     return [&context, rd_offset, rd_size](uint32_t max_size) -> std::vector<FF> {
-        try {
-            const auto& memory = context.get_memory();
-            std::vector<FF> data;
-            data.reserve(std::min(max_size, rd_size));
-            for (uint32_t i = 0; i < std::min(max_size, rd_size); i++) {
-                data.push_back(memory.get(rd_offset + i).as_ff());
-            }
-            return data;
-        } catch (...) {
-            vinfo("Failed to collect returndata (to:",
-                  context.get_address(),
-                  " pc:",
-                  context.get_pc(),
-                  " rd_offset:",
-                  rd_offset,
-                  " rd_size:",
-                  rd_size,
-                  " max_size:",
-                  max_size,
-                  ")");
-            return {};
+        // TODO(AVM-187): Consider using get_returndata instead.
+        const auto& memory = context.get_memory();
+        std::vector<FF> data;
+        data.reserve(std::min(max_size, rd_size));
+        for (uint32_t i = 0; i < std::min(max_size, rd_size); i++) {
+            data.push_back(memory.get(rd_offset + i).as_ff());
         }
+        return data;
     };
 }
 
