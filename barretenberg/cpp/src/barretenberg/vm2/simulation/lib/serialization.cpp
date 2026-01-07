@@ -438,12 +438,12 @@ bool check_tag(const Instruction& instruction)
 
     size_t pos = 0; // Position in instruction operands
 
-    for (const OperandType& i : wire_format) {
-        if (i == OperandType::INDIRECT8 || i == OperandType::INDIRECT16) {
+    for (const OperandType& operand_type : wire_format) {
+        if (operand_type == OperandType::INDIRECT8 || operand_type == OperandType::INDIRECT16) {
             continue; // No pos increment
         }
 
-        if (i == OperandType::TAG) {
+        if (operand_type == OperandType::TAG) {
             if (pos >= instruction.operands.size()) {
                 vinfo("Instruction operands size is too small. Tag position: ",
                       pos,
