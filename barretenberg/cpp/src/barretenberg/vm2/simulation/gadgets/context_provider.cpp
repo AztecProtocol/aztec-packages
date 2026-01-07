@@ -18,7 +18,7 @@ std::unique_ptr<ContextInterface> ContextProvider::make_nested_context(AztecAddr
     merkle_db.create_checkpoint(); // Fork DB just like in TS.
     uint32_t context_id = next_context_id++;
     // Memory assumes that the space id is <= 16 bits.
-    assert(context_id <= std::numeric_limits<uint16_t>::max());
+    BB_ASSERT_LTE(context_id, std::numeric_limits<uint16_t>::max(), "Context ID out of bounds");
     uint16_t space_id = static_cast<uint16_t>(context_id);
     return std::make_unique<NestedContext>(
         context_id,
@@ -53,7 +53,7 @@ std::unique_ptr<ContextInterface> ContextProvider::make_enqueued_context(AztecAd
 
     uint32_t context_id = next_context_id++;
     // Memory assumes that the space id is <= 16 bits.
-    assert(context_id <= std::numeric_limits<uint16_t>::max());
+    BB_ASSERT_LTE(context_id, std::numeric_limits<uint16_t>::max(), "Context ID out of bounds");
     uint16_t space_id = static_cast<uint16_t>(context_id);
 
     cd_hash_provider.make_calldata_hasher(context_id)->compute_calldata_hash(calldata);

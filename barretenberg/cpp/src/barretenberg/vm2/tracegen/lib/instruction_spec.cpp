@@ -201,7 +201,7 @@ Column get_dyn_gas_selector(uint32_t dyn_gas_id)
     case AVM_DYN_GAS_ID_SSTORE:
         return C::execution_sel_gas_sstore;
     default:
-        assert(false && "Invalid dynamic gas id");
+        BB_ASSERT(false, "Invalid dynamic gas id");
     }
 
     // This is just to please gcc.

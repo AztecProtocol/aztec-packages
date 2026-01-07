@@ -62,8 +62,8 @@ void PrecomputedTraceBuilder::process_bitwise(TraceContainer& trace)
             return a ^ b;
         }
 
-        assert(false && "This should not happen");
-        return 0; // Should never happen. To please the compiler.
+        BB_ASSERT(false, "This should not happen");
+        __builtin_unreachable();
     };
 
     for (const auto op_id : { BitwiseOperation::AND, BitwiseOperation::OR, BitwiseOperation::XOR }) {

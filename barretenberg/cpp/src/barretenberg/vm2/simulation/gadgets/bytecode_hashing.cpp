@@ -19,10 +19,8 @@ void BytecodeHasher::assert_public_bytecode_commitment(const BytecodeId& bytecod
     inputs.insert(inputs.end(), bytecode_as_fields.begin(), bytecode_as_fields.end());
 
     FF hash = hasher.hash(inputs);
-    assert(hash == public_bytecode_commitment);
-    // To please the compiler.
-    (void)hash;
-    (void)public_bytecode_commitment;
+    // This will throw an unexpected exception if it fails.
+    BB_ASSERT_EQ(hash, public_bytecode_commitment, "Public bytecode commitment hash mismatch");
 
     events.emit({ .bytecode_id = bytecode_id,
                   .bytecode_length = bytecode_length_in_bytes,

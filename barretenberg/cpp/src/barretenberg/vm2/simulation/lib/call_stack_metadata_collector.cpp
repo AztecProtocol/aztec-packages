@@ -31,7 +31,7 @@ void CallStackMetadataCollector::notify_enter_call(const AztecAddress& contract_
                                                    bool is_static_call,
                                                    const Gas& gas_limit)
 {
-    assert(!call_stack_metadata.empty());
+    BB_ASSERT(!call_stack_metadata.empty(), "Call stack metadata is empty");
 
     // Check if we should stop collecting due to limits.
     if (should_skip_collection()) {
@@ -86,7 +86,7 @@ void CallStackMetadataCollector::notify_exit_call(bool success,
     top_call_stack_metadata.internal_call_stack_at_exit = std::move(internal_call_stack);
 
     // While exiting, we will move the top call of the stack to the nested vector of the parent call.
-    assert(call_stack_metadata.size() > 1);
+    BB_ASSERT_GT(call_stack_metadata.size(), static_cast<size_t>(1), "Call stack metadata size is not greater than 1");
     call_stack_metadata.pop();
     call_stack_metadata.top().nested.push_back(std::move(top_call_stack_metadata));
 }
@@ -96,7 +96,7 @@ void CallStackMetadataCollector::notify_tx_revert(const std::string& revert_mess
     // Create a synthetic CallStackMetadata entry to capture the revert reason.
     // This is used when a tx-level revert happens outside of an enqueued call
     // (e.g., during revertible insertions from private).
-    assert(call_stack_metadata.size() == 1);
+    BB_ASSERT_EQ(call_stack_metadata.size(), static_cast<size_t>(1), "Call stack metadata size is not equal to 1");
     call_stack_metadata.top().nested.push_back({
         .timestamp = timestamp++,
         .phase = current_phase,
@@ -116,7 +116,7 @@ void CallStackMetadataCollector::notify_tx_revert(const std::string& revert_mess
 
 std::vector<CallStackMetadata> CallStackMetadataCollector::dump_call_stack_metadata()
 {
-    assert(call_stack_metadata.size() == 1);
+    BB_ASSERT_EQ(call_stack_metadata.size(), static_cast<size_t>(1), "Call stack metadata size is not equal to 1");
     return std::move(call_stack_metadata.top().nested);
 }
 
