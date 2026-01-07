@@ -79,7 +79,6 @@ TEST_P(AvmRecursiveTestsParameterized, GoblinRecursion)
     const bool pad_proof = GetParam();
 
     // Type aliases specific to GoblinRecursion test
-    using AvmRecursiveVerifier = AvmGoblinRecursiveVerifier;
     using OuterBuilder = typename UltraRollupFlavor::CircuitBuilder;
     using UltraFF = UltraRecursiveFlavor_<OuterBuilder>::FF;
     using UltraRollupProver = UltraProver_<UltraRollupFlavor>;
@@ -124,7 +123,7 @@ TEST_P(AvmRecursiveTestsParameterized, GoblinRecursion)
         std::cout << "Constructing AvmRecursiveVerifier and verifying " << (pad_proof ? "padded " : "") << "proof..."
                   << std::endl;
         std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
-        AvmRecursiveVerifier avm_rec_verifier(outer_circuit);
+        AvmGoblinRecursiveVerifier avm_rec_verifier(outer_circuit);
         auto result = avm_rec_verifier.verify_proof(stdlib_proof, public_inputs_ct);
         std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
         std::cout << "Time taken (recursive verification): "
@@ -185,7 +184,6 @@ TEST_F(AvmRecursiveTests, GoblinRecursionFailsWithWrongPIs)
     }
 
     // Type aliases specific to GoblinRecursion test
-    using AvmRecursiveVerifier = AvmGoblinRecursiveVerifier;
     using OuterBuilder = typename UltraRollupFlavor::CircuitBuilder;
     using UltraFF = UltraRecursiveFlavor_<OuterBuilder>::FF;
 
@@ -221,7 +219,7 @@ TEST_F(AvmRecursiveTests, GoblinRecursionFailsWithWrongPIs)
     {
         std::cout << "Constructing AvmRecursiveVerifier and verifying proof..." << std::endl;
         std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
-        AvmRecursiveVerifier avm_rec_verifier(outer_circuit);
+        AvmGoblinRecursiveVerifier avm_rec_verifier(outer_circuit);
         auto result = avm_rec_verifier.verify_proof(stdlib_proof, public_inputs_ct);
         std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
         std::cout << "Time taken (recursive verification): "

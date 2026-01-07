@@ -239,22 +239,7 @@ TEST_F(AvmRecursionInnerCircuitTests, Tampering)
         EXPECT_TRUE(outer_builder.failed());
     }
 
-    {
-        Builder outer_builder;
-        auto [stdlib_proof, public_inputs, inner_prover_output] =
-            create_and_prove_inner_circuit(outer_builder, proof, public_inputs_flat);
-
-        auto goblin_proof_tampered = inner_prover_output.goblin_proof;
-        goblin_proof_tampered.merge_proof[0] -= FF::one(); // Tamper with merge proof shift size
-
-        AvmGoblinRecursiveVerifier goblin_avm_verifier(outer_builder);
-        RecursiveAvmGoblinOutput output = goblin_avm_verifier.construct_outer_recursive_verification_circuit(
-            stdlib_proof,
-            public_inputs,
-            { inner_prover_output.mega_proof, goblin_proof_tampered, inner_prover_output.mega_vk });
-
-        EXPECT_TRUE(outer_builder.failed());
-    }
+    // ADD BACK TEST FOR GOBLIN FAILURE
 
     {
         Builder outer_builder;

@@ -105,6 +105,15 @@ class AvmRecursiveFlavor {
 
     class Transcript : public StdlibTranscript<CircuitBuilder> {
       public:
+        /**
+         * @brief Replicate the operations performed on the AVM transcript during proof verification
+         *
+         * @details The transcript used during the verification of an AVM proof hashes both the public inputs and the
+         * AVM proof being verified. For this reason, its final state can be used as a hash of the public inputs and
+         * proof that have been verified. This method replicates the operations performed on the transcript during AVM
+         * verification. It is used in the outer circuit of the Goblin AVM recursive verifier.
+         *
+         */
         template <typename Builder>
         static std::shared_ptr<StdlibTranscript<Builder>> perform_avm_transcript_operations(
             Builder& builder,
@@ -154,9 +163,8 @@ class AvmRecursiveFlavor {
 
             [[maybe_unused]] const FF _alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
 
-            [[maybe_unused]] const std::vector<FF> _gate_challenges =
-                transcript->template get_dyadic_powers_of_challenge<FF>("Sumcheck:gate_challenge",
-                                                                        native_vk->log_circuit_size);
+            [[maybe_unused]] const FF _initial_gate_challenge =
+                transcript->template get_challenge<FF>("Sumcheck:gate_challenge");
 
             for (size_t i = 0; i < native_vk->log_circuit_size; i++) {
                 std::string round_univariate_label = "Sumcheck:univariate_" + std::to_string(i);
