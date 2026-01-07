@@ -7,11 +7,20 @@ namespace bb::avm2::simulation {
 /////////////////////////////
 // Base Context
 /////////////////////////////
+
+/**
+ * @brief Get the returndata from the child context.
+ *
+ * @param rd_offset The offset into the returndata to start reading from.
+ * @param rd_copy_size The amount of returndata to copy.
+ *
+ * @return The returndata.
+ */
 std::vector<MemoryValue> BaseContext::get_returndata(uint32_t rd_offset, uint32_t rd_copy_size) const
 {
     const MemoryInterface& child_memory = get_child_context().get_memory();
-    // The amount to rd copy is the minimum of the requested size (with the offset into rd) and the size of the
-    // returndata We need to do it over a wider integer type to avoid overflow issues, but the result is guaranteed to
+    // The amount of rd to copy is the minimum of the requested size (with the offset into rd) and the size of the
+    // returndata. We need to do it over a wider integer type to avoid overflow issues, but the result is guaranteed to
     // be a u32 since last_child_rd_size would have previously been constrained to be u32.
     uint32_t data_index_upper_bound = static_cast<uint32_t>(
         std::min(static_cast<uint64_t>(rd_offset) + rd_copy_size, static_cast<uint64_t>(last_child_rd_size)));
@@ -28,6 +37,13 @@ std::vector<MemoryValue> BaseContext::get_returndata(uint32_t rd_offset, uint32_
     return padded_returndata;
 };
 
+/**
+ * @brief Get the last child id.
+ *        This is the context id of the last child context.
+ *        If there is no child context, return 0.
+ *
+ * @return The last child id.
+ */
 uint32_t BaseContext::get_last_child_id() const
 {
     if (child_context == nullptr) {
@@ -39,6 +55,15 @@ uint32_t BaseContext::get_last_child_id() const
 /////////////////////////////
 // Enqueued Context
 /////////////////////////////
+
+/**
+ * @brief Get the calldata of the enqueued call context.
+ *
+ * @param cd_offset The offset into the calldata to start reading from.
+ * @param cd_copy_size The amount of calldata to copy.
+ *
+ * @return The calldata (vector of MemoryValue).
+ */
 std::vector<MemoryValue> EnqueuedCallContext::get_calldata(uint32_t cd_offset, uint32_t cd_copy_size) const
 {
     uint64_t calldata_size = static_cast<uint64_t>(calldata.size());
@@ -57,6 +82,11 @@ std::vector<MemoryValue> EnqueuedCallContext::get_calldata(uint32_t cd_offset, u
     return padded_calldata;
 };
 
+/**
+ * @brief Serialize the enqueued call context into a ContextEvent.
+ *
+ * @return The ContextEvent.
+ */
 ContextEvent EnqueuedCallContext::serialize_context_event()
 {
     const auto& call_stack = get_internal_call_stack_manager();
@@ -100,6 +130,15 @@ ContextEvent EnqueuedCallContext::serialize_context_event()
 /////////////////////////////
 // Nested Context
 /////////////////////////////
+
+/**
+ * @brief Get the calldata of the nested context. It is present in the parent memory.
+ *
+ * @param cd_offset The offset into the calldata to start reading from.
+ * @param cd_copy_size The amount of calldata to copy.
+ *
+ * @return The calldata (vector of MemoryValue).
+ */
 std::vector<MemoryValue> NestedContext::get_calldata(uint32_t cd_offset, uint32_t cd_copy_size) const
 {
     // This is the amount of the parent calldata we will read
@@ -123,6 +162,11 @@ std::vector<MemoryValue> NestedContext::get_calldata(uint32_t cd_offset, uint32_
     return padded_calldata;
 };
 
+/**
+ * @brief Serialize the nested context into a ContextEvent.
+ *
+ * @return The ContextEvent.
+ */
 ContextEvent NestedContext::serialize_context_event()
 {
     const auto& call_stack = get_internal_call_stack_manager();

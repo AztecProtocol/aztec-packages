@@ -8,6 +8,21 @@
 
 namespace bb::avm2::simulation {
 
+/**
+ * @brief Make a new nested context.
+ *
+ * @param address The address of the context.
+ * @param msg_sender The message sender of the context.
+ * @param transaction_fee The transaction fee of the context.
+ * @param parent_context The parent context.
+ * @param cd_offset_address The offset address of the calldata in the parent memory.
+ * @param cd_size The size of the calldata.
+ * @param is_static Whether the context is static.
+ * @param gas_limit The gas limit of the context.
+ * @param phase The transaction phase of the context.
+ *
+ * @return The new nested context.
+ */
 std::unique_ptr<ContextInterface> ContextProvider::make_nested_context(const AztecAddress& address,
                                                                        const AztecAddress& msg_sender,
                                                                        const FF& transaction_fee,
@@ -23,6 +38,8 @@ std::unique_ptr<ContextInterface> ContextProvider::make_nested_context(const Azt
     // Memory assumes that the space id is <= 16 bits.
     BB_ASSERT_LTE(context_id, std::numeric_limits<uint16_t>::max(), "Context ID out of bounds");
     uint16_t space_id = static_cast<uint16_t>(context_id);
+
+    // Create the new nested context.
     return std::make_unique<NestedContext>(
         context_id,
         address,
@@ -44,6 +61,20 @@ std::unique_ptr<ContextInterface> ContextProvider::make_nested_context(const Azt
         cd_size);
 }
 
+/**
+ * @brief Make a new enqueued call context.
+ *
+ * @param address The address of the context.
+ * @param msg_sender The message sender of the context.
+ * @param transaction_fee The transaction fee of the context.
+ * @param calldata The calldata of the context.
+ * @param is_static Whether the context is static.
+ * @param gas_limit The gas limit of the context.
+ * @param gas_used The gas used at the start of the context.
+ * @param phase The transaction phase of the context.
+ *
+ * @return The new enqueued call context.
+ */
 std::unique_ptr<ContextInterface> ContextProvider::make_enqueued_context(const AztecAddress& address,
                                                                          const AztecAddress& msg_sender,
                                                                          const FF& transaction_fee,
