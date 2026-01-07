@@ -104,13 +104,13 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     senderAddressBookStore: SenderAddressBookStore,
     capsuleStore: CapsuleStore,
     privateEventStore: PrivateEventStore,
+    jobId: string,
     private totalPublicCalldataCount: number = 0,
     protected sideEffectCounter: number = 0,
     log = createLogger('simulator:client_execution_context'),
     scopes?: AztecAddress[],
     private senderForTags?: AztecAddress,
     private simulator?: CircuitSimulator,
-    private readonly jobIdForOracle?: string,
   ) {
     super(
       callContext.contractAddress,
@@ -127,7 +127,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       senderAddressBookStore,
       capsuleStore,
       privateEventStore,
-      jobIdForOracle!,
+      jobId,
       log,
       scopes,
     );
@@ -283,15 +283,9 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       // This is a tagging secret we've not yet used in this tx, so first sync our store to make sure its indices
       // are up to date. We do this here because this store is not synced as part of the global sync because
       // that'd be wasteful as most tagging secrets are not used in each tx.
-      await syncSenderTaggingIndexes(
-        secret,
-        this.contractAddress,
-        this.aztecNode,
-        this.senderTaggingStore,
-        this.jobIdForOracle!,
-      );
+      await syncSenderTaggingIndexes(secret, this.contractAddress, this.aztecNode, this.senderTaggingStore, this.jobId);
 
-      const lastUsedIndex = await this.senderTaggingStore.getLastUsedIndex(secret, this.jobIdForOracle);
+      const lastUsedIndex = await this.senderTaggingStore.getLastUsedIndex(secret, this.jobId);
       // If lastUsedIndex is undefined, we've never used this secret, so start from 0
       // Otherwise, the next index to use is one past the last used index
       return lastUsedIndex === undefined ? 0 : lastUsedIndex + 1;
@@ -380,7 +374,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
 
     const pendingNullifiers = this.noteCache.getNullifiers(this.callContext.contractAddress);
 
-    const noteService = new NoteService(this.noteStore, this.aztecNode, this.anchorBlockStore, this.jobIdForOracle!);
+    const noteService = new NoteService(this.noteStore, this.aztecNode, this.anchorBlockStore, this.jobId);
     const dbNotes = await noteService.getNotes(
       this.callContext.contractAddress,
       owner,
@@ -594,13 +588,13 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       this.senderAddressBookStore,
       this.capsuleStore,
       this.privateEventStore,
+      this.jobId,
       this.totalPublicCalldataCount,
       sideEffectCounter,
       this.log,
       this.scopes,
       this.senderForTags,
       this.simulator,
-      this.jobIdForOracle,
     );
 
     const setupTime = simulatorSetupTimer.ms();

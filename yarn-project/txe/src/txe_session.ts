@@ -338,6 +338,7 @@ export class TXESession implements TXESessionStateHandler {
       this.senderAddressBookStore,
       this.capsuleStore,
       this.privateEventStore,
+      TXE_JOB_ID,
     );
 
     // We store the note and tagging index caches fed into the PrivateExecutionOracle (along with some other auxiliary

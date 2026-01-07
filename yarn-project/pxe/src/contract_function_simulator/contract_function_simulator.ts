@@ -194,13 +194,13 @@ export class ContractFunctionSimulator {
       this.senderAddressBookStore,
       this.capsuleStore,
       this.privateEventStore,
+      jobId,
       0, // totalPublicArgsCount
       startSideEffectCounter,
       undefined, // log
       scopes,
       senderForTags,
       this.simulator,
-      jobId,
     );
 
     const setupTime = simulatorSetupTimer.ms();
