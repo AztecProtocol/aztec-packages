@@ -145,6 +145,7 @@ sel * (1 - last) * (ctr' - ctr - 1) = 0;
 pol commit rw; // @boolean (constrained by memory.pil)
 
 pol commit single_tag_error; // @boolean
+#[SINGLE_TAG_ERROR_BOOLEAN]
 single_tag_error * (1 - single_tag_error) = 0;
 
 #[NO_TAG_ERROR_ON_WRITE]
@@ -176,9 +177,6 @@ pol commit tag_min_u64_inv;
 pol TAG_MIN_U64 = tag - constants.MEM_TAG_U64;
 #[SINGLE_TAG_ERROR]
 sel * (TAG_MIN_U64 * ((1 - single_tag_error) * (1 - tag_min_u64_inv) + tag_min_u64_inv) - single_tag_error) = 0;
-
-#[SINGLE_TAG_ERROR_BOOLEAN]
-single_tag_error * (1 - single_tag_error) = 0;
 
 #[VAL01]
 val[1] = (1 - last) * val[0]';
