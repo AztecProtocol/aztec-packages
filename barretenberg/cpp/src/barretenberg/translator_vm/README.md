@@ -262,11 +262,20 @@ The mini-circuit layout is illustrated below:
 - The next 13 columns represent limb decompositions
 - The last 64 columns represent microlimb decompositions
 - Let $n$ = total number of rows in the mini-circuit
-- Let $m_{\textsf{start}}$ = number of rows for randomness at start
-- Let $m$ = number of rows for randomness at the end
+- Let $r_{\textsf{start}}$ = number of rows for randomness at start
+- Let $r_{\textsf{end}}$ = number of rows for randomness at the end
 - Let $z_1$ = number of initial no-op rows (to ensure column polynomials are shiftable)
 
-The purple boxes represent zero values while the grey boxes represent randomness values (in the op queue only). The orange boxes represent the main op queue rows where the actual ECC operations are processed.
+Color coding in the diagram:
+
+- Purple boxes ($\textcolor{violet}{\textsf{purple}}$): Zero values or initial values
+  - For all columns: initial no-op row contains zeros
+  - For non-OP columns (13 limb + 64 microlimb): end randomness region initially contain zeros, later overwritten with random values for ZK sumcheck
+- Grey boxes ($\textcolor{grey}{\textsf{grey}}$): Random values (no-op) in the 4 OP queue columns only
+  - These remain as random values from the random op processing
+  - Serve Merge Protocol ZK hiding
+- Orange boxes ($\textcolor{orange}{\textsf{orange}}$): Main operation rows
+  - Contains actual ECC operation data for circuit computation
 
 $$
 \begin{array}{rlllll}
@@ -298,7 +307,7 @@ z_1
 }
 }^{64}
 \\[2pt]
-m_{\textsf{start}}
+r_{\textsf{start}}
 &
 \textcolor{grey}{
    \boxed{
@@ -329,7 +338,7 @@ m_{\textsf{start}}
    }
 }
 \\ \\[-10pt]
-n - m_{\textsf{start}} - m - z_1 &
+n - r_{\textsf{start}} - r_{\textsf{end}} - z_1 &
 \textcolor{orange}{
    \boxed{
       \begin{array}{c}
@@ -359,7 +368,7 @@ n - m_{\textsf{start}} - m - z_1 &
    }
 }
 \\ \\[-10pt]
-m
+r_{\textsf{end}}
 &
 \textcolor{grey}{
    \boxed{
@@ -392,26 +401,43 @@ m
 \end{array}
 $$
 
-In our implementation, mini-circuit size is $n = 2^{13}$. We have $z_1 = 2$ (one no-op at the start to ensure shiftability), $m_{\textsf{start}} = 6$ (rows for three random ops at start), and $m = 4$ (rows for two random ops at end). Thus, the number of main operation rows is $n - m_{\textsf{start}} - m - z_1 = 8180$.
+In our implementation, mini-circuit size is $n = 2^{13}$. We have $z_1 = 2$ (one no-op at the start to ensure shiftability), $r_{\textsf{start}} = 6$ (rows for three random ops at start), and $r_{\textsf{end}} = 4$ (rows for two random ops at end). Thus, the number of main operation rows is $n - r_{\textsf{start}} - r_{\textsf{end}} - z_1 = 8180$.
 
-> **Note:** The randomness rows at the start are due to the blinding required for the tail kernel, for which the ECC ops are prepended. The randomness rows at the end are for the blinding of the hiding kernel, for which the ECC ops are appended. See [MERGE protocol documentation](../goblin/MERGE_PROTOCOL.md#zk-considerations) for more details.
+The random ops serve dual purposes for zero-knowledge:
+
+**1. Merge Protocol ZK** (Grey boxes in 4 OP columns):
+
+- The 3 random ops at start add random values to the 4 ECC op queue columns (tail kernel blinding, ops prepended)
+- The 2 random ops at end add random values to the 4 ECC op queue columns (hiding kernel blinding, ops appended)
+- Together these contribute 40 random coefficients (10 per wire) to hide merge protocol evaluations
+- See [MERGE_PROTOCOL.md](../goblin/MERGE_PROTOCOL.md#zk-considerations) for the degree-of-freedom analysis
+
+**2. ZK Sumcheck Masking** (Initially purple, then filled with random for non-OP columns):
+
+- The last $r_{\textsf{end}} = 4$ rows align exactly with `NUM_DISABLED_ROWS_IN_SUMCHECK = 4` (denoted as $m$ in the Lagrange table below)
+- For the 4 OP queue columns: random values remain from the random ops
+- For the remaining 77 columns (13 limb + 64 microlimb):
+  - Initially filled with zeros during random op processing
+  - These zeros are overwritten with random field elements during proving key construction
+  - This masking hides polynomial evaluations in ZK sumcheck
 
 ### Lagrange Polynomials (Precomputed)
 
-The circuit uses Lagrange polynomials to control which constraints are active:
+The circuit uses Lagrange polynomials to control which constraints are active: ($I_{\text{size}} = 16$ is the number of columns interleaved together)
 
-| Polynomial                     | Description                               | Active Rows                                                                  |
-| ------------------------------ | ----------------------------------------- | ---------------------------------------------------------------------------- |
-| `lagrange_first`               | First row                                 | $i = 0$                                                                      |
-| `lagrange_real_last`           | Last row in full circuit (before masking) | $i = 2^{17} - m \cdot I_{\text{size}} - 1$                                   |
-| `lagrange_last`                | Last row in full circuit                  | $i = 2^{17} - 1$                                                             |
-| `lagrange_masking`             | Masking rows in full circuit              | $i \in \{2^{17} - m \cdot I_{\text{size}}, \ldots, 2^{17} - 1\}$             |
-| `lagrange_even_in_minicircuit` | Even indices in mini-circuit              | $i \in \{0, 2, 4, ..., 8190\}$ (mini)                                        |
-| `lagrange_odd_in_minicircuit`  | Odd indices in mini-circuit               | $i \in \{1, 3, 5, ..., 8191\}$ (mini)                                        |
-| `lagrange_last_in_minicircuit` | Last row in mini-circuit                  | $i = 8191$ (mini)                                                            |
-| `lagrange_result_row`          | Row containing final result               | $i = 8$ (mini, equals no of rows are to be left for random ops at the start) |
-| `lagrange_masking`             | Masking rows for zero-knowledge           | Last few rows                                                                |
-| `lagrange_mini_masking`        | Masking within mini-circuit               | Last rows of mini-circuit                                                    |
+| Polynomial                     | Description                               | Active Rows                                                                                     |
+| ------------------------------ | ----------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `lagrange_first`               | First row                                 | $i = 0$                                                                                         |
+| `lagrange_real_last`           | Last row in full circuit (before masking) | $i = 2^{17} - m \cdot I_{\text{size}} - 1$                                                      |
+| `lagrange_last`                | Last row in full circuit                  | $i = 2^{17} - 1$                                                                                |
+| `lagrange_masking`             | Masking rows in full circuit              | $i \in [2^{17} - m \cdot I_{\text{size}}, \ 2^{17})$                                            |
+| `lagrange_mini_masking`        | Masking rows in mini circuit              | $i \in [z_1, \ z_1 + r_{\textsf{start}}) \cup [n - r_{\textsf{end}}, \ n)$                      |
+| `lagrange_even_in_minicircuit` | Even indices in real mini-circuit         | $i \in \{u \ \| \ u \ \% \ 2 = 0, \ (z_1 + r_{\textsf{start}}) \leq u < n - r_{\textsf{end}}\}$ |
+| `lagrange_odd_in_minicircuit`  | Odd indices in real mini-circuit          | $i \in \{u \ \| \ u \ \% \ 2 = 1, \ (z_1 + r_{\textsf{start}}) \leq u < n - r_{\textsf{end}}\}$ |
+| `lagrange_last_in_minicircuit` | Last row in mini-circuit                  | $i = 8191$ (mini)                                                                               |
+| `lagrange_result_row`          | Row containing final accumulator result   | $i = (z_1 + r_{\textsf{start}})$                                                                |
+| `lagrange_last_in_minicircuit` | Last real row in mini-circuit             | $i = (n - r_{\textsf{end}}) - 1$                                                                |
+|                                |                                           |                                                                                                 |
 
 ## Interleaving: The Key Optimization
 
@@ -1343,14 +1369,28 @@ $$
 
 ### Step 7: Zero-Knowledge Masking
 
-To achieve zero-knowledge, the prover adds random values to the end of polynomials.
-For each of the witness polynomials, the masking region is defined as the last $m$ rows of the mini-circuit size, indexed as:
+To achieve zero-knowledge, the translator uses two independent masking mechanisms:
+
+#### ZK Sumcheck Masking (Non-OP-Queue Wires)
+
+To hide polynomial evaluations used in ZK sumcheck, random values are added to the last $m = r_{\textsf{end}} = 4$ rows of the mini-circuit for all non-OP-queue wires (13 limb decomposition columns, 64 microlimb columns).
+
+1. During random op processing, these columns are initially filled with zeros
+2. During proving key construction, these zeros are overwritten with random field elements
+3. The Lagrange polynomial `lagrange_mini_masking` marks these last 4 rows as masked
+
+#### Permutation Argument Masking (Ordered Polynomials)
+
+For the permutation argument over microlimbs, a separate masking mechanism is used.
+For each of the witness polynomials, the masking region is defined as the last $m = r_{\textsf{end}}$ rows of the mini-circuit size, indexed as:
 
 $$[n - m, \ n).$$
 
 After interleaving, the 4 interleaved polynomials have random values at positions:
 
 $$[N - m \cdot I_{\textsf{size}}, \ N).$$
+
+Where $m = r_{\textsf{end}} = 4$ (the same 4 rows used for ZK sumcheck masking).
 
 #### Redistributing Randomness to Ordered Polynomials
 
