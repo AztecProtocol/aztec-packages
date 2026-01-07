@@ -1492,12 +1492,23 @@ TEST(fuzz, SendL2ToL1Msg)
 
 TEST(fuzz, EmitUnencryptedLog)
 {
-    auto emitunencryptedlog_instruction =
-        EMITUNENCRYPTEDLOG_Instruction{ .log_size = 1,
-                                        .log_size_address = AddressRef{ .address = 0, .mode = AddressingMode::Direct },
-                                        .log_values = { 1 },
-                                        .log_values_address_start = 1 };
-    auto instruction_blocks = std::vector<std::vector<FuzzInstruction>>{ { emitunencryptedlog_instruction } };
+    auto log_size_address = AddressRef{ .address = 0, .mode = AddressingMode::Direct };
+    auto log_values_address = AddressRef{ .address = 1, .mode = AddressingMode::Direct };
+    uint32_t log_size = 1;
+    FF log_value = 42;
+
+    std::vector<FuzzInstruction> instructions;
+
+    instructions.push_back(SET_32_Instruction{
+        .value_tag = bb::avm2::MemoryTag::U32, .result_address = log_size_address, .value = log_size });
+
+    instructions.push_back(SET_FF_Instruction{
+        .value_tag = bb::avm2::MemoryTag::FF, .result_address = log_values_address, .value = log_value });
+
+    instructions.push_back(EMITUNENCRYPTEDLOG_Instruction{ .log_size_address = log_size_address,
+                                                           .log_values_address = log_values_address });
+
+    auto instruction_blocks = std::vector<std::vector<FuzzInstruction>>{ instructions };
     auto control_flow = ControlFlow(instruction_blocks);
     control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
     auto bytecode = control_flow.build_bytecode(
@@ -1513,22 +1524,38 @@ namespace external_calls {
 /// ADD8: 1 + 1
 TEST(fuzz, ExternalCallToAdd8)
 {
-    auto call_instruction = CALL_Instruction{ .function_index = 0,
-                                              .address_offset = 1,
-                                              .l2_gas = 10000,
-                                              .l2_gas_address = 2,
-                                              .da_gas = 10000,
-                                              .da_gas_address = 3,
-                                              .arg_size_offset = 4,
-                                              .args_offset = 5,
-                                              .args = {},
-                                              .is_static_call = false };
-    auto returndatasize_with_returndatacopy_instruction = RETURNDATASIZE_WITH_RETURNDATACOPY_Instruction{
-        .copy_size_offset = 6, .dst_address = 7, .rd_start = 0, .rd_start_offset = 8
-    };
-    auto instruction_blocks =
-        std::vector<std::vector<FuzzInstruction>>{ { call_instruction,
-                                                     returndatasize_with_returndatacopy_instruction } };
+    std::vector<FuzzInstruction> instructions;
+    auto contract_address = bb::avm2::fuzzer::ContractDBProxy::get_instance()->get_function_address(0);
+    AddressRef contract_address_address = AddressRef{ .address = 1, .mode = AddressingMode::Direct };
+    instructions.push_back(SET_FF_Instruction{
+        .value_tag = bb::avm2::MemoryTag::FF, .result_address = contract_address_address, .value = contract_address });
+
+    uint32_t l2_gas = 10000;
+    AddressRef l2_gas_address = AddressRef{ .address = 2, .mode = AddressingMode::Direct };
+    instructions.push_back(
+        SET_32_Instruction{ .value_tag = bb::avm2::MemoryTag::U32, .result_address = l2_gas_address, .value = l2_gas });
+
+    uint32_t da_gas = 10000;
+    AddressRef da_gas_address = AddressRef{ .address = 3, .mode = AddressingMode::Direct };
+    instructions.push_back(
+        SET_32_Instruction{ .value_tag = bb::avm2::MemoryTag::U32, .result_address = da_gas_address, .value = da_gas });
+
+    uint16_t arg_size = 0;
+    AddressRef arg_size_address = AddressRef{ .address = 4, .mode = AddressingMode::Direct };
+    AddressRef args_address = AddressRef{ .address = 5, .mode = AddressingMode::Direct };
+
+    instructions.push_back(CALL_Instruction{ .l2_gas_address = l2_gas_address,
+                                             .da_gas_address = da_gas_address,
+                                             .contract_address_address = contract_address_address,
+                                             .calldata_address = args_address,
+                                             .calldata_size_address = arg_size_address,
+                                             .calldata_size = arg_size,
+                                             .is_static_call = false });
+
+    instructions.push_back(RETURNDATASIZE_WITH_RETURNDATACOPY_Instruction{
+        .copy_size_offset = 6, .dst_address = 7, .rd_start = 0, .rd_start_offset = 8 });
+
+    auto instruction_blocks = std::vector<std::vector<FuzzInstruction>>{ instructions };
     auto control_flow = ControlFlow(instruction_blocks);
     control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
     auto bytecode = control_flow.build_bytecode(
@@ -1570,20 +1597,37 @@ TEST(fuzz, GetContractInstance)
 // Calls add8, sucesscopy, return
 TEST(fuzz, SuccessCopy)
 {
-    auto call_instruction = CALL_Instruction{ .function_index = 0,
-                                              .address_offset = 1,
-                                              .l2_gas = 10000,
-                                              .l2_gas_address = 2,
-                                              .da_gas = 10000,
-                                              .da_gas_address = 3,
-                                              .arg_size_offset = 4,
-                                              .args_offset = 5,
-                                              .args = {},
-                                              .is_static_call = true };
-    auto successcopy_instruction =
-        SUCCESSCOPY_Instruction{ .dst_address = AddressRef{ .address = 6, .mode = AddressingMode::Direct } };
-    auto instruction_blocks =
-        std::vector<std::vector<FuzzInstruction>>{ { call_instruction, successcopy_instruction } };
+    std::vector<FuzzInstruction> instructions;
+    auto contract_address = bb::avm2::fuzzer::ContractDBProxy::get_instance()->get_function_address(0);
+    AddressRef contract_address_address = AddressRef{ .address = 1, .mode = AddressingMode::Direct };
+    instructions.push_back(SET_FF_Instruction{
+        .value_tag = bb::avm2::MemoryTag::FF, .result_address = contract_address_address, .value = contract_address });
+
+    uint32_t l2_gas = 10000;
+    AddressRef l2_gas_address = AddressRef{ .address = 2, .mode = AddressingMode::Direct };
+    instructions.push_back(
+        SET_32_Instruction{ .value_tag = bb::avm2::MemoryTag::U32, .result_address = l2_gas_address, .value = l2_gas });
+
+    uint32_t da_gas = 10000;
+    AddressRef da_gas_address = AddressRef{ .address = 3, .mode = AddressingMode::Direct };
+    instructions.push_back(
+        SET_32_Instruction{ .value_tag = bb::avm2::MemoryTag::U32, .result_address = da_gas_address, .value = da_gas });
+
+    uint16_t arg_size = 0;
+    AddressRef arg_size_address = AddressRef{ .address = 4, .mode = AddressingMode::Direct };
+    AddressRef args_address = AddressRef{ .address = 5, .mode = AddressingMode::Direct };
+
+    instructions.push_back(CALL_Instruction{ .l2_gas_address = l2_gas_address,
+                                             .da_gas_address = da_gas_address,
+                                             .contract_address_address = contract_address_address,
+                                             .calldata_address = args_address,
+                                             .calldata_size_address = arg_size_address,
+                                             .calldata_size = arg_size,
+                                             .is_static_call = false });
+
+    instructions.push_back(
+        SUCCESSCOPY_Instruction{ .dst_address = AddressRef{ .address = 6, .mode = AddressingMode::Direct } });
+    auto instruction_blocks = std::vector<std::vector<FuzzInstruction>>{ instructions };
     auto control_flow = ControlFlow(instruction_blocks);
     control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
     auto bytecode = control_flow.build_bytecode(
@@ -1597,20 +1641,36 @@ TEST(fuzz, SuccessCopy)
 // The result should be 0
 TEST(fuzz, CallToZeroDivisionSuccessCopy)
 {
-    auto static_call_instruction = CALL_Instruction{ .function_index = 1,
-                                                     .address_offset = 1,
-                                                     .l2_gas = 10000,
-                                                     .l2_gas_address = 2,
-                                                     .da_gas = 10000,
-                                                     .da_gas_address = 3,
-                                                     .arg_size_offset = 4,
-                                                     .args_offset = 5,
-                                                     .args = {},
-                                                     .is_static_call = true };
-    auto successcopy_instruction =
-        SUCCESSCOPY_Instruction{ .dst_address = AddressRef{ .address = 6, .mode = AddressingMode::Direct } };
-    auto instruction_blocks =
-        std::vector<std::vector<FuzzInstruction>>{ { static_call_instruction, successcopy_instruction } };
+    std::vector<FuzzInstruction> instructions;
+    auto contract_address = bb::avm2::fuzzer::ContractDBProxy::get_instance()->get_function_address(1);
+    AddressRef contract_address_address = AddressRef{ .address = 1, .mode = AddressingMode::Direct };
+    instructions.push_back(SET_FF_Instruction{
+        .value_tag = bb::avm2::MemoryTag::FF, .result_address = contract_address_address, .value = contract_address });
+
+    uint32_t l2_gas = 10000;
+    AddressRef l2_gas_address = AddressRef{ .address = 2, .mode = AddressingMode::Direct };
+    instructions.push_back(
+        SET_32_Instruction{ .value_tag = bb::avm2::MemoryTag::U32, .result_address = l2_gas_address, .value = l2_gas });
+
+    uint32_t da_gas = 10000;
+    AddressRef da_gas_address = AddressRef{ .address = 3, .mode = AddressingMode::Direct };
+    instructions.push_back(
+        SET_32_Instruction{ .value_tag = bb::avm2::MemoryTag::U32, .result_address = da_gas_address, .value = da_gas });
+
+    uint16_t arg_size = 0;
+    AddressRef arg_size_address = AddressRef{ .address = 4, .mode = AddressingMode::Direct };
+    AddressRef args_address = AddressRef{ .address = 5, .mode = AddressingMode::Direct };
+
+    instructions.push_back(CALL_Instruction{ .l2_gas_address = l2_gas_address,
+                                             .da_gas_address = da_gas_address,
+                                             .contract_address_address = contract_address_address,
+                                             .calldata_address = args_address,
+                                             .calldata_size_address = arg_size_address,
+                                             .calldata_size = arg_size,
+                                             .is_static_call = true });
+    instructions.push_back(
+        SUCCESSCOPY_Instruction{ .dst_address = AddressRef{ .address = 6, .mode = AddressingMode::Direct } });
+    auto instruction_blocks = std::vector<std::vector<FuzzInstruction>>{ instructions };
     auto control_flow = ControlFlow(instruction_blocks);
     control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
     auto bytecode = control_flow.build_bytecode(
@@ -1623,20 +1683,36 @@ TEST(fuzz, CallToZeroDivisionSuccessCopy)
 /// Performs static call to SSTORE_FUNCTION, SUCCESSCOPY, RETURN
 TEST(fuzz, StaticCallToNonStaticFunctionSuccessCopy)
 {
-    auto static_call_instruction = CALL_Instruction{ .function_index = 2,
-                                                     .address_offset = 1,
-                                                     .l2_gas = 10000,
-                                                     .l2_gas_address = 2,
-                                                     .da_gas = 10000,
-                                                     .da_gas_address = 3,
-                                                     .arg_size_offset = 4,
-                                                     .args_offset = 5,
-                                                     .args = {},
-                                                     .is_static_call = true };
-    auto successcopy_instruction =
-        SUCCESSCOPY_Instruction{ .dst_address = AddressRef{ .address = 6, .mode = AddressingMode::Direct } };
-    auto instruction_blocks =
-        std::vector<std::vector<FuzzInstruction>>{ { static_call_instruction, successcopy_instruction } };
+    std::vector<FuzzInstruction> instructions;
+    auto contract_address = bb::avm2::fuzzer::ContractDBProxy::get_instance()->get_function_address(2);
+    AddressRef contract_address_address = AddressRef{ .address = 1, .mode = AddressingMode::Direct };
+    instructions.push_back(SET_FF_Instruction{
+        .value_tag = bb::avm2::MemoryTag::FF, .result_address = contract_address_address, .value = contract_address });
+
+    uint32_t l2_gas = 10000;
+    AddressRef l2_gas_address = AddressRef{ .address = 2, .mode = AddressingMode::Direct };
+    instructions.push_back(
+        SET_32_Instruction{ .value_tag = bb::avm2::MemoryTag::U32, .result_address = l2_gas_address, .value = l2_gas });
+
+    uint32_t da_gas = 10000;
+    AddressRef da_gas_address = AddressRef{ .address = 3, .mode = AddressingMode::Direct };
+    instructions.push_back(
+        SET_32_Instruction{ .value_tag = bb::avm2::MemoryTag::U32, .result_address = da_gas_address, .value = da_gas });
+
+    uint16_t arg_size = 0;
+    AddressRef arg_size_address = AddressRef{ .address = 4, .mode = AddressingMode::Direct };
+    AddressRef args_address = AddressRef{ .address = 5, .mode = AddressingMode::Direct };
+
+    instructions.push_back(CALL_Instruction{ .l2_gas_address = l2_gas_address,
+                                             .da_gas_address = da_gas_address,
+                                             .contract_address_address = contract_address_address,
+                                             .calldata_address = args_address,
+                                             .calldata_size_address = arg_size_address,
+                                             .calldata_size = arg_size,
+                                             .is_static_call = true });
+    instructions.push_back(
+        SUCCESSCOPY_Instruction{ .dst_address = AddressRef{ .address = 6, .mode = AddressingMode::Direct } });
+    auto instruction_blocks = std::vector<std::vector<FuzzInstruction>>{ instructions };
     auto control_flow = ControlFlow(instruction_blocks);
     control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
     auto bytecode = control_flow.build_bytecode(

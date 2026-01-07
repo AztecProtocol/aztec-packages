@@ -576,11 +576,10 @@ struct RETURNDATASIZE_WITH_RETURNDATACOPY_Instruction {
 };
 
 struct GETCONTRACTINSTANCE_Instruction {
-    uint16_t contract_index;             // index of the contract in the contract db
-    AddressRef contract_address_address; // where the contract address will be stored
+    ParamRef contract_address_address; // where the contract address will be stored
+    uint8_t member_enum;
     AddressRef dst_address;
-    uint8_t member_enum; // taken modulo 3. 0 -> DEPLOYER, 1 -> CLASS_ID, 2 -> INIT_HASH
-    MSGPACK_FIELDS(contract_index, contract_address_address, dst_address, member_enum);
+    MSGPACK_FIELDS(contract_address_address, member_enum, dst_address);
 };
 
 struct SUCCESSCOPY_Instruction {

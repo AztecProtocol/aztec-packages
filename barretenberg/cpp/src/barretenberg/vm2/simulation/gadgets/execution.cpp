@@ -1328,8 +1328,9 @@ void Execution::get_contract_instance(ContextInterface& context,
 
     // Execution can still handle address memory read and tag checking
     const auto& address_value = memory.get(address_offset);
-    AztecAddress contract_address = address_value.as<AztecAddress>();
     set_and_validate_inputs(opcode, { address_value });
+
+    AztecAddress contract_address = address_value.as<AztecAddress>();
 
     get_gas_tracker().consume_gas();
 
