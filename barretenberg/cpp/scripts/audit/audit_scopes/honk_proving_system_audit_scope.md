@@ -18,44 +18,58 @@ Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg`
 9. `honk/utils/honk_key_gen.hpp`
 10. `honk/utils/testing.cpp`
 11. `honk/utils/testing.hpp`
+12. `relations/relation_parameters.hpp`
 
 ### Circuit to Polynomial Conversion
-12. `trace_to_polynomials/trace_to_polynomials.cpp`
-13. `trace_to_polynomials/trace_to_polynomials.hpp`
+13. `trace_to_polynomials/trace_to_polynomials.cpp`
+14. `trace_to_polynomials/trace_to_polynomials.hpp`
 
 ### Flavor Definitions
-14. `flavor/flavor.cpp`
-15. `flavor/flavor.hpp`
-16. `flavor/flavor_macros.hpp`
-17. `flavor/mega_flavor.hpp`
-18. `flavor/mega_recursive_flavor.hpp`
-19. `flavor/mega_zk_flavor.hpp`
-20. `flavor/mega_zk_recursive_flavor.hpp`
-21. `flavor/relation_definitions.hpp`
-22. `flavor/repeated_commitments_data.hpp`
-23. `flavor/ultra_flavor.hpp`
-24. `flavor/ultra_keccak_flavor.hpp`
-25. `flavor/ultra_keccak_zk_flavor.hpp`
-26. `flavor/ultra_recursive_flavor.hpp`
-27. `flavor/ultra_rollup_flavor.hpp`
-28. `flavor/ultra_rollup_recursive_flavor.hpp`
-29. `flavor/ultra_zk_flavor.hpp`
-30. `flavor/ultra_zk_recursive_flavor.hpp`
+15. `flavor/flavor.cpp`
+16. `flavor/flavor.hpp`
+17. `flavor/flavor_macros.hpp`
+18. `flavor/mega_flavor.hpp`
+19. `flavor/mega_recursive_flavor.hpp`
+20. `flavor/mega_zk_flavor.hpp`
+21. `flavor/mega_zk_recursive_flavor.hpp`
+22. `flavor/relation_definitions.hpp`
+23. `flavor/repeated_commitments_data.hpp`
+24. `flavor/ultra_flavor.hpp`
+25. `flavor/ultra_keccak_flavor.hpp`
+26. `flavor/ultra_keccak_zk_flavor.hpp`
+27. `flavor/ultra_recursive_flavor.hpp`
+28. `flavor/ultra_rollup_flavor.hpp`
+29. `flavor/ultra_rollup_recursive_flavor.hpp`
+30. `flavor/ultra_zk_flavor.hpp`
+31. `flavor/ultra_zk_recursive_flavor.hpp`
 
 ### Ultra Honk Prover/Verifier
-31. `ultra_honk/oink_prover.cpp`
-32. `ultra_honk/oink_prover.hpp`
-33. `ultra_honk/oink_verifier.cpp`
-34. `ultra_honk/oink_verifier.hpp`
-35. `ultra_honk/prover_instance.cpp`
-36. `ultra_honk/prover_instance.hpp`
-37. `ultra_honk/ultra_prover.cpp`
-38. `ultra_honk/ultra_prover.hpp`
-39. `ultra_honk/ultra_verifier.cpp`
-40. `ultra_honk/ultra_verifier.hpp`
-41. `ultra_honk/verifier_instance.hpp`
-42. `ultra_honk/witness_computation.cpp`
-43. `ultra_honk/witness_computation.hpp`
+32. `ultra_honk/oink_prover.cpp`
+33. `ultra_honk/oink_prover.hpp`
+34. `ultra_honk/oink_verifier.cpp`
+35. `ultra_honk/oink_verifier.hpp`
+36. `ultra_honk/prover_instance.cpp`
+37. `ultra_honk/prover_instance.hpp`
+38. `ultra_honk/ultra_prover.cpp`
+39. `ultra_honk/ultra_prover.hpp`
+40. `ultra_honk/ultra_verifier.cpp`
+41. `ultra_honk/ultra_verifier.hpp`
+42. `ultra_honk/verifier_instance.hpp`
+43. `ultra_honk/witness_computation.cpp`
+44. `ultra_honk/witness_computation.hpp`
+
+### Stdlib Honk Verifier
+45. `stdlib/honk_verifier/ipa_accumulator.hpp`
+
+### Public Input Components
+46. `public_input_component/public_component_key.hpp`
+47. `public_input_component/public_input_component.hpp`
+
+### DSL/ACIR Recursion
+48. `dsl/acir_format/recursion_constraint.hpp`
+49. `dsl/acir_format/recursion_constraint.cpp`
+50. `dsl/acir_format/recursion_constraint_output.hpp`
+51. `dsl/acir_format/recursion_constraint_output.cpp`
 
 ## Summary of Module
 
