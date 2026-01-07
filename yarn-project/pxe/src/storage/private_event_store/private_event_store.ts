@@ -107,14 +107,14 @@ export class PrivateEventStore implements StagedStore {
    *  scope - The address to which the event is scoped.
    *  txHash - The transaction hash of the event log.
    *  blockNumber - The block number in which the event was emitted.
-   * @param context - Optional job context for staging writes
+   * @param jobId - The job ID for staging writes
    */
   async storePrivateEventLog(
     eventSelector: EventSelector,
     msgContent: Fr[],
     eventCommitmentIndex: number,
     metadata: PrivateEventMetadata,
-    jobId?: string,
+    jobId: string,
   ): Promise<void> {
     const { contractAddress, scope, txHash, l2BlockNumber, l2BlockHash } = metadata;
     const key = this.#keyFor(contractAddress, scope, eventSelector);
@@ -133,27 +133,13 @@ export class PrivateEventStore implements StagedStore {
       txHash: txHash.toBuffer(),
     };
 
-    if (jobId) {
-      this.logger.verbose('staging private event log', { contractAddress, scope, msgContent, l2BlockNumber });
-      let jobStaging = this.#stagedEvents.get(jobId);
-      if (!jobStaging) {
-        jobStaging = new Map();
-        this.#stagedEvents.set(jobId, jobStaging);
-      }
-      jobStaging.set(eventCommitmentIndex, { entry, key });
-    } else {
-      this.logger.verbose('storing private event log', { contractAddress, scope, msgContent, l2BlockNumber });
-
-      await this.#store.transactionAsync(async () => {
-        const index = await this.#eventLogs.lengthAsync();
-        await this.#eventLogs.push(entry);
-
-        const existingIndices = (await this.#eventLogIndex.getAsync(key)) || [];
-        await this.#eventLogIndex.set(key, [...existingIndices, index]);
-
-        await this.#seenLogs.set(eventCommitmentIndex, true);
-      });
+    this.logger.verbose('staging private event log', { contractAddress, scope, msgContent, l2BlockNumber });
+    let jobStaging = this.#stagedEvents.get(jobId);
+    if (!jobStaging) {
+      jobStaging = new Map();
+      this.#stagedEvents.set(jobId, jobStaging);
     }
+    jobStaging.set(eventCommitmentIndex, { entry, key });
   }
 
   /**

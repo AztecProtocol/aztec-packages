@@ -129,31 +129,9 @@ export class NoteStore implements StagedStore {
    *
    * @param notes - Notes to store
    * @param scope - The scope (user/account) under which to store the notes
-   * @param jobId - Optional jobId for staging writes
+   * @param jobId - The job ID for staging writes
    */
-  addNotes(notes: NoteDao[], scope: AztecAddress, jobId?: string): Promise<void> {
-    if (jobId) {
-      return this.#addNotesStaging(notes, scope, jobId);
-    }
-
-    return this.#store.transactionAsync(async () => {
-      if (!(await this.#scopes.hasAsync(scope.toString()))) {
-        await this.addScope(scope);
-      }
-
-      for (const dao of notes) {
-        const noteIndex = toBufferBE(dao.index, 32).toString('hex');
-        await this.#notes.set(noteIndex, dao.toBuffer());
-        await this.#notesToScope.set(noteIndex, scope.toString());
-        await this.#nullifierToNoteId.set(dao.siloedNullifier.toString(), noteIndex);
-
-        await this.#notesByContractAndScope.get(scope.toString())!.set(dao.contractAddress.toString(), noteIndex);
-        await this.#notesByStorageSlotAndScope.get(scope.toString())!.set(dao.storageSlot.toString(), noteIndex);
-      }
-    });
-  }
-
-  #addNotesStaging(notes: NoteDao[], scope: AztecAddress, jobId: string): Promise<void> {
+  addNotes(notes: NoteDao[], scope: AztecAddress, jobId: string): Promise<void> {
     let jobStaging = this.#stagedData.get(jobId);
     if (!jobStaging) {
       jobStaging = { addedNotes: new Map(), nullifiedNotes: new Map() };
@@ -296,36 +274,50 @@ export class NoteStore implements StagedStore {
       );
     }
 
-    const candidateNoteSources = [];
-
-    filter.scopes ??= (await toArray(this.#scopes.keysAsync())).map(addressString =>
-      AztecAddress.fromString(addressString),
-    );
-
+    // Get non-committed data, which includes added notes, nullified notes,
+    // and scopes from added notes
     const stagedNotes = jobId ? this.#stagedData.get(jobId) : undefined;
     const stagedNullifiedIndexes = new Set<string>(stagedNotes?.nullifiedNotes.keys() ?? []);
+    const stagedScopes = new Set<string>();
+    if (stagedNotes) {
+      for (const note of stagedNotes.addedNotes.values()) {
+        stagedScopes.add(note.scope);
+      }
+    }
+
+    // Default to including all known scopes if filter.scopes is not specified
+    filter.scopes ??= [
+      ...(await toArray(this.#scopes.keysAsync())).map(addressString => AztecAddress.fromString(addressString)),
+      ...stagedScopes.values().map(scopeString => AztecAddress.fromString(scopeString)),
+    ];
 
     const activeNoteIdsPerScope: string[][] = [];
-
     for (const scope of new Set(filter.scopes)) {
       const formattedScopeString = scope.toString();
-      if (!(await this.#scopes.hasAsync(formattedScopeString))) {
+      const isCommittedScope = await this.#scopes.hasAsync(formattedScopeString);
+      if (!stagedScopes.has(formattedScopeString) && !isCommittedScope) {
         throw new Error('Trying to get incoming notes of a scope that is not in the PXE database');
       }
 
-      activeNoteIdsPerScope.push(
-        filter.storageSlot
-          ? await toArray(
-              this.#notesByStorageSlotAndScope.get(formattedScopeString)!.getValuesAsync(filter.storageSlot.toString()),
-            )
-          : await toArray(
-              this.#notesByContractAndScope
-                .get(formattedScopeString)!
-                .getValuesAsync(filter.contractAddress.toString()),
-            ),
-      );
+      // Only query committed indexes if the scope exists in committed storage
+      if (isCommittedScope) {
+        activeNoteIdsPerScope.push(
+          filter.storageSlot
+            ? await toArray(
+                this.#notesByStorageSlotAndScope
+                  .get(formattedScopeString)!
+                  .getValuesAsync(filter.storageSlot.toString()),
+              )
+            : await toArray(
+                this.#notesByContractAndScope
+                  .get(formattedScopeString)!
+                  .getValuesAsync(filter.contractAddress.toString()),
+              ),
+        );
+      }
     }
 
+    const candidateNoteSources = [];
     candidateNoteSources.push({
       ids: new Set(activeNoteIdsPerScope.flat()),
       notes: this.#notes,
@@ -436,79 +428,15 @@ export class NoteStore implements StagedStore {
    * the entire operation fails and no notes are modified.
    *
    * @param nullifiers - Array of nullifiers with their block numbers to process
-   * @param jobId - Optional jobId for staging writes
+   * @param jobId - The job ID for staging writes
    * @returns Promise resolving to array of nullified NoteDao objects
    * @throws Error if any nullifier is not found in the active notes
    */
-  applyNullifiers(nullifiers: DataInBlock<Fr>[], jobId?: string): Promise<NoteDao[]> {
+  async applyNullifiers(nullifiers: DataInBlock<Fr>[], jobId: string): Promise<NoteDao[]> {
     if (nullifiers.length === 0) {
-      return Promise.resolve([]);
+      return [];
     }
 
-    if (jobId) {
-      return this.#applyNullifiersStaging(nullifiers, jobId);
-    }
-
-    return this.#store.transactionAsync(async () => {
-      const nullifiedNotes: NoteDao[] = [];
-
-      for (const blockScopedNullifier of nullifiers) {
-        const { data: nullifier, l2BlockNumber: blockNumber } = blockScopedNullifier;
-        const nullifierKey = nullifier.toString();
-
-        const noteIndex = await this.#nullifierToNoteId.getAsync(nullifierKey);
-        if (!noteIndex) {
-          // Check if already nullified?
-          const alreadyNullified = await this.#nullifiedNotesByNullifier.getAsync(nullifierKey);
-          if (alreadyNullified) {
-            throw new Error(`Nullifier already applied in applyNullifiers`);
-          }
-          throw new Error('Nullifier not found in applyNullifiers');
-        }
-
-        const noteBuffer = noteIndex ? await this.#notes.getAsync(noteIndex) : undefined;
-
-        if (!noteBuffer) {
-          throw new Error('Note not found in applyNullifiers');
-        }
-
-        const noteScopes = await toArray(this.#notesToScope.getValuesAsync(noteIndex));
-        if (noteScopes.length === 0) {
-          // We should never run into this error because notes always have a scope assigned to them - either on initial
-          // insertion via `addNotes` or when removing their nullifiers.
-          throw new Error('Note scopes are missing in applyNullifiers');
-        }
-
-        const note = NoteDao.fromBuffer(noteBuffer);
-
-        nullifiedNotes.push(note);
-
-        await this.#notes.delete(noteIndex);
-        await this.#notesToScope.delete(noteIndex);
-
-        const scopes = await toArray(this.#scopes.keysAsync());
-
-        for (const scope of scopes) {
-          await this.#notesByContractAndScope.get(scope)!.deleteValue(note.contractAddress.toString(), noteIndex);
-          await this.#notesByStorageSlotAndScope.get(scope)!.deleteValue(note.storageSlot.toString(), noteIndex);
-        }
-
-        for (const scope of noteScopes) {
-          await this.#nullifiedNotesToScope.set(noteIndex, scope);
-        }
-        await this.#nullifiedNotes.set(noteIndex, note.toBuffer());
-        await this.#nullifiersByBlockNumber.set(blockNumber, nullifier.toString());
-        await this.#nullifiedNotesByContract.set(note.contractAddress.toString(), noteIndex);
-        await this.#nullifiedNotesByStorageSlot.set(note.storageSlot.toString(), noteIndex);
-        await this.#nullifiedNotesByNullifier.set(nullifier.toString(), noteIndex);
-
-        await this.#nullifierToNoteId.delete(nullifier.toString());
-      }
-      return nullifiedNotes;
-    });
-  }
-
-  async #applyNullifiersStaging(nullifiers: DataInBlock<Fr>[], jobId: string): Promise<NoteDao[]> {
     const nullifiedNotes: NoteDao[] = [];
 
     let jobStaging = this.#stagedData.get(jobId);
@@ -529,6 +457,11 @@ export class NoteStore implements StagedStore {
           throw new Error(`Nullifier already applied in applyNullifiers`);
         }
         throw new Error('Nullifier not found in applyNullifiers');
+      }
+
+      // Check if already staged in this job (e.g. duplicate nullifier in same call)
+      if (jobStaging.nullifiedNotes.has(noteIndex)) {
+        throw new Error(`Nullifier already applied in applyNullifiers`);
       }
 
       const noteBuffer = await this.#getNoteBuffer(noteIndex, jobId);

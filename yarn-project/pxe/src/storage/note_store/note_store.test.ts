@@ -7,6 +7,8 @@ import { NoteDao, NoteStatus } from '@aztec/stdlib/note';
 
 import { NoteStore } from './note_store.js';
 
+const TEST_JOB_ID = 'test-job';
+
 // -----------------------------------------------------------------------------
 // Shared constants for deterministic fixtures
 // -----------------------------------------------------------------------------
@@ -75,8 +77,9 @@ describe('NoteStore', () => {
       index: 3n,
     });
 
-    await provider.addNotes([note1, note2], SCOPE_1);
-    await provider.addNotes([note3], SCOPE_2);
+    await provider.addNotes([note1, note2], SCOPE_1, TEST_JOB_ID);
+    await provider.addNotes([note3], SCOPE_2, TEST_JOB_ID);
+    await provider.commit(TEST_JOB_ID);
 
     return { store, provider, note1, note2, note3 };
   }
@@ -119,7 +122,8 @@ describe('NoteStore', () => {
 
       const noteA = await mkNote({ contractAddress: CONTRACT_A, index: 1n });
       const noteB = await mkNote({ contractAddress: CONTRACT_B, index: 2n });
-      await provider1.addNotes([noteA, noteB], FAKE_ADDRESS);
+      await provider1.addNotes([noteA, noteB], FAKE_ADDRESS, TEST_JOB_ID);
+      await provider1.commit(TEST_JOB_ID);
 
       const provider2 = await NoteStore.create(store);
 
@@ -171,7 +175,8 @@ describe('NoteStore', () => {
         storageSlot: SLOT_X,
         index: 4n,
       });
-      await provider.addNotes([note4], SCOPE_2);
+      await provider.addNotes([note4], SCOPE_2, TEST_JOB_ID);
+      await provider.commit(TEST_JOB_ID);
 
       const res = await provider.getNotes({
         contractAddress: CONTRACT_A,
@@ -183,7 +188,8 @@ describe('NoteStore', () => {
 
     it('deduplicates notes that appear in multiple scopes', async () => {
       // note 1 has been added to scope 1 in setup so we add it to scope 2 to then be able to test deduplication
-      await provider.addNotes([note1], SCOPE_2);
+      await provider.addNotes([note1], SCOPE_2, TEST_JOB_ID);
+      await provider.commit(TEST_JOB_ID);
 
       const res = await provider.getNotes({
         contractAddress: CONTRACT_A,
@@ -197,7 +203,8 @@ describe('NoteStore', () => {
 
     it('filters notes by status, returning ACTIVE by default and both ACTIVE and NULLIFIED when requested', async () => {
       const nullifiers = [mkNullifier(note2)];
-      await expect(provider.applyNullifiers(nullifiers)).resolves.toEqual([note2]);
+      await provider.applyNullifiers(nullifiers, TEST_JOB_ID);
+      await provider.commit(TEST_JOB_ID);
 
       const resActive = await provider.getNotes({ contractAddress: CONTRACT_A });
       expect(new Set(getIndexes(resActive))).toEqual(new Set([1n]));
@@ -221,7 +228,8 @@ describe('NoteStore', () => {
 
     it('applies scope filtering to nullified notes', async () => {
       const nullifiers = [mkNullifier(note3)];
-      await expect(provider.applyNullifiers(nullifiers)).resolves.toEqual([note3]);
+      await provider.applyNullifiers(nullifiers, TEST_JOB_ID);
+      await provider.commit(TEST_JOB_ID);
 
       // Query for contractB, but with the wrong scope (scope1)
       const res = await provider.getNotes({
@@ -274,7 +282,7 @@ describe('NoteStore', () => {
     });
 
     it('returns no notes when filtering by non-existing contractAddress', async () => {
-      const res = await provider.getNotes({ contractAddress: FAKE_ADDRESS });
+      const res = await provider.getNotes({ contractAddress: FAKE_ADDRESS }, TEST_JOB_ID);
       expect(getIndexes(res)).toHaveLength(0);
     });
 
@@ -337,12 +345,13 @@ describe('NoteStore', () => {
     });
 
     it('returns empty array when given empty nullifiers array', async () => {
-      const result = await provider.applyNullifiers([]);
+      const result = await provider.applyNullifiers([], TEST_JOB_ID);
       expect(result).toEqual([]);
     });
 
     it('nullifies a single note and moves it from active to nullified', async () => {
-      const result = await provider.applyNullifiers([mkNullifier(note1)]);
+      const result = await provider.applyNullifiers([mkNullifier(note1)], TEST_JOB_ID);
+      await provider.commit(TEST_JOB_ID);
       expect(result).toEqual([note1]);
 
       const active = await provider.getNotes({ contractAddress: CONTRACT_A });
@@ -357,7 +366,8 @@ describe('NoteStore', () => {
 
     it('nullifies multiple notes and returns them', async () => {
       const nullifiers = [mkNullifier(note1), mkNullifier(note3)];
-      const result = await provider.applyNullifiers(nullifiers);
+      const result = await provider.applyNullifiers(nullifiers, TEST_JOB_ID);
+      await provider.commit(TEST_JOB_ID);
 
       const activeA = await provider.getNotes({ contractAddress: CONTRACT_A });
       const activeB = await provider.getNotes({ contractAddress: CONTRACT_B });
@@ -368,7 +378,8 @@ describe('NoteStore', () => {
     });
 
     it('retrieves a nullified note by its siloedNullifier when status is ACTIVE_OR_NULLIFIED', async () => {
-      await provider.applyNullifiers([mkNullifier(note2)]);
+      await provider.applyNullifiers([mkNullifier(note2)], TEST_JOB_ID);
+      await provider.commit(TEST_JOB_ID);
 
       const filter = {
         contractAddress: CONTRACT_A,
@@ -402,12 +413,15 @@ describe('NoteStore', () => {
         l2BlockHash: L2BlockHash.random(),
       };
 
-      await expect(provider.applyNullifiers([fakeNullifier])).rejects.toThrow('Nullifier not found in applyNullifiers');
+      await expect(provider.applyNullifiers([fakeNullifier], TEST_JOB_ID)).rejects.toThrow(
+        'Nullifier not found in applyNullifiers',
+      );
     });
 
     it('preserves scope information when nullifying notes', async () => {
       const nullifiers = [mkNullifier(note1)];
-      await provider.applyNullifiers(nullifiers);
+      await provider.applyNullifiers(nullifiers, TEST_JOB_ID);
+      await provider.commit(TEST_JOB_ID);
 
       // Verify nullified note remains visible only within its original scope
       const wrongScopeNotes = await provider.getNotes({
@@ -436,7 +450,7 @@ describe('NoteStore', () => {
         },
       ];
 
-      await expect(provider.applyNullifiers(nullifiers)).rejects.toThrow();
+      await expect(provider.applyNullifiers(nullifiers, TEST_JOB_ID)).rejects.toThrow();
 
       // Verify note1 is still active (transaction rolled back)
       const activeNotes = await provider.getNotes({ contractAddress: CONTRACT_A });
@@ -445,7 +459,8 @@ describe('NoteStore', () => {
 
     it('updates all relevant indexes when nullifying notes', async () => {
       const nullifiers = [mkNullifier(note1)];
-      await provider.applyNullifiers(nullifiers);
+      await provider.applyNullifiers(nullifiers, TEST_JOB_ID);
+      await provider.commit(TEST_JOB_ID);
 
       // Test various filter combinations still work
       const byContract = await provider.getNotes({
@@ -470,19 +485,20 @@ describe('NoteStore', () => {
     });
 
     it('attempts to nullify the same note twice in succession results in error', async () => {
-      await provider.applyNullifiers([mkNullifier(note1)]); // First application should succeed
+      await provider.applyNullifiers([mkNullifier(note1)], TEST_JOB_ID); // First application should succeed
+      await provider.commit(TEST_JOB_ID);
       const activeNotes = await provider.getNotes({ contractAddress: CONTRACT_A });
       expect(new Set(getIndexes(activeNotes))).toEqual(new Set([2n]));
 
       // should throw on second attempt as note1 is already nullified
-      await expect(provider.applyNullifiers([mkNullifier(note1)])).rejects.toThrow(
+      await expect(provider.applyNullifiers([mkNullifier(note1)], 'second-job')).rejects.toThrow(
         'Nullifier already applied in applyNullifiers',
       );
     });
 
     it('attempts to nullify the same note twice in same call results in error', async () => {
       const nullifiers = [mkNullifier(note1), mkNullifier(note1)];
-      await expect(provider.applyNullifiers(nullifiers)).rejects.toThrow(
+      await expect(provider.applyNullifiers(nullifiers, TEST_JOB_ID)).rejects.toThrow(
         'Nullifier already applied in applyNullifiers',
       );
     });
@@ -510,7 +526,8 @@ describe('NoteStore', () => {
         const noteBlock3 = await mkNote({ index: 3n, l2BlockNumber: BlockNumber(3) }); // Nullified at block 4
         const noteBlock5 = await mkNote({ index: 5n, l2BlockNumber: BlockNumber(5) }); // Created after rollback block 3
 
-        await provider.addNotes([noteBlock1, noteBlock2, noteBlock3, noteBlock5], SCOPE_1);
+        await provider.addNotes([noteBlock1, noteBlock2, noteBlock3, noteBlock5], SCOPE_1, TEST_JOB_ID);
+        await provider.commit(TEST_JOB_ID);
 
         const nullifiers = [
           mkNullifier(noteBlock1, BlockNumber(2)),
@@ -520,7 +537,8 @@ describe('NoteStore', () => {
 
         // Apply nullifiers and rollback to block 3
         // - should restore noteBlock3 (nullified at block 4) and preserve noteBlock1 (nullified at block 2)
-        await provider.applyNullifiers(nullifiers);
+        await provider.applyNullifiers(nullifiers, 'nullify-job');
+        await provider.commit('nullify-job');
         await provider.rollbackNotesAndNullifiers(3, 6);
       }
 
@@ -571,7 +589,8 @@ describe('NoteStore', () => {
     describe('rewind nullifications edge cases', () => {
       it('handles rollback when blockNumber equals synchedBlockNumber', async () => {
         const note = await mkNote({ index: 10n, l2BlockNumber: BlockNumber(5) });
-        await provider.addNotes([note], SCOPE_1);
+        await provider.addNotes([note], SCOPE_1, TEST_JOB_ID);
+        await provider.commit(TEST_JOB_ID);
 
         const nullifiers = [
           {
@@ -580,7 +599,8 @@ describe('NoteStore', () => {
             l2BlockHash: L2BlockHash.fromString(note.l2BlockHash),
           },
         ];
-        await provider.applyNullifiers(nullifiers);
+        await provider.applyNullifiers(nullifiers, 'nullify-job');
+        await provider.commit('nullify-job');
 
         // Since nullification happened at block 5 (not after), it should stay nullified
         // The rewind loop processes blocks (blockNumber+1) to synchedBlockNumber = 6 to 5 = no iterations
@@ -598,7 +618,8 @@ describe('NoteStore', () => {
 
       it('handles rollback when synchedBlockNumber < blockNumber', async () => {
         const note = await mkNote({ index: 20n, l2BlockNumber: BlockNumber(3) });
-        await provider.addNotes([note], SCOPE_1);
+        await provider.addNotes([note], SCOPE_1, TEST_JOB_ID);
+        await provider.commit(TEST_JOB_ID);
 
         const nullifiers = [
           {
@@ -607,7 +628,8 @@ describe('NoteStore', () => {
             l2BlockHash: L2BlockHash.fromString(note.l2BlockHash),
           },
         ];
-        await provider.applyNullifiers(nullifiers);
+        await provider.applyNullifiers(nullifiers, 'nullify-job');
+        await provider.commit('nullify-job');
 
         // blockNumber=6, synchedBlockNumber=4 therefore no nullifications to rewind
         await provider.rollbackNotesAndNullifiers(6, 4);
@@ -625,7 +647,8 @@ describe('NoteStore', () => {
       it('handles rollback with a large block gap', async () => {
         const note1 = await mkNote({ index: 30n, l2BlockNumber: BlockNumber(5) });
         const note2 = await mkNote({ index: 31n, l2BlockNumber: BlockNumber(10) });
-        await provider.addNotes([note1, note2], SCOPE_1);
+        await provider.addNotes([note1, note2], SCOPE_1, TEST_JOB_ID);
+        await provider.commit(TEST_JOB_ID);
 
         const nullifiers = [
           {
@@ -634,7 +657,8 @@ describe('NoteStore', () => {
             l2BlockHash: L2BlockHash.fromString(note1.l2BlockHash),
           },
         ];
-        await provider.applyNullifiers(nullifiers);
+        await provider.applyNullifiers(nullifiers, 'nullify-job');
+        await provider.commit('nullify-job');
         await provider.rollbackNotesAndNullifiers(5, 100);
 
         // note1 should be restored (nullified at block 7 > rollback block 5)
@@ -679,21 +703,23 @@ describe('NoteStore', () => {
         l2BlockNumber: BlockNumber(2),
       });
 
-      const jobId: string = 'test123';
+      const commitJobId: string = 'commit-job';
+      const stagingJobId: string = 'staging-job';
 
       // Add committed note
-      await noteStore.addNotes([committedNote], SCOPE_1);
+      await noteStore.addNotes([committedNote], SCOPE_1, commitJobId);
+      await noteStore.commit(commitJobId);
 
-      // Add staged note with jobId
-      await noteStore.addNotes([stagedNote], SCOPE_1, jobId);
+      // Add staged note with different jobId (not committed)
+      await noteStore.addNotes([stagedNote], SCOPE_1, stagingJobId);
 
       // Without jobId, should only see committed note
       const notesWithoutJobId = await noteStore.getNotes({ contractAddress: CONTRACT_A });
       expect(notesWithoutJobId).toHaveLength(1);
       expect(notesWithoutJobId[0].index).toBe(1n);
 
-      // With jobId, should see both committed and staged notes
-      const notesWithJobId = await noteStore.getNotes({ contractAddress: CONTRACT_A }, jobId);
+      // With stagingJobId, should see both committed and staged notes
+      const notesWithJobId = await noteStore.getNotes({ contractAddress: CONTRACT_A }, stagingJobId);
       expect(notesWithJobId).toHaveLength(2);
       expect(new Set(notesWithJobId.map(n => n.index))).toEqual(new Set([1n, 2n]));
     });
@@ -711,7 +737,7 @@ describe('NoteStore', () => {
       // Add staged note
       await noteStore.addNotes([stagedNote], SCOPE_1, jobId);
 
-      // Commit staging
+      // Commit staging (promotes to main)
       await noteStore.commit(jobId);
 
       // Now should see the note without jobId
@@ -734,16 +760,18 @@ describe('NoteStore', () => {
         l2BlockNumber: BlockNumber(2),
       });
 
-      const jobId: string = 'test123';
+      const commitJobId: string = 'commit-job';
+      const stagingJobId: string = 'staging-job';
 
       // Add committed note
-      await noteStore.addNotes([committedNote], SCOPE_1);
+      await noteStore.addNotes([committedNote], SCOPE_1, commitJobId);
+      await noteStore.commit(commitJobId);
 
-      // Add staged note
-      await noteStore.addNotes([stagedNote], SCOPE_1, jobId);
+      // Add staged note (not committed)
+      await noteStore.addNotes([stagedNote], SCOPE_1, stagingJobId);
 
       // Discard staging
-      await noteStore.discardStaged(jobId);
+      await noteStore.discardStaged(stagingJobId);
 
       // Should only see committed note
       const notes = await noteStore.getNotes({ contractAddress: CONTRACT_A });
@@ -760,25 +788,27 @@ describe('NoteStore', () => {
         siloedNullifier: new Fr(123n),
       });
 
-      const jobId: string = 'test123';
+      const commitJobId: string = 'commit-job';
+      const nullifyJobId: string = 'nullify-job';
 
       // Add committed note
-      await noteStore.addNotes([note], SCOPE_1);
+      await noteStore.addNotes([note], SCOPE_1, commitJobId);
+      await noteStore.commit(commitJobId);
 
-      // Stage nullification
+      // Stage nullification (not committed)
       const nullifier = {
         data: note.siloedNullifier,
         l2BlockNumber: BlockNumber(2),
         l2BlockHash: L2BlockHash.random(),
       };
-      await noteStore.applyNullifiers([nullifier], jobId);
+      await noteStore.applyNullifiers([nullifier], nullifyJobId);
 
       // Without jobId, note should still be active
       const activeNotes = await noteStore.getNotes({ contractAddress: CONTRACT_A });
       expect(activeNotes).toHaveLength(1);
 
       // Commit staging
-      await noteStore.commit(jobId);
+      await noteStore.commit(nullifyJobId);
 
       // Now note should be nullified
       const activeNotesAfterCommit = await noteStore.getNotes({ contractAddress: CONTRACT_A });
@@ -805,7 +835,7 @@ describe('NoteStore', () => {
       // Stage add note
       await noteStore.addNotes([note], SCOPE_1, jobId);
 
-      // Stage nullify the same note
+      // Stage nullify the same note (within same job)
       const nullifier = {
         data: note.siloedNullifier,
         l2BlockNumber: BlockNumber(2),
@@ -837,24 +867,26 @@ describe('NoteStore', () => {
       });
 
       // Add note to committed storage
-      await noteStore.addNotes([note], SCOPE_1);
+      const commitJobId: string = 'commit-job';
+      await noteStore.addNotes([note], SCOPE_1, commitJobId);
+      await noteStore.commit(commitJobId);
 
-      const jobId: string = 'test123';
+      const nullifyJobId: string = 'nullify-job';
 
-      // Stage nullification
+      // Stage nullification (not committed)
       const nullifier = {
         data: note.siloedNullifier,
         l2BlockNumber: BlockNumber(2),
         l2BlockHash: L2BlockHash.random(),
       };
-      await noteStore.applyNullifiers([nullifier], jobId);
+      await noteStore.applyNullifiers([nullifier], nullifyJobId);
 
       // Without jobId, note should still be visible (it's committed and active)
       const notesWithoutJobId = await noteStore.getNotes({ contractAddress: CONTRACT_A });
       expect(notesWithoutJobId).toHaveLength(1);
 
-      // With jobId, note should be excluded (staged for nullification)
-      const notesWithJobId = await noteStore.getNotes({ contractAddress: CONTRACT_A }, jobId);
+      // With nullifyJobId, note should be excluded (staged for nullification)
+      const notesWithJobId = await noteStore.getNotes({ contractAddress: CONTRACT_A }, nullifyJobId);
       expect(notesWithJobId).toHaveLength(0);
     });
 
@@ -868,17 +900,17 @@ describe('NoteStore', () => {
         l2BlockNumber: BlockNumber(1),
       });
 
-      const jobId: string = 'test123';
+      const stagingJobId: string = 'staging-job';
 
-      // Stage note under SCOPE_1
-      await noteStore.addNotes([note], SCOPE_1, jobId);
+      // Stage note under SCOPE_1 (not committed)
+      await noteStore.addNotes([note], SCOPE_1, stagingJobId);
 
       // Query with SCOPE_1 - should see the staged note
-      const notesScope1 = await noteStore.getNotes({ contractAddress: CONTRACT_A, scopes: [SCOPE_1] }, jobId);
+      const notesScope1 = await noteStore.getNotes({ contractAddress: CONTRACT_A, scopes: [SCOPE_1] }, stagingJobId);
       expect(notesScope1).toHaveLength(1);
 
       // Query with SCOPE_2 - should not see the staged note
-      const notesScope2 = await noteStore.getNotes({ contractAddress: CONTRACT_A, scopes: [SCOPE_2] }, jobId);
+      const notesScope2 = await noteStore.getNotes({ contractAddress: CONTRACT_A, scopes: [SCOPE_2] }, stagingJobId);
       expect(notesScope2).toHaveLength(0);
     });
 
@@ -896,18 +928,18 @@ describe('NoteStore', () => {
         l2BlockNumber: BlockNumber(1),
       });
 
-      const jobId: string = 'test123';
+      const stagingJobId: string = 'staging-job';
 
-      // Stage both notes
-      await noteStore.addNotes([noteSlotX, noteSlotY], SCOPE_1, jobId);
+      // Stage both notes (not committed)
+      await noteStore.addNotes([noteSlotX, noteSlotY], SCOPE_1, stagingJobId);
 
       // Query with SLOT_X filter - should only see noteSlotX
-      const notesSlotX = await noteStore.getNotes({ contractAddress: CONTRACT_A, storageSlot: SLOT_X }, jobId);
+      const notesSlotX = await noteStore.getNotes({ contractAddress: CONTRACT_A, storageSlot: SLOT_X }, stagingJobId);
       expect(notesSlotX).toHaveLength(1);
       expect(notesSlotX[0].index).toBe(1n);
 
       // Query with SLOT_Y filter - should only see noteSlotY
-      const notesSlotY = await noteStore.getNotes({ contractAddress: CONTRACT_A, storageSlot: SLOT_Y }, jobId);
+      const notesSlotY = await noteStore.getNotes({ contractAddress: CONTRACT_A, storageSlot: SLOT_Y }, stagingJobId);
       expect(notesSlotY).toHaveLength(1);
       expect(notesSlotY[0].index).toBe(2n);
     });
@@ -927,19 +959,19 @@ describe('NoteStore', () => {
       });
 
       await noteStore.addScope(SCOPE_2);
-      const jobId: string = 'test123';
+      const stagingJobId: string = 'staging-job';
 
-      // Stage notes for different contracts
-      await noteStore.addNotes([noteContractA], SCOPE_1, jobId);
-      await noteStore.addNotes([noteContractB], SCOPE_2, jobId);
+      // Stage notes for different contracts (not committed)
+      await noteStore.addNotes([noteContractA], SCOPE_1, stagingJobId);
+      await noteStore.addNotes([noteContractB], SCOPE_2, stagingJobId);
 
       // Query for CONTRACT_A - should only see noteContractA
-      const notesContractA = await noteStore.getNotes({ contractAddress: CONTRACT_A }, jobId);
+      const notesContractA = await noteStore.getNotes({ contractAddress: CONTRACT_A }, stagingJobId);
       expect(notesContractA).toHaveLength(1);
       expect(notesContractA[0].index).toBe(1n);
 
       // Query for CONTRACT_B - should only see noteContractB
-      const notesContractB = await noteStore.getNotes({ contractAddress: CONTRACT_B }, jobId);
+      const notesContractB = await noteStore.getNotes({ contractAddress: CONTRACT_B }, stagingJobId);
       expect(notesContractB).toHaveLength(1);
       expect(notesContractB[0].index).toBe(2n);
     });

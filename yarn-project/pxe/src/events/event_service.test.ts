@@ -30,6 +30,7 @@ describe('deliverEvent', () => {
   let aztecNode: ReturnType<typeof mock<AztecNode>>;
 
   let eventService: EventService;
+  const TEST_JOB_ID = 'test-job-id';
 
   const setSyncedBlockNumber = (blockNumber: BlockNumber) => {
     return anchorBlockStore.setHeader(
@@ -89,7 +90,7 @@ describe('deliverEvent', () => {
       ]),
     );
 
-    eventService = new EventService(anchorBlockStore, aztecNode, privateEventStore);
+    eventService = new EventService(anchorBlockStore, aztecNode, privateEventStore, TEST_JOB_ID);
   });
 
   function runDeliverEvent(
@@ -138,12 +139,16 @@ describe('deliverEvent', () => {
     await runDeliverEvent();
 
     // I should be able to retrieve the private event I just saved using getPrivateEvents
-    const result = await privateEventStore.getPrivateEvents(eventSelector, {
-      contractAddress,
-      fromBlock: blockNumber,
-      toBlock: blockNumber + 1,
-      scopes: [recipient],
-    });
+    const result = await privateEventStore.getPrivateEvents(
+      eventSelector,
+      {
+        contractAddress,
+        fromBlock: blockNumber,
+        toBlock: blockNumber + 1,
+        scopes: [recipient],
+      },
+      TEST_JOB_ID,
+    );
 
     expect(result.length).toEqual(1);
     expect(result[0].packedEvent).toEqual(eventContent);

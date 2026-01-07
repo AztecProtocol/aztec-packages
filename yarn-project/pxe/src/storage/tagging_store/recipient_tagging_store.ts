@@ -46,25 +46,21 @@ export class RecipientTaggingStore implements StagedStore {
     return this.#highestAgedIndex.getAsync(secret.toString());
   }
 
-  async updateHighestAgedIndex(secret: DirectionalAppTaggingSecret, index: number, jobId?: string): Promise<void> {
+  async updateHighestAgedIndex(secret: DirectionalAppTaggingSecret, index: number, jobId: string): Promise<void> {
     const currentIndex = await this.getHighestAgedIndex(secret, jobId);
     if (currentIndex !== undefined && index <= currentIndex) {
       // Log sync should never set a lower highest aged index.
       throw new Error(`New highest aged index (${index}) must be higher than the current one (${currentIndex})`);
     }
 
-    if (jobId) {
-      // Stage the update
-      let jobStaging = this.#stagedIndexes.get(jobId);
-      if (!jobStaging) {
-        jobStaging = new Map();
-        this.#stagedIndexes.set(jobId, jobStaging);
-      }
-      const existing = jobStaging.get(secret.toString()) || {};
-      jobStaging.set(secret.toString(), { ...existing, highestAgedIndex: index });
-    } else {
-      await this.#highestAgedIndex.set(secret.toString(), index);
+    // Stage the update
+    let jobStaging = this.#stagedIndexes.get(jobId);
+    if (!jobStaging) {
+      jobStaging = new Map();
+      this.#stagedIndexes.set(jobId, jobStaging);
     }
+    const existing = jobStaging.get(secret.toString()) || {};
+    jobStaging.set(secret.toString(), { ...existing, highestAgedIndex: index });
   }
 
   getHighestFinalizedIndex(secret: DirectionalAppTaggingSecret, jobId?: string): Promise<number | undefined> {
@@ -79,7 +75,7 @@ export class RecipientTaggingStore implements StagedStore {
     return this.#highestFinalizedIndex.getAsync(secret.toString());
   }
 
-  async updateHighestFinalizedIndex(secret: DirectionalAppTaggingSecret, index: number, jobId?: string): Promise<void> {
+  async updateHighestFinalizedIndex(secret: DirectionalAppTaggingSecret, index: number, jobId: string): Promise<void> {
     const currentIndex = await this.getHighestFinalizedIndex(secret, jobId);
     if (currentIndex !== undefined && index < currentIndex) {
       // Log sync should never set a lower highest finalized index but it can happen that it would try to set the same
@@ -87,18 +83,14 @@ export class RecipientTaggingStore implements StagedStore {
       throw new Error(`New highest finalized index (${index}) must be higher than the current one (${currentIndex})`);
     }
 
-    if (jobId) {
-      // Stage the update
-      let jobStaging = this.#stagedIndexes.get(jobId);
-      if (!jobStaging) {
-        jobStaging = new Map();
-        this.#stagedIndexes.set(jobId, jobStaging);
-      }
-      const existing = jobStaging.get(secret.toString()) || {};
-      jobStaging.set(secret.toString(), { ...existing, highestFinalizedIndex: index });
-    } else {
-      await this.#highestFinalizedIndex.set(secret.toString(), index);
+    // Stage the update
+    let jobStaging = this.#stagedIndexes.get(jobId);
+    if (!jobStaging) {
+      jobStaging = new Map();
+      this.#stagedIndexes.set(jobId, jobStaging);
     }
+    const existing = jobStaging.get(secret.toString()) || {};
+    jobStaging.set(secret.toString(), { ...existing, highestFinalizedIndex: index });
   }
 
   // StagedStore implementation

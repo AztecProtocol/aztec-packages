@@ -25,7 +25,7 @@ export async function loadAndStoreNewTaggingIndexes(
   end: number,
   aztecNode: AztecNode,
   taggingStore: SenderTaggingStore,
-  jobId?: string,
+  jobId: string,
 ) {
   // We compute the tags for the current window of indexes
   const preTagsForWindow: PreTag[] = Array(end - start)

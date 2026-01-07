@@ -75,7 +75,7 @@ export class SenderTaggingStore implements StagedStore {
    * This is enforced because this should never happen if the syncing is done correctly as we look for logs from higher
    * indexes than finalized ones.
    */
-  async storePendingIndexes(preTags: PreTag[], txHash: TxHash, jobId?: string) {
+  async storePendingIndexes(preTags: PreTag[], txHash: TxHash, jobId: string) {
     // The secrets in pre-tags should be unique because we always store just the highest index per given secret-txHash
     // pair. Below we check that this is the case.
     const secretsSet = new Set(preTags.map(preTag => preTag.secret.toString()));
@@ -186,7 +186,7 @@ export class SenderTaggingStore implements StagedStore {
    * @param txHashes - The transaction hashes to drop pending indexes for.
    * @param context - Optional job context for staged writes.
    */
-  async dropPendingIndexes(txHashes: TxHash[], jobId?: string) {
+  async dropPendingIndexes(txHashes: TxHash[], jobId: string) {
     if (txHashes.length === 0) {
       return;
     }
@@ -215,7 +215,7 @@ export class SenderTaggingStore implements StagedStore {
    * @param txHashes - The transaction hashes to finalize pending indexes for.
    * @param context - Optional job context for staged writes.
    */
-  async finalizePendingIndexes(txHashes: TxHash[], jobId?: string) {
+  async finalizePendingIndexes(txHashes: TxHash[], jobId: string) {
     if (txHashes.length === 0) {
       return;
     }

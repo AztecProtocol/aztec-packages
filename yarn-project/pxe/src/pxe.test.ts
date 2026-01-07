@@ -210,6 +210,7 @@ describe('PXE', () => {
     });
 
     async function storeEvent(blockNumber?: number): Promise<PackedPrivateEvent> {
+      const testJobId = 'test-job';
       const event = {
         packedEvent: [Fr.random(), Fr.random()],
         l2BlockNumber: BlockNumber(blockNumber ?? lastKnownBlockNumber),
@@ -218,13 +219,20 @@ describe('PXE', () => {
         eventSelector,
       };
 
-      await privateEventStore.storePrivateEventLog(eventSelector, event.packedEvent, eventIndex++, {
-        contractAddress,
-        scope,
-        txHash: event.txHash,
-        l2BlockNumber: event.l2BlockNumber,
-        l2BlockHash: event.l2BlockHash,
-      });
+      await privateEventStore.storePrivateEventLog(
+        eventSelector,
+        event.packedEvent,
+        eventIndex++,
+        {
+          contractAddress,
+          scope,
+          txHash: event.txHash,
+          l2BlockNumber: event.l2BlockNumber,
+          l2BlockHash: event.l2BlockHash,
+        },
+        testJobId,
+      );
+      await privateEventStore.commit(testJobId);
 
       return event;
     }

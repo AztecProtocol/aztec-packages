@@ -288,7 +288,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
         this.contractAddress,
         this.aztecNode,
         this.senderTaggingStore,
-        this.jobIdForOracle,
+        this.jobIdForOracle!,
       );
 
       const lastUsedIndex = await this.senderTaggingStore.getLastUsedIndex(secret, this.jobIdForOracle);
@@ -380,7 +380,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
 
     const pendingNullifiers = this.noteCache.getNullifiers(this.callContext.contractAddress);
 
-    const noteService = new NoteService(this.noteStore, this.aztecNode, this.anchorBlockStore, this.jobIdForOracle);
+    const noteService = new NoteService(this.noteStore, this.aztecNode, this.anchorBlockStore, this.jobIdForOracle!);
     const dbNotes = await noteService.getNotes(
       this.callContext.contractAddress,
       owner,

@@ -16,6 +16,7 @@ import { loadPrivateLogsForSenderRecipientPair } from './load_private_logs_for_s
 // In this test suite we don't care about the anchor block behavior as that is sufficiently tested by
 // the loadLogsForRange test suite, so we use a high block number to ensure it occurs after all logs.
 const NON_INTERFERING_ANCHOR_BLOCK_NUMBER = BlockNumber(100);
+const TEST_JOB_ID = 'test-job';
 
 describe('loadPrivateLogsForSenderRecipientPair', () => {
   let secret: DirectionalAppTaggingSecret;
@@ -66,11 +67,12 @@ describe('loadPrivateLogsForSenderRecipientPair', () => {
       aztecNode,
       taggingStore,
       NON_INTERFERING_ANCHOR_BLOCK_NUMBER,
+      TEST_JOB_ID,
     );
 
     expect(logs).toHaveLength(0);
-    expect(await taggingStore.getHighestAgedIndex(secret)).toBeUndefined();
-    expect(await taggingStore.getHighestFinalizedIndex(secret)).toBeUndefined();
+    expect(await taggingStore.getHighestAgedIndex(secret, TEST_JOB_ID)).toBeUndefined();
+    expect(await taggingStore.getHighestFinalizedIndex(secret, TEST_JOB_ID)).toBeUndefined();
   });
 
   it('loads log and updates highest finalized index but not highest aged index', async () => {
@@ -101,11 +103,12 @@ describe('loadPrivateLogsForSenderRecipientPair', () => {
       aztecNode,
       taggingStore,
       NON_INTERFERING_ANCHOR_BLOCK_NUMBER,
+      TEST_JOB_ID,
     );
 
     expect(logs).toHaveLength(1);
-    expect(await taggingStore.getHighestFinalizedIndex(secret)).toBe(logIndex);
-    expect(await taggingStore.getHighestAgedIndex(secret)).toBeUndefined();
+    expect(await taggingStore.getHighestFinalizedIndex(secret, TEST_JOB_ID)).toBe(logIndex);
+    expect(await taggingStore.getHighestAgedIndex(secret, TEST_JOB_ID)).toBeUndefined();
   });
 
   it('loads log and updates both highest aged and highest finalized indexes', async () => {
@@ -136,11 +139,12 @@ describe('loadPrivateLogsForSenderRecipientPair', () => {
       aztecNode,
       taggingStore,
       NON_INTERFERING_ANCHOR_BLOCK_NUMBER,
+      TEST_JOB_ID,
     );
 
     expect(logs).toHaveLength(1);
-    expect(await taggingStore.getHighestAgedIndex(secret)).toBe(logIndex);
-    expect(await taggingStore.getHighestFinalizedIndex(secret)).toBe(logIndex);
+    expect(await taggingStore.getHighestAgedIndex(secret, TEST_JOB_ID)).toBe(logIndex);
+    expect(await taggingStore.getHighestFinalizedIndex(secret, TEST_JOB_ID)).toBe(logIndex);
   });
 
   it('logs at boundaries are properly loaded, window and highest indexes advance as expected', async () => {
@@ -156,8 +160,8 @@ describe('loadPrivateLogsForSenderRecipientPair', () => {
     const log2Tag = await computeSiloedTagForIndex(log2Index);
 
     // Set existing highest aged index and highest finalized index
-    await taggingStore.updateHighestAgedIndex(secret, highestAgedIndex);
-    await taggingStore.updateHighestFinalizedIndex(secret, highestFinalizedIndex);
+    await taggingStore.updateHighestAgedIndex(secret, highestAgedIndex, TEST_JOB_ID);
+    await taggingStore.updateHighestFinalizedIndex(secret, highestFinalizedIndex, TEST_JOB_ID);
 
     aztecNode.getL2Tips.mockResolvedValue({
       finalized: { number: BlockNumber(finalizedBlockNumber) },
@@ -188,12 +192,13 @@ describe('loadPrivateLogsForSenderRecipientPair', () => {
       aztecNode,
       taggingStore,
       NON_INTERFERING_ANCHOR_BLOCK_NUMBER,
+      TEST_JOB_ID,
     );
 
     // Verify that both logs at the boundaries of the range were found and processed
     expect(logs).toHaveLength(2);
-    expect(await taggingStore.getHighestFinalizedIndex(secret)).toBe(log2Index);
-    expect(await taggingStore.getHighestAgedIndex(secret)).toBe(log1Index);
+    expect(await taggingStore.getHighestFinalizedIndex(secret, TEST_JOB_ID)).toBe(log2Index);
+    expect(await taggingStore.getHighestAgedIndex(secret, TEST_JOB_ID)).toBe(log1Index);
 
     // Verify that the window was moved forward correctly
     // Total range queried: from (highestAgedIndex + 1) to (log2Index + WINDOW_LEN + 1) exclusive

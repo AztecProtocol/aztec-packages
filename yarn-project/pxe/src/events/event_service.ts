@@ -14,7 +14,7 @@ export class EventService {
     private readonly anchorBlockStore: AnchorBlockStore,
     private readonly aztecNode: AztecNode,
     private readonly privateEventStore: PrivateEventStore,
-    private readonly jobId?: string,
+    private readonly jobId: string,
   ) {}
 
   public async deliverEvent(

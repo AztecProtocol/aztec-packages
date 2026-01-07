@@ -26,7 +26,7 @@ export async function syncSenderTaggingIndexes(
   app: AztecAddress,
   aztecNode: AztecNode,
   taggingStore: SenderTaggingStore,
-  jobId?: string,
+  jobId: string,
 ): Promise<void> {
   // # Explanation of how syncing works
   //

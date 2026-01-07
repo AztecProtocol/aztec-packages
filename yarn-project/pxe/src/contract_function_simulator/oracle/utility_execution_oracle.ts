@@ -474,7 +474,8 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
       throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
     }
-    return this.capsuleStore.storeCapsule(this.contractAddress, slot, capsule, this.jobId);
+    this.capsuleStore.storeCapsule(this.contractAddress, slot, capsule, this.jobId);
+    return Promise.resolve();
   }
 
   public async utilityLoadCapsule(contractAddress: AztecAddress, slot: Fr): Promise<Fr[] | null> {
@@ -494,7 +495,8 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
       throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
     }
-    return this.capsuleStore.deleteCapsule(this.contractAddress, slot, this.jobId);
+    this.capsuleStore.deleteCapsule(this.contractAddress, slot, this.jobId);
+    return Promise.resolve();
   }
 
   public utilityCopyCapsule(

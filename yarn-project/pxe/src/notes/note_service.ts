@@ -15,7 +15,7 @@ export class NoteService {
     private readonly noteStore: NoteStore,
     private readonly aztecNode: AztecNode,
     private readonly anchorBlockStore: AnchorBlockStore,
-    private readonly jobId?: string,
+    private readonly jobId: string,
   ) {}
 
   /**

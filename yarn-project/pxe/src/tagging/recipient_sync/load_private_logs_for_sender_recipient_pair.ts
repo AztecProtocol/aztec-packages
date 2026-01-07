@@ -21,7 +21,7 @@ export async function loadPrivateLogsForSenderRecipientPair(
   aztecNode: AztecNode,
   taggingStore: RecipientTaggingStore,
   anchorBlockNumber: BlockNumber,
-  jobId?: string,
+  jobId: string,
 ): Promise<TxScopedL2Log[]> {
   // # Explanation of how the algorithm works
   // When we perform the sync we will look at logs that correspond to the tagging index range
