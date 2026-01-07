@@ -700,9 +700,9 @@ template <class... Ts> struct overloaded : Ts... {
 };
 template <class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
 
-inline std::ostream& operator<<(std::ostream& os, const MemoryTag& tag)
+inline std::ostream& operator<<(std::ostream& os, const MemoryTagWrapper& tag)
 {
-    os << std::to_string(tag);
+    os << tag.value;
     return os;
 }
 
