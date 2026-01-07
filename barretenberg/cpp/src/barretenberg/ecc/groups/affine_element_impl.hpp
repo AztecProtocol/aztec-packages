@@ -109,7 +109,7 @@ constexpr affine_element<Fq, Fr, T> affine_element<Fq, Fr, T>::set_infinity() co
 
 template <class Fq, class Fr, class T> constexpr void affine_element<Fq, Fr, T>::self_set_infinity() noexcept
 {
-    if constexpr (Fq::modulus.data[3] >= 0x4000000000000000ULL) {
+    if constexpr (Fq::modulus.data[3] >= MODULUS_TOP_LIMB_LARGE_THRESHOLD) {
         // We set the value of x equal to modulus to represent inifinty
         x.data[0] = Fq::modulus.data[0];
         x.data[1] = Fq::modulus.data[1];
@@ -124,7 +124,7 @@ template <class Fq, class Fr, class T> constexpr void affine_element<Fq, Fr, T>:
 
 template <class Fq, class Fr, class T> constexpr bool affine_element<Fq, Fr, T>::is_point_at_infinity() const noexcept
 {
-    if constexpr (Fq::modulus.data[3] >= 0x4000000000000000ULL) {
+    if constexpr (Fq::modulus.data[3] >= MODULUS_TOP_LIMB_LARGE_THRESHOLD) {
         // We check if the value of x is equal to modulus to represent inifinty
         return ((x.data[0] ^ Fq::modulus.data[0]) | (x.data[1] ^ Fq::modulus.data[1]) |
                 (x.data[2] ^ Fq::modulus.data[2]) | (x.data[3] ^ Fq::modulus.data[3])) == 0;

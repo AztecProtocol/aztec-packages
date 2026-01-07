@@ -230,7 +230,7 @@ TYPED_TEST(TestAffineElement, ReadWriteBuffer)
 
 TYPED_TEST(TestAffineElement, PointCompression)
 {
-    if constexpr (TypeParam::Fq::modulus.data[3] >= 0x4000000000000000ULL) {
+    if constexpr (TypeParam::Fq::modulus.data[3] >= MODULUS_TOP_LIMB_LARGE_THRESHOLD) {
         GTEST_SKIP();
     } else {
         TestFixture::test_point_compression();
@@ -239,7 +239,7 @@ TYPED_TEST(TestAffineElement, PointCompression)
 
 TYPED_TEST(TestAffineElement, FixedInfinityPoint)
 {
-    if constexpr (TypeParam::Fq::modulus.data[3] >= 0x4000000000000000ULL) {
+    if constexpr (TypeParam::Fq::modulus.data[3] >= MODULUS_TOP_LIMB_LARGE_THRESHOLD) {
         GTEST_SKIP();
     } else {
         TestFixture::test_fixed_point_at_infinity();
@@ -248,7 +248,7 @@ TYPED_TEST(TestAffineElement, FixedInfinityPoint)
 
 TYPED_TEST(TestAffineElement, PointCompressionUnsafe)
 {
-    if constexpr (TypeParam::Fq::modulus.data[3] >= 0x4000000000000000ULL) {
+    if constexpr (TypeParam::Fq::modulus.data[3] >= MODULUS_TOP_LIMB_LARGE_THRESHOLD) {
         TestFixture::test_point_compression_unsafe();
     } else {
         GTEST_SKIP();

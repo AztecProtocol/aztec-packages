@@ -28,6 +28,11 @@
 #endif
 
 namespace bb {
+
+// Threshold for "large" moduli (>= 2^254). When the top limb of the modulus is >= 2^62,
+// intermediate arithmetic results can overflow 256 bits, requiring different reduction strategies.
+static constexpr uint64_t MODULUS_TOP_LIMB_LARGE_THRESHOLD = 0x4000000000000000ULL; // 2^62
+
 /**
  * @brief General class for prime fields see \ref field_docs["field documentation"] for general implementation reference
  *
@@ -433,7 +438,7 @@ template <class Params_> struct alignas(32) field {
     static void split_into_endomorphism_scalars(const field& k, field& k1, field& k2)
     {
         // if the modulus is a >= 255-bit integer, we need to use a basis where g1, g2 have been shifted by 2^384
-        if constexpr (Params::modulus_3 >= 0x4000000000000000ULL) {
+        if constexpr (Params::modulus_3 >= MODULUS_TOP_LIMB_LARGE_THRESHOLD) {
             split_into_endomorphism_scalars_384(k, k1, k2);
         } else {
             std::pair<std::array<uint64_t, 2>, std::array<uint64_t, 2>> ret = split_into_endomorphism_scalars(k);
@@ -459,7 +464,7 @@ template <class Params_> struct alignas(32) field {
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/851): Unify these APIs.
     static std::pair<std::array<uint64_t, 2>, std::array<uint64_t, 2>> split_into_endomorphism_scalars(const field& k)
     {
-        static_assert(Params::modulus_3 < 0x4000000000000000ULL);
+        static_assert(Params::modulus_3 < MODULUS_TOP_LIMB_LARGE_THRESHOLD);
         field input = k.reduce_once();
 
         constexpr field endo_g1 = { Params::endo_g1_lo, Params::endo_g1_mid, Params::endo_g1_hi, 0 };

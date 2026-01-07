@@ -33,7 +33,7 @@ namespace bb {
  **/
 template <class T> constexpr field<T> field<T>::operator*(const field& other) const noexcept
 {
-    if constexpr (BBERG_NO_ASM || (T::modulus_3 >= 0x4000000000000000ULL) ||
+    if constexpr (BBERG_NO_ASM || (T::modulus_3 >= MODULUS_TOP_LIMB_LARGE_THRESHOLD) ||
                   (T::modulus_1 == 0 && T::modulus_2 == 0 && T::modulus_3 == 0)) {
         // >= 255-bits or <= 64-bits.
         return montgomery_mul(other);
@@ -47,7 +47,7 @@ template <class T> constexpr field<T> field<T>::operator*(const field& other) co
 
 template <class T> constexpr field<T>& field<T>::operator*=(const field& other) & noexcept
 {
-    if constexpr (BBERG_NO_ASM || (T::modulus_3 >= 0x4000000000000000ULL) ||
+    if constexpr (BBERG_NO_ASM || (T::modulus_3 >= MODULUS_TOP_LIMB_LARGE_THRESHOLD) ||
                   (T::modulus_1 == 0 && T::modulus_2 == 0 && T::modulus_3 == 0)) {
         // >= 255-bits or <= 64-bits.
         *this = operator*(other);
@@ -68,7 +68,7 @@ template <class T> constexpr field<T>& field<T>::operator*=(const field& other) 
  **/
 template <class T> constexpr field<T> field<T>::sqr() const noexcept
 {
-    if constexpr (BBERG_NO_ASM || (T::modulus_3 >= 0x4000000000000000ULL) ||
+    if constexpr (BBERG_NO_ASM || (T::modulus_3 >= MODULUS_TOP_LIMB_LARGE_THRESHOLD) ||
                   (T::modulus_1 == 0 && T::modulus_2 == 0 && T::modulus_3 == 0)) {
         return montgomery_square();
     } else {
@@ -81,7 +81,7 @@ template <class T> constexpr field<T> field<T>::sqr() const noexcept
 
 template <class T> constexpr void field<T>::self_sqr() & noexcept
 {
-    if constexpr (BBERG_NO_ASM || (T::modulus_3 >= 0x4000000000000000ULL) ||
+    if constexpr (BBERG_NO_ASM || (T::modulus_3 >= MODULUS_TOP_LIMB_LARGE_THRESHOLD) ||
                   (T::modulus_1 == 0 && T::modulus_2 == 0 && T::modulus_3 == 0)) {
         *this = montgomery_square();
     } else {
@@ -100,7 +100,7 @@ template <class T> constexpr void field<T>::self_sqr() & noexcept
  **/
 template <class T> constexpr field<T> field<T>::operator+(const field& other) const noexcept
 {
-    if constexpr (BBERG_NO_ASM || (T::modulus_3 >= 0x4000000000000000ULL) ||
+    if constexpr (BBERG_NO_ASM || (T::modulus_3 >= MODULUS_TOP_LIMB_LARGE_THRESHOLD) ||
                   (T::modulus_1 == 0 && T::modulus_2 == 0 && T::modulus_3 == 0)) {
         return add(other);
     } else {
@@ -113,7 +113,7 @@ template <class T> constexpr field<T> field<T>::operator+(const field& other) co
 
 template <class T> constexpr field<T>& field<T>::operator+=(const field& other) & noexcept
 {
-    if constexpr (BBERG_NO_ASM || (T::modulus_3 >= 0x4000000000000000ULL) ||
+    if constexpr (BBERG_NO_ASM || (T::modulus_3 >= MODULUS_TOP_LIMB_LARGE_THRESHOLD) ||
                   (T::modulus_1 == 0 && T::modulus_2 == 0 && T::modulus_3 == 0)) {
         (*this) = operator+(other);
     } else {
@@ -146,7 +146,7 @@ template <class T> constexpr field<T> field<T>::operator++(int) noexcept
  **/
 template <class T> constexpr field<T> field<T>::operator-(const field& other) const noexcept
 {
-    if constexpr (BBERG_NO_ASM || (T::modulus_3 >= 0x4000000000000000ULL) ||
+    if constexpr (BBERG_NO_ASM || (T::modulus_3 >= MODULUS_TOP_LIMB_LARGE_THRESHOLD) ||
                   (T::modulus_1 == 0 && T::modulus_2 == 0 && T::modulus_3 == 0)) {
         return subtract_coarse(other); // modulus - *this;
     } else {
@@ -159,7 +159,7 @@ template <class T> constexpr field<T> field<T>::operator-(const field& other) co
 
 template <class T> constexpr field<T> field<T>::operator-() const noexcept
 {
-    if constexpr ((T::modulus_3 >= 0x4000000000000000ULL) ||
+    if constexpr ((T::modulus_3 >= MODULUS_TOP_LIMB_LARGE_THRESHOLD) ||
                   (T::modulus_1 == 0 && T::modulus_2 == 0 && T::modulus_3 == 0)) {
         constexpr field p{ modulus.data[0], modulus.data[1], modulus.data[2], modulus.data[3] };
         return p - *this; // modulus - *this;
@@ -187,7 +187,7 @@ template <class T> constexpr field<T> field<T>::operator-() const noexcept
 
 template <class T> constexpr field<T>& field<T>::operator-=(const field& other) & noexcept
 {
-    if constexpr (BBERG_NO_ASM || (T::modulus_3 >= 0x4000000000000000ULL) ||
+    if constexpr (BBERG_NO_ASM || (T::modulus_3 >= MODULUS_TOP_LIMB_LARGE_THRESHOLD) ||
                   (T::modulus_1 == 0 && T::modulus_2 == 0 && T::modulus_3 == 0)) {
         *this = subtract_coarse(other); // subtract(other);
     } else {
@@ -202,7 +202,7 @@ template <class T> constexpr field<T>& field<T>::operator-=(const field& other) 
 
 template <class T> constexpr void field<T>::self_neg() & noexcept
 {
-    if constexpr ((T::modulus_3 >= 0x4000000000000000ULL) ||
+    if constexpr ((T::modulus_3 >= MODULUS_TOP_LIMB_LARGE_THRESHOLD) ||
                   (T::modulus_1 == 0 && T::modulus_2 == 0 && T::modulus_3 == 0)) {
         constexpr field p{ modulus.data[0], modulus.data[1], modulus.data[2], modulus.data[3] };
         *this = p - *this;
@@ -214,7 +214,7 @@ template <class T> constexpr void field<T>::self_neg() & noexcept
 
 template <class T> constexpr void field<T>::self_conditional_negate(const uint64_t predicate) & noexcept
 {
-    if constexpr (BBERG_NO_ASM || (T::modulus_3 >= 0x4000000000000000ULL) ||
+    if constexpr (BBERG_NO_ASM || (T::modulus_3 >= MODULUS_TOP_LIMB_LARGE_THRESHOLD) ||
                   (T::modulus_1 == 0 && T::modulus_2 == 0 && T::modulus_3 == 0)) {
         *this = predicate ? -(*this) : *this; // NOLINT
     } else {
@@ -324,7 +324,7 @@ template <class T> constexpr void field<T>::self_from_montgomery_form() & noexce
 
 template <class T> constexpr field<T> field<T>::reduce_once() const noexcept
 {
-    if constexpr (BBERG_NO_ASM || (T::modulus_3 >= 0x4000000000000000ULL) ||
+    if constexpr (BBERG_NO_ASM || (T::modulus_3 >= MODULUS_TOP_LIMB_LARGE_THRESHOLD) ||
                   (T::modulus_1 == 0 && T::modulus_2 == 0 && T::modulus_3 == 0)) {
         return reduce();
     } else {
@@ -337,7 +337,7 @@ template <class T> constexpr field<T> field<T>::reduce_once() const noexcept
 
 template <class T> constexpr void field<T>::self_reduce_once() & noexcept
 {
-    if constexpr (BBERG_NO_ASM || (T::modulus_3 >= 0x4000000000000000ULL) ||
+    if constexpr (BBERG_NO_ASM || (T::modulus_3 >= MODULUS_TOP_LIMB_LARGE_THRESHOLD) ||
                   (T::modulus_1 == 0 && T::modulus_2 == 0 && T::modulus_3 == 0)) {
         *this = reduce();
     } else {
