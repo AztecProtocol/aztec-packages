@@ -6,7 +6,7 @@ include "../scalar_mul.pil";
 
 namespace address_derivation;
 
-    pol commit sel;
+    pol commit sel; // @boolean
     sel * (1 - sel) = 0;
 
     #[skippable_if]

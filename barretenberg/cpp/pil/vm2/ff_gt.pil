@@ -37,7 +37,7 @@ include "./range_check.pil";
 // WARNING: Never invoke FF_GT with `sel` selector. This is not a valid usage of the gadget.
 
 namespace ff_gt;
-    pol commit sel;
+    pol commit sel; // @boolean
     sel * (1 - sel) = 0;
 
     #[skippable_if]
