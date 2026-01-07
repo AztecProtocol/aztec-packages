@@ -32,6 +32,7 @@ import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import type { L2BlockBuiltStats } from '@aztec/stdlib/stats';
 import { type FailedTx, Tx } from '@aztec/stdlib/tx';
 import { AttestationTimeoutError } from '@aztec/stdlib/validators';
+import { Attributes, type Traceable, type Tracer, trackSpan } from '@aztec/telemetry-client';
 import type { ValidatorClient } from '@aztec/validator-client';
 
 import type { GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
@@ -54,7 +55,7 @@ const TXS_POLLING_MS = 500;
  * as well as enqueueing votes for slashing and governance proposals. This class is created from
  * the Sequencer once the check for being the proposer for the slot has succeeded.
  */
-export class CheckpointProposalJob {
+export class CheckpointProposalJob implements Traceable {
   constructor(
     private readonly slot: SlotNumber,
     private readonly checkpointNumber: CheckpointNumber,
@@ -80,12 +81,14 @@ export class CheckpointProposalJob {
     private readonly eventEmitter: TypedEventEmitter<SequencerEvents>,
     private readonly setStateFn: (state: SequencerState, slot?: SlotNumber) => void,
     protected readonly log: Logger,
+    public readonly tracer: Tracer,
   ) {}
 
   /**
    * Executes the checkpoint proposal job.
    * Returns the published checkpoint if successful, undefined otherwise.
    */
+  @trackSpan('CheckpointProposalJob.execute')
   public async execute(): Promise<Checkpoint | undefined> {
     // Enqueue governance and slashing votes (returns promises that will be awaited later)
     // In fisherman mode, we simulate slashing but don't actually publish to L1
@@ -132,6 +135,13 @@ export class CheckpointProposalJob {
     }
   }
 
+  @trackSpan('CheckpointProposalJob.proposeCheckpoint', function () {
+    return {
+      // nullish operator needed for tests
+      [Attributes.COINBASE]: this.validatorClient.getCoinbaseForAttestor(this.attestorAddress)?.toString(),
+      [Attributes.SLOT_NUMBER]: this.slot,
+    };
+  })
   private async proposeCheckpoint(): Promise<Checkpoint | undefined> {
     try {
       // Get operator configured coinbase and fee recipient for this attestor
@@ -248,6 +258,7 @@ export class CheckpointProposalJob {
   /**
    * Builds blocks for a checkpoint within the current slot.
    */
+  @trackSpan('CheckpointProposalJob.buildBlocksForCheckpoint')
   private async buildBlocksForCheckpoint(
     checkpointBuilder: CheckpointBuilder,
     timestamp: bigint,
@@ -366,6 +377,7 @@ export class CheckpointProposalJob {
   }
 
   /** Sleeps until it is time to produce the next block in the slot */
+  @trackSpan('CheckpointProposalJob.waitUntilNextSubslot')
   private async waitUntilNextSubslot(nextSubslotStart: number) {
     this.setStateFn(SequencerState.WAITING_UNTIL_NEXT_BLOCK, this.slot);
     this.log.verbose(`Waiting until time for the next block at ${nextSubslotStart}s into slot`, { slot: this.slot });
@@ -373,6 +385,7 @@ export class CheckpointProposalJob {
   }
 
   /** Builds a single block. Called from the main block building loop. */
+  @trackSpan('CheckpointProposalJob.buildSingleBlock')
   private async buildSingleBlock(
     checkpointBuilder: CheckpointBuilder,
     opts: {
@@ -484,6 +497,7 @@ export class CheckpointProposalJob {
   }
 
   /** Waits until minTxs are available on the pool for building a block. */
+  @trackSpan('CheckpointProposalJob.waitForMinTxs')
   private async waitForMinTxs(opts: {
     forceCreate?: boolean;
     blockNumber: BlockNumber;
@@ -524,6 +538,7 @@ export class CheckpointProposalJob {
    * Waits for enough attestations to be collected via p2p.
    * This is run after all blocks for the checkpoint have been built.
    */
+  @trackSpan('CheckpointProposalJob.waitForAttestations')
   private async waitForAttestations(proposal: BlockProposal): Promise<CommitteeAttestationsAndSigners> {
     if (this.config.fishermanMode) {
       this.log.debug('Skipping attestation collection in fisherman mode');
@@ -685,6 +700,7 @@ export class CheckpointProposalJob {
   }
 
   /** Waits until a specific time within the current slot */
+  @trackSpan('CheckpointProposalJob.waitUntilTimeInSlot')
   protected async waitUntilTimeInSlot(targetSecondsIntoSlot: number): Promise<void> {
     const slotStartTimestamp = this.getSlotStartBuildTimestamp();
     const targetTimestamp = slotStartTimestamp + targetSecondsIntoSlot;

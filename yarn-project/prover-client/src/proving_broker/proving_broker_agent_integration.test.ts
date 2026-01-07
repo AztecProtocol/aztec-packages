@@ -47,7 +47,7 @@ describe('ProvingBroker <-> ProvingAgent integration', () => {
     store = new InlineProofStore();
     agents = times(
       AGENTS,
-      i => new ProvingAgent(broker, store, prover, [], WORK_LOOP, undefined, createLogger('prover-agent-' + i)),
+      i => new ProvingAgent(broker, store, prover, [], WORK_LOOP, createLogger('prover-agent-' + i)),
     );
 
     await broker.start();

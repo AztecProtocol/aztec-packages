@@ -23,6 +23,7 @@ import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { BlockProposal, ConsensusPayload } from '@aztec/stdlib/p2p';
 import { GlobalVariables } from '@aztec/stdlib/tx';
 import { AttestationTimeoutError } from '@aztec/stdlib/validators';
+import { getTelemetryClient } from '@aztec/telemetry-client';
 import type { ValidatorClient } from '@aztec/validator-client';
 
 import { expect, jest } from '@jest/globals';
@@ -367,6 +368,7 @@ describe('CheckpointProposalJob', () => {
       eventEmitter,
       setStateFn,
       createLogger('sequencer:checkpoint-proposal-job'),
+      getTelemetryClient().getTracer('test'),
     );
   }
 
