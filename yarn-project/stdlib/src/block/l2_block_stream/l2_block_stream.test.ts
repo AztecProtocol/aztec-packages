@@ -304,6 +304,402 @@ describe('L2BlockStream', () => {
     });
   });
 
+  describe('multiple blocks per checkpoint', () => {
+    let localData: TestL2BlockStreamLocalDataProvider;
+    let handler: TestL2BlockStreamEventHandler;
+    let blockStream: TestL2BlockStream;
+
+    // Configuration for checkpoint structure: each checkpoint contains 3 blocks
+    const blocksPerCheckpoint = 3;
+
+    /** Gets the checkpoint number for a given block number */
+    const getCheckpointForBlock = (blockNum: number) => Math.ceil(blockNum / blocksPerCheckpoint);
+
+    /** Gets the first block number in a checkpoint */
+    const getFirstBlockInCheckpoint = (checkpointNum: number) => (checkpointNum - 1) * blocksPerCheckpoint + 1;
+
+    /** Gets the last block number in a checkpoint */
+    const getLastBlockInCheckpoint = (checkpointNum: number) => checkpointNum * blocksPerCheckpoint;
+
+    /** Makes a block with correct checkpoint info */
+    const makeBlockInCheckpoint = (blockNum: number) => {
+      const checkpointNum = getCheckpointForBlock(blockNum);
+      const firstBlockInCheckpoint = getFirstBlockInCheckpoint(checkpointNum);
+      return {
+        number: BlockNumber(blockNum),
+        checkpointNumber: CheckpointNumber(checkpointNum),
+        indexWithinCheckpoint: blockNum - firstBlockInCheckpoint,
+      } as L2BlockNew;
+    };
+
+    /** Makes a checkpointed block */
+    const makeCheckpointedBlockInCheckpoint = (blockNum: number): CheckpointedL2Block =>
+      ({
+        block: makeBlockInCheckpoint(blockNum),
+        checkpointNumber: getCheckpointForBlock(blockNum),
+      }) as CheckpointedL2Block;
+
+    /** Sets the remote tips with correct checkpoint numbers for multi-block checkpoints. */
+    const setRemoteTipsMultiBlock = (
+      latest_: number,
+      proven?: number,
+      finalized?: number,
+      checkpointedBlock?: number,
+    ) => {
+      proven = proven ?? 0;
+      finalized = finalized ?? 0;
+      checkpointedBlock = checkpointedBlock ?? 0;
+      latest = latest_;
+      checkpointed = checkpointedBlock;
+
+      const checkpointedCheckpointNum = checkpointedBlock > 0 ? getCheckpointForBlock(checkpointedBlock) : 0;
+      const provenCheckpointNum = proven > 0 ? getCheckpointForBlock(proven) : 0;
+      const finalizedCheckpointNum = finalized > 0 ? getCheckpointForBlock(finalized) : 0;
+
+      blockSource.getL2Tips.mockResolvedValue({
+        proposed: { number: BlockNumber(latest), hash: makeHash(latest) },
+        checkpointed: {
+          block: { number: BlockNumber(checkpointedBlock), hash: makeHash(checkpointedBlock) },
+          checkpoint: {
+            number: CheckpointNumber(checkpointedCheckpointNum),
+            hash: makeHash(checkpointedCheckpointNum),
+          },
+        },
+        proven: {
+          block: { number: BlockNumber(proven), hash: makeHash(proven) },
+          checkpoint: { number: CheckpointNumber(provenCheckpointNum), hash: makeHash(provenCheckpointNum) },
+        },
+        finalized: {
+          block: { number: BlockNumber(finalized), hash: makeHash(finalized) },
+          checkpoint: { number: CheckpointNumber(finalizedCheckpointNum), hash: makeHash(finalizedCheckpointNum) },
+        },
+      });
+    };
+
+    beforeEach(() => {
+      localData = new TestL2BlockStreamLocalDataProvider();
+      handler = new TestL2BlockStreamEventHandler();
+      blockStream = new TestL2BlockStream(blockSource, localData, handler, undefined, { batchSize: 10 });
+
+      // Override the mocks to support multiple blocks per checkpoint
+      blockSource.getCheckpointedBlocks.mockImplementation((from, limit) =>
+        Promise.resolve(
+          compactArray(
+            times(limit, i => (from + i > checkpointed ? undefined : makeCheckpointedBlockInCheckpoint(from + i))),
+          ),
+        ),
+      );
+
+      // Returns published checkpoints with multiple blocks each
+      blockSource.getPublishedCheckpoints.mockImplementation((checkpointNumber: CheckpointNumber, _limit: number) => {
+        const firstBlock = getFirstBlockInCheckpoint(checkpointNumber);
+        const lastBlock = Math.min(getLastBlockInCheckpoint(checkpointNumber), checkpointed);
+        const blocks = times(lastBlock - firstBlock + 1, i => makeBlockInCheckpoint(firstBlock + i));
+        return Promise.resolve([
+          {
+            checkpoint: {
+              number: checkpointNumber,
+              hash: () => new Fr(checkpointNumber),
+              blocks,
+            },
+          } as unknown as PublishedCheckpoint,
+        ]);
+      });
+    });
+
+    it('emits all blocks in a checkpoint before chain-checkpointed event', async () => {
+      // Set up: 6 blocks in 2 checkpoints (blocks 1-3 in checkpoint 1, blocks 4-6 in checkpoint 2)
+      setRemoteTipsMultiBlock(6, 0, 0, 6);
+
+      await blockStream.work();
+
+      // Should emit blocks 1-3, then checkpoint 1, then blocks 4-6, then checkpoint 2
+      expect(handler.events).toEqual([
+        {
+          type: 'blocks-added',
+          blocks: [makeBlockInCheckpoint(1), makeBlockInCheckpoint(2), makeBlockInCheckpoint(3)],
+        },
+        expect.objectContaining({ type: 'chain-checkpointed' }),
+        {
+          type: 'blocks-added',
+          blocks: [makeBlockInCheckpoint(4), makeBlockInCheckpoint(5), makeBlockInCheckpoint(6)],
+        },
+        expect.objectContaining({ type: 'chain-checkpointed' }),
+      ]);
+    });
+
+    it('handles partial checkpoint at the end (uncheckpointed blocks)', async () => {
+      // Set up: 5 blocks total, but only first 3 are checkpointed (checkpoint 1 complete)
+      // Blocks 4-5 are uncheckpointed
+      setRemoteTipsMultiBlock(5, 0, 0, 3);
+
+      await blockStream.work();
+
+      // Should emit checkpoint 1 blocks, then checkpoint event, then uncheckpointed blocks 4-5
+      expect(handler.events).toEqual([
+        {
+          type: 'blocks-added',
+          blocks: [makeBlockInCheckpoint(1), makeBlockInCheckpoint(2), makeBlockInCheckpoint(3)],
+        },
+        expect.objectContaining({ type: 'chain-checkpointed' }),
+        { type: 'blocks-added', blocks: [makeBlock(4), makeBlock(5)] },
+      ]);
+    });
+
+    it('handles starting from middle of a checkpoint', async () => {
+      // Set up: 9 blocks in 3 checkpoints, but we start from block 5 (middle of checkpoint 2)
+      // Local has blocks 1-4, local checkpointed = 0
+      setRemoteTipsMultiBlock(9, 0, 0, 9);
+      localData.proposed.number = BlockNumber(4);
+
+      await blockStream.work();
+
+      // Should first emit checkpoint 1 (blocks 1-3 already local)
+      // Then continue from block 5, which is in checkpoint 2
+      // Blocks 5-6 complete checkpoint 2, then blocks 7-9 complete checkpoint 3
+      expect(handler.events).toEqual([
+        expect.objectContaining({ type: 'chain-checkpointed' }), // checkpoint 1 for already-local blocks 1-3
+        { type: 'blocks-added', blocks: [makeBlockInCheckpoint(5), makeBlockInCheckpoint(6)] },
+        expect.objectContaining({ type: 'chain-checkpointed' }), // checkpoint 2
+        {
+          type: 'blocks-added',
+          blocks: [makeBlockInCheckpoint(7), makeBlockInCheckpoint(8), makeBlockInCheckpoint(9)],
+        },
+        expect.objectContaining({ type: 'chain-checkpointed' }), // checkpoint 3
+      ]);
+
+      // Verify checkpoint order
+      const checkpointEvents = handler.events.filter(e => e.type === 'chain-checkpointed');
+      expect(checkpointEvents).toHaveLength(3);
+      expect((checkpointEvents[0] as any).checkpoint.checkpoint.number).toBe(CheckpointNumber(1));
+      expect((checkpointEvents[1] as any).checkpoint.checkpoint.number).toBe(CheckpointNumber(2));
+      expect((checkpointEvents[2] as any).checkpoint.checkpoint.number).toBe(CheckpointNumber(3));
+    });
+
+    it('correctly identifies checkpoint number in chain-checkpointed events', async () => {
+      // Set up: 6 blocks in 2 checkpoints
+      setRemoteTipsMultiBlock(6, 0, 0, 6);
+
+      await blockStream.work();
+
+      // Extract the chain-checkpointed events
+      const checkpointEvents = handler.events.filter(e => e.type === 'chain-checkpointed');
+      expect(checkpointEvents).toHaveLength(2);
+      expect((checkpointEvents[0] as any).checkpoint.checkpoint.number).toBe(CheckpointNumber(1));
+      expect((checkpointEvents[1] as any).checkpoint.checkpoint.number).toBe(CheckpointNumber(2));
+    });
+
+    it('handles many checkpoints with batching', async () => {
+      // Set up: 12 blocks in 4 checkpoints, with batch size of 5
+      blockStream = new TestL2BlockStream(blockSource, localData, handler, undefined, { batchSize: 5 });
+      setRemoteTipsMultiBlock(12, 0, 0, 12);
+
+      await blockStream.work();
+
+      // Should have 4 checkpoint events (one per checkpoint)
+      const checkpointEvents = handler.events.filter(e => e.type === 'chain-checkpointed');
+      expect(checkpointEvents).toHaveLength(4);
+
+      // Should have multiple blocks-added events due to batching and checkpoint boundaries
+      const blocksAddedEvents = handler.events.filter(e => e.type === 'blocks-added');
+      expect(blocksAddedEvents.length).toBeGreaterThanOrEqual(4);
+
+      // Verify all blocks were added in order
+      const allBlocks = blocksAddedEvents.flatMap(e => (e as any).blocks);
+      expect(allBlocks.map((b: L2BlockNew) => b.number)).toEqual(times(12, i => BlockNumber(i + 1)));
+    });
+
+    it('emits checkpoint event when blocks become checkpointed after being added as uncheckpointed', async () => {
+      // Phase 1: Start with 3 checkpointed blocks (checkpoint 1), then add blocks 4-6 as uncheckpointed
+      setRemoteTipsMultiBlock(6, 0, 0, 3);
+
+      await blockStream.work();
+
+      // Expect: blocks 1-3 via checkpoint, then uncheckpointed blocks 4-6
+      expect(handler.events).toEqual([
+        {
+          type: 'blocks-added',
+          blocks: [makeBlockInCheckpoint(1), makeBlockInCheckpoint(2), makeBlockInCheckpoint(3)],
+        },
+        expect.objectContaining({ type: 'chain-checkpointed' }),
+        { type: 'blocks-added', blocks: [makeBlock(4), makeBlock(5), makeBlock(6)] },
+      ]);
+
+      handler.clearEvents();
+
+      // Update local state to reflect what the handler would have stored
+      localData.proposed.number = BlockNumber(6);
+      localData.checkpointed.block.number = BlockNumber(3);
+      localData.checkpointed.checkpoint.number = CheckpointNumber(1);
+
+      // Phase 2: Now checkpoint 2 completes (blocks 4-6 become checkpointed)
+      setRemoteTipsMultiBlock(6, 0, 0, 6);
+
+      await blockStream.work();
+
+      // Should emit a checkpoint event for checkpoint 2 (blocks 4-6), even though blocks were already added
+      const checkpointEvents = handler.events.filter(e => e.type === 'chain-checkpointed');
+      expect(checkpointEvents).toHaveLength(1);
+      expect((checkpointEvents[0] as any).checkpoint.checkpoint.number).toBe(CheckpointNumber(2));
+    });
+
+    it('emits checkpoint event BEFORE new uncheckpointed blocks when checkpoint completes', async () => {
+      // Phase 1: Start with 3 checkpointed blocks (checkpoint 1), then add blocks 4-6 as uncheckpointed
+      setRemoteTipsMultiBlock(6, 0, 0, 3);
+
+      await blockStream.work();
+
+      // Expect: blocks 1-3 via checkpoint, then uncheckpointed blocks 4-6
+      expect(handler.events).toEqual([
+        {
+          type: 'blocks-added',
+          blocks: [makeBlockInCheckpoint(1), makeBlockInCheckpoint(2), makeBlockInCheckpoint(3)],
+        },
+        expect.objectContaining({ type: 'chain-checkpointed' }),
+        { type: 'blocks-added', blocks: [makeBlock(4), makeBlock(5), makeBlock(6)] },
+      ]);
+
+      handler.clearEvents();
+
+      // Update local state to reflect what the handler would have stored
+      localData.proposed.number = BlockNumber(6);
+      localData.checkpointed.block.number = BlockNumber(3);
+      localData.checkpointed.checkpoint.number = CheckpointNumber(1);
+
+      // Phase 2: Checkpoint 2 completes (blocks 4-6) AND a new block 7 arrives
+      setRemoteTipsMultiBlock(7, 0, 0, 6);
+
+      await blockStream.work();
+
+      // Should emit checkpoint 2 FIRST, then the new uncheckpointed block 7
+      // NOT: block 7 first, then checkpoint 2
+      expect(handler.events).toEqual([
+        expect.objectContaining({ type: 'chain-checkpointed' }),
+        { type: 'blocks-added', blocks: [makeBlock(7)] },
+      ]);
+      expect((handler.events[0] as any).checkpoint.checkpoint.number).toBe(CheckpointNumber(2));
+    });
+
+    it('emits checkpoint as soon as last block in checkpoint arrives', async () => {
+      // This tests the realistic scenario where checkpoints are published as blocks arrive.
+      // Uncheckpointed blocks are always just a partial checkpoint (the current incomplete one).
+
+      // Sync 1: Source has checkpointed=6 (checkpoint 2), proposed=9
+      // Client gets blocks 1-6 via checkpoints, blocks 7-9 as uncheckpointed
+      setRemoteTipsMultiBlock(9, 0, 0, 6);
+
+      await blockStream.work();
+
+      expect(handler.events).toEqual([
+        {
+          type: 'blocks-added',
+          blocks: [makeBlockInCheckpoint(1), makeBlockInCheckpoint(2), makeBlockInCheckpoint(3)],
+        },
+        expect.objectContaining({ type: 'chain-checkpointed' }), // checkpoint 1
+        {
+          type: 'blocks-added',
+          blocks: [makeBlockInCheckpoint(4), makeBlockInCheckpoint(5), makeBlockInCheckpoint(6)],
+        },
+        expect.objectContaining({ type: 'chain-checkpointed' }), // checkpoint 2
+        { type: 'blocks-added', blocks: [makeBlock(7), makeBlock(8), makeBlock(9)] }, // uncheckpointed
+      ]);
+
+      let checkpointEvents = handler.events.filter(e => e.type === 'chain-checkpointed');
+      expect(checkpointEvents).toHaveLength(2);
+      expect((checkpointEvents[0] as any).checkpoint.checkpoint.number).toBe(CheckpointNumber(1));
+      expect((checkpointEvents[1] as any).checkpoint.checkpoint.number).toBe(CheckpointNumber(2));
+
+      handler.clearEvents();
+
+      // Update local state
+      localData.proposed.number = BlockNumber(9);
+      localData.checkpointed.block.number = BlockNumber(6);
+      localData.checkpointed.checkpoint.number = CheckpointNumber(2);
+
+      // Sync 2: Checkpoint 3 is now published (blocks 7-9), new blocks 10-12 are uncheckpointed
+      setRemoteTipsMultiBlock(12, 0, 0, 9);
+
+      await blockStream.work();
+
+      // Should emit checkpoint 3 for already-local blocks 7-9, then uncheckpointed blocks 10-12
+      expect(handler.events).toEqual([
+        expect.objectContaining({ type: 'chain-checkpointed' }), // checkpoint 3
+        { type: 'blocks-added', blocks: [makeBlock(10), makeBlock(11), makeBlock(12)] }, // uncheckpointed
+      ]);
+
+      checkpointEvents = handler.events.filter(e => e.type === 'chain-checkpointed');
+      expect(checkpointEvents).toHaveLength(1);
+      expect((checkpointEvents[0] as any).checkpoint.checkpoint.number).toBe(CheckpointNumber(3));
+
+      handler.clearEvents();
+
+      // Update local state
+      localData.proposed.number = BlockNumber(12);
+      localData.checkpointed.block.number = BlockNumber(9);
+      localData.checkpointed.checkpoint.number = CheckpointNumber(3);
+
+      // Sync 3: Checkpoint 4 is now published (blocks 10-12), no new blocks
+      setRemoteTipsMultiBlock(12, 0, 0, 12);
+
+      await blockStream.work();
+
+      // Should emit checkpoint 4 for already-local blocks 10-12
+      expect(handler.events).toEqual([
+        expect.objectContaining({ type: 'chain-checkpointed' }), // checkpoint 4
+      ]);
+
+      checkpointEvents = handler.events.filter(e => e.type === 'chain-checkpointed');
+      expect(checkpointEvents).toHaveLength(1);
+      expect((checkpointEvents[0] as any).checkpoint.checkpoint.number).toBe(CheckpointNumber(4));
+    });
+
+    it('emits all checkpoints when source jumps ahead with multiple new checkpoints', async () => {
+      // Phase 1: Start with checkpoint 1 complete (blocks 1-3), blocks 4-6 uncheckpointed
+      setRemoteTipsMultiBlock(6, 0, 0, 3);
+
+      await blockStream.work();
+
+      expect(handler.events).toEqual([
+        {
+          type: 'blocks-added',
+          blocks: [makeBlockInCheckpoint(1), makeBlockInCheckpoint(2), makeBlockInCheckpoint(3)],
+        },
+        expect.objectContaining({ type: 'chain-checkpointed' }),
+        { type: 'blocks-added', blocks: [makeBlock(4), makeBlock(5), makeBlock(6)] },
+      ]);
+
+      handler.clearEvents();
+
+      // Update local state
+      localData.proposed.number = BlockNumber(6);
+      localData.checkpointed.block.number = BlockNumber(3);
+      localData.checkpointed.checkpoint.number = CheckpointNumber(1);
+
+      // Phase 2: Source jumps to block 12 with checkpoints at 6, 9, and 12
+      // - Checkpoint 2 (blocks 4-6) - blocks already local, needs checkpoint event
+      // - Checkpoint 3 (blocks 7-9) - new blocks + checkpoint event
+      // - Checkpoint 4 (blocks 10-12) - new blocks + checkpoint event
+      setRemoteTipsMultiBlock(12, 0, 0, 12);
+
+      await blockStream.work();
+
+      // Should emit:
+      // 1. Checkpoint 2 event (blocks 4-6 were already local)
+      // 2. Blocks 7-9 + checkpoint 3 event
+      // 3. Blocks 10-12 + checkpoint 4 event
+      const checkpointEvents = handler.events.filter(e => e.type === 'chain-checkpointed');
+      expect(checkpointEvents).toHaveLength(3);
+      expect((checkpointEvents[0] as any).checkpoint.checkpoint.number).toBe(CheckpointNumber(2));
+      expect((checkpointEvents[1] as any).checkpoint.checkpoint.number).toBe(CheckpointNumber(3));
+      expect((checkpointEvents[2] as any).checkpoint.checkpoint.number).toBe(CheckpointNumber(4));
+
+      // Should also emit blocks 7-12
+      const blocksAddedEvents = handler.events.filter(e => e.type === 'blocks-added');
+      const allBlockNumbers = blocksAddedEvents.flatMap(e => (e as any).blocks.map((b: any) => b.number));
+      expect(allBlockNumbers).toEqual([7, 8, 9, 10, 11, 12].map(BlockNumber));
+    });
+  });
+
   describe('skipFinalized', () => {
     let localData: TestL2BlockStreamLocalDataProvider;
     let handler: TestL2BlockStreamEventHandler;

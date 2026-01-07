@@ -133,7 +133,41 @@ export class L2BlockStream {
         nextBlockNumber = Math.max(sourceTips.finalized.block.number, nextBlockNumber);
       }
 
-      // Request checkpointed blocks from the source up until the tip of the checkpointed chain.
+      // First, emit checkpoint events for checkpoints whose blocks are already in local storage.
+      // As we should only ever have a single checkpoint's worth of uncheckpointed blocks locally, this
+      // should only iterate once
+      let nextCheckpointToEmit = CheckpointNumber(localTips.checkpointed.checkpoint.number + 1);
+      let iterations = 0;
+      while (nextCheckpointToEmit <= sourceTips.checkpointed.checkpoint.number) {
+        const checkpoints = await this.l2BlockSource.getPublishedCheckpoints(nextCheckpointToEmit, 1);
+        if (checkpoints.length === 0) {
+          break;
+        }
+        // Check if all blocks in this checkpoint are already in local storage
+        const lastBlockInCheckpoint = checkpoints[0].checkpoint.blocks.at(-1)!.number;
+        if (lastBlockInCheckpoint > localTips.proposed.number) {
+          // This checkpoint has blocks we haven't seen yet, stop here
+          break;
+        }
+        iterations++;
+        if (iterations > 1) {
+          this.log.warn(`Emitting multiple checkpoints (${iterations}) without new blocks being added.`);
+        }
+        await this.emitEvent({
+          type: 'chain-checkpointed',
+          checkpoint: checkpoints[0],
+        });
+        nextCheckpointToEmit = CheckpointNumber(nextCheckpointToEmit + 1);
+      }
+
+      // We have now effectively checkpointed our view of the chain. As in there should be no checkpointed blocks
+      // that we have seen locally and not emitted checkpoints for.
+
+      // Now fetch any new checkpointed blocks. If nextBlockNumber is below the source's checkpointed block number
+      // then we will retrieve it as a checkpointed block, retrieve the checkpoint and emit all blocks from that point forward
+      // that are part of the checkpoint, before emitting the checkpoint itself.
+      // We do this until all checkpointed blocks and checkpoints are emitted.
+      // This takes our local chain up to date with the source's checkpointed blocks.
       let checkpointNumber = CheckpointNumber(INITIAL_CHECKPOINT_NUMBER - 1);
       while (nextBlockNumber <= sourceTips.checkpointed.block.number) {
         const limit = Math.min(this.opts.batchSize ?? 50, sourceTips.checkpointed.block.number - nextBlockNumber + 1);
@@ -169,7 +203,7 @@ export class L2BlockStream {
         }
       }
 
-      // Request new blocks from the source, these will be uncheckpointed blocks.
+      // Now we pull any remaining, uncheckpointed block and emit them.
       while (nextBlockNumber <= sourceTips.proposed.number) {
         const limit = Math.min(this.opts.batchSize ?? 50, sourceTips.proposed.number - nextBlockNumber + 1);
         this.log.trace(`Requesting blocks from ${nextBlockNumber} limit ${limit} proven=${this.opts.proven}`);
