@@ -242,12 +242,10 @@ export class PrivateEventStore implements StagedStore {
 
   /**
    * Discards staged data without committing.
-   * @param stagingPrefix - The staging prefix (format: "job_{jobId}:")
+   * @param context - The job context
    */
-  discardStaged(stagingPrefix: string): Promise<void> {
-    // Extract jobId from prefix format "job_{jobId}:"
-    const jobId = stagingPrefix.slice(4, -1);
-    this.#stagedEvents.delete(jobId);
+  discardStaged(context: JobContext): Promise<void> {
+    this.#stagedEvents.delete(context.jobId);
     return Promise.resolve();
   }
 }

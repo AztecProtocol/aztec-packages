@@ -310,12 +310,10 @@ export class CapsuleStore implements StagedStore {
 
   /**
    * Discards staged data without committing.
-   * @param stagingPrefix - The staging prefix (format: "job_{jobId}:")
+   * @param context - The job context
    */
-  discardStaged(stagingPrefix: string): Promise<void> {
-    // Extract jobId from prefix format "job_{jobId}:"
-    const jobId = stagingPrefix.slice(4, -1);
-    this.#stagedCapsules.delete(jobId);
+  discardStaged(context: JobContext): Promise<void> {
+    this.#stagedCapsules.delete(context.jobId);
     return Promise.resolve();
   }
 }

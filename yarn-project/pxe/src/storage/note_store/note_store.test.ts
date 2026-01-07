@@ -744,7 +744,7 @@ describe('NoteStore', () => {
       await noteStore.addNotes([stagedNote], SCOPE_1, context);
 
       // Discard staging
-      await noteStore.discardStaged(context.stagingPrefix);
+      await noteStore.discardStaged(context);
 
       // Should only see committed note
       const notes = await noteStore.getNotes({ contractAddress: CONTRACT_A });

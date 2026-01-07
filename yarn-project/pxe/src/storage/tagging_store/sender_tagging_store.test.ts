@@ -556,7 +556,7 @@ describe('SenderTaggingStore', () => {
       await taggingStore.finalizePendingIndexes([txHash2], context);
 
       // Discard the staging
-      await taggingStore.discardStaged(context.stagingPrefix);
+      await taggingStore.discardStaged(context);
 
       // Should still get the committed finalized index
       expect(await taggingStore.getLastFinalizedIndex(secret1)).toBe(3);

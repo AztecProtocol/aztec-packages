@@ -662,12 +662,10 @@ export class NoteStore implements StagedStore {
 
   /**
    * Discards staged data without committing.
-   * @param stagingPrefix - The prefix used for staging keys
+   * @param context - The job context
    */
-  discardStaged(stagingPrefix: string): Promise<void> {
-    // Extract jobId from prefix format "job_{jobId}:"
-    const jobId = stagingPrefix.slice(4, -1);
-    this.#stagedData.delete(jobId);
+  discardStaged(context: JobContext): Promise<void> {
+    this.#stagedData.delete(context.jobId);
     return Promise.resolve();
   }
 }

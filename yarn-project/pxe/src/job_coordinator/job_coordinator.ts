@@ -23,9 +23,9 @@ export interface StagedStore {
    * Discards staged data without committing.
    * Called on abort or during recovery.
    *
-   * @param stagingPrefix - The prefix used for staging keys
+   * @param context - The job context containing the staging prefix
    */
-  discardStaged(stagingPrefix: string): Promise<void>;
+  discardStaged(context: JobContext): Promise<void>;
 }
 
 /**
@@ -142,7 +142,7 @@ export class JobCoordinator {
     // Discard staging atomically
     await this.kvStore.transactionAsync(async () => {
       for (const store of this.#stores.values()) {
-        await store.discardStaged(context.stagingPrefix);
+        await store.discardStaged(context);
       }
     });
 

@@ -71,7 +71,7 @@ describe('block header', () => {
       await anchorBlockStore.setHeader(stagedHeader, context);
 
       // Discard the staging
-      await anchorBlockStore.discardStaged(context.stagingPrefix);
+      await anchorBlockStore.discardStaged(context);
 
       // Should still get committed header
       await expect(anchorBlockStore.getBlockHeader()).resolves.toEqual(committedHeader);

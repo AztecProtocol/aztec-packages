@@ -83,10 +83,8 @@ export class AnchorBlockStore implements StagedStore {
    * Discards staged data without committing.
    * Called by JobCoordinator on abort or during recovery.
    */
-  discardStaged(stagingPrefix: string): Promise<void> {
-    // Extract jobId from prefix format "job_{jobId}:"
-    const jobId = stagingPrefix.slice(4, -1);
-    this.#stagedHeader.delete(jobId);
+  discardStaged(context: JobContext): Promise<void> {
+    this.#stagedHeader.delete(context.jobId);
     return Promise.resolve();
   }
 }

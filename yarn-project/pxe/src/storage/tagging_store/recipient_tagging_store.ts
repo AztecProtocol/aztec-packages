@@ -133,10 +133,8 @@ export class RecipientTaggingStore implements StagedStore {
     this.#stagedIndexes.delete(context.jobId);
   }
 
-  discardStaged(stagingPrefix: string): Promise<void> {
-    // Extract jobId from prefix format "job_{jobId}:"
-    const jobId = stagingPrefix.slice(4, -1);
-    this.#stagedIndexes.delete(jobId);
+  discardStaged(context: JobContext): Promise<void> {
+    this.#stagedIndexes.delete(context.jobId);
     return Promise.resolve();
   }
 }

@@ -303,10 +303,8 @@ export class SenderTaggingStore implements StagedStore {
    * Discards staged data without committing.
    * Called by JobCoordinator on abort or during recovery.
    */
-  discardStaged(stagingPrefix: string): Promise<void> {
-    // Extract jobId from prefix format "job_{jobId}:"
-    const jobId = stagingPrefix.slice(4, -1);
-    this.#stagedData.delete(jobId);
+  discardStaged(context: JobContext): Promise<void> {
+    this.#stagedData.delete(context.jobId);
     return Promise.resolve();
   }
 

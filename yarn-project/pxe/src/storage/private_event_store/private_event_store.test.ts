@@ -380,7 +380,7 @@ describe('PrivateEventStore', () => {
       );
 
       // Discard staging
-      await privateEventStore.discardStaged(context.stagingPrefix);
+      await privateEventStore.discardStaged(context);
 
       // Should only see committed event
       const events = await privateEventStore.getPrivateEvents(eventSelector, {

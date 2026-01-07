@@ -489,7 +489,7 @@ describe('capsule data provider', () => {
       await capsuleStore.storeCapsule(contract, slot, stagedValues, context);
 
       // Discard the staging
-      await capsuleStore.discardStaged(context.stagingPrefix);
+      await capsuleStore.discardStaged(context);
 
       // Should still get committed capsule
       expect(await capsuleStore.loadCapsule(contract, slot)).toEqual(committedValues);

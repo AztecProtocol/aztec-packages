@@ -93,7 +93,7 @@ describe('JobCoordinator', () => {
 
       await coordinator.abortJob(context);
 
-      expect(discardStagedMock).toHaveBeenCalledWith(context.stagingPrefix);
+      expect(discardStagedMock).toHaveBeenCalledWith(context);
     });
   });
 
