@@ -28,7 +28,14 @@ import { MerkleTreeId } from '@aztec/stdlib/trees';
 import { Tx, type TxHash, type TxValidationResult, type TxValidator } from '@aztec/stdlib/tx';
 import type { UInt64 } from '@aztec/stdlib/types';
 import { compressComponentVersions } from '@aztec/stdlib/versioning';
-import { Attributes, OtelMetricsAdapter, type TelemetryClient, WithTracer, trackSpan } from '@aztec/telemetry-client';
+import {
+  Attributes,
+  OtelMetricsAdapter,
+  SpanStatusCode,
+  type TelemetryClient,
+  WithTracer,
+  trackSpan,
+} from '@aztec/telemetry-client';
 
 import {
   type GossipSub,
@@ -144,6 +151,8 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
 
   private instrumentation: P2PInstrumentation;
 
+  private telemetry: TelemetryClient;
+
   protected logger: Logger;
 
   constructor(
@@ -162,6 +171,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     logger: Logger = createLogger('p2p:libp2p_service'),
   ) {
     super(telemetry, 'LibP2PService');
+    this.telemetry = telemetry;
 
     // Create child logger with fisherman prefix if in fisherman mode
     this.logger = config.fishermanMode ? logger.createChild('[FISHERMAN]') : logger;
@@ -622,7 +632,10 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     if (!this.node.services.pubsub) {
       throw new Error('Pubsub service not available.');
     }
-    const p2pMessage = P2PMessage.fromGossipable(message, this.config.debugP2PInstrumentMessages);
+    const isBlockProposal = topic === this.topicStrings[TopicType.block_proposal];
+    const traceContext =
+      this.config.debugP2PInstrumentMessages && isBlockProposal ? this.telemetry.getTraceContext() : undefined;
+    const p2pMessage = P2PMessage.fromGossipable(message, this.config.debugP2PInstrumentMessages, traceContext);
     const result = await this.node.services.pubsub.publish(topic, p2pMessage.toMessageData());
     return result.recipients.length;
   }
@@ -707,23 +720,70 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       return;
     }
 
+    // Determine topic type for attributes
     if (msg.topic === this.topicStrings[TopicType.tx]) {
       topicType = TopicType.tx;
-      await this.handleGossipedTx(p2pMessage.payload, msgId, source);
-    }
-    if (msg.topic === this.topicStrings[TopicType.block_attestation]) {
+    } else if (msg.topic === this.topicStrings[TopicType.block_attestation]) {
       topicType = TopicType.block_attestation;
-      if (this.clientType === P2PClientType.Full) {
-        await this.processAttestationFromPeer(p2pMessage.payload, msgId, source);
-      }
-    }
-    if (msg.topic === this.topicStrings[TopicType.block_proposal]) {
+    } else if (msg.topic === this.topicStrings[TopicType.block_proposal]) {
       topicType = TopicType.block_proposal;
-      await this.processBlockFromPeer(p2pMessage.payload, msgId, source);
     }
 
-    if (p2pMessage.timestamp !== undefined && topicType !== undefined) {
-      const latency = msgReceivedTime - p2pMessage.timestamp.getTime();
+    // Process the message, optionally within a linked span for trace propagation
+    const processMessage = async () => {
+      if (msg.topic === this.topicStrings[TopicType.tx]) {
+        await this.handleGossipedTx(p2pMessage.payload, msgId, source);
+      }
+      if (msg.topic === this.topicStrings[TopicType.block_attestation]) {
+        if (this.clientType === P2PClientType.Full) {
+          await this.processAttestationFromPeer(p2pMessage.payload, msgId, source);
+        }
+      }
+      if (msg.topic === this.topicStrings[TopicType.block_proposal]) {
+        await this.processBlockFromPeer(p2pMessage.payload, msgId, source);
+      }
+    };
+
+    const latency = p2pMessage.timestamp !== undefined ? msgReceivedTime - p2pMessage.timestamp.getTime() : undefined;
+    const propagatedContext = p2pMessage.traceContext
+      ? this.telemetry.extractPropagatedContext(p2pMessage.traceContext)
+      : undefined;
+
+    if (propagatedContext) {
+      await this.tracer.startActiveSpan(
+        'LibP2PService.processMessage',
+        {
+          attributes: {
+            [Attributes.TOPIC_NAME]: topicType!,
+            [Attributes.PEER_ID]: source.toString(),
+          },
+        },
+        propagatedContext,
+        async span => {
+          try {
+            await processMessage();
+            span.setStatus({
+              code: SpanStatusCode.OK,
+            });
+          } catch (err) {
+            span.setStatus({
+              code: SpanStatusCode.ERROR,
+              message: String(err),
+            });
+            if (typeof err === 'string' || (err && err instanceof Error)) {
+              span.recordException(err);
+            }
+            throw err;
+          } finally {
+            span.end();
+          }
+        },
+      );
+    } else {
+      await processMessage();
+    }
+
+    if (latency !== undefined && topicType !== undefined) {
       this.instrumentation.recordMessageLatency(topicType, latency);
     }
 
