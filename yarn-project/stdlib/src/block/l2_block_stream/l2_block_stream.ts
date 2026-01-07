@@ -1,9 +1,10 @@
-import { BlockNumber } from '@aztec/foundation/branded-types';
+import { INITIAL_CHECKPOINT_NUMBER } from '@aztec/constants';
+import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import { AbortError } from '@aztec/foundation/error';
 import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 
-import { type L2BlockId, type L2BlockSource, makeL2BlockId } from '../l2_block_source.js';
+import { type L2BlockId, type L2BlockPruneReason, type L2BlockSource, makeL2BlockId } from '../l2_block_source.js';
 import type { L2BlockStreamEvent, L2BlockStreamEventHandler, L2BlockStreamLocalDataProvider } from './interfaces.js';
 
 /** Creates a stream of events for new blocks, chain tips updates, and reorgs, out of polling an archiver or a node. */
@@ -15,7 +16,7 @@ export class L2BlockStream {
   constructor(
     private l2BlockSource: Pick<
       L2BlockSource,
-      'getL2BlocksNew' | 'getBlockHeader' | 'getL2Tips' | 'getPublishedCheckpoints'
+      'getL2BlocksNew' | 'getBlockHeader' | 'getL2Tips' | 'getPublishedCheckpoints' | 'getCheckpointedBlocks'
     >,
     private localData: L2BlockStreamLocalDataProvider,
     private handler: L2BlockStreamEventHandler,
@@ -95,7 +96,17 @@ export class L2BlockStream {
         this.log.verbose(
           `Reorg detected. Pruning blocks from ${latestBlockNumber + 1} to ${localTips.proposed.number}.`,
         );
-        await this.emitEvent({ type: 'chain-pruned', block: makeL2BlockId(latestBlockNumber, hash) });
+        // If the new block number is the same as the checkpointed tip, then it's a failure to checkpoint, rather than a failure to prove
+        let reason: L2BlockPruneReason = 'unproven';
+        if (latestBlockNumber === sourceTips.checkpointed.block.number) {
+          reason = 'uncheckpointed';
+        }
+        await this.emitEvent({
+          type: 'chain-pruned',
+          block: makeL2BlockId(latestBlockNumber, hash),
+          reason,
+          checkpoint: sourceTips.checkpointed.checkpoint,
+        });
       }
 
       // If we are just starting, use the starting block number from the options.
@@ -119,7 +130,43 @@ export class L2BlockStream {
         nextBlockNumber = Math.max(sourceTips.finalized.block.number, nextBlockNumber);
       }
 
-      // Request new blocks from the source.
+      // Request checkpointed blocks from the source up until the tip of the checkpointed chain.
+      let checkpointNumber = CheckpointNumber(INITIAL_CHECKPOINT_NUMBER - 1);
+      while (nextBlockNumber <= sourceTips.checkpointed.block.number) {
+        const limit = Math.min(this.opts.batchSize ?? 50, sourceTips.checkpointed.block.number - nextBlockNumber + 1);
+        this.log.trace(`Requesting blocks from ${nextBlockNumber} limit ${limit} proven=${this.opts.proven}`);
+        // Get this block as a checkpointed block
+        const blocks = await this.l2BlockSource.getCheckpointedBlocks(
+          BlockNumber(nextBlockNumber),
+          1,
+          this.opts.proven,
+        );
+        if (blocks.length === 0) {
+          break;
+        }
+        checkpointNumber = CheckpointNumber(blocks[0].checkpointNumber);
+        const checkpoints = await this.l2BlockSource.getPublishedCheckpoints(checkpointNumber, 1);
+        if (checkpoints.length === 0) {
+          break;
+        }
+        // we have the checkpoint for the next block number, get the remaining blocks in this checkpoint
+        const blocksforCheckpoint = checkpoints[0].checkpoint.blocks
+          .filter(b => b.number >= nextBlockNumber)
+          .slice(0, limit);
+        await this.emitEvent({ type: 'blocks-added', blocks: blocksforCheckpoint });
+        nextBlockNumber = blocksforCheckpoint.at(-1)!.number + 1;
+
+        // If we have reached the end of the checkpoint, signal as such
+        const lastBlockInCheckpoint = checkpoints[0].checkpoint.blocks.at(-1)!;
+        if (nextBlockNumber > lastBlockInCheckpoint.number) {
+          await this.emitEvent({
+            type: 'chain-checkpointed',
+            checkpoint: checkpoints[0],
+          });
+        }
+      }
+
+      // Request new blocks from the source, these will be uncheckpointed blocks.
       while (nextBlockNumber <= sourceTips.proposed.number) {
         const limit = Math.min(this.opts.batchSize ?? 50, sourceTips.proposed.number - nextBlockNumber + 1);
         this.log.trace(`Requesting blocks from ${nextBlockNumber} limit ${limit} proven=${this.opts.proven}`);
@@ -129,29 +176,6 @@ export class L2BlockStream {
         }
         await this.emitEvent({ type: 'blocks-added', blocks });
         nextBlockNumber = blocks.at(-1)!.number + 1;
-      }
-
-      // Update the checkpointed tips
-      // TODO(pw/mbps): Not sure if this is the correct way of handling multiple checkpoints or if we should do each one in turn
-      // This matches the updates to the proven chain. But I suspect we may need to process checkpoints in turn for things like the sentinel.
-      if (
-        localTips.checkpointed !== undefined &&
-        sourceTips.checkpointed !== undefined &&
-        localTips.checkpointed.block.number !== sourceTips.checkpointed.block.number
-      ) {
-        const checkpoints = await this.l2BlockSource.getPublishedCheckpoints(
-          sourceTips.checkpointed.checkpoint.number,
-          1,
-        );
-        if (checkpoints.length === 0) {
-          throw new Error(
-            `Failed to retrieve checkpoint ${sourceTips.checkpointed.checkpoint.number} from source for checkpointed tip update`,
-          );
-        }
-        await this.emitEvent({
-          type: 'chain-checkpointed',
-          checkpoint: checkpoints[0],
-        });
       }
 
       // Update the proven and finalized tips.

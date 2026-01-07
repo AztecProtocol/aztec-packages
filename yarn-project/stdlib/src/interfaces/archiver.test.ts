@@ -181,6 +181,14 @@ describe('ArchiverApiSchema', () => {
     expect(result!.l1).toBeDefined();
   });
 
+  it('getCheckpointedBlocks', async () => {
+    const result = await context.client.getCheckpointedBlocks(BlockNumber(1), 10);
+    expect(result).toHaveLength(1);
+    expect(result[0].block.constructor.name).toEqual('L2BlockNew');
+    expect(result[0].attestations[0]).toBeInstanceOf(CommitteeAttestation);
+    expect(result[0].l1).toBeDefined();
+  });
+
   it('getBlocksForEpoch', async () => {
     const result = await context.client.getBlocksForEpoch(EpochNumber(1));
     expect(result).toEqual([expect.any(L2Block)]);
@@ -378,6 +386,16 @@ class MockArchiver implements ArchiverApi {
         l1: new L1PublishedData(1n, 0n, `0x`),
       }),
     );
+  }
+  async getCheckpointedBlocks(from: BlockNumber, _limit: number, _proven?: boolean): Promise<CheckpointedL2Block[]> {
+    return [
+      CheckpointedL2Block.fromFields({
+        checkpointNumber: CheckpointNumber(1),
+        block: await L2BlockNew.random(from),
+        attestations: [CommitteeAttestation.random()],
+        l1: new L1PublishedData(1n, 0n, `0x`),
+      }),
+    ];
   }
   async getBlocks(from: BlockNumber, _limit: number, _proven?: boolean): Promise<L2Block[]> {
     return [await L2Block.random(from)];

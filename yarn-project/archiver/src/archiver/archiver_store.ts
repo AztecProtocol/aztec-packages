@@ -86,6 +86,14 @@ export interface ArchiverDataStore {
   getCheckpointedBlock(number: number): Promise<CheckpointedL2Block | undefined>;
 
   /**
+   * Gets up to `limit` amount of checkpointed L2 blocks starting from `from`.
+   * @param from - Number of the first block to return (inclusive).
+   * @param limit - The number of blocks to return.
+   * @returns The requested checkpointed L2 blocks.
+   */
+  getCheckpointedBlocks(from: number, limit: number): Promise<CheckpointedL2Block[]>;
+
+  /**
    * Returns the block for the given hash, or undefined if not exists.
    * @param blockHash - The block hash to return.
    */

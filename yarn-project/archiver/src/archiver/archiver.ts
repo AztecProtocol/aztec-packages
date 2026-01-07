@@ -1401,6 +1401,20 @@ export class Archiver
     return this.store.getCheckpointedBlock(number);
   }
 
+  public async getCheckpointedBlocks(
+    from: BlockNumber,
+    limit: number,
+    proven?: boolean,
+  ): Promise<CheckpointedL2Block[]> {
+    const blocks = await this.store.store.getCheckpointedBlocks(from, limit);
+
+    if (proven === true) {
+      const provenBlockNumber = await this.store.getProvenBlockNumber();
+      return blocks.filter(b => b.block.number <= provenBlockNumber);
+    }
+    return blocks;
+  }
+
   getCheckpointedBlockByHash(blockHash: Fr): Promise<CheckpointedL2Block | undefined> {
     return this.store.getCheckpointedBlockByHash(blockHash);
   }
@@ -1845,6 +1859,7 @@ export class ArchiverStoreHelper
       | 'addBlocks'
       | 'getBlock'
       | 'getBlocks'
+      | 'getCheckpointedBlocks'
     >
 {
   #log = createLogger('archiver:block-helper');

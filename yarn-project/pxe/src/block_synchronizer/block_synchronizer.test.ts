@@ -1,4 +1,4 @@
-import { BlockNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import { timesParallel } from '@aztec/foundation/collection';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { L2TipsKVStore } from '@aztec/kv-store/stores';
@@ -59,7 +59,12 @@ describe('BlockSynchronizer', () => {
       type: 'blocks-added',
       blocks: await timesParallel(5, i => L2BlockNew.random(BlockNumber(i))),
     });
-    await synchronizer.handleBlockStreamEvent({ type: 'chain-pruned', block: { number: BlockNumber(3), hash: '0x3' } });
+    await synchronizer.handleBlockStreamEvent({
+      type: 'chain-pruned',
+      block: { number: BlockNumber(3), hash: '0x3' },
+      reason: 'unproven',
+      checkpoint: { number: CheckpointNumber.ZERO, hash: '' },
+    });
 
     expect(rollbackNotesAndNullifiers).toHaveBeenCalledWith(3, 4);
   });
@@ -76,7 +81,12 @@ describe('BlockSynchronizer', () => {
       type: 'blocks-added',
       blocks: await timesParallel(5, i => L2BlockNew.random(BlockNumber(i))),
     });
-    await synchronizer.handleBlockStreamEvent({ type: 'chain-pruned', block: { number: BlockNumber(3), hash: '0x3' } });
+    await synchronizer.handleBlockStreamEvent({
+      type: 'chain-pruned',
+      block: { number: BlockNumber(3), hash: '0x3' },
+      reason: 'unproven',
+      checkpoint: { number: CheckpointNumber.ZERO, hash: '' },
+    });
 
     expect(rollbackEventsAfterBlock).toHaveBeenCalledWith(3, 4);
   });

@@ -11,7 +11,10 @@ import { type Traceable, type Tracer, trackSpan } from '@aztec/telemetry-client'
 /** Extends an L2BlockStream with a tracer to create a new trace per iteration. */
 export class TraceableL2BlockStream extends L2BlockStream implements Traceable {
   constructor(
-    l2BlockSource: Pick<L2BlockSource, 'getL2BlocksNew' | 'getBlockHeader' | 'getL2Tips' | 'getPublishedCheckpoints'>,
+    l2BlockSource: Pick<
+      L2BlockSource,
+      'getL2BlocksNew' | 'getBlockHeader' | 'getL2Tips' | 'getPublishedCheckpoints' | 'getCheckpointedBlocks'
+    >,
     localData: L2BlockStreamLocalDataProvider,
     handler: L2BlockStreamEventHandler,
     public readonly tracer: Tracer,

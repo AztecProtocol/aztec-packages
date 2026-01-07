@@ -67,6 +67,8 @@ export interface L2BlockSource {
    */
   getCheckpointedBlock(number: BlockNumber): Promise<CheckpointedL2Block | undefined>;
 
+  getCheckpointedBlocks(from: BlockNumber, limit: number, proven?: boolean): Promise<CheckpointedL2Block[]>;
+
   /**
    * Retrieves a collection of published checkpoints
    * @param checkpointNumber The first checkpoint to be retrieved
@@ -251,6 +253,13 @@ export interface L2BlockSourceEventEmitter extends L2BlockSource, ArchiverEmitte
  */
 export type L2BlockTag = 'proposed' | 'checkpointed' | 'proven' | 'finalized';
 
+/**
+ * Reason for L2 block prune.
+ * - uncheckpointed: L2 blocks were pruned due to a failure to checkpoint.
+ * - unproven: L2 blocks were pruned due to a failure to prove.
+ */
+export type L2BlockPruneReason = 'uncheckpointed' | 'unproven';
+
 /** Tips of the L2 chain. */
 export type L2Tips = {
   proposed: L2BlockId;
@@ -272,6 +281,11 @@ export function makeL2BlockId(number: BlockNumber, hash?: string): L2BlockId {
     throw new Error(`Hash is required for non-genesis blocks (got block number ${number})`);
   }
   return { number, hash: hash! };
+}
+
+/** Creates an L2 checkpoint id */
+export function makeL2CheckpointId(number: CheckpointNumber, hash: string): CheckpointId {
+  return { number, hash };
 }
 
 const L2BlockIdSchema = z.object({

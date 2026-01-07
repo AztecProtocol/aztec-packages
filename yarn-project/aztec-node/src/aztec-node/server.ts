@@ -624,6 +624,10 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     return (await this.blockSource.getL2BlocksNew(from, limit)) ?? [];
   }
 
+  public async getCheckpointedBlocks(from: BlockNumber, limit: number, proven?: boolean) {
+    return (await this.blockSource.getCheckpointedBlocks(from, limit, proven)) ?? [];
+  }
+
   /**
    * Method to fetch the current base fees.
    * @returns The current base fees.

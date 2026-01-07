@@ -7,6 +7,7 @@ import times from 'lodash.times';
 
 import type { PublishedCheckpoint } from '../../checkpoint/published_checkpoint.js';
 import type { BlockHeader } from '../../tx/block_header.js';
+import type { CheckpointedL2Block } from '../checkpointed_l2_block.js';
 import type { L2BlockNew } from '../l2_block_new.js';
 import type { L2BlockId, L2BlockSource, L2Tips } from '../l2_block_source.js';
 import type { L2BlockStreamEvent, L2BlockStreamEventHandler, L2BlockStreamLocalDataProvider } from './interfaces.js';
@@ -17,6 +18,7 @@ describe('L2BlockStream', () => {
   let blockSource: MockProxy<L2BlockSource>;
 
   let latest: number = 0;
+  let checkpointed: number = 0;
 
   const makeHash = (number: number) => new Fr(number).toString();
 
@@ -27,23 +29,34 @@ describe('L2BlockStream', () => {
       indexWithinCheckpoint: 0,
     }) as L2BlockNew;
 
+  const makeCheckpointedBlock = (number: number, checkpointNum: number): CheckpointedL2Block =>
+    ({
+      block: makeBlock(number),
+      checkpointNumber: checkpointNum,
+    }) as CheckpointedL2Block;
+
   const makeHeader = (number: number) => ({ hash: () => Promise.resolve(new Fr(number)) }) as BlockHeader;
 
   const makeBlockId = (number: number): L2BlockId => ({ number: BlockNumber(number), hash: makeHash(number) });
+
+  const makeCheckpointId = (number: number) => ({ number: CheckpointNumber(number), hash: makeHash(number) });
 
   const makeTipId = (number: number) => ({
     block: { number: BlockNumber(number), hash: makeHash(number) },
     checkpoint: { number: CheckpointNumber(number), hash: makeHash(number) },
   });
 
-  const setRemoteTips = (latest_: number, proven?: number, finalized?: number) => {
+  /** Sets the remote tips. checkpointed_ defaults to 0 (no checkpointed blocks). */
+  const setRemoteTips = (latest_: number, proven?: number, finalized?: number, checkpointed_?: number) => {
     proven = proven ?? 0;
     finalized = finalized ?? 0;
+    checkpointed_ = checkpointed_ ?? 0;
     latest = latest_;
+    checkpointed = checkpointed_;
 
     blockSource.getL2Tips.mockResolvedValue({
       proposed: { number: BlockNumber(latest), hash: makeHash(latest) },
-      checkpointed: makeTipId(latest),
+      checkpointed: makeTipId(checkpointed_),
       proven: makeTipId(proven),
       finalized: makeTipId(finalized),
     });
@@ -60,17 +73,27 @@ describe('L2BlockStream', () => {
       ),
     );
 
-    // And returns blocks up until what was reported as the latest block
+    // Returns blocks up until what was reported as the latest block (for uncheckpointed blocks)
     blockSource.getL2BlocksNew.mockImplementation((from, limit) =>
       Promise.resolve(compactArray(times(limit, i => (from + i > latest ? undefined : makeBlock(from + i))))),
     );
 
+    // Returns checkpointed blocks (for blocks up to checkpointed tip)
+    blockSource.getCheckpointedBlocks.mockImplementation((from, limit) =>
+      Promise.resolve(
+        compactArray(
+          times(limit, i => (from + i > checkpointed ? undefined : makeCheckpointedBlock(from + i, from + i))),
+        ),
+      ),
+    );
+
+    // Returns published checkpoints - each checkpoint contains just the one block for simplicity
     blockSource.getPublishedCheckpoints.mockImplementation((checkpointNumber: CheckpointNumber, _limit: number) =>
       Promise.resolve([
         {
           checkpoint: {
             number: checkpointNumber,
-            hash: () => Promise.resolve(new Fr(checkpointNumber)),
+            hash: () => new Fr(checkpointNumber),
             blocks: [makeBlock(checkpointNumber)],
           },
         } as unknown as PublishedCheckpoint,
@@ -91,7 +114,6 @@ describe('L2BlockStream', () => {
 
     it('pulls new blocks from start', async () => {
       setRemoteTips(5);
-      localData.checkpointed.number = BlockNumber(5); // Match source checkpointed to avoid checkpointed event
 
       await blockStream.work();
       expect(handler.events).toEqual([
@@ -102,7 +124,6 @@ describe('L2BlockStream', () => {
     it('pulls new blocks from offset', async () => {
       setRemoteTips(15);
       localData.latest.number = BlockNumber(10);
-      localData.checkpointed.number = BlockNumber(15); // Match source checkpointed
 
       await blockStream.work();
       expect(blockSource.getL2BlocksNew).toHaveBeenCalledWith(BlockNumber(11), 5, undefined);
@@ -113,7 +134,6 @@ describe('L2BlockStream', () => {
 
     it('pulls new blocks in multiple batches', async () => {
       setRemoteTips(45);
-      localData.checkpointed.number = BlockNumber(45); // Match source checkpointed
 
       await blockStream.work();
       expect(blockSource.getL2BlocksNew).toHaveBeenCalledTimes(5);
@@ -129,7 +149,6 @@ describe('L2BlockStream', () => {
 
     it('halts pulling blocks if stopped', async () => {
       setRemoteTips(45);
-      localData.checkpointed.number = BlockNumber(45); // Match source checkpointed
       blockStream.running = false;
 
       await blockStream.work();
@@ -141,7 +160,6 @@ describe('L2BlockStream', () => {
 
     it('halts on handler error and retries', async () => {
       setRemoteTips(45);
-      localData.checkpointed.number = BlockNumber(45); // Match source checkpointed
 
       handler.throwing = true;
       await blockStream.work();
@@ -156,7 +174,6 @@ describe('L2BlockStream', () => {
     it('handles a reorg and requests blocks from new tip', async () => {
       setRemoteTips(45);
       localData.latest.number = BlockNumber(40);
-      localData.checkpointed.number = BlockNumber(45); // Match source checkpointed
 
       for (const i of [37, 38, 39, 40]) {
         // Mess up the block hashes for a bunch of blocks
@@ -165,7 +182,7 @@ describe('L2BlockStream', () => {
 
       await blockStream.work();
       expect(handler.events).toEqual([
-        { type: 'chain-pruned', block: makeBlockId(36) },
+        { type: 'chain-pruned', block: makeBlockId(36), reason: 'unproven', checkpoint: makeCheckpointId(0) },
         { type: 'blocks-added', blocks: times(9, i => makeBlock(i + 37)) },
       ] satisfies L2BlockStreamEvent[]);
     });
@@ -173,7 +190,6 @@ describe('L2BlockStream', () => {
     it('emits events for chain proven and finalized', async () => {
       setRemoteTips(45, 40, 35);
       localData.latest.number = BlockNumber(40);
-      localData.checkpointed.number = BlockNumber(45); // Match source checkpointed
       localData.proven.number = BlockNumber(10);
       localData.finalized.number = BlockNumber(10);
 
@@ -183,6 +199,70 @@ describe('L2BlockStream', () => {
         { type: 'chain-proven', block: makeBlockId(40) },
         { type: 'chain-finalized', block: makeBlockId(35) },
       ] satisfies L2BlockStreamEvent[]);
+    });
+
+    it('fetches checkpointed blocks and emits chain-checkpointed events', async () => {
+      // All blocks are checkpointed (checkpointed=5, proposed=5)
+      setRemoteTips(5, 0, 0, 5);
+
+      await blockStream.work();
+
+      // Each checkpointed block triggers a blocks-added and chain-checkpointed event
+      // (since each checkpoint contains one block in our mock)
+      expect(handler.events).toEqual([
+        { type: 'blocks-added', blocks: [makeBlock(1)] },
+        expect.objectContaining({ type: 'chain-checkpointed' }),
+        { type: 'blocks-added', blocks: [makeBlock(2)] },
+        expect.objectContaining({ type: 'chain-checkpointed' }),
+        { type: 'blocks-added', blocks: [makeBlock(3)] },
+        expect.objectContaining({ type: 'chain-checkpointed' }),
+        { type: 'blocks-added', blocks: [makeBlock(4)] },
+        expect.objectContaining({ type: 'chain-checkpointed' }),
+        { type: 'blocks-added', blocks: [makeBlock(5)] },
+        expect.objectContaining({ type: 'chain-checkpointed' }),
+      ]);
+      expect(blockSource.getCheckpointedBlocks).toHaveBeenCalledTimes(5);
+      expect(blockSource.getL2BlocksNew).not.toHaveBeenCalled();
+    });
+
+    it('fetches checkpointed blocks first, then uncheckpointed blocks', async () => {
+      // Blocks 1-3 are checkpointed, blocks 4-5 are uncheckpointed
+      setRemoteTips(5, 0, 0, 3);
+
+      await blockStream.work();
+
+      // First 3 blocks come via checkpoints, last 2 via getL2BlocksNew
+      expect(handler.events).toEqual([
+        { type: 'blocks-added', blocks: [makeBlock(1)] },
+        expect.objectContaining({ type: 'chain-checkpointed' }),
+        { type: 'blocks-added', blocks: [makeBlock(2)] },
+        expect.objectContaining({ type: 'chain-checkpointed' }),
+        { type: 'blocks-added', blocks: [makeBlock(3)] },
+        expect.objectContaining({ type: 'chain-checkpointed' }),
+        { type: 'blocks-added', blocks: [makeBlock(4), makeBlock(5)] },
+      ]);
+      expect(blockSource.getCheckpointedBlocks).toHaveBeenCalledTimes(3);
+      expect(blockSource.getL2BlocksNew).toHaveBeenCalledWith(BlockNumber(4), 2, undefined);
+    });
+
+    it('handles reorg with uncheckpointed reason when pruned to checkpointed tip', async () => {
+      // Source: checkpointed=3, proposed=5
+      setRemoteTips(5, 0, 0, 3);
+      localData.latest.number = BlockNumber(5);
+
+      // Mess up hashes for blocks 4 and 5 (uncheckpointed blocks)
+      localData.blockHashes[4] = `0xaa4`;
+      localData.blockHashes[5] = `0xaa5`;
+
+      await blockStream.work();
+
+      // Prune to block 3 (checkpointed tip), reason should be 'uncheckpointed'
+      expect(handler.events[0]).toEqual({
+        type: 'chain-pruned',
+        block: makeBlockId(3),
+        reason: 'uncheckpointed',
+        checkpoint: makeCheckpointId(3),
+      });
     });
   });
 
@@ -209,7 +289,6 @@ describe('L2BlockStream', () => {
       await blockStream.work();
       expect(handler.events).toEqual([
         { type: 'blocks-added', blocks: times(6, i => makeBlock(i + 30)) },
-        expect.objectContaining({ type: 'chain-checkpointed' }),
         { type: 'chain-proven', block: makeBlockId(25) },
         { type: 'chain-finalized', block: makeBlockId(10) },
       ]);
@@ -219,8 +298,7 @@ describe('L2BlockStream', () => {
       setRemoteTips(25, 25, 10);
       await blockStream.work();
       expect(handler.events).toEqual([
-        { type: 'chain-pruned', block: makeBlockId(25) },
-        expect.objectContaining({ type: 'chain-checkpointed' }),
+        { type: 'chain-pruned', block: makeBlockId(25), reason: 'unproven', checkpoint: makeCheckpointId(0) },
       ]);
     });
   });
@@ -243,7 +321,6 @@ describe('L2BlockStream', () => {
       setRemoteTips(40, 38, 35);
 
       localData.latest.number = BlockNumber(5);
-      localData.checkpointed.number = BlockNumber(40); // Match source checkpointed
       localData.proven.number = BlockNumber(2);
       localData.finalized.number = BlockNumber(2);
 
@@ -261,7 +338,6 @@ describe('L2BlockStream', () => {
       setRemoteTips(40, 38, 35);
 
       localData.latest.number = BlockNumber(38);
-      localData.checkpointed.number = BlockNumber(40); // Match source checkpointed
       localData.proven.number = BlockNumber(38);
       localData.finalized.number = BlockNumber(35);
 

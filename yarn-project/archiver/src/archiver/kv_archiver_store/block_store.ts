@@ -503,6 +503,34 @@ export class BlockStore {
     );
   }
 
+  /**
+   * Gets up to `limit` amount of Checkpointed L2 blocks starting from `from`.
+   * @param start - Number of the first block to return (inclusive).
+   * @param limit - The number of blocks to return.
+   * @returns The requested L2 blocks
+   */
+  async *getCheckpointedBlocks(start: BlockNumber, limit: number): AsyncIterableIterator<CheckpointedL2Block> {
+    const checkpointCache = new Map<CheckpointNumber, CheckpointStorage>();
+    for await (const [blockNumber, blockStorage] of this.getBlockStorages(start, limit)) {
+      const block = await this.getBlockFromBlockStorage(blockNumber, blockStorage);
+      if (block) {
+        const checkpoint =
+          checkpointCache.get(CheckpointNumber(blockStorage.checkpointNumber)) ??
+          (await this.#checkpoints.getAsync(blockStorage.checkpointNumber));
+        if (checkpoint) {
+          checkpointCache.set(CheckpointNumber(blockStorage.checkpointNumber), checkpoint);
+          const checkpointedBlock = new CheckpointedL2Block(
+            CheckpointNumber(checkpoint.checkpointNumber),
+            block,
+            L1PublishedData.fromBuffer(checkpoint.l1),
+            checkpoint.attestations.map(buf => CommitteeAttestation.fromBuffer(buf)),
+          );
+          yield checkpointedBlock;
+        }
+      }
+    }
+  }
+
   async getCheckpointedBlockByHash(blockHash: Fr): Promise<CheckpointedL2Block | undefined> {
     const blockNumber = await this.#blockHashIndex.getAsync(blockHash.toString());
     if (blockNumber === undefined) {

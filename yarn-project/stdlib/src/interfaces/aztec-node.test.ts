@@ -568,6 +568,10 @@ class MockAztecNode implements AztecNode {
     return [block];
   }
 
+  getCheckpointedBlocks(_from: BlockNumber, _limit: number, _proven?: boolean) {
+    return Promise.resolve([]);
+  }
+
   findLeavesIndexes(
     blockNumber: number | 'latest',
     treeId: MerkleTreeId,

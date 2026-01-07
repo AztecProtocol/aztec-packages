@@ -287,4 +287,8 @@ export class TXEArchiver extends ArchiverStoreHelper implements L2BlockSource {
   getPublishedBlockByArchive(_archive: Fr): Promise<PublishedL2Block | undefined> {
     throw new Error('Method not implemented.');
   }
+
+  getCheckpointedBlocks(_from: BlockNumber, _limit: number, _proven?: boolean): Promise<never[]> {
+    throw new Error('TXE Archiver does not implement "getCheckpointedBlocks"');
+  }
 }

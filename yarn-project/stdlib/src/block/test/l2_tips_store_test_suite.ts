@@ -224,7 +224,12 @@ export function testL2TipsStore(makeTipsStore: () => Promise<L2TipsStore>) {
     await tipsStore.handleBlockStreamEvent({ type: 'blocks-added', blocks });
 
     // Prune to block 5
-    await tipsStore.handleBlockStreamEvent({ type: 'chain-pruned', block: makeBlockId(5) });
+    await tipsStore.handleBlockStreamEvent({
+      type: 'chain-pruned',
+      block: makeBlockId(5),
+      reason: 'unproven',
+      checkpoint: { number: CheckpointNumber.ZERO, hash: '' },
+    });
 
     const tips = await tipsStore.getL2Tips();
     expect(tips.proposed).toEqual(makeTip(5));
@@ -244,7 +249,12 @@ export function testL2TipsStore(makeTipsStore: () => Promise<L2TipsStore>) {
     const originalHash3 = blockHashes.get(3);
 
     // Prune back to genesis (block 0)
-    await tipsStore.handleBlockStreamEvent({ type: 'chain-pruned', block: makeTip(0) });
+    await tipsStore.handleBlockStreamEvent({
+      type: 'chain-pruned',
+      block: makeTip(0),
+      reason: 'unproven',
+      checkpoint: { number: CheckpointNumber.ZERO, hash: '' },
+    });
 
     tips = await tipsStore.getL2Tips();
     expect(tips.proposed).toEqual(makeTip(0));
@@ -305,7 +315,12 @@ export function testL2TipsStore(makeTipsStore: () => Promise<L2TipsStore>) {
 
     // Prune proposed blocks back to checkpoint (block 5)
     // This removes proposed blocks 6-10, but checkpoint remains at 5
-    await tipsStore.handleBlockStreamEvent({ type: 'chain-pruned', block: makeBlockId(5) });
+    await tipsStore.handleBlockStreamEvent({
+      type: 'chain-pruned',
+      block: makeBlockId(5),
+      reason: 'unproven',
+      checkpoint: { number: CheckpointNumber.ZERO, hash: '' },
+    });
 
     tips = await tipsStore.getL2Tips();
     expect(tips.proposed).toEqual(makeTip(5));
@@ -365,7 +380,12 @@ export function testL2TipsStore(makeTipsStore: () => Promise<L2TipsStore>) {
     expect(tips.checkpointed.block).toEqual(makeTip(3)); // Only blocks 1-3 are checkpointed
 
     // Prune proposed blocks back to checkpoint (block 3)
-    await tipsStore.handleBlockStreamEvent({ type: 'chain-pruned', block: makeBlockId(3) });
+    await tipsStore.handleBlockStreamEvent({
+      type: 'chain-pruned',
+      block: makeBlockId(3),
+      reason: 'unproven',
+      checkpoint: { number: CheckpointNumber.ZERO, hash: '' },
+    });
 
     tips = await tipsStore.getL2Tips();
     expect(tips.proposed).toEqual(makeTip(3));
@@ -439,7 +459,12 @@ export function testL2TipsStore(makeTipsStore: () => Promise<L2TipsStore>) {
 
     // Prune all the way back to proven tip (block 3)
     // This prunes both proposed blocks (7-10) AND checkpointed blocks (4-6)
-    await tipsStore.handleBlockStreamEvent({ type: 'chain-pruned', block: makeBlockId(3) });
+    await tipsStore.handleBlockStreamEvent({
+      type: 'chain-pruned',
+      block: makeBlockId(3),
+      reason: 'unproven',
+      checkpoint: { number: CheckpointNumber.ZERO, hash: '' },
+    });
 
     tips = await tipsStore.getL2Tips();
     expect(tips.proposed).toEqual(makeTip(3));

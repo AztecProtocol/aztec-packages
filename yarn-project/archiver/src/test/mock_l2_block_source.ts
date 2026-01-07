@@ -97,6 +97,11 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
     return Promise.resolve(undefined);
   }
 
+  public getCheckpointedBlocks(_from: BlockNumber, _limit: number, _proven?: boolean) {
+    // In this mock, we don't track checkpointed blocks separately
+    return Promise.resolve([]);
+  }
+
   /**
    * Gets an l2 block.
    * @param number - The block number to return (inclusive).

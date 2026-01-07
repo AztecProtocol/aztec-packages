@@ -89,6 +89,10 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
     .args(z.union([BlockNumberSchema, z.literal('latest')]))
     .returns(BlockHeader.schema.optional()),
   getCheckpointedBlock: z.function().args(BlockNumberSchema).returns(CheckpointedL2Block.schema.optional()),
+  getCheckpointedBlocks: z
+    .function()
+    .args(BlockNumberSchema, schemas.Integer, optional(z.boolean()))
+    .returns(z.array(CheckpointedL2Block.schema)),
   getBlocks: z
     .function()
     .args(BlockNumberSchema, schemas.Integer, optional(z.boolean()))
