@@ -254,20 +254,164 @@ Some columns are "virtual" and not explicitly stored in the witness trace. Inste
 - Interleaved columns for range constraint microlimbs (computed from the physical microlimb columns)
 - Sorted (ordered) columns for range constraint microlimbs (computed by sorting the physical microlimb columns)
 
+### Mini-Circuit Layout
+
+The mini-circuit layout is illustrated below:
+
+- The first 4 columns represent the `EccOpQueue` transcript
+- The next 13 columns represent limb decompositions
+- The last 64 columns represent microlimb decompositions
+- Let $n$ = total number of rows in the mini-circuit
+- Let $m_{\textsf{start}}$ = number of rows for randomness at start
+- Let $m$ = number of rows for randomness at the end
+- Let $z_1$ = number of initial no-op rows (to ensure column polynomials are shiftable)
+
+The purple boxes represent zero values while the grey boxes represent randomness values (in the op queue only). The orange boxes represent the main op queue rows where the actual ECC operations are processed.
+
+$$
+\begin{array}{rlllll}
+z_1
+&
+\overbrace{
+   \textcolor{violet}{
+   \boxed{
+      \hspace{0.95cm}
+   }
+   }
+}^{4}
+&
+\textsf{\scriptsize $\longleftarrow$ initial no-op}
+&
+\overbrace{
+\textcolor{violet}{
+   \boxed{
+      \hspace{1.45cm}
+   }
+}
+}^{13}
+&
+\overbrace{
+\textcolor{violet}{
+   \boxed{
+      \hspace{3.85cm}
+   }
+}
+}^{64}
+\\[2pt]
+m_{\textsf{start}}
+&
+\textcolor{grey}{
+   \boxed{
+      \begin{array}{c}
+      \hspace{0.6cm}
+      \\
+      \end{array}
+   }
+}
+&
+\textsf{\scriptsize $\longleftarrow$ start randomness}
+&
+\textcolor{violet}{
+   \boxed{
+      \begin{array}{c}
+      \hspace{1.1cm}
+      \\
+      \end{array}
+   }
+}
+&
+\textcolor{violet}{
+   \boxed{
+      \begin{array}{c}
+      \hspace{3.5cm}
+      \\
+      \end{array}
+   }
+}
+\\ \\[-10pt]
+n - m_{\textsf{start}} - m - z_1 &
+\textcolor{orange}{
+   \boxed{
+      \begin{array}{c}
+      \hspace{0.6cm}
+      \\ \\ \\ \\ \\ \\ \\
+      \end{array}
+   }
+}
+&
+\textsf{\scriptsize $\longleftarrow$ main ops}
+&
+\textcolor{orange}{
+   \boxed{
+      \begin{array}{c}
+      \hspace{1.1cm}
+      \\ \\ \\ \\ \\ \\ \\
+      \end{array}
+   }
+}
+&
+\textcolor{orange}{
+   \boxed{
+      \begin{array}{c}
+      \hspace{3.5cm}
+      \\ \\ \\ \\ \\ \\ \\
+      \end{array}
+   }
+}
+\\ \\[-10pt]
+m
+&
+\textcolor{grey}{
+   \boxed{
+      \begin{array}{c}
+      \hspace{0.6cm}
+      \\
+      \end{array}
+   }
+}
+&
+\textsf{\scriptsize $\longleftarrow$ end randomness}
+&
+\textcolor{violet}{
+   \boxed{
+      \begin{array}{c}
+      \hspace{1.1cm}
+      \\
+      \end{array}
+   }
+}
+&
+\textcolor{violet}{
+   \boxed{
+      \begin{array}{c}
+      \hspace{3.5cm}
+      \\
+      \end{array}
+   }
+}
+\end{array}
+$$
+
+In our implementation, mini-circuit size is $n = 2^{13}$. We have $z_1 = 2$ (one no-op at the start to ensure shiftability), $m_{\textsf{start}} = 6$ (rows for three random ops at start), and $m = 4$ (rows for two random ops at end). Thus, the number of main operation rows is $n - m_{\textsf{start}} - m - z_1 = 8180$.
+
+> **Note:** The randomness rows at the start are due to the blinding required for the tail kernel, for which the ECC ops are prepended. The randomness rows at the end are for the blinding of the hiding kernel, for which the ECC ops are appended. See [MERGE protocol documentation](../goblin/MERGE_PROTOCOL.md#zk-considerations) for more details.
+
 ### Lagrange Polynomials (Precomputed)
 
-The Translator circuit uses ZERO selector polynomials (`NUM_SELECTORS = 0`).
-Instead, the circuit uses Lagrange polynomials to control which constraints are active:
+The circuit uses Lagrange polynomials to control which constraints are active:
 
-| Polynomial                     | Description                     | Active Rows                                                                  |
-| ------------------------------ | ------------------------------- | ---------------------------------------------------------------------------- |
-| `lagrange_even_in_minicircuit` | Even indices in mini-circuit    | $i \in \{0, 2, 4, ..., 8190\}$ (mini)                                        |
-| `lagrange_odd_in_minicircuit`  | Odd indices in mini-circuit     | $i \in \{1, 3, 5, ..., 8191\}$ (mini)                                        |
-| `lagrange_first`               | First row                       | $i = 0$                                                                      |
-| `lagrange_last_in_minicircuit` | Last row in mini-circuit        | $i = 8191$ (mini)                                                            |
-| `lagrange_result_row`          | Row containing final result     | $i = 8$ (mini, equals no of rows are to be left for random ops at the start) |
-| `lagrange_masking`             | Masking rows for zero-knowledge | Last few rows                                                                |
-| `lagrange_mini_masking`        | Masking within mini-circuit     | Last rows of mini-circuit                                                    |
+| Polynomial                     | Description                               | Active Rows                                                                  |
+| ------------------------------ | ----------------------------------------- | ---------------------------------------------------------------------------- |
+| `lagrange_first`               | First row                                 | $i = 0$                                                                      |
+| `lagrange_real_last`           | Last row in full circuit (before masking) | $i = 2^{17} - m \cdot I_{\text{size}} - 1$                                   |
+| `lagrange_last`                | Last row in full circuit                  | $i = 2^{17} - 1$                                                             |
+| `lagrange_masking`             | Masking rows in full circuit              | $i \in \{2^{17} - m \cdot I_{\text{size}}, \ldots, 2^{17} - 1\}$             |
+| `lagrange_even_in_minicircuit` | Even indices in mini-circuit              | $i \in \{0, 2, 4, ..., 8190\}$ (mini)                                        |
+| `lagrange_odd_in_minicircuit`  | Odd indices in mini-circuit               | $i \in \{1, 3, 5, ..., 8191\}$ (mini)                                        |
+| `lagrange_last_in_minicircuit` | Last row in mini-circuit                  | $i = 8191$ (mini)                                                            |
+| `lagrange_result_row`          | Row containing final result               | $i = 8$ (mini, equals no of rows are to be left for random ops at the start) |
+| `lagrange_masking`             | Masking rows for zero-knowledge           | Last few rows                                                                |
+| `lagrange_mini_masking`        | Masking within mini-circuit               | Last rows of mini-circuit                                                    |
 
 ## Interleaving: The Key Optimization
 
