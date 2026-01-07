@@ -8,6 +8,7 @@ import { Signature } from '@aztec/foundation/eth-signature';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import type { L2BlockInfo } from '../block/l2_block_info.js';
+import { MAX_TXS_PER_BLOCK } from '../deserialization/index.js';
 import { CheckpointHeader } from '../rollup/checkpoint_header.js';
 import { BlockHeader } from '../tx/block_header.js';
 import { TxHash } from '../tx/index.js';
@@ -248,7 +249,11 @@ export class CheckpointProposal extends Gossipable {
       const blockHeader = reader.readObject(BlockHeader);
       const indexWithinCheckpoint = reader.readNumber();
       const blockSignature = reader.readObject(Signature);
-      const txHashes = reader.readArray(reader.readNumber(), TxHash);
+      const txHashCount = reader.readNumber();
+      if (txHashCount > MAX_TXS_PER_BLOCK) {
+        throw new Error(`txHashes count ${txHashCount} exceeds maximum ${MAX_TXS_PER_BLOCK}`);
+      }
+      const txHashes = reader.readArray(txHashCount, TxHash);
 
       let signedTxs: SignedTxs | undefined;
       if (!reader.isEmpty()) {

@@ -5,6 +5,7 @@ import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { inspect } from 'util';
 import { z } from 'zod';
 
+import { MAX_TX_EFFECTS_PER_BODY } from '../deserialization/index.js';
 import type { ZodFor } from '../schemas/index.js';
 import { TxEffect } from '../tx/tx_effect.js';
 
@@ -40,7 +41,7 @@ export class Body {
   static fromBuffer(buf: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buf);
 
-    return new this(reader.readVector(TxEffect));
+    return new this(reader.readVector(TxEffect, MAX_TX_EFFECTS_PER_BODY));
   }
 
   /**
