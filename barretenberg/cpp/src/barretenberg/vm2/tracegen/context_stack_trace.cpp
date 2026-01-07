@@ -6,6 +6,12 @@
 
 namespace bb::avm2::tracegen {
 
+/**
+ * @brief Process the context stack events and populate fields for the context stack sub-trace.
+ *
+ * @param ctx_stack_events The context stack events.
+ * @param trace The trace container.
+ */
 void ContextStackTraceBuilder::process(
     const simulation::EventEmitterInterface<simulation::ContextStackEvent>::Container& ctx_stack_events,
     TraceContainer& trace)
