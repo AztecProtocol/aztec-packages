@@ -46,10 +46,6 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
   public async handleBlockStreamEvent(event: L2BlockStreamEvent): Promise<void> {
     await this.l2TipsStore.handleBlockStreamEvent(event);
 
-    // NOTE: Sync operations write directly to main storage (no staging) because they update
-    // our local view to match chain state. This is idempotent - if a job fails mid-sync,
-    // the next sync will bring us back to the correct state.
-
     switch (event.type) {
       case 'blocks-added': {
         const lastBlock = event.blocks.at(-1)!.block;
