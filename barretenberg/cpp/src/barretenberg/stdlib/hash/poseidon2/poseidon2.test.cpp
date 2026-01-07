@@ -3,6 +3,7 @@
 #include "barretenberg/common/test.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
+#include "barretenberg/stdlib/primitives/field/field_conversion.hpp"
 #include "barretenberg/ultra_honk/prover_instance.hpp"
 
 using namespace bb;
@@ -372,4 +373,88 @@ TYPED_TEST(StdlibPoseidon2, Consistency)
 {
 
     TestFixture::test_against_independent_values();
+}
+
+/**
+ * @brief Test that bn254 point coordinates with alias values produce different hashes.
+ * @details When a bn254 point is deserialized with alias x-coordinate (x + modulus),
+ * the resulting hash must be different from the canonical representation.
+ * Also verifies consistency between stdlib and native Poseidon2 implementations.
+ */
+TYPED_TEST(StdlibPoseidon2, PointCoordinatesVsAliasProduceDifferentHashes)
+{
+    using Builder = TypeParam;
+    using field_ct = stdlib::field_t<Builder>;
+    using witness_ct = stdlib::witness_t<Builder>;
+    using poseidon2 = stdlib::poseidon2<Builder>;
+    using native_poseidon2 = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>;
+    using Codec = stdlib::StdlibCodec<field_ct>;
+    using bn254_point_ct = typename Codec::bn254_commitment;
+
+    constexpr uint64_t NUM_LIMB_BITS = 68;
+    constexpr uint64_t LOW_BITS = 2 * NUM_LIMB_BITS;
+    constexpr uint256_t LOW_MASK = (uint256_t(1) << LOW_BITS) - 1;
+
+    // Use generator point coordinates
+    const uint256_t x_value = uint256_t(bb::g1::affine_one.x);
+    const uint256_t y_value = uint256_t(bb::g1::affine_one.y);
+
+    const uint256_t fq_modulus = bb::fq::modulus;
+
+    // Compute canonical limbs for x and y
+    const uint256_t x_lo = x_value & LOW_MASK;
+    const uint256_t x_hi = x_value >> LOW_BITS;
+    const uint256_t y_lo = y_value & LOW_MASK;
+    const uint256_t y_hi = y_value >> LOW_BITS;
+
+    // Compute alias limbs (x + modulus, y unchanged)
+    const uint256_t alias_x_value = x_value + fq_modulus;
+    const uint256_t alias_x_lo = alias_x_value & LOW_MASK;
+    const uint256_t alias_x_hi = alias_x_value >> LOW_BITS;
+
+    BB_ASSERT(alias_x_hi != x_hi);
+    BB_ASSERT(alias_x_lo != x_lo);
+
+    // Lambda to compute native hash from limbs
+    auto compute_native_hash =
+        [&](const uint256_t& xl, const uint256_t& xh, const uint256_t& yl, const uint256_t& yh) -> bb::fr {
+        std::vector<bb::fr> limbs = { bb::fr(xl), bb::fr(xh), bb::fr(yl), bb::fr(yh) };
+        return native_poseidon2::hash(limbs);
+    };
+
+    // Lambda to deserialize point from limbs, serialize back, and hash (stdlib)
+    auto compute_stdlib_hash =
+        [&](const uint256_t& xl, const uint256_t& xh, const uint256_t& yl, const uint256_t& yh) -> bb::fr {
+        Builder builder;
+        std::vector<field_ct> limbs = { field_ct(witness_ct(&builder, bb::fr(xl))),
+                                        field_ct(witness_ct(&builder, bb::fr(xh))),
+                                        field_ct(witness_ct(&builder, bb::fr(yl))),
+                                        field_ct(witness_ct(&builder, bb::fr(yh))) };
+
+        // Deserialize through codec
+        bn254_point_ct pt = Codec::template deserialize_from_fields<bn254_point_ct>(limbs);
+
+        // Serialize back and hash
+        std::vector<field_ct> serialized = Codec::template serialize_to_fields<bn254_point_ct>(pt);
+        auto hash = poseidon2::hash(serialized);
+
+        EXPECT_TRUE(CircuitChecker::check(builder));
+        return hash.get_value();
+    };
+
+    // Compute native hashes
+    bb::fr canonical_native_hash = compute_native_hash(x_lo, x_hi, y_lo, y_hi);
+    bb::fr alias_native_hash = compute_native_hash(alias_x_lo, alias_x_hi, y_lo, y_hi);
+
+    // Compute stdlib hashes
+    bb::fr canonical_stdlib_hash = compute_stdlib_hash(x_lo, x_hi, y_lo, y_hi);
+    bb::fr alias_stdlib_hash = compute_stdlib_hash(alias_x_lo, alias_x_hi, y_lo, y_hi);
+
+    // Verify stdlib matches native for both canonical and alias
+    EXPECT_EQ(canonical_stdlib_hash, canonical_native_hash);
+    EXPECT_EQ(alias_stdlib_hash, alias_native_hash);
+
+    // The hashes MUST be different between canonical and alias
+    EXPECT_NE(canonical_native_hash, alias_native_hash);
+    EXPECT_NE(canonical_stdlib_hash, alias_stdlib_hash);
 }

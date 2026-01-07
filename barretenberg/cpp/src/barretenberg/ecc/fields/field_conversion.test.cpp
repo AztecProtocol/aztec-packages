@@ -163,4 +163,49 @@ TEST_F(FieldConversionTest, ConvertChallengeGrumpkinFr)
     EXPECT_EQ(uint256_t(result), expected);
 }
 
+// ============================================================================
+// Additional FrCodec-specific tests
+// Note: Most rejection/acceptance tests are in stdlib/primitives/field/field_conversion.test.cpp
+// which tests both FrCodec and StdlibCodec together for consistency.
+// ============================================================================
+
+/**
+ * @brief Test that valid canonical (0, 0) is accepted as point at infinity.
+ * @details This ensures we're only rejecting non-canonical aliases, not the proper encoding.
+ */
+TEST_F(FieldConversionTest, AcceptCanonicalPointAtInfinity)
+{
+    // Test for BN254 points
+    {
+        std::vector<bb::fr> fr_vec = { bb::fr(0), bb::fr(0), bb::fr(0), bb::fr(0) };
+        auto point = FrCodec::deserialize_from_fields<curve::BN254::AffineElement>(fr_vec);
+        EXPECT_TRUE(point.is_point_at_infinity());
+    }
+
+    // Test for Grumpkin points
+    {
+        std::vector<bb::fr> fr_vec = { bb::fr(0), bb::fr(0) };
+        auto point = FrCodec::deserialize_from_fields<curve::Grumpkin::AffineElement>(fr_vec);
+        EXPECT_TRUE(point.is_point_at_infinity());
+    }
+}
+
+/**
+ * @brief Test that points not on the curve are rejected.
+ */
+TEST_F(FieldConversionTest, RejectPointNotOnCurve)
+{
+    // Test for BN254: (1, 4) is not on the curve
+    {
+        std::vector<bb::fr> fr_vec = { bb::fr(1), bb::fr(0), bb::fr(4), bb::fr(0) };
+        EXPECT_THROW(FrCodec::deserialize_from_fields<curve::BN254::AffineElement>(fr_vec), std::runtime_error);
+    }
+
+    // Test for Grumpkin: (12, 100) is not on the curve
+    {
+        std::vector<bb::fr> fr_vec = { bb::fr(12), bb::fr(100) };
+        EXPECT_THROW(FrCodec::deserialize_from_fields<curve::Grumpkin::AffineElement>(fr_vec), std::runtime_error);
+    }
+}
+
 } // namespace bb::field_conversion_tests

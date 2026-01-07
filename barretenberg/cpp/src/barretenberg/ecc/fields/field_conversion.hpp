@@ -40,6 +40,24 @@ class FrCodec {
     }
 
     /**
+     * @brief Check whether raw limbs represent the point at infinity (all limbs zero).
+     * @details This matches the circuit behavior in StdlibCodec::check_point_at_infinity.
+     * We check raw limbs BEFORE deserializing to field elements to ensure that alias
+     * values (e.g., x=modulus, y=modulus) are NOT treated as point at infinity.
+     * Only the canonical (0,0) representation with all-zero limbs is accepted.
+     */
+    template <typename T> static bool check_point_at_infinity(std::span<const bb::fr> fr_vec)
+    {
+        // Check if all limbs are zero - this is the only canonical representation of infinity
+        for (const auto& limb : fr_vec) {
+            if (!limb.is_zero()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
      * @brief Converts 2 bb::fr elements to fq
      * @details Splits into 136-bit lower chunk and 118-bit upper chunk to mirror stdlib bigfield limbs (68-bit each).
      */
@@ -98,12 +116,18 @@ class FrCodec {
         } else if constexpr (IsAnyOf<T, bn254_commitment, grumpkin_commitment>) {
             using BaseField = typename T::Fq;
             constexpr size_t BASE = calc_num_fields<BaseField>();
+
+            // Check for point at infinity BEFORE deserializing to avoid alias issues.
+            // Only canonical (0,0) with all-zero limbs is accepted as infinity.
+            // This matches circuit behavior in StdlibCodec::check_point_at_infinity.
+            if (check_point_at_infinity<T>(fr_vec)) {
+                return T::infinity();
+            }
+
+            // Deserialize coordinates (this will reject non-canonical values via BB_ASSERT)
             T val;
             val.x = deserialize_from_fields<BaseField>(fr_vec.subspan(0, BASE));
             val.y = deserialize_from_fields<BaseField>(fr_vec.subspan(BASE, BASE));
-            if (val.x == BaseField::zero() && val.y == BaseField::zero()) {
-                val.self_set_infinity();
-            }
             BB_ASSERT(val.on_curve());
             return val;
         } else {
