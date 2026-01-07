@@ -12,32 +12,6 @@ describe('capsule data provider', () => {
   let contract: AztecAddress;
   let capsuleStore: CapsuleStore;
 
-  // Helper that writes and commits in one step
-  const storeAndCommit = async (slot: Fr, values: Fr[]) => {
-    await capsuleStore.storeCapsule(contract, slot, values, TEST_JOB_ID);
-    await capsuleStore.commit(TEST_JOB_ID);
-  };
-
-  const deleteAndCommit = async (slot: Fr) => {
-    await capsuleStore.deleteCapsule(contract, slot, TEST_JOB_ID);
-    await capsuleStore.commit(TEST_JOB_ID);
-  };
-
-  const copyAndCommit = async (srcSlot: Fr, dstSlot: Fr, numEntries: number) => {
-    await capsuleStore.copyCapsule(contract, srcSlot, dstSlot, numEntries, TEST_JOB_ID);
-    await capsuleStore.commit(TEST_JOB_ID);
-  };
-
-  const appendAndCommit = async (baseSlot: Fr, content: Fr[][]) => {
-    await capsuleStore.appendToCapsuleArray(contract, baseSlot, content, TEST_JOB_ID);
-    await capsuleStore.commit(TEST_JOB_ID);
-  };
-
-  const setArrayAndCommit = async (baseSlot: Fr, content: Fr[][]) => {
-    await capsuleStore.setCapsuleArray(contract, baseSlot, content, TEST_JOB_ID);
-    await capsuleStore.commit(TEST_JOB_ID);
-  };
-
   beforeEach(async () => {
     // Setup mock contract address
     contract = await AztecAddress.random();
@@ -51,8 +25,20 @@ describe('capsule data provider', () => {
       const slot = new Fr(1);
       const values = [new Fr(42)];
 
-      await storeAndCommit(slot, values);
-      const result = await capsuleStore.loadCapsule(contract, slot);
+      capsuleStore.storeCapsule(contract, slot, values, TEST_JOB_ID);
+
+      // Capsule visible within TEST_JOB_ID
+      let result = await capsuleStore.loadCapsule(contract, slot, TEST_JOB_ID);
+      expect(result).toEqual(values);
+
+      // Capsule invisible outside TEST_JOB_ID until committed
+      result = await capsuleStore.loadCapsule(contract, slot);
+      expect(result).toBeNull();
+
+      await capsuleStore.commit(TEST_JOB_ID);
+
+      // Capsule visible outside in general after committed
+      result = await capsuleStore.loadCapsule(contract, slot);
       expect(result).toEqual(values);
     });
 
@@ -60,7 +46,8 @@ describe('capsule data provider', () => {
       const slot = new Fr(1);
       const values = [new Fr(42), new Fr(43), new Fr(44)];
 
-      await storeAndCommit(slot, values);
+      capsuleStore.storeCapsule(contract, slot, values, TEST_JOB_ID);
+      await capsuleStore.commit(TEST_JOB_ID);
       const result = await capsuleStore.loadCapsule(contract, slot);
       expect(result).toEqual(values);
     });
@@ -70,10 +57,13 @@ describe('capsule data provider', () => {
       const initialValues = [new Fr(42)];
       const newValues = [new Fr(100)];
 
-      await storeAndCommit(slot, initialValues);
-      await storeAndCommit(slot, newValues);
+      capsuleStore.storeCapsule(contract, slot, initialValues, TEST_JOB_ID);
+      capsuleStore.storeCapsule(contract, slot, newValues, TEST_JOB_ID);
+      let result = await capsuleStore.loadCapsule(contract, slot, TEST_JOB_ID);
+      expect(result).toEqual(newValues);
 
-      const result = await capsuleStore.loadCapsule(contract, slot);
+      await capsuleStore.commit(TEST_JOB_ID);
+      result = await capsuleStore.loadCapsule(contract, slot, TEST_JOB_ID);
       expect(result).toEqual(newValues);
     });
 
@@ -83,8 +73,8 @@ describe('capsule data provider', () => {
       const values1 = [new Fr(42)];
       const values2 = [new Fr(100)];
 
-      await storeAndCommit(slot, values1);
-      await capsuleStore.storeCapsule(anotherContract, slot, values2, TEST_JOB_ID);
+      capsuleStore.storeCapsule(contract, slot, values1, TEST_JOB_ID);
+      capsuleStore.storeCapsule(anotherContract, slot, values2, TEST_JOB_ID);
       await capsuleStore.commit(TEST_JOB_ID);
 
       const result1 = await capsuleStore.loadCapsule(contract, slot);
@@ -106,15 +96,31 @@ describe('capsule data provider', () => {
       const slot = new Fr(1);
       const values = [new Fr(42)];
 
-      await storeAndCommit(slot, values);
-      await deleteAndCommit(slot);
+      capsuleStore.storeCapsule(contract, slot, values, TEST_JOB_ID);
+      await capsuleStore.commit(TEST_JOB_ID);
 
+      capsuleStore.deleteCapsule(contract, slot, TEST_JOB_ID);
+      await capsuleStore.commit(TEST_JOB_ID);
+
+      expect(await capsuleStore.loadCapsule(contract, slot)).toBeNull();
+    });
+
+    it('deletes before commit', async () => {
+      const slot = new Fr(1);
+      const values = [new Fr(42)];
+
+      capsuleStore.storeCapsule(contract, slot, values, TEST_JOB_ID);
+      capsuleStore.deleteCapsule(contract, slot, TEST_JOB_ID);
+      expect(await capsuleStore.loadCapsule(contract, slot, TEST_JOB_ID)).toBeNull();
+
+      await capsuleStore.commit(TEST_JOB_ID);
       expect(await capsuleStore.loadCapsule(contract, slot)).toBeNull();
     });
 
     it('deletes an empty slot', async () => {
       const slot = new Fr(1);
-      await deleteAndCommit(slot);
+      capsuleStore.deleteCapsule(contract, slot, TEST_JOB_ID);
+      await capsuleStore.commit(TEST_JOB_ID);
 
       expect(await capsuleStore.loadCapsule(contract, slot)).toBeNull();
     });
@@ -125,11 +131,14 @@ describe('capsule data provider', () => {
       const slot = new Fr(1);
       const values = [new Fr(42)];
 
-      await storeAndCommit(slot, values);
+      capsuleStore.storeCapsule(contract, slot, values, TEST_JOB_ID);
 
       const dstSlot = new Fr(5);
-      await copyAndCommit(slot, dstSlot, 1);
+      await capsuleStore.copyCapsule(contract, slot, dstSlot, 1, TEST_JOB_ID);
 
+      expect(await capsuleStore.loadCapsule(contract, dstSlot, TEST_JOB_ID)).toEqual(values);
+
+      await capsuleStore.commit(TEST_JOB_ID);
       expect(await capsuleStore.loadCapsule(contract, dstSlot)).toEqual(values);
     });
 
@@ -137,72 +146,82 @@ describe('capsule data provider', () => {
       const src = new Fr(1);
       const valuesArray = [[new Fr(42)], [new Fr(1337)], [new Fr(13)]];
 
-      await storeAndCommit(src, valuesArray[0]);
-      await storeAndCommit(src.add(new Fr(1)), valuesArray[1]);
-      await storeAndCommit(src.add(new Fr(2)), valuesArray[2]);
+      capsuleStore.storeCapsule(contract, src, valuesArray[0], TEST_JOB_ID);
+      capsuleStore.storeCapsule(contract, src.add(new Fr(1)), valuesArray[1], TEST_JOB_ID);
+      capsuleStore.storeCapsule(contract, src.add(new Fr(2)), valuesArray[2], TEST_JOB_ID);
 
       const dst = new Fr(5);
-      await copyAndCommit(src, dst, 3);
+      await capsuleStore.copyCapsule(contract, src, dst, 3, TEST_JOB_ID);
 
-      expect(await capsuleStore.loadCapsule(contract, dst)).toEqual(valuesArray[0]);
-      expect(await capsuleStore.loadCapsule(contract, dst.add(new Fr(1)))).toEqual(valuesArray[1]);
-      expect(await capsuleStore.loadCapsule(contract, dst.add(new Fr(2)))).toEqual(valuesArray[2]);
+      expect(await capsuleStore.loadCapsule(contract, dst, TEST_JOB_ID)).toEqual(valuesArray[0]);
+      expect(await capsuleStore.loadCapsule(contract, dst.add(new Fr(1)), TEST_JOB_ID)).toEqual(valuesArray[1]);
+      expect(await capsuleStore.loadCapsule(contract, dst.add(new Fr(2)), TEST_JOB_ID)).toEqual(valuesArray[2]);
+
+      await capsuleStore.commit(TEST_JOB_ID);
     });
 
     it('copies overlapping values with src ahead', async () => {
       const src = new Fr(1);
       const valuesArray = [[new Fr(42)], [new Fr(1337)], [new Fr(13)]];
 
-      await storeAndCommit(src, valuesArray[0]);
-      await storeAndCommit(src.add(new Fr(1)), valuesArray[1]);
-      await storeAndCommit(src.add(new Fr(2)), valuesArray[2]);
+      capsuleStore.storeCapsule(contract, src, valuesArray[0], TEST_JOB_ID);
+      capsuleStore.storeCapsule(contract, src.add(new Fr(1)), valuesArray[1], TEST_JOB_ID);
+      capsuleStore.storeCapsule(contract, src.add(new Fr(2)), valuesArray[2], TEST_JOB_ID);
 
       const dst = new Fr(2);
-      await copyAndCommit(src, dst, 3);
+      await capsuleStore.copyCapsule(contract, src, dst, 3, TEST_JOB_ID);
 
-      expect(await capsuleStore.loadCapsule(contract, dst)).toEqual(valuesArray[0]);
-      expect(await capsuleStore.loadCapsule(contract, dst.add(new Fr(1)))).toEqual(valuesArray[1]);
-      expect(await capsuleStore.loadCapsule(contract, dst.add(new Fr(2)))).toEqual(valuesArray[2]);
+      expect(await capsuleStore.loadCapsule(contract, dst, TEST_JOB_ID)).toEqual(valuesArray[0]);
+      expect(await capsuleStore.loadCapsule(contract, dst.add(new Fr(1)), TEST_JOB_ID)).toEqual(valuesArray[1]);
+      expect(await capsuleStore.loadCapsule(contract, dst.add(new Fr(2)), TEST_JOB_ID)).toEqual(valuesArray[2]);
 
       // Slots 2 and 3 (src[1] and src[2]) should have been overwritten since they are also dst[0] and dst[1]
-      expect(await capsuleStore.loadCapsule(contract, src)).toEqual(valuesArray[0]); // src[0] (unchanged)
-      expect(await capsuleStore.loadCapsule(contract, src.add(new Fr(1)))).toEqual(valuesArray[0]); // dst[0]
-      expect(await capsuleStore.loadCapsule(contract, src.add(new Fr(2)))).toEqual(valuesArray[1]); // dst[1]
+      expect(await capsuleStore.loadCapsule(contract, src, TEST_JOB_ID)).toEqual(valuesArray[0]); // src[0] (unchanged)
+      expect(await capsuleStore.loadCapsule(contract, src.add(new Fr(1)), TEST_JOB_ID)).toEqual(valuesArray[0]); // dst[0]
+      expect(await capsuleStore.loadCapsule(contract, src.add(new Fr(2)), TEST_JOB_ID)).toEqual(valuesArray[1]); // dst[1]
+
+      await capsuleStore.commit(TEST_JOB_ID);
     });
 
     it('copies overlapping values with dst ahead', async () => {
       const src = new Fr(5);
       const valuesArray = [[new Fr(42)], [new Fr(1337)], [new Fr(13)]];
 
-      await storeAndCommit(src, valuesArray[0]);
-      await storeAndCommit(src.add(new Fr(1)), valuesArray[1]);
-      await storeAndCommit(src.add(new Fr(2)), valuesArray[2]);
+      capsuleStore.storeCapsule(contract, src, valuesArray[0], TEST_JOB_ID);
+      capsuleStore.storeCapsule(contract, src.add(new Fr(1)), valuesArray[1], TEST_JOB_ID);
+      capsuleStore.storeCapsule(contract, src.add(new Fr(2)), valuesArray[2], TEST_JOB_ID);
 
       const dst = new Fr(4);
-      await copyAndCommit(src, dst, 3);
+      await capsuleStore.copyCapsule(contract, src, dst, 3, TEST_JOB_ID);
 
-      expect(await capsuleStore.loadCapsule(contract, dst)).toEqual(valuesArray[0]);
-      expect(await capsuleStore.loadCapsule(contract, dst.add(new Fr(1)))).toEqual(valuesArray[1]);
-      expect(await capsuleStore.loadCapsule(contract, dst.add(new Fr(2)))).toEqual(valuesArray[2]);
+      expect(await capsuleStore.loadCapsule(contract, dst, TEST_JOB_ID)).toEqual(valuesArray[0]);
+      expect(await capsuleStore.loadCapsule(contract, dst.add(new Fr(1)), TEST_JOB_ID)).toEqual(valuesArray[1]);
+      expect(await capsuleStore.loadCapsule(contract, dst.add(new Fr(2)), TEST_JOB_ID)).toEqual(valuesArray[2]);
 
       // Slots 5 and 6 (src[0] and src[1]) should have been overwritten since they are also dst[1] and dst[2]
-      expect(await capsuleStore.loadCapsule(contract, src)).toEqual(valuesArray[1]); // dst[1]
-      expect(await capsuleStore.loadCapsule(contract, src.add(new Fr(1)))).toEqual(valuesArray[2]); // dst[2]
-      expect(await capsuleStore.loadCapsule(contract, src.add(new Fr(2)))).toEqual(valuesArray[2]); // src[2] (unchanged)
+      expect(await capsuleStore.loadCapsule(contract, src, TEST_JOB_ID)).toEqual(valuesArray[1]); // dst[1]
+      expect(await capsuleStore.loadCapsule(contract, src.add(new Fr(1)), TEST_JOB_ID)).toEqual(valuesArray[2]); // dst[2]
+      expect(await capsuleStore.loadCapsule(contract, src.add(new Fr(2)), TEST_JOB_ID)).toEqual(valuesArray[2]); // src[2] (unchanged)
+
+      await capsuleStore.commit(TEST_JOB_ID);
     });
 
     it('copying fails if any value is empty', async () => {
       const src = new Fr(1);
       const valuesArray = [[new Fr(42)], [new Fr(1337)], [new Fr(13)]];
 
-      await storeAndCommit(src, valuesArray[0]);
+      capsuleStore.storeCapsule(contract, src, valuesArray[0], TEST_JOB_ID);
       // We skip src[1]
-      await storeAndCommit(src.add(new Fr(2)), valuesArray[2]);
+      capsuleStore.storeCapsule(contract, src.add(new Fr(2)), valuesArray[2], TEST_JOB_ID);
 
       const dst = new Fr(5);
       await expect(capsuleStore.copyCapsule(contract, src, dst, 3, TEST_JOB_ID)).rejects.toThrow(
         'Attempted to copy empty slot',
       );
+
+      // We could also commit, but given this is an exception scenario it's
+      // also good to show that we can do this instead
+      await capsuleStore.discardStaged(TEST_JOB_ID);
     });
   });
 
@@ -212,7 +231,14 @@ describe('capsule data provider', () => {
         const baseSlot = new Fr(3);
         const array = range(4).map(x => [new Fr(x)]);
 
-        await appendAndCommit(baseSlot, array);
+        await capsuleStore.appendToCapsuleArray(contract, baseSlot, array, TEST_JOB_ID);
+
+        expect(await capsuleStore.loadCapsule(contract, baseSlot, TEST_JOB_ID)).toEqual([new Fr(array.length)]);
+        for (const i of range(array.length)) {
+          expect(await capsuleStore.loadCapsule(contract, baseSlot.add(new Fr(1 + i)), TEST_JOB_ID)).toEqual(array[i]);
+        }
+
+        await capsuleStore.commit(TEST_JOB_ID);
 
         expect(await capsuleStore.loadCapsule(contract, baseSlot)).toEqual([new Fr(array.length)]);
         for (const i of range(array.length)) {
@@ -224,12 +250,21 @@ describe('capsule data provider', () => {
         const baseSlot = new Fr(3);
         const originalArray = range(4).map(x => [new Fr(x)]);
 
-        await appendAndCommit(baseSlot, originalArray);
+        await capsuleStore.appendToCapsuleArray(contract, baseSlot, originalArray, TEST_JOB_ID);
 
         const newElements = [[new Fr(13)], [new Fr(42)]];
-        await appendAndCommit(baseSlot, newElements);
+        await capsuleStore.appendToCapsuleArray(contract, baseSlot, newElements, TEST_JOB_ID);
 
         const expectedLength = originalArray.length + newElements.length;
+
+        expect(await capsuleStore.loadCapsule(contract, baseSlot, TEST_JOB_ID)).toEqual([new Fr(expectedLength)]);
+        for (const i of range(expectedLength)) {
+          expect(await capsuleStore.loadCapsule(contract, baseSlot.add(new Fr(1 + i)), TEST_JOB_ID)).toEqual(
+            [...originalArray, ...newElements][i],
+          );
+        }
+
+        await capsuleStore.commit(TEST_JOB_ID);
 
         expect(await capsuleStore.loadCapsule(contract, baseSlot)).toEqual([new Fr(expectedLength)]);
         for (const i of range(expectedLength)) {
@@ -251,9 +286,14 @@ describe('capsule data provider', () => {
         const baseSlot = new Fr(3);
         const storedArray = range(4).map(x => [new Fr(x)]);
 
-        await appendAndCommit(baseSlot, storedArray);
+        await capsuleStore.appendToCapsuleArray(contract, baseSlot, storedArray, TEST_JOB_ID);
 
-        const retrievedArray = await capsuleStore.readCapsuleArray(contract, baseSlot);
+        let retrievedArray = await capsuleStore.readCapsuleArray(contract, baseSlot, TEST_JOB_ID);
+        expect(retrievedArray).toEqual(storedArray);
+
+        await capsuleStore.commit(TEST_JOB_ID);
+
+        retrievedArray = await capsuleStore.readCapsuleArray(contract, baseSlot);
         expect(retrievedArray).toEqual(storedArray);
       });
 
@@ -261,9 +301,16 @@ describe('capsule data provider', () => {
         const baseSlot = new Fr(3);
 
         // Store in the base slot a non-zero value, indicating a non-zero array length
-        await storeAndCommit(baseSlot, [new Fr(1)]);
+        capsuleStore.storeCapsule(contract, baseSlot, [new Fr(1)], TEST_JOB_ID);
 
         // Reading should now fail as some of the capsules in the array are empty
+        await expect(capsuleStore.readCapsuleArray(contract, baseSlot, TEST_JOB_ID)).rejects.toThrow(
+          'Expected non-empty value',
+        );
+
+        await capsuleStore.commit(TEST_JOB_ID);
+
+        // Reading after committing it should also blow up
         await expect(capsuleStore.readCapsuleArray(contract, baseSlot)).rejects.toThrow('Expected non-empty value');
       });
     });
@@ -273,9 +320,14 @@ describe('capsule data provider', () => {
         const baseSlot = new Fr(3);
         const newArray = range(4).map(x => [new Fr(x)]);
 
-        await setArrayAndCommit(baseSlot, newArray);
+        await capsuleStore.setCapsuleArray(contract, baseSlot, newArray, TEST_JOB_ID);
 
-        const retrievedArray = await capsuleStore.readCapsuleArray(contract, baseSlot);
+        let retrievedArray = await capsuleStore.readCapsuleArray(contract, baseSlot, TEST_JOB_ID);
+        expect(retrievedArray).toEqual(newArray);
+
+        await capsuleStore.commit(TEST_JOB_ID);
+
+        retrievedArray = await capsuleStore.readCapsuleArray(contract, baseSlot);
         expect(retrievedArray).toEqual(newArray);
       });
 
@@ -283,12 +335,17 @@ describe('capsule data provider', () => {
         const baseSlot = new Fr(3);
 
         const originalArray = range(4, 0).map(x => [new Fr(x)]);
-        await setArrayAndCommit(baseSlot, originalArray);
+        await capsuleStore.setCapsuleArray(contract, baseSlot, originalArray, TEST_JOB_ID);
 
         const newArray = range(10, 10).map(x => [new Fr(x)]);
-        await setArrayAndCommit(baseSlot, newArray);
+        await capsuleStore.setCapsuleArray(contract, baseSlot, newArray, TEST_JOB_ID);
 
-        const retrievedArray = await capsuleStore.readCapsuleArray(contract, baseSlot);
+        let retrievedArray = await capsuleStore.readCapsuleArray(contract, baseSlot, TEST_JOB_ID);
+        expect(retrievedArray).toEqual(newArray);
+
+        await capsuleStore.commit(TEST_JOB_ID);
+
+        retrievedArray = await capsuleStore.readCapsuleArray(contract, baseSlot);
         expect(retrievedArray).toEqual(newArray);
       });
 
@@ -296,15 +353,27 @@ describe('capsule data provider', () => {
         const baseSlot = new Fr(3);
 
         const originalArray = range(10, 0).map(x => [new Fr(x)]);
-        await setArrayAndCommit(baseSlot, originalArray);
+        await capsuleStore.setCapsuleArray(contract, baseSlot, originalArray, TEST_JOB_ID);
 
         const newArray = range(4, 10).map(x => [new Fr(x)]);
-        await setArrayAndCommit(baseSlot, newArray);
+        await capsuleStore.setCapsuleArray(contract, baseSlot, newArray, TEST_JOB_ID);
 
-        const retrievedArray = await capsuleStore.readCapsuleArray(contract, baseSlot);
+        let retrievedArray = await capsuleStore.readCapsuleArray(contract, baseSlot, TEST_JOB_ID);
         expect(retrievedArray).toEqual(newArray);
 
         // Not only do we read the expected array, but also all capsules past the new array length have been cleared
+        for (const i of range(originalArray.length - newArray.length)) {
+          expect(
+            await capsuleStore.loadCapsule(contract, baseSlot.add(new Fr(1 + newArray.length + i)), TEST_JOB_ID),
+          ).toBeNull();
+        }
+
+        await capsuleStore.commit(TEST_JOB_ID);
+
+        // Check everything is consistent after committing as well
+        retrievedArray = await capsuleStore.readCapsuleArray(contract, baseSlot);
+        expect(retrievedArray).toEqual(newArray);
+
         for (const i of range(originalArray.length - newArray.length)) {
           expect(await capsuleStore.loadCapsule(contract, baseSlot.add(new Fr(1 + newArray.length + i)))).toBeNull();
         }
@@ -314,11 +383,21 @@ describe('capsule data provider', () => {
         const baseSlot = new Fr(3);
 
         const originalArray = range(10, 0).map(x => [new Fr(x)]);
-        await setArrayAndCommit(baseSlot, originalArray);
+        await capsuleStore.setCapsuleArray(contract, baseSlot, originalArray, TEST_JOB_ID);
 
-        await setArrayAndCommit(baseSlot, []);
+        await capsuleStore.setCapsuleArray(contract, baseSlot, [], TEST_JOB_ID);
 
-        const retrievedArray = await capsuleStore.readCapsuleArray(contract, baseSlot);
+        let retrievedArray = await capsuleStore.readCapsuleArray(contract, baseSlot, TEST_JOB_ID);
+        expect(retrievedArray).toEqual([]);
+
+        // All capsules from the original array have been cleared
+        for (const i of range(originalArray.length)) {
+          expect(await capsuleStore.loadCapsule(contract, baseSlot.add(new Fr(1 + i)), TEST_JOB_ID)).toBeNull();
+        }
+
+        await capsuleStore.commit(TEST_JOB_ID);
+
+        retrievedArray = await capsuleStore.readCapsuleArray(contract, baseSlot, TEST_JOB_ID);
         expect(retrievedArray).toEqual([]);
 
         // All capsules from the original array have been cleared
@@ -346,10 +425,14 @@ describe('capsule data provider', () => {
     it(
       'create large array by appending',
       async () => {
-        await appendAndCommit(
+        await capsuleStore.appendToCapsuleArray(
+          contract,
           new Fr(0),
           times(NUMBER_OF_ITEMS, () => range(ARRAY_LENGTH).map(x => new Fr(x))),
+          TEST_JOB_ID,
         );
+
+        await capsuleStore.commit(TEST_JOB_ID);
       },
       TEST_TIMEOUT_MS,
     );
@@ -357,10 +440,14 @@ describe('capsule data provider', () => {
     it(
       'create large array by resetting',
       async () => {
-        await setArrayAndCommit(
+        await capsuleStore.setCapsuleArray(
+          contract,
           new Fr(0),
           times(NUMBER_OF_ITEMS, () => range(ARRAY_LENGTH).map(x => new Fr(x))),
+          TEST_JOB_ID,
         );
+
+        await capsuleStore.commit(TEST_JOB_ID);
       },
       TEST_TIMEOUT_MS,
     );
@@ -368,13 +455,22 @@ describe('capsule data provider', () => {
     it(
       'append to large array',
       async () => {
-        await appendAndCommit(
+        await capsuleStore.appendToCapsuleArray(
+          contract,
           new Fr(0),
           times(NUMBER_OF_ITEMS, () => range(ARRAY_LENGTH).map(x => new Fr(x))),
+          TEST_JOB_ID,
         );
 
         // Append a single element
-        await appendAndCommit(new Fr(0), [range(ARRAY_LENGTH).map(x => new Fr(x))]);
+        await capsuleStore.appendToCapsuleArray(
+          contract,
+          new Fr(0),
+          [range(ARRAY_LENGTH).map(x => new Fr(x))],
+          TEST_JOB_ID,
+        );
+
+        await capsuleStore.commit(TEST_JOB_ID);
       },
       TEST_TIMEOUT_MS,
     );
@@ -382,13 +478,17 @@ describe('capsule data provider', () => {
     it(
       'copy large number of elements',
       async () => {
-        await appendAndCommit(
+        await capsuleStore.appendToCapsuleArray(
+          contract,
           new Fr(0),
           times(NUMBER_OF_ITEMS, () => range(ARRAY_LENGTH).map(x => new Fr(x))),
+          TEST_JOB_ID,
         );
 
         // We just move the entire thing one slot.
-        await copyAndCommit(new Fr(0), new Fr(1), NUMBER_OF_ITEMS);
+        await capsuleStore.copyCapsule(contract, new Fr(0), new Fr(1), NUMBER_OF_ITEMS, TEST_JOB_ID);
+
+        await capsuleStore.commit(TEST_JOB_ID);
       },
       TEST_TIMEOUT_MS,
     );
@@ -396,12 +496,16 @@ describe('capsule data provider', () => {
     it(
       'read a large array',
       async () => {
-        await appendAndCommit(
+        await capsuleStore.appendToCapsuleArray(
+          contract,
           new Fr(0),
           times(NUMBER_OF_ITEMS, () => range(ARRAY_LENGTH).map(x => new Fr(x))),
+          TEST_JOB_ID,
         );
 
-        await capsuleStore.readCapsuleArray(contract, new Fr(0));
+        await capsuleStore.readCapsuleArray(contract, new Fr(0), TEST_JOB_ID);
+
+        await capsuleStore.commit(TEST_JOB_ID);
       },
       TEST_TIMEOUT_MS,
     );
@@ -409,12 +513,16 @@ describe('capsule data provider', () => {
     it(
       'clear a large array',
       async () => {
-        await appendAndCommit(
+        await capsuleStore.appendToCapsuleArray(
+          contract,
           new Fr(0),
           times(NUMBER_OF_ITEMS, () => range(ARRAY_LENGTH).map(x => new Fr(x))),
+          TEST_JOB_ID,
         );
 
-        await setArrayAndCommit(new Fr(0), []);
+        await capsuleStore.setCapsuleArray(contract, new Fr(0), [], TEST_JOB_ID);
+
+        await capsuleStore.commit(TEST_JOB_ID);
       },
       TEST_TIMEOUT_MS,
     );
@@ -429,11 +537,11 @@ describe('capsule data provider', () => {
       const stagingJobId: string = 'staging-job';
 
       // First set a committed capsule (using a different job that we commit)
-      await capsuleStore.storeCapsule(contract, slot, committedValues, commitJobId);
+      capsuleStore.storeCapsule(contract, slot, committedValues, commitJobId);
       await capsuleStore.commit(commitJobId);
 
       // Then set a staged capsule (not committed)
-      await capsuleStore.storeCapsule(contract, slot, stagedValues, stagingJobId);
+      capsuleStore.storeCapsule(contract, slot, stagedValues, stagingJobId);
 
       // Without jobId, should get committed capsule
       expect(await capsuleStore.loadCapsule(contract, slot)).toEqual(committedValues);
@@ -448,7 +556,7 @@ describe('capsule data provider', () => {
       const jobId: string = 'test123';
 
       // Store only in staging (not committed)
-      await capsuleStore.storeCapsule(contract, slot, stagedValues, jobId);
+      capsuleStore.storeCapsule(contract, slot, stagedValues, jobId);
 
       // Without jobId, should not see the staged capsule
       expect(await capsuleStore.loadCapsule(contract, slot)).toBeNull();
@@ -464,11 +572,11 @@ describe('capsule data provider', () => {
       const stagingJobId: string = 'staging-job';
 
       // First set a committed capsule
-      await capsuleStore.storeCapsule(contract, slot, committedValues, commitJobId);
+      capsuleStore.storeCapsule(contract, slot, committedValues, commitJobId);
       await capsuleStore.commit(commitJobId);
 
       // Delete in staging (not committed)
-      await capsuleStore.deleteCapsule(contract, slot, stagingJobId);
+      capsuleStore.deleteCapsule(contract, slot, stagingJobId);
 
       // Without jobId, should still see committed capsule
       expect(await capsuleStore.loadCapsule(contract, slot)).toEqual(committedValues);
@@ -484,9 +592,10 @@ describe('capsule data provider', () => {
       const commitJobId: string = 'commit-job';
       const stagingJobId: string = 'staging-job';
 
-      await capsuleStore.storeCapsule(contract, slot, committedValues, commitJobId);
+      capsuleStore.storeCapsule(contract, slot, committedValues, commitJobId);
       await capsuleStore.commit(commitJobId);
-      await capsuleStore.storeCapsule(contract, slot, stagedValues, stagingJobId);
+
+      capsuleStore.storeCapsule(contract, slot, stagedValues, stagingJobId);
 
       await capsuleStore.commit(stagingJobId);
 
@@ -500,11 +609,10 @@ describe('capsule data provider', () => {
       const commitJobId: string = 'commit-job';
       const deleteJobId: string = 'delete-job';
 
-      await capsuleStore.storeCapsule(contract, slot, committedValues, commitJobId);
+      capsuleStore.storeCapsule(contract, slot, committedValues, commitJobId);
       await capsuleStore.commit(commitJobId);
-      await capsuleStore.deleteCapsule(contract, slot, deleteJobId);
+      capsuleStore.deleteCapsule(contract, slot, deleteJobId);
 
-      // Commit the staging
       await capsuleStore.commit(deleteJobId);
 
       // Now without jobId should see null (deleted)
@@ -518,9 +626,9 @@ describe('capsule data provider', () => {
       const commitJobId: string = 'commit-job';
       const stagingJobId: string = 'staging-job';
 
-      await capsuleStore.storeCapsule(contract, slot, committedValues, commitJobId);
+      capsuleStore.storeCapsule(contract, slot, committedValues, commitJobId);
       await capsuleStore.commit(commitJobId);
-      await capsuleStore.storeCapsule(contract, slot, stagedValues, stagingJobId);
+      capsuleStore.storeCapsule(contract, slot, stagedValues, stagingJobId);
 
       // Discard the staging
       await capsuleStore.discardStaged(stagingJobId);
