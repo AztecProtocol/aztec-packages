@@ -1,9 +1,6 @@
 /**
  * @brief Tests that verify the correctness of BN-254 field constants (both Fq and Fr).
  *
- * @details These tests are disabled by default. To run:
- *          `./ecc_tests --gtest_also_run_disabled_tests --gtest_filter=FqConstants*`
- *          `./ecc_tests --gtest_also_run_disabled_tests --gtest_filter=FrConstants*`
  */
 #include "barretenberg/numeric/random/engine.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
@@ -33,7 +30,7 @@ uint256_t from_decimal(const std::string& dec_str)
 }
 } // namespace
 
-TEST(FqConstants, DISABLED_Modulus)
+TEST(FqConstants, Modulus)
 {
     // BN254 base field prime: q = 21888242871839275222246405745257275088696311157297823662689037894645226208583
     // References:
@@ -45,7 +42,7 @@ TEST(FqConstants, DISABLED_Modulus)
     EXPECT_EQ(expected_q, native_q);
 }
 
-TEST(FqConstants, DISABLED_RSquared)
+TEST(FqConstants, RSquared)
 {
     // R^2 = (2^256)^2 mod q.
     uint512_t R = (uint512_t(1) << 256) % native_q;
@@ -56,7 +53,7 @@ TEST(FqConstants, DISABLED_RSquared)
     EXPECT_EQ(expected_r_sqr_mod_q.lo, actual_r_sqr_mod_q);
 }
 
-TEST(FqConstants, DISABLED_RInv)
+TEST(FqConstants, RInv)
 {
     // r_inv = -q^{-1} mod 2^64
     uint512_t r{ 0, 1 };
@@ -69,12 +66,12 @@ TEST(FqConstants, DISABLED_RInv)
 
 // multiplication generator for Fq
 // AUDITTODO: delete (misnamed, no longer used -- finds smallest quadratic non-residue.)
-TEST(FqConstants, DISABLED_MultiplicativeGenerator)
+TEST(FqConstants, MultiplicativeGenerator)
 {
     EXPECT_EQ(fq::multiplicative_generator(), fq(3));
 }
 
-TEST(FqConstants, DISABLED_CubeRootOfUnity)
+TEST(FqConstants, CubeRootOfUnity)
 {
     // beta is be g^(2(q-1)/3) where g is the multiplicative generator
     // AUDITTODO: if I kill multiplicative_generator, this part of test should be killed.
@@ -94,7 +91,7 @@ TEST(FqConstants, DISABLED_CubeRootOfUnity)
 // WASM Consistency Tests
 // ================================
 
-TEST(FqConstants, DISABLED_WasmModulusConsistency)
+TEST(FqConstants, WasmModulusConsistency)
 {
     // WASM uses 9 x 29-bit limbs to represent the modulus
     // Verify that the 29-bit limb representation reconstructs to the same value as the 4 x 64-bit limb representation
@@ -115,7 +112,7 @@ TEST(FqConstants, DISABLED_WasmModulusConsistency)
     EXPECT_EQ(wasm_modulus.hi, uint256_t(0));
 }
 
-TEST(FqConstants, DISABLED_WasmRSquared)
+TEST(FqConstants, WasmRSquared)
 {
     // WASM uses R = 2^261 (since 261 = 29 * 9)
     // r_squared_wasm should be (2^261)^2 mod q = 2^522 mod q
@@ -131,7 +128,7 @@ TEST(FqConstants, DISABLED_WasmRSquared)
     EXPECT_EQ(expected_r_squared_wasm.lo, actual_r_squared_wasm);
 }
 
-TEST(FqConstants, DISABLED_WasmCubeRootConsistency)
+TEST(FqConstants, WasmCubeRootConsistency)
 {
     // The cube root in WASM Montgomery form should represent the same field element
     // as the cube root in native Montgomery form.
@@ -161,7 +158,7 @@ TEST(FqConstants, DISABLED_WasmCubeRootConsistency)
 // Fr Constants Tests
 // ================================
 
-TEST(FrConstants, DISABLED_Modulus)
+TEST(FrConstants, Modulus)
 {
     // BN254 scalar field prime (also the Baby Jubjub base field):
     // r = 21888242871839275222246405745257275088548364400416034343698204186575808495617
@@ -174,7 +171,7 @@ TEST(FrConstants, DISABLED_Modulus)
     EXPECT_EQ(expected_r, native_r);
 }
 
-TEST(FrConstants, DISABLED_RSquared)
+TEST(FrConstants, RSquared)
 {
     // R^2 = (2^256)^2 mod r.
     uint512_t R = (uint512_t(1) << 256) % native_r;
@@ -185,7 +182,7 @@ TEST(FrConstants, DISABLED_RSquared)
     EXPECT_EQ(expected_r_sqr_mod_r.lo, actual_r_sqr_mod_r);
 }
 
-TEST(FrConstants, DISABLED_RInv)
+TEST(FrConstants, RInv)
 {
     // r_inv = -r^{-1} mod 2^64
     uint512_t two_64{ 0, 1 };
@@ -196,12 +193,12 @@ TEST(FrConstants, DISABLED_RInv)
     EXPECT_EQ(result, expected);
 }
 
-TEST(FrConstants, DISABLED_MultiplicativeGenerator)
+TEST(FrConstants, MultiplicativeGenerator)
 {
     EXPECT_EQ(fr::multiplicative_generator(), fr(5));
 }
 
-TEST(FrConstants, DISABLED_CubeRootOfUnity)
+TEST(FrConstants, CubeRootOfUnity)
 {
     // beta is be g^((r-1)/3) where g is the multiplicative generator
     fr g = fr::multiplicative_generator();
@@ -220,7 +217,7 @@ TEST(FrConstants, DISABLED_CubeRootOfUnity)
 // Fr WASM Consistency Tests
 // ================================
 
-TEST(FrConstants, DISABLED_WasmModulusConsistency)
+TEST(FrConstants, WasmModulusConsistency)
 {
     // WASM uses 9 x 29-bit limbs to represent the modulus
     constexpr std::array<uint64_t, 9> wasm_limbs = { Bn254FrParams::modulus_wasm_0, Bn254FrParams::modulus_wasm_1,
@@ -239,7 +236,7 @@ TEST(FrConstants, DISABLED_WasmModulusConsistency)
     EXPECT_EQ(wasm_modulus.hi, uint256_t(0));
 }
 
-TEST(FrConstants, DISABLED_WasmRSquared)
+TEST(FrConstants, WasmRSquared)
 {
     // WASM uses R = 2^261 (since 261 = 29 * 9)
     uint512_t R_wasm = uint512_t(1) << 261;
@@ -254,7 +251,7 @@ TEST(FrConstants, DISABLED_WasmRSquared)
     EXPECT_EQ(expected_r_squared_wasm.lo, actual_r_squared_wasm);
 }
 
-TEST(FrConstants, DISABLED_WasmCubeRootConsistency)
+TEST(FrConstants, WasmCubeRootConsistency)
 {
     // The cube root in WASM Montgomery form should represent the same field element
     // as the cube root in native Montgomery form.
