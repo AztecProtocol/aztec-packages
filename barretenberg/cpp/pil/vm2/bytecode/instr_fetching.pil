@@ -78,9 +78,7 @@ pol PARSING_ERROR_EXCEPT_TAG_ERROR = pc_out_of_range + opcode_out_of_range + ins
 
 // If any error occurs, we toggle the following boolean:
 pol commit sel_parsing_err;
-// FIXME: constrain this again once all execution opcodes are supported.
-// See InstrDeserializationError::INVALID_EXECUTION_OPCODE.
-// sel_parsing_err = PARSING_ERROR_EXCEPT_TAG_ERROR + tag_out_of_range;
+sel_parsing_err = PARSING_ERROR_EXCEPT_TAG_ERROR + tag_out_of_range;
 sel_parsing_err * (1 - sel_parsing_err) = 0; // enforces disjoint errors
 
 
