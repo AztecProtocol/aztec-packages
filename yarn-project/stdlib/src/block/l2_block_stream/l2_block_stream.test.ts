@@ -9,7 +9,7 @@ import type { PublishedCheckpoint } from '../../checkpoint/published_checkpoint.
 import type { BlockHeader } from '../../tx/block_header.js';
 import type { CheckpointedL2Block } from '../checkpointed_l2_block.js';
 import type { L2BlockNew } from '../l2_block_new.js';
-import type { CheckpointId, L2BlockId, L2BlockSource, L2Tips } from '../l2_block_source.js';
+import type { L2BlockId, L2BlockSource, L2Tips } from '../l2_block_source.js';
 import type { L2BlockStreamEvent, L2BlockStreamEventHandler, L2BlockStreamLocalDataProvider } from './interfaces.js';
 import { L2BlockStream } from './l2_block_stream.js';
 import { L2TipsMemoryStore } from './l2_tips_memory_store.js';

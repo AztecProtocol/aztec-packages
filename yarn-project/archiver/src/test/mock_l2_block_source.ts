@@ -98,20 +98,21 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
     return Promise.resolve(BlockNumber(this.provenBlockNumber));
   }
 
-  public async getCheckpointedBlock(number: BlockNumber): Promise<CheckpointedL2Block | undefined> {
+  public getCheckpointedBlock(number: BlockNumber): Promise<CheckpointedL2Block | undefined> {
     if (number > this.checkpointedBlockNumber) {
-      return undefined;
+      return Promise.resolve(undefined);
     }
     const block = this.l2Blocks[number - 1];
     if (!block) {
-      return undefined;
+      return Promise.resolve(undefined);
     }
-    return new CheckpointedL2Block(
+    const checkpointedBlock = new CheckpointedL2Block(
       CheckpointNumber(number),
       block.toL2Block(),
       new L1PublishedData(BigInt(number), BigInt(number), `0x${number.toString(16).padStart(64, '0')}`),
       [],
     );
+    return Promise.resolve(checkpointedBlock);
   }
 
   public async getCheckpointedBlocks(
