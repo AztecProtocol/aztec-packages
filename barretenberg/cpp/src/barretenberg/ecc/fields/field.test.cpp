@@ -101,8 +101,9 @@ TYPED_TEST(FieldTest, SubtractionIsAdditionOfNegation)
 
     F a = F::random_element();
     F b = F::random_element();
+    F neg_b = -b;
 
-    EXPECT_EQ(a - b, a + (-b));
+    EXPECT_EQ(a - b, a + neg_b);
 }
 
 TYPED_TEST(FieldTest, NegationCancels)
