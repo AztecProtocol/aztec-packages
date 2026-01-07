@@ -33,10 +33,7 @@ describe('block header', () => {
       const stagedHeader = makeBlockHeader(randomInt(1000), { blockNumber: BlockNumber(2) });
       const jobId: string = 'test123';
 
-      // First set a committed header
       await anchorBlockStore.setHeader(committedHeader);
-
-      // Then set a staged header
       await anchorBlockStore.setHeader(stagedHeader, jobId);
 
       // Without jobId, should get committed header
@@ -53,11 +50,8 @@ describe('block header', () => {
 
       await anchorBlockStore.setHeader(committedHeader);
       await anchorBlockStore.setHeader(stagedHeader, jobId);
-
-      // Commit the staging
       await anchorBlockStore.commit(jobId);
 
-      // Now without jobId should get the previously staged header
       await expect(anchorBlockStore.getBlockHeader()).resolves.toEqual(stagedHeader);
     });
 
@@ -68,8 +62,6 @@ describe('block header', () => {
 
       await anchorBlockStore.setHeader(committedHeader);
       await anchorBlockStore.setHeader(stagedHeader, jobId);
-
-      // Discard the staging
       await anchorBlockStore.discardStaged(jobId);
 
       // Should still get committed header
