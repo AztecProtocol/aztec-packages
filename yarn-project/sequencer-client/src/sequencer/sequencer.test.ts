@@ -156,7 +156,11 @@ describe('sequencer', () => {
       ts: 1000n,
       now: 1000n,
     }));
-    epochCache.getCommittee.mockResolvedValue({ committee, seed: 1n, epoch: EpochNumber(1) } as EpochCommitteeInfo);
+    epochCache.getCommittee.mockResolvedValue({
+      committee,
+      seed: 1n,
+      epoch: EpochNumber(1),
+    });
 
     publisher = mockDeep<SequencerPublisher>();
     publisher.epochCache = epochCache;

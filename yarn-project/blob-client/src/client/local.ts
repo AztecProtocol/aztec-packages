@@ -22,4 +22,9 @@ export class LocalBlobClient implements BlobClientInterface {
   public getBlobSidecar(_blockId: string, blobHashes: Buffer[], _opts?: GetBlobSidecarOptions): Promise<Blob[]> {
     return this.blobStore.getBlobsByHashes(blobHashes);
   }
+
+  /** Returns true if this client can upload blobs. Always true for local client. */
+  public canUpload(): boolean {
+    return true;
+  }
 }

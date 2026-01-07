@@ -2,7 +2,7 @@ import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
-import type { AztecAsyncArray, AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
+import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
 import type { EventSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { L2BlockHash } from '@aztec/stdlib/block';
@@ -24,6 +24,8 @@ type PrivateEventEntry = {
   l2BlockNumber: number;
   l2BlockHash: Buffer;
   txHash: Buffer;
+  /** The lookup key for #eventsByContractScopeSelector, used for cleanup during rollback */
+  lookupKey: string;
 };
 
 type PrivateEventMetadata = InTx & {
@@ -36,10 +38,12 @@ type PrivateEventMetadata = InTx & {
  */
 export class PrivateEventStore {
   #store: AztecAsyncKVStore;
-  /** Array storing the actual private event log entries containing the log content and block number */
-  #eventLogs: AztecAsyncArray<PrivateEventEntry>;
-  /** Map from contract_address_scope_eventSelector to array of indices into #eventLogs for efficient lookup */
-  #eventLogIndex: AztecAsyncMap<string, number[]>;
+  /** Map storing the actual private event log entries, keyed by eventCommitmentIndex */
+  #eventLogs: AztecAsyncMap<number, PrivateEventEntry>;
+  /** Map from contractAddress_scope_eventSelector to eventCommitmentIndex[] for efficient lookup */
+  #eventsByContractScopeSelector: AztecAsyncMap<string, number[]>;
+  /** Map from block number to eventCommitmentIndex[] for rollback support */
+  #eventsByBlockNumber: AztecAsyncMap<number, number[]>;
   /** Map from eventCommitmentIndex to boolean indicating if log has been seen. */
   #seenLogs: AztecAsyncMap<number, boolean>;
 
@@ -47,9 +51,10 @@ export class PrivateEventStore {
 
   constructor(store: AztecAsyncKVStore) {
     this.#store = store;
-    this.#eventLogs = this.#store.openArray('private_event_logs');
-    this.#eventLogIndex = this.#store.openMap('private_event_log_index');
+    this.#eventLogs = this.#store.openMap('private_event_logs');
+    this.#eventsByContractScopeSelector = this.#store.openMap('events_by_contract_scope_selector');
     this.#seenLogs = this.#store.openMap('seen_logs');
+    this.#eventsByBlockNumber = this.#store.openMap('events_by_block_number');
   }
 
   #keyFor(contractAddress: AztecAddress, scope: AztecAddress, eventSelector: EventSelector): string {
@@ -87,17 +92,20 @@ export class PrivateEventStore {
 
       this.logger.verbose('storing private event log', { contractAddress, scope, msgContent, l2BlockNumber });
 
-      const index = await this.#eventLogs.lengthAsync();
-      await this.#eventLogs.push({
+      await this.#eventLogs.set(eventCommitmentIndex, {
         msgContent: serializeToBuffer(msgContent),
         l2BlockNumber,
         l2BlockHash: l2BlockHash.toBuffer(),
         eventCommitmentIndex,
         txHash: txHash.toBuffer(),
+        lookupKey: key,
       });
 
-      const existingIndices = (await this.#eventLogIndex.getAsync(key)) || [];
-      await this.#eventLogIndex.set(key, [...existingIndices, index]);
+      const existingIndices = (await this.#eventsByContractScopeSelector.getAsync(key)) || [];
+      await this.#eventsByContractScopeSelector.set(key, [...existingIndices, eventCommitmentIndex]);
+
+      const existingBlockIndices = (await this.#eventsByBlockNumber.getAsync(l2BlockNumber)) || [];
+      await this.#eventsByBlockNumber.set(l2BlockNumber, [...existingBlockIndices, eventCommitmentIndex]);
 
       // Mark this log as seen using eventCommitmentIndex
       await this.#seenLogs.set(eventCommitmentIndex, true);
@@ -123,10 +131,10 @@ export class PrivateEventStore {
 
     for (const scope of filter.scopes) {
       const key = this.#keyFor(filter.contractAddress, scope, eventSelector);
-      const indices = (await this.#eventLogIndex.getAsync(key)) || [];
+      const eventCommitmentIndices = (await this.#eventsByContractScopeSelector.getAsync(key)) || [];
 
-      for (const index of indices) {
-        const entry = await this.#eventLogs.atAsync(index);
+      for (const eventCommitmentIndex of eventCommitmentIndices) {
+        const entry = await this.#eventLogs.getAsync(eventCommitmentIndex);
         if (!entry || entry.l2BlockNumber < filter.fromBlock || entry.l2BlockNumber >= filter.toBlock) {
           continue;
         }
@@ -158,5 +166,48 @@ export class PrivateEventStore {
     // Sort by eventCommitmentIndex only
     events.sort((a, b) => a.eventCommitmentIndex - b.eventCommitmentIndex);
     return events.map(ev => ev.event);
+  }
+
+  /**
+   * Rolls back private events that were stored after a given `blockNumber` and up to `synchedBlockNumber` (the block
+   * number up to which PXE managed to sync before the reorg happened).
+   */
+  public async rollbackEventsAfterBlock(blockNumber: number, synchedBlockNumber: number): Promise<void> {
+    await this.#store.transactionAsync(async () => {
+      let removedCount = 0;
+
+      for (let block = blockNumber + 1; block <= synchedBlockNumber; block++) {
+        const indices = await this.#eventsByBlockNumber.getAsync(block);
+        if (indices) {
+          await this.#eventsByBlockNumber.delete(block);
+
+          for (const eventCommitmentIndex of indices) {
+            const entry = await this.#eventLogs.getAsync(eventCommitmentIndex);
+            if (!entry) {
+              throw new Error(`Event log not found for eventCommitmentIndex ${eventCommitmentIndex}`);
+            }
+
+            await this.#eventLogs.delete(eventCommitmentIndex);
+            await this.#seenLogs.delete(eventCommitmentIndex);
+
+            // Update #eventsByContractScopeSelector using the stored lookupKey
+            const existingIndices = await this.#eventsByContractScopeSelector.getAsync(entry.lookupKey);
+            if (!existingIndices || existingIndices.length === 0) {
+              throw new Error(`No indices found in #eventsByContractScopeSelector for key ${entry.lookupKey}`);
+            }
+            const filteredIndices = existingIndices.filter(idx => idx !== eventCommitmentIndex);
+            if (filteredIndices.length === 0) {
+              await this.#eventsByContractScopeSelector.delete(entry.lookupKey);
+            } else {
+              await this.#eventsByContractScopeSelector.set(entry.lookupKey, filteredIndices);
+            }
+
+            removedCount++;
+          }
+        }
+      }
+
+      this.logger.verbose(`Rolled back ${removedCount} private events after block ${blockNumber}`);
+    });
   }
 }

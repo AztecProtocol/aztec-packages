@@ -438,7 +438,7 @@ describe('L1Publisher integration', () => {
           sha256ToField(blockBlobs.map(b => b.getEthVersionedBlobHash())),
         );
 
-        let prevBlobAccumulatorHash = hexToBuffer(await rollup.getCurrentBlobCommitmentsHash());
+        let prevBlobAccumulatorHash = (await rollup.getCurrentBlobCommitmentsHash()).toBuffer();
 
         blocks.push(block);
         blobFieldsPerCheckpoint.push(checkpointBlobFields);
@@ -481,7 +481,7 @@ describe('L1Publisher integration', () => {
             (await rollup.getEpochNumberForCheckpoint(prevCheckpointNumber));
         // If we are at the first blob of the epoch, we must initialize the hash:
         prevBlobAccumulatorHash = isFirstCheckpointOfEpoch ? Buffer.alloc(0) : prevBlobAccumulatorHash;
-        const currentBlobAccumulatorHash = hexToBuffer(await rollup.getCurrentBlobCommitmentsHash());
+        const currentBlobAccumulatorHash = (await rollup.getCurrentBlobCommitmentsHash()).toBuffer();
         let expectedBlobAccumulatorHash = prevBlobAccumulatorHash;
         blockBlobs
           .map(b => b.commitment)
@@ -980,7 +980,7 @@ describe('L1Publisher integration', () => {
       expect(sendRequestsResult!.failedActions).toEqual([]);
       expect(await rollup.getCheckpointNumber()).toEqual(CheckpointNumber.fromBlockNumber(block2.number));
       const rollupBlock = await rollup.getCheckpoint(CheckpointNumber.fromBlockNumber(block2.number));
-      expect(SlotNumber.fromBigInt(rollupBlock.slotNumber)).toEqual(block2.slot);
+      expect(rollupBlock.slotNumber).toEqual(block2.slot);
     });
   });
 });

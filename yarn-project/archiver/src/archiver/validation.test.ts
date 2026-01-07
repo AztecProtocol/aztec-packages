@@ -1,4 +1,4 @@
-import type { EpochCache, EpochCommitteeInfo } from '@aztec/epoch-cache';
+import type { EpochCache } from '@aztec/epoch-cache';
 import { CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { times } from '@aztec/foundation/collection';
@@ -31,7 +31,11 @@ describe('validateCheckpointAttestations', () => {
   };
 
   const setCommittee = (committee: EthAddress[]) => {
-    epochCache.getCommitteeForEpoch.mockResolvedValue({ committee } as EpochCommitteeInfo);
+    epochCache.getCommitteeForEpoch.mockResolvedValue({
+      committee,
+      seed: 0n,
+      epoch: EpochNumber(0),
+    });
   };
 
   beforeEach(() => {

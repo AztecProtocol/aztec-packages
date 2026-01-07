@@ -548,6 +548,11 @@ export class HttpBlobClient implements BlobClientInterface {
     return this.archiveClient;
   }
 
+  /** Returns true if this client can upload blobs to filestore. */
+  public canUpload(): boolean {
+    return this.fileStoreUploadClient !== undefined;
+  }
+
   /**
    * Start the blob client.
    * Uploads the initial healthcheck file (awaited) and starts periodic uploads.

@@ -210,7 +210,7 @@ impl RollupFixtureBuilder {
             version: self.version,
             block_number,
             slot_number,
-            timestamp: self.get_timestamp(block_number),
+            timestamp: self.get_timestamp(slot_number),
             coinbase: self.get_coinbase(slot_number),
             fee_recipient: self.get_fee_recipient(slot_number),
             gas_fees: self.get_gas_fees(slot_number),
@@ -310,8 +310,7 @@ impl RollupFixtureBuilder {
             end_state: self.get_state_reference(end_block_number),
             start_sponge_blob: self.get_sponge_blob(start_block_number - 1),
             end_sponge_blob: self.get_sponge_blob(end_block_number),
-            start_timestamp: self.get_timestamp(start_block_number),
-            end_timestamp: self.get_timestamp(end_block_number),
+            timestamp: self.get_timestamp(slot_number),
             block_headers_hash: self.get_block_headers_hash(end_block_number),
             in_hash,
             out_hash: self.get_out_hash(end_block_number),
@@ -417,8 +416,8 @@ impl RollupFixtureBuilder {
         slot_number * 94297
     }
 
-    fn get_timestamp(_self: Self, block_number: u32) -> u64 {
-        block_number as u64 + 507124
+    fn get_timestamp(_self: Self, slot_number: Field) -> u64 {
+        slot_number as u64 + 507124
     }
 
     fn get_fee_recipient(self, slot_number: Field) -> AztecAddress {

@@ -154,7 +154,7 @@ describe('validator suppression and nuke with slashing assertions', () => {
         async () => {
           const nextEpoch = EpochNumber((await rollup.getCurrentEpoch()) + 1);
           const nextEpochStartTimestamp = getStartTimestampForEpoch(nextEpoch, constants);
-          const committee = (await rollup.getCommitteeAt(nextEpochStartTimestamp)) as string[];
+          const committee = await rollup.getCommitteeAt(nextEpochStartTimestamp);
           if (committee && committee.length > 0) {
             logger.warn(`Retrieved committee for epoch ${nextEpoch}`, { committee });
             return { committee, epoch: nextEpoch };
@@ -168,9 +168,8 @@ describe('validator suppression and nuke with slashing assertions', () => {
 
     // Keep track of slashing events from the committee
     const { committee, epoch } = await getNextEpochCommittee();
-    const committeeEthAddresses = committee.map((a: string) => EthAddress.fromString(a));
     // Subscribe early to slash events for this committee to avoid missing early executions
-    const committeeSet = new Set(committeeEthAddresses.map((a: EthAddress) => a.toString()));
+    const committeeSet = new Set(committee.map((a: EthAddress) => a.toString()));
     const observedSlashes = new Map<string, { amount: bigint; attester: EthAddress }>();
     const unsubscribeGlobalSlash = rollup.listenToSlash((data: { amount: bigint; attester: EthAddress }) => {
       const key = data.attester.toString();

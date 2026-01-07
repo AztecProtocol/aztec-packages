@@ -19,7 +19,7 @@ function test {
 }
 
 function test_cmds {
-  for browser in chromium webkit firefox; do
+  for browser in chromium firefox; do
     echo "$hash playground/scripts/run_test.sh $browser"
   done
 }

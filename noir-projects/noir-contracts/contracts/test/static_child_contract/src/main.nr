@@ -47,7 +47,7 @@ pub contract StaticChild {
     fn private_illegal_set_value(new_value: Field, owner: AztecAddress) -> Field {
         let note = FieldNote { value: new_value };
         self.storage.a_private_value.at(owner).insert(note).deliver(
-            MessageDelivery.CONSTRAINED_ONCHAIN,
+            MessageDelivery.ONCHAIN_CONSTRAINED,
         );
         new_value
     }
@@ -58,7 +58,7 @@ pub contract StaticChild {
         let note = FieldNote { value: new_value };
 
         self.storage.a_private_value.at(owner).insert(note).deliver(
-            MessageDelivery.CONSTRAINED_ONCHAIN,
+            MessageDelivery.ONCHAIN_CONSTRAINED,
         );
         new_value
     }
