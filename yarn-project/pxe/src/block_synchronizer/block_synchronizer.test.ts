@@ -4,6 +4,7 @@ import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { L2TipsKVStore } from '@aztec/kv-store/stores';
 import { L2Block, L2BlockNew, type L2BlockStream } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
+import { randomPublishedL2Block } from '@aztec/stdlib/testing';
 
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -74,7 +75,7 @@ describe('BlockSynchronizer', () => {
 
     await synchronizer.handleBlockStreamEvent({
       type: 'blocks-added',
-      blocks: await timesParallel(5, randomPublishedL2Block),
+      blocks: await timesParallel(5, i => L2BlockNew.random(BlockNumber(i))),
     });
     await synchronizer.handleBlockStreamEvent({ type: 'chain-pruned', block: { number: BlockNumber(3), hash: '0x3' } });
 
