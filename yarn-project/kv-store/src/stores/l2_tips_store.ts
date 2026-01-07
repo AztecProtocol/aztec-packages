@@ -22,7 +22,10 @@ export class L2TipsKVStore implements L2BlockStreamEventHandler, L2BlockStreamLo
   private readonly l2BlockNumberToCheckpointNumberStore: AztecAsyncMap<BlockNumber, CheckpointNumber>;
   private readonly l2CheckpointStore: AztecAsyncMap<CheckpointNumber, Buffer>;
 
-  constructor(store: AztecAsyncKVStore, namespace: string) {
+  constructor(
+    private store: AztecAsyncKVStore,
+    namespace: string,
+  ) {
     this.l2TipsStore = store.openMap([namespace, 'l2_tips'].join('_'));
     this.l2BlockHashesStore = store.openMap([namespace, 'l2_block_hashes'].join('_'));
     this.l2BlockNumberToCheckpointNumberStore = store.openMap(
@@ -36,22 +39,52 @@ export class L2TipsKVStore implements L2BlockStreamEventHandler, L2BlockStreamLo
   }
 
   public async getL2Tips(): Promise<L2Tips> {
-    const proposedBlockId = await this.getBlockId('proposed');
-    const finalizedBlockId = await this.getBlockId('finalized');
-    const provenBlockId = await this.getBlockId('proven');
-    const checkpointedBlockId = await this.getBlockId('checkpointed');
+    return await this.store.transactionAsync(async () => {
+      const [proposedBlockId, finalizedBlockId, provenBlockId, checkpointedBlockId] = await Promise.all([
+        this.getBlockId('proposed'),
+        this.getBlockId('finalized'),
+        this.getBlockId('proven'),
+        this.getBlockId('checkpointed'),
+      ]);
 
-    const finalizedCheckpointId = await this.getCheckpointId('finalized');
-    const provenCheckpointId = await this.getCheckpointId('proven');
-    const checkpointedCheckpointId = await this.getCheckpointId('checkpointed');
+      const [finalizedCheckpointId, provenCheckpointId, checkpointedCheckpointId] = await Promise.all([
+        this.getCheckpointId('finalized'),
+        this.getCheckpointId('proven'),
+        this.getCheckpointId('checkpointed'),
+      ]);
 
-    const l2Tips: L2Tips = {
-      proposed: proposedBlockId,
-      finalized: { block: finalizedBlockId, checkpoint: finalizedCheckpointId },
-      proven: { block: provenBlockId, checkpoint: provenCheckpointId },
-      checkpointed: { block: checkpointedBlockId, checkpoint: checkpointedCheckpointId },
-    };
-    return Promise.resolve(l2Tips);
+      const l2Tips: L2Tips = {
+        proposed: proposedBlockId,
+        finalized: { block: finalizedBlockId, checkpoint: finalizedCheckpointId },
+        proven: { block: provenBlockId, checkpoint: provenCheckpointId },
+        checkpointed: { block: checkpointedBlockId, checkpoint: checkpointedCheckpointId },
+      };
+      return Promise.resolve(l2Tips);
+    });
+  }
+
+  public async handleBlockStreamEvent(event: L2BlockStreamEvent): Promise<void> {
+    switch (event.type) {
+      case 'blocks-added': {
+        await this.handleBlocksAdded(event);
+        break;
+      }
+      case 'chain-checkpointed': {
+        await this.handleChainCheckpointed(event);
+        break;
+      }
+      case 'chain-pruned': {
+        await this.handleChainPruned(event);
+        break;
+      }
+      case 'chain-proven':
+        await this.handleChainProven(event);
+        break;
+      case 'chain-finalized': {
+        await this.handleChainFinalized(event);
+        break;
+      }
+    }
   }
 
   private async getCheckpointId(tag: L2BlockTag): Promise<CheckpointId> {
@@ -87,59 +120,80 @@ export class L2TipsKVStore implements L2BlockStreamEventHandler, L2BlockStreamLo
     return { number: blockNumber, hash: blockHash };
   }
 
-  public async handleBlockStreamEvent(event: L2BlockStreamEvent): Promise<void> {
-    switch (event.type) {
-      case 'blocks-added': {
-        const blocks = event.blocks;
-        for (const block of blocks) {
-          await this.l2BlockHashesStore.set(block.number, (await block.hash()).toString());
-        }
-        await this.l2TipsStore.set('proposed', blocks.at(-1)!.number);
-        break;
-      }
-      case 'chain-checkpointed': {
-        const checkpointBlocks = event.checkpoint.checkpoint.blocks;
-        const lastBlock = checkpointBlocks.at(-1)!;
-        const blockId: L2BlockId = {
-          number: lastBlock.number,
-          hash: (await lastBlock.hash()).toString(),
-        };
-        await this.saveTag('checkpointed', blockId);
-        await this.saveCheckpoint(event.checkpoint);
-        break;
-      }
-      case 'chain-pruned': {
-        await this.saveTag('proposed', event.block);
-        const currentCheckpointed = (await this.l2TipsStore.getAsync('checkpointed')) ?? INITIAL_L2_BLOCK_NUM;
-        if (event.block.number < currentCheckpointed) {
-          await this.saveTag('checkpointed', event.block);
-        }
-        break;
-      }
-      case 'chain-proven':
-        await this.saveTag('proven', event.block);
-        break;
-      case 'chain-finalized': {
-        await this.saveTag('finalized', event.block);
-        // Get the checkpoint number for the finalized block before cleanup
-        const finalizedCheckpointNumber = await this.l2BlockNumberToCheckpointNumberStore.getAsync(event.block.number);
-        // Clean up block hashes for blocks before finalized
-        for await (const key of this.l2BlockHashesStore.keysAsync({ end: event.block.number })) {
-          await this.l2BlockHashesStore.delete(key);
-        }
-        // Clean up block-to-checkpoint mappings for blocks before finalized
-        for await (const key of this.l2BlockNumberToCheckpointNumberStore.keysAsync({ end: event.block.number })) {
-          await this.l2BlockNumberToCheckpointNumberStore.delete(key);
-        }
-        // Clean up checkpoints older than the finalized checkpoint
-        if (finalizedCheckpointNumber !== undefined) {
-          for await (const key of this.l2CheckpointStore.keysAsync({ end: finalizedCheckpointNumber })) {
-            await this.l2CheckpointStore.delete(key);
-          }
-        }
-        break;
-      }
+  private async handleBlocksAdded(event: L2BlockStreamEvent) {
+    if (event.type !== 'blocks-added') {
+      return;
     }
+    await this.store.transactionAsync(async () => {
+      const blocks = event.blocks;
+      for (const block of blocks) {
+        await this.l2BlockHashesStore.set(block.number, (await block.hash()).toString());
+      }
+      await this.l2TipsStore.set('proposed', blocks.at(-1)!.number);
+    });
+  }
+
+  private async handleChainCheckpointed(event: L2BlockStreamEvent) {
+    if (event.type !== 'chain-checkpointed') {
+      return;
+    }
+    await this.store.transactionAsync(async () => {
+      const checkpointBlocks = event.checkpoint.checkpoint.blocks;
+      const lastBlock = checkpointBlocks.at(-1)!;
+      const blockId: L2BlockId = {
+        number: lastBlock.number,
+        hash: (await lastBlock.hash()).toString(),
+      };
+      await this.saveTag('checkpointed', blockId);
+      await this.saveCheckpoint(event.checkpoint);
+    });
+  }
+
+  private async handleChainPruned(event: L2BlockStreamEvent) {
+    if (event.type !== 'chain-pruned') {
+      return;
+    }
+    await this.store.transactionAsync(async () => {
+      await this.saveTag('proposed', event.block);
+      const currentCheckpointed = (await this.l2TipsStore.getAsync('checkpointed')) ?? INITIAL_L2_BLOCK_NUM - 1;
+      if (event.block.number < currentCheckpointed) {
+        await this.saveTag('checkpointed', event.block);
+      }
+    });
+  }
+
+  private async handleChainProven(event: L2BlockStreamEvent) {
+    if (event.type !== 'chain-proven') {
+      return;
+    }
+    await this.store.transactionAsync(async () => {
+      await this.saveTag('proven', event.block);
+    });
+  }
+
+  private async handleChainFinalized(event: L2BlockStreamEvent) {
+    if (event.type !== 'chain-finalized') {
+      return;
+    }
+    await this.store.transactionAsync(async () => {
+      await this.saveTag('finalized', event.block);
+      // Get the checkpoint number for the finalized block before cleanup
+      const finalizedCheckpointNumber = await this.l2BlockNumberToCheckpointNumberStore.getAsync(event.block.number);
+      // Clean up block hashes for blocks before finalized
+      for await (const key of this.l2BlockHashesStore.keysAsync({ end: event.block.number })) {
+        await this.l2BlockHashesStore.delete(key);
+      }
+      // Clean up block-to-checkpoint mappings for blocks before finalized
+      for await (const key of this.l2BlockNumberToCheckpointNumberStore.keysAsync({ end: event.block.number })) {
+        await this.l2BlockNumberToCheckpointNumberStore.delete(key);
+      }
+      // Clean up checkpoints older than the finalized checkpoint
+      if (finalizedCheckpointNumber !== undefined) {
+        for await (const key of this.l2CheckpointStore.keysAsync({ end: finalizedCheckpointNumber })) {
+          await this.l2CheckpointStore.delete(key);
+        }
+      }
+    });
   }
 
   private async saveTag(name: L2BlockTag, block: L2BlockId) {
