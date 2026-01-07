@@ -863,7 +863,7 @@ TEST(InstrFetchingConstrainingTest, ErrorFlagSetButSelParsingErrIsZero)
     });
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<instr_fetching>(trace),
-                              "Relation instr_fetching, subrelation 3 failed at row 1");
+                              "Relation instr_fetching, subrelation 5 failed at row 1");
 }
 
 /**
