@@ -44,7 +44,7 @@ AvmProvingHelper::VkData AvmProvingHelper::get_verification_key()
     auto verification_key =
         std::make_shared<AvmVerifier::VerificationKey>(constraining::AvmFixedVKCommitments::get_all());
 
-    info("AVM vk hash: ", verification_key->hash());
+    vinfo("AVM vk hash: ", verification_key->hash());
 
     auto serialized_vk = to_buffer(verification_key->to_field_elements());
 

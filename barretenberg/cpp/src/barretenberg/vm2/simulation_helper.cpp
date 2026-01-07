@@ -478,7 +478,7 @@ TxSimulationResult AvmSimulationHelper::simulate_fast_internal(ContractDBInterfa
             const DebugLogLevel debug_log_level = DebugLogLevel::INFO;
             return std::make_unique<DebugLogger>(debug_log_level,
                                                  config.collection_limits.max_debug_log_memory_reads,
-                                                 [](const std::string& message) { info(message); });
+                                                 [](const std::string& message) { vinfo(message); });
         } else {
             return std::make_unique<NoopDebugLogger>();
         }
