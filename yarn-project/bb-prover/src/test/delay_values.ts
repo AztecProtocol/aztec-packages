@@ -43,5 +43,5 @@ export const PROOF_DELAY_MS: Record<ProvingRequestType, number> = {
   [ProvingRequestType.BLOCK_ROOT_SINGLE_TX_ROLLUP]: 15_000,
   [ProvingRequestType.CHECKPOINT_ROOT_ROLLUP]: 35_000,
   [ProvingRequestType.CHECKPOINT_PADDING_ROLLUP]: 0,
-  [ProvingRequestType.PRIVATE_TX_BASE_ROLLUP]: 45_000, // Guess based on public
+  [ProvingRequestType.PRIVATE_TX_BASE_ROLLUP]: 22_000,
 };
