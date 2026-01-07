@@ -148,3 +148,72 @@ TYPED_TEST(FieldUtilsTests, SplitUniqueMaxValue)
     EXPECT_FALSE(builder.failed());
     EXPECT_TRUE(CircuitChecker::check(builder));
 }
+
+/**
+ * @brief Test validate_split_in_field_unsafe rejects modulus with constant lo and witness hi
+ * @details Regression test for audit finding: when lo is constant but hi is a witness,
+ * the borrow value must still be constrained to be boolean. Previously, the range constraint
+ * was skipped if lo was constant, allowing malicious provers to use non-boolean borrow values
+ * to bypass the field validation check.
+ */
+TYPED_TEST(FieldUtilsTests, ValidateSplitConstantLoWitnessHiRejectsModulus)
+{
+    using Builder = TypeParam;
+    using field_t = typename TestFixture::field_t;
+    using native = typename TestFixture::native;
+
+    Builder builder;
+    constexpr size_t lo_bits = 128;
+
+    // Use value == modulus (should be rejected)
+    uint256_t modulus = native::modulus;
+    uint256_t lo_val = modulus.slice(0, lo_bits);
+    uint256_t hi_val = modulus.slice(lo_bits, 254);
+
+    // Create constant lo and witness hi
+    auto lo = field_t(native(lo_val));                         // constant
+    auto hi = field_t::from_witness(&builder, native(hi_val)); // witness
+
+    // Verify the setup
+    EXPECT_TRUE(lo.is_constant());
+    EXPECT_FALSE(hi.is_constant());
+
+    // Call validate_split_in_field_unsafe with value == modulus
+    stdlib::validate_split_in_field_unsafe(lo, hi, lo_bits, modulus);
+
+    // The circuit should FAIL because value == modulus is invalid
+    EXPECT_FALSE(CircuitChecker::check(builder));
+}
+
+/**
+ * @brief Test validate_split_in_field_unsafe rejects modulus with witness lo and constant hi
+ * @details Symmetric case to the above test.
+ */
+TYPED_TEST(FieldUtilsTests, ValidateSplitWitnessLoConstantHiRejectsModulus)
+{
+    using Builder = TypeParam;
+    using field_t = typename TestFixture::field_t;
+    using native = typename TestFixture::native;
+
+    Builder builder;
+    constexpr size_t lo_bits = 128;
+
+    // Use value == modulus (should be rejected)
+    uint256_t modulus = native::modulus;
+    uint256_t lo_val = modulus.slice(0, lo_bits);
+    uint256_t hi_val = modulus.slice(lo_bits, 254);
+
+    // Create witness lo and constant hi
+    auto lo = field_t::from_witness(&builder, native(lo_val)); // witness
+    auto hi = field_t(native(hi_val));                         // constant
+
+    // Verify the setup
+    EXPECT_FALSE(lo.is_constant());
+    EXPECT_TRUE(hi.is_constant());
+
+    // Call validate_split_in_field_unsafe with value == modulus
+    stdlib::validate_split_in_field_unsafe(lo, hi, lo_bits, modulus);
+
+    // The circuit should FAIL because value == modulus is invalid
+    EXPECT_FALSE(CircuitChecker::check(builder));
+}

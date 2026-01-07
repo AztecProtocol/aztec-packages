@@ -31,16 +31,21 @@ void validate_split_in_field_unsafe(const field_t<Builder>& lo,
     //   - If lo >= r_lo: set borrow=1, which reduces the allowed hi value by 1
     //     This correctly rejects value == modulus because lo_diff becomes 2^lo_bits (out of range)
     bool need_borrow = uint256_t(lo.get_value()) >= r_lo;
-    field_t<Builder> borrow =
-        lo.is_constant()
-            ? need_borrow
-            : field_t<Builder>::from_witness(lo.get_context(), typename field_t<Builder>::native(need_borrow));
 
-    // directly call `create_small_range_constraint` to avoid creating an arithmetic gate
-    if (!lo.is_constant()) {
+    // If both lo and hi are constant, the validation is entirely deterministic
+    const bool both_constant = lo.is_constant() && hi.is_constant();
+    Builder* ctx = validate_context(lo.get_context(), hi.get_context());
+
+    field_t<Builder> borrow = both_constant
+                                  ? need_borrow
+                                  : field_t<Builder>::from_witness(ctx, typename field_t<Builder>::native(need_borrow));
+
+    // Constrain borrow to be boolean (0 or 1) unless both inputs are constant.
+    // This prevents a malicious prover from using non-boolean borrow values.
+    if (!both_constant) {
         // We need to manually propagate the origin tag
-        borrow.set_origin_tag(lo.get_origin_tag());
-        lo.get_context()->create_small_range_constraint(borrow.get_witness_index(), 1, "borrow");
+        borrow.set_origin_tag(lo.is_constant() ? hi.get_origin_tag() : lo.get_origin_tag());
+        ctx->create_small_range_constraint(borrow.get_witness_index(), 1, "borrow");
     }
 
     // Hi range check = r_hi - hi - borrow
