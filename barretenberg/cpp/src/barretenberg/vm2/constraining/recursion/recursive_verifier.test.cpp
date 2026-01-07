@@ -231,4 +231,64 @@ TEST_F(AvmRecursiveTests, GoblinRecursionFailsWithWrongPIs)
     ASSERT_TRUE(outer_circuit.failed()) << "Outer circuit SHOULD fail with bad PIs.";
 }
 
+// Test that the transcript operations performed during AVM recursive verification match the ones performed by the
+// function defined in the AvmRecursiveFlavor::Transcript class
+TEST_F(AvmRecursiveTests, TranscriptOperations)
+{
+    if (testing::skip_slow_tests()) {
+        GTEST_SKIP() << "Skipping slow test";
+    }
+
+    using FF = stdlib::field_t<MegaCircuitBuilder>;
+
+    NativeProofResult proof_result;
+    std::cout << "Creating and verifying native proof..." << std::endl;
+    std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
+    ASSERT_NO_FATAL_FAILURE({ create_and_verify_native_proof(proof_result); });
+    std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+    std::cout << "Time taken (native proof): " << std::chrono::duration_cast<std::chrono::seconds>(end - start).count()
+              << "s" << std::endl;
+
+    auto [proof, public_inputs_cols] = proof_result;
+
+    // Construct stdlib representations of the proof, public inputs and verification key
+    MegaCircuitBuilder builder;
+    stdlib::Proof<MegaCircuitBuilder> stdlib_proof(builder, proof);
+
+    std::vector<std::vector<FF>> public_inputs_ct;
+    public_inputs_ct.reserve(public_inputs_cols.size());
+    for (const auto& vec : public_inputs_cols) {
+        std::vector<FF> vec_ct;
+        vec_ct.reserve(vec.size());
+        for (const auto& val : vec) {
+            vec_ct.push_back(FF::from_witness(&builder, val));
+        }
+        public_inputs_ct.push_back(vec_ct);
+    }
+
+    // Construct the AVM recursive verifier and verify the proof
+    // Scoped to free memory of AvmRecursiveVerifier.
+    FF final_state_full_verification;
+    {
+        std::cout << "Constructing AvmRecursiveVerifier and verifying proof..." << std::endl;
+        std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
+        AvmRecursiveVerifier avm_rec_verifier(builder);
+        [[maybe_unused]] auto _result = avm_rec_verifier.verify_proof(stdlib_proof, public_inputs_ct);
+        std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+        std::cout << "Time taken (recursive verification): "
+                  << std::chrono::duration_cast<std::chrono::seconds>(end - start).count() << "s" << std::endl;
+        final_state_full_verification = avm_rec_verifier.transcript->template get_challenge<FF>("final_state");
+    };
+
+    // Perform only transcript operations
+    FF final_state_transcript_operations_only;
+    {
+        auto transcript =
+            AvmRecursiveFlavor::Transcript::perform_avm_transcript_operations(builder, stdlib_proof, public_inputs_ct);
+        final_state_transcript_operations_only = transcript->template get_challenge<FF>("final_state");
+    }
+
+    EXPECT_EQ(final_state_full_verification.get_value(), final_state_transcript_operations_only.get_value());
+}
+
 } // namespace bb::avm2::constraining

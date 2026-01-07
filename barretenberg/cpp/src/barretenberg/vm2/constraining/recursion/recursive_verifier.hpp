@@ -18,7 +18,7 @@ class AvmRecursiveVerifier {
     using NativeVerificationKey = typename Flavor::NativeVerificationKey;
     using Builder = typename Flavor::CircuitBuilder;
     using PCS = typename Flavor::PCS;
-    using Transcript = StdlibTranscript<Builder>;
+    using Transcript = Flavor::Transcript;
     using VerifierCommitments = typename Flavor::VerifierCommitments;
     using PairingPoints = stdlib::recursion::PairingPoints<Curve>;
     using StdlibProof = stdlib::Proof<Builder>;

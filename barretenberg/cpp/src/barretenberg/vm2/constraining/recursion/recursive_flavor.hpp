@@ -3,7 +3,9 @@
 #include <cstdint>
 
 #include "barretenberg/flavor/flavor.hpp"
+#include "barretenberg/stdlib/proof/proof.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
+#include "barretenberg/vm2/constraining/avm_fixed_vk.hpp"
 #include "barretenberg/vm2/constraining/flavor.hpp"
 #include "barretenberg/vm2/constraining/recursion/recursive_flavor_settings.hpp"
 
@@ -21,7 +23,6 @@ class AvmRecursiveFlavor {
 
     using NativeFlavor = avm2::AvmFlavor;
     using NativeVerificationKey = NativeFlavor::VerificationKey;
-    using Transcript = StdlibTranscript<CircuitBuilder>;
 
     // Native one is used!
     using VerifierCommitmentKey = NativeFlavor::VerifierCommitmentKey;
@@ -99,6 +100,126 @@ class AvmRecursiveFlavor {
             for (Commitment& commitment : this->get_all()) {
                 commitment.fix_witness();
             }
+        }
+    };
+
+    class Transcript : public StdlibTranscript<CircuitBuilder> {
+      public:
+        template <typename Builder>
+        static std::shared_ptr<StdlibTranscript<Builder>> perform_avm_transcript_operations(
+            Builder& builder,
+            const stdlib::Proof<Builder>& stdlib_proof,
+            const std::vector<std::vector<stdlib::field_t<Builder>>>& public_inputs)
+        {
+            using FF = stdlib::field_t<Builder>;
+
+            auto native_vk = std::make_shared<NativeVerificationKey>(constraining::AvmFixedVKCommitments::get_all());
+            auto native_vk_hash = native_vk->hash();
+            FF vk_hash = FF::from_witness(&builder, native_vk_hash);
+            vk_hash.fix_witness();
+
+            auto transcript = std::make_shared<StdlibTranscript<Builder>>();
+
+            transcript->load_proof(stdlib_proof);
+
+            transcript->add_to_hash_buffer("avm_vk_hash", vk_hash);
+
+            // Add public inputs to transcript for Fiat-Shamir
+            for (size_t i = 0; i < AVM_NUM_PUBLIC_INPUT_COLUMNS; i++) {
+                for (size_t j = 0; j < public_inputs[i].size(); j++) {
+                    transcript->add_to_hash_buffer("public_input_" + std::to_string(i) + "_" + std::to_string(j),
+                                                   public_inputs[i][j]);
+                }
+            }
+
+            size_t proof_idx = 0;
+
+            constexpr size_t num_frs_comm = Codec::calc_num_fields<Commitment>();
+            for (size_t i = 0; i < NUM_WIRE_ENTITIES; i++) {
+                for (size_t j = 0; j < num_frs_comm; j++) {
+                    transcript->add_to_hash_buffer("entity_" + std::to_string(i) + "_" + std::to_string(j),
+                                                   stdlib_proof[proof_idx++]);
+                }
+            }
+
+            [[maybe_unused]] auto [_beta, _gamma] =
+                transcript->template get_challenges<FF>(std::array<std::string, 2>{ "beta", "gamma" });
+
+            for (size_t i = 0; i < NUM_DERIVED_ENTITIES; i++) {
+                for (size_t j = 0; j < num_frs_comm; j++) {
+                    transcript->add_to_hash_buffer("derived_entity_" + std::to_string(i) + "_" + std::to_string(j),
+                                                   stdlib_proof[proof_idx++]);
+                }
+            }
+
+            [[maybe_unused]] const FF _alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
+
+            [[maybe_unused]] const std::vector<FF> _gate_challenges =
+                transcript->template get_dyadic_powers_of_challenge<FF>("Sumcheck:gate_challenge",
+                                                                        native_vk->log_circuit_size);
+
+            for (size_t i = 0; i < native_vk->log_circuit_size; i++) {
+                std::string round_univariate_label = "Sumcheck:univariate_" + std::to_string(i);
+                for (size_t j = 0; j < AvmFlavor::BATCHED_RELATION_PARTIAL_LENGTH; j++) {
+                    transcript->add_to_hash_buffer(round_univariate_label + "_eval_" + std::to_string(j),
+                                                   stdlib_proof[proof_idx++]);
+                }
+                [[maybe_unused]] FF round_challenge =
+                    transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(i));
+            }
+
+            for (size_t i = 0; i < NUM_ALL_ENTITIES; i++) {
+                transcript->add_to_hash_buffer("Sumcheck:evaluations_" + std::to_string(i), stdlib_proof[proof_idx++]);
+            }
+
+            std::vector<std::string> unshifted_batching_challenge_labels;
+            unshifted_batching_challenge_labels.reserve(NUM_UNSHIFTED_ENTITIES - 1);
+            for (size_t idx = 0; idx < NUM_UNSHIFTED_ENTITIES - 1; idx++) {
+                unshifted_batching_challenge_labels.push_back("rho_" + std::to_string(idx));
+            }
+            std::vector<std::string> shifted_batching_challenge_labels;
+            shifted_batching_challenge_labels.reserve(NUM_SHIFTED_ENTITIES);
+            for (size_t idx = 0; idx < NUM_SHIFTED_ENTITIES; idx++) {
+                shifted_batching_challenge_labels.push_back("rho_" + std::to_string(NUM_SHIFTED_ENTITIES - 1 + idx));
+            }
+
+            // Get short (128-bit) batching challenges from transcript
+            [[maybe_unused]] auto _unshifted_challenges =
+                transcript->template get_challenges<FF>(unshifted_batching_challenge_labels);
+            [[maybe_unused]] auto _shifted_challenges =
+                transcript->template get_challenges<FF>(shifted_batching_challenge_labels);
+
+            [[maybe_unused]] const FF gemini_batching_challenge = transcript->template get_challenge<FF>("rho");
+
+            for (size_t i = 1; i < native_vk->log_circuit_size; ++i) {
+                for (size_t j = 0; j < num_frs_comm; j++) {
+                    transcript->add_to_hash_buffer("Gemini:FOLD_" + std::to_string(i), stdlib_proof[proof_idx++]);
+                }
+            }
+
+            [[maybe_unused]] const FF gemini_evaluation_challenge = transcript->template get_challenge<FF>("Gemini:r");
+
+            for (size_t i = 1; i <= native_vk->log_circuit_size; ++i) {
+                transcript->add_to_hash_buffer("Gemini:a_" + std::to_string(i), stdlib_proof[proof_idx++]);
+            }
+
+            [[maybe_unused]] const FF shplonk_batching_challenge = transcript->template get_challenge<FF>("Shplonk:nu");
+
+            for (size_t j = 0; j < num_frs_comm; j++) {
+                transcript->add_to_hash_buffer("Shplonk:q_comm", stdlib_proof[proof_idx++]);
+            }
+
+            [[maybe_unused]] const FF shplonk_evaluation_challenge =
+                transcript->template get_challenge<FF>("Shplonk:z");
+
+            for (size_t j = 0; j < num_frs_comm; j++) {
+                transcript->add_to_hash_buffer("KZG:w_comm", stdlib_proof[proof_idx++]);
+            }
+
+            [[maybe_unused]] const FF masking_challenge =
+                transcript->template get_challenge<FF>("KZG:masking_challenge");
+
+            return transcript;
         }
     };
 
