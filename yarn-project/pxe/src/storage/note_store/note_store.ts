@@ -521,13 +521,16 @@ export class NoteStore implements StagedStore {
       if (!noteIndex) {
         const alreadyNullified = await this.#nullifiedNotesByNullifier.getAsync(nullifierKey);
         if (alreadyNullified) {
-          throw new Error(`Nullifier already applied in applyNullifiers`);
+          // Nullifier was already applied in a previous job - skip it.
+          // This can happen when sync_private_state re-delivers notes that were already synced.
+          continue;
         }
         throw new Error('Nullifier not found in applyNullifiers');
       }
 
       if (jobStaging.nullifiedNotes.has(noteIndex)) {
-        throw new Error(`Nullifier already applied in applyNullifiers`);
+        // Nullifier already staged in this job - skip it
+        continue;
       }
 
       const noteBuffer = await this.#getNoteBuffer(noteIndex, jobId);
