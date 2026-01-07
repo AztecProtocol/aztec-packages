@@ -37,7 +37,8 @@ namespace calldata_hashing;
     #[skippable_if]
     sel = 0;
 
-    pol commit sel;
+    pol commit sel; // @boolean
+    sel * (1 - sel) = 0;
     // If sel = 0, sel' != 1
     #[TRACE_CONTINUITY]
     (1 - precomputed.first_row) * (1 - sel) * sel' = 0;
