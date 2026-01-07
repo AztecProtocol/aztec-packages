@@ -12,7 +12,6 @@ import { BlockHeader, HashedValues, TxContext, TxExecutionRequest } from '@aztec
 import { jest } from '@jest/globals';
 import { mock } from 'jest-mock-extended';
 
-import { JobContext } from '../../job_coordinator/index.js';
 import type { AddressStore } from '../../storage/address_store/address_store.js';
 import type { AnchorBlockStore } from '../../storage/anchor_block_store/anchor_block_store.js';
 import type { CapsuleStore } from '../../storage/capsule_store/capsule_store.js';
@@ -149,7 +148,7 @@ describe('Oracle Version Check test suite', () => {
         anchorBlockHeader,
         senderForTags,
         undefined,
-        new JobContext('test'),
+        'test',
       );
 
       expect(utilityAssertCompatibleOracleVersionSpy).toHaveBeenCalledTimes(1);
@@ -179,7 +178,7 @@ describe('Oracle Version Check test suite', () => {
       };
 
       // Call the utility function
-      await acirSimulator.runUtility(execRequest, [], anchorBlockHeader, [], new JobContext('test'));
+      await acirSimulator.runUtility(execRequest, [], anchorBlockHeader, [], 'test');
 
       expect(utilityAssertCompatibleOracleVersionSpy).toHaveBeenCalledTimes(1);
     }, 30_000);

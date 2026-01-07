@@ -7,7 +7,6 @@ import type { DataInBlock } from '@aztec/stdlib/block';
 import { NoteStatus, type NotesFilter } from '@aztec/stdlib/note';
 import { NoteDao } from '@aztec/stdlib/note';
 
-import type { JobContext } from '../../job_coordinator/index.js';
 import type { StagedStore } from '../../job_coordinator/job_coordinator.js';
 
 type StagedAddNote = {
@@ -130,11 +129,11 @@ export class NoteStore implements StagedStore {
    *
    * @param notes - Notes to store
    * @param scope - The scope (user/account) under which to store the notes
-   * @param context - Optional job context for staging writes
+   * @param jobId - Optional jobId for staging writes
    */
-  addNotes(notes: NoteDao[], scope: AztecAddress, context?: JobContext): Promise<void> {
-    if (context) {
-      return this.#addNotesStaging(notes, scope, context);
+  addNotes(notes: NoteDao[], scope: AztecAddress, jobId?: string): Promise<void> {
+    if (jobId) {
+      return this.#addNotesStaging(notes, scope, jobId);
     }
 
     return this.#store.transactionAsync(async () => {
@@ -154,11 +153,11 @@ export class NoteStore implements StagedStore {
     });
   }
 
-  #addNotesStaging(notes: NoteDao[], scope: AztecAddress, context: JobContext): Promise<void> {
-    let jobStaging = this.#stagedData.get(context.jobId);
+  #addNotesStaging(notes: NoteDao[], scope: AztecAddress, jobId: string): Promise<void> {
+    let jobStaging = this.#stagedData.get(jobId);
     if (!jobStaging) {
       jobStaging = { addedNotes: new Map(), nullifiedNotes: new Map() };
-      this.#stagedData.set(context.jobId, jobStaging);
+      this.#stagedData.set(jobId, jobStaging);
     }
 
     for (const dao of notes) {
@@ -183,22 +182,20 @@ export class NoteStore implements StagedStore {
    *
    * @param blockNumber - The new chain tip after a reorg
    * @param synchedBlockNumber - The block number up to which PXE managed to sync before the reorg happened.
-   * @param context - Optional job context for staging writes
+   * @param jobId - Optional jobId for staging writes
    */
   public async rollbackNotesAndNullifiers(
     blockNumber: number,
     synchedBlockNumber: number,
-    context?: JobContext,
+    jobId?: string,
   ): Promise<void> {
-    // TODO(mverzilli): Implement proper staging for reorg operations.
-    // For now, these operations write directly without staging since they're complex
-    // and involve reading + writing multiple data structures atomically.
+    // TODO(mverzilli): Should we implement proper staging for reorg operations?
     // The block synchronizer only runs during sync() which happens before simulation,
-    // so if a crash occurs here, the next startup will re-sync anyway.
-    // A rollback should probably always be preceded by a discardStaged call,
+    // so if a crash occurs here, the next startup should re-sync anyway.
+    // Moreover, a rollback should probably always be preceded by a discardStaged call,
     // since in a reorg scenario we would have to throw away any on-going work
     // anyway, but I need to think this through.
-    void context;
+    void jobId;
     await this.#rewindNullifiersAfterBlock(blockNumber, synchedBlockNumber);
     await this.#deleteActiveNotesAfterBlock(blockNumber);
   }
@@ -296,12 +293,12 @@ export class NoteStore implements StagedStore {
    *
    * @param filter - Filter criteria including contractAddress (required), and optional
    *                 owner, storageSlot, status, scopes, and siloedNullifier.
-   * @param context - Optional job context for reading staged data
+   * @param jobId - Optional jobId for reading staged data
    * @returns Filtered and deduplicated notes (a note might be present in multiple scopes - we ensure it is only
    * returned once if this is the case)
    * @throws If filtering by an empty scopes array. Scopes have to be set to undefined or to a non-empty array.
    */
-  async getNotes(filter: NotesFilter, context?: JobContext): Promise<NoteDao[]> {
+  async getNotes(filter: NotesFilter, jobId?: string): Promise<NoteDao[]> {
     filter.status = filter.status ?? NoteStatus.ACTIVE;
 
     // throw early if scopes is an empty array
@@ -317,10 +314,7 @@ export class NoteStore implements StagedStore {
       AztecAddress.fromString(addressString),
     );
 
-    // Get staged data if context provided
-    const stagedNotes = context ? this.#stagedData.get(context.jobId) : undefined;
-
-    // Build set of noteIndexes that are staged for nullification
+    const stagedNotes = jobId ? this.#stagedData.get(jobId) : undefined;
     const stagedNullifiedIndexes = new Set<string>(stagedNotes?.nullifiedNotes.keys() ?? []);
 
     const activeNoteIdsPerScope: string[][] = [];
@@ -454,17 +448,17 @@ export class NoteStore implements StagedStore {
    * the entire operation fails and no notes are modified.
    *
    * @param nullifiers - Array of nullifiers with their block numbers to process
-   * @param context - Optional job context for staging writes
+   * @param jobId - Optional jobId for staging writes
    * @returns Promise resolving to array of nullified NoteDao objects
    * @throws Error if any nullifier is not found in the active notes
    */
-  applyNullifiers(nullifiers: DataInBlock<Fr>[], context?: JobContext): Promise<NoteDao[]> {
+  applyNullifiers(nullifiers: DataInBlock<Fr>[], jobId?: string): Promise<NoteDao[]> {
     if (nullifiers.length === 0) {
       return Promise.resolve([]);
     }
 
-    if (context) {
-      return this.#applyNullifiersStaging(nullifiers, context);
+    if (jobId) {
+      return this.#applyNullifiersStaging(nullifiers, jobId);
     }
 
     return this.#store.transactionAsync(async () => {
@@ -526,13 +520,13 @@ export class NoteStore implements StagedStore {
     });
   }
 
-  async #applyNullifiersStaging(nullifiers: DataInBlock<Fr>[], context: JobContext): Promise<NoteDao[]> {
+  async #applyNullifiersStaging(nullifiers: DataInBlock<Fr>[], jobId: string): Promise<NoteDao[]> {
     const nullifiedNotes: NoteDao[] = [];
 
-    let jobStaging = this.#stagedData.get(context.jobId);
+    let jobStaging = this.#stagedData.get(jobId);
     if (!jobStaging) {
       jobStaging = { addedNotes: new Map(), nullifiedNotes: new Map() };
-      this.#stagedData.set(context.jobId, jobStaging);
+      this.#stagedData.set(jobId, jobStaging);
     }
 
     for (const blockScopedNullifier of nullifiers) {
@@ -540,7 +534,7 @@ export class NoteStore implements StagedStore {
       const nullifierKey = nullifier.toString();
 
       // Check staging first for the note
-      const noteIndex = await this.#getNoteIndexForNullifier(nullifierKey, context);
+      const noteIndex = await this.#getNoteIndexForNullifier(nullifierKey, jobId);
       if (!noteIndex) {
         const alreadyNullified = await this.#nullifiedNotesByNullifier.getAsync(nullifierKey);
         if (alreadyNullified) {
@@ -549,7 +543,7 @@ export class NoteStore implements StagedStore {
         throw new Error('Nullifier not found in applyNullifiers');
       }
 
-      const noteBuffer = await this.#getNoteBuffer(noteIndex, context);
+      const noteBuffer = await this.#getNoteBuffer(noteIndex, jobId);
       if (!noteBuffer) {
         throw new Error('Note not found in applyNullifiers');
       }
@@ -570,10 +564,10 @@ export class NoteStore implements StagedStore {
     return nullifiedNotes;
   }
 
-  async #getNoteIndexForNullifier(nullifierKey: string, context?: JobContext): Promise<string | undefined> {
-    if (context) {
+  async #getNoteIndexForNullifier(nullifierKey: string, jobId?: string): Promise<string | undefined> {
+    if (jobId) {
       // Check staging for notes that might have been added in this job
-      const jobStaging = this.#stagedData.get(context.jobId);
+      const jobStaging = this.#stagedData.get(jobId);
       if (jobStaging) {
         for (const [noteIndex, data] of jobStaging.addedNotes) {
           if (data.siloedNullifier === nullifierKey) {
@@ -586,10 +580,10 @@ export class NoteStore implements StagedStore {
     return await this.#nullifierToNoteId.getAsync(nullifierKey);
   }
 
-  async #getNoteBuffer(noteIndex: string, context?: JobContext): Promise<Buffer | undefined> {
-    if (context) {
+  async #getNoteBuffer(noteIndex: string, jobId?: string): Promise<Buffer | undefined> {
+    if (jobId) {
       // Check staging first
-      const jobStaging = this.#stagedData.get(context.jobId);
+      const jobStaging = this.#stagedData.get(jobId);
       if (jobStaging?.addedNotes.has(noteIndex)) {
         return jobStaging.addedNotes.get(noteIndex)!.noteBuffer;
       }
@@ -602,10 +596,10 @@ export class NoteStore implements StagedStore {
   /**
    * Commits staged data to main storage.
    * Must be called within a transaction by the JobCoordinator.
-   * @param context - The job context containing the staging prefix
+   * @param jobId - The jobId containing the staging prefix
    */
-  async commit(context: JobContext): Promise<void> {
-    const jobStaging = this.#stagedData.get(context.jobId);
+  async commit(jobId: string): Promise<void> {
+    const jobStaging = this.#stagedData.get(jobId);
     if (!jobStaging) {
       return;
     }
@@ -657,15 +651,14 @@ export class NoteStore implements StagedStore {
       await this.#nullifierToNoteId.delete(data.nullifier);
     }
 
-    this.#stagedData.delete(context.jobId);
+    this.#stagedData.delete(jobId);
   }
 
   /**
    * Discards staged data without committing.
-   * @param context - The job context
    */
-  discardStaged(context: JobContext): Promise<void> {
-    this.#stagedData.delete(context.jobId);
+  discardStaged(jobId: string): Promise<void> {
+    this.#stagedData.delete(jobId);
     return Promise.resolve();
   }
 }

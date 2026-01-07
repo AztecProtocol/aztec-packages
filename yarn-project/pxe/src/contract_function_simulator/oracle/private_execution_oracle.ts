@@ -30,7 +30,6 @@ import {
   type TxContext,
 } from '@aztec/stdlib/tx';
 
-import type { JobContext } from '../../job_coordinator/index.js';
 import { NoteService } from '../../notes/note_service.js';
 import type { AddressStore } from '../../storage/address_store/address_store.js';
 import type { AnchorBlockStore } from '../../storage/anchor_block_store/anchor_block_store.js';
@@ -111,7 +110,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     scopes?: AztecAddress[],
     private senderForTags?: AztecAddress,
     private simulator?: CircuitSimulator,
-    private readonly jobContextForOracle?: JobContext,
+    private readonly jobIdForOracle?: string,
   ) {
     super(
       callContext.contractAddress,
@@ -128,7 +127,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       senderAddressBookStore,
       capsuleStore,
       privateEventStore,
-      jobContextForOracle!,
+      jobIdForOracle!,
       log,
       scopes,
     );
@@ -595,7 +594,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       this.scopes,
       this.senderForTags,
       this.simulator,
-      this.jobContextForOracle,
+      this.jobIdForOracle,
     );
 
     const setupTime = simulatorSetupTimer.ms();

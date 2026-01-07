@@ -63,7 +63,7 @@ import { ProxiedContractStoreFactory } from './contract_function_simulator/proxi
 import { PXEDebugUtils } from './debug/pxe_debug_utils.js';
 import { enrichPublicSimulationError, enrichSimulationError } from './error_enriching.js';
 import { PrivateEventFilterValidator } from './events/private_event_filter_validator.js';
-import { type JobContext, JobCoordinator } from './job_coordinator/index.js';
+import { JobCoordinator } from './job_coordinator/index.js';
 import {
   PrivateKernelExecutionProver,
   type PrivateKernelExecutionProverConfig,
@@ -237,9 +237,9 @@ export class PXE {
    *
    * Useful for tasks that cannot run concurrently, such as contract function simulation.
    *
-   * @param fn - The function to execute. Receives a JobContext for staged writes.
+   * @param fn - The function to execute. Receives a string for staged writes.
    */
-  #putInJobQueue<T>(fn: (context: JobContext) => Promise<T>): Promise<T> {
+  #putInJobQueue<T>(fn: (jobId: string) => Promise<T>): Promise<T> {
     // TODO(#12636): relax the conditions under which we forbid concurrency.
     if (this.jobQueue.length() != 0) {
       this.log.warn(
@@ -248,13 +248,13 @@ export class PXE {
     }
 
     return this.jobQueue.put(async () => {
-      const context = this.jobCoordinator.beginJob();
+      const jobId = this.jobCoordinator.beginJob();
       try {
-        const result = await fn(context);
-        await this.jobCoordinator.commitJob(context);
+        const result = await fn(jobId);
+        await this.jobCoordinator.commitJob(jobId);
         return result;
       } catch (err) {
-        await this.jobCoordinator.abortJob(context);
+        await this.jobCoordinator.abortJob(jobId);
         throw err;
       }
     });
@@ -291,7 +291,7 @@ export class PXE {
     contractFunctionSimulator: ContractFunctionSimulator,
     txRequest: TxExecutionRequest,
     scopes: AztecAddress[] | undefined,
-    jobContext: JobContext,
+    jobId: string,
   ): Promise<PrivateExecutionResult> {
     const { origin: contractAddress, functionSelector } = txRequest;
 
@@ -308,7 +308,7 @@ export class PXE {
         // contract entrypoint
         undefined, // senderForTags
         scopes,
-        jobContext,
+        jobId,
       );
       this.log.debug(`Private simulation completed for ${contractAddress.toString()}:${functionSelector}`);
       return result;
@@ -327,7 +327,7 @@ export class PXE {
    * @param authWitnesses - Authentication witnesses required for the function call.
    * @param scopes - Optional array of account addresses whose notes can be accessed in this call. Defaults to all
    * accounts if not specified.
-   * @param jobContext - The job context for staged writes.
+   * @param jobId - The job ID for staged writes.
    * @returns The simulation result containing the outputs of the utility function.
    */
   async #simulateUtility(
@@ -335,11 +335,11 @@ export class PXE {
     call: FunctionCall,
     authWitnesses: AuthWitness[],
     scopes: AztecAddress[] | undefined,
-    jobContext: JobContext,
+    jobId: string,
   ) {
     try {
       const anchorBlockHeader = await this.anchorBlockStore.getBlockHeader();
-      return contractFunctionSimulator.runUtility(call, authWitnesses, anchorBlockHeader, scopes, jobContext);
+      return contractFunctionSimulator.runUtility(call, authWitnesses, anchorBlockHeader, scopes, jobId);
     } catch (err) {
       if (err instanceof SimulationError) {
         await enrichSimulationError(err, this.contractStore, this.log);
@@ -633,8 +633,7 @@ export class PXE {
   public updateContract(contractAddress: AztecAddress, artifact: ContractArtifact): Promise<void> {
     // We disable concurrently updating contracts to avoid concurrently syncing with the node, or changing a contract's
     // class while we're simulating it.
-    return this.#putInJobQueue(async _context => {
-      // TODO: Thread context through contract data provider operations if needed
+    return this.#putInJobQueue(async _jobId => {
       const currentInstance = await this.contractStore.getContractInstance(contractAddress);
       if (!currentInstance) {
         throw new Error(`Instance not found when updating a contract. Contract address: ${contractAddress}.`);
@@ -689,14 +688,14 @@ export class PXE {
     let privateExecutionResult: PrivateExecutionResult;
     // We disable proving concurrently mostly out of caution, since it accesses some of our stores. Proving is so
     // computationally demanding that it'd be rare for someone to try to do it concurrently regardless.
-    return this.#putInJobQueue(async context => {
+    return this.#putInJobQueue(async jobId => {
       const totalTimer = new Timer();
       try {
         const syncTimer = new Timer();
         await this.blockStateSynchronizer.sync();
         const syncTime = syncTimer.ms();
         const contractFunctionSimulator = this.#getSimulatorForTx();
-        privateExecutionResult = await this.#executePrivate(contractFunctionSimulator, txRequest, undefined, context);
+        privateExecutionResult = await this.#executePrivate(contractFunctionSimulator, txRequest, undefined, jobId);
 
         const {
           publicInputs,
@@ -743,7 +742,7 @@ export class PXE {
           // TODO(benesjan): The following is an expensive operation. Figure out a way to avoid it.
           const txHash = (await txProvingResult.toTx()).txHash;
 
-          await this.senderTaggingStore.storePendingIndexes(preTagsUsedInTheTx, txHash, context);
+          await this.senderTaggingStore.storePendingIndexes(preTagsUsedInTheTx, txHash, jobId);
           this.log.debug(`Stored used pre-tags as sender for the tx`, {
             preTagsUsedInTheTx,
           });
@@ -773,7 +772,7 @@ export class PXE {
     skipProofGeneration: boolean = true,
   ): Promise<TxProfileResult> {
     // We disable concurrent profiles for consistency with simulateTx.
-    return this.#putInJobQueue(async context => {
+    return this.#putInJobQueue(async jobId => {
       const totalTimer = new Timer();
       try {
         const txInfo = {
@@ -797,7 +796,7 @@ export class PXE {
           contractFunctionSimulator,
           txRequest,
           undefined,
-          context,
+          jobId,
         );
 
         const { executionSteps, timings: { proving } = {} } = await this.#prove(
@@ -878,7 +877,7 @@ export class PXE {
     // We disable concurrent simulations since those might execute oracles which read and write to the PXE stores (e.g.
     // to the capsules), and we need to prevent concurrent runs from interfering with one another (e.g. attempting to
     // delete the same read value, or reading values that another simulation is currently modifying).
-    return this.#putInJobQueue(async context => {
+    return this.#putInJobQueue(async jobId => {
       try {
         const totalTimer = new Timer();
         const txInfo = {
@@ -904,12 +903,7 @@ export class PXE {
         const skipKernels = overrides?.contracts !== undefined && Object.keys(overrides.contracts ?? {}).length > 0;
 
         // Execution of private functions only; no proving, and no kernel logic.
-        const privateExecutionResult = await this.#executePrivate(
-          contractFunctionSimulator,
-          txRequest,
-          scopes,
-          context,
-        );
+        const privateExecutionResult = await this.#executePrivate(contractFunctionSimulator, txRequest, scopes, jobId);
 
         let publicInputs: PrivateKernelTailCircuitPublicInputs | undefined;
         let executionSteps: PrivateExecutionStep[] = [];
@@ -1024,7 +1018,7 @@ export class PXE {
     // We disable concurrent simulations since those might execute oracles which read and write to the PXE stores (e.g.
     // to the capsules), and we need to prevent concurrent runs from interfering with one another (e.g. attempting to
     // delete the same read value, or reading values that another simulation is currently modifying).
-    return this.#putInJobQueue(async context => {
+    return this.#putInJobQueue(async jobId => {
       try {
         const totalTimer = new Timer();
         const syncTimer = new Timer();
@@ -1034,7 +1028,7 @@ export class PXE {
         const contractFunctionSimulator = this.#getSimulatorForTx();
 
         await this.contractStore.syncPrivateState(call.to, call.selector, privateSyncCall =>
-          this.#simulateUtility(contractFunctionSimulator, privateSyncCall, [], undefined, context),
+          this.#simulateUtility(contractFunctionSimulator, privateSyncCall, [], undefined, jobId),
         );
 
         const executionResult = await this.#simulateUtility(
@@ -1042,7 +1036,7 @@ export class PXE {
           call,
           authwits ?? [],
           scopes,
-          context,
+          jobId,
         );
         const functionTime = functionTimer.ms();
 
@@ -1085,7 +1079,7 @@ export class PXE {
    * @returns - The packed events with block and tx metadata.
    */
   public getPrivateEvents(eventSelector: EventSelector, filter: PrivateEventFilter): Promise<PackedPrivateEvent[]> {
-    return this.#putInJobQueue(async context => {
+    return this.#putInJobQueue(async jobId => {
       await this.blockStateSynchronizer.sync();
       const contractFunctionSimulator = this.#getSimulatorForTx();
 
@@ -1093,7 +1087,7 @@ export class PXE {
         filter.contractAddress,
         null,
         async privateSyncCall =>
-          await this.#simulateUtility(contractFunctionSimulator, privateSyncCall, [], undefined, context),
+          await this.#simulateUtility(contractFunctionSimulator, privateSyncCall, [], undefined, jobId),
       );
 
       const sanitizedFilter = await new PrivateEventFilterValidator(this.anchorBlockStore).validate(filter);

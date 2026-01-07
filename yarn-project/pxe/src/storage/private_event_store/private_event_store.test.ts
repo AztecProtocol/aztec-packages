@@ -7,7 +7,6 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { L2BlockHash } from '@aztec/stdlib/block';
 import { TxHash } from '@aztec/stdlib/tx';
 
-import { JobContext } from '../../job_coordinator/index.js';
 import type { PackedPrivateEvent } from '../../pxe.js';
 import { PrivateEventStore } from './private_event_store.js';
 
@@ -239,7 +238,7 @@ describe('PrivateEventStore', () => {
 
   describe('staging', () => {
     it('stages events without affecting committed storage', async () => {
-      const context = new JobContext('test123');
+      const jobId: string = 'test123';
 
       // Store committed event
       await privateEventStore.storePrivateEventLog(eventSelector, msgContent, eventCommitmentIndex, {
@@ -263,10 +262,10 @@ describe('PrivateEventStore', () => {
           l2BlockNumber,
           l2BlockHash,
         },
-        context,
+        jobId,
       );
 
-      // Without context, should only see committed event
+      // Without jobId, should only see committed event
       const events = await privateEventStore.getPrivateEvents(eventSelector, {
         contractAddress,
         fromBlock: l2BlockNumber,
@@ -277,8 +276,8 @@ describe('PrivateEventStore', () => {
       expect(events[0].packedEvent).toEqual(msgContent);
     });
 
-    it('staged events are visible when reading with context', async () => {
-      const context = new JobContext('test123');
+    it('staged events are visible when reading with jobId', async () => {
+      const jobId: string = 'test123';
 
       const stagedMsgContent = getRandomMsgContent();
       await privateEventStore.storePrivateEventLog(
@@ -292,20 +291,20 @@ describe('PrivateEventStore', () => {
           l2BlockNumber,
           l2BlockHash,
         },
-        context,
+        jobId,
       );
 
-      // Without context, should not see the staged event
-      const eventsWithoutContext = await privateEventStore.getPrivateEvents(eventSelector, {
+      // Without jobId, should not see the staged event
+      const eventsWithoutJobId = await privateEventStore.getPrivateEvents(eventSelector, {
         contractAddress,
         fromBlock: l2BlockNumber,
         toBlock: l2BlockNumber + 1,
         scopes: [scope],
       });
-      expect(eventsWithoutContext).toHaveLength(0);
+      expect(eventsWithoutJobId).toHaveLength(0);
 
-      // With context, should see the staged event
-      const eventsWithContext = await privateEventStore.getPrivateEvents(
+      // With jobId, should see the staged event
+      const eventsWithJobId = await privateEventStore.getPrivateEvents(
         eventSelector,
         {
           contractAddress,
@@ -313,14 +312,14 @@ describe('PrivateEventStore', () => {
           toBlock: l2BlockNumber + 1,
           scopes: [scope],
         },
-        context,
+        jobId,
       );
-      expect(eventsWithContext).toHaveLength(1);
-      expect(eventsWithContext[0].packedEvent).toEqual(stagedMsgContent);
+      expect(eventsWithJobId).toHaveLength(1);
+      expect(eventsWithJobId[0].packedEvent).toEqual(stagedMsgContent);
     });
 
     it('commit promotes staged events to main storage', async () => {
-      const context = new JobContext('test123');
+      const jobId: string = 'test123';
 
       const stagedMsgContent = getRandomMsgContent();
       await privateEventStore.storePrivateEventLog(
@@ -334,13 +333,13 @@ describe('PrivateEventStore', () => {
           l2BlockNumber,
           l2BlockHash,
         },
-        context,
+        jobId,
       );
 
       // Commit staging
-      await privateEventStore.commit(context);
+      await privateEventStore.commit(jobId);
 
-      // Now should see the event without context
+      // Now should see the event without jobId
       const events = await privateEventStore.getPrivateEvents(eventSelector, {
         contractAddress,
         fromBlock: l2BlockNumber,
@@ -352,7 +351,7 @@ describe('PrivateEventStore', () => {
     });
 
     it('discardStaged removes staged events without affecting main', async () => {
-      const context = new JobContext('test123');
+      const jobId: string = 'test123';
 
       // Store committed event
       await privateEventStore.storePrivateEventLog(eventSelector, msgContent, eventCommitmentIndex, {
@@ -376,11 +375,11 @@ describe('PrivateEventStore', () => {
           l2BlockNumber,
           l2BlockHash,
         },
-        context,
+        jobId,
       );
 
       // Discard staging
-      await privateEventStore.discardStaged(context);
+      await privateEventStore.discardStaged(jobId);
 
       // Should only see committed event
       const events = await privateEventStore.getPrivateEvents(eventSelector, {

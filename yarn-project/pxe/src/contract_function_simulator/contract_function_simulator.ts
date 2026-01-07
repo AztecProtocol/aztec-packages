@@ -71,7 +71,6 @@ import {
   getFinalMinRevertibleSideEffectCounter,
 } from '@aztec/stdlib/tx';
 
-import type { JobContext } from '../job_coordinator/index.js';
 import type { AddressStore } from '../storage/address_store/address_store.js';
 import type { AnchorBlockStore } from '../storage/anchor_block_store/anchor_block_store.js';
 import type { CapsuleStore } from '../storage/capsule_store/capsule_store.js';
@@ -124,7 +123,7 @@ export class ContractFunctionSimulator {
    * @param senderForTags - The address that is used as a tagging sender when emitting private logs. Returned from
    * the `privateGetSenderForTags` oracle.
    * @param scopes - The accounts whose notes we can access in this call. Currently optional and will default to all.
-   * @param jobContext - The job context for staged writes.
+   * @param jobId - The job ID for staged writes.
    * @returns The result of the execution.
    */
   public async run(
@@ -135,12 +134,12 @@ export class ContractFunctionSimulator {
     anchorBlockHeader: BlockHeader,
     senderForTags: AztecAddress | undefined,
     scopes: AztecAddress[] | undefined,
-    jobContext: JobContext,
+    jobId: string,
   ): Promise<PrivateExecutionResult> {
     const simulatorSetupTimer = new Timer();
 
     await this.contractStore.syncPrivateState(contractAddress, selector, privateSyncCall =>
-      this.runUtility(privateSyncCall, [], anchorBlockHeader, scopes, jobContext),
+      this.runUtility(privateSyncCall, [], anchorBlockHeader, scopes, jobId),
     );
 
     await verifyCurrentClassId(contractAddress, this.aztecNode, this.contractStore, anchorBlockHeader);
@@ -177,7 +176,7 @@ export class ContractFunctionSimulator {
       callContext,
       anchorBlockHeader,
       async call => {
-        await this.runUtility(call, [], anchorBlockHeader, scopes, jobContext);
+        await this.runUtility(call, [], anchorBlockHeader, scopes, jobId);
       },
       request.authWitnesses,
       request.capsules,
@@ -201,7 +200,7 @@ export class ContractFunctionSimulator {
       scopes,
       senderForTags,
       this.simulator,
-      jobContext,
+      jobId,
     );
 
     const setupTime = simulatorSetupTimer.ms();
@@ -259,7 +258,7 @@ export class ContractFunctionSimulator {
    * @param anchorBlockHeader - The block header to use as base state for this run.
    * @param scopes - Optional array of account addresses whose notes can be accessed in this call. Defaults to all
    * accounts if not specified.
-   * @param jobContext - The job context for staged writes.
+   * @param jobId - The job ID for staged writes.
    * @returns A return value of the utility function in a form as returned by the simulator (Noir fields)
    */
   public async runUtility(
@@ -267,7 +266,7 @@ export class ContractFunctionSimulator {
     authwits: AuthWitness[],
     anchorBlockHeader: BlockHeader,
     scopes: AztecAddress[] | undefined,
-    jobContext: JobContext,
+    jobId: string,
   ): Promise<Fr[]> {
     await verifyCurrentClassId(call.to, this.aztecNode, this.contractStore, anchorBlockHeader);
 
@@ -292,7 +291,7 @@ export class ContractFunctionSimulator {
       this.senderAddressBookStore,
       this.capsuleStore,
       this.privateEventStore,
-      jobContext,
+      jobId,
       undefined,
       scopes,
     );

@@ -3,7 +3,6 @@ import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 
 import { jest } from '@jest/globals';
 
-import { JobContext } from './job_context.js';
 import { JobCoordinator, type StagedStore } from './job_coordinator.js';
 
 describe('JobCoordinator', () => {
@@ -16,12 +15,11 @@ describe('JobCoordinator', () => {
   });
 
   describe('beginJob', () => {
-    it('creates a new job context', () => {
-      const context = coordinator.beginJob();
+    it('creates a new job id', () => {
+      const jobId = coordinator.beginJob();
 
-      expect(context).toBeInstanceOf(JobContext);
-      expect(context.jobId).toBeDefined();
-      expect(context.stagingPrefix).toContain('job_');
+      expect(typeof jobId).toBe('string');
+      expect(jobId.length).toBeGreaterThan(0);
     });
 
     // Note: we could eventually be relax this if we want more concurrency,
@@ -39,15 +37,15 @@ describe('JobCoordinator', () => {
 
   describe('commitJob', () => {
     it('clears job marker on commit', async () => {
-      const context = coordinator.beginJob();
-      await coordinator.commitJob(context);
+      const jobId = coordinator.beginJob();
+      await coordinator.commitJob(jobId);
       expect(coordinator.hasJobInProgress()).toBe(false);
     });
 
     it('throws if no matching job in progress', async () => {
-      const context = coordinator.beginJob();
-      await coordinator.commitJob(context);
-      await expect(coordinator.commitJob(context)).rejects.toThrow(/no matching job/);
+      const jobId = coordinator.beginJob();
+      await coordinator.commitJob(jobId);
+      await expect(coordinator.commitJob(jobId)).rejects.toThrow(/no matching job/);
     });
 
     it('calls commit on registered stores', async () => {
@@ -61,19 +59,19 @@ describe('JobCoordinator', () => {
 
       coordinator.registerStore(mockStore);
 
-      const context = coordinator.beginJob();
+      const jobId = coordinator.beginJob();
 
-      await coordinator.commitJob(context);
+      await coordinator.commitJob(jobId);
 
-      expect(commitMock).toHaveBeenCalledWith(context);
+      expect(commitMock).toHaveBeenCalledWith(jobId);
     });
   });
 
   describe('abortJob', () => {
     it('clears job marker on abort', async () => {
-      const context = coordinator.beginJob();
+      const jobId = coordinator.beginJob();
 
-      await coordinator.abortJob(context);
+      await coordinator.abortJob(jobId);
 
       expect(coordinator.hasJobInProgress()).toBe(false);
     });
@@ -89,11 +87,11 @@ describe('JobCoordinator', () => {
 
       coordinator.registerStore(mockStore);
 
-      const context = coordinator.beginJob();
+      const jobId = coordinator.beginJob();
 
-      await coordinator.abortJob(context);
+      await coordinator.abortJob(jobId);
 
-      expect(discardStagedMock).toHaveBeenCalledWith(context);
+      expect(discardStagedMock).toHaveBeenCalledWith(jobId);
     });
   });
 
@@ -111,24 +109,5 @@ describe('JobCoordinator', () => {
 
       expect(() => coordinator.registerStore(mockStore)).toThrow(/already registered/);
     });
-  });
-});
-
-describe('JobContext', () => {
-  it('generates staging keys', () => {
-    const context = new JobContext('abc123');
-    expect(context.stagingKey('notes')).toBe('job_abc123:notes');
-    expect(context.stagingKey('data:key')).toBe('job_abc123:data:key');
-  });
-
-  it('extracts main keys from staging keys', () => {
-    const context = new JobContext('abc123');
-    expect(context.mainKey('job_abc123:notes')).toBe('notes');
-    expect(context.mainKey('job_abc123:data:key')).toBe('data:key');
-  });
-
-  it('throws when extracting main key from non-staging key', () => {
-    const context = new JobContext('abc123');
-    expect(() => context.mainKey('notes')).toThrow(/does not have staging prefix/);
   });
 });

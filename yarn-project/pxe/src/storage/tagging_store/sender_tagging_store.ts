@@ -3,7 +3,6 @@ import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
 import type { DirectionalAppTaggingSecret, PreTag } from '@aztec/stdlib/logs';
 import { TxHash } from '@aztec/stdlib/tx';
 
-import type { JobContext } from '../../job_coordinator/index.js';
 import type { StagedStore } from '../../job_coordinator/job_coordinator.js';
 import { UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN } from '../../tagging/index.js';
 
@@ -76,7 +75,7 @@ export class SenderTaggingStore implements StagedStore {
    * This is enforced because this should never happen if the syncing is done correctly as we look for logs from higher
    * indexes than finalized ones.
    */
-  async storePendingIndexes(preTags: PreTag[], txHash: TxHash, context?: JobContext) {
+  async storePendingIndexes(preTags: PreTag[], txHash: TxHash, jobId?: string) {
     // The secrets in pre-tags should be unique because we always store just the highest index per given secret-txHash
     // pair. Below we check that this is the case.
     const secretsSet = new Set(preTags.map(preTag => preTag.secret.toString()));
@@ -87,7 +86,7 @@ export class SenderTaggingStore implements StagedStore {
     for (const { secret, index } of preTags) {
       // First we check that for any secret the highest used index in tx is not further than window length from
       // the highest finalized index.
-      const finalizedIndex = (await this.getLastFinalizedIndex(secret, context)) ?? 0;
+      const finalizedIndex = (await this.getLastFinalizedIndex(secret, jobId)) ?? 0;
       if (index > finalizedIndex + UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN) {
         throw new Error(
           `Highest used index ${index} is further than window length from the highest finalized index ${finalizedIndex}.
@@ -98,7 +97,7 @@ export class SenderTaggingStore implements StagedStore {
 
       // Throw if the new pending index is lower than or equal to the last finalized index
       const secretStr = secret.toString();
-      const lastFinalizedIndex = await this.#getLastFinalizedIndexInternal(secretStr, context);
+      const lastFinalizedIndex = await this.#getLastFinalizedIndexInternal(secretStr, jobId);
       if (lastFinalizedIndex !== undefined && index <= lastFinalizedIndex) {
         throw new Error(
           `Cannot store pending index ${index} for secret ${secretStr}: ` +
@@ -108,7 +107,7 @@ export class SenderTaggingStore implements StagedStore {
 
       // Check if this secret + txHash combination already exists
       const txHashStr = txHash.toString();
-      const existingForSecret = await this.#getPendingIndexesInternal(secretStr, context);
+      const existingForSecret = await this.#getPendingIndexesInternal(secretStr, jobId);
       const existingForSecretAndTx = existingForSecret.find(entry => entry.txHash === txHashStr);
 
       if (existingForSecretAndTx) {
@@ -123,7 +122,7 @@ export class SenderTaggingStore implements StagedStore {
       } else {
         // If it doesn't exist, add it
         const newValue = [...existingForSecret, { index, txHash: txHashStr }];
-        await this.#setPendingIndexesInternal(secretStr, newValue, context);
+        await this.#setPendingIndexesInternal(secretStr, newValue, jobId);
       }
     }
   }
@@ -142,9 +141,9 @@ export class SenderTaggingStore implements StagedStore {
     secret: DirectionalAppTaggingSecret,
     startIndex: number,
     endIndex: number,
-    context?: JobContext,
+    jobId?: string,
   ): Promise<TxHash[]> {
-    const existing = await this.#getPendingIndexesInternal(secret.toString(), context);
+    const existing = await this.#getPendingIndexesInternal(secret.toString(), jobId);
     const txHashes = existing
       .filter(entry => entry.index >= startIndex && entry.index < endIndex)
       .map(entry => entry.txHash);
@@ -157,8 +156,8 @@ export class SenderTaggingStore implements StagedStore {
    * @param context - Optional job context to check staging first.
    * @returns The last (highest) finalized index for the given secret.
    */
-  getLastFinalizedIndex(secret: DirectionalAppTaggingSecret, context?: JobContext): Promise<number | undefined> {
-    return this.#getLastFinalizedIndexInternal(secret.toString(), context);
+  getLastFinalizedIndex(secret: DirectionalAppTaggingSecret, jobId?: string): Promise<number | undefined> {
+    return this.#getLastFinalizedIndexInternal(secret.toString(), jobId);
   }
 
   /**
@@ -168,13 +167,13 @@ export class SenderTaggingStore implements StagedStore {
    * @param context - Optional job context to check staging first.
    * @returns The last used index.
    */
-  async getLastUsedIndex(secret: DirectionalAppTaggingSecret, context?: JobContext): Promise<number | undefined> {
+  async getLastUsedIndex(secret: DirectionalAppTaggingSecret, jobId?: string): Promise<number | undefined> {
     const secretStr = secret.toString();
-    const pendingTxScopedIndexes = await this.#getPendingIndexesInternal(secretStr, context);
+    const pendingTxScopedIndexes = await this.#getPendingIndexesInternal(secretStr, jobId);
     const pendingIndexes = pendingTxScopedIndexes.map(entry => entry.index);
 
     if (pendingTxScopedIndexes.length === 0) {
-      return this.#getLastFinalizedIndexInternal(secretStr, context);
+      return this.#getLastFinalizedIndexInternal(secretStr, jobId);
     }
 
     // As the last used index we return the highest one from the pending indexes. Note that this value will be always
@@ -187,23 +186,23 @@ export class SenderTaggingStore implements StagedStore {
    * @param txHashes - The transaction hashes to drop pending indexes for.
    * @param context - Optional job context for staged writes.
    */
-  async dropPendingIndexes(txHashes: TxHash[], context?: JobContext) {
+  async dropPendingIndexes(txHashes: TxHash[], jobId?: string) {
     if (txHashes.length === 0) {
       return;
     }
 
     const txHashStrs = new Set<string>(txHashes.map(txHash => txHash.toString()));
-    const allSecrets = await this.#getAllPendingSecrets(context);
+    const allSecrets = await this.#getAllPendingSecrets(jobId);
 
     for (const secret of allSecrets) {
-      const pendingData = await this.#getPendingIndexesInternal(secret, context);
+      const pendingData = await this.#getPendingIndexesInternal(secret, jobId);
       if (pendingData.length > 0) {
         const filtered = pendingData.filter(item => !txHashStrs.has(item.txHash));
         if (filtered.length === 0) {
-          await this.#deletePendingIndexesInternal(secret, context);
+          await this.#deletePendingIndexesInternal(secret, jobId);
         } else if (filtered.length !== pendingData.length) {
           // Some items were filtered out, so update the pending data
-          await this.#setPendingIndexesInternal(secret, filtered, context);
+          await this.#setPendingIndexesInternal(secret, filtered, jobId);
         }
         // else: No items were filtered out (txHashes not found for this secret) --> no-op
       }
@@ -216,7 +215,7 @@ export class SenderTaggingStore implements StagedStore {
    * @param txHashes - The transaction hashes to finalize pending indexes for.
    * @param context - Optional job context for staged writes.
    */
-  async finalizePendingIndexes(txHashes: TxHash[], context?: JobContext) {
+  async finalizePendingIndexes(txHashes: TxHash[], jobId?: string) {
     if (txHashes.length === 0) {
       return;
     }
@@ -224,10 +223,10 @@ export class SenderTaggingStore implements StagedStore {
     for (const txHash of txHashes) {
       const txHashStr = txHash.toString();
 
-      const allSecrets = await this.#getAllPendingSecrets(context);
+      const allSecrets = await this.#getAllPendingSecrets(jobId);
 
       for (const secret of allSecrets) {
-        const pendingData = await this.#getPendingIndexesInternal(secret, context);
+        const pendingData = await this.#getPendingIndexesInternal(secret, jobId);
         if (pendingData.length === 0) {
           continue;
         }
@@ -243,7 +242,7 @@ export class SenderTaggingStore implements StagedStore {
           throw new Error(`Multiple pending indexes found for tx hash ${txHashStr} and secret ${secret}`);
         }
 
-        let lastFinalized = await this.#getLastFinalizedIndexInternal(secret, context);
+        let lastFinalized = await this.#getLastFinalizedIndexInternal(secret, jobId);
         const newFinalized = matchingIndexes[0];
 
         if (newFinalized < (lastFinalized ?? 0)) {
@@ -254,7 +253,7 @@ export class SenderTaggingStore implements StagedStore {
           );
         }
 
-        await this.#setLastFinalizedIndexInternal(secret, newFinalized, context);
+        await this.#setLastFinalizedIndexInternal(secret, newFinalized, jobId);
         lastFinalized = newFinalized;
 
         // When we add pending indexes, we ensure they are higher than the last finalized index. However, because we
@@ -263,9 +262,9 @@ export class SenderTaggingStore implements StagedStore {
         // outdated pending indexes.
         const remainingItemsOfHigherIndex = pendingData.filter(item => item.index > (lastFinalized ?? 0));
         if (remainingItemsOfHigherIndex.length === 0) {
-          await this.#deletePendingIndexesInternal(secret, context);
+          await this.#deletePendingIndexesInternal(secret, jobId);
         } else {
-          await this.#setPendingIndexesInternal(secret, remainingItemsOfHigherIndex, context);
+          await this.#setPendingIndexesInternal(secret, remainingItemsOfHigherIndex, jobId);
         }
       }
     }
@@ -276,8 +275,8 @@ export class SenderTaggingStore implements StagedStore {
    * Called by JobCoordinator when a job completes successfully.
    * Must be called within a transaction by the JobCoordinator.
    */
-  async commit(context: JobContext): Promise<void> {
-    const jobStaging = this.#stagedData.get(context.jobId);
+  async commit(jobId: string): Promise<void> {
+    const jobStaging = this.#stagedData.get(jobId);
     if (!jobStaging) {
       return;
     }
@@ -296,23 +295,23 @@ export class SenderTaggingStore implements StagedStore {
       await this.#lastFinalizedIndexes.set(secret, value);
     }
 
-    this.#stagedData.delete(context.jobId);
+    this.#stagedData.delete(jobId);
   }
 
   /**
    * Discards staged data without committing.
    * Called by JobCoordinator on abort or during recovery.
    */
-  discardStaged(context: JobContext): Promise<void> {
-    this.#stagedData.delete(context.jobId);
+  discardStaged(jobId: string): Promise<void> {
+    this.#stagedData.delete(jobId);
     return Promise.resolve();
   }
 
   // Internal helpers for staging-aware reads and writes
 
-  #getPendingIndexesInternal(secret: string, context?: JobContext): Promise<{ index: number; txHash: string }[]> {
-    if (context) {
-      const jobStaging = this.#stagedData.get(context.jobId);
+  #getPendingIndexesInternal(secret: string, jobId?: string): Promise<{ index: number; txHash: string }[]> {
+    if (jobId) {
+      const jobStaging = this.#stagedData.get(jobId);
       if (jobStaging?.pendingIndexes.has(secret)) {
         const staged = jobStaging.pendingIndexes.get(secret);
         // null means deleted, return empty array; undefined shouldn't happen after has() check
@@ -325,13 +324,13 @@ export class SenderTaggingStore implements StagedStore {
   #setPendingIndexesInternal(
     secret: string,
     value: { index: number; txHash: string }[],
-    context?: JobContext,
+    jobId?: string,
   ): Promise<void> {
-    if (context) {
-      let jobStaging = this.#stagedData.get(context.jobId);
+    if (jobId) {
+      let jobStaging = this.#stagedData.get(jobId);
       if (!jobStaging) {
         jobStaging = { pendingIndexes: new Map(), finalizedIndexes: new Map() };
-        this.#stagedData.set(context.jobId, jobStaging);
+        this.#stagedData.set(jobId, jobStaging);
       }
       jobStaging.pendingIndexes.set(secret, value);
       return Promise.resolve();
@@ -340,13 +339,13 @@ export class SenderTaggingStore implements StagedStore {
     }
   }
 
-  #deletePendingIndexesInternal(secret: string, context?: JobContext): Promise<void> {
-    if (context) {
+  #deletePendingIndexesInternal(secret: string, jobId?: string): Promise<void> {
+    if (jobId) {
       // Store null to indicate deletion in staging
-      let jobStaging = this.#stagedData.get(context.jobId);
+      let jobStaging = this.#stagedData.get(jobId);
       if (!jobStaging) {
         jobStaging = { pendingIndexes: new Map(), finalizedIndexes: new Map() };
-        this.#stagedData.set(context.jobId, jobStaging);
+        this.#stagedData.set(jobId, jobStaging);
       }
       jobStaging.pendingIndexes.set(secret, null);
       return Promise.resolve();
@@ -355,9 +354,9 @@ export class SenderTaggingStore implements StagedStore {
     }
   }
 
-  #getLastFinalizedIndexInternal(secret: string, context?: JobContext): Promise<number | undefined> {
-    if (context) {
-      const jobStaging = this.#stagedData.get(context.jobId);
+  #getLastFinalizedIndexInternal(secret: string, jobId?: string): Promise<number | undefined> {
+    if (jobId) {
+      const jobStaging = this.#stagedData.get(jobId);
       if (jobStaging?.finalizedIndexes.has(secret)) {
         return Promise.resolve(jobStaging.finalizedIndexes.get(secret));
       }
@@ -365,12 +364,12 @@ export class SenderTaggingStore implements StagedStore {
     return this.#lastFinalizedIndexes.getAsync(secret);
   }
 
-  #setLastFinalizedIndexInternal(secret: string, value: number, context?: JobContext): Promise<void> {
-    if (context) {
-      let jobStaging = this.#stagedData.get(context.jobId);
+  #setLastFinalizedIndexInternal(secret: string, value: number, jobId?: string): Promise<void> {
+    if (jobId) {
+      let jobStaging = this.#stagedData.get(jobId);
       if (!jobStaging) {
         jobStaging = { pendingIndexes: new Map(), finalizedIndexes: new Map() };
-        this.#stagedData.set(context.jobId, jobStaging);
+        this.#stagedData.set(jobId, jobStaging);
       }
       jobStaging.finalizedIndexes.set(secret, value);
       return Promise.resolve();
@@ -379,15 +378,15 @@ export class SenderTaggingStore implements StagedStore {
     }
   }
 
-  async #getAllPendingSecrets(context?: JobContext): Promise<string[]> {
+  async #getAllPendingSecrets(jobId?: string): Promise<string[]> {
     const mainSecrets = await toArray(this.#pendingIndexes.keysAsync());
 
-    if (!context) {
+    if (!jobId) {
       return mainSecrets;
     }
 
     // Also include secrets that only exist in staging
-    const jobStaging = this.#stagedData.get(context.jobId);
+    const jobStaging = this.#stagedData.get(jobId);
     if (!jobStaging) {
       return mainSecrets;
     }

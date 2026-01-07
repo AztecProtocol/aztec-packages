@@ -8,7 +8,6 @@ import { DirectionalAppTaggingSecret, PendingTaggedLog, SiloedTag, Tag, TxScoped
 
 import type { LogRetrievalRequest } from '../contract_function_simulator/noir-structs/log_retrieval_request.js';
 import { LogRetrievalResponse } from '../contract_function_simulator/noir-structs/log_retrieval_response.js';
-import type { JobContext } from '../job_coordinator/index.js';
 import { AddressStore } from '../storage/address_store/address_store.js';
 import { AnchorBlockStore } from '../storage/anchor_block_store/anchor_block_store.js';
 import { CapsuleStore } from '../storage/capsule_store/capsule_store.js';
@@ -27,7 +26,7 @@ export class LogService {
     private readonly recipientTaggingStore: RecipientTaggingStore,
     private readonly senderAddressBookStore: SenderAddressBookStore,
     private readonly addressStore: AddressStore,
-    private readonly jobContext: JobContext,
+    private readonly jobId: string,
   ) {}
 
   public async bulkRetrieveLogs(logRetrievalRequests: LogRetrievalRequest[]): Promise<(LogRetrievalResponse | null)[]> {
@@ -188,12 +187,7 @@ export class LogService {
     });
 
     // TODO: This looks like it could belong more at the oracle interface level
-    return this.capsuleStore.appendToCapsuleArray(
-      contractAddress,
-      capsuleArrayBaseSlot,
-      pendingTaggedLogs,
-      this.jobContext,
-    );
+    return this.capsuleStore.appendToCapsuleArray(contractAddress, capsuleArrayBaseSlot, pendingTaggedLogs, this.jobId);
   }
 
   async #getCompleteAddress(account: AztecAddress): Promise<CompleteAddress> {

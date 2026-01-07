@@ -5,7 +5,6 @@ import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { makeBlockHeader } from '@aztec/stdlib/testing';
 
-import { JobContext } from '../../job_coordinator/index.js';
 import { AnchorBlockStore } from './anchor_block_store.js';
 
 describe('block header', () => {
@@ -29,55 +28,55 @@ describe('block header', () => {
   });
 
   describe('staging', () => {
-    it('writes to staging when context provided', async () => {
+    it('writes to staging when jobId provided', async () => {
       const committedHeader = makeBlockHeader(randomInt(1000), { blockNumber: BlockNumber(1) });
       const stagedHeader = makeBlockHeader(randomInt(1000), { blockNumber: BlockNumber(2) });
-      const context = new JobContext('test123');
+      const jobId: string = 'test123';
 
       // First set a committed header
       await anchorBlockStore.setHeader(committedHeader);
 
       // Then set a staged header
-      await anchorBlockStore.setHeader(stagedHeader, context);
+      await anchorBlockStore.setHeader(stagedHeader, jobId);
 
-      // Without context, should get committed header
+      // Without jobId, should get committed header
       await expect(anchorBlockStore.getBlockHeader()).resolves.toEqual(committedHeader);
 
-      // With context, should get staged header
-      await expect(anchorBlockStore.getBlockHeader(context)).resolves.toEqual(stagedHeader);
+      // With jobId, should get staged header
+      await expect(anchorBlockStore.getBlockHeader(jobId)).resolves.toEqual(stagedHeader);
     });
 
     it('commit promotes staged data to main', async () => {
       const committedHeader = makeBlockHeader(randomInt(1000), { blockNumber: BlockNumber(1) });
       const stagedHeader = makeBlockHeader(randomInt(1000), { blockNumber: BlockNumber(2) });
-      const context = new JobContext('test123');
+      const jobId: string = 'test123';
 
       await anchorBlockStore.setHeader(committedHeader);
-      await anchorBlockStore.setHeader(stagedHeader, context);
+      await anchorBlockStore.setHeader(stagedHeader, jobId);
 
       // Commit the staging
-      await anchorBlockStore.commit(context);
+      await anchorBlockStore.commit(jobId);
 
-      // Now without context should get the previously staged header
+      // Now without jobId should get the previously staged header
       await expect(anchorBlockStore.getBlockHeader()).resolves.toEqual(stagedHeader);
     });
 
     it('discardStaged removes staged data without affecting main', async () => {
       const committedHeader = makeBlockHeader(randomInt(1000), { blockNumber: BlockNumber(1) });
       const stagedHeader = makeBlockHeader(randomInt(1000), { blockNumber: BlockNumber(2) });
-      const context = new JobContext('test123');
+      const jobId: string = 'test123';
 
       await anchorBlockStore.setHeader(committedHeader);
-      await anchorBlockStore.setHeader(stagedHeader, context);
+      await anchorBlockStore.setHeader(stagedHeader, jobId);
 
       // Discard the staging
-      await anchorBlockStore.discardStaged(context);
+      await anchorBlockStore.discardStaged(jobId);
 
       // Should still get committed header
       await expect(anchorBlockStore.getBlockHeader()).resolves.toEqual(committedHeader);
 
-      // With context should fall back to committed since staging was discarded
-      await expect(anchorBlockStore.getBlockHeader(context)).resolves.toEqual(committedHeader);
+      // With jobId should fall back to committed since staging was discarded
+      await expect(anchorBlockStore.getBlockHeader(jobId)).resolves.toEqual(committedHeader);
     });
   });
 });

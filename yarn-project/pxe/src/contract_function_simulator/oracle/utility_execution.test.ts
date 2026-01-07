@@ -16,7 +16,6 @@ import { BlockHeader, GlobalVariables, TxHash } from '@aztec/stdlib/tx';
 import { mock } from 'jest-mock-extended';
 import type { _MockProxy } from 'jest-mock-extended/lib/Mock.js';
 
-import { JobContext } from '../../job_coordinator/index.js';
 import type { AddressStore } from '../../storage/address_store/address_store.js';
 import type { AnchorBlockStore } from '../../storage/anchor_block_store/anchor_block_store.js';
 import type { CapsuleStore } from '../../storage/capsule_store/capsule_store.js';
@@ -191,7 +190,7 @@ describe('Utility Execution test suite', () => {
       returnTypes: artifact.returnTypes,
     };
 
-    const result = await acirSimulator.runUtility(execRequest, [], anchorBlockHeader, [], new JobContext('test'));
+    const result = await acirSimulator.runUtility(execRequest, [], anchorBlockHeader, [], 'test');
 
     expect(result).toEqual([new Fr(9)]);
   }, 30_000);
@@ -223,7 +222,7 @@ describe('Utility Execution test suite', () => {
         senderAddressBookStore,
         capsuleStore,
         privateEventStore,
-        new JobContext('test'),
+        'test',
       );
     });
 

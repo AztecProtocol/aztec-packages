@@ -9,7 +9,6 @@ import { randomTxScopedPrivateL2Log } from '@aztec/stdlib/testing';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { LogRetrievalRequest } from '../contract_function_simulator/noir-structs/log_retrieval_request.js';
-import { JobContext } from '../job_coordinator/index.js';
 import { AddressStore } from '../storage/address_store/address_store.js';
 import { AnchorBlockStore } from '../storage/anchor_block_store/anchor_block_store.js';
 import { CapsuleStore } from '../storage/capsule_store/capsule_store.js';
@@ -51,7 +50,7 @@ describe('LogService', () => {
         recipientTaggingStore,
         senderAddressBookStore,
         addressStore,
-        new JobContext('test'),
+        'test',
       );
 
       aztecNode.getPrivateLogsByTags.mockReset();

@@ -3,7 +3,6 @@ import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { DirectionalAppTaggingSecret, type PreTag } from '@aztec/stdlib/logs';
 import { TxHash } from '@aztec/stdlib/tx';
 
-import { JobContext } from '../../job_coordinator/index.js';
 import { UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN } from '../../tagging/index.js';
 import { SenderTaggingStore } from './sender_tagging_store.js';
 
@@ -483,132 +482,132 @@ describe('SenderTaggingStore', () => {
   });
 
   describe('staging', () => {
-    it('writes to staging when context provided', async () => {
+    it('writes to staging when jobId provided', async () => {
       const committedTxHash = TxHash.random();
       const stagedTxHash = TxHash.random();
-      const context = new JobContext('test123');
+      const jobId: string = 'test123';
 
       // First set committed data
       await taggingStore.storePendingIndexes([{ secret: secret1, index: 3 }], committedTxHash);
 
       // Then set staged data
-      await taggingStore.storePendingIndexes([{ secret: secret1, index: 5 }], stagedTxHash, context);
+      await taggingStore.storePendingIndexes([{ secret: secret1, index: 5 }], stagedTxHash, jobId);
 
-      // Without context, should only get committed data
-      const txHashesWithoutContext = await taggingStore.getTxHashesOfPendingIndexes(secret1, 0, 10);
-      expect(txHashesWithoutContext).toHaveLength(1);
-      expect(txHashesWithoutContext[0]).toEqual(committedTxHash);
+      // Without jobId, should only get committed data
+      const txHashesWithoutJobId = await taggingStore.getTxHashesOfPendingIndexes(secret1, 0, 10);
+      expect(txHashesWithoutJobId).toHaveLength(1);
+      expect(txHashesWithoutJobId[0]).toEqual(committedTxHash);
 
-      // With context, should get both committed and staged data
-      const txHashesWithContext = await taggingStore.getTxHashesOfPendingIndexes(secret1, 0, 10, context);
-      expect(txHashesWithContext).toHaveLength(2);
-      expect(txHashesWithContext).toContainEqual(committedTxHash);
-      expect(txHashesWithContext).toContainEqual(stagedTxHash);
+      // With jobId, should get both committed and staged data
+      const txHashesWithJobId = await taggingStore.getTxHashesOfPendingIndexes(secret1, 0, 10, jobId);
+      expect(txHashesWithJobId).toHaveLength(2);
+      expect(txHashesWithJobId).toContainEqual(committedTxHash);
+      expect(txHashesWithJobId).toContainEqual(stagedTxHash);
     });
 
     it('stages finalized indexes separately', async () => {
       const txHash1 = TxHash.random();
       const txHash2 = TxHash.random();
-      const context = new JobContext('test123');
+      const jobId: string = 'test123';
 
       // First commit some data without staging
       await taggingStore.storePendingIndexes([{ secret: secret1, index: 3 }], txHash1);
       await taggingStore.finalizePendingIndexes([txHash1]);
 
       // Stage a higher finalized index
-      await taggingStore.storePendingIndexes([{ secret: secret1, index: 7 }], txHash2, context);
-      await taggingStore.finalizePendingIndexes([txHash2], context);
+      await taggingStore.storePendingIndexes([{ secret: secret1, index: 7 }], txHash2, jobId);
+      await taggingStore.finalizePendingIndexes([txHash2], jobId);
 
-      // Without context, should get the committed finalized index
+      // Without jobId, should get the committed finalized index
       expect(await taggingStore.getLastFinalizedIndex(secret1)).toBe(3);
 
-      // With context, should get the staged finalized index
-      expect(await taggingStore.getLastFinalizedIndex(secret1, context)).toBe(7);
+      // With jobId, should get the staged finalized index
+      expect(await taggingStore.getLastFinalizedIndex(secret1, jobId)).toBe(7);
     });
 
     it('commit promotes staged data to main', async () => {
       const txHash1 = TxHash.random();
       const txHash2 = TxHash.random();
-      const context = new JobContext('test123');
+      const jobId: string = 'test123';
 
       await taggingStore.storePendingIndexes([{ secret: secret1, index: 3 }], txHash1);
       await taggingStore.finalizePendingIndexes([txHash1]);
 
-      await taggingStore.storePendingIndexes([{ secret: secret1, index: 7 }], txHash2, context);
-      await taggingStore.finalizePendingIndexes([txHash2], context);
+      await taggingStore.storePendingIndexes([{ secret: secret1, index: 7 }], txHash2, jobId);
+      await taggingStore.finalizePendingIndexes([txHash2], jobId);
 
       // Commit the staging
-      await taggingStore.commit(context);
+      await taggingStore.commit(jobId);
 
-      // Now without context should get the previously staged data
+      // Now without jobId should get the previously staged data
       expect(await taggingStore.getLastFinalizedIndex(secret1)).toBe(7);
     });
 
     it('discardStaged removes staged data without affecting main', async () => {
       const txHash1 = TxHash.random();
       const txHash2 = TxHash.random();
-      const context = new JobContext('test123');
+      const jobId: string = 'test123';
 
       await taggingStore.storePendingIndexes([{ secret: secret1, index: 3 }], txHash1);
       await taggingStore.finalizePendingIndexes([txHash1]);
 
-      await taggingStore.storePendingIndexes([{ secret: secret1, index: 7 }], txHash2, context);
-      await taggingStore.finalizePendingIndexes([txHash2], context);
+      await taggingStore.storePendingIndexes([{ secret: secret1, index: 7 }], txHash2, jobId);
+      await taggingStore.finalizePendingIndexes([txHash2], jobId);
 
       // Discard the staging
-      await taggingStore.discardStaged(context);
+      await taggingStore.discardStaged(jobId);
 
       // Should still get the committed finalized index
       expect(await taggingStore.getLastFinalizedIndex(secret1)).toBe(3);
 
-      // With context should fall back to committed since staging was discarded
-      expect(await taggingStore.getLastFinalizedIndex(secret1, context)).toBe(3);
+      // With jobId should fall back to committed since staging was discarded
+      expect(await taggingStore.getLastFinalizedIndex(secret1, jobId)).toBe(3);
     });
 
     it('stages pending and finalized index operations independently', async () => {
       const txHash1 = TxHash.random();
       const txHash2 = TxHash.random();
       const txHash3 = TxHash.random();
-      const context = new JobContext('test123');
+      const jobId: string = 'test123';
 
       // Committed: index 3 pending
       await taggingStore.storePendingIndexes([{ secret: secret1, index: 3 }], txHash1);
 
       // Staged: index 5 pending, then finalize it
-      await taggingStore.storePendingIndexes([{ secret: secret1, index: 5 }], txHash2, context);
-      await taggingStore.finalizePendingIndexes([txHash2], context);
+      await taggingStore.storePendingIndexes([{ secret: secret1, index: 5 }], txHash2, jobId);
+      await taggingStore.finalizePendingIndexes([txHash2], jobId);
 
       // Staged: add another pending index
-      await taggingStore.storePendingIndexes([{ secret: secret1, index: 7 }], txHash3, context);
+      await taggingStore.storePendingIndexes([{ secret: secret1, index: 7 }], txHash3, jobId);
 
-      // Without context:
+      // Without jobId:
       // - Should see pending: txHash1 (index 3)
       // - No finalized index
       expect(await taggingStore.getLastFinalizedIndex(secret1)).toBeUndefined();
       expect(await taggingStore.getLastUsedIndex(secret1)).toBe(3);
 
-      // With context:
+      // With jobId:
       // - Should see finalized: 5
       // - Should see pending: txHash1 (index 3), txHash3 (index 7)
       // - Last used should be max(finalized=5, pending={3,7}) = 7
-      expect(await taggingStore.getLastFinalizedIndex(secret1, context)).toBe(5);
-      expect(await taggingStore.getLastUsedIndex(secret1, context)).toBe(7);
+      expect(await taggingStore.getLastFinalizedIndex(secret1, jobId)).toBe(5);
+      expect(await taggingStore.getLastUsedIndex(secret1, jobId)).toBe(7);
     });
 
     it('drops pending indexes in staging correctly', async () => {
       const txHash1 = TxHash.random();
       const txHash2 = TxHash.random();
-      const context = new JobContext('test123');
+      const jobId: string = 'test123';
 
       // Store both pending indexes with staging
-      await taggingStore.storePendingIndexes([{ secret: secret1, index: 3 }], txHash1, context);
-      await taggingStore.storePendingIndexes([{ secret: secret1, index: 5 }], txHash2, context);
+      await taggingStore.storePendingIndexes([{ secret: secret1, index: 3 }], txHash1, jobId);
+      await taggingStore.storePendingIndexes([{ secret: secret1, index: 5 }], txHash2, jobId);
 
       // Drop one in staging
-      await taggingStore.dropPendingIndexes([txHash1], context);
+      await taggingStore.dropPendingIndexes([txHash1], jobId);
 
-      // With context, should only see txHash2
-      const txHashes = await taggingStore.getTxHashesOfPendingIndexes(secret1, 0, 10, context);
+      // With jobId, should only see txHash2
+      const txHashes = await taggingStore.getTxHashesOfPendingIndexes(secret1, 0, 10, jobId);
       expect(txHashes).toHaveLength(1);
       expect(txHashes[0]).toEqual(txHash2);
     });

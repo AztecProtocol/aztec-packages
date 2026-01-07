@@ -8,7 +8,6 @@ import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { L2BlockHash } from '@aztec/stdlib/block';
 import { type InTx, TxHash } from '@aztec/stdlib/tx';
 
-import type { JobContext } from '../../job_coordinator/index.js';
 import type { StagedStore } from '../../job_coordinator/job_coordinator.js';
 import type { PackedPrivateEvent } from '../../pxe.js';
 
@@ -86,10 +85,10 @@ export class PrivateEventStore implements StagedStore {
   }
 
   /** Checks if an event has been seen (committed or staged) */
-  async #hasBeenSeen(eventCommitmentIndex: number, context?: JobContext): Promise<boolean> {
+  async #hasBeenSeen(eventCommitmentIndex: number, jobId?: string): Promise<boolean> {
     // Check staging first (fast in-memory check)
-    if (context) {
-      const jobStaging = this.#stagedEvents.get(context.jobId);
+    if (jobId) {
+      const jobStaging = this.#stagedEvents.get(jobId);
       if (jobStaging?.has(eventCommitmentIndex)) {
         return true;
       }
@@ -115,13 +114,13 @@ export class PrivateEventStore implements StagedStore {
     msgContent: Fr[],
     eventCommitmentIndex: number,
     metadata: PrivateEventMetadata,
-    context?: JobContext,
+    jobId?: string,
   ): Promise<void> {
     const { contractAddress, scope, txHash, l2BlockNumber, l2BlockHash } = metadata;
     const key = this.#keyFor(contractAddress, scope, eventSelector);
 
     // Check for duplicates (both committed and staged)
-    if (await this.#hasBeenSeen(eventCommitmentIndex, context)) {
+    if (await this.#hasBeenSeen(eventCommitmentIndex, jobId)) {
       this.logger.verbose('Ignoring duplicate event log', { txHash: txHash.toString(), eventCommitmentIndex });
       return;
     }
@@ -134,12 +133,12 @@ export class PrivateEventStore implements StagedStore {
       txHash: txHash.toBuffer(),
     };
 
-    if (context) {
+    if (jobId) {
       this.logger.verbose('staging private event log', { contractAddress, scope, msgContent, l2BlockNumber });
-      let jobStaging = this.#stagedEvents.get(context.jobId);
+      let jobStaging = this.#stagedEvents.get(jobId);
       if (!jobStaging) {
         jobStaging = new Map();
-        this.#stagedEvents.set(context.jobId, jobStaging);
+        this.#stagedEvents.set(jobId, jobStaging);
       }
       jobStaging.set(eventCommitmentIndex, { entry, key });
     } else {
@@ -173,7 +172,7 @@ export class PrivateEventStore implements StagedStore {
   public async getPrivateEvents(
     eventSelector: EventSelector,
     filter: PrivateEventStoreFilter,
-    context?: JobContext,
+    jobId?: string,
   ): Promise<PackedPrivateEvent[]> {
     const eventsMap = new Map<number, PackedPrivateEvent>();
 
@@ -197,8 +196,8 @@ export class PrivateEventStore implements StagedStore {
     }
 
     // Get staged events if context is provided
-    if (context) {
-      const jobStaging = this.#stagedEvents.get(context.jobId);
+    if (jobId) {
+      const jobStaging = this.#stagedEvents.get(jobId);
       if (jobStaging) {
         for (const [eventCommitmentIndex, { entry, key }] of jobStaging) {
           if (!validKeys.has(key) || !this.#entryMatchesFilter(entry, filter)) {
@@ -221,8 +220,8 @@ export class PrivateEventStore implements StagedStore {
    * Must be called within a transaction by the JobCoordinator.
    * @param context - The job context identifying which staged data to commit
    */
-  async commit(context: JobContext): Promise<void> {
-    const jobStaging = this.#stagedEvents.get(context.jobId);
+  async commit(jobId: string): Promise<void> {
+    const jobStaging = this.#stagedEvents.get(jobId);
     if (!jobStaging) {
       return;
     }
@@ -237,15 +236,15 @@ export class PrivateEventStore implements StagedStore {
       await this.#seenLogs.set(eventCommitmentIndex, true);
     }
 
-    this.#stagedEvents.delete(context.jobId);
+    this.#stagedEvents.delete(jobId);
   }
 
   /**
    * Discards staged data without committing.
    * @param context - The job context
    */
-  discardStaged(context: JobContext): Promise<void> {
-    this.#stagedEvents.delete(context.jobId);
+  discardStaged(jobId: string): Promise<void> {
+    this.#stagedEvents.delete(jobId);
     return Promise.resolve();
   }
 }

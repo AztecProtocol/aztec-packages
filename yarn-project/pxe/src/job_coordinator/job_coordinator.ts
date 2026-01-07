@@ -2,8 +2,6 @@ import { randomBytes } from '@aztec/foundation/crypto/random';
 import { createLogger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 
-import { JobContext } from './job_context.js';
-
 /**
  * Interface that data providers must implement to support staged writes.
  */
@@ -15,25 +13,25 @@ export interface StagedStore {
    * Commits staged data to main storage.
    * Should be called within a transaction for atomicity.
    *
-   * @param context - The job context containing the staging prefix
+   * @param jobId - The job identifier
    */
-  commit(context: JobContext): Promise<void>;
+  commit(jobId: string): Promise<void>;
 
   /**
    * Discards staged data without committing.
    * Called on abort or during recovery.
    *
-   * @param context - The job context containing the staging prefix
+   * @param jobId - The job identifier
    */
-  discardStaged(context: JobContext): Promise<void>;
+  discardStaged(jobId: string): Promise<void>;
 }
 
 /**
  * JobCoordinator manages job lifecycle and provides crash resilience for PXE operations.
  *
  * It uses a staged writes pattern:
- * 1. When a job begins, a context is created with a unique staging prefix
- * 2. During the job, all writes go to staging (prefixed keys)
+ * 1. When a job begins, a unique job ID is created
+ * 2. During the job, all writes go to staging (keyed by job ID)
  * 3. On commit, staging is promoted to main storage
  * 4. On abort, staged data is discarded
  *
@@ -47,8 +45,8 @@ export class JobCoordinator {
   /** The underlying KV store */
   kvStore: AztecAsyncKVStore;
 
-  /** Current job context (in-memory only) */
-  #currentJob: JobContext | undefined;
+  /** Current job ID (in-memory only) */
+  #currentJobId: string | undefined;
 
   /** All registered staged stores */
   #stores: Map<string, StagedStore> = new Map();
@@ -79,81 +77,79 @@ export class JobCoordinator {
   }
 
   /**
-   * Begins a new job and returns a context for staged writes.
+   * Begins a new job and returns a job ID for staged writes.
    *
-   * @returns JobContext to pass to store operations
+   * @returns Job ID to pass to store operations
    */
-  beginJob(): JobContext {
-    if (this.#currentJob) {
+  beginJob(): string {
+    if (this.#currentJobId) {
       throw new Error(
-        `Cannot begin job: job ${this.#currentJob.jobId} is already in progress. ` +
+        `Cannot begin job: job ${this.#currentJobId} is already in progress. ` +
           `This should not happen - ensure jobs are properly committed or aborted.`,
       );
     }
 
     const jobId = randomBytes(8).toString('hex');
-    const context = new JobContext(jobId);
-    this.#currentJob = context;
+    this.#currentJobId = jobId;
 
     this.log.debug(`Started job ${jobId}`);
-    return context;
+    return jobId;
   }
 
   /**
    * Commits a job by promoting all staged data to main storage.
    *
-   * @param context - The job context returned from beginJob
+   * @param jobId - The job ID returned from beginJob
    */
-  async commitJob(context: JobContext): Promise<void> {
-    if (!this.#currentJob || this.#currentJob.jobId !== context.jobId) {
+  async commitJob(jobId: string): Promise<void> {
+    if (!this.#currentJobId || this.#currentJobId !== jobId) {
       throw new Error(
-        `Cannot commit job ${context.jobId}: no matching job in progress. ` +
-          `Current job: ${this.#currentJob ? this.#currentJob.jobId : 'none'}`,
+        `Cannot commit job ${jobId}: no matching job in progress. ` + `Current job: ${this.#currentJobId ?? 'none'}`,
       );
     }
 
-    this.log.debug(`Committing job ${context.jobId}`);
+    this.log.debug(`Committing job ${jobId}`);
 
     // Commit all stores atomically in a single transaction.
     // Each store's commit is a no-op if it has no staged data (but that's up to each store to handle).
     await this.kvStore.transactionAsync(async () => {
       for (const store of this.#stores.values()) {
-        await store.commit(context);
+        await store.commit(jobId);
       }
     });
 
-    this.#currentJob = undefined;
-    this.log.debug(`Job ${context.jobId} committed successfully`);
+    this.#currentJobId = undefined;
+    this.log.debug(`Job ${jobId} committed successfully`);
   }
 
   /**
    * Aborts a job by discarding all staged data.
    *
-   * @param context - The job context returned from beginJob
+   * @param jobId - The job ID returned from beginJob
    */
-  async abortJob(context: JobContext): Promise<void> {
-    if (!this.#currentJob || this.#currentJob.jobId !== context.jobId) {
+  async abortJob(jobId: string): Promise<void> {
+    if (!this.#currentJobId || this.#currentJobId !== jobId) {
       // Job may have already been aborted or never started properly
-      this.log.warn(`Abort called for job ${context.jobId} but current job is ${this.#currentJob?.jobId ?? 'none'}`);
+      this.log.warn(`Abort called for job ${jobId} but current job is ${this.#currentJobId ?? 'none'}`);
     }
 
-    this.log.debug(`Aborting job ${context.jobId}`);
+    this.log.debug(`Aborting job ${jobId}`);
 
     // Discard staging atomically
     await this.kvStore.transactionAsync(async () => {
       for (const store of this.#stores.values()) {
-        await store.discardStaged(context);
+        await store.discardStaged(jobId);
       }
     });
 
-    this.#currentJob = undefined;
-    this.log.debug(`Job ${context.jobId} aborted`);
+    this.#currentJobId = undefined;
+    this.log.debug(`Job ${jobId} aborted`);
   }
 
   /**
    * Checks if there's a job currently in progress.
    */
   hasJobInProgress(): boolean {
-    return this.#currentJob !== undefined;
+    return this.#currentJobId !== undefined;
   }
 }

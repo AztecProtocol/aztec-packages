@@ -64,7 +64,6 @@ import { jest } from '@jest/globals';
 import { Matcher, type MatcherCreator, type MockProxy, mock } from 'jest-mock-extended';
 import { toFunctionSelector } from 'viem';
 
-import { JobContext } from '../../job_coordinator/index.js';
 import type { AddressStore } from '../../storage/address_store/address_store.js';
 import type { AnchorBlockStore } from '../../storage/anchor_block_store/anchor_block_store.js';
 import type { CapsuleStore } from '../../storage/capsule_store/capsule_store.js';
@@ -220,7 +219,7 @@ describe('Private Execution test suite', () => {
       anchorBlockHeader,
       senderForTags,
       undefined,
-      new JobContext('test'),
+      'test',
     );
   };
 

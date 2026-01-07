@@ -1,7 +1,6 @@
 import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
 import type { DirectionalAppTaggingSecret } from '@aztec/stdlib/logs';
 
-import type { JobContext } from '../../job_coordinator/index.js';
 import type { StagedStore } from '../../job_coordinator/job_coordinator.js';
 
 /**
@@ -35,10 +34,9 @@ export class RecipientTaggingStore implements StagedStore {
     this.#stagedIndexes = new Map();
   }
 
-  getHighestAgedIndex(secret: DirectionalAppTaggingSecret, context?: JobContext): Promise<number | undefined> {
-    // Check staging first if context provided
-    if (context) {
-      const jobStaging = this.#stagedIndexes.get(context.jobId);
+  getHighestAgedIndex(secret: DirectionalAppTaggingSecret, jobId?: string): Promise<number | undefined> {
+    if (jobId) {
+      const jobStaging = this.#stagedIndexes.get(jobId);
       const staged = jobStaging?.get(secret.toString());
       if (staged?.highestAgedIndex !== undefined) {
         return Promise.resolve(staged.highestAgedIndex);
@@ -48,23 +46,19 @@ export class RecipientTaggingStore implements StagedStore {
     return this.#highestAgedIndex.getAsync(secret.toString());
   }
 
-  async updateHighestAgedIndex(
-    secret: DirectionalAppTaggingSecret,
-    index: number,
-    context?: JobContext,
-  ): Promise<void> {
-    const currentIndex = await this.getHighestAgedIndex(secret, context);
+  async updateHighestAgedIndex(secret: DirectionalAppTaggingSecret, index: number, jobId?: string): Promise<void> {
+    const currentIndex = await this.getHighestAgedIndex(secret, jobId);
     if (currentIndex !== undefined && index <= currentIndex) {
       // Log sync should never set a lower highest aged index.
       throw new Error(`New highest aged index (${index}) must be higher than the current one (${currentIndex})`);
     }
 
-    if (context) {
+    if (jobId) {
       // Stage the update
-      let jobStaging = this.#stagedIndexes.get(context.jobId);
+      let jobStaging = this.#stagedIndexes.get(jobId);
       if (!jobStaging) {
         jobStaging = new Map();
-        this.#stagedIndexes.set(context.jobId, jobStaging);
+        this.#stagedIndexes.set(jobId, jobStaging);
       }
       const existing = jobStaging.get(secret.toString()) || {};
       jobStaging.set(secret.toString(), { ...existing, highestAgedIndex: index });
@@ -73,10 +67,9 @@ export class RecipientTaggingStore implements StagedStore {
     }
   }
 
-  getHighestFinalizedIndex(secret: DirectionalAppTaggingSecret, context?: JobContext): Promise<number | undefined> {
-    // Check staging first if context provided
-    if (context) {
-      const jobStaging = this.#stagedIndexes.get(context.jobId);
+  getHighestFinalizedIndex(secret: DirectionalAppTaggingSecret, jobId?: string): Promise<number | undefined> {
+    if (jobId) {
+      const jobStaging = this.#stagedIndexes.get(jobId);
       const staged = jobStaging?.get(secret.toString());
       if (staged?.highestFinalizedIndex !== undefined) {
         return Promise.resolve(staged.highestFinalizedIndex);
@@ -86,24 +79,20 @@ export class RecipientTaggingStore implements StagedStore {
     return this.#highestFinalizedIndex.getAsync(secret.toString());
   }
 
-  async updateHighestFinalizedIndex(
-    secret: DirectionalAppTaggingSecret,
-    index: number,
-    context?: JobContext,
-  ): Promise<void> {
-    const currentIndex = await this.getHighestFinalizedIndex(secret, context);
+  async updateHighestFinalizedIndex(secret: DirectionalAppTaggingSecret, index: number, jobId?: string): Promise<void> {
+    const currentIndex = await this.getHighestFinalizedIndex(secret, jobId);
     if (currentIndex !== undefined && index < currentIndex) {
       // Log sync should never set a lower highest finalized index but it can happen that it would try to set the same
       // one because we are loading logs from highest aged index + 1 and not from the highest finalized index.
       throw new Error(`New highest finalized index (${index}) must be higher than the current one (${currentIndex})`);
     }
 
-    if (context) {
+    if (jobId) {
       // Stage the update
-      let jobStaging = this.#stagedIndexes.get(context.jobId);
+      let jobStaging = this.#stagedIndexes.get(jobId);
       if (!jobStaging) {
         jobStaging = new Map();
-        this.#stagedIndexes.set(context.jobId, jobStaging);
+        this.#stagedIndexes.set(jobId, jobStaging);
       }
       const existing = jobStaging.get(secret.toString()) || {};
       jobStaging.set(secret.toString(), { ...existing, highestFinalizedIndex: index });
@@ -114,8 +103,8 @@ export class RecipientTaggingStore implements StagedStore {
 
   // StagedStore implementation
 
-  async commit(context: JobContext): Promise<void> {
-    const jobStaging = this.#stagedIndexes.get(context.jobId);
+  async commit(jobId: string): Promise<void> {
+    const jobStaging = this.#stagedIndexes.get(jobId);
     if (!jobStaging) {
       return;
     }
@@ -130,11 +119,11 @@ export class RecipientTaggingStore implements StagedStore {
       }
     }
 
-    this.#stagedIndexes.delete(context.jobId);
+    this.#stagedIndexes.delete(jobId);
   }
 
-  discardStaged(context: JobContext): Promise<void> {
-    this.#stagedIndexes.delete(context.jobId);
+  discardStaged(jobId: string): Promise<void> {
+    this.#stagedIndexes.delete(jobId);
     return Promise.resolve();
   }
 }
