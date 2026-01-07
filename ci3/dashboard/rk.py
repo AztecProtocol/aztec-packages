@@ -7,6 +7,7 @@ import re
 import requests
 import threading
 from ansi2html import Ansi2HTMLConverter
+from pathlib import Path
 
 # Import core rendering logic
 from rk_core import (
@@ -126,7 +127,7 @@ def root() -> str:
         f"\n{YELLOW}"
         f"{hyperlink('/section/master?fail_list=failed_tests_master', 'master queue')}\n"
         f"{hyperlink('/section/staging?fail_list=failed_tests_staging', 'staging queue')}\n"
-        f"{hyperlink('/section/next?fail_list=failed_tests_next&limit=200', 'next queue')}\n"
+        f"{hyperlink('/section/next?fail_list=failed_tests_next', 'next queue')}\n"
         f"{hyperlink('/section/prs', 'prs')}\n"
         f"{hyperlink('/section/releases', 'releases')}\n"
         f"{hyperlink('/section/nightly', 'nightly')}\n"
@@ -138,13 +139,13 @@ def root() -> str:
         f"{hyperlink('https://aztecprotocol.github.io/aztec-packages/bench?branch=master', 'master')}\n"
         f"{hyperlink('https://aztecprotocol.github.io/aztec-packages/bench?branch=staging', 'staging')}\n"
         f"{hyperlink('https://aztecprotocol.github.io/aztec-packages/bench?branch=next', 'next')}\n"
-        f"{hyperlink('/chonk-breakdowns', 'crypto team chonk breakdowns')}\n"
+        f"{hyperlink('/chonk-breakdowns', 'chonk breakdowns')}\n"
         f"{RESET}"
     )
 
 def section_view(section: str) -> str:
     offset = int(request.args.get('offset', 0))
-    limit = int(request.args.get('limit', 100))
+    limit = int(request.args.get('limit', 50))
     filter_str = request.args.get('filter', default='', type=str)
     filter_prop = request.args.get('filter_prop', default='', type=str)
     fail_list = request.args.get('fail_list', default='', type=str)
