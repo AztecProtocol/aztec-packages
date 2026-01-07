@@ -265,140 +265,39 @@ export class NoteStore implements StagedStore {
    * @throws If filtering by an empty scopes array. Scopes have to be set to undefined or to a non-empty array.
    */
   async getNotes(filter: NotesFilter, jobId?: string): Promise<NoteDao[]> {
-    filter.status = filter.status ?? NoteStatus.ACTIVE;
+    filter.status ??= NoteStatus.ACTIVE;
 
-    // throw early if scopes is an empty array
     if (filter.scopes !== undefined && filter.scopes.length === 0) {
       throw new Error(
         'Trying to get notes with an empty scopes array. Scopes have to be set to undefined if intending on not filtering by scopes.',
       );
     }
 
-    // Get non-committed data, which includes added notes, nullified notes,
-    // and scopes from added notes
-    const stagedNotes = jobId ? this.#stagedData.get(jobId) : undefined;
-    const stagedNullifiedIndexes = new Set<string>(stagedNotes?.nullifiedNotes.keys() ?? []);
-    const stagedScopes = new Set<string>();
-    if (stagedNotes) {
-      for (const note of stagedNotes.addedNotes.values()) {
-        stagedScopes.add(note.scope);
-      }
-    }
+    // Get staged data for this job
+    const staged = jobId ? this.#stagedData.get(jobId) : undefined;
+    const stagedScopes = this.#extractStagedScopes(staged);
+    const stagedNullifiedIds = new Set<string>(staged?.nullifiedNotes.keys() ?? []);
 
-    // Default to including all known scopes if filter.scopes is not specified
-    filter.scopes ??= [
-      ...(await toArray(this.#scopes.keysAsync())).map(addressString => AztecAddress.fromString(addressString)),
-      ...stagedScopes.values().map(scopeString => AztecAddress.fromString(scopeString)),
-    ];
+    // Resolve scopes (defaults to all known scopes if not specified)
+    const scopes = await this.#resolveScopes(filter.scopes, stagedScopes);
 
-    const activeNoteIdsPerScope: string[][] = [];
-    for (const scope of new Set(filter.scopes)) {
-      const formattedScopeString = scope.toString();
-      const isCommittedScope = await this.#scopes.hasAsync(formattedScopeString);
-      if (!stagedScopes.has(formattedScopeString) && !isCommittedScope) {
-        throw new Error('Trying to get incoming notes of a scope that is not in the PXE database');
-      }
+    const result = new Map<string, NoteDao>();
 
-      // Only query committed indexes if the scope exists in committed storage
-      if (isCommittedScope) {
-        activeNoteIdsPerScope.push(
-          filter.storageSlot
-            ? await toArray(
-                this.#notesByStorageSlotAndScope
-                  .get(formattedScopeString)!
-                  .getValuesAsync(filter.storageSlot.toString()),
-              )
-            : await toArray(
-                this.#notesByContractAndScope
-                  .get(formattedScopeString)!
-                  .getValuesAsync(filter.contractAddress.toString()),
-              ),
-        );
-      }
-    }
+    // 1. Load committed active notes
+    const committedNoteIds = await this.#getCommittedNoteIds(filter, scopes);
+    await this.#loadCommittedActiveNotes(filter, committedNoteIds, stagedNullifiedIds, result);
 
-    const candidateNoteSources = [];
-    candidateNoteSources.push({
-      ids: new Set(activeNoteIdsPerScope.flat()),
-      notes: this.#notes,
-    });
-
-    // If status is ACTIVE_OR_NULLIFIED we add nullified notes as candidates on top of the default active ones.
+    // 2. Load committed nullified notes (if requested)
     if (filter.status === NoteStatus.ACTIVE_OR_NULLIFIED) {
-      const nullifiedIds = filter.storageSlot
-        ? await toArray(this.#nullifiedNotesByStorageSlot.getValuesAsync(filter.storageSlot.toString()))
-        : await toArray(this.#nullifiedNotesByContract.getValuesAsync(filter.contractAddress.toString()));
-
-      const setOfScopes = new Set(filter.scopes.map(s => s.toString() as string));
-      const filteredNullifiedIds = new Set<string>();
-
-      for (const noteId of nullifiedIds) {
-        const scopeList = await toArray(this.#nullifiedNotesToScope.getValuesAsync(noteId));
-        if (scopeList.some(scope => setOfScopes.has(scope))) {
-          filteredNullifiedIds.add(noteId);
-        }
-      }
-
-      if (filteredNullifiedIds.size > 0) {
-        candidateNoteSources.push({
-          ids: filteredNullifiedIds,
-          notes: this.#nullifiedNotes,
-        });
-      }
+      await this.#loadCommittedNullifiedNotes(filter, scopes, result);
     }
 
-    const result: NoteDao[] = [];
-    for (const { ids, notes } of candidateNoteSources) {
-      for (const id of ids) {
-        // Skip committed notes that are staged for nullification (for ACTIVE status)
-        // Note: For ACTIVE_OR_NULLIFIED we still want them (they'll appear as nullified)
-        if (filter.status === NoteStatus.ACTIVE && stagedNullifiedIndexes.has(id)) {
-          continue;
-        }
-
-        const serializedNote = await notes.getAsync(id);
-        if (!serializedNote) {
-          continue;
-        }
-
-        const note = NoteDao.fromBuffer(serializedNote);
-        if (this.#matchesFilter(note, filter)) {
-          result.push(note);
-        }
-      }
+    // 3. Load staged notes
+    if (staged) {
+      this.#loadStagedNotes(filter, staged, scopes, stagedNullifiedIds, result);
     }
 
-    // Add staged added notes that match the filter
-    if (stagedNotes) {
-      const scopeSet = new Set(filter.scopes!.map(s => s.toString() as string));
-
-      for (const [noteIndex, data] of stagedNotes.addedNotes) {
-        // Skip if staged for nullification and status is ACTIVE
-        if (filter.status === NoteStatus.ACTIVE && stagedNullifiedIndexes.has(noteIndex)) {
-          continue;
-        }
-
-        // Filter by scope (staged notes aren't indexed, so we check scope manually)
-        if (!scopeSet.has(data.scope)) {
-          continue;
-        }
-
-        const note = NoteDao.fromBuffer(data.noteBuffer);
-        if (this.#matchesFilter(note, filter)) {
-          result.push(note);
-        }
-      }
-    }
-
-    // A note might be present in multiple scopes - we ensure it is only returned once
-    const deduplicated: NoteDao[] = [];
-    for (const note of result) {
-      if (!deduplicated.some(existing => existing.equals(note))) {
-        deduplicated.push(note);
-      }
-    }
-
-    return deduplicated;
+    return Array.from(result.values());
   }
 
   /**
@@ -418,6 +317,175 @@ export class NoteStore implements StagedStore {
       return false;
     }
     return true;
+  }
+
+  /**
+   * Extracts unique scopes from staged notes.
+   */
+  #extractStagedScopes(staged: StagedNoteData | undefined): Set<string> {
+    const scopes = new Set<string>();
+    if (staged) {
+      for (const note of staged.addedNotes.values()) {
+        scopes.add(note.scope);
+      }
+    }
+    return scopes;
+  }
+
+  /**
+   * Resolves filter scopes, defaulting to all known scopes if not specified.
+   * @returns The resolved scopes as AztecAddress array
+   * @throws If any scope doesn't exist in committed storage or staged data
+   */
+  async #resolveScopes(filterScopes: AztecAddress[] | undefined, stagedScopes: Set<string>): Promise<AztecAddress[]> {
+    // Default to including all known scopes if filter.scopes is not specified
+    if (filterScopes === undefined) {
+      const committedScopes = await toArray(this.#scopes.keysAsync());
+      return [
+        ...committedScopes.map(s => AztecAddress.fromString(s)),
+        ...Array.from(stagedScopes).map(s => AztecAddress.fromString(s)),
+      ];
+    }
+
+    // Validate that all requested scopes exist (either committed or staged)
+    for (const scope of filterScopes) {
+      const scopeString = scope.toString();
+      if (!stagedScopes.has(scopeString) && !(await this.#scopes.hasAsync(scopeString))) {
+        throw new Error('Trying to get incoming notes of a scope that is not in the PXE database');
+      }
+    }
+
+    return filterScopes;
+  }
+
+  /**
+   * Gets committed note IDs for the given filter and scopes.
+   * Only queries scopes that exist in committed storage.
+   */
+  async #getCommittedNoteIds(filter: NotesFilter, scopes: AztecAddress[]): Promise<Set<string>> {
+    const noteIds = new Set<string>();
+
+    for (const scope of new Set(scopes)) {
+      const scopeString = scope.toString();
+
+      // Skip scopes that only exist in staging (no committed index for them)
+      if (!(await this.#scopes.hasAsync(scopeString))) {
+        continue;
+      }
+
+      const ids = filter.storageSlot
+        ? await toArray(
+            this.#notesByStorageSlotAndScope.get(scopeString)!.getValuesAsync(filter.storageSlot.toString()),
+          )
+        : await toArray(
+            this.#notesByContractAndScope.get(scopeString)!.getValuesAsync(filter.contractAddress.toString()),
+          );
+
+      for (const id of ids) {
+        noteIds.add(id);
+      }
+    }
+
+    return noteIds;
+  }
+
+  /**
+   * Loads committed active notes into the result map.
+   * Skips notes that are staged for nullification (when status is ACTIVE).
+   */
+  async #loadCommittedActiveNotes(
+    filter: NotesFilter,
+    noteIds: Set<string>,
+    stagedNullifiedIds: Set<string>,
+    result: Map<string, NoteDao>,
+  ): Promise<void> {
+    for (const id of noteIds) {
+      // Skip committed notes that are staged for nullification (for ACTIVE status)
+      if (filter.status === NoteStatus.ACTIVE && stagedNullifiedIds.has(id)) {
+        continue;
+      }
+
+      const serializedNote = await this.#notes.getAsync(id);
+      if (!serializedNote) {
+        continue;
+      }
+
+      const note = NoteDao.fromBuffer(serializedNote);
+      if (this.#matchesFilter(note, filter)) {
+        result.set(id, note);
+      }
+    }
+  }
+
+  /**
+   * Loads committed nullified notes into the result map.
+   * Only called when filter.status includes nullified notes.
+   */
+  async #loadCommittedNullifiedNotes(
+    filter: NotesFilter,
+    scopes: AztecAddress[],
+    result: Map<string, NoteDao>,
+  ): Promise<void> {
+    const nullifiedIds = filter.storageSlot
+      ? await toArray(this.#nullifiedNotesByStorageSlot.getValuesAsync(filter.storageSlot.toString()))
+      : await toArray(this.#nullifiedNotesByContract.getValuesAsync(filter.contractAddress.toString()));
+
+    const scopeSet = new Set(scopes.map(s => s.toString() as string));
+
+    for (const noteId of nullifiedIds) {
+      // Already in result (shouldn't happen, but defensive)
+      if (result.has(noteId)) {
+        continue;
+      }
+
+      // Check if note belongs to any of the requested scopes
+      const scopeList = await toArray(this.#nullifiedNotesToScope.getValuesAsync(noteId));
+      if (!scopeList.some(scope => scopeSet.has(scope))) {
+        continue;
+      }
+
+      const serializedNote = await this.#nullifiedNotes.getAsync(noteId);
+      if (!serializedNote) {
+        continue;
+      }
+
+      const note = NoteDao.fromBuffer(serializedNote);
+      if (this.#matchesFilter(note, filter)) {
+        result.set(noteId, note);
+      }
+    }
+  }
+
+  /**
+   * Loads staged notes into the result map.
+   * Skips notes that are staged for nullification (when status is ACTIVE).
+   */
+  #loadStagedNotes(
+    filter: NotesFilter,
+    staged: StagedNoteData,
+    scopes: AztecAddress[],
+    stagedNullifiedIds: Set<string>,
+    result: Map<string, NoteDao>,
+  ): void {
+    const scopeSet = new Set(scopes.map(s => s.toString() as string));
+
+    for (const [noteIndex, data] of staged.addedNotes) {
+      // Skip if staged for nullification and status is ACTIVE
+      if (filter.status === NoteStatus.ACTIVE && stagedNullifiedIds.has(noteIndex)) {
+        continue;
+      }
+
+      // Filter by scope
+      if (!scopeSet.has(data.scope)) {
+        continue;
+      }
+
+      const note = NoteDao.fromBuffer(data.noteBuffer);
+      if (this.#matchesFilter(note, filter)) {
+        // Map handles deduplication automatically (overwrites if same noteIndex)
+        result.set(noteIndex, note);
+      }
+    }
   }
 
   /**
