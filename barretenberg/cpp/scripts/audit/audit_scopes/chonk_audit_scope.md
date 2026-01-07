@@ -43,34 +43,35 @@ Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg`
 27. `eccvm/eccvm_verifier.cpp`
 28. `eccvm/eccvm_verifier.hpp`
 29. `eccvm/eccvm_fixed_vk.hpp`
-30. `translator_vm/translator_verifier.cpp`
-31. `translator_vm/translator_verifier.hpp`
-32. `translator_vm/translator_fixed_vk.hpp`
+30. `eccvm/eccvm_translation_data.hpp`
+31. `translator_vm/translator_verifier.cpp`
+32. `translator_vm/translator_verifier.hpp`
+33. `translator_vm/translator_fixed_vk.hpp`
 
 ### Chonk Core
-33. `chonk/chonk.cpp`
-34. `chonk/chonk.hpp`
-35. `chonk/private_execution_steps.cpp`
-36. `chonk/chonk_proof.cpp`
-37. `chonk/chonk_proof.hpp`
-38. `chonk/chonk_verifier.cpp`
-39. `chonk/chonk_verifier.hpp`
+34. `chonk/chonk.cpp`
+35. `chonk/chonk.hpp`
+36. `chonk/private_execution_steps.cpp`
+37. `chonk/chonk_proof.cpp`
+38. `chonk/chonk_proof.hpp`
+39. `chonk/chonk_verifier.cpp`
+40. `chonk/chonk_verifier.hpp`
 
 ### Relations
-40. `relations/databus_lookup_relation.hpp`
-41. `relations/multilinear_batching/multilinear_batching_relation.hpp`
+41. `relations/databus_lookup_relation.hpp`
+42. `relations/multilinear_batching/multilinear_batching_relation.hpp`
 
 ### Special Public Inputs
-42. `special_public_inputs/special_public_inputs.hpp`
-43. `stdlib/primitives/public_input_component/public_input_component.hpp`
+43. `special_public_inputs/special_public_inputs.hpp`
+44. `stdlib/primitives/public_input_component/public_input_component.hpp`
 
 ### Flavor
-44. `flavor/multilinear_batching_flavor.hpp`
-45. `flavor/multilinear_batching_recursive_flavor.hpp`
+45. `flavor/multilinear_batching_flavor.hpp`
+46. `flavor/multilinear_batching_recursive_flavor.hpp`
 
 ### ACIR Integration
-46. `dsl/acir_format/hypernova_recursion_constraint.hpp`
-47. `dsl/acir_format/hypernova_recursion_constraint.cpp`
+47. `dsl/acir_format/hypernova_recursion_constraint.hpp`
+48. `dsl/acir_format/hypernova_recursion_constraint.cpp`
 
 ---
 
