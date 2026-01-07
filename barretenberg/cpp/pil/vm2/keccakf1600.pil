@@ -110,6 +110,25 @@ sel * (1 - last) * (round' - round - 1) = 0;
 pol commit last; // @boolean
 last * (1 - last) = 0;
 
+// Latch condition. We include first_row only when sel = 0 (not in an active computation) and last = 0,
+// to avoid double-counting when both last=1 and first_row=1.
+pol LATCH_CONDITION = last + precomputed.first_row * (1 - sel) * (1 - last);
+
+// Trace is contiguous: once sel becomes 0, it cannot become 1 again.
+#[TRACE_CONTINUITY]
+(1 - precomputed.first_row) * (1 - sel) * sel' = 0;
+
+// This prevents a computation from being stopped prematurely, i.e., truncating last rows before
+// we reach a row where last == 1.
+#[COMPUTATION_FINISH_AT_END]
+sel * (1 - sel') * (1 - last) = 0;
+
+// By enforcing the start of a new computation after a latch, we ensure that no superfluous rows are added.
+// In combination with the permutations from the execution trace, it follows that each active row is
+// part of a genuine computation.
+#[START_AFTER_LATCH]
+sel' * (start' - LATCH_CONDITION) = 0;
+
 // TODO: We need this temporarily while we do not allow for constants in the lookup tuple
 pol commit bitwise_xor_op_id;
 sel * (bitwise_xor_op_id - constants.AVM_BITWISE_XOR_OP_ID) = 0;

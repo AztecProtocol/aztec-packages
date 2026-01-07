@@ -1,5 +1,6 @@
 include "memory.pil";
 include "constants_gen.pil";
+include "precomputed.pil";
 
 /**
  * Two usages exist for this gadget (read and write). Explanations below.
@@ -140,6 +141,25 @@ last = 1 - (1 - ctr_end) * (1 - single_tag_error);
 #[CTR_INCREMENT]
 // Note: sel factor is required for an empty row to satisfy this relation
 sel * (1 - last) * (ctr' - ctr - 1) = 0;
+
+// Latch condition. We include first_row only when sel = 0 (not in an active computation) and last = 0,
+// to avoid double-counting when both last=1 and first_row=1.
+pol LATCH_CONDITION = last + precomputed.first_row * (1 - sel) * (1 - last);
+
+// Trace is contiguous: once sel becomes 0, it cannot become 1 again.
+#[TRACE_CONTINUITY]
+(1 - precomputed.first_row) * (1 - sel) * sel' = 0;
+
+// This prevents a computation from being stopped prematurely, i.e., truncating last rows before
+// we reach a row where last == 1.
+#[COMPUTATION_FINISH_AT_END]
+sel * (1 - sel') * (1 - last) = 0;
+
+// By enforcing the start of a new computation after a latch, we ensure that no superfluous rows are added.
+// In combination with the permutations from the keccakf1600 trace, it follows that each active row is
+// part of a genuine computation.
+#[START_AFTER_LATCH]
+sel' * ((start_read' + start_write') - LATCH_CONDITION) = 0;
 
 // Copied from memory.pil through lookup and constrained to be boolean in memory.pil.
 pol commit rw; // @boolean (constrained by memory.pil)
