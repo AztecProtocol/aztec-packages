@@ -12,6 +12,7 @@ import { BlockHeader, HashedValues, TxContext, TxExecutionRequest } from '@aztec
 import { jest } from '@jest/globals';
 import { mock } from 'jest-mock-extended';
 
+import { JobContext } from '../../job_coordinator/index.js';
 import type { AddressStore } from '../../storage/address_store/address_store.js';
 import type { AnchorBlockStore } from '../../storage/anchor_block_store/anchor_block_store.js';
 import type { CapsuleStore } from '../../storage/capsule_store/capsule_store.js';
@@ -140,7 +141,8 @@ describe('Oracle Version Check test suite', () => {
       // Call the private function with arbitrary message sender and sender for tags
       const msgSender = await AztecAddress.random();
       const senderForTags = await AztecAddress.random();
-      await acirSimulator.run(txRequest, contractAddress, selector, msgSender, anchorBlockHeader, senderForTags);
+      const jobContext = new JobContext('test', 'test');
+      await acirSimulator.run(txRequest, contractAddress, selector, msgSender, anchorBlockHeader, senderForTags, undefined, jobContext);
 
       expect(utilityAssertCompatibleOracleVersionSpy).toHaveBeenCalledTimes(1);
     }, 30_000);
@@ -169,7 +171,8 @@ describe('Oracle Version Check test suite', () => {
       };
 
       // Call the utility function
-      await acirSimulator.runUtility(execRequest, [], anchorBlockHeader, []);
+      const jobContext = new JobContext('test', 'test');
+      await acirSimulator.runUtility(execRequest, [], anchorBlockHeader, [], jobContext);
 
       expect(utilityAssertCompatibleOracleVersionSpy).toHaveBeenCalledTimes(1);
     }, 30_000);
