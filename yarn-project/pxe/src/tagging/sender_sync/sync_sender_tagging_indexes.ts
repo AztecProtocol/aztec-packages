@@ -26,6 +26,7 @@ export async function syncSenderTaggingIndexes(
   app: AztecAddress,
   aztecNode: AztecNode,
   taggingStore: SenderTaggingStore,
+  jobId?: string,
 ): Promise<void> {
   // # Explanation of how syncing works
   //
@@ -45,7 +46,7 @@ export async function syncSenderTaggingIndexes(
   // Each window advance requires two queries (logs + tx status). For example, syncing indexes 0–500 with a window of
   // 100 takes at least 10 round trips (5 windows × 2 queries).
 
-  const finalizedIndex = await taggingStore.getLastFinalizedIndex(secret);
+  const finalizedIndex = await taggingStore.getLastFinalizedIndex(secret, jobId);
 
   let start = finalizedIndex === undefined ? 0 : finalizedIndex + 1;
   let end = start + UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN;
@@ -56,21 +57,21 @@ export async function syncSenderTaggingIndexes(
   while (true) {
     // Load and store indexes for the current window. These indexes may already exist in the database if txs using
     // them were previously sent from this PXE. Any duplicates are handled by the tagging data provider.
-    await loadAndStoreNewTaggingIndexes(secret, app, start, end, aztecNode, taggingStore);
+    await loadAndStoreNewTaggingIndexes(secret, app, start, end, aztecNode, taggingStore, jobId);
 
     // Retrieve all indexes within the current window from storage and update their status accordingly.
-    const pendingTxHashes = await taggingStore.getTxHashesOfPendingIndexes(secret, start, end);
+    const pendingTxHashes = await taggingStore.getTxHashesOfPendingIndexes(secret, start, end, jobId);
     if (pendingTxHashes.length === 0) {
       break;
     }
 
     const { txHashesToFinalize, txHashesToDrop } = await getStatusChangeOfPending(pendingTxHashes, aztecNode);
 
-    await taggingStore.dropPendingIndexes(txHashesToDrop);
-    await taggingStore.finalizePendingIndexes(txHashesToFinalize);
+    await taggingStore.dropPendingIndexes(txHashesToDrop, jobId);
+    await taggingStore.finalizePendingIndexes(txHashesToFinalize, jobId);
 
     // We check if the finalized index has been updated.
-    newFinalizedIndex = await taggingStore.getLastFinalizedIndex(secret);
+    newFinalizedIndex = await taggingStore.getLastFinalizedIndex(secret, jobId);
     if (previousFinalizedIndex !== newFinalizedIndex) {
       // A new finalized index was found, so we'll run the loop again. For example:
       // - Previous finalized index: 10

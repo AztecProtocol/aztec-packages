@@ -25,6 +25,7 @@ export async function loadAndStoreNewTaggingIndexes(
   end: number,
   aztecNode: AztecNode,
   taggingStore: SenderTaggingStore,
+  jobId?: string,
 ) {
   // We compute the tags for the current window of indexes
   const preTagsForWindow: PreTag[] = Array(end - start)
@@ -40,7 +41,7 @@ export async function loadAndStoreNewTaggingIndexes(
   // Now we iterate over the map, reconstruct the preTags and tx hash and store them in the db.
   for (const [txHashStr, highestIndex] of highestIndexMap.entries()) {
     const txHash = TxHash.fromString(txHashStr);
-    await taggingStore.storePendingIndexes([{ secret, index: highestIndex }], txHash);
+    await taggingStore.storePendingIndexes([{ secret, index: highestIndex }], txHash, jobId);
   }
 }
 
