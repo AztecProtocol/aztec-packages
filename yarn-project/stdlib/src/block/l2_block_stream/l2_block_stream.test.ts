@@ -9,7 +9,7 @@ import type { PublishedCheckpoint } from '../../checkpoint/published_checkpoint.
 import type { BlockHeader } from '../../tx/block_header.js';
 import type { CheckpointedL2Block } from '../checkpointed_l2_block.js';
 import type { L2BlockNew } from '../l2_block_new.js';
-import type { L2BlockId, L2BlockSource, L2Tips } from '../l2_block_source.js';
+import type { CheckpointId, L2BlockId, L2BlockSource, L2Tips } from '../l2_block_source.js';
 import type { L2BlockStreamEvent, L2BlockStreamEventHandler, L2BlockStreamLocalDataProvider } from './interfaces.js';
 import { L2BlockStream } from './l2_block_stream.js';
 import { L2TipsMemoryStore } from './l2_tips_memory_store.js';
@@ -123,7 +123,7 @@ describe('L2BlockStream', () => {
 
     it('pulls new blocks from offset', async () => {
       setRemoteTips(15);
-      localData.latest.number = BlockNumber(10);
+      localData.proposed.number = BlockNumber(10);
 
       await blockStream.work();
       expect(blockSource.getL2BlocksNew).toHaveBeenCalledWith(BlockNumber(11), 5, undefined);
@@ -173,7 +173,7 @@ describe('L2BlockStream', () => {
 
     it('handles a reorg and requests blocks from new tip', async () => {
       setRemoteTips(45);
-      localData.latest.number = BlockNumber(40);
+      localData.proposed.number = BlockNumber(40);
 
       for (const i of [37, 38, 39, 40]) {
         // Mess up the block hashes for a bunch of blocks
@@ -189,9 +189,9 @@ describe('L2BlockStream', () => {
 
     it('emits events for chain proven and finalized', async () => {
       setRemoteTips(45, 40, 35);
-      localData.latest.number = BlockNumber(40);
-      localData.proven.number = BlockNumber(10);
-      localData.finalized.number = BlockNumber(10);
+      localData.proposed.number = BlockNumber(40);
+      localData.proven.block.number = BlockNumber(10);
+      localData.finalized.block.number = BlockNumber(10);
 
       await blockStream.work();
       expect(handler.events).toEqual([
@@ -248,7 +248,8 @@ describe('L2BlockStream', () => {
     it('handles reorg with uncheckpointed reason when pruned to checkpointed tip', async () => {
       // Source: checkpointed=3, proposed=5
       setRemoteTips(5, 0, 0, 3);
-      localData.latest.number = BlockNumber(5);
+      localData.proposed.number = BlockNumber(5);
+      localData.checkpointed.block.number = BlockNumber(3);
 
       // Mess up hashes for blocks 4 and 5 (uncheckpointed blocks)
       localData.blockHashes[4] = `0xaa4`;
@@ -320,9 +321,9 @@ describe('L2BlockStream', () => {
     it('skips ahead to the latest finalized block', async () => {
       setRemoteTips(40, 38, 35);
 
-      localData.latest.number = BlockNumber(5);
-      localData.proven.number = BlockNumber(2);
-      localData.finalized.number = BlockNumber(2);
+      localData.proposed.number = BlockNumber(5);
+      localData.proven.block.number = BlockNumber(2);
+      localData.finalized.block.number = BlockNumber(2);
 
       await blockStream.work();
 
@@ -337,9 +338,9 @@ describe('L2BlockStream', () => {
     it('does not skip if already ahead of finalized', async () => {
       setRemoteTips(40, 38, 35);
 
-      localData.latest.number = BlockNumber(38);
-      localData.proven.number = BlockNumber(38);
-      localData.finalized.number = BlockNumber(35);
+      localData.proposed.number = BlockNumber(38);
+      localData.proven.block.number = BlockNumber(38);
+      localData.finalized.block.number = BlockNumber(35);
 
       await blockStream.work();
 
@@ -376,27 +377,32 @@ class TestL2BlockStreamEventHandler implements L2BlockStreamEventHandler {
 class TestL2BlockStreamLocalDataProvider implements L2BlockStreamLocalDataProvider {
   public readonly blockHashes: Record<number, string> = {};
 
-  public latest = { number: BlockNumber.ZERO, hash: '' };
-  public checkpointed = { number: BlockNumber.ZERO, hash: '' };
-  public proven = { number: BlockNumber.ZERO, hash: '' };
-  public finalized = { number: BlockNumber.ZERO, hash: '' };
+  public proposed = { number: BlockNumber.ZERO, hash: '' };
+  public checkpointed = {
+    block: { number: BlockNumber.ZERO, hash: '' },
+    checkpoint: { number: CheckpointNumber.ZERO, hash: '' },
+  };
+  public proven = {
+    block: { number: BlockNumber.ZERO, hash: '' },
+    checkpoint: { number: CheckpointNumber.ZERO, hash: '' },
+  };
+  public finalized = {
+    block: { number: BlockNumber.ZERO, hash: '' },
+    checkpoint: { number: CheckpointNumber.ZERO, hash: '' },
+  };
 
   public getL2BlockHash(number: number): Promise<string | undefined> {
     return Promise.resolve(
-      number > this.latest.number ? undefined : (this.blockHashes[number] ?? new Fr(number).toString()),
+      number > this.proposed.number ? undefined : (this.blockHashes[number] ?? new Fr(number).toString()),
     );
   }
 
   public getL2Tips(): Promise<L2Tips> {
-    const makeTipId = (blockId: L2BlockId) => ({
-      block: blockId,
-      checkpoint: { number: CheckpointNumber(blockId.number), hash: blockId.hash },
-    });
     return Promise.resolve({
-      proposed: this.latest,
-      checkpointed: makeTipId(this.checkpointed),
-      proven: makeTipId(this.proven),
-      finalized: makeTipId(this.finalized),
+      proposed: this.proposed,
+      checkpointed: this.checkpointed,
+      proven: this.proven,
+      finalized: this.finalized,
     });
   }
 }

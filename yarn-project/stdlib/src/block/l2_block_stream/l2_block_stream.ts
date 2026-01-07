@@ -96,9 +96,12 @@ export class L2BlockStream {
         this.log.verbose(
           `Reorg detected. Pruning blocks from ${latestBlockNumber + 1} to ${localTips.proposed.number}.`,
         );
-        // If the new block number is the same as the checkpointed tip, then it's a failure to checkpoint, rather than a failure to prove
+        // This check is not 100% accurate
+        // If the local tips are sufficiently behind the source tips, such that we are missing at least one checkpoint
+        // that has now been re-orged due to a proof failure then this will indicate a failure to checkpoint rather than a failure to prove
+        // TODO: (PhilWindle): Improve re-org detection accuracy.
         let reason: L2BlockPruneReason = 'unproven';
-        if (latestBlockNumber === sourceTips.checkpointed.block.number) {
+        if (latestBlockNumber === localTips.checkpointed.block.number) {
           reason = 'uncheckpointed';
         }
         await this.emitEvent({

@@ -284,6 +284,11 @@ describe('AztecNodeApiSchema', () => {
     expect(response[0]).toBeInstanceOf(PublishedCheckpoint);
   });
 
+  it('getCheckpointedBlocks', async () => {
+    const response = await context.client.getCheckpointedBlocks(BlockNumber(1), 1);
+    expect(response).toEqual([]);
+  });
+
   it('getNodeVersion', async () => {
     const response = await context.client.getNodeVersion();
     expect(response).toBe('1.0.0');
