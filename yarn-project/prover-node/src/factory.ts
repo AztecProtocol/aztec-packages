@@ -9,7 +9,10 @@ import { DateProvider } from '@aztec/foundation/timer';
 import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { type KeyStoreConfig, KeystoreManager, loadKeystores, mergeKeystores } from '@aztec/node-keystore';
 import { trySnapshotSync } from '@aztec/node-lib/actions';
-import { createL1TxUtilsFromEthSignerWithStore } from '@aztec/node-lib/factories';
+import {
+  createForwarderL1TxUtilsFromEthSigner,
+  createL1TxUtilsFromEthSignerWithStore,
+} from '@aztec/node-lib/factories';
 import { NodeRpcTxSource, createP2PClient } from '@aztec/p2p';
 import { type ProverClientConfig, createProverClient } from '@aztec/prover-client';
 import { createAndStartProvingBroker } from '@aztec/prover-client/broker';
@@ -129,12 +132,20 @@ export async function createProverNode(
 
   const l1TxUtils = deps.l1TxUtils
     ? [deps.l1TxUtils]
-    : await createL1TxUtilsFromEthSignerWithStore(
-        publicClient,
-        proverSigners.signers,
-        { ...config, scope: 'prover' },
-        { telemetry, logger: log.createChild('l1-tx-utils'), dateProvider },
-      );
+    : config.publisherForwarderAddress
+      ? await createForwarderL1TxUtilsFromEthSigner(
+          publicClient,
+          proverSigners.signers,
+          config.publisherForwarderAddress,
+          { ...config, scope: 'prover' },
+          { telemetry, logger: log.createChild('l1-tx-utils'), dateProvider },
+        )
+      : await createL1TxUtilsFromEthSignerWithStore(
+          publicClient,
+          proverSigners.signers,
+          { ...config, scope: 'prover' },
+          { telemetry, logger: log.createChild('l1-tx-utils'), dateProvider },
+        );
 
   const publisherFactory =
     deps.publisherFactory ??
