@@ -1,4 +1,11 @@
-import { type Meter, type Span, type SpanContext, type Tracer, createNoopMeter } from '@opentelemetry/api';
+import {
+  type Context,
+  type Meter,
+  type Span,
+  type SpanContext,
+  type Tracer,
+  createNoopMeter,
+} from '@opentelemetry/api';
 
 import type { TelemetryClient } from './telemetry.js';
 
@@ -24,6 +31,14 @@ export class NoopTelemetryClient implements TelemetryClient {
 
   isEnabled() {
     return false;
+  }
+
+  getTraceContext(): string | undefined {
+    return undefined;
+  }
+
+  extractPropagatedContext(_traceContext: string): Context | undefined {
+    return undefined;
   }
 }
 
