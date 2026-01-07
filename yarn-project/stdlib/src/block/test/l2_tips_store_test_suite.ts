@@ -87,6 +87,16 @@ export function testL2TipsStore(makeTipsStore: () => Promise<L2TipsStore>) {
     return new PublishedCheckpoint(checkpoint, L1PublishedData.random(), []);
   };
 
+  /** Creates a chain-checkpointed event with the required block field */
+  const makeCheckpointedEvent = async (checkpoint: PublishedCheckpoint) => {
+    const lastBlock = checkpoint.checkpoint.blocks.at(-1)!;
+    const blockId: L2BlockId = {
+      number: lastBlock.number,
+      hash: (await lastBlock.hash()).toString(),
+    };
+    return { type: 'chain-checkpointed' as const, checkpoint, block: blockId };
+  };
+
   it('returns zero if no tips are stored', async () => {
     const tips = await tipsStore.getL2Tips();
     expect(tips).toEqual(makeTips(0, 0, 0));
@@ -113,7 +123,7 @@ export function testL2TipsStore(makeTipsStore: () => Promise<L2TipsStore>) {
 
     // Checkpoint all proposed blocks (1-5)
     const checkpoint1 = await makeCheckpoint(1, blocks);
-    await tipsStore.handleBlockStreamEvent({ type: 'chain-checkpointed', checkpoint: checkpoint1 });
+    await tipsStore.handleBlockStreamEvent(await makeCheckpointedEvent(checkpoint1));
 
     const tips = await tipsStore.getL2Tips();
     // Proposed and checkpointed should be the same
@@ -127,7 +137,7 @@ export function testL2TipsStore(makeTipsStore: () => Promise<L2TipsStore>) {
     const blocks = await Promise.all(times(5, i => makeBlock(i + 1)));
     await tipsStore.handleBlockStreamEvent({ type: 'blocks-added', blocks });
     const checkpoint1 = await makeCheckpoint(1, blocks);
-    await tipsStore.handleBlockStreamEvent({ type: 'chain-checkpointed', checkpoint: checkpoint1 });
+    await tipsStore.handleBlockStreamEvent(await makeCheckpointedEvent(checkpoint1));
 
     // Prove up to block 5
     await tipsStore.handleBlockStreamEvent({ type: 'chain-proven', block: makeBlockId(5) });
@@ -147,7 +157,7 @@ export function testL2TipsStore(makeTipsStore: () => Promise<L2TipsStore>) {
     const blocks = await Promise.all(times(5, i => makeBlock(i + 1)));
     await tipsStore.handleBlockStreamEvent({ type: 'blocks-added', blocks });
     const checkpoint1 = await makeCheckpoint(1, blocks);
-    await tipsStore.handleBlockStreamEvent({ type: 'chain-checkpointed', checkpoint: checkpoint1 });
+    await tipsStore.handleBlockStreamEvent(await makeCheckpointedEvent(checkpoint1));
 
     // Prove and finalize
     await tipsStore.handleBlockStreamEvent({ type: 'chain-proven', block: makeBlockId(5) });
@@ -171,7 +181,7 @@ export function testL2TipsStore(makeTipsStore: () => Promise<L2TipsStore>) {
 
     // Checkpoint 1: all proposed blocks 1-5
     const checkpoint1 = await makeCheckpoint(1, blocks1);
-    await tipsStore.handleBlockStreamEvent({ type: 'chain-checkpointed', checkpoint: checkpoint1 });
+    await tipsStore.handleBlockStreamEvent(await makeCheckpointedEvent(checkpoint1));
 
     // Propose more blocks 6-10
     const blocks2 = await Promise.all(times(5, i => makeBlock(i + 6)));
@@ -179,7 +189,7 @@ export function testL2TipsStore(makeTipsStore: () => Promise<L2TipsStore>) {
 
     // Checkpoint 2: all remaining proposed blocks 6-10
     const checkpoint2 = await makeCheckpoint(2, blocks2);
-    await tipsStore.handleBlockStreamEvent({ type: 'chain-checkpointed', checkpoint: checkpoint2 });
+    await tipsStore.handleBlockStreamEvent(await makeCheckpointedEvent(checkpoint2));
 
     const tips = await tipsStore.getL2Tips();
     expect(tips.proposed).toEqual(makeTip(10));
@@ -195,7 +205,7 @@ export function testL2TipsStore(makeTipsStore: () => Promise<L2TipsStore>) {
 
     // Checkpoint all proposed blocks (1-3)
     const checkpoint1 = await makeCheckpoint(1, blocks1to3);
-    await tipsStore.handleBlockStreamEvent({ type: 'chain-checkpointed', checkpoint: checkpoint1 });
+    await tipsStore.handleBlockStreamEvent(await makeCheckpointedEvent(checkpoint1));
 
     // Propose more blocks 4-5
     const blocks4to5 = await Promise.all(times(2, i => makeBlock(i + 4)));
@@ -203,7 +213,7 @@ export function testL2TipsStore(makeTipsStore: () => Promise<L2TipsStore>) {
 
     // Checkpoint all remaining proposed blocks (4-5)
     const checkpoint2 = await makeCheckpoint(2, blocks4to5);
-    await tipsStore.handleBlockStreamEvent({ type: 'chain-checkpointed', checkpoint: checkpoint2 });
+    await tipsStore.handleBlockStreamEvent(await makeCheckpointedEvent(checkpoint2));
 
     // Prove and finalize up to block 3 (checkpoint 1)
     await tipsStore.handleBlockStreamEvent({ type: 'chain-proven', block: makeBlockId(3) });
@@ -278,7 +288,7 @@ export function testL2TipsStore(makeTipsStore: () => Promise<L2TipsStore>) {
 
     // Checkpoint all the new proposed blocks (1-3)
     const checkpoint1 = await makeCheckpoint(1, newBlocks);
-    await tipsStore.handleBlockStreamEvent({ type: 'chain-checkpointed', checkpoint: checkpoint1 });
+    await tipsStore.handleBlockStreamEvent(await makeCheckpointedEvent(checkpoint1));
 
     tips = await tipsStore.getL2Tips();
     expect(tips.proposed).toEqual(makeTip(3));
@@ -298,7 +308,7 @@ export function testL2TipsStore(makeTipsStore: () => Promise<L2TipsStore>) {
 
     // Checkpoint all proposed blocks (1-5) - these are now committed
     const checkpoint1 = await makeCheckpoint(1, firstBlocks);
-    await tipsStore.handleBlockStreamEvent({ type: 'chain-checkpointed', checkpoint: checkpoint1 });
+    await tipsStore.handleBlockStreamEvent(await makeCheckpointedEvent(checkpoint1));
 
     // Propose more blocks 6-10 (not yet checkpointed, can be pruned)
     const originalBlocks6to10 = await Promise.all(times(5, i => makeBlock(i + 6)));
@@ -344,7 +354,7 @@ export function testL2TipsStore(makeTipsStore: () => Promise<L2TipsStore>) {
 
     // Checkpoint all the new proposed blocks (6-8)
     const checkpoint2 = await makeCheckpoint(2, newBlocks);
-    await tipsStore.handleBlockStreamEvent({ type: 'chain-checkpointed', checkpoint: checkpoint2 });
+    await tipsStore.handleBlockStreamEvent(await makeCheckpointedEvent(checkpoint2));
 
     tips = await tipsStore.getL2Tips();
     expect(tips.proposed).toEqual(makeTip(8));
@@ -369,7 +379,7 @@ export function testL2TipsStore(makeTipsStore: () => Promise<L2TipsStore>) {
 
     // Checkpoint all proposed blocks (1-3) - these are now committed
     const checkpoint1 = await makeCheckpoint(1, firstBlocks);
-    await tipsStore.handleBlockStreamEvent({ type: 'chain-checkpointed', checkpoint: checkpoint1 });
+    await tipsStore.handleBlockStreamEvent(await makeCheckpointedEvent(checkpoint1));
 
     // Propose more blocks 4-10 (not yet checkpointed, can be pruned)
     const originalBlocks4to10 = await Promise.all(times(7, i => makeBlock(i + 4)));
@@ -403,7 +413,7 @@ export function testL2TipsStore(makeTipsStore: () => Promise<L2TipsStore>) {
 
     // Checkpoint all the new proposed blocks (4-5)
     const checkpoint2 = await makeCheckpoint(2, newBlocks);
-    await tipsStore.handleBlockStreamEvent({ type: 'chain-checkpointed', checkpoint: checkpoint2 });
+    await tipsStore.handleBlockStreamEvent(await makeCheckpointedEvent(checkpoint2));
 
     tips = await tipsStore.getL2Tips();
     expect(tips.proposed).toEqual(makeTip(5));
@@ -418,7 +428,7 @@ export function testL2TipsStore(makeTipsStore: () => Promise<L2TipsStore>) {
 
     // Checkpoint all proposed blocks (1-3)
     const checkpoint1 = await makeCheckpoint(1, firstBlocks);
-    await tipsStore.handleBlockStreamEvent({ type: 'chain-checkpointed', checkpoint: checkpoint1 });
+    await tipsStore.handleBlockStreamEvent(await makeCheckpointedEvent(checkpoint1));
 
     // Prove up to block 3
     await tipsStore.handleBlockStreamEvent({ type: 'chain-proven', block: makeBlockId(3) });
@@ -434,7 +444,7 @@ export function testL2TipsStore(makeTipsStore: () => Promise<L2TipsStore>) {
 
     // Checkpoint blocks 4-6 (now checkpointed is ahead of proven)
     const checkpoint2 = await makeCheckpoint(2, blocks4to6);
-    await tipsStore.handleBlockStreamEvent({ type: 'chain-checkpointed', checkpoint: checkpoint2 });
+    await tipsStore.handleBlockStreamEvent(await makeCheckpointedEvent(checkpoint2));
 
     tips = await tipsStore.getL2Tips();
     expect(tips.proposed).toEqual(makeTip(6));
@@ -491,7 +501,7 @@ export function testL2TipsStore(makeTipsStore: () => Promise<L2TipsStore>) {
 
     // Checkpoint all the new proposed blocks (4-7)
     const checkpoint3 = await makeCheckpoint(3, newBlocks);
-    await tipsStore.handleBlockStreamEvent({ type: 'chain-checkpointed', checkpoint: checkpoint3 });
+    await tipsStore.handleBlockStreamEvent(await makeCheckpointedEvent(checkpoint3));
 
     tips = await tipsStore.getL2Tips();
     expect(tips.proposed).toEqual(makeTip(7));

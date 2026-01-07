@@ -99,7 +99,9 @@ describe('sentinel', () => {
     /** Helper to create and emit a chain-checkpointed event */
     const emitCheckpointEvent = async (checkpoint: Checkpoint, checkpointAttestations: CommitteeAttestation[] = []) => {
       const published = new PublishedCheckpoint(checkpoint, L1PublishedData.random(), checkpointAttestations);
-      await sentinel.handleBlockStreamEvent({ type: 'chain-checkpointed', checkpoint: published });
+      const lastBlock = checkpoint.blocks.at(-1)!;
+      const block = { number: lastBlock.number, hash: (await lastBlock.hash()).toString() };
+      await sentinel.handleBlockStreamEvent({ type: 'chain-checkpointed', checkpoint: published, block });
       return published;
     };
 

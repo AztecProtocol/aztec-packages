@@ -29,6 +29,15 @@ describe('L2BlockStream', () => {
       indexWithinCheckpoint: 0,
     }) as L2BlockNew;
 
+  /** Makes a block with hash method (for use in mocks that need hash) */
+  const makeBlockWithHash = (number: number) =>
+    ({
+      number: BlockNumber(number),
+      checkpointNumber: CheckpointNumber(number),
+      indexWithinCheckpoint: 0,
+      hash: () => Promise.resolve(new Fr(number)),
+    }) as L2BlockNew;
+
   const makeCheckpointedBlock = (number: number, checkpointNum: number): CheckpointedL2Block =>
     ({
       block: makeBlock(number),
@@ -38,6 +47,29 @@ describe('L2BlockStream', () => {
   const makeHeader = (number: number) => ({ hash: () => Promise.resolve(new Fr(number)) }) as BlockHeader;
 
   const makeBlockId = (number: number): L2BlockId => ({ number: BlockNumber(number), hash: makeHash(number) });
+
+  /** Helper to match a blocks-added event with blocks that may have extra properties like hash */
+  const expectBlocksAdded = (blockNumbers: number[]) =>
+    expect.objectContaining({
+      type: 'blocks-added',
+      blocks: blockNumbers.map(n =>
+        expect.objectContaining({
+          number: BlockNumber(n),
+        }),
+      ),
+    });
+
+  /** Helper to match a chain-checkpointed event */
+  const expectCheckpointed = (checkpointNumber?: number) =>
+    checkpointNumber !== undefined
+      ? expect.objectContaining({
+          type: 'chain-checkpointed',
+          checkpoint: expect.objectContaining({
+            checkpoint: expect.objectContaining({ number: checkpointNumber }),
+          }),
+          block: expect.objectContaining({ number: expect.any(Number) }),
+        })
+      : expect.objectContaining({ type: 'chain-checkpointed' });
 
   const makeCheckpointId = (number: number) => ({ number: CheckpointNumber(number), hash: makeHash(number) });
 
@@ -94,7 +126,7 @@ describe('L2BlockStream', () => {
           checkpoint: {
             number: checkpointNumber,
             hash: () => new Fr(checkpointNumber),
-            blocks: [makeBlock(checkpointNumber)],
+            blocks: [makeBlockWithHash(checkpointNumber)],
           },
         } as unknown as PublishedCheckpoint,
       ]),
@@ -210,16 +242,16 @@ describe('L2BlockStream', () => {
       // Each checkpointed block triggers a blocks-added and chain-checkpointed event
       // (since each checkpoint contains one block in our mock)
       expect(handler.events).toEqual([
-        { type: 'blocks-added', blocks: [makeBlock(1)] },
-        expect.objectContaining({ type: 'chain-checkpointed' }),
-        { type: 'blocks-added', blocks: [makeBlock(2)] },
-        expect.objectContaining({ type: 'chain-checkpointed' }),
-        { type: 'blocks-added', blocks: [makeBlock(3)] },
-        expect.objectContaining({ type: 'chain-checkpointed' }),
-        { type: 'blocks-added', blocks: [makeBlock(4)] },
-        expect.objectContaining({ type: 'chain-checkpointed' }),
-        { type: 'blocks-added', blocks: [makeBlock(5)] },
-        expect.objectContaining({ type: 'chain-checkpointed' }),
+        expectBlocksAdded([1]),
+        expectCheckpointed(),
+        expectBlocksAdded([2]),
+        expectCheckpointed(),
+        expectBlocksAdded([3]),
+        expectCheckpointed(),
+        expectBlocksAdded([4]),
+        expectCheckpointed(),
+        expectBlocksAdded([5]),
+        expectCheckpointed(),
       ]);
       expect(blockSource.getCheckpointedBlocks).toHaveBeenCalledTimes(5);
       expect(blockSource.getL2BlocksNew).not.toHaveBeenCalled();
@@ -233,13 +265,13 @@ describe('L2BlockStream', () => {
 
       // First 3 blocks come via checkpoints, last 2 via getL2BlocksNew
       expect(handler.events).toEqual([
-        { type: 'blocks-added', blocks: [makeBlock(1)] },
-        expect.objectContaining({ type: 'chain-checkpointed' }),
-        { type: 'blocks-added', blocks: [makeBlock(2)] },
-        expect.objectContaining({ type: 'chain-checkpointed' }),
-        { type: 'blocks-added', blocks: [makeBlock(3)] },
-        expect.objectContaining({ type: 'chain-checkpointed' }),
-        { type: 'blocks-added', blocks: [makeBlock(4), makeBlock(5)] },
+        expectBlocksAdded([1]),
+        expectCheckpointed(),
+        expectBlocksAdded([2]),
+        expectCheckpointed(),
+        expectBlocksAdded([3]),
+        expectCheckpointed(),
+        expectBlocksAdded([4, 5]),
       ]);
       expect(blockSource.getCheckpointedBlocks).toHaveBeenCalledTimes(3);
       expect(blockSource.getL2BlocksNew).toHaveBeenCalledWith(BlockNumber(4), 2, undefined);
@@ -332,6 +364,18 @@ describe('L2BlockStream', () => {
       } as L2BlockNew;
     };
 
+    /** Makes a block with hash method (for use in mocks that need hash) */
+    const makeBlockInCheckpointWithHash = (blockNum: number) => {
+      const checkpointNum = getCheckpointForBlock(blockNum);
+      const firstBlockInCheckpoint = getFirstBlockInCheckpoint(checkpointNum);
+      return {
+        number: BlockNumber(blockNum),
+        checkpointNumber: CheckpointNumber(checkpointNum),
+        indexWithinCheckpoint: blockNum - firstBlockInCheckpoint,
+        hash: () => Promise.resolve(new Fr(blockNum)),
+      } as L2BlockNew;
+    };
+
     /** Makes a checkpointed block */
     const makeCheckpointedBlockInCheckpoint = (blockNum: number): CheckpointedL2Block =>
       ({
@@ -394,7 +438,7 @@ describe('L2BlockStream', () => {
       blockSource.getPublishedCheckpoints.mockImplementation((checkpointNumber: CheckpointNumber, _limit: number) => {
         const firstBlock = getFirstBlockInCheckpoint(checkpointNumber);
         const lastBlock = Math.min(getLastBlockInCheckpoint(checkpointNumber), checkpointed);
-        const blocks = times(lastBlock - firstBlock + 1, i => makeBlockInCheckpoint(firstBlock + i));
+        const blocks = times(lastBlock - firstBlock + 1, i => makeBlockInCheckpointWithHash(firstBlock + i));
         return Promise.resolve([
           {
             checkpoint: {
@@ -415,16 +459,10 @@ describe('L2BlockStream', () => {
 
       // Should emit blocks 1-3, then checkpoint 1, then blocks 4-6, then checkpoint 2
       expect(handler.events).toEqual([
-        {
-          type: 'blocks-added',
-          blocks: [makeBlockInCheckpoint(1), makeBlockInCheckpoint(2), makeBlockInCheckpoint(3)],
-        },
-        expect.objectContaining({ type: 'chain-checkpointed' }),
-        {
-          type: 'blocks-added',
-          blocks: [makeBlockInCheckpoint(4), makeBlockInCheckpoint(5), makeBlockInCheckpoint(6)],
-        },
-        expect.objectContaining({ type: 'chain-checkpointed' }),
+        expectBlocksAdded([1, 2, 3]),
+        expectCheckpointed(1),
+        expectBlocksAdded([4, 5, 6]),
+        expectCheckpointed(2),
       ]);
     });
 
@@ -436,14 +474,7 @@ describe('L2BlockStream', () => {
       await blockStream.work();
 
       // Should emit checkpoint 1 blocks, then checkpoint event, then uncheckpointed blocks 4-5
-      expect(handler.events).toEqual([
-        {
-          type: 'blocks-added',
-          blocks: [makeBlockInCheckpoint(1), makeBlockInCheckpoint(2), makeBlockInCheckpoint(3)],
-        },
-        expect.objectContaining({ type: 'chain-checkpointed' }),
-        { type: 'blocks-added', blocks: [makeBlock(4), makeBlock(5)] },
-      ]);
+      expect(handler.events).toEqual([expectBlocksAdded([1, 2, 3]), expectCheckpointed(1), expectBlocksAdded([4, 5])]);
     });
 
     it('handles starting from middle of a checkpoint', async () => {
@@ -458,14 +489,11 @@ describe('L2BlockStream', () => {
       // Then continue from block 5, which is in checkpoint 2
       // Blocks 5-6 complete checkpoint 2, then blocks 7-9 complete checkpoint 3
       expect(handler.events).toEqual([
-        expect.objectContaining({ type: 'chain-checkpointed' }), // checkpoint 1 for already-local blocks 1-3
-        { type: 'blocks-added', blocks: [makeBlockInCheckpoint(5), makeBlockInCheckpoint(6)] },
-        expect.objectContaining({ type: 'chain-checkpointed' }), // checkpoint 2
-        {
-          type: 'blocks-added',
-          blocks: [makeBlockInCheckpoint(7), makeBlockInCheckpoint(8), makeBlockInCheckpoint(9)],
-        },
-        expect.objectContaining({ type: 'chain-checkpointed' }), // checkpoint 3
+        expectCheckpointed(1), // checkpoint 1 for already-local blocks 1-3
+        expectBlocksAdded([5, 6]),
+        expectCheckpointed(2), // checkpoint 2
+        expectBlocksAdded([7, 8, 9]),
+        expectCheckpointed(3), // checkpoint 3
       ]);
 
       // Verify checkpoint order
@@ -517,12 +545,9 @@ describe('L2BlockStream', () => {
 
       // Expect: blocks 1-3 via checkpoint, then uncheckpointed blocks 4-6
       expect(handler.events).toEqual([
-        {
-          type: 'blocks-added',
-          blocks: [makeBlockInCheckpoint(1), makeBlockInCheckpoint(2), makeBlockInCheckpoint(3)],
-        },
-        expect.objectContaining({ type: 'chain-checkpointed' }),
-        { type: 'blocks-added', blocks: [makeBlock(4), makeBlock(5), makeBlock(6)] },
+        expectBlocksAdded([1, 2, 3]),
+        expectCheckpointed(1),
+        expectBlocksAdded([4, 5, 6]),
       ]);
 
       handler.clearEvents();
@@ -551,12 +576,9 @@ describe('L2BlockStream', () => {
 
       // Expect: blocks 1-3 via checkpoint, then uncheckpointed blocks 4-6
       expect(handler.events).toEqual([
-        {
-          type: 'blocks-added',
-          blocks: [makeBlockInCheckpoint(1), makeBlockInCheckpoint(2), makeBlockInCheckpoint(3)],
-        },
-        expect.objectContaining({ type: 'chain-checkpointed' }),
-        { type: 'blocks-added', blocks: [makeBlock(4), makeBlock(5), makeBlock(6)] },
+        expectBlocksAdded([1, 2, 3]),
+        expectCheckpointed(1),
+        expectBlocksAdded([4, 5, 6]),
       ]);
 
       handler.clearEvents();
@@ -573,11 +595,7 @@ describe('L2BlockStream', () => {
 
       // Should emit checkpoint 2 FIRST, then the new uncheckpointed block 7
       // NOT: block 7 first, then checkpoint 2
-      expect(handler.events).toEqual([
-        expect.objectContaining({ type: 'chain-checkpointed' }),
-        { type: 'blocks-added', blocks: [makeBlock(7)] },
-      ]);
-      expect((handler.events[0] as any).checkpoint.checkpoint.number).toBe(CheckpointNumber(2));
+      expect(handler.events).toEqual([expectCheckpointed(2), expectBlocksAdded([7])]);
     });
 
     it('emits checkpoint as soon as last block in checkpoint arrives', async () => {
@@ -591,23 +609,12 @@ describe('L2BlockStream', () => {
       await blockStream.work();
 
       expect(handler.events).toEqual([
-        {
-          type: 'blocks-added',
-          blocks: [makeBlockInCheckpoint(1), makeBlockInCheckpoint(2), makeBlockInCheckpoint(3)],
-        },
-        expect.objectContaining({ type: 'chain-checkpointed' }), // checkpoint 1
-        {
-          type: 'blocks-added',
-          blocks: [makeBlockInCheckpoint(4), makeBlockInCheckpoint(5), makeBlockInCheckpoint(6)],
-        },
-        expect.objectContaining({ type: 'chain-checkpointed' }), // checkpoint 2
-        { type: 'blocks-added', blocks: [makeBlock(7), makeBlock(8), makeBlock(9)] }, // uncheckpointed
+        expectBlocksAdded([1, 2, 3]),
+        expectCheckpointed(1),
+        expectBlocksAdded([4, 5, 6]),
+        expectCheckpointed(2),
+        expectBlocksAdded([7, 8, 9]), // uncheckpointed
       ]);
-
-      let checkpointEvents = handler.events.filter(e => e.type === 'chain-checkpointed');
-      expect(checkpointEvents).toHaveLength(2);
-      expect((checkpointEvents[0] as any).checkpoint.checkpoint.number).toBe(CheckpointNumber(1));
-      expect((checkpointEvents[1] as any).checkpoint.checkpoint.number).toBe(CheckpointNumber(2));
 
       handler.clearEvents();
 
@@ -623,13 +630,9 @@ describe('L2BlockStream', () => {
 
       // Should emit checkpoint 3 for already-local blocks 7-9, then uncheckpointed blocks 10-12
       expect(handler.events).toEqual([
-        expect.objectContaining({ type: 'chain-checkpointed' }), // checkpoint 3
-        { type: 'blocks-added', blocks: [makeBlock(10), makeBlock(11), makeBlock(12)] }, // uncheckpointed
+        expectCheckpointed(3),
+        expectBlocksAdded([10, 11, 12]), // uncheckpointed
       ]);
-
-      checkpointEvents = handler.events.filter(e => e.type === 'chain-checkpointed');
-      expect(checkpointEvents).toHaveLength(1);
-      expect((checkpointEvents[0] as any).checkpoint.checkpoint.number).toBe(CheckpointNumber(3));
 
       handler.clearEvents();
 
@@ -644,13 +647,7 @@ describe('L2BlockStream', () => {
       await blockStream.work();
 
       // Should emit checkpoint 4 for already-local blocks 10-12
-      expect(handler.events).toEqual([
-        expect.objectContaining({ type: 'chain-checkpointed' }), // checkpoint 4
-      ]);
-
-      checkpointEvents = handler.events.filter(e => e.type === 'chain-checkpointed');
-      expect(checkpointEvents).toHaveLength(1);
-      expect((checkpointEvents[0] as any).checkpoint.checkpoint.number).toBe(CheckpointNumber(4));
+      expect(handler.events).toEqual([expectCheckpointed(4)]);
     });
 
     it('emits all checkpoints when source jumps ahead with multiple new checkpoints', async () => {
@@ -660,12 +657,9 @@ describe('L2BlockStream', () => {
       await blockStream.work();
 
       expect(handler.events).toEqual([
-        {
-          type: 'blocks-added',
-          blocks: [makeBlockInCheckpoint(1), makeBlockInCheckpoint(2), makeBlockInCheckpoint(3)],
-        },
-        expect.objectContaining({ type: 'chain-checkpointed' }),
-        { type: 'blocks-added', blocks: [makeBlock(4), makeBlock(5), makeBlock(6)] },
+        expectBlocksAdded([1, 2, 3]),
+        expectCheckpointed(1),
+        expectBlocksAdded([4, 5, 6]),
       ]);
 
       handler.clearEvents();
@@ -687,16 +681,13 @@ describe('L2BlockStream', () => {
       // 1. Checkpoint 2 event (blocks 4-6 were already local)
       // 2. Blocks 7-9 + checkpoint 3 event
       // 3. Blocks 10-12 + checkpoint 4 event
-      const checkpointEvents = handler.events.filter(e => e.type === 'chain-checkpointed');
-      expect(checkpointEvents).toHaveLength(3);
-      expect((checkpointEvents[0] as any).checkpoint.checkpoint.number).toBe(CheckpointNumber(2));
-      expect((checkpointEvents[1] as any).checkpoint.checkpoint.number).toBe(CheckpointNumber(3));
-      expect((checkpointEvents[2] as any).checkpoint.checkpoint.number).toBe(CheckpointNumber(4));
-
-      // Should also emit blocks 7-12
-      const blocksAddedEvents = handler.events.filter(e => e.type === 'blocks-added');
-      const allBlockNumbers = blocksAddedEvents.flatMap(e => (e as any).blocks.map((b: any) => b.number));
-      expect(allBlockNumbers).toEqual([7, 8, 9, 10, 11, 12].map(BlockNumber));
+      expect(handler.events).toEqual([
+        expectCheckpointed(2),
+        expectBlocksAdded([7, 8, 9]),
+        expectCheckpointed(3),
+        expectBlocksAdded([10, 11, 12]),
+        expectCheckpointed(4),
+      ]);
     });
   });
 

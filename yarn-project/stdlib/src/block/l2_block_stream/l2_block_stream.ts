@@ -153,9 +153,12 @@ export class L2BlockStream {
         if (iterations > 1) {
           this.log.warn(`Emitting multiple checkpoints (${iterations}) without new blocks being added.`);
         }
+        const lastBlock = checkpoints[0].checkpoint.blocks.at(-1)!;
+        const lastBlockHash = await lastBlock.hash();
         await this.emitEvent({
           type: 'chain-checkpointed',
           checkpoint: checkpoints[0],
+          block: makeL2BlockId(lastBlock.number, lastBlockHash.toString()),
         });
         nextCheckpointToEmit = CheckpointNumber(nextCheckpointToEmit + 1);
       }
@@ -196,9 +199,11 @@ export class L2BlockStream {
         // If we have reached the end of the checkpoint, signal as such
         const lastBlockInCheckpoint = checkpoints[0].checkpoint.blocks.at(-1)!;
         if (nextBlockNumber > lastBlockInCheckpoint.number) {
+          const lastBlockHash = await lastBlockInCheckpoint.hash();
           await this.emitEvent({
             type: 'chain-checkpointed',
             checkpoint: checkpoints[0],
+            block: makeL2BlockId(lastBlockInCheckpoint.number, lastBlockHash.toString()),
           });
         }
       }

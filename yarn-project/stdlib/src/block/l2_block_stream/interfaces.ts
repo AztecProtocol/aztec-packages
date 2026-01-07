@@ -21,6 +21,7 @@ export type L2BlockStreamEvent =
   | /** Emits checkpoints published to L1. */ {
       type: 'chain-checkpointed';
       checkpoint: PublishedCheckpoint;
+      block: L2BlockId;
     }
   | /** Reports last correct block (new tip of the proposed chain). */ {
       type: 'chain-pruned';
