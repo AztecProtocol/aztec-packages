@@ -160,7 +160,7 @@ describe('TxPool: Benchmarks', () => {
       getL2Tips: () => {
         const tipId = {
           block: { number: BlockNumber.ZERO, hash: GENESIS_BLOCK_HEADER_HASH.toString() },
-          checkpoint: { number: CheckpointNumber.ZERO, hash: GENESIS_BLOCK_HEADER_HASH.toString() },
+          checkpoint: { number: CheckpointNumber.ZERO, hash: '' },
         };
         return Promise.resolve({
           proposed: { number: BlockNumber.ZERO, hash: GENESIS_BLOCK_HEADER_HASH.toString() },

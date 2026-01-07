@@ -6,7 +6,7 @@ import {
   PUBLIC_DATA_TREE_HEIGHT,
 } from '@aztec/constants';
 import { asyncMap } from '@aztec/foundation/async-map';
-import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { times } from '@aztec/foundation/collection';
 import { poseidon2Hash, poseidon2HashWithSeparator } from '@aztec/foundation/crypto/poseidon';
 import { randomInt } from '@aztec/foundation/crypto/random';
@@ -48,7 +48,7 @@ import { computeAppNullifierSecretKey, deriveKeys } from '@aztec/stdlib/keys';
 import type { SiloedTag } from '@aztec/stdlib/logs';
 import { L1Actor, L1ToL2Message, L2Actor } from '@aztec/stdlib/messaging';
 import { Note, NoteDao } from '@aztec/stdlib/note';
-import { makeBlockHeader } from '@aztec/stdlib/testing';
+import { makeBlockHeader, makeL2Tips } from '@aztec/stdlib/testing';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 import {
   BlockHeader,
@@ -330,21 +330,7 @@ describe('Private Execution test suite', () => {
     aztecNode.getPrivateLogsByTags.mockImplementation((tags: SiloedTag[]) => Promise.resolve(tags.map(() => [])));
 
     // Mock getL2Tips and getBlockHeader for loadPrivateLogsForSenderRecipientPair
-    aztecNode.getL2Tips.mockResolvedValue({
-      proposed: { number: anchorBlockHeader.globalVariables.blockNumber, hash: '' },
-      checkpointed: {
-        block: { number: anchorBlockHeader.globalVariables.blockNumber, hash: '' },
-        checkpoint: { number: CheckpointNumber(0), hash: '' },
-      },
-      proven: {
-        block: { number: anchorBlockHeader.globalVariables.blockNumber, hash: '' },
-        checkpoint: { number: CheckpointNumber(0), hash: '' },
-      },
-      finalized: {
-        block: { number: anchorBlockHeader.globalVariables.blockNumber, hash: '' },
-        checkpoint: { number: CheckpointNumber(0), hash: '' },
-      },
-    });
+    aztecNode.getL2Tips.mockResolvedValue(makeL2Tips(anchorBlockHeader.globalVariables.blockNumber));
     aztecNode.getBlockHeader.mockImplementation((blockNumber: BlockNumber | 'latest') => {
       if (blockNumber === 'latest') {
         return Promise.resolve(anchorBlockHeader);

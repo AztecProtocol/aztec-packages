@@ -230,6 +230,57 @@ export function testL2TipsStore(makeTipsStore: () => Promise<L2TipsStore>) {
     expect(tips.proposed).toEqual(makeTip(5));
   });
 
+  it('handles pruning proposed chain to genesis, re-proposing, and checkpointing', async () => {
+    // Propose blocks 1-3
+    const firstBlocks = await Promise.all(times(3, i => makeBlock(i + 1)));
+    await tipsStore.handleBlockStreamEvent({ type: 'blocks-added', blocks: firstBlocks });
+
+    let tips = await tipsStore.getL2Tips();
+    expect(tips.proposed).toEqual(makeTip(3));
+
+    // Store original hashes
+    const originalHash1 = blockHashes.get(1);
+    const originalHash2 = blockHashes.get(2);
+    const originalHash3 = blockHashes.get(3);
+
+    // Prune back to genesis (block 0)
+    await tipsStore.handleBlockStreamEvent({ type: 'chain-pruned', block: makeTip(0) });
+
+    tips = await tipsStore.getL2Tips();
+    expect(tips.proposed).toEqual(makeTip(0));
+    expect(tips.checkpointed.block).toEqual(makeTip(0));
+
+    // Clear hashes and propose new blocks 1-3 (different from original)
+    blockHashes.delete(1);
+    blockHashes.delete(2);
+    blockHashes.delete(3);
+    const newBlocks = await Promise.all(times(3, i => makeBlock(i + 1)));
+    await tipsStore.handleBlockStreamEvent({ type: 'blocks-added', blocks: newBlocks });
+
+    // Verify new blocks have different hashes
+    expect(blockHashes.get(1)).not.toEqual(originalHash1);
+    expect(blockHashes.get(2)).not.toEqual(originalHash2);
+    expect(blockHashes.get(3)).not.toEqual(originalHash3);
+
+    tips = await tipsStore.getL2Tips();
+    expect(tips.proposed).toEqual(makeTip(3));
+    expect(tips.checkpointed.block).toEqual(makeTip(0)); // Not yet checkpointed
+
+    // Checkpoint all the new proposed blocks (1-3)
+    const checkpoint1 = await makeCheckpoint(1, newBlocks);
+    await tipsStore.handleBlockStreamEvent({ type: 'chain-checkpointed', checkpoint: checkpoint1 });
+
+    tips = await tipsStore.getL2Tips();
+    expect(tips.proposed).toEqual(makeTip(3));
+    expect(tips.checkpointed.block).toEqual(makeTip(3));
+    expect(tips.checkpointed.checkpoint.number).toEqual(CheckpointNumber(1));
+
+    // Verify block hashes in store are the new ones
+    expect(await tipsStore.getL2BlockHash(1)).toEqual(blockHashes.get(1));
+    expect(await tipsStore.getL2BlockHash(2)).toEqual(blockHashes.get(2));
+    expect(await tipsStore.getL2BlockHash(3)).toEqual(blockHashes.get(3));
+  });
+
   it('handles reorg: prune proposed blocks back to checkpoint, then re-propose with different blocks', async () => {
     // Propose blocks 1-5
     const firstBlocks = await Promise.all(times(5, i => makeBlock(i + 1)));

@@ -2,7 +2,6 @@ import type { EpochCache } from '@aztec/epoch-cache';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { times } from '@aztec/foundation/collection';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { emptyChainConfig } from '@aztec/stdlib/config';
 import type { WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
@@ -301,8 +300,6 @@ describe('p2p client integration', () => {
     // Even though we got a response, the proof was deemed invalid
     expect(requestedTxs).toEqual([]);
 
-    // Low tolerance error is due to the invalid proof - penalize happens asynchronously
-    await retryUntil(() => penalizePeerSpy.mock.calls.length > 0, 'penalize peer called', 20, 0.5);
     expect(penalizePeerSpy).toHaveBeenCalledWith(client2PeerId, PeerErrorSeverity.LowToleranceError);
   });
 
@@ -340,8 +337,6 @@ describe('p2p client integration', () => {
     // Even though we got a response, the proof was deemed invalid
     expect(requestedTxs).toEqual([]);
 
-    // Received wrong tx - penalize happens asynchronously
-    await retryUntil(() => penalizePeerSpy.mock.calls.length > 0, 'penalize peer called', 20, 0.5);
     expect(penalizePeerSpy).toHaveBeenCalledWith(client2PeerId, PeerErrorSeverity.MidToleranceError);
   });
 });

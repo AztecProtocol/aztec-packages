@@ -813,12 +813,26 @@ describe('Archiver', () => {
     await archiver.syncImmediate();
     expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(2));
 
+    // Verify L2Tips after syncing checkpoint 2
+    const lastBlockInCheckpoint2 = allCheckpoints[1].blocks[allCheckpoints[1].blocks.length - 1].number;
+    const tipsAtCheckpoint2 = await archiver.getL2Tips();
+    expect(tipsAtCheckpoint2.proposed.number).toEqual(lastBlockInCheckpoint2);
+    expect(tipsAtCheckpoint2.checkpointed.block.number).toEqual(lastBlockInCheckpoint2);
+    expect(tipsAtCheckpoint2.checkpointed.checkpoint.number).toEqual(CheckpointNumber(2));
+
     logger.warn(`Expecting prune back to checkpoint 1`);
     publicClient.getBlockNumber.mockResolvedValue(95n);
     checkpoints = checkpoints.slice(0, 1); // Keep only checkpoint 1 as the valid checkpoint
     await archiver.syncImmediate();
     expect(loggerSpy).toHaveBeenCalledWith(expect.stringContaining(`L2 prune has been detected`), expect.anything());
     expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(1));
+
+    // Verify L2Tips after pruning back to checkpoint 1
+    const lastBlockInCheckpoint1 = allCheckpoints[0].blocks[allCheckpoints[0].blocks.length - 1].number;
+    const tipsAfterPrune = await archiver.getL2Tips();
+    expect(tipsAfterPrune.proposed.number).toEqual(lastBlockInCheckpoint1);
+    expect(tipsAfterPrune.checkpointed.block.number).toEqual(lastBlockInCheckpoint1);
+    expect(tipsAfterPrune.checkpointed.checkpoint.number).toEqual(CheckpointNumber(1));
 
     const txHash = allCheckpoints[1].blocks[0].body.txEffects[0].txHash;
     expect(await archiver.getTxEffect(txHash)).resolves.toBeUndefined;
@@ -1787,6 +1801,12 @@ describe('Archiver', () => {
       expect(await archiver.getSynchedCheckpointNumber()).toEqual(CheckpointNumber(1));
       const lastBlockInCheckpoint1 = checkpoint1.blocks[checkpoint1.blocks.length - 1].number;
 
+      // Verify L2Tips after syncing checkpoint 1: proposed and checkpointed should both be at checkpoint 1
+      const tipsAfterCheckpoint1 = await archiver.getL2Tips();
+      expect(tipsAfterCheckpoint1.proposed.number).toEqual(lastBlockInCheckpoint1);
+      expect(tipsAfterCheckpoint1.checkpointed.block.number).toEqual(lastBlockInCheckpoint1);
+      expect(tipsAfterCheckpoint1.checkpointed.checkpoint.number).toEqual(CheckpointNumber(1));
+
       // Now add blocks for checkpoint 2 via addBlock (simulating local block production)
       const checkpoint2 = checkpoints[1];
       for (const block of checkpoint2.blocks) {
@@ -1797,6 +1817,12 @@ describe('Archiver', () => {
       const lastBlockInCheckpoint2 = checkpoint2.blocks[checkpoint2.blocks.length - 1].number;
       expect(await archiver.getBlockNumber()).toEqual(lastBlockInCheckpoint2);
       expect(await archiver.getSynchedCheckpointNumber()).toEqual(CheckpointNumber(1));
+
+      // Verify L2Tips after adding blocks: proposed advances but checkpointed stays at checkpoint 1
+      const tipsAfterAddBlock = await archiver.getL2Tips();
+      expect(tipsAfterAddBlock.proposed.number).toEqual(lastBlockInCheckpoint2);
+      expect(tipsAfterAddBlock.checkpointed.block.number).toEqual(lastBlockInCheckpoint1);
+      expect(tipsAfterAddBlock.checkpointed.checkpoint.number).toEqual(CheckpointNumber(1));
 
       // getCheckpointedBlock should return undefined for the new blocks since checkpoint 2 hasn't synced
       const firstNewBlockNumber = lastBlockInCheckpoint1 + 1;
@@ -1825,6 +1851,12 @@ describe('Archiver', () => {
 
       // Now the blocks should be checkpointed
       expect(await archiver.getSynchedCheckpointNumber()).toEqual(CheckpointNumber(2));
+
+      // Verify L2Tips after syncing checkpoint 2: proposed and checkpointed should both be at checkpoint 2
+      const tipsAfterCheckpoint2 = await archiver.getL2Tips();
+      expect(tipsAfterCheckpoint2.proposed.number).toEqual(lastBlockInCheckpoint2);
+      expect(tipsAfterCheckpoint2.checkpointed.block.number).toEqual(lastBlockInCheckpoint2);
+      expect(tipsAfterCheckpoint2.checkpointed.checkpoint.number).toEqual(CheckpointNumber(2));
 
       // getCheckpointedBlock should now work for the new blocks
       const checkpointedBlock = await archiver.getCheckpointedBlock(BlockNumber(firstNewBlockNumber));
@@ -1902,6 +1934,12 @@ describe('Archiver', () => {
       expect(await archiver.getSynchedCheckpointNumber()).toEqual(CheckpointNumber(1));
       const lastBlockInCheckpoint1 = checkpoint1.blocks[checkpoint1.blocks.length - 1].number;
 
+      // Verify L2Tips after syncing checkpoint 1: proposed and checkpointed at checkpoint 1
+      const tipsAfterCheckpoint1 = await archiver.getL2Tips();
+      expect(tipsAfterCheckpoint1.proposed.number).toEqual(lastBlockInCheckpoint1);
+      expect(tipsAfterCheckpoint1.checkpointed.block.number).toEqual(lastBlockInCheckpoint1);
+      expect(tipsAfterCheckpoint1.checkpointed.checkpoint.number).toEqual(CheckpointNumber(1));
+
       // Now add more blocks via addBlock (simulating local block production ahead of L1)
       const checkpoint2 = checkpoints[1];
       for (const block of checkpoint2.blocks) {
@@ -1914,6 +1952,12 @@ describe('Archiver', () => {
 
       // But checkpoint number should still be 1
       expect(await archiver.getSynchedCheckpointNumber()).toEqual(CheckpointNumber(1));
+
+      // Verify L2Tips after adding blocks: proposed advances, checkpointed stays at checkpoint 1
+      const tipsAfterAddBlock = await archiver.getL2Tips();
+      expect(tipsAfterAddBlock.proposed.number).toEqual(lastBlockInCheckpoint2);
+      expect(tipsAfterAddBlock.checkpointed.block.number).toEqual(lastBlockInCheckpoint1);
+      expect(tipsAfterAddBlock.checkpointed.checkpoint.number).toEqual(CheckpointNumber(1));
 
       // New blocks should not be checkpointed yet
       const firstNewBlockNumber = lastBlockInCheckpoint1 + 1;
@@ -1938,6 +1982,12 @@ describe('Archiver', () => {
 
       // Now all blocks should be checkpointed
       expect(await archiver.getSynchedCheckpointNumber()).toEqual(CheckpointNumber(2));
+
+      // Verify L2Tips after syncing checkpoint 2: both proposed and checkpointed at checkpoint 2
+      const tipsAfterCheckpoint2 = await archiver.getL2Tips();
+      expect(tipsAfterCheckpoint2.proposed.number).toEqual(lastBlockInCheckpoint2);
+      expect(tipsAfterCheckpoint2.checkpointed.block.number).toEqual(lastBlockInCheckpoint2);
+      expect(tipsAfterCheckpoint2.checkpointed.checkpoint.number).toEqual(CheckpointNumber(2));
 
       const checkpointedBlock = await archiver.getCheckpointedBlock(BlockNumber(firstNewBlockNumber));
       expect(checkpointedBlock).toBeDefined();

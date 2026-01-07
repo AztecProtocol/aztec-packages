@@ -179,7 +179,7 @@ describe('PXE', () => {
       // Mock getL2Tips which is needed for syncing tagged logs
       const tipId = {
         block: { number: lastKnownBlockNumber, hash: GENESIS_BLOCK_HEADER_HASH.toString() },
-        checkpoint: { number: CheckpointNumber(lastKnownBlockNumber), hash: GENESIS_BLOCK_HEADER_HASH.toString() },
+        checkpoint: { number: CheckpointNumber(lastKnownBlockNumber), hash: '' },
       };
       node.getL2Tips.mockResolvedValue({
         proposed: { number: lastKnownBlockNumber, hash: GENESIS_BLOCK_HEADER_HASH.toString() },

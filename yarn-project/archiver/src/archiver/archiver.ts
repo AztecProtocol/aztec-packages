@@ -1534,6 +1534,7 @@ export class Archiver
 
     const beforeInitialblockNumber = BlockNumber(INITIAL_L2_BLOCK_NUM - 1);
 
+    // Get the latest block header and checkpointed blocks for proven, finalised and checkpointed blocks
     const [latestBlockHeader, provenCheckpointedBlock, finalizedCheckpointedBlock, checkpointedBlock] =
       await Promise.all([
         latestBlockNumber > beforeInitialblockNumber ? this.getBlockHeader(latestBlockNumber) : undefined,
@@ -1575,6 +1576,7 @@ export class Archiver
       (await finalizedCheckpointedBlock?.block.header?.hash()) ?? GENESIS_BLOCK_HEADER_HASH;
     const checkpointedBlockHeaderHash = (await checkpointedBlock?.block.header?.hash()) ?? GENESIS_BLOCK_HEADER_HASH;
 
+    // Now attempt to retrieve checkpoints for proven, finalised and checkpointed blocks
     const [[provenBlockCheckpoint], [finalizedBlockCheckpoint], [checkpointedBlockCheckpoint]] = await Promise.all([
       provenCheckpointedBlock !== undefined
         ? await this.getPublishedCheckpoints(provenCheckpointedBlock?.checkpointNumber, 1)
@@ -1592,6 +1594,16 @@ export class Archiver
       hash: '',
     };
 
+    const makeCheckpointId = (checkpoint: PublishedCheckpoint | undefined) => {
+      if (checkpoint === undefined) {
+        return initialcheckpointId;
+      }
+      return {
+        number: checkpoint.checkpoint.number,
+        hash: checkpoint.checkpoint.hash().toString(),
+      };
+    };
+
     const l2Tips: L2Tips = {
       proposed: {
         number: latestBlockNumber,
@@ -1602,39 +1614,21 @@ export class Archiver
           number: provenBlockNumber,
           hash: provenBlockHeaderHash.toString(),
         },
-        checkpoint:
-          provenBlockCheckpoint == undefined
-            ? initialcheckpointId
-            : {
-                number: provenBlockCheckpoint.checkpoint.number,
-                hash: provenBlockCheckpoint.checkpoint.hash().toString(),
-              },
+        checkpoint: makeCheckpointId(provenBlockCheckpoint),
       },
       finalized: {
         block: {
           number: finalizedBlockNumber,
           hash: finalizedBlockHeaderHash.toString(),
         },
-        checkpoint:
-          finalizedBlockCheckpoint == undefined
-            ? initialcheckpointId
-            : {
-                number: finalizedBlockCheckpoint.checkpoint.number,
-                hash: finalizedBlockCheckpoint.checkpoint.hash().toString(),
-              },
+        checkpoint: makeCheckpointId(finalizedBlockCheckpoint),
       },
       checkpointed: {
         block: {
           number: checkpointedBlockNumber,
           hash: checkpointedBlockHeaderHash.toString(),
         },
-        checkpoint:
-          checkpointedBlockCheckpoint == undefined
-            ? initialcheckpointId
-            : {
-                number: checkpointedBlockCheckpoint.checkpoint.number,
-                hash: checkpointedBlockCheckpoint.checkpoint.hash().toString(),
-              },
+        checkpoint: makeCheckpointId(checkpointedBlockCheckpoint),
       },
     };
 

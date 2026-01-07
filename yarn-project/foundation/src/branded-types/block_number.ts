@@ -99,13 +99,6 @@ function makeBlockNumberSchema(minValue: number) {
     .transform(value => BlockNumber(value));
 }
 
-function makeCheckpointNumberSchema(minValue: number) {
-  return z
-    .union([z.number(), z.bigint(), z.string()])
-    .pipe(z.coerce.number().int().min(minValue))
-    .transform(value => CheckpointNumber(value));
-}
-
 /**
  * Zod schema for parsing and validating BlockNumber values.
  * Accepts numbers, bigints, or strings and coerces them to BlockNumber.
@@ -117,9 +110,3 @@ export const BlockNumberSchema = makeBlockNumberSchema(0);
  * Accepts numbers, bigints, or strings and coerces them to BlockNumber.
  */
 export const BlockNumberPositiveSchema = makeBlockNumberSchema(1);
-
-/**
- * Zod schema for parsing and validating CheckpointNumber values that are strictly positive.
- * Accepts numbers, bigints, or strings and coerces them to CheckpointNumber.
- */
-export const CheckpointNumberPositiveSchema = makeCheckpointNumberSchema(1);

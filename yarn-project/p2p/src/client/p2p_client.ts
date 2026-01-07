@@ -173,7 +173,6 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
   public async handleBlockStreamEvent(event: L2BlockStreamEvent): Promise<void> {
     this.log.debug(`Handling block stream event ${event.type}`);
 
-    // Get old finalized block number before any processing (needed for chain-finalized handling)
     const oldFinalizedBlockNum =
       event.type === 'chain-finalized' ? await this.getSyncedFinalizedBlockNum() : BlockNumber(0);
 
@@ -205,7 +204,9 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
       }
     }
 
+    // Pass the event through the our l2 tips store
     await this.l2Tips.handleBlockStreamEvent(event);
+    await this.startServiceIfSynched();
   }
 
   #assertIsReady() {
@@ -674,7 +675,6 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     const lastBlock = blocks.at(-1)!;
     await this.synchedLatestSlot.set(BigInt(lastBlock.header.getSlot()));
     this.log.verbose(`Synched to latest block ${lastBlock.number}`);
-    await this.startServiceIfSynched();
   }
 
   /** Request txs for unproven blocks so the prover node has more chances to get them. */
@@ -728,8 +728,6 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     await this.attestationPool.deleteAttestationsOlderThan(lastBlockSlot);
 
     this.log.debug(`Synched to finalized block ${lastBlockNum} at slot ${lastBlockSlot}`);
-
-    await this.startServiceIfSynched();
   }
 
   /**

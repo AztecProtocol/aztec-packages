@@ -65,7 +65,6 @@ describe('L2BlockStream', () => {
       Promise.resolve(compactArray(times(limit, i => (from + i > latest ? undefined : makeBlock(from + i))))),
     );
 
-    // Mock getPublishedCheckpoints to return a mock checkpoint
     blockSource.getPublishedCheckpoints.mockImplementation((checkpointNumber: CheckpointNumber, _limit: number) =>
       Promise.resolve([
         {

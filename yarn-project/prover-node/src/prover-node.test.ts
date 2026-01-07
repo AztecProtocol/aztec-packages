@@ -153,7 +153,7 @@ describe('prover-node', () => {
     const latestHash = checkpoints.at(-1)!.hash().toString();
     const genesisTipId = {
       block: { number: BlockNumber.ZERO, hash: GENESIS_BLOCK_HEADER_HASH.toString() },
-      checkpoint: { number: CheckpointNumber.ZERO, hash: GENESIS_BLOCK_HEADER_HASH.toString() },
+      checkpoint: { number: CheckpointNumber.ZERO, hash: '' },
     };
     l2BlockSource.getL2Tips.mockResolvedValue({
       proposed: { number: latestBlockNumber, hash: latestHash },

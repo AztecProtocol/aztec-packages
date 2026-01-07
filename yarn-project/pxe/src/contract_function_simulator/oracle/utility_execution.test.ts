@@ -1,4 +1,4 @@
-import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { GrumpkinScalar } from '@aztec/foundation/curves/grumpkin';
 import type { KeyStore } from '@aztec/key-store';
@@ -11,6 +11,7 @@ import { CompleteAddress, type ContractInstanceWithAddress } from '@aztec/stdlib
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import { deriveKeys } from '@aztec/stdlib/keys';
 import { Note, NoteDao } from '@aztec/stdlib/note';
+import { makeL2Tips } from '@aztec/stdlib/testing';
 import { BlockHeader, GlobalVariables, TxHash } from '@aztec/stdlib/tx';
 
 import { mock } from 'jest-mock-extended';
@@ -74,21 +75,7 @@ describe('Utility Execution test suite', () => {
     senderAddressBookStore.getSenders.mockResolvedValue([]);
 
     // Mock getL2Tips and getBlockHeader for loadPrivateLogsForSenderRecipientPair
-    aztecNode.getL2Tips.mockResolvedValue({
-      proposed: { number: anchorBlockHeader.globalVariables.blockNumber, hash: '' },
-      checkpointed: {
-        block: { number: anchorBlockHeader.globalVariables.blockNumber, hash: '' },
-        checkpoint: { number: CheckpointNumber(0), hash: '' },
-      },
-      proven: {
-        block: { number: anchorBlockHeader.globalVariables.blockNumber, hash: '' },
-        checkpoint: { number: CheckpointNumber(0), hash: '' },
-      },
-      finalized: {
-        block: { number: anchorBlockHeader.globalVariables.blockNumber, hash: '' },
-        checkpoint: { number: CheckpointNumber(0), hash: '' },
-      },
-    });
+    aztecNode.getL2Tips.mockResolvedValue(makeL2Tips(anchorBlockHeader.globalVariables.blockNumber));
     aztecNode.getBlockHeader.mockImplementation((blockNumber: BlockNumber | 'latest') => {
       if (blockNumber === 'latest') {
         return Promise.resolve(anchorBlockHeader);

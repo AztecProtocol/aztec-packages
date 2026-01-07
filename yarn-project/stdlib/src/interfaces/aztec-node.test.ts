@@ -265,7 +265,6 @@ describe('AztecNodeApiSchema', () => {
     expect(response).toHaveLength(1);
     expect(response[0]).toBeInstanceOf(L2BlockNew);
 
-    await expect(context.client.getBlocks(-1 as BlockNumber, BlockNumber(1))).rejects.toThrow();
     await expect(context.client.getBlocks(BlockNumber.ZERO, BlockNumber(1))).rejects.toThrow();
     await expect(context.client.getBlocks(BlockNumber(1), BlockNumber.ZERO)).rejects.toThrow();
     await expect(context.client.getBlocks(BlockNumber(1), MAX_RPC_LEN + 1)).rejects.toThrow();

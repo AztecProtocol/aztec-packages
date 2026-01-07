@@ -138,8 +138,6 @@ describe('p2p client integration status handshake', () => {
       expect(handshakeSpy).toHaveBeenCalled();
     }
 
-    // Disconnect happens asynchronously after the handshake
-    await retryUntil(() => disconnectSpy.mock.calls.length > 0, 'disconnect called', 10, 0.5);
     expect(disconnectSpy).toHaveBeenCalled();
   });
 
