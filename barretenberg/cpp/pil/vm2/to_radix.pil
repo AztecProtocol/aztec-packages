@@ -24,7 +24,7 @@ namespace to_radix;
     #[skippable_if]
     sel = 0;
 
-    pol commit sel;
+    pol commit sel; // @boolean
     sel * (1 - sel) = 0;
 
     // Inputs to to_radix
@@ -38,10 +38,10 @@ namespace to_radix;
 
     // LIFECYCLE
 
-    pol commit start;
+    pol commit start; // @boolean
     start * (1 - start) = 0;
 
-    pol commit end;
+    pol commit end; // @boolean
     end * (1 - end) = 0;
 
     // end and first_row are NAND
@@ -61,7 +61,7 @@ namespace to_radix;
     end * (1 - sel) = 0;
 
     // Commited to reduce the degree of expressions
-    pol commit not_end;
+    pol commit not_end; // @boolean (by definition)
     sel * (1 - end) - not_end = 0;
 
 
@@ -69,7 +69,7 @@ namespace to_radix;
 
     pol commit exponent;
     // We commit not_padding_limb instead of the more natural padding_limb because it's going to be used in a lookup
-    pol commit not_padding_limb;
+    pol commit not_padding_limb; // @boolean
     not_padding_limb * (1 - not_padding_limb) = 0;
 
     // exponent starts at 1
@@ -88,7 +88,7 @@ namespace to_radix;
     // ACCUMULATION
 
     pol commit acc;
-    pol commit found;
+    pol commit found; // @boolean
     found * (1 - found) = 0;
 
     // Limb index starts at zero
@@ -142,7 +142,7 @@ namespace to_radix;
     precomputed.sel_to_radix_p_limb_counts
         { precomputed.clk, precomputed.to_radix_safe_limbs };
 
-    pol commit is_unsafe_limb;
+    pol commit is_unsafe_limb; // @boolean
     is_unsafe_limb * (1 - is_unsafe_limb) = 0;
 
     // If is_padding_limb, limb is zero
@@ -165,14 +165,14 @@ namespace to_radix;
         { precomputed.p_decomposition_radix, precomputed.p_decomposition_limb_index, precomputed.p_decomposition_limb };
 
     // We carry wether the accumulator is under p. If we reach the unsafe limb, we need to ensure that this is true.
-    pol commit acc_under_p;
+    pol commit acc_under_p; // @boolean
     acc_under_p * (1 - acc_under_p) = 0;
 
     // 1 when lt, 0 when gt or equal
-    pol commit limb_lt_p;
+    pol commit limb_lt_p; // @boolean
     limb_lt_p * (1 - limb_lt_p) = 0;
 
-    pol commit limb_eq_p;
+    pol commit limb_eq_p; // @boolean
     limb_eq_p * (1 - limb_eq_p) = 0;
 
     // limb_eq_p and limb_lt_p are NAND

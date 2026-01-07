@@ -58,7 +58,7 @@ include "precomputed.pil";
 
 namespace to_radix_mem;
 
-    pol commit sel;
+    pol commit sel; // @boolean
     sel * (1 - sel) = 0;
 
     #[skippable_if]
@@ -76,9 +76,9 @@ namespace to_radix_mem;
     pol commit is_output_bits;
 
     // Control Flow
-    pol commit start;
+    pol commit start; // @boolean
     start * (1 - start) = 0;
-    pol commit last; // Constrained in the Control flow section as depends on error
+    pol commit last; // @boolean Constrained in the Control flow section as depends on error
     last * (1 - last) = 0;
 
     // Since sel has a shifted column (see CONTINUITY checks), sel must equal 0 in the first row
@@ -135,7 +135,7 @@ namespace to_radix_mem;
 
     pol commit sel_radix_gt_256_err; // Radix is > 256 (Constrained to be boolean by the lookup into gt. (provided that start == 1).)
 
-    pol commit sel_invalid_bitwise_radix; // Radix != 2 if output_bits = 1
+    pol commit sel_invalid_bitwise_radix; // @boolean Radix != 2 if output_bits = 1
     sel_invalid_bitwise_radix * (1 - sel_invalid_bitwise_radix) = 0;
 
     pol commit two; // While we do not have constants in lookups
@@ -161,13 +161,13 @@ namespace to_radix_mem;
     // Error Handling - Check Num Limbs and Value are valid
     /////////////////////////////////////////////////////////
     // If num_limbs = 0, and value_to_decompose != 0, we throw an error
-    pol commit sel_num_limbs_is_zero; // We will re-use this later when gating dispatch to the to_radix gadget
+    pol commit sel_num_limbs_is_zero; // @boolean We will re-use this later when gating dispatch to the to_radix gadget
     sel_num_limbs_is_zero * (1 - sel_num_limbs_is_zero) = 0;
     pol commit num_limbs_inv;
     #[ZERO_CHECK_NUM_LIMBS] // sel_num_limbs_is_zero = 1 if num_limbs = 0
     start * (num_limbs * (sel_num_limbs_is_zero * (1 - num_limbs_inv) + num_limbs_inv) - 1 + sel_num_limbs_is_zero) = 0;
 
-    pol commit sel_value_is_zero;
+    pol commit sel_value_is_zero; // @boolean
     sel_value_is_zero * (1 - sel_value_is_zero) = 0;
     pol commit value_inv;
     #[ZERO_CHECK_VALUE] // sel_value_is_zero = 1 if value_to_decompose = 0
@@ -189,7 +189,7 @@ namespace to_radix_mem;
     // In the low level to_radix gadget, found will be on when the number has been reconstructed with the current limbs.
     // Refer to the table in the low level to_radix gadget for a visual example.
     pol commit value_found;
-    pol commit sel_should_decompose;
+    pol commit sel_should_decompose; // @boolean
     sel_should_decompose * (1 - sel_should_decompose) = 0;
 
     // On the start row, we define sel_should_decompose as !input_validation_error && !num_limbs_is_zero
@@ -211,7 +211,7 @@ namespace to_radix_mem;
     /////////////////////////////////////////////////////
     // Error Handling - Check no truncation error
     /////////////////////////////////////////////////////
-    pol commit sel_truncation_error;
+    pol commit sel_truncation_error; // @boolean
     sel_truncation_error * (1 - sel_truncation_error) = 0;
     // A truncation error happens if in the start row, we look up the to_radix gadget and value_found is off.
     // The to_radix gadget is little endian, so the first row that we lookup is the last limb. If it's not found in the last limb,

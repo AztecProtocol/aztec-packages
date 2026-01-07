@@ -39,20 +39,20 @@ include "../precomputed.pil";
 // };
 
 namespace retrieved_bytecodes_tree_check;
-    pol commit sel;
+    pol commit sel; // @boolean
     sel * (1 - sel) = 0;
 
     #[skippable_if]
     sel = 0;
 
     // Inputs to the gadget
-    pol commit write;
+    pol commit write; // @boolean
     write * (1 - write) = 0;
     pol READ = 1 - write;
 
     pol commit class_id;
     pol commit root;
-    pol commit leaf_not_exists;
+    pol commit leaf_not_exists; // @boolean
     leaf_not_exists * (1 - leaf_not_exists) = 0;
     pol EXISTS = 1 - leaf_not_exists;
 
@@ -72,7 +72,7 @@ namespace retrieved_bytecodes_tree_check;
     pol commit low_leaf_index;
 
     // ========= HANDLE REDUNDANT WRITES  =========
-    pol commit should_insert;
+    pol commit should_insert; // @boolean (by definition)
     should_insert = write * leaf_not_exists;
     // On a failing write, the root must not change
     write * EXISTS * (root - write_root) = 0;
@@ -123,7 +123,7 @@ namespace retrieved_bytecodes_tree_check;
 
     // If next class id is not zero (which would be infinity), it has to be greater than the class id.
     // We commit next_class_id_is_nonzero instead of next_class_id_is_zero since it'll be used as a selector for a lookup
-    pol commit next_class_id_is_nonzero;
+    pol commit next_class_id_is_nonzero; // @boolean
     next_class_id_is_nonzero * (1 - next_class_id_is_nonzero) = 0;
     pol NEXT_CLASS_ID_IS_ZERO = 1 - next_class_id_is_nonzero;
 

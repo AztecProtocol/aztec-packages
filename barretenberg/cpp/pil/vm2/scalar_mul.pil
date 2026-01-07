@@ -29,14 +29,14 @@ namespace scalar_mul;
     #[skippable_if]
     sel = 0;
 
-    pol commit sel;
+    pol commit sel; // @boolean
     sel * (1 - sel) = 0;
 
     // These are the inputs to perform the scalar mul, a point and a scalar
     pol commit scalar;
     pol commit point_x;
     pol commit point_y;
-    pol commit point_inf;
+    pol commit point_inf; // @boolean
     point_inf * (1 - point_inf) = 0; // Validate the input
 
     // The output of the scalar mul is a point
@@ -53,10 +53,10 @@ namespace scalar_mul;
     // - There can be any number of rows between start and end
     // - end can be 1 only N rows after a start (we'll constrain that N=253 in the BIT DECOMPOSITION section)
     // - sel should be 1 on start and after and can change after end
-    pol commit start;
+    pol commit start; // @boolean
     start * (1 - start) = 0;
 
-    pol commit end;
+    pol commit end; // @boolean
     end * (1 - end) = 0;
 
     // end and first_row are NAND
@@ -76,7 +76,7 @@ namespace scalar_mul;
     end * (1 - sel) = 0;
 
     // Needs to be commited since we'll use it in the ecc add lookup for doubling
-    pol commit not_end;
+    pol commit not_end; // @boolean (by definition)
     // not_end = sel & !end
     not_end - sel * (1 - end) = 0;
 
@@ -97,7 +97,7 @@ namespace scalar_mul;
 
     // BIT DECOMPOSITION
 
-    pol commit bit;
+    pol commit bit; // @boolean (from to_radix lookup with radix=2)
     // Should we have an explicit end boolean or callers should look up rows where bit_idx is 253?
     pol commit bit_idx;
 
@@ -160,7 +160,7 @@ namespace scalar_mul;
 
     // If not_end, res = bit? res + temp : res
     // commited because it's used in the add lookup
-    pol commit should_add;
+    pol commit should_add; // @boolean (by definition)
     should_add - not_end * bit = 0;
     pol should_pass = not_end * (1 - bit);
 

@@ -72,15 +72,15 @@ namespace execution; // this is a virtual gadget that shares rows with the execu
 
     ////////////////////////////////////////////////////////////////////////////
     // from precomputed.pil's GETENVVAR opcode precomputed columns
-    pol commit sel_envvar_pi_lookup_col0; // Sel to enable lookup to public inputs col0 for certain env vars
-    pol commit sel_envvar_pi_lookup_col1; // Sel to enable lookup to public inputs col1 for certain env vars
+    pol commit sel_envvar_pi_lookup_col0; // @boolean (by lookup) Sel to enable lookup to public inputs col0 for certain env vars
+    pol commit sel_envvar_pi_lookup_col1; // @boolean (by lookup) Sel to enable lookup to public inputs col1 for certain env vars
     pol commit envvar_pi_row_idx; // Row index to lookup in public inputs
-    pol commit is_address;
-    pol commit is_sender;
-    pol commit is_transactionfee;
-    pol commit is_isstaticcall;
-    pol commit is_l2gasleft;
-    pol commit is_dagasleft;
+    pol commit is_address; // @boolean (by lookup)
+    pol commit is_sender; // @boolean (by lookup)
+    pol commit is_transactionfee; // @boolean (by lookup)
+    pol commit is_isstaticcall; // @boolean (by lookup)
+    pol commit is_l2gasleft; // @boolean (by lookup)
+    pol commit is_dagasleft; // @boolean (by lookup)
     // This lookup must be valid for all clks up to max u8 (255)
     // to allow error handling for any invalid enum that fits in a u8 immediate.
     // So, use the `precomputed.sel_range_8` as selector into the precomputed table.

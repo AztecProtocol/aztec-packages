@@ -16,7 +16,7 @@ include "../precomputed.pil";
 // +-----+-----------+-------+-----+-------------+----------------------+-------------+----------+-------------+
 //
 namespace public_data_squash;
-    pol commit sel;
+    pol commit sel; // @boolean
     sel * (1 - sel) = 0;
 
     #[skippable_if]
@@ -32,14 +32,14 @@ namespace public_data_squash;
     pol commit leaf_slot;
     pol commit value;
     pol commit clk;
-    pol commit write_to_public_inputs;
+    pol commit write_to_public_inputs; // @boolean
     write_to_public_inputs * (1 - write_to_public_inputs) = 0;
 
     // ====== SORTING ======
     // Leaf slot must not decrease
     // Later on, we constrain that if leaf slot is the same, the clock must not decrease.
     // Leaf slot increase is on if next row will have a higher leaf slot
-    pol commit leaf_slot_increase;
+    pol commit leaf_slot_increase; // @boolean
     leaf_slot_increase * (1 - leaf_slot_increase) = 0;
     // !end && !leaf_slot_increase ==> next leaf_slot is the same
     #[CHECK_SAME_LEAF_SLOT]

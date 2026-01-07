@@ -12,7 +12,7 @@ include "poseidon2_perm.pil";
 //      Note that input_len is only constrained at the start row, so it cannot be relied on for intermediate rows.
 namespace poseidon2_hash;
 
-    pol commit sel;
+    pol commit sel; // @boolean
     sel * (1 - sel) = 0;
 
     #[skippable_if]
@@ -45,13 +45,13 @@ namespace poseidon2_hash;
 
     // === Control Flow within Subtrace ===
     // Start of a poseidon2 computation
-    pol commit start;
+    pol commit start; // @boolean
     start * (1 - start) = 0;
     // When we end a poseidon, the next row must naturally have a start
     sel' * (start' - LATCH_CONDITION) = 0;
 
     // The last row of hashing for the given input
-    pol commit end;
+    pol commit end; // @boolean
     end * (1 - end) = 0;
 
     // Selector must be 1 in end row

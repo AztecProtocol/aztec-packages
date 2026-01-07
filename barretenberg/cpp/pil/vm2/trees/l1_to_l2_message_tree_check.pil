@@ -17,14 +17,14 @@ include "../constants_gen.pil";
  * };
 **/
 namespace l1_to_l2_message_tree_check;
-    pol commit sel;
+    pol commit sel; // @boolean
     sel * (1 - sel) = 0;
 
     #[skippable_if]
     sel = 0;
 
     // Inputs to the gadget
-    pol commit exists;
+    pol commit exists; // @boolean (by lookup)
 
     pol commit msg_hash;
     pol commit leaf_index;

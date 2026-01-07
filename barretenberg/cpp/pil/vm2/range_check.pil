@@ -16,14 +16,14 @@
 // here changes the assumption, the gt.pil needs to be modified as well.
 namespace range_check;
     // Range check selector
-    pol commit sel;
+    pol commit sel; // @boolean
     sel * (1 - sel) = 0;
 
     // This is used to decouple generation of inverses of lookups into this trace.
-    pol commit sel_keccak;
-    pol commit sel_gt;
-    pol commit sel_memory;
-    pol commit sel_alu;
+    pol commit sel_keccak; // @boolean
+    pol commit sel_gt; // @boolean
+    pol commit sel_memory; // @boolean
+    pol commit sel_alu; // @boolean
     sel_keccak * (1 - sel_keccak) = 0;
     sel_gt * (1 - sel_gt) = 0;
     sel_memory * (1 - sel_memory) = 0;
@@ -47,14 +47,14 @@ namespace range_check;
     // If rng_chk_bits is a multiple of 16, a prover is able to choose either is_lte_xx or is_lte_xx(+16), since the dynamic register will prove 0
     // This isn't a concern and only costs the prover additional compute.
     // TODO: Maybe we can get rid of is_lte_u128 since it's implicit if we have sel and no other is_lte_x
-    pol commit is_lte_u16;
-    pol commit is_lte_u32;
-    pol commit is_lte_u48;
-    pol commit is_lte_u64;
-    pol commit is_lte_u80;
-    pol commit is_lte_u96;
-    pol commit is_lte_u112;
-    pol commit is_lte_u128;
+    pol commit is_lte_u16; // @boolean
+    pol commit is_lte_u32; // @boolean
+    pol commit is_lte_u48; // @boolean
+    pol commit is_lte_u64; // @boolean
+    pol commit is_lte_u80; // @boolean
+    pol commit is_lte_u96; // @boolean
+    pol commit is_lte_u112; // @boolean
+    pol commit is_lte_u128; // @boolean
     is_lte_u16 * (1 - is_lte_u16) = 0;
     is_lte_u32 * (1 - is_lte_u32) = 0;
     is_lte_u48 * (1 - is_lte_u48) = 0;

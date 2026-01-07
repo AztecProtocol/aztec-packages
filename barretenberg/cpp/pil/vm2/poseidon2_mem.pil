@@ -144,7 +144,7 @@ namespace poseidon2_perm_mem;
     BATCHED_TAG_CHECK * ((1 - sel_invalid_tag_err) * (1 - batch_tag_inv) + batch_tag_inv) - sel_invalid_tag_err = 0;
 
     // Consolidated error flag
-    pol commit err;
+    pol commit err; // @boolean (by definition)
     err = 1 - (1 - sel_src_out_of_range_err) * (1 - sel_dst_out_of_range_err) * (1 - sel_invalid_tag_err);
 
     ///////////////////////////////////////////////////////////////////////

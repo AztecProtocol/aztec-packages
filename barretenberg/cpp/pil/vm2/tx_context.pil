@@ -63,7 +63,7 @@ namespace tx;
 
     // ==== READ START/END STATE FROM PI ====
     // Selector used to read trees and gas used from PI.
-    pol commit sel_read_trees_and_gas_used; // @boolean because start_tx and is_cleanup are disjoint and booleans.
+    pol commit sel_read_trees_and_gas_used; // @boolean (by definition, start_tx and is_cleanup are disjoint)
     sel_read_trees_and_gas_used = start_tx + is_cleanup;
 
     // Read start/end state of the note hash tree from PI
@@ -171,7 +171,7 @@ namespace tx;
 
     // Gas limit is read twice, but not on start and end; rather, on start and teardown.
     // On start we read the general tx gas limit, and on teardown we read the teardown gas limit.
-    pol commit should_read_gas_limit; // @boolean (follows from definition and mutual exclusivity of start_tx and is_teardown)
+    pol commit should_read_gas_limit; // @boolean (by definition, mutual exclusivity of start_tx and is_teardown)
     should_read_gas_limit = start_tx + is_teardown;
 
     #[PUBLIC_INPUTS_READ_GAS_LIMIT]
@@ -188,7 +188,7 @@ namespace tx;
     // Read reverted from PI
 
     // Whether this tx reverted
-    pol commit tx_reverted; // @boolean (on active rows due to #[INIT_TX_REVERTED] and #[TX_REVERTED_CONTINUITY])
+    pol commit tx_reverted; // @boolean (by definition on active rows, see #[INIT_TX_REVERTED] and #[TX_REVERTED_CONTINUITY])
     #[INIT_TX_REVERTED]
     start_tx * (reverted - tx_reverted) = 0;
     // If reverted == 1, tx_reverted == 1, otherwise it must be continuous (see #[TX_REVERTED_CONTINUITY])

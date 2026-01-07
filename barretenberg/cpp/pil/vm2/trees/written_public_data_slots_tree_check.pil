@@ -43,20 +43,20 @@ include "../precomputed.pil";
 // };
 
 namespace written_public_data_slots_tree_check;
-    pol commit sel;
+    pol commit sel; // @boolean
     sel * (1 - sel) = 0;
 
     #[skippable_if]
     sel = 0;
 
     // Inputs to the gadget
-    pol commit write;
+    pol commit write; // @boolean
     write * (1 - write) = 0;
     pol READ = 1 - write;
 
     pol commit slot;
     pol commit root;
-    pol commit leaf_not_exists;
+    pol commit leaf_not_exists; // @boolean
     leaf_not_exists * (1 - leaf_not_exists) = 0;
     pol EXISTS = 1 - leaf_not_exists;
 
@@ -89,7 +89,7 @@ namespace written_public_data_slots_tree_check;
     in poseidon2_hash.end { poseidon2_hash.start, poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output };
 
     // ========= HANDLE REDUNDANT WRITES  =========
-    pol commit should_insert;
+    pol commit should_insert; // @boolean (by definition)
     should_insert = write * leaf_not_exists;
     // On a failing write, the root must not change
     write * EXISTS * (root - write_root) = 0;
@@ -140,7 +140,7 @@ namespace written_public_data_slots_tree_check;
 
     // If next slot is not zero (which would be infinity), it has to be greater than the slot.
     // We commit next_slot_is_nonzero instead of next_slot_is_zero since it'll be used as a selector for a lookup
-    pol commit next_slot_is_nonzero;
+    pol commit next_slot_is_nonzero; // @boolean
     next_slot_is_nonzero * (1 - next_slot_is_nonzero) = 0;
     pol NEXT_SLOT_IS_ZERO = 1 - next_slot_is_nonzero;
 

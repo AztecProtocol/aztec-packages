@@ -24,7 +24,7 @@ namespace execution; // this is a virtual gadget that shares rows with the execu
 
     // =========== VALIDATION ===========
 
-    pol commit max_data_writes_reached;
+    pol commit max_data_writes_reached; // @boolean
     max_data_writes_reached * (1 - max_data_writes_reached) = 0;
 
     // We use the written public data slots tree size (taking into account the prefill) to track how many data writes we have emitted.
@@ -47,7 +47,7 @@ namespace execution; // this is a virtual gadget that shares rows with the execu
     // Commited since it's used in the lookup
     // Note: we could perform the work unconditionally here, since the roots will be reverted if sel_opcode_error is one.
     // We'd save one column, but we'd perform more work in the error case, both in simulation and proving.
-    pol commit sel_write_public_data;
+    pol commit sel_write_public_data; // @boolean (by definition)
     sel_execute_sstore * ((1 - sel_opcode_error) - sel_write_public_data) = 0;
 
     // =========== OPCODE EXECUTION ===========

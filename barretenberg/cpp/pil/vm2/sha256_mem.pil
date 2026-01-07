@@ -90,7 +90,7 @@ include "sha256.pil";
 
 namespace sha256;
 
-    pol commit sel;
+    pol commit sel; // @boolean
     sel * (1 - sel) = 0;
 
     #[skippable_if]
@@ -113,7 +113,7 @@ namespace sha256;
     start * (1 - sel) = 0;
 
     // Selector to indicate end of this chunk of sha256
-    pol commit latch;
+    pol commit latch; // @boolean
     latch * (1 - latch) = 0;
 
     #[LATCH_HAS_SEL_ON] // sel = 1 when latch = 1, sel = 0 at first row because of shift relations
@@ -172,7 +172,7 @@ namespace sha256;
     in
     gt.sel_others { gt.input_a, gt.input_b, gt.res };
 
-    pol commit mem_out_of_range_err;
+    pol commit mem_out_of_range_err; // @boolean (by definition)
     mem_out_of_range_err = 1 - (1 - sel_state_out_of_range_err) * (1 - sel_input_out_of_range_err) * (1 - sel_output_out_of_range_err);
 
     ////////////////////////////////////////////////////////
@@ -331,7 +331,7 @@ namespace sha256;
     ////////////////////////////////////////////////
     // Error Handling - Invalid State Tag (not U32)
     ////////////////////////////////////////////////
-    pol commit sel_invalid_state_tag_err;
+    pol commit sel_invalid_state_tag_err; // @boolean
     sel_invalid_state_tag_err * (1 - sel_invalid_state_tag_err) = 0;
 
     pol STATE_TAG_DIFF_0 = memory_tag[0] - constants.MEM_TAG_U32;
@@ -360,7 +360,7 @@ namespace sha256;
     // Memory Operation: Loading (16) Round Inputs
     ////////////////////////////////////////////////////////
     // The 16 hash inputs are mixed into the first 16 rounds of the sha256 compression
-    pol commit sel_is_input_round; // Selector to indicate that this is an input round
+    pol commit sel_is_input_round; // @boolean Selector to indicate that this is an input round
     sel_is_input_round * (1 - sel_is_input_round) = 0;
     // Constraining sel_is_input_round
     // (1) At start, sel_is_input_round = 1
@@ -412,11 +412,11 @@ namespace sha256;
     // Error Handling - Invalid Input Tag (not FF)
     ////////////////////////////////////////////////
     // This is 1 if any of the inputs loads fail, this is propagated from the row that errored back to the start row
-    pol commit sel_invalid_input_tag_err;
+    pol commit sel_invalid_input_tag_err; // @boolean
     sel_invalid_input_tag_err * (1 - sel_invalid_input_tag_err) = 0;
 
     // This is 1 on the specific input load that produced an error
-    pol commit sel_invalid_input_row_tag_err;
+    pol commit sel_invalid_input_row_tag_err; // @boolean
     sel_invalid_input_row_tag_err * (1 - sel_invalid_input_row_tag_err) = 0;
 
     pol INPUT_TAG_DIFF = sel_read_input_from_memory * (input_tag - constants.MEM_TAG_U32);
@@ -442,6 +442,6 @@ namespace sha256;
 
     // The consolidated error flag is returned to the execution trace
     // This error flag encompasses mem_out_of_range_err, invalid state tag err and the invalid input tag err, the invalid row tag err is excluded as it implies the propagated tag err
-    pol commit err;
+    pol commit err; // @boolean (by definition)
     err = 1 - (1 - mem_out_of_range_err) * (1 - sel_invalid_state_tag_err) * (1 - sel_invalid_input_tag_err);
 

@@ -62,14 +62,14 @@ include "../precomputed.pil";
  * };
 **/
 namespace nullifier_check;
-    pol commit sel;
+    pol commit sel; // @boolean
     sel * (1 - sel) = 0;
 
     #[skippable_if]
     sel = 0;
 
     // Inputs to the gadget
-    pol commit write;
+    pol commit write; // @boolean
     write * (1 - write) = 0;
     pol READ = 1 - write;
     // If writing, sel must be on
@@ -77,9 +77,9 @@ namespace nullifier_check;
 
     pol commit nullifier;
     pol commit root;
-    pol commit exists;
+    pol commit exists; // @boolean
     exists * (1 - exists) = 0;
-    pol commit should_silo;
+    pol commit should_silo; // @boolean
     should_silo * (1 - should_silo) = 0;
     pol commit address;
 
@@ -113,7 +113,7 @@ namespace nullifier_check;
     in poseidon2_hash.end { poseidon2_hash.start, poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output };
 
     // ========= HANDLE FAILING WRITES  =========
-    pol commit should_insert;
+    pol commit should_insert; // @boolean (by definition)
     should_insert = write * (1 - exists);
     // On a failing write, the root must not change
     write * exists * (root - write_root) = 0;
@@ -157,7 +157,7 @@ namespace nullifier_check;
     // If the leaf doesn't exist, we need to validate that the nullifier is greater than the low leaf nullifier
 
     // We commit leaf not exists as well as exists since it'll be used as a selector for the following lookup
-    pol commit leaf_not_exists;
+    pol commit leaf_not_exists; // @boolean (by definition)
     sel * (1 - exists - leaf_not_exists) = 0;
 
     #[LOW_LEAF_NULLIFIER_VALIDATION]
@@ -166,7 +166,7 @@ namespace nullifier_check;
 
     // If next nullifier is not zero (which would be infinity), it has to be greater than the nullifier.
     // We commit next_nullifier_is_nonzero instead of next_nullifier_is_zero since it'll be used as a selector for a lookup
-    pol commit next_nullifier_is_nonzero;
+    pol commit next_nullifier_is_nonzero; // @boolean
     next_nullifier_is_nonzero * (1 - next_nullifier_is_nonzero) = 0;
     pol NEXT_NULLIFIER_IS_ZERO = 1 - next_nullifier_is_nonzero;
 
@@ -192,7 +192,7 @@ namespace nullifier_check;
         merkle_check.index, merkle_check.path_len, merkle_check.read_root, merkle_check.write_root };
 
     // ====== WRITE TO PUBLIC INPUTS ======
-    pol commit should_write_to_public_inputs;
+    pol commit should_write_to_public_inputs; // @boolean (by definition)
     should_insert * (1 - discard) = should_write_to_public_inputs;
 
     pol commit public_inputs_index;

@@ -4,7 +4,7 @@ include "poseidon2_params.pil";
 namespace poseidon2_perm;
 
     // Selector for poseidon2 operation
-    pol commit sel;
+    pol commit sel; // @boolean
     // Selector is boolean
     sel * (1 - sel) = 0;
     #[skippable_if]

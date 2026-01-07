@@ -19,7 +19,7 @@ namespace execution; // this is a virtual gadget that shares rows with the execu
     sel_execute_l1_to_l2_message_exists = 0; // from execution.pil.
 
     // Constrained to be boolean by the lookup into gt. (provided that sel_execute_l1_to_l2_message_exists == 1).
-    pol commit l1_to_l2_msg_leaf_in_range;
+    pol commit l1_to_l2_msg_leaf_in_range; // @boolean (by lookup)
 
     // TODO: We need this temporarily while we do not allow for aliases in the lookup tuple
     pol commit l1_to_l2_msg_tree_leaf_count;

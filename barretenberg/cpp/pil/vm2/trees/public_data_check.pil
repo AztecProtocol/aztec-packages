@@ -72,7 +72,7 @@ include "public_data_squash.pil";
  *
 **/
 namespace public_data_check;
-    pol commit sel;
+    pol commit sel; // @boolean
     sel * (1 - sel) = 0;
 
     #[skippable_if]
@@ -97,14 +97,14 @@ namespace public_data_check;
     pol commit write_root;
     pol commit tree_size_before_write;
     pol commit tree_size_after_write;
-    pol commit write;
+    pol commit write; // @boolean
     write * (1 - write) = 0;
     // If write is on, sel must be on too.
     write * (1 - sel) = 0;
     // Whether the write is a protocol or non-protocol write (permutation selectors (sstore.pil, tx.pil))
-    pol commit protocol_write;
+    pol commit protocol_write; // @boolean
     protocol_write * (1 - protocol_write) = 0;
-    pol commit non_protocol_write;
+    pol commit non_protocol_write; // @boolean
     non_protocol_write * (1 - non_protocol_write) = 0;
     #[PROTOCOL_WRITE_CHECK]
     protocol_write + non_protocol_write = write;
@@ -157,7 +157,7 @@ namespace public_data_check;
 
     // ========= LOW LEAF VALIDATION =========
     // We commit leaf not exists instead of leaf exists since it'll be used as a selector for a lookup
-    pol commit leaf_not_exists;
+    pol commit leaf_not_exists; // @boolean
     leaf_not_exists * (1 - leaf_not_exists) = 0;
     pol LEAF_EXISTS = 1 - leaf_not_exists;
 
@@ -176,7 +176,7 @@ namespace public_data_check;
 
     // If next leaf slot is not zero (which would be infinity), it has to be greater than the leafslot.
     // We commit next_slot_is_nonzero instead of next_slot_is_zero since it'll be used as a selector for a lookup
-    pol commit next_slot_is_nonzero;
+    pol commit next_slot_is_nonzero; // @boolean
     next_slot_is_nonzero * (1 - next_slot_is_nonzero) = 0;
     pol NEXT_SLOT_IS_ZERO = 1 - next_slot_is_nonzero;
 
@@ -238,7 +238,7 @@ namespace public_data_check;
 
     // ========= COMPUTE FINAL SNAPSHOT =========
 
-    pol commit should_insert;
+    pol commit should_insert; // @boolean (by definition)
     leaf_not_exists * write - should_insert = 0;
 
     pol commit new_leaf_hash;
@@ -272,9 +272,9 @@ namespace public_data_check;
     (1 - sel) * sel' * (constants.AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_DATA_WRITES_ROW_IDX - write_idx') = 0;
 
     // If a write with discard = 0, we permute to the public data squash trace to get write to public inputs
-    pol commit non_discarded_write;
+    pol commit non_discarded_write; // @boolean (by definition)
     non_discarded_write = write * (1 - discard);
-    pol commit should_write_to_public_inputs;
+    pol commit should_write_to_public_inputs; // @boolean (by lookup)
     // If this is a read or a discarded write, write to public inputs must be zero
     (1 - non_discarded_write) * should_write_to_public_inputs = 0;
 
