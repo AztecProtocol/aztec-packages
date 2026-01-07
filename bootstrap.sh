@@ -621,6 +621,8 @@ case "$cmd" in
     spartan/bootstrap.sh network_deploy "${env_file}"
     # Run benchmarks
     spartan/bootstrap.sh network_bench "${env_file}"
+    rm -rf bench-out
+    mkdir -p bench-out
     bench_merge
     cache_upload spartan-bench-$(git rev-parse HEAD^{tree}).tar.gz bench-out/bench.json
     ;;
