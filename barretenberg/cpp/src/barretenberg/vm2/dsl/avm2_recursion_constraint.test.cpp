@@ -166,6 +166,7 @@ class AvmRecursionInnerCircuitTests : public ::testing::Test {
 
     static constexpr FF EXPECTED_INNER_VK_HASH =
         FF("0x0921b22326c4e1b36860b9f7fc16d44d107af899fc542b14c56092afadbe216c");
+    static constexpr size_t EXPECT_GATE_COUNT = 1203701;
 
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
@@ -185,29 +186,53 @@ class AvmRecursionInnerCircuitTests : public ::testing::Test {
             stdlib_proof.emplace_back(field_t<Builder>::from_witness(&outer_builder, proof_element));
         }
 
-        AvmGoblinRecursiveVerifier goblin_avm_verifier(outer_builder);
         std::vector<std::vector<field_t<Builder>>> public_inputs =
             PublicInputs::flat_to_columns<field_t<Builder>>(stdlib_public_inputs_flat);
         auto [mega_proof, goblin_proof, mega_vk] =
-            goblin_avm_verifier.construct_and_prove_inner_recursive_verification_circuit(stdlib_proof, public_inputs);
+            AvmGoblinRecursiveVerifier::construct_and_prove_inner_recursive_verification_circuit(stdlib_proof,
+                                                                                                 public_inputs);
 
         return { stdlib_proof, public_inputs, { mega_proof, goblin_proof, mega_vk } };
     }
 };
 
-TEST_F(AvmRecursionInnerCircuitTests, VKCheck)
+TEST_F(AvmRecursionInnerCircuitTests, GateCountAndVKCheck)
 {
+    using MegaAvmProverInstance = ProverInstance_<MegaAvmFlavor>;
+    using MegaAvmVerificationKey = MegaAvmFlavor::VerificationKey;
+
     if (avm2::testing::skip_slow_tests()) {
         GTEST_SKIP() << "Skipping slow test";
     }
     const auto [proof, public_inputs_flat] = AvmRecursionConstraintTestingFunctions::create_avm_data();
 
     Builder outer_builder;
-    auto [_stdlib_proof, _public_inputs, inner_prover_output] =
-        create_and_prove_inner_circuit(outer_builder, proof, public_inputs_flat);
-    EXPECT_EQ(inner_prover_output.mega_vk->hash(), EXPECTED_INNER_VK_HASH)
+
+    std::vector<field_t<Builder>> stdlib_public_inputs_flat;
+    stdlib_public_inputs_flat.reserve(AVM_PUBLIC_INPUTS_COLUMNS_COMBINED_LENGTH);
+    for (const auto public_input : public_inputs_flat) {
+        stdlib_public_inputs_flat.emplace_back(field_t<Builder>::from_witness(&outer_builder, public_input));
+    }
+    stdlib::Proof<Builder> stdlib_proof;
+    stdlib_proof.reserve(AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED);
+    for (const auto proof_element : proof) {
+        stdlib_proof.emplace_back(field_t<Builder>::from_witness(&outer_builder, proof_element));
+    }
+
+    std::vector<std::vector<field_t<Builder>>> public_inputs =
+        PublicInputs::flat_to_columns<field_t<Builder>>(stdlib_public_inputs_flat);
+
+    MegaCircuitBuilder inner_builder;
+    AvmGoblinRecursiveVerifier::construct_inner_recursive_verification_circuit(
+        inner_builder, stdlib_proof, public_inputs);
+
+    auto mega_proving_key = std::make_shared<MegaAvmProverInstance>(inner_builder);
+    auto mega_vk = std::make_shared<MegaAvmVerificationKey>(mega_proving_key->get_precomputed());
+
+    EXPECT_EQ(mega_vk->hash(), EXPECTED_INNER_VK_HASH)
         << "The VK hash of the inner circuit in the Goblinized AVM recursive verifier has changed. If this is "
            "expected, update the expected value in the test.";
+    EXPECT_EQ(inner_builder.num_gates(), EXPECT_GATE_COUNT);
 }
 
 /**
@@ -239,7 +264,28 @@ TEST_F(AvmRecursionInnerCircuitTests, Tampering)
         EXPECT_TRUE(outer_builder.failed());
     }
 
-    // ADD BACK TEST FOR GOBLIN FAILURE
+    {
+        Builder outer_builder;
+        auto [stdlib_proof, public_inputs, inner_prover_output] =
+            create_and_prove_inner_circuit(outer_builder, proof, public_inputs_flat);
+
+        // Tamper with one of the ECCVM op evaluations. The `op` evaluation is located 3 evaluations before the end of
+        // pre-IPA proof (followed by x_lo_y_hi, x_hi_z_1, y_lo_z_2 evaluations). See also
+        // GoblinAvmRecursiveVerifierTests::tamper_with_eccvm_op_eval for reference
+        static constexpr size_t evals_after_op = 3; // x_lo_y_hi, x_hi_z_1, y_lo_z_2
+        const size_t op_eval_idx = inner_prover_output.goblin_proof.eccvm_proof.size() - evals_after_op;
+
+        auto goblin_proof_tampered = inner_prover_output.goblin_proof;
+        goblin_proof_tampered.eccvm_proof[op_eval_idx] += FF(1);
+
+        AvmGoblinRecursiveVerifier goblin_avm_verifier(outer_builder);
+        RecursiveAvmGoblinOutput output = goblin_avm_verifier.construct_outer_recursive_verification_circuit(
+            stdlib_proof,
+            public_inputs,
+            { inner_prover_output.mega_proof, goblin_proof_tampered, inner_prover_output.mega_vk });
+
+        EXPECT_TRUE(outer_builder.failed());
+    }
 
     {
         Builder outer_builder;
