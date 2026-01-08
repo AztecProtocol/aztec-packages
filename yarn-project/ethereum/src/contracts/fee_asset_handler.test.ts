@@ -12,7 +12,7 @@ import { foundry } from 'viem/chains';
 import { createExtendedL1Client } from '../client.js';
 import { DefaultL1ContractsConfig } from '../config.js';
 import { deployAztecL1Contracts } from '../deploy_aztec_l1_contracts.js';
-import { createL1TxUtilsFromViemWallet } from '../l1_tx_utils/index.js';
+import { L1TxUtils, createL1TxUtilsFromViemWallet } from '../l1_tx_utils/index.js';
 import { startAnvil } from '../test/start_anvil.js';
 import type { ExtendedViemWalletClient } from '../types.js';
 import { FeeAssetHandlerContract } from './fee_asset_handler.js';
@@ -25,6 +25,7 @@ describe('FeeAssetHandler', () => {
 
   let feeAssetHandler: FeeAssetHandlerContract;
   let feeAsset: GetContractReturnType<typeof FeeAssetAbi, ExtendedViemWalletClient>;
+  let txUtils: L1TxUtils;
 
   beforeAll(async () => {
     logger = createLogger('ethereum:test:fee_asset_handler');
@@ -47,8 +48,8 @@ describe('FeeAssetHandler', () => {
     });
     // Since the registry cannot "see" the slash factory, we omit it from the addresses for this test
     const deployedAddresses = omit(deployed.l1ContractAddresses, 'slashFactoryAddress');
-    const txUtils = createL1TxUtilsFromViemWallet(l1Client, { logger });
-    feeAssetHandler = new FeeAssetHandlerContract(deployedAddresses.feeAssetHandlerAddress!.toString(), txUtils);
+    txUtils = createL1TxUtilsFromViemWallet(l1Client, { logger });
+    feeAssetHandler = new FeeAssetHandlerContract(l1Client, deployedAddresses.feeAssetHandlerAddress!);
     feeAsset = getContract({
       address: deployedAddresses.feeJuiceAddress!.toString(),
       abi: FeeAssetAbi,
@@ -63,7 +64,7 @@ describe('FeeAssetHandler', () => {
   it('should mint fee asset', async () => {
     const address = EthAddress.random();
     for (let i = 1; i <= 10; i++) {
-      const txHash = await feeAssetHandler.mint(address.toString());
+      const txHash = await feeAssetHandler.mint(txUtils, address);
       expect(txHash.receipt.status).toBe('success');
       logger.verbose(`Minted fee asset in ${txHash.receipt.transactionHash}`);
       const balance = await feeAsset.read.balanceOf([address.toString()]);
