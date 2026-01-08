@@ -60,25 +60,21 @@ export type L1RollupContractAddresses = Pick<
 export type EpochProofPublicInputArgs = {
   previousArchive: `0x${string}`;
   endArchive: `0x${string}`;
+  outHash: `0x${string}`;
   proverId: `0x${string}`;
 };
 
 export type ViemHeader = {
   lastArchiveRoot: `0x${string}`;
   blockHeadersHash: `0x${string}`;
-  contentCommitment: ViemContentCommitment;
+  blobsHash: `0x${string}`;
+  inHash: `0x${string}`;
   slotNumber: bigint;
   timestamp: bigint;
   coinbase: `0x${string}`;
   feeRecipient: `0x${string}`;
   gasFees: ViemGasFees;
   totalManaUsed: bigint;
-};
-
-export type ViemContentCommitment = {
-  blobsHash: `0x${string}`;
-  inHash: `0x${string}`;
-  outHash: `0x${string}`;
 };
 
 export type ViemGasFees = {
@@ -773,8 +769,8 @@ export class RollupContract {
     return this.rollup.read.getHasSubmitted([BigInt(epochNumber), BigInt(numberOfCheckpointsInEpoch), prover]);
   }
 
-  getManaBaseFeeAt(timestamp: bigint, inFeeAsset: boolean): Promise<bigint> {
-    return this.rollup.read.getManaBaseFeeAt([timestamp, inFeeAsset]);
+  getManaMinFeeAt(timestamp: bigint, inFeeAsset: boolean): Promise<bigint> {
+    return this.rollup.read.getManaMinFeeAt([timestamp, inFeeAsset]);
   }
 
   async getSlotAt(timestamp: bigint): Promise<SlotNumber> {

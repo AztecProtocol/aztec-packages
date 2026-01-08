@@ -9,7 +9,7 @@ import {
   ChainTips,
   PublicInputArgs,
   L1FeeData,
-  ManaBaseFeeComponents,
+  ManaMinFeeComponents,
   FeeAssetPerEthE9,
   CheckpointHeaderValidationFlags,
   FeeHeader,
@@ -101,7 +101,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
       ValidateHeaderArgs({
         header: _header,
         digest: _digest,
-        manaBaseFee: getManaBaseFeeAt(Timestamp.wrap(block.timestamp), true),
+        manaMinFee: getManaMinFeeAt(Timestamp.wrap(block.timestamp), true),
         blobsHashesCommitment: _blobsHash,
         flags: _flags
       }),
@@ -635,23 +635,23 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
   }
 
   /**
-   * @notice  Gets the mana base fee
+   * @notice  Gets the mana min fee
    *
    * @param _inFeeAsset - Whether to return the fee in the fee asset or ETH
    *
-   * @return The mana base fee
+   * @return The mana min fee
    */
-  function getManaBaseFeeAt(Timestamp _timestamp, bool _inFeeAsset) public view override(IRollup) returns (uint256) {
-    return FeeLib.summedBaseFee(getManaBaseFeeComponentsAt(_timestamp, _inFeeAsset));
+  function getManaMinFeeAt(Timestamp _timestamp, bool _inFeeAsset) public view override(IRollup) returns (uint256) {
+    return FeeLib.summedMinFee(getManaMinFeeComponentsAt(_timestamp, _inFeeAsset));
   }
 
-  function getManaBaseFeeComponentsAt(Timestamp _timestamp, bool _inFeeAsset)
+  function getManaMinFeeComponentsAt(Timestamp _timestamp, bool _inFeeAsset)
     public
     view
     override(IRollup)
-    returns (ManaBaseFeeComponents memory)
+    returns (ManaMinFeeComponents memory)
   {
-    return ProposeLib.getManaBaseFeeComponentsAt(_timestamp, _inFeeAsset);
+    return ProposeLib.getManaMinFeeComponentsAt(_timestamp, _inFeeAsset);
   }
 
   /**

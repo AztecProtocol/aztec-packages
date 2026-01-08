@@ -9,7 +9,7 @@ include "../precomputed.pil";
 
 namespace bc_decomposition;
 
-pol commit sel;
+pol commit sel; // @boolean
 sel * (1 - sel) = 0;
 // No relations will be checked if this identity is satisfied.
 #[skippable_if]
@@ -29,7 +29,7 @@ pol commit bytes_remaining;
 
 // This column should be 1 iff the contract is switching, i.e., this row is the last one
 // of a contract bytecode. This is equivalent to bytes_remaining == 1.
-pol commit last_of_contract;
+pol commit last_of_contract; // @boolean
 last_of_contract * (1 - last_of_contract) = 0;
 
 // This is the most important column. It contains the bytecode one byte at a time on each row.
@@ -132,12 +132,12 @@ pol commit bytes_pc_plus_1, bytes_pc_plus_2, bytes_pc_plus_3, bytes_pc_plus_4, b
 //   39 |               1 |             1 |   0xD | 0x0 | 0x0 | ...
 
 pol commit bytes_to_read;
-pol commit sel_windows_gt_remaining;
+pol commit sel_windows_gt_remaining; // @boolean
 sel_windows_gt_remaining * (1 - sel_windows_gt_remaining) = 0;
 // We need to constrain bytes_to_read = min(WINDOW_SIZE, bytes_remaining) which is equal to
 // bytes_remaining if bytes_remaining <= WINDOW_SIZE and WINDOW_SIZE otherwise.
 
-pol commit is_windows_eq_remaining;
+pol commit is_windows_eq_remaining; // @boolean
 pol commit windows_min_remaining_inv;
 is_windows_eq_remaining * (1 - is_windows_eq_remaining) = 0;
 
@@ -224,11 +224,11 @@ bytes_pc_plus_36 = (1 - LATCH_CONDITION) * bytes_pc_plus_35';
 // We will have a selector for the PCs that are packed. This only needs to happen
 // for PCs 0, 31, 62, ...
 
-pol commit sel_packed;
+pol commit sel_packed; // @boolean
 sel_packed * (1 - sel_packed) = 0;
 
 // Permutation selectors (bc_hashing.pil).
-pol commit sel_packed_read[3];
+pol commit sel_packed_read[3]; // @boolean
 sel_packed_read[0] * (1 - sel_packed_read[0]) = 0;
 sel_packed_read[1] * (1 - sel_packed_read[1]) = 0;
 sel_packed_read[2] * (1 - sel_packed_read[2]) = 0;

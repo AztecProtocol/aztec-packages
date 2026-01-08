@@ -24,7 +24,7 @@ MemoryValue unconstrained_rotate_left(MemoryValue x, uint8_t len)
     }
 
     const auto x_uint64_t = x.as<uint64_t>();
-    assert(len < 64);
+    BB_ASSERT_LT(len, 64, "Length out of bounds");
     const auto out_uint64_t = (x_uint64_t << len) | x_uint64_t >> (64 - len);
     return MemoryValue::from(out_uint64_t);
 }

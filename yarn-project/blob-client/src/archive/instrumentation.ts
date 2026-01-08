@@ -1,4 +1,4 @@
-import { Attributes, Metrics, type TelemetryClient, type UpDownCounter, ValueType } from '@aztec/telemetry-client';
+import { Attributes, Metrics, type TelemetryClient, type UpDownCounter } from '@aztec/telemetry-client';
 
 export class BlobArchiveClientInstrumentation {
   private blockRequestCounter: UpDownCounter;
@@ -11,20 +11,11 @@ export class BlobArchiveClientInstrumentation {
     name: string,
   ) {
     const meter = client.getMeter(name);
-    this.blockRequestCounter = meter.createUpDownCounter(Metrics.BLOB_SINK_ARCHIVE_BLOCK_REQUEST_COUNT, {
-      description: 'Number of requests made to retrieve blocks from the blob archive',
-      valueType: ValueType.INT,
-    });
+    this.blockRequestCounter = meter.createUpDownCounter(Metrics.BLOB_SINK_ARCHIVE_BLOCK_REQUEST_COUNT);
 
-    this.blobRequestCounter = meter.createUpDownCounter(Metrics.BLOB_SINK_ARCHIVE_BLOB_REQUEST_COUNT, {
-      description: 'Number of requests made to retrieve blobs from the blob archive',
-      valueType: ValueType.INT,
-    });
+    this.blobRequestCounter = meter.createUpDownCounter(Metrics.BLOB_SINK_ARCHIVE_BLOB_REQUEST_COUNT);
 
-    this.retrievedBlobs = meter.createUpDownCounter(Metrics.BLOB_SINK_ARCHIVE_BLOB_COUNT, {
-      description: 'Number of blobs retrieved from the blob archive',
-      valueType: ValueType.INT,
-    });
+    this.retrievedBlobs = meter.createUpDownCounter(Metrics.BLOB_SINK_ARCHIVE_BLOB_COUNT);
   }
 
   incRequest(type: 'blocks' | 'blobs', status: number) {

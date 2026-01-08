@@ -165,7 +165,8 @@ void print_trace_stats(const TraceContainer& trace)
               numeric::get_msb(numeric::round_up_power_2(column_size)),
               ")");
     }
-    info("Sum of all column rows: ", total_rows, " (~2^", numeric::get_msb(numeric::round_up_power_2(total_rows)), ")");
+    vinfo(
+        "Sum of all column rows: ", total_rows, " (~2^", numeric::get_msb(numeric::round_up_power_2(total_rows)), ")");
 }
 
 } // namespace

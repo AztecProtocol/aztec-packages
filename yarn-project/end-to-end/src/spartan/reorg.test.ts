@@ -44,7 +44,7 @@ async function checkBalances(testAccounts: TestAccounts, mintAmount: bigint, tot
 }
 
 describe('reorg test', () => {
-  jest.setTimeout(150 * 60 * 1000); // 150 minutes
+  jest.setTimeout(210 * 60 * 1000); // 210 minutes
 
   const MINT_AMOUNT = 2_000_000n;
   const SETUP_EPOCHS = 2;

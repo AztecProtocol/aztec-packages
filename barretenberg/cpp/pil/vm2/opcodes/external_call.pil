@@ -52,7 +52,7 @@ da_gas_left = sel_enter_call * (da_gas_limit - da_gas_used);
 
 // Compare the gas allocated to the call by the user, with the gas left.
 // Helper column containing whether the L2 left gas is greater than the allocated gas.
-pol commit is_l2_gas_left_gt_allocated; // @boolean (on row with `sel_enter_call = 1`) Guaranteed by the gt lookup.
+pol commit is_l2_gas_left_gt_allocated; // @boolean (by lookup, on row with `sel_enter_call = 1`) Guaranteed by the gt lookup.
 
 // Both inputs are 32 bits and therefore valid inputs for the gt gadget (register[0] is 32-bit).
 #[IS_L2_GAS_LEFT_GT_ALLOCATED]
@@ -67,7 +67,7 @@ sel_enter_call * ((register[0] - l2_gas_left) * is_l2_gas_left_gt_allocated + l2
 
 // Compare the gas allocated to the call by the user, with the gas left.
 // Helper column containing whether the DA left gas is greater than the allocated gas.
-pol commit is_da_gas_left_gt_allocated; // @boolean (on row with `sel_enter_call = 1`) Guaranteed by the gt lookup.
+pol commit is_da_gas_left_gt_allocated; // @boolean (by lookup, on row with `sel_enter_call = 1`) Guaranteed by the gt lookup.
 
 // Both inputs are 32 bits and therefore valid inputs for the gt gadget (register[1] is 32-bit).
 #[IS_DA_GAS_LEFT_GT_ALLOCATED]

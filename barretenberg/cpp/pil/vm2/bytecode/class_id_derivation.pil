@@ -6,7 +6,7 @@ include "../precomputed.pil";
 
 namespace class_id_derivation;
 
-    pol commit sel;
+    pol commit sel; // @boolean
     sel * (1 - sel) = 0;
 
     #[skippable_if]

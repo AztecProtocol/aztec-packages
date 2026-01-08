@@ -93,7 +93,11 @@ case "$cmd" in
     ;;
   merge-queue)
     # We perform full runs of all tests on multiple x86, and a single fast run on arm64.
-    export CI_DASHBOARD=${TARGET_BRANCH:-local}
+    if [[ "$REF_NAME" =~ ^gh-readonly-queue/ ]]; then
+      export CI_DASHBOARD=${TARGET_BRANCH:-local}
+    else
+      export CI_DASHBOARD="prs"
+    fi
     export DENOISE=1
     export DENOISE_WIDTH=32
     run() {

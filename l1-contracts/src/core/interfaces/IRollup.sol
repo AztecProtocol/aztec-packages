@@ -13,7 +13,7 @@ import {FeeHeader, L1FeeData} from "@aztec/core/libraries/compressed-data/fees/F
 import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
 import {CompressedChainTips, ChainTips} from "@aztec/core/libraries/compressed-data/Tips.sol";
 import {CommitteeAttestations} from "@aztec/core/libraries/rollup/AttestationLib.sol";
-import {ManaBaseFeeComponents} from "@aztec/core/libraries/rollup/FeeLib.sol";
+import {ManaMinFeeComponents} from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {ProposedHeader} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
 import {ProposeArgs} from "@aztec/core/libraries/rollup/ProposeLib.sol";
 import {RewardConfig} from "@aztec/core/libraries/rollup/RewardLib.sol";
@@ -27,6 +27,7 @@ import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 struct PublicInputArgs {
   bytes32 previousArchive;
   bytes32 endArchive;
+  bytes32 outHash;
   address proverId;
 }
 
@@ -192,11 +193,11 @@ interface IRollup is IRollupCore, IHaveVersion {
 
   function validateBlobs(bytes calldata _blobsInputs) external view returns (bytes32[] memory, bytes32, bytes[] memory);
 
-  function getManaBaseFeeComponentsAt(Timestamp _timestamp, bool _inFeeAsset)
+  function getManaMinFeeComponentsAt(Timestamp _timestamp, bool _inFeeAsset)
     external
     view
-    returns (ManaBaseFeeComponents memory);
-  function getManaBaseFeeAt(Timestamp _timestamp, bool _inFeeAsset) external view returns (uint256);
+    returns (ManaMinFeeComponents memory);
+  function getManaMinFeeAt(Timestamp _timestamp, bool _inFeeAsset) external view returns (uint256);
   function getL1FeesAt(Timestamp _timestamp) external view returns (L1FeeData memory);
   function getFeeAssetPerEth() external view returns (FeeAssetPerEthE9);
 

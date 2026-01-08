@@ -68,7 +68,7 @@ jobs:
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           ref: ${{ steps.checkout-ref.outputs.ref }}
-          fetch-depth: 0
+          fetch-depth: 1
           persist-credentials: false
           submodules: recursive # Initialize git submodules for l1-contracts dependencies
 
@@ -137,6 +137,9 @@ jobs:
           cd spartan
           ./scripts/install_deps.sh
           ./scripts/network_deploy.sh "${{ inputs.network }}"
+
+          # need to source this for CLUSTER
+          source "./environments/${{ inputs.network }}.env"
 
           if [ -n "$CLUSTER" ]; then
             echo "cluster=$CLUSTER" >> $GITHUB_OUTPUT

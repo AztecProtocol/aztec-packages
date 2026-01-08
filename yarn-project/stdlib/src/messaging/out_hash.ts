@@ -1,5 +1,7 @@
+import { AZTEC_MAX_EPOCH_DURATION } from '@aztec/constants';
+import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { UnbalancedMerkleTreeCalculator, computeUnbalancedShaRoot } from '@aztec/foundation/trees';
+import { computeCompressedUnbalancedShaRoot, computeUnbalancedShaRoot } from '@aztec/foundation/trees';
 
 export function computeTxOutHash(messages: Fr[]): Fr {
   if (!messages.length) {
@@ -20,6 +22,19 @@ export function computeCheckpointOutHash(messagesForAllTxs: Fr[][][]): Fr {
   return aggregateOutHashes(blockOutHashes);
 }
 
+export function computeEpochOutHash(messagesInEpoch: Fr[][][][]): Fr {
+  // Must match the implementation in `compute_epoch_out_hash.nr`.
+  const checkpointOutHashes = messagesInEpoch
+    .map(checkpoint => computeCheckpointOutHash(checkpoint))
+    .map(hash => hash.toBuffer());
+  if (checkpointOutHashes.every(hash => hash.equals(Buffer.alloc(32)))) {
+    return Fr.ZERO;
+  }
+
+  const paddedOutHashes = padArrayEnd(checkpointOutHashes, Buffer.alloc(32), AZTEC_MAX_EPOCH_DURATION);
+  return Fr.fromBuffer(computeUnbalancedShaRoot(paddedOutHashes));
+}
+
 // The root of this tree should match the `out_hash` calculated in the circuits. Zero hashes are compressed to reduce
 // cost if the non-zero leaves result in a shorter path.
 function aggregateOutHashes(outHashes: Fr[]): Fr {
@@ -27,10 +42,5 @@ function aggregateOutHashes(outHashes: Fr[]): Fr {
     return Fr.ZERO;
   }
 
-  const valueToCompress = Buffer.alloc(32);
-  const tree = UnbalancedMerkleTreeCalculator.create(
-    outHashes.map(hash => hash.toBuffer()),
-    valueToCompress,
-  );
-  return Fr.fromBuffer(tree.getRoot());
+  return Fr.fromBuffer(computeCompressedUnbalancedShaRoot(outHashes.map(hash => hash.toBuffer())));
 }

@@ -14,7 +14,6 @@ import { z } from 'zod';
 import { AztecAddress } from '../aztec-address/index.js';
 import { GasFees } from '../gas/index.js';
 import { schemas } from '../schemas/index.js';
-import { ContentCommitment } from '../tx/content_commitment.js';
 import type { UInt64 } from '../types/shared.js';
 
 /**
@@ -27,8 +26,10 @@ export class CheckpointHeader {
     public lastArchiveRoot: Fr,
     /** Hash of the headers of all blocks in this checkpoint. */
     public blockHeadersHash: Fr,
-    /** Content commitment of the L2 block. */
-    public contentCommitment: ContentCommitment,
+    /** Hash of the blobs in the checkpoint. */
+    public blobsHash: Fr,
+    /** Root of the l1 to l2 messages subtree. */
+    public inHash: Fr,
     /** Slot number of the L2 block */
     public slotNumber: SlotNumber,
     /** Timestamp of the L2 block. */
@@ -48,7 +49,8 @@ export class CheckpointHeader {
       .object({
         lastArchiveRoot: schemas.Fr,
         blockHeadersHash: schemas.Fr,
-        contentCommitment: ContentCommitment.schema,
+        blobsHash: schemas.Fr,
+        inHash: schemas.Fr,
         slotNumber: schemas.SlotNumber,
         timestamp: schemas.BigInt,
         coinbase: schemas.EthAddress,
@@ -63,7 +65,8 @@ export class CheckpointHeader {
     return [
       fields.lastArchiveRoot,
       fields.blockHeadersHash,
-      fields.contentCommitment,
+      fields.blobsHash,
+      fields.inHash,
       fields.slotNumber,
       fields.timestamp,
       fields.coinbase,
@@ -83,7 +86,8 @@ export class CheckpointHeader {
     return new CheckpointHeader(
       reader.readObject(Fr),
       reader.readObject(Fr),
-      reader.readObject(ContentCommitment),
+      reader.readObject(Fr),
+      reader.readObject(Fr),
       SlotNumber(Fr.fromBuffer(reader).toNumber()),
       reader.readUInt64(),
       reader.readObject(EthAddress),
@@ -97,7 +101,8 @@ export class CheckpointHeader {
     return (
       this.lastArchiveRoot.equals(other.lastArchiveRoot) &&
       this.blockHeadersHash.equals(other.blockHeadersHash) &&
-      this.contentCommitment.equals(other.contentCommitment) &&
+      this.blobsHash.equals(other.blobsHash) &&
+      this.inHash.equals(other.inHash) &&
       this.slotNumber === other.slotNumber &&
       this.timestamp === other.timestamp &&
       this.coinbase.equals(other.coinbase) &&
@@ -112,7 +117,8 @@ export class CheckpointHeader {
     return serializeToBuffer([
       this.lastArchiveRoot,
       this.blockHeadersHash,
-      this.contentCommitment,
+      this.blobsHash,
+      this.inHash,
       new Fr(this.slotNumber),
       bigintToUInt64BE(this.timestamp),
       this.coinbase,
@@ -130,7 +136,8 @@ export class CheckpointHeader {
     return CheckpointHeader.from({
       lastArchiveRoot: Fr.ZERO,
       blockHeadersHash: Fr.ZERO,
-      contentCommitment: ContentCommitment.empty(),
+      blobsHash: Fr.ZERO,
+      inHash: Fr.ZERO,
       slotNumber: SlotNumber.ZERO,
       timestamp: 0n,
       coinbase: EthAddress.ZERO,
@@ -141,13 +148,12 @@ export class CheckpointHeader {
     });
   }
 
-  static random(
-    overrides: Partial<FieldsOf<CheckpointHeader>> & Partial<FieldsOf<ContentCommitment>> = {},
-  ): CheckpointHeader {
+  static random(overrides: Partial<FieldsOf<CheckpointHeader>> = {}): CheckpointHeader {
     return CheckpointHeader.from({
       lastArchiveRoot: Fr.random(),
       blockHeadersHash: Fr.random(),
-      contentCommitment: ContentCommitment.random(overrides),
+      blobsHash: Fr.random(),
+      inHash: Fr.random(),
       slotNumber: SlotNumber(Math.floor(Math.random() * 1000) + 1),
       timestamp: BigInt(Math.floor(Date.now() / 1000)),
       coinbase: EthAddress.random(),
@@ -162,7 +168,8 @@ export class CheckpointHeader {
     return (
       this.lastArchiveRoot.isZero() &&
       this.blockHeadersHash.isZero() &&
-      this.contentCommitment.isEmpty() &&
+      this.blobsHash.isZero() &&
+      this.inHash.isZero() &&
       this.slotNumber === 0 &&
       this.timestamp === 0n &&
       this.coinbase.isZero() &&
@@ -188,7 +195,8 @@ export class CheckpointHeader {
     return new CheckpointHeader(
       Fr.fromString(header.lastArchiveRoot),
       Fr.fromString(header.blockHeadersHash),
-      ContentCommitment.fromViem(header.contentCommitment),
+      Fr.fromString(header.blobsHash),
+      Fr.fromString(header.inHash),
       SlotNumber.fromBigInt(header.slotNumber),
       header.timestamp,
       new EthAddress(hexToBuffer(header.coinbase)),
@@ -210,7 +218,8 @@ export class CheckpointHeader {
     return {
       lastArchiveRoot: this.lastArchiveRoot.toString(),
       blockHeadersHash: this.blockHeadersHash.toString(),
-      contentCommitment: this.contentCommitment.toViem(),
+      blobsHash: this.blobsHash.toString(),
+      inHash: this.inHash.toString(),
       slotNumber: BigInt(this.slotNumber),
       timestamp: this.timestamp,
       coinbase: this.coinbase.toString(),
@@ -227,7 +236,8 @@ export class CheckpointHeader {
     return {
       lastArchive: this.lastArchiveRoot.toString(),
       blockHeadersHash: this.blockHeadersHash.toString(),
-      contentCommitment: this.contentCommitment.toInspect(),
+      blobsHash: this.blobsHash.toString(),
+      inHash: this.inHash.toString(),
       slotNumber: this.slotNumber,
       timestamp: this.timestamp,
       coinbase: this.coinbase.toString(),
@@ -238,16 +248,16 @@ export class CheckpointHeader {
   }
 
   [inspect.custom]() {
-    const gasfees = `da:${this.gasFees.feePerDaGas}, l2:${this.gasFees.feePerL2Gas}`;
     return `Header {
   lastArchiveRoot: ${this.lastArchiveRoot.toString()},
   blockHeadersHash: ${this.blockHeadersHash.toString()},
-  contentCommitment: ${inspect(this.contentCommitment)},
+  blobsHash: ${inspect(this.blobsHash)},
+  inHash: ${inspect(this.inHash)},
   slotNumber: ${this.slotNumber},
   timestamp: ${this.timestamp},
   coinbase: ${this.coinbase.toString()},
   feeRecipient: ${this.feeRecipient.toString()},
-  gasFees: ${gasfees},
+  gasFees: { da:${this.gasFees.feePerDaGas}, l2:${this.gasFees.feePerL2Gas} },
   totalManaUsed: ${this.totalManaUsed.toBigInt()},
 }`;
   }

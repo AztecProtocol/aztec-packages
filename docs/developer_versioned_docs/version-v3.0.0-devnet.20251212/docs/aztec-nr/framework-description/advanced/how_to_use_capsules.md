@@ -2,95 +2,70 @@
 title: Using Capsules
 sidebar_position: 17
 tags: [functions, oracles]
-description: Learn how to use capsules to add data to the private execution environment for use in your Aztec smart contracts.
+description: Learn how to use capsules for per-contract non-volatile storage in the PXE.
 ---
 
-:::info What are Capsules?
-Capsules provide per-contract non-volatile storage in the PXE. Data is:
-
-- Stored locally (not onchain)
-- Scoped per contract address
-- Persistent until explicitly deleted
-- Useful for caching computation results
-
-:::
-
-## Available functions
-
-- `store` - Store data at a slot
-- `load` - Retrieve data from a slot
-- `delete` - Remove data at a slot
-- `copy` - Copy contiguous entries between slots
+Capsules provide per-contract non-volatile storage in the PXE. Data is stored locally (not onchain), scoped per contract address, and persists until explicitly deleted.
 
 ## Basic usage
 
 ```rust
-use dep::aztec::oracle::capsules;
+use aztec::oracle::capsules;
 
-// Store data at a slot
-unconstrained fn store_data(context: &mut PrivateContext) {
-    capsules::store(context.this_address(), slot, value);
-}
+// Inside a contract function, use context.this_address() for contract_address
+let contract_address: AztecAddress = context.this_address();
+let slot: Field = 1;
+
+// Store data at a slot (overwrites existing data)
+capsules::store(contract_address, slot, value);
 
 // Load data (returns Option<T>)
-unconstrained fn load_data(context: &mut PrivateContext) -> Option<MyStruct> {
-    capsules::load(context.this_address(), slot)
-}
+let result: Option<MyStruct> = capsules::load(contract_address, slot);
 
 // Delete data at a slot
-unconstrained fn delete_data(context: &mut PrivateContext) {
-    capsules::delete(context.this_address(), slot);
-}
+capsules::delete(contract_address, slot);
 
-// Copy multiple contiguous slots
-unconstrained fn copy_data(context: &mut PrivateContext) {
-    // Copy 3 slots from src_slot to dst_slot
-    capsules::copy(context.this_address(), src_slot, dst_slot, 3);
-}
+// Copy contiguous slots (supports overlapping regions)
+// copy(contract_address, src_slot, dst_slot, num_entries: u32)
+capsules::copy(contract_address, src_slot, dst_slot, 3);
 ```
 
-:::warning Safety
-All capsule operations are `unconstrained`. Data loaded from capsules should be validated in constrained contexts. Contracts can only access their own capsules - attempts to access other contracts' capsules will fail.
+Types must implement `Serialize` and `Deserialize` traits.
+
+:::warning
+All capsule operations are `unconstrained`. Data loaded from capsules should be validated in constrained contexts. Contracts can only access their own capsules.
 :::
 
-## CapsuleArray for dynamic storage
+## CapsuleArray
+
+`CapsuleArray` provides dynamic array storage backed by capsules:
 
 ```rust
-use dep::aztec::capsules::CapsuleArray;
+use aztec::capsules::CapsuleArray;
+use protocol_types::hash::sha256_to_field;
 
-unconstrained fn manage_array(context: &mut PrivateContext) {
-    // Create/access array at base_slot
-    let array = CapsuleArray::at(context.this_address(), base_slot);
+// Use a hash for base_slot to avoid collisions with other storage
+global BASE_SLOT: Field = sha256_to_field("MY_CONTRACT::MY_ARRAY".as_bytes());
 
-    // Array operations
-    array.push(value);              // Append to end
-    let value = array.get(index);   // Read at index
-    let length = array.len();       // Get current size
-    array.remove(index);            // Delete & shift elements
+let array: CapsuleArray<Field> = CapsuleArray::at(contract_address, BASE_SLOT);
 
-    // Iterate over all elements
-    array.for_each(|index, value| {
-        // Process each element
-        if some_condition(value) {
-            array.remove(index); // Safe to remove current element
-        }
-    });
-}
+array.push(value);             // Append to end
+let value = array.get(index);  // Read at index (throws if out of bounds)
+let length = array.len();      // Get current size (returns u32)
+array.remove(index);           // Delete & shift elements (index is u32)
+
+// Iterate and optionally remove elements
+array.for_each(|index, value| {
+    if some_condition(value) {
+        array.remove(index); // Safe to remove current element only
+    }
+});
 ```
 
-:::tip Use Cases
-
-- Caching expensive computations between simulation and execution
-- Storing intermediate proof data
-- Managing dynamic task lists
-- Persisting data across multiple transactions
-
+:::warning `for_each` Safety
+It is safe to remove the current element during `for_each`, but **do not push new elements** during iteration.
 :::
 
 :::info Storage Layout
-CapsuleArray stores the length at the base slot, with elements in consecutive slots:
-- Slot N: array length
-- Slot N+1: element at index 0
-- Slot N+2: element at index 1
-- And so on...
+CapsuleArray stores length at the base slot, with elements in consecutive slots (base+1 for index 0, base+2 for index 1, etc.). Ensure sufficient space between different array base slots.
 :::

@@ -76,7 +76,7 @@ export type FeeOptions = {
 export abstract class BaseWallet implements Wallet {
   protected log = createLogger('wallet-sdk:base_wallet');
 
-  protected baseFeePadding = 0.5;
+  protected minFeePadding = 0.5;
   protected cancellableTransactions = false;
 
   // Protected because we want to force wallets to instantiate their own PXE.
@@ -165,7 +165,7 @@ export abstract class BaseWallet implements Wallet {
     gasSettings?: Partial<FieldsOf<GasSettings>>,
   ): Promise<FeeOptions> {
     const maxFeesPerGas =
-      gasSettings?.maxFeesPerGas ?? (await this.aztecNode.getCurrentBaseFees()).mul(1 + this.baseFeePadding);
+      gasSettings?.maxFeesPerGas ?? (await this.aztecNode.getCurrentMinFees()).mul(1 + this.minFeePadding);
     let accountFeePaymentMethodOptions;
     // The transaction does not include a fee payment method, so we set the flag
     // for the account to use its fee juice balance

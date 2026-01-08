@@ -412,6 +412,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       eventService.deliverEvent(
         request.contractAddress,
         request.eventTypeId,
+        request.randomness,
         request.serializedEvent,
         request.eventCommitment,
         request.txHash,

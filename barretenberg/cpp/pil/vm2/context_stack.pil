@@ -1,5 +1,5 @@
 namespace context_stack;
-    pol commit sel;
+    pol commit sel; // @boolean
     sel * (1 - sel) = 0;
 
     #[skippable_if]

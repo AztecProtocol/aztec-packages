@@ -133,7 +133,7 @@ include "gt.pil";
  */
 
 namespace data_copy;
-    pol commit sel;
+    pol commit sel; // @boolean
     sel * (1 - sel) = 0;
 
     #[skippable_if]
@@ -180,10 +180,10 @@ namespace data_copy;
     ////////////////////////////////////////////////
     // These permutations are defined in execution.pil. See #[DISPATCH_TO_CD_COPY] and #[DISPATCH_TO_RD_COPY].
 
-    pol commit sel_cd_copy_start; // @boolean follows from the definition
+    pol commit sel_cd_copy_start; // @boolean (by definition)
     sel_cd_copy_start = sel_start * sel_cd_copy;
 
-    pol commit sel_rd_copy_start; // @boolean follows from the definition
+    pol commit sel_rd_copy_start; // @boolean (by definition)
     sel_rd_copy_start = sel_start * (1 - sel_cd_copy);
 
     // It follows from the above equations that sel_cd_copy_start and sel_rd_copy_start are mutually exclusive
@@ -217,7 +217,7 @@ namespace data_copy;
     // if (1) then data_index_upper_bound = src_data_size, otherwise data_index_upper_bound = (offset + copy_size)
     pol commit offset_plus_size;
     offset_plus_size = sel_start * (offset + copy_size);
-    pol commit offset_plus_size_is_gt; // @boolean follows from the lookup into gt.
+    pol commit offset_plus_size_is_gt; // @boolean (by lookup into gt)
 
     #[OFFSET_PLUS_SIZE_IS_GT_DATA_SIZE]
     sel_start { offset_plus_size, src_data_size, offset_plus_size_is_gt }
@@ -232,8 +232,8 @@ namespace data_copy;
     // Error Handling
     //////////////////////////////
     // Errors on whether the read or write addresses are out of range in memory. (provided that sel_start == 1).
-    pol commit src_out_of_range_err; // @boolean follows from the lookup into gt.
-    pol commit dst_out_of_range_err; // @boolean follows from the lookup into gt.
+    pol commit src_out_of_range_err; // @boolean (by lookup into gt)
+    pol commit dst_out_of_range_err; // @boolean (by lookup into gt)
 
     // AVM_MEMORY_SIZE == AVM_HIGHEST_MEM_ADDRESS + 1.
     pol commit mem_size; // todo: While we do not support constants
@@ -265,13 +265,13 @@ namespace data_copy;
 
     // Consolidate the errors
     // Underconstrained for non-starting rows (sel_start = 0).
-    pol commit err; // @boolean follows from the definition
+    pol commit err; // @boolean (by definition)
     err = 1 - (1 - dst_out_of_range_err) * (1 - src_out_of_range_err);
 
     //////////////////////////////
     // Control flow management
     //////////////////////////////
-    pol commit sel_start_no_err; // @boolean follows from the definition
+    pol commit sel_start_no_err; // @boolean (by definition)
     sel_start_no_err = sel_start * (1 - err);
 
     pol commit sel_write_count_is_zero; // @boolean
@@ -298,7 +298,7 @@ namespace data_copy;
     // src data elements are read from indices [offset, data_index_upper_bound), therefore reads_left = data_index_upper_bound - offset
     // We need to be careful that data_index_upper_bound - offset does not underflow (i.e. when offset > data_index_upper_bound, reads_left = 0)
     // We test that condition here
-    pol commit data_index_upper_bound_gt_offset; // @boolean follows from the lookup into gt.
+    pol commit data_index_upper_bound_gt_offset; // @boolean (by lookup into gt)
     #[DATA_INDEX_UPPER_BOUND_GT_OFFSET]
     sel_start_no_err { data_index_upper_bound, offset, data_index_upper_bound_gt_offset }
     in
@@ -314,7 +314,7 @@ namespace data_copy;
     //////////////////////////////
     // Most of these relations are either gated explicitly by err, end, or LATCH_CONDITION.
     // ===== Writing to dst_context_id =====
-    pol commit sel_mem_write; // @boolean follows from the definition (see SEL_PERFORM_COPY)
+    pol commit sel_mem_write; // @boolean (by definition, see SEL_PERFORM_COPY)
     sel_mem_write = SEL_PERFORM_COPY; // We write if there is no error and copy_size != 0
 
     // Data copy size decrements for each row until we end
@@ -373,7 +373,7 @@ namespace data_copy;
     // Read from memory if we are not the top level call and not a padding row
     // If the current row is a memory op read, i.e., no error occured, copy_size != 0,
     // it is not a padding row and not a CD_COPY in a top-level call.
-    pol commit sel_mem_read; // @boolean follows from the definition
+    pol commit sel_mem_read; // @boolean (by definition)
     sel_mem_read = SEL_PERFORM_COPY * (1 - is_top_level * sel_cd_copy) * (1 - padding);
 
     // === Value Padding ===
@@ -390,7 +390,7 @@ namespace data_copy;
 
     // ===== Reading cd column for top level cd copy =====
     // Reading from column
-    pol commit cd_copy_col_read; // @boolean follows from the definition
+    pol commit cd_copy_col_read; // @boolean (by definition)
     #[CD_COPY_COLUMN]
     cd_copy_col_read = SEL_PERFORM_COPY * (1 - padding) * is_top_level * sel_cd_copy;
 

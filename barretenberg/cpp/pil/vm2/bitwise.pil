@@ -42,21 +42,22 @@ namespace bitwise;
 //    1     1      0      1       0x52        0x42          0x52        0x42
 
 // Selector for Bitwise Operation
-pol commit sel;
+pol commit sel; // @boolean
 sel * (1 - sel) = 0;
 
 // No relations will be checked if this identity is satisfied.
 #[skippable_if]
 sel = 0;
 
-pol commit start; // Identifies when we want to capture the output to the main trace.
+pol commit start; // @boolean Identifies when we want to capture the output to the main trace.
 // Must be constrained as a boolean as any selector used in a lookup/permutation.
 start * (1 - start) = 0;
 
 // This is used to decouple generation of inverses of lookups into this trace.
-pol commit start_keccak;
-pol commit start_sha256;
+pol commit start_keccak; // @boolean
+pol commit start_sha256; // @boolean
 start_keccak * (1 - start_keccak) = 0;
+start_sha256 * (1 - start_sha256) = 0;
 // If any of the above selectors is 1, then start must be 1.
 (start_keccak + start_sha256) * (1 - start) = 0;
 
@@ -67,16 +68,16 @@ start_keccak * (1 - start_keccak) = 0;
 pol commit ctr;
 
 // The error flags for this subtrace
-pol commit sel_tag_ff_err;
+pol commit sel_tag_ff_err; // @boolean
 sel_tag_ff_err * (1 - sel_tag_ff_err) = 0;
-pol commit sel_tag_mismatch_err;
+pol commit sel_tag_mismatch_err; // @boolean
 sel_tag_mismatch_err * (1 - sel_tag_mismatch_err) = 0;
 
 // Consolidated error flag
-pol commit err;
+pol commit err; // @boolean (by definition)
 err = 1 - (1 - sel_tag_mismatch_err) * (1 - sel_tag_ff_err);
 // last is a boolean which serves to mark the end of the computation (end of latch)
-pol commit last;
+pol commit last; // @boolean
 last * (1 - last) = 0;
 #[LAST_ON_ERROR] // last = 1 if err = 1
 err * (last - 1) = 0;
@@ -169,7 +170,7 @@ last * (acc_ic - ic_byte) = 0;
 
 // If we encounter an error, we do not want to perform a lookup to retrieve ctr.
 // In the case of an error, ctr is unconstrained (ideally set to 0).
-pol commit sel_get_ctr;
+pol commit sel_get_ctr; // @boolean
 sel_get_ctr = start * (1 - err);
 
 #[INTEGRAL_TAG_LENGTH]

@@ -52,7 +52,7 @@ std::vector<Operand> Addressing::resolve(const Instruction& instruction, MemoryI
 
     // This represents either: (1) wrong info in the spec, or (2) a wrong witgen deserialization.
     // Therefore, it is not an error the circuit should be able to prove.
-    assert(spec.num_addresses <= instruction.operands.size());
+    BB_ASSERT_LTE(spec.num_addresses, instruction.operands.size(), "Spec num addresses out of bounds");
 
     // Check if there is any relative address.
     bool has_relative_address = false;
@@ -86,7 +86,9 @@ std::vector<Operand> Addressing::resolve(const Instruction& instruction, MemoryI
             // This should be guaranteed by instruction fetching and the wire format.
             // The operand must fit in a MemoryAddress but does not need to be of the right tag.
             // For instance, a 16-bit operand can be cast to a MemoryAddress and fit.
-            assert(FF(static_cast<MemoryAddress>(instruction.operands[i].as_ff())) == instruction.operands[i].as_ff());
+            // NOTE: Only asserting in debug builds because these convertions are in the hot path.
+            BB_ASSERT_DEBUG(FF(static_cast<MemoryAddress>(instruction.operands[i].as_ff())) ==
+                            instruction.operands[i].as_ff());
 
             // Guarantees at this point:
             // - original operand is a valid address IF interpreted as a MemoryAddress.

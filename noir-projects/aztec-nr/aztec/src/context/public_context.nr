@@ -107,7 +107,7 @@ impl PublicContext {
         T: Serialize,
     {
         // Safety: AVM opcodes are constrained by the AVM itself
-        unsafe { emit_public_log(Serialize::serialize(log).as_slice()) };
+        unsafe { emit_public_log(Serialize::serialize(log).as_vector()) };
     }
 
     /// Checks if a given note hash exists in the note hash tree at a particular
@@ -648,10 +648,10 @@ impl PublicContext {
     ///   be some unique number like 0.123456789, or their favorite number).
     /// Wallet devs might wish to consider fuzzing the choice of gas price.
     ///
-    pub fn base_fee_per_l2_gas(_self: Self) -> u128 {
+    pub fn min_fee_per_l2_gas(_self: Self) -> u128 {
         // Safety: AVM opcodes are constrained by the AVM itself
         unsafe {
-            base_fee_per_l2_gas()
+            min_fee_per_l2_gas()
         }
     }
 
@@ -660,15 +660,15 @@ impl PublicContext {
     ///
     /// DA gas covers the cost of making transaction data available on L1.
     ///
-    /// See the warning in `fee_pre_l2_gas` for how gas prices can be leaky.
+    /// See the warning in `min_fee_per_l2_gas` for how gas prices can be leaky.
     ///
     /// # Returns
     /// * `u128` - Fee per unit of DA gas
     ///
-    pub fn base_fee_per_da_gas(_self: Self) -> u128 {
+    pub fn min_fee_per_da_gas(_self: Self) -> u128 {
         // Safety: AVM opcodes are constrained by the AVM itself
         unsafe {
-            base_fee_per_da_gas()
+            min_fee_per_da_gas()
         }
     }
 
@@ -824,11 +824,11 @@ unconstrained fn block_number() -> u32 {
 unconstrained fn timestamp() -> u64 {
     timestamp_opcode()
 }
-unconstrained fn base_fee_per_l2_gas() -> u128 {
-    base_fee_per_l2_gas_opcode()
+unconstrained fn min_fee_per_l2_gas() -> u128 {
+    min_fee_per_l2_gas_opcode()
 }
-unconstrained fn base_fee_per_da_gas() -> u128 {
-    base_fee_per_da_gas_opcode()
+unconstrained fn min_fee_per_da_gas() -> u128 {
+    min_fee_per_da_gas_opcode()
 }
 unconstrained fn l2_gas_left() -> u32 {
     l2_gas_left_opcode()
@@ -945,11 +945,11 @@ unconstrained fn block_number_opcode() -> u32 {}
 #[oracle(avmOpcodeTimestamp)]
 unconstrained fn timestamp_opcode() -> u64 {}
 
-#[oracle(avmOpcodeBaseFeePerL2Gas)]
-unconstrained fn base_fee_per_l2_gas_opcode() -> u128 {}
+#[oracle(avmOpcodeMinFeePerL2Gas)]
+unconstrained fn min_fee_per_l2_gas_opcode() -> u128 {}
 
-#[oracle(avmOpcodeBaseFeePerDaGas)]
-unconstrained fn base_fee_per_da_gas_opcode() -> u128 {}
+#[oracle(avmOpcodeMinFeePerDaGas)]
+unconstrained fn min_fee_per_da_gas_opcode() -> u128 {}
 
 #[oracle(avmOpcodeL2GasLeft)]
 unconstrained fn l2_gas_left_opcode() -> u32 {}

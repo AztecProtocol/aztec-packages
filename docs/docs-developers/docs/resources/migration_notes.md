@@ -9,13 +9,69 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## TBD
 
+### [L1 Contracts] Renamed base fee to min fee
+
+The L1 rollup contract functions and types related to fee calculation have been renamed from "base fee" to "min fee" to better reflect their purpose.
+
+**Renamed functions:**
+
+- `getManaBaseFeeAt` → `getManaMinFeeAt`
+- `getManaBaseFeeComponentsAt` → `getManaMinFeeComponentsAt`
+
+**Renamed types:**
+
+- `ManaBaseFeeComponents` → `ManaMinFeeComponents`
+
+**Renamed errors:**
+
+- `Rollup__InvalidManaBaseFee` → `Rollup__InvalidManaMinFee`
+
+**Migration:**
+
+```diff
+- uint256 fee = rollup.getManaBaseFeeAt(timestamp, true);
++ uint256 fee = rollup.getManaMinFeeAt(timestamp, true);
+
+- ManaBaseFeeComponents memory components = rollup.getManaBaseFeeComponentsAt(timestamp, true);
++ ManaMinFeeComponents memory components = rollup.getManaMinFeeComponentsAt(timestamp, true);
+```
+
+### [Aztec.js] Renamed base fee to min fee
+
+The Aztec Node API method for getting current fees has been renamed:
+
+- `getCurrentBaseFees` → `getCurrentMinFees`
+
+**Migration:**
+
+```diff
+- const fees = await node.getCurrentBaseFees();
++ const fees = await node.getCurrentMinFees();
+```
+
+### [Aztec.nr] Renamed fee context methods
+
+The context methods for accessing fee information have been renamed:
+
+- `context.base_fee_per_l2_gas()` → `context.min_fee_per_l2_gas()`
+- `context.base_fee_per_da_gas()` → `context.min_fee_per_da_gas()`
+
+**Migration:**
+
+```diff
+- let l2_fee = context.base_fee_per_l2_gas();
+- let da_fee = context.base_fee_per_da_gas();
++ let l2_fee = context.min_fee_per_l2_gas();
++ let da_fee = context.min_fee_per_da_gas();
+```
+
 ### [Aztec.nr] Renamed message delivery options
 
 The following terms have been renamed:
 
- - `MessageDelivery::UNCONSTRAINED_OFFCHAIN` -> `MessageDelivery::OFFCHAIN`
- - `MessageDelivery::UNCONSTRAINED_ONCHAIN` -> `MessageDelivery::OFFCHAIN_UNCONSTRAINED`
- - `MessageDelivery::CONSTRAINED_ONCHAIN` -> `MessageDelivery::ONCHAIN_CONSTRAINED`
+- `MessageDelivery::UNCONSTRAINED_OFFCHAIN` -> `MessageDelivery::OFFCHAIN`
+- `MessageDelivery::UNCONSTRAINED_ONCHAIN` -> `MessageDelivery::OFFCHAIN_UNCONSTRAINED`
+- `MessageDelivery::CONSTRAINED_ONCHAIN` -> `MessageDelivery::ONCHAIN_CONSTRAINED`
 
 We believe these names will better convey the meaning of the concepts.
 
@@ -59,6 +115,8 @@ do so through the new `debug` sub-module.
 - this.pxe.getNotes(filter);
 + this.pxe.debug.getNotes(filter);
 ```
+
+## 3.0.0-devnet.20251212
 
 ### [Aztec node, archiver] Deprecated `getPrivateLogs`
 
@@ -559,6 +617,37 @@ Additionally, any function or struct that previously referenced an L2 block numb
 ```
 
 Note: current node softwares still produce exactly one L2 block per checkpoint, so for now checkpoint numbers and L2 block numbers remain equal. This may change once multi-block checkpoints are enabled.
+
+### [L1 Contracts] L2-to-L1 messages are now grouped by epoch.
+
+L2-to-L1 messages are now aggregated and organized per epoch rather than per block. This change affects how you compute membership witnesses for consuming messages on L1. You now need to know the epoch number in which the message was emitted to retrieve and consume the message.
+
+**Note**: This is only an API change. The protocol behavior remains the same - messages can still only be consumed once an epoch is proven as before.
+
+#### What changed
+
+Previously, you might have computed the membership witness without explicitly needing the epoch:
+
+```typescript
+const witness = await computeL2ToL1MembershipWitness(
+  node,
+  l2TxReceipt.blockNumber,
+  l2ToL1Message
+);
+```
+
+Now, you should provide the epoch number:
+
+```typescript
+const epoch = await rollup.getEpochNumberForCheckpoint(
+  CheckpointNumber.fromBlockNumber(l2TxReceipt.blockNumber)
+);
+const witness = await computeL2ToL1MembershipWitness(
+  node,
+  epoch,
+  l2ToL1Message
+);
+```
 
 ### [Aztec.js] Wallet interface changes
 
@@ -1909,7 +1998,7 @@ export type Wallet = AccountInterface &
     | "getNodeInfo"
     | "getPXEInfo"
     // Fee info
-    | "getCurrentBaseFees"
+    | "getCurrentMinFees"
     // Still undecided, kept for the time being
     | "updateContract"
     // Sender management
