@@ -14,7 +14,7 @@ import { PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import type { AztecAsyncMap } from '../interfaces/map.js';
 import type { AztecAsyncKVStore } from '../interfaces/store.js';
 
-/** Stores currently synced L2 tips and unfinalized block hashes.
+/** Maintains and returns the current set of L2 Tips. Maintains stores of block hashes and checkpoints in order to do so.
  */
 export class L2TipsKVStore implements L2BlockStreamEventHandler, L2BlockStreamLocalDataProvider {
   private readonly l2TipsStore: AztecAsyncMap<L2BlockTag, BlockNumber>;
@@ -65,25 +65,21 @@ export class L2TipsKVStore implements L2BlockStreamEventHandler, L2BlockStreamLo
 
   public async handleBlockStreamEvent(event: L2BlockStreamEvent): Promise<void> {
     switch (event.type) {
-      case 'blocks-added': {
+      case 'blocks-added':
         await this.handleBlocksAdded(event);
         break;
-      }
-      case 'chain-checkpointed': {
+      case 'chain-checkpointed':
         await this.handleChainCheckpointed(event);
         break;
-      }
-      case 'chain-pruned': {
+      case 'chain-pruned':
         await this.handleChainPruned(event);
         break;
-      }
       case 'chain-proven':
         await this.handleChainProven(event);
         break;
-      case 'chain-finalized': {
+      case 'chain-finalized':
         await this.handleChainFinalized(event);
         break;
-      }
     }
   }
 
@@ -124,6 +120,7 @@ export class L2TipsKVStore implements L2BlockStreamEventHandler, L2BlockStreamLo
     if (event.type !== 'blocks-added') {
       return;
     }
+    // Simply add the new block hashes by the block number and update the proposed tip
     await this.store.transactionAsync(async () => {
       const blocks = event.blocks;
       for (const block of blocks) {
@@ -137,14 +134,9 @@ export class L2TipsKVStore implements L2BlockStreamEventHandler, L2BlockStreamLo
     if (event.type !== 'chain-checkpointed') {
       return;
     }
+    // Update the checkpointed chain tip and save the checkpoint
     await this.store.transactionAsync(async () => {
-      const checkpointBlocks = event.checkpoint.checkpoint.blocks;
-      const lastBlock = checkpointBlocks.at(-1)!;
-      const blockId: L2BlockId = {
-        number: lastBlock.number,
-        hash: (await lastBlock.hash()).toString(),
-      };
-      await this.saveTag('checkpointed', blockId);
+      await this.saveTag('checkpointed', event.block);
       await this.saveCheckpoint(event.checkpoint);
     });
   }
@@ -153,12 +145,10 @@ export class L2TipsKVStore implements L2BlockStreamEventHandler, L2BlockStreamLo
     if (event.type !== 'chain-pruned') {
       return;
     }
+    // Update the proposed and checkpointed tips
     await this.store.transactionAsync(async () => {
       await this.saveTag('proposed', event.block);
-      const currentCheckpointed = (await this.l2TipsStore.getAsync('checkpointed')) ?? INITIAL_L2_BLOCK_NUM - 1;
-      if (event.block.number < currentCheckpointed) {
-        await this.saveTag('checkpointed', event.block);
-      }
+      await this.saveTag('checkpointed', event.block);
     });
   }
 
@@ -166,6 +156,7 @@ export class L2TipsKVStore implements L2BlockStreamEventHandler, L2BlockStreamLo
     if (event.type !== 'chain-proven') {
       return;
     }
+    // Updtae the proven chain tip
     await this.store.transactionAsync(async () => {
       await this.saveTag('proven', event.block);
     });
@@ -176,14 +167,15 @@ export class L2TipsKVStore implements L2BlockStreamEventHandler, L2BlockStreamLo
       return;
     }
     await this.store.transactionAsync(async () => {
+      // Update the finalized tip
       await this.saveTag('finalized', event.block);
-      // Get the checkpoint number for the finalized block before cleanup
+      // Get the checkpoint number for the finalized block
       const finalizedCheckpointNumber = await this.l2BlockNumberToCheckpointNumberStore.getAsync(event.block.number);
-      // Clean up block hashes for blocks before finalized
+      // Clean up block hashes for blocks earlier than the finalized tip
       for await (const key of this.l2BlockHashesStore.keysAsync({ end: event.block.number })) {
         await this.l2BlockHashesStore.delete(key);
       }
-      // Clean up block-to-checkpoint mappings for blocks before finalized
+      // Clean up block-to-checkpoint mappings for blocks earlier than the finalized tip
       for await (const key of this.l2BlockNumberToCheckpointNumberStore.keysAsync({ end: event.block.number })) {
         await this.l2BlockNumberToCheckpointNumberStore.delete(key);
       }

@@ -560,7 +560,6 @@ describe('sentinel', () => {
       const validator1 = EthAddress.random();
       const validator2 = EthAddress.random();
       const validator3 = EthAddress.random();
-      // Use getSlotRangeForEpoch to calculate expected slot range (same as Sentinel does)
       const [fromSlot, toSlot] = getSlotRangeForEpoch(epochNumber, l1Constants);
 
       epochCache.getEpochAndSlotNow.mockReturnValue({

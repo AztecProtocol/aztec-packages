@@ -127,7 +127,7 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
     if (event.type !== 'chain-proven') {
       return;
     }
-    const blockNumber = BlockNumber(event.block.number);
+    const blockNumber = event.block.number;
     const block = await this.archiver.getL2BlockNew(blockNumber);
     if (!block) {
       this.logger.error(`Failed to get block ${blockNumber}`, { block });

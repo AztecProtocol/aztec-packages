@@ -204,7 +204,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
       }
     }
 
-    // Pass the event through the our l2 tips store
+    // Pass the event through to our l2 tips store
     await this.l2Tips.handleBlockStreamEvent(event);
     await this.startServiceIfSynched();
   }

@@ -257,6 +257,10 @@ export class ServerWorldStateSynchronizer
     const unfinalizedBlockHash = await this.getL2BlockHash(status.unfinalizedBlockNumber);
     const latestBlockId: L2BlockId = { number: status.unfinalizedBlockNumber, hash: unfinalizedBlockHash! };
 
+    // This is all a bit ugly. World state knows nothing of checkpoints and I can't think of any reason
+    // why anyone depending on world state would need to know if the world state was 'at a checkpoint' or anything similar.
+    // so we just default a load of stuff here to initial values and empty hashes.
+    // We could implement a store to track the values but it would be redundant.
     return {
       proposed: latestBlockId,
       checkpointed: {
