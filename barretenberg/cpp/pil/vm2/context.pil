@@ -224,7 +224,7 @@ namespace execution;
     #[CD_OFFSET_NEXT_ROW]
     NOT_LAST_EXEC * DEFAULT_CTX_ROW * (parent_calldata_addr' - parent_calldata_addr) = 0;
     NOT_LAST_EXEC * sel_enter_call  * (parent_calldata_addr' - rop[4]) = 0;
-    #[CD_SIZE_ENQUEUED_CALL_IS_ZERO]
+    #[CD_ADDR_ENQUEUED_CALL_IS_ZERO]
     enqueued_call_start * parent_calldata_addr = 0;
 
     // enqueued_call_start = 1 ==> parent_calldata_size is constrained in tx.pil (#[DISPATCH_EXEC_START])
@@ -261,7 +261,7 @@ namespace execution;
     #[NEXT_RD_SIZE_IS_ZERO]
     NOT_LAST_EXEC * (sel_enter_call + sel_error) * last_child_returndata_size' = 0;
     #[RD_SIZE_IS_ZERO]
-    enqueued_call_start * last_child_returndata_addr = 0;
+    enqueued_call_start * last_child_returndata_size = 0;
     #[PROPAGATE_RD_SIZE]
     NOT_LAST_EXEC * DEFAULT_CTX_ROW * (last_child_returndata_size' - last_child_returndata_size) = 0;
 
