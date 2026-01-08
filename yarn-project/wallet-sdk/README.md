@@ -39,7 +39,7 @@ The Wallet SDK uses a **request-based discovery** model with **end-to-end encryp
 
 1. **dApp requests wallets** for a specific chain/version via `WalletManager.getAvailableWallets({ chainInfo })`
 2. **SDK broadcasts** a discovery message with chain information
-3. **Your wallet responds** ONLY if it supports that specific network, including its ECDH public key
+3. **Your wallet responds** with its ECDH public key ONLY if it supports that specific network
 4. **dApp receives** only compatible wallets
 5. **dApp establishes secure channel** via ECDH key exchange (see [Secure Channel](#secure-channel))
 6. **All subsequent communication** is encrypted using AES-256-GCM
@@ -132,7 +132,8 @@ If your wallet supports the network, respond with your wallet information:
 ```typescript
 import { jsonStringify } from '@aztec/wallet-sdk/manager';
 
-// Your wallet should generate and store a key pair on initialization
+// Your wallet should generate a key pair on initialization.
+// This keypair should be recreated each session
 let walletKeyPair: CryptoKeyPair;
 
 async function initializeWallet() {

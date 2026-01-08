@@ -112,7 +112,6 @@ export class ExtensionWallet {
       throw new Error('Wallet does not support secure channel establishment (missing public key)');
     }
 
-    // Establish secure channel
     await wallet.establishSecureChannel(walletInfo.publicKey);
 
     // Create a Proxy that intercepts wallet method calls and forwards them to the extension
@@ -146,24 +145,19 @@ export class ExtensionWallet {
    * @param walletExportedPublicKey - The wallet's ECDH public key in JWK format
    */
   private async establishSecureChannel(walletExportedPublicKey: ExportedPublicKey): Promise<void> {
-    // Generate our ECDH key pair
     const keyPair = await generateKeyPair();
     const exportedPublicKey = await exportPublicKey(keyPair.publicKey);
 
-    // Import wallet's public key and derive shared secret
     const walletPublicKey = await importPublicKey(walletExportedPublicKey);
     this.sharedKey = await deriveSharedKey(keyPair.privateKey, walletPublicKey);
 
-    // Create MessageChannel for private communication
     const channel = new MessageChannel();
     this.port = channel.port1;
 
-    // Set up message handler on our port
     this.port.onmessage = async (event: MessageEvent<EncryptedPayload>) => {
       await this.handleEncryptedResponse(event.data);
     };
 
-    // Start the port
     this.port.start();
 
     // Send connection request with our public key and transfer port2 to content script
