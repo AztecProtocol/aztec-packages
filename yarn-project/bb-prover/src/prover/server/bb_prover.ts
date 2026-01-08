@@ -1,6 +1,5 @@
 import {
   AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED,
-  AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED,
   NESTED_RECURSIVE_PROOF_LENGTH,
   NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   PAIRING_POINTS_SIZE,
@@ -56,10 +55,8 @@ import { NativeACVMSimulator } from '@aztec/simulator/server';
 import type { AvmCircuitInputs, AvmCircuitPublicInputs } from '@aztec/stdlib/avm';
 import { ProvingError } from '@aztec/stdlib/errors';
 import {
-  type ProofAndVerificationKey,
   type PublicInputsAndRecursiveProof,
   type ServerCircuitProver,
-  makeProofAndVerificationKey,
   makePublicInputsAndRecursiveProof,
 } from '@aztec/stdlib/interfaces/server';
 import type { ParityBasePrivateInputs, ParityPublicInputs, ParityRootPrivateInputs } from '@aztec/stdlib/parity';
@@ -191,10 +188,10 @@ export class BBNativeRollupProver implements ServerCircuitProver {
   }))
   public async getAvmProof(
     inputs: AvmCircuitInputs,
-  ): Promise<ProofAndVerificationKey<typeof AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED>> {
-    const proofAndVk = await this.createAvmProof(inputs);
-    await this.verifyAvmProof(proofAndVk.proof.binaryProof, inputs.publicInputs);
-    return proofAndVk;
+  ): Promise<RecursiveProof<typeof AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED>> {
+    const proof = await this.createAvmProof(inputs);
+    await this.verifyAvmProof(proof.binaryProof, inputs.publicInputs);
+    return proof;
   }
 
   public async getPublicChonkVerifierProof(
@@ -530,13 +527,11 @@ export class BBNativeRollupProver implements ServerCircuitProver {
 
   private async createAvmProof(
     input: AvmCircuitInputs,
-  ): Promise<ProofAndVerificationKey<typeof AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED>> {
+  ): Promise<RecursiveProof<typeof AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED>> {
     const operation = async (bbWorkingDirectory: string) => {
       const provingResult = await this.generateAvmProofWithBB(input, bbWorkingDirectory);
 
       const avmProof = await this.readAvmProofAsFields(provingResult.proofPath!);
-      // AVM uses a fixed VK, so we use a placeholder for interface compatibility
-      const avmVK = VerificationKeyData.makeFake(AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED);
 
       const circuitType = 'avm-circuit' as const;
       const appCircuitName = 'unknown' as const;
@@ -558,7 +553,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
         } satisfies CircuitProvingStats,
       );
 
-      return makeProofAndVerificationKey(avmProof, avmVK);
+      return avmProof;
     };
     return await this.runInDirectory(operation);
   }
