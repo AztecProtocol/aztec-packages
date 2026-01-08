@@ -107,12 +107,26 @@ export class LogService {
     // Determine recipients: use scopes if provided, otherwise get all accounts
     const recipients = scopes && scopes.length > 0 ? scopes : await this.keyStore.getAccounts();
 
-    // For each recipient, fetch secrets, load logs, and store them.
-    // We run these per-recipient tasks in parallel so that logs are loaded for all recipients concurrently.
+    this.log.verbose('syncTaggedLogs recipients', {
+      contract: contractAddress.toString(),
+      recipients: recipients.map(r => r.toString()),
+      anchorBlockNumber,
+    });
+
+    // For each recipient, fetch secrets and load logs in parallel.
+    // We collect all logs first, then store them in a single batch to avoid race conditions
+    // in appendToCapsuleArray when multiple recipients have logs.
+    const allPendingLogs: { recipient: AztecAddress; logs: TxScopedL2Log[] }[] = [];
+
     await Promise.all(
       recipients.map(async recipient => {
         // Get all secrets for this recipient (one per sender)
         const secrets = await this.#getSecretsForSenders(contractAddress, recipient);
+
+        this.log.verbose('syncTaggedLogs senders for recipient', {
+          recipient: recipient.toString(),
+          senderCount: secrets.length,
+        });
 
         // Load logs for all sender-recipient pairs in parallel
         const logArrays = await Promise.all(
@@ -129,14 +143,25 @@ export class LogService {
         );
 
         // Flatten all logs from all secrets
-        const allLogs = logArrays.flat();
+        const recipientLogs = logArrays.flat();
 
-        // Store the logs for this recipient
-        if (allLogs.length > 0) {
-          await this.#storePendingTaggedLogs(contractAddress, pendingTaggedLogArrayBaseSlot, recipient, allLogs);
+        this.log.verbose('syncTaggedLogs found logs for recipient', {
+          recipient: recipient.toString(),
+          logCount: recipientLogs.length,
+          perSenderCounts: logArrays.map(arr => arr.length),
+        });
+
+        // Collect logs for later batch storage
+        if (recipientLogs.length > 0) {
+          allPendingLogs.push({ recipient, logs: recipientLogs });
         }
       }),
     );
+
+    // Store all logs sequentially to avoid race conditions in appendToCapsuleArray
+    for (const { recipient, logs } of allPendingLogs) {
+      await this.#storePendingTaggedLogs(contractAddress, pendingTaggedLogArrayBaseSlot, recipient, logs);
+    }
   }
 
   async #getSecretsForSenders(
@@ -154,6 +179,13 @@ export class LogService {
     const deduplicatedSenders = Array.from(new Set(allSenders.map(sender => sender.toString()))).map(sender =>
       AztecAddress.fromString(sender),
     );
+
+    this.log.verbose('getSecretsForSenders', {
+      recipient: recipient.toString(),
+      senders: deduplicatedSenders.map(s => s.toString()),
+      fromAddressBook: (await this.senderAddressBookStore.getSenders()).map(s => s.toString()),
+      fromKeyStore: (await this.keyStore.getAccounts()).map(s => s.toString()),
+    });
 
     return Promise.all(
       deduplicatedSenders.map(sender => {

@@ -586,11 +586,17 @@ export class NoteStore implements StagedStore {
       return;
     }
 
-    // Find notes that are both added and nullified in this job (skip active storage for these)
+    // Find notes that are both added and nullified in this job AND don't already exist in committed storage.
+    // Notes that already exist in committed storage need to be removed from active indexes even if they were
+    // re-added to staging in this job.
     const addedThenNullified = new Set<string>();
     for (const noteIndex of jobStaging.nullifiedNotes.keys()) {
       if (jobStaging.addedNotes.has(noteIndex)) {
-        addedThenNullified.add(noteIndex);
+        // Only treat as "added then nullified" if the note doesn't already exist in committed storage
+        const existsInCommitted = await this.#notes.hasAsync(noteIndex);
+        if (!existsInCommitted) {
+          addedThenNullified.add(noteIndex);
+        }
       }
     }
 

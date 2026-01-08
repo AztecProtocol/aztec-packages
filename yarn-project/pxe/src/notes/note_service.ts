@@ -1,4 +1,5 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { createLogger } from '@aztec/foundation/log';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { DataInBlock } from '@aztec/stdlib/block';
 import { computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/stdlib/hash';
@@ -11,6 +12,8 @@ import type { AnchorBlockStore } from '../storage/anchor_block_store/anchor_bloc
 import type { NoteStore } from '../storage/note_store/note_store.js';
 
 export class NoteService {
+  private log = createLogger('notes');
+
   constructor(
     private readonly noteStore: NoteStore,
     private readonly aztecNode: AztecNode,
@@ -77,6 +80,13 @@ export class NoteService {
 
     const contractNotes = await this.noteStore.getNotes({ contractAddress }, this.jobId);
 
+    this.log.verbose('syncNoteNullifiers', {
+      contractAddress: contractAddress.toString(),
+      syncedBlockNumber,
+      noteCount: contractNotes.length,
+      noteHashes: contractNotes.map(n => n.noteHash.toString()),
+    });
+
     if (contractNotes.length === 0) {
       return;
     }
@@ -108,6 +118,12 @@ export class NoteService {
         }
       })
       .filter(nullifier => nullifier !== undefined) as DataInBlock<Fr>[];
+
+    this.log.verbose('syncNoteNullifiers found', {
+      contractAddress: contractAddress.toString(),
+      foundCount: foundNullifiers.length,
+      foundNullifiers: foundNullifiers.map(n => n.data.toString()),
+    });
 
     await this.noteStore.applyNullifiers(foundNullifiers, this.jobId);
   }
@@ -195,6 +211,14 @@ export class NoteService {
 
     // The note was found by `recipient`, so we use that as the scope when storing the note.
     await this.noteStore.addNotes([noteDao], recipient, this.jobId);
+
+    this.log.verbose('deliverNote', {
+      contractAddress: contractAddress.toString(),
+      noteHash: noteHash.toString(),
+      siloedNullifier: siloedNullifier.toString(),
+      isNullified: nullifierIndex !== undefined,
+      noteIndex: uniqueNoteHashTreeIndexInBlock.data.toString(),
+    });
 
     if (nullifierIndex !== undefined) {
       const { data: _, ...blockHashAndNum } = nullifierIndex;

@@ -393,6 +393,18 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       await this.capsuleStore.readCapsuleArray(contractAddress, eventValidationRequestsArrayBaseSlot, this.jobId)
     ).map(EventValidationRequest.fromFields);
 
+    this.log.verbose('utilityValidateEnqueuedNotesAndEvents', {
+      contract: contractAddress.toString(),
+      noteValidationRequestCount: noteValidationRequests.length,
+      eventValidationRequestCount: eventValidationRequests.length,
+      notes: noteValidationRequests.map(r => ({
+        owner: r.owner.toString(),
+        recipient: r.recipient.toString(),
+        storageSlot: r.storageSlot.toString(),
+        noteHash: r.noteHash.toString(),
+      })),
+    });
+
     const noteService = new NoteService(this.noteStore, this.aztecNode, this.anchorBlockStore, this.jobId);
     const noteDeliveries = noteValidationRequests.map(request =>
       noteService.deliverNote(
