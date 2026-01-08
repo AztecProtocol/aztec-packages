@@ -21,8 +21,7 @@ template <class T> constexpr std::pair<uint64_t, uint64_t> field<T>::mul_wide(ui
     const uint128_t res = (static_cast<uint128_t>(a) * static_cast<uint128_t>(b));
     return { static_cast<uint64_t>(res), static_cast<uint64_t>(res >> 64) };
 #else
-    const uint64_t product = a * b;
-    return { product & 0xffffffffULL, product >> 32 };
+    static_assert(false, "mul_wide is not implemented for WASM");
 #endif
 }
 
@@ -36,9 +35,7 @@ constexpr uint64_t field<T>::mac(
     carry_out = static_cast<uint64_t>(res >> 64);
     return static_cast<uint64_t>(res);
 #else
-    const uint64_t product = b * c + a + carry_in;
-    carry_out = product >> 32;
-    return product & 0xffffffffULL;
+    static_assert(false, "mac is not implemented for WASM");
 #endif
 }
 
@@ -56,9 +53,7 @@ constexpr void field<T>::mac(const uint64_t a,
     out = static_cast<uint64_t>(res);
     carry_out = static_cast<uint64_t>(res >> 64);
 #else
-    const uint64_t product = b * c + a + carry_in;
-    carry_out = product >> 32;
-    out = product & 0xffffffffULL;
+    static_assert(false, "mac is not implemented for WASM");
 #endif
 }
 
@@ -73,9 +68,7 @@ constexpr uint64_t field<T>::mac_mini(const uint64_t a,
     carry_out = static_cast<uint64_t>(res >> 64);
     return static_cast<uint64_t>(res);
 #else
-    const uint64_t product = b * c + a;
-    carry_out = product >> 32;
-    return product & 0xffffffffULL;
+    static_assert(false, "mac is not implemented for WASM");
 #endif
 }
 
@@ -88,9 +81,7 @@ constexpr void field<T>::mac_mini(
     out = static_cast<uint64_t>(res);
     carry_out = static_cast<uint64_t>(res >> 64);
 #else
-    const uint64_t result = b * c + a;
-    carry_out = result >> 32;
-    out = result & 0xffffffffULL;
+    static_assert(false, "mac_mini is not implemented for WASM");
 #endif
 }
 
@@ -101,10 +92,15 @@ constexpr uint64_t field<T>::mac_discard_lo(const uint64_t a, const uint64_t b, 
     const uint128_t res = static_cast<uint128_t>(a) + (static_cast<uint128_t>(b) * static_cast<uint128_t>(c));
     return static_cast<uint64_t>(res >> 64);
 #else
-    return (b * c + a) >> 32;
+    static_assert(false, "mac_discord_lo is not implemented for WASM");
 #endif
 }
-
+/**
+ * @brief unsigned 64-bit add-with-carry that takes in a `carry_in` and a `carry_out` bit and rewrites the latter.
+ *
+ * @note If `carry_in` starts out in {0, 1}, then after calling this function `carry_out` is in {0, 1}. In particular,
+ * to have the expected semantic meaning, this function tacitly assumes that `carry_in` is in {0, 1}.
+ */
 template <class T>
 constexpr uint64_t field<T>::addc(const uint64_t a,
                                   const uint64_t b,
@@ -117,13 +113,21 @@ constexpr uint64_t field<T>::addc(const uint64_t a,
     return static_cast<uint64_t>(res);
 #else
     uint64_t r = a + b;
-    const uint64_t carry_temp = r < a;
+    const uint64_t carry_temp = r < a; // carry_temp == 1 iff a + b overflows (without the carry_in bit)
     r += carry_in;
-    carry_out = carry_temp + (r < carry_in);
+    carry_out = carry_temp +
+                (r < carry_in); // (r < carry_in) iff a + b == 2^64 - 1 and carry_in == 1, which means that (r >= a)
     return r;
 #endif
 }
-
+/**
+ * @brief unsigned 64-bit subtract-with-borrow that takes in borrow_in value in the size-2 set {0, 2^64 - 1},
+ * which we interpret as {no borrow, yes borrow}, computes (a - b - (borrow_in != 0)). rewrites borrow_out.
+ *
+ * @note If `borrow_in` is in {0, 2^64 - 1}, then after calling this function, `borrow_out` is in {0, 2^64 - 1}. In
+ * particular, to have the expected semantic meaning, this function tacitly assumes that `borrow_in` takes on only these
+ * two values.
+ */
 template <class T>
 constexpr uint64_t field<T>::sbb(const uint64_t a,
                                  const uint64_t b,
@@ -132,18 +136,25 @@ constexpr uint64_t field<T>::sbb(const uint64_t a,
 {
 #if defined(__SIZEOF_INT128__) && !defined(__wasm__)
     uint128_t res = static_cast<uint128_t>(a) - (static_cast<uint128_t>(b) + static_cast<uint128_t>(borrow_in >> 63));
-    borrow_out = static_cast<uint64_t>(res >> 64);
+    borrow_out = static_cast<uint64_t>(
+        res >> 64); // consider the set of negative outputs of [0, 2^64 - 1] - [0, 2^64]; then the highest-order 64 bits
+                    // are either all 0 or all 1. hence `borrow_out` is in {0, 2^64 - 1}.
     return static_cast<uint64_t>(res);
 #else
     uint64_t t_1 = a - (borrow_in >> 63ULL);
-    uint64_t borrow_temp_1 = t_1 > a;
+    uint64_t borrow_temp_1 = t_1 > a; // 0 iff a == 0 and borrow_in is non-zero (i.e., 2^64 - 1).
     uint64_t t_2 = t_1 - b;
-    uint64_t borrow_temp_2 = t_2 > t_1;
-    borrow_out = 0ULL - (borrow_temp_1 | borrow_temp_2);
+    uint64_t borrow_temp_2 = t_2 > t_1;                  // 0 iff b > t_1
+    borrow_out = 0ULL - (borrow_temp_1 | borrow_temp_2); // underflow if either staged underflowed.
     return t_2;
 #endif
 }
-
+/**
+ * @brief Computes a + 2 * b * c + carry_in_lo + 2^64 * carry_in_hi, in the form of returning a uint64_t and modifying
+ * carry_lo and carry_hi. Here, carry_lo represents bits 64 - 127 of the result and carry_hi bits 128-191 of the result.
+ * carry_lo can be an arbitrary uint64_t, while carry_hi is in {0, 1, 2}. AUDITTODO: CHECK THIS.
+ *
+ */
 template <class T>
 constexpr uint64_t field<T>::square_accumulate(const uint64_t a,
                                                const uint64_t b,
@@ -155,33 +166,32 @@ constexpr uint64_t field<T>::square_accumulate(const uint64_t a,
 {
 #if defined(__SIZEOF_INT128__) && !defined(__wasm__)
     const uint128_t product = static_cast<uint128_t>(b) * static_cast<uint128_t>(c);
-    const auto r0 = static_cast<uint64_t>(product);
+    const auto r0 = static_cast<uint64_t>(product); // uint64_t(b * c)
     const auto r1 = static_cast<uint64_t>(product >> 64);
     uint64_t out = r0 + r0;
-    carry_lo = (out < r0);
-    out += a;
-    carry_lo += (out < a);
-    out += carry_in_lo;
-    carry_lo += (out < carry_in_lo);
-    carry_lo += r1;
-    carry_hi = (carry_lo < r1);
-    carry_lo += r1;
-    carry_hi += (carry_lo < r1);
-    carry_lo += carry_in_hi;
-    carry_hi += (carry_lo < carry_in_hi);
+    carry_lo = (out < r0);                // 1 iff r_0 + r_0 overflows. (r_0 = uint_64t(b * c))
+    out += a;                             // uint_64t(a + (2 * b * c))
+    carry_lo += (out < a);                // + 1 if a + uint_64t(2 * b * c) overflows
+    out += carry_in_lo;                   // uint_64t(a + (2 * b * c) + carry_in_lo)
+    carry_lo += (out < carry_in_lo);      // + 1 if uint_64t(a + (2 * b * c)) + carry_in_lo overflows.
+    carry_lo += r1;                       // + r_1 (r_1 == "high order bits of b * c")
+    carry_hi = (carry_lo < r1);           // 1 if adding r_1 to carry_lo causes overflow
+    carry_lo += r1;                       // + r_1 (we do this twice because of 2 * (b * c))
+    carry_hi += (carry_lo < r1);          // + 1 if adding r_1 causes overflow
+    carry_lo += carry_in_hi;              // finally add in the input "upper bits" contribution carry_in_hi
+    carry_hi += (carry_lo < carry_in_hi); // + 1 if this caused an overflow
     return out;
 #else
-    const auto product = b * c;
-    const auto t0 = product + a + carry_in_lo;
-    const auto t1 = product + t0;
-    carry_hi = t1 < product;
-    const auto t2 = t1 + (carry_in_hi << 32);
-    carry_hi += t2 < t1;
-    carry_lo = t2 >> 32;
-    return t2 & 0xffffffffULL;
+    static_assert(false, "square_accumulate is not implemented for WASM");
 #endif
 }
-
+/**
+ * @brief reduce once, i.e., if the value is bigger than the modulus, subtract off the modulus once.
+ *
+ * @note the output may be greater than the modulus.
+ * @note when the modulus is < 2^254 (i.e., for the BN-254 fields), the algorithm is constant-time: it has no
+ * branching.
+ */
 template <class T> constexpr field<T> field<T>::reduce() const noexcept
 {
     if constexpr (modulus.data[3] >= MODULUS_TOP_LIMB_LARGE_THRESHOLD) {
@@ -191,14 +201,18 @@ template <class T> constexpr field<T> field<T>::reduce() const noexcept
         }
         return { val.data[0], val.data[1], val.data[2], val.data[3] };
     }
+    // not_modulus == 2^256 - modulus
+    // do limb-based add-and-carry with `not_modulus`. this yields a _constant-time_ algorithm.
     uint64_t t0 = data[0] + not_modulus.data[0];
     uint64_t c = t0 < data[0];
     auto t1 = addc(data[1], not_modulus.data[1], c, c);
     auto t2 = addc(data[2], not_modulus.data[2], c, c);
     auto t3 = addc(data[3], not_modulus.data[3], c, c);
-    const uint64_t selection_mask = 0ULL - c; // 0xffff... if we have overflowed.
+    // c != 0 iff val >= modulus.
+    const uint64_t selection_mask = 0ULL - c; // 0xffffffff if we have overflowed.
     const uint64_t selection_mask_inverse = ~selection_mask;
-    // if we overflow, we want to swap
+    // if c == 0, then the original element is already reduced. if we overflow, we want to return the element whose
+    // limbs are {t0, t1, t2, t3}.
     return {
         (data[0] & selection_mask_inverse) | (t0 & selection_mask),
         (data[1] & selection_mask_inverse) | (t1 & selection_mask),
@@ -221,8 +235,10 @@ template <class T> constexpr field<T> field<T>::add(const field& other) const no
             r1 = sbb(r1, modulus.data[1], b, b);
             r2 = sbb(r2, modulus.data[2], b, b);
             r3 = sbb(r3, modulus.data[3], b, b);
-            // Since both values are in [0, 2**256), the result is in [0, 2**257-2]. Subtracting one p might not be
-            // enough. We need to ensure that we've underflown the 0 and that might require subtracting an additional p
+            // Since both values are in [0, p) and p < 2^256, the result is in [0, 2^257-2). Subtracting one p might not
+            // be enough. We need to ensure that we've underflown the 0 and that might require subtracting an additional
+            // AUDITTODO: The inputs are assumed to be in [0, p) (non-coarse representation), hence a single subtraction
+            // must be enough. Local tests pass.
             if (!b) {
                 b = 0;
                 r0 = sbb(r0, modulus.data[0], b, b);
@@ -237,13 +253,17 @@ template <class T> constexpr field<T> field<T>::add(const field& other) const no
         uint64_t c = r0 < data[0];
         auto r1 = addc(data[1], other.data[1], c, c);
         auto r2 = addc(data[2], other.data[2], c, c);
-        uint64_t r3 = data[3] + other.data[3] + c;
+        uint64_t r3 = data[3] + other.data[3] +
+                      c; // in the small modulus branch so this will satisfy the right size bounds: both self
+                         // and other are in the range [0, 2*p), which means their sum is in [0, 4p-1).
 
         uint64_t t0 = r0 + twice_not_modulus.data[0];
         c = t0 < twice_not_modulus.data[0];
         uint64_t t1 = addc(r1, twice_not_modulus.data[1], c, c);
         uint64_t t2 = addc(r2, twice_not_modulus.data[2], c, c);
         uint64_t t3 = addc(r3, twice_not_modulus.data[3], c, c);
+        // c == 1 iff self + other >= 2 * p.
+        // if c == 0, then return the r_i (naive sum still in coarse form), if c == 1, return the t_i.
         const uint64_t selection_mask = 0ULL - c;
         const uint64_t selection_mask_inverse = ~selection_mask;
 
