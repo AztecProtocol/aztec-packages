@@ -5,182 +5,133 @@ tags: [contracts]
 description: Understand contract upgrade patterns in Aztec and how to implement upgradeable contracts.
 ---
 
-For familiarity we've used terminology like "deploying a contract instance of a contract class". When considering how it works with contract upgrades it helps to be more specific.
+Each contract instance refers to a contract class ID for its code. Upgrading a contract's implementation involves updating its current class ID to a new class ID, while retaining the original class ID for address verification.
 
-Each contract instance refers to a class id for its code. Upgrading a contract's implementation is achieved by updating its current class id to a new class id, whilst retaining the "original class id" for reasons explained below.
+## Original class ID
 
-## Original class id
+A contract stores the original contract class it was instantiated with. This original class ID is used when calculating and verifying the contract's [address](../../foundational-topics/contract_creation#instance-address) and remains unchanged even if a contract is upgraded.
 
-A contract keeps track of the original contract class that it was instantiated with, which is the "original" class id. It is this original class that is used when calculating and verifying the contract's [address](../../foundational-topics/contract_creation#instance-address).
-This variable remains unchanged even if a contract is upgraded.
+## Current class ID
 
-## Current class id
-
-When a contract is first deployed, its current class ID is set equal to its original class ID. The current class ID determines which code implementation the contract actually executes.
+When a contract is first deployed, its current class ID equals its original class ID. The current class ID determines which code implementation the contract executes.
 
 During an upgrade:
 
 - The original class ID remains unchanged
-- The current class ID is updated to refer to the new implementation
-- All contract state/data is preserved
+- The current class ID is updated to the new implementation
+- All contract state and data are preserved
 
 ## How to upgrade
 
-Contract upgrades in Aztec have to be initiated by the contract that wishes to be upgraded calling the `ContractInstanceRegistry`:
+Contract upgrades must be initiated by the contract itself calling the `ContractInstanceRegistry`:
 
 ```rust
-use dep::aztec::protocol_types::contract_class_id::ContractClassId;
+use aztec::protocol_types::{
+    constants::CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS,
+    contract_class_id::ContractClassId,
+};
 use contract_instance_registry::ContractInstanceRegistry;
 
 #[external("private")]
 fn update_to(new_class_id: ContractClassId) {
-    ContractInstanceRegistry::at(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS)
-        .update(new_class_id)
-        .enqueue(&mut context);
+    self.enqueue(
+        ContractInstanceRegistry::at(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS)
+            .update(new_class_id)
+    );
 }
 ```
 
-The `update` function in the registry is a public function, so you can enqueue it from a private function like the example or call it from a public function directly.
+The `update` function in the registry is a public function, so you can enqueue it from a private function (as shown above) or call it directly from a public function.
 
-:::note
-Recall that `#[external("private")]` means calling this function preserves privacy, and it still CAN be called externally by anyone.
-So the `update_to` function above allows anyone to update the contract that implements it. A more complete implementation should have a proper authorization systems to secure contracts from malicious upgrades.
+:::warning[Access Control]
+The example `update_to` function above has no access control, meaning anyone could call it to upgrade your contract. Production contracts should implement proper authorization checks to secure against malicious upgrades.
 :::
 
-Contract upgrades are implemented using a DelayedPublicMutable storage variable in the `ContractInstanceRegistry`, since the upgrade applies to both public and private functions.
-This means that they have a delay before entering into effect. The default delay is `86400` seconds (one day) but can be configured by the contract:
+Contract upgrades use a `DelayedPublicMutable` storage variable in the `ContractInstanceRegistry`, applying to both public and private functions. Upgrades have a delay before taking effect. The default delay is `86400` seconds (one day) but can be configured:
 
 ```rust
-use dep::aztec::protocol_types::contract_class_id::ContractClassId;
-use contract_instance_registry::ContractInstanceRegistry;
-
 #[external("private")]
 fn set_update_delay(new_delay: u64) {
-   ContractInstanceRegistry::at(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS)
-      .set_update_delay(new_delay)
-      .enqueue(&mut context);
+    self.enqueue(
+        ContractInstanceRegistry::at(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS)
+            .set_update_delay(new_delay)
+    );
 }
 ```
 
-Where `new_delay` is denominated in seconds. However, take into account that changing the update delay also has as its delay that is the previous delay. So the first delay change will take `86400` seconds to take into effect.
+The `new_delay` parameter is in seconds. Changing the update delay is also subject to the previous delay, so the first delay change takes `86400` seconds to take effect.
 
 :::info
-The update delay cannot be set lower than `600` seconds
+The minimum update delay is `600` seconds.
 :::
 
-When sending a transaction, the expiration timestamp of your tx will be the timestamp of the current block number you're simulating with + the minimum of the update delays that you're interacting with.
-If your tx interacts with a contract that can be upgraded in 1000 seconds and another one that can be upgraded in 10000 seconds, the expiration timestamp (include_by_timestamp property on the tx) will be current block timestamp + 1000.
-Note that this can be even lower if there is an upgrade pending in one of the contracts you're interacting with.
-If the contract you interacted with will upgrade in 100 seconds, the expiration timestamp of your tx will be current block timestamp + 99 seconds.
-Other DelayedPublicMutable storage variables read in your tx might reduce this expiration timestamp further.
+### Transaction expiration
+
+When sending a transaction, the expiration timestamp is calculated as the current block timestamp plus the minimum update delay of all contracts you interact with. For example:
+
+- If you interact with contracts having delays of 1000 and 10000 seconds, expiration is current timestamp + 1000 seconds
+- If a contract has a pending upgrade in 100 seconds, expiration would be current timestamp + 99 seconds
+
+Other `DelayedPublicMutable` storage variables in your transaction may reduce the expiration timestamp further.
 
 :::note
-Only deployed contract instances can upgrade or change its upgrade delay currently. This restriction might be lifted in the future.
+Only deployed contract instances can upgrade or change their upgrade delay. This restriction may be lifted in the future.
 :::
 
-### Upgrade Process
+### Upgrade process
 
-1. **Register New Implementation**
+1. **Register the new implementation**: Register the new contract class if it contains public functions. The new implementation must maintain state variable compatibility with the original contract.
 
-   - First, register the new contract class if it contains public functions
-   - The new implementation must maintain state variable compatibility with the original contract
+2. **Perform the upgrade**: Call the update function with the new contract class ID. The contract's original class ID remains unchanged while the current class ID updates to the new implementation.
 
-2. **Perform Upgrade**
+3. **Wait for the delay**: The upgrade takes effect after the configured delay period.
 
-   - Call the update function with the new contract class ID
-   - The contract's original class ID remains unchanged
-   - The current class ID is updated to the new implementation
-   - All contract state and data are preserved
+4. **Verify the upgrade**: After the delay, the contract executes functions from the new implementation. The contract address remains the same since it's based on the original class ID.
 
-3. **Verify Upgrade**
-   - After upgrade, the contract will execute functions from the new implementation
-   - The contract's address remains the same since it's based on the original class ID
-   - Existing state variables and their values are preserved
+### Interacting with an upgraded contract
 
-### How to interact with an upgraded contract
-
-The PXE in the wallet stores the contract instances and classes in a local database. When a contract is updated, in order to interact with it we need to pass the new artifact to the PXE in the wallet, since the protocol doesn't publish artifacts.
-Consider this contract as an example:
-
-```rust
-#[aztec]
-contract Updatable {
-...
-
-    #[external("private")]
-    fn update_to(new_class_id: ContractClassId) {
-        ContractInstanceRegistry::at(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS).update(new_class_id).enqueue(
-            &mut context,
-        );
-    }
-...
-```
-
-You'd upgrade it in aztec.js doing something similar to this:
+The PXE stores contract instances and classes locally. After a contract upgrades, you must register the new artifact with the wallet before interacting with it:
 
 ```typescript
-const contract = await UpdatableContract.deploy(wallet, ...args)
-  .send()
-  .deployed();
+import { getContractClassFromArtifact } from '@aztec/aztec.js/contracts';
+import { publishContractClass } from '@aztec/aztec.js/deployment';
+
+// Deploy the original contract (use .wait() to get both contract and instance)
+const { contract, instance } = await UpdatableContract.deploy(wallet, ...args)
+  .send({ from: accountAddress })
+  .wait();
+
+// Publish the new contract class (required before upgrading)
+await (await publishContractClass(wallet, UpdatedContractArtifact))
+  .send({ from: accountAddress })
+  .wait();
+
+// Get the new contract class ID
 const updatedContractClassId = (
   await getContractClassFromArtifact(UpdatedContractArtifact)
 ).id;
-await contract.methods.update_to(updatedContractClassId).send().wait();
+
+// Trigger the upgrade
+await contract.methods
+  .update_to(updatedContractClassId)
+  .send({ from: accountAddress })
+  .wait();
+
+// Wait for the upgrade delay to pass...
+
+// Register the new artifact with the wallet
+await wallet.registerContract(instance, UpdatedContract.artifact);
+
+// Create a contract instance with the new artifact
+const updatedContract = UpdatedContract.at(contract.address, wallet);
 ```
 
-Now, when the update has happened, calling `at` with the new contract artifact will automatically update the contract instance in the wallet if it's outdated:
+If you try to register a contract artifact that doesn't match the current contract class, the registration will fail.
 
-```typescript
-// 'at' will call wallet updateContract if outdated
-const updatedContract = await UpdatedContract.at(address, wallet);
-```
+### Security considerations
 
-If you try to call `at` with a different contract that is not the current version, it'll fail
+1. **Access control**: Implement proper access controls for upgrade functions. Consider using `set_update_delay` to customize the delay for your security requirements.
 
-```typescript
-// throws when trying to update the wallet instance to RandomContract
-// since the current one is UpdatedContract
-await RandomContract.at(address, wallet);
-```
+2. **State compatibility**: Ensure the new implementation is compatible with existing state. Maintain the same storage layout to prevent data corruption.
 
-### Security Considerations
-
-1. **Access Control**
-
-   - Implement proper access controls for upgrade functions
-   - Consider customizing the upgrades delay for your needs using `set_update_delay`
-
-2. **State Compatibility**
-
-   - Ensure new implementation is compatible with existing state
-   - Maintain the same storage layout to prevent data corruption
-
-3. **Testing**
-
-   - Test upgrades thoroughly in a development environment
-   - Verify all existing functionality works with the new implementation
-
-### Example
-
-```rust
-contract Updatable {
-    #[external("private")]
-    fn update_to(new_class_id: ContractClassId) {
-        // TODO: Add access control
-        assert(context.msg_sender() == owner, "Unauthorized");
-
-        // Perform the upgrade
-        ContractInstanceRegistry::at(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS)
-            .update(new_class_id)
-            .enqueue(&mut context);
-    }
-
-    #[external("private")]
-    fn set_update_delay(new_delay: u64) {
-        // TODO: Add access control
-        ContractInstanceRegistry::at(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS)
-            .set_update_delay(new_delay)
-            .enqueue(&mut context);
-    }
-}
-```
+3. **Testing**: Test upgrades thoroughly in a development environment. Verify all existing functionality works with the new implementation.
