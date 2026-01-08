@@ -13,6 +13,7 @@ pub struct RootRollupPublicInputs {
     //  - If you try to set a lower nextAvailableLeafIndex (overwrite), you'll fail the zero leaf check in the tree insertion code
     pub previous_archive_root: Field,
     pub new_archive_root: Field,
+    pub out_hash: Field,
     pub checkpoint_header_hashes: [Field; AZTEC_MAX_EPOCH_DURATION],
     pub fees: [FeeRecipient; AZTEC_MAX_EPOCH_DURATION],
     pub constants: EpochConstantData,

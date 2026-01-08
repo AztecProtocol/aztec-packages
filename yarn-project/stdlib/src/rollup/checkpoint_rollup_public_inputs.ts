@@ -32,6 +32,10 @@ export class CheckpointRollupPublicInputs {
      */
     public checkpointHeaderHashes: Tuple<Fr, typeof AZTEC_MAX_EPOCH_DURATION>,
     /**
+     * The `out_hash` values from all checkpoints in this checkpoint range.
+     */
+    public outHashes: Tuple<Fr, typeof AZTEC_MAX_EPOCH_DURATION>,
+    /**
      * The summed transaction fees and recipients of the constituent checkpoints.
      */
     public fees: Tuple<FeeRecipient, typeof AZTEC_MAX_EPOCH_DURATION>,
@@ -56,6 +60,7 @@ export class CheckpointRollupPublicInputs {
       reader.readObject(AppendOnlyTreeSnapshot),
       reader.readObject(AppendOnlyTreeSnapshot),
       reader.readArray(AZTEC_MAX_EPOCH_DURATION, Fr),
+      reader.readArray(AZTEC_MAX_EPOCH_DURATION, Fr),
       reader.readArray(AZTEC_MAX_EPOCH_DURATION, FeeRecipient),
       reader.readObject(BlobAccumulator),
       reader.readObject(BlobAccumulator),
@@ -69,6 +74,7 @@ export class CheckpointRollupPublicInputs {
       this.previousArchive,
       this.newArchive,
       this.checkpointHeaderHashes,
+      this.outHashes,
       this.fees,
       this.startBlobAccumulator,
       this.endBlobAccumulator,

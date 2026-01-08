@@ -7,7 +7,6 @@ import type { FieldsOf } from '@aztec/foundation/types';
 import { AztecAddress } from '../aztec-address/index.js';
 import { GasFees } from '../gas/gas_fees.js';
 import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
-import { ContentCommitment } from '../tx/content_commitment.js';
 import { GlobalVariables } from '../tx/global_variables.js';
 import { PartialStateReference } from '../tx/partial_state_reference.js';
 import { StateReference } from '../tx/state_reference.js';
@@ -18,12 +17,12 @@ export function makeL2BlockHeader(
   blockNumber?: number,
   slotNumber?: number,
   overrides: Partial<FieldsOf<L2BlockHeader>> = {},
-  inHash?: Fr,
 ) {
   return new L2BlockHeader(
     makeAppendOnlyTreeSnapshot(seed + 0x100),
-    overrides?.contentCommitment ?? makeContentCommitment(seed + 0x200, inHash),
-    overrides?.state ?? makeStateReference(seed + 0x600),
+    overrides.blobsHash ?? new Fr(seed + 0x200),
+    overrides.inHash ?? new Fr(seed + 0x300),
+    overrides.state ?? makeStateReference(seed + 0x600),
     makeGlobalVariables((seed += 0x700), {
       ...(blockNumber ? { blockNumber: BlockNumber(blockNumber) } : {}),
       ...(slotNumber ? { slotNumber: SlotNumber(slotNumber) } : {}),
@@ -42,13 +41,6 @@ export function makeL2BlockHeader(
  */
 export function makeAppendOnlyTreeSnapshot(seed = 1): AppendOnlyTreeSnapshot {
   return new AppendOnlyTreeSnapshot(new Fr(seed), seed);
-}
-
-/**
- * Makes content commitment
- */
-function makeContentCommitment(seed = 0, inHash?: Fr): ContentCommitment {
-  return new ContentCommitment(new Fr(seed + 0x100), inHash ?? new Fr(seed + 0x200), new Fr(seed + 0x300));
 }
 
 /**

@@ -1,14 +1,114 @@
 use super::TestBuilder;
 use types::{
-    abis::fee_recipient::FeeRecipient, address::EthAddress,
-    constants::CHECKPOINT_MERGE_ROLLUP_VK_INDEX, tests::utils::pad_end, traits::Empty,
+    abis::fee_recipient::FeeRecipient,
+    address::EthAddress,
+    constants::{CHECKPOINT_MERGE_ROLLUP_VK_INDEX, CHECKPOINT_ROOT_ROLLUP_VK_INDEX},
+    tests::utils::pad_end,
+    traits::Empty,
 };
 
+// -- checkpoint header hashes ---
+
 #[test]
-fn correct_default_inputs() {
-    let builder = TestBuilder::default();
+fn accumulated_checkpoint_header_hashes_from_both_sides() {
+    let mut builder = TestBuilder::new(
+        CHECKPOINT_MERGE_ROLLUP_VK_INDEX,
+        2,
+        CHECKPOINT_MERGE_ROLLUP_VK_INDEX,
+        2,
+    );
+
+    let checkpoint_header_hashes = [123, 456, 7890, 12345];
+
+    builder.left_rollup.checkpoint_header_hashes[0] = checkpoint_header_hashes[0];
+    builder.left_rollup.checkpoint_header_hashes[1] = checkpoint_header_hashes[1];
+    builder.right_rollup.checkpoint_header_hashes[0] = checkpoint_header_hashes[2];
+    builder.right_rollup.checkpoint_header_hashes[1] = checkpoint_header_hashes[3];
+
     let pi = builder.execute();
     builder.assert_expected_public_inputs(pi);
+
+    assert_eq(pi.checkpoint_header_hashes, pad_end(checkpoint_header_hashes));
+}
+
+// --- out_hashes ---
+
+#[test]
+fn accumulated_out_hashes_from_both_side() {
+    let mut builder = TestBuilder::new(
+        CHECKPOINT_MERGE_ROLLUP_VK_INDEX,
+        2,
+        CHECKPOINT_ROOT_ROLLUP_VK_INDEX,
+        1,
+    );
+
+    builder.left_rollup.out_hashes[0] = 123;
+    builder.left_rollup.out_hashes[1] = 456;
+    builder.right_rollup.out_hashes[0] = 7890;
+
+    let pi = builder.execute();
+    builder.assert_expected_public_inputs(pi);
+
+    assert_eq(pi.out_hashes, pad_end([123, 456, 7890]));
+}
+
+#[test]
+fn preserve_zero_out_hashes_from_left() {
+    let mut builder = TestBuilder::new(
+        CHECKPOINT_MERGE_ROLLUP_VK_INDEX,
+        2,
+        CHECKPOINT_ROOT_ROLLUP_VK_INDEX,
+        1,
+    );
+
+    builder.left_rollup.out_hashes[0] = 0; // First checkpoint has zero out hash.
+    builder.left_rollup.out_hashes[1] = 456;
+    builder.right_rollup.out_hashes[0] = 7890;
+
+    let pi = builder.execute();
+    builder.assert_expected_public_inputs(pi);
+
+    assert_eq(pi.out_hashes, pad_end([0, 456, 7890]));
+}
+
+#[test]
+fn preserve_zero_out_hashes_from_right() {
+    let mut builder = TestBuilder::new(
+        CHECKPOINT_MERGE_ROLLUP_VK_INDEX,
+        2,
+        CHECKPOINT_MERGE_ROLLUP_VK_INDEX,
+        2,
+    );
+
+    builder.left_rollup.out_hashes[0] = 123;
+    builder.left_rollup.out_hashes[1] = 456;
+    builder.right_rollup.out_hashes[0] = 0; // First checkpoint in right rollup has zero out hash.
+    builder.right_rollup.out_hashes[1] = 7890;
+
+    let pi = builder.execute();
+    builder.assert_expected_public_inputs(pi);
+
+    assert_eq(pi.out_hashes, pad_end([123, 456, 0, 7890]));
+}
+
+#[test]
+fn preserve_zero_out_hashes_from_both_side() {
+    let mut builder = TestBuilder::new(
+        CHECKPOINT_MERGE_ROLLUP_VK_INDEX,
+        2,
+        CHECKPOINT_MERGE_ROLLUP_VK_INDEX,
+        2,
+    );
+
+    builder.left_rollup.out_hashes[0] = 123;
+    builder.left_rollup.out_hashes[1] = 0; // Second checkpoint in left rollup has zero out hash.
+    builder.right_rollup.out_hashes[0] = 0; // First checkpoint in right rollup has zero out hash.
+    builder.right_rollup.out_hashes[1] = 7890;
+
+    let pi = builder.execute();
+    builder.assert_expected_public_inputs(pi);
+
+    assert_eq(pi.out_hashes, pad_end([123, 0, 0, 7890]));
 }
 
 // --- fees ---
@@ -106,6 +206,13 @@ fn preserve_empty_fees_from_both_sides() {
 }
 
 // -- constants ---
+
+#[test]
+fn correct_default_inputs() {
+    let builder = TestBuilder::default();
+    let pi = builder.execute();
+    builder.assert_expected_public_inputs(pi);
+}
 
 #[test(should_fail_with = "Mismatched constants in checkpoint rollups")]
 fn mismatch_chain_id() {

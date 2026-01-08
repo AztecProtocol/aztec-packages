@@ -6,7 +6,7 @@ import {
   MAX_NULLIFIERS_PER_TX,
   MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
 } from '@aztec/constants';
-import { makeTuple } from '@aztec/foundation/array';
+import { type FieldsOf, makeTuple } from '@aztec/foundation/array';
 import { BlockNumber, CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { padArrayEnd, times } from '@aztec/foundation/collection';
@@ -16,6 +16,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 
 import type { ContractArtifact } from '../abi/abi.js';
 import { PublicTxEffect } from '../avm/avm.js';
+import type { AvmAccumulatedData } from '../avm/avm_accumulated_data.js';
 import { AvmCircuitPublicInputs } from '../avm/avm_circuit_public_inputs.js';
 import { PublicDataWrite } from '../avm/public_data_write.js';
 import { RevertCode } from '../avm/revert_code.js';
@@ -202,6 +203,7 @@ export async function mockProcessedTx({
   // The default gasUsed is the tx overhead.
   gasUsed = Gas.from({ daGas: FIXED_DA_GAS, l2Gas: FIXED_L2_GAS }),
   privateOnly = false,
+  avmAccumulatedData,
   ...mockTxOpts
 }: {
   seed?: number;
@@ -213,6 +215,7 @@ export async function mockProcessedTx({
   protocolContracts?: ProtocolContracts;
   feePaymentPublicDataWrite?: PublicDataWrite;
   privateOnly?: boolean;
+  avmAccumulatedData?: Partial<FieldsOf<AvmAccumulatedData>>;
 } & Parameters<typeof mockTx>[1] = {}) {
   seed *= 0x1000; // Avoid clashing with the previous mock values if seed only increases by 1.
   anchorBlockHeader ??= db?.getInitialHeader() ?? makeBlockHeader(seed);
@@ -292,19 +295,22 @@ export async function mockProcessedTx({
     avmOutput.previousRevertibleAccumulatedDataArrayLengths =
       avmOutput.previousRevertibleAccumulatedData.getArrayLengths();
     // Assign final data emitted from avm.
-    avmOutput.accumulatedData.noteHashes = revertibleData.noteHashes;
-    avmOutput.accumulatedData.nullifiers = padArrayEnd(
-      nonRevertibleData.nullifiers.concat(revertibleData.nullifiers).filter(n => !n.isEmpty()),
-      Fr.ZERO,
-      MAX_NULLIFIERS_PER_TX,
-    );
-    avmOutput.accumulatedData.l2ToL1Msgs = revertibleData.l2ToL1Msgs;
-    avmOutput.accumulatedData.publicDataWrites = makeTuple(
-      MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-      i => new PublicDataWrite(new Fr(i), new Fr(i + 10)),
-      seed + 0x2000,
-    );
-    avmOutput.accumulatedData.publicDataWrites[0] = feePaymentPublicDataWrite;
+    avmOutput.accumulatedData.noteHashes = avmAccumulatedData?.noteHashes ?? revertibleData.noteHashes;
+    avmOutput.accumulatedData.nullifiers =
+      avmAccumulatedData?.nullifiers ??
+      padArrayEnd(
+        nonRevertibleData.nullifiers.concat(revertibleData.nullifiers).filter(n => !n.isEmpty()),
+        Fr.ZERO,
+        MAX_NULLIFIERS_PER_TX,
+      );
+    avmOutput.accumulatedData.l2ToL1Msgs = avmAccumulatedData?.l2ToL1Msgs ?? revertibleData.l2ToL1Msgs;
+    avmOutput.accumulatedData.publicDataWrites =
+      avmAccumulatedData?.publicDataWrites ??
+      makeTuple(
+        MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+        i => (i === 0 ? feePaymentPublicDataWrite : new PublicDataWrite(new Fr(i), new Fr(i + 10))),
+        seed + 0x2000,
+      );
     avmOutput.accumulatedDataArrayLengths = avmOutput.accumulatedData.getArrayLengths();
     avmOutput.gasSettings = gasSettings;
     // Note: The fee is computed from the tx's gas used, which only includes the gas used in private. But this shouldn't

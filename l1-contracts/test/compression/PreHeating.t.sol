@@ -19,7 +19,6 @@ import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 
 import {Registry} from "@aztec/governance/Registry.sol";
 import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
-import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {Rollup, CheckpointLog} from "@aztec/core/Rollup.sol";
 import {
@@ -277,6 +276,7 @@ contract PreHeatingTest is FeeModelTestPoints, DecoderBase {
         PublicInputArgs memory args = PublicInputArgs({
           previousArchive: rollup.getCheckpoint(start).archive,
           endArchive: rollup.getCheckpoint(start + epochSize - 1).archive,
+          outHash: bytes32(0),
           proverId: address(0)
         });
 

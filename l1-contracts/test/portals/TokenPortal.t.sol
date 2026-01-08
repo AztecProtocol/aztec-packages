@@ -10,6 +10,7 @@ import {Registry} from "@aztec/governance/Registry.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
+import {Epoch} from "@aztec/core/libraries/TimeLib.sol";
 import {TestConstants} from "../harnesses/TestConstants.sol";
 import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
 
@@ -60,7 +61,7 @@ contract TokenPortalTest is Test {
   address internal recipient = address(0xdead);
   uint256 internal withdrawAmount = 654;
 
-  uint256 internal checkpointNumber = 69;
+  Epoch internal DEFAULT_EPOCH = Epoch.wrap(32);
 
   function setUp() public {
     RollupBuilder builder = new RollupBuilder(address(this));
@@ -185,7 +186,7 @@ contract TokenPortalTest is Test {
     return (l2ToL1Message, treeRoot);
   }
 
-  function _addWithdrawMessageInOutbox(address _designatedCaller, uint256 _checkpointNumber)
+  function _addWithdrawMessageInOutbox(address _designatedCaller, Epoch _epoch)
     internal
     returns (bytes32, bytes32[] memory, bytes32)
   {
@@ -205,12 +206,7 @@ contract TokenPortalTest is Test {
     bytes32 treeRoot = tree.computeRoot();
     // Insert messages into the outbox (impersonating the rollup contract)
     vm.prank(address(rollup));
-    outbox.insert(_checkpointNumber, treeRoot);
-
-    // Modify the proven checkpoint count
-    stdstore.enable_packed_slots().target(address(rollup)).sig("getProvenCheckpointNumber()")
-      .checked_write(checkpointNumber);
-    assertEq(rollup.getProvenCheckpointNumber(), checkpointNumber);
+    outbox.insert(_epoch, treeRoot);
 
     return (l2ToL1Message, siblingPath, treeRoot);
   }
@@ -220,7 +216,7 @@ contract TokenPortalTest is Test {
 
     // add message with caller as this address
     (bytes32 l2ToL1Message, bytes32[] memory siblingPath, bytes32 treeRoot) =
-      _addWithdrawMessageInOutbox(address(0), checkpointNumber);
+      _addWithdrawMessageInOutbox(address(0), DEFAULT_EPOCH);
     assertEq(testERC20.balanceOf(recipient), 0);
 
     uint256 leafIndex = 0;
@@ -228,49 +224,49 @@ contract TokenPortalTest is Test {
 
     vm.startPrank(_caller);
     vm.expectEmit(true, true, true, true);
-    emit IOutbox.MessageConsumed(checkpointNumber, treeRoot, l2ToL1Message, leafId);
-    tokenPortal.withdraw(recipient, withdrawAmount, false, checkpointNumber, leafIndex, siblingPath);
+    emit IOutbox.MessageConsumed(DEFAULT_EPOCH, treeRoot, l2ToL1Message, leafId);
+    tokenPortal.withdraw(recipient, withdrawAmount, false, DEFAULT_EPOCH, leafIndex, siblingPath);
 
     // Should have received 654 RNA tokens
     assertEq(testERC20.balanceOf(recipient), withdrawAmount);
 
     // Should not be able to withdraw again
-    vm.expectRevert(abi.encodeWithSelector(Errors.Outbox__AlreadyNullified.selector, checkpointNumber, leafId));
-    tokenPortal.withdraw(recipient, withdrawAmount, false, checkpointNumber, leafIndex, siblingPath);
+    vm.expectRevert(abi.encodeWithSelector(Errors.Outbox__AlreadyNullified.selector, DEFAULT_EPOCH, leafId));
+    tokenPortal.withdraw(recipient, withdrawAmount, false, DEFAULT_EPOCH, leafIndex, siblingPath);
     vm.stopPrank();
   }
 
   function testWithdrawWithDesignatedCallerFailsForOtherCallers(address _caller) public {
     vm.assume(_caller != address(this));
     // add message with caller as this address
-    (, bytes32[] memory siblingPath, bytes32 treeRoot) = _addWithdrawMessageInOutbox(address(this), checkpointNumber);
+    (, bytes32[] memory siblingPath, bytes32 treeRoot) = _addWithdrawMessageInOutbox(address(this), DEFAULT_EPOCH);
 
     vm.startPrank(_caller);
     (bytes32 l2ToL1MessageHash, bytes32 consumedRoot) = _createWithdrawMessageForOutbox(_caller);
     vm.expectRevert(
       abi.encodeWithSelector(Errors.MerkleLib__InvalidRoot.selector, treeRoot, consumedRoot, l2ToL1MessageHash, 0)
     );
-    tokenPortal.withdraw(recipient, withdrawAmount, true, checkpointNumber, 0, siblingPath);
+    tokenPortal.withdraw(recipient, withdrawAmount, true, DEFAULT_EPOCH, 0, siblingPath);
 
     (l2ToL1MessageHash, consumedRoot) = _createWithdrawMessageForOutbox(address(0));
     vm.expectRevert(
       abi.encodeWithSelector(Errors.MerkleLib__InvalidRoot.selector, treeRoot, consumedRoot, l2ToL1MessageHash, 0)
     );
-    tokenPortal.withdraw(recipient, withdrawAmount, false, checkpointNumber, 0, siblingPath);
+    tokenPortal.withdraw(recipient, withdrawAmount, false, DEFAULT_EPOCH, 0, siblingPath);
     vm.stopPrank();
   }
 
   function testWithdrawWithDesignatedCallerSucceedsForDesignatedCaller() public {
     // add message with caller as this address
     (bytes32 l2ToL1Message, bytes32[] memory siblingPath, bytes32 treeRoot) =
-      _addWithdrawMessageInOutbox(address(this), checkpointNumber);
+      _addWithdrawMessageInOutbox(address(this), DEFAULT_EPOCH);
 
     uint256 leafIndex = 0;
     uint256 leafId = 2 ** siblingPath.length + leafIndex;
 
     vm.expectEmit(true, true, true, true);
-    emit IOutbox.MessageConsumed(checkpointNumber, treeRoot, l2ToL1Message, leafId);
-    tokenPortal.withdraw(recipient, withdrawAmount, true, checkpointNumber, leafIndex, siblingPath);
+    emit IOutbox.MessageConsumed(DEFAULT_EPOCH, treeRoot, l2ToL1Message, leafId);
+    tokenPortal.withdraw(recipient, withdrawAmount, true, DEFAULT_EPOCH, leafIndex, siblingPath);
 
     // Should have received 654 RNA tokens
     assertEq(testERC20.balanceOf(recipient), withdrawAmount);
