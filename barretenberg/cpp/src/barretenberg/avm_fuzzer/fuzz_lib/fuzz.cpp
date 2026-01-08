@@ -2,8 +2,8 @@
 
 #include "barretenberg/avm_fuzzer/common/interfaces/dbs.hpp"
 #include "barretenberg/avm_fuzzer/fuzz_lib/constants.hpp"
-#include "barretenberg/avm_fuzzer/fuzz_lib/contract_db_proxy.hpp"
 #include "barretenberg/avm_fuzzer/fuzz_lib/control_flow.hpp"
+#include "barretenberg/avm_fuzzer/fuzz_lib/fuzzer_context.hpp"
 #include "barretenberg/avm_fuzzer/fuzz_lib/fuzzer_data.hpp"
 #include "barretenberg/avm_fuzzer/fuzz_lib/simulator.hpp"
 #include "barretenberg/common/log.hpp"
@@ -11,7 +11,7 @@
 
 using namespace bb::avm2::fuzzer;
 
-SimulatorResult fuzz_against_ts_simulator(FuzzerData& fuzzer_data)
+SimulatorResult fuzz_against_ts_simulator(FuzzerData& fuzzer_data, FuzzerContext& context)
 {
     auto control_flow = ControlFlow(fuzzer_data.instruction_blocks);
     for (const auto& cfg_instruction : fuzzer_data.cfg_instructions) {
@@ -28,12 +28,9 @@ SimulatorResult fuzz_against_ts_simulator(FuzzerData& fuzzer_data)
     SimulatorResult cpp_result;
 
     FuzzerWorldStateManager* ws_mgr = FuzzerWorldStateManager::getInstance();
-    ContractDBProxy* contract_db_proxy = ContractDBProxy::get_instance();
-    for (const auto& function : PREDEFINED_FUNCTIONS) {
-        ContractDBProxy::register_contract_from_bytecode(function);
-    }
-    auto contract_address = ContractDBProxy::register_contract_from_bytecode(bytecode);
-    FuzzerContractDB contract_db = *contract_db_proxy->get_contract_db();
+
+    auto contract_address = context.register_contract_from_bytecode(bytecode);
+    FuzzerContractDB contract_db = context.get_contract_db();
 
     // Create the transaction
     auto tx = create_default_tx(
@@ -54,7 +51,7 @@ SimulatorResult fuzz_against_ts_simulator(FuzzerData& fuzzer_data)
     ws_mgr->checkpoint();
     auto js_result = js_simulator->simulate(*ws_mgr, contract_db, tx);
 
-    ContractDBProxy::reset_instance();
+    context.reset();
 
     // If the results does not match
     if (!compare_simulator_results(cpp_result, js_result)) {

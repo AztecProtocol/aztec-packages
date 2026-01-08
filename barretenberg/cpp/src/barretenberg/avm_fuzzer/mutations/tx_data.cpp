@@ -241,7 +241,10 @@ ScopedL2ToL1Message generate_l2_to_l1_msg(std::mt19937_64& rng)
     };
 }
 
-void mutate_fuzzer_data_vec(std::vector<FuzzerData>& enqueued_calls, std::mt19937_64& rng, size_t max_size)
+void mutate_fuzzer_data_vec(const FuzzerContext& context,
+                            std::vector<FuzzerData>& enqueued_calls,
+                            std::mt19937_64& rng,
+                            size_t max_size)
 {
     auto choice = std::uniform_int_distribution<uint8_t>(0, 1)(rng);
     switch (choice) {
@@ -249,7 +252,7 @@ void mutate_fuzzer_data_vec(std::vector<FuzzerData>& enqueued_calls, std::mt1993
         fuzz_info("Adding a new enqueued call");
         // Add a new enqueued call
         if (enqueued_calls.size() < max_size) {
-            FuzzerData new_enqueued_call = generate_fuzzer_data(rng);
+            FuzzerData new_enqueued_call = generate_fuzzer_data(rng, context);
             enqueued_calls.push_back(new_enqueued_call);
         }
         break;
@@ -260,8 +263,8 @@ void mutate_fuzzer_data_vec(std::vector<FuzzerData>& enqueued_calls, std::mt1993
         if (!enqueued_calls.empty()) {
             size_t idx = std::uniform_int_distribution<size_t>(0, enqueued_calls.size() - 1)(rng);
             fuzz_info("Mutating enqueued call at index: ", idx);
-            mutate_fuzzer_data(enqueued_calls[idx], rng);
-            add_default_instruction_block_if_empty(enqueued_calls[idx], rng);
+            mutate_fuzzer_data(enqueued_calls[idx], rng, context);
+            add_default_instruction_block_if_empty(enqueued_calls[idx], rng, context);
         }
         break;
     }

@@ -27,22 +27,25 @@ extern "C" size_t LLVMFuzzerCustomMutator(uint8_t* serialized_fuzzer_data,
                                           size_t max_size,
                                           unsigned int seed)
 {
-    return mutate_tx_data(serialized_fuzzer_data, serialized_fuzzer_data_size, max_size, seed);
+    FuzzerContext context;
+    return mutate_tx_data(context, serialized_fuzzer_data, serialized_fuzzer_data_size, max_size, seed);
 }
 
 extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 {
+    FuzzerWorldStateManager* ws_mgr = FuzzerWorldStateManager::getInstance();
+    FuzzerContractDB contract_db;
+    ws_mgr->fork();
+
+    FuzzerContext context;
+
     FuzzerTxData tx_data;
     try {
         msgpack::unpack((reinterpret_cast<const char*>(data)), size).get().convert(tx_data);
     } catch (const std::exception& e) {
         fuzz_info("Failed to deserialize input in TestOneInput, using default. Exception: ", e.what());
-        tx_data = create_default_tx_data();
+        tx_data = create_default_tx_data(context);
     }
-
-    FuzzerWorldStateManager* ws_mgr = FuzzerWorldStateManager::getInstance();
-    FuzzerContractDB contract_db;
-    ws_mgr->fork();
 
     // Setup contracts and fund fee payer
     setup_fuzzer_state(*ws_mgr, contract_db, tx_data);

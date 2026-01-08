@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "barretenberg/avm_fuzzer/common/interfaces/dbs.hpp"
+#include "barretenberg/avm_fuzzer/fuzz_lib/fuzzer_context.hpp"
 #include "barretenberg/avm_fuzzer/fuzz_lib/fuzzer_data.hpp"
 #include "barretenberg/avm_fuzzer/fuzz_lib/simulator.hpp"
 #include "barretenberg/serialize/msgpack_impl.hpp"
@@ -47,6 +48,7 @@ inline std::ostream& operator<<(std::ostream& os, const FuzzerTxData& data)
 
 using Bytecode = std::vector<uint8_t>;
 using ContractArtifacts = std::tuple<Bytecode, ContractClass, ContractInstance>;
+using FuzzerContext = bb::avm2::fuzzer::FuzzerContext;
 
 // Mutation configuration
 enum class TxDataMutationType : uint8_t {
@@ -63,8 +65,8 @@ enum class TxDataMutationType : uint8_t {
 ContractArtifacts build_bytecode_and_artifacts(FuzzerData& fuzzer_data);
 
 // Create a default FuzzerTxData with sensible defaults
-FuzzerTxData create_default_tx_data(std::mt19937_64& rng);
-FuzzerTxData create_default_tx_data();
+FuzzerTxData create_default_tx_data(std::mt19937_64& rng, const FuzzerContext& context);
+FuzzerTxData create_default_tx_data(const FuzzerContext& context);
 
 // Setup fuzzer state: register contracts and addresses in the world state
 void setup_fuzzer_state(bb::avm2::fuzzer::FuzzerWorldStateManager& ws_mgr,
@@ -87,7 +89,8 @@ int fuzz_prover(bb::avm2::fuzzer::FuzzerWorldStateManager& ws_mgr,
 
 // Common custom mutator logic shared between fuzzers
 // Returns the new size of the mutated data, or 0 if mutation failed
-size_t mutate_tx_data(uint8_t* serialized_fuzzer_data,
+size_t mutate_tx_data(FuzzerContext& context,
+                      uint8_t* serialized_fuzzer_data,
                       size_t serialized_fuzzer_data_size,
                       size_t max_size,
                       unsigned int seed);
