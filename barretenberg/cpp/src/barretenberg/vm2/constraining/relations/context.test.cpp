@@ -998,7 +998,7 @@ TEST(ContextConstrainingTest, ContextIdPropagation)
     check_relation<context>(trace,
                             context::SR_ENQUEUED_CALL_START_NEXT_CTX_ID,
                             context::SR_INCR_NEXT_CONTEXT_ID,
-                            context::SR_CONTEXT_ID_NEXT_ROW,
+                            context::SR_CONTEXT_ID_NEXT_DEFAULT_ROW,
                             context::SR_CONTEXT_ID_EXT_CALL,
                             context::SR_CONTEXT_ID_NESTED_EXIT);
 
@@ -1020,7 +1020,8 @@ TEST(ContextConstrainingTest, ContextIdPropagation)
 
     // Negative test: context id should be propagated
     trace.set(C::execution_context_id, 4, 2);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_CONTEXT_ID_NEXT_ROW), "CONTEXT_ID_NEXT_ROW");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_CONTEXT_ID_NEXT_DEFAULT_ROW),
+                              "CONTEXT_ID_NEXT_DEFAULT_ROW");
     trace.set(C::execution_context_id, 4, 1);
 
     // Negative test: context id should be next context id when entering call

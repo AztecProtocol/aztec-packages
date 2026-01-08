@@ -174,20 +174,33 @@ namespace execution;
     // Propagation:
     // sel_enter_call   = 1 ==> context_id' = next_context_id
     // nested_exit_call = 1 ==> context_id' = parent_id
-    // otherwise        = 0 ==> context_id' = context_id
+    // default row      = 0 ==> context_id' = context_id
+    // Note: There is no propagation constraint when `enqueued_call_end == 1` because the next active
+    //       row (enqueued_call_start == 1) is initialized.
     #[CONTEXT_ID_EXT_CALL]
     NOT_LAST_EXEC * sel_enter_call   * (context_id' - next_context_id) = 0;
     #[CONTEXT_ID_NESTED_EXIT]
     NOT_LAST_EXEC * nested_exit_call * (context_id' - parent_id) = 0;
-    #[CONTEXT_ID_NEXT_ROW]
+    #[CONTEXT_ID_NEXT_DEFAULT_ROW]
     NOT_LAST_EXEC * DEFAULT_CTX_ROW  * (context_id' - context_id) = 0;
 
-    // nested_exit_call = 1 ==> constraints come from lookup
+    // =============================
+    //        Parent ID
+    // =============================
+
+    // Initialization: enqueued_call_start = 1 ==> parent_id = 0;
+    // Propagation:
     // sel_enter_call   = 1 ==> parent_id' = context_id
-    // otherwise        = 0 ==> parent_id' = parent_id
-    #[PARENT_ID_NEXT_ROW]
-    NOT_LAST_EXEC * DEFAULT_CTX_ROW * (parent_id' - parent_id) = 0;
+    // nested_exit_call = 1 ==> constraints come from lookups (#[CTX_STACK_ROLLBACK] and #[CTX_STACK_RETURN])
+    // default row      = 0 ==> parent_id' = parent_id
+    // Note: There is no propagation constraint when `enqueued_call_end == 1` because the next active
+    //       row (enqueued_call_start == 1) is initialized.
+    #[PARENT_ID_INIT]
+    enqueued_call_start * parent_id = 0;
+    #[PARENT_ID_NEXT_EXT_CALL]
     NOT_LAST_EXEC * sel_enter_call  * (parent_id' - context_id) = 0;
+    #[PARENT_ID_NEXT_DEFAULT_ROW]
+    NOT_LAST_EXEC * DEFAULT_CTX_ROW * (parent_id' - parent_id) = 0;
 
     // `instr_length` is from execution.pil and constrained when `sel_instruction_fetching_success == 1`.
     #[NEXT_PC]
