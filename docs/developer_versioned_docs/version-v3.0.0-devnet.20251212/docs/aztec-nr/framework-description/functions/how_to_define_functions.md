@@ -2,58 +2,84 @@
 title: How to Define Functions
 sidebar_position: 1
 tags: [functions, smart-contracts]
-description: Define different types of functions in your Aztec smart contracts for various execution environments.
+description: Define different types of functions in your Aztec contracts for private, public, and utility execution.
 ---
+
+## Overview
 
 This guide shows you how to define different types of functions in your Aztec contracts, each serving specific purposes and execution environments.
 
+## Quick reference
+
+| Annotation               | Execution         | State access                                                 |
+| ------------------------ | ----------------- | ------------------------------------------------------------ |
+| `#[external("private")]` | User device       | Private state (and selected public values via storage types) |
+| `#[external("public")]`  | Sequencer         | Public state                                                 |
+| `#[external("utility")]` | Offchain client   | Public + private (unconstrained)                             |
+| `#[internal("private")]` | N/A               | Inlined private helper (non-entrypoint)                      |
+| `#[internal("public")]`  | N/A               | Inlined public helper (non-entrypoint)                       |
+| `#[view]`                | Private or public | Read-only (no state mutation)                                |
+| `#[only_self]`           | Private or public | Callable only by the same contract                           |
+| `#[initializer]`         | Private or public | One-time initialization                                      |
+
 ## Prerequisites
 
-- An Aztec contract project set up with `aztec-nr` dependency
-- Basic understanding of Noir programming language
-- Familiarity with Aztec's execution model (private vs public)
+- An Aztec contract project set up with the `aztec-nr` dependency
+- Basic understanding of [Noir programming language](https://noir-lang.org/docs)
+- Familiarity with Aztec Protocol's [call types](../../../foundational-topics/call_types.md) (private vs public)
 
 ## Define private functions
 
-Create functions that execute privately on user devices using the `#[external("private")]` annotation. For example:
+Use `#[external("private")]` to create functions that execute privately on user devices. For example:
 
-```rust
+```rust title="increment" showLineNumbers
 #[external("private")]
-fn execute_private_action(param1: AztecAddress, param2: u128) {
-    // logic
+fn increment(owner: AztecAddress) {
+    debug_log_format("Incrementing counter for owner {0}", [owner.to_field()]);
+    self.storage.counters.at(owner).add(1).deliver(MessageDelivery.CONSTRAINED_ONCHAIN);
 }
 ```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v3.0.0-devnet.20251212/docs/examples/contracts/counter_contract/src/main.nr#L36-L42" target="_blank" rel="noopener noreferrer">Source code: docs/examples/contracts/counter_contract/src/main.nr#L36-L42</a></sub></sup>
 
-Private functions maintain privacy of user inputs and execution logic. Private functions only have access to private state.
+
+Private functions run in a private context, can access private state, and can read certain public values through storage types like [`DelayedPublicMutable`](../how_to_define_storage.md#delayedpublicmutable).
 
 ## Define public functions
 
-Create functions that execute on the sequencer using the `#[external("public")]` annotation:
+Use `#[external("public")]` to create functions that execute on the sequencer:
 
-```rust
+```rust title="mint_public" showLineNumbers
 #[external("public")]
-fn create_item(recipient: AztecAddress, item_id: Field) {
-    // logic
+fn mint_public(employee: AztecAddress, amount: u64) {
+    // Only Giggle can mint tokens
+    assert_eq(self.msg_sender().unwrap(), self.storage.owner.read(), "Only Giggle can mint BOB tokens");
+
+    // Add tokens to employee's public balance
+    let current_balance = self.storage.public_balances.at(employee).read();
+    self.storage.public_balances.at(employee).write(current_balance + amount);
 }
 ```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v3.0.0-devnet.20251212/docs/examples/contracts/bob_token_contract/src/main.nr#L42-L52" target="_blank" rel="noopener noreferrer">Source code: docs/examples/contracts/bob_token_contract/src/main.nr#L42-L52</a></sub></sup>
 
-Public functions can access public state, similar to EVM contracts. Public functions do not have direct access to private state.
+
+Public functions operate on public state, similar to EVM contracts. They can write to private storage, but any data written from a public function is publicly visible.
 
 ## Define utility functions
 
-Create offchain query functions using the `#[external("utility")]` annotation.
+Create offchain query functions using the `#[external("utility")]` annotation with `unconstrained`.
 
-Utility functions are standalone unconstrained functions that cannot be called from private or public functions: they are meant to be called by _applications_ to perform auxiliary tasks: query contract state (e.g. a token balance), process messages received offchain, etc. Example:
+Utility functions are standalone unconstrained functions that cannot be called from private or public functions. They are meant to be called by _applications_ to perform auxiliary tasks like querying contract state or processing offchain messages. Example:
 
-```rust
+```rust title="get_counter" showLineNumbers
 #[external("utility")]
-unconstrained fn get_private_items(
-    owner: AztecAddress,
-    page_index: u32,
-) -> ([Field; MAX_NOTES_PER_PAGE], bool) {
-    // logic
+unconstrained fn get_counter(owner: AztecAddress) -> pub u128 {
+    self.storage.counters.at(owner).balance_of()
 }
 ```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v3.0.0-devnet.20251212/docs/examples/contracts/counter_contract/src/main.nr#L44-L49" target="_blank" rel="noopener noreferrer">Source code: docs/examples/contracts/counter_contract/src/main.nr#L44-L49</a></sub></sup>
+
+
+Use `aztec.js` `simulate` to execute utility functions and read their return values. For details, see [Call Types](../../../foundational-topics/call_types.md#simulate).
 
 ## Define view functions
 
@@ -68,32 +94,40 @@ fn get_config_value() -> Field {
 ```
 
 View functions cannot modify contract state. They're akin to Ethereum's `view` functions.
+`#[view]` only applies to `#[external("private")]` and `#[external("public")]` functions.
 
 ## Define only-self functions
 
 Create contract-only functions using the `#[only_self]` annotation:
 
-```rust
+```rust title="_assert_is_owner" showLineNumbers
 #[external("public")]
 #[only_self]
-fn update_counter_public(item: Field) {
-    // logic
+fn _assert_is_owner(address: AztecAddress) {
+    assert_eq(address, self.storage.owner.read(), "Only Giggle can mint BOB tokens");
 }
 ```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v3.0.0-devnet.20251212/docs/examples/contracts/bob_token_contract/src/main.nr#L129-L135" target="_blank" rel="noopener noreferrer">Source code: docs/examples/contracts/bob_token_contract/src/main.nr#L129-L135</a></sub></sup>
 
-Internal functions are only callable within the same contract.
+
+Only-self functions are only callable by the same contract, which is useful when a private function enqueues a public call that should only be callable internally.
 
 ## Define initializer functions
 
 Create constructor-like functions using the `#[initializer]` annotation:
 
-```rust
-#[external("private")]
+```rust title="constructor" showLineNumbers
 #[initializer]
-fn constructor() {
-    // logic
+#[external("private")]
+// We can name our initializer anything we want as long as it's marked as aztec(initializer)
+fn initialize(headstart: u64, owner: AztecAddress) {
+    self.storage.counters.at(owner).add(headstart as u128).deliver(
+        MessageDelivery.CONSTRAINED_ONCHAIN,
+    );
 }
 ```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v3.0.0-devnet.20251212/docs/examples/contracts/counter_contract/src/main.nr#L25-L34" target="_blank" rel="noopener noreferrer">Source code: docs/examples/contracts/counter_contract/src/main.nr#L25-L34</a></sub></sup>
+
 
 ### Use multiple initializers
 
@@ -103,21 +137,34 @@ Define multiple initialization options:
 2. Choose which one to call during deployment
 3. Any initializer marks the contract as initialized
 
-## Create library methods
+## Define internal functions
 
-Define reusable contract logic as regular functions (no special annotation needed):
+Create helper functions using `#[internal("private")]` or `#[internal("public")]`. Internal functions are inlined at call sites and do not create separate entrypoints:
 
 ```rust
-#[contract_library_method]
-fn process_value(
-    context: &mut PrivateContext,
-    storage: Storage<&mut PrivateContext>,
-    account: AztecAddress,
-    value: u128,
-    max_items: u32,
-) -> u128 {
-    // logic
+#[internal("private")]
+fn _prepare_transfer(to: AztecAddress, amount: u128) -> Field {
+    // helper logic for private functions
+}
+
+#[internal("public")]
+fn _update_balance(owner: AztecAddress, amount: u128) {
+    // helper logic for public functions
 }
 ```
 
-Library methods are inlined when called and reduce code duplication.
+Call internal functions via `self.internal`:
+
+```rust
+let result = self.internal._prepare_transfer(recipient, amount);
+```
+
+Key constraints:
+
+- Private internal functions can only be called from private external or internal functions
+- Public internal functions can only be called from public external or internal functions
+
+## Next steps
+
+- [Attributes and Macros](./attributes.md)
+- [Call Types](../../../foundational-topics/call_types.md)

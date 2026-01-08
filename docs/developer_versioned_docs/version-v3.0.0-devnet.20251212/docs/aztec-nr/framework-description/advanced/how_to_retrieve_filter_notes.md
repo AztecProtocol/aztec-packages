@@ -11,7 +11,13 @@ This guide shows you how to retrieve and filter notes from private storage using
 
 - Aztec contract with note storage
 - Understanding of note structure and properties
-- Familiarity with PropertySelector and Comparator
+
+## Required imports
+
+```rust
+use dep::aztec::note::note_getter_options::{NoteGetterOptions, NoteStatus, SortOrder};
+use dep::aztec::utils::comparison::Comparator;
+```
 
 ## Set up basic note retrieval
 
@@ -26,8 +32,26 @@ This returns up to `MAX_NOTE_HASH_READ_REQUESTS_PER_CALL` notes without filterin
 ### Step 2: Retrieve notes from storage
 
 ```rust
-let notes = storage.my_notes.at(owner).get_notes(options);
+// Returns BoundedVec<RetrievedNote<MyNote>, ...>
+let retrieved_notes = storage.my_notes.at(owner).get_notes(options);
 ```
+
+:::tip get_notes vs pop_notes
+
+- `get_notes`: Retrieves notes without nullifying. Note data is not guaranteed to be current or non-nullified--use when you only need to read note data without consuming it.
+- `pop_notes`: Retrieves AND nullifies notes in one operation. Use when consuming notes (e.g., spending tokens). More efficient than calling `get_notes` followed by manual nullification.
+
+:::
+
+Here's an example of `pop_notes` with filtering from the NFT contract:
+
+```rust title="pop_notes" showLineNumbers
+let notes = nfts.at(from).pop_notes(NoteGetterOptions::new()
+    .select(NFTNote::properties().token_id, Comparator.EQ, token_id)
+    .set_limit(1));
+assert(notes.len() == 1, "NFT not found when transferring");
+```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v3.0.0-devnet.20251212/noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr#L252-L256" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr#L252-L256</a></sub></sup>
 
 ## Filter notes by properties
 
@@ -77,81 +101,93 @@ Database `select` is more efficient than custom filters. Use custom filters only
 
 ### Create and use a custom filter
 
-```rust
-fn filter_above_threshold(
-    notes: [Option<RetrievedNote<Note>>; MAX_NOTES],
-    min: Field,
-) -> [Option<RetrievedNote<Note>>; MAX_NOTES] {
-    let mut result = [Option::none(); MAX_NOTES];
-    let mut count = 0;
+```rust title="custom_filter" showLineNumbers
+pub fn filter_notes_min_sum(
+    notes: [Option<RetrievedNote<FieldNote>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
+    min_sum: Field,
+) -> [Option<RetrievedNote<FieldNote>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] {
+    let mut selected = [Option::none(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL];
 
-    for note in notes {
-        if note.is_some() & (note.unwrap().note.value >= min) {
-            result[count] = note;
-            count += 1;
+    let mut sum = 0;
+    for i in 0..notes.len() {
+        if notes[i].is_some() & full_field_less_than(sum, min_sum) {
+            let retrieved_note = notes[i].unwrap_unchecked();
+            selected[i] = Option::some(retrieved_note);
+            sum += retrieved_note.note.value;
         }
     }
-    result
-}
 
-// Use the filter
-let options = NoteGetterOptions::with_filter(filter_above_threshold, min_value);
+    selected
+}
+```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v3.0.0-devnet.20251212/noir-projects/noir-contracts/contracts/test/pending_note_hashes_contract/src/filter.nr#L9-L25" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/test/pending_note_hashes_contract/src/filter.nr#L9-L25</a></sub></sup>
+
+Then use it with `NoteGetterOptions`:
+
+```rust
+let options = NoteGetterOptions::with_filter(filter_notes_min_sum, min_value);
 ```
 
 :::warning Note Limits
-Maximum notes per call: `MAX_NOTE_HASH_READ_REQUESTS_PER_CALL` (currently 128)
+Maximum notes per call: `MAX_NOTE_HASH_READ_REQUESTS_PER_CALL` (currently 16)
 :::
 
 :::info Available Comparators
 
-- `EQ`: Equal to
-- `NEQ`: Not equal to
-- `LT`: Less than
-- `LTE`: Less than or equal
-- `GT`: Greater than
-- `GTE`: Greater than or equal
+- `Comparator.EQ`: Equal to
+- `Comparator.NEQ`: Not equal to
+- `Comparator.LT`: Less than
+- `Comparator.LTE`: Less than or equal
+- `Comparator.GT`: Greater than
+- `Comparator.GTE`: Greater than or equal
 
 :::
 
-## Use comparators effectively
+## Call from TypeScript
 
-### Available comparators
-
-```rust
-// Equal to
-options.select(MyNote::properties().value, Comparator.EQ, target_value)
-
-// Greater than or equal
-options.select(MyNote::properties().value, Comparator.GTE, min_value)
-
-// Less than
-options.select(MyNote::properties().value, Comparator.LT, max_value)
-```
-
-### Call from TypeScript with comparator
+You can pass comparator values from TypeScript to your contract functions:
 
 ```typescript
-// Pass comparator from client
-contract.methods.read_notes(Comparator.GTE, 5).simulate({ from: defaultAddress })
+import { Comparator } from '@aztec/aztec.js/note';
+
+// Pass comparator to a contract function that accepts it as a parameter
+await contract.methods.read_notes(Comparator.GTE, 5).simulate({ from: senderAddress });
 ```
 
 ## View notes without constraints
 
-```rust
-use dep::aztec::note::note_viewer_options::NoteViewerOptions;
+Use `NoteViewerOptions` in unconstrained utility functions to query notes without generating proofs:
 
+```rust title="view_notes" showLineNumbers
+/// Returns an array of token IDs owned by `owner` in private and a flag indicating whether a page limit was
+/// reached. Starts getting the notes from page with index `page_index`. Zero values in the array are placeholder
+/// values for non-existing notes.
 #[external("utility")]
-unconstrained fn view_notes(comparator: u8, value: Field) -> auto {
-    let mut options = NoteViewerOptions::new();
-    options = options.select(MyNote::properties().value, comparator, value);
-    storage.my_notes.view_notes(options)
+unconstrained fn get_private_nfts(
+    owner: AztecAddress,
+    page_index: u32,
+) -> ([Field; MAX_NOTES_PER_PAGE], bool) {
+    let offset = page_index * MAX_NOTES_PER_PAGE;
+    let options = NoteViewerOptions::new().set_offset(offset);
+    let notes = self.storage.private_nfts.at(owner).view_notes(options);
+
+    let mut owned_nft_ids = [0; MAX_NOTES_PER_PAGE];
+    for i in 0..options.limit {
+        if i < notes.len() {
+            owned_nft_ids[i] = notes.get_unchecked(i).token_id;
+        }
+    }
+
+    let page_limit_reached = notes.len() == options.limit;
+    (owned_nft_ids, page_limit_reached)
 }
 ```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v3.0.0-devnet.20251212/noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr#L292-L313" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr#L292-L313</a></sub></sup>
 
 :::tip Viewer vs Getter
 
-- `NoteGetterOptions`: For constrained functions (private/public)
-- `NoteViewerOptions`: For unconstrained viewing (utilities)
+- `NoteGetterOptions`: For constrained private functions with proof generation (max 16 notes)
+- `NoteViewerOptions`: For unconstrained utility functions, no proofs (max 10 notes per page via `MAX_NOTES_PER_PAGE`)
 
 :::
 
@@ -161,7 +197,7 @@ unconstrained fn view_notes(comparator: u8, value: Field) -> auto {
 
 ```rust
 let mut options = NoteGetterOptions::new();
-options.set_status(NoteStatus.ACTIVE_OR_NULLIFIED);
+options = options.set_status(NoteStatus.ACTIVE_OR_NULLIFIED);
 ```
 
 :::info Note Status Options
@@ -171,34 +207,8 @@ options.set_status(NoteStatus.ACTIVE_OR_NULLIFIED);
 
 :::
 
-## Optimize note retrieval
-
-:::tip Best Practices
-
-1. **Use select over filter** - Database-level filtering is more efficient
-2. **Set limits early** - Reduce unnecessary note processing
-3. **Sort before limiting** - Get the most relevant notes first
-4. **Batch operations** - Retrieve all needed notes in one call
-
-:::
-
-### Example: Optimized retrieval
-
-```rust
-// Get highest value note for owner
-let mut options = NoteGetterOptions::new();
-options = options
-    .select(MyNote::properties().owner, Comparator.EQ, owner)
-    .sort(MyNote::properties().value, SortOrder.DESC)
-    .set_limit(1);
-
-let notes = storage.my_notes.at(owner).get_notes(options);
-assert(notes.len() > 0, "No notes found");
-let highest_note = notes.get(0);
-```
-
 ## Next steps
 
 - Learn about [custom note implementations](../how_to_implement_custom_notes.md)
 - Explore [note discovery mechanisms](../../../foundational-topics/advanced/storage/note_discovery.md)
-- Understand [note lifecycle](../../../foundational-topics/advanced/storage/indexed_merkle_tree.mdx)
+- Understand [partial notes](./partial_notes.md)

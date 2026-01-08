@@ -9,80 +9,126 @@ This guide shows you how to prove historical state transitions and note inclusio
 
 ## Prerequisites
 
-- An Aztec contract project set up with `aztec-nr` dependency
+- An Aztec contract project set up
 - Understanding of Aztec's note and nullifier system
-- Knowledge of Merkle tree concepts
 
-## Understand what you can prove
+## What you can prove
 
 You can create proofs for these elements at any past block height:
 
-- Note inclusion/exclusion
-- Nullifier inclusion/exclusion
-- Note validity (included and not nullified)
-- Public value existence
-- Contract deployment
+- **Note inclusion** - prove a note existed in the note hash tree
+- **Note validity** - prove a note existed and wasn't nullified at a specific block
+- **Nullifier inclusion/non-inclusion** - prove a nullifier was or wasn't in the nullifier tree
+- **Contract deployment** - prove a contract was deployed or initialized
 
-Use cases include:
+Common use cases:
 
-- Timestamp verification in private contexts
-- Eligibility verification based on historical note ownership
-- Item ownership verification
-- Public data existence proofs
-- Contract deployment verification
-
-:::info Historical Proofs
-Prove state at any past block using the Archive tree. Useful for timestamps, eligibility checks, and ownership verification.
-:::
-
-## Retrieve notes for proofs
-
-```rust
-use aztec::note::note_getter_options::NoteGetterOptions;
-
-let options = NoteGetterOptions::new();
-let notes = storage.notes.at(owner).get_notes(options);
-
-// Access first note as retrieved_note
-let retrieved_note = notes.get(0);
-```
+- Verify ownership of an asset from another contract without revealing which specific note
+- Prove eligibility based on historical state (e.g., "owned tokens at block X")
+- Claim rewards based on past contributions (see the [claim contract](https://github.com/AztecProtocol/aztec-packages/blob/v3.0.0-devnet.20251212/noir-projects/noir-contracts/contracts/app/claim_contract/src/main.nr) for a complete example)
 
 ## Prove note inclusion
+
+Import the trait:
+
+```rust
+use dep::aztec::{
+    history::note_inclusion::ProveNoteInclusion,
+    macros::{functions::{external, initializer}, storage::storage},
+    note::{
+        note_interface::NoteHash, retrieved_note::RetrievedNote,
+        utils::compute_note_hash_for_nullification,
+    },
+    protocol_types::address::AztecAddress,
+    state_vars::PublicImmutable,
+};
+```
+
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v3.0.0-devnet.20251212/noir-projects/noir-contracts/contracts/app/claim_contract/src/main.nr#L5-L15" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/claim_contract/src/main.nr#L5-L15</a></sub></sup>
+
+Prove a note exists in the note hash tree:
+
+```rust
+// 3) Prove that the note hash exists in the note hash tree
+let header = self.context.get_anchor_block_header();
+header.prove_note_inclusion(proof_retrieved_note);
+```
+
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v3.0.0-devnet.20251212/noir-projects/noir-contracts/contracts/app/claim_contract/src/main.nr#L52-L55" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/claim_contract/src/main.nr#L52-L55</a></sub></sup>
+
+## Prove note validity
+
+To prove a note was valid (existed AND wasn't nullified) at a historical block:
 
 ```rust
 use dep::aztec::history::note_validity::ProveNoteValidity;
 
-// Get block header for historical proof
-let header = context.get_block_header();
-
-// Prove note existed and wasn't nullified
-// Requires: RetrievedNote, storage_slot, context
-header.prove_note_validity(retrieved_note, storage_slot, &mut context);
+let header = self.context.get_anchor_block_header();
+header.prove_note_validity(retrieved_note, &mut self.context);
 ```
 
-:::tip
-Use `prove_note_validity` to verify both inclusion and non-nullification in one call.
-:::
+This verifies both:
 
-## Prove nullifier inclusion
+1. The note was included in the note hash tree
+2. The note's nullifier was not in the nullifier tree
+
+## Prove at a specific historical block
+
+To prove against state at a specific past block (not just the anchor block):
 
 ```rust
-use dep::aztec::history::nullifier_inclusion::ProveNullifierInclusion;
-use dep::aztec::protocol_types::hash::compute_siloed_nullifier;
-
-// Compute nullifier (requires note hash)
-let nullifier = note.compute_nullifier(&mut context, note_hash_for_nullification);
-let siloed_nullifier = compute_siloed_nullifier(context.this_address(), nullifier);
-
-// Prove nullifier was included
-context.get_block_header().prove_nullifier_inclusion(siloed_nullifier);
+let historical_header = self.context.get_block_header_at(block_number);
+historical_header.prove_note_inclusion(retrieved_note);
 ```
 
-:::info Additional Proofs
-
-Other available proofs:
-- Note inclusion without validity check
-- Nullifier non-inclusion (prove something wasn't nullified)
-- Public data inclusion at historical blocks
-
+:::warning
+Using `get_block_header_at` adds ~3k constraints to prove Archive tree membership. The anchor block header is effectively free since it's verified once per transaction.
 :::
+
+## Prove a note was nullified
+
+To prove a note has been spent/nullified:
+
+```rust
+use dep::aztec::history::nullifier_inclusion::ProveNoteIsNullified;
+
+let header = self.context.get_anchor_block_header();
+header.prove_note_is_nullified(retrieved_note, &mut self.context);
+```
+
+## Prove contract deployment
+
+To prove a contract was deployed at a historical block:
+
+```rust
+use dep::aztec::history::contract_inclusion::ProveContractDeployment;
+
+let header = self.context.get_anchor_block_header();
+header.prove_contract_deployment(contract_address);
+```
+
+You can also prove a contract was initialized (constructor was called):
+
+```rust
+use dep::aztec::history::contract_inclusion::ProveContractInitialization;
+
+let header = self.context.get_anchor_block_header();
+header.prove_contract_initialization(contract_address);
+```
+
+## Available proof traits
+
+The `aztec::history` module provides these traits:
+
+| Trait                            | Purpose                                         |
+| -------------------------------- | ----------------------------------------------- |
+| `ProveNoteInclusion`             | Prove note exists in note hash tree             |
+| `ProveNoteValidity`              | Prove note exists and is not nullified          |
+| `ProveNoteIsNullified`           | Prove note's nullifier is in nullifier tree     |
+| `ProveNoteNotNullified`          | Prove note's nullifier is not in nullifier tree |
+| `ProveNullifierInclusion`        | Prove a raw nullifier exists                    |
+| `ProveNullifierNonInclusion`     | Prove a raw nullifier does not exist            |
+| `ProveContractDeployment`        | Prove a contract was deployed                   |
+| `ProveContractNonDeployment`     | Prove a contract was not deployed               |
+| `ProveContractInitialization`    | Prove a contract was initialized                |
+| `ProveContractNonInitialization` | Prove a contract was not initialized            |

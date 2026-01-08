@@ -73,5 +73,5 @@ These snapshots are validated in the rollup circuits to ensure continuity across
 ## Related Pages
 
 - [Private Kernel](./private_kernel.md) – How private functions are processed
-- [Private - Public Communication](../../../aztec-nr/framework-description/functions/public_private_calls.md) – How private and public functions interact
+- [Call Types](../../call_types.md) – How private and public functions interact
 - [State Management](../../state_management.md) – How public and private state works

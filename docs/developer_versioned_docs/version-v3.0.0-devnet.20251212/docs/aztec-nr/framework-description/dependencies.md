@@ -1,46 +1,78 @@
 ---
-title: Importing Aztec.nr
-description: Learn how to manage dependencies in your Aztec smart contract projects.
+title: Aztec.nr Dependencies
+description: Reference list of available Aztec.nr libraries and their Nargo.toml dependency paths.
 tags: [contracts]
 sidebar_position: 2
 ---
 
-On this page you will find information about Aztec.nr libraries and up-to-date paths for use in your `Nargo.toml`.
-
-## Aztec
+This page lists the available Aztec.nr libraries. Add dependencies to the `[dependencies]` section of your `Nargo.toml`:
 
 ```toml
-aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="v3.0.0-devnet.20251212", directory="noir-projects/aztec-nr/aztec" }
+[dependencies]
+aztec = { git="https://github.com/AztecProtocol/aztec-nr/", tag="v3.0.0-devnet.20251212", directory="aztec" }
+# Add other libraries as needed
 ```
 
-This is the core Aztec library that is required for every Aztec.nr smart contract.
+## Core
 
-## Address note
+### Aztec (required)
 
 ```toml
-address_note = { git="https://github.com/AztecProtocol/aztec-packages/", tag="v3.0.0-devnet.20251212", directory="noir-projects/aztec-nr/address-note" }
+aztec = { git="https://github.com/AztecProtocol/aztec-nr/", tag="v3.0.0-devnet.20251212", directory="aztec" }
 ```
 
-This is a library for utilizing notes that hold addresses. Find it on [GitHub](https://github.com/AztecProtocol/aztec-packages/tree/master/noir-projects/aztec-nr/address-note/src).
+The core Aztec library required for every Aztec.nr smart contract.
 
-## Easy private state
-
-```toml
-easy_private_state = { git="https://github.com/AztecProtocol/aztec-packages/", tag="v3.0.0-devnet.20251212", directory="noir-projects/aztec-nr/easy-private-state" }
-```
-
-This is an abstraction library for using private variables like [`EasyPrivateUint` (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/6c20b45993ee9cbd319ab8351e2722e0c912f427/noir-projects/aztec-nr/easy-private-state/src/easy_private_state.nr#L17).
-
-## Protocol Types
+### Protocol Types
 
 ```toml
 protocol_types = { git="https://github.com/AztecProtocol/aztec-packages/", tag="v3.0.0-devnet.20251212", directory="noir-projects/noir-protocol-circuits/crates/types"}
 ```
 
-This library contains types that are used in the Aztec protocol. Find it on [GitHub](https://github.com/AztecProtocol/aztec-packages/tree/master/noir-projects/noir-protocol-circuits/crates/types/src).
+Contains types used in the Aztec protocol (addresses, constants, hashes, etc.).
 
-## Value note
+## Note Types
+
+### Address Note
 
 ```toml
-value_note = { git="https://github.com/AztecProtocol/aztec-packages/", tag="v3.0.0-devnet.20251212", directory="noir-projects/aztec-nr/value-note" }
+address_note = { git="https://github.com/AztecProtocol/aztec-nr/", tag="v3.0.0-devnet.20251212", directory="address-note" }
 ```
+
+Provides `AddressNote`, a note type for storing `AztecAddress` values.
+
+### Field Note
+
+```toml
+field_note = { git="https://github.com/AztecProtocol/aztec-nr/", tag="v3.0.0-devnet.20251212", directory="field-note" }
+```
+
+Provides `FieldNote`, a note type for storing a single `Field` value.
+
+### Uint Note
+
+```toml
+uint_note = { git="https://github.com/AztecProtocol/aztec-nr/", tag="v3.0.0-devnet.20251212", directory="uint-note" }
+```
+
+Provides `UintNote`, a note type for storing `u128` values. Also includes `PartialUintNote` for partial note workflows where the value is completed in public execution.
+
+## State Variables
+
+### Balance Set
+
+```toml
+balance_set = { git="https://github.com/AztecProtocol/aztec-nr/", tag="v3.0.0-devnet.20251212", directory="balance-set" }
+```
+
+Provides `BalanceSet`, a state variable for managing private balances. Includes helper functions for adding, subtracting, and querying balances.
+
+## Utilities
+
+### Compressed String
+
+```toml
+compressed_string = { git="https://github.com/AztecProtocol/aztec-nr/", tag="v3.0.0-devnet.20251212", directory="compressed-string" }
+```
+
+Provides `CompressedString` and `FieldCompressedString` utilities for working with compressed string data.
