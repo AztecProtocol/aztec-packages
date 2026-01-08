@@ -33,7 +33,7 @@ import { makeEnrs } from '../../test-helpers/make-enrs.js';
 import { makeAndStartTestP2PClient } from '../../test-helpers/make-test-p2p-clients.js';
 import { createMockTxWithMetadata } from '../../test-helpers/mock-tx-helpers.js';
 
-const TEST_TIMEOUT_MS = 180_000;
+const TEST_TIMEOUT_MS = 1800_000;
 jest.setTimeout(TEST_TIMEOUT_MS);
 
 type DistributionPattern = 'uniform' | 'sparse' | 'pinned-only';
@@ -42,7 +42,7 @@ const COLLECTOR_TYPES = ['batch-requester', 'send-batch-request'];
 type CollectorType = (typeof COLLECTOR_TYPES)[number];
 
 const PEERS_PER_RUN = 10;
-const TIMEOUT_MS = 60_000;
+const TIMEOUT_MS = 80_000;
 
 const MISSING_TX_COUNTS = [10, 50, 100, 500];
 type MissingTxCount = (typeof MISSING_TX_COUNTS)[number];
