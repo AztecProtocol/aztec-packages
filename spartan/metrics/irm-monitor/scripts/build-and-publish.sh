@@ -2,16 +2,22 @@
 
 set -euo pipefail
 
-# Build and publish aztecprotocol/aztec-block-height-monitor if the tag doesn't exist
-# Usage: ./build-and-publish.sh <tag>
+# Build and publish the IRM monitor image if it doesn't exist
+# Usage: ./build-and-publish.sh <image> (e.g., aztecprotocol/block-height-monitor:2.3.4)
 
-TAG=${1:-latest}
-IMAGE="spypsy/block-height-monitor:${TAG}"
-
+IMAGE=${1:-aztecprotocol/block-height-monitor:latest}
 
 echo "Checking if ${IMAGE} exists on Docker Hub..."
-if curl -fsSL "https://hub.docker.com/v2/repositories/spypsy/block-height-monitor/tags/${TAG}" >/dev/null 2>&1; then
-  echo "Image tag already exists: ${IMAGE}"
+
+# Extract repository and tag from the full image name
+REPO="${IMAGE%%:*}"
+TAG="${IMAGE##*:}"
+
+echo "REPO: ${REPO}"
+echo "TAG: ${TAG}"
+
+if curl -fsSL "https://hub.docker.com/v2/repositories/${REPO}/tags/${TAG}" >/dev/null 2>&1; then
+  echo "Image already exists: ${IMAGE}"
   exit 0
 fi
 
