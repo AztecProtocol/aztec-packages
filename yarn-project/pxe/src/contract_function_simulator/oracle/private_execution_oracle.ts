@@ -104,6 +104,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     senderAddressBookStore: SenderAddressBookStore,
     capsuleStore: CapsuleStore,
     privateEventStore: PrivateEventStore,
+    jobId: string,
     private totalPublicCalldataCount: number = 0,
     protected sideEffectCounter: number = 0,
     log = createLogger('simulator:client_execution_context'),
@@ -126,6 +127,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       senderAddressBookStore,
       capsuleStore,
       privateEventStore,
+      jobId,
       log,
       scopes,
     );
@@ -586,6 +588,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       this.senderAddressBookStore,
       this.capsuleStore,
       this.privateEventStore,
+      this.jobId,
       this.totalPublicCalldataCount,
       sideEffectCounter,
       this.log,

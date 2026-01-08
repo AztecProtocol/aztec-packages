@@ -64,6 +64,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     protected readonly senderAddressBookStore: SenderAddressBookStore,
     protected readonly capsuleStore: CapsuleStore,
     protected readonly privateEventStore: PrivateEventStore,
+    protected readonly jobId: string,
     protected log = createLogger('simulator:client_view_context'),
     protected readonly scopes?: AztecAddress[],
   ) {}
