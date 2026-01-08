@@ -372,7 +372,7 @@ export async function generateAvmProof(
  * @param pathToBB - The full path to the bb binary
  * @param proofFullPath - The full path to the proof to be verified
  * @param verificationKeyPath - The full path to the circuit verification key
- * @param log - A logging function
+ * @param logger - A logger
  * @returns An object containing a result indication and duration taken
  */
 export async function verifyProof(
@@ -380,16 +380,25 @@ export async function verifyProof(
   proofFullPath: string,
   verificationKeyPath: string,
   ultraHonkFlavor: UltraHonkFlavor,
-  log: Logger,
+  logger: Logger,
 ): Promise<BBFailure | BBSuccess> {
-  return await verifyProofInternal(
-    pathToBB,
+  // Specify the public inputs path in the case of UH verification.
+  // Take proofFullPath and remove the suffix past the / to get the directory.
+  const proofDir = proofFullPath.substring(0, proofFullPath.lastIndexOf('/'));
+  const publicInputsFullPath = join(proofDir, '/public_inputs');
+  logger.debug(`public inputs path: ${publicInputsFullPath}`);
+
+  const args = [
+    '-p',
     proofFullPath,
+    '-k',
     verificationKeyPath,
-    `verify`,
-    log,
-    getArgs(ultraHonkFlavor),
-  );
+    '-i',
+    publicInputsFullPath,
+    '--disable_zk',
+    ...getArgs(ultraHonkFlavor),
+  ];
+  return await verifyProofInternal(pathToBB, `verify`, args, logger);
 }
 
 export async function verifyAvmProof(
@@ -413,10 +422,8 @@ export async function verifyAvmProof(
     return { status: BB_RESULT.FAILURE, reason: `Could not write avm inputs to ${avmInputsPath}` };
   }
 
-  return await verifyProofInternal(pathToBB, proofFullPath, /*vkPath=*/ '', 'avm_verify', logger, [
-    '--avm-public-inputs',
-    avmInputsPath,
-  ]);
+  const args = ['-p', proofFullPath, '--avm-public-inputs', avmInputsPath];
+  return await verifyProofInternal(pathToBB, 'avm_verify', args, logger);
 }
 
 /**
@@ -424,7 +431,7 @@ export async function verifyAvmProof(
  * TODO(#7370) The verification keys should be supplied separately
  * @param pathToBB - The full path to the bb binary
  * @param targetPath - The path to the folder with the proof, accumulator, and verification keys
- * @param log - A logging function
+ * @param logger - A logger
  * @param concurrency - The number of threads to use for the verification
  * @returns An object containing a result indication and duration taken
  */
@@ -432,7 +439,7 @@ export async function verifyChonkProof(
   pathToBB: string,
   proofPath: string,
   keyPath: string,
-  log: LogFn,
+  logger: Logger,
   concurrency = 1,
 ): Promise<BBFailure | BBSuccess> {
   const binaryPresent = await fs
@@ -443,43 +450,25 @@ export async function verifyChonkProof(
     return { status: BB_RESULT.FAILURE, reason: `Failed to find bb binary at ${pathToBB}` };
   }
 
-  try {
-    const args = ['--scheme', 'chonk', '-p', proofPath, '-k', keyPath, '-v'];
-    const timer = new Timer();
-    const command = 'verify';
-
-    const result = await executeBB(pathToBB, command, args, log, concurrency);
-    const duration = timer.ms();
-    if (result.status == BB_RESULT.SUCCESS) {
-      return { status: BB_RESULT.SUCCESS, durationMs: duration };
-    }
-    // Not a great error message here but it is difficult to decipher what comes from bb
-    return {
-      status: BB_RESULT.FAILURE,
-      reason: `Failed to verify proof. Exit code ${result.exitCode}. Signal ${result.signal}.`,
-      retry: !!result.signal,
-    };
-  } catch (error) {
-    return { status: BB_RESULT.FAILURE, reason: `${error}` };
-  }
+  const args = ['--scheme', 'chonk', '-p', proofPath, '-k', keyPath, '-v'];
+  return await verifyProofInternal(pathToBB, 'verify', args, logger, concurrency);
 }
 
 /**
  * Used for verifying proofs with BB
  * @param pathToBB - The full path to the bb binary
- * @param proofFullPath - The full path to the proof to be verified
- * @param verificationKeyPath - The full path to the circuit verification key
  * @param command - The BB command to execute (verify/avm_verify)
- * @param log - A logging function
+ * @param args - The arguments to pass to the command
+ * @param logger - A logger
+ * @param concurrency - The number of threads to use for the verification
  * @returns An object containing a result indication and duration taken
  */
 async function verifyProofInternal(
   pathToBB: string,
-  proofFullPath: string,
-  verificationKeyPath: string,
   command: 'verify' | 'avm_verify',
+  args: string[],
   logger: Logger,
-  extraArgs: string[] = [],
+  concurrency?: number,
 ): Promise<BBFailure | BBSuccess> {
   const binaryPresent = await fs
     .access(pathToBB, fs.constants.R_OK)
@@ -494,29 +483,12 @@ async function verifyProofInternal(
   };
 
   try {
-    let args;
-
-    if (command == 'verify') {
-      // Specify the public inputs path in the case of UH verification.
-      // Take proofFullPath and remove the suffix past the / to get the directory.
-      const proofDir = proofFullPath.substring(0, proofFullPath.lastIndexOf('/'));
-      const publicInputsFullPath = join(proofDir, '/public_inputs');
-      logger.debug(`public inputs path: ${publicInputsFullPath}`);
-
-      args = ['-p', proofFullPath, '-k', verificationKeyPath, '-i', publicInputsFullPath, '--disable_zk', ...extraArgs];
-    } else {
-      // avm_verify doesn't need VK path since it uses fixed VK internally
-      args = ['-p', proofFullPath, ...extraArgs];
-    }
-
     const loggingArg =
       logger.level === 'debug' || logger.level === 'trace' ? '-d' : logger.level === 'verbose' ? '-v' : '';
-    if (loggingArg !== '') {
-      args.push(loggingArg);
-    }
+    const finalArgs = [...args, loggingArg];
 
     const timer = new Timer();
-    const result = await executeBB(pathToBB, command, args, logFunction);
+    const result = await executeBB(pathToBB, command, finalArgs, logFunction, concurrency);
     const duration = timer.ms();
     if (result.status == BB_RESULT.SUCCESS) {
       return { status: BB_RESULT.SUCCESS, durationMs: duration };
