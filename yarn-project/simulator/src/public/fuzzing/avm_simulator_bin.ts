@@ -14,6 +14,32 @@ import { createInterface } from 'readline';
 
 import { AvmFuzzerSimulator, FuzzerSimulationRequest } from './avm_fuzzer_simulator.js';
 
+/**
+ * Write all data to stdout, handling partial writes and EAGAIN.
+ * Apparently unix pipe buffer are ~ 64KB, so large writes need to be chunked.
+ * When the buffer is full, we get EAGAIN and need to retry.
+ */
+function writeAllSync(data: string): void {
+  let offset = 0;
+  while (offset < data.length) {
+    try {
+      const bytesWritten = writeSync(1, data.slice(offset));
+      offset += bytesWritten;
+    } catch (err: any) {
+      if (err.code === 'EAGAIN') {
+        // Pipe buffer full, wait a bit and retry- this should happen rarely
+        // Can't use a setTimeout or sleep here since we are in a sync function - Gross
+        const start = Date.now();
+        while (Date.now() - start < 1) {
+          // Spin for ~1ms to let the reader consume some data
+        }
+        continue;
+      }
+      throw err;
+    }
+  }
+}
+
 // This cache holds opened world states to avoid reopening them for each invocation.
 // It's a map so that in the future we could support multiple world states (if we had multiple fuzzers).
 const worldStateCache = new Map<string, NativeWorldStateService>();
@@ -96,16 +122,18 @@ async function execute(base64Line: string): Promise<void> {
       revertReason: result.revertReason ?? '',
       endTreeSnapshots: result.publicInputs.endTreeSnapshots,
     });
-    writeSync(process.stdout.fd, resultBuffer.toString('base64') + '\n');
+    const base64Response = resultBuffer.toString('base64') + '\n';
+    // Write all data, handling partial writes and EAGAIN (pipe buffer is only 64KB)
+    writeAllSync(base64Response);
   } catch (error: any) {
     // If we error, treat as reverted
     const errorResult = serializeWithMessagePack({
       reverted: true,
-      output: [] as string[],
+      output: [] as Fr[],
       revertReason: `Unexpected Error ${error.message}`,
       endTreeSnapshots: TreeSnapshots.empty(),
     });
-    writeSync(process.stdout.fd, errorResult.toString('base64') + '\n');
+    writeAllSync(errorResult.toString('base64') + '\n');
   }
 }
 

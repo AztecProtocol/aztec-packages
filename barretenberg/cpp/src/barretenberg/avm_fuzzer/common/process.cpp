@@ -49,8 +49,22 @@ Process::~Process()
 void Process::write_line(const std::string& line) const
 {
     std::string command = line + "\n";
-    write(stdin_fd, command.c_str(), command.size());
-    fsync(stdin_fd);
+    const char* data = command.c_str();
+    size_t remaining = command.size();
+
+    // We use a loop to ensure all data is written but throw if we encounter an error.
+    // This enables partial writes to be handled correctly.
+    while (remaining > 0) {
+        ssize_t written = write(stdin_fd, data, remaining);
+        if (written < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+            throw std::runtime_error("write() error: " + std::string(std::strerror(errno)));
+        }
+        data += written;
+        remaining -= static_cast<size_t>(written);
+    }
 }
 
 std::string Process::read_line() const
@@ -58,12 +72,15 @@ std::string Process::read_line() const
     char buffer[4096]; // NOLINT
     std::string response;
     ssize_t bytes_read = 0;
-    fsync(stdout_fd);
     while ((bytes_read = read(stdout_fd, buffer, sizeof(buffer))) > 0) {
-        response.append(buffer, static_cast<size_t>(bytes_read));
-        if (response.find('\n') != std::string::npos) {
+        // Check for newline in just the newly read data  instead of going back through the entire response
+        const char* newline_pos = static_cast<const char*>(memchr(buffer, '\n', static_cast<size_t>(bytes_read)));
+        if (newline_pos != nullptr) {
+            // Found newline - append only up to and including the newline
+            response.append(buffer, static_cast<size_t>(newline_pos - buffer + 1));
             break;
         }
+        response.append(buffer, static_cast<size_t>(bytes_read));
     }
     if (bytes_read < 0 && errno != EINTR) {
         throw std::runtime_error("read() error: " + std::string(std::strerror(errno)));

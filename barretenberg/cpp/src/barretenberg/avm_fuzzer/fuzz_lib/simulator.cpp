@@ -31,7 +31,9 @@ using namespace bb::avm2::simulation;
 using namespace bb::avm2::fuzzer;
 using namespace bb::world_state;
 
-// Helper function to serialize simulation request via
+const auto MAX_RETURN_DATA_SIZE_IN_FIELDS = 1024;
+
+// Helper function to serialize simulation request via msgpack
 std::string serialize_simulation_request(const Tx& tx,
                                          const GlobalVariables& globals,
                                          const FuzzerContractDB& contract_db)
@@ -79,6 +81,9 @@ SimulatorResult CppSimulator::simulate(fuzzer::FuzzerWorldStateManager& ws_mgr,
         .skip_fee_enforcement = false,
         .collect_call_metadata = true,
         .collect_public_inputs = true,
+        .collection_limits = {
+            .max_returndata_size_in_fields = MAX_RETURN_DATA_SIZE_IN_FIELDS,
+        },
     };
 
     ProtocolContracts protocol_contracts{};
@@ -164,8 +169,17 @@ SimulatorResult JsSimulator::simulate([[maybe_unused]] fuzzer::FuzzerWorldStateM
     return result;
 }
 
-bool compare_simulator_results(const SimulatorResult& result1, const SimulatorResult& result2)
+bool compare_simulator_results(SimulatorResult& result1, SimulatorResult& result2)
 {
+    // Since the simulator results are interchangeable between TS and C++, we limit the return data size for comparison
+    // todo(ilyas): we ideally specfify one param as the TS result and truncate only that one
+    if (result1.output.size() > MAX_RETURN_DATA_SIZE_IN_FIELDS) {
+        result1.output.resize(MAX_RETURN_DATA_SIZE_IN_FIELDS);
+    }
+    if (result2.output.size() > MAX_RETURN_DATA_SIZE_IN_FIELDS) {
+        result2.output.resize(MAX_RETURN_DATA_SIZE_IN_FIELDS);
+    }
+
     return result1.reverted == result2.reverted && result1.output == result2.output &&
            result1.end_tree_snapshots == result2.end_tree_snapshots;
 }
