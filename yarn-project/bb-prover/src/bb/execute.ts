@@ -485,7 +485,7 @@ async function verifyProofInternal(
   try {
     const loggingArg =
       logger.level === 'debug' || logger.level === 'trace' ? '-d' : logger.level === 'verbose' ? '-v' : '';
-    const finalArgs = [...args, loggingArg];
+    const finalArgs = loggingArg !== '' ? [...args, loggingArg] : args;
 
     const timer = new Timer();
     const result = await executeBB(pathToBB, command, finalArgs, logFunction, concurrency);
