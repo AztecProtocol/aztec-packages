@@ -8,7 +8,6 @@ import { BlockNumber } from '@aztec/foundation/branded-types';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { Body, L2Block, L2BlockHeader } from '@aztec/stdlib/block';
-import { makeContentCommitment } from '@aztec/stdlib/testing';
 import { AppendOnlyTreeSnapshot, MerkleTreeId, type MerkleTreeWriteOperations } from '@aztec/stdlib/trees';
 import { GlobalVariables, TxEffect } from '@aztec/stdlib/tx';
 
@@ -53,7 +52,8 @@ export async function makeTXEBlockHeader(
 
   return new L2BlockHeader(
     new AppendOnlyTreeSnapshot(new Fr(archiveInfo.root), Number(archiveInfo.size)),
-    makeContentCommitment(),
+    Fr.ZERO,
+    Fr.ZERO,
     stateReference,
     globalVariables,
     Fr.ZERO,

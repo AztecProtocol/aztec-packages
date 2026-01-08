@@ -16,7 +16,7 @@ import type { Wallet } from '@aztec/aztec.js/wallet';
 import { deployL1Contract } from '@aztec/ethereum/deploy-l1-contract';
 import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
-import { BlockNumber } from '@aztec/foundation/branded-types';
+import { EpochNumber } from '@aztec/foundation/branded-types';
 import { retryUntil } from '@aztec/foundation/retry';
 import type { FieldsOf } from '@aztec/foundation/types';
 import { TestERC20Abi, TokenPortalAbi, TokenPortalBytecode } from '@aztec/l1-artifacts';
@@ -324,17 +324,11 @@ export class CrossChainTestHarness {
 
   withdrawFundsFromBridgeOnL1(
     amount: bigint,
-    blockNumber: BlockNumber,
+    epochNumber: EpochNumber,
     messageIndex: bigint,
     siblingPath: SiblingPath<number>,
   ) {
-    return this.l1TokenPortalManager.withdrawFunds(
-      amount,
-      this.ethAccount,
-      BigInt(blockNumber),
-      messageIndex,
-      siblingPath,
-    );
+    return this.l1TokenPortalManager.withdrawFunds(amount, this.ethAccount, epochNumber, messageIndex, siblingPath);
   }
 
   async transferToPrivateOnL2(shieldAmount: bigint) {

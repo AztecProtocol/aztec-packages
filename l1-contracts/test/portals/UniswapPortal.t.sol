@@ -7,6 +7,7 @@ import "forge-std/Test.sol";
 import {IRollup, Rollup} from "@aztec/core/Rollup.sol";
 import {TestConstants} from "../harnesses/TestConstants.sol";
 import {Registry} from "@aztec/governance/Registry.sol";
+import {Epoch} from "@aztec/core/libraries/TimeLib.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {DataStructures as PortalDataStructures} from "./DataStructures.sol";
 import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
@@ -50,7 +51,7 @@ contract UniswapPortalTest is Test {
   uint256 internal amountOutMinimum = 0;
   bytes32 internal aztecRecipient = bytes32(uint256(0x3));
 
-  uint256 internal checkpointNumber = 69;
+  Epoch internal DEFAULT_EPOCH = Epoch.wrap(32);
 
   function setUp() public {
     // fork mainnet
@@ -71,12 +72,6 @@ contract UniswapPortalTest is Test {
 
     uniswapPortal = new UniswapPortal();
     uniswapPortal.initialize(address(registry), l2UniswapAddress);
-
-    // Modify the proven checkpoint count
-    vm.store(address(rollup), bytes32(uint256(13)), bytes32(checkpointNumber + 1));
-
-    stdstore.target(address(rollup)).sig("getProvenCheckpointNumber()").checked_write(checkpointNumber + 1);
-    assertEq(rollup.getProvenCheckpointNumber(), checkpointNumber + 1);
 
     // have DAI locked in portal that can be moved when funds are withdrawn
     deal(address(DAI), address(daiTokenPortal), amount);
@@ -170,7 +165,7 @@ contract UniswapPortalTest is Test {
     return message.sha256ToField();
   }
 
-  function _addMessagesToOutbox(bytes32 daiWithdrawMessageHash, bytes32 swapMessageHash, uint256 _checkpointNumber)
+  function _addMessagesToOutbox(bytes32 daiWithdrawMessageHash, bytes32 swapMessageHash, Epoch _epoch)
     internal
     returns (bytes32, bytes32[] memory, bytes32[] memory)
   {
@@ -184,7 +179,7 @@ contract UniswapPortalTest is Test {
     (bytes32[] memory swapSiblingPath,) = tree.computeSiblingPath(1);
 
     vm.prank(address(rollup));
-    outbox.insert(_checkpointNumber, treeRoot);
+    outbox.insert(_epoch, treeRoot);
 
     return (treeRoot, withdrawSiblingPath, swapSiblingPath);
   }
@@ -194,7 +189,7 @@ contract UniswapPortalTest is Test {
   function testRevertIfWithdrawMessageHasNoDesignatedCaller() public {
     bytes32 l2ToL1MessageToInsert = _createDaiWithdrawMessage(address(uniswapPortal), address(0));
     (, bytes32[] memory withdrawSiblingPath, bytes32[] memory swapSiblingPath) =
-      _addMessagesToOutbox(l2ToL1MessageToInsert, bytes32(uint256(0x1)), checkpointNumber);
+      _addMessagesToOutbox(l2ToL1MessageToInsert, bytes32(uint256(0x1)), DEFAULT_EPOCH);
     bytes32 l2ToL1MessageToConsume = _createDaiWithdrawMessage(address(uniswapPortal), address(uniswapPortal));
 
     uint256 treeHeight = 1;
@@ -215,12 +210,8 @@ contract UniswapPortalTest is Test {
     );
 
     PortalDataStructures.OutboxMessageMetadata[2] memory outboxMessageMetadata = [
-      PortalDataStructures.OutboxMessageMetadata({
-        _checkpointNumber: checkpointNumber, _leafIndex: 0, _path: withdrawSiblingPath
-      }),
-      PortalDataStructures.OutboxMessageMetadata({
-        _checkpointNumber: checkpointNumber, _leafIndex: 1, _path: swapSiblingPath
-      })
+      PortalDataStructures.OutboxMessageMetadata({_epoch: DEFAULT_EPOCH, _leafIndex: 0, _path: withdrawSiblingPath}),
+      PortalDataStructures.OutboxMessageMetadata({_epoch: DEFAULT_EPOCH, _leafIndex: 1, _path: swapSiblingPath})
     ];
 
     uniswapPortal.swapPublic(
@@ -244,7 +235,7 @@ contract UniswapPortalTest is Test {
     bytes32 l2ToL1MessageToInsert = _createDaiWithdrawMessage(_recipient, address(uniswapPortal));
 
     (, bytes32[] memory withdrawSiblingPath, bytes32[] memory swapSiblingPath) =
-      _addMessagesToOutbox(l2ToL1MessageToInsert, bytes32(uint256(0x1)), checkpointNumber);
+      _addMessagesToOutbox(l2ToL1MessageToInsert, bytes32(uint256(0x1)), DEFAULT_EPOCH);
 
     bytes32 l2ToL1MessageToConsume = _createDaiWithdrawMessage(address(uniswapPortal), address(uniswapPortal));
 
@@ -266,12 +257,8 @@ contract UniswapPortalTest is Test {
     );
 
     PortalDataStructures.OutboxMessageMetadata[2] memory outboxMessageMetadata = [
-      PortalDataStructures.OutboxMessageMetadata({
-        _checkpointNumber: checkpointNumber, _leafIndex: 0, _path: withdrawSiblingPath
-      }),
-      PortalDataStructures.OutboxMessageMetadata({
-        _checkpointNumber: checkpointNumber, _leafIndex: 1, _path: swapSiblingPath
-      })
+      PortalDataStructures.OutboxMessageMetadata({_epoch: DEFAULT_EPOCH, _leafIndex: 0, _path: withdrawSiblingPath}),
+      PortalDataStructures.OutboxMessageMetadata({_epoch: DEFAULT_EPOCH, _leafIndex: 1, _path: swapSiblingPath})
     ];
 
     uniswapPortal.swapPublic(
@@ -291,7 +278,7 @@ contract UniswapPortalTest is Test {
     bytes32 daiWithdrawMessageHash = _createDaiWithdrawMessage(address(uniswapPortal), address(uniswapPortal));
     bytes32 swapMessageHash = _createUniswapSwapMessagePublic(aztecRecipient, address(this));
     (, bytes32[] memory withdrawSiblingPath, bytes32[] memory swapSiblingPath) =
-      _addMessagesToOutbox(daiWithdrawMessageHash, swapMessageHash, checkpointNumber);
+      _addMessagesToOutbox(daiWithdrawMessageHash, swapMessageHash, DEFAULT_EPOCH);
 
     bytes32 newAztecRecipient = bytes32(uint256(0x4));
     bytes32 messageHashPortalChecksAgainst = _createUniswapSwapMessagePublic(newAztecRecipient, address(this));
@@ -319,12 +306,8 @@ contract UniswapPortalTest is Test {
     );
 
     PortalDataStructures.OutboxMessageMetadata[2] memory outboxMessageMetadata = [
-      PortalDataStructures.OutboxMessageMetadata({
-        _checkpointNumber: checkpointNumber, _leafIndex: 0, _path: withdrawSiblingPath
-      }),
-      PortalDataStructures.OutboxMessageMetadata({
-        _checkpointNumber: checkpointNumber, _leafIndex: 1, _path: swapSiblingPath
-      })
+      PortalDataStructures.OutboxMessageMetadata({_epoch: DEFAULT_EPOCH, _leafIndex: 0, _path: withdrawSiblingPath}),
+      PortalDataStructures.OutboxMessageMetadata({_epoch: DEFAULT_EPOCH, _leafIndex: 1, _path: swapSiblingPath})
     ];
 
     uniswapPortal.swapPublic(
@@ -345,15 +328,11 @@ contract UniswapPortalTest is Test {
     bytes32 swapMessageHash = _createUniswapSwapMessagePublic(aztecRecipient, address(this));
 
     (, bytes32[] memory withdrawSiblingPath, bytes32[] memory swapSiblingPath) =
-      _addMessagesToOutbox(daiWithdrawMessageHash, swapMessageHash, checkpointNumber);
+      _addMessagesToOutbox(daiWithdrawMessageHash, swapMessageHash, DEFAULT_EPOCH);
 
     PortalDataStructures.OutboxMessageMetadata[2] memory outboxMessageMetadata = [
-      PortalDataStructures.OutboxMessageMetadata({
-        _checkpointNumber: checkpointNumber, _leafIndex: 0, _path: withdrawSiblingPath
-      }),
-      PortalDataStructures.OutboxMessageMetadata({
-        _checkpointNumber: checkpointNumber, _leafIndex: 1, _path: swapSiblingPath
-      })
+      PortalDataStructures.OutboxMessageMetadata({_epoch: DEFAULT_EPOCH, _leafIndex: 0, _path: withdrawSiblingPath}),
+      PortalDataStructures.OutboxMessageMetadata({_epoch: DEFAULT_EPOCH, _leafIndex: 1, _path: swapSiblingPath})
     ];
 
     uniswapPortal.swapPublic(
@@ -373,8 +352,8 @@ contract UniswapPortalTest is Test {
     // there should be some weth in the weth portal
     assertGt(WETH9.balanceOf(address(wethTokenPortal)), 0);
     // there the messages should be nullified
-    assertTrue(outbox.hasMessageBeenConsumedAtCheckpoint(checkpointNumber, 1 << withdrawSiblingPath.length));
-    assertTrue(outbox.hasMessageBeenConsumedAtCheckpoint(checkpointNumber, 1 << swapSiblingPath.length + 1));
+    assertTrue(outbox.hasMessageBeenConsumedAtEpoch(DEFAULT_EPOCH, 1 << withdrawSiblingPath.length));
+    assertTrue(outbox.hasMessageBeenConsumedAtEpoch(DEFAULT_EPOCH, 1 << swapSiblingPath.length + 1));
   }
 
   function testSwapCalledByAnyoneIfDesignatedCallerNotSet(address _caller) public {
@@ -385,15 +364,11 @@ contract UniswapPortalTest is Test {
     bytes32 swapMessageHash = _createUniswapSwapMessagePublic(aztecRecipient, address(0));
 
     (, bytes32[] memory withdrawSiblingPath, bytes32[] memory swapSiblingPath) =
-      _addMessagesToOutbox(daiWithdrawMessageHash, swapMessageHash, checkpointNumber);
+      _addMessagesToOutbox(daiWithdrawMessageHash, swapMessageHash, DEFAULT_EPOCH);
 
     PortalDataStructures.OutboxMessageMetadata[2] memory outboxMessageMetadata = [
-      PortalDataStructures.OutboxMessageMetadata({
-        _checkpointNumber: checkpointNumber, _leafIndex: 0, _path: withdrawSiblingPath
-      }),
-      PortalDataStructures.OutboxMessageMetadata({
-        _checkpointNumber: checkpointNumber, _leafIndex: 1, _path: swapSiblingPath
-      })
+      PortalDataStructures.OutboxMessageMetadata({_epoch: DEFAULT_EPOCH, _leafIndex: 0, _path: withdrawSiblingPath}),
+      PortalDataStructures.OutboxMessageMetadata({_epoch: DEFAULT_EPOCH, _leafIndex: 1, _path: swapSiblingPath})
     ];
 
     vm.prank(_caller);
@@ -414,8 +389,8 @@ contract UniswapPortalTest is Test {
     // there should be some weth in the weth portal
     assertGt(WETH9.balanceOf(address(wethTokenPortal)), 0);
     // there the messages should be nullified
-    assertTrue(outbox.hasMessageBeenConsumedAtCheckpoint(checkpointNumber, 1 << withdrawSiblingPath.length));
-    assertTrue(outbox.hasMessageBeenConsumedAtCheckpoint(checkpointNumber, 1 << swapSiblingPath.length + 1));
+    assertTrue(outbox.hasMessageBeenConsumedAtEpoch(DEFAULT_EPOCH, 1 << withdrawSiblingPath.length));
+    assertTrue(outbox.hasMessageBeenConsumedAtEpoch(DEFAULT_EPOCH, 1 << swapSiblingPath.length + 1));
   }
 
   function testRevertIfSwapWithDesignatedCallerCalledByWrongCaller(address _caller) public {
@@ -425,15 +400,11 @@ contract UniswapPortalTest is Test {
     bytes32 swapMessageHash = _createUniswapSwapMessagePublic(aztecRecipient, address(this));
 
     (, bytes32[] memory withdrawSiblingPath, bytes32[] memory swapSiblingPath) =
-      _addMessagesToOutbox(daiWithdrawMessageHash, swapMessageHash, checkpointNumber);
+      _addMessagesToOutbox(daiWithdrawMessageHash, swapMessageHash, DEFAULT_EPOCH);
 
     PortalDataStructures.OutboxMessageMetadata[2] memory outboxMessageMetadata = [
-      PortalDataStructures.OutboxMessageMetadata({
-        _checkpointNumber: checkpointNumber, _leafIndex: 0, _path: withdrawSiblingPath
-      }),
-      PortalDataStructures.OutboxMessageMetadata({
-        _checkpointNumber: checkpointNumber, _leafIndex: 1, _path: swapSiblingPath
-      })
+      PortalDataStructures.OutboxMessageMetadata({_epoch: DEFAULT_EPOCH, _leafIndex: 0, _path: withdrawSiblingPath}),
+      PortalDataStructures.OutboxMessageMetadata({_epoch: DEFAULT_EPOCH, _leafIndex: 1, _path: swapSiblingPath})
     ];
 
     vm.startPrank(_caller);
@@ -512,15 +483,11 @@ contract UniswapPortalTest is Test {
     // Create message for `_isPrivateFlow`:
     bytes32 swapMessageHash = _createUniswapSwapMessagePublic(aztecRecipient, address(this));
     (, bytes32[] memory withdrawSiblingPath, bytes32[] memory swapSiblingPath) =
-      _addMessagesToOutbox(daiWithdrawMessageHash, swapMessageHash, checkpointNumber);
+      _addMessagesToOutbox(daiWithdrawMessageHash, swapMessageHash, DEFAULT_EPOCH);
 
     PortalDataStructures.OutboxMessageMetadata[2] memory outboxMessageMetadata = [
-      PortalDataStructures.OutboxMessageMetadata({
-        _checkpointNumber: checkpointNumber, _leafIndex: 0, _path: withdrawSiblingPath
-      }),
-      PortalDataStructures.OutboxMessageMetadata({
-        _checkpointNumber: checkpointNumber, _leafIndex: 1, _path: swapSiblingPath
-      })
+      PortalDataStructures.OutboxMessageMetadata({_epoch: DEFAULT_EPOCH, _leafIndex: 0, _path: withdrawSiblingPath}),
+      PortalDataStructures.OutboxMessageMetadata({_epoch: DEFAULT_EPOCH, _leafIndex: 1, _path: swapSiblingPath})
     ];
 
     bytes32 messageHashPortalChecksAgainst = _createUniswapSwapMessagePrivate(address(this));

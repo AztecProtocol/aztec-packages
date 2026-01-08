@@ -68,11 +68,19 @@ For data availability, blobs are utilized since data storage is often cheaper he
 
 After the first section about generating a flamegraph for an Aztec function, each section shows an example of different optimisation techniques.
 
-### Inspecting with Flamegraph
+### Inspecting with flamegraphs
 
-You can see the params for the Aztec's flamegraph using: `aztec help flamegraph`
+Use the Noir profiler to generate flamegraphs for your contract functions. The profiler is installed automatically with Nargo (starting noirup v0.1.4).
 
-For example, the resulting flamegraph (as an .svg file) of a counter's increment function can be generated and served with: `SERVE=1 aztec flamegraph target/counter-Counter.json increment`
+```bash
+# Generate a gates flamegraph (requires bb backend)
+noir-profiler gates \
+  --artifact-path ./target/counter-Counter.json \
+  --backend-path bb \
+  --output ./target
+```
+
+Open the generated `.svg` file in a browser for an interactive view. For more details, see the [profiling guide](./how_to_profile_transactions.md).
 
 <Image img={require('/img/flamegraph-counter.png')} />
 
@@ -227,11 +235,16 @@ unconstrained fn sqrt_unconstrained(number: Field) -> Field {
 The two implementations after the contract differ in one being constrained vs unconstrained, as well as the loop implementation (which has other design considerations).
 Measuring the two, we find the `sqrt_inefficient` to require around 1500 extra gates compared to `sqrt_efficient`.
 
-To see each flamegraph:
+To generate flamegraphs for each function:
 
-- `SERVE=1 aztec flamegraph target/optimisation_example-OptimisationExample.json sqrt_inefficient`
-- `SERVE=1 aztec flamegraph target/optimisation_example-OptimisationExample.json sqrt_efficient`
-- (if you make changes to the code, you will need to compile and regenerate the flamegraph, then refresh in your browser to use the latest svg file)
+```bash
+noir-profiler gates \
+  --artifact-path ./target/optimisation_example-OptimisationExample.json \
+  --backend-path bb \
+  --output ./target
+```
+
+If you make changes to the code, recompile and regenerate the flamegraph, then refresh the `.svg` file in your browser.
 
 Note: this is largely a factor of the loop size choice based on the maximum size of `number` you are required to be calculating the square root of. For larger numbers, the loop would have to be much larger, so perform in an unconstrained way (then constraining the result) is much more efficient.
 
@@ -285,7 +298,7 @@ unconstrained fn sort_array(array: [u32; ARRAY_SIZE]) -> [u32; ARRAY_SIZE] {
 
 ```
 
-Like before, the flamegraph command can be used to present the gate counts of the private functions, highlighting that 953 gates could be saved.
+Like before, `noir-profiler` can be used to visualize the gate counts of the private functions, highlighting that 953 gates could be saved.
 
 Note: The stdlib provides a highly optimized version of sort on arrays, `array.sort()`, which saves even more gates.
 

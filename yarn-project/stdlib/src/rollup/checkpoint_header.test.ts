@@ -7,7 +7,6 @@ import { updateInlineTestData } from '@aztec/foundation/testing/files';
 import { AztecAddress } from '../aztec-address/index.js';
 import { GasFees } from '../gas/gas_fees.js';
 import { makeCheckpointHeader } from '../tests/factories.js';
-import { ContentCommitment } from '../tx/content_commitment.js';
 import { CheckpointHeader } from './checkpoint_header.js';
 
 describe('CheckpointHeader', () => {
@@ -23,7 +22,7 @@ describe('CheckpointHeader', () => {
     const header = CheckpointHeader.empty();
     const hash = header.hash().toString();
 
-    expect(hash).toMatchInlineSnapshot('"0x007802c95d2f1ade746d97350a18ddbfdb9f5bee2803436917a3cf3d6a685a3a"');
+    expect(hash).toMatchInlineSnapshot('"0x00d72511e843bf5a2e44e8bd1da20c2626311d1d6679424f717807a1db731d62"');
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
     updateInlineTestData(
@@ -37,7 +36,8 @@ describe('CheckpointHeader', () => {
     const header = CheckpointHeader.from({
       lastArchiveRoot: new Fr(123),
       blockHeadersHash: new Fr(456),
-      contentCommitment: new ContentCommitment(new Fr(77), new Fr(88), new Fr(99)),
+      blobsHash: new Fr(77),
+      inHash: new Fr(88),
       slotNumber: SlotNumber(1234),
       timestamp: BigInt(5678),
       coinbase: EthAddress.fromField(new Fr(9090)),
@@ -47,7 +47,7 @@ describe('CheckpointHeader', () => {
     });
     const hash = header.hash().toString();
 
-    expect(hash).toMatchInlineSnapshot('"0x007df45447387f2e48b4acae48b6c7f72eb63a9f6611c2f665df39f013a20dcf"');
+    expect(hash).toMatchInlineSnapshot('"0x00710281705a29930cf34f3470280e346449cd5a5d551177db509d2b5d3a5f21"');
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
     updateInlineTestData(

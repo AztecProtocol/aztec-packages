@@ -733,7 +733,7 @@ describe('Archiver', () => {
       expect.stringMatching(/Mismatch inHash for checkpoint 3/i),
       expect.objectContaining({
         computedInHash,
-        publishedInHash: checkpoints[2].header.contentCommitment.inHash,
+        publishedInHash: checkpoints[2].header.inHash,
       }),
     );
   }, 10_000);

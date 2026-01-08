@@ -75,7 +75,7 @@ void to_radix_memImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
                                                    static_cast<View>(in.get(C::to_radix_mem_space_id)));
         std::get<7>(evals) += (tmp * scaling_factor);
     }
-    { // VALUE_CONTNUITY
+    { // VALUE_CONTINUITY
         using View = typename std::tuple_element_t<8, ContainerOverSubrelations>::View;
         auto tmp = CView(to_radix_mem_NOT_LAST) * (static_cast<View>(in.get(C::to_radix_mem_value_to_decompose_shift)) -
                                                    static_cast<View>(in.get(C::to_radix_mem_value_to_decompose)));

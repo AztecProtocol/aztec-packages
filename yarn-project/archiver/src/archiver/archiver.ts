@@ -1047,7 +1047,7 @@ export class Archiver
         // checkpoints we just retrieved.
         const l1ToL2Messages = await this.getL1ToL2Messages(published.checkpoint.number);
         const computedInHash = computeInHashFromL1ToL2Messages(l1ToL2Messages);
-        const publishedInHash = published.checkpoint.header.contentCommitment.inHash;
+        const publishedInHash = published.checkpoint.header.inHash;
         if (!computedInHash.equals(publishedInHash)) {
           this.log.fatal(`Mismatch inHash for checkpoint ${published.checkpoint.number}`, {
             checkpointHash: published.checkpoint.hash(),

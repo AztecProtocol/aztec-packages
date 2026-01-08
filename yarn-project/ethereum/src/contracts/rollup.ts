@@ -60,25 +60,21 @@ export type L1RollupContractAddresses = Pick<
 export type EpochProofPublicInputArgs = {
   previousArchive: `0x${string}`;
   endArchive: `0x${string}`;
+  outHash: `0x${string}`;
   proverId: `0x${string}`;
 };
 
 export type ViemHeader = {
   lastArchiveRoot: `0x${string}`;
   blockHeadersHash: `0x${string}`;
-  contentCommitment: ViemContentCommitment;
+  blobsHash: `0x${string}`;
+  inHash: `0x${string}`;
   slotNumber: bigint;
   timestamp: bigint;
   coinbase: `0x${string}`;
   feeRecipient: `0x${string}`;
   gasFees: ViemGasFees;
   totalManaUsed: bigint;
-};
-
-export type ViemContentCommitment = {
-  blobsHash: `0x${string}`;
-  inHash: `0x${string}`;
-  outHash: `0x${string}`;
 };
 
 export type ViemGasFees = {

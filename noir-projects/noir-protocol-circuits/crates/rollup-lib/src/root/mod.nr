@@ -1,3 +1,4 @@
+pub(crate) mod utils;
 pub mod root_rollup;
 mod tests;
 

@@ -17,8 +17,17 @@ import {
 } from '@opentelemetry/api';
 
 import type * as Attributes from './attributes.js';
-import type * as Metrics from './metrics.js';
+import type { MetricDefinition } from './metrics.js';
 import { getTelemetryClient } from './start.js';
+
+/** Extracts OpenTelemetry MetricOptions from a MetricDefinition */
+export function toMetricOptions(def: MetricDefinition): MetricOptions {
+  return {
+    description: def.description,
+    unit: def.unit,
+    valueType: def.valueType,
+  };
+}
 
 export { type Span, SpanStatusCode, ValueType, type Context } from '@opentelemetry/api';
 
@@ -57,8 +66,8 @@ export type AttributesType = Partial<Record<AttributeNames, AttributeValue>>;
 /** Subset of attributes allowed to be added to metrics */
 export type MetricAttributesType = Partial<Record<Exclude<AttributeNames, BannedMetricAttributeNames>, AttributeValue>>;
 
-/** Global registry of metrics */
-export type MetricsType = (typeof Metrics)[keyof typeof Metrics];
+/** Re-export MetricDefinition for convenience */
+export type { MetricDefinition } from './metrics.js';
 
 export type Gauge = OtelGauge<MetricAttributesType>;
 export type Histogram = OtelHistogram<MetricAttributesType>;
@@ -77,17 +86,15 @@ export type { Tracer };
 export interface Meter {
   /**
    * Creates a new gauge instrument. A gauge is a metric that represents a single numerical value that can arbitrarily go up and down.
-   * @param name - The name of the gauge
-   * @param options - The options for the gauge
+   * @param metric - The metric definition
    */
-  createGauge(name: MetricsType, options?: MetricOptions): Gauge;
+  createGauge(metric: MetricDefinition): Gauge;
 
   /**
-   * Creates a new gauge instrument. A gauge is a metric that represents a single numerical value that can arbitrarily go up and down.
-   * @param name - The name of the gauge
-   * @param options - The options for the gauge
+   * Creates a new observable gauge instrument. A gauge is a metric that represents a single numerical value that can arbitrarily go up and down.
+   * @param metric - The metric definition
    */
-  createObservableGauge(name: MetricsType, options?: MetricOptions): ObservableGauge;
+  createObservableGauge(metric: MetricDefinition): ObservableGauge;
 
   addBatchObservableCallback(
     callback: BatchObservableCallback<AttributesType>,
@@ -101,24 +108,22 @@ export interface Meter {
 
   /**
    * Creates a new histogram instrument. A histogram is a metric that samples observations (usually things like request durations or response sizes) and counts them in configurable buckets.
-   * @param name - The name of the histogram
-   * @param options - The options for the histogram
+   * @param metric - The metric definition
+   * @param extraOptions - Optional extra options (e.g., advice for bucket boundaries)
    */
-  createHistogram(name: MetricsType, options?: MetricOptions): Histogram;
+  createHistogram(metric: MetricDefinition, extraOptions?: Partial<MetricOptions>): Histogram;
 
   /**
    * Creates a new counter instrument. A counter can go up or down with a delta from the previous value.
-   * @param name - The name of the counter
-   * @param options - The options for the counter
+   * @param metric - The metric definition
    */
-  createUpDownCounter(name: MetricsType, options?: MetricOptions): UpDownCounter;
+  createUpDownCounter(metric: MetricDefinition): UpDownCounter;
 
   /**
-   * Creates a new gauge instrument. A gauge is a metric that represents a single numerical value that can arbitrarily go up and down.
-   * @param name - The name of the gauge
-   * @param options - The options for the gauge
+   * Creates a new observable up/down counter instrument.
+   * @param metric - The metric definition
    */
-  createObservableUpDownCounter(name: MetricsType, options?: MetricOptions): ObservableUpDownCounter;
+  createObservableUpDownCounter(metric: MetricDefinition): ObservableUpDownCounter;
 }
 
 /**

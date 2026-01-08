@@ -44,12 +44,9 @@ library Errors {
     uint32 storedDeadline,
     uint32 deadlinePassed
   ); // 0x5e789f34
-  error Outbox__RootAlreadySetAtCheckpoint(uint256 checkpointNumber); // 0x6eb83cef
   error Outbox__InvalidRecipient(address expected, address actual); // 0x57aad581
-  error Outbox__AlreadyNullified(uint256 checkpointNumber, uint256 leafIndex); // 0xfd71c2d4
-  error Outbox__NothingToConsumeAtCheckpoint(uint256 checkpointNumber); // 0x0279277d
-  error Outbox__CheckpointNotProven(uint256 checkpointNumber); // 0x104bcfc1
-  error Outbox__CheckpointAlreadyProven(uint256 checkpointNumber);
+  error Outbox__AlreadyNullified(Epoch epoch, uint256 leafIndex); // 0xfd71c2d4
+  error Outbox__NothingToConsumeAtEpoch(Epoch epoch); // 0x5e3d32ce
   error Outbox__PathTooLong();
   error Outbox__LeafIndexOutOfBounds(uint256 leafIndex, uint256 pathLength);
 

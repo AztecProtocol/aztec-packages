@@ -7,6 +7,7 @@ export * from './governance_proposer.js';
 export * from './gse.js';
 export * from './inbox.js';
 export * from './multicall.js';
+export * from './outbox.js';
 export * from './registry.js';
 export * from './rollup.js';
 export * from './empire_slashing_proposer.js';

@@ -10,7 +10,8 @@ import { AztecAddress, EthAddress } from '@aztec/aztec.js/addresses';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
-import { BlockNumber } from '@aztec/foundation/branded-types';
+import type { RollupCheatCodes } from '@aztec/ethereum/test';
+import { BlockNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { Timer } from '@aztec/foundation/timer';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { SiloedTag, Tag } from '@aztec/stdlib/logs';
@@ -97,11 +98,13 @@ describe('e2e_node_rpc_perf', () => {
   let aztecNode: AztecNode;
   let wallet: TestWallet;
   let ownerAddress: AztecAddress;
+  let rollupCheatCodes: RollupCheatCodes;
   let teardown: () => Promise<void>;
   const benchmarkResults: BenchmarkResult[] = [];
 
   // Data collected during block building for use in benchmarks
   let blockNumber: number;
+  let epoch: EpochNumber;
   let contractAddress: AztecAddress;
   let contractClassId: Fr;
   let blockHash: Fr;
@@ -138,6 +141,7 @@ describe('e2e_node_rpc_perf', () => {
       aztecNode,
       wallet,
       accounts: [ownerAddress],
+      cheatCodes: { rollup: rollupCheatCodes },
     } = await setup(1, {
       archiverPollingIntervalMS: 200,
       sequencerPollingIntervalMS: 200,
@@ -161,6 +165,8 @@ describe('e2e_node_rpc_perf', () => {
     await buildBlocks();
 
     blockNumber = await aztecNode.getBlockNumber();
+
+    epoch = await rollupCheatCodes.getEpoch();
 
     // Get block hash and archive for benchmarking getBlockByHash/getBlockByArchive
     const block = await aztecNode.getBlock(BlockNumber(blockNumber));
@@ -457,9 +463,7 @@ describe('e2e_node_rpc_perf', () => {
     });
 
     it('benchmarks getL2ToL1Messages', async () => {
-      const { stats } = await benchmark('getL2ToL1Messages', () =>
-        aztecNode.getL2ToL1Messages(BlockNumber(blockNumber)),
-      );
+      const { stats } = await benchmark('getL2ToL1Messages', () => aztecNode.getL2ToL1Messages(epoch));
       addResult('getL2ToL1Messages', stats);
       expect(stats.avg).toBeLessThan(2000);
     });

@@ -16,7 +16,6 @@ import {STFLib} from "@aztec/core/libraries/rollup/STFLib.sol";
 import {ValidatorSelectionLib} from "@aztec/core/libraries/rollup/ValidatorSelectionLib.sol";
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {CompressedSlot, CompressedTimeMath} from "@aztec/shared/libraries/CompressedTimeMath.sol";
-import {Math} from "@oz/utils/math/Math.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 
 /**
@@ -117,7 +116,20 @@ library EpochProofLib {
     require(verifyEpochRootProof(_args), Errors.Rollup__InvalidProof());
 
     RollupStore storage rollupStore = STFLib.getStorage();
-    rollupStore.tips = rollupStore.tips.updateProven(Math.max(rollupStore.tips.getProven(), _args.end));
+
+    // Advance the proven block number and insert the out hash if the chain is extended.
+    if (_args.end > rollupStore.tips.getProven()) {
+      rollupStore.tips = rollupStore.tips.updateProven(_args.end);
+
+      // Handle L2->L1 message processing.
+      // The circuit outputs a zero out hash if the epoch contains no messages. It is also impossible for a partial
+      // epoch to produce a non-zero out hash, then later produce a zero out hash once more checkpoints are included.
+      // Therefore, we can safely skip the insertion for a zero out hash here.
+      if (_args.args.outHash != bytes32(0)) {
+        // Insert L2->L1 messages root into outbox for consumption.
+        rollupStore.config.outbox.insert(endEpoch, _args.args.outHash);
+      }
+    }
 
     RewardLib.handleRewardsAndFees(_args, endEpoch);
 
@@ -171,6 +183,7 @@ library EpochProofLib {
     // struct RootRollupPublicInputs {
     //   previous_archive_root: Field,
     //   end_archive_root: Field,
+    //   out_hash: Field,
     //   checkpointHeaderHashes: [Field; Constants.AZTEC_MAX_EPOCH_DURATION],
     //   fees: [FeeRecipient; Constants.AZTEC_MAX_EPOCH_DURATION],
     //   chain_id: Field,
@@ -178,7 +191,7 @@ library EpochProofLib {
     //   vk_tree_root: Field,
     //   protocol_contracts_hash: Field,
     //   prover_id: Field,
-    //   blob_public_inputs: FinalBlobAccumulatorPublicInputs,
+    //   blob_public_inputs: FinalBlobAccumulator,
     // }
     {
       // previous_archive.root: the previous archive tree root
@@ -186,15 +199,17 @@ library EpochProofLib {
 
       // end_archive.root: the new archive tree root
       publicInputs[1] = _args.endArchive;
+
+      publicInputs[2] = _args.outHash;
     }
 
     uint256 numCheckpoints = _end - _start + 1;
 
     for (uint256 i = 0; i < numCheckpoints; i++) {
-      publicInputs[2 + i] = STFLib.getHeaderHash(_start + i);
+      publicInputs[3 + i] = STFLib.getHeaderHash(_start + i);
     }
 
-    uint256 offset = 2 + Constants.AZTEC_MAX_EPOCH_DURATION;
+    uint256 offset = 3 + Constants.AZTEC_MAX_EPOCH_DURATION;
 
     uint256 feesLength = Constants.AZTEC_MAX_EPOCH_DURATION * 2;
     // fees[2n to 2n + 1]: a fee element, which contains of a recipient and a value
@@ -249,7 +264,6 @@ library EpochProofLib {
     publicInputs[offset] = bytes32(uint256(uint248(bytes31((_blobPublicInputs[96:127])))));
     // c[1]
     publicInputs[offset + 1] = bytes32(uint256(uint136(bytes17((_blobPublicInputs[127:144])))));
-    offset += 2;
 
     return publicInputs;
   }
