@@ -76,6 +76,14 @@ spec:
             source /shared/init-nodeport;
           fi
 
+          if [ -n "${DATA_DIRECTORY:-}" ]; then
+            mkdir -p "$DATA_DIRECTORY"
+          fi
+
+          if [ -n "${CRS_PATH:-}" ]; then
+            mkdir -p "$CRS_PATH"
+          fi
+
           {{- if .Values.service.p2p.publicIP }}
             export P2P_QUERY_FOR_IP=true
           {{- else }}
@@ -257,7 +265,9 @@ spec:
           value: {{ join "," .Values.global.l1ConsensusHostApiKeyHeaders | quote }}
         {{- end }}
         - name: DATA_DIRECTORY
-          value: {{ .Values.node.storage.dataDirectory | quote }}
+          value: "{{ .Values.node.storage.dataDirectory }}/data"
+        - name: CRS_PATH
+          value: "{{ .Values.node.storage.dataDirectory }}/crs"
         - name: DATA_STORE_MAP_SIZE_KB
           value: {{ .Values.node.storage.dataStoreMapSize | quote }}
         - name: WS_DB_MAP_SIZE_KB

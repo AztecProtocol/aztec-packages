@@ -183,7 +183,7 @@ describe('e2e_local_network_example', () => {
     const bananaFPCAddress = await registerDeployedBananaFPCInWalletAndGetAddress(wallet);
     // The private fee paying method assembled on the app side requires knowledge of the maximum
     // fee the user is willing to pay
-    const maxFeesPerGas = (await node.getCurrentBaseFees()).mul(1.5);
+    const maxFeesPerGas = (await node.getCurrentMinFees()).mul(1.5);
     const gasSettings = GasSettings.default({ maxFeesPerGas });
     const paymentMethod = new PrivateFeePaymentMethod(bananaFPCAddress, alice, wallet, gasSettings);
     const receiptForAlice = await bananaCoin.methods

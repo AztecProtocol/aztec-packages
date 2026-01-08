@@ -10,6 +10,7 @@
 #include <variant>
 #include <vector>
 
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
@@ -255,7 +256,7 @@ Instruction deserialize_instruction(std::span<const uint8_t> bytecode, size_t po
 
     const auto opcode = static_cast<WireOpCode>(opcode_byte);
     const auto iter = get_wire_opcode_wire_format().find(opcode);
-    assert(iter != get_wire_opcode_wire_format().end());
+    BB_ASSERT_DEBUG(iter != get_wire_opcode_wire_format().end(), "Wire opcode not found in wire opcode wire format");
     const auto& inst_format = iter->second;
 
     const uint32_t instruction_size = get_wire_instruction_spec().at(opcode).size_in_bytes;
@@ -280,8 +281,8 @@ Instruction deserialize_instruction(std::span<const uint8_t> bytecode, size_t po
     std::vector<Operand> operands;
     for (const OperandType op_type : inst_format) {
         const auto operand_size = get_operand_type_size_bytes().at(op_type);
-        assert(pos + operand_size <= bytecode_length); // Guaranteed to hold due to
-                                                       //  pos + instruction_size <= bytecode_length
+        // Guaranteed to hold due to pos + instruction_size <= bytecode_length
+        BB_ASSERT_DEBUG(pos + operand_size <= bytecode_length, "Operand size is out of range");
 
         switch (op_type) {
         case OperandType::TAG:
@@ -365,13 +366,13 @@ std::string Instruction::to_string() const
 
 size_t Instruction::size_in_bytes() const
 {
-    assert(get_wire_instruction_spec().contains(opcode));
+    BB_ASSERT_DEBUG(get_wire_instruction_spec().contains(opcode), "Wire instruction spec not found for opcode");
     return get_wire_instruction_spec().at(opcode).size_in_bytes;
 }
 
 ExecutionOpCode Instruction::get_exec_opcode() const
 {
-    assert(get_wire_instruction_spec().contains(opcode));
+    BB_ASSERT_DEBUG(get_wire_instruction_spec().contains(opcode), "Wire instruction spec not found for opcode");
     return get_wire_instruction_spec().at(opcode).exec_opcode;
 }
 
@@ -438,12 +439,12 @@ bool check_tag(const Instruction& instruction)
 
     size_t pos = 0; // Position in instruction operands
 
-    for (size_t i = 0; i < wire_format.size(); i++) {
-        if (wire_format[i] == OperandType::INDIRECT8 || wire_format[i] == OperandType::INDIRECT16) {
+    for (const OperandType& operand_type : wire_format) {
+        if (operand_type == OperandType::INDIRECT8 || operand_type == OperandType::INDIRECT16) {
             continue; // No pos increment
         }
 
-        if (wire_format[i] == OperandType::TAG) {
+        if (operand_type == OperandType::TAG) {
             if (pos >= instruction.operands.size()) {
                 vinfo("Instruction operands size is too small. Tag position: ",
                       pos,
@@ -455,7 +456,7 @@ bool check_tag(const Instruction& instruction)
             }
 
             try {
-                uint8_t tag = instruction.operands.at(pos).as<uint8_t>(); // Cast to uint8_t might throw
+                uint8_t tag = instruction.operands.at(pos).as<uint8_t>(); // Cast to uint8_t might throw CastException
 
                 if (tag > static_cast<uint8_t>(MemoryTag::MAX)) {
                     vinfo("Instruction tag operand at position: ",
@@ -467,8 +468,7 @@ bool check_tag(const Instruction& instruction)
                           instruction.opcode);
                     return false;
                 }
-
-            } catch (const std::runtime_error&) {
+            } catch (const CastException&) {
                 vinfo("Instruction operand at position: ",
                       pos,
                       " is longer than a byte.",

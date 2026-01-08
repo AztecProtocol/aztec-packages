@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 
 use acvm::acir::circuit::Program;
 use noirc_abi::{Abi, AbiErrorType, AbiParameter, AbiType};
-use noirc_errors::debug_info::{DebugInfo, ProgramDebugInfo};
+use noirc_artifacts::debug::{DebugInfo, ProgramDebugInfo};
 use noirc_evaluator::ErrorType;
 
 use crate::instructions::{AvmInstruction, AvmOperand, AvmTypeTag};

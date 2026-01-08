@@ -359,10 +359,10 @@ contract RollupTest is RollupBase {
 
     skipBlobCheck(address(rollup));
 
-    uint256 expectedFee = rollup.getManaBaseFeeAt(Timestamp.wrap(block.timestamp), true);
+    uint256 expectedFee = rollup.getManaMinFeeAt(Timestamp.wrap(block.timestamp), true);
 
     // When not canonical, we expect the fee to be 0
-    vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidManaBaseFee.selector, expectedFee, 1));
+    vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidManaMinFee.selector, expectedFee, 1));
     ProposeArgs memory args = ProposeArgs({header: header, archive: data.archive, oracleInput: OracleInput(0)});
     rollup.propose(
       args,
@@ -427,7 +427,7 @@ contract RollupTest is RollupBase {
   struct TestCheckpointFeeStruct {
     EthValue provingCostPerManaInEth;
     FeeAssetValue provingCostPerManaInFeeAsset;
-    uint128 baseFee;
+    uint128 minFee;
     uint256 feeAmount;
     uint256 portalBalance;
     uint256 manaUsed;
@@ -459,13 +459,13 @@ contract RollupTest is RollupBase {
       assertEq(coinbaseBalance, 0, "invalid initial coinbase balance");
 
       skipBlobCheck(address(rollup));
-      interim.baseFee = SafeCast.toUint128(rollup.getManaBaseFeeAt(Timestamp.wrap(block.timestamp), true));
+      interim.minFee = SafeCast.toUint128(rollup.getManaMinFeeAt(Timestamp.wrap(block.timestamp), true));
 
-      header.gasFees.feePerL2Gas = interim.baseFee;
+      header.gasFees.feePerL2Gas = interim.minFee;
       header.totalManaUsed = interim.manaUsed;
 
       // We mess up the fees and say that someone is paying a massive priority which surpass the amount available.
-      interim.feeAmount = interim.manaUsed * interim.baseFee + interim.portalBalance;
+      interim.feeAmount = interim.manaUsed * interim.minFee + interim.portalBalance;
 
       // Assert that balance have NOT been increased by proposing the checkpoint
       ProposeArgs memory args = ProposeArgs({header: header, archive: data.archive, oracleInput: OracleInput(0)});
@@ -779,7 +779,7 @@ contract RollupTest is RollupBase {
 
     vm.warp(max(block.timestamp, Timestamp.unwrap(realTs)));
 
-    header.gasFees.feePerL2Gas = uint128(rollup.getManaBaseFeeAt(Timestamp.wrap(block.timestamp), true));
+    header.gasFees.feePerL2Gas = uint128(rollup.getManaMinFeeAt(Timestamp.wrap(block.timestamp), true));
 
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__NoBlobsInCheckpoint.selector));
     ProposeArgs memory args = ProposeArgs({header: header, archive: archive, oracleInput: OracleInput(0)});

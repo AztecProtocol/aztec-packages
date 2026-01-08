@@ -294,10 +294,10 @@ describe('veto slash', () => {
       await t.ctx.cheatCodes.eth.stopImpersonating(t.ctx.deployL1ContractsValues.l1ContractAddresses.governanceAddress);
 
       const slasherAddress = await rollup.getSlasherAddress();
-      expect(slasherAddress.toLowerCase()).toEqual(newSlasherAddress.toString().toLowerCase());
+      expect(slasherAddress.toString().toLowerCase()).toEqual(newSlasherAddress.toString().toLowerCase());
       debugLogger.info(`\n\nnew slasher address: ${slasherAddress}\n\n`);
       const slasher = getContract({
-        address: slasherAddress,
+        address: slasherAddress.toString() as `0x${string}`,
         abi: SlasherAbi,
         client: t.ctx.deployL1ContractsValues.l1Client,
       });
@@ -344,7 +344,7 @@ describe('veto slash', () => {
       const attester = privateKeyToAccount(attesterPrivateKey);
       const gseAddress = await rollup.getGSE();
       const gse = getContract({
-        address: gseAddress,
+        address: gseAddress.toString() as `0x${string}`,
         abi: GSEAbi,
         client: t.ctx.deployL1ContractsValues.l1Client,
       });
@@ -363,7 +363,7 @@ describe('veto slash', () => {
       if (shouldVeto) {
         const slasherAddress = await rollup.getSlasherAddress();
         const { receipt } = await vetoerL1TxUtils.sendAndMonitorTransaction({
-          to: slasherAddress,
+          to: slasherAddress.toString() as `0x${string}`,
           data: encodeFunctionData({
             abi: SlasherAbi,
             functionName: 'vetoPayload',

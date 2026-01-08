@@ -59,9 +59,8 @@ TEST_F(CalldataHashingTest, SimpleHash)
 
     EXPECT_CALL(poseidon2, hash(prepended_calldata_fields)).WillOnce(Return(hash));
 
-    auto output_hash = calldata_hasher.compute_calldata_hash(calldata_fields);
+    calldata_hasher.assert_calldata_hash(hash, calldata_fields);
 
-    EXPECT_EQ(output_hash, hash);
     EXPECT_THAT(
         calldata_events.dump_events(),
         AllOf(SizeIs(1),
@@ -77,7 +76,7 @@ TEST_F(CalldataHashingTest, Hash)
     auto hash = RawPoseidon2::hash(prepended_calldata_fields);
     EXPECT_CALL(poseidon2, hash(prepended_calldata_fields)).WillOnce(Return(hash));
 
-    calldata_hasher.compute_calldata_hash(calldata);
+    calldata_hasher.assert_calldata_hash(hash, calldata);
     EXPECT_THAT(
         calldata_events.dump_events(),
         AllOf(SizeIs(1),
@@ -93,7 +92,7 @@ TEST_F(CalldataHashingTest, Empty)
     auto hash = RawPoseidon2::hash(prepended_calldata_fields);
     EXPECT_CALL(poseidon2, hash(prepended_calldata_fields)).WillOnce(Return(hash));
 
-    calldata_hasher.compute_calldata_hash(calldata);
+    calldata_hasher.assert_calldata_hash(hash, calldata);
     EXPECT_THAT(
         calldata_events.dump_events(),
         AllOf(SizeIs(1),

@@ -9,7 +9,6 @@ import type { Logger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 import { AnvilTestWatcher, CheatCodes } from '@aztec/aztec/testing';
-import { createBlobClientWithFileStores } from '@aztec/blob-client/client';
 import { createExtendedL1Client } from '@aztec/ethereum/client';
 import { getL1ContractsConfigEnvVars } from '@aztec/ethereum/config';
 import { deployMulticall3 } from '@aztec/ethereum/contracts';
@@ -410,12 +409,10 @@ async function setupFromFresh(
 
   const telemetry = await getEndToEndTestTelemetryClient(opts.metricsPort);
 
-  const blobClient = await createBlobClientWithFileStores(aztecNodeConfig, createLogger('node:blob-client:client'));
-
   logger.info('Creating and synching an aztec node...');
   const aztecNode = await AztecNodeService.createAndSync(
     aztecNodeConfig,
-    { telemetry, dateProvider, blobClient },
+    { telemetry, dateProvider },
     { prefilledPublicData },
   );
 
@@ -525,12 +522,10 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
 
   const telemetry = await initTelemetryClient(getTelemetryConfig());
 
-  const blobClient = await createBlobClientWithFileStores(aztecNodeConfig, createLogger('node:blob-client:client'));
-
   logger.verbose('Creating aztec node...');
   const aztecNode = await AztecNodeService.createAndSync(
     aztecNodeConfig,
-    { telemetry, dateProvider, blobClient },
+    { telemetry, dateProvider },
     { prefilledPublicData },
   );
 

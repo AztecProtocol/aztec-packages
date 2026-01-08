@@ -464,12 +464,11 @@ constexpr ReturndatasizeWithReturndatacopyMutationConfig
         { ReturndatasizeWithReturndatacopyMutationOptions::rd_start_offset, 1 },
     });
 
-enum class GetContractInstanceMutationOptions { contract_index, contract_address_address, dst_address, member_enum };
-using GetContractInstanceMutationConfig = WeightedSelectionConfig<GetContractInstanceMutationOptions, 4>;
+enum class GetContractInstanceMutationOptions { contract_address_address, dst_address, member_enum };
+using GetContractInstanceMutationConfig = WeightedSelectionConfig<GetContractInstanceMutationOptions, 3>;
 
 constexpr GetContractInstanceMutationConfig BASIC_GETCONTRACTINSTANCE_MUTATION_CONFIGURATION =
     GetContractInstanceMutationConfig({
-        { GetContractInstanceMutationOptions::contract_index, 1 },
         { GetContractInstanceMutationOptions::contract_address_address, 1 },
         { GetContractInstanceMutationOptions::dst_address, 1 },
         { GetContractInstanceMutationOptions::member_enum, 1 },

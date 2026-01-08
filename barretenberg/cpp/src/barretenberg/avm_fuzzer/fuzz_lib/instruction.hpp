@@ -464,7 +464,7 @@ struct GETENVVAR_Instruction {
     AddressRef result_address;
     // msgpack cannot pack enum classes, so we pack that as a uint8_t
     // 0 -> ADDRESS, 1 -> SENDER, 2 -> TRANSACTIONFEE, 3 -> CHAINID, 4 -> VERSION, 5 -> BLOCKNUMBER, 6 -> TIMESTAMP,
-    // 7 -> BASEFEEPERDAGAS, 8 -> BASEFEEPERL2GAS, 9 -> ISSTATICCALL, 10 -> L2GASLEFT, 11 -> DAGASLEFT
+    // 7 -> MINFEEPERDAGAS, 8 -> MINFEEPERL2GAS, 9 -> ISSTATICCALL, 10 -> L2GASLEFT, 11 -> DAGASLEFT
     uint8_t type;
     MSGPACK_FIELDS(result_address, type);
 };
@@ -576,11 +576,10 @@ struct RETURNDATASIZE_WITH_RETURNDATACOPY_Instruction {
 };
 
 struct GETCONTRACTINSTANCE_Instruction {
-    uint16_t contract_index;             // index of the contract in the contract db
-    AddressRef contract_address_address; // where the contract address will be stored
+    ParamRef contract_address_address; // where the contract address will be stored
+    uint8_t member_enum;
     AddressRef dst_address;
-    uint8_t member_enum; // taken modulo 3. 0 -> DEPLOYER, 1 -> CLASS_ID, 2 -> INIT_HASH
-    MSGPACK_FIELDS(contract_index, contract_address_address, dst_address, member_enum);
+    MSGPACK_FIELDS(contract_address_address, member_enum, dst_address);
 };
 
 struct SUCCESSCOPY_Instruction {
@@ -701,9 +700,9 @@ template <class... Ts> struct overloaded : Ts... {
 };
 template <class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
 
-inline std::ostream& operator<<(std::ostream& os, const MemoryTag& tag)
+inline std::ostream& operator<<(std::ostream& os, const MemoryTagWrapper& tag)
 {
-    os << std::to_string(tag);
+    os << tag.value;
     return os;
 }
 

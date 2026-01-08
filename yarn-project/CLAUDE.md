@@ -45,9 +45,7 @@ Run from `yarn-project`:
 2. **Format**: Run on modified packages (`./bootstrap.sh format <package-name>`)
 3. **Lint**: Run on modified packages (`./bootstrap.sh lint <package-name>`)
 4. **Test**: Run unit tests for modified packages
-5. **Breaking Changes**: Update `docs/docs/developers/migration_notes.md` if applicable
-
-If breaking changes: update `docs/docs/developers/migration_notes.md`
+5. **Document**: Update changelog/release notes (see .claude/skills/update-changelog/SKILL.md)
 
 ## Testing
 
@@ -130,7 +128,9 @@ yarn && yarn prepare
 ## Key Packages
 
 ### Server (Node)
+
 Packages that run on Aztec network nodes:
+
 - **aztec-node**: Main entrypoint for running an Aztec node, integrates all server components
 - **sequencer-client**: Builds blocks from pending transactions and coordinates with validators
 - **validator-client**: Handles block validation and attestation signing for consensus
@@ -142,7 +142,9 @@ Packages that run on Aztec network nodes:
 - **slasher**: Subsystem for detecting and collecting slashable offenses
 
 ### Client (Wallet/PXE)
+
 Packages that run on user devices:
+
 - **pxe**: Main client-side library for orchestrating private tx execution and proving
 - **aztec.js**: JavaScript SDK for building dApps, interacting with contracts and accounts
 - **accounts**: Sample account contract implementations (ECDSA, Schnorr, etc.)
@@ -150,7 +152,9 @@ Packages that run on user devices:
 - **entrypoints**: Transaction entrypoint implementations for account abstraction
 
 ### Shared
+
 Core libraries used by both server and client:
+
 - **stdlib**: Protocol-level types (transactions, blocks, proofs) and domain interfaces
 - **foundation**: Low-level utilities (crypto primitives, logging, serialization, async helpers)
 - **constants**: Protocol constants shared between TypeScript and Noir circuits
@@ -200,6 +204,7 @@ When porting PRs between branches, include reference to original PR(s) in the PR
 Every PR is required by CI to consist of a single commit in order to be merged.
 
 For PRs with multiple commits that should be preserved (e.g., porting multiple PRs):
+
 1. Ensure each commit follows conventional commit format
 2. Add label `ci-no-squash` to the PR
 

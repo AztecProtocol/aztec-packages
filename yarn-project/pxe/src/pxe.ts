@@ -156,7 +156,15 @@ export class PXE {
       capsuleStore,
     ]);
 
-    const synchronizer = new BlockSynchronizer(node, anchorBlockStore, noteStore, tipsStore, config, loggerOrSuffix);
+    const synchronizer = new BlockSynchronizer(
+      node,
+      anchorBlockStore,
+      noteStore,
+      privateEventStore,
+      tipsStore,
+      config,
+      loggerOrSuffix,
+    );
 
     const debugUtils = new PXEDebugUtils(contractStore, noteStore);
 

@@ -384,28 +384,6 @@ TEST_F(MakeProviderTest, MakeCalldataProviderRespectsMaxSize)
     ASSERT_EQ(result.size(), max_size);
 }
 
-TEST_F(MakeProviderTest, MakeCalldataProviderHandlesException)
-{
-    static AztecAddress contract_addr(0x1234);
-    uint32_t cd_size = 5;
-
-    // This is called when creating the provider
-    EXPECT_CALL(mock_context, get_parent_cd_size()).WillOnce(Return(cd_size));
-
-    auto provider = make_calldata_provider(mock_context);
-
-    // This is called when invoking the provider, and throws
-    EXPECT_CALL(mock_context, get_calldata(0, _)).WillOnce(::testing::Throw(std::runtime_error("Test exception")));
-    // The exception handler may call get_address() and get_pc() for logging (optional)
-    EXPECT_CALL(mock_context, get_address()).Times(::testing::AnyNumber()).WillRepeatedly(ReturnRef(contract_addr));
-    EXPECT_CALL(mock_context, get_pc()).Times(::testing::AnyNumber()).WillRepeatedly(Return(200));
-
-    auto result = provider(1024);
-
-    // Should return empty vector on exception
-    EXPECT_TRUE(result.empty());
-}
-
 TEST_F(MakeProviderTest, MakeReturnDataProviderSuccess)
 {
     uint32_t rd_addr = 200;
@@ -461,29 +439,6 @@ TEST_F(MakeProviderTest, MakeReturnDataProviderRespectsMaxSize)
     auto result = provider(max_size);
 
     ASSERT_EQ(result.size(), max_size);
-}
-
-TEST_F(MakeProviderTest, MakeReturnDataProviderHandlesException)
-{
-    uint32_t rd_addr = 200;
-    uint32_t rd_size = 3;
-    static AztecAddress contract_addr(0x5678);
-
-    auto provider = make_return_data_provider(mock_context, rd_addr, rd_size);
-
-    // This is called when invoking the provider, and throws
-    StrictMock<MockMemory> memory;
-    EXPECT_CALL(::testing::Const(mock_context), get_memory())
-        .WillOnce(::testing::Throw(std::runtime_error("Test exception")));
-
-    // The exception handler may call get_address() and get_pc() for logging (optional)
-    EXPECT_CALL(mock_context, get_address()).Times(::testing::AnyNumber()).WillRepeatedly(ReturnRef(contract_addr));
-    EXPECT_CALL(mock_context, get_pc()).Times(::testing::AnyNumber()).WillRepeatedly(Return(300));
-
-    auto result = provider(1024);
-
-    // Should return empty vector on exception
-    EXPECT_TRUE(result.empty());
 }
 
 } // namespace

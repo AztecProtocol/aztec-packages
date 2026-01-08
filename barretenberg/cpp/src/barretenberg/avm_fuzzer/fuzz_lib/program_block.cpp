@@ -1291,33 +1291,25 @@ void ProgramBlock::process_getcontractinstance_instruction(GETCONTRACTINSTANCE_I
 #ifdef DISABLE_GETCONTRACTINSTANCE_INSTRUCTION
     return;
 #endif
-    auto contract_address =
-        bb::avm2::fuzzer::ContractDBProxy::get_instance()->get_function_address(instruction.contract_index);
-    auto set_function_address_instruction = SET_FF_Instruction{ .value_tag = bb::avm2::MemoryTag::FF,
-                                                                .result_address = instruction.contract_address_address,
-                                                                .value = contract_address };
-    this->process_set_ff_instruction(set_function_address_instruction);
-    auto contract_address_address_operand =
+    auto contract_address_address =
         memory_manager.get_resolved_address_and_operand_16(instruction.contract_address_address);
-    if (!contract_address_address_operand.has_value()) {
+
+    auto dst_address = memory_manager.get_resolved_address_and_operand_16(instruction.dst_address);
+    if (!contract_address_address.has_value() || !dst_address.has_value()) {
         return;
     }
-    preprocess_memory_addresses(contract_address_address_operand.value().first);
-    auto dst_address_operand = memory_manager.get_resolved_address_and_operand_16(instruction.dst_address);
-    if (!dst_address_operand.has_value()) {
-        return;
-    }
-    preprocess_memory_addresses(dst_address_operand.value().first);
+    preprocess_memory_addresses(contract_address_address.value().first);
+    preprocess_memory_addresses(dst_address.value().first);
+
     auto get_contract_instance_instruction =
         bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::GETCONTRACTINSTANCE)
-            .operand(contract_address_address_operand.value().second)
-            .operand(dst_address_operand.value().second)
-            .operand(
-                static_cast<uint8_t>(instruction.member_enum % 3)) // taking modulo 3 to ensure the member enum is valid
+            .operand(contract_address_address.value().second)
+            .operand(dst_address.value().second)
+            .operand(instruction.member_enum)
             .build();
     instructions.push_back(get_contract_instance_instruction);
-    memory_manager.set_memory_address(bb::avm2::MemoryTag::U1, dst_address_operand.value().first.absolute_address);
-    memory_manager.set_memory_address(bb::avm2::MemoryTag::FF, dst_address_operand.value().first.absolute_address + 1);
+    memory_manager.set_memory_address(bb::avm2::MemoryTag::U1, dst_address.value().first.absolute_address);
+    memory_manager.set_memory_address(bb::avm2::MemoryTag::FF, dst_address.value().first.absolute_address + 1);
 }
 
 void ProgramBlock::process_successcopy_instruction(SUCCESSCOPY_Instruction instruction)

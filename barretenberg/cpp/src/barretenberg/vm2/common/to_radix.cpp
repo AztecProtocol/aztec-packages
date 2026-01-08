@@ -53,7 +53,7 @@ const std::array<std::vector<uint8_t>, 257>& get_p_limbs_per_radix()
 
 size_t get_p_limbs_per_radix_size(size_t radix)
 {
-    assert(radix <= 256);
+    BB_ASSERT_LTE(radix, static_cast<decltype(radix)>(256), "Radix out of bounds");
     return p_limbs_per_radix_sizes[radix];
 }
 

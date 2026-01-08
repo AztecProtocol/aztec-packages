@@ -130,7 +130,7 @@ describe('slash inactivity test', () => {
 
     // Choose the first committee member for the next epoch as the validator to disable
     const { committee, epoch } = await getNextEpochCommittee();
-    offlineValidator = EthAddress.fromString(committee[0]);
+    offlineValidator = committee[0];
 
     // Wait until we're near the end of the previous epoch
     const lastSlotBeforeEpoch = SlotNumber(getSlotRangeForEpoch(epoch, constants)[0] - 1);

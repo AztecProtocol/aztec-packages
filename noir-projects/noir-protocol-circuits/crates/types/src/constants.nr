@@ -572,7 +572,7 @@ pub global BLOCK_ROLLUP_PUBLIC_INPUTS_LENGTH: u32 = CHECKPOINT_CONSTANT_DATA_LEN
     + 2 * APPEND_ONLY_TREE_SNAPSHOT_LENGTH /* previous_archive and new_archive */
     + 2 * STATE_REFERENCE_LENGTH /* start_state and end_state */
     + 2 * SPONGE_BLOB_LENGTH /* start_sponge_blob and end_sponge_blob */
-    + 2 /* start_timestamp and end_timestamp */
+    + 1 /* timestamp */
     + 1 /* block_headers_hash */
     + 1 /* in_hash */
     + 1 /* out_hash */

@@ -10,7 +10,7 @@ MemoryValue PureBitwise::and_op(const MemoryValue& a, const MemoryValue& b)
 {
     try {
         return a & b;
-    } catch (const std::exception& e) {
+    } catch (const TaggedValueException& e) {
         throw BitwiseException("AND, " + std::string(e.what()));
     }
 }
@@ -18,7 +18,7 @@ MemoryValue PureBitwise::or_op(const MemoryValue& a, const MemoryValue& b)
 {
     try {
         return a | b;
-    } catch (const std::exception& e) {
+    } catch (const TaggedValueException& e) {
         throw BitwiseException("OR, " + std::string(e.what()));
     }
 }
@@ -26,7 +26,7 @@ MemoryValue PureBitwise::xor_op(const MemoryValue& a, const MemoryValue& b)
 {
     try {
         return a ^ b;
-    } catch (const std::exception& e) {
+    } catch (const TaggedValueException& e) {
         throw BitwiseException("XOR, " + std::string(e.what()));
     }
 }

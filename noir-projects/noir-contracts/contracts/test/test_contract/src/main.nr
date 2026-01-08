@@ -141,7 +141,7 @@ pub contract Test {
     ) {
         let note = UintNote { value };
         create_note(self.context, owner, storage_slot, note).deliver(
-            MessageDelivery.CONSTRAINED_ONCHAIN,
+            MessageDelivery.ONCHAIN_CONSTRAINED,
         );
 
         if make_tx_hybrid {
@@ -326,7 +326,7 @@ pub contract Test {
             value4: fields[4],
         };
 
-        self.emit(event).deliver_to(owner, MessageDelivery.UNCONSTRAINED_ONCHAIN);
+        self.emit(event).deliver_to(owner, MessageDelivery.ONCHAIN_UNCONSTRAINED);
 
         // this contract has reached max number of functions, so using this one fn
         // to test nested and non nested encrypted logs

@@ -73,7 +73,7 @@ void EccTraceBuilder::process_add(const simulation::EventEmitterInterface<simula
 
         bool use_computed_result = !infinity_predicate && (!p.is_infinity() && !q.is_infinity());
 
-        assert(result_is_infinity == result.is_infinity() && "Inconsistent infinity result assumption");
+        BB_ASSERT_EQ(result_is_infinity, result.is_infinity(), "Inconsistent infinity result assumption");
 
         FF lambda = compute_lambda(double_predicate, add_predicate, result_is_infinity, p, q);
 
@@ -145,7 +145,7 @@ void EccTraceBuilder::process_scalar_mul(
 
             simulation::ScalarMulIntermediateState state = event.intermediate_states[intermediate_state_idx];
             if (is_start) {
-                assert(state.res == event.result);
+                BB_ASSERT_EQ(state.res, event.result, "Inconsistent result assumption");
             }
             EmbeddedCurvePoint res = state.res;
 

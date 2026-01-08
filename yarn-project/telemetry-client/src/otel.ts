@@ -1,16 +1,20 @@
 import { type LogData, type Logger, addLogDataHandler } from '@aztec/foundation/log';
 
 import {
+  type Context,
   DiagConsoleLogger,
   DiagLogLevel,
   type Meter,
+  ROOT_CONTEXT,
   type Tracer,
   type TracerProvider,
   context,
   diag,
   isSpanContextValid,
+  propagation,
   trace,
 } from '@opentelemetry/api';
+import { W3CTraceContextPropagator } from '@opentelemetry/core';
 import { OTLPMetricExporter } from '@opentelemetry/exporter-metrics-otlp-http';
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
 import { HostMetrics } from '@opentelemetry/host-metrics';
@@ -136,6 +140,19 @@ export class OpenTelemetryClient implements TelemetryClient {
       flushAndShutdown(this.loggerProvider),
       this.traceProvider instanceof NodeTracerProvider ? flushAndShutdown(this.traceProvider) : Promise.resolve(),
     ]);
+  }
+
+  public getTraceContext(): string | undefined {
+    const carrier: Record<string, string> = {};
+    propagation.inject(context.active(), carrier);
+    return carrier['traceparent'];
+  }
+
+  public extractPropagatedContext(traceContext: string): Context {
+    const extractedContext = propagation.extract(ROOT_CONTEXT, {
+      traceparent: traceContext,
+    });
+    return extractedContext;
   }
 
   public static createMeterProvider(
@@ -279,7 +296,9 @@ export class OpenTelemetryClient implements TelemetryClient {
           : [],
       });
 
-      tracerProvider.register();
+      tracerProvider.register({
+        propagator: new W3CTraceContextPropagator(),
+      });
 
       const exporters: PeriodicExportingMetricReaderOptions[] = [];
       if (config.metricsCollectorUrl) {

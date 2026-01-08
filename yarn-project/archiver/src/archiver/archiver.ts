@@ -81,6 +81,7 @@ import {
   type TelemetryClient,
   type Traceable,
   type Tracer,
+  execInSpan,
   getTelemetryClient,
   trackSpan,
 } from '@aztec/telemetry-client';
@@ -275,7 +276,7 @@ export class Archiver
       slotDuration,
       ethereumSlotDuration,
       proofSubmissionEpochs: Number(proofSubmissionEpochs),
-      genesisArchiveRoot: Fr.fromHexString(genesisArchiveRoot),
+      genesisArchiveRoot: Fr.fromString(genesisArchiveRoot.toString()),
     };
 
     const opts = merge(
@@ -409,6 +410,7 @@ export class Archiver
     }
   }
 
+  @trackSpan('Archiver.syncFromL1')
   private async syncFromL1() {
     /**
      * We keep track of three "pointers" to L1 blocks:
@@ -555,6 +557,7 @@ export class Archiver
   }
 
   /** Checks if there'd be a reorg for the next checkpoint submission and start pruning now. */
+  @trackSpan('Archiver.handleEpochPrune')
   private async handleEpochPrune(
     provenCheckpointNumber: CheckpointNumber,
     currentL1BlockNumber: bigint,
@@ -628,6 +631,7 @@ export class Archiver
     return [nextStart, nextEnd];
   }
 
+  @trackSpan('Archiver.handleL1ToL2Messages')
   private async handleL1ToL2Messages(
     messagesSyncPoint: L1BlockId,
     currentL1BlockNumber: bigint,
@@ -786,23 +790,24 @@ export class Archiver
     return Buffer32.fromString(block.hash);
   }
 
+  @trackSpan('Archiver.handleCheckpoints')
   private async handleCheckpoints(blocksSynchedTo: bigint, currentL1BlockNumber: bigint): Promise<RollupStatus> {
     const localPendingCheckpointNumber = await this.getSynchedCheckpointNumber();
     const initialValidationResult: ValidateBlockResult | undefined = await this.store.getPendingChainValidationStatus();
-    const [
-      rollupProvenCheckpointNumber,
-      provenArchive,
-      rollupPendingCheckpointNumber,
-      pendingArchive,
-      archiveForLocalPendingCheckpointNumber,
-    ] = await this.rollup.status(localPendingCheckpointNumber, { blockNumber: currentL1BlockNumber });
-    const provenCheckpointNumber = CheckpointNumber.fromBigInt(rollupProvenCheckpointNumber);
-    const pendingCheckpointNumber = CheckpointNumber.fromBigInt(rollupPendingCheckpointNumber);
-    const rollupStatus = {
+    const {
       provenCheckpointNumber,
       provenArchive,
       pendingCheckpointNumber,
       pendingArchive,
+      archiveOfMyCheckpoint: archiveForLocalPendingCheckpointNumber,
+    } = await execInSpan(this.tracer, 'Archiver.getRollupStatus', () =>
+      this.rollup.status(localPendingCheckpointNumber, { blockNumber: currentL1BlockNumber }),
+    );
+    const rollupStatus: RollupStatus = {
+      provenCheckpointNumber,
+      provenArchive: provenArchive.toString(),
+      pendingCheckpointNumber,
+      pendingArchive: pendingArchive.toString(),
       validationResult: initialValidationResult,
     };
     this.log.trace(`Retrieved rollup status at current L1 block ${currentL1BlockNumber}.`, {
@@ -848,14 +853,12 @@ export class Archiver
 
       if (
         localCheckpointForDestinationProvenCheckpointNumber &&
-        provenArchive === localCheckpointForDestinationProvenCheckpointNumber.archive.root.toString()
+        provenArchive.equals(localCheckpointForDestinationProvenCheckpointNumber.archive.root)
       ) {
         const localProvenCheckpointNumber = await this.getProvenCheckpointNumber();
         if (localProvenCheckpointNumber !== provenCheckpointNumber) {
           await this.setProvenCheckpointNumber(provenCheckpointNumber);
-          this.log.info(`Updated proven chain to checkpoint ${provenCheckpointNumber}`, {
-            provenCheckpointNumber,
-          });
+          this.log.info(`Updated proven chain to checkpoint ${provenCheckpointNumber}`, { provenCheckpointNumber });
           const provenSlotNumber = localCheckpointForDestinationProvenCheckpointNumber.header.slotNumber;
           const provenEpochNumber: EpochNumber = getEpochAtSlot(provenSlotNumber, this.l1constants);
           const lastBlockNumberInCheckpoint =
@@ -898,7 +901,7 @@ export class Archiver
       }
 
       const localPendingArchiveRoot = localPendingCheckpoint.archive.root.toString();
-      const noCheckpointSinceLast = localPendingCheckpoint && pendingArchive === localPendingArchiveRoot;
+      const noCheckpointSinceLast = localPendingCheckpoint && pendingArchive.toString() === localPendingArchiveRoot;
       if (noCheckpointSinceLast) {
         // We believe the following line causes a problem when we encounter L1 re-orgs.
         // Basically, by setting the synched L1 block number here, we are saying that we have
@@ -912,7 +915,9 @@ export class Archiver
         return rollupStatus;
       }
 
-      const localPendingCheckpointInChain = archiveForLocalPendingCheckpointNumber === localPendingArchiveRoot;
+      const localPendingCheckpointInChain = archiveForLocalPendingCheckpointNumber.equals(
+        localPendingCheckpoint.archive.root,
+      );
       if (!localPendingCheckpointInChain) {
         // If our local pending checkpoint tip is not in the chain on L1 a "prune" must have happened
         // or the L1 have reorged.
@@ -938,7 +943,7 @@ export class Archiver
               archiveLocal: candidateCheckpoint.archive.root.toString(),
             },
           );
-          if (archiveAtContract === candidateCheckpoint.archive.root.toString()) {
+          if (archiveAtContract.equals(candidateCheckpoint.archive.root)) {
             break;
           }
           tipAfterUnwind--;
@@ -968,17 +973,19 @@ export class Archiver
       this.log.trace(`Retrieving checkpoints from L1 block ${searchStartBlock} to ${searchEndBlock}`);
 
       // TODO(md): Retrieve from blob client then from consensus client, then from peers
-      const retrievedCheckpoints = await retrieveCheckpointsFromRollup(
-        this.rollup.getContract() as GetContractReturnType<typeof RollupAbi, ViemPublicClient>,
-        this.publicClient,
-        this.debugClient,
-        this.blobClient,
-        searchStartBlock, // TODO(palla/reorg): If the L2 reorg was due to an L1 reorg, we need to start search earlier
-        searchEndBlock,
-        this.l1Addresses,
-        this.instrumentation,
-        this.log,
-        !this.initialSyncComplete, // isHistoricalSync
+      const retrievedCheckpoints = await execInSpan(this.tracer, 'Archiver.retrieveCheckpointsFromRollup', () =>
+        retrieveCheckpointsFromRollup(
+          this.rollup.getContract() as GetContractReturnType<typeof RollupAbi, ViemPublicClient>,
+          this.publicClient,
+          this.debugClient,
+          this.blobClient,
+          searchStartBlock, // TODO(palla/reorg): If the L2 reorg was due to an L1 reorg, we need to start search earlier
+          searchEndBlock,
+          this.l1Addresses,
+          this.instrumentation,
+          this.log,
+          !this.initialSyncComplete, // isHistoricalSync
+        ),
       );
 
       if (retrievedCheckpoints.length === 0) {
@@ -1072,7 +1079,11 @@ export class Archiver
       try {
         const updatedValidationResult =
           rollupStatus.validationResult === initialValidationResult ? undefined : rollupStatus.validationResult;
-        const [processDuration] = await elapsed(() => this.addCheckpoints(validCheckpoints, updatedValidationResult));
+        const [processDuration] = await elapsed(() =>
+          execInSpan(this.tracer, 'Archiver.addCheckpoints', () =>
+            this.addCheckpoints(validCheckpoints, updatedValidationResult),
+          ),
+        );
         this.instrumentation.processNewBlocks(
           processDuration / validCheckpoints.length,
           validCheckpoints.flatMap(c => c.checkpoint.blocks),

@@ -19,6 +19,7 @@
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/gadgets/calldata_hashing.hpp"
 #include "barretenberg/vm2/simulation/interfaces/calldata_hashing.hpp"
+#include "barretenberg/vm2/simulation/lib/contract_crypto.hpp"
 #include "barretenberg/vm2/tooling/debugger.hpp"
 #include "barretenberg/vm2/tracegen/calldata_trace.hpp"
 #include "barretenberg/vm2/tracegen/execution_trace.hpp"
@@ -363,7 +364,8 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
     try {
         for (size_t i = 0; i < num_events; i++) {
             auto calldata_interface = calldata_hashing_provider.make_calldata_hasher(context_id++);
-            calldata_interface->compute_calldata_hash(calldata_fields[i]);
+            FF cd_hash = compute_calldata_hash(calldata_fields[i]);
+            calldata_interface->assert_calldata_hash(cd_hash, calldata_fields[i]);
         }
     } catch (const std::exception& e) {
         // If any exception occurs, we cannot proceed further.

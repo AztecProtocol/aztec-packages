@@ -233,7 +233,7 @@ function test_engine_start {
   # parallel will only process the result of job N when it receives a new job *after* job N has completed.
   # This can prevent a "fail fast" situation, or prevent the results from the first batch of commands from showing up.
   # Empty commands fed to run_test_cmd are no-ops, so we keep parallel processing results in timely fashion with this.
-  while ! grep -E '^STOP$' $test_cmds_file; do sleep 5; echo | atomic_append $test_cmds_file; done &
+  while ! grep -Eq '^STOP$' $test_cmds_file; do sleep 5; echo | atomic_append $test_cmds_file; done &
   # Continuously stream the test cmds into parallelize.
   DENOISE=0 parallelize < <(tail -n+0 -f $test_cmds_file)
 }
@@ -430,13 +430,25 @@ function release_github {
   if gh release view "aztec-packages-v$CURRENT_VERSION" &>/dev/null; then
     compare_link=$(echo -e "See changes: https://github.com/AztecProtocol/aztec-packages/compare/aztec-packages-v${CURRENT_VERSION}...${COMMIT_HASH}")
   fi
+  # Determine if this is a prerelease (has a prerelease tag like -rc.1, -alpha, etc.)
+  local is_prerelease=false
+  if [ -n "$(semver prerelease $REF_NAME)" ]; then
+    is_prerelease=true
+  fi
   # Ensure we have a commit release.
   if ! gh release view "$REF_NAME" &>/dev/null; then
+    local prerelease_flag=""
+    if $is_prerelease; then
+      prerelease_flag="--prerelease"
+    fi
     do_or_dryrun gh release create "$REF_NAME" \
-      --prerelease \
+      $prerelease_flag \
       --target $COMMIT_HASH \
       --title "$REF_NAME" \
       --notes "$compare_link"
+  elif ! $is_prerelease; then
+    # Release exists but this is not a prerelease version - ensure it's marked as a full release
+    do_or_dryrun gh release edit "$REF_NAME" --prerelease=false
   fi
 }
 
@@ -609,6 +621,8 @@ case "$cmd" in
     spartan/bootstrap.sh network_deploy "${env_file}"
     # Run benchmarks
     spartan/bootstrap.sh network_bench "${env_file}"
+    rm -rf bench-out
+    mkdir -p bench-out
     bench_merge
     cache_upload spartan-bench-$(git rev-parse HEAD^{tree}).tar.gz bench-out/bench.json
     ;;
