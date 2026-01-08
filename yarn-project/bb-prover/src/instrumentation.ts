@@ -7,7 +7,6 @@ import {
   Metrics,
   type TelemetryClient,
   type Tracer,
-  ValueType,
 } from '@aztec/telemetry-client';
 
 /**
@@ -31,51 +30,21 @@ export class ProverInstrumentation {
     this.tracer = telemetry.getTracer(name);
     const meter = telemetry.getMeter(name);
 
-    this.simulationDuration = meter.createHistogram(Metrics.CIRCUIT_SIMULATION_DURATION, {
-      description: 'Records how long it takes to simulate a circuit',
-      unit: 'ms',
-      valueType: ValueType.INT,
-    });
+    this.simulationDuration = meter.createHistogram(Metrics.CIRCUIT_SIMULATION_DURATION);
 
-    this.witGenDuration = meter.createHistogram(Metrics.CIRCUIT_WITNESS_GEN_DURATION, {
-      description: 'Records how long it takes to generate the partial witness for a circuit',
-      unit: 's',
-      valueType: ValueType.DOUBLE,
-    });
+    this.witGenDuration = meter.createHistogram(Metrics.CIRCUIT_WITNESS_GEN_DURATION);
 
-    this.provingDuration = meter.createHistogram(Metrics.CIRCUIT_PROVING_DURATION, {
-      unit: 's',
-      description: 'Records how long it takes to prove a circuit',
-      valueType: ValueType.DOUBLE,
-    });
+    this.provingDuration = meter.createHistogram(Metrics.CIRCUIT_PROVING_DURATION);
 
-    this.witGenInputSize = meter.createGauge(Metrics.CIRCUIT_WITNESS_GEN_INPUT_SIZE, {
-      unit: 'By',
-      description: 'Records the size of the input to the witness generation',
-      valueType: ValueType.INT,
-    });
+    this.witGenInputSize = meter.createGauge(Metrics.CIRCUIT_WITNESS_GEN_INPUT_SIZE);
 
-    this.witGenOutputSize = meter.createGauge(Metrics.CIRCUIT_WITNESS_GEN_OUTPUT_SIZE, {
-      unit: 'By',
-      description: 'Records the size of the output of the witness generation',
-      valueType: ValueType.INT,
-    });
+    this.witGenOutputSize = meter.createGauge(Metrics.CIRCUIT_WITNESS_GEN_OUTPUT_SIZE);
 
-    this.proofSize = meter.createGauge(Metrics.CIRCUIT_PROVING_PROOF_SIZE, {
-      unit: 'By',
-      description: 'Records the size of the proof generated for a circuit',
-      valueType: ValueType.INT,
-    });
+    this.proofSize = meter.createGauge(Metrics.CIRCUIT_PROVING_PROOF_SIZE);
 
-    this.circuitPublicInputCount = meter.createGauge(Metrics.CIRCUIT_PUBLIC_INPUTS_COUNT, {
-      description: 'Records the number of public inputs in a circuit',
-      valueType: ValueType.INT,
-    });
+    this.circuitPublicInputCount = meter.createGauge(Metrics.CIRCUIT_PUBLIC_INPUTS_COUNT);
 
-    this.circuitSize = meter.createGauge(Metrics.CIRCUIT_SIZE, {
-      description: 'Records the size of the circuit in gates',
-      valueType: ValueType.INT,
-    });
+    this.circuitSize = meter.createGauge(Metrics.CIRCUIT_SIZE);
   }
 
   /**

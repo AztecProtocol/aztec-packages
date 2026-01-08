@@ -4,7 +4,7 @@ import {
   type Context,
   DiagConsoleLogger,
   DiagLogLevel,
-  type Meter,
+  type Meter as OtelMeter,
   ROOT_CONTEXT,
   type Tracer,
   type TracerProvider,
@@ -32,18 +32,67 @@ import { BatchSpanProcessor, NodeTracerProvider } from '@opentelemetry/sdk-trace
 import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from '@opentelemetry/semantic-conventions';
 
 import type { TelemetryClientConfig } from './config.js';
+import type { MetricDefinition } from './metrics.js';
 import { NodejsMetricsMonitor } from './nodejs_metrics_monitor.js';
 import { OtelFilterMetricExporter, PublicOtelFilterMetricExporter } from './otel_filter_metric_exporter.js';
 import { registerOtelLoggerProvider } from './otel_logger_provider.js';
 import { getOtelResource } from './otel_resource.js';
-import type { TelemetryClient } from './telemetry.js';
+import {
+  type Gauge,
+  type Histogram,
+  type Meter,
+  type ObservableGauge,
+  type ObservableUpDownCounter,
+  type TelemetryClient,
+  type UpDownCounter,
+  toMetricOptions,
+} from './telemetry.js';
+
+/** Wraps an OpenTelemetry Meter to implement our custom Meter interface */
+class WrappedMeter implements Meter {
+  constructor(private otelMeter: OtelMeter) {}
+
+  createGauge(metric: MetricDefinition): Gauge {
+    return this.otelMeter.createGauge(metric.name, toMetricOptions(metric));
+  }
+
+  createObservableGauge(metric: MetricDefinition): ObservableGauge {
+    return this.otelMeter.createObservableGauge(metric.name, toMetricOptions(metric));
+  }
+
+  createHistogram(metric: MetricDefinition, extraOptions?: Parameters<Meter['createHistogram']>[1]): Histogram {
+    return this.otelMeter.createHistogram(metric.name, { ...toMetricOptions(metric), ...extraOptions });
+  }
+
+  createUpDownCounter(metric: MetricDefinition): UpDownCounter {
+    return this.otelMeter.createUpDownCounter(metric.name, toMetricOptions(metric));
+  }
+
+  createObservableUpDownCounter(metric: MetricDefinition): ObservableUpDownCounter {
+    return this.otelMeter.createObservableUpDownCounter(metric.name, toMetricOptions(metric));
+  }
+
+  addBatchObservableCallback(
+    callback: Parameters<Meter['addBatchObservableCallback']>[0],
+    observables: Parameters<Meter['addBatchObservableCallback']>[1],
+  ): void {
+    this.otelMeter.addBatchObservableCallback(callback, observables);
+  }
+
+  removeBatchObservableCallback(
+    callback: Parameters<Meter['removeBatchObservableCallback']>[0],
+    observables: Parameters<Meter['removeBatchObservableCallback']>[1],
+  ): void {
+    this.otelMeter.removeBatchObservableCallback(callback, observables);
+  }
+}
 
 export type OpenTelemetryClientFactory = (resource: IResource, log: Logger) => OpenTelemetryClient;
 
 export class OpenTelemetryClient implements TelemetryClient {
   hostMetrics: HostMetrics | undefined;
   nodejsMetricsMonitor: NodejsMetricsMonitor | undefined;
-  private meters: Map<string, Meter> = new Map<string, Meter>();
+  private meters: Map<string, WrappedMeter> = new Map<string, WrappedMeter>();
   private tracers: Map<string, Tracer> = new Map<string, Tracer>();
 
   protected constructor(
@@ -66,7 +115,8 @@ export class OpenTelemetryClient implements TelemetryClient {
   getMeter(name: string): Meter {
     let meter = this.meters.get(name);
     if (!meter) {
-      meter = this.meterProvider.getMeter(name, this.resource.attributes[ATTR_SERVICE_VERSION] as string);
+      const otelMeter = this.meterProvider.getMeter(name, this.resource.attributes[ATTR_SERVICE_VERSION] as string);
+      meter = new WrappedMeter(otelMeter);
       this.meters.set(name, meter);
     }
     return meter;
@@ -104,9 +154,10 @@ export class OpenTelemetryClient implements TelemetryClient {
       meterProvider: this.meterProvider,
     });
 
-    this.nodejsMetricsMonitor = new NodejsMetricsMonitor(
+    const nodejsMeter = new WrappedMeter(
       this.meterProvider.getMeter(this.resource.attributes[ATTR_SERVICE_NAME] as string),
     );
+    this.nodejsMetricsMonitor = new NodejsMetricsMonitor(nodejsMeter);
 
     this.hostMetrics.start();
     this.nodejsMetricsMonitor.start();

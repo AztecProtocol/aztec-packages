@@ -10,7 +10,6 @@ import {
   type ObservableGauge,
   type TelemetryClient,
   type UpDownCounter,
-  ValueType,
   getTelemetryClient,
 } from '@aztec/telemetry-client';
 
@@ -36,49 +35,18 @@ class IVCVerifierMetrics {
   constructor(client: TelemetryClient, name = 'QueuedIVCVerifier') {
     const meter = client.getMeter(name);
 
-    this.ivcVerificationHistogram = meter.createHistogram(Metrics.IVC_VERIFIER_TIME, {
-      unit: 'ms',
-      description: 'Duration to verify chonk proofs',
-      valueType: ValueType.INT,
-    });
+    this.ivcVerificationHistogram = meter.createHistogram(Metrics.IVC_VERIFIER_TIME);
 
-    this.ivcTotalVerificationHistogram = meter.createHistogram(Metrics.IVC_VERIFIER_TOTAL_TIME, {
-      unit: 'ms',
-      description: 'Total duration to verify chonk proofs, including serde',
-      valueType: ValueType.INT,
-    });
+    this.ivcTotalVerificationHistogram = meter.createHistogram(Metrics.IVC_VERIFIER_TOTAL_TIME);
 
-    this.ivcFailureCount = meter.createUpDownCounter(Metrics.IVC_VERIFIER_FAILURE_COUNT, {
-      description: 'Count of failed IVC proof verifications',
-      valueType: ValueType.INT,
-    });
+    this.ivcFailureCount = meter.createUpDownCounter(Metrics.IVC_VERIFIER_FAILURE_COUNT);
 
     this.aggDurationMetrics = {
-      avg: meter.createObservableGauge(Metrics.IVC_VERIFIER_AGG_DURATION_AVG, {
-        valueType: ValueType.DOUBLE,
-        description: 'AVG ivc verification',
-        unit: 'ms',
-      }),
-      max: meter.createObservableGauge(Metrics.IVC_VERIFIER_AGG_DURATION_MAX, {
-        valueType: ValueType.DOUBLE,
-        description: 'MAX ivc verification',
-        unit: 'ms',
-      }),
-      min: meter.createObservableGauge(Metrics.IVC_VERIFIER_AGG_DURATION_MIN, {
-        valueType: ValueType.DOUBLE,
-        description: 'MIN ivc verification',
-        unit: 'ms',
-      }),
-      p50: meter.createObservableGauge(Metrics.IVC_VERIFIER_AGG_DURATION_P50, {
-        valueType: ValueType.DOUBLE,
-        description: 'P50 ivc verification',
-        unit: 'ms',
-      }),
-      p90: meter.createObservableGauge(Metrics.IVC_VERIFIER_AGG_DURATION_P90, {
-        valueType: ValueType.DOUBLE,
-        description: 'P90 ivc verification',
-        unit: 'ms',
-      }),
+      avg: meter.createObservableGauge(Metrics.IVC_VERIFIER_AGG_DURATION_AVG),
+      max: meter.createObservableGauge(Metrics.IVC_VERIFIER_AGG_DURATION_MAX),
+      min: meter.createObservableGauge(Metrics.IVC_VERIFIER_AGG_DURATION_MIN),
+      p50: meter.createObservableGauge(Metrics.IVC_VERIFIER_AGG_DURATION_P50),
+      p90: meter.createObservableGauge(Metrics.IVC_VERIFIER_AGG_DURATION_P90),
     };
 
     meter.addBatchObservableCallback(this.aggregate, Object.values(this.aggDurationMetrics));
