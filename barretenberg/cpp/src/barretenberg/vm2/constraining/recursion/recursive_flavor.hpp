@@ -60,7 +60,8 @@ class AvmRecursiveFlavor {
 
     class VerificationKey : public StdlibVerificationKey_<CircuitBuilder,
                                                           NativeFlavor::PrecomputedEntities<Commitment>,
-                                                          NativeVerificationKey> {
+                                                          NativeVerificationKey,
+                                                          VKSerializationMode::NO_METADATA> {
       public:
         size_t log_fixed_circuit_size = MAX_AVM_TRACE_LOG_SIZE;
         VerificationKey(CircuitBuilder* builder, const std::shared_ptr<NativeVerificationKey>& native_key)

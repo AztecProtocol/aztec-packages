@@ -228,10 +228,14 @@ class AvmFlavor {
 
     class VerificationKey : public NativeVerificationKey_<PrecomputedEntities<Commitment>,
                                                           typename Transcript::Codec,
-                                                          typename Transcript::HashFunction> {
+                                                          typename Transcript::HashFunction,
+                                                          void,
+                                                          VKSerializationMode::NO_METADATA> {
         using Base = NativeVerificationKey_<PrecomputedEntities<Commitment>,
                                             typename Transcript::Codec,
-                                            typename Transcript::HashFunction>;
+                                            typename Transcript::HashFunction,
+                                            void,
+                                            VKSerializationMode::NO_METADATA>;
 
       public:
         static constexpr size_t NUM_PRECOMPUTED_COMMITMENTS = NUM_PRECOMPUTED_ENTITIES;
