@@ -7,7 +7,6 @@
 #include "keccak_constraint.hpp"
 #include "barretenberg/stdlib/hash/keccak/keccak.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
-#include "round.hpp"
 
 namespace acir_format {
 
