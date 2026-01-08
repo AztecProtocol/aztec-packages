@@ -8,8 +8,8 @@
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 #include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/constraining/prover.hpp"
-#include "barretenberg/vm2/constraining/recursion/goblin_avm_recursive_verifier.hpp"
 #include "barretenberg/vm2/constraining/recursion/recursive_flavor.hpp"
+#include "barretenberg/vm2/constraining/recursion/two_layer_avm_recursive_verifier.hpp"
 #include "barretenberg/vm2/constraining/verifier.hpp"
 #include "barretenberg/vm2/proving_helper.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
@@ -65,7 +65,7 @@ class AvmRecursiveTestsParameterized : public AvmRecursiveTests, public ::testin
  * @brief A test of the Goblinized AVM recursive verifier.
  * @details Constructs a simple AVM circuit for which a proof is verified using the Goblinized AVM recursive verifier. A
  * proof is constructed and verified for the outer (Ultra) circuit produced by this algorithm. See the documentation in
- * AvmGoblinRecursiveVerifier for details of the recursive verification algorithm.
+ * TwoLayerAvmRecursiveVerifier for details of the recursive verification algorithm.
  *
  * When pad_proof=true (Padded variant), the proof is padded to AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED to match production
  * behavior where TypeScript pads the proof before passing it to noir circuits.
@@ -123,7 +123,7 @@ TEST_P(AvmRecursiveTestsParameterized, GoblinRecursion)
         std::cout << "Constructing AvmRecursiveVerifier and verifying " << (pad_proof ? "padded " : "") << "proof..."
                   << std::endl;
         std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
-        AvmGoblinRecursiveVerifier avm_rec_verifier(outer_circuit);
+        TwoLayerAvmRecursiveVerifier avm_rec_verifier(outer_circuit);
         auto result = avm_rec_verifier.verify_proof(stdlib_proof, public_inputs_ct);
         std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
         std::cout << "Time taken (recursive verification): "
@@ -219,7 +219,7 @@ TEST_F(AvmRecursiveTests, GoblinRecursionFailsWithWrongPIs)
     {
         std::cout << "Constructing AvmRecursiveVerifier and verifying proof..." << std::endl;
         std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
-        AvmGoblinRecursiveVerifier avm_rec_verifier(outer_circuit);
+        TwoLayerAvmRecursiveVerifier avm_rec_verifier(outer_circuit);
         auto result = avm_rec_verifier.verify_proof(stdlib_proof, public_inputs_ct);
         std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
         std::cout << "Time taken (recursive verification): "

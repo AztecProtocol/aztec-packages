@@ -8,7 +8,7 @@
 #include "barretenberg/stdlib/honk_verifier/ultra_verification_keys_comparator.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
-#include "barretenberg/vm2/constraining/recursion/goblin_avm_recursive_verifier.hpp"
+#include "barretenberg/vm2/constraining/recursion/two_layer_avm_recursive_verifier.hpp"
 #include "barretenberg/vm2/proving_helper.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
 
@@ -16,7 +16,7 @@ namespace bb::stdlib::recursion::honk {
 
 using namespace bb::avm2;
 
-class BoomerangAvmGoblinRecursiveVerifierTests : public ::testing::Test {
+class BoomerangTwoLayerAvmRecursiveVerifierTests : public ::testing::Test {
   public:
     using Builder = UltraCircuitBuilder;
 
@@ -50,7 +50,7 @@ class BoomerangAvmGoblinRecursiveVerifierTests : public ::testing::Test {
  * @brief Construct and check a goblin recursive verification circuit
  *
  */
-TEST_F(BoomerangAvmGoblinRecursiveVerifierTests, graph_description_basic)
+TEST_F(BoomerangTwoLayerAvmRecursiveVerifierTests, graph_description_basic)
 {
     if (avm2::testing::skip_slow_tests()) {
         GTEST_SKIP() << "Skipping slow test";
@@ -80,7 +80,7 @@ TEST_F(BoomerangAvmGoblinRecursiveVerifierTests, graph_description_basic)
     std::vector<std::vector<field_t<Builder>>> public_inputs =
         PublicInputs::flat_to_columns<field_t<Builder>>(stdlib_public_inputs_flat);
 
-    avm2::AvmGoblinRecursiveVerifier goblin_avm_verifier(builder);
+    avm2::TwoLayerAvmRecursiveVerifier goblin_avm_verifier(builder);
     auto output = goblin_avm_verifier.verify_proof(stdlib_proof, public_inputs);
 
     IO inputs;

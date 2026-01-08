@@ -9,9 +9,9 @@
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 #include "barretenberg/vm2/common/avm_io.hpp"
 #include "barretenberg/vm2/constraining/prover.hpp"
-#include "barretenberg/vm2/constraining/recursion/goblin_avm_recursive_verifier.hpp"
 #include "barretenberg/vm2/constraining/recursion/recursive_flavor.hpp"
 #include "barretenberg/vm2/constraining/recursion/recursive_verifier.hpp"
+#include "barretenberg/vm2/constraining/recursion/two_layer_avm_recursive_verifier.hpp"
 #include "barretenberg/vm2/constraining/verifier.hpp"
 #include "barretenberg/vm2/proving_helper.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
@@ -160,8 +160,8 @@ TEST_F(AvmRecursionConstraintTest, GateCountAndVKCheck)
 class AvmRecursionInnerCircuitTests : public ::testing::Test {
   public:
     using Builder = UltraCircuitBuilder;
-    using InnerProverOutput = AvmGoblinRecursiveVerifier::InnerProverOutput;
-    using RecursiveAvmGoblinOutput = AvmGoblinRecursiveVerifier::RecursiveAvmGoblinOutput;
+    using InnerProverOutput = TwoLayerAvmRecursiveVerifier::InnerProverOutput;
+    using RecursiveAvmGoblinOutput = TwoLayerAvmRecursiveVerifier::RecursiveAvmGoblinOutput;
     using FF = Builder::FF;
 
     static constexpr FF EXPECTED_INNER_VK_HASH =
@@ -189,8 +189,8 @@ class AvmRecursionInnerCircuitTests : public ::testing::Test {
         std::vector<std::vector<field_t<Builder>>> public_inputs =
             PublicInputs::flat_to_columns<field_t<Builder>>(stdlib_public_inputs_flat);
         auto [mega_proof, goblin_proof, mega_vk] =
-            AvmGoblinRecursiveVerifier::construct_and_prove_inner_recursive_verification_circuit(stdlib_proof,
-                                                                                                 public_inputs);
+            TwoLayerAvmRecursiveVerifier::construct_and_prove_inner_recursive_verification_circuit(stdlib_proof,
+                                                                                                   public_inputs);
 
         return { stdlib_proof, public_inputs, { mega_proof, goblin_proof, mega_vk } };
     }
@@ -223,7 +223,7 @@ TEST_F(AvmRecursionInnerCircuitTests, GateCountAndVKCheck)
         PublicInputs::flat_to_columns<field_t<Builder>>(stdlib_public_inputs_flat);
 
     MegaCircuitBuilder inner_builder;
-    AvmGoblinRecursiveVerifier::construct_inner_recursive_verification_circuit(
+    TwoLayerAvmRecursiveVerifier::construct_inner_recursive_verification_circuit(
         inner_builder, stdlib_proof, public_inputs);
 
     auto mega_proving_key = std::make_shared<MegaAvmProverInstance>(inner_builder);
@@ -255,7 +255,7 @@ TEST_F(AvmRecursionInnerCircuitTests, Tampering)
         auto mega_proof_tampered = inner_prover_output.mega_proof;
         mega_proof_tampered[0] += FF::one(); // Tamper with the first public input
 
-        AvmGoblinRecursiveVerifier goblin_avm_verifier(outer_builder);
+        TwoLayerAvmRecursiveVerifier goblin_avm_verifier(outer_builder);
         RecursiveAvmGoblinOutput output = goblin_avm_verifier.construct_outer_recursive_verification_circuit(
             stdlib_proof,
             public_inputs,
@@ -278,7 +278,7 @@ TEST_F(AvmRecursionInnerCircuitTests, Tampering)
         auto goblin_proof_tampered = inner_prover_output.goblin_proof;
         goblin_proof_tampered.eccvm_proof[op_eval_idx] += FF(1);
 
-        AvmGoblinRecursiveVerifier goblin_avm_verifier(outer_builder);
+        TwoLayerAvmRecursiveVerifier goblin_avm_verifier(outer_builder);
         RecursiveAvmGoblinOutput output = goblin_avm_verifier.construct_outer_recursive_verification_circuit(
             stdlib_proof,
             public_inputs,
@@ -295,7 +295,7 @@ TEST_F(AvmRecursionInnerCircuitTests, Tampering)
         auto mega_vk_tampered = inner_prover_output.mega_vk;
         mega_vk_tampered->q_m = mega_vk_tampered->q_m + MegaAvmFlavor::Commitment::one(); // Tamper with q_m commitment
 
-        AvmGoblinRecursiveVerifier goblin_avm_verifier(outer_builder);
+        TwoLayerAvmRecursiveVerifier goblin_avm_verifier(outer_builder);
         RecursiveAvmGoblinOutput output = goblin_avm_verifier.construct_outer_recursive_verification_circuit(
             stdlib_proof,
             public_inputs,

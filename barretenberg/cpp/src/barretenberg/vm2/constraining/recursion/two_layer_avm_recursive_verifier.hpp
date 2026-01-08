@@ -45,7 +45,7 @@ namespace bb::avm2 {
  * corresponding to proofs {\pi_M, \pi_G} to be circuit constants in C_U.
  *
  */
-class AvmGoblinRecursiveVerifier {
+class TwoLayerAvmRecursiveVerifier {
   public:
     using MegaPairingPoints = bb::stdlib::recursion::PairingPoints<stdlib::bn254<MegaCircuitBuilder>>;
 
@@ -66,7 +66,7 @@ class AvmGoblinRecursiveVerifier {
     UltraCircuitBuilder* outer_builder;
 
   public:
-    explicit AvmGoblinRecursiveVerifier(UltraCircuitBuilder& builder)
+    explicit TwoLayerAvmRecursiveVerifier(UltraCircuitBuilder& builder)
         : outer_builder(&builder) {};
     /**
      * @brief Recursively verify an AVM proof using Goblin and two layers of recursive verification.

@@ -18,9 +18,9 @@
 #include "barretenberg/vm2/common/avm_io.hpp"
 #include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/constants.hpp"
-#include "barretenberg/vm2/constraining/recursion/goblin_avm_recursive_verifier.hpp"
 #include "barretenberg/vm2/constraining/recursion/recursive_flavor.hpp"
 #include "barretenberg/vm2/constraining/recursion/recursive_verifier.hpp"
+#include "barretenberg/vm2/constraining/recursion/two_layer_avm_recursive_verifier.hpp"
 
 #include <cstddef>
 
@@ -38,7 +38,7 @@ using namespace bb;
 HonkRecursionConstraintOutput<UltraCircuitBuilder> create_avm2_recursion_constraints_goblin(
     UltraCircuitBuilder& builder, const RecursionConstraint& input)
 {
-    using RecursiveVerifier = avm2::AvmGoblinRecursiveVerifier;
+    using RecursiveVerifier = avm2::TwoLayerAvmRecursiveVerifier;
 
     BB_ASSERT_EQ(input.proof_type, AVM);
 
@@ -54,7 +54,7 @@ HonkRecursionConstraintOutput<UltraCircuitBuilder> create_avm2_recursion_constra
     // Execute the Goblin AVM2 recursive verifier
     RecursiveVerifier verifier(builder);
 
-    bb::avm2::AvmGoblinRecursiveVerifier::RecursiveAvmGoblinOutput output =
+    bb::avm2::TwoLayerAvmRecursiveVerifier::RecursiveAvmGoblinOutput output =
         verifier.verify_proof(proof_fields, bb::avm2::PublicInputs::flat_to_columns(public_inputs_flattened));
 
     return output;
