@@ -202,19 +202,29 @@ namespace execution;
     #[PARENT_ID_NEXT_DEFAULT_ROW]
     NOT_LAST_EXEC * DEFAULT_CTX_ROW * (parent_id' - parent_id) = 0;
 
+    // =============================
+    //         PC and NEXT_PC
+    // =============================
+
     // `instr_length` is from execution.pil and constrained when `sel_instruction_fetching_success == 1`.
     #[NEXT_PC]
     sel_instruction_fetching_success * (pc + instr_length - next_pc) = 0;
 
-    // nested_exit_call = 1 ==> constraints come from lookup
+    // Initialization: enqueued_call_start = 1 ==> pc = 0;
+    // Propagation:
     // sel_enter_call   = 1 ==> pc' = 0
-    // internal_call    = 1 ==> pc' = resolved operand 0
-    // internal_return  = 1 ==> pc' = internal_call_return_pc (from internal_call.pil)
+    // nested_exit_call = 1 ==> constraints come from lookups (#[CTX_STACK_ROLLBACK] and #[CTX_STACK_RETURN])
+    // internal_call    = 1 ==> pc' = rop[0] (#[PC_NEXT_ROW_INT_CALL_JUMP] execution.pil)
+    // internal_return  = 1 ==> pc' = internal_call_stack.return_pc (#[UNWIND_CALL_STACK] internal_call.pil)
+    // jump             = 1 ==> pc' = rop[0] (#[PC_NEXT_ROW_INT_CALL_JUMP] execution.pil)
+    // jumpi            = 1 ==> pc' = register[0] ? rop[1] : next_pc (#[PC_NEXT_ROW_JUMPI] execution.pil)
     // otherwise        = 0 ==> pc' = next_pc
-    #[PC_NEXT_ROW_DEFAULT]
-    NOT_LAST_EXEC * DEFAULT_CTX_ROW * (1 - PC_JUMP) * (pc' - next_pc) = 0;
+    // Note: There is no propagation constraint when `enqueued_call_end == 1` because the next active
+    //       row (enqueued_call_start == 1) is initialized.
     #[PC_NEXT_ROW_EXT_CALL]
     sel' * (sel_enter_call + enqueued_call_start') * pc' = 0;
+    #[PC_NEXT_ROW_DEFAULT]
+    NOT_LAST_EXEC * DEFAULT_CTX_ROW * (1 - PC_JUMP) * (pc' - next_pc) = 0;
 
     // nested_exit_call = 1 ==> constraints come from lookup
     // sel_enter_call   = 1 ==> msg_sender' = contract_address
