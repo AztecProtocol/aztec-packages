@@ -14,16 +14,9 @@ namespace bb::avm2::fuzzer {
 
 class FuzzerContext {
   public:
-    FuzzerContext();
-    ~FuzzerContext();
-
-    // Disable copy (owns FuzzerContractDB)
-    FuzzerContext(const FuzzerContext&) = delete;
-    FuzzerContext& operator=(const FuzzerContext&) = delete;
-
-    // Enable move
-    FuzzerContext(FuzzerContext&& other) noexcept;
-    FuzzerContext& operator=(FuzzerContext&& other) noexcept;
+    FuzzerContext()
+        : contract_db_(std::make_unique<FuzzerContractDB>())
+    {}
 
     // ---- Mutable API (for top-level fuzzers) ----
 

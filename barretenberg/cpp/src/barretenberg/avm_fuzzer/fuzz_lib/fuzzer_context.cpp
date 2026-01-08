@@ -48,26 +48,6 @@ ContractInstance create_default_instance(const ContractClassId& class_id)
 
 } // anonymous namespace
 
-FuzzerContext::FuzzerContext()
-    : contract_db_(std::make_unique<FuzzerContractDB>())
-{}
-
-FuzzerContext::~FuzzerContext() = default;
-
-FuzzerContext::FuzzerContext(FuzzerContext&& other) noexcept
-    : contract_addresses_(std::move(other.contract_addresses_))
-    , contract_db_(std::move(other.contract_db_))
-{}
-
-FuzzerContext& FuzzerContext::operator=(FuzzerContext&& other) noexcept
-{
-    if (this != &other) {
-        contract_addresses_ = std::move(other.contract_addresses_);
-        contract_db_ = std::move(other.contract_db_);
-    }
-    return *this;
-}
-
 FF FuzzerContext::register_contract_from_bytecode(const std::vector<uint8_t>& bytecode)
 {
     auto default_class = create_default_class(bytecode);
