@@ -25,12 +25,10 @@ template <typename Builder> void create_blake2s_constraints(Builder& builder, co
         auto witness_index = witness_index_num_bits.blackbox_input;
         field_ct element = to_field_ct(witness_index, builder);
 
-        // num_bytes = ceil(witness_index_num_bits.num_bits/8). Here, num_bits is set to 8 when constructing the vector
-        // of inputs in the Blake2s constraint. Hence, we set num_bytes = 1.
-        uint32_t num_bytes = 1;
-
-        // byte_array_ct(field, num_bytes) constructor adds range constraints for each byte
-        byte_array_ct element_bytes(element, num_bytes);
+        // byte_array_ct(field, num_bytes) constructor adds range constraints for each byte. Note that num_bytes =
+        // ceil(witness_index_num_bits.num_bits/8). Here, num_bits is set to 8 when constructing the vector of inputs in
+        // the Blake2s constraint. Hence, we set num_bytes = 1.
+        byte_array_ct element_bytes(element, 1);
 
         // Safe write: both arr and element_bytes are constrained
         arr.write(element_bytes);
