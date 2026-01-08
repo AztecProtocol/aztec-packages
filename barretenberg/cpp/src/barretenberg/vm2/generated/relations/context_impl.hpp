@@ -517,95 +517,179 @@ void contextImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
                     static_cast<View>(in.get(C::execution_prev_da_gas_used_shift)));
         std::get<68>(evals) += (tmp * scaling_factor);
     }
-    { // NOTE_HASH_TREE_ROOT_CONTINUITY
+    { // NOTE_HASH_TREE_ROOT_ON_ENTER_CALL
         using View = typename std::tuple_element_t<69, ContainerOverSubrelations>::View;
-        auto tmp = CView(execution_NOT_LAST_EXEC) * CView(execution_DEFAULT_OR_NESTED_RETURN) *
+        auto tmp = CView(execution_NOT_LAST_EXEC) * static_cast<View>(in.get(C::execution_sel_enter_call)) *
                    (static_cast<View>(in.get(C::execution_note_hash_tree_root)) -
                     static_cast<View>(in.get(C::execution_prev_note_hash_tree_root_shift)));
         std::get<69>(evals) += (tmp * scaling_factor);
     }
-    { // NOTE_HASH_TREE_SIZE_CONTINUITY
+    { // NOTE_HASH_TREE_SIZE_ON_ENTER_CALL
         using View = typename std::tuple_element_t<70, ContainerOverSubrelations>::View;
-        auto tmp = CView(execution_NOT_LAST_EXEC) * CView(execution_DEFAULT_OR_NESTED_RETURN) *
+        auto tmp = CView(execution_NOT_LAST_EXEC) * static_cast<View>(in.get(C::execution_sel_enter_call)) *
                    (static_cast<View>(in.get(C::execution_note_hash_tree_size)) -
                     static_cast<View>(in.get(C::execution_prev_note_hash_tree_size_shift)));
         std::get<70>(evals) += (tmp * scaling_factor);
     }
-    { // NUM_NOTE_HASHES_EMITTED_CONTINUITY
+    { // NUM_NOTE_HASHES_EMITTED_ON_ENTER_CALL
         using View = typename std::tuple_element_t<71, ContainerOverSubrelations>::View;
-        auto tmp = CView(execution_NOT_LAST_EXEC) * CView(execution_DEFAULT_OR_NESTED_RETURN) *
+        auto tmp = CView(execution_NOT_LAST_EXEC) * static_cast<View>(in.get(C::execution_sel_enter_call)) *
                    (static_cast<View>(in.get(C::execution_num_note_hashes_emitted)) -
                     static_cast<View>(in.get(C::execution_prev_num_note_hashes_emitted_shift)));
         std::get<71>(evals) += (tmp * scaling_factor);
     }
-    { // NULLIFIER_TREE_ROOT_CONTINUITY
+    { // NULLIFIER_TREE_ROOT_ON_ENTER_CALL
         using View = typename std::tuple_element_t<72, ContainerOverSubrelations>::View;
-        auto tmp = CView(execution_NOT_LAST_EXEC) * CView(execution_DEFAULT_OR_NESTED_RETURN) *
+        auto tmp = CView(execution_NOT_LAST_EXEC) * static_cast<View>(in.get(C::execution_sel_enter_call)) *
                    (static_cast<View>(in.get(C::execution_nullifier_tree_root)) -
                     static_cast<View>(in.get(C::execution_prev_nullifier_tree_root_shift)));
         std::get<72>(evals) += (tmp * scaling_factor);
     }
-    { // NULLIFIER_TREE_SIZE_CONTINUITY
+    { // NULLIFIER_TREE_SIZE_ON_ENTER_CALL
         using View = typename std::tuple_element_t<73, ContainerOverSubrelations>::View;
-        auto tmp = CView(execution_NOT_LAST_EXEC) * CView(execution_DEFAULT_OR_NESTED_RETURN) *
+        auto tmp = CView(execution_NOT_LAST_EXEC) * static_cast<View>(in.get(C::execution_sel_enter_call)) *
                    (static_cast<View>(in.get(C::execution_nullifier_tree_size)) -
                     static_cast<View>(in.get(C::execution_prev_nullifier_tree_size_shift)));
         std::get<73>(evals) += (tmp * scaling_factor);
     }
-    { // NUM_NULLIFIERS_EMITTED_CONTINUITY
+    { // NUM_NULLIFIERS_EMITTED_ON_ENTER_CALL
         using View = typename std::tuple_element_t<74, ContainerOverSubrelations>::View;
-        auto tmp = CView(execution_NOT_LAST_EXEC) * CView(execution_DEFAULT_OR_NESTED_RETURN) *
+        auto tmp = CView(execution_NOT_LAST_EXEC) * static_cast<View>(in.get(C::execution_sel_enter_call)) *
                    (static_cast<View>(in.get(C::execution_num_nullifiers_emitted)) -
                     static_cast<View>(in.get(C::execution_prev_num_nullifiers_emitted_shift)));
         std::get<74>(evals) += (tmp * scaling_factor);
     }
-    { // PUBLIC_DATA_TREE_ROOT_CONTINUITY
+    { // PUBLIC_DATA_TREE_ROOT_ON_ENTER_CALL
         using View = typename std::tuple_element_t<75, ContainerOverSubrelations>::View;
-        auto tmp = CView(execution_NOT_LAST_EXEC) * CView(execution_DEFAULT_OR_NESTED_RETURN) *
+        auto tmp = CView(execution_NOT_LAST_EXEC) * static_cast<View>(in.get(C::execution_sel_enter_call)) *
                    (static_cast<View>(in.get(C::execution_public_data_tree_root)) -
                     static_cast<View>(in.get(C::execution_prev_public_data_tree_root_shift)));
         std::get<75>(evals) += (tmp * scaling_factor);
     }
-    { // PUBLIC_DATA_TREE_SIZE_CONTINUITY
+    { // PUBLIC_DATA_TREE_SIZE_ON_ENTER_CALL
         using View = typename std::tuple_element_t<76, ContainerOverSubrelations>::View;
-        auto tmp = CView(execution_NOT_LAST_EXEC) * CView(execution_DEFAULT_OR_NESTED_RETURN) *
+        auto tmp = CView(execution_NOT_LAST_EXEC) * static_cast<View>(in.get(C::execution_sel_enter_call)) *
                    (static_cast<View>(in.get(C::execution_public_data_tree_size)) -
                     static_cast<View>(in.get(C::execution_prev_public_data_tree_size_shift)));
         std::get<76>(evals) += (tmp * scaling_factor);
     }
-    { // WRITTEN_PUBLIC_DATA_SLOTS_TREE_ROOT_CONTINUITY
+    { // WRITTEN_PUBLIC_DATA_SLOTS_TREE_ROOT_ON_ENTER_CALL
         using View = typename std::tuple_element_t<77, ContainerOverSubrelations>::View;
-        auto tmp = CView(execution_NOT_LAST_EXEC) * CView(execution_DEFAULT_OR_NESTED_RETURN) *
+        auto tmp = CView(execution_NOT_LAST_EXEC) * static_cast<View>(in.get(C::execution_sel_enter_call)) *
                    (static_cast<View>(in.get(C::execution_written_public_data_slots_tree_root)) -
                     static_cast<View>(in.get(C::execution_prev_written_public_data_slots_tree_root_shift)));
         std::get<77>(evals) += (tmp * scaling_factor);
     }
-    { // WRITTEN_PUBLIC_DATA_SLOTS_TREE_SIZE_CONTINUITY
+    { // WRITTEN_PUBLIC_DATA_SLOTS_TREE_SIZE_ON_ENTER_CALL
         using View = typename std::tuple_element_t<78, ContainerOverSubrelations>::View;
-        auto tmp = CView(execution_NOT_LAST_EXEC) * CView(execution_DEFAULT_OR_NESTED_RETURN) *
+        auto tmp = CView(execution_NOT_LAST_EXEC) * static_cast<View>(in.get(C::execution_sel_enter_call)) *
                    (static_cast<View>(in.get(C::execution_written_public_data_slots_tree_size)) -
                     static_cast<View>(in.get(C::execution_prev_written_public_data_slots_tree_size_shift)));
         std::get<78>(evals) += (tmp * scaling_factor);
     }
-    { // L1_L2_TREE_ROOT_CONTINUITY
+    { // NUM_UNENCRYPTED_LOGS_ON_ENTER_CALL
         using View = typename std::tuple_element_t<79, ContainerOverSubrelations>::View;
-        auto tmp = CView(execution_NOT_LAST_EXEC) * (static_cast<View>(in.get(C::execution_l1_l2_tree_root)) -
-                                                     static_cast<View>(in.get(C::execution_l1_l2_tree_root_shift)));
+        auto tmp = CView(execution_NOT_LAST_EXEC) * static_cast<View>(in.get(C::execution_sel_enter_call)) *
+                   (static_cast<View>(in.get(C::execution_num_unencrypted_log_fields)) -
+                    static_cast<View>(in.get(C::execution_prev_num_unencrypted_log_fields_shift)));
         std::get<79>(evals) += (tmp * scaling_factor);
     }
-    { // NUM_UNENCRYPTED_LOGS_CONTINUITY
+    { // NUM_L2_TO_L1_MESSAGES_ON_ENTER_CALL
         using View = typename std::tuple_element_t<80, ContainerOverSubrelations>::View;
+        auto tmp = CView(execution_NOT_LAST_EXEC) * static_cast<View>(in.get(C::execution_sel_enter_call)) *
+                   (static_cast<View>(in.get(C::execution_num_l2_to_l1_messages)) -
+                    static_cast<View>(in.get(C::execution_prev_num_l2_to_l1_messages_shift)));
+        std::get<80>(evals) += (tmp * scaling_factor);
+    }
+    { // NOTE_HASH_TREE_ROOT_CONTINUITY
+        using View = typename std::tuple_element_t<81, ContainerOverSubrelations>::View;
+        auto tmp = CView(execution_NOT_LAST_EXEC) * CView(execution_DEFAULT_OR_NESTED_RETURN) *
+                   (static_cast<View>(in.get(C::execution_note_hash_tree_root)) -
+                    static_cast<View>(in.get(C::execution_prev_note_hash_tree_root_shift)));
+        std::get<81>(evals) += (tmp * scaling_factor);
+    }
+    { // NOTE_HASH_TREE_SIZE_CONTINUITY
+        using View = typename std::tuple_element_t<82, ContainerOverSubrelations>::View;
+        auto tmp = CView(execution_NOT_LAST_EXEC) * CView(execution_DEFAULT_OR_NESTED_RETURN) *
+                   (static_cast<View>(in.get(C::execution_note_hash_tree_size)) -
+                    static_cast<View>(in.get(C::execution_prev_note_hash_tree_size_shift)));
+        std::get<82>(evals) += (tmp * scaling_factor);
+    }
+    { // NUM_NOTE_HASHES_EMITTED_CONTINUITY
+        using View = typename std::tuple_element_t<83, ContainerOverSubrelations>::View;
+        auto tmp = CView(execution_NOT_LAST_EXEC) * CView(execution_DEFAULT_OR_NESTED_RETURN) *
+                   (static_cast<View>(in.get(C::execution_num_note_hashes_emitted)) -
+                    static_cast<View>(in.get(C::execution_prev_num_note_hashes_emitted_shift)));
+        std::get<83>(evals) += (tmp * scaling_factor);
+    }
+    { // NULLIFIER_TREE_ROOT_CONTINUITY
+        using View = typename std::tuple_element_t<84, ContainerOverSubrelations>::View;
+        auto tmp = CView(execution_NOT_LAST_EXEC) * CView(execution_DEFAULT_OR_NESTED_RETURN) *
+                   (static_cast<View>(in.get(C::execution_nullifier_tree_root)) -
+                    static_cast<View>(in.get(C::execution_prev_nullifier_tree_root_shift)));
+        std::get<84>(evals) += (tmp * scaling_factor);
+    }
+    { // NULLIFIER_TREE_SIZE_CONTINUITY
+        using View = typename std::tuple_element_t<85, ContainerOverSubrelations>::View;
+        auto tmp = CView(execution_NOT_LAST_EXEC) * CView(execution_DEFAULT_OR_NESTED_RETURN) *
+                   (static_cast<View>(in.get(C::execution_nullifier_tree_size)) -
+                    static_cast<View>(in.get(C::execution_prev_nullifier_tree_size_shift)));
+        std::get<85>(evals) += (tmp * scaling_factor);
+    }
+    { // NUM_NULLIFIERS_EMITTED_CONTINUITY
+        using View = typename std::tuple_element_t<86, ContainerOverSubrelations>::View;
+        auto tmp = CView(execution_NOT_LAST_EXEC) * CView(execution_DEFAULT_OR_NESTED_RETURN) *
+                   (static_cast<View>(in.get(C::execution_num_nullifiers_emitted)) -
+                    static_cast<View>(in.get(C::execution_prev_num_nullifiers_emitted_shift)));
+        std::get<86>(evals) += (tmp * scaling_factor);
+    }
+    { // PUBLIC_DATA_TREE_ROOT_CONTINUITY
+        using View = typename std::tuple_element_t<87, ContainerOverSubrelations>::View;
+        auto tmp = CView(execution_NOT_LAST_EXEC) * CView(execution_DEFAULT_OR_NESTED_RETURN) *
+                   (static_cast<View>(in.get(C::execution_public_data_tree_root)) -
+                    static_cast<View>(in.get(C::execution_prev_public_data_tree_root_shift)));
+        std::get<87>(evals) += (tmp * scaling_factor);
+    }
+    { // PUBLIC_DATA_TREE_SIZE_CONTINUITY
+        using View = typename std::tuple_element_t<88, ContainerOverSubrelations>::View;
+        auto tmp = CView(execution_NOT_LAST_EXEC) * CView(execution_DEFAULT_OR_NESTED_RETURN) *
+                   (static_cast<View>(in.get(C::execution_public_data_tree_size)) -
+                    static_cast<View>(in.get(C::execution_prev_public_data_tree_size_shift)));
+        std::get<88>(evals) += (tmp * scaling_factor);
+    }
+    { // WRITTEN_PUBLIC_DATA_SLOTS_TREE_ROOT_CONTINUITY
+        using View = typename std::tuple_element_t<89, ContainerOverSubrelations>::View;
+        auto tmp = CView(execution_NOT_LAST_EXEC) * CView(execution_DEFAULT_OR_NESTED_RETURN) *
+                   (static_cast<View>(in.get(C::execution_written_public_data_slots_tree_root)) -
+                    static_cast<View>(in.get(C::execution_prev_written_public_data_slots_tree_root_shift)));
+        std::get<89>(evals) += (tmp * scaling_factor);
+    }
+    { // WRITTEN_PUBLIC_DATA_SLOTS_TREE_SIZE_CONTINUITY
+        using View = typename std::tuple_element_t<90, ContainerOverSubrelations>::View;
+        auto tmp = CView(execution_NOT_LAST_EXEC) * CView(execution_DEFAULT_OR_NESTED_RETURN) *
+                   (static_cast<View>(in.get(C::execution_written_public_data_slots_tree_size)) -
+                    static_cast<View>(in.get(C::execution_prev_written_public_data_slots_tree_size_shift)));
+        std::get<90>(evals) += (tmp * scaling_factor);
+    }
+    { // L1_L2_TREE_ROOT_CONTINUITY
+        using View = typename std::tuple_element_t<91, ContainerOverSubrelations>::View;
+        auto tmp = CView(execution_NOT_LAST_EXEC) * (static_cast<View>(in.get(C::execution_l1_l2_tree_root)) -
+                                                     static_cast<View>(in.get(C::execution_l1_l2_tree_root_shift)));
+        std::get<91>(evals) += (tmp * scaling_factor);
+    }
+    { // NUM_UNENCRYPTED_LOGS_CONTINUITY
+        using View = typename std::tuple_element_t<92, ContainerOverSubrelations>::View;
         auto tmp = CView(execution_NOT_LAST_EXEC) * CView(execution_DEFAULT_OR_NESTED_RETURN) *
                    (static_cast<View>(in.get(C::execution_num_unencrypted_log_fields)) -
                     static_cast<View>(in.get(C::execution_prev_num_unencrypted_log_fields_shift)));
-        std::get<80>(evals) += (tmp * scaling_factor);
+        std::get<92>(evals) += (tmp * scaling_factor);
     }
     { // NUM_L2_TO_L1_MESSAGES_CONTINUITY
-        using View = typename std::tuple_element_t<81, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<93, ContainerOverSubrelations>::View;
         auto tmp = CView(execution_NOT_LAST_EXEC) * CView(execution_DEFAULT_OR_NESTED_RETURN) *
                    (static_cast<View>(in.get(C::execution_num_l2_to_l1_messages)) -
                     static_cast<View>(in.get(C::execution_prev_num_l2_to_l1_messages_shift)));
-        std::get<81>(evals) += (tmp * scaling_factor);
+        std::get<93>(evals) += (tmp * scaling_factor);
     }
 }
 

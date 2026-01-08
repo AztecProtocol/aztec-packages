@@ -534,6 +534,34 @@ namespace execution;
     NOT_LAST_EXEC * sel_enter_call * prev_da_gas_used' = 0;
     #[DA_GAS_USED_INGEST_AFTER_EXIT]
     NOT_LAST_EXEC * nested_exit_call * (parent_da_gas_used + da_gas_used - prev_da_gas_used') = 0;
+
+    // Tree and side effect state must be inherited when entering a nested call.
+    // The nested call starts with the same tree state as the parent at the point of the CALL.
+    #[NOTE_HASH_TREE_ROOT_ON_ENTER_CALL]
+    NOT_LAST_EXEC * sel_enter_call * (note_hash_tree_root - prev_note_hash_tree_root') = 0;
+    #[NOTE_HASH_TREE_SIZE_ON_ENTER_CALL]
+    NOT_LAST_EXEC * sel_enter_call * (note_hash_tree_size - prev_note_hash_tree_size') = 0;
+    #[NUM_NOTE_HASHES_EMITTED_ON_ENTER_CALL]
+    NOT_LAST_EXEC * sel_enter_call * (num_note_hashes_emitted - prev_num_note_hashes_emitted') = 0;
+    #[NULLIFIER_TREE_ROOT_ON_ENTER_CALL]
+    NOT_LAST_EXEC * sel_enter_call * (nullifier_tree_root - prev_nullifier_tree_root') = 0;
+    #[NULLIFIER_TREE_SIZE_ON_ENTER_CALL]
+    NOT_LAST_EXEC * sel_enter_call * (nullifier_tree_size - prev_nullifier_tree_size') = 0;
+    #[NUM_NULLIFIERS_EMITTED_ON_ENTER_CALL]
+    NOT_LAST_EXEC * sel_enter_call * (num_nullifiers_emitted - prev_num_nullifiers_emitted') = 0;
+    #[PUBLIC_DATA_TREE_ROOT_ON_ENTER_CALL]
+    NOT_LAST_EXEC * sel_enter_call * (public_data_tree_root - prev_public_data_tree_root') = 0;
+    #[PUBLIC_DATA_TREE_SIZE_ON_ENTER_CALL]
+    NOT_LAST_EXEC * sel_enter_call * (public_data_tree_size - prev_public_data_tree_size') = 0;
+    #[WRITTEN_PUBLIC_DATA_SLOTS_TREE_ROOT_ON_ENTER_CALL]
+    NOT_LAST_EXEC * sel_enter_call * (written_public_data_slots_tree_root - prev_written_public_data_slots_tree_root') = 0;
+    #[WRITTEN_PUBLIC_DATA_SLOTS_TREE_SIZE_ON_ENTER_CALL]
+    NOT_LAST_EXEC * sel_enter_call * (written_public_data_slots_tree_size - prev_written_public_data_slots_tree_size') = 0;
+    #[NUM_UNENCRYPTED_LOGS_ON_ENTER_CALL]
+    NOT_LAST_EXEC * sel_enter_call * (num_unencrypted_log_fields - prev_num_unencrypted_log_fields') = 0;
+    #[NUM_L2_TO_L1_MESSAGES_ON_ENTER_CALL]
+    NOT_LAST_EXEC * sel_enter_call * (num_l2_to_l1_messages - prev_num_l2_to_l1_messages') = 0;
+
     // Tree and sideffect state should not change in default rows and nested returns.
     // In top level exits, the state is constrained by the tx > execution lookup
     // In nested reverts, the state is constrained by the rollback_context lookup

@@ -14,10 +14,10 @@ template <typename FF_> class contextImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 82> SUBRELATION_PARTIAL_LENGTHS = {
-        2, 2, 3, 4, 3, 3, 4, 5, 5, 5, 5, 5, 3, 6, 4, 5, 5, 5, 5, 5, 3, 5, 6, 6, 5, 5, 3, 5,
-        5, 6, 5, 3, 5, 6, 5, 3, 5, 3, 5, 5, 3, 5, 5, 5, 3, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
-        5, 5, 4, 4, 3, 3, 3, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 4, 5, 5
+    static constexpr std::array<size_t, 94> SUBRELATION_PARTIAL_LENGTHS = {
+        2, 2, 3, 4, 3, 3, 4, 5, 5, 5, 5, 5, 3, 6, 4, 5, 5, 5, 5, 5, 3, 5, 6, 6, 5, 5, 3, 5, 5, 6, 5, 3,
+        5, 6, 5, 3, 5, 3, 5, 5, 3, 5, 5, 5, 3, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 4, 4, 3, 3, 3, 5,
+        5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 4, 5, 5
     };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
@@ -94,19 +94,31 @@ template <typename FF> class context : public Relation<contextImpl<FF>> {
     static constexpr size_t SR_DA_GAS_USED_CONTINUITY = 66;
     static constexpr size_t SR_DA_GAS_USED_ZERO_AFTER_CALL = 67;
     static constexpr size_t SR_DA_GAS_USED_INGEST_AFTER_EXIT = 68;
-    static constexpr size_t SR_NOTE_HASH_TREE_ROOT_CONTINUITY = 69;
-    static constexpr size_t SR_NOTE_HASH_TREE_SIZE_CONTINUITY = 70;
-    static constexpr size_t SR_NUM_NOTE_HASHES_EMITTED_CONTINUITY = 71;
-    static constexpr size_t SR_NULLIFIER_TREE_ROOT_CONTINUITY = 72;
-    static constexpr size_t SR_NULLIFIER_TREE_SIZE_CONTINUITY = 73;
-    static constexpr size_t SR_NUM_NULLIFIERS_EMITTED_CONTINUITY = 74;
-    static constexpr size_t SR_PUBLIC_DATA_TREE_ROOT_CONTINUITY = 75;
-    static constexpr size_t SR_PUBLIC_DATA_TREE_SIZE_CONTINUITY = 76;
-    static constexpr size_t SR_WRITTEN_PUBLIC_DATA_SLOTS_TREE_ROOT_CONTINUITY = 77;
-    static constexpr size_t SR_WRITTEN_PUBLIC_DATA_SLOTS_TREE_SIZE_CONTINUITY = 78;
-    static constexpr size_t SR_L1_L2_TREE_ROOT_CONTINUITY = 79;
-    static constexpr size_t SR_NUM_UNENCRYPTED_LOGS_CONTINUITY = 80;
-    static constexpr size_t SR_NUM_L2_TO_L1_MESSAGES_CONTINUITY = 81;
+    static constexpr size_t SR_NOTE_HASH_TREE_ROOT_ON_ENTER_CALL = 69;
+    static constexpr size_t SR_NOTE_HASH_TREE_SIZE_ON_ENTER_CALL = 70;
+    static constexpr size_t SR_NUM_NOTE_HASHES_EMITTED_ON_ENTER_CALL = 71;
+    static constexpr size_t SR_NULLIFIER_TREE_ROOT_ON_ENTER_CALL = 72;
+    static constexpr size_t SR_NULLIFIER_TREE_SIZE_ON_ENTER_CALL = 73;
+    static constexpr size_t SR_NUM_NULLIFIERS_EMITTED_ON_ENTER_CALL = 74;
+    static constexpr size_t SR_PUBLIC_DATA_TREE_ROOT_ON_ENTER_CALL = 75;
+    static constexpr size_t SR_PUBLIC_DATA_TREE_SIZE_ON_ENTER_CALL = 76;
+    static constexpr size_t SR_WRITTEN_PUBLIC_DATA_SLOTS_TREE_ROOT_ON_ENTER_CALL = 77;
+    static constexpr size_t SR_WRITTEN_PUBLIC_DATA_SLOTS_TREE_SIZE_ON_ENTER_CALL = 78;
+    static constexpr size_t SR_NUM_UNENCRYPTED_LOGS_ON_ENTER_CALL = 79;
+    static constexpr size_t SR_NUM_L2_TO_L1_MESSAGES_ON_ENTER_CALL = 80;
+    static constexpr size_t SR_NOTE_HASH_TREE_ROOT_CONTINUITY = 81;
+    static constexpr size_t SR_NOTE_HASH_TREE_SIZE_CONTINUITY = 82;
+    static constexpr size_t SR_NUM_NOTE_HASHES_EMITTED_CONTINUITY = 83;
+    static constexpr size_t SR_NULLIFIER_TREE_ROOT_CONTINUITY = 84;
+    static constexpr size_t SR_NULLIFIER_TREE_SIZE_CONTINUITY = 85;
+    static constexpr size_t SR_NUM_NULLIFIERS_EMITTED_CONTINUITY = 86;
+    static constexpr size_t SR_PUBLIC_DATA_TREE_ROOT_CONTINUITY = 87;
+    static constexpr size_t SR_PUBLIC_DATA_TREE_SIZE_CONTINUITY = 88;
+    static constexpr size_t SR_WRITTEN_PUBLIC_DATA_SLOTS_TREE_ROOT_CONTINUITY = 89;
+    static constexpr size_t SR_WRITTEN_PUBLIC_DATA_SLOTS_TREE_SIZE_CONTINUITY = 90;
+    static constexpr size_t SR_L1_L2_TREE_ROOT_CONTINUITY = 91;
+    static constexpr size_t SR_NUM_UNENCRYPTED_LOGS_CONTINUITY = 92;
+    static constexpr size_t SR_NUM_L2_TO_L1_MESSAGES_CONTINUITY = 93;
 
     static std::string get_subrelation_label(size_t index)
     {
@@ -221,6 +233,30 @@ template <typename FF> class context : public Relation<contextImpl<FF>> {
             return "DA_GAS_USED_ZERO_AFTER_CALL";
         case SR_DA_GAS_USED_INGEST_AFTER_EXIT:
             return "DA_GAS_USED_INGEST_AFTER_EXIT";
+        case SR_NOTE_HASH_TREE_ROOT_ON_ENTER_CALL:
+            return "NOTE_HASH_TREE_ROOT_ON_ENTER_CALL";
+        case SR_NOTE_HASH_TREE_SIZE_ON_ENTER_CALL:
+            return "NOTE_HASH_TREE_SIZE_ON_ENTER_CALL";
+        case SR_NUM_NOTE_HASHES_EMITTED_ON_ENTER_CALL:
+            return "NUM_NOTE_HASHES_EMITTED_ON_ENTER_CALL";
+        case SR_NULLIFIER_TREE_ROOT_ON_ENTER_CALL:
+            return "NULLIFIER_TREE_ROOT_ON_ENTER_CALL";
+        case SR_NULLIFIER_TREE_SIZE_ON_ENTER_CALL:
+            return "NULLIFIER_TREE_SIZE_ON_ENTER_CALL";
+        case SR_NUM_NULLIFIERS_EMITTED_ON_ENTER_CALL:
+            return "NUM_NULLIFIERS_EMITTED_ON_ENTER_CALL";
+        case SR_PUBLIC_DATA_TREE_ROOT_ON_ENTER_CALL:
+            return "PUBLIC_DATA_TREE_ROOT_ON_ENTER_CALL";
+        case SR_PUBLIC_DATA_TREE_SIZE_ON_ENTER_CALL:
+            return "PUBLIC_DATA_TREE_SIZE_ON_ENTER_CALL";
+        case SR_WRITTEN_PUBLIC_DATA_SLOTS_TREE_ROOT_ON_ENTER_CALL:
+            return "WRITTEN_PUBLIC_DATA_SLOTS_TREE_ROOT_ON_ENTER_CALL";
+        case SR_WRITTEN_PUBLIC_DATA_SLOTS_TREE_SIZE_ON_ENTER_CALL:
+            return "WRITTEN_PUBLIC_DATA_SLOTS_TREE_SIZE_ON_ENTER_CALL";
+        case SR_NUM_UNENCRYPTED_LOGS_ON_ENTER_CALL:
+            return "NUM_UNENCRYPTED_LOGS_ON_ENTER_CALL";
+        case SR_NUM_L2_TO_L1_MESSAGES_ON_ENTER_CALL:
+            return "NUM_L2_TO_L1_MESSAGES_ON_ENTER_CALL";
         case SR_NOTE_HASH_TREE_ROOT_CONTINUITY:
             return "NOTE_HASH_TREE_ROOT_CONTINUITY";
         case SR_NOTE_HASH_TREE_SIZE_CONTINUITY:
