@@ -9,35 +9,21 @@ import {
 import { GlobalVariables, TreeSnapshots } from '@aztec/stdlib/tx';
 import { NativeWorldStateService } from '@aztec/world-state';
 
-import { writeSync } from 'fs';
 import { createInterface } from 'readline';
 
 import { AvmFuzzerSimulator, FuzzerSimulationRequest } from './avm_fuzzer_simulator.js';
 
-/**
- * Write all data to stdout, handling partial writes and EAGAIN.
- * Apparently unix pipe buffer are ~ 64KB, so large writes need to be chunked.
- * When the buffer is full, we get EAGAIN and need to retry.
- */
-function writeAllSync(data: string): void {
-  let offset = 0;
-  while (offset < data.length) {
-    try {
-      const bytesWritten = writeSync(1, data.slice(offset));
-      offset += bytesWritten;
-    } catch (err: any) {
-      if (err.code === 'EAGAIN') {
-        // Pipe buffer full, wait a bit and retry- this should happen rarely
-        // Can't use a setTimeout or sleep here since we are in a sync function - Gross
-        const start = Date.now();
-        while (Date.now() - start < 1) {
-          // Spin for ~1ms to let the reader consume some data
-        }
-        continue;
+/** Write data to stdout, letting Node handle buffering. */
+function writeOutput(data: string): Promise<void> {
+  return new Promise<void>((resolve, reject) => {
+    process.stdout.write(data, err => {
+      if (err) {
+        reject(err);
+      } else {
+        resolve();
       }
-      throw err;
-    }
-  }
+    });
+  });
 }
 
 // This cache holds opened world states to avoid reopening them for each invocation.
@@ -123,8 +109,7 @@ async function execute(base64Line: string): Promise<void> {
       endTreeSnapshots: result.publicInputs.endTreeSnapshots,
     });
     const base64Response = resultBuffer.toString('base64') + '\n';
-    // Write all data, handling partial writes and EAGAIN (pipe buffer is only 64KB)
-    writeAllSync(base64Response);
+    await writeOutput(base64Response);
   } catch (error: any) {
     // If we error, treat as reverted
     const errorResult = serializeWithMessagePack({
@@ -133,7 +118,7 @@ async function execute(base64Line: string): Promise<void> {
       revertReason: `Unexpected Error ${error.message}`,
       endTreeSnapshots: TreeSnapshots.empty(),
     });
-    writeAllSync(errorResult.toString('base64') + '\n');
+    await writeOutput(errorResult.toString('base64') + '\n');
   }
 }
 
