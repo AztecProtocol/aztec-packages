@@ -248,11 +248,16 @@ export class PXE {
 
     return this.jobQueue.put(async () => {
       const jobId = this.jobCoordinator.beginJob();
+      this.log.verbose(`Beginning job ${jobId}`);
+
       try {
         const result = await fn(jobId);
+        this.log.verbose(`Committing job ${jobId}`);
+
         await this.jobCoordinator.commitJob(jobId);
         return result;
       } catch (err) {
+        this.log.verbose(`Aborting job ${jobId}`);
         await this.jobCoordinator.abortJob(jobId);
         throw err;
       }
