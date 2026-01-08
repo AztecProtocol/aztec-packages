@@ -31,6 +31,7 @@
  *
  * @packageDocumentation
  */
+import { jsonStringify } from '@aztec/foundation/json-rpc';
 
 /**
  * Exported public key in JWK format for transmission over untrusted channels.
@@ -217,7 +218,7 @@ export function deriveSharedKey(privateKey: CryptoKey, publicKey: CryptoKey): Pr
  */
 export async function encrypt(key: CryptoKey, data: unknown): Promise<EncryptedPayload> {
   const iv = crypto.getRandomValues(new Uint8Array(12));
-  const encoded = new TextEncoder().encode(JSON.stringify(data));
+  const encoded = new TextEncoder().encode(jsonStringify(data));
 
   const ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, encoded);
 
