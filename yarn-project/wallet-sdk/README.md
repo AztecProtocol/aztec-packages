@@ -9,6 +9,7 @@ All types and utilities needed for wallet integration are exported from `@aztec/
 ```typescript
 import type {
   ChainInfo,
+  ConnectRequest,
   DiscoveryRequest,
   DiscoveryResponse,
   WalletInfo,
@@ -18,15 +19,30 @@ import type {
 import { ChainInfoSchema, WalletSchema, jsonStringify } from '@aztec/wallet-sdk/manager';
 ```
 
+Cryptographic utilities for secure channel establishment are exported from `@aztec/wallet-sdk/crypto`:
+
+```typescript
+import type { EncryptedPayload, ExportedPublicKey } from '@aztec/wallet-sdk/crypto';
+import {
+  decrypt,
+  deriveSharedKey,
+  encrypt,
+  exportPublicKey,
+  generateKeyPair,
+  importPublicKey,
+} from '@aztec/wallet-sdk/crypto';
+```
+
 ## Overview
 
-The Wallet SDK uses a **request-based discovery** model:
+The Wallet SDK uses a **request-based discovery** model with **end-to-end encryption**:
 
 1. **dApp requests wallets** for a specific chain/version via `WalletManager.getAvailableWallets({ chainInfo })`
 2. **SDK broadcasts** a discovery message with chain information
-3. **Your wallet responds** ONLY if it supports that specific network
+3. **Your wallet responds** ONLY if it supports that specific network, including its ECDH public key
 4. **dApp receives** only compatible wallets
-5. **dApp calls wallet methods** which your wallet handles and responds to
+5. **dApp establishes secure channel** via ECDH key exchange (see [Secure Channel](#secure-channel))
+6. **All subsequent communication** is encrypted using AES-256-GCM
 
 ### Transport Mechanisms
 
@@ -116,7 +132,18 @@ If your wallet supports the network, respond with your wallet information:
 ```typescript
 import { jsonStringify } from '@aztec/wallet-sdk/manager';
 
-function respondToDiscovery(requestId: string) {
+// Your wallet should generate and store a key pair on initialization
+let walletKeyPair: CryptoKeyPair;
+
+async function initializeWallet() {
+  // Generate ECDH key pair for secure channel establishment
+  walletKeyPair = await generateKeyPair();
+}
+
+async function respondToDiscovery(requestId: string) {
+  // Export the public key for sharing with dApps
+  const publicKey = await exportPublicKey(walletKeyPair.publicKey);
+
   const response = {
     type: 'aztec-wallet-discovery-response',
     requestId,
@@ -125,6 +152,7 @@ function respondToDiscovery(requestId: string) {
       name: 'My Aztec Wallet', // Display name
       icon: 'https://example.com/icon.png', // Optional icon URL
       version: '1.0.0', // Wallet version
+      publicKey, // ECDH public key for secure channel (required)
     },
   };
 
@@ -142,6 +170,145 @@ function respondToDiscovery(requestId: string) {
 - Both the SDK and wallets must parse incoming JSON strings
 - Always use `jsonStringify` from `@aztec/foundation/json-rpc` for sending messages
 - Always parse incoming messages with `JSON.parse` and the proper schemas
+- The `publicKey` field is required for secure channel establishment
+
+## Secure Channel
+
+After discovery, the dApp establishes a secure encrypted channel with your wallet using ECDH key exchange and AES-256-GCM encryption. This ensures all wallet method calls and responses are encrypted end-to-end.
+
+### Security Model
+
+- **ECDH Key Exchange**: Uses P-256 (secp256r1) elliptic curve for key agreement
+- **AES-256-GCM Encryption**: All messages after channel establishment are encrypted
+- **Per-Session Keys**: Each connection derives a unique shared secret
+- **MessageChannel (Extension wallets)**: Uses a private MessagePort for communication, not visible to other page scripts
+
+### 1. Handle Connection Requests
+
+When a dApp connects, it sends a `ConnectRequest` containing its ECDH public key:
+
+```typescript
+interface ConnectRequest {
+  type: 'aztec-wallet-connect';
+  walletId: string; // Your wallet's ID
+  appId: string; // Application identifier
+  publicKey: ExportedPublicKey; // dApp's ECDH public key
+}
+```
+
+**Extension wallet example:**
+
+```typescript
+import { decrypt, deriveSharedKey, encrypt, importPublicKey } from '@aztec/wallet-sdk/crypto';
+
+// Store connections by appId
+const connections = new Map<string, { sharedKey: CryptoKey }>();
+
+window.addEventListener('message', async event => {
+  if (event.source !== window) return;
+
+  const data = JSON.parse(event.data);
+
+  if (data.type === 'aztec-wallet-connect') {
+    await handleConnect(data, event.ports[0]);
+  }
+});
+
+async function handleConnect(request: ConnectRequest, port: MessagePort) {
+  // Import dApp's public key
+  const dappPublicKey = await importPublicKey(request.publicKey);
+
+  // Derive shared secret using our private key and dApp's public key
+  const sharedKey = await deriveSharedKey(walletKeyPair.privateKey, dappPublicKey);
+
+  // Store the connection
+  connections.set(request.appId, { sharedKey });
+
+  // Set up encrypted message handler on the MessagePort
+  port.onmessage = async event => {
+    await handleEncryptedMessage(request.appId, event.data);
+  };
+
+  port.start();
+}
+```
+
+### 2. Handle Encrypted Messages
+
+All wallet method calls arrive as encrypted payloads:
+
+```typescript
+interface EncryptedPayload {
+  iv: string; // Base64-encoded initialization vector
+  ciphertext: string; // Base64-encoded encrypted data
+}
+```
+
+Decrypt incoming messages and encrypt responses:
+
+```typescript
+async function handleEncryptedMessage(appId: string, encrypted: EncryptedPayload) {
+  const connection = connections.get(appId);
+  if (!connection) {
+    console.error('Unknown connection');
+    return;
+  }
+
+  try {
+    // Decrypt the incoming message
+    const message = await decrypt<WalletMessage>(connection.sharedKey, encrypted);
+
+    const { type, messageId, args, chainInfo, walletId } = message;
+
+    // Process the wallet method call
+    const wallet = await getWalletForChain(chainInfo);
+    const result = await wallet[type](...args);
+
+    // Create response
+    const response: WalletResponse = {
+      messageId,
+      result,
+      walletId,
+    };
+
+    // Encrypt and send the response
+    const encryptedResponse = await encrypt(connection.sharedKey, response);
+    sendEncryptedResponse(appId, encryptedResponse);
+  } catch (error) {
+    // Send encrypted error response
+    const errorResponse: WalletResponse = {
+      messageId: message?.messageId ?? '',
+      error: { message: error.message },
+      walletId: message?.walletId ?? '',
+    };
+
+    const encryptedError = await encrypt(connection.sharedKey, errorResponse);
+    sendEncryptedResponse(appId, encryptedError);
+  }
+}
+```
+
+### 3. Extension Wallet Architecture
+
+For browser extension wallets, the recommended architecture separates concerns:
+
+```
+┌─────────────┐    window.postMessage    ┌─────────────────┐    browser.runtime   ┌──────────────────┐
+│   dApp      │◄────────────────────────►│  Content Script │◄────────────────────►│ Background Script│
+│ (web page)  │    (discovery only)      │  (message relay)│    (encrypted msgs)  │ (decrypt+process)│
+└─────────────┘                          └─────────────────┘                      └──────────────────┘
+       │                                            │
+       │         MessagePort (private channel)      │
+       └────────────────────────────────────────────┘
+                (encrypted wallet method calls)
+```
+
+**Security benefits:**
+
+- Content script never has access to private keys or shared secrets
+- All cryptographic operations happen in the background script (service worker)
+- MessagePort provides a private channel not visible to other page scripts
+- Only the initial connection handshake uses `window.postMessage`
 
 ## Message Format
 
@@ -183,115 +350,6 @@ Your wallet must respond with:
 }
 ```
 
-## Handling Wallet Methods
-
-### 1. Set Up Message Listener
-
-**Extension wallet example:**
-
-```typescript
-window.addEventListener('message', event => {
-  if (event.source !== window) {
-    return;
-  }
-
-  let data;
-  try {
-    data = JSON.parse(event.data);
-  } catch {
-    return; // Not a valid JSON message
-  }
-
-  // Handle discovery
-  if (data.type === 'aztec-wallet-discovery') {
-    handleDiscovery(data);
-    return;
-  }
-
-  // Handle wallet methods
-  if (data.messageId && data.type && data.walletId === 'my-aztec-wallet') {
-    handleWalletMethod(data);
-  }
-});
-
-// Using WebSocket:
-// websocket.on('message', (message) => {
-//   const data = JSON.parse(message);
-//   if (data.type === 'aztec-wallet-discovery') {
-//     handleDiscovery(data);
-//   } else if (data.messageId && data.type) {
-//     handleWalletMethod(data);
-//   }
-// });
-```
-
-### 2. Route to Wallet Implementation
-
-```typescript
-import { ChainInfoSchema } from '@aztec/wallet-sdk/manager';
-
-async function handleWalletMethod(message: any) {
-  const { type, messageId, args, chainInfo, appId, walletId } = message;
-
-  try {
-    // Parse and validate chain info
-    const parsedChainInfo = ChainInfoSchema.parse(chainInfo);
-
-    // Get the wallet instance for this chain
-    const wallet = await getWalletForChain(parsedChainInfo);
-
-    // Verify the method exists on the Wallet interface
-    if (typeof wallet[type] !== 'function') {
-      throw new Error(`Unknown wallet method: ${type}`);
-    }
-
-    // Call the wallet method
-    const result = await wallet[type](...args);
-
-    // Send success response
-    sendResponse(messageId, walletId, result);
-  } catch (error) {
-    // Send error response
-    sendError(messageId, walletId, error);
-  }
-}
-```
-
-### 3. Send Response
-
-**Extension wallet example:**
-
-```typescript
-import { jsonStringify } from '@aztec/wallet-sdk/manager';
-
-function sendResponse(messageId: string, walletId: string, result: unknown) {
-  const response = {
-    messageId,
-    result,
-    walletId,
-  };
-
-  // Send as JSON string
-  window.postMessage(jsonStringify(response), '*');
-}
-
-function sendError(messageId: string, walletId: string, error: Error) {
-  const response = {
-    messageId,
-    error: {
-      message: error.message,
-      stack: error.stack,
-    },
-    walletId,
-  };
-
-  window.postMessage(jsonStringify(response), '*');
-}
-
-// Using WebSocket:
-// websocket.send(jsonStringify({ messageId, result, walletId }));
-```
-
 ## Parsing Messages
 
 ### Using Zod Schemas
@@ -331,37 +389,12 @@ Always send error responses with this structure:
 
 ### Common Error Scenarios
 
-```typescript
-import { ChainInfoSchema } from '@aztec/wallet-sdk/manager';
+Common errors to handle within the encrypted message handler:
 
-async function handleWalletMethod(message: any) {
-  const { type, messageId, args, chainInfo, walletId } = message;
-
-  try {
-    // 1. Parse and validate chain info
-    const parsedChainInfo = ChainInfoSchema.parse(chainInfo);
-
-    // 2. Check network support
-    if (!isNetworkSupported(parsedChainInfo)) {
-      throw new Error('Network not supported by wallet');
-    }
-
-    // 3. Get wallet instance
-    const wallet = await getWalletForChain(parsedChainInfo);
-
-    // 4. Validate method exists
-    if (typeof wallet[type] !== 'function') {
-      throw new Error(`Unknown wallet method: ${type}`);
-    }
-
-    // 5. Execute method
-    const result = await wallet[type](...args);
-    sendResponse(messageId, walletId, result);
-  } catch (error) {
-    sendError(messageId, walletId, error);
-  }
-}
-```
+- **Network not supported**: Chain info doesn't match wallet's supported networks
+- **Unknown method**: The requested wallet method doesn't exist
+- **Invalid arguments**: Method arguments fail validation
+- **User rejection**: User declined the transaction or action
 
 ### User Rejection Handling
 

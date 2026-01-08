@@ -9,13 +9,7 @@ export type {
 } from './types.js';
 
 // Re-export types from providers for convenience
-export type {
-  WalletInfo,
-  WalletMessage,
-  WalletResponse,
-  DiscoveryRequest,
-  DiscoveryResponse,
-} from '../providers/types.js';
+export type { WalletInfo, WalletMessage, WalletResponse, DiscoveryRequest, DiscoveryResponse } from '../types.js';
 
 // Re-export commonly needed utilities for wallet integration
 export { ChainInfoSchema } from '@aztec/aztec.js/account';
