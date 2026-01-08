@@ -34,6 +34,7 @@ jobs:
           - staging-public
           - staging-ignition
           - next-net
+          - tps-scenario
           - testnet
           - devnet
           - devnet-next
