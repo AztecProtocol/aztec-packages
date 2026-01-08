@@ -69,7 +69,7 @@ template <typename FF> class keccak_memory : public Relation<keccak_memoryImpl<F
     static constexpr size_t SR_VAL13 = 32;
     static constexpr size_t SR_VAL14 = 33;
     static constexpr size_t SR_VAL15 = 34;
-    static constexpr size_t SR_VAL41 = 35;
+    static constexpr size_t SR_VAL16 = 35;
     static constexpr size_t SR_VAL17 = 36;
     static constexpr size_t SR_VAL18 = 37;
     static constexpr size_t SR_VAL19 = 38;
@@ -144,8 +144,8 @@ template <typename FF> class keccak_memory : public Relation<keccak_memoryImpl<F
             return "VAL14";
         case SR_VAL15:
             return "VAL15";
-        case SR_VAL41:
-            return "VAL41";
+        case SR_VAL16:
+            return "VAL16";
         case SR_VAL17:
             return "VAL17";
         case SR_VAL18:
