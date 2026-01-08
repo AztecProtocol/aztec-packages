@@ -37,7 +37,7 @@ void AddressDerivation::assert_derivation(const AztecAddress& address, const Con
     EmbeddedCurvePoint preaddress_public_key = ecc.scalar_mul(EmbeddedCurvePoint::one(), preaddress);
     EmbeddedCurvePoint address_point = ecc.add(preaddress_public_key, instance.public_keys.incoming_viewing_key);
 
-    assert(address == address_point.x());
+    BB_ASSERT_EQ(address, address_point.x(), "Address derivation mismatch");
 
     // Cache this derivation so we don't repeat it
     cached_derivations.insert(address);

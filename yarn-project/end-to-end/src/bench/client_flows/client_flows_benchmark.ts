@@ -439,7 +439,7 @@ export class ClientFlowsBenchmark {
   public async getPrivateFPCPaymentMethodForWallet(wallet: Wallet, sender: AztecAddress) {
     // The private fee paying method assembled on the app side requires knowledge of the maximum
     // fee the user is willing to pay
-    const maxFeesPerGas = (await this.aztecNode.getCurrentBaseFees()).mul(1.5);
+    const maxFeesPerGas = (await this.aztecNode.getCurrentMinFees()).mul(1.5);
     const gasSettings = GasSettings.default({ maxFeesPerGas });
     return new PrivateFeePaymentMethod(this.bananaFPC.address, sender, wallet, gasSettings);
   }

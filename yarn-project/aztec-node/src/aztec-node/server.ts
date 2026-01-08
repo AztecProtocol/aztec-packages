@@ -629,11 +629,11 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
   }
 
   /**
-   * Method to fetch the current base fees.
-   * @returns The current base fees.
+   * Method to fetch the current min L2 fees.
+   * @returns The current min L2 fees.
    */
-  public async getCurrentBaseFees(): Promise<GasFees> {
-    return await this.globalVariableBuilder.getCurrentBaseFees();
+  public async getCurrentMinFees(): Promise<GasFees> {
+    return await this.globalVariableBuilder.getCurrentMinFees();
   }
 
   public async getMaxPriorityFees(): Promise<GasFees> {
@@ -1245,7 +1245,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       l1ChainId: this.l1ChainId,
       rollupVersion: this.version,
       setupAllowList: this.config.txPublicSetupAllowList ?? (await getDefaultAllowedSetupFunctions()),
-      gasFees: await this.getCurrentBaseFees(),
+      gasFees: await this.getCurrentMinFees(),
       skipFeeEnforcement,
       txsPermitted: !this.config.disableTransactions,
     });

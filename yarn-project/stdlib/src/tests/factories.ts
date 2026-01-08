@@ -1747,23 +1747,37 @@ export async function randomTxScopedPublicL2Log(opts?: {
  * Useful for mocking aztecNode.getL2Tips() in tests.
  * @param blockNumber - The block number to use for all tips.
  * @param hash - Optional hash for the block (defaults to empty string).
+ * @param checkpointNumber - Optional checkpoint number (defaults to blockNumber).
+ * @param checkpointHash - Optional checkpoint hash (defaults to block hash).
  * @returns L2Tips object with all tips at the same block.
  */
-export function makeL2Tips(blockNumber: number | BlockNumber, hash = ''): L2Tips {
+export function makeL2Tips(
+  blockNumber: number | BlockNumber,
+  hash = '',
+  checkpointNumber?: number | CheckpointNumber,
+  checkpointHash?: string,
+): L2Tips {
   const bn = typeof blockNumber === 'number' ? BlockNumber(blockNumber) : blockNumber;
+  const cpn =
+    checkpointNumber !== undefined
+      ? typeof checkpointNumber === 'number'
+        ? CheckpointNumber(checkpointNumber)
+        : checkpointNumber
+      : CheckpointNumber(bn);
+  const cph = checkpointHash ?? hash;
   return {
     proposed: { number: bn, hash },
     checkpointed: {
       block: { number: bn, hash },
-      checkpoint: { number: CheckpointNumber(0), hash: '' },
+      checkpoint: { number: cpn, hash: cph },
     },
     proven: {
       block: { number: bn, hash },
-      checkpoint: { number: CheckpointNumber(0), hash: '' },
+      checkpoint: { number: cpn, hash: cph },
     },
     finalized: {
       block: { number: bn, hash },
-      checkpoint: { number: CheckpointNumber(0), hash: '' },
+      checkpoint: { number: cpn, hash: cph },
     },
   };
 }

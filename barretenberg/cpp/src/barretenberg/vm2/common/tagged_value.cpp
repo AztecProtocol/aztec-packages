@@ -178,7 +178,7 @@ uint8_t get_tag_bits(ValueTag tag)
         return 0; // It is more useful for this to be 0 in the circuit
     }
 
-    assert(false && "Invalid tag");
+    __builtin_unreachable();
     return 0;
 }
 
@@ -197,7 +197,7 @@ uint8_t get_tag_bytes(ValueTag tag)
         return 0; // It is more useful for this to be 0 in the circuit
     }
 
-    assert(false && "Invalid tag");
+    __builtin_unreachable();
     return 0;
 }
 
@@ -215,7 +215,7 @@ uint256_t get_tag_max_value(ValueTag tag)
         return FF::modulus - 1;
     }
 
-    assert(false && "Invalid tag");
+    __builtin_unreachable();
     return 0;
 }
 
@@ -226,9 +226,9 @@ TaggedValue::TaggedValue(TaggedValue::value_type value_)
 
 TaggedValue TaggedValue::from_tag(ValueTag tag, FF value)
 {
-    auto assert_bounds = [](const FF& value, uint8_t bits) {
+    auto assert_bounds = [tag](const FF& value, uint8_t bits) {
         if (static_cast<uint256_t>(value).get_msb() >= bits) {
-            throw std::runtime_error("Value out of bounds");
+            throw ValueOutOfBounds(format("Value: ", value, " is out of bounds for tag: ", tag));
         }
     };
 

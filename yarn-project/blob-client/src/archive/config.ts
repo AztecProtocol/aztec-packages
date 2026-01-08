@@ -7,7 +7,7 @@ export type BlobArchiveApiConfig = {
 
 export const blobArchiveApiConfigMappings: ConfigMappingsType<BlobArchiveApiConfig> = {
   archiveApiUrl: {
-    env: 'BLOB_SINK_ARCHIVE_API_URL',
+    env: 'BLOB_ARCHIVE_API_URL',
     description: 'The URL of the archive API',
   },
   ...pickConfigMappings(l1ReaderConfigMappings, ['l1ChainId']),

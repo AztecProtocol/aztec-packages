@@ -289,10 +289,10 @@ export interface AztecNode
   getBlocks(from: BlockNumber, limit: number): Promise<L2Block[]>;
 
   /**
-   * Method to fetch the current base fees.
-   * @returns The current base fees.
+   * Method to fetch the current min fees.
+   * @returns The current min fees.
    */
-  getCurrentBaseFees(): Promise<GasFees>;
+  getCurrentMinFees(): Promise<GasFees>;
 
   /**
    * Method to fetch the current max priority fee of txs in the mempool.
@@ -606,7 +606,7 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
     .args(BlockNumberPositiveSchema, z.number().gt(0).lte(MAX_RPC_BLOCKS_LEN), optional(z.boolean()))
     .returns(z.array(CheckpointedL2Block.schema)),
 
-  getCurrentBaseFees: z.function().returns(GasFees.schema),
+  getCurrentMinFees: z.function().returns(GasFees.schema),
 
   getMaxPriorityFees: z.function().returns(GasFees.schema),
 

@@ -4,28 +4,21 @@ import { createLogger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
 import type { AztecAsyncKVStore, AztecAsyncSingleton } from '@aztec/kv-store';
 import { L2TipsKVStore } from '@aztec/kv-store/stores';
-import type {
-  EthAddress,
-  L2BlockNew,
-  L2BlockSource,
+import {
+  type EthAddress,
+  type L2BlockNew,
+  type L2BlockSource,
   L2BlockStream,
-  L2BlockStreamEvent,
-  L2Tips,
-  L2TipsStore,
+  type L2BlockStreamEvent,
+  type L2Tips,
+  type L2TipsStore,
 } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import { type PeerInfo, tryStop } from '@aztec/stdlib/interfaces/server';
 import { BlockAttestation, type BlockProposal, type P2PClientType } from '@aztec/stdlib/p2p';
 import type { Tx, TxHash } from '@aztec/stdlib/tx';
-import {
-  Attributes,
-  type TelemetryClient,
-  TraceableL2BlockStream,
-  WithTracer,
-  getTelemetryClient,
-  trackSpan,
-} from '@aztec/telemetry-client';
+import { Attributes, type TelemetryClient, WithTracer, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
 
 import type { PeerId } from '@libp2p/interface';
 import type { ENR } from '@nethermindeth/enr';
@@ -173,14 +166,12 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
   public async handleBlockStreamEvent(event: L2BlockStreamEvent): Promise<void> {
     this.log.debug(`Handling block stream event ${event.type}`);
 
-    const oldFinalizedBlockNum =
-      event.type === 'chain-finalized' ? await this.getSyncedFinalizedBlockNum() : BlockNumber(0);
-
     switch (event.type) {
       case 'blocks-added':
         await this.handleLatestL2Blocks(event.blocks);
         break;
       case 'chain-finalized': {
+        const oldFinalizedBlockNum = await this.getSyncedFinalizedBlockNum();
         const from = BlockNumber(oldFinalizedBlockNum + 1);
         const limit = event.block.number - from + 1;
         if (limit > 0) {
@@ -291,12 +282,10 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
   private initBlockStream(startingBlock?: BlockNumber) {
     if (!this.blockStream) {
       const { blockRequestBatchSize: batchSize, blockCheckIntervalMS: pollIntervalMS } = this.config;
-      this.blockStream = new TraceableL2BlockStream(
+      this.blockStream = new L2BlockStream(
         this.l2BlockSource,
         this,
         this,
-        this.telemetry.getTracer('P2PL2BlockStream'),
-        'P2PL2BlockStream',
         createLogger(`${this.log.module}:l2-block-stream`),
         { batchSize, pollIntervalMS, startingBlock },
       );

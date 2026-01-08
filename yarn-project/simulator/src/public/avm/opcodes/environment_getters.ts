@@ -13,8 +13,8 @@ export enum EnvironmentVariable {
   VERSION,
   BLOCKNUMBER,
   TIMESTAMP,
-  BASEFEEPERL2GAS,
-  BASEFEEPERDAGAS,
+  MINFEEPERL2GAS,
+  MINFEEPERDAGAS,
   ISSTATICCALL,
   L2GASLEFT,
   DAGASLEFT,
@@ -36,9 +36,9 @@ function getValue(varEnum: EnvironmentVariable, ctx: AvmContext) {
       return new Uint32(ctx.environment.globals.blockNumber);
     case EnvironmentVariable.TIMESTAMP:
       return new Uint64(ctx.environment.globals.timestamp);
-    case EnvironmentVariable.BASEFEEPERL2GAS:
+    case EnvironmentVariable.MINFEEPERL2GAS:
       return new Uint128(ctx.environment.globals.gasFees.feePerL2Gas);
-    case EnvironmentVariable.BASEFEEPERDAGAS:
+    case EnvironmentVariable.MINFEEPERDAGAS:
       return new Uint128(ctx.environment.globals.gasFees.feePerDaGas);
     case EnvironmentVariable.ISSTATICCALL:
       return new Uint1(ctx.environment.isStaticCall ? 1 : 0);

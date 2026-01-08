@@ -504,6 +504,37 @@ std::vector<FuzzInstruction> generate_call_instruction(std::mt19937_64& rng)
     return instructions;
 }
 
+std::vector<FuzzInstruction> generate_getcontractinstance_instruction(std::mt19937_64& rng)
+{
+    bool use_backfill = std::uniform_int_distribution<int>(0, 4)(rng) != 0;
+    if (!use_backfill) {
+        return { GETCONTRACTINSTANCE_Instruction{
+            .contract_address_address = generate_variable_ref(rng),
+            .member_enum = generate_random_uint8(rng),
+            .dst_address = generate_address_ref(rng, MAX_16BIT_OPERAND),
+        } };
+    }
+
+    std::vector<FuzzInstruction> instructions;
+    instructions.reserve(2);
+
+    auto contract_address_address = generate_address_ref(rng, MAX_16BIT_OPERAND);
+    instructions.push_back(SET_FF_Instruction{
+        .value_tag = bb::avm2::MemoryTag::FF,
+        .result_address = contract_address_address,
+        .value =
+            bb::avm2::fuzzer::ContractDBProxy::get_instance()->get_function_address(generate_random_uint16(rng)) });
+    uint8_t member_enum = std::uniform_int_distribution<uint8_t>(0, 2)(rng);
+
+    instructions.push_back(GETCONTRACTINSTANCE_Instruction{
+        .contract_address_address = contract_address_address,
+        .member_enum = member_enum,
+        .dst_address = generate_address_ref(rng, MAX_16BIT_OPERAND),
+    });
+
+    return instructions;
+}
+
 std::vector<FuzzInstruction> generate_instruction(std::mt19937_64& rng)
 {
     InstructionGenerationOptions option = BASIC_INSTRUCTION_GENERATION_CONFIGURATION.select(rng);
@@ -680,11 +711,7 @@ std::vector<FuzzInstruction> generate_instruction(std::mt19937_64& rng)
                                                                  .dst_address = generate_random_uint16(rng),
                                                                  .rd_start_offset = generate_random_uint16(rng) } };
     case InstructionGenerationOptions::GETCONTRACTINSTANCE:
-        return { GETCONTRACTINSTANCE_Instruction{ .contract_index = generate_random_uint16(rng),
-                                                  .contract_address_address =
-                                                      generate_address_ref(rng, MAX_16BIT_OPERAND),
-                                                  .dst_address = generate_address_ref(rng, MAX_16BIT_OPERAND),
-                                                  .member_enum = generate_random_uint8(rng) } };
+        return generate_getcontractinstance_instruction(rng);
     case InstructionGenerationOptions::SUCCESSCOPY:
         return { SUCCESSCOPY_Instruction{ .dst_address = generate_address_ref(rng, MAX_16BIT_OPERAND) } };
     case InstructionGenerationOptions::ECADD:
@@ -1213,11 +1240,8 @@ void mutate_getcontractinstance_instruction(GETCONTRACTINSTANCE_Instruction& ins
 {
     GetContractInstanceMutationOptions option = BASIC_GETCONTRACTINSTANCE_MUTATION_CONFIGURATION.select(rng);
     switch (option) {
-    case GetContractInstanceMutationOptions::contract_index:
-        mutate_uint16_t(instruction.contract_index, rng, BASIC_UINT16_T_MUTATION_CONFIGURATION);
-        break;
     case GetContractInstanceMutationOptions::contract_address_address:
-        mutate_address_ref(instruction.contract_address_address, rng, MAX_16BIT_OPERAND);
+        mutate_param_ref(instruction.contract_address_address, rng, MemoryTag::FF, MAX_16BIT_OPERAND);
         break;
     case GetContractInstanceMutationOptions::dst_address:
         mutate_address_ref(instruction.dst_address, rng, MAX_16BIT_OPERAND);

@@ -172,10 +172,11 @@ void HintedRawContractDB::add_contracts([[maybe_unused]] const ContractDeploymen
 void HintedRawContractDB::create_checkpoint()
 {
     auto hint_it = create_checkpoint_hints.find(action_counter);
-    assert(hint_it != create_checkpoint_hints.end());
+    BB_ASSERT(hint_it != create_checkpoint_hints.end(), "Hint not found for create checkpoint");
 
     const auto& hint = hint_it->second;
-    assert(hint.old_checkpoint_id == checkpoint_stack.top());
+    BB_ASSERT_EQ(
+        hint.old_checkpoint_id, checkpoint_stack.top(), "Old checkpoint id does not match the current checkpoint id");
 
     checkpoint_stack.push(hint.new_checkpoint_id);
     action_counter++;
@@ -184,29 +185,31 @@ void HintedRawContractDB::create_checkpoint()
 void HintedRawContractDB::commit_checkpoint()
 {
     auto hint_it = commit_checkpoint_hints.find(action_counter);
-    assert(hint_it != commit_checkpoint_hints.end());
+    BB_ASSERT(hint_it != commit_checkpoint_hints.end(), "Hint not found for commit checkpoint");
 
     const auto& hint = hint_it->second;
-    assert(hint.old_checkpoint_id == checkpoint_stack.top());
+    BB_ASSERT_EQ(
+        hint.old_checkpoint_id, checkpoint_stack.top(), "Old checkpoint id does not match the current checkpoint id");
 
     checkpoint_stack.pop();
-    assert(hint.new_checkpoint_id == checkpoint_stack.top());
+    BB_ASSERT_EQ(
+        hint.new_checkpoint_id, checkpoint_stack.top(), "New checkpoint id does not match the current checkpoint id");
     action_counter++;
-    (void)hint;
 }
 
 void HintedRawContractDB::revert_checkpoint()
 {
     auto hint_it = revert_checkpoint_hints.find(action_counter);
-    assert(hint_it != revert_checkpoint_hints.end());
+    BB_ASSERT(hint_it != revert_checkpoint_hints.end(), "Hint not found for revert checkpoint");
 
     const auto& hint = hint_it->second;
-    assert(hint.old_checkpoint_id == checkpoint_stack.top());
+    BB_ASSERT_EQ(
+        hint.old_checkpoint_id, checkpoint_stack.top(), "Old checkpoint id does not match the current checkpoint id");
 
     checkpoint_stack.pop();
-    assert(hint.new_checkpoint_id == checkpoint_stack.top());
+    BB_ASSERT_EQ(
+        hint.new_checkpoint_id, checkpoint_stack.top(), "New checkpoint id does not match the current checkpoint id");
     action_counter++;
-    (void)hint;
 }
 
 uint32_t HintedRawContractDB::get_checkpoint_id() const

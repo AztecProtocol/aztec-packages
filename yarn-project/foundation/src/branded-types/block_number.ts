@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { CheckpointNumber } from './checkpoint_number.js';
+import type { CheckpointNumber } from './checkpoint_number.js';
 import type { Branded } from './types.js';
 
 /**

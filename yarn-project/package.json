@@ -61,6 +61,7 @@
     "txe",
     "test-wallet",
     "validator-client",
+    "validator-ha-signer",
     "wallet-sdk",
     "world-state"
   ],

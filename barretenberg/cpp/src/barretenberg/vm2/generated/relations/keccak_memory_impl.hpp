@@ -99,7 +99,7 @@ void keccak_memoryImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
              FF(1));
         std::get<10>(evals) += (tmp * scaling_factor);
     }
-    {
+    { // SINGLE_TAG_ERROR_BOOLEAN
         using View = typename std::tuple_element_t<11, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::keccak_memory_single_tag_error)) *
                    (FF(1) - static_cast<View>(in.get(C::keccak_memory_single_tag_error)));
@@ -164,186 +164,180 @@ void keccak_memoryImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
                     static_cast<View>(in.get(C::keccak_memory_single_tag_error)));
         std::get<19>(evals) += (tmp * scaling_factor);
     }
-    { // SINGLE_TAG_ERROR_BOOLEAN
-        using View = typename std::tuple_element_t<20, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::keccak_memory_single_tag_error)) *
-                   (FF(1) - static_cast<View>(in.get(C::keccak_memory_single_tag_error)));
-        std::get<20>(evals) += (tmp * scaling_factor);
-    }
     { // VAL01
-        using View = typename std::tuple_element_t<21, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<20, ContainerOverSubrelations>::View;
         auto tmp = (static_cast<View>(in.get(C::keccak_memory_val_1_)) -
                     (FF(1) - static_cast<View>(in.get(C::keccak_memory_last))) *
                         static_cast<View>(in.get(C::keccak_memory_val_0__shift)));
-        std::get<21>(evals) += (tmp * scaling_factor);
+        std::get<20>(evals) += (tmp * scaling_factor);
     }
     { // VAL02
-        using View = typename std::tuple_element_t<22, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<21, ContainerOverSubrelations>::View;
         auto tmp = (static_cast<View>(in.get(C::keccak_memory_val_2_)) -
                     (FF(1) - static_cast<View>(in.get(C::keccak_memory_last))) *
                         static_cast<View>(in.get(C::keccak_memory_val_1__shift)));
-        std::get<22>(evals) += (tmp * scaling_factor);
+        std::get<21>(evals) += (tmp * scaling_factor);
     }
     { // VAL03
-        using View = typename std::tuple_element_t<23, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<22, ContainerOverSubrelations>::View;
         auto tmp = (static_cast<View>(in.get(C::keccak_memory_val_3_)) -
                     (FF(1) - static_cast<View>(in.get(C::keccak_memory_last))) *
                         static_cast<View>(in.get(C::keccak_memory_val_2__shift)));
-        std::get<23>(evals) += (tmp * scaling_factor);
+        std::get<22>(evals) += (tmp * scaling_factor);
     }
     { // VAL04
-        using View = typename std::tuple_element_t<24, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<23, ContainerOverSubrelations>::View;
         auto tmp = (static_cast<View>(in.get(C::keccak_memory_val_4_)) -
                     (FF(1) - static_cast<View>(in.get(C::keccak_memory_last))) *
                         static_cast<View>(in.get(C::keccak_memory_val_3__shift)));
-        std::get<24>(evals) += (tmp * scaling_factor);
+        std::get<23>(evals) += (tmp * scaling_factor);
     }
     { // VAL05
-        using View = typename std::tuple_element_t<25, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<24, ContainerOverSubrelations>::View;
         auto tmp = (static_cast<View>(in.get(C::keccak_memory_val_5_)) -
                     (FF(1) - static_cast<View>(in.get(C::keccak_memory_last))) *
                         static_cast<View>(in.get(C::keccak_memory_val_4__shift)));
-        std::get<25>(evals) += (tmp * scaling_factor);
+        std::get<24>(evals) += (tmp * scaling_factor);
     }
     { // VAL06
-        using View = typename std::tuple_element_t<26, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<25, ContainerOverSubrelations>::View;
         auto tmp = (static_cast<View>(in.get(C::keccak_memory_val_6_)) -
                     (FF(1) - static_cast<View>(in.get(C::keccak_memory_last))) *
                         static_cast<View>(in.get(C::keccak_memory_val_5__shift)));
-        std::get<26>(evals) += (tmp * scaling_factor);
+        std::get<25>(evals) += (tmp * scaling_factor);
     }
     { // VAL07
-        using View = typename std::tuple_element_t<27, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<26, ContainerOverSubrelations>::View;
         auto tmp = (static_cast<View>(in.get(C::keccak_memory_val_7_)) -
                     (FF(1) - static_cast<View>(in.get(C::keccak_memory_last))) *
                         static_cast<View>(in.get(C::keccak_memory_val_6__shift)));
-        std::get<27>(evals) += (tmp * scaling_factor);
+        std::get<26>(evals) += (tmp * scaling_factor);
     }
     { // VAL8
-        using View = typename std::tuple_element_t<28, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<27, ContainerOverSubrelations>::View;
         auto tmp = (static_cast<View>(in.get(C::keccak_memory_val_8_)) -
                     (FF(1) - static_cast<View>(in.get(C::keccak_memory_last))) *
                         static_cast<View>(in.get(C::keccak_memory_val_7__shift)));
-        std::get<28>(evals) += (tmp * scaling_factor);
+        std::get<27>(evals) += (tmp * scaling_factor);
     }
     { // VAL09
-        using View = typename std::tuple_element_t<29, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<28, ContainerOverSubrelations>::View;
         auto tmp = (static_cast<View>(in.get(C::keccak_memory_val_9_)) -
                     (FF(1) - static_cast<View>(in.get(C::keccak_memory_last))) *
                         static_cast<View>(in.get(C::keccak_memory_val_8__shift)));
-        std::get<29>(evals) += (tmp * scaling_factor);
+        std::get<28>(evals) += (tmp * scaling_factor);
     }
     { // VAL10
-        using View = typename std::tuple_element_t<30, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<29, ContainerOverSubrelations>::View;
         auto tmp = (static_cast<View>(in.get(C::keccak_memory_val_10_)) -
                     (FF(1) - static_cast<View>(in.get(C::keccak_memory_last))) *
                         static_cast<View>(in.get(C::keccak_memory_val_9__shift)));
-        std::get<30>(evals) += (tmp * scaling_factor);
+        std::get<29>(evals) += (tmp * scaling_factor);
     }
     { // VAL11
-        using View = typename std::tuple_element_t<31, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<30, ContainerOverSubrelations>::View;
         auto tmp = (static_cast<View>(in.get(C::keccak_memory_val_11_)) -
                     (FF(1) - static_cast<View>(in.get(C::keccak_memory_last))) *
                         static_cast<View>(in.get(C::keccak_memory_val_10__shift)));
-        std::get<31>(evals) += (tmp * scaling_factor);
+        std::get<30>(evals) += (tmp * scaling_factor);
     }
     { // VAL12
-        using View = typename std::tuple_element_t<32, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<31, ContainerOverSubrelations>::View;
         auto tmp = (static_cast<View>(in.get(C::keccak_memory_val_12_)) -
                     (FF(1) - static_cast<View>(in.get(C::keccak_memory_last))) *
                         static_cast<View>(in.get(C::keccak_memory_val_11__shift)));
-        std::get<32>(evals) += (tmp * scaling_factor);
+        std::get<31>(evals) += (tmp * scaling_factor);
     }
     { // VAL13
-        using View = typename std::tuple_element_t<33, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<32, ContainerOverSubrelations>::View;
         auto tmp = (static_cast<View>(in.get(C::keccak_memory_val_13_)) -
                     (FF(1) - static_cast<View>(in.get(C::keccak_memory_last))) *
                         static_cast<View>(in.get(C::keccak_memory_val_12__shift)));
-        std::get<33>(evals) += (tmp * scaling_factor);
+        std::get<32>(evals) += (tmp * scaling_factor);
     }
     { // VAL14
-        using View = typename std::tuple_element_t<34, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<33, ContainerOverSubrelations>::View;
         auto tmp = (static_cast<View>(in.get(C::keccak_memory_val_14_)) -
                     (FF(1) - static_cast<View>(in.get(C::keccak_memory_last))) *
                         static_cast<View>(in.get(C::keccak_memory_val_13__shift)));
-        std::get<34>(evals) += (tmp * scaling_factor);
+        std::get<33>(evals) += (tmp * scaling_factor);
     }
     { // VAL15
-        using View = typename std::tuple_element_t<35, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<34, ContainerOverSubrelations>::View;
         auto tmp = (static_cast<View>(in.get(C::keccak_memory_val_15_)) -
                     (FF(1) - static_cast<View>(in.get(C::keccak_memory_last))) *
                         static_cast<View>(in.get(C::keccak_memory_val_14__shift)));
-        std::get<35>(evals) += (tmp * scaling_factor);
+        std::get<34>(evals) += (tmp * scaling_factor);
     }
     { // VAL41
-        using View = typename std::tuple_element_t<36, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<35, ContainerOverSubrelations>::View;
         auto tmp = (static_cast<View>(in.get(C::keccak_memory_val_16_)) -
                     (FF(1) - static_cast<View>(in.get(C::keccak_memory_last))) *
                         static_cast<View>(in.get(C::keccak_memory_val_15__shift)));
-        std::get<36>(evals) += (tmp * scaling_factor);
+        std::get<35>(evals) += (tmp * scaling_factor);
     }
     { // VAL17
-        using View = typename std::tuple_element_t<37, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<36, ContainerOverSubrelations>::View;
         auto tmp = (static_cast<View>(in.get(C::keccak_memory_val_17_)) -
                     (FF(1) - static_cast<View>(in.get(C::keccak_memory_last))) *
                         static_cast<View>(in.get(C::keccak_memory_val_16__shift)));
-        std::get<37>(evals) += (tmp * scaling_factor);
+        std::get<36>(evals) += (tmp * scaling_factor);
     }
     { // VAL18
-        using View = typename std::tuple_element_t<38, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<37, ContainerOverSubrelations>::View;
         auto tmp = (static_cast<View>(in.get(C::keccak_memory_val_18_)) -
                     (FF(1) - static_cast<View>(in.get(C::keccak_memory_last))) *
                         static_cast<View>(in.get(C::keccak_memory_val_17__shift)));
-        std::get<38>(evals) += (tmp * scaling_factor);
+        std::get<37>(evals) += (tmp * scaling_factor);
     }
     { // VAL19
-        using View = typename std::tuple_element_t<39, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<38, ContainerOverSubrelations>::View;
         auto tmp = (static_cast<View>(in.get(C::keccak_memory_val_19_)) -
                     (FF(1) - static_cast<View>(in.get(C::keccak_memory_last))) *
                         static_cast<View>(in.get(C::keccak_memory_val_18__shift)));
-        std::get<39>(evals) += (tmp * scaling_factor);
+        std::get<38>(evals) += (tmp * scaling_factor);
     }
     { // VAL20
-        using View = typename std::tuple_element_t<40, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<39, ContainerOverSubrelations>::View;
         auto tmp = (static_cast<View>(in.get(C::keccak_memory_val_20_)) -
                     (FF(1) - static_cast<View>(in.get(C::keccak_memory_last))) *
                         static_cast<View>(in.get(C::keccak_memory_val_19__shift)));
-        std::get<40>(evals) += (tmp * scaling_factor);
+        std::get<39>(evals) += (tmp * scaling_factor);
     }
     { // VAL21
-        using View = typename std::tuple_element_t<41, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<40, ContainerOverSubrelations>::View;
         auto tmp = (static_cast<View>(in.get(C::keccak_memory_val_21_)) -
                     (FF(1) - static_cast<View>(in.get(C::keccak_memory_last))) *
                         static_cast<View>(in.get(C::keccak_memory_val_20__shift)));
-        std::get<41>(evals) += (tmp * scaling_factor);
+        std::get<40>(evals) += (tmp * scaling_factor);
     }
     { // VAL22
-        using View = typename std::tuple_element_t<42, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<41, ContainerOverSubrelations>::View;
         auto tmp = (static_cast<View>(in.get(C::keccak_memory_val_22_)) -
                     (FF(1) - static_cast<View>(in.get(C::keccak_memory_last))) *
                         static_cast<View>(in.get(C::keccak_memory_val_21__shift)));
-        std::get<42>(evals) += (tmp * scaling_factor);
+        std::get<41>(evals) += (tmp * scaling_factor);
     }
     { // VAL23
-        using View = typename std::tuple_element_t<43, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<42, ContainerOverSubrelations>::View;
         auto tmp = (static_cast<View>(in.get(C::keccak_memory_val_23_)) -
                     (FF(1) - static_cast<View>(in.get(C::keccak_memory_last))) *
                         static_cast<View>(in.get(C::keccak_memory_val_22__shift)));
-        std::get<43>(evals) += (tmp * scaling_factor);
+        std::get<42>(evals) += (tmp * scaling_factor);
     }
     { // VAL24
-        using View = typename std::tuple_element_t<44, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<43, ContainerOverSubrelations>::View;
         auto tmp = (static_cast<View>(in.get(C::keccak_memory_val_24_)) -
                     (FF(1) - static_cast<View>(in.get(C::keccak_memory_last))) *
                         static_cast<View>(in.get(C::keccak_memory_val_23__shift)));
-        std::get<44>(evals) += (tmp * scaling_factor);
+        std::get<43>(evals) += (tmp * scaling_factor);
     }
     {
-        using View = typename std::tuple_element_t<45, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<44, ContainerOverSubrelations>::View;
         auto tmp =
             static_cast<View>(in.get(C::keccak_memory_sel)) *
             (static_cast<View>(in.get(C::keccak_memory_num_rounds)) - CView(constants_AVM_KECCAKF1600_NUM_ROUNDS));
-        std::get<45>(evals) += (tmp * scaling_factor);
+        std::get<44>(evals) += (tmp * scaling_factor);
     }
 }
 

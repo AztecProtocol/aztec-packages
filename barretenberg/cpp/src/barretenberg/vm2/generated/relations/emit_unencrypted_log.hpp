@@ -14,10 +14,10 @@ template <typename FF_> class emit_unencrypted_logImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 47> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 5, 3,
-                                                                            3, 4, 3, 3, 3, 3, 4, 3, 3, 5, 3, 5,
-                                                                            4, 4, 3, 2, 3, 3, 4, 3, 4, 4, 4, 4,
-                                                                            4, 3, 5, 4, 4, 3, 4, 4, 3, 3, 3 };
+    static constexpr std::array<size_t, 48> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 5,
+                                                                            3, 3, 4, 3, 3, 3, 3, 4, 3, 3, 5, 3,
+                                                                            5, 4, 4, 3, 2, 3, 3, 4, 3, 4, 4, 4,
+                                                                            4, 4, 3, 5, 4, 4, 3, 4, 4, 3, 3, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -38,19 +38,19 @@ template <typename FF> class emit_unencrypted_log : public Relation<emit_unencry
     static constexpr const std::string_view NAME = "emit_unencrypted_log";
 
     // Subrelation indices constants, to be used in tests.
-    static constexpr size_t SR_START_AFTER_LATCH = 4;
-    static constexpr size_t SR_SELECTOR_ON_START = 5;
-    static constexpr size_t SR_SELECTOR_CONSISTENCY = 6;
-    static constexpr size_t SR_SELECTOR_ON_END = 7;
-    static constexpr size_t SR_REMAINING_ROWS_DECREMENT = 9;
-    static constexpr size_t SR_ERROR_OUT_OF_BOUNDS_CONSISTENCY = 13;
-    static constexpr size_t SR_ERROR_TAG_MISMATCH_CONSISTENCY = 18;
-    static constexpr size_t SR_WRONG_TAG_CHECK = 21;
-    static constexpr size_t SR_LOG_ADDRESS_INCREMENT = 32;
-    static constexpr size_t SR_EXEC_CLK_CONSISTENCY = 33;
-    static constexpr size_t SR_SPACE_ID_CONSISTENCY = 34;
-    static constexpr size_t SR_SEL_SHOULD_WRITE_TO_PUBLIC_INPUTS_CONSISTENCY = 40;
-    static constexpr size_t SR_CONTRACT_ADDRESS_CONSISTENCY = 43;
+    static constexpr size_t SR_START_AFTER_LATCH = 5;
+    static constexpr size_t SR_SELECTOR_ON_START = 6;
+    static constexpr size_t SR_SELECTOR_CONSISTENCY = 7;
+    static constexpr size_t SR_SELECTOR_ON_END = 8;
+    static constexpr size_t SR_REMAINING_ROWS_DECREMENT = 10;
+    static constexpr size_t SR_ERROR_OUT_OF_BOUNDS_CONSISTENCY = 14;
+    static constexpr size_t SR_ERROR_TAG_MISMATCH_CONSISTENCY = 19;
+    static constexpr size_t SR_WRONG_TAG_CHECK = 22;
+    static constexpr size_t SR_LOG_ADDRESS_INCREMENT = 33;
+    static constexpr size_t SR_EXEC_CLK_CONSISTENCY = 34;
+    static constexpr size_t SR_SPACE_ID_CONSISTENCY = 35;
+    static constexpr size_t SR_SEL_SHOULD_WRITE_TO_PUBLIC_INPUTS_CONSISTENCY = 41;
+    static constexpr size_t SR_CONTRACT_ADDRESS_CONSISTENCY = 44;
 
     static std::string get_subrelation_label(size_t index)
     {

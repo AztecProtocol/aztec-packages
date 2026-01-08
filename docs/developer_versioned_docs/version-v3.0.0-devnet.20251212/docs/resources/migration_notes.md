@@ -7,7 +7,7 @@ tags: [migration, updating, sandbox, local network]
 
 Aztec is in full-speed development. Literally every version breaks compatibility with the previous ones. This page attempts to target errors and difficulties you might encounter when upgrading, and how to resolve them.
 
-## 3.0.0-devnet.20251212
+## TBD
 
 ### [Aztec node, archiver] Deprecated `getPrivateLogs`
 

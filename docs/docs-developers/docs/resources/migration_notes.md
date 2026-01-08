@@ -9,13 +9,69 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## TBD
 
+### [L1 Contracts] Renamed base fee to min fee
+
+The L1 rollup contract functions and types related to fee calculation have been renamed from "base fee" to "min fee" to better reflect their purpose.
+
+**Renamed functions:**
+
+- `getManaBaseFeeAt` → `getManaMinFeeAt`
+- `getManaBaseFeeComponentsAt` → `getManaMinFeeComponentsAt`
+
+**Renamed types:**
+
+- `ManaBaseFeeComponents` → `ManaMinFeeComponents`
+
+**Renamed errors:**
+
+- `Rollup__InvalidManaBaseFee` → `Rollup__InvalidManaMinFee`
+
+**Migration:**
+
+```diff
+- uint256 fee = rollup.getManaBaseFeeAt(timestamp, true);
++ uint256 fee = rollup.getManaMinFeeAt(timestamp, true);
+
+- ManaBaseFeeComponents memory components = rollup.getManaBaseFeeComponentsAt(timestamp, true);
++ ManaMinFeeComponents memory components = rollup.getManaMinFeeComponentsAt(timestamp, true);
+```
+
+### [Aztec.js] Renamed base fee to min fee
+
+The Aztec Node API method for getting current fees has been renamed:
+
+- `getCurrentBaseFees` → `getCurrentMinFees`
+
+**Migration:**
+
+```diff
+- const fees = await node.getCurrentBaseFees();
++ const fees = await node.getCurrentMinFees();
+```
+
+### [Aztec.nr] Renamed fee context methods
+
+The context methods for accessing fee information have been renamed:
+
+- `context.base_fee_per_l2_gas()` → `context.min_fee_per_l2_gas()`
+- `context.base_fee_per_da_gas()` → `context.min_fee_per_da_gas()`
+
+**Migration:**
+
+```diff
+- let l2_fee = context.base_fee_per_l2_gas();
+- let da_fee = context.base_fee_per_da_gas();
++ let l2_fee = context.min_fee_per_l2_gas();
++ let da_fee = context.min_fee_per_da_gas();
+```
+
 ### [Aztec.nr] Renamed message delivery options
 
 The following terms have been renamed:
 
- - `MessageDelivery::UNCONSTRAINED_OFFCHAIN` -> `MessageDelivery::OFFCHAIN`
- - `MessageDelivery::UNCONSTRAINED_ONCHAIN` -> `MessageDelivery::OFFCHAIN_UNCONSTRAINED`
- - `MessageDelivery::CONSTRAINED_ONCHAIN` -> `MessageDelivery::ONCHAIN_CONSTRAINED`
+- `MessageDelivery::UNCONSTRAINED_OFFCHAIN` -> `MessageDelivery::OFFCHAIN`
+- `MessageDelivery::UNCONSTRAINED_ONCHAIN` -> `MessageDelivery::OFFCHAIN_UNCONSTRAINED`
+- `MessageDelivery::CONSTRAINED_ONCHAIN` -> `MessageDelivery::ONCHAIN_CONSTRAINED`
 
 We believe these names will better convey the meaning of the concepts.
 
@@ -1911,7 +1967,7 @@ export type Wallet = AccountInterface &
     | "getNodeInfo"
     | "getPXEInfo"
     // Fee info
-    | "getCurrentBaseFees"
+    | "getCurrentMinFees"
     // Still undecided, kept for the time being
     | "updateContract"
     // Sender management

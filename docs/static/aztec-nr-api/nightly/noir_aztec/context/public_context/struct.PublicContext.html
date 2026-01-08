@@ -25,8 +25,6 @@
 </ul>
 <h3>Methods</h3>
 <ul class="sidebar-list">
-<li><a href="#base_fee_per_da_gas">base_fee_per_da_gas</a></li>
-<li><a href="#base_fee_per_l2_gas">base_fee_per_l2_gas</a></li>
 <li><a href="#block_number">block_number</a></li>
 <li><a href="#call_public_function">call_public_function</a></li>
 <li><a href="#chain_id">chain_id</a></li>
@@ -38,6 +36,8 @@
 <li><a href="#l1_to_l2_msg_exists">l1_to_l2_msg_exists</a></li>
 <li><a href="#l2_gas_left">l2_gas_left</a></li>
 <li><a href="#message_portal">message_portal</a></li>
+<li><a href="#min_fee_per_da_gas">min_fee_per_da_gas</a></li>
+<li><a href="#min_fee_per_l2_gas">min_fee_per_l2_gas</a></li>
 <li><a href="#msg_sender">msg_sender</a></li>
 <li><a href="#msg_sender_unsafe">msg_sender_unsafe</a></li>
 <li><a href="#new">new</a></li>
@@ -585,7 +585,7 @@ attest to the block.</p>
 <li><code>u64</code> - Unix timestamp in seconds</li>
 </ul>
 </div>
-</div><code id="base_fee_per_l2_gas" class="code-header">pub fn <a href="#base_fee_per_l2_gas"><span class="fn">base_fee_per_l2_gas</span></a>(_self: Self) -> <a href="../../../std/primitive.u128.html" class="primitive">u128</a></code>
+</div><code id="min_fee_per_l2_gas" class="code-header">pub fn <a href="#min_fee_per_l2_gas"><span class="fn">min_fee_per_l2_gas</span></a>(_self: Self) -> <a href="../../../std/primitive.u128.html" class="primitive">u128</a></code>
 
 <div class="padded-description"><div class="comments">
 <p>Returns the fee per unit of L2 gas for this transaction (aka the &quot;L2 gas
@@ -612,13 +612,13 @@ be some unique number like 0.123456789, or their favorite number).
 Wallet devs might wish to consider fuzzing the choice of gas price.</li>
 </ul>
 </div>
-</div><code id="base_fee_per_da_gas" class="code-header">pub fn <a href="#base_fee_per_da_gas"><span class="fn">base_fee_per_da_gas</span></a>(_self: Self) -> <a href="../../../std/primitive.u128.html" class="primitive">u128</a></code>
+</div><code id="min_fee_per_da_gas" class="code-header">pub fn <a href="#min_fee_per_da_gas"><span class="fn">min_fee_per_da_gas</span></a>(_self: Self) -> <a href="../../../std/primitive.u128.html" class="primitive">u128</a></code>
 
 <div class="padded-description"><div class="comments">
 <p>Returns the fee per unit of DA (Data Availability) gas (aka the &quot;DA gas
 price&quot;).</p>
 <p>DA gas covers the cost of making transaction data available on L1.</p>
-<p>See the warning in <code>fee_pre_l2_gas</code> for how gas prices can be leaky.</p>
+<p>See the warning in <code>min_fee_per_l2_gas</code> for how gas prices can be leaky.</p>
 <h4>Returns</h4>
 <ul>
 <li><code>u128</code> - Fee per unit of DA gas</li>

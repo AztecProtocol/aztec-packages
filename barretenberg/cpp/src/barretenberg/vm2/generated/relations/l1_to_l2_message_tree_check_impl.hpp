@@ -27,6 +27,12 @@ void l1_to_l2_message_tree_checkImpl<FF_>::accumulate(ContainerOverSubrelations&
     }
     {
         using View = typename std::tuple_element_t<1, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::l1_to_l2_message_tree_check_exists)) *
+                   (FF(1) - static_cast<View>(in.get(C::l1_to_l2_message_tree_check_exists)));
+        std::get<1>(evals) += (tmp * scaling_factor);
+    }
+    {
+        using View = typename std::tuple_element_t<2, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::l1_to_l2_message_tree_check_sel)) *
                    ((CView(l1_to_l2_message_tree_check_LEAF_VALUE_MSG_HASH_DIFF) *
                          (static_cast<View>(in.get(C::l1_to_l2_message_tree_check_exists)) *
@@ -35,14 +41,14 @@ void l1_to_l2_message_tree_checkImpl<FF_>::accumulate(ContainerOverSubrelations&
                           static_cast<View>(in.get(C::l1_to_l2_message_tree_check_leaf_value_msg_hash_diff_inv))) -
                      FF(1)) +
                     static_cast<View>(in.get(C::l1_to_l2_message_tree_check_exists)));
-        std::get<1>(evals) += (tmp * scaling_factor);
+        std::get<2>(evals) += (tmp * scaling_factor);
     }
     {
-        using View = typename std::tuple_element_t<2, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<3, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::l1_to_l2_message_tree_check_sel)) *
                    (CView(constants_L1_TO_L2_MSG_TREE_HEIGHT) -
                     static_cast<View>(in.get(C::l1_to_l2_message_tree_check_l1_to_l2_message_tree_height)));
-        std::get<2>(evals) += (tmp * scaling_factor);
+        std::get<3>(evals) += (tmp * scaling_factor);
     }
 }
 

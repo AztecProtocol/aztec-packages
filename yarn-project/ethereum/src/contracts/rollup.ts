@@ -773,8 +773,8 @@ export class RollupContract {
     return this.rollup.read.getHasSubmitted([BigInt(epochNumber), BigInt(numberOfCheckpointsInEpoch), prover]);
   }
 
-  getManaBaseFeeAt(timestamp: bigint, inFeeAsset: boolean): Promise<bigint> {
-    return this.rollup.read.getManaBaseFeeAt([timestamp, inFeeAsset]);
+  getManaMinFeeAt(timestamp: bigint, inFeeAsset: boolean): Promise<bigint> {
+    return this.rollup.read.getManaMinFeeAt([timestamp, inFeeAsset]);
   }
 
   async getSlotAt(timestamp: bigint): Promise<SlotNumber> {

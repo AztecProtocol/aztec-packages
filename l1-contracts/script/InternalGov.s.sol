@@ -72,8 +72,8 @@ contract GovScript is Test {
     emit log_named_address("\tWithdrawer       ", address(stakingAssetHandler.withdrawer()));
 
     emit log_named_address("# Rollup", address(rollup));
-    uint256 baseFee = rollup.getManaBaseFeeAt(Timestamp.wrap(block.timestamp), true);
-    emit log_named_uint("\tBase fee", baseFee);
+    uint256 minFee = rollup.getManaMinFeeAt(Timestamp.wrap(block.timestamp), true);
+    emit log_named_uint("\tMin fee", minFee);
     emit log_named_address("\tOwner", Ownable(address(rollup)).owner());
     emit log_named_uint("\tPending checkpoint number", rollup.getPendingCheckpointNumber());
     emit log_named_uint("\tProven checkpoint number ", rollup.getProvenCheckpointNumber());

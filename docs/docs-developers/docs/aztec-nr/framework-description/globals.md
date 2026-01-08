@@ -77,8 +77,8 @@ The current L2 and DA gas prices for the block. You can access gas-related infor
 ```rust
 context.l2_gas_left();       // Remaining L2 gas
 context.da_gas_left();       // Remaining DA gas
-context.base_fee_per_l2_gas(); // L2 gas price
-context.base_fee_per_da_gas(); // DA gas price
+context.min_fee_per_l2_gas(); // L2 gas price
+context.min_fee_per_da_gas(); // DA gas price
 context.transaction_fee();   // Final tx fee (only available in teardown phase)
 ```
 

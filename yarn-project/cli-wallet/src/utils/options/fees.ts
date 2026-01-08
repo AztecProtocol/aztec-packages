@@ -11,7 +11,7 @@ import type { FeeOptions } from '@aztec/wallet-sdk/base-wallet';
 import { Option } from 'commander';
 
 import type { WalletDB } from '../../storage/wallet_db.js';
-import { BASE_FEE_PADDING } from '../wallet.js';
+import { MIN_FEE_PADDING } from '../wallet.js';
 import { aliasedAddressParser } from './options.js';
 
 export type RawCliFeeArgs = {
@@ -250,7 +250,7 @@ export class CLIFeeArgs {
   ) {}
 
   async toUserFeeOptions(node: AztecNode, wallet: Wallet, from: AztecAddress): Promise<ParsedFeeOptions> {
-    const maxFeesPerGas = (await node.getCurrentBaseFees()).mul(1 + BASE_FEE_PADDING);
+    const maxFeesPerGas = (await node.getCurrentMinFees()).mul(1 + MIN_FEE_PADDING);
     const gasSettings = GasSettings.default({ ...this.gasSettings, maxFeesPerGas });
     const paymentMethod = await this.paymentMethod(wallet, from, gasSettings);
     return {

@@ -144,8 +144,8 @@ export class L2BlockStream {
           break;
         }
         // Check if all blocks in this checkpoint are already in local storage
-        const lastBlockInCheckpoint = checkpoints[0].checkpoint.blocks.at(-1)!.number;
-        if (lastBlockInCheckpoint > localTips.proposed.number) {
+        const lastBlockInCheckpoint = checkpoints[0].checkpoint.blocks.at(-1)!;
+        if (lastBlockInCheckpoint.number > localTips.proposed.number) {
           // This checkpoint has blocks we haven't seen yet, stop here
           break;
         }
@@ -153,12 +153,11 @@ export class L2BlockStream {
         if (iterations > 1) {
           this.log.warn(`Emitting multiple checkpoints (${iterations}) without new blocks being added.`);
         }
-        const lastBlock = checkpoints[0].checkpoint.blocks.at(-1)!;
-        const lastBlockHash = await lastBlock.hash();
+        const lastBlockHash = await lastBlockInCheckpoint.hash();
         await this.emitEvent({
           type: 'chain-checkpointed',
           checkpoint: checkpoints[0],
-          block: makeL2BlockId(lastBlock.number, lastBlockHash.toString()),
+          block: makeL2BlockId(lastBlockInCheckpoint.number, lastBlockHash.toString()),
         });
         nextCheckpointToEmit = CheckpointNumber(nextCheckpointToEmit + 1);
       }

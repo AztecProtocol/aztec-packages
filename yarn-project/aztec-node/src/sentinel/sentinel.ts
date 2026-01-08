@@ -102,7 +102,7 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
     }
     const checkpoint = event.checkpoint;
 
-    // Store mapping from slot to archive, block number, and attestors
+    // Store mapping from slot to archive, checkpoint number, and attestors
     this.slotNumberToCheckpoint.set(checkpoint.checkpoint.header.slotNumber, {
       checkpointNumber: checkpoint.checkpoint.number,
       archive: checkpoint.checkpoint.archive.root.toString(),

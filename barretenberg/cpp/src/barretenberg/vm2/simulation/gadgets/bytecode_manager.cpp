@@ -66,14 +66,14 @@ BytecodeId TxBytecodeManager::get_bytecode(const AztecAddress& address)
     std::optional<ContractClass> maybe_klass = contract_db.get_contract_class(current_class_id);
     // Note: we don't need to silo and check the class id because the deployer contract guarantees
     // that if a contract instance exists, the class has been registered.
-    assert(maybe_klass.has_value());
+    BB_ASSERT(maybe_klass.has_value(), "Contract class not found");
     auto& klass = maybe_klass.value();
     retrieval_event.contract_class = klass; // WARNING: this class has the whole bytecode.
 
     // Bytecode hashing and decomposition, deduplicated by bytecode_id (commitment)
     std::optional<FF> maybe_bytecode_commitment = contract_db.get_bytecode_commitment(current_class_id);
     // If we reach this point, class ID and instance both exist which means bytecode commitment must exist.
-    assert(maybe_bytecode_commitment.has_value());
+    BB_ASSERT(maybe_bytecode_commitment.has_value(), "Bytecode commitment not found");
     BytecodeId bytecode_id = maybe_bytecode_commitment.value();
     retrieval_event.bytecode_id = bytecode_id;
     debug("Bytecode for ", address, " successfully retrieved!");
