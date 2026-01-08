@@ -574,6 +574,13 @@ variable "BLOB_ALLOW_EMPTY_SOURCES" {
   default     = false
 }
 
+variable "BLOB_FILE_STORE_UPLOAD_URL" {
+  description = "URL for uploading blobs (e.g., gs://bucket/path/, s3://bucket/path/)"
+  type        = string
+  nullable    = true
+  default     = null
+}
+
 variable "PROVER_AGENT_POLL_INTERVAL_MS" {
   description = "Interval in milliseconds between prover agent polls"
   type        = number
