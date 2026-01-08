@@ -1,5 +1,6 @@
 import {
   AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED,
+  AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED,
   NESTED_RECURSIVE_PROOF_LENGTH,
   NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   PAIRING_POINTS_SIZE,
@@ -86,7 +87,7 @@ import {
   type TxRollupPublicInputs,
 } from '@aztec/stdlib/rollup';
 import type { CircuitProvingStats, CircuitWitnessGenerationStats } from '@aztec/stdlib/stats';
-import type { VerificationKeyData } from '@aztec/stdlib/vks';
+import { VerificationKeyData } from '@aztec/stdlib/vks';
 import { Attributes, type TelemetryClient, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
 
 import { promises as fs } from 'fs';
@@ -107,7 +108,6 @@ import {
 import type { ACVMConfig, BBConfig } from '../../config.js';
 import { type UltraHonkFlavor, getUltraHonkFlavorForCircuit } from '../../honk.js';
 import { ProverInstrumentation } from '../../instrumentation.js';
-import { extractAvmVkData } from '../../verification_key/verification_key_data.js';
 import { readProofsFromOutputDirectory } from '../proof_utils.js';
 
 const logger = createLogger('bb-prover');
@@ -193,7 +193,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     inputs: AvmCircuitInputs,
   ): Promise<ProofAndVerificationKey<typeof AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED>> {
     const proofAndVk = await this.createAvmProof(inputs);
-    await this.verifyAvmProof(proofAndVk.proof.binaryProof, proofAndVk.verificationKey, inputs.publicInputs);
+    await this.verifyAvmProof(proofAndVk.proof.binaryProof, inputs.publicInputs);
     return proofAndVk;
   }
 
@@ -534,8 +534,9 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     const operation = async (bbWorkingDirectory: string) => {
       const provingResult = await this.generateAvmProofWithBB(input, bbWorkingDirectory);
 
-      const avmVK = await extractAvmVkData(provingResult.vkDirectoryPath!);
       const avmProof = await this.readAvmProofAsFields(provingResult.proofPath!);
+      // AVM uses a fixed VK, so we use a placeholder for interface compatibility
+      const avmVK = VerificationKeyData.makeFake(AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED);
 
       const circuitType = 'avm-circuit' as const;
       const appCircuitName = 'unknown' as const;
@@ -634,13 +635,11 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     return await this.verifyWithKey(getUltraHonkFlavorForCircuit(circuitType), verificationKey, proof);
   }
 
-  public async verifyAvmProof(
-    proof: Proof,
-    verificationKey: VerificationKeyData,
-    publicInputs: AvmCircuitPublicInputs,
-  ) {
-    return await this.verifyWithKeyInternal(proof, verificationKey, (proofPath, vkPath) =>
-      verifyAvmProof(this.config.bbBinaryPath, this.config.bbWorkingDirectory, proofPath, publicInputs, vkPath, logger),
+  public async verifyAvmProof(proof: Proof, publicInputs: AvmCircuitPublicInputs) {
+    // AVM uses a fixed VK, so we use a placeholder for interface compatibility
+    const verificationKey = VerificationKeyData.makeFake(AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED);
+    return await this.verifyWithKeyInternal(proof, verificationKey, (proofPath, /*unused*/ _vkPath) =>
+      verifyAvmProof(this.config.bbBinaryPath, this.config.bbWorkingDirectory, proofPath, publicInputs, logger),
     );
   }
 
@@ -660,8 +659,8 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       const proofFileName = path.join(bbWorkingDirectory, PROOF_FILENAME);
       const verificationKeyPath = path.join(bbWorkingDirectory, VK_FILENAME);
       // TODO(https://github.com/AztecProtocol/aztec-packages/issues/13189): Put this proof parsing logic in the proof class.
-      await fs.writeFile(publicInputsFileName, proof.buffer.slice(0, proof.numPublicInputs * 32));
-      await fs.writeFile(proofFileName, proof.buffer.slice(proof.numPublicInputs * 32));
+      await fs.writeFile(publicInputsFileName, proof.buffer.subarray(0, proof.numPublicInputs * 32));
+      await fs.writeFile(proofFileName, proof.buffer.subarray(proof.numPublicInputs * 32));
       await fs.writeFile(verificationKeyPath, verificationKey.keyAsBytes);
 
       const result = await verificationFunction(proofFileName, verificationKeyPath!);

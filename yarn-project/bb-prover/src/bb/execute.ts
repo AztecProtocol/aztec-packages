@@ -353,7 +353,7 @@ export async function generateAvmProof(
         durationMs: duration,
         proofPath: join(outputPath, PROOF_FILENAME),
         pkPath: undefined,
-        vkDirectoryPath: outputPath,
+        vkDirectoryPath: undefined, // AVM VK is fixed in the binary.
       };
     }
     // Not a great error message here but it is difficult to decipher what comes from bb
@@ -397,7 +397,6 @@ export async function verifyAvmProof(
   workingDirectory: string,
   proofFullPath: string,
   publicInputs: AvmCircuitPublicInputs,
-  verificationKeyPath: string,
   logger: Logger,
 ): Promise<BBFailure | BBSuccess> {
   const inputsBuffer = publicInputs.serializeWithMessagePack();
@@ -414,7 +413,7 @@ export async function verifyAvmProof(
     return { status: BB_RESULT.FAILURE, reason: `Could not write avm inputs to ${avmInputsPath}` };
   }
 
-  return await verifyProofInternal(pathToBB, proofFullPath, verificationKeyPath, 'avm_verify', logger, [
+  return await verifyProofInternal(pathToBB, proofFullPath, /*vkPath=*/ '', 'avm_verify', logger, [
     '--avm-public-inputs',
     avmInputsPath,
   ]);
@@ -506,7 +505,8 @@ async function verifyProofInternal(
 
       args = ['-p', proofFullPath, '-k', verificationKeyPath, '-i', publicInputsFullPath, '--disable_zk', ...extraArgs];
     } else {
-      args = ['-p', proofFullPath, '-k', verificationKeyPath, ...extraArgs];
+      // avm_verify doesn't need VK path since it uses fixed VK internally
+      args = ['-p', proofFullPath, ...extraArgs];
     }
 
     const loggingArg =

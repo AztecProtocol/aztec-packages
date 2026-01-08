@@ -35,7 +35,6 @@ void avm_prove(const std::filesystem::path& inputs_path, const std::filesystem::
 
     // NOTE: As opposed to Avm1 and other proof systems, the public inputs are NOT part of the proof.
     write_file(output_path / "proof", to_buffer(proof));
-    write_file(output_path / "vk", vk);
 
     print_avm_stats();
 
@@ -43,7 +42,7 @@ void avm_prove(const std::filesystem::path& inputs_path, const std::filesystem::
     // The reasoning is that proving will always pass unless it crashes.
     // We want to return an exit code != 0 if the proof is invalid so that the prover client saves the inputs.
     info("verifying...");
-    bool res = avm.verify(proof, inputs.public_inputs, vk);
+    bool res = avm.verify(proof, inputs.public_inputs);
     info("verification: ", res ? "success" : "failure");
     if (!res) {
         throw std::runtime_error("Generated proof is invalid!!!!!");
@@ -62,16 +61,13 @@ void avm_check_circuit(const std::filesystem::path& inputs_path)
 }
 
 // NOTE: The proof should NOT include the public inputs.
-bool avm_verify(const std::filesystem::path& proof_path,
-                const std::filesystem::path& public_inputs_path,
-                const std::filesystem::path& vk_path)
+bool avm_verify(const std::filesystem::path& proof_path, const std::filesystem::path& public_inputs_path)
 {
     const auto proof = many_from_buffer<fr>(read_file(proof_path));
-    std::vector<uint8_t> vk_bytes = read_file(vk_path);
     auto public_inputs = avm2::PublicInputs::from(read_file(public_inputs_path));
 
     avm2::AvmAPI avm;
-    bool res = avm.verify(proof, public_inputs, vk_bytes);
+    bool res = avm.verify(proof, public_inputs);
     info("verification: ", res ? "success" : "failure");
 
     print_avm_stats();

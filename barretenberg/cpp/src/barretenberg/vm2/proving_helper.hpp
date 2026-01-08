@@ -18,7 +18,7 @@ class AvmProvingHelper {
     VkData get_verification_key();
     std::pair<Proof, VkData> prove(tracegen::TraceContainer&& trace);
     bool check_circuit(tracegen::TraceContainer&& trace);
-    bool verify(const Proof& proof, const PublicInputs& pi, const VkData& vk_data);
+    bool verify(const Proof& proof, const PublicInputs& pi);
 };
 
 } // namespace bb::avm2

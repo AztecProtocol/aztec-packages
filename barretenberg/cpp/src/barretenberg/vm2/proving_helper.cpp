@@ -97,8 +97,9 @@ bool AvmProvingHelper::check_circuit(tracegen::TraceContainer&& trace)
     return true;
 }
 
-bool AvmProvingHelper::verify(const AvmProvingHelper::Proof& proof, const PublicInputs& pi, const VkData& vk_data)
+bool AvmProvingHelper::verify(const AvmProvingHelper::Proof& proof, const PublicInputs& pi)
 {
+    auto vk_data = AVM_TRACK_TIME_V("proving/verify:get_verification_key", get_verification_key());
     auto vk = AVM_TRACK_TIME_V("proving/verify:create_verification_key", create_verification_key(vk_data));
     auto verifier = AVM_TRACK_TIME_V("proving/verify:construct_verifier", AvmVerifier(std::move(vk)));
     return AVM_TRACK_TIME_V("proving/verify_proof", verifier.verify_proof(proof, pi.to_columns()));
