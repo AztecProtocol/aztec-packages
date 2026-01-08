@@ -1,7 +1,5 @@
 include "context_stack.pil";
 
-// TODO: Usage of sel_error in this whole file has to be reconsidered.
-
 // This is a virtual gadget, which is part of the execution trace.
 // This subtrace is focused on managing the changes to the context.
 // By default (i.e. when not executing a context-changing opcode),
@@ -11,10 +9,6 @@ namespace execution;
     // This the same sel as in execution
     #[skippable_if]
     sel = 0;
-
-    // TODO: make sure that all uses of `sel_error` here really should be "error" only
-    // since `sel_error` will not be ` for the REVERT opcode. If we need "error or REVERT",
-    // use `sel_failure`.
 
     // Guaranteed to be boolean because sel_execute_call & sel_execute_static_call are mutually exclusive
     pol commit sel_enter_call; // @boolean (by definition)
@@ -31,7 +25,7 @@ namespace execution;
     // group, sel_error is mutually exclusive with sel_execute_revert and sel_execute_return. Namely, if
     // an error occurs earlier neither sel_execute_revert nor sel_execute_return can be activated.
     pol commit sel_exit_call; // @boolean (by definition)
-    sel_exit_call = sel_failure + sel_execute_return; // = sel_execute_revert + sel_error + sel_execute_return
+    sel_exit_call = sel_failure + sel_execute_return; // sel_failure = sel_error + sel_execute_revert (discard.pil)
 
     // Context columns
     pol commit context_id;
@@ -129,7 +123,7 @@ namespace execution;
 
     pol PC_JUMP = sel_execute_internal_call + sel_execute_internal_return + sel_execute_jump + sel_execute_jumpi;
 
-    pol commit has_parent_ctx; // @boolean - == 1 if parent_id != 0;
+    pol commit has_parent_ctx; // @boolean is 1 iff parent_id != 0;
     has_parent_ctx * (1 - has_parent_ctx) = 0;
     pol commit is_parent_id_inv; // For zero-check of has_parent_ctx
     parent_id * ((1 - has_parent_ctx) * (1 - is_parent_id_inv) + is_parent_id_inv) - has_parent_ctx = 0;
@@ -139,26 +133,54 @@ namespace execution;
     // If we are exiting and we have a parent ctx
     nested_exit_call = has_parent_ctx * sel_exit_call;
 
-    // next_context_id increments with each invocation of an external call or new enqueued call
-    pol commit next_context_id; // Can be replaced by clk
 
-    // We always start enqueued calls with fresh context ids, so the next context id must start at context_id + 1
+    // =============================
+    //        Context ID
+    // =============================
+
+    /*
+     * Context ID is used to identify the context. Each time a new context is entered, we increment the context id.
+     * The creation of contexts therefore follows an increasing sequence of context ids.
+     * However, we emphasize that the context id associated to an execution row does not necessarily
+     * follow an non-decreasing sequence. For instance, when we exit a nested context, we restore the
+     * context id to the parent context id which is smaller.
+     * In column execution.next_context_id, we keep track of the context id used for the next
+     * context creation and this one is a non-decreasing sequence, more precisely, it is incremented by 1
+     * iff a new enqueued/nested call happens.
+     * In tx.pil (#[NEXT_CONTEXT_ID_INITIAL_VALUE]), tx.next_context_id is initialized to 1 at the start of the tx.
+     * Whenever a public call request is dispatched, tx.next_context_id is set to the execution.context_id
+     * as constrained by the permutation #[DISPATCH_EXEC_START] (tx.pil), i.e., for a row where `enqueued_call_start == 1`,
+     * `context_id` is constrained.
+     * We initialize execution.next_context_id to be context_id + 1 at the start of a new enqueued call.
+     * We note that by exiting an enqueued call, we pass execution.next_context_id back to tx.pil through
+     * the permutation #[DISPATCH_EXEC_END] which tx.pil will use for the next enqueued call.
+     */
+
+    pol commit next_context_id;
+
+    // We always start enqueued calls with fresh context ids, so the next context id must start at context_id + 1.
     #[ENQUEUED_CALL_START_NEXT_CTX_ID]
     enqueued_call_start * (context_id + 1 - next_context_id) = 0;
 
-    // The initial next_context_id = 2, in row = 1
+    // We increment next_context_id iff there is an invocation of an external call or a new enqueued call.
+    // We slightly overconstrain next_context_id on rows with `enqueued_call_start == 1` except in the first enqueued call,
+    // as constrain the increment over boundaries of enqueued calls while at the same time #[ENQUEUED_CALL_START_NEXT_CTX_ID]
+    // initializes next_context_id to context_id + 1 at the start of an enqueued call.
+    // This also enforces the enqueued calls to be placed in order of execution in this trace.
     #[INCR_NEXT_CONTEXT_ID]
     NOT_LAST_EXEC * (next_context_id' - (next_context_id + sel_enter_call + enqueued_call_start')) = 0;
 
-    // nested_exit_call = 1 ==> context_id' = parent_id
+    // Initialization: enqueued_call_start = 1 ==> context_id = tx.next_context_id (#[DISPATCH_EXEC_START] (tx.pil))
+    // Propagation:
     // sel_enter_call   = 1 ==> context_id' = next_context_id
+    // nested_exit_call = 1 ==> context_id' = parent_id
     // otherwise        = 0 ==> context_id' = context_id
-    #[CONTEXT_ID_NEXT_ROW]
-    NOT_LAST_EXEC * DEFAULT_CTX_ROW * (context_id' - context_id) = 0;
     #[CONTEXT_ID_EXT_CALL]
-    NOT_LAST_EXEC * sel_enter_call  * (context_id' - next_context_id) = 0;
+    NOT_LAST_EXEC * sel_enter_call   * (context_id' - next_context_id) = 0;
     #[CONTEXT_ID_NESTED_EXIT]
-    NOT_LAST_EXEC * nested_exit_call   * (context_id' - parent_id) = 0;
+    NOT_LAST_EXEC * nested_exit_call * (context_id' - parent_id) = 0;
+    #[CONTEXT_ID_NEXT_ROW]
+    NOT_LAST_EXEC * DEFAULT_CTX_ROW  * (context_id' - context_id) = 0;
 
     // nested_exit_call = 1 ==> constraints come from lookup
     // sel_enter_call   = 1 ==> parent_id' = context_id

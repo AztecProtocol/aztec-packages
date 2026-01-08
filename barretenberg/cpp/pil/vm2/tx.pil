@@ -388,7 +388,8 @@ namespace tx;
     // ordering of the public call requests prescribed by the public inputs. Note that a re-ordering of
     // enqueued calls in execution trace would be possible though, but it would not affect the security.
     // Such a re-ordering would consist of changing the row positions (clk) but not the temporal ordering
-    // determined by the context_id's.
+    // determined by the context_id's. Nevertheless, the constraint #[INCR_NEXT_CONTEXT_ID] in context.pil prevents
+    // such a re-ordering to happen.
     #[DISPATCH_EXEC_END]
     should_process_call_request {
        next_context_id,
