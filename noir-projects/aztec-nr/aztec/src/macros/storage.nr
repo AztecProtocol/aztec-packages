@@ -32,9 +32,9 @@ pub comptime fn storage(s: TypeDefinition) -> Quoted {
     );
 
     let mut slot: u32 = 1;
-    let mut storage_vars_constructors = &[];
-    let mut storage_layout_struct_members = &[];
-    let mut storage_layout_constructors = &[];
+    let mut storage_vars_constructors = @[];
+    let mut storage_layout_struct_members = @[];
+    let mut storage_layout_constructors = @[];
 
     for storage_struct_member in s.fields_as_written() {
         let (name, typ, _) = storage_struct_member;

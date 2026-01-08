@@ -24,6 +24,8 @@ After each step, commit the results.
 
 **ALWAYS verify file changes with `git status` after any modification step before marking it complete.** Command output showing "updating" does not guarantee the file was written to disk.
 
+**IMPORTANT:** Always run `git status` from the repository root directory, not from subdirectories. Running `git status noir-projects/` from inside `noir-projects/` will fail silently.
+
 ### Step 1: Ensure that the new submodule commit has been pulled
 
 Run `./bootstrap.sh` in `noir` to ensure that the new submodule commit has been pulled.

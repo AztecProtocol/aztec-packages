@@ -148,7 +148,7 @@ comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -
         // know it we call we correct `unpack` method from the `Packable` trait to obtain the underlying note type, and
         // compute the note hash (non-siloed) and inner nullifier (also non-siloed).
 
-        let mut if_note_type_id_match_statements_list = &[];
+        let mut if_note_type_id_match_statements_list = @[];
         for i in 0..NOTES.len() {
             let typ = NOTES.get(i);
 

@@ -61,7 +61,7 @@ pub comptime fn generate_public_dispatch(m: Module) -> Quoted {
         });
         let read = reads.join(quote { });
 
-        let mut args = &[];
+        let mut args = @[];
         for parameter_index in 0..parameters.len() {
             let param_name = f"arg{parameter_index}".quoted_contents();
             args = args.push_back(quote { $param_name });
