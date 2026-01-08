@@ -401,37 +401,61 @@ describe('PrivateEventStore', () => {
 
     it('removes events after rollback block', async () => {
       // Store events in blocks 100, 200, 300
-      await privateEventStore.storePrivateEventLog(eventSelector, msgContent1, 0, {
-        contractAddress,
-        scope,
-        txHash: TxHash.random(),
-        l2BlockNumber: BlockNumber(100),
-        l2BlockHash,
-      }, TEST_JOB_ID);
+      await privateEventStore.storePrivateEventLog(
+        eventSelector,
+        msgContent1,
+        0,
+        {
+          contractAddress,
+          scope,
+          txHash: TxHash.random(),
+          l2BlockNumber: BlockNumber(100),
+          l2BlockHash,
+        },
+        TEST_JOB_ID,
+      );
       // We add another event in the same block to verify that more events per block work.
-      await privateEventStore.storePrivateEventLog(eventSelector, msgContent2, 1, {
-        contractAddress,
-        scope,
-        txHash: TxHash.random(),
-        l2BlockNumber: BlockNumber(100),
-        l2BlockHash,
-      }, TEST_JOB_ID);
+      await privateEventStore.storePrivateEventLog(
+        eventSelector,
+        msgContent2,
+        1,
+        {
+          contractAddress,
+          scope,
+          txHash: TxHash.random(),
+          l2BlockNumber: BlockNumber(100),
+          l2BlockHash,
+        },
+        TEST_JOB_ID,
+      );
 
-      await privateEventStore.storePrivateEventLog(eventSelector, msgContent3, 2, {
-        contractAddress,
-        scope,
-        txHash: TxHash.random(),
-        l2BlockNumber: BlockNumber(200),
-        l2BlockHash,
-      }, TEST_JOB_ID);
+      await privateEventStore.storePrivateEventLog(
+        eventSelector,
+        msgContent3,
+        2,
+        {
+          contractAddress,
+          scope,
+          txHash: TxHash.random(),
+          l2BlockNumber: BlockNumber(200),
+          l2BlockHash,
+        },
+        TEST_JOB_ID,
+      );
 
-      await privateEventStore.storePrivateEventLog(eventSelector, msgContent4, 3, {
-        contractAddress,
-        scope,
-        txHash: TxHash.random(),
-        l2BlockNumber: BlockNumber(300),
-        l2BlockHash,
-      }, TEST_JOB_ID);
+      await privateEventStore.storePrivateEventLog(
+        eventSelector,
+        msgContent4,
+        3,
+        {
+          contractAddress,
+          scope,
+          txHash: TxHash.random(),
+          l2BlockNumber: BlockNumber(300),
+          l2BlockHash,
+        },
+        TEST_JOB_ID,
+      );
       await privateEventStore.commit(TEST_JOB_ID);
 
       // Rollback to block 150 (should remove events from blocks 200 and 300)
@@ -455,13 +479,19 @@ describe('PrivateEventStore', () => {
       const reorgTxHash = TxHash.random();
 
       // Store event at block 200
-      await privateEventStore.storePrivateEventLog(eventSelector, msgContent1, 0, {
-        contractAddress,
-        scope,
-        txHash: reorgTxHash,
-        l2BlockNumber: BlockNumber(200),
-        l2BlockHash,
-      }, TEST_JOB_ID);
+      await privateEventStore.storePrivateEventLog(
+        eventSelector,
+        msgContent1,
+        0,
+        {
+          contractAddress,
+          scope,
+          txHash: reorgTxHash,
+          l2BlockNumber: BlockNumber(200),
+          l2BlockHash,
+        },
+        TEST_JOB_ID,
+      );
       await privateEventStore.commit(TEST_JOB_ID);
 
       // Rollback to block 100
@@ -477,13 +507,19 @@ describe('PrivateEventStore', () => {
       expect(events.length).toBe(0);
 
       // Re-add the same event (same eventCommitmentIndex and txHash, as happens after a reorg)
-      await privateEventStore.storePrivateEventLog(eventSelector, msgContent1, 0, {
-        contractAddress,
-        scope,
-        txHash: reorgTxHash,
-        l2BlockNumber: BlockNumber(200),
-        l2BlockHash,
-      }, TEST_JOB_ID);
+      await privateEventStore.storePrivateEventLog(
+        eventSelector,
+        msgContent1,
+        0,
+        {
+          contractAddress,
+          scope,
+          txHash: reorgTxHash,
+          l2BlockNumber: BlockNumber(200),
+          l2BlockHash,
+        },
+        TEST_JOB_ID,
+      );
       await privateEventStore.commit(TEST_JOB_ID);
 
       // Verify event can be retrieved again
@@ -497,13 +533,19 @@ describe('PrivateEventStore', () => {
     });
 
     it('handles rollback with no events to remove', async () => {
-      await privateEventStore.storePrivateEventLog(eventSelector, msgContent1, 0, {
-        contractAddress,
-        scope,
-        txHash: TxHash.random(),
-        l2BlockNumber: BlockNumber(100),
-        l2BlockHash,
-      }, TEST_JOB_ID);
+      await privateEventStore.storePrivateEventLog(
+        eventSelector,
+        msgContent1,
+        0,
+        {
+          contractAddress,
+          scope,
+          txHash: TxHash.random(),
+          l2BlockNumber: BlockNumber(100),
+          l2BlockHash,
+        },
+        TEST_JOB_ID,
+      );
       await privateEventStore.commit(TEST_JOB_ID);
 
       // Rollback after all existing events
