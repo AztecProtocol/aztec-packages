@@ -52,10 +52,10 @@ class AvmRecursionConstraintTestingFunctions {
         auto [trace, public_inputs] = avm2::testing::get_minimal_trace_with_pi();
 
         AvmProver prover;
-        auto [proof, vk_data] = prover.prove(std::move(trace));
+        auto proof = prover.prove(std::move(trace));
         proof.resize(AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED, FF::zero()); // Pad proof
 
-        const bool verified = prover.verify(proof, public_inputs, vk_data);
+        const bool verified = prover.verify(proof, public_inputs);
         EXPECT_TRUE(verified) << "native proof verification failed";
 
         auto public_inputs_flat = PublicInputs::columns_to_flat(public_inputs.to_columns());

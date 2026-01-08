@@ -1219,9 +1219,9 @@ export class ProvingOrchestrator implements EpochProver {
       },
     );
 
-    this.deferredProving(provingState, doAvmProving, proofAndVk => {
+    this.deferredProving(provingState, doAvmProving, proof => {
       logger.debug(`Proven VM for tx index: ${txIndex}`);
-      txProvingState.setAvmProof(proofAndVk);
+      txProvingState.setAvmProof(proof);
       this.checkAndEnqueueBaseRollup(provingState, txIndex);
     });
   }

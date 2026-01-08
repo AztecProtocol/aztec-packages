@@ -55,10 +55,8 @@ import { NativeACVMSimulator } from '@aztec/simulator/server';
 import type { AvmCircuitInputs, AvmCircuitPublicInputs } from '@aztec/stdlib/avm';
 import { ProvingError } from '@aztec/stdlib/errors';
 import {
-  type ProofAndVerificationKey,
   type PublicInputsAndRecursiveProof,
   type ServerCircuitProver,
-  makeProofAndVerificationKey,
   makePublicInputsAndRecursiveProof,
 } from '@aztec/stdlib/interfaces/server';
 import type { ParityBasePrivateInputs, ParityPublicInputs, ParityRootPrivateInputs } from '@aztec/stdlib/parity';
@@ -86,7 +84,7 @@ import {
   type TxRollupPublicInputs,
 } from '@aztec/stdlib/rollup';
 import type { CircuitProvingStats, CircuitWitnessGenerationStats } from '@aztec/stdlib/stats';
-import type { VerificationKeyData } from '@aztec/stdlib/vks';
+import { VerificationKeyData } from '@aztec/stdlib/vks';
 import { Attributes, type TelemetryClient, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
 
 import { promises as fs } from 'fs';
@@ -105,9 +103,8 @@ import {
   verifyProof,
 } from '../../bb/execute.js';
 import type { ACVMConfig, BBConfig } from '../../config.js';
-import { type UltraHonkFlavor, getUltraHonkFlavorForCircuit } from '../../honk.js';
+import { getUltraHonkFlavorForCircuit } from '../../honk.js';
 import { ProverInstrumentation } from '../../instrumentation.js';
-import { extractAvmVkData } from '../../verification_key/verification_key_data.js';
 import { readProofsFromOutputDirectory } from '../proof_utils.js';
 
 const logger = createLogger('bb-prover');
@@ -191,10 +188,10 @@ export class BBNativeRollupProver implements ServerCircuitProver {
   }))
   public async getAvmProof(
     inputs: AvmCircuitInputs,
-  ): Promise<ProofAndVerificationKey<typeof AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED>> {
-    const proofAndVk = await this.createAvmProof(inputs);
-    await this.verifyAvmProof(proofAndVk.proof.binaryProof, proofAndVk.verificationKey, inputs.publicInputs);
-    return proofAndVk;
+  ): Promise<RecursiveProof<typeof AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED>> {
+    const proof = await this.createAvmProof(inputs);
+    await this.verifyAvmProof(proof.binaryProof, inputs.publicInputs);
+    return proof;
   }
 
   public async getPublicChonkVerifierProof(
@@ -530,11 +527,10 @@ export class BBNativeRollupProver implements ServerCircuitProver {
 
   private async createAvmProof(
     input: AvmCircuitInputs,
-  ): Promise<ProofAndVerificationKey<typeof AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED>> {
+  ): Promise<RecursiveProof<typeof AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED>> {
     const operation = async (bbWorkingDirectory: string) => {
       const provingResult = await this.generateAvmProofWithBB(input, bbWorkingDirectory);
 
-      const avmVK = await extractAvmVkData(provingResult.vkDirectoryPath!);
       const avmProof = await this.readAvmProofAsFields(provingResult.proofPath!);
 
       const circuitType = 'avm-circuit' as const;
@@ -557,7 +553,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
         } satisfies CircuitProvingStats,
       );
 
-      return makeProofAndVerificationKey(avmProof, avmVK);
+      return avmProof;
     };
     return await this.runInDirectory(operation);
   }
@@ -631,28 +627,19 @@ export class BBNativeRollupProver implements ServerCircuitProver {
    */
   public async verifyProof(circuitType: ServerProtocolArtifact, proof: Proof) {
     const verificationKey = this.getVerificationKeyDataForCircuit(circuitType);
-    return await this.verifyWithKey(getUltraHonkFlavorForCircuit(circuitType), verificationKey, proof);
-  }
-
-  public async verifyAvmProof(
-    proof: Proof,
-    verificationKey: VerificationKeyData,
-    publicInputs: AvmCircuitPublicInputs,
-  ) {
-    return await this.verifyWithKeyInternal(proof, verificationKey, (proofPath, vkPath) =>
-      verifyAvmProof(this.config.bbBinaryPath, this.config.bbWorkingDirectory, proofPath, publicInputs, vkPath, logger),
+    return await this.verifyInternal(proof, verificationKey, (proofPath, vkPath) =>
+      verifyProof(this.config.bbBinaryPath, proofPath, vkPath, getUltraHonkFlavorForCircuit(circuitType), logger),
     );
   }
 
-  public async verifyWithKey(flavor: UltraHonkFlavor, verificationKey: VerificationKeyData, proof: Proof) {
-    return await this.verifyWithKeyInternal(proof, verificationKey, (proofPath, vkPath) =>
-      verifyProof(this.config.bbBinaryPath, proofPath, vkPath, flavor, logger),
+  public async verifyAvmProof(proof: Proof, publicInputs: AvmCircuitPublicInputs) {
+    return await this.verifyInternal(proof, /*verificationKey=*/ undefined, (proofPath, /*unused*/ _vkPath) =>
+      verifyAvmProof(this.config.bbBinaryPath, this.config.bbWorkingDirectory, proofPath, publicInputs, logger),
     );
   }
-
-  private async verifyWithKeyInternal(
+  private async verifyInternal(
     proof: Proof,
-    verificationKey: { keyAsBytes: Buffer },
+    verificationKey: { keyAsBytes: Buffer } | undefined,
     verificationFunction: (proofPath: string, vkPath: string) => Promise<BBFailure | BBSuccess>,
   ) {
     const operation = async (bbWorkingDirectory: string) => {
@@ -660,11 +647,13 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       const proofFileName = path.join(bbWorkingDirectory, PROOF_FILENAME);
       const verificationKeyPath = path.join(bbWorkingDirectory, VK_FILENAME);
       // TODO(https://github.com/AztecProtocol/aztec-packages/issues/13189): Put this proof parsing logic in the proof class.
-      await fs.writeFile(publicInputsFileName, proof.buffer.slice(0, proof.numPublicInputs * 32));
-      await fs.writeFile(proofFileName, proof.buffer.slice(proof.numPublicInputs * 32));
-      await fs.writeFile(verificationKeyPath, verificationKey.keyAsBytes);
+      await fs.writeFile(publicInputsFileName, proof.buffer.subarray(0, proof.numPublicInputs * 32));
+      await fs.writeFile(proofFileName, proof.buffer.subarray(proof.numPublicInputs * 32));
+      if (verificationKey !== undefined) {
+        await fs.writeFile(verificationKeyPath, verificationKey.keyAsBytes);
+      }
 
-      const result = await verificationFunction(proofFileName, verificationKeyPath!);
+      const result = await verificationFunction(proofFileName, verificationKeyPath);
 
       if (result.status === BB_RESULT.FAILURE) {
         const errorMessage = `Failed to verify proof from key!`;
