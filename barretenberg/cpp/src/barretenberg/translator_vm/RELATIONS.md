@@ -4,15 +4,15 @@ The translator VM enforces several relations/constraints to ensure the correctne
 
 Since we follow a two-row trace structure, some relations are only active on even rows, while others are only active on odd rows. Below is a summary of the relations and their activation patterns.
 
-| Constraint                    | No of subtrelations | Active on even rows | Active on odd rows |
-| ----------------------------- | ------------------- | ------------------- | ------------------ |
-| Non-Native Field Relation     | 3                   | ✓                   | ✗                  |
-| Decomposition Relation        | 48                  | ✓                   | ✓                  |
-| Permutation Relation          | 2                   | ✓                   | ✓                  |
-| Delta Range Constraint        | 10                  | ✓                   | ✓                  |
-| Opcode Constraint Relation    | 5                   | ✓                   | ✓                  |
-| Accumulator Transfer Relation | 12                  | ✗                   | ✓ (propagation)    |
-| Zero Constraints Relation     | 68                  | ✓                   | ✓                  |
+| Constraint                    | No of subrelations | Active on even rows | Active on odd rows |
+| ----------------------------- | ------------------ | ------------------- | ------------------ |
+| Non-Native Field Relation     | 3                  | ✓                   | ✗                  |
+| Decomposition Relation        | 48                 | ✓                   | ✓                  |
+| Permutation Relation          | 2                  | ✓                   | ✓                  |
+| Delta Range Constraint        | 10                 | ✓                   | ✓                  |
+| Opcode Constraint Relation    | 5                  | ✓                   | ✓                  |
+| Accumulator Transfer Relation | 12                 | ✗                   | ✓ (propagation)    |
+| Zero Constraints Relation     | 68                 | ✓                   | ✓                  |
 
 Lagrange selectors for activation:
 
@@ -112,8 +112,19 @@ If this equation holds:
 2. Modulo $r$ (native $\mathbb{F}_r$ computation), and
 3. All values are properly range-constrained
 
-then it must hold in integers. This is because the Chinese Remainder Theorem guarantees that if an equation holds modulo two coprime moduli whose product exceeds the maximum possible value of the equation, then it holds over the integers. Here, the maximum possible value of the left-hand side is less than $2^{514}$, while the moduli product is $2^{272} \cdot r > 2^{525} > 2^{514}$.
-See [bigfield documentation](barretenberg/cpp/src/barretenberg/stdlib/primitives/bigfield/README.md) for more details on non-native field arithmetic.
+then it must hold in integers. This is because the Chinese Remainder Theorem guarantees that if an equation holds modulo two coprime moduli whose product exceeds the maximum possible value of the equation, then it holds over the integers.
+Since all values are in $\mathbb{F}_q$, i.e., they are less than $q$, we have:
+
+$$
+\begin{aligned}
+\textsf{max}(a^{\text{prev}} \cdot x + \texttt{op} + P_x \cdot v + P_y \cdot v^2 + z_1 \cdot v^3 + z_2 \cdot v^4) &< 5q^2 < 5 \cdot (2^{254})^2 < 2^{511}
+\\
+\textsf{max}(\mathcal{Q} \cdot q) &< q^2 < (2^{254})^2 < 2^{508}
+\end{aligned}
+$$
+
+Therefore, the maximum possible value of the left-hand side is less than $2^{511}$, while the moduli product is $2^{272} \cdot r > 2^{525} > 2^{511}$.
+See [bigfield documentation](../stdlib/primitives/bigfield/README.md) for more details on non-native field arithmetic.
 
 The non-native field relation is enforced through three separate subrelations:
 
@@ -388,7 +399,7 @@ Subrelations 22-41 apply this pattern to:
 | Quotient    | 4                  | 12, 12, 12, 10 bits |
 |             |                    |                     |
 
-### Category 5: Transcript Value Composition (Subrelations 42-47)
+### Category 5: Transcript Value Reconstruction (Subrelations 42-47)
 
 These prove that 68-bit limbs correctly reconstruct EccOpQueue transcript values.
 General pattern for composing two limbs into a transcript value:

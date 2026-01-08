@@ -96,7 +96,7 @@ We verify this by proving the equation holds:
 2. modulo $r$ (natively in $\mathbb{F}_r$)
 3. with range constraints on all limbs (prevents overflow/underflow)
 
-By the Chinese Remainder Theorem, since $2^{272} \cdot r > 2^{514}$ exceeds the maximum possible value, the equation must hold in integers, and thus modulo $q$.
+By the Chinese Remainder Theorem, since $2^{272} \cdot r > 2^{514}$ exceeds the maximum possible value, the equation must hold in integers, and thus modulo $q$. More details on this relation are in [RELATIONS.md](RELATIONS.md#non-native-field-relations).
 
 ## Witness Trace Structure
 
