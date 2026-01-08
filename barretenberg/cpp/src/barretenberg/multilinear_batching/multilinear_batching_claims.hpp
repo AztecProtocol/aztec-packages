@@ -70,18 +70,17 @@ template <typename Curve> struct MultilinearBatchingVerifierClaim {
 
     /**
      * @brief Tag claim components and hash.
+     * @tparam Codec The codec used for serde
+     * @tparam HashFn The hash function to use
      */
-    template <typename T>
-    FF hash_with_origin_tagging([[maybe_unused]] const std::string& domain_separator, T& transcript) const
+    template <typename Codec, typename HashFn> FF hash_with_origin_tagging(const OriginTag& tag) const
     {
-        using Codec = typename T::Codec;
+        constexpr bool in_circuit = Curve::is_stdlib_type;
         std::vector<FF> claim_elements;
-
-        const OriginTag tag = bb::extract_transcript_tag(transcript);
 
         // Tag, serialize, and append
         auto append_tagged = [&]<typename U>(const U& component) {
-            auto frs = bb::tag_and_serialize<T::in_circuit, Codec>(component, tag);
+            auto frs = bb::tag_and_serialize<in_circuit, Codec>(component, tag);
             claim_elements.insert(claim_elements.end(), frs.begin(), frs.end());
         };
 
@@ -97,10 +96,22 @@ template <typename Curve> struct MultilinearBatchingVerifierClaim {
         append_tagged(shifted_commitment);
 
         // Sanitize free witness tags before hashing
-        bb::unset_free_witness_tags<T::in_circuit, FF>(claim_elements);
+        bb::unset_free_witness_tags<in_circuit, FF>(claim_elements);
 
         // Hash the tagged elements directly
-        return T::HashFunction::hash(claim_elements);
+        return HashFn::hash(claim_elements);
+    }
+
+    /**
+     * @brief Convenience overload that accepts a transcript and extracts the tag internally
+     * @tparam TranscriptType The transcript type (Codec and HashFn deduced automatically)
+     * @param transcript The transcript to extract the origin tag from
+     * @returns The hash of the claim
+     */
+    template <typename TranscriptType> FF hash_with_origin_tagging(const TranscriptType& transcript) const
+    {
+        const OriginTag tag = bb::extract_transcript_tag(transcript);
+        return hash_with_origin_tagging<typename TranscriptType::Codec, typename TranscriptType::HashFunction>(tag);
     }
 };
 

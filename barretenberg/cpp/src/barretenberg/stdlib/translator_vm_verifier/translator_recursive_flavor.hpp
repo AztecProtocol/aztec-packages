@@ -103,6 +103,7 @@ class TranslatorRecursiveFlavor {
      */
     class VerificationKey : public StdlibVerificationKey_<CircuitBuilder,
                                                           TranslatorFlavor::PrecomputedEntities<Commitment>,
+                                                          NativeVerificationKey,
                                                           VKSerializationMode::NO_METADATA> {
       public:
         VerificationKey(CircuitBuilder* builder, const std::shared_ptr<NativeVerificationKey>& native_key)
@@ -123,10 +124,9 @@ class TranslatorRecursiveFlavor {
          * @brief Unused function because vk is hardcoded in recursive verifier, so no transcript hashing is needed.
          *
          * @param domain_separator
-         * @param transcript
+         * @param tag
          */
-        FF hash_with_origin_tagging([[maybe_unused]] const std::string& domain_separator,
-                                    [[maybe_unused]] Transcript& transcript) const override
+        FF hash_with_origin_tagging([[maybe_unused]] const OriginTag& tag) const override
         {
             throw_or_abort("Not intended to be used because vk is hardcoded in circuit.");
         }

@@ -226,8 +226,13 @@ class AvmFlavor {
         std::vector<FF> public_inputs;
     };
 
-    class VerificationKey
-        : public NativeVerificationKey_<PrecomputedEntities<Commitment>, Transcript, VKSerializationMode::NO_METADATA> {
+    class VerificationKey : public NativeVerificationKey_<PrecomputedEntities<Commitment>,
+                                                          typename Transcript::Codec,
+                                                          typename Transcript::HashFunction> {
+        using Base = NativeVerificationKey_<PrecomputedEntities<Commitment>,
+                                            typename Transcript::Codec,
+                                            typename Transcript::HashFunction>;
+
       public:
         static constexpr size_t NUM_PRECOMPUTED_COMMITMENTS = NUM_PRECOMPUTED_ENTITIES;
 
@@ -256,8 +261,7 @@ class AvmFlavor {
          * @brief Unimplemented because AVM VK is hardcoded so hash does not need to be computed. Rather, we just add
          * the provided VK hash directly to the transcript.
          */
-        fr hash_with_origin_tagging([[maybe_unused]] const std::string& domain_separator,
-                                    [[maybe_unused]] Transcript& transcript) const override
+        typename Base::DataType hash_with_origin_tagging([[maybe_unused]] const OriginTag& tag) const override
         {
             throw_or_abort("Not intended to be used because vk is hardcoded in circuit.");
         }

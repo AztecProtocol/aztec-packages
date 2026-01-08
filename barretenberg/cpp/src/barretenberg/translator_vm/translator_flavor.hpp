@@ -40,7 +40,9 @@ class TranslatorFlavor {
     using FF = Curve::ScalarField;
     using BF = Curve::BaseField;
     using Polynomial = bb::Polynomial<FF>;
-    using Transcript = NativeTranscript;
+    using Codec = FrCodec;
+    using HashFunction = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>;
+    using Transcript = BaseTranscript<Codec, HashFunction>;
 
     // indicates when evaluating sumcheck, edges must be extended to be MAX_PARTIAL_RELATION_LENGTH
     static constexpr bool USE_SHORT_MONOMIALS = false;
@@ -845,11 +847,13 @@ class TranslatorFlavor {
      * resolve that, and split out separate PrecomputedPolynomials/Commitments data for clarity but also for
      * portability of our circuits.
      */
-    class VerificationKey : public NativeVerificationKey_<PrecomputedEntities<Commitment>, Transcript> {
+    class VerificationKey : public NativeVerificationKey_<PrecomputedEntities<Commitment>, Codec, HashFunction> {
+        using Base = NativeVerificationKey_<PrecomputedEntities<Commitment>, Codec, HashFunction>;
+
       public:
         // Default constuct the fixed VK based on circuit size 1 << CONST_TRANSLATOR_LOG_N
         VerificationKey()
-            : NativeVerificationKey_(1UL << CONST_TRANSLATOR_LOG_N, /*num_public_inputs=*/0)
+            : Base(1UL << CONST_TRANSLATOR_LOG_N, /*num_public_inputs=*/0)
         {
             this->pub_inputs_offset = 0;
 
@@ -876,10 +880,9 @@ class TranslatorFlavor {
          * @brief Unused function because vk is hardcoded in recursive verifier, so no transcript hashing is needed.
          *
          * @param domain_separator
-         * @param transcript
+         * @param tag
          */
-        fr hash_with_origin_tagging([[maybe_unused]] const std::string& domain_separator,
-                                    [[maybe_unused]] Transcript& transcript) const override
+        typename Base::DataType hash_with_origin_tagging([[maybe_unused]] const OriginTag& tag) const override
         {
             throw_or_abort("Not intended to be used because vk is hardcoded in circuit.");
         }
@@ -887,8 +890,7 @@ class TranslatorFlavor {
 #ifndef NDEBUG
         bool compare(const VerificationKey& other)
         {
-            return NativeVerificationKey_<PrecomputedEntities<Commitment>, Transcript>::compare<
-                NUM_PRECOMPUTED_ENTITIES>(other, CommitmentLabels().get_precomputed());
+            return Base::template compare<NUM_PRECOMPUTED_ENTITIES>(other, CommitmentLabels().get_precomputed());
         }
 #endif
     };
