@@ -7,7 +7,6 @@
 #include "sha256_constraint.hpp"
 #include "barretenberg/serialize/msgpack_impl.hpp"
 #include "barretenberg/stdlib/hash/sha256/sha256.hpp"
-#include "round.hpp"
 
 namespace acir_format {
 

@@ -436,7 +436,7 @@ TYPED_TEST(OpcodeGateCountTests, Blake2s)
 
     blake2s_constraint.inputs.push_back(Blake2sInput{
         .blackbox_input = WitnessOrConstant<bb::fr>::from_index(0),
-        .num_bits = 32,
+        .num_bits = 8,
     });
 
     for (size_t i = 0; i < 32; ++i) {
@@ -466,7 +466,7 @@ TYPED_TEST(OpcodeGateCountTests, Blake3)
 
     blake3_constraint.inputs.push_back(Blake3Input{
         .blackbox_input = WitnessOrConstant<bb::fr>::from_index(0),
-        .num_bits = 32,
+        .num_bits = 8,
     });
 
     for (size_t i = 0; i < 32; ++i) {
