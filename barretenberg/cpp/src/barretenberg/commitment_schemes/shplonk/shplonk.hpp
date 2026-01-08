@@ -547,11 +547,12 @@ template <typename Curve> class ShplonkVerifier_ {
 template <typename Fr>
 static std::vector<Fr> compute_shplonk_batching_challenge_powers(const Fr& shplonk_batching_challenge,
                                                                  const size_t virtual_log_n,
-                                                                 bool has_zk = false,
-                                                                 bool committed_sumcheck = false)
+                                                                 bool is_interleaved_claim,
+                                                                 bool has_zk,
+                                                                 bool committed_sumcheck)
 {
     // Minimum size of `denominators`
-    size_t num_powers = 2 * virtual_log_n + NUM_INTERLEAVING_CLAIMS;
+    size_t num_powers = is_interleaved_claim ? (2 * virtual_log_n) + NUM_INTERLEAVING_CLAIMS : 2 * virtual_log_n;
     // Each round univariate is opened at 0, 1, and a round challenge.
     static constexpr size_t NUM_COMMITTED_SUMCHECK_CLAIMS_PER_ROUND = 3;
 
