@@ -354,20 +354,16 @@ TYPED_TEST(stdlib_field_conversion, GateCountScalarDeserialization)
 
 /**
  * @brief Measure gate counts for bigfield deserialization
- * @details Includes assert_is_in_field to reject aliased values (>= Fq::modulus)
  */
 TYPED_TEST(stdlib_field_conversion, GateCountBigfieldDeserialization)
 {
-    // Deserializing a single bigfield element is expensive due to:
-    // 1. Creating new ranges for range constraints
-    // 2. assert_is_in_field check (~32 gates) to reject aliases
+    // Deserializing a single bigfield element is expensive due to creating new ranges for range constraints
     this->template check_deserialization_gate_count<fq<TypeParam>>([] { return bb::fq::random_element(); }, 3515);
 }
 
 /**
  * @brief Measure gate counts for multiple bigfield deserializations
- * @details Range constraints are batched, making subsequent bigfields much cheaper.
- * Each bigfield adds ~32 gates for assert_is_in_field.
+ * @details Range constraints are batched, making subsequent bigfields much cheaper
  */
 TYPED_TEST(stdlib_field_conversion, GateCountMultipleBigfieldDeserialization)
 {
@@ -376,8 +372,7 @@ TYPED_TEST(stdlib_field_conversion, GateCountMultipleBigfieldDeserialization)
 
 /**
  * @brief Measure gate counts for BN254 point deserialization
- * @details Includes bigfield reconstruction + point-at-infinity check + on-curve validation.
- * For Ultra, each coordinate (x, y) gets assert_is_in_field (~32 gates each).
+ * @details Includes bigfield reconstruction + point-at-infinity check + on-curve validation
  */
 TYPED_TEST(stdlib_field_conversion, GateCountBN254PointDeserialization)
 {
@@ -391,7 +386,6 @@ TYPED_TEST(stdlib_field_conversion, GateCountBN254PointDeserialization)
 
 /**
  * @brief Measure gate counts for multiple BN254 point deserializations
- * @details Each point adds ~62 gates for assert_is_in_field (x and y coordinates).
  */
 TYPED_TEST(stdlib_field_conversion, GateCountMultipleBN254PointDeserialization)
 {
@@ -449,18 +443,18 @@ TYPED_TEST(stdlib_field_conversion, GateCountUnivariateDeserialization)
 }
 
 /**
- * @brief Failure test for deserializing a pair of limbs as a bigfield, where one of the limbs exceeds the strict 2^136
- * upper bound.
- * @details Verifies both native (FrCodec) and circuit (StdlibCodec) codecs reject out-of-range limbs.
- * Native codec uses BB_ASSERT to reject, circuit codec uses in-circuit constraints.
+ * @brief Failure test for deserializing limbs that exceed their range bounds.
+ * @details The encoding uses low_limb (136 bits) and high_limb (118 bits).
+ * This test verifies that a high_limb value exceeding 2^118 is rejected by both codecs.
+ * Native codec uses BB_ASSERT, circuit codec uses in-circuit range constraints.
  */
-TYPED_TEST(stdlib_field_conversion, BigfieldDeserializationFails)
+TYPED_TEST(stdlib_field_conversion, BigfieldDeserializationFailsOnLimbOverflow)
 {
     using Builder = TypeParam;
     using Codec = StdlibCodec<field_t<Builder>>;
 
     bb::fr low_limb = bb::fr(0);
-    // Create a limb from the value 2^136,  that does not satisfy the condition < 2^136.
+    // 2^136 placed in high_limb position far exceeds the 2^118 bound for high limbs
     bb::fr high_limb = bb::fr(uint256_t(1) << (2 * fq<Builder>::NUM_LIMB_BITS));
 
     // Test 1: Native codec should reject via BB_ASSERT (asserts enabled)
@@ -529,13 +523,12 @@ TYPED_TEST(stdlib_field_conversion, BothCodecsRejectPointAtInfinityAlias)
 }
 
 /**
- * @brief Test the upper bound on fq values accepted by both codecs.
+ * @brief Test that both codecs accept canonical values and reject aliases.
  * @details With assert_is_in_field, only canonical values < Fq::modulus are accepted.
- * Values >= Fq::modulus are rejected (aliases), and values >= 2^254 are rejected (overflow).
  *
- * - Fq::modulus - 1: Maximum canonical value (accepted)
- * - 2^254 - 1: Alias value >= Fq::modulus (rejected by assert_is_in_field)
- * - 2^254: Exceeds high limb bound (rejected by range constraints)
+ * - q - 1: Maximum canonical value (accepted)
+ * - q: Smallest alias (rejected)
+ * - Large value between q and 2^254: Also rejected (not just boundary)
  */
 TYPED_TEST(stdlib_field_conversion, BothCodecsAcceptCanonicalRejectAlias)
 {
@@ -545,17 +538,21 @@ TYPED_TEST(stdlib_field_conversion, BothCodecsAcceptCanonicalRejectAlias)
 
     constexpr uint64_t NUM_LIMB_BITS = 68;
     constexpr uint64_t LOW_BITS = NUM_LIMB_BITS * 2; // 136
+    const uint256_t LOW_MASK = (uint256_t(1) << LOW_BITS) - 1;
 
-    // Test 1: Fq::modulus - 1 is accepted (max canonical value)
+    auto split_to_limbs = [&](const uint256_t& value) -> std::pair<uint256_t, uint256_t> {
+        return { value & LOW_MASK, value >> LOW_BITS };
+    };
+
+    // Test 1: q - 1 is accepted (max canonical value)
     {
-        const uint256_t max_canonical = bb::fq::modulus - 1;
-        const uint256_t low_limb = max_canonical & ((uint256_t(1) << LOW_BITS) - 1);
-        const uint256_t high_limb = max_canonical >> LOW_BITS;
+        const uint256_t value = bb::fq::modulus - 1;
+        const auto [low_limb, high_limb] = split_to_limbs(value);
 
         // Native codec: accepts
         std::vector<bb::fr> native_fields = { bb::fr(low_limb), bb::fr(high_limb) };
         auto native_result = FrCodec::deserialize_from_fields<bb::fq>(native_fields);
-        EXPECT_EQ(uint256_t(native_result), max_canonical);
+        EXPECT_EQ(uint256_t(native_result), value);
 
         // Circuit codec: accepts
         Builder builder;
@@ -565,16 +562,12 @@ TYPED_TEST(stdlib_field_conversion, BothCodecsAcceptCanonicalRejectAlias)
         EXPECT_TRUE(CircuitChecker::check(builder));
     }
 
-    // Test 2: 2^254 - 1 is rejected (alias >= Fq::modulus)
+    // Test 2: q is rejected (smallest alias)
     {
-        const uint256_t alias_value = (uint256_t(1) << 254) - 1;
-        const uint256_t low_limb = alias_value & ((uint256_t(1) << LOW_BITS) - 1);
-        const uint256_t high_limb = alias_value >> LOW_BITS;
+        const uint256_t value = bb::fq::modulus;
+        const auto [low_limb, high_limb] = split_to_limbs(value);
 
-        // Verify this is an alias (>= modulus)
-        EXPECT_GE(alias_value, bb::fq::modulus);
-
-        // Native codec: rejects (value >= fq::modulus)
+        // Native codec: rejects
         std::vector<bb::fr> native_fields = { bb::fr(low_limb), bb::fr(high_limb) };
         EXPECT_THROW(FrCodec::deserialize_from_fields<bb::fq>(native_fields), std::runtime_error);
 
@@ -590,21 +583,20 @@ TYPED_TEST(stdlib_field_conversion, BothCodecsAcceptCanonicalRejectAlias)
         }
     }
 
-    // Test 3: 2^254 is rejected (high limb = 2^118 exceeds bound)
+    // Test 3: Large value between q and 2^254 is rejected
     {
-        constexpr uint64_t HIGH_BITS = 254 - LOW_BITS; // 118
-        const uint256_t overflow_value = uint256_t(1) << 254;
-        const uint256_t low_limb = 0;
-        const uint256_t high_limb = uint256_t(1) << HIGH_BITS; // 2^118 (exactly at boundary)
+        const uint256_t value = (uint256_t(1) << 254) - 1; // 2^254 - 1, well above modulus
+        const auto [low_limb, high_limb] = split_to_limbs(value);
 
-        // Verify this represents 2^254
-        EXPECT_EQ(low_limb + (high_limb << LOW_BITS), overflow_value);
+        // Verify this is indeed between modulus and 2^254
+        EXPECT_GT(value, bb::fq::modulus);
+        EXPECT_LT(value, uint256_t(1) << 254);
 
-        // Native codec: rejects (high limb >= 2^118)
+        // Native codec: rejects
         std::vector<bb::fr> native_fields = { bb::fr(low_limb), bb::fr(high_limb) };
         EXPECT_THROW(FrCodec::deserialize_from_fields<bb::fq>(native_fields), std::runtime_error);
 
-        // Circuit codec: rejects via range constraints
+        // Circuit codec: rejects via assert_is_in_field
         {
             BB_DISABLE_ASSERTS();
             Builder builder;

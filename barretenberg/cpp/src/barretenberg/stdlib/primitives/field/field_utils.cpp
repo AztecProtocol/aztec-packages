@@ -41,7 +41,6 @@ void validate_split_in_field_unsafe(const field_t<Builder>& lo,
                                   : field_t<Builder>::from_witness(ctx, typename field_t<Builder>::native(need_borrow));
 
     // Constrain borrow to be boolean (0 or 1) unless both inputs are constant.
-    // This prevents a malicious prover from using non-boolean borrow values.
     if (!both_constant) {
         // We need to manually propagate the origin tag
         borrow.set_origin_tag(lo.is_constant() ? hi.get_origin_tag() : lo.get_origin_tag());
