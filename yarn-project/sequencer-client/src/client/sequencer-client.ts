@@ -60,7 +60,7 @@ export class SequencerClient {
       l1ToL2MessageSource: L1ToL2MessageSource;
       telemetry: TelemetryClient;
       publisherFactory?: SequencerPublisherFactory;
-      blobClient?: BlobClientInterface;
+      blobClient: BlobClientInterface;
       dateProvider: DateProvider;
       epochCache?: EpochCache;
       l1TxUtils: L1TxUtilsWithBlobs[];

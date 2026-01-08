@@ -1,9 +1,11 @@
 pub(crate) mod assert_trailing_zeros;
+pub(crate) mod copy_items_into_array;
 pub(crate) mod find_index;
 pub(crate) mod get_sorted_tuples;
 
 // Re-exports.
 pub use assert_trailing_zeros::assert_trailing_zeros;
+pub use copy_items_into_array::copy_items_into_array;
 pub use find_index::{find_first_index, find_last_index};
 pub use get_sorted_tuples::{get_sorted_tuples, SortedTuple};
 
@@ -213,49 +215,6 @@ where
 //**********************************************************************************
 // ARRAY WRAPPERS
 //**********************************************************************************
-
-/*
- *
- *
- *                                                                                                    
- *                          |-----------------------------------------|------------------------------| 
- *                          | LHS                                     | RHS                          |
- *                          |-----------------------------------------|------------------------------|
- *       ClaimedLengthArray | Interspersed 0s possible.               | Unvalidated.                 |
- *                          | Possibly not fully trimmed.             | Nonempty elements possible.  |
- *                          |-----------------------------------------|------------------------------|
- *            EmptyRHSArray | Interspersed 0s possible.               | All 0s (validated).          |
- *                          | Possibly not fully trimmed.             |                              |
- *                          |-----------------------------------------|------------------------------|
- *             TrimmedArray | Interspersed 0s possible.               | All 0s (validated)           |
- *                          | Last lhs element validated as nonempty. |                              |
- *                          | (I.e. fully trimmed)                    |                              |
- *                          |-----------------------------------------|------------------------------|
- *        DenseTrimmedArray | Dense (validated).                      | All 0s (validated)           |
- *                          |-----------------------------------------|------------------------------|
- *
- *
- *                          | What guarantees do we have?                      |
- *                          |--------|--------|--------------------------------| 
- *                          | Dense? | RHS    | Length vs Fully Trimmed Length |
- *                          |--------|--------|--------------------------------|
- *       ClaimedLengthArray | ?      | ?      | ?                              |
- *                          |        |        |                                |
- *                          |--------|--------|--------------------------------|
- *            EmptyRHSArray | ?      | All 0s | Length >= Fully Trimmed Length |
- *                          |        |        |                                |
- *                          |--------|--------|--------------------------------|
- *             TrimmedArray | ?      | All 0s | Length == Fully Trimmed Length |
- *                          |        |        |                                |
- *                          |        |        |                                |
- *                          |--------|--------|--------------------------------|
- *        DenseTrimmedArray | Yes    | All 0s | Length == Fully Trimmed Length |
- *                          |--------|--------|--------------------------------|
- *
- *
- * An ClaimedLengthArray is distinct from a regular array [T; N], because it carries a length.
- * 
- */
 
 /// ClaimedLengthArray - An array interpreted by Kernel circuits.
 /// Its `length` is merely a claim that must eventually be validated.

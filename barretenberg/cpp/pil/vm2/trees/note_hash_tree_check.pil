@@ -29,29 +29,30 @@ include "../public_inputs.pil";
  * As write variant usage, we can omit the address column whenever we pass should_silo == 0.
 **/
 namespace note_hash_tree_check;
-    pol commit sel;
+    pol commit sel; // @boolean
     sel * (1 - sel) = 0;
 
     #[skippable_if]
     sel = 0;
 
     // Inputs to the gadget
-    pol commit write;
+    pol commit write; // @boolean
     write * (1 - write) = 0;
     pol READ = 1 - write;
-    pol commit exists;
+    pol commit exists; // @boolean
+    exists * (1 - exists) = 0;
 
     pol commit note_hash;
     pol commit leaf_index;
     pol commit prev_root;
 
     // Write specific inputs
-    pol commit should_silo;
+    pol commit should_silo; // @boolean
     should_silo * (1 - should_silo) = 0;
 
     pol commit address;
 
-    pol commit should_unique;
+    pol commit should_unique; // @boolean
     should_unique * (1 - should_unique) = 0;
 
     pol commit note_hash_index;

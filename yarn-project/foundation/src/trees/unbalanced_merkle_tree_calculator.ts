@@ -3,16 +3,6 @@ import type { Hasher } from './hasher.js';
 import { SiblingPath } from './sibling_path.js';
 import { type TreeNodeLocation, UnbalancedTreeStore } from './unbalanced_tree_store.js';
 
-export function computeCompressedUnbalancedMerkleTreeRoot(
-  leaves: Buffer[],
-  valueToCompress = Buffer.alloc(32),
-  emptyRoot = Buffer.alloc(32),
-  hasher?: Hasher['hash'],
-): Buffer {
-  const calculator = UnbalancedMerkleTreeCalculator.create(leaves, valueToCompress, emptyRoot, hasher);
-  return calculator.getRoot();
-}
-
 interface TreeNode {
   value: Buffer;
   leafIndex?: number;

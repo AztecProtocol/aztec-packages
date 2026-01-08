@@ -101,7 +101,7 @@ impl AsStrQuote for Quoted {
             let token_as_fmt_str = f"{token}";
             let token_as_str = unquote!(quote {$token_as_fmt_str});
             let token_len = unquote!(quote { $token_as_str.as_bytes().len() });
-            let token_as_bytes = unquote!(quote { $token_as_str.as_bytes().as_slice() });
+            let token_as_bytes = unquote!(quote { $token_as_str.as_bytes().as_vector() });
             total_len += token_len;
             acc = acc.append(token_as_bytes);
         }

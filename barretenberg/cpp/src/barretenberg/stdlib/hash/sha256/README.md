@@ -50,7 +50,7 @@ W[i] = σ₁(W[i-2]) + W[i-7] + σ₀(W[i-15]) + W[i-16]  (mod 2³²)  for i = 1
 
 ### Compression Rounds
 
-64 rounds updating 8 working variables (a, b, c, d, e, f, g, h):
+64 rounds updating 8 working variables (a, b, c, d, e, f, g, h) initialized from h_init:
 
 ```
 T1 = h + Σ₁(e) + Ch(e,f,g) + K[i] + W[i]
@@ -61,6 +61,8 @@ T2 = Σ₀(a) + Maj(a,b,c)
 Σ₁(e) = ROTR⁶(e) ⊕ ROTR¹¹(e) ⊕ ROTR²⁵(e)
 Ch(e,f,g) = (e ∧ f) ⊕ (¬e ∧ g)
 Maj(a,b,c) = (a ∧ b) ⊕ (a ∧ c) ⊕ (b ∧ c)
+
+K[i] are the 64 SHA-256 round constants (FIPS 180-4)
 ```
 
 ### Final Addition

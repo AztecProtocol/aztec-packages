@@ -10,13 +10,14 @@ import { BlockHeader, GlobalVariables, type IndexedTxEffect, TxEffect } from '@a
 
 import { mock } from 'jest-mock-extended';
 
-import { AnchorBlockDataProvider } from '../storage/anchor_block_data_provider/anchor_block_data_provider.js';
-import { PrivateEventDataProvider } from '../storage/private_event_data_provider/private_event_data_provider.js';
+import { AnchorBlockStore } from '../storage/anchor_block_store/anchor_block_store.js';
+import { PrivateEventStore } from '../storage/private_event_store/private_event_store.js';
 import { EventService } from './event_service.js';
 
 describe('deliverEvent', () => {
   let blockNumber: BlockNumber;
   let eventSelector: EventSelector;
+  let randomness: Fr;
   let eventContent: Fr[];
   let eventCommitment: Fr;
   let eventNullifier: Fr;
@@ -25,14 +26,14 @@ describe('deliverEvent', () => {
   let contractAddress: AztecAddress;
   let recipient: AztecAddress;
 
-  let anchorBlockDataProvider: AnchorBlockDataProvider;
-  let privateEventDataProvider: PrivateEventDataProvider;
+  let anchorBlockStore: AnchorBlockStore;
+  let privateEventStore: PrivateEventStore;
   let aztecNode: ReturnType<typeof mock<AztecNode>>;
 
   let eventService: EventService;
 
   const setSyncedBlockNumber = (blockNumber: BlockNumber) => {
-    return anchorBlockDataProvider.setHeader(
+    return anchorBlockStore.setHeader(
       BlockHeader.empty({
         globalVariables: GlobalVariables.empty({ blockNumber }),
       }),
@@ -43,8 +44,8 @@ describe('deliverEvent', () => {
   // by minimally failing happy path conditions
   beforeEach(async () => {
     const store = await openTmpStore('test');
-    anchorBlockDataProvider = new AnchorBlockDataProvider(store);
-    privateEventDataProvider = new PrivateEventDataProvider(store);
+    anchorBlockStore = new AnchorBlockStore(store);
+    privateEventStore = new PrivateEventStore(store);
 
     aztecNode = mock<AztecNode>();
 
@@ -53,6 +54,7 @@ describe('deliverEvent', () => {
 
     blockNumber = BlockNumber(42);
     eventSelector = EventSelector.random();
+    randomness = Fr.random();
     eventContent = [Fr.random(), Fr.random()];
 
     eventCommitment = Fr.random();
@@ -89,7 +91,7 @@ describe('deliverEvent', () => {
       ]),
     );
 
-    eventService = new EventService(anchorBlockDataProvider, aztecNode, privateEventDataProvider);
+    eventService = new EventService(anchorBlockStore, aztecNode, privateEventStore);
   });
 
   function runDeliverEvent(
@@ -100,6 +102,7 @@ describe('deliverEvent', () => {
     return eventService.deliverEvent(
       contractAddress,
       eventSelector,
+      randomness,
       eventContent,
       overrides.eventCommitment || eventCommitment,
       txEffect.txHash,
@@ -138,7 +141,7 @@ describe('deliverEvent', () => {
     await runDeliverEvent();
 
     // I should be able to retrieve the private event I just saved using getPrivateEvents
-    const result = await privateEventDataProvider.getPrivateEvents(eventSelector, {
+    const result = await privateEventStore.getPrivateEvents(eventSelector, {
       contractAddress,
       fromBlock: blockNumber,
       toBlock: blockNumber + 1,

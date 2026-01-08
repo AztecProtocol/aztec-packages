@@ -29,7 +29,7 @@ export type L2ChainConfig = Omit<L1ContractsConfig, keyof L1TxUtilsConfig> &
     snapshotsUrls: string[];
     autoUpdate: SharedNodeConfig['autoUpdate'];
     autoUpdateUrl?: string;
-    maxTxPoolSize: number;
+    maxPendingTxCount: number;
     publicMetricsOptOut: boolean;
     publicIncludeMetrics?: string[];
     publicMetricsCollectorUrl?: string;
@@ -109,7 +109,7 @@ export const stagingIgnitionL2ChainConfig: L2ChainConfig = {
   snapshotsUrls: [`${SNAPSHOTS_URL}/staging-ignition/`],
   autoUpdate: 'config-and-version',
   autoUpdateUrl: 'https://storage.googleapis.com/aztec-testnet/auto-update/staging-ignition.json',
-  maxTxPoolSize: 0,
+  maxPendingTxCount: 0,
   publicMetricsOptOut: false,
   publicIncludeMetrics,
   publicMetricsCollectorUrl: 'https://telemetry.alpha-testnet.aztec-labs.com/v1/metrics',
@@ -129,6 +129,8 @@ export const stagingIgnitionL2ChainConfig: L2ChainConfig = {
   lagInEpochsForValidatorSet: 2,
   /** The number of epochs to lag behind the current epoch for randao selection. */
   lagInEpochsForRandao: 2,
+  /** The number of checkpoints to lag in the inbox (prevents sequencer DOS attacks). */
+  inboxLag: 1,
   /** The number of epochs after an epoch ends that proofs are still accepted. */
   aztecProofSubmissionEpochs: 1,
   /** How many sequencers must agree with a slash for it to be executed. */
@@ -199,7 +201,7 @@ export const stagingPublicL2ChainConfig: L2ChainConfig = {
   publicIncludeMetrics,
   publicMetricsCollectorUrl: 'https://telemetry.alpha-testnet.aztec-labs.com/v1/metrics',
   publicMetricsCollectFrom: ['sequencer'],
-  maxTxPoolSize: 100_000_000, // 100MB
+  maxPendingTxCount: 1_000, // ~156MB
   txPoolDeleteTxsAfterReorg: true,
 
   // Deployment stuff
@@ -215,6 +217,8 @@ export const stagingPublicL2ChainConfig: L2ChainConfig = {
   lagInEpochsForValidatorSet: DefaultL1ContractsConfig.lagInEpochsForValidatorSet,
   /** The number of epochs to lag behind the current epoch for randao selection. */
   lagInEpochsForRandao: DefaultL1ContractsConfig.lagInEpochsForRandao,
+  /** The number of checkpoints to lag in the inbox (prevents sequencer DOS attacks). */
+  inboxLag: DefaultL1ContractsConfig.inboxLag,
   /** The local ejection threshold for a validator. Stricter than ejectionThreshold but local to a specific rollup */
   localEjectionThreshold: DefaultL1ContractsConfig.localEjectionThreshold,
   /** The number of epochs after an epoch ends that proofs are still accepted. */
@@ -257,7 +261,7 @@ export const nextNetL2ChainConfig: L2ChainConfig = {
   publicIncludeMetrics,
   publicMetricsCollectorUrl: '',
   publicMetricsCollectFrom: [''],
-  maxTxPoolSize: 100_000_000, // 100MB
+  maxPendingTxCount: 1_000, // ~156MB
   txPoolDeleteTxsAfterReorg: false,
 
   // Deployment stuff
@@ -273,6 +277,8 @@ export const nextNetL2ChainConfig: L2ChainConfig = {
   lagInEpochsForValidatorSet: DefaultL1ContractsConfig.lagInEpochsForValidatorSet,
   /** The number of epochs to lag behind the current epoch for randao selection. */
   lagInEpochsForRandao: DefaultL1ContractsConfig.lagInEpochsForRandao,
+  /** The number of checkpoints to lag in the inbox (prevents sequencer DOS attacks). */
+  inboxLag: DefaultL1ContractsConfig.inboxLag,
   /** The local ejection threshold for a validator. Stricter than ejectionThreshold but local to a specific rollup */
   localEjectionThreshold: DefaultL1ContractsConfig.localEjectionThreshold,
   /** The number of epochs after an epoch ends that proofs are still accepted. */
@@ -302,7 +308,7 @@ export const testnetL2ChainConfig: L2ChainConfig = {
   testAccounts: false,
   sponsoredFPC: true,
   p2pEnabled: true,
-  disableTransactions: true,
+  disableTransactions: false,
   bootstrapNodes: [],
   minTxsPerBlock: 0,
   maxTxsPerBlock: 20,
@@ -311,7 +317,7 @@ export const testnetL2ChainConfig: L2ChainConfig = {
   snapshotsUrls: [`${SNAPSHOTS_URL}/testnet/`],
   autoUpdate: 'config-and-version',
   autoUpdateUrl: 'https://storage.googleapis.com/aztec-testnet/auto-update/testnet.json',
-  maxTxPoolSize: 100_000_000, // 100MB
+  maxPendingTxCount: 5_000, // ~760MB
   publicMetricsOptOut: false,
   publicIncludeMetrics,
   publicMetricsCollectorUrl: 'https://telemetry.alpha-testnet.aztec-labs.com/v1/metrics',
@@ -332,6 +338,8 @@ export const testnetL2ChainConfig: L2ChainConfig = {
   lagInEpochsForValidatorSet: 2,
   /** The number of epochs to lag behind the current epoch for randao selection. */
   lagInEpochsForRandao: 2,
+  /** The number of checkpoints to lag in the inbox (prevents sequencer DOS attacks). */
+  inboxLag: 1,
   /** The number of epochs after an epoch ends that proofs are still accepted. */
   aztecProofSubmissionEpochs: 1,
 
@@ -405,7 +413,7 @@ export const mainnetL2ChainConfig: L2ChainConfig = {
   snapshotsUrls: [`${SNAPSHOTS_URL}/mainnet/`],
   autoUpdate: 'notify',
   autoUpdateUrl: 'https://storage.googleapis.com/aztec-mainnet/auto-update/mainnet.json',
-  maxTxPoolSize: 0,
+  maxPendingTxCount: 0,
   publicMetricsOptOut: true,
   publicIncludeMetrics,
   publicMetricsCollectorUrl: 'https://telemetry.alpha-testnet.aztec-labs.com/v1/metrics',
@@ -424,6 +432,8 @@ export const mainnetL2ChainConfig: L2ChainConfig = {
   lagInEpochsForValidatorSet: 2,
   /** The number of epochs to lag behind the current epoch for randao selection. */
   lagInEpochsForRandao: 2,
+  /** The number of checkpoints to lag in the inbox (prevents sequencer DOS attacks). */
+  inboxLag: 1,
   /** The number of epochs after an epoch ends that proofs are still accepted. */
   aztecProofSubmissionEpochs: 1,
 
@@ -498,7 +508,7 @@ export const devnetL2ChainConfig: L2ChainConfig = {
   publicIncludeMetrics,
   publicMetricsCollectorUrl: '',
   publicMetricsCollectFrom: [''],
-  maxTxPoolSize: 100_000_000, // 100MB
+  maxPendingTxCount: 1_000, // ~156MB
   txPoolDeleteTxsAfterReorg: true,
 
   // Deployment stuff
@@ -514,6 +524,8 @@ export const devnetL2ChainConfig: L2ChainConfig = {
   lagInEpochsForValidatorSet: 1,
   /** The number of epochs to lag behind the current epoch for randao selection. */
   lagInEpochsForRandao: 1,
+  /** The number of checkpoints to lag in the inbox (prevents sequencer DOS attacks). */
+  inboxLag: DefaultL1ContractsConfig.inboxLag,
   /** The local ejection threshold for a validator. Stricter than ejectionThreshold but local to a specific rollup */
   localEjectionThreshold: DefaultL1ContractsConfig.localEjectionThreshold,
   /** The number of epochs after an epoch ends that proofs are still accepted. */
@@ -592,7 +604,7 @@ export function enrichEnvironmentWithChainConfig(config: L2ChainConfig) {
   enrichVar('PROVER_REAL_PROOFS', config.realProofs.toString());
   enrichVar('PXE_PROVER_ENABLED', config.realProofs.toString());
   enrichVar('SYNC_SNAPSHOTS_URLS', config.snapshotsUrls.join(','));
-  enrichVar('P2P_MAX_TX_POOL_SIZE', config.maxTxPoolSize.toString());
+  enrichVar('P2P_MAX_PENDING_TX_COUNT', config.maxPendingTxCount.toString());
   enrichVar('P2P_TX_POOL_DELETE_TXS_AFTER_REORG', config.txPoolDeleteTxsAfterReorg.toString());
 
   enrichVar('DATA_STORE_MAP_SIZE_KB', config.dataStoreMapSizeKb.toString());
@@ -638,6 +650,7 @@ export function enrichEnvironmentWithChainConfig(config: L2ChainConfig) {
   enrichVar('AZTEC_TARGET_COMMITTEE_SIZE', config.aztecTargetCommitteeSize.toString());
   enrichVar('AZTEC_LAG_IN_EPOCHS_FOR_VALIDATOR_SET', config.lagInEpochsForValidatorSet.toString());
   enrichVar('AZTEC_LAG_IN_EPOCHS_FOR_RANDAO', config.lagInEpochsForRandao.toString());
+  enrichVar('AZTEC_INBOX_LAG', config.inboxLag.toString());
   enrichVar('AZTEC_PROOF_SUBMISSION_EPOCHS', config.aztecProofSubmissionEpochs.toString());
   enrichVar('AZTEC_ACTIVATION_THRESHOLD', config.activationThreshold.toString());
   enrichVar('AZTEC_EJECTION_THRESHOLD', config.ejectionThreshold.toString());

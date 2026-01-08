@@ -1,4 +1,3 @@
-import { L2Block } from '@aztec/aztec.js/block';
 import { getKzg } from '@aztec/blob-lib';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import type { EpochCache } from '@aztec/epoch-cache';
@@ -13,7 +12,7 @@ import type { DateProvider } from '@aztec/foundation/timer';
 import type { TypedEventEmitter } from '@aztec/foundation/types';
 import type { P2P } from '@aztec/p2p';
 import type { SlasherClientInterface } from '@aztec/slasher';
-import type { L2BlockSource, ValidateBlockResult } from '@aztec/stdlib/block';
+import type { L2BlockNew, L2BlockSource, ValidateBlockResult } from '@aztec/stdlib/block';
 import type { Checkpoint } from '@aztec/stdlib/checkpoint';
 import { getSlotAtTimestamp, getSlotStartBuildTimestamp } from '@aztec/stdlib/epoch-helpers';
 import {
@@ -25,7 +24,7 @@ import {
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { pickFromSchema } from '@aztec/stdlib/schemas';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
-import { type TelemetryClient, type Tracer, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
+import { Attributes, type TelemetryClient, type Tracer, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
 import type { ValidatorClient } from '@aztec/validator-client';
 
 import EventEmitter from 'node:events';
@@ -161,7 +160,6 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     this.log.info('Stopped sequencer');
   }
 
-  @trackSpan('Sequencer.work')
   /** Main sequencer loop with a try/catch */
   protected async safeWork() {
     try {
@@ -199,6 +197,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
    * - Collect attestations for the final block
    * - Submit checkpoint
    */
+  @trackSpan('Sequencer.work')
   protected async work() {
     this.setState(SequencerState.SYNCHRONIZING, undefined);
     const { slot, ts, now, epoch } = this.epochCache.getEpochAndSlotInNextL1Slot();
@@ -225,6 +224,8 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       this.logStrategyComparison(epoch, checkpointProposalJob.getPublisher());
       this.lastEpochForStrategyComparison = epoch;
     }
+
+    return checkpoint;
   }
 
   /**
@@ -232,6 +233,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
    * This is the initial step in the main loop.
    * @returns CheckpointProposalJob if successful, undefined if we are not yet synced or are not the proposer.
    */
+  @trackSpan('Sequencer.prepareCheckpointProposal')
   private async prepareCheckpointProposal(
     slot: SlotNumber,
     ts: bigint,
@@ -400,6 +402,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       this,
       this.setState.bind(this),
       this.log,
+      this.tracer,
     );
   }
 
@@ -496,8 +499,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       return { blockNumber: BlockNumber(INITIAL_L2_BLOCK_NUM - 1), archive, l1Timestamp, pendingChainValidationStatus };
     }
 
-    // TODO(palla/mbps): This should be a new L2Block
-    const block = await this.l2BlockSource.getBlock(blockNumber);
+    const block = await this.l2BlockSource.getL2BlockNew(blockNumber);
     if (!block) {
       // this shouldn't really happen because a moment ago we checked that all components were in sync
       this.log.error(`Failed to get L2 block ${blockNumber} from the archiver with all components in sync`);
@@ -555,6 +557,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
    * Tries to vote on slashing actions and governance when the sync check fails but we're past the max time for initializing a proposal.
    * This allows the sequencer to participate in governance/slashing votes even when it cannot build blocks.
    */
+  @trackSpan('Seqeuencer.tryVoteWhenSyncFails', ({ slot }) => ({ [Attributes.SLOT_NUMBER]: slot }))
   protected async tryVoteWhenSyncFails(args: { slot: SlotNumber; ts: bigint }): Promise<void> {
     const { slot } = args;
 
@@ -788,7 +791,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
 }
 
 type SequencerSyncCheckResult = {
-  block?: L2Block;
+  block?: L2BlockNew;
   blockNumber: BlockNumber;
   archive: Fr;
   l1Timestamp: bigint;

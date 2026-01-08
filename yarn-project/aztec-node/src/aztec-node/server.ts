@@ -1,11 +1,6 @@
 import { Archiver, createArchiver } from '@aztec/archiver';
 import { BBCircuitVerifier, QueuedIVCVerifier, TestCircuitVerifier } from '@aztec/bb-prover';
-import { type BlobClientInterface, createBlobClient } from '@aztec/blob-client/client';
-import {
-  type BlobFileStoreMetadata,
-  createReadOnlyFileStoreBlobClients,
-  createWritableFileStoreBlobClient,
-} from '@aztec/blob-client/filestore';
+import { type BlobClientInterface, createBlobClientWithFileStores } from '@aztec/blob-client/client';
 import {
   ARCHIVE_HEIGHT,
   INITIAL_L2_BLOCK_NUM,
@@ -19,7 +14,7 @@ import { createEthereumChain } from '@aztec/ethereum/chain';
 import { getPublicClient } from '@aztec/ethereum/client';
 import { RegistryContract, RollupContract } from '@aztec/ethereum/contracts';
 import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
-import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { compactArray, pick } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -161,6 +156,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     private proofVerifier: ClientProtocolCircuitVerifier,
     private telemetry: TelemetryClient = getTelemetryClient(),
     private log = createLogger('node'),
+    private blobClient?: BlobClientInterface,
   ) {
     this.metrics = new NodeMetrics(telemetry, 'AztecNodeService');
     this.tracer = telemetry.getTracer('AztecNodeService');
@@ -190,7 +186,6 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       logger?: Logger;
       publisher?: SequencerPublisher;
       dateProvider?: DateProvider;
-      blobClient?: BlobClientInterface;
       p2pClientDeps?: P2PClientDeps<P2PClientType.Full>;
     } = {},
     options: {
@@ -270,24 +265,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       );
     }
 
-    const blobFileStoreMetadata: BlobFileStoreMetadata = {
-      l1ChainId: config.l1ChainId,
-      rollupVersion: config.rollupVersion,
-      rollupAddress: config.l1Contracts.rollupAddress.toString(),
-    };
-
-    const [fileStoreClients, fileStoreUploadClient] = await Promise.all([
-      createReadOnlyFileStoreBlobClients(config.blobFileStoreUrls, blobFileStoreMetadata, log),
-      createWritableFileStoreBlobClient(config.blobFileStoreUploadUrl, blobFileStoreMetadata, log),
-    ]);
-
-    const blobClient =
-      deps.blobClient ??
-      createBlobClient(config, {
-        logger: createLogger('node:blob-client:client'),
-        fileStoreClients,
-        fileStoreUploadClient,
-      });
+    const blobClient = await createBlobClientWithFileStores(config, createLogger('node:blob-client:client'));
 
     // attempt snapshot sync if possible
     await trySnapshotSync(config, log);
@@ -354,7 +332,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       blockSource: archiver,
       l1ToL2MessageSource: archiver,
       keyStoreManager,
-      fileStoreBlobUploadClient: fileStoreUploadClient,
+      blobClient,
     });
 
     // If we have a validator client, register it as a source of offenses for the slasher,
@@ -522,6 +500,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       proofVerifier,
       telemetry,
       log,
+      blobClient,
     );
   }
 
@@ -636,11 +615,11 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
   }
 
   /**
-   * Method to fetch the current base fees.
-   * @returns The current base fees.
+   * Method to fetch the current min L2 fees.
+   * @returns The current min L2 fees.
    */
-  public async getCurrentBaseFees(): Promise<GasFees> {
-    return await this.globalVariableBuilder.getCurrentBaseFees();
+  public async getCurrentMinFees(): Promise<GasFees> {
+    return await this.globalVariableBuilder.getCurrentMinFees();
   }
 
   public async getMaxPriorityFees(): Promise<GasFees> {
@@ -781,8 +760,17 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     await tryStop(this.p2pClient);
     await tryStop(this.worldStateSynchronizer);
     await tryStop(this.blockSource);
+    await tryStop(this.blobClient);
     await tryStop(this.telemetry);
     this.log.info(`Stopped Aztec Node`);
+  }
+
+  /**
+   * Returns the blob client used by this node.
+   * @internal - Exposed for testing purposes only.
+   */
+  public getBlobClient(): BlobClientInterface | undefined {
+    return this.blobClient;
   }
 
   /**
@@ -979,15 +967,28 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
   }
 
   /**
-   * Returns all the L2 to L1 messages in a block.
-   * @param blockNumber - The block number at which to get the data.
-   * @returns The L2 to L1 messages (undefined if the block number is not found).
+   * Returns all the L2 to L1 messages in an epoch.
+   * @param epoch - The epoch at which to get the data.
+   * @returns The L2 to L1 messages (empty array if the epoch is not found).
    */
-  public async getL2ToL1Messages(blockNumber: BlockParameter): Promise<Fr[][] | undefined> {
-    const block = await this.blockSource.getBlock(
-      blockNumber === 'latest' ? await this.getBlockNumber() : (blockNumber as BlockNumber),
+  public async getL2ToL1Messages(epoch: EpochNumber): Promise<Fr[][][][]> {
+    // Assumes `getBlocksForEpoch` returns blocks in ascending order of block number.
+    const blocks = await this.blockSource.getBlocksForEpoch(epoch);
+    const blocksInCheckpoints: L2Block[][] = [];
+    let previousSlotNumber = SlotNumber.ZERO;
+    let checkpointIndex = -1;
+    for (const block of blocks) {
+      const slotNumber = block.header.globalVariables.slotNumber;
+      if (slotNumber !== previousSlotNumber) {
+        checkpointIndex++;
+        blocksInCheckpoints.push([]);
+        previousSlotNumber = slotNumber;
+      }
+      blocksInCheckpoints[checkpointIndex].push(block);
+    }
+    return blocksInCheckpoints.map(blocks =>
+      blocks.map(block => block.body.txEffects.map(txEffect => txEffect.l2ToL1Msgs)),
     );
-    return block?.body.txEffects.map(txEffect => txEffect.l2ToL1Msgs);
   }
 
   /**
@@ -1243,7 +1244,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       l1ChainId: this.l1ChainId,
       rollupVersion: this.version,
       setupAllowList: this.config.txPublicSetupAllowList ?? (await getDefaultAllowedSetupFunctions()),
-      gasFees: await this.getCurrentBaseFees(),
+      gasFees: await this.getCurrentMinFees(),
       skipFeeEnforcement,
       txsPermitted: !this.config.disableTransactions,
     });

@@ -35,15 +35,13 @@ import { Buffer32 } from '@aztec/foundation/buffer';
 import { times, timesParallel } from '@aztec/foundation/collection';
 import { SecretValue } from '@aztec/foundation/config';
 import { Secp256k1Signer, flipSignature } from '@aztec/foundation/crypto/secp256k1-signer';
-import { SHA256Trunc, sha256ToField } from '@aztec/foundation/crypto/sha256';
+import { sha256ToField } from '@aztec/foundation/crypto/sha256';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { hexToBuffer } from '@aztec/foundation/string';
 import { TestDateProvider } from '@aztec/foundation/timer';
-import { openTmpStore } from '@aztec/kv-store/lmdb';
-import { OutboxAbi, RollupAbi } from '@aztec/l1-artifacts';
-import { StandardTree } from '@aztec/merkle-tree';
+import { RollupAbi } from '@aztec/l1-artifacts';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { ProtocolContractsList, protocolContractsHash } from '@aztec/protocol-contracts';
 import { buildBlockWithCleanDB } from '@aztec/prover-client/block-factory';
@@ -78,15 +76,7 @@ import {
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import type { Anvil } from '@viem/anvil';
 import { type MockProxy, mock } from 'jest-mock-extended';
-import {
-  type Address,
-  type GetContractReturnType,
-  encodeFunctionData,
-  getAbiItem,
-  getAddress,
-  getContract,
-  multicall3Abi,
-} from 'viem';
+import { type Address, encodeFunctionData, getAbiItem, getAddress, multicall3Abi } from 'viem';
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
@@ -118,10 +108,8 @@ describe('L1Publisher integration', () => {
   let governanceProposerContract: GovernanceProposerContract;
 
   let rollupAddress: Address;
-  let outboxAddress: Address;
 
   let rollup: RollupContract;
-  let outbox: GetContractReturnType<typeof OutboxAbi, ExtendedViemWalletClient>;
 
   let publisher: SequencerPublisher;
 
@@ -130,7 +118,7 @@ describe('L1Publisher integration', () => {
   // The header of the last block
   let prevHeader: BlockHeader;
 
-  let baseFee: GasFees;
+  let minFee: GasFees;
 
   let blockSource: MockProxy<ArchiveSource>;
   let blocks: L2Block[] = [];
@@ -183,17 +171,11 @@ describe('L1Publisher integration', () => {
     ethCheatCodes = new EthCheatCodesWithState(config.l1RpcUrls, dateProvider);
 
     rollupAddress = getAddress(l1ContractAddresses.rollupAddress.toString());
-    outboxAddress = getAddress(l1ContractAddresses.outboxAddress.toString());
 
     rollupCheatCodes = new RollupCheatCodes(ethCheatCodes, l1ContractAddresses);
 
     // Set up contract instances
     rollup = new RollupContract(l1Client, l1ContractAddresses.rollupAddress);
-    outbox = getContract({
-      address: outboxAddress,
-      abi: OutboxAbi,
-      client: l1Client,
-    });
 
     l1Constants = {
       ...(await rollup.getRollupConstants()),
@@ -289,7 +271,7 @@ describe('L1Publisher integration', () => {
     await fork.close();
 
     const ts = (await l1Client.getBlock()).timestamp;
-    baseFee = new GasFees(0, await rollup.getManaBaseFeeAt(ts, true));
+    minFee = new GasFees(0, await rollup.getManaMinFeeAt(ts, true));
 
     // We jump two epochs such that the committee can be setup.
     await rollupCheatCodes.advanceToEpoch(EpochNumber(config.lagInEpochsForValidatorSet + 1));
@@ -311,7 +293,7 @@ describe('L1Publisher integration', () => {
       chainId: fr(chainId),
       version: fr(version),
       vkTreeRoot: getVKTreeRoot(),
-      gasSettings: GasSettings.default({ maxFeesPerGas: baseFee }),
+      gasSettings: GasSettings.default({ maxFeesPerGas: minFee }),
       protocolContracts: ProtocolContractsList,
       seed,
     });
@@ -344,7 +326,7 @@ describe('L1Publisher integration', () => {
       timestamp,
       coinbase,
       feeRecipient,
-      new GasFees(0, await rollup.getManaBaseFeeAt(timestamp, true)),
+      new GasFees(0, await rollup.getManaMinFeeAt(timestamp, true)),
     );
     const block = await buildBlock(globalVariables, txs, l1ToL2Messages);
     blockSource.getL1ToL2Messages.mockResolvedValueOnce(l1ToL2Messages);
@@ -356,25 +338,11 @@ describe('L1Publisher integration', () => {
       await setup();
     });
 
-    const buildL2ToL1MsgTreeRoot = (l2ToL1MsgsArray: Fr[]) => {
-      const treeHeight = Math.ceil(Math.log2(l2ToL1MsgsArray.length));
-      const tree = new StandardTree(
-        openTmpStore(true),
-        new SHA256Trunc(),
-        'temp_outhash_sibling_path',
-        treeHeight,
-        0n,
-        Fr,
-      );
-      tree.appendLeaves(l2ToL1MsgsArray);
-      return new Fr(tree.getRoot(true));
-    };
-
     const buildAndPublishBlock = async (numTxs: number, jsonFileNamePrefix: string) => {
       const archiveInRollup_ = await rollup.archive();
       expect(hexToBuffer(archiveInRollup_.toString())).toEqual(new Fr(GENESIS_ARCHIVE_ROOT).toBuffer());
 
-      const blockNumber = await l1Client.getBlockNumber();
+      const l1BlockNumber = await l1Client.getBlockNumber();
 
       // random recipient address, just kept consistent for easy testing ts/sol.
       const recipientAddress = AztecAddress.fromString(
@@ -415,30 +383,22 @@ describe('L1Publisher integration', () => {
           timestamp,
           coinbase,
           feeRecipient,
-          new GasFees(0, await rollup.getManaBaseFeeAt(timestamp, true)),
+          new GasFees(0, await rollup.getManaMinFeeAt(timestamp, true)),
         );
 
         const block = await buildBlock(globalVariables, txs, currentL1ToL2Messages);
+
         const totalManaUsed = txs.reduce((acc, tx) => acc.add(new Fr(tx.gasUsed.totalGas.l2Gas)), Fr.ZERO);
         expect(totalManaUsed.toBigInt()).toEqual(block.header.totalManaUsed.toBigInt());
 
         prevHeader = block.getBlockHeader();
         blockSource.getL1ToL2Messages.mockResolvedValueOnce(currentL1ToL2Messages);
 
-        const l2ToL1MsgsArray = block.body.txEffects.flatMap(txEffect => txEffect.l2ToL1Msgs);
-
-        const emptyRoot = await outbox.read.getRootData([BigInt(block.header.globalVariables.blockNumber)]);
-
-        // Check that we have not yet written a root to this blocknumber
-        expect(BigInt(emptyRoot)).toStrictEqual(0n);
-
         const checkpointBlobFields = block.getCheckpointBlobFields();
         const blockBlobs = getBlobsPerL1Block(checkpointBlobFields);
-        expect(block.header.contentCommitment.blobsHash).toEqual(
-          sha256ToField(blockBlobs.map(b => b.getEthVersionedBlobHash())),
-        );
+        expect(block.header.blobsHash).toEqual(sha256ToField(blockBlobs.map(b => b.getEthVersionedBlobHash())));
 
-        let prevBlobAccumulatorHash = hexToBuffer(await rollup.getCurrentBlobCommitmentsHash());
+        let prevBlobAccumulatorHash = (await rollup.getCurrentBlobCommitmentsHash()).toBuffer();
 
         blocks.push(block);
         blobFieldsPerCheckpoint.push(checkpointBlobFields);
@@ -469,11 +429,11 @@ describe('L1Publisher integration', () => {
             abi: RollupAbi,
             name: 'CheckpointProposed',
           }),
-          fromBlock: blockNumber + 1n,
+          fromBlock: l1BlockNumber + 1n,
         });
         expect(logs).toHaveLength(i + 1);
         expect(logs[i].args.checkpointNumber).toEqual(BigInt(i + 1));
-        const thisCheckpointNumber = CheckpointNumber(block.header.globalVariables.blockNumber);
+        const thisCheckpointNumber = CheckpointNumber.fromBlockNumber(block.header.globalVariables.blockNumber);
         const prevCheckpointNumber = CheckpointNumber(thisCheckpointNumber - 1);
         const isFirstCheckpointOfEpoch =
           thisCheckpointNumber == CheckpointNumber(1) ||
@@ -481,7 +441,7 @@ describe('L1Publisher integration', () => {
             (await rollup.getEpochNumberForCheckpoint(prevCheckpointNumber));
         // If we are at the first blob of the epoch, we must initialize the hash:
         prevBlobAccumulatorHash = isFirstCheckpointOfEpoch ? Buffer.alloc(0) : prevBlobAccumulatorHash;
-        const currentBlobAccumulatorHash = hexToBuffer(await rollup.getCurrentBlobCommitmentsHash());
+        const currentBlobAccumulatorHash = (await rollup.getCurrentBlobCommitmentsHash()).toBuffer();
         let expectedBlobAccumulatorHash = prevBlobAccumulatorHash;
         blockBlobs
           .map(b => b.commitment)
@@ -524,18 +484,6 @@ describe('L1Publisher integration', () => {
           ],
         });
         expect(ethTx.input).toEqual(expectedData);
-
-        const expectedRoot = !numTxs ? Fr.ZERO : buildL2ToL1MsgTreeRoot(l2ToL1MsgsArray);
-        const returnedRoot = await outbox.read.getRootData([BigInt(block.header.globalVariables.blockNumber)]);
-
-        // check that values are inserted into the outbox
-        expect(Fr.ZERO.toString()).toEqual(returnedRoot);
-
-        const actualRoot = await ethCheatCodes.load(
-          EthAddress.fromString(outbox.address),
-          ethCheatCodes.keccak256(0n, 1n + BigInt(i)),
-        );
-        expect(expectedRoot).toEqual(new Fr(actualRoot));
 
         // There is a 1 block lag between before messages get consumed from the inbox
         currentL1ToL2Messages = nextL1ToL2Messages;
@@ -786,9 +734,9 @@ describe('L1Publisher integration', () => {
     });
 
     it(`shows propose custom errors if tx simulation fails`, async () => {
-      // Set up different l1-to-l2 messages than the ones on the inbox, so this submission reverts
-      // because the INBOX.consume does not match the header.contentCommitment.inHash and we get
-      // a Rollup__BlobHash that is not caught by validateHeader before.
+      // Set up different l1-to-l2 messages than the ones on the inbox, so this submission reverts because the
+      // INBOX.consume does not match the header.inHash and we get a Rollup__BlobHash that is not caught by
+      // validateHeader before.
       const l1ToL2Messages = new Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(1n));
       const block = await buildSingleBlock({ l1ToL2Messages });
 
@@ -980,7 +928,7 @@ describe('L1Publisher integration', () => {
       expect(sendRequestsResult!.failedActions).toEqual([]);
       expect(await rollup.getCheckpointNumber()).toEqual(CheckpointNumber.fromBlockNumber(block2.number));
       const rollupBlock = await rollup.getCheckpoint(CheckpointNumber.fromBlockNumber(block2.number));
-      expect(SlotNumber.fromBigInt(rollupBlock.slotNumber)).toEqual(block2.slot);
+      expect(rollupBlock.slotNumber).toEqual(block2.slot);
     });
   });
 });

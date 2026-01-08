@@ -7,7 +7,6 @@ import {
   Metrics,
   type TelemetryClient,
   type UpDownCounter,
-  ValueType,
 } from '@aztec/telemetry-client';
 
 import {
@@ -46,56 +45,25 @@ export class WorldStateInstrumentation {
     private log: Logger = createLogger('world-state:instrumentation'),
   ) {
     const meter = telemetry.getMeter('World State');
-    this.dbMapSize = meter.createGauge(Metrics.WORLD_STATE_DB_MAP_SIZE, {
-      description: `The current configured map size for each merkle tree`,
-      valueType: ValueType.INT,
-    });
+    this.dbMapSize = meter.createGauge(Metrics.WORLD_STATE_DB_MAP_SIZE);
 
-    this.dbPhysicalSize = meter.createGauge(Metrics.WORLD_STATE_DB_PHYSICAL_SIZE, {
-      description: `The current physical disk space used for each database`,
-      valueType: ValueType.INT,
-    });
+    this.dbPhysicalSize = meter.createGauge(Metrics.WORLD_STATE_DB_PHYSICAL_SIZE);
 
-    this.treeSize = meter.createGauge(Metrics.WORLD_STATE_TREE_SIZE, {
-      description: `The current number of leaves in each merkle tree`,
-      valueType: ValueType.INT,
-    });
+    this.treeSize = meter.createGauge(Metrics.WORLD_STATE_TREE_SIZE);
 
-    this.unfinalizedHeight = meter.createGauge(Metrics.WORLD_STATE_UNFINALIZED_HEIGHT, {
-      description: `The unfinalized block height of each merkle tree`,
-      valueType: ValueType.INT,
-    });
+    this.unfinalizedHeight = meter.createGauge(Metrics.WORLD_STATE_UNFINALIZED_HEIGHT);
 
-    this.finalizedHeight = meter.createGauge(Metrics.WORLD_STATE_FINALIZED_HEIGHT, {
-      description: `The finalized block height of each merkle tree`,
-      valueType: ValueType.INT,
-    });
+    this.finalizedHeight = meter.createGauge(Metrics.WORLD_STATE_FINALIZED_HEIGHT);
 
-    this.oldestBlock = meter.createGauge(Metrics.WORLD_STATE_OLDEST_BLOCK, {
-      description: `The oldest historical block of each merkle tree`,
-      valueType: ValueType.INT,
-    });
+    this.oldestBlock = meter.createGauge(Metrics.WORLD_STATE_OLDEST_BLOCK);
 
-    this.dbUsedSize = meter.createGauge(Metrics.WORLD_STATE_DB_USED_SIZE, {
-      description: `The current used database size for each db of each merkle tree`,
-      valueType: ValueType.INT,
-    });
+    this.dbUsedSize = meter.createGauge(Metrics.WORLD_STATE_DB_USED_SIZE);
 
-    this.dbNumItems = meter.createGauge(Metrics.WORLD_STATE_DB_NUM_ITEMS, {
-      description: `The current number of items in each database of each merkle tree`,
-      valueType: ValueType.INT,
-    });
+    this.dbNumItems = meter.createGauge(Metrics.WORLD_STATE_DB_NUM_ITEMS);
 
-    this.requestHistogram = meter.createHistogram(Metrics.WORLD_STATE_REQUEST_TIME, {
-      description: 'The round trip time of world state requests',
-      unit: 'us',
-      valueType: ValueType.INT,
-    });
+    this.requestHistogram = meter.createHistogram(Metrics.WORLD_STATE_REQUEST_TIME);
 
-    this.criticalErrors = meter.createUpDownCounter(Metrics.WORLD_STATE_CRITICAL_ERROR_COUNT, {
-      description: 'The number of critical errors in the world state',
-      valueType: ValueType.INT,
-    });
+    this.criticalErrors = meter.createUpDownCounter(Metrics.WORLD_STATE_CRITICAL_ERROR_COUNT);
   }
 
   private updateTreeStats(treeDbStats: TreeDBStats, treeMeta: TreeMeta, tree: MerkleTreeId) {

@@ -32,6 +32,7 @@ import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import type { L2BlockBuiltStats } from '@aztec/stdlib/stats';
 import { type FailedTx, Tx } from '@aztec/stdlib/tx';
 import { AttestationTimeoutError } from '@aztec/stdlib/validators';
+import { Attributes, type Traceable, type Tracer, trackSpan } from '@aztec/telemetry-client';
 import type { ValidatorClient } from '@aztec/validator-client';
 
 import type { GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
@@ -48,16 +49,13 @@ import { SequencerState } from './utils.js';
 /** How much time to sleep while waiting for min transactions to accumulate for a block */
 const TXS_POLLING_MS = 500;
 
-/** What's the latest time before a block build deadline we're willing to *start* building it */
-const MIN_BLOCK_BUILD_TIME_MS = 1000;
-
 /**
  * Handles the execution of a checkpoint proposal after the initial preparation phase.
  * This includes building blocks, collecting attestations, and publishing the checkpoint to L1,
  * as well as enqueueing votes for slashing and governance proposals. This class is created from
  * the Sequencer once the check for being the proposer for the slot has succeeded.
  */
-export class CheckpointProposalJob {
+export class CheckpointProposalJob implements Traceable {
   constructor(
     private readonly slot: SlotNumber,
     private readonly checkpointNumber: CheckpointNumber,
@@ -74,21 +72,23 @@ export class CheckpointProposalJob {
     private readonly l1ToL2MessageSource: L1ToL2MessageSource,
     private readonly checkpointsBuilder: FullNodeCheckpointsBuilder,
     private readonly l1Constants: SequencerRollupConstants,
-    private readonly config: ResolvedSequencerConfig,
-    private readonly timetable: SequencerTimetable,
+    protected config: ResolvedSequencerConfig,
+    protected timetable: SequencerTimetable,
     private readonly slasherClient: SlasherClientInterface | undefined,
     private readonly epochCache: EpochCache,
     private readonly dateProvider: DateProvider,
     private readonly metrics: SequencerMetrics,
     private readonly eventEmitter: TypedEventEmitter<SequencerEvents>,
     private readonly setStateFn: (state: SequencerState, slot?: SlotNumber) => void,
-    private readonly log: Logger,
+    protected readonly log: Logger,
+    public readonly tracer: Tracer,
   ) {}
 
   /**
    * Executes the checkpoint proposal job.
    * Returns the published checkpoint if successful, undefined otherwise.
    */
+  @trackSpan('CheckpointProposalJob.execute')
   public async execute(): Promise<Checkpoint | undefined> {
     // Enqueue governance and slashing votes (returns promises that will be awaited later)
     // In fisherman mode, we simulate slashing but don't actually publish to L1
@@ -111,6 +111,10 @@ export class CheckpointProposalJob {
     // Wait until the voting promises have resolved, so all requests are enqueued (not sent)
     await Promise.all(votesPromises);
 
+    if (checkpoint) {
+      this.metrics.recordBlockProposalSuccess();
+    }
+
     // Do not post anything to L1 if we are fishermen, but do perform L1 fee analysis
     if (this.config.fishermanMode) {
       await this.handleCheckpointEndAsFisherman(checkpoint);
@@ -131,6 +135,13 @@ export class CheckpointProposalJob {
     }
   }
 
+  @trackSpan('CheckpointProposalJob.proposeCheckpoint', function () {
+    return {
+      // nullish operator needed for tests
+      [Attributes.COINBASE]: this.validatorClient.getCoinbaseForAttestor(this.attestorAddress)?.toString(),
+      [Attributes.SLOT_NUMBER]: this.slot,
+    };
+  })
   private async proposeCheckpoint(): Promise<Checkpoint | undefined> {
     try {
       // Get operator configured coinbase and fee recipient for this attestor
@@ -188,7 +199,7 @@ export class CheckpointProposalJob {
 
       // Assemble and broadcast the checkpoint proposal, including the last block that was not
       // broadcasted yet, and wait to collect the committee attestations.
-      this.setStateFn(SequencerState.FINALIZING_CHECKPOINT, this.slot);
+      this.setStateFn(SequencerState.ASSEMBLING_CHECKPOINT, this.slot);
       const checkpoint = await checkpointBuilder.completeCheckpoint();
 
       // Do not collect attestations nor publish to L1 in fisherman mode
@@ -214,10 +225,14 @@ export class CheckpointProposalJob {
         this.proposer,
         blockProposalOptions,
       );
+      const blockProposedAt = this.dateProvider.now();
       await this.p2pClient.broadcastProposal(proposal);
 
       this.setStateFn(SequencerState.COLLECTING_ATTESTATIONS, this.slot);
       const attestations = await this.waitForAttestations(proposal);
+      const blockAttestedAt = this.dateProvider.now();
+
+      this.metrics.recordBlockAttestationDelay(blockAttestedAt - blockProposedAt);
 
       // Proposer must sign over the attestations before pushing them to L1
       const signer = this.proposer ?? this.publisher.getSenderAddress();
@@ -243,6 +258,7 @@ export class CheckpointProposalJob {
   /**
    * Builds blocks for a checkpoint within the current slot.
    */
+  @trackSpan('CheckpointProposalJob.buildBlocksForCheckpoint')
   private async buildBlocksForCheckpoint(
     checkpointBuilder: CheckpointBuilder,
     timestamp: bigint,
@@ -290,12 +306,15 @@ export class CheckpointProposalJob {
       });
 
       if (!buildResult && timingInfo.isLastBlock) {
-        // If no block was produced due to not enough txs and this was the last one, exit
+        // If no block was produced due to not enough txs and this was the last subslot, exit
         break;
-      } else if (!buildResult) {
-        // But if there is still time for more blocks, wait until the next block time and try again
-        await this.waitUntilNextBlock(secondsIntoSlot);
+      } else if (!buildResult && timingInfo.deadline !== undefined) {
+        // But if there is still time for more blocks, wait until the next subslot and try again
+        await this.waitUntilNextSubslot(timingInfo.deadline);
         continue;
+      } else if (!buildResult) {
+        // Exit if there is no possibility of building more blocks
+        break;
       } else if ('error' in buildResult) {
         // If there was an error building the block, just exit the loop and give up the rest of the slot
         if (!(buildResult.error instanceof SequencerInterruptedError)) {
@@ -343,7 +362,7 @@ export class CheckpointProposalJob {
       }
 
       // Wait until the next block's start time
-      await this.waitUntilNextBlock(secondsIntoSlot);
+      await this.waitUntilNextSubslot(timingInfo.deadline);
     }
 
     this.log.verbose(`Block building loop completed for slot ${this.slot}`, {
@@ -358,15 +377,15 @@ export class CheckpointProposalJob {
   }
 
   /** Sleeps until it is time to produce the next block in the slot */
-  private async waitUntilNextBlock(blockStartedAtSecondsIntoSlot: number) {
+  @trackSpan('CheckpointProposalJob.waitUntilNextSubslot')
+  private async waitUntilNextSubslot(nextSubslotStart: number) {
     this.setStateFn(SequencerState.WAITING_UNTIL_NEXT_BLOCK, this.slot);
-    const blockDurationSeconds = this.timetable.blockDuration!;
-    const nextBlockStart = blockStartedAtSecondsIntoSlot + blockDurationSeconds;
-    this.log.verbose(`Waiting until time for the next block at ${nextBlockStart}s into slot`, { slot: this.slot });
-    await this.waitUntilTimeInSlot(nextBlockStart);
+    this.log.verbose(`Waiting until time for the next block at ${nextSubslotStart}s into slot`, { slot: this.slot });
+    await this.waitUntilTimeInSlot(nextSubslotStart);
   }
 
   /** Builds a single block. Called from the main block building loop. */
+  @trackSpan('CheckpointProposalJob.buildSingleBlock')
   private async buildSingleBlock(
     checkpointBuilder: CheckpointBuilder,
     opts: {
@@ -478,6 +497,7 @@ export class CheckpointProposalJob {
   }
 
   /** Waits until minTxs are available on the pool for building a block. */
+  @trackSpan('CheckpointProposalJob.waitForMinTxs')
   private async waitForMinTxs(opts: {
     forceCreate?: boolean;
     blockNumber: BlockNumber;
@@ -489,7 +509,7 @@ export class CheckpointProposalJob {
 
     // Deadline is undefined if we are not enforcing the timetable, meaning we'll exit immediately when out of time
     const startBuildingDeadline = buildDeadline
-      ? new Date(buildDeadline.getTime() - MIN_BLOCK_BUILD_TIME_MS)
+      ? new Date(buildDeadline.getTime() - this.timetable.minExecutionTime * 1000)
       : undefined;
 
     let availableTxs = await this.p2pClient.getPendingTxCount();
@@ -518,6 +538,7 @@ export class CheckpointProposalJob {
    * Waits for enough attestations to be collected via p2p.
    * This is run after all blocks for the checkpoint have been built.
    */
+  @trackSpan('CheckpointProposalJob.waitForAttestations')
   private async waitForAttestations(proposal: BlockProposal): Promise<CommitteeAttestationsAndSigners> {
     if (this.config.fishermanMode) {
       this.log.debug('Skipping attestation collection in fisherman mode');
@@ -667,7 +688,6 @@ export class CheckpointProposalJob {
         ...checkpoint.getStats(),
         feeAnalysisId: feeAnalysis?.id,
       });
-      this.metrics.recordBlockProposalSuccess();
     } else {
       this.log.warn(`Validation block building FAILED for slot ${this.slot}`, {
         slot: this.slot,
@@ -680,7 +700,8 @@ export class CheckpointProposalJob {
   }
 
   /** Waits until a specific time within the current slot */
-  private async waitUntilTimeInSlot(targetSecondsIntoSlot: number): Promise<void> {
+  @trackSpan('CheckpointProposalJob.waitUntilTimeInSlot')
+  protected async waitUntilTimeInSlot(targetSecondsIntoSlot: number): Promise<void> {
     const slotStartTimestamp = this.getSlotStartBuildTimestamp();
     const targetTimestamp = slotStartTimestamp + targetSecondsIntoSlot;
     await sleepUntil(new Date(targetTimestamp * 1000), this.dateProvider.nowAsDate());

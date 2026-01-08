@@ -26,6 +26,8 @@ class AvmSimulateNapi {
      *   - getContractInstance(address: string): Promise<Buffer | undefined>
      *   - getContractClass(classId: string): Promise<Buffer | undefined>
      * - info[2]: External WorldState handle (pointer to world_state::WorldState)
+     * - info[3]: Log level number (0-7)
+     * - info[4]: External CancellationToken handle (optional)
      *
      * Returns: Promise<Buffer> containing serialized simulation results
      *
@@ -33,6 +35,7 @@ class AvmSimulateNapi {
      * @return Napi::Value Promise that resolves with simulation results
      */
     static Napi::Value simulate(const Napi::CallbackInfo& info);
+
     /**
      * @brief NAPI function to simulate AVM execution with pre-collected hints
      *
@@ -43,6 +46,27 @@ class AvmSimulateNapi {
      * @return Napi::Value Promise that resolves with simulation results
      */
     static Napi::Value simulateWithHintedDbs(const Napi::CallbackInfo& info);
+
+    /**
+     * @brief Create a cancellation token that can be used to cancel a simulation.
+     *
+     * Returns: External<CancellationToken> - a handle to a new cancellation token
+     *
+     * @param info NAPI callback info (no arguments expected)
+     * @return Napi::Value External handle to the cancellation token
+     */
+    static Napi::Value createCancellationToken(const Napi::CallbackInfo& info);
+
+    /**
+     * @brief Cancel a simulation by signaling the provided cancellation token.
+     *
+     * Expected arguments:
+     * - info[0]: External CancellationToken handle
+     *
+     * @param info NAPI callback info containing the token
+     * @return Napi::Value undefined
+     */
+    static Napi::Value cancelSimulation(const Napi::CallbackInfo& info);
 };
 
 } // namespace bb::nodejs

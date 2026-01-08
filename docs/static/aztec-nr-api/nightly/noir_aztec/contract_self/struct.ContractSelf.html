@@ -320,8 +320,8 @@ message be delivered to them.</p>
     <span class="kw">let</span> from = self.msg_sender().unwrap();
 
     <span class="kw">let</span> message: EventMessage = self.emit(Transfer { from, to, amount });
-    message.deliver_to(from, MessageDelivery.UNCONSTRAINED_OFFCHAIN);
-    message.deliver_to(to, MessageDelivery.CONSTRAINED_ONCHAIN);
+    message.deliver_to(from, MessageDelivery.OFFCHAIN);
+    message.deliver_to(to, MessageDelivery.ONCHAIN_CONSTRAINED);
 }</code></pre>
 <h4>Cost</h4>
 <p>Private event emission always results in the creation of a nullifer, which acts as a commitment to the event and

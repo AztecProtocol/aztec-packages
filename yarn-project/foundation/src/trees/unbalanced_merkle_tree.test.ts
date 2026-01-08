@@ -13,6 +13,10 @@ describe('computeUnbalancedMerkleTreeRoot', () => {
     expect(computeUnbalancedMerkleTreeRoot([])).toEqual(Buffer.alloc(32));
   });
 
+  it('0 leaves', () => {
+    expect(computeUnbalancedMerkleTreeRoot([])).toEqual(Buffer.alloc(32));
+  });
+
   it('1 leaf', () => {
     const leaves = createLeaves(1);
     const expectedRoot = leaves[0];

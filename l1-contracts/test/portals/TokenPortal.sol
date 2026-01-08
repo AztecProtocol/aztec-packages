@@ -8,6 +8,7 @@ import {IRegistry} from "@aztec/governance/interfaces/IRegistry.sol";
 import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
 import {IOutbox} from "@aztec/core/interfaces/messagebridge/IOutbox.sol";
 import {IRollup} from "@aztec/core/interfaces/IRollup.sol";
+import {Epoch} from "@aztec/core/libraries/TimeLib.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
 
@@ -117,7 +118,7 @@ contract TokenPortal {
    * @param _recipient - The address to send the funds to
    * @param _amount - The amount to withdraw
    * @param _withCaller - Flag to use `msg.sender` as caller, otherwise address(0)
-   * @param _checkpointNumber - The checkpoint number containing the message to consume
+   * @param _epoch - The epoch the message is in
    * @param _leafIndex - The amount to withdraw
    * @param _path - Flag to use `msg.sender` as caller, otherwise address(0)
    * Must match the caller of the message (specified from L2) to consume it.
@@ -126,7 +127,7 @@ contract TokenPortal {
     address _recipient,
     uint256 _amount,
     bool _withCaller,
-    uint256 _checkpointNumber,
+    Epoch _epoch,
     uint256 _leafIndex,
     bytes32[] calldata _path
   ) external {
@@ -142,7 +143,7 @@ contract TokenPortal {
       )
     });
 
-    outbox.consume(message, _checkpointNumber, _leafIndex, _path);
+    outbox.consume(message, _epoch, _leafIndex, _path);
 
     underlying.safeTransfer(_recipient, _amount);
   }

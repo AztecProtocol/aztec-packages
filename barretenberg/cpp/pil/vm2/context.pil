@@ -17,7 +17,7 @@ namespace execution;
     // use `sel_failure`.
 
     // Guaranteed to be boolean because sel_execute_call & sel_execute_static_call are mutually exclusive
-    pol commit sel_enter_call;
+    pol commit sel_enter_call; // @boolean (by definition)
     // The following selectors will be 0 if there is an error during execution (before the opcode execution step).
     sel_enter_call = sel_execute_call + sel_execute_static_call;
     // sel_enter_call and precomputed.first_row are mutually exclusive because
@@ -30,7 +30,7 @@ namespace execution;
     // with sel_execute_revert and sel_execute_return. As sel_opcode_error is a specific error of the last temporality
     // group, sel_error is mutually exclusive with sel_execute_revert and sel_execute_return. Namely, if
     // an error occurs earlier neither sel_execute_revert nor sel_execute_return can be activated.
-    pol commit sel_exit_call;
+    pol commit sel_exit_call; // @boolean (by definition)
     sel_exit_call = sel_failure + sel_execute_return; // = sel_execute_revert + sel_error + sel_execute_return
 
     // Context columns
@@ -125,13 +125,13 @@ namespace execution;
 
     pol PC_JUMP = sel_execute_internal_call + sel_execute_internal_return + sel_execute_jump + sel_execute_jumpi;
 
-    pol commit has_parent_ctx; // == 1 if parent_id != 0;
+    pol commit has_parent_ctx; // @boolean - == 1 if parent_id != 0;
     has_parent_ctx * (1 - has_parent_ctx) = 0;
     pol commit is_parent_id_inv; // For zero-check of has_parent_ctx
     parent_id * ((1 - has_parent_ctx) * (1 - is_parent_id_inv) + is_parent_id_inv) - has_parent_ctx = 0;
 
     // We need a flag to indicate when we are exiting a nested context
-    pol commit nested_exit_call;
+    pol commit nested_exit_call; // @boolean (by definition)
     // If we are exiting and we have a parent ctx
     nested_exit_call = has_parent_ctx * sel_exit_call;
 
@@ -224,7 +224,7 @@ namespace execution;
     #[CD_OFFSET_NEXT_ROW]
     NOT_LAST_EXEC * DEFAULT_CTX_ROW * (parent_calldata_addr' - parent_calldata_addr) = 0;
     NOT_LAST_EXEC * sel_enter_call  * (parent_calldata_addr' - rop[4]) = 0;
-    #[CD_SIZE_ENQUEUED_CALL_IS_ZERO]
+    #[CD_ADDR_ENQUEUED_CALL_IS_ZERO]
     enqueued_call_start * parent_calldata_addr = 0;
 
     // enqueued_call_start = 1 ==> parent_calldata_size is constrained in tx.pil (#[DISPATCH_EXEC_START])
@@ -261,7 +261,7 @@ namespace execution;
     #[NEXT_RD_SIZE_IS_ZERO]
     NOT_LAST_EXEC * (sel_enter_call + sel_error) * last_child_returndata_size' = 0;
     #[RD_SIZE_IS_ZERO]
-    enqueued_call_start * last_child_returndata_addr = 0;
+    enqueued_call_start * last_child_returndata_size = 0;
     #[PROPAGATE_RD_SIZE]
     NOT_LAST_EXEC * DEFAULT_CTX_ROW * (last_child_returndata_size' - last_child_returndata_size) = 0;
 
@@ -351,6 +351,7 @@ namespace execution;
     #[RETRIEVED_BYTECODES_TREE_SIZE_CONTINUITY]
     sel * (1 - enqueued_call_end) * (retrieved_bytecodes_tree_size - prev_retrieved_bytecodes_tree_size') = 0;
 
+    // Push a new context onto the context stack.
     #[CTX_STACK_CALL]
     sel_enter_call {
         next_context_id,
@@ -380,9 +381,9 @@ namespace execution;
         // Retrieved bytecodes tree is not commited and restored, since it's a tx global state.
         num_unencrypted_log_fields,
         num_l2_to_l1_messages
-    } in
+    } is // Crucial to be a permutation to prevent malicious insertions in the context stack.
     context_stack.sel {
-        context_stack.entered_context_id,
+        context_stack.entered_context_id, // ID of the newly created context. Acts as a unique key for a stack entry.
         context_stack.context_id,
         context_stack.parent_id,
         context_stack.next_pc,
@@ -410,8 +411,8 @@ namespace execution;
         context_stack.num_l2_to_l1_messages
     };
 
-    // If we are reverting or erroring a nested call, we restore the entire ctx from the stack
-
+    // If we are reverting or erroring a nested call, we restore the entire ctx from the stack.
+    // Stack pop operation.
     #[CTX_STACK_ROLLBACK]
     nested_failure {
         context_id,
@@ -441,7 +442,7 @@ namespace execution;
         prev_written_public_data_slots_tree_size',
         prev_num_unencrypted_log_fields',
         prev_num_l2_to_l1_messages'
-    } in
+    } in // Lookup is fine during a pop/read operation. (permutation would not work because not every context is rolled back.)
     context_stack.sel {
         context_stack.entered_context_id,
         context_stack.context_id,
@@ -471,8 +472,12 @@ namespace execution;
         context_stack.num_l2_to_l1_messages
     };
 
-    pol commit nested_return;
+    pol commit nested_return; // @boolean (by definition)
     nested_return = has_parent_ctx * sel_execute_return;
+
+    // We restore a partial context on a nested return. We do not restore trees or side effects though,
+    // since we adopt the nested state after end.
+    // Pop the context stack (partially).
     #[CTX_STACK_RETURN]
     nested_return {
         context_id,
@@ -489,8 +494,7 @@ namespace execution;
         parent_da_gas_limit',
         parent_l2_gas_used',
         parent_da_gas_used'
-        // We don't restore trees or side effects in return since we adopt the nested state after end.
-    } in
+    } in // Lookup is fine during a pop/read operation. (permutation would not work because some context might be rolled back.)
     context_stack.sel {
         context_stack.entered_context_id,
         context_stack.context_id,

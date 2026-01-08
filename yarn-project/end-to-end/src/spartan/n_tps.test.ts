@@ -1,9 +1,11 @@
 import type { SentTx } from '@aztec/aztec.js/contracts';
 import { SponsoredFeePaymentMethod } from '@aztec/aztec.js/fee';
 import { type AztecNode, createAztecNodeClient } from '@aztec/aztec.js/node';
+import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
+import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { BenchmarkingContract } from '@aztec/noir-test-contracts.js/Benchmarking';
 import { Tx } from '@aztec/stdlib/tx';
@@ -50,7 +52,7 @@ const maxTps = Math.max(...tpsTargets);
 const CHAOS_MESH_NAME = 'network-shaping';
 
 describe('sustained N TPS test', () => {
-  jest.setTimeout(60 * 60 * 1000 * 3); // 3 hours
+  jest.setTimeout(60 * 60 * 1000 * 10); // 10 hours
 
   const logger = createLogger(`e2e:spartan-test:sustained-tps`);
   const TEST_DURATION_SECONDS = parseInt(process.env.TEST_DURATION_SECONDS || '600', 10);
@@ -101,6 +103,20 @@ describe('sustained N TPS test', () => {
     const rpcUrl = `http://${rpcIP}:8080`;
     aztecNode = createAztecNodeClient(rpcUrl);
     metrics = new TxInclusionMetrics(aztecNode);
+
+    await retryUntil(
+      async () => {
+        const blockNumber = await aztecNode.getBlockNumber();
+        if (blockNumber > INITIAL_L2_BLOCK_NUM) {
+          return true;
+        }
+        logger.info('Waiting for the first block to mine...');
+        return false;
+      },
+      'get block number',
+      60 * 60 * 3, // wait up to 3 hours
+      60,
+    );
 
     for (let i = 0; i < NUM_WALLETS; i++) {
       logger.info(`Creating wallet and pxe for wallet ${i + 1}/${NUM_WALLETS}`);

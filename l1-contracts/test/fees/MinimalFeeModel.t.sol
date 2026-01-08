@@ -4,7 +4,7 @@ pragma solidity >=0.8.27;
 import {
   FeeModelTestPoints,
   TestPoint,
-  ManaBaseFeeComponentsModel,
+  ManaMinFeeComponentsModel,
   L1FeesModel,
   FeeHeaderModel
 } from "./FeeModelTestPoints.t.sol";
@@ -118,8 +118,8 @@ contract MinimalFeeModelTest is FeeModelTestPoints {
         uint256 feeAssetPrice = FeeAssetPerEthE9.unwrap(model.getFeeAssetPerEth());
         // We are assuming 3 blobs for all of these computations, as per the model.
         // 3 blobs because that can fit ~360 txs, or 10 tps.
-        ManaBaseFeeComponentsModel memory components = model.manaBaseFeeComponents(false);
-        ManaBaseFeeComponentsModel memory componentsFeeAsset = model.manaBaseFeeComponents(true);
+        ManaMinFeeComponentsModel memory components = model.manaMinFeeComponents(false);
+        ManaMinFeeComponentsModel memory componentsFeeAsset = model.manaMinFeeComponents(true);
         FeeHeaderModel memory parentFeeHeader = model.getFeeHeader(point.checkpoint_header.slot_number - 1);
 
         model.addSlot(
@@ -143,8 +143,8 @@ contract MinimalFeeModelTest is FeeModelTestPoints {
         assertEq(point.outputs.fee_asset_price_at_execution, feeAssetPrice, "feeAssetPrice mismatch");
         assertEq(point.outputs.l1_fee_oracle_output, fees, "l1 fee oracle output");
         assertEq(point.outputs.l1_gas_oracle_values, model.getL1GasOracleValues());
-        assertEq(point.outputs.mana_base_fee_components_in_wei, components, "in_wei");
-        assertEq(point.outputs.mana_base_fee_components_in_fee_asset, componentsFeeAsset, "in_fee_asset");
+        assertEq(point.outputs.mana_min_fee_components_in_wei, components, "in_wei");
+        assertEq(point.outputs.mana_min_fee_components_in_fee_asset, componentsFeeAsset, "in_fee_asset");
 
         assertEq(point.parent_fee_header, parentFeeHeader);
 

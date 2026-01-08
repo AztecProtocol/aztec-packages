@@ -59,6 +59,7 @@ include "precomputed.pil";
 namespace to_radix_mem;
 
     pol commit sel;
+    sel * (1 - sel) = 0;
 
     #[skippable_if]
     sel = 0;
@@ -99,7 +100,7 @@ namespace to_radix_mem;
     NOT_LAST * (execution_clk' - execution_clk) = 0;
     #[SPACE_ID_CONTINUITY]
     NOT_LAST * (space_id' - space_id) = 0;
-    #[VALUE_CONTNUITY]
+    #[VALUE_CONTINUITY]
     NOT_LAST * (value_to_decompose' - value_to_decompose) = 0;
     #[RADIX_CONTINUITY]
     NOT_LAST * (radix' - radix) = 0;

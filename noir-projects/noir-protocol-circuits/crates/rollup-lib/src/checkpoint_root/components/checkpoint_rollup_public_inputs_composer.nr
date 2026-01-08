@@ -13,13 +13,13 @@ use types::{
     },
     blob_data::SpongeBlob,
     constants::{AZTEC_MAX_EPOCH_DURATION, FIELDS_PER_BLOB},
-    content_commitment::ContentCommitment,
     traits::{Empty, Hash},
     utils::arrays::assert_trailing_zeros,
 };
 
 pub struct CheckpointRollupPublicInputsComposer<let NumBlobs: u32> {
     merged_rollup: BlockRollupPublicInputs,
+    // The below are all hints:
     start_blob_accumulator: BlobAccumulator,
     final_blob_challenges: FinalBlobBatchingChallenges,
     blobs_fields: [Field; FIELDS_PER_BLOB * NumBlobs],
@@ -30,6 +30,7 @@ pub struct CheckpointRollupPublicInputsComposer<let NumBlobs: u32> {
 impl<let NumBlobs: u32> CheckpointRollupPublicInputsComposer<NumBlobs> {
     pub fn new<let NumPreviousRollups: u32>(
         previous_rollups: [BlockRollupPublicInputs; NumPreviousRollups],
+        // The below args are all hints:
         start_blob_accumulator: BlobAccumulator,
         final_blob_challenges: FinalBlobBatchingChallenges,
         blobs_fields: [Field; NumBlobs * FIELDS_PER_BLOB],
@@ -65,6 +66,9 @@ impl<let NumBlobs: u32> CheckpointRollupPublicInputsComposer<NumBlobs> {
         let mut checkpoint_header_hashes = [0; AZTEC_MAX_EPOCH_DURATION];
         checkpoint_header_hashes[0] = self.create_checkpoint_header().hash();
 
+        let mut out_hashes = [0; AZTEC_MAX_EPOCH_DURATION];
+        out_hashes[0] = merged_rollup.out_hash;
+
         let mut fees = [FeeRecipient::empty(); AZTEC_MAX_EPOCH_DURATION];
         fees[0] = FeeRecipient {
             recipient: merged_rollup.constants.coinbase,
@@ -77,6 +81,7 @@ impl<let NumBlobs: u32> CheckpointRollupPublicInputsComposer<NumBlobs> {
             constants,
             previous_archive: merged_rollup.previous_archive,
             new_archive: merged_rollup.new_archive,
+            out_hashes,
             checkpoint_header_hashes,
             fees,
             start_blob_accumulator: self.start_blob_accumulator,
@@ -89,18 +94,13 @@ impl<let NumBlobs: u32> CheckpointRollupPublicInputsComposer<NumBlobs> {
         let merged_rollup = self.merged_rollup;
         let constants = merged_rollup.constants;
 
-        let content_commitment = ContentCommitment {
-            blobs_hash: self.blobs_hash,
-            in_hash: merged_rollup.in_hash,
-            out_hash: merged_rollup.out_hash,
-        };
-
         CheckpointHeader {
             last_archive_root: merged_rollup.previous_archive.root,
             block_headers_hash: merged_rollup.block_headers_hash,
-            content_commitment,
+            blobs_hash: self.blobs_hash,
+            in_hash: merged_rollup.in_hash,
             slot_number: constants.slot_number,
-            timestamp: merged_rollup.end_timestamp,
+            timestamp: merged_rollup.timestamp,
             coinbase: constants.coinbase,
             fee_recipient: constants.fee_recipient,
             gas_fees: constants.gas_fees,
@@ -114,12 +114,26 @@ impl<let NumBlobs: u32> CheckpointRollupPublicInputsComposer<NumBlobs> {
         end_sponge_blob.absorb_checkpoint_end_marker();
 
         let num_blob_fields = end_sponge_blob.num_absorbed_fields;
-        // Check that the first `num_blob_fields` of the given fields do match what's been absorbed into the sponge.
-        let mut expected_end_sponge = SpongeBlob::init();
-        expected_end_sponge.absorb(self.blobs_fields, num_blob_fields);
+
+        let mut expected_end_sponge_blob = SpongeBlob::init();
+
+        // Check that the first `num_blob_fields` of the hinted `self.blobs_fields` do match what's
+        // been absorbed into the sponge.
+        // Elaboration:
+        // We have an `end_sponge_blob`, which is the result of incrementally absorbing data to the sponge
+        // over many circuits (Tx Base circuits, Block Root circuits, and this Checkpoint Root circuit).
+        // We need to give this Checkpoint Root circuit access to _all_ of that underlying data, flattened,
+        // because later in this circuit we'll be interpolating that data into polynomials (one polynomial
+        // per blob that we've used-up).
+        // The flattened, underlying data is hinted to this circuit as `self.blobs_fields`.
+        // To ensure `self.blobs_fields` actually matches the data that all of the previous circuits saw,
+        // we repeat the entire sponge computation -- the one that was previously split across many
+        // circuits -- entirely within this circuit in the line below.
+        // We hope that `expected_end_sponge_blob == end_sponge_blob`.
+        expected_end_sponge_blob.absorb(self.blobs_fields, num_blob_fields);
         assert_eq(
             end_sponge_blob,
-            expected_end_sponge,
+            expected_end_sponge_blob,
             "Provided blob fields do not match the fields that were absorbed",
         );
         // Check that all fields after `num_blob_fields` are zero.

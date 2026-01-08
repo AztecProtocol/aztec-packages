@@ -232,7 +232,7 @@ op_after_relative[6] = op[6] + SEL_OP_IS_RELATIVE_EFFECTIVE_6_ * RELATIVE_RESOLU
 // is not active. Therefore, we do not have to gate the above relations by SEL_SHOULD_RESOLVE_ADDRESS.
 // In addition, the above relations can be skipped when SEL_SHOULD_RESOLVE_ADDRESS == 0 (skippable condition).
 
-pol commit sel_op_do_overflow_check[7]; //@boolean (from definition)
+pol commit sel_op_do_overflow_check[7]; // @boolean (by definition)
 sel_op_do_overflow_check[0] = SEL_OP_IS_RELATIVE_EFFECTIVE_0_ * (1 - sel_base_address_failure);
 sel_op_do_overflow_check[1] = SEL_OP_IS_RELATIVE_EFFECTIVE_1_ * (1 - sel_base_address_failure);
 sel_op_do_overflow_check[2] = SEL_OP_IS_RELATIVE_EFFECTIVE_2_ * (1 - sel_base_address_failure);

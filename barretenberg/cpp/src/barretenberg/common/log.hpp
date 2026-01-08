@@ -1,11 +1,13 @@
 #pragma once
-#include "barretenberg/env/logstr.hpp"
-#include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
+
 #include <algorithm>
 #include <functional>
 #include <sstream>
 #include <string>
 #include <vector>
+
+#include "barretenberg/env/logstr.hpp"
+#include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
 
 #define BENCHMARK_INFO_PREFIX "##BENCHMARK_INFO_PREFIX##"
 #define BENCHMARK_INFO_SEPARATOR "#"
@@ -32,7 +34,7 @@ template <typename T> void benchmark_format_chain(std::ostream& os, T const& fir
     std::stringstream current_argument;
     current_argument << first;
     std::string current_argument_string = current_argument.str();
-    std::replace(current_argument_string.begin(), current_argument_string.end(), ',', ';');
+    std::ranges::replace(current_argument_string, ',', ';');
     os << current_argument_string << BENCHMARK_INFO_SUFFIX;
 }
 
@@ -43,7 +45,7 @@ void benchmark_format_chain(std::ostream& os, T const& first, Args const&... arg
     std::stringstream current_argument;
     current_argument << first;
     std::string current_argument_string = current_argument.str();
-    std::replace(current_argument_string.begin(), current_argument_string.end(), ',', ';');
+    std::ranges::replace(current_argument_string, ',', ';');
     os << current_argument_string << BENCHMARK_INFO_SEPARATOR;
     benchmark_format_chain(os, args...);
 }
@@ -55,6 +57,18 @@ template <typename... Args> std::string benchmark_format(Args... args)
     benchmark_format_chain(os, args...);
     return os.str();
 }
+
+enum class LogLevel : int {
+    DEBUG = 0,
+    INFO = 1,
+    VERBOSE = 2,
+    IMPORTANT = 3,
+};
+
+// This allows the logging sink to be customized. Useful for Typescript use-cases.
+using LogFunction = std::function<void(LogLevel level, const char* msg)>;
+extern LogFunction log_function;
+void set_log_function(LogFunction new_log_function);
 
 extern bool debug_logging;
 // In release mode (e.g., NDEBUG is defined), we don't compile debug logs.
@@ -68,13 +82,13 @@ extern bool debug_logging;
 inline void debug_(std::function<std::string()> func)
 {
     if (debug_logging) {
-        logstr(func().c_str());
+        log_function(LogLevel::DEBUG, func().c_str());
     }
 }
 
 template <typename... Args> inline void info(Args... args)
 {
-    logstr(format(args...).c_str());
+    log_function(LogLevel::INFO, format(args...).c_str());
 }
 
 #define vinfo(...) vinfo_([&]() { return format(__VA_ARGS__); })
@@ -83,19 +97,19 @@ extern bool verbose_logging;
 inline void vinfo_(std::function<std::string()> func)
 {
     if (verbose_logging) {
-        info(func());
+        log_function(LogLevel::VERBOSE, func().c_str());
     }
 }
 
 template <typename... Args> inline void important(Args... args)
 {
-    logstr(format("important: ", args...).c_str());
+    log_function(LogLevel::IMPORTANT, format("important: ", args...).c_str());
 }
 
 /**
  * @brief Info used to store circuit statistics during CI/CD with concrete structure. Writes straight to log
  *
- * @details Automatically appends the necessary prefix and suffix,  as well as separators.
+ * @details Automatically appends the necessary prefix and suffix, as well as separators.
  *
  * @tparam Args
  * @param args
@@ -129,7 +143,7 @@ class BenchmarkInfoCollator {
  * @brief Info used to store circuit statistics during CI/CD with concrete structure. Stores string in vector for now
  * (used to flush all benchmarks at the end of test).
  *
- * @details Automatically appends the necessary prefix and suffix,  as well as separators.
+ * @details Automatically appends the necessary prefix and suffix, as well as separators.
  *
  * @tparam Args
  * @param args

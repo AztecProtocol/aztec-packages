@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Complete, auditors: [Federico], commit: 2094fd1467dd9a94803b2c5007cf60ac357aa7d2 }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
@@ -11,7 +11,6 @@
 
 #include "arithmetic_constraints.hpp"
 #include "barretenberg/chonk/chonk.hpp"
-#include "barretenberg/serialize/msgpack.hpp"
 #include "blake2s_constraint.hpp"
 #include "blake3_constraint.hpp"
 #include "block_constraint.hpp"
@@ -112,28 +111,6 @@ struct AcirFormat {
 
     // Indices of the original opcode that originated each constraint in AcirFormat.
     AcirFormatOriginalOpcodeIndices original_opcode_indices;
-
-    // For serialization, update with any new fields
-    MSGPACK_FIELDS(public_inputs,
-                   logic_constraints,
-                   range_constraints,
-                   aes128_constraints,
-                   sha256_compression,
-                   ecdsa_k1_constraints,
-                   ecdsa_r1_constraints,
-                   blake2s_constraints,
-                   blake3_constraints,
-                   keccak_permutations,
-                   poseidon2_constraints,
-                   multi_scalar_mul_constraints,
-                   ec_add_constraints,
-                   honk_recursion_constraints,
-                   avm_recursion_constraints,
-                   hn_recursion_constraints,
-                   chonk_recursion_constraints,
-                   quad_constraints,
-                   big_quad_constraints,
-                   block_constraints);
 
     friend bool operator==(AcirFormat const& lhs, AcirFormat const& rhs) = default;
 };

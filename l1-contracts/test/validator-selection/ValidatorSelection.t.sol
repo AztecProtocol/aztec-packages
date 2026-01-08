@@ -537,10 +537,10 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     ree.sender = ree.proposer;
 
     {
-      uint128 manaBaseFee = SafeCast.toUint128(rollup.getManaBaseFeeAt(Timestamp.wrap(block.timestamp), true));
+      uint128 manaMinFee = SafeCast.toUint128(rollup.getManaMinFeeAt(Timestamp.wrap(block.timestamp), true));
       bytes32 inHash = inbox.getRoot(full.checkpoint.checkpointNumber);
-      header.contentCommitment.inHash = inHash;
-      header.gasFees.feePerL2Gas = manaBaseFee;
+      header.inHash = inHash;
+      header.gasFees.feePerL2Gas = manaMinFee;
     }
 
     ree.proposeArgs = ProposeArgs({header: header, archive: full.checkpoint.archive, oracleInput: OracleInput(0)});
@@ -707,44 +707,6 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
       return ree;
     }
 
-    bytes32 l2ToL1MessageTreeRoot;
-    {
-      uint32 numTxs = full.checkpoint.numTxs;
-      // NB: The below works with full checkpoints because we require the largest possible subtrees
-      // for L2 to L1 messages - usually we make variable height subtrees, the roots of which
-      // form a balanced tree
-
-      // The below is a little janky - we know that this test deals with full txs with equal numbers
-      // of msgs or txs with no messages, so the division works
-      // TODO edit full.messages to include attesterViewrmation about msgs per tx?
-      uint256 subTreeHeight = merkleTestUtil.calculateTreeHeightFromSize(
-        full.messages.l2ToL1Messages.length == 0 ? 0 : full.messages.l2ToL1Messages.length / numTxs
-      );
-      uint256 outHashTreeHeight = merkleTestUtil.calculateTreeHeightFromSize(numTxs);
-      uint256 numMessagesWithPadding = numTxs * Constants.MAX_L2_TO_L1_MSGS_PER_TX;
-
-      uint256 treeHeight = subTreeHeight + outHashTreeHeight;
-      NaiveMerkle tree = new NaiveMerkle(treeHeight);
-      for (uint256 i = 0; i < numMessagesWithPadding; i++) {
-        if (i < full.messages.l2ToL1Messages.length) {
-          tree.insertLeaf(full.messages.l2ToL1Messages[i]);
-        } else {
-          tree.insertLeaf(bytes32(0));
-        }
-      }
-
-      l2ToL1MessageTreeRoot = tree.computeRoot();
-    }
-
-    bytes32 root = outbox.getRootData(full.checkpoint.checkpointNumber);
-
-    // If we are trying to read a checkpoint beyond the proven chain, we should see "nothing".
-    if (rollup.getProvenCheckpointNumber() >= full.checkpoint.checkpointNumber) {
-      assertEq(l2ToL1MessageTreeRoot, root, "Invalid l2 to l1 message tree root");
-    } else {
-      assertEq(root, bytes32(0), "Invalid outbox root");
-    }
-
     assertEq(rollup.archive(), ree.proposeArgs.archive, "Invalid archive");
   }
 
@@ -777,7 +739,10 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     address prover = address(0xcafe);
 
     PublicInputArgs memory args = PublicInputArgs({
-      previousArchive: parentCheckpointLog.archive, endArchive: endFull.checkpoint.archive, proverId: prover
+      previousArchive: parentCheckpointLog.archive,
+      endArchive: endFull.checkpoint.archive,
+      outHash: bytes32(0),
+      proverId: prover
     });
 
     bytes32[] memory fees = new bytes32[](Constants.AZTEC_MAX_EPOCH_DURATION * 2);

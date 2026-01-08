@@ -7,7 +7,7 @@ use acvm::acir::circuit::BrilligOpcodeLocation;
 use acvm::brillig_vm::brillig::{
     BinaryFieldOp, BinaryIntOp, BlackBoxOp, HeapArray, HeapVector, MemoryAddress, ValueOrArray,
 };
-use noirc_errors::debug_info::DebugInfo;
+use noirc_artifacts::debug::DebugInfo;
 
 use crate::bit_traits::{BitsQueryable, bits_needed_for};
 use crate::instructions::{AddressingModeBuilder, AvmInstruction, AvmOperand, AvmTypeTag};
@@ -934,8 +934,8 @@ fn handle_getter_instruction(
         VERSION,
         BLOCKNUMBER,
         TIMESTAMP,
-        BASEFEEPERL2GAS,
-        BASEFEEPERDAGAS,
+        MINFEEPERL2GAS,
+        MINFEEPERDAGAS,
         ISSTATICCALL,
         L2GASLEFT,
         DAGASLEFT,
@@ -954,8 +954,8 @@ fn handle_getter_instruction(
     let var_idx = match function {
         "avmOpcodeAddress" => EnvironmentVariable::ADDRESS,
         "avmOpcodeSender" => EnvironmentVariable::SENDER,
-        "avmOpcodeBaseFeePerL2Gas" => EnvironmentVariable::BASEFEEPERL2GAS,
-        "avmOpcodeBaseFeePerDaGas" => EnvironmentVariable::BASEFEEPERDAGAS,
+        "avmOpcodeMinFeePerL2Gas" => EnvironmentVariable::MINFEEPERL2GAS,
+        "avmOpcodeMinFeePerDaGas" => EnvironmentVariable::MINFEEPERDAGAS,
         "avmOpcodeTransactionFee" => EnvironmentVariable::TRANSACTIONFEE,
         "avmOpcodeChainId" => EnvironmentVariable::CHAINID,
         "avmOpcodeVersion" => EnvironmentVariable::VERSION,

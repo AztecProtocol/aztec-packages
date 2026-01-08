@@ -131,6 +131,7 @@ import { PublicKeys, computeAddress } from '../keys/index.js';
 import { ContractClassLog, ContractClassLogFields } from '../logs/index.js';
 import { PrivateLog } from '../logs/private_log.js';
 import { FlatPublicLogs, PublicLog } from '../logs/public_log.js';
+import { TxScopedL2Log } from '../logs/tx_scoped_l2_log.js';
 import { CountedL2ToL1Message, L2ToL1Message, ScopedL2ToL1Message } from '../messaging/l2_to_l1_message.js';
 import { ParityBasePrivateInputs } from '../parity/parity_base_private_inputs.js';
 import { ParityPublicInputs } from '../parity/parity_public_inputs.js';
@@ -163,7 +164,6 @@ import { NullifierLeaf, NullifierLeafPreimage } from '../trees/nullifier_leaf.js
 import { PublicDataTreeLeaf, PublicDataTreeLeafPreimage } from '../trees/public_data_leaf.js';
 import { BlockHeader } from '../tx/block_header.js';
 import { CallContext } from '../tx/call_context.js';
-import { ContentCommitment } from '../tx/content_commitment.js';
 import { FunctionData } from '../tx/function_data.js';
 import { GlobalVariables } from '../tx/global_variables.js';
 import { PartialStateReference } from '../tx/partial_state_reference.js';
@@ -173,6 +173,7 @@ import { StateReference } from '../tx/state_reference.js';
 import { TreeSnapshots } from '../tx/tree_snapshots.js';
 import { TxConstantData } from '../tx/tx_constant_data.js';
 import { TxContext } from '../tx/tx_context.js';
+import { TxHash } from '../tx/tx_hash.js';
 import { TxRequest } from '../tx/tx_request.js';
 import { Vector } from '../types/index.js';
 import { VkData } from '../vks/index.js';
@@ -835,7 +836,6 @@ export function makeBlockRollupPublicInputs(seed = 0): BlockRollupPublicInputs {
     makeSpongeBlob(seed + 0x600),
     makeSpongeBlob(seed + 0x700),
     BigInt(seed + 0x800),
-    BigInt(seed + 0x810),
     fr(seed + 0x820),
     fr(seed + 0x830),
     fr(seed + 0x840),
@@ -850,10 +850,11 @@ export function makeCheckpointRollupPublicInputs(seed = 0) {
     makeAppendOnlyTreeSnapshot(seed + 0x100),
     makeAppendOnlyTreeSnapshot(seed + 0x200),
     makeTuple(AZTEC_MAX_EPOCH_DURATION, () => fr(seed), 0x300),
-    makeTuple(AZTEC_MAX_EPOCH_DURATION, () => makeFeeRecipient(seed), 0x400),
-    makeBlobAccumulator(seed + 0x500),
+    makeTuple(AZTEC_MAX_EPOCH_DURATION, () => fr(seed), 0x400),
+    makeTuple(AZTEC_MAX_EPOCH_DURATION, () => makeFeeRecipient(seed), 0x500),
     makeBlobAccumulator(seed + 0x600),
-    makeFinalBlobBatchingChallenges(seed + 0x700),
+    makeBlobAccumulator(seed + 0x700),
+    makeFinalBlobBatchingChallenges(seed + 0x800),
   );
 }
 
@@ -885,18 +886,12 @@ export function makeRootRollupPublicInputs(seed = 0): RootRollupPublicInputs {
   return new RootRollupPublicInputs(
     fr(seed + 0x100),
     fr(seed + 0x200),
-    makeTuple(AZTEC_MAX_EPOCH_DURATION, () => fr(seed), 0x300),
+    fr(seed + 0x300),
+    makeTuple(AZTEC_MAX_EPOCH_DURATION, () => fr(seed), 0x400),
     makeTuple(AZTEC_MAX_EPOCH_DURATION, () => makeFeeRecipient(seed), 0x500),
     makeEpochConstantData(seed + 0x600),
     makeFinalBlobAccumulator(seed + 0x700),
   );
-}
-
-/**
- * Makes content commitment
- */
-export function makeContentCommitment(seed = 0): ContentCommitment {
-  return new ContentCommitment(fr(seed + 0x100), fr(seed + 0x200), fr(seed + 0x300));
 }
 
 export function makeBlockHeader(
@@ -922,7 +917,8 @@ export function makeL2BlockHeader(
 ) {
   return new L2BlockHeader(
     makeAppendOnlyTreeSnapshot(seed + 0x100),
-    overrides?.contentCommitment ?? makeContentCommitment(seed + 0x200),
+    overrides?.blobsHash ?? fr(seed + 0x200),
+    overrides?.inHash ?? fr(seed + 0x300),
     overrides?.state ?? makeStateReference(seed + 0x600),
     makeGlobalVariables((seed += 0x700), {
       ...(blockNumber !== undefined ? { blockNumber: BlockNumber(blockNumber) } : {}),
@@ -939,7 +935,8 @@ export function makeCheckpointHeader(seed = 0) {
   return CheckpointHeader.from({
     lastArchiveRoot: fr(seed + 0x100),
     blockHeadersHash: fr(seed + 0x150),
-    contentCommitment: makeContentCommitment(seed + 0x200),
+    blobsHash: fr(seed + 0x200),
+    inHash: fr(seed + 0x210),
     slotNumber: SlotNumber(seed + 0x300),
     timestamp: BigInt(seed + 0x400),
     coinbase: makeEthAddress(seed + 0x500),
@@ -986,7 +983,7 @@ function makeCountedL2ToL1Message(seed = 0) {
   return new CountedL2ToL1Message(makeL2ToL1Message(seed), seed + 2);
 }
 
-function makeScopedL2ToL1Message(seed = 1) {
+export function makeScopedL2ToL1Message(seed = 1) {
   return new ScopedL2ToL1Message(makeL2ToL1Message(seed), makeAztecAddress(seed + 3));
 }
 
@@ -1695,4 +1692,47 @@ export async function makeAvmCircuitInputs(
  */
 export function fr(n: number): Fr {
   return new Fr(BigInt(n));
+}
+
+/**
+ * Creates a random TxScopedL2Log with private log data.
+ */
+export function randomTxScopedPrivateL2Log(opts?: {
+  tag?: Fr;
+  txHash?: TxHash;
+  blockNumber?: number;
+  blockTimestamp?: bigint;
+  noteHashes?: Fr[];
+  firstNullifier?: Fr;
+}) {
+  const log = PrivateLog.random(opts?.tag);
+  return new TxScopedL2Log(
+    opts?.txHash ?? TxHash.random(),
+    BlockNumber(opts?.blockNumber ?? 1),
+    opts?.blockTimestamp ?? 1n,
+    log.getEmittedFields(),
+    opts?.noteHashes ?? [Fr.random(), Fr.random()],
+    opts?.firstNullifier ?? Fr.random(),
+  );
+}
+
+/**
+ * Creates a random TxScopedL2Log with public log data.
+ */
+export async function randomTxScopedPublicL2Log(opts?: {
+  txHash?: TxHash;
+  blockNumber?: number;
+  blockTimestamp?: bigint;
+  noteHashes?: Fr[];
+  firstNullifier?: Fr;
+}) {
+  const log = await PublicLog.random();
+  return new TxScopedL2Log(
+    opts?.txHash ?? TxHash.random(),
+    BlockNumber(opts?.blockNumber ?? 1),
+    opts?.blockTimestamp ?? 1n,
+    log.getEmittedFields(),
+    opts?.noteHashes ?? [Fr.random(), Fr.random()],
+    opts?.firstNullifier ?? Fr.random(),
+  );
 }

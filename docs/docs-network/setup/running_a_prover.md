@@ -149,7 +149,7 @@ Create `docker-compose.yml`:
 name: aztec-prover-node
 services:
   prover-node:
-    image: aztecprotocol/aztec:#include_testnet_version
+    image: aztecprotocol/aztec:#release_version
     entrypoint: >-
       node
       --no-warnings
@@ -157,7 +157,7 @@ services:
       start
       --prover-node
       --archiver
-      --network testnet
+      --network #release_network
     depends_on:
       prover-broker:
         condition: service_started
@@ -182,14 +182,14 @@ services:
     restart: unless-stopped
 
   prover-broker:
-    image: aztecprotocol/aztec:#include_testnet_version
+    image: aztecprotocol/aztec:#release_version
     entrypoint: >-
       node
       --no-warnings
       /usr/src/yarn-project/aztec/dest/bin/index.js
       start
       --prover-broker
-      --network testnet
+      --network #release_network
     environment:
       DATA_DIRECTORY: /var/lib/data
       ETHEREUM_HOSTS: ${ETHEREUM_HOSTS}
@@ -215,7 +215,7 @@ docker exec -it prover-node curl -X POST http://localhost:8880 \
 
 **Important:** The broker exposes port 8080 via `ports: - ${PROVER_BROKER_PORT}:8080`, making it accessible to external prover agents. Ensure this port is reachable from your agent machines.
 
-This configuration includes only essential settings. The `--network testnet` flag applies network-specific defaults—see the [CLI reference](../reference/cli_reference.md) for all available configuration options.
+This configuration includes only essential settings. The `--network #release_network` flag applies network-specific defaults—see the [CLI reference](../reference/cli_reference.md) for all available configuration options.
 
 #### Step 4: Start Node and Broker
 
@@ -262,14 +262,14 @@ Create `docker-compose.yml`:
 name: aztec-prover-agent
 services:
   prover-agent:
-    image: aztecprotocol/aztec:#include_testnet_version
+    image: aztecprotocol/aztec:#release_version
     entrypoint: >-
       node
       --no-warnings
       /usr/src/yarn-project/aztec/dest/bin/index.js
       start
       --prover-agent
-      --network testnet
+      --network #release_network
     environment:
       PROVER_AGENT_COUNT: ${PROVER_AGENT_COUNT}
       PROVER_AGENT_POLL_INTERVAL_MS: ${PROVER_AGENT_POLL_INTERVAL_MS}

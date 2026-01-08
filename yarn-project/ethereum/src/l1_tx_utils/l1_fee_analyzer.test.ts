@@ -408,13 +408,14 @@ describe('L1FeeAnalyzer', () => {
       const customStrategy: PriorityFeeStrategy = {
         id: 'test-custom',
         name: 'Test Custom Strategy',
-        getRequiredPromises: () => ({
-          feeHistory: Promise.resolve(undefined),
-        }),
-        calculate: () => ({
-          priorityFee: parseGwei('5'),
-          debugInfo: { custom: 'test' },
-        }),
+        execute: async client => {
+          const latestBlock = await client.getBlock({ blockTag: 'latest' });
+          return {
+            priorityFee: parseGwei('5'),
+            latestBlock,
+            debugInfo: { custom: 'test' },
+          };
+        },
       };
 
       const customAnalyzer = new L1FeeAnalyzer(l1Client, new DateProvider(), logger, 100, [customStrategy]);

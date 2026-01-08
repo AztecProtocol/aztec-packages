@@ -210,7 +210,7 @@ impl RollupFixtureBuilder {
             version: self.version,
             block_number,
             slot_number,
-            timestamp: self.get_timestamp(block_number),
+            timestamp: self.get_timestamp(slot_number),
             coinbase: self.get_coinbase(slot_number),
             fee_recipient: self.get_fee_recipient(slot_number),
             gas_fees: self.get_gas_fees(slot_number),
@@ -310,8 +310,7 @@ impl RollupFixtureBuilder {
             end_state: self.get_state_reference(end_block_number),
             start_sponge_blob: self.get_sponge_blob(start_block_number - 1),
             end_sponge_blob: self.get_sponge_blob(end_block_number),
-            start_timestamp: self.get_timestamp(start_block_number),
-            end_timestamp: self.get_timestamp(end_block_number),
+            timestamp: self.get_timestamp(slot_number),
             block_headers_hash: self.get_block_headers_hash(end_block_number),
             in_hash,
             out_hash: self.get_out_hash(end_block_number),
@@ -333,11 +332,13 @@ impl RollupFixtureBuilder {
         end_slot_number: Field,
     ) -> CheckpointRollupPublicInputs {
         let mut checkpoint_header_hashes = [0; AZTEC_MAX_EPOCH_DURATION];
+        let mut out_hashes = [0; AZTEC_MAX_EPOCH_DURATION];
         let mut fees = [FeeRecipient::empty(); AZTEC_MAX_EPOCH_DURATION];
         let num_checkpoints = (end_slot_number - start_slot_number) as u32 + 1;
         for i in 0..num_checkpoints {
             let slot_number = i as Field + start_slot_number;
             checkpoint_header_hashes[i] = self.get_checkpoint_header_hash(slot_number);
+            out_hashes[i] = self.get_out_hash(slot_number as u32);
             fees[i] = self.get_fee_and_coinbase(slot_number);
         }
 
@@ -348,6 +349,7 @@ impl RollupFixtureBuilder {
             previous_archive: self.get_archive(start_slot_number as u32 - 1),
             new_archive: self.get_archive(end_slot_number as u32),
             checkpoint_header_hashes,
+            out_hashes,
             fees,
             start_blob_accumulator: self.get_blob_accumulator(start_slot_number - 1),
             end_blob_accumulator: self.get_blob_accumulator(end_slot_number),
@@ -409,16 +411,16 @@ impl RollupFixtureBuilder {
         block_number as Field * 429317
     }
 
-    fn get_out_hash(_self: Self, tx_or_block_number: u32) -> Field {
-        tx_or_block_number as Field * 60415
+    fn get_out_hash(_self: Self, tx_or_block_or_slot_number: u32) -> Field {
+        tx_or_block_or_slot_number as Field * 60415
     }
 
     fn get_in_hash(_self: Self, slot_number: Field) -> Field {
         slot_number * 94297
     }
 
-    fn get_timestamp(_self: Self, block_number: u32) -> u64 {
-        block_number as u64 + 507124
+    fn get_timestamp(_self: Self, slot_number: Field) -> u64 {
+        slot_number as u64 + 507124
     }
 
     fn get_fee_recipient(self, slot_number: Field) -> AztecAddress {

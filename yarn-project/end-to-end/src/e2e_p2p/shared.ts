@@ -13,6 +13,7 @@ import type {
 } from '@aztec/ethereum/contracts';
 import { EpochNumber } from '@aztec/foundation/branded-types';
 import { timesAsync, unique } from '@aztec/foundation/collection';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { retryUntil } from '@aztec/foundation/retry';
 import { pluralize } from '@aztec/foundation/string';
 import type { SpamContract } from '@aztec/noir-test-contracts.js/Spam';
@@ -137,7 +138,7 @@ export async function awaitCommitteeExists({
   logger: Logger;
 }): Promise<readonly `0x${string}`[]> {
   logger.info(`Waiting for committee to be set`);
-  let committee: readonly `0x${string}`[] | undefined;
+  let committee: EthAddress[] | undefined;
   await retryUntil(
     async () => {
       committee = await rollup.getCurrentEpochCommittee();
@@ -146,7 +147,7 @@ export async function awaitCommitteeExists({
     'non-empty committee',
     60,
   );
-  return committee!;
+  return committee!.map(c => c.toString() as `0x${string}`);
 }
 
 export async function awaitOffenseDetected({
@@ -218,9 +219,9 @@ export async function awaitCommitteeKicked({
 
   if (slashingProposer.type === 'empire') {
     // Await for the slash payload to be created if empire (no payload is created on tally until execution time)
-    const targetEpoch = BigInt(await cheatCodes.getEpoch()) + (await rollup.getLagInEpochsForValidatorSet()) + 1n;
+    const targetEpoch = EpochNumber((await cheatCodes.getEpoch()) + (await rollup.getLagInEpochsForValidatorSet()) + 1);
     logger.info(`Advancing to epoch ${targetEpoch} so we start slashing`);
-    await cheatCodes.advanceToEpoch(EpochNumber.fromBigInt(targetEpoch));
+    await cheatCodes.advanceToEpoch(targetEpoch);
 
     const slashPayloadEvents = await retryUntil(
       async () => {
@@ -275,7 +276,7 @@ export async function awaitCommitteeKicked({
   logger.info(`Advancing to check current committee`);
   await cheatCodes.debugRollup();
   await cheatCodes.advanceToEpoch(
-    EpochNumber.fromBigInt(BigInt(await cheatCodes.getEpoch()) + (await rollup.getLagInEpochsForValidatorSet()) + 1n),
+    EpochNumber((await cheatCodes.getEpoch()) + (await rollup.getLagInEpochsForValidatorSet()) + 1),
   );
   await cheatCodes.debugRollup();
 

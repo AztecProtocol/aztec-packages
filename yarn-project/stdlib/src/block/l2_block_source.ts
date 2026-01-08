@@ -95,6 +95,13 @@ export interface L2BlockSource {
   getBlockHeaderByArchive(archive: Fr): Promise<BlockHeader | undefined>;
 
   /**
+   * Gets an L2 block by block number.
+   * @param number - The block number to return.
+   * @returns The requested L2 block (or undefined if not found).
+   */
+  getL2BlockNew(number: BlockNumber): Promise<L2BlockNew | undefined>;
+
+  /**
    * Gets a tx effect.
    * @param txHash - The hash of the tx corresponding to the tx effect.
    * @returns The requested tx effect with block info (or undefined if not found).
@@ -168,6 +175,7 @@ export interface L2BlockSource {
    * Gets an l2 block. If a negative number is passed, the block returned is the most recent.
    * @param number - The block number to return (inclusive).
    * @returns The requested L2 block.
+   * @deprecated Use getL2BlockNew instead.
    */
   getBlock(number: BlockNumber): Promise<L2Block | undefined>;
 

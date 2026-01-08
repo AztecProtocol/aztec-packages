@@ -56,7 +56,7 @@ template <typename FF> class context : public Relation<contextImpl<FF>> {
     static constexpr size_t SR_IS_STATIC_IF_STATIC_CALL = 22;
     static constexpr size_t SR_IS_STATIC_IF_CALL_FROM_STATIC_CONTEXT = 23;
     static constexpr size_t SR_CD_OFFSET_NEXT_ROW = 24;
-    static constexpr size_t SR_CD_SIZE_ENQUEUED_CALL_IS_ZERO = 26;
+    static constexpr size_t SR_CD_ADDR_ENQUEUED_CALL_IS_ZERO = 26;
     static constexpr size_t SR_CD_SIZE_NEXT_ROW = 27;
     static constexpr size_t SR_RET_REV_RD_ADDR = 29;
     static constexpr size_t SR_NEXT_RD_ADDR_IS_ZERO = 30;
@@ -145,8 +145,8 @@ template <typename FF> class context : public Relation<contextImpl<FF>> {
             return "IS_STATIC_IF_CALL_FROM_STATIC_CONTEXT";
         case SR_CD_OFFSET_NEXT_ROW:
             return "CD_OFFSET_NEXT_ROW";
-        case SR_CD_SIZE_ENQUEUED_CALL_IS_ZERO:
-            return "CD_SIZE_ENQUEUED_CALL_IS_ZERO";
+        case SR_CD_ADDR_ENQUEUED_CALL_IS_ZERO:
+            return "CD_ADDR_ENQUEUED_CALL_IS_ZERO";
         case SR_CD_SIZE_NEXT_ROW:
             return "CD_SIZE_NEXT_ROW";
         case SR_RET_REV_RD_ADDR:

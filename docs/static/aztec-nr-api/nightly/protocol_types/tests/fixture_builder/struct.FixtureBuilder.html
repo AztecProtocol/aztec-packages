@@ -54,6 +54,7 @@
 <li><a href="#structfield.note_hashes">note_hashes</a></li>
 <li><a href="#structfield.nullifier_read_requests">nullifier_read_requests</a></li>
 <li><a href="#structfield.nullifiers">nullifiers</a></li>
+<li><a href="#structfield.original_class_id">original_class_id</a></li>
 <li><a href="#structfield.private_call_requests">private_call_requests</a></li>
 <li><a href="#structfield.private_logs">private_logs</a></li>
 <li><a href="#structfield.protocol_contracts">protocol_contracts</a></li>
@@ -92,7 +93,6 @@
 <li><a href="#add_nullifier_for_note_hash">add_nullifier_for_note_hash</a></li>
 <li><a href="#add_nullifier_read_request">add_nullifier_read_request</a></li>
 <li><a href="#add_private_call_request">add_private_call_request</a></li>
-<li><a href="#add_private_call_request_for_private_call">add_private_call_request_for_private_call</a></li>
 <li><a href="#add_private_log">add_private_log</a></li>
 <li><a href="#add_public_call_request">add_public_call_request</a></li>
 <li><a href="#add_public_data_write">add_public_data_write</a></li>
@@ -134,9 +134,6 @@
 <li><a href="#append_siloed_private_logs_with_lengths">append_siloed_private_logs_with_lengths</a></li>
 <li><a href="#append_siloed_unique_note_hashes">append_siloed_unique_note_hashes</a></li>
 <li><a href="#as_parent_contract">as_parent_contract</a></li>
-<li><a href="#build_call_context">build_call_context</a></li>
-<li><a href="#build_private_call_request">build_private_call_request</a></li>
-<li><a href="#build_tx_request">build_tx_request</a></li>
 <li><a href="#compute_update_tree_and_hints">compute_update_tree_and_hints</a></li>
 <li><a href="#end_setup">end_setup</a></li>
 <li><a href="#in_vk_tree">in_vk_tree</a></li>
@@ -145,15 +142,17 @@
 <li><a href="#make_fee_payer">make_fee_payer</a></li>
 <li><a href="#new">new</a></li>
 <li><a href="#new_from_counter">new_from_counter</a></li>
-<li><a href="#set_anchor_block_header_from_call_data">set_anchor_block_header_from_call_data</a></li>
+<li><a href="#reverse_append_private_call_requests">reverse_append_private_call_requests</a></li>
 <li><a href="#set_fee_payer">set_fee_payer</a></li>
 <li><a href="#set_gas_used">set_gas_used</a></li>
 <li><a href="#set_protocol_nullifier">set_protocol_nullifier</a></li>
 <li><a href="#set_public_teardown_call_request">set_public_teardown_call_request</a></li>
 <li><a href="#to_avm_accumulated_data">to_avm_accumulated_data</a></li>
 <li><a href="#to_avm_circuit_public_inputs">to_avm_circuit_public_inputs</a></li>
+<li><a href="#to_call_context">to_call_context</a></li>
 <li><a href="#to_private_accumulated_data">to_private_accumulated_data</a></li>
 <li><a href="#to_private_call_data">to_private_call_data</a></li>
+<li><a href="#to_private_call_request">to_private_call_request</a></li>
 <li><a href="#to_private_circuit_public_inputs">to_private_circuit_public_inputs</a></li>
 <li><a href="#to_private_kernel_circuit_public_inputs">to_private_kernel_circuit_public_inputs</a></li>
 <li><a href="#to_private_kernel_data">to_private_kernel_data</a></li>
@@ -167,9 +166,11 @@
 <li><a href="#to_private_verification_key_hints">to_private_verification_key_hints</a></li>
 <li><a href="#to_public_call_request">to_public_call_request</a></li>
 <li><a href="#to_tx_constant_data">to_tx_constant_data</a></li>
+<li><a href="#to_tx_request">to_tx_request</a></li>
 <li><a href="#use_contract">use_contract</a></li>
 <li><a href="#use_function">use_function</a></li>
 <li><a href="#use_protocol_contract">use_protocol_contract</a></li>
+<li><a href="#use_updated_contract">use_updated_contract</a></li>
 </ul>
 <h3>Trait implementations</h3>
 <ul class="sidebar-list">
@@ -178,9 +179,6 @@
 <h2>In module fixture_builder</h2>
 <h3>Structs</h3><ul class="item-list">
 <li><a href="struct.FixtureBuilder.html">FixtureBuilder</a></div></li>
-</ul>
-<h3>Functions</h3><ul class="item-list">
-<li><a href="fn.claimed_length_array_from_bounded_vec.html">claimed_length_array_from_bounded_vec</a></div></li>
 </ul>
 </nav>
 <main>
@@ -236,6 +234,7 @@
     pub vk_path: [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; 7],
     pub vk_tree_root: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>,
     pub protocol_contracts: <a href="../../../protocol_types/abis/protocol_contracts/struct.ProtocolContracts.html" class="struct">ProtocolContracts</a>,
+    pub original_class_id: <a href="../../../protocol_types/contract_class_id/struct.ContractClassId.html" class="struct">ContractClassId</a>,
     pub updated_class_id_witness: <a href="../../../protocol_types/merkle_tree/membership/struct.MembershipWitness.html" class="struct">MembershipWitness</a>&lt;40&gt;,
     pub updated_class_id_leaf: <a href="../../../protocol_types/data/public_data_tree_leaf_preimage/struct.PublicDataTreeLeafPreimage.html" class="struct">PublicDataTreeLeafPreimage</a>,
     pub updated_class_id_value_change: <a href="../../../protocol_types/delayed_public_mutable/scheduled_value_change/struct.ScheduledValueChange.html" class="struct">ScheduledValueChange</a>&lt;<a href="../../../protocol_types/contract_class_id/struct.ContractClassId.html" class="struct">ContractClassId</a>&gt;,
@@ -301,6 +300,7 @@
 <div class="padded-description"></div><div id="structfield.vk_path" class="struct-field"><code class="code-header">vk_path: [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; 7]</code></div>
 <div class="padded-description"></div><div id="structfield.vk_tree_root" class="struct-field"><code class="code-header">vk_tree_root: <a href="../../../std/primitive.Field.html" class="primitive">Field</a></code></div>
 <div class="padded-description"></div><div id="structfield.protocol_contracts" class="struct-field"><code class="code-header">protocol_contracts: <a href="../../../protocol_types/abis/protocol_contracts/struct.ProtocolContracts.html" class="struct">ProtocolContracts</a></code></div>
+<div class="padded-description"></div><div id="structfield.original_class_id" class="struct-field"><code class="code-header">original_class_id: <a href="../../../protocol_types/contract_class_id/struct.ContractClassId.html" class="struct">ContractClassId</a></code></div>
 <div class="padded-description"></div><div id="structfield.updated_class_id_witness" class="struct-field"><code class="code-header">updated_class_id_witness: <a href="../../../protocol_types/merkle_tree/membership/struct.MembershipWitness.html" class="struct">MembershipWitness</a>&lt;40&gt;</code></div>
 <div class="padded-description"></div><div id="structfield.updated_class_id_leaf" class="struct-field"><code class="code-header">updated_class_id_leaf: <a href="../../../protocol_types/data/public_data_tree_leaf_preimage/struct.PublicDataTreeLeafPreimage.html" class="struct">PublicDataTreeLeafPreimage</a></code></div>
 <div class="padded-description"></div><div id="structfield.updated_class_id_value_change" class="struct-field"><code class="code-header">updated_class_id_value_change: <a href="../../../protocol_types/delayed_public_mutable/scheduled_value_change/struct.ScheduledValueChange.html" class="struct">ScheduledValueChange</a>&lt;<a href="../../../protocol_types/contract_class_id/struct.ContractClassId.html" class="struct">ContractClassId</a>&gt;</code></div>
@@ -327,6 +327,8 @@
 
 <code id="use_protocol_contract" class="code-header">pub fn <a href="#use_protocol_contract"><span class="fn">use_protocol_contract</span></a>(&mut self, contract_index: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>) -> Self</code>
 
+<code id="use_updated_contract" class="code-header">pub fn <a href="#use_updated_contract"><span class="fn">use_updated_contract</span></a>(&mut self, timestamp_of_change: <a href="../../../std/primitive.u64.html" class="primitive">u64</a>)</code>
+
 <code id="use_contract" class="code-header">pub fn <a href="#use_contract"><span class="fn">use_contract</span></a>(&mut self, contract_data: <a href="../../../protocol_types/tests/fixtures/contracts/struct.ContractData.html" class="struct">ContractData</a>) -> Self</code>
 
 <code id="use_function" class="code-header">pub fn <a href="#use_function"><span class="fn">use_function</span></a>(&mut self, function_data: <a href="../../../protocol_types/tests/fixtures/contract_functions/struct.ContractFunction.html" class="struct">ContractFunction</a>, vk: [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; 127]) -> Self</code>
@@ -339,19 +341,17 @@
 
 <code id="to_private_tx_constant_data" class="code-header">pub fn <a href="#to_private_tx_constant_data"><span class="fn">to_private_tx_constant_data</span></a>(self) -> <a href="../../../protocol_types/abis/private_tx_constant_data/struct.PrivateTxConstantData.html" class="struct">PrivateTxConstantData</a></code>
 
-<code id="build_tx_request" class="code-header">pub fn <a href="#build_tx_request"><span class="fn">build_tx_request</span></a>(self) -> <a href="../../../protocol_types/abis/transaction/tx_request/struct.TxRequest.html" class="struct">TxRequest</a></code>
+<code id="to_tx_request" class="code-header">pub fn <a href="#to_tx_request"><span class="fn">to_tx_request</span></a>(self) -> <a href="../../../protocol_types/abis/transaction/tx_request/struct.TxRequest.html" class="struct">TxRequest</a></code>
 
-<code id="build_call_context" class="code-header">pub fn <a href="#build_call_context"><span class="fn">build_call_context</span></a>(self) -> <a href="../../../protocol_types/abis/call_context/struct.CallContext.html" class="struct">CallContext</a></code>
+<code id="to_call_context" class="code-header">pub fn <a href="#to_call_context"><span class="fn">to_call_context</span></a>(self) -> <a href="../../../protocol_types/abis/call_context/struct.CallContext.html" class="struct">CallContext</a></code>
 
-<code id="build_private_call_request" class="code-header">pub fn <a href="#build_private_call_request"><span class="fn">build_private_call_request</span></a>(self) -> <a href="../../../protocol_types/abis/private_call_request/struct.PrivateCallRequest.html" class="struct">PrivateCallRequest</a></code>
+<code id="to_private_call_request" class="code-header">pub fn <a href="#to_private_call_request"><span class="fn">to_private_call_request</span></a>(self) -> <a href="../../../protocol_types/abis/private_call_request/struct.PrivateCallRequest.html" class="struct">PrivateCallRequest</a></code>
 
 <code id="to_private_circuit_public_inputs" class="code-header">pub fn <a href="#to_private_circuit_public_inputs"><span class="fn">to_private_circuit_public_inputs</span></a>(self) -> <a href="../../../protocol_types/abis/private_circuit_public_inputs/struct.PrivateCircuitPublicInputs.html" class="struct">PrivateCircuitPublicInputs</a></code>
 
 <code id="to_private_verification_key_hints" class="code-header">pub fn <a href="#to_private_verification_key_hints"><span class="fn">to_private_verification_key_hints</span></a>(self) -> <a href="../../../protocol_types/abis/private_kernel/private_call_data/struct.PrivateVerificationKeyHints.html" class="struct">PrivateVerificationKeyHints</a></code>
 
 <code id="compute_update_tree_and_hints" class="code-header">pub fn <a href="#compute_update_tree_and_hints"><span class="fn">compute_update_tree_and_hints</span></a>(&mut self)</code>
-
-<code id="set_anchor_block_header_from_call_data" class="code-header">pub fn <a href="#set_anchor_block_header_from_call_data"><span class="fn">set_anchor_block_header_from_call_data</span></a>(&mut self, private_call: <a href="../../../protocol_types/abis/private_kernel/private_call_data/struct.PrivateCallData.html" class="struct">PrivateCallData</a>)</code>
 
 <code id="to_private_call_data" class="code-header">pub fn <a href="#to_private_call_data"><span class="fn">to_private_call_data</span></a>(self) -> <a href="../../../protocol_types/abis/private_kernel/private_call_data/struct.PrivateCallData.html" class="struct">PrivateCallData</a></code>
 
@@ -507,14 +507,11 @@
     lengths: [<a href="../../../std/primitive.u32.html" class="primitive">u32</a>; NumLogs],
 )</code>
 
-<code id="add_private_call_request_for_private_call" class="code-header">pub fn <a href="#add_private_call_request_for_private_call"><span class="fn">add_private_call_request_for_private_call</span></a>(
-    &mut self,
-    private_call: <a href="../../../protocol_types/abis/private_kernel/private_call_data/struct.PrivateCallData.html" class="struct">PrivateCallData</a>,
-)</code>
-
 <code id="add_private_call_request" class="code-header">pub fn <a href="#add_private_call_request"><span class="fn">add_private_call_request</span></a>(&mut self)</code>
 
 <code id="append_private_call_requests" class="code-header">pub fn <a href="#append_private_call_requests"><span class="fn">append_private_call_requests</span></a>(&mut self, num: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>)</code>
+
+<code id="reverse_append_private_call_requests" class="code-header">pub fn <a href="#reverse_append_private_call_requests"><span class="fn">reverse_append_private_call_requests</span></a>(&mut self, num: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>)</code>
 
 <code id="add_public_call_request" class="code-header">pub fn <a href="#add_public_call_request"><span class="fn">add_public_call_request</span></a>(&mut self, request: <a href="../../../protocol_types/abis/public_call_request/struct.PublicCallRequest.html" class="struct">PublicCallRequest</a>)</code>
 

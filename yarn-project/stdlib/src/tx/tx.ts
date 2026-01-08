@@ -24,13 +24,18 @@ import { TxHash } from './tx_hash.js';
 /**
  * The interface of an L2 transaction.
  */
+// docs:start:tx_class
 export class Tx extends Gossipable {
   static override p2pTopic = TopicType.tx;
 
   private calldataMap: Map<string, Fr[]> | undefined;
 
   constructor(
-    /** Identifier of the tx */
+    /**
+     * Identifier of the tx.
+     * It's a hash of the public inputs of the tx's proof.
+     * This claimed hash is reconciled against the tx's public inputs (`this.data`) in data_validator.ts.
+     */
     public readonly txHash: TxHash,
     /**
      * Output of the private kernel circuit for this tx.
@@ -43,16 +48,20 @@ export class Tx extends Gossipable {
     /**
      * Contract class log fields emitted from the tx.
      * Their order should match the order of the log hashes returned from `this.data.getNonEmptyContractClassLogsHashes`.
-     * It's checked in data_validator.ts
+     * This claimed data is reconciled against a hash of this data (that is contained within
+     * the tx's public inputs (`this.data`)), in data_validator.ts.
      */
     public readonly contractClassLogFields: ContractClassLogFields[],
     /**
      * An array of calldata for the enqueued public function calls and the teardown function call.
+     * This claimed data is reconciled against hashes of this data (that are contained within
+     * the tx's public inputs (`this.data`)), in data_validator.ts.
      */
     public readonly publicFunctionCalldata: HashedValues[],
   ) {
     super();
   }
+  // docs:end:tx_class
 
   // Gossipable method
   override generateP2PMessageIdentifier(): Promise<Buffer32> {

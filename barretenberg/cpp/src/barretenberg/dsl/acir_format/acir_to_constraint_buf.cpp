@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: Completed, auditors: [Federico], date: 2025-12-04 }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Complete, auditors: [Federico], commit: 2094fd1467dd9a94803b2c5007cf60ac357aa7d2 }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #include "acir_to_constraint_buf.hpp"
@@ -442,9 +442,11 @@ WitnessVector witness_map_to_witness_vector(Witnesses::WitnessMap const& witness
     for (size_t index = 0; const auto& e : witness_map.value) {
         // ACIR uses a sparse format for WitnessMap where unused witness indices may be left unassigned.
         // To ensure that witnesses sit at the correct indices in the `WitnessVector`, we fill any indices
-        // which do not exist within the `WitnessMap` with the dummy value of zero.
+        // which do not exist within the `WitnessMap` with the random values. We use random values instead of zero
+        // because unassigned witnesses indices are not supposed to be used in any constraint, so filling them with a
+        // random value helps catching bugs.
         while (index < e.first.value) {
-            witness_vector.emplace_back(0);
+            witness_vector.emplace_back(fr::random_element());
             index++;
         }
         witness_vector.emplace_back(from_buffer_with_bound_checks(e.second));

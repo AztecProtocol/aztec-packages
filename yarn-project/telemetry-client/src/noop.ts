@@ -1,13 +1,63 @@
-import { type Meter, type Span, type SpanContext, type Tracer, createNoopMeter } from '@opentelemetry/api';
+import { type Context, type Span, type SpanContext, type Tracer, createNoopMeter } from '@opentelemetry/api';
 
-import type { TelemetryClient } from './telemetry.js';
+import type { MetricDefinition } from './metrics.js';
+import type {
+  Gauge,
+  Histogram,
+  Meter,
+  ObservableGauge,
+  ObservableUpDownCounter,
+  TelemetryClient,
+  UpDownCounter,
+} from './telemetry.js';
+
+/** A no-op meter that implements our custom Meter interface */
+class NoopMeter implements Meter {
+  private otelMeter = createNoopMeter();
+
+  createGauge(_metric: MetricDefinition): Gauge {
+    return this.otelMeter.createGauge('');
+  }
+
+  createObservableGauge(_metric: MetricDefinition): ObservableGauge {
+    return this.otelMeter.createObservableGauge('');
+  }
+
+  createHistogram(_metric: MetricDefinition, _extraOptions?: Parameters<Meter['createHistogram']>[1]): Histogram {
+    return this.otelMeter.createHistogram('');
+  }
+
+  createUpDownCounter(_metric: MetricDefinition): UpDownCounter {
+    return this.otelMeter.createUpDownCounter('');
+  }
+
+  createObservableUpDownCounter(_metric: MetricDefinition): ObservableUpDownCounter {
+    return this.otelMeter.createObservableUpDownCounter('');
+  }
+
+  addBatchObservableCallback(
+    callback: Parameters<Meter['addBatchObservableCallback']>[0],
+    observables: Parameters<Meter['addBatchObservableCallback']>[1],
+  ): void {
+    this.otelMeter.addBatchObservableCallback(callback, observables);
+  }
+
+  removeBatchObservableCallback(
+    callback: Parameters<Meter['removeBatchObservableCallback']>[0],
+    observables: Parameters<Meter['removeBatchObservableCallback']>[1],
+  ): void {
+    this.otelMeter.removeBatchObservableCallback(callback, observables);
+  }
+}
 
 export class NoopTelemetryClient implements TelemetryClient {
+  private meter = new NoopMeter();
+
   setExportedPublicTelemetry(_prefixes: string[]): void {}
   setPublicTelemetryCollectFrom(_roles: string[]): void {}
 
   getMeter(): Meter {
-    return createNoopMeter();
+    return this.meter;
   }
 
   getTracer(): Tracer {
@@ -24,6 +74,14 @@ export class NoopTelemetryClient implements TelemetryClient {
 
   isEnabled() {
     return false;
+  }
+
+  getTraceContext(): string | undefined {
+    return undefined;
+  }
+
+  extractPropagatedContext(_traceContext: string): Context | undefined {
+    return undefined;
   }
 }
 

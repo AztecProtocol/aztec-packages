@@ -169,7 +169,7 @@ describe('e2e_p2p_valid_epoch_pruned_slash', () => {
     });
 
     // Check offenses are correct
-    expect(offenses.map(o => o.validator.toChecksumString()).sort()).toEqual(committee.map(a => a.toString()).sort());
+    expect(offenses.map(o => o.validator.toString()).sort()).toEqual(committee.map(a => a.toString()).sort());
     expect(offenses.map(o => o.offenseType)).toEqual(times(COMMITTEE_SIZE, () => OffenseType.VALID_EPOCH_PRUNED));
     const offenseEpoch = Number(offenses[0].epochOrSlot);
 

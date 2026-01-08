@@ -168,12 +168,12 @@ describe('e2e_p2p_reqresp_tx', () => {
       proposers.push(proposer);
     }
     // Get the indexes of the nodes that are responsible for the next two slots
-    const proposerIndexes = proposers.map(proposer => attesters.indexOf(proposer as `0x${string}`));
+    const proposerIndexes = proposers.map(proposer => attesters.findIndex(a => a.equals(proposer)));
 
     if (proposerIndexes.some(i => i === -1)) {
       throw new Error(
         `Proposer index not found for proposer ` +
-          `(proposers=${proposers.join(',')}, indices=${proposerIndexes.join(',')})`,
+          `(proposers=${proposers.map(p => p.toString()).join(',')}, indices=${proposerIndexes.join(',')})`,
       );
     }
 

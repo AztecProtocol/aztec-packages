@@ -281,7 +281,6 @@ export class FullProverTest {
       {
         aztecNodeTxProvider: this.aztecNode,
         archiver: archiver as Archiver,
-        blobClient,
       },
       { prefilledPublicData },
     );

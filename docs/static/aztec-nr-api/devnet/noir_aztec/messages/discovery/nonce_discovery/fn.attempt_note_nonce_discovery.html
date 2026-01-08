@@ -3,9 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../../../styles.css">
+<script defer src="../../../../nargo_doc.js"></script>
 <title>Function attempt_note_nonce_discovery documentation</title>
 </head>
 <body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">attempt_note_nonce_discovery</div>
+</div>
+<span id="main-contents">
 <nav class="sidebar">
 <h1><a href="../../../../index.html">aztec-nr</a></h1>
 <div><a href="../../../../all.html">All items</a></div>
@@ -27,10 +33,11 @@
     first_nullifier_in_tx: <a href="../../../../std/primitive.Field.html" class="primitive">Field</a>,
     compute_note_hash_and_nullifier: <a href="../../../../noir_aztec/messages/discovery/type.ComputeNoteHashAndNullifier.html" class="type">ComputeNoteHashAndNullifier</a>&lt;Env&gt;,
     contract_address: <a href="../../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
+    owner: <a href="../../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
     storage_slot: <a href="../../../../std/primitive.Field.html" class="primitive">Field</a>,
     randomness: <a href="../../../../std/primitive.Field.html" class="primitive">Field</a>,
     note_type_id: <a href="../../../../std/primitive.Field.html" class="primitive">Field</a>,
-    packed_note: <a href="../../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>, 11&gt;,
+    packed_note: <a href="../../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>, 10&gt;,
 ) -> <a href="../../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../../noir_aztec/messages/discovery/nonce_discovery/struct.DiscoveredNoteInfo.html" class="struct">DiscoveredNoteInfo</a>, 64&gt;</code></pre>
 
 <div class="comments">
@@ -42,5 +49,6 @@ cases it will contain a single element.</p>
 more specifically the list of all unique note hashes in it plus the value of its first nullifier.</p>
 </div>
 </main>
+</span>
 </body>
 </html>

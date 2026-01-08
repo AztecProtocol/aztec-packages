@@ -28,7 +28,6 @@ use types::{
         BLOCK_ROOT_FIRST_ROLLUP_VK_INDEX, BLOCK_ROOT_ROLLUP_VK_INDEX,
         BLOCK_ROOT_SINGLE_TX_FIRST_ROLLUP_VK_INDEX, BLOCK_ROOT_SINGLE_TX_ROLLUP_VK_INDEX,
     },
-    content_commitment::ContentCommitment,
     tests::utils::{assert_array_eq, make_fixture, pad_end},
     traits::{Hash, Serialize},
 };
@@ -174,13 +173,28 @@ impl TestBuilder {
             right_rollup.end_sponge_blob = end_sponge_blob;
         }
 
+        let start_blob_accumulator = fixture_builder.get_blob_accumulator(slot_number - 1);
+        let final_blob_challenges = fixture_builder.get_final_blob_challenges();
+        let blob_commitments = fixture_builder.get_blob_commitments(slot_number);
+
+        // Rollback the start slot number to get the last block header of the previous checkpoint.
+        fixture_builder.start_slot_number = slot_number - 1;
+        let previous_block_number = start_block_number - 1;
+        let previous_block_header = fixture_builder.get_block_header(previous_block_number);
+        // Build the archive tree to include the previous header hash.
+        let (previous_archive, previous_archive_sibling_path) =
+            fixture_builder.build_archive_tree(previous_block_number);
+        left_rollup.previous_archive = previous_archive;
+        // Update the start state of the left rollup to match the state of the previous block.
+        left_rollup.start_state = previous_block_header.state;
+
         let hints = CheckpointRootRollupHints {
-            previous_block_header: fixture_builder.get_block_header(previous_block_number),
+            previous_block_header,
             previous_archive_sibling_path,
-            start_blob_accumulator: fixture_builder.get_blob_accumulator(slot_number - 1),
-            final_blob_challenges: fixture_builder.get_final_blob_challenges(),
+            start_blob_accumulator,
+            final_blob_challenges,
             blobs_fields: pad_end(blob_fields),
-            blob_commitments: fixture_builder.get_blob_commitments(slot_number),
+            blob_commitments,
             blobs_hash: slot_number + 9325034,
         };
 
@@ -283,11 +297,6 @@ impl TestBuilder {
             accumulate_block_headers_hash(left.block_headers_hash, right.block_headers_hash)
         };
 
-        let out_hash = if self.is_single_block {
-            left.out_hash
-        } else {
-            accumulate_out_hash(left.out_hash, right.out_hash)
-        };
         let total_mana_used = if self.is_single_block {
             left.accumulated_mana_used
         } else {
@@ -297,13 +306,10 @@ impl TestBuilder {
         CheckpointHeader {
             last_archive_root: left.previous_archive.root,
             block_headers_hash,
-            content_commitment: ContentCommitment {
-                blobs_hash: self.hints.blobs_hash,
-                in_hash: left.in_hash,
-                out_hash,
-            },
+            blobs_hash: self.hints.blobs_hash,
+            in_hash: left.in_hash,
             slot_number: left.constants.slot_number,
-            timestamp: right.end_timestamp,
+            timestamp: right.timestamp,
             coinbase: left.constants.coinbase,
             fee_recipient: left.constants.fee_recipient,
             gas_fees: left.constants.gas_fees,
@@ -341,6 +347,13 @@ impl TestBuilder {
             pi.checkpoint_header_hashes,
             [expected_checkpoint_header.hash()],
         );
+
+        let out_hash = if self.is_single_block {
+            left.out_hash
+        } else {
+            accumulate_out_hash(left.out_hash, right.out_hash)
+        };
+        assert_array_eq(pi.out_hashes, [out_hash]);
 
         let total_fees = if self.is_single_block {
             left.accumulated_fees

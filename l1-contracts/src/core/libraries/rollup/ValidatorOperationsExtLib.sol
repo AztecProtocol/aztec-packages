@@ -3,6 +3,7 @@
 // solhint-disable imports-order
 pragma solidity >=0.8.27;
 
+import {IEscapeHatch} from "@aztec/core/interfaces/IEscapeHatch.sol";
 import {Epoch, Slot, Timestamp, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
 import {StakingLib} from "./StakingLib.sol";
@@ -88,6 +89,10 @@ library ValidatorOperationsExtLib {
     StakingLib.updateStakingQueueConfig(_config);
   }
 
+  function updateEscapeHatch(address _escapeHatch) external {
+    ValidatorSelectionLib.updateEscapeHatch(_escapeHatch);
+  }
+
   function invalidateBadAttestation(
     uint256 _checkpointNumber,
     CommitteeAttestations memory _attestations,
@@ -139,6 +144,10 @@ library ValidatorOperationsExtLib {
 
   function getLagInEpochsForRandao() external view returns (uint256) {
     return ValidatorSelectionLib.getLagInEpochsForRandao();
+  }
+
+  function getEscapeHatch() external view returns (IEscapeHatch) {
+    return ValidatorSelectionLib.getEscapeHatch();
   }
 
   function getTargetCommitteeSize() external view returns (uint256) {

@@ -214,7 +214,7 @@ void contextImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
                     static_cast<View>(in.get(C::execution_rop_4_)));
         std::get<25>(evals) += (tmp * scaling_factor);
     }
-    { // CD_SIZE_ENQUEUED_CALL_IS_ZERO
+    { // CD_ADDR_ENQUEUED_CALL_IS_ZERO
         using View = typename std::tuple_element_t<26, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::execution_enqueued_call_start)) *
                    static_cast<View>(in.get(C::execution_parent_calldata_addr));
@@ -280,7 +280,7 @@ void contextImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     { // RD_SIZE_IS_ZERO
         using View = typename std::tuple_element_t<35, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::execution_enqueued_call_start)) *
-                   static_cast<View>(in.get(C::execution_last_child_returndata_addr));
+                   static_cast<View>(in.get(C::execution_last_child_returndata_size));
         std::get<35>(evals) += (tmp * scaling_factor);
     }
     { // PROPAGATE_RD_SIZE

@@ -67,6 +67,8 @@ class TxBytecodeManager : public TxBytecodeManagerInterface {
     unordered_flat_map<BytecodeId, std::shared_ptr<std::vector<uint8_t>>> bytecodes;
 };
 
+// This implementation of BytecodeManagerInterface caches the bytecode id and bytecode pointer after the first
+// retrieval. Calls to read_instruction will not ask the TxBytecodeManager to retrieve the bytecode again.
 class BytecodeManager : public BytecodeManagerInterface {
   public:
     BytecodeManager(AztecAddress address, TxBytecodeManagerInterface& tx_bytecode_manager)
@@ -76,6 +78,8 @@ class BytecodeManager : public BytecodeManagerInterface {
 
     Instruction read_instruction(uint32_t pc) override
     {
+        // We only assert in debug mode because this is in the hot path of the execution.
+        BB_ASSERT_DEBUG(bytecode_id.has_value(), "Bytecode not retrieved before call to read_instruction");
         auto id = get_bytecode_id();
         return tx_bytecode_manager.read_instruction(id, bytecode_ptr, pc);
     }

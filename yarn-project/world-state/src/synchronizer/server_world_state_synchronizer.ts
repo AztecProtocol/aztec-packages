@@ -3,15 +3,15 @@ import type { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { elapsed } from '@aztec/foundation/timer';
-import type {
-  L2BlockId,
-  L2BlockNew,
-  L2BlockSource,
+import {
+  type L2BlockId,
+  type L2BlockNew,
+  type L2BlockSource,
   L2BlockStream,
-  L2BlockStreamEvent,
-  L2BlockStreamEventHandler,
-  L2BlockStreamLocalDataProvider,
-  L2Tips,
+  type L2BlockStreamEvent,
+  type L2BlockStreamEventHandler,
+  type L2BlockStreamLocalDataProvider,
+  type L2Tips,
 } from '@aztec/stdlib/block';
 import {
   WorldStateRunningState,
@@ -23,7 +23,7 @@ import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import type { SnapshotDataKeys } from '@aztec/stdlib/snapshots';
 import type { L2BlockHandledStats } from '@aztec/stdlib/stats';
 import { MerkleTreeId, type MerkleTreeReadOperations, type MerkleTreeWriteOperations } from '@aztec/stdlib/trees';
-import { TraceableL2BlockStream, getTelemetryClient } from '@aztec/telemetry-client';
+import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import { WorldStateInstrumentation } from '../instrumentation/instrumentation.js';
 import type { WorldStateStatusFull } from '../native/message.js';
@@ -126,9 +126,8 @@ export class ServerWorldStateSynchronizer
   }
 
   protected createBlockStream(): L2BlockStream {
-    const tracer = this.instrumentation.telemetry.getTracer('WorldStateL2BlockStream');
     const logger = createLogger('world-state:block_stream');
-    return new TraceableL2BlockStream(this.l2BlockSource, this, this, tracer, 'WorldStateL2BlockStream', logger, {
+    return new L2BlockStream(this.l2BlockSource, this, this, logger, {
       proven: this.config.worldStateProvenBlocksOnly,
       pollIntervalMS: this.config.worldStateBlockCheckIntervalMS,
       batchSize: this.config.worldStateBlockRequestBatchSize,

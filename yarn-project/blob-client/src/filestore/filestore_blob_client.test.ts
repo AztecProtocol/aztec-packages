@@ -212,15 +212,18 @@ describe('FileStoreBlobClient', () => {
   });
 
   describe('testConnection', () => {
-    it('should return true when store is accessible', async () => {
+    it('should return true when healthcheck file exists', async () => {
+      await client.uploadHealthcheck();
       expect(await client.testConnection()).toBe(true);
     });
 
-    // Note: The current implementation of testConnection() always returns true
-    // as noted in the TODO comment in the source. This test documents the current
-    // behavior. When proper connectivity testing is implemented, this test should
-    // be updated to verify that testConnection returns false for failing stores.
-    it('should return true even when store might fail (current implementation limitation)', async () => {
+    it('should return false when healthcheck file does not exist', async () => {
+      const freshStore = new MockFileStore();
+      const freshClient = new FileStoreBlobClient(freshStore, basePath);
+      expect(await freshClient.testConnection()).toBe(false);
+    });
+
+    it('should return false when store throws error', async () => {
       const failingStore: ReadOnlyFileStore = {
         read: () => Promise.reject(new Error('fail')),
         download: () => Promise.reject(new Error('fail')),
@@ -228,8 +231,7 @@ describe('FileStoreBlobClient', () => {
       };
 
       const failingClient = new FileStoreBlobClient(failingStore, basePath);
-      // Current implementation always returns true
-      expect(await failingClient.testConnection()).toBe(true);
+      expect(await failingClient.testConnection()).toBe(false);
     });
   });
 

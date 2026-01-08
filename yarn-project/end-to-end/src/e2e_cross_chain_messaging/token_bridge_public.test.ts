@@ -5,7 +5,7 @@ import { NO_L1_TO_L2_MSG_ERROR } from '../fixtures/fixtures.js';
 import { CrossChainMessagingTest } from './cross_chain_messaging_test.js';
 
 describe('e2e_cross_chain_messaging token_bridge_public', () => {
-  const t = new CrossChainMessagingTest('token_bridge_public');
+  const t = new CrossChainMessagingTest('token_bridge_public', { startProverNode: true });
 
   let { crossChainTestHarness, ethAccount, aztecNode, logger, ownerAddress, l2Bridge, l2Token, wallet, user2Address } =
     t;
@@ -80,20 +80,16 @@ describe('e2e_cross_chain_messaging token_bridge_public', () => {
     const l2TxReceipt = await crossChainTestHarness.withdrawPublicFromAztecToL1(withdrawAmount, authwitNonce);
     await crossChainTestHarness.expectPublicBalanceOnL2(ownerAddress, afterBalance - withdrawAmount);
 
+    // Advance the epoch until the tx is proven since the messages are inserted to the outbox when the epoch is proven.
+    const epoch = await t.advanceToEpochProven(l2TxReceipt);
+
+    const l2ToL1MessageResult = await computeL2ToL1MembershipWitness(aztecNode, epoch, l2ToL1Message);
+
     // Check balance before and after exit.
     expect(await crossChainTestHarness.getL1BalanceOf(ethAccount)).toBe(l1TokenBalance - bridgeAmount);
-
-    const l2ToL1MessageResult = await computeL2ToL1MembershipWitness(
-      aztecNode,
-      l2TxReceipt.blockNumber!,
-      l2ToL1Message,
-    );
-
-    await t.assumeProven();
-
     await crossChainTestHarness.withdrawFundsFromBridgeOnL1(
       withdrawAmount,
-      l2TxReceipt.blockNumber!,
+      epoch,
       l2ToL1MessageResult!.leafIndex,
       l2ToL1MessageResult!.siblingPath,
     );

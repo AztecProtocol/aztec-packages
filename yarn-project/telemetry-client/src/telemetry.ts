@@ -1,6 +1,7 @@
 import {
   type AttributeValue,
   type BatchObservableCallback,
+  type Context,
   type MetricOptions,
   type Observable,
   type BatchObservableResult as OtelBatchObservableResult,
@@ -14,13 +15,21 @@ import {
   SpanStatusCode,
   type Tracer,
 } from '@opentelemetry/api';
-import { isPromise } from 'node:util/types';
 
 import type * as Attributes from './attributes.js';
-import type * as Metrics from './metrics.js';
+import type { MetricDefinition } from './metrics.js';
 import { getTelemetryClient } from './start.js';
 
-export { type Span, SpanStatusCode, ValueType } from '@opentelemetry/api';
+/** Extracts OpenTelemetry MetricOptions from a MetricDefinition */
+export function toMetricOptions(def: MetricDefinition): MetricOptions {
+  return {
+    description: def.description,
+    unit: def.unit,
+    valueType: def.valueType,
+  };
+}
+
+export { type Span, SpanStatusCode, ValueType, type Context } from '@opentelemetry/api';
 
 type ValuesOf<T> = T extends Record<string, infer U> ? U : never;
 
@@ -57,8 +66,8 @@ export type AttributesType = Partial<Record<AttributeNames, AttributeValue>>;
 /** Subset of attributes allowed to be added to metrics */
 export type MetricAttributesType = Partial<Record<Exclude<AttributeNames, BannedMetricAttributeNames>, AttributeValue>>;
 
-/** Global registry of metrics */
-export type MetricsType = (typeof Metrics)[keyof typeof Metrics];
+/** Re-export MetricDefinition for convenience */
+export type { MetricDefinition } from './metrics.js';
 
 export type Gauge = OtelGauge<MetricAttributesType>;
 export type Histogram = OtelHistogram<MetricAttributesType>;
@@ -77,17 +86,15 @@ export type { Tracer };
 export interface Meter {
   /**
    * Creates a new gauge instrument. A gauge is a metric that represents a single numerical value that can arbitrarily go up and down.
-   * @param name - The name of the gauge
-   * @param options - The options for the gauge
+   * @param metric - The metric definition
    */
-  createGauge(name: MetricsType, options?: MetricOptions): Gauge;
+  createGauge(metric: MetricDefinition): Gauge;
 
   /**
-   * Creates a new gauge instrument. A gauge is a metric that represents a single numerical value that can arbitrarily go up and down.
-   * @param name - The name of the gauge
-   * @param options - The options for the gauge
+   * Creates a new observable gauge instrument. A gauge is a metric that represents a single numerical value that can arbitrarily go up and down.
+   * @param metric - The metric definition
    */
-  createObservableGauge(name: MetricsType, options?: MetricOptions): ObservableGauge;
+  createObservableGauge(metric: MetricDefinition): ObservableGauge;
 
   addBatchObservableCallback(
     callback: BatchObservableCallback<AttributesType>,
@@ -101,24 +108,22 @@ export interface Meter {
 
   /**
    * Creates a new histogram instrument. A histogram is a metric that samples observations (usually things like request durations or response sizes) and counts them in configurable buckets.
-   * @param name - The name of the histogram
-   * @param options - The options for the histogram
+   * @param metric - The metric definition
+   * @param extraOptions - Optional extra options (e.g., advice for bucket boundaries)
    */
-  createHistogram(name: MetricsType, options?: MetricOptions): Histogram;
+  createHistogram(metric: MetricDefinition, extraOptions?: Partial<MetricOptions>): Histogram;
 
   /**
    * Creates a new counter instrument. A counter can go up or down with a delta from the previous value.
-   * @param name - The name of the counter
-   * @param options - The options for the counter
+   * @param metric - The metric definition
    */
-  createUpDownCounter(name: MetricsType, options?: MetricOptions): UpDownCounter;
+  createUpDownCounter(metric: MetricDefinition): UpDownCounter;
 
   /**
-   * Creates a new gauge instrument. A gauge is a metric that represents a single numerical value that can arbitrarily go up and down.
-   * @param name - The name of the gauge
-   * @param options - The options for the gauge
+   * Creates a new observable up/down counter instrument.
+   * @param metric - The metric definition
    */
-  createObservableUpDownCounter(name: MetricsType, options?: MetricOptions): ObservableUpDownCounter;
+  createObservableUpDownCounter(metric: MetricDefinition): ObservableUpDownCounter;
 }
 
 /**
@@ -160,6 +165,17 @@ export interface TelemetryClient {
    * Updates the roles that would share telemetry (if enabled)
    */
   setPublicTelemetryCollectFrom(roles: string[]): void;
+
+  /**
+   * Get current trace context as an opaque string for propagation.
+   * Returns the W3C traceparent header value if a trace is active, undefined otherwise.
+   */
+  getTraceContext(): string | undefined;
+
+  /**
+   * Recreates a context propagated by a remote system
+   */
+  extractPropagatedContext(traceContext: string): Context | undefined;
 }
 
 /** Objects that adhere to this interface can use @trackSpan */
@@ -204,24 +220,36 @@ export function trackSpan<T extends Traceable, F extends (...args: any[]) => any
       // "active" means the span will be alive for the duration of the function execution
       // and if any other spans are started during the execution of originalMethod, they will be children of this span
       // behind the scenes this uses AsyncLocalStorage https://nodejs.org/dist/latest-v22.x/docs/api/async_context.html
-      return this.tracer.startActiveSpan(name, async (span: Span) => {
-        span.setAttributes(currentAttrs ?? {});
+      return this.tracer.startActiveSpan(
+        name,
+        {
+          attributes: currentAttrs,
+        },
+        async (span: Span) => {
+          try {
+            const res = await originalMethod.call(this, ...args);
+            const extraAttrs = extraAttributes?.call(this, res);
+            span.setAttributes(extraAttrs ?? {});
+            span.setStatus({
+              code: SpanStatusCode.OK,
+            });
+            return res;
+          } catch (err) {
+            span.setStatus({
+              code: SpanStatusCode.ERROR,
+              message: String(err),
+            });
 
-        try {
-          const res = await originalMethod.call(this, ...args);
-          const extraAttrs = extraAttributes?.call(this, res);
-          span.setAttributes(extraAttrs ?? {});
-          return res;
-        } catch (err) {
-          span.setStatus({
-            code: SpanStatusCode.ERROR,
-            message: String(err),
-          });
-          throw err;
-        } finally {
-          span.end();
-        }
-      });
+            if (typeof err === 'string' || (err && err instanceof Error)) {
+              span.recordException(err);
+            }
+
+            throw err;
+          } finally {
+            span.end();
+          }
+        },
+      );
     } as F;
   };
 }
@@ -265,41 +293,57 @@ export function wrapCallbackInSpan<F extends (...args: any[]) => any>(
 export function runInSpan<A extends any[], R>(
   tracer: Tracer | string,
   spanName: string,
-  callback: (span: Span, ...args: A) => R,
-): (...args: A) => R {
-  return (...args: A): R => {
+  callback: (span: Span, ...args: A) => Promise<R>,
+): (...args: A) => Promise<R> {
+  return (...args: A): Promise<R> => {
     const actualTracer = typeof tracer === 'string' ? getTelemetryClient().getTracer(tracer) : tracer;
-    return actualTracer.startActiveSpan(spanName, (span: Span): R => {
-      let deferSpanEnd = false;
+    return actualTracer.startActiveSpan(spanName, async (span: Span): Promise<R> => {
       try {
-        const res = callback(span, ...args);
-        if (isPromise(res)) {
-          deferSpanEnd = true;
-          return res
-            .catch(err => {
-              span.setStatus({
-                code: SpanStatusCode.ERROR,
-                message: String(err),
-              });
-              throw err;
-            })
-            .finally(() => {
-              span.end();
-            }) as R;
-        } else {
-          return res;
-        }
+        const res = await callback(span, ...args);
+        span.setStatus({
+          code: SpanStatusCode.OK,
+        });
+
+        return res;
       } catch (err) {
         span.setStatus({
           code: SpanStatusCode.ERROR,
           message: String(err),
         });
+        if (typeof err === 'string' || (err && err instanceof Error)) {
+          span.recordException(err);
+        }
         throw err;
       } finally {
-        if (!deferSpanEnd) {
-          span.end();
-        }
+        span.end();
       }
     });
   };
+}
+
+/**
+ * Execute a callback within a span immediately (for one-off traced calls).
+ * Unlike runInSpan which returns a reusable function, this executes right away.
+ */
+export function execInSpan<R>(
+  tracer: Tracer | string,
+  spanName: string,
+  callback: (span: Span) => Promise<R>,
+): Promise<R> {
+  const actualTracer = typeof tracer === 'string' ? getTelemetryClient().getTracer(tracer) : tracer;
+  return actualTracer.startActiveSpan(spanName, async (span: Span): Promise<R> => {
+    try {
+      const res = await callback(span);
+      span.setStatus({ code: SpanStatusCode.OK });
+      return res;
+    } catch (err) {
+      span.setStatus({ code: SpanStatusCode.ERROR, message: String(err) });
+      if (typeof err === 'string' || (err && err instanceof Error)) {
+        span.recordException(err);
+      }
+      throw err;
+    } finally {
+      span.end();
+    }
+  });
 }

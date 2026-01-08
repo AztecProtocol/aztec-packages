@@ -1,15 +1,19 @@
 node:
   hostNetwork: true
   node:
+    enableInspector: true
+    nodeJsOptions:
+      - "--max-old-space-size=65536"
     resources:
       requests:
-        cpu: "3"
-        memory: "10Gi"
+        cpu: "6"
+        memory: "54Gi"
 
   nodeSelector:
     local-ssd: "false"
     node-type: "network"
-    cores: "4"
+    cores: "8"
+    hi-mem: "true"
 
   affinity:
     podAntiAffinity:
@@ -41,7 +45,8 @@ broker:
   nodeSelector:
     local-ssd: "false"
     node-type: "network"
-    cores: "4"
+    cores: "8"
+    hi-mem: "true"
 
   persistence:
     enabled: true
@@ -53,13 +58,16 @@ broker:
           accessModes: [ReadWriteOnce]
           resources:
             requests:
-              storage: 8Gi
+              storage: 256Gi
   node:
+    enableInspector: true
+    nodeJsOptions:
+      - "--max-old-space-size=65536"
     resources:
       requests:
-        # should land on a 4-core node
-        cpu: "3"
-        memory: "10Gi"
+        # should land on a 8-core node
+        cpu: "5"
+        memory: "54Gi"
 
 agent:
   replicaCount: 4

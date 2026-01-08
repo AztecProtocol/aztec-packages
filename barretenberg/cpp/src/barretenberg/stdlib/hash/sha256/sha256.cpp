@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Complete, auditors: [Luke], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 /**
@@ -129,7 +129,7 @@ std::array<field_t<Builder>, 64> SHA256<Builder>::extend_witness(const std::arra
             w_right.sparse_limbs[3] * right_multipliers[3],
         };
 
-        // Compute σ₀(w[i-15]) = (x >>> 7) ⊕ (x >>> 18) ⊕ (x >> 3) in sparse form.
+        // Compute σ₀(w[i-15]) in sparse form where σ₀(x) = (x >>> 7) ⊕ (x >>> 18) ⊕ (x >> 3).
         // Each sparse digit holds the sum of contributions from the three rotation/shift operations (digit value in
         // {0,1,2,3}). The fr(4) scaling positions σ₀'s contribution in the upper 2 bits of each 4-bit digit slot: when
         // combined with σ₁ (unscaled, in lower 2 bits), each digit becomes 4*σ₀_digit + σ₁_digit ∈ [0,15].

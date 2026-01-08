@@ -51,13 +51,15 @@ The way docs builds work is the following:
 - [The main CI workflow](../.github/workflows/ci3.yml) runs on pull requests and builds the dependencies and the docs, giving you a preview to check that everything is correct. You can also trigger docs CI specifically with the `ci-docs` label on a PR.
 - [The nightly docs workflow](../.github/workflows/nightly-docs-release.yml) runs daily to create versioned documentation for nightly releases, automatically cutting a new version of the docs for the latest nightly tag
 
-The `#include_aztec_version` and `#include_code` macros look for the version tag in an environment variable `COMMIT_TAG`, so you can build the docs specifying a version with the following command (e.g. for v3.0.0-devnet.5):
+The preprocessing macros use environment variables to determine version numbers. For nightly builds, set `NIGHTLY_TAG` (or `COMMIT_TAG` for backwards compatibility):
 
 ```bash
-COMMIT_TAG=v3.0.0-devnet.5 yarn build
+NIGHTLY_TAG=v3.0.0-nightly.20251218 yarn build
 ```
 
-You can add the aztec version to a docs page without the `v` prefix with `#include_version_without_prefix`, so COMMIT_TAG `v3.0.0-devnet.5` will render as `3.0.0-devnet.5`.
+For other release types, use `RELEASE_TYPE` with the corresponding tag variable (see [RELEASE_TYPE Environment Variable](#release_type-environment-variable) for details).
+
+The legacy `#include_aztec_version` macro uses `COMMIT_TAG`, while `#include_version_without_prefix` strips the `v` prefix (e.g., `v3.0.0-devnet.5` renders as `3.0.0-devnet.5`).
 
 ### How do I change the versions that show in the website
 
@@ -203,7 +205,7 @@ This command runs the preprocess command, generates static content into the `bui
 
 The Aztec.nr API reference is auto-generated from the `noir-projects/aztec-nr/` source code using `nargo doc`. This generates HTML documentation that is served from `static/aztec-nr-api/`.
 
-**Prerequisites:** You need `nargo` installed. Install via [noirup](https://noir-lang.org/docs/getting_started/installation/):
+**Prerequisites:** You need `nargo` installed. Install via [noirup](https://noir-lang.org/docs/getting_started/quick_start#installation):
 
 ```bash
 curl -L https://raw.githubusercontent.com/noir-lang/noirup/refs/heads/main/install | bash
@@ -317,6 +319,94 @@ This value may be different from the `#include_aztec_version` macro, since the t
 
 This macro will be replaced inline with the provided devnet version. This value is sourced from the `DEVNET_TAG` environment variable when running `yarn build` (e.g. `DEVNET_TAG=3.0.0-devnet.4 yarn build`). If not specified, it defaults to `3.0.0-devnet.4`.
 This value may be different from both `#include_aztec_version` and `#include_testnet_version` macros, since the devnet version represents a separate development network release.
+
+### `#include_mainnet_version`
+
+This macro will be replaced inline with the provided mainnet version. This value is sourced from the `MAINNET_TAG` environment variable when running `yarn build` (e.g. `MAINNET_TAG=2.1.9 yarn build`). If not specified, it defaults to `2.1.9`.
+This value is used for mainnet and ignition releases.
+
+### `#release_version`
+
+This macro is release-type-aware and automatically resolves to the appropriate version based on the `RELEASE_TYPE` environment variable:
+
+| RELEASE_TYPE | Resolves to | Example |
+|--------------|-------------|---------|
+| nightly | `NIGHTLY_TAG` (falls back to `COMMIT_TAG`) | `3.0.0-nightly.20251218` |
+| devnet | `DEVNET_TAG` | `3.0.0-devnet.5` |
+| testnet | `TESTNET_TAG` | `2.1.9` |
+| mainnet | `MAINNET_TAG` | `2.1.9` |
+| ignition | `MAINNET_TAG` | `2.1.9` |
+
+Usage: `aztecprotocol/aztec:#release_version`
+
+### `#release_network`
+
+This macro resolves to the network name for use with the `--network` CLI flag:
+
+| RELEASE_TYPE | Resolves to |
+|--------------|-------------|
+| nightly | `local-network` |
+| devnet | `devnet` |
+| testnet | `testnet` |
+| mainnet | `mainnet` |
+| ignition | `mainnet` |
+
+Usage: `--network #release_network`
+
+### `RELEASE_TYPE` Environment Variable
+
+The `RELEASE_TYPE` environment variable controls which release type the documentation is being built for. Valid values are:
+
+- `nightly` (default) - For nightly developer docs releases
+- `devnet` - For devnet releases
+- `testnet` - For testnet releases
+- `mainnet` - For mainnet releases
+- `ignition` - For ignition releases (treated as mainnet)
+
+Example build commands:
+```bash
+# Build for nightly (default)
+NIGHTLY_TAG=v3.0.0-nightly.20251218 yarn build
+
+# Build for devnet
+RELEASE_TYPE=devnet DEVNET_TAG=3.0.0-devnet.5 yarn build
+
+# Build for testnet
+RELEASE_TYPE=testnet TESTNET_TAG=2.1.9 yarn build
+
+# Build for ignition/mainnet
+RELEASE_TYPE=ignition MAINNET_TAG=2.1.9 yarn build
+```
+
+### Conditional Content
+
+You can include content that only appears for specific release types using conditional blocks:
+
+```markdown
+#if(nightly)
+Content that only appears in nightly docs
+#elif(devnet)
+Content that only appears in devnet docs
+#elif(testnet)
+Content that only appears in testnet docs
+#elif(mainnet)
+Content that only appears in mainnet/ignition docs
+#else
+Default content if no condition matches
+#endif
+```
+
+**Supported conditions** (matching `RELEASE_TYPE` values):
+- `nightly` - True when `RELEASE_TYPE=nightly`
+- `devnet` - True when `RELEASE_TYPE=devnet`
+- `testnet` - True when `RELEASE_TYPE=testnet`
+- `mainnet` - True when `RELEASE_TYPE=mainnet` or `RELEASE_TYPE=ignition`
+- `ignition` - Alias for `mainnet`
+
+**Notes:**
+- Conditional blocks are processed before version macro substitution, so you can use version macros inside conditionals
+- Nested conditionals are not supported
+- The `else` block is optional
 
 ## Viewing (outdated) protocol specs
 
