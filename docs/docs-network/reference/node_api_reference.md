@@ -29,6 +29,7 @@ Returns the latest block number synchronized by the node.
 **Returns**: `number`
 
 **Example**:
+
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
@@ -44,6 +45,7 @@ Returns the latest proven block number.
 **Returns**: `number`
 
 **Example**:
+
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
@@ -59,6 +61,7 @@ Returns the tips of the L2 chain (latest, pending, proven).
 **Returns**: Object containing `latest`, `pending`, and `proven` block info
 
 **Example**:
+
 ```bash
 curl -s -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
@@ -71,11 +74,13 @@ curl -s -X POST http://localhost:8080 \
 Gets a block by its number.
 
 **Parameters**:
+
 1. `blockNumber` - `number | "latest"` - Block number or "latest"
 
 **Returns**: `L2Block | null`
 
 **Example**:
+
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
@@ -87,12 +92,14 @@ curl -X POST http://localhost:8080 \
 Gets multiple blocks in a range.
 
 **Parameters**:
+
 1. `from` - `number` - Starting block number (≥ 1)
 2. `limit` - `number` - Max blocks to return (1-100)
 
 **Returns**: `L2Block[]`
 
 **Example**:
+
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
@@ -104,11 +111,13 @@ curl -X POST http://localhost:8080 \
 Gets a block header.
 
 **Parameters**:
+
 1. `blockNumber` - `number | "latest" | undefined` - Block number or omit for latest
 
 **Returns**: `BlockHeader | null`
 
 **Example**:
+
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
@@ -122,11 +131,13 @@ curl -X POST http://localhost:8080 \
 Submits a transaction to the P2P mempool.
 
 **Parameters**:
+
 1. `tx` - `Tx` - The transaction object
 
 **Returns**: `void`
 
 **Example**:
+
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
@@ -138,11 +149,13 @@ curl -X POST http://localhost:8080 \
 Gets a transaction receipt.
 
 **Parameters**:
+
 1. `txHash` - `string` - Transaction hash (32-byte hex)
 
 **Returns**: `TxReceipt` - Receipt with status (mined, pending, or dropped)
 
 **Example**:
+
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
@@ -154,11 +167,13 @@ curl -X POST http://localhost:8080 \
 Gets the transaction effect for a given transaction.
 
 **Parameters**:
+
 1. `txHash` - `string` - Transaction hash
 
 **Returns**: `IndexedTxEffect | null`
 
 **Example**:
+
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
@@ -170,11 +185,13 @@ curl -X POST http://localhost:8080 \
 Gets a single pending transaction by hash.
 
 **Parameters**:
+
 1. `txHash` - `string` - Transaction hash
 
 **Returns**: `Tx | null`
 
 **Example**:
+
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
@@ -186,12 +203,14 @@ curl -X POST http://localhost:8080 \
 Gets pending transactions from the mempool.
 
 **Parameters**:
+
 1. `limit` - `number | undefined` - Max txs to return (1-100, default: 100)
 2. `after` - `string | undefined` - Return txs after this tx hash
 
 **Returns**: `Tx[]`
 
 **Example**:
+
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
@@ -207,6 +226,7 @@ Gets the count of pending transactions.
 **Returns**: `number`
 
 **Example**:
+
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
@@ -218,12 +238,14 @@ curl -X POST http://localhost:8080 \
 Validates a transaction for correctness.
 
 **Parameters**:
+
 1. `tx` - `Tx` - Transaction to validate
 2. `options` - `object | undefined` - Options: `isSimulation`, `skipFeeEnforcement`
 
 **Returns**: `TxValidationResult`
 
 **Example**:
+
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
@@ -235,12 +257,14 @@ curl -X POST http://localhost:8080 \
 Simulates the public part of a transaction.
 
 **Parameters**:
+
 1. `tx` - `Tx` - Transaction to simulate
 2. `skipFeeEnforcement` - `boolean | undefined` - Skip fee enforcement
 
 **Returns**: `PublicSimulationOutput`
 
 **Example**:
+
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
@@ -254,6 +278,7 @@ curl -X POST http://localhost:8080 \
 Gets public storage value at a contract slot.
 
 **Parameters**:
+
 1. `blockNumber` - `number | "latest"` - Block number
 2. `contract` - `string` - Contract address (32-byte hex)
 3. `slot` - `string` - Storage slot (32-byte hex)
@@ -261,6 +286,7 @@ Gets public storage value at a contract slot.
 **Returns**: `string` - Storage value (32-byte hex)
 
 **Example**:
+
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
@@ -276,6 +302,7 @@ Gets the sync status of the node's world state.
 **Returns**: `WorldStateSyncStatus`
 
 **Example**:
+
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
@@ -289,11 +316,13 @@ curl -X POST http://localhost:8080 \
 Finds indexes of leaves in a merkle tree.
 
 **Parameters**:
+
 1. `blockNumber` - `number | "latest"` - Block number
 2. `treeId` - `number` - Tree ID (0-6)
 3. `leafValues` - `string[]` - Leaf values (max 1000, 32-byte hex each)
 
 **Tree IDs**:
+
 - `0` - NULLIFIER_TREE
 - `1` - NOTE_HASH_TREE
 - `2` - PUBLIC_DATA_TREE
@@ -304,6 +333,7 @@ Finds indexes of leaves in a merkle tree.
 **Returns**: Array of leaf indexes with block metadata
 
 **Example**:
+
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
@@ -315,12 +345,14 @@ curl -X POST http://localhost:8080 \
 Gets sibling path for a nullifier tree leaf.
 
 **Parameters**:
+
 1. `blockNumber` - `number | "latest"` - Block number
 2. `leafIndex` - `string` - Leaf index (bigint as string)
 
 **Returns**: `string[]` - Sibling path
 
 **Example**:
+
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
@@ -332,12 +364,14 @@ curl -X POST http://localhost:8080 \
 Gets sibling path for a note hash tree leaf.
 
 **Parameters**:
+
 1. `blockNumber` - `number | "latest"` - Block number
 2. `leafIndex` - `string` - Leaf index (bigint as string)
 
 **Returns**: `string[]` - Sibling path
 
 **Example**:
+
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
@@ -349,12 +383,14 @@ curl -X POST http://localhost:8080 \
 Gets sibling path for an archive tree leaf.
 
 **Parameters**:
+
 1. `blockNumber` - `number | "latest"` - Block number
 2. `leafIndex` - `string` - Leaf index (bigint as string)
 
 **Returns**: `string[]` - Sibling path
 
 **Example**:
+
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
@@ -366,12 +402,14 @@ curl -X POST http://localhost:8080 \
 Gets sibling path for a public data tree leaf.
 
 **Parameters**:
+
 1. `blockNumber` - `number | "latest"` - Block number
 2. `leafIndex` - `string` - Leaf index (bigint as string)
 
 **Returns**: `string[]` - Sibling path
 
 **Example**:
+
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
@@ -385,12 +423,14 @@ curl -X POST http://localhost:8080 \
 Gets a nullifier membership witness.
 
 **Parameters**:
+
 1. `blockNumber` - `number | "latest"` - Block number
 2. `nullifier` - `string` - Nullifier value (32-byte hex)
 
 **Returns**: `NullifierMembershipWitness | null`
 
 **Example**:
+
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
@@ -402,12 +442,14 @@ curl -X POST http://localhost:8080 \
 Gets a low nullifier membership witness for non-inclusion proofs.
 
 **Parameters**:
+
 1. `blockNumber` - `number | "latest"` - Block number
 2. `nullifier` - `string` - Nullifier value (32-byte hex)
 
 **Returns**: `NullifierMembershipWitness | null`
 
 **Example**:
+
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
@@ -419,12 +461,14 @@ curl -X POST http://localhost:8080 \
 Gets a public data tree witness for a leaf slot.
 
 **Parameters**:
+
 1. `blockNumber` - `number | "latest"` - Block number
 2. `leafSlot` - `string` - Leaf slot (32-byte hex)
 
 **Returns**: `PublicDataWitness | null`
 
 **Example**:
+
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
@@ -436,12 +480,14 @@ curl -X POST http://localhost:8080 \
 Gets archive tree membership witness.
 
 **Parameters**:
+
 1. `blockNumber` - `number | "latest"` - Block number
 2. `archive` - `string` - Archive leaf value (32-byte hex)
 
 **Returns**: `MembershipWitness | null`
 
 **Example**:
+
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
@@ -453,12 +499,14 @@ curl -X POST http://localhost:8080 \
 Gets note hash tree membership witness.
 
 **Parameters**:
+
 1. `blockNumber` - `number | "latest"` - Block number
 2. `noteHash` - `string` - Note hash value (32-byte hex)
 
 **Returns**: `MembershipWitness | null`
 
 **Example**:
+
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
@@ -472,12 +520,14 @@ curl -X POST http://localhost:8080 \
 Gets L1 to L2 message membership witness.
 
 **Parameters**:
+
 1. `blockNumber` - `number | "latest"` - Block number
 2. `l1ToL2Message` - `string` - L1 to L2 message (32-byte hex)
 
 **Returns**: `[string, string[]] | null` - Tuple of [index, sibling path]
 
 **Example**:
+
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
@@ -489,11 +539,13 @@ curl -X POST http://localhost:8080 \
 Gets the L2 block number when an L1 to L2 message becomes available.
 
 **Parameters**:
+
 1. `l1ToL2Message` - `string` - L1 to L2 message (32-byte hex)
 
 **Returns**: `number | null`
 
 **Example**:
+
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
@@ -505,6 +557,7 @@ curl -X POST http://localhost:8080 \
 Checks if an L1 to L2 message is synced.
 
 **Parameters**:
+
 1. `l1ToL2Message` - `string` - L1 to L2 message (32-byte hex)
 
 **Returns**: `boolean`
@@ -512,6 +565,7 @@ Checks if an L1 to L2 message is synced.
 **Deprecated**: Use `node_getL1ToL2MessageBlock` instead.
 
 **Example**:
+
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
@@ -523,11 +577,13 @@ curl -X POST http://localhost:8080 \
 Gets all L2 to L1 messages in a block.
 
 **Parameters**:
+
 1. `blockNumber` - `number | "latest"` - Block number
 
 **Returns**: `string[][] | null` - Array of message arrays
 
 **Example**:
+
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
@@ -541,12 +597,14 @@ curl -X POST http://localhost:8080 \
 Gets private logs from a block range.
 
 **Parameters**:
+
 1. `from` - `number` - Starting block (≥ 1)
 2. `limit` - `number` - Number of blocks (max 1000)
 
 **Returns**: `PrivateLog[]`
 
 **Example**:
+
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
@@ -558,11 +616,13 @@ curl -X POST http://localhost:8080 \
 Gets public logs based on filter.
 
 **Parameters**:
+
 1. `filter` - `LogFilter` - Filter object with `fromBlock`, `toBlock`, `contractAddress`, etc.
 
 **Returns**: `GetPublicLogsResponse`
 
 **Example**:
+
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
@@ -574,11 +634,13 @@ curl -X POST http://localhost:8080 \
 Gets contract class logs based on filter.
 
 **Parameters**:
+
 1. `filter` - `LogFilter` - Filter object
 
 **Returns**: `GetContractClassLogsResponse`
 
 **Example**:
+
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
@@ -590,12 +652,14 @@ curl -X POST http://localhost:8080 \
 Gets logs matching specific tags.
 
 **Parameters**:
+
 1. `tags` - `string[]` - Array of tags (max 1000, 32-byte hex each)
 2. `logsPerTag` - `number | undefined` - Max logs per tag (1-10, default: 10)
 
 **Returns**: `TxScopedL2Log[][]` - For each tag, array of matching logs
 
 **Example**:
+
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
@@ -609,11 +673,13 @@ curl -X POST http://localhost:8080 \
 Gets a registered contract class by ID.
 
 **Parameters**:
+
 1. `id` - `string` - Contract class ID (32-byte hex)
 
 **Returns**: `ContractClassPublic | null`
 
 **Example**:
+
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
@@ -625,11 +691,13 @@ curl -X POST http://localhost:8080 \
 Gets a deployed contract instance by address.
 
 **Parameters**:
+
 1. `address` - `string` - Contract address (32-byte hex)
 
 **Returns**: `ContractInstanceWithAddress | null`
 
 **Example**:
+
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
@@ -647,6 +715,7 @@ Checks if the node is ready to accept transactions.
 **Returns**: `boolean`
 
 **Example**:
+
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
@@ -662,6 +731,7 @@ Gets information about the node.
 **Returns**: `NodeInfo` - Node version, protocol version, chain ID, contracts, etc.
 
 **Example**:
+
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
@@ -677,6 +747,7 @@ Gets the node package version.
 **Returns**: `string`
 
 **Example**:
+
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
@@ -692,6 +763,7 @@ Gets the rollup protocol version.
 **Returns**: `number`
 
 **Example**:
+
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
@@ -707,6 +779,7 @@ Gets the L1 chain ID.
 **Returns**: `number`
 
 **Example**:
+
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
@@ -722,6 +795,7 @@ Gets deployed L1 contract addresses.
 **Returns**: `L1ContractAddresses`
 
 **Example**:
+
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
@@ -737,6 +811,7 @@ Gets protocol contract addresses.
 **Returns**: `ProtocolContractAddresses`
 
 **Example**:
+
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
@@ -752,25 +827,27 @@ Gets the node's ENR for P2P discovery.
 **Returns**: `string | null`
 
 **Example**:
+
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
   -d '{"jsonrpc":"2.0","method":"node_getEncodedEnr","params":[],"id":1}'
 ```
 
-### node_getCurrentBaseFees
+### node_getCurrentMinFees
 
-Gets current base fees for transactions.
+Gets current min fees for transactions.
 
 **Parameters**: None
 
 **Returns**: `GasFees`
 
 **Example**:
+
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"node_getCurrentBaseFees","params":[],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"node_getCurrentMinFees","params":[],"id":1}'
 ```
 
 ## Validator queries
@@ -784,6 +861,7 @@ Gets statistics for all validators.
 **Returns**: `ValidatorsStats`
 
 **Example**:
+
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
@@ -795,6 +873,7 @@ curl -X POST http://localhost:8080 \
 Gets statistics for a single validator.
 
 **Parameters**:
+
 1. `validatorAddress` - `string` - Validator address (20-byte hex)
 2. `fromSlot` - `string | undefined` - Starting slot (bigint as string)
 3. `toSlot` - `string | undefined` - Ending slot (bigint as string)
@@ -802,6 +881,7 @@ Gets statistics for a single validator.
 **Returns**: `SingleValidatorStats | null`
 
 **Example**:
+
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
@@ -815,11 +895,13 @@ curl -X POST http://localhost:8080 \
 Registers contract function signatures for debugging.
 
 **Parameters**:
+
 1. `functionSignatures` - `string[]` - Array of function signatures (max 100)
 
 **Returns**: `void`
 
 **Example**:
+
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
@@ -835,6 +917,7 @@ Gets the list of allowed public setup function calls.
 **Returns**: `AllowedElement[]`
 
 **Example**:
+
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
@@ -849,11 +932,13 @@ Administrative operations are exposed on port 8880 under the `nodeAdmin_` namesp
 For security reasons, the admin port (8880) should **not be exposed** to the host machine in Docker deployments. The examples below show both CLI and Docker methods:
 
 **CLI Method** (when running with `aztec start` directly):
+
 ```bash
 curl -X POST http://localhost:8880 ...
 ```
 
 **Docker Method** (when running with Docker Compose):
+
 ```bash
 docker exec -it <container-name> curl -X POST http://localhost:8880 ...
 ```
@@ -870,6 +955,7 @@ Gets the current node configuration.
 **Returns**: `AztecNodeAdminConfig`
 
 **Example (CLI)**:
+
 ```bash
 curl -X POST http://localhost:8880 \
   -H 'Content-Type: application/json' \
@@ -877,6 +963,7 @@ curl -X POST http://localhost:8880 \
 ```
 
 **Example (Docker)**:
+
 ```bash
 docker exec -it aztec-node curl -X POST http://localhost:8880 \
   -H 'Content-Type: application/json' \
@@ -888,11 +975,13 @@ docker exec -it aztec-node curl -X POST http://localhost:8880 \
 Updates the node configuration.
 
 **Parameters**:
+
 1. `config` - `Partial<AztecNodeAdminConfig>` - Configuration updates
 
 **Returns**: `void`
 
 **Example (CLI)**:
+
 ```bash
 curl -X POST http://localhost:8880 \
   -H 'Content-Type: application/json' \
@@ -900,6 +989,7 @@ curl -X POST http://localhost:8880 \
 ```
 
 **Example (Docker)**:
+
 ```bash
 docker exec -it aztec-node curl -X POST http://localhost:8880 \
   -H 'Content-Type: application/json' \
@@ -915,6 +1005,7 @@ Pauses archiver and world state syncing.
 **Returns**: `void`
 
 **Example (CLI)**:
+
 ```bash
 curl -X POST http://localhost:8880 \
   -H 'Content-Type: application/json' \
@@ -922,6 +1013,7 @@ curl -X POST http://localhost:8880 \
 ```
 
 **Example (Docker)**:
+
 ```bash
 docker exec -it aztec-node curl -X POST http://localhost:8880 \
   -H 'Content-Type: application/json' \
@@ -937,6 +1029,7 @@ Resumes archiver and world state syncing.
 **Returns**: `void`
 
 **Example (CLI)**:
+
 ```bash
 curl -X POST http://localhost:8880 \
   -H 'Content-Type: application/json' \
@@ -944,6 +1037,7 @@ curl -X POST http://localhost:8880 \
 ```
 
 **Example (Docker)**:
+
 ```bash
 docker exec -it aztec-node curl -X POST http://localhost:8880 \
   -H 'Content-Type: application/json' \
@@ -955,12 +1049,14 @@ docker exec -it aztec-node curl -X POST http://localhost:8880 \
 Rolls back the database to a target block.
 
 **Parameters**:
+
 1. `targetBlockNumber` - `number` - Block to roll back to
 2. `force` - `boolean | undefined` - Clear world state/p2p if needed
 
 **Returns**: `void`
 
 **Example (CLI)**:
+
 ```bash
 curl -X POST http://localhost:8880 \
   -H 'Content-Type: application/json' \
@@ -968,6 +1064,7 @@ curl -X POST http://localhost:8880 \
 ```
 
 **Example (Docker)**:
+
 ```bash
 docker exec -it aztec-node curl -X POST http://localhost:8880 \
   -H 'Content-Type: application/json' \
@@ -979,11 +1076,13 @@ docker exec -it aztec-node curl -X POST http://localhost:8880 \
 Starts uploading a database snapshot.
 
 **Parameters**:
+
 1. `location` - `string` - Upload location/URL
 
 **Returns**: `void`
 
 **Example (CLI)**:
+
 ```bash
 curl -X POST http://localhost:8880 \
   -H 'Content-Type: application/json' \
@@ -991,6 +1090,7 @@ curl -X POST http://localhost:8880 \
 ```
 
 **Example (Docker)**:
+
 ```bash
 docker exec -it aztec-node curl -X POST http://localhost:8880 \
   -H 'Content-Type: application/json' \
@@ -1006,6 +1106,7 @@ Gets all monitored slash payloads for the current round.
 **Returns**: `SlashPayloadRound[]`
 
 **Example (CLI)**:
+
 ```bash
 curl -X POST http://localhost:8880 \
   -H 'Content-Type: application/json' \
@@ -1013,6 +1114,7 @@ curl -X POST http://localhost:8880 \
 ```
 
 **Example (Docker)**:
+
 ```bash
 docker exec -it aztec-node curl -X POST http://localhost:8880 \
   -H 'Content-Type: application/json' \
@@ -1024,11 +1126,13 @@ docker exec -it aztec-node curl -X POST http://localhost:8880 \
 Gets all offenses for a specific round.
 
 **Parameters**:
+
 1. `round` - `string | "all" | "current"` - Round number or "all"/"current"
 
 **Returns**: `Offense[]`
 
 **Example (CLI)**:
+
 ```bash
 curl -X POST http://localhost:8880 \
   -H 'Content-Type: application/json' \
@@ -1036,6 +1140,7 @@ curl -X POST http://localhost:8880 \
 ```
 
 **Example (Docker)**:
+
 ```bash
 docker exec -it aztec-node curl -X POST http://localhost:8880 \
   -H 'Content-Type: application/json' \

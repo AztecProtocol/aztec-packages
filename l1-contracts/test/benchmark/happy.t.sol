@@ -49,13 +49,13 @@ import {
   EthValue,
   FeeHeader,
   L1FeeData,
-  ManaBaseFeeComponents
+  ManaMinFeeComponents
 } from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {
   FeeModelTestPoints,
   TestPoint,
   FeeHeaderModel,
-  ManaBaseFeeComponentsModel
+  ManaMinFeeComponentsModel
 } from "test/fees/FeeModelTestPoints.t.sol";
 import {MessageHashUtils} from "@oz/utils/cryptography/MessageHashUtils.sol";
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
@@ -109,7 +109,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
   using TimeLib for Slot;
   using TimeLib for Timestamp;
   using FeeLib for uint256;
-  using FeeLib for ManaBaseFeeComponents;
+  using FeeLib for ManaMinFeeComponents;
   // We need to build a checkpoint that we can submit. We will be using some values from
   // the empty checkpoints, but otherwise populate using the fee model test points.
 
@@ -282,7 +282,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
 
     Timestamp ts = rollup.getTimestampForSlot(slotNumber);
 
-    uint128 manaBaseFee = SafeCast.toUint128(rollup.getManaBaseFeeAt(Timestamp.wrap(block.timestamp), true));
+    uint128 manaMinFee = SafeCast.toUint128(rollup.getManaMinFeeAt(Timestamp.wrap(block.timestamp), true));
     uint256 manaSpent = point.checkpoint_header.mana_spent;
 
     address proposer = rollup.getCurrentProposer();
@@ -294,7 +294,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
     header.timestamp = ts;
     header.coinbase = c;
     header.feeRecipient = bytes32(0);
-    header.gasFees.feePerL2Gas = manaBaseFee;
+    header.gasFees.feePerL2Gas = manaMinFee;
     if (MANA_TARGET > 0) {
       header.totalManaUsed = manaSpent;
     } else {
@@ -580,10 +580,10 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
         bytes32[] memory fees = new bytes32[](Constants.AZTEC_MAX_EPOCH_DURATION * 2);
 
         for (uint256 feeIndex = 0; feeIndex < epochSize; feeIndex++) {
-          // we need the basefee, and we cannot just take it from the point. Because it is different
+          // we need the minFee, and we cannot just take it from the point. Because it is different
           Timestamp ts = rollup.getTimestampForSlot(Slot.wrap(start + feeIndex));
-          uint256 manaBaseFee = rollup.getManaBaseFeeAt(ts, true);
-          uint256 fee = rollup.getFeeHeader(start + feeIndex).manaUsed * manaBaseFee;
+          uint256 manaMinFee = rollup.getManaMinFeeAt(ts, true);
+          uint256 fee = rollup.getFeeHeader(start + feeIndex).manaUsed * manaMinFee;
 
           fees[feeIndex * 2] = bytes32(uint256(uint160(bytes20(coinbase))));
           fees[feeIndex * 2 + 1] = bytes32(fee);

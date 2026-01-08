@@ -7,12 +7,11 @@ sidebar_position: 1
 
 # Aztec CLI Reference
 
-*This documentation is auto-generated from the `aztec` CLI help output.*
+_This documentation is auto-generated from the `aztec` CLI help output._
 
+_Generated: Fri 02 Jan 2026 14:36:39 UTC_
 
-*Generated: Fri 02 Jan 2026 14:36:39 UTC*
-
-*Command: `aztec`*
+_Command: `aztec`_
 
 ## Table of Contents
 
@@ -42,7 +41,7 @@ sidebar_position: 1
   - [aztec generate-secret-and-hash](#aztec-generate-secret-and-hash)
   - [aztec get-block](#aztec-get-block)
   - [aztec get-canonical-sponsored-fpc-address](#aztec-get-canonical-sponsored-fpc-address)
-  - [aztec get-current-base-fee](#aztec-get-current-base-fee)
+  - [aztec get-current-min-fee](#aztec-get-current-min-fee)
   - [aztec get-l1-addresses](#aztec-get-l1-addresses)
   - [aztec get-l1-balance](#aztec-get-l1-balance)
   - [aztec get-l1-to-l2-message-witness](#aztec-get-l1-to-l2-message-witness)
@@ -65,11 +64,13 @@ sidebar_position: 1
   - [aztec update](#aztec-update)
   - [aztec validator-keys|valKeys](#aztec-validator-keys|valkeys)
   - [aztec vote-on-governance-proposal](#aztec-vote-on-governance-proposal)
+
 ## aztec
 
 Aztec command line interface
 
 **Usage:**
+
 ```bash
 aztec [options] [command]
 ```
@@ -101,7 +102,7 @@ aztec [options] [command]
 - `generate-secret-and-hash` - Generates an arbitrary secret (Fr), and its hash (using aztec-nr defaults)
 - `get-block [options] [blockNumber]` - Gets info for a given block or latest.
 - `get-canonical-sponsored-fpc-address` - Gets the canonical SponsoredFPC address for this any testnet running on the same version as this CLI
-- `get-current-base-fee [options]` - Gets the current base fee.
+- `get-current-min-fee [options]` - Gets the current min fee.
 - `get-l1-addresses [options]` - Gets the addresses of the L1 contracts.
 - `get-l1-balance [options] <who>` - Gets the balance of an ERC token in L1 for the given Ethereum address.
 - `get-l1-to-l2-message-witness [options]` - Gets a L1 to L2 message witness.
@@ -130,7 +131,6 @@ aztec [options] [command]
 
 - `-V --version` - output the version number
 - `-h --help` - display help for command
-
 
 ### Subcommands
 
@@ -615,8 +615,7 @@ Options:
 
 ### aztec fast-forward-epochs
 
-*Help for this command is currently unavailable due to a technical issue with option serialization.*
-
+_Help for this command is currently unavailable due to a technical issue with option serialization._
 
 ### aztec fmt
 
@@ -754,12 +753,12 @@ Options:
 
 ```
 
-### aztec get-current-base-fee
+### aztec get-current-min-fee
 
 ```
-Usage: aztec get-current-base-fee [options]
+Usage: aztec get-current-min-fee [options]
 
-Gets the current base fee.
+Gets the current min fee.
 
 Options:
   -n, --node-url <string>  URL of the Aztec node (default:
@@ -877,8 +876,7 @@ Options:
 
 ### aztec init
 
-*No help information available for this command.*
-
+_No help information available for this command._
 
 ### aztec inspect-contract
 
@@ -899,13 +897,11 @@ Options:
 
 ### aztec lsp
 
-*No help information available for this command.*
-
+_No help information available for this command._
 
 ### aztec new
 
-*No help information available for this command.*
-
+_No help information available for this command._
 
 ### aztec parse-parameter-struct
 
@@ -1065,106 +1061,106 @@ Options:
 
 - `--network <value>`
   Network to run Aztec on
-  *Environment: `$NETWORK`*
+  _Environment: `$NETWORK`_
 
 - `--auto-update <value>` (default: `disabled`)
   The auto update mode for this node
-  *Environment: `$AUTO_UPDATE`*
+  _Environment: `$AUTO_UPDATE`_
 
 - `--auto-update-url <value>`
   Base URL to check for updates
-  *Environment: `$AUTO_UPDATE_URL`*
+  _Environment: `$AUTO_UPDATE_URL`_
 
 - `--sync-mode <value>` (default: `snapshot`)
   Set sync mode to `full` to always sync via L1, `snapshot` to download a snapshot if there is no local data, `force-snapshot` to download even if there is local data.
-  *Environment: `$SYNC_MODE`*
+  _Environment: `$SYNC_MODE`_
 
 - `--snapshots-urls <value>`
   Base URLs for snapshots index, comma-separated.
-  *Environment: `$SYNC_SNAPSHOTS_URLS`*
+  _Environment: `$SYNC_SNAPSHOTS_URLS`_
 
 - `--fisherman-mode`
   Whether to run in fisherman mode.
-  *Environment: `$FISHERMAN_MODE`*
+  _Environment: `$FISHERMAN_MODE`_
 
 - `--local-network`
   Starts Aztec Local Network
 
 - `--local-network.l1Mnemonic <value>` (default: `test test test test test test test test test test test junk`)
   Mnemonic for L1 accounts. Will be used
-  *Environment: `$MNEMONIC`*
+  _Environment: `$MNEMONIC`_
 
 - `--local-network.deployAztecContractsSalt <value>`
   Numeric salt for deploying L1 Aztec contracts before starting the local network. Needs mnemonic or private key to be set.
-  *Environment: `$DEPLOY_AZTEC_CONTRACTS_SALT`*
+  _Environment: `$DEPLOY_AZTEC_CONTRACTS_SALT`_
 
 **API**
 
 - `--port <value>` (default: `8080`)
   Port to run the Aztec Services on
-  *Environment: `$AZTEC_PORT`*
+  _Environment: `$AZTEC_PORT`_
 
 - `--admin-port <value>` (default: `8880`)
   Port to run admin APIs of Aztec Services on
-  *Environment: `$AZTEC_ADMIN_PORT`*
+  _Environment: `$AZTEC_ADMIN_PORT`_
 
 - `--api-prefix <value>`
   Prefix for API routes on any service that is started
-  *Environment: `$API_PREFIX`*
+  _Environment: `$API_PREFIX`_
 
 **ETHEREUM**
 
 - `--l1-chain-id <value>`
   The chain ID of the ethereum host.
-  *Environment: `$L1_CHAIN_ID`*
+  _Environment: `$L1_CHAIN_ID`_
 
 - `--l1-rpc-urls <value>`
   List of URLs of Ethereum RPC nodes that services will connect to (comma separated).
-  *Environment: `$ETHEREUM_HOSTS`*
+  _Environment: `$ETHEREUM_HOSTS`_
 
 - `--l1-consensus-host-urls <value>`
   List of URLs of the Ethereum consensus nodes that services will connect to (comma separated)
-  *Environment: `$L1_CONSENSUS_HOST_URLS`*
+  _Environment: `$L1_CONSENSUS_HOST_URLS`_
 
 - `--l1-consensus-host-api-keys <value>`
   List of API keys for the corresponding L1 consensus clients, if needed. Added to the end of the corresponding URL as "?key=&lt;api-key&gt;" unless a header is defined
-  *Environment: `$L1_CONSENSUS_HOST_API_KEYS`*
+  _Environment: `$L1_CONSENSUS_HOST_API_KEYS`_
 
 - `--l1-consensus-host-api-key-headers <value>`
   List of header names for the corresponding L1 consensus client API keys, if needed. Added to the corresponding request as "&lt;api-key-header&gt;: &lt;api-key&gt;"
-  *Environment: `$L1_CONSENSUS_HOST_API_KEY_HEADERS`*
+  _Environment: `$L1_CONSENSUS_HOST_API_KEY_HEADERS`_
 
 - `--registry-address <value>`
   The deployed L1 registry contract address.
-  *Environment: `$REGISTRY_CONTRACT_ADDRESS`*
+  _Environment: `$REGISTRY_CONTRACT_ADDRESS`_
 
 - `--rollup-version <value>`
   The version of the rollup.
-  *Environment: `$ROLLUP_VERSION`*
+  _Environment: `$ROLLUP_VERSION`_
 
 **STORAGE**
 
 - `--data-directory <value>`
   Optional dir to store data. If omitted will store in memory.
-  *Environment: `$DATA_DIRECTORY`*
+  _Environment: `$DATA_DIRECTORY`_
 
 - `--data-store-map-size-kb <value>` (default: `134217728`)
   The maximum possible size of a data store DB in KB. Can be overridden by component-specific options.
-  *Environment: `$DATA_STORE_MAP_SIZE_KB`*
+  _Environment: `$DATA_STORE_MAP_SIZE_KB`_
 
 **WORLD STATE**
 
 - `--world-state-data-directory <value>`
   Optional directory for the world state database
-  *Environment: `$WS_DATA_DIRECTORY`*
+  _Environment: `$WS_DATA_DIRECTORY`_
 
 - `--world-state-db-map-size-kb <value>`
   The maximum possible size of the world state DB in KB. Overwrites the general dataStoreMapSizeKb.
-  *Environment: `$WS_DB_MAP_SIZE_KB`*
+  _Environment: `$WS_DB_MAP_SIZE_KB`_
 
 - `--world-state-block-history <value>` (default: `64`)
   The number of historic blocks to maintain. Values less than 1 mean all history is maintained
-  *Environment: `$WS_NUM_HISTORIC_BLOCKS`*
+  _Environment: `$WS_NUM_HISTORIC_BLOCKS`_
 
 **AZTEC NODE**
 
@@ -1178,46 +1174,46 @@ Options:
 
 - `--archiver.blobSinkUrl <value>`
   The URL of the blob sink
-  *Environment: `$BLOB_SINK_URL`*
+  _Environment: `$BLOB_SINK_URL`_
 
 - `--archiver.blobSinkMapSizeKb <value>`
   The maximum possible size of the blob sink DB in KB. Overwrites the general dataStoreMapSizeKb.
-  *Environment: `$BLOB_SINK_MAP_SIZE_KB`*
+  _Environment: `$BLOB_SINK_MAP_SIZE_KB`_
 
 - `--archiver.blobAllowEmptySources <value>`
   Whether to allow having no blob sources configured during startup
-  *Environment: `$BLOB_ALLOW_EMPTY_SOURCES`*
+  _Environment: `$BLOB_ALLOW_EMPTY_SOURCES`_
 
 - `--archiver.archiveApiUrl <value>`
   The URL of the archive API
-  *Environment: `$BLOB_SINK_ARCHIVE_API_URL`*
+  _Environment: `$BLOB_SINK_ARCHIVE_API_URL`_
 
 - `--archiver.archiverPollingIntervalMS <value>` (default: `500`)
   The polling interval in ms for retrieving new L2 blocks and encrypted logs.
-  *Environment: `$ARCHIVER_POLLING_INTERVAL_MS`*
+  _Environment: `$ARCHIVER_POLLING_INTERVAL_MS`_
 
 - `--archiver.archiverBatchSize <value>` (default: `100`)
   The number of L2 blocks the archiver will attempt to download at a time.
-  *Environment: `$ARCHIVER_BATCH_SIZE`*
+  _Environment: `$ARCHIVER_BATCH_SIZE`_
 
 - `--archiver.maxLogs <value>` (default: `1000`)
   The max number of logs that can be obtained in 1 "getPublicLogs" call.
-  *Environment: `$ARCHIVER_MAX_LOGS`*
+  _Environment: `$ARCHIVER_MAX_LOGS`_
 
 - `--archiver.archiverStoreMapSizeKb <value>`
   The maximum possible size of the archiver DB in KB. Overwrites the general dataStoreMapSizeKb.
-  *Environment: `$ARCHIVER_STORE_MAP_SIZE_KB`*
+  _Environment: `$ARCHIVER_STORE_MAP_SIZE_KB`_
 
 - `--archiver.skipValidateBlockAttestations <value>`
   Whether to skip validating block attestations (use only for testing).
 
 - `--archiver.maxAllowedEthClientDriftSeconds <value>` (default: `300`)
   Maximum allowed drift in seconds between the Ethereum client and current time.
-  *Environment: `$MAX_ALLOWED_ETH_CLIENT_DRIFT_SECONDS`*
+  _Environment: `$MAX_ALLOWED_ETH_CLIENT_DRIFT_SECONDS`_
 
 - `--archiver.ethereumAllowNoDebugHosts <value>` (default: `true`)
   Whether to allow starting the archiver without debug/trace method support on Ethereum hosts
-  *Environment: `$ETHEREUM_ALLOW_NO_DEBUG_HOSTS`*
+  _Environment: `$ETHEREUM_ALLOW_NO_DEBUG_HOSTS`_
 
 **SEQUENCER**
 
@@ -1226,102 +1222,102 @@ Options:
 
 - `--sequencer.validatorPrivateKeys <value>` (default: `[Redacted]`)
   List of private keys of the validators participating in attestation duties
-  *Environment: `$VALIDATOR_PRIVATE_KEYS`*
+  _Environment: `$VALIDATOR_PRIVATE_KEYS`_
 
 - `--sequencer.validatorAddresses <value>`
   List of addresses of the validators to use with remote signers
-  *Environment: `$VALIDATOR_ADDRESSES`*
+  _Environment: `$VALIDATOR_ADDRESSES`_
 
 - `--sequencer.disableValidator <value>`
   Do not run the validator
-  *Environment: `$VALIDATOR_DISABLED`*
+  _Environment: `$VALIDATOR_DISABLED`_
 
 - `--sequencer.disabledValidators <value>`
   Temporarily disable these specific validator addresses
 
 - `--sequencer.attestationPollingIntervalMs <value>` (default: `200`)
   Interval between polling for new attestations
-  *Environment: `$VALIDATOR_ATTESTATIONS_POLLING_INTERVAL_MS`*
+  _Environment: `$VALIDATOR_ATTESTATIONS_POLLING_INTERVAL_MS`_
 
 - `--sequencer.validatorReexecute <value>` (default: `true`)
   Re-execute transactions before attesting
-  *Environment: `$VALIDATOR_REEXECUTE`*
+  _Environment: `$VALIDATOR_REEXECUTE`_
 
 - `--sequencer.validatorReexecuteDeadlineMs <value>` (default: `6000`)
   Will re-execute until this many milliseconds are left in the slot
-  *Environment: `$VALIDATOR_REEXECUTE_DEADLINE_MS`*
+  _Environment: `$VALIDATOR_REEXECUTE_DEADLINE_MS`_
 
 - `--sequencer.alwaysReexecuteBlockProposals <value>`
   Whether to always reexecute block proposals, even for non-validator nodes (useful for monitoring network status).
-  *Environment: `$ALWAYS_REEXECUTE_BLOCK_PROPOSALS`*
+  _Environment: `$ALWAYS_REEXECUTE_BLOCK_PROPOSALS`_
 
 - `--sequencer.transactionPollingIntervalMS <value>` (default: `500`)
   The number of ms to wait between polling for pending txs.
-  *Environment: `$SEQ_TX_POLLING_INTERVAL_MS`*
+  _Environment: `$SEQ_TX_POLLING_INTERVAL_MS`_
 
 - `--sequencer.maxTxsPerBlock <value>` (default: `32`)
   The maximum number of txs to include in a block.
-  *Environment: `$SEQ_MAX_TX_PER_BLOCK`*
+  _Environment: `$SEQ_MAX_TX_PER_BLOCK`_
 
 - `--sequencer.minTxsPerBlock <value>` (default: `1`)
   The minimum number of txs to include in a block.
-  *Environment: `$SEQ_MIN_TX_PER_BLOCK`*
+  _Environment: `$SEQ_MIN_TX_PER_BLOCK`_
 
 - `--sequencer.publishTxsWithProposals <value>`
   Whether to publish txs with proposals.
-  *Environment: `$SEQ_PUBLISH_TXS_WITH_PROPOSALS`*
+  _Environment: `$SEQ_PUBLISH_TXS_WITH_PROPOSALS`_
 
 - `--sequencer.maxL2BlockGas <value>` (default: `10000000000`)
   The maximum L2 block gas.
-  *Environment: `$SEQ_MAX_L2_BLOCK_GAS`*
+  _Environment: `$SEQ_MAX_L2_BLOCK_GAS`_
 
 - `--sequencer.maxDABlockGas <value>` (default: `10000000000`)
   The maximum DA block gas.
-  *Environment: `$SEQ_MAX_DA_BLOCK_GAS`*
+  _Environment: `$SEQ_MAX_DA_BLOCK_GAS`_
 
 - `--sequencer.coinbase <value>`
   Recipient of block reward.
-  *Environment: `$COINBASE`*
+  _Environment: `$COINBASE`_
 
 - `--sequencer.feeRecipient <value>`
   Address to receive fees.
-  *Environment: `$FEE_RECIPIENT`*
+  _Environment: `$FEE_RECIPIENT`_
 
 - `--sequencer.acvmWorkingDirectory <value>`
   The working directory to use for simulation/proving
-  *Environment: `$ACVM_WORKING_DIRECTORY`*
+  _Environment: `$ACVM_WORKING_DIRECTORY`_
 
 - `--sequencer.acvmBinaryPath <value>`
   The path to the ACVM binary
-  *Environment: `$ACVM_BINARY_PATH`*
+  _Environment: `$ACVM_BINARY_PATH`_
 
 - `--sequencer.maxBlockSizeInBytes <value>` (default: `1048576`)
   Max block size
-  *Environment: `$SEQ_MAX_BLOCK_SIZE_IN_BYTES`*
+  _Environment: `$SEQ_MAX_BLOCK_SIZE_IN_BYTES`_
 
 - `--sequencer.enforceTimeTable <value>` (default: `true`)
   Whether to enforce the time table when building blocks
-  *Environment: `$SEQ_ENFORCE_TIME_TABLE`*
+  _Environment: `$SEQ_ENFORCE_TIME_TABLE`_
 
 - `--sequencer.governanceProposerPayload <value>` (default: `0x0000000000000000000000000000000000000000`)
   The address of the payload for the governanceProposer
-  *Environment: `$GOVERNANCE_PROPOSER_PAYLOAD_ADDRESS`*
+  _Environment: `$GOVERNANCE_PROPOSER_PAYLOAD_ADDRESS`_
 
 - `--sequencer.maxL1TxInclusionTimeIntoSlot <value>`
   How many seconds into an L1 slot we can still send a tx and get it mined.
-  *Environment: `$SEQ_MAX_L1_TX_INCLUSION_TIME_INTO_SLOT`*
+  _Environment: `$SEQ_MAX_L1_TX_INCLUSION_TIME_INTO_SLOT`_
 
 - `--sequencer.attestationPropagationTime <value>` (default: `2`)
   How many seconds it takes for proposals and attestations to travel across the p2p layer (one-way)
-  *Environment: `$SEQ_ATTESTATION_PROPAGATION_TIME`*
+  _Environment: `$SEQ_ATTESTATION_PROPAGATION_TIME`_
 
 - `--sequencer.secondsBeforeInvalidatingBlockAsCommitteeMember <value>` (default: `144`)
   How many seconds to wait before trying to invalidate a block from the pending chain as a committee member (zero to never invalidate). The next proposer is expected to invalidate, so the committee acts as a fallback.
-  *Environment: `$SEQ_SECONDS_BEFORE_INVALIDATING_BLOCK_AS_COMMITTEE_MEMBER`*
+  _Environment: `$SEQ_SECONDS_BEFORE_INVALIDATING_BLOCK_AS_COMMITTEE_MEMBER`_
 
 - `--sequencer.secondsBeforeInvalidatingBlockAsNonCommitteeMember <value>` (default: `432`)
   How many seconds to wait before trying to invalidate a block from the pending chain as a non-committee member (zero to never invalidate). The next proposer is expected to invalidate, then the committee, so other sequencers act as a fallback.
-  *Environment: `$SEQ_SECONDS_BEFORE_INVALIDATING_BLOCK_AS_NON_COMMITTEE_MEMBER`*
+  _Environment: `$SEQ_SECONDS_BEFORE_INVALIDATING_BLOCK_AS_NON_COMMITTEE_MEMBER`_
 
 - `--sequencer.broadcastInvalidBlockProposal <value>`
   Broadcast invalid block proposals with corrupted state (for testing only)
@@ -1334,39 +1330,39 @@ Options:
 
 - `--sequencer.txPublicSetupAllowList <value>`
   The list of functions calls allowed to run in setup
-  *Environment: `$TX_PUBLIC_SETUP_ALLOWLIST`*
+  _Environment: `$TX_PUBLIC_SETUP_ALLOWLIST`_
 
 - `--sequencer.keyStoreDirectory <value>`
   Location of key store directory
-  *Environment: `$KEY_STORE_DIRECTORY`*
+  _Environment: `$KEY_STORE_DIRECTORY`_
 
 - `--sequencer.publisherPrivateKeys <value>`
   The private keys to be used by the publisher.
-  *Environment: `$SEQ_PUBLISHER_PRIVATE_KEYS`*
+  _Environment: `$SEQ_PUBLISHER_PRIVATE_KEYS`_
 
 - `--sequencer.publisherAddresses <value>`
   The addresses of the publishers to use with remote signers
-  *Environment: `$SEQ_PUBLISHER_ADDRESSES`*
+  _Environment: `$SEQ_PUBLISHER_ADDRESSES`_
 
 - `--sequencer.publisherAllowInvalidStates <value>` (default: `true`)
   True to use publishers in invalid states (timed out, cancelled, etc) if no other is available
-  *Environment: `$SEQ_PUBLISHER_ALLOW_INVALID_STATES`*
+  _Environment: `$SEQ_PUBLISHER_ALLOW_INVALID_STATES`_
 
 - `--sequencer.publisherForwarderAddress <value>`
   Address of the forwarder contract to wrap all L1 transactions through (for testing purposes only)
-  *Environment: `$SEQ_PUBLISHER_FORWARDER_ADDRESS`*
+  _Environment: `$SEQ_PUBLISHER_FORWARDER_ADDRESS`_
 
 - `--sequencer.blobSinkUrl <value>`
   The URL of the blob sink
-  *Environment: `$BLOB_SINK_URL`*
+  _Environment: `$BLOB_SINK_URL`_
 
 - `--sequencer.blobAllowEmptySources <value>`
   Whether to allow having no blob sources configured during startup
-  *Environment: `$BLOB_ALLOW_EMPTY_SOURCES`*
+  _Environment: `$BLOB_ALLOW_EMPTY_SOURCES`_
 
 - `--sequencer.archiveApiUrl <value>`
   The URL of the archive API
-  *Environment: `$BLOB_SINK_ARCHIVE_API_URL`*
+  _Environment: `$BLOB_SINK_ARCHIVE_API_URL`_
 
 **BLOB SINK**
 
@@ -1375,19 +1371,19 @@ Options:
 
 - `--blobSink.port <value>`
   The port to run the blob sink server on
-  *Environment: `$BLOB_SINK_PORT`*
+  _Environment: `$BLOB_SINK_PORT`_
 
 - `--blobSink.blobSinkMapSizeKb <value>`
   The maximum possible size of the blob sink DB in KB. Overwrites the general dataStoreMapSizeKb.
-  *Environment: `$BLOB_SINK_MAP_SIZE_KB`*
+  _Environment: `$BLOB_SINK_MAP_SIZE_KB`_
 
 - `--blobSink.blobAllowEmptySources <value>`
   Whether to allow having no blob sources configured during startup
-  *Environment: `$BLOB_ALLOW_EMPTY_SOURCES`*
+  _Environment: `$BLOB_ALLOW_EMPTY_SOURCES`_
 
 - `--blobSink.archiveApiUrl <value>`
   The URL of the archive API
-  *Environment: `$BLOB_SINK_ARCHIVE_API_URL`*
+  _Environment: `$BLOB_SINK_ARCHIVE_API_URL`_
 
 **PROVER NODE**
 
@@ -1396,102 +1392,102 @@ Options:
 
 - `--proverNode.keyStoreDirectory <value>`
   Location of key store directory
-  *Environment: `$KEY_STORE_DIRECTORY`*
+  _Environment: `$KEY_STORE_DIRECTORY`_
 
 - `--proverNode.acvmWorkingDirectory <value>`
   The working directory to use for simulation/proving
-  *Environment: `$ACVM_WORKING_DIRECTORY`*
+  _Environment: `$ACVM_WORKING_DIRECTORY`_
 
 - `--proverNode.acvmBinaryPath <value>`
   The path to the ACVM binary
-  *Environment: `$ACVM_BINARY_PATH`*
+  _Environment: `$ACVM_BINARY_PATH`_
 
 - `--proverNode.bbWorkingDirectory <value>`
   The working directory to use for proving
-  *Environment: `$BB_WORKING_DIRECTORY`*
+  _Environment: `$BB_WORKING_DIRECTORY`_
 
 - `--proverNode.bbBinaryPath <value>`
   The path to the bb binary
-  *Environment: `$BB_BINARY_PATH`*
+  _Environment: `$BB_BINARY_PATH`_
 
 - `--proverNode.bbSkipCleanup <value>`
   Whether to skip cleanup of bb temporary files
-  *Environment: `$BB_SKIP_CLEANUP`*
+  _Environment: `$BB_SKIP_CLEANUP`_
 
 - `--proverNode.numConcurrentIVCVerifiers <value>` (default: `8`)
   Max number of chonk verifiers to run concurrently
-  *Environment: `$BB_NUM_IVC_VERIFIERS`*
+  _Environment: `$BB_NUM_IVC_VERIFIERS`_
 
 - `--proverNode.bbIVCConcurrency <value>` (default: `1`)
   Number of threads to use for IVC verification
-  *Environment: `$BB_IVC_CONCURRENCY`*
+  _Environment: `$BB_IVC_CONCURRENCY`_
 
 - `--proverNode.nodeUrl <value>`
   The URL to the Aztec node to take proving jobs from
-  *Environment: `$AZTEC_NODE_URL`*
+  _Environment: `$AZTEC_NODE_URL`_
 
 - `--proverNode.proverId <value>`
   Hex value that identifies the prover. Defaults to the address used for submitting proofs if not set.
-  *Environment: `$PROVER_ID`*
+  _Environment: `$PROVER_ID`_
 
 - `--proverNode.failedProofStore <value>`
   Store for failed proof inputs. Google cloud storage is only supported at the moment. Set this value as gs://bucket-name/path/to/store.
-  *Environment: `$PROVER_FAILED_PROOF_STORE`*
+  _Environment: `$PROVER_FAILED_PROOF_STORE`_
 
 - `--proverNode.publisherAllowInvalidStates <value>` (default: `true`)
   True to use publishers in invalid states (timed out, cancelled, etc) if no other is available
-  *Environment: `$PROVER_PUBLISHER_ALLOW_INVALID_STATES`*
+  _Environment: `$PROVER_PUBLISHER_ALLOW_INVALID_STATES`_
 
 - `--proverNode.publisherForwarderAddress <value>`
   Address of the forwarder contract to wrap all L1 transactions through (for testing purposes only)
-  *Environment: `$PROVER_PUBLISHER_FORWARDER_ADDRESS`*
+  _Environment: `$PROVER_PUBLISHER_FORWARDER_ADDRESS`_
 
 - `--proverNode.publisherPrivateKeys <value>`
   The private keys to be used by the publisher.
-  *Environment: `$PROVER_PUBLISHER_PRIVATE_KEYS`*
+  _Environment: `$PROVER_PUBLISHER_PRIVATE_KEYS`_
 
 - `--proverNode.publisherAddresses <value>`
   The addresses of the publishers to use with remote signers
-  *Environment: `$PROVER_PUBLISHER_ADDRESSES`*
+  _Environment: `$PROVER_PUBLISHER_ADDRESSES`_
 
 - `--proverNode.proverNodeMaxPendingJobs <value>` (default: `10`)
   The maximum number of pending jobs for the prover node
-  *Environment: `$PROVER_NODE_MAX_PENDING_JOBS`*
+  _Environment: `$PROVER_NODE_MAX_PENDING_JOBS`_
 
 - `--proverNode.proverNodePollingIntervalMs <value>` (default: `1000`)
   The interval in milliseconds to poll for new jobs
-  *Environment: `$PROVER_NODE_POLLING_INTERVAL_MS`*
+  _Environment: `$PROVER_NODE_POLLING_INTERVAL_MS`_
 
 - `--proverNode.proverNodeMaxParallelBlocksPerEpoch <value>` (default: `32`)
   The Maximum number of blocks to process in parallel while proving an epoch
-  *Environment: `$PROVER_NODE_MAX_PARALLEL_BLOCKS_PER_EPOCH`*
+  _Environment: `$PROVER_NODE_MAX_PARALLEL_BLOCKS_PER_EPOCH`_
 
 - `--proverNode.proverNodeFailedEpochStore <value>`
   File store where to upload node state when an epoch fails to be proven
-  *Environment: `$PROVER_NODE_FAILED_EPOCH_STORE`*
+  _Environment: `$PROVER_NODE_FAILED_EPOCH_STORE`_
 
 - `--proverNode.proverNodeEpochProvingDelayMs <value>`
   Optional delay in milliseconds to wait before proving a new epoch
 
 - `--proverNode.txGatheringIntervalMs <value>` (default: `1000`)
   How often to check that tx data is available
-  *Environment: `$PROVER_NODE_TX_GATHERING_INTERVAL_MS`*
+  _Environment: `$PROVER_NODE_TX_GATHERING_INTERVAL_MS`_
 
 - `--proverNode.txGatheringBatchSize <value>` (default: `10`)
   How many transactions to gather from a node in a single request
-  *Environment: `$PROVER_NODE_TX_GATHERING_BATCH_SIZE`*
+  _Environment: `$PROVER_NODE_TX_GATHERING_BATCH_SIZE`_
 
 - `--proverNode.txGatheringMaxParallelRequestsPerNode <value>` (default: `100`)
   How many tx requests to make in parallel to each node
-  *Environment: `$PROVER_NODE_TX_GATHERING_MAX_PARALLEL_REQUESTS_PER_NODE`*
+  _Environment: `$PROVER_NODE_TX_GATHERING_MAX_PARALLEL_REQUESTS_PER_NODE`_
 
 - `--proverNode.txGatheringTimeoutMs <value>` (default: `120000`)
   How long to wait for tx data to be available before giving up
-  *Environment: `$PROVER_NODE_TX_GATHERING_TIMEOUT_MS`*
+  _Environment: `$PROVER_NODE_TX_GATHERING_TIMEOUT_MS`_
 
 - `--proverNode.proverNodeDisableProofPublish <value>`
   Whether the prover node skips publishing proofs to L1
-  *Environment: `$PROVER_NODE_DISABLE_PROOF_PUBLISH`*
+  _Environment: `$PROVER_NODE_DISABLE_PROOF_PUBLISH`_
 
 **PROVER BROKER**
 
@@ -1500,31 +1496,31 @@ Options:
 
 - `--proverBroker.proverBrokerJobTimeoutMs <value>` (default: `30000`)
   Jobs are retried if not kept alive for this long
-  *Environment: `$PROVER_BROKER_JOB_TIMEOUT_MS`*
+  _Environment: `$PROVER_BROKER_JOB_TIMEOUT_MS`_
 
 - `--proverBroker.proverBrokerPollIntervalMs <value>` (default: `1000`)
   The interval to check job health status
-  *Environment: `$PROVER_BROKER_POLL_INTERVAL_MS`*
+  _Environment: `$PROVER_BROKER_POLL_INTERVAL_MS`_
 
 - `--proverBroker.proverBrokerJobMaxRetries <value>` (default: `3`)
   If starting a prover broker locally, the max number of retries per proving job
-  *Environment: `$PROVER_BROKER_JOB_MAX_RETRIES`*
+  _Environment: `$PROVER_BROKER_JOB_MAX_RETRIES`_
 
 - `--proverBroker.proverBrokerBatchSize <value>` (default: `100`)
   The prover broker writes jobs to disk in batches
-  *Environment: `$PROVER_BROKER_BATCH_SIZE`*
+  _Environment: `$PROVER_BROKER_BATCH_SIZE`_
 
 - `--proverBroker.proverBrokerBatchIntervalMs <value>` (default: `50`)
   How often to flush batches to disk
-  *Environment: `$PROVER_BROKER_BATCH_INTERVAL_MS`*
+  _Environment: `$PROVER_BROKER_BATCH_INTERVAL_MS`_
 
 - `--proverBroker.proverBrokerMaxEpochsToKeepResultsFor <value>` (default: `1`)
   The maximum number of epochs to keep results for
-  *Environment: `$PROVER_BROKER_MAX_EPOCHS_TO_KEEP_RESULTS_FOR`*
+  _Environment: `$PROVER_BROKER_MAX_EPOCHS_TO_KEEP_RESULTS_FOR`_
 
 - `--proverBroker.proverBrokerStoreMapSizeKb <value>`
   The size of the prover broker's database. Will override the dataStoreMapSizeKb if set.
-  *Environment: `$PROVER_BROKER_STORE_MAP_SIZE_KB`*
+  _Environment: `$PROVER_BROKER_STORE_MAP_SIZE_KB`_
 
 **PROVER AGENT**
 
@@ -1533,352 +1529,352 @@ Options:
 
 - `--proverAgent.proverAgentCount <value>` (default: `1`)
   Whether this prover has a local prover agent
-  *Environment: `$PROVER_AGENT_COUNT`*
+  _Environment: `$PROVER_AGENT_COUNT`_
 
 - `--proverAgent.proverAgentPollIntervalMs <value>` (default: `1000`)
   The interval agents poll for jobs at
-  *Environment: `$PROVER_AGENT_POLL_INTERVAL_MS`*
+  _Environment: `$PROVER_AGENT_POLL_INTERVAL_MS`_
 
 - `--proverAgent.proverAgentProofTypes <value>`
   The types of proofs the prover agent can generate
-  *Environment: `$PROVER_AGENT_PROOF_TYPES`*
+  _Environment: `$PROVER_AGENT_PROOF_TYPES`_
 
 - `--proverAgent.proverBrokerUrl <value>`
   The URL where this agent takes jobs from
-  *Environment: `$PROVER_BROKER_HOST`*
+  _Environment: `$PROVER_BROKER_HOST`_
 
 - `--proverAgent.realProofs <value>` (default: `true`)
   Whether to construct real proofs
-  *Environment: `$PROVER_REAL_PROOFS`*
+  _Environment: `$PROVER_REAL_PROOFS`_
 
 - `--proverAgent.proverTestDelayType <value>` (default: `fixed`)
   The type of artificial delay to introduce
-  *Environment: `$PROVER_TEST_DELAY_TYPE`*
+  _Environment: `$PROVER_TEST_DELAY_TYPE`_
 
 - `--proverAgent.proverTestDelayMs <value>`
   Artificial delay to introduce to all operations to the test prover.
-  *Environment: `$PROVER_TEST_DELAY_MS`*
+  _Environment: `$PROVER_TEST_DELAY_MS`_
 
 - `--proverAgent.proverTestDelayFactor <value>` (default: `1`)
   If using realistic delays, what percentage of realistic times to apply.
-  *Environment: `$PROVER_TEST_DELAY_FACTOR`*
+  _Environment: `$PROVER_TEST_DELAY_FACTOR`_
 
 - `--proverAgent.proverTestVerificationDelayMs <value>` (default: `10`)
   The delay (ms) to inject during fake proof verification
-  *Environment: `$PROVER_TEST_VERIFICATION_DELAY_MS`*
+  _Environment: `$PROVER_TEST_VERIFICATION_DELAY_MS`_
 
 - `--p2p-enabled [value]`
   Enable P2P subsystem
-  *Environment: `$P2P_ENABLED`*
+  _Environment: `$P2P_ENABLED`_
 
 - `--p2p.p2pDiscoveryDisabled <value>`
   A flag dictating whether the P2P discovery system should be disabled.
-  *Environment: `$P2P_DISCOVERY_DISABLED`*
+  _Environment: `$P2P_DISCOVERY_DISABLED`_
 
 - `--p2p.blockCheckIntervalMS <value>` (default: `100`)
   The frequency in which to check for new L2 blocks.
-  *Environment: `$P2P_BLOCK_CHECK_INTERVAL_MS`*
+  _Environment: `$P2P_BLOCK_CHECK_INTERVAL_MS`_
 
 - `--p2p.debugDisableColocationPenalty <value>`
   DEBUG: Disable colocation penalty - NEVER set to true in production
-  *Environment: `$DEBUG_P2P_DISABLE_COLOCATION_PENALTY`*
+  _Environment: `$DEBUG_P2P_DISABLE_COLOCATION_PENALTY`_
 
 - `--p2p.peerCheckIntervalMS <value>` (default: `30000`)
   The frequency in which to check for new peers.
-  *Environment: `$P2P_PEER_CHECK_INTERVAL_MS`*
+  _Environment: `$P2P_PEER_CHECK_INTERVAL_MS`_
 
 - `--p2p.l2QueueSize <value>` (default: `1000`)
   Size of queue of L2 blocks to store.
-  *Environment: `$P2P_L2_QUEUE_SIZE`*
+  _Environment: `$P2P_L2_QUEUE_SIZE`_
 
 - `--p2p.listenAddress <value>` (default: `0.0.0.0`)
   The listen address. ipv4 address.
-  *Environment: `$P2P_LISTEN_ADDR`*
+  _Environment: `$P2P_LISTEN_ADDR`_
 
 - `--p2p.p2pPort <value>` (default: `40400`)
   The port for the P2P service. Defaults to 40400
-  *Environment: `$P2P_PORT`*
+  _Environment: `$P2P_PORT`_
 
 - `--p2p.p2pBroadcastPort <value>`
-  The port to broadcast the P2P service on (included in the node's ENR). Defaults to P2P_PORT.
-  *Environment: `$P2P_BROADCAST_PORT`*
+  The port to broadcast the P2P service on (included in the node's ENR). Defaults to P2P*PORT.
+  \_Environment: `$P2P_BROADCAST_PORT`*
 
 - `--p2p.p2pIp <value>`
   The IP address for the P2P service. ipv4 address.
-  *Environment: `$P2P_IP`*
+  _Environment: `$P2P_IP`_
 
 - `--p2p.peerIdPrivateKey <value>`
   An optional peer id private key. If blank, will generate a random key.
-  *Environment: `$PEER_ID_PRIVATE_KEY`*
+  _Environment: `$PEER_ID_PRIVATE_KEY`_
 
 - `--p2p.peerIdPrivateKeyPath <value>`
   An optional path to store generated peer id private keys. If blank, will default to storing any generated keys in the root of the data directory.
-  *Environment: `$PEER_ID_PRIVATE_KEY_PATH`*
+  _Environment: `$PEER_ID_PRIVATE_KEY_PATH`_
 
 - `--p2p.bootstrapNodes <value>`
   A list of bootstrap peer ENRs to connect to. Separated by commas.
-  *Environment: `$BOOTSTRAP_NODES`*
+  _Environment: `$BOOTSTRAP_NODES`_
 
 - `--p2p.bootstrapNodeEnrVersionCheck <value>`
   Whether to check the version of the bootstrap node ENR.
-  *Environment: `$P2P_BOOTSTRAP_NODE_ENR_VERSION_CHECK`*
+  _Environment: `$P2P_BOOTSTRAP_NODE_ENR_VERSION_CHECK`_
 
 - `--p2p.bootstrapNodesAsFullPeers <value>`
   Whether to consider our configured bootnodes as full peers
-  *Environment: `$P2P_BOOTSTRAP_NODES_AS_FULL_PEERS`*
+  _Environment: `$P2P_BOOTSTRAP_NODES_AS_FULL_PEERS`_
 
 - `--p2p.maxPeerCount <value>` (default: `100`)
   The maximum number of peers to connect to.
-  *Environment: `$P2P_MAX_PEERS`*
+  _Environment: `$P2P_MAX_PEERS`_
 
 - `--p2p.queryForIp <value>`
   If announceUdpAddress or announceTcpAddress are not provided, query for the IP address of the machine. Default is false.
-  *Environment: `$P2P_QUERY_FOR_IP`*
+  _Environment: `$P2P_QUERY_FOR_IP`_
 
 - `--p2p.gossipsubInterval <value>` (default: `700`)
   The interval of the gossipsub heartbeat to perform maintenance tasks.
-  *Environment: `$P2P_GOSSIPSUB_INTERVAL_MS`*
+  _Environment: `$P2P_GOSSIPSUB_INTERVAL_MS`_
 
 - `--p2p.gossipsubD <value>` (default: `8`)
   The D parameter for the gossipsub protocol.
-  *Environment: `$P2P_GOSSIPSUB_D`*
+  _Environment: `$P2P_GOSSIPSUB_D`_
 
 - `--p2p.gossipsubDlo <value>` (default: `4`)
   The Dlo parameter for the gossipsub protocol.
-  *Environment: `$P2P_GOSSIPSUB_DLO`*
+  _Environment: `$P2P_GOSSIPSUB_DLO`_
 
 - `--p2p.gossipsubDhi <value>` (default: `12`)
   The Dhi parameter for the gossipsub protocol.
-  *Environment: `$P2P_GOSSIPSUB_DHI`*
+  _Environment: `$P2P_GOSSIPSUB_DHI`_
 
 - `--p2p.gossipsubDLazy <value>` (default: `8`)
   The Dlazy parameter for the gossipsub protocol.
-  *Environment: `$P2P_GOSSIPSUB_DLAZY`*
+  _Environment: `$P2P_GOSSIPSUB_DLAZY`_
 
 - `--p2p.gossipsubFloodPublish <value>`
   Whether to flood publish messages. - For testing purposes only
-  *Environment: `$P2P_GOSSIPSUB_FLOOD_PUBLISH`*
+  _Environment: `$P2P_GOSSIPSUB_FLOOD_PUBLISH`_
 
 - `--p2p.gossipsubMcacheLength <value>` (default: `6`)
   The number of gossipsub interval message cache windows to keep.
-  *Environment: `$P2P_GOSSIPSUB_MCACHE_LENGTH`*
+  _Environment: `$P2P_GOSSIPSUB_MCACHE_LENGTH`_
 
 - `--p2p.gossipsubMcacheGossip <value>` (default: `3`)
   How many message cache windows to include when gossiping with other peers.
-  *Environment: `$P2P_GOSSIPSUB_MCACHE_GOSSIP`*
+  _Environment: `$P2P_GOSSIPSUB_MCACHE_GOSSIP`_
 
 - `--p2p.gossipsubSeenTTL <value>` (default: `1200000`)
   How long to keep message IDs in the seen cache.
-  *Environment: `$P2P_GOSSIPSUB_SEEN_TTL`*
+  _Environment: `$P2P_GOSSIPSUB_SEEN_TTL`_
 
 - `--p2p.gossipsubTxTopicWeight <value>` (default: `1`)
   The weight of the tx topic for the gossipsub protocol.
-  *Environment: `$P2P_GOSSIPSUB_TX_TOPIC_WEIGHT`*
+  _Environment: `$P2P_GOSSIPSUB_TX_TOPIC_WEIGHT`_
 
 - `--p2p.gossipsubTxInvalidMessageDeliveriesWeight <value>` (default: `-20`)
   The weight of the tx invalid message deliveries for the gossipsub protocol.
-  *Environment: `$P2P_GOSSIPSUB_TX_INVALID_MESSAGE_DELIVERIES_WEIGHT`*
+  _Environment: `$P2P_GOSSIPSUB_TX_INVALID_MESSAGE_DELIVERIES_WEIGHT`_
 
 - `--p2p.gossipsubTxInvalidMessageDeliveriesDecay <value>` (default: `0.5`)
   Determines how quickly the penalty for invalid message deliveries decays over time. Between 0 and 1.
-  *Environment: `$P2P_GOSSIPSUB_TX_INVALID_MESSAGE_DELIVERIES_DECAY`*
+  _Environment: `$P2P_GOSSIPSUB_TX_INVALID_MESSAGE_DELIVERIES_DECAY`_
 
 - `--p2p.peerPenaltyValues <value>` (default: `2,10,50`)
   The values for the peer scoring system. Passed as a comma separated list of values in order: low, mid, high tolerance errors.
-  *Environment: `$P2P_PEER_PENALTY_VALUES`*
+  _Environment: `$P2P_PEER_PENALTY_VALUES`_
 
 - `--p2p.doubleSpendSeverePeerPenaltyWindow <value>` (default: `30`)
   The "age" (in L2 blocks) of a tx after which we heavily penalize a peer for sending it.
-  *Environment: `$P2P_DOUBLE_SPEND_SEVERE_PEER_PENALTY_WINDOW`*
+  _Environment: `$P2P_DOUBLE_SPEND_SEVERE_PEER_PENALTY_WINDOW`_
 
 - `--p2p.blockRequestBatchSize <value>` (default: `20`)
   The number of blocks to fetch in a single batch.
-  *Environment: `$P2P_BLOCK_REQUEST_BATCH_SIZE`*
+  _Environment: `$P2P_BLOCK_REQUEST_BATCH_SIZE`_
 
 - `--p2p.archivedTxLimit <value>`
   The number of transactions that will be archived. If the limit is set to 0 then archiving will be disabled.
-  *Environment: `$P2P_ARCHIVED_TX_LIMIT`*
+  _Environment: `$P2P_ARCHIVED_TX_LIMIT`_
 
 - `--p2p.trustedPeers <value>`
   A list of trusted peer ENRs that will always be persisted. Separated by commas.
-  *Environment: `$P2P_TRUSTED_PEERS`*
+  _Environment: `$P2P_TRUSTED_PEERS`_
 
 - `--p2p.privatePeers <value>`
   A list of private peer ENRs that will always be persisted and not be used for discovery. Separated by commas.
-  *Environment: `$P2P_PRIVATE_PEERS`*
+  _Environment: `$P2P_PRIVATE_PEERS`_
 
 - `--p2p.preferredPeers <value>`
   A list of preferred peer ENRs that will always be persisted and not be used for discovery. Separated by commas.
-  *Environment: `$P2P_PREFERRED_PEERS`*
+  _Environment: `$P2P_PREFERRED_PEERS`_
 
 - `--p2p.p2pStoreMapSizeKb <value>`
   The maximum possible size of the P2P DB in KB. Overwrites the general dataStoreMapSizeKb.
-  *Environment: `$P2P_STORE_MAP_SIZE_KB`*
+  _Environment: `$P2P_STORE_MAP_SIZE_KB`_
 
 - `--p2p.txPublicSetupAllowList <value>`
   The list of functions calls allowed to run in setup
-  *Environment: `$TX_PUBLIC_SETUP_ALLOWLIST`*
+  _Environment: `$TX_PUBLIC_SETUP_ALLOWLIST`_
 
 - `--p2p.maxTxPoolSize <value>` (default: `100000000`)
   The maximum cumulative tx size of pending txs (in bytes) before evicting lower priority txs.
-  *Environment: `$P2P_MAX_TX_POOL_SIZE`*
+  _Environment: `$P2P_MAX_TX_POOL_SIZE`_
 
 - `--p2p.txPoolOverflowFactor <value>` (default: `1.1`)
   How much the tx pool can overflow before it starts evicting txs. Must be greater than 1
-  *Environment: `$P2P_TX_POOL_OVERFLOW_FACTOR`*
+  _Environment: `$P2P_TX_POOL_OVERFLOW_FACTOR`_
 
 - `--p2p.seenMessageCacheSize <value>` (default: `100000`)
   The number of messages to keep in the seen message cache
-  *Environment: `$P2P_SEEN_MSG_CACHE_SIZE`*
+  _Environment: `$P2P_SEEN_MSG_CACHE_SIZE`_
 
 - `--p2p.p2pDisableStatusHandshake <value>`
   True to disable the status handshake on peer connected.
-  *Environment: `$P2P_DISABLE_STATUS_HANDSHAKE`*
+  _Environment: `$P2P_DISABLE_STATUS_HANDSHAKE`_
 
 - `--p2p.p2pAllowOnlyValidators <value>`
   True to only permit validators to connect.
-  *Environment: `$P2P_ALLOW_ONLY_VALIDATORS`*
+  _Environment: `$P2P_ALLOW_ONLY_VALIDATORS`_
 
 - `--p2p.p2pMaxFailedAuthAttemptsAllowed <value>` (default: `3`)
   Number of auth attempts to allow before peer is banned. Number is inclusive
-  *Environment: `$P2P_MAX_AUTH_FAILED_ATTEMPTS_ALLOWED`*
+  _Environment: `$P2P_MAX_AUTH_FAILED_ATTEMPTS_ALLOWED`_
 
 - `--p2p.dropTransactions <value>`
   True to simulate discarding transactions. - For testing purposes only
-  *Environment: `$P2P_DROP_TX`*
+  _Environment: `$P2P_DROP_TX`_
 
 - `--p2p.dropTransactionsProbability <value>`
   The probability that a transaction is discarded (0 - 1). - For testing purposes only
-  *Environment: `$P2P_DROP_TX_CHANCE`*
+  _Environment: `$P2P_DROP_TX_CHANCE`_
 
 - `--p2p.disableTransactions <value>`
   Whether transactions are disabled for this node. This means transactions will be rejected at the RPC and P2P layers.
-  *Environment: `$TRANSACTIONS_DISABLED`*
+  _Environment: `$TRANSACTIONS_DISABLED`_
 
 - `--p2p.txPoolDeleteTxsAfterReorg <value>`
   Whether to delete transactions from the pool after a reorg instead of moving them back to pending.
-  *Environment: `$P2P_TX_POOL_DELETE_TXS_AFTER_REORG`*
+  _Environment: `$P2P_TX_POOL_DELETE_TXS_AFTER_REORG`_
 
 - `--p2p.debugP2PInstrumentMessages <value>`
   Alters the format of p2p messages to include things like broadcast timestamp FOR TESTING ONLY
-  *Environment: `$DEBUG_P2P_INSTRUMENT_MESSAGES`*
+  _Environment: `$DEBUG_P2P_INSTRUMENT_MESSAGES`_
 
 - `--p2p.overallRequestTimeoutMs <value>` (default: `10000`)
   The overall timeout for a request response operation.
-  *Environment: `$P2P_REQRESP_OVERALL_REQUEST_TIMEOUT_MS`*
+  _Environment: `$P2P_REQRESP_OVERALL_REQUEST_TIMEOUT_MS`_
 
 - `--p2p.individualRequestTimeoutMs <value>` (default: `10000`)
   The timeout for an individual request response peer interaction.
-  *Environment: `$P2P_REQRESP_INDIVIDUAL_REQUEST_TIMEOUT_MS`*
+  _Environment: `$P2P_REQRESP_INDIVIDUAL_REQUEST_TIMEOUT_MS`_
 
 - `--p2p.dialTimeoutMs <value>` (default: `5000`)
   How long to wait for the dial protocol to establish a connection
-  *Environment: `$P2P_REQRESP_DIAL_TIMEOUT_MS`*
+  _Environment: `$P2P_REQRESP_DIAL_TIMEOUT_MS`_
 
 - `--p2p.p2pOptimisticNegotiation <value>`
   Whether to use optimistic protocol negotiation when dialing to another peer (opposite of `negotiateFully`).
-  *Environment: `$P2P_REQRESP_OPTIMISTIC_NEGOTIATION`*
+  _Environment: `$P2P_REQRESP_OPTIMISTIC_NEGOTIATION`_
 
 - `--p2p.txCollectionFastNodesTimeoutBeforeReqRespMs <value>` (default: `200`)
   How long to wait before starting reqresp for fast collection
-  *Environment: `$TX_COLLECTION_FAST_NODES_TIMEOUT_BEFORE_REQ_RESP_MS`*
+  _Environment: `$TX_COLLECTION_FAST_NODES_TIMEOUT_BEFORE_REQ_RESP_MS`_
 
 - `--p2p.txCollectionSlowNodesIntervalMs <value>` (default: `12000`)
   How often to collect from configured nodes in the slow collection loop
-  *Environment: `$TX_COLLECTION_SLOW_NODES_INTERVAL_MS`*
+  _Environment: `$TX_COLLECTION_SLOW_NODES_INTERVAL_MS`_
 
 - `--p2p.txCollectionSlowReqRespIntervalMs <value>` (default: `12000`)
   How often to collect from peers via reqresp in the slow collection loop
-  *Environment: `$TX_COLLECTION_SLOW_REQ_RESP_INTERVAL_MS`*
+  _Environment: `$TX_COLLECTION_SLOW_REQ_RESP_INTERVAL_MS`_
 
 - `--p2p.txCollectionSlowReqRespTimeoutMs <value>` (default: `20000`)
   How long to wait for a reqresp response during slow collection
-  *Environment: `$TX_COLLECTION_SLOW_REQ_RESP_TIMEOUT_MS`*
+  _Environment: `$TX_COLLECTION_SLOW_REQ_RESP_TIMEOUT_MS`_
 
 - `--p2p.txCollectionReconcileIntervalMs <value>` (default: `60000`)
   How often to reconcile found txs from the tx pool
-  *Environment: `$TX_COLLECTION_RECONCILE_INTERVAL_MS`*
+  _Environment: `$TX_COLLECTION_RECONCILE_INTERVAL_MS`_
 
 - `--p2p.txCollectionDisableSlowDuringFastRequests <value>` (default: `true`)
   Whether to disable the slow collection loop if we are dealing with any immediate requests
-  *Environment: `$TX_COLLECTION_DISABLE_SLOW_DURING_FAST_REQUESTS`*
+  _Environment: `$TX_COLLECTION_DISABLE_SLOW_DURING_FAST_REQUESTS`_
 
 - `--p2p.txCollectionFastNodeIntervalMs <value>` (default: `500`)
   How many ms to wait between retried request to a node via RPC during fast collection
-  *Environment: `$TX_COLLECTION_FAST_NODE_INTERVAL_MS`*
+  _Environment: `$TX_COLLECTION_FAST_NODE_INTERVAL_MS`_
 
 - `--p2p.txCollectionNodeRpcUrls <value>`
   A comma-separated list of Aztec node RPC URLs to use for tx collection
-  *Environment: `$TX_COLLECTION_NODE_RPC_URLS`*
+  _Environment: `$TX_COLLECTION_NODE_RPC_URLS`_
 
 - `--p2p.txCollectionFastMaxParallelRequestsPerNode <value>` (default: `4`)
   Maximum number of parallel requests to make to a node during fast collection
-  *Environment: `$TX_COLLECTION_FAST_MAX_PARALLEL_REQUESTS_PER_NODE`*
+  _Environment: `$TX_COLLECTION_FAST_MAX_PARALLEL_REQUESTS_PER_NODE`_
 
 - `--p2p.txCollectionNodeRpcMaxBatchSize <value>` (default: `50`)
   Maximum number of transactions to request from a node in a single batch
-  *Environment: `$TX_COLLECTION_NODE_RPC_MAX_BATCH_SIZE`*
+  _Environment: `$TX_COLLECTION_NODE_RPC_MAX_BATCH_SIZE`_
 
 - `--p2p-bootstrap`
   Starts Aztec P2P Bootstrap with options
 
 - `--p2pBootstrap.p2pBroadcastPort <value>`
-  The port to broadcast the P2P service on (included in the node's ENR). Defaults to P2P_PORT.
-  *Environment: `$P2P_BROADCAST_PORT`*
+  The port to broadcast the P2P service on (included in the node's ENR). Defaults to P2P*PORT.
+  \_Environment: `$P2P_BROADCAST_PORT`*
 
 - `--p2pBootstrap.peerIdPrivateKeyPath <value>`
   An optional path to store generated peer id private keys. If blank, will default to storing any generated keys in the root of the data directory.
-  *Environment: `$PEER_ID_PRIVATE_KEY_PATH`*
+  _Environment: `$PEER_ID_PRIVATE_KEY_PATH`_
 
 - `--p2pBootstrap.queryForIp <value>`
   If announceUdpAddress or announceTcpAddress are not provided, query for the IP address of the machine. Default is false.
-  *Environment: `$P2P_QUERY_FOR_IP`*
+  _Environment: `$P2P_QUERY_FOR_IP`_
 
 **TELEMETRY**
 
 - `--tel.metricsCollectorUrl <value>`
   The URL of the telemetry collector for metrics
-  *Environment: `$OTEL_EXPORTER_OTLP_METRICS_ENDPOINT`*
+  _Environment: `$OTEL_EXPORTER_OTLP_METRICS_ENDPOINT`_
 
 - `--tel.tracesCollectorUrl <value>`
   The URL of the telemetry collector for traces
-  *Environment: `$OTEL_EXPORTER_OTLP_TRACES_ENDPOINT`*
+  _Environment: `$OTEL_EXPORTER_OTLP_TRACES_ENDPOINT`_
 
 - `--tel.logsCollectorUrl <value>`
   The URL of the telemetry collector for logs
-  *Environment: `$OTEL_EXPORTER_OTLP_LOGS_ENDPOINT`*
+  _Environment: `$OTEL_EXPORTER_OTLP_LOGS_ENDPOINT`_
 
 - `--tel.otelCollectIntervalMs <value>` (default: `60000`)
   The interval at which to collect metrics
-  *Environment: `$OTEL_COLLECT_INTERVAL_MS`*
+  _Environment: `$OTEL_COLLECT_INTERVAL_MS`_
 
 - `--tel.otelExportTimeoutMs <value>` (default: `30000`)
   The timeout for exporting metrics
-  *Environment: `$OTEL_EXPORT_TIMEOUT_MS`*
+  _Environment: `$OTEL_EXPORT_TIMEOUT_MS`_
 
 - `--tel.otelExcludeMetrics <value>`
   A list of metric prefixes to exclude from export
-  *Environment: `$OTEL_EXCLUDE_METRICS`*
+  _Environment: `$OTEL_EXCLUDE_METRICS`_
 
 - `--tel.otelIncludeMetrics <value>`
-  A list of metric prefixes to include in export (ignored if OTEL_EXCLUDE_METRICS is set)
-  *Environment: `$OTEL_INCLUDE_METRICS`*
+  A list of metric prefixes to include in export (ignored if OTEL*EXCLUDE_METRICS is set)
+  \_Environment: `$OTEL_INCLUDE_METRICS`*
 
 - `--tel.publicMetricsCollectorUrl <value>`
   A URL to publish a subset of metrics for public consumption
-  *Environment: `$PUBLIC_OTEL_EXPORTER_OTLP_METRICS_ENDPOINT`*
+  _Environment: `$PUBLIC_OTEL_EXPORTER_OTLP_METRICS_ENDPOINT`_
 
 - `--tel.publicMetricsCollectFrom <value>`
   The role types to collect metrics from
-  *Environment: `$PUBLIC_OTEL_COLLECT_FROM`*
+  _Environment: `$PUBLIC_OTEL_COLLECT_FROM`_
 
 - `--tel.publicIncludeMetrics <value>`
   A list of metric prefixes to publicly export
-  *Environment: `$PUBLIC_OTEL_INCLUDE_METRICS`*
+  _Environment: `$PUBLIC_OTEL_INCLUDE_METRICS`_
 
 - `--tel.publicMetricsOptOut <value>` (default: `true`)
   Whether to opt out of sharing optional telemetry
-  *Environment: `$PUBLIC_OTEL_OPT_OUT`*
+  _Environment: `$PUBLIC_OTEL_OPT_OUT`_
 
 **BOT**
 
@@ -1887,99 +1883,99 @@ Options:
 
 - `--bot.nodeUrl <value>`
   The URL to the Aztec node to check for tx pool status.
-  *Environment: `$AZTEC_NODE_URL`*
+  _Environment: `$AZTEC_NODE_URL`_
 
 - `--bot.nodeAdminUrl <value>`
   The URL to the Aztec node admin API to force-flush txs if configured.
-  *Environment: `$AZTEC_NODE_ADMIN_URL`*
+  _Environment: `$AZTEC_NODE_ADMIN_URL`_
 
 - `--bot.l1Mnemonic <value>`
   The mnemonic for the account to bridge fee juice from L1.
-  *Environment: `$BOT_L1_MNEMONIC`*
+  _Environment: `$BOT_L1_MNEMONIC`_
 
 - `--bot.l1PrivateKey <value>`
   The private key for the account to bridge fee juice from L1.
-  *Environment: `$BOT_L1_PRIVATE_KEY`*
+  _Environment: `$BOT_L1_PRIVATE_KEY`_
 
 - `--bot.l1ToL2MessageTimeoutSeconds <value>` (default: `3600`)
   How long to wait for L1 to L2 messages to become available on L2
-  *Environment: `$BOT_L1_TO_L2_TIMEOUT_SECONDS`*
+  _Environment: `$BOT_L1_TO_L2_TIMEOUT_SECONDS`_
 
 - `--bot.senderPrivateKey <value>`
   Signing private key for the sender account.
-  *Environment: `$BOT_PRIVATE_KEY`*
+  _Environment: `$BOT_PRIVATE_KEY`_
 
 - `--bot.senderSalt <value>`
   The salt to use to deploy the sender account.
-  *Environment: `$BOT_ACCOUNT_SALT`*
+  _Environment: `$BOT_ACCOUNT_SALT`_
 
 - `--bot.tokenSalt <value>` (default: `0x0000000000000000000000000000000000000000000000000000000000000001`)
   The salt to use to deploy the token contract.
-  *Environment: `$BOT_TOKEN_SALT`*
+  _Environment: `$BOT_TOKEN_SALT`_
 
 - `--bot.txIntervalSeconds <value>` (default: `60`)
   Every how many seconds should a new tx be sent.
-  *Environment: `$BOT_TX_INTERVAL_SECONDS`*
+  _Environment: `$BOT_TX_INTERVAL_SECONDS`_
 
 - `--bot.privateTransfersPerTx <value>` (default: `1`)
   How many private token transfers are executed per tx.
-  *Environment: `$BOT_PRIVATE_TRANSFERS_PER_TX`*
+  _Environment: `$BOT_PRIVATE_TRANSFERS_PER_TX`_
 
 - `--bot.publicTransfersPerTx <value>` (default: `1`)
   How many public token transfers are executed per tx.
-  *Environment: `$BOT_PUBLIC_TRANSFERS_PER_TX`*
+  _Environment: `$BOT_PUBLIC_TRANSFERS_PER_TX`_
 
 - `--bot.feePaymentMethod <value>` (default: `fee_juice`)
-  How to handle fee payments. (Options: fee_juice)
-  *Environment: `$BOT_FEE_PAYMENT_METHOD`*
+  How to handle fee payments. (Options: fee*juice)
+  \_Environment: `$BOT_FEE_PAYMENT_METHOD`*
 
-- `--bot.baseFeePadding <value>` (default: `3`)
-  How much is the bot willing to overpay vs. the current base fee
-  *Environment: `$BOT_BASE_FEE_PADDING`*
+- `--bot.minFeePadding <value>` (default: `3`)
+  How much is the bot willing to overpay vs. the current min fee
+  _Environment: `$BOT_MIN_FEE_PADDING`_
 
 - `--bot.noStart <value>`
   True to not automatically setup or start the bot on initialization.
-  *Environment: `$BOT_NO_START`*
+  _Environment: `$BOT_NO_START`_
 
 - `--bot.txMinedWaitSeconds <value>` (default: `180`)
   How long to wait for a tx to be mined before reporting an error.
-  *Environment: `$BOT_TX_MINED_WAIT_SECONDS`*
+  _Environment: `$BOT_TX_MINED_WAIT_SECONDS`_
 
 - `--bot.followChain <value>` (default: `NONE`)
   Which chain the bot follows
-  *Environment: `$BOT_FOLLOW_CHAIN`*
+  _Environment: `$BOT_FOLLOW_CHAIN`_
 
 - `--bot.maxPendingTxs <value>` (default: `128`)
   Do not send a tx if the node's tx pool already has this many pending txs.
-  *Environment: `$BOT_MAX_PENDING_TXS`*
+  _Environment: `$BOT_MAX_PENDING_TXS`_
 
 - `--bot.flushSetupTransactions <value>`
   Make a request for the sequencer to build a block after each setup transaction.
-  *Environment: `$BOT_FLUSH_SETUP_TRANSACTIONS`*
+  _Environment: `$BOT_FLUSH_SETUP_TRANSACTIONS`_
 
 - `--bot.l2GasLimit <value>`
   L2 gas limit for the tx (empty to have the bot trigger an estimate gas).
-  *Environment: `$BOT_L2_GAS_LIMIT`*
+  _Environment: `$BOT_L2_GAS_LIMIT`_
 
 - `--bot.daGasLimit <value>`
   DA gas limit for the tx (empty to have the bot trigger an estimate gas).
-  *Environment: `$BOT_DA_GAS_LIMIT`*
+  _Environment: `$BOT_DA_GAS_LIMIT`_
 
 - `--bot.contract <value>` (default: `TokenContract`)
   Token contract to use
-  *Environment: `$BOT_TOKEN_CONTRACT`*
+  _Environment: `$BOT_TOKEN_CONTRACT`_
 
 - `--bot.maxConsecutiveErrors <value>`
   The maximum number of consecutive errors before the bot shuts down
-  *Environment: `$BOT_MAX_CONSECUTIVE_ERRORS`*
+  _Environment: `$BOT_MAX_CONSECUTIVE_ERRORS`_
 
 - `--bot.stopWhenUnhealthy <value>`
   Stops the bot if service becomes unhealthy
-  *Environment: `$BOT_STOP_WHEN_UNHEALTHY`*
+  _Environment: `$BOT_STOP_WHEN_UNHEALTHY`_
 
 - `--bot.ammTxs <value>`
   Deploy an AMM and send swaps to it
-  *Environment: `$BOT_AMM_TXS`*
+  _Environment: `$BOT_AMM_TXS`_
 
 **PXE**
 
@@ -1988,15 +1984,15 @@ Options:
 
 - `--pxe.l2BlockBatchSize <value>` (default: `50`)
   Maximum amount of blocks to pull from the stream in one request when synchronizing
-  *Environment: `$PXE_L2_BLOCK_BATCH_SIZE`*
+  _Environment: `$PXE_L2_BLOCK_BATCH_SIZE`_
 
 - `--pxe.proverEnabled <value>` (default: `true`)
   Enable real proofs
-  *Environment: `$PXE_PROVER_ENABLED`*
+  _Environment: `$PXE_PROVER_ENABLED`_
 
 - `--pxe.nodeUrl <value>`
   Custom Aztec Node URL to connect to
-  *Environment: `$AZTEC_NODE_URL`*
+  _Environment: `$AZTEC_NODE_URL`_
 
 **TXE**
 
@@ -2173,8 +2169,7 @@ Options:
 
 ### aztec validator-keys|valKeys
 
-*This subcommand does not provide its own help information.*
-
+_This subcommand does not provide its own help information._
 
 ### aztec vote-on-governance-proposal
 

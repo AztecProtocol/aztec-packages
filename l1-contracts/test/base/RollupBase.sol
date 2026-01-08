@@ -149,11 +149,11 @@ contract RollupBase is DecoderBase {
       full.checkpoint.header.slotNumber = slotNumber;
     }
 
-    uint128 baseFee = SafeCast.toUint128(rollup.getManaBaseFeeAt(full.checkpoint.header.timestamp, true));
-    full.checkpoint.header.gasFees.feePerL2Gas = baseFee;
+    uint128 minFee = SafeCast.toUint128(rollup.getManaMinFeeAt(full.checkpoint.header.timestamp, true));
+    full.checkpoint.header.gasFees.feePerL2Gas = minFee;
     full.checkpoint.header.totalManaUsed = _manaUsed;
 
-    checkpointFees[full.checkpoint.checkpointNumber] = _manaUsed * baseFee;
+    checkpointFees[full.checkpoint.checkpointNumber] = _manaUsed * minFee;
 
     // We jump to the time of the block. (unless it is in the past)
     vm.warp(max(block.timestamp, Timestamp.unwrap(full.checkpoint.header.timestamp)));

@@ -58,7 +58,7 @@ describe('e2e_fees private_payment', () => {
   beforeEach(async () => {
     gasSettings = GasSettings.from({
       ...gasSettings,
-      maxFeesPerGas: await aztecNode.getCurrentBaseFees(),
+      maxFeesPerGas: await aztecNode.getCurrentMinFees(),
     });
 
     [

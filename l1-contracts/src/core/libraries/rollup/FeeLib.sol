@@ -52,7 +52,7 @@ struct OracleInput {
   int256 feeAssetPriceModifier;
 }
 
-struct ManaBaseFeeComponents {
+struct ManaMinFeeComponents {
   uint256 congestionCost;
   uint256 congestionMultiplier;
   uint256 sequencerCost;
@@ -174,17 +174,17 @@ library FeeLib {
       : feeStore.l1GasOracleValues.post.decompress();
   }
 
-  function getManaBaseFeeComponentsAt(uint256 _checkpointOfInterest, Timestamp _timestamp, bool _inFeeAsset)
+  function getManaMinFeeComponentsAt(uint256 _checkpointOfInterest, Timestamp _timestamp, bool _inFeeAsset)
     internal
     view
-    returns (ManaBaseFeeComponents memory)
+    returns (ManaMinFeeComponents memory)
   {
     FeeStore storage feeStore = getStorage();
 
     uint256 manaTarget = feeStore.config.getManaTarget();
 
     if (manaTarget == 0) {
-      return ManaBaseFeeComponents({sequencerCost: 0, proverCost: 0, congestionCost: 0, congestionMultiplier: 0});
+      return ManaMinFeeComponents({sequencerCost: 0, proverCost: 0, congestionCost: 0, congestionMultiplier: 0});
     }
 
     EthValue sequencerCostPerMana;
@@ -232,7 +232,7 @@ library FeeLib {
     FeeAssetPerEthE9 feeAssetPrice =
       _inFeeAsset ? FeeLib.getFeeAssetPerEthAtCheckpoint(_checkpointOfInterest) : FeeAssetPerEthE9.wrap(1e9);
 
-    return ManaBaseFeeComponents({
+    return ManaMinFeeComponents({
       sequencerCost: FeeAssetValue.unwrap(sequencerCostPerMana.toFeeAsset(feeAssetPrice)),
       proverCost: FeeAssetValue.unwrap(proverCostPerMana.toFeeAsset(feeAssetPrice)),
       congestionCost: FeeAssetValue.unwrap(congestionCost.toFeeAsset(feeAssetPrice)),
@@ -286,7 +286,7 @@ library FeeLib {
       FeeAssetPerEthE9.wrap(fakeExponential(MINIMUM_FEE_ASSET_PER_ETH, _numerator, FEE_ASSET_PRICE_UPDATE_FRACTION));
   }
 
-  function summedBaseFee(ManaBaseFeeComponents memory _components) internal pure returns (uint256) {
+  function summedMinFee(ManaMinFeeComponents memory _components) internal pure returns (uint256) {
     return _components.sequencerCost + _components.proverCost + _components.congestionCost;
   }
 

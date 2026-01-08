@@ -149,7 +149,7 @@ abstract contract EscapeHatchIntegrationBase is ValidatorSelectionTestBase {
       coinbase: _proposer,
       feeRecipient: bytes32(0),
       gasFees: GasFees({
-        feePerDaGas: 0, feePerL2Gas: uint128(rollup.getManaBaseFeeAt(Timestamp.wrap(block.timestamp), true))
+        feePerDaGas: 0, feePerL2Gas: uint128(rollup.getManaMinFeeAt(Timestamp.wrap(block.timestamp), true))
       }),
       totalManaUsed: 0
     });
@@ -198,8 +198,8 @@ abstract contract EscapeHatchIntegrationBase is ValidatorSelectionTestBase {
 
     // Update header with current values
     {
-      uint128 manaBaseFee = SafeCast.toUint128(rollup.getManaBaseFeeAt(Timestamp.wrap(block.timestamp), true));
-      header.gasFees.feePerL2Gas = manaBaseFee;
+      uint128 manaMinFee = SafeCast.toUint128(rollup.getManaMinFeeAt(Timestamp.wrap(block.timestamp), true));
+      header.gasFees.feePerL2Gas = manaMinFee;
     }
 
     ProposeArgs memory proposeArgs =
