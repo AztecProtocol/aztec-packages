@@ -74,7 +74,7 @@ struct ValidateHeaderArgs {
  *      - Validator selection and proposer verification
  *      - Fee calculation and mana consumption tracking
  *      - State transitions and archive updates
- *      - Message processing between L1 and L2 via the Inbox and Outbox contracts
+ *      - L1 to L2 message processing via the Inbox
  *
  *      The proposal flow operates within Aztec's time-based model where:
  *      - Each slot has a designated proposer selected from the validator set
@@ -121,7 +121,7 @@ library ProposeLib {
    *          Note that some validations and processes are disabled if the chain is configured to run without
    *          transactions, such as during ignition phase:
    *          - No fee header computation or L1 gas fee oracle update
-   *          - No inbox message consumption or outbox message insertion
+   *          - No inbox message consumption
    *
    *          Validations performed:
    *          - Blob commitments against provided blob data: Errors.Rollup__InvalidBlobHash,
@@ -141,8 +141,7 @@ library ProposeLib {
    *          - Store checkpoint metadata in circular storage (TempCheckpointLog)
    *          - Update L1 gas fee oracle (when txs enabled)
    *          - Consume inbox messages (when txs enabled)
-   *          - Insert outbox messages (when txs enabled)
-   *          - Setup epoch for validator selection (first checkpoint of the epoch)
+   *          - Setup epoch for validator selection (first block of the epoch)
    *
    * @param _args - The arguments to propose the checkpoint
    * @param _attestations - Committee attestations in a packed format:
@@ -298,22 +297,16 @@ library ProposeLib {
       })
     );
 
-    // Handle L1<->L2 message processing (only when transactions are enabled)
+    // Handle L1->L2 message processing (only when transactions are enabled)
     if (v.isTxsEnabled) {
-      // Since ignition will have no transactions there will be no method to consume or output message.
+      // Since ignition will have no transactions there will be no method to consume messages.
       // Therefore we can ignore it as long as mana target is zero.
       // Since the inbox is async, it must enforce its own check to not try to insert if ignition.
 
       // Consume pending L1->L2 messages and validate against header commitment
       // @note  The checkpoint number here will always be >=1 as the genesis checkpoint is at 0
       v.inHash = rollupStore.config.inbox.consume(checkpointNumber);
-      require(
-        v.header.contentCommitment.inHash == v.inHash,
-        Errors.Rollup__InvalidInHash(v.inHash, v.header.contentCommitment.inHash)
-      );
-
-      // Insert L2->L1 messages into outbox for later consumption
-      rollupStore.config.outbox.insert(checkpointNumber, v.header.contentCommitment.outHash);
+      require(v.header.inHash == v.inHash, Errors.Rollup__InvalidInHash(v.inHash, v.header.inHash));
     }
 
     {
@@ -374,8 +367,8 @@ library ProposeLib {
     require(timestamp <= currentTime, Errors.Rollup__TimestampInFuture(currentTime, timestamp));
 
     require(
-      _args.flags.ignoreDA || _args.header.contentCommitment.blobsHash == _args.blobsHashesCommitment,
-      Errors.Rollup__UnavailableTxs(_args.header.contentCommitment.blobsHash)
+      _args.flags.ignoreDA || _args.header.blobsHash == _args.blobsHashesCommitment,
+      Errors.Rollup__UnavailableTxs(_args.header.blobsHash)
     );
 
     require(_args.header.gasFees.feePerDaGas == 0, Errors.Rollup__NonZeroDaFee());

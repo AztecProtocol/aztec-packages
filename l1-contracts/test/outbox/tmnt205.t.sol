@@ -6,18 +6,11 @@ import {Test} from "forge-std/Test.sol";
 import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
 import {IOutbox} from "@aztec/core/interfaces/messagebridge/IOutbox.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
+import {Epoch} from "@aztec/core/libraries/TimeLib.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
 import {NaiveMerkle} from "../merkle/Naive.sol";
 import {MerkleLibHelper} from "../merkle/helpers/MerkleLibHelper.sol";
-
-contract FakeRollup {
-  uint256 public getProvenCheckpointNumber = 0;
-
-  function setProvenCheckpointNum(uint256 _provenCheckpointNum) public {
-    getProvenCheckpointNumber = _provenCheckpointNum;
-  }
-}
 
 contract Tmnt205Test is Test {
   using Hash for DataStructures.L2ToL1Msg;
@@ -25,9 +18,8 @@ contract Tmnt205Test is Test {
   address internal constant NOT_RECIPIENT = address(0x420);
   uint256 internal constant DEFAULT_TREE_HEIGHT = 2;
   uint256 internal constant AZTEC_VERSION = 1;
-  uint256 internal constant CHECKPOINT_NUMBER = 1;
+  Epoch internal constant DEFAULT_EPOCH = Epoch.wrap(1);
 
-  FakeRollup internal rollup;
   Outbox internal outbox;
   MerkleLibHelper internal merkleLibHelper = new MerkleLibHelper();
   DataStructures.L2ToL1Msg[] internal $msgs;
@@ -36,14 +28,13 @@ contract Tmnt205Test is Test {
   bytes32 internal $root;
 
   function setUp() public {
-    rollup = new FakeRollup();
-    outbox = new Outbox(address(rollup), AZTEC_VERSION);
+    address rollup = address(this);
+    outbox = new Outbox(rollup, AZTEC_VERSION);
 
     $root = _buildWonkyTree();
-    vm.prank(address(rollup));
-    outbox.insert(CHECKPOINT_NUMBER, $root);
+    vm.prank(rollup);
 
-    rollup.setProvenCheckpointNum(CHECKPOINT_NUMBER);
+    outbox.insert(DEFAULT_EPOCH, $root);
   }
 
   function test_replays_exact() public {
@@ -70,12 +61,12 @@ contract Tmnt205Test is Test {
     uint256 leafId = leafIndex + (1 << path.length);
 
     vm.expectEmit(true, true, true, true, address(outbox));
-    emit IOutbox.MessageConsumed(CHECKPOINT_NUMBER, $root, message.sha256ToField(), leafId);
-    outbox.consume(message, CHECKPOINT_NUMBER, leafIndex, path);
+    emit IOutbox.MessageConsumed(DEFAULT_EPOCH, $root, message.sha256ToField(), leafId);
+    outbox.consume(message, DEFAULT_EPOCH, leafIndex, path);
 
     // It should always revert, here, either incorrect values or already used.
     vm.expectRevert();
-    outbox.consume(message, CHECKPOINT_NUMBER, leafIndex2, path);
+    outbox.consume(message, DEFAULT_EPOCH, leafIndex2, path);
   }
 
   function test_overrides() public {
@@ -102,7 +93,7 @@ contract Tmnt205Test is Test {
 
     // The outbox should revert earlier to that due to the index beyond boundary
     vm.expectRevert(abi.encodeWithSelector(Errors.Outbox__LeafIndexOutOfBounds.selector, a_leafIndex, a_path.length));
-    outbox.consume(a_message, CHECKPOINT_NUMBER, a_leafIndex, a_path);
+    outbox.consume(a_message, DEFAULT_EPOCH, a_leafIndex, a_path);
 
     // Real message
     DataStructures.L2ToL1Msg memory r_message = $msgs[4];
@@ -114,7 +105,7 @@ contract Tmnt205Test is Test {
     leftSubTree.insertLeaf($txOutHashes[0]);
     leftSubTree.insertLeaf($txOutHashes[1]);
     r_path[2] = leftSubTree.computeRoot();
-    outbox.consume(r_message, CHECKPOINT_NUMBER, r_leafIndex, r_path);
+    outbox.consume(r_message, DEFAULT_EPOCH, r_leafIndex, r_path);
   }
 
   function _fakeMessage(address _recipient, uint256 _content) internal view returns (DataStructures.L2ToL1Msg memory) {

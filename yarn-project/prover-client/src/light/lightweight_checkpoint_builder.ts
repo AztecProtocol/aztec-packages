@@ -7,12 +7,11 @@ import { createLogger } from '@aztec/foundation/log';
 import { L2BlockNew } from '@aztec/stdlib/block';
 import { Checkpoint } from '@aztec/stdlib/checkpoint';
 import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
-import { computeCheckpointOutHash, computeInHashFromL1ToL2Messages } from '@aztec/stdlib/messaging';
+import { computeInHashFromL1ToL2Messages } from '@aztec/stdlib/messaging';
 import { CheckpointHeader, computeBlockHeadersHash } from '@aztec/stdlib/rollup';
 import { AppendOnlyTreeSnapshot, MerkleTreeId } from '@aztec/stdlib/trees';
 import {
   type CheckpointGlobalVariables,
-  ContentCommitment,
   type GlobalVariables,
   type ProcessedTx,
   StateReference,
@@ -157,8 +156,6 @@ export class LightweightCheckpointBuilder {
 
     const inHash = computeInHashFromL1ToL2Messages(this.l1ToL2Messages);
 
-    const outHash = computeCheckpointOutHash(blocks.map(block => block.body.txEffects.map(tx => tx.l2ToL1Msgs)));
-
     const { slotNumber, coinbase, feeRecipient, gasFees } = this.constants;
 
     // TODO(palla/mbps): Should we source this from the constants instead?
@@ -169,7 +166,8 @@ export class LightweightCheckpointBuilder {
 
     const header = CheckpointHeader.from({
       lastArchiveRoot: this.lastArchives[0].root,
-      contentCommitment: new ContentCommitment(blobsHash, inHash, outHash),
+      blobsHash,
+      inHash,
       blockHeadersHash,
       slotNumber,
       timestamp,

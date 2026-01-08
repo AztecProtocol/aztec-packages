@@ -4,11 +4,15 @@ import {
   poseidonMerkleHash,
   shaMerkleHash,
 } from './balanced_merkle_tree.js';
+import { UnbalancedMerkleTreeCalculator } from './unbalanced_merkle_tree_calculator.js';
 
 export const computeUnbalancedShaRoot = (leaves: Buffer[]) => computeUnbalancedMerkleTreeRoot(leaves, shaMerkleHash);
 
 export const computeUnbalancedPoseidonRoot = async (leaves: Buffer[]) =>
   await computeUnbalancedMerkleTreeRootAsync(leaves, poseidonMerkleHash);
+
+export const computeCompressedUnbalancedShaRoot = (leaves: Buffer[]) =>
+  computeCompressedUnbalancedMerkleTreeRoot(leaves);
 
 /**
  * Computes the Merkle root of an unbalanced tree.
@@ -99,6 +103,16 @@ export async function computeUnbalancedMerkleTreeRootAsync(
   }
 
   return root!;
+}
+
+export function computeCompressedUnbalancedMerkleTreeRoot(
+  leaves: Buffer[],
+  valueToCompress = Buffer.alloc(32),
+  emptyRoot = Buffer.alloc(32),
+  hasher = shaMerkleHash,
+): Buffer {
+  const calculator = UnbalancedMerkleTreeCalculator.create(leaves, valueToCompress, emptyRoot, hasher);
+  return calculator.getRoot();
 }
 
 /// Get the depth of the maximum balanced tree that can be created with the given number of leaves. The subtree will be
