@@ -2,7 +2,7 @@ import { SlotNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { keccak256 } from '@aztec/foundation/crypto/keccak';
 import { tryRecoverAddress } from '@aztec/foundation/crypto/secp256k1-signer';
-import { Fr } from '@aztec/foundation/curves/bn254';
+import type { Fr } from '@aztec/foundation/curves/bn254';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
@@ -15,20 +15,20 @@ import { Gossipable } from './gossipable.js';
 import { SignatureDomainSeparator, getHashedSignaturePayloadEthSignedMessage } from './signature_utils.js';
 import { TopicType } from './topic_type.js';
 
-export class BlockAttestationHash extends Buffer32 {
+export class CheckpointAttestationHash extends Buffer32 {
   constructor(hash: Buffer) {
     super(hash);
   }
 }
 
 /**
- * BlockAttestation
+ * CheckpointAttestation
  *
- * A validator that has attested to seeing the contents of a block
- * will produce a block attestation over the header of the block
+ * A validator that has attested to seeing all blocks in a checkpoint
+ * will produce a checkpoint attestation over the checkpoint header.
  */
-export class BlockAttestation extends Gossipable {
-  static override p2pTopic = TopicType.block_attestation;
+export class CheckpointAttestation extends Gossipable {
+  static override p2pTopic = TopicType.checkpoint_attestation;
 
   private sender: EthAddress | undefined;
   private proposer: EthAddress | undefined;
@@ -37,27 +37,27 @@ export class BlockAttestation extends Gossipable {
     /** The payload of the message, and what the signature is over */
     public readonly payload: ConsensusPayload,
 
-    /** The signature of the block attester */
+    /** The signature of the checkpoint attester */
     public readonly signature: Signature,
 
-    /** The signature from the block proposer */
+    /** The signature from the checkpoint proposer */
     public readonly proposerSignature: Signature,
   ) {
     super();
   }
 
-  static get schema(): ZodFor<BlockAttestation> {
+  static get schema(): ZodFor<CheckpointAttestation> {
     return z
       .object({
         payload: ConsensusPayload.schema,
         signature: Signature.schema,
         proposerSignature: Signature.schema,
       })
-      .transform(obj => new BlockAttestation(obj.payload, obj.signature, obj.proposerSignature));
+      .transform(obj => new CheckpointAttestation(obj.payload, obj.signature, obj.proposerSignature));
   }
 
   override generateP2PMessageIdentifier(): Promise<Buffer32> {
-    return Promise.resolve(new BlockAttestationHash(keccak256(this.signature.toBuffer())));
+    return Promise.resolve(new CheckpointAttestationHash(keccak256(this.signature.toBuffer())));
   }
 
   get archive(): Fr {
@@ -75,7 +75,10 @@ export class BlockAttestation extends Gossipable {
   getSender(): EthAddress | undefined {
     if (!this.sender) {
       // Recover the sender from the attestation
-      const hashed = getHashedSignaturePayloadEthSignedMessage(this.payload, SignatureDomainSeparator.blockAttestation);
+      const hashed = getHashedSignaturePayloadEthSignedMessage(
+        this.payload,
+        SignatureDomainSeparator.checkpointAttestation,
+      );
       // Cache the sender for later use
       this.sender = tryRecoverAddress(hashed, this.signature);
     }
@@ -84,13 +87,16 @@ export class BlockAttestation extends Gossipable {
   }
 
   /**
-   * Lazily evaluate and cache the proposer of the block
-   * @returns The proposer of the block
+   * Lazily evaluate and cache the proposer of the checkpoint
+   * @returns The proposer of the checkpoint
    */
   getProposer(): EthAddress | undefined {
     if (!this.proposer) {
       // Recover the proposer from the proposal signature
-      const hashed = getHashedSignaturePayloadEthSignedMessage(this.payload, SignatureDomainSeparator.blockProposal);
+      const hashed = getHashedSignaturePayloadEthSignedMessage(
+        this.payload,
+        SignatureDomainSeparator.checkpointProposal,
+      );
       // Cache the proposer for later use
       this.proposer = tryRecoverAddress(hashed, this.proposerSignature);
     }
@@ -99,28 +105,28 @@ export class BlockAttestation extends Gossipable {
   }
 
   getPayload(): Buffer {
-    return this.payload.getPayloadToSign(SignatureDomainSeparator.blockAttestation);
+    return this.payload.getPayloadToSign(SignatureDomainSeparator.checkpointAttestation);
   }
 
   toBuffer(): Buffer {
     return serializeToBuffer([this.payload, this.signature, this.proposerSignature]);
   }
 
-  static fromBuffer(buf: Buffer | BufferReader): BlockAttestation {
+  static fromBuffer(buf: Buffer | BufferReader): CheckpointAttestation {
     const reader = BufferReader.asReader(buf);
-    return new BlockAttestation(
+    return new CheckpointAttestation(
       reader.readObject(ConsensusPayload),
       reader.readObject(Signature),
       reader.readObject(Signature),
     );
   }
 
-  static empty(): BlockAttestation {
-    return new BlockAttestation(ConsensusPayload.empty(), Signature.empty(), Signature.empty());
+  static empty(): CheckpointAttestation {
+    return new CheckpointAttestation(ConsensusPayload.empty(), Signature.empty(), Signature.empty());
   }
 
-  static random(): BlockAttestation {
-    return new BlockAttestation(ConsensusPayload.random(), Signature.random(), Signature.random());
+  static random(): CheckpointAttestation {
+    return new CheckpointAttestation(ConsensusPayload.random(), Signature.random(), Signature.random());
   }
 
   getSize(): number {

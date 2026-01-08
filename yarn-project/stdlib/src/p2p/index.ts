@@ -1,5 +1,5 @@
 export * from './attestation_utils.js';
-export * from './block_attestation.js';
+export * from './checkpoint_attestation.js';
 export * from './block_proposal.js';
 export * from './consensus_payload.js';
 export * from './gossipable.js';
