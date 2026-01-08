@@ -62,9 +62,9 @@ import {
   generateSimulatedProvingResult,
 } from './contract_function_simulator/contract_function_simulator.js';
 import { readCurrentClassId } from './contract_function_simulator/oracle/private_execution.js';
-import { ProxiedContractStoreFactory } from './contract_function_simulator/proxied_contract_data_source.js';
+import { ProxiedContractDataProviderFactory } from './contract_function_simulator/proxied_contract_data_source.js';
 import { ProxiedNodeFactory } from './contract_function_simulator/proxied_node.js';
-import { PXEDebugUtils } from './debug/pxe_debug_utils.js';
+import { PXEOracleInterface } from './contract_function_simulator/pxe_oracle_interface.js';
 import { enrichPublicSimulationError, enrichSimulationError } from './error_enriching.js';
 import { PrivateEventFilterValidator } from './events/private_event_filter_validator.js';
 import {
@@ -186,15 +186,14 @@ export class PXE {
     const pxeOracleInterface = new PXEOracleInterface(
       ProxiedNodeFactory.create(this.node),
       this.keyStore,
-      this.addressStore,
-      ProxiedNodeFactory.create(this.node),
-      this.anchorBlockStore,
-      this.senderTaggingStore,
-      this.recipientTaggingStore,
-      this.senderAddressBookStore,
-      this.capsuleStore,
-      this.privateEventStore,
-      this.simulator,
+      ProxiedContractDataProviderFactory.create(this.contractDataProvider, overrides?.contracts),
+      this.noteDataProvider,
+      this.capsuleDataProvider,
+      this.syncDataProvider,
+      this.taggingDataProvider,
+      this.addressDataProvider,
+      this.privateEventDataProvider,
+      this.log,
     );
     return new ContractFunctionSimulator(pxeOracleInterface, this.simulator);
   }
