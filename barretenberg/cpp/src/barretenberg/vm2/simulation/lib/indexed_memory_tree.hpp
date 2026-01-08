@@ -117,6 +117,7 @@ GetLowIndexedLeafResponse IndexedMemoryTree<LeafType, HashingPolicy>::get_low_in
 template <typename LeafType, typename HashingPolicy>
 IndexedLeaf<LeafType> IndexedMemoryTree<LeafType, HashingPolicy>::get_leaf_preimage(size_t leaf_index) const
 {
+    BB_ASSERT_DEBUG(leaf_index < leaves.size(), "Leaf index out of bounds");
     return leaves.at(leaf_index);
 }
 
