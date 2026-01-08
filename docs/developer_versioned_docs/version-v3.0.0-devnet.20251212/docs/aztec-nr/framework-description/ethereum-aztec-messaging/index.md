@@ -109,32 +109,9 @@ For the sake of cross-chain messages, this means inserting and nullifying L1 $\r
 While a message could theoretically be arbitrarily long, we want to limit the cost of the insertion on L1 as much as possible. Therefore, we allow the users to send 32 bytes of "content" between L1 and L2. If 32 suffices, no packing required. If the 32 is too "small" for the message directly, the sender should simply pass along a `sha256(content)` instead of the content directly (note that this hash should fit in a field element which is ~254 bits. More info on this below). The content can then either be emitted as an event on L2 or kept by the sender, who should then be the only entity that can "unpack" the message.
 In this manner, there is some way to "unpack" the content on the receiving domain.
 
-The message that is passed along, require the `sender/recipient` pair to be communicated as well (we need to know who should receive the message and be able to check). By having the pending messages be a contract on L1, we can ensure that the `sender = msg.sender` and let only `content` and `recipient` be provided by the caller. Summing up, we can use the structs seen below, and only store the commitment (`sha256(LxToLyMsg)`) on chain or in the trees, this way, we need only update a single storage slot per message.
+The message that is passed along requires the `sender/recipient` pair to be communicated as well (we need to know who should receive the message and be able to check). By having the pending messages be a contract on L1, we can ensure that the `sender = msg.sender` and let only `content` and `recipient` be provided by the caller. We only store the commitment (`sha256(LxToLyMsg)`) on chain or in the trees, so we only need to update a single storage slot per message.
 
-```solidity
-struct L1Actor {
-	address: actor,
-	uint256: chainId,
-}
-
-struct L2Actor {
-	bytes32: actor,
-	uint256: version,
-}
-
-struct L1ToL2Msg {
-	L1Actor: sender,
-	L2Actor: recipient,
-	bytes32: content,
-	bytes32: secretHash,
-}
-
-struct L2ToL1Msg {
-	L2Actor: sender,
-	L1Actor: recipient,
-	bytes32: content,
-}
-```
+See the [Data Structures](./data_structures.md) page for the full message structure definitions (`L1Actor`, `L2Actor`, `L1ToL2Msg`, `L2ToL1Msg`).
 
 :::info
 The `bytes32` elements for `content` and `secretHash` hold values that must fit in a field element (~ 254 bits).
