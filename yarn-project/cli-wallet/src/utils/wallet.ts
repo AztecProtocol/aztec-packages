@@ -25,13 +25,9 @@ import { ExecutionPayload, mergeExecutionPayloads } from '@aztec/stdlib/tx';
 import { BaseWallet } from '@aztec/wallet-sdk/base-wallet';
 
 import type { WalletDB } from '../storage/wallet_db.js';
+import type { AccountType } from './constants.js';
 import { extractECDSAPublicKeyFromBase64String } from './ecdsa.js';
 import { printGasEstimates } from './options/fees.js';
-
-export const AccountTypes = ['schnorr', 'ecdsasecp256r1', 'ecdsasecp256r1ssh', 'ecdsasecp256k1'] as const;
-export type AccountType = (typeof AccountTypes)[number];
-
-export const MIN_FEE_PADDING = 0.5;
 
 export class CLIWallet extends BaseWallet {
   private accountCache = new Map<string, Account>();

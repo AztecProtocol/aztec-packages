@@ -3,7 +3,7 @@ import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { DirectionalAppTaggingSecret, type PreTag } from '@aztec/stdlib/logs';
 import { TxHash } from '@aztec/stdlib/tx';
 
-import { UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN } from '../../tagging/index.js';
+import { UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN } from '../../tagging/constants.js';
 import { SenderTaggingStore } from './sender_tagging_store.js';
 
 describe('SenderTaggingStore', () => {
