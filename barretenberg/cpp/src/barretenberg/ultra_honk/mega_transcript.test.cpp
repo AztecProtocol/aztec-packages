@@ -88,8 +88,6 @@ template <typename Flavor> class MegaTranscriptTests : public ::testing::Test {
         manifest_expected.add_entry(round, "Z_PERM", frs_per_G);
 
         manifest_expected.add_challenge(round, "alpha");
-        round++;
-
         manifest_expected.add_challenge(round, "Sumcheck:gate_challenge");
         round++;
 

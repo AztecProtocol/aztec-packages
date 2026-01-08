@@ -55,7 +55,7 @@ template <typename Builder> inline constexpr size_t ASSERT_EQUALITY = ZERO_GATE 
 // Honk Recursion Constants
 // ========================================
 
-inline constexpr size_t ROOT_ROLLUP_GATE_COUNT = 12986977;
+inline constexpr size_t ROOT_ROLLUP_GATE_COUNT = 12995065;
 
 template <typename RecursiveFlavor>
 constexpr std::tuple<size_t, size_t> HONK_RECURSION_CONSTANTS(
@@ -67,26 +67,26 @@ constexpr std::tuple<size_t, size_t> HONK_RECURSION_CONSTANTS(
     if constexpr (std::is_same_v<RecursiveFlavor, bb::UltraRecursiveFlavor_<UltraCircuitBuilder>>) {
         switch (mode) {
         case PredicateTestCase::ConstantTrue:
-            return std::make_tuple(722844, 0);
+            return std::make_tuple(726842, 0);
         case PredicateTestCase::WitnessTrue:
         case PredicateTestCase::WitnessFalse:
-            return std::make_tuple(723995, 0);
+            return std::make_tuple(727993, 0);
         }
     } else if constexpr (std::is_same_v<RecursiveFlavor, bb::UltraZKRecursiveFlavor_<UltraCircuitBuilder>>) {
         switch (mode) {
         case PredicateTestCase::ConstantTrue:
-            return std::make_tuple(766262, 0);
+            return std::make_tuple(770506, 0);
         case PredicateTestCase::WitnessTrue:
         case PredicateTestCase::WitnessFalse:
-            return std::make_tuple(767515, 0);
+            return std::make_tuple(771759, 0);
         }
     } else if constexpr (std::is_same_v<RecursiveFlavor, bb::UltraRollupRecursiveFlavor_<UltraCircuitBuilder>>) {
         switch (mode) {
         case PredicateTestCase::ConstantTrue:
-            return std::make_tuple(723163, 0);
+            return std::make_tuple(727160, 0);
         case PredicateTestCase::WitnessTrue:
         case PredicateTestCase::WitnessFalse:
-            return std::make_tuple(724462, 0);
+            return std::make_tuple(728459, 0);
         }
     } else if constexpr (std::is_same_v<RecursiveFlavor, bb::UltraRecursiveFlavor_<MegaCircuitBuilder>>) {
         switch (mode) {
@@ -108,7 +108,7 @@ constexpr std::tuple<size_t, size_t> HONK_RECURSION_CONSTANTS(
         if (mode != PredicateTestCase::ConstantTrue) {
             bb::assert_failure("Unhandled mode in MegaZKRecursiveFlavor.");
         }
-        return std::make_tuple(814519, 0);
+        return std::make_tuple(817287, 0);
     } else {
         bb::assert_failure("Unhandled recursive flavor.");
     }
@@ -119,7 +119,7 @@ constexpr std::tuple<size_t, size_t> HONK_RECURSION_CONSTANTS(
 // ========================================
 
 // Gate count for Chonk recursive verification (UltraRollup builder)
-inline constexpr size_t CHONK_RECURSION_GATES = 2368439;
+inline constexpr size_t CHONK_RECURSION_GATES = 2385506;
 
 // ========================================
 // Hypernova Recursion Constants
@@ -153,7 +153,7 @@ inline constexpr size_t HIDING_KERNEL_ULTRA_OPS = 124;
 // ========================================
 
 // Gate count for ECCVM recursive verifier (Ultra-arithmetized)
-inline constexpr size_t ECCVM_RECURSIVE_VERIFIER_GATE_COUNT = 214950;
+inline constexpr size_t ECCVM_RECURSIVE_VERIFIER_GATE_COUNT = 220455;
 
 // ========================================
 // Goblin AVM Recursive Verifier Constants

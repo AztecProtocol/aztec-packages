@@ -423,8 +423,12 @@ TYPED_TEST(StdlibPoseidon2, PointCoordinatesVsAliasProduceDifferentHashes)
     };
 
     // Lambda to deserialize point from limbs, serialize back, and hash (stdlib)
-    auto compute_stdlib_hash =
-        [&](const uint256_t& xl, const uint256_t& xh, const uint256_t& yl, const uint256_t& yh) -> bb::fr {
+    // For Ultra, alias values will fail assert_is_in_field; for Mega, validation is deferred to Translator/ECCVM
+    auto compute_stdlib_hash = [&](const uint256_t& xl,
+                                   const uint256_t& xh,
+                                   const uint256_t& yl,
+                                   const uint256_t& yh,
+                                   bool is_alias) -> bb::fr {
         Builder builder;
         std::vector<field_ct> limbs = { field_ct(witness_ct(&builder, bb::fr(xl))),
                                         field_ct(witness_ct(&builder, bb::fr(xh))),
@@ -438,7 +442,14 @@ TYPED_TEST(StdlibPoseidon2, PointCoordinatesVsAliasProduceDifferentHashes)
         std::vector<field_ct> serialized = Codec::template serialize_to_fields<bn254_point_ct>(pt);
         auto hash = poseidon2::hash(serialized);
 
-        EXPECT_TRUE(CircuitChecker::check(builder));
+        // Ultra arithmetization uses bigfield with strict assert_is_in_field, so alias values fail.
+        // Mega arithmetization uses goblin_field which defers validation to Translator/ECCVM.
+        if constexpr (IsMegaBuilder<Builder>) {
+            EXPECT_TRUE(CircuitChecker::check(builder));
+        } else {
+            // For Ultra: canonical values should pass, alias values should fail
+            EXPECT_EQ(CircuitChecker::check(builder), !is_alias);
+        }
         return hash.get_value();
     };
 
@@ -447,8 +458,8 @@ TYPED_TEST(StdlibPoseidon2, PointCoordinatesVsAliasProduceDifferentHashes)
     bb::fr alias_native_hash = compute_native_hash(alias_x_lo, alias_x_hi, y_lo, y_hi);
 
     // Compute stdlib hashes
-    bb::fr canonical_stdlib_hash = compute_stdlib_hash(x_lo, x_hi, y_lo, y_hi);
-    bb::fr alias_stdlib_hash = compute_stdlib_hash(alias_x_lo, alias_x_hi, y_lo, y_hi);
+    bb::fr canonical_stdlib_hash = compute_stdlib_hash(x_lo, x_hi, y_lo, y_hi, /*is_alias=*/false);
+    bb::fr alias_stdlib_hash = compute_stdlib_hash(alias_x_lo, alias_x_hi, y_lo, y_hi, /*is_alias=*/true);
 
     // Verify stdlib matches native for both canonical and alias
     EXPECT_EQ(canonical_stdlib_hash, canonical_native_hash);

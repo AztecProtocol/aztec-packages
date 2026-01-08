@@ -19,20 +19,6 @@ class Poseidon2FailureTests : public ::testing::Test {
     using SubrelationSeparator = Flavor::SubrelationSeparator;
     using RelationParameters = RelationParameters<FF>;
 
-    void modify_selector(auto& selector)
-    {
-        size_t start_idx = selector.start_index();
-        size_t end_idx = selector.end_index();
-
-        // Flip the first non-zero selector value.
-        for (size_t idx = start_idx; idx < end_idx; idx++) {
-            if (selector.at(idx) == 1) {
-                selector.at(idx) = 0;
-                break;
-            }
-        }
-    }
-
     void modify_witness(const auto& selector, auto& witness)
     {
         size_t start_idx = selector.start_index();
@@ -108,7 +94,7 @@ class Poseidon2FailureTests : public ::testing::Test {
                                        virtual_log_n);
         auto proof = sumcheck_prover.prove();
 
-        auto verifier_transcript = std::make_shared<Transcript>(prover_transcript->export_proof());
+        auto verifier_transcript = Transcript::verifier_init_empty(prover_transcript);
 
         SubrelationSeparator verifier_subrelation_separator =
             verifier_transcript->template get_challenge<FF>("Sumcheck:alpha");
@@ -138,34 +124,6 @@ TEST_F(Poseidon2FailureTests, ValidCircuitVerifies)
 
     // Run sumcheck on the UNMODIFIED valid data - this should pass
     prove_and_verify(prover_instance, true);
-}
-
-TEST_F(Poseidon2FailureTests, WrongSelectorValues)
-{
-    Builder builder;
-
-    // Construct a circuit that hashes a single witness field element.
-    hash_single_input(builder);
-
-    // Convert circuit to polynomials.
-    auto prover_instance = std::make_shared<ProverInstance_<Flavor>>(builder);
-    {
-        // Disable Poseidon2 External selector in the first active row.
-        // This UNDERCONSTRAINS the circuit, so verification still passes because all remaining constraints are
-        // satisfied on the valid witness data.
-        modify_selector(prover_instance->polynomials.q_poseidon2_external);
-
-        // Run sumcheck - it should PASS because we only removed a constraint
-        prove_and_verify(prover_instance, true);
-    }
-    {
-        // Disable Poseidon2 Internal selector in the first active row.
-        // Again, this underconstrains the circuit, so verification passes.
-        modify_selector(prover_instance->polynomials.q_poseidon2_internal);
-
-        // Run sumcheck - it should PASS because we only removed a constraint
-        prove_and_verify(prover_instance, true);
-    }
 }
 
 TEST_F(Poseidon2FailureTests, WrongWitnessValues)

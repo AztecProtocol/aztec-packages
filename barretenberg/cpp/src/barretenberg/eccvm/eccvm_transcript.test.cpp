@@ -135,9 +135,7 @@ class ECCVMTranscriptTests : public ::testing::Test {
         manifest_expected.add_entry(round, "LOOKUP_INVERSES", frs_per_G);
         manifest_expected.add_entry(round, "Z_PERM", frs_per_G);
         manifest_expected.add_challenge(round, "Sumcheck:alpha");
-
         for (size_t i = 0; i < CONST_ECCVM_LOG_N; i++) {
-            round++;
             std::string label = "Sumcheck:gate_challenge_" + std::to_string(i);
             manifest_expected.add_challenge(round, label);
         }
