@@ -10,7 +10,7 @@ namespace bb::avm2 {
 
 using namespace bb::avm2::simulation;
 
-std::pair<AvmAPI::AvmProof, AvmAPI::AvmVerificationKey> AvmAPI::prove(const AvmAPI::ProvingInputs& inputs)
+AvmAPI::AvmProof AvmAPI::prove(const AvmAPI::ProvingInputs& inputs)
 {
     // Simulate.
     vinfo("Simulating...");
@@ -27,10 +27,10 @@ std::pair<AvmAPI::AvmProof, AvmAPI::AvmVerificationKey> AvmAPI::prove(const AvmA
     // Prove.
     vinfo("Proving...");
     AvmProvingHelper proving_helper;
-    auto [proof, vk] = AVM_TRACK_TIME_V("proving/all", proving_helper.prove(std::move(trace)));
+    auto proof = AVM_TRACK_TIME_V("proving/all", proving_helper.prove(std::move(trace)));
 
     vinfo("Done!");
-    return { std::move(proof), std::move(vk) };
+    return proof;
 }
 
 bool AvmAPI::check_circuit(const AvmAPI::ProvingInputs& inputs)

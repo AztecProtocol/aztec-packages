@@ -31,9 +31,9 @@ void avm_prove(const std::filesystem::path& inputs_path, const std::filesystem::
 {
     avm2::AvmAPI avm;
     auto inputs = avm2::AvmAPI::ProvingInputs::from(read_file(inputs_path));
-    auto [proof, vk] = avm.prove(inputs);
+    auto proof = avm.prove(inputs);
 
-    // NOTE: As opposed to Avm1 and other proof systems, the public inputs are NOT part of the proof.
+    // NOTE: As opposed to other proof systems, the public inputs are NOT part of the proof.
     write_file(output_path / "proof", to_buffer(proof));
 
     print_avm_stats();

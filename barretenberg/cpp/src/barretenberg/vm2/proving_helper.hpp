@@ -16,7 +16,7 @@ class AvmProvingHelper {
 
     static std::shared_ptr<AvmVerifier::VerificationKey> create_verification_key(const VkData& vk_data);
     VkData get_verification_key();
-    std::pair<Proof, VkData> prove(tracegen::TraceContainer&& trace);
+    Proof prove(tracegen::TraceContainer&& trace);
     bool check_circuit(tracegen::TraceContainer&& trace);
     bool verify(const Proof& proof, const PublicInputs& pi);
 };

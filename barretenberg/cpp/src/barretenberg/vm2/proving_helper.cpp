@@ -51,7 +51,7 @@ AvmProvingHelper::VkData AvmProvingHelper::get_verification_key()
     return serialized_vk;
 }
 
-std::pair<AvmProvingHelper::Proof, AvmProvingHelper::VkData> AvmProvingHelper::prove(tracegen::TraceContainer&& trace)
+AvmProvingHelper::Proof AvmProvingHelper::prove(tracegen::TraceContainer&& trace)
 {
     auto polynomials = AVM_TRACK_TIME_V("proving/prove:compute_polynomials", constraining::compute_polynomials(trace));
     auto proving_key =
@@ -66,7 +66,7 @@ std::pair<AvmProvingHelper::Proof, AvmProvingHelper::VkData> AvmProvingHelper::p
     auto proof = AVM_TRACK_TIME_V("proving/construct_proof", prover.construct_proof());
     auto serialized_vk = to_buffer(verification_key->to_field_elements());
 
-    return { std::move(proof), std::move(serialized_vk) };
+    return proof;
 }
 
 bool AvmProvingHelper::check_circuit(tracegen::TraceContainer&& trace)
