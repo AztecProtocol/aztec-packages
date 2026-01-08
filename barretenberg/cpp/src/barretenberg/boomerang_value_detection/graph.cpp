@@ -1241,9 +1241,6 @@ inline void StaticAnalyzer_<FF, CircuitBuilder>::remove_unnecessary_sha256_plook
                                                             BasicTableId::SHA256_WITNESS_SLICE_14_ROTATE_1,
                                                             BasicTableId::SHA256_BASE16,
                                                             BasicTableId::SHA256_BASE16_ROTATE2,
-                                                            BasicTableId::SHA256_BASE16_ROTATE6,
-                                                            BasicTableId::SHA256_BASE16_ROTATE7,
-                                                            BasicTableId::SHA256_BASE16_ROTATE8,
                                                             BasicTableId::SHA256_BASE28,
                                                             BasicTableId::SHA256_BASE28_ROTATE3,
                                                             BasicTableId::SHA256_BASE28_ROTATE6 };
