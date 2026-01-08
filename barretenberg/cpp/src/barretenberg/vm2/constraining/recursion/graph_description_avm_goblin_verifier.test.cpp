@@ -52,6 +52,10 @@ class BoomerangAvmGoblinRecursiveVerifierTests : public ::testing::Test {
  */
 TEST_F(BoomerangAvmGoblinRecursiveVerifierTests, graph_description_basic)
 {
+    if (avm2::testing::skip_slow_tests()) {
+        GTEST_SKIP() << "Skipping slow test";
+    }
+
     auto [proof, public_inputs_flat] = create_avm_data();
 
     Builder builder;
