@@ -286,7 +286,13 @@ TEST_F(AvmRecursiveTests, TranscriptOperations)
         final_state_transcript_operations_only = transcript->template get_challenge<FF>("final_state");
     }
 
+    // Check that the native values underlying the final states match
     EXPECT_EQ(final_state_full_verification.get_value(), final_state_transcript_operations_only.get_value());
+
+    // Check that the circuit is satisfied
+    final_state_transcript_operations_only.assert_equal(final_state_full_verification);
+    EXPECT_TRUE(CircuitChecker::check(builder));
+    EXPECT_TRUE(!builder.failed());
 }
 
 } // namespace bb::avm2::constraining

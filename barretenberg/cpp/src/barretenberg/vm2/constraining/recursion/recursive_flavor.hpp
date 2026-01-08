@@ -133,7 +133,6 @@ class AvmRecursiveFlavor {
 
             transcript->add_to_hash_buffer("avm_vk_hash", vk_hash);
 
-            // Add public inputs to transcript for Fiat-Shamir
             for (size_t i = 0; i < AVM_NUM_PUBLIC_INPUT_COLUMNS; i++) {
                 for (size_t j = 0; j < public_inputs[i].size(); j++) {
                     transcript->add_to_hash_buffer("public_input_" + std::to_string(i) + "_" + std::to_string(j),
@@ -172,7 +171,7 @@ class AvmRecursiveFlavor {
                     transcript->add_to_hash_buffer(round_univariate_label + "_eval_" + std::to_string(j),
                                                    stdlib_proof[proof_idx++]);
                 }
-                [[maybe_unused]] FF round_challenge =
+                [[maybe_unused]] FF _round_challenge =
                     transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(i));
             }
 
@@ -188,16 +187,15 @@ class AvmRecursiveFlavor {
             std::vector<std::string> shifted_batching_challenge_labels;
             shifted_batching_challenge_labels.reserve(NUM_SHIFTED_ENTITIES);
             for (size_t idx = 0; idx < NUM_SHIFTED_ENTITIES; idx++) {
-                shifted_batching_challenge_labels.push_back("rho_" + std::to_string(NUM_SHIFTED_ENTITIES - 1 + idx));
+                shifted_batching_challenge_labels.push_back("rho_" + std::to_string(NUM_UNSHIFTED_ENTITIES - 1 + idx));
             }
 
-            // Get short (128-bit) batching challenges from transcript
             [[maybe_unused]] auto _unshifted_challenges =
                 transcript->template get_challenges<FF>(unshifted_batching_challenge_labels);
             [[maybe_unused]] auto _shifted_challenges =
                 transcript->template get_challenges<FF>(shifted_batching_challenge_labels);
 
-            [[maybe_unused]] const FF gemini_batching_challenge = transcript->template get_challenge<FF>("rho");
+            [[maybe_unused]] const FF _gemini_batching_challenge = transcript->template get_challenge<FF>("rho");
 
             for (size_t i = 1; i < native_vk->log_circuit_size; ++i) {
                 for (size_t j = 0; j < num_frs_comm; j++) {
@@ -205,26 +203,27 @@ class AvmRecursiveFlavor {
                 }
             }
 
-            [[maybe_unused]] const FF gemini_evaluation_challenge = transcript->template get_challenge<FF>("Gemini:r");
+            [[maybe_unused]] const FF _gemini_evaluation_challenge = transcript->template get_challenge<FF>("Gemini:r");
 
             for (size_t i = 1; i <= native_vk->log_circuit_size; ++i) {
                 transcript->add_to_hash_buffer("Gemini:a_" + std::to_string(i), stdlib_proof[proof_idx++]);
             }
 
-            [[maybe_unused]] const FF shplonk_batching_challenge = transcript->template get_challenge<FF>("Shplonk:nu");
+            [[maybe_unused]] const FF _shplonk_batching_challenge =
+                transcript->template get_challenge<FF>("Shplonk:nu");
 
             for (size_t j = 0; j < num_frs_comm; j++) {
                 transcript->add_to_hash_buffer("Shplonk:q_comm", stdlib_proof[proof_idx++]);
             }
 
-            [[maybe_unused]] const FF shplonk_evaluation_challenge =
+            [[maybe_unused]] const FF _shplonk_evaluation_challenge =
                 transcript->template get_challenge<FF>("Shplonk:z");
 
             for (size_t j = 0; j < num_frs_comm; j++) {
                 transcript->add_to_hash_buffer("KZG:w_comm", stdlib_proof[proof_idx++]);
             }
 
-            [[maybe_unused]] const FF masking_challenge =
+            [[maybe_unused]] const FF _masking_challenge =
                 transcript->template get_challenge<FF>("KZG:masking_challenge");
 
             return transcript;
