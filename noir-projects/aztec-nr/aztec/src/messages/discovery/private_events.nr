@@ -26,6 +26,7 @@ pub unconstrained fn process_private_event_msg(
     enqueue_event_for_validation(
         contract_address,
         event_type_id,
+        randomness,
         serialized_event,
         event_commitment,
         tx_hash,

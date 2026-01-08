@@ -7,6 +7,7 @@ use protocol_types::{address::AztecAddress, traits::Serialize};
 pub(crate) struct EventValidationRequest {
     pub contract_address: AztecAddress,
     pub event_type_id: EventSelector,
+    pub randomness: Field,
     pub serialized_event: BoundedVec<Field, MAX_EVENT_SERIALIZED_LEN>,
     pub event_commitment: Field,
     pub tx_hash: Field,
@@ -23,10 +24,11 @@ mod test {
         let request = EventValidationRequest {
             contract_address: AztecAddress::from_field(1),
             event_type_id: EventSelector::from_field(2),
-            serialized_event: BoundedVec::from_array([3, 4]),
-            event_commitment: 5,
-            tx_hash: 6,
-            recipient: AztecAddress::from_field(7),
+            randomness: 3,
+            serialized_event: BoundedVec::from_array([4, 5]),
+            event_commitment: 6,
+            tx_hash: 7,
+            recipient: AztecAddress::from_field(8),
         };
 
         // We define the serialization in Noir and the deserialization in TS. If the deserialization changes from the
@@ -36,13 +38,14 @@ mod test {
         let expected_serialization = [
             1, // contract_address
             2, // event_type_id
-            3, // serialized_event[0]
-            4, // serialized_event[1]
+            3, // randomness
+            4, // serialized_event[0]
+            5, // serialized_event[1]
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // serialized_event padding
             2, // bounded_vec_len
-            5, // event_commitment
-            6, // tx_hash
-            7, // recipient
+            6, // event_commitment
+            7, // tx_hash
+            8, // recipient
         ];
 
         assert_eq(request.serialize(), expected_serialization);

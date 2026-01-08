@@ -17,6 +17,7 @@ import { EventService } from './event_service.js';
 describe('deliverEvent', () => {
   let blockNumber: BlockNumber;
   let eventSelector: EventSelector;
+  let randomness: Fr;
   let eventContent: Fr[];
   let eventCommitment: Fr;
   let eventNullifier: Fr;
@@ -53,6 +54,7 @@ describe('deliverEvent', () => {
 
     blockNumber = BlockNumber(42);
     eventSelector = EventSelector.random();
+    randomness = Fr.random();
     eventContent = [Fr.random(), Fr.random()];
 
     eventCommitment = Fr.random();
@@ -100,6 +102,7 @@ describe('deliverEvent', () => {
     return eventService.deliverEvent(
       contractAddress,
       eventSelector,
+      randomness,
       eventContent,
       overrides.eventCommitment || eventCommitment,
       txEffect.txHash,
