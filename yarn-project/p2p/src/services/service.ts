@@ -1,6 +1,6 @@
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { PeerInfo } from '@aztec/stdlib/interfaces/server';
-import type { BlockAttestation, BlockProposal, Gossipable } from '@aztec/stdlib/p2p';
+import type { BlockProposal, CheckpointAttestation, CheckpointProposalCore, Gossipable } from '@aztec/stdlib/p2p';
 import type { Tx } from '@aztec/stdlib/tx';
 
 import type { PeerId } from '@libp2p/interface';
@@ -22,10 +22,23 @@ export enum PeerDiscoveryState {
   STOPPED = 'stopped',
 }
 
-export type P2PBlockReceivedCallback = (
-  block: BlockProposal,
+/**
+ * Callback for when a block proposal is received.
+ * Validators validate but DO NOT attest to individual blocks - attestations are only for checkpoints.
+ * @returns true if the proposal is valid, false otherwise
+ */
+export type P2PBlockReceivedCallback = (block: BlockProposal, sender: PeerId) => Promise<boolean>;
+
+/**
+ * Callback for when a checkpoint proposal is received.
+ * The checkpoint proposal is passed as CheckpointProposalCore (without lastBlock) since
+ * the lastBlock is extracted and stored separately as a BlockProposal, and the block
+ * callback is invoked and awaited before this checkpoint callback.
+ */
+export type P2PCheckpointReceivedCallback = (
+  checkpoint: CheckpointProposalCore,
   sender: PeerId,
-) => Promise<BlockAttestation[] | undefined>;
+) => Promise<CheckpointAttestation[] | undefined>;
 
 export type AuthReceivedCallback = (peerId: PeerId, authRequest: AuthRequest) => Promise<AuthResponse | undefined>;
 
@@ -69,6 +82,8 @@ export interface P2PService {
 
   // Leaky abstraction: fix https://github.com/AztecProtocol/aztec-packages/issues/7963
   registerBlockReceivedCallback(callback: P2PBlockReceivedCallback): void;
+
+  registerCheckpointReceivedCallback(callback: P2PCheckpointReceivedCallback): void;
 
   getEnr(): ENR | undefined;
 

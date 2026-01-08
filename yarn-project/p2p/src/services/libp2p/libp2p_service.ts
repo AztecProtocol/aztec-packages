@@ -1,5 +1,5 @@
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
-import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { randomInt } from '@aztec/foundation/crypto/random';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLibp2pComponentLogger, createLogger } from '@aztec/foundation/log';
@@ -13,8 +13,10 @@ import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { GasFees } from '@aztec/stdlib/gas';
 import type { ClientProtocolCircuitVerifier, PeerInfo, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import {
-  BlockAttestation,
   BlockProposal,
+  CheckpointAttestation,
+  CheckpointProposal,
+  type CheckpointProposalCore,
   type Gossipable,
   P2PClientType,
   P2PMessage,
@@ -60,8 +62,9 @@ import type { P2PConfig } from '../../config.js';
 import { ProposalSlotCapExceededError } from '../../errors/attestation-pool.error.js';
 import type { MemPools } from '../../mem_pools/interface.js';
 import {
-  AttestationValidator,
   BlockProposalValidator,
+  CheckpointAttestationValidator,
+  CheckpointProposalValidator,
   FishermanAttestationValidator,
 } from '../../msg_validators/index.js';
 import { MessageSeenValidator } from '../../msg_validators/msg_seen_validator/msg_seen_validator.js';
@@ -108,7 +111,12 @@ import {
   reqRespTxHandler,
 } from '../reqresp/protocols/index.js';
 import { ReqResp } from '../reqresp/reqresp.js';
-import type { P2PBlockReceivedCallback, P2PService, PeerDiscoveryService } from '../service.js';
+import type {
+  P2PBlockReceivedCallback,
+  P2PCheckpointReceivedCallback,
+  P2PService,
+  PeerDiscoveryService,
+} from '../service.js';
 import { P2PInstrumentation } from './instrumentation.js';
 
 interface ValidationResult {
@@ -132,8 +140,9 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
   private msgIdSeenValidators: Record<TopicType, MessageSeenValidator> = {} as Record<TopicType, MessageSeenValidator>;
 
   // Message validators
-  private attestationValidator: AttestationValidator;
   private blockProposalValidator: BlockProposalValidator;
+  private checkpointProposalValidator: CheckpointProposalValidator;
+  private checkpointAttestationValidator: CheckpointAttestationValidator;
 
   private protocolVersion = '';
   private topicStrings: Record<TopicType, string> = {} as Record<TopicType, string>;
@@ -146,6 +155,13 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
    * @returns The attestation for the block, if any.
    */
   private blockReceivedCallback: P2PBlockReceivedCallback;
+
+  /**
+   * Callback for when a checkpoint proposal is received from a peer.
+   * @param checkpoint - The checkpoint proposal received from the peer.
+   * @returns The attestations for the checkpoint, if any.
+   */
+  private checkpointReceivedCallback: P2PCheckpointReceivedCallback;
 
   private gossipSubEventHandler: (e: CustomEvent<GossipsubMessage>) => void;
 
@@ -180,7 +196,8 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
 
     this.msgIdSeenValidators[TopicType.tx] = new MessageSeenValidator(config.seenMessageCacheSize);
     this.msgIdSeenValidators[TopicType.block_proposal] = new MessageSeenValidator(config.seenMessageCacheSize);
-    this.msgIdSeenValidators[TopicType.block_attestation] = new MessageSeenValidator(config.seenMessageCacheSize);
+    this.msgIdSeenValidators[TopicType.checkpoint_proposal] = new MessageSeenValidator(config.seenMessageCacheSize);
+    this.msgIdSeenValidators[TopicType.checkpoint_attestation] = new MessageSeenValidator(config.seenMessageCacheSize);
 
     const versions = getVersions(config);
     this.protocolVersion = compressComponentVersions(versions);
@@ -188,25 +205,40 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
 
     this.topicStrings[TopicType.tx] = createTopicString(TopicType.tx, this.protocolVersion);
     this.topicStrings[TopicType.block_proposal] = createTopicString(TopicType.block_proposal, this.protocolVersion);
-    this.topicStrings[TopicType.block_attestation] = createTopicString(
-      TopicType.block_attestation,
+    this.topicStrings[TopicType.checkpoint_proposal] = createTopicString(
+      TopicType.checkpoint_proposal,
+      this.protocolVersion,
+    );
+    this.topicStrings[TopicType.checkpoint_attestation] = createTopicString(
+      TopicType.checkpoint_attestation,
       this.protocolVersion,
     );
 
-    // Use FishermanAttestationValidator in fisherman mode to validate attestation payloads against proposals
-    this.attestationValidator = config.fishermanMode
-      ? new FishermanAttestationValidator(epochCache, mempools.attestationPool, telemetry)
-      : new AttestationValidator(epochCache);
     this.blockProposalValidator = new BlockProposalValidator(epochCache, { txsPermitted: !config.disableTransactions });
+    this.checkpointProposalValidator = new CheckpointProposalValidator(epochCache, {
+      txsPermitted: !config.disableTransactions,
+    });
+    this.checkpointAttestationValidator = config.fishermanMode
+      ? new FishermanAttestationValidator(epochCache, mempools.attestationPool, telemetry)
+      : new CheckpointAttestationValidator(epochCache);
 
     this.gossipSubEventHandler = this.handleGossipSubEvent.bind(this);
 
-    this.blockReceivedCallback = async (block: BlockProposal): Promise<BlockAttestation[] | undefined> => {
+    this.blockReceivedCallback = async (block: BlockProposal): Promise<boolean> => {
       this.logger.debug(
         `Handler not yet registered: Block received callback not set. Received block for slot ${block.slotNumber} from peer.`,
         { p2pMessageIdentifier: await block.p2pMessageLoggingIdentifier() },
       );
-      return undefined;
+      return false;
+    };
+
+    this.checkpointReceivedCallback = (
+      checkpoint: CheckpointProposalCore,
+    ): Promise<CheckpointAttestation[] | undefined> => {
+      this.logger.debug(
+        `Handler not yet registered: Checkpoint received callback not set. Received checkpoint for slot ${checkpoint.slotNumber} from peer.`,
+      );
+      return Promise.resolve(undefined);
     };
   }
 
@@ -275,7 +307,8 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
 
     const txTopic = createTopicString(TopicType.tx, protocolVersion);
     const blockProposalTopic = createTopicString(TopicType.block_proposal, protocolVersion);
-    const blockAttestationTopic = createTopicString(TopicType.block_attestation, protocolVersion);
+    const checkpointProposalTopic = createTopicString(TopicType.checkpoint_proposal, protocolVersion);
+    const checkpointAttestationTopic = createTopicString(TopicType.checkpoint_attestation, protocolVersion);
 
     const preferredPeersEnrs: ENR[] = config.preferredPeers.map(enr => ENR.decodeTxt(enr));
     const directPeers = (
@@ -397,12 +430,17 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
                 invalidMessageDeliveriesWeight: -20,
                 invalidMessageDeliveriesDecay: 0.5,
               }),
-              [blockAttestationTopic]: createTopicScoreParams({
+              [blockProposalTopic]: createTopicScoreParams({
                 topicWeight: 1,
                 invalidMessageDeliveriesWeight: -20,
                 invalidMessageDeliveriesDecay: 0.5,
               }),
-              [blockProposalTopic]: createTopicScoreParams({
+              [checkpointProposalTopic]: createTopicScoreParams({
+                topicWeight: 1,
+                invalidMessageDeliveriesWeight: -20,
+                invalidMessageDeliveriesDecay: 0.5,
+              }),
+              [checkpointAttestationTopic]: createTopicScoreParams({
                 topicWeight: 1,
                 invalidMessageDeliveriesWeight: -20,
                 invalidMessageDeliveriesDecay: 0.5,
@@ -614,6 +652,10 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     this.blockReceivedCallback = callback;
   }
 
+  public registerCheckpointReceivedCallback(callback: P2PCheckpointReceivedCallback) {
+    this.checkpointReceivedCallback = callback;
+  }
+
   /**
    * Subscribes to a topic.
    * @param topic - The topic to subscribe to.
@@ -659,11 +701,14 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       case this.topicStrings[TopicType.tx]:
         topicType = TopicType.tx;
         break;
-      case this.topicStrings[TopicType.block_attestation]:
-        topicType = TopicType.block_attestation;
-        break;
       case this.topicStrings[TopicType.block_proposal]:
         topicType = TopicType.block_proposal;
+        break;
+      case this.topicStrings[TopicType.checkpoint_proposal]:
+        topicType = TopicType.checkpoint_proposal;
+        break;
+      case this.topicStrings[TopicType.checkpoint_attestation]:
+        topicType = TopicType.checkpoint_attestation;
         break;
       default:
         this.logger.error(`Received message on unknown topic: ${msg.topic}`);
@@ -726,10 +771,20 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     // Determine topic type for attributes
     if (msg.topic === this.topicStrings[TopicType.tx]) {
       topicType = TopicType.tx;
-    } else if (msg.topic === this.topicStrings[TopicType.block_attestation]) {
-      topicType = TopicType.block_attestation;
+    } else if (msg.topic === this.topicStrings[TopicType.checkpoint_attestation]) {
+      topicType = TopicType.checkpoint_attestation;
     } else if (msg.topic === this.topicStrings[TopicType.block_proposal]) {
       topicType = TopicType.block_proposal;
+    }
+    if (msg.topic === this.topicStrings[TopicType.checkpoint_proposal]) {
+      topicType = TopicType.checkpoint_proposal;
+      await this.handleGossipedCheckpointProposal(p2pMessage.payload, msgId, source);
+    }
+    if (msg.topic === this.topicStrings[TopicType.checkpoint_attestation]) {
+      topicType = TopicType.checkpoint_attestation;
+      if (this.clientType === P2PClientType.Full) {
+        await this.processCheckpointAttestationFromPeer(p2pMessage.payload, msgId, source);
+      }
     }
 
     // Process the message, optionally within a linked span for trace propagation
@@ -737,9 +792,9 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       if (msg.topic === this.topicStrings[TopicType.tx]) {
         await this.handleGossipedTx(p2pMessage.payload, msgId, source);
       }
-      if (msg.topic === this.topicStrings[TopicType.block_attestation]) {
+      if (msg.topic === this.topicStrings[TopicType.checkpoint_attestation]) {
         if (this.clientType === P2PClientType.Full) {
-          await this.processAttestationFromPeer(p2pMessage.payload, msgId, source);
+          await this.processCheckpointAttestationFromPeer(p2pMessage.payload, msgId, source);
         }
       }
       if (msg.topic === this.topicStrings[TopicType.block_proposal]) {
@@ -863,27 +918,29 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
   }
 
   /**
-   * Process Attestation From Peer
-   * When a proposal is received from a peer, we add it to the attestation pool, so it can be accessed by other services.
-   *
-   * @param attestation - The attestation to process.
+   * Process a checkpoint attestation from a peer.
+   * Validates the attestation and adds it to the pool.
    */
-  private async processAttestationFromPeer(payloadData: Buffer, msgId: string, source: PeerId): Promise<void> {
-    const validationFunc: () => Promise<ReceivedMessageValidationResult<BlockAttestation>> = async () => {
-      const attestation = BlockAttestation.fromBuffer(payloadData);
+  private async processCheckpointAttestationFromPeer(
+    payloadData: Buffer,
+    msgId: string,
+    source: PeerId,
+  ): Promise<void> {
+    const validationFunc: () => Promise<ReceivedMessageValidationResult<CheckpointAttestation>> = async () => {
+      const attestation = CheckpointAttestation.fromBuffer(payloadData);
       const pool = this.mempools.attestationPool;
-      const isValid = await this.validateAttestation(source, attestation);
-      const exists = isValid && (await pool.hasAttestation(attestation));
+      const isValid = await this.validateCheckpointAttestation(source, attestation);
+      const exists = isValid && (await pool.hasCheckpointAttestation(attestation));
 
       let canAdd = true;
       if (isValid && !exists) {
         const slot = attestation.payload.header.slotNumber;
         const { committee } = await this.epochCache.getCommittee(slot);
         const committeeSize = committee?.length ?? 0;
-        canAdd = await pool.canAddAttestation(attestation, committeeSize);
+        canAdd = await pool.canAddCheckpointAttestation(attestation, committeeSize);
       }
 
-      this.logger.trace(`Validate propagated block attestation`, {
+      this.logger.trace(`Validate propagated checkpoint attestation`, {
         isValid,
         exists,
         canAdd,
@@ -896,7 +953,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       } else if (exists) {
         return { result: TopicValidatorResult.Ignore, obj: attestation };
       } else if (!canAdd) {
-        this.logger.warn(`Dropping block attestation due to per-(slot, proposalId) attestation cap`, {
+        this.logger.warn(`Dropping checkpoint attestation due to per-(slot, proposalId) attestation cap`, {
           slot: attestation.payload.header.slotNumber.toString(),
           archive: attestation.archive.toString(),
           source: source.toString(),
@@ -907,11 +964,11 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       }
     };
 
-    const { result, obj: attestation } = await this.validateReceivedMessage<BlockAttestation>(
+    const { result, obj: attestation } = await this.validateReceivedMessage<CheckpointAttestation>(
       validationFunc,
       msgId,
       source,
-      TopicType.block_attestation,
+      TopicType.checkpoint_attestation,
     );
 
     if (result !== TopicValidatorResult.Accept || !attestation) {
@@ -919,7 +976,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     }
 
     this.logger.debug(
-      `Received attestation for slot ${attestation.slotNumber} from external peer ${source.toString()}`,
+      `Received checkpoint attestation for slot ${attestation.slotNumber} from external peer ${source.toString()}`,
       {
         p2pMessageIdentifier: await attestation.p2pMessageLoggingIdentifier(),
         slot: attestation.slotNumber,
@@ -928,7 +985,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       },
     );
 
-    await this.mempools.attestationPool.addAttestations([attestation]);
+    await this.mempools.attestationPool.addCheckpointAttestations([attestation]);
   }
 
   private async processBlockFromPeer(payloadData: Buffer, msgId: string, source: PeerId): Promise<void> {
@@ -944,7 +1001,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
         isValid,
         exists,
         canAdd,
-        [Attributes.SLOT_NUMBER]: block.payload.header.slotNumber.toString(),
+        [Attributes.SLOT_NUMBER]: block.slotNumber.toString(),
         [Attributes.P2P_ID]: source.toString(),
       });
 
@@ -980,6 +1037,8 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
   }
 
   // REVIEW: callback pattern https://github.com/AztecProtocol/aztec-packages/issues/7963
+  // REFACTOR(palla): This method should be moved to the p2p_client or to a separate component,
+  // should not be here as it does not deal with p2p networking.
   @trackSpan('Libp2pService.processValidBlockProposal', async block => ({
     [Attributes.SLOT_NUMBER]: block.slotNumber,
     [Attributes.BLOCK_ARCHIVE]: block.archive.toString(),
@@ -987,17 +1046,13 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
   }))
   private async processValidBlockProposal(block: BlockProposal, sender: PeerId) {
     const slot = block.slotNumber;
-    const previousSlot = SlotNumber(slot - 1);
     this.logger.verbose(`Received block proposal for slot ${slot} from external peer ${sender.toString()}.`, {
       p2pMessageIdentifier: await block.p2pMessageLoggingIdentifier(),
-      slot: block.slotNumber,
-      archive: block.archive.toString(),
       source: sender.toString(),
+      ...block.toBlockInfo(),
     });
-    const attestationsForPreviousSlot = await this.mempools.attestationPool.getAttestationsForSlot(previousSlot);
-    this.logger.verbose(`Received ${attestationsForPreviousSlot.length} attestations for slot ${previousSlot}`);
 
-    // Attempt to add proposal, then mark the txs in this proposal as non-evictable
+    // Attempt to add proposal
     try {
       await this.mempools.attestationPool.addBlockProposal(block);
     } catch (err: unknown) {
@@ -1012,34 +1067,125 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       }
       throw err;
     }
-    await this.mempools.txPool.markTxsAsNonEvictable(block.txHashes);
-    const attestations = await this.blockReceivedCallback(block, sender);
 
-    // TODO: fix up this pattern - the abstraction is not nice
-    // The attestation can be undefined if no handler is registered / the validator deems the block invalid / in fisherman mode
-    if (attestations?.length) {
-      for (const attestation of attestations) {
-        this.logger.verbose(`Broadcasting attestation for slot ${attestation.slotNumber}`, {
-          p2pMessageIdentifier: await attestation.p2pMessageLoggingIdentifier(),
-          slot: attestation.slotNumber,
-          archive: attestation.archive.toString(),
-        });
-        await this.broadcastAttestation(attestation);
-      }
+    // Mark the txs in this proposal as non-evictable
+    await this.mempools.txPool.markTxsAsNonEvictable(block.txHashes);
+
+    // Call the block received callback to validate the proposal.
+    // Note: Validators do NOT attest to individual blocks, only to checkpoint proposals.
+    const isValid = await this.blockReceivedCallback(block, sender);
+    if (!isValid) {
+      this.logger.warn(`Block proposal validation failed for block ${block.blockNumber}`, block.toBlockInfo());
     }
   }
 
   /**
-   * Broadcast an attestation to all peers.
-   * @param attestation - The attestation to broadcast.
+   * Handle a gossiped checkpoint proposal.
+   * Validates and processes the checkpoint proposal, then triggers the callback for attestation.
    */
-  @trackSpan('Libp2pService.broadcastAttestation', async attestation => ({
-    [Attributes.SLOT_NUMBER]: attestation.payload.header.slotNumber,
-    [Attributes.BLOCK_ARCHIVE]: attestation.archive.toString(),
-    [Attributes.P2P_ID]: await attestation.p2pMessageLoggingIdentifier().then(i => i.toString()),
+  private async handleGossipedCheckpointProposal(payloadData: Buffer, msgId: string, source: PeerId): Promise<void> {
+    // TODO(palla/mbps): This pattern is repeated across multiple message handlers, consider abstracting it.
+    const validationFunc: () => Promise<ReceivedMessageValidationResult<CheckpointProposal>> = async () => {
+      const checkpoint = CheckpointProposal.fromBuffer(payloadData);
+      const isValid = await this.validateCheckpointProposal(source, checkpoint);
+      const pool = this.mempools.attestationPool;
+
+      const exists = isValid && (await pool.hasCheckpointProposal(checkpoint));
+      const canAdd = isValid && (await pool.canAddCheckpointProposal(checkpoint));
+
+      this.logger.trace(`Validate propagated checkpoint proposal`, {
+        isValid,
+        exists,
+        canAdd,
+        [Attributes.SLOT_NUMBER]: checkpoint.slotNumber.toString(),
+        [Attributes.P2P_ID]: source.toString(),
+      });
+
+      if (!isValid) {
+        return { result: TopicValidatorResult.Reject };
+      } else if (exists) {
+        return { result: TopicValidatorResult.Ignore, obj: checkpoint };
+      } else if (!canAdd) {
+        this.peerManager.penalizePeer(source, PeerErrorSeverity.MidToleranceError);
+        this.logger.warn(`Penalizing peer for checkpoint proposal exceeding per-slot cap`, {
+          slot: checkpoint.slotNumber.toString(),
+          archive: checkpoint.archive.toString(),
+          source: source.toString(),
+        });
+        return { result: TopicValidatorResult.Reject };
+      } else {
+        return { result: TopicValidatorResult.Accept, obj: checkpoint };
+      }
+    };
+
+    const { result, obj: checkpoint } = await this.validateReceivedMessage<CheckpointProposal>(
+      validationFunc,
+      msgId,
+      source,
+      TopicType.checkpoint_proposal,
+    );
+
+    if (result !== TopicValidatorResult.Accept || !checkpoint) {
+      return;
+    }
+
+    await this.processValidCheckpointProposal(checkpoint, source);
+  }
+
+  /**
+   * Process a validated checkpoint proposal.
+   * Extracts and processes the last block proposal (if present) first, then processes the checkpoint.
+   * The block callback is invoked before the checkpoint callback.
+   */
+  @trackSpan('Libp2pService.processValidCheckpointProposal', async checkpoint => ({
+    [Attributes.SLOT_NUMBER]: checkpoint.slotNumber,
+    [Attributes.BLOCK_ARCHIVE]: checkpoint.archive.toString(),
+    [Attributes.P2P_ID]: await checkpoint.p2pMessageLoggingIdentifier().then(i => i.toString()),
   }))
-  private async broadcastAttestation(attestation: BlockAttestation) {
-    await this.propagate(attestation);
+  private async processValidCheckpointProposal(checkpoint: CheckpointProposal, sender: PeerId) {
+    const slot = checkpoint.slotNumber;
+    this.logger.verbose(`Received checkpoint proposal for slot ${slot} from external peer ${sender.toString()}.`, {
+      p2pMessageIdentifier: await checkpoint.p2pMessageLoggingIdentifier(),
+      slot: checkpoint.slotNumber,
+      archive: checkpoint.archive.toString(),
+      source: sender.toString(),
+    });
+
+    // Extract block proposal before adding to pool (pool stores them separately)
+    const blockProposal = checkpoint.getBlockProposal();
+
+    // Add proposal to the pool (this extracts and stores block proposal separately)
+    await this.mempools.attestationPool.addCheckpointProposal(checkpoint);
+
+    // Mark txs as non-evictable if present (from the last block)
+    if (checkpoint.txHashes.length > 0) {
+      await this.mempools.txPool.markTxsAsNonEvictable(checkpoint.txHashes);
+    }
+
+    // If there was a last block proposal, invoke the block callback first for validation.
+    // Note: The block proposal is already stored in the pool by addCheckpointProposal.
+    if (blockProposal) {
+      const isValid = await this.blockReceivedCallback(blockProposal, sender);
+      if (!isValid) {
+        this.logger.warn(`Block proposal from checkpoint failed validation`, {
+          slot: slot.toString(),
+          archive: checkpoint.archive.toString(),
+          blockNumber: blockProposal.blockNumber.toString(),
+        });
+        return;
+      }
+    }
+
+    // Call the checkpoint received callback with the core version (without lastBlock)
+    // to validate and potentially generate attestations
+    const attestations = await this.checkpointReceivedCallback(checkpoint.toCore(), sender);
+    if (attestations && attestations.length > 0) {
+      // If the callback returned attestations, add them to the pool and propagate them
+      await this.mempools.attestationPool.addCheckpointAttestations(attestations);
+      for (const attestation of attestations) {
+        await this.propagate(attestation);
+      }
+    }
   }
 
   /**
@@ -1424,19 +1570,20 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
   }
 
   /**
-   * Validate an attestation.
+   * Validate a checkpoint attestation.
    *
-   * @param attestation - The attestation to validate.
-   * @returns True if the attestation is valid, false otherwise.
+   * @param attestation - The checkpoint attestation to validate.
+   * @returns True if the checkpoint attestation is valid, false otherwise.
    */
-  @trackSpan('Libp2pService.validateAttestation', async (_, attestation) => ({
+  @trackSpan('Libp2pService.validateCheckpointAttestation', async (_, attestation) => ({
     [Attributes.SLOT_NUMBER]: attestation.payload.header.slotNumber,
     [Attributes.BLOCK_ARCHIVE]: attestation.archive.toString(),
     [Attributes.P2P_ID]: await attestation.p2pMessageLoggingIdentifier().then(i => i.toString()),
   }))
-  public async validateAttestation(peerId: PeerId, attestation: BlockAttestation): Promise<boolean> {
-    const severity = await this.attestationValidator.validate(attestation);
+  public async validateCheckpointAttestation(peerId: PeerId, attestation: CheckpointAttestation): Promise<boolean> {
+    const severity = await this.checkpointAttestationValidator.validate(attestation);
     if (severity) {
+      this.logger.debug(`Penalizing peer ${peerId} for checkpoint attestation validation failure`);
       this.peerManager.penalizePeer(peerId, severity);
       return false;
     }
@@ -1451,12 +1598,32 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
    * @returns True if the block proposal is valid, false otherwise.
    */
   @trackSpan('Libp2pService.validateBlockProposal', (_peerId, block) => ({
-    [Attributes.SLOT_NUMBER]: block.payload.header.slotNumber.toString(),
+    [Attributes.SLOT_NUMBER]: block.slotNumber.toString(),
   }))
   public async validateBlockProposal(peerId: PeerId, block: BlockProposal): Promise<boolean> {
     const severity = await this.blockProposalValidator.validate(block);
     if (severity) {
       this.logger.debug(`Penalizing peer ${peerId} for block proposal validation failure`);
+      this.peerManager.penalizePeer(peerId, severity);
+      return false;
+    }
+
+    return true;
+  }
+
+  /**
+   * Validate a checkpoint proposal.
+   *
+   * @param checkpoint - The checkpoint proposal to validate.
+   * @returns True if the checkpoint proposal is valid, false otherwise.
+   */
+  @trackSpan('Libp2pService.validateCheckpointProposal', (_peerId, checkpoint) => ({
+    [Attributes.SLOT_NUMBER]: checkpoint.slotNumber.toString(),
+  }))
+  public async validateCheckpointProposal(peerId: PeerId, checkpoint: CheckpointProposal): Promise<boolean> {
+    const severity = await this.checkpointProposalValidator.validate(checkpoint);
+    if (severity) {
+      this.logger.debug(`Penalizing peer ${peerId} for checkpoint proposal validation failure`);
       this.peerManager.penalizePeer(peerId, severity);
       return false;
     }
