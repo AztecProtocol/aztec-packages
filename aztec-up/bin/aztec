@@ -562,6 +562,12 @@ EOF
     exec $(dirname $0)/.aztec-run aztec \
       node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js "$@"
     ;;
+  migrate-ha-db)
+    # DB migration command, inject the database URL
+    export ENV_VARS_TO_INJECT="DATABASE_URL"
+    exec $(dirname $0)/.aztec-run aztec \
+      node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js "$@"
+    ;;
   *)
     export ENV_VARS_TO_INJECT="SECRET_KEY"
     exec $(dirname $0)/.aztec-run aztec \
