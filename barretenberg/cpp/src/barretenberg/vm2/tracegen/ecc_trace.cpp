@@ -74,6 +74,15 @@ void EccTraceBuilder::process_add(const simulation::EventEmitterInterface<simula
         bool result_is_infinity = infinity_predicate && (!p.is_infinity() && !q.is_infinity());
         result_is_infinity = result_is_infinity || (p.is_infinity() && q.is_infinity());
 
+        if (!x_match && y_match) {
+            // This case can never happen with real coordinates, but is hit if we input bb's inf represention + noir's
+            // inf representation.
+            info("Both points are inf: ",
+                 p.is_infinity() && q.is_infinity(),
+                 " ... but no predicates are set: ",
+                 double_predicate || add_predicate || infinity_predicate);
+        }
+
         bool use_computed_result = !infinity_predicate && (!p.is_infinity() && !q.is_infinity());
 
         BB_ASSERT_EQ(result_is_infinity, result.is_infinity(), "Inconsistent infinity result assumption");

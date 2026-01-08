@@ -24,6 +24,7 @@
 #include "barretenberg/vm2/testing/fixtures.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
 #include "barretenberg/vm2/tracegen/ecc_trace.hpp"
+#include "barretenberg/vm2/tracegen/execution_trace.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
 #include "barretenberg/vm2/tracegen/to_radix_trace.hpp"
 
@@ -1293,6 +1294,89 @@ TEST(EccAddMemoryConstrainingTest, EccAddMemoryPointError)
 
     check_all_interactions<EccTraceBuilder>(trace);
     check_relation<mem_aware_ecc>(trace);
+}
+
+TEST(EccAddMemoryConstrainingTest, InfinityRepresentations)
+{
+    EccTraceBuilder builder;
+
+    EventEmitter<EccAddEvent> ecc_add_event_emitter;
+    EventEmitter<ScalarMulEvent> scalar_mul_event_emitter;
+    EventEmitter<EccAddMemoryEvent> ecc_add_memory_event_emitter;
+
+    StrictMock<MockExecutionIdManager> execution_id_manager;
+    EXPECT_CALL(execution_id_manager, get_execution_id)
+        .WillRepeatedly(Return(0)); // Use a fixed execution ID for the test
+    PureGreaterThan gt;
+    PureToRadix to_radix_simulator = PureToRadix();
+    EccSimulator ecc_simulator(execution_id_manager,
+                               gt,
+                               to_radix_simulator,
+                               ecc_add_event_emitter,
+                               scalar_mul_event_emitter,
+                               ecc_add_memory_event_emitter);
+
+    // Point P is infinity
+    EmbeddedCurvePoint inf = EmbeddedCurvePoint::infinity();
+    // EmbeddedCurvePoint preserves raw coordinates (see StandardAffinePointTest)
+    EmbeddedCurvePoint inf_bb = EmbeddedCurvePoint(avm2::AffinePoint::infinity());
+    EmbeddedCurvePoint inf_alt = EmbeddedCurvePoint(1, 2, true);
+    TestTraceContainer trace;
+
+    // Coordinates are ignored in the circuit if the point is infinity, but tracegen assigns predicates (double, add, or
+    // inf) based on coordinates.
+    // This means add_predicate is incorrectly true when we are doubling inf if the underlying coordinates both don't
+    // match, but the circuit correctly ignores this with BOTH_INF (no errors/issues):
+    ecc_simulator.add(inf, inf_alt);
+    builder.process_add(ecc_add_event_emitter.dump_events(), trace);
+    check_relation<ecc>(trace);
+
+    // However, if the inf representation's have !x_match && y_match (impossible with real coordinates), no predicates
+    // are set and we fail the OP_CHECK relation. This is true for the noir (0, 0) and bb (x, 0) inf reps:
+    ecc_simulator.add(inf, inf_bb);
+    builder.process_add(ecc_add_event_emitter.dump_events(), trace);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<ecc>(trace, ecc::SR_OP_CHECK), "OP_CHECK");
+    check_all_interactions<EccTraceBuilder>(trace);
+    // Note: the circuit assumes the point has already been checked to be on the curve and => the coordinates satisfy
+    // the curve eqn => the case !x_match and y_match doesn't exist
+
+    // We can:
+    // Enforce that inf is represented by a fixed set of coordinates in the circuit (0,0), so that the x_match etc.
+    // columns are correct in the circuit as is
+    //
+    // Mutate the coordinates in C++ (either via EmbeddedCurvePoint or in tracegen) beforehand so if BOTH_INF is true,
+    // the coordinates always match.
+    //
+    // Constrain some relations by BOTH_INF e.g. double_op - (x_match * y_match) = 0; -> double_op - (x_match * y_match
+    // + BOTH_INF - x_match * y_match * BOTH_INF) = 0;
+
+    // Bonus: memory aware add (above issue does not affect memory lookups etc.):
+    MemoryStore memory;
+    MemoryAddress dst_address = 5;
+    trace.set(0,
+              { { // Execution
+                  { C::execution_sel, 1 },
+                  { C::execution_sel_exec_dispatch_ecc_add, 1 },
+                  { C::execution_rop_6_, dst_address },
+                  { C::execution_register_0_, inf.x() },
+                  { C::execution_register_1_, inf.y() },
+                  { C::execution_register_2_, inf.is_infinity() ? 1 : 0 },
+                  { C::execution_register_3_, inf_bb.x() },
+                  { C::execution_register_4_, inf_bb.y() },
+                  { C::execution_register_5_, inf_bb.is_infinity() ? 1 : 0 },
+                  // GT - dst out of range check
+                  { C::gt_sel, 1 },
+                  { C::gt_input_a, dst_address + 2 }, // highest write address is dst_address + 2
+                  { C::gt_input_b, AVM_HIGHEST_MEM_ADDRESS },
+                  { C::gt_res, 0 } } });
+    ecc_simulator.add(memory, inf, inf_bb, dst_address);
+    builder.process_add_with_memory(ecc_add_memory_event_emitter.dump_events(), trace);
+    builder.process_add(ecc_add_event_emitter.dump_events(), trace);
+
+    check_relation<mem_aware_ecc>(trace);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<ecc>(trace, ecc::SR_OP_CHECK), "OP_CHECK");
+    check_all_interactions<EccTraceBuilder>(trace);
+    check_interaction<tracegen::ExecutionTraceBuilder, bb::avm2::perm_execution_dispatch_to_ecc_add_settings>(trace);
 }
 
 } // namespace
