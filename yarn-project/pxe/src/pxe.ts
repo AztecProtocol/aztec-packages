@@ -60,6 +60,7 @@ import {
 } from './contract_function_simulator/contract_function_simulator.js';
 import { readCurrentClassId } from './contract_function_simulator/oracle/private_execution.js';
 import { ProxiedContractStoreFactory } from './contract_function_simulator/proxied_contract_data_source.js';
+import { ProxiedNodeFactory } from './contract_function_simulator/proxied_node.js';
 import { PXEDebugUtils } from './debug/pxe_debug_utils.js';
 import { enrichPublicSimulationError, enrichSimulationError } from './error_enriching.js';
 import { PrivateEventFilterValidator } from './events/private_event_filter_validator.js';
@@ -199,7 +200,7 @@ export class PXE {
       this.noteStore,
       this.keyStore,
       this.addressStore,
-      this.node,
+      ProxiedNodeFactory.create(this.node),
       this.anchorBlockStore,
       this.senderTaggingStore,
       this.recipientTaggingStore,

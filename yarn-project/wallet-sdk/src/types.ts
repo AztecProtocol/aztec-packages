@@ -1,7 +1,9 @@
 import type { ChainInfo } from '@aztec/aztec.js/account';
 
+import type { ExportedPublicKey } from './crypto.js';
+
 /**
- * Information about an installed Aztec wallet wallet
+ * Information about an installed Aztec wallet
  */
 export interface WalletInfo {
   /** Unique identifier for the wallet */
@@ -12,10 +14,12 @@ export interface WalletInfo {
   icon?: string;
   /** Wallet version */
   version: string;
+  /** Wallet's ECDH public key for secure channel establishment */
+  publicKey: ExportedPublicKey;
 }
 
 /**
- * Message format for wallet communication
+ * Message format for wallet communication (internal, before encryption)
  */
 export interface WalletMessage {
   /** Unique message ID for tracking responses */
@@ -47,7 +51,7 @@ export interface WalletResponse {
 }
 
 /**
- * Discovery message for finding installed wallets
+ * Discovery message for finding installed wallets (public, unencrypted)
  */
 export interface DiscoveryRequest {
   /** Message type for discovery */
@@ -59,7 +63,7 @@ export interface DiscoveryRequest {
 }
 
 /**
- * Discovery response from an wallet
+ * Discovery response from a wallet (public, unencrypted)
  */
 export interface DiscoveryResponse {
   /** Message type for discovery response */
@@ -68,4 +72,18 @@ export interface DiscoveryResponse {
   requestId: string;
   /** Wallet information */
   walletInfo: WalletInfo;
+}
+
+/**
+ * Connection request to establish secure channel
+ */
+export interface ConnectRequest {
+  /** Message type for connection */
+  type: 'aztec-wallet-connect';
+  /** Target wallet ID */
+  walletId: string;
+  /** Application ID */
+  appId: string;
+  /** dApp's ECDH public key for deriving shared secret */
+  publicKey: ExportedPublicKey;
 }
