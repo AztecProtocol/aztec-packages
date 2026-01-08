@@ -5,7 +5,7 @@ import { waitForProven } from '@aztec/aztec.js/contracts';
 import { generateClaimSecret } from '@aztec/aztec.js/ethereum';
 import { Fr } from '@aztec/aztec.js/fields';
 import { RollupCheatCodes } from '@aztec/aztec/testing';
-import { RegistryContract, RollupContract } from '@aztec/ethereum/contracts';
+import { FeeAssetHandlerContract, RegistryContract, RollupContract } from '@aztec/ethereum/contracts';
 import { deployRollupForUpgrade } from '@aztec/ethereum/deploy-aztec-l1-contracts';
 import { deployL1Contract } from '@aztec/ethereum/deploy-l1-contract';
 import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
@@ -188,6 +188,18 @@ describe('e2e_p2p_add_rollup', () => {
         localEjectionThreshold: t.ctx.aztecNodeConfig.localEjectionThreshold,
       },
     );
+
+    // Fund the new rollup's FeeJuicePortal using the feeAssetHandler.
+    // This is needed because after initial deployment, the fee asset's owner is transferred to coinIssuer,
+    // so the deployRollupForUpgrade script can't mint tokens directly to the new portal.
+    const newFeeJuicePortalAddress = await newRollup.getFeeJuicePortal();
+    const feeAssetHandler = new FeeAssetHandlerContract(
+      t.ctx.deployL1ContractsValues.l1Client,
+      t.ctx.deployL1ContractsValues.l1ContractAddresses.feeAssetHandlerAddress!,
+    );
+    t.logger.info(`Fund the new FeeJuicePortal at ${newFeeJuicePortalAddress}`);
+    await feeAssetHandler.setMintAmount(l1TxUtils, fundingNeeded);
+    await feeAssetHandler.mint(l1TxUtils, newFeeJuicePortalAddress);
 
     const { address: newPayloadAddress } = await deployL1Contract(
       t.ctx.deployL1ContractsValues.l1Client,
