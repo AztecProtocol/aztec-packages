@@ -95,7 +95,7 @@ impl AsStrQuote for Quoted {
     // Used to convert an arbitrary quoted type into a quoted string, removing whitespace between tokens
     comptime fn as_str_quote(self) -> (Quoted, u32) {
         let tokens = self.tokens();
-        let mut acc: [u8] = &[];
+        let mut acc: [u8] = @[];
         let mut total_len: u32 = 0;
         for token in tokens {
             let token_as_fmt_str = f"{token}";
