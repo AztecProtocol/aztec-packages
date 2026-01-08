@@ -78,11 +78,11 @@ describe('L2BlockStream', () => {
     checkpoint: { number: CheckpointNumber(number), hash: makeHash(number) },
   });
 
-  /** Sets the remote tips. checkpointed_ defaults to 0 (no checkpointed blocks). */
-  const setRemoteTips = (latest_: number, proven?: number, finalized?: number, checkpointed_?: number) => {
+  /** Sets the remote tips. All tips default to 0 except latest. */
+  const setRemoteTips = (latest_: number, checkpointed_?: number, proven?: number, finalized?: number) => {
+    checkpointed_ = checkpointed_ ?? 0;
     proven = proven ?? 0;
     finalized = finalized ?? 0;
-    checkpointed_ = checkpointed_ ?? 0;
     latest = latest_;
     checkpointed = checkpointed_;
 
@@ -220,7 +220,7 @@ describe('L2BlockStream', () => {
     });
 
     it('emits events for chain proven and finalized', async () => {
-      setRemoteTips(45, 40, 35);
+      setRemoteTips(45, 0, 40, 35);
       localData.proposed.number = BlockNumber(40);
       localData.proven.block.number = BlockNumber(10);
       localData.finalized.block.number = BlockNumber(10);
@@ -235,7 +235,7 @@ describe('L2BlockStream', () => {
 
     it('fetches checkpointed blocks and emits chain-checkpointed events', async () => {
       // All blocks are checkpointed (checkpointed=5, proposed=5)
-      setRemoteTips(5, 0, 0, 5);
+      setRemoteTips(5, 5);
 
       await blockStream.work();
 
@@ -259,7 +259,7 @@ describe('L2BlockStream', () => {
 
     it('fetches checkpointed blocks first, then uncheckpointed blocks', async () => {
       // Blocks 1-3 are checkpointed, blocks 4-5 are uncheckpointed
-      setRemoteTips(5, 0, 0, 3);
+      setRemoteTips(5, 3);
 
       await blockStream.work();
 
@@ -279,7 +279,7 @@ describe('L2BlockStream', () => {
 
     it('handles reorg with uncheckpointed reason when pruned to checkpointed tip', async () => {
       // Source: checkpointed=3, proposed=5
-      setRemoteTips(5, 0, 0, 3);
+      setRemoteTips(5, 3);
       localData.proposed.number = BlockNumber(5);
       localData.checkpointed.block.number = BlockNumber(3);
 
@@ -312,26 +312,29 @@ describe('L2BlockStream', () => {
 
     // Regression test for https://github.com/AztecProtocol/aztec-packages/issues/13471
     it('handles a prune to a block before start block', async () => {
-      setRemoteTips(35, 25, 10);
+      setRemoteTips(35, 30, 25, 10);
       blockStream = new TestL2BlockStream(blockSource, localData, handler, undefined, {
         batchSize: 10,
         startingBlock: 30,
       });
 
       // We first seed a few blocks into the blockstream
+      // Block 30 comes via checkpoint, blocks 31-35 via uncheckpointed
       await blockStream.work();
       expect(handler.events).toEqual([
-        { type: 'blocks-added', blocks: times(6, i => makeBlock(i + 30)) },
+        expectBlocksAdded([30]),
+        expectCheckpointed(30),
+        { type: 'blocks-added', blocks: times(5, i => makeBlock(i + 31)) },
         { type: 'chain-proven', block: makeBlockId(25) },
         { type: 'chain-finalized', block: makeBlockId(10) },
       ]);
       handler.clearEvents();
 
       // And then we reorg
-      setRemoteTips(25, 25, 10);
+      setRemoteTips(25, 25, 25, 10);
       await blockStream.work();
       expect(handler.events).toEqual([
-        { type: 'chain-pruned', block: makeBlockId(25), reason: 'unproven', checkpoint: makeCheckpointId(0) },
+        { type: 'chain-pruned', block: makeBlockId(25), reason: 'unproven', checkpoint: makeCheckpointId(25) },
       ]);
     });
   });
@@ -386,13 +389,13 @@ describe('L2BlockStream', () => {
     /** Sets the remote tips with correct checkpoint numbers for multi-block checkpoints. */
     const setRemoteTipsMultiBlock = (
       latest_: number,
+      checkpointedBlock?: number,
       proven?: number,
       finalized?: number,
-      checkpointedBlock?: number,
     ) => {
+      checkpointedBlock = checkpointedBlock ?? 0;
       proven = proven ?? 0;
       finalized = finalized ?? 0;
-      checkpointedBlock = checkpointedBlock ?? 0;
       latest = latest_;
       checkpointed = checkpointedBlock;
 
@@ -453,7 +456,7 @@ describe('L2BlockStream', () => {
 
     it('emits all blocks in a checkpoint before chain-checkpointed event', async () => {
       // Set up: 6 blocks in 2 checkpoints (blocks 1-3 in checkpoint 1, blocks 4-6 in checkpoint 2)
-      setRemoteTipsMultiBlock(6, 0, 0, 6);
+      setRemoteTipsMultiBlock(6, 6);
 
       await blockStream.work();
 
@@ -469,7 +472,7 @@ describe('L2BlockStream', () => {
     it('handles partial checkpoint at the end (uncheckpointed blocks)', async () => {
       // Set up: 5 blocks total, but only first 3 are checkpointed (checkpoint 1 complete)
       // Blocks 4-5 are uncheckpointed
-      setRemoteTipsMultiBlock(5, 0, 0, 3);
+      setRemoteTipsMultiBlock(5, 3);
 
       await blockStream.work();
 
@@ -480,16 +483,16 @@ describe('L2BlockStream', () => {
     it('handles starting from middle of a checkpoint', async () => {
       // Set up: 9 blocks in 3 checkpoints, but we start from block 5 (middle of checkpoint 2)
       // Local has blocks 1-4, local checkpointed = 0
-      setRemoteTipsMultiBlock(9, 0, 0, 9);
+      setRemoteTipsMultiBlock(9, 9);
       localData.proposed.number = BlockNumber(4);
 
       await blockStream.work();
 
-      // Should first emit checkpoint 1 (blocks 1-3 already local)
+      // Should first emit checkpoint 1 (blocks 1-4 already local)
       // Then continue from block 5, which is in checkpoint 2
       // Blocks 5-6 complete checkpoint 2, then blocks 7-9 complete checkpoint 3
       expect(handler.events).toEqual([
-        expectCheckpointed(1), // checkpoint 1 for already-local blocks 1-3
+        expectCheckpointed(1), // checkpoint 1 for already-local blocks 1-4
         expectBlocksAdded([5, 6]),
         expectCheckpointed(2), // checkpoint 2
         expectBlocksAdded([7, 8, 9]),
@@ -506,7 +509,7 @@ describe('L2BlockStream', () => {
 
     it('correctly identifies checkpoint number in chain-checkpointed events', async () => {
       // Set up: 6 blocks in 2 checkpoints
-      setRemoteTipsMultiBlock(6, 0, 0, 6);
+      setRemoteTipsMultiBlock(6, 6);
 
       await blockStream.work();
 
@@ -518,28 +521,35 @@ describe('L2BlockStream', () => {
     });
 
     it('handles many checkpoints with batching', async () => {
-      // Set up: 12 blocks in 4 checkpoints, with batch size of 5
+      // Set up: 12 blocks in 4 checkpoints (3 blocks each), with batch size of 5
+      // Batch size doesn't align with checkpoint boundaries, so the stream must
+      // respect checkpoint boundaries and emit events correctly
       blockStream = new TestL2BlockStream(blockSource, localData, handler, undefined, { batchSize: 5 });
-      setRemoteTipsMultiBlock(12, 0, 0, 12);
+      setRemoteTipsMultiBlock(12, 12);
 
       await blockStream.work();
 
-      // Should have 4 checkpoint events (one per checkpoint)
-      const checkpointEvents = handler.events.filter(e => e.type === 'chain-checkpointed');
-      expect(checkpointEvents).toHaveLength(4);
-
-      // Should have multiple blocks-added events due to batching and checkpoint boundaries
-      const blocksAddedEvents = handler.events.filter(e => e.type === 'blocks-added');
-      expect(blocksAddedEvents.length).toBeGreaterThanOrEqual(4);
-
-      // Verify all blocks were added in order
-      const allBlocks = blocksAddedEvents.flatMap(e => (e as any).blocks);
-      expect(allBlocks.map((b: L2BlockNew) => b.number)).toEqual(times(12, i => BlockNumber(i + 1)));
+      // Even though batch size is 5, checkpoint boundaries (every 3 blocks) take precedence
+      // Expected sequence:
+      // - Blocks 1-3 (checkpoint 1), then checkpoint 1 event
+      // - Blocks 4-6 (checkpoint 2), then checkpoint 2 event
+      // - Blocks 7-9 (checkpoint 3), then checkpoint 3 event
+      // - Blocks 10-12 (checkpoint 4), then checkpoint 4 event
+      expect(handler.events).toEqual([
+        expectBlocksAdded([1, 2, 3]),
+        expectCheckpointed(1),
+        expectBlocksAdded([4, 5, 6]),
+        expectCheckpointed(2),
+        expectBlocksAdded([7, 8, 9]),
+        expectCheckpointed(3),
+        expectBlocksAdded([10, 11, 12]),
+        expectCheckpointed(4),
+      ]);
     });
 
     it('emits checkpoint event when blocks become checkpointed after being added as uncheckpointed', async () => {
       // Phase 1: Start with 3 checkpointed blocks (checkpoint 1), then add blocks 4-6 as uncheckpointed
-      setRemoteTipsMultiBlock(6, 0, 0, 3);
+      setRemoteTipsMultiBlock(6, 3);
 
       await blockStream.work();
 
@@ -558,7 +568,7 @@ describe('L2BlockStream', () => {
       localData.checkpointed.checkpoint.number = CheckpointNumber(1);
 
       // Phase 2: Now checkpoint 2 completes (blocks 4-6 become checkpointed)
-      setRemoteTipsMultiBlock(6, 0, 0, 6);
+      setRemoteTipsMultiBlock(6, 6);
 
       await blockStream.work();
 
@@ -570,7 +580,7 @@ describe('L2BlockStream', () => {
 
     it('emits checkpoint event BEFORE new uncheckpointed blocks when checkpoint completes', async () => {
       // Phase 1: Start with 3 checkpointed blocks (checkpoint 1), then add blocks 4-6 as uncheckpointed
-      setRemoteTipsMultiBlock(6, 0, 0, 3);
+      setRemoteTipsMultiBlock(6, 3);
 
       await blockStream.work();
 
@@ -589,7 +599,7 @@ describe('L2BlockStream', () => {
       localData.checkpointed.checkpoint.number = CheckpointNumber(1);
 
       // Phase 2: Checkpoint 2 completes (blocks 4-6) AND a new block 7 arrives
-      setRemoteTipsMultiBlock(7, 0, 0, 6);
+      setRemoteTipsMultiBlock(7, 6);
 
       await blockStream.work();
 
@@ -604,7 +614,7 @@ describe('L2BlockStream', () => {
 
       // Sync 1: Source has checkpointed=6 (checkpoint 2), proposed=9
       // Client gets blocks 1-6 via checkpoints, blocks 7-9 as uncheckpointed
-      setRemoteTipsMultiBlock(9, 0, 0, 6);
+      setRemoteTipsMultiBlock(9, 6);
 
       await blockStream.work();
 
@@ -624,7 +634,7 @@ describe('L2BlockStream', () => {
       localData.checkpointed.checkpoint.number = CheckpointNumber(2);
 
       // Sync 2: Checkpoint 3 is now published (blocks 7-9), new blocks 10-12 are uncheckpointed
-      setRemoteTipsMultiBlock(12, 0, 0, 9);
+      setRemoteTipsMultiBlock(12, 9);
 
       await blockStream.work();
 
@@ -642,7 +652,7 @@ describe('L2BlockStream', () => {
       localData.checkpointed.checkpoint.number = CheckpointNumber(3);
 
       // Sync 3: Checkpoint 4 is now published (blocks 10-12), no new blocks
-      setRemoteTipsMultiBlock(12, 0, 0, 12);
+      setRemoteTipsMultiBlock(12, 12);
 
       await blockStream.work();
 
@@ -652,7 +662,7 @@ describe('L2BlockStream', () => {
 
     it('emits all checkpoints when source jumps ahead with multiple new checkpoints', async () => {
       // Phase 1: Start with checkpoint 1 complete (blocks 1-3), blocks 4-6 uncheckpointed
-      setRemoteTipsMultiBlock(6, 0, 0, 3);
+      setRemoteTipsMultiBlock(6, 3);
 
       await blockStream.work();
 
@@ -673,7 +683,7 @@ describe('L2BlockStream', () => {
       // - Checkpoint 2 (blocks 4-6) - blocks already local, needs checkpoint event
       // - Checkpoint 3 (blocks 7-9) - new blocks + checkpoint event
       // - Checkpoint 4 (blocks 10-12) - new blocks + checkpoint event
-      setRemoteTipsMultiBlock(12, 0, 0, 12);
+      setRemoteTipsMultiBlock(12, 12);
 
       await blockStream.work();
 
@@ -688,6 +698,332 @@ describe('L2BlockStream', () => {
         expectBlocksAdded([10, 11, 12]),
         expectCheckpointed(4),
       ]);
+    });
+
+    describe('prune scenarios', () => {
+      it('prunes proposed chain back to checkpointed tip, then continues', async () => {
+        // Phase 1: Sync blocks 1-9 with checkpoints 1-2, blocks 7-9 uncheckpointed
+        setRemoteTipsMultiBlock(9, 6);
+
+        await blockStream.work();
+
+        expect(handler.events).toEqual([
+          expectBlocksAdded([1, 2, 3]),
+          expectCheckpointed(1),
+          expectBlocksAdded([4, 5, 6]),
+          expectCheckpointed(2),
+          expectBlocksAdded([7, 8, 9]), // uncheckpointed
+        ]);
+
+        handler.clearEvents();
+
+        // Update local state to reflect what the handler stored
+        localData.proposed.number = BlockNumber(9);
+        localData.checkpointed.block.number = BlockNumber(6);
+        localData.checkpointed.checkpoint.number = CheckpointNumber(2);
+
+        // Phase 2: Prune - proposed chain pruned back to checkpointed tip (block 6)
+        // This happens when uncheckpointed blocks (7-9) are invalid
+        // Mess up hashes for blocks 7-9 to simulate reorg
+        localData.blockHashes[7] = '0xbad7';
+        localData.blockHashes[8] = '0xbad8';
+        localData.blockHashes[9] = '0xbad9';
+
+        // Source now has proposed=6, checkpointed=6
+        setRemoteTipsMultiBlock(6, 6);
+
+        await blockStream.work();
+
+        // Should emit chain-pruned back to block 6, reason 'uncheckpointed'
+        expect(handler.events).toEqual([
+          {
+            type: 'chain-pruned',
+            block: makeBlockId(6),
+            reason: 'uncheckpointed',
+            checkpoint: expect.objectContaining({ number: CheckpointNumber(2) }),
+          },
+        ]);
+
+        handler.clearEvents();
+
+        // Update local state after prune
+        localData.proposed.number = BlockNumber(6);
+        delete localData.blockHashes[7];
+        delete localData.blockHashes[8];
+        delete localData.blockHashes[9];
+
+        // Phase 3: Chain continues - new blocks 7-12 arrive with checkpoints 3-4
+        setRemoteTipsMultiBlock(12, 12);
+
+        await blockStream.work();
+
+        // Should continue normally: blocks 7-9 + checkpoint 3, blocks 10-12 + checkpoint 4
+        expect(handler.events).toEqual([
+          expectBlocksAdded([7, 8, 9]),
+          expectCheckpointed(3),
+          expectBlocksAdded([10, 11, 12]),
+          expectCheckpointed(4),
+        ]);
+      });
+
+      it('prunes proposed and checkpointed chains back to proven tip, then continues', async () => {
+        // Phase 1: Sync blocks 1-12 with checkpoints 1-3, proven at checkpoint 2 (block 6)
+        setRemoteTipsMultiBlock(12, 9, 6);
+
+        await blockStream.work();
+
+        expect(handler.events).toEqual([
+          expectBlocksAdded([1, 2, 3]),
+          expectCheckpointed(1),
+          expectBlocksAdded([4, 5, 6]),
+          expectCheckpointed(2),
+          expectBlocksAdded([7, 8, 9]),
+          expectCheckpointed(3),
+          expectBlocksAdded([10, 11, 12]),
+          { type: 'chain-proven', block: makeBlockId(6) },
+        ]);
+
+        handler.clearEvents();
+
+        // Update local state
+        localData.proposed.number = BlockNumber(12);
+        localData.checkpointed.block.number = BlockNumber(9);
+        localData.checkpointed.checkpoint.number = CheckpointNumber(3);
+        localData.proven.block.number = BlockNumber(6);
+        localData.proven.checkpoint.number = CheckpointNumber(2);
+
+        // Phase 2: Prune - checkpoint 3 failed to prove, prune back to proven tip (block 6)
+        // Mess up hashes for blocks 7-12 to simulate reorg
+        for (let i = 7; i <= 12; i++) {
+          localData.blockHashes[i] = `0xbad${i}`;
+        }
+
+        // Source now has proposed=6, checkpointed=6, proven=6
+        setRemoteTipsMultiBlock(6, 6, 6);
+
+        await blockStream.work();
+
+        // Should emit chain-pruned back to block 6
+        // Reason is 'unproven' because we're pruning beyond the local checkpointed tip (12)
+        expect(handler.events).toEqual([
+          {
+            type: 'chain-pruned',
+            block: makeBlockId(6),
+            reason: 'unproven',
+            checkpoint: expect.objectContaining({ number: CheckpointNumber(2) }),
+          },
+        ]);
+
+        handler.clearEvents();
+
+        // Update local state after prune
+        localData.proposed.number = BlockNumber(6);
+        localData.checkpointed.block.number = BlockNumber(6);
+        localData.checkpointed.checkpoint.number = CheckpointNumber(2);
+        for (let i = 7; i <= 12; i++) {
+          delete localData.blockHashes[i];
+        }
+
+        // Phase 3: Chain continues with new blocks and checkpoints
+        // New blocks 7-15 arrive with checkpoints 3-5, proven advances to checkpoint 3
+        setRemoteTipsMultiBlock(15, 15, 9);
+
+        await blockStream.work();
+
+        // Should continue normally with new blocks and checkpoints
+        expect(handler.events).toEqual([
+          expectBlocksAdded([7, 8, 9]),
+          expectCheckpointed(3),
+          expectBlocksAdded([10, 11, 12]),
+          expectCheckpointed(4),
+          expectBlocksAdded([13, 14, 15]),
+          expectCheckpointed(5),
+          { type: 'chain-proven', block: makeBlockId(9) },
+        ]);
+      });
+
+      it('prunes uncheckpointed blocks and immediately receives new ones', async () => {
+        // Phase 1: Sync blocks 1-6 with checkpoint 1, blocks 4-6 uncheckpointed
+        setRemoteTipsMultiBlock(6, 3);
+
+        await blockStream.work();
+
+        expect(handler.events).toEqual([
+          expectBlocksAdded([1, 2, 3]),
+          expectCheckpointed(1),
+          expectBlocksAdded([4, 5, 6]),
+        ]);
+
+        handler.clearEvents();
+
+        // Update local state
+        localData.proposed.number = BlockNumber(6);
+        localData.checkpointed.block.number = BlockNumber(3);
+        localData.checkpointed.checkpoint.number = CheckpointNumber(1);
+
+        // Phase 2: Prune blocks 4-6 due to bad hashes
+        localData.blockHashes[4] = '0xbad4';
+        localData.blockHashes[5] = '0xbad5';
+        localData.blockHashes[6] = '0xbad6';
+
+        // Source still at checkpointed=3 (no new checkpoints yet)
+        setRemoteTipsMultiBlock(3, 3);
+
+        await blockStream.work();
+
+        // Should emit prune back to block 3
+        expect(handler.events).toEqual([
+          {
+            type: 'chain-pruned',
+            block: makeBlockId(3),
+            reason: 'uncheckpointed',
+            checkpoint: expect.objectContaining({ number: CheckpointNumber(1) }),
+          },
+        ]);
+
+        handler.clearEvents();
+
+        // Update local state after prune
+        localData.proposed.number = BlockNumber(3);
+        delete localData.blockHashes[4];
+        delete localData.blockHashes[5];
+        delete localData.blockHashes[6];
+
+        // Phase 3: New blocks 4-9 arrive with checkpoints 2-3
+        setRemoteTipsMultiBlock(9, 9);
+
+        await blockStream.work();
+
+        // Should continue normally with new blocks and checkpoints
+        expect(handler.events).toEqual([
+          expectBlocksAdded([4, 5, 6]),
+          expectCheckpointed(2),
+          expectBlocksAdded([7, 8, 9]),
+          expectCheckpointed(3),
+        ]);
+      });
+
+      it('prunes proposed chain back to genesis when no checkpoints exist', async () => {
+        // Phase 1: Sync blocks 1-6, no checkpoints (checkpointed=0, proven=0, finalized=0)
+        setRemoteTipsMultiBlock(6, 0);
+
+        await blockStream.work();
+
+        // All blocks come as uncheckpointed
+        expect(handler.events).toEqual([expectBlocksAdded([1, 2, 3, 4, 5, 6])]);
+
+        handler.clearEvents();
+
+        // Update local state
+        localData.proposed.number = BlockNumber(6);
+
+        // Phase 2: All blocks are invalid, prune back to genesis (block 0)
+        for (let i = 1; i <= 6; i++) {
+          localData.blockHashes[i] = `0xbad${i}`;
+        }
+
+        // Source now has proposed=0, checkpointed=0
+        setRemoteTipsMultiBlock(0, 0);
+
+        await blockStream.work();
+
+        // Should emit chain-pruned back to block 0, reason 'uncheckpointed' (pruned to checkpointed tip which is 0)
+        expect(handler.events).toEqual([
+          {
+            type: 'chain-pruned',
+            block: makeBlockId(0),
+            reason: 'uncheckpointed',
+            checkpoint: expect.objectContaining({ number: CheckpointNumber(0) }),
+          },
+        ]);
+
+        handler.clearEvents();
+
+        // Update local state after prune
+        localData.proposed.number = BlockNumber(0);
+        for (let i = 1; i <= 6; i++) {
+          delete localData.blockHashes[i];
+        }
+
+        // Phase 3: New blocks 1-6 arrive with checkpoints 1-2
+        setRemoteTipsMultiBlock(6, 6);
+
+        await blockStream.work();
+
+        // Should continue normally from genesis
+        expect(handler.events).toEqual([
+          expectBlocksAdded([1, 2, 3]),
+          expectCheckpointed(1),
+          expectBlocksAdded([4, 5, 6]),
+          expectCheckpointed(2),
+        ]);
+      });
+
+      it('prunes both proposed and checkpointed chains back to genesis', async () => {
+        // Phase 1: Sync blocks 1-6 with checkpoint 1 (blocks 1-3), blocks 4-6 uncheckpointed
+        setRemoteTipsMultiBlock(6, 3);
+
+        await blockStream.work();
+
+        expect(handler.events).toEqual([
+          expectBlocksAdded([1, 2, 3]),
+          expectCheckpointed(1),
+          expectBlocksAdded([4, 5, 6]),
+        ]);
+
+        handler.clearEvents();
+
+        // Update local state
+        localData.proposed.number = BlockNumber(6);
+        localData.checkpointed.block.number = BlockNumber(3);
+        localData.checkpointed.checkpoint.number = CheckpointNumber(1);
+
+        // Phase 2: All blocks are invalid (even checkpointed ones), prune back to genesis
+        for (let i = 1; i <= 6; i++) {
+          localData.blockHashes[i] = `0xbad${i}`;
+        }
+
+        // Source now has proposed=0, checkpointed=0 (full chain reset)
+        setRemoteTipsMultiBlock(0, 0);
+
+        await blockStream.work();
+
+        // Should emit chain-pruned back to block 0
+        // Reason is 'unproven' because we're pruning beyond the local checkpointed tip (3)
+        expect(handler.events).toEqual([
+          {
+            type: 'chain-pruned',
+            block: makeBlockId(0),
+            reason: 'unproven',
+            checkpoint: expect.objectContaining({ number: CheckpointNumber(0) }),
+          },
+        ]);
+
+        handler.clearEvents();
+
+        // Update local state after prune
+        localData.proposed.number = BlockNumber(0);
+        localData.checkpointed.block.number = BlockNumber(0);
+        localData.checkpointed.checkpoint.number = CheckpointNumber(0);
+        for (let i = 1; i <= 6; i++) {
+          delete localData.blockHashes[i];
+        }
+
+        // Phase 3: New chain starts fresh with blocks 1-9 and checkpoints 1-3
+        setRemoteTipsMultiBlock(9, 9);
+
+        await blockStream.work();
+
+        // Should continue normally from genesis
+        expect(handler.events).toEqual([
+          expectBlocksAdded([1, 2, 3]),
+          expectCheckpointed(1),
+          expectBlocksAdded([4, 5, 6]),
+          expectCheckpointed(2),
+          expectBlocksAdded([7, 8, 9]),
+          expectCheckpointed(3),
+        ]);
+      });
     });
   });
 
@@ -706,7 +1042,7 @@ describe('L2BlockStream', () => {
     });
 
     it('skips ahead to the latest finalized block', async () => {
-      setRemoteTips(40, 38, 35);
+      setRemoteTips(40, 0, 38, 35);
 
       localData.proposed.number = BlockNumber(5);
       localData.proven.block.number = BlockNumber(2);
@@ -723,7 +1059,7 @@ describe('L2BlockStream', () => {
     });
 
     it('does not skip if already ahead of finalized', async () => {
-      setRemoteTips(40, 38, 35);
+      setRemoteTips(40, 0, 38, 35);
 
       localData.proposed.number = BlockNumber(38);
       localData.proven.block.number = BlockNumber(38);
