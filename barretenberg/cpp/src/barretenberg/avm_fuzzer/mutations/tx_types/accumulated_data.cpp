@@ -102,7 +102,12 @@ void mutate_accumulated_data(AccumulatedData& input, std::mt19937_64& rng)
     auto choice = ACCUMULATED_DATA_MUTATION_CONFIGURATION.select(rng);
     switch (choice) {
     case AccumulatedDataMutationOptions::NoteHashes:
-        mutate_vec<FF>(input.note_hashes, rng, mutate_note_hash, generate_note_hash, BASIC_VEC_MUTATION_CONFIGURATION);
+        mutate_vec_with_limit<FF>(input.note_hashes,
+                                  rng,
+                                  mutate_note_hash,
+                                  generate_note_hash,
+                                  BASIC_VEC_MUTATION_CONFIGURATION,
+                                  MAX_NOTE_HASHES_PER_TX);
         break;
     case AccumulatedDataMutationOptions::NoteHashesLimit: {
         size_t original_size = input.note_hashes.size();
@@ -113,7 +118,12 @@ void mutate_accumulated_data(AccumulatedData& input, std::mt19937_64& rng)
         break;
     }
     case AccumulatedDataMutationOptions::Nullifiers:
-        mutate_vec<FF>(input.nullifiers, rng, mutate_nullifier, generate_nullifier, BASIC_VEC_MUTATION_CONFIGURATION);
+        mutate_vec_with_limit<FF>(input.nullifiers,
+                                  rng,
+                                  mutate_nullifier,
+                                  generate_nullifier,
+                                  BASIC_VEC_MUTATION_CONFIGURATION,
+                                  MAX_NULLIFIERS_PER_TX);
         break;
     case AccumulatedDataMutationOptions::NullifiersLimit: {
         size_t original_size = input.nullifiers.size();
@@ -124,11 +134,12 @@ void mutate_accumulated_data(AccumulatedData& input, std::mt19937_64& rng)
         break;
     }
     case AccumulatedDataMutationOptions::L2ToL1Messages:
-        mutate_vec<ScopedL2ToL1Message>(input.l2_to_l1_messages,
-                                        rng,
-                                        mutate_l2_to_l1_msg,
-                                        generate_l2_to_l1_message,
-                                        BASIC_VEC_MUTATION_CONFIGURATION);
+        mutate_vec_with_limit<ScopedL2ToL1Message>(input.l2_to_l1_messages,
+                                                   rng,
+                                                   mutate_l2_to_l1_msg,
+                                                   generate_l2_to_l1_message,
+                                                   BASIC_VEC_MUTATION_CONFIGURATION,
+                                                   MAX_L2_TO_L1_MSGS_PER_TX);
         break;
     case AccumulatedDataMutationOptions::L2ToL1MessagesLimit: {
         size_t original_size = input.l2_to_l1_messages.size();
