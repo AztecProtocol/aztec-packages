@@ -195,7 +195,7 @@ fi
 K8S_CLUSTER_CONTEXT=$(kubectl config current-context)
 
 if [[ "${DESTROY_NAMESPACE:-}" == "true" ]]; then
-  kubectl delete namespace "${NAMESPACE}" --ignore-not-found=true
+  "${SCRIPT_DIR}/network_teardown.sh"
 fi
 
 # Create the namespace if it doesn't exist
