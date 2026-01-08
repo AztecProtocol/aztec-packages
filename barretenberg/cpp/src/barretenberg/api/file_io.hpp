@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <cstring>
 #include <fcntl.h>
+#include <filesystem>
 #include <fstream>
 #include <ios>
 #include <iostream>
@@ -99,5 +100,24 @@ template <typename Fr> inline std::string field_elements_to_json(const std::vect
     }
     ss << "]";
     return ss.str();
+}
+
+/**
+ * @brief Read a verification key file with an actionable error message if not found.
+ *
+ * @param vk_path Path to the verification key file
+ * @return std::vector<uint8_t> The verification key bytes
+ * @throws std::runtime_error with actionable message if vk file not found
+ */
+inline std::vector<uint8_t> read_vk_file(const std::filesystem::path& vk_path)
+{
+    try {
+        return read_file(vk_path);
+    } catch (const std::runtime_error&) {
+        THROW std::runtime_error("Unable to open file: " + vk_path.string() +
+                                 "\nGenerate a vk during proving by running `bb prove` with an additional `--write_vk` "
+                                 "flag, or run `bb write_vk` to generate a standalone vk."
+                                 "\nIf you already have a vk file, specify its path with `--vk_path <path>`.");
+    }
 }
 } // namespace bb
