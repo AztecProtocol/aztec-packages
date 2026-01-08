@@ -51,9 +51,6 @@ mask_secret_value() {
     local secret_value
     secret_value=$(cat "$secret_file")
 
-    # Always mask the full value first as a safety net
-    echo "::add-mask::$secret_value"
-
     # Check if this environment variable contains JSON that should be individually masked
     local is_json_secret=false
     for json_var in "${JSON_SECRETS[@]}"; do
@@ -67,6 +64,8 @@ mask_secret_value() {
         jq -r '.[]' "$secret_file" | while IFS= read -r element; do
             echo "::add-mask::$element"
         done
+    else 
+        echo "::add-mask::$secret_value"
     fi
 }
 
