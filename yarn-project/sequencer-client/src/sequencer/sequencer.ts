@@ -264,8 +264,8 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       return undefined;
     }
 
-    // TODO(palla/mbps): Compute proper checkpoint number
-    const checkpointNumber = CheckpointNumber.fromBlockNumber(BlockNumber(syncedTo.blockNumber + 1));
+    // Next checkpoint follows from the last synced one
+    const checkpointNumber = CheckpointNumber(syncedTo.checkpointNumber + 1);
 
     const logCtx = {
       now,
@@ -481,6 +481,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
 
     // Handle zero as a special case, since the block hash won't match across services if we're changing the prefilled data for the genesis block,
     // as the world state can compute the new genesis block hash, but other components use the hardcoded constant.
+    // TODO(palla/mbps): Fix the above. All components should be able to handle dynamic genesis block hashes.
     const result =
       (l2BlockSource.number === 0 && worldState.number === 0 && p2p.number === 0 && l1ToL2MessageSource.number === 0) ||
       (worldState.hash === l2BlockSource.hash &&
@@ -496,7 +497,13 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     const blockNumber = worldState.number;
     if (blockNumber < INITIAL_L2_BLOCK_NUM) {
       const archive = new Fr((await this.worldState.getCommitted().getTreeInfo(MerkleTreeId.ARCHIVE)).root);
-      return { blockNumber: BlockNumber(INITIAL_L2_BLOCK_NUM - 1), archive, l1Timestamp, pendingChainValidationStatus };
+      return {
+        checkpointNumber: CheckpointNumber.ZERO,
+        blockNumber: BlockNumber.ZERO,
+        archive,
+        l1Timestamp,
+        pendingChainValidationStatus,
+      };
     }
 
     const block = await this.l2BlockSource.getL2BlockNew(blockNumber);
@@ -509,6 +516,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     return {
       block,
       blockNumber: block.number,
+      checkpointNumber: block.checkpointNumber,
       archive: block.archive.root,
       l1Timestamp,
       pendingChainValidationStatus,
@@ -792,6 +800,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
 
 type SequencerSyncCheckResult = {
   block?: L2BlockNew;
+  checkpointNumber: CheckpointNumber;
   blockNumber: BlockNumber;
   archive: Fr;
   l1Timestamp: bigint;

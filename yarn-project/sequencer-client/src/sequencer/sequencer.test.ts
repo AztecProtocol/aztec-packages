@@ -91,12 +91,16 @@ describe('sequencer', () => {
 
   const getSignatures = () => [mockedAttestation];
 
-  const getAttestations = () => {
-    return [TestUtils.createBlockAttestation(block, mockedSig, committee[0])];
+  const getCheckpointAttestations = () => {
+    return [TestUtils.createCheckpointAttestation(block, mockedSig, committee[0])];
   };
 
   const createBlockProposal = () => {
     return TestUtils.createBlockProposal(block, mockedSig);
+  };
+
+  const createCheckpointProposal = () => {
+    return TestUtils.createCheckpointProposal(block, mockedSig);
   };
 
   const makeBlock = async (txs: Tx[]) => {
@@ -270,9 +274,9 @@ describe('sequencer', () => {
     });
 
     validatorClient = mock<ValidatorClient>();
-    validatorClient.collectAttestations.mockImplementation(() => Promise.resolve(getAttestations()));
+    validatorClient.collectAttestations.mockImplementation(() => Promise.resolve(getCheckpointAttestations()));
     validatorClient.createBlockProposal.mockImplementation(() => Promise.resolve(createBlockProposal()));
-    validatorClient.createCheckpointProposal.mockImplementation(() => Promise.resolve(createBlockProposal()));
+    validatorClient.createCheckpointProposal.mockImplementation(() => Promise.resolve(createCheckpointProposal()));
     validatorClient.signAttestationsAndSigners.mockImplementation(() => Promise.resolve(getSignatures()[0].signature));
 
     slasherClient = mock<SlasherClientInterface>();

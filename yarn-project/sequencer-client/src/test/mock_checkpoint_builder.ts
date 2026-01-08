@@ -190,6 +190,12 @@ export class MockCheckpointsBuilder implements FunctionsOf<FullNodeCheckpointsBu
     constants: CheckpointGlobalVariables;
     l1ToL2Messages: Fr[];
   }> = [];
+  public openCheckpointCalls: Array<{
+    checkpointNumber: CheckpointNumber;
+    constants: CheckpointGlobalVariables;
+    l1ToL2Messages: Fr[];
+    existingBlocks: L2BlockNew[];
+  }> = [];
   public updateConfigCalls: Array<Partial<FullNodeBlockBuilderConfig>> = [];
 
   /**
@@ -218,6 +224,15 @@ export class MockCheckpointsBuilder implements FunctionsOf<FullNodeCheckpointsBu
     return this.checkpointBuilder;
   }
 
+  getConfig(): FullNodeBlockBuilderConfig {
+    return {
+      l1GenesisTime: 0n,
+      slotDuration: 24,
+      l1ChainId: 1,
+      rollupVersion: 1,
+    };
+  }
+
   updateConfig(config: Partial<FullNodeBlockBuilderConfig>): void {
     this.updateConfigCalls.push(config);
   }
@@ -238,10 +253,28 @@ export class MockCheckpointsBuilder implements FunctionsOf<FullNodeCheckpointsBu
     return Promise.resolve(this.checkpointBuilder as unknown as CheckpointBuilder);
   }
 
+  openCheckpoint(
+    checkpointNumber: CheckpointNumber,
+    constants: CheckpointGlobalVariables,
+    l1ToL2Messages: Fr[],
+    _fork: unknown,
+    existingBlocks: L2BlockNew[] = [],
+  ): Promise<CheckpointBuilder> {
+    this.openCheckpointCalls.push({ checkpointNumber, constants, l1ToL2Messages, existingBlocks });
+
+    if (!this.checkpointBuilder) {
+      // Auto-create a builder if none was set
+      this.checkpointBuilder = new MockCheckpointBuilder(constants, checkpointNumber);
+    }
+
+    return Promise.resolve(this.checkpointBuilder as unknown as CheckpointBuilder);
+  }
+
   /** Reset for reuse in another test */
   reset(): void {
     this.checkpointBuilder = undefined;
     this.startCheckpointCalls = [];
+    this.openCheckpointCalls = [];
     this.updateConfigCalls = [];
   }
 }

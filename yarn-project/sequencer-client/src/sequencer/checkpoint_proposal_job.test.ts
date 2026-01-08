@@ -20,8 +20,8 @@ import type {
   WorldStateSynchronizer,
 } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
-import { BlockProposal, ConsensusPayload } from '@aztec/stdlib/p2p';
-import { GlobalVariables } from '@aztec/stdlib/tx';
+import { BlockProposal, CheckpointProposal } from '@aztec/stdlib/p2p';
+import { GlobalVariables, type Tx } from '@aztec/stdlib/tx';
 import { AttestationTimeoutError } from '@aztec/stdlib/validators';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 import type { ValidatorClient } from '@aztec/validator-client';
@@ -37,7 +37,7 @@ import type { SequencerPublisher } from '../publisher/sequencer-publisher.js';
 import {
   MockCheckpointBuilder,
   MockCheckpointsBuilder,
-  createBlockAttestation,
+  createCheckpointAttestation,
   makeBlock,
   makeTx,
   mockPendingTxs,
@@ -95,7 +95,7 @@ describe('CheckpointProposalJob', () => {
   const getSignatures = () => [mockedAttestation];
 
   const getAttestations = (block: any) => {
-    const attestation = createBlockAttestation(block, mockedSig, committee[0]);
+    const attestation = createCheckpointAttestation(block, mockedSig, committee[0]);
     return [attestation];
   };
 
@@ -195,29 +195,27 @@ describe('CheckpointProposalJob', () => {
 
     validatorClient = mock<ValidatorClient>();
     validatorClient.collectAttestations.mockImplementation(() => Promise.resolve([]));
-    validatorClient.createBlockProposal.mockImplementation((_blockNumber, checkpointHeader, archiveRoot, txs) => {
-      // Create a block proposal directly with the checkpoint header instead of using fromBlock
-      // which would require a full L2Block with toCheckpointHeader method
-      const consensusPayload = new ConsensusPayload(checkpointHeader, archiveRoot);
-      return Promise.resolve(
-        new BlockProposal(
-          consensusPayload,
-          mockedSig,
-          (txs ?? []).map((tx: any) => tx.txHash),
-        ),
-      );
-    });
-    validatorClient.createCheckpointProposal.mockImplementation((checkpointHeader, archiveRoot, txs) => {
-      // Create a minimal BlockProposal for the checkpoint
-      const consensusPayload = new ConsensusPayload(checkpointHeader, archiveRoot);
-      return Promise.resolve(
-        new BlockProposal(
-          consensusPayload,
-          mockedSig,
-          (txs ?? []).map(tx => tx.txHash),
-        ),
-      );
-    });
+    validatorClient.createBlockProposal.mockImplementation(
+      async (blockHeader, indexWithinCheckpoint, inHash, archiveRoot, txs) => {
+        const txHashes = await Promise.all((txs ?? []).map((tx: Tx) => tx.getTxHash()));
+        return new BlockProposal(blockHeader, indexWithinCheckpoint, inHash, archiveRoot, txHashes, mockedSig);
+      },
+    );
+    validatorClient.createCheckpointProposal.mockImplementation(
+      async (checkpointHeader, archiveRoot, lastBlockInfo) => {
+        if (!lastBlockInfo) {
+          return new CheckpointProposal(checkpointHeader, archiveRoot, mockedSig);
+        }
+        const txHashes = await Promise.all((lastBlockInfo.txs ?? []).map((tx: Tx) => tx.getTxHash()));
+        return new CheckpointProposal(checkpointHeader, archiveRoot, mockedSig, {
+          blockHeader: lastBlockInfo.blockHeader,
+          indexWithinCheckpoint: lastBlockInfo.indexWithinCheckpoint,
+          txHashes,
+          signature: mockedSig,
+          // Note: signedTxs omitted since publishTxsWithProposals is false in tests
+        });
+      },
+    );
     validatorClient.signAttestationsAndSigners.mockImplementation(() => Promise.resolve(getSignatures()[0].signature));
     validatorClient.getCoinbaseForAttestor.mockReturnValue(coinbase);
     validatorClient.getFeeRecipientForAttestor.mockReturnValue(feeRecipient);
