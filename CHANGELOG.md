@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.1.10](https://github.com/AztecProtocol/aztec-packages/compare/v2.1.9...v2.1.10) (2026-01-08)
+
+
+### Miscellaneous
+
+* Accumulated backports to v2 ([#18879](https://github.com/AztecProtocol/aztec-packages/issues/18879)) ([f4f6ed4](https://github.com/AztecProtocol/aztec-packages/commit/f4f6ed4e0c5de5a4241a2ccd8aa9a9d7c41c335d))
+* Accumulated backports to v2 ([#18938](https://github.com/AztecProtocol/aztec-packages/issues/18938)) ([6f35d70](https://github.com/AztecProtocol/aztec-packages/commit/6f35d7088f0905cf359f0cbead5837a6cd9e386b))
+* Accumulated backports to v2 ([#19067](https://github.com/AztecProtocol/aztec-packages/issues/19067)) ([152e882](https://github.com/AztecProtocol/aztec-packages/commit/152e8822d252947186e8c0e8a40d16963529d2de))
+
 ## [2.1.9](https://github.com/AztecProtocol/aztec-packages/compare/v2.1.8...v2.1.9) (2025-12-07)
 
 
