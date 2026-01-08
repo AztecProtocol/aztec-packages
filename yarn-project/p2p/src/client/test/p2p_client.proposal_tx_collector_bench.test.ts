@@ -41,7 +41,7 @@ type DistributionPattern = 'uniform' | 'sparse' | 'pinned-only';
 const COLLECTOR_TYPES = ['batch-requester', 'send-batch-request'];
 type CollectorType = (typeof COLLECTOR_TYPES)[number];
 
-const PEERS_PER_RUN = 10;
+const PEERS_PER_RUN = 20;
 const TIMEOUT_MS = 80_000;
 
 const MISSING_TX_COUNTS = [10, 50, 100, 500];
