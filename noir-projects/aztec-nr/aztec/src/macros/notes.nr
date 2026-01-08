@@ -146,7 +146,7 @@ comptime fn generate_note_properties(s: TypeDefinition) -> Quoted {
         .join(quote {,});
 
     // TODO #8694: Properly handle non-field types https://github.com/AztecProtocol/aztec-packages/issues/8694
-    let mut properties_list = &[];
+    let mut properties_list = @[];
     for i in 0..note_fields.len() {
         let (name, _, _) = note_fields[i];
         let i = i as u8;

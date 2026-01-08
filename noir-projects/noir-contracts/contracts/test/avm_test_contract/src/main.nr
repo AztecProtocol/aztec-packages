@@ -407,7 +407,7 @@ pub contract AvmTest {
         let _ = self.call_self.return_oracle();
         let returndatasize = returndata_size();
         let returndata = returndata_copy(0, returndatasize);
-        assert(returndata == &[1, 2, 3], "Returndata copy failed");
+        assert(returndata == @[1, 2, 3], "Returndata copy failed");
     }
 
     #[external("public")]
