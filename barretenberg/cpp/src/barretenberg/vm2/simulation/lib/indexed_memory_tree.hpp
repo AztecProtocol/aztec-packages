@@ -40,7 +40,7 @@ IndexedMemoryTree<LeafType, HashingPolicy>::IndexedMemoryTree(size_t depth, size
     // We need to create the tree inserting the prefill values. Indexed trees need some leaves to exist from the start
     // in order to be able to provide insertion proofs. Users can customize how many default leaves they want the tree
     // to start with, but there must be at least one.
-    assert(num_default_values > 0);
+    BB_ASSERT_GT(num_default_values, static_cast<size_t>(0), "Number of default values is not greater than 0");
 
     std::vector<LeafType> default_leaves;
     default_leaves.reserve(num_default_values);
@@ -79,7 +79,7 @@ IndexedMemoryTree<LeafType, HashingPolicy>::IndexedMemoryTree(size_t depth,
 {
     // It is assumed that you have included any prefill values as part of the initial_leaves. Remember indexed trees
     // need at least 1 prefill leaf (with value 0) in order to work
-    assert(initial_leaves.size() > 0);
+    BB_ASSERT_GT(initial_leaves.size(), static_cast<size_t>(0), "Initial leaves size is not greater than 0");
 
     // Compute the pointers for the prefill leaves and insert them in the tree.
     for (size_t i = 0; i < initial_leaves.size(); ++i) {

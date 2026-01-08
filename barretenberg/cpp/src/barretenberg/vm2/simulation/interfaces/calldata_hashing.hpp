@@ -11,7 +11,7 @@ namespace bb::avm2::simulation {
 class CalldataHashingInterface {
   public:
     virtual ~CalldataHashingInterface() = default;
-    virtual FF compute_calldata_hash(std::span<const FF> calldata) = 0;
+    virtual void assert_calldata_hash(const FF& cd_hash, std::span<const FF> calldata) = 0;
 };
 
 class CalldataHashingProviderInterface {

@@ -69,7 +69,7 @@ namespace keccakf1600;
 // Only on last row, we constrain the output columns.
 
 // keccakf1600 selector
-pol commit sel;
+pol commit sel; // @boolean
 sel * (1 - sel) = 0;
 
 // No relations will be checked if this identity is satisfied.
@@ -77,7 +77,7 @@ sel * (1 - sel) = 0;
 sel = 0;
 
 // error is defined below after round function
-pol commit sel_no_error;
+pol commit sel_no_error; // @boolean (by definition)
 #[SEL_NO_ERROR]
 start * (sel_no_error - 1 + error) = 0;
 
@@ -86,7 +86,7 @@ pol commit round;
 
 // First round of a keccak permutation. This is where the multi-rows computation starts and selector start
 // is used by the caller to trigger the keccak permutation computation.
-pol commit start;
+pol commit start; // @boolean
 start * (1 - start) = 0;
 
 // We enforce the initial round to be set to 1.
@@ -107,7 +107,7 @@ sel * (1 - last) * (round' - round - 1) = 0;
 // This is achieved through #[SEL_SLICE_WRITE] and #[WRITE_TO_SLICE]. If there is no error,
 // the former guarantees that the write slice is active whenever `last == 1`. The latter guarantees
 // that `round` is equal to 24 (by fixing a constant 24 in the destination permutation tuple).
-pol commit last;
+pol commit last; // @boolean
 last * (1 - last) = 0;
 
 // TODO: We need this temporarily while we do not allow for constants in the lookup tuple

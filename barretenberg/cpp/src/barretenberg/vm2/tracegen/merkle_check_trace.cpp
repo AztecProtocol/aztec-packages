@@ -45,7 +45,7 @@ void MerkleCheckTraceBuilder::process(
         // to complete the merkle check.
 
         const bool write = event.new_leaf_value.has_value();
-        assert(write == event.new_root.has_value());
+        BB_ASSERT_EQ(write, event.new_root.has_value(), "Write and new root have different values");
 
         FF read_node = event.leaf_value;
         FF write_node = event.new_leaf_value.value_or(FF(0));
@@ -111,9 +111,11 @@ void MerkleCheckTraceBuilder::process(
             row++;
         }
 
-        assert(current_index_in_layer == 0);
-        assert(read_node == root);
-        assert(write_node == new_root);
+        BB_ASSERT_EQ(current_index_in_layer,
+                     static_cast<decltype(current_index_in_layer)>(0),
+                     "Current index in layer is not 0");
+        BB_ASSERT_EQ(read_node, root, "Read node is not equal to root");
+        BB_ASSERT_EQ(write_node, new_root, "Write node is not equal to new root");
     }
 
     // Batch invert the columns.

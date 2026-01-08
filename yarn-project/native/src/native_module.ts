@@ -1,5 +1,5 @@
 import { findNapiBinary } from '@aztec/bb.js';
-import { type LogLevel, LogLevels } from '@aztec/foundation/log';
+import { type LogLevel, LogLevels, type Logger } from '@aztec/foundation/log';
 import { Semaphore } from '@aztec/foundation/queue';
 
 import { createRequire } from 'module';
@@ -90,6 +90,7 @@ const nativeAvmSimulate = nativeModule.avmSimulate as (
   contractProvider: ContractProvider,
   worldStateHandle: any,
   logLevel: number,
+  logFunction?: any,
   cancellationToken?: any,
 ) => Promise<Buffer>;
 
@@ -147,7 +148,8 @@ const avmSimulationSemaphore = new Semaphore(MAX_CONCURRENT_AVM_SIMULATIONS);
  * @param inputs - Msgpack-serialized AvmFastSimulationInputs buffer
  * @param contractProvider - Object with callbacks for fetching contract instances and classes
  * @param worldStateHandle - Native handle to WorldState instance
- * @param logLevel - Log level to control C++ verbosity
+ * @param logLevel - Optional log level to control C++ verbosity (only used if loggerFunction is provided)
+ * @param logger - Optional logger object for C++ logging callbacks
  * @param cancellationToken - Optional token to enable cancellation support
  * @returns Promise resolving to msgpack-serialized AvmCircuitPublicInputs buffer
  */
@@ -156,15 +158,18 @@ export async function avmSimulate(
   contractProvider: ContractProvider,
   worldStateHandle: any,
   logLevel: LogLevel = 'info',
+  logger?: Logger,
   cancellationToken?: CancellationToken,
 ): Promise<Buffer> {
   await avmSimulationSemaphore.acquire();
+
   try {
     return await nativeAvmSimulate(
       inputs,
       contractProvider,
       worldStateHandle,
       LogLevels.indexOf(logLevel),
+      logger ? (level: LogLevel, msg: string) => logger[level](msg) : null,
       cancellationToken,
     );
   } finally {

@@ -14,7 +14,7 @@ template <typename FF_> class bc_retrievalImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 14> SUBRELATION_PARTIAL_LENGTHS = { 3, 4, 3, 3, 5, 4, 5, 3, 4, 3, 3, 3, 3, 3 };
+    static constexpr std::array<size_t, 14> SUBRELATION_PARTIAL_LENGTHS = { 3, 4, 3, 3, 5, 3, 5, 3, 4, 3, 3, 3, 3, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {

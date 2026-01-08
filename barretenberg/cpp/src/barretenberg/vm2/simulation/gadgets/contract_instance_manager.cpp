@@ -1,5 +1,6 @@
 #include "barretenberg/vm2/simulation/gadgets/contract_instance_manager.hpp"
 
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/simulation/interfaces/field_gt.hpp"
 
@@ -50,8 +51,9 @@ std::optional<ContractInstance> ContractInstanceManager::get_contract_instance(c
         std::optional<AztecAddress> derived_address = get_derived_address(protocol_contracts, contract_address);
 
         // Sanity check: if we found a derived address, we should also have the instance, and vice versa.
-        assert(derived_address.has_value() == maybe_instance.has_value() &&
-               "Derived address should be found if the instance was retrieved and vice versa");
+        BB_ASSERT_EQ(derived_address.has_value(),
+                     maybe_instance.has_value(),
+                     "Derived address should be found if the instance was retrieved and vice versa");
 
         event_emitter.emit({
             .address = contract_address,
@@ -78,7 +80,7 @@ std::optional<ContractInstance> ContractInstanceManager::get_contract_instance(c
         return std::nullopt;
     }
 
-    assert(maybe_instance.has_value() && "Contract instance should be found if nullifier exists");
+    BB_ASSERT(maybe_instance.has_value(), "Contract instance should be found if nullifier exists");
     const ContractInstance& instance = maybe_instance.value();
 
     // Validate that the contract instance is the latest if there have been any updates.

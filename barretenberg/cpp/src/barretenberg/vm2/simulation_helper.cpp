@@ -478,7 +478,7 @@ TxSimulationResult AvmSimulationHelper::simulate_fast_internal(ContractDBInterfa
             const DebugLogLevel debug_log_level = DebugLogLevel::INFO;
             return std::make_unique<DebugLogger>(debug_log_level,
                                                  config.collection_limits.max_debug_log_memory_reads,
-                                                 [](const std::string& message) { info(message); });
+                                                 [](const std::string& message) { vinfo(message); });
         } else {
             return std::make_unique<NoopDebugLogger>();
         }
@@ -509,7 +509,7 @@ TxSimulationResult AvmSimulationHelper::simulate_fast_internal(ContractDBInterfa
                               *debug_log_component,
                               merkle_db,
                               *call_stack_metadata_collector,
-                              cancellation_token);
+                              std::move(cancellation_token));
     TxExecution tx_execution(execution,
                              context_provider,
                              contract_db,

@@ -47,7 +47,7 @@ include "../constants_gen.pil";
 
 namespace bc_hashing;
 
-    pol commit sel;
+    pol commit sel; // @boolean
     sel * (1 - sel) = 0;
 
     // Skippable
@@ -63,7 +63,7 @@ namespace bc_hashing;
 
     // Triggers the lookup to the address derivation subtrace, signifies the row that contains the final bytecode hash for this id
     // The sequencer can decide where to put this latch.
-    pol commit latch;
+    pol commit latch; // @boolean
     latch * (1 - latch) = 0;
 
     // latch == 1 ==> sel == 1
@@ -75,11 +75,11 @@ namespace bc_hashing;
     pol LATCH_CONDITION = latch + precomputed.first_row;
 
     // The start of a new bytecode id and new set of hashing runs:
-    pol commit start;
+    pol commit start; // @boolean
     start * (1 - start) = 0;
 
     // Needs to be a committed column as it is used in the lookup:
-    pol commit sel_not_start;
+    pol commit sel_not_start; // @boolean (by definition)
     sel_not_start = sel * (1 - start);
 
     // If the current row is a latch or the first row, the next row should be a start (if it's active):
@@ -132,7 +132,8 @@ namespace bc_hashing;
     // Note: packed_fields[0] must never be a padding value and padding can only occur at the last row (i.e. latch = 1).
 
     // Needs to be committed columns as they are used in the lookups
-    pol commit sel_not_padding_1, sel_not_padding_2;
+    pol commit sel_not_padding_1; // @boolean
+    pol commit sel_not_padding_2; // @boolean
     sel_not_padding_1 * (1 - sel_not_padding_1) = 0;
     sel_not_padding_2 * (1 - sel_not_padding_2) = 0;
 

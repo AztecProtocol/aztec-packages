@@ -1328,8 +1328,9 @@ void Execution::get_contract_instance(ContextInterface& context,
 
     // Execution can still handle address memory read and tag checking
     const auto& address_value = memory.get(address_offset);
-    AztecAddress contract_address = address_value.as<AztecAddress>();
     set_and_validate_inputs(opcode, { address_value });
+
+    AztecAddress contract_address = address_value.as<AztecAddress>();
 
     get_gas_tracker().consume_gas();
 
@@ -1809,8 +1810,8 @@ EnqueuedCallResult Execution::execute(std::unique_ptr<ContextInterface> enqueued
         } catch (const std::exception& e) {
             // This is a coding error, we should not get here.
             // All exceptions should fall in the above catch blocks.
-            info("An unhandled exception occurred: ", e.what());
-            throw e;
+            important("An unhandled exception occurred: ", e.what());
+            throw;
         }
 
         // We always do what follows. "Finally".
@@ -2139,7 +2140,8 @@ inline void Execution::call_with_operands(void (Execution::*f)(ContextInterface&
                                           ContextInterface& context,
                                           const std::vector<Operand>& resolved_operands)
 {
-    assert(resolved_operands.size() == sizeof...(Ts));
+    // NOTE: Only asserting in debug builds because these convertions are in the hot path.
+    BB_ASSERT_DEBUG(resolved_operands.size() == sizeof...(Ts), "Resolved operands size mismatch");
     auto operand_indices = std::make_index_sequence<sizeof...(Ts)>{};
     [f, this, &context, &resolved_operands]<std::size_t... Is>(std::index_sequence<Is...>) {
         (this->*f)(context, resolved_operands.at(Is).to<std::decay_t<Ts>>()...);
@@ -2156,7 +2158,8 @@ inline void Execution::call_with_operands(void (Execution::*f)(ContextInterface&
 void Execution::set_and_validate_inputs(ExecutionOpCode opcode, const std::vector<MemoryValue>& inputs)
 {
     const auto& register_info = instruction_info_db.get(opcode).register_info;
-    assert(inputs.size() == register_info.num_inputs());
+    // NOTE: Only asserting in debug builds because these convertions are in the hot path.
+    BB_ASSERT_DEBUG(inputs.size() == register_info.num_inputs(), "Inputs size mismatch");
     this->inputs = inputs;
     for (size_t i = 0; i < register_info.num_inputs(); i++) {
         if (register_info.expected_tag(i) && register_info.expected_tag(i) != this->inputs.at(i).get_tag()) {
@@ -2179,8 +2182,8 @@ void Execution::set_and_validate_inputs(ExecutionOpCode opcode, const std::vecto
 void Execution::set_output(ExecutionOpCode opcode, const MemoryValue& output)
 {
     const auto& register_info = instruction_info_db.get(opcode).register_info;
-    (void)register_info; // To please GCC.
-    assert(register_info.num_outputs() == 1);
+    // NOTE: Only asserting in debug builds because these convertions are in the hot path.
+    BB_ASSERT_DEBUG(register_info.num_outputs() == 1, "Outputs size mismatch");
     this->output = output;
 }
 
