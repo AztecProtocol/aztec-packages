@@ -17,9 +17,9 @@ class BoomerangGoblinRecursiveVerifierTests : public testing::Test {
     using ECCVMVK = Goblin::ECCVMVerificationKey;
     using TranslatorVK = Goblin::TranslatorVerificationKey;
 
-    using OuterFlavor = UltraFlavor;
+    using OuterFlavor = UltraRollupFlavor;
     using OuterProver = UltraProver_<OuterFlavor>;
-    using OuterVerifier = UltraVerifier_<OuterFlavor, bb::DefaultIO>;
+    using OuterVerifier = UltraVerifier_<OuterFlavor, bb::RollupIO>;
     using OuterProverInstance = ProverInstance_<OuterFlavor>;
 
     using Commitment = MergeVerifier::Commitment;
@@ -91,9 +91,12 @@ TEST_F(BoomerangGoblinRecursiveVerifierTests, graph_description_basic)
     // Aggregate merge + translator pairing points
     output.translator_pairing_points.aggregate(output.merge_pairing_points);
 
-    stdlib::recursion::honk::DefaultIO<Builder> inputs;
+    stdlib::recursion::honk::RollupIO inputs;
     inputs.pairing_inputs = output.translator_pairing_points;
+    inputs.ipa_claim = output.ipa_claim;
     inputs.set_public();
+
+    builder.ipa_proof = output.ipa_proof.get_value();
 
     // Construct and verify a proof for the Goblin Recursive Verifier circuit
     {
