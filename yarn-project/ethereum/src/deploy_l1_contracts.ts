@@ -276,7 +276,14 @@ export const deploySharedContracts = async (
     feeAssetAddress = deployedFee.address;
     logger.verbose(`Deployed Fee Asset at ${feeAssetAddress}`);
 
+    const deployedStaking = await deployer.deploy(StakingAssetArtifact, ['Staking', 'STK', l1Client.account.address]);
+    stakingAssetAddress = deployedStaking.address;
+    logger.verbose(`Deployed Staking Asset at ${stakingAssetAddress}`);
+
+    await deployer.waitForDeployments();
+
     // Mint a tiny bit of tokens to satisfy coin-issuer constraints
+    // This must happen AFTER the FeeAsset deployment is mined
     const { txHash } = await deployer.sendTransaction({
       to: feeAssetAddress.toString(),
       data: encodeFunctionData({
@@ -287,12 +294,6 @@ export const deploySharedContracts = async (
     });
     await l1Client.waitForTransactionReceipt({ hash: txHash });
     logger.verbose(`Minted tiny bit of tokens to satisfy coin-issuer constraints in ${txHash}`);
-
-    const deployedStaking = await deployer.deploy(StakingAssetArtifact, ['Staking', 'STK', l1Client.account.address]);
-    stakingAssetAddress = deployedStaking.address;
-    logger.verbose(`Deployed Staking Asset at ${stakingAssetAddress}`);
-
-    await deployer.waitForDeployments();
   }
 
   const gseAddress = (
