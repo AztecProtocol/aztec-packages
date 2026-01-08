@@ -459,7 +459,7 @@ export class SequencerPublisher {
       [], // no signers
       Signature.empty().toViemSignature(),
       `0x${'0'.repeat(64)}`, // 32 empty bytes
-      header.contentCommitment.blobsHash.toString(),
+      header.blobsHash.toString(),
       flags,
     ] as const;
 
