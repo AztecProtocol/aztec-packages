@@ -434,6 +434,7 @@ void Sha256TraceBuilder::process(
         // If during simulation we encounter an invalid tag, it will have been the last element we retrieved
         // before we threw an error - so it will be the last element in the input vector.
         // Therefore, it is just sufficient to check the tag of the last element
+        BB_ASSERT(!event.input.empty(), "SHA256 input cannot be empty");
         bool invalid_tag_err = event.input.back().get_tag() != MemoryTag::U32;
 
         // Note that if we encountered an invalid tag error, the row that loaded the invalid tag needs to contain
