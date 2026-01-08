@@ -87,7 +87,7 @@ bb::HonkProof create_mock_honk_proof(const size_t acir_public_inputs_size = 0);
  * @brief Create a mock AVM proof without public inputs that has the correct structure but is not in general valid
  *
  */
-bb::HonkProof create_mock_avm_proof_without_pub_inputs();
+bb::HonkProof create_mock_avm_proof_without_pub_inputs(const bool add_padding);
 
 /**
  * @brief Create a valid honk proof and vk for a circuit with a single big add gate. Adds random public inputs to
