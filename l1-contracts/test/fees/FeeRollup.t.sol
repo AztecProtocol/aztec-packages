@@ -367,6 +367,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
         PublicInputArgs memory args = PublicInputArgs({
           previousArchive: rollup.getCheckpoint(start).archive,
           endArchive: rollup.getCheckpoint(start + epochSize - 1).archive,
+          outHash: bytes32(0),
           proverId: address(0)
         });
 

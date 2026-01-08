@@ -13,7 +13,6 @@ import { Signature } from '@aztec/stdlib/block';
 import { GasFees } from '@aztec/stdlib/gas';
 import { ConsensusPayload, SignatureDomainSeparator } from '@aztec/stdlib/p2p';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
-import { ContentCommitment } from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 import {
@@ -1135,7 +1134,7 @@ describe('CalldataRetriever', () => {
       expect(result.blockHash).toBe(tx.blockHash);
 
       // Verify all components are properly decoded
-      expect(result.header.contentCommitment).toBeInstanceOf(ContentCommitment);
+      expect(result.header.inHash).toBeInstanceOf(Fr);
       expect(result.header.gasFees).toBeInstanceOf(GasFees);
 
       // Verify instrumentation was called
@@ -1208,7 +1207,7 @@ describe('CalldataRetriever', () => {
       expect(result.blockHash).toBe(blockHash);
 
       // Verify all components are properly decoded
-      expect(result.header.contentCommitment).toBeInstanceOf(ContentCommitment);
+      expect(result.header.inHash).toBeInstanceOf(Fr);
       expect(result.header.gasFees).toBeInstanceOf(GasFees);
 
       // Verify proxy implementation was checked

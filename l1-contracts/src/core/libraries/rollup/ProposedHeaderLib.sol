@@ -17,16 +17,11 @@ struct GasFees {
   uint128 feePerL2Gas;
 }
 
-struct ContentCommitment {
-  bytes32 blobsHash;
-  bytes32 inHash;
-  bytes32 outHash;
-}
-
 struct ProposedHeader {
   bytes32 lastArchiveRoot;
   bytes32 blockHeadersHash;
-  ContentCommitment contentCommitment;
+  bytes32 blobsHash;
+  bytes32 inHash;
   Slot slotNumber;
   Timestamp timestamp;
   address coinbase;
@@ -57,9 +52,8 @@ library ProposedHeaderLib {
       abi.encodePacked(
         _header.lastArchiveRoot,
         _header.blockHeadersHash,
-        _header.contentCommitment.blobsHash,
-        _header.contentCommitment.inHash,
-        _header.contentCommitment.outHash,
+        _header.blobsHash,
+        _header.inHash,
         _header.slotNumber,
         Timestamp.unwrap(_header.timestamp).toUint64(),
         _header.coinbase,

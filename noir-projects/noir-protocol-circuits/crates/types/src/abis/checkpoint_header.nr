@@ -2,7 +2,6 @@ use crate::{
     abis::gas_fees::GasFees,
     address::{AztecAddress, EthAddress},
     constants::{CHECKPOINT_HEADER_LENGTH, CHECKPOINT_HEADER_SIZE_IN_BYTES},
-    content_commitment::ContentCommitment,
     hash::sha256_to_field,
     traits::{Deserialize, Empty, FromField, Hash, Serialize, ToField},
 };
@@ -12,7 +11,8 @@ use std::meta::derive;
 pub struct CheckpointHeader {
     pub last_archive_root: Field,
     pub block_headers_hash: Field,
-    pub content_commitment: ContentCommitment,
+    pub blobs_hash: Field,
+    pub in_hash: Field,
     pub slot_number: Field,
     // The timestamp of the slot. All blocks in the checkpoint share the same timestamp, which must equal to this value.
     pub timestamp: u64,
@@ -29,7 +29,8 @@ impl Empty for CheckpointHeader {
         Self {
             last_archive_root: 0,
             block_headers_hash: 0,
-            content_commitment: ContentCommitment::empty(),
+            blobs_hash: 0,
+            in_hash: 0,
             slot_number: 0,
             timestamp: 0,
             coinbase: EthAddress::zero(),
@@ -46,9 +47,8 @@ impl CheckpointHeader {
 
         let last_archive_root_bytes: [u8; 32] = self.last_archive_root.to_be_bytes();
         let block_headers_hash_bytes: [u8; 32] = self.block_headers_hash.to_be_bytes();
-        let blobs_hash_bytes: [u8; 32] = self.content_commitment.blobs_hash.to_be_bytes();
-        let in_hash_bytes: [u8; 32] = self.content_commitment.in_hash.to_be_bytes();
-        let out_hash_bytes: [u8; 32] = self.content_commitment.out_hash.to_be_bytes();
+        let blobs_hash_bytes: [u8; 32] = self.blobs_hash.to_be_bytes();
+        let in_hash_bytes: [u8; 32] = self.in_hash.to_be_bytes();
         let slot_number_bytes: [u8; 32] = self.slot_number.to_be_bytes();
         let coinbase_bytes: [u8; 20] = self.coinbase.to_be_bytes();
         let fee_recipient_bytes: [u8; 32] = self.fee_recipient.to_field().to_be_bytes();
@@ -63,31 +63,30 @@ impl CheckpointHeader {
             bytes[i + 32] = block_headers_hash_bytes[i];
             bytes[i + 64] = blobs_hash_bytes[i];
             bytes[i + 96] = in_hash_bytes[i];
-            bytes[i + 128] = out_hash_bytes[i];
-            bytes[i + 160] = slot_number_bytes[i];
+            bytes[i + 128] = slot_number_bytes[i];
         }
 
         let mut timestamp = self.timestamp;
         for i in 0..8 {
-            bytes[200 - 1 - i] = timestamp as u8;
+            bytes[168 - 1 - i] = timestamp as u8;
             timestamp = timestamp >> 8;
         }
 
         for i in 0..20 {
-            bytes[i + 200] = coinbase_bytes[i];
+            bytes[i + 168] = coinbase_bytes[i];
         }
 
         for i in 0..32 {
-            bytes[i + 220] = fee_recipient_bytes[i];
+            bytes[i + 188] = fee_recipient_bytes[i];
         }
 
         for i in 0..16 {
-            bytes[i + 252] = gas_fees_per_da_gas_bytes[i];
-            bytes[i + 268] = gas_fees_per_l2_gas_bytes[i];
+            bytes[i + 220] = gas_fees_per_da_gas_bytes[i];
+            bytes[i + 236] = gas_fees_per_l2_gas_bytes[i];
         }
 
         for i in 0..32 {
-            bytes[i + 284] = total_mana_used_bytes[i];
+            bytes[i + 252] = total_mana_used_bytes[i];
         }
 
         bytes
@@ -106,7 +105,7 @@ fn empty_checkpoint_header_hash_matches_ts() {
 
     // Generated from checkpoint_header.test.ts
     let empty_checkpoint_header_hash_from_ts =
-        0x007802c95d2f1ade746d97350a18ddbfdb9f5bee2803436917a3cf3d6a685a3a;
+        0x00d72511e843bf5a2e44e8bd1da20c2626311d1d6679424f717807a1db731d62;
 
     assert_eq(header.hash(), empty_checkpoint_header_hash_from_ts);
 }
@@ -116,7 +115,8 @@ fn checkpoint_header_hash_matches_ts() {
     let header = CheckpointHeader {
         last_archive_root: 123,
         block_headers_hash: 456,
-        content_commitment: ContentCommitment { blobs_hash: 77, in_hash: 88, out_hash: 99 },
+        blobs_hash: 77,
+        in_hash: 88,
         slot_number: 1234,
         timestamp: 5678,
         coinbase: EthAddress::from_field(9090),
@@ -132,7 +132,7 @@ fn checkpoint_header_hash_matches_ts() {
 
     // Generated from checkpoint_header.test.ts
     let checkpoint_header_hash_from_ts =
-        0x007df45447387f2e48b4acae48b6c7f72eb63a9f6611c2f665df39f013a20dcf;
+        0x00710281705a29930cf34f3470280e346449cd5a5d551177db509d2b5d3a5f21;
 
     assert_eq(header.hash(), checkpoint_header_hash_from_ts);
 }
