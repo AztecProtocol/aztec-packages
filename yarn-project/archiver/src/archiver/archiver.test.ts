@@ -30,7 +30,7 @@ import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { InboxLeaf, computeInHashFromL1ToL2Messages } from '@aztec/stdlib/messaging';
 import {
   makeAndSignCommitteeAttestationsAndSigners,
-  makeAttestationFromCheckpoint,
+  makeCheckpointAttestationFromCheckpoint,
   makeStateReference,
   mockCheckpointAndMessages,
 } from '@aztec/stdlib/testing';
@@ -509,9 +509,9 @@ describe('Archiver', () => {
     const committee = signers.map(signer => signer.address);
     epochCache.getCommitteeForEpoch.mockResolvedValue({ committee } as EpochCommitteeInfo);
 
-    // Setup spy to listen for InvalidBlockDetected events
-    const invalidBlockDetectedSpy = jest.fn();
-    archiver.on(L2BlockSourceEvents.InvalidAttestationsBlockDetected, invalidBlockDetectedSpy);
+    // Setup spy to listen for InvalidCheckpointDetected events
+    const invalidCheckpointDetectedSpy = jest.fn();
+    archiver.on(L2BlockSourceEvents.InvalidAttestationsCheckpointDetected, invalidCheckpointDetectedSpy);
 
     // Add messages for all good checkpoints
     messagesPerCheckpoint.map((messages, i) =>
@@ -584,15 +584,15 @@ describe('Archiver', () => {
       }),
     );
 
-    // Check that InvalidBlockDetected event was emitted for the bad block
-    expect(invalidBlockDetectedSpy).toHaveBeenCalledWith(
+    // Check that InvalidCheckpointDetected event was emitted for the bad checkpoint
+    expect(invalidCheckpointDetectedSpy).toHaveBeenCalledWith(
       expect.objectContaining({
-        type: L2BlockSourceEvents.InvalidAttestationsBlockDetected,
+        type: L2BlockSourceEvents.InvalidAttestationsCheckpointDetected,
         validationResult: expect.objectContaining({
           valid: false,
           reason: 'invalid-attestation',
           invalidIndex: 0,
-          block: expect.objectContaining({ blockNumber: 2 }),
+          checkpoint: expect.objectContaining({ checkpointNumber: 2 }),
         }),
       }),
     );
@@ -615,8 +615,8 @@ describe('Archiver', () => {
     expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(1));
     let validationStatus = await archiver.getPendingChainValidationStatus();
     assert(!validationStatus.valid);
-    expect(validationStatus.block.blockNumber).toEqual(2);
-    expect(validationStatus.block.archive.toString()).toEqual(badCheckpoints[1].archive.root.toString());
+    expect(validationStatus.checkpoint.checkpointNumber).toEqual(2);
+    expect(validationStatus.checkpoint.archive.toString()).toEqual(badCheckpoints[1].archive.root.toString());
 
     // Now another loop, where we propose a checkpoint 3 with bad attestations
     logger.warn(`Adding new checkpoint 3 with bad attestations`);
@@ -637,24 +637,24 @@ describe('Archiver', () => {
     expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(1));
     validationStatus = await archiver.getPendingChainValidationStatus();
     assert(!validationStatus.valid);
-    expect(validationStatus.block.blockNumber).toEqual(2);
-    expect(validationStatus.block.archive.toString()).toEqual(badCheckpoints[1].archive.root.toString());
+    expect(validationStatus.checkpoint.checkpointNumber).toEqual(2);
+    expect(validationStatus.checkpoint.archive.toString()).toEqual(badCheckpoints[1].archive.root.toString());
 
-    // Check that InvalidBlockDetected event was also emitted for bad block 3
-    expect(invalidBlockDetectedSpy).toHaveBeenCalledWith(
+    // Check that InvalidCheckpointDetected event was also emitted for bad checkpoint 3
+    expect(invalidCheckpointDetectedSpy).toHaveBeenCalledWith(
       expect.objectContaining({
-        type: L2BlockSourceEvents.InvalidAttestationsBlockDetected,
+        type: L2BlockSourceEvents.InvalidAttestationsCheckpointDetected,
         validationResult: expect.objectContaining({
           valid: false,
           reason: 'invalid-attestation',
           invalidIndex: 0,
-          block: expect.objectContaining({ blockNumber: 3 }),
+          checkpoint: expect.objectContaining({ checkpointNumber: 3 }),
         }),
       }),
     );
 
     // Should have been called three times total: bad checkpoint 2, bad checkpoint 2b, and bad checkpoint 3
-    expect(invalidBlockDetectedSpy).toHaveBeenCalledTimes(3);
+    expect(invalidCheckpointDetectedSpy).toHaveBeenCalledTimes(3);
 
     // Now we go for another loop, where proper checkpoints 2 and 3 are proposed with correct attestations
     // IRL there would be an "Invalidated" event, but we are not currently relying on it
@@ -2441,7 +2441,7 @@ describe('Archiver', () => {
    */
   const makeRollupTx = (checkpoint: Checkpoint, signers: Secp256k1Signer[] = []) => {
     const attestations = signers
-      .map(signer => makeAttestationFromCheckpoint(checkpoint, signer))
+      .map(signer => makeCheckpointAttestationFromCheckpoint(checkpoint, signer))
       .map(attestation => CommitteeAttestation.fromSignature(attestation.signature))
       .map(committeeAttestation => committeeAttestation.toViem());
     const header = checkpoint.header.toViem();

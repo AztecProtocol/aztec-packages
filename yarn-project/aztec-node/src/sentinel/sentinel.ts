@@ -341,7 +341,7 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
     // We gather from both p2p (contains the ones seen on the p2p layer) and archiver
     // (contains the ones synced from mined blocks, which we may have missed from p2p).
     const block = this.slotNumberToCheckpoint.get(slot);
-    const p2pAttested = await this.p2p.getAttestationsForSlot(slot, block?.archive);
+    const p2pAttested = await this.p2p.getCheckpointAttestationsForSlot(slot, block?.archive);
     // Filter out attestations with invalid signatures
     const p2pAttestors = p2pAttested.map(a => a.getSender()).filter((s): s is EthAddress => s !== undefined);
     const attestors = new Set(

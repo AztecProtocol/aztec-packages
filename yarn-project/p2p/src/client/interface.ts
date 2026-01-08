@@ -1,6 +1,6 @@
 import type { EthAddress, L2BlockId } from '@aztec/stdlib/block';
 import type { P2PApiFull } from '@aztec/stdlib/interfaces/server';
-import type { BlockAttestation, BlockProposal, P2PClientType } from '@aztec/stdlib/p2p';
+import type { BlockProposal, CheckpointAttestation, CheckpointProposal, P2PClientType } from '@aztec/stdlib/p2p';
 import type { Tx, TxHash } from '@aztec/stdlib/tx';
 
 import type { PeerId } from '@libp2p/interface';
@@ -13,7 +13,7 @@ import type {
   ReqRespSubProtocolHandler,
   ReqRespSubProtocolValidators,
 } from '../services/reqresp/interface.js';
-import type { P2PBlockReceivedCallback } from '../services/service.js';
+import type { P2PBlockReceivedCallback, P2PCheckpointReceivedCallback } from '../services/service.js';
 
 /**
  * Enum defining the possible states of the p2p client.
@@ -50,8 +50,15 @@ export type P2P<T extends P2PClientType = P2PClientType.Full> = P2PApiFull<T> & 
    */
   broadcastProposal(proposal: BlockProposal): Promise<void>;
 
-  /** Broadcasts block attestations to other peers. */
-  broadcastAttestations(attestations: BlockAttestation[]): Promise<void>;
+  /**
+   * Broadcasts a checkpoint proposal (last block in a checkpoint) to other peers.
+   *
+   * @param proposal - the checkpoint proposal
+   */
+  broadcastCheckpointProposal(proposal: CheckpointProposal): Promise<void>;
+
+  /** Broadcasts checkpoint attestations to other peers. */
+  broadcastCheckpointAttestations(attestations: CheckpointAttestation[]): Promise<void>;
 
   /**
    * Registers a callback from the validator client that determines how to behave when
@@ -62,6 +69,14 @@ export type P2P<T extends P2PClientType = P2PClientType.Full> = P2PApiFull<T> & 
   // REVIEW: https://github.com/AztecProtocol/aztec-packages/issues/7963
   // ^ This pattern is not my favorite (md)
   registerBlockProposalHandler(callback: P2PBlockReceivedCallback): void;
+
+  /**
+   * Registers a callback from the validator client that determines how to behave when
+   * foreign checkpoint proposals are received
+   *
+   * @param handler - A function taking a received checkpoint proposal and producing attestations
+   */
+  registerCheckpointProposalHandler(callback: P2PCheckpointReceivedCallback): void;
 
   /**
    * Request a list of transactions from another peer by their tx hashes.

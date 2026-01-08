@@ -73,6 +73,7 @@ export class Checkpoint {
   public toCheckpointInfo(): CheckpointInfo {
     return {
       archive: this.archive.root,
+      lastArchive: this.header.lastArchiveRoot,
       slotNumber: this.header.slotNumber,
       checkpointNumber: this.number,
       timestamp: this.header.timestamp,

@@ -14,11 +14,13 @@ import { z } from 'zod';
 import { AztecAddress } from '../aztec-address/index.js';
 import { GasFees } from '../gas/index.js';
 import { schemas } from '../schemas/index.js';
+import type { GlobalVariables } from '../tx/global_variables.js';
 import type { UInt64 } from '../types/shared.js';
 
 /**
  * Header of a checkpoint. A checkpoint is a collection of blocks submitted to L1 all within the same slot.
  * TODO(palla/mbps): Should this include chainId and version as well? Is this used just in circuits?
+ * TODO(palla/mbps): What about CheckpointNumber?
  */
 export class CheckpointHeader {
   constructor(
@@ -109,6 +111,17 @@ export class CheckpointHeader {
       this.feeRecipient.equals(other.feeRecipient) &&
       this.gasFees.equals(other.gasFees) &&
       this.totalManaUsed.equals(other.totalManaUsed)
+    );
+  }
+
+  /** Returns true if the global variables match those in the checkpoint header. */
+  matchesGlobalVariables(other: GlobalVariables) {
+    return (
+      this.coinbase.equals(other.coinbase) &&
+      this.feeRecipient.equals(other.feeRecipient) &&
+      this.gasFees.equals(other.gasFees) &&
+      this.slotNumber === other.slotNumber &&
+      this.timestamp === other.timestamp
     );
   }
 

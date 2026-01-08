@@ -85,10 +85,11 @@ CheckpointNumber.isValid = function (value: unknown): value is CheckpointNumber 
   return typeof value === 'number' && Number.isInteger(value) && value >= 0;
 };
 
-/**
- * The zero checkpoint value.
- */
+/** The zero checkpoint value. */
 CheckpointNumber.ZERO = CheckpointNumber(0);
+
+/** Initial checkpoint. */
+CheckpointNumber.INITIAL = CheckpointNumber(1);
 
 /**
  * Zod schema for parsing and validating CheckpointNumber values.

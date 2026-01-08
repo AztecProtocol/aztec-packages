@@ -20,10 +20,9 @@ import {
   EthAddress,
   L2BlockHash,
   L2BlockNew,
-  type ValidateBlockResult,
-  randomBlockInfo,
+  type ValidateCheckpointResult,
 } from '@aztec/stdlib/block';
-import { Checkpoint, L1PublishedData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
+import { Checkpoint, L1PublishedData, PublishedCheckpoint, randomCheckpointInfo } from '@aztec/stdlib/checkpoint';
 import {
   type ContractClassPublic,
   type ContractInstanceWithAddress,
@@ -2756,7 +2755,7 @@ export function describeArchiverDataStore(
       });
 
       it('should store and retrieve a valid validation status', async () => {
-        const validStatus: ValidateBlockResult = { valid: true };
+        const validStatus: ValidateCheckpointResult = { valid: true };
 
         await store.setPendingChainValidationStatus(validStatus);
         const retrievedStatus = await store.getPendingChainValidationStatus();
@@ -2765,9 +2764,9 @@ export function describeArchiverDataStore(
       });
 
       it('should store and retrieve an invalid validation status with insufficient attestations', async () => {
-        const invalidStatus: ValidateBlockResult = {
+        const invalidStatus: ValidateCheckpointResult = {
           valid: false,
-          block: randomBlockInfo(1),
+          checkpoint: randomCheckpointInfo(1),
           committee: [EthAddress.random(), EthAddress.random()],
           epoch: EpochNumber(123),
           seed: 456n,
@@ -2783,9 +2782,9 @@ export function describeArchiverDataStore(
       });
 
       it('should store and retrieve an invalid validation status with invalid attestation', async () => {
-        const invalidStatus: ValidateBlockResult = {
+        const invalidStatus: ValidateCheckpointResult = {
           valid: false,
-          block: randomBlockInfo(2),
+          checkpoint: randomCheckpointInfo(2),
           committee: [EthAddress.random()],
           attestors: [EthAddress.random()],
           epoch: EpochNumber(789),
@@ -2802,10 +2801,10 @@ export function describeArchiverDataStore(
       });
 
       it('should overwrite existing status when setting a new one', async () => {
-        const firstStatus: ValidateBlockResult = { valid: true };
-        const secondStatus: ValidateBlockResult = {
+        const firstStatus: ValidateCheckpointResult = { valid: true };
+        const secondStatus: ValidateCheckpointResult = {
           valid: false,
-          block: randomBlockInfo(3),
+          checkpoint: randomCheckpointInfo(3),
           committee: [EthAddress.random()],
           epoch: EpochNumber(999),
           seed: 888n,
@@ -2822,9 +2821,9 @@ export function describeArchiverDataStore(
       });
 
       it('should handle empty committee and attestations arrays', async () => {
-        const statusWithEmptyArrays: ValidateBlockResult = {
+        const statusWithEmptyArrays: ValidateCheckpointResult = {
           valid: false,
-          block: randomBlockInfo(4),
+          checkpoint: randomCheckpointInfo(4),
           committee: [],
           epoch: EpochNumber(0),
           seed: 0n,

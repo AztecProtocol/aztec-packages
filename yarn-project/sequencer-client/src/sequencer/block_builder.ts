@@ -28,8 +28,7 @@ import type {
 } from '@aztec/stdlib/interfaces/server';
 import { GlobalVariables, Tx } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
-
-import { createValidatorForBlockBuilding } from '../tx_validator/tx_validator_factory.js';
+import { createValidatorForBlockBuilding } from '@aztec/validator-client';
 
 const log = createLogger('block-builder');
 
