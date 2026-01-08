@@ -13,6 +13,7 @@ import { makeBlockProposal, makeL2BlockHeader } from '@aztec/stdlib/testing';
 import { Tx, TxHash } from '@aztec/stdlib/tx';
 
 import { describe, expect, it, jest } from '@jest/globals';
+import type { PeerId } from '@libp2p/interface';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import type { P2PClient } from '../../client/p2p_client.js';
@@ -32,14 +33,35 @@ import { makeEnrs } from '../../test-helpers/make-enrs.js';
 import { makeAndStartTestP2PClient } from '../../test-helpers/make-test-p2p-clients.js';
 import { createMockTxWithMetadata } from '../../test-helpers/mock-tx-helpers.js';
 
-const TEST_TIMEOUT = 180_000;
-jest.setTimeout(TEST_TIMEOUT);
+const TEST_TIMEOUT_MS = 180_000;
+jest.setTimeout(TEST_TIMEOUT_MS);
 
 type DistributionPattern = 'uniform' | 'sparse' | 'pinned-only';
-type CollectorType = 'batch-requester' | 'send-batch-request';
+
+const COLLECTOR_TYPES = ['batch-requester', 'send-batch-request'];
+type CollectorType = (typeof COLLECTOR_TYPES)[number];
+
+const PEERS_PER_RUN = 10;
+const TIMEOUT_MS = 60_000;
+
+const MISSING_TX_COUNTS = [10, 50, 100, 500];
+type MissingTxCount = (typeof MISSING_TX_COUNTS)[number];
+
+interface ScenarioBase {
+  name: string;
+  distribution: DistributionPattern;
+  blockNumber: number;
+  pinnedPeerIndex?: number; // index in `clients` array, if applicable
+}
+
+interface BenchmarkCase extends ScenarioBase {
+  peers: number;
+  missingTxCount: MissingTxCount;
+  timeoutMs: number;
+}
 
 interface BenchmarkResult {
-  txCount: number;
+  missingTxCount: number;
   distribution: DistributionPattern;
   collector: CollectorType;
   durationMs: number;
@@ -47,49 +69,74 @@ interface BenchmarkResult {
   success: boolean;
 }
 
-describe('ProposalTxCollector Benchmarks', () => {
-  let txPool: MockProxy<TxPool>;
-  let attestationPool: MockProxy<AttestationPool>;
-  let epochCache: MockProxy<EpochCache>;
-  let worldState: MockProxy<WorldStateSynchronizer>;
-  let connectionSampler: MockProxy<ConnectionSampler>;
-  let mockP2PService: MockProxy<BatchTxRequesterLibP2PService>;
-  let logger: Logger;
-  let p2pBaseConfig: P2PConfig;
+const BASE_SCENARIOS: readonly ScenarioBase[] = [
+  {
+    name: 'uniform distribution',
+    distribution: 'uniform',
+    blockNumber: 1,
+  },
+  {
+    name: 'sparse distribution',
+    distribution: 'sparse',
+    blockNumber: 2,
+  },
+  {
+    name: 'pinned-only distribution',
+    distribution: 'pinned-only',
+    blockNumber: 3,
+    pinnedPeerIndex: 1,
+  },
+];
 
-  let clients: P2PClient[] = [];
-  const results: BenchmarkResult[] = [];
+const CASES: readonly BenchmarkCase[] = BASE_SCENARIOS.flatMap(base =>
+  MISSING_TX_COUNTS.map(missingTxCount => ({
+    ...base,
+    peers: PEERS_PER_RUN,
+    missingTxCount,
+    timeoutMs: TIMEOUT_MS,
+  })),
+);
 
-  beforeAll(() => {
-    logger = createLogger('p2p:bench');
-  });
+/**
+ * Encapsulates all mutable test state + mocking setup.
+ * Keeps the Jest tests themselves small and declarative.
+ */
+class BenchmarkEnv {
+  public clients: P2PClient[] = [];
 
-  afterAll(() => {
-    outputResults(results);
-  });
+  public txPool!: MockProxy<TxPool>;
+  public attestationPool!: MockProxy<AttestationPool>;
+  public epochCache!: MockProxy<EpochCache>;
+  public worldState!: MockProxy<WorldStateSynchronizer>;
+  public connectionSampler!: MockProxy<ConnectionSampler>;
+  public mockP2PService!: MockProxy<BatchTxRequesterLibP2PService>;
+  public p2pBaseConfig!: P2PConfig;
 
-  const setupMocks = () => {
-    clients = [];
-    txPool = mock<TxPool>();
-    attestationPool = mock<AttestationPool>();
-    epochCache = mock<EpochCache>();
-    worldState = mock<WorldStateSynchronizer>();
-    connectionSampler = mock<ConnectionSampler>();
-    mockP2PService = mock<BatchTxRequesterLibP2PService>({ connectionSampler });
-    mockP2PService.txValidator.mockResolvedValue(true);
+  public constructor(private readonly logger: Logger) {}
 
-    p2pBaseConfig = { ...emptyChainConfig, ...getP2PDefaultConfig() };
+  public reset(): void {
+    this.clients = [];
 
-    //@ts-expect-error - we want to mock the getEpochAndSlotInNextL1Slot method
-    epochCache.getEpochAndSlotInNextL1Slot.mockReturnValue({ ts: BigInt(0) });
-    epochCache.getRegisteredValidators.mockResolvedValue([]);
+    this.txPool = mock<TxPool>();
+    this.attestationPool = mock<AttestationPool>();
+    this.epochCache = mock<EpochCache>();
+    this.worldState = mock<WorldStateSynchronizer>();
+    this.connectionSampler = mock<ConnectionSampler>();
+    this.mockP2PService = mock<BatchTxRequesterLibP2PService>({ connectionSampler: this.connectionSampler });
 
-    txPool.hasTxs.mockResolvedValue([]);
-    txPool.getAllTxs.mockImplementation(() => Promise.resolve([] as Tx[]));
-    txPool.addTxs.mockResolvedValue(1);
-    txPool.getTxsByHash.mockImplementation(() => Promise.resolve([] as Tx[]));
+    this.mockP2PService.txValidator.mockResolvedValue(true);
+    this.p2pBaseConfig = { ...emptyChainConfig, ...getP2PDefaultConfig() };
 
-    worldState.status.mockResolvedValue({
+    // @ts-expect-error - deliberately mocking method signature detail for benchmark
+    this.epochCache.getEpochAndSlotInNextL1Slot.mockReturnValue({ ts: BigInt(0) });
+    this.epochCache.getRegisteredValidators.mockResolvedValue([]);
+
+    this.txPool.hasTxs.mockResolvedValue([]);
+    this.txPool.getAllTxs.mockResolvedValue([] as Tx[]);
+    this.txPool.addTxs.mockResolvedValue(1);
+    this.txPool.getTxsByHash.mockResolvedValue([] as Tx[]);
+
+    this.worldState.status.mockResolvedValue({
       state: mock(),
       syncSummary: {
         latestBlockNumber: BlockNumber(0),
@@ -99,376 +146,363 @@ describe('ProposalTxCollector Benchmarks', () => {
         oldestHistoricBlockNumber: BlockNumber(0),
       },
     });
-  };
+  }
 
-  const teardown = async () => {
-    logger.info(`Tearing down...`);
-    await Promise.all(clients.map(client => client.stop()));
-    await sleep(500);
-    clients = [];
-    jest.restoreAllMocks();
-  };
+  public async stop(): Promise<void> {
+    if (this.clients.length === 0) return;
 
-  beforeEach(() => {
-    setupMocks();
-    logger.info(`Starting test ${expect.getState().currentTestName}`);
-  });
+    this.logger.info(`Tearing down ${this.clients.length} clients...`);
+    await Promise.allSettled(this.clients.map(c => c.stop()));
+    await sleep(300);
+    this.clients = [];
+  }
 
-  afterEach(async () => {
-    await teardown();
-  });
-
-  const createBlockProposal = (blockNumber: number, blockHash: Fr, txHashes: TxHash[]) => {
+  public createBlockProposal(blockNumber: number, archive: Fr, txHashes: TxHash[]) {
     return makeBlockProposal({
       signer: Secp256k1Signer.random(),
       header: makeL2BlockHeader(1, blockNumber),
-      archive: blockHash,
+      archive,
       txHashes,
     });
-  };
+  }
 
-  const setupClients = async (numberOfPeers: number, txPoolMocks: MockProxy<TxPool>[]) => {
-    logger.info(`Setting up ${numberOfPeers} clients...`);
-    const peerIdPrivateKeys = generatePeerIdPrivateKeys(numberOfPeers);
-    let ports: number[] = [];
-    for (let attempt = 0; attempt < 5; attempt++) {
-      try {
-        ports = await getPorts(numberOfPeers);
-        break;
-      } catch {
-        await sleep(500);
-      }
-    }
-    if (ports.length === 0) {
-      throw new Error('Failed to get ports');
-    }
+  public async startClients(peers: number, txPoolMocks: MockProxy<TxPool>[]): Promise<void> {
+    this.logger.info(`Setting up ${peers} clients...`);
 
-    const peerEnrs = await makeEnrs(peerIdPrivateKeys, ports, p2pBaseConfig);
+    const peerIdPrivateKeys = generatePeerIdPrivateKeys(peers);
+    const ports = await getPortsWithRetry(peers, this.logger);
 
-    for (let i = 0; i < numberOfPeers; i++) {
+    const peerEnrs = await makeEnrs(peerIdPrivateKeys, ports, this.p2pBaseConfig);
+
+    for (let i = 0; i < peers; i++) {
       const client = await makeAndStartTestP2PClient(peerIdPrivateKeys[i], ports[i], peerEnrs, {
-        p2pBaseConfig,
-        mockAttestationPool: attestationPool,
+        p2pBaseConfig: this.p2pBaseConfig,
+        mockAttestationPool: this.attestationPool,
         mockTxPool: txPoolMocks[i],
-        mockEpochCache: epochCache,
-        mockWorldState: worldState,
+        mockEpochCache: this.epochCache,
+        mockWorldState: this.worldState,
         logger: createLogger(`p2p:${i}`),
-        p2pConfigOverrides: {
-          maxPeerCount: numberOfPeers,
-        },
+        p2pConfigOverrides: { maxPeerCount: peers },
       });
-      clients.push(client);
+      this.clients.push(client);
     }
-    logger.info(`Created ${numberOfPeers} clients`);
-  };
 
-  async function waitForPeers(numberOfPeers: number) {
-    logger.info(`Waiting for peers to discover each other...`);
+    this.logger.info(`Created ${this.clients.length}/${peers} clients`);
+  }
+
+  public async waitForFullMesh(peers: number): Promise<void> {
+    this.logger.info(`Waiting for peer discovery...`);
+
     await Promise.all(
-      clients.map((c, i) =>
+      this.clients.map((client, i) =>
         retryUntil(
-          async () => (await c.getPeers()).length >= numberOfPeers - 1,
+          async () => (await client.getPeers()).length >= peers - 1,
           `peers discovered for client ${i}`,
           30,
           1,
         ),
       ),
     );
-    logger.info('Peers connected');
+
+    this.logger.info('Peers connected');
   }
 
-  const createTxPoolMock = (peerTxs: Tx[]): MockProxy<TxPool> => {
-    const peerTxPool = mock<TxPool>();
-    const peerTxSet = new Set(peerTxs.map(tx => tx.txHash.toString()));
-
-    peerTxPool.hasTxs.mockImplementation((hashes: TxHash[]) => {
-      return Promise.resolve(hashes.map(h => peerTxSet.has(h.toString())));
-    });
-    peerTxPool.getTxsByHash.mockImplementation((hashes: TxHash[]) => {
-      return Promise.resolve(hashes.map(hash => peerTxs.find(t => t.txHash.equals(hash))));
-    });
-    peerTxPool.getTxByHash.mockImplementation((hash: TxHash) => {
-      return Promise.resolve(peerTxs.find(t => t.txHash.equals(hash)));
-    });
-    peerTxPool.getAllTxs.mockImplementation(() => Promise.resolve(peerTxs));
-    peerTxPool.addTxs.mockResolvedValue(1);
-
-    return peerTxPool;
-  };
-
-  const generateTxDistribution = (
-    txs: Tx[],
-    numberOfPeers: number,
-    pattern: DistributionPattern,
-  ): MockProxy<TxPool>[] => {
-    const txPoolMocks: MockProxy<TxPool>[] = [];
-    const peerTxSets: Tx[][] = [];
-
-    for (let i = 0; i < numberOfPeers; i++) {
-      let peerTxs: Tx[];
-      switch (pattern) {
-        case 'uniform':
-          peerTxs = txs;
-          break;
-        case 'sparse': {
-          const numDataPeers = numberOfPeers - 1;
-          const peerIndex = i - 1;
-          peerTxs = txs.filter((_, txIndex) => {
-            const bucket = txIndex % numDataPeers;
-            return bucket === peerIndex || bucket === (peerIndex + 1) % numDataPeers;
-          });
-          break;
-        }
-        case 'pinned-only':
-          peerTxs = i === 1 ? txs : [];
-          break;
-      }
-      txPoolMocks.push(createTxPoolMock(peerTxs));
-      peerTxSets.push(peerTxs);
-    }
-
-    return txPoolMocks;
-  };
-
-  const runCollector = async (
+  public async runCollector(
     collectorType: CollectorType,
     txHashes: TxHash[],
-    blockProposal: ReturnType<typeof createBlockProposal>,
-    pinnedPeer: any,
+    blockProposal: ReturnType<BenchmarkEnv['createBlockProposal']>,
+    pinnedPeer: PeerId | undefined,
     timeoutMs: number,
-  ): Promise<Tx[]> => {
-    const [aggregator] = clients;
-    const reqResp = (aggregator as any).p2pService.reqresp;
-    mockP2PService.reqResp = reqResp;
+  ): Promise<Tx[]> {
+    const [aggregator] = this.clients;
+    if (!aggregator) throw new Error('No aggregator client (clients[0]) available');
 
-    // Connection sampler returns all peer ids except the one we are testing for aka "aggregator"
-    const peerIds = clients.map(client => (client as any).p2pService.node.peerId).slice(1);
-    connectionSampler.getPeerListSortedByConnectionCountAsc.mockReturnValue(peerIds);
+    const aggregatorReqResp = getReqResp(aggregator);
+    (this.mockP2PService as any).reqResp = aggregatorReqResp;
 
-    const internalSampler = (reqResp as any).connectionSampler;
-    logger.info(
-      `Setting up mocks for ${collectorType}, otherPeerIds: ${peerIds.map(p => p.toString().slice(-8)).join(', ')}`,
-    );
+    const peerIds = this.clients.map(getPeerId).slice(1);
+    this.connectionSampler.getPeerListSortedByConnectionCountAsc.mockReturnValue(peerIds);
+
+    this.installSamplerOverrides(aggregatorReqResp, peerIds);
+    this.installUnlimitedRateLimits();
+
+    if (collectorType === 'batch-requester') {
+      const collector = new BatchTxRequesterCollector(this.mockP2PService, this.logger, new DateProvider());
+      return await collector.collectTxs(txHashes, blockProposal, pinnedPeer, timeoutMs);
+    }
+
+    const maxPeers = 10;
+    const maxRetryAttempts = this.clients.length * 2;
+    const collector = new SendBatchRequestCollector(this.mockP2PService, maxPeers, maxRetryAttempts);
+    return await collector.collectTxs(txHashes, blockProposal, pinnedPeer, timeoutMs);
+  }
+
+  private installSamplerOverrides(reqResp: any, peerIds: PeerId[]): void {
+    const internalSampler = reqResp.connectionSampler;
+
+    const shortIds = peerIds.map(p => String(p).slice(-8)).join(', ');
+    this.logger.info(`Sampler overrides installed. Peers: ${shortIds}`);
+
     jest.spyOn(internalSampler, 'getPeerListSortedByConnectionCountAsc').mockReturnValue(peerIds);
+
     jest.spyOn(internalSampler, 'samplePeersBatch').mockImplementation((...args: unknown[]) => {
       const numberToSample = args[0] as number;
       const excluding = args[1] as Map<string, boolean> | undefined;
-      const filtered = peerIds.filter(p => !excluding?.has(p.toString()));
-      const result = filtered.slice(0, Math.min(numberToSample, filtered.length));
-      logger.info(`samplePeersBatch mock returning: ${result.map(p => p.toString().slice(-8)).join(', ')}`);
-      return result;
-    });
-    jest.spyOn(internalSampler, 'getPeer').mockImplementation((...args: unknown[]) => {
-      const excluding = args[0] as Map<string, boolean> | undefined;
-      const filtered = peerIds.filter(p => !excluding?.has(p.toString()));
-      return filtered.length > 0 ? filtered[0] : undefined;
+
+      const filtered = peerIds.filter(p => !excluding?.has(String(p)));
+      return filtered.slice(0, Math.min(numberToSample, filtered.length));
     });
 
-    // Override rate limiter to allow unlimited requests for benchmarking
-    // Must mock on ALL clients (both requester/aggregator and responder/peer sides)
+    jest.spyOn(internalSampler, 'getPeer').mockImplementation((...args: unknown[]) => {
+      const excluding = args[0] as Map<string, boolean> | undefined;
+      const filtered = peerIds.filter(p => !excluding?.has(String(p)));
+      return filtered[0];
+    });
+  }
+
+  private installUnlimitedRateLimits(): void {
     const unlimitedQuota = {
       peerLimit: { quotaTimeMs: 1000, quotaCount: 10_000 },
       globalLimit: { quotaTimeMs: 1000, quotaCount: 100_000 },
     };
-    for (const client of clients) {
-      const clientReqResp = (client as any).p2pService.reqresp;
-      const clientRateLimiter = clientReqResp.rateLimiter;
-      jest.spyOn(clientRateLimiter, 'getRateLimits').mockReturnValue(unlimitedQuota);
-      jest.spyOn(clientRateLimiter, 'allow').mockReturnValue(RateLimitStatus.Allowed);
+
+    for (const client of this.clients) {
+      const reqResp = getReqResp(client);
+      const rateLimiter = reqResp.rateLimiter;
+
+      jest.spyOn(rateLimiter, 'getRateLimits').mockReturnValue(unlimitedQuota);
+      jest.spyOn(rateLimiter, 'allow').mockReturnValue(RateLimitStatus.Allowed);
     }
+  }
+}
 
-    if (collectorType === 'batch-requester') {
-      const collector = new BatchTxRequesterCollector(mockP2PService, logger, new DateProvider());
-      return await collector.collectTxs(txHashes, blockProposal, pinnedPeer, timeoutMs);
-    } else {
-      const maxPeers = 10;
-      // Allow enough retries to cycle through all peers for each index
-      // In sparse distribution, each tx might need to try multiple peers before finding one that has it
-      const maxRetryAttempts = clients.length * 2;
-      const collector = new SendBatchRequestCollector(mockP2PService, maxPeers, maxRetryAttempts);
-      return await collector.collectTxs(txHashes, blockProposal, pinnedPeer, timeoutMs);
+describe('ProposalTxCollector Benchmarks', () => {
+  const results: BenchmarkResult[] = [];
+
+  let logger: Logger;
+  let env: BenchmarkEnv;
+
+  beforeAll(() => {
+    logger = createLogger('p2p:bench');
+    env = new BenchmarkEnv(logger);
+  });
+
+  afterAll(() => {
+    outputResults(results);
+  });
+
+  beforeEach(() => {
+    env.reset();
+    logger.info(`Starting test ${expect.getState().currentTestName}`);
+  });
+
+  afterEach(async () => {
+    try {
+      await env.stop();
+    } finally {
+      jest.restoreAllMocks();
     }
-  };
+  });
 
-  it('benchmark: uniform distribution', async () => {
-    const txCount = 100;
-    const numberOfPeers = 10;
-    const distribution: DistributionPattern = 'uniform';
-    const timeoutMs = 20_000;
+  describe.each(CASES)('$name (missing=$missingTxCount)', benchCase => {
+    it.each(COLLECTOR_TYPES)('collector: %s', async collectorType => {
+      const { missingTxCount, peers, distribution, timeoutMs, blockNumber } = benchCase;
 
-    for (const collectorType of ['batch-requester', 'send-batch-request'] as CollectorType[]) {
-      await teardown();
-      setupMocks();
+      logger.info(
+        `Case=${benchCase.name}, missing=${missingTxCount}, collector=${collectorType}, peers=${peers}, timeoutMs=${timeoutMs}`,
+      );
 
-      logger.info(`Running ${collectorType}...`);
-      const txs = await Promise.all(times(txCount, i => createMockTxWithMetadata(p2pBaseConfig, i)));
+      const txs = await Promise.all(times(missingTxCount, i => createMockTxWithMetadata(env.p2pBaseConfig, i)));
       const txHashes = await Promise.all(txs.map(tx => tx.getTxHash()));
-      const blockProposal = createBlockProposal(1, Fr.random(), txHashes);
 
-      const txPoolMocks = generateTxDistribution(txs, numberOfPeers, distribution);
-      await setupClients(numberOfPeers, txPoolMocks);
-      await waitForPeers(numberOfPeers);
+      const blockProposal = env.createBlockProposal(blockNumber, Fr.random(), txHashes);
 
-      attestationPool.getBlockProposal.mockResolvedValue(blockProposal);
+      const txPoolMocks = generateTxDistribution(txs, peers, distribution, benchCase.pinnedPeerIndex);
+      await env.startClients(peers, txPoolMocks);
+      await env.waitForFullMesh(peers);
+
+      env.attestationPool.getBlockProposal.mockResolvedValue(blockProposal);
+
+      const pinnedPeer =
+        benchCase.pinnedPeerIndex !== undefined ? getPeerId(env.clients[benchCase.pinnedPeerIndex]) : undefined;
 
       const timer = new Timer();
 
       try {
-        const fetchedTxs = await runCollector(collectorType, txHashes, blockProposal, undefined, timeoutMs);
+        const fetchedTxs = await env.runCollector(collectorType, txHashes, blockProposal, pinnedPeer, timeoutMs);
         const durationMs = timer.ms();
 
         results.push({
-          txCount,
+          missingTxCount,
           distribution,
           collector: collectorType,
           durationMs,
           fetchedCount: fetchedTxs.length,
-          success: fetchedTxs.length === txCount,
+          success: fetchedTxs.length === missingTxCount,
         });
 
-        logger.info(`${collectorType}: fetched ${fetchedTxs.length}/${txCount} in ${durationMs.toFixed(0)}ms`);
+        logger.info(`${collectorType}: fetched ${fetchedTxs.length}/${missingTxCount} in ${durationMs.toFixed(0)}ms`);
       } catch (err: any) {
-        logger.error(`${collectorType} failed: ${err.message}`);
-        results.push({
-          txCount,
-          distribution,
-          collector: collectorType,
-          durationMs: timeoutMs,
-          fetchedCount: 0,
-          success: false,
-        });
-      }
-    }
-
-    expect(results.length).toBeGreaterThan(0);
-  });
-
-  it('benchmark: sparse distribution', async () => {
-    const txCount = 50;
-    const numberOfPeers = 10;
-    const distribution: DistributionPattern = 'sparse';
-    const timeoutMs = 20_000;
-
-    for (const collectorType of ['batch-requester', 'send-batch-request'] as CollectorType[]) {
-      await teardown();
-      setupMocks();
-
-      logger.info(`Running ${collectorType}...`);
-      const txs = await Promise.all(times(txCount, i => createMockTxWithMetadata(p2pBaseConfig, i)));
-      const txHashes = await Promise.all(txs.map(tx => tx.getTxHash()));
-      const blockProposal = createBlockProposal(2, Fr.random(), txHashes);
-
-      const txPoolMocks = generateTxDistribution(txs, numberOfPeers, distribution);
-      await setupClients(numberOfPeers, txPoolMocks);
-      await waitForPeers(numberOfPeers);
-
-      attestationPool.getBlockProposal.mockResolvedValue(blockProposal);
-
-      try {
-        const timer = new Timer();
-        const fetchedTxs = await runCollector(collectorType, txHashes, blockProposal, undefined, timeoutMs);
         const durationMs = timer.ms();
 
-        results.push({
-          txCount,
-          distribution,
-          collector: collectorType,
-          durationMs,
-          fetchedCount: fetchedTxs.length,
-          success: fetchedTxs.length === txCount,
-        });
+        logger.error(`${collectorType} failed: ${err?.message ?? String(err)}`);
 
-        logger.info(`${collectorType}: fetched ${fetchedTxs.length}/${txCount} in ${durationMs.toFixed(0)}ms`);
-      } catch (err: any) {
-        console.error(`${collectorType} failed: ${err.message}`);
         results.push({
-          txCount,
+          missingTxCount,
           distribution,
           collector: collectorType,
-          durationMs: timeoutMs,
+          durationMs: Math.min(durationMs, timeoutMs),
           fetchedCount: 0,
           success: false,
         });
+
+        throw err;
       }
-    }
-
-    expect(results.length).toBeGreaterThan(0);
-  });
-
-  it('benchmark: pinned-only distribution with 8 txs', async () => {
-    const txCount = 50;
-    const numberOfPeers = 4;
-    const distribution: DistributionPattern = 'pinned-only';
-    const timeoutMs = 10_000;
-
-    for (const collectorType of ['batch-requester', 'send-batch-request'] as CollectorType[]) {
-      await teardown();
-      setupMocks();
-
-      logger.info(`Running ${collectorType}...`);
-      const txs = await Promise.all(times(txCount, i => createMockTxWithMetadata(p2pBaseConfig, i)));
-      const txHashes = await Promise.all(txs.map(tx => tx.getTxHash()));
-      const blockProposal = createBlockProposal(3, Fr.random(), txHashes);
-
-      const txPoolMocks = generateTxDistribution(txs, numberOfPeers, distribution);
-      await setupClients(numberOfPeers, txPoolMocks);
-      await waitForPeers(numberOfPeers);
-
-      attestationPool.getBlockProposal.mockResolvedValue(blockProposal);
-      const pinnedPeer = (clients[1] as any).p2pService.node.peerId;
-
-      try {
-        const timer = new Timer();
-        const fetchedTxs = await runCollector(collectorType, txHashes, blockProposal, pinnedPeer, timeoutMs);
-        const durationMs = timer.ms();
-
-        results.push({
-          txCount,
-          distribution,
-          collector: collectorType,
-          durationMs,
-          fetchedCount: fetchedTxs.length,
-          success: fetchedTxs.length === txCount,
-        });
-
-        logger.info(`${collectorType}: fetched ${fetchedTxs.length}/${txCount} in ${durationMs.toFixed(0)}ms`);
-      } catch (err: any) {
-        console.error(`${collectorType} failed: ${err.message}`);
-        results.push({
-          txCount,
-          distribution,
-          collector: collectorType,
-          durationMs: timeoutMs,
-          fetchedCount: 0,
-          success: false,
-        });
-      }
-    }
-
-    expect(results.length).toBeGreaterThan(0);
+    });
   });
 });
 
+/**
+ * Creates a tx-pool mock for a single peer with an in-memory lookup.
+ * Keeps the mock behavior consistent and fast.
+ */
+function createTxPoolMock(peerTxs: Tx[]): MockProxy<TxPool> {
+  const peerTxPool = mock<TxPool>();
+
+  const byHash = new Map<string, Tx>();
+  for (const tx of peerTxs) {
+    byHash.set(tx.txHash.toString(), tx);
+  }
+
+  peerTxPool.hasTxs.mockImplementation(async (hashes: TxHash[]) => hashes.map(h => byHash.has(h.toString())));
+
+  peerTxPool.getTxsByHash.mockImplementation(async (hashes: TxHash[]) => {
+    const out: Tx[] = [];
+    for (const h of hashes) {
+      const tx = byHash.get(h.toString());
+      if (tx) out.push(tx);
+    }
+    return out;
+  });
+
+  peerTxPool.getTxByHash.mockImplementation(async (hash: TxHash) => byHash.get(hash.toString()));
+
+  peerTxPool.getAllTxs.mockResolvedValue(peerTxs);
+  peerTxPool.addTxs.mockResolvedValue(1);
+
+  return peerTxPool;
+}
+
+/**
+ * Distribution generator.
+ * Important: client[0] (aggregator) MUST have zero txs so "missing txs" is real in all scenarios.
+ */
+function generateTxDistribution(
+  txs: Tx[],
+  numberOfPeers: number,
+  pattern: DistributionPattern,
+  pinnedPeerIndex = 1,
+): MockProxy<TxPool>[] {
+  if (pattern === 'pinned-only' && (pinnedPeerIndex <= 0 || pinnedPeerIndex >= numberOfPeers)) {
+    throw new Error(`Invalid pinnedPeerIndex=${pinnedPeerIndex} for peers=${numberOfPeers}`);
+  }
+
+  const txPoolMocks: MockProxy<TxPool>[] = [];
+  const responderCount = numberOfPeers - 1; // peers[1..] are responders
+
+  for (let i = 0; i < numberOfPeers; i++) {
+    // Aggregator always missing everything.
+    if (i === 0) {
+      txPoolMocks.push(createTxPoolMock([]));
+      continue;
+    }
+
+    let peerTxs: Tx[] = [];
+
+    switch (pattern) {
+      case 'uniform': {
+        peerTxs = txs;
+        break;
+      }
+
+      case 'sparse': {
+        const responderIndex = i - 1; // [0..responderCount-1]
+        peerTxs = txs.filter((_, txIndex) => {
+          const bucket = txIndex % responderCount;
+          return bucket === responderIndex || bucket === (responderIndex + 1) % responderCount;
+        });
+        break;
+      }
+
+      case 'pinned-only': {
+        peerTxs = i === pinnedPeerIndex ? txs : [];
+        break;
+      }
+    }
+
+    txPoolMocks.push(createTxPoolMock(peerTxs));
+  }
+
+  return txPoolMocks;
+}
+
+async function getPortsWithRetry(peers: number, logger: Logger): Promise<number[]> {
+  const maxAttempts = 5;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    try {
+      const ports = await getPorts(peers);
+      if (ports.length !== peers) {
+        throw new Error(`Expected ${peers} ports, got ${ports.length}`);
+      }
+      return ports;
+    } catch (err: any) {
+      const isLast = attempt === maxAttempts - 1;
+      if (isLast) {
+        throw new Error(`Failed to get ports after ${maxAttempts} attempts: ${err?.message ?? String(err)}`);
+      }
+      logger.warn(`getPorts attempt ${attempt + 1}/${maxAttempts} failed; retrying...`);
+      await sleep(500);
+    }
+  }
+
+  throw new Error('unreachable');
+}
+
+function getReqResp(client: P2PClient): any {
+  return (client as any).p2pService.reqresp;
+}
+
+function getPeerId(client: P2PClient): PeerId {
+  return (client as any).p2pService.node.peerId as PeerId;
+}
+
 /* eslint-disable no-console */
 function outputResults(benchResults: BenchmarkResult[]) {
-  const lines: string[] = [];
-
   if (benchResults.length === 0) {
     console.log('No benchmark results to display');
     return;
   }
+
+  const lines: string[] = [];
 
   lines.push('');
   lines.push('='.repeat(80));
   lines.push('ProposalTxCollector Benchmark Results');
   lines.push('='.repeat(80));
   lines.push('');
-  lines.push('| Collector           | Distribution | TXs | Duration (ms) | Fetched | Success |');
-  lines.push('|---------------------|--------------|-----|---------------|---------|---------|');
+  lines.push('| Collector           | Distribution | Missing | Duration (ms) | Fetched | Success |');
+  lines.push('|---------------------|--------------|---------|---------------|---------|---------|');
 
-  for (const r of benchResults) {
+  const sorted = [...benchResults].sort((a, b) => {
+    if (a.distribution !== b.distribution) return a.distribution.localeCompare(b.distribution);
+    if (a.missingTxCount !== b.missingTxCount) return a.missingTxCount - b.missingTxCount;
+    return a.collector.localeCompare(b.collector);
+  });
+
+  for (const r of sorted) {
     lines.push(
-      `| ${r.collector.padEnd(19)} | ${r.distribution.padEnd(12)} | ${String(r.txCount).padStart(3)} | ` +
+      `| ${r.collector.padEnd(19)} | ${r.distribution.padEnd(12)} | ${String(r.missingTxCount).padStart(7)} | ` +
         `${r.durationMs.toFixed(0).padStart(13)} | ${String(r.fetchedCount).padStart(7)} | ${r.success ? '  Yes  ' : '  No   '} |`,
     );
   }
@@ -477,17 +511,36 @@ function outputResults(benchResults: BenchmarkResult[]) {
   lines.push('## Comparison Summary');
   lines.push('');
 
-  const distributions = [...new Set(benchResults.map(r => r.distribution))];
-  for (const dist of distributions) {
-    const batchResult = benchResults.find(r => r.distribution === dist && r.collector === 'batch-requester');
-    const sendResult = benchResults.find(r => r.distribution === dist && r.collector === 'send-batch-request');
+  const keys = [...new Set(sorted.map(r => `${r.distribution}:${r.missingTxCount}`))];
 
-    if (batchResult && sendResult) {
-      const diff = sendResult.durationMs - batchResult.durationMs;
-      const winner = diff > 0 ? 'BatchTxRequester' : 'SendBatchRequest';
-      const percentage = Math.abs(diff / sendResult.durationMs) * 100;
-      lines.push(`- ${dist}: ${winner} is ${percentage.toFixed(1)}% ${diff > 0 ? 'faster' : 'slower'}`);
+  for (const key of keys) {
+    const [distRaw, missingRaw] = key.split(':');
+    const dist = distRaw as DistributionPattern;
+    const missing = Number(missingRaw);
+
+    const batch = sorted.find(
+      r => r.distribution === dist && r.missingTxCount === missing && r.collector === 'batch-requester',
+    );
+    const send = sorted.find(
+      r => r.distribution === dist && r.missingTxCount === missing && r.collector === 'send-batch-request',
+    );
+
+    if (!batch || !send) continue;
+
+    if (!batch.success || !send.success) {
+      lines.push(
+        `- ${dist} (missing=${missing}): cannot compare reliably (success: batch=${batch.success}, send=${send.success})`,
+      );
+      continue;
     }
+
+    const faster = batch.durationMs <= send.durationMs ? 'BatchTxRequester' : 'SendBatchRequest';
+    const slower = faster === 'BatchTxRequester' ? 'SendBatchRequest' : 'BatchTxRequester';
+
+    const delta = Math.abs(send.durationMs - batch.durationMs);
+    const pct = (delta / Math.max(batch.durationMs, send.durationMs)) * 100;
+
+    lines.push(`- ${dist} (missing=${missing}): ${faster} is ${pct.toFixed(1)}% faster than ${slower}`);
   }
 
   lines.push('');
