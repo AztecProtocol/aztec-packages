@@ -573,7 +573,7 @@ pub contract AvmTest {
 
     #[contract_library_method]
     fn _get_fee_per_l2_gas(context: PublicContext) -> u128 {
-        context.base_fee_per_l2_gas()
+        context.min_fee_per_l2_gas()
     }
 
     #[external("public")]
@@ -583,7 +583,7 @@ pub contract AvmTest {
 
     #[contract_library_method]
     fn _get_fee_per_da_gas(context: PublicContext) -> u128 {
-        context.base_fee_per_da_gas()
+        context.min_fee_per_da_gas()
     }
 
     #[external("public")]

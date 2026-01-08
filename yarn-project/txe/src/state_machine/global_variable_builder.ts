@@ -6,7 +6,7 @@ import { makeGlobalVariables } from '@aztec/stdlib/testing';
 import { type CheckpointGlobalVariables, type GlobalVariableBuilder, GlobalVariables } from '@aztec/stdlib/tx';
 
 export class TXEGlobalVariablesBuilder implements GlobalVariableBuilder {
-  public getCurrentBaseFees(): Promise<GasFees> {
+  public getCurrentMinFees(): Promise<GasFees> {
     return Promise.resolve(new GasFees(0, 0));
   }
 

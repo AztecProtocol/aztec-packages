@@ -90,7 +90,7 @@ Third-party FPCs can pay for your fees using custom logic, such as accepting dif
 ```typescript
 import { GasSettings } from "@aztec/stdlib/gas";
 
-const maxFeesPerGas = (await node.getCurrentBaseFees()).mul(1.5); //adjust this to your needs
+const maxFeesPerGas = (await node.getCurrentMinFees()).mul(1.5); //adjust this to your needs
 const gasSettings = GasSettings.default({ maxFeesPerGas });
 ```
 

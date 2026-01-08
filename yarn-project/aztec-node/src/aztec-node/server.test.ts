@@ -87,7 +87,7 @@ describe('aztec node', () => {
     p2p = mock<P2P>();
 
     globalVariablesBuilder = mock<GlobalVariableBuilder>();
-    globalVariablesBuilder.getCurrentBaseFees.mockResolvedValue(new GasFees(0, BlockNumber.ZERO));
+    globalVariablesBuilder.getCurrentMinFees.mockResolvedValue(new GasFees(0, BlockNumber.ZERO));
 
     merkleTreeOps = mock<MerkleTreeReadOperations>();
     merkleTreeOps.findLeafIndices.mockImplementation((treeId: MerkleTreeId, _value: any[]) => {

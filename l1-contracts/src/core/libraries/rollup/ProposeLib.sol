@@ -10,7 +10,7 @@ import {FeeHeader} from "@aztec/core/libraries/compressed-data/fees/FeeStructs.s
 import {ChainTipsLib, CompressedChainTips} from "@aztec/core/libraries/compressed-data/Tips.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {SignatureDomainSeparator, CommitteeAttestations} from "@aztec/core/libraries/rollup/AttestationLib.sol";
-import {OracleInput, FeeLib, ManaBaseFeeComponents} from "@aztec/core/libraries/rollup/FeeLib.sol";
+import {OracleInput, FeeLib, ManaMinFeeComponents} from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {ValidatorSelectionLib} from "@aztec/core/libraries/rollup/ValidatorSelectionLib.sol";
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {CompressedSlot, CompressedTimeMath} from "@aztec/shared/libraries/CompressedTimeMath.sol";
@@ -57,7 +57,7 @@ struct InterimProposeValues {
 struct ValidateHeaderArgs {
   ProposedHeader header;
   bytes32 digest;
-  uint256 manaBaseFee;
+  uint256 manaMinFee;
   bytes32 blobsHashesCommitment;
   CheckpointHeaderValidationFlags flags;
 }
@@ -204,11 +204,11 @@ library ProposeLib {
     v.currentEpoch = Timestamp.wrap(block.timestamp).epochFromTimestamp();
     ValidatorSelectionLib.setupEpoch(v.currentEpoch);
 
-    // Calculate mana base fee components for header validation
-    ManaBaseFeeComponents memory components;
+    // Calculate mana min fee components for header validation
+    ManaMinFeeComponents memory components;
     if (v.isTxsEnabled) {
       // Since ignition have no transactions, we need not waste gas computing the fee components
-      components = getManaBaseFeeComponentsAt(Timestamp.wrap(block.timestamp), true);
+      components = getManaMinFeeComponentsAt(Timestamp.wrap(block.timestamp), true);
     }
 
     // Create payload digest signed by the committee members
@@ -220,7 +220,7 @@ library ProposeLib {
       ValidateHeaderArgs({
         header: v.header,
         digest: v.payloadDigest,
-        manaBaseFee: FeeLib.summedBaseFee(components),
+        manaMinFee: FeeLib.summedMinFee(components),
         blobsHashesCommitment: v.blobsHashesCommitment,
         flags: CheckpointHeaderValidationFlags({ignoreDA: false})
       })
@@ -342,9 +342,9 @@ library ProposeLib {
    *      - Timestamp not in future: Errors.Rollup__TimestampInFuture
    *      - Blob hashes match commitment (unless DA checks ignored): Errors.Rollup__UnavailableTxs
    *      - DA fee is zero: Errors.Rollup__NonZeroDaFee
-   *      - L2 gas fee matches computed mana base fee: Errors.Rollup__InvalidManaBaseFee
+   *      - L2 gas fee matches computed mana min fee: Errors.Rollup__InvalidManaMinFee
    *
-   * @param _args Validation arguments including header, digest, mana base fee, and flags
+   * @param _args Validation arguments including header, digest, mana min fee, and flags
    */
   function validateHeader(ValidateHeaderArgs memory _args) internal view {
     require(_args.header.coinbase != address(0), Errors.Rollup__InvalidCoinbase());
@@ -380,28 +380,28 @@ library ProposeLib {
 
     require(_args.header.gasFees.feePerDaGas == 0, Errors.Rollup__NonZeroDaFee());
     require(
-      _args.header.gasFees.feePerL2Gas == _args.manaBaseFee,
-      Errors.Rollup__InvalidManaBaseFee(_args.manaBaseFee, _args.header.gasFees.feePerL2Gas)
+      _args.header.gasFees.feePerL2Gas == _args.manaMinFee,
+      Errors.Rollup__InvalidManaMinFee(_args.manaMinFee, _args.header.gasFees.feePerL2Gas)
     );
   }
 
   /**
-   * @notice  Gets the mana base fee components
+   * @notice  Gets the mana min fee components
    *          For more context, consult:
    *          https://github.com/AztecProtocol/engineering-designs/blob/main/in-progress/8757-fees/design.md
    *
    * @param _timestamp - The timestamp of the checkpoint
    * @param _inFeeAsset - Whether to return the fee in the fee asset or ETH
    *
-   * @return The mana base fee components
+   * @return The mana min fee components
    */
-  function getManaBaseFeeComponentsAt(Timestamp _timestamp, bool _inFeeAsset)
+  function getManaMinFeeComponentsAt(Timestamp _timestamp, bool _inFeeAsset)
     internal
     view
-    returns (ManaBaseFeeComponents memory)
+    returns (ManaMinFeeComponents memory)
   {
     uint256 checkpointOfInterest = STFLib.getEffectivePendingCheckpointNumber(_timestamp);
-    return FeeLib.getManaBaseFeeComponentsAt(checkpointOfInterest, _timestamp, _inFeeAsset);
+    return FeeLib.getManaMinFeeComponentsAt(checkpointOfInterest, _timestamp, _inFeeAsset);
   }
 
   function digest(ProposePayload memory _args) internal pure returns (bytes32) {

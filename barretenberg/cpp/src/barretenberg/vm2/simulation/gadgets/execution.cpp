@@ -474,10 +474,10 @@ void Execution::get_env_var(ContextInterface& context, MemoryAddress dst_addr, u
     case EnvironmentVariable::TIMESTAMP:
         result = MemoryValue::from<uint64_t>(context.get_globals().timestamp);
         break;
-    case EnvironmentVariable::BASEFEEPERL2GAS:
+    case EnvironmentVariable::MINFEEPERL2GAS:
         result = MemoryValue::from<uint128_t>(context.get_globals().gas_fees.fee_per_l2_gas);
         break;
-    case EnvironmentVariable::BASEFEEPERDAGAS:
+    case EnvironmentVariable::MINFEEPERDAGAS:
         result = MemoryValue::from<uint128_t>(context.get_globals().gas_fees.fee_per_da_gas);
         break;
     case EnvironmentVariable::ISSTATICCALL:

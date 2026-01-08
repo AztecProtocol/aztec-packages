@@ -464,7 +464,7 @@ struct GETENVVAR_Instruction {
     AddressRef result_address;
     // msgpack cannot pack enum classes, so we pack that as a uint8_t
     // 0 -> ADDRESS, 1 -> SENDER, 2 -> TRANSACTIONFEE, 3 -> CHAINID, 4 -> VERSION, 5 -> BLOCKNUMBER, 6 -> TIMESTAMP,
-    // 7 -> BASEFEEPERDAGAS, 8 -> BASEFEEPERL2GAS, 9 -> ISSTATICCALL, 10 -> L2GASLEFT, 11 -> DAGASLEFT
+    // 7 -> MINFEEPERDAGAS, 8 -> MINFEEPERL2GAS, 9 -> ISSTATICCALL, 10 -> L2GASLEFT, 11 -> DAGASLEFT
     uint8_t type;
     MSGPACK_FIELDS(result_address, type);
 };

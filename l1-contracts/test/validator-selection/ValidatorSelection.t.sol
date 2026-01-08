@@ -537,10 +537,10 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     ree.sender = ree.proposer;
 
     {
-      uint128 manaBaseFee = SafeCast.toUint128(rollup.getManaBaseFeeAt(Timestamp.wrap(block.timestamp), true));
+      uint128 manaMinFee = SafeCast.toUint128(rollup.getManaMinFeeAt(Timestamp.wrap(block.timestamp), true));
       bytes32 inHash = inbox.getRoot(full.checkpoint.checkpointNumber);
       header.contentCommitment.inHash = inHash;
-      header.gasFees.feePerL2Gas = manaBaseFee;
+      header.gasFees.feePerL2Gas = manaMinFee;
     }
 
     ree.proposeArgs = ProposeArgs({header: header, archive: full.checkpoint.archive, oracleInput: OracleInput(0)});

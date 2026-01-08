@@ -44,7 +44,7 @@ describe('e2e_fees sponsored_public_payment', () => {
   beforeEach(async () => {
     gasSettings = GasSettings.from({
       ...gasSettings,
-      maxFeesPerGas: await aztecNode.getCurrentBaseFees(),
+      maxFeesPerGas: await aztecNode.getCurrentMinFees(),
     });
 
     [[initialAlicePublicBananas, initialBobPublicBananas], [initialAliceGas, initialFPCGas, initialSequencerGas]] =

@@ -130,7 +130,7 @@ describe('L1Publisher integration', () => {
   // The header of the last block
   let prevHeader: BlockHeader;
 
-  let baseFee: GasFees;
+  let minFee: GasFees;
 
   let blockSource: MockProxy<ArchiveSource>;
   let blocks: L2Block[] = [];
@@ -289,7 +289,7 @@ describe('L1Publisher integration', () => {
     await fork.close();
 
     const ts = (await l1Client.getBlock()).timestamp;
-    baseFee = new GasFees(0, await rollup.getManaBaseFeeAt(ts, true));
+    minFee = new GasFees(0, await rollup.getManaMinFeeAt(ts, true));
 
     // We jump two epochs such that the committee can be setup.
     await rollupCheatCodes.advanceToEpoch(EpochNumber(config.lagInEpochsForValidatorSet + 1));
@@ -311,7 +311,7 @@ describe('L1Publisher integration', () => {
       chainId: fr(chainId),
       version: fr(version),
       vkTreeRoot: getVKTreeRoot(),
-      gasSettings: GasSettings.default({ maxFeesPerGas: baseFee }),
+      gasSettings: GasSettings.default({ maxFeesPerGas: minFee }),
       protocolContracts: ProtocolContractsList,
       seed,
     });
@@ -344,7 +344,7 @@ describe('L1Publisher integration', () => {
       timestamp,
       coinbase,
       feeRecipient,
-      new GasFees(0, await rollup.getManaBaseFeeAt(timestamp, true)),
+      new GasFees(0, await rollup.getManaMinFeeAt(timestamp, true)),
     );
     const block = await buildBlock(globalVariables, txs, l1ToL2Messages);
     blockSource.getL1ToL2Messages.mockResolvedValueOnce(l1ToL2Messages);
@@ -415,7 +415,7 @@ describe('L1Publisher integration', () => {
           timestamp,
           coinbase,
           feeRecipient,
-          new GasFees(0, await rollup.getManaBaseFeeAt(timestamp, true)),
+          new GasFees(0, await rollup.getManaMinFeeAt(timestamp, true)),
         );
 
         const block = await buildBlock(globalVariables, txs, currentL1ToL2Messages);
