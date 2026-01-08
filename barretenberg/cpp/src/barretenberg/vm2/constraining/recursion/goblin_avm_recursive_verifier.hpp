@@ -1,7 +1,6 @@
 #pragma once
 
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
-#include "barretenberg/common/map.hpp"
 #include "barretenberg/flavor/mega_avm_flavor.hpp"
 #include "barretenberg/flavor/mega_avm_recursive_flavor.hpp"
 #include "barretenberg/flavor/mega_flavor.hpp"
@@ -36,10 +35,10 @@ namespace bb::avm2 {
  * The Ultra-arithmetized circuit C_U is responsible for recursive verification of {\pi_M, \pi_G}, i.e. it contains both
  * a Mega and a GoblinAvm recursive verifier. The output of this recursive verification is a pairing check accumulator
  * and an IPA claim accumulator. To ensure proper transfer of the AVM2 verifier inputs {\pi, pub_inputs}_{AVM2}
- * between the Mega and Ultra circuits, we utilize a hash consistency check. The the transcript of the AVM recursive
+ * between the Mega and Ultra circuits, we utilize a hash consistency check. The transcript of the AVM recursive
  * verifier is used to generate a challenge h_M after the end of the verification algorithm. This challenge records the
  * final state of the transcript, which hashed the proof and public inputs {\pi, pub_inputs}_{AVM2} used in C_M. The
- * challenge is h_M is propagated via the public inputs.  Then, C_U computes the same challenge h_U independently and
+ * challenge h_M is propagated via the public inputs.  Then, C_U computes the same challenge h_U independently and
  * performs the check h_U = \pi_M.pub_inputs.h_M.
  *
  * @note The Mega circuit must be constrained to be a genuine AVM2 verifier circuit. This is done by fixing the VK(s)
@@ -53,8 +52,7 @@ class AvmGoblinRecursiveVerifier {
     using UltraFF = stdlib::field_t<UltraCircuitBuilder>;
     using MegaFF = stdlib::field_t<MegaCircuitBuilder>;
 
-    // The output of the goblinized AVM2 recursive verifier. The IPA data comes from recursive
-    // verification of the ECCVM proof as part of Goblin recursive verification.
+    // The output of the goblinized AVM2 recursive verifier
     using RecursiveAvmGoblinOutput = stdlib::recursion::honk::UltraRecursiveVerifierOutput<UltraCircuitBuilder>;
 
     // Output of prover for inner Mega-arithmetized AVM recursive verifier circuit; input to the outer verifier
@@ -115,7 +113,7 @@ class AvmGoblinRecursiveVerifier {
         using MegaAvmRecursiveVerifier = UltraVerifier_<MegaAvmRecursiveFlavor, IO>;
 
         // Step 1: Recursively verify the Mega proof \pi_M
-        auto transcript = std::make_shared<MegaAvmRecursiveFlavor::Transcript>(); // Single shareds transcript
+        auto transcript = std::make_shared<MegaAvmRecursiveFlavor::Transcript>(); // Single shared transcript
         auto mega_vk_and_hash = std::make_shared<MegaRecursiveVKAndHash>(*outer_builder, inner_output.mega_vk);
 
         // The vk of the inner Mega arithmetized AVM recursive verifier circuit must be fixed to ensure that the outer
@@ -139,7 +137,7 @@ class AvmGoblinRecursiveVerifier {
         // Step 3: Aggregate pairing points coming from Mega verification and Goblin verification
         mega_verifier_output.points_accumulator.aggregate(goblin_verifier_output.translator_pairing_points);
 
-        // Step 4: Validate the consistency of the AVM2 verifier inputs {\pi, pub_inputs, VK}_{AVM2} between the inner
+        // Step 4: Validate the consistency of the AVM2 verifier inputs {\pi, pub_inputs}_{AVM2} between the inner
         // (Mega) circuit and the outer (Ultra) by asserting equality on the independently computed hashes
         auto transcript_from_avm = AvmRecursiveFlavor::Transcript::perform_avm_transcript_operations(
             *outer_builder, stdlib_proof, public_inputs);
@@ -152,7 +150,7 @@ class AvmGoblinRecursiveVerifier {
                 transcript_from_avm->add_to_hash_buffer("proof_padding_" + std::to_string(idx), stdlib_proof[idx]);
             }
         }
-        mega_verifier_output.hash.assert_equal(
+        mega_verifier_output.transcript_hash.assert_equal(
             transcript_from_avm->template get_challenge<UltraFF>("final_transcript_state"));
 
         // Return ipa proof, ipa claim and output aggregation object produced from verifying the Mega + Goblin proofs
@@ -187,7 +185,6 @@ class AvmGoblinRecursiveVerifier {
         // Construct the Mega proof \pi_M of the AVM recursive verifier circuit
         auto transcript = std::make_shared<NativeTranscript>(); // Single shared transcript
         auto mega_proving_key = std::make_shared<MegaAvmProverInstance>(inner_builder);
-        info("NUM GATES: ", inner_builder.num_gates());
         // Detect when MEGA_AVM_LOG_N needs to be bumped.
         BB_ASSERT_LTE(
             mega_proving_key->log_dyadic_size(),
@@ -208,6 +205,10 @@ class AvmGoblinRecursiveVerifier {
         };
     }
 
+    /**
+     * @brief Construct the inner recursive verification circuit for the AVM2 recursive verifier.
+     *
+     */
     static void construct_inner_recursive_verification_circuit(MegaCircuitBuilder& inner_builder,
                                                                const stdlib::Proof<UltraCircuitBuilder>& stdlib_proof,
                                                                const std::vector<std::vector<UltraFF>>& public_inputs)
@@ -248,7 +249,7 @@ class AvmGoblinRecursiveVerifier {
 
         // Public inputs
         IO inputs;
-        inputs.hash = transcript_final_state;
+        inputs.transcript_hash = transcript_final_state;
         inputs.pairing_inputs = points_accumulator;
         inputs.set_public();
     }

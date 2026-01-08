@@ -10,7 +10,6 @@
 #include "barretenberg/eccvm/eccvm_verifier.hpp"
 #include "barretenberg/flavor/ultra_flavor.hpp"
 #include "barretenberg/goblin/goblin_verifier.hpp"
-#include "barretenberg/goblin/merge_verifier.hpp"
 #include "barretenberg/goblin_avm/types.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/primitives/curves/grumpkin.hpp"
@@ -37,8 +36,8 @@ class GoblinAvmRecursiveVerifier {
     using TranslatorVerifier = TranslatorVerifier_<TranslatorRecursiveFlavor>;
     // Proof and commitment types
     using GoblinProof = GoblinAvmStdlibProof;
-    using Commitment = MergeVerifier_<Curve>::Commitment;
-    using TableCommitments = MergeVerifier_<Curve>::TableCommitments;
+    using Commitment = Curve::AffineElement;
+    using TableCommitments = std::array<Commitment, UltraCircuitBuilder::NUM_WIRES>;
 
     /**
      * @brief Result of GoblinAvm verification

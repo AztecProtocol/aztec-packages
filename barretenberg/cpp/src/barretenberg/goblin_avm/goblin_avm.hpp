@@ -6,15 +6,8 @@
 
 #pragma once
 
-#include "barretenberg/eccvm/eccvm_flavor.hpp"
-#include "barretenberg/eccvm/eccvm_prover.hpp"
-#include "barretenberg/flavor/mega_flavor.hpp"
 #include "barretenberg/goblin/goblin.hpp"
 #include "barretenberg/goblin_avm/types.hpp"
-#include "barretenberg/stdlib/proof/proof.hpp"
-#include "barretenberg/translator_vm/translator_circuit_builder.hpp"
-#include "barretenberg/translator_vm/translator_flavor.hpp"
-#include "barretenberg/ultra_honk/prover_instance.hpp"
 
 namespace bb {
 
@@ -31,9 +24,9 @@ class GoblinAvm : public Goblin {
     using ECCVMVerificationKey = ECCVMFlavor::VerificationKey;
     using TranslatorVerificationKey = TranslatorFlavor::VerificationKey;
 
-    GoblinAvm(MegaBuilder& builder,
-              CommitmentKey<curve::BN254> bn254_commitment_key = CommitmentKey<curve::BN254>(),
-              const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
+    explicit GoblinAvm(MegaBuilder& builder,
+                       CommitmentKey<curve::BN254> bn254_commitment_key = CommitmentKey<curve::BN254>(),
+                       const std::shared_ptr<Transcript>& avm_transcript = std::make_shared<Transcript>());
 
     /**
      * @brief Constuct a full GoblinAvm proof (ECCVM, Translator)

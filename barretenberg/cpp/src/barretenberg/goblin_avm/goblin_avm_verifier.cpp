@@ -11,7 +11,7 @@ namespace bb {
 
 /**
  * @brief Reduce GoblinAvm proof to pairing check and IPA opening claim
- * @details Processes ECCVM, and Translator sub-proofs sequentially.
+ * @details Processes ECCVM and Translator sub-proofs sequentially.
  */
 GoblinAvmRecursiveVerifier::ReductionResult GoblinAvmRecursiveVerifier::reduce_to_pairing_check_and_ipa_opening()
 {
@@ -25,7 +25,7 @@ GoblinAvmRecursiveVerifier::ReductionResult GoblinAvmRecursiveVerifier::reduce_t
 
     // Step 2: Verify the Translator proof
     // - Pass `table_commitments` as the one with which GoblinAvm was initialized (which commits all the ECC ops of the
-    //   circuit containing the Avm recursive verifier).
+    //   circuit containing the AVM recursive verifier).
     // - `accumulated_result` and corresponding challenges ensure non-native computation matches ECCVM's native result
     TranslatorVerifier translator_verifier{ transcript,
                                             proof.translator_proof,
@@ -37,7 +37,6 @@ GoblinAvmRecursiveVerifier::ReductionResult GoblinAvmRecursiveVerifier::reduce_t
     vinfo("Goblin: Translator reduced to pairing check successfully: ",
           translator_result.reduction_succeeded ? "true" : "false");
 
-    // Note: Pairing points are NOT aggregated here - caller should use aggregate_multiple for efficiency
     ReductionResult result{
         .translator_pairing_points = std::move(translator_result.pairing_points),
         .ipa_claim = std::move(eccvm_result.ipa_claim),

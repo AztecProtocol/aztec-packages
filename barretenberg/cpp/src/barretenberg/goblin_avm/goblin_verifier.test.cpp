@@ -12,20 +12,20 @@
 namespace bb::stdlib::recursion::honk {
 class GoblinAvmRecursiveVerifierTests : public testing::Test {
   public:
-    using Builder = MegaCircuitBuilder;
+    using InnerBuilder = MegaCircuitBuilder;
     using ECCVMVK = GoblinAvm::ECCVMVerificationKey;
     using TranslatorVK = GoblinAvm::TranslatorVerificationKey;
 
-    using OuterFlavor = UltraFlavor;
+    using OuterFlavor = UltraRollupFlavor;
     using OuterBuilder = OuterFlavor::CircuitBuilder;
     using OuterProver = UltraProver_<OuterFlavor>;
-    using OuterVerifier = UltraVerifier_<OuterFlavor, bb::DefaultIO>;
+    using OuterVerifier = UltraVerifier_<OuterFlavor, bb::RollupIO>;
     using OuterProverInstance = ProverInstance_<OuterFlavor>;
 
-    using Commitment = MergeVerifier::Commitment;
+    using Commitment = UltraRollupFlavor::Commitment;
     using RecursiveCommitment = bb::GoblinAvmRecursiveVerifier::Commitment;
 
-    using TableCommitments = MergeVerifier::TableCommitments;
+    using TableCommitments = std::array<Commitment, UltraCircuitBuilder::NUM_WIRES>;
     using RecursiveTableCommitments = bb::GoblinAvmRecursiveVerifier::TableCommitments;
 
     using Transcript = UltraStdlibTranscript;
@@ -86,9 +86,8 @@ class GoblinAvmRecursiveVerifierTests : public testing::Test {
      */
     static ProverOutput create_goblin_avm_prover_output(OuterBuilder* outer_builder)
     {
-
         auto op_queue = std::make_shared<ECCOpQueue>();
-        Builder inner_builder(op_queue);
+        InnerBuilder inner_builder(op_queue);
         GoblinAvm goblin(inner_builder);
         MockCircuits::construct_arithmetic_circuit(inner_builder);
 
@@ -133,9 +132,12 @@ TEST_F(GoblinAvmRecursiveVerifierTests, Basic)
 
     // Aggregate merge + translator pairing points
 
-    stdlib::recursion::honk::DefaultIO<OuterBuilder> inputs;
+    stdlib::recursion::honk::RollupIO inputs;
     inputs.pairing_inputs = output.translator_pairing_points;
+    inputs.ipa_claim = output.ipa_claim;
     inputs.set_public();
+
+    builder.ipa_proof = output.ipa_proof.get_value();
 
     info("Recursive Verifier: num gates = ", builder.num_gates());
 
@@ -200,7 +202,7 @@ TEST_F(GoblinAvmRecursiveVerifierTests, ECCVMFailure)
  */
 TEST_F(GoblinAvmRecursiveVerifierTests, TranslatorFailure)
 {
-    // Tamper with the op commitment in merge commitments (used by Translator verifier)
+    // Tamper with the op commitment in table commitments (used by Translator verifier)
     {
         OuterBuilder builder;
 
