@@ -218,7 +218,9 @@ describe('PXE', () => {
         eventSelector,
       };
 
-      await privateEventStore.storePrivateEventLog(eventSelector, event.packedEvent, eventIndex++, {
+      const randomness = Fr.random();
+
+      await privateEventStore.storePrivateEventLog(eventSelector, randomness, event.packedEvent, eventIndex++, {
         contractAddress,
         scope,
         txHash: event.txHash,
