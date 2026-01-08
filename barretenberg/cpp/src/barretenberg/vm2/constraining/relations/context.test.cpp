@@ -803,6 +803,104 @@ TEST(ContextConstrainingTest, IsStaticPropagationWithoutCalls)
     trace.set(C::execution_is_static, 2, 1);
 }
 
+// =================================================================================================
+// VULNERABILITY TEST: Tree state is NOT constrained when entering a nested call (sel_enter_call=1)
+// =================================================================================================
+// This test demonstrates a CRITICAL soundness vulnerability where a malicious prover can set
+// arbitrary tree state for a nested call context. When sel_enter_call=1, the continuity
+// constraints (e.g., NOTE_HASH_TREE_ROOT_CONTINUITY) do not fire because:
+//   - DEFAULT_CTX_ROW = 1 - (sel_enter_call + sel_exit_call) = 0 when sel_enter_call = 1
+//   - DEFAULT_OR_NESTED_RETURN = DEFAULT_CTX_ROW + nested_return = 0
+//   - Constraint: NOT_LAST_EXEC * DEFAULT_OR_NESTED_RETURN * (X - prev_X') = 0
+//   - With DEFAULT_OR_NESTED_RETURN = 0, this constraint is always satisfied!
+//
+// Impact: A malicious prover can:
+//   1. Execute a CALL instruction with correct tree state
+//   2. Start the nested context with ARBITRARY tree state
+//   3. Bypass all tree membership checks (SLOAD, SSTORE, NOTEHASH_EXISTS, etc.)
+//   4. Read/write arbitrary values, steal funds, corrupt state
+// =================================================================================================
+TEST(ContextConstrainingTest, NegativeTreeStateUnconstrainedOnEnterCall)
+{
+    // Setup: Row 1 (CALL instruction) has tree state, Row 2 (nested context) has DIFFERENT tree state
+    // This SHOULD fail but currently PASSES due to missing constraint
+    TestTraceContainer trace({
+        { { C::precomputed_first_row, 1 } },
+        {
+            // CALL instruction - has current tree state
+            { C::execution_sel, 1 },
+            { C::execution_context_id, 1 },
+            { C::execution_next_context_id, 2 },
+            { C::execution_sel_enter_call, 1 },
+            { C::execution_sel_execute_call, 1 },
+            // Current tree state at end of this instruction
+            { C::execution_note_hash_tree_root, 100 },
+            { C::execution_note_hash_tree_size, 50 },
+            { C::execution_num_note_hashes_emitted, 10 },
+            { C::execution_nullifier_tree_root, 200 },
+            { C::execution_nullifier_tree_size, 60 },
+            { C::execution_num_nullifiers_emitted, 20 },
+            { C::execution_public_data_tree_root, 300 },
+            { C::execution_public_data_tree_size, 70 },
+            { C::execution_written_public_data_slots_tree_root, 400 },
+            { C::execution_written_public_data_slots_tree_size, 80 },
+            { C::execution_num_unencrypted_log_fields, 5 },
+            { C::execution_num_l2_to_l1_messages, 3 },
+        },
+        {
+            // First row of nested context - MALICIOUS: completely different tree state!
+            // A malicious prover sets arbitrary values here
+            { C::execution_sel, 1 },
+            { C::execution_context_id, 2 },
+            { C::execution_next_context_id, 3 },
+            { C::execution_parent_id, 1 },
+            { C::execution_has_parent_ctx, 1 },
+            { C::execution_is_parent_id_inv, 1 },
+            // ATTACK: These should equal the previous row's values, but are set to arbitrary values!
+            { C::execution_prev_note_hash_tree_root, 999999 },                 // Should be 100
+            { C::execution_prev_note_hash_tree_size, 888888 },                 // Should be 50
+            { C::execution_prev_num_note_hashes_emitted, 777777 },             // Should be 10
+            { C::execution_prev_nullifier_tree_root, 666666 },                 // Should be 200
+            { C::execution_prev_nullifier_tree_size, 555555 },                 // Should be 60
+            { C::execution_prev_num_nullifiers_emitted, 444444 },              // Should be 20
+            { C::execution_prev_public_data_tree_root, 333333 },               // Should be 300
+            { C::execution_prev_public_data_tree_size, 222222 },               // Should be 70
+            { C::execution_prev_written_public_data_slots_tree_root, 111111 }, // Should be 400
+            { C::execution_prev_written_public_data_slots_tree_size, 99999 },  // Should be 80
+            { C::execution_prev_num_unencrypted_log_fields, 88888 },           // Should be 5
+            { C::execution_prev_num_l2_to_l1_messages, 77777 },                // Should be 3
+        },
+        {
+            { C::execution_sel, 0 },
+        },
+    });
+
+    // THIS TEST DEMONSTRATES THE VULNERABILITY:
+    // All tree state continuity constraints pass even though the values are completely wrong!
+    // Once the fix is applied, this test should FAIL (throw) and need to be updated.
+    check_relation<context>(trace,
+                            context::SR_NOTE_HASH_TREE_ROOT_CONTINUITY,
+                            context::SR_NOTE_HASH_TREE_SIZE_CONTINUITY,
+                            context::SR_NUM_NOTE_HASHES_EMITTED_CONTINUITY,
+                            context::SR_NULLIFIER_TREE_ROOT_CONTINUITY,
+                            context::SR_NULLIFIER_TREE_SIZE_CONTINUITY,
+                            context::SR_NUM_NULLIFIERS_EMITTED_CONTINUITY,
+                            context::SR_PUBLIC_DATA_TREE_ROOT_CONTINUITY,
+                            context::SR_PUBLIC_DATA_TREE_SIZE_CONTINUITY,
+                            context::SR_WRITTEN_PUBLIC_DATA_SLOTS_TREE_ROOT_CONTINUITY,
+                            context::SR_WRITTEN_PUBLIC_DATA_SLOTS_TREE_SIZE_CONTINUITY,
+                            context::SR_NUM_UNENCRYPTED_LOGS_CONTINUITY,
+                            context::SR_NUM_L2_TO_L1_MESSAGES_CONTINUITY);
+
+    // IMPORTANT: When this vulnerability is fixed, the above check_relation should throw,
+    // and this test should be converted to use EXPECT_THROW_WITH_MESSAGE for each constraint.
+    // Example of what the fixed test should look like:
+    //
+    // EXPECT_THROW_WITH_MESSAGE(
+    //     check_relation<context>(trace, context::SR_NOTE_HASH_TREE_ROOT_ENTER_CALL),
+    //     "NOTE_HASH_TREE_ROOT_ENTER_CALL");
+}
+
 TEST(ContextConstrainingTest, ContextIdPropagation)
 {
     TestTraceContainer trace({
