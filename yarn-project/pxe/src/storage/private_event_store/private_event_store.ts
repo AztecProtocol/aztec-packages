@@ -19,6 +19,7 @@ export type PrivateEventStoreFilter = {
 };
 
 type PrivateEventEntry = {
+  randomness: Fr; // Note that this value is currently not being returned on queries and is therefore temporarily unused
   msgContent: Buffer;
   eventCommitmentIndex: number;
   l2BlockNumber: number;
@@ -74,6 +75,7 @@ export class PrivateEventStore {
    */
   storePrivateEventLog(
     eventSelector: EventSelector,
+    randomness: Fr,
     msgContent: Fr[],
     eventCommitmentIndex: number,
     metadata: PrivateEventMetadata,
@@ -93,6 +95,7 @@ export class PrivateEventStore {
       this.logger.verbose('storing private event log', { contractAddress, scope, msgContent, l2BlockNumber });
 
       await this.#eventLogs.set(eventCommitmentIndex, {
+        randomness,
         msgContent: serializeToBuffer(msgContent),
         l2BlockNumber,
         l2BlockHash: l2BlockHash.toBuffer(),
