@@ -292,7 +292,7 @@ tests:
   - regex: "p2p/.*\\.test\\.ts"
     flake_group_id: e2e-p2p-epoch-flakes
     owners:
-      - *palla
+      - *phil
 
   - regex: "ethereum/src/l1_tx_utils/.*\\.test\\.ts"
     flake_group_id: e2e-p2p-epoch-flakes
