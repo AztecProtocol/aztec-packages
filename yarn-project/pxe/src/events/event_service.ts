@@ -19,6 +19,7 @@ export class EventService {
   public async deliverEvent(
     contractAddress: AztecAddress,
     selector: EventSelector,
+    randomness: Fr,
     content: Fr[],
     eventCommitment: Fr,
     txHash: TxHash,
@@ -63,6 +64,7 @@ export class EventService {
 
     return this.privateEventStore.storePrivateEventLog(
       selector,
+      randomness,
       content,
       Number(nullifierIndex.data), // Index of the event commitment in the nullifier tree
       {
