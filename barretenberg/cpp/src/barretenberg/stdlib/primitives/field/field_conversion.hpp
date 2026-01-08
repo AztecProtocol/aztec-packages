@@ -4,6 +4,13 @@
 // external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // =====================
 
+/**
+ * @file field_conversion.hpp
+ * @brief StdlibCodec for in-circuit (recursive) verification transcript handling.
+ *
+ * @details See ecc/fields/CODEC_README.md
+ */
+
 #pragma once
 
 #include "barretenberg/common/assert.hpp"
@@ -113,13 +120,14 @@ template <typename Field> class StdlibCodec {
      * @details Deserializes a vector of in-circuit `fr`s, i.e. `field_t` elements, into
      * - `field_t` — no conversion needed
      *
-     * - \ref bb::stdlib::bigfield< Builder, T > "bigfield" — 2 input `field_t`s are fed into `bigfield` constructor
-     * that ensures that they are properly constrained. Specific to \ref UltraCircuitBuilder_ "UltraCircuitBuilder".
+     * - \ref bb::stdlib::bigfield< Builder, T > "bigfield" — 2 input `field_t`s are fed into `bigfield` constructor,
+     * then `assert_is_in_field()` is called to reject aliased values (>= Fq::modulus). This ensures consistency with
+     * native FrCodec which also rejects aliases. Specific to \ref UltraCircuitBuilder_ "UltraCircuitBuilder".
      *
-     * - \ref  bb::stdlib::goblin_field< Builder > "goblin field element" — in contrast to `bigfield`, range constraints
-     * are performed in `Translator` (see \ref TranslatorDeltaRangeConstraintRelationImpl "Translator Range Constraint"
-     * relation). Feed the limbs to the `bigfield` constructor and set the `point_at_infinity` flag derived by the
-     * `check_point_at_infinity` method. Specific to \ref MegaCircuitBuilder_ "MegaCircuitBuilder".
+     * - \ref  bb::stdlib::goblin_field< Builder > "goblin field element" — stores limbs as-is without in-circuit
+     * modulus check. Range constraints are deferred to Translator circuit (see \ref
+     * TranslatorDeltaRangeConstraintRelationImpl "Translator Range Constraint" relation). Alias rejection is ensured
+     * by the ECCVM ↔ Translator translation check. Specific to \ref MegaCircuitBuilder_ "MegaCircuitBuilder".
      *
      * - \ref bb::stdlib::element_goblin::goblin_element< Builder_, Fq, Fr, NativeGroup > "bn254 goblin point"  — input
      * vector of size 4 is transformed into a pair of `goblin_field` elements, which are fed into the relevant
@@ -155,8 +163,14 @@ template <typename Field> class StdlibCodec {
         if constexpr (IsAnyOf<T, field_ct>) {
             // Case 1: input type matches the output type
             return fr_vec[0];
-        } else if constexpr (IsAnyOf<T, bigfield_ct, goblin_field<Builder>>) {
-            // Cases 2 and 3: a bigfield/goblin_field element is reconstructed from low and high limbs.
+        } else if constexpr (IsAnyOf<T, bigfield_ct>) {
+            // Case 2: bigfield is reconstructed from low and high limbs with in-field validation.
+            // This ensures aliased values (>= Fq::modulus) are rejected.
+            T result(fr_vec[0], fr_vec[1]);
+            result.assert_is_in_field();
+            return result;
+        } else if constexpr (IsAnyOf<T, goblin_field<Builder>>) {
+            // Case 3: goblin_field stores limbs as-is; range validation is deferred to Translator circuit.
             return T(fr_vec[0], fr_vec[1]);
         } else if constexpr (IsAnyOf<T, bn254_commitment, grumpkin_commitment>) {
             // Case 4 and 5: Convert a vector of frs to a group element

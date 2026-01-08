@@ -60,6 +60,7 @@ class FrCodec {
     /**
      * @brief Converts 2 bb::fr elements to fq
      * @details Splits into 136-bit lower chunk and 118-bit upper chunk to mirror stdlib bigfield limbs (68-bit each).
+     * Rejects aliased values (>= fq::modulus) to ensure canonical representation.
      */
     static fq convert_grumpkin_fr_from_bn254_frs(std::span<const bb::fr> fr_vec)
     {
@@ -75,6 +76,10 @@ class FrCodec {
                      "Conversion error here usually implies some bad proof serde or parsing");
 
         const uint256_t value = uint256_t(fr_vec[0]) + (uint256_t(fr_vec[1]) << (NUM_LIMB_BITS * 2));
+
+        // Reject aliased values to ensure canonical representation.
+        // This matches the circuit behavior in StdlibCodec where assert_is_in_field is called.
+        BB_ASSERT_LT(value, fq::modulus, "Non-canonical field element: value >= fq::modulus");
 
         return fq(value);
     }
