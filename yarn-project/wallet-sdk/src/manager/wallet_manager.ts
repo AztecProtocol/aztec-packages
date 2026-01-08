@@ -54,7 +54,7 @@ export class WalletManager {
           metadata: {
             version: ext.version,
           },
-          connect: (appId: string) => Promise.resolve(ExtensionWallet.create(chainInfo, appId, ext.id)),
+          connect: (appId: string) => ExtensionWallet.create(ext, chainInfo, appId),
         });
       }
     }
