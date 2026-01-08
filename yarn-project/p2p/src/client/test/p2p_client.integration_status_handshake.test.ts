@@ -161,12 +161,8 @@ describe('p2p client integration status handshake', () => {
     const c1PeerManager = (c1 as any).p2pService.peerManager;
     const realSend = c1PeerManager.reqresp.sendRequestToPeer;
 
-    // @ts-expect-error arguments not expected
-    jest.spyOn(c1PeerManager.reqresp, 'sendRequestToPeer').mockImplementation(async function (
-      peerId: PeerId,
-      protocol: ReqRespSubProtocol,
-      ...rest
-    ) {
+    jest.spyOn(c1PeerManager.reqresp, 'sendRequestToPeer').mockImplementation(async function (...args: unknown[]) {
+      const [peerId, protocol, ...rest] = args as [PeerId, ReqRespSubProtocol, ...unknown[]];
       if (peerId.toString() === badPeerId.toString() && protocol === ReqRespSubProtocol.STATUS) {
         return Promise.resolve({ status: ReqRespStatus.SUCCESS, data: Buffer.from('invalid status') });
       }

@@ -1,4 +1,4 @@
-import { type Histogram, Metrics, type TelemetryClient, type Tracer, ValueType } from '@aztec/telemetry-client';
+import { type Histogram, Metrics, type TelemetryClient, type Tracer } from '@aztec/telemetry-client';
 
 export class ProvingOrchestratorMetrics {
   public readonly tracer: Tracer;
@@ -9,11 +9,7 @@ export class ProvingOrchestratorMetrics {
     this.tracer = client.getTracer(name);
     const meter = client.getMeter(name);
 
-    this.baseRollupInputsDuration = meter.createHistogram(Metrics.PROVING_ORCHESTRATOR_BASE_ROLLUP_INPUTS_DURATION, {
-      unit: 'ms',
-      description: 'Duration to build base rollup inputs',
-      valueType: ValueType.INT,
-    });
+    this.baseRollupInputsDuration = meter.createHistogram(Metrics.PROVING_ORCHESTRATOR_BASE_ROLLUP_INPUTS_DURATION);
   }
 
   recordBaseRollupInputs(durationMs: number) {

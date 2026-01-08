@@ -19,9 +19,10 @@ export class StatusMessage {
     readonly latestBlockNumber: BlockNumber,
     readonly latestBlockHash: string,
     readonly finalizedBlockNumber: BlockNumber,
+  ) {
     //TODO: add finalizedBlockHash
     //readonly finalizedBlockHash: string,
-  ) {}
+  }
 
   /**
    * Deserializes the StatusMessage object from a Buffer.

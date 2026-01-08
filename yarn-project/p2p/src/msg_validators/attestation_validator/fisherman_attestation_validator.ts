@@ -1,6 +1,6 @@
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
 import { type BlockAttestation, PeerErrorSeverity } from '@aztec/stdlib/p2p';
-import { Attributes, Metrics, type TelemetryClient, ValueType } from '@aztec/telemetry-client';
+import { Attributes, Metrics, type TelemetryClient } from '@aztec/telemetry-client';
 
 import type { AttestationPool } from '../../mem_pools/attestation_pool/attestation_pool.js';
 import { AttestationValidator } from './attestation_validator.js';
@@ -25,10 +25,7 @@ export class FishermanAttestationValidator extends AttestationValidator {
     this.logger = this.logger.createChild('[FISHERMAN]');
 
     const meter = telemetryClient.getMeter('FishermanAttestationValidator');
-    this.invalidAttestationCounter = meter.createUpDownCounter(Metrics.VALIDATOR_INVALID_ATTESTATION_RECEIVED_COUNT, {
-      description: 'The number of invalid attestations received',
-      valueType: ValueType.INT,
-    });
+    this.invalidAttestationCounter = meter.createUpDownCounter(Metrics.VALIDATOR_INVALID_ATTESTATION_RECEIVED_COUNT);
   }
 
   override async validate(message: BlockAttestation): Promise<PeerErrorSeverity | undefined> {

@@ -35,7 +35,9 @@ export class TimestampTxValidator<T extends AnyTx> implements TxValidator<T> {
         );
       }
       this.#log.verbose(
-        `Rejecting tx ${getTxHash(tx)} for low expiration timestamp. Tx expiration timestamp: ${includeByTimestamp}, timestamp: ${
+        `Rejecting tx ${getTxHash(
+          tx,
+        )} for low expiration timestamp. Tx expiration timestamp: ${includeByTimestamp}, timestamp: ${
           this.values.timestamp
         }.`,
       );

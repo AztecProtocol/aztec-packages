@@ -7,8 +7,8 @@ import {
   LmdbMetrics,
   type LmdbStatsCallback,
   type Meter,
+  type MetricDefinition,
   Metrics,
-  type MetricsType,
   type ObservableGauge,
   type TelemetryClient,
   type UpDownCounter,
@@ -20,10 +20,10 @@ export enum PoolName {
 }
 
 type MetricsLabels = {
-  objectInMempool: MetricsType;
-  objectSize: MetricsType;
-  itemsAdded: MetricsType;
-  itemMinedDelay: MetricsType;
+  objectInMempool: MetricDefinition;
+  objectSize: MetricDefinition;
+  itemsAdded: MetricDefinition;
+  itemMinedDelay: MetricDefinition;
 };
 
 /**
@@ -85,14 +85,9 @@ export class PoolInstrumentation<PoolObject extends Gossipable> {
 
     const metricsLabels = getMetricsLabels(name);
 
-    this.objectsInMempool = this.meter.createObservableGauge(metricsLabels.objectInMempool, {
-      description: 'The current number of transactions in the mempool',
-    });
+    this.objectsInMempool = this.meter.createObservableGauge(metricsLabels.objectInMempool);
 
-    this.objectSize = this.meter.createHistogram(metricsLabels.objectSize, {
-      unit: 'By',
-      description: 'The size of transactions in the mempool',
-    });
+    this.objectSize = this.meter.createHistogram(metricsLabels.objectSize);
 
     this.dbMetrics = new LmdbMetrics(
       this.meter,
@@ -102,13 +97,9 @@ export class PoolInstrumentation<PoolObject extends Gossipable> {
       dbStats,
     );
 
-    this.addObjectCounter = this.meter.createUpDownCounter(metricsLabels.itemsAdded, {
-      description: 'The number of transactions added to the mempool',
-    });
+    this.addObjectCounter = this.meter.createUpDownCounter(metricsLabels.itemsAdded);
 
-    this.minedDelay = this.meter.createHistogram(metricsLabels.itemMinedDelay, {
-      description: 'Delay between transaction added and evicted from the mempool',
-    });
+    this.minedDelay = this.meter.createHistogram(metricsLabels.itemMinedDelay);
 
     this.meter.addBatchObservableCallback(this.observeStats, [this.objectsInMempool]);
   }

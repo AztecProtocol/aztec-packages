@@ -3,7 +3,8 @@ import { Timer } from '@aztec/foundation/timer';
 
 import { Registry } from 'prom-client';
 
-import type { Histogram, Meter, MetricsType, ObservableGauge, TelemetryClient } from './telemetry.js';
+import type { MetricDefinition } from './metrics.js';
+import type { Histogram, Meter, ObservableGauge, TelemetryClient } from './telemetry.js';
 
 /**
  * Types matching the gossipsub and libp2p services
@@ -94,9 +95,8 @@ export class OtelGauge<Labels extends LabelsGeneric = NoLabels> implements IGaug
     help: string,
     private labelNames: Array<keyof Labels> = [],
   ) {
-    this.gauge = meter.createObservableGauge(name as MetricsType, {
-      description: help,
-    });
+    const metricDef: MetricDefinition = { name, description: help };
+    this.gauge = meter.createObservableGauge(metricDef);
 
     // Only observe in the callback when collect() is called
     this.gauge.addCallback(this.handleObservation.bind(this));
@@ -214,8 +214,8 @@ export class OtelHistogram<Labels extends LabelsGeneric = NoLabels> implements I
     buckets: number[] = [],
     private labelNames: Array<keyof Labels> = [],
   ) {
-    this.histogram = meter.createHistogram(name as MetricsType, {
-      description: help,
+    const metricDef: MetricDefinition = { name, description: help };
+    this.histogram = meter.createHistogram(metricDef, {
       advice: buckets.length ? { explicitBucketBoundaries: buckets } : undefined,
     });
   }
@@ -289,15 +289,9 @@ export class OtelAvgMinMax<Labels extends LabelsGeneric = NoLabels> implements I
   ) {
     // Create three separate gauges for avg, min, and max
     this.gauges = {
-      avg: meter.createObservableGauge(`${name}_avg` as MetricsType, {
-        description: `${help} (average)`,
-      }),
-      min: meter.createObservableGauge(`${name}_min` as MetricsType, {
-        description: `${help} (minimum)`,
-      }),
-      max: meter.createObservableGauge(`${name}_max` as MetricsType, {
-        description: `${help} (maximum)`,
-      }),
+      avg: meter.createObservableGauge({ name: `${name}_avg`, description: `${help} (average)` }),
+      min: meter.createObservableGauge({ name: `${name}_min`, description: `${help} (minimum)` }),
+      max: meter.createObservableGauge({ name: `${name}_max`, description: `${help} (maximum)` }),
     };
 
     // Register callbacks for each gauge
@@ -429,7 +423,7 @@ export class OtelMetricsAdapter extends Registry implements MetricsRegister {
     return new OtelGauge<Labels>(
       this.logger,
       this.meter,
-      configuration.name as MetricsType,
+      configuration.name,
       configuration.help,
       configuration.labelNames,
     );
@@ -439,7 +433,7 @@ export class OtelMetricsAdapter extends Registry implements MetricsRegister {
     return new OtelHistogram<Labels>(
       this.logger,
       this.meter,
-      configuration.name as MetricsType,
+      configuration.name,
       configuration.help,
       configuration.buckets,
       configuration.labelNames,
@@ -450,7 +444,7 @@ export class OtelMetricsAdapter extends Registry implements MetricsRegister {
     return new OtelAvgMinMax<Labels>(
       this.logger,
       this.meter,
-      configuration.name as MetricsType,
+      configuration.name,
       configuration.help,
       configuration.labelNames,
     );

@@ -2,13 +2,13 @@ import { createLogger } from '@aztec/foundation/log';
 
 import type { BatchObservableCallback, Context, MetricOptions, Observable, ValueType } from '@opentelemetry/api';
 
+import type { MetricDefinition } from './metrics.js';
 import { NoopTracer } from './noop.js';
 import type {
   AttributesType,
   Gauge,
   Histogram,
   Meter,
-  MetricsType,
   ObservableGauge,
   ObservableUpDownCounter,
   TelemetryClient,
@@ -87,30 +87,34 @@ class InMemoryPlainMeter implements Meter {
     this.metrics.forEach(metric => metric.clear());
   }
 
-  createGauge(name: MetricsType, options?: MetricOptions): Gauge {
-    return this.createMetric('gauge', name, options);
+  createGauge(metric: MetricDefinition): Gauge {
+    return this.createMetric('gauge', metric);
   }
 
-  createObservableGauge(name: MetricsType, options?: MetricOptions): ObservableGauge {
-    return this.createMetric('gauge', name, options);
+  createObservableGauge(metric: MetricDefinition): ObservableGauge {
+    return this.createMetric('gauge', metric);
   }
 
-  createHistogram(name: MetricsType, options?: MetricOptions): Histogram {
-    return this.createMetric('histogram', name, options);
+  createHistogram(metric: MetricDefinition, _extraOptions?: Partial<MetricOptions>): Histogram {
+    return this.createMetric('histogram', metric);
   }
 
-  createUpDownCounter(name: MetricsType, options?: MetricOptions): UpDownCounter {
-    return this.createMetric('counter', name, options);
+  createUpDownCounter(metric: MetricDefinition): UpDownCounter {
+    return this.createMetric('counter', metric);
   }
 
-  createObservableUpDownCounter(name: MetricsType, options?: MetricOptions): ObservableUpDownCounter {
-    return this.createMetric('counter', name, options);
+  createObservableUpDownCounter(metric: MetricDefinition): ObservableUpDownCounter {
+    return this.createMetric('counter', metric);
   }
 
-  private createMetric(type: 'gauge' | 'counter' | 'histogram', name: string, options?: MetricOptions) {
-    const metric = new InMemoryPlainMetric(type, name, options);
-    this.metrics.push(metric);
-    return metric;
+  private createMetric(type: 'gauge' | 'counter' | 'histogram', metric: MetricDefinition) {
+    const m = new InMemoryPlainMetric(type, metric.name, {
+      description: metric.description,
+      unit: metric.unit,
+      valueType: metric.valueType,
+    });
+    this.metrics.push(m);
+    return m;
   }
 
   addBatchObservableCallback(
