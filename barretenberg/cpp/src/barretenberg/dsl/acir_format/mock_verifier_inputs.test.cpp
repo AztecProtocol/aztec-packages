@@ -238,7 +238,7 @@ TYPED_TEST(MockVerifierInputsTest, MockUltraHonkProofSize)
  */
 TEST(MockVerifierInputsTest, MockAVMProofSize)
 {
-    size_t CURRENT_AVM_PROOF_SIZE_WITHOUT_PUB_INPUTS = 16055;
+    size_t CURRENT_AVM_PROOF_SIZE_WITHOUT_PUB_INPUTS = 16040;
     const HonkProof avm_proof = create_mock_avm_proof_without_pub_inputs(/*add_padding=*/false);
     EXPECT_EQ(avm_proof.size(), CURRENT_AVM_PROOF_SIZE_WITHOUT_PUB_INPUTS) << "The length of the AVM proof changed.";
 
