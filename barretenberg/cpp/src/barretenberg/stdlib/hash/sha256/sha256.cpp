@@ -67,17 +67,18 @@ SHA256<Builder>::sparse_witness_limbs SHA256<Builder>::convert_witness(const fie
 }
 
 /**
- * @brief Apply a 32-bit range constraint using SHA256_WITNESS_INPUT lookup table.
+ * @brief Apply an implicit 32-bit range constraint by performing a lookup on the input.
  *
- * More efficient than explicit range constraints for 32-bit values since the lookup
- * table is already utilized for SHA-256 operations.
+ * @details This is more efficient in the context of SHA-256 operations than explicit 32-bit range constraints since the
+ * lookup table is already in use. We use the SHA256_MAJ_INPUT MultiTable since it results in only 3 lookup gates per
+ * lookup. The result of the lookup is not used.
  *
  * @param input The field element to constrain to 32 bits.
  */
 template <typename Builder>
 void SHA256<Builder>::apply_32_bit_range_constraint_via_lookup(const field_t<Builder>& input)
 {
-    (void)plookup_read<Builder>::get_lookup_accumulators(MultiTableId::SHA256_WITNESS_INPUT, input);
+    (void)plookup_read<Builder>::get_lookup_accumulators(MultiTableId::SHA256_MAJ_INPUT, input);
 }
 
 /**
@@ -248,7 +249,7 @@ SHA256<Builder>::sparse_value SHA256<Builder>::map_into_maj_sparse_form(const fi
  * @param e Input/output: e.normal read, e.sparse populated as side effect
  * @param f Input: must have .sparse already populated
  * @param g Input: must have .sparse already populated
- * @return Σ₁(e) + Ch(e,f,g) (sum of two 32-bit constrained values)
+ * @return Σ₁(e) + Ch(e,f,g) (lookup-constrained to ≤ 2*(2^32-1))
  */
 template <typename Builder>
 field_t<Builder> SHA256<Builder>::choose_with_sigma1(sparse_value& e, const sparse_value& f, const sparse_value& g)
@@ -293,7 +294,7 @@ field_t<Builder> SHA256<Builder>::choose_with_sigma1(sparse_value& e, const spar
  * @param a Input/output: a.normal read, a.sparse populated as side effect
  * @param b Input: must have .sparse already populated
  * @param c Input: must have .sparse already populated
- * @return Σ₀(a) + Maj(a,b,c) (sum of two 32-bit constrained values)
+ * @return Σ₀(a) + Maj(a,b,c) (lookup-constrained to ≤ 2*(2^32-1))
  */
 template <typename Builder>
 field_t<Builder> SHA256<Builder>::majority_with_sigma0(sparse_value& a, const sparse_value& b, const sparse_value& c)
@@ -331,13 +332,13 @@ field_t<Builder> SHA256<Builder>::majority_with_sigma0(sparse_value& a, const sp
  *
  * @param overflow_bits Number of bits for overflow range constraint. Must accommodate max(a + b) / 2^32.
  *
- * @warning result is not explicitly range-constrained here because it is typically used downstream in lookup tables
- * (e.g. in choose_with_sigma1, majority_with_sigma0) which implicitly validates the 32-bit range.
+ * @warning Marked `unsafe` since result is not explicitly range-constrained herein because it is typically used
+ * downstream in lookup tables which implicitly impose the 32-bit range.
  */
 template <typename Builder>
-field_t<Builder> SHA256<Builder>::add_normalize(const field_t<Builder>& a,
-                                                const field_t<Builder>& b,
-                                                size_t overflow_bits)
+field_t<Builder> SHA256<Builder>::add_normalize_unsafe(const field_t<Builder>& a,
+                                                       const field_t<Builder>& b,
+                                                       size_t overflow_bits)
 {
     using field_pt = field_t<Builder>;
     using witness_pt = witness_t<Builder>;
@@ -421,35 +422,35 @@ std::array<field_t<Builder>, 8> SHA256<Builder>::sha256_block(const std::array<f
         auto maj = majority_with_sigma0(a, b, c); // maj = Σ0(a) + Maj(a,b,c) ≤ 2*(2^32-1)
 
         // T1 = ch + h + K[i] + W[i] ≤ 5*(2^32-1)
-        auto temp1 = ch.add_two(h.normal, w[i] + fr(round_constants[i]));
+        auto T1 = ch.add_two(h.normal, w[i] + fr(round_constants[i]));
 
         h = g;
         g = f;
         f = e;
-        e.normal = add_normalize(d.normal, temp1, /*overflow_bits=*/3); // d + T1: 6 × 32-bit, overflow ≤ 5
+        e.normal = add_normalize_unsafe(d.normal, T1, /*overflow_bits=*/3); // d + T1: 6 × 32-bit, overflow ≤ 5
         d = c;
         c = b;
         b = a;
-        a.normal = add_normalize(temp1, maj, /*overflow_bits=*/3); // T1 + Σ0+Maj: 7 × 32-bit, overflow ≤ 6
+        a.normal = add_normalize_unsafe(T1, maj, /*overflow_bits=*/3); // T1 + Σ0+Maj: 7 × 32-bit, overflow ≤ 6
     }
 
-    // Apply range constraints to `a` and `e` which are the only outputs not already lookup-constrained via sparse form
-    // conversion. Although not strictly necessary, this simplifies the analysis that the output of compression is fully
-    // constrained at minimal cost.
+    // Apply range constraints to `a` and `e` which are the only outputs of the previous loop not already
+    // lookup-constrained via sparse form conversion. Although not strictly necessary, this simplifies the analysis that
+    // the output of compression is fully constrained at minimal cost.
     apply_32_bit_range_constraint_via_lookup(a.normal);
     apply_32_bit_range_constraint_via_lookup(e.normal);
 
     // Add round results into previous block output.
     // Overflow bits = 1 since each summand is constrained to 32 bits.
     std::array<field_pt, 8> output;
-    output[0] = add_normalize(a.normal, h_init[0], /*overflow_bits=*/1);
-    output[1] = add_normalize(b.normal, h_init[1], /*overflow_bits=*/1);
-    output[2] = add_normalize(c.normal, h_init[2], /*overflow_bits=*/1);
-    output[3] = add_normalize(d.normal, h_init[3], /*overflow_bits=*/1);
-    output[4] = add_normalize(e.normal, h_init[4], /*overflow_bits=*/1);
-    output[5] = add_normalize(f.normal, h_init[5], /*overflow_bits=*/1);
-    output[6] = add_normalize(g.normal, h_init[6], /*overflow_bits=*/1);
-    output[7] = add_normalize(h.normal, h_init[7], /*overflow_bits=*/1);
+    output[0] = add_normalize_unsafe(a.normal, h_init[0], /*overflow_bits=*/1);
+    output[1] = add_normalize_unsafe(b.normal, h_init[1], /*overflow_bits=*/1);
+    output[2] = add_normalize_unsafe(c.normal, h_init[2], /*overflow_bits=*/1);
+    output[3] = add_normalize_unsafe(d.normal, h_init[3], /*overflow_bits=*/1);
+    output[4] = add_normalize_unsafe(e.normal, h_init[4], /*overflow_bits=*/1);
+    output[5] = add_normalize_unsafe(f.normal, h_init[5], /*overflow_bits=*/1);
+    output[6] = add_normalize_unsafe(g.normal, h_init[6], /*overflow_bits=*/1);
+    output[7] = add_normalize_unsafe(h.normal, h_init[7], /*overflow_bits=*/1);
 
     // The final add_normalize outputs are not consumed by lookup tables, so they must be
     // explicitly range-constrained. (Within the compression loop, lookup tables provide
