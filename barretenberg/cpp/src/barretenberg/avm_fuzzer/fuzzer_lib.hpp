@@ -65,17 +65,18 @@ enum class FuzzerTxDataMutationType : uint8_t {
     BytecodeMutation,
     ContractClassMutation,
     ContractInstanceMutation,
-    // GlobalVariablesMutation,
+    GlobalVariablesMutation,
     // ProtocolContractsMutation
 };
 
-using FuzzerTxDataMutationConfig = WeightedSelectionConfig<FuzzerTxDataMutationType, 4>;
+using FuzzerTxDataMutationConfig = WeightedSelectionConfig<FuzzerTxDataMutationType, 5>;
 
 constexpr FuzzerTxDataMutationConfig FUZZER_TX_DATA_MUTATION_CONFIGURATION = FuzzerTxDataMutationConfig({
     { FuzzerTxDataMutationType::TxMutation, 10 },
     { FuzzerTxDataMutationType::BytecodeMutation, 1 },
     { FuzzerTxDataMutationType::ContractClassMutation, 1 },
     { FuzzerTxDataMutationType::ContractInstanceMutation, 1 },
+    { FuzzerTxDataMutationType::GlobalVariablesMutation, 4 },
 });
 
 // Build bytecode and contract artifacts from fuzzer data

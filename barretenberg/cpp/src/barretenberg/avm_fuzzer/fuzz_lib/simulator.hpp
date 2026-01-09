@@ -61,6 +61,7 @@ class Simulator {
         fuzzer::FuzzerWorldStateManager& ws_mgr,
         fuzzer::FuzzerContractDB& contract_db,
         const Tx& tx,
+        const GlobalVariables& globals,
         const std::vector<bb::crypto::merkle_tree::PublicDataLeafValue>& public_data_writes,
         const std::vector<FF>& note_hashes) = 0;
 };
@@ -71,6 +72,7 @@ class CppSimulator : public Simulator {
     SimulatorResult simulate(fuzzer::FuzzerWorldStateManager& ws_mgr,
                              fuzzer::FuzzerContractDB& contract_db,
                              const Tx& tx,
+                             const GlobalVariables& globals,
                              const std::vector<bb::crypto::merkle_tree::PublicDataLeafValue>& public_data_writes,
                              const std::vector<FF>& note_hashes) override;
 };
@@ -97,6 +99,7 @@ class JsSimulator : public Simulator {
     SimulatorResult simulate(fuzzer::FuzzerWorldStateManager& ws_mgr,
                              fuzzer::FuzzerContractDB& contract_db,
                              const Tx& tx,
+                             const GlobalVariables& globals,
                              const std::vector<bb::crypto::merkle_tree::PublicDataLeafValue>& public_data_writes,
                              const std::vector<FF>& note_hashes) override;
 };
@@ -111,5 +114,3 @@ Tx create_default_tx(const AztecAddress& contract_address,
                      const Gas& gas_limit);
 
 bool compare_simulator_results(SimulatorResult& result1, SimulatorResult& result2);
-
-GlobalVariables create_default_globals();

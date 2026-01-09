@@ -63,8 +63,9 @@ class FuzzTest : public ::testing::Test {
         FF fee_required_l2 = FF(tx.effective_gas_fees.fee_per_l2_gas) * FF(tx.gas_settings.gas_limits.l2_gas);
         ws_mgr->write_fee_payer_balance(tx.fee_payer, fee_required_da + fee_required_l2);
         auto cpp_simulator = CppSimulator();
+        auto globals = create_default_globals();
 
-        auto result = cpp_simulator.simulate(*ws_mgr, contract_db, tx, {}, {});
+        auto result = cpp_simulator.simulate(*ws_mgr, contract_db, tx, globals, /*public_data_writes=*/{}, {});
 
         ws_mgr->revert();
 
