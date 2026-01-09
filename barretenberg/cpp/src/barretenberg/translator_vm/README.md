@@ -644,6 +644,14 @@ The quotient is then decomposed into 4 limbs (68 + 68 + 68 + 52 bits):
 
 $$\mathcal{Q} = q_0 + 2^{68} \cdot q_1 + 2^{136} \cdot q_2 + 2^{204} \cdot q_3$$
 
+> **Why 256 bits suffices for the quotient:** The scalars $z_1, z_2$ are constrained to be 128-bit values while the points $P_x, P_y$ are constrained to be less than the field modulus $q$. The evaluation challenge $x$ and batching challenge $v$ both should be 127-bit values (derived from Fiat-Shamir), however a malicious prover can try to set them close to $q$ to maximize the numerator.
+> Thus, the maximum numerator in the quotient calculation can be approximated as follows:
+> The evaluation challenge $x$ and batching challenge $v$ are both 128-bit values (derived from Fiat-Shamir). The maximum numerator in the accumulation step is dominated by the term $P_y \cdot v^2$, giving approximately:
+> $$N_{\max} \approx 3 \cdot q^2 + 2 \cdot q \cdot 2^{128}$$
+> Therefore, the maximum quotient is:
+> $$\mathcal{Q}_{\max} = \left\lfloor \frac{N_{\max}}{q} \right\rfloor \approx 3q + 2^{129} < 3 \cdot2^{254} + 2^{129} < 2^{256}$$
+> Thus, 256 bits provides sufficient range with a 2-bit safety margin. The circuit enforces this constraint via range checks on the quotient limbs (see [RELATIONS.md](RELATIONS.md#decomposition-relation)).
+
 **Carry computation:** The relation-wide limbs $c^{\text{lo}}$ and $c^{\text{hi}}$ (84 bits each) capture overflow from the mod $2^{136}$ checks:
 
 $$c^{\text{lo}} = \left\lfloor \frac{T_0 + 2^{68} \cdot T_1}{2^{136}} \right\rfloor, \quad c^{\text{hi}} = \left\lfloor \frac{c^{\text{lo}} + T_2 + 2^{68} \cdot T_3}{2^{136}} \right\rfloor$$
