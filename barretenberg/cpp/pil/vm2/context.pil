@@ -312,23 +312,40 @@ namespace execution;
     #[IS_STATIC_NEXT_ROW_DEFAULT]
     DEFAULT_CTX_ROW * (is_static' - is_static) = 0;
 
-    // NESTED_EXIT_CALL    = 1 ==> constraints come from lookup
+    // =============================
+    //    PARENT CALLDATA ADDR
+    // =============================
+
+    // Initialization: enqueued_call_start = 1 ==> parent_calldata_addr = 0;
+    // Propagation:
+    // NESTED_EXIT_CALL    = 1 ==> constraints come from lookups (#[CTX_STACK_ROLLBACK] and #[CTX_STACK_RETURN])
     // sel_enter_call      = 1 ==> parent_calldata_addr' = rop[4] (resolved operand 5 from execution trace)
-    // otherwise           = 0 ==> parent_calldata_addr' = parent_calldata_addr
-    // enqueued_call_start = 1 ==> parent_calldata_addr = 0;
-    #[CD_OFFSET_NEXT_ROW]
-    DEFAULT_CTX_ROW * (parent_calldata_addr' - parent_calldata_addr) = 0;
-    sel_enter_call  * (parent_calldata_addr' - rop[4]) = 0;
+    // default row         = 0 ==> parent_calldata_addr' = parent_calldata_addr
+    // Note: There is no propagation constraint when `enqueued_call_end == 1` because the next active
+    //       row (enqueued_call_start == 1) is initialized.
     #[CD_ADDR_ENQUEUED_CALL_IS_ZERO]
     enqueued_call_start * parent_calldata_addr = 0;
+    #[CD_ADDR_NEXT_ROW_EXT_CALL]
+    sel_enter_call  * (parent_calldata_addr' - rop[4]) = 0;
+    #[CD_ADDR_NEXT_ROW_DEFAULT]
+    DEFAULT_CTX_ROW * (parent_calldata_addr' - parent_calldata_addr) = 0;
 
-    // enqueued_call_start = 1 ==> parent_calldata_size is constrained in tx.pil (#[DISPATCH_EXEC_START])
-    // NESTED_EXIT_CALL    = 1 ==> constraints come from lookup
+
+    // =============================
+    //    PARENT CALLDATA SIZE
+    // =============================
+
+    // Initialization: enqueued_call_start = 1 ==> parent_calldata_size = tx.calldata_size (#[DISPATCH_EXEC_START] tx.pil)
+    // Propagation:
+    // NESTED_EXIT_CALL    = 1 ==> constraints come from lookups (#[CTX_STACK_ROLLBACK] and #[CTX_STACK_RETURN])
     // sel_enter_call      = 1 ==> parent_calldata_size' = register[3] (register 4 from execution trace)
-    // otherwise           = 0 ==> parent_calldata_size' = parent_calldata_size
-    #[CD_SIZE_NEXT_ROW]
-    DEFAULT_CTX_ROW * (parent_calldata_size' - parent_calldata_size) = 0;
+    // default row         = 0 ==> parent_calldata_size' = parent_calldata_size
+    // Note: There is no propagation constraint when `enqueued_call_end == 1` because the next active
+    //       row (enqueued_call_start == 1) is initialized.
+    #[CD_SIZE_NEXT_ROW_EXT_CALL]
     sel_enter_call  * (parent_calldata_size' - register[3]) = 0;
+    #[CD_SIZE_NEXT_ROW_DEFAULT]
+    DEFAULT_CTX_ROW * (parent_calldata_size' - parent_calldata_size) = 0;
 
     pol NESTED_RET_REV_ONLY = NESTED_EXIT_CALL * (1 - sel_error);
 
