@@ -15,10 +15,16 @@
 //! BB_BINARY_PATH=/path/to/bb cargo test --release
 //! ```
 
+pub mod aes;
 pub mod blake2s;
+pub mod bn254;
+pub mod ecdsa;
+pub mod grumpkin;
 pub mod pedersen;
 pub mod poseidon;
 pub mod pipe_test;
+pub mod schnorr;
+pub mod secp256k1;
 pub mod utils;
 pub mod debug_msgpack;
 
