@@ -365,3 +365,82 @@ Multi-row computations typically appear in:
 - [Detailed Skill Documentation](../../../pil/vm2/claude-skills/05-missing-propagation.md)
 - [Missing Initialization](../../../pil/vm2/claude-skills/06-missing-initialization.md)
 - [Premature Termination](../../../pil/vm2/claude-skills/07-premature-termination.md)
+
+---
+
+## Required Output Format
+
+**IMPORTANT**: When running this audit skill, you MUST end your response with this standardized format.
+
+### Findings Summary
+
+At the end of your audit, provide a summary section:
+
+```markdown
+## Audit Results
+
+### Summary
+| Item | Value |
+|------|-------|
+| Skill | vm2-audit-missing-propagation |
+| Target | [path that was audited] |
+| Files Scanned | [number] |
+| Findings | [count by severity, e.g., "2 Critical, 1 High, 0 Medium, 0 Low"] |
+| Status | COMPLETED_WITH_FINDINGS / COMPLETED_NO_FINDINGS / ERROR |
+
+### Findings
+
+#### Finding vm2-audit-missing-propagation-[file]-[line]-[subtype] [SEVERITY]
+- **File**: `path/to/file.pil:line`
+- **Type**: [specific vulnerability type]
+- **Affected Column/Constraint**: [name]
+- **Description**: [brief description]
+- **Exploitability**: [High/Medium/Low] - [brief rationale]
+- **Suggested Fix**: [one-line fix suggestion]
+
+[Repeat for each finding]
+```
+
+### Machine-Readable Findings
+
+After the human-readable summary, include a JSON block:
+
+```markdown
+<!-- MACHINE-READABLE FINDINGS (do not edit manually) -->
+```json
+{
+  "skill": "vm2-audit-missing-propagation",
+  "finding_prefix": "vm2-audit-missing-propagation",
+  "status": "COMPLETED_WITH_FINDINGS | COMPLETED_NO_FINDINGS | ERROR",
+  "target": "pil/vm2",
+  "files_scanned": 0,
+  "findings": [
+    {
+      "id": "vm2-audit-missing-propagation-filename-line-subtype",
+      "severity": "critical|high|medium|low",
+      "file": "path/to/file.pil",
+      "line": 123,
+      "type": "specific-vulnerability-type",
+      "column": "affected_column_name",
+      "description": "Brief description of the issue",
+      "exploitability": "high|medium|low",
+      "fix": "Suggested fix"
+    }
+  ]
+}
+```
+<!-- END MACHINE-READABLE FINDINGS -->
+```
+
+### Finding ID Convention
+
+- Format: `vm2-audit-missing-propagation-[filename]-[line]-[subtype]`
+- Example: `vm2-audit-missing-propagation-alu-123-SEL`
+- Use lowercase for filename (without extension)
+- Use CAPS for subtype descriptors
+
+### Status Values
+
+- `COMPLETED_NO_FINDINGS` - Audit completed, no issues found
+- `COMPLETED_WITH_FINDINGS` - Audit completed, issues found
+- `ERROR` - Audit could not complete (explain in description)
