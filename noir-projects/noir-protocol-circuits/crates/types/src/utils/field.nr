@@ -1,7 +1,3 @@
-// TODO: consider a dedicated sqrt.nr file, since a lot of this file relates to sqrt.
-
-global KNOWN_NON_RESIDUE: Field = 5; // This is a non-residue in Noir's native Field.
-
 pub fn field_from_bytes<let N: u32>(bytes: [u8; N], big_endian: bool) -> Field {
     assert(bytes.len() < 32, "field_from_bytes: N must be less than 32");
     let mut as_field = 0;
@@ -55,6 +51,9 @@ pub fn min(f1: Field, f2: Field) -> Field {
     }
 }
 
+// TODO: write doc-comments and tests for these magic constants.
+
+global KNOWN_NON_RESIDUE: Field = 5; // This is a non-residue in Noir's native Field.
 global C1: u32 = 28;
 global C3: Field = 40770029410420498293352137776570907027550720424234931066070132305055;
 global C5: Field = 19103219067921713944291392827692070036145651957329286315305642004821462161904;
