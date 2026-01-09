@@ -280,12 +280,8 @@ template <typename Curve, bool HasZK = false> class ShpleminiVerifier_ {
 
         // Compute the powers of ν that are required for batching Gemini, SmallSubgroupIPA, and committed sumcheck
         // univariate opening claims.
-        const std::vector<Fr> shplonk_batching_challenge_powers =
-            compute_shplonk_batching_challenge_powers(shplonk_batching_challenge,
-                                                      virtual_log_n,
-                                                      claim_batcher.interleaved.has_value(),
-                                                      HasZK,
-                                                      committed_sumcheck);
+        const std::vector<Fr> shplonk_batching_challenge_powers = compute_shplonk_batching_challenge_powers(
+            shplonk_batching_challenge, virtual_log_n, HasZK, committed_sumcheck);
         // - Get the quotient commitment for the Shplonk batching of Gemini opening claims
         const auto Q_commitment = transcript->template receive_from_prover<Commitment>("Shplonk:Q");
 
@@ -405,8 +401,7 @@ template <typename Curve, bool HasZK = false> class ShpleminiVerifier_ {
                                         shplonk_batching_challenge_powers,
                                         shplonk_evaluation_challenge,
                                         sumcheck_round_commitments,
-                                        sumcheck_round_evaluations,
-                                        claim_batcher.interleaved.has_value());
+                                        sumcheck_round_evaluations);
         }
 
         // Finalize the batch opening claim
@@ -688,8 +683,7 @@ template <typename Curve, bool HasZK = false> class ShpleminiVerifier_ {
                                             const std::vector<Fr>& shplonk_batching_challenge_powers,
                                             const Fr& shplonk_evaluation_challenge,
                                             const std::vector<Commitment>& sumcheck_round_commitments,
-                                            const std::vector<std::array<Fr, 3>>& sumcheck_round_evaluations,
-                                            const bool is_interlaved_claim)
+                                            const std::vector<std::array<Fr, 3>>& sumcheck_round_evaluations)
     {
 
         std::vector<Fr> denominators = {};
@@ -724,8 +718,7 @@ template <typename Curve, bool HasZK = false> class ShpleminiVerifier_ {
         // to the evaluations at 0, 1, and the round challenge u_i.
         // Compute the power of `shplonk_batching_challenge` to add sumcheck univariate commitments and evaluations to
         // the batch.
-        size_t power = is_interlaved_claim ? num_gemini_claims + NUM_INTERLEAVING_CLAIMS + NUM_SMALL_IPA_EVALUATIONS
-                                           : num_gemini_claims + NUM_SMALL_IPA_EVALUATIONS;
+        size_t power = num_gemini_claims + NUM_INTERLEAVING_CLAIMS + NUM_SMALL_IPA_EVALUATIONS;
         for (const auto& [eval_array, denominator] : zip_view(sumcheck_round_evaluations, denominators)) {
             // Initialize batched_scalar corresponding to 3 evaluations claims
             Fr batched_scalar = Fr(0);

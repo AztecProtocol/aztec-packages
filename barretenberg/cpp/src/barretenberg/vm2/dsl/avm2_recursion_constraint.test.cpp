@@ -165,8 +165,8 @@ class AvmRecursionInnerCircuitTests : public ::testing::Test {
     using FF = Builder::FF;
 
     static constexpr FF EXPECTED_INNER_VK_HASH =
-        FF("0x0921b22326c4e1b36860b9f7fc16d44d107af899fc542b14c56092afadbe216c");
-    static constexpr size_t EXPECT_GATE_COUNT = 1203701;
+        FF("0x2be1149e37f087a8420d61586aed0d7db942f04937f2d3fa01bdf7f4cc62fb3c");
+    static constexpr size_t EXPECT_GATE_COUNT = 1203700;
 
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
