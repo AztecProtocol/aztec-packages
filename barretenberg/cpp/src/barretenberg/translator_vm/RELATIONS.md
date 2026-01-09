@@ -389,15 +389,16 @@ Shift factors:
 
 Subrelations 22-41 apply this pattern to:
 
-| Elements    | No of subrelations | Tail bits           |
-| ----------- | ------------------ | ------------------- |
-| $P_x$ limbs | 4                  | 12, 12, 12, 8 bits  |
-| $P_y$ limbs | 4                  | 12, 12, 12, 8 bits  |
-| $z_1$ limbs | 2                  | 12, 4 bits          |
-| $z_2$ limbs | 2                  | 12, 4 bits          |
-| Accumulator | 4                  | 12, 12, 12, 8 bits  |
-| Quotient    | 4                  | 12, 12, 12, 10 bits |
-|             |                    |                     |
+| Elements    | No of subrelations | Tail bits           | Total bits constrained |
+| ----------- | ------------------ | ------------------- | ---------------------- |
+| $P_x$ limbs | 4                  | 12, 12, 12, 8 bits  | 254 bits               |
+| $P_y$ limbs | 4                  | 12, 12, 12, 8 bits  | 254 bits               |
+| $z_1$ limbs | 2                  | 12, 4 bits          | 128 bits               |
+| $z_2$ limbs | 2                  | 12, 4 bits          | 128 bits               |
+| Accumulator | 4                  | 12, 12, 12, 8 bits  | 254 bits               |
+| Quotient    | 4                  | 12, 12, 12, 10 bits | 256 bits (see note)    |
+
+> **Note:** The quotient is constrained to 256 bits (68 + 68 + 68 + 52), which is sufficient for the maximum quotient value of $< 2^{256}$.
 
 ### Category 5: Transcript Value Reconstruction (Subrelations 42-47)
 
