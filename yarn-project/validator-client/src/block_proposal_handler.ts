@@ -233,7 +233,11 @@ export class BlockProposalHandler {
       await this.blockSource.addBlock(reexecutionResult?.block);
     }
 
-    this.log.info(`Successfully processed proposal for slot ${slotNumber}`, proposalInfo);
+    this.log.info(
+      `Successfully processed block ${blockNumber} proposal at index ${proposal.indexWithinCheckpoint} on slot ${slotNumber}`,
+      proposalInfo,
+    );
+
     return { isValid: true, blockNumber, reexecutionResult };
   }
 
@@ -471,9 +475,8 @@ export class BlockProposalHandler {
     // Get prior blocks in this checkpoint (same slot and checkpoint number)
     const priorBlocks = await this.getBlocksInCheckpoint(slot, blockNumber, checkpointNumber);
 
-    // Fork at the block before the first block in the checkpoint (or before this block if no prior blocks)
-    const parentBlockNumber =
-      priorBlocks.length > 0 ? BlockNumber(priorBlocks[0].number - 1) : BlockNumber(blockNumber - 1);
+    // Fork before the block to be built
+    const parentBlockNumber = BlockNumber(blockNumber - 1);
     using fork = await this.worldState.fork(parentBlockNumber);
 
     // Build checkpoint constants from proposal (excludes blockNumber and timestamp which are per-block)

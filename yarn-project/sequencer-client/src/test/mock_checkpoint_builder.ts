@@ -9,12 +9,11 @@ import type { FullNodeBlockBuilderConfig, PublicProcessorLimits } from '@aztec/s
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import { makeAppendOnlyTreeSnapshot } from '@aztec/stdlib/testing';
 import type { CheckpointGlobalVariables, Tx } from '@aztec/stdlib/tx';
-
 import type {
   BuildBlockInCheckpointResult,
   CheckpointBuilder,
   FullNodeCheckpointsBuilder,
-} from '../sequencer/checkpoint_builder.js';
+} from '@aztec/validator-client';
 
 /**
  * A fake CheckpointBuilder for testing that implements the same interface as the real one.

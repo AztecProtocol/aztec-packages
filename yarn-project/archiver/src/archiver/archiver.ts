@@ -2198,7 +2198,7 @@ export class ArchiverStoreHelper
     return this.store.getContractClassLogs(filter);
   }
   getSynchedL2BlockNumber(): Promise<BlockNumber> {
-    return this.store.getCheckpointedL2BlockNumber();
+    return this.store.getLatestBlockNumber();
   }
   getProvenCheckpointNumber(): Promise<CheckpointNumber> {
     return this.store.getProvenCheckpointNumber();

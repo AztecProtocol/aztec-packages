@@ -775,30 +775,24 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       topicType = TopicType.checkpoint_attestation;
     } else if (msg.topic === this.topicStrings[TopicType.block_proposal]) {
       topicType = TopicType.block_proposal;
-    }
-    if (msg.topic === this.topicStrings[TopicType.checkpoint_proposal]) {
+    } else if (msg.topic === this.topicStrings[TopicType.checkpoint_proposal]) {
       topicType = TopicType.checkpoint_proposal;
-      await this.handleGossipedCheckpointProposal(p2pMessage.payload, msgId, source);
-    }
-    if (msg.topic === this.topicStrings[TopicType.checkpoint_attestation]) {
-      topicType = TopicType.checkpoint_attestation;
-      if (this.clientType === P2PClientType.Full) {
-        await this.processCheckpointAttestationFromPeer(p2pMessage.payload, msgId, source);
-      }
     }
 
     // Process the message, optionally within a linked span for trace propagation
     const processMessage = async () => {
       if (msg.topic === this.topicStrings[TopicType.tx]) {
         await this.handleGossipedTx(p2pMessage.payload, msgId, source);
-      }
-      if (msg.topic === this.topicStrings[TopicType.checkpoint_attestation]) {
+      } else if (msg.topic === this.topicStrings[TopicType.checkpoint_attestation]) {
         if (this.clientType === P2PClientType.Full) {
           await this.processCheckpointAttestationFromPeer(p2pMessage.payload, msgId, source);
         }
-      }
-      if (msg.topic === this.topicStrings[TopicType.block_proposal]) {
+      } else if (msg.topic === this.topicStrings[TopicType.block_proposal]) {
         await this.processBlockFromPeer(p2pMessage.payload, msgId, source);
+      } else if (msg.topic === this.topicStrings[TopicType.checkpoint_proposal]) {
+        await this.handleGossipedCheckpointProposal(p2pMessage.payload, msgId, source);
+      } else {
+        this.logger.error(`Received message on unknown topic: ${msg.topic}`);
       }
     };
 

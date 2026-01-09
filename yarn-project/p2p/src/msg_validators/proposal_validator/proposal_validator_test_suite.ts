@@ -1,7 +1,7 @@
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
 import type { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import type { EthAddress } from '@aztec/foundation/eth-address';
-import type { BlockProposal, CheckpointProposal, PeerErrorSeverity } from '@aztec/stdlib/p2p';
+import { type BlockProposal, type CheckpointProposal, PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import type { TxHash } from '@aztec/stdlib/tx';
 
 import type { MockProxy } from 'jest-mock-extended';
@@ -46,7 +46,7 @@ export function sharedProposalValidatorTests<TProposal extends BlockProposal | C
         nextProposer: getAddress(),
       });
       const result = await validator.validate(mockProposal);
-      expect(result).toBeDefined();
+      expect(result).toBe(PeerErrorSeverity.HighToleranceError);
     });
 
     it('returns mid tolerance error if proposer is not current proposer for current slot', async () => {
@@ -66,7 +66,7 @@ export function sharedProposalValidatorTests<TProposal extends BlockProposal | C
         nextProposer: getAddress(nextProposer),
       });
       const result = await validator.validate(mockProposal);
-      expect(result).toBeDefined();
+      expect(result).toBe(PeerErrorSeverity.MidToleranceError);
     });
 
     it('returns mid tolerance error if proposer is not next proposer for next slot', async () => {
@@ -86,7 +86,7 @@ export function sharedProposalValidatorTests<TProposal extends BlockProposal | C
         nextProposer: getAddress(nextProposer),
       });
       const result = await validator.validate(mockProposal);
-      expect(result).toBeDefined();
+      expect(result).toBe(PeerErrorSeverity.MidToleranceError);
     });
 
     it('returns mid tolerance error if proposer is current proposer but proposal is for next slot', async () => {
@@ -105,7 +105,7 @@ export function sharedProposalValidatorTests<TProposal extends BlockProposal | C
         nextProposer: getAddress(nextProposer),
       });
       const result = await validator.validate(mockProposal);
-      expect(result).toBeDefined();
+      expect(result).toBe(PeerErrorSeverity.MidToleranceError);
     });
 
     it('returns undefined if proposal is valid for current slot and proposer', async () => {
@@ -160,7 +160,7 @@ export function sharedProposalValidatorTests<TProposal extends BlockProposal | C
           nextProposer: getAddress(),
         });
         const result = await validatorWithTxsDisabled.validate(mockProposal);
-        expect(result).toBeDefined();
+        expect(result).toBe(PeerErrorSeverity.MidToleranceError);
       });
 
       it('returns undefined if txs not permitted but proposal has no txHashes', async () => {

@@ -31,14 +31,7 @@ import {
 } from '@aztec/node-lib/factories';
 import { type P2P, type P2PClientDeps, createP2PClient, getDefaultAllowedSetupFunctions } from '@aztec/p2p';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
-import {
-  BlockBuilder,
-  GlobalVariableBuilder,
-  SequencerClient,
-  type SequencerPublisher,
-  createValidatorForAcceptingTxs,
-} from '@aztec/sequencer-client';
-import { CheckpointsBuilder } from '@aztec/sequencer-client';
+import { BlockBuilder, GlobalVariableBuilder, SequencerClient, type SequencerPublisher } from '@aztec/sequencer-client';
 import { PublicProcessorFactory } from '@aztec/simulator/server';
 import {
   AttestationsBlockWatcher,
@@ -113,11 +106,13 @@ import {
   trackSpan,
 } from '@aztec/telemetry-client';
 import {
+  FullNodeCheckpointsBuilder as CheckpointsBuilder,
   FullNodeCheckpointsBuilder,
   NodeKeystoreAdapter,
   ValidatorClient,
   createBlockProposalHandler,
   createValidatorClient,
+  createValidatorForAcceptingTxs,
 } from '@aztec/validator-client';
 import { createWorldStateSynchronizer } from '@aztec/world-state';
 

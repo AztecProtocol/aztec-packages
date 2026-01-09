@@ -24,7 +24,7 @@ import { BlockProposal, CheckpointProposal } from '@aztec/stdlib/p2p';
 import { GlobalVariables, type Tx } from '@aztec/stdlib/tx';
 import { AttestationTimeoutError } from '@aztec/stdlib/validators';
 import { getTelemetryClient } from '@aztec/telemetry-client';
-import type { ValidatorClient } from '@aztec/validator-client';
+import type { FullNodeCheckpointsBuilder, ValidatorClient } from '@aztec/validator-client';
 
 import { expect, jest } from '@jest/globals';
 import EventEmitter from 'events';
@@ -44,7 +44,6 @@ import {
   mockTxIterator,
   setupTxsAndBlock,
 } from '../test/utils.js';
-import type { FullNodeCheckpointsBuilder } from './checkpoint_builder.js';
 import { CheckpointProposalJob } from './checkpoint_proposal_job.js';
 import type { SequencerEvents } from './events.js';
 import type { SequencerMetrics } from './metrics.js';

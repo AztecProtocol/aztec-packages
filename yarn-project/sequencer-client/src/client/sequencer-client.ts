@@ -16,12 +16,11 @@ import type { ValidatorClientFullConfig, WorldStateSynchronizer } from '@aztec/s
 import { SlashFactoryContract } from '@aztec/stdlib/l1-contracts';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { L1Metrics, type TelemetryClient } from '@aztec/telemetry-client';
-import { NodeKeystoreAdapter, type ValidatorClient } from '@aztec/validator-client';
+import { FullNodeCheckpointsBuilder, NodeKeystoreAdapter, type ValidatorClient } from '@aztec/validator-client';
 
 import type { SequencerClientConfig } from '../config.js';
 import { GlobalVariableBuilder } from '../global_variable_builder/index.js';
 import { SequencerPublisherFactory } from '../publisher/sequencer-publisher-factory.js';
-import { FullNodeCheckpointsBuilder } from '../sequencer/checkpoint_builder.js';
 import { Sequencer, type SequencerConfig } from '../sequencer/index.js';
 
 /**

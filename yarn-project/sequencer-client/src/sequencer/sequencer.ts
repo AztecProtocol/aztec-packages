@@ -25,7 +25,7 @@ import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { pickFromSchema } from '@aztec/stdlib/schemas';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import { Attributes, type TelemetryClient, type Tracer, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
-import type { ValidatorClient } from '@aztec/validator-client';
+import { FullNodeCheckpointsBuilder, type ValidatorClient } from '@aztec/validator-client';
 
 import EventEmitter from 'node:events';
 
@@ -33,7 +33,6 @@ import { DefaultSequencerConfig } from '../config.js';
 import type { GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
 import type { SequencerPublisherFactory } from '../publisher/sequencer-publisher-factory.js';
 import type { InvalidateBlockRequest, SequencerPublisher } from '../publisher/sequencer-publisher.js';
-import { FullNodeCheckpointsBuilder } from './checkpoint_builder.js';
 import { CheckpointProposalJob } from './checkpoint_proposal_job.js';
 import { CheckpointVoter } from './checkpoint_voter.js';
 import { SequencerInterruptedError, SequencerTooSlowError } from './errors.js';

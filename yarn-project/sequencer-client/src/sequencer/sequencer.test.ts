@@ -31,7 +31,7 @@ import {
 } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { GlobalVariables, type Tx } from '@aztec/stdlib/tx';
-import type { ValidatorClient } from '@aztec/validator-client';
+import type { FullNodeCheckpointsBuilder, ValidatorClient } from '@aztec/validator-client';
 
 import { expect } from '@jest/globals';
 import { type MockProxy, mock, mockDeep, mockFn } from 'jest-mock-extended';
@@ -41,7 +41,6 @@ import type { AttestorPublisherPair, SequencerPublisherFactory } from '../publis
 import type { InvalidateBlockRequest, SequencerPublisher } from '../publisher/sequencer-publisher.js';
 import { MockCheckpointBuilder, MockCheckpointsBuilder } from '../test/utils.js';
 import * as TestUtils from '../test/utils.js';
-import type { FullNodeCheckpointsBuilder } from './checkpoint_builder.js';
 import { Sequencer } from './sequencer.js';
 import { SequencerState } from './utils.js';
 

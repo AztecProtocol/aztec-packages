@@ -18,7 +18,7 @@ import {
 import { Checkpoint, L1PublishedData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import { type L1RollupConstants, getEpochAtSlot, getSlotRangeForEpoch } from '@aztec/stdlib/epoch-helpers';
 import type { CheckpointAttestation } from '@aztec/stdlib/p2p';
-import { makeAttestationFromCheckpoint, makeCheckpointAttestation } from '@aztec/stdlib/testing';
+import { makeCheckpointAttestation, makeCheckpointAttestationFromCheckpoint } from '@aztec/stdlib/testing';
 import type {
   ValidatorStats,
   ValidatorStatusHistory,
@@ -142,7 +142,7 @@ describe('sentinel', () => {
       const checkpoint = await Checkpoint.random(CheckpointNumber(1), { numBlocks: 1, slotNumber: slot });
       // Create attestations from signers 0 and 1
       const checkpointAttestations = signers.slice(0, 2).map(signer => {
-        const blockAttestation = makeAttestationFromCheckpoint(checkpoint, signer, signer);
+        const blockAttestation = makeCheckpointAttestationFromCheckpoint(checkpoint, signer, signer);
         return new CommitteeAttestation(signer.address, blockAttestation.signature);
       });
 
@@ -178,7 +178,7 @@ describe('sentinel', () => {
 
       // Create attestations from first 2 signers
       const signedAttestations = signers.slice(0, 2).map(signer => {
-        const blockAttestation = makeAttestationFromCheckpoint(checkpoint, signer, signer);
+        const blockAttestation = makeCheckpointAttestationFromCheckpoint(checkpoint, signer, signer);
         return new CommitteeAttestation(signer.address, blockAttestation.signature);
       });
 
