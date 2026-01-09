@@ -10,11 +10,7 @@ allowed-tools: Read, Glob, Grep, Bash, Write, Edit
 
 This skill audits VM2/AVM PIL constraints for memory row injection vulnerabilities. A malicious prover can inject fake memory rows into the memory trace, allowing arbitrary memory reads/writes that bypass the legitimate execution trace.
 
-**Bug Type**: Soundness
-**Severity**: Critical
-**Frequency**: Low
-
-## Why This is Critical
+## Why This is Important
 
 Memory is the foundation of VM execution. If memory can be corrupted:
 - **Read any value from any address**: Fake reads return attacker-controlled values
@@ -155,15 +151,7 @@ grep -n "context\|space_id\|call_id" barretenberg/cpp/pil/vm2/memory*.pil
 
 ## Vulnerable vs Secure Patterns
 
-### Vulnerable Pattern: Missing Boolean
-
-```pil
-// VULNERABLE
-pol commit sel;
-// No boolean constraint - can inject rows!
-```
-
-### Vulnerable Pattern: Using Lookup
+### Vulnerable Pattern: Using Lookup for Memory
 
 ```pil
 // VULNERABLE: Lookup allows many-to-one
@@ -174,25 +162,13 @@ sel { addr, value } in memory.sel { memory.addr, memory.value };
 
 ```pil
 // SECURE: Memory trace with proper constraints
-
-// 1. Boolean selector
 pol commit sel;
 #[SEL_BOOL]
 sel * (1 - sel) = 0;
-
-// 2. All memory rows come from legitimate sources (permutation)
-// In execution trace:
 #[MEM_ACCESS]
 sel_mem_op { clk, addr, value, rw } is memory.sel { memory.clk, memory.addr, memory.value, memory.rw };
-
-// 3. Memory trace fully constrained
-// Every row in memory trace must match a source row
-// Permutation guarantees 1:1 mapping
-
-// 4. Memory ordering constraints
 #[MEM_ORDERING]
 sel * (1 - sel') * (addr' - addr) * is_same_addr_indicator = 0;
-// Proper read-after-write semantics
 ```
 
 ## Memory Trace Security Properties
@@ -236,158 +212,62 @@ pol commit sel;
 // Was missing boolean constraint
 ```
 
-## Audit Checklist
-
-1. **Check all memory-related selectors**:
-   - [ ] Every `pol commit sel*` has `sel * (1 - sel) = 0`
-
-2. **Verify boolean constraints**:
-   - [ ] Main memory selector is boolean
-   - [ ] All sub-selectors (read/write/etc) are boolean
-
-3. **Check interaction types**:
-   - [ ] Memory operations use permutations (`is`), not lookups (`in`)
-   - [ ] All memory rows accounted for by permutations
-
-4. **Verify memory ordering**:
-   - [ ] Reads see correct write values
-   - [ ] No out-of-order operations possible
-   - [ ] Proper timestamp/clock constraints
-
-5. **Check context isolation**:
-   - [ ] Memory operations include context_id in tuple
-   - [ ] Cannot access other context's memory
-
-6. **Look for selector implication gaps**:
-   - [ ] Sub-selectors require main selector active
-   - [ ] No memory operations on inactive rows
-
-## Fix Patterns
-
-### Fix 1: Add Boolean Constraint
-
-```pil
-pol commit sel;
-#[SEL_BOOL]
-sel * (1 - sel) = 0;
-```
-
-### Fix 2: Change Lookup to Permutation
-
-```pil
-// BEFORE (vulnerable):
-sel { ... } in memory.sel { ... };
-
-// AFTER (secure):
-sel { ... } is memory.sel { ... };
-```
-
-### Fix 3: Add Selector Implication
-
-```pil
-pol commit sel_mem_access;
-#[MEM_ACCESS_REQUIRES_SEL]
-sel_mem_access * (1 - sel) = 0;
-```
-
-### Fix 4: Add Context Isolation
-
-```pil
-// Include context_id in all memory tuples
-#[MEM_ACCESS]
-sel_mem_op { context_id, clk, addr, value, rw }
-is memory.sel { memory.context_id, memory.clk, memory.addr, memory.value, memory.rw };
-```
-
-## Common Locations to Audit
-
-Memory-related PILs typically include:
-- `memory.pil` - Main memory trace
-- `*_mem.pil` - Component-specific memory (ecc_mem, poseidon2_mem, etc.)
-- Any PIL with memory interactions
-
-## References
-
-- [Detailed Skill Documentation](../../../pil/vm2/claude-skills/16-memory-row-injection.md)
-- [Missing Boolean Selectors Skill](../vm2-audit-missing-boolean/SKILL.md)
-- [Lookup vs Permutation](../../../pil/vm2/claude-skills/03-lookup-vs-permutation.md)
-- [Selector Outside Active Rows](../../../pil/vm2/claude-skills/02-selector-outside-active-rows.md)
-
 ---
 
-## Required Output Format
+## REQUIRED OUTPUT FORMAT
 
-**IMPORTANT**: When running this audit skill, you MUST end your response with this standardized format.
+**IMPORTANT**: Your response MUST end with this machine-readable section.
 
-### Findings Summary
+### Summary Table
 
-At the end of your audit, provide a summary section:
-
-```markdown
-## Audit Results
-
-### Summary
 | Item | Value |
 |------|-------|
-| Skill | vm2-audit-memory-row-injection |
-| Target | [path that was audited] |
-| Files Scanned | [number] |
-| Findings | [count by severity, e.g., "2 Critical, 1 High, 0 Medium, 0 Low"] |
-| Status | COMPLETED_WITH_FINDINGS / COMPLETED_NO_FINDINGS / ERROR |
+| Skill | `{skill-name}` |
+| Target | `{path audited}` |
+| Files Scanned | `{number}` |
+| Findings | `{e.g., "2 Critical, 1 High" or "None"}` |
+| Status | `COMPLETED_WITH_FINDINGS` / `COMPLETED_NO_FINDINGS` / `ERROR` |
 
-### Findings
+### Findings Format
 
-#### Finding vm2-audit-memory-row-injection-[file]-[line]-[subtype] [SEVERITY]
+For each finding, include:
+- **ID**: `{skill-name}-{file}-{line}-{subtype}`
+- **Severity**: Critical / High / Medium / Low
 - **File**: `path/to/file.pil:line`
-- **Type**: [specific vulnerability type]
-- **Affected Column/Constraint**: [name]
-- **Description**: [brief description]
-- **Exploitability**: [High/Medium/Low] - [brief rationale]
-- **Suggested Fix**: [one-line fix suggestion]
+- **Description**: Brief description
+- **Fix**: One-line suggestion
 
-[Repeat for each finding]
-```
+### Machine-Readable JSON (REQUIRED)
 
-### Machine-Readable Findings
+You MUST include this exact format at the end of your response:
 
-After the human-readable summary, include a JSON block:
-
-```markdown
-<!-- MACHINE-READABLE FINDINGS (do not edit manually) -->
+<!-- MACHINE-READABLE FINDINGS -->
 ```json
 {
-  "skill": "vm2-audit-memory-row-injection",
-  "finding_prefix": "vm2-audit-memory-row-injection",
-  "status": "COMPLETED_WITH_FINDINGS | COMPLETED_NO_FINDINGS | ERROR",
-  "target": "pil/vm2",
-  "files_scanned": 0,
+  "skill": "{skill-name}",
+  "status": "COMPLETED_WITH_FINDINGS",
   "findings": [
     {
-      "id": "vm2-audit-memory-row-injection-filename-line-subtype",
-      "severity": "critical|high|medium|low",
+      "id": "{skill-name}-{file}-{line}-{subtype}",
+      "severity": "critical",
       "file": "path/to/file.pil",
       "line": 123,
-      "type": "specific-vulnerability-type",
-      "column": "affected_column_name",
-      "description": "Brief description of the issue",
-      "exploitability": "high|medium|low",
+      "description": "Brief description",
+      "exploitability": "high",
       "fix": "Suggested fix"
     }
   ]
 }
 ```
 <!-- END MACHINE-READABLE FINDINGS -->
+
+For no findings, use:
+<!-- MACHINE-READABLE FINDINGS -->
+```json
+{
+  "skill": "{skill-name}",
+  "status": "COMPLETED_NO_FINDINGS",
+  "findings": []
+}
 ```
-
-### Finding ID Convention
-
-- Format: `vm2-audit-memory-row-injection-[filename]-[line]-[subtype]`
-- Example: `vm2-audit-memory-row-injection-alu-123-SEL`
-- Use lowercase for filename (without extension)
-- Use CAPS for subtype descriptors
-
-### Status Values
-
-- `COMPLETED_NO_FINDINGS` - Audit completed, no issues found
-- `COMPLETED_WITH_FINDINGS` - Audit completed, issues found
-- `ERROR` - Audit could not complete (explain in description)
+<!-- END MACHINE-READABLE FINDINGS -->

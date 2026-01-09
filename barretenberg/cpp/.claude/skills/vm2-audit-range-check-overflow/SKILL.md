@@ -10,15 +10,11 @@ allowed-tools: Read, Glob, Grep, Bash, Write, Edit
 
 This skill audits VM2/AVM PIL constraints for range check and overflow vulnerabilities. Arithmetic operations can overflow without proper range checks, or range checks are incorrectly applied, allowing values outside expected bounds.
 
-**Bug Type**: Soundness
-**Severity**: High
-**Frequency**: Medium
-
 > **⚠️ CRITICAL: Caller-Constrains-Inputs Principle**
 >
 > Before reporting any "missing range check" finding, you MUST verify that the value isn't already constrained by its source. Columns that come from other traces via lookup/permutation are inputs - the receiving component doesn't need to range-check them if the caller/source already does. See the "Avoiding False Positives" section for detailed guidance.
 
-## Why This is Critical
+## Why This is Important
 
 Missing or incorrect range checks enable critical exploits:
 - **Integer wrap-around enables arbitrary values**: 2^32 - 1 + 10 = 9
@@ -380,162 +376,62 @@ max_read_addr <= AVM_HIGHEST_ADDRESS;
 ```
 **Impact**: Reject valid operations or accept invalid ones.
 
-## Audit Checklist
-
-1. **Identify all arithmetic operations**:
-   - [ ] Additions that could overflow
-   - [ ] Subtractions that could underflow
-   - [ ] Multiplications that could overflow
-
-2. **For each operation, classify the operands**:
-   - [ ] Are operands locally computed or inputs from other traces?
-   - [ ] For inputs: trace the source and verify caller constraints
-   - [ ] For local values: verify range checks exist
-
-3. **Apply caller-constrains-inputs principle** (CRITICAL for avoiding false positives):
-   - [ ] Identify columns that come from lookups/permutations
-   - [ ] Trace each input to its source
-   - [ ] Verify source provides bounds (explicit check, bounded computation, or public input)
-   - [ ] Document the constraint chain if safe
-
-4. **For genuinely unconstrained arithmetic, check**:
-   - [ ] Can the result overflow/underflow?
-   - [ ] Is there a range check lookup?
-   - [ ] Is overflow/underflow properly detected and handled?
-
-5. **Check address calculations**:
-   - [ ] Base + offset additions
-   - [ ] Array index calculations
-   - [ ] Memory bounds checks
-
-6. **Check size/length calculations**:
-   - [ ] Subtraction of counts
-   - [ ] Remaining space calculations
-   - [ ] Off-by-one errors in comparisons (< vs <=)
-
-7. **Verify range check lookups**:
-   - [ ] Correct table (U8, U16, U32, etc.)
-   - [ ] Selector properly gated
-   - [ ] All code paths covered
-
-8. **Before finalizing any finding**:
-   - [ ] Re-verify it's not a false positive per the patterns above
-   - [ ] Confirm the value is truly unconstrained by any source
-   - [ ] Confirm an exploit is possible (not just theoretical)
-
-## Fix Pattern
-
-```pil
-// Add overflow detection
-pol commit a;
-pol commit b;
-pol commit sum;
-pol commit overflow;
-
-#[SUM_CORRECT]
-sum = a + b - overflow * 2^N;  // N = bit width
-
-#[OVERFLOW_BOOL]
-overflow * (1 - overflow) = 0;
-
-#[SUM_RANGE]
-(1 - overflow) { sum } in range_check.sel { range_check.value };
-
-#[OVERFLOW_WITNESS]
-overflow * (a + b - 2^N) in range_check.sel { ... };  // Proves a + b >= 2^N
-```
-
-## Common Locations to Audit
-
-Range check vulnerabilities are critical in:
-- **Memory addressing**: `memory.pil`, `*_mem.pil`
-- **Gas calculations**: `execution.pil`, gas cost computations
-- **Data copy**: `data_copy.pil`, `calldata.pil`, `returndata.pil`
-- **ALU operations**: `alu.pil` - all arithmetic
-- **Address derivation**: `address_derivation.pil`
-- **Radix conversion**: `to_radix_mem.pil`
-
-## References
-
-- [Detailed Skill Documentation](../../../pil/vm2/claude-skills/13-range-check-overflow.md)
-- [Tag Validation Skill](../vm2-audit-tag-validation/SKILL.md)
-- [Missing Error Gating Skill](../vm2-audit-missing-error-gating/SKILL.md)
-
 ---
 
-## Required Output Format
+## REQUIRED OUTPUT FORMAT
 
-**IMPORTANT**: When running this audit skill, you MUST end your response with this standardized format.
+**IMPORTANT**: Your response MUST end with this machine-readable section.
 
-### Findings Summary
+### Summary Table
 
-At the end of your audit, provide a summary section:
-
-```markdown
-## Audit Results
-
-### Summary
 | Item | Value |
 |------|-------|
-| Skill | vm2-audit-range-check-overflow |
-| Target | [path that was audited] |
-| Files Scanned | [number] |
-| Findings | [count by severity, e.g., "2 Critical, 1 High, 0 Medium, 0 Low"] |
-| Status | COMPLETED_WITH_FINDINGS / COMPLETED_NO_FINDINGS / ERROR |
+| Skill | `{skill-name}` |
+| Target | `{path audited}` |
+| Files Scanned | `{number}` |
+| Findings | `{e.g., "2 Critical, 1 High" or "None"}` |
+| Status | `COMPLETED_WITH_FINDINGS` / `COMPLETED_NO_FINDINGS` / `ERROR` |
 
-### Findings
+### Findings Format
 
-#### Finding vm2-audit-range-check-overflow-[file]-[line]-[subtype] [SEVERITY]
+For each finding, include:
+- **ID**: `{skill-name}-{file}-{line}-{subtype}`
+- **Severity**: Critical / High / Medium / Low
 - **File**: `path/to/file.pil:line`
-- **Type**: [specific vulnerability type]
-- **Affected Column/Constraint**: [name]
-- **Description**: [brief description]
-- **Exploitability**: [High/Medium/Low] - [brief rationale]
-- **Suggested Fix**: [one-line fix suggestion]
+- **Description**: Brief description
+- **Fix**: One-line suggestion
 
-[Repeat for each finding]
-```
+### Machine-Readable JSON (REQUIRED)
 
-### Machine-Readable Findings
+You MUST include this exact format at the end of your response:
 
-After the human-readable summary, include a JSON block:
-
-```markdown
-<!-- MACHINE-READABLE FINDINGS (do not edit manually) -->
+<!-- MACHINE-READABLE FINDINGS -->
 ```json
 {
-  "skill": "vm2-audit-range-check-overflow",
-  "finding_prefix": "vm2-audit-range-check-overflow",
-  "status": "COMPLETED_WITH_FINDINGS | COMPLETED_NO_FINDINGS | ERROR",
-  "target": "pil/vm2",
-  "files_scanned": 0,
+  "skill": "{skill-name}",
+  "status": "COMPLETED_WITH_FINDINGS",
   "findings": [
     {
-      "id": "vm2-audit-range-check-overflow-filename-line-subtype",
-      "severity": "critical|high|medium|low",
+      "id": "{skill-name}-{file}-{line}-{subtype}",
+      "severity": "critical",
       "file": "path/to/file.pil",
       "line": 123,
-      "type": "specific-vulnerability-type",
-      "column": "affected_column_name",
-      "description": "Brief description of the issue",
-      "exploitability": "high|medium|low",
+      "description": "Brief description",
+      "exploitability": "high",
       "fix": "Suggested fix"
     }
   ]
 }
 ```
 <!-- END MACHINE-READABLE FINDINGS -->
+
+For no findings, use:
+<!-- MACHINE-READABLE FINDINGS -->
+```json
+{
+  "skill": "{skill-name}",
+  "status": "COMPLETED_NO_FINDINGS",
+  "findings": []
+}
 ```
-
-### Finding ID Convention
-
-- Format: `vm2-audit-range-check-overflow-[filename]-[line]-[subtype]`
-- Example: `vm2-audit-range-check-overflow-alu-123-SEL`
-- Use lowercase for filename (without extension)
-- Use CAPS for subtype descriptors
-
-### Status Values
-
-- `COMPLETED_NO_FINDINGS` - Audit completed, no issues found
-- `COMPLETED_WITH_FINDINGS` - Audit completed, issues found
-- `ERROR` - Audit could not complete (explain in description)
+<!-- END MACHINE-READABLE FINDINGS -->

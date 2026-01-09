@@ -10,11 +10,7 @@ allowed-tools: Read, Glob, Grep, Bash, Write, Edit
 
 This skill audits VM2/AVM PIL constraints for zero-check pattern violations. The zero-check pattern creates a boolean indicator `e` that equals 1 if and only if a value `x` equals 0. Incorrect implementation allows bypassing equality checks.
 
-**Bug Type**: Soundness
-**Severity**: High
-**Frequency**: Low
-
-## Why This is Critical
+## Why This is Important
 
 Incorrect zero-check implementations enable several exploit patterns:
 
@@ -66,6 +62,8 @@ x * (e * (1 - inv) + inv) - 1 + e = 0;
 //   If inv = 1/x: x * (1/x) - 1 + e = 0  =>  e = 0  (correct!)
 //   If e = 1: x * (1 - inv + inv) - 1 + 1 = x != 0  (violation!)
 ```
+
+**Variants**: Equality check (`a == b`) uses `diff = a - b` as input. Division-by-zero uses the divisor as input. Same pattern applies.
 
 ## Audit Instructions
 
@@ -158,50 +156,6 @@ sel * e * (1 - e) = 0;  // Only enforced when sel = 1
 e + other_value = 0;     // Uses e even when sel = 0!
 ```
 
-## Secure Patterns
-
-### Complete Zero-Check Implementation
-
-```pil
-pol commit x;
-pol commit is_zero;  // 1 iff x = 0
-pol commit x_inv;    // 1/x when x != 0
-
-#[IS_ZERO_BOOL]
-is_zero * (1 - is_zero) = 0;
-
-#[ZERO_CHECK]
-x * (is_zero * (1 - x_inv) + x_inv) - 1 + is_zero = 0;
-```
-
-### Equality Check (a == b)
-
-```pil
-pol diff = a - b;
-pol commit eq;      // 1 iff a == b
-pol commit diff_inv;
-
-#[EQ_BOOL]
-eq * (1 - eq) = 0;
-
-#[EQ_CHECK]
-diff * (eq * (1 - diff_inv) + diff_inv) - 1 + eq = 0;
-```
-
-### Division by Zero Check
-
-```pil
-pol commit b;           // Divisor
-pol commit div_by_0;    // 1 iff b = 0
-pol commit b_inv;       // Inverse of b
-
-#[DIV_BY_0_BOOL]
-div_by_0 * (1 - div_by_0) = 0;
-
-#[DIV_BY_0_CHECK]
-b * (div_by_0 * (1 - b_inv) + b_inv) - 1 + div_by_0 = 0;
-```
-
 ## Historical Examples
 
 ### Example 1: ALU Division by Zero
@@ -235,31 +189,6 @@ is_eq * (1 - is_eq) = 0;
 (a - b) * (is_eq * (1 - diff_inv) + diff_inv) - 1 + is_eq = 0;
 ```
 
-## Audit Checklist
-
-1. **Find all zero-check patterns**:
-   - Look for `inv` columns paired with equality indicators
-   - Search for `is_zero`, `is_eq`, `div_by_0`, `eq` columns
-   - Check anywhere equality/zero comparison is needed
-
-2. **For each zero-check, verify the three components**:
-   - [ ] Boolean constraint on the indicator: `e * (1 - e) = 0`
-   - [ ] Zero-check relation: `x * (e * (1 - inv) + inv) - 1 + e = 0`
-   - [ ] Inverse column exists and used correctly
-
-3. **Check that indicator is used correctly**:
-   - [ ] When `e = 1`, x should always be 0
-   - [ ] When `e = 0`, x should never be 0
-
-4. **Verify in tracegen**:
-   - [ ] `e` is set to 1 iff x is 0
-   - [ ] `inv` is set to 1/x when x != 0 (any value when x = 0)
-
-5. **Check for variant patterns**:
-   - One-checks (is x == 1?)
-   - Arbitrary equality (is a == b?)
-   - These are all zero-checks in disguise (check x-1 or a-b)
-
 ## Common Locations for Zero-Checks
 
 Zero-check patterns typically appear in:
@@ -269,87 +198,62 @@ Zero-check patterns typically appear in:
 - **Greater-than comparisons**: Detecting equality case
 - **Error handling**: Checking for error conditions
 
-## References
-
-- [Detailed Skill Documentation](../../../pil/vm2/claude-skills/08-zero-check-violations.md)
-- [Missing Boolean Selectors Skill](../vm2-audit-missing-boolean/SKILL.md)
-- [Error Aggregation Pattern](../../../pil/vm2/claude-skills/10-error-aggregation.md)
-
 ---
 
-## Required Output Format
+## REQUIRED OUTPUT FORMAT
 
-**IMPORTANT**: When running this audit skill, you MUST end your response with this standardized format.
+**IMPORTANT**: Your response MUST end with this machine-readable section.
 
-### Findings Summary
+### Summary Table
 
-At the end of your audit, provide a summary section:
-
-```markdown
-## Audit Results
-
-### Summary
 | Item | Value |
 |------|-------|
-| Skill | vm2-audit-zero-check |
-| Target | [path that was audited] |
-| Files Scanned | [number] |
-| Findings | [count by severity, e.g., "2 Critical, 1 High, 0 Medium, 0 Low"] |
-| Status | COMPLETED_WITH_FINDINGS / COMPLETED_NO_FINDINGS / ERROR |
+| Skill | `{skill-name}` |
+| Target | `{path audited}` |
+| Files Scanned | `{number}` |
+| Findings | `{e.g., "2 Critical, 1 High" or "None"}` |
+| Status | `COMPLETED_WITH_FINDINGS` / `COMPLETED_NO_FINDINGS` / `ERROR` |
 
-### Findings
+### Findings Format
 
-#### Finding vm2-audit-zero-check-[file]-[line]-[subtype] [SEVERITY]
+For each finding, include:
+- **ID**: `{skill-name}-{file}-{line}-{subtype}`
+- **Severity**: Critical / High / Medium / Low
 - **File**: `path/to/file.pil:line`
-- **Type**: [specific vulnerability type]
-- **Affected Column/Constraint**: [name]
-- **Description**: [brief description]
-- **Exploitability**: [High/Medium/Low] - [brief rationale]
-- **Suggested Fix**: [one-line fix suggestion]
+- **Description**: Brief description
+- **Fix**: One-line suggestion
 
-[Repeat for each finding]
-```
+### Machine-Readable JSON (REQUIRED)
 
-### Machine-Readable Findings
+You MUST include this exact format at the end of your response:
 
-After the human-readable summary, include a JSON block:
-
-```markdown
-<!-- MACHINE-READABLE FINDINGS (do not edit manually) -->
+<!-- MACHINE-READABLE FINDINGS -->
 ```json
 {
-  "skill": "vm2-audit-zero-check",
-  "finding_prefix": "vm2-audit-zero-check",
-  "status": "COMPLETED_WITH_FINDINGS | COMPLETED_NO_FINDINGS | ERROR",
-  "target": "pil/vm2",
-  "files_scanned": 0,
+  "skill": "{skill-name}",
+  "status": "COMPLETED_WITH_FINDINGS",
   "findings": [
     {
-      "id": "vm2-audit-zero-check-filename-line-subtype",
-      "severity": "critical|high|medium|low",
+      "id": "{skill-name}-{file}-{line}-{subtype}",
+      "severity": "critical",
       "file": "path/to/file.pil",
       "line": 123,
-      "type": "specific-vulnerability-type",
-      "column": "affected_column_name",
-      "description": "Brief description of the issue",
-      "exploitability": "high|medium|low",
+      "description": "Brief description",
+      "exploitability": "high",
       "fix": "Suggested fix"
     }
   ]
 }
 ```
 <!-- END MACHINE-READABLE FINDINGS -->
+
+For no findings, use:
+<!-- MACHINE-READABLE FINDINGS -->
+```json
+{
+  "skill": "{skill-name}",
+  "status": "COMPLETED_NO_FINDINGS",
+  "findings": []
+}
 ```
-
-### Finding ID Convention
-
-- Format: `vm2-audit-zero-check-[filename]-[line]-[subtype]`
-- Example: `vm2-audit-zero-check-alu-123-SEL`
-- Use lowercase for filename (without extension)
-- Use CAPS for subtype descriptors
-
-### Status Values
-
-- `COMPLETED_NO_FINDINGS` - Audit completed, no issues found
-- `COMPLETED_WITH_FINDINGS` - Audit completed, issues found
-- `ERROR` - Audit could not complete (explain in description)
+<!-- END MACHINE-READABLE FINDINGS -->

@@ -10,11 +10,7 @@ allowed-tools: Read, Glob, Grep, Bash, Write, Edit
 
 This skill audits VM2/AVM PIL constraints for typos where the wrong variable is constrained due to copy-paste errors or variable name confusion. This is a **soundness vulnerability** that leaves values unconstrained, allowing malicious provers to set arbitrary values.
 
-**Bug Type**: Soundness
-**Severity**: High to Critical (depends on unconstrained column)
-**Frequency**: Medium (found during pre-audit reviews)
-
-## Why This is Critical
+## Why This is Important
 
 Constraint typos are particularly dangerous because:
 
@@ -211,30 +207,6 @@ enqueued_call_start * last_child_returndata_size = 0;
 
 **Detection**: Constraint names contain "SIZE" but constrained columns are "addr".
 
-## Audit Checklist
-
-For each component PIL file:
-
-1. **Analyze constraint naming**:
-   - [ ] All constraint names accurately describe what's constrained
-   - [ ] No mismatch between name hints and actual columns
-
-2. **Check similar column groups**:
-   - [ ] Identify all groups of similar columns (addr/size, src/dst, etc.)
-   - [ ] Verify each constraint targets the semantically correct column
-
-3. **Verify initialization constraints**:
-   - [ ] All columns requiring initialization are constrained
-   - [ ] Each initialization targets the correct column
-
-4. **Cross-reference with comments**:
-   - [ ] Comments match actual constraint behavior
-   - [ ] No documentation/implementation mismatch
-
-5. **Compare with tracegen**:
-   - [ ] Tracegen and constraints agree on column semantics
-   - [ ] No mismatched expectations
-
 ## Fix Pattern
 
 When a typo is found:
@@ -251,87 +223,62 @@ When a typo is found:
 // After:  selector * correct_column = 0;
 ```
 
-## References
-
-- [PR #19404](https://github.com/AztecProtocol/aztec-packages/pull/19404) - Context typo fixes
-- [Missing Initialization Skill](../vm2-audit-missing-initialization/SKILL.md) - Related audit for missing constraints
-- [Missing Propagation Skill](../vm2-audit-missing-propagation/SKILL.md) - Related audit for propagation errors
-
 ---
 
-## Required Output Format
+## REQUIRED OUTPUT FORMAT
 
-**IMPORTANT**: When running this audit skill, you MUST end your response with this standardized format.
+**IMPORTANT**: Your response MUST end with this machine-readable section.
 
-### Findings Summary
+### Summary Table
 
-At the end of your audit, provide a summary section:
-
-```markdown
-## Audit Results
-
-### Summary
 | Item | Value |
 |------|-------|
-| Skill | vm2-audit-constraint-typos |
-| Target | [path that was audited] |
-| Files Scanned | [number] |
-| Findings | [count by severity, e.g., "2 Critical, 1 High, 0 Medium, 0 Low"] |
-| Status | COMPLETED_WITH_FINDINGS / COMPLETED_NO_FINDINGS / ERROR |
+| Skill | `{skill-name}` |
+| Target | `{path audited}` |
+| Files Scanned | `{number}` |
+| Findings | `{e.g., "2 Critical, 1 High" or "None"}` |
+| Status | `COMPLETED_WITH_FINDINGS` / `COMPLETED_NO_FINDINGS` / `ERROR` |
 
-### Findings
+### Findings Format
 
-#### Finding vm2-audit-constraint-typos-[file]-[line]-[subtype] [SEVERITY]
+For each finding, include:
+- **ID**: `{skill-name}-{file}-{line}-{subtype}`
+- **Severity**: Critical / High / Medium / Low
 - **File**: `path/to/file.pil:line`
-- **Type**: [specific vulnerability type]
-- **Affected Column/Constraint**: [name]
-- **Description**: [brief description]
-- **Exploitability**: [High/Medium/Low] - [brief rationale]
-- **Suggested Fix**: [one-line fix suggestion]
+- **Description**: Brief description
+- **Fix**: One-line suggestion
 
-[Repeat for each finding]
-```
+### Machine-Readable JSON (REQUIRED)
 
-### Machine-Readable Findings
+You MUST include this exact format at the end of your response:
 
-After the human-readable summary, include a JSON block:
-
-```markdown
-<!-- MACHINE-READABLE FINDINGS (do not edit manually) -->
+<!-- MACHINE-READABLE FINDINGS -->
 ```json
 {
-  "skill": "vm2-audit-constraint-typos",
-  "finding_prefix": "vm2-audit-constraint-typos",
-  "status": "COMPLETED_WITH_FINDINGS | COMPLETED_NO_FINDINGS | ERROR",
-  "target": "pil/vm2",
-  "files_scanned": 0,
+  "skill": "{skill-name}",
+  "status": "COMPLETED_WITH_FINDINGS",
   "findings": [
     {
-      "id": "vm2-audit-constraint-typos-filename-line-subtype",
-      "severity": "critical|high|medium|low",
+      "id": "{skill-name}-{file}-{line}-{subtype}",
+      "severity": "critical",
       "file": "path/to/file.pil",
       "line": 123,
-      "type": "specific-vulnerability-type",
-      "column": "affected_column_name",
-      "description": "Brief description of the issue",
-      "exploitability": "high|medium|low",
+      "description": "Brief description",
+      "exploitability": "high",
       "fix": "Suggested fix"
     }
   ]
 }
 ```
 <!-- END MACHINE-READABLE FINDINGS -->
+
+For no findings, use:
+<!-- MACHINE-READABLE FINDINGS -->
+```json
+{
+  "skill": "{skill-name}",
+  "status": "COMPLETED_NO_FINDINGS",
+  "findings": []
+}
 ```
-
-### Finding ID Convention
-
-- Format: `vm2-audit-constraint-typos-[filename]-[line]-[subtype]`
-- Example: `vm2-audit-constraint-typos-alu-123-SEL`
-- Use lowercase for filename (without extension)
-- Use CAPS for subtype descriptors
-
-### Status Values
-
-- `COMPLETED_NO_FINDINGS` - Audit completed, no issues found
-- `COMPLETED_WITH_FINDINGS` - Audit completed, issues found
-- `ERROR` - Audit could not complete (explain in description)
+<!-- END MACHINE-READABLE FINDINGS -->
