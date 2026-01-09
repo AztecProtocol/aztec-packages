@@ -23,10 +23,14 @@ import { MerkleTreeId, PublicDataTreeLeaf, PublicDataTreeLeafPreimage } from '@a
 import {
   BlockHeader,
   GlobalVariables,
+  HashedValues,
+  TX_ERROR_CALLDATA_COUNT_MISMATCH,
   TX_ERROR_DUPLICATE_NULLIFIER_IN_TX,
   TX_ERROR_INCORRECT_L1_CHAIN_ID,
   TX_ERROR_INCORRECT_ROLLUP_VERSION,
   TX_ERROR_INVALID_INCLUDE_BY_TIMESTAMP,
+  TX_ERROR_SIZE_ABOVE_LIMIT,
+  Tx,
 } from '@aztec/stdlib/tx';
 import { getPackageVersion } from '@aztec/stdlib/update-checker';
 
@@ -237,6 +241,23 @@ describe('aztec node', () => {
       await tx.recomputeHash();
 
       expect(await node.isValidTx(tx)).toEqual({ result: 'invalid', reason: [TX_ERROR_INCORRECT_ROLLUP_VERSION] });
+    });
+
+    it('tests that the node correctly validates oversized transactions', async () => {
+      const originalTx = await mockTxForRollup(0x10000);
+      const newPublicFunctionCalldata = [new HashedValues(Array(100000).fill(Fr.random()), Fr.random())];
+      const tx = new Tx(
+        originalTx.txHash,
+        originalTx.data,
+        originalTx.chonkProof,
+        originalTx.contractClassLogFields,
+        newPublicFunctionCalldata,
+      );
+      await tx.recomputeHash();
+      expect(await node.isValidTx(tx)).toEqual({
+        result: 'invalid',
+        reason: [TX_ERROR_SIZE_ABOVE_LIMIT, TX_ERROR_CALLDATA_COUNT_MISMATCH],
+      });
     });
 
     it('tests that the node correctly validates expiration timestamps', async () => {

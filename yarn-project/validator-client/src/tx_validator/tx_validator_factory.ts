@@ -10,6 +10,7 @@ import {
   GasTxValidator,
   MetadataTxValidator,
   PhasesTxValidator,
+  SizeTxValidator,
   TimestampTxValidator,
   TxPermittedValidator,
   TxProofValidator,
@@ -55,6 +56,7 @@ export function createValidatorForAcceptingTxs(
 ): TxValidator<Tx> {
   const validators: TxValidator<Tx>[] = [
     new TxPermittedValidator(txsPermitted),
+    new SizeTxValidator(),
     new DataTxValidator(),
     new MetadataTxValidator({
       l1ChainId: new Fr(l1ChainId),
