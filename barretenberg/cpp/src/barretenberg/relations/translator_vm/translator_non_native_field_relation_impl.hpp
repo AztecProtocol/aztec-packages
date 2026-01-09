@@ -85,9 +85,9 @@ void TranslatorNonNativeFieldRelationImpl<FF>::accumulate(ContainerOverSubrelati
     using View = typename Accumulator::View;
 
     static constexpr size_t NUM_LIMB_BITS = 68;
-    static FF shift = FF(uint256_t(1) << NUM_LIMB_BITS);
-    static FF shiftx2 = FF(uint256_t(1) << (NUM_LIMB_BITS * 2));
-    static FF shiftx3 = FF(uint256_t(1) << (NUM_LIMB_BITS * 3));
+    static constexpr FF shift = FF(uint256_t(1) << NUM_LIMB_BITS);
+    static constexpr FF shiftx2 = FF(uint256_t(1) << (NUM_LIMB_BITS * 2));
+    static constexpr FF shiftx3 = FF(uint256_t(1) << (NUM_LIMB_BITS * 3));
     static uint512_t MODULUS_U512 = uint512_t(curve::BN254::BaseField::modulus);
     static uint512_t BINARY_BASIS_MODULUS = uint512_t(1) << (NUM_LIMB_BITS << 2);
     static uint512_t NEGATIVE_PRIME_MODULUS = BINARY_BASIS_MODULUS - MODULUS_U512;
@@ -149,8 +149,8 @@ void TranslatorNonNativeFieldRelationImpl<FF>::accumulate(ContainerOverSubrelati
     const auto& accumulators_binary_limbs_1 = View(in.accumulators_binary_limbs_1);
     const auto& accumulators_binary_limbs_2 = View(in.accumulators_binary_limbs_2);
     const auto& accumulators_binary_limbs_3 = View(in.accumulators_binary_limbs_3);
-    const auto& z_1_limb_0 = View(in.z_low_limbs);
-    const auto& z_1_limb_1 = View(in.z_high_limbs);
+    const auto& z_first_limb_0 = View(in.z_low_limbs);
+    const auto& z_first_limb_1 = View(in.z_high_limbs);
     const auto& quotient_binary_limbs_0 = View(in.quotient_low_binary_limbs);
     const auto& quotient_binary_limbs_1 = View(in.quotient_high_binary_limbs);
     const auto& p_x_limb_1 = View(in.p_x_low_limbs_shift);
@@ -161,8 +161,8 @@ void TranslatorNonNativeFieldRelationImpl<FF>::accumulate(ContainerOverSubrelati
     const auto& prev_accumulators_binary_limbs_1 = View(in.accumulators_binary_limbs_1_shift);
     const auto& prev_accumulators_binary_limbs_2 = View(in.accumulators_binary_limbs_2_shift);
     const auto& prev_accumulators_binary_limbs_3 = View(in.accumulators_binary_limbs_3_shift);
-    const auto& z_2_limb_0 = View(in.z_low_limbs_shift);
-    const auto& z_2_limb_1 = View(in.z_high_limbs_shift);
+    const auto& z_second_limb_0 = View(in.z_low_limbs_shift);
+    const auto& z_second_limb_1 = View(in.z_high_limbs_shift);
     const auto& quotient_binary_limbs_2 = View(in.quotient_low_binary_limbs_shift);
     const auto& quotient_binary_limbs_3 = View(in.quotient_high_binary_limbs_shift);
     const auto& relation_wide_limbs_lo = View(in.relation_wide_limbs);
@@ -183,8 +183,8 @@ void TranslatorNonNativeFieldRelationImpl<FF>::accumulate(ContainerOverSubrelati
                    + op
                    + p_x_limb_0 * v_0
                    + p_y_limb_0 * v_sqr_0
-                   + z_1_limb_0 * v_cube_0
-                   + z_2_limb_0 * v_quad_0
+                   + z_first_limb_0 * v_cube_0
+                   + z_second_limb_0 * v_quad_0
                    + quotient_binary_limbs_0 * NEGATIVE_MODULUS_LIMBS[0]
                    - accumulators_binary_limbs_0;
 
@@ -195,10 +195,10 @@ void TranslatorNonNativeFieldRelationImpl<FF>::accumulate(ContainerOverSubrelati
                    + p_x_limb_1 * v_0
                    + p_y_limb_0 * v_sqr_1
                    + p_y_limb_1 * v_sqr_0
-                   + z_1_limb_0 * v_cube_1
-                   + z_1_limb_1 * v_cube_0
-                   + z_2_limb_0 * v_quad_1
-                   + z_2_limb_1 * v_quad_0
+                   + z_first_limb_0 * v_cube_1
+                   + z_first_limb_1 * v_cube_0
+                   + z_second_limb_0 * v_quad_1
+                   + z_second_limb_1 * v_quad_0
                    + quotient_binary_limbs_0 * NEGATIVE_MODULUS_LIMBS[1]
                    + quotient_binary_limbs_1 * NEGATIVE_MODULUS_LIMBS[0]
                    - accumulators_binary_limbs_1)
@@ -231,10 +231,10 @@ void TranslatorNonNativeFieldRelationImpl<FF>::accumulate(ContainerOverSubrelati
               + p_y_limb_2 * v_sqr_0
               + p_y_limb_1 * v_sqr_1
               + p_y_limb_0 * v_sqr_2
-              + z_1_limb_1 * v_cube_1
-              + z_1_limb_0 * v_cube_2
-              + z_2_limb_1 * v_quad_1
-              + z_2_limb_0 * v_quad_2
+              + z_first_limb_1 * v_cube_1
+              + z_first_limb_0 * v_cube_2
+              + z_second_limb_1 * v_quad_1
+              + z_second_limb_0 * v_quad_2
               + quotient_binary_limbs_2 * NEGATIVE_MODULUS_LIMBS[0]
               + quotient_binary_limbs_1 * NEGATIVE_MODULUS_LIMBS[1]
               + quotient_binary_limbs_0 * NEGATIVE_MODULUS_LIMBS[2]
@@ -253,10 +253,10 @@ void TranslatorNonNativeFieldRelationImpl<FF>::accumulate(ContainerOverSubrelati
                    + p_y_limb_2 * v_sqr_1
                    + p_y_limb_1 * v_sqr_2
                    + p_y_limb_0 * v_sqr_3
-                   + z_1_limb_1 * v_cube_2
-                   + z_1_limb_0 * v_cube_3
-                   + z_2_limb_1 * v_quad_2
-                   + z_2_limb_0 * v_quad_3
+                   + z_first_limb_1 * v_cube_2
+                   + z_first_limb_0 * v_cube_3
+                   + z_second_limb_1 * v_quad_2
+                   + z_second_limb_0 * v_quad_3
                    + quotient_binary_limbs_3 * NEGATIVE_MODULUS_LIMBS[0]
                    + quotient_binary_limbs_2 * NEGATIVE_MODULUS_LIMBS[1]
                    + quotient_binary_limbs_1 * NEGATIVE_MODULUS_LIMBS[2]
@@ -288,8 +288,8 @@ void TranslatorNonNativeFieldRelationImpl<FF>::accumulate(ContainerOverSubrelati
                                                                    accumulators_binary_limbs_1,
                                                                    accumulators_binary_limbs_2,
                                                                    accumulators_binary_limbs_3);
-    auto reconstructed_z1 = reconstruct_from_two(z_1_limb_0, z_1_limb_1);
-    auto reconstructed_z2 = reconstruct_from_two(z_2_limb_0, z_2_limb_1);
+    auto reconstructed_z1 = reconstruct_from_two(z_first_limb_0, z_first_limb_1);
+    auto reconstructed_z2 = reconstruct_from_two(z_second_limb_0, z_second_limb_1);
     auto reconstructed_quotient = reconstruct_from_four(
         quotient_binary_limbs_0, quotient_binary_limbs_1, quotient_binary_limbs_2, quotient_binary_limbs_3);
 
