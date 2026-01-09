@@ -67,6 +67,20 @@ SHA256<Builder>::sparse_witness_limbs SHA256<Builder>::convert_witness(const fie
 }
 
 /**
+ * @brief Apply a 32-bit range constraint using SHA256_WITNESS_INPUT lookup table.
+ *
+ * More efficient than explicit range constraints for 32-bit values since the lookup
+ * table is already utilized for SHA-256 operations.
+ *
+ * @param input The field element to constrain to 32 bits.
+ */
+template <typename Builder>
+void SHA256<Builder>::apply_32_bit_range_constraint_via_lookup(const field_t<Builder>& input)
+{
+    (void)plookup_read<Builder>::get_lookup_accumulators(MultiTableId::SHA256_WITNESS_INPUT, input);
+}
+
+/**
  * @brief Extend the 16-word message block to 64 words per SHA-256 specification.
  *
  * SHA-256 Spec (FIPS 180-4, Section 6.2.2):
@@ -95,9 +109,6 @@ std::array<field_t<Builder>, 64> SHA256<Builder>::extend_witness(const std::arra
             ctx = w_in[i].get_context();
         }
     }
-
-    // Constrain w_in[0] to 32 bits by performing a lookup (all others are constrained in the course of extension)
-    (void)plookup_read<Builder>::get_lookup_accumulators(MultiTableId::SHA256_WITNESS_INPUT, w_in[0]);
 
     // Compute extended words W[16..63]
     for (size_t i = 16; i < 64; ++i) {
@@ -162,12 +173,18 @@ std::array<field_t<Builder>, 64> SHA256<Builder>::extend_witness(const std::arra
             field_pt w_out_raw_inv_pow_two = w_out_raw * inv_pow_two;
             field_pt w_out_inv_pow_two = w_out * inv_pow_two;
             field_pt divisor = w_out_raw_inv_pow_two - w_out_inv_pow_two;
-            // Sum of three 32-bit values: divisor ∈ {0,1,2}.
+            // Sum of four 32-bit values: divisor ∈ {0,1,2,3}.
             divisor.create_range_constraint(2);
         }
 
         w_sparse[i] = sparse_witness_limbs(w_out);
     }
+
+    // Explicitly constrain words not already constrained via lookups during extension:
+    // - w[0], w[62], w[63]: Never accessed as w[i-15] or w[i-2] in the extension loop
+    apply_32_bit_range_constraint_via_lookup(w_sparse[0].normal);
+    apply_32_bit_range_constraint_via_lookup(w_sparse[62].normal);
+    apply_32_bit_range_constraint_via_lookup(w_sparse[63].normal);
 
     std::array<field_pt, 64> w_extended;
     for (size_t i = 0; i < 64; ++i) {
@@ -231,7 +248,7 @@ SHA256<Builder>::sparse_value SHA256<Builder>::map_into_maj_sparse_form(const fi
  * @param e Input/output: e.normal read, e.sparse populated as side effect
  * @param f Input: must have .sparse already populated
  * @param g Input: must have .sparse already populated
- * @return Σ₁(e) + Ch(e,f,g) as a constrained 32-bit field element
+ * @return Σ₁(e) + Ch(e,f,g) (sum of two 32-bit constrained values)
  */
 template <typename Builder>
 field_t<Builder> SHA256<Builder>::choose_with_sigma1(sparse_value& e, const sparse_value& f, const sparse_value& g)
@@ -276,7 +293,7 @@ field_t<Builder> SHA256<Builder>::choose_with_sigma1(sparse_value& e, const spar
  * @param a Input/output: a.normal read, a.sparse populated as side effect
  * @param b Input: must have .sparse already populated
  * @param c Input: must have .sparse already populated
- * @return Σ₀(a) + Maj(a,b,c) as a constrained 32-bit field element
+ * @return Σ₀(a) + Maj(a,b,c) (sum of two 32-bit constrained values)
  */
 template <typename Builder>
 field_t<Builder> SHA256<Builder>::majority_with_sigma0(sparse_value& a, const sparse_value& b, const sparse_value& c)
@@ -348,8 +365,12 @@ field_t<Builder> SHA256<Builder>::add_normalize(const field_t<Builder>& a,
  * This is the only public entry point for the stdlib SHA-256 implementation. We implement only the compression function
  * (rather than a full hash) because this is all that is required in DSL.
  *
- * @note  All 24 inputs (8 hash state + 16 message words) are 32-bit constrained via lookups: h_init[0..7] through
- * choose/majority functions, input[0..15] through extend_witness.
+ * @note  All 24 inputs (8 hash state + 16 message words) are 32-bit constrained via lookups:
+ *        - h_init[0,4]: via majority_with_sigma0/choose_with_sigma1 in round 0
+ *        - h_init[1,2,5,6]: via map_into_maj/choose_sparse_form at initialization
+ *        - h_init[3,7]: explicitly via apply_32_bit_range_constraint_via_lookup
+ *        - input[1..15]: via convert_witness when accessed as w[i-15] or w[i-2] in extend_witness
+ *        - input[0]: explicitly via apply_32_bit_range_constraint_via_lookup
  *
  * @param h_init The 8-word (256-bit) initial hash state. For the first block of a message,
  *               this should be the standard SHA-256 IV. For subsequent blocks, this is the
@@ -377,6 +398,10 @@ std::array<field_t<Builder>, 8> SHA256<Builder>::sha256_block(const std::array<f
     auto g = map_into_choose_sparse_form(h_init[6]);
     sparse_value h = sparse_value(h_init[7]);
 
+    // Constrain h_init[3] and h_init[7] which are not lookup-constrained via sparse form conversion.
+    apply_32_bit_range_constraint_via_lookup(h_init[3]);
+    apply_32_bit_range_constraint_via_lookup(h_init[7]);
+
     // Extend the 16-word message block to 64 words per SHA-256 specification
     const std::array<field_t<Builder>, 64> w = extend_witness(input);
 
@@ -392,23 +417,30 @@ std::array<field_t<Builder>, 8> SHA256<Builder>::sha256_block(const std::array<f
      * majority_with_sigma0() populates a.sparse (subsequently copied to b). Do not reorder relative to f=e or b=a.
      */
     for (size_t i = 0; i < 64; ++i) {
-        auto ch = choose_with_sigma1(e, f, g);
-        auto maj = majority_with_sigma0(a, b, c);
+        auto ch = choose_with_sigma1(e, f, g);    // ch = Σ1(e) + Ch(e,f,g) ≤ 2*(2^32-1)
+        auto maj = majority_with_sigma0(a, b, c); // maj = Σ0(a) + Maj(a,b,c) ≤ 2*(2^32-1)
 
-        // T1 = ch + h + K[i] + W[i], where ch = Σ1(e) + Ch(e,f,g) is 32-bit constrained (lookup-normalized)
+        // T1 = ch + h + K[i] + W[i] ≤ 5*(2^32-1)
         auto temp1 = ch.add_two(h.normal, w[i] + fr(round_constants[i]));
 
         h = g;
         g = f;
         f = e;
-        e.normal = add_normalize(d.normal, temp1, /*overflow_bits=*/3); // d + T1: 5 × 32-bit, overflow ≤ 4
+        e.normal = add_normalize(d.normal, temp1, /*overflow_bits=*/3); // d + T1: 6 × 32-bit, overflow ≤ 5
         d = c;
         c = b;
         b = a;
-        a.normal = add_normalize(temp1, maj, /*overflow_bits=*/3); // T1 + Σ0+Maj: 5 × 32-bit, overflow ≤ 4
+        a.normal = add_normalize(temp1, maj, /*overflow_bits=*/3); // T1 + Σ0+Maj: 7 × 32-bit, overflow ≤ 6
     }
 
-    // Add into previous block output (two 32-bit values: overflow ≤ 1)
+    // Apply range constraints to `a` and `e` which are the only outputs not already lookup-constrained via sparse form
+    // conversion. Although not strictly necessary, this simplifies the analysis that the output of compression is fully
+    // constrained at minimal cost.
+    apply_32_bit_range_constraint_via_lookup(a.normal);
+    apply_32_bit_range_constraint_via_lookup(e.normal);
+
+    // Add round results into previous block output.
+    // Overflow bits = 1 since each summand is constrained to 32 bits.
     std::array<field_pt, 8> output;
     output[0] = add_normalize(a.normal, h_init[0], /*overflow_bits=*/1);
     output[1] = add_normalize(b.normal, h_init[1], /*overflow_bits=*/1);
