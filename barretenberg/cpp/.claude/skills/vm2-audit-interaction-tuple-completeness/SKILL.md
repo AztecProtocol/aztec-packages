@@ -350,3 +350,82 @@ Interaction tuples are critical in:
 - [Detailed Skill Documentation](../../../pil/vm2/claude-skills/15-interaction-tuple-completeness.md)
 - [Lookup vs Permutation](../../../pil/vm2/claude-skills/03-lookup-vs-permutation.md)
 - [Discard Revert Handling](../../../pil/vm2/claude-skills/11-discard-revert-handling.md)
+
+---
+
+## Required Output Format
+
+**IMPORTANT**: When running this audit skill, you MUST end your response with this standardized format.
+
+### Findings Summary
+
+At the end of your audit, provide a summary section:
+
+```markdown
+## Audit Results
+
+### Summary
+| Item | Value |
+|------|-------|
+| Skill | vm2-audit-interaction-tuple-completeness |
+| Target | [path that was audited] |
+| Files Scanned | [number] |
+| Findings | [count by severity, e.g., "2 Critical, 1 High, 0 Medium, 0 Low"] |
+| Status | COMPLETED_WITH_FINDINGS / COMPLETED_NO_FINDINGS / ERROR |
+
+### Findings
+
+#### Finding vm2-audit-interaction-tuple-completeness-[file]-[line]-[subtype] [SEVERITY]
+- **File**: `path/to/file.pil:line`
+- **Type**: [specific vulnerability type]
+- **Affected Column/Constraint**: [name]
+- **Description**: [brief description]
+- **Exploitability**: [High/Medium/Low] - [brief rationale]
+- **Suggested Fix**: [one-line fix suggestion]
+
+[Repeat for each finding]
+```
+
+### Machine-Readable Findings
+
+After the human-readable summary, include a JSON block:
+
+```markdown
+<!-- MACHINE-READABLE FINDINGS (do not edit manually) -->
+```json
+{
+  "skill": "vm2-audit-interaction-tuple-completeness",
+  "finding_prefix": "vm2-audit-interaction-tuple-completeness",
+  "status": "COMPLETED_WITH_FINDINGS | COMPLETED_NO_FINDINGS | ERROR",
+  "target": "pil/vm2",
+  "files_scanned": 0,
+  "findings": [
+    {
+      "id": "vm2-audit-interaction-tuple-completeness-filename-line-subtype",
+      "severity": "critical|high|medium|low",
+      "file": "path/to/file.pil",
+      "line": 123,
+      "type": "specific-vulnerability-type",
+      "column": "affected_column_name",
+      "description": "Brief description of the issue",
+      "exploitability": "high|medium|low",
+      "fix": "Suggested fix"
+    }
+  ]
+}
+```
+<!-- END MACHINE-READABLE FINDINGS -->
+```
+
+### Finding ID Convention
+
+- Format: `vm2-audit-interaction-tuple-completeness-[filename]-[line]-[subtype]`
+- Example: `vm2-audit-interaction-tuple-completeness-alu-123-SEL`
+- Use lowercase for filename (without extension)
+- Use CAPS for subtype descriptors
+
+### Status Values
+
+- `COMPLETED_NO_FINDINGS` - Audit completed, no issues found
+- `COMPLETED_WITH_FINDINGS` - Audit completed, issues found
+- `ERROR` - Audit could not complete (explain in description)
