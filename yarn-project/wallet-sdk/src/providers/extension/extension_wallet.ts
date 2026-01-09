@@ -94,18 +94,18 @@ export class ExtensionWallet {
    * );
    * ```
    */
-  static async create(
+  static create(
     walletInfo: WalletInfo,
     chainInfo: ChainInfo,
     port: MessagePort,
     sharedKey: CryptoKey,
     appId: string,
-  ): Promise<Wallet> {
+  ): Wallet {
     const wallet = new ExtensionWallet(chainInfo, appId, walletInfo.id, port, sharedKey);
 
     // Set up message handler
-    wallet.port.onmessage = async (event: MessageEvent<EncryptedPayload>) => {
-      await wallet.handleEncryptedResponse(event.data);
+    wallet.port.onmessage = (event: MessageEvent<EncryptedPayload>) => {
+      void wallet.handleEncryptedResponse(event.data);
     };
 
     wallet.port.start();

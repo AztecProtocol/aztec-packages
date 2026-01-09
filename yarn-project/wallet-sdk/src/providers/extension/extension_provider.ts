@@ -93,7 +93,7 @@ export class ExtensionProvider {
     const responses: DiscoveredWallet[] = [];
 
     // Set up listener for discovery responses
-    const handleMessage = async (event: MessageEvent) => {
+    const handleMessage = (event: MessageEvent) => {
       if (event.source !== window) {
         return;
       }
@@ -118,27 +118,29 @@ export class ExtensionProvider {
           return;
         }
 
-        try {
-          const importedWalletKey = await importPublicKey(walletPublicKey);
-          const sharedKey = await deriveSharedKey(keyPair.privateKey, importedWalletKey);
+        void (async () => {
+          try {
+            const importedWalletKey = await importPublicKey(walletPublicKey);
+            const sharedKey = await deriveSharedKey(keyPair.privateKey, importedWalletKey);
 
-          // Compute verification hash
-          const verificationHash = await hashSharedSecret(sharedKey);
+            // Compute verification hash
+            const verificationHash = await hashSharedSecret(sharedKey);
 
-          // Create wallet info with verification hash
-          const walletInfo: WalletInfo = {
-            ...data.walletInfo,
-            verificationHash,
-          };
+            // Create wallet info with verification hash
+            const walletInfo: WalletInfo = {
+              ...data.walletInfo,
+              verificationHash,
+            };
 
-          responses.push({
-            info: walletInfo,
-            port,
-            sharedKey,
-          });
-        } catch {
-          // Failed to derive key, skip this wallet
-        }
+            responses.push({
+              info: walletInfo,
+              port,
+              sharedKey,
+            });
+          } catch {
+            // Failed to derive key, skip this wallet
+          }
+        })();
       }
     };
 
