@@ -20,14 +20,7 @@ import type * as Attributes from './attributes.js';
 import type { MetricDefinition } from './metrics.js';
 import { getTelemetryClient } from './start.js';
 
-/** Extracts OpenTelemetry MetricOptions from a MetricDefinition */
-export function toMetricOptions(def: MetricDefinition): MetricOptions {
-  return {
-    description: def.description,
-    unit: def.unit,
-    valueType: def.valueType,
-  };
-}
+export { toMetricOptions } from './metric-utils.js';
 
 export { type Span, SpanStatusCode, ValueType, type Context } from '@opentelemetry/api';
 

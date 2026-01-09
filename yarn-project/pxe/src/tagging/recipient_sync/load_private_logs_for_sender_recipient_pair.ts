@@ -4,7 +4,7 @@ import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import type { DirectionalAppTaggingSecret, TxScopedL2Log } from '@aztec/stdlib/logs';
 
 import type { RecipientTaggingStore } from '../../storage/tagging_store/recipient_tagging_store.js';
-import { UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN } from '../index.js';
+import { UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN } from '../constants.js';
 import { findHighestIndexes } from './utils/find_highest_indexes.js';
 import { loadLogsForRange } from './utils/load_logs_for_range.js';
 

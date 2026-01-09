@@ -2,6 +2,7 @@ import { Fq, Fr } from '../curves/bn254/field.js';
 import { createConsoleLogger } from '../log/console.js';
 import type { EnvVar } from './env_var.js';
 import { type NetworkNames, getActiveNetworkName } from './network_name.js';
+import { parseBooleanEnv } from './parse-env.js';
 import { SecretValue } from './secret_value.js';
 
 export { SecretValue, getActiveNetworkName };
@@ -231,10 +232,7 @@ export function secretValueConfigHelper<T>(parse: (val: string | undefined) => T
   };
 }
 
-/** Parses an env var as boolean. Returns true only if value is 1, true, or TRUE. */
-export function parseBooleanEnv(val: string | undefined): boolean {
-  return val !== undefined && ['1', 'true', 'TRUE'].includes(val);
-}
+export { parseBooleanEnv } from './parse-env.js';
 
 export function secretStringConfigHelper(): Required<
   Pick<ConfigMapping, 'parseEnv' | 'defaultValue' | 'isBoolean'> & {
