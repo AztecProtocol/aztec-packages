@@ -132,11 +132,7 @@ class TwoLayerAvmRecursiveVerifier {
 
         // Step 2: Recursively verify the goblin proof \pi_G
         GoblinAvmStdlibProof stdlib_goblin_proof(*outer_builder, inner_output.goblin_proof);
-        GoblinAvmRecursiveVerifier goblin_verifier{
-            transcript,
-            stdlib_goblin_proof,
-            mega_verifier.get_verifier_instance()->witness_commitments.get_ecc_op_wires().get_copy()
-        };
+        GoblinAvmRecursiveVerifier goblin_verifier{ transcript, stdlib_goblin_proof, mega_verifier.get_ecc_op_wires() };
         auto goblin_verifier_output = goblin_verifier.reduce_to_pairing_check_and_ipa_opening();
 
         // Step 3: Aggregate pairing points coming from Mega verification and Goblin verification
@@ -144,21 +140,12 @@ class TwoLayerAvmRecursiveVerifier {
 
         // Step 4: Validate the consistency of the AVM2 verifier inputs {\pi, pub_inputs}_{AVM2} between the inner
         // (Mega) circuit and the outer (Ultra) by asserting equality on the independently computed hashes
-        auto transcript_from_avm = AvmRecursiveFlavor::Transcript::perform_avm_transcript_operations(
-            *outer_builder, stdlib_proof, public_inputs);
-        if (stdlib_proof.size() == AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED) {
-            // If the proof is padded, we need to add the padding values to the transcript because recursive
-            // verification doesn't do that
-            for (size_t idx = AvmFlavor::COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS;
-                 idx < AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED;
-                 idx++) {
-                transcript_from_avm->add_to_hash_buffer("proof_padding_" + std::to_string(idx), stdlib_proof[idx]);
-            }
-        }
-        mega_verifier_output.transcript_hash.assert_equal(
-            transcript_from_avm->template get_challenge<UltraFF>("final_transcript_state"));
+        const UltraFF computed_transcript_hash =
+            AvmRecursiveFlavor::UltraTranscript::hash_avm_transcript(*outer_builder, stdlib_proof, public_inputs);
+        mega_verifier_output.transcript_hash.assert_equal(computed_transcript_hash);
 
-        // Return ipa proof, ipa claim and output aggregation object produced from verifying the Mega + Goblin proofs
+        // Return ipa proof, ipa claim and output aggregation object produced from verifying the Mega + Goblin
+        // proofs
         RecursiveAvmGoblinOutput output;
         output.points_accumulator = std::move(mega_verifier_output.points_accumulator);
         output.ipa_claim = goblin_verifier_output.ipa_claim;
@@ -241,20 +228,11 @@ class TwoLayerAvmRecursiveVerifier {
 
         // Append to the transcript the padding values of the proof (if any) and generate a challenge to record the
         // final state of the transcript of the AVM recursive verifier
-        if (inner_stdlib_proof.size() == AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED) {
-            for (size_t idx = AvmFlavor::COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS;
-                 idx < AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED;
-                 idx++) {
-                recursive_verifier.transcript->add_to_hash_buffer("proof_padding_" + std::to_string(idx),
-                                                                  inner_stdlib_proof[idx]);
-            }
-        }
-        MegaFF transcript_final_state =
-            recursive_verifier.transcript->template get_challenge<MegaFF>("final_transcript_state");
+        const MegaFF transcript_hash = recursive_verifier.hash_transcript(inner_stdlib_proof);
 
         // Public inputs
         IO inputs;
-        inputs.transcript_hash = transcript_final_state;
+        inputs.transcript_hash = transcript_hash;
         inputs.pairing_inputs = points_accumulator;
         inputs.set_public();
     }

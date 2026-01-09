@@ -24,8 +24,9 @@
 
 namespace bb::avm2 {
 
-AvmRecursiveVerifier::AvmRecursiveVerifier(Builder& builder)
+AvmRecursiveVerifier::AvmRecursiveVerifier(Builder& builder, const std::shared_ptr<Transcript>& transcript)
     : builder(builder)
+    , transcript(transcript)
 {
     auto native_vk = std::make_shared<NativeVerificationKey>(constraining::AvmFixedVKCommitments::get_all());
 
@@ -214,7 +215,26 @@ AvmRecursiveVerifier::PairingPoints AvmRecursiveVerifier::verify_proof(
         info("AVM Recursive verifier builder failed with error: ", builder.err());
     }
 
+    is_verification_complete = true;
+
     return pairing_points;
 }
+
+AvmRecursiveVerifier::FF AvmRecursiveVerifier::hash_transcript(const stdlib::Proof<Builder>& stdlib_proof)
+{
+    BB_ASSERT(is_verification_complete, "Transcript can only be hashed after verification is complete");
+
+    if (stdlib_proof.size() == AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED) {
+        // If the proof is padded, we need to add the padding values to the transcript because recursive
+        // verification doesn't do that
+        transcript->add_element_frs_to_hash_buffer(
+            "proof_padding",
+            std::span(stdlib_proof)
+                .subspan(AvmFlavor::COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS,
+                         AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED - AvmFlavor::COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS));
+    }
+
+    return transcript->template get_challenge<FF>("final_transcript_state");
+};
 
 } // namespace bb::avm2

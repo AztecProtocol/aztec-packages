@@ -30,19 +30,29 @@ class AvmRecursiveVerifier {
     using StdlibProof = stdlib::Proof<Builder>;
 
   public:
-    explicit AvmRecursiveVerifier(Builder& builder);
+    explicit AvmRecursiveVerifier(Builder& builder,
+                                  const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
 
     [[nodiscard("IPA claim and Pairing points should be accumulated")]] PairingPoints verify_proof(
         const HonkProof& proof, const std::vector<std::vector<fr>>& public_inputs_vec_nt);
     [[nodiscard("IPA claim and Pairing points should be accumulated")]] PairingPoints verify_proof(
         const StdlibProof& stdlib_proof, const std::vector<std::vector<typename Flavor::FF>>& public_inputs);
 
+    /**
+     * @brief Hash the transcript after verification is complete to produce a hash of the public inputs and proofs that
+     * have been verified.
+     *
+     */
+    FF hash_transcript(const StdlibProof& stdlib_proof);
+
+  private:
     Builder& builder;
     std::shared_ptr<VerificationKey> key;
     FF vk_hash;
-    std::shared_ptr<Transcript> transcript = std::make_shared<Transcript>();
+    std::shared_ptr<Transcript> transcript;
 
-  private:
+    bool is_verification_complete = false;
+
     FF evaluate_public_input_column(const std::vector<FF>& points, const std::vector<FF>& challenges);
 };
 

@@ -39,8 +39,6 @@ GoblinAvm::GoblinAvm(MegaBuilder& builder,
      * circuit accumulation, but AVM uses Goblin directly without the full Chonk IVC flow.
      *
      */
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1537): Assess whether two Translator variants (one
-    // with ZK and one without) would be a better option
     builder.queue_ecc_no_op();
     builder.queue_ecc_random_op();
     builder.queue_ecc_random_op();

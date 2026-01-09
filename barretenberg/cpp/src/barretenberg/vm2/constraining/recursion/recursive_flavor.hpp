@@ -108,32 +108,36 @@ class AvmRecursiveFlavor {
             }
         }
     };
+    template <typename Builder> class TemplatedTranscript : public StdlibTranscript<Builder> {
+        using Base = StdlibTranscript<Builder>;
+        using FF = stdlib::field_t<Builder>;
 
-    class Transcript : public StdlibTranscript<CircuitBuilder> {
-      public:
+      private:
         /**
          * @brief Replicate the operations performed on the AVM transcript during proof verification
          *
          * @details The transcript used during the verification of an AVM proof hashes both the public inputs and the
          * AVM proof being verified. For this reason, its final state can be used as a hash of the public inputs and
          * proof that have been verified. This method replicates the operations performed on the transcript during AVM
-         * verification. It is used in the outer circuit of the Goblin AVM recursive verifier.
+         * verification. It is used hash_avm_transcript below, which in turn is used in the outer circuit of the Two
+         * Layer AVM Recursive verification.
          *
          */
-        template <typename Builder>
-        static std::shared_ptr<StdlibTranscript<Builder>> perform_avm_transcript_operations(
+        static std::shared_ptr<TemplatedTranscript<Builder>> perform_avm_transcript_operations(
             Builder& builder,
             const stdlib::Proof<Builder>& stdlib_proof,
-            const std::vector<std::vector<stdlib::field_t<Builder>>>& public_inputs)
+            const std::vector<std::vector<stdlib::field_t<Builder>>>& public_inputs,
+            const bool enable_manifest = false)
         {
-            using FF = stdlib::field_t<Builder>;
-
             auto native_vk = std::make_shared<NativeVerificationKey>(constraining::AvmFixedVKCommitments::get_all());
             auto native_vk_hash = native_vk->hash();
             FF vk_hash = FF::from_witness(&builder, native_vk_hash);
             vk_hash.fix_witness();
 
-            auto transcript = std::make_shared<StdlibTranscript<Builder>>();
+            auto transcript = std::make_shared<TemplatedTranscript<Builder>>();
+            if (enable_manifest) {
+                transcript->enable_manifest();
+            }
 
             transcript->load_proof(stdlib_proof);
 
@@ -147,23 +151,23 @@ class AvmRecursiveFlavor {
             }
 
             size_t proof_idx = 0;
+            std::span<const stdlib::field_t<Builder>> proof_span = stdlib_proof;
 
-            constexpr size_t num_frs_comm = Codec::calc_num_fields<Commitment>();
-            for (size_t i = 0; i < NUM_WIRE_ENTITIES; i++) {
-                for (size_t j = 0; j < num_frs_comm; j++) {
-                    transcript->add_to_hash_buffer("entity_" + std::to_string(i) + "_" + std::to_string(j),
-                                                   stdlib_proof[proof_idx++]);
-                }
+            constexpr size_t num_frs_comm =
+                Base::Codec::template calc_num_fields<typename Base::Codec::bn254_commitment>();
+            for (size_t idx = WIRE_START_IDX; idx < WIRE_START_IDX + NUM_WIRE_ENTITIES; idx++) {
+                transcript->add_element_frs_to_hash_buffer(COLUMN_NAMES[idx],
+                                                           proof_span.subspan(proof_idx, num_frs_comm));
+                proof_idx += num_frs_comm;
             }
 
             [[maybe_unused]] auto [_beta, _gamma] =
                 transcript->template get_challenges<FF>(std::array<std::string, 2>{ "beta", "gamma" });
 
-            for (size_t i = 0; i < NUM_DERIVED_ENTITIES; i++) {
-                for (size_t j = 0; j < num_frs_comm; j++) {
-                    transcript->add_to_hash_buffer("derived_entity_" + std::to_string(i) + "_" + std::to_string(j),
-                                                   stdlib_proof[proof_idx++]);
-                }
+            for (size_t idx = DERIVED_START_IDX; idx < DERIVED_START_IDX + NUM_DERIVED_ENTITIES; idx++) {
+                transcript->add_element_frs_to_hash_buffer(COLUMN_NAMES[idx],
+                                                           proof_span.subspan(proof_idx, num_frs_comm));
+                proof_idx += num_frs_comm;
             }
 
             [[maybe_unused]] const FF _alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
@@ -173,17 +177,16 @@ class AvmRecursiveFlavor {
 
             for (size_t i = 0; i < native_vk->log_circuit_size; i++) {
                 std::string round_univariate_label = "Sumcheck:univariate_" + std::to_string(i);
-                for (size_t j = 0; j < AvmFlavor::BATCHED_RELATION_PARTIAL_LENGTH; j++) {
-                    transcript->add_to_hash_buffer(round_univariate_label + "_eval_" + std::to_string(j),
-                                                   stdlib_proof[proof_idx++]);
-                }
+                transcript->add_element_frs_to_hash_buffer(
+                    round_univariate_label, proof_span.subspan(proof_idx, AvmFlavor::BATCHED_RELATION_PARTIAL_LENGTH));
+                proof_idx += AvmFlavor::BATCHED_RELATION_PARTIAL_LENGTH;
                 [[maybe_unused]] FF _round_challenge =
                     transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(i));
             }
 
-            for (size_t i = 0; i < NUM_ALL_ENTITIES; i++) {
-                transcript->add_to_hash_buffer("Sumcheck:evaluations_" + std::to_string(i), stdlib_proof[proof_idx++]);
-            }
+            transcript->add_element_frs_to_hash_buffer("Sumcheck:evaluations",
+                                                       proof_span.subspan(proof_idx, NUM_ALL_ENTITIES));
+            proof_idx += NUM_ALL_ENTITIES;
 
             std::vector<std::string> unshifted_batching_challenge_labels;
             unshifted_batching_challenge_labels.reserve(NUM_UNSHIFTED_ENTITIES - 1);
@@ -191,8 +194,8 @@ class AvmRecursiveFlavor {
                 unshifted_batching_challenge_labels.push_back("rho_" + std::to_string(idx));
             }
             std::vector<std::string> shifted_batching_challenge_labels;
-            shifted_batching_challenge_labels.reserve(NUM_SHIFTED_ENTITIES);
-            for (size_t idx = 0; idx < NUM_SHIFTED_ENTITIES; idx++) {
+            shifted_batching_challenge_labels.reserve(NUM_WIRES_TO_BE_SHIFTED);
+            for (size_t idx = 0; idx < NUM_WIRES_TO_BE_SHIFTED; idx++) {
                 shifted_batching_challenge_labels.push_back("rho_" + std::to_string(NUM_UNSHIFTED_ENTITIES - 1 + idx));
             }
 
@@ -204,38 +207,100 @@ class AvmRecursiveFlavor {
             [[maybe_unused]] const FF _gemini_batching_challenge = transcript->template get_challenge<FF>("rho");
 
             for (size_t i = 1; i < native_vk->log_circuit_size; ++i) {
-                for (size_t j = 0; j < num_frs_comm; j++) {
-                    transcript->add_to_hash_buffer("Gemini:FOLD_" + std::to_string(i), stdlib_proof[proof_idx++]);
-                }
+                transcript->add_element_frs_to_hash_buffer("Gemini:FOLD_" + std::to_string(i),
+                                                           proof_span.subspan(proof_idx, num_frs_comm));
+                proof_idx += num_frs_comm;
             }
 
             [[maybe_unused]] const FF _gemini_evaluation_challenge = transcript->template get_challenge<FF>("Gemini:r");
 
             for (size_t i = 1; i <= native_vk->log_circuit_size; ++i) {
-                transcript->add_to_hash_buffer("Gemini:a_" + std::to_string(i), stdlib_proof[proof_idx++]);
+                transcript->add_to_hash_buffer("Gemini:a_" + std::to_string(i), proof_span[proof_idx++]);
             }
 
             [[maybe_unused]] const FF _shplonk_batching_challenge =
                 transcript->template get_challenge<FF>("Shplonk:nu");
 
-            for (size_t j = 0; j < num_frs_comm; j++) {
-                transcript->add_to_hash_buffer("Shplonk:q_comm", stdlib_proof[proof_idx++]);
-            }
+            transcript->add_element_frs_to_hash_buffer("Shplonk:Q", proof_span.subspan(proof_idx, num_frs_comm));
+            proof_idx += num_frs_comm;
 
             [[maybe_unused]] const FF _shplonk_evaluation_challenge =
                 transcript->template get_challenge<FF>("Shplonk:z");
 
-            for (size_t j = 0; j < num_frs_comm; j++) {
-                transcript->add_to_hash_buffer("KZG:w_comm", stdlib_proof[proof_idx++]);
-            }
+            transcript->add_element_frs_to_hash_buffer("KZG:W", proof_span.subspan(proof_idx, num_frs_comm));
+            proof_idx += num_frs_comm;
 
             [[maybe_unused]] const FF _masking_challenge =
                 transcript->template get_challenge<FF>("KZG:masking_challenge");
 
             return transcript;
+        };
+
+      public:
+        /**
+         * @brief Add a span of elements to the hash buffer. Expose this method for use in the AVM recursie verifier.
+         *
+         */
+        void add_element_frs_to_hash_buffer(const std::string& label,
+                                            std::span<const typename Base::DataType> element_frs)
+        {
+            Base::add_element_frs_to_hash_buffer(label, element_frs);
+        }
+
+        /**
+         * @brief Hash the transcript after having replicated the operations performed on the AVM transcript during
+         * proof verification.
+         *
+         */
+        static stdlib::field_t<Builder> hash_avm_transcript(
+            Builder& builder,
+            const stdlib::Proof<Builder>& stdlib_proof,
+            const std::vector<std::vector<stdlib::field_t<Builder>>>& public_inputs)
+        {
+            auto transcript = perform_avm_transcript_operations(builder, stdlib_proof, public_inputs);
+            if (stdlib_proof.size() == AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED) {
+                // If the proof is padded, we need to add the padding values to the transcript because recursive
+                // verification doesn't do that
+                transcript->add_element_frs_to_hash_buffer(
+                    "proof_padding",
+                    std::span(stdlib_proof)
+                        .subspan(AvmFlavor::COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS,
+                                 AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED -
+                                     AvmFlavor::COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS));
+            }
+
+            return transcript->template get_challenge<stdlib::field_t<Builder>>("final_transcript_state");
+        }
+
+        /**
+         * @brief Testing method to hash the transcript after having replicated the operations performed on the AVM
+         * transcript during proof verification and return both the final state and the transcript.
+         *
+         */
+        static std::pair<stdlib::field_t<Builder>, std::shared_ptr<TemplatedTranscript<Builder>>>
+        hash_avm_transcript_for_testing(Builder& builder,
+                                        const stdlib::Proof<Builder>& stdlib_proof,
+                                        const std::vector<std::vector<stdlib::field_t<Builder>>>& public_inputs)
+        {
+            auto transcript = perform_avm_transcript_operations(builder, stdlib_proof, public_inputs, true);
+            if (stdlib_proof.size() == AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED) {
+                // If the proof is padded, we need to add the padding values to the transcript because recursive
+                // verification doesn't do that
+                transcript->add_element_frs_to_hash_buffer(
+                    "proof_padding",
+                    std::span(stdlib_proof)
+                        .subspan(AvmFlavor::COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS,
+                                 AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED -
+                                     AvmFlavor::COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS));
+            }
+
+            return { transcript->template get_challenge<stdlib::field_t<Builder>>("final_transcript_state"),
+                     transcript };
         }
     };
 
+    using Transcript = TemplatedTranscript<CircuitBuilder>;
+    using UltraTranscript = TemplatedTranscript<UltraCircuitBuilder>;
     using WitnessCommitments = NativeFlavor::WitnessEntities<Commitment>;
     using VerifierCommitments = NativeFlavor::VerifierCommitments_<Commitment, VerificationKey>;
 };
