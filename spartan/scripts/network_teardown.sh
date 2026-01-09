@@ -78,6 +78,6 @@ fi
 
 # Delete the namespace
 echo "Deleting namespace $NAMESPACE..."
-kubectl delete namespace "$NAMESPACE"
+kubectl delete namespace "$NAMESPACE" --ignore-not-found
 
 echo "Destroyed network $NAMESPACE"
