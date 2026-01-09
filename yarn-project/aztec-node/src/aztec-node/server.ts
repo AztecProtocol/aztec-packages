@@ -586,8 +586,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
    * @returns The requested block.
    */
   public async getBlockByHash(blockHash: Fr): Promise<L2Block | undefined> {
-    const publishedBlock = await this.blockSource.getPublishedBlockByHash(blockHash);
-    return publishedBlock?.block;
+    return await this.blockSource.getBlockByHash(blockHash);
   }
 
   /**

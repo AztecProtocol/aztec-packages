@@ -360,6 +360,31 @@ describe('aztec node', () => {
         expect(l2BlockSource.getBlock).toHaveBeenCalledWith(3);
       });
     });
+
+    describe('getBlockByHash', () => {
+      it('returns block for synced but not yet checkpointed block', async () => {
+        const block = L2Block.empty();
+        const blockHash = Fr.random();
+
+        l2BlockSource.getBlockByHash.mockResolvedValue(block);
+
+        const result = await node.getBlockByHash(blockHash);
+
+        expect(l2BlockSource.getBlockByHash).toHaveBeenCalledWith(blockHash);
+        expect(result).toBeDefined();
+        expect(result).toEqual(block);
+      });
+
+      it('returns undefined for non-existent block', async () => {
+        const blockHash = Fr.random();
+        l2BlockSource.getBlockByHash.mockResolvedValue(undefined);
+
+        const result = await node.getBlockByHash(blockHash);
+
+        expect(l2BlockSource.getBlockByHash).toHaveBeenCalledWith(blockHash);
+        expect(result).toBeUndefined();
+      });
+    });
   });
 
   describe('simulatePublicCalls', () => {

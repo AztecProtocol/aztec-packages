@@ -1866,6 +1866,72 @@ describe('Archiver', () => {
       expect(checkpointedBlock).toBeDefined();
       expect(checkpointedBlock!.checkpointNumber).toEqual(2);
     }, 10_000);
+
+    describe('getBlockByHash for synced blocks', () => {
+      it('retrieves synced block by hash before checkpoint', async () => {
+        setupMinimalL1Mocks();
+
+        // Create and add synced blocks (not checkpointed)
+        const block1 = await makeBlock(BlockNumber(1), 0, genesisArchive);
+        const block2 = await makeBlock(BlockNumber(2), 1, block1.archive);
+
+        await archiver.addBlock(block1);
+        await archiver.addBlock(block2);
+
+        // Get block header and compute hash
+        const header = await archiver.getBlockHeader(BlockNumber(1));
+        expect(header).toBeDefined();
+        const blockHash = await header!.hash();
+
+        // getPublishedBlockByHash should return undefined before block is checkpointed
+        const publishedBlock = await archiver.getPublishedBlockByHash(blockHash);
+        expect(publishedBlock).toBeUndefined();
+
+        // Store level: getBlockByHash works for synced blocks
+        const storeBlock = await archiverStore.getBlockByHash(blockHash);
+        expect(storeBlock).toBeDefined();
+        expect(storeBlock?.number).toBe(1);
+      });
+
+      it('retrieves block by hash after checkpoint', async () => {
+        setupMinimalL1Mocks();
+
+        // Sync checkpoint 1 from L1
+        const checkpoint1 = checkpoints[0];
+        const rollupTx1 = makeRollupTx(checkpoint1);
+        const blobHashes1 = makeVersionedBlobHashes(checkpoint1);
+        const blobsFromCheckpoint1 = makeBlobsFromCheckpoint(checkpoint1);
+
+        mockL1BlockNumbers(100n);
+        mockRollup.read.status.mockResolvedValue([
+          1n,
+          checkpoint1.archive.root.toString(),
+          1n,
+          checkpoint1.archive.root.toString(),
+          GENESIS_ROOT,
+        ]);
+
+        makeCheckpointProposedEvent(70n, checkpoint1.number, checkpoint1.archive.root.toString(), blobHashes1);
+        makeMessageSentEvents(60n, checkpoint1.number, messagesPerCheckpoint[0]);
+        mockInbox.read.getState.mockResolvedValue(makeInboxStateFromMsgCount(messagesPerCheckpoint[0].length));
+
+        publicClient.getTransaction.mockResolvedValueOnce(rollupTx1);
+        blobClient.getBlobSidecar.mockResolvedValueOnce(blobsFromCheckpoint1);
+
+        await archiver.start(false);
+        await waitUntilArchiverCheckpoint(CheckpointNumber(1));
+
+        // Get block header from the first block in checkpoint 1
+        const header = await archiver.getBlockHeader(BlockNumber(1));
+        expect(header).toBeDefined();
+        const blockHash = await header!.hash();
+
+        // After checkpoint, getPublishedBlockByHash should work
+        const publishedBlock = await archiver.getPublishedBlockByHash(blockHash);
+        expect(publishedBlock).toBeDefined();
+        expect(publishedBlock?.block.number).toBe(1);
+      });
+    });
   });
 
   // TODO(palla/reorg): Add a unit test for the archiver handleEpochPrune

@@ -1663,6 +1663,19 @@ export class Archiver
   }
 
   /**
+   * Gets a block by its hash (including synced blocks that are not yet checkpointed).
+   * @param blockHash - The block hash to retrieve.
+   * @returns The requested L2 block (or undefined if not found).
+   */
+  public async getBlockByHash(blockHash: Fr): Promise<L2Block | undefined> {
+    const block = await this.store.getBlockByHash(blockHash);
+    if (!block) {
+      return undefined;
+    }
+    return L2Block.fromBlockNew(block);
+  }
+
+  /**
    * Gets up to `limit` amount of L2 blocks starting from `from`.
    * @param from - Number of the first block to return (inclusive).
    * @param limit - The number of blocks to return.

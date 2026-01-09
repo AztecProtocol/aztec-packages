@@ -194,6 +194,13 @@ export interface L2BlockSource {
   getPublishedBlockByHash(blockHash: Fr): Promise<PublishedL2Block | undefined>;
 
   /**
+   * Gets a block by its hash (including synced blocks that are not yet checkpointed).
+   * @param blockHash - The block hash to retrieve.
+   * @returns The requested L2 block (or undefined if not found).
+   */
+  getBlockByHash(blockHash: Fr): Promise<L2Block | undefined>;
+
+  /**
    * Gets a published block by its archive root.
    * @param archive - The archive root to retrieve.
    * @returns The requested block (or undefined if not found).
