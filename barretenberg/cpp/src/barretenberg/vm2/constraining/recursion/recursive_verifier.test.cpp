@@ -229,7 +229,7 @@ TEST_P(AvmRecursiveTestsParameterized, TranscriptOperations)
         std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
         std::cout << "Time taken (recursive verification): "
                   << std::chrono::duration_cast<std::chrono::seconds>(end - start).count() << "s" << std::endl;
-        final_state_full_verification = avm_rec_verifier.hash_transcript(stdlib_proof);
+        final_state_full_verification = avm_rec_verifier.hash_avm_transcript(stdlib_proof);
     };
 
     // Perform only transcript operations

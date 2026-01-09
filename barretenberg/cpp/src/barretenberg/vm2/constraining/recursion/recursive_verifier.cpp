@@ -220,21 +220,10 @@ AvmRecursiveVerifier::PairingPoints AvmRecursiveVerifier::verify_proof(
     return pairing_points;
 }
 
-AvmRecursiveVerifier::FF AvmRecursiveVerifier::hash_transcript(const stdlib::Proof<Builder>& stdlib_proof)
+AvmRecursiveVerifier::FF AvmRecursiveVerifier::hash_avm_transcript(const stdlib::Proof<Builder>& stdlib_proof)
 {
     BB_ASSERT(is_verification_complete, "Transcript can only be hashed after verification is complete");
-
-    if (stdlib_proof.size() == AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED) {
-        // If the proof is padded, we need to add the padding values to the transcript because recursive
-        // verification doesn't do that
-        transcript->add_element_frs_to_hash_buffer(
-            "proof_padding",
-            std::span(stdlib_proof)
-                .subspan(AvmFlavor::COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS,
-                         AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED - AvmFlavor::COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS));
-    }
-
-    return transcript->template get_challenge<FF>("final_transcript_state");
+    return Transcript::hash_avm_transcript(transcript, stdlib_proof);
 };
 
 } // namespace bb::avm2

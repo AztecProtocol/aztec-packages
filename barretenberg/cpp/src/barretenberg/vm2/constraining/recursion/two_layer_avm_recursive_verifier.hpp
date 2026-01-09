@@ -228,7 +228,7 @@ class TwoLayerAvmRecursiveVerifier {
 
         // Append to the transcript the padding values of the proof (if any) and generate a challenge to record the
         // final state of the transcript of the AVM recursive verifier
-        const MegaFF transcript_hash = recursive_verifier.hash_transcript(inner_stdlib_proof);
+        const MegaFF transcript_hash = recursive_verifier.hash_avm_transcript(inner_stdlib_proof);
 
         // Public inputs
         IO inputs;
