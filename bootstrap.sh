@@ -130,13 +130,21 @@ function check_toolchains {
     fi
   done
   # Check Node.js version.
-  local node_min_version="22.15.0"
+  local node_min_version="24.12.0"
   local node_installed_version=$(node --version | cut -d 'v' -f 2)
   if [[ "$(printf '%s\n' "$node_min_version" "$node_installed_version" | sort -V | head -n1)" != "$node_min_version" ]]; then
-    encourage_dev_container
-    echo "Minimum Node.js version $node_min_version not found (got $node_installed_version)."
-    echo "Installation: nvm install $node_min_version"
-    exit 1
+    # Temporary measure: Install Node 24 until AMI includes the updated docker image with Node 24.
+    # This can be removed once the AMI is updated.
+    echo -e "${bold}${yellow}WARN: Node.js $node_min_version not found (got $node_installed_version). Installing temporarily...${reset}"
+    curl -fsSL https://deb.nodesource.com/setup_24.x | sudo -E bash -
+    sudo apt-get install -y nodejs
+    node_installed_version=$(node --version | cut -d 'v' -f 2)
+    if [[ "$(printf '%s\n' "$node_min_version" "$node_installed_version" | sort -V | head -n1)" != "$node_min_version" ]]; then
+      encourage_dev_container
+      echo "Failed to install Node.js $node_min_version."
+      exit 1
+    fi
+    echo -e "${bold}${green}Node.js $(node --version) installed successfully.${reset}"
   fi
   # Check for required npm globals.
   for util in corepack solhint; do
