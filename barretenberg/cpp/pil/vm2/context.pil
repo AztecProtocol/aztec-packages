@@ -47,7 +47,7 @@ namespace execution;
     pol commit last_child_id;
     pol commit last_child_returndata_addr;
     pol commit last_child_returndata_size;
-    pol commit last_child_success; // Careful with this for now...
+    pol commit last_child_success;
 
     // ==== Gas ====
     pol commit l2_gas_limit;
@@ -437,37 +437,65 @@ namespace execution;
     #[LAST_CHILD_ID_NEXT_ROW_DEFAULT]
     DEFAULT_CTX_ROW * (last_child_id' - last_child_id) = 0;
 
+    // =============================
+    //    L2 GAS LIMIT
+    // =============================
+
+    // Initialization: enqueued_call_start = 1 ==> l2_gas_limit = tx.l2_gas_limit (#[DISPATCH_EXEC_START] (tx.pil))
+    // Propagation:
     // NESTED_EXIT_CALL = 1 ==> l2_gas_limit' = parent_l2_gas_limit
-    // sel_enter_call   = 1 ==> constraints come from call logic
-    // otherwise        = 0 ==> l2_gas_limit' = l2_gas_limit
-    #[L2_GAS_LIMIT_NEXT_ROW]
-    DEFAULT_CTX_ROW * (l2_gas_limit' - l2_gas_limit) = 0;
+    // sel_enter_call   = 1 ==> constraints in call logic (external_call.pil)
+    // default row          ==> l2_gas_limit' = l2_gas_limit
+    // Note: There is no propagation constraint when `enqueued_call_end == 1` because the next active
+    //       row (enqueued_call_start == 1) is initialized.
     #[L2_GAS_LIMIT_RESTORE_ON_EXIT]
     NESTED_EXIT_CALL * (l2_gas_limit' - parent_l2_gas_limit) = 0;
+    #[L2_GAS_LIMIT_NEXT_ROW_DEFAULT]
+    DEFAULT_CTX_ROW * (l2_gas_limit' - l2_gas_limit) = 0;
 
+    // =============================
+    //    DA GAS LIMIT
+    // =============================
+
+    // Initialization: enqueued_call_start = 1 ==> da_gas_limit = tx.da_gas_limit (#[DISPATCH_EXEC_START] (tx.pil))
+    // Propagation:
     // NESTED_EXIT_CALL = 1 ==> da_gas_limit' = parent_da_gas_limit
-    // sel_enter_call   = 1 ==> constraints come from call logic
-    // otherwise        = 0 ==> da_gas_limit' = da_gas_limit
-    #[DA_GAS_LIMIT_NEXT_ROW]
-    DEFAULT_CTX_ROW * (da_gas_limit' - da_gas_limit) = 0;
+    // sel_enter_call   = 1 ==> constraints in call logic (external_call.pil)
+    // default row      = 0 ==> da_gas_limit' = da_gas_limit
+    // Note: There is no propagation constraint when `enqueued_call_end == 1` because the next active
+    //       row (enqueued_call_start == 1) is initialized.
     #[DA_GAS_LIMIT_RESTORE_ON_EXIT]
     NESTED_EXIT_CALL * (da_gas_limit' - parent_da_gas_limit) = 0;
+    #[DA_GAS_LIMIT_NEXT_ROW_DEFAULT]
+    DEFAULT_CTX_ROW * (da_gas_limit' - da_gas_limit) = 0;
 
-    // NESTED_EXIT_CALL = 1 ==> constraints come from lookup
+    // =============================
+    //    PARENT L2 GAS LIMIT
+    // =============================
+
+    // Note: parent_l2_gas_limit is not constrained in an enqueued call. It is ok because
+    //       it is only used to restore l2_gas_limit while exiting a nested call. (#[L2_GAS_LIMIT_RESTORE_ON_EXIT])
+    // NESTED_EXIT_CALL = 1 ==> constraints come from lookups (#[CTX_STACK_ROLLBACK] and #[CTX_STACK_RETURN])
     // sel_enter_call   = 1 ==> parent_l2_gas_limit' = l2_gas_limit
-    // otherwise        = 0 ==> parent_l2_gas_limit' = parent_l2_gas_limit
-    #[PARENT_L2_GAS_LIMIT_NEXT_ROW]
-    DEFAULT_CTX_ROW * (parent_l2_gas_limit' - parent_l2_gas_limit) = 0;
+    // default row          ==> parent_l2_gas_limit' = parent_l2_gas_limit
     #[PARENT_L2_GAS_LIMIT_STORE_ON_ENTER]
     sel_enter_call * (parent_l2_gas_limit' - l2_gas_limit) = 0;
+    #[PARENT_L2_GAS_LIMIT_NEXT_ROW_DEFAULT]
+    DEFAULT_CTX_ROW * (parent_l2_gas_limit' - parent_l2_gas_limit) = 0;
 
-    // NESTED_EXIT_CALL = 1 ==> constraints come from lookup
+    // =============================
+    //    PARENT DA GAS LIMIT
+    // =============================
+
+    // Note: parent_da_gas_limit is not constrained in an enqueued call. It is ok because
+    //       it is only used to restore da_gas_limit while exiting a nested call. (#[DA_GAS_LIMIT_RESTORE_ON_EXIT])
+    // NESTED_EXIT_CALL = 1 ==> constraints come from lookups (#[CTX_STACK_ROLLBACK] and #[CTX_STACK_RETURN])
     // sel_enter_call   = 1 ==> parent_da_gas_limit' = da_gas_limit
-    // otherwise        = 0 ==> parent_da_gas_limit' = parent_da_gas_limit
-    #[PARENT_DA_GAS_LIMIT_NEXT_ROW]
-    DEFAULT_CTX_ROW * (parent_da_gas_limit' - parent_da_gas_limit) = 0;
+    // default row          ==> parent_da_gas_limit' = parent_da_gas_limit
     #[PARENT_DA_GAS_LIMIT_STORE_ON_ENTER]
     sel_enter_call * (parent_da_gas_limit' - da_gas_limit) = 0;
+    #[PARENT_DA_GAS_LIMIT_NEXT_ROW_DEFAULT]
+    DEFAULT_CTX_ROW * (parent_da_gas_limit' - parent_da_gas_limit) = 0;
 
     // NESTED_EXIT_CALL = 1 ==> constraints come from lookup
     // sel_enter_call   = 1 ==> parent_l2_gas_used' = l2_gas_used

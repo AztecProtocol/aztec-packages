@@ -336,13 +336,13 @@ TEST(ContextConstrainingTest, GasNextRow)
                                } });
 
     check_relation<context>(trace,
-                            context::SR_L2_GAS_LIMIT_NEXT_ROW,
+                            context::SR_L2_GAS_LIMIT_NEXT_ROW_DEFAULT,
                             context::SR_L2_GAS_LIMIT_RESTORE_ON_EXIT,
-                            context::SR_DA_GAS_LIMIT_NEXT_ROW,
+                            context::SR_DA_GAS_LIMIT_NEXT_ROW_DEFAULT,
                             context::SR_DA_GAS_LIMIT_RESTORE_ON_EXIT,
-                            context::SR_PARENT_L2_GAS_LIMIT_NEXT_ROW,
+                            context::SR_PARENT_L2_GAS_LIMIT_NEXT_ROW_DEFAULT,
                             context::SR_PARENT_L2_GAS_LIMIT_STORE_ON_ENTER,
-                            context::SR_PARENT_DA_GAS_LIMIT_NEXT_ROW,
+                            context::SR_PARENT_DA_GAS_LIMIT_NEXT_ROW_DEFAULT,
                             context::SR_PARENT_DA_GAS_LIMIT_STORE_ON_ENTER,
                             context::SR_PARENT_L2_GAS_USED_NEXT_ROW,
                             context::SR_PARENT_L2_GAS_USED_STORE_ON_ENTER,
@@ -373,18 +373,18 @@ TEST(ContextConstrainingTest, GasNextRow)
 
     // Negative test: when no calls have been made, limits, parent limits, and parent used shouldn't change
     trace.set(C::execution_l2_gas_limit, 2, 1001);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_L2_GAS_LIMIT_NEXT_ROW),
-                              "L2_GAS_LIMIT_NEXT_ROW");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_L2_GAS_LIMIT_NEXT_ROW_DEFAULT),
+                              "L2_GAS_LIMIT_NEXT_ROW_DEFAULT");
     trace.set(C::execution_da_gas_limit, 2, 2001);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_DA_GAS_LIMIT_NEXT_ROW),
-                              "DA_GAS_LIMIT_NEXT_ROW");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_DA_GAS_LIMIT_NEXT_ROW_DEFAULT),
+                              "DA_GAS_LIMIT_NEXT_ROW_DEFAULT");
 
     trace.set(C::execution_parent_l2_gas_limit, 2, 2001);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_PARENT_L2_GAS_LIMIT_NEXT_ROW),
-                              "PARENT_L2_GAS_LIMIT_NEXT_ROW");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_PARENT_L2_GAS_LIMIT_NEXT_ROW_DEFAULT),
+                              "PARENT_L2_GAS_LIMIT_NEXT_ROW_DEFAULT");
     trace.set(C::execution_parent_da_gas_limit, 2, 4001);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_PARENT_DA_GAS_LIMIT_NEXT_ROW),
-                              "PARENT_DA_GAS_LIMIT_NEXT_ROW");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_PARENT_DA_GAS_LIMIT_NEXT_ROW_DEFAULT),
+                              "PARENT_DA_GAS_LIMIT_NEXT_ROW_DEFAULT");
 
     trace.set(C::execution_parent_l2_gas_used, 2, 501);
     EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_PARENT_L2_GAS_USED_NEXT_ROW),
