@@ -4,6 +4,7 @@
 #include <vector>
 
 #include "barretenberg/avm_fuzzer/common/weighted_selection.hpp"
+#include "barretenberg/avm_fuzzer/fuzz_lib/fuzzer_context.hpp"
 #include "barretenberg/avm_fuzzer/fuzz_lib/fuzzer_data.hpp"
 #include "barretenberg/vm2/common/avm_io.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
@@ -39,6 +40,9 @@ void mutate_gas_fees(GasFees& fees, std::mt19937_64& rng);
 void mutate_l2_to_l1_msg(ScopedL2ToL1Message& vec, std::mt19937_64& rng);
 ScopedL2ToL1Message generate_l2_to_l1_msg(std::mt19937_64& rng);
 
-void mutate_fuzzer_data_vec(std::vector<FuzzerData>& enqueued_calls, std::mt19937_64& rng, size_t max_size = 10);
+void mutate_fuzzer_data_vec(const FuzzerContext& context,
+                            std::vector<FuzzerData>& enqueued_calls,
+                            std::mt19937_64& rng,
+                            size_t max_size = 10);
 
 } // namespace bb::avm2::fuzzer
