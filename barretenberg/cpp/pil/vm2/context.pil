@@ -349,32 +349,50 @@ namespace execution;
 
     pol NESTED_RET_REV_ONLY = NESTED_EXIT_CALL * (1 - sel_error);
 
+    // =============================
+    //  LAST CHILD RETURNDATA ADDR
+    // =============================
+
+    // Initialization: enqueued_call_start = 1 ==> last_child_returndata_addr = 0;
+    // Propagation:
     // NESTED_RET_REV_ONLY = 1 ==> rop[1] (resolved operand 2 from execution trace)
     // sel_error           = 1 ==> last_child_returndata_addr' = 0;
     // sel_enter_call      = 1 ==> last_child_returndata_addr' = 0;
-    // enqueued_call_start = 1 ==> last_child_returndata_addr  = 0; <-- This row is 0
-    // otherwise           = 0 ==> last_child_returndata_addr' = last_child_returndata_addr
+    // default row         = 0 ==> last_child_returndata_addr' = last_child_returndata_addr
+    // Note: `sel_error == 1` case overlaps with an error occuring in an enqueued call.
+    //       Namely, last_child_returndata_addr on row `enqueued_call_start == 1` is enforced to be 0 both by
+    //       #[NEXT_RD_ADDR_IS_ZERO] and #[RD_ADDR_INIT].
+    #[RD_ADDR_INIT]
+    enqueued_call_start * last_child_returndata_addr = 0;
     #[RET_REV_RD_ADDR]
     NESTED_RET_REV_ONLY * (last_child_returndata_addr' - rop[1]) = 0;
+    // No need to gate by sel' because our tracegen sets last_child_returndata_addr == 0 on an inactive row.
     #[NEXT_RD_ADDR_IS_ZERO]
-    sel' * (sel_enter_call + sel_error) * last_child_returndata_addr' = 0;
-    #[RD_ADDR_IS_ZERO]
-    enqueued_call_start * last_child_returndata_addr = 0;
-    #[PROPAGATE_RD_ADDR]
+    (sel_enter_call + sel_error) * last_child_returndata_addr' = 0;
+    #[PROPAGATE_RD_ADDR_DEFAULT]
     DEFAULT_CTX_ROW * (last_child_returndata_addr' - last_child_returndata_addr) = 0;
 
+    // =============================
+    //  LAST CHILD RETURNDATA SIZE
+    // =============================
+
+    // Initialization: enqueued_call_start = 1 ==> last_child_returndata_size = 0;
+    // Propagation:
     // NESTED_RET_REV_ONLY = 1 ==> register[0] (intermediate register 1 from execution trace)
     // sel_error           = 1 ==> last_child_returndata_size' = 0;
     // sel_enter_call      = 1 ==> last_child_returndata_size' = 0;
-    // enqueued_call_start = 1 ==> last_child_returndata_size  = 0; <-- Current row is 0
-    // otherwise           = 0 ==> last_child_returndata_size' = last_child_returndata_size
-    #[RET_REV_RD_SIZE]
-    NESTED_RET_REV_ONLY  * (last_child_returndata_size' - register[0]) = 0;
-    #[NEXT_RD_SIZE_IS_ZERO]
-    sel' * (sel_enter_call + sel_error) * last_child_returndata_size' = 0;
-    #[RD_SIZE_IS_ZERO]
+    // default row         = 0 ==> last_child_returndata_size' = last_child_returndata_size
+    // Note: `sel_error == 1` case overlaps with an error occuring in an enqueued call.
+    //       Namely, last_child_returndata_size on row `enqueued_call_start == 1` is enforced to be 0 both by
+    //       #[NEXT_RD_SIZE_IS_ZERO] and #[RD_SIZE_INIT].
+    #[RD_SIZE_INIT]
     enqueued_call_start * last_child_returndata_size = 0;
-    #[PROPAGATE_RD_SIZE]
+    #[RET_REV_RD_SIZE]
+    NESTED_RET_REV_ONLY * (last_child_returndata_size' - register[0]) = 0;
+    // No need to gate by sel' because our tracegen sets last_child_returndata_size == 0 on an inactive row.
+    #[NEXT_RD_SIZE_IS_ZERO]
+    (sel_enter_call + sel_error) * last_child_returndata_size' = 0;
+    #[PROPAGATE_RD_SIZE_DEFAULT]
     DEFAULT_CTX_ROW * (last_child_returndata_size' - last_child_returndata_size) = 0;
 
     // nested_return          = 1 ==> last_child_success' = 1;
