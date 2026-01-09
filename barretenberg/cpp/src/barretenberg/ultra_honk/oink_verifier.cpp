@@ -53,7 +53,7 @@ template <typename Flavor> void OinkVerifier<Flavor>::execute_preamble_round()
 {
     auto vk = verifier_instance->get_vk();
 
-    FF vk_hash = vk->hash_with_origin_tagging(domain_separator, *transcript);
+    FF vk_hash = vk->hash_with_origin_tagging(*transcript);
     transcript->add_to_hash_buffer(domain_separator + "vk_hash", vk_hash);
     vinfo("vk hash in Oink verifier: ", vk_hash);
 

@@ -71,6 +71,8 @@ Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg`
 50. `dsl/acir_format/recursion_constraint.cpp`
 51. `dsl/acir_format/recursion_constraint_output.hpp`
 52. `dsl/acir_format/recursion_constraint_output.cpp`
+53. `dsl/acir_format/honk_recursion_constraint.hpp`
+54. `dsl/acir_format/honk_recursion_constraint.cpp`
 53. `dsl/acir_format/mock_verifier_inputs.hpp`
 
 ## Summary of Module
@@ -93,6 +95,7 @@ The Honk proving system is Barretenberg's core SNARK proving system implementing
 13. `ultra_honk/lookup.test.cpp`
 14. `ultra_honk/rom_ram.test.cpp`
 15. `ultra_honk/range_constraint.test.cpp`
+16. `dsl/acir_format/honk_recursion_constraint.test.cpp`
 
 ## Security Mechanisms
 
