@@ -227,79 +227,6 @@ return value >> shift_amount;
 ```
 **Impact**: Inconsistent simulation results.
 
-## Test Patterns
-
-### Test 1: Fake Overflow Detection
-
-```cpp
-TEST_F(AluTest, NegativeShiftFakeOverflow)
-{
-    // Try to claim overflow when b < max_bits
-    auto trace = TestTraceContainer({
-        {{ C::sel_op_shr, 1 },
-         { C::a, 0x12345678 },
-         { C::b, 4 },           // Small shift (not overflow!)
-         { C::overflow, 1 },    // Claiming overflow (INVALID)
-         { C::c, 0 }},          // Fake output of 0
-    });
-
-    EXPECT_THROW_WITH_MESSAGE(
-        check_relation<AluRelation>(trace),
-        "OVERFLOW"  // Should fail overflow check
-    );
-}
-```
-
-**Interpretation**:
-- **Test passes (throws)**: Fake overflow detected - secure
-- **Test fails (no throw)**: Fake overflow not caught - vulnerable
-
-### Test 2: Manipulated Intermediate
-
-```cpp
-TEST_F(AluTest, NegativeShiftManipulatedIntermediate)
-{
-    auto trace = TestTraceContainer({
-        {{ C::sel_op_shr, 1 },
-         { C::a, 0x12345678 },
-         { C::b, 4 },
-         { C::overflow, 0 },
-         { C::two_pow_shift_lo_bits, 999 },  // Wrong! Should be 16
-         { C::c, wrong_result }},
-    });
-
-    EXPECT_THROW(
-        check_relation<AluRelation>(trace),
-        std::exception
-    );
-}
-```
-
-### Test 3: Shift by Zero
-
-```cpp
-TEST_F(AluTest, PositiveShiftByZero)
-{
-    auto trace = create_shift_trace(value, 0);  // Shift by 0
-
-    check_relation<AluRelation>(trace);
-    EXPECT_EQ(trace.get_result(), value);  // Result should equal input
-}
-```
-
-### Test 4: Shift by Type Width
-
-```cpp
-TEST_F(AluTest, PositiveShiftByTypeWidth)
-{
-    auto trace = create_shift_trace(value, 32);  // Shift U32 by 32
-
-    check_relation<AluRelation>(trace);
-    EXPECT_EQ(trace.get_overflow(), 1);
-    EXPECT_EQ(trace.get_result(), 0);
-}
-```
-
 ## Audit Checklist
 
 1. **Find all shift operations**:
@@ -341,22 +268,6 @@ sel_shift { b, two_pow_shift_lo_bits } in pow2.sel { pow2.exp, pow2.value };
 #[OVERFLOW_IFF_B_GE_MAX]
 // Using zero-check pattern on (max_bits - b - 1)
 // overflow = 1 iff (max_bits - 1 - b) < 0, i.e., b >= max_bits
-```
-
-## Build and Test Commands
-
-```bash
-# Regenerate C++ from PIL
-vmp  # or: ../../bb-pilcom/target/release/bb_pil pil/vm2
-
-# Build VM2 tests
-vmb  # or: cmake --preset build && cd build && ninja vm2_tests
-
-# Run all VM2 tests
-vmt  # or: ./build/bin/vm2_tests
-
-# Run specific ALU test
-vmtg "AluConstraining*"
 ```
 
 ## Common Locations to Audit

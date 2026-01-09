@@ -243,143 +243,6 @@ sel_execute_sstore * ((1 - sel_opcode_error) - sel_write_public_data) = 0;
 **Test**: `storage_write.test.cpp:NegativeFullAttackWithAllTraces`
 **Fix**: Add `sel_write_public_data * (1 - sel_execute_sstore) = 0`
 
-## Test Patterns
-
-### Test 1: Sub-Selector on Inactive Row
-
-```cpp
-TEST_F(ComponentTest, NegativeSelectorOnInactiveRow)
-{
-    auto trace = TestTraceContainer({
-        // Row with sel = 0 but sub_selector = 1
-        {{ C::component_sel, 0 },
-         { C::sub_selector, 1 }},
-    });
-
-    EXPECT_THROW_WITH_MESSAGE(
-        check_relation<ComponentRelation>(trace),
-        "SUB_SELECTOR_IMPLIES_SEL"
-    );
-}
-```
-
-**Interpretation**:
-- **Test passes (throws)**: Implication enforced - secure
-- **Test fails (no throw)**: Ghost operation possible - vulnerable
-
-### Test 2: Multiple Sub-Selectors on Inactive Row
-
-```cpp
-TEST_F(ComponentTest, NegativeMultipleSelectorsOnInactiveRow)
-{
-    auto trace = TestTraceContainer({
-        // Row with sel = 0 but multiple sub_selectors = 1
-        {{ C::component_sel, 0 },
-         { C::is_public_call_request, 1 },
-         { C::is_collect_fee, 1 }},
-    });
-
-    // Should fail on first constraint checked
-    EXPECT_THROW(
-        check_relation<ComponentRelation>(trace),
-        std::runtime_error
-    );
-}
-```
-
-### Test 3: Non-Boolean on Inactive Row (Gated Boolean)
-
-```cpp
-TEST_F(ComponentTest, NegativeNonBooleanOnInactiveRow)
-{
-    auto trace = TestTraceContainer({
-        // Row with sel = 0 and sub_selector = 2 (non-boolean)
-        {{ C::component_sel, 0 },
-         { C::sub_selector, 2 }},  // Should be forced to 0
-    });
-
-    EXPECT_THROW_WITH_MESSAGE(
-        check_relation<ComponentRelation>(trace),
-        "SUB_SELECTOR"
-    );
-}
-```
-
-### Test 4: Interaction Fires on Inactive Row
-
-```cpp
-TEST_F(ComponentTest, NegativeInteractionOnInactiveRow)
-{
-    // Build trace where sub_selector triggers interaction on inactive row
-    auto trace = TestTraceContainer({
-        {{ C::component_sel, 0 },
-         { C::sel_memory_op, 1 },  // Tries to trigger memory interaction
-         { C::addr, 100 },
-         { C::value, 42 }},
-    });
-
-    // Either relation or interaction should fail
-    EXPECT_THROW(
-        check_all_interactions<ComponentTraceBuilder>(trace),
-        std::exception
-    );
-}
-```
-
-### Test 5: CRITICAL - Full Attack With All Traces Populated
-
-**This is the most important test.** It simulates a sophisticated attacker who populates ALL traces.
-
-```cpp
-TEST_F(ComponentTest, NegativeFullAttackWithAllTraces)
-{
-    // Step 1: Use simulation gadgets to create LEGITIMATE destination events
-    // (same code as a normal positive test)
-    EventEmitter<DestinationEvent> emitter;
-    DestinationGadget gadget(poseidon2, merkle_check, field_gt, emitter);
-
-    // Create events with ATTACKER-CONTROLLED values
-    FF malicious_value = 999;
-    FF malicious_slot = 666;
-    gadget.operation(malicious_slot, malicious_value, ...);
-
-    // Step 2: Build destination trace from events (LEGITIMATE rows with sel=1)
-    TestTraceContainer trace;
-    DestinationTraceBuilder dest_builder;
-    dest_builder.process(emitter.dump_events(), trace);
-
-    // Step 3: Find where destination row was placed and its clk
-    uint32_t dest_row = /* find row where destination selector = 1 */;
-    FF dest_clk = trace.get(C::destination_clk, dest_row);
-
-    // Step 4: Place GHOST source row where precomputed_clk matches dest_clk
-    uint32_t ghost_row = static_cast<uint32_t>(dest_clk);
-    trace.set(C::source_main_sel, ghost_row, 0);        // GHOST: main selector OFF
-    trace.set(C::source_sub_selector, ghost_row, 1);    // Fire the interaction anyway
-    trace.set(C::source_value, ghost_row, malicious_value);
-    trace.set(C::precomputed_clk, ghost_row, ghost_row);
-    // ... set other permutation tuple columns ...
-
-    // Step 5: Check if attack succeeds
-    check_relation<SourceRelation>(trace);  // Should pass (vulnerability)
-    check_relation<DestinationRelation>(trace);  // Will pass (legitimate rows)
-
-    bool attack_succeeded = false;
-    try {
-        check_permutation<SourceTraceBuilder, perm_settings>(trace);
-        attack_succeeded = true;
-    } catch (...) {}
-
-    if (attack_succeeded) {
-        // CRITICAL VULNERABILITY - attack works!
-        std::cout << "CRITICAL: Attack succeeded!" << std::endl;
-        std::cout << "Required fix: sub_selector * (1 - main_sel) = 0" << std::endl;
-    }
-}
-```
-
-**Key insight**: This test uses the SAME simulation gadgets as legitimate tests, but injects a ghost source row. If the permutation passes, the vulnerability is exploitable.
-
 ## Audit Checklist
 
 1. **Identify all sub-selectors**:
@@ -477,7 +340,7 @@ grep -rn "in trace\.sel\|is trace\.sel" pil/vm2/ --include="*.pil"
 
 If callers use `trace.sel` as destination, ghost rows (sel=0) cannot be consumed - they're isolated.
 
-### Step 2: Check Outgoing Interaction Destinations
+### Step 3: Check Outgoing Interaction Destinations
 
 For lookups/permutations FROM ghost rows, check if destination gadgets have implication constraints:
 
@@ -489,7 +352,7 @@ grep -n "in \|is " pil/vm2/trace.pil
 
 If destinations enforce implication, ghost lookups require legitimate (constrained) destination rows.
 
-### Step 3: Classify Gadget Type
+### Step 4: Classify Gadget Type
 
 - **Stateless verification** (gt, range_check, ff_gt): Extra rows harmless
 - **Stateful traces** (memory, execution): Extra rows dangerous
@@ -520,22 +383,6 @@ pol commit sub_selector;
 sub_selector * (1 - sub_selector) = 0;
 #[SUB_SELECTOR_REQUIRES_SEL]
 sub_selector * (1 - sel) = 0;
-```
-
-## Build and Test Commands
-
-```bash
-# Regenerate C++ from PIL
-vmp  # or: ../../bb-pilcom/target/release/bb_pil pil/vm2
-
-# Build VM2 tests
-vmb  # or: cmake --preset build && cd build && ninja vm2_tests
-
-# Run all VM2 tests
-vmt  # or: ./build/bin/vm2_tests
-
-# Run specific component test
-vmtg "ComponentConstraining*"
 ```
 
 ## Common Locations to Audit

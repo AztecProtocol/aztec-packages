@@ -234,91 +234,6 @@ sel_start * err * (1 - sel_end) = 0;
 ```
 **Impact**: Premature end on non-start rows.
 
-## Test Patterns
-
-### Test 1: Premature Exit Without End
-
-```cpp
-TEST_F(ComponentTest, NegativePrematureTermination)
-{
-    auto trace = TestTraceContainer({
-        // Row 0: start computation with 3 remaining
-        {{ C::sel, 1 }, { C::start, 1 }, { C::remaining, 3 }},
-        // Row 1: continue
-        {{ C::sel, 1 }, { C::remaining, 2 }},
-        // Row 2: PREMATURE EXIT without end (remaining = 1, not 0)
-        {{ C::sel, 0 }, { C::end, 0 }, { C::remaining, 1 }},
-    });
-
-    EXPECT_THROW_WITH_MESSAGE(
-        check_relation<ComponentRelation>(trace),
-        "COMPUTATION_FINISH_AT_END"
-    );
-}
-```
-
-**Interpretation**:
-- **Test passes (throws)**: Continuity enforced - secure
-- **Test fails (no throw)**: Premature termination allowed - vulnerable
-
-### Test 2: Fake End Before Done
-
-```cpp
-TEST_F(ComponentTest, NegativeFakeEnd)
-{
-    auto trace = TestTraceContainer({
-        // Row 0: start computation with 3 remaining
-        {{ C::sel, 1 }, { C::start, 1 }, { C::remaining, 3 }},
-        // Row 1: fake end while remaining > 0
-        {{ C::sel, 1 }, { C::end, 1 }, { C::remaining, 2 }},  // INVALID
-    });
-
-    EXPECT_THROW_WITH_MESSAGE(
-        check_relation<ComponentRelation>(trace),
-        "END_ONLY_WHEN_DONE"
-    );
-}
-```
-
-### Test 3: Missing End When Done
-
-```cpp
-TEST_F(ComponentTest, NegativeMissingEndWhenDone)
-{
-    auto trace = TestTraceContainer({
-        // Row 0: start with 1 remaining
-        {{ C::sel, 1 }, { C::start, 1 }, { C::remaining, 1 }},
-        // Row 1: remaining = 0 but end = 0 (should be 1)
-        {{ C::sel, 1 }, { C::end, 0 }, { C::remaining, 0 }},  // INVALID
-    });
-
-    EXPECT_THROW_WITH_MESSAGE(
-        check_relation<ComponentRelation>(trace),
-        "MUST_END_WHEN_DONE"
-    );
-}
-```
-
-### Test 4: Error on Non-Start Row
-
-```cpp
-TEST_F(ComponentTest, NegativeErrorOnNonStartRow)
-{
-    auto trace = TestTraceContainer({
-        // Row 0: start computation
-        {{ C::sel, 1 }, { C::start, 1 }, { C::err, 0 }},
-        // Row 1: middle row with error trying to end
-        {{ C::sel, 1 }, { C::start, 0 }, { C::err, 1 }, { C::sel_end, 1 }},
-    });
-
-    // Should fail if err-based end requires start gating
-    EXPECT_THROW_WITH_MESSAGE(
-        check_relation<ComponentRelation>(trace),
-        "END_ON_ERR"
-    );
-}
-```
-
 ## Audit Checklist
 
 1. **Identify multi-row computations**:
@@ -360,22 +275,6 @@ end * remaining_count = 0;
 
 #[MUST_END_WHEN_COMPLETE]
 (1 - end) * (remaining_count_is_zero) = 0;
-```
-
-## Build and Test Commands
-
-```bash
-# Regenerate C++ from PIL
-vmp  # or: ../../bb-pilcom/target/release/bb_pil pil/vm2
-
-# Build VM2 tests
-vmb  # or: cmake --preset build && cd build && ninja vm2_tests
-
-# Run all VM2 tests
-vmt  # or: ./build/bin/vm2_tests
-
-# Run specific component test
-vmtg "ComponentConstraining*"
 ```
 
 ## Common Locations to Audit

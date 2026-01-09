@@ -280,58 +280,6 @@ sel = 0;
 ```
 **Impact**: Skippable never works on row 0.
 
-## Test Patterns
-
-### Test 1: Skippable on First Row
-
-```cpp
-TEST_F(ComponentTest, PositiveSkippableFirstRow)
-{
-    // Create minimal trace where sel = 0 on row 0
-    auto trace = TestTraceContainer({
-        {{ C::sel, 0 }, { C::precomputed_first_row, 1 }},  // Row 0
-        {{ C::sel, 0 }, { C::precomputed_first_row, 0 }},  // Row 1
-    });
-
-    // Run with skippable enabled
-    run_check_circuit(trace, true /* skippable_enabled */);
-    // Should pass if constraints are properly skippable
-}
-```
-
-**Interpretation**:
-- **Test passes**: Constraints properly nullified - secure
-- **Test fails**: first_row preventing nullification - needs fix
-
-### Test 2: Active on First Row, Inactive on Second
-
-```cpp
-TEST_F(ComponentTest, PositiveActiveFirstRowInactiveSecond)
-{
-    auto trace = TestTraceContainer({
-        {{ C::sel, 1 }, { C::precomputed_first_row, 1 }},  // Row 0: active
-        {{ C::sel, 0 }, { C::precomputed_first_row, 0 }},  // Row 1: inactive
-    });
-
-    // Should pass with or without skippable
-    run_check_circuit(trace, false);
-    run_check_circuit(trace, true);
-}
-```
-
-### Test 3: Compare With and Without Skippable
-
-```cpp
-TEST_F(ComponentTest, SkippableConsistency)
-{
-    auto trace = create_valid_trace();
-
-    // Both should pass
-    run_check_circuit(trace, false /* no skippable */);
-    run_check_circuit(trace, true /* with skippable */);
-}
-```
-
 ## Audit Checklist
 
 1. **Find all uses of first_row**:
@@ -399,25 +347,6 @@ sel + precomputed.first_row = 0;
 #[skippable_if]
 sel = 0;
 // And ensure all constraints are nullified by sel = 0
-```
-
-## Build and Test Commands
-
-```bash
-# Regenerate C++ from PIL
-vmp  # or: ../../bb-pilcom/target/release/bb_pil pil/vm2
-
-# Build VM2 tests
-vmb  # or: cmake --preset build && cd build && ninja vm2_tests
-
-# Run all VM2 tests (without skippable)
-vmt  # or: ./build/bin/vm2_tests
-
-# Run with skippable enabled
-AVM_SKIPPABLE=1 vmt
-
-# Run specific component test with skippable
-AVM_SKIPPABLE=1 vmtg "ComponentConstraining*"
 ```
 
 ## Common Locations to Audit
