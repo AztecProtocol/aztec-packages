@@ -185,7 +185,7 @@ namespace execution;
     // Propagation:
     // sel_enter_call   = 1 ==> context_id' = next_context_id
     // NESTED_EXIT_CALL = 1 ==> context_id' = parent_id
-    // default row      = 0 ==> context_id' = context_id
+    // default row          ==> context_id' = context_id
     // Note: There is no propagation constraint when `enqueued_call_end == 1` because the next active
     //       row (enqueued_call_start == 1) is initialized.
     #[CONTEXT_ID_EXT_CALL]
@@ -203,7 +203,7 @@ namespace execution;
     // Propagation:
     // sel_enter_call   = 1 ==> parent_id' = context_id
     // NESTED_EXIT_CALL = 1 ==> constraints come from lookups (#[CTX_STACK_ROLLBACK] and #[CTX_STACK_RETURN])
-    // default row      = 0 ==> parent_id' = parent_id
+    // default row          ==> parent_id' = parent_id
     // Note: There is no propagation constraint when `enqueued_call_end == 1` because the next active
     //       row (enqueued_call_start == 1) is initialized.
     #[PARENT_ID_INIT]
@@ -229,7 +229,7 @@ namespace execution;
     // internal_return  = 1 ==> pc' = internal_call_stack.return_pc (#[UNWIND_CALL_STACK] internal_call.pil)
     // jump             = 1 ==> pc' = rop[0] (#[PC_NEXT_ROW_INT_CALL_JUMP] execution.pil)
     // jumpi            = 1 ==> pc' = register[0] ? rop[1] : next_pc (#[PC_NEXT_ROW_JUMPI] execution.pil)
-    // otherwise        = 0 ==> pc' = next_pc
+    // otherwise            ==> pc' = next_pc
     // Note: There is no propagation constraint when `enqueued_call_end == 1` because the next active
     //       row (enqueued_call_start == 1) is initialized.
     #[PC_NEXT_ROW_EXT_CALL]
@@ -299,7 +299,7 @@ namespace execution;
     // sel_enter_call   = 1 && is_static = 0 && sel_execute_static_call = 1 ==> is_static' = 1
     // sel_enter_call   = 1 && is_static = 0 && sel_execute_static_call = 0 ==> is_static' = 0
     // sel_enter_call   = 1 && is_static = 1 ==> is_static' = 1
-    // default row      = 0 ==> is_static' = is_static
+    // default row          ==> is_static' = is_static
     // Note: There is no propagation constraint when `enqueued_call_end == 1` because the next active
     //       row (enqueued_call_start == 1) is initialized.
 
@@ -320,7 +320,7 @@ namespace execution;
     // Propagation:
     // NESTED_EXIT_CALL    = 1 ==> constraints come from lookups (#[CTX_STACK_ROLLBACK] and #[CTX_STACK_RETURN])
     // sel_enter_call      = 1 ==> parent_calldata_addr' = rop[4] (resolved operand 5 from execution trace)
-    // default row         = 0 ==> parent_calldata_addr' = parent_calldata_addr
+    // default row             ==> parent_calldata_addr' = parent_calldata_addr
     // Note: There is no propagation constraint when `enqueued_call_end == 1` because the next active
     //       row (enqueued_call_start == 1) is initialized.
     #[CD_ADDR_ENQUEUED_CALL_IS_ZERO]
@@ -339,7 +339,7 @@ namespace execution;
     // Propagation:
     // NESTED_EXIT_CALL    = 1 ==> constraints come from lookups (#[CTX_STACK_ROLLBACK] and #[CTX_STACK_RETURN])
     // sel_enter_call      = 1 ==> parent_calldata_size' = register[3] (register 4 from execution trace)
-    // default row         = 0 ==> parent_calldata_size' = parent_calldata_size
+    // default row             ==> parent_calldata_size' = parent_calldata_size
     // Note: There is no propagation constraint when `enqueued_call_end == 1` because the next active
     //       row (enqueued_call_start == 1) is initialized.
     #[CD_SIZE_NEXT_ROW_EXT_CALL]
@@ -358,7 +358,7 @@ namespace execution;
     // NESTED_RET_REV_ONLY = 1 ==> rop[1] (resolved operand 2 from execution trace)
     // sel_error           = 1 ==> last_child_returndata_addr' = 0;
     // sel_enter_call      = 1 ==> last_child_returndata_addr' = 0;
-    // default row         = 0 ==> last_child_returndata_addr' = last_child_returndata_addr
+    // default row             ==> last_child_returndata_addr' = last_child_returndata_addr
     // Note: `sel_error == 1` case overlaps with an error occuring in an enqueued call.
     //       Namely, last_child_returndata_addr on row `enqueued_call_start == 1` is enforced to be 0 both by
     //       #[NEXT_RD_ADDR_IS_ZERO] and #[RD_ADDR_INIT].
@@ -381,7 +381,7 @@ namespace execution;
     // NESTED_RET_REV_ONLY = 1 ==> register[0] (intermediate register 1 from execution trace)
     // sel_error           = 1 ==> last_child_returndata_size' = 0;
     // sel_enter_call      = 1 ==> last_child_returndata_size' = 0;
-    // default row         = 0 ==> last_child_returndata_size' = last_child_returndata_size
+    // default row             ==> last_child_returndata_size' = last_child_returndata_size
     // Note: `sel_error == 1` case overlaps with an error occuring in an enqueued call.
     //       Namely, last_child_returndata_size on row `enqueued_call_start == 1` is enforced to be 0 both by
     //       #[NEXT_RD_SIZE_IS_ZERO] and #[RD_SIZE_INIT].
@@ -395,19 +395,26 @@ namespace execution;
     #[PROPAGATE_RD_SIZE_DEFAULT]
     DEFAULT_CTX_ROW * (last_child_returndata_size' - last_child_returndata_size) = 0;
 
-    // nested_return          = 1 ==> last_child_success' = 1;
+    // =============================
+    //    LAST CHILD SUCCESS
+    // =============================
+
+    // Initialization: enqueued_call_start = 1 ==> last_child_success = 0;
+    // Propagation:
+    // nested_return  = 1 ==> last_child_success' = 1;
     // nested_failure = 1 ==> last_child_success' = 0;
     // Last child success value is reset when entering a new context/call (Default is false in simulation):
-    // sel_enter_call         = 1 ==> last_child_success' = 0;
-    // enqueued_call_start    = 1 ==> last_child_success = 0;
-    // otherwise                  ==> last_child_success' = last_child_success;
+    // sel_enter_call = 1 ==> last_child_success' = 0;
+    // otherwise          ==> last_child_success' = last_child_success;
+    // Note: There is no propagation constraint when `enqueued_call_end == 1` because the next active
+    //       row (enqueued_call_start == 1) is initialized.
+    #[LAST_CHILD_SUCCESS_INIT]
+    enqueued_call_start * last_child_success = 0;
     #[NESTED_RETURN_LAST_CHILD_SUCCESS]
     nested_return * (last_child_success' - 1) = 0;
     #[LAST_CHILD_SUCCESS_NEXT_ROW_ZERO]
     (nested_failure + sel_enter_call) * last_child_success' = 0;
-    #[LAST_CHILD_SUCCESS_IS_ZERO]
-    enqueued_call_start * last_child_success = 0;
-    #[PROPAGATE_LAST_CHILD_SUCCESS]
+    #[LAST_CHILD_SUCCESS_NEXT_ROW_DEFAULT]
     DEFAULT_CTX_ROW * (last_child_success' - last_child_success) = 0;
 
     // NESTED_EXIT_CALL    = 1 ==> last_child_id' = context_id;  <-- sel_exit_call includes error case
