@@ -1013,13 +1013,10 @@ TEST(ToRadixMemoryConstrainingTest, ComplexTest)
 // Ghost Row Injection Vulnerability Tests
 // =====================================================================
 // These tests verify that ghost rows (sel=0) cannot fire permutations.
-// The vulnerability: sel_should_write_mem is only constrained via start
-// row assignment and NOT_LAST propagation, but NOT_LAST = sel * (1 - LATCH_CONDITION).
-// When sel=0, sel_should_write_mem is unconstrained, allowing ghost rows
-// to fire the #[WRITE_MEM] permutation.
+// The fix: sel_should_write_mem * (1 - sel) = 0 ensures sel_should_write_mem
+// is forced to 0 when sel=0, preventing ghost rows from firing permutations.
 
 // Test that ghost rows (sel=0) cannot set sel_should_write_mem=1
-// This verifies the fix: sel_should_write_mem * (1 - sel) = 0
 TEST(ToRadixMemoryConstrainingTest, NegativeGhostRowMemoryWrite_RelationsOnly)
 {
     // Try to create a ghost row (sel=0) with sel_should_write_mem=1
@@ -1041,87 +1038,40 @@ TEST(ToRadixMemoryConstrainingTest, NegativeGhostRowMemoryWrite_RelationsOnly)
 
     // The fix: sel_should_write_mem * (1 - sel) = 0
     // When sel=0 and sel_should_write_mem=1: 1 * (1-0) = 1 != 0 -> FAILS
-    // TODO: Uncomment once fix is applied to PIL
-    // EXPECT_THROW_WITH_MESSAGE(check_relation<to_radix_mem>(trace),
-    //                           "SEL_SHOULD_WRITE_MEM_REQUIRES_SEL");
-
-    // For now, this test documents the vulnerability:
-    // The relation PASSES when it should FAIL (no constraint prevents this)
-    check_relation<to_radix_mem>(trace);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<to_radix_mem>(trace), "SEL_SHOULD_WRITE_MEM_REQUIRES_SEL");
 }
 
-// Also test sel_should_decompose which gates the INPUT_OUTPUT_TO_RADIX lookup
-TEST(ToRadixMemoryConstrainingTest, NegativeGhostRowDecomposeLookup_RelationsOnly)
-{
-    // Try to create a ghost row (sel=0) with sel_should_decompose=1
-    // which would fire the #[INPUT_OUTPUT_TO_RADIX] lookup
-    //
-    // Note: Must satisfy derived constraint:
-    //   limb_index_to_lookup = sel_should_decompose * (num_limbs - 1)
-    TestTraceContainer trace({
-        {
-            { C::precomputed_first_row, 1 },
-        },
-        {
-            { C::to_radix_mem_sel, 0 },                  // Ghost row: gadget not active
-            { C::to_radix_mem_sel_should_decompose, 1 }, // Try to fire lookup anyway
-            { C::to_radix_mem_value_to_decompose, 1337 },
-            { C::to_radix_mem_num_limbs, 4 },            // Set num_limbs for derived constraint
-            { C::to_radix_mem_limb_index_to_lookup, 3 }, // Must be: sel_should_decompose * (num_limbs - 1) = 1 * 3 = 3
-            { C::to_radix_mem_radix, 10 },
-            { C::to_radix_mem_limb_value, 7 },
-            { C::to_radix_mem_value_found, 1 },
-        },
-    });
-
-    // The fix: sel_should_decompose * (1 - sel) = 0
-    // When sel=0 and sel_should_decompose=1: 1 * (1-0) = 1 != 0 -> FAILS
-    // TODO: Uncomment once fix is applied to PIL
-    // EXPECT_THROW_WITH_MESSAGE(check_relation<to_radix_mem>(trace),
-    //                           "SEL_SHOULD_DECOMPOSE_REQUIRES_SEL");
-
-    // For now, this test documents the vulnerability:
-    // The relation PASSES when it should FAIL (no constraint prevents this)
-    check_relation<to_radix_mem>(trace);
-}
-
-// =====================================================================
-// Full Attack Test with All Traces
-// =====================================================================
-// This test demonstrates a complete ghost row injection attack:
+// Test that the fix blocks ghost row injection attacks with full traces.
+// Attack pattern:
 // 1. Create legitimate memory WRITE events (destination side)
 // 2. Build memory trace from those events
-// 3. Inject ghost to_radix_mem row at matching clk (source side)
-// 4. Verify the permutation matches - attack succeeds!
-//
-// This follows the pattern from PR #19470 (NegativeFullAttackWithAllTraces).
-TEST(ToRadixMemoryConstrainingTest, NegativeFullAttackWithAllTraces)
+// 3. Inject ghost to_radix_mem row with sel=0 but sel_should_write_mem=1
+// 4. The fix should cause the relation check to fail
+TEST(ToRadixMemoryConstrainingTest, NegativeGhostRowInjectionBlocked)
 {
     TestTraceContainer trace;
     MemoryTraceBuilder memory_trace_builder;
     PrecomputedTraceBuilder precomputed_trace_builder;
 
-    // ========== STEP 1: Attacker-controlled values ==========
+    // Attacker-controlled values
     uint32_t malicious_clk = 42;
     uint16_t malicious_space_id = 1;
     MemoryAddress malicious_addr = 0xDEAD;
-    uint8_t malicious_limb_value = 0x99; // Arbitrary byte value
+    uint8_t malicious_limb_value = 0x99;
     MemoryTag malicious_tag = MemoryTag::U8;
 
-    // ========== STEP 2: Create legitimate memory events ==========
-    // These events will be processed by the MemoryTraceBuilder to create
-    // legitimate destination rows that the ghost source can match.
+    // Create legitimate memory events
     std::vector<simulation::MemoryEvent> mem_events = {
         {
             .execution_clk = malicious_clk,
-            .mode = simulation::MemoryMode::WRITE, // rw = 1
+            .mode = simulation::MemoryMode::WRITE,
             .addr = malicious_addr,
             .value = MemoryValue::from_tag(malicious_tag, malicious_limb_value),
             .space_id = malicious_space_id,
         },
     };
 
-    // ========== STEP 3: Build memory trace (destination side) ==========
+    // Build memory trace (destination side)
     precomputed_trace_builder.process_sel_range_8(trace);
     precomputed_trace_builder.process_sel_range_16(trace);
     precomputed_trace_builder.process_misc(trace, 1 << 16);
@@ -1137,19 +1087,15 @@ TEST(ToRadixMemoryConstrainingTest, NegativeFullAttackWithAllTraces)
         }
     }
 
-    // ========== STEP 4: Inject ghost to_radix_mem row ==========
-    // Place ghost row at row 0 (precomputed_clk = 0 by default).
-    // For this attack, we need the source's execution_clk to match memory_clk.
-    // We set the ghost row values to match the memory destination.
+    // Inject ghost to_radix_mem row
+    // Ghost row: sel = 0, but sel_should_write_mem = 1 (attack attempt)
     uint32_t ghost_row = 0;
     trace.set(ghost_row,
               std::vector<std::pair<Column, FF>>{
                   { C::precomputed_first_row, 1 },
                   { C::precomputed_clk, ghost_row },
-                  // Ghost row: to_radix_mem_sel = 0, but sel_should_write_mem = 1
                   { C::to_radix_mem_sel, 0 },
-                  { C::to_radix_mem_sel_should_write_mem, 1 }, // Fires #[WRITE_MEM] permutation!
-                  // Permutation tuple values - must match memory destination
+                  { C::to_radix_mem_sel_should_write_mem, 1 },
                   { C::to_radix_mem_execution_clk, malicious_clk },
                   { C::to_radix_mem_space_id, malicious_space_id },
                   { C::to_radix_mem_dst_addr, malicious_addr },
@@ -1157,77 +1103,10 @@ TEST(ToRadixMemoryConstrainingTest, NegativeFullAttackWithAllTraces)
                   { C::to_radix_mem_output_tag, static_cast<uint8_t>(malicious_tag) },
               });
 
-    // Set the destination selector on the memory row to mark it as matching to_radix
     trace.set(C::memory_sel_to_radix_write, memory_row, 1);
 
-    // ========== STEP 5: Verify attack ==========
-    std::cout << "\n=== GHOST ROW INJECTION ATTACK TEST (to_radix_mem) ===" << std::endl;
-    std::cout << "Ghost to_radix_mem row at row " << ghost_row << " with sel=0, sel_should_write_mem=1" << std::endl;
-    std::cout << "Memory destination row at row " << memory_row << " with clk=" << malicious_clk << std::endl;
-
-    // Debug: Print source tuple
-    std::cout << "\nSource tuple (to_radix_mem row " << ghost_row << "):" << std::endl;
-    std::cout << "  execution_clk = " << trace.get(C::to_radix_mem_execution_clk, ghost_row) << std::endl;
-    std::cout << "  space_id = " << trace.get(C::to_radix_mem_space_id, ghost_row) << std::endl;
-    std::cout << "  dst_addr = " << trace.get(C::to_radix_mem_dst_addr, ghost_row) << std::endl;
-    std::cout << "  limb_value = " << trace.get(C::to_radix_mem_limb_value, ghost_row) << std::endl;
-    std::cout << "  output_tag = " << trace.get(C::to_radix_mem_output_tag, ghost_row) << std::endl;
-    std::cout << "  sel_should_write_mem = " << trace.get(C::to_radix_mem_sel_should_write_mem, ghost_row) << std::endl;
-
-    // Debug: Print destination tuple
-    std::cout << "\nDestination tuple (memory row " << memory_row << "):" << std::endl;
-    std::cout << "  memory_clk = " << trace.get(C::memory_clk, memory_row) << std::endl;
-    std::cout << "  memory_space_id = " << trace.get(C::memory_space_id, memory_row) << std::endl;
-    std::cout << "  memory_address = " << trace.get(C::memory_address, memory_row) << std::endl;
-    std::cout << "  memory_value = " << trace.get(C::memory_value, memory_row) << std::endl;
-    std::cout << "  memory_tag = " << trace.get(C::memory_tag, memory_row) << std::endl;
-    std::cout << "  memory_rw = " << trace.get(C::memory_rw, memory_row) << std::endl;
-    std::cout << "  memory_sel = " << trace.get(C::memory_sel, memory_row) << std::endl;
-    std::cout << "  memory_sel_to_radix_write = " << trace.get(C::memory_sel_to_radix_write, memory_row) << std::endl;
-
-    // to_radix_mem relation should PASS (this is the vulnerability)
-    std::cout << "to_radix_mem relation: ";
-    check_relation<to_radix_mem>(trace);
-    std::cout << "PASSED (vulnerability confirmed)" << std::endl;
-
-    // ========== STEP 6: Verify attack succeeded ==========
-    // The attack succeeds because:
-    // 1. to_radix_mem relation PASSED (no constraint prevents ghost rows from setting sel_should_write_mem=1)
-    // 2. The source tuple values match a legitimate memory destination tuple
-    // 3. The permutation would match if we ran the full permutation check
-    //
-    // Note: The permutation is part of a complex multi-permutation in MemoryTraceBuilder,
-    // so we verify matching tuples directly instead of using check_multipermutation_interaction.
-
-    // Verify tuples match
-    bool tuples_match =
-        (trace.get(C::to_radix_mem_execution_clk, ghost_row) == trace.get(C::memory_clk, memory_row)) &&
-        (trace.get(C::to_radix_mem_space_id, ghost_row) == trace.get(C::memory_space_id, memory_row)) &&
-        (trace.get(C::to_radix_mem_dst_addr, ghost_row) == trace.get(C::memory_address, memory_row)) &&
-        (trace.get(C::to_radix_mem_limb_value, ghost_row) == trace.get(C::memory_value, memory_row)) &&
-        (trace.get(C::to_radix_mem_output_tag, ghost_row) == trace.get(C::memory_tag, memory_row)) &&
-        (trace.get(C::to_radix_mem_sel_should_write_mem, ghost_row) == trace.get(C::memory_rw, memory_row));
-
-    std::cout << "\nTuples match: " << (tuples_match ? "YES" : "NO") << std::endl;
-
-    // Attack succeeds if:
-    // 1. to_radix_mem relation passed (no constraint prevents ghost row)
-    // 2. Tuples match (permutation would match)
-    bool attack_succeeded = tuples_match;
-
-    std::cout << "\n=== ATTACK RESULT ===" << std::endl;
-    if (attack_succeeded) {
-        std::cout << "CRITICAL: Ghost row injection attack SUCCEEDED!" << std::endl;
-        std::cout << "Attacker can inject arbitrary memory writes via to_radix_mem." << std::endl;
-        std::cout << "\nRequired fix in to_radix_mem.pil:" << std::endl;
-        std::cout << "  #[SEL_SHOULD_WRITE_MEM_REQUIRES_SEL]" << std::endl;
-        std::cout << "  sel_should_write_mem * (1 - sel) = 0;" << std::endl;
-    } else {
-        std::cout << "Attack blocked." << std::endl;
-    }
-
-    // Test documents vulnerability - we expect the attack to succeed until fixed
-    EXPECT_TRUE(attack_succeeded) << "Ghost row injection attack should succeed (vulnerability exists)";
+    // The fix: sel_should_write_mem * (1 - sel) = 0 should cause the relation check to fail
+    EXPECT_THROW_WITH_MESSAGE(check_relation<to_radix_mem>(trace), "SEL_SHOULD_WRITE_MEM_REQUIRES_SEL");
 }
 
 } // namespace

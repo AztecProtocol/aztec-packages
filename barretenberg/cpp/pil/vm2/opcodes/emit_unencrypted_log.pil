@@ -221,7 +221,9 @@ namespace emit_unencrypted_log;
     // So what we landed with is to always read memory except we can't read memory due to the first case.
     // This should be fine since the user already paid for the memory reads
     pol commit sel_should_read_memory;
-    sel_should_read_memory = is_write_memory_value * (1 - error_out_of_bounds);
+    // Gate by sel to avoid ghost rows triggering memory reads.
+    #[SEL_SHOULD_READ_MEMORY_IS_SEL_AND_WRITE_MEM_AND_NO_ERR]
+    sel_should_read_memory = sel * is_write_memory_value * (1 - error_out_of_bounds);
 
     #[LOG_ADDRESS_INCREMENT]
     NOT_END * ((log_address + is_write_memory_value) - log_address') = 0;
@@ -291,4 +293,3 @@ namespace emit_unencrypted_log;
         precomputed.clk,
         public_inputs.cols[0]
     };
-

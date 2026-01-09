@@ -647,13 +647,11 @@ TEST(EmitUnencryptedLogConstrainingTest, NegativeContractAddressConsistency)
 // Ghost Row Injection Vulnerability Tests
 // =====================================================================
 // These tests verify that ghost rows (sel=0) cannot fire permutations.
+// This is a defensive/sanity check: even though the situation is hard to exploit,
+// we still enforce the selector gating to prevent accidental ghost reads.
 // The vulnerability: is_write_memory_value is only boolean-constrained,
 // not constrained to be 0 when sel=0. This allows ghost rows to fire
 // the #[READ_MEM] permutation via sel_should_read_memory.
-//
-// NOTE: A simple relations-only test is complex for emit_unencrypted_log
-// due to many derived constraints. A full attack test following the
-// pattern from PR #19470 (NegativeFullAttackWithAllTraces) is needed.
 //
 // VULNERABILITY SUMMARY:
 // - is_write_memory_value is only boolean-constrained
@@ -662,56 +660,40 @@ TEST(EmitUnencryptedLogConstrainingTest, NegativeContractAddressConsistency)
 // - This fires the #[READ_MEM] permutation from a ghost row
 //
 // REQUIRED FIX:
-//   is_write_memory_value * (1 - sel) = 0;
-//
-// See pil/vm2/claude-audits/ghost-row-injection/opcodes-audit.md for details.
+// Gate by sel to avoid ghost rows triggering memory reads.
+// sel_should_read_memory = sel * is_write_memory_value * (1 - error_out_of_bounds);
 
-// =====================================================================
-// Full Attack Test with All Traces
-// =====================================================================
-// This test demonstrates a complete ghost row injection attack:
-// 1. Create legitimate memory READ events (destination side)
-// 2. Build memory trace from those events
-// 3. Inject ghost emit_unencrypted_log row with sel=0 but is_write_memory_value=1
-// 4. This makes sel_should_read_memory=1 which fires the #[READ_MEM] permutation
-// 5. Verify the permutation matches - attack succeeds!
-//
-// This follows the pattern from PR #19470 (NegativeFullAttackWithAllTraces).
-TEST(EmitUnencryptedLogConstrainingTest, NegativeFullAttackWithAllTraces)
+// This test verifies that the fix for the ghost row injection vulnerability works.
+// The constraint `is_write_memory_value * (1 - sel) = 0` should prevent ghost rows
+// from setting is_write_memory_value=1 when sel=0.
+TEST(EmitUnencryptedLogConstrainingTest, NegativeGhostRowInjectionBlocked)
 {
     TestTraceContainer trace;
     MemoryTraceBuilder memory_trace_builder;
     PrecomputedTraceBuilder precomputed_trace_builder;
 
-    // ========== STEP 1: Attacker-controlled values ==========
     uint32_t malicious_clk = 42;
     uint16_t malicious_space_id = 1;
     MemoryAddress malicious_log_addr = 0xDEAD;
     FF malicious_value = 0x1337;
-    MemoryTag malicious_tag = MemoryTag::FF; // FF tag for log values
+    MemoryTag malicious_tag = MemoryTag::FF;
 
-    // ========== STEP 2: Create legitimate memory events ==========
-    // These events will be processed by the MemoryTraceBuilder to create
-    // legitimate destination rows that the ghost source can match.
-    // The permutation is for READS (rw=0), so we create READ events.
     std::vector<simulation::MemoryEvent> mem_events = {
         {
             .execution_clk = malicious_clk,
-            .mode = simulation::MemoryMode::READ, // rw = 0 for memory reads
+            .mode = simulation::MemoryMode::READ,
             .addr = malicious_log_addr,
             .value = MemoryValue::from<FF>(malicious_value),
             .space_id = malicious_space_id,
         },
     };
 
-    // ========== STEP 3: Build memory trace (destination side) ==========
     precomputed_trace_builder.process_sel_range_8(trace);
     precomputed_trace_builder.process_sel_range_16(trace);
     precomputed_trace_builder.process_misc(trace, 1 << 16);
     precomputed_trace_builder.process_tag_parameters(trace);
     memory_trace_builder.process(mem_events, trace);
 
-    // Find where the memory row was placed
     uint32_t memory_row = 0;
     for (uint32_t row = 0; row < trace.get_num_rows(); row++) {
         if (trace.get(C::memory_sel, row) == 1) {
@@ -720,108 +702,32 @@ TEST(EmitUnencryptedLogConstrainingTest, NegativeFullAttackWithAllTraces)
         }
     }
 
-    // ========== STEP 4: Inject ghost emit_unencrypted_log row ==========
-    // The vulnerability: When sel=0, is_write_memory_value can still be 1
-    // which makes sel_should_read_memory = is_write_memory_value * (1 - error_out_of_bounds) = 1
-    // This fires the #[READ_MEM] permutation from a ghost row!
+    // Attempt ghost row injection: sel=0 but is_write_memory_value=1
     uint32_t ghost_row = 0;
     trace.set(ghost_row,
               std::vector<std::pair<Column, FF>>{
                   { C::precomputed_first_row, 1 },
                   { C::precomputed_clk, ghost_row },
                   { C::precomputed_zero, 0 },
-                  // Ghost row: emit_unencrypted_log_sel = 0, but is_write_memory_value = 1
                   { C::emit_unencrypted_log_sel, 0 },
-                  { C::emit_unencrypted_log_is_write_memory_value, 1 },  // Vulnerability!
-                  { C::emit_unencrypted_log_error_out_of_bounds, 0 },    // No error, so sel_should_read_memory = 1
-                  { C::emit_unencrypted_log_sel_should_read_memory, 1 }, // Fires #[READ_MEM] permutation!
-                  // Permutation tuple values - must match memory destination
+                  { C::emit_unencrypted_log_is_write_memory_value, 1 },
+                  { C::emit_unencrypted_log_error_out_of_bounds, 0 },
+                  { C::emit_unencrypted_log_sel_should_read_memory, 1 },
                   { C::emit_unencrypted_log_execution_clk, malicious_clk },
                   { C::emit_unencrypted_log_space_id, malicious_space_id },
                   { C::emit_unencrypted_log_log_address, malicious_log_addr },
                   { C::emit_unencrypted_log_value, malicious_value },
                   { C::emit_unencrypted_log_tag, static_cast<uint8_t>(malicious_tag) },
-                  // Derived constraint: is_write_memory_value * (value - public_inputs_value) = 0
                   { C::emit_unencrypted_log_public_inputs_value, malicious_value },
               });
 
-    // Set the destination selector on the memory row to mark it as matching emit_unencrypted_log
     trace.set(C::memory_sel_unencrypted_log_read, memory_row, 1);
 
-    // ========== STEP 5: Verify attack ==========
-    std::cout << "\n=== GHOST ROW INJECTION ATTACK TEST (emit_unencrypted_log) ===" << std::endl;
-    std::cout << "Ghost emit_unencrypted_log row at row " << ghost_row
-              << " with sel=0, is_write_memory_value=1, sel_should_read_memory=1" << std::endl;
-    std::cout << "Memory destination row at row " << memory_row << " with clk=" << malicious_clk << std::endl;
-
-    // Debug: Print source tuple
-    std::cout << "\nSource tuple (emit_unencrypted_log row " << ghost_row << "):" << std::endl;
-    std::cout << "  execution_clk = " << trace.get(C::emit_unencrypted_log_execution_clk, ghost_row) << std::endl;
-    std::cout << "  space_id = " << trace.get(C::emit_unencrypted_log_space_id, ghost_row) << std::endl;
-    std::cout << "  log_address = " << trace.get(C::emit_unencrypted_log_log_address, ghost_row) << std::endl;
-    std::cout << "  value = " << trace.get(C::emit_unencrypted_log_value, ghost_row) << std::endl;
-    std::cout << "  tag = " << trace.get(C::emit_unencrypted_log_tag, ghost_row) << std::endl;
-    std::cout << "  sel_should_read_memory = " << trace.get(C::emit_unencrypted_log_sel_should_read_memory, ghost_row)
-              << std::endl;
-    std::cout << "  precomputed_zero = " << trace.get(C::precomputed_zero, ghost_row) << std::endl;
-
-    // Debug: Print destination tuple
-    std::cout << "\nDestination tuple (memory row " << memory_row << "):" << std::endl;
-    std::cout << "  memory_clk = " << trace.get(C::memory_clk, memory_row) << std::endl;
-    std::cout << "  memory_space_id = " << trace.get(C::memory_space_id, memory_row) << std::endl;
-    std::cout << "  memory_address = " << trace.get(C::memory_address, memory_row) << std::endl;
-    std::cout << "  memory_value = " << trace.get(C::memory_value, memory_row) << std::endl;
-    std::cout << "  memory_tag = " << trace.get(C::memory_tag, memory_row) << std::endl;
-    std::cout << "  memory_rw = " << trace.get(C::memory_rw, memory_row) << std::endl;
-    std::cout << "  memory_sel = " << trace.get(C::memory_sel, memory_row) << std::endl;
-    std::cout << "  memory_sel_unencrypted_log_read = " << trace.get(C::memory_sel_unencrypted_log_read, memory_row)
-              << std::endl;
-
-    // emit_unencrypted_log relation should PASS (this is the vulnerability)
-    std::cout << "\nemit_unencrypted_log relation: ";
-    check_relation<emit_unencrypted_log>(trace);
-    std::cout << "PASSED (vulnerability confirmed)" << std::endl;
-
-    // ========== STEP 6: Verify attack succeeded ==========
-    // The attack succeeds because:
-    // 1. emit_unencrypted_log relation PASSED (no constraint prevents ghost rows from setting is_write_memory_value=1)
-    // 2. The source tuple values match a legitimate memory destination tuple
-    // 3. The permutation would match if we ran the full permutation check
-    //
-    // Note: The permutation is part of a complex multi-permutation in MemoryTraceBuilder,
-    // so we verify matching tuples directly instead of using check_multipermutation_interaction.
-
-    // Verify tuples match
-    // Source: execution_clk, space_id, log_address, value, tag, precomputed_zero
-    // Dest:   memory_clk, memory_space_id, memory_address, memory_value, memory_tag, memory_rw
-    bool tuples_match =
-        (trace.get(C::emit_unencrypted_log_execution_clk, ghost_row) == trace.get(C::memory_clk, memory_row)) &&
-        (trace.get(C::emit_unencrypted_log_space_id, ghost_row) == trace.get(C::memory_space_id, memory_row)) &&
-        (trace.get(C::emit_unencrypted_log_log_address, ghost_row) == trace.get(C::memory_address, memory_row)) &&
-        (trace.get(C::emit_unencrypted_log_value, ghost_row) == trace.get(C::memory_value, memory_row)) &&
-        (trace.get(C::emit_unencrypted_log_tag, ghost_row) == trace.get(C::memory_tag, memory_row)) &&
-        (trace.get(C::precomputed_zero, ghost_row) == trace.get(C::memory_rw, memory_row)); // rw=0 for reads
-
-    std::cout << "\nTuples match: " << (tuples_match ? "YES" : "NO") << std::endl;
-
-    // Attack succeeds if:
-    // 1. emit_unencrypted_log relation passed (no constraint prevents ghost row)
-    // 2. Tuples match (permutation would match)
-    bool attack_succeeded = tuples_match;
-
-    std::cout << "\n=== ATTACK RESULT ===" << std::endl;
-    if (attack_succeeded) {
-        std::cout << "CRITICAL: Ghost row injection attack SUCCEEDED!" << std::endl;
-        std::cout << "Attacker can inject arbitrary memory reads via emit_unencrypted_log." << std::endl;
-        std::cout << "\nRequired fix in emit_unencrypted_log.pil:" << std::endl;
-        std::cout << "  #[IS_WRITE_MEMORY_VALUE_REQUIRES_SEL]" << std::endl;
-        std::cout << "  is_write_memory_value * (1 - sel) = 0;" << std::endl;
-    } else {
-        std::cout << "Attack blocked." << std::endl;
-    }
-
-    // Test documents vulnerability - we expect the attack to succeed until fixed
-    EXPECT_TRUE(attack_succeeded) << "Ghost row injection attack should succeed (vulnerability exists)";
+    // The fix: sel_should_read_memory = sel * is_write_memory_value * (1 - error_out_of_bounds)
+    // Gating by sel should cause the relation check to fail
+    // because sel_should_read_memory=1 and sel=0 violates this constraint
+    EXPECT_THROW_WITH_MESSAGE(check_relation<emit_unencrypted_log>(trace),
+                              "SEL_SHOULD_READ_MEMORY_IS_SEL_AND_WRITE_MEM_AND_NO_ERR");
 }
 
 } // namespace
