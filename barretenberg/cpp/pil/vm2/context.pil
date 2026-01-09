@@ -119,7 +119,7 @@ namespace execution;
     pol NOT_LAST_NOT_FAILURE_NOT_ENQ_END = sel - nested_failure - enqueued_call_end;
     // We default propagate the context rows if we have more execution steps and we are not exiting or entering a call.
     // Note that DEFAULT_CTX_ROW selects also the first row of an enqueued call (when `enqueued_call_start == 1`).
-    pol DEFAULT_CTX_ROW = 1 - (sel_enter_call + sel_exit_call); // sel_enter_call and sel_exit_call are mutually exclusive
+    pol DEFAULT_CTX_ROW = sel' * (sel - (sel_enter_call + sel_exit_call)); // sel_enter_call and sel_exit_call are mutually exclusive
 
     pol PC_JUMP = sel_execute_internal_call + sel_execute_internal_return + sel_execute_jump + sel_execute_jumpi;
 
@@ -144,6 +144,7 @@ namespace execution;
      *                 not require additional gating by `NOT_LAST_EXEC`. The same holds true for `nested_return` and `nested_failure`.
      *                 Same also applies for `sel_enter_call`.
      */
+
     // =============================
     //        Context ID
     // =============================
@@ -192,7 +193,7 @@ namespace execution;
     #[CONTEXT_ID_NESTED_EXIT]
     NESTED_EXIT_CALL * (context_id' - parent_id) = 0;
     #[CONTEXT_ID_NEXT_DEFAULT_ROW]
-    NOT_LAST_EXEC * DEFAULT_CTX_ROW  * (context_id' - context_id) = 0;
+    DEFAULT_CTX_ROW * (context_id' - context_id) = 0;
 
     // =============================
     //        Parent ID
@@ -210,7 +211,7 @@ namespace execution;
     #[PARENT_ID_NEXT_EXT_CALL]
     sel_enter_call  * (parent_id' - context_id) = 0;
     #[PARENT_ID_NEXT_DEFAULT_ROW]
-    NOT_LAST_EXEC * DEFAULT_CTX_ROW * (parent_id' - parent_id) = 0;
+    DEFAULT_CTX_ROW * (parent_id' - parent_id) = 0;
 
     // =============================
     //         PC and NEXT_PC
@@ -234,27 +235,27 @@ namespace execution;
     #[PC_NEXT_ROW_EXT_CALL]
     (sel_enter_call + enqueued_call_start') * pc' = 0;
     #[PC_NEXT_ROW_DEFAULT]
-    NOT_LAST_EXEC * DEFAULT_CTX_ROW * (1 - PC_JUMP) * (pc' - next_pc) = 0;
+    DEFAULT_CTX_ROW * (1 - PC_JUMP) * (pc' - next_pc) = 0;
 
     // NESTED_EXIT_CALL = 1 ==> constraints come from lookup
     // sel_enter_call   = 1 ==> msg_sender' = contract_address
     // otherwise        = 0 ==> msg_sender' = msg_sender
     #[MSG_SENDER_NEXT_ROW]
-    NOT_LAST_EXEC * DEFAULT_CTX_ROW * (msg_sender' - msg_sender) = 0;
+    DEFAULT_CTX_ROW * (msg_sender' - msg_sender) = 0;
     sel_enter_call  * (msg_sender' - contract_address) = 0;
 
     // NESTED_EXIT_CALL = 1 ==> constraints come from lookup
     // sel_enter_call   = 1 ==> contract_address' = register[2] (intermediate register 3 from execution trace)
     // otherwise        = 0 ==> contract_address' = contract_address
     #[CONTRACT_ADDR_NEXT_ROW]
-    NOT_LAST_EXEC * DEFAULT_CTX_ROW * (contract_address' - contract_address) = 0;
+    DEFAULT_CTX_ROW * (contract_address' - contract_address) = 0;
     sel_enter_call  * (contract_address' - register[2]) = 0;
 
     // bytecode_id is set on the first row of a context (#[BYTECODE_RETRIEVAL_RESULT]
     // in execution.pil) and is propagated from row to row, except on context change.
     // While exiting a context, `bytecode_id` is retrieved from the context stack.
     #[BYTECODE_ID_NEXT_ROW]
-    NOT_LAST_EXEC * DEFAULT_CTX_ROW * (bytecode_id' - bytecode_id) = 0;
+    DEFAULT_CTX_ROW * (bytecode_id' - bytecode_id) = 0;
 
     // transaction fee gets set at the start of an enqueued call and remains the same throughout
     // TODO(dbanks12): tracegen and test this
@@ -268,7 +269,7 @@ namespace execution;
     // sel_enter_call   = 1 && static_call = 0 ==> is_static' = 0
     // otherwise        = 0 ==> is_static' = is_static
     #[IS_STATIC_NEXT_ROW]
-    NOT_LAST_EXEC * DEFAULT_CTX_ROW * (is_static' - is_static) = 0;
+    DEFAULT_CTX_ROW * (is_static' - is_static) = 0;
     // An external call from a non-static context only creates a nested static context if the opcode is STATICCALL.
     #[IS_STATIC_IF_STATIC_CALL]
     sel_enter_call * (1 - is_static) * (is_static' - sel_execute_static_call) = 0;
@@ -281,7 +282,7 @@ namespace execution;
     // otherwise           = 0 ==> parent_calldata_addr' = parent_calldata_addr
     // enqueued_call_start = 1 ==> parent_calldata_addr = 0;
     #[CD_OFFSET_NEXT_ROW]
-    NOT_LAST_EXEC * DEFAULT_CTX_ROW * (parent_calldata_addr' - parent_calldata_addr) = 0;
+    DEFAULT_CTX_ROW * (parent_calldata_addr' - parent_calldata_addr) = 0;
     sel_enter_call  * (parent_calldata_addr' - rop[4]) = 0;
     #[CD_ADDR_ENQUEUED_CALL_IS_ZERO]
     enqueued_call_start * parent_calldata_addr = 0;
@@ -291,7 +292,7 @@ namespace execution;
     // sel_enter_call      = 1 ==> parent_calldata_size' = register[3] (register 4 from execution trace)
     // otherwise           = 0 ==> parent_calldata_size' = parent_calldata_size
     #[CD_SIZE_NEXT_ROW]
-    NOT_LAST_EXEC * DEFAULT_CTX_ROW * (parent_calldata_size' - parent_calldata_size) = 0;
+    DEFAULT_CTX_ROW * (parent_calldata_size' - parent_calldata_size) = 0;
     sel_enter_call  * (parent_calldata_size' - register[3]) = 0;
 
     pol NESTED_RET_REV_ONLY = NESTED_EXIT_CALL * (1 - sel_error);
@@ -308,7 +309,7 @@ namespace execution;
     #[RD_ADDR_IS_ZERO]
     enqueued_call_start * last_child_returndata_addr = 0;
     #[PROPAGATE_RD_ADDR]
-    NOT_LAST_EXEC * DEFAULT_CTX_ROW * (last_child_returndata_addr' - last_child_returndata_addr) = 0;
+    DEFAULT_CTX_ROW * (last_child_returndata_addr' - last_child_returndata_addr) = 0;
 
     // NESTED_RET_REV_ONLY = 1 ==> register[0] (intermediate register 1 from execution trace)
     // sel_error           = 1 ==> last_child_returndata_size' = 0;
@@ -322,7 +323,7 @@ namespace execution;
     #[RD_SIZE_IS_ZERO]
     enqueued_call_start * last_child_returndata_size = 0;
     #[PROPAGATE_RD_SIZE]
-    NOT_LAST_EXEC * DEFAULT_CTX_ROW * (last_child_returndata_size' - last_child_returndata_size) = 0;
+    DEFAULT_CTX_ROW * (last_child_returndata_size' - last_child_returndata_size) = 0;
 
     // nested_return          = 1 ==> last_child_success' = 1;
     // nested_failure = 1 ==> last_child_success' = 0;
@@ -337,7 +338,7 @@ namespace execution;
     #[LAST_CHILD_SUCCESS_IS_ZERO]
     enqueued_call_start * last_child_success = 0;
     #[PROPAGATE_LAST_CHILD_SUCCESS]
-    NOT_LAST_EXEC * DEFAULT_CTX_ROW * (last_child_success' - last_child_success) = 0;
+    DEFAULT_CTX_ROW * (last_child_success' - last_child_success) = 0;
 
     // NESTED_EXIT_CALL    = 1 ==> last_child_id' = context_id;  <-- sel_exit_call includes error case
     // sel_enter_call      = 1 ==> last_child_id' = 0;
@@ -350,13 +351,13 @@ namespace execution;
     #[LAST_CHILD_ID_IS_ZERO]
     enqueued_call_start * last_child_id = 0;
     #[PROPAGATE_LAST_CHILD_ID]
-    NOT_LAST_EXEC * DEFAULT_CTX_ROW * (last_child_id' - last_child_id) = 0;
+    DEFAULT_CTX_ROW * (last_child_id' - last_child_id) = 0;
 
     // NESTED_EXIT_CALL = 1 ==> l2_gas_limit' = parent_l2_gas_limit
     // sel_enter_call   = 1 ==> constraints come from call logic
     // otherwise        = 0 ==> l2_gas_limit' = l2_gas_limit
     #[L2_GAS_LIMIT_NEXT_ROW]
-    NOT_LAST_EXEC * DEFAULT_CTX_ROW * (l2_gas_limit' - l2_gas_limit) = 0;
+    DEFAULT_CTX_ROW * (l2_gas_limit' - l2_gas_limit) = 0;
     #[L2_GAS_LIMIT_RESTORE_ON_EXIT]
     NESTED_EXIT_CALL * (l2_gas_limit' - parent_l2_gas_limit) = 0;
 
@@ -364,7 +365,7 @@ namespace execution;
     // sel_enter_call   = 1 ==> constraints come from call logic
     // otherwise        = 0 ==> da_gas_limit' = da_gas_limit
     #[DA_GAS_LIMIT_NEXT_ROW]
-    NOT_LAST_EXEC * DEFAULT_CTX_ROW * (da_gas_limit' - da_gas_limit) = 0;
+    DEFAULT_CTX_ROW * (da_gas_limit' - da_gas_limit) = 0;
     #[DA_GAS_LIMIT_RESTORE_ON_EXIT]
     NESTED_EXIT_CALL * (da_gas_limit' - parent_da_gas_limit) = 0;
 
@@ -372,7 +373,7 @@ namespace execution;
     // sel_enter_call   = 1 ==> parent_l2_gas_limit' = l2_gas_limit
     // otherwise        = 0 ==> parent_l2_gas_limit' = parent_l2_gas_limit
     #[PARENT_L2_GAS_LIMIT_NEXT_ROW]
-    NOT_LAST_EXEC * DEFAULT_CTX_ROW * (parent_l2_gas_limit' - parent_l2_gas_limit) = 0;
+    DEFAULT_CTX_ROW * (parent_l2_gas_limit' - parent_l2_gas_limit) = 0;
     #[PARENT_L2_GAS_LIMIT_STORE_ON_ENTER]
     sel_enter_call * (parent_l2_gas_limit' - l2_gas_limit) = 0;
 
@@ -380,7 +381,7 @@ namespace execution;
     // sel_enter_call   = 1 ==> parent_da_gas_limit' = da_gas_limit
     // otherwise        = 0 ==> parent_da_gas_limit' = parent_da_gas_limit
     #[PARENT_DA_GAS_LIMIT_NEXT_ROW]
-    NOT_LAST_EXEC * DEFAULT_CTX_ROW * (parent_da_gas_limit' - parent_da_gas_limit) = 0;
+    DEFAULT_CTX_ROW * (parent_da_gas_limit' - parent_da_gas_limit) = 0;
     #[PARENT_DA_GAS_LIMIT_STORE_ON_ENTER]
     sel_enter_call * (parent_da_gas_limit' - da_gas_limit) = 0;
 
@@ -388,7 +389,7 @@ namespace execution;
     // sel_enter_call   = 1 ==> parent_l2_gas_used' = l2_gas_used
     // otherwise        = 0 ==> parent_l2_gas_used' = parent_l2_gas_used
     #[PARENT_L2_GAS_USED_NEXT_ROW]
-    NOT_LAST_EXEC * DEFAULT_CTX_ROW * (parent_l2_gas_used' - parent_l2_gas_used) = 0;
+    DEFAULT_CTX_ROW * (parent_l2_gas_used' - parent_l2_gas_used) = 0;
     #[PARENT_L2_GAS_USED_STORE_ON_ENTER]
     sel_enter_call * (parent_l2_gas_used' - l2_gas_used) = 0;
 
@@ -396,7 +397,7 @@ namespace execution;
     // sel_enter_call   = 1 ==> parent_da_gas_used' = da_gas_used
     // otherwise        = 0 ==> parent_da_gas_used' = parent_da_gas_used
     #[PARENT_DA_GAS_USED_NEXT_ROW]
-    NOT_LAST_EXEC * DEFAULT_CTX_ROW * (parent_da_gas_used' - parent_da_gas_used) = 0;
+    DEFAULT_CTX_ROW * (parent_da_gas_used' - parent_da_gas_used) = 0;
     #[PARENT_DA_GAS_USED_STORE_ON_ENTER]
     sel_enter_call * (parent_da_gas_used' - da_gas_used) = 0;
 
@@ -576,13 +577,13 @@ namespace execution;
     // sel_enter_call   = 1 <==> prev_gas_used' = 0
     // otherwise        = 0 <==> prev_gas_used' = gas_used
     #[L2_GAS_USED_CONTINUITY]
-    NOT_LAST_EXEC * DEFAULT_CTX_ROW * (l2_gas_used - prev_l2_gas_used') = 0;
+    DEFAULT_CTX_ROW * (l2_gas_used - prev_l2_gas_used') = 0;
     #[L2_GAS_USED_ZERO_AFTER_CALL]
     sel_enter_call * prev_l2_gas_used' = 0;
     #[L2_GAS_USED_INGEST_AFTER_EXIT]
     NESTED_EXIT_CALL * (parent_l2_gas_used + l2_gas_used - prev_l2_gas_used') = 0;
     #[DA_GAS_USED_CONTINUITY]
-    NOT_LAST_EXEC * DEFAULT_CTX_ROW * (da_gas_used - prev_da_gas_used') = 0;
+    DEFAULT_CTX_ROW * (da_gas_used - prev_da_gas_used') = 0;
     #[DA_GAS_USED_ZERO_AFTER_CALL]
     sel_enter_call * prev_da_gas_used' = 0;
     #[DA_GAS_USED_INGEST_AFTER_EXIT]
