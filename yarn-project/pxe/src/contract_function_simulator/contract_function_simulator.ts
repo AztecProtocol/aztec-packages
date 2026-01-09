@@ -123,6 +123,7 @@ export class ContractFunctionSimulator {
    * @param senderForTags - The address that is used as a tagging sender when emitting private logs. Returned from
    * the `privateGetSenderForTags` oracle.
    * @param scopes - The accounts whose notes we can access in this call. Currently optional and will default to all.
+   * @param jobId - The job ID for staged writes.
    * @returns The result of the execution.
    */
   public async run(
@@ -131,13 +132,14 @@ export class ContractFunctionSimulator {
     selector: FunctionSelector,
     msgSender = AztecAddress.fromField(Fr.MAX_FIELD_VALUE),
     anchorBlockHeader: BlockHeader,
-    senderForTags?: AztecAddress,
-    scopes?: AztecAddress[],
+    senderForTags: AztecAddress | undefined,
+    scopes: AztecAddress[] | undefined,
+    jobId: string,
   ): Promise<PrivateExecutionResult> {
     const simulatorSetupTimer = new Timer();
 
     await this.contractStore.syncPrivateState(contractAddress, selector, privateSyncCall =>
-      this.runUtility(privateSyncCall, [], anchorBlockHeader, scopes),
+      this.runUtility(privateSyncCall, [], anchorBlockHeader, scopes, jobId),
     );
 
     await verifyCurrentClassId(contractAddress, this.aztecNode, this.contractStore, anchorBlockHeader);
@@ -174,7 +176,7 @@ export class ContractFunctionSimulator {
       callContext,
       anchorBlockHeader,
       async call => {
-        await this.runUtility(call, [], anchorBlockHeader, scopes);
+        await this.runUtility(call, [], anchorBlockHeader, scopes, jobId);
       },
       request.authWitnesses,
       request.capsules,
@@ -192,6 +194,7 @@ export class ContractFunctionSimulator {
       this.senderAddressBookStore,
       this.capsuleStore,
       this.privateEventStore,
+      jobId,
       0, // totalPublicArgsCount
       startSideEffectCounter,
       undefined, // log
@@ -261,7 +264,8 @@ export class ContractFunctionSimulator {
     call: FunctionCall,
     authwits: AuthWitness[],
     anchorBlockHeader: BlockHeader,
-    scopes?: AztecAddress[],
+    scopes: AztecAddress[] | undefined,
+    jobId: string,
   ): Promise<Fr[]> {
     await verifyCurrentClassId(call.to, this.aztecNode, this.contractStore, anchorBlockHeader);
 
@@ -286,6 +290,7 @@ export class ContractFunctionSimulator {
       this.senderAddressBookStore,
       this.capsuleStore,
       this.privateEventStore,
+      jobId,
       undefined,
       scopes,
     );

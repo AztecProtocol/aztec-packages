@@ -144,6 +144,8 @@ describe('Private Execution test suite', () => {
   let recipientIvskM: GrumpkinScalar;
   let senderForTagsIvskM: GrumpkinScalar;
 
+  const TEST_JOB_ID = 'test-job-id';
+
   const treeHeights: { [name: string]: number } = {
     noteHash: NOTE_HASH_TREE_HEIGHT,
     l1ToL2Messages: L1_TO_L2_MSG_TREE_HEIGHT,
@@ -211,7 +213,16 @@ describe('Private Execution test suite', () => {
       salt: Fr.random(),
     });
 
-    return acirSimulator.run(txRequest, contractAddress, selector, msgSender, anchorBlockHeader, senderForTags);
+    return acirSimulator.run(
+      txRequest,
+      contractAddress,
+      selector,
+      msgSender,
+      anchorBlockHeader,
+      senderForTags,
+      undefined,
+      TEST_JOB_ID,
+    );
   };
 
   const insertLeaves = async (leaves: Fr[], name = 'noteHash') => {

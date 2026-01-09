@@ -32,20 +32,20 @@ import { BatchSpanProcessor, NodeTracerProvider } from '@opentelemetry/sdk-trace
 import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from '@opentelemetry/semantic-conventions';
 
 import type { TelemetryClientConfig } from './config.js';
+import { toMetricOptions } from './metric-utils.js';
 import type { MetricDefinition } from './metrics.js';
 import { NodejsMetricsMonitor } from './nodejs_metrics_monitor.js';
 import { OtelFilterMetricExporter, PublicOtelFilterMetricExporter } from './otel_filter_metric_exporter.js';
 import { registerOtelLoggerProvider } from './otel_logger_provider.js';
 import { getOtelResource } from './otel_resource.js';
-import {
-  type Gauge,
-  type Histogram,
-  type Meter,
-  type ObservableGauge,
-  type ObservableUpDownCounter,
-  type TelemetryClient,
-  type UpDownCounter,
-  toMetricOptions,
+import type {
+  Gauge,
+  Histogram,
+  Meter,
+  ObservableGauge,
+  ObservableUpDownCounter,
+  TelemetryClient,
+  UpDownCounter,
 } from './telemetry.js';
 
 /** Wraps an OpenTelemetry Meter to implement our custom Meter interface */

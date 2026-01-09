@@ -43,7 +43,7 @@ import { CallContext, GlobalVariables, TxContext } from '@aztec/stdlib/tx';
 
 import { z } from 'zod';
 
-import { DEFAULT_ADDRESS } from './constants.js';
+import { DEFAULT_ADDRESS, TXE_JOB_ID } from './constants.js';
 import type { IAvmExecutionOracle, ITxeExecutionOracle } from './oracle/interfaces.js';
 import { TXEOraclePublicContext } from './oracle/txe_oracle_public_context.js';
 import { TXEOracleTopLevelContext } from './oracle/txe_oracle_top_level_context.js';
@@ -337,6 +337,7 @@ export class TXESession implements TXESessionStateHandler {
       this.senderAddressBookStore,
       this.capsuleStore,
       this.privateEventStore,
+      TXE_JOB_ID,
     );
 
     // We store the note and tagging index caches fed into the PrivateExecutionOracle (along with some other auxiliary
@@ -405,6 +406,7 @@ export class TXESession implements TXESessionStateHandler {
       this.senderAddressBookStore,
       this.capsuleStore,
       this.privateEventStore,
+      TXE_JOB_ID,
     );
 
     this.state = { name: 'UTILITY' };
@@ -499,6 +501,7 @@ export class TXESession implements TXESessionStateHandler {
           this.senderAddressBookStore,
           this.capsuleStore,
           this.privateEventStore,
+          TXE_JOB_ID,
         );
         await new WASMSimulator()
           .executeUserCircuit(toACVMWitness(0, call.args), entryPointArtifact, new Oracle(oracle).toACIRCallback())

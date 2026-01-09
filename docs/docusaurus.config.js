@@ -124,17 +124,17 @@ const config = {
         includeCurrentVersion: process.env.CONTEXT !== "production",
         lastVersion: devnetVersion,
         versions: {
-          ...(nightlyVersion && {
-            [nightlyVersion]: {
-              path: "nightly",
-              banner: "unreleased",
-            },
-          }),
           ...(devnetVersion && {
             [devnetVersion]: {
               label: `Devnet (${devnetVersion})`,
               path: "",
               banner: "none",
+            },
+          }),
+          ...(nightlyVersion && {
+            [nightlyVersion]: {
+              path: "nightly",
+              banner: "unreleased",
             },
           }),
           ...(process.env.CONTEXT !== "production" && {

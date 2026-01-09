@@ -659,7 +659,7 @@ VK HASHING WITH ORIGIN TAG ASSIGNMENT
 └────────────────────────────────────────────────────────────────┘
 
     ┌──────────────────────────────────────────┐
-    │ vk->hash_with_origin_tagging(domain, tx)  │
+    │ vk->hash_with_origin_tagging(tx)  │
     └──────────────────────────────────────────┘
                     │
                     ▼
@@ -840,7 +840,7 @@ Always use the dedicated method for hashing verification keys and verifier insta
 
 ```cpp
 // ✅ CORRECT - proper origin tag assignment
-FF vk_hash = vk->hash_with_origin_tagging(domain_separator, *transcript);
+FF vk_hash = vk->hash_with_origin_tagging(*transcript);
 transcript->add_to_hash_buffer("vk_hash", vk_hash);
 
 // ❌ WRONG - no origin tags in recursive verification

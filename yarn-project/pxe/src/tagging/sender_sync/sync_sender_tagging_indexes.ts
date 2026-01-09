@@ -3,7 +3,7 @@ import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import type { DirectionalAppTaggingSecret } from '@aztec/stdlib/logs';
 
 import type { SenderTaggingStore } from '../../storage/tagging_store/sender_tagging_store.js';
-import { UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN } from '../index.js';
+import { UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN } from '../constants.js';
 import { getStatusChangeOfPending } from './utils/get_status_change_of_pending.js';
 import { loadAndStoreNewTaggingIndexes } from './utils/load_and_store_new_tagging_indexes.js';
 

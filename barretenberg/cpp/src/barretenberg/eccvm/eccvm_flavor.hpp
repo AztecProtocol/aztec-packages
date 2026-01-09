@@ -46,7 +46,9 @@ class ECCVMFlavor {
     using CommitmentKey = bb::CommitmentKey<Curve>;
     using VerifierCommitmentKey = bb::VerifierCommitmentKey<Curve>;
     using MSM = bb::eccvm::MSM<CycleGroup>;
-    using Transcript = NativeTranscript;
+    using Codec = FrCodec;
+    using HashFunction = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>;
+    using Transcript = BaseTranscript<Codec, HashFunction>;
     using Proof = HonkProof;
 
     // indicates when evaluating sumcheck, edges must be extended to be MAX_PARTIAL_RELATION_LENGTH
@@ -814,7 +816,9 @@ class ECCVMFlavor {
      * resolve that, and split out separate PrecomputedPolynomials/Commitments data for clarity but also for
      * portability of our circuits.
      */
-    class VerificationKey : public NativeVerificationKey_<PrecomputedEntities<Commitment>, Transcript> {
+    class VerificationKey : public NativeVerificationKey_<PrecomputedEntities<Commitment>, Codec, HashFunction> {
+        using Base = NativeVerificationKey_<PrecomputedEntities<Commitment>, Codec, HashFunction>;
+
       public:
         bool operator==(const VerificationKey&) const = default;
 
@@ -826,7 +830,7 @@ class ECCVMFlavor {
 
         // Default construct the fixed VK that results from ECCVM_FIXED_SIZE
         VerificationKey()
-            : NativeVerificationKey_(ECCVM_FIXED_SIZE, /*num_public_inputs=*/0)
+            : Base(ECCVM_FIXED_SIZE, /*num_public_inputs=*/0)
         {
             this->pub_inputs_offset = 0;
 
@@ -838,7 +842,7 @@ class ECCVMFlavor {
         }
 
         VerificationKey(const size_t circuit_size, const size_t num_public_inputs)
-            : NativeVerificationKey_(circuit_size, num_public_inputs)
+            : Base(circuit_size, num_public_inputs)
         {}
 
         VerificationKey(const std::shared_ptr<ProvingKey>& proving_key)
@@ -857,11 +861,10 @@ class ECCVMFlavor {
          * @brief Unused function because vk is hardcoded in recursive verifier, so no transcript hashing is needed.
          *
          * @param domain_separator
-         * @param transcript
+         * @param tag
          * @returns The hash of the verification key
          */
-        fr hash_with_origin_tagging([[maybe_unused]] const std::string& domain_separator,
-                                    [[maybe_unused]] Transcript& transcript) const override
+        typename Base::DataType hash_with_origin_tagging([[maybe_unused]] const OriginTag& tag) const override
         {
             throw_or_abort("Not intended to be used because vk is hardcoded in circuit.");
         }
