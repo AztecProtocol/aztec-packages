@@ -5,14 +5,14 @@
 
 namespace bb::avm2::simulation {
 
-std::unique_ptr<ContextInterface> ContextProvider::make_nested_context(AztecAddress address,
-                                                                       AztecAddress msg_sender,
-                                                                       FF transaction_fee,
+std::unique_ptr<ContextInterface> ContextProvider::make_nested_context(const AztecAddress& address,
+                                                                       const AztecAddress& msg_sender,
+                                                                       const FF& transaction_fee,
                                                                        ContextInterface& parent_context,
                                                                        MemoryAddress cd_offset_address,
                                                                        uint32_t cd_size,
                                                                        bool is_static,
-                                                                       Gas gas_limit,
+                                                                       const Gas& gas_limit,
                                                                        TransactionPhase phase)
 {
     merkle_db.create_checkpoint(); // Fork DB just like in TS.
@@ -41,14 +41,14 @@ std::unique_ptr<ContextInterface> ContextProvider::make_nested_context(AztecAddr
         cd_size);
 }
 
-std::unique_ptr<ContextInterface> ContextProvider::make_enqueued_context(AztecAddress address,
-                                                                         AztecAddress msg_sender,
-                                                                         FF transaction_fee,
+std::unique_ptr<ContextInterface> ContextProvider::make_enqueued_context(const AztecAddress& address,
+                                                                         const AztecAddress& msg_sender,
+                                                                         const FF& transaction_fee,
                                                                          std::span<const FF> calldata,
                                                                          const FF& calldata_hash,
                                                                          bool is_static,
-                                                                         Gas gas_limit,
-                                                                         Gas gas_used,
+                                                                         const Gas& gas_limit,
+                                                                         const Gas& gas_used,
                                                                          TransactionPhase phase)
 {
 

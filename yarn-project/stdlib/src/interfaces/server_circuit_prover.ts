@@ -9,6 +9,7 @@ import type { AvmCircuitInputs } from '../avm/avm.js';
 import type { ParityBasePrivateInputs } from '../parity/parity_base_private_inputs.js';
 import type { ParityPublicInputs } from '../parity/parity_public_inputs.js';
 import type { ParityRootPrivateInputs } from '../parity/parity_root_private_inputs.js';
+import type { RecursiveProof } from '../proofs/recursive_proof.js';
 import type { BlockMergeRollupPrivateInputs } from '../rollup/block_merge_rollup_private_inputs.js';
 import type { BlockRollupPublicInputs } from '../rollup/block_rollup_public_inputs.js';
 import type {
@@ -34,7 +35,7 @@ import type { RootRollupPublicInputs } from '../rollup/root_rollup_public_inputs
 import type { TxMergeRollupPrivateInputs } from '../rollup/tx_merge_rollup_private_inputs.js';
 import type { TxRollupPublicInputs } from '../rollup/tx_rollup_public_inputs.js';
 import type { Tx } from '../tx/tx.js';
-import type { ProofAndVerificationKey, PublicInputsAndRecursiveProof } from './proving-job.js';
+import type { PublicInputsAndRecursiveProof } from './proving-job.js';
 
 /**
  * Generates proofs for parity and rollup circuits.
@@ -188,7 +189,7 @@ export interface ServerCircuitProver {
     inputs: AvmCircuitInputs,
     signal?: AbortSignal,
     epochNumber?: number,
-  ): Promise<ProofAndVerificationKey<typeof AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED>>;
+  ): Promise<RecursiveProof<typeof AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED>>;
 }
 
 export type IVCProofVerificationResult = {
