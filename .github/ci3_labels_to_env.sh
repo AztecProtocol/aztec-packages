@@ -51,10 +51,10 @@ function main {
   #   ci_mode="full-no-test-cache"
   elif has_label "ci-docs" || [ "$target_branch" == "merge-train/docs" ]; then
     ci_mode="docs"
-  elif has_label "ci-barretenberg" || [ "$target_branch" == "merge-train/barretenberg" ]; then
-    ci_mode="barretenberg"
   elif has_label "ci-barretenberg-full"; then
     ci_mode="barretenberg-full"
+  elif has_label "ci-barretenberg" || [ "$target_branch" == "merge-train/barretenberg" ]; then
+    ci_mode="barretenberg"
   elif [[ "${GITHUB_REF:-}" == refs/tags/v* ]]; then
     ci_mode="release"
   elif has_label "ci-skip"; then
