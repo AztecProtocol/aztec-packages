@@ -113,6 +113,7 @@ import {
   trackSpan,
 } from '@aztec/telemetry-client';
 import {
+  FullNodeCheckpointsBuilder,
   NodeKeystoreAdapter,
   ValidatorClient,
   createBlockProposalHandler,
@@ -313,9 +314,18 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     // We should really not be modifying the config object
     config.txPublicSetupAllowList = config.txPublicSetupAllowList ?? (await getDefaultAllowedSetupFunctions());
 
+    // Create BlockBuilder for EpochPruneWatcher (slasher functionality)
     const blockBuilder = new BlockBuilder(
       { ...config, l1GenesisTime, slotDuration: Number(slotDuration) },
       worldStateSynchronizer,
+      archiver,
+      dateProvider,
+      telemetry,
+    );
+
+    // Create FullNodeCheckpointsBuilder for validator and non-validator block proposal handling
+    const validatorCheckpointsBuilder = new FullNodeCheckpointsBuilder(
+      { ...config, l1GenesisTime, slotDuration: Number(slotDuration) },
       archiver,
       dateProvider,
       telemetry,
@@ -326,11 +336,12 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
 
     // Create validator client if required
     const validatorClient = createValidatorClient(config, {
+      checkpointsBuilder: validatorCheckpointsBuilder,
+      worldState: worldStateSynchronizer,
       p2pClient,
       telemetry,
       dateProvider,
       epochCache,
-      blockBuilder,
       blockSource: archiver,
       l1ToL2MessageSource: archiver,
       keyStoreManager,
@@ -352,7 +363,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     if (!validatorClient && config.alwaysReexecuteBlockProposals) {
       log.info('Setting up block proposal reexecution for monitoring');
       createBlockProposalHandler(config, {
-        blockBuilder,
+        checkpointsBuilder: validatorCheckpointsBuilder,
+        worldState: worldStateSynchronizer,
         epochCache,
         blockSource: archiver,
         l1ToL2MessageSource: archiver,

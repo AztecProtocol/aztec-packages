@@ -44,6 +44,7 @@ export interface EpochCacheInterface {
     currentSlot: SlotNumber;
     nextSlot: SlotNumber;
   }>;
+  getProposerAttesterAddressInSlot(slot: SlotNumber): Promise<EthAddress | undefined>;
   getRegisteredValidators(): Promise<EthAddress[]>;
   isInCommittee(slot: SlotTag, validator: EthAddress): Promise<boolean>;
   filterInCommittee(slot: SlotTag, validators: EthAddress[]): Promise<EthAddress[]>;

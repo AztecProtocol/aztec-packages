@@ -30,7 +30,7 @@ import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { InboxLeaf, computeInHashFromL1ToL2Messages } from '@aztec/stdlib/messaging';
 import {
   makeAndSignCommitteeAttestationsAndSigners,
-  makeAttestationFromCheckpoint,
+  makeCheckpointAttestationFromCheckpoint,
   makeStateReference,
   mockCheckpointAndMessages,
 } from '@aztec/stdlib/testing';
@@ -2441,7 +2441,7 @@ describe('Archiver', () => {
    */
   const makeRollupTx = (checkpoint: Checkpoint, signers: Secp256k1Signer[] = []) => {
     const attestations = signers
-      .map(signer => makeAttestationFromCheckpoint(checkpoint, signer))
+      .map(signer => makeCheckpointAttestationFromCheckpoint(checkpoint, signer))
       .map(attestation => CommitteeAttestation.fromSignature(attestation.signature))
       .map(committeeAttestation => committeeAttestation.toViem());
     const header = checkpoint.header.toViem();

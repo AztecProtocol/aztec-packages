@@ -130,7 +130,7 @@ function mapArchiverConfig(config: Partial<ArchiverConfig>) {
   return {
     pollingIntervalMs: config.archiverPollingIntervalMS,
     batchSize: config.archiverBatchSize,
-    skipValidateBlockAttestations: config.skipValidateBlockAttestations,
+    skipValidateCheckpointAttestations: config.skipValidateCheckpointAttestations,
     maxAllowedEthClientDriftSeconds: config.maxAllowedEthClientDriftSeconds,
     ethereumAllowNoDebugHosts: config.ethereumAllowNoDebugHosts,
   };
@@ -195,7 +195,7 @@ export class Archiver
     private config: {
       pollingIntervalMs: number;
       batchSize: number;
-      skipValidateBlockAttestations?: boolean;
+      skipValidateCheckpointAttestations?: boolean;
       maxAllowedEthClientDriftSeconds: number;
       ethereumAllowNoDebugHosts?: boolean;
     },
@@ -1007,7 +1007,7 @@ export class Archiver
       const validCheckpoints: PublishedCheckpoint[] = [];
 
       for (const published of publishedCheckpoints) {
-        const validationResult = this.config.skipValidateBlockAttestations
+        const validationResult = this.config.skipValidateCheckpointAttestations
           ? { valid: true as const }
           : await validateCheckpointAttestations(published, this.epochCache, this.l1constants, this.log);
 

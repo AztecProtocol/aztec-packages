@@ -357,7 +357,7 @@ describe('CalldataRetriever', () => {
       // Compute the expected payloadDigest using ConsensusPayload (same logic as the validator)
       const checkpointHeader = CheckpointHeader.fromViem(header);
       const consensusPayload = new ConsensusPayload(checkpointHeader, archiveRoot);
-      const payloadToSign = consensusPayload.getPayloadToSign(SignatureDomainSeparator.blockAttestation);
+      const payloadToSign = consensusPayload.getPayloadToSign(SignatureDomainSeparator.checkpointAttestation);
       const expectedPayloadDigest = keccak256(payloadToSign);
 
       const result = await retriever.getCheckpointFromRollupTx(txHash, [], checkpointNumber, {

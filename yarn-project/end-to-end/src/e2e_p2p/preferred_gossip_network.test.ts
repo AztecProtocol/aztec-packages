@@ -5,7 +5,7 @@ import { Signature } from '@aztec/foundation/eth-signature';
 import { retryUntil } from '@aztec/foundation/retry';
 import { ENR, type P2PClient, type P2PService, type PeerId } from '@aztec/p2p';
 import type { SequencerClient } from '@aztec/sequencer-client';
-import { BlockAttestation, ConsensusPayload } from '@aztec/stdlib/p2p';
+import { CheckpointAttestation, ConsensusPayload } from '@aztec/stdlib/p2p';
 
 import { jest } from '@jest/globals';
 import fs from 'fs';
@@ -106,7 +106,7 @@ describe('e2e_p2p_preferred_network', () => {
     p2pService.processBlockFromPeer = handleGossipedProposalSpy;
 
     // @ts-expect-error - we want to spy on received attestation handler
-    const oldAttestationHandler = p2pService.processAttestationFromPeer.bind(p2pService);
+    const oldAttestationHandler = p2pService.processCheckpointAttestationFromPeer.bind(p2pService);
 
     // Mock the function to just call the old one
     const handleGossipedAttestationSpy = jest.fn(async (payload: Buffer, msgId: string, source: PeerId) => {
@@ -114,7 +114,7 @@ describe('e2e_p2p_preferred_network', () => {
       await oldAttestationHandler(payload, msgId, source);
     });
     // @ts-expect-error - replace with our own handler
-    p2pService.processAttestationFromPeer = handleGossipedAttestationSpy;
+    p2pService.processCheckpointAttestationFromPeer = handleGossipedAttestationSpy;
   };
 
   const mockFailedAuthHandler = (node: AztecNodeService) => {
@@ -356,10 +356,10 @@ describe('e2e_p2p_preferred_network', () => {
     const blockNumber = await txsSentViaDifferentNodes[0][0].getReceipt().then(r => r.blockNumber!);
     const dataStore = (nodes[0] as AztecNodeService).getBlockSource() as Archiver;
     const [block] = await dataStore.getPublishedBlocks(blockNumber, blockNumber);
-    const payload = ConsensusPayload.fromBlock(block.block);
+    const payload = new ConsensusPayload(block.block.header.toCheckpointHeader(), block.block.archive.root);
     const attestations = block.attestations
       .filter(a => !a.signature.isEmpty())
-      .map(a => new BlockAttestation(payload, a.signature, Signature.empty()));
+      .map(a => new CheckpointAttestation(payload, a.signature, Signature.empty()));
     const signers = await Promise.all(attestations.map(att => att.getSender()!.toString()));
     t.logger.info(`Attestation signers`, { signers });
 

@@ -2,7 +2,7 @@ import type { SlotNumber } from '@aztec/foundation/branded-types';
 
 import { z } from 'zod';
 
-import { BlockAttestation } from '../p2p/block_attestation.js';
+import { CheckpointAttestation } from '../p2p/checkpoint_attestation.js';
 import type { P2PClientType } from '../p2p/client_type.js';
 import { type ApiSchemaFor, optional, schemas } from '../schemas/index.js';
 import { Tx } from '../tx/tx.js';
@@ -52,21 +52,18 @@ export interface P2PApiWithoutAttestations {
 
 export interface P2PApiWithAttestations extends P2PApiWithoutAttestations {
   /**
-   * Queries the Attestation pool for attestations for the given slot
+   * Queries the Attestation pool for checkpoint attestations for the given slot
    *
    * @param slot - the slot to query
    * @param proposalId - the proposal id to query, or undefined to query all proposals for the slot
-   * @returns BlockAttestations
+   * @returns CheckpointAttestations
    */
-  getAttestationsForSlot(slot: SlotNumber, proposalId?: string): Promise<BlockAttestation[]>;
-
-  /** Deletes a given attestation manually from the p2p client attestation pool. */
-  deleteAttestation(attestation: BlockAttestation): Promise<void>;
+  getCheckpointAttestationsForSlot(slot: SlotNumber, proposalId?: string): Promise<CheckpointAttestation[]>;
 }
 
 export interface P2PClient extends P2PApiWithAttestations {
-  /** Manually adds an attestation to the p2p client attestation pool. */
-  addAttestations(attestations: BlockAttestation[]): Promise<void>;
+  /** Manually adds checkpoint attestations to the p2p client attestation pool. */
+  addCheckpointAttestations(attestations: CheckpointAttestation[]): Promise<void>;
 }
 
 export type P2PApi<T extends P2PClientType = P2PClientType.Full> = T extends P2PClientType.Full
@@ -78,10 +75,10 @@ export type P2PApiFull<T extends P2PClientType = P2PClientType.Full> = T extends
   : P2PApiWithoutAttestations;
 
 export const P2PApiSchema: ApiSchemaFor<P2PApi> = {
-  getAttestationsForSlot: z
+  getCheckpointAttestationsForSlot: z
     .function()
     .args(schemas.SlotNumber, optional(z.string()))
-    .returns(z.array(BlockAttestation.schema)),
+    .returns(z.array(CheckpointAttestation.schema)),
   getPendingTxs: z
     .function()
     .args(optional(z.number().gte(1).lte(MAX_RPC_TXS_LEN).default(MAX_RPC_TXS_LEN)), optional(TxHash.schema))
@@ -90,5 +87,4 @@ export const P2PApiSchema: ApiSchemaFor<P2PApi> = {
   getPendingTxCount: z.function().returns(schemas.Integer),
   getEncodedEnr: z.function().returns(z.string().optional()),
   getPeers: z.function().args(optional(z.boolean())).returns(z.array(PeerInfoSchema)),
-  deleteAttestation: z.function().args(BlockAttestation.schema).returns(z.void()),
 };

@@ -360,9 +360,9 @@ export const SEQUENCER_FILLED_SLOT_COUNT: MetricDefinition = {
   valueType: ValueType.INT,
 };
 
-export const SEQUENCER_BLOCK_ATTESTATION_DELAY: MetricDefinition = {
-  name: 'aztec.sequencer.block.attestation_delay',
-  description: 'The time difference between block proposal and minimal attestation count reached',
+export const SEQUENCER_CHECKPOINT_ATTESTATION_DELAY: MetricDefinition = {
+  name: 'aztec.sequencer.checkpoint.attestation_delay',
+  description: 'The time difference between checkpoint proposal and minimal attestation count reached',
   unit: 'ms',
   valueType: ValueType.INT,
 };

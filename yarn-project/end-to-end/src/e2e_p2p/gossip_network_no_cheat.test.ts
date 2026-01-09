@@ -12,7 +12,7 @@ import { MockZKPassportVerifierAbi } from '@aztec/l1-artifacts/MockZKPassportVer
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 import { StakingAssetHandlerAbi } from '@aztec/l1-artifacts/StakingAssetHandlerAbi';
 import type { SequencerClient } from '@aztec/sequencer-client';
-import { BlockAttestation, ConsensusPayload } from '@aztec/stdlib/p2p';
+import { CheckpointAttestation, ConsensusPayload } from '@aztec/stdlib/p2p';
 import { ZkPassportProofParams } from '@aztec/stdlib/zkpassport';
 
 import { jest } from '@jest/globals';
@@ -228,10 +228,10 @@ describe('e2e_p2p_network', () => {
     const blockNumber = await txsSentViaDifferentNodes[0][0].getReceipt().then(r => r.blockNumber!);
     const dataStore = (nodes[0] as AztecNodeService).getBlockSource() as Archiver;
     const [block] = await dataStore.getPublishedBlocks(blockNumber, blockNumber);
-    const payload = ConsensusPayload.fromBlock(block.block);
+    const payload = new ConsensusPayload(block.block.header.toCheckpointHeader(), block.block.archive.root);
     const attestations = block.attestations
       .filter(a => !a.signature.isEmpty())
-      .map(a => new BlockAttestation(payload, a.signature, Signature.empty()));
+      .map(a => new CheckpointAttestation(payload, a.signature, Signature.empty()));
     const signers = await Promise.all(attestations.map(att => att.getSender()!.toString()));
     t.logger.info(`Attestation signers`, { signers });
 

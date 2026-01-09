@@ -62,7 +62,7 @@ import { orderAttestations } from '@aztec/stdlib/p2p';
 import {
   fr,
   makeAndSignCommitteeAttestationsAndSigners,
-  makeBlockAttestationFromBlock,
+  makeCheckpointAttestationFromBlock,
   mockProcessedTx,
 } from '@aztec/stdlib/testing';
 import type { BlockHeader, ProcessedTx } from '@aztec/stdlib/tx';
@@ -540,7 +540,7 @@ describe('L1Publisher integration', () => {
     it('publishes a block with attestations', async () => {
       const block = await buildSingleBlock();
 
-      const blockAttestations = validators.map(v => makeBlockAttestationFromBlock(block, v));
+      const blockAttestations = validators.map(v => makeCheckpointAttestationFromBlock(block, v));
       const attestations = orderAttestations(blockAttestations, committee!);
 
       const canPropose = await publisher.canProposeAtNextEthBlock(new Fr(GENESIS_ARCHIVE_ROOT), proposer!);
@@ -560,7 +560,7 @@ describe('L1Publisher integration', () => {
 
     it('fails to publish a block without the proposer attestation', async () => {
       const block = await buildSingleBlock();
-      const blockAttestations = validators.map(v => makeBlockAttestationFromBlock(block, v));
+      const blockAttestations = validators.map(v => makeCheckpointAttestationFromBlock(block, v));
 
       // Reverse attestations to break proposer attestation
       const attestations = orderAttestations(blockAttestations, committee!).reverse();
@@ -577,7 +577,7 @@ describe('L1Publisher integration', () => {
 
     it('rejects flipped proposer signature', async () => {
       const block = await buildSingleBlock();
-      const blockAttestations = validators.map(v => makeBlockAttestationFromBlock(block, v));
+      const blockAttestations = validators.map(v => makeCheckpointAttestationFromBlock(block, v));
       const attestations = orderAttestations(blockAttestations, committee!);
 
       const canPropose = await publisher.canProposeAtNextEthBlock(new Fr(GENESIS_ARCHIVE_ROOT), proposer!);
@@ -601,7 +601,7 @@ describe('L1Publisher integration', () => {
 
     it('rejects signature with invalid recovery value', async () => {
       const block = await buildSingleBlock();
-      const blockAttestations = validators.map(v => makeBlockAttestationFromBlock(block, v));
+      const blockAttestations = validators.map(v => makeCheckpointAttestationFromBlock(block, v));
       const attestations = orderAttestations(blockAttestations, committee!);
 
       const canPropose = await publisher.canProposeAtNextEthBlock(new Fr(GENESIS_ARCHIVE_ROOT), proposer!);
@@ -631,7 +631,7 @@ describe('L1Publisher integration', () => {
       // Publish the first invalid block
       const badBlockAttestations = validators
         .filter(v => v.address.equals(proposer!))
-        .map(v => makeBlockAttestationFromBlock(badBlock, v));
+        .map(v => makeCheckpointAttestationFromBlock(badBlock, v));
       const badAttestations = orderAttestations(badBlockAttestations, committee!);
 
       const badAttestationsAndSigners = new CommitteeAttestationsAndSigners(badAttestations);
@@ -651,7 +651,7 @@ describe('L1Publisher integration', () => {
       // Prepare for invalidating the previous one and publish the same block with proper attestations
       const block = await buildSingleBlock({ blockNumber: BlockNumber(1) });
       expect(block.number).toEqual(badBlock.number);
-      const blockAttestations = validators.map(v => makeBlockAttestationFromBlock(block, v));
+      const blockAttestations = validators.map(v => makeCheckpointAttestationFromBlock(block, v));
       const attestations = orderAttestations(blockAttestations, committee!);
 
       // Check we can invalidate the block

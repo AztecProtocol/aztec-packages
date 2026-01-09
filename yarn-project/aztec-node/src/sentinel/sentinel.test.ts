@@ -17,8 +17,8 @@ import {
 } from '@aztec/stdlib/block';
 import { Checkpoint, L1PublishedData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import { type L1RollupConstants, getEpochAtSlot, getSlotRangeForEpoch } from '@aztec/stdlib/epoch-helpers';
-import type { BlockAttestation } from '@aztec/stdlib/p2p';
-import { makeAttestationFromCheckpoint, makeBlockAttestation } from '@aztec/stdlib/testing';
+import type { CheckpointAttestation } from '@aztec/stdlib/p2p';
+import { makeAttestationFromCheckpoint, makeCheckpointAttestation } from '@aztec/stdlib/testing';
 import type {
   ValidatorStats,
   ValidatorStatusHistory,
@@ -92,7 +92,7 @@ describe('sentinel', () => {
     let validators: EthAddress[];
     let block: L2BlockNew;
     let publishedCheckpoint: PublishedCheckpoint;
-    let attestations: BlockAttestation[];
+    let attestations: CheckpointAttestation[];
     let proposer: EthAddress;
     let committee: EthAddress[];
 
@@ -109,11 +109,11 @@ describe('sentinel', () => {
       signers = times(4, Secp256k1Signer.random);
       validators = signers.map(signer => signer.address);
       block = await L2BlockNew.random(BlockNumber(1), { slotNumber: slot });
-      attestations = signers.map(signer => makeBlockAttestation({ signer, archive: block.archive.root }));
+      attestations = signers.map(signer => makeCheckpointAttestation({ signer, archive: block.archive.root }));
       proposer = validators[0];
       committee = [...validators];
 
-      p2p.getAttestationsForSlot.mockResolvedValue(attestations);
+      p2p.getCheckpointAttestationsForSlot.mockResolvedValue(attestations);
     });
 
     it('flags block as mined', async () => {
@@ -126,13 +126,13 @@ describe('sentinel', () => {
     });
 
     it('flags block as proposed when it is not mined but there are attestations', async () => {
-      p2p.getAttestationsForSlot.mockResolvedValue(attestations);
+      p2p.getCheckpointAttestationsForSlot.mockResolvedValue(attestations);
       const activity = await sentinel.getSlotActivity(slot, epoch, proposer, committee);
       expect(activity[proposer.toString()]).toEqual('block-proposed');
     });
 
     it('flags block as missed when there are no attestations', async () => {
-      p2p.getAttestationsForSlot.mockResolvedValue([]);
+      p2p.getCheckpointAttestationsForSlot.mockResolvedValue([]);
       const activity = await sentinel.getSlotActivity(slot, epoch, proposer, committee);
       expect(activity[proposer.toString()]).toEqual('block-missed');
     });
@@ -161,7 +161,7 @@ describe('sentinel', () => {
       );
 
       // P2P provides attestation from signer 2 (validator 2)
-      p2p.getAttestationsForSlot.mockResolvedValue(attestations.slice(2, 3));
+      p2p.getCheckpointAttestationsForSlot.mockResolvedValue(attestations.slice(2, 3));
 
       const activity = await sentinel.getSlotActivity(slot, epoch, proposer, committee);
       // Validator 1 attested via archiver checkpoint data
@@ -203,7 +203,7 @@ describe('sentinel', () => {
       expect(placeholders).toHaveLength(2);
 
       // No additional attestations from p2p
-      p2p.getAttestationsForSlot.mockResolvedValue([]);
+      p2p.getCheckpointAttestationsForSlot.mockResolvedValue([]);
 
       const activity = await sentinel.getSlotActivity(slot, epoch, proposer, committee);
 
@@ -222,7 +222,7 @@ describe('sentinel', () => {
       await emitCheckpointEvent(checkpoint);
 
       // P2P provides attestations from validators 0, 1, 2 (not validator 3)
-      p2p.getAttestationsForSlot.mockResolvedValue(attestations.slice(0, -1));
+      p2p.getCheckpointAttestationsForSlot.mockResolvedValue(attestations.slice(0, -1));
 
       const activity = await sentinel.getSlotActivity(slot, epoch, proposer, committee);
       expect(activity[committee[1].toString()]).toEqual('attestation-sent');
@@ -231,7 +231,7 @@ describe('sentinel', () => {
     });
 
     it('identifies missed attestors if block is proposed', async () => {
-      p2p.getAttestationsForSlot.mockResolvedValue(attestations.slice(0, -1));
+      p2p.getCheckpointAttestationsForSlot.mockResolvedValue(attestations.slice(0, -1));
 
       const activity = await sentinel.getSlotActivity(slot, epoch, proposer, committee);
       expect(activity[committee[1].toString()]).toEqual('attestation-sent');
@@ -240,7 +240,7 @@ describe('sentinel', () => {
     });
 
     it('does not tag attestors as missed if there was no block and no attestations', async () => {
-      p2p.getAttestationsForSlot.mockResolvedValue([]);
+      p2p.getCheckpointAttestationsForSlot.mockResolvedValue([]);
 
       const activity = await sentinel.getSlotActivity(slot, epoch, proposer, committee);
       expect(activity[proposer.toString()]).toEqual('block-missed');

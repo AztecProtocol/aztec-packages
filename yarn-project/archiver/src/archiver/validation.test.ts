@@ -8,7 +8,7 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import { CommitteeAttestation, EthAddress } from '@aztec/stdlib/block';
 import { Checkpoint, L1PublishedData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import { orderAttestations } from '@aztec/stdlib/p2p';
-import { makeAttestationFromCheckpoint } from '@aztec/stdlib/testing';
+import { makeCheckpointAttestationFromCheckpoint } from '@aztec/stdlib/testing';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 import assert from 'node:assert';
@@ -25,7 +25,7 @@ describe('validateCheckpointAttestations', () => {
 
   const makeCheckpoint = async (signers: Secp256k1Signer[], committee: EthAddress[], slot?: number) => {
     const checkpoint = await Checkpoint.random(CheckpointNumber(1), { slotNumber: SlotNumber(slot ?? 1) });
-    const attestations = signers.map(signer => makeAttestationFromCheckpoint(checkpoint, signer));
+    const attestations = signers.map(signer => makeCheckpointAttestationFromCheckpoint(checkpoint, signer));
     const committeeAttestations = orderAttestations(attestations, committee);
     return new PublishedCheckpoint(checkpoint, L1PublishedData.random(), committeeAttestations);
   };
