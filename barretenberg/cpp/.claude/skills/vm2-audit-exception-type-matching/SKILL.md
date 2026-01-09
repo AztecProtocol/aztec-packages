@@ -10,10 +10,6 @@ allowed-tools: Read, Glob, Grep, Bash, Write, Edit
 
 This skill audits VM2/AVM simulation code for exception type matching issues. When simulation code throws a different exception type than what the caller catches, error handling paths fail completely.
 
-**Bug Type**: Completeness
-**Severity**: Medium
-**Frequency**: Low
-
 ## Why This is Important
 
 This is a **completeness** issue - honest provers crash or produce incorrect traces because:
@@ -21,27 +17,6 @@ This is a **completeness** issue - honest provers crash or produce incorrect tra
 - Error handling code never executes
 - Trace generation fails for valid error cases
 - What should be a recoverable error becomes fatal
-
-## The Problem
-
-```cpp
-// VULNERABLE: Throwing wrong exception type
-
-// In callee (sha256_compression.cpp):
-void compress(const Input& input) {
-    if (invalid_condition) {
-        throw std::runtime_error("SHA256 compression failed");  // WRONG TYPE!
-    }
-}
-
-// In caller (execution.cpp):
-try {
-    sha256.compress(input);
-} catch (const Sha256CompressionException& e) {  // Won't catch runtime_error!
-    handle_sha256_error(e);
-}
-// runtime_error propagates up, crashes simulation!
-```
 
 ## Audit Instructions
 
@@ -145,15 +120,8 @@ void Sha256Compression::compress(...) {
         throw std::runtime_error("SHA256 compression error");  // WRONG!
     }
 }
-
-// Caller expects specific type
 try {
     sha256.compress(state, input);
-} catch (const Sha256CompressionException& e) {
-    // NEVER REACHED - runtime_error not caught!
-    emit_error_event(ErrorType::Sha256Error);
-}
-// Simulation crashes instead of handling error
 ```
 
 ### Vulnerable Pattern: Overly Broad Catch
@@ -163,8 +131,6 @@ try {
 try {
     component.operation();
 } catch (const std::exception& e) {
-    // Catches everything - masks specific error handling
-    // May hide bugs where wrong exception type is thrown
 }
 ```
 
@@ -174,7 +140,6 @@ try {
 // VULNERABLE: No try-catch around component that can throw
 void process() {
     component.operation();  // What if this throws?
-    // Exception propagates up, crashes simulation
 }
 ```
 
@@ -182,26 +147,16 @@ void process() {
 
 ```cpp
 // SECURE: Correct exception type
-
-// Define specific exception in header:
 class Sha256CompressionException : public VmException {
 public:
     explicit Sha256CompressionException(const std::string& msg)
         : VmException(msg) {}
 };
 
-// In callee:
 void Sha256Compression::compress(...) {
     if (invalid_condition) {
-        throw Sha256CompressionException("SHA256 compression failed");  // CORRECT!
+        throw Sha256CompressionException("SHA256 compression error");
     }
-}
-
-// In caller:
-try {
-    sha256.compress(input);
-} catch (const Sha256CompressionException& e) {  // Now catches correctly
-    handle_sha256_error(e);
 }
 ```
 
@@ -215,10 +170,6 @@ try {
     handle_expected_error(e);
 } catch (const VmException& e) {
     handle_vm_error(e);
-} catch (const std::exception& e) {
-    // Log unexpected exception type - indicates bug
-    LOG_ERROR("Unexpected exception type: " << typeid(e).name());
-    throw;  // Re-throw to fail loudly
 }
 ```
 
@@ -252,32 +203,6 @@ void Sha256Compression::compress(...) {
 }
 ```
 **Impact**: Valid SHA256 error cases crash simulation.
-
-## Audit Checklist
-
-1. **Find all throw statements**:
-   - [ ] `grep -rn "throw " simulation/`
-   - [ ] Document each exception type thrown
-
-2. **For each throw, verify exception type**:
-   - [ ] Is it a specific VM exception?
-   - [ ] Not generic `std::runtime_error`?
-   - [ ] Not generic `std::exception`?
-
-3. **Find corresponding catch blocks**:
-   - [ ] `grep -rn "catch" simulation/`
-   - [ ] Document what types are caught
-
-4. **Verify type matching**:
-   - [ ] Thrown type matches what caller catches?
-   - [ ] Is there a catch-all safety net?
-
-5. **Check exception class definitions**:
-   - [ ] Exception classes properly defined?
-   - [ ] Inherit from appropriate base class?
-
-6. **Trace error handling paths**:
-   - [ ] Exception thrown -> caught -> error event -> trace
 
 ## Red Flags
 
@@ -338,145 +263,62 @@ if (nullifiers.size() > MAX_NULLIFIERS_PER_TX) {
 throw std::runtime_error("Unknown opcode");
 ```
 
-## Fix Patterns
-
-### Fix 1: Change Exception Type
-
-```cpp
-// BEFORE:
-throw std::runtime_error("Error message");
-
-// AFTER:
-throw SpecificComponentException("Error message");
-```
-
-### Fix 2: Add Missing Exception Class
-
-```cpp
-// In component_exception.hpp:
-class ComponentException : public VmException {
-public:
-    explicit ComponentException(const std::string& msg)
-        : VmException(msg) {}
-};
-```
-
-### Fix 3: Update Catch Block
-
-```cpp
-// If throw type is correct but catch is wrong:
-// BEFORE:
-catch (const std::exception& e)
-
-// AFTER:
-catch (const SpecificException& e)
-```
-
-### Fix 4: Add Catch-All Safety Net
-
-```cpp
-try {
-    operation();
-} catch (const SpecificException& e) {
-    handle_expected_error(e);
-} catch (const VmException& e) {
-    handle_vm_error(e);
-} catch (const std::exception& e) {
-    // Log unexpected exception type - indicates bug
-    LOG_ERROR("Unexpected exception type: " << typeid(e).name());
-    throw;  // Re-throw to fail loudly
-}
-```
-
-## Common Locations to Audit
-
-Exception type matching is critical in:
-- **Simulation**: `barretenberg/cpp/src/barretenberg/vm2/simulation/*.cpp`
-- **Tracegen**: `barretenberg/cpp/src/barretenberg/vm2/tracegen/*.cpp`
-- **Exception headers**: `barretenberg/cpp/src/barretenberg/vm2/simulation/exceptions.hpp`
-- **Component implementations**: SHA256, Keccak, ALU, Memory, etc.
-
-## References
-
-- [Detailed Skill Documentation](../../../pil/vm2/claude-skills/23-exception-type-matching.md)
-- [Optional Value Safety Skill](../vm2-audit-optional-value-safety/SKILL.md)
-- [Tracegen-PIL Alignment Skill](../vm2-audit-tracegen-pil-alignment/SKILL.md)
-
 ---
 
-## Required Output Format
+## REQUIRED OUTPUT FORMAT
 
-**IMPORTANT**: When running this audit skill, you MUST end your response with this standardized format.
+**IMPORTANT**: Your response MUST end with this machine-readable section.
 
-### Findings Summary
+### Summary Table
 
-At the end of your audit, provide a summary section:
-
-```markdown
-## Audit Results
-
-### Summary
 | Item | Value |
 |------|-------|
-| Skill | vm2-audit-exception-type-matching |
-| Target | [path that was audited] |
-| Files Scanned | [number] |
-| Findings | [count by severity, e.g., "2 Critical, 1 High, 0 Medium, 0 Low"] |
-| Status | COMPLETED_WITH_FINDINGS / COMPLETED_NO_FINDINGS / ERROR |
+| Skill | `{skill-name}` |
+| Target | `{path audited}` |
+| Files Scanned | `{number}` |
+| Findings | `{e.g., "2 Critical, 1 High" or "None"}` |
+| Status | `COMPLETED_WITH_FINDINGS` / `COMPLETED_NO_FINDINGS` / `ERROR` |
 
-### Findings
+### Findings Format
 
-#### Finding vm2-audit-exception-type-matching-[file]-[line]-[subtype] [SEVERITY]
+For each finding, include:
+- **ID**: `{skill-name}-{file}-{line}-{subtype}`
+- **Severity**: Critical / High / Medium / Low
 - **File**: `path/to/file.pil:line`
-- **Type**: [specific vulnerability type]
-- **Affected Column/Constraint**: [name]
-- **Description**: [brief description]
-- **Exploitability**: [High/Medium/Low] - [brief rationale]
-- **Suggested Fix**: [one-line fix suggestion]
+- **Description**: Brief description
+- **Fix**: One-line suggestion
 
-[Repeat for each finding]
-```
+### Machine-Readable JSON (REQUIRED)
 
-### Machine-Readable Findings
+You MUST include this exact format at the end of your response:
 
-After the human-readable summary, include a JSON block:
-
-```markdown
-<!-- MACHINE-READABLE FINDINGS (do not edit manually) -->
+<!-- MACHINE-READABLE FINDINGS -->
 ```json
 {
-  "skill": "vm2-audit-exception-type-matching",
-  "finding_prefix": "vm2-audit-exception-type-matching",
-  "status": "COMPLETED_WITH_FINDINGS | COMPLETED_NO_FINDINGS | ERROR",
-  "target": "pil/vm2",
-  "files_scanned": 0,
+  "skill": "{skill-name}",
+  "status": "COMPLETED_WITH_FINDINGS",
   "findings": [
     {
-      "id": "vm2-audit-exception-type-matching-filename-line-subtype",
-      "severity": "critical|high|medium|low",
+      "id": "{skill-name}-{file}-{line}-{subtype}",
+      "severity": "critical",
       "file": "path/to/file.pil",
       "line": 123,
-      "type": "specific-vulnerability-type",
-      "column": "affected_column_name",
-      "description": "Brief description of the issue",
-      "exploitability": "high|medium|low",
+      "description": "Brief description",
+      "exploitability": "high",
       "fix": "Suggested fix"
     }
   ]
 }
 ```
 <!-- END MACHINE-READABLE FINDINGS -->
+
+For no findings, use:
+<!-- MACHINE-READABLE FINDINGS -->
+```json
+{
+  "skill": "{skill-name}",
+  "status": "COMPLETED_NO_FINDINGS",
+  "findings": []
+}
 ```
-
-### Finding ID Convention
-
-- Format: `vm2-audit-exception-type-matching-[filename]-[line]-[subtype]`
-- Example: `vm2-audit-exception-type-matching-alu-123-SEL`
-- Use lowercase for filename (without extension)
-- Use CAPS for subtype descriptors
-
-### Status Values
-
-- `COMPLETED_NO_FINDINGS` - Audit completed, no issues found
-- `COMPLETED_WITH_FINDINGS` - Audit completed, issues found
-- `ERROR` - Audit could not complete (explain in description)
+<!-- END MACHINE-READABLE FINDINGS -->

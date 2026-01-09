@@ -10,10 +10,6 @@ allowed-tools: Read, Glob, Grep, Bash, Write, Edit
 
 This skill audits VM2/AVM for misalignment between tracegen (trace generation code) and PIL constraints. Misalignment causes valid executions to fail verification.
 
-**Bug Type**: Completeness
-**Severity**: Medium
-**Frequency**: High
-
 ## Why This is Important
 
 This is a **completeness** issue - honest provers produce invalid traces even for correct executions, causing verification failures. The trace generation code must produce values that satisfy all PIL constraints.
@@ -164,8 +160,6 @@ Example: `sel = double_op + add_op + INFINITY_PRED` where:
 void process_event(const Event& event, Row& row) {
     row.sel = 1;
     row.a = event.a;
-    // Missing: row.a_inv = compute_inverse(event.a);
-    // PIL constraint will fail!
 }
 ```
 
@@ -174,7 +168,6 @@ void process_event(const Event& event, Row& row) {
 ```cpp
 // VULNERABLE: Incorrect computation
 row.tag_diff = static_cast<uint64_t>(tag_a - tag_b);
-// Field subtraction can produce large values that don't fit in uint64_t!
 ```
 
 ### Vulnerable Pattern: Missing Event Handler
@@ -186,7 +179,6 @@ void process(const Event& event, Row& row) {
         case EventType::Normal:
             handle_normal(event, row);
             break;
-        // Missing: case EventType::Error: handle_error(...)
     }
 }
 ```
@@ -221,8 +213,6 @@ void process(const Event& event, Row& row) {
         case EventType::Error:
             handle_error(event, row);
             break;
-        default:
-            throw std::runtime_error("Unknown event type");
     }
 }
 ```
@@ -287,83 +277,6 @@ bool add_predicate = !x_match;
 ```
 **Impact**: Adding points with same y but different x (possible via cube roots of unity) failed constraint `sel = double_op + add_op + INFINITY_PRED`.
 
-## Audit Checklist
-
-1. **For each PIL column, verify tracegen assignment**:
-   - [ ] Column is assigned in tracegen
-   - [ ] Value computation is correct
-   - [ ] All code paths set the column
-
-2. **For each constraint, verify satisfaction**:
-   - [ ] Tracegen produces values that satisfy constraint
-   - [ ] Normal path satisfies constraint
-   - [ ] Error path satisfies constraint
-
-3. **Check all code paths**:
-   - [ ] Normal execution path
-   - [ ] Error handling paths
-   - [ ] Edge cases (zero, max, empty)
-   - [ ] Boundary conditions
-
-4. **Verify event handling**:
-   - [ ] All event types have handlers
-   - [ ] Event fields map to correct columns
-   - [ ] Error events produce valid traces
-
-5. **Check type conversions**:
-   - [ ] Field element arithmetic correct
-   - [ ] No unsafe integer casts
-   - [ ] Bit widths considered
-
-6. **Verify selector toggles**:
-   - [ ] Selectors set on correct conditions
-   - [ ] No missing selector assignments
-
-7. **Derive and verify selector conditions**:
-   - [ ] For `sel = A + B + C` patterns, derive when each sub-selector should be 1
-   - [ ] Verify tracegen boolean logic matches derived conditions
-   - [ ] Consider edge cases (e.g., domain-specific math like cube roots of unity)
-
-## Fix Patterns
-
-### Fix 1: Add Missing Column
-
-```cpp
-void process_event(const Event& event, Row& row) {
-    // ... existing assignments ...
-    row.missing_column = compute_value(event);
-}
-```
-
-### Fix 2: Fix Value Computation
-
-```cpp
-// BEFORE: Wrong computation
-row.value = static_cast<uint32_t>(a - b);
-
-// AFTER: Correct computation (field arithmetic)
-row.value = FF(a) - FF(b);
-```
-
-### Fix 3: Handle Missing Event
-
-```cpp
-void process_event(const Event& event, Row& row) {
-    if (event.type == EventType::Normal) {
-        handle_normal(event, row);
-    } else if (event.type == EventType::Error) {
-        handle_error(event, row);  // Add this!
-    }
-}
-```
-
-### Fix 4: Fix Selector Toggle
-
-```cpp
-// Toggle selector on correct condition
-row.sel_special = (event.condition == ExpectedValue);
-```
-
 ## Debugging Tips
 
 1. **Print trace row when constraint fails**:
@@ -385,95 +298,62 @@ row.sel_special = (event.condition == ExpectedValue);
    if (result != 0) { LOG("Constraint violated: " << result); }
    ```
 
-## Common Locations to Audit
-
-Tracegen-PIL alignment is critical in:
-- **Tracegen files**: `barretenberg/cpp/src/barretenberg/vm2/tracegen/*.cpp`
-- **Simulation files**: `barretenberg/cpp/src/barretenberg/vm2/simulation/*.cpp`
-- **Event definitions**: `barretenberg/cpp/src/barretenberg/vm2/simulation/events.hpp`
-- **All PIL files**: `barretenberg/cpp/pil/vm2/**/*.pil`
-
-## References
-
-- [Detailed Skill Documentation](../../../pil/vm2/claude-skills/14-tracegen-pil-alignment.md)
-- [Missing Error Gating Skill](../vm2-audit-missing-error-gating/SKILL.md)
-- [Optional Value Safety Skill](../vm2-audit-optional-value-safety/SKILL.md)
-
 ---
 
-## Required Output Format
+## REQUIRED OUTPUT FORMAT
 
-**IMPORTANT**: When running this audit skill, you MUST end your response with this standardized format.
+**IMPORTANT**: Your response MUST end with this machine-readable section.
 
-### Findings Summary
+### Summary Table
 
-At the end of your audit, provide a summary section:
-
-```markdown
-## Audit Results
-
-### Summary
 | Item | Value |
 |------|-------|
-| Skill | vm2-audit-tracegen-pil-alignment |
-| Target | [path that was audited] |
-| Files Scanned | [number] |
-| Findings | [count by severity, e.g., "2 Critical, 1 High, 0 Medium, 0 Low"] |
-| Status | COMPLETED_WITH_FINDINGS / COMPLETED_NO_FINDINGS / ERROR |
+| Skill | `{skill-name}` |
+| Target | `{path audited}` |
+| Files Scanned | `{number}` |
+| Findings | `{e.g., "2 Critical, 1 High" or "None"}` |
+| Status | `COMPLETED_WITH_FINDINGS` / `COMPLETED_NO_FINDINGS` / `ERROR` |
 
-### Findings
+### Findings Format
 
-#### Finding vm2-audit-tracegen-pil-alignment-[file]-[line]-[subtype] [SEVERITY]
+For each finding, include:
+- **ID**: `{skill-name}-{file}-{line}-{subtype}`
+- **Severity**: Critical / High / Medium / Low
 - **File**: `path/to/file.pil:line`
-- **Type**: [specific vulnerability type]
-- **Affected Column/Constraint**: [name]
-- **Description**: [brief description]
-- **Exploitability**: [High/Medium/Low] - [brief rationale]
-- **Suggested Fix**: [one-line fix suggestion]
+- **Description**: Brief description
+- **Fix**: One-line suggestion
 
-[Repeat for each finding]
-```
+### Machine-Readable JSON (REQUIRED)
 
-### Machine-Readable Findings
+You MUST include this exact format at the end of your response:
 
-After the human-readable summary, include a JSON block:
-
-```markdown
-<!-- MACHINE-READABLE FINDINGS (do not edit manually) -->
+<!-- MACHINE-READABLE FINDINGS -->
 ```json
 {
-  "skill": "vm2-audit-tracegen-pil-alignment",
-  "finding_prefix": "vm2-audit-tracegen-pil-alignment",
-  "status": "COMPLETED_WITH_FINDINGS | COMPLETED_NO_FINDINGS | ERROR",
-  "target": "pil/vm2",
-  "files_scanned": 0,
+  "skill": "{skill-name}",
+  "status": "COMPLETED_WITH_FINDINGS",
   "findings": [
     {
-      "id": "vm2-audit-tracegen-pil-alignment-filename-line-subtype",
-      "severity": "critical|high|medium|low",
+      "id": "{skill-name}-{file}-{line}-{subtype}",
+      "severity": "critical",
       "file": "path/to/file.pil",
       "line": 123,
-      "type": "specific-vulnerability-type",
-      "column": "affected_column_name",
-      "description": "Brief description of the issue",
-      "exploitability": "high|medium|low",
+      "description": "Brief description",
+      "exploitability": "high",
       "fix": "Suggested fix"
     }
   ]
 }
 ```
 <!-- END MACHINE-READABLE FINDINGS -->
+
+For no findings, use:
+<!-- MACHINE-READABLE FINDINGS -->
+```json
+{
+  "skill": "{skill-name}",
+  "status": "COMPLETED_NO_FINDINGS",
+  "findings": []
+}
 ```
-
-### Finding ID Convention
-
-- Format: `vm2-audit-tracegen-pil-alignment-[filename]-[line]-[subtype]`
-- Example: `vm2-audit-tracegen-pil-alignment-alu-123-SEL`
-- Use lowercase for filename (without extension)
-- Use CAPS for subtype descriptors
-
-### Status Values
-
-- `COMPLETED_NO_FINDINGS` - Audit completed, no issues found
-- `COMPLETED_WITH_FINDINGS` - Audit completed, issues found
-- `ERROR` - Audit could not complete (explain in description)
+<!-- END MACHINE-READABLE FINDINGS -->
