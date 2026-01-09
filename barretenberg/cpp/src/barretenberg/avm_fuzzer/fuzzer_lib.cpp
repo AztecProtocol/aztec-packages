@@ -341,9 +341,9 @@ size_t mutate_tx_data(FuzzerContext& context,
         // So when we mutate contract classes, we also need to update the corresponding artifacts
 
         break;
-        // case TxDataMutationType::ContractInstanceMutation:
-        //     // Mutations here are likely to cause immediate failure
-        //     break;
+    case FuzzerTxDataMutationType::ContractInstanceMutation:
+        mutate_contract_instances(tx_data.contract_instances, tx_data.contract_addresses, rng);
+        break;
         // case TxDataMutationType::GlobalVariablesMutation:
         //     break;
         // case TxDataMutationType::ProtocolContractsMutation:
