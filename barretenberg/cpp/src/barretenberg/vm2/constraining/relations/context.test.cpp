@@ -876,9 +876,9 @@ TEST(ContextConstrainingTest, NegativeTreeStateOnEnterCall)
     EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_NULLIFIER_TREE_SIZE_CONTINUITY),
                               "NULLIFIER_TREE_SIZE_CONTINUITY");
     EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_NUM_NULLIFIERS_EMITTED_CONTINUITY),
-                              "NPUBLIC_DATA_TREE_SIZE_CONTINUITY");
+                              "NUM_NULLIFIERS_EMITTED_CONTINUITY");
     EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_PUBLIC_DATA_TREE_ROOT_CONTINUITY),
-                              "PUBLIC_DATA_TREE_SIZE_CONTINUITY");
+                              "PUBLIC_DATA_TREE_ROOT_CONTINUITY");
     EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_PUBLIC_DATA_TREE_SIZE_CONTINUITY),
                               "PUBLIC_DATA_TREE_SIZE_CONTINUITY");
     EXPECT_THROW_WITH_MESSAGE(

@@ -119,7 +119,10 @@ namespace execution;
 
     // ==== Helper columns ====
     pol NOT_LAST_EXEC = sel * sel';
-    pol NOT_LAST_NOT_FAILURE_NOT_ENQ_END = NOT_LAST_EXEC * (1 - sel_failure) * (1 - enqueued_call_end);
+    // Optimized using the partition property:
+    // - sel, nested_failure, and enqueued_call_end form a partition on active rows
+    // - The last active row must have enqueued_call_end=1, so sel' gating is unnecessary
+    pol NOT_LAST_NOT_FAILURE_NOT_ENQ_END = sel - nested_failure - enqueued_call_end;
     // We default propagate the context rows if we have more execution steps and we are not exiting or entering a call.
     // Note that DEFAULT_CTX_ROW selects also the first row of an enqueued call (when `enqueued_call_start == 1`).
     pol DEFAULT_CTX_ROW = 1 - (sel_enter_call + sel_exit_call); // sel_enter_call and sel_exit_call are mutually exclusive
@@ -542,9 +545,9 @@ namespace execution;
     // - Enter call (sel_enter_call=1): nested context inherits parent's tree state
     // - Nested return (nested_return=1): parent adopts child's tree state
     // - Nested failure (nested_failure=1): state is restored via CTX_STACK_ROLLBACK lookup
-    // - Top-level exit (enqueued_call_end=1): state is constrained by tx > execution lookup
-    //   In this case, prev_note_hash_tree_root (and other prev_* columns) are initialized
-    //   through the dispatching of a public call request from tx.pil.
+    // - Top-level exit (enqueued_call_end=1): no propagation needed because the next active
+    //   row must have enqueued_call_start=1, which is initialized through the
+    //   [DISPATCH_EXEC_START] constraint in tx.pil.
     #[NOTE_HASH_TREE_ROOT_CONTINUITY]
     NOT_LAST_NOT_FAILURE_NOT_ENQ_END * (note_hash_tree_root - prev_note_hash_tree_root') = 0;
     #[NOTE_HASH_TREE_SIZE_CONTINUITY]

@@ -16,9 +16,8 @@ void contextImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     using C = ColumnAndShifts;
 
     const auto execution_NOT_LAST_EXEC = in.get(C::execution_sel) * in.get(C::execution_sel_shift);
-    const auto execution_NOT_LAST_NOT_FAILURE_NOT_ENQ_END = execution_NOT_LAST_EXEC *
-                                                            (FF(1) - in.get(C::execution_sel_failure)) *
-                                                            (FF(1) - in.get(C::execution_enqueued_call_end));
+    const auto execution_NOT_LAST_NOT_FAILURE_NOT_ENQ_END =
+        ((in.get(C::execution_sel) - in.get(C::execution_nested_failure)) - in.get(C::execution_enqueued_call_end));
     const auto execution_DEFAULT_CTX_ROW =
         (FF(1) - (in.get(C::execution_sel_enter_call) + in.get(C::execution_sel_exit_call)));
     const auto execution_PC_JUMP = in.get(C::execution_sel_execute_internal_call) +
