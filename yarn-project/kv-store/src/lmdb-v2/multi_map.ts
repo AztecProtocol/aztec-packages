@@ -4,8 +4,8 @@ import { MAXIMUM_KEY, toBufferKey } from 'ordered-binary';
 import type { Key, Range, Value } from '../interfaces/common.js';
 import type { AztecAsyncMultiMap } from '../interfaces/multi_map.js';
 import type { ReadTransaction } from './read_transaction.js';
-// eslint-disable-next-line import/no-cycle
-import { type AztecLMDBStoreV2, execInReadTx, execInWriteTx } from './store.js';
+import type { AztecLMDBStoreV2 } from './store.js';
+import { execInReadTx, execInWriteTx } from './tx-helpers.js';
 import { deserializeKey, maxKey, minKey, serializeKey } from './utils.js';
 
 export class LMDBMultiMap<K extends Key, V extends Value> implements AztecAsyncMultiMap<K, V> {
