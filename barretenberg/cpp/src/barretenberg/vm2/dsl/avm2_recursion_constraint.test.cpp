@@ -162,7 +162,7 @@ class AvmRecursionInnerCircuitTests : public ::testing::Test {
   public:
     using Builder = UltraCircuitBuilder;
     using InnerProverOutput = TwoLayerAvmRecursiveVerifier::InnerProverOutput;
-    using RecursiveAvmGoblinOutput = TwoLayerAvmRecursiveVerifier::RecursiveAvmGoblinOutput;
+    using TwoLayerAvmRecursiveVerifierOutput = TwoLayerAvmRecursiveVerifier::TwoLayerAvmRecursiveVerifierOutput;
     using FF = Builder::FF;
 
     static constexpr FF EXPECTED_INNER_VK_HASH =
@@ -258,7 +258,7 @@ TEST_F(AvmRecursionInnerCircuitTests, Tampering)
         mega_proof_tampered[0] += FF::one(); // Tamper with the first public input
 
         TwoLayerAvmRecursiveVerifier goblin_avm_verifier(outer_builder);
-        RecursiveAvmGoblinOutput output = goblin_avm_verifier.construct_outer_recursive_verification_circuit(
+        TwoLayerAvmRecursiveVerifierOutput output = goblin_avm_verifier.construct_outer_recursive_verification_circuit(
             stdlib_proof,
             public_inputs,
             { mega_proof_tampered, inner_prover_output.goblin_proof, inner_prover_output.mega_vk });
@@ -281,7 +281,7 @@ TEST_F(AvmRecursionInnerCircuitTests, Tampering)
         goblin_proof_tampered.eccvm_proof[op_eval_idx] += FF(1);
 
         TwoLayerAvmRecursiveVerifier goblin_avm_verifier(outer_builder);
-        RecursiveAvmGoblinOutput output = goblin_avm_verifier.construct_outer_recursive_verification_circuit(
+        TwoLayerAvmRecursiveVerifierOutput output = goblin_avm_verifier.construct_outer_recursive_verification_circuit(
             stdlib_proof,
             public_inputs,
             { inner_prover_output.mega_proof, goblin_proof_tampered, inner_prover_output.mega_vk });
@@ -298,7 +298,7 @@ TEST_F(AvmRecursionInnerCircuitTests, Tampering)
         mega_vk_tampered->q_m = mega_vk_tampered->q_m + MegaAvmFlavor::Commitment::one(); // Tamper with q_m commitment
 
         TwoLayerAvmRecursiveVerifier goblin_avm_verifier(outer_builder);
-        RecursiveAvmGoblinOutput output = goblin_avm_verifier.construct_outer_recursive_verification_circuit(
+        TwoLayerAvmRecursiveVerifierOutput output = goblin_avm_verifier.construct_outer_recursive_verification_circuit(
             stdlib_proof,
             public_inputs,
             { inner_prover_output.mega_proof, inner_prover_output.goblin_proof, mega_vk_tampered });

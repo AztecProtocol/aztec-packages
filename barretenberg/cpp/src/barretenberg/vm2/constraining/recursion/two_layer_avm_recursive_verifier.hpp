@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [Federico], commit: }
+// internal:    { status: Completed, auditors: [Federico], commit: }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -58,7 +58,8 @@ class TwoLayerAvmRecursiveVerifier {
     using MegaFF = stdlib::field_t<MegaCircuitBuilder>;
 
     // The output of the goblinized AVM2 recursive verifier
-    using RecursiveAvmGoblinOutput = stdlib::recursion::honk::UltraRecursiveVerifierOutput<UltraCircuitBuilder>;
+    using TwoLayerAvmRecursiveVerifierOutput =
+        stdlib::recursion::honk::UltraRecursiveVerifierOutput<UltraCircuitBuilder>;
 
     // Output of prover for inner Mega-arithmetized AVM recursive verifier circuit; input to the outer verifier
     struct InnerProverOutput {
@@ -80,9 +81,9 @@ class TwoLayerAvmRecursiveVerifier {
      *
      * @param stdlib_proof AVM proof
      * @param public_inputs AVM public inputs
-     * @return RecursiveAvmGoblinOutput {ipa_proof, ipa_claim, points_accumulator}
+     * @return TwoLayerAvmRecursiveVerifierOutput {ipa_proof, ipa_claim, points_accumulator}
      */
-    [[nodiscard("IPA claim and Pairing points should be accumulated")]] RecursiveAvmGoblinOutput verify_proof(
+    [[nodiscard("IPA claim and Pairing points should be accumulated")]] TwoLayerAvmRecursiveVerifierOutput verify_proof(
         const stdlib::Proof<UltraCircuitBuilder>& stdlib_proof,
         const std::vector<std::vector<UltraFF>>& public_inputs) const
     {
@@ -91,7 +92,7 @@ class TwoLayerAvmRecursiveVerifier {
             construct_and_prove_inner_recursive_verification_circuit(stdlib_proof, public_inputs);
 
         // Construct the outer Ultra-arithmetized Mega/Goblin recursive verifier circuit
-        RecursiveAvmGoblinOutput result =
+        TwoLayerAvmRecursiveVerifierOutput result =
             construct_outer_recursive_verification_circuit(stdlib_proof, public_inputs, inner_output);
 
         // Return ipa proof, ipa claim and output aggregation object produced from verifying the Mega + Goblin proofs
@@ -104,9 +105,9 @@ class TwoLayerAvmRecursiveVerifier {
      * @param stdlib_proof AVM proof
      * @param public_inputs AVM public inputs
      * @param inner_output Output of the prover of the inner circuit {\pi_M, \pi_G, VK_M}
-     * @return RecursiveAvmGoblinOutput
+     * @return Output
      */
-    [[nodiscard("IPA claim and Pairing points should be accumulated")]] RecursiveAvmGoblinOutput
+    [[nodiscard("IPA claim and Pairing points should be accumulated")]] TwoLayerAvmRecursiveVerifierOutput
     construct_outer_recursive_verification_circuit(const stdlib::Proof<UltraCircuitBuilder>& stdlib_proof,
                                                    const std::vector<std::vector<UltraFF>>& public_inputs,
                                                    const InnerProverOutput& inner_output) const
@@ -146,7 +147,7 @@ class TwoLayerAvmRecursiveVerifier {
 
         // Return ipa proof, ipa claim and output aggregation object produced from verifying the Mega + Goblin
         // proofs
-        RecursiveAvmGoblinOutput output;
+        TwoLayerAvmRecursiveVerifierOutput output;
         output.points_accumulator = std::move(mega_verifier_output.points_accumulator);
         output.ipa_claim = goblin_verifier_output.ipa_claim;
         output.ipa_proof = goblin_verifier_output.ipa_proof;

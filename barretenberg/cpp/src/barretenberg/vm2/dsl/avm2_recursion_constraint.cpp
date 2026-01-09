@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [Federico], commit: }
+// internal:    { status: Completed, auditors: [Federico], commit: }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -38,8 +38,6 @@ using namespace bb;
 HonkRecursionConstraintOutput<UltraCircuitBuilder> create_avm2_recursion_constraints_goblin(
     UltraCircuitBuilder& builder, const RecursionConstraint& input)
 {
-    using RecursiveVerifier = avm2::TwoLayerAvmRecursiveVerifier;
-
     BB_ASSERT_EQ(input.proof_type, AVM);
 
     // Construct in-circuit representations of the proof and public inputs
@@ -51,10 +49,10 @@ HonkRecursionConstraintOutput<UltraCircuitBuilder> create_avm2_recursion_constra
         populate_fields(builder, proof_fields, create_mock_avm_proof_without_pub_inputs(/*add_padding=*/true));
     }
 
-    // Execute the Goblin AVM2 recursive verifier
-    RecursiveVerifier verifier(builder);
+    // Execute the TwoLayerAvmRecursiveVerifier recursive verifier
+    avm2::TwoLayerAvmRecursiveVerifier verifier(builder);
 
-    bb::avm2::TwoLayerAvmRecursiveVerifier::RecursiveAvmGoblinOutput output =
+    bb::avm2::TwoLayerAvmRecursiveVerifier::TwoLayerAvmRecursiveVerifierOutput output =
         verifier.verify_proof(proof_fields, bb::avm2::PublicInputs::flat_to_columns(public_inputs_flattened));
 
     return output;
