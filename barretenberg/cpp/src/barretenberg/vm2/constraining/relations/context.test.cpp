@@ -865,32 +865,32 @@ TEST(ContextConstrainingTest, NegativeTreeStateOnEnterCall)
     });
 
     // Each of the new *_ON_ENTER_CALL constraints should catch the manipulation
-    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_NOTE_HASH_TREE_ROOT_ON_ENTER_CALL),
-                              "NOTE_HASH_TREE_ROOT_ON_ENTER_CALL");
-    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_NOTE_HASH_TREE_SIZE_ON_ENTER_CALL),
-                              "NOTE_HASH_TREE_SIZE_ON_ENTER_CALL");
-    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_NUM_NOTE_HASHES_EMITTED_ON_ENTER_CALL),
-                              "NUM_NOTE_HASHES_EMITTED_ON_ENTER_CALL");
-    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_NULLIFIER_TREE_ROOT_ON_ENTER_CALL),
-                              "NULLIFIER_TREE_ROOT_ON_ENTER_CALL");
-    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_NULLIFIER_TREE_SIZE_ON_ENTER_CALL),
-                              "NULLIFIER_TREE_SIZE_ON_ENTER_CALL");
-    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_NUM_NULLIFIERS_EMITTED_ON_ENTER_CALL),
-                              "NUM_NULLIFIERS_EMITTED_ON_ENTER_CALL");
-    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_PUBLIC_DATA_TREE_ROOT_ON_ENTER_CALL),
-                              "PUBLIC_DATA_TREE_ROOT_ON_ENTER_CALL");
-    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_PUBLIC_DATA_TREE_SIZE_ON_ENTER_CALL),
-                              "PUBLIC_DATA_TREE_SIZE_ON_ENTER_CALL");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_NOTE_HASH_TREE_ROOT_CONTINUITY),
+                              "NOTE_HASH_TREE_ROOT_CONTINUITY");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_NOTE_HASH_TREE_SIZE_CONTINUITY),
+                              "NOTE_HASH_TREE_SIZE_CONTINUITY");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_NUM_NOTE_HASHES_EMITTED_CONTINUITY),
+                              "NUM_NOTE_HASHES_EMITTED_CONTINUITY");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_NULLIFIER_TREE_ROOT_CONTINUITY),
+                              "NULLIFIER_TREE_ROOT_CONTINUITY");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_NULLIFIER_TREE_SIZE_CONTINUITY),
+                              "NULLIFIER_TREE_SIZE_CONTINUITY");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_NUM_NULLIFIERS_EMITTED_CONTINUITY),
+                              "NPUBLIC_DATA_TREE_SIZE_CONTINUITY");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_PUBLIC_DATA_TREE_ROOT_CONTINUITY),
+                              "PUBLIC_DATA_TREE_SIZE_CONTINUITY");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_PUBLIC_DATA_TREE_SIZE_CONTINUITY),
+                              "PUBLIC_DATA_TREE_SIZE_CONTINUITY");
     EXPECT_THROW_WITH_MESSAGE(
-        check_relation<context>(trace, context::SR_WRITTEN_PUBLIC_DATA_SLOTS_TREE_ROOT_ON_ENTER_CALL),
-        "WRITTEN_PUBLIC_DATA_SLOTS_TREE_ROOT_ON_ENTER_CALL");
+        check_relation<context>(trace, context::SR_WRITTEN_PUBLIC_DATA_SLOTS_TREE_ROOT_CONTINUITY),
+        "WRITTEN_PUBLIC_DATA_SLOTS_TREE_ROOT_CONTINUITY");
     EXPECT_THROW_WITH_MESSAGE(
-        check_relation<context>(trace, context::SR_WRITTEN_PUBLIC_DATA_SLOTS_TREE_SIZE_ON_ENTER_CALL),
-        "WRITTEN_PUBLIC_DATA_SLOTS_TREE_SIZE_ON_ENTER_CALL");
-    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_NUM_UNENCRYPTED_LOGS_ON_ENTER_CALL),
-                              "NUM_UNENCRYPTED_LOGS_ON_ENTER_CALL");
-    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_NUM_L2_TO_L1_MESSAGES_ON_ENTER_CALL),
-                              "NUM_L2_TO_L1_MESSAGES_ON_ENTER_CALL");
+        check_relation<context>(trace, context::SR_WRITTEN_PUBLIC_DATA_SLOTS_TREE_SIZE_CONTINUITY),
+        "WRITTEN_PUBLIC_DATA_SLOTS_TREE_SIZE_CONTINUITY");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_NUM_UNENCRYPTED_LOGS_CONTINUITY),
+                              "NUM_UNENCRYPTED_LOGS_CONTINUITY");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_NUM_L2_TO_L1_MESSAGES_CONTINUITY),
+                              "NUM_L2_TO_L1_MESSAGES_CONTINUITY");
 }
 
 // Positive test: Correct tree state inheritance on enter call
@@ -949,18 +949,18 @@ TEST(ContextConstrainingTest, TreeStateOnEnterCallCorrect)
 
     // All constraints should pass with correct values
     check_relation<context>(trace,
-                            context::SR_NOTE_HASH_TREE_ROOT_ON_ENTER_CALL,
-                            context::SR_NOTE_HASH_TREE_SIZE_ON_ENTER_CALL,
-                            context::SR_NUM_NOTE_HASHES_EMITTED_ON_ENTER_CALL,
-                            context::SR_NULLIFIER_TREE_ROOT_ON_ENTER_CALL,
-                            context::SR_NULLIFIER_TREE_SIZE_ON_ENTER_CALL,
-                            context::SR_NUM_NULLIFIERS_EMITTED_ON_ENTER_CALL,
-                            context::SR_PUBLIC_DATA_TREE_ROOT_ON_ENTER_CALL,
-                            context::SR_PUBLIC_DATA_TREE_SIZE_ON_ENTER_CALL,
-                            context::SR_WRITTEN_PUBLIC_DATA_SLOTS_TREE_ROOT_ON_ENTER_CALL,
-                            context::SR_WRITTEN_PUBLIC_DATA_SLOTS_TREE_SIZE_ON_ENTER_CALL,
-                            context::SR_NUM_UNENCRYPTED_LOGS_ON_ENTER_CALL,
-                            context::SR_NUM_L2_TO_L1_MESSAGES_ON_ENTER_CALL);
+                            context::SR_NOTE_HASH_TREE_ROOT_CONTINUITY,
+                            context::SR_NOTE_HASH_TREE_SIZE_CONTINUITY,
+                            context::SR_NUM_NOTE_HASHES_EMITTED_CONTINUITY,
+                            context::SR_NULLIFIER_TREE_ROOT_CONTINUITY,
+                            context::SR_NULLIFIER_TREE_SIZE_CONTINUITY,
+                            context::SR_NUM_NULLIFIERS_EMITTED_CONTINUITY,
+                            context::SR_PUBLIC_DATA_TREE_ROOT_CONTINUITY,
+                            context::SR_PUBLIC_DATA_TREE_SIZE_CONTINUITY,
+                            context::SR_WRITTEN_PUBLIC_DATA_SLOTS_TREE_ROOT_CONTINUITY,
+                            context::SR_WRITTEN_PUBLIC_DATA_SLOTS_TREE_SIZE_CONTINUITY,
+                            context::SR_NUM_UNENCRYPTED_LOGS_CONTINUITY,
+                            context::SR_NUM_L2_TO_L1_MESSAGES_CONTINUITY);
 }
 
 TEST(ContextConstrainingTest, ContextIdPropagation)

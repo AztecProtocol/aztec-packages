@@ -119,6 +119,7 @@ namespace execution;
 
     // ==== Helper columns ====
     pol NOT_LAST_EXEC = sel * sel';
+    pol NOT_LAST_NOT_FAILURE_NOT_ENQ_END = NOT_LAST_EXEC * (1 - sel_failure) * (1 - enqueued_call_end);
     // We default propagate the context rows if we have more execution steps and we are not exiting or entering a call.
     // Note that DEFAULT_CTX_ROW selects also the first row of an enqueued call (when `enqueued_call_start == 1`).
     pol DEFAULT_CTX_ROW = 1 - (sel_enter_call + sel_exit_call); // sel_enter_call and sel_exit_call are mutually exclusive
@@ -535,62 +536,40 @@ namespace execution;
     #[DA_GAS_USED_INGEST_AFTER_EXIT]
     NOT_LAST_EXEC * nested_exit_call * (parent_da_gas_used + da_gas_used - prev_da_gas_used') = 0;
 
-    // Tree and side effect state must be inherited when entering a nested call.
-    // The nested call starts with the same tree state as the parent at the point of the CALL.
-    #[NOTE_HASH_TREE_ROOT_ON_ENTER_CALL]
-    NOT_LAST_EXEC * sel_enter_call * (note_hash_tree_root - prev_note_hash_tree_root') = 0;
-    #[NOTE_HASH_TREE_SIZE_ON_ENTER_CALL]
-    NOT_LAST_EXEC * sel_enter_call * (note_hash_tree_size - prev_note_hash_tree_size') = 0;
-    #[NUM_NOTE_HASHES_EMITTED_ON_ENTER_CALL]
-    NOT_LAST_EXEC * sel_enter_call * (num_note_hashes_emitted - prev_num_note_hashes_emitted') = 0;
-    #[NULLIFIER_TREE_ROOT_ON_ENTER_CALL]
-    NOT_LAST_EXEC * sel_enter_call * (nullifier_tree_root - prev_nullifier_tree_root') = 0;
-    #[NULLIFIER_TREE_SIZE_ON_ENTER_CALL]
-    NOT_LAST_EXEC * sel_enter_call * (nullifier_tree_size - prev_nullifier_tree_size') = 0;
-    #[NUM_NULLIFIERS_EMITTED_ON_ENTER_CALL]
-    NOT_LAST_EXEC * sel_enter_call * (num_nullifiers_emitted - prev_num_nullifiers_emitted') = 0;
-    #[PUBLIC_DATA_TREE_ROOT_ON_ENTER_CALL]
-    NOT_LAST_EXEC * sel_enter_call * (public_data_tree_root - prev_public_data_tree_root') = 0;
-    #[PUBLIC_DATA_TREE_SIZE_ON_ENTER_CALL]
-    NOT_LAST_EXEC * sel_enter_call * (public_data_tree_size - prev_public_data_tree_size') = 0;
-    #[WRITTEN_PUBLIC_DATA_SLOTS_TREE_ROOT_ON_ENTER_CALL]
-    NOT_LAST_EXEC * sel_enter_call * (written_public_data_slots_tree_root - prev_written_public_data_slots_tree_root') = 0;
-    #[WRITTEN_PUBLIC_DATA_SLOTS_TREE_SIZE_ON_ENTER_CALL]
-    NOT_LAST_EXEC * sel_enter_call * (written_public_data_slots_tree_size - prev_written_public_data_slots_tree_size') = 0;
-    #[NUM_UNENCRYPTED_LOGS_ON_ENTER_CALL]
-    NOT_LAST_EXEC * sel_enter_call * (num_unencrypted_log_fields - prev_num_unencrypted_log_fields') = 0;
-    #[NUM_L2_TO_L1_MESSAGES_ON_ENTER_CALL]
-    NOT_LAST_EXEC * sel_enter_call * (num_l2_to_l1_messages - prev_num_l2_to_l1_messages') = 0;
-
-    // Tree and sideffect state should not change in default rows and nested returns.
-    // In top level exits, the state is constrained by the tx > execution lookup
-    // In nested reverts, the state is constrained by the rollback_context lookup
-    pol DEFAULT_OR_NESTED_RETURN = DEFAULT_CTX_ROW + nested_return; // Mutually exclusive
+    // Tree and side effect state continuity constraints cover all non-failure rows.
+    // The different cases form a partition:
+    // - Default rows (no context change): state propagates unchanged
+    // - Enter call (sel_enter_call=1): nested context inherits parent's tree state
+    // - Nested return (nested_return=1): parent adopts child's tree state
+    // - Nested failure (nested_failure=1): state is restored via CTX_STACK_ROLLBACK lookup
+    // - Top-level exit (enqueued_call_end=1): state is constrained by tx > execution lookup
+    //   In this case, prev_note_hash_tree_root (and other prev_* columns) are initialized
+    //   through the dispatching of a public call request from tx.pil.
     #[NOTE_HASH_TREE_ROOT_CONTINUITY]
-    NOT_LAST_EXEC * DEFAULT_OR_NESTED_RETURN * (note_hash_tree_root - prev_note_hash_tree_root') = 0;
+    NOT_LAST_NOT_FAILURE_NOT_ENQ_END * (note_hash_tree_root - prev_note_hash_tree_root') = 0;
     #[NOTE_HASH_TREE_SIZE_CONTINUITY]
-    NOT_LAST_EXEC * DEFAULT_OR_NESTED_RETURN * (note_hash_tree_size - prev_note_hash_tree_size') = 0;
+    NOT_LAST_NOT_FAILURE_NOT_ENQ_END * (note_hash_tree_size - prev_note_hash_tree_size') = 0;
     #[NUM_NOTE_HASHES_EMITTED_CONTINUITY]
-    NOT_LAST_EXEC * DEFAULT_OR_NESTED_RETURN * (num_note_hashes_emitted - prev_num_note_hashes_emitted') = 0;
+    NOT_LAST_NOT_FAILURE_NOT_ENQ_END * (num_note_hashes_emitted - prev_num_note_hashes_emitted') = 0;
     #[NULLIFIER_TREE_ROOT_CONTINUITY]
-    NOT_LAST_EXEC * DEFAULT_OR_NESTED_RETURN * (nullifier_tree_root - prev_nullifier_tree_root') = 0;
+    NOT_LAST_NOT_FAILURE_NOT_ENQ_END * (nullifier_tree_root - prev_nullifier_tree_root') = 0;
     #[NULLIFIER_TREE_SIZE_CONTINUITY]
-    NOT_LAST_EXEC * DEFAULT_OR_NESTED_RETURN * (nullifier_tree_size - prev_nullifier_tree_size') = 0;
+    NOT_LAST_NOT_FAILURE_NOT_ENQ_END * (nullifier_tree_size - prev_nullifier_tree_size') = 0;
     #[NUM_NULLIFIERS_EMITTED_CONTINUITY]
-    NOT_LAST_EXEC * DEFAULT_OR_NESTED_RETURN * (num_nullifiers_emitted - prev_num_nullifiers_emitted') = 0;
+    NOT_LAST_NOT_FAILURE_NOT_ENQ_END * (num_nullifiers_emitted - prev_num_nullifiers_emitted') = 0;
     #[PUBLIC_DATA_TREE_ROOT_CONTINUITY]
-    NOT_LAST_EXEC * DEFAULT_OR_NESTED_RETURN * (public_data_tree_root - prev_public_data_tree_root') = 0;
+    NOT_LAST_NOT_FAILURE_NOT_ENQ_END * (public_data_tree_root - prev_public_data_tree_root') = 0;
     #[PUBLIC_DATA_TREE_SIZE_CONTINUITY]
-    NOT_LAST_EXEC * DEFAULT_OR_NESTED_RETURN * (public_data_tree_size - prev_public_data_tree_size') = 0;
+    NOT_LAST_NOT_FAILURE_NOT_ENQ_END * (public_data_tree_size - prev_public_data_tree_size') = 0;
     #[WRITTEN_PUBLIC_DATA_SLOTS_TREE_ROOT_CONTINUITY]
-    NOT_LAST_EXEC * DEFAULT_OR_NESTED_RETURN * (written_public_data_slots_tree_root - prev_written_public_data_slots_tree_root') = 0;
+    NOT_LAST_NOT_FAILURE_NOT_ENQ_END * (written_public_data_slots_tree_root - prev_written_public_data_slots_tree_root') = 0;
     #[WRITTEN_PUBLIC_DATA_SLOTS_TREE_SIZE_CONTINUITY]
-    NOT_LAST_EXEC * DEFAULT_OR_NESTED_RETURN * (written_public_data_slots_tree_size - prev_written_public_data_slots_tree_size') = 0;
+    NOT_LAST_NOT_FAILURE_NOT_ENQ_END * (written_public_data_slots_tree_size - prev_written_public_data_slots_tree_size') = 0;
     // L1 to L2 message tree is immutable in a tx
     #[L1_L2_TREE_ROOT_CONTINUITY]
     NOT_LAST_EXEC * (l1_l2_tree_root - l1_l2_tree_root') = 0;
 
     #[NUM_UNENCRYPTED_LOGS_CONTINUITY]
-    NOT_LAST_EXEC * DEFAULT_OR_NESTED_RETURN * (num_unencrypted_log_fields - prev_num_unencrypted_log_fields') = 0;
+    NOT_LAST_NOT_FAILURE_NOT_ENQ_END * (num_unencrypted_log_fields - prev_num_unencrypted_log_fields') = 0;
     #[NUM_L2_TO_L1_MESSAGES_CONTINUITY]
-    NOT_LAST_EXEC * DEFAULT_OR_NESTED_RETURN * (num_l2_to_l1_messages - prev_num_l2_to_l1_messages') = 0;
+    NOT_LAST_NOT_FAILURE_NOT_ENQ_END * (num_l2_to_l1_messages - prev_num_l2_to_l1_messages') = 0;
