@@ -274,12 +274,17 @@ namespace execution;
     #[BYTECODE_ID_NEXT_ROW]
     DEFAULT_CTX_ROW * (bytecode_id' - bytecode_id) = 0;
 
-    // transaction fee gets set at the start of an enqueued call and remains the same throughout
-    // TODO(dbanks12): tracegen and test this
+    // =============================
+    //    TRANSACTION FEE
+    // =============================
+
+    // transaction fee gets set at the start of an enqueued call (via #[DISPATCH_EXEC_START] (tx.pil)) and
+    // remains the same throughout the enqueued call.
     #[TRANSACTION_FEE_NEXT_ROW]
-    (1 - enqueued_call_end) * (transaction_fee' - transaction_fee) = 0;
-    // NOTE: don't need to say NOT_LAST_EXEC because last execution row must be an enqueued call end
-    // NOTE: on enqueued_call_start, transaction_fee is set via the DISPATCH lookup from tx trace to execution.
+    (1 - enqueued_call_end - precomputed.first_row) * (transaction_fee' - transaction_fee) = 0;
+    // NOTE: don't need to gate by NOT_LAST_EXEC because last execution row must be the end of an enqueued call.
+    // enqueued_call_end is mutually exclusive with precomputed.first_row. The term `- precomputed.first_row` is
+    // defensive to support a potential case where the first row has a non-zero transaction fee.
 
     // NESTED_EXIT_CALL = 1 ==> constraints come from lookup
     // sel_enter_call   = 1 && static_call = 1 ==> is_static' = 1
