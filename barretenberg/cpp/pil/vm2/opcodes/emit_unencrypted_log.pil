@@ -210,6 +210,9 @@ namespace emit_unencrypted_log;
     // if we are not ending, the next is_write_memory_value is equal to current is_write_memory_value or is_write_contract_address
     // since both can't be on at the same time, we can use add.
     NOT_END * (is_write_memory_value + is_write_contract_address - is_write_memory_value') = 0;
+    // Force is_write_memory_value to 0 when sel is 0 (prevents ghost row injection attacks)
+    #[IS_WRITE_MEMORY_VALUE_REQUIRES_SEL]
+    is_write_memory_value * (1 - sel) = 0;
 
     // =============== MEMORY READ ===============
     // For simplicity, we always generate all rows necessary to process a log, even in error cases.

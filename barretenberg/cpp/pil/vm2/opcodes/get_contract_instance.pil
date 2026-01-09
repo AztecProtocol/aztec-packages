@@ -140,6 +140,9 @@ namespace get_contract_instance;
     // Do not allow is_valid_member_enum to be 1 if the precomputed lookup is disabled.
     #[IS_VALID_MEMBER_ENUM_ONLY_SET_BY_PRECOMPUTED_LOOKUP]
     WRITES_OUT_OF_BOUNDS * is_valid_member_enum = 0;
+    // Force is_valid_member_enum to 0 when sel is 0 (prevents ghost row injection attacks)
+    #[IS_VALID_MEMBER_ENUM_REQUIRES_SEL]
+    is_valid_member_enum * (1 - sel) = 0;
 
     // Error aggregation
     // "Some/any error happened"

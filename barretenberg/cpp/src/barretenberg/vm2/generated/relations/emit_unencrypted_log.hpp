@@ -14,10 +14,10 @@ template <typename FF_> class emit_unencrypted_logImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 48> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 5,
-                                                                            3, 3, 4, 3, 3, 3, 3, 4, 3, 3, 5, 3,
-                                                                            5, 4, 4, 3, 2, 3, 3, 4, 3, 4, 4, 4,
-                                                                            4, 4, 3, 5, 4, 4, 3, 4, 4, 3, 3, 3 };
+    static constexpr std::array<size_t, 49> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 5, 3,
+                                                                            3, 4, 3, 3, 3, 3, 4, 3, 3, 5, 3, 5, 4,
+                                                                            4, 3, 2, 3, 3, 4, 3, 3, 4, 4, 4, 4, 4,
+                                                                            3, 5, 4, 4, 3, 4, 4, 3, 3, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -46,11 +46,12 @@ template <typename FF> class emit_unencrypted_log : public Relation<emit_unencry
     static constexpr size_t SR_ERROR_OUT_OF_BOUNDS_CONSISTENCY = 14;
     static constexpr size_t SR_ERROR_TAG_MISMATCH_CONSISTENCY = 19;
     static constexpr size_t SR_WRONG_TAG_CHECK = 22;
-    static constexpr size_t SR_LOG_ADDRESS_INCREMENT = 33;
-    static constexpr size_t SR_EXEC_CLK_CONSISTENCY = 34;
-    static constexpr size_t SR_SPACE_ID_CONSISTENCY = 35;
-    static constexpr size_t SR_SEL_SHOULD_WRITE_TO_PUBLIC_INPUTS_CONSISTENCY = 41;
-    static constexpr size_t SR_CONTRACT_ADDRESS_CONSISTENCY = 44;
+    static constexpr size_t SR_IS_WRITE_MEMORY_VALUE_REQUIRES_SEL = 32;
+    static constexpr size_t SR_LOG_ADDRESS_INCREMENT = 34;
+    static constexpr size_t SR_EXEC_CLK_CONSISTENCY = 35;
+    static constexpr size_t SR_SPACE_ID_CONSISTENCY = 36;
+    static constexpr size_t SR_SEL_SHOULD_WRITE_TO_PUBLIC_INPUTS_CONSISTENCY = 42;
+    static constexpr size_t SR_CONTRACT_ADDRESS_CONSISTENCY = 45;
 
     static std::string get_subrelation_label(size_t index)
     {
@@ -71,6 +72,8 @@ template <typename FF> class emit_unencrypted_log : public Relation<emit_unencry
             return "ERROR_TAG_MISMATCH_CONSISTENCY";
         case SR_WRONG_TAG_CHECK:
             return "WRONG_TAG_CHECK";
+        case SR_IS_WRITE_MEMORY_VALUE_REQUIRES_SEL:
+            return "IS_WRITE_MEMORY_VALUE_REQUIRES_SEL";
         case SR_LOG_ADDRESS_INCREMENT:
             return "LOG_ADDRESS_INCREMENT";
         case SR_EXEC_CLK_CONSISTENCY:
