@@ -28,4 +28,7 @@ pub mod secp256k1;
 pub mod utils;
 pub mod debug_msgpack;
 
+#[cfg(feature = "ffi")]
+pub mod ffi;
+
 pub use utils::Timer;
