@@ -30,7 +30,6 @@ struct EmitUnencryptedLogWriteEvent {
 
     bool error_memory_out_of_bounds;
     bool error_too_many_log_fields;
-    bool error_is_static;
     bool error_tag_mismatch;
 
     bool operator==(const EmitUnencryptedLogWriteEvent& other) const = default;

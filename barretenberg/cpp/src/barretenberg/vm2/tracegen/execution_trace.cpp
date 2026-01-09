@@ -589,6 +589,8 @@ void ExecutionTraceBuilder::process(
                     trace.set(C::execution_sel_read_unwind_call_stack, row, 1);
                 }
             } else if (*exec_opcode == ExecutionOpCode::SSTORE) {
+                // Equivalent to PIL's (MAX + INITIAL_SIZE - prev_written_public_data_slots_tree_size)
+                // since prev_size = counter + 1 and INITIAL_SIZE = 1.
                 uint32_t remaining_data_writes = MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX -
                                                  ex_event.before_context_event.tree_states.public_data_tree.counter;
 
