@@ -5,6 +5,7 @@
 #include "barretenberg/avm_fuzzer/mutations/basic_types/vector.hpp"
 #include "barretenberg/avm_fuzzer/mutations/fuzzer_data.hpp"
 #include "barretenberg/avm_fuzzer/mutations/instructions/instruction_block.hpp"
+#include "barretenberg/avm_fuzzer/mutations/tx_types/accumulated_data.hpp"
 #include "barretenberg/avm_fuzzer/mutations/tx_types/public_call_request.hpp"
 #include "barretenberg/vm2/common/avm_io.hpp"
 #include "barretenberg/vm2/common/aztec_constants.hpp"
@@ -91,6 +92,16 @@ void mutate_tx(Tx& tx, std::vector<AztecAddress>& contract_addresses, std::mt199
         fuzz_info("Mutating teardown enqueued call");
         mutate_teardown(tx.teardown_enqueued_call, contract_addresses, rng);
         break;
+    case TxMutationOptions::NonRevertibleData:
+        // Mutate non-revertible accumulated data
+        fuzz_info("Mutating non-revertible accumulated data");
+        mutate_non_revertible_accumulated_data(tx.non_revertible_accumulated_data, rng);
+        break;
+    case TxMutationOptions::RevertibleData:
+        // Mutate revertible accumulated data
+        fuzz_info("Mutating revertible accumulated data");
+        mutate_revertible_accumulated_data(tx.revertible_accumulated_data, rng);
+        break;
 
         // case 2:
         //     // Mutate gas_settings
@@ -103,32 +114,6 @@ void mutate_tx(Tx& tx, std::vector<AztecAddress>& contract_addresses, std::mt199
         // case 4:
         //     // Mutate Deployment data
         //     break;
-        // case 5:
-        //     // Mutate non-revertible accumulated data
-        //     // fixme: maybe don't change all stuff
-        //     mutate_ff_vec(tx.non_revertible_accumulated_data.note_hashes, rng, MAX_NOTE_HASHES_PER_TX);
-        //     mutate_ff_vec(tx.non_revertible_accumulated_data.nullifiers, rng, MAX_NULLIFIERS_PER_TX);
-        //     mutate_vec<ScopedL2ToL1Message>(tx.non_revertible_accumulated_data.l2_to_l1_messages,
-        //                                     rng,
-        //                                     mutate_l2_to_l1_msg,
-        //                                     generate_l2_to_l1_msg,
-        //                                     BASIC_VEC_MUTATION_CONFIGURATION);
-        //     if (tx.non_revertible_accumulated_data.nullifiers.empty()) {
-        //         // Need to ensure the "tx nullifier" exists
-        //         tx.non_revertible_accumulated_data.nullifiers.push_back(generate_random_field(rng));
-        //     }
-        //     break;
-        // case 6:
-        //     // Mutate revertible accumulated data
-        //     mutate_ff_vec(tx.revertible_accumulated_data.note_hashes, rng, MAX_NOTE_HASHES_PER_TX);
-        //     mutate_ff_vec(tx.revertible_accumulated_data.nullifiers, rng, MAX_NULLIFIERS_PER_TX);
-        //     mutate_vec<ScopedL2ToL1Message>(tx.revertible_accumulated_data.l2_to_l1_messages,
-        //                                     rng,
-        //                                     mutate_l2_to_l1_msg,
-        //                                     generate_l2_to_l1_msg,
-        //                                     BASIC_VEC_MUTATION_CONFIGURATION);
-        //     break;
-        // break;
         // case 8:
         //     // Mutate gas_used_by_private
         //     break;
@@ -211,34 +196,6 @@ void mutate_gas_fees(GasFees& fees, std::mt19937_64& rng)
         fees.fee_per_da_gas = fees.fee_per_l2_gas = std::uniform_int_distribution<uint64_t>(1, MAX_FEE)(rng);
         break;
     }
-}
-
-void mutate_l2_to_l1_msg(ScopedL2ToL1Message& msg, std::mt19937_64& rng)
-{
-    auto choice = std::uniform_int_distribution<uint8_t>(0, 2)(rng);
-
-    switch (choice) {
-    case 0:
-        // Mutate recipient
-        msg.message.recipient = generate_random_field(rng);
-        break;
-    case 1:
-        // Mutate content
-        msg.message.content = generate_random_field(rng);
-        break;
-    case 2:
-        // Mutate contract_address
-        msg.contract_address = generate_random_field(rng);
-        break;
-    }
-}
-
-ScopedL2ToL1Message generate_l2_to_l1_msg(std::mt19937_64& rng)
-{
-    return ScopedL2ToL1Message{
-        .message = L2ToL1Message{ .recipient = generate_random_field(rng), .content = generate_random_field(rng) },
-        .contract_address = generate_random_field(rng),
-    };
 }
 
 void mutate_fuzzer_data_vec(const FuzzerContext& context,
