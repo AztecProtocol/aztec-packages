@@ -10,10 +10,6 @@ allowed-tools: Read, Glob, Grep, Bash, Write, Edit
 
 This skill audits VM2/AVM simulation code for unsafe access to optional values. Calling `.value()` on an empty `std::optional` throws an exception, preventing trace generation for otherwise valid executions. This is a **completeness** issue - honest provers crash before generating a trace, even for valid inputs that the PIL handles correctly.
 
-**Bug Type**: Completeness
-**Severity**: Medium
-**Frequency**: Low
-
 ## Why This is Important
 
 This is a **completeness** issue:
@@ -103,7 +99,6 @@ return instance;
 ```cpp
 // VULNERABLE: Assuming collection always has elements
 auto result = collection.at(index);  // Throws if index out of bounds
-
 // VULNERABLE: Assuming non-empty
 auto first = collection.front();  // Crash if empty
 ```
@@ -113,7 +108,6 @@ auto first = collection.front();  // Crash if empty
 ```cpp
 // VULNERABLE: Using operator[] on map
 auto value = map[key];  // Creates default if missing (may not be desired)
-
 // VULNERABLE: Assuming find succeeds
 auto it = map.find(key);
 auto value = it->second;  // Crash if key not found
@@ -209,188 +203,62 @@ do_something_with(result.value());  // Crash if empty!
 5. **Uninitialized state**: First access to memory/storage
 6. **Failed operations**: Computations that may not produce results
 
-## Audit Checklist
-
-1. **Find all .value() calls**:
-   - [ ] `grep -rn "\.value()" simulation/`
-   - [ ] Document each usage
-
-2. **For each .value() call, check**:
-   - [ ] Is there a `.has_value()` check before it?
-   - [ ] Can the optional ever be empty?
-   - [ ] What edge cases could cause it to be empty?
-
-3. **Find collection accesses**:
-   - [ ] `.at(index)` calls
-   - [ ] `.front()` and `.back()` calls
-   - [ ] Array/vector subscript `[index]`
-
-4. **Verify bounds checks**:
-   - [ ] Is the index validated?
-   - [ ] Is the collection guaranteed non-empty?
-
-5. **Test edge cases**:
-   - [ ] Empty optionals
-   - [ ] Out-of-bounds indices
-   - [ ] Missing keys
-   - [ ] Unused reserved slots
-
-## Fix Patterns
-
-### Fix 1: Check Before Access
-
-```cpp
-// BEFORE:
-auto value = optional.value();
-
-// AFTER:
-if (!optional.has_value()) {
-    return handle_missing_case();
-}
-auto value = optional.value();
-```
-
-### Fix 2: Use value_or
-
-```cpp
-// BEFORE:
-auto value = optional.value();
-
-// AFTER:
-auto value = optional.value_or(default_value);
-```
-
-### Fix 3: Return Optional
-
-```cpp
-// BEFORE:
-ContractInstance get_instance(Address addr) {
-    auto maybe = lookup(addr);
-    return maybe.value();  // Crash if empty
-}
-
-// AFTER:
-std::optional<ContractInstance> get_instance(Address addr) {
-    return lookup(addr);  // Let caller handle
-}
-```
-
-### Fix 4: Bounds Check
-
-```cpp
-// BEFORE:
-auto item = collection.at(index);
-
-// AFTER:
-if (index >= collection.size()) {
-    return error_or_default;
-}
-auto item = collection.at(index);
-```
-
-### Fix 5: Safe Map Access
-
-```cpp
-// BEFORE:
-auto value = map[key];  // or map.find(key)->second
-
-// AFTER:
-auto it = map.find(key);
-if (it == map.end()) {
-    return error_or_default;
-}
-auto value = it->second;
-```
-
-## Common Locations to Audit
-
-Optional value safety issues typically appear in:
-- **Contract lookups**: `contract_instance_manager.cpp`, `contract_database.cpp`
-- **Memory access**: `memory.cpp`, `storage.cpp`
-- **Tree operations**: `merkle_tree.cpp`, `indexed_tree.cpp`
-- **Bytecode retrieval**: `bytecode_manager.cpp`
-- **State access**: `state_manager.cpp`, `world_state.cpp`
-
-## References
-
-- [Detailed Skill Documentation](../../../pil/vm2/claude-skills/19-optional-value-safety.md)
-- [Tracegen PIL Alignment](../../../pil/vm2/claude-skills/14-tracegen-pil-alignment.md)
-
 ---
 
-## Required Output Format
+## REQUIRED OUTPUT FORMAT
 
-**IMPORTANT**: When running this audit skill, you MUST end your response with this standardized format.
+**IMPORTANT**: Your response MUST end with this machine-readable section.
 
-### Findings Summary
+### Summary Table
 
-At the end of your audit, provide a summary section:
-
-```markdown
-## Audit Results
-
-### Summary
 | Item | Value |
 |------|-------|
-| Skill | vm2-audit-optional-value-safety |
-| Target | [path that was audited] |
-| Files Scanned | [number] |
-| Findings | [count by severity, e.g., "2 Critical, 1 High, 0 Medium, 0 Low"] |
-| Status | COMPLETED_WITH_FINDINGS / COMPLETED_NO_FINDINGS / ERROR |
+| Skill | `{skill-name}` |
+| Target | `{path audited}` |
+| Files Scanned | `{number}` |
+| Findings | `{e.g., "2 Critical, 1 High" or "None"}` |
+| Status | `COMPLETED_WITH_FINDINGS` / `COMPLETED_NO_FINDINGS` / `ERROR` |
 
-### Findings
+### Findings Format
 
-#### Finding vm2-audit-optional-value-safety-[file]-[line]-[subtype] [SEVERITY]
+For each finding, include:
+- **ID**: `{skill-name}-{file}-{line}-{subtype}`
+- **Severity**: Critical / High / Medium / Low
 - **File**: `path/to/file.pil:line`
-- **Type**: [specific vulnerability type]
-- **Affected Column/Constraint**: [name]
-- **Description**: [brief description]
-- **Exploitability**: [High/Medium/Low] - [brief rationale]
-- **Suggested Fix**: [one-line fix suggestion]
+- **Description**: Brief description
+- **Fix**: One-line suggestion
 
-[Repeat for each finding]
-```
+### Machine-Readable JSON (REQUIRED)
 
-### Machine-Readable Findings
+You MUST include this exact format at the end of your response:
 
-After the human-readable summary, include a JSON block:
-
-```markdown
-<!-- MACHINE-READABLE FINDINGS (do not edit manually) -->
+<!-- MACHINE-READABLE FINDINGS -->
 ```json
 {
-  "skill": "vm2-audit-optional-value-safety",
-  "finding_prefix": "vm2-audit-optional-value-safety",
-  "status": "COMPLETED_WITH_FINDINGS | COMPLETED_NO_FINDINGS | ERROR",
-  "target": "pil/vm2",
-  "files_scanned": 0,
+  "skill": "{skill-name}",
+  "status": "COMPLETED_WITH_FINDINGS",
   "findings": [
     {
-      "id": "vm2-audit-optional-value-safety-filename-line-subtype",
-      "severity": "critical|high|medium|low",
+      "id": "{skill-name}-{file}-{line}-{subtype}",
+      "severity": "critical",
       "file": "path/to/file.pil",
       "line": 123,
-      "type": "specific-vulnerability-type",
-      "column": "affected_column_name",
-      "description": "Brief description of the issue",
-      "exploitability": "high|medium|low",
+      "description": "Brief description",
+      "exploitability": "high",
       "fix": "Suggested fix"
     }
   ]
 }
 ```
 <!-- END MACHINE-READABLE FINDINGS -->
+
+For no findings, use:
+<!-- MACHINE-READABLE FINDINGS -->
+```json
+{
+  "skill": "{skill-name}",
+  "status": "COMPLETED_NO_FINDINGS",
+  "findings": []
+}
 ```
-
-### Finding ID Convention
-
-- Format: `vm2-audit-optional-value-safety-[filename]-[line]-[subtype]`
-- Example: `vm2-audit-optional-value-safety-alu-123-SEL`
-- Use lowercase for filename (without extension)
-- Use CAPS for subtype descriptors
-
-### Status Values
-
-- `COMPLETED_NO_FINDINGS` - Audit completed, no issues found
-- `COMPLETED_WITH_FINDINGS` - Audit completed, issues found
-- `ERROR` - Audit could not complete (explain in description)
+<!-- END MACHINE-READABLE FINDINGS -->

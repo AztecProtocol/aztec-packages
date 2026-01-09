@@ -10,10 +10,6 @@ allowed-tools: Read, Glob, Grep, Bash, Write, Edit
 
 This skill audits VM2/AVM PIL constraints for first row special case issues with skippable conditions. Constraints involving `precomputed.first_row` don't work correctly with skippable conditions, causing verification failures when `sel = 0` on row 0 because `first_row = 1` prevents nullification.
 
-**Bug Type**: Completeness
-**Severity**: Medium
-**Frequency**: Medium
-
 ## Why This is Important
 
 This is a **completeness** issue - valid traces fail verification when skippable is enabled, even though the trace is correct. The prover generates a valid trace, but the skippable optimization incorrectly triggers verification failure.
@@ -180,11 +176,9 @@ If tests fail only with skippable enabled, there's likely a first_row issue.
 ```pil
 #[skippable_if]
 sel = 0;
-
 // VULNERABLE: first_row prevents nullification
 #[INIT_OR_ACTIVE]
 (sel + precomputed.first_row) * constraint = 0;
-// On row 0 with sel = 0: (0 + 1) * constraint = constraint != 0
 ```
 
 ### Vulnerable Pattern: Shifted Constraint with first_row
@@ -192,11 +186,9 @@ sel = 0;
 ```pil
 #[skippable_if]
 sel = 0;
-
 // VULNERABLE: Shifted constraint with first_row
 #[PC_INCREMENT]
 (sel + precomputed.first_row) * (pc_index' - pc_index - 1) = 0;
-// On row 0 with sel = 0: (0 + 1) * (...) not nullified!
 ```
 
 ### Vulnerable Pattern: Complex Skippable Condition
@@ -205,8 +197,6 @@ sel = 0;
 // VULNERABLE: Complex skippable condition
 #[skippable_if]
 sel + precomputed.first_row = 0;
-// Requires BOTH sel = 0 AND first_row = 0
-// But first_row = 1 on row 0, so never skippable there!
 ```
 
 ### Secure Pattern: Use Shifted Selector
@@ -214,11 +204,9 @@ sel + precomputed.first_row = 0;
 ```pil
 #[skippable_if]
 sel = 0;
-
 // SECURE: Use shifted selector for shifted constraints
 #[PC_INCREMENT]
 sel' * (pc_index' - pc_index - 1) = 0;
-// When sel' = 0, constraint is nullified regardless of first_row
 ```
 
 ### Secure Pattern: Separate Constraints
@@ -226,11 +214,9 @@ sel' * (pc_index' - pc_index - 1) = 0;
 ```pil
 #[skippable_if]
 sel = 0;
-
 // SECURE: Separate first row constraint
 #[INIT_FIRST_ROW]
 precomputed.first_row * (value - INIT_VALUE) = 0;
-
 // SECURE: Separate propagation constraint (excludes first row)
 #[PROPAGATE_NON_FIRST]
 sel * (1 - precomputed.first_row) * (value' - value) = 0;
@@ -241,11 +227,9 @@ sel * (1 - precomputed.first_row) * (value' - value) = 0;
 ```pil
 #[skippable_if]
 sel = 0;
-
 // SECURE: Gate by sel, not (sel + first_row)
 #[CONSTRAINT_WHEN_ACTIVE]
 sel * some_constraint = 0;
-// Properly nullified when sel = 0
 ```
 
 ## Historical Examples
@@ -280,165 +264,62 @@ sel = 0;
 ```
 **Impact**: Skippable never works on row 0.
 
-## Audit Checklist
-
-1. **Find all uses of first_row**:
-   - [ ] `grep -n "first_row" component.pil`
-   - [ ] Document each usage
-
-2. **For each use, check with skippable**:
-   - [ ] What is the skippable condition?
-   - [ ] Is the constraint nullified when condition is met?
-   - [ ] What happens on row 0 specifically?
-
-3. **Check constraint gating patterns**:
-   - [ ] `(sel + precomputed.first_row) * ...` - SUSPICIOUS
-   - [ ] `sel + precomputed.first_row = 0` - SUSPICIOUS skippable condition
-
-4. **CRITICAL: Apply the Completeness Test before flagging**:
-   - [ ] What values does tracegen produce for each column when sel = 0?
-   - [ ] Substitute those values into the constraint
-   - [ ] Does the constraint evaluate to 0? If yes → NOT a bug
-   - [ ] Only flag as a completeness issue if honest tracegen would produce a failing trace
-   - [ ] Remember: A constraint that rejects malicious values is working correctly (soundness, not completeness)
-
-5. **Prefer shifted selectors for shifted constraints**:
-   - [ ] Use `sel' * (shifted_constraint) = 0`
-   - [ ] Not `sel * (shifted_constraint) = 0`
-
-6. **Test with skippable enabled**:
-   - [ ] `AVM_SKIPPABLE=1 vmtg "ComponentTest*"`
-   - [ ] Compare results with and without skippable
-
-## Fix Patterns
-
-### Fix 1: Use Shifted Selector
-
-```pil
-// BEFORE:
-(sel + precomputed.first_row) * (value' - expected) = 0;
-
-// AFTER:
-sel' * (value' - expected) = 0;
-```
-
-### Fix 2: Separate Constraints
-
-```pil
-// BEFORE: Combined init and active
-(sel + precomputed.first_row) * constraint = 0;
-
-// AFTER: Separate
-#[INIT]
-precomputed.first_row * init_constraint = 0;
-
-#[ACTIVE]
-sel * active_constraint = 0;
-```
-
-### Fix 3: Simplify Skippable Condition
-
-```pil
-// BEFORE:
-#[skippable_if]
-sel + precomputed.first_row = 0;
-
-// AFTER:
-#[skippable_if]
-sel = 0;
-// And ensure all constraints are nullified by sel = 0
-```
-
-## Common Locations to Audit
-
-first_row issues typically appear in:
-- **Initialization constraints**: Value init on first row
-- **Propagation constraints**: Value continuity across rows
-- **Counter/index constraints**: PC increment, row counters
-- **Memory ordering**: First memory access
-- **Bytecode**: Instruction fetching
-
-## References
-
-- [Detailed Skill Documentation](../../../pil/vm2/claude-skills/17-first-row-special-cases.md)
-- [Missing Propagation Skill](../vm2-audit-missing-propagation/SKILL.md)
-- [Missing Initialization Skill](../vm2-audit-missing-initialization/SKILL.md)
-
 ---
 
-## Required Output Format
+## REQUIRED OUTPUT FORMAT
 
-**IMPORTANT**: When running this audit skill, you MUST end your response with this standardized format.
+**IMPORTANT**: Your response MUST end with this machine-readable section.
 
-### Findings Summary
+### Summary Table
 
-At the end of your audit, provide a summary section:
-
-```markdown
-## Audit Results
-
-### Summary
 | Item | Value |
 |------|-------|
-| Skill | vm2-audit-first-row-special-cases |
-| Target | [path that was audited] |
-| Files Scanned | [number] |
-| Findings | [count by severity, e.g., "2 Critical, 1 High, 0 Medium, 0 Low"] |
-| Status | COMPLETED_WITH_FINDINGS / COMPLETED_NO_FINDINGS / ERROR |
+| Skill | `{skill-name}` |
+| Target | `{path audited}` |
+| Files Scanned | `{number}` |
+| Findings | `{e.g., "2 Critical, 1 High" or "None"}` |
+| Status | `COMPLETED_WITH_FINDINGS` / `COMPLETED_NO_FINDINGS` / `ERROR` |
 
-### Findings
+### Findings Format
 
-#### Finding vm2-audit-first-row-special-cases-[file]-[line]-[subtype] [SEVERITY]
+For each finding, include:
+- **ID**: `{skill-name}-{file}-{line}-{subtype}`
+- **Severity**: Critical / High / Medium / Low
 - **File**: `path/to/file.pil:line`
-- **Type**: [specific vulnerability type]
-- **Affected Column/Constraint**: [name]
-- **Description**: [brief description]
-- **Exploitability**: [High/Medium/Low] - [brief rationale]
-- **Suggested Fix**: [one-line fix suggestion]
+- **Description**: Brief description
+- **Fix**: One-line suggestion
 
-[Repeat for each finding]
-```
+### Machine-Readable JSON (REQUIRED)
 
-### Machine-Readable Findings
+You MUST include this exact format at the end of your response:
 
-After the human-readable summary, include a JSON block:
-
-```markdown
-<!-- MACHINE-READABLE FINDINGS (do not edit manually) -->
+<!-- MACHINE-READABLE FINDINGS -->
 ```json
 {
-  "skill": "vm2-audit-first-row-special-cases",
-  "finding_prefix": "vm2-audit-first-row-special-cases",
-  "status": "COMPLETED_WITH_FINDINGS | COMPLETED_NO_FINDINGS | ERROR",
-  "target": "pil/vm2",
-  "files_scanned": 0,
+  "skill": "{skill-name}",
+  "status": "COMPLETED_WITH_FINDINGS",
   "findings": [
     {
-      "id": "vm2-audit-first-row-special-cases-filename-line-subtype",
-      "severity": "critical|high|medium|low",
+      "id": "{skill-name}-{file}-{line}-{subtype}",
+      "severity": "critical",
       "file": "path/to/file.pil",
       "line": 123,
-      "type": "specific-vulnerability-type",
-      "column": "affected_column_name",
-      "description": "Brief description of the issue",
-      "exploitability": "high|medium|low",
+      "description": "Brief description",
+      "exploitability": "high",
       "fix": "Suggested fix"
     }
   ]
 }
 ```
 <!-- END MACHINE-READABLE FINDINGS -->
+
+For no findings, use:
+<!-- MACHINE-READABLE FINDINGS -->
+```json
+{
+  "skill": "{skill-name}",
+  "status": "COMPLETED_NO_FINDINGS",
+  "findings": []
+}
 ```
-
-### Finding ID Convention
-
-- Format: `vm2-audit-first-row-special-cases-[filename]-[line]-[subtype]`
-- Example: `vm2-audit-first-row-special-cases-alu-123-SEL`
-- Use lowercase for filename (without extension)
-- Use CAPS for subtype descriptors
-
-### Status Values
-
-- `COMPLETED_NO_FINDINGS` - Audit completed, no issues found
-- `COMPLETED_WITH_FINDINGS` - Audit completed, issues found
-- `ERROR` - Audit could not complete (explain in description)
+<!-- END MACHINE-READABLE FINDINGS -->
