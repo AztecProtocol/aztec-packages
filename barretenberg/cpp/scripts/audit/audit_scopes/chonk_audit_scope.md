@@ -27,51 +27,34 @@ Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg`
 15. `multilinear_batching/multilinear_batching_verifier.cpp`
 16. `multilinear_batching/multilinear_batching_verifier.hpp`
 
-### Goblin Components
-17. `goblin/goblin.cpp`
-18. `goblin/goblin.hpp`
-19. `goblin/merge_prover.cpp`
-20. `goblin/merge_prover.hpp`
-21. `goblin/merge_verifier.cpp`
-22. `goblin/merge_verifier.hpp`
-23. `goblin/goblin_verifier.cpp`
-24. `goblin/goblin_verifier.hpp`
-25. `goblin/translation_evaluations.hpp`
-26. `goblin/types.hpp`
-
-### ECCVM and Translator VM
-27. `eccvm/eccvm_verifier.cpp`
-28. `eccvm/eccvm_verifier.hpp`
-29. `eccvm/eccvm_fixed_vk.hpp`
-30. `eccvm/eccvm_translation_data.hpp`
-31. `translator_vm/translator_verifier.cpp`
-32. `translator_vm/translator_verifier.hpp`
-33. `translator_vm/translator_fixed_vk.hpp`
+### Merge Protocol
+17. `goblin/merge_prover.cpp`
+18. `goblin/merge_prover.hpp`
+19. `goblin/merge_verifier.cpp`
+20. `goblin/merge_verifier.hpp`
 
 ### Chonk Core
-34. `chonk/chonk.cpp`
-35. `chonk/chonk.hpp`
-36. `chonk/private_execution_steps.cpp`
-37. `chonk/chonk_proof.cpp`
-38. `chonk/chonk_proof.hpp`
-39. `chonk/chonk_verifier.cpp`
-40. `chonk/chonk_verifier.hpp`
+21. `chonk/chonk.cpp`
+22. `chonk/chonk.hpp`
+23. `chonk/private_execution_steps.cpp`
+24. `chonk/chonk_proof.cpp`
+25. `chonk/chonk_proof.hpp`
 
 ### Relations
-41. `relations/databus_lookup_relation.hpp`
-42. `relations/multilinear_batching/multilinear_batching_relation.hpp`
+26. `relations/databus_lookup_relation.hpp`
+27. `relations/multilinear_batching/multilinear_batching_relation.hpp`
 
 ### Special Public Inputs
-43. `special_public_inputs/special_public_inputs.hpp`
-44. `stdlib/primitives/public_input_component/public_input_component.hpp`
+28. `special_public_inputs/special_public_inputs.hpp`
+29. `stdlib/primitives/public_input_component/public_input_component.hpp`
 
 ### Flavor
-45. `flavor/multilinear_batching_flavor.hpp`
-46. `flavor/multilinear_batching_recursive_flavor.hpp`
+30. `flavor/multilinear_batching_flavor.hpp`
+31. `flavor/multilinear_batching_recursive_flavor.hpp`
 
 ### ACIR Integration
-47. `dsl/acir_format/hypernova_recursion_constraint.hpp`
-48. `dsl/acir_format/hypernova_recursion_constraint.cpp`
+32. `dsl/acir_format/hypernova_recursion_constraint.hpp`
+33. `dsl/acir_format/hypernova_recursion_constraint.cpp`
 
 ---
 
@@ -79,9 +62,12 @@ Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg`
 
 | File | Description |
 |------|-------------|
+| `hypernova/hypernova_prover.*` | HyperNova folding prover |
 | `hypernova/hypernova_verifier.*` | Verifies folding proof via sumcheck; binds VK hash to transcript |
 | `hypernova/hypernova_decider_verifier.*` | Final accumulator verification before PCS opening |
+| `multilinear_batching/multilinear_batching_prover.*` | Multilinear batching prover |
 | `multilinear_batching/multilinear_batching_verifier.*` | Batches polynomial claims with transcript-derived challenges |
+| `goblin/merge_prover.*` | Merge protocol prover for ECC op table concatenation |
 | `goblin/merge_verifier.*` | `reduce_to_pairing_check()` - validates ECC op table degree/concatenation |
 | `relations/databus_lookup_relation.hpp` | Log-derivative lookup ensuring read/write consistency across circuits |
 | `relations/multilinear_batching/multilinear_batching_relation.hpp` | Relation for batched polynomial claim verification |
@@ -89,12 +75,6 @@ Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg`
 | `chonk/chonk.*` | Chonk state machine, `complete_kernel_circuit_logic()` |
 | `chonk/private_execution_steps.cpp` | Main entry point, `accumulate()` orchestration |
 | `chonk/chonk_proof.*` | Proof serialization/deserialization (field elements, msgpack) |
-| `eccvm/eccvm_verifier.*` | `reduce_to_ipa_opening()` - verifies ECCVM execution, reduces to IPA |
-| `translator_vm/translator_verifier.*` | `reduce_to_pairing_check()` - verifies BN254-Grumpkin consistency |
-| `goblin/goblin_verifier.*` | Orchestrates (final) Merge → ECCVM → Translator; aggregates pairing points + IPA claim |
-| `chonk/chonk_verifier.*` | Verifies MegaZK proof + Goblin proof; aggregates 4 pairing point sets |
-
-In total ~3500 lines
 
 ---
 
@@ -103,31 +83,18 @@ In total ~3500 lines
 | File | Focus |
 |------|-------|
 | `chonk/chonk.test.cpp` | Chonk orchestration, QUEUE_TYPE state machine, accumulation flow |
-| `chonk/chonk_verifier.test.cpp` | Native and recursive verifier correctness, pairing aggregation |
-| `chonk/chonk_transcript_invariants.test.cpp` | Transcript consistency, tampering detection, M_tail propagation |
+| `hypernova/hypernova_prover.test.cpp` | HyperNova folding prover tests |
 | `hypernova/hypernova_verifier.test.cpp` | Folding proof verification, accumulator batching |
 | `multilinear_batching/multilinear_batching_verifier.test.cpp` | Polynomial claim batching, eq consistency |
 | `goblin/merge.test.cpp` | Merge protocol correctness, degree checks, PREPEND/APPEND modes |
-| `goblin/goblin_recursive_verifier.test.cpp` | Goblin chain integration, failure detection (ECCVM, Translator) |
 | `relations/databus_lookup_relation_consistency.test.cpp` | Databus lookup relation soundness |
 
 ---
 
-## Automated Analysis
-
-### Fuzzers
-Differential fuzzing for cryptographic primitives and circuit components:
-- **ECCVM**: `eccvm.fuzzer.cpp` - ECCVM execution
-- **Stdlib components**: Field operations, bigfield, hash functions (SHA256, Blake2s, Blake3s, Keccak), AES128
+## Security Mechanisms
 
 ### Boomerang Static Analyzer
-In-circuit static analyzer that tracks variable flow through gates to detect potential soundness issues.
-
-**Chonk-related tests**:
-- `graph_description_goblin.test.cpp` - Analyzes Goblin recursive verifier circuits
 - `graph_description_merge_recursive_verifier.test.cpp` - Analyzes Merge protocol recursive verification
-- `graph_description_ultra_recursive_verifier.test.cpp` - Analyzes Ultra recursive verifier
-- `graph_description_ipa_recursive.test.cpp` - Analyzes IPA recursive verification
 
 ---
 
