@@ -1,3 +1,14 @@
+use crate::{
+    context::private_context::PrivateContext,
+    messages::{
+        encryption::{aes128::AES128, message_encryption::MessageEncryption},
+        logs::utils::prefix_with_tag,
+        offchain_messages::deliver_offchain_message,
+    },
+    utils::remove_constraints::remove_constraints_if,
+};
+use protocol_types::address::AztecAddress;
+
 /// Specifies how to deliver a message to a recipient.
 ///
 /// All messages are delivered encrypted to their recipient's public address key, so no other account will be able to
@@ -165,3 +176,68 @@ pub struct MessageDeliveryEnum {
 
 pub global MessageDelivery: MessageDeliveryEnum =
     MessageDeliveryEnum { OFFCHAIN: 1, ONCHAIN_UNCONSTRAINED: 2, ONCHAIN_CONSTRAINED: 3 };
+
+/// Performs private delivery of a message to `recipient` according to `delivery_mode`.
+///
+/// The message is encoded into plaintext and then encrypted for `recipient`. This function takes a _function_ that
+/// returns the plaintext instead of taking the plaintext directly in order to not waste constraints encoding the
+/// message in scenarios where the plaintext will be encrypted with unconstrained encryption.
+///
+/// `maybe_note_hash_counter` is only relevant for on-chain delivery modes (i.e. via protocol logs): if a newly created
+/// note hash's side effect counter is passed, then the log will be squashed alongside the note should its nullifier be
+/// emitted in the current transaction. This is typically only used for note messages: since the note will not actually
+/// be created, there is no point in delivering the message.
+///
+/// `delivery_mode` must be one of [MessageDeliveryEnum].
+pub(crate) fn do_private_message_delivery<Env, let MESSAGE_PLAINTEXT_LEN: u32>(
+    context: &mut PrivateContext,
+    encode_into_message_plaintext: fn[Env]() -> [Field; MESSAGE_PLAINTEXT_LEN],
+    maybe_note_hash_counter: Option<u32>,
+    recipient: AztecAddress,
+    delivery_mode: u8,
+) {
+    // This function relies on `delivery_mode` being a constant in order to reduce circuit constraints when
+    // unconstrained usage is requested. If `delivery_mode` were a runtime value the compiler would be unable to
+    // perform dead-code elimination.
+    assert_constant(delivery_mode);
+
+    // The following maps out the 3 dimensions across which we configure message delivery.
+    let constrained_encryption = delivery_mode == MessageDelivery.ONCHAIN_UNCONSTRAINED;
+    let deliver_as_offchain_message = delivery_mode == MessageDelivery.OFFCHAIN;
+    // TODO(#14565): Add constrained tagging
+    let _constrained_tagging = delivery_mode == MessageDelivery.ONCHAIN_CONSTRAINED;
+
+    let ciphertext = remove_constraints_if(
+        !constrained_encryption,
+        || AES128::encrypt(encode_into_message_plaintext(), recipient),
+    );
+
+    if deliver_as_offchain_message {
+        deliver_offchain_message(ciphertext, recipient);
+    } else {
+        // Safety: Currently unsafe. See description of ONCHAIN_CONSTRAINED in MessageDeliveryEnum.
+        // TODO(#14565): Implement proper constrained tag prefixing to make this truly ONCHAIN_CONSTRAINED
+        let log_content = prefix_with_tag(ciphertext, recipient);
+
+        // We forbid this value not being constant to avoid predicating the context calls below, which might result in
+        // the context's arrays having unknown compile time write indices and hence dramatically increasing constraints
+        // when accessing them. In practice this restriction is not a problem as we always know at compile time whether
+        // we're emitting a note or non-note message.
+        assert_constant(maybe_note_hash_counter.is_some());
+
+        if maybe_note_hash_counter.is_some() {
+            // We associate the log with the note's side effect counter, so that if the note ends up being squashed
+            // in the current transaction, the log will be removed as well.
+            //
+            // Note that the log always has the same length regardless of `MESSAGE_PLAINTEXT_LEN`, because all message
+            // ciphertexts also have the same length. This prevents accidental privacy leakage via the log length.
+            context.emit_raw_note_log(
+                log_content,
+                log_content.len(),
+                maybe_note_hash_counter.unwrap(),
+            );
+        } else {
+            context.emit_private_log(log_content, log_content.len());
+        }
+    }
+}
