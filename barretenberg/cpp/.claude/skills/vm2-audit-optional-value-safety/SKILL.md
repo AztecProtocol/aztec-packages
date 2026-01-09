@@ -209,66 +209,6 @@ do_something_with(result.value());  // Crash if empty!
 5. **Uninitialized state**: First access to memory/storage
 6. **Failed operations**: Computations that may not produce results
 
-## Test Patterns
-
-### Test 1: Empty Optional Handled
-
-```cpp
-TEST_F(SimulationTest, PositiveEmptyOptionalHandled)
-{
-    // Query unused protocol contract slot (7-11)
-    auto event = contract_instance_manager.get_instance(
-        Address(7)  // Reserved but unused
-    );
-
-    // Should return exists = false, not crash
-    EXPECT_FALSE(event.exists);
-}
-```
-
-**Interpretation**:
-- **Test passes**: Empty optional handled gracefully - secure
-- **Test crashes**: Unsafe .value() access - needs fix
-
-### Test 2: Boundary Condition
-
-```cpp
-TEST_F(SimulationTest, PositiveBoundaryCondition)
-{
-    // Access at exact boundary
-    auto result = access_at_boundary();
-
-    // Should handle gracefully
-    EXPECT_TRUE(result.is_valid_or_error());
-}
-```
-
-### Test 3: Missing Database Entry
-
-```cpp
-TEST_F(SimulationTest, PositiveMissingContract)
-{
-    // Query non-existent contract
-    auto result = lookup_contract(Address(0xDEADBEEF));
-
-    // Should return nullopt or error, not crash
-    EXPECT_FALSE(result.has_value());
-}
-```
-
-### Test 4: Empty Collection Access
-
-```cpp
-TEST_F(SimulationTest, PositiveEmptyCollectionHandled)
-{
-    std::vector<int> empty_vec;
-
-    // Should handle empty case, not crash
-    auto result = safe_get_first(empty_vec);
-    EXPECT_FALSE(result.has_value());
-}
-```
-
 ## Audit Checklist
 
 1. **Find all .value() calls**:
@@ -360,23 +300,6 @@ if (it == map.end()) {
     return error_or_default;
 }
 auto value = it->second;
-```
-
-## Build and Test Commands
-
-```bash
-# Build VM2 tests
-vmb  # or: cmake --preset build && cd build && ninja vm2_tests
-
-# Run all VM2 tests
-vmt  # or: ./build/bin/vm2_tests
-
-# Run simulation-specific tests
-vmtg "Simulation*"
-
-# Run with address sanitizer to catch crashes
-cmake --preset asan && cd build-asan && ninja vm2_tests
-./bin/vm2_tests
 ```
 
 ## Common Locations to Audit

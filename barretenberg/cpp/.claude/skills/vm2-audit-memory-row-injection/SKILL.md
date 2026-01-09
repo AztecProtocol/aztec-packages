@@ -236,70 +236,6 @@ pol commit sel;
 // Was missing boolean constraint
 ```
 
-## Test Patterns
-
-### Test 1: Injected Row Detection
-
-```cpp
-TEST_F(MemoryTest, NegativeInjectedRow)
-{
-    // Try to add a memory row without corresponding source
-    auto trace = TestTraceContainer({
-        // Execution row: no memory operation
-        {{ C::execution_sel, 1 }, { C::sel_mem_op, 0 }},
-        // Memory row: claims to be valid (INJECTED)
-        {{ C::memory_sel, 1 }, { C::memory_addr, 42 }, { C::memory_value, 999 }},
-    });
-
-    // Permutation should fail - source count != dest count
-    EXPECT_THROW(
-        check_all_interactions<MemoryTraceBuilder>(trace),
-        std::exception
-    );
-}
-```
-
-**Interpretation**:
-- **Test passes (throws)**: Permutation catches injected row - secure
-- **Test fails (no throw)**: Injection possible - vulnerable
-
-### Test 2: Non-Boolean Selector
-
-```cpp
-TEST_F(MemoryTest, NegativeNonBooleanSelector)
-{
-    auto trace = TestTraceContainer({
-        {{ C::memory_sel, 2 }},  // Non-boolean!
-    });
-
-    EXPECT_THROW_WITH_MESSAGE(
-        check_relation<MemoryRelation>(trace),
-        "SEL_BOOL"
-    );
-}
-```
-
-### Test 3: Context Isolation
-
-```cpp
-TEST_F(MemoryTest, NegativeCrossContextAccess)
-{
-    // Try to read memory from different context
-    auto trace = TestTraceContainer({
-        // Write in context 1
-        {{ C::sel, 1 }, { C::context_id, 1 }, { C::addr, 100 }, { C::value, 42 }, { C::rw, 1 }},
-        // Read in context 2 - should NOT see context 1's value
-        {{ C::sel, 1 }, { C::context_id, 2 }, { C::addr, 100 }, { C::value, 42 }, { C::rw, 0 }},
-    });
-
-    // Should fail - contexts are isolated
-    EXPECT_THROW(
-        check_relation<MemoryRelation>(trace),
-        std::exception
-    );
-}
-```
-
 ## Audit Checklist
 
 1. **Check all memory-related selectors**:
@@ -361,22 +297,6 @@ sel_mem_access * (1 - sel) = 0;
 #[MEM_ACCESS]
 sel_mem_op { context_id, clk, addr, value, rw }
 is memory.sel { memory.context_id, memory.clk, memory.addr, memory.value, memory.rw };
-```
-
-## Build and Test Commands
-
-```bash
-# Regenerate C++ from PIL
-vmp  # or: ../../bb-pilcom/target/release/bb_pil pil/vm2
-
-# Build VM2 tests
-vmb  # or: cmake --preset build && cd build && ninja vm2_tests
-
-# Run all VM2 tests
-vmt  # or: ./build/bin/vm2_tests
-
-# Run memory-specific tests
-vmtg "Memory*"
 ```
 
 ## Common Locations to Audit

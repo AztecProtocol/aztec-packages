@@ -195,69 +195,6 @@ pol commit start_tx; // @boolean
 ```
 **Impact**: Theoretical - row 0 behavior undefined.
 
-## Test Patterns
-
-### Test 1: Uninitialized PC
-
-```cpp
-TEST_F(ComponentTest, NegativeUninitializedPC)
-{
-    auto trace = TestTraceContainer({
-        // Start call with non-zero PC (should be 0)
-        {{ C::execution_sel, 1 },
-         { C::sel_enter_enqueued_call, 1 },
-         { C::pc, 100 }},  // INVALID: should be 0
-    });
-
-    EXPECT_THROW_WITH_MESSAGE(
-        check_relation<ExecutionRelation>(trace),
-        "PC_INIT_ENQUEUED"
-    );
-}
-```
-
-**Interpretation**:
-- **Test passes (throws)**: Initialization enforced - secure
-- **Test fails (no throw)**: Arbitrary initial value allowed - vulnerable
-
-### Test 2: Uninitialized Counter
-
-```cpp
-TEST_F(ComponentTest, NegativeUninitializedCounter)
-{
-    auto trace = TestTraceContainer({
-        // First row with non-zero counter (should be 0)
-        {{ C::sel, 1 },
-         { C::precomputed_first_row, 1 },
-         { C::counter, 999 }},  // INVALID: should be 0
-    });
-
-    EXPECT_THROW_WITH_MESSAGE(
-        check_relation<ComponentRelation>(trace),
-        "COUNTER_INIT"
-    );
-}
-```
-
-### Test 3: Uninitialized Phase
-
-```cpp
-TEST_F(TxTest, NegativeSkippedPhase)
-{
-    auto trace = TestTraceContainer({
-        // Start with phase 3 instead of phase 0
-        {{ C::sel, 1 },
-         { C::precomputed_first_row, 1 },
-         { C::phase_value, 3 }},  // INVALID: should be SETUP_PHASE
-    });
-
-    EXPECT_THROW_WITH_MESSAGE(
-        check_relation<TxRelation>(trace),
-        "PHASE_VALUE_INIT"
-    );
-}
-```
-
 ## Audit Checklist
 
 1. **Identify values that need initialization**:
@@ -299,22 +236,6 @@ precomputed.first_row * (value - INITIAL_VALUE) = 0;
 // Option 2: Initialize on computation start
 #[VALUE_INIT_ON_START]
 start_computation * (value - INITIAL_VALUE) = 0;
-```
-
-## Build and Test Commands
-
-```bash
-# Regenerate C++ from PIL
-vmp  # or: ../../bb-pilcom/target/release/bb_pil pil/vm2
-
-# Build VM2 tests
-vmb  # or: cmake --preset build && cd build && ninja vm2_tests
-
-# Run all VM2 tests
-vmt  # or: ./build/bin/vm2_tests
-
-# Run specific component test
-vmtg "ComponentConstraining*"
 ```
 
 ## Common Locations to Audit

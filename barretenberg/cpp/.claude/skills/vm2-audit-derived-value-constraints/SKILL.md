@@ -259,92 +259,6 @@ sel_after_call * (last_child_success - child_result) = 0;
 ```
 **Impact**: Fake success for failed calls.
 
-## Test Patterns
-
-### Test 1: Arbitrary Derived Value
-
-```cpp
-TEST_F(ComponentTest, NegativeArbitraryDerivedValue)
-{
-    auto trace = TestTraceContainer({
-        {{ C::sel, 1 },
-         { C::pc, 0 },
-         { C::instr_length, 4 },
-         { C::sel_jump, 0 },
-         { C::next_pc, 100 }},  // Should be 4, not 100!
-    });
-
-    EXPECT_THROW_WITH_MESSAGE(
-        check_relation<ComponentRelation>(trace),
-        "PC_STANDARD_INCREMENT"
-    );
-}
-```
-
-**Interpretation**:
-- **Test passes (throws)**: Derived value constrained - secure
-- **Test fails (no throw)**: Arbitrary value allowed - CRITICAL vulnerability
-
-### Test 2: Wrong ALU Output
-
-```cpp
-TEST_F(ComponentTest, NegativeWrongOutput)
-{
-    auto trace = TestTraceContainer({
-        {{ C::sel_add, 1 },
-         { C::a, 5 },
-         { C::b, 3 },
-         { C::c, 10 }},  // Should be 8, not 10!
-    });
-
-    EXPECT_THROW_WITH_MESSAGE(
-        check_relation<AluRelation>(trace),
-        "ADD_OUTPUT"
-    );
-}
-```
-
-### Test 3: Wrong Gas Calculation
-
-```cpp
-TEST_F(ComponentTest, NegativeWrongGas)
-{
-    auto trace = TestTraceContainer({
-        {{ C::sel, 1 },
-         { C::sel_calldatacopy, 1 },
-         { C::copy_size, 100 },
-         { C::dynamic_gas_factor, 1 }},  // Should be 100!
-    });
-
-    EXPECT_THROW_WITH_MESSAGE(
-        check_relation<ExecutionRelation>(trace),
-        "DYNAMIC_GAS"
-    );
-}
-```
-
-### Test 4: Uncovered Operation Type
-
-```cpp
-TEST_F(ComponentTest, NegativeUncoveredOperation)
-{
-    // Test an operation that might not have output constraint
-    auto trace = TestTraceContainer({
-        {{ C::sel, 1 },
-         { C::sel_new_op, 1 },  // Newly added operation
-         { C::a, 5 },
-         { C::b, 3 },
-         { C::c, 999 }},  // Is this constrained?
-    });
-
-    // If this passes, the new operation's output isn't constrained!
-    EXPECT_THROW(
-        check_relation<AluRelation>(trace),
-        std::runtime_error
-    );
-}
-```
-
 ## Audit Checklist
 
 1. **Identify all committed columns**:
@@ -387,22 +301,6 @@ sel_case_2 * (derived_value - formula_2) = 0;
 // Case 3: Default/inactive (if needed)
 #[DERIVED_DEFAULT]
 (1 - sel_case_1) * (1 - sel_case_2) * (derived_value - default_value) = 0;
-```
-
-## Build and Test Commands
-
-```bash
-# Regenerate C++ from PIL
-vmp  # or: ../../bb-pilcom/target/release/bb_pil pil/vm2
-
-# Build VM2 tests
-vmb  # or: cmake --preset build && cd build && ninja vm2_tests
-
-# Run all VM2 tests
-vmt  # or: ./build/bin/vm2_tests
-
-# Run specific component test
-vmtg "ComponentConstraining*"
 ```
 
 ## Common Locations to Audit

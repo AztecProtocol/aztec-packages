@@ -243,81 +243,6 @@ row.tx_should_l2_l1_msg_append = should_append && !discard;
 ```
 **Impact**: Could discard rows before failing nested call.
 
-## Test Patterns
-
-### Test 1: Emission Count Not Incremented on Discard
-
-```cpp
-TEST_F(ComponentTest, PositiveEmissionWithDiscard)
-{
-    // Create trace where operation is discarded
-    auto trace = create_trace_with_discarded_emission();
-
-    // Verify side effect count not incremented
-    EXPECT_EQ(trace.get_final_emission_count(), 0);
-
-    // Verify constraints pass
-    check_relation<ComponentRelation>(trace);
-}
-```
-
-**Interpretation**:
-- **Test passes**: Discard properly prevents side effect - secure
-- **Test fails**: Side effect leaked through - vulnerable
-
-### Test 2: Count Incorrectly Updated on Discard
-
-```cpp
-TEST_F(ComponentTest, NegativeEmissionCountOnDiscard)
-{
-    auto trace = TestTraceContainer({
-        // Discarded row with emission
-        {{ C::sel, 1 },
-         { C::discard, 1 },
-         { C::should_emit, 1 },  // Operation would emit
-         { C::num_emissions, 0 },
-         { C::num_emissions_next, 1 }},  // But count increments! (INVALID)
-    });
-
-    EXPECT_THROW_WITH_MESSAGE(
-        check_relation<ComponentRelation>(trace),
-        "UPDATE_COUNT"
-    );
-}
-```
-
-### Test 3: Side Effect Persists Despite Discard
-
-```cpp
-TEST_F(ComponentTest, NegativeSideEffectOnDiscard)
-{
-    auto trace = TestTraceContainer({
-        {{ C::sel, 1 },
-         { C::discard, 1 },
-         { C::should_emit, 1 }},  // Emission selector active despite discard
-    });
-
-    // If properly gated, emission interaction should not fire
-    // This depends on how SHOULD_EMIT is defined
-    check_all_interactions<ComponentTraceBuilder>(trace);
-}
-```
-
-### Test 4: Discard Propagation to Child
-
-```cpp
-TEST_F(ComponentTest, PositiveDiscardPropagation)
-{
-    // Parent context fails, child should have discard = 1
-    auto trace = create_trace_with_parent_failure();
-
-    // Verify child context has discard set
-    EXPECT_EQ(trace.get_child_discard(), 1);
-
-    check_relation<ComponentRelation>(trace);
-}
-```
-
 ## Audit Checklist
 
 1. **Identify all side-effect operations**:
@@ -361,22 +286,6 @@ SHOULD_EMIT { ... } permute dest.sel { ... };
 // Gate count update
 #[UPDATE_COUNT]
 sel * (count' - count - RAW_SHOULD_EMIT * (1 - discard)) = 0;
-```
-
-## Build and Test Commands
-
-```bash
-# Regenerate C++ from PIL
-vmp  # or: ../../bb-pilcom/target/release/bb_pil pil/vm2
-
-# Build VM2 tests
-vmb  # or: cmake --preset build && cd build && ninja vm2_tests
-
-# Run all VM2 tests
-vmt  # or: ./build/bin/vm2_tests
-
-# Run specific component test
-vmtg "ComponentConstraining*"
 ```
 
 ## Common Locations to Audit

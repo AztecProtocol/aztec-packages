@@ -129,31 +129,6 @@ pol SEL_FETCH = sel * (1 - sel_bytecode_retrieval_failure);
 SEL_FETCH { ... } in bc_retrieval.sel { ... };
 ```
 
-## Test Pattern
-
-```cpp
-TEST_F(ComponentTest, PositiveOperationWithError)
-{
-    // Create trace where operation has error
-    PrecomputedTraceBuilder precomputed;
-    ComponentTraceBuilder builder;
-
-    auto event = create_event_with_tag_error();
-
-    TestTraceContainer trace;
-    precomputed.process(trace);
-    builder.process(event, trace);
-
-    // Should pass - error gating prevents lookup failure
-    check_relation<ComponentRelation>(trace);
-    check_all_interactions<ComponentTraceBuilder>(trace);
-}
-```
-
-**Interpretation**:
-- **Test passes**: Error gating works correctly
-- **Test fails on interaction**: Source selector not properly gated by error
-
 ## Fix Pattern
 
 ```pil
@@ -165,22 +140,6 @@ sel_op { input } in dest.sel { output };
 pol SEL_OP_NO_ERR = sel_op * (1 - sel_err);
 #[MY_LOOKUP]
 SEL_OP_NO_ERR { input } in dest.sel { output };
-```
-
-## Build and Test Commands
-
-```bash
-# Regenerate C++ from PIL
-vmp  # or: ../../bb-pilcom/target/release/bb_pil pil/vm2
-
-# Build VM2 tests
-vmb  # or: cmake --preset build && cd build && ninja vm2_tests
-
-# Run all VM2 tests
-vmt  # or: ./build/bin/vm2_tests
-
-# Run specific component test
-vmtg "ComponentConstraining*"
 ```
 
 ## References

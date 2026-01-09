@@ -208,100 +208,6 @@ sel_parsing_err = pc_out_of_range + opcode_out_of_range + instr_out_of_range;
 sel_err = sel_opcode_err + sel_bytecode_err + sel_addressing_err + ...;
 ```
 
-## Test Patterns
-
-### Test 1: Error Not Aggregated (Suppressed Error)
-
-```cpp
-TEST_F(ComponentTest, NegativeErrorNotAggregated)
-{
-    auto trace = TestTraceContainer({
-        {{ C::sel, 1 },
-         { C::err_type_a, 1 },    // Individual error set!
-         { C::err_type_b, 0 },
-         { C::sel_err, 0 }},      // But aggregate claims no error!
-    });
-
-    // Should fail on aggregation constraint
-    EXPECT_THROW_WITH_MESSAGE(
-        check_relation<ComponentRelation>(trace),
-        "ERROR_AGGREGATION"
-    );
-}
-```
-
-**Interpretation**:
-- **Test passes (throws)**: Aggregation enforced - secure
-- **Test fails (no throw)**: Error can be suppressed - CRITICAL vulnerability
-
-### Test 2: Fake Error (False Positive)
-
-```cpp
-TEST_F(ComponentTest, NegativeFakeError)
-{
-    auto trace = TestTraceContainer({
-        {{ C::sel, 1 },
-         { C::err_type_a, 0 },    // No individual errors
-         { C::err_type_b, 0 },
-         { C::sel_err, 1 }},      // But aggregate claims error!
-    });
-
-    // Should fail on aggregation constraint
-    EXPECT_THROW_WITH_MESSAGE(
-        check_relation<ComponentRelation>(trace),
-        "ERROR_AGGREGATION"
-    );
-}
-```
-
-### Test 3: Multiple Errors Set (If Non-Exclusive)
-
-```cpp
-TEST_F(ComponentTest, NegativeMultipleErrorsNotExclusive)
-{
-    auto trace = TestTraceContainer({
-        {{ C::sel, 1 },
-         { C::err_type_a, 1 },    // Both errors set
-         { C::err_type_b, 1 },
-         { C::sel_err, 2 }},      // Sum would be 2, not boolean!
-    });
-
-    // If using sum aggregation, this should fail boolean check
-    EXPECT_THROW(
-        check_relation<ComponentRelation>(trace),
-        std::runtime_error
-    );
-}
-```
-
-### Test 4: Verify All Individual Errors Aggregate
-
-```cpp
-TEST_F(ComponentTest, NegativeEachIndividualErrorAggregates)
-{
-    // Test each individual error separately
-    std::vector<C> error_columns = {
-        C::err_type_a,
-        C::err_type_b,
-        C::err_type_c
-    };
-
-    for (auto err_col : error_columns) {
-        auto trace = TestTraceContainer({
-            {{ C::sel, 1 },
-             { err_col, 1 },       // Only this error set
-             { C::sel_err, 0 }},   // But aggregate claims no error
-        });
-
-        // Should fail for each individual error
-        EXPECT_THROW(
-            check_relation<ComponentRelation>(trace),
-            std::runtime_error
-        );
-    }
-}
-```
-
 ## Audit Checklist
 
 1. **Find all aggregate error flags**:
@@ -345,22 +251,6 @@ err_type_a * (1 - sel_err) = 0;
 err_type_b * (1 - sel_err) = 0;
 #[NO_ERR_IMPLIES_NO_SEL_ERR]
 (1 - err_type_a) * (1 - err_type_b) * sel_err = 0;
-```
-
-## Build and Test Commands
-
-```bash
-# Regenerate C++ from PIL
-vmp  # or: ../../bb-pilcom/target/release/bb_pil pil/vm2
-
-# Build VM2 tests
-vmb  # or: cmake --preset build && cd build && ninja vm2_tests
-
-# Run all VM2 tests
-vmt  # or: ./build/bin/vm2_tests
-
-# Run specific component test
-vmtg "ComponentConstraining*"
 ```
 
 ## Common Locations to Audit
