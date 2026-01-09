@@ -1,127 +1,81 @@
 ---
 title: Simulating Functions
-tags: [functions, view, simulation]
+tags: [functions, simulation]
 sidebar_position: 5
-description: Step-by-step guide to simulating function calls and reading state from Aztec contracts.
+description: How to simulate function calls and read contract state without creating transactions.
 ---
 
-This guide shows you how to simulate function calls to read contract state.
+This guide shows you how to use `simulate` to execute contract functions and read their return values without creating a transaction.
 
 ## Prerequisites
 
-- Deployed contract address and ABI
-- Wallet connection
-- Understanding of [contract functions](../aztec-nr/framework-description/functions/how_to_define_functions.md)
+- A deployed contract instance (see [How to Deploy a Contract](./how_to_deploy_contract.md))
+- A wallet connection (see [How to Create an Account](./how_to_create_account.md))
 
-## Connect to a contract
+## Overview
 
-Let's say you've connected to a contract, for example:
+The `simulate` method executes a contract function locally and returns its result. It works with private, public, and utility functions. No transaction is created and no gas is spent.
 
 ```typescript
-import { Contract } from "@aztec/aztec.js";
-
-const contract = await Contract.at(contractAddress, artifact, wallet);
+const result = await contract.methods.myFunction(arg1, arg2).simulate({ from: callerAddress });
 ```
 
-or
+The `from` option specifies which address context to use for the simulation. This is required for all simulations.
+
+## Basic simulation
+
+#include_code simulate_function yarn-project/end-to-end/src/composed/docs_examples.test.ts typescript
+
+## Handling return values
+
+For functions returning multiple values, destructure the result:
 
 ```typescript
-import { MyContract } from "./artifacts/MyContract";
-
-const contract = await MyContract.at(contractAddress, wallet);
-```
-
-## Simulate public functions
-
-### Step 1: Call a public view function
-
-```typescript
-const result = await contract.methods
-  .get_public_value(param1)
-  .simulate({ from: callerAddress }); // assuming callerAddress is already registered on the wallet, i.e. wallet.createSchnorrAccount(caller.secret, caller.salt)
-
-console.log("Public value:", result);
-```
-
-### Step 2: Handle return values
-
-```typescript
-const result = await contract.methods
+const [value1, value2] = await contract.methods
   .get_multiple_values()
   .simulate({ from: callerAddress });
-
-// Destructure if returning multiple values
-const [value1, value2] = result;
 ```
 
-## Simulate private functions
+## Including metadata
 
-### Step 1: Call a private view function
+Set `includeMetadata: true` to get additional information about the simulation:
 
 ```typescript
-const privateResult = await contract.methods
-  .get_private_balance(ownerAddress)
-  .simulate({ from: ownerAddress });
+const result = await contract.methods
+  .balance_of_public(address)
+  .simulate({ from: callerAddress, includeMetadata: true });
+
+// Result includes:
+// - result: the function return value
+// - stats: execution statistics (timing, circuit sizes)
+// - offchainEffects: any offchain effects emitted
+// - estimatedGas: gas limit estimates
+console.log("Balance:", result.result);
+console.log("Estimated gas:", result.estimatedGas);
 ```
 
-### Step 2: Access private notes
+## Private function considerations
+
+When simulating private functions, the caller must have access to any private state being read. The PXE only has visibility into notes belonging to registered accounts.
 
 ```typescript
-// Private functions can access the caller's private state
-const notes = await contract.methods
-  .get_my_notes()
-  .simulate({ from: ownerAddress });
+// This works if callerAddress owns the notes
+const balance = await contract.methods
+  .balance_of_private(callerAddress)
+  .simulate({ from: callerAddress });
+
+// This fails if callerAddress doesn't have access to otherAddress's notes
+const otherBalance = await contract.methods
+  .balance_of_private(otherAddress)
+  .simulate({ from: callerAddress }); // Error: cannot access private state
 ```
 
 :::warning
-Private simulations only work if the caller has access to the private state being queried.
+Simulation runs locally without generating proofs. No correctness guarantees are provided on the result. See [Call Types](../foundational-topics/call_types.md#simulate) for more details.
 :::
-
-## Simulate utility functions
-
-### Step 1: Call utility function
-
-```typescript
-const result = await contract.methods
-  .compute_value(input1, input2)
-  .simulate({ from: account.address });
-
-console.log("Computed value:", result);
-```
-
-### Step 2: Use utility functions for complex queries
-
-```typescript
-const aggregatedData = await contract.methods
-  .get_aggregated_stats(startBlock, endBlock)
-  .simulate({ from: account.address });
-
-// Returns structured data based on function signature
-console.log("Stats:", aggregatedData);
-```
-
-## Simulate with different contexts
-
-### Simulate from different addresses
-
-```typescript
-// Simulate as different users to test access control
-const asOwner = await contract.methods
-  .admin_function()
-  .simulate({ from: ownerAddress });
-
-try {
-  const asUser = await contract.methods
-    .admin_function()
-    .simulate({ from: userAddress });
-} catch (error) {
-  console.log("User cannot access admin function");
-}
-```
 
 ## Next steps
 
 - [Send transactions](./how_to_send_transaction.md) to modify contract state
-- Learn about [private and public functions](../aztec-nr/framework-description/functions/how_to_define_functions.md)
-- Explore [testing patterns](./how_to_test.md) for simulations
-- Understand [state management](../aztec-nr/framework-description/how_to_define_storage.md)
+- Learn about [call types](../foundational-topics/call_types.md) and when to use simulation vs transactions
+- Explore [testing patterns](./how_to_test.md) that use simulation
