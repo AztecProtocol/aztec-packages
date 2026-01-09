@@ -201,77 +201,6 @@ sel_mem_op { clk, addr, value, rw } permute memory.sel { memory.clk, memory.addr
 // could reuse same hash result for different inputs
 ```
 
-## Test Patterns
-
-### Test 1: Duplicate Operation Detection
-
-```cpp
-TEST_F(ComponentTest, NegativeDuplicateOperation)
-{
-    // Create trace with two source rows pointing to same destination
-    auto trace = TestTraceContainer({
-        // Source row 1 with op_id = 1
-        {{ C::sel_source, 1 }, { C::op_id, 1 }},
-        // Source row 2 with same op_id = 1
-        {{ C::sel_source, 1 }, { C::op_id, 1 }},
-        // Only one destination row with op_id = 1
-        {{ C::sel_dest, 1 }, { C::dest_op_id, 1 }},
-    });
-
-    // With permutation, this should fail (2 sources, 1 dest)
-    EXPECT_THROW(
-        check_all_interactions<ComponentTraceBuilder>(trace),
-        std::exception
-    );
-}
-```
-
-**Interpretation**:
-- **Test passes (throws)**: Permutation correctly enforces 1:1 - secure
-- **Test fails (no throw)**: Lookup allows duplication - vulnerable
-
-### Test 2: Missing Destination Detection
-
-```cpp
-TEST_F(ComponentTest, NegativeMissingDestination)
-{
-    auto trace = TestTraceContainer({
-        // Two source rows
-        {{ C::sel_source, 1 }, { C::op_id, 1 }},
-        {{ C::sel_source, 1 }, { C::op_id, 2 }},
-        // Only one destination row (op_id = 1 missing)
-        {{ C::sel_dest, 1 }, { C::dest_op_id, 2 }},
-    });
-
-    // With permutation, this should fail
-    EXPECT_THROW(
-        check_all_interactions<ComponentTraceBuilder>(trace),
-        std::exception
-    );
-}
-```
-
-### Test 3: Extra Destination Detection
-
-```cpp
-TEST_F(ComponentTest, NegativeExtraDestination)
-{
-    auto trace = TestTraceContainer({
-        // One source row
-        {{ C::sel_source, 1 }, { C::op_id, 1 }},
-        // Two destination rows (one extra!)
-        {{ C::sel_dest, 1 }, { C::dest_op_id, 1 }},
-        {{ C::sel_dest, 1 }, { C::dest_op_id, 2 }},
-    });
-
-    // With permutation, this should fail (1 source, 2 dests)
-    EXPECT_THROW(
-        check_all_interactions<ComponentTraceBuilder>(trace),
-        std::exception
-    );
-}
-```
-
 ## Audit Checklist
 
 1. **Identify all interactions in the component**:
@@ -309,22 +238,6 @@ sel_op { ... } in dest.sel { ... };
 
 // AFTER (secure):
 sel_op { ... } permute dest.sel { ... };
-```
-
-## Build and Test Commands
-
-```bash
-# Regenerate C++ from PIL
-vmp  # or: ../../bb-pilcom/target/release/bb_pil pil/vm2
-
-# Build VM2 tests
-vmb  # or: cmake --preset build && cd build && ninja vm2_tests
-
-# Run all VM2 tests
-vmt  # or: ./build/bin/vm2_tests
-
-# Run specific component test
-vmtg "ComponentConstraining*"
 ```
 
 ## Common Locations to Audit

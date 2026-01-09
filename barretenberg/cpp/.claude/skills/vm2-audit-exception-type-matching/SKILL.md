@@ -253,60 +253,6 @@ void Sha256Compression::compress(...) {
 ```
 **Impact**: Valid SHA256 error cases crash simulation.
 
-## Test Patterns
-
-### Test 1: Exception Type Matches
-
-```cpp
-TEST_F(SimulationTest, ErrorExceptionTypeMatches)
-{
-    // Trigger an error condition
-    auto input = create_invalid_sha256_input();
-
-    // Should throw correct exception type
-    EXPECT_THROW(
-        sha256.compress(input),
-        Sha256CompressionException  // Specific type, not std::exception
-    );
-}
-```
-
-### Test 2: Error Handling Produces Trace
-
-```cpp
-TEST_F(SimulationTest, ErrorHandlingProducesTrace)
-{
-    // Trigger error that should be caught and handled
-    auto input = create_invalid_input();
-
-    // Should NOT throw - error should be caught internally
-    // and produce a valid error trace
-    EXPECT_NO_THROW({
-        auto trace = execute_with_error(input);
-        EXPECT_TRUE(trace.has_error());
-    });
-}
-```
-
-### Test 3: Specific vs Generic Exception
-
-```cpp
-TEST_F(SimulationTest, SpecificExceptionNotGeneric)
-{
-    auto input = create_error_input();
-
-    // Should throw specific exception, not generic
-    try {
-        component.operation(input);
-        FAIL() << "Should have thrown";
-    } catch (const SpecificException& e) {
-        // Good - caught specific exception
-    } catch (const std::exception& e) {
-        FAIL() << "Threw generic exception: " << typeid(e).name();
-    }
-}
-```
-
 ## Audit Checklist
 
 1. **Find all throw statements**:
@@ -440,19 +386,6 @@ try {
     LOG_ERROR("Unexpected exception type: " << typeid(e).name());
     throw;  // Re-throw to fail loudly
 }
-```
-
-## Build and Test Commands
-
-```bash
-# Build VM2 tests
-vmb  # or: cmake --preset build && cd build && ninja vm2_tests
-
-# Run all VM2 tests
-vmt  # or: ./build/bin/vm2_tests
-
-# Run specific simulation tests
-vmtg "*Simulation*"
 ```
 
 ## Common Locations to Audit

@@ -96,26 +96,6 @@ sel_total = sel_a + sel_b + sel_c;
 sel_total * (1 - sel_total) = 0;
 ```
 
-### Step 5: Write Negative Tests
-
-```cpp
-TEST_F(ComponentTest, NegativeMultipleSelectorsSet)
-{
-    auto trace = TestTraceContainer({
-        {{ C::sel, 1 },
-         { C::sel_op_add, 1 },
-         { C::sel_op_mul, 1 }},  // Both ops selected!
-    });
-
-    // Should fail if mutual exclusivity is enforced
-    // If this passes, the constraint is missing!
-    EXPECT_THROW(
-        check_relation<ComponentRelation>(trace),
-        std::runtime_error
-    );
-}
-```
-
 ## Mutual Exclusivity Patterns
 
 ### Pattern 1: Pairwise Constraints
@@ -384,22 +364,6 @@ pol commit sel_div;
 5. **Review simulation/tracegen code**:
    - Does it ever set multiple flags in the same group?
    - Does PIL assume single flag?
-
-## Build and Test Commands
-
-```bash
-# Regenerate C++ from PIL
-vmp  # or: ../../bb-pilcom/target/release/bb_pil pil/vm2
-
-# Build VM2 tests
-vmb  # or: cmake --preset build && cd build && ninja vm2_tests
-
-# Run all VM2 tests
-vmt  # or: ./build/bin/vm2_tests
-
-# Run specific component test
-vmtg "ComponentConstraining*"
-```
 
 ## References
 

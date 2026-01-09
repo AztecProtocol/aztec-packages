@@ -231,69 +231,6 @@ pol commit clk;
 ```
 **Impact**: Arbitrary gas limits before teardown.
 
-## Test Patterns
-
-### Test 1: Changed Value Mid-Operation
-
-```cpp
-TEST_F(ComponentTest, NegativeChangedContextMidOperation)
-{
-    auto trace = TestTraceContainer({
-        // Row 0: start with context_id = 1
-        {{ C::sel, 1 }, { C::start, 1 }, { C::context_id, 1 }},
-        // Row 1: middle with different context_id = 2 (INVALID)
-        {{ C::sel, 1 }, { C::start, 0 }, { C::context_id, 2 }},
-        // Row 2: end
-        {{ C::sel, 1 }, { C::end, 1 }, { C::context_id, 2 }},
-    });
-
-    EXPECT_THROW_WITH_MESSAGE(
-        check_relation<ComponentRelation>(trace),
-        "CONTEXT_ID_PROPAGATE"
-    );
-}
-```
-
-**Interpretation**:
-- **Test passes (throws)**: Propagation enforced - secure
-- **Test fails (no throw)**: Value can change mid-operation - vulnerable
-
-### Test 2: Changed Clock Mid-Operation
-
-```cpp
-TEST_F(ComponentTest, NegativeChangedClockMidOperation)
-{
-    auto trace = TestTraceContainer({
-        {{ C::sel, 1 }, { C::start, 1 }, { C::clk, 100 }},
-        {{ C::sel, 1 }, { C::start, 0 }, { C::clk, 999 }},  // Changed!
-        {{ C::sel, 1 }, { C::end, 1 }, { C::clk, 999 }},
-    });
-
-    EXPECT_THROW_WITH_MESSAGE(
-        check_relation<ComponentRelation>(trace),
-        "CLK_PROPAGATE"
-    );
-}
-```
-
-### Test 3: Changed Size Mid-Copy
-
-```cpp
-TEST_F(DataCopyTest, NegativeChangedSizeMidCopy)
-{
-    auto trace = TestTraceContainer({
-        {{ C::sel, 1 }, { C::start, 1 }, { C::size, 10 }},
-        {{ C::sel, 1 }, { C::start, 0 }, { C::size, 5 }},  // Shrunk!
-        {{ C::sel, 1 }, { C::end, 1 }, { C::size, 5 }},
-    });
-
-    EXPECT_THROW_WITH_MESSAGE(
-        check_relation<DataCopyRelation>(trace),
-        "SIZE_PROPAGATE"
-    );
-}
-```
-
 ## Audit Checklist
 
 1. **Identify multi-row computations**:
@@ -334,22 +271,6 @@ start * (value - initial_value) = 0;
 
 #[VALUE_PROPAGATE]
 (1 - LATCH) * (value' - value) = 0;
-```
-
-## Build and Test Commands
-
-```bash
-# Regenerate C++ from PIL
-vmp  # or: ../../bb-pilcom/target/release/bb_pil pil/vm2
-
-# Build VM2 tests
-vmb  # or: cmake --preset build && cd build && ninja vm2_tests
-
-# Run all VM2 tests
-vmt  # or: ./build/bin/vm2_tests
-
-# Run specific component test
-vmtg "ComponentConstraining*"
 ```
 
 ## Common Locations to Audit

@@ -247,89 +247,6 @@ sel * (input_tag - Tag::FF) * (1 - sel_tag_err) = 0;
 ```
 **Impact**: Incorrect output type for bitwise NOT.
 
-## Test Patterns
-
-### Test 1: Tag Mismatch Not Detected
-
-```cpp
-TEST_F(ComponentTest, NegativeTagMismatch)
-{
-    auto trace = TestTraceContainer({
-        {{ C::sel_add, 1 },
-         { C::a_tag, 4 },      // U32
-         { C::b_tag, 5 },      // U64 - MISMATCH!
-         { C::sel_tag_err, 0 }}, // Claims no error (INVALID)
-    });
-
-    EXPECT_THROW_WITH_MESSAGE(
-        check_relation<ComponentRelation>(trace),
-        "TAG_MATCH_CHECK"
-    );
-}
-```
-
-**Interpretation**:
-- **Test passes (throws)**: Tag mismatch detected - secure
-- **Test fails (no throw)**: Tag mismatch not caught - vulnerable
-
-### Test 2: Wrong Output Tag
-
-```cpp
-TEST_F(ComponentTest, NegativeWrongOutputTag)
-{
-    auto trace = TestTraceContainer({
-        {{ C::sel_add, 1 },
-         { C::a_tag, 4 },      // U32
-         { C::b_tag, 4 },      // U32
-         { C::c_tag, 5 },      // U64 - WRONG OUTPUT TAG
-         { C::sel_err, 0 }},
-    });
-
-    EXPECT_THROW_WITH_MESSAGE(
-        check_relation<ComponentRelation>(trace),
-        "OUTPUT_TAG"
-    );
-}
-```
-
-### Test 3: Wrong Input Tag for Hash
-
-```cpp
-TEST_F(ComponentTest, NegativeWrongHashInputTag)
-{
-    auto trace = TestTraceContainer({
-        {{ C::sel_poseidon2, 1 },
-         { C::input_tag, 4 },     // U32 - should be FF!
-         { C::sel_tag_err, 0 }},  // Claims no error
-    });
-
-    EXPECT_THROW_WITH_MESSAGE(
-        check_relation<ComponentRelation>(trace),
-        "INPUT_TAG"
-    );
-}
-```
-
-### Test 4: Fake Tag Match
-
-```cpp
-TEST_F(ComponentTest, NegativeFakeTagMatch)
-{
-    auto trace = TestTraceContainer({
-        {{ C::sel_add, 1 },
-         { C::a_tag, 4 },      // U32
-         { C::b_tag, 5 },      // U64 - different!
-         { C::tag_match, 1 },  // Claims match (INVALID)
-         { C::sel_tag_err, 0 }},
-    });
-
-    EXPECT_THROW_WITH_MESSAGE(
-        check_relation<ComponentRelation>(trace),
-        "TAG"
-    );
-}
-```
-
 ## Audit Checklist
 
 1. **Identify all operations with tag requirements**:
@@ -382,22 +299,6 @@ sel * (1 - sel_err) * (c_tag - output_tag_for_op) = 0;
 pol SEL_NO_TAG_ERR = sel * (1 - sel_tag_err);
 #[GATED_LOOKUP]
 SEL_NO_TAG_ERR { ... } in other.sel { ... };
-```
-
-## Build and Test Commands
-
-```bash
-# Regenerate C++ from PIL
-vmp  # or: ../../bb-pilcom/target/release/bb_pil pil/vm2
-
-# Build VM2 tests
-vmb  # or: cmake --preset build && cd build && ninja vm2_tests
-
-# Run all VM2 tests
-vmt  # or: ./build/bin/vm2_tests
-
-# Run specific component test
-vmtg "ComponentConstraining*"
 ```
 
 ## Common Locations to Audit

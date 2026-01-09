@@ -156,47 +156,7 @@ grep -rn "' -\|')" barretenberg/cpp/pil/vm2/ --include="*.pil"
 
 Verify propagation targets match the semantic intent.
 
-### Step 6: Write Negative Tests
-
-Test that the CORRECT column is constrained:
-
-```cpp
-TEST_F(ComponentTest, NegativeUnconstrainedSize)
-{
-    // Test that size (not addr) is properly constrained
-    auto trace = TestTraceContainer({
-        {
-            { C::component_start_selector, 1 },
-            { C::component_size, 999 },  // Should be constrained to 0!
-            { C::component_addr, 0 },    // This would be wrongly constrained
-        },
-    });
-
-    // If size is correctly constrained, this should throw
-    EXPECT_THROW_WITH_MESSAGE(
-        check_relation<ComponentRelation>(trace),
-        "SIZE_INIT"  // Or whatever the constraint is named
-    );
-}
-
-TEST_F(ComponentTest, CorrectColumnConstrained)
-{
-    // Verify the constraint targets the right column
-    auto trace = TestTraceContainer({
-        {
-            { C::component_start_selector, 1 },
-            { C::component_size, 0 },    // Correctly constrained
-            { C::component_addr, 999 },  // Should NOT be constrained here
-        },
-    });
-
-    // If addr was wrongly constrained instead of size, this would throw
-    // If size is correctly constrained, this should pass
-    check_relation<ComponentRelation>(trace);
-}
-```
-
-### Step 7: Compare PIL with Tracegen
+### Step 6: Compare PIL with Tracegen
 
 Cross-reference constraints with tracegen to verify consistency:
 
@@ -274,22 +234,6 @@ For each component PIL file:
 5. **Compare with tracegen**:
    - [ ] Tracegen and constraints agree on column semantics
    - [ ] No mismatched expectations
-
-## Build and Test Commands
-
-```bash
-# Regenerate C++ from PIL
-vmp  # or: ../../bb-pilcom/target/release/bb_pil pil/vm2
-
-# Build VM2 tests
-vmb  # or: cmake --preset build && cd build && ninja vm2_tests
-
-# Run all VM2 tests
-vmt  # or: ./build/bin/vm2_tests
-
-# Run specific component test
-vmtg "ComponentConstraining*"
-```
 
 ## Fix Pattern
 
