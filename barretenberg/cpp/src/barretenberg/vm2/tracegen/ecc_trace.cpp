@@ -74,15 +74,6 @@ void EccTraceBuilder::process_add(const simulation::EventEmitterInterface<simula
         bool result_is_infinity = infinity_predicate && (!p.is_infinity() && !q.is_infinity());
         result_is_infinity = result_is_infinity || (p.is_infinity() && q.is_infinity());
 
-        if (!x_match && y_match) {
-            // This case can never happen with real coordinates, but is hit if we input bb's inf represention + noir's
-            // inf representation.
-            info("Both points are inf: ",
-                 p.is_infinity() && q.is_infinity(),
-                 " ... but no predicates are set: ",
-                 double_predicate || add_predicate || infinity_predicate);
-        }
-
         bool use_computed_result = !infinity_predicate && (!p.is_infinity() && !q.is_infinity());
 
         BB_ASSERT_EQ(result_is_infinity, result.is_infinity(), "Inconsistent infinity result assumption");
@@ -217,6 +208,10 @@ void EccTraceBuilder::process_add_with_memory(
 
         bool error = dst_out_of_range_err || !p_is_on_curve || !q_is_on_curve;
 
+        // Normalized points, ensures that input infinity points are represented by (0, 0) in the ecc subtrace.
+        EmbeddedCurvePoint p_n = event.p.is_infinity() ? EmbeddedCurvePoint::infinity() : event.p;
+        EmbeddedCurvePoint q_n = event.q.is_infinity() ? EmbeddedCurvePoint::infinity() : event.q;
+
         trace.set(row,
                   { {
                       { C::ecc_add_mem_sel, 1 },
@@ -247,6 +242,12 @@ void EccTraceBuilder::process_add_with_memory(
                       { C::ecc_add_mem_q_x, event.q.x() },
                       { C::ecc_add_mem_q_y, event.q.y() },
                       { C::ecc_add_mem_q_is_inf, event.q.is_infinity() ? 1 : 0 },
+                      // Normalized input - Point P
+                      { C::ecc_add_mem_p_x_n, p_n.x() },
+                      { C::ecc_add_mem_p_y_n, p_n.y() },
+                      // Normalized input - Point Q
+                      { C::ecc_add_mem_q_x_n, q_n.x() },
+                      { C::ecc_add_mem_q_y_n, q_n.y() },
                       // Output
                       { C::ecc_add_mem_sel_should_exec, error ? 0 : 1 },
                       { C::ecc_add_mem_res_x, event.result.x() },

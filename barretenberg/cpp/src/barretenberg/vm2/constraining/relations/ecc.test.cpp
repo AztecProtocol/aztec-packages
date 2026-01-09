@@ -797,6 +797,54 @@ TEST(ScalarMulConstrainingTest, MulAddInteractionsInfinity)
     check_relation<ecc>(trace);
 }
 
+TEST(ScalarMulConstrainingTest, MulAddInteractionsInfinityRep)
+{
+    EccTraceBuilder builder;
+
+    EventEmitter<EccAddEvent> ecc_add_event_emitter;
+    EventEmitter<ScalarMulEvent> scalar_mul_event_emitter;
+    NoopEventEmitter<EccAddMemoryEvent> ecc_add_memory_event_emitter;
+
+    StrictMock<MockExecutionIdManager> execution_id_manager;
+    StrictMock<MockGreaterThan> gt;
+    PureToRadix to_radix_simulator = PureToRadix();
+    EccSimulator ecc_simulator(execution_id_manager,
+                               gt,
+                               to_radix_simulator,
+                               ecc_add_event_emitter,
+                               scalar_mul_event_emitter,
+                               ecc_add_memory_event_emitter);
+
+    EmbeddedCurvePoint inf = EmbeddedCurvePoint::infinity();
+    // EmbeddedCurvePoint preserves raw coordinates (see StandardAffinePointTest)
+    EmbeddedCurvePoint inf_bb = EmbeddedCurvePoint(avm2::AffinePoint::infinity());
+    EmbeddedCurvePoint inf_alt = EmbeddedCurvePoint(1, 2, true);
+
+    EmbeddedCurvePoint result = ecc_simulator.scalar_mul(inf_bb, FF(10));
+    ASSERT_TRUE(result.is_infinity());
+    result = ecc_simulator.scalar_mul(inf_alt, FF(10));
+    ASSERT_TRUE(result.is_infinity());
+
+    TestTraceContainer trace({
+        { { C::precomputed_first_row, 1 } },
+    });
+
+    auto scalar_mul_events = scalar_mul_event_emitter.dump_events();
+    // Infinity points should be normalised to (0, 0) for any lookups into ecc.pil
+    for (auto& event : scalar_mul_events) {
+        EXPECT_EQ(event.point.x(), inf.x());
+        EXPECT_EQ(event.point.y(), inf.y());
+    }
+
+    builder.process_scalar_mul(scalar_mul_events, trace);
+    builder.process_add(ecc_add_event_emitter.dump_events(), trace);
+
+    check_interaction<EccTraceBuilder, lookup_scalar_mul_double_settings, lookup_scalar_mul_add_settings>(trace);
+
+    check_relation<scalar_mul>(trace);
+    check_relation<ecc>(trace);
+}
+
 TEST(ScalarMulConstrainingTest, NegativeMulAddInteractions)
 {
     EccTraceBuilder builder;
@@ -1323,34 +1371,18 @@ TEST(EccAddMemoryConstrainingTest, InfinityRepresentations)
     EmbeddedCurvePoint inf_alt = EmbeddedCurvePoint(1, 2, true);
     TestTraceContainer trace;
 
-    // Coordinates are ignored in the circuit if the point is infinity, but tracegen assigns predicates (double, add, or
-    // inf) based on coordinates.
-    // This means add_predicate is incorrectly true when we are doubling inf if the underlying coordinates both don't
-    // match, but the circuit correctly ignores this with BOTH_INF (no errors/issues):
+    // Coordinates are normalised in tracegen, so even though inf_bb and inf_alt have different coordinates, the circuit
+    // correctly assigns double_op = true when doubling inf:
     ecc_simulator.add(inf, inf_alt);
     builder.process_add(ecc_add_event_emitter.dump_events(), trace);
     check_relation<ecc>(trace);
+    EXPECT_EQ(trace.get(C::ecc_double_op, 0), 1);
 
-    // However, if the inf representation's have !x_match && y_match (impossible with real coordinates), no predicates
-    // are set and we fail the OP_CHECK relation. This is true for the noir (0, 0) and bb (x, 0) inf reps:
+    // As above for the noir (0, 0) and bb (x, 0) inf reps:
     ecc_simulator.add(inf, inf_bb);
     builder.process_add(ecc_add_event_emitter.dump_events(), trace);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<ecc>(trace, ecc::SR_OP_CHECK), "OP_CHECK");
-    check_all_interactions<EccTraceBuilder>(trace);
-    // Note: the circuit assumes the point has already been checked to be on the curve and => the coordinates satisfy
-    // the curve eqn => the case !x_match and y_match doesn't exist
+    check_relation<ecc>(trace);
 
-    // We can:
-    // Enforce that inf is represented by a fixed set of coordinates in the circuit (0,0), so that the x_match etc.
-    // columns are correct in the circuit as is
-    //
-    // Mutate the coordinates in C++ (either via EmbeddedCurvePoint or in tracegen) beforehand so if BOTH_INF is true,
-    // the coordinates always match.
-    //
-    // Constrain some relations by BOTH_INF e.g. double_op - (x_match * y_match) = 0; -> double_op - (x_match * y_match
-    // + BOTH_INF - x_match * y_match * BOTH_INF) = 0;
-
-    // Bonus: memory aware add (above issue does not affect memory lookups etc.):
     MemoryStore memory;
     MemoryAddress dst_address = 5;
     trace.set(0,
@@ -1373,8 +1405,14 @@ TEST(EccAddMemoryConstrainingTest, InfinityRepresentations)
     builder.process_add_with_memory(ecc_add_memory_event_emitter.dump_events(), trace);
     builder.process_add(ecc_add_event_emitter.dump_events(), trace);
 
+    // The original coordinates are stored in memory for the read...
+    EXPECT_EQ(trace.get(C::ecc_add_mem_q_x, 0), inf_bb.x());
+    EXPECT_EQ(trace.get(C::ecc_add_mem_q_y, 0), inf_bb.y());
+    // ...but normalised coordinates are sent to the ecc subtrace:
+    EXPECT_EQ(trace.get(C::ecc_add_mem_q_x_n, 0), 0);
+    EXPECT_EQ(trace.get(C::ecc_add_mem_q_y_n, 0), 0);
     check_relation<mem_aware_ecc>(trace);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<ecc>(trace, ecc::SR_OP_CHECK), "OP_CHECK");
+    check_relation<ecc>(trace);
     check_all_interactions<EccTraceBuilder>(trace);
     check_interaction<tracegen::ExecutionTraceBuilder, bb::avm2::perm_execution_dispatch_to_ecc_add_settings>(trace);
 }

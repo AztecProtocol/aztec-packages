@@ -39,7 +39,7 @@ enum class ColumnAndShifts {
 constexpr auto NUM_COLUMNS_WITH_SHIFTS = 3527;
 constexpr auto NUM_COLUMNS_WITHOUT_SHIFTS = 3182;
 constexpr auto NUM_PRECOMPUTED_ENTITIES = 123;
-constexpr auto NUM_WIRE_ENTITIES = 2593;
+constexpr auto NUM_WIRE_ENTITIES = 2597;
 constexpr auto NUM_DERIVED_ENTITIES = 466;
 constexpr auto NUM_WITNESS_ENTITIES = NUM_WIRE_ENTITIES + NUM_DERIVED_ENTITIES;
 constexpr auto NUM_WIRES_TO_BE_SHIFTED = 345;
