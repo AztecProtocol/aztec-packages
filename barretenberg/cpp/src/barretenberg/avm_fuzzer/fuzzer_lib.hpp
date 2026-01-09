@@ -23,7 +23,7 @@ struct FuzzerTxData {
     std::vector<FuzzerData> input_programs;
     // These are the contract classes and instances that will be registered to addresses in the WS
     // The contract addresses may contain duplicates if multiple contracts derive to the same address
-    std::vector<ContractClass> contract_classes;
+    std::vector<ContractClassWithCommitment> contract_classes;
     std::vector<ContractInstance> contract_instances;
     std::vector<AztecAddress> contract_addresses;
 
@@ -54,24 +54,25 @@ inline std::ostream& operator<<(std::ostream& os, const FuzzerTxData& data)
 }
 
 using Bytecode = std::vector<uint8_t>;
-using ContractArtifacts = std::tuple<Bytecode, ContractClass, ContractInstance>;
+using ContractArtifacts = std::tuple<Bytecode, ContractClassWithCommitment, ContractInstance>;
 using FuzzerContext = bb::avm2::fuzzer::FuzzerContext;
 
 // Mutation configuration
 enum class FuzzerTxDataMutationType : uint8_t {
     TxMutation,
     BytecodeMutation,
-    // ContractClassMutation,
+    ContractClassMutation,
     // ContractInstanceMutation,
     // GlobalVariablesMutation,
     // ProtocolContractsMutation
 };
 
-using FuzzerTxDataMutationConfig = WeightedSelectionConfig<FuzzerTxDataMutationType, 2>;
+using FuzzerTxDataMutationConfig = WeightedSelectionConfig<FuzzerTxDataMutationType, 3>;
 
 constexpr FuzzerTxDataMutationConfig FUZZER_TX_DATA_MUTATION_CONFIGURATION = FuzzerTxDataMutationConfig({
     { FuzzerTxDataMutationType::TxMutation, 10 },
     { FuzzerTxDataMutationType::BytecodeMutation, 1 },
+    { FuzzerTxDataMutationType::ContractClassMutation, 1 },
 });
 
 // Build bytecode and contract artifacts from fuzzer data

@@ -17,6 +17,7 @@
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/vm2/avm_api.hpp"
 #include "barretenberg/vm2/common/avm_io.hpp"
+#include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/simulation/lib/contract_crypto.hpp"
 #include "barretenberg/vm2/simulation_helper.hpp"
 #include "barretenberg/vm2/tooling/stats.hpp"
@@ -234,11 +235,12 @@ ContractArtifacts build_bytecode_and_artifacts(FuzzerData& fuzzer_data)
 
     auto bytecode_commitment = compute_public_bytecode_commitment(bytecode);
     auto class_id = compute_contract_class_id(/*artifact_hash=*/0, /*private_fn_root=*/0, bytecode_commitment);
-    ContractClass contract_class{
+    ContractClassWithCommitment contract_class{
         .id = class_id,
         .artifact_hash = 0,
         .private_functions_root = 0,
         .packed_bytecode = bytecode,
+        .public_bytecode_commitment = bytecode_commitment,
     };
     ContractInstance contract_instance{
         .salt = 0,
@@ -333,9 +335,12 @@ size_t mutate_tx_data(FuzzerContext& context,
                         rng);
         break;
     }
-        // case TxDataMutationType::ContractClassMutation:
-        //     // Mutations here are likely to cause immediate failure
-        //     break;
+    case FuzzerTxDataMutationType::ContractClassMutation:
+        mutate_contract_classes(tx_data.contract_classes, tx_data.contract_instances, tx_data.contract_addresses, rng);
+        // The fuzzer (like the AVM) assumes that all triplets of contract classes, instances and addresses are in sync
+        // So when we mutate contract classes, we also need to update the corresponding artifacts
+
+        break;
         // case TxDataMutationType::ContractInstanceMutation:
         //     // Mutations here are likely to cause immediate failure
         //     break;

@@ -23,7 +23,7 @@ class FuzzerContractDB : public simulation::ContractDBInterface {
     void add_contracts(const ContractDeploymentData& contract_deployment_data) override;
 
     // Direct methods to add contract class and instance
-    void add_contract_class(const ContractClassId& class_id, const ContractClass& contract_class);
+    void add_contract_class(const ContractClassId& class_id, const ContractClassWithCommitment& contract_class);
     void add_contract_instance(const AztecAddress& address, const ContractInstance& contract_instance);
 
     void create_checkpoint() override;
