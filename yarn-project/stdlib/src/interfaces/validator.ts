@@ -51,6 +51,14 @@ export interface ValidatorClientConfig {
 
   /** Whether to run in fisherman mode: validates all proposals and attestations but does not broadcast attestations or participate in consensus */
   fishermanMode?: boolean;
+
+  // TODO(palla/mbps): Change default to false once checkpoint validation is stable
+  /** Skip checkpoint proposal validation and always attest (default: true) */
+  skipCheckpointProposalValidation?: boolean;
+
+  // TODO(palla/mbps): Change default to false once block sync is stable
+  /** Skip pushing re-executed blocks to archiver (default: true) */
+  skipPushProposedBlocksToArchiver?: boolean;
 }
 
 export type ValidatorClientFullConfig = ValidatorClientConfig &
@@ -73,6 +81,8 @@ export const ValidatorClientConfigSchema = zodFor<Omit<ValidatorClientConfig, 'v
     validatorReexecuteDeadlineMs: z.number().min(0),
     alwaysReexecuteBlockProposals: z.boolean().optional(),
     fishermanMode: z.boolean().optional(),
+    skipCheckpointProposalValidation: z.boolean().optional(),
+    skipPushProposedBlocksToArchiver: z.boolean().optional(),
   }),
 );
 

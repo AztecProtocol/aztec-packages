@@ -228,8 +228,9 @@ export class BlockProposalHandler {
       }
     }
 
-    // If we succeeded, push this block into the archiver
-    if (reexecutionResult?.block) {
+    // If we succeeded, push this block into the archiver (unless disabled)
+    // TODO(palla/mbps): Change default to false once block sync is stable.
+    if (reexecutionResult?.block && this.config.skipPushProposedBlocksToArchiver === false) {
       await this.blockSource.addBlock(reexecutionResult?.block);
     }
 

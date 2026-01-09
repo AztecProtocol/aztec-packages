@@ -679,6 +679,14 @@ export class CheckpointProposalJob implements Traceable {
    * would never receive its own block without this explicit sync.
    */
   private async syncProposedBlockToArchiver(block: L2BlockNew): Promise<void> {
+    // TODO(palla/mbps): Change default to false once block sync is stable.
+    if (this.config.skipPushProposedBlocksToArchiver !== false) {
+      this.log.warn(`Skipping push of proposed block ${block.number} to archiver`, {
+        blockNumber: block.number,
+        slot: block.header.globalVariables.slotNumber,
+      });
+      return;
+    }
     this.log.debug(`Syncing proposed block ${block.number} to archiver`, {
       blockNumber: block.number,
       slot: block.header.globalVariables.slotNumber,
