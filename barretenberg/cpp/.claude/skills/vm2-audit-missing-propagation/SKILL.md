@@ -10,11 +10,7 @@ allowed-tools: Read, Glob, Grep, Bash, Write, Edit
 
 This skill audits VM2/AVM PIL constraints for missing propagation constraints. Values that should remain constant across multiple rows of a multi-row computation lack propagation constraints, allowing a malicious prover to change these values mid-computation.
 
-**Bug Type**: Soundness
-**Severity**: High
-**Frequency**: Medium
-
-## Why This is Critical
+## Why This is Important
 
 Missing propagation allows mid-computation manipulation:
 - **Change context_id mid-operation**: Corrupt other execution contexts
@@ -154,9 +150,7 @@ grep -rn "context_id\|propagat" barretenberg/cpp/src/barretenberg/vm2/tracegen/<
 ```pil
 // VULNERABLE: Value set once, not propagated
 pol commit context_id;
-// Set on first row, but no constraint on subsequent rows
 start * (context_id - expected_context_id) = 0;
-// On rows where start = 0, context_id is unconstrained!
 ```
 
 ### Vulnerable Pattern: Incomplete Latch
@@ -165,7 +159,6 @@ start * (context_id - expected_context_id) = 0;
 // VULNERABLE: Latch doesn't handle first row
 pol LATCH = end;  // Missing: + precomputed.first_row
 (1 - LATCH) * (value' - value) = 0;
-// Row 0 may have unconstrained value!
 ```
 
 ### Vulnerable Pattern: Conditional Gap
@@ -173,7 +166,6 @@ pol LATCH = end;  // Missing: + precomputed.first_row
 ```pil
 // VULNERABLE: Gap in propagation
 (1 - is_teardown') * (gas_limit' - gas_limit) = 0;
-// Row before teardown has unconstrained gas_limit!
 ```
 
 ### Secure Pattern: Complete Propagation
@@ -182,13 +174,10 @@ pol LATCH = end;  // Missing: + precomputed.first_row
 // SECURE: Propagation with complete latch condition
 pol commit context_id;
 pol LATCH_CONDITION = end + start' + precomputed.first_row;
-
 #[CONTEXT_ID_INIT]
 start * (context_id - expected_context_id) = 0;
-
 #[CONTEXT_ID_PROPAGATE]
 (1 - LATCH_CONDITION) * (context_id' - context_id) = 0;
-// context_id stays constant until end of computation
 ```
 
 ## Historical Examples
@@ -231,137 +220,62 @@ pol commit clk;
 ```
 **Impact**: Arbitrary gas limits before teardown.
 
-## Audit Checklist
-
-1. **Identify multi-row computations**:
-   - [ ] Look for `start`, `end`, `latch` patterns
-   - [ ] Look for row counters or indices
-   - [ ] Identify computation boundaries
-
-2. **List values that should be constant**:
-   - [ ] Context identifiers (`context_id`, `call_id`)
-   - [ ] Clock/sequence values (`clk`, `timestamp`)
-   - [ ] Operation parameters set at start
-   - [ ] Size/length values
-
-3. **For each constant value, verify**:
-   - [ ] Initialization constraint on start row exists
-   - [ ] Propagation constraint on non-latch rows exists
-   - [ ] Latch condition correctly identifies boundaries
-
-4. **Check latch condition completeness**:
-   - [ ] Handles first row of trace (`precomputed.first_row`)
-   - [ ] Handles end of computation (`end`)
-   - [ ] Handles consecutive operations (`start'`)
-
-5. **Watch for gaps in propagation**:
-   - [ ] Special conditions that break propagation
-   - [ ] Edge cases at trace boundaries
-   - [ ] Phase transitions
-
-## Fix Pattern
-
-```pil
-// Add propagation constraint
-pol commit value;
-pol LATCH = end + start' + precomputed.first_row;
-
-#[VALUE_INIT]
-start * (value - initial_value) = 0;
-
-#[VALUE_PROPAGATE]
-(1 - LATCH) * (value' - value) = 0;
-```
-
-## Common Locations to Audit
-
-Multi-row computations typically appear in:
-- **Data copy operations**: `data_copy.pil`, `calldata.pil`, `returndata.pil`
-- **Hashing**: `poseidon2.pil`, `keccak*.pil`, `sha256.pil`
-- **Transaction processing**: `tx.pil`, `execution.pil`
-- **Memory operations**: `memory.pil`, `*_mem.pil`
-
-## References
-
-- [Detailed Skill Documentation](../../../pil/vm2/claude-skills/05-missing-propagation.md)
-- [Missing Initialization](../../../pil/vm2/claude-skills/06-missing-initialization.md)
-- [Premature Termination](../../../pil/vm2/claude-skills/07-premature-termination.md)
-
 ---
 
-## Required Output Format
+## REQUIRED OUTPUT FORMAT
 
-**IMPORTANT**: When running this audit skill, you MUST end your response with this standardized format.
+**IMPORTANT**: Your response MUST end with this machine-readable section.
 
-### Findings Summary
+### Summary Table
 
-At the end of your audit, provide a summary section:
-
-```markdown
-## Audit Results
-
-### Summary
 | Item | Value |
 |------|-------|
-| Skill | vm2-audit-missing-propagation |
-| Target | [path that was audited] |
-| Files Scanned | [number] |
-| Findings | [count by severity, e.g., "2 Critical, 1 High, 0 Medium, 0 Low"] |
-| Status | COMPLETED_WITH_FINDINGS / COMPLETED_NO_FINDINGS / ERROR |
+| Skill | `{skill-name}` |
+| Target | `{path audited}` |
+| Files Scanned | `{number}` |
+| Findings | `{e.g., "2 Critical, 1 High" or "None"}` |
+| Status | `COMPLETED_WITH_FINDINGS` / `COMPLETED_NO_FINDINGS` / `ERROR` |
 
-### Findings
+### Findings Format
 
-#### Finding vm2-audit-missing-propagation-[file]-[line]-[subtype] [SEVERITY]
+For each finding, include:
+- **ID**: `{skill-name}-{file}-{line}-{subtype}`
+- **Severity**: Critical / High / Medium / Low
 - **File**: `path/to/file.pil:line`
-- **Type**: [specific vulnerability type]
-- **Affected Column/Constraint**: [name]
-- **Description**: [brief description]
-- **Exploitability**: [High/Medium/Low] - [brief rationale]
-- **Suggested Fix**: [one-line fix suggestion]
+- **Description**: Brief description
+- **Fix**: One-line suggestion
 
-[Repeat for each finding]
-```
+### Machine-Readable JSON (REQUIRED)
 
-### Machine-Readable Findings
+You MUST include this exact format at the end of your response:
 
-After the human-readable summary, include a JSON block:
-
-```markdown
-<!-- MACHINE-READABLE FINDINGS (do not edit manually) -->
+<!-- MACHINE-READABLE FINDINGS -->
 ```json
 {
-  "skill": "vm2-audit-missing-propagation",
-  "finding_prefix": "vm2-audit-missing-propagation",
-  "status": "COMPLETED_WITH_FINDINGS | COMPLETED_NO_FINDINGS | ERROR",
-  "target": "pil/vm2",
-  "files_scanned": 0,
+  "skill": "{skill-name}",
+  "status": "COMPLETED_WITH_FINDINGS",
   "findings": [
     {
-      "id": "vm2-audit-missing-propagation-filename-line-subtype",
-      "severity": "critical|high|medium|low",
+      "id": "{skill-name}-{file}-{line}-{subtype}",
+      "severity": "critical",
       "file": "path/to/file.pil",
       "line": 123,
-      "type": "specific-vulnerability-type",
-      "column": "affected_column_name",
-      "description": "Brief description of the issue",
-      "exploitability": "high|medium|low",
+      "description": "Brief description",
+      "exploitability": "high",
       "fix": "Suggested fix"
     }
   ]
 }
 ```
 <!-- END MACHINE-READABLE FINDINGS -->
+
+For no findings, use:
+<!-- MACHINE-READABLE FINDINGS -->
+```json
+{
+  "skill": "{skill-name}",
+  "status": "COMPLETED_NO_FINDINGS",
+  "findings": []
+}
 ```
-
-### Finding ID Convention
-
-- Format: `vm2-audit-missing-propagation-[filename]-[line]-[subtype]`
-- Example: `vm2-audit-missing-propagation-alu-123-SEL`
-- Use lowercase for filename (without extension)
-- Use CAPS for subtype descriptors
-
-### Status Values
-
-- `COMPLETED_NO_FINDINGS` - Audit completed, no issues found
-- `COMPLETED_WITH_FINDINGS` - Audit completed, issues found
-- `ERROR` - Audit could not complete (explain in description)
+<!-- END MACHINE-READABLE FINDINGS -->

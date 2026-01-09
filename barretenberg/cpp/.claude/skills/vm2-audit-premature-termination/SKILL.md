@@ -10,11 +10,7 @@ allowed-tools: Read, Glob, Grep, Bash, Write, Edit
 
 This skill audits VM2/AVM PIL constraints for premature computation termination vulnerabilities. Multi-row computations can be terminated before they're complete due to missing constraints that enforce continuation until a valid end condition is met.
 
-**Bug Type**: Soundness
-**Severity**: High
-**Frequency**: Medium
-
-## Why This is Critical
+## Why This is Important
 
 Premature termination enables computation truncation:
 - **Skip computation steps**: Hash only half the data
@@ -127,7 +123,6 @@ Verify:
 // VULNERABLE: No enforcement that computation continues until end
 pol commit sel;
 pol commit end;
-// sel can drop to 0 at any time without end = 1!
 ```
 
 ### Vulnerable Pattern: One-Way End Condition
@@ -137,8 +132,6 @@ pol commit end;
 pol commit remaining_count;
 pol commit end;
 end * remaining_count = 0;  // Only checks end implies count = 0
-// But what if end = 1 before remaining_count naturally reaches 0?
-// Missing: done implies end
 ```
 
 ### Vulnerable Pattern: Missing Start Gating on Error
@@ -146,7 +139,6 @@ end * remaining_count = 0;  // Only checks end implies count = 0
 ```pil
 // VULNERABLE: Error can trigger end on any row
 err * (1 - sel_end) = 0;  // Missing sel_start gating!
-// Non-start rows with err = 1 could prematurely end
 ```
 
 ### Secure Pattern: Complete Trace Continuity
@@ -155,18 +147,11 @@ err * (1 - sel_end) = 0;  // Missing sel_start gating!
 // SECURE: Trace continuity constraint
 pol commit sel;
 pol commit end;
-
 #[TRACE_CONTINUITY]
 sel * (1 - sel') * (1 - end) = 0;
-// If sel = 1 and sel' = 0, then end must be 1
-// Cannot drop out of computation without properly ending
-
 // SECURE: end only when truly finished
 #[END_ONLY_WHEN_DONE]
 end * remaining_count = 0;      // end implies done
-
-#[MUST_END_WHEN_DONE]
-(1 - end) * is_done = 0;        // done implies end
 ```
 
 ### Secure Pattern: Gated Error Termination
@@ -175,7 +160,6 @@ end * remaining_count = 0;      // end implies done
 // SECURE: Error termination properly gated
 #[END_ON_ERR]
 sel_start * err * (1 - sel_end) = 0;
-// Only start rows can trigger error-based end
 ```
 
 ## Historical Examples
@@ -234,139 +218,62 @@ sel_start * err * (1 - sel_end) = 0;
 ```
 **Impact**: Premature end on non-start rows.
 
-## Audit Checklist
-
-1. **Identify multi-row computations**:
-   - [ ] Look for `start`, `end`, `latch` patterns
-   - [ ] Look for `remaining`, `counter`, `cnt` values
-   - [ ] Manually review each PIL file
-
-2. **For each computation, verify**:
-   - [ ] Trace continuity constraint exists: `sel * (1 - sel') * (1 - end) = 0`
-   - [ ] End condition properly checked (bidirectional)
-   - [ ] Cannot exit without proper termination
-
-3. **Check end condition constraints**:
-   - [ ] `end => done`: `end * remaining_count = 0`
-   - [ ] `done => end`: `(1 - end) * is_done = 0`
-   - [ ] Cannot set `end = 1` arbitrarily
-
-4. **Look for underflow risks**:
-   - [ ] Counters that could underflow and wrap
-   - [ ] Off-by-one errors in termination checks
-
-5. **Verify error handling doesn't break continuity**:
-   - [ ] Error path still requires proper termination
-   - [ ] Early exit on error is properly gated by `start`
-
-## Fix Pattern
-
-```pil
-// Add trace continuity constraint
-pol commit sel;
-pol commit end;
-
-#[TRACE_CONTINUITY]
-sel * (1 - sel') * (1 - end) = 0;
-
-// Optionally, also constrain that end only when truly done
-#[END_WHEN_COMPLETE]
-end * remaining_count = 0;
-
-#[MUST_END_WHEN_COMPLETE]
-(1 - end) * (remaining_count_is_zero) = 0;
-```
-
-## Common Locations to Audit
-
-Multi-row computations requiring continuity checks:
-- **Data operations**: `data_copy.pil`, `calldata.pil`, `returndata.pil`
-- **Hashing**: `poseidon2.pil`, `keccak*.pil`, `sha256.pil`
-- **Tree operations**: `merkle.pil`, `merkle_check.pil`
-- **Transaction**: `tx.pil` - phase transitions
-- **Memory operations**: Multi-row memory copies
-
-## References
-
-- [Detailed Skill Documentation](../../../pil/vm2/claude-skills/07-premature-termination.md)
-- [Missing Propagation Skill](../vm2-audit-missing-propagation/SKILL.md)
-- [Missing Initialization Skill](../vm2-audit-missing-initialization/SKILL.md)
-
 ---
 
-## Required Output Format
+## REQUIRED OUTPUT FORMAT
 
-**IMPORTANT**: When running this audit skill, you MUST end your response with this standardized format.
+**IMPORTANT**: Your response MUST end with this machine-readable section.
 
-### Findings Summary
+### Summary Table
 
-At the end of your audit, provide a summary section:
-
-```markdown
-## Audit Results
-
-### Summary
 | Item | Value |
 |------|-------|
-| Skill | vm2-audit-premature-termination |
-| Target | [path that was audited] |
-| Files Scanned | [number] |
-| Findings | [count by severity, e.g., "2 Critical, 1 High, 0 Medium, 0 Low"] |
-| Status | COMPLETED_WITH_FINDINGS / COMPLETED_NO_FINDINGS / ERROR |
+| Skill | `{skill-name}` |
+| Target | `{path audited}` |
+| Files Scanned | `{number}` |
+| Findings | `{e.g., "2 Critical, 1 High" or "None"}` |
+| Status | `COMPLETED_WITH_FINDINGS` / `COMPLETED_NO_FINDINGS` / `ERROR` |
 
-### Findings
+### Findings Format
 
-#### Finding vm2-audit-premature-termination-[file]-[line]-[subtype] [SEVERITY]
+For each finding, include:
+- **ID**: `{skill-name}-{file}-{line}-{subtype}`
+- **Severity**: Critical / High / Medium / Low
 - **File**: `path/to/file.pil:line`
-- **Type**: [specific vulnerability type]
-- **Affected Column/Constraint**: [name]
-- **Description**: [brief description]
-- **Exploitability**: [High/Medium/Low] - [brief rationale]
-- **Suggested Fix**: [one-line fix suggestion]
+- **Description**: Brief description
+- **Fix**: One-line suggestion
 
-[Repeat for each finding]
-```
+### Machine-Readable JSON (REQUIRED)
 
-### Machine-Readable Findings
+You MUST include this exact format at the end of your response:
 
-After the human-readable summary, include a JSON block:
-
-```markdown
-<!-- MACHINE-READABLE FINDINGS (do not edit manually) -->
+<!-- MACHINE-READABLE FINDINGS -->
 ```json
 {
-  "skill": "vm2-audit-premature-termination",
-  "finding_prefix": "vm2-audit-premature-termination",
-  "status": "COMPLETED_WITH_FINDINGS | COMPLETED_NO_FINDINGS | ERROR",
-  "target": "pil/vm2",
-  "files_scanned": 0,
+  "skill": "{skill-name}",
+  "status": "COMPLETED_WITH_FINDINGS",
   "findings": [
     {
-      "id": "vm2-audit-premature-termination-filename-line-subtype",
-      "severity": "critical|high|medium|low",
+      "id": "{skill-name}-{file}-{line}-{subtype}",
+      "severity": "critical",
       "file": "path/to/file.pil",
       "line": 123,
-      "type": "specific-vulnerability-type",
-      "column": "affected_column_name",
-      "description": "Brief description of the issue",
-      "exploitability": "high|medium|low",
+      "description": "Brief description",
+      "exploitability": "high",
       "fix": "Suggested fix"
     }
   ]
 }
 ```
 <!-- END MACHINE-READABLE FINDINGS -->
+
+For no findings, use:
+<!-- MACHINE-READABLE FINDINGS -->
+```json
+{
+  "skill": "{skill-name}",
+  "status": "COMPLETED_NO_FINDINGS",
+  "findings": []
+}
 ```
-
-### Finding ID Convention
-
-- Format: `vm2-audit-premature-termination-[filename]-[line]-[subtype]`
-- Example: `vm2-audit-premature-termination-alu-123-SEL`
-- Use lowercase for filename (without extension)
-- Use CAPS for subtype descriptors
-
-### Status Values
-
-- `COMPLETED_NO_FINDINGS` - Audit completed, no issues found
-- `COMPLETED_WITH_FINDINGS` - Audit completed, issues found
-- `ERROR` - Audit could not complete (explain in description)
+<!-- END MACHINE-READABLE FINDINGS -->

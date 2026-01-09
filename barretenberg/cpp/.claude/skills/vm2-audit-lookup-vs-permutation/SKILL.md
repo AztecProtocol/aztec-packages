@@ -10,11 +10,7 @@ allowed-tools: Read, Glob, Grep, Bash, Write, Edit
 
 This skill audits VM2/AVM PIL constraints for lookup vs permutation misuse. Using lookups when permutations are required for operations with side effects enables critical exploits.
 
-**Bug Type**: Soundness
-**Severity**: Critical
-**Frequency**: Medium
-
-## Why This is Critical
+## Why This is Important
 
 The key difference:
 - **Lookups**: Source rows can "share" destination rows (many-to-one)
@@ -125,8 +121,6 @@ Examples requiring permutations:
 ```pil
 // VULNERABLE: Using lookup for memory with side effects
 sel_mem_read { addr, value } in memory.sel { memory.addr, memory.value };
-// Can read same address with different values!
-// Can skip memory operations!
 ```
 
 ### Vulnerable Pattern: Lookup for Operation Dispatch
@@ -136,7 +130,6 @@ sel_mem_read { addr, value } in memory.sel { memory.addr, memory.value };
 pol SOURCE = sel_operation;
 #[OPERATION_DISPATCH]
 SOURCE { op_id, input } in dest_sel { dest_op_id, dest_input };
-// Prover can make multiple source rows point to same destination!
 ```
 
 ### Vulnerable Pattern: Lookup for Emissions
@@ -144,7 +137,6 @@ SOURCE { op_id, input } in dest_sel { dest_op_id, dest_input };
 ```pil
 // VULNERABLE: Using lookup for nullifier emission
 sel_emit { nullifier } in nullifier_trace.sel { nullifier_trace.value };
-// Could emit same nullifier multiple times or skip emissions!
 ```
 
 ### Secure Pattern: Permutation for Memory
@@ -152,7 +144,6 @@ sel_emit { nullifier } in nullifier_trace.sel { nullifier_trace.value };
 ```pil
 // SECURE: Use permutation for memory operations
 sel_mem_read { clk, addr, value } permute memory.sel { memory.clk, memory.addr, memory.value };
-// Every source row has exactly one destination row
 ```
 
 ### Secure Pattern: Permutation for Dispatch
@@ -161,7 +152,6 @@ sel_mem_read { clk, addr, value } permute memory.sel { memory.clk, memory.addr, 
 // SECURE: Use permutation for operation dispatch
 #[OPERATION_DISPATCH]
 SOURCE { op_id, input } permute dest_sel { dest_op_id, dest_input };
-// 1:1 mapping enforced
 ```
 
 ### Secure Pattern: Lookup for Range Checks
@@ -169,7 +159,6 @@ SOURCE { op_id, input } permute dest_sel { dest_op_id, dest_input };
 ```pil
 // SECURE: Lookup for precomputed range check table
 sel { value } in range_check.sel { range_check.value };
-// Range check table has no side effects, lookup is appropriate
 ```
 
 ## Historical Examples
@@ -194,142 +183,62 @@ sel_dispatch { call_id, args... } permute execution.sel { execution.call_id, exe
 sel_mem_op { clk, addr, value, rw } permute memory.sel { memory.clk, memory.addr, memory.value, memory.rw };
 ```
 
-### Example 3: Poseidon2 Memory Interface
-
-```pil
-// If using lookup instead of permutation for hash inputs,
-// could reuse same hash result for different inputs
-```
-
-## Audit Checklist
-
-1. **Identify all interactions in the component**:
-   - [ ] `grep -n "} in \|} permute " component.pil`
-   - [ ] Document each interaction type (lookup vs permutation)
-
-2. **For each lookup (`in`), verify**:
-   - [ ] Is the destination a pure computation (no side effects)?
-   - [ ] Is the destination precomputed/constant?
-   - [ ] Could duplicating this operation cause problems?
-   - [ ] If any answer is "no" or "yes" (last), should be permutation
-
-3. **Verify permutations for side-effectful operations**:
-   - [ ] Memory read/write operations
-   - [ ] State tree operations
-   - [ ] Emission operations (nullifiers, notes, logs)
-   - [ ] Call dispatch/return
-   - [ ] Any operation affecting external state
-
-4. **Check interaction counts**:
-   - [ ] Source count equals destination count for permutations
-   - [ ] Tracegen emits events 1:1
-
-5. **Review destination traces**:
-   - [ ] Does destination trace have side effects?
-   - [ ] Is destination used by multiple sources legitimately?
-
-## Fix Pattern
-
-```pil
-// Change lookup to permutation for side-effectful operations
-
-// BEFORE (vulnerable):
-sel_op { ... } in dest.sel { ... };
-
-// AFTER (secure):
-sel_op { ... } permute dest.sel { ... };
-```
-
-## Common Locations to Audit
-
-Lookup vs permutation is critical in:
-- **Memory**: `memory.pil` - all memory operations MUST use permutation
-- **Execution**: `execution.pil` - operation dispatch
-- **Transaction**: `tx.pil` - call dispatch/return
-- **Opcodes**: Any opcode interacting with memory or external state
-- **Emissions**: `emit_notehash.pil`, `emit_nullifier.pil`, etc.
-
-## References
-
-- [Detailed Skill Documentation](../../../pil/vm2/claude-skills/03-lookup-vs-permutation.md)
-- [Memory Row Injection Skill](../vm2-audit-memory-row-injection/SKILL.md)
-- [Interaction Tuple Completeness Skill](../vm2-audit-interaction-tuple-completeness/SKILL.md)
-
 ---
 
-## Required Output Format
+## REQUIRED OUTPUT FORMAT
 
-**IMPORTANT**: When running this audit skill, you MUST end your response with this standardized format.
+**IMPORTANT**: Your response MUST end with this machine-readable section.
 
-### Findings Summary
+### Summary Table
 
-At the end of your audit, provide a summary section:
-
-```markdown
-## Audit Results
-
-### Summary
 | Item | Value |
 |------|-------|
-| Skill | vm2-audit-lookup-vs-permutation |
-| Target | [path that was audited] |
-| Files Scanned | [number] |
-| Findings | [count by severity, e.g., "2 Critical, 1 High, 0 Medium, 0 Low"] |
-| Status | COMPLETED_WITH_FINDINGS / COMPLETED_NO_FINDINGS / ERROR |
+| Skill | `{skill-name}` |
+| Target | `{path audited}` |
+| Files Scanned | `{number}` |
+| Findings | `{e.g., "2 Critical, 1 High" or "None"}` |
+| Status | `COMPLETED_WITH_FINDINGS` / `COMPLETED_NO_FINDINGS` / `ERROR` |
 
-### Findings
+### Findings Format
 
-#### Finding vm2-audit-lookup-vs-permutation-[file]-[line]-[subtype] [SEVERITY]
+For each finding, include:
+- **ID**: `{skill-name}-{file}-{line}-{subtype}`
+- **Severity**: Critical / High / Medium / Low
 - **File**: `path/to/file.pil:line`
-- **Type**: [specific vulnerability type]
-- **Affected Column/Constraint**: [name]
-- **Description**: [brief description]
-- **Exploitability**: [High/Medium/Low] - [brief rationale]
-- **Suggested Fix**: [one-line fix suggestion]
+- **Description**: Brief description
+- **Fix**: One-line suggestion
 
-[Repeat for each finding]
-```
+### Machine-Readable JSON (REQUIRED)
 
-### Machine-Readable Findings
+You MUST include this exact format at the end of your response:
 
-After the human-readable summary, include a JSON block:
-
-```markdown
-<!-- MACHINE-READABLE FINDINGS (do not edit manually) -->
+<!-- MACHINE-READABLE FINDINGS -->
 ```json
 {
-  "skill": "vm2-audit-lookup-vs-permutation",
-  "finding_prefix": "vm2-audit-lookup-vs-permutation",
-  "status": "COMPLETED_WITH_FINDINGS | COMPLETED_NO_FINDINGS | ERROR",
-  "target": "pil/vm2",
-  "files_scanned": 0,
+  "skill": "{skill-name}",
+  "status": "COMPLETED_WITH_FINDINGS",
   "findings": [
     {
-      "id": "vm2-audit-lookup-vs-permutation-filename-line-subtype",
-      "severity": "critical|high|medium|low",
+      "id": "{skill-name}-{file}-{line}-{subtype}",
+      "severity": "critical",
       "file": "path/to/file.pil",
       "line": 123,
-      "type": "specific-vulnerability-type",
-      "column": "affected_column_name",
-      "description": "Brief description of the issue",
-      "exploitability": "high|medium|low",
+      "description": "Brief description",
+      "exploitability": "high",
       "fix": "Suggested fix"
     }
   ]
 }
 ```
 <!-- END MACHINE-READABLE FINDINGS -->
+
+For no findings, use:
+<!-- MACHINE-READABLE FINDINGS -->
+```json
+{
+  "skill": "{skill-name}",
+  "status": "COMPLETED_NO_FINDINGS",
+  "findings": []
+}
 ```
-
-### Finding ID Convention
-
-- Format: `vm2-audit-lookup-vs-permutation-[filename]-[line]-[subtype]`
-- Example: `vm2-audit-lookup-vs-permutation-alu-123-SEL`
-- Use lowercase for filename (without extension)
-- Use CAPS for subtype descriptors
-
-### Status Values
-
-- `COMPLETED_NO_FINDINGS` - Audit completed, no issues found
-- `COMPLETED_WITH_FINDINGS` - Audit completed, issues found
-- `ERROR` - Audit could not complete (explain in description)
+<!-- END MACHINE-READABLE FINDINGS -->

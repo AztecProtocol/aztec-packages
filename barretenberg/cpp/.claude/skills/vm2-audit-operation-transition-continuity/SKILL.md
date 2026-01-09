@@ -10,11 +10,7 @@ allowed-tools: Read, Glob, Grep, Bash, Write, Edit
 
 This skill audits VM2/AVM execution trace PIL for state continuity gaps during operation transitions. The execution trace uses operation-specific selectors (`sel_enter_call`, `sel_exit_call`, `sel_error`) that disable default continuity constraints, potentially leaving state variables unconstrained during critical transitions.
 
-**Bug Type**: Soundness
-**Severity**: Critical
-**Frequency**: Medium
-
-## Why This is Critical
+## Why This is Important
 
 State continuity gaps during operation transitions enable catastrophic attacks:
 - **Arbitrary tree state in nested calls**: Start child context with fake tree roots/sizes
@@ -158,12 +154,8 @@ Verify that ALL state variables needing restoration are included in stack intera
 ```pil
 // VULNERABLE: Only fires when DEFAULT_CTX_ROW = 1
 pol DEFAULT_CTX_ROW = 1 - (sel_enter_call + sel_exit_call);
-
 #[NOTE_HASH_TREE_ROOT_CONTINUITY]
 NOT_LAST_EXEC * DEFAULT_CTX_ROW * (note_hash_tree_root - prev_note_hash_tree_root') = 0;
-
-// When sel_enter_call = 1: DEFAULT_CTX_ROW = 0, constraint is 0 = 0 (always true!)
-// Malicious prover sets arbitrary prev_note_hash_tree_root' for nested context
 ```
 
 ### Vulnerable Pattern: Missing Operation Type
@@ -172,11 +164,8 @@ NOT_LAST_EXEC * DEFAULT_CTX_ROW * (note_hash_tree_root - prev_note_hash_tree_roo
 // VULNERABLE: Missing constraint for enter_call
 #[STATE_CONTINUITY_DEFAULT]
 DEFAULT_CTX_ROW * (state - prev_state') = 0;
-
 #[STATE_CONTINUITY_RETURN]
 nested_return * (state - stack_state) = 0;
-
-// Missing: sel_enter_call case!
 ```
 
 ### Secure Pattern: All Operation Types Covered
@@ -185,16 +174,10 @@ nested_return * (state - stack_state) = 0;
 // SECURE: Explicit constraints for each operation type
 pol DEFAULT_CTX_ROW = 1 - (sel_enter_call + sel_exit_call);
 pol DEFAULT_OR_NESTED_RETURN = DEFAULT_CTX_ROW + nested_return;
-
-// Default rows and returns: state propagates
 #[NOTE_HASH_TREE_ROOT_CONTINUITY]
 NOT_LAST_EXEC * DEFAULT_OR_NESTED_RETURN * (note_hash_tree_root - prev_note_hash_tree_root') = 0;
-
-// Enter call: state ALSO propagates (explicit constraint)
 #[NOTE_HASH_TREE_ROOT_ENTER_CALL]
 NOT_LAST_EXEC * sel_enter_call * (note_hash_tree_root - prev_note_hash_tree_root') = 0;
-
-// Rollback: state restored from stack (via CTX_STACK_ROLLBACK lookup)
 ```
 
 ### Secure Pattern: Combined Selector
@@ -202,7 +185,6 @@ NOT_LAST_EXEC * sel_enter_call * (note_hash_tree_root - prev_note_hash_tree_root
 ```pil
 // SECURE: Use combined selector that covers all propagation cases
 pol PROPAGATE_STATE = DEFAULT_CTX_ROW + sel_enter_call + nested_return;
-
 #[STATE_CONTINUITY]
 NOT_LAST_EXEC * PROPAGATE_STATE * (state - prev_state') = 0;
 ```
@@ -232,69 +214,6 @@ NOT_LAST_EXEC * sel_enter_call * (note_hash_tree_root - prev_note_hash_tree_root
 3. Bypass all Merkle proofs (SLOAD, SSTORE, NOTEHASH_EXISTS, etc.)
 4. Read/write arbitrary values, steal funds, corrupt global state
 
-## Audit Checklist
-
-1. **Identify all operation-type selectors**:
-   - [ ] `sel_enter_call` (entering nested call)
-   - [ ] `sel_exit_call` (exiting call)
-   - [ ] `nested_return` (successful return from nested call)
-   - [ ] `nested_failure` (error/revert in nested call)
-   - [ ] `sel_error` (execution error)
-   - [ ] `enqueued_call_start` (start of enqueued call)
-   - [ ] `enqueued_call_end` (end of enqueued call)
-
-2. **Identify state variables needing continuity**:
-   - [ ] Tree roots (`note_hash_tree_root`, `nullifier_tree_root`, etc.)
-   - [ ] Tree sizes (`note_hash_tree_size`, `nullifier_tree_size`, etc.)
-   - [ ] Side effect counts (`num_note_hashes_emitted`, etc.)
-   - [ ] Gas state (may have special handling)
-   - [ ] Other context state
-
-3. **For each state variable, verify ALL operation types have constraints**:
-   - [ ] Default rows (DEFAULT_CTX_ROW = 1)
-   - [ ] Enter call (sel_enter_call = 1)
-   - [ ] Exit call return (nested_return = 1)
-   - [ ] Exit call rollback (nested_failure = 1)
-   - [ ] Error rows (if applicable)
-   - [ ] Enqueued call boundaries (if applicable)
-
-4. **Check composite selectors for gaps**:
-   - [ ] Does `DEFAULT_CTX_ROW` exclude any operation types?
-   - [ ] Does `DEFAULT_OR_NESTED_RETURN` cover enter_call?
-   - [ ] Are there edge cases not covered by any selector?
-
-5. **Verify stack interactions include all state**:
-   - [ ] CTX_STACK_CALL includes all state pushed to stack
-   - [ ] CTX_STACK_ROLLBACK restores all state from stack
-   - [ ] CTX_STACK_RETURN restores necessary state from stack
-
-6. **Write negative tests for each operation type**:
-   - [ ] Test arbitrary state on enter_call
-   - [ ] Test arbitrary state on exit_call
-   - [ ] Test state mismatch between caller and callee
-
-## Fix Pattern
-
-```pil
-// Option 1: Add explicit constraint for missing operation type
-#[STATE_ENTER_CALL]
-NOT_LAST_EXEC * sel_enter_call * (state - prev_state') = 0;
-
-// Option 2: Expand composite selector to include missing type
-pol PROPAGATE_STATE = DEFAULT_CTX_ROW + sel_enter_call + nested_return;
-#[STATE_CONTINUITY]
-NOT_LAST_EXEC * PROPAGATE_STATE * (state - prev_state') = 0;
-
-// Option 3: Ensure stack interactions include state
-#[CTX_STACK_CALL]
-sel_enter_call {
-    ...,
-    note_hash_tree_root,  // Include in stack push
-    note_hash_tree_size,
-    ...
-} is context_stack.sel { ... };
-```
-
 ## Key Files to Audit
 
 - `pil/vm2/context.pil` - Main context management, tree state, continuity
@@ -310,84 +229,63 @@ sel_enter_call {
 ## References
 
 - [Context PIL Test](../../../src/barretenberg/vm2/constraining/relations/context.test.cpp)
-- [Missing Propagation Skill](../vm2-audit-missing-propagation/SKILL.md)
-- [Interaction Tuple Completeness Skill](../vm2-audit-interaction-tuple-completeness/SKILL.md)
 
 ---
 
-## Required Output Format
+## REQUIRED OUTPUT FORMAT
 
-**IMPORTANT**: When running this audit skill, you MUST end your response with this standardized format.
+**IMPORTANT**: Your response MUST end with this machine-readable section.
 
-### Findings Summary
+### Summary Table
 
-At the end of your audit, provide a summary section:
-
-```markdown
-## Audit Results
-
-### Summary
 | Item | Value |
 |------|-------|
-| Skill | vm2-audit-operation-transition-continuity |
-| Target | [path that was audited] |
-| Files Scanned | [number] |
-| Findings | [count by severity, e.g., "2 Critical, 1 High, 0 Medium, 0 Low"] |
-| Status | COMPLETED_WITH_FINDINGS / COMPLETED_NO_FINDINGS / ERROR |
+| Skill | `{skill-name}` |
+| Target | `{path audited}` |
+| Files Scanned | `{number}` |
+| Findings | `{e.g., "2 Critical, 1 High" or "None"}` |
+| Status | `COMPLETED_WITH_FINDINGS` / `COMPLETED_NO_FINDINGS` / `ERROR` |
 
-### Findings
+### Findings Format
 
-#### Finding vm2-audit-operation-transition-continuity-[file]-[line]-[subtype] [SEVERITY]
+For each finding, include:
+- **ID**: `{skill-name}-{file}-{line}-{subtype}`
+- **Severity**: Critical / High / Medium / Low
 - **File**: `path/to/file.pil:line`
-- **Type**: [specific vulnerability type]
-- **Affected Column/Constraint**: [name]
-- **Description**: [brief description]
-- **Exploitability**: [High/Medium/Low] - [brief rationale]
-- **Suggested Fix**: [one-line fix suggestion]
+- **Description**: Brief description
+- **Fix**: One-line suggestion
 
-[Repeat for each finding]
-```
+### Machine-Readable JSON (REQUIRED)
 
-### Machine-Readable Findings
+You MUST include this exact format at the end of your response:
 
-After the human-readable summary, include a JSON block:
-
-```markdown
-<!-- MACHINE-READABLE FINDINGS (do not edit manually) -->
+<!-- MACHINE-READABLE FINDINGS -->
 ```json
 {
-  "skill": "vm2-audit-operation-transition-continuity",
-  "finding_prefix": "vm2-audit-operation-transition-continuity",
-  "status": "COMPLETED_WITH_FINDINGS | COMPLETED_NO_FINDINGS | ERROR",
-  "target": "pil/vm2",
-  "files_scanned": 0,
+  "skill": "{skill-name}",
+  "status": "COMPLETED_WITH_FINDINGS",
   "findings": [
     {
-      "id": "vm2-audit-operation-transition-continuity-filename-line-subtype",
-      "severity": "critical|high|medium|low",
+      "id": "{skill-name}-{file}-{line}-{subtype}",
+      "severity": "critical",
       "file": "path/to/file.pil",
       "line": 123,
-      "type": "specific-vulnerability-type",
-      "column": "affected_column_name",
-      "description": "Brief description of the issue",
-      "exploitability": "high|medium|low",
+      "description": "Brief description",
+      "exploitability": "high",
       "fix": "Suggested fix"
     }
   ]
 }
 ```
 <!-- END MACHINE-READABLE FINDINGS -->
+
+For no findings, use:
+<!-- MACHINE-READABLE FINDINGS -->
+```json
+{
+  "skill": "{skill-name}",
+  "status": "COMPLETED_NO_FINDINGS",
+  "findings": []
+}
 ```
-
-### Finding ID Convention
-
-- Format: `vm2-audit-operation-transition-continuity-[filename]-[line]-[subtype]`
-- Example: `vm2-audit-operation-transition-continuity-alu-123-SEL`
-- Use lowercase for filename (without extension)
-- Use CAPS for subtype descriptors
-
-### Status Values
-
-- `COMPLETED_NO_FINDINGS` - Audit completed, no issues found
-- `COMPLETED_WITH_FINDINGS` - Audit completed, issues found
-- `ERROR` - Audit could not complete (explain in description)
+<!-- END MACHINE-READABLE FINDINGS -->

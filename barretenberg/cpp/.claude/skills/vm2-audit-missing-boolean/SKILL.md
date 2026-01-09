@@ -10,11 +10,7 @@ allowed-tools: Read, Glob, Grep, Bash, Write, Edit
 
 This skill audits VM2/AVM PIL constraints for missing boolean constraints on selector columns. This is a **critical soundness vulnerability** that allows malicious provers to bypass error handling and other security mechanisms.
 
-**Bug Type**: Soundness
-**Severity**: Critical
-**Frequency**: Very High (found in most components during pre-audit)
-
-## Why This is Critical
+## Why This is Important
 
 In field arithmetic, the absence of boolean constraints enables several exploit patterns:
 
@@ -109,8 +105,6 @@ Record for each boolean column:
 ```pil
 // VULNERABLE: Boolean annotation without constraint
 pol commit my_selector; // @boolean
-// Missing: my_selector * (1 - my_selector) = 0;
-
 // VULNERABLE: Used as boolean but not constrained
 pol commit is_active;
 is_active * some_expression = 0;  // Assumes is_active in {0, 1}
@@ -123,9 +117,7 @@ is_active * some_expression = 0;  // Assumes is_active in {0, 1}
 pol commit my_selector; // @boolean
 #[MY_SELECTOR_BOOL]
 my_selector * (1 - my_selector) = 0;
-
 // SECURE: Boolean via lookup (documented)
-// sel is constrained boolean via lookup to binary table
 pol commit sel;
 sel { sel } in precomputed.sel_binary { precomputed.binary_value };
 ```
@@ -173,15 +165,6 @@ x * (e * (1 - inv) + inv) - 1 + e = 0;
 
 Always verify boolean constraint exists on zero-check indicators.
 
-## Fix Pattern
-
-```pil
-// Add explicit boolean constraint and annotation
-pol commit sel; // @boolean
-#[SEL_BOOL]
-sel * (1 - sel) = 0;
-```
-
 ## Exploitability Note
 
 The actual exploitability of a missing boolean depends heavily on how the column is used in other relations. Focus on:
@@ -193,87 +176,65 @@ Avoid over-claiming specific exploits without analyzing all related constraints.
 
 ## References
 
-- [Detailed Skill Documentation](../../../pil/vm2/claude-skills/01-missing-boolean-selectors.md)
-- [VM2 Audit Findings](/.claude/skills/vm2-audit/VM2_AUDIT_FINDINGS.md)
-- [VM Circuit Recipes](/.claude/skills/vm2-audit/VM_CIRCUIT_RECIPES.md)
 - [PR #19256](https://github.com/AztecProtocol/aztec-packages/pull/19256) - Missing Bool Selectors Fix
 - [PR #18192](https://github.com/AztecProtocol/aztec-packages/pull/18192) - ALU Pre-Audit
 
 ---
 
-## Required Output Format
+## REQUIRED OUTPUT FORMAT
 
-**IMPORTANT**: When running this audit skill, you MUST end your response with this standardized format.
+**IMPORTANT**: Your response MUST end with this machine-readable section.
 
-### Findings Summary
+### Summary Table
 
-At the end of your audit, provide a summary section:
-
-```markdown
-## Audit Results
-
-### Summary
 | Item | Value |
 |------|-------|
-| Skill | vm2-audit-missing-boolean |
-| Target | [path that was audited] |
-| Files Scanned | [number] |
-| Findings | [count by severity, e.g., "2 Critical, 1 High, 0 Medium, 0 Low"] |
-| Status | COMPLETED_WITH_FINDINGS / COMPLETED_NO_FINDINGS / ERROR |
+| Skill | `{skill-name}` |
+| Target | `{path audited}` |
+| Files Scanned | `{number}` |
+| Findings | `{e.g., "2 Critical, 1 High" or "None"}` |
+| Status | `COMPLETED_WITH_FINDINGS` / `COMPLETED_NO_FINDINGS` / `ERROR` |
 
-### Findings
+### Findings Format
 
-#### Finding vm2-audit-missing-boolean-[file]-[line]-[subtype] [SEVERITY]
+For each finding, include:
+- **ID**: `{skill-name}-{file}-{line}-{subtype}`
+- **Severity**: Critical / High / Medium / Low
 - **File**: `path/to/file.pil:line`
-- **Type**: [specific vulnerability type]
-- **Affected Column/Constraint**: [name]
-- **Description**: [brief description]
-- **Exploitability**: [High/Medium/Low] - [brief rationale]
-- **Suggested Fix**: [one-line fix suggestion]
+- **Description**: Brief description
+- **Fix**: One-line suggestion
 
-[Repeat for each finding]
-```
+### Machine-Readable JSON (REQUIRED)
 
-### Machine-Readable Findings
+You MUST include this exact format at the end of your response:
 
-After the human-readable summary, include a JSON block:
-
-```markdown
-<!-- MACHINE-READABLE FINDINGS (do not edit manually) -->
+<!-- MACHINE-READABLE FINDINGS -->
 ```json
 {
-  "skill": "vm2-audit-missing-boolean",
-  "finding_prefix": "vm2-audit-missing-boolean",
-  "status": "COMPLETED_WITH_FINDINGS | COMPLETED_NO_FINDINGS | ERROR",
-  "target": "pil/vm2",
-  "files_scanned": 0,
+  "skill": "{skill-name}",
+  "status": "COMPLETED_WITH_FINDINGS",
   "findings": [
     {
-      "id": "vm2-audit-missing-boolean-filename-line-subtype",
-      "severity": "critical|high|medium|low",
+      "id": "{skill-name}-{file}-{line}-{subtype}",
+      "severity": "critical",
       "file": "path/to/file.pil",
       "line": 123,
-      "type": "specific-vulnerability-type",
-      "column": "affected_column_name",
-      "description": "Brief description of the issue",
-      "exploitability": "high|medium|low",
+      "description": "Brief description",
+      "exploitability": "high",
       "fix": "Suggested fix"
     }
   ]
 }
 ```
 <!-- END MACHINE-READABLE FINDINGS -->
+
+For no findings, use:
+<!-- MACHINE-READABLE FINDINGS -->
+```json
+{
+  "skill": "{skill-name}",
+  "status": "COMPLETED_NO_FINDINGS",
+  "findings": []
+}
 ```
-
-### Finding ID Convention
-
-- Format: `vm2-audit-missing-boolean-[filename]-[line]-[subtype]`
-- Example: `vm2-audit-missing-boolean-alu-123-SEL`
-- Use lowercase for filename (without extension)
-- Use CAPS for subtype descriptors
-
-### Status Values
-
-- `COMPLETED_NO_FINDINGS` - Audit completed, no issues found
-- `COMPLETED_WITH_FINDINGS` - Audit completed, issues found
-- `ERROR` - Audit could not complete (explain in description)
+<!-- END MACHINE-READABLE FINDINGS -->

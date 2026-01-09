@@ -10,11 +10,7 @@ allowed-tools: Read, Glob, Grep, Bash, Write, Edit
 
 This skill audits VM2/AVM PIL constraints for interaction tuple completeness. Lookup or permutation tuples are missing columns that should be included, allowing a malicious prover to manipulate the missing values.
 
-**Bug Type**: Soundness
-**Severity**: High
-**Frequency**: Low
-
-## Why This is Critical
+## Why This is Important
 
 If a column is not in the tuple, it's not verified:
 - **Source and destination can have different values**: Column mismatch goes undetected
@@ -121,7 +117,6 @@ grep -rn "call\|context" barretenberg/cpp/pil/vm2/ --include="*.pil" | grep "} i
 // VULNERABLE: Missing rw column in tuple
 #[MEMORY_READ]
 sel_read { addr, value } in memory.sel { memory.addr, memory.value };
-// Missing: rw flag! Can claim read when actually write
 ```
 
 ### Vulnerable Pattern: Missing Clock
@@ -130,7 +125,6 @@ sel_read { addr, value } in memory.sel { memory.addr, memory.value };
 // VULNERABLE: Forgot clock/sequence
 #[OPERATION_DISPATCH]
 sel { op_id, args } in dest.sel { dest.op_id, dest.args };
-// Missing: clk! Can reorder operations
 ```
 
 ### Vulnerable Pattern: Missing Context
@@ -139,7 +133,6 @@ sel { op_id, args } in dest.sel { dest.op_id, dest.args };
 // VULNERABLE: Missing context isolation
 #[MEMORY_ACCESS]
 sel { addr, value } in memory.sel { memory.addr, memory.value };
-// Missing: context_id! Can access other context's memory
 ```
 
 ### Vulnerable Pattern: Missing Discard Flag
@@ -148,7 +141,6 @@ sel { addr, value } in memory.sel { memory.addr, memory.value };
 // VULNERABLE: Missing discard in call result
 #[END_CALL]
 sel { context_id, success } in tx.sel { tx.context_id, tx.success };
-// Missing: discard! Can manipulate revert behavior
 ```
 
 ### Secure Pattern: Complete Memory Tuple
@@ -185,60 +177,6 @@ sel { context_id, success, discard } in tx.sel { tx.context_id, tx.success, tx.d
 ```
 **Impact**: Could manipulate discard flag independently.
 
-### Example 2: Missing Clock
-
-```pil
-// Missing clock - allows reordering operations arbitrarily
-```
-
-### Example 3: Missing Context
-
-```pil
-// Missing context - allows cross-context memory access
-```
-
-### Example 4: Missing Tag
-
-```pil
-// Missing tag - allows type confusion in memory
-```
-
-## Audit Checklist
-
-1. **List all interactions in the component**:
-   - [ ] `grep -n "} in \|} is " component.pil`
-   - [ ] Document each interaction and its tuple
-
-2. **For each interaction, verify tuple completeness**:
-   - [ ] **Clock/sequence**: Is `clk` or ordering column present?
-   - [ ] **Context/identifier**: Is `context_id` or similar present?
-   - [ ] **Flags**: `rw`, `success`, `discard`, `error`, `tag` as needed?
-   - [ ] **Values**: All operands and results included?
-
-3. **Compare source and destination tuples**:
-   - [ ] Same number of columns?
-   - [ ] Same column meanings?
-   - [ ] Same ordering?
-
-4. **Check destination documentation**:
-   - [ ] What columns should be in the tuple?
-   - [ ] Are there documented usage patterns?
-
-5. **Review similar interactions**:
-   - [ ] Other memory lookups have which columns?
-   - [ ] Other call permutations have which columns?
-
-## Fix Pattern
-
-```pil
-// Add missing column to both source and destination
-// BEFORE:
-sel { a, b } in dest.sel { dest.a, dest.b };
-
-// AFTER:
-sel { clk, context_id, a, b, flag } in dest.sel { dest.clk, dest.context_id, dest.a, dest.b, dest.flag };
-```
-
 ## Interaction Documentation Pattern
 
 Every destination should document expected tuple:
@@ -254,96 +192,62 @@ Every destination should document expected tuple:
 // - tag: Type tag of the value
 ```
 
-## Common Locations to Audit
-
-Interaction tuples are critical in:
-- **Memory**: `memory.pil` - all memory lookups
-- **Execution**: `execution.pil` - operation dispatch
-- **Call handling**: `external_call.pil`, `internal_call.pil`
-- **State access**: Storage read/write operations
-- **Bytecode**: `bc_retrieval.pil`, `instr_fetching.pil`
-
-## References
-
-- [Detailed Skill Documentation](../../../pil/vm2/claude-skills/15-interaction-tuple-completeness.md)
-- [Lookup vs Permutation](../../../pil/vm2/claude-skills/03-lookup-vs-permutation.md)
-- [Discard Revert Handling](../../../pil/vm2/claude-skills/11-discard-revert-handling.md)
-
 ---
 
-## Required Output Format
+## REQUIRED OUTPUT FORMAT
 
-**IMPORTANT**: When running this audit skill, you MUST end your response with this standardized format.
+**IMPORTANT**: Your response MUST end with this machine-readable section.
 
-### Findings Summary
+### Summary Table
 
-At the end of your audit, provide a summary section:
-
-```markdown
-## Audit Results
-
-### Summary
 | Item | Value |
 |------|-------|
-| Skill | vm2-audit-interaction-tuple-completeness |
-| Target | [path that was audited] |
-| Files Scanned | [number] |
-| Findings | [count by severity, e.g., "2 Critical, 1 High, 0 Medium, 0 Low"] |
-| Status | COMPLETED_WITH_FINDINGS / COMPLETED_NO_FINDINGS / ERROR |
+| Skill | `{skill-name}` |
+| Target | `{path audited}` |
+| Files Scanned | `{number}` |
+| Findings | `{e.g., "2 Critical, 1 High" or "None"}` |
+| Status | `COMPLETED_WITH_FINDINGS` / `COMPLETED_NO_FINDINGS` / `ERROR` |
 
-### Findings
+### Findings Format
 
-#### Finding vm2-audit-interaction-tuple-completeness-[file]-[line]-[subtype] [SEVERITY]
+For each finding, include:
+- **ID**: `{skill-name}-{file}-{line}-{subtype}`
+- **Severity**: Critical / High / Medium / Low
 - **File**: `path/to/file.pil:line`
-- **Type**: [specific vulnerability type]
-- **Affected Column/Constraint**: [name]
-- **Description**: [brief description]
-- **Exploitability**: [High/Medium/Low] - [brief rationale]
-- **Suggested Fix**: [one-line fix suggestion]
+- **Description**: Brief description
+- **Fix**: One-line suggestion
 
-[Repeat for each finding]
-```
+### Machine-Readable JSON (REQUIRED)
 
-### Machine-Readable Findings
+You MUST include this exact format at the end of your response:
 
-After the human-readable summary, include a JSON block:
-
-```markdown
-<!-- MACHINE-READABLE FINDINGS (do not edit manually) -->
+<!-- MACHINE-READABLE FINDINGS -->
 ```json
 {
-  "skill": "vm2-audit-interaction-tuple-completeness",
-  "finding_prefix": "vm2-audit-interaction-tuple-completeness",
-  "status": "COMPLETED_WITH_FINDINGS | COMPLETED_NO_FINDINGS | ERROR",
-  "target": "pil/vm2",
-  "files_scanned": 0,
+  "skill": "{skill-name}",
+  "status": "COMPLETED_WITH_FINDINGS",
   "findings": [
     {
-      "id": "vm2-audit-interaction-tuple-completeness-filename-line-subtype",
-      "severity": "critical|high|medium|low",
+      "id": "{skill-name}-{file}-{line}-{subtype}",
+      "severity": "critical",
       "file": "path/to/file.pil",
       "line": 123,
-      "type": "specific-vulnerability-type",
-      "column": "affected_column_name",
-      "description": "Brief description of the issue",
-      "exploitability": "high|medium|low",
+      "description": "Brief description",
+      "exploitability": "high",
       "fix": "Suggested fix"
     }
   ]
 }
 ```
 <!-- END MACHINE-READABLE FINDINGS -->
+
+For no findings, use:
+<!-- MACHINE-READABLE FINDINGS -->
+```json
+{
+  "skill": "{skill-name}",
+  "status": "COMPLETED_NO_FINDINGS",
+  "findings": []
+}
 ```
-
-### Finding ID Convention
-
-- Format: `vm2-audit-interaction-tuple-completeness-[filename]-[line]-[subtype]`
-- Example: `vm2-audit-interaction-tuple-completeness-alu-123-SEL`
-- Use lowercase for filename (without extension)
-- Use CAPS for subtype descriptors
-
-### Status Values
-
-- `COMPLETED_NO_FINDINGS` - Audit completed, no issues found
-- `COMPLETED_WITH_FINDINGS` - Audit completed, issues found
-- `ERROR` - Audit could not complete (explain in description)
+<!-- END MACHINE-READABLE FINDINGS -->

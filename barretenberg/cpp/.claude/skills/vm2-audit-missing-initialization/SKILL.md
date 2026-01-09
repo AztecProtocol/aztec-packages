@@ -10,11 +10,7 @@ allowed-tools: Read, Glob, Grep, Bash, Write, Edit
 
 This skill audits VM2/AVM PIL constraints for missing initialization constraints. Values that should have specific initial states at the start of a computation or trace lack initialization constraints, allowing a malicious prover to set arbitrary starting values.
 
-**Bug Type**: Soundness
-**Severity**: High
-**Frequency**: Medium
-
-## Why This is Critical
+## Why This is Important
 
 Missing initialization enables catastrophic attacks:
 - **Start execution with arbitrary PC**: Skip code, jump to arbitrary addresses
@@ -125,10 +121,8 @@ sel_enter_enqueued_call * pc = 0;  // PC = 0 for top-level calls
 ```pil
 // VULNERABLE: Value used but not initialized
 pol commit pc;
-// Assumed to start at 0 for new calls
 #[PC_INCREMENT]
 sel * (1 - sel_jump) * (pc' - pc - instr_length) = 0;
-// But what is pc on the first row? Unconstrained!
 ```
 
 ### Vulnerable Pattern: Initialization via Shifted Column Only
@@ -136,7 +130,6 @@ sel * (1 - sel_jump) * (pc' - pc - instr_length) = 0;
 ```pil
 // VULNERABLE: Only constrained via next row
 pol commit start_tx; // @boolean
-// Constraint only on start_tx' means row 0 is unconstrained!
 (1 - end) * (start_tx' - ...) = 0;
 ```
 
@@ -145,14 +138,10 @@ pol commit start_tx; // @boolean
 ```pil
 // SECURE: Explicit initialization
 pol commit pc;
-
 #[PC_INIT]
 precomputed.first_row * pc = 0;  // PC starts at 0
-
-// Or for context-specific initialization:
 #[PC_INIT_ON_CALL]
 sel_start_call * (pc - expected_pc) = 0;
-
 #[PC_INCREMENT]
 sel * (1 - sel_jump) * (pc' - pc - instr_length) = 0;
 ```
@@ -195,139 +184,62 @@ pol commit start_tx; // @boolean
 ```
 **Impact**: Theoretical - row 0 behavior undefined.
 
-## Audit Checklist
-
-1. **Identify values that need initialization**:
-   - [ ] Program counters (`pc`)
-   - [ ] State accumulators (`gas_used`, `total_*`)
-   - [ ] Phase/stage indicators (`phase_value`, `state`)
-   - [ ] Counters and indices (`row_idx`, `counter`, `cnt`)
-   - [ ] Context identifiers (`context_id`, `call_depth`)
-
-2. **For each value, check for initialization constraint**:
-   - [ ] `precomputed.first_row * (value - INIT) = 0` for trace-level
-   - [ ] `start * (value - INIT) = 0` for computation-level
-   - [ ] `sel_new_context * (value - INIT) = 0` for context-level
-
-3. **Verify initialization happens before use**:
-   - [ ] First row constraints fire before propagation
-   - [ ] Start-of-computation constraints gate value use
-
-4. **Check edge cases**:
-   - [ ] What if trace has only one row?
-   - [ ] What if computation starts on row 0?
-   - [ ] What about nested contexts?
-
-5. **Trace value through lifecycle**:
-   - [ ] Initialization
-   - [ ] Propagation/update
-   - [ ] Termination/reset
-
-## Fix Pattern
-
-```pil
-// Add initialization constraint
-pol commit value;
-
-// Option 1: Initialize on first row
-#[VALUE_INIT]
-precomputed.first_row * (value - INITIAL_VALUE) = 0;
-
-// Option 2: Initialize on computation start
-#[VALUE_INIT_ON_START]
-start_computation * (value - INITIAL_VALUE) = 0;
-```
-
-## Common Locations to Audit
-
-Values requiring initialization typically appear in:
-- **Execution**: `execution.pil` - PC, call depth, gas
-- **Transaction**: `tx.pil` - phase values, accumulators
-- **Memory**: `memory.pil` - address counters
-- **Hashing**: `poseidon2.pil`, `keccak*.pil` - state accumulators
-- **Data operations**: `data_copy.pil` - indices, counters
-
-## References
-
-- [Detailed Skill Documentation](../../../pil/vm2/claude-skills/06-missing-initialization.md)
-- [Missing Propagation Skill](../vm2-audit-missing-propagation/SKILL.md)
-- [Premature Termination](../../../pil/vm2/claude-skills/07-premature-termination.md)
-
 ---
 
-## Required Output Format
+## REQUIRED OUTPUT FORMAT
 
-**IMPORTANT**: When running this audit skill, you MUST end your response with this standardized format.
+**IMPORTANT**: Your response MUST end with this machine-readable section.
 
-### Findings Summary
+### Summary Table
 
-At the end of your audit, provide a summary section:
-
-```markdown
-## Audit Results
-
-### Summary
 | Item | Value |
 |------|-------|
-| Skill | vm2-audit-missing-initialization |
-| Target | [path that was audited] |
-| Files Scanned | [number] |
-| Findings | [count by severity, e.g., "2 Critical, 1 High, 0 Medium, 0 Low"] |
-| Status | COMPLETED_WITH_FINDINGS / COMPLETED_NO_FINDINGS / ERROR |
+| Skill | `{skill-name}` |
+| Target | `{path audited}` |
+| Files Scanned | `{number}` |
+| Findings | `{e.g., "2 Critical, 1 High" or "None"}` |
+| Status | `COMPLETED_WITH_FINDINGS` / `COMPLETED_NO_FINDINGS` / `ERROR` |
 
-### Findings
+### Findings Format
 
-#### Finding vm2-audit-missing-initialization-[file]-[line]-[subtype] [SEVERITY]
+For each finding, include:
+- **ID**: `{skill-name}-{file}-{line}-{subtype}`
+- **Severity**: Critical / High / Medium / Low
 - **File**: `path/to/file.pil:line`
-- **Type**: [specific vulnerability type]
-- **Affected Column/Constraint**: [name]
-- **Description**: [brief description]
-- **Exploitability**: [High/Medium/Low] - [brief rationale]
-- **Suggested Fix**: [one-line fix suggestion]
+- **Description**: Brief description
+- **Fix**: One-line suggestion
 
-[Repeat for each finding]
-```
+### Machine-Readable JSON (REQUIRED)
 
-### Machine-Readable Findings
+You MUST include this exact format at the end of your response:
 
-After the human-readable summary, include a JSON block:
-
-```markdown
-<!-- MACHINE-READABLE FINDINGS (do not edit manually) -->
+<!-- MACHINE-READABLE FINDINGS -->
 ```json
 {
-  "skill": "vm2-audit-missing-initialization",
-  "finding_prefix": "vm2-audit-missing-initialization",
-  "status": "COMPLETED_WITH_FINDINGS | COMPLETED_NO_FINDINGS | ERROR",
-  "target": "pil/vm2",
-  "files_scanned": 0,
+  "skill": "{skill-name}",
+  "status": "COMPLETED_WITH_FINDINGS",
   "findings": [
     {
-      "id": "vm2-audit-missing-initialization-filename-line-subtype",
-      "severity": "critical|high|medium|low",
+      "id": "{skill-name}-{file}-{line}-{subtype}",
+      "severity": "critical",
       "file": "path/to/file.pil",
       "line": 123,
-      "type": "specific-vulnerability-type",
-      "column": "affected_column_name",
-      "description": "Brief description of the issue",
-      "exploitability": "high|medium|low",
+      "description": "Brief description",
+      "exploitability": "high",
       "fix": "Suggested fix"
     }
   ]
 }
 ```
 <!-- END MACHINE-READABLE FINDINGS -->
+
+For no findings, use:
+<!-- MACHINE-READABLE FINDINGS -->
+```json
+{
+  "skill": "{skill-name}",
+  "status": "COMPLETED_NO_FINDINGS",
+  "findings": []
+}
 ```
-
-### Finding ID Convention
-
-- Format: `vm2-audit-missing-initialization-[filename]-[line]-[subtype]`
-- Example: `vm2-audit-missing-initialization-alu-123-SEL`
-- Use lowercase for filename (without extension)
-- Use CAPS for subtype descriptors
-
-### Status Values
-
-- `COMPLETED_NO_FINDINGS` - Audit completed, no issues found
-- `COMPLETED_WITH_FINDINGS` - Audit completed, issues found
-- `ERROR` - Audit could not complete (explain in description)
+<!-- END MACHINE-READABLE FINDINGS -->

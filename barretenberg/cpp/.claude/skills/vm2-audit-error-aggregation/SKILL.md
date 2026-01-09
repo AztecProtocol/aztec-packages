@@ -10,16 +10,11 @@ allowed-tools: Read, Glob, Grep, Bash, Write, Edit
 
 This skill audits VM2/AVM PIL constraints for missing error aggregation. Error flags are not properly aggregated from individual error conditions - the aggregate error flag only has a boolean constraint but no constraint tying it to the individual errors.
 
-**Bug Type**: Soundness
-**Severity**: Critical
-**Frequency**: Low
-
-## Why This is Critical
+## Why This is Important
 
 Missing error aggregation allows complete bypass of error handling:
-- **Claim no error when individual errors exist**: Hide failures
-- **Bypass error handling logic**: Continue execution after failure
-- **Continue execution after failure**: Corrupt state
+- **Claim no error when individual errors exist**: Prover hides failures
+- **Continue execution after failure**: State corruption
 - **Hide invalid operations**: Make invalid operations appear valid
 
 ## Audit Instructions
@@ -145,11 +140,7 @@ sel_err_high = sel_err_low + err_c;
 pol commit sel_err;           // Aggregate error
 pol commit err_type_a;        // Individual error A
 pol commit err_type_b;        // Individual error B
-
 sel_err * (1 - sel_err) = 0;  // Boolean constraint only!
-
-// MISSING: sel_err = err_type_a + err_type_b;
-// Prover can set sel_err = 0 even when err_type_a = 1!
 ```
 
 ### Vulnerable Pattern: Commented-Out Aggregation
@@ -157,32 +148,22 @@ sel_err * (1 - sel_err) = 0;  // Boolean constraint only!
 ```pil
 // VULNERABLE: Aggregation commented out!
 sel_parsing_err * (1 - sel_parsing_err) = 0;
-// FIXME: constrain this again once all execution opcodes are supported.
-// sel_parsing_err = pc_out_of_range + opcode_out_of_range + instr_out_of_range;
 ```
 
-### Secure Pattern: Proper Aggregation
+### Secure Pattern: Boolean OR Aggregation (Non-Exclusive)
 
 ```pil
-// SECURE: Proper aggregation
-pol commit sel_err;
-pol commit err_type_a;
-pol commit err_type_b;
+// SECURE: Boolean OR for errors that can co-occur (from alu.pil)
+sel_err = sel_tag_err + sel_div_0_err - sel_tag_err * sel_div_0_err;
+// Equivalent to: sel_err = 1 - (1 - sel_tag_err) * (1 - sel_div_0_err)
+```
 
-// Boolean constraints
-#[SEL_ERR_BOOL]
-sel_err * (1 - sel_err) = 0;
-#[ERR_TYPE_A_BOOL]
-err_type_a * (1 - err_type_a) = 0;
-#[ERR_TYPE_B_BOOL]
-err_type_b * (1 - err_type_b) = 0;
+### Secure Pattern: Sum Aggregation (Mutually Exclusive)
 
-// Aggregation constraint (CRITICAL!)
-#[ERROR_AGGREGATION]
-sel_err = err_type_a + err_type_b;
-
-// Note: This works because individual errors are mutually exclusive
-// If they can co-occur, use: sel_err = 1 - (1 - err_a) * (1 - err_b)
+```pil
+// SECURE: Simple sum when errors are mutually exclusive (from execution.pil)
+sel_error = sel_bytecode_retrieval_failure + sel_instruction_fetching_failure + sel_addressing_error;
+// Only valid if at most one error can occur at a time
 ```
 
 ## Historical Examples
@@ -208,142 +189,62 @@ sel_parsing_err = pc_out_of_range + opcode_out_of_range + instr_out_of_range;
 sel_err = sel_opcode_err + sel_bytecode_err + sel_addressing_err + ...;
 ```
 
-## Audit Checklist
-
-1. **Find all aggregate error flags**:
-   - [ ] `sel_err`, `sel_*_err`, `*_error`, `*_failure`
-   - [ ] Document each aggregate found
-
-2. **For each aggregate, find individual errors**:
-   - [ ] List all individual error flags in the component
-   - [ ] Determine which should feed into the aggregate
-
-3. **Verify aggregation constraint exists**:
-   - [ ] Look for: `sel_err = individual_errors...`
-   - [ ] Or: `individual_err * (1 - sel_err) = 0` for each
-   - [ ] Verify ALL individual errors are included
-
-4. **Check for commented-out aggregation**:
-   - [ ] Search for `//.*sel_err.*=`
-   - [ ] Search for `FIXME.*err`, `TODO.*err`
-
-5. **Verify mutual exclusivity (if using sum)**:
-   - [ ] Can multiple errors occur simultaneously?
-   - [ ] If yes, sum aggregation is WRONG - use OR pattern
-
-6. **Trace error propagation**:
-   - [ ] Individual → Component aggregate → Higher-level
-   - [ ] Verify each level properly aggregates
-
-## Fix Pattern
-
-```pil
-// Add aggregation constraint
-
-// For mutually exclusive errors (sum):
-#[ERROR_AGGREGATION]
-sel_err = err_type_a + err_type_b + err_type_c;
-
-// For non-exclusive errors (implication):
-#[ERR_A_IMPLIES_SEL_ERR]
-err_type_a * (1 - sel_err) = 0;
-#[ERR_B_IMPLIES_SEL_ERR]
-err_type_b * (1 - sel_err) = 0;
-#[NO_ERR_IMPLIES_NO_SEL_ERR]
-(1 - err_type_a) * (1 - err_type_b) * sel_err = 0;
-```
-
-## Common Locations to Audit
-
-Error aggregation is critical in:
-- **Instruction fetching**: `instr_fetching.pil` - parsing errors
-- **Execution**: `execution.pil` - operation errors
-- **ALU**: `alu.pil` - arithmetic errors (overflow, division by zero)
-- **Memory**: `memory.pil` - access errors
-- **Bytecode**: `bytecode.pil` - retrieval errors
-- **Gas**: Gas exhaustion errors
-
-## References
-
-- [Detailed Skill Documentation](../../../pil/vm2/claude-skills/10-error-aggregation.md)
-- [Commented-Out Constraints Skill](../vm2-audit-commented-constraints/SKILL.md)
-- [Missing Error Gating Skill](../vm2-audit-missing-error-gating/SKILL.md)
-
 ---
 
-## Required Output Format
+## REQUIRED OUTPUT FORMAT
 
-**IMPORTANT**: When running this audit skill, you MUST end your response with this standardized format.
+**IMPORTANT**: Your response MUST end with this machine-readable section.
 
-### Findings Summary
+### Summary Table
 
-At the end of your audit, provide a summary section:
-
-```markdown
-## Audit Results
-
-### Summary
 | Item | Value |
 |------|-------|
-| Skill | vm2-audit-error-aggregation |
-| Target | [path that was audited] |
-| Files Scanned | [number] |
-| Findings | [count by severity, e.g., "2 Critical, 1 High, 0 Medium, 0 Low"] |
-| Status | COMPLETED_WITH_FINDINGS / COMPLETED_NO_FINDINGS / ERROR |
+| Skill | `{skill-name}` |
+| Target | `{path audited}` |
+| Files Scanned | `{number}` |
+| Findings | `{e.g., "2 Critical, 1 High" or "None"}` |
+| Status | `COMPLETED_WITH_FINDINGS` / `COMPLETED_NO_FINDINGS` / `ERROR` |
 
-### Findings
+### Findings Format
 
-#### Finding vm2-audit-error-aggregation-[file]-[line]-[subtype] [SEVERITY]
+For each finding, include:
+- **ID**: `{skill-name}-{file}-{line}-{subtype}`
+- **Severity**: Critical / High / Medium / Low
 - **File**: `path/to/file.pil:line`
-- **Type**: [specific vulnerability type]
-- **Affected Column/Constraint**: [name]
-- **Description**: [brief description]
-- **Exploitability**: [High/Medium/Low] - [brief rationale]
-- **Suggested Fix**: [one-line fix suggestion]
+- **Description**: Brief description
+- **Fix**: One-line suggestion
 
-[Repeat for each finding]
-```
+### Machine-Readable JSON (REQUIRED)
 
-### Machine-Readable Findings
+You MUST include this exact format at the end of your response:
 
-After the human-readable summary, include a JSON block:
-
-```markdown
-<!-- MACHINE-READABLE FINDINGS (do not edit manually) -->
+<!-- MACHINE-READABLE FINDINGS -->
 ```json
 {
-  "skill": "vm2-audit-error-aggregation",
-  "finding_prefix": "vm2-audit-error-aggregation",
-  "status": "COMPLETED_WITH_FINDINGS | COMPLETED_NO_FINDINGS | ERROR",
-  "target": "pil/vm2",
-  "files_scanned": 0,
+  "skill": "{skill-name}",
+  "status": "COMPLETED_WITH_FINDINGS",
   "findings": [
     {
-      "id": "vm2-audit-error-aggregation-filename-line-subtype",
-      "severity": "critical|high|medium|low",
+      "id": "{skill-name}-{file}-{line}-{subtype}",
+      "severity": "critical",
       "file": "path/to/file.pil",
       "line": 123,
-      "type": "specific-vulnerability-type",
-      "column": "affected_column_name",
-      "description": "Brief description of the issue",
-      "exploitability": "high|medium|low",
+      "description": "Brief description",
+      "exploitability": "high",
       "fix": "Suggested fix"
     }
   ]
 }
 ```
 <!-- END MACHINE-READABLE FINDINGS -->
+
+For no findings, use:
+<!-- MACHINE-READABLE FINDINGS -->
+```json
+{
+  "skill": "{skill-name}",
+  "status": "COMPLETED_NO_FINDINGS",
+  "findings": []
+}
 ```
-
-### Finding ID Convention
-
-- Format: `vm2-audit-error-aggregation-[filename]-[line]-[subtype]`
-- Example: `vm2-audit-error-aggregation-alu-123-SEL`
-- Use lowercase for filename (without extension)
-- Use CAPS for subtype descriptors
-
-### Status Values
-
-- `COMPLETED_NO_FINDINGS` - Audit completed, no issues found
-- `COMPLETED_WITH_FINDINGS` - Audit completed, issues found
-- `ERROR` - Audit could not complete (explain in description)
+<!-- END MACHINE-READABLE FINDINGS -->

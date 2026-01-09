@@ -4,51 +4,44 @@ description: Test if a selector-outside-active vulnerability is exploitable via 
 allowed-tools: Read, Glob, Grep, Bash, Write, Edit
 ---
 
-# VM2 Ghost Row Injection Attack Audit
+# VM2 Ghost Row Injection Audit Skill
 
-## When to Use This Skill
+## Overview
 
-Use this skill when:
-1. The `vm2-audit-selector-outside-active` skill found a missing implication constraint
-2. The unconstrained sub-selector fires a **PERMUTATION** (not lookup)
-3. You need to determine if the vulnerability is actually exploitable
+This skill tests if a selector-outside-active vulnerability is exploitable via ghost row injection. Use this after `vm2-audit-selector-outside-active` finds a missing implication constraint where the unconstrained sub-selector fires a **PERMUTATION** (not lookup). This is the specific attack pattern that succeeded against sstore.pil.
 
-**This skill tests the specific attack pattern that succeeded against sstore.pil.**
+## Why This is Important
 
-## The Attack Pattern
+Ghost row injection allows attackers to fire permutations from inactive rows (where `main_sel=0`) and match them with legitimate destination rows created via simulation gadgets. This bypasses the common misconception that "destination protection" (`write * (1 - sel) = 0`) prevents attacks - that constraint only prevents ghost DESTINATIONS, not ghost SOURCES matching legitimate destinations.
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    GHOST ROW INJECTION ATTACK                    │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                  │
-│  SOURCE TRACE (e.g., execution/sstore)                          │
-│  ┌─────────────────────────────────────────────────────────┐    │
-│  │ Row N: main_sel=0, sub_sel=1  ← GHOST ROW               │    │
-│  │        Fires permutation with arbitrary values           │    │
-│  └─────────────────────────────────────────────────────────┘    │
-│                           │                                      │
-│                           │ PERMUTATION                          │
-│                           ▼                                      │
-│  DESTINATION TRACE (e.g., public_data_check)                    │
-│  ┌─────────────────────────────────────────────────────────┐    │
-│  │ Row M: sel=1, dest_sel=1  ← LEGITIMATE ROW              │    │
-│  │        Created via simulation gadgets                    │    │
-│  │        All cryptographic constraints satisfied           │    │
-│  └─────────────────────────────────────────────────────────┘    │
-│                                                                  │
-│  RESULT: Permutation matches! Attack succeeds.                  │
-│                                                                  │
-└─────────────────────────────────────────────────────────────────┘
+## Audit Instructions
+
+> **Note**: PIL files exist in subdirectories (e.g., `bytecode/`, `opcodes/`). Use `find barretenberg/cpp/pil/vm2 -name "*.pil"` to list all PIL files.
+
+### Step 1: Identify the Permutation
+
+Find the permutation fired by the unconstrained sub-selector from the `selector-outside-active` finding.
+
+```bash
+# Find permutation definitions
+grep -rn "in.*{" pil/vm2/<component>.pil | grep -v lookup
 ```
 
-## Why "Destination Protection" Fails
+### Step 2: Find the Destination Trace
 
-Common misconception: "The destination has `write * (1 - sel) = 0`, so ghost rows can't match."
+Identify the destination trace and its simulation gadget in tracegen.
 
-**WRONG.** This constraint only prevents ghost DESTINATIONS (sel=0). It does NOT prevent:
-- Ghost SOURCES (source_sel=0) matching legitimate DESTINATIONS (dest_sel=1)
-- Attackers creating legitimate destination rows via simulation
+### Step 3: Verify Gadget Accepts Arbitrary Values
+
+Check if the simulation gadget can be used to create rows with attacker-controlled values.
+
+### Step 4: Analyze Blocking Factors
+
+Check for factors that might prevent the attack (CLK mismatch, START_CONDITION, cryptographic constraints).
+
+### Step 5: Document Attack Feasibility
+
+If attack succeeds: CRITICAL finding. If blocked: document the blocking factor.
 
 ## Common Blocking Factors
 
@@ -111,98 +104,71 @@ sub_selector * (1 - main_sel) = 0;
 // sub_selector forced to 0 when main_sel = 0
 ```
 
-## Checklist
+## Historical Examples
 
-- [ ] Identified the permutation fired by unconstrained sub-selector
-- [ ] Found the destination trace and simulation gadget
-- [ ] Confirmed gadget accepts arbitrary values
-- [ ] Wrote full attack test using simulation gadgets
-- [ ] Placed ghost row where clk values align
-- [ ] Ran test and confirmed attack succeeds/fails
-- [ ] If attack succeeds: documented as CRITICAL, proposed fix
-- [ ] If attack fails: documented blocking factor
+- **SSTORE Attack** - Ghost row injection succeeded against sstore.pil, allowing arbitrary storage writes
 
 ## References
 
 - Parent skill: `vm2-audit-selector-outside-active`
-- SSTORE vulnerability: `pil/vm2/claude-audits/selector-outside-active-take2/sstore-vulnerability-analysis.md`
 - SSTORE attack test: `src/barretenberg/vm2/constraining/relations/storage_write.test.cpp`
 
 ---
 
-## Required Output Format
+## REQUIRED OUTPUT FORMAT
 
-**IMPORTANT**: When running this audit skill, you MUST end your response with this standardized format.
+**IMPORTANT**: Your response MUST end with this machine-readable section.
 
-### Findings Summary
+### Summary Table
 
-At the end of your audit, provide a summary section:
-
-```markdown
-## Audit Results
-
-### Summary
 | Item | Value |
 |------|-------|
-| Skill | vm2-audit-ghost-row-injection |
-| Target | [path that was audited] |
-| Files Scanned | [number] |
-| Findings | [count by severity, e.g., "2 Critical, 1 High, 0 Medium, 0 Low"] |
-| Status | COMPLETED_WITH_FINDINGS / COMPLETED_NO_FINDINGS / ERROR |
+| Skill | `{skill-name}` |
+| Target | `{path audited}` |
+| Files Scanned | `{number}` |
+| Findings | `{e.g., "2 Critical, 1 High" or "None"}` |
+| Status | `COMPLETED_WITH_FINDINGS` / `COMPLETED_NO_FINDINGS` / `ERROR` |
 
-### Findings
+### Findings Format
 
-#### Finding vm2-audit-ghost-row-injection-[file]-[line]-[subtype] [SEVERITY]
+For each finding, include:
+- **ID**: `{skill-name}-{file}-{line}-{subtype}`
+- **Severity**: Critical / High / Medium / Low
 - **File**: `path/to/file.pil:line`
-- **Type**: [specific vulnerability type]
-- **Affected Column/Constraint**: [name]
-- **Description**: [brief description]
-- **Exploitability**: [High/Medium/Low] - [brief rationale]
-- **Suggested Fix**: [one-line fix suggestion]
+- **Description**: Brief description
+- **Fix**: One-line suggestion
 
-[Repeat for each finding]
-```
+### Machine-Readable JSON (REQUIRED)
 
-### Machine-Readable Findings
+You MUST include this exact format at the end of your response:
 
-After the human-readable summary, include a JSON block:
-
-```markdown
-<!-- MACHINE-READABLE FINDINGS (do not edit manually) -->
+<!-- MACHINE-READABLE FINDINGS -->
 ```json
 {
-  "skill": "vm2-audit-ghost-row-injection",
-  "finding_prefix": "vm2-audit-ghost-row-injection",
-  "status": "COMPLETED_WITH_FINDINGS | COMPLETED_NO_FINDINGS | ERROR",
-  "target": "pil/vm2",
-  "files_scanned": 0,
+  "skill": "{skill-name}",
+  "status": "COMPLETED_WITH_FINDINGS",
   "findings": [
     {
-      "id": "vm2-audit-ghost-row-injection-filename-line-subtype",
-      "severity": "critical|high|medium|low",
+      "id": "{skill-name}-{file}-{line}-{subtype}",
+      "severity": "critical",
       "file": "path/to/file.pil",
       "line": 123,
-      "type": "specific-vulnerability-type",
-      "column": "affected_column_name",
-      "description": "Brief description of the issue",
-      "exploitability": "high|medium|low",
+      "description": "Brief description",
+      "exploitability": "high",
       "fix": "Suggested fix"
     }
   ]
 }
 ```
 <!-- END MACHINE-READABLE FINDINGS -->
+
+For no findings, use:
+<!-- MACHINE-READABLE FINDINGS -->
+```json
+{
+  "skill": "{skill-name}",
+  "status": "COMPLETED_NO_FINDINGS",
+  "findings": []
+}
 ```
-
-### Finding ID Convention
-
-- Format: `vm2-audit-ghost-row-injection-[filename]-[line]-[subtype]`
-- Example: `vm2-audit-ghost-row-injection-alu-123-SEL`
-- Use lowercase for filename (without extension)
-- Use CAPS for subtype descriptors
-
-### Status Values
-
-- `COMPLETED_NO_FINDINGS` - Audit completed, no issues found
-- `COMPLETED_WITH_FINDINGS` - Audit completed, issues found
-- `ERROR` - Audit could not complete (explain in description)
+<!-- END MACHINE-READABLE FINDINGS -->

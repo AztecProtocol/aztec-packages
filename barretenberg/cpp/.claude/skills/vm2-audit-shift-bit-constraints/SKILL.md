@@ -10,10 +10,6 @@ allowed-tools: Read, Glob, Grep, Bash, Write, Edit
 
 This skill audits VM2/AVM PIL constraints for shift operation vulnerabilities. Shift operations (SHL, SHR) have unconstrained intermediate values when overflow is triggered, or undefined behavior for edge cases like shifting by the type width or more.
 
-**Bug Type**: Soundness
-**Severity**: High
-**Frequency**: Low
-
 ## Why This is Critical
 
 Incorrect shift constraints enable serious exploits:
@@ -120,17 +116,7 @@ pol commit a_lo;
 pol commit a_hi;
 pol commit two_pow_shift_lo_bits;  // 2^b
 pol commit overflow;
-
-// Decomposition only checked when no overflow
 #[DECOMPOSITION]
-(1 - overflow) * (a - a_lo - a_hi * two_pow_shift_lo_bits) = 0;
-
-// But two_pow_shift_lo_bits not constrained when overflow = 1!
-// Prover can set two_pow_shift_lo_bits arbitrarily
-
-// Attack: Set overflow = 1 even when b < max_bits
-// Choose two_pow_shift_lo_bits to satisfy other constraints
-// Get wrong output!
 ```
 
 ### Vulnerable Pattern: Undefined C++ Behavior
@@ -154,10 +140,7 @@ sel_shift { b, two_pow_shift_lo_bits } in pow2_table.sel { pow2_table.exp, pow2_
 // SECURE: Constrain when claiming no overflow
 #[TWO_POW_ON_NO_OVERFLOW]
 (1 - overflow) { b, two_pow_shift_lo_bits } in pow2_table.sel { pow2_table.exp, pow2_table.value };
-
-// AND constrain that overflow is correct
 #[OVERFLOW_CORRECT]
-// overflow = 1 iff b >= max_bits (proper zero-check pattern)
 ```
 
 ### Secure Pattern: Handle C++ Edge Cases
@@ -227,137 +210,10 @@ return value >> shift_amount;
 ```
 **Impact**: Inconsistent simulation results.
 
-## Audit Checklist
-
-1. **Find all shift operations**:
-   - [ ] SHL (shift left)
-   - [ ] SHR (shift right)
-   - [ ] Any other shift variants
-
-2. **For each shift, verify intermediates constrained**:
-   - [ ] `two_pow_shift_lo_bits` constrained (lookup to power-of-2 table)
-   - [ ] `a_lo`, `a_hi` range checked
-   - [ ] Constrained in overflow AND non-overflow cases
-
-3. **Check overflow detection**:
-   - [ ] Overflow indicator is boolean
-   - [ ] Overflow = 1 iff shift amount >= type bits
-   - [ ] Uses proper zero-check pattern
-
-4. **Verify result on overflow**:
-   - [ ] SHR with overflow: result = 0
-   - [ ] SHL with overflow: result = 0
-
-5. **Check edge cases**:
-   - [ ] Shift by 0 handled
-   - [ ] Shift by type width handled
-   - [ ] Shift by > type width handled
-
-6. **Check tracegen/simulation**:
-   - [ ] No undefined C++ behavior
-   - [ ] Consistent edge case handling
-
-## Fix Pattern
-
-```pil
-// Constrain two_pow_shift_lo_bits via lookup
-#[TWO_POW_SHIFT]
-sel_shift { b, two_pow_shift_lo_bits } in pow2.sel { pow2.exp, pow2.value };
-
-// Or constrain overflow correctly
-#[OVERFLOW_IFF_B_GE_MAX]
-// Using zero-check pattern on (max_bits - b - 1)
-// overflow = 1 iff (max_bits - 1 - b) < 0, i.e., b >= max_bits
-```
-
-## Common Locations to Audit
-
-Shift constraints are critical in:
-- **ALU**: `alu.pil` - main shift operations
-- **Simulation**: `barretenberg/cpp/src/barretenberg/vm2/simulation/alu.cpp`
-- **Tracegen**: `barretenberg/cpp/src/barretenberg/vm2/tracegen/alu_trace.cpp`
-
 ## References
 
-- [Detailed Skill Documentation](../../../pil/vm2/claude-skills/18-shift-bit-constraints.md)
-- [Zero-Check Violations Skill](../vm2-audit-zero-check/SKILL.md)
-- [Range Check Overflow Skill](../vm2-audit-range-check-overflow/SKILL.md)
+- See PR history for examples
 
 ---
 
-## Required Output Format
-
-**IMPORTANT**: When running this audit skill, you MUST end your response with this standardized format.
-
-### Findings Summary
-
-At the end of your audit, provide a summary section:
-
-```markdown
-## Audit Results
-
-### Summary
-| Item | Value |
-|------|-------|
-| Skill | vm2-audit-shift-bit-constraints |
-| Target | [path that was audited] |
-| Files Scanned | [number] |
-| Findings | [count by severity, e.g., "2 Critical, 1 High, 0 Medium, 0 Low"] |
-| Status | COMPLETED_WITH_FINDINGS / COMPLETED_NO_FINDINGS / ERROR |
-
-### Findings
-
-#### Finding vm2-audit-shift-bit-constraints-[file]-[line]-[subtype] [SEVERITY]
-- **File**: `path/to/file.pil:line`
-- **Type**: [specific vulnerability type]
-- **Affected Column/Constraint**: [name]
-- **Description**: [brief description]
-- **Exploitability**: [High/Medium/Low] - [brief rationale]
-- **Suggested Fix**: [one-line fix suggestion]
-
-[Repeat for each finding]
-```
-
-### Machine-Readable Findings
-
-After the human-readable summary, include a JSON block:
-
-```markdown
-<!-- MACHINE-READABLE FINDINGS (do not edit manually) -->
-```json
-{
-  "skill": "vm2-audit-shift-bit-constraints",
-  "finding_prefix": "vm2-audit-shift-bit-constraints",
-  "status": "COMPLETED_WITH_FINDINGS | COMPLETED_NO_FINDINGS | ERROR",
-  "target": "pil/vm2",
-  "files_scanned": 0,
-  "findings": [
-    {
-      "id": "vm2-audit-shift-bit-constraints-filename-line-subtype",
-      "severity": "critical|high|medium|low",
-      "file": "path/to/file.pil",
-      "line": 123,
-      "type": "specific-vulnerability-type",
-      "column": "affected_column_name",
-      "description": "Brief description of the issue",
-      "exploitability": "high|medium|low",
-      "fix": "Suggested fix"
-    }
-  ]
-}
-```
-<!-- END MACHINE-READABLE FINDINGS -->
-```
-
-### Finding ID Convention
-
-- Format: `vm2-audit-shift-bit-constraints-[filename]-[line]-[subtype]`
-- Example: `vm2-audit-shift-bit-constraints-alu-123-SEL`
-- Use lowercase for filename (without extension)
-- Use CAPS for subtype descriptors
-
-### Status Values
-
-- `COMPLETED_NO_FINDINGS` - Audit completed, no issues found
-- `COMPLETED_WITH_FINDINGS` - Audit completed, issues found
-- `ERROR` - Audit could not complete (explain in description)
+**Output Format**: See [_shared/OUTPUT_FORMAT.md](../_shared/OUTPUT_FORMAT.md) for required output structure.

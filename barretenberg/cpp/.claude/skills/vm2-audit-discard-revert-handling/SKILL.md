@@ -10,11 +10,7 @@ allowed-tools: Read, Glob, Grep, Bash, Write, Edit
 
 This skill audits VM2/AVM PIL constraints for discard/revert flag handling. The `discard` flag indicates that a context or its ancestor has failed, and side effects should not be committed. Missing or incorrect handling allows side effects from reverted transactions to persist.
 
-**Bug Type**: Soundness
-**Severity**: High
-**Frequency**: Medium
-
-## Why This is Critical
+## Why This is Important
 
 Missing discard gating allows reverted state to persist:
 - **Nullifiers from reverted calls persist**: Double-spend protection broken
@@ -156,7 +152,6 @@ sel_failure * (1 - discard') = 0;
 pol commit should_emit;
 #[EMIT_OPERATION]
 should_emit { data } permute emit_trace.sel { emit_trace.data };
-// Emission happens even when discard = 1!
 ```
 
 ### Vulnerable Pattern: Count Updated Without Discard Check
@@ -166,7 +161,6 @@ should_emit { data } permute emit_trace.sel { emit_trace.data };
 pol commit num_emissions;
 #[UPDATE_COUNT]
 sel * (num_emissions' - num_emissions - should_emit) = 0;
-// Count increments even on discarded operations!
 ```
 
 ### Vulnerable Pattern: Missing Discard in Tuple
@@ -175,7 +169,6 @@ sel * (num_emissions' - num_emissions - should_emit) = 0;
 // VULNERABLE: Interaction missing discard field
 #[END_CALL]
 sel { context_id, success } in tx.sel { tx.context_id, tx.success };
-// Missing: discard! Can manipulate discard independently
 ```
 
 ### Secure Pattern: Gate Side Effects
@@ -243,141 +236,62 @@ row.tx_should_l2_l1_msg_append = should_append && !discard;
 ```
 **Impact**: Could discard rows before failing nested call.
 
-## Audit Checklist
-
-1. **Identify all side-effect operations**:
-   - [ ] Note hash emissions
-   - [ ] Nullifier emissions
-   - [ ] L2-to-L1 messages
-   - [ ] Storage writes
-   - [ ] Log emissions
-
-2. **For each side effect, verify discard gating**:
-   - [ ] `pol GATED = raw_selector * (1 - discard);`
-   - [ ] Interaction uses gated selector
-
-3. **Check count/accumulator updates**:
-   - [ ] All increments gated by `(1 - discard)`
-   - [ ] Final counts match committed operations
-
-4. **Verify discard propagation**:
-   - [ ] Discard propagates to child contexts
-   - [ ] Discard clears on resolution
-   - [ ] `dying_context_id` tracked correctly
-
-5. **Check interaction tuples**:
-   - [ ] Discard field included where relevant
-   - [ ] Interactions distinguish discarded vs non-discarded
-
-6. **Review tracegen for discard handling**:
-   - [ ] Columns set correctly when `discard = 1`
-   - [ ] Events gated by discard check
-
-## Fix Pattern
-
-```pil
-// Gate selector by (1 - discard)
-pol RAW_SHOULD_EMIT = operation_selector * condition;
-pol SHOULD_EMIT = RAW_SHOULD_EMIT * (1 - discard);
-
-#[EMIT_OPERATION]
-SHOULD_EMIT { ... } permute dest.sel { ... };
-
-// Gate count update
-#[UPDATE_COUNT]
-sel * (count' - count - RAW_SHOULD_EMIT * (1 - discard)) = 0;
-```
-
-## Common Locations to Audit
-
-Discard handling is critical in:
-- **Transaction**: `tx.pil` - all side effect counters
-- **Execution**: `execution.pil` - operation dispatch
-- **Opcodes**: `emit_notehash.pil`, `emit_nullifier.pil`, `send_l2_to_l1_msg.pil`, `sstore.pil`
-- **Logs**: `emit_unencrypted_log.pil`
-- **Call handling**: `external_call.pil`, `internal_call.pil`
-
-## References
-
-- [Detailed Skill Documentation](../../../pil/vm2/claude-skills/11-discard-revert-handling.md)
-- [Missing Error Gating Skill](../vm2-audit-missing-error-gating/SKILL.md)
-- [Interaction Tuple Completeness Skill](../vm2-audit-interaction-tuple-completeness/SKILL.md)
-
 ---
 
-## Required Output Format
+## REQUIRED OUTPUT FORMAT
 
-**IMPORTANT**: When running this audit skill, you MUST end your response with this standardized format.
+**IMPORTANT**: Your response MUST end with this machine-readable section.
 
-### Findings Summary
+### Summary Table
 
-At the end of your audit, provide a summary section:
-
-```markdown
-## Audit Results
-
-### Summary
 | Item | Value |
 |------|-------|
-| Skill | vm2-audit-discard-revert-handling |
-| Target | [path that was audited] |
-| Files Scanned | [number] |
-| Findings | [count by severity, e.g., "2 Critical, 1 High, 0 Medium, 0 Low"] |
-| Status | COMPLETED_WITH_FINDINGS / COMPLETED_NO_FINDINGS / ERROR |
+| Skill | `{skill-name}` |
+| Target | `{path audited}` |
+| Files Scanned | `{number}` |
+| Findings | `{e.g., "2 Critical, 1 High" or "None"}` |
+| Status | `COMPLETED_WITH_FINDINGS` / `COMPLETED_NO_FINDINGS` / `ERROR` |
 
-### Findings
+### Findings Format
 
-#### Finding vm2-audit-discard-revert-handling-[file]-[line]-[subtype] [SEVERITY]
+For each finding, include:
+- **ID**: `{skill-name}-{file}-{line}-{subtype}`
+- **Severity**: Critical / High / Medium / Low
 - **File**: `path/to/file.pil:line`
-- **Type**: [specific vulnerability type]
-- **Affected Column/Constraint**: [name]
-- **Description**: [brief description]
-- **Exploitability**: [High/Medium/Low] - [brief rationale]
-- **Suggested Fix**: [one-line fix suggestion]
+- **Description**: Brief description
+- **Fix**: One-line suggestion
 
-[Repeat for each finding]
-```
+### Machine-Readable JSON (REQUIRED)
 
-### Machine-Readable Findings
+You MUST include this exact format at the end of your response:
 
-After the human-readable summary, include a JSON block:
-
-```markdown
-<!-- MACHINE-READABLE FINDINGS (do not edit manually) -->
+<!-- MACHINE-READABLE FINDINGS -->
 ```json
 {
-  "skill": "vm2-audit-discard-revert-handling",
-  "finding_prefix": "vm2-audit-discard-revert-handling",
-  "status": "COMPLETED_WITH_FINDINGS | COMPLETED_NO_FINDINGS | ERROR",
-  "target": "pil/vm2",
-  "files_scanned": 0,
+  "skill": "{skill-name}",
+  "status": "COMPLETED_WITH_FINDINGS",
   "findings": [
     {
-      "id": "vm2-audit-discard-revert-handling-filename-line-subtype",
-      "severity": "critical|high|medium|low",
+      "id": "{skill-name}-{file}-{line}-{subtype}",
+      "severity": "critical",
       "file": "path/to/file.pil",
       "line": 123,
-      "type": "specific-vulnerability-type",
-      "column": "affected_column_name",
-      "description": "Brief description of the issue",
-      "exploitability": "high|medium|low",
+      "description": "Brief description",
+      "exploitability": "high",
       "fix": "Suggested fix"
     }
   ]
 }
 ```
 <!-- END MACHINE-READABLE FINDINGS -->
+
+For no findings, use:
+<!-- MACHINE-READABLE FINDINGS -->
+```json
+{
+  "skill": "{skill-name}",
+  "status": "COMPLETED_NO_FINDINGS",
+  "findings": []
+}
 ```
-
-### Finding ID Convention
-
-- Format: `vm2-audit-discard-revert-handling-[filename]-[line]-[subtype]`
-- Example: `vm2-audit-discard-revert-handling-alu-123-SEL`
-- Use lowercase for filename (without extension)
-- Use CAPS for subtype descriptors
-
-### Status Values
-
-- `COMPLETED_NO_FINDINGS` - Audit completed, no issues found
-- `COMPLETED_WITH_FINDINGS` - Audit completed, issues found
-- `ERROR` - Audit could not complete (explain in description)
+<!-- END MACHINE-READABLE FINDINGS -->
