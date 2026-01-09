@@ -116,46 +116,6 @@ Review the corresponding tracegen/simulation code to verify:
 grep -rn "inverse\|inv =\|is_zero\|eq =" barretenberg/cpp/src/barretenberg/vm2/tracegen/<component>*.cpp
 ```
 
-### Step 5: Write Negative Tests
-
-Test both directions of the zero-check:
-
-```cpp
-TEST_F(ComponentTest, NegativeFakeZeroCheck)
-{
-    // Try to claim x = 0 when x != 0
-    auto trace = TestTraceContainer({
-        {{ C::x, 5 },          // x is not zero
-         { C::e, 1 },          // Claiming x = 0 (INVALID)
-         { C::inv, 0 }},       // Some inverse
-    });
-
-    EXPECT_THROW_WITH_MESSAGE(
-        check_relation<ComponentRelation>(trace),
-        "ZERO_CHECK"
-    );
-}
-
-TEST_F(ComponentTest, NegativeFakeNonZero)
-{
-    // Try to claim x != 0 when x = 0
-    auto trace = TestTraceContainer({
-        {{ C::x, 0 },          // x is zero
-         { C::e, 0 },          // Claiming x != 0 (INVALID)
-         { C::inv, 1 }},       // Some inverse
-    });
-
-    EXPECT_THROW_WITH_MESSAGE(
-        check_relation<ComponentRelation>(trace),
-        "ZERO_CHECK"
-    );
-}
-```
-
-**Interpretation**:
-- **Test passes (no exception)**: Zero-check NOT enforced - exploitable bug
-- **Test fails (throws)**: Constraint catches it - working correctly
-
 ## Vulnerable Patterns
 
 ### Pattern 1: Missing Boolean Constraint
@@ -299,22 +259,6 @@ is_eq * (1 - is_eq) = 0;
    - One-checks (is x == 1?)
    - Arbitrary equality (is a == b?)
    - These are all zero-checks in disguise (check x-1 or a-b)
-
-## Build and Test Commands
-
-```bash
-# Regenerate C++ from PIL
-vmp  # or: ../../bb-pilcom/target/release/bb_pil pil/vm2
-
-# Build VM2 tests
-vmb  # or: cmake --preset build && cd build && ninja vm2_tests
-
-# Run all VM2 tests
-vmt  # or: ./build/bin/vm2_tests
-
-# Run specific component test
-vmtg "ComponentConstraining*"
-```
 
 ## Common Locations for Zero-Checks
 

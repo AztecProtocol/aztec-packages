@@ -236,57 +236,6 @@ auto index = transcript.branch();  // Wrong index!
 ```
 **Impact**: Challenges derived from wrong state.
 
-## Test Patterns
-
-### Test 1: VK in Transcript
-
-```cpp
-TEST_F(TranscriptTest, VKInTranscript)
-{
-    // Create two proofs with different VKs
-    auto proof1 = prove(vk1, witness);
-    auto proof2 = prove(vk2, witness);
-
-    // If VK in transcript, proofs should have different challenges
-    EXPECT_NE(proof1.challenge, proof2.challenge);
-}
-```
-
-### Test 2: Public Inputs in Transcript
-
-```cpp
-TEST_F(TranscriptTest, PublicInputsInTranscript)
-{
-    // Create proof
-    auto proof = prove(vk, witness, public_inputs);
-
-    // Modify public inputs
-    auto modified_inputs = public_inputs;
-    modified_inputs[0] = different_value;
-
-    // Verification with wrong inputs should fail
-    EXPECT_FALSE(verify(vk, proof, modified_inputs));
-}
-```
-
-### Test 3: Challenge Independence
-
-```cpp
-TEST_F(TranscriptTest, ChallengeNotProverControlled)
-{
-    // Verify challenge is derived from transcript
-    // Not passed from prover
-    auto prover_transcript = create_prover_transcript();
-    auto verifier_transcript = create_verifier_transcript();
-
-    // After same commitments, challenges should match
-    EXPECT_EQ(
-        prover_transcript.get_challenge("alpha"),
-        verifier_transcript.get_challenge("alpha")
-    );
-}
-```
-
 ## Audit Checklist
 
 1. **Verify VK commitment**:
@@ -358,19 +307,6 @@ auto witness = builder.add_variable(value);
 auto witness = builder.add_variable(value);
 builder.create_range_constraint(witness, num_bits);
 // Or derive from constrained values
-```
-
-## Build and Test Commands
-
-```bash
-# Build tests
-cmake --preset build && cd build && ninja
-
-# Run transcript tests
-./bin/transcript_tests
-
-# Run prover/verifier tests
-./bin/ultra_honk_tests
 ```
 
 ## Common Locations to Audit
