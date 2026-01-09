@@ -45,12 +45,12 @@ class MultilinearBatchingProvingKey {
     {
         BB_BENCH_NAME("MultilinearBatchingProvingKey(ProverPolynomials&)");
 
+        circuit_size = polynomials.get_polynomial_size();
         proving_key = std::make_shared<ProvingKey>(std::move(polynomials),
                                                    std::move(accumulator_challenge),
                                                    std::move(instance_challenge),
                                                    std::move(accumulator_evaluations),
                                                    std::move(instance_evaluations));
-        circuit_size = polynomials.get_polynomial_size();
         this->non_shifted_accumulator_commitment = non_shifted_accumulator_commitment;
         this->shifted_accumulator_commitment = shifted_accumulator_commitment;
         this->non_shifted_instance_commitment = non_shifted_instance_commitment;
