@@ -31,10 +31,10 @@ TYPED_TEST_SUITE(FieldTest, AllFieldTypes);
 
 TYPED_TEST(FieldTest, ZeroIsAdditiveIdentity)
 {
-    using F = TypeParam;
+    using FF = TypeParam;
 
-    F a = F::random_element();
-    F zero = F::zero();
+    FF a = FF::random_element();
+    FF zero = FF::zero();
 
     EXPECT_EQ(a + zero, a);
     EXPECT_EQ(zero + a, a);
@@ -42,10 +42,10 @@ TYPED_TEST(FieldTest, ZeroIsAdditiveIdentity)
 
 TYPED_TEST(FieldTest, OneIsMultiplicativeIdentity)
 {
-    using F = TypeParam;
+    using FF = TypeParam;
 
-    F a = F::random_element();
-    F one = F::one();
+    FF a = FF::random_element();
+    FF one = FF::one();
 
     EXPECT_EQ(a * one, a);
     EXPECT_EQ(one * a, a);
@@ -53,11 +53,11 @@ TYPED_TEST(FieldTest, OneIsMultiplicativeIdentity)
 
 TYPED_TEST(FieldTest, IsZero)
 {
-    using F = TypeParam;
+    using FF = TypeParam;
 
-    F zero = F::zero();
-    F one = F::one();
-    F random = F::random_element();
+    FF zero = FF::zero();
+    FF one = FF::one();
+    FF random = FF::random_element();
 
     EXPECT_TRUE(zero.is_zero());
     EXPECT_FALSE(one.is_zero());
@@ -70,23 +70,23 @@ TYPED_TEST(FieldTest, IsZero)
 
 TYPED_TEST(FieldTest, AdditionCommutative)
 {
-    using F = TypeParam;
+    using FF = TypeParam;
 
-    F a = F::random_element();
-    F b = F::random_element();
+    FF a = FF::random_element();
+    FF b = FF::random_element();
 
     EXPECT_EQ(a + b, b + a);
 }
 
 TYPED_TEST(FieldTest, AdditionAssociative)
 {
-    using F = TypeParam;
+    using FF = TypeParam;
 
-    F a = F::random_element();
-    F b = F::random_element();
-    F c = F::random_element();
-    F a_plus_b = a + b;
-    F b_plus_c = b + c;
+    FF a = FF::random_element();
+    FF b = FF::random_element();
+    FF c = FF::random_element();
+    FF a_plus_b = a + b;
+    FF b_plus_c = b + c;
 
     EXPECT_EQ(a_plus_b + c, a + b_plus_c);
 }
@@ -97,41 +97,41 @@ TYPED_TEST(FieldTest, AdditionAssociative)
 
 TYPED_TEST(FieldTest, SubtractionIsAdditionOfNegation)
 {
-    using F = TypeParam;
+    using FF = TypeParam;
 
-    F a = F::random_element();
-    F b = F::random_element();
-    F neg_b = -b;
+    FF a = FF::random_element();
+    FF b = FF::random_element();
+    FF neg_b = -b;
 
     EXPECT_EQ(a - b, a + neg_b);
 }
 
 TYPED_TEST(FieldTest, NegationCancels)
 {
-    using F = TypeParam;
+    using FF = TypeParam;
 
-    F a = F::random_element();
-    F neg_a = -a;
-    F result = a + neg_a;
+    FF a = FF::random_element();
+    FF neg_a = -a;
+    FF result = a + neg_a;
 
-    EXPECT_EQ(result, F::zero());
+    EXPECT_EQ(result, FF::zero());
 }
 
 TYPED_TEST(FieldTest, NegationOfZero)
 {
-    using F = TypeParam;
+    using FF = TypeParam;
 
-    F zero = F::zero();
-    F neg_zero = -zero;
+    FF zero = FF::zero();
+    FF neg_zero = -zero;
 
     EXPECT_EQ(zero, neg_zero);
 }
 
 TYPED_TEST(FieldTest, DoubleNegation)
 {
-    using F = TypeParam;
+    using FF = TypeParam;
 
-    F a = F::random_element();
+    FF a = FF::random_element();
     EXPECT_EQ(-(-a), a);
 }
 
@@ -141,45 +141,45 @@ TYPED_TEST(FieldTest, DoubleNegation)
 
 TYPED_TEST(FieldTest, MultiplicationCommutative)
 {
-    using F = TypeParam;
+    using FF = TypeParam;
 
-    F a = F::random_element();
-    F b = F::random_element();
+    FF a = FF::random_element();
+    FF b = FF::random_element();
 
     EXPECT_EQ(a * b, b * a);
 }
 
 TYPED_TEST(FieldTest, MultiplicationAssociative)
 {
-    using F = TypeParam;
+    using FF = TypeParam;
 
-    F a = F::random_element();
-    F b = F::random_element();
-    F c = F::random_element();
+    FF a = FF::random_element();
+    FF b = FF::random_element();
+    FF c = FF::random_element();
 
     EXPECT_EQ((a * b) * c, a * (b * c));
 }
 
 TYPED_TEST(FieldTest, MultiplicationDistributive)
 {
-    using F = TypeParam;
+    using FF = TypeParam;
 
-    F a = F::random_element();
-    F b = F::random_element();
-    F c = F::random_element();
+    FF a = FF::random_element();
+    FF b = FF::random_element();
+    FF c = FF::random_element();
 
     EXPECT_EQ(a * (b + c), (a * b) + (a * c));
 }
 
 TYPED_TEST(FieldTest, MulByZero)
 {
-    using F = TypeParam;
+    using FF = TypeParam;
 
-    F a = F::random_element();
-    F zero = F::zero();
+    FF a = FF::random_element();
+    FF zero = FF::zero();
 
-    EXPECT_EQ(a * zero, F::zero());
-    EXPECT_EQ(zero * a, F::zero());
+    EXPECT_EQ(a * zero, FF::zero());
+    EXPECT_EQ(zero * a, FF::zero());
 }
 
 // ================================
@@ -188,25 +188,25 @@ TYPED_TEST(FieldTest, MulByZero)
 
 TYPED_TEST(FieldTest, SquaringMatchesMultiplication)
 {
-    using F = TypeParam;
+    using FF = TypeParam;
 
-    F a = F::random_element();
-    F sqr_result = a.sqr();
-    F mul_result = a * a;
+    FF a = FF::random_element();
+    FF sqr_result = a.sqr();
+    FF mul_result = a * a;
 
     EXPECT_EQ(sqr_result, mul_result);
 }
 
 TYPED_TEST(FieldTest, DifferenceOfSquares)
 {
-    using F = TypeParam;
+    using FF = TypeParam;
 
     // (a - b)(a + b) = a² - b²
-    F a = F::random_element();
-    F b = F::random_element();
+    FF a = FF::random_element();
+    FF b = FF::random_element();
 
-    F lhs = (a - b) * (a + b);
-    F rhs = a.sqr() - b.sqr();
+    FF lhs = (a - b) * (a + b);
+    FF rhs = a.sqr() - b.sqr();
 
     EXPECT_EQ(lhs, rhs);
 }
@@ -217,30 +217,30 @@ TYPED_TEST(FieldTest, DifferenceOfSquares)
 
 TYPED_TEST(FieldTest, InverseProperty)
 {
-    using F = TypeParam;
+    using FF = TypeParam;
 
-    F a = F::random_element();
-    F a_inv = a.invert();
-    F result = a * a_inv;
+    FF a = FF::random_element();
+    FF a_inv = a.invert();
+    FF result = a * a_inv;
 
-    EXPECT_EQ(result, F::one());
+    EXPECT_EQ(result, FF::one());
 }
 
 TYPED_TEST(FieldTest, InvertOneIsOne)
 {
-    using F = TypeParam;
+    using FF = TypeParam;
 
-    F one = F::one();
-    F result = one.invert();
-    EXPECT_EQ(result, F::one());
+    FF one = FF::one();
+    FF result = one.invert();
+    EXPECT_EQ(result, FF::one());
 }
 
 TYPED_TEST(FieldTest, DoubleInverse)
 {
-    using F = TypeParam;
+    using FF = TypeParam;
 
-    F a = F::random_element();
-    F a_inv_inv = a.invert().invert();
+    FF a = FF::random_element();
+    FF a_inv_inv = a.invert().invert();
 
     EXPECT_EQ(a_inv_inv, a);
 }
@@ -251,10 +251,10 @@ TYPED_TEST(FieldTest, DoubleInverse)
 
 TYPED_TEST(FieldTest, SelfNeg)
 {
-    using F = TypeParam;
+    using FF = TypeParam;
 
-    F a = F::random_element();
-    F a_copy = a;
+    FF a = FF::random_element();
+    FF a_copy = a;
 
     a_copy.self_neg();
     EXPECT_EQ(a_copy, -a);
@@ -262,11 +262,11 @@ TYPED_TEST(FieldTest, SelfNeg)
 
 TYPED_TEST(FieldTest, OperatorPlusEquals)
 {
-    using F = TypeParam;
+    using FF = TypeParam;
 
-    F a = F::random_element();
-    F b = F::random_element();
-    F expected = a + b;
+    FF a = FF::random_element();
+    FF b = FF::random_element();
+    FF expected = a + b;
 
     a += b;
     EXPECT_EQ(a, expected);
@@ -274,11 +274,11 @@ TYPED_TEST(FieldTest, OperatorPlusEquals)
 
 TYPED_TEST(FieldTest, OperatorMinusEquals)
 {
-    using F = TypeParam;
+    using FF = TypeParam;
 
-    F a = F::random_element();
-    F b = F::random_element();
-    F expected = a - b;
+    FF a = FF::random_element();
+    FF b = FF::random_element();
+    FF expected = a - b;
 
     a -= b;
     EXPECT_EQ(a, expected);
@@ -286,11 +286,11 @@ TYPED_TEST(FieldTest, OperatorMinusEquals)
 
 TYPED_TEST(FieldTest, OperatorTimesEquals)
 {
-    using F = TypeParam;
+    using FF = TypeParam;
 
-    F a = F::random_element();
-    F b = F::random_element();
-    F expected = a * b;
+    FF a = FF::random_element();
+    FF b = FF::random_element();
+    FF expected = a * b;
 
     a *= b;
     EXPECT_EQ(a, expected);
@@ -298,10 +298,10 @@ TYPED_TEST(FieldTest, OperatorTimesEquals)
 
 TYPED_TEST(FieldTest, SelfSqr)
 {
-    using F = TypeParam;
+    using FF = TypeParam;
 
-    F a = F::random_element();
-    F expected = a.sqr();
+    FF a = FF::random_element();
+    FF expected = a.sqr();
 
     a.self_sqr();
     EXPECT_EQ(a, expected);
@@ -313,31 +313,31 @@ TYPED_TEST(FieldTest, SelfSqr)
 
 TYPED_TEST(FieldTest, AddMulConsistency)
 {
-    using F = TypeParam;
+    using FF = TypeParam;
 
     // a + a + a should equal 3a (verified via repeated addition on both sides)
-    F a = F::random_element();
-    F sum = a + a + a;
+    FF a = FF::random_element();
+    FF sum = a + a + a;
 
     // Build "3" as one + one + one to avoid integer constructors, which do not exist in our implementation of extension
     // fields.
-    F three = F::one() + F::one() + F::one();
-    F product = a * three;
+    FF three = FF::one() + FF::one() + FF::one();
+    FF product = a * three;
 
     EXPECT_EQ(sum, product);
 }
 
 TYPED_TEST(FieldTest, SubMulConsistency)
 {
-    using F = TypeParam;
+    using FF = TypeParam;
 
     // 4a - a = 3a
-    F a = F::random_element();
-    F four_a = a + a + a + a;
-    F result = four_a - a;
+    FF a = FF::random_element();
+    FF four_a = a + a + a + a;
+    FF result = four_a - a;
 
-    F three = F::one() + F::one() + F::one();
-    F expected = a * three;
+    FF three = FF::one() + FF::one() + FF::one();
+    FF expected = a * three;
 
     EXPECT_EQ(result, expected);
 }
