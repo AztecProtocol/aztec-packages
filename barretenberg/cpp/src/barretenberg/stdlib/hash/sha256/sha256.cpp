@@ -174,8 +174,8 @@ std::array<field_t<Builder>, 64> SHA256<Builder>::extend_witness(const std::arra
             field_pt w_out_raw_inv_pow_two = w_out_raw * inv_pow_two;
             field_pt w_out_inv_pow_two = w_out * inv_pow_two;
             field_pt divisor = w_out_raw_inv_pow_two - w_out_inv_pow_two;
-            // Sum of four 32-bit values: divisor ∈ {0,1,2,3}.
-            divisor.create_range_constraint(2);
+            // Sum of four 32-bit values: divisor ≤ 3.
+            divisor.create_range_constraint(/*num_bits=*/2);
         }
 
         w_sparse[i] = sparse_witness_limbs(w_out);
@@ -456,7 +456,7 @@ std::array<field_t<Builder>, 8> SHA256<Builder>::sha256_block(const std::array<f
     // explicitly range-constrained. (Within the compression loop, lookup tables provide
     // implicit 32-bit constraints on add_normalize outputs.)
     for (size_t i = 0; i < 8; i++) {
-        output[i].create_range_constraint(32);
+        output[i].create_range_constraint(/*num_bits=*/32);
     }
 
     return output;
