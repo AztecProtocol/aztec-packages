@@ -10,11 +10,7 @@ allowed-tools: Read, Glob, Grep, Bash, Write, Edit
 
 This skill audits VM2/AVM PIL constraints for selector under-constraint outside active rows. Selectors that should only be active when the main trace selector `sel = 1` can be toggled on inactive rows (`sel = 0`), allowing a malicious prover to activate features or operations outside the valid trace.
 
-**Bug Type**: Soundness
-**Severity**: Critical (if exploitable), Low (if mitigated by interaction graph)
-**Frequency**: High
-
-## Why This is Critical
+## Why This is Important
 
 Unconstrained sub-selectors on inactive rows enable "ghost" operations:
 - **Insert extra operations**: Memory writes, state changes outside legitimate trace
@@ -134,9 +130,6 @@ grep -rn "pol [A-Z_]* = sel \*" barretenberg/cpp/pil/vm2/ --include="*.pil"
 // VULNERABLE: Selector is boolean but doesn't require sel = 1
 pol commit selector_col;
 selector_col * (1 - selector_col) = 0;  // Boolean OK
-// Missing: selector_col * (1 - sel) = 0;
-
-// On row where sel = 0, prover can set selector_col = 1!
 ```
 
 ### Vulnerable Pattern: Gated Boolean Without Force-Zero
@@ -144,7 +137,6 @@ selector_col * (1 - selector_col) = 0;  // Boolean OK
 ```pil
 // VULNERABLE: Boolean only checked when sel = 1
 sel * sub_sel * (1 - sub_sel) = 0;
-// When sel = 0, sub_sel is completely unconstrained!
 ```
 
 ### Secure Pattern: Explicit Implication
@@ -174,7 +166,6 @@ selector_col * (1 - sel) = 0;  // Force to 0 when sel = 0
 ```pil
 // SECURE Option 3: Define selector as derived
 pol SELECTOR = sel * some_condition;  // Always 0 when sel = 0
-// No separate constraint needed - inherently safe
 ```
 
 ## Historical Examples
@@ -243,46 +234,6 @@ sel_execute_sstore * ((1 - sel_opcode_error) - sel_write_public_data) = 0;
 **Test**: `storage_write.test.cpp:NegativeFullAttackWithAllTraces`
 **Fix**: Add `sel_write_public_data * (1 - sel_execute_sstore) = 0`
 
-## Audit Checklist
-
-1. **Identify all sub-selectors**:
-   - [ ] `sel_*` selectors
-   - [ ] `is_*` flags
-   - [ ] `should_*` flags
-   - [ ] `has_*` flags
-   - [ ] `*_op` operation selectors
-
-2. **For each sub-selector, check one of**:
-   - [ ] Has constraint: `sub_selector * (1 - sel) = 0`
-   - [ ] Is defined as: `pol SUB_SEL = sel * condition`
-   - [ ] Is constrained via lookup that requires `sel = 1`
-
-3. **Check boolean constraints are gated properly**:
-   - [ ] If `sel * sub_sel * (1 - sub_sel) = 0` exists
-   - [ ] Then `sub_sel * (1 - sel) = 0` must also exist
-
-4. **Trace what happens on inactive rows**:
-   - [ ] Can the selector be set to 1?
-   - [ ] What constraints would still apply?
-   - [ ] What interactions would fire?
-
-5. **CRITICAL: For permutation sources, check if attack is possible**:
-   - [ ] Does the sub-selector fire a PERMUTATION (not lookup)?
-   - [ ] Can the destination trace be legitimately populated? (simulation gadgets exist?)
-   - [ ] Can the attacker align clk values for the permutation to match?
-   - [ ] If YES to all: **CRITICAL vulnerability** - write a full attack test!
-   - [ ] "Destination protection" like `write * (1-sel) = 0` is NOT sufficient!
-
-6. **Check canonical tracegen** (before flagging completeness issues):
-   - [ ] Does tracegen use sparse storage (TraceContainer)?
-   - [ ] Does it only set values within event iteration loops?
-   - [ ] Are inactive rows left unset (defaulting to 0)?
-   - [ ] Do ungated constraints evaluate to 0 when all columns are 0?
-
-7. **Verify derived selectors are safe**:
-   - [ ] Defined as `pol NAME = sel * condition`
-   - [ ] Inherently 0 when `sel = 0`
-
 ## Exploitability Analysis
 
 After finding missing constraints, assess whether they're actually exploitable:
@@ -297,19 +248,9 @@ A sophisticated attacker (malicious prover) controls ALL trace values. For permu
 3. Destination constraints like `write * (1 - sel) = 0` only prevent ghost DESTINATIONS
 4. They do NOT prevent ghost SOURCES matching legitimate DESTINATIONS
 
-**The sstore.pil vulnerability (2024)** demonstrated this:
-- Ghost sstore row: `sel_execute_sstore=0, sel_write_public_data=1`
-- Legitimate public_data_check row: `sel=1, non_protocol_write=1` (created via simulation)
-- The STORAGE_WRITE permutation matched: 1 ghost source = 1 legitimate destination
-- **Attack succeeded**: arbitrary storage writes possible
+See **Example 5 (SSTORE)** above for a real attack demonstrating this.
 
-**Key Question**: Can the attacker populate the destination trace with rows that match the ghost source's permutation tuple?
-
-For most traces, the answer is YES because:
-- Simulation gadgets can create valid events with arbitrary values
-- Trace builders convert events to trace rows
-- Cryptographic constraints (Poseidon2, Merkle) are satisfied by the simulation
-- The attacker just needs to align clk/row values for the permutation to match
+**Key Question**: Can the attacker populate the destination trace with rows that match the ghost source's permutation tuple? For most traces, YES - simulation gadgets create valid events with arbitrary values, and the attacker just needs to align clk/row values.
 
 ### Step 1: Check Canonical Tracegen Behavior
 
@@ -374,108 +315,62 @@ The key question for permutations: **Can the attacker create legitimate destinat
 - If YES (simulation gadgets exist): **CRITICAL**
 - If NO (no way to create matching events): LOW
 
-## Fix Pattern
-
-```pil
-// Add implication constraint
-pol commit sub_selector;
-#[SUB_SELECTOR_BOOL]
-sub_selector * (1 - sub_selector) = 0;
-#[SUB_SELECTOR_REQUIRES_SEL]
-sub_selector * (1 - sel) = 0;
-```
-
-## Common Locations to Audit
-
-Sub-selectors requiring implication checks:
-- **Transaction**: `tx.pil` - phase selectors, call types
-- **Execution**: `execution.pil` - operation selectors
-- **ALU**: `alu.pil` - operation type selectors
-- **ECC**: `ecc.pil` - point operation selectors
-- **Memory**: `memory.pil` - read/write selectors
-- **Data copy**: `data_copy.pil` - copy type selectors
-
-## References
-
-- [Detailed Skill Documentation](../../../pil/vm2/claude-skills/02-selector-outside-active-rows.md)
-- [Missing Boolean Selectors Skill](../vm2-audit-missing-boolean/SKILL.md)
-- [Lookup vs Permutation](../../../pil/vm2/claude-skills/03-lookup-vs-permutation.md)
-
 ---
 
-## Required Output Format
+## REQUIRED OUTPUT FORMAT
 
-**IMPORTANT**: When running this audit skill, you MUST end your response with this standardized format.
+**IMPORTANT**: Your response MUST end with this machine-readable section.
 
-### Findings Summary
+### Summary Table
 
-At the end of your audit, provide a summary section:
-
-```markdown
-## Audit Results
-
-### Summary
 | Item | Value |
 |------|-------|
-| Skill | vm2-audit-selector-outside-active |
-| Target | [path that was audited] |
-| Files Scanned | [number] |
-| Findings | [count by severity, e.g., "2 Critical, 1 High, 0 Medium, 0 Low"] |
-| Status | COMPLETED_WITH_FINDINGS / COMPLETED_NO_FINDINGS / ERROR |
+| Skill | `{skill-name}` |
+| Target | `{path audited}` |
+| Files Scanned | `{number}` |
+| Findings | `{e.g., "2 Critical, 1 High" or "None"}` |
+| Status | `COMPLETED_WITH_FINDINGS` / `COMPLETED_NO_FINDINGS` / `ERROR` |
 
-### Findings
+### Findings Format
 
-#### Finding vm2-audit-selector-outside-active-[file]-[line]-[subtype] [SEVERITY]
+For each finding, include:
+- **ID**: `{skill-name}-{file}-{line}-{subtype}`
+- **Severity**: Critical / High / Medium / Low
 - **File**: `path/to/file.pil:line`
-- **Type**: [specific vulnerability type]
-- **Affected Column/Constraint**: [name]
-- **Description**: [brief description]
-- **Exploitability**: [High/Medium/Low] - [brief rationale]
-- **Suggested Fix**: [one-line fix suggestion]
+- **Description**: Brief description
+- **Fix**: One-line suggestion
 
-[Repeat for each finding]
-```
+### Machine-Readable JSON (REQUIRED)
 
-### Machine-Readable Findings
+You MUST include this exact format at the end of your response:
 
-After the human-readable summary, include a JSON block:
-
-```markdown
-<!-- MACHINE-READABLE FINDINGS (do not edit manually) -->
+<!-- MACHINE-READABLE FINDINGS -->
 ```json
 {
-  "skill": "vm2-audit-selector-outside-active",
-  "finding_prefix": "vm2-audit-selector-outside-active",
-  "status": "COMPLETED_WITH_FINDINGS | COMPLETED_NO_FINDINGS | ERROR",
-  "target": "pil/vm2",
-  "files_scanned": 0,
+  "skill": "{skill-name}",
+  "status": "COMPLETED_WITH_FINDINGS",
   "findings": [
     {
-      "id": "vm2-audit-selector-outside-active-filename-line-subtype",
-      "severity": "critical|high|medium|low",
+      "id": "{skill-name}-{file}-{line}-{subtype}",
+      "severity": "critical",
       "file": "path/to/file.pil",
       "line": 123,
-      "type": "specific-vulnerability-type",
-      "column": "affected_column_name",
-      "description": "Brief description of the issue",
-      "exploitability": "high|medium|low",
+      "description": "Brief description",
+      "exploitability": "high",
       "fix": "Suggested fix"
     }
   ]
 }
 ```
 <!-- END MACHINE-READABLE FINDINGS -->
+
+For no findings, use:
+<!-- MACHINE-READABLE FINDINGS -->
+```json
+{
+  "skill": "{skill-name}",
+  "status": "COMPLETED_NO_FINDINGS",
+  "findings": []
+}
 ```
-
-### Finding ID Convention
-
-- Format: `vm2-audit-selector-outside-active-[filename]-[line]-[subtype]`
-- Example: `vm2-audit-selector-outside-active-alu-123-SEL`
-- Use lowercase for filename (without extension)
-- Use CAPS for subtype descriptors
-
-### Status Values
-
-- `COMPLETED_NO_FINDINGS` - Audit completed, no issues found
-- `COMPLETED_WITH_FINDINGS` - Audit completed, issues found
-- `ERROR` - Audit could not complete (explain in description)
+<!-- END MACHINE-READABLE FINDINGS -->

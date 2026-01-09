@@ -10,10 +10,6 @@ allowed-tools: Read, Glob, Grep, Bash, Write, Edit
 
 This skill audits VM2/AVM PIL constraints for tag validation gaps. Type tags (indicating whether a value is U8, U16, U32, U64, U128, or FF) are not properly validated before operations or the tag mismatch error is not handled correctly.
 
-**Bug Type**: Soundness
-**Severity**: Medium
-**Frequency**: Medium
-
 ## Why This is Important
 
 Missing tag validation enables type confusion attacks:
@@ -166,23 +162,6 @@ sel_eq * (1 - sel_err) * (c_tag - Tag::U1) = 0;
 
 ## Vulnerable vs Secure Patterns
 
-### Vulnerable Pattern: Operation Without Tag Check
-
-```pil
-// VULNERABLE: Operation proceeds without tag check
-pol commit a_tag;
-pol commit b_tag;
-// No constraint that a_tag == b_tag for binary operations!
-```
-
-### Vulnerable Pattern: Tag Mismatch Doesn't Trigger Error
-
-```pil
-// VULNERABLE: Tag mismatch doesn't trigger error
-pol commit sel_tag_err;
-// sel_tag_err not constrained to 1 when tags mismatch
-```
-
 ### Vulnerable Pattern: Incorrect Tag Value Assumptions
 
 ```cpp
@@ -197,16 +176,10 @@ auto tag_diff = static_cast<uint64_t>(tag_a - tag_b);
 // SECURE: Explicit tag matching for binary ops
 pol TAG_MATCH = (a_tag == b_tag indicator);
 pol commit sel_tag_err;
-
 #[TAG_ERR_ON_MISMATCH]
 (1 - TAG_MATCH) * (1 - sel_tag_err) = 0;  // Mismatch => error
-
 #[NO_TAG_ERR_ON_MATCH]
 TAG_MATCH * sel_tag_err = 0;  // Match => no error
-
-// SECURE: Output tag constrained
-#[OUTPUT_TAG]
-sel * (1 - sel_err) * (c_tag - expected_tag) = 0;
 ```
 
 ## Historical Examples
@@ -247,150 +220,62 @@ sel * (input_tag - Tag::FF) * (1 - sel_tag_err) = 0;
 ```
 **Impact**: Incorrect output type for bitwise NOT.
 
-## Audit Checklist
-
-1. **Identify all operations with tag requirements**:
-   - [ ] Arithmetic (ADD, SUB, MUL, DIV)
-   - [ ] Bitwise (AND, OR, XOR, NOT, SHL, SHR)
-   - [ ] Comparison (EQ, LT, LTE)
-   - [ ] Memory operations
-   - [ ] Hashing operations
-
-2. **For each operation, verify**:
-   - [ ] Input tags validated
-   - [ ] Tag mismatch triggers error
-   - [ ] Output tag constrained
-   - [ ] Error gates further processing
-
-3. **Check tag error handling**:
-   - [ ] `sel_tag_err` properly set on mismatch
-   - [ ] `sel_tag_err = 0` enforced on match
-   - [ ] Lookups/permutations gated by tag error
-   - [ ] No computation proceeds on tag error
-
-4. **Verify tag value assumptions**:
-   - [ ] Tag differences handled as field elements
-   - [ ] No overflow assumptions about tag arithmetic
-   - [ ] No uint64_t casts on tag differences
-
-5. **Check tracegen tag handling**:
-   - [ ] Tags read from memory correctly
-   - [ ] Tags compared properly (as field elements)
-   - [ ] Error events emitted on mismatch
-
-## Fix Pattern
-
-```pil
-// Add tag validation
-
-// Input tag check
-#[INPUT_TAG_A]
-sel * (a_tag - EXPECTED) * (1 - sel_tag_err) = 0;
-
-// Binary operation tag match
-#[TAG_MATCH]
-sel * (a_tag - b_tag) * tag_match_inv * (1 - sel_tag_err) = 0;
-
-// Output tag
-#[OUTPUT_TAG]
-sel * (1 - sel_err) * (c_tag - output_tag_for_op) = 0;
-
-// Gate by tag error
-pol SEL_NO_TAG_ERR = sel * (1 - sel_tag_err);
-#[GATED_LOOKUP]
-SEL_NO_TAG_ERR { ... } in other.sel { ... };
-```
-
-## Common Locations to Audit
-
-Tag validation is critical in:
-- **ALU**: `alu.pil` - all arithmetic and bitwise operations
-- **Comparisons**: `gt.pil`, comparison operations
-- **Memory**: `memory.pil` - load/store tag consistency
-- **Hashing**: `poseidon2.pil`, `sha256.pil`, `keccak.pil` - expect FF inputs
-- **Execution**: `execution.pil` - operand tag validation
-
-## References
-
-- [Detailed Skill Documentation](../../../pil/vm2/claude-skills/12-tag-validation.md)
-- [Missing Error Gating Skill](../vm2-audit-missing-error-gating/SKILL.md)
-- [Range Check Overflow](../../../pil/vm2/claude-skills/13-range-check-overflow.md)
-
 ---
 
-## Required Output Format
+## REQUIRED OUTPUT FORMAT
 
-**IMPORTANT**: When running this audit skill, you MUST end your response with this standardized format.
+**IMPORTANT**: Your response MUST end with this machine-readable section.
 
-### Findings Summary
+### Summary Table
 
-At the end of your audit, provide a summary section:
-
-```markdown
-## Audit Results
-
-### Summary
 | Item | Value |
 |------|-------|
-| Skill | vm2-audit-tag-validation |
-| Target | [path that was audited] |
-| Files Scanned | [number] |
-| Findings | [count by severity, e.g., "2 Critical, 1 High, 0 Medium, 0 Low"] |
-| Status | COMPLETED_WITH_FINDINGS / COMPLETED_NO_FINDINGS / ERROR |
+| Skill | `{skill-name}` |
+| Target | `{path audited}` |
+| Files Scanned | `{number}` |
+| Findings | `{e.g., "2 Critical, 1 High" or "None"}` |
+| Status | `COMPLETED_WITH_FINDINGS` / `COMPLETED_NO_FINDINGS` / `ERROR` |
 
-### Findings
+### Findings Format
 
-#### Finding vm2-audit-tag-validation-[file]-[line]-[subtype] [SEVERITY]
+For each finding, include:
+- **ID**: `{skill-name}-{file}-{line}-{subtype}`
+- **Severity**: Critical / High / Medium / Low
 - **File**: `path/to/file.pil:line`
-- **Type**: [specific vulnerability type]
-- **Affected Column/Constraint**: [name]
-- **Description**: [brief description]
-- **Exploitability**: [High/Medium/Low] - [brief rationale]
-- **Suggested Fix**: [one-line fix suggestion]
+- **Description**: Brief description
+- **Fix**: One-line suggestion
 
-[Repeat for each finding]
-```
+### Machine-Readable JSON (REQUIRED)
 
-### Machine-Readable Findings
+You MUST include this exact format at the end of your response:
 
-After the human-readable summary, include a JSON block:
-
-```markdown
-<!-- MACHINE-READABLE FINDINGS (do not edit manually) -->
+<!-- MACHINE-READABLE FINDINGS -->
 ```json
 {
-  "skill": "vm2-audit-tag-validation",
-  "finding_prefix": "vm2-audit-tag-validation",
-  "status": "COMPLETED_WITH_FINDINGS | COMPLETED_NO_FINDINGS | ERROR",
-  "target": "pil/vm2",
-  "files_scanned": 0,
+  "skill": "{skill-name}",
+  "status": "COMPLETED_WITH_FINDINGS",
   "findings": [
     {
-      "id": "vm2-audit-tag-validation-filename-line-subtype",
-      "severity": "critical|high|medium|low",
+      "id": "{skill-name}-{file}-{line}-{subtype}",
+      "severity": "critical",
       "file": "path/to/file.pil",
       "line": 123,
-      "type": "specific-vulnerability-type",
-      "column": "affected_column_name",
-      "description": "Brief description of the issue",
-      "exploitability": "high|medium|low",
+      "description": "Brief description",
+      "exploitability": "high",
       "fix": "Suggested fix"
     }
   ]
 }
 ```
 <!-- END MACHINE-READABLE FINDINGS -->
+
+For no findings, use:
+<!-- MACHINE-READABLE FINDINGS -->
+```json
+{
+  "skill": "{skill-name}",
+  "status": "COMPLETED_NO_FINDINGS",
+  "findings": []
+}
 ```
-
-### Finding ID Convention
-
-- Format: `vm2-audit-tag-validation-[filename]-[line]-[subtype]`
-- Example: `vm2-audit-tag-validation-alu-123-SEL`
-- Use lowercase for filename (without extension)
-- Use CAPS for subtype descriptors
-
-### Status Values
-
-- `COMPLETED_NO_FINDINGS` - Audit completed, no issues found
-- `COMPLETED_WITH_FINDINGS` - Audit completed, issues found
-- `ERROR` - Audit could not complete (explain in description)
+<!-- END MACHINE-READABLE FINDINGS -->

@@ -10,10 +10,6 @@ allowed-tools: Read, Glob, Grep, Bash, Write, Edit
 
 This skill audits VM2/AVM PIL files for dead columns - columns that are declared (`pol commit`) but never meaningfully used. Dead columns can indicate incomplete constraints, missing lookups, or leftover code that may hide soundness issues.
 
-**Bug Type**: Soundness (potential) / Code Quality
-**Severity**: Medium to High (depending on intent)
-**Frequency**: Medium
-
 ## Why This is Important
 
 Dead columns can indicate serious issues:
@@ -25,16 +21,9 @@ Dead columns can indicate serious issues:
 
 ## What Counts as "Used"
 
-A column is considered **used** if it appears in:
-1. **Constraints**: `sel * (column - expected) = 0`
-2. **Lookups/Permutations**: `{ column } in other.sel { other.column }`
-3. **Intermediate polynomials**: `pol INTERMEDIATE = column * something`
-4. **Exported to other traces**: Used in another PIL file's lookup destination
+**Used**: appears in constraints, lookups/permutations, intermediate polys, or as lookup destination from other traces.
 
-A column is **dead** if it's only:
-1. Declared with `pol commit`
-2. Assigned in tracegen but never constrained
-3. Used only in comments or disabled code
+**Dead**: only declared (`pol commit`), only assigned in tracegen, or only in comments/disabled code.
 
 ## Audit Instructions
 
@@ -95,78 +84,6 @@ For each dead column found, determine:
 2. **Accidentally unused**: Bug - constraint missing
 3. **Refactoring leftover**: Should be removed
 4. **Lookup destination**: Used by other traces (not dead)
-
-## Dead Column Categories
-
-### Category 1: Completely Dead
-
-Column declared but never appears anywhere else in any PIL file.
-
-```pil
-// DEAD: Column declared but never used
-pol commit unused_column;
-// ... nowhere else in any file references unused_column
-```
-
-**Risk**: High - why does it exist?
-
-### Category 2: Only in Tracegen
-
-Column is set in tracegen but has no PIL constraints.
-
-```pil
-// PIL
-pol commit value;
-// No constraints on 'value'
-```
-
-```cpp
-// Tracegen
-row.value = compute_value();  // Set but never verified!
-```
-
-**Risk**: High - prover can set arbitrary value
-
-### Category 3: Only in Disabled Code
-
-Column only appears in commented-out constraints.
-
-```pil
-pol commit check_value;
-// #[DISABLED_CHECK]
-// sel * (check_value - expected) = 0;  // Commented out!
-```
-
-**Risk**: High - was this intentionally disabled?
-
-### Category 4: Only Self-Referential
-
-Column only constrains itself (boolean check) but never used elsewhere.
-
-```pil
-pol commit flag;
-flag * (1 - flag) = 0;  // Boolean constraint
-// But 'flag' never used to gate anything!
-```
-
-**Risk**: Medium - boolean exists but has no effect
-
-### Category 5: Lookup Destination Only
-
-Column exists only to be looked up by other traces - this is VALID.
-
-```pil
-// In precomputed.pil
-pol commit table_value;
-// No local constraints, but used as lookup destination
-```
-
-```pil
-// In execution.pil
-sel { value } in precomputed.sel { precomputed.table_value };
-```
-
-**Risk**: None - this is the intended pattern
 
 ## Vulnerable vs Valid Patterns
 
@@ -229,37 +146,6 @@ sel_special * (optional_check - expected) = 0;
 // Constrained when sel_special = 1
 ```
 
-## Audit Checklist
-
-1. **List all declared columns**:
-   - [ ] `grep -n "pol commit" component.pil`
-   - [ ] Document each column
-
-2. **For each column, check usage**:
-   - [ ] Used in constraints? (`grep "column_name" | grep -v "pol commit"`)
-   - [ ] Used in lookups/permutations?
-   - [ ] Used in intermediate polynomials?
-
-3. **Check cross-file usage**:
-   - [ ] Used as lookup destination from other traces?
-   - [ ] Used in virtual trace sharing?
-
-4. **Categorize dead columns**:
-   - [ ] Completely dead (never referenced)
-   - [ ] Only in tracegen (no PIL constraint)
-   - [ ] Only in comments (disabled)
-   - [ ] Only self-referential (boolean only)
-
-5. **For each dead column, determine**:
-   - [ ] Is it intentionally unused (documented)?
-   - [ ] Should it be constrained?
-   - [ ] Should it be removed?
-   - [ ] Is it a security issue?
-
-6. **Verify tracegen alignment**:
-   - [ ] Column set in tracegen?
-   - [ ] Value computed correctly?
-
 ## Automated Detection Script
 
 ```bash
@@ -290,137 +176,62 @@ for col in $COLUMNS; do
 done
 ```
 
-## Fix Patterns
-
-### Fix 1: Add Missing Constraint
-
-```pil
-// BEFORE: Dead column
-pol commit value;
-
-// AFTER: Add constraint
-pol commit value;
-#[VALUE_CHECK]
-sel * (value - expected_value) = 0;
-```
-
-### Fix 2: Remove Unused Column
-
-```pil
-// BEFORE: Leftover column
-pol commit old_unused_column;
-
-// AFTER: Remove it entirely
-// (also remove from tracegen)
-```
-
-### Fix 3: Document Intentional Non-Use
-
-```pil
-// If column is intentionally unused (e.g., placeholder):
-pol commit future_feature;  // TODO: Will be constrained in PR #XXXX
-```
-
-### Fix 4: Add Lookup Connection
-
-```pil
-// BEFORE: Column not connected
-pol commit hash_result;
-
-// AFTER: Connect via lookup
-#[HASH_LOOKUP]
-sel_hash { input, hash_result } in poseidon2.sel { poseidon2.input, poseidon2.output };
-```
-
-## Common Locations to Audit
-
-Dead columns can appear in any PIL file, but commonly in:
-- **Complex traces**: `execution.pil`, `tx.pil` - many columns, easy to miss one
-- **Refactored code**: Files that underwent significant changes
-- **New features**: Recently added columns that aren't fully integrated
-- **Gadgets**: `poseidon2.pil`, `sha256.pil` - intermediate values
-
-## References
-
-- [Commented Constraints Skill](../vm2-audit-commented-constraints/SKILL.md)
-- [Tracegen-PIL Alignment Skill](../vm2-audit-tracegen-pil-alignment/SKILL.md)
-- [Missing Boolean Selectors Skill](../vm2-audit-missing-boolean/SKILL.md)
-
 ---
 
-## Required Output Format
+## REQUIRED OUTPUT FORMAT
 
-**IMPORTANT**: When running this audit skill, you MUST end your response with this standardized format.
+**IMPORTANT**: Your response MUST end with this machine-readable section.
 
-### Findings Summary
+### Summary Table
 
-At the end of your audit, provide a summary section:
-
-```markdown
-## Audit Results
-
-### Summary
 | Item | Value |
 |------|-------|
-| Skill | vm2-audit-dead-columns |
-| Target | [path that was audited] |
-| Files Scanned | [number] |
-| Findings | [count by severity, e.g., "2 Critical, 1 High, 0 Medium, 0 Low"] |
-| Status | COMPLETED_WITH_FINDINGS / COMPLETED_NO_FINDINGS / ERROR |
+| Skill | `{skill-name}` |
+| Target | `{path audited}` |
+| Files Scanned | `{number}` |
+| Findings | `{e.g., "2 Critical, 1 High" or "None"}` |
+| Status | `COMPLETED_WITH_FINDINGS` / `COMPLETED_NO_FINDINGS` / `ERROR` |
 
-### Findings
+### Findings Format
 
-#### Finding vm2-audit-dead-columns-[file]-[line]-[subtype] [SEVERITY]
+For each finding, include:
+- **ID**: `{skill-name}-{file}-{line}-{subtype}`
+- **Severity**: Critical / High / Medium / Low
 - **File**: `path/to/file.pil:line`
-- **Type**: [specific vulnerability type]
-- **Affected Column/Constraint**: [name]
-- **Description**: [brief description]
-- **Exploitability**: [High/Medium/Low] - [brief rationale]
-- **Suggested Fix**: [one-line fix suggestion]
+- **Description**: Brief description
+- **Fix**: One-line suggestion
 
-[Repeat for each finding]
-```
+### Machine-Readable JSON (REQUIRED)
 
-### Machine-Readable Findings
+You MUST include this exact format at the end of your response:
 
-After the human-readable summary, include a JSON block:
-
-```markdown
-<!-- MACHINE-READABLE FINDINGS (do not edit manually) -->
+<!-- MACHINE-READABLE FINDINGS -->
 ```json
 {
-  "skill": "vm2-audit-dead-columns",
-  "finding_prefix": "vm2-audit-dead-columns",
-  "status": "COMPLETED_WITH_FINDINGS | COMPLETED_NO_FINDINGS | ERROR",
-  "target": "pil/vm2",
-  "files_scanned": 0,
+  "skill": "{skill-name}",
+  "status": "COMPLETED_WITH_FINDINGS",
   "findings": [
     {
-      "id": "vm2-audit-dead-columns-filename-line-subtype",
-      "severity": "critical|high|medium|low",
+      "id": "{skill-name}-{file}-{line}-{subtype}",
+      "severity": "critical",
       "file": "path/to/file.pil",
       "line": 123,
-      "type": "specific-vulnerability-type",
-      "column": "affected_column_name",
-      "description": "Brief description of the issue",
-      "exploitability": "high|medium|low",
+      "description": "Brief description",
+      "exploitability": "high",
       "fix": "Suggested fix"
     }
   ]
 }
 ```
 <!-- END MACHINE-READABLE FINDINGS -->
+
+For no findings, use:
+<!-- MACHINE-READABLE FINDINGS -->
+```json
+{
+  "skill": "{skill-name}",
+  "status": "COMPLETED_NO_FINDINGS",
+  "findings": []
+}
 ```
-
-### Finding ID Convention
-
-- Format: `vm2-audit-dead-columns-[filename]-[line]-[subtype]`
-- Example: `vm2-audit-dead-columns-alu-123-SEL`
-- Use lowercase for filename (without extension)
-- Use CAPS for subtype descriptors
-
-### Status Values
-
-- `COMPLETED_NO_FINDINGS` - Audit completed, no issues found
-- `COMPLETED_WITH_FINDINGS` - Audit completed, issues found
-- `ERROR` - Audit could not complete (explain in description)
+<!-- END MACHINE-READABLE FINDINGS -->

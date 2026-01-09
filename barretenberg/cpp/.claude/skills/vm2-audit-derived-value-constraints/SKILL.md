@@ -10,11 +10,7 @@ allowed-tools: Read, Glob, Grep, Bash, Write, Edit
 
 This skill audits VM2/AVM PIL constraints for derived value underconstraints. Values that should be computed from other columns are not constrained, allowing a malicious prover to set arbitrary values. This is different from initialization (first row) - it's about values that should be derived from other columns on every applicable row.
 
-**Bug Type**: Soundness
-**Severity**: Critical
-**Frequency**: Medium
-
-## Why This is Critical
+## Why This is Important
 
 Unconstrained derived values enable complete logic bypass:
 - **Control flow corruption**: Arbitrary `next_pc` allows executing any instruction
@@ -171,11 +167,6 @@ sel_mem_op = sel_load + sel_store;
 pol commit pc;
 pol commit next_pc;
 pol commit instr_length;
-
-// next_pc should equal pc + instr_length on non-jump rows
-// But NO CONSTRAINT exists!
-
-// Prover can set next_pc to anything
 ```
 
 ### Vulnerable Pattern: Partial Coverage
@@ -183,23 +174,19 @@ pol commit instr_length;
 ```pil
 // VULNERABLE: Only some cases constrained
 sel_add * (c - a - b) = 0;
-// What about sel_sub, sel_mul?
-// If sel_sub = 1, what constrains c?
 ```
 
 ### Secure Pattern: Fully Constrained
 
 ```pil
-// SECURE: Derived value fully constrained
+// SECURE: Derived value fully constrained for all cases
 pol commit pc;
 pol commit next_pc;
 pol commit instr_length;
 pol commit sel_jump;
-
-// Constrain next_pc based on operation type
+pol commit jump_target;
 #[PC_INCREMENT_STANDARD]
 sel * (1 - sel_jump) * (next_pc - pc - instr_length) = 0;
-
 #[PC_INCREMENT_JUMP]
 sel * sel_jump * (next_pc - jump_target) = 0;
 ```
@@ -259,142 +246,62 @@ sel_after_call * (last_child_success - child_result) = 0;
 ```
 **Impact**: Fake success for failed calls.
 
-## Audit Checklist
-
-1. **Identify all committed columns**:
-   - [ ] `grep "pol commit" component.pil`
-   - [ ] Categorize each as Input/Derived/Witness/Selector
-
-2. **For each derived column, verify constraint exists**:
-   - [ ] Search for column in constraints
-   - [ ] Verify it appears on LHS (being constrained, not just used)
-
-3. **Check all cases are covered**:
-   - [ ] List all operation types that affect the derived value
-   - [ ] Verify each operation type has a constraint
-   - [ ] Check what happens when no operation selector is active
-
-4. **Check for conditional derivations**:
-   - [ ] Different formulas for different operations
-   - [ ] Default/inactive case handling
-
-5. **Look for red flags**:
-   - [ ] "should be X" comments without constraints
-   - [ ] TODO/FIXME about constraining values
-   - [ ] Columns used but never constrained
-   - [ ] Asymmetric operation handling
-
-## Fix Pattern
-
-```pil
-// Identify all cases where derived value applies
-// Add constraint for each case
-
-// Case 1: Standard operation
-#[DERIVED_CASE_1]
-sel_case_1 * (derived_value - formula_1) = 0;
-
-// Case 2: Alternative operation
-#[DERIVED_CASE_2]
-sel_case_2 * (derived_value - formula_2) = 0;
-
-// Case 3: Default/inactive (if needed)
-#[DERIVED_DEFAULT]
-(1 - sel_case_1) * (1 - sel_case_2) * (derived_value - default_value) = 0;
-```
-
-## Common Locations to Audit
-
-Derived values are critical in:
-- **Execution**: `execution.pil` - `next_pc`, `gas_remaining`, `call_results`
-- **ALU**: `alu.pil` - operation outputs (`c` from `a` and `b`)
-- **Memory**: `memory.pil` - address calculations, value propagation
-- **Gas**: Gas cost calculations, remaining gas
-- **Control flow**: Jump targets, call/return handling
-- **State machines**: Phase transitions, counter updates
-
-## References
-
-- [Detailed Skill Documentation](../../../pil/vm2/claude-skills/21-derived-value-constraints.md)
-- [Missing Initialization Skill](../vm2-audit-missing-initialization/SKILL.md)
-- [Missing Propagation Skill](../vm2-audit-missing-propagation/SKILL.md)
-- [Error Aggregation](../../../pil/vm2/claude-skills/10-error-aggregation.md)
-
 ---
 
-## Required Output Format
+## REQUIRED OUTPUT FORMAT
 
-**IMPORTANT**: When running this audit skill, you MUST end your response with this standardized format.
+**IMPORTANT**: Your response MUST end with this machine-readable section.
 
-### Findings Summary
+### Summary Table
 
-At the end of your audit, provide a summary section:
-
-```markdown
-## Audit Results
-
-### Summary
 | Item | Value |
 |------|-------|
-| Skill | vm2-audit-derived-value-constraints |
-| Target | [path that was audited] |
-| Files Scanned | [number] |
-| Findings | [count by severity, e.g., "2 Critical, 1 High, 0 Medium, 0 Low"] |
-| Status | COMPLETED_WITH_FINDINGS / COMPLETED_NO_FINDINGS / ERROR |
+| Skill | `{skill-name}` |
+| Target | `{path audited}` |
+| Files Scanned | `{number}` |
+| Findings | `{e.g., "2 Critical, 1 High" or "None"}` |
+| Status | `COMPLETED_WITH_FINDINGS` / `COMPLETED_NO_FINDINGS` / `ERROR` |
 
-### Findings
+### Findings Format
 
-#### Finding vm2-audit-derived-value-constraints-[file]-[line]-[subtype] [SEVERITY]
+For each finding, include:
+- **ID**: `{skill-name}-{file}-{line}-{subtype}`
+- **Severity**: Critical / High / Medium / Low
 - **File**: `path/to/file.pil:line`
-- **Type**: [specific vulnerability type]
-- **Affected Column/Constraint**: [name]
-- **Description**: [brief description]
-- **Exploitability**: [High/Medium/Low] - [brief rationale]
-- **Suggested Fix**: [one-line fix suggestion]
+- **Description**: Brief description
+- **Fix**: One-line suggestion
 
-[Repeat for each finding]
-```
+### Machine-Readable JSON (REQUIRED)
 
-### Machine-Readable Findings
+You MUST include this exact format at the end of your response:
 
-After the human-readable summary, include a JSON block:
-
-```markdown
-<!-- MACHINE-READABLE FINDINGS (do not edit manually) -->
+<!-- MACHINE-READABLE FINDINGS -->
 ```json
 {
-  "skill": "vm2-audit-derived-value-constraints",
-  "finding_prefix": "vm2-audit-derived-value-constraints",
-  "status": "COMPLETED_WITH_FINDINGS | COMPLETED_NO_FINDINGS | ERROR",
-  "target": "pil/vm2",
-  "files_scanned": 0,
+  "skill": "{skill-name}",
+  "status": "COMPLETED_WITH_FINDINGS",
   "findings": [
     {
-      "id": "vm2-audit-derived-value-constraints-filename-line-subtype",
-      "severity": "critical|high|medium|low",
+      "id": "{skill-name}-{file}-{line}-{subtype}",
+      "severity": "critical",
       "file": "path/to/file.pil",
       "line": 123,
-      "type": "specific-vulnerability-type",
-      "column": "affected_column_name",
-      "description": "Brief description of the issue",
-      "exploitability": "high|medium|low",
+      "description": "Brief description",
+      "exploitability": "high",
       "fix": "Suggested fix"
     }
   ]
 }
 ```
 <!-- END MACHINE-READABLE FINDINGS -->
+
+For no findings, use:
+<!-- MACHINE-READABLE FINDINGS -->
+```json
+{
+  "skill": "{skill-name}",
+  "status": "COMPLETED_NO_FINDINGS",
+  "findings": []
+}
 ```
-
-### Finding ID Convention
-
-- Format: `vm2-audit-derived-value-constraints-[filename]-[line]-[subtype]`
-- Example: `vm2-audit-derived-value-constraints-alu-123-SEL`
-- Use lowercase for filename (without extension)
-- Use CAPS for subtype descriptors
-
-### Status Values
-
-- `COMPLETED_NO_FINDINGS` - Audit completed, no issues found
-- `COMPLETED_WITH_FINDINGS` - Audit completed, issues found
-- `ERROR` - Audit could not complete (explain in description)
+<!-- END MACHINE-READABLE FINDINGS -->

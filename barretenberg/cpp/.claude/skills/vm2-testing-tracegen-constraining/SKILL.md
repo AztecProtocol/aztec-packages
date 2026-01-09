@@ -302,21 +302,6 @@ for (uint32_t row = 0; row < trace.get_num_rows(); row++) {
 | Interaction fails | Source/dest count mismatch | Check error gating |
 | Edge case fails | Tracegen doesn't handle case | Add case to tracegen |
 
-## File Organization
-
-```
-src/barretenberg/vm2/
-├── simulation/
-│   ├── events.hpp              # Event definitions
-│   └── gadgets/                # Simulation gadgets
-├── tracegen/
-│   ├── component_trace.cpp     # Trace builders
-│   └── test_trace_container.hpp
-└── constraining/
-    └── relations/
-        └── component.test.cpp  # Tests go here
-```
-
 ## Build and Run
 
 ```bash
