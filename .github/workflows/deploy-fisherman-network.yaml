@@ -183,7 +183,6 @@ jobs:
       namespace: ignition-fisherman-sepolia
       l1_network: sepolia
       cluster: aztec-gke-private
-      semver: ${{ inputs.semver }}
 
   setup-irm-mainnet:
     needs: deploy-fisherman
@@ -196,4 +195,3 @@ jobs:
       monitoring_namespace: mainnet-irm
       l1_network: mainnet
       cluster: aztec-gke-private
-      semver: ${{ inputs.semver }}
