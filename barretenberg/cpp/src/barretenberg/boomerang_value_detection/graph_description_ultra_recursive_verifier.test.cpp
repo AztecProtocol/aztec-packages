@@ -143,7 +143,7 @@ template <typename RecursiveFlavor> class BoomerangRecursiveVerifierTest : publi
         auto [cc, variables_in_one_gate] = graph.analyze_circuit(/*filter_cc=*/true);
         EXPECT_EQ(cc.size(), 1);
         // The variable in one gate is the last Shplonk power we compute. It is computed even though it is not used
-        // because we of how the PCS is structured (more precisely, because of the interaction between gemini and
+        // because of how the PCS is structured (more precisely, because of the interaction between gemini and
         // interleaving).
         EXPECT_EQ(variables_in_one_gate.size(), 1);
     }

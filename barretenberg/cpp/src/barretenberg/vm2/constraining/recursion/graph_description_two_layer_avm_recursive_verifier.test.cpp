@@ -33,10 +33,10 @@ class BoomerangTwoLayerAvmRecursiveVerifierTests : public ::testing::Test {
         auto [trace, public_inputs] = bb::avm2::testing::get_minimal_trace_with_pi();
 
         AvmProver prover;
-        auto [proof, vk_data] = prover.prove(std::move(trace));
+        auto proof = prover.prove(std::move(trace));
         proof.resize(AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED, FF::zero()); // Pad proof
 
-        const bool verified = prover.verify(proof, public_inputs, vk_data);
+        const bool verified = prover.verify(proof, public_inputs);
         EXPECT_TRUE(verified) << "native proof verification failed";
 
         auto public_inputs_flat = PublicInputs::columns_to_flat(public_inputs.to_columns());
@@ -116,7 +116,7 @@ TEST_F(BoomerangTwoLayerAvmRecursiveVerifierTests, graph_description_basic)
     auto graph = cdg::StaticAnalyzer(builder, false);
     auto variables_in_one_gate = graph.get_variables_in_one_gate();
     // The variable in one gate is the last Shplonk power we compute. It is computed even though it is not used because
-    // we of how the PCS is structured (more precisely, because of the interaction between gemini and interleaving).
+    // of how the PCS is structured (more precisely, because of the interaction between gemini and interleaving).
     EXPECT_EQ(variables_in_one_gate.size(), 1);
 }
 

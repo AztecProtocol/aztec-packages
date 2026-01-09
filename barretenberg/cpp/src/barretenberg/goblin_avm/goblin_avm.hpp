@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Planned, auditors: [], date: YYYY-MM-DD }
 // external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // =====================
