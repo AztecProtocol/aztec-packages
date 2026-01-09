@@ -195,7 +195,7 @@ fi
 K8S_CLUSTER_CONTEXT=$(kubectl config current-context)
 
 if [[ "${DESTROY_NAMESPACE:-}" == "true" ]]; then
-  kubectl delete namespace "${NAMESPACE}" --ignore-not-found=true
+  "${SCRIPT_DIR}/network_teardown.sh"
 fi
 
 # Create the namespace if it doesn't exist
@@ -542,6 +542,8 @@ P2P_NODEPORT_ENABLED = ${P2P_NODEPORT_ENABLED}
 
 PROVER_AGENT_PROOF_TYPES = ${PROVER_AGENT_PROOF_TYPES:-[]}
 DEBUG_FORCE_TX_PROOF_VERIFICATION = ${DEBUG_FORCE_TX_PROOF_VERIFICATION:-false}
+
+WAIT_FOR_PROVER_DEPLOY = ${WAIT_FOR_PROVER_DEPLOY:-null}
 EOF
 
 denoise "tf_run "${DEPLOY_AZTEC_INFRA_DIR}" "${DESTROY_AZTEC_INFRA}" "${CREATE_AZTEC_INFRA}""

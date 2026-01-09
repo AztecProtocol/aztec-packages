@@ -1,13 +1,13 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Complete, auditors: [Nishat], commit: 4a956ceb179c2fe855e4f1fd78f2594e7fc3f5ea}
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #include "blake2s_constraint.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/stdlib/hash/blake2s/blake2s.hpp"
 #include "barretenberg/stdlib/primitives/byte_array/byte_array.hpp"
-#include "round.hpp"
 
 namespace acir_format {
 
@@ -23,15 +23,12 @@ template <typename Builder> void create_blake2s_constraints(Builder& builder, co
 
     for (const auto& witness_index_num_bits : constraint.inputs) {
         auto witness_index = witness_index_num_bits.blackbox_input;
-        auto num_bits = witness_index_num_bits.num_bits;
-
-        // XXX: The implementation requires us to truncate the element to the nearest byte and not bit
-        auto num_bytes = round_to_nearest_byte(num_bits);
-
         field_ct element = to_field_ct(witness_index, builder);
 
-        // byte_array_ct(field, num_bytes) constructor adds range constraints for each byte
-        byte_array_ct element_bytes(element, num_bytes);
+        // byte_array_ct(field, num_bytes) constructor adds range constraints for each byte. Note that num_bytes =
+        // ceil(witness_index_num_bits.num_bits/8). Here, num_bits is set to 8 when constructing the vector of inputs in
+        // the Blake2s constraint. Hence, we set num_bytes = 1.
+        byte_array_ct element_bytes(element, 1);
 
         // Safe write: both arr and element_bytes are constrained
         arr.write(element_bytes);

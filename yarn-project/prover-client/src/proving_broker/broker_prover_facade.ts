@@ -11,7 +11,6 @@ import { type PromiseWithResolvers, RunningPromise, promiseWithResolvers } from 
 import { truncate } from '@aztec/foundation/string';
 import type { AvmCircuitInputs } from '@aztec/stdlib/avm';
 import {
-  type ProofAndVerificationKey,
   type ProofUri,
   type ProvingJobId,
   type ProvingJobInputsMap,
@@ -23,7 +22,7 @@ import {
   makeProvingJobId,
 } from '@aztec/stdlib/interfaces/server';
 import type { ParityBasePrivateInputs, ParityPublicInputs, ParityRootPrivateInputs } from '@aztec/stdlib/parity';
-import { ProvingRequestType } from '@aztec/stdlib/proofs';
+import { ProvingRequestType, RecursiveProof } from '@aztec/stdlib/proofs';
 import type {
   BlockMergeRollupPrivateInputs,
   BlockRollupPublicInputs,
@@ -399,7 +398,7 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
     inputs: AvmCircuitInputs,
     signal?: AbortSignal,
     epochNumber?: EpochNumber,
-  ): Promise<ProofAndVerificationKey<typeof AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED>> {
+  ): Promise<RecursiveProof<typeof AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED>> {
     return this.enqueueJob(
       this.generateId(ProvingRequestType.PUBLIC_VM, inputs, epochNumber),
       ProvingRequestType.PUBLIC_VM,

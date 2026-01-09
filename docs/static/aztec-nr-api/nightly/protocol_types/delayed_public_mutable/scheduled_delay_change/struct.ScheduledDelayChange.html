@@ -51,7 +51,7 @@
 
 <div class="padded-description"><div class="comments">
 <p>Returns the current value of the delay stored in the data structure.
-This function only returns a meaningful value when called in public with the current timestamp - for
+WARNING: This function only returns a meaningful value when called in public with the current timestamp - for
 historical private reads use <code>get_effective_minimum_delay_at</code> instead.</p>
 </div>
 </div><code id="get_scheduled" class="code-header">pub fn <a href="#get_scheduled"><span class="fn">get_scheduled</span></a>(self) -> (<a href="../../../std/primitive.u64.html" class="primitive">u64</a>, <a href="../../../std/primitive.u64.html" class="primitive">u64</a>)</code>
@@ -64,8 +64,8 @@ Additionally, further changes might be later scheduled, potentially canceling th
 </div><code id="schedule_change" class="code-header">pub fn <a href="#schedule_change"><span class="fn">schedule_change</span></a>(&mut self, new: <a href="../../../std/primitive.u64.html" class="primitive">u64</a>, current_timestamp: <a href="../../../std/primitive.u64.html" class="primitive">u64</a>)</code>
 
 <div class="padded-description"><div class="comments">
-<p>Mutates the delay change by scheduling a change at the current timestamp. This function is only meaningful
-when called in public with the current timestamp.
+<p>Schedules a change to the delay, given the <code>current_timestamp</code> and the <code>current</code> delay.
+This function is only meaningful when called in public with the current timestamp.
 The timestamp at which the new delay will become effective is determined automatically:</p>
 <ul>
 <li>when increasing the delay, the change is effective immediately</li>
@@ -79,12 +79,17 @@ days.</li>
 <div class="padded-description"><div class="comments">
 <p>Returns the minimum delay before a value might mutate due to a scheduled change, from the perspective of some
 historical timestamp. It only returns a meaningful value when called in private with historical timestamps.
-This function can be used alongside <code>ScheduledValueChange.get_time_horizon</code> to properly constrain
-the <code>include_by_timestamp</code> transaction property when reading delayed mutable state.
+The output of this function can be passed into <code>ScheduledValueChange.get_time_horizon</code> to properly
+constrain the <code>include_by_timestamp</code> when reading delayed mutable state.
 This value typically equals the current delay at the timestamp following the historical one (the earliest one in
 which a value change could be scheduled), but it also considers scenarios in which a delay reduction is
 scheduled to happen in the near future, resulting in a way to schedule a change with an overall delay lower than
 the current one.</p>
+<p>Alternative explanation: returns the maximum amount of time (from the historical timestamp) that a state read
+(as at the historical timestamp) will remain valid.
+A read might end up being valid for less time in the case where a <code>svc.timestamp_of_change</code> has already been
+set and if it's sooner than the output of this function. In that case, the <code>scheduled_value_change.nr</code>'s
+<code>get_time_horizon</code> function will realize this.</p>
 </div>
 </div></div><h2>Trait implementations</h2>
 <h3 id="impl-Empty-for-ScheduledDelayChange<INITIAL_DELAY>"><code class="code-header">impl&lt;let INITIAL_DELAY: <a href="../../../std/primitive.u64.html" class="primitive">u64</a>&gt; <a href="../../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../../protocol_types/delayed_public_mutable/scheduled_delay_change/struct.ScheduledDelayChange.html" class="struct">ScheduledDelayChange</a>&lt;INITIAL_DELAY&gt;</code></h3>

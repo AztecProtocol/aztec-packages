@@ -407,7 +407,7 @@ pub contract AvmTest {
         let _ = self.call_self.return_oracle();
         let returndatasize = returndata_size();
         let returndata = returndata_copy(0, returndatasize);
-        assert(returndata == &[1, 2, 3], "Returndata copy failed");
+        assert(returndata == @[1, 2, 3], "Returndata copy failed");
     }
 
     #[external("public")]
@@ -573,7 +573,7 @@ pub contract AvmTest {
 
     #[contract_library_method]
     fn _get_fee_per_l2_gas(context: PublicContext) -> u128 {
-        context.base_fee_per_l2_gas()
+        context.min_fee_per_l2_gas()
     }
 
     #[external("public")]
@@ -583,7 +583,7 @@ pub contract AvmTest {
 
     #[contract_library_method]
     fn _get_fee_per_da_gas(context: PublicContext) -> u128 {
-        context.base_fee_per_da_gas()
+        context.min_fee_per_da_gas()
     }
 
     #[external("public")]

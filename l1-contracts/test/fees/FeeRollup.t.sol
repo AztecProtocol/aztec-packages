@@ -46,11 +46,11 @@ import {
   EthValue,
   FeeHeader,
   L1FeeData,
-  ManaBaseFeeComponents
+  ManaMinFeeComponents
 } from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {Math} from "@oz/utils/math/Math.sol";
 
-import {FeeModelTestPoints, TestPoint, FeeHeaderModel, ManaBaseFeeComponentsModel} from "./FeeModelTestPoints.t.sol";
+import {FeeModelTestPoints, TestPoint, FeeHeaderModel, ManaMinFeeComponentsModel} from "./FeeModelTestPoints.t.sol";
 
 import {Timestamp, Slot, Epoch} from "@aztec/core/libraries/TimeLib.sol";
 import {ProposedHeader} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
@@ -68,7 +68,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
   using stdStorage for StdStorage;
 
   using FeeLib for uint256;
-  using FeeLib for ManaBaseFeeComponents;
+  using FeeLib for ManaMinFeeComponents;
   // We need to build a checkpoint that we can submit. We will be using some values from
   // the empty checkpoints, but otherwise populate using the fee model test points.
 
@@ -147,13 +147,13 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
 
     Timestamp ts = rollup.getTimestampForSlot(slotNumber);
 
-    uint128 manaBaseFee = SafeCast.toUint128(
-      point.outputs.mana_base_fee_components_in_fee_asset.sequencer_cost
-        + point.outputs.mana_base_fee_components_in_fee_asset.prover_cost
-        + point.outputs.mana_base_fee_components_in_fee_asset.congestion_cost
+    uint128 manaMinFee = SafeCast.toUint128(
+      point.outputs.mana_min_fee_components_in_fee_asset.sequencer_cost
+        + point.outputs.mana_min_fee_components_in_fee_asset.prover_cost
+        + point.outputs.mana_min_fee_components_in_fee_asset.congestion_cost
     );
 
-    assertEq(rollup.getManaBaseFeeAt(Timestamp.wrap(block.timestamp), true), manaBaseFee, "mana base fee mismatch");
+    assertEq(rollup.getManaMinFeeAt(Timestamp.wrap(block.timestamp), true), manaMinFee, "mana min fee mismatch");
 
     uint256 manaSpent = point.checkpoint_header.mana_spent;
 
@@ -166,7 +166,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
     header.timestamp = ts;
     header.coinbase = cb;
     header.feeRecipient = bytes32(0);
-    header.gasFees.feePerL2Gas = manaBaseFee;
+    header.gasFees.feePerL2Gas = manaMinFee;
     header.totalManaUsed = manaSpent;
 
     return Checkpoint({
@@ -223,14 +223,13 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
       timeOfPrune += SLOT_DURATION;
     }
 
-    ManaBaseFeeComponents memory componentsPrune = rollup.getManaBaseFeeComponentsAt(Timestamp.wrap(timeOfPrune), true);
+    ManaMinFeeComponents memory componentsPrune = rollup.getManaMinFeeComponentsAt(Timestamp.wrap(timeOfPrune), true);
 
     // If we assume that everything is proven, we will see what the fee would be if we did not prune.
     stdstore.enable_packed_slots().target(address(rollup)).sig("getProvenCheckpointNumber()")
       .checked_write(rollup.getPendingCheckpointNumber());
 
-    ManaBaseFeeComponents memory componentsNoPrune =
-      rollup.getManaBaseFeeComponentsAt(Timestamp.wrap(timeOfPrune), true);
+    ManaMinFeeComponents memory componentsNoPrune = rollup.getManaMinFeeComponentsAt(Timestamp.wrap(timeOfPrune), true);
 
     // The congestion multipliers should be different, with the no-prune being higher
     // as it is based on the accumulated excess mana.
@@ -259,7 +258,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
     // Loop through all of the L1 metadata
     for (uint256 i = 0; i < l1Metadata.length; i++) {
       // Predict what the fee will be before we jump in time!
-      uint256 baseFeePrediction = rollup.getManaBaseFeeAt(Timestamp.wrap(l1Metadata[i].timestamp), true);
+      uint256 minFeePrediction = rollup.getManaMinFeeAt(Timestamp.wrap(l1Metadata[i].timestamp), true);
 
       _loadL1Metadata(i);
 
@@ -272,10 +271,10 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
         L1FeeData memory fees = rollup.getL1FeesAt(Timestamp.wrap(block.timestamp));
         uint256 feeAssetPrice = FeeAssetPerEthE9.unwrap(rollup.getFeeAssetPerEth());
 
-        ManaBaseFeeComponents memory components =
-          rollup.getManaBaseFeeComponentsAt(Timestamp.wrap(block.timestamp), false);
-        ManaBaseFeeComponents memory componentsFeeAsset =
-          rollup.getManaBaseFeeComponentsAt(Timestamp.wrap(block.timestamp), true);
+        ManaMinFeeComponents memory components =
+          rollup.getManaMinFeeComponentsAt(Timestamp.wrap(block.timestamp), false);
+        ManaMinFeeComponents memory componentsFeeAsset =
+          rollup.getManaMinFeeComponentsAt(Timestamp.wrap(block.timestamp), true);
         FeeHeader memory parentFeeHeader = rollup.getFeeHeader(Slot.unwrap(nextSlot) - 1);
 
         Checkpoint memory b = getCheckpoint();
@@ -295,7 +294,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
 
         FeeHeader memory feeHeader = rollup.getFeeHeader(Slot.unwrap(nextSlot));
 
-        assertEq(baseFeePrediction, componentsFeeAsset.summedBaseFee(), "mana base fee mismatch");
+        assertEq(minFeePrediction, componentsFeeAsset.summedMinFee(), "mana min fee mismatch");
 
         assertEq(componentsFeeAsset.congestionCost, feeHeader.congestionCost, "congestion cost mismatch");
         // Want to check the fee header to see if they are as we want them.
@@ -311,8 +310,8 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
         assertEq(point.outputs.l1_fee_oracle_output.base_fee, fees.baseFee, "base fee mismatch");
         assertEq(point.outputs.l1_fee_oracle_output.blob_fee, fees.blobFee, "blob fee mismatch");
 
-        assertEq(point.outputs.mana_base_fee_components_in_wei, components, "in_wei");
-        assertEq(point.outputs.mana_base_fee_components_in_fee_asset, componentsFeeAsset, "in_fee_asset");
+        assertEq(point.outputs.mana_min_fee_components_in_wei, components, "in_wei");
+        assertEq(point.outputs.mana_min_fee_components_in_fee_asset, componentsFeeAsset, "in_fee_asset");
 
         assertEq(point.parent_fee_header, parentFeeHeader);
 
@@ -343,18 +342,18 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
 
           // We assume that everyone PERFECTLY pays their fees with 0 priority fees and no
           // overpaying on teardown.
-          uint256 baseFee =
-            point.outputs.mana_base_fee_components_in_fee_asset.sequencer_cost
-            + point.outputs.mana_base_fee_components_in_fee_asset.prover_cost
-            + point.outputs.mana_base_fee_components_in_fee_asset.congestion_cost;
+          uint256 minFee =
+            point.outputs.mana_min_fee_components_in_fee_asset.sequencer_cost
+            + point.outputs.mana_min_fee_components_in_fee_asset.prover_cost
+            + point.outputs.mana_min_fee_components_in_fee_asset.congestion_cost;
 
           uint256 manaUsed = rollup.getFeeHeader(start + feeIndex).manaUsed;
-          uint256 fee = manaUsed * baseFee;
-          uint256 burn = manaUsed * point.outputs.mana_base_fee_components_in_fee_asset.congestion_cost;
+          uint256 fee = manaUsed * minFee;
+          uint256 burn = manaUsed * point.outputs.mana_min_fee_components_in_fee_asset.congestion_cost;
           burnSum += burn;
 
           uint256 proverFee =
-            Math.min(manaUsed * point.outputs.mana_base_fee_components_in_fee_asset.prover_cost, fee - burn);
+            Math.min(manaUsed * point.outputs.mana_min_fee_components_in_fee_asset.prover_cost, fee - burn);
           proverFees += proverFee;
           sequencerFees += (fee - burn - proverFee);
 
@@ -368,6 +367,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
         PublicInputArgs memory args = PublicInputArgs({
           previousArchive: rollup.getCheckpoint(start).archive,
           endArchive: rollup.getCheckpoint(start + epochSize - 1).archive,
+          outHash: bytes32(0),
           proverId: address(0)
         });
 
@@ -411,11 +411,11 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
     assertEq(a, bModel);
   }
 
-  function assertEq(ManaBaseFeeComponentsModel memory a, ManaBaseFeeComponents memory b, string memory _message)
+  function assertEq(ManaMinFeeComponentsModel memory a, ManaMinFeeComponents memory b, string memory _message)
     internal
     pure
   {
-    ManaBaseFeeComponentsModel memory bModel = ManaBaseFeeComponentsModel({
+    ManaMinFeeComponentsModel memory bModel = ManaMinFeeComponentsModel({
       congestion_cost: b.congestionCost,
       congestion_multiplier: b.congestionMultiplier,
       prover_cost: b.proverCost,

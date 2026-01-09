@@ -93,8 +93,8 @@ struct AssertGuard {
 #define BB_ASSERT_EQ(actual, expected, ...)                                                                            \
     do {                                                                                                               \
         BB_BENCH_ASSERT("BB_ASSERT_EQ" #actual " == " #expected);                                                      \
-        auto _actual = (actual);                                                                                       \
-        auto _expected = (expected);                                                                                   \
+        const auto& _actual = (actual);                                                                                \
+        const auto& _expected = (expected);                                                                            \
         if (!(BB_LIKELY(_actual == _expected))) {                                                                      \
             std::ostringstream oss;                                                                                    \
             oss << "Assertion failed: (" #actual " == " #expected ")\n";                                               \
@@ -108,8 +108,8 @@ struct AssertGuard {
 #define BB_ASSERT_NEQ(actual, expected, ...)                                                                           \
     do {                                                                                                               \
         BB_BENCH_ASSERT("BB_ASSERT_NEQ" #actual " != " #expected);                                                     \
-        auto _actual = (actual);                                                                                       \
-        auto _expected = (expected);                                                                                   \
+        const auto& _actual = (actual);                                                                                \
+        const auto& _expected = (expected);                                                                            \
         if (!(BB_LIKELY(_actual != _expected))) {                                                                      \
             std::ostringstream oss;                                                                                    \
             oss << "Assertion failed: (" #actual " != " #expected ")\n";                                               \
@@ -123,8 +123,8 @@ struct AssertGuard {
 #define BB_ASSERT_GT(left, right, ...)                                                                                 \
     do {                                                                                                               \
         BB_BENCH_ASSERT("BB_ASSERT_GT" #left " > " #right);                                                            \
-        auto _left = (left);                                                                                           \
-        auto _right = (right);                                                                                         \
+        const auto& _left = (left);                                                                                    \
+        const auto& _right = (right);                                                                                  \
         if (!(BB_LIKELY(_left > _right))) {                                                                            \
             std::ostringstream oss;                                                                                    \
             oss << "Assertion failed: (" #left " > " #right ")\n";                                                     \
@@ -138,8 +138,8 @@ struct AssertGuard {
 #define BB_ASSERT_GTE(left, right, ...)                                                                                \
     do {                                                                                                               \
         BB_BENCH_ASSERT("BB_ASSERT_GTE" #left " >= " #right);                                                          \
-        auto _left = (left);                                                                                           \
-        auto _right = (right);                                                                                         \
+        const auto& _left = (left);                                                                                    \
+        const auto& _right = (right);                                                                                  \
         if (!(BB_LIKELY(_left >= _right))) {                                                                           \
             std::ostringstream oss;                                                                                    \
             oss << "Assertion failed: (" #left " >= " #right ")\n";                                                    \
@@ -153,8 +153,8 @@ struct AssertGuard {
 #define BB_ASSERT_LT(left, right, ...)                                                                                 \
     do {                                                                                                               \
         BB_BENCH_ASSERT("BB_ASSERT_LT" #left " < " #right);                                                            \
-        auto _left = (left);                                                                                           \
-        auto _right = (right);                                                                                         \
+        const auto& _left = (left);                                                                                    \
+        const auto& _right = (right);                                                                                  \
         if (!(BB_LIKELY(_left < _right))) {                                                                            \
             std::ostringstream oss;                                                                                    \
             oss << "Assertion failed: (" #left " < " #right ")\n";                                                     \
@@ -168,8 +168,8 @@ struct AssertGuard {
 #define BB_ASSERT_LTE(left, right, ...)                                                                                \
     do {                                                                                                               \
         BB_BENCH_ASSERT("BB_ASSERT_LTE" #left " <= " #right);                                                          \
-        auto _left = (left);                                                                                           \
-        auto _right = (right);                                                                                         \
+        const auto& _left = (left);                                                                                    \
+        const auto& _right = (right);                                                                                  \
         if (!(BB_LIKELY(_left <= _right))) {                                                                           \
             std::ostringstream oss;                                                                                    \
             oss << "Assertion failed: (" #left " <= " #right ")\n";                                                    \

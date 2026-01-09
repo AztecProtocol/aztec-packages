@@ -13,49 +13,53 @@ import {
 } from './types.js';
 
 /**
- * Type for the promises required by the competitive strategy
- */
-type P75AllTxsStrategyPromises = {
-  networkEstimate: Promise<bigint>;
-  pendingBlock: Promise<Awaited<ReturnType<ViemClient['getBlock']>> | null>;
-  feeHistory: Promise<Awaited<ReturnType<ViemClient['getFeeHistory']>> | null>;
-};
-
-/**
  * Our current competitive priority fee strategy.
  * Analyzes p75 of pending transactions and 5-block fee history to determine a competitive priority fee.
  * Falls back to network estimate if data is unavailable.
  */
-export const P75AllTxsPriorityFeeStrategy: PriorityFeeStrategy<P75AllTxsStrategyPromises> = {
+export const P75AllTxsPriorityFeeStrategy: PriorityFeeStrategy = {
   name: 'Competitive (P75 + History) - CURRENT',
   id: 'p75_pending_txs_and_history_all_txs',
 
-  getRequiredPromises(client: ViemClient): P75AllTxsStrategyPromises {
-    return {
-      networkEstimate: client.estimateMaxPriorityFeePerGas().catch(() => 0n),
-      pendingBlock: client.getBlock({ blockTag: 'pending', includeTransactions: true }).catch(() => null),
-      feeHistory: client
-        .getFeeHistory({
-          blockCount: HISTORICAL_BLOCK_COUNT,
-          rewardPercentiles: [75],
-          blockTag: 'latest',
-        })
-        .catch(() => null),
-    };
-  },
+  async execute(client: ViemClient, context: PriorityFeeStrategyContext): Promise<PriorityFeeStrategyResult> {
+    const { isBlobTx, logger } = context;
 
-  calculate(
-    results: {
-      [K in keyof P75AllTxsStrategyPromises]: PromiseSettledResult<Awaited<P75AllTxsStrategyPromises[K]>>;
-    },
-    context: PriorityFeeStrategyContext,
-  ): PriorityFeeStrategyResult {
-    const { logger } = context;
+    // Fire all RPC calls in parallel
+    const [latestBlockResult, blobBaseFeeResult, networkEstimateResult, pendingBlockResult, feeHistoryResult] =
+      await Promise.allSettled([
+        client.getBlock({ blockTag: 'latest' }),
+        isBlobTx ? client.getBlobBaseFee() : Promise.resolve(undefined),
+        client.estimateMaxPriorityFeePerGas().catch(() => 0n),
+        client.getBlock({ blockTag: 'pending', includeTransactions: true }).catch(() => null),
+        client
+          .getFeeHistory({
+            blockCount: HISTORICAL_BLOCK_COUNT,
+            rewardPercentiles: [75],
+            blockTag: 'latest',
+          })
+          .catch(() => null),
+      ]);
 
-    // Extract network estimate from settled result
+    // Extract latest block
+    if (latestBlockResult.status === 'rejected') {
+      throw new Error(`Failed to get latest block: ${latestBlockResult.reason}`);
+    }
+    const latestBlock = latestBlockResult.value;
+
+    // Extract blob base fee (only for blob txs)
+    let blobBaseFee: bigint | undefined;
+    if (isBlobTx) {
+      if (blobBaseFeeResult.status === 'fulfilled' && typeof blobBaseFeeResult.value === 'bigint') {
+        blobBaseFee = blobBaseFeeResult.value;
+      } else {
+        logger?.warn('Failed to get L1 blob base fee');
+      }
+    }
+
+    // Extract network estimate
     const networkEstimate =
-      results.networkEstimate.status === 'fulfilled' && typeof results.networkEstimate.value === 'bigint'
-        ? results.networkEstimate.value
+      networkEstimateResult.status === 'fulfilled' && typeof networkEstimateResult.value === 'bigint'
+        ? networkEstimateResult.value
         : 0n;
 
     let competitiveFee = networkEstimate;
@@ -63,8 +67,8 @@ export const P75AllTxsPriorityFeeStrategy: PriorityFeeStrategy<P75AllTxsStrategy
       networkEstimateGwei: formatGwei(networkEstimate),
     };
 
-    // Extract pending block from settled result
-    const pendingBlock = results.pendingBlock.status === 'fulfilled' ? results.pendingBlock.value : null;
+    // Extract pending block
+    const pendingBlock = pendingBlockResult.status === 'fulfilled' ? pendingBlockResult.value : null;
 
     // Analyze pending block transactions
     if (pendingBlock?.transactions && pendingBlock.transactions.length > 0) {
@@ -73,9 +77,7 @@ export const P75AllTxsPriorityFeeStrategy: PriorityFeeStrategy<P75AllTxsStrategy
           if (typeof tx === 'string') {
             return 0n;
           }
-          const fee = tx.maxPriorityFeePerGas || 0n;
-
-          return fee;
+          return tx.maxPriorityFeePerGas || 0n;
         })
         .filter((fee: bigint) => fee > 0n);
 
@@ -97,8 +99,8 @@ export const P75AllTxsPriorityFeeStrategy: PriorityFeeStrategy<P75AllTxsStrategy
       }
     }
 
-    // Extract fee history from settled result
-    const feeHistory = results.feeHistory.status === 'fulfilled' ? results.feeHistory.value : null;
+    // Extract fee history
+    const feeHistory = feeHistoryResult.status === 'fulfilled' ? feeHistoryResult.value : null;
 
     // Analyze fee history
     if (feeHistory?.reward && feeHistory.reward.length > 0) {
@@ -153,6 +155,8 @@ export const P75AllTxsPriorityFeeStrategy: PriorityFeeStrategy<P75AllTxsStrategy
 
     return {
       priorityFee: competitiveFee,
+      latestBlock,
+      blobBaseFee,
       debugInfo,
     };
   },

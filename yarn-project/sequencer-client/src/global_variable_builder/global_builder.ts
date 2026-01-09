@@ -23,7 +23,7 @@ import { createPublicClient, fallback, http } from 'viem';
  */
 export class GlobalVariableBuilder implements GlobalVariableBuilderInterface {
   private log = createLogger('sequencer:global_variable_builder');
-  private currentBaseFees: Promise<GasFees> = Promise.resolve(new GasFees(0, 0));
+  private currentMinFees: Promise<GasFees> = Promise.resolve(new GasFees(0, 0));
   private currentL1BlockNumber: bigint | undefined = undefined;
 
   private readonly rollupContract: RollupContract;
@@ -61,34 +61,34 @@ export class GlobalVariableBuilder implements GlobalVariableBuilderInterface {
   }
 
   /**
-   * Computes the "current" base fees, e.g., the price that you currently should pay to get include in the next block
-   * @returns Base fees for the next block
+   * Computes the "current" min fees, e.g., the price that you currently should pay to get include in the next block
+   * @returns Min fees for the next block
    */
-  private async computeCurrentBaseFees(): Promise<GasFees> {
+  private async computeCurrentMinFees(): Promise<GasFees> {
     // Since this might be called in the middle of a slot where a block might have been published,
     // we need to fetch the last block written, and estimate the earliest timestamp for the next block.
     // The timestamp of that last block will act as a lower bound for the next block.
 
     const lastBlock = await this.rollupContract.getPendingCheckpoint();
     const earliestTimestamp = await this.rollupContract.getTimestampForSlot(
-      SlotNumber.fromBigInt(lastBlock.slotNumber + 1n),
+      SlotNumber.fromBigInt(BigInt(lastBlock.slotNumber) + 1n),
     );
     const nextEthTimestamp = BigInt((await this.publicClient.getBlock()).timestamp + BigInt(this.ethereumSlotDuration));
     const timestamp = earliestTimestamp > nextEthTimestamp ? earliestTimestamp : nextEthTimestamp;
 
-    return new GasFees(0, await this.rollupContract.getManaBaseFeeAt(timestamp, true));
+    return new GasFees(0, await this.rollupContract.getManaMinFeeAt(timestamp, true));
   }
 
-  public async getCurrentBaseFees(): Promise<GasFees> {
+  public async getCurrentMinFees(): Promise<GasFees> {
     // Get the current block number
     const blockNumber = await this.publicClient.getBlockNumber();
 
-    // If the L1 block number has changed then chain a new promise to get the current base fees
+    // If the L1 block number has changed then chain a new promise to get the current min fees
     if (this.currentL1BlockNumber === undefined || blockNumber > this.currentL1BlockNumber) {
       this.currentL1BlockNumber = blockNumber;
-      this.currentBaseFees = this.currentBaseFees.then(() => this.computeCurrentBaseFees());
+      this.currentMinFees = this.currentMinFees.then(() => this.computeCurrentMinFees());
     }
-    return this.currentBaseFees;
+    return this.currentMinFees;
   }
 
   /**
@@ -128,9 +128,9 @@ export class GlobalVariableBuilder implements GlobalVariableBuilderInterface {
       l1GenesisTime: this.l1GenesisTime,
     });
 
-    // We can skip much of the logic in getCurrentBaseFees since it we already check that we are not within a slot elsewhere.
+    // We can skip much of the logic in getCurrentMinFees since it we already check that we are not within a slot elsewhere.
     // TODO(palla/mbps): Can we use a cached value here?
-    const gasFees = new GasFees(0, await this.rollupContract.getManaBaseFeeAt(timestamp, true));
+    const gasFees = new GasFees(0, await this.rollupContract.getManaMinFeeAt(timestamp, true));
 
     return { chainId, version, slotNumber, timestamp, coinbase, feeRecipient, gasFees };
   }

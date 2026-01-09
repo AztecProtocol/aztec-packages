@@ -21,14 +21,14 @@ pol commit tag;
 pol commit space_id; // Memory space identifier (16-bit).
 pol commit address; // Memory address (32-bit).
 pol commit clk; // Clock cycle. (32-bit) Row index of corresponding opcode in the execution trace.
-pol commit rw; // Memory operation type: 0 for read, 1 for write.
+pol commit rw; // @boolean Memory operation type: 0 for read, 1 for write.
 
 // Boolean selectors.
-pol commit sel; // Main selector to toggle an active row (used by any interaction lookups.).
-pol commit last_access; // Last memory access for a given global address
-pol commit sel_rng_chk; // Every active row except the last one
-pol commit sel_tag_is_ff; // Toggles if tag == FF
-pol commit sel_rng_write; // Toggles if rw == 1 and tag != FF (Activate range check for write values.)
+pol commit sel; // @boolean Main selector to toggle an active row (used by any interaction lookups.).
+pol commit last_access; // @boolean Last memory access for a given global address
+pol commit sel_rng_chk; // @boolean (by definition) Every active row except the last one
+pol commit sel_tag_is_ff; // @boolean Toggles if tag == FF
+pol commit sel_rng_write; // @boolean (by definition) Toggles if rw == 1 and tag != FF (Activate range check for write values.)
 
 // Derived values.
 pol commit global_addr; // Global unique address derived from space_id and address.
@@ -65,8 +65,8 @@ pol commit max_bits; // Number of bits corresponding to the tag. (Retrieved from
 sel = 0;
 
 // Permutation selectors (execution/addressing.pil).
-pol commit sel_addressing_base;
-pol commit sel_addressing_indirect[7];
+pol commit sel_addressing_base; // @boolean
+pol commit sel_addressing_indirect[7]; // @boolean
 sel_addressing_base * (1 - sel_addressing_base) = 0;
 sel_addressing_indirect[0] * (1 - sel_addressing_indirect[0]) = 0;
 sel_addressing_indirect[1] * (1 - sel_addressing_indirect[1]) = 0;
@@ -77,7 +77,7 @@ sel_addressing_indirect[5] * (1 - sel_addressing_indirect[5]) = 0;
 sel_addressing_indirect[6] * (1 - sel_addressing_indirect[6]) = 0;
 
 // Permutation selectors (execution/registers.pil)
-pol commit sel_register_op[6];
+pol commit sel_register_op[6]; // @boolean
 sel_register_op[0] * (1 - sel_register_op[0]) = 0;
 sel_register_op[1] * (1 - sel_register_op[1]) = 0;
 sel_register_op[2] * (1 - sel_register_op[2]) = 0;
@@ -86,24 +86,24 @@ sel_register_op[4] * (1 - sel_register_op[4]) = 0;
 sel_register_op[5] * (1 - sel_register_op[5]) = 0;
 
 // Permutation selectors (data_copy.pil).
-pol commit sel_data_copy_read;
-pol commit sel_data_copy_write;
+pol commit sel_data_copy_read; // @boolean
+pol commit sel_data_copy_write; // @boolean
 sel_data_copy_read * (1 - sel_data_copy_read) = 0;
 sel_data_copy_write * (1 - sel_data_copy_write) = 0;
 
 // Permutation selectors (opcodes/get_contract_instance.pil).
-pol commit sel_get_contract_instance_exists_write;
-pol commit sel_get_contract_instance_member_write;
+pol commit sel_get_contract_instance_exists_write; // @boolean
+pol commit sel_get_contract_instance_member_write; // @boolean
 sel_get_contract_instance_exists_write * (1 - sel_get_contract_instance_exists_write) = 0;
 sel_get_contract_instance_member_write * (1 - sel_get_contract_instance_member_write) = 0;
 
 // Permutation selectors (opcodes/emit_unencrypted_log.pil).
-pol commit sel_unencrypted_log_read;
+pol commit sel_unencrypted_log_read; // @boolean
 sel_unencrypted_log_read * (1 - sel_unencrypted_log_read) = 0;
 
 // Permutation selectors (poseidon2_mem.pil).
-pol commit sel_poseidon2_read[4];
-pol commit sel_poseidon2_write[4];
+pol commit sel_poseidon2_read[4]; // @boolean
+pol commit sel_poseidon2_write[4]; // @boolean
 sel_poseidon2_read[0] * (1 - sel_poseidon2_read[0]) = 0;
 sel_poseidon2_read[1] * (1 - sel_poseidon2_read[1]) = 0;
 sel_poseidon2_read[2] * (1 - sel_poseidon2_read[2]) = 0;
@@ -114,12 +114,12 @@ sel_poseidon2_write[2] * (1 - sel_poseidon2_write[2]) = 0;
 sel_poseidon2_write[3] * (1 - sel_poseidon2_write[3]) = 0;
 
 // Permutation selectors (keccak_memory.pil).
-pol commit sel_keccak;
+pol commit sel_keccak; // @boolean
 sel_keccak * (1 - sel_keccak) = 0;
 
 // Permutation selectors (sha256_mem.pil).
-pol commit sel_sha256_read;
-pol commit sel_sha256_op[8];
+pol commit sel_sha256_read; // @boolean
+pol commit sel_sha256_op[8]; // @boolean
 sel_sha256_read * (1 - sel_sha256_read) = 0;
 sel_sha256_op[0] * (1 - sel_sha256_op[0]) = 0;
 sel_sha256_op[1] * (1 - sel_sha256_op[1]) = 0;
@@ -131,13 +131,13 @@ sel_sha256_op[6] * (1 - sel_sha256_op[6]) = 0;
 sel_sha256_op[7] * (1 - sel_sha256_op[7]) = 0;
 
 // Permutation selectors (ecc_mem.pil).
-pol commit sel_ecc_write[3];
+pol commit sel_ecc_write[3]; // @boolean
 sel_ecc_write[0] * (1 - sel_ecc_write[0]) = 0;
 sel_ecc_write[1] * (1 - sel_ecc_write[1]) = 0;
 sel_ecc_write[2] * (1 - sel_ecc_write[2]) = 0;
 
 // Permutation selectors (to_radix_mem.pil).
-pol commit sel_to_radix_write;
+pol commit sel_to_radix_write; // @boolean
 sel_to_radix_write * (1 - sel_to_radix_write) = 0;
 
 // Permutation consistency.

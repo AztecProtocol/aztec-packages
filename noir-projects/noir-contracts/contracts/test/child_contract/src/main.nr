@@ -52,7 +52,7 @@ pub contract Child {
         let note = FieldNote { value: new_value };
 
         self.storage.private_values.at(owner).insert(note).deliver(
-            MessageDelivery.CONSTRAINED_ONCHAIN,
+            MessageDelivery.ONCHAIN_CONSTRAINED,
         );
         new_value
     }

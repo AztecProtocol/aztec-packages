@@ -726,7 +726,7 @@ This chain ensures the op queue history is maintained correctly. The Merge proto
 
 ```cpp
 // In OinkVerifier::verify() (called by HypernovaFoldingVerifier for each instance)
-FF vk_hash = vk->hash_with_origin_tagging(domain_separator, *transcript);
+FF vk_hash = vk->hash_with_origin_tagging(*transcript);
 transcript->add_to_hash_buffer(domain_separator + "vk_hash", vk_hash);
 // All subsequent challenges now depend on this hash
 ```

@@ -162,11 +162,14 @@ void process_squashing_trace(const std::vector<PublicDataTreeReadWriteEvent>& no
             const auto& next_event = nondiscarded_writes[i + 1];
 
             if (event.leaf_slot == next_event.leaf_slot) {
-                assert(event.execution_id < next_event.execution_id);
+                BB_ASSERT_LT(
+                    event.execution_id, next_event.execution_id, "Execution id is not less than next execution id");
                 clk_diff = next_event.execution_id - event.execution_id;
                 check_clock = true;
             } else {
-                assert(static_cast<uint256_t>(event.leaf_slot) < static_cast<uint256_t>(next_event.leaf_slot));
+                BB_ASSERT_LT(static_cast<uint256_t>(event.leaf_slot),
+                             static_cast<uint256_t>(next_event.leaf_slot),
+                             "Leaf slot is not less than next leaf slot");
                 leaf_slot_increase = true;
             }
         }

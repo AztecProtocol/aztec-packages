@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Planned, auditors: [], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #include "barretenberg/ultra_honk/oink_verifier.hpp"
@@ -53,7 +53,7 @@ template <typename Flavor> void OinkVerifier<Flavor>::execute_preamble_round()
 {
     auto vk = verifier_instance->get_vk();
 
-    FF vk_hash = vk->hash_with_origin_tagging(domain_separator, *transcript);
+    FF vk_hash = vk->hash_with_origin_tagging(*transcript);
     transcript->add_to_hash_buffer(domain_separator + "vk_hash", vk_hash);
     vinfo("vk hash in Oink verifier: ", vk_hash);
 

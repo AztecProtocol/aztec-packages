@@ -2,6 +2,7 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
+import {IEscapeHatch} from "@aztec/core/interfaces/IEscapeHatch.sol";
 import {RollupStore} from "@aztec/core/interfaces/IRollup.sol";
 import {ValidatorSelectionStorage} from "@aztec/core/interfaces/IValidatorSelection.sol";
 import {SampleLib} from "@aztec/core/libraries/crypto/SampleLib.sol";
@@ -147,6 +148,16 @@ library ValidatorSelectionLib {
     store.lagInEpochsForRandao = _lagInEpochsForRandao.toUint32();
 
     checkpointRandao(Epoch.wrap(0));
+  }
+
+  /**
+   * @notice Sets the escape hatch contract address
+   * @dev Only callable through RollupCore.setEscapeHatch (governance-controlled).
+   *      Set to address(0) to disable escape hatch functionality.
+   * @param _escapeHatch The address of the EscapeHatch contract, or address(0) to disable
+   */
+  function updateEscapeHatch(address _escapeHatch) internal {
+    getStorage().escapeHatch = IEscapeHatch(_escapeHatch);
   }
 
   /**
@@ -575,6 +586,15 @@ library ValidatorSelectionLib {
 
   function getLagInEpochsForRandao() internal view returns (uint256) {
     return getStorage().lagInEpochsForRandao;
+  }
+
+  /**
+   * @notice Gets the escape hatch contract
+   * @dev Returns the configured escape hatch, or a zero-address IEscapeHatch if disabled
+   * @return The escape hatch contract interface
+   */
+  function getEscapeHatch() internal view returns (IEscapeHatch) {
+    return getStorage().escapeHatch;
   }
 
   /**

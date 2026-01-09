@@ -16,32 +16,32 @@ import { BlockHeader, GlobalVariables, TxHash } from '@aztec/stdlib/tx';
 import { mock } from 'jest-mock-extended';
 import type { _MockProxy } from 'jest-mock-extended/lib/Mock.js';
 
-import type { AddressDataProvider } from '../../storage/address_data_provider/address_data_provider.js';
-import type { AnchorBlockDataProvider } from '../../storage/anchor_block_data_provider/anchor_block_data_provider.js';
-import type { CapsuleDataProvider } from '../../storage/capsule_data_provider/capsule_data_provider.js';
-import type { ContractDataProvider } from '../../storage/contract_data_provider/contract_data_provider.js';
-import type { NoteDataProvider } from '../../storage/note_data_provider/note_data_provider.js';
-import type { PrivateEventDataProvider } from '../../storage/private_event_data_provider/private_event_data_provider.js';
-import type { SenderAddressBook } from '../../storage/tagging_data_provider/sender_address_book.js';
-import type { SenderTaggingDataProvider } from '../../storage/tagging_data_provider/sender_tagging_data_provider.js';
-import type { RecipientTaggingDataProvider } from '../../tagging/recipient_sync/recipient_tagging_data_provider.js';
+import type { AddressStore } from '../../storage/address_store/address_store.js';
+import type { AnchorBlockStore } from '../../storage/anchor_block_store/anchor_block_store.js';
+import type { CapsuleStore } from '../../storage/capsule_store/capsule_store.js';
+import type { ContractStore } from '../../storage/contract_store/contract_store.js';
+import type { NoteStore } from '../../storage/note_store/note_store.js';
+import type { PrivateEventStore } from '../../storage/private_event_store/private_event_store.js';
+import type { RecipientTaggingStore } from '../../storage/tagging_store/recipient_tagging_store.js';
+import type { SenderAddressBookStore } from '../../storage/tagging_store/sender_address_book_store.js';
+import type { SenderTaggingStore } from '../../storage/tagging_store/sender_tagging_store.js';
 import { ContractFunctionSimulator } from '../contract_function_simulator.js';
 import { UtilityExecutionOracle } from './utility_execution_oracle.js';
 
 describe('Utility Execution test suite', () => {
   const simulator = new WASMSimulator();
 
-  let contractDataProvider: ReturnType<typeof mock<ContractDataProvider>>;
-  let noteDataProvider: ReturnType<typeof mock<NoteDataProvider>>;
+  let contractStore: ReturnType<typeof mock<ContractStore>>;
+  let noteStore: ReturnType<typeof mock<NoteStore>>;
   let keyStore: ReturnType<typeof mock<KeyStore>>;
-  let addressDataProvider: ReturnType<typeof mock<AddressDataProvider>>;
+  let addressStore: ReturnType<typeof mock<AddressStore>>;
   let aztecNode: ReturnType<typeof mock<AztecNode>>;
-  let anchorBlockDataProvider: ReturnType<typeof mock<AnchorBlockDataProvider>>;
-  let senderTaggingDataProvider: ReturnType<typeof mock<SenderTaggingDataProvider>>;
-  let recipientTaggingDataProvider: ReturnType<typeof mock<RecipientTaggingDataProvider>>;
-  let senderAddressBook: ReturnType<typeof mock<SenderAddressBook>>;
-  let capsuleDataProvider: ReturnType<typeof mock<CapsuleDataProvider>>;
-  let privateEventDataProvider: ReturnType<typeof mock<PrivateEventDataProvider>>;
+  let anchorBlockStore: ReturnType<typeof mock<AnchorBlockStore>>;
+  let senderTaggingStore: ReturnType<typeof mock<SenderTaggingStore>>;
+  let recipientTaggingStore: ReturnType<typeof mock<RecipientTaggingStore>>;
+  let senderAddressBookStore: ReturnType<typeof mock<SenderAddressBookStore>>;
+  let capsuleStore: ReturnType<typeof mock<CapsuleStore>>;
+  let privateEventStore: ReturnType<typeof mock<PrivateEventStore>>;
   let acirSimulator: ContractFunctionSimulator;
   let owner: AztecAddress;
   let ownerCompleteAddress: CompleteAddress;
@@ -53,25 +53,25 @@ describe('Utility Execution test suite', () => {
   };
 
   beforeEach(async () => {
-    contractDataProvider = mock<ContractDataProvider>();
-    noteDataProvider = mock<NoteDataProvider>();
+    contractStore = mock<ContractStore>();
+    noteStore = mock<NoteStore>();
     keyStore = mock<KeyStore>();
-    addressDataProvider = mock<AddressDataProvider>();
+    addressStore = mock<AddressStore>();
     aztecNode = mock<AztecNode>();
-    anchorBlockDataProvider = mock<AnchorBlockDataProvider>();
-    senderTaggingDataProvider = mock<SenderTaggingDataProvider>();
-    recipientTaggingDataProvider = mock<RecipientTaggingDataProvider>();
-    senderAddressBook = mock<SenderAddressBook>();
-    capsuleDataProvider = mock<CapsuleDataProvider>();
-    privateEventDataProvider = mock<PrivateEventDataProvider>();
+    anchorBlockStore = mock<AnchorBlockStore>();
+    senderTaggingStore = mock<SenderTaggingStore>();
+    recipientTaggingStore = mock<RecipientTaggingStore>();
+    senderAddressBookStore = mock<SenderAddressBookStore>();
+    capsuleStore = mock<CapsuleStore>();
+    privateEventStore = mock<PrivateEventStore>();
     const capsuleArrays = new Map<string, Fr[][]>();
     anchorBlockHeader = BlockHeader.random();
-    anchorBlockDataProvider.getBlockHeader.mockImplementation(() => Promise.resolve(anchorBlockHeader));
-    senderTaggingDataProvider.getLastFinalizedIndex.mockResolvedValue(undefined);
-    senderTaggingDataProvider.getLastUsedIndex.mockResolvedValue(undefined);
-    senderTaggingDataProvider.getTxHashesOfPendingIndexes.mockResolvedValue([]);
-    senderTaggingDataProvider.storePendingIndexes.mockResolvedValue();
-    senderAddressBook.getSenders.mockResolvedValue([]);
+    anchorBlockStore.getBlockHeader.mockImplementation(() => Promise.resolve(anchorBlockHeader));
+    senderTaggingStore.getLastFinalizedIndex.mockResolvedValue(undefined);
+    senderTaggingStore.getLastUsedIndex.mockResolvedValue(undefined);
+    senderTaggingStore.getTxHashesOfPendingIndexes.mockResolvedValue([]);
+    senderTaggingStore.storePendingIndexes.mockResolvedValue();
+    senderAddressBookStore.getSenders.mockResolvedValue([]);
 
     // Mock getL2Tips and getBlockHeader for loadPrivateLogsForSenderRecipientPair
     aztecNode.getL2Tips.mockResolvedValue({
@@ -85,25 +85,25 @@ describe('Utility Execution test suite', () => {
     });
     aztecNode.getPrivateLogsByTags.mockImplementation((tags: any[]) => Promise.resolve(tags.map(() => [])));
 
-    capsuleDataProvider.setCapsuleArray.mockImplementation((address, slot, content) => {
+    capsuleStore.setCapsuleArray.mockImplementation((address, slot, content) => {
       capsuleArrays.set(`${address.toString()}:${slot.toString()}`, content);
       return Promise.resolve();
     });
-    capsuleDataProvider.readCapsuleArray.mockImplementation((address, slot) => {
+    capsuleStore.readCapsuleArray.mockImplementation((address, slot) => {
       return Promise.resolve(capsuleArrays.get(`${address.toString()}:${slot.toString()}`) ?? []);
     });
     acirSimulator = new ContractFunctionSimulator(
-      contractDataProvider,
-      noteDataProvider,
+      contractStore,
+      noteStore,
       keyStore,
-      addressDataProvider,
+      addressStore,
       aztecNode,
-      anchorBlockDataProvider,
-      senderTaggingDataProvider,
-      recipientTaggingDataProvider,
-      senderAddressBook,
-      capsuleDataProvider,
-      privateEventDataProvider,
+      anchorBlockStore,
+      senderTaggingStore,
+      recipientTaggingStore,
+      senderAddressBookStore,
+      capsuleStore,
+      privateEventStore,
       simulator,
     );
 
@@ -126,7 +126,7 @@ describe('Utility Execution test suite', () => {
       return Promise.resolve(GrumpkinScalar.random());
     });
 
-    addressDataProvider.getCompleteAddress.mockImplementation((account: AztecAddress) => {
+    addressStore.getCompleteAddress.mockImplementation((account: AztecAddress) => {
       if (account.equals(owner)) {
         return Promise.resolve(ownerCompleteAddress);
       }
@@ -144,20 +144,20 @@ describe('Utility Execution test suite', () => {
     const notes: Note[] = [...Array(5).fill(buildNote(1n)), ...Array(2).fill(buildNote(2n))];
 
     aztecNode.getPublicStorageAt.mockResolvedValue(Fr.ZERO);
-    contractDataProvider.getFunctionArtifact.mockResolvedValue(artifact);
-    contractDataProvider.getContractInstance.mockResolvedValue({
+    contractStore.getFunctionArtifact.mockResolvedValue(artifact);
+    contractStore.getContractInstance.mockResolvedValue({
       currentContractClassId: new Fr(42),
       originalContractClassId: new Fr(42),
       address: contractAddress,
     } as ContractInstanceWithAddress);
-    contractDataProvider.getFunctionArtifactWithDebugMetadata.mockImplementation(async (address, selector) => {
-      const artifact = await contractDataProvider.getFunctionArtifact(address, selector);
+    contractStore.getFunctionArtifactWithDebugMetadata.mockImplementation(async (address, selector) => {
+      const artifact = await contractStore.getFunctionArtifact(address, selector);
       if (!artifact) {
         throw new Error(`Function not found: ${selector.toString()} in contract ${address}`);
       }
       return { ...artifact, debug: undefined };
     });
-    noteDataProvider.getNotes.mockResolvedValue(
+    noteStore.getNotes.mockResolvedValue(
       notes.map(
         (note, index) =>
           new NoteDao(
@@ -177,7 +177,7 @@ describe('Utility Execution test suite', () => {
       ),
     );
 
-    capsuleDataProvider.loadCapsule.mockImplementation((_, __) => Promise.resolve(null));
+    capsuleStore.loadCapsule.mockImplementation((_, __) => Promise.resolve(null));
 
     const execRequest: FunctionCall = {
       name: artifact.name,
@@ -205,23 +205,23 @@ describe('Utility Execution test suite', () => {
       anchorBlockHeader = BlockHeader.empty({
         globalVariables: GlobalVariables.empty({ blockNumber: BlockNumber(syncedBlockNumber) }),
       });
-      anchorBlockDataProvider.getBlockHeader.mockResolvedValue(anchorBlockHeader);
+      anchorBlockStore.getBlockHeader.mockResolvedValue(anchorBlockHeader);
 
       utilityExecutionOracle = new UtilityExecutionOracle(
         contractAddress,
         [],
         [],
         anchorBlockHeader,
-        contractDataProvider,
-        noteDataProvider,
+        contractStore,
+        noteStore,
         keyStore,
-        addressDataProvider,
+        addressStore,
         aztecNode,
-        anchorBlockDataProvider,
-        recipientTaggingDataProvider,
-        senderAddressBook,
-        capsuleDataProvider,
-        privateEventDataProvider,
+        anchorBlockStore,
+        recipientTaggingStore,
+        senderAddressBookStore,
+        capsuleStore,
+        privateEventStore,
       );
     });
 

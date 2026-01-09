@@ -155,7 +155,7 @@ pub global INITIAL_CHECKPOINT_NUMBER: Field = 1;
 pub global INITIAL_L2_BLOCK_NUM: Field = 1;
 pub global FIELDS_PER_BLOB: u32 = 4096;
 pub global BLOBS_PER_CHECKPOINT: u32 = 6;
-pub global AZTEC_MAX_EPOCH_DURATION: u32 = 48;
+pub global AZTEC_MAX_EPOCH_DURATION: u32 = 48; // Is this the max number of checkpoints per epoch? If so, we should rename it.
 pub global MAX_INCLUDE_BY_TIMESTAMP_DURATION: u64 = 86400; // 1 day
 // The genesis values are taken from world_state.test.cpp > WorldStateTest.GetInitialTreeInfoForAllTrees
 pub global GENESIS_BLOCK_HEADER_HASH: Field =
@@ -288,7 +288,6 @@ pub global GAS_SETTINGS_LENGTH: u32 = GAS_LENGTH /* gas_limits */
     + GAS_FEES_LENGTH /* max_fees_per_gas */
     + GAS_FEES_LENGTH /* max_priority_fees_per_gas */;
 pub global CALL_CONTEXT_LENGTH: u32 = 4;
-pub global CONTENT_COMMITMENT_LENGTH: u32 = 3;
 pub global CONTRACT_INSTANCE_LENGTH: u32 = 16;
 pub global CONTRACT_STORAGE_READ_LENGTH: u32 = 3;
 pub global CONTRACT_STORAGE_UPDATE_REQUEST_LENGTH: u32 = 3;
@@ -383,17 +382,10 @@ pub global BLOCK_HEADER_LENGTH: u32 = APPEND_ONLY_TREE_SNAPSHOT_LENGTH
     + GLOBAL_VARIABLES_LENGTH
     + TOTAL_FEES_LENGTH
     + TOTAL_MANA_USED_LENGTH;
-// Global variables are all 32 bytes, apart from coinbase which is 20, hence -12. A state reference is just 4 snapshots.
-pub global BLOCK_HEADER_LENGTH_BYTES: u32 = APPEND_ONLY_TREE_SNAPSHOT_LENGTH_BYTES
-    + 32 * CONTENT_COMMITMENT_LENGTH
-    + 4 * APPEND_ONLY_TREE_SNAPSHOT_LENGTH_BYTES
-    + 32 * GLOBAL_VARIABLES_LENGTH
-    - 12
-    + 32 * TOTAL_FEES_LENGTH
-    + 32 * TOTAL_MANA_USED_LENGTH;
 pub global CHECKPOINT_HEADER_LENGTH: u32 = 1 /* last_archive_root */
     + 1 /* block_headers_hash */
-    + CONTENT_COMMITMENT_LENGTH
+    + 1 /* blobs_hash */
+    + 1 /* in_hash */
     + 1 /* slot_number */
     + 1 /* timestamp */
     + 1 /* coinbase */
@@ -572,7 +564,7 @@ pub global BLOCK_ROLLUP_PUBLIC_INPUTS_LENGTH: u32 = CHECKPOINT_CONSTANT_DATA_LEN
     + 2 * APPEND_ONLY_TREE_SNAPSHOT_LENGTH /* previous_archive and new_archive */
     + 2 * STATE_REFERENCE_LENGTH /* start_state and end_state */
     + 2 * SPONGE_BLOB_LENGTH /* start_sponge_blob and end_sponge_blob */
-    + 2 /* start_timestamp and end_timestamp */
+    + 1 /* timestamp */
     + 1 /* block_headers_hash */
     + 1 /* in_hash */
     + 1 /* out_hash */
@@ -581,11 +573,13 @@ pub global BLOCK_ROLLUP_PUBLIC_INPUTS_LENGTH: u32 = CHECKPOINT_CONSTANT_DATA_LEN
 pub global CHECKPOINT_ROLLUP_PUBLIC_INPUTS_LENGTH: u32 = EPOCH_CONSTANT_DATA_LENGTH
     + 2 * APPEND_ONLY_TREE_SNAPSHOT_LENGTH /* previous_archive and new_archive */
     + AZTEC_MAX_EPOCH_DURATION /* checkpoint_header_hashes */
+    + AZTEC_MAX_EPOCH_DURATION /* out_hashes */
     + AZTEC_MAX_EPOCH_DURATION * FEE_RECIPIENT_LENGTH /* fees */
     + 2 * BLOB_ACCUMULATOR_LENGTH /* start and end blob accumulators */
     + FINAL_BLOB_BATCHING_CHALLENGES_LENGTH;
 pub global ROOT_ROLLUP_PUBLIC_INPUTS_LENGTH: u32 = 1 /* previous_archive_root */
     + 1 /* end_archive_root */
+    + 1 /* out_hash */
     + 1 /* chain_id */
     + 1 /* version */
     + 1 /* vk_tree_root */
@@ -1168,9 +1162,11 @@ pub global AVM_SSTORE_DYN_DA_GAS: u32 = 2 * DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE
 // BLOB PREFIXES
 // Used when decoding blobs of tightly packed effects
 // TODO: Maybe hash instead of directly encoding to field for NUMS
-pub global TX_START_PREFIX: Field = 0x74785f7374617274; // = "tx_start".to_field() in nr
-pub global BLOCK_END_PREFIX: Field = 0x626c6f636b5f656e64; // = "block_end".to_field() in nr
-pub global CHECKPOINT_END_PREFIX: Field = 0x636865636b706f696e745f656e64; // = "checkpoint_end".to_field() in nr
+// TODO: we need noir tests that demonstrate that these derivations are correct.
+pub global TX_START_PREFIX: Field = 0x74785f7374617274; // = "tx_start".to_field() in nr (8 bytes)
+pub global TX_START_PREFIX_BIT_SIZE: u32 = 64;
+pub global BLOCK_END_PREFIX: Field = 0x626c6f636b5f656e64; // = "block_end".to_field() in nr (9 bytes)
+pub global CHECKPOINT_END_PREFIX: Field = 0x636865636b706f696e745f656e64; // = "checkpoint_end".to_field() in nr (14 bytes)
 
 // Constants related to proof type of a recursive proof verification.
 // Keep following constants in sync with the enum acir_format::PROOF_TYPE in recursion_constraint.hpp

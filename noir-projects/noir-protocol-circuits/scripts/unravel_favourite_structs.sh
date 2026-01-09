@@ -27,6 +27,9 @@ node scripts/unravel_struct.js target/private_kernel_reset_4_4_4_4_4_4_4_4_4.jso
 append_line_break "PRIVATE KERNEL TAIL"
 node scripts/unravel_struct.js target/private_kernel_tail.json --all >> "$FILE"
 
+append_line_break "PRIVATE KERNEL TAIL TO PUBLIC"
+node scripts/unravel_struct.js target/private_kernel_tail_to_public.json --all >> "$FILE"
+
 
 append_line_break "PRIVATE TX BASE"
 node scripts/unravel_struct.js target/rollup_tx_base_private.json PrivateTxBaseRollupPrivateInputs >> "$FILE"

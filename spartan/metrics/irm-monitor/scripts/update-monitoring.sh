@@ -13,9 +13,9 @@ INFURA_URL_SECRET=${4:-"infura-sepolia-url"}
 # Deployment name includes the monitoring namespace prefix
 export DEPLOYMENT_NAME="${MONITORING_NAMESPACE}-monitor"
 
-# Docker image (can be overridden via IMAGE_TAG or IMAGE environment variable)
+# Docker image tag (defaults to 'latest' if not provided via IMAGE_TAG environment variable)
 IMAGE_TAG=${IMAGE_TAG:-latest}
-IMAGE=${IMAGE:-"aztecprotocol/block-height-monitor:${IMAGE_TAG}"}
+IMAGE="aztecprotocol/block-height-monitor:${IMAGE_TAG}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BASE_DIR="$SCRIPT_DIR/.."
@@ -156,8 +156,8 @@ yq eval ".metadata.name = \"${DEPLOYMENT_NAME}\" |
 # Build image if missing (initial install path only)
 SCRIPT_BUILD="$SCRIPT_DIR/build-and-publish.sh"
 if [ -x "$SCRIPT_BUILD" ]; then
-  echo "Ensuring image aztecprotocol/block-height-monitor:${IMAGE_TAG} exists..."
-  "$SCRIPT_BUILD" "$IMAGE_TAG"
+  echo "Ensuring image ${IMAGE} exists..."
+  "$SCRIPT_BUILD" "$IMAGE"
 fi
 
 echo "Applying Deployment..."

@@ -4,13 +4,7 @@ import { RunningPromise } from '@aztec/foundation/running-promise';
 import { sleep } from '@aztec/foundation/sleep';
 import type { L2BlockSource } from '@aztec/stdlib/block';
 import { type L1RollupConstants, getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
-import {
-  type TelemetryClient,
-  type Traceable,
-  type Tracer,
-  getTelemetryClient,
-  trackSpan,
-} from '@aztec/telemetry-client';
+import { type TelemetryClient, type Traceable, type Tracer, getTelemetryClient } from '@aztec/telemetry-client';
 
 export interface EpochMonitorHandler {
   handleEpochReadyToProve(epochNumber: EpochNumber): Promise<boolean>;
@@ -73,7 +67,6 @@ export class EpochMonitor implements Traceable {
     this.log.info('Stopped EpochMonitor');
   }
 
-  @trackSpan('EpochMonitor.work')
   public async work() {
     const { epochToProve, blockNumber, slotNumber } = await this.getEpochNumberToProve();
     this.log.debug(`Epoch to prove: ${epochToProve}`, { blockNumber, slotNumber });

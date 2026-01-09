@@ -3,13 +3,14 @@
 pragma solidity >=0.8.27;
 
 import {BlobLib} from "@aztec-blob-lib/BlobLib.sol";
+import {IEscapeHatch} from "@aztec/core/interfaces/IEscapeHatch.sol";
 import {RollupStore, IRollupCore, CheckpointHeaderValidationFlags} from "@aztec/core/interfaces/IRollup.sol";
 import {TempCheckpointLog} from "@aztec/core/libraries/compressed-data/CheckpointLog.sol";
 import {FeeHeader} from "@aztec/core/libraries/compressed-data/fees/FeeStructs.sol";
 import {ChainTipsLib, CompressedChainTips} from "@aztec/core/libraries/compressed-data/Tips.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {SignatureDomainSeparator, CommitteeAttestations} from "@aztec/core/libraries/rollup/AttestationLib.sol";
-import {OracleInput, FeeLib, ManaBaseFeeComponents} from "@aztec/core/libraries/rollup/FeeLib.sol";
+import {OracleInput, FeeLib, ManaMinFeeComponents} from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {ValidatorSelectionLib} from "@aztec/core/libraries/rollup/ValidatorSelectionLib.sol";
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {CompressedSlot, CompressedTimeMath} from "@aztec/shared/libraries/CompressedTimeMath.sol";
@@ -41,6 +42,9 @@ struct InterimProposeValues {
   Epoch currentEpoch;
   bool isFirstCheckpointOfEpoch;
   bool isTxsEnabled;
+  bool isEscapeHatch;
+  address escapeHatchProposer;
+  IEscapeHatch escapeHatch;
 }
 
 /**
@@ -53,7 +57,7 @@ struct InterimProposeValues {
 struct ValidateHeaderArgs {
   ProposedHeader header;
   bytes32 digest;
-  uint256 manaBaseFee;
+  uint256 manaMinFee;
   bytes32 blobsHashesCommitment;
   CheckpointHeaderValidationFlags flags;
 }
@@ -70,7 +74,7 @@ struct ValidateHeaderArgs {
  *      - Validator selection and proposer verification
  *      - Fee calculation and mana consumption tracking
  *      - State transitions and archive updates
- *      - Message processing between L1 and L2 via the Inbox and Outbox contracts
+ *      - L1 to L2 message processing via the Inbox
  *
  *      The proposal flow operates within Aztec's time-based model where:
  *      - Each slot has a designated proposer selected from the validator set
@@ -117,7 +121,7 @@ library ProposeLib {
    *          Note that some validations and processes are disabled if the chain is configured to run without
    *          transactions, such as during ignition phase:
    *          - No fee header computation or L1 gas fee oracle update
-   *          - No inbox message consumption or outbox message insertion
+   *          - No inbox message consumption
    *
    *          Validations performed:
    *          - Blob commitments against provided blob data: Errors.Rollup__InvalidBlobHash,
@@ -137,8 +141,7 @@ library ProposeLib {
    *          - Store checkpoint metadata in circular storage (TempCheckpointLog)
    *          - Update L1 gas fee oracle (when txs enabled)
    *          - Consume inbox messages (when txs enabled)
-   *          - Insert outbox messages (when txs enabled)
-   *          - Setup epoch for validator selection (first checkpoint of the epoch)
+   *          - Setup epoch for validator selection (first block of the epoch)
    *
    * @param _args - The arguments to propose the checkpoint
    * @param _attestations - Committee attestations in a packed format:
@@ -200,11 +203,11 @@ library ProposeLib {
     v.currentEpoch = Timestamp.wrap(block.timestamp).epochFromTimestamp();
     ValidatorSelectionLib.setupEpoch(v.currentEpoch);
 
-    // Calculate mana base fee components for header validation
-    ManaBaseFeeComponents memory components;
+    // Calculate mana min fee components for header validation
+    ManaMinFeeComponents memory components;
     if (v.isTxsEnabled) {
       // Since ignition have no transactions, we need not waste gas computing the fee components
-      components = getManaBaseFeeComponentsAt(Timestamp.wrap(block.timestamp), true);
+      components = getManaMinFeeComponentsAt(Timestamp.wrap(block.timestamp), true);
     }
 
     // Create payload digest signed by the committee members
@@ -216,13 +219,27 @@ library ProposeLib {
       ValidateHeaderArgs({
         header: v.header,
         digest: v.payloadDigest,
-        manaBaseFee: FeeLib.summedBaseFee(components),
+        manaMinFee: FeeLib.summedMinFee(components),
         blobsHashesCommitment: v.blobsHashesCommitment,
         flags: CheckpointHeaderValidationFlags({ignoreDA: false})
       })
     );
 
+    RollupStore storage rollupStore = STFLib.getStorage();
     {
+      v.escapeHatch = ValidatorSelectionLib.getEscapeHatch();
+      if (address(v.escapeHatch) != address(0)) {
+        (v.isEscapeHatch, v.escapeHatchProposer) = v.escapeHatch.isHatchOpen(v.currentEpoch);
+      }
+    }
+
+    if (v.isEscapeHatch) {
+      // During escape hatch, only the designated proposer can propose
+      require(
+        msg.sender == v.escapeHatchProposer,
+        Errors.Rollup__InvalidEscapeHatchProposer(v.escapeHatchProposer, msg.sender)
+      );
+    } else {
       // Verify that the proposer is the correct one for this slot by checking their signature in the attestations
       ValidatorSelectionLib.verifyProposer(
         v.header.slotNumber,
@@ -234,9 +251,6 @@ library ProposeLib {
         true
       );
     }
-
-    // Begin state updates - get storage reference and current chain tips
-    RollupStore storage rollupStore = STFLib.getStorage();
     CompressedChainTips tips = rollupStore.tips;
 
     // Increment checkpoint number and update chain tips
@@ -283,28 +297,27 @@ library ProposeLib {
       })
     );
 
-    // Handle L1<->L2 message processing (only when transactions are enabled)
+    // Handle L1->L2 message processing (only when transactions are enabled)
     if (v.isTxsEnabled) {
-      // Since ignition will have no transactions there will be no method to consume or output message.
+      // Since ignition will have no transactions there will be no method to consume messages.
       // Therefore we can ignore it as long as mana target is zero.
       // Since the inbox is async, it must enforce its own check to not try to insert if ignition.
 
       // Consume pending L1->L2 messages and validate against header commitment
       // @note  The checkpoint number here will always be >=1 as the genesis checkpoint is at 0
       v.inHash = rollupStore.config.inbox.consume(checkpointNumber);
-      require(
-        v.header.contentCommitment.inHash == v.inHash,
-        Errors.Rollup__InvalidInHash(v.inHash, v.header.contentCommitment.inHash)
-      );
-
-      // Insert L2->L1 messages into outbox for later consumption
-      rollupStore.config.outbox.insert(checkpointNumber, v.header.contentCommitment.outHash);
+      require(v.header.inHash == v.inHash, Errors.Rollup__InvalidInHash(v.inHash, v.header.inHash));
     }
 
-    // Emit event for external listeners. Nodes rely on this event to update their state.
-    emit IRollupCore.CheckpointProposed(
-      checkpointNumber, _args.archive, v.blobHashes, v.payloadDigest, v.attestationsHash
-    );
+    {
+      bytes32 archive = _args.archive;
+      if (v.isEscapeHatch) {
+        v.escapeHatch.updateSubmittedArchive(v.escapeHatchProposer, uint128(checkpointNumber), archive);
+      }
+
+      // Emit event for external listeners. Nodes rely on this event to update their state.
+      emit IRollupCore.CheckpointProposed(checkpointNumber, archive, v.blobHashes, v.payloadDigest, v.attestationsHash);
+    }
   }
 
   /**
@@ -322,9 +335,9 @@ library ProposeLib {
    *      - Timestamp not in future: Errors.Rollup__TimestampInFuture
    *      - Blob hashes match commitment (unless DA checks ignored): Errors.Rollup__UnavailableTxs
    *      - DA fee is zero: Errors.Rollup__NonZeroDaFee
-   *      - L2 gas fee matches computed mana base fee: Errors.Rollup__InvalidManaBaseFee
+   *      - L2 gas fee matches computed mana min fee: Errors.Rollup__InvalidManaMinFee
    *
-   * @param _args Validation arguments including header, digest, mana base fee, and flags
+   * @param _args Validation arguments including header, digest, mana min fee, and flags
    */
   function validateHeader(ValidateHeaderArgs memory _args) internal view {
     require(_args.header.coinbase != address(0), Errors.Rollup__InvalidCoinbase());
@@ -354,34 +367,34 @@ library ProposeLib {
     require(timestamp <= currentTime, Errors.Rollup__TimestampInFuture(currentTime, timestamp));
 
     require(
-      _args.flags.ignoreDA || _args.header.contentCommitment.blobsHash == _args.blobsHashesCommitment,
-      Errors.Rollup__UnavailableTxs(_args.header.contentCommitment.blobsHash)
+      _args.flags.ignoreDA || _args.header.blobsHash == _args.blobsHashesCommitment,
+      Errors.Rollup__UnavailableTxs(_args.header.blobsHash)
     );
 
     require(_args.header.gasFees.feePerDaGas == 0, Errors.Rollup__NonZeroDaFee());
     require(
-      _args.header.gasFees.feePerL2Gas == _args.manaBaseFee,
-      Errors.Rollup__InvalidManaBaseFee(_args.manaBaseFee, _args.header.gasFees.feePerL2Gas)
+      _args.header.gasFees.feePerL2Gas == _args.manaMinFee,
+      Errors.Rollup__InvalidManaMinFee(_args.manaMinFee, _args.header.gasFees.feePerL2Gas)
     );
   }
 
   /**
-   * @notice  Gets the mana base fee components
+   * @notice  Gets the mana min fee components
    *          For more context, consult:
    *          https://github.com/AztecProtocol/engineering-designs/blob/main/in-progress/8757-fees/design.md
    *
    * @param _timestamp - The timestamp of the checkpoint
    * @param _inFeeAsset - Whether to return the fee in the fee asset or ETH
    *
-   * @return The mana base fee components
+   * @return The mana min fee components
    */
-  function getManaBaseFeeComponentsAt(Timestamp _timestamp, bool _inFeeAsset)
+  function getManaMinFeeComponentsAt(Timestamp _timestamp, bool _inFeeAsset)
     internal
     view
-    returns (ManaBaseFeeComponents memory)
+    returns (ManaMinFeeComponents memory)
   {
     uint256 checkpointOfInterest = STFLib.getEffectivePendingCheckpointNumber(_timestamp);
-    return FeeLib.getManaBaseFeeComponentsAt(checkpointOfInterest, _timestamp, _inFeeAsset);
+    return FeeLib.getManaMinFeeComponentsAt(checkpointOfInterest, _timestamp, _inFeeAsset);
   }
 
   function digest(ProposePayload memory _args) internal pure returns (bytes32) {

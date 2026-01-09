@@ -261,7 +261,9 @@ export class ConnectionSampler {
         }
       } catch (error) {
         this.logger.error(
-          `Error cleaning up stale connection to peer ${stream.metadata.peerId?.toString() ?? 'unknown'} stream ${stream.id}`,
+          `Error cleaning up stale connection to peer ${stream.metadata.peerId?.toString() ?? 'unknown'} stream ${
+            stream.id
+          }`,
           { error },
         );
       }

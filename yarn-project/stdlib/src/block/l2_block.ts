@@ -101,7 +101,7 @@ export class L2Block {
 
     return new L2Block(
       makeAppendOnlyTreeSnapshot(l2BlockNum + 1),
-      makeL2BlockHeader(0, l2BlockNum, slotNumber ?? l2BlockNum, {}, inHash),
+      makeL2BlockHeader(0, l2BlockNum, slotNumber ?? l2BlockNum, { inHash }),
       body,
     );
   }
@@ -175,7 +175,8 @@ export class L2Block {
     const block = checkpoint.blocks.at(-1)!;
     const header = new L2BlockHeader(
       new AppendOnlyTreeSnapshot(checkpointHeader.lastArchiveRoot, block.number),
-      checkpointHeader.contentCommitment,
+      checkpointHeader.blobsHash,
+      checkpointHeader.inHash,
       block.header.state,
       block.header.globalVariables,
       block.header.totalFees,

@@ -1,4 +1,4 @@
-import type { EpochCache, EpochCommitteeInfo } from '@aztec/epoch-cache';
+import type { EpochCache } from '@aztec/epoch-cache';
 import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -23,6 +23,7 @@ import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { BlockProposal, ConsensusPayload } from '@aztec/stdlib/p2p';
 import { GlobalVariables } from '@aztec/stdlib/tx';
 import { AttestationTimeoutError } from '@aztec/stdlib/validators';
+import { getTelemetryClient } from '@aztec/telemetry-client';
 import type { ValidatorClient } from '@aztec/validator-client';
 
 import { expect, jest } from '@jest/globals';
@@ -133,7 +134,11 @@ describe('CheckpointProposalJob', () => {
     dateProvider.setTime(slotStartTime * 1000); // Convert to milliseconds
 
     epochCache = mockDeep<EpochCache>();
-    epochCache.getCommittee.mockResolvedValue({ committee, seed: 1n, epoch: EpochNumber(1) } as EpochCommitteeInfo);
+    epochCache.getCommittee.mockResolvedValue({
+      committee,
+      seed: 0n,
+      epoch: EpochNumber(1),
+    });
 
     publisher = mockDeep<SequencerPublisher>();
     publisher.epochCache = epochCache;
@@ -363,6 +368,7 @@ describe('CheckpointProposalJob', () => {
       eventEmitter,
       setStateFn,
       createLogger('sequencer:checkpoint-proposal-job'),
+      getTelemetryClient().getTracer('test'),
     );
   }
 
@@ -619,9 +625,9 @@ describe('CheckpointProposalJob', () => {
       // Mock empty committee
       epochCache.getCommittee.mockResolvedValue({
         committee: [],
-        seed: 1n,
+        seed: 0n,
         epoch: EpochNumber(1),
-      } as EpochCommitteeInfo);
+      });
 
       const { txs, block } = await setupTxsAndBlock(p2p, globalVariables, 1, chainId);
       checkpointBuilder.seedBlocks([block], [txs]);

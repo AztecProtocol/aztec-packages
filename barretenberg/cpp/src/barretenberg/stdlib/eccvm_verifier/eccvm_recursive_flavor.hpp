@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Planned, auditors: [], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
@@ -79,6 +79,7 @@ class ECCVMRecursiveFlavor {
      */
     class VerificationKey : public StdlibVerificationKey_<CircuitBuilder,
                                                           ECCVMFlavor::PrecomputedEntities<Commitment>,
+                                                          NativeVerificationKey,
                                                           VKSerializationMode::NO_METADATA> {
       public:
         Commitment pcs_g1_identity;
@@ -110,10 +111,9 @@ class ECCVMRecursiveFlavor {
          * @brief Unused function because vk is hardcoded in recursive verifier, so no transcript hashing is needed.
          *
          * @param domain_separator
-         * @param transcript
+         * @param tag
          */
-        FF hash_with_origin_tagging([[maybe_unused]] const std::string& domain_separator,
-                                    [[maybe_unused]] Transcript& transcript) const override
+        FF hash_with_origin_tagging([[maybe_unused]] const OriginTag& tag) const override
         {
             throw_or_abort("Not intended to be used because vk is hardcoded in circuit.");
         }

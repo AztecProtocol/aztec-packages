@@ -80,9 +80,6 @@ tests:
     error_regex: "Aborted.*core dumped"
     owners:
       - *adam
-  - regex: "barretenberg/acir_tests/scripts/browser_prove.sh .* webkit"
-    owners:
-      - *luke
   - regex: "barretenberg/cpp/scripts/run_bench.sh wasm bb-micro-bench/wasm/chonk build-wasm-threads/bin/chonk_bench"
     owners:
       - *luke
@@ -295,7 +292,7 @@ tests:
   - regex: "p2p/.*\\.test\\.ts"
     flake_group_id: e2e-p2p-epoch-flakes
     owners:
-      - *palla
+      - *phil
 
   - regex: "ethereum/src/l1_tx_utils/.*\\.test\\.ts"
     flake_group_id: e2e-p2p-epoch-flakes
@@ -306,3 +303,14 @@ tests:
     error_regex: "core dumped"
     owners:
       - *adam
+
+  # http://ci.aztec-labs.com/b2a907fbce046b94
+  - regex: "src/e2e_simple.test.ts"
+    error_regex: "Failed to send L1 transaction: FormattedViemError: Error: Transaction timed out before sending"
+    owners:
+      - *palla
+
+  - regex: "src/e2e_token_bridge_tutorial.test.ts"
+    error_regex: "Error: Unable to find low leaf for block"
+    owners:
+      - *leila

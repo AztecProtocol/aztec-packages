@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Completed, auditors: [Federico], commit: d4aff8893338c31425565db5a5a560048c33f27a}
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
@@ -33,7 +33,7 @@ template <typename Builder>
 std::vector<field_t<Builder>> fields_from_witnesses(Builder& builder, std::span<const uint32_t> witness_indices);
 
 /**
- * @brief Convert a vector of field_t elements to a byte_array enforcing each element to be a boolean
+ * @brief Convert a vector of field_t elements to a byte_array enforcing each element to fit in one byte
  *
  * @tparam Builder
  * @param builder
@@ -62,7 +62,7 @@ std::vector<uint32_t> add_public_inputs_to_proof(const std::vector<uint32_t>& pr
 /// The functions below are helpers for handling witnesses in testing situations
 
 /**
- * @brief Given recursion data (proof, key, key hash, predicate and the number of public inputs) and a proof type,
+ * @brief Given recursion data (proof, key, key hash, predicate, and the number of public inputs) and a proof type,
  * populate a witness vector with these values and return the associated recursion constraint.
  *
  * @details The proof is assumed to be barretenberg-style: containing all the public inputs at its start. The variable
@@ -98,14 +98,19 @@ std::vector<uint32_t> add_to_witness_and_track_indices(std::vector<bb::fr>& witn
         witness.emplace_back(input.y);
         indices.emplace_back(witness.size());
         witness.emplace_back(input.is_point_at_infinity() ? bb::fr(1) : bb::fr(0));
-    } else {
-        // If no other type is matched, we assume T is a span of values
+    } else if constexpr (requires {
+                             input.data();
+                             input.size();
+                         }) {
+        // T is a span or span-like container of values
         indices.reserve(input.size());
         auto witness_idx = static_cast<uint32_t>(witness.size());
         for (const auto& value : input) {
             witness.push_back(bb::fr(value));
             indices.push_back(witness_idx++);
         }
+    } else {
+        bb::assert_failure("Unsupported type for add_to_witness_and_track_indices");
     }
 
     return indices;
@@ -123,7 +128,7 @@ inline uint32_t add_to_witness_and_track_indices(std::vector<bb::fr>& witness, c
 }
 
 /**
- * @brief Add a span of values to the witness and track their indices, returning them as a fixed-size array.
+ * @brief Add values to the witness and track their indices, returning them as a fixed-size array.
  */
 template <typename T, size_t N>
 std::array<uint32_t, N> add_to_witness_and_track_indices(std::vector<bb::fr>& witness, const T& input)

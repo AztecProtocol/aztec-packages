@@ -65,8 +65,8 @@ describe('Environment getters', () => {
     [EnvironmentVariable.VERSION, version.toField()],
     [EnvironmentVariable.BLOCKNUMBER, new Fr(blockNumber), TypeTag.UINT32],
     [EnvironmentVariable.TIMESTAMP, new Fr(timestamp), TypeTag.UINT64],
-    [EnvironmentVariable.BASEFEEPERDAGAS, new Fr(gasFees.feePerDaGas), TypeTag.UINT128],
-    [EnvironmentVariable.BASEFEEPERL2GAS, new Fr(gasFees.feePerL2Gas), TypeTag.UINT128],
+    [EnvironmentVariable.MINFEEPERDAGAS, new Fr(gasFees.feePerDaGas), TypeTag.UINT128],
+    [EnvironmentVariable.MINFEEPERL2GAS, new Fr(gasFees.feePerL2Gas), TypeTag.UINT128],
     [EnvironmentVariable.ISSTATICCALL, new Fr(isStaticCall ? 1 : 0), TypeTag.UINT1],
   ])('Environment getter instructions', (envVar: EnvironmentVariable, value: Fr, tag: TypeTag = TypeTag.FIELD) => {
     it(`Should read '${EnvironmentVariable[envVar]}' correctly`, async () => {

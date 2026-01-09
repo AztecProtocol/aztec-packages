@@ -42,8 +42,11 @@
 to wrap both of these values in WithHash. WithHash allows for efficient read of values in private.</div></li>
 </ul>
 <h2 id="functions">Functions</h2><ul class="item-list">
-<li><div class="item-name"><a href="fn.unpack_delay_change.html" class="fn">unpack_delay_change</a></div><div class="item-description"></div></li>
-<li><div class="item-name"><a href="fn.unpack_value_change.html" class="fn">unpack_value_change</a></div><div class="item-description"></div></li>
+<li><div class="item-name"><a href="fn.unpack_delay_change.html" class="fn">unpack_delay_change</a></div><div class="item-description">Extracts a ScheduledDelayChange struct from 0th field of the packed representation of the full DelayedPublicMutable.
+This function expects to be called with just the first field of the packed representation, which contains sdc
+and svc timestamp_of_change. We'll discard the svc component.</div></li>
+<li><div class="item-name"><a href="fn.unpack_value_change.html" class="fn">unpack_value_change</a></div><div class="item-description">Extracts a ScheduledValueChange struct from the packed representation of the full DelayedPublicMutable.
+TODO: impl the packable trait for ScheduledValueChange.</div></li>
 </ul>
 </main>
 </span>

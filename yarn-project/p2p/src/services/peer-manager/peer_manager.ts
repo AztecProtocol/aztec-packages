@@ -7,7 +7,7 @@ import { bufferToHex } from '@aztec/foundation/string';
 import { DateProvider } from '@aztec/foundation/timer';
 import type { PeerInfo, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import type { PeerErrorSeverity } from '@aztec/stdlib/p2p';
-import { type TelemetryClient, trackSpan } from '@aztec/telemetry-client';
+import type { TelemetryClient } from '@aztec/telemetry-client';
 
 import type { Connection, PeerId } from '@libp2p/interface';
 import { peerIdFromString } from '@libp2p/peer-id';
@@ -161,7 +161,6 @@ export class PeerManager implements PeerManagerInterface {
     return this.metrics.tracer;
   }
 
-  @trackSpan('PeerManager.heartbeat')
   public async heartbeat() {
     this.heartbeatCounter++;
     this.peerScoring.decayAllScores();

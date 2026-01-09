@@ -7,6 +7,7 @@
 #include <ranges>
 #include <stdexcept>
 
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/vm2/common/addressing.hpp"
 #include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/field.hpp"
@@ -28,7 +29,9 @@
 #include "barretenberg/vm2/generated/relations/lookups_send_l2_to_l1_msg.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_sload.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_sstore.hpp"
+#include "barretenberg/vm2/generated/relations/perms_context.hpp"
 #include "barretenberg/vm2/generated/relations/perms_execution.hpp"
+#include "barretenberg/vm2/generated/relations/perms_internal_call.hpp"
 #include "barretenberg/vm2/tracegen/lib/get_env_var_spec.hpp"
 #include "barretenberg/vm2/tracegen/lib/instruction_spec.hpp"
 
@@ -263,8 +266,8 @@ bool is_phase_discarded(TransactionPhase phase, const FailingContexts& failures)
  */
 uint32_t dying_context_for_phase(TransactionPhase phase, const FailingContexts& failures)
 {
-    assert((phase == TransactionPhase::APP_LOGIC || phase == TransactionPhase::TEARDOWN) &&
-           "Execution events must have app logic or teardown phase");
+    BB_ASSERT((phase == TransactionPhase::APP_LOGIC || phase == TransactionPhase::TEARDOWN),
+              "Execution events must have app logic or teardown phase");
 
     switch (phase) {
     case TransactionPhase::APP_LOGIC: {
@@ -570,8 +573,9 @@ void ExecutionTraceBuilder::process(
                 sel_exit_call = true;
                 should_execute_revert = true;
             } else if (exec_opcode == ExecutionOpCode::GETENVVAR) {
-                assert(ex_event.addressing_event.resolution_info.size() == 2 &&
-                       "GETENVVAR should have exactly two resolved operands (envvar enum and output)");
+                BB_ASSERT_EQ(ex_event.addressing_event.resolution_info.size(),
+                             static_cast<size_t>(2),
+                             "GETENVVAR should have exactly two resolved operands (envvar enum and output)");
                 // rop[1] is the envvar enum
                 Operand envvar_enum = ex_event.addressing_event.resolution_info[1].resolved_operand;
                 process_get_env_var_opcode(envvar_enum, ex_event.output, trace, row);
@@ -749,7 +753,7 @@ void ExecutionTraceBuilder::process_instr_fetching(const simulation::Instruction
 
     // At this point we can assume instruction fetching succeeded.
     auto operands = instruction.operands;
-    assert(operands.size() <= AVM_MAX_OPERANDS);
+    BB_ASSERT_LTE(operands.size(), static_cast<size_t>(AVM_MAX_OPERANDS), "Operands size is out of range");
     operands.resize(AVM_MAX_OPERANDS, Operand::from<FF>(0));
 
     for (size_t i = 0; i < AVM_MAX_OPERANDS; i++) {
@@ -841,7 +845,8 @@ void ExecutionTraceBuilder::process_addressing(const simulation::AddressingEvent
     const ExecInstructionSpec& ex_spec = get_exec_instruction_spec().at(exec_opcode);
 
     auto resolution_info_vec = addr_event.resolution_info;
-    assert(resolution_info_vec.size() <= AVM_MAX_OPERANDS);
+    BB_ASSERT_LTE(
+        resolution_info_vec.size(), static_cast<size_t>(AVM_MAX_OPERANDS), "Resolution info size is out of range");
     // Pad with default values for the missing operands.
     resolution_info_vec.resize(AVM_MAX_OPERANDS,
                                {
@@ -1011,7 +1016,7 @@ void ExecutionTraceBuilder::process_registers(ExecutionOpCode exec_opcode,
                                               TraceContainer& trace,
                                               uint32_t row)
 {
-    assert(registers.size() == AVM_MAX_REGISTERS);
+    BB_ASSERT_EQ(registers.size(), static_cast<size_t>(AVM_MAX_REGISTERS), "Registers size is out of range");
     // At this point we can assume instruction fetching succeeded, so this should never fail.
     const auto& register_info = get_exec_instruction_spec().at(exec_opcode).register_info;
 
@@ -1085,7 +1090,7 @@ void ExecutionTraceBuilder::process_get_env_var_opcode(Operand envvar_enum,
                                                        TraceContainer& trace,
                                                        uint32_t row)
 {
-    assert(envvar_enum.get_tag() == ValueTag::U8);
+    BB_ASSERT_EQ(envvar_enum.get_tag(), ValueTag::U8, "Envvar enum tag is not U8");
     const auto& envvar_spec = GetEnvVarSpec::get_table(envvar_enum.as<uint8_t>());
 
     trace.set(row,
@@ -1124,7 +1129,7 @@ const InteractionDefinition ExecutionTraceBuilder::interactions =
         .add<lookup_addressing_relative_overflow_result_5_settings, InteractionType::LookupGeneric>(C::gt_sel)
         .add<lookup_addressing_relative_overflow_result_6_settings, InteractionType::LookupGeneric>(C::gt_sel)
         // Internal Call Stack
-        .add<lookup_internal_call_push_call_stack_settings_, InteractionType::LookupSequential>()
+        .add<perm_internal_call_push_call_stack_settings_, InteractionType::Permutation>()
         .add<lookup_internal_call_unwind_call_stack_settings_, InteractionType::LookupGeneric>()
         // Gas
         .add<lookup_gas_addressing_gas_read_settings, InteractionType::LookupIntoIndexedByClk>()
@@ -1138,12 +1143,12 @@ const InteractionDefinition ExecutionTraceBuilder::interactions =
         // Dynamic Gas - SStore
         .add<lookup_execution_check_written_storage_slot_settings, InteractionType::LookupSequential>()
         // Context Stack
-        .add<lookup_context_ctx_stack_call_settings, InteractionType::LookupSequential>()
+        .add<perm_context_ctx_stack_call_settings, InteractionType::Permutation>()
         .add<lookup_context_ctx_stack_rollback_settings, InteractionType::LookupGeneric>()
         .add<lookup_context_ctx_stack_return_settings, InteractionType::LookupGeneric>()
         // External Call
-        .add<lookup_external_call_is_l2_gas_left_gt_alllocated_settings, InteractionType::LookupGeneric>(C::gt_sel)
-        .add<lookup_external_call_is_da_gas_left_gt_alllocated_settings, InteractionType::LookupGeneric>(C::gt_sel)
+        .add<lookup_external_call_is_l2_gas_left_gt_allocated_settings, InteractionType::LookupGeneric>(C::gt_sel)
+        .add<lookup_external_call_is_da_gas_left_gt_allocated_settings, InteractionType::LookupGeneric>(C::gt_sel)
         // GetEnvVar opcode
         .add<lookup_get_env_var_precomputed_info_settings, InteractionType::LookupIntoIndexedByClk>()
         .add<lookup_get_env_var_read_from_public_inputs_col0_settings, InteractionType::LookupIntoIndexedByClk>()

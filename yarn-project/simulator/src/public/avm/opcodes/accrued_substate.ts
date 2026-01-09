@@ -241,11 +241,11 @@ export class EmitUnencryptedLog extends Instruction {
     const [logSizeOffset, logOffset] = addressing.resolve(operands, memory);
     memory.checkTag(TypeTag.UINT32, logSizeOffset);
     const logSize = memory.get(logSizeOffset).toNumber();
-    memory.checkTagsRange(TypeTag.FIELD, logOffset, logSize);
 
     const contractAddress = context.environment.address;
 
     context.machineState.consumeGas(this.dynamicGasCost(logSize));
+    memory.checkTagsRange(TypeTag.FIELD, logOffset, logSize);
     const log = memory.getSlice(logOffset, logSize).map(f => f.toFr());
     context.persistableState.writePublicLog(contractAddress, log);
   }

@@ -39,7 +39,7 @@ describe('e2e_fees gas_estimation', () => {
 
   beforeEach(async () => {
     // Load the gas fees at the start of each test, use those exactly as the max fees per gas
-    const gasFees = await aztecNode.getCurrentBaseFees();
+    const gasFees = await aztecNode.getCurrentMinFees();
     gasSettings = GasSettings.from({
       ...gasSettings,
       maxFeesPerGas: gasFees,

@@ -36,7 +36,7 @@ The following diagram provides a more detailed overview of the transaction execu
 
 <Image img={require("@site/static/img/local_network_sending_a_tx.png")} />
 
-See the page on [contract communication](../aztec-nr/framework-description/functions/public_private_calls.md) for more context on transaction execution.
+See the page on [call types](./call_types.md) for more context on transaction execution.
 
 ### Transaction Requests
 

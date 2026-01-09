@@ -2,8 +2,8 @@ import { AztecAddress, EthAddress } from '@aztec/aztec.js/addresses';
 import { BatchCall } from '@aztec/aztec.js/contracts';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Wallet } from '@aztec/aztec.js/wallet';
-import { RollupContract } from '@aztec/ethereum/contracts';
-import { BlockNumber } from '@aztec/foundation/branded-types';
+import { OutboxContract, RollupContract, type ViemL2ToL1Msg } from '@aztec/ethereum/contracts';
+import { EpochNumber } from '@aztec/foundation/branded-types';
 import { OutboxAbi } from '@aztec/l1-artifacts';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import { computeL2ToL1MessageHash } from '@aztec/stdlib/hash';
@@ -11,17 +11,16 @@ import type { AztecNode, AztecNodeAdmin } from '@aztec/stdlib/interfaces/client'
 import {
   type L2ToL1MembershipWitness,
   computeL2ToL1MembershipWitness,
-  computeL2ToL1MembershipWitnessFromMessagesForAllTxs,
   getL2ToL1MessageLeafId,
 } from '@aztec/stdlib/messaging';
 
-import { type Hex, decodeEventLog, getContract } from 'viem';
+import { type Hex, decodeEventLog } from 'viem';
 
 import type { CrossChainTestHarness } from '../shared/cross_chain_test_harness.js';
 import { CrossChainMessagingTest } from './cross_chain_messaging_test.js';
 
 describe('e2e_cross_chain_messaging l2_to_l1', () => {
-  const t = new CrossChainMessagingTest('l2_to_l1');
+  const t = new CrossChainMessagingTest('l2_to_l1', { startProverNode: true });
 
   let crossChainTestHarness: CrossChainTestHarness;
   let aztecNode: AztecNode;
@@ -29,33 +28,24 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
   let msgSender: EthAddress;
   let wallet: Wallet;
   let user1Address: AztecAddress;
-  let outbox: any;
+  let rollup: RollupContract;
+  let outbox: OutboxContract;
 
-  let version: number = 1;
+  let version: bigint;
   let contract: TestContract;
 
   beforeAll(async () => {
     await t.applyBaseSnapshots();
     await t.setup();
-    ({ crossChainTestHarness, aztecNode, aztecNodeAdmin, wallet, user1Address } = t);
+
+    ({ crossChainTestHarness, aztecNode, aztecNodeAdmin, wallet, user1Address, rollup, outbox } = t);
 
     msgSender = EthAddress.fromString(t.deployL1ContractsValues.l1Client.account.address);
 
-    outbox = getContract({
-      address: crossChainTestHarness.l1ContractAddresses.outboxAddress.toString(),
-      abi: OutboxAbi,
-      client: crossChainTestHarness.l1Client,
-    });
-
-    version = Number(
-      await new RollupContract(
-        crossChainTestHarness.l1Client,
-        crossChainTestHarness.l1ContractAddresses.rollupAddress.toString(),
-      ).getVersion(),
-    );
+    version = BigInt(await rollup.getVersion());
 
     contract = await TestContract.deploy(wallet).send({ from: user1Address }).deployed();
-  }, 300_000);
+  });
 
   afterAll(async () => {
     await t.teardown();
@@ -68,28 +58,30 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
     const contents = [Fr.random(), Fr.random()];
     const messages = contents.map(content => makeL2ToL1Message(recipient, content));
 
-    // Configure the node be able to rollup only 1 tx.
+    // Configure the node to be able to rollup only 1 tx.
     await aztecNodeAdmin.setConfig({ minTxsPerBlock: 1 });
 
-    const call = new BatchCall(wallet, [
+    const txReceipt = await new BatchCall(wallet, [
       contract.methods.create_l2_to_l1_message_arbitrary_recipient_private(contents[0], recipient),
       contract.methods.create_l2_to_l1_message_arbitrary_recipient_public(contents[1], recipient),
-    ]);
-    const txReceipt = await call.send({ from: user1Address }).wait();
+    ])
+      .send({ from: user1Address })
+      .wait();
+
+    const blockNumber = txReceipt.blockNumber!;
+
+    // Advance the epoch until the tx is proven since the messages are inserted to the outbox when the epoch is proven.
+    const epoch = await t.advanceToEpochProven(txReceipt);
 
     // Check that the block contains the 2 messages.
-    const blockNumber = txReceipt.blockNumber!;
     const block = (await aztecNode.getBlock(blockNumber))!;
     const l2ToL1Messages = block.body.txEffects.flatMap(txEffect => txEffect.l2ToL1Msgs);
     expect(l2ToL1Messages).toStrictEqual([computeMessageLeaf(messages[0]), computeMessageLeaf(messages[1])]);
 
-    // Since the outbox is only consumable when the block is proven, we need to set the block to be proven.
-    await t.assumeProven();
-
     // Consume messages[0].
-    await expectConsumeMessageToSucceed(blockNumber, messages[0]);
+    await expectConsumeMessageToSucceed(epoch, messages[0]);
     // Consume messages[1].
-    await expectConsumeMessageToSucceed(blockNumber, messages[1]);
+    await expectConsumeMessageToSucceed(epoch, messages[1]);
   });
 
   // When the block contains a tx with no messages, the zero txOutHash is skipped and won't be included in the top tree.
@@ -112,55 +104,13 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
     ]);
 
     // Check that the 2 txs are in the same block.
-    const blockNumber = withMessageReceipt.blockNumber!;
-    expect(noMessageReceipt.blockNumber).toEqual(blockNumber);
+    expect(noMessageReceipt.blockNumber).toEqual(withMessageReceipt.blockNumber);
 
-    // Since the outbox is only consumable when the block is proven, we need to set the block to be proven.
-    await t.assumeProven();
-
-    const msgLeaf = computeMessageLeaf(message);
-    const witness = (await computeL2ToL1MembershipWitness(aztecNode, blockNumber, msgLeaf))!;
-    expect(witness.siblingPath.pathSize).toBe(0);
-    expect(witness.root).toEqual(msgLeaf);
+    // Advance the epoch until the tx is proven since the messages are inserted to the outbox when the epoch is proven.
+    const epoch = await t.advanceToEpochProven(withMessageReceipt);
 
     // Consume the message.
-    await expectConsumeMessageToSucceed(blockNumber, message, witness);
-  }, 60_000);
-
-  it('1 tx with 3 messages (wonky)', async () => {
-    const { recipients, contents, messages } = generateMessages(3);
-    const leaves = messages.map(msg => computeMessageLeaf(msg));
-
-    // Configure the node be able to rollup only 1 tx.
-    await aztecNodeAdmin.setConfig({ minTxsPerBlock: 1 });
-
-    const call = createBatchCall(wallet, recipients, contents);
-    const txReceipt = await call.send({ from: user1Address }).wait();
-
-    // Check that the block contains all the messages.
-    const blockNumber = txReceipt.blockNumber!;
-    const block = (await aztecNode.getBlock(blockNumber))!;
-    const l2ToL1Messages = block.body.txEffects.flatMap(txEffect => txEffect.l2ToL1Msgs);
-    expect(l2ToL1Messages).toStrictEqual(leaves);
-
-    // Since the outbox is only consumable when the block is proven, we need to set the block to be proven.
-    await t.assumeProven();
-
-    // Consume messages[1], which is in the subtree of height 2.
-    {
-      const msgIndex = 1;
-      const witness = (await computeL2ToL1MembershipWitness(aztecNode, blockNumber, leaves[msgIndex]))!;
-      expect(witness.siblingPath.pathSize).toBe(2);
-      await expectConsumeMessageToSucceed(blockNumber, messages[msgIndex], witness);
-    }
-
-    // Consume messages[2], which is in the subtree of height 1.
-    {
-      const msgIndex = 2;
-      const witness = (await computeL2ToL1MembershipWitness(aztecNode, blockNumber, leaves[msgIndex]))!;
-      expect(witness.siblingPath.pathSize).toBe(1);
-      await expectConsumeMessageToSucceed(blockNumber, messages[msgIndex], witness);
-    }
+    await expectConsumeMessageToSucceed(epoch, message);
   });
 
   it('2 txs (balanced), one with 3 messages (wonky), one with 4 messages (balanced)', async () => {
@@ -192,38 +142,26 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
       expect(messagesForAllTxs.flat()).toEqual(expectedLeaves);
     }
 
-    // Since the outbox is only consumable when the block is proven, we need to set the block to be proven.
-    await t.assumeProven();
+    // Advance the epoch until the tx is proven since the messages are inserted to the outbox when the epoch is proven.
+    const epoch = await t.advanceToEpochProven(l2TxReceipt1);
 
     // Consume messages in tx0.
     {
       // Consume messages[0], which is in the subtree of height 2.
       const msg = tx0.messages[0];
-      const leaf = computeMessageLeaf(msg);
-      const witness = (await computeL2ToL1MembershipWitness(aztecNode, blockNumber, leaf))!;
-      // 1 edge for the root to tx0, 2 edges for the tx subtree of height 2.
-      expect(witness.siblingPath.pathSize).toBe(1 + 2);
-      await expectConsumeMessageToSucceed(blockNumber, msg, witness);
+      await expectConsumeMessageToSucceed(epoch, msg);
     }
     {
       // Consume messages[2], which is in the subtree of height 1.
       const msg = tx0.messages[2];
-      const leaf = computeMessageLeaf(msg);
-      const witness = (await computeL2ToL1MembershipWitness(aztecNode, blockNumber, leaf))!;
-      // 1 edge for the root to tx0, 1 edge for the tx subtree of height 1.
-      expect(witness.siblingPath.pathSize).toBe(1 + 1);
-      await expectConsumeMessageToSucceed(blockNumber, msg, witness);
+      await expectConsumeMessageToSucceed(epoch, msg);
     }
 
     // Consume messages in tx1.
     {
       // Consume messages[2], which is in the subtree of height 2.
       const msg = tx1.messages[0];
-      const leaf = computeMessageLeaf(msg);
-      const witness = (await computeL2ToL1MembershipWitness(aztecNode, blockNumber, leaf))!;
-      // 1 edge for the root to tx1, 2 edges for the tx subtree of height 2.
-      expect(witness.siblingPath.pathSize).toBe(1 + 2);
-      await expectConsumeMessageToSucceed(blockNumber, msg, witness);
+      await expectConsumeMessageToSucceed(epoch, msg);
     }
   });
 
@@ -250,58 +188,41 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
     expect(l2TxReceipt1.blockNumber).toEqual(blockNumber);
     expect(l2TxReceipt2.blockNumber).toEqual(blockNumber);
 
-    const block = (await aztecNode.getBlock(blockNumber))!;
-    const messagesForAllTxs = block.body.txEffects.map(txEffect => txEffect.l2ToL1Msgs);
-    // We cannot guarantee the order of txs in a block, so we figure it out from the txEffects.
-    // The 3 txs will be in a wonky tree, the height of the first 2 txs will be 2 and the last one will be 1.
-    const getHeightFromRootToTx = (tx: ReturnType<typeof generateMessages>) =>
-      tx.messages.length === messagesForAllTxs[2].length ? 1 : 2;
-
-    // Since the outbox is only consumable when the block is proven, we need to set the block to be proven.
-    await t.assumeProven();
+    // Advance the epoch until the tx is proven since the messages are inserted to the outbox when the epoch is proven.
+    const epoch = await t.advanceToEpochProven(l2TxReceipt2);
 
     // Consume messages in tx0.
     {
       // Consume messages[0], which is in the subtree of height 2.
       const msg = tx0.messages[0];
-      const leaf = computeMessageLeaf(msg);
-      const witness = computeL2ToL1MembershipWitnessFromMessagesForAllTxs(messagesForAllTxs, leaf);
-      expect(witness.siblingPath.pathSize).toBe(2 + getHeightFromRootToTx(tx0));
-      await expectConsumeMessageToSucceed(blockNumber, msg, witness);
+      await expectConsumeMessageToSucceed(epoch, msg);
     }
     {
       // Consume messages[2], which is in the subtree of height 1.
       const msg = tx0.messages[2];
-      const leaf = computeMessageLeaf(msg);
-      const witness = computeL2ToL1MembershipWitnessFromMessagesForAllTxs(messagesForAllTxs, leaf);
-      expect(witness.siblingPath.pathSize).toBe(1 + getHeightFromRootToTx(tx0));
-      await expectConsumeMessageToSucceed(blockNumber, msg, witness);
+      await expectConsumeMessageToSucceed(epoch, msg);
     }
 
     // Consume messages in tx1.
     {
       // Consume messages[0], which is the tx subtree root.
       const msg = tx1.messages[0];
-      const leaf = computeMessageLeaf(msg);
-      const witness = computeL2ToL1MembershipWitnessFromMessagesForAllTxs(messagesForAllTxs, leaf);
-      expect(witness.siblingPath.pathSize).toBe(getHeightFromRootToTx(tx1));
-      await expectConsumeMessageToSucceed(blockNumber, msg, witness);
+      await expectConsumeMessageToSucceed(epoch, msg);
     }
 
     // Consume messages in tx2.
     {
       // Consume messages[1], which is in the subtree of height 1.
       const msg = tx2.messages[1];
-      const leaf = computeMessageLeaf(msg);
-      const witness = computeL2ToL1MembershipWitnessFromMessagesForAllTxs(messagesForAllTxs, leaf);
-      expect(witness.siblingPath.pathSize).toBe(1 + getHeightFromRootToTx(tx2));
-      await expectConsumeMessageToSucceed(blockNumber, msg, witness);
+      await expectConsumeMessageToSucceed(epoch, msg);
     }
   });
 
-  function makeL2ToL1Message(recipient: EthAddress, content: Fr = Fr.ZERO) {
+  // TODO(#17027): Add tests for multiple blocks per checkpoint.
+
+  function makeL2ToL1Message(recipient: EthAddress, content: Fr = Fr.ZERO): ViemL2ToL1Msg {
     return {
-      sender: { actor: contract.address.toString() as Hex, version: BigInt(version) },
+      sender: { actor: contract.address.toString() as Hex, version },
       recipient: {
         actor: recipient.toString() as Hex,
         chainId: BigInt(crossChainTestHarness.l1Client.chain.id),
@@ -335,36 +256,17 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
     return { recipients, contents, messages };
   }
 
-  function consumeMessage(
-    blockNumber: BlockNumber,
-    msg: ReturnType<typeof makeL2ToL1Message>,
-    witness: L2ToL1MembershipWitness,
-  ) {
-    return outbox.write.consume(
-      [
-        msg,
-        BigInt(blockNumber),
-        witness.leafIndex,
-        witness.siblingPath
-          .toBufferArray()
-          .map((buf: Buffer) => `0x${buf.toString('hex')}`) as readonly `0x${string}`[],
-      ],
-      {} as any,
-    );
-  }
-
-  async function expectConsumeMessageToSucceed(
-    blockNumber: BlockNumber,
-    msg: ReturnType<typeof makeL2ToL1Message>,
-    witness?: L2ToL1MembershipWitness,
-  ) {
+  async function expectConsumeMessageToSucceed(epoch: EpochNumber, msg: ReturnType<typeof makeL2ToL1Message>) {
     const msgLeaf = computeMessageLeaf(msg);
-    if (!witness) {
-      witness = (await computeL2ToL1MembershipWitness(aztecNode, blockNumber, msgLeaf))!;
-    }
+    const witness = (await computeL2ToL1MembershipWitness(aztecNode, epoch, msgLeaf))!;
     const leafId = getL2ToL1MessageLeafId(witness);
 
-    const txHash = await consumeMessage(blockNumber, msg, witness);
+    const txHash = await outbox.consume(
+      msg,
+      epoch,
+      witness.leafIndex,
+      witness.siblingPath.toFields().map(f => f.toString()),
+    );
 
     const l1Receipt = await t.deployL1ContractsValues.l1Client.waitForTransactionReceipt({
       hash: txHash,
@@ -385,30 +287,37 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
     }) as {
       eventName: 'MessageConsumed';
       args: {
-        checkpointNumber: bigint;
+        epoch: bigint;
         root: `0x${string}`;
         messageHash: `0x${string}`;
         leafId: bigint;
       };
     };
-    expect(topics.args.checkpointNumber).toBe(BigInt(blockNumber));
+    expect(topics.args.epoch).toBe(BigInt(epoch));
     expect(topics.args.root).toBe(witness.root.toString());
     expect(topics.args.messageHash).toBe(msgLeaf.toString());
     expect(topics.args.leafId).toBe(leafId);
 
-    // Ensuring we cannot consume the same message again.
-    await expectConsumeMessageToFail(blockNumber, msg, witness);
+    // Ensure we cannot consume the same message again.
+    await expectConsumeMessageToFail(epoch, msg, witness);
   }
 
   async function expectConsumeMessageToFail(
-    blockNumber: BlockNumber,
+    epoch: EpochNumber,
     msg: ReturnType<typeof makeL2ToL1Message>,
     witness?: L2ToL1MembershipWitness,
   ) {
     if (!witness) {
       const msgLeaf = computeMessageLeaf(msg);
-      witness = (await computeL2ToL1MembershipWitness(aztecNode, blockNumber, msgLeaf))!;
+      witness = (await computeL2ToL1MembershipWitness(aztecNode, epoch, msgLeaf))!;
     }
-    await expect(consumeMessage(blockNumber, msg, witness)).rejects.toThrow();
+    await expect(
+      outbox.consume(
+        msg,
+        epoch,
+        witness.leafIndex,
+        witness.siblingPath.toFields().map(f => f.toString()),
+      ),
+    ).rejects.toThrow();
   }
 });

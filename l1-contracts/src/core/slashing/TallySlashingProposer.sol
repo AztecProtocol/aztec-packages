@@ -3,6 +3,7 @@
 // solhint-disable comprehensive-interface
 pragma solidity >=0.8.27;
 
+import {IEscapeHatch} from "@aztec/core/interfaces/IEscapeHatch.sol";
 import {ISlasher, SlasherFlavor} from "@aztec/core/interfaces/ISlasher.sol";
 import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
@@ -796,8 +797,9 @@ contract TallySlashingProposer is EIP712 {
     // Process all votes cast during this round to populate the tally matrix
     _processVotes(_roundData, tallyMatrix, voteCount);
 
-    // Determine which validators reached quorum and return slash actions
-    return _determineSlashActions(tallyMatrix, _committees, totalValidators);
+    // Determine which validators reached quorum and return slash actions, applying escape hatch at tally time
+    bool[] memory escapeHatchEpochs = _getEscapeHatchEpochFlags(_roundData.roundNumber);
+    return _determineSlashActions(tallyMatrix, _committees, totalValidators, escapeHatchEpochs);
   }
 
   /**
@@ -872,7 +874,8 @@ contract TallySlashingProposer is EIP712 {
   function _determineSlashActions(
     uint256[] memory tallyMatrix,
     address[][] calldata _committees,
-    uint256 totalValidators
+    uint256 totalValidators,
+    bool[] memory escapeHatchEpochs
   ) internal view returns (SlashAction[] memory actions, bool[] memory committeesWithSlashes) {
     actions = new SlashAction[](totalValidators);
     uint256 actionCount;
@@ -880,6 +883,11 @@ contract TallySlashingProposer is EIP712 {
 
     unchecked {
       for (uint256 i; i < totalValidators; ++i) {
+        // Skip validators that belong to escape-hatch epochs
+        if (escapeHatchEpochs[i / COMMITTEE_SIZE]) {
+          continue;
+        }
+
         uint256 packedVotes = tallyMatrix[i];
 
         // Skip if no votes for this validator
@@ -993,6 +1001,27 @@ contract TallySlashingProposer is EIP712 {
   function _getCurrentSlot() internal view returns (Slot) {
     IValidatorSelection rollup = IValidatorSelection(INSTANCE);
     return rollup.getCurrentSlot();
+  }
+
+  /**
+   * @notice Determine which epochs targeted by a round are in escape-hatch mode
+   * @param _round The round number to check for
+   * @return escapeHatchEpochs A bool array for escape hatch status of the epochs in the round
+   */
+  function _getEscapeHatchEpochFlags(SlashRound _round) internal view returns (bool[] memory escapeHatchEpochs) {
+    escapeHatchEpochs = new bool[](ROUND_SIZE_IN_EPOCHS);
+
+    IEscapeHatch escapeHatch = IValidatorSelection(INSTANCE).getEscapeHatch();
+
+    // If no escape hatch is configured, return all-false quickly
+    if (address(escapeHatch) == address(0)) {
+      return escapeHatchEpochs;
+    }
+
+    for (uint256 epochIndex; epochIndex < ROUND_SIZE_IN_EPOCHS; epochIndex++) {
+      (bool isOpen,) = escapeHatch.isHatchOpen(getSlashTargetEpoch(_round, epochIndex));
+      escapeHatchEpochs[epochIndex] = isOpen;
+    }
   }
 
   /**

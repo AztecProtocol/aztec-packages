@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: Planned, auditors: [Federico], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
+// =====================
+
 #pragma once
 
 #include <cstdint>
@@ -53,8 +59,10 @@ class AvmRecursiveFlavor {
         using Base::Base;
     };
 
-    class VerificationKey
-        : public StdlibVerificationKey_<CircuitBuilder, NativeFlavor::PrecomputedEntities<Commitment>> {
+    class VerificationKey : public StdlibVerificationKey_<CircuitBuilder,
+                                                          NativeFlavor::PrecomputedEntities<Commitment>,
+                                                          NativeVerificationKey,
+                                                          VKSerializationMode::NO_METADATA> {
       public:
         size_t log_fixed_circuit_size = MAX_AVM_TRACE_LOG_SIZE;
         VerificationKey(CircuitBuilder* builder, const std::shared_ptr<NativeVerificationKey>& native_key)
@@ -84,9 +92,7 @@ class AvmRecursiveFlavor {
             }
         }
 
-        std::vector<FF> to_field_elements() const override { throw_or_abort("Not intended to be used."); }
-        FF hash_with_origin_tagging([[maybe_unused]] const std::string& domain_separator,
-                                    [[maybe_unused]] Transcript& transcript) const override
+        FF hash_with_origin_tagging([[maybe_unused]] const OriginTag& tag) const override
         {
             throw_or_abort("Not intended to be used because vk is hardcoded in circuit.");
         }

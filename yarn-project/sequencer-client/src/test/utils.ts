@@ -11,13 +11,7 @@ import { CommitteeAttestation, L2BlockNew } from '@aztec/stdlib/block';
 import { BlockAttestation, BlockProposal, ConsensusPayload } from '@aztec/stdlib/p2p';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import { makeAppendOnlyTreeSnapshot, mockTxForRollup } from '@aztec/stdlib/testing';
-import {
-  BlockHeader,
-  ContentCommitment,
-  GlobalVariables,
-  type Tx,
-  makeProcessedTxFromPrivateOnlyTx,
-} from '@aztec/stdlib/tx';
+import { BlockHeader, GlobalVariables, type Tx, makeProcessedTxFromPrivateOnlyTx } from '@aztec/stdlib/tx';
 
 import type { MockProxy } from 'jest-mock-extended';
 
@@ -77,15 +71,15 @@ export function createMockSignatures(signer: Secp256k1Signer): CommitteeAttestat
 
 /**
  * Creates a CheckpointHeader from an L2BlockNew for testing purposes.
- * Uses mock values for contentCommitment and blockHeadersHash since
- * L2BlockNew doesn't have these fields.
+ * Uses mock values for blockHeadersHash, blobsHash and inHash since L2BlockNew doesn't have these fields.
  */
 function createCheckpointHeaderFromBlock(block: L2BlockNew): CheckpointHeader {
   const gv = block.header.globalVariables;
   return new CheckpointHeader(
     block.header.lastArchive.root,
     Fr.random(), // blockHeadersHash - mock value for testing
-    ContentCommitment.empty(), // contentCommitment - mock value for testing
+    Fr.random(), // blobsHash - mock value for testing
+    Fr.random(), // inHash - mock value for testing
     gv.slotNumber,
     gv.timestamp,
     gv.coinbase,

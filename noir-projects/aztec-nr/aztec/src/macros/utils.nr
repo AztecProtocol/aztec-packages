@@ -95,13 +95,13 @@ impl AsStrQuote for Quoted {
     // Used to convert an arbitrary quoted type into a quoted string, removing whitespace between tokens
     comptime fn as_str_quote(self) -> (Quoted, u32) {
         let tokens = self.tokens();
-        let mut acc: [u8] = &[];
+        let mut acc: [u8] = @[];
         let mut total_len: u32 = 0;
         for token in tokens {
             let token_as_fmt_str = f"{token}";
             let token_as_str = unquote!(quote {$token_as_fmt_str});
             let token_len = unquote!(quote { $token_as_str.as_bytes().len() });
-            let token_as_bytes = unquote!(quote { $token_as_str.as_bytes().as_slice() });
+            let token_as_bytes = unquote!(quote { $token_as_str.as_bytes().as_vector() });
             total_len += token_len;
             acc = acc.append(token_as_bytes);
         }

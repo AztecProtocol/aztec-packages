@@ -177,7 +177,7 @@ export class BlockProposalHandler {
       CheckpointNumber.fromBlockNumber(blockNumber),
     );
     const computedInHash = computeInHashFromL1ToL2Messages(l1ToL2Messages);
-    const proposalInHash = proposal.payload.header.contentCommitment.inHash;
+    const proposalInHash = proposal.payload.header.inHash;
     if (!computedInHash.equals(proposalInHash)) {
       this.log.warn(`L1 to L2 messages in hash mismatch, skipping processing`, {
         proposalInHash: proposalInHash.toString(),

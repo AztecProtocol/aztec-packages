@@ -4,13 +4,13 @@ import type { PriorityFeeStrategy } from './types.js';
 
 export {
   HISTORICAL_BLOCK_COUNT,
-  executeStrategy,
   type PriorityFeeStrategy,
   type PriorityFeeStrategyContext,
   type PriorityFeeStrategyResult,
 } from './types.js';
 
 export { P75AllTxsPriorityFeeStrategy } from './p75_competitive.js';
+export { P75BlobTxsOnlyPriorityFeeStrategy } from './p75_competitive_blob_txs_only.js';
 
 /**
  * Default list of priority fee strategies to analyze.

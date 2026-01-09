@@ -9,6 +9,7 @@ import { type RpcBlock, createPublicClient, fallback, http } from 'viem';
 import { createBlobArchiveClient } from '../archive/factory.js';
 import type { BlobArchiveClient } from '../archive/interface.js';
 import type { FileStoreBlobClient } from '../filestore/filestore_blob_client.js';
+import { DEFAULT_HEALTHCHECK_UPLOAD_INTERVAL_MINUTES } from '../filestore/healthcheck.js';
 import { type BlobClientConfig, getBlobClientConfigFromEnv } from './config.js';
 import type { BlobClientInterface, GetBlobSidecarOptions } from './interface.js';
 
@@ -21,6 +22,7 @@ export class HttpBlobClient implements BlobClientInterface {
   protected readonly fileStoreUploadClient: FileStoreBlobClient | undefined;
 
   private disabled = false;
+  private healthcheckUploadIntervalId?: NodeJS.Timeout;
 
   constructor(
     config?: BlobClientConfig,
@@ -544,6 +546,50 @@ export class HttpBlobClient implements BlobClientInterface {
   /** @internal - exposed for testing */
   public getArchiveClient(): BlobArchiveClient | undefined {
     return this.archiveClient;
+  }
+
+  /** Returns true if this client can upload blobs to filestore. */
+  public canUpload(): boolean {
+    return this.fileStoreUploadClient !== undefined;
+  }
+
+  /**
+   * Start the blob client.
+   * Uploads the initial healthcheck file (awaited) and starts periodic uploads.
+   */
+  public async start(): Promise<void> {
+    if (!this.fileStoreUploadClient) {
+      return;
+    }
+
+    await this.fileStoreUploadClient.uploadHealthcheck();
+    this.log.debug('Initial healthcheck file uploaded');
+
+    this.startPeriodicHealthcheckUpload();
+  }
+
+  /**
+   * Start periodic healthcheck upload to the file store to ensure it remains available even if accidentally deleted.
+   */
+  private startPeriodicHealthcheckUpload(): void {
+    const intervalMs =
+      (this.config.blobHealthcheckUploadIntervalMinutes ?? DEFAULT_HEALTHCHECK_UPLOAD_INTERVAL_MINUTES) * 60 * 1000;
+
+    this.healthcheckUploadIntervalId = setInterval(() => {
+      void this.fileStoreUploadClient!.uploadHealthcheck().catch(err => {
+        this.log.warn('Failed to upload periodic healthcheck file', err);
+      });
+    }, intervalMs);
+  }
+
+  /**
+   * Stop the blob client, clearing any periodic tasks.
+   */
+  public stop(): void {
+    if (this.healthcheckUploadIntervalId) {
+      clearInterval(this.healthcheckUploadIntervalId);
+      this.healthcheckUploadIntervalId = undefined;
+    }
   }
 }
 

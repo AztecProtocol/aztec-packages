@@ -5,14 +5,14 @@ import { KeyStore } from '@aztec/key-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import type { ProtocolContract } from '@aztec/protocol-contracts';
 import {
-  AddressDataProvider,
-  CapsuleDataProvider,
-  NoteDataProvider,
+  AddressStore,
+  CapsuleStore,
   NoteService,
-  PrivateEventDataProvider,
-  RecipientTaggingDataProvider,
-  SenderAddressBook,
-  SenderTaggingDataProvider,
+  NoteStore,
+  PrivateEventStore,
+  RecipientTaggingStore,
+  SenderAddressBookStore,
+  SenderTaggingStore,
 } from '@aztec/pxe/server';
 import {
   ExecutionNoteCache,
@@ -20,10 +20,19 @@ import {
   HashedValuesCache,
   type IPrivateExecutionOracle,
   type IUtilityExecutionOracle,
+  Oracle,
   PrivateExecutionOracle,
   UtilityExecutionOracle,
 } from '@aztec/pxe/simulator';
-import { FunctionSelector } from '@aztec/stdlib/abi';
+import {
+  ExecutionError,
+  WASMSimulator,
+  createSimulationError,
+  extractCallStack,
+  resolveAssertionMessageFromError,
+  toACVMWitness,
+} from '@aztec/simulator/client';
+import { FunctionCall, FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { GasSettings } from '@aztec/stdlib/gas';
@@ -34,14 +43,15 @@ import { CallContext, GlobalVariables, TxContext } from '@aztec/stdlib/tx';
 
 import { z } from 'zod';
 
+import { DEFAULT_ADDRESS } from './constants.js';
 import type { IAvmExecutionOracle, ITxeExecutionOracle } from './oracle/interfaces.js';
 import { TXEOraclePublicContext } from './oracle/txe_oracle_public_context.js';
 import { TXEOracleTopLevelContext } from './oracle/txe_oracle_top_level_context.js';
 import { RPCTranslator } from './rpc_translator.js';
 import { TXEStateMachine } from './state_machine/index.js';
 import type { ForeignCallArgs, ForeignCallResult } from './util/encoding.js';
-import { TXEAccountDataProvider } from './util/txe_account_data_provider.js';
-import { TXEContractDataProvider } from './util/txe_contract_data_provider.js';
+import { TXEAccountStore } from './util/txe_account_store.js';
+import { TXEContractStore } from './util/txe_contract_store.js';
 import { getSingleTxBlockRequestHash, insertTxEffectIntoWorldTrees, makeTXEBlock } from './utils/block_creation.js';
 import { makeTxEffect } from './utils/tx_effect_creation.js';
 
@@ -103,8 +113,6 @@ export interface TXESessionStateHandler {
   enterUtilityState(contractAddress?: AztecAddress): Promise<void>;
 }
 
-export const DEFAULT_ADDRESS = AztecAddress.fromNumber(42);
-
 /**
  * A `TXESession` corresponds to a Noir `#[test]` function, and handles all of its oracle calls, stores test-specific
  * state, etc., independent of all other tests running in parallel.
@@ -121,16 +129,16 @@ export class TXESession implements TXESessionStateHandler {
       | IPrivateExecutionOracle
       | IAvmExecutionOracle
       | ITxeExecutionOracle,
-    private contractDataProvider: TXEContractDataProvider,
-    private noteDataProvider: NoteDataProvider,
+    private contractStore: TXEContractStore,
+    private noteStore: NoteStore,
     private keyStore: KeyStore,
-    private addressDataProvider: AddressDataProvider,
-    private accountDataProvider: TXEAccountDataProvider,
-    private senderTaggingDataProvider: SenderTaggingDataProvider,
-    private recipientTaggingDataProvider: RecipientTaggingDataProvider,
-    private senderAddressBook: SenderAddressBook,
-    private capsuleDataProvider: CapsuleDataProvider,
-    private privateEventDataProvider: PrivateEventDataProvider,
+    private addressStore: AddressStore,
+    private accountStore: TXEAccountStore,
+    private senderTaggingStore: SenderTaggingStore,
+    private recipientTaggingStore: RecipientTaggingStore,
+    private senderAddressBookStore: SenderAddressBookStore,
+    private capsuleStore: CapsuleStore,
+    private privateEventStore: PrivateEventStore,
     private chainId: Fr,
     private version: Fr,
     private nextBlockTimestamp: bigint,
@@ -139,21 +147,21 @@ export class TXESession implements TXESessionStateHandler {
   static async init(protocolContracts: ProtocolContract[]) {
     const store = await openTmpStore('txe-session');
 
-    const addressDataProvider = new AddressDataProvider(store);
-    const privateEventDataProvider = new PrivateEventDataProvider(store);
-    const contractDataProvider = new TXEContractDataProvider(store);
-    const noteDataProvider = await NoteDataProvider.create(store);
-    const senderTaggingDataProvider = new SenderTaggingDataProvider(store);
-    const recipientTaggingDataProvider = new RecipientTaggingDataProvider(store);
-    const senderAddressBook = new SenderAddressBook(store);
-    const capsuleDataProvider = new CapsuleDataProvider(store);
+    const addressStore = new AddressStore(store);
+    const privateEventStore = new PrivateEventStore(store);
+    const contractStore = new TXEContractStore(store);
+    const noteStore = await NoteStore.create(store);
+    const senderTaggingStore = new SenderTaggingStore(store);
+    const recipientTaggingStore = new RecipientTaggingStore(store);
+    const senderAddressBookStore = new SenderAddressBookStore(store);
+    const capsuleStore = new CapsuleStore(store);
     const keyStore = new KeyStore(store);
-    const accountDataProvider = new TXEAccountDataProvider(store);
+    const accountStore = new TXEAccountStore(store);
 
     // Register protocol contracts.
     for (const { contractClass, instance, artifact } of protocolContracts) {
-      await contractDataProvider.addContractArtifact(contractClass.id, artifact);
-      await contractDataProvider.addContractInstance(instance);
+      await contractStore.addContractArtifact(contractClass.id, artifact);
+      await contractStore.addContractInstance(instance);
     }
 
     const stateMachine = await TXEStateMachine.create(store);
@@ -164,16 +172,16 @@ export class TXESession implements TXESessionStateHandler {
 
     const topLevelOracleHandler = new TXEOracleTopLevelContext(
       stateMachine,
-      contractDataProvider,
-      noteDataProvider,
+      contractStore,
+      noteStore,
       keyStore,
-      addressDataProvider,
-      accountDataProvider,
-      senderTaggingDataProvider,
-      recipientTaggingDataProvider,
-      senderAddressBook,
-      capsuleDataProvider,
-      privateEventDataProvider,
+      addressStore,
+      accountStore,
+      senderTaggingStore,
+      recipientTaggingStore,
+      senderAddressBookStore,
+      capsuleStore,
+      privateEventStore,
       nextBlockTimestamp,
       version,
       chainId,
@@ -185,16 +193,16 @@ export class TXESession implements TXESessionStateHandler {
       createLogger('txe:session'),
       stateMachine,
       topLevelOracleHandler,
-      contractDataProvider,
-      noteDataProvider,
+      contractStore,
+      noteStore,
       keyStore,
-      addressDataProvider,
-      accountDataProvider,
-      senderTaggingDataProvider,
-      recipientTaggingDataProvider,
-      senderAddressBook,
-      capsuleDataProvider,
-      privateEventDataProvider,
+      addressStore,
+      accountStore,
+      senderTaggingStore,
+      recipientTaggingStore,
+      senderAddressBookStore,
+      capsuleStore,
+      privateEventStore,
       version,
       chainId,
       nextBlockTimestamp,
@@ -256,16 +264,16 @@ export class TXESession implements TXESessionStateHandler {
 
     this.oracleHandler = new TXEOracleTopLevelContext(
       this.stateMachine,
-      this.contractDataProvider,
-      this.noteDataProvider,
+      this.contractStore,
+      this.noteStore,
       this.keyStore,
-      this.addressDataProvider,
-      this.accountDataProvider,
-      this.senderTaggingDataProvider,
-      this.recipientTaggingDataProvider,
-      this.senderAddressBook,
-      this.capsuleDataProvider,
-      this.privateEventDataProvider,
+      this.addressStore,
+      this.accountStore,
+      this.senderTaggingStore,
+      this.recipientTaggingStore,
+      this.senderAddressBookStore,
+      this.capsuleStore,
+      this.privateEventStore,
       this.nextBlockTimestamp,
       this.version,
       this.chainId,
@@ -282,15 +290,10 @@ export class TXESession implements TXESessionStateHandler {
   ): Promise<PrivateContextInputs> {
     this.exitTopLevelState();
 
-    // There is no automatic message discovery and contract-driven syncing process in inlined private or utility
-    // contexts, which means that known nullifiers are also not searched for, since it is during the tagging sync that
-    // we perform this. We therefore search for known nullifiers now, as otherwise notes that were nullified would not
-    // be removed from the database.
-    // TODO(#12553): make the synchronizer sync here instead and remove this
     await new NoteService(
-      this.noteDataProvider,
+      this.noteStore,
       this.stateMachine.node,
-      this.stateMachine.anchorBlockDataProvider,
+      this.stateMachine.anchorBlockStore,
     ).syncNoteNullifiers(contractAddress);
 
     // Private execution has two associated block numbers: the anchor block (i.e. the historical block that is used to
@@ -311,27 +314,29 @@ export class TXESession implements TXESessionStateHandler {
     const noteCache = new ExecutionNoteCache(protocolNullifier);
     const taggingIndexCache = new ExecutionTaggingIndexCache();
 
+    const utilityExecutor = this.utilityExecutorForContractSync(anchorBlock);
     this.oracleHandler = new PrivateExecutionOracle(
       Fr.ZERO,
       new TxContext(this.chainId, this.version, GasSettings.empty()),
       new CallContext(AztecAddress.ZERO, contractAddress, FunctionSelector.empty(), false),
       anchorBlock!,
+      utilityExecutor,
       [],
       [],
       new HashedValuesCache(),
       noteCache,
       taggingIndexCache,
-      this.contractDataProvider,
-      this.noteDataProvider,
+      this.contractStore,
+      this.noteStore,
       this.keyStore,
-      this.addressDataProvider,
+      this.addressStore,
       this.stateMachine.node,
-      this.stateMachine.anchorBlockDataProvider,
-      this.senderTaggingDataProvider,
-      this.recipientTaggingDataProvider,
-      this.senderAddressBook,
-      this.capsuleDataProvider,
-      this.privateEventDataProvider,
+      this.stateMachine.anchorBlockStore,
+      this.senderTaggingStore,
+      this.recipientTaggingStore,
+      this.senderAddressBookStore,
+      this.capsuleStore,
+      this.privateEventStore,
     );
 
     // We store the note and tagging index caches fed into the PrivateExecutionOracle (along with some other auxiliary
@@ -378,28 +383,28 @@ export class TXESession implements TXESessionStateHandler {
     // be removed from the database.
     // TODO(#12553): make the synchronizer sync here instead and remove this
     await new NoteService(
-      this.noteDataProvider,
+      this.noteStore,
       this.stateMachine.node,
-      this.stateMachine.anchorBlockDataProvider,
+      this.stateMachine.anchorBlockStore,
     ).syncNoteNullifiers(contractAddress);
 
-    const anchorBlockHeader = await this.stateMachine.anchorBlockDataProvider.getBlockHeader();
+    const anchorBlockHeader = await this.stateMachine.anchorBlockStore.getBlockHeader();
 
     this.oracleHandler = new UtilityExecutionOracle(
       contractAddress,
       [],
       [],
       anchorBlockHeader,
-      this.contractDataProvider,
-      this.noteDataProvider,
+      this.contractStore,
+      this.noteStore,
       this.keyStore,
-      this.addressDataProvider,
+      this.addressStore,
       this.stateMachine.node,
-      this.stateMachine.anchorBlockDataProvider,
-      this.recipientTaggingDataProvider,
-      this.senderAddressBook,
-      this.capsuleDataProvider,
-      this.privateEventDataProvider,
+      this.stateMachine.anchorBlockStore,
+      this.recipientTaggingStore,
+      this.senderAddressBookStore,
+      this.capsuleStore,
+      this.privateEventStore,
     );
 
     this.state = { name: 'UTILITY' };
@@ -469,5 +474,49 @@ export class TXESession implements TXESessionStateHandler {
     if (this.state.name != 'UTILITY') {
       throw new Error(`Expected to be in state 'UTILITY', but got '${this.state.name}' instead`);
     }
+  }
+
+  private utilityExecutorForContractSync(anchorBlock: any) {
+    return async (call: FunctionCall) => {
+      const entryPointArtifact = await this.contractStore.getFunctionArtifactWithDebugMetadata(call.to, call.selector);
+      if (entryPointArtifact.functionType !== FunctionType.UTILITY) {
+        throw new Error(`Cannot run ${entryPointArtifact.functionType} function as utility`);
+      }
+
+      try {
+        const oracle = new UtilityExecutionOracle(
+          call.to,
+          [],
+          [],
+          anchorBlock!,
+          this.contractStore,
+          this.noteStore,
+          this.keyStore,
+          this.addressStore,
+          this.stateMachine.node,
+          this.stateMachine.anchorBlockStore,
+          this.recipientTaggingStore,
+          this.senderAddressBookStore,
+          this.capsuleStore,
+          this.privateEventStore,
+        );
+        await new WASMSimulator()
+          .executeUserCircuit(toACVMWitness(0, call.args), entryPointArtifact, new Oracle(oracle).toACIRCallback())
+          .catch((err: Error) => {
+            err.message = resolveAssertionMessageFromError(err, entryPointArtifact);
+            throw new ExecutionError(
+              err.message,
+              {
+                contractAddress: call.to,
+                functionSelector: call.selector,
+              },
+              extractCallStack(err, entryPointArtifact.debug),
+              { cause: err },
+            );
+          });
+      } catch (err) {
+        throw createSimulationError(err instanceof Error ? err : new Error('Unknown error contract data sync'));
+      }
+    };
   }
 }

@@ -228,6 +228,7 @@ contract Tmnt207Test is RollupBase {
         args: PublicInputArgs({
           previousArchive: rollup.getCheckpoint(0).archive,
           endArchive: rollup.getCheckpoint(1).archive,
+          outHash: bytes32(0),
           proverId: address(0)
         }),
         fees: new bytes32[](Constants.AZTEC_MAX_EPOCH_DURATION * 2),
@@ -256,7 +257,7 @@ contract Tmnt207Test is RollupBase {
     header.timestamp = ts;
     header.coinbase = address(bytes20("coinbase"));
     header.feeRecipient = bytes32(0);
-    header.gasFees.feePerL2Gas = SafeCast.toUint128(rollup.getManaBaseFeeAt(Timestamp.wrap(block.timestamp), true));
+    header.gasFees.feePerL2Gas = SafeCast.toUint128(rollup.getManaMinFeeAt(Timestamp.wrap(block.timestamp), true));
     if (MANA_TARGET > 0) {
       header.totalManaUsed = MANA_TARGET;
     } else {

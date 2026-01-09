@@ -10,6 +10,8 @@ import {
   BlockNumber,
   BlockNumberPositiveSchema,
   BlockNumberSchema,
+  EpochNumber,
+  EpochNumberSchema,
   type SlotNumber,
 } from '@aztec/foundation/branded-types';
 import type { Fr } from '@aztec/foundation/curves/bn254';
@@ -216,11 +218,12 @@ export interface AztecNode
   isL1ToL2MessageSynced(l1ToL2Message: Fr): Promise<boolean>;
 
   /**
-   * Returns all the L2 to L1 messages in a block.
-   * @param blockNumber - The block number at which to get the data.
-   * @returns The L2 to L1 messages (undefined if the block number is not found).
+   * Returns all the L2 to L1 messages in an epoch.
+   * @param epoch - The epoch at which to get the data.
+   * @returns A nested array of the L2 to L1 messages in each tx of each block in each checkpoint in the epoch (empty
+   * array if the epoch is not found).
    */
-  getL2ToL1Messages(blockNumber: BlockParameter): Promise<Fr[][] | undefined>;
+  getL2ToL1Messages(epoch: EpochNumber): Promise<Fr[][][][]>;
 
   /**
    * Get a block specified by its number.
@@ -277,10 +280,10 @@ export interface AztecNode
   getBlocks(from: BlockNumber, limit: number): Promise<L2Block[]>;
 
   /**
-   * Method to fetch the current base fees.
-   * @returns The current base fees.
+   * Method to fetch the current min fees.
+   * @returns The current min fees.
    */
-  getCurrentBaseFees(): Promise<GasFees>;
+  getCurrentMinFees(): Promise<GasFees>;
 
   /**
    * Method to fetch the current max priority fee of txs in the mempool.
@@ -552,8 +555,8 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
 
   getL2ToL1Messages: z
     .function()
-    .args(BlockParameterSchema)
-    .returns(z.array(z.array(schemas.Fr)).optional()),
+    .args(EpochNumberSchema)
+    .returns(z.array(z.array(z.array(z.array(schemas.Fr))))),
 
   getBlock: z.function().args(BlockParameterSchema).returns(L2Block.schema.optional()),
 
@@ -579,7 +582,7 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
     .args(BlockNumberPositiveSchema, z.number().gt(0).lte(MAX_RPC_BLOCKS_LEN))
     .returns(z.array(PublishedL2Block.schema)),
 
-  getCurrentBaseFees: z.function().returns(GasFees.schema),
+  getCurrentMinFees: z.function().returns(GasFees.schema),
 
   getMaxPriorityFees: z.function().returns(GasFees.schema),
 

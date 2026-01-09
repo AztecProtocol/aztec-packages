@@ -37,8 +37,7 @@ MemoryValue Sha256::ror(const MemoryValue& x, uint8_t shift)
 
     // Do this outside of an assert, in case this gets built without assert
     bool lo_in_range = gt.gt(static_cast<uint32_t>(1) << shift, lo); // Ensure the lower bits are in range
-    (void)lo_in_range;                                               // To please GCC.
-    assert(lo_in_range && "Low Value in ROR out of range");
+    BB_ASSERT(lo_in_range, "Low Value in ROR out of range");
     return MemoryValue::from<uint32_t>(result);
 }
 
@@ -52,8 +51,7 @@ MemoryValue Sha256::shr(const MemoryValue& x, uint8_t shift)
 
     // Do this outside of an assert, in case this gets built without assert
     bool lo_in_range = gt.gt(static_cast<uint32_t>(1) << shift, lo); // Ensure the lower bits are in range
-    (void)lo_in_range;                                               // To please GCC.
-    assert(lo_in_range && "Low Value in SHR out of range");
+    BB_ASSERT(lo_in_range, "Low Value in SHR out of range");
 
     return MemoryValue::from<uint32_t>(hi);
 }
@@ -74,9 +72,7 @@ MemoryValue Sha256::modulo_sum(std::span<const MemoryValue> values)
         gt.gt(static_cast<uint64_t>(1) << 32, static_cast<uint64_t>(lo)); // Ensure the lower bits are in range
     bool hi_in_range =
         gt.gt(static_cast<uint64_t>(1) << 32, static_cast<uint64_t>(hi)); // Ensure the upper bits are in range
-    (void)lo_in_range;                                                    // To please GCC.
-    (void)hi_in_range;                                                    // To please GCC.
-    assert(lo_in_range && hi_in_range && "Sum in MODULO_SUM out of range");
+    BB_ASSERT(lo_in_range && hi_in_range, "Sum in MODULO_SUM out of range");
     return MemoryValue::from<uint32_t>(lo);
 }
 

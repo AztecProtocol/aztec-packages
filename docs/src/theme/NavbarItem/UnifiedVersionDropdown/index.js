@@ -88,7 +88,7 @@ export default function UnifiedVersionDropdown({ mobile, ...props }) {
   const { pathname } = useLocation();
 
   // Hide dropdown on landing page
-  if (pathname === '/') {
+  if (pathname === '/' || pathname === '/networks') {
     return null;
   }
 

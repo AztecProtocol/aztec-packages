@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: complete, auditors: [luke], date: 2025-04-17 }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Complete, auditors: [Khashayar], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #include "sumcheck.hpp"

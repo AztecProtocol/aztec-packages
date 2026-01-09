@@ -156,7 +156,7 @@ export class ChainMonitor extends EventEmitter<ChainMonitorEventMap> {
     let committee: EthAddress[] | undefined;
     if (l2Epoch !== this.l2EpochNumber) {
       this.l2EpochNumber = l2Epoch;
-      committee = (await this.rollup.getCurrentEpochCommittee())?.map(addr => EthAddress.fromString(addr));
+      committee = await this.rollup.getCurrentEpochCommittee();
       this.emit('l2-epoch', { l2EpochNumber: l2Epoch, timestamp, committee });
       msg += ` starting new epoch ${this.l2EpochNumber} `;
     }

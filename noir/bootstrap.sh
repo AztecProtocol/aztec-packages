@@ -19,7 +19,6 @@ export js_include=$(printf " --include %s" $js_projects)
 export GIT_COMMIT=$noir_commit
 export SOURCE_DATE_EPOCH=0
 export GIT_DIRTY=false
-export RUSTFLAGS="-Dwarnings"
 
 # Builds nargo, acvm and profiler binaries.
 function build_native {

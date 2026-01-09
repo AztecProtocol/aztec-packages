@@ -423,41 +423,33 @@ constexpr SendL2ToL1MsgMutationConfig BASIC_SENDL2TOL1MSG_MUTATION_CONFIGURATION
     { SendL2ToL1MsgMutationOptions::content_address, 1 },
 });
 
-enum class EmitUnencryptedLogMutationOptions { log_size, log_size_address, log_values, log_values_address_start };
-using EmitUnencryptedLogMutationConfig = WeightedSelectionConfig<EmitUnencryptedLogMutationOptions, 4>;
+enum class EmitUnencryptedLogMutationOptions { log_size_address, log_values_address };
+using EmitUnencryptedLogMutationConfig = WeightedSelectionConfig<EmitUnencryptedLogMutationOptions, 2>;
 
 constexpr EmitUnencryptedLogMutationConfig BASIC_EMITUNENCRYPTEDLOG_MUTATION_CONFIGURATION =
     EmitUnencryptedLogMutationConfig({
-        { EmitUnencryptedLogMutationOptions::log_size, 1 },
         { EmitUnencryptedLogMutationOptions::log_size_address, 1 },
-        { EmitUnencryptedLogMutationOptions::log_values, 1 },
-        { EmitUnencryptedLogMutationOptions::log_values_address_start, 1 },
+        { EmitUnencryptedLogMutationOptions::log_values_address, 1 },
     });
 
 enum class CallMutationOptions {
-    function_index,
-    address_offset,
-    l2_gas,
     l2_gas_address,
-    da_gas,
     da_gas_address,
-    arg_size_offset,
-    args,
-    args_offset,
+    contract_address_address,
+    calldata_size_address,
+    calldata_size,
+    calldata_address,
     is_static_call
 };
-using CallMutationConfig = WeightedSelectionConfig<CallMutationOptions, 10>;
+using CallMutationConfig = WeightedSelectionConfig<CallMutationOptions, 7>;
 
 constexpr CallMutationConfig BASIC_CALL_MUTATION_CONFIGURATION = CallMutationConfig({
-    { CallMutationOptions::function_index, 1 },
-    { CallMutationOptions::address_offset, 1 },
-    { CallMutationOptions::l2_gas, 1 },
     { CallMutationOptions::l2_gas_address, 1 },
-    { CallMutationOptions::da_gas, 1 },
     { CallMutationOptions::da_gas_address, 1 },
-    { CallMutationOptions::arg_size_offset, 1 },
-    { CallMutationOptions::args_offset, 1 },
-    { CallMutationOptions::args, 1 },
+    { CallMutationOptions::contract_address_address, 1 },
+    { CallMutationOptions::calldata_size_address, 1 },
+    { CallMutationOptions::calldata_size, 1 },
+    { CallMutationOptions::calldata_address, 1 },
     { CallMutationOptions::is_static_call, 1 },
 });
 
@@ -472,12 +464,11 @@ constexpr ReturndatasizeWithReturndatacopyMutationConfig
         { ReturndatasizeWithReturndatacopyMutationOptions::rd_start_offset, 1 },
     });
 
-enum class GetContractInstanceMutationOptions { contract_index, contract_address_address, dst_address, member_enum };
-using GetContractInstanceMutationConfig = WeightedSelectionConfig<GetContractInstanceMutationOptions, 4>;
+enum class GetContractInstanceMutationOptions { contract_address_address, dst_address, member_enum };
+using GetContractInstanceMutationConfig = WeightedSelectionConfig<GetContractInstanceMutationOptions, 3>;
 
 constexpr GetContractInstanceMutationConfig BASIC_GETCONTRACTINSTANCE_MUTATION_CONFIGURATION =
     GetContractInstanceMutationConfig({
-        { GetContractInstanceMutationOptions::contract_index, 1 },
         { GetContractInstanceMutationOptions::contract_address_address, 1 },
         { GetContractInstanceMutationOptions::dst_address, 1 },
         { GetContractInstanceMutationOptions::member_enum, 1 },

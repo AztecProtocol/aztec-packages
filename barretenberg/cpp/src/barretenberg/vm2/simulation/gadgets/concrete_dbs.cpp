@@ -17,11 +17,15 @@ std::optional<ContractInstance> ContractDB::get_contract_instance(const AztecAdd
     }
     // If we did get a contract instance, we need to prove that the address is derived from the instance.
     // For protocol contracts the input address is the canonical address, we need to retrieve the derived address.
-    AztecAddress derived_address = is_protocol_contract_address(address)
-                                       ? get_derived_address(protocol_contracts, address)
-                                             .value() /* We can assume that get_derived_address will not return a
-                                                         nullopt, since we have succesfully fetched the instance.*/
-                                       : address;
+    AztecAddress derived_address;
+    if (is_protocol_contract_address(address)) {
+        auto maybe_derived = get_derived_address(protocol_contracts, address);
+        BB_ASSERT(maybe_derived.has_value(),
+                  "Derived address should be found for protocol contract whose instance is found");
+        derived_address = maybe_derived.value();
+    } else {
+        derived_address = address;
+    }
     address_derivation.assert_derivation(derived_address, instance.value());
     return instance;
 }
@@ -37,7 +41,7 @@ std::optional<ContractClass> ContractDB::get_contract_class(const ContractClassI
     // Get the bytecode commitment for this class.
     std::optional<FF> maybe_bytecode_commitment = raw_contract_db.get_bytecode_commitment(class_id);
     // If the class exists, the bytecode commitment must also exist.
-    assert(maybe_bytecode_commitment.has_value());
+    BB_ASSERT(maybe_bytecode_commitment.has_value(), "Bytecode commitment not found");
 
     // Perform class ID derivation to verify the class ID is correctly derived from the class data.
     class_id_derivation.assert_derivation(maybe_klass->with_commitment(maybe_bytecode_commitment.value()));
@@ -115,9 +119,9 @@ void MerkleDB::storage_write(const AztecAddress& contract_address,
                                                                          insertion_hint.path,
                                                                          is_protocol_write);
 
-    (void)snapshot_after; // Silence unused variable warning when assert is stripped out
-    // Sanity check.
-    assert(snapshot_after == raw_merkle_db.get_tree_roots().public_data_tree);
+    // This will throw an unexpected exception if it fails.
+    BB_ASSERT_EQ(snapshot_after, raw_merkle_db.get_tree_roots().public_data_tree, "Snapshot after mismatch");
+
     if (!is_protocol_write) {
         written_public_data_slots.insert(contract_address, slot);
     }
@@ -209,9 +213,8 @@ void MerkleDB::nullifier_write_internal(std::optional<AztecAddress> contract_add
                                                                        snapshot_before,
                                                                        insertion_path);
 
-    (void)snapshot_after; // Silence unused variable warning when assert is stripped out
-    // Sanity check.
-    assert(snapshot_after == raw_merkle_db.get_tree_roots().nullifier_tree);
+    // This will throw an unexpected exception if it fails.
+    BB_ASSERT_EQ(snapshot_after, raw_merkle_db.get_tree_roots().nullifier_tree, "Snapshot after mismatch");
 
     if (!present) {
         tree_counters_stack.top().nullifier_counter++;
@@ -245,9 +248,8 @@ void MerkleDB::note_hash_write(const AztecAddress& contract_address, const FF& n
     AppendOnlyTreeSnapshot snapshot_after =
         note_hash_tree_check.append_note_hash(note_hash, contract_address, note_hash_counter, path, snapshot_before);
 
-    (void)snapshot_after; // Silence unused variable warning when assert is stripped out
-    // Sanity check.
-    assert(snapshot_after == raw_merkle_db.get_tree_roots().note_hash_tree);
+    // This will throw an unexpected exception if it fails.
+    BB_ASSERT_EQ(snapshot_after, raw_merkle_db.get_tree_roots().note_hash_tree, "Snapshot after mismatch");
 
     tree_counters_stack.top().note_hash_counter++;
 }
@@ -267,9 +269,8 @@ void MerkleDB::siloed_note_hash_write(const FF& siloed_note_hash)
     AppendOnlyTreeSnapshot snapshot_after =
         note_hash_tree_check.append_siloed_note_hash(siloed_note_hash, note_hash_counter, path, snapshot_before);
 
-    (void)snapshot_after; // Silence unused variable warning when assert is stripped out
-    // Sanity check.
-    assert(snapshot_after == raw_merkle_db.get_tree_roots().note_hash_tree);
+    // This will throw an unexpected exception if it fails.
+    BB_ASSERT_EQ(snapshot_after, raw_merkle_db.get_tree_roots().note_hash_tree, "Snapshot after mismatch");
 
     tree_counters_stack.top().note_hash_counter++;
 }
@@ -285,9 +286,8 @@ void MerkleDB::unique_note_hash_write(const FF& unique_note_hash)
     AppendOnlyTreeSnapshot snapshot_after =
         note_hash_tree_check.append_unique_note_hash(unique_note_hash, note_hash_counter, path, snapshot_before);
 
-    (void)snapshot_after; // Silence unused variable warning when assert is stripped out
-    // Sanity check.
-    assert(snapshot_after == raw_merkle_db.get_tree_roots().note_hash_tree);
+    // This will throw an unexpected exception if it fails.
+    BB_ASSERT_EQ(snapshot_after, raw_merkle_db.get_tree_roots().note_hash_tree, "Snapshot after mismatch");
 
     tree_counters_stack.top().note_hash_counter++;
 }

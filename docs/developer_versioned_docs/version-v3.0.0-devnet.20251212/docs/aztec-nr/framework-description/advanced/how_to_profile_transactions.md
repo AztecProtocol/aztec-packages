@@ -1,11 +1,11 @@
 ---
-title: Profiling and Optimizing Contracts
+title: Profiling Transactions
 sidebar_position: 2
-tags: [contracts, profiling, optimization]
-description: Step-by-step guide to profiling Aztec transactions and optimizing contract performance for efficient proof generation.
+tags: [contracts, profiling]
+description: How to profile Aztec transactions and identify performance bottlenecks.
 ---
 
-This guide shows you how to profile your Aztec transactions to identify bottlenecks and optimize gas usage.
+This guide shows you how to profile Aztec transactions to understand gate counts and identify optimization opportunities.
 
 ## Prerequisites
 
@@ -16,241 +16,113 @@ This guide shows you how to profile your Aztec transactions to identify bottlene
 
 ## Profile with aztec-wallet
 
-### Step 1: Import test accounts
+Use the `profile` command instead of `send` to get detailed gate counts:
 
 ```bash
+# Import test accounts
 aztec-wallet import-test-accounts
-```
 
-### Step 2: Deploy your contract
-
-```bash
+# Deploy your contract
 aztec-wallet deploy MyContractArtifact \
   --from accounts:test0 \
-  --args <constructor_args> \
+  --args [CONSTRUCTOR_ARGS] \
   -a mycontract
-```
 
-### Step 3: Set up initial state
-
-```bash
-aztec-wallet send setup_state \
+# Profile a function call
+aztec-wallet profile my_function \
   -ca mycontract \
-  --args <setup_args> \
-  -f test0
-```
-
-### Step 4: Profile a transaction
-
-Instead of `send`, use `profile` with the same parameters:
-
-```bash
-aztec-wallet profile private_function \
-  -ca mycontract \
-  --args <function_args> \
+  --args [FUNCTION_ARGS] \
   -f accounts:test0
 ```
 
-### Step 5: Analyze the output
+### Reading the output
 
-```bash
-Gate count per circuit:
-   SchnorrAccount:entrypoint                          Gates: 21,724     Acc: 21,724
-   private_kernel_init                                Gates: 45,351     Acc: 67,075
-   MyContract:private_function                        Gates: 31,559     Acc: 98,634
-   private_kernel_inner                               Gates: 78,452     Acc: 177,086
-   private_kernel_reset                               Gates: 91,444     Acc: 268,530
-   private_kernel_tail                                Gates: 31,201     Acc: 299,731
+The profile command outputs a per-circuit breakdown:
 
-Total gates: 299,731
+```text
+Per circuit breakdown:
+
+  Function name                          Time           Gates         Subtotal
+--------------------------------------------------------------------------------
+ - SchnorrAccount:entrypoint            12.34ms         21,724         21,724
+ - private_kernel_init                  23.45ms         45,351         67,075
+ - MyContract:my_function               15.67ms         31,559         98,634
+ - private_kernel_inner                 34.56ms         78,452        177,086
+
+Total gates: 177,086 (Biggest circuit: private_kernel_inner -> 78,452)
 ```
 
-The output shows:
+Key metrics:
 
-- Gate count per circuit component
-- Accumulated gate count
-- Total gates for the entire transaction
+- **Gates**: Circuit complexity for each function
+- **Subtotal**: Accumulated gate count
+- **Time**: Execution time per circuit
 
 ## Profile with aztec.js
 
-:::tip Profile Modes
+```typescript
+const result = await contract.methods.my_function(args).profile({
+  from: walletAddress,
+  profileMode: "full",
+  skipProofGeneration: true,
+});
 
-- `gates`: Shows gate counts per circuit
-- `execution-steps`: Detailed execution trace
-- `full`: Complete profiling information
+// Access gate counts from execution steps
+for (const step of result.executionSteps) {
+  console.log(`${step.functionName}: ${step.gateCount} gates`);
+}
 
-:::
-
-### Step 1: Profile a transaction
-
-```javascript
-const result = await contract.methods
-  .my_function(args)
-  .profile({
-    from: address,
-    profileMode: 'gates',
-    skipProofGeneration: false
-  });
-
-console.log('Gate count:', result.gateCount);
+// Access timing information
+console.log("Total time:", result.stats.timings.total, "ms");
 ```
 
-### Step 2: Profile deployment
+### Profile modes
 
-```javascript
-const deploy = await Contract.deploy(args).profile({ from: address, profileMode: 'full' });
-```
+- `gates`: Gate counts per circuit
+- `execution-steps`: Detailed execution trace with bytecode and witnesses
+- `full`: Complete profiling information (gates + execution steps)
 
-:::warning Experimental
-Flamegraph generation is experimental and may not be available in all versions.
-:::
+Set `skipProofGeneration: true` for faster iteration when you only need gate counts.
 
-## Generate flamegraphs (if available)
+## Generate flamegraphs with noir-profiler
 
-### Generate and view
+For deeper analysis of individual contract functions, use the Noir profiler to generate interactive flamegraphs. The profiler is installed automatically with Nargo (starting noirup v0.1.4).
 
 ```bash
-# Compile first
+# Compile your contract first
 aztec compile
 
-# Generate flamegraph
-aztec flamegraph target/contract.json function_name
+# Generate a gates flamegraph (requires bb backend)
+noir-profiler gates \
+  --artifact-path ./target/my_contract-MyContract.json \
+  --backend-path bb \
+  --output ./target
 
-# Serve locally
-SERVE=1 aztec flamegraph target/contract.json function_name
+# Generate an ACIR opcodes flamegraph
+noir-profiler opcodes \
+  --artifact-path ./target/my_contract-MyContract.json \
+  --output ./target
 ```
 
-:::info Reading Flamegraphs
+Open the generated `.svg` file in a browser for an interactive view where:
 
-- **Width** = Time in operation
-- **Height** = Call depth
-- **Wide sections** = Optimization targets
+- **Width** represents gate count or opcode count
+- **Height** represents call stack depth
+- **Wide sections** indicate optimization targets
 
-:::
+For detailed usage, see the [Noir profiler documentation](https://noir-lang.org/docs/tooling/profiler).
 
-## Common optimizations
+## Gate count guidelines
 
-:::info Key Metrics
-
-- **Gate count**: Circuit complexity
-- **Kernel overhead**: Per-function cost
-- **Storage access**: Read/write operations
-
-:::
-
-:::tip Optimization Pattern
-Batch operations to reduce kernel circuit overhead.
-:::
-
-```rust
-// ❌ Multiple kernel invocations
-for i in 0..3 {
-    transfer_single(amounts[i], recipients[i]);
-}
-
-// ✅ Single kernel invocation
-for i in 0..3 {
-    let note = Note::new(amounts[i], recipients[i]);
-    storage.notes.at(recipients[i]).insert(note);
-}
-```
-
-:::tip Storage Optimization
-Group storage reads to reduce overhead.
-:::
-
-```rust
-// Read once, use multiple times
-let values = [storage.v1.get(), storage.v2.get(), storage.v3.get()];
-for v in values {
-    assert(v > 0);
-}
-```
-
-### Minimize note operations
-
-:::tip Note Aggregation
-Combine multiple small notes into fewer larger ones to reduce proving overhead.
-:::
-
-```rust
-// ❌ Many small notes = high overhead
-for value in values {
-    storage.notes.insert(Note::new(value, owner));
-}
-
-// ✅ Single aggregated note = lower overhead
-let total = values.reduce(|a, b| a + b);
-storage.notes.insert(Note::new(total, owner));
-```
-
-## Profile different scenarios
-
-### Profile with different inputs
-
-```bash
-# Small values
-aztec-wallet profile function -ca mycontract --args 10 -f test0
-
-# Large values
-aztec-wallet profile function -ca mycontract --args 1000000 -f test0
-```
-
-### Profile execution modes
-
-```javascript
-// Profile gates only
-await contract.methods.function().profile({ profileMode: 'gates' });
-
-// Profile execution steps
-await contract.methods.function().profile({ profileMode: 'execution-steps' });
-
-// Full profile
-await contract.methods.function().profile({ profileMode: 'full' });
-```
-
-### Skip proof generation for faster iteration
-
-```javascript
-await contract.methods.function().profile({
-  profileMode: 'gates',
-  skipProofGeneration: true  // Faster but less accurate
-});
-```
-
-## Interpret profiling results
-
-### Gate count guidelines
-
-- **< 50,000 gates**: Excellent performance
-- **50,000 - 200,000 gates**: Acceptable for most use cases
-- **200,000 - 500,000 gates**: May cause delays, consider optimizing
-- **> 500,000 gates**: Requires optimization for production
-
-### Common optimization targets
-
-1. **private_kernel_inner** - Reduce nested function calls
-2. **private_kernel_reset** - Minimize note nullifications
-3. **Contract functions** - Optimize computation logic
-4. **private_kernel_tail** - Reduce public function calls
-
-## Best practices
-
-### Development workflow
-
-1. **Profile early** - Establish baseline metrics
-2. **Profile often** - Check impact of changes
-3. **Profile realistically** - Use production-like data
-4. **Document findings** - Track optimization progress
-
-### Optimization priorities
-
-1. **User-facing functions** - Optimize most-used features first
-2. **Critical paths** - Focus on transaction bottlenecks
-3. **Batch operations** - Combine related operations
-4. **Cache calculations** - Store reusable results
+| Gate Count        | Assessment            |
+| ----------------- | --------------------- |
+| < 50,000          | Excellent             |
+| 50,000 - 200,000  | Acceptable            |
+| 200,000 - 500,000 | Consider optimizing   |
+| > 500,000         | Requires optimization |
 
 ## Next steps
 
-- Learn about [gas optimization techniques](../../../foundational-topics/transactions.md)
-- Review [benchmarking best practices](../../how_to_test_contracts.md)
+- [Writing efficient contracts](./writing_efficient_contracts.md) - optimization strategies and examples
+- [Transaction lifecycle](../../../foundational-topics/transactions.md)
+- [Testing contracts](../../how_to_test_contracts.md)
