@@ -12,11 +12,9 @@ export class RandomnessSingleton {
   private static instance: RandomnessSingleton;
 
   private counter = 0;
+  private readonly log = createLogger('foundation:randomness_singleton');
 
-  private constructor(
-    private readonly seed?: number,
-    private readonly log = createLogger('foundation:randomness_singleton'),
-  ) {
+  private constructor(private readonly seed?: number) {
     if (seed !== undefined) {
       this.log.debug(`Using pseudo-randomness with seed: ${seed}`);
       this.counter = seed;
