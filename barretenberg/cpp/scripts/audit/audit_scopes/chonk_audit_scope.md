@@ -84,6 +84,7 @@ Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg`
 |------|-------|
 | `chonk/chonk.test.cpp` | Chonk orchestration, QUEUE_TYPE state machine, accumulation flow |
 | `hypernova/hypernova_prover.test.cpp` | HyperNova folding prover tests |
+| `chonk/chonk_transcript_invariants.test.cpp` | Transcript consistency, tampering detection, M_tail propagation |
 | `hypernova/hypernova_verifier.test.cpp` | Folding proof verification, accumulator batching |
 | `multilinear_batching/multilinear_batching_verifier.test.cpp` | Polynomial claim batching, eq consistency |
 | `goblin/merge.test.cpp` | Merge protocol correctness, degree checks, PREPEND/APPEND modes |
