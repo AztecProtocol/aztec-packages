@@ -790,12 +790,13 @@ TEST(ContextConstrainingTest, IsStaticPropagationWithoutCalls)
             { C::execution_is_static, 1 }, // Should propagate
         },
     });
-    check_relation<context>(trace, context::SR_IS_STATIC_NEXT_ROW);
+    check_relation<context>(trace, context::SR_IS_STATIC_NEXT_ROW_DEFAULT);
 
     // Negative test: change is_static
     // staticness must propagate without calls
     trace.set(C::execution_is_static, 2, 0);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_IS_STATIC_NEXT_ROW), "IS_STATIC_NEXT_ROW");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_IS_STATIC_NEXT_ROW_DEFAULT),
+                              "IS_STATIC_NEXT_ROW_DEFAULT");
 
     // reset is_static
     trace.set(C::execution_is_static, 2, 1);

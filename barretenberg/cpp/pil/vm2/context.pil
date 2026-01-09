@@ -245,6 +245,8 @@ namespace execution;
     // NESTED_EXIT_CALL = 1 ==> constraints come from lookups (#[CTX_STACK_ROLLBACK] and #[CTX_STACK_RETURN])
     // sel_enter_call   = 1 ==> msg_sender' = contract_address
     // otherwise        = 0 ==> msg_sender' = msg_sender
+    // Note: There is no propagation constraint when `enqueued_call_end == 1` because the next active
+    //       row (enqueued_call_start == 1) is initialized.
     #[MSG_SENDER_NEXT_ROW_EXT_CALL]
     sel_enter_call  * (msg_sender' - contract_address) = 0;
     #[MSG_SENDER_NEXT_ROW_DEFAULT]
@@ -258,6 +260,8 @@ namespace execution;
     // NESTED_EXIT_CALL = 1 ==> constraints come from lookups (#[CTX_STACK_ROLLBACK] and #[CTX_STACK_RETURN])
     // sel_enter_call   = 1 ==> contract_address' = register[2] (intermediate register 3 from execution trace)
     // otherwise        = 0 ==> contract_address' = contract_address
+     // Note: There is no propagation constraint when `enqueued_call_end == 1` because the next active
+    //        row (enqueued_call_start == 1) is initialized.
     #[CONTRACT_ADDR_NEXT_ROW_EXT_CALL]
     sel_enter_call  * (contract_address' - register[2]) = 0;
     #[CONTRACT_ADDR_NEXT_ROW]
@@ -286,18 +290,27 @@ namespace execution;
     // enqueued_call_end is mutually exclusive with precomputed.first_row. The term `- precomputed.first_row` is
     // defensive to support a potential case where the first row has a non-zero transaction fee.
 
-    // NESTED_EXIT_CALL = 1 ==> constraints come from lookup
-    // sel_enter_call   = 1 && static_call = 1 ==> is_static' = 1
-    // sel_enter_call   = 1 && static_call = 0 ==> is_static' = 0
-    // otherwise        = 0 ==> is_static' = is_static
-    #[IS_STATIC_NEXT_ROW]
-    DEFAULT_CTX_ROW * (is_static' - is_static) = 0;
+    // =============================
+    //    IS STATIC
+    // =============================
+
+    // Initialization: enqueued_call_start = 1 ==> is_static = tx.is_static (#[DISPATCH_EXEC_START] (tx.pil))
+    // NESTED_EXIT_CALL = 1 ==> constraints come from lookups (#[CTX_STACK_ROLLBACK] and #[CTX_STACK_RETURN])
+    // sel_enter_call   = 1 && is_static = 0 && sel_execute_static_call = 1 ==> is_static' = 1
+    // sel_enter_call   = 1 && is_static = 0 && sel_execute_static_call = 0 ==> is_static' = 0
+    // sel_enter_call   = 1 && is_static = 1 ==> is_static' = 1
+    // default row      = 0 ==> is_static' = is_static
+    // Note: There is no propagation constraint when `enqueued_call_end == 1` because the next active
+    //       row (enqueued_call_start == 1) is initialized.
+
     // An external call from a non-static context only creates a nested static context if the opcode is STATICCALL.
     #[IS_STATIC_IF_STATIC_CALL]
     sel_enter_call * (1 - is_static) * (is_static' - sel_execute_static_call) = 0;
     // An external call from a static context always creates a nested static context.
     #[IS_STATIC_IF_CALL_FROM_STATIC_CONTEXT]
     sel_enter_call * is_static * (is_static' - 1) = 0;
+    #[IS_STATIC_NEXT_ROW_DEFAULT]
+    DEFAULT_CTX_ROW * (is_static' - is_static) = 0;
 
     // NESTED_EXIT_CALL    = 1 ==> constraints come from lookup
     // sel_enter_call      = 1 ==> parent_calldata_addr' = rop[4] (resolved operand 5 from execution trace)
