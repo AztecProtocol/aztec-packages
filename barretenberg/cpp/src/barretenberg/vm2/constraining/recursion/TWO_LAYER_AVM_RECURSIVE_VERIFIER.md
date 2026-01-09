@@ -4,7 +4,11 @@ The AVM has a trace with a large number of columns. This means that verifying a 
 
 ## The inner circuit
 
-Write $\mathsf{V}_{avm}$ for the verifier of the AVM. Then, we construct a circuit that verifies a proof $\pi^{inner}_{avm}$ of the AVM. We call this circuit $\mathsf{C}^{inner}$. The circuit takes two witnesses: $\iota^{inner}$ and $\pi^{inner}_{avm}$, one public input: $\mathsf{h}$, and verifies that:
+Write $\mathsf{V}_{avm}$ for the verifier of the AVM. Then, we construct a circuit that verifies a proof $\pi^{inner}_{avm}$ of the AVM. We call this circuit $\mathsf{C}^{inner}$:
+
+![Inner Circuit Diagram](./images/c_inner.svg)
+
+The circuit takes two witnesses: $\iota^{inner}$ and $\pi^{inner}_{avm}$, one public input: $\mathsf{h}$, and verifies that:
 1. $\pi^{inner}_{avm}$ is a valid proof of the AVM for the public inputs $\iota^{inner}_{avm}$
 2. $\mathsf{h}$ is the challenge obtained by hashing the transcript $\mathsf{tr}_{\mathsf{V}_{avm}}$ of the AVM verifier $\mathsf{V}_{avm}$. We write this as $\mathsf{h} = \mathsf{Hash}(\mathsf{tr}_{\mathsf{V}_{avm}(\iota^{inner}, \pi^{inner})})$
 
@@ -14,7 +18,9 @@ A proof $\pi_{\mathsf{C}^{inner}}$ for public input $\mathsf{h}$ attests to the 
 
 ## The outer circuit
 
-Write $\mathsf{V}_{\mathsf{C}^{inner}}$ for the verifier of $\mathsf{C}^{inner}$. We now construct a circuit that verifies a proof $\pi_{\mathsf{C}^{inner}}$ of $\mathsf{C}^{inner}$ and that ensures the proof of validity of $\mathsf{C}^{inner}$ is tied to a specific AVM proof. We call this circuit $\mathsf{C}^{outer}$.
+Write $\mathsf{V}_{\mathsf{C}^{inner}}$ for the verifier of $\mathsf{C}^{inner}$. We now construct a circuit that verifies a proof $\pi_{\mathsf{C}^{inner}}$ of $\mathsf{C}^{inner}$ and that ensures the proof of validity of $\mathsf{C}^{inner}$ is tied to a specific AVM proof. We call this circuit $\mathsf{C}^{outer}$:
+
+![Inner Circuit Diagram](./images/c_outer.svg)
 
 The circuit takes two witnesses: a hash $\mathsf{h}$ and a proof $\pi_{\mathsf{C}^{inner}}$, two public inputs: $\iota^{outer}$, $\pi_{avm}^{outer}$, and verifies that:
 1. $\pi_{\mathsf{C}^{inner}}$ is a valid proof of $\mathsf{C}^{inner}$ for public input $\mathsf{h}$
