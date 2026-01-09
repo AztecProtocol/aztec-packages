@@ -401,3 +401,82 @@ Dead columns can appear in any PIL file, but commonly in:
 - [Commented Constraints Skill](../vm2-audit-commented-constraints/SKILL.md)
 - [Tracegen-PIL Alignment Skill](../vm2-audit-tracegen-pil-alignment/SKILL.md)
 - [Missing Boolean Selectors Skill](../vm2-audit-missing-boolean/SKILL.md)
+
+---
+
+## Required Output Format
+
+**IMPORTANT**: When running this audit skill, you MUST end your response with this standardized format.
+
+### Findings Summary
+
+At the end of your audit, provide a summary section:
+
+```markdown
+## Audit Results
+
+### Summary
+| Item | Value |
+|------|-------|
+| Skill | vm2-audit-dead-columns |
+| Target | [path that was audited] |
+| Files Scanned | [number] |
+| Findings | [count by severity, e.g., "2 Critical, 1 High, 0 Medium, 0 Low"] |
+| Status | COMPLETED_WITH_FINDINGS / COMPLETED_NO_FINDINGS / ERROR |
+
+### Findings
+
+#### Finding vm2-audit-dead-columns-[file]-[line]-[subtype] [SEVERITY]
+- **File**: `path/to/file.pil:line`
+- **Type**: [specific vulnerability type]
+- **Affected Column/Constraint**: [name]
+- **Description**: [brief description]
+- **Exploitability**: [High/Medium/Low] - [brief rationale]
+- **Suggested Fix**: [one-line fix suggestion]
+
+[Repeat for each finding]
+```
+
+### Machine-Readable Findings
+
+After the human-readable summary, include a JSON block:
+
+```markdown
+<!-- MACHINE-READABLE FINDINGS (do not edit manually) -->
+```json
+{
+  "skill": "vm2-audit-dead-columns",
+  "finding_prefix": "vm2-audit-dead-columns",
+  "status": "COMPLETED_WITH_FINDINGS | COMPLETED_NO_FINDINGS | ERROR",
+  "target": "pil/vm2",
+  "files_scanned": 0,
+  "findings": [
+    {
+      "id": "vm2-audit-dead-columns-filename-line-subtype",
+      "severity": "critical|high|medium|low",
+      "file": "path/to/file.pil",
+      "line": 123,
+      "type": "specific-vulnerability-type",
+      "column": "affected_column_name",
+      "description": "Brief description of the issue",
+      "exploitability": "high|medium|low",
+      "fix": "Suggested fix"
+    }
+  ]
+}
+```
+<!-- END MACHINE-READABLE FINDINGS -->
+```
+
+### Finding ID Convention
+
+- Format: `vm2-audit-dead-columns-[filename]-[line]-[subtype]`
+- Example: `vm2-audit-dead-columns-alu-123-SEL`
+- Use lowercase for filename (without extension)
+- Use CAPS for subtype descriptors
+
+### Status Values
+
+- `COMPLETED_NO_FINDINGS` - Audit completed, no issues found
+- `COMPLETED_WITH_FINDINGS` - Audit completed, issues found
+- `ERROR` - Audit could not complete (explain in description)
