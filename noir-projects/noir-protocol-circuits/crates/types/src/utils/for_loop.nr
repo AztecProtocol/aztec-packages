@@ -5,21 +5,36 @@ pub global for_loop_no_op: fn(u32) -> () = |_i: u32| ();
 // BUT... and I'm not sure why... sometimes these cause constraint counts to increase
 // significantly.
 
-/// Iterates through i,
-/// where:
-/// - 0 <= i < max
-/// - max is only known at runtime
-/// - MAX is known at compile-time, e.g. the fixed length of an array.
-///
-/// Lambda functions of the form `|i| { my_array[i].assert_empty() }` can be specified.
-///
-/// If the dev knows what they're doing, they can choose to set the following to `false`:
-/// `assert_min_lte_max`, `assert_max_lte_MAX`, as a very small constraint optimisation.
+/**
+ * Iterates between loop bounds and conditionally executes functions according to the below explanation,
+ * where:
+ * - `max` is a dynamic loop bound (known only at runtime).
+ * - `MAX` is a static loop bound (known at compile time).
+ *     
+ * 0 ------   
+ *
+ *            f_within is executed for 0 <= i < max    
+ * 
+ * <=
+ * max ------
+ *
+ *            f_after_max is executed for max <= i < MAX  
+ *
+ * <=
+ * MAX ------
+ *
+ *
+ *
+ * Lambda functions of the form `|i| { my_array[i].assert_empty() }` (for example) can be specified.
+ * 
+ */
 pub fn for_i_in_0_<Env1, Env2>(
     max: u32,
     MAX: u32,
     f_within: fn[Env1](u32) -> (),
     f_after_max: fn[Env2](u32) -> (),
+    // If the dev knows what they're doing, they can choose to set the below bool
+    // to `false` for a small constraint reduction.
     assert_max_lte_MAX: bool,
 ) {
     if assert_max_lte_MAX {
@@ -39,12 +54,33 @@ pub fn for_i_in_0_<Env1, Env2>(
     }
 }
 
-// Strangely, this sometimes results in many more constraints than `for_i_in_0_` with
-// the `for_loop_no_op` function. But other times, this one wins. I am confused.
+/**
+ * Iterates between loop bounds and conditionally executes a function for min <= i < max,
+ * where:
+ * - `max` is a dynamic loop bound (known only at runtime).
+ * - `MAX` is a static loop bound (known at compile time).
+ *     
+ * 0 ------ 
+ *
+ *            f_within is executed for 0 <= i < max    
+ * 
+ * <=
+ * max ------
+ * <=
+ * MAX ------
+ *
+ *
+ * Lambda functions of the form `|i| { my_array[i].assert_empty() }` (for example) can be specified.
+ *
+ * Strangely, this sometimes results in many more constraints than `for_i_in_0_` with
+ * the `for_loop_no_op` function. But other times, this one wins. I am confused.
+ */
 pub fn for_i_only_in_0_<Env>(
     max: u32,
     MAX: u32,
     f_within: fn[Env](u32) -> (),
+    // If the dev knows what they're doing, they can choose to set the below bool
+    // to `false` for a small constraint reduction.
     assert_max_lte_MAX: bool,
 ) {
     if assert_max_lte_MAX {
@@ -62,16 +98,33 @@ pub fn for_i_only_in_0_<Env>(
     }
 }
 
-/// Iterates through i,
-/// where:
-/// - min <= i < max
-/// - min and max are only known at runtime
-/// - MIN and MAX are known at compile-time, and dictate the static loop bounds.
-///
-/// Lambda functions of the form `|i| { my_array[i].assert_empty() }` can be specified.
-///
-/// If the dev knows what they're doing, they can choose to set the following to `false`:
-/// `assert_min_lte_max`, `assert_max_lte_MAX`, as a very small constraint optimisation.
+/**
+ * Iterates between loop bounds and conditionally executes functions according to the below 
+ * explanation, where:
+ * - `min` and `max` are dynamic loop bounds (known only at runtime).
+ * - `MIN` and `MAX` are static loop bounds (known at compile time).
+ *
+ * MIN ------
+ *
+ *            f_before_min is executed for MIN <= i < min   
+ *
+ * <=       
+ * min ------ 
+ *
+ *            f_within is executed for min <= i < max    
+ * 
+ * <=
+ * max ------
+ *
+ *            f_after_max is executed for max <= i < MAX  
+ *
+ * <=
+ * MAX ------
+ *
+ *
+ * Lambda functions of the form `|i| { my_array[i].assert_empty() }` (for example) can be specified.
+ * 
+ */
 pub fn for_i_in_<Env1, Env2, Env3>(
     min: u32,
     max: u32,
@@ -80,8 +133,10 @@ pub fn for_i_in_<Env1, Env2, Env3>(
     f_before_min: fn[Env1](u32) -> (),
     f_within: fn[Env2](u32) -> (),
     f_after_max: fn[Env3](u32) -> (),
-    assert_min_lte_max: bool, // if the dev knows what they're doing, they can choose to set to `false` for as a small
-    assert_max_lte_MAX: bool, // for if the dev knows what they're doing.
+    // If the dev knows what they're doing, they can choose to set either or both of the below bools
+    // to `false` for a small constraint reduction.
+    assert_min_lte_max: bool,
+    assert_max_lte_MAX: bool,
 ) {
     if assert_min_lte_max {
         assert(min <= max, "min > max");
@@ -112,14 +167,37 @@ pub fn for_i_in_<Env1, Env2, Env3>(
     }
 }
 
+/**
+ * Iterates between loop bounds and conditionally executes a function for min <= i < max,
+ * where:
+ * - `min` and `max` are dynamic loop bounds (known only at runtime).
+ * - `MIN` and `MAX` are static loop bounds (known at compile time).
+ *
+ * MIN ------
+ * <=       
+ * min ------ 
+ *
+ *            f_within is executed for min <= i < max    
+ * 
+ * <=
+ * max ------
+ * <=
+ * MAX ------
+ *
+ *
+ * @param f_within: Lambda functions of the form `|i| { my_array[i].assert_empty() }` (for example) can be specified.
+ * 
+ */
 pub fn for_i_only_in_<Env>(
     min: u32,
     max: u32,
     MIN: u32,
     MAX: u32,
     f_within: fn[Env](u32) -> (),
-    assert_min_lte_max: bool, // if the dev knows what they're doing, they can choose to set to `false` for as a small
-    assert_max_lte_MAX: bool, // for if the dev knows what they're doing.
+    // If the dev knows what they're doing, they can choose to set either or both of the below bools
+    // to `false` for a small constraint reduction.
+    assert_min_lte_max: bool,
+    assert_max_lte_MAX: bool,
 ) {
     if assert_min_lte_max {
         assert(min <= max, "min > max");
