@@ -119,7 +119,7 @@ class AvmRecursiveFlavor {
          * @details The transcript used during the verification of an AVM proof hashes both the public inputs and the
          * AVM proof being verified. For this reason, its final state can be used as a hash of the public inputs and
          * proof that have been verified. This method replicates the operations performed on the transcript during AVM
-         * verification. It is used hash_avm_transcript below, which in turn is used in the outer circuit of the Two
+         * verification. It is used by hash_avm_transcript below, which in turn is used in the outer circuit of the Two
          * Layer AVM Recursive verification.
          *
          */

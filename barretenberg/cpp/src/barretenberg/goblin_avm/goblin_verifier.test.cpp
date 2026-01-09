@@ -44,10 +44,10 @@ class GoblinAvmRecursiveVerifierTests : public testing::Test {
     };
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1298):
     // Better recursion testing - create more flexible proof tampering tests.
-    // Tamper with the `op` commitment in the merge commitments (op commitments are no longer in translator proof)
+    // Tamper with the `op` commitment in the table commitments (op commitments are no longer in translator proof)
     static void tamper_with_op_commitment(TableCommitments& table_commitments)
     {
-        // The first commitment in merged table is the `op` wire commitment
+        // The first commitment in table is the `op` wire commitment
         table_commitments[0] = table_commitments[0] * FF(2);
     };
 
@@ -91,10 +91,9 @@ class GoblinAvmRecursiveVerifierTests : public testing::Test {
         GoblinAvm goblin(inner_builder);
         MockCircuits::construct_arithmetic_circuit(inner_builder);
 
-        // Merge the ecc ops from the newly constructed circuit
         auto goblin_proof = goblin.prove();
 
-        // Subtable values and commitments - needed for (Recursive)MergeVerifier
+        // Subtable values and commitments
         TableCommitments table_commitments;
         auto ultra_ops_table_columns = goblin.op_queue->construct_ultra_ops_table_columns();
         CommitmentKey<curve::BN254> pcs_commitment_key(goblin.op_queue->get_ultra_ops_table_num_rows());
@@ -105,12 +104,12 @@ class GoblinAvmRecursiveVerifierTests : public testing::Test {
         RecursiveTableCommitments recursive_table_commitments;
         for (size_t idx = 0; idx < MegaFlavor::NUM_WIRES; idx++) {
             recursive_table_commitments[idx] = RecursiveCommitment::from_witness(outer_builder, table_commitments[idx]);
-            // Removing the free witness tag, since the merge commitments in the full scheme are supposed to
+            // Removing the free witness tag, since the table commitments in the full scheme are supposed to
             // be fiat-shamirred earlier
             recursive_table_commitments[idx].unset_free_witness_tag();
         }
 
-        // Output is a goblin proof plus merge commitments
+        // Output is a goblin proof plus table commitments
         return { goblin_proof, table_commitments, recursive_table_commitments };
     }
 };
@@ -129,8 +128,6 @@ TEST_F(GoblinAvmRecursiveVerifierTests, Basic)
     GoblinAvmStdlibProof stdlib_proof(builder, proof);
     bb::GoblinAvmRecursiveVerifier verifier{ transcript, stdlib_proof, recursive_table_commitments };
     auto output = verifier.reduce_to_pairing_check_and_ipa_opening();
-
-    // Aggregate merge + translator pairing points
 
     stdlib::recursion::honk::RollupIO inputs;
     inputs.pairing_inputs = output.translator_pairing_points;
