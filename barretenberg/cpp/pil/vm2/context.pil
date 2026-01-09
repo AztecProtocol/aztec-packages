@@ -405,7 +405,7 @@ namespace execution;
     // nested_failure = 1 ==> last_child_success' = 0;
     // Last child success value is reset when entering a new context/call (Default is false in simulation):
     // sel_enter_call = 1 ==> last_child_success' = 0;
-    // otherwise          ==> last_child_success' = last_child_success;
+    // default row        ==> last_child_success' = last_child_success;
     // Note: There is no propagation constraint when `enqueued_call_end == 1` because the next active
     //       row (enqueued_call_start == 1) is initialized.
     #[LAST_CHILD_SUCCESS_INIT]
@@ -417,17 +417,24 @@ namespace execution;
     #[LAST_CHILD_SUCCESS_NEXT_ROW_DEFAULT]
     DEFAULT_CTX_ROW * (last_child_success' - last_child_success) = 0;
 
-    // NESTED_EXIT_CALL    = 1 ==> last_child_id' = context_id;  <-- sel_exit_call includes error case
+    // =============================
+    //    LAST CHILD ID
+    // =============================
+
+    // Initialization: enqueued_call_start = 1 ==> last_child_id = 0;
+    // Propagation:
+    // NESTED_EXIT_CALL    = 1 ==> last_child_id' = context_id;
     // sel_enter_call      = 1 ==> last_child_id' = 0;
-    // enqueued_call_start = 1 ==> last_child_id = 0; <-- Current row is 0
-    // otherwise           = 0 ==> last_child_id' = last_child_id;
+    // default row             ==> last_child_id' = last_child_id;
+    // Note: There is no propagation constraint when `enqueued_call_end == 1` because the next active
+    //       row (enqueued_call_start == 1) is initialized.
+    #[LAST_CHILD_ID_INIT]
+    enqueued_call_start * last_child_id = 0;
     #[EXIT_CALL_LAST_CHILD_ID]
     NESTED_EXIT_CALL * (last_child_id' - context_id) = 0;
     #[ENTER_CALL_LAST_CHILD_ID]
     sel_enter_call * last_child_id' = 0;
-    #[LAST_CHILD_ID_IS_ZERO]
-    enqueued_call_start * last_child_id = 0;
-    #[PROPAGATE_LAST_CHILD_ID]
+    #[LAST_CHILD_ID_NEXT_ROW_DEFAULT]
     DEFAULT_CTX_ROW * (last_child_id' - last_child_id) = 0;
 
     // NESTED_EXIT_CALL = 1 ==> l2_gas_limit' = parent_l2_gas_limit
