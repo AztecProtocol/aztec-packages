@@ -23,7 +23,7 @@ import { getContract } from 'viem';
 
 import { shouldCollectMetrics } from '../fixtures/fixtures.js';
 import { createNodes } from '../fixtures/setup_p2p_test.js';
-import { AlertChecker, type AlertConfig } from '../quality_of_service/alert_checker.js';
+import { type AlertConfig, GrafanaClient } from '../quality_of_service/grafana_client.js';
 import { P2PNetworkTest, SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES, WAIT_FOR_TX_TIMEOUT } from './p2p_network.js';
 import { submitTransactions } from './shared.js';
 
@@ -79,7 +79,7 @@ describe('e2e_p2p_network', () => {
 
   afterAll(async () => {
     if (CHECK_ALERTS) {
-      const checker = new AlertChecker(t.logger);
+      const checker = new GrafanaClient(t.logger);
       await checker.runAlertCheck(qosAlerts);
     }
   });
