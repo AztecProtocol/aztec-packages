@@ -13,6 +13,7 @@ import { padArrayEnd, times } from '@aztec/foundation/collection';
 import { randomBytes } from '@aztec/foundation/crypto/random';
 import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { Signature } from '@aztec/foundation/eth-signature';
 
 import type { ContractArtifact } from '../abi/abi.js';
 import { PublicTxEffect } from '../avm/avm.js';
@@ -619,9 +620,14 @@ export const makeCheckpointAttestation = (options: MakeCheckpointAttestationOpti
   const attestationSigner = attesterSigner ?? Secp256k1Signer.random();
   const attestationSignature = attestationSigner.sign(attestationHash);
 
-  // Sign as proposer
-  const proposalHash = getHashedSignaturePayloadEthSignedMessage(payload, SignatureDomainSeparator.checkpointProposal);
+  // Sign as proposer - use CheckpointProposal's payload format (serializeToBuffer)
+  // This is different from ConsensusPayload's format (ABI encoding)
   const proposalSignerToUse = proposerSigner ?? Secp256k1Signer.random();
+  const tempProposal = new CheckpointProposal(header, archive, Signature.empty());
+  const proposalHash = getHashedSignaturePayloadEthSignedMessage(
+    tempProposal,
+    SignatureDomainSeparator.checkpointProposal,
+  );
   const proposerSignature = proposalSignerToUse.sign(proposalHash);
 
   return new CheckpointAttestation(payload, attestationSignature, proposerSignature);

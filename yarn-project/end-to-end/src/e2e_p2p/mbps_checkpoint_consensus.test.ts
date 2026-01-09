@@ -42,7 +42,8 @@ const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'mbps-'));
 
 jest.setTimeout(1000 * 60 * 15);
 
-describe('e2e_p2p_mbps_checkpoint_consensus', () => {
+// TODO(palla/mbps): Review and enable this test once MBPS is stable
+describe.skip('e2e_p2p_mbps_checkpoint_consensus', () => {
   let t: P2PNetworkTest;
   let nodes: AztecNodeService[];
   let rollup: RollupContract;

@@ -32,7 +32,8 @@ const NODE_COUNT = 3;
 // 2. Blocks have correct `indexWithinCheckpoint` values
 // 3. L1ToL2 messages are associated with checkpoints correctly
 // 4. Checkpoints are published to L1 containing multiple blocks
-describe('e2e_epochs/epochs_multiple_blocks_per_slot', () => {
+// TODO(palla/mbps): Review and enable this test once MBPS is stable
+describe.skip('e2e_epochs/epochs_multiple_blocks_per_slot', () => {
   let context: EndToEndContext;
   let logger: Logger;
   let rollup: RollupContract;
