@@ -9,6 +9,10 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## TBD
 
+### [Toolchain] Node.js upgraded to v24
+
+Node.js minimum version changed from v22 to v24.12.0.
+
 ### [L1 Contracts] Renamed base fee to min fee
 
 The L1 rollup contract functions and types related to fee calculation have been renamed from "base fee" to "min fee" to better reflect their purpose.
