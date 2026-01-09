@@ -12,12 +12,15 @@ fn main() {
         println!("cargo:rustc-link-search=native={}", lib_dir.display());
 
         // Use link group to handle circular dependencies between static libraries
-        // libbarretenberg depends on libvm2 for AVM constraints
-        // libvm2 depends on libcommon for utilities
+        // libbarretenberg contains vm2_stub when built without AVM
+        // libvm2 is only present when AVM is enabled
         // libenv provides logstr/throw_or_abort_impl
         println!("cargo:rustc-link-arg=-Wl,--start-group");
         println!("cargo:rustc-link-lib=static=barretenberg");
-        println!("cargo:rustc-link-lib=static=vm2");
+        // Only link vm2 if it exists (AVM enabled builds)
+        if lib_dir.join("libvm2.a").exists() {
+            println!("cargo:rustc-link-lib=static=vm2");
+        }
         println!("cargo:rustc-link-lib=static=common");
         println!("cargo:rustc-link-lib=static=env");
         println!("cargo:rustc-link-arg=-Wl,--end-group");
