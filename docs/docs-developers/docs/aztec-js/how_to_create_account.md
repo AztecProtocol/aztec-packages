@@ -2,105 +2,53 @@
 title: Creating Accounts
 tags: [accounts]
 sidebar_position: 2
-description: Step-by-step guide to creating and deploying user accounts in Aztec.js applications.
+description: Step-by-step guide to creating and deploying new user accounts in Aztec.js applications.
 ---
 
-This guide walks you through creating and deploying a new account contract in Aztec.
+This guide shows you how to create and deploy a new account on Aztec.
 
 ## Prerequisites
 
-- Running Aztec local network or testnet
-- Node.js and TypeScript environment
-- `@aztec/aztec.js` package installed
+- [Connected to a network](./how_to_connect_to_local_network.md) with a `TestWallet` instance
 - Understanding of [account concepts](../foundational-topics/accounts/index.md)
 
 ## Install dependencies
 
 ```bash
-yarn add @aztec/aztec.js@#include_version_without_prefix @aztec/accounts@#include_version_without_prefix
+yarn add @aztec/aztec.js@#include_version_without_prefix @aztec/test-wallet@#include_version_without_prefix
 ```
 
-## Create account keys
+## Create a new account
 
-Every account on Aztec requires a secret, a salt, and a signing key.
+Use the wallet's `createSchnorrAccount` method to create a new account with a random secret and salt:
 
 ```typescript
-import { Fr, GrumpkinScalar } from "@aztec/aztec.js";
+import { Fr } from "@aztec/aztec.js/fields";
 
-const secretKey = Fr.random();
-const salt = new Fr(0);
-const signingPrivateKey = GrumpkinScalar.random();
+const secret = Fr.random();
+const salt = Fr.random();
+const newAccount = await wallet.createSchnorrAccount(secret, salt);
+console.log("New account address:", newAccount.address.toString());
 ```
 
-These keys serve the following purposes:
+The secret is used to derive the account's encryption keys, and the salt ensures address uniqueness. The signing key is automatically derived from the secret.
 
-- `secretKey`: Derives encryption keys for private state
-- `signingPrivateKey`: Signs transactions
-
-## Create a wallet
-
-You need a Wallet to hold your account contract. Use `TestWallet` since most third-party wallets implement the same interface:
-
-```typescript
-// for use in the browser
-import { TestWallet } from "@aztec/test-wallet/client/lazy";
-// for use on a server
-import { TestWallet } from "@aztec/test-wallet/server";
-import { createAztecNodeClient } from "@aztec/aztec.js/node";
-
-const nodeUrl = process.env.AZTEC_NODE_URL || "http://localhost:8080";
-const node = createAztecNodeClient(nodeUrl);
-const wallet = await TestWallet.create(node);
-```
+:::warning Store your secret and salt
+Save the `secret` and `salt` values securely. You need both to recover access to your account. If you lose them, you will permanently lose access to the account and any assets it holds.
+:::
 
 ## Deploy the account
 
-### Get Fee Juice
+New accounts must be deployed before they can send transactions. Deployment requires paying fees.
 
-On the local network, all test accounts come pre-funded with Fee Juice. [Import them](./how_to_connect_to_local_network.md) to start using them immediately.
+### Using the Sponsored FPC
 
-On testnet, accounts start without Fee Juice. You can either [use an account that has Fee Juice](./how_to_pay_fees.md#pay-with-fee-juice) or [use the Sponsored Fee Payment Contract](./how_to_pay_fees.md#sponsored-fee-payment-contracts).
-
-### Register and deploy accounts
-
-Test accounts on the local network are already deployed but need to be registered in the wallet:
+If your account doesn't have Fee Juice, use the [Sponsored Fee Payment Contract](./how_to_pay_fees.md#sponsored-fee-payment-contracts):
 
 ```typescript
-// on the local network, you can get the initial test accounts data using getInitialTestAccountsData
-const [initialAccountData] = await getInitialTestAccountsData();
-// add the funded account to the wallet
-const initialAccount = await wallet.createSchnorrAccount(
-  initialAccountData.secret,
-  initialAccountData.salt
-);
-```
+import { AztecAddress } from "@aztec/aztec.js/addresses";
 
-Other accounts require deployment. To deploy an account that already has Fee Juice:
-
-```ts
-const anotherAccount = await wallet.createSchnorrAccount(
-  accountWithFeeJuice.secret,
-  accountWithFeeJuice.salt
-);
-const deployMethod = await anotherAccount.getDeployMethod();
-
-// using the default fee payment method (Fee Juice)
-await deployMethod
-  .send({
-    from: AztecAddress.ZERO, // the zero address is used because there's no account to send from: the transaction itself will create the account!
-  })
-  .wait();
-```
-
-To deploy using the Sponsored FPC:
-
-```typescript
-// deploy an account with random salt and secret
-const anotherAccount = await wallet.createSchnorrAccount(
-  Fr.random(),
-  Fr.random()
-);
-const deployMethod = await anotherAccount.getDeployMethod();
+const deployMethod = await newAccount.getDeployMethod();
 await deployMethod
   .send({
     from: AztecAddress.ZERO,
@@ -110,12 +58,38 @@ await deployMethod
 ```
 
 :::info
-See the [guide on fees](./how_to_pay_fees.md) for setting up `sponsoredPaymentMethod`.
+See the [guide on fees](./how_to_pay_fees.md#sponsored-fee-payment-contracts) for setting up `sponsoredPaymentMethod`.
 :::
+
+### Using Fee Juice
+
+If your account already has Fee Juice (for example, [bridged from L1](./how_to_pay_fees.md#bridge-fee-juice-from-l1)):
+
+```typescript
+import { AztecAddress } from "@aztec/aztec.js/addresses";
+
+const deployMethod = await newAccount.getDeployMethod();
+await deployMethod
+  .send({
+    from: AztecAddress.ZERO,
+  })
+  .wait();
+```
+
+The `from: AztecAddress.ZERO` is required because there's no existing account to send from—the transaction itself creates the account.
+
+## Verify deployment
+
+Confirm the account was deployed successfully:
+
+```typescript
+const metadata = await wallet.getContractMetadata(newAccount.address);
+console.log("Account deployed:", metadata.isContractInitialized);
+```
 
 ## Next steps
 
-- [Deploy contracts](./how_to_deploy_contract.md) with a new account
+- [Deploy contracts](./how_to_deploy_contract.md) with your new account
 - [Send transactions](./how_to_send_transaction.md) from an account
 - Learn about [account abstraction](../foundational-topics/accounts/index.md)
 - Implement [authentication witnesses](./how_to_use_authwit.md)
