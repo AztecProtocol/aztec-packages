@@ -8,6 +8,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
 #include <exception>
 #include <functional>
 #include <iostream>
@@ -15,6 +16,7 @@
 #include <optional>
 #include <ostream>
 #include <random>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -1233,7 +1235,14 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::add_batch_internal(
     new_root = new_hash;
     meta.root = new_hash;
     meta.size = new_size;
-    // std::cout << "New size: " << meta.size << ", root " << meta.root << std::endl;
+    // Debug logging
+    if (std::getenv("WS_CPP_DEBUG")) {
+        std::ostringstream oss;
+        oss << meta.root;
+        std::string root_str = oss.str();
+        std::cerr << "[WS_CPP_BATCH] add_batch_internal completed: setting meta.root=" << root_str.substr(0, 18)
+                  << "... size=" << meta.size << std::endl;
+    }
     store_->put_meta(meta);
 }
 

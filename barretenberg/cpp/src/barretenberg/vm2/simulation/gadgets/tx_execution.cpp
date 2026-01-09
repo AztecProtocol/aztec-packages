@@ -588,6 +588,12 @@ void TxExecution::pay_fee(const AztecAddress& fee_payer,
     const FF fee_juice_balance_slot = poseidon2.hash({ FEE_JUICE_BALANCES_SLOT, fee_payer });
     FF fee_payer_balance = merkle_db.storage_read(FEE_JUICE_ADDRESS, fee_juice_balance_slot);
 
+    vinfo("[PAY_FEE] fee_payer: ", fee_payer);
+    vinfo("[PAY_FEE] fee_juice_balance_slot: ", fee_juice_balance_slot);
+    vinfo("[PAY_FEE] fee_payer_balance (before): ", fee_payer_balance);
+    vinfo("[PAY_FEE] fee to deduct: ", fee);
+    vinfo("[PAY_FEE] new balance will be: ", fee_payer_balance - fee);
+
     if (field_gt.ff_gt(fee, fee_payer_balance)) {
         if (skip_fee_enforcement) {
             vinfo("Fee payer balance insufficient, but we're skipping fee enforcement");
@@ -601,6 +607,7 @@ void TxExecution::pay_fee(const AztecAddress& fee_payer,
     }
 
     merkle_db.storage_write(FEE_JUICE_ADDRESS, fee_juice_balance_slot, fee_payer_balance - fee, true);
+    vinfo("[PAY_FEE] storage_write completed to FEE_JUICE_ADDRESS=", FEE_JUICE_ADDRESS);
 
     events.emit(TxPhaseEvent{ .phase = TransactionPhase::COLLECT_GAS_FEES,
                               .state_before = state_before,

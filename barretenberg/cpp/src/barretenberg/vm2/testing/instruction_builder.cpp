@@ -4,9 +4,12 @@ namespace bb::avm2::testing {
 
 simulation::Instruction InstructionBuilder::build() const
 {
-    // First we compute the indirect and relative contributions of each operand.
+    // Both INDIRECT8 and INDIRECT16 use the same 2-bits-per-operand layout:
+    // bit 2i = indirect flag, bit 2i+1 = relative flag
+    // INDIRECT8 is limited to 8 bits (4 operands), INDIRECT16 allows 16 bits (8 operands)
     uint16_t indirect = 0;
     for (size_t i = 0; i < operands.size(); ++i) {
+        // 2 bits per operand (bit 0 = indirect, bit 1 = relative)
         if (operands[i].is_relative) {
             indirect |= static_cast<uint16_t>(1 << (i * 2 + 1));
         }

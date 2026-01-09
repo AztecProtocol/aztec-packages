@@ -20,7 +20,9 @@
 #include "barretenberg/world_state/world_state_stores.hpp"
 #include <algorithm>
 #include <cstdint>
+#include <cstdlib>
 #include <exception>
+#include <iostream>
 #include <iterator>
 #include <memory>
 #include <optional>
@@ -670,6 +672,14 @@ BatchInsertionResult<T> WorldState::batch_insert_indexed_leaves(MerkleTreeId id,
     using Store = ContentAddressedCachedTreeStore<T>;
     using Tree = ContentAddressedIndexedTree<Store, HashPolicy>;
 
+    // Debug logging
+    const bool debug = std::getenv("WS_CPP_DEBUG") != nullptr;
+    const char* tree_name = id == MerkleTreeId::NULLIFIER_TREE ? "NULLIFIER" : "PUBLIC_DATA";
+    if (debug) {
+        std::cerr << "[WS_CPP] batch_insert START tree=" << tree_name << " forkId=" << fork_id
+                  << " leaves=" << leaves.size() << " subtreeDepth=" << subtree_depth << std::endl;
+    }
+
     Fork::SharedPtr fork = retrieve_fork(fork_id);
 
     Signal signal;
@@ -696,6 +706,10 @@ BatchInsertionResult<T> WorldState::batch_insert_indexed_leaves(MerkleTreeId id,
 
     if (!success) {
         throw std::runtime_error(error_msg);
+    }
+
+    if (debug) {
+        std::cerr << "[WS_CPP] batch_insert DONE tree=" << tree_name << " forkId=" << fork_id << std::endl;
     }
 
     return result;

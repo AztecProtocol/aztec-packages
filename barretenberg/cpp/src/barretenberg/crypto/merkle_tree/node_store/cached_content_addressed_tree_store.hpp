@@ -19,6 +19,7 @@
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "msgpack/assert.hpp"
 #include <cstdint>
+#include <cstdlib>
 #include <exception>
 #include <iostream>
 #include <memory>
@@ -566,6 +567,14 @@ bool ContentAddressedCachedTreeStore<LeafValueType>::get_cached_node_by_index(ui
 
 template <typename LeafValueType> void ContentAddressedCachedTreeStore<LeafValueType>::put_meta(const TreeMeta& m)
 {
+    // Debug logging
+    if (std::getenv("WS_CPP_DEBUG") && forkConstantData_.name_.find("Nullifier") != std::string::npos) {
+        std::ostringstream oss;
+        oss << m.root;
+        std::string root_str = oss.str();
+        std::cerr << "[WS_CPP_CACHE] put_meta tree=" << forkConstantData_.name_ << " root=" << root_str.substr(0, 18)
+                  << "... size=" << m.size << std::endl;
+    }
     // Accessing the cache under a lock
     std::unique_lock lock(mtx_);
     cache_.put_meta(m);
@@ -588,6 +597,14 @@ template <typename LeafValueType> void ContentAddressedCachedTreeStore<LeafValue
     // Accessing meta_ under a lock
     std::unique_lock lock(mtx_);
     m = cache_.get_meta();
+    // Debug logging
+    if (std::getenv("WS_CPP_DEBUG") && forkConstantData_.name_.find("Nullifier") != std::string::npos) {
+        std::ostringstream oss;
+        oss << m.root;
+        std::string root_str = oss.str();
+        std::cerr << "[WS_CPP_CACHE] get_meta tree=" << forkConstantData_.name_ << " root=" << root_str.substr(0, 18)
+                  << "... size=" << m.size << std::endl;
+    }
 }
 
 template <typename LeafValueType>

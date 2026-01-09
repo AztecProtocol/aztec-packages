@@ -80,6 +80,10 @@ bb::avm2::testing::OperandBuilder decompiled_operand_16(const ParamRef& ref)
     switch (ref.mode.value) {
     case AddressingMode::Indirect:
         return operand.indirect();
+    case AddressingMode::Relative:
+        return operand.relative();
+    case AddressingMode::IndirectRelative:
+        return operand.indirect().relative();
     case AddressingMode::Direct:
     default:
         return operand;
@@ -94,6 +98,10 @@ bb::avm2::testing::OperandBuilder decompiled_operand_16(const ParamRef& ref)
     switch (ref.mode.value) {
     case AddressingMode::Indirect:
         return operand.indirect();
+    case AddressingMode::Relative:
+        return operand.relative();
+    case AddressingMode::IndirectRelative:
+        return operand.indirect().relative();
     case AddressingMode::Direct:
     default:
         return operand;
@@ -1305,11 +1313,11 @@ void ProgramBlock::process_emitunencryptedlog_instruction(EMITUNENCRYPTEDLOG_Ins
     this->process_set_32_instruction(log_size_set_instruction);
     size_t counter = 0;
     for (const auto& value : instruction.log_values) {
-        auto log_values_address =
-            AddressRef{ .address = static_cast<uint32_t>(instruction.log_values_address_start + counter),
+        auto log_values_addr =
+            AddressRef{ .address = static_cast<uint32_t>(instruction.log_values_address.address + counter),
                         .mode = AddressingMode::Direct };
         auto set_value_instruction = SET_FF_Instruction{ .value_tag = bb::avm2::MemoryTag::FF,
-                                                         .result_address = log_values_address,
+                                                         .result_address = log_values_addr,
                                                          .value = value };
         this->process_set_ff_instruction(set_value_instruction);
         counter++;
@@ -1322,7 +1330,7 @@ void ProgramBlock::process_emitunencryptedlog_instruction(EMITUNENCRYPTEDLOG_Ins
     auto emitunencryptedlog_instruction =
         bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::EMITUNENCRYPTEDLOG)
             .operand(log_size_address_operand.value().second)
-            .operand(instruction.log_values_address_start)
+            .operand(static_cast<uint16_t>(instruction.log_values_address.address))
             .build();
     instructions.push_back(emitunencryptedlog_instruction);
 }
@@ -1764,12 +1772,92 @@ void ProgramBlock::process_instruction(FuzzInstruction instruction)
             [this](XOR_8_Instruction instruction) { return this->process_xor_8_instruction(instruction); },
             [this](SHL_8_Instruction instruction) { return this->process_shl_8_instruction(instruction); },
             [this](SHR_8_Instruction instruction) { return this->process_shr_8_instruction(instruction); },
-            [this](SET_8_Instruction instruction) { return this->process_set_8_instruction(instruction); },
-            [this](SET_16_Instruction instruction) { return this->process_set_16_instruction(instruction); },
-            [this](SET_32_Instruction instruction) { return this->process_set_32_instruction(instruction); },
-            [this](SET_64_Instruction instruction) { return this->process_set_64_instruction(instruction); },
-            [this](SET_128_Instruction instruction) { return this->process_set_128_instruction(instruction); },
-            [this](SET_FF_Instruction instruction) { return this->process_set_ff_instruction(instruction); },
+            [this](SET_8_Instruction instruction) {
+                // Direct serialization for decompiled bytecode
+                if (is_decompiled_ref(instruction.result_address)) {
+#ifdef DECOMPILER_DEBUG
+                    std::cerr << "DEBUG SET_8: is_decompiled_ref=true, mode="
+                              << static_cast<int>(instruction.result_address.mode.value)
+                              << ", raw_operand=" << instruction.result_address.raw_operand.value_or(999) << "\n";
+#endif
+                    auto set_instr = bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::SET_8)
+                                         .operand(decompiled_operand_8(instruction.result_address))
+                                         .operand(instruction.value_tag.value)
+                                         .operand(instruction.value)
+                                         .build();
+                    this->instructions.push_back(set_instr);
+                } else {
+                    return this->process_set_8_instruction(instruction);
+                }
+            },
+            [this](SET_16_Instruction instruction) {
+                // Direct serialization for decompiled bytecode
+                if (is_decompiled_ref(instruction.result_address)) {
+                    auto set_instr = bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::SET_16)
+                                         .operand(decompiled_operand_16(instruction.result_address))
+                                         .operand(instruction.value_tag.value)
+                                         .operand(instruction.value)
+                                         .build();
+                    this->instructions.push_back(set_instr);
+                } else {
+                    return this->process_set_16_instruction(instruction);
+                }
+            },
+            [this](SET_32_Instruction instruction) {
+                // Direct serialization for decompiled bytecode
+                if (is_decompiled_ref(instruction.result_address)) {
+                    auto set_instr = bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::SET_32)
+                                         .operand(decompiled_operand_16(instruction.result_address))
+                                         .operand(instruction.value_tag.value)
+                                         .operand(instruction.value)
+                                         .build();
+                    this->instructions.push_back(set_instr);
+                } else {
+                    return this->process_set_32_instruction(instruction);
+                }
+            },
+            [this](SET_64_Instruction instruction) {
+                // Direct serialization for decompiled bytecode
+                if (is_decompiled_ref(instruction.result_address)) {
+                    auto set_instr = bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::SET_64)
+                                         .operand(decompiled_operand_16(instruction.result_address))
+                                         .operand(instruction.value_tag.value)
+                                         .operand(instruction.value)
+                                         .build();
+                    this->instructions.push_back(set_instr);
+                } else {
+                    return this->process_set_64_instruction(instruction);
+                }
+            },
+            [this](SET_128_Instruction instruction) {
+                // Direct serialization for decompiled bytecode
+                if (is_decompiled_ref(instruction.result_address)) {
+                    // Combine value_low and value_high into a single uint128_t
+                    uint128_t value = (static_cast<uint128_t>(instruction.value_high) << 64) |
+                                      static_cast<uint128_t>(instruction.value_low);
+                    auto set_instr = bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::SET_128)
+                                         .operand(decompiled_operand_16(instruction.result_address))
+                                         .operand(instruction.value_tag.value)
+                                         .operand(value)
+                                         .build();
+                    this->instructions.push_back(set_instr);
+                } else {
+                    return this->process_set_128_instruction(instruction);
+                }
+            },
+            [this](SET_FF_Instruction instruction) {
+                // Direct serialization for decompiled bytecode
+                if (is_decompiled_ref(instruction.result_address)) {
+                    auto set_instr = bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::SET_FF)
+                                         .operand(decompiled_operand_16(instruction.result_address))
+                                         .operand(instruction.value_tag.value)
+                                         .operand(instruction.value)
+                                         .build();
+                    this->instructions.push_back(set_instr);
+                } else {
+                    return this->process_set_ff_instruction(instruction);
+                }
+            },
             [this](MOV_8_Instruction instruction) { return this->process_mov_8_instruction(instruction); },
             [this](MOV_16_Instruction instruction) { return this->process_mov_16_instruction(instruction); },
             [this](FDIV_8_Instruction instruction) { return this->process_fdiv_8_instruction(instruction); },
@@ -1910,7 +1998,7 @@ void ProgramBlock::process_instruction(FuzzInstruction instruction)
                 if (is_decompiled_ref(instruction.log_size_address)) {
                     auto log_instr = bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::EMITUNENCRYPTEDLOG)
                                          .operand(decompiled_operand_16(instruction.log_size_address))
-                                         .operand(instruction.log_values_address_start)
+                                         .operand(decompiled_operand_16(instruction.log_values_address))
                                          .build();
                     this->instructions.push_back(log_instr);
                 } else {
@@ -2031,6 +2119,12 @@ void ProgramBlock::process_instruction(FuzzInstruction instruction)
                                  .operand(decompiled_operand_16(instruction.result_address))
                                  .operand(instruction.member_index)
                                  .build();
+                this->instructions.push_back(instr);
+            },
+            [this](RAW_BYTES_Instruction instruction) {
+                // Deserialize the raw bytes back to an Instruction and add it directly
+                auto instr =
+                    bb::avm2::simulation::deserialize_instruction(std::span<const uint8_t>(instruction.bytes), 0);
                 this->instructions.push_back(instr);
             },
             [](auto) { throw std::runtime_error("Unknown instruction"); },

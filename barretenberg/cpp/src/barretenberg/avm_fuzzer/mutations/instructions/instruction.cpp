@@ -533,7 +533,7 @@ std::vector<FuzzInstruction> generate_instruction(std::mt19937_64& rng)
         return { EMITUNENCRYPTEDLOG_Instruction{ .log_size = generate_random_uint8(rng),
                                                  .log_size_address = generate_address_ref(rng, MAX_16BIT_OPERAND),
                                                  .log_values = { generate_random_field(rng) },
-                                                 .log_values_address_start = generate_random_uint16(rng) } };
+                                                 .log_values_address = generate_address_ref(rng, MAX_16BIT_OPERAND) } };
     case InstructionGenerationOptions::CALL:
         return { CALL_Instruction{ .function_index = generate_random_uint16(rng),
                                    .address_offset = generate_random_uint16(rng),
@@ -573,6 +573,11 @@ std::vector<FuzzInstruction> generate_instruction(std::mt19937_64& rng)
 /// Most of the tags will be equal to the default tag
 void mutate_variable_ref(VariableRef& variable, std::mt19937_64& rng, std::optional<MemoryTag> default_tag)
 {
+    // Clear raw_operand to transition from decompiled mode to fuzzer mode.
+    // This ensures mutations take effect through the normal memory manager path
+    // rather than using the preserved raw operand value from decompilation.
+    variable.raw_operand = std::nullopt;
+
     VariableRefMutationOptions option = BASIC_VARIABLE_REF_MUTATION_CONFIGURATION.select(rng);
     switch (option) {
     case VariableRefMutationOptions::tag:
@@ -599,6 +604,11 @@ void mutate_variable_ref(VariableRef& variable, std::mt19937_64& rng, std::optio
 
 void mutate_address_ref(AddressRef& address, std::mt19937_64& rng, uint32_t max_operand_value)
 {
+    // Clear raw_operand to transition from decompiled mode to fuzzer mode.
+    // This ensures mutations take effect through the normal memory manager path
+    // rather than using the preserved raw operand value from decompilation.
+    address.raw_operand = std::nullopt;
+
     AddressRefMutationOptions option = BASIC_ADDRESS_REF_MUTATION_CONFIGURATION.select(rng);
     switch (option) {
     case AddressRefMutationOptions::address:
@@ -1057,8 +1067,8 @@ void mutate_emitunencryptedlog_instruction(EMITUNENCRYPTEDLOG_Instruction& instr
             generate_random_field,
             BASIC_VEC_MUTATION_CONFIGURATION);
         break;
-    case EmitUnencryptedLogMutationOptions::log_values_address_start:
-        mutate_uint16_t(instruction.log_values_address_start, rng, BASIC_UINT16_T_MUTATION_CONFIGURATION);
+    case EmitUnencryptedLogMutationOptions::log_values_address:
+        mutate_address_ref(instruction.log_values_address, rng, MAX_16BIT_OPERAND);
         break;
     }
 }

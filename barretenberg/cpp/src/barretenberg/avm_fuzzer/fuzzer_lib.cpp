@@ -10,6 +10,7 @@
 #include "barretenberg/avm_fuzzer/fuzz_lib/constants.hpp"
 #include "barretenberg/avm_fuzzer/fuzz_lib/control_flow.hpp"
 #include "barretenberg/avm_fuzzer/fuzz_lib/fuzz.hpp"
+#include "barretenberg/avm_fuzzer/fuzz_lib/protocol_contracts_list.hpp"
 #include "barretenberg/avm_fuzzer/fuzzer_comparison_helper.hpp"
 #include "barretenberg/avm_fuzzer/mutations/fuzzer_data.hpp"
 #include "barretenberg/avm_fuzzer/mutations/tx_data.hpp"
@@ -39,9 +40,16 @@ void setup_fuzzer_state(FuzzerWorldStateManager& ws_mgr, FuzzerContractDB& contr
     std::unordered_set<AztecAddress> seen_addresses;
     for (const auto& addr : tx_data.contract_addresses) {
         if (seen_addresses.insert(addr).second) {
-            fuzz_info("Registering contract address in world state: ", addr);
             ws_mgr.register_contract_address(addr);
         }
+    }
+
+    // Debug: log nullifier tree size after contract registration
+    if (std::getenv("AVM_FUZZER_LOGGING")) {
+        auto rev = ws_mgr.get_current_revision();
+        auto tree_info = ws_mgr.get_world_state().get_tree_info(rev, MerkleTreeId::NULLIFIER_TREE);
+        fuzz_info(
+            "[SETUP] After contract registration: forkId=", rev.forkId, " nullifierTree.size=", tree_info.meta.size);
     }
 }
 
@@ -67,7 +75,22 @@ SimulatorResult fuzz_tx(FuzzerWorldStateManager& ws_mgr, FuzzerContractDB& contr
     SimulatorResult cpp_result;
 
     try {
+        // Debug: log state before checkpoint
+        if (std::getenv("AVM_FUZZER_LOGGING")) {
+            auto rev = ws_mgr.get_current_revision();
+            auto tree_info = ws_mgr.get_world_state().get_tree_info(rev, MerkleTreeId::NULLIFIER_TREE);
+            fuzz_info("[FUZZ_TX] Before checkpoint: forkId=", rev.forkId, " nullifierTree.size=", tree_info.meta.size);
+        }
+
         ws_mgr.checkpoint();
+
+        // Debug: log state after checkpoint
+        if (std::getenv("AVM_FUZZER_LOGGING")) {
+            auto rev = ws_mgr.get_current_revision();
+            auto tree_info = ws_mgr.get_world_state().get_tree_info(rev, MerkleTreeId::NULLIFIER_TREE);
+            fuzz_info("[FUZZ_TX] After checkpoint: forkId=", rev.forkId, " nullifierTree.size=", tree_info.meta.size);
+        }
+
         cpp_result = cpp_simulator.simulate(ws_mgr, contract_db, tx_data.tx, tx_data.global_variables);
         ws_mgr.revert();
     } catch (const std::exception& e) {
@@ -105,7 +128,7 @@ SimulatorResult fuzz_tx(FuzzerWorldStateManager& ws_mgr, FuzzerContractDB& contr
 /// @throws An exception if simulation results differ or check_circuit fails
 int fuzz_prover(FuzzerWorldStateManager& ws_mgr, FuzzerContractDB& contract_db, FuzzerTxData& tx_data)
 {
-    ProtocolContracts protocol_contracts{};
+    ProtocolContracts protocol_contracts = get_protocol_contracts_list();
     WorldState& ws = ws_mgr.get_world_state();
     WorldStateRevision ws_rev = ws_mgr.get_current_revision();
     AvmSimulationHelper helper;

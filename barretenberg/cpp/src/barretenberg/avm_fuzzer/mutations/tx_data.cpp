@@ -13,6 +13,18 @@
 
 namespace bb::avm2::fuzzer {
 
+// Generate a random contract address that is NOT in the protocol contract range (1-11)
+FF generate_non_protocol_contract_address(std::mt19937_64& rng)
+{
+    FF address = generate_random_field(rng);
+    // Ensure address is not in protocol contract range (1 to MAX_PROTOCOL_CONTRACTS)
+    // If it is, add MAX_PROTOCOL_CONTRACTS to move it out of the reserved range
+    if (!address.is_zero() && static_cast<uint256_t>(address) <= MAX_PROTOCOL_CONTRACTS) {
+        address = FF(static_cast<uint256_t>(address) + MAX_PROTOCOL_CONTRACTS);
+    }
+    return address;
+}
+
 // Gas bounds for mutation
 constexpr uint32_t MIN_GAS = 1000;
 constexpr uint32_t MAX_GAS = 10000000;
@@ -208,8 +220,8 @@ void mutate_l2_to_l1_msg(ScopedL2ToL1Message& msg, std::mt19937_64& rng)
         msg.message.content = generate_random_field(rng);
         break;
     case 2:
-        // Mutate contract_address
-        msg.contract_address = generate_random_field(rng);
+        // Mutate contract_address (avoid protocol contract addresses)
+        msg.contract_address = generate_non_protocol_contract_address(rng);
         break;
     }
 }
@@ -218,7 +230,7 @@ ScopedL2ToL1Message generate_l2_to_l1_msg(std::mt19937_64& rng)
 {
     return ScopedL2ToL1Message{
         .message = L2ToL1Message{ .recipient = generate_random_field(rng), .content = generate_random_field(rng) },
-        .contract_address = generate_random_field(rng),
+        .contract_address = generate_non_protocol_contract_address(rng),
     };
 }
 
@@ -331,7 +343,7 @@ PublicCallRequestWithCalldata generate_public_call_request(std::vector<AztecAddr
 
     auto contract_address =
         contract_addresses.empty()
-            ? generate_random_field(rng)
+            ? generate_non_protocol_contract_address(rng)
             : contract_addresses[std::uniform_int_distribution<size_t>(0, contract_addresses.size() - 1)(rng)];
     fuzz_info("Using contract address: ", contract_address);
     FF calldata_hash = simulation::compute_calldata_hash(calldata);

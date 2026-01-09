@@ -26,11 +26,23 @@ using simulation::Instruction;
 // Addressing Mode Extraction Helpers
 // ============================================================================
 
-// Extract addressing mode from INDIRECT8 byte (1 bit per operand: bit = indirect flag)
+// Extract addressing mode from INDIRECT8 byte (2 bits per operand: bit0=indirect, bit1=relative)
+// Same layout as INDIRECT16 but limited to 8 bits (4 operands max)
 AddressingMode get_addressing_mode_8(uint8_t indirect, size_t operand_idx)
 {
-    bool is_indirect = (indirect >> operand_idx) & 1;
-    return is_indirect ? AddressingMode::Indirect : AddressingMode::Direct;
+    uint8_t bits = (indirect >> (operand_idx * 2)) & 0b11;
+    switch (bits) {
+    case 0b00:
+        return AddressingMode::Direct;
+    case 0b01:
+        return AddressingMode::Indirect;
+    case 0b10:
+        return AddressingMode::Relative;
+    case 0b11:
+        return AddressingMode::IndirectRelative;
+    default:
+        return AddressingMode::Direct;
+    }
 }
 
 // Extract addressing mode from INDIRECT16 (2 bits per operand: bit0=indirect, bit1=relative)
@@ -99,7 +111,8 @@ AddressRef make_addr_ref_16(uint16_t address, AddressingMode mode)
 }
 
 // Map a vm2 Instruction to a FuzzInstruction
-FuzzInstruction map_vm2_to_fuzz(const Instruction& instr)
+// Returns std::nullopt for unsupported opcodes (caller should use RAW_BYTES_Instruction)
+std::optional<FuzzInstruction> map_vm2_to_fuzz(const Instruction& instr)
 {
     // Helper lambdas to extract operands with proper types
     // NOTE: INDIRECT bytes are NOT in the operands vector - they set instr.indirect instead
@@ -413,7 +426,7 @@ FuzzInstruction map_vm2_to_fuzz(const Instruction& instr)
         return EMITUNENCRYPTEDLOG_Instruction{ .log_size = 0,
                                                .log_size_address = make_addr_ref_16(get_u16(0), mode8(0)),
                                                .log_values = {},
-                                               .log_values_address_start = get_u16(1) };
+                                               .log_values_address = make_addr_ref_16(get_u16(1), mode8(1)) };
 
     // ==========================
     // Return Data Instructions
@@ -462,14 +475,11 @@ FuzzInstruction map_vm2_to_fuzz(const Instruction& instr)
                                      .is_static_call = true };
 
     // ==========================
-    // Unsupported opcodes
+    // Unsupported opcodes - handled by returning nullopt
+    // The caller will extract raw bytes for byte-perfect reconstruction
     // ==========================
     default:
-        // For unsupported opcodes, create a placeholder SET_8 instruction
-        // This preserves the bytecode position but loses semantic information
-        return SET_8_Instruction{ .value_tag = MemoryTagWrapper(MemoryTag::U8),
-                                  .result_address = make_addr_ref_8(0, AddressingMode::Direct),
-                                  .value = 0 };
+        return std::nullopt;
     }
 }
 
@@ -484,8 +494,20 @@ FuzzerData decompile_bytecode(const std::vector<uint8_t>& bytecode, const std::v
         try {
             // Use vm2's instruction parsing
             auto instr = simulation::deserialize_instruction(std::span<const uint8_t>(bytecode), pc);
-            instructions.push_back(map_vm2_to_fuzz(instr));
-            pc += instr.size_in_bytes();
+            size_t instr_size = instr.size_in_bytes();
+
+            // Try to map to a structured FuzzInstruction
+            auto maybe_fuzz_instr = map_vm2_to_fuzz(instr);
+            if (maybe_fuzz_instr.has_value()) {
+                instructions.push_back(std::move(maybe_fuzz_instr.value()));
+            } else {
+                // Unsupported opcode - extract raw bytes for byte-perfect reconstruction
+                std::vector<uint8_t> raw_bytes(bytecode.begin() + static_cast<long>(pc),
+                                               bytecode.begin() + static_cast<long>(pc + instr_size));
+                instructions.push_back(RAW_BYTES_Instruction{ .bytes = std::move(raw_bytes) });
+            }
+
+            pc += instr_size;
         } catch (const simulation::InstrDeserializationError& e) {
             // Convert to std::exception with detailed message
             std::string msg = "Deserialization failed at pc=" + std::to_string(pc);

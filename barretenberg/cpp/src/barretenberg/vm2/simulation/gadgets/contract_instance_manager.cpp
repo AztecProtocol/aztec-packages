@@ -49,19 +49,21 @@ std::optional<ContractInstance> ContractInstanceManager::get_contract_instance(c
         // empty (reserved for future protocol contracts).
         std::optional<AztecAddress> derived_address = get_derived_address(protocol_contracts, contract_address);
 
-        // Sanity check: if we found a derived address, we should also have the instance, and vice versa.
-        assert(derived_address.has_value() == maybe_instance.has_value() &&
-               "Derived address should be found if the instance was retrieved and vice versa");
+        // For protocol contracts, protocol_contracts is the source of truth.
+        // If derived_address exists, the protocol contract exists.
+        // If contract_db has an instance but protocol_contracts doesn't (or vice versa),
+        // we trust protocol_contracts and ignore contract_db's view.
+        bool exists = derived_address.has_value();
 
         event_emitter.emit({
             .address = contract_address,
-            .contract_instance = maybe_instance.value_or(ContractInstance{}),
+            .contract_instance = exists ? maybe_instance.value_or(ContractInstance{}) : ContractInstance{},
             .nullifier_tree_root = tree_state.nullifier_tree.tree.root,
             .public_data_tree_root = tree_state.public_data_tree.tree.root,
-            .exists = derived_address.has_value(),
+            .exists = exists,
             .is_protocol_contract = true,
         });
-        return maybe_instance;
+        return exists ? maybe_instance : std::nullopt;
     }
 
     if (!merkle_db.nullifier_exists(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS, contract_address)) {

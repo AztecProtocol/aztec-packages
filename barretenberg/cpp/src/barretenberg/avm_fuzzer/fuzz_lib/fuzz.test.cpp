@@ -1497,7 +1497,8 @@ TEST(fuzz, EmitUnencryptedLog)
         EMITUNENCRYPTEDLOG_Instruction{ .log_size = 1,
                                         .log_size_address = AddressRef{ .address = 0, .mode = AddressingMode::Direct },
                                         .log_values = { 1 },
-                                        .log_values_address_start = 1 };
+                                        .log_values_address =
+                                            AddressRef{ .address = 1, .mode = AddressingMode::Direct } };
     auto instruction_blocks = std::vector<std::vector<FuzzInstruction>>{ { emitunencryptedlog_instruction } };
     auto control_flow = ControlFlow(instruction_blocks);
     control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });

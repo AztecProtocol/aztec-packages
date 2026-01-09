@@ -10,6 +10,7 @@
 #include "barretenberg/avm_fuzzer/common/interfaces/dbs.hpp"
 #include "barretenberg/avm_fuzzer/fuzz_lib/constants.hpp"
 #include "barretenberg/avm_fuzzer/fuzz_lib/instruction.hpp"
+#include "barretenberg/avm_fuzzer/fuzz_lib/protocol_contracts_list.hpp"
 #include "barretenberg/common/base64.hpp"
 #include "barretenberg/serialize/msgpack_impl.hpp"
 #include "barretenberg/vm2/common/avm_io.hpp"
@@ -81,10 +82,21 @@ SimulatorResult CppSimulator::simulate(fuzzer::FuzzerWorldStateManager& ws_mgr,
         .collect_public_inputs = true,
     };
 
-    ProtocolContracts protocol_contracts{};
+    ProtocolContracts protocol_contracts = get_protocol_contracts_list();
 
     WorldState& ws = ws_mgr.get_world_state();
     WorldStateRevision ws_rev = ws_mgr.get_current_revision();
+
+    // Debug: log tree state using the revision we're about to use
+    if (std::getenv("AVM_FUZZER_LOGGING")) {
+        auto tree_info = ws.get_tree_info(ws_rev, MerkleTreeId::NULLIFIER_TREE);
+        fuzz_info("[CPP_SIM_ENTRY] Using forkId=",
+                  ws_rev.forkId,
+                  " includeUncommitted=",
+                  ws_rev.includeUncommitted,
+                  " nullifierTree.size=",
+                  tree_info.meta.size);
+    }
 
     // Log transaction details
     vinfo("[CPP_SIM] === Starting C++ Simulation ===");

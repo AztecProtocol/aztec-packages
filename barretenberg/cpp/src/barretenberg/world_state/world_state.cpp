@@ -19,10 +19,12 @@
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
+#include <iostream>
 #include <memory>
 #include <mutex>
 #include <optional>
 #include <ostream>
+#include <sstream>
 #include <stdexcept>
 #include <tuple>
 #include <unordered_map>
@@ -425,6 +427,15 @@ StateReference WorldState::get_state_reference(const WorldStateRevision& revisio
             continue;
         }
         state_reference[tree_id] = std::make_pair(m.inner.meta.root, m.inner.meta.size);
+
+        // Debug logging for tree state
+        if (std::getenv("WS_CPP_DEBUG") && tree_id == MerkleTreeId::NULLIFIER_TREE) {
+            std::ostringstream oss;
+            oss << m.inner.meta.root;
+            std::string root_str = oss.str();
+            std::cerr << "[WS_CPP] get_state_reference forkId=" << revision.forkId
+                      << " NULLIFIER root=" << root_str.substr(0, 18) << "... size=" << m.inner.meta.size << std::endl;
+        }
     }
 
     return state_reference;

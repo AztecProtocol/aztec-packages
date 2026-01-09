@@ -553,7 +553,7 @@ struct EMITUNENCRYPTEDLOG_Instruction {
     uint8_t log_size;
     AddressRef log_size_address;
     std::vector<bb::avm2::FF> log_values;
-    uint16_t log_values_address_start;
+    AddressRef log_values_address; // Address where log values start (for decompiler)
     MSGPACK_FIELDS(log_size, log_size_address, log_values);
 };
 
@@ -757,6 +757,12 @@ struct RAW_GETCONTRACTINSTANCE_Instruction {
     MSGPACK_FIELDS(addr_address, result_address, member_index);
 };
 
+/// @brief RAW_BYTES: Raw instruction bytes for byte-perfect reconstruction of unsupported opcodes
+struct RAW_BYTES_Instruction {
+    std::vector<uint8_t> bytes;
+    MSGPACK_FIELDS(bytes);
+};
+
 using FuzzInstruction = std::variant<ADD_8_Instruction,
                                      FDIV_8_Instruction,
                                      SET_8_Instruction,
@@ -815,13 +821,21 @@ using FuzzInstruction = std::variant<ADD_8_Instruction,
                                      POSEIDON2PERM_Instruction,
                                      KECCAKF1600_Instruction,
                                      SHA256COMPRESSION_Instruction,
-                                     TORADIXBE_Instruction>;
-// Control flow instructions (for decompiler)
-JUMP_32_Instruction, JUMPI_32_Instruction, RETURN_Instruction, REVERT_8_Instruction, REVERT_16_Instruction,
-    INTERNALCALL_Instruction, INTERNALRETURN_Instruction,
-    // Raw instructions for byte-perfect bytecode reconstruction
-    RAW_RETURNDATASIZE_Instruction, RAW_RETURNDATACOPY_Instruction, RAW_L1TOL2MSGEXISTS_Instruction,
-    RAW_GETCONTRACTINSTANCE_Instruction > ;
+                                     TORADIXBE_Instruction,
+                                     // Control flow instructions (for decompiler)
+                                     JUMP_32_Instruction,
+                                     JUMPI_32_Instruction,
+                                     RETURN_Instruction,
+                                     REVERT_8_Instruction,
+                                     REVERT_16_Instruction,
+                                     INTERNALCALL_Instruction,
+                                     INTERNALRETURN_Instruction,
+                                     // Raw instructions for byte-perfect bytecode reconstruction
+                                     RAW_RETURNDATASIZE_Instruction,
+                                     RAW_RETURNDATACOPY_Instruction,
+                                     RAW_L1TOL2MSGEXISTS_Instruction,
+                                     RAW_GETCONTRACTINSTANCE_Instruction,
+                                     RAW_BYTES_Instruction>;
 
 template <class... Ts> struct overloaded : Ts... {
     using Ts::operator()...;
@@ -1056,6 +1070,7 @@ inline std::ostream& operator<<(std::ostream& os, const FuzzInstruction& instruc
             },
             [&](INTERNALCALL_Instruction arg) { os << "INTERNALCALL_Instruction dest=" << arg.destination; },
             [&](INTERNALRETURN_Instruction) { os << "INTERNALRETURN_Instruction"; },
+            [&](RAW_BYTES_Instruction arg) { os << "RAW_BYTES_Instruction size=" << arg.bytes.size(); },
             [&](auto) { os << "Unknown instruction"; },
         },
         instruction);

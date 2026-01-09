@@ -571,6 +571,13 @@ TxSimulationResult AvmSimulationHelper::simulate_fast_with_existing_ws(
     // Create PureRawMerkleDB with the provided WorldState instance and cancellation token
     PureRawMerkleDB raw_merkle_db(world_state_revision, ws, /*cache_tree_roots=*/true, cancellation_token);
 
+    // Log starting tree roots
+    auto start_roots = raw_merkle_db.get_tree_roots();
+    vinfo("[SIM_HELPER] START tree roots:");
+    vinfo("[SIM_HELPER]   publicDataTree.root: ", start_roots.public_data_tree.root);
+    vinfo("[SIM_HELPER]   nullifierTree.root: ", start_roots.nullifier_tree.root);
+    vinfo("[SIM_HELPER]   noteHashTree.root: ", start_roots.note_hash_tree.root);
+
     return simulate_fast_internal(
         raw_contract_db, raw_merkle_db, config, tx, global_variables, protocol_contracts, cancellation_token);
 }

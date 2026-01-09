@@ -16,10 +16,11 @@
 #include "barretenberg/avm_fuzzer/fuzz_lib/bytecode_decompiler.hpp"
 #include "barretenberg/avm_fuzzer/fuzz_lib/control_flow.hpp"
 #include "barretenberg/avm_fuzzer/fuzz_lib/fuzzer_data.hpp"
-#include "barretenberg/avm_fuzzer/tx.fuzzer.hpp"
+#include "barretenberg/avm_fuzzer/fuzzer_lib.hpp"
 #include "barretenberg/crypto/sha256/sha256.hpp"
 #include "barretenberg/serialize/msgpack_impl.hpp"
 #include "barretenberg/vm2/common/avm_io.hpp"
+#include "barretenberg/vm2/simulation/lib/serialization.hpp"
 
 #include <cstdint>
 #include <filesystem>
@@ -123,6 +124,29 @@ std::vector<uint8_t> rebuild_bytecode(const FuzzerData& data)
 }
 
 /**
+ * Find the instruction at a given byte offset in the bytecode.
+ * Returns the instruction and its starting offset, or nullopt if not found.
+ */
+std::optional<std::pair<simulation::Instruction, size_t>> find_instruction_at_offset(
+    const std::vector<uint8_t>& bytecode, size_t target_offset)
+{
+    size_t pos = 0;
+    while (pos < bytecode.size()) {
+        try {
+            auto instr = simulation::deserialize_instruction(bytecode, pos);
+            size_t instr_size = instr.size_in_bytes();
+            if (target_offset >= pos && target_offset < pos + instr_size) {
+                return std::make_pair(instr, pos);
+            }
+            pos += instr_size;
+        } catch (...) {
+            break;
+        }
+    }
+    return std::nullopt;
+}
+
+/**
  * Verify that decompiled FuzzerData produces identical bytecode when recompiled.
  * Returns true if bytecode matches, false otherwise.
  */
@@ -147,6 +171,14 @@ bool verify_bytecode_roundtrip(const std::vector<uint8_t>& original_bytecode,
                     std::cerr << "    ROUNDTRIP FAILED: byte mismatch at offset " << i << " (original=0x" << std::hex
                               << static_cast<int>(original_bytecode[i]) << ", rebuilt=0x"
                               << static_cast<int>(rebuilt[i]) << std::dec << ")\n";
+
+                    // Find and print the instruction at this offset
+                    auto instr_info = find_instruction_at_offset(original_bytecode, i);
+                    if (instr_info.has_value()) {
+                        auto& [instr, instr_start] = instr_info.value();
+                        std::cerr << "    Instruction at offset " << instr_start << ": " << instr.to_string() << "\n";
+                        std::cerr << "    (mismatch is at byte " << (i - instr_start) << " within instruction)\n";
+                    }
 
                     // Print context: bytes around the mismatch
                     size_t start = (i >= 8) ? (i - 8) : 0;
