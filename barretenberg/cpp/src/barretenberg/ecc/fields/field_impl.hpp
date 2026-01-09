@@ -148,10 +148,10 @@ template <class T> constexpr field<T> field<T>::operator-(const field& other) co
 {
     if constexpr (BBERG_NO_ASM || (T::modulus_3 >= MODULUS_TOP_LIMB_LARGE_THRESHOLD) ||
                   (T::modulus_1 == 0 && T::modulus_2 == 0 && T::modulus_3 == 0)) {
-        return subtract_coarse(other); // modulus - *this;
+        return subtract(other); // modulus - *this;
     } else {
         if (std::is_constant_evaluated()) {
-            return subtract_coarse(other); // subtract(other);
+            return subtract(other); // subtract(other);
         }
         return asm_sub_with_coarse_reduction(*this, other); // asm_sub(*this, other);
     }
@@ -189,10 +189,10 @@ template <class T> constexpr field<T>& field<T>::operator-=(const field& other) 
 {
     if constexpr (BBERG_NO_ASM || (T::modulus_3 >= MODULUS_TOP_LIMB_LARGE_THRESHOLD) ||
                   (T::modulus_1 == 0 && T::modulus_2 == 0 && T::modulus_3 == 0)) {
-        *this = subtract_coarse(other); // subtract(other);
+        *this = subtract(other); // subtract(other);
     } else {
         if (std::is_constant_evaluated()) {
-            *this = subtract_coarse(other); // subtract(other);
+            *this = subtract(other); // subtract(other);
         } else {
             asm_self_sub_with_coarse_reduction(*this, other); // asm_self_sub(*this, other);
         }

@@ -693,7 +693,6 @@ template <class Params_> struct alignas(32) field {
     BB_INLINE constexpr field reduce() const noexcept;
     BB_INLINE constexpr field add(const field& other) const noexcept;
     BB_INLINE constexpr field subtract(const field& other) const noexcept;
-    BB_INLINE constexpr field subtract_coarse(const field& other) const noexcept;
     BB_INLINE constexpr field montgomery_mul(const field& other) const noexcept;
     BB_INLINE constexpr field montgomery_mul_big(const field& other) const noexcept;
     BB_INLINE constexpr field montgomery_square() const noexcept;

@@ -221,6 +221,14 @@ template <class T> constexpr field<T> field<T>::reduce() const noexcept
     };
 }
 
+///////////////////////
+///// ADD and SUB /////
+///////////////////////
+
+// Both `add` and `sub` use constexpr branching to distinguish the cases: modulus has <= 254 bits (fields associated to
+// BN-254) and modulus has 256 bits. The former has the so-called "coarse" optimization: we allow the inputs to be in
+// the range [0, 2p) and the outputs will similarly only be constrained to [0, 2p)
+
 template <class T> constexpr field<T> field<T>::add(const field& other) const noexcept
 {
     if constexpr (modulus.data[3] >= MODULUS_TOP_LIMB_LARGE_THRESHOLD) {
@@ -284,40 +292,23 @@ template <class T> constexpr field<T> field<T>::subtract(const field& other) con
     uint64_t r2 = sbb(data[2], other.data[2], borrow, borrow);
     uint64_t r3 = sbb(data[3], other.data[3], borrow, borrow);
 
-    r0 += (modulus.data[0] & borrow);
-    uint64_t carry = r0 < (modulus.data[0] & borrow);
-    r1 = addc(r1, modulus.data[1] & borrow, carry, carry);
-    r2 = addc(r2, modulus.data[2] & borrow, carry, carry);
-    r3 = addc(r3, (modulus.data[3] & borrow), carry, carry);
-    // The value being subtracted is in [0, 2**256), if we subtract 0 - 2*255 and then add p, the value will stay
-    // negative. If we are adding p, we need to check that we've overflown 2**256. If not, we should add p again
-    if (!carry) {
+    if constexpr (modulus.data[3] >= MODULUS_TOP_LIMB_LARGE_THRESHOLD) {
         r0 += (modulus.data[0] & borrow);
         uint64_t carry = r0 < (modulus.data[0] & borrow);
         r1 = addc(r1, modulus.data[1] & borrow, carry, carry);
         r2 = addc(r2, modulus.data[2] & borrow, carry, carry);
-        r3 = addc(r3, (modulus.data[3] & borrow), carry, carry);
+        r3 = addc(r3, modulus.data[3] & borrow, carry, carry);
+        // The value being subtracted is in [0, 2**256), if we subtract 0 - 2*255 and then add p, the value will stay
+        // negative. If we are adding p, we need to check that we've overflown 2**256. If not, we should add p again
+        if (!carry) {
+            r0 += (modulus.data[0] & borrow);
+            uint64_t carry = r0 < (modulus.data[0] & borrow);
+            r1 = addc(r1, modulus.data[1] & borrow, carry, carry);
+            r2 = addc(r2, modulus.data[2] & borrow, carry, carry);
+            r3 = addc(r3, (modulus.data[3] & borrow), carry, carry);
+        }
+        return { r0, r1, r2, r3 };
     }
-    return { r0, r1, r2, r3 };
-}
-
-/**
- * @brief
- *
- * @tparam T
- * @param other
- * @return constexpr field<T>
- */
-template <class T> constexpr field<T> field<T>::subtract_coarse(const field& other) const noexcept
-{
-    if constexpr (modulus.data[3] >= MODULUS_TOP_LIMB_LARGE_THRESHOLD) {
-        return subtract(other);
-    }
-    uint64_t borrow = 0;
-    uint64_t r0 = sbb(data[0], other.data[0], borrow, borrow);
-    uint64_t r1 = sbb(data[1], other.data[1], borrow, borrow);
-    uint64_t r2 = sbb(data[2], other.data[2], borrow, borrow);
-    uint64_t r3 = sbb(data[3], other.data[3], borrow, borrow);
 
     r0 += (twice_modulus.data[0] & borrow);
     uint64_t carry = r0 < (twice_modulus.data[0] & borrow);
