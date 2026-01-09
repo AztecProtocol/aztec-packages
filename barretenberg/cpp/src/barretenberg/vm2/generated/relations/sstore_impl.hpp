@@ -54,37 +54,43 @@ void sstoreImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
                     static_cast<View>(in.get(C::execution_sel_write_public_data)));
         std::get<3>(evals) += (tmp * scaling_factor);
     }
-    { // SSTORE_WRITTEN_SLOTS_ROOT_NOT_CHANGED
+    { // SEL_WRITE_PUBLIC_DATA_REQUIRES_SEL
         using View = typename std::tuple_element_t<4, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::execution_sel_write_public_data)) *
+                   (FF(1) - static_cast<View>(in.get(C::execution_sel_execute_sstore)));
+        std::get<4>(evals) += (tmp * scaling_factor);
+    }
+    { // SSTORE_WRITTEN_SLOTS_ROOT_NOT_CHANGED
+        using View = typename std::tuple_element_t<5, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::execution_sel_execute_sstore)) *
                    static_cast<View>(in.get(C::execution_sel_opcode_error)) *
                    (static_cast<View>(in.get(C::execution_prev_written_public_data_slots_tree_root)) -
                     static_cast<View>(in.get(C::execution_written_public_data_slots_tree_root)));
-        std::get<4>(evals) += (tmp * scaling_factor);
+        std::get<5>(evals) += (tmp * scaling_factor);
     }
     { // SSTORE_WRITTEN_SLOTS_SIZE_NOT_CHANGED
-        using View = typename std::tuple_element_t<5, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<6, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::execution_sel_execute_sstore)) *
                    static_cast<View>(in.get(C::execution_sel_opcode_error)) *
                    (static_cast<View>(in.get(C::execution_prev_written_public_data_slots_tree_size)) -
                     static_cast<View>(in.get(C::execution_written_public_data_slots_tree_size)));
-        std::get<5>(evals) += (tmp * scaling_factor);
+        std::get<6>(evals) += (tmp * scaling_factor);
     }
     { // SSTORE_PUBLIC_DATA_TREE_ROOT_NOT_CHANGED
-        using View = typename std::tuple_element_t<6, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<7, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::execution_sel_execute_sstore)) *
                    static_cast<View>(in.get(C::execution_sel_opcode_error)) *
                    (static_cast<View>(in.get(C::execution_prev_public_data_tree_root)) -
                     static_cast<View>(in.get(C::execution_public_data_tree_root)));
-        std::get<6>(evals) += (tmp * scaling_factor);
+        std::get<7>(evals) += (tmp * scaling_factor);
     }
     { // SSTORE_PUBLIC_DATA_TREE_SIZE_NOT_CHANGED
-        using View = typename std::tuple_element_t<7, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<8, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::execution_sel_execute_sstore)) *
                    static_cast<View>(in.get(C::execution_sel_opcode_error)) *
                    (static_cast<View>(in.get(C::execution_prev_public_data_tree_size)) -
                     static_cast<View>(in.get(C::execution_public_data_tree_size)));
-        std::get<7>(evals) += (tmp * scaling_factor);
+        std::get<8>(evals) += (tmp * scaling_factor);
     }
 }
 

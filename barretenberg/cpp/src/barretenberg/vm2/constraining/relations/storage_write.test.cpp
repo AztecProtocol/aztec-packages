@@ -183,9 +183,8 @@ TEST(SStoreConstrainingTest, TreeStateNotChangedOnError)
                               "SSTORE_PUBLIC_DATA_TREE_SIZE_NOT_CHANGED");
 }
 
-// Test for the selector-outside-active-rows vulnerability:
-// Can sel_write_public_data be set to 1 when sel_execute_sstore=0?
-// Part 1: Test that relations don't prevent it
+// Test that ghost rows (sel_execute_sstore=0) cannot set sel_write_public_data=1
+// This verifies the fix: sel_write_public_data * (1 - sel_execute_sstore) = 0
 TEST(SStoreConstrainingTest, NegativeGhostRowStorageWrite_RelationsOnly)
 {
     // Try to create a ghost row (sel_execute_sstore=0) with sel_write_public_data=1
@@ -200,17 +199,9 @@ TEST(SStoreConstrainingTest, NegativeGhostRowStorageWrite_RelationsOnly)
         },
     });
 
-    // The constraint sel_execute_sstore * ((1 - sel_opcode_error) - sel_write_public_data) = 0
-    // becomes 0 * (...) = 0 when sel_execute_sstore=0, which is always satisfied.
-    // So the sstore relation will NOT catch this.
-    check_relation<sstore>(trace);
-
-    // If we got here without throwing, that means sel_write_public_data is under-constrained
-    // when sel_execute_sstore=0. The sstore relation constraints are satisfied!
-    std::cout << "\n=== VULNERABILITY CONFIRMED ===" << std::endl;
-    std::cout << "sstore relation passed with ghost row write!" << std::endl;
-    std::cout << "Missing constraint: sel_write_public_data * (1 - sel_execute_sstore) = 0" << std::endl;
-    std::cout << "================================\n" << std::endl;
+    // The fix: sel_write_public_data * (1 - sel_execute_sstore) = 0
+    // When sel_execute_sstore=0 and sel_write_public_data=1: 1 * (1-0) = 1 != 0 -> FAILS
+    EXPECT_THROW_WITH_MESSAGE(check_relation<sstore>(trace), "SEL_WRITE_PUBLIC_DATA_REQUIRES_SEL");
 }
 
 TEST(SStoreConstrainingTest, Interactions)
@@ -315,16 +306,17 @@ TEST(SStoreConstrainingTest, Interactions)
                                        perm_tx_balance_update_settings>(trace);
 }
 
-// CRITICAL SECURITY TEST: Full attack simulation
-// Can a malicious prover inject a ghost sstore by populating ALL dependent traces?
-// This test creates a complete, cryptographically consistent trace for a ghost sstore.
+// Ghost row injection attack test.
+// Verifies that the fix (sel_write_public_data * (1 - sel_execute_sstore) = 0) prevents
+// a malicious prover from injecting arbitrary storage writes via ghost sstore rows.
+//
+// Attack vector (now blocked):
+// 1. Create ghost sstore row (sel_execute_sstore=0, sel_write_public_data=1)
+// 2. Populate public_data_check trace with legitimate rows via simulation
+// 3. Align clk values so the STORAGE_WRITE permutation matches
+// 4. Without the fix, the permutation would pass and arbitrary writes would be possible
 TEST(SStoreConstrainingTest, NegativeFullAttackWithAllTraces)
 {
-    std::cout << "\n=== FULL ATTACK SIMULATION ===" << std::endl;
-    std::cout << "Attempting to inject ghost sstore with ALL traces populated" << std::endl;
-    std::cout << "This simulates a sophisticated attacker who controls all trace values" << std::endl;
-
-    // Use real cryptographic operations (same as legitimate test)
     NiceMock<MockPoseidon2> poseidon2;
     NiceMock<MockFieldGreaterThan> field_gt;
     NiceMock<MockMerkleCheck> merkle_check;
@@ -338,11 +330,11 @@ TEST(SStoreConstrainingTest, NegativeFullAttackWithAllTraces)
     PublicDataTreeCheck public_data_tree_check(
         poseidon2, merkle_check, field_gt, execution_id_manager, public_data_tree_check_event_emitter);
 
-    // MALICIOUS VALUES - attacker wants to write arbitrary data
-    FF slot = 666;                              // Arbitrary slot
-    AztecAddress contract_address = 0xDEADBEEF; // Arbitrary address
+    // Attacker-controlled values
+    FF slot = 666;
+    AztecAddress contract_address = 0xDEADBEEF;
     FF leaf_slot = unconstrained_compute_leaf_slot(contract_address, slot);
-    FF value = 999; // Arbitrary value to write
+    FF value = 999;
 
     PublicDataTreeLeafPreimage low_leaf = PublicDataTreeLeafPreimage(PublicDataLeafValue(leaf_slot, 1), 0, 0);
     uint64_t low_leaf_index = 30;
@@ -369,7 +361,7 @@ TEST(SStoreConstrainingTest, NegativeFullAttackWithAllTraces)
             return unconstrained_root_from_path(new_leaf, leaf_index, sibling_path);
         });
 
-    // Generate cryptographically valid events (same as legitimate operation)
+    // Generate cryptographically valid events via simulation (same as legitimate operation)
     written_public_data_slots_tree_check.contains(contract_address, slot);
     auto public_data_tree_after = public_data_tree_check.write(slot,
                                                                contract_address,
@@ -383,135 +375,43 @@ TEST(SStoreConstrainingTest, NegativeFullAttackWithAllTraces)
     written_public_data_slots_tree_check.insert(contract_address, slot);
     auto written_slots_tree_after = written_public_data_slots_tree_check.get_snapshot();
 
-    // BUILD THE MALICIOUS TRACE
-    // Strategy: Place ghost sstore at row 1 where precomputed_clk matches public_data_check.clk
-    // The trace builder places public_data_check at row 1 with clk derived from simulation
+    // Build trace with legitimate public_data_check rows
     TestTraceContainer trace;
-
-    // First populate the public_data_check trace (it will go to row 1+)
     PublicDataTreeTraceBuilder public_data_tree_trace_builder;
     public_data_tree_trace_builder.process(public_data_tree_check_event_emitter.dump_events(), trace);
 
     WrittenPublicDataSlotsTreeCheckTraceBuilder written_slots_tree_trace_builder;
     written_slots_tree_trace_builder.process(written_public_data_slots_emitter.dump_events(), trace);
 
-    // Find where the public_data_check write row was placed and its clk value
-    uint32_t pdc_row = 0;
-    FF pdc_clk = 0;
-    for (uint32_t row = 0; row < 100; row++) {
-        if (trace.get(C::public_data_check_non_protocol_write, row) == 1) {
-            pdc_row = row;
-            pdc_clk = trace.get(C::public_data_check_clk, row);
-            break;
-        }
-    }
+    // Inject ghost sstore at row 0 where precomputed_clk matches public_data_check.clk.
+    // The mock execution_id_manager returns 0, so public_data_check.clk=0.
+    // Ghost row: sel_execute_sstore=0 but sel_write_public_data=1
+    trace.set(
+        0,
+        std::vector<std::pair<Column, FF>>{
+            { C::precomputed_clk, 0 },
+            { C::precomputed_first_row, 1 },
+            { C::execution_sel_execute_sstore, 0 },
+            { C::execution_sel_write_public_data, 1 },
+            { C::execution_contract_address, contract_address },
+            { C::execution_register_0_, value },
+            { C::execution_register_1_, slot },
+            { C::execution_sel_opcode_error, 0 },
+            { C::execution_discard, 0 },
+            { C::execution_prev_public_data_tree_root, public_data_tree_before.root },
+            { C::execution_prev_public_data_tree_size, public_data_tree_before.next_available_leaf_index },
+            { C::execution_public_data_tree_root, public_data_tree_after.root },
+            { C::execution_public_data_tree_size, public_data_tree_after.next_available_leaf_index },
+            { C::execution_prev_written_public_data_slots_tree_root, written_slots_tree_before.root },
+            { C::execution_prev_written_public_data_slots_tree_size,
+              written_slots_tree_before.next_available_leaf_index },
+            { C::execution_written_public_data_slots_tree_root, written_slots_tree_after.root },
+            { C::execution_written_public_data_slots_tree_size, written_slots_tree_after.next_available_leaf_index },
+        });
 
-    std::cout << "public_data_check write row at row " << pdc_row << " with clk=" << pdc_clk << std::endl;
-
-    // Now inject the ghost sstore at a row where precomputed_clk matches pdc_clk
-    // For this to work, we need precomputed_clk[ghost_row] == pdc_clk
-    // precomputed_clk is the row number, so ghost_row should = pdc_clk (as uint)
-    uint32_t ghost_row = static_cast<uint32_t>(static_cast<uint64_t>(pdc_clk));
-    std::cout << "Placing ghost sstore at row " << ghost_row << " (where precomputed_clk=" << ghost_row << ")"
-              << std::endl;
-
-    // Set the ghost sstore row
-    trace.set(C::execution_sel_execute_sstore, ghost_row, 0);    // GHOST ROW
-    trace.set(C::execution_sel_write_public_data, ghost_row, 1); // Fire interaction
-    trace.set(C::execution_contract_address, ghost_row, contract_address);
-    trace.set(C::execution_register_0_, ghost_row, value);
-    trace.set(C::execution_register_1_, ghost_row, slot);
-    trace.set(C::execution_sel_opcode_error, ghost_row, 0);
-    trace.set(C::execution_discard, ghost_row, 0);
-    trace.set(C::execution_prev_public_data_tree_root, ghost_row, public_data_tree_before.root);
-    trace.set(C::execution_prev_public_data_tree_size, ghost_row, public_data_tree_before.next_available_leaf_index);
-    trace.set(C::execution_public_data_tree_root, ghost_row, public_data_tree_after.root);
-    trace.set(C::execution_public_data_tree_size, ghost_row, public_data_tree_after.next_available_leaf_index);
-    trace.set(C::execution_prev_written_public_data_slots_tree_root, ghost_row, written_slots_tree_before.root);
-    trace.set(C::execution_prev_written_public_data_slots_tree_size,
-              ghost_row,
-              written_slots_tree_before.next_available_leaf_index);
-    trace.set(C::execution_written_public_data_slots_tree_root, ghost_row, written_slots_tree_after.root);
-    trace.set(C::execution_written_public_data_slots_tree_size,
-              ghost_row,
-              written_slots_tree_after.next_available_leaf_index);
-
-    // Also need to set precomputed columns for the ghost row
-    trace.set(C::precomputed_clk, ghost_row, ghost_row); // precomputed_clk = row number
-    trace.set(C::precomputed_first_row, ghost_row, ghost_row == 0 ? 1 : 0);
-
-    // Debug: Show where public_data_check rows were placed
-    std::cout << "\n--- Trace Analysis ---" << std::endl;
-    std::cout << "Ghost sstore row at row " << ghost_row << " with precomputed_clk=" << ghost_row << std::endl;
-    std::cout << "Looking for public_data_check rows..." << std::endl;
-    for (uint32_t row = 0; row < 10; row++) {
-        auto row_pdc_sel = trace.get(C::public_data_check_sel, row);
-        auto row_pdc_write = trace.get(C::public_data_check_write, row);
-        auto row_pdc_non_proto = trace.get(C::public_data_check_non_protocol_write, row);
-        auto row_pdc_clk = trace.get(C::public_data_check_clk, row);
-        if (row_pdc_sel != 0 || row_pdc_write != 0) {
-            std::cout << "  Row " << row << ": sel=" << row_pdc_sel << ", write=" << row_pdc_write
-                      << ", non_protocol_write=" << row_pdc_non_proto << ", clk=" << row_pdc_clk << std::endl;
-        }
-    }
-
-    std::cout << "\n--- Checking Relations ---" << std::endl;
-
-    // Check sstore relation - expected to PASS (the vulnerability)
-    std::cout << "sstore relation: ";
-    check_relation<sstore>(trace);
-    std::cout << "PASSED (ghost row satisfies weak constraints)" << std::endl;
-
-    // Check public_data_check relation - now with properly populated trace
-    using public_data_check_rel = bb::avm2::public_data_check<FF>;
-    std::cout << "public_data_check relation: ";
-    bool pdc_passed = false;
-    try {
-        check_relation<public_data_check_rel>(trace);
-        pdc_passed = true;
-        std::cout << "PASSED" << std::endl;
-    } catch (const std::exception& e) {
-        std::cout << "FAILED - " << e.what() << std::endl;
-    }
-
-    std::cout << "\n--- Checking Interactions ---" << std::endl;
-
-    // Check the STORAGE_WRITE permutation
-    // This is where the attack would succeed or fail
-    std::cout << "STORAGE_WRITE permutation: ";
-    bool perm_passed = false;
-    try {
-        check_multipermutation_interaction<PublicDataTreeTraceBuilder,
-                                           perm_sstore_storage_write_settings,
-                                           perm_tx_balance_update_settings>(trace);
-        perm_passed = true;
-        std::cout << "PASSED" << std::endl;
-    } catch (const std::exception& e) {
-        std::cout << "FAILED - " << e.what() << std::endl;
-    }
-
-    std::cout << "\n=== ATTACK RESULT ===" << std::endl;
-    if (pdc_passed && perm_passed) {
-        std::cout << "⚠️  CRITICAL: Attack SUCCEEDED!" << std::endl;
-        std::cout << "A malicious prover CAN inject arbitrary storage writes" << std::endl;
-        std::cout << "by creating ghost sstore rows with populated dependent traces." << std::endl;
-        std::cout << "\nRequired Fix: Add constraint to sstore.pil:" << std::endl;
-        std::cout << "  #[SEL_WRITE_PUBLIC_DATA_REQUIRES_SSTORE]" << std::endl;
-        std::cout << "  sel_write_public_data * (1 - sel_execute_sstore) = 0;" << std::endl;
-        // This test documents a real vulnerability - expect attack to succeed until fixed
-        EXPECT_TRUE(pdc_passed && perm_passed) << "Attack succeeded as expected (documenting vulnerability)";
-    } else {
-        std::cout << "✓ Attack BLOCKED" << std::endl;
-        if (!pdc_passed) {
-            std::cout << "  - Blocked by public_data_check relation constraints" << std::endl;
-        }
-        if (!perm_passed) {
-            std::cout << "  - Blocked by permutation interaction" << std::endl;
-        }
-        // If attack is blocked, the vulnerability has been fixed
-        EXPECT_TRUE(!pdc_passed || !perm_passed) << "Attack blocked (vulnerability fixed)";
-    }
-    std::cout << "=====================\n" << std::endl;
+    // The fix blocks ghost rows: sel_write_public_data * (1 - sel_execute_sstore) = 0
+    // When sel_execute_sstore=0 and sel_write_public_data=1: 1 * 1 = 1 != 0
+    EXPECT_THROW_WITH_MESSAGE(check_relation<sstore>(trace), "SEL_WRITE_PUBLIC_DATA_REQUIRES_SEL");
 }
 
 } // namespace

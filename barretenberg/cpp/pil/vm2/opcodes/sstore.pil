@@ -49,6 +49,9 @@ namespace execution; // this is a virtual gadget that shares rows with the execu
     // We'd save one column, but we'd perform more work in the error case, both in simulation and proving.
     pol commit sel_write_public_data;
     sel_execute_sstore * ((1 - sel_opcode_error) - sel_write_public_data) = 0;
+    // Force sel_write_public_data to 0 when sel is 0 (prevents ghost row injection attacks)
+    #[SEL_WRITE_PUBLIC_DATA_REQUIRES_SEL]
+    sel_write_public_data * (1 - sel_execute_sstore) = 0;
 
     // =========== OPCODE EXECUTION ===========
 
