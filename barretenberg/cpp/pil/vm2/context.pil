@@ -237,23 +237,40 @@ namespace execution;
     #[PC_NEXT_ROW_DEFAULT]
     DEFAULT_CTX_ROW * (1 - PC_JUMP) * (pc' - next_pc) = 0;
 
-    // NESTED_EXIT_CALL = 1 ==> constraints come from lookup
+    // =============================
+    //       MSG SENDER
+    // =============================
+
+    // Initialization: enqueued_call_start = 1 ==> msg_sender = tx.msg_sender (#[DISPATCH_EXEC_START] (tx.pil))
+    // NESTED_EXIT_CALL = 1 ==> constraints come from lookups (#[CTX_STACK_ROLLBACK] and #[CTX_STACK_RETURN])
     // sel_enter_call   = 1 ==> msg_sender' = contract_address
     // otherwise        = 0 ==> msg_sender' = msg_sender
-    #[MSG_SENDER_NEXT_ROW]
-    DEFAULT_CTX_ROW * (msg_sender' - msg_sender) = 0;
+    #[MSG_SENDER_NEXT_ROW_EXT_CALL]
     sel_enter_call  * (msg_sender' - contract_address) = 0;
+    #[MSG_SENDER_NEXT_ROW_DEFAULT]
+    DEFAULT_CTX_ROW * (msg_sender' - msg_sender) = 0;
 
-    // NESTED_EXIT_CALL = 1 ==> constraints come from lookup
+    // =============================
+    //    CONTRACT ADDRESS
+    // =============================
+
+    // Initialization: enqueued_call_start = 1 ==> contract_address = tx.contract_address (#[DISPATCH_EXEC_START] (tx.pil))
+    // NESTED_EXIT_CALL = 1 ==> constraints come from lookups (#[CTX_STACK_ROLLBACK] and #[CTX_STACK_RETURN])
     // sel_enter_call   = 1 ==> contract_address' = register[2] (intermediate register 3 from execution trace)
     // otherwise        = 0 ==> contract_address' = contract_address
+    #[CONTRACT_ADDR_NEXT_ROW_EXT_CALL]
+    sel_enter_call  * (contract_address' - register[2]) = 0;
     #[CONTRACT_ADDR_NEXT_ROW]
     DEFAULT_CTX_ROW * (contract_address' - contract_address) = 0;
-    sel_enter_call  * (contract_address' - register[2]) = 0;
+
+    // =============================
+    //    BYTECODE ID
+    // =============================
 
     // bytecode_id is set on the first row of a context (#[BYTECODE_RETRIEVAL_RESULT]
     // in execution.pil) and is propagated from row to row, except on context change.
-    // While exiting a context, `bytecode_id` is retrieved from the context stack.
+    // While exiting a context, `bytecode_id` is retrieved from the context stack
+    // through the lookups (#[CTX_STACK_ROLLBACK] and #[CTX_STACK_RETURN]).
     #[BYTECODE_ID_NEXT_ROW]
     DEFAULT_CTX_ROW * (bytecode_id' - bytecode_id) = 0;
 
