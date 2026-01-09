@@ -380,89 +380,6 @@ max_read_addr <= AVM_HIGHEST_ADDRESS;
 ```
 **Impact**: Reject valid operations or accept invalid ones.
 
-## Test Patterns
-
-### Test 1: Address Overflow
-
-```cpp
-TEST_F(ComponentTest, NegativeAddressOverflow)
-{
-    // Create trace with overflowing address
-    auto trace = TestTraceContainer({
-        {{ C::sel, 1 },
-         { C::base_addr, UINT32_MAX - 5 },
-         { C::offset, 10 },
-         { C::resolved_addr, 4 },      // Wrapped value
-         { C::overflow, 0 }},          // Claims no overflow (INVALID)
-    });
-
-    EXPECT_THROW_WITH_MESSAGE(
-        check_relation<ComponentRelation>(trace),
-        "OVERFLOW"
-    );
-}
-```
-
-**Interpretation**:
-- **Test passes (throws)**: Overflow detected - secure
-- **Test fails (no throw)**: Overflow not caught - vulnerable
-
-### Test 2: Size Underflow
-
-```cpp
-TEST_F(ComponentTest, NegativeSizeUnderflow)
-{
-    auto trace = TestTraceContainer({
-        {{ C::sel, 1 },
-         { C::total_size, 5 },
-         { C::used_size, 10 },         // More than total!
-         { C::remaining, UINT32_MAX - 4 }}, // Underflowed
-    });
-
-    EXPECT_THROW_WITH_MESSAGE(
-        check_relation<ComponentRelation>(trace),
-        "UNDERFLOW"
-    );
-}
-```
-
-### Test 3: Missing Range Check
-
-```cpp
-TEST_F(ComponentTest, NegativeValueNotRangeChecked)
-{
-    auto trace = TestTraceContainer({
-        {{ C::sel, 1 },
-         { C::value, FF(1) << 64 }},  // Too large for U32!
-    });
-
-    // If properly range checked, should fail
-    EXPECT_THROW(
-        check_all_interactions<ComponentTraceBuilder>(trace),
-        std::exception
-    );
-}
-```
-
-### Test 4: Off-by-One Bound Check
-
-```cpp
-TEST_F(ComponentTest, NegativeOffByOneBound)
-{
-    auto trace = TestTraceContainer({
-        {{ C::sel, 1 },
-         { C::addr, AVM_MEMORY_SIZE }},  // Exactly at boundary
-    });
-
-    // Should fail if addr must be < AVM_MEMORY_SIZE
-    // Should pass if addr must be <= AVM_MEMORY_SIZE - 1
-    EXPECT_THROW(
-        check_relation<ComponentRelation>(trace),
-        std::runtime_error
-    );
-}
-```
-
 ## Audit Checklist
 
 1. **Identify all arithmetic operations**:
@@ -526,22 +443,6 @@ overflow * (1 - overflow) = 0;
 
 #[OVERFLOW_WITNESS]
 overflow * (a + b - 2^N) in range_check.sel { ... };  // Proves a + b >= 2^N
-```
-
-## Build and Test Commands
-
-```bash
-# Regenerate C++ from PIL
-vmp  # or: ../../bb-pilcom/target/release/bb_pil pil/vm2
-
-# Build VM2 tests
-vmb  # or: cmake --preset build && cd build && ninja vm2_tests
-
-# Run all VM2 tests
-vmt  # or: ./build/bin/vm2_tests
-
-# Run specific component test
-vmtg "ComponentConstraining*"
 ```
 
 ## Common Locations to Audit

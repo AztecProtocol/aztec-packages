@@ -287,59 +287,6 @@ bool add_predicate = !x_match;
 ```
 **Impact**: Adding points with same y but different x (possible via cube roots of unity) failed constraint `sel = double_op + add_op + INFINITY_PRED`.
 
-## Test Patterns
-
-### Test 1: Valid Execution Produces Valid Trace
-
-```cpp
-TEST_F(ComponentTest, PositiveValidExecution)
-{
-    PrecomputedTraceBuilder precomputed;
-    ComponentTraceBuilder builder;
-
-    auto event = create_valid_event();
-
-    TestTraceContainer trace;
-    precomputed.process(trace);
-    builder.process(event, trace);
-
-    // All constraints should pass
-    check_relation<ComponentRelation>(trace);
-    check_all_interactions<ComponentTraceBuilder>(trace);
-}
-```
-
-### Test 2: Edge Case Produces Valid Trace
-
-```cpp
-TEST_F(ComponentTest, PositiveEdgeCase)
-{
-    auto event = create_edge_case_event();
-
-    TestTraceContainer trace;
-    builder.process(event, trace);
-
-    // Edge case should also produce valid trace
-    check_relation<ComponentRelation>(trace);
-}
-```
-
-### Test 3: Error Case Produces Valid Trace
-
-```cpp
-TEST_F(ComponentTest, PositiveErrorCase)
-{
-    auto event = create_error_event();
-
-    TestTraceContainer trace;
-    builder.process(event, trace);
-
-    // Error case should produce valid trace with error flag set
-    check_relation<ComponentRelation>(trace);
-    EXPECT_EQ(trace.get(C::sel_error, 0), 1);
-}
-```
-
 ## Audit Checklist
 
 1. **For each PIL column, verify tracegen assignment**:
@@ -437,22 +384,6 @@ row.sel_special = (event.condition == ExpectedValue);
    auto result = lhs - rhs;  // Should be 0
    if (result != 0) { LOG("Constraint violated: " << result); }
    ```
-
-## Build and Test Commands
-
-```bash
-# Regenerate C++ from PIL
-vmp  # or: ../../bb-pilcom/target/release/bb_pil pil/vm2
-
-# Build VM2 tests
-vmb  # or: cmake --preset build && cd build && ninja vm2_tests
-
-# Run all VM2 tests
-vmt  # or: ./build/bin/vm2_tests
-
-# Run specific component test
-vmtg "ComponentConstraining*"
-```
 
 ## Common Locations to Audit
 

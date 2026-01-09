@@ -183,79 +183,6 @@ sel_parsing_err * (1 - sel_parsing_err) = 0;
 ```
 **Impact**: Varies - depends on what's missing.
 
-## Test Patterns
-
-### Test 1: Error Not Aggregated
-
-```cpp
-TEST_F(ComponentTest, NegativeErrorNotAggregated)
-{
-    // Individual error is set but aggregate error is not
-    auto trace = TestTraceContainer({
-        {{ C::sel, 1 },
-         { C::pc_out_of_range, 1 },      // Individual error!
-         { C::sel_parsing_err, 0 }},     // But aggregate claims no error
-    });
-
-    // If aggregation constraint exists, this should fail
-    EXPECT_THROW_WITH_MESSAGE(
-        check_relation<ComponentRelation>(trace),
-        "ERROR_AGGREGATION"  // or similar
-    );
-
-    // If this test PASSES (no throw), the aggregation is missing!
-}
-```
-
-**Interpretation**:
-- **Test passes (throws)**: Aggregation constraint enforced - secure
-- **Test fails (no throw)**: Aggregation missing - CRITICAL vulnerability
-
-### Test 2: Multiple Individual Errors Suppressed
-
-```cpp
-TEST_F(ComponentTest, NegativeMultipleErrorsSuppressed)
-{
-    auto trace = TestTraceContainer({
-        {{ C::sel, 1 },
-         { C::pc_out_of_range, 1 },
-         { C::opcode_out_of_range, 1 },
-         { C::instr_out_of_range, 1 },
-         { C::sel_parsing_err, 0 }},     // All errors suppressed!
-    });
-
-    EXPECT_THROW(
-        check_relation<ComponentRelation>(trace),
-        std::runtime_error
-    );
-}
-```
-
-### Test 3: Verify FIXME Constraint Would Catch Error
-
-```cpp
-TEST_F(ComponentTest, VerifyCommentedConstraintNeeded)
-{
-    // This test documents what the commented constraint SHOULD catch
-    // If this test passes, the commented constraint is still needed!
-
-    auto trace = TestTraceContainer({
-        {{ C::sel, 1 },
-         { C::individual_error, 1 },
-         { C::aggregate_error, 0 }},  // Mismatch
-    });
-
-    // Document the expected behavior when constraint is enabled
-    // EXPECT_THROW_WITH_MESSAGE(
-    //     check_relation<ComponentRelation>(trace),
-    //     "AGGREGATION"
-    // );
-
-    // Currently this passes (no throw) - VULNERABLE!
-    check_relation<ComponentRelation>(trace);  // Should fail but doesn't
-}
-```
-
 ## Audit Checklist
 
 1. **Scan for FIXME/TODO comments**:
@@ -306,22 +233,6 @@ When reviewing PRs that add FIXME/TODO:
 3. What's the plan to enable it?
 4. Can we add a test that will fail when it's missing?
 5. Should this block the PR?
-
-## Build and Test Commands
-
-```bash
-# Regenerate C++ from PIL
-vmp  # or: ../../bb-pilcom/target/release/bb_pil pil/vm2
-
-# Build VM2 tests
-vmb  # or: cmake --preset build && cd build && ninja vm2_tests
-
-# Run all VM2 tests
-vmt  # or: ./build/bin/vm2_tests
-
-# Run specific component test
-vmtg "ComponentConstraining*"
-```
 
 ## Common Locations to Audit
 

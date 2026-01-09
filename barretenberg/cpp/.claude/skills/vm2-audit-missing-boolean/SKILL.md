@@ -94,29 +94,7 @@ sel * my_bool * (1 - my_bool) = 0;  // Gated
 other_expr + my_bool = 0;            // UNGATED USE - VULNERABLE!
 ```
 
-### Step 4: Write Negative Test
-
-Test against ALL relations in the component - not just a specific named constraint. This confirms the boolean isn't implicitly constrained elsewhere.
-
-```cpp
-TEST_F(ComponentTest, NegativeNonBooleanSelector)
-{
-    auto trace = TestTraceContainer({
-        {{ C::component_sel, 2 }},  // Non-boolean value
-    });
-
-    // Test against ALL relations - not just "SELECTOR_BOOL"
-    // If this passes (no throw), the non-boolean value is exploitable!
-    // If this throws, some constraint catches it (may be implicit)
-    check_relation<ComponentRelation>(trace);
-}
-```
-
-**Interpretation**:
-- **Test passes (no exception)**: Non-boolean NOT caught by any constraint - exploitable bug
-- **Test fails (throws)**: Some constraint catches it - investigate which one
-
-### Step 5: Document Findings
+### Step 4: Document Findings
 
 Record for each boolean column:
 - Column name and location
@@ -202,22 +180,6 @@ Always verify boolean constraint exists on zero-check indicators.
 pol commit sel; // @boolean
 #[SEL_BOOL]
 sel * (1 - sel) = 0;
-```
-
-## Build and Test Commands
-
-```bash
-# Regenerate C++ from PIL
-vmp  # or: ../../bb-pilcom/target/release/bb_pil pil/vm2
-
-# Build VM2 tests
-vmb  # or: cmake --preset build && cd build && ninja vm2_tests
-
-# Run all VM2 tests
-vmt  # or: ./build/bin/vm2_tests
-
-# Run specific component test
-vmtg "ComponentConstraining*"
 ```
 
 ## Exploitability Note

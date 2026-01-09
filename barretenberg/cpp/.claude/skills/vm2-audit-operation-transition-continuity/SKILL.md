@@ -151,43 +151,6 @@ grep -A30 "CTX_STACK_CALL\|CTX_STACK_ROLLBACK\|CTX_STACK_RETURN" \
 
 Verify that ALL state variables needing restoration are included in stack interaction tuples.
 
-### Step 6: Write Negative Tests
-
-Test that state cannot be arbitrarily set during operation transitions:
-
-```cpp
-TEST_F(ContextTest, NegativeTreeStateUnconstrainedOnEnterCall)
-{
-    TestTraceContainer trace({
-        { { C::precomputed_first_row, 1 } },
-        {
-            // CALL instruction with current tree state
-            { C::execution_sel, 1 },
-            { C::execution_sel_enter_call, 1 },
-            { C::execution_note_hash_tree_root, 100 },
-            { C::execution_note_hash_tree_size, 50 },
-        },
-        {
-            // First row of nested context - ATTACK: different tree state!
-            { C::execution_sel, 1 },
-            { C::execution_has_parent_ctx, 1 },
-            { C::execution_prev_note_hash_tree_root, 999999 },  // Should be 100!
-            { C::execution_prev_note_hash_tree_size, 888888 },  // Should be 50!
-        },
-    });
-
-    // If properly constrained, this should throw
-    EXPECT_THROW_WITH_MESSAGE(
-        check_relation<context>(trace),
-        "NOTE_HASH_TREE_ROOT"  // Constraint name
-    );
-}
-```
-
-**Interpretation**:
-- **Test passes (throws)**: Enter call continuity enforced - secure
-- **Test fails (no throw)**: Arbitrary state allowed during enter_call - CRITICAL vulnerability
-
 ## Vulnerable vs Secure Patterns
 
 ### Vulnerable Pattern: Only Default Row Constrained
@@ -330,22 +293,6 @@ sel_enter_call {
     note_hash_tree_size,
     ...
 } is context_stack.sel { ... };
-```
-
-## Build and Test Commands
-
-```bash
-# Regenerate C++ from PIL
-vmp  # or: ../../bb-pilcom/target/release/bb_pil pil/vm2
-
-# Build VM2 tests
-vmb  # or: cmake --preset build && cd build && ninja vm2_tests
-
-# Run all VM2 tests
-vmt  # or: ./build/bin/vm2_tests
-
-# Run context-specific tests
-vmtg "ContextConstraining*"
 ```
 
 ## Key Files to Audit

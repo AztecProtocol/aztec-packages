@@ -203,72 +203,6 @@ sel { context_id, success, discard } in tx.sel { tx.context_id, tx.success, tx.d
 // Missing tag - allows type confusion in memory
 ```
 
-## Test Patterns
-
-### Test 1: Missing Column Allows Mismatch
-
-```cpp
-TEST_F(ComponentTest, NegativeMissingTupleColumn)
-{
-    // Create source and destination with different values
-    // for a column NOT in the tuple
-    auto trace = TestTraceContainer({
-        // Source: clk = 1
-        {{ C::sel_source, 1 }, { C::clk, 1 }, { C::op_id, 5 }},
-        // Destination: clk = 2 (different!)
-        {{ C::sel_dest, 1 }, { C::dest_clk, 2 }, { C::dest_op_id, 5 }},
-    });
-
-    // If clk is NOT in tuple, this wrongly succeeds
-    // If clk IS in tuple, this correctly fails
-    check_all_interactions<ComponentTraceBuilder>(trace);
-}
-```
-
-**Interpretation**:
-- **Test passes (no throw)**: Column NOT in tuple - VULNERABLE
-- **Test fails (throws)**: Column IS in tuple - secure
-
-### Test 2: Different Context Not Detected
-
-```cpp
-TEST_F(ComponentTest, NegativeCrossContextNotDetected)
-{
-    auto trace = TestTraceContainer({
-        // Source claims context 1
-        {{ C::sel_mem, 1 }, { C::context_id, 1 }, { C::addr, 100 }, { C::value, 42 }},
-        // Memory has context 2 (should be rejected!)
-        {{ C::memory_sel, 1 }, { C::memory_context_id, 2 }, { C::memory_addr, 100 }, { C::memory_value, 42 }},
-    });
-
-    // If context_id NOT in tuple, this wrongly succeeds
-    EXPECT_THROW(
-        check_all_interactions<ComponentTraceBuilder>(trace),
-        std::exception
-    );
-}
-```
-
-### Test 3: Wrong RW Flag Not Detected
-
-```cpp
-TEST_F(ComponentTest, NegativeWrongRWNotDetected)
-{
-    auto trace = TestTraceContainer({
-        // Source claims read (rw = 0)
-        {{ C::sel_mem, 1 }, { C::rw, 0 }, { C::addr, 100 }, { C::value, 42 }},
-        // Memory has write (rw = 1) - should be rejected!
-        {{ C::memory_sel, 1 }, { C::memory_rw, 1 }, { C::memory_addr, 100 }, { C::memory_value, 42 }},
-    });
-
-    // If rw NOT in tuple, this wrongly succeeds
-    EXPECT_THROW(
-        check_all_interactions<ComponentTraceBuilder>(trace),
-        std::exception
-    );
-}
-```
-
 ## Audit Checklist
 
 1. **List all interactions in the component**:
@@ -318,22 +252,6 @@ Every destination should document expected tuple:
 // - value: Value read or written
 // - rw: 0 for read, 1 for write
 // - tag: Type tag of the value
-```
-
-## Build and Test Commands
-
-```bash
-# Regenerate C++ from PIL
-vmp  # or: ../../bb-pilcom/target/release/bb_pil pil/vm2
-
-# Build VM2 tests
-vmb  # or: cmake --preset build && cd build && ninja vm2_tests
-
-# Run all VM2 tests
-vmt  # or: ./build/bin/vm2_tests
-
-# Run specific component test
-vmtg "ComponentConstraining*"
 ```
 
 ## Common Locations to Audit

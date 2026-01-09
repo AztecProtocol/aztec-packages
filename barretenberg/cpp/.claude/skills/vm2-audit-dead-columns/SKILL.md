@@ -229,46 +229,6 @@ sel_special * (optional_check - expected) = 0;
 // Constrained when sel_special = 1
 ```
 
-## Test Patterns
-
-### Test 1: Dead Column Allows Arbitrary Value
-
-```cpp
-TEST_F(ComponentTest, NegativeDeadColumnArbitrary)
-{
-    // If column is truly dead, any value should work
-    auto trace1 = create_trace_with_column_value(0);
-    auto trace2 = create_trace_with_column_value(12345);
-    auto trace3 = create_trace_with_column_value(FF::random());
-
-    // All should pass if column is unconstrained (BAD!)
-    check_relation<ComponentRelation>(trace1);
-    check_relation<ComponentRelation>(trace2);
-    check_relation<ComponentRelation>(trace3);
-}
-```
-
-**Interpretation**:
-- **All pass**: Column is dead/unconstrained - potential vulnerability
-- **Some fail**: Column IS constrained - not dead
-
-### Test 2: Column Should Affect Outcome
-
-```cpp
-TEST_F(ComponentTest, NegativeColumnShouldMatter)
-{
-    // Set column to wrong value
-    auto trace = create_valid_trace();
-    trace.set(C::supposed_to_be_constrained, wrong_value);
-
-    // Should fail if column is properly constrained
-    EXPECT_THROW(
-        check_relation<ComponentRelation>(trace),
-        std::exception
-    );
-}
-```
-
 ## Audit Checklist
 
 1. **List all declared columns**:
@@ -370,22 +330,6 @@ pol commit hash_result;
 // AFTER: Connect via lookup
 #[HASH_LOOKUP]
 sel_hash { input, hash_result } in poseidon2.sel { poseidon2.input, poseidon2.output };
-```
-
-## Build and Test Commands
-
-```bash
-# Regenerate C++ from PIL
-vmp  # or: ../../bb-pilcom/target/release/bb_pil pil/vm2
-
-# Build VM2 tests
-vmb  # or: cmake --preset build && cd build && ninja vm2_tests
-
-# Run all VM2 tests
-vmt  # or: ./build/bin/vm2_tests
-
-# Run specific component test
-vmtg "ComponentConstraining*"
 ```
 
 ## Common Locations to Audit
