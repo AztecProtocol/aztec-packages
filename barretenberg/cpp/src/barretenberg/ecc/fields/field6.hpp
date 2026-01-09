@@ -155,6 +155,15 @@ template <typename base_field, typename Fq6Params> class field6 {
         return *this;
     }
 
+    constexpr void self_neg()
+    {
+        c0.self_neg();
+        c1.self_neg();
+        c2.self_neg();
+    }
+
+    constexpr void self_sqr() { *this = sqr(); }
+
     constexpr field6 invert() const
     {
         /* From "High-Speed Software Implementation of the Optimal Ate Pairing over Barreto-Naehrig Curves"; Algorithm
