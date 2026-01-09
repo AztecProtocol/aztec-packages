@@ -693,14 +693,12 @@ void ExecutionTraceBuilder::process(
         const bool is_err = ex_event.error != ExecutionError::NONE;
         sel_exit_call = sel_exit_call || is_err; // sel_execute_revert || sel_execute_return || sel_error
         const bool is_failure = should_execute_revert || is_err;
-        const bool nested_exit_call = sel_exit_call && has_parent;
         const bool enqueued_call_end = sel_exit_call && !has_parent;
         const bool nested_failure = is_failure && has_parent;
 
         trace.set(row,
                   { {
                       { C::execution_sel_exit_call, sel_exit_call ? 1 : 0 },
-                      { C::execution_nested_exit_call, nested_exit_call ? 1 : 0 },
                       { C::execution_nested_failure, nested_failure ? 1 : 0 },
                       { C::execution_sel_error, is_err ? 1 : 0 },
                       { C::execution_sel_failure, is_failure ? 1 : 0 },

@@ -128,12 +128,21 @@ namespace execution;
     pol commit is_parent_id_inv; // For zero-check of has_parent_ctx
     parent_id * ((1 - has_parent_ctx) * (1 - is_parent_id_inv) + is_parent_id_inv) - has_parent_ctx = 0;
 
-    // We need a flag to indicate when we are exiting a nested context
-    pol commit nested_exit_call; // @boolean (by definition)
-    // If we are exiting and we have a parent ctx
-    nested_exit_call = has_parent_ctx * sel_exit_call;
+    // Selectors related to exiting a nested context
+    pol commit nested_return; // @boolean (by definition)
+    nested_return = has_parent_ctx * sel_execute_return;
+    pol commit nested_failure; // @boolean (by definition)
+    nested_failure = has_parent_ctx * sel_failure;
+    // Since `sel_exit_call = sel_failure + sel_execute_return`, we can define the following alias
+    // to characterize exiting from a nested context.
+    pol NESTED_EXIT_CALL = nested_failure + nested_return; // = has_parent_ctx * sel_exit_call;
 
-
+    /* Note on gating: Our tracegen will not generate a row with `has_parent_ctx == 1` on an inactive row (`sel == 0`).
+     *                 And the execution will handle at least one instruction after exiting a nested context, so that we
+     *                 have the guarantee that `sel' == 1` because last active row of execution trace has `enqueued_call_end == 1`
+     *                 which constrains that `has_parent_ctx == 0`. Consequently, gating a relation by `NESTED_EXIT_CALL`, does
+     *                 not require additional gating by `NOT_LAST_EXEC`. The same holds true for `nested_return` and `nested_failure`.
+     */
     // =============================
     //        Context ID
     // =============================
@@ -173,14 +182,14 @@ namespace execution;
     // Initialization: enqueued_call_start = 1 ==> context_id = tx.next_context_id (#[DISPATCH_EXEC_START] (tx.pil))
     // Propagation:
     // sel_enter_call   = 1 ==> context_id' = next_context_id
-    // nested_exit_call = 1 ==> context_id' = parent_id
+    // NESTED_EXIT_CALL = 1 ==> context_id' = parent_id
     // default row      = 0 ==> context_id' = context_id
     // Note: There is no propagation constraint when `enqueued_call_end == 1` because the next active
     //       row (enqueued_call_start == 1) is initialized.
     #[CONTEXT_ID_EXT_CALL]
     NOT_LAST_EXEC * sel_enter_call   * (context_id' - next_context_id) = 0;
     #[CONTEXT_ID_NESTED_EXIT]
-    NOT_LAST_EXEC * nested_exit_call * (context_id' - parent_id) = 0;
+    NESTED_EXIT_CALL * (context_id' - parent_id) = 0;
     #[CONTEXT_ID_NEXT_DEFAULT_ROW]
     NOT_LAST_EXEC * DEFAULT_CTX_ROW  * (context_id' - context_id) = 0;
 
@@ -191,7 +200,7 @@ namespace execution;
     // Initialization: enqueued_call_start = 1 ==> parent_id = 0;
     // Propagation:
     // sel_enter_call   = 1 ==> parent_id' = context_id
-    // nested_exit_call = 1 ==> constraints come from lookups (#[CTX_STACK_ROLLBACK] and #[CTX_STACK_RETURN])
+    // NESTED_EXIT_CALL = 1 ==> constraints come from lookups (#[CTX_STACK_ROLLBACK] and #[CTX_STACK_RETURN])
     // default row      = 0 ==> parent_id' = parent_id
     // Note: There is no propagation constraint when `enqueued_call_end == 1` because the next active
     //       row (enqueued_call_start == 1) is initialized.
@@ -213,7 +222,7 @@ namespace execution;
     // Initialization: enqueued_call_start = 1 ==> pc = 0;
     // Propagation:
     // sel_enter_call   = 1 ==> pc' = 0
-    // nested_exit_call = 1 ==> constraints come from lookups (#[CTX_STACK_ROLLBACK] and #[CTX_STACK_RETURN])
+    // NESTED_EXIT_CALL = 1 ==> constraints come from lookups (#[CTX_STACK_ROLLBACK] and #[CTX_STACK_RETURN])
     // internal_call    = 1 ==> pc' = rop[0] (#[PC_NEXT_ROW_INT_CALL_JUMP] execution.pil)
     // internal_return  = 1 ==> pc' = internal_call_stack.return_pc (#[UNWIND_CALL_STACK] internal_call.pil)
     // jump             = 1 ==> pc' = rop[0] (#[PC_NEXT_ROW_INT_CALL_JUMP] execution.pil)
@@ -226,14 +235,14 @@ namespace execution;
     #[PC_NEXT_ROW_DEFAULT]
     NOT_LAST_EXEC * DEFAULT_CTX_ROW * (1 - PC_JUMP) * (pc' - next_pc) = 0;
 
-    // nested_exit_call = 1 ==> constraints come from lookup
+    // NESTED_EXIT_CALL = 1 ==> constraints come from lookup
     // sel_enter_call   = 1 ==> msg_sender' = contract_address
     // otherwise        = 0 ==> msg_sender' = msg_sender
     #[MSG_SENDER_NEXT_ROW]
     NOT_LAST_EXEC * DEFAULT_CTX_ROW * (msg_sender' - msg_sender) = 0;
     NOT_LAST_EXEC * sel_enter_call  * (msg_sender' - contract_address) = 0;
 
-    // nested_exit_call = 1 ==> constraints come from lookup
+    // NESTED_EXIT_CALL = 1 ==> constraints come from lookup
     // sel_enter_call   = 1 ==> contract_address' = register[2] (intermediate register 3 from execution trace)
     // otherwise        = 0 ==> contract_address' = contract_address
     #[CONTRACT_ADDR_NEXT_ROW]
@@ -253,7 +262,7 @@ namespace execution;
     // NOTE: don't need to say NOT_LAST_EXEC because last execution row must be an enqueued call end
     // NOTE: on enqueued_call_start, transaction_fee is set via the DISPATCH lookup from tx trace to execution.
 
-    // nested_exit_call = 1 ==> constraints come from lookup
+    // NESTED_EXIT_CALL = 1 ==> constraints come from lookup
     // sel_enter_call   = 1 && static_call = 1 ==> is_static' = 1
     // sel_enter_call   = 1 && static_call = 0 ==> is_static' = 0
     // otherwise        = 0 ==> is_static' = is_static
@@ -266,7 +275,7 @@ namespace execution;
     #[IS_STATIC_IF_CALL_FROM_STATIC_CONTEXT]
     NOT_LAST_EXEC * sel_enter_call * is_static * (is_static' - 1) = 0;
 
-    // nested_exit_call    = 1 ==> constraints come from lookup
+    // NESTED_EXIT_CALL    = 1 ==> constraints come from lookup
     // sel_enter_call      = 1 ==> parent_calldata_addr' = rop[4] (resolved operand 5 from execution trace)
     // otherwise           = 0 ==> parent_calldata_addr' = parent_calldata_addr
     // enqueued_call_start = 1 ==> parent_calldata_addr = 0;
@@ -277,14 +286,14 @@ namespace execution;
     enqueued_call_start * parent_calldata_addr = 0;
 
     // enqueued_call_start = 1 ==> parent_calldata_size is constrained in tx.pil (#[DISPATCH_EXEC_START])
-    // nested_exit_call    = 1 ==> constraints come from lookup
+    // NESTED_EXIT_CALL    = 1 ==> constraints come from lookup
     // sel_enter_call      = 1 ==> parent_calldata_size' = register[3] (register 4 from execution trace)
     // otherwise           = 0 ==> parent_calldata_size' = parent_calldata_size
     #[CD_SIZE_NEXT_ROW]
     NOT_LAST_EXEC * DEFAULT_CTX_ROW * (parent_calldata_size' - parent_calldata_size) = 0;
     NOT_LAST_EXEC * sel_enter_call  * (parent_calldata_size' - register[3]) = 0;
 
-    pol NESTED_RET_REV_ONLY = nested_exit_call * (1 - sel_error);
+    pol NESTED_RET_REV_ONLY = NESTED_EXIT_CALL * (1 - sel_error);
 
     // NESTED_RET_REV_ONLY = 1 ==> rop[1] (resolved operand 2 from execution trace)
     // sel_error           = 1 ==> last_child_returndata_addr' = 0;
@@ -292,7 +301,7 @@ namespace execution;
     // enqueued_call_start = 1 ==> last_child_returndata_addr  = 0; <-- This row is 0
     // otherwise           = 0 ==> last_child_returndata_addr' = last_child_returndata_addr
     #[RET_REV_RD_ADDR]
-    NOT_LAST_EXEC * NESTED_RET_REV_ONLY * (last_child_returndata_addr' - rop[1]) = 0;
+    NESTED_RET_REV_ONLY * (last_child_returndata_addr' - rop[1]) = 0;
     #[NEXT_RD_ADDR_IS_ZERO]
     NOT_LAST_EXEC * (sel_enter_call + sel_error) * last_child_returndata_addr' = 0;
     #[RD_ADDR_IS_ZERO]
@@ -306,16 +315,13 @@ namespace execution;
     // enqueued_call_start = 1 ==> last_child_returndata_size  = 0; <-- Current row is 0
     // otherwise           = 0 ==> last_child_returndata_size' = last_child_returndata_size
     #[RET_REV_RD_SIZE]
-    NOT_LAST_EXEC * NESTED_RET_REV_ONLY  * (last_child_returndata_size' - register[0]) = 0;
+    NESTED_RET_REV_ONLY  * (last_child_returndata_size' - register[0]) = 0;
     #[NEXT_RD_SIZE_IS_ZERO]
     NOT_LAST_EXEC * (sel_enter_call + sel_error) * last_child_returndata_size' = 0;
     #[RD_SIZE_IS_ZERO]
     enqueued_call_start * last_child_returndata_size = 0;
     #[PROPAGATE_RD_SIZE]
     NOT_LAST_EXEC * DEFAULT_CTX_ROW * (last_child_returndata_size' - last_child_returndata_size) = 0;
-
-    pol commit nested_failure; // @boolean (by definition)
-    nested_failure = has_parent_ctx * sel_failure;
 
     // nested_return          = 1 ==> last_child_success' = 1;
     // nested_failure = 1 ==> last_child_success' = 0;
@@ -324,7 +330,7 @@ namespace execution;
     // enqueued_call_start    = 1 ==> last_child_success = 0;
     // otherwise                  ==> last_child_success' = last_child_success;
     #[NESTED_RETURN_LAST_CHILD_SUCCESS]
-    NOT_LAST_EXEC * nested_return * (last_child_success' - 1) = 0;
+    nested_return * (last_child_success' - 1) = 0;
     #[LAST_CHILD_SUCCESS_NEXT_ROW_ZERO]
     NOT_LAST_EXEC * (nested_failure + sel_enter_call) * last_child_success' = 0;
     #[LAST_CHILD_SUCCESS_IS_ZERO]
@@ -332,12 +338,12 @@ namespace execution;
     #[PROPAGATE_LAST_CHILD_SUCCESS]
     NOT_LAST_EXEC * DEFAULT_CTX_ROW * (last_child_success' - last_child_success) = 0;
 
-    // nested_exit_call    = 1 ==> last_child_id' = context_id;  <-- sel_exit_call includes error case
+    // NESTED_EXIT_CALL    = 1 ==> last_child_id' = context_id;  <-- sel_exit_call includes error case
     // sel_enter_call      = 1 ==> last_child_id' = 0;
     // enqueued_call_start = 1 ==> last_child_id = 0; <-- Current row is 0
     // otherwise           = 0 ==> last_child_id' = last_child_id;
     #[EXIT_CALL_LAST_CHILD_ID]
-    NOT_LAST_EXEC * nested_exit_call * (last_child_id' - context_id) = 0;
+    NESTED_EXIT_CALL * (last_child_id' - context_id) = 0;
     #[ENTER_CALL_LAST_CHILD_ID]
     NOT_LAST_EXEC * sel_enter_call * last_child_id' = 0;
     #[LAST_CHILD_ID_IS_ZERO]
@@ -345,23 +351,23 @@ namespace execution;
     #[PROPAGATE_LAST_CHILD_ID]
     NOT_LAST_EXEC * DEFAULT_CTX_ROW * (last_child_id' - last_child_id) = 0;
 
-    // nested_exit_call = 1 ==> l2_gas_limit' = parent_l2_gas_limit
+    // NESTED_EXIT_CALL = 1 ==> l2_gas_limit' = parent_l2_gas_limit
     // sel_enter_call   = 1 ==> constraints come from call logic
     // otherwise        = 0 ==> l2_gas_limit' = l2_gas_limit
     #[L2_GAS_LIMIT_NEXT_ROW]
     NOT_LAST_EXEC * DEFAULT_CTX_ROW * (l2_gas_limit' - l2_gas_limit) = 0;
     #[L2_GAS_LIMIT_RESTORE_ON_EXIT]
-    NOT_LAST_EXEC * nested_exit_call * (l2_gas_limit' - parent_l2_gas_limit) = 0;
+    NESTED_EXIT_CALL * (l2_gas_limit' - parent_l2_gas_limit) = 0;
 
-    // nested_exit_call = 1 ==> da_gas_limit' = parent_da_gas_limit
+    // NESTED_EXIT_CALL = 1 ==> da_gas_limit' = parent_da_gas_limit
     // sel_enter_call   = 1 ==> constraints come from call logic
     // otherwise        = 0 ==> da_gas_limit' = da_gas_limit
     #[DA_GAS_LIMIT_NEXT_ROW]
     NOT_LAST_EXEC * DEFAULT_CTX_ROW * (da_gas_limit' - da_gas_limit) = 0;
     #[DA_GAS_LIMIT_RESTORE_ON_EXIT]
-    NOT_LAST_EXEC * nested_exit_call * (da_gas_limit' - parent_da_gas_limit) = 0;
+    NESTED_EXIT_CALL * (da_gas_limit' - parent_da_gas_limit) = 0;
 
-    // nested_exit_call = 1 ==> constraints come from lookup
+    // NESTED_EXIT_CALL = 1 ==> constraints come from lookup
     // sel_enter_call   = 1 ==> parent_l2_gas_limit' = l2_gas_limit
     // otherwise        = 0 ==> parent_l2_gas_limit' = parent_l2_gas_limit
     #[PARENT_L2_GAS_LIMIT_NEXT_ROW]
@@ -369,7 +375,7 @@ namespace execution;
     #[PARENT_L2_GAS_LIMIT_STORE_ON_ENTER]
     NOT_LAST_EXEC * sel_enter_call * (parent_l2_gas_limit' - l2_gas_limit) = 0;
 
-    // nested_exit_call = 1 ==> constraints come from lookup
+    // NESTED_EXIT_CALL = 1 ==> constraints come from lookup
     // sel_enter_call   = 1 ==> parent_da_gas_limit' = da_gas_limit
     // otherwise        = 0 ==> parent_da_gas_limit' = parent_da_gas_limit
     #[PARENT_DA_GAS_LIMIT_NEXT_ROW]
@@ -377,7 +383,7 @@ namespace execution;
     #[PARENT_DA_GAS_LIMIT_STORE_ON_ENTER]
     NOT_LAST_EXEC * sel_enter_call * (parent_da_gas_limit' - da_gas_limit) = 0;
 
-    // nested_exit_call = 1 ==> constraints come from lookup
+    // NESTED_EXIT_CALL = 1 ==> constraints come from lookup
     // sel_enter_call   = 1 ==> parent_l2_gas_used' = l2_gas_used
     // otherwise        = 0 ==> parent_l2_gas_used' = parent_l2_gas_used
     #[PARENT_L2_GAS_USED_NEXT_ROW]
@@ -385,7 +391,7 @@ namespace execution;
     #[PARENT_L2_GAS_USED_STORE_ON_ENTER]
     NOT_LAST_EXEC * sel_enter_call * (parent_l2_gas_used' - l2_gas_used) = 0;
 
-    // nested_exit_call = 1 ==> constraints come from lookup
+    // NESTED_EXIT_CALL = 1 ==> constraints come from lookup
     // sel_enter_call   = 1 ==> parent_da_gas_used' = da_gas_used
     // otherwise        = 0 ==> parent_da_gas_used' = parent_da_gas_used
     #[PARENT_DA_GAS_USED_NEXT_ROW]
@@ -521,9 +527,6 @@ namespace execution;
         context_stack.num_l2_to_l1_messages
     };
 
-    pol commit nested_return; // @boolean (by definition)
-    nested_return = has_parent_ctx * sel_execute_return;
-
     // We restore a partial context on a nested return. We do not restore trees or side effects though,
     // since we adopt the nested state after end.
     // Pop the context stack (partially).
@@ -568,7 +571,7 @@ namespace execution;
     (l2_gas_limit - total_gas_l2) * SEL_CONSUMED_ALL_GAS + total_gas_l2 - l2_gas_used = 0;
     (da_gas_limit - total_gas_da) * SEL_CONSUMED_ALL_GAS + total_gas_da - da_gas_used = 0;
 
-    // nested_exit_call = 1 <==> prev_gas_used' = parent_gas_used + gas_used
+    // NESTED_EXIT_CALL = 1 <==> prev_gas_used' = parent_gas_used + gas_used
     // sel_enter_call   = 1 <==> prev_gas_used' = 0
     // otherwise        = 0 <==> prev_gas_used' = gas_used
     #[L2_GAS_USED_CONTINUITY]
@@ -576,13 +579,13 @@ namespace execution;
     #[L2_GAS_USED_ZERO_AFTER_CALL]
     NOT_LAST_EXEC * sel_enter_call * prev_l2_gas_used' = 0;
     #[L2_GAS_USED_INGEST_AFTER_EXIT]
-    NOT_LAST_EXEC * nested_exit_call * (parent_l2_gas_used + l2_gas_used - prev_l2_gas_used') = 0;
+    NESTED_EXIT_CALL * (parent_l2_gas_used + l2_gas_used - prev_l2_gas_used') = 0;
     #[DA_GAS_USED_CONTINUITY]
     NOT_LAST_EXEC * DEFAULT_CTX_ROW * (da_gas_used - prev_da_gas_used') = 0;
     #[DA_GAS_USED_ZERO_AFTER_CALL]
     NOT_LAST_EXEC * sel_enter_call * prev_da_gas_used' = 0;
     #[DA_GAS_USED_INGEST_AFTER_EXIT]
-    NOT_LAST_EXEC * nested_exit_call * (parent_da_gas_used + da_gas_used - prev_da_gas_used') = 0;
+    NESTED_EXIT_CALL * (parent_da_gas_used + da_gas_used - prev_da_gas_used') = 0;
 
     // Tree and side effect state continuity constraints cover all non-failure rows.
     // The different cases form a partition:
