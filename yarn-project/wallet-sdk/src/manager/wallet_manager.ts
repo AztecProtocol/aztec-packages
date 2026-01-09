@@ -53,7 +53,7 @@ export class WalletManager {
             version: info.version,
             verificationHash: info.verificationHash,
           },
-          connect: (appId: string) => ExtensionWallet.create(info, chainInfo, port, sharedKey, appId),
+          connect: (appId: string) => Promise.resolve(ExtensionWallet.create(info, chainInfo, port, sharedKey, appId)),
         });
       }
     }
