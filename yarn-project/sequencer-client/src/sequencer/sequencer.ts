@@ -12,7 +12,7 @@ import type { DateProvider } from '@aztec/foundation/timer';
 import type { TypedEventEmitter } from '@aztec/foundation/types';
 import type { P2P } from '@aztec/p2p';
 import type { SlasherClientInterface } from '@aztec/slasher';
-import type { L2BlockNew, L2BlockSource, ValidateBlockResult } from '@aztec/stdlib/block';
+import type { L2BlockNew, L2BlockSink, L2BlockSource, ValidateBlockResult } from '@aztec/stdlib/block';
 import type { Checkpoint } from '@aztec/stdlib/checkpoint';
 import { getSlotAtTimestamp, getSlotStartBuildTimestamp } from '@aztec/stdlib/epoch-helpers';
 import {
@@ -90,7 +90,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     protected p2pClient: P2P,
     protected worldState: WorldStateSynchronizer,
     protected slasherClient: SlasherClientInterface | undefined,
-    protected l2BlockSource: L2BlockSource,
+    protected l2BlockSource: L2BlockSource & L2BlockSink,
     protected l1ToL2MessageSource: L1ToL2MessageSource,
     protected checkpointsBuilder: FullNodeCheckpointsBuilder,
     protected l1Constants: SequencerRollupConstants,
@@ -391,6 +391,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       this.worldState,
       this.l1ToL2MessageSource,
       this.checkpointsBuilder,
+      this.l2BlockSource,
       this.l1Constants,
       this.config,
       this.timetable,

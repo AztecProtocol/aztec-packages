@@ -16,6 +16,7 @@ import {
   CommitteeAttestation,
   CommitteeAttestationsAndSigners,
   L2BlockNew,
+  type L2BlockSink,
   MaliciousCommitteeAttestationsAndSigners,
 } from '@aztec/stdlib/block';
 import type { Checkpoint } from '@aztec/stdlib/checkpoint';
@@ -70,6 +71,7 @@ export class CheckpointProposalJob implements Traceable {
     private readonly worldState: WorldStateSynchronizer,
     private readonly l1ToL2MessageSource: L1ToL2MessageSource,
     private readonly checkpointsBuilder: FullNodeCheckpointsBuilder,
+    private readonly blockSink: L2BlockSink,
     private readonly l1Constants: SequencerRollupConstants,
     protected config: ResolvedSequencerConfig,
     protected timetable: SequencerTimetable,
@@ -672,16 +674,16 @@ export class CheckpointProposalJob implements Traceable {
   }
 
   /**
-   * Placeholder for pushing block to archiver and waiting for sync.
-   * To be implemented when archiver and world-state support proposed blocks.
+   * Adds the proposed block to the archiver so it's available via P2P.
+   * Gossip doesn't echo messages back to the sender, so the proposer's archiver/world-state
+   * would never receive its own block without this explicit sync.
    */
   private async syncProposedBlockToArchiver(block: L2BlockNew): Promise<void> {
-    this.log.debug(`Syncing proposed block ${block.number}`, {
+    this.log.debug(`Syncing proposed block ${block.number} to archiver`, {
       blockNumber: block.number,
       slot: block.header.globalVariables.slotNumber,
     });
-    // TODO(palla/mbps): Implement actual sync to archiver and world-state
-    await Promise.resolve();
+    await this.blockSink.addBlock(block);
   }
 
   /** Runs fee analysis and logs checkpoint outcome as fisherman */

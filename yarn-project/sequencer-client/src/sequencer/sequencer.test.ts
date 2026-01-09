@@ -16,6 +16,7 @@ import {
   CommitteeAttestationsAndSigners,
   GENESIS_CHECKPOINT_HEADER_HASH,
   L2BlockNew,
+  type L2BlockSink,
   type L2BlockSource,
   type ValidateBlockNegativeResult,
 } from '@aztec/stdlib/block';
@@ -53,7 +54,7 @@ describe('sequencer', () => {
   let worldState: MockProxy<WorldStateSynchronizer>;
   let checkpointsBuilder: MockCheckpointsBuilder;
   let checkpointBuilder: MockCheckpointBuilder;
-  let l2BlockSource: MockProxy<L2BlockSource>;
+  let l2BlockSource: MockProxy<L2BlockSource & L2BlockSink>;
   let l1ToL2MessageSource: MockProxy<L1ToL2MessageSource>;
   let slasherClient: MockProxy<SlasherClientInterface>;
   let publisherFactory: MockProxy<SequencerPublisherFactory>;
@@ -230,7 +231,7 @@ describe('sequencer', () => {
     // Use blockProvider so the mock returns whatever `block` is set to at call time
     checkpointBuilder.setBlockProvider(() => block);
 
-    l2BlockSource = mock<L2BlockSource>({
+    l2BlockSource = mock<L2BlockSource & L2BlockSink>({
       getL2BlockNew: mockFn().mockResolvedValue(L2BlockNew.empty()),
       getBlockNumber: mockFn().mockResolvedValue(lastBlockNumber),
       getL2Tips: mockFn().mockResolvedValue({

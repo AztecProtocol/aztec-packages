@@ -11,7 +11,7 @@ import type { TypedEventEmitter } from '@aztec/foundation/types';
 import { type P2P, P2PClientState } from '@aztec/p2p';
 import type { SlasherClientInterface } from '@aztec/slasher';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { CommitteeAttestation } from '@aztec/stdlib/block';
+import { CommitteeAttestation, type L2BlockSink } from '@aztec/stdlib/block';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { GasFees } from '@aztec/stdlib/gas';
 import type {
@@ -59,6 +59,7 @@ describe('CheckpointProposalJob', () => {
   let checkpointsBuilder: MockCheckpointsBuilder;
   let checkpointBuilder: MockCheckpointBuilder;
   let l1ToL2MessageSource: MockProxy<L1ToL2MessageSource>;
+  let blockSink: MockProxy<L2BlockSink>;
   let slasherClient: MockProxy<SlasherClientInterface>;
   let dateProvider: TestDateProvider;
   let metrics: MockProxy<SequencerMetrics>;
@@ -191,6 +192,9 @@ describe('CheckpointProposalJob', () => {
 
     l1ToL2MessageSource = mock<L1ToL2MessageSource>();
     l1ToL2MessageSource.getL1ToL2Messages.mockResolvedValue(Array(4).fill(Fr.ZERO));
+
+    blockSink = mock<L2BlockSink>();
+    blockSink.addBlock.mockResolvedValue(undefined);
 
     validatorClient = mock<ValidatorClient>();
     validatorClient.collectAttestations.mockImplementation(() => Promise.resolve([]));
@@ -355,6 +359,7 @@ describe('CheckpointProposalJob', () => {
       worldState,
       l1ToL2MessageSource,
       checkpointsBuilder as unknown as FullNodeCheckpointsBuilder,
+      blockSink,
       l1Constants,
       config,
       timetable,

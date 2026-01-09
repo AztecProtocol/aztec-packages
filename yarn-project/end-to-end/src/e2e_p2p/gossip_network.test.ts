@@ -150,6 +150,21 @@ describe('e2e_p2p_network', () => {
     // blocks without them (since targetCommitteeSize is set to the number of nodes)
     await t.setupAccount();
 
+    // Wait until the other nodes sync to the block from which we sent the tx
+    const targetBlock = await t.ctx.aztecNode.getBlockNumber();
+    t.logger.warn(`Waiting for all nodes to sync to block number ${targetBlock}`);
+    await retryUntil(
+      async () => {
+        const blockNumbers = await Promise.all(nodes.map(node => node.getBlockNumber()));
+        const checkpointNumber = (await t.monitor.run()).checkpointNumber;
+        t.logger.info(`Current block numbers ${blockNumbers} (checkpoint number on L1 is ${checkpointNumber})`);
+        return blockNumbers.every(bn => bn >= targetBlock);
+      },
+      `nodes to sync to block number ${targetBlock}`,
+      30,
+      0.5,
+    );
+
     t.logger.info('Submitting transactions');
     for (const node of nodes) {
       const context = await submitTransactions(t.logger, node, NUM_TXS_PER_NODE, t.fundedAccount);
