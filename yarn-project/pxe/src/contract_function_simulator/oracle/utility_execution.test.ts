@@ -190,7 +190,7 @@ describe('Utility Execution test suite', () => {
       returnTypes: artifact.returnTypes,
     };
 
-    const result = await acirSimulator.runUtility(execRequest, [], anchorBlockHeader, []);
+    const result = await acirSimulator.runUtility(execRequest, [], anchorBlockHeader, [], 'test-job-id');
 
     expect(result).toEqual([new Fr(9)]);
   }, 30_000);
@@ -222,6 +222,7 @@ describe('Utility Execution test suite', () => {
         senderAddressBookStore,
         capsuleStore,
         privateEventStore,
+        'test-job-id',
       );
     });
 
