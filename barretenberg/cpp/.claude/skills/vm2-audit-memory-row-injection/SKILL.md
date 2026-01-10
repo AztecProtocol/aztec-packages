@@ -4,19 +4,9 @@ description: Audit VM2/AVM PIL files for memory row injection vulnerabilities. C
 allowed-tools: Read, Glob, Grep, Bash, Write, Edit
 ---
 
-# VM2 Memory Row Injection Audit Skill
+# VM2 Memory Row Injection Audit
 
-## Overview
-
-This skill audits VM2/AVM PIL constraints for memory row injection vulnerabilities. A malicious prover can inject fake memory rows into the memory trace, allowing arbitrary memory reads/writes that bypass the legitimate execution trace.
-
-## Why This is Important
-
-Memory is the foundation of VM execution. If memory can be corrupted:
-- **Read any value from any address**: Fake reads return attacker-controlled values
-- **Write arbitrary values to any address**: Corrupt any memory location
-- **Bypass access control**: Access memory that should be protected
-- **Corrupt program state entirely**: Complete control over VM execution
+Audits for memory row injection - fake memory rows in the memory trace allowing arbitrary reads/writes. Complete control over VM state: read any address, write any value, bypass access control.
 
 ## Attack Vectors
 
@@ -70,9 +60,9 @@ sel_mem_access * (1 - sel_mem_access) = 0;  // Boolean, but...
 
 **Impact**: Inject arbitrary memory state.
 
-## Audit Instructions
+## Instructions
 
-> **Note**: PIL files exist in subdirectories (e.g., `bytecode/`, `opcodes/`). Use `find barretenberg/cpp/pil/vm2 -name "*.pil"` to list all PIL files.
+> **Note**: Use `find pil/vm2 -name "*.pil"` to list all PIL files.
 
 ### Step 1: Find All Memory-Related Components
 
@@ -149,7 +139,7 @@ Memory operations should include context_id to prevent cross-context access:
 grep -n "context\|space_id\|call_id" barretenberg/cpp/pil/vm2/memory*.pil
 ```
 
-## Vulnerable vs Secure Patterns
+## Patterns
 
 ### Vulnerable Pattern: Using Lookup for Memory
 
@@ -179,7 +169,7 @@ sel * (1 - sel') * (addr' - addr) * is_same_addr_indicator = 0;
 4. **Proper ordering**: Reads see most recent writes
 5. **Context isolation**: Memory operations bound to their context
 
-## Historical Examples
+## Examples
 
 ### Example 1: Missing Boolean on Memory Selector
 
@@ -212,11 +202,7 @@ pol commit sel;
 // Was missing boolean constraint
 ```
 
----
-
 ## REQUIRED OUTPUT FORMAT
-
-**IMPORTANT**: Your response MUST end with this machine-readable section.
 
 ### Summary Table
 
@@ -230,7 +216,6 @@ pol commit sel;
 
 ### Findings Format
 
-For each finding, include:
 - **ID**: `{skill-name}-{file}-{line}-{subtype}`
 - **Severity**: Critical / High / Medium / Low
 - **File**: `path/to/file.pil:line`
@@ -238,8 +223,6 @@ For each finding, include:
 - **Fix**: One-line suggestion
 
 ### Machine-Readable JSON (REQUIRED)
-
-You MUST include this exact format at the end of your response:
 
 <!-- MACHINE-READABLE FINDINGS -->
 ```json
@@ -261,7 +244,7 @@ You MUST include this exact format at the end of your response:
 ```
 <!-- END MACHINE-READABLE FINDINGS -->
 
-For no findings, use:
+For no findings:
 <!-- MACHINE-READABLE FINDINGS -->
 ```json
 {

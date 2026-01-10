@@ -4,22 +4,13 @@ description: Audit VM2/AVM PIL files for missing error aggregation constraints. 
 allowed-tools: Read, Glob, Grep, Bash, Write, Edit
 ---
 
-# VM2 Error Aggregation Audit Skill
+# VM2 Error Aggregation Audit
 
-## Overview
+Audits for missing error aggregation - aggregate error flag has only a boolean constraint but no tie to individual errors. Allows prover to claim no error when individual errors exist, continuing execution and corrupting state.
 
-This skill audits VM2/AVM PIL constraints for missing error aggregation. Error flags are not properly aggregated from individual error conditions - the aggregate error flag only has a boolean constraint but no constraint tying it to the individual errors.
+## Instructions
 
-## Why This is Important
-
-Missing error aggregation allows complete bypass of error handling:
-- **Claim no error when individual errors exist**: Prover hides failures
-- **Continue execution after failure**: State corruption
-- **Hide invalid operations**: Make invalid operations appear valid
-
-## Audit Instructions
-
-> **Note**: PIL files exist in subdirectories (e.g., `bytecode/`, `opcodes/`). Use `find barretenberg/cpp/pil/vm2 -name "*.pil"` to list all PIL files.
+> **Note**: Use `find pil/vm2 -name "*.pil"` to list all PIL files.
 
 ### Step 1: Find All Aggregate Error Flags
 
@@ -131,7 +122,7 @@ sel_err_low = err_a + err_b;
 sel_err_high = sel_err_low + err_c;
 ```
 
-## Vulnerable vs Secure Patterns
+## Patterns
 
 ### Vulnerable Pattern: Only Boolean Constraint
 
@@ -166,7 +157,7 @@ sel_error = sel_bytecode_retrieval_failure + sel_instruction_fetching_failure + 
 // Only valid if at most one error can occur at a time
 ```
 
-## Historical Examples
+## Examples
 
 ### Example 1: Instruction Fetching (Critical!)
 
@@ -189,11 +180,7 @@ sel_parsing_err = pc_out_of_range + opcode_out_of_range + instr_out_of_range;
 sel_err = sel_opcode_err + sel_bytecode_err + sel_addressing_err + ...;
 ```
 
----
-
 ## REQUIRED OUTPUT FORMAT
-
-**IMPORTANT**: Your response MUST end with this machine-readable section.
 
 ### Summary Table
 
@@ -207,7 +194,6 @@ sel_err = sel_opcode_err + sel_bytecode_err + sel_addressing_err + ...;
 
 ### Findings Format
 
-For each finding, include:
 - **ID**: `{skill-name}-{file}-{line}-{subtype}`
 - **Severity**: Critical / High / Medium / Low
 - **File**: `path/to/file.pil:line`
@@ -215,8 +201,6 @@ For each finding, include:
 - **Fix**: One-line suggestion
 
 ### Machine-Readable JSON (REQUIRED)
-
-You MUST include this exact format at the end of your response:
 
 <!-- MACHINE-READABLE FINDINGS -->
 ```json
@@ -238,7 +222,7 @@ You MUST include this exact format at the end of your response:
 ```
 <!-- END MACHINE-READABLE FINDINGS -->
 
-For no findings, use:
+For no findings:
 <!-- MACHINE-READABLE FINDINGS -->
 ```json
 {

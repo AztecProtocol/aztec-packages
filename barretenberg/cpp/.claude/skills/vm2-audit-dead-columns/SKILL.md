@@ -4,30 +4,13 @@ description: Audit VM2/AVM PIL files for dead columns - columns that are declare
 allowed-tools: Read, Glob, Grep, Bash, Write, Edit
 ---
 
-# VM2 Dead Columns Audit Skill
+# VM2 Dead Columns Audit
 
-## Overview
+Audits for dead columns - columns declared (`pol commit`) but never meaningfully used. Can indicate incomplete constraints, missing lookups, forgotten security checks, or refactoring leftovers. **Used**: appears in constraints, lookups/permutations, intermediate polys, or as lookup destination. **Dead**: only declared, only assigned in tracegen, or only in comments/disabled code.
 
-This skill audits VM2/AVM PIL files for dead columns - columns that are declared (`pol commit`) but never meaningfully used. Dead columns can indicate incomplete constraints, missing lookups, or leftover code that may hide soundness issues.
+## Instructions
 
-## Why This is Important
-
-Dead columns can indicate serious issues:
-- **Incomplete constraints**: Column was supposed to constrain behavior but doesn't
-- **Missing lookups/permutations**: Column should be verified against another trace
-- **Forgotten security checks**: Column exists for validation but check was never added
-- **Refactoring leftovers**: Column no longer needed but not removed, obscuring code
-- **Prover freedom**: Uncommitted columns give prover arbitrary control
-
-## What Counts as "Used"
-
-**Used**: appears in constraints, lookups/permutations, intermediate polys, or as lookup destination from other traces.
-
-**Dead**: only declared (`pol commit`), only assigned in tracegen, or only in comments/disabled code.
-
-## Audit Instructions
-
-> **Note**: PIL files exist in subdirectories (e.g., `bytecode/`, `opcodes/`). Use `find barretenberg/cpp/pil/vm2 -name "*.pil"` to list all PIL files.
+> **Note**: Use `find pil/vm2 -name "*.pil"` to list all PIL files.
 
 ### Step 1: List All Declared Columns
 
@@ -85,7 +68,7 @@ For each dead column found, determine:
 3. **Refactoring leftover**: Should be removed
 4. **Lookup destination**: Used by other traces (not dead)
 
-## Vulnerable vs Valid Patterns
+## Patterns
 
 ### Vulnerable Pattern: Declared But Unused
 
@@ -176,11 +159,7 @@ for col in $COLUMNS; do
 done
 ```
 
----
-
 ## REQUIRED OUTPUT FORMAT
-
-**IMPORTANT**: Your response MUST end with this machine-readable section.
 
 ### Summary Table
 
@@ -194,7 +173,6 @@ done
 
 ### Findings Format
 
-For each finding, include:
 - **ID**: `{skill-name}-{file}-{line}-{subtype}`
 - **Severity**: Critical / High / Medium / Low
 - **File**: `path/to/file.pil:line`
@@ -202,8 +180,6 @@ For each finding, include:
 - **Fix**: One-line suggestion
 
 ### Machine-Readable JSON (REQUIRED)
-
-You MUST include this exact format at the end of your response:
 
 <!-- MACHINE-READABLE FINDINGS -->
 ```json
@@ -225,7 +201,7 @@ You MUST include this exact format at the end of your response:
 ```
 <!-- END MACHINE-READABLE FINDINGS -->
 
-For no findings, use:
+For no findings:
 <!-- MACHINE-READABLE FINDINGS -->
 ```json
 {

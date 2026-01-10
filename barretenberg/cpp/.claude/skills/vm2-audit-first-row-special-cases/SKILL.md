@@ -4,15 +4,9 @@ description: Audit VM2/AVM PIL files for first row special case issues with skip
 allowed-tools: Read, Glob, Grep, Bash, Write, Edit
 ---
 
-# VM2 First Row Special Cases Audit Skill
+# VM2 First Row Special Cases Audit
 
-## Overview
-
-This skill audits VM2/AVM PIL constraints for first row special case issues with skippable conditions. Constraints involving `precomputed.first_row` don't work correctly with skippable conditions, causing verification failures when `sel = 0` on row 0 because `first_row = 1` prevents nullification.
-
-## Why This is Important
-
-This is a **completeness** issue - valid traces fail verification when skippable is enabled, even though the trace is correct. The prover generates a valid trace, but the skippable optimization incorrectly triggers verification failure.
+Audits for first row special case issues with skippable conditions. Constraints involving `precomputed.first_row` don't nullify when `sel = 0` on row 0 because `first_row = 1`. This is a **completeness** issue - valid traces fail verification.
 
 ## The Problem Explained
 
@@ -95,9 +89,9 @@ latch * precomputed.first_row = 0;
 
 If no → not a completeness issue.
 
-## Audit Instructions
+## Instructions
 
-> **Note**: PIL files exist in subdirectories (e.g., `bytecode/`, `opcodes/`). Use `find barretenberg/cpp/pil/vm2 -name "*.pil"` to list all PIL files.
+> **Note**: Use `find pil/vm2 -name "*.pil"` to list all PIL files.
 
 ### Step 1: Find All Uses of first_row
 
@@ -169,7 +163,7 @@ vmtg "ComponentTest*"
 
 If tests fail only with skippable enabled, there's likely a first_row issue.
 
-## Vulnerable vs Secure Patterns
+## Patterns
 
 ### Vulnerable Pattern: first_row Prevents Nullification
 
@@ -232,7 +226,7 @@ sel = 0;
 sel * some_constraint = 0;
 ```
 
-## Historical Examples
+## Examples
 
 ### Example 1: BC Hashing PC Increment (PR #18424)
 
@@ -264,11 +258,7 @@ sel = 0;
 ```
 **Impact**: Skippable never works on row 0.
 
----
-
 ## REQUIRED OUTPUT FORMAT
-
-**IMPORTANT**: Your response MUST end with this machine-readable section.
 
 ### Summary Table
 
@@ -282,7 +272,6 @@ sel = 0;
 
 ### Findings Format
 
-For each finding, include:
 - **ID**: `{skill-name}-{file}-{line}-{subtype}`
 - **Severity**: Critical / High / Medium / Low
 - **File**: `path/to/file.pil:line`
@@ -290,8 +279,6 @@ For each finding, include:
 - **Fix**: One-line suggestion
 
 ### Machine-Readable JSON (REQUIRED)
-
-You MUST include this exact format at the end of your response:
 
 <!-- MACHINE-READABLE FINDINGS -->
 ```json
@@ -313,7 +300,7 @@ You MUST include this exact format at the end of your response:
 ```
 <!-- END MACHINE-READABLE FINDINGS -->
 
-For no findings, use:
+For no findings:
 <!-- MACHINE-READABLE FINDINGS -->
 ```json
 {

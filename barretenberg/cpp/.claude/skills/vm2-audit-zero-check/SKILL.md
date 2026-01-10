@@ -4,15 +4,9 @@ description: Audit VM2/AVM PIL files for zero-check pattern violations. Soundnes
 allowed-tools: Read, Glob, Grep, Bash, Write, Edit
 ---
 
-# VM2 Zero-Check Pattern Audit Skill
+# VM2 Zero-Check Pattern Audit
 
-## Overview
-
-This skill audits VM2/AVM PIL constraints for zero-check pattern violations. The zero-check pattern creates a boolean indicator `e` that equals 1 if and only if a value `x` equals 0. Incorrect implementation allows bypassing equality checks.
-
-## Why This is Important
-
-Incorrect zero-check implementations enable several exploit patterns:
+Audits for zero-check pattern violations. The zero-check creates `e = 1 iff x = 0`. Incorrect implementation enables exploits:
 
 ### 1. Bypass Division-by-Zero Checks
 
@@ -65,9 +59,9 @@ x * (e * (1 - inv) + inv) - 1 + e = 0;
 
 **Variants**: Equality check (`a == b`) uses `diff = a - b` as input. Division-by-zero uses the divisor as input. Same pattern applies.
 
-## Audit Instructions
+## Instructions
 
-> **Note**: PIL files exist in subdirectories (e.g., `bytecode/`, `opcodes/`). Use `find barretenberg/cpp/pil/vm2 -name "*.pil"` to list all PIL files.
+> **Note**: Use `find pil/vm2 -name "*.pil"` to list all PIL files.
 
 ### Step 1: Find All Zero-Check Patterns
 
@@ -156,7 +150,7 @@ sel * e * (1 - e) = 0;  // Only enforced when sel = 1
 e + other_value = 0;     // Uses e even when sel = 0!
 ```
 
-## Historical Examples
+## Examples
 
 ### Example 1: ALU Division by Zero
 
@@ -198,11 +192,7 @@ Zero-check patterns typically appear in:
 - **Greater-than comparisons**: Detecting equality case
 - **Error handling**: Checking for error conditions
 
----
-
 ## REQUIRED OUTPUT FORMAT
-
-**IMPORTANT**: Your response MUST end with this machine-readable section.
 
 ### Summary Table
 
@@ -216,7 +206,6 @@ Zero-check patterns typically appear in:
 
 ### Findings Format
 
-For each finding, include:
 - **ID**: `{skill-name}-{file}-{line}-{subtype}`
 - **Severity**: Critical / High / Medium / Low
 - **File**: `path/to/file.pil:line`
@@ -224,8 +213,6 @@ For each finding, include:
 - **Fix**: One-line suggestion
 
 ### Machine-Readable JSON (REQUIRED)
-
-You MUST include this exact format at the end of your response:
 
 <!-- MACHINE-READABLE FINDINGS -->
 ```json
@@ -247,7 +234,7 @@ You MUST include this exact format at the end of your response:
 ```
 <!-- END MACHINE-READABLE FINDINGS -->
 
-For no findings, use:
+For no findings:
 <!-- MACHINE-READABLE FINDINGS -->
 ```json
 {
