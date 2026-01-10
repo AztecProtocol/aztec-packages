@@ -1,4 +1,5 @@
 import { FIELDS_PER_BLOB } from '@aztec/constants';
+import { bufferAlloc } from '@aztec/foundation/buffer';
 import { poseidon2Hash } from '@aztec/foundation/crypto/poseidon';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { toInlineStrArray } from '@aztec/foundation/testing';
@@ -19,7 +20,7 @@ describe('blob', () => {
     const kzgProofs: Uint8Array[] = [];
 
     for (let i = 0; i < BATCH_SIZE; i++) {
-      blobs.push(Buffer.alloc(BYTES_PER_BLOB));
+      blobs.push(bufferAlloc(BYTES_PER_BLOB));
       (blobs[i] as Buffer).write('potato', 0, 'utf8');
       (blobs[i] as Buffer).write('potato', BYTES_PER_BLOB - 50, 'utf8');
       commitments.push(kzg.blobToKzgCommitment(blobs[i]));
@@ -33,7 +34,7 @@ describe('blob', () => {
   it('should verify a kzg precise proof', () => {
     // This test is taken from the blob-lib repo
     const kzg = getKzg();
-    const zBytes = Buffer.alloc(32);
+    const zBytes = bufferAlloc(32);
 
     // blobs[0][31] = x, and z = 0x01 results in y = x.
     // So the first blob field is evaluated at 0x01.
@@ -42,7 +43,7 @@ describe('blob', () => {
     // This is the 2nd root of unity, after 1, because we actually get the bit_reversal_permutation of the root of unity. And although `7` is the primitive root of unity, the roots of unity are derived as 7 ^ ((BLS_MODULUS - 1) / FIELDS_PER_BLOB) mod BLS_MODULUS.
     (zBytes as Buffer).write('73EDA753299D7D483339D80809A1D80553BDA402FFFE5BFEFFFFFFFF00000000', 0, 'hex'); // equiv to 52435875175126190479447740508185965837690552500527637822603658699938581184512 which is actually -1 in the scalar field!
 
-    const blob = Buffer.alloc(BYTES_PER_BLOB);
+    const blob = bufferAlloc(BYTES_PER_BLOB);
     (blob as Buffer).write('09', 31, 'hex');
     (blob as Buffer).write('07', 31 + 32, 'hex');
 

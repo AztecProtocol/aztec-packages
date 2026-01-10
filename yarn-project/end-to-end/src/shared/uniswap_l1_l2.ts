@@ -12,6 +12,7 @@ import { deployL1Contract } from '@aztec/ethereum/deploy-l1-contract';
 import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
 import { extractEvent } from '@aztec/ethereum/utils';
 import { CheckpointNumber, EpochNumber } from '@aztec/foundation/branded-types';
+import { bufferFrom } from '@aztec/foundation/buffer';
 import { sha256ToField } from '@aztec/foundation/crypto/sha256';
 import { InboxAbi, UniswapPortalAbi, UniswapPortalBytecode } from '@aztec/l1-artifacts';
 import { UniswapContract } from '@aztec/noir-contracts.js/Uniswap';
@@ -214,7 +215,7 @@ export const uniswapL1L2TestSuite = (
 
       const swapPrivateFunction = 'swap_private(address,uint256,uint24,address,uint256,bytes32,address)';
       const swapPrivateContent = sha256ToField([
-        Buffer.from(toFunctionSelector(swapPrivateFunction).substring(2), 'hex'),
+        bufferFrom(toFunctionSelector(swapPrivateFunction).substring(2), 'hex'),
         wethCrossChainHarness.tokenPortalAddress.toBuffer32(),
         new Fr(wethAmountToBridge),
         new Fr(uniswapFeeTier),
@@ -233,7 +234,7 @@ export const uniswapL1L2TestSuite = (
       });
 
       const withdrawContent = sha256ToField([
-        Buffer.from(toFunctionSelector('withdraw(address,uint256,address)').substring(2), 'hex'),
+        bufferFrom(toFunctionSelector('withdraw(address,uint256,address)').substring(2), 'hex'),
         uniswapPortalAddress.toBuffer32(),
         new Fr(wethAmountToBridge),
         uniswapPortalAddress.toBuffer32(),
@@ -434,7 +435,7 @@ export const uniswapL1L2TestSuite = (
     //   const uniswapL2Interaction = await action.send().wait();
 
     //   const swapPublicContent = sha256ToField([
-    //     Buffer.from(
+    //     bufferFrom(
     //       toFunctionSelector('swap_public(address,uint256,uint24,address,uint256,bytes32,bytes32,address)').substring(
     //         2,
     //       ),
@@ -459,7 +460,7 @@ export const uniswapL1L2TestSuite = (
     //   ]);
 
     //   const withdrawContent = sha256ToField([
-    //     Buffer.from(toFunctionSelector('withdraw(address,uint256,address)').substring(2), 'hex'),
+    //     bufferFrom(toFunctionSelector('withdraw(address,uint256,address)').substring(2), 'hex'),
     //     uniswapPortalAddress.toBuffer32(),
     //     new Fr(wethAmountToBridge),
     //     uniswapPortalAddress.toBuffer32(),
@@ -808,7 +809,7 @@ export const uniswapL1L2TestSuite = (
         .wait();
 
       const swapPrivateContent = sha256ToField([
-        Buffer.from(
+        bufferFrom(
           toFunctionSelector('swap_private(address,uint256,uint24,address,uint256,bytes32,address)').substring(2),
           'hex',
         ),
@@ -830,7 +831,7 @@ export const uniswapL1L2TestSuite = (
       });
 
       const withdrawContent = sha256ToField([
-        Buffer.from(toFunctionSelector('withdraw(address,uint256,address)').substring(2), 'hex'),
+        bufferFrom(toFunctionSelector('withdraw(address,uint256,address)').substring(2), 'hex'),
         uniswapPortalAddress.toBuffer32(),
         new Fr(wethAmountToBridge),
         uniswapPortalAddress.toBuffer32(),
@@ -940,7 +941,7 @@ export const uniswapL1L2TestSuite = (
         .wait();
 
       const swapPublicContent = sha256ToField([
-        Buffer.from(
+        bufferFrom(
           toFunctionSelector('swap_public(address,uint256,uint24,address,uint256,bytes32,bytes32,address)').substring(
             2,
           ),
@@ -965,7 +966,7 @@ export const uniswapL1L2TestSuite = (
       });
 
       const withdrawContent = sha256ToField([
-        Buffer.from(toFunctionSelector('withdraw(address,uint256,address)').substring(2), 'hex'),
+        bufferFrom(toFunctionSelector('withdraw(address,uint256,address)').substring(2), 'hex'),
         uniswapPortalAddress.toBuffer32(),
         new Fr(wethAmountToBridge),
         uniswapPortalAddress.toBuffer32(),

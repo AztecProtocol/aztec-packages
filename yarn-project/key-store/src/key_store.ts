@@ -1,4 +1,5 @@
 import { GeneratorIndex } from '@aztec/constants';
+import { bufferFrom } from '@aztec/foundation/buffer';
 import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto/poseidon';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { GrumpkinScalar, Point } from '@aztec/foundation/curves/grumpkin';
@@ -277,7 +278,7 @@ export class KeyStore {
     const valueBuffer = serializeToBuffer(value);
     for await (const [key, val] of this.#keys.entriesAsync()) {
       // Browser returns Uint8Array, Node.js returns Buffer
-      if (Buffer.from(val).equals(valueBuffer)) {
+      if (bufferFrom(val).equals(valueBuffer)) {
         for (const prefix of KEY_PREFIXES) {
           if (key.includes(`-${prefix}`)) {
             const account = AztecAddress.fromString(key.split('-')[0]);

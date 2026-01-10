@@ -1,4 +1,5 @@
 import { toBigIntLE, toBufferLE } from '@aztec/foundation/bigint-buffer';
+import { bufferAlloc, bufferConcat, bufferFrom } from '@aztec/foundation/buffer';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { type Bufferable, type FromBuffer, serializeToBuffer } from '@aztec/foundation/serialize';
 import { type Hasher, SiblingPath } from '@aztec/foundation/trees';
@@ -11,10 +12,10 @@ const MAX_DEPTH = 254;
 
 const indexToKeyHash = (name: string, level: number, index: bigint) => `${name}:${level}:${index}`;
 const encodeMeta = (root: Buffer, depth: number, size: bigint) => {
-  const data = Buffer.alloc(36);
+  const data = bufferAlloc(36);
   root.copy(data);
   data.writeUInt32LE(depth, 32);
-  return Buffer.concat([data, toBufferLE(size, 32)]);
+  return bufferConcat([data, toBufferLE(size, 32)]);
 };
 const decodeMeta = (meta: Buffer) => {
   const root = meta.subarray(0, 32);
@@ -39,7 +40,7 @@ export const getTreeMeta = (store: AztecKVStore, treeName: string) => {
   return decodeMeta(val);
 };
 
-export const INITIAL_LEAF = Buffer.from('0000000000000000000000000000000000000000000000000000000000000000', 'hex');
+export const INITIAL_LEAF = bufferFrom('0000000000000000000000000000000000000000000000000000000000000000', 'hex');
 
 /**
  * A Merkle tree implementation that uses a LevelDB database to store the tree.

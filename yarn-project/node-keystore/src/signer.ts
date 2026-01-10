@@ -4,7 +4,7 @@
  * Common interface for different signing backends (local, remote, encrypted)
  */
 import type { EthSigner } from '@aztec/ethereum/eth-signer';
-import { Buffer32 } from '@aztec/foundation/buffer';
+import { Buffer32, bufferFrom } from '@aztec/foundation/buffer';
 import { randomBytes } from '@aztec/foundation/crypto/random';
 import { Secp256k1Signer, toRecoveryBit } from '@aztec/foundation/crypto/secp256k1-signer';
 import type { EthAddress } from '@aztec/foundation/eth-address';
@@ -260,7 +260,7 @@ export class RemoteSigner implements EthSigner {
       maxFeePerBlobGas:
         typeof tx.maxFeePerBlobGas !== 'undefined' ? withHexPrefix(tx.maxFeePerBlobGas.toString(16)) : undefined,
       blobVersionedHashes: tx.blobVersionedHashes,
-      blobs: tx.blobs?.map(blob => (typeof blob === 'string' ? blob : bufferToHex(Buffer.from(blob)))),
+      blobs: tx.blobs?.map(blob => (typeof blob === 'string' ? blob : bufferToHex(bufferFrom(blob)))),
     };
 
     let rawTxHex = await this.makeJsonRpcRequest('eth_signTransaction', txObject);

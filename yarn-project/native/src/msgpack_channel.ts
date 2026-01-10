@@ -1,3 +1,4 @@
+import { bufferFrom, isBuffer } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { MessageHeader, TypedMessage } from '@aztec/foundation/message';
 
@@ -67,13 +68,13 @@ export class MsgpackChannel<
     const callEnd = process.hrtime.bigint();
     duration.callUs = Number((callEnd - encodingEnd) / 1000n);
 
-    const buf = Buffer.isBuffer(encodedResponse)
+    const buf = isBuffer(encodedResponse)
       ? encodedResponse
       : isAnyArrayBuffer(encodedResponse)
-        ? Buffer.from(encodedResponse)
+        ? bufferFrom(encodedResponse)
         : encodedResponse;
 
-    if (!Buffer.isBuffer(buf)) {
+    if (!isBuffer(buf)) {
       throw new TypeError(
         'Invalid encoded response: expected Buffer or ArrayBuffer, got ' +
           (encodedResponse === null ? 'null' : typeof encodedResponse),

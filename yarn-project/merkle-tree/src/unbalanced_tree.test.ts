@@ -1,3 +1,4 @@
+import { bufferAlloc, bufferConcat } from '@aztec/foundation/buffer';
 import { SHA256Trunc, sha256Trunc } from '@aztec/foundation/crypto/sha256';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { FromBuffer } from '@aztec/foundation/serialize';
@@ -49,7 +50,7 @@ describe('Wonky tree', () => {
     });
 
     it("Shouldn't accept more leaves", () => {
-      expect(() => tree.appendLeaves([Buffer.alloc(32)])).toThrow(
+      expect(() => tree.appendLeaves([bufferAlloc(32)])).toThrow(
         "Can't re-append to an unbalanced tree. Current has 2 leaves.",
       );
     });
@@ -62,7 +63,7 @@ describe('Wonky tree', () => {
 
     it('Correctly computes root', () => {
       const root = tree.getRoot();
-      const expectedRoot = sha256Trunc(Buffer.concat([leaves[0], leaves[1]]));
+      const expectedRoot = sha256Trunc(bufferConcat([leaves[0], leaves[1]]));
       expect(root).toEqual(expectedRoot);
     });
 
@@ -96,8 +97,8 @@ describe('Wonky tree', () => {
 
     it('Correctly computes root', () => {
       const root = tree.getRoot();
-      const mergeNode = sha256Trunc(Buffer.concat([leaves[0], leaves[1]]));
-      const expectedRoot = sha256Trunc(Buffer.concat([mergeNode, leaves[2]]));
+      const mergeNode = sha256Trunc(bufferConcat([leaves[0], leaves[1]]));
+      const expectedRoot = sha256Trunc(bufferConcat([mergeNode, leaves[2]]));
       expect(root).toEqual(expectedRoot);
     });
 
@@ -133,17 +134,17 @@ describe('Wonky tree', () => {
 
     it('Correctly computes root', () => {
       const root = tree.getRoot();
-      let leftMergeNode = sha256Trunc(Buffer.concat([leaves[0], leaves[1]]));
-      const rightMergeNode = sha256Trunc(Buffer.concat([leaves[2], leaves[3]]));
-      leftMergeNode = sha256Trunc(Buffer.concat([leftMergeNode, rightMergeNode]));
-      const expectedRoot = sha256Trunc(Buffer.concat([leftMergeNode, leaves[4]]));
+      let leftMergeNode = sha256Trunc(bufferConcat([leaves[0], leaves[1]]));
+      const rightMergeNode = sha256Trunc(bufferConcat([leaves[2], leaves[3]]));
+      leftMergeNode = sha256Trunc(bufferConcat([leftMergeNode, rightMergeNode]));
+      const expectedRoot = sha256Trunc(bufferConcat([leftMergeNode, leaves[4]]));
       expect(root).toEqual(expectedRoot);
     });
 
     it('Correctly computes sibling path', async () => {
       const sibPath = await tree.getSiblingPath(BigInt('0x' + leaves[0].toString('hex')));
       expect(sibPath.pathSize).toEqual(3);
-      const expectedSibPath = [leaves[1], sha256Trunc(Buffer.concat([leaves[2], leaves[3]])), leaves[4]];
+      const expectedSibPath = [leaves[1], sha256Trunc(bufferConcat([leaves[2], leaves[3]])), leaves[4]];
       expect(sibPath.toBufferArray()).toEqual(expectedSibPath);
     });
   });
@@ -172,11 +173,11 @@ describe('Wonky tree', () => {
 
     it('Correctly computes root', () => {
       const root = tree.getRoot();
-      let leftMergeNode = sha256Trunc(Buffer.concat([leaves[0], leaves[1]]));
-      let rightMergeNode = sha256Trunc(Buffer.concat([leaves[2], leaves[3]]));
-      leftMergeNode = sha256Trunc(Buffer.concat([leftMergeNode, rightMergeNode]));
-      rightMergeNode = sha256Trunc(Buffer.concat([leaves[4], leaves[5]]));
-      const expectedRoot = sha256Trunc(Buffer.concat([leftMergeNode, rightMergeNode]));
+      let leftMergeNode = sha256Trunc(bufferConcat([leaves[0], leaves[1]]));
+      let rightMergeNode = sha256Trunc(bufferConcat([leaves[2], leaves[3]]));
+      leftMergeNode = sha256Trunc(bufferConcat([leftMergeNode, rightMergeNode]));
+      rightMergeNode = sha256Trunc(bufferConcat([leaves[4], leaves[5]]));
+      const expectedRoot = sha256Trunc(bufferConcat([leftMergeNode, rightMergeNode]));
       expect(root).toEqual(expectedRoot);
     });
 
@@ -185,8 +186,8 @@ describe('Wonky tree', () => {
       expect(sibPath.pathSize).toEqual(3);
       const expectedSibPath = [
         leaves[1],
-        sha256Trunc(Buffer.concat([leaves[2], leaves[3]])),
-        sha256Trunc(Buffer.concat([leaves[4], leaves[5]])),
+        sha256Trunc(bufferConcat([leaves[2], leaves[3]])),
+        sha256Trunc(bufferConcat([leaves[4], leaves[5]])),
       ];
       expect(sibPath.toBufferArray()).toEqual(expectedSibPath);
     });
@@ -218,12 +219,12 @@ describe('Wonky tree', () => {
 
     it('Correctly computes root', () => {
       const root = tree.getRoot();
-      const firstMergeNode = sha256Trunc(Buffer.concat([leaves[0], leaves[1]]));
-      secondMergeNode = sha256Trunc(Buffer.concat([leaves[2], leaves[3]]));
-      const thirdMergeNode = sha256Trunc(Buffer.concat([firstMergeNode, secondMergeNode]));
-      const fourthMergeNode = sha256Trunc(Buffer.concat([leaves[4], leaves[5]]));
-      fifthMergeNode = sha256Trunc(Buffer.concat([fourthMergeNode, leaves[6]]));
-      const expectedRoot = sha256Trunc(Buffer.concat([thirdMergeNode, fifthMergeNode]));
+      const firstMergeNode = sha256Trunc(bufferConcat([leaves[0], leaves[1]]));
+      secondMergeNode = sha256Trunc(bufferConcat([leaves[2], leaves[3]]));
+      const thirdMergeNode = sha256Trunc(bufferConcat([firstMergeNode, secondMergeNode]));
+      const fourthMergeNode = sha256Trunc(bufferConcat([leaves[4], leaves[5]]));
+      fifthMergeNode = sha256Trunc(bufferConcat([fourthMergeNode, leaves[6]]));
+      const expectedRoot = sha256Trunc(bufferConcat([thirdMergeNode, fifthMergeNode]));
       expect(root).toEqual(expectedRoot);
     });
 

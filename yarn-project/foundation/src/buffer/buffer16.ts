@@ -5,6 +5,7 @@ import { BufferReader, deserializeBigInt, serializeBigInt } from '@aztec/foundat
 import { inspect } from 'util';
 
 import { bufferToHex } from '../string/index.js';
+import { bufferAlloc, bufferFrom } from './index.js';
 
 /**
  * A class representing a 16 byte Buffer.
@@ -18,7 +19,7 @@ export class Buffer16 {
   /**
    * Buffer16 with value zero.
    */
-  public static ZERO = new Buffer16(Buffer.alloc(Buffer16.SIZE));
+  public static ZERO = new Buffer16(bufferAlloc(Buffer16.SIZE));
 
   constructor(
     /**
@@ -63,7 +64,7 @@ export class Buffer16 {
    * @returns True if this hash is zero.
    */
   public isZero(): boolean {
-    return this.buffer.equals(Buffer.alloc(16, 0));
+    return this.buffer.equals(bufferAlloc(16, 0));
   }
 
   /**
@@ -111,7 +112,7 @@ export class Buffer16 {
     if (str.length !== this.SIZE * 2) {
       throw new Error(`Expected string to be ${this.SIZE * 2} characters long, but was ${str.length}`);
     }
-    return new Buffer16(Buffer.from(str, 'hex'));
+    return new Buffer16(bufferFrom(str, 'hex'));
   }
 
   /**
@@ -128,6 +129,6 @@ export class Buffer16 {
    * @returns A new Buffer16 object.
    */
   public static random(): Buffer16 {
-    return new Buffer16(Buffer.from(randomBytes(Buffer16.SIZE)));
+    return new Buffer16(bufferFrom(randomBytes(Buffer16.SIZE)));
   }
 }

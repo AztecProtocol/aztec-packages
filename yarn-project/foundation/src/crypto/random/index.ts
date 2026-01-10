@@ -1,5 +1,6 @@
 import { randomBytes as bbRandomBytes } from '@aztec/bb.js';
 
+import { bufferFrom } from '../../buffer/index.js';
 import { RandomnessSingleton } from './randomness_singleton.js';
 
 export const randomBytes = (len: number) => {
@@ -8,7 +9,7 @@ export const randomBytes = (len: number) => {
   if (singleton.isDeterministic()) {
     return singleton.getBytes(len);
   }
-  return Buffer.from(bbRandomBytes(len)) as Buffer<ArrayBuffer>;
+  return bufferFrom(bbRandomBytes(len)) as Buffer<ArrayBuffer>;
 };
 
 /**

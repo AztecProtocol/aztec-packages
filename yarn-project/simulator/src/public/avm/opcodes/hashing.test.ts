@@ -1,3 +1,4 @@
+import { bufferFrom } from '@aztec/foundation/buffer';
 import { keccakf1600 } from '@aztec/foundation/crypto/keccak';
 import { sha256Compression } from '@aztec/foundation/crypto/sha256';
 
@@ -18,11 +19,11 @@ describe('Hashing Opcodes', () => {
 
   describe('Poseidon2', () => {
     it('Should (de)serialize correctly', () => {
-      const buf = Buffer.from([
+      const buf = bufferFrom([
         Poseidon2.opcode, // opcode
         1, // indirect
-        ...Buffer.from('1234', 'hex'), // inputStateOffset
-        ...Buffer.from('2345', 'hex'), // outputStateOffset
+        ...bufferFrom('1234', 'hex'), // inputStateOffset
+        ...bufferFrom('2345', 'hex'), // outputStateOffset
       ]);
       const inst = new Poseidon2(/*indirect=*/ 1, /*dstOffset=*/ 0x1234, /*messageOffset=*/ 0x2345);
 
@@ -92,11 +93,11 @@ describe('Hashing Opcodes', () => {
 
   describe('Keccakf1600', () => {
     it('Should (de)serialize correctly', () => {
-      const buf = Buffer.from([
+      const buf = bufferFrom([
         KeccakF1600.opcode, // opcode
         1, // indirect
-        ...Buffer.from('1234', 'hex'), // dstOffset
-        ...Buffer.from('2345', 'hex'), // inputOffset
+        ...bufferFrom('1234', 'hex'), // dstOffset
+        ...bufferFrom('2345', 'hex'), // inputOffset
       ]);
       const inst = new KeccakF1600(/*indirect=*/ 1, /*dstOffset=*/ 0x1234, /*inputOffset=*/ 0x2345);
 
@@ -144,12 +145,12 @@ describe('Hashing Opcodes', () => {
 
   describe('Sha256Compression', () => {
     it('Should (de)serialize correctly', () => {
-      const buf = Buffer.from([
+      const buf = bufferFrom([
         Sha256Compression.opcode, // opcode
         1, // indirect
-        ...Buffer.from('1234', 'hex'), // dstOffset
-        ...Buffer.from('2345', 'hex'), // stateOffset
-        ...Buffer.from('4567', 'hex'), // inputsOffset
+        ...bufferFrom('1234', 'hex'), // dstOffset
+        ...bufferFrom('2345', 'hex'), // stateOffset
+        ...bufferFrom('4567', 'hex'), // inputsOffset
       ]);
       const inst = new Sha256Compression(
         /*indirect=*/ 1,

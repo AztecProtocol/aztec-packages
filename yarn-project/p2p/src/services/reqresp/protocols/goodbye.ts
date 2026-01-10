@@ -1,3 +1,4 @@
+import { bufferAlloc, bufferFrom } from '@aztec/foundation/buffer';
 import { createLogger } from '@aztec/foundation/log';
 
 import type { PeerId } from '@libp2p/interface';
@@ -25,7 +26,7 @@ export enum GoodByeReason {
 }
 
 export function encodeGoodbyeReason(reason: GoodByeReason): Buffer {
-  return Buffer.from([reason]);
+  return bufferFrom([reason]);
 }
 
 export function decodeGoodbyeReason(buffer: Buffer): GoodByeReason {
@@ -72,7 +73,7 @@ export class GoodbyeProtocolHandler {
 
   public async sendGoodbye(peerId: PeerId, reason: GoodByeReason): Promise<void> {
     try {
-      await this.reqresp.sendRequestToPeer(peerId, ReqRespSubProtocol.GOODBYE, Buffer.from([reason]));
+      await this.reqresp.sendRequestToPeer(peerId, ReqRespSubProtocol.GOODBYE, bufferFrom([reason]));
       this.logger.debug(`Sent goodbye to peer ${peerId.toString()} with reason ${reason}`);
     } catch (error) {
       this.logger.debug(`Failed to send goodbye to peer ${peerId.toString()}: ${error}`);
@@ -98,6 +99,6 @@ export function reqGoodbyeHandler(peerManager: PeerManagerInterface): ReqRespSub
     // NOTE: In the current implementation this won't be sent to peer,
     // as the connection to peer has been already closed by peerManager.goodbyeReceived
     // We have this just to satisfy interface
-    return Promise.resolve(Buffer.alloc(0));
+    return Promise.resolve(bufferAlloc(0));
   };
 }

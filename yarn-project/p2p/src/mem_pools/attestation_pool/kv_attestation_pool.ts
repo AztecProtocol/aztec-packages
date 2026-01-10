@@ -1,4 +1,5 @@
 import { SlotNumber } from '@aztec/foundation/branded-types';
+import { isBuffer } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { toArray } from '@aztec/foundation/iterable';
 import { createLogger } from '@aztec/foundation/log';
@@ -55,7 +56,7 @@ export class KvAttestationPool implements AttestationPool {
     const proposalIdStr =
       typeof proposalId === 'string'
         ? proposalId
-        : Buffer.isBuffer(proposalId)
+        : isBuffer(proposalId)
           ? Fr.fromBuffer(proposalId).toString()
           : proposalId.toString();
 

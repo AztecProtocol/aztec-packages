@@ -1,3 +1,4 @@
+import { bufferFrom, isBuffer } from '../buffer/index.js';
 import type { Tuple } from './types.js';
 
 /**
@@ -39,9 +40,9 @@ export class BufferReader {
       return bufferOrReader;
     }
 
-    const buf = Buffer.isBuffer(bufferOrReader)
+    const buf = isBuffer(bufferOrReader)
       ? bufferOrReader
-      : Buffer.from(bufferOrReader.buffer, bufferOrReader.byteOffset, bufferOrReader.byteLength);
+      : bufferFrom(bufferOrReader.buffer, bufferOrReader.byteOffset, bufferOrReader.byteLength);
 
     return new BufferReader(buf);
   }
@@ -183,7 +184,7 @@ export class BufferReader {
   public readBytes(n: number): Buffer {
     this.#rangeCheck(n);
     this.index += n;
-    return Buffer.from(this.buffer.subarray(this.index - n, this.index));
+    return bufferFrom(this.buffer.subarray(this.index - n, this.index));
   }
 
   /** Reads until the end of the buffer. */

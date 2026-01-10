@@ -1,3 +1,4 @@
+import { bufferFrom } from '@aztec/foundation/buffer';
 import { fromEntries, getEntries, pick } from '@aztec/foundation/collection';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 import { isoDate } from '@aztec/foundation/string';
@@ -46,7 +47,7 @@ export async function uploadSnapshotToIndex(
   const snapshotsIndex = (await getSnapshotIndex(metadata, store)) ?? createEmptyIndex(metadata);
   snapshotsIndex.snapshots.unshift(newSnapshotMetadata);
 
-  await store.save(getSnapshotIndexPath(metadata), Buffer.from(jsonStringify(snapshotsIndex, true)), {
+  await store.save(getSnapshotIndexPath(metadata), bufferFrom(jsonStringify(snapshotsIndex, true)), {
     public: true, // Make the index publicly accessible
     compress: false, // Ensure index.json is not gzipped
     metadata: { ['Cache-control']: 'no-store' }, // Do not cache object versions

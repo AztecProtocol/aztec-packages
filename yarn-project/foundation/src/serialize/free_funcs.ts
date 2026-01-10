@@ -1,4 +1,5 @@
 import { toBufferBE } from '../bigint-buffer/index.js';
+import { bufferAlloc, bufferConcat } from '../buffer/index.js';
 import { Fr } from '../curves/bn254/field.js';
 import type { Tuple } from './types.js';
 
@@ -11,7 +12,7 @@ import type { Tuple } from './types.js';
  * @returns A Buffer containing the byte representation of the input boolean value.
  */
 export function boolToByte(b: boolean) {
-  const buf = Buffer.alloc(1);
+  const buf = bufferAlloc(1);
   buf.writeUInt8(b ? 1 : 0);
   return buf;
 }
@@ -22,7 +23,7 @@ export function boolToByte(b: boolean) {
  * @returns A Buffer containing the big-endian unsigned 16-bit integer representation of the input number.
  */
 export function numToUInt16BE(n: number, bufferSize = 2) {
-  const buf = Buffer.alloc(bufferSize);
+  const buf = bufferAlloc(bufferSize);
   buf.writeUInt16BE(n, bufferSize - 2);
   return buf;
 }
@@ -38,7 +39,7 @@ export function numToUInt16BE(n: number, bufferSize = 2) {
  * @returns A Buffer containing the serialized little-endian unsigned integer representation of the input number.
  */
 export function numToUInt32LE(n: number, bufferSize = 4) {
-  const buf = Buffer.alloc(bufferSize);
+  const buf = bufferAlloc(bufferSize);
   buf.writeUInt32LE(n, bufferSize - 4);
   return buf;
 }
@@ -52,7 +53,7 @@ export function numToUInt32LE(n: number, bufferSize = 4) {
  * @returns A Buffer containing the big-endian unsigned 32-bit integer representation of the input number.
  */
 export function numToUInt32BE(n: number, bufferSize = 4) {
-  const buf = Buffer.alloc(bufferSize);
+  const buf = bufferAlloc(bufferSize);
   buf.writeUInt32BE(n, bufferSize - 4);
   return buf;
 }
@@ -65,7 +66,7 @@ export function numToUInt32BE(n: number, bufferSize = 4) {
  * @returns A Buffer containing the big-endian unsigned 64-bit integer representation of the input number.
  */
 export function bigintToUInt64BE(n: bigint, bufferSize = 8) {
-  const buf = Buffer.alloc(bufferSize);
+  const buf = bufferAlloc(bufferSize);
   buf.writeBigUInt64BE(n, bufferSize - 8);
   return buf;
 }
@@ -93,7 +94,7 @@ export function bigintToUInt128BE(n: bigint, bufferSize = 16) {
  * @returns A Buffer containing the serialized big-endian signed 32-bit integer.
  */
 export function numToInt32BE(n: number, bufferSize = 4) {
-  const buf = Buffer.alloc(bufferSize);
+  const buf = bufferAlloc(bufferSize);
   buf.writeInt32BE(n, bufferSize - 4);
   return buf;
 }
@@ -109,7 +110,7 @@ export function numToInt32BE(n: number, bufferSize = 4) {
  */
 export function numToUInt8(n: number) {
   const bufferSize = 1;
-  const buf = Buffer.alloc(bufferSize);
+  const buf = bufferAlloc(bufferSize);
   buf.writeUInt8(n, 0);
   return buf;
 }
@@ -120,9 +121,9 @@ export function numToUInt8(n: number) {
  * @returns A Buffer with 4-byte byte-length prefix.
  */
 export function prefixBufferWithLength(buf: Buffer) {
-  const lengthBuf = Buffer.alloc(4);
+  const lengthBuf = bufferAlloc(4);
   lengthBuf.writeUInt32BE(buf.length, 0);
-  return Buffer.concat([lengthBuf, buf]);
+  return bufferConcat([lengthBuf, buf]);
 }
 
 /**
@@ -147,8 +148,8 @@ export function to2Fields(buf: Buffer): [Fr, Fr] {
   }
 
   // Split the hash into two fields, a high and a low
-  const buf1 = Buffer.concat([Buffer.alloc(16), buf.subarray(0, 16)]);
-  const buf2 = Buffer.concat([Buffer.alloc(16), buf.subarray(16, 32)]);
+  const buf1 = bufferConcat([bufferAlloc(16), buf.subarray(0, 16)]);
+  const buf2 = bufferConcat([bufferAlloc(16), buf.subarray(16, 32)]);
 
   return [Fr.fromBuffer(buf1), Fr.fromBuffer(buf2)];
 }
@@ -169,7 +170,7 @@ export function from2Fields(field1: Fr, field2: Fr): Buffer {
   const originalPart2 = buf2.subarray(Fr.SIZE_IN_BYTES / 2, Fr.SIZE_IN_BYTES);
 
   // Concatenate the two parts to form the original buffer
-  return Buffer.concat([originalPart1, originalPart2]);
+  return bufferConcat([originalPart1, originalPart2]);
 }
 
 /**
@@ -182,7 +183,7 @@ export function truncateAndPad(buf: Buffer): Buffer {
   if (buf.length !== 32) {
     throw new Error('Buffer to truncate must be 32 bytes');
   }
-  return Buffer.concat([Buffer.alloc(1), buf.subarray(0, 31)]);
+  return bufferConcat([bufferAlloc(1), buf.subarray(0, 31)]);
 }
 
 export function fromFieldsTuple(fields: Tuple<Fr, 2>): Buffer {

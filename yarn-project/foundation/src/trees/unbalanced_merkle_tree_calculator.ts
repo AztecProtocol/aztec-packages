@@ -1,3 +1,4 @@
+import { bufferAlloc } from '../buffer/index.js';
 import { shaMerkleHash } from './balanced_merkle_tree.js';
 import type { Hasher } from './hasher.js';
 import { SiblingPath } from './sibling_path.js';
@@ -32,8 +33,8 @@ export class UnbalancedMerkleTreeCalculator {
 
   static create(
     leaves: Buffer[],
-    valueToCompress = Buffer.alloc(0),
-    emptyRoot = Buffer.alloc(32),
+    valueToCompress = bufferAlloc(0),
+    emptyRoot = bufferAlloc(32),
     hasher = shaMerkleHash,
   ) {
     return new UnbalancedMerkleTreeCalculator(leaves, valueToCompress, emptyRoot, hasher);

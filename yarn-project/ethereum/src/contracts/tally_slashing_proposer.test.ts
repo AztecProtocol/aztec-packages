@@ -1,6 +1,7 @@
 import { EthCheatCodes, RollupCheatCodes, startAnvil } from '@aztec/ethereum/test';
 import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
 import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { bufferAlloc, bufferFrom } from '@aztec/foundation/buffer';
 import { SecretValue } from '@aztec/foundation/config';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -178,7 +179,7 @@ describe('TallySlashingProposer', () => {
     });
 
     it('builds correct typed data to sign', async () => {
-      const votes = bufferToHex(Buffer.alloc(testSlashingRoundSize / testConfig.aztecEpochDuration, 1));
+      const votes = bufferToHex(bufferAlloc(testSlashingRoundSize / testConfig.aztecEpochDuration, 1));
       const slot = SlotNumber(1);
       const typedData = tallySlashingProposer.buildVoteTypedData(votes, slot);
       const expectedDigest = await tallySlashingProposer.getVoteDataDigest(votes, slot);
@@ -187,7 +188,7 @@ describe('TallySlashingProposer', () => {
 
     it('builds vote request with signer', async () => {
       await rollupCheatCodes.advanceToEpoch(EpochNumber(12));
-      const votes = bufferToHex(Buffer.alloc(testSlashingRoundSize / testConfig.aztecEpochDuration, 1));
+      const votes = bufferToHex(bufferAlloc(testSlashingRoundSize / testConfig.aztecEpochDuration, 1));
       const slot = await rollup.getSlotNumber();
       const proposer = await rollup.getCurrentProposer();
       const proposerIndex = validatorsAddresses.findIndex(addr => addr.equals(proposer));
@@ -264,28 +265,28 @@ describe('TallySlashingProposer', () => {
 
   describe('decodeSlashConsensusVotes', () => {
     it('decodes buffer back to votes correctly', () => {
-      const buffer = Buffer.from([0xc9]); // 1 | (2 << 2) | (0 << 4) | (3 << 6)
+      const buffer = bufferFrom([0xc9]); // 1 | (2 << 2) | (0 << 4) | (3 << 6)
       const votes = decodeSlashConsensusVotes(buffer);
 
       expect(votes).toEqual([1, 2, 0, 3]);
     });
 
     it('decodes empty buffer correctly', () => {
-      const buffer = Buffer.from([]);
+      const buffer = bufferFrom([]);
       const votes = decodeSlashConsensusVotes(buffer);
 
       expect(votes).toEqual([]);
     });
 
     it('decodes maximum vote values correctly', () => {
-      const buffer = Buffer.from([0xff]); // 3 | (3 << 2) | (3 << 4) | (3 << 6)
+      const buffer = bufferFrom([0xff]); // 3 | (3 << 2) | (3 << 4) | (3 << 6)
       const votes = decodeSlashConsensusVotes(buffer);
 
       expect(votes).toEqual([3, 3, 3, 3]);
     });
 
     it('decodes multiple bytes correctly', () => {
-      const buffer = Buffer.from([0x90, 0x1b]); // [0,0,1,2] then [3,2,1,0]
+      const buffer = bufferFrom([0x90, 0x1b]); // [0,0,1,2] then [3,2,1,0]
       const votes = decodeSlashConsensusVotes(buffer);
 
       expect(votes).toEqual([0, 0, 1, 2, 3, 2, 1, 0]);

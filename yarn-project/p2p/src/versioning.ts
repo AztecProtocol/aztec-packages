@@ -1,4 +1,5 @@
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
+import { bufferFrom } from '@aztec/foundation/buffer';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractsHash } from '@aztec/protocol-contracts';
 import type { ChainConfig } from '@aztec/stdlib/config';
@@ -34,7 +35,7 @@ export function setAztecEnrKey(enr: SignableENR, config: ChainConfig, useXxHash 
 /** Sets the Aztec client version on ENR record **/
 export function setAztecClientVersionEnrKey(enr: SignableENR, clientVersion: string) {
   if (clientVersion) {
-    enr.set(AZTEC_ENR_CLIENT_VERSION_KEY, Buffer.from(clientVersion));
+    enr.set(AZTEC_ENR_CLIENT_VERSION_KEY, bufferFrom(clientVersion));
   }
 }
 
@@ -42,16 +43,16 @@ export function setAztecClientVersionEnrKey(enr: SignableENR, clientVersion: str
 export function checkAztecEnrVersion(enrValue: Buffer, expectedVersions: ComponentsVersions) {
   if (enrValue.length === XX_HASH_LEN) {
     const expected = versionsToEnrValue(expectedVersions, true);
-    if (!Buffer.from(enrValue).equals(expected)) {
+    if (!bufferFrom(enrValue).equals(expected)) {
       throw new Error(`Expected ENR version ${expected.toString('hex')} but received ${enrValue.toString('hex')}`);
     }
   } else {
-    const actual = Buffer.from(enrValue).toString();
+    const actual = bufferFrom(enrValue).toString();
     checkCompressedComponentVersion(actual, expectedVersions);
   }
 }
 
 function versionsToEnrValue(versions: ComponentsVersions, useXxHash: boolean) {
   const compressed = compressComponentVersions(versions);
-  return useXxHash ? toBufferBE(xxhash.h64(compressed), XX_HASH_LEN) : Buffer.from(compressed);
+  return useXxHash ? toBufferBE(xxhash.h64(compressed), XX_HASH_LEN) : bufferFrom(compressed);
 }

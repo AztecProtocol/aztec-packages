@@ -1,3 +1,4 @@
+import { bufferFrom } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { LogFn } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
@@ -45,9 +46,9 @@ export class WalletDB {
     stackPointer++;
     await this.#bridgedFeeJuice.set(
       `${recipient.toString()}:${stackPointer}`,
-      Buffer.from(`${amount.toString()}:${secret.toString()}:${leafIndex.toString()}`),
+      bufferFrom(`${amount.toString()}:${secret.toString()}:${leafIndex.toString()}`),
     );
-    await this.#bridgedFeeJuice.set(`${recipient.toString()}:stackPointer`, Buffer.from([stackPointer]));
+    await this.#bridgedFeeJuice.set(`${recipient.toString()}:stackPointer`, bufferFrom([stackPointer]));
     log(`Pushed ${amount} fee juice for recipient ${recipient.toString()}. Stack pointer ${stackPointer}`);
   }
 
@@ -60,7 +61,7 @@ export class WalletDB {
       );
     }
     const [amountStr, secretStr, leafIndexStr] = result.toString().split(':');
-    await this.#bridgedFeeJuice.set(`${recipient.toString()}:stackPointer`, Buffer.from([--stackPointer]));
+    await this.#bridgedFeeJuice.set(`${recipient.toString()}:stackPointer`, bufferFrom([--stackPointer]));
     log(`Retrieved ${amountStr} fee juice for recipient ${recipient.toString()}. Stack pointer ${stackPointer}`);
     return { amount: BigInt(amountStr), secret: secretStr, leafIndex: BigInt(leafIndexStr) };
   }
@@ -77,23 +78,23 @@ export class WalletDB {
     log: LogFn,
   ) {
     if (alias) {
-      await this.#aliases.set(`accounts:${alias}`, Buffer.from(address.toString()));
+      await this.#aliases.set(`accounts:${alias}`, bufferFrom(address.toString()));
     }
-    await this.#accounts.set(`${address.toString()}:type`, Buffer.from(type));
+    await this.#accounts.set(`${address.toString()}:type`, bufferFrom(type));
     await this.#accounts.set(`${address.toString()}:sk`, secretKey.toBuffer());
     await this.#accounts.set(`${address.toString()}:salt`, salt.toBuffer());
     if (type === 'ecdsasecp256r1ssh' && publicKey) {
       const publicSigningKey = extractECDSAPublicKeyFromBase64String(publicKey);
       await this.storeAccountMetadata(address, 'publicSigningKey', publicSigningKey);
     }
-    await this.#aliases.set('accounts:last', Buffer.from(address.toString()));
+    await this.#aliases.set('accounts:last', bufferFrom(address.toString()));
     log(`Account stored in database with alias${alias ? `es last & ${alias}` : ' last'}`);
 
     await this.refreshAliasCache();
   }
 
   async storeSender(address: AztecAddress, alias: string, log: LogFn) {
-    await this.#aliases.set(`accounts:${alias}`, Buffer.from(address.toString()));
+    await this.#aliases.set(`accounts:${alias}`, bufferFrom(address.toString()));
     log(`Account stored in database with alias ${alias} as a sender`);
 
     await this.refreshAliasCache();
@@ -101,12 +102,12 @@ export class WalletDB {
 
   async storeContract(address: AztecAddress, artifactPath: string, log: LogFn, alias?: string) {
     if (alias) {
-      await this.#aliases.set(`contracts:${alias}`, Buffer.from(address.toString()));
-      await this.#aliases.set(`artifacts:${alias}`, Buffer.from(artifactPath));
+      await this.#aliases.set(`contracts:${alias}`, bufferFrom(address.toString()));
+      await this.#aliases.set(`artifacts:${alias}`, bufferFrom(artifactPath));
     }
-    await this.#aliases.set(`contracts:last`, Buffer.from(address.toString()));
-    await this.#aliases.set(`artifacts:last`, Buffer.from(artifactPath));
-    await this.#aliases.set(`artifacts:${address.toString()}`, Buffer.from(artifactPath));
+    await this.#aliases.set(`contracts:last`, bufferFrom(address.toString()));
+    await this.#aliases.set(`artifacts:last`, bufferFrom(artifactPath));
+    await this.#aliases.set(`artifacts:${address.toString()}`, bufferFrom(artifactPath));
     log(`Contract stored in database with alias${alias ? `es last & ${alias}` : ' last'}`);
 
     await this.refreshAliasCache();
@@ -114,9 +115,9 @@ export class WalletDB {
 
   async storeAuthwitness(authWit: AuthWitness, log: LogFn, alias?: string) {
     if (alias) {
-      await this.#aliases.set(`authwits:${alias}`, Buffer.from(authWit.toString()));
+      await this.#aliases.set(`authwits:${alias}`, bufferFrom(authWit.toString()));
     }
-    await this.#aliases.set(`authwits:last`, Buffer.from(authWit.toString()));
+    await this.#aliases.set(`authwits:last`, bufferFrom(authWit.toString()));
     log(`Authorization witness stored in database with alias${alias ? `es last & ${alias}` : ' last'}`);
 
     await this.refreshAliasCache();
@@ -124,9 +125,9 @@ export class WalletDB {
 
   async storeTx({ txHash }: { txHash: TxHash }, log: LogFn, alias?: string) {
     if (alias) {
-      await this.#aliases.set(`transactions:${alias}`, Buffer.from(txHash.toString()));
+      await this.#aliases.set(`transactions:${alias}`, bufferFrom(txHash.toString()));
     }
-    await this.#aliases.set(`transactions:last`, Buffer.from(txHash.toString()));
+    await this.#aliases.set(`transactions:last`, bufferFrom(txHash.toString()));
     log(`Transaction hash stored in database with alias${alias ? `es last & ${alias}` : ' last'}`);
 
     await this.refreshAliasCache();

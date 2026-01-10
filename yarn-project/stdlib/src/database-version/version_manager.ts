@@ -1,3 +1,4 @@
+import { bufferFrom } from '@aztec/foundation/buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { jsonParseWithSchema, jsonStringify } from '@aztec/foundation/json-rpc';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -19,7 +20,7 @@ export class DatabaseVersion {
   ) {}
 
   public toBuffer(): Buffer {
-    return Buffer.from(jsonStringify(this));
+    return bufferFrom(jsonStringify(this));
   }
 
   public static fromBuffer(buf: Buffer): DatabaseVersion {

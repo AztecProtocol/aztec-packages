@@ -1,5 +1,6 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
 
+import { bufferAlloc } from '../buffer/index.js';
 import { MerkleTreeCalculator } from './merkle_tree_calculator.js';
 
 describe('merkle tree root calculator', () => {
@@ -13,7 +14,7 @@ describe('merkle tree root calculator', () => {
   it('should correctly leverage zero hashes', async () => {
     const calculator = await MerkleTreeCalculator.create(4);
     const leaves = Array.from({ length: 5 }).map((_, i) => new Fr(i).toBuffer());
-    const padded = [...leaves, ...new Array(3).fill(Buffer.alloc(32))];
+    const padded = [...leaves, ...new Array(3).fill(bufferAlloc(32))];
     const expected = await calculator.computeTreeRoot(padded);
     const result = await calculator.computeTreeRoot(leaves);
     expect(result).not.toBeUndefined();

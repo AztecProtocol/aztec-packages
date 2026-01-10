@@ -1,3 +1,5 @@
+import { bufferFrom } from '../buffer/index.js';
+
 /** Parameterized hex string type for specific byte lengths */
 export type Hex<TByteLength extends number> = `0x${string}` & { readonly _length: TByteLength };
 
@@ -18,7 +20,7 @@ export function isHex(str: string): boolean {
 }
 
 export function hexToBuffer(str: string): Buffer {
-  return Buffer.from(withoutHexPrefix(str), 'hex');
+  return bufferFrom(withoutHexPrefix(str), 'hex');
 }
 
 export function bufferToHex(buffer: Buffer): `0x${string}` {

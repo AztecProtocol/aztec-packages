@@ -1,6 +1,6 @@
 import type { EpochCache } from '@aztec/epoch-cache';
 import { BlockNumber } from '@aztec/foundation/branded-types';
-import { Buffer32 } from '@aztec/foundation/buffer';
+import { Buffer32, bufferAlloc, bufferFrom } from '@aztec/foundation/buffer';
 import { times } from '@aztec/foundation/collection';
 import { randomBytes } from '@aztec/foundation/crypto/random';
 import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
@@ -340,7 +340,7 @@ describe('PeerManager', () => {
       expect(mockReqResp.sendRequestToPeer).toHaveBeenCalledWith(
         bannedPeerId,
         ReqRespSubProtocol.GOODBYE,
-        Buffer.from([GoodByeReason.BANNED]),
+        bufferFrom([GoodByeReason.BANNED]),
         1000,
       );
 
@@ -348,7 +348,7 @@ describe('PeerManager', () => {
       expect(mockReqResp.sendRequestToPeer).toHaveBeenCalledWith(
         disconnectPeerId,
         ReqRespSubProtocol.GOODBYE,
-        Buffer.from([GoodByeReason.LOW_SCORE]),
+        bufferFrom([GoodByeReason.LOW_SCORE]),
         1000,
       );
 
@@ -396,7 +396,7 @@ describe('PeerManager', () => {
       expect(mockReqResp.sendRequestToPeer).toHaveBeenCalledWith(
         lowScoringPeerId1,
         ReqRespSubProtocol.GOODBYE,
-        Buffer.from([GoodByeReason.MAX_PEERS]),
+        bufferFrom([GoodByeReason.MAX_PEERS]),
         1000,
       );
 
@@ -404,7 +404,7 @@ describe('PeerManager', () => {
       expect(mockReqResp.sendRequestToPeer).toHaveBeenCalledWith(
         lowScoringPeerId2,
         ReqRespSubProtocol.GOODBYE,
-        Buffer.from([GoodByeReason.MAX_PEERS]),
+        bufferFrom([GoodByeReason.MAX_PEERS]),
         1000,
       );
 
@@ -683,13 +683,13 @@ describe('PeerManager', () => {
       expect(mockReqResp.sendRequestToPeer).toHaveBeenCalledWith(
         regularPeerId2,
         ReqRespSubProtocol.GOODBYE,
-        Buffer.from([GoodByeReason.MAX_PEERS]),
+        bufferFrom([GoodByeReason.MAX_PEERS]),
         1000,
       );
       expect(mockReqResp.sendRequestToPeer).toHaveBeenCalledWith(
         regularPeerId3,
         ReqRespSubProtocol.GOODBYE,
-        Buffer.from([GoodByeReason.MAX_PEERS]),
+        bufferFrom([GoodByeReason.MAX_PEERS]),
         1000,
       );
     });
@@ -1172,7 +1172,7 @@ describe('PeerManager', () => {
           receivedAuth = AuthRequest.fromBuffer(payload);
           const returnData = {
             status: ReqRespStatus.FAILURE,
-            data: Buffer.alloc(0),
+            data: bufferAlloc(0),
           };
           return Promise.resolve(returnData);
         },
@@ -1223,7 +1223,7 @@ describe('PeerManager', () => {
         (_peerId: PeerId, _subProtocol: ReqRespSubProtocol, _payload: Buffer, _dialTimeout?: number) => {
           const returnData = {
             status: ReqRespStatus.FAILURE,
-            data: Buffer.alloc(0),
+            data: bufferAlloc(0),
           };
           return Promise.resolve(returnData);
         },
@@ -1891,7 +1891,7 @@ describe('PeerManager', () => {
         (_peerId: PeerId, _subProtocol: ReqRespSubProtocol, _payload: Buffer, _dialTimeout?: number) => {
           return Promise.resolve({
             status: ReqRespStatus.FAILURE,
-            data: Buffer.alloc(0),
+            data: bufferAlloc(0),
           });
         },
       );

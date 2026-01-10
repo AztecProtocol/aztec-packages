@@ -1,3 +1,5 @@
+import { bufferFrom } from '@aztec/foundation/buffer';
+
 export const METRICS_PORT = 4318;
 
 export const shouldCollectMetrics = () => {
@@ -11,8 +13,8 @@ export const TEST_PEER_CHECK_INTERVAL_MS = 1000;
 export const TEST_MAX_PENDING_TX_POOL_COUNT = 10_000; // Number of max pending TXs ~ 1.56GB
 
 export const MNEMONIC = 'test test test test test test test test test test test junk';
-export const privateKey = Buffer.from('ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80', 'hex');
-export const privateKey2 = Buffer.from('59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d', 'hex');
+export const privateKey = bufferFrom('ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80', 'hex');
+export const privateKey2 = bufferFrom('59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d', 'hex');
 
 /// Common errors
 export const U128_UNDERFLOW_ERROR = 'Assertion failed: attempt to subtract with overflow';

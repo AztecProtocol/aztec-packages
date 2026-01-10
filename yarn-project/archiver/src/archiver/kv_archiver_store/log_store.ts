@@ -1,5 +1,6 @@
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { BlockNumber } from '@aztec/foundation/branded-types';
+import { bufferAlloc, bufferConcat } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import { BufferReader, numToUInt32BE } from '@aztec/foundation/serialize';
@@ -235,7 +236,7 @@ export class LogStore {
   }
 
   #packWithBlockHash(blockHash: Fr, data: Buffer<ArrayBufferLike>[]): Buffer<ArrayBufferLike> {
-    return Buffer.concat([blockHash.toBuffer(), ...data]);
+    return bufferConcat([blockHash.toBuffer(), ...data]);
   }
 
   #unpackBlockHash(reader: BufferReader): L2BlockHash {
@@ -326,7 +327,7 @@ export class LogStore {
       return { logs: [], maxLogsHit: false };
     }
 
-    const buffer = (await this.#publicLogsByBlock.getAsync(blockNumber)) ?? Buffer.alloc(0);
+    const buffer = (await this.#publicLogsByBlock.getAsync(blockNumber)) ?? bufferAlloc(0);
     const publicLogsInBlock: [PublicLog[]] = [[]];
     const reader = new BufferReader(buffer);
 
@@ -415,7 +416,7 @@ export class LogStore {
     if (typeof blockNumber !== 'number' || typeof txIndex !== 'number') {
       return { logs: [], maxLogsHit: false };
     }
-    const contractClassLogsBuffer = (await this.#contractClassLogsByBlock.getAsync(blockNumber)) ?? Buffer.alloc(0);
+    const contractClassLogsBuffer = (await this.#contractClassLogsByBlock.getAsync(blockNumber)) ?? bufferAlloc(0);
     const contractClassLogsInBlock: [ContractClassLog[]] = [[]];
 
     const reader = new BufferReader(contractClassLogsBuffer);

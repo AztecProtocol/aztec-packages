@@ -1,3 +1,4 @@
+import { bufferFrom } from '../../buffer/index.js';
 import { Fq, Fr } from '../../curves/bn254/field.js';
 import { deriveBlsKeyFromEntropy, deriveBlsKeyFromMnemonic } from './index.js';
 
@@ -34,7 +35,7 @@ describe('BN254 BLS Implementation', () => {
     });
 
     it('domain separation: mnemonic vs IKM produce different keys', () => {
-      const seedAsIkm = '0x' + Buffer.from('seed-like-bytes-for-test').toString('hex');
+      const seedAsIkm = '0x' + bufferFrom('seed-like-bytes-for-test').toString('hex');
       const km = deriveBlsKeyFromMnemonic(mnemonic, pathA, passphrase);
       const ke = deriveBlsKeyFromEntropy(seedAsIkm, pathA);
       expect(km).not.toEqual(ke);

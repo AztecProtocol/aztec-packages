@@ -1,4 +1,5 @@
 import { BlockNumber } from '@aztec/foundation/branded-types';
+import { bufferAlloc, bufferFrom } from '@aztec/foundation/buffer';
 import { times } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { sleep } from '@aztec/foundation/sleep';
@@ -26,7 +27,7 @@ import { reqRespBlockHandler } from './protocols/block.js';
 import { GoodByeReason, reqGoodbyeHandler } from './protocols/goodbye.js';
 import { ReqRespStatus, prettyPrintReqRespStatus } from './status.js';
 
-const PING_REQUEST = Buffer.from('ping');
+const PING_REQUEST = bufferFrom('ping');
 
 // The Req Resp protocol should allow nodes to dial specific peers
 // and ask for specific data that they missed via the traditional gossip protocol.
@@ -107,7 +108,7 @@ describe('ReqResp', () => {
       const response = await nodes[0].req.sendRequestToPeer(
         nodes[1].p2p.peerId,
         ReqRespSubProtocol.PING,
-        Buffer.from('ping'),
+        bufferFrom('ping'),
       );
       responses.push(response);
     }
@@ -134,7 +135,7 @@ describe('ReqResp', () => {
         if (txHash.equals(receivedHash)) {
           return Promise.resolve(tx.toBuffer());
         }
-        return Promise.resolve(Buffer.from(''));
+        return Promise.resolve(bufferFrom(''));
       };
 
       nodes = await createNodes(peerScoring, 2);
@@ -189,7 +190,7 @@ describe('ReqResp', () => {
 
       const protocolHandlers = MOCK_SUB_PROTOCOL_HANDLERS;
       protocolHandlers[ReqRespSubProtocol.TX] = (_peerId: PeerId, _message: Buffer): Promise<Buffer> => {
-        return Promise.resolve(Buffer.alloc(0));
+        return Promise.resolve(bufferAlloc(0));
       };
 
       nodes = await createNodes(peerScoring, 2);
@@ -244,7 +245,7 @@ describe('ReqResp', () => {
 
       const protocolHandlers = MOCK_SUB_PROTOCOL_HANDLERS;
       protocolHandlers[ReqRespSubProtocol.TX] = (_peerId: PeerId, _message: Buffer): Promise<Buffer> => {
-        return Promise.resolve(Buffer.alloc(0));
+        return Promise.resolve(bufferAlloc(0));
       };
 
       nodes = await createNodes(peerScoring, 2);
@@ -318,7 +319,7 @@ describe('ReqResp', () => {
       const response = await nodes[0].req.sendRequestToPeer(
         nodes[1].p2p.peerId,
         ReqRespSubProtocol.GOODBYE,
-        Buffer.from([GoodByeReason.SHUTDOWN]),
+        bufferFrom([GoodByeReason.SHUTDOWN]),
       );
 
       // Node 1 Peer manager receives the goodbye from the sending node
@@ -351,7 +352,7 @@ describe('ReqResp', () => {
       const response = await sendingNode.req.sendRequestToPeer(
         receivingNode.p2p.peerId,
         ReqRespSubProtocol.GOODBYE,
-        Buffer.from([GoodByeReason.SHUTDOWN]),
+        bufferFrom([GoodByeReason.SHUTDOWN]),
       );
 
       // Node 1 Peer manager receives the goodbye from the sending node
@@ -415,8 +416,8 @@ describe('ReqResp', () => {
 
       const sendRequestToPeerSpy = jest.spyOn(nodes[0].req, 'sendRequestToPeer');
 
-      const requests = Array.from({ length: batchSize }, _ => RequestableBuffer.fromBuffer(Buffer.from(`ping`)));
-      const expectResponses = Array.from({ length: batchSize }, _ => RequestableBuffer.fromBuffer(Buffer.from(`pong`)));
+      const requests = Array.from({ length: batchSize }, _ => RequestableBuffer.fromBuffer(bufferFrom(`ping`)));
+      const expectResponses = Array.from({ length: batchSize }, _ => RequestableBuffer.fromBuffer(bufferFrom(`pong`)));
 
       const res = await nodes[0].req.sendBatchRequest(ReqRespSubProtocol.PING, requests, undefined);
       expect(res).toEqual(expectResponses);
@@ -428,14 +429,14 @@ describe('ReqResp', () => {
           publicKey: nodes[1].p2p.peerId.publicKey,
         }),
         ReqRespSubProtocol.PING,
-        Buffer.from('ping'),
+        bufferFrom('ping'),
       );
       expect(sendRequestToPeerSpy).toHaveBeenCalledWith(
         expect.objectContaining({
           publicKey: nodes[2].p2p.peerId.publicKey,
         }),
         ReqRespSubProtocol.PING,
-        Buffer.from('ping'),
+        bufferFrom('ping'),
       );
     });
 
@@ -456,8 +457,8 @@ describe('ReqResp', () => {
 
       const sendRequestToPeerSpy = jest.spyOn(nodes[0].req, 'sendRequestToPeer');
 
-      const requests = times(batchSize, i => RequestableBuffer.fromBuffer(Buffer.from(`ping${i}`)));
-      const expectResponses = times(batchSize, _ => RequestableBuffer.fromBuffer(Buffer.from(`pong`)));
+      const requests = times(batchSize, i => RequestableBuffer.fromBuffer(bufferFrom(`ping${i}`)));
+      const expectResponses = times(batchSize, _ => RequestableBuffer.fromBuffer(bufferFrom(`pong`)));
 
       const res = await nodes[0].req.sendBatchRequest(ReqRespSubProtocol.PING, requests, nodes[1].p2p.peerId);
       expect(res).toEqual(expectResponses);
@@ -467,7 +468,7 @@ describe('ReqResp', () => {
         expect(sendRequestToPeerSpy).toHaveBeenCalledWith(
           expect.objectContaining({ publicKey: nodes[1].p2p.peerId.publicKey }),
           ReqRespSubProtocol.PING,
-          Buffer.from(`ping${i}`),
+          bufferFrom(`ping${i}`),
         );
       }
 
@@ -496,10 +497,10 @@ describe('ReqResp', () => {
       await connectToPeers(nodes);
       await sleep(500);
 
-      const requests = Array.from({ length: batchSize }, _ => RequestableBuffer.fromBuffer(Buffer.from(`ping`)));
+      const requests = Array.from({ length: batchSize }, _ => RequestableBuffer.fromBuffer(bufferFrom(`ping`)));
       // We will fail two of the responses - due to hitting the ping rate limit on the responding nodes
       const expectResponses = Array.from({ length: batchSize - 2 }, _ =>
-        RequestableBuffer.fromBuffer(Buffer.from(`pong`)),
+        RequestableBuffer.fromBuffer(bufferFrom(`pong`)),
       );
 
       const res = await nodes[0].req.sendBatchRequest(ReqRespSubProtocol.PING, requests, undefined);

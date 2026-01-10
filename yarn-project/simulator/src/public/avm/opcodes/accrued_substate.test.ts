@@ -4,6 +4,7 @@ import {
   AVM_EMITUNENCRYPTEDLOG_DYN_DA_GAS,
   AVM_EMITUNENCRYPTEDLOG_DYN_L2_GAS,
 } from '@aztec/constants';
+import { bufferFrom } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { computeNoteHashNonce, computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/stdlib/hash';
@@ -59,12 +60,12 @@ describe('Accrued Substate', () => {
 
   describe('NoteHashExists', () => {
     it('Should (de)serialize correctly', () => {
-      const buf = Buffer.from([
+      const buf = bufferFrom([
         NoteHashExists.opcode, // opcode
         0x01, // indirect
-        ...Buffer.from('1234', 'hex'), // noteHashOffset
-        ...Buffer.from('2345', 'hex'), // leafIndexOffset
-        ...Buffer.from('4567', 'hex'), // existsOffset
+        ...bufferFrom('1234', 'hex'), // noteHashOffset
+        ...bufferFrom('2345', 'hex'), // leafIndexOffset
+        ...bufferFrom('4567', 'hex'), // existsOffset
       ]);
       const inst = new NoteHashExists(
         /*indirect=*/ 0x01,
@@ -112,10 +113,10 @@ describe('Accrued Substate', () => {
 
   describe('EmitNoteHash', () => {
     it('Should (de)serialize correctly', () => {
-      const buf = Buffer.from([
+      const buf = bufferFrom([
         EmitNoteHash.opcode, // opcode
         0x01, // indirect
-        ...Buffer.from('1234', 'hex'), // offset
+        ...bufferFrom('1234', 'hex'), // offset
       ]);
       const inst = new EmitNoteHash(/*indirect=*/ 0x01, /*offset=*/ 0x1234);
 
@@ -137,12 +138,12 @@ describe('Accrued Substate', () => {
 
   describe('NullifierExists', () => {
     it('Should (de)serialize correctly', () => {
-      const buf = Buffer.from([
+      const buf = bufferFrom([
         NullifierExists.opcode, // opcode
         0x01, // indirect
-        ...Buffer.from('1234', 'hex'), // nullifierOffset
-        ...Buffer.from('0234', 'hex'), // addressOffset
-        ...Buffer.from('4567', 'hex'), // existsOffset
+        ...bufferFrom('1234', 'hex'), // nullifierOffset
+        ...bufferFrom('0234', 'hex'), // addressOffset
+        ...bufferFrom('4567', 'hex'), // existsOffset
       ]);
       const inst = new NullifierExists(
         /*indirect=*/ 0x01,
@@ -181,10 +182,10 @@ describe('Accrued Substate', () => {
 
   describe('EmitNullifier', () => {
     it('Should (de)serialize correctly', () => {
-      const buf = Buffer.from([
+      const buf = bufferFrom([
         EmitNullifier.opcode, // opcode
         0x01, // indirect
-        ...Buffer.from('1234', 'hex'), // offset
+        ...bufferFrom('1234', 'hex'), // offset
       ]);
       const inst = new EmitNullifier(/*indirect=*/ 0x01, /*offset=*/ 0x1234);
 
@@ -227,12 +228,12 @@ describe('Accrued Substate', () => {
 
   describe('L1ToL2MessageExists', () => {
     it('Should (de)serialize correctly', () => {
-      const buf = Buffer.from([
+      const buf = bufferFrom([
         L1ToL2MessageExists.opcode, // opcode
         0x01, // indirect
-        ...Buffer.from('1234', 'hex'), // msgHashOffset
-        ...Buffer.from('4567', 'hex'), // msgLeafIndexOffset
-        ...Buffer.from('CDEF', 'hex'), // existsOffset
+        ...bufferFrom('1234', 'hex'), // msgHashOffset
+        ...bufferFrom('4567', 'hex'), // msgLeafIndexOffset
+        ...bufferFrom('CDEF', 'hex'), // existsOffset
       ]);
       const inst = new L1ToL2MessageExists(
         /*indirect=*/ 0x01,
@@ -281,11 +282,11 @@ describe('Accrued Substate', () => {
 
   describe('EmitUnencryptedLog', () => {
     it('Should (de)serialize correctly', () => {
-      const buf = Buffer.from([
+      const buf = bufferFrom([
         EmitUnencryptedLog.opcode, // opcode
         0x01, // indirect
-        ...Buffer.from('a234', 'hex'), // length offset
-        ...Buffer.from('1234', 'hex'), // log offset
+        ...bufferFrom('a234', 'hex'), // length offset
+        ...bufferFrom('1234', 'hex'), // log offset
       ]);
       const inst = new EmitUnencryptedLog(/*indirect=*/ 0x01, /*lengthOffset=*/ 0xa234, /*offset=*/ 0x1234);
 
@@ -336,11 +337,11 @@ describe('Accrued Substate', () => {
 
   describe('SendL2ToL1Message', () => {
     it('Should (de)serialize correctly', () => {
-      const buf = Buffer.from([
+      const buf = bufferFrom([
         SendL2ToL1Message.opcode, // opcode
         0x01, // indirect
-        ...Buffer.from('1234', 'hex'), // recipientOffset
-        ...Buffer.from('a234', 'hex'), // contentOffset
+        ...bufferFrom('1234', 'hex'), // recipientOffset
+        ...bufferFrom('a234', 'hex'), // contentOffset
       ]);
       const inst = new SendL2ToL1Message(/*indirect=*/ 0x01, /*recipientOffset=*/ 0x1234, /*contentOffset=*/ 0xa234);
 

@@ -1,4 +1,5 @@
 import { BlockNumber } from '@aztec/foundation/branded-types';
+import { bufferFrom } from '@aztec/foundation/buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
 
 import { jest } from '@jest/globals';
@@ -67,7 +68,7 @@ describe('VersionManager', () => {
       it.each(['', 'definitely not a json', JSON.stringify({ foo: 'bar' })])(
         'when the version file is malformed',
         async str => {
-          fs.readFile.mockResolvedValueOnce(Buffer.from(str));
+          fs.readFile.mockResolvedValueOnce(bufferFrom(str));
           const [_, wasReset] = await versionManager.open();
           expect(wasReset).toEqual(true);
           expect(upgradeSpy).not.toHaveBeenCalled();

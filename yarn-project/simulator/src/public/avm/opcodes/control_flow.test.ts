@@ -1,3 +1,5 @@
+import { bufferFrom } from '@aztec/foundation/buffer';
+
 import type { AvmContext } from '../avm_context.js';
 import { Field, Uint1, Uint8, Uint16, Uint32, Uint64, Uint128 } from '../avm_memory_types.js';
 import { InstructionExecutionError, TagCheckError } from '../errors.js';
@@ -14,9 +16,9 @@ describe('Control Flow Opcodes', () => {
 
   describe('JUMP', () => {
     it('Should (de)serialize correctly', () => {
-      const buf = Buffer.from([
+      const buf = bufferFrom([
         Jump.opcode, // opcode
-        ...Buffer.from('12340000', 'hex'), // loc
+        ...bufferFrom('12340000', 'hex'), // loc
       ]);
       const inst = new Jump(/*loc=*/ 0x12340000);
 
@@ -37,11 +39,11 @@ describe('Control Flow Opcodes', () => {
 
   describe('JUMPI', () => {
     it('Should (de)serialize correctly', () => {
-      const buf = Buffer.from([
+      const buf = bufferFrom([
         JumpI.opcode, // opcode
         0x01, // indirect
-        ...Buffer.from('a234', 'hex'), // condOffset
-        ...Buffer.from('12340000', 'hex'), // loc
+        ...bufferFrom('a234', 'hex'), // condOffset
+        ...bufferFrom('12340000', 'hex'), // loc
       ]);
       const inst = new JumpI(/*indirect=*/ 1, /*condOffset=*/ 0xa234, /*loc=*/ 0x12340000);
 
@@ -109,9 +111,9 @@ describe('Control Flow Opcodes', () => {
 
   describe('INTERNALCALL and INTERNALRETURN', () => {
     it('INTERNALCALL Should (de)serialize correctly', () => {
-      const buf = Buffer.from([
+      const buf = bufferFrom([
         InternalCall.opcode, // opcode
-        ...Buffer.from('12340000', 'hex'), // loc
+        ...bufferFrom('12340000', 'hex'), // loc
       ]);
       const inst = new InternalCall(/*loc=*/ 0x12340000);
 

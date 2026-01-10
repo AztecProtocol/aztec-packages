@@ -31,7 +31,7 @@ import { EthCheatCodesWithState, RollupCheatCodes, startAnvil } from '@aztec/eth
 import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
 import { range } from '@aztec/foundation/array';
 import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
-import { Buffer32 } from '@aztec/foundation/buffer';
+import { Buffer32, bufferAlloc } from '@aztec/foundation/buffer';
 import { times, timesParallel } from '@aztec/foundation/collection';
 import { SecretValue } from '@aztec/foundation/config';
 import { Secp256k1Signer, flipSignature } from '@aztec/foundation/crypto/secp256k1-signer';
@@ -440,7 +440,7 @@ describe('L1Publisher integration', () => {
           (await rollup.getEpochNumberForCheckpoint(thisCheckpointNumber)) >
             (await rollup.getEpochNumberForCheckpoint(prevCheckpointNumber));
         // If we are at the first blob of the epoch, we must initialize the hash:
-        prevBlobAccumulatorHash = isFirstCheckpointOfEpoch ? Buffer.alloc(0) : prevBlobAccumulatorHash;
+        prevBlobAccumulatorHash = isFirstCheckpointOfEpoch ? bufferAlloc(0) : prevBlobAccumulatorHash;
         const currentBlobAccumulatorHash = (await rollup.getCurrentBlobCommitmentsHash()).toBuffer();
         let expectedBlobAccumulatorHash = prevBlobAccumulatorHash;
         blockBlobs

@@ -1,4 +1,5 @@
 import { toBigIntBE, toBufferBE } from '@aztec/foundation/bigint-buffer';
+import { bufferConcat, bufferFrom } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
@@ -75,14 +76,14 @@ export class PublicDataTreeLeafPreimage implements IndexedTreeLeafPreimage {
   }
 
   toBuffer(): Buffer {
-    return Buffer.concat(this.toHashInputs());
+    return bufferConcat(this.toHashInputs());
   }
 
   toHashInputs(): Buffer[] {
     return [
       ...this.leaf.toHashInputs(),
-      Buffer.from(toBufferBE(this.nextIndex, 32)),
-      Buffer.from(this.nextKey.toBuffer()),
+      bufferFrom(toBufferBE(this.nextIndex, 32)),
+      bufferFrom(this.nextKey.toBuffer()),
     ];
   }
 

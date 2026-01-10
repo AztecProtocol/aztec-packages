@@ -1,5 +1,6 @@
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { BlockNumber } from '@aztec/foundation/branded-types';
+import { bufferFrom } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { Point } from '@aztec/foundation/curves/grumpkin';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
@@ -115,7 +116,7 @@ export class NoteDao {
 
   static fromString(str: string) {
     const hex = str.replace(/^0x/, '');
-    return NoteDao.fromBuffer(Buffer.from(hex, 'hex'));
+    return NoteDao.fromBuffer(bufferFrom(hex, 'hex'));
   }
 
   /**

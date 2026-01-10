@@ -1,3 +1,5 @@
+import { bufferCompare } from '@aztec/foundation/buffer';
+
 import { CURSOR_PAGE_SIZE, Database, type LMDBMessageChannel, LMDBMessageType } from './message.js';
 
 export class ReadTransaction {
@@ -90,7 +92,7 @@ export class ReadTransaction {
           }
 
           if (endKey) {
-            const cmp = Buffer.compare(key, endKey);
+            const cmp = bufferCompare(key, endKey);
             if ((!reverse && cmp >= 0) || (reverse && cmp <= 0)) {
               done = true;
               break;

@@ -1,3 +1,4 @@
+import { bufferFrom } from '../../buffer/index.js';
 import { jsonParseWithSchema, jsonStringify } from '../../json-rpc/convert.js';
 import { updateInlineTestData } from '../../testing/files/index.js';
 import { BLS12Fq, BLS12Fr } from './field.js';
@@ -118,12 +119,12 @@ describe('BLS12Point', () => {
     it('fails with invalid compression encoding', () => {
       const p = BLS12Point.random();
       const compressed = p.compress();
-      let test = Buffer.from(compressed);
+      let test = bufferFrom(compressed);
       // 1: flip is_compressed
       test[0] ^= 0b1000_0000;
       expect(() => BLS12Point.decompress(test)).toThrow('Invalid compressed G1 point');
       // reset
-      test = Buffer.from(compressed);
+      test = bufferFrom(compressed);
       // 2: flip is_infinity
       test[0] ^= 0b0100_0000;
       expect(() => BLS12Point.decompress(test)).toThrow('Non-empty compressed G1 point');

@@ -4,7 +4,7 @@
  * Manages keystore configuration and delegates signing operations to appropriate signers.
  */
 import type { EthSigner } from '@aztec/ethereum/eth-signer';
-import { Buffer32 } from '@aztec/foundation/buffer';
+import { Buffer32, bufferFrom } from '@aztec/foundation/buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { Signature } from '@aztec/foundation/eth-signature';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -589,7 +589,7 @@ export class KeystoreManager {
 
           // Extract the private key from the viem account
           const privateKeyBytes = viemAccount.getHdKey().privateKey!;
-          const privateKey = Buffer32.fromBuffer(Buffer.from(privateKeyBytes));
+          const privateKey = Buffer32.fromBuffer(bufferFrom(privateKeyBytes));
           signers.push(new LocalSigner(privateKey));
         }
       }

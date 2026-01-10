@@ -1,5 +1,6 @@
 import { Blob, type BlobJson, computeEthVersionedBlobHash } from '@aztec/blob-lib';
 import { shuffle } from '@aztec/foundation/array';
+import { bufferFrom } from '@aztec/foundation/buffer';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
@@ -608,8 +609,8 @@ function parseBlobJsonsFromResponse(response: any, logger: Logger): BlobJson[] {
 // Here we attempt to parse the response data to Buffer, and check the lengths (via Blob's constructor), to avoid
 // throwing an error down the line when calling Blob.fromJson().
 function parseBlobJson(data: any): BlobJson {
-  const blobBuffer = Buffer.from(data.blob.slice(2), 'hex');
-  const commitmentBuffer = Buffer.from(data.kzg_commitment.slice(2), 'hex');
+  const blobBuffer = bufferFrom(data.blob.slice(2), 'hex');
+  const commitmentBuffer = bufferFrom(data.kzg_commitment.slice(2), 'hex');
   const blob = new Blob(blobBuffer, commitmentBuffer);
   return blob.toJSON();
 }

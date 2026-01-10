@@ -1,4 +1,5 @@
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
+import { bufferFrom } from '@aztec/foundation/buffer';
 import { makeEthSignDigest, tryRecoverAddress } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { EthAddress } from '@aztec/foundation/eth-address';
@@ -633,7 +634,7 @@ export class PeerManager implements PeerManagerInterface {
       const resp = await this.reqresp.sendRequestToPeer(
         peer,
         ReqRespSubProtocol.GOODBYE,
-        Buffer.from([reason]),
+        bufferFrom([reason]),
         GOODBYE_DIAL_TIMEOUT_MS,
       );
 

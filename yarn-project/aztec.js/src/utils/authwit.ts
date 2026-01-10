@@ -1,4 +1,5 @@
 import type { ChainInfo } from '@aztec/entrypoints/interfaces';
+import { isBuffer } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { type ABIParameterVisibility, type FunctionAbi, type FunctionCall, FunctionType } from '@aztec/stdlib/abi';
@@ -89,7 +90,7 @@ export const computeAuthWitMessageHash = async (
       await computeInnerAuthWitHashFromAction(intent.caller, call),
     );
   } else {
-    const inner = Buffer.isBuffer(intent.innerHash) ? Fr.fromBuffer(intent.innerHash) : intent.innerHash;
+    const inner = isBuffer(intent.innerHash) ? Fr.fromBuffer(intent.innerHash) : intent.innerHash;
     return computeOuterAuthWitHash(intent.consumer, chainId, version, inner);
   }
 };

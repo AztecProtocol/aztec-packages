@@ -19,6 +19,7 @@ import {
 } from '@aztec/ethereum/deploy-aztec-l1-contracts';
 import { EthCheatCodesWithState, startAnvil } from '@aztec/ethereum/test';
 import { asyncMap } from '@aztec/foundation/async-map';
+import { bufferFrom } from '@aztec/foundation/buffer';
 import { SecretValue } from '@aztec/foundation/config';
 import { randomBytes } from '@aztec/foundation/crypto/random';
 import { tryRmDir } from '@aztec/foundation/fs';
@@ -326,7 +327,7 @@ async function setupFromFresh(
 
   const hdAccount = mnemonicToAccount(MNEMONIC, { addressIndex: 0 });
   const publisherPrivKeyRaw = hdAccount.getHdKey().privateKey;
-  const publisherPrivKey = publisherPrivKeyRaw === null ? null : Buffer.from(publisherPrivKeyRaw);
+  const publisherPrivKey = publisherPrivKeyRaw === null ? null : bufferFrom(publisherPrivKeyRaw);
   const publisherPrivKeyHex = `0x${publisherPrivKey!.toString('hex')}` satisfies `0x${string}`;
 
   const l1Client = createExtendedL1Client([aztecNodeConfig.l1RpcUrls[0]], hdAccount, foundry);

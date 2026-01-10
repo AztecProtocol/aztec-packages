@@ -1,3 +1,4 @@
+import { bufferFrom } from '@aztec/foundation/buffer';
 import { poseidon2Hash } from '@aztec/foundation/crypto/poseidon';
 import { sha256, sha256ToField } from '@aztec/foundation/crypto/sha256';
 import { BLS12Fr } from '@aztec/foundation/curves/bls12';
@@ -49,7 +50,7 @@ export function computeBlobCommitment(data: Uint8Array): Buffer {
     throw new Error(`Expected ${BYTES_PER_BLOB} bytes per blob. Got ${data.length}.`);
   }
 
-  return Buffer.from(getKzg().blobToKzgCommitment(data));
+  return bufferFrom(getKzg().blobToKzgCommitment(data));
 }
 
 /**

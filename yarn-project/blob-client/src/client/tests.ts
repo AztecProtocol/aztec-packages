@@ -1,4 +1,5 @@
 import { makeRandomBlob } from '@aztec/blob-lib/testing';
+import { bufferAlloc } from '@aztec/foundation/buffer';
 
 import type { Hex } from 'viem';
 
@@ -53,7 +54,7 @@ export function runBlobClientTests(
   });
 
   it('should return empty array for non-existent blob hash', async () => {
-    const nonExistentHash = Buffer.alloc(32);
+    const nonExistentHash = bufferAlloc(32);
     nonExistentHash.fill(0xff);
 
     const retrievedBlobs = await client.getBlobSidecar(blockId, [nonExistentHash]);

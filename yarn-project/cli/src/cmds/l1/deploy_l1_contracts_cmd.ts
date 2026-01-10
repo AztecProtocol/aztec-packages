@@ -3,6 +3,7 @@ import type { EthAddress } from '@aztec/aztec.js/addresses';
 import { Fr } from '@aztec/aztec.js/fields';
 import { getL1ContractsConfigEnvVars } from '@aztec/ethereum/config';
 import { type Operator, deployAztecL1Contracts } from '@aztec/ethereum/deploy-aztec-l1-contracts';
+import { bufferFrom } from '@aztec/foundation/buffer';
 import { SecretValue } from '@aztec/foundation/config';
 import type { LogFn, Logger } from '@aztec/foundation/log';
 import { protocolContractsHash } from '@aztec/protocol-contracts';
@@ -46,7 +47,7 @@ export async function deployL1ContractsCmd(
     deployerPrivateKey = addLeadingHex(privateKey);
   } else {
     const account = mnemonicToAccount(mnemonic!, { addressIndex: mnemonicIndex });
-    deployerPrivateKey = `0x${Buffer.from(account.getHdKey().privateKey!).toString('hex')}`;
+    deployerPrivateKey = `0x${bufferFrom(account.getHdKey().privateKey!).toString('hex')}`;
   }
 
   // Prepare validator operators with bn254 keys

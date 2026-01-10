@@ -44,6 +44,7 @@ import {
 } from '@aztec/constants';
 import { type FieldsOf, makeTuple } from '@aztec/foundation/array';
 import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { bufferAlloc, bufferFrom } from '@aztec/foundation/buffer';
 import { compact } from '@aztec/foundation/collection';
 import { Grumpkin } from '@aztec/foundation/crypto/grumpkin';
 import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto/poseidon';
@@ -606,7 +607,7 @@ export function makeGrumpkinScalar(seed = 1): GrumpkinScalar {
  * @returns A proof.
  */
 export function makeProof(seed = 1) {
-  return new Proof(Buffer.alloc(16, seed), 0);
+  return new Proof(bufferAlloc(16, seed), 0);
 }
 
 function makePrivateCallRequest(seed = 1): PrivateCallRequest {
@@ -747,7 +748,7 @@ export function makeEthAddress(seed = 1): EthAddress {
  * @returns A buffer of a given size filled with a given value.
  */
 export function makeBytes(size = 32, fill = 1): Buffer {
-  return Buffer.alloc(size, fill);
+  return bufferAlloc(size, fill);
 }
 
 /**
@@ -765,7 +766,7 @@ export function makeAztecAddress(seed = 1): AztecAddress {
  * @returns A Schnorr signature.
  */
 export function makeSchnorrSignature(seed = 1): SchnorrSignature {
-  return new SchnorrSignature(Buffer.alloc(SchnorrSignature.SIZE, seed));
+  return new SchnorrSignature(bufferAlloc(SchnorrSignature.SIZE, seed));
 }
 
 function makeBlockConstantData(seed = 1, globalVariables?: GlobalVariables) {
@@ -1326,7 +1327,7 @@ export async function makeContractInstanceFromClassId(
 
 export function makeAvmGetSiblingPathHint(seed = 0): AvmGetSiblingPathHint {
   // We want a possibly large index, but non-random.
-  const index = BigInt(`0x${sha256(Buffer.from(seed.toString())).toString('hex')}`) % (1n << 64n);
+  const index = BigInt(`0x${sha256(bufferFrom(seed.toString())).toString('hex')}`) % (1n << 64n);
   return new AvmGetSiblingPathHint(
     makeAppendOnlyTreeSnapshot(seed),
     /*treeId=*/ (seed + 1) % 5,
@@ -1337,8 +1338,8 @@ export function makeAvmGetSiblingPathHint(seed = 0): AvmGetSiblingPathHint {
 
 export function makeAvmGetPreviousValueIndexHint(seed = 0): AvmGetPreviousValueIndexHint {
   // We want a possibly large index, but non-random.
-  const index = BigInt(`0x${sha256(Buffer.from(seed.toString())).toString('hex')}`) % (1n << 64n);
-  const value = new Fr(BigInt(`0x${sha256(Buffer.from((seed + 2).toString())).toString('hex')}`) % (1n << 128n));
+  const index = BigInt(`0x${sha256(bufferFrom(seed.toString())).toString('hex')}`) % (1n << 64n);
+  const value = new Fr(BigInt(`0x${sha256(bufferFrom((seed + 2).toString())).toString('hex')}`) % (1n << 128n));
   return new AvmGetPreviousValueIndexHint(
     makeAppendOnlyTreeSnapshot(seed),
     /*treeId=*/ (seed + 1) % 5,
@@ -1350,7 +1351,7 @@ export function makeAvmGetPreviousValueIndexHint(seed = 0): AvmGetPreviousValueI
 
 export function makeAvmGetLeafPreimageHintPublicDataTree(seed = 0): AvmGetLeafPreimageHintPublicDataTree {
   // We want a possibly large index, but non-random.
-  const index = BigInt(`0x${sha256(Buffer.from(seed.toString())).toString('hex')}`) % (1n << 64n);
+  const index = BigInt(`0x${sha256(bufferFrom(seed.toString())).toString('hex')}`) % (1n << 64n);
   return new AvmGetLeafPreimageHintPublicDataTree(
     makeAppendOnlyTreeSnapshot(seed),
     /*index=*/ index,
@@ -1360,7 +1361,7 @@ export function makeAvmGetLeafPreimageHintPublicDataTree(seed = 0): AvmGetLeafPr
 
 export function makeAvmGetLeafPreimageHintNullifierTree(seed = 0): AvmGetLeafPreimageHintNullifierTree {
   // We want a possibly large index, but non-random.
-  const index = BigInt(`0x${sha256(Buffer.from(seed.toString())).toString('hex')}`) % (1n << 64n);
+  const index = BigInt(`0x${sha256(bufferFrom(seed.toString())).toString('hex')}`) % (1n << 64n);
   return new AvmGetLeafPreimageHintNullifierTree(
     makeAppendOnlyTreeSnapshot(seed),
     /*index=*/ index,
@@ -1370,7 +1371,7 @@ export function makeAvmGetLeafPreimageHintNullifierTree(seed = 0): AvmGetLeafPre
 
 export function makeAvmGetLeafValueHint(seed = 0): AvmGetLeafValueHint {
   // We want a possibly large index, but non-random.
-  const index = BigInt(`0x${sha256(Buffer.from(seed.toString())).toString('hex')}`) % (1n << 64n);
+  const index = BigInt(`0x${sha256(bufferFrom(seed.toString())).toString('hex')}`) % (1n << 64n);
   return new AvmGetLeafValueHint(
     makeAppendOnlyTreeSnapshot(seed),
     /*treeId=*/ (seed + 1) % 5,

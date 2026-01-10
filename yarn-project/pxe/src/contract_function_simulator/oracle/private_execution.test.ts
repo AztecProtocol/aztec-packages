@@ -7,6 +7,7 @@ import {
 } from '@aztec/constants';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { BlockNumber } from '@aztec/foundation/branded-types';
+import { bufferFrom } from '@aztec/foundation/buffer';
 import { times } from '@aztec/foundation/collection';
 import { poseidon2Hash, poseidon2HashWithSeparator } from '@aztec/foundation/crypto/poseidon';
 import { randomInt } from '@aztec/foundation/crypto/random';
@@ -94,7 +95,7 @@ export const buildL1ToL2Message = async (
   msgIndex: Fr | number,
 ) => {
   // Write the selector into a buffer.
-  const selectorBuf = Buffer.from(selector, 'hex');
+  const selectorBuf = bufferFrom(selector, 'hex');
 
   const content = sha256ToField([selectorBuf, ...contentPreimage]);
   const secretHash = await computeSecretHash(secret);

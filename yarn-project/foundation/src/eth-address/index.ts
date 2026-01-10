@@ -1,5 +1,6 @@
 import { inspect } from 'util';
 
+import { bufferAlloc, bufferFrom, isBuffer } from '../buffer/index.js';
 import { keccak256String } from '../crypto/keccak/index.js';
 import { randomBytes } from '../crypto/random/index.js';
 import { Fr } from '../curves/bn254/index.js';
@@ -18,7 +19,7 @@ export class EthAddress {
   /** The size of an Ethereum address in bytes. */
   public static SIZE_IN_BYTES = 20;
   /** Represents a zero Ethereum address with 20 bytes filled with zeros. */
-  public static ZERO = new EthAddress(Buffer.alloc(EthAddress.SIZE_IN_BYTES));
+  public static ZERO = new EthAddress(bufferAlloc(EthAddress.SIZE_IN_BYTES));
 
   constructor(private buffer: Buffer) {
     if (buffer.length !== EthAddress.SIZE_IN_BYTES) {
@@ -38,7 +39,7 @@ export class EthAddress {
     if (!EthAddress.isAddress(address)) {
       throw new Error(`Invalid address string: ${address}`);
     }
-    return new EthAddress(Buffer.from(address.replace(/^0x/i, ''), 'hex'));
+    return new EthAddress(bufferFrom(address.replace(/^0x/i, ''), 'hex'));
   }
 
   /**
@@ -53,7 +54,7 @@ export class EthAddress {
     if (obj instanceof EthAddress) {
       return obj;
     }
-    if (obj instanceof Buffer || Buffer.isBuffer(obj)) {
+    if (obj instanceof Buffer || isBuffer(obj)) {
       return obj.length === 20 ? new EthAddress(obj) : EthAddress.fromField(new Fr(obj));
     }
     return EthAddress.fromString(obj);
@@ -208,7 +209,7 @@ export class EthAddress {
    * @returns A 32-byte Buffer containing the padded Ethereum address.
    */
   public toBuffer32() {
-    const buffer = Buffer.alloc(32);
+    const buffer = bufferAlloc(32);
     this.buffer.copy(buffer, 12);
     return buffer;
   }
@@ -248,7 +249,7 @@ export class EthAddress {
 
   /** Converts a number into an address. Useful for testing. */
   static fromNumber(num: bigint | number): EthAddress {
-    const buffer = Buffer.alloc(EthAddress.SIZE_IN_BYTES);
+    const buffer = bufferAlloc(EthAddress.SIZE_IN_BYTES);
     buffer.writeBigUInt64BE(BigInt(num), EthAddress.SIZE_IN_BYTES - 8);
     return new EthAddress(buffer);
   }

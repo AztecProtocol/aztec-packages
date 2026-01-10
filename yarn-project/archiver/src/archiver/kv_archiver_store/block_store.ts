@@ -1,5 +1,6 @@
 import { INITIAL_CHECKPOINT_NUMBER, INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
+import { bufferConcat } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { toArray } from '@aztec/foundation/iterable';
 import { createLogger } from '@aztec/foundation/log';
@@ -343,7 +344,7 @@ export class BlockStore {
       await this.#txEffects.set(txEffect.data.txHash.toString(), serializeIndexedTxEffect(txEffect));
     }
 
-    await this.#blockTxs.set(blockHash.toString(), Buffer.concat(block.body.txEffects.map(tx => tx.txHash.toBuffer())));
+    await this.#blockTxs.set(blockHash.toString(), bufferConcat(block.body.txEffects.map(tx => tx.txHash.toBuffer())));
 
     // Update indices for block hash and archive
     await this.#blockHashIndex.set(blockHash.toString(), block.number);

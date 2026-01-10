@@ -1,6 +1,7 @@
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { BlockNumber, BlockNumberSchema } from '@aztec/foundation/branded-types';
+import { bufferConcat } from '@aztec/foundation/buffer';
 import { BufferReader } from '@aztec/foundation/serialize';
 
 import { z } from 'zod';
@@ -64,7 +65,7 @@ export class LogId {
    * @returns A buffer containing the serialized log id.
    */
   public toBuffer(): Buffer {
-    return Buffer.concat([
+    return bufferConcat([
       toBufferBE(BigInt(this.blockNumber), 4),
       this.blockHash.toBuffer(),
       toBufferBE(BigInt(this.txIndex), 4),

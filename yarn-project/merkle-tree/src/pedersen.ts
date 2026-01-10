@@ -1,3 +1,4 @@
+import { bufferFrom } from '@aztec/foundation/buffer';
 import { pedersenHash } from '@aztec/foundation/crypto/sync';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { Hasher } from '@aztec/foundation/trees';
@@ -14,8 +15,8 @@ export class Pedersen implements Hasher {
    */
   public hash(lhs: Uint8Array, rhs: Uint8Array) {
     return pedersenHash([
-      Fr.fromBuffer(Buffer.from(lhs)),
-      Fr.fromBuffer(Buffer.from(rhs)),
+      Fr.fromBuffer(bufferFrom(lhs)),
+      Fr.fromBuffer(bufferFrom(rhs)),
     ]).toBuffer() as Buffer<ArrayBuffer>;
   }
 

@@ -1,3 +1,4 @@
+import { bufferFrom } from '@aztec/foundation/buffer';
 import { toArray } from '@aztec/foundation/iterable';
 import type { AztecAsyncArray, AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -32,7 +33,7 @@ export class AddressStore {
       } else {
         const existingBuffer = await this.#completeAddresses.atAsync(existing);
 
-        if (existingBuffer && Buffer.from(existingBuffer).equals(buffer)) {
+        if (existingBuffer && bufferFrom(existingBuffer).equals(buffer)) {
           return false;
         }
 

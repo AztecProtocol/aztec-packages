@@ -1,3 +1,5 @@
+import { bufferFrom } from '@aztec/foundation/buffer';
+
 import type { AvmContext } from '../avm_context.js';
 import { Field, Uint8, Uint16, Uint32 } from '../avm_memory_types.js';
 import { TagCheckError } from '../errors.js';
@@ -14,12 +16,12 @@ describe('Comparators', () => {
 
   describe('Eq', () => {
     it('Should deserialize correctly', () => {
-      const buf = Buffer.from([
+      const buf = bufferFrom([
         Opcode.EQ_16, // opcode
         0x01, // indirect
-        ...Buffer.from('1234', 'hex'), // aOffset
-        ...Buffer.from('2345', 'hex'), // bOffset
-        ...Buffer.from('3456', 'hex'), // dstOffset
+        ...bufferFrom('1234', 'hex'), // aOffset
+        ...bufferFrom('2345', 'hex'), // bOffset
+        ...bufferFrom('3456', 'hex'), // dstOffset
       ]);
       const inst = new Eq(/*indirect=*/ 0x01, /*aOffset=*/ 0x1234, /*bOffset=*/ 0x2345, /*dstOffset=*/ 0x3456).as(
         Opcode.EQ_16,
@@ -81,12 +83,12 @@ describe('Comparators', () => {
 
   describe('Lt', () => {
     it('Should deserialize correctly', () => {
-      const buf = Buffer.from([
+      const buf = bufferFrom([
         Opcode.LT_16, // opcode
         0x01, // indirect
-        ...Buffer.from('1234', 'hex'), // aOffset
-        ...Buffer.from('2345', 'hex'), // bOffset
-        ...Buffer.from('3456', 'hex'), // dstOffset
+        ...bufferFrom('1234', 'hex'), // aOffset
+        ...bufferFrom('2345', 'hex'), // bOffset
+        ...bufferFrom('3456', 'hex'), // dstOffset
       ]);
       const inst = new Lt(/*indirect=*/ 0x01, /*aOffset=*/ 0x1234, /*bOffset=*/ 0x2345, /*dstOffset=*/ 0x3456).as(
         Opcode.LT_16,
@@ -148,12 +150,12 @@ describe('Comparators', () => {
 
   describe('Lte', () => {
     it('Should deserialize correctly', () => {
-      const buf = Buffer.from([
+      const buf = bufferFrom([
         Opcode.LTE_16, // opcode
         0x01, // indirect
-        ...Buffer.from('1234', 'hex'), // aOffset
-        ...Buffer.from('2345', 'hex'), // bOffset
-        ...Buffer.from('3456', 'hex'), // dstOffset
+        ...bufferFrom('1234', 'hex'), // aOffset
+        ...bufferFrom('2345', 'hex'), // bOffset
+        ...bufferFrom('3456', 'hex'), // dstOffset
       ]);
       const inst = new Lte(/*indirect=*/ 0x01, /*aOffset=*/ 0x1234, /*bOffset=*/ 0x2345, /*dstOffset=*/ 0x3456).as(
         Opcode.LTE_16,

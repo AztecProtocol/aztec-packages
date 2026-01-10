@@ -1,5 +1,6 @@
 /* eslint-disable camelcase */
 import { GSEContract } from '@aztec/ethereum/contracts';
+import { bufferFrom } from '@aztec/foundation/buffer';
 import { deriveBlsKeyFromMnemonic } from '@aztec/foundation/crypto/bls';
 import { computeBn254G1PublicKey, computeBn254G2PublicKey } from '@aztec/foundation/crypto/bn254';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -25,7 +26,7 @@ function deriveKeysFromMnemonic(mnemonic: string, accountIndex = 0, addressIndex
 
   return {
     ethPrivateKey: account.getHdKey().privateKey
-      ? (`0x${Buffer.from(account.getHdKey().privateKey!).toString('hex')}` as EthAccount)
+      ? (`0x${bufferFrom(account.getHdKey().privateKey!).toString('hex')}` as EthAccount)
       : (account.address as any),
     blsPrivateKey,
   };

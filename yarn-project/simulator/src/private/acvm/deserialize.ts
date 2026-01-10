@@ -1,3 +1,4 @@
+import { bufferConcat } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { hexToBuffer } from '@aztec/foundation/string';
 
@@ -30,7 +31,7 @@ export function fromUintBoundedVec(storage: ACVMField[], length: ACVMField, uint
   }
   const uintByteSize = uintBitSize / 8;
   const boundedStorage = storage.slice(0, Fr.fromString(length).toNumber());
-  return Buffer.concat(boundedStorage.map(str => hexToBuffer(str).subarray(-uintByteSize)));
+  return bufferConcat(boundedStorage.map(str => hexToBuffer(str).subarray(-uintByteSize)));
 }
 
 /**
@@ -54,5 +55,5 @@ export function fromUintArray(obj: ACVMField[], uintBitSize: number): Buffer {
     throw new Error(`u${uintBitSize} is not a supported type in Noir`);
   }
   const uintByteSize = uintBitSize / 8;
-  return Buffer.concat(obj.map(str => hexToBuffer(str).slice(-uintByteSize)));
+  return bufferConcat(obj.map(str => hexToBuffer(str).slice(-uintByteSize)));
 }

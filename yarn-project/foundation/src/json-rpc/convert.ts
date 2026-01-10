@@ -1,5 +1,6 @@
 import { Buffer } from 'buffer';
 
+import { bufferFrom, isBuffer } from '../buffer/index.js';
 import type { ZodFor } from '../schemas/types.js';
 
 /**
@@ -24,8 +25,8 @@ export function jsonStringify(obj: unknown, prettify?: boolean): string {
       if (typeof value === 'bigint') {
         return value.toString();
       } else if (typeof value === 'object' && value && value.type === 'Buffer' && Array.isArray(value.data)) {
-        return Buffer.from(value.data).toString('base64');
-      } else if (typeof value === 'object' && value && Buffer.isBuffer(value)) {
+        return bufferFrom(value.data).toString('base64');
+      } else if (typeof value === 'object' && value && isBuffer(value)) {
         return value.toString('base64');
       } else if (typeof value === 'object' && value instanceof Map) {
         return Array.from(value.entries());

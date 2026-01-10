@@ -1,10 +1,12 @@
+import { bufferFrom } from '../buffer/index.js';
+
 /**
  * Convert a little-endian buffer into a BigInt.
  * @param buf - The little-endian buffer to convert.
  * @returns A BigInt with the little-endian representation of buf.
  */
 export function toBigIntLE(buf: Buffer): bigint {
-  const reversed = Buffer.from(buf);
+  const reversed = bufferFrom(buf);
   reversed.reverse();
   const hex = reversed.toString('hex');
   if (hex.length === 0) {
@@ -37,7 +39,7 @@ export function toBufferLE(num: bigint, width: number): Buffer {
     throw new Error(`Cannot convert negative bigint ${num.toString()} to buffer with toBufferLE.`);
   }
   const hex = num.toString(16);
-  const buffer = Buffer.from(hex.padStart(width * 2, '0').slice(0, width * 2), 'hex');
+  const buffer = bufferFrom(hex.padStart(width * 2, '0').slice(0, width * 2), 'hex');
   buffer.reverse();
   return buffer;
 }
@@ -53,7 +55,7 @@ export function toBufferBE(num: bigint, width: number): Buffer {
     throw new Error(`Cannot convert negative bigint ${num.toString()} to buffer with toBufferBE.`);
   }
   const hex = num.toString(16);
-  const buffer = Buffer.from(hex.padStart(width * 2, '0').slice(0, width * 2), 'hex');
+  const buffer = bufferFrom(hex.padStart(width * 2, '0').slice(0, width * 2), 'hex');
   if (buffer.length > width) {
     throw new Error(`Number ${num.toString(16)} does not fit in ${width}`);
   }
@@ -83,5 +85,5 @@ export function fromHex(value: string): Buffer {
   if (!hexRegex.test(value) || value.length % 2 !== 0) {
     throw new Error(`Invalid hex string: ${value}`);
   }
-  return Buffer.from(value.replace(/^0x/i, ''), 'hex');
+  return bufferFrom(value.replace(/^0x/i, ''), 'hex');
 }

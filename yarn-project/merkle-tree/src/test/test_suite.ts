@@ -1,3 +1,4 @@
+import { bufferAlloc, bufferConcat } from '@aztec/foundation/buffer';
 import { SiblingPath } from '@aztec/foundation/trees';
 import type { Hasher } from '@aztec/foundation/trees';
 import type { AztecKVStore } from '@aztec/kv-store';
@@ -40,7 +41,7 @@ export const treeTestSuite = (
 
     beforeAll(() => {
       for (let i = 0; i < 32; ++i) {
-        const v = Buffer.alloc(32, i + 1);
+        const v = bufferAlloc(32, i + 1);
         v.writeUInt32BE(i, 28);
         values[i] = v;
       }
@@ -143,8 +144,8 @@ export const treeTestSuite = (
       expect(deserialized.elem).toEqual(siblingPath);
       expect(deserialized.adv).toBe(4 + 10 * 32);
 
-      const dummyData = Buffer.alloc(23, 1);
-      const paddedBuf = Buffer.concat([dummyData, buf]);
+      const dummyData = bufferAlloc(23, 1);
+      const paddedBuf = bufferConcat([dummyData, buf]);
       const recovered2 = SiblingPath.fromBuffer(paddedBuf, 23);
       expect(recovered2).toEqual(siblingPath);
       const deserialized2 = SiblingPath.deserialize(buf);

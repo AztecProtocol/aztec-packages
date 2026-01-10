@@ -1,4 +1,5 @@
 import type { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
+import { bufferFrom } from '@aztec/foundation/buffer';
 import { sha256ToField } from '@aztec/foundation/crypto/sha256';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
@@ -60,7 +61,7 @@ export class L1ToL2Message {
   }
 
   static fromString(data: string): L1ToL2Message {
-    const buffer = Buffer.from(data, 'hex');
+    const buffer = bufferFrom(data, 'hex');
     return L1ToL2Message.fromBuffer(buffer);
   }
 

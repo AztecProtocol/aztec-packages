@@ -6,6 +6,7 @@
 import { MockL2BlockSource } from '@aztec/archiver/test';
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
 import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { bufferFrom } from '@aztec/foundation/buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
@@ -264,7 +265,7 @@ process.on('message', async msg => {
             process.exit(0);
             break;
           case 'SEND_TX':
-            await client.sendTx(Tx.fromBuffer(Buffer.from(cmd.tx)));
+            await client.sendTx(Tx.fromBuffer(bufferFrom(cmd.tx)));
             process.send!({ type: 'TX_SENT' });
             break;
         }

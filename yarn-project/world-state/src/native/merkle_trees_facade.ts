@@ -1,4 +1,5 @@
 import { BlockNumber } from '@aztec/foundation/branded-types';
+import { isBuffer } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import { serializeToBuffer } from '@aztec/foundation/serialize';
@@ -359,7 +360,7 @@ export function serializeLeaf(leaf: Fr | NullifierLeaf | PublicDataTreeLeaf): Se
 }
 
 function deserializeLeafValue(leaf: SerializedLeafValue): Fr | NullifierLeaf | PublicDataTreeLeaf {
-  if (Buffer.isBuffer(leaf)) {
+  if (isBuffer(leaf)) {
     return Fr.fromBuffer(leaf);
   } else if ('slot' in leaf) {
     return new PublicDataTreeLeaf(Fr.fromBuffer(leaf.slot), Fr.fromBuffer(leaf.value));

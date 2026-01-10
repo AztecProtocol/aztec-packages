@@ -1,3 +1,4 @@
+import { bufferAlloc } from '../buffer/index.js';
 import {
   computeBalancedMerkleTreeRoot,
   computeBalancedMerkleTreeRootAsync,
@@ -38,7 +39,7 @@ export const computeCompressedUnbalancedShaRoot = (leaves: Buffer[]) =>
 export function computeUnbalancedMerkleTreeRoot(
   leaves: Buffer[],
   hasher = shaMerkleHash,
-  emptyRoot = Buffer.alloc(32),
+  emptyRoot = bufferAlloc(32),
 ): Buffer {
   if (!leaves.length) {
     return emptyRoot;
@@ -73,7 +74,7 @@ export function computeUnbalancedMerkleTreeRoot(
 export async function computeUnbalancedMerkleTreeRootAsync(
   leaves: Buffer[],
   hasher = poseidonMerkleHash,
-  emptyRoot = Buffer.alloc(32),
+  emptyRoot = bufferAlloc(32),
 ): Promise<Buffer> {
   if (!leaves.length) {
     return emptyRoot;
@@ -107,8 +108,8 @@ export async function computeUnbalancedMerkleTreeRootAsync(
 
 export function computeCompressedUnbalancedMerkleTreeRoot(
   leaves: Buffer[],
-  valueToCompress = Buffer.alloc(32),
-  emptyRoot = Buffer.alloc(32),
+  valueToCompress = bufferAlloc(32),
+  emptyRoot = bufferAlloc(32),
   hasher = shaMerkleHash,
 ): Buffer {
   const calculator = UnbalancedMerkleTreeCalculator.create(leaves, valueToCompress, emptyRoot, hasher);

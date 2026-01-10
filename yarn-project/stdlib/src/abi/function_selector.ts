@@ -1,4 +1,5 @@
 import { fromHex, toBigIntBE } from '@aztec/foundation/bigint-buffer';
+import { bufferFrom } from '@aztec/foundation/buffer';
 import { poseidon2HashBytes } from '@aztec/foundation/crypto/poseidon';
 import { randomBytes } from '@aztec/foundation/crypto/random';
 import type { Fr } from '@aztec/foundation/curves/bn254';
@@ -62,7 +63,7 @@ export class FunctionSelector extends Selector {
     if (/\s/.test(signature)) {
       throw new Error('Signature cannot contain whitespace');
     }
-    const hash = await poseidon2HashBytes(Buffer.from(signature));
+    const hash = await poseidon2HashBytes(bufferFrom(signature));
     // We take the last Selector.SIZE big endian bytes
     const bytes = hash.toBuffer().slice(-Selector.SIZE);
     return FunctionSelector.fromBuffer(bytes);

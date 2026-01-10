@@ -1,5 +1,6 @@
 import { BarretenbergSync } from '@aztec/bb.js';
 
+import { bufferAlloc, bufferFrom } from '../../../buffer/index.js';
 import { Fr } from '../../../curves/bn254/field.js';
 import { type Fieldable, serializeToFields } from '../../../serialize/serialize.js';
 
@@ -14,7 +15,7 @@ export function poseidon2Hash(input: Fieldable[]): Fr {
   const response = api.poseidon2Hash({
     inputs: inputFields.map(i => i.toBuffer()),
   });
-  return Fr.fromBuffer(Buffer.from(response.hash));
+  return Fr.fromBuffer(bufferFrom(response.hash));
 }
 
 /**
@@ -31,7 +32,7 @@ export function poseidon2HashWithSeparator(input: Fieldable[], separator: number
   const response = api.poseidon2Hash({
     inputs: inputFields.map(i => i.toBuffer()),
   });
-  return Fr.fromBuffer(Buffer.from(response.hash));
+  return Fr.fromBuffer(bufferFrom(response.hash));
 }
 
 export function poseidon2HashAccumulate(input: Fieldable[]): Fr {
@@ -40,7 +41,7 @@ export function poseidon2HashAccumulate(input: Fieldable[]): Fr {
   const response = api.poseidon2HashAccumulate({
     inputs: inputFields.map(i => i.toBuffer()),
   });
-  return Fr.fromBuffer(Buffer.from(response.hash));
+  return Fr.fromBuffer(bufferFrom(response.hash));
 }
 
 /**
@@ -58,13 +59,13 @@ export function poseidon2Permutation(input: Fieldable[]): Fr[] {
   });
   // We'd like this assertion but it's not possible to use it in the browser.
   // assert(response.outputs.length === 4, 'Output state must be of size 4');
-  return response.outputs.map(o => Fr.fromBuffer(Buffer.from(o)));
+  return response.outputs.map(o => Fr.fromBuffer(bufferFrom(o)));
 }
 
 export function poseidon2HashBytes(input: Buffer): Fr {
   const inputFields = [];
   for (let i = 0; i < input.length; i += 31) {
-    const fieldBytes = Buffer.alloc(32, 0);
+    const fieldBytes = bufferAlloc(32, 0);
     input.slice(i, i + 31).copy(fieldBytes);
 
     // Noir builds the bytes as little-endian, so we need to reverse them.
@@ -77,5 +78,5 @@ export function poseidon2HashBytes(input: Buffer): Fr {
     inputs: inputFields.map(i => i.toBuffer()),
   });
 
-  return Fr.fromBuffer(Buffer.from(response.hash));
+  return Fr.fromBuffer(bufferFrom(response.hash));
 }

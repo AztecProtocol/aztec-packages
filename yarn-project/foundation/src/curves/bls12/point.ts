@@ -4,6 +4,7 @@ import { bls12_381 } from '@noble/curves/bls12-381';
 import { inspect } from 'util';
 
 import { toBufferBE } from '../../bigint-buffer/index.js';
+import { bufferAlloc, bufferConcat, bufferFrom } from '../../buffer/index.js';
 import { randomBoolean } from '../../crypto/random/index.js';
 import { hexSchemaFor } from '../../schemas/utils.js';
 import { BufferReader, serializeToBuffer } from '../../serialize/index.js';
@@ -22,7 +23,7 @@ export class BLS12Point {
   static ONE = new BLS12Point(new BLS12Fq(bls12_381.G1.CURVE.Gx), new BLS12Fq(bls12_381.G1.CURVE.Gy), false);
   static SIZE_IN_BYTES = BLS12Fq.SIZE_IN_BYTES * 2;
   static COMPRESSED_SIZE_IN_BYTES = BLS12Fq.SIZE_IN_BYTES;
-  static COMPRESSED_ZERO = setMask(Buffer.alloc(BLS12Fq.SIZE_IN_BYTES), { infinity: true, compressed: true });
+  static COMPRESSED_ZERO = setMask(bufferAlloc(BLS12Fq.SIZE_IN_BYTES), { infinity: true, compressed: true });
 
   constructor(
     /**
@@ -181,7 +182,7 @@ export class BLS12Point {
    * @returns The point fields.
    */
   static fromBN254Fields(fields: [Fr, Fr]) {
-    return BLS12Point.decompress(Buffer.concat([fields[0].toBuffer().subarray(1), fields[1].toBuffer().subarray(-17)]));
+    return BLS12Point.decompress(bufferConcat([fields[0].toBuffer().subarray(1), fields[1].toBuffer().subarray(-17)]));
   }
 
   /**
@@ -440,7 +441,7 @@ function setMask(bytes: Buffer, mask: { compressed?: boolean; infinity?: boolean
  */
 function parseMask(bytes: Buffer) {
   // Copy, so we can remove mask data without affecting input bytes.
-  const value = Buffer.from(bytes);
+  const value = bufferFrom(bytes);
   const mask = value[0] & 0b1110_0000;
   const compressed = !!((mask >> 7) & 1); // compression bit (0b1000_0000)
   const infinity = !!((mask >> 6) & 1); // point at infinity bit (0b0100_0000)

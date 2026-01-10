@@ -1,4 +1,5 @@
 import { toBigIntBE } from '../bigint-buffer/index.js';
+import { bufferConcat, bufferFrom } from '../buffer/index.js';
 import { poseidon2Hash } from '../crypto/poseidon/index.js';
 import { Fr } from '../curves/bn254/field.js';
 import { BufferReader } from '../serialize/buffer_reader.js';
@@ -86,7 +87,7 @@ class TestLeafPreimage implements IndexedTreeLeafPreimage {
   }
 
   toBuffer(): Buffer {
-    return Buffer.concat(this.toHashInputs());
+    return bufferConcat(this.toHashInputs());
   }
 
   static fromBuffer(buffer: Buffer | BufferReader): TestLeafPreimage {
@@ -95,7 +96,7 @@ class TestLeafPreimage implements IndexedTreeLeafPreimage {
   }
 
   toHashInputs(): Buffer[] {
-    return [Buffer.from(this.address.toBuffer()), Buffer.from(this.nextAddress.toBuffer())];
+    return [bufferFrom(this.address.toBuffer()), bufferFrom(this.nextAddress.toBuffer())];
   }
 }
 

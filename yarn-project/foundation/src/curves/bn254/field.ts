@@ -3,6 +3,7 @@ import { BarretenbergSync } from '@aztec/bb.js';
 import { inspect } from 'util';
 
 import { toBigIntBE, toBufferBE } from '../../bigint-buffer/index.js';
+import { bufferFrom, isBuffer } from '../../buffer/index.js';
 import { randomBytes } from '../../crypto/random/index.js';
 import { hexSchemaFor } from '../../schemas/utils.js';
 import { BufferReader } from '../../serialize/buffer_reader.js';
@@ -44,7 +45,7 @@ abstract class BaseField {
   }
 
   protected constructor(value: number | bigint | boolean | BaseField | Buffer) {
-    if (Buffer.isBuffer(value)) {
+    if (isBuffer(value)) {
       if (value.length > BaseField.SIZE_IN_BYTES) {
         throw new Error(`Value length ${value.length} exceeds ${BaseField.SIZE_IN_BYTES}`);
       }
@@ -178,7 +179,7 @@ function fromHexString<T extends BaseField>(buf: string, f: DerivedField<T>) {
     throw new Error(`Invalid hex-encoded string: "${buf}"`);
   }
 
-  const buffer = Buffer.from(checked.length % 2 === 1 ? '0' + checked : checked, 'hex');
+  const buffer = bufferFrom(checked.length % 2 === 1 ? '0' + checked : checked, 'hex');
 
   return new f(toBigIntBE(buffer));
 }
@@ -313,7 +314,7 @@ export class Fr extends BaseField {
       // Field element is not a quadratic residue mod p so it has no square root.
       return null;
     }
-    return Fr.fromBuffer(Buffer.from(response.value));
+    return Fr.fromBuffer(bufferFrom(response.value));
   }
 
   toJSON() {
@@ -447,7 +448,7 @@ export class Fq extends BaseField {
       // Field element is not a quadratic residue mod p so it has no square root.
       return null;
     }
-    return Fq.fromBuffer(Buffer.from(response.value));
+    return Fq.fromBuffer(bufferFrom(response.value));
   }
 
   toJSON() {

@@ -9,6 +9,7 @@ import { EthAddress } from '@aztec/aztec.js/addresses';
 import type { L1ContractsConfig } from '@aztec/ethereum/config';
 import { RollupContract } from '@aztec/ethereum/contracts';
 import type { Operator } from '@aztec/ethereum/deploy-aztec-l1-contracts';
+import { bufferFrom } from '@aztec/foundation/buffer';
 import { SecretValue } from '@aztec/foundation/config';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type LogFn, createLogger } from '@aztec/foundation/log';
@@ -60,7 +61,7 @@ export async function deployNewRollupContracts(
   } else {
     account = mnemonicToAccount(mnemonic!, { addressIndex: mnemonicIndex });
     const privateKeyBuf = account.getHdKey().privateKey;
-    const privateKeyHex = Buffer.from(privateKeyBuf!).toString('hex');
+    const privateKeyHex = bufferFrom(privateKeyBuf!).toString('hex');
     privateKey = `0x${privateKeyHex}`;
   }
 

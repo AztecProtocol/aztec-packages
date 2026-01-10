@@ -1,3 +1,5 @@
+import { bufferFrom } from '@aztec/foundation/buffer';
+
 import { BufferCursor } from './buffer_cursor.js';
 import { OperandType, deserialize, serializeAs } from './instruction_serialization.js';
 
@@ -27,7 +29,7 @@ describe('Instruction Serialization', () => {
     const actual: Buffer = serializeAs(InstA.wireFormat, InstA.opcode, instance);
 
     expect(actual).toEqual(
-      Buffer.from(
+      bufferFrom(
         [
           // opcode
           '01',
@@ -48,7 +50,7 @@ describe('Instruction Serialization', () => {
   });
 
   it('Should deserialize all types from OperandType[]', () => {
-    const buffer = Buffer.from(
+    const buffer = bufferFrom(
       [
         // opcode
         '01',

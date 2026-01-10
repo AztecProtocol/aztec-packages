@@ -2,6 +2,7 @@ import { Buffer32 } from '@aztec/foundation/buffer';
 
 import { generatePrivateKey } from 'viem/accounts';
 
+import { bufferFrom } from '../../buffer/index.js';
 import type { EthAddress } from '../../eth-address/index.js';
 import { Signature } from '../../eth-signature/eth_signature.js';
 import { Secp256k1Signer } from './secp256k1_signer.js';
@@ -25,7 +26,7 @@ describe('ecdsa malleability', () => {
   beforeEach(() => {
     // Generate a random private key and signer
     privateKey = generatePrivateKey();
-    signer = new Secp256k1Signer(Buffer32.fromBuffer(Buffer.from(privateKey.slice(2), 'hex')));
+    signer = new Secp256k1Signer(Buffer32.fromBuffer(bufferFrom(privateKey.slice(2), 'hex')));
     expectedAddress = signer.address;
 
     // Create a random message and sign it

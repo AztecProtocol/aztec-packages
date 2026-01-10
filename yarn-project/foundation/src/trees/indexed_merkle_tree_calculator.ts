@@ -2,6 +2,7 @@ import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { numToUInt32BE } from '@aztec/foundation/serialize';
 import type { IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
 
+import { bufferAlloc, bufferConcat } from '../buffer/index.js';
 import type { AsyncHasher } from './hasher.js';
 import { IndexedMerkleTree } from './indexed_merkle_tree.js';
 
@@ -24,7 +25,7 @@ export class IndexedMerkleTreeCalculator<T extends IndexedTreeLeafPreimage, N ex
     height: N,
     hasher: AsyncHasher,
     factory: LeafPreimageFactory<T>,
-    zeroLeaf = Buffer.alloc(32),
+    zeroLeaf = bufferAlloc(32),
   ) {
     const zeroHashes = [zeroLeaf];
     for (let i = 0; i < height; i++) {
@@ -36,17 +37,17 @@ export class IndexedMerkleTreeCalculator<T extends IndexedTreeLeafPreimage, N ex
   async computeTree(values: Buffer[]): Promise<IndexedMerkleTree<T, N>> {
     if (!values.find(v => toBigIntBE(v) == BigInt(0))) {
       // If we have no zero value, add one to form the zero leaf
-      values = [Buffer.alloc(32), ...values];
+      values = [bufferAlloc(32), ...values];
     }
     const sorted = values
       .map((v, i) => ({ value: v, index: i }))
       .sort((a, b) => Number(toBigIntBE(b.value) - toBigIntBE(a.value)));
     const indexedLeaves = sorted.map((item, i) => ({
       leaf: this.factory.fromBuffer(
-        Buffer.concat([
+        bufferConcat([
           item.value,
           ...(i == 0
-            ? [Buffer.alloc(32), Buffer.alloc(32)]
+            ? [bufferAlloc(32), bufferAlloc(32)]
             : [sorted[i - 1].value, numToUInt32BE(sorted[i - 1].index, 32)]),
         ]),
       ),

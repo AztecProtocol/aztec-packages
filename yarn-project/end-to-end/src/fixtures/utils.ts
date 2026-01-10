@@ -30,6 +30,7 @@ import {
   startAnvil,
 } from '@aztec/ethereum/test';
 import { BlockNumber, EpochNumber } from '@aztec/foundation/branded-types';
+import { bufferFrom } from '@aztec/foundation/buffer';
 import { SecretValue } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { tryRmDir } from '@aztec/foundation/fs';
@@ -119,7 +120,7 @@ if (typeof afterAll === 'function') {
 export const getPrivateKeyFromIndex = (index: number): Buffer | null => {
   const hdAccount = mnemonicToAccount(MNEMONIC, { addressIndex: index });
   const privKeyRaw = hdAccount.getHdKey().privateKey;
-  return privKeyRaw === null ? null : Buffer.from(privKeyRaw);
+  return privKeyRaw === null ? null : bufferFrom(privKeyRaw);
 };
 
 /**
@@ -420,7 +421,7 @@ export async function setup(
     } else {
       publisherHdAccount = mnemonicToAccount(MNEMONIC, { addressIndex: 0 });
       const publisherPrivKeyRaw = publisherHdAccount.getHdKey().privateKey;
-      const publisherPrivKey = publisherPrivKeyRaw === null ? null : Buffer.from(publisherPrivKeyRaw);
+      const publisherPrivKey = publisherPrivKeyRaw === null ? null : bufferFrom(publisherPrivKeyRaw);
       publisherPrivKeyHex = `0x${publisherPrivKey!.toString('hex')}` as const;
       config.publisherPrivateKeys = [new SecretValue(publisherPrivKeyHex)];
     }

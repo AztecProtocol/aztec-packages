@@ -1,4 +1,4 @@
-import { Buffer32 } from '@aztec/foundation/buffer';
+import { Buffer32, bufferFrom } from '@aztec/foundation/buffer';
 import { randomBytes } from '@aztec/foundation/crypto/random';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
@@ -89,9 +89,9 @@ export class ZkPassportProofParams {
     return new ZkPassportProofParams(
       params.serviceConfig.devMode,
       Buffer32.fromString(params.proofVerificationData.vkeyHash),
-      Buffer.from(withoutHexPrefix(params.proofVerificationData.proof), 'hex'),
+      bufferFrom(withoutHexPrefix(params.proofVerificationData.proof), 'hex'),
       params.proofVerificationData.publicInputs.map(input => Fr.fromString(input)),
-      Buffer.from(withoutHexPrefix(params.commitments.committedInputs), 'hex'),
+      bufferFrom(withoutHexPrefix(params.commitments.committedInputs), 'hex'),
       params.serviceConfig.validityPeriodInSeconds,
       params.serviceConfig.domain,
       params.serviceConfig.scope,

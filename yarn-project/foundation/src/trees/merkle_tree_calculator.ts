@@ -1,5 +1,6 @@
 import { pedersenHash } from '@aztec/foundation/crypto/pedersen';
 
+import { bufferAlloc } from '../buffer/index.js';
 import type { AsyncHasher } from './hasher.js';
 import { MerkleTree } from './merkle_tree.js';
 
@@ -17,7 +18,7 @@ export class MerkleTreeCalculator {
 
   static async create(
     height: number,
-    zeroLeaf: Buffer = Buffer.alloc(32),
+    zeroLeaf: Buffer = bufferAlloc(32),
     hasher = async (left: Buffer, right: Buffer) =>
       (await pedersenHash([left, right])).toBuffer() as Buffer<ArrayBuffer>,
   ) {

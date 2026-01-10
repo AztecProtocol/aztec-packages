@@ -5,6 +5,7 @@ import { Signature } from '@aztec/foundation/eth-signature';
 import { hashMessage, recoverAddress as viemRecoverAddress, recoverPublicKey as viemRecoverPublicKey } from 'viem';
 import { type PrivateKeyAccount, generatePrivateKey, privateKeyToAccount, publicKeyToAddress } from 'viem/accounts';
 
+import { bufferFrom } from '../../buffer/index.js';
 import { Secp256k1Signer } from './secp256k1_signer.js';
 import { recoverAddress as lightRecoverAddress, recoverPublicKey as lightRecoverPublicKey } from './utils.js';
 
@@ -19,17 +20,17 @@ describe('Secp256k1Signer', () => {
     const privateKey = generatePrivateKey();
     viemSigner = privateKeyToAccount(privateKey);
 
-    lightSigner = new Secp256k1Signer(Buffer32.fromBuffer(Buffer.from(privateKey.slice(2), 'hex')));
+    lightSigner = new Secp256k1Signer(Buffer32.fromBuffer(bufferFrom(privateKey.slice(2), 'hex')));
   });
 
   it('compares implementation against viem', async () => {
-    const message = Buffer.from('0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef', 'hex');
+    const message = bufferFrom('0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef', 'hex');
     // Use to compare addresses at the end
     const accountAddress = viemSigner.address;
 
     // We use eth hashed message as viem will automatically do this with signMessage
     const ethHashedMessage = hashMessage({ raw: message });
-    const ethHashedMessageBuffer = Buffer32.fromBuffer(Buffer.from(ethHashedMessage.slice(2), 'hex'));
+    const ethHashedMessageBuffer = Buffer32.fromBuffer(bufferFrom(ethHashedMessage.slice(2), 'hex'));
 
     const viemSignature = Signature.fromString(await viemSigner.signMessage({ message: { raw: message } }));
     const lightSignature = lightSigner.sign(ethHashedMessageBuffer);
@@ -41,7 +42,7 @@ describe('Secp256k1Signer', () => {
     const lightPublicKey = lightRecoverPublicKey(ethHashedMessageBuffer, lightSignature);
 
     // Check recovered public keys match
-    expect(Buffer.from(viemPublicKey.slice(2), 'hex')).toEqual(lightPublicKey);
+    expect(bufferFrom(viemPublicKey.slice(2), 'hex')).toEqual(lightPublicKey);
 
     // Get the eth address can be recovered from the message and signature
     const viemPublicKeyToAddress = publicKeyToAddress(viemPublicKey);
@@ -49,7 +50,7 @@ describe('Secp256k1Signer', () => {
       await viemRecoverAddress({ hash: ethHashedMessage, signature: viemSignature.toString() }),
     );
     const lightAddress = lightRecoverAddress(
-      Buffer32.fromBuffer(Buffer.from(ethHashedMessage.slice(2), 'hex')),
+      Buffer32.fromBuffer(bufferFrom(ethHashedMessage.slice(2), 'hex')),
       lightSignature,
     );
 

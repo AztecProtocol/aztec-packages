@@ -10,7 +10,7 @@ import type { EpochProofPublicInputArgs } from '@aztec/ethereum/contracts';
 import type { ViemClient, ViemPublicClient, ViemPublicDebugClient } from '@aztec/ethereum/types';
 import { asyncPool } from '@aztec/foundation/async-pool';
 import { CheckpointNumber } from '@aztec/foundation/branded-types';
-import { Buffer16, Buffer32 } from '@aztec/foundation/buffer';
+import { Buffer16, Buffer32, bufferFrom } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -269,7 +269,7 @@ async function processCheckpointProposedLogs(
     const checkpointNumber = CheckpointNumber.fromBigInt(log.args.checkpointNumber!);
     const archive = log.args.archive!;
     const archiveFromChain = await rollup.read.archiveAt([BigInt(checkpointNumber)]);
-    const blobHashes = log.args.versionedBlobHashes!.map(blobHash => Buffer.from(blobHash.slice(2), 'hex'));
+    const blobHashes = log.args.versionedBlobHashes!.map(blobHash => bufferFrom(blobHash.slice(2), 'hex'));
 
     // The value from the event and contract will match only if the checkpoint is in the chain.
     if (archive === archiveFromChain) {
@@ -495,7 +495,7 @@ export async function getProofFromSubmitProofTx(
 
     proverId = Fr.fromHexString(decodedArgs.args.proverId);
     archiveRoot = Fr.fromHexString(decodedArgs.args.endArchive);
-    proof = Proof.fromBuffer(Buffer.from(hexToBytes(decodedArgs.proof)));
+    proof = Proof.fromBuffer(bufferFrom(hexToBytes(decodedArgs.proof)));
   } else {
     throw new Error(`Unexpected proof method called ${functionName}`);
   }

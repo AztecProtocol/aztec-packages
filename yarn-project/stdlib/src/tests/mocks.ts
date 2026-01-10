@@ -8,7 +8,7 @@ import {
 } from '@aztec/constants';
 import { type FieldsOf, makeTuple } from '@aztec/foundation/array';
 import { BlockNumber, CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
-import { Buffer32 } from '@aztec/foundation/buffer';
+import { Buffer32, bufferFrom } from '@aztec/foundation/buffer';
 import { padArrayEnd, times } from '@aztec/foundation/collection';
 import { randomBytes } from '@aztec/foundation/crypto/random';
 import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
@@ -355,8 +355,8 @@ export async function mockProcessedTx({
 
 const emptyPrivateCallExecutionResult = () =>
   new PrivateCallExecutionResult(
-    Buffer.from(''),
-    Buffer.from(''),
+    bufferFrom(''),
+    bufferFrom(''),
     new Map(),
     PrivateCircuitPublicInputs.empty(),
     new Map(),

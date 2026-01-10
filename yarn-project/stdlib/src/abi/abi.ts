@@ -1,3 +1,4 @@
+import { bufferFrom } from '@aztec/foundation/buffer';
 /* eslint-disable camelcase */
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
@@ -416,7 +417,7 @@ export function getAllFunctionAbis(artifact: ContractArtifact): FunctionAbi[] {
 }
 
 export function parseDebugSymbols(debugSymbols: string): DebugInfo[] {
-  return JSON.parse(inflate(Buffer.from(debugSymbols, 'base64'), { to: 'string', raw: true })).debug_infos;
+  return JSON.parse(inflate(bufferFrom(debugSymbols, 'base64'), { to: 'string', raw: true })).debug_infos;
 }
 
 /**
@@ -520,7 +521,7 @@ export function emptyFunctionArtifact(): FunctionArtifact {
   const abi = emptyFunctionAbi();
   return {
     ...abi,
-    bytecode: Buffer.from([]),
+    bytecode: bufferFrom([]),
     debugSymbols: '',
   };
 }

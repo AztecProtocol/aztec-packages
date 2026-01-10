@@ -1,3 +1,4 @@
+import { bufferFrom } from '../../buffer/index.js';
 import { Fq, Fr } from './field.js';
 
 describe('Fr Serialization', () => {
@@ -20,12 +21,12 @@ describe('Fr Modulus Validation', () => {
   });
 
   it('throws when constructing from Buffer with value >= modulus', () => {
-    const buf = Buffer.from(Fr.MODULUS.toString(16).padStart(64, '0'), 'hex');
+    const buf = bufferFrom(Fr.MODULUS.toString(16).padStart(64, '0'), 'hex');
     expect(() => new Fr(buf)).toThrow('greater or equal to field modulus');
   });
 
   it('throws when using fromBuffer with value >= modulus', () => {
-    const buf = Buffer.from(Fr.MODULUS.toString(16).padStart(64, '0'), 'hex');
+    const buf = bufferFrom(Fr.MODULUS.toString(16).padStart(64, '0'), 'hex');
     expect(() => Fr.fromBuffer(buf)).toThrow('greater or equal to field modulus');
   });
 
@@ -53,12 +54,12 @@ describe('Fq Modulus Validation', () => {
   });
 
   it('throws when constructing from Buffer with value >= modulus', () => {
-    const buf = Buffer.from(Fq.MODULUS.toString(16).padStart(64, '0'), 'hex');
+    const buf = bufferFrom(Fq.MODULUS.toString(16).padStart(64, '0'), 'hex');
     expect(() => new Fq(buf)).toThrow('greater or equal to field modulus');
   });
 
   it('throws when using fromBuffer with value >= modulus', () => {
-    const buf = Buffer.from(Fq.MODULUS.toString(16).padStart(64, '0'), 'hex');
+    const buf = bufferFrom(Fq.MODULUS.toString(16).padStart(64, '0'), 'hex');
     expect(() => Fq.fromBuffer(buf)).toThrow('greater or equal to field modulus');
   });
 

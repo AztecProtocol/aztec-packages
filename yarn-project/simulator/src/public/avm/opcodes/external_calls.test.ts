@@ -1,3 +1,4 @@
+import { bufferFrom } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { computePublicBytecodeCommitment } from '@aztec/stdlib/contract';
 import { makeContractClassPublic, makeContractInstanceFromClassId } from '@aztec/stdlib/testing';
@@ -43,14 +44,14 @@ describe('External Calls', () => {
 
   describe('Call', () => {
     it('Should (de)serialize correctly', () => {
-      const buf = Buffer.from([
+      const buf = bufferFrom([
         Call.opcode, // opcode
-        ...Buffer.from('1234', 'hex'), // indirect (16 bit)
-        ...Buffer.from('1234', 'hex'), // l2GasOffset
-        ...Buffer.from('5678', 'hex'), // daGasOffset
-        ...Buffer.from('a234', 'hex'), // addrOffset
-        ...Buffer.from('c234', 'hex'), // argsSizeOffset
-        ...Buffer.from('b234', 'hex'), // argsOffset
+        ...bufferFrom('1234', 'hex'), // indirect (16 bit)
+        ...bufferFrom('1234', 'hex'), // l2GasOffset
+        ...bufferFrom('5678', 'hex'), // daGasOffset
+        ...bufferFrom('a234', 'hex'), // addrOffset
+        ...bufferFrom('c234', 'hex'), // argsSizeOffset
+        ...bufferFrom('b234', 'hex'), // argsOffset
       ]);
       const inst = new Call(
         /*indirect=*/ 0x1234,
@@ -225,14 +226,14 @@ describe('External Calls', () => {
 
   describe('Static Call', () => {
     it('Should (de)serialize correctly', () => {
-      const buf = Buffer.from([
+      const buf = bufferFrom([
         StaticCall.opcode, // opcode
-        ...Buffer.from('1234', 'hex'), // indirect (16 bit)
-        ...Buffer.from('1234', 'hex'), // l2GasOffset
-        ...Buffer.from('5678', 'hex'), // daGasOffset
-        ...Buffer.from('a234', 'hex'), // addrOffset
-        ...Buffer.from('c234', 'hex'), // argsSizeOffset
-        ...Buffer.from('b234', 'hex'), // argsOffset
+        ...bufferFrom('1234', 'hex'), // indirect (16 bit)
+        ...bufferFrom('1234', 'hex'), // l2GasOffset
+        ...bufferFrom('5678', 'hex'), // daGasOffset
+        ...bufferFrom('a234', 'hex'), // addrOffset
+        ...bufferFrom('c234', 'hex'), // argsSizeOffset
+        ...bufferFrom('b234', 'hex'), // argsOffset
       ]);
       const inst = new StaticCall(
         /*indirect=*/ 0x1234,
@@ -296,11 +297,11 @@ describe('External Calls', () => {
 
   describe('RETURN', () => {
     it('Should (de)serialize correctly', () => {
-      const buf = Buffer.from([
+      const buf = bufferFrom([
         Return.opcode, // opcode
         0x10, // indirect
-        ...Buffer.from('a234', 'hex'), // copySize
-        ...Buffer.from('1234', 'hex'), // returnOffset
+        ...bufferFrom('a234', 'hex'), // copySize
+        ...bufferFrom('1234', 'hex'), // returnOffset
       ]);
       const inst = new Return(/*indirect=*/ 0x10, /*copySize=*/ 0xa234, /*returnOffset=*/ 0x1234);
 
@@ -327,11 +328,11 @@ describe('External Calls', () => {
 
   describe('REVERT', () => {
     it('Should (de)serialize correctly', () => {
-      const buf = Buffer.from([
+      const buf = bufferFrom([
         Opcode.REVERT_16, // opcode
         0x10, // indirect
-        ...Buffer.from('a234', 'hex'), // retSizeOffset
-        ...Buffer.from('1234', 'hex'), // returnOffset
+        ...bufferFrom('a234', 'hex'), // retSizeOffset
+        ...bufferFrom('1234', 'hex'), // returnOffset
       ]);
       const inst = new Revert(/*indirect=*/ 0x10, /*retSizeOffset=*/ 0xa234, /*returnOffset=*/ 0x1234).as(
         Opcode.REVERT_16,
@@ -360,10 +361,10 @@ describe('External Calls', () => {
 
   describe('SuccessCopy', () => {
     it('Should (de)serialize correctly', () => {
-      const buf = Buffer.from([
+      const buf = bufferFrom([
         SuccessCopy.opcode, // opcode
         0x12, // indirect (8-bit)
-        ...Buffer.from('5678', 'hex'), // dstOffset (16-bit)
+        ...bufferFrom('5678', 'hex'), // dstOffset (16-bit)
       ]);
       const inst = new SuccessCopy(/*indirect=*/ 0x12, /*dstOffset=*/ 0x5678);
 

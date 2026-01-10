@@ -1,4 +1,5 @@
 import { Blob, type BlobJson, computeEthVersionedBlobHash } from '@aztec/blob-lib';
+import { bufferFrom } from '@aztec/foundation/buffer';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import type { FileStore, ReadOnlyFileStore } from '@aztec/stdlib/file-store';
 
@@ -91,7 +92,7 @@ export class FileStoreBlobClient {
     const json = blob.toJSON();
     await (this.store as FileStore).save(
       this.blobPath(versionedHash),
-      outboundTransform(Buffer.from(JSON.stringify(json))),
+      outboundTransform(bufferFrom(JSON.stringify(json))),
     );
     this.log.debug(`Saved blob ${versionedHash} to filestore`);
   }
@@ -136,7 +137,7 @@ export class FileStoreBlobClient {
       return;
     }
     const path = this.healthcheckPath();
-    await (this.store as FileStore).save(path, Buffer.from(HEALTHCHECK_CONTENT));
+    await (this.store as FileStore).save(path, bufferFrom(HEALTHCHECK_CONTENT));
     this.log.debug(`Uploaded healthcheck file to ${path}`);
   }
 

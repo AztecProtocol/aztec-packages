@@ -1,3 +1,4 @@
+import { bufferFrom } from '@aztec/foundation/buffer';
 import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import initACVM, { type ExecutionError, type ForeignCallHandler, executeCircuit } from '@aztec/noir-acvm_js';
@@ -32,7 +33,7 @@ export class WASMSimulator implements CircuitSimulator {
     await this.init();
 
     // Decode the bytecode from base64 since the acvm does not know about base64 encoding
-    const decodedBytecode = Buffer.from(artifact.bytecode, 'base64');
+    const decodedBytecode = bufferFrom(artifact.bytecode, 'base64');
     //
     // Execute the circuit
     try {

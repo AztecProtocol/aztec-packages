@@ -1,5 +1,6 @@
 import { BLOBS_PER_CHECKPOINT, FIELDS_PER_BLOB } from '@aztec/constants';
 import { fromHex } from '@aztec/foundation/bigint-buffer';
+import { bufferAlloc } from '@aztec/foundation/buffer';
 import { poseidon2Hash } from '@aztec/foundation/crypto/poseidon';
 import { randomInt } from '@aztec/foundation/crypto/random';
 import { sha256ToField } from '@aztec/foundation/crypto/sha256';
@@ -171,7 +172,7 @@ describe('Blob Batching', () => {
       let batchedQ = BLS12Point.ZERO;
       let finalY = BLS12Fr.ZERO;
       let powGamma = new BLS12Fr(1n); // Since we start at gamma^0 = 1
-      let finalBlobCommitmentsHash: Buffer = Buffer.alloc(0);
+      let finalBlobCommitmentsHash: Buffer = bufferAlloc(0);
       for (let i = 0; i < numBlobs; i++) {
         const cOperand = commitments[i].mul(powGamma);
         const yOperand = evalYs[i].mul(powGamma);

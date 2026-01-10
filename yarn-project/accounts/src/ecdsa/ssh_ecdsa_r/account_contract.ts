@@ -1,4 +1,5 @@
 import type { AuthWitnessProvider } from '@aztec/aztec.js/account';
+import { bufferFrom } from '@aztec/foundation/buffer';
 import { EcdsaSignature } from '@aztec/foundation/crypto/ecdsa';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import { AuthWitness } from '@aztec/stdlib/auth-witness';
@@ -62,11 +63,11 @@ class SSHEcdsaRAuthWitnessProvider implements AuthWitnessProvider {
 
     // R and S are encoded using ASN.1 DER format, which may include a leading zero byte to avoid interpreting the value as negative
     if (r.length > 32) {
-      r = Buffer.from(Uint8Array.prototype.slice.call(r, 1));
+      r = bufferFrom(Uint8Array.prototype.slice.call(r, 1));
     }
 
     if (s.length > 32) {
-      s = Buffer.from(Uint8Array.prototype.slice.call(s, 1));
+      s = bufferFrom(Uint8Array.prototype.slice.call(s, 1));
     }
 
     const maybeHighS = BigInt(`0x${s.toString('hex')}`);
@@ -74,16 +75,16 @@ class SSHEcdsaRAuthWitnessProvider implements AuthWitnessProvider {
     // ECDSA signatures must have a low S value so they can be used as a nullifier. BB forces a value of 27 for v, so
     // only one PublicKey can verify the signature (and not its negated counterpart) https://ethereum.stackexchange.com/a/55728
     if (maybeHighS > secp256r1N / 2n + 1n) {
-      s = Buffer.from((secp256r1N - maybeHighS).toString(16), 'hex');
+      s = bufferFrom((secp256r1N - maybeHighS).toString(16), 'hex');
     }
 
-    return new EcdsaSignature(r, s, Buffer.from([0]));
+    return new EcdsaSignature(r, s, bufferFrom([0]));
   }
 
   async createAuthWit(messageHash: Fr): Promise<AuthWitness> {
     // Key type and curve name
-    const keyType = Buffer.from('ecdsa-sha2-nistp256');
-    const curveName = Buffer.from('nistp256');
+    const keyType = bufferFrom('ecdsa-sha2-nistp256');
+    const curveName = bufferFrom('nistp256');
     const data = await signWithAgent(keyType, curveName, this.signingPublicKey, messageHash.toBuffer());
     const signature = this.#parseECDSASignature(data);
 

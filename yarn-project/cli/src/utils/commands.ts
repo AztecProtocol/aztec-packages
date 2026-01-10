@@ -1,3 +1,4 @@
+import { bufferAlloc, bufferFrom } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { LogFn } from '@aztec/foundation/log';
@@ -173,12 +174,12 @@ export function parseFieldFromHexString(str: string): Fr {
   // pad it so that we may read it as a buffer.
   // Buffer needs _exactly_ two hex characters per byte
   const padded = hex.length % 2 === 1 ? '0' + hex : hex;
-  let buf = Buffer.from(padded, 'hex');
+  let buf = bufferFrom(padded, 'hex');
   if (buf.length > Fr.SIZE_IN_BYTES) {
     buf = buf.subarray(buf.length - Fr.SIZE_IN_BYTES);
   }
 
-  const fr = Buffer.alloc(Fr.SIZE_IN_BYTES, 0);
+  const fr = bufferAlloc(Fr.SIZE_IN_BYTES, 0);
   fr.set(buf, Fr.SIZE_IN_BYTES - buf.length);
 
   // finally, turn it into an integer

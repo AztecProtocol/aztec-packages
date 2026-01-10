@@ -2,6 +2,8 @@
 // See https://github.com/AztecProtocol/aztec-packages/issues/782
 import { Buffer } from 'buffer';
 
+import { bufferAlloc, bufferConcat } from '../buffer/index.js';
+
 /**
  * For serializing an array of fixed length buffers.
  * TODO move to foundation pkg.
@@ -9,9 +11,9 @@ import { Buffer } from 'buffer';
  * @returns The serialized buffers.
  */
 export function serializeBufferArrayToVector(arr: Buffer[]) {
-  const lengthBuf = Buffer.alloc(4);
+  const lengthBuf = bufferAlloc(4);
   lengthBuf.writeUInt32BE(arr.length, 0);
-  return Buffer.concat([lengthBuf, ...arr]);
+  return bufferConcat([lengthBuf, ...arr]);
 }
 
 /**
@@ -57,7 +59,7 @@ export function deserializeArrayFromVector<T>(deserialize: DeserializeFn<T>, vec
  * @returns The endian-corrected number.
  */
 export function numToUInt32LE(n: number, bufferSize = 4) {
-  const buf = Buffer.alloc(bufferSize);
+  const buf = bufferAlloc(bufferSize);
   buf.writeUInt32LE(n, bufferSize - 4);
   return buf;
 }

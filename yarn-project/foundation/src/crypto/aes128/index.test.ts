@@ -1,5 +1,6 @@
 import { createCipheriv, createDecipheriv, randomBytes } from 'crypto';
 
+import { bufferAlloc, bufferConcat } from '../../buffer/index.js';
 import { Aes128 } from './index.js';
 
 describe('aes128', () => {
@@ -13,9 +14,9 @@ describe('aes128', () => {
   const pad = (data: Buffer): Buffer => {
     const rawLength = data.length;
     const numPaddingBytes = 16 - (rawLength % 16);
-    const paddingBuffer = Buffer.alloc(numPaddingBytes);
+    const paddingBuffer = bufferAlloc(numPaddingBytes);
     paddingBuffer.fill(numPaddingBytes);
-    return Buffer.concat([data, paddingBuffer]);
+    return bufferConcat([data, paddingBuffer]);
   };
 
   // PKCS#7 padding removal
@@ -35,7 +36,7 @@ describe('aes128', () => {
 
     const cipher = createCipheriv('aes-128-cbc', key, iv);
     cipher.setAutoPadding(false);
-    const expected = Buffer.concat([cipher.update(paddedData), cipher.final()]);
+    const expected = bufferConcat([cipher.update(paddedData), cipher.final()]);
 
     const result: Buffer = await aes128.encryptBufferCBC(data, iv, key);
 
@@ -51,11 +52,11 @@ describe('aes128', () => {
 
     const cipher = createCipheriv('aes-128-cbc', key, iv);
     cipher.setAutoPadding(false);
-    const ciphertext = Buffer.concat([cipher.update(paddedData), cipher.final()]);
+    const ciphertext = bufferConcat([cipher.update(paddedData), cipher.final()]);
 
     const decipher = createDecipheriv('aes-128-cbc', key, iv);
     decipher.setAutoPadding(false);
-    const expected = removePadding(Buffer.concat([decipher.update(ciphertext), decipher.final()]));
+    const expected = removePadding(bufferConcat([decipher.update(ciphertext), decipher.final()]));
 
     const result: Buffer = await aes128.decryptBufferCBC(ciphertext, iv, key);
 

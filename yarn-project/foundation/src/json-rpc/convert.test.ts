@@ -1,5 +1,6 @@
 import { type ZodTypeAny, z } from 'zod';
 
+import { bufferFrom } from '../buffer/index.js';
 import { schemas } from '../schemas/schemas.js';
 import { mapSchema, setSchema } from '../schemas/utils.js';
 import { jsonStringify } from './convert.js';
@@ -44,7 +45,7 @@ describe('jsonStringify', () => {
   });
 
   it('handles buffers', () => {
-    const value = Buffer.from('hello');
+    const value = bufferFrom('hello');
     const json = jsonStringify(value);
     expect(json).toEqual('"aGVsbG8="');
     test(value, schemas.Buffer);

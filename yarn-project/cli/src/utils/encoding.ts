@@ -1,3 +1,4 @@
+import { bufferFrom } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { ABIParameter, AbiType, StructType } from '@aztec/stdlib/abi';
 
@@ -9,7 +10,7 @@ import type { ABIParameter, AbiType, StructType } from '@aztec/stdlib/abi';
  */
 export function parseStructString(str: string, abiType: StructType) {
   // Assign string bytes to struct fields.
-  const buf = Buffer.from(str.replace(/^0x/i, ''), 'hex');
+  const buf = bufferFrom(str.replace(/^0x/i, ''), 'hex');
   const struct: any = {};
   let byteIndex = 0;
   let argIndex = 0;

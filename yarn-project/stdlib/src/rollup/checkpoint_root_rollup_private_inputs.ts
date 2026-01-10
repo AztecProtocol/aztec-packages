@@ -1,5 +1,6 @@
 import { BlobAccumulator, FinalBlobBatchingChallenges } from '@aztec/blob-lib/types';
 import { ARCHIVE_HEIGHT, BLOBS_PER_CHECKPOINT, FIELDS_PER_BLOB } from '@aztec/constants';
+import { bufferAlloc } from '@aztec/foundation/buffer';
 import { BLS12Point } from '@aztec/foundation/curves/bls12';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { bufferSchemaFor } from '@aztec/foundation/schemas';
@@ -194,7 +195,7 @@ export class CheckpointPaddingRollupPrivateInputs {
   constructor() {}
 
   toBuffer() {
-    return Buffer.alloc(0);
+    return bufferAlloc(0);
   }
 
   static fromBuffer(_buffer: Buffer | BufferReader) {

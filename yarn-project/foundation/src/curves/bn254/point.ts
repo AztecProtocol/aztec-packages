@@ -6,6 +6,7 @@ import {
   type Bn254G2Point as BbApiBn254G2Point,
 } from '@aztec/bb.js';
 
+import { bufferFrom } from '../../buffer/index.js';
 import { Fq, Fr } from './field.js';
 
 /**
@@ -26,7 +27,7 @@ export class Bn254G1Point {
   }
 
   private static fromBbApiPoint(point: BbApiBn254G1Point): Bn254G1Point {
-    return new Bn254G1Point(Fq.fromBuffer(Buffer.from(point.x)), Fq.fromBuffer(Buffer.from(point.y)));
+    return new Bn254G1Point(Fq.fromBuffer(bufferFrom(point.x)), Fq.fromBuffer(bufferFrom(point.y)));
   }
 
   async isOnCurve(): Promise<boolean> {
@@ -46,8 +47,8 @@ export class Bn254G1Point {
   static async generator(scalar?: Fr): Promise<Bn254G1Point> {
     if (!scalar) {
       return new Bn254G1Point(
-        Fq.fromBuffer(Buffer.from(BN254_G1_GENERATOR.x)),
-        Fq.fromBuffer(Buffer.from(BN254_G1_GENERATOR.y)),
+        Fq.fromBuffer(bufferFrom(BN254_G1_GENERATOR.x)),
+        Fq.fromBuffer(bufferFrom(BN254_G1_GENERATOR.y)),
       );
     }
 
@@ -126,8 +127,8 @@ export class Bn254G2Point {
 
   private static fromBbApiPoint(point: BbApiBn254G2Point): Bn254G2Point {
     return new Bn254G2Point(
-      [Fq.fromBuffer(Buffer.from(point.x[0])), Fq.fromBuffer(Buffer.from(point.x[1]))],
-      [Fq.fromBuffer(Buffer.from(point.y[0])), Fq.fromBuffer(Buffer.from(point.y[1]))],
+      [Fq.fromBuffer(bufferFrom(point.x[0])), Fq.fromBuffer(bufferFrom(point.x[1]))],
+      [Fq.fromBuffer(bufferFrom(point.y[0])), Fq.fromBuffer(bufferFrom(point.y[1]))],
     );
   }
 
@@ -139,8 +140,8 @@ export class Bn254G2Point {
   static async generator(scalar?: Fr): Promise<Bn254G2Point> {
     if (!scalar) {
       return new Bn254G2Point(
-        [Fq.fromBuffer(Buffer.from(BN254_G2_GENERATOR.x[0])), Fq.fromBuffer(Buffer.from(BN254_G2_GENERATOR.x[1]))],
-        [Fq.fromBuffer(Buffer.from(BN254_G2_GENERATOR.y[0])), Fq.fromBuffer(Buffer.from(BN254_G2_GENERATOR.y[1]))],
+        [Fq.fromBuffer(bufferFrom(BN254_G2_GENERATOR.x[0])), Fq.fromBuffer(bufferFrom(BN254_G2_GENERATOR.x[1]))],
+        [Fq.fromBuffer(bufferFrom(BN254_G2_GENERATOR.y[0])), Fq.fromBuffer(bufferFrom(BN254_G2_GENERATOR.y[1]))],
       );
     }
 

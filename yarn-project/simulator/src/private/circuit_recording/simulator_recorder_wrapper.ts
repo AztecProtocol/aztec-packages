@@ -1,3 +1,4 @@
+import { bufferFrom } from '@aztec/foundation/buffer';
 import type { ForeignCallHandler } from '@aztec/noir-acvm_js';
 import type { FunctionArtifactWithContractName } from '@aztec/stdlib/abi';
 import type { NoirCompiledCircuitWithName } from '@aztec/stdlib/noir';
@@ -23,7 +24,7 @@ export class SimulatorRecorderWrapper implements CircuitSimulator {
     artifact: NoirCompiledCircuitWithName,
     callback: ForeignCallHandler | undefined,
   ): Promise<ACVMSuccess> {
-    const bytecode = Buffer.from(artifact.bytecode, 'base64');
+    const bytecode = bufferFrom(artifact.bytecode, 'base64');
 
     return this.#simulate<ForeignCallHandler | undefined, ACVMSuccess>(
       wrappedCallback => this.simulator.executeProtocolCircuit(input, artifact, wrappedCallback),

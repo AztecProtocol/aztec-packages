@@ -1,3 +1,4 @@
+import { bufferConcat } from '@aztec/foundation/buffer';
 import { BufferReader } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 import type { FieldsOf } from '@aztec/foundation/types';
@@ -41,7 +42,7 @@ export class ExtendedPublicLog {
    * @returns A buffer containing the serialized log.
    */
   public toBuffer(): Buffer {
-    return Buffer.concat([this.id.toBuffer(), this.log.toBuffer()]);
+    return bufferConcat([this.id.toBuffer(), this.log.toBuffer()]);
   }
 
   /**

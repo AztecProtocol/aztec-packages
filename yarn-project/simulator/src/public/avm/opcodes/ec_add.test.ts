@@ -1,3 +1,4 @@
+import { bufferFrom } from '@aztec/foundation/buffer';
 import { Grumpkin } from '@aztec/foundation/crypto/grumpkin';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { Point } from '@aztec/foundation/curves/grumpkin';
@@ -19,16 +20,16 @@ describe('EC Instructions', () => {
 
   describe('EcAdd', () => {
     it('Should (de)serialize correctly', () => {
-      const buf = Buffer.from([
+      const buf = bufferFrom([
         EcAdd.opcode, // opcode
-        ...Buffer.from('1234', 'hex'), // indirect
-        ...Buffer.from('1235', 'hex'), // p1x
-        ...Buffer.from('1236', 'hex'), // p1y
-        ...Buffer.from('0000', 'hex'), // p1IsInfinite
-        ...Buffer.from('1237', 'hex'), // p2x
-        ...Buffer.from('1238', 'hex'), // p2y
-        ...Buffer.from('0001', 'hex'), // p2IsInfinite
-        ...Buffer.from('1239', 'hex'), // dstOffset
+        ...bufferFrom('1234', 'hex'), // indirect
+        ...bufferFrom('1235', 'hex'), // p1x
+        ...bufferFrom('1236', 'hex'), // p1y
+        ...bufferFrom('0000', 'hex'), // p1IsInfinite
+        ...bufferFrom('1237', 'hex'), // p2x
+        ...bufferFrom('1238', 'hex'), // p2y
+        ...bufferFrom('0001', 'hex'), // p2IsInfinite
+        ...bufferFrom('1239', 'hex'), // dstOffset
       ]);
       const inst = new EcAdd(
         /*indirect=*/ 0x1234,

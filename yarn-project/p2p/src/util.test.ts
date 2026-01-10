@@ -1,3 +1,4 @@
+import { bufferFrom } from '@aztec/foundation/buffer';
 import { SecretValue } from '@aztec/foundation/config';
 import { createLogger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
@@ -20,7 +21,7 @@ describe('p2p utils', () => {
     it('Can create a recovered libp2p peer id from a private key', async () => {
       const peerId = await createSecp256k1PeerId();
       const privKey = peerId.privateKey!;
-      const privateKeyString = Buffer.from(privKey).toString('hex');
+      const privateKeyString = bufferFrom(privKey).toString('hex');
 
       const reconstructedPeerId = await createLibP2PPeerIdFromPrivateKey(privateKeyString);
       expect(reconstructedPeerId.publicKey).toEqual(peerId.publicKey);
@@ -104,7 +105,7 @@ describe('p2p utils', () => {
 
     it(`If a private key is provided in the config and the peer id private key file path is populated, it should use and persist that value to the file`, async () => {
       const newPeerIdPrivateKey = await generateKeyPair('secp256k1');
-      const privateKeyString = Buffer.from(marshalPrivateKey(newPeerIdPrivateKey)).toString('hex');
+      const privateKeyString = bufferFrom(marshalPrivateKey(newPeerIdPrivateKey)).toString('hex');
       const peerIdPrivateKeyPath = path.join(tempDir, 'private-key');
       const config = {
         peerIdPrivateKeyPath,
@@ -128,7 +129,7 @@ describe('p2p utils', () => {
 
     it(`If a private key is provided in the config and a peer id private key file path is not provided, it should use and persist that value to the data directory`, async () => {
       const newPeerIdPrivateKey = await generateKeyPair('secp256k1');
-      const privateKeyString = Buffer.from(marshalPrivateKey(newPeerIdPrivateKey)).toString('hex');
+      const privateKeyString = bufferFrom(marshalPrivateKey(newPeerIdPrivateKey)).toString('hex');
       const config = {
         dataDirectory: tempDir,
         peerIdPrivateKey: new SecretValue(privateKeyString),
@@ -151,7 +152,7 @@ describe('p2p utils', () => {
 
     it(`If a private key is provided in the config and the peer id private key file path and data dir are both empty, it should use and persist that value to the node's store`, async () => {
       const newPeerIdPrivateKey = await generateKeyPair('secp256k1');
-      const privateKeyString = Buffer.from(marshalPrivateKey(newPeerIdPrivateKey)).toString('hex');
+      const privateKeyString = bufferFrom(marshalPrivateKey(newPeerIdPrivateKey)).toString('hex');
       const config = {
         peerIdPrivateKey: new SecretValue(privateKeyString),
       } as P2PConfig;

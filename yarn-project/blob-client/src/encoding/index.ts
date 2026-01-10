@@ -1,3 +1,5 @@
+import { bufferFrom } from '@aztec/foundation/buffer';
+
 import { compressSync, uncompressSync } from 'snappy';
 
 /**
@@ -7,7 +9,7 @@ import { compressSync, uncompressSync } from 'snappy';
  * @returns The decompressed blob buffer
  */
 export function inboundTransform(data: Buffer): Buffer {
-  return Buffer.from(uncompressSync(data, { asBuffer: true }));
+  return bufferFrom(uncompressSync(data, { asBuffer: true }));
 }
 
 /**
@@ -17,5 +19,5 @@ export function inboundTransform(data: Buffer): Buffer {
  * @returns The compressed blob buffer
  */
 export function outboundTransform(data: Buffer): Buffer {
-  return Buffer.from(compressSync(data));
+  return bufferFrom(compressSync(data));
 }

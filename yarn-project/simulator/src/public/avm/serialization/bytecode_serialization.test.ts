@@ -1,4 +1,5 @@
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
+import { bufferAlloc, bufferConcat, bufferFrom } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 
 import { strict as assert } from 'assert';
@@ -22,7 +23,7 @@ class InstA {
 
   // Includes opcode.
   public toBuffer(): Buffer {
-    const buf = Buffer.alloc(1 + 2);
+    const buf = bufferAlloc(1 + 2);
     buf.writeUint8(InstA.opcode);
     buf.writeUint16BE(this.n, 1);
     return buf;
@@ -42,7 +43,7 @@ class InstB {
 
   // Includes opcode.
   public toBuffer(): Buffer {
-    const buf = Buffer.alloc(1 + 8);
+    const buf = bufferAlloc(1 + 8);
     buf.writeUint8(InstB.opcode);
     buf.writeBigInt64BE(this.n, 1);
     return buf;
@@ -57,7 +58,7 @@ describe('Bytecode Serialization', () => {
     ]);
     const a = new InstA(0x1234);
     const b = new InstB(0x5678n);
-    const bytecode = Buffer.concat([a.toBuffer(), b.toBuffer()]);
+    const bytecode = bufferConcat([a.toBuffer(), b.toBuffer()]);
 
     const actual = decodeFromBytecode(bytecode, instructionSet);
 
@@ -70,7 +71,7 @@ describe('Bytecode Serialization', () => {
 
     const actual = encodeToBytecode([a, b]);
 
-    const expected = Buffer.concat([a.toBuffer(), b.toBuffer()]);
+    const expected = bufferConcat([a.toBuffer(), b.toBuffer()]);
     expect(actual).toEqual(expected);
   });
 
@@ -99,7 +100,7 @@ describe('Bytecode Serialization', () => {
         /*argsOffset=*/ 0xb234,
       ),
     ];
-    const bytecode = Buffer.concat(instructions.map(i => i.toBuffer()));
+    const bytecode = bufferConcat(instructions.map(i => i.toBuffer()));
 
     const actual = decodeFromBytecode(bytecode);
 
@@ -134,15 +135,15 @@ describe('Bytecode Serialization', () => {
 
     const actual = encodeToBytecode(instructions);
 
-    const expected = Buffer.concat(instructions.map(i => i.toBuffer()));
+    const expected = bufferConcat(instructions.map(i => i.toBuffer()));
     expect(actual).toEqual(expected);
   });
 
   it('Should deserialize a large FF value', () => {
-    const buf = Buffer.from([
+    const buf = bufferFrom([
       Opcode.SET_FF, //opcode
       0x02, // indirect
-      ...Buffer.from('3456', 'hex'), // dstOffset
+      ...bufferFrom('3456', 'hex'), // dstOffset
       0x02, //tag
       ...toBufferBE(Fr.MODULUS + 245n, 32), // value
     ]);
@@ -159,7 +160,7 @@ describe('Bytecode Serialization', () => {
   it('Should throw an InvalidOpcodeError while deserializing an out-of-range opcode value', () => {
     const decodeInvalid = () => {
       const wrongOpcode: number = MAX_OPCODE_VALUE + 1;
-      const buf = Buffer.alloc(1);
+      const buf = bufferAlloc(1);
       buf.writeUint8(wrongOpcode);
       decodeFromBytecode(buf);
     };
@@ -173,7 +174,7 @@ describe('Bytecode Serialization', () => {
         [InstA.opcode, InstA.fromBuffer],
         [InstB.opcode, InstB.deserialize],
       ]);
-      const buf = Buffer.alloc(1);
+      const buf = bufferAlloc(1);
       buf.writeUint8(Opcode.AND_8); // Valid opcode but not in supplied instruction set.
       decodeFromBytecode(buf, instructionSet);
     };
@@ -210,10 +211,10 @@ describe('Bytecode Serialization', () => {
       return () => decodeFromBytecode(truncated);
     };
 
-    const bufSet16Truncated = Buffer.from([
+    const bufSet16Truncated = bufferFrom([
       Opcode.SET_16, //opcode
       0x02, // indirect
-      ...Buffer.from('3456', 'hex'), // dstOffset
+      ...bufferFrom('3456', 'hex'), // dstOffset
       0x09, //tag (invalid)
       // We should have a 16-bit value here (truncation)
     ]);
@@ -226,7 +227,7 @@ describe('Bytecode Serialization', () => {
       return () => decodeFromBytecode(buf);
     };
 
-    const bufCast8 = Buffer.from([
+    const bufCast8 = bufferFrom([
       Opcode.CAST_8, // opcode
       0x01, // indirect
       0x10, // aOffset
@@ -234,60 +235,60 @@ describe('Bytecode Serialization', () => {
       0x12, // dstTag (invalid tag)
     ]);
 
-    const bufCast16 = Buffer.from([
+    const bufCast16 = bufferFrom([
       Opcode.CAST_16, // opcode
       0x00, // indirect
-      ...Buffer.from('1234', 'hex'), // aOffset
-      ...Buffer.from('3456', 'hex'), // dstOffset
+      ...bufferFrom('1234', 'hex'), // aOffset
+      ...bufferFrom('3456', 'hex'), // dstOffset
       0x65, // dstTag (invalid tag)
     ]);
 
-    const bufSet8 = Buffer.from([
+    const bufSet8 = bufferFrom([
       Opcode.SET_8, //opcode
       0x02, // indirect
-      ...Buffer.from('34', 'hex'), // dstOffset
+      ...bufferFrom('34', 'hex'), // dstOffset
       0x21, //tag (invalid)
-      ...Buffer.from('23', 'hex'), // value
+      ...bufferFrom('23', 'hex'), // value
     ]);
 
-    const bufSet16 = Buffer.from([
+    const bufSet16 = bufferFrom([
       Opcode.SET_16, //opcode
       0x02, // indirect
-      ...Buffer.from('3456', 'hex'), // dstOffset
+      ...bufferFrom('3456', 'hex'), // dstOffset
       0x09, //tag (invalid)
-      ...Buffer.from('2397', 'hex'), // value
+      ...bufferFrom('2397', 'hex'), // value
     ]);
 
-    const bufSet32 = Buffer.from([
+    const bufSet32 = bufferFrom([
       Opcode.SET_32, //opcode
       0x02, // indirect
-      ...Buffer.from('3456', 'hex'), // dstOffset
+      ...bufferFrom('3456', 'hex'), // dstOffset
       0x0a, //tag (invalid)
-      ...Buffer.from('12345678', 'hex'), // value
+      ...bufferFrom('12345678', 'hex'), // value
     ]);
 
-    const bufSet64 = Buffer.from([
+    const bufSet64 = bufferFrom([
       Opcode.SET_64, //opcode
       0x02, // indirect
-      ...Buffer.from('3456', 'hex'), // dstOffset
+      ...bufferFrom('3456', 'hex'), // dstOffset
       0x0b, //tag (invalid)
-      ...Buffer.from('1234567890abcdef', 'hex'), // value
+      ...bufferFrom('1234567890abcdef', 'hex'), // value
     ]);
 
-    const bufSet128 = Buffer.from([
+    const bufSet128 = bufferFrom([
       Opcode.SET_128, //opcode
       0x02, // indirect
-      ...Buffer.from('3456', 'hex'), // dstOffset
+      ...bufferFrom('3456', 'hex'), // dstOffset
       0x0c, //tag (invalid)
-      ...Buffer.from('1234567890abcdef1234567890abcdef', 'hex'), // value
+      ...bufferFrom('1234567890abcdef1234567890abcdef', 'hex'), // value
     ]);
 
-    const bufSetff = Buffer.from([
+    const bufSetff = bufferFrom([
       Opcode.SET_FF, //opcode
       0x02, // indirect
-      ...Buffer.from('3456', 'hex'), // dstOffset
+      ...bufferFrom('3456', 'hex'), // dstOffset
       0x0d, //tag (invalid)
-      ...Buffer.from('1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef', 'hex'), // value
+      ...bufferFrom('1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef', 'hex'), // value
     ]);
 
     for (const buf of [bufCast8, bufCast16, bufSet8, bufSet16, bufSet32, bufSet64, bufSet128, bufSetff]) {

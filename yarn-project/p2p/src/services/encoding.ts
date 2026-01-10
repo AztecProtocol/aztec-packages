@@ -1,3 +1,4 @@
+import { bufferAlloc, bufferConcat, bufferFrom } from '@aztec/foundation/buffer';
 // Taken from lodestar: https://github.com/ChainSafe/lodestar
 import { sha256 } from '@aztec/foundation/crypto/sha256';
 import { createLogger } from '@aztec/foundation/log';
@@ -16,7 +17,7 @@ const xxhash = await xxhashFactory();
 const h64Seed = BigInt(Math.floor(Math.random() * 1e9));
 
 // Shared buffer to convert msgId to string
-const sharedMsgIdBuf = Buffer.alloc(20);
+const sharedMsgIdBuf = bufferAlloc(20);
 
 /**
  * The function used to generate a gossipsub message id
@@ -47,8 +48,8 @@ export function msgIdToStrFn(msgId: Uint8Array): string {
 export function getMsgIdFn(message: Message) {
   const { topic } = message;
 
-  const vec = [Buffer.from(topic), message.data];
-  return sha256(Buffer.concat(vec)).subarray(0, 20);
+  const vec = [bufferFrom(topic), message.data];
+  return sha256(bufferConcat(vec)).subarray(0, 20);
 }
 
 const DefaultMaxSizesKb: Record<TopicType, number> = {
@@ -74,7 +75,7 @@ export class SnappyTransform implements DataTransform {
   // Topic string included to satisfy DataTransform interface
   inboundTransform(topicStr: string, data: Uint8Array): Uint8Array {
     const topic = getTopicFromString(topicStr);
-    return this.inboundTransformData(Buffer.from(data), topic);
+    return this.inboundTransformData(bufferFrom(data), topic);
   }
 
   public inboundTransformData(data: Buffer, topic?: TopicType): Buffer {
@@ -88,19 +89,19 @@ export class SnappyTransform implements DataTransform {
       throw new Error(`Decompressed size ${decompressedSize} exceeds maximum allowed size of ${maxSizeKb}kb`);
     }
 
-    return Buffer.from(uncompressSync(data, { asBuffer: true }));
+    return bufferFrom(uncompressSync(data, { asBuffer: true }));
   }
 
   // Topic string included to satisfy DataTransform interface
   outboundTransform(_topicStr: string, data: Uint8Array): Uint8Array {
-    return this.outboundTransformData(Buffer.from(data));
+    return this.outboundTransformData(bufferFrom(data));
   }
 
   public outboundTransformData(data: Buffer): Buffer {
     if (data.length === 0) {
       return data;
     }
-    return Buffer.from(compressSync(data));
+    return bufferFrom(compressSync(data));
   }
 }
 

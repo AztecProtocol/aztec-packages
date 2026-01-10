@@ -1,4 +1,5 @@
 import { toBigIntBE } from '../../bigint-buffer/index.js';
+import { isBuffer } from '../../buffer/index.js';
 import { poseidon2Hash } from '../../crypto/poseidon/index.js';
 import { randomBoolean } from '../../crypto/random/index.js';
 import { hexSchemaFor } from '../../schemas/utils.js';
@@ -58,7 +59,7 @@ export class Point {
     if (obj instanceof Point) {
       return obj;
     }
-    if (obj instanceof Buffer || Buffer.isBuffer(obj)) {
+    if (obj instanceof Buffer || isBuffer(obj)) {
       return Point.fromBuffer(obj);
     }
     return new Point(Fr.fromPlainObject(obj.x), Fr.fromPlainObject(obj.y), obj.isInfinite ?? false);

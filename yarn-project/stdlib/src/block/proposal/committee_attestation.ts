@@ -1,4 +1,5 @@
 import type { ViemCommitteeAttestation, ViemCommitteeAttestations } from '@aztec/ethereum/contracts';
+import { bufferFrom } from '@aztec/foundation/buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
@@ -57,8 +58,8 @@ export class CommitteeAttestation {
   }
 
   static fromPacked(packed: ViemCommitteeAttestations, committeeSize: number): CommitteeAttestation[] {
-    const signatureIndicesBuffer = Buffer.from(packed.signatureIndices.slice(2), 'hex');
-    const dataBuffer = Buffer.from(packed.signaturesOrAddresses.slice(2), 'hex');
+    const signatureIndicesBuffer = bufferFrom(packed.signatureIndices.slice(2), 'hex');
+    const dataBuffer = bufferFrom(packed.signaturesOrAddresses.slice(2), 'hex');
 
     const attestations: CommitteeAttestation[] = [];
     let dataIndex = 0;

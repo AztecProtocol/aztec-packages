@@ -2,6 +2,7 @@ import { randomBytes } from '@aztec/foundation/crypto/random';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { BufferReader, mapTuple } from '@aztec/foundation/serialize';
 
+import { bufferAlloc, bufferFrom } from '../../buffer/index.js';
 import type { Signature } from '../signature/index.js';
 
 /**
@@ -17,7 +18,7 @@ export class SchnorrSignature implements Signature {
   /**
    * An empty signature.
    */
-  public static EMPTY = new SchnorrSignature(Buffer.alloc(64));
+  public static EMPTY = new SchnorrSignature(bufferAlloc(64));
 
   constructor(private buffer: Buffer) {
     if (buffer.length !== SchnorrSignature.SIZE) {
@@ -43,7 +44,7 @@ export class SchnorrSignature implements Signature {
     if (!SchnorrSignature.isSignature(signature)) {
       throw new Error(`Invalid signature string: ${signature}`);
     }
-    return new SchnorrSignature(Buffer.from(signature.replace(/^0x/i, ''), 'hex'));
+    return new SchnorrSignature(bufferFrom(signature.replace(/^0x/i, ''), 'hex'));
   }
 
   /**
@@ -103,9 +104,9 @@ export class SchnorrSignature implements Signature {
   toFields(): Fr[] {
     const sig = this.toBuffer();
 
-    const buf1 = Buffer.alloc(32);
-    const buf2 = Buffer.alloc(32);
-    const buf3 = Buffer.alloc(32);
+    const buf1 = bufferAlloc(32);
+    const buf2 = bufferAlloc(32);
+    const buf3 = bufferAlloc(32);
 
     sig.copy(buf1, 1, 0, 31);
     sig.copy(buf2, 1, 31, 62);

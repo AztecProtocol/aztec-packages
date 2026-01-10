@@ -1,3 +1,5 @@
+import { bufferFrom } from '@aztec/foundation/buffer';
+
 import { mkdtemp, rm } from 'fs/promises';
 import { tmpdir } from 'os';
 
@@ -26,7 +28,7 @@ describe('LocalFileStore', () => {
 
       data = 'foobar';
       filePath = 'test.txt';
-      fileUrl = await fileStore.save(filePath, Buffer.from(data));
+      fileUrl = await fileStore.save(filePath, bufferFrom(data));
     });
 
     it('reads using full url', async () => {

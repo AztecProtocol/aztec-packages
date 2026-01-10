@@ -1,4 +1,5 @@
 import type { BlockNumber } from '@aztec/foundation/branded-types';
+import { bufferConcat } from '@aztec/foundation/buffer';
 import { sha256Trunc } from '@aztec/foundation/crypto/sha256';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -500,7 +501,7 @@ export class HintingMerkleWriteOperations implements MerkleTreeWriteOperations {
   // For logging/debugging purposes.
   private async getTreesStateHash(): Promise<Fr> {
     const stateReferenceFields = (await this.db.getStateReference()).toFields();
-    return Fr.fromBuffer(sha256Trunc(Buffer.concat(stateReferenceFields.map(field => field.toBuffer()))));
+    return Fr.fromBuffer(sha256Trunc(bufferConcat(stateReferenceFields.map(field => field.toBuffer()))));
   }
 
   private static logTreeChange(

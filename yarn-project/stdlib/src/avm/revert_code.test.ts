@@ -1,3 +1,4 @@
+import { bufferFrom } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 
@@ -28,7 +29,7 @@ describe('revert_code', () => {
   );
 
   it('should throw when deserializing from invalid buffer', () => {
-    expect(() => RevertCode.fromBuffer(Buffer.from([42]))).toThrow();
+    expect(() => RevertCode.fromBuffer(bufferFrom([42]))).toThrow();
     expect(() => RevertCode.fromField(new Fr(42))).toThrow();
   });
 });

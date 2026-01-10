@@ -1,3 +1,4 @@
+import { bufferConcat, bufferFrom, isBuffer } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { hexToBuffer } from '@aztec/foundation/string';
@@ -18,7 +19,7 @@ export type ForeignCallResult = {
 };
 
 export function fromSingle(obj: ForeignCallSingle) {
-  return Fr.fromBuffer(Buffer.from(obj, 'hex'));
+  return Fr.fromBuffer(bufferFrom(obj, 'hex'));
 }
 
 export function addressFromSingle(obj: ForeignCallSingle) {
@@ -39,7 +40,7 @@ export function fromUintArray(obj: ForeignCallArray, uintBitSize: number): Buffe
     throw new Error(`u${uintBitSize} is not a supported type in Noir`);
   }
   const uintByteSize = uintBitSize / 8;
-  return Buffer.concat(obj.map(str => hexToBuffer(str).slice(-uintByteSize)));
+  return bufferConcat(obj.map(str => hexToBuffer(str).slice(-uintByteSize)));
 }
 
 /**
@@ -57,7 +58,7 @@ export function fromUintBoundedVec(storage: ForeignCallArray, length: ForeignCal
   }
   const uintByteSize = uintBitSize / 8;
   const boundedStorage = storage.slice(0, fromSingle(length).toNumber());
-  return Buffer.concat(boundedStorage.map(str => hexToBuffer(str).slice(-uintByteSize)));
+  return bufferConcat(boundedStorage.map(str => hexToBuffer(str).slice(-uintByteSize)));
 }
 
 // Just like toACVMField in yarn-project/simulator/src/private/acvm/serialize.ts but returns a ForeignCallSingle
@@ -66,7 +67,7 @@ export function toSingle(
   value: AztecAddress | EthAddress | Fr | Buffer | boolean | number | bigint,
 ): ForeignCallSingle {
   let valueAsField;
-  if (Buffer.isBuffer(value)) {
+  if (isBuffer(value)) {
     valueAsField = Fr.fromBuffer(value);
   } else if (typeof value === 'boolean' || typeof value === 'number' || typeof value === 'bigint') {
     valueAsField = new Fr(value);

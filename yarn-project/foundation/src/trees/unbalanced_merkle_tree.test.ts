@@ -1,3 +1,4 @@
+import { bufferAlloc } from '../buffer/index.js';
 import { Fr } from '../curves/bn254/index.js';
 import { computeBalancedMerkleTreeRoot, shaMerkleHash } from './balanced_merkle_tree.js';
 import { computeUnbalancedMerkleTreeRoot, findLeafLevelAndIndex } from './unbalanced_merkle_tree.js';
@@ -10,11 +11,11 @@ describe('computeUnbalancedMerkleTreeRoot', () => {
   };
 
   it('0 leaves', () => {
-    expect(computeUnbalancedMerkleTreeRoot([])).toEqual(Buffer.alloc(32));
+    expect(computeUnbalancedMerkleTreeRoot([])).toEqual(bufferAlloc(32));
   });
 
   it('0 leaves', () => {
-    expect(computeUnbalancedMerkleTreeRoot([])).toEqual(Buffer.alloc(32));
+    expect(computeUnbalancedMerkleTreeRoot([])).toEqual(bufferAlloc(32));
   });
 
   it('1 leaf', () => {

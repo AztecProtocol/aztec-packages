@@ -1,4 +1,5 @@
 import type { Logger } from '@aztec/aztec.js/log';
+import { bufferFrom } from '@aztec/foundation/buffer';
 
 import * as fs from 'fs';
 import * as yaml from 'js-yaml';
@@ -45,7 +46,7 @@ export class AlertChecker {
   }
 
   private async queryGrafana({ expr, start, end, step }: AlertConfig): Promise<number> {
-    const credentials = Buffer.from(this.config.grafanaCredentials).toString('base64');
+    const credentials = bufferFrom(this.config.grafanaCredentials).toString('base64');
 
     let query = `query=${encodeURIComponent(expr)}`;
     let action = 'query';

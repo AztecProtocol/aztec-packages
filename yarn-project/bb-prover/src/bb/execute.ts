@@ -1,3 +1,4 @@
+import { bufferConcat, bufferFrom } from '@aztec/foundation/buffer';
 import { sha256 } from '@aztec/foundation/crypto/sha256';
 import type { LogFn, Logger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
@@ -522,7 +523,7 @@ export async function generateContractForVerificationKey(
   const outputDir = dirname(contractPath);
   const contractName = basename(contractPath);
   // cache contract generation based on vk file and contract name
-  const cacheKey = sha256(Buffer.concat([Buffer.from(contractName), await fs.readFile(vkFilePath)]));
+  const cacheKey = sha256(bufferConcat([bufferFrom(contractName), await fs.readFile(vkFilePath)]));
 
   await fs.mkdir(outputDir, { recursive: true });
 

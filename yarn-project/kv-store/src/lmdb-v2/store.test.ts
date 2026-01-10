@@ -1,3 +1,4 @@
+import { bufferAlloc, bufferFrom } from '@aztec/foundation/buffer';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { sleep } from '@aztec/foundation/sleep';
 
@@ -27,8 +28,8 @@ describe('AztecLMDBStoreV2', () => {
   it('returns undefined for unset keys', async () => {
     const tx = store.getReadTx();
     try {
-      expect(await tx.get(Buffer.from('foo'))).to.be.undefined;
-      expect(await tx.getIndex(Buffer.from('foo'))).to.deep.eq([]);
+      expect(await tx.get(bufferFrom('foo'))).to.be.undefined;
+      expect(await tx.getIndex(bufferFrom('foo'))).to.deep.eq([]);
     } finally {
       tx.close();
     }
@@ -48,8 +49,8 @@ describe('AztecLMDBStoreV2', () => {
       }
 
       try {
-        const data = await tx.get(Buffer.from('foo'));
-        const index = await tx.getIndex(Buffer.from('foo'));
+        const data = await tx.get(bufferFrom('foo'));
+        const index = await tx.getIndex(bufferFrom('foo'));
 
         return {
           data,
@@ -70,19 +71,19 @@ describe('AztecLMDBStoreV2', () => {
 
     // start a write and run some checks but prevent the write tx from finishing immediately in order to run concurrent reads
     const writeCommitted = store.transactionAsync(async writeTx => {
-      await writeTx.set(Buffer.from('foo'), Buffer.from('bar'));
-      await writeTx.setIndex(Buffer.from('foo'), Buffer.from('bar'), Buffer.from('baz'));
+      await writeTx.set(bufferFrom('foo'), bufferFrom('bar'));
+      await writeTx.setIndex(bufferFrom('foo'), bufferFrom('bar'), bufferFrom('baz'));
 
       // the write tx should make the writes visible immediately
       expect(await getValues(writeTx)).to.deep.eq({
-        data: Buffer.from('bar'),
-        index: [Buffer.from('bar'), Buffer.from('baz')],
+        data: bufferFrom('bar'),
+        index: [bufferFrom('bar'), bufferFrom('baz')],
       });
 
       // even without access to the tx, the writes should still be visible in this context
       expect(await getValues()).to.deep.eq({
-        data: Buffer.from('bar'),
-        index: [Buffer.from('bar'), Buffer.from('baz')],
+        data: bufferFrom('bar'),
+        index: [bufferFrom('bar'), bufferFrom('baz')],
       });
 
       writeChecks.resolve();
@@ -111,16 +112,16 @@ describe('AztecLMDBStoreV2', () => {
 
     // now we should see the db update
     expect(await getValues()).to.deep.eq({
-      data: Buffer.from('bar'),
-      index: [Buffer.from('bar'), Buffer.from('baz')],
+      data: bufferFrom('bar'),
+      index: [bufferFrom('bar'), bufferFrom('baz')],
     });
   });
 
   it('should serialize writes correctly', async () => {
-    const key = Buffer.from('foo');
+    const key = bufferFrom('foo');
     const inc = () =>
       store.transactionAsync(async tx => {
-        const buf = Buffer.from((await store.getReadTx().get(key)) ?? Buffer.alloc(4));
+        const buf = bufferFrom((await store.getReadTx().get(key)) ?? bufferAlloc(4));
         buf.writeUint32BE(buf.readUInt32BE() + 1);
         await tx.set(key, buf);
       });
@@ -132,13 +133,13 @@ describe('AztecLMDBStoreV2', () => {
     }
 
     await Promise.all(promises);
-    expect(Buffer.from((await store.getReadTx().get(key))!).readUint32BE()).to.eq(rounds);
+    expect(bufferFrom((await store.getReadTx().get(key))!).readUint32BE()).to.eq(rounds);
   });
 
   it('guards against too many cursors being opened at the same time', async () => {
     await store.transactionAsync(async tx => {
       for (let i = 0; i < 100; i++) {
-        await tx.set(Buffer.from(String(i)), Buffer.from(String(i)));
+        await tx.set(bufferFrom(String(i)), bufferFrom(String(i)));
       }
     });
 
@@ -147,14 +148,14 @@ describe('AztecLMDBStoreV2', () => {
 
     // fill up with cursors
     for (let i = 0; i < testMaxReaders; i++) {
-      cursors.push(readTx.iterate(Buffer.from('1'))[Symbol.asyncIterator]());
+      cursors.push(readTx.iterate(bufferFrom('1'))[Symbol.asyncIterator]());
     }
 
     // the first few iterators should be fine
     await expect(Promise.all(cursors.slice(0, -1).map(it => it.next()))).eventually.to.deep.eq([
-      { value: [Buffer.from('1'), Buffer.from('1')], done: false },
-      { value: [Buffer.from('1'), Buffer.from('1')], done: false },
-      { value: [Buffer.from('1'), Buffer.from('1')], done: false },
+      { value: [bufferFrom('1'), bufferFrom('1')], done: false },
+      { value: [bufferFrom('1'), bufferFrom('1')], done: false },
+      { value: [bufferFrom('1'), bufferFrom('1')], done: false },
     ]);
 
     // this promise should be blocked until we release a cursor
@@ -166,14 +167,14 @@ describe('AztecLMDBStoreV2', () => {
     expect(fn.notCalled).to.be.true;
 
     // but we can still do regular reads
-    await expect(readTx.get(Buffer.from('99'))).eventually.to.deep.eq(Buffer.from('99'));
+    await expect(readTx.get(bufferFrom('99'))).eventually.to.deep.eq(bufferFrom('99'));
 
     // early-return one of the cursors
     await cursors[0].return!();
 
     // this should have unblocked the last cursor from progressing
     await sleep(10);
-    expect(fn.calledWith({ value: [Buffer.from('1'), Buffer.from('1')], done: false })).to.be.true;
+    expect(fn.calledWith({ value: [bufferFrom('1'), bufferFrom('1')], done: false })).to.be.true;
 
     for (let i = 1; i < testMaxReaders; i++) {
       await cursors[i].return!();
@@ -183,16 +184,16 @@ describe('AztecLMDBStoreV2', () => {
   });
 
   it('copies and restores data', async () => {
-    const key = Buffer.from('foo');
-    const value = Buffer.from('bar');
+    const key = bufferFrom('foo');
+    const value = bufferFrom('bar');
     await store.transactionAsync(tx => tx.set(key, value));
-    expect(Buffer.from((await store.getReadTx().get(key))!).toString()).to.eq('bar');
+    expect(bufferFrom((await store.getReadTx().get(key))!).toString()).to.eq('bar');
 
     const backupDir = await mkdtemp(join(tmpdir(), 'lmdb-store-test-backup'));
     await store.backupTo(backupDir, true);
 
     const store2 = await openStoreAt(backupDir);
-    expect(Buffer.from((await store2.getReadTx().get(key))!).toString()).to.eq('bar');
+    expect(bufferFrom((await store2.getReadTx().get(key))!).toString()).to.eq('bar');
     await store2.close();
     await store2.delete();
   });

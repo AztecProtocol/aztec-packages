@@ -1,3 +1,5 @@
+import { isBuffer } from '../buffer/index.js';
+
 /** A simple immutable Merkle tree container. Use a MerkleTreeCalculator to create a new instance from a set of leaves. */
 export class MerkleTree {
   constructor(
@@ -22,7 +24,7 @@ export class MerkleTree {
   public getSiblingPath(leafIndex: number): Buffer[];
   public getSiblingPath(leaf: Buffer): Buffer[];
   public getSiblingPath(leafIndexOrLeaf: number | Buffer): Buffer[] {
-    if (Buffer.isBuffer(leafIndexOrLeaf)) {
+    if (isBuffer(leafIndexOrLeaf)) {
       return this.getSiblingPath(this.getIndex(leafIndexOrLeaf));
     }
     const leafIndex = leafIndexOrLeaf;

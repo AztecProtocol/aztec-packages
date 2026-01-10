@@ -1,6 +1,6 @@
 import type { EpochCache } from '@aztec/epoch-cache';
 import { CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
-import { Buffer32 } from '@aztec/foundation/buffer';
+import { Buffer32, bufferFrom } from '@aztec/foundation/buffer';
 import { times } from '@aztec/foundation/collection';
 import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Signature } from '@aztec/foundation/eth-signature';
@@ -109,10 +109,10 @@ describe('validateCheckpointAttestations', () => {
       // Create an invalid signature that will fail curve point recovery with "Point is not on curve: Cannot find square root"
       // r = curve_order - 1, s = 1
       const invalidR = Buffer32.fromBuffer(
-        Buffer.from('FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364140', 'hex'),
+        bufferFrom('FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364140', 'hex'),
       );
       const invalidS = Buffer32.fromBuffer(
-        Buffer.from('0000000000000000000000000000000000000000000000000000000000000001', 'hex'),
+        bufferFrom('0000000000000000000000000000000000000000000000000000000000000001', 'hex'),
       );
       const invalidSig = new Signature(invalidR, invalidS, 27);
       checkpoint.attestations[0] = new CommitteeAttestation(EthAddress.ZERO, invalidSig);

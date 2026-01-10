@@ -1,3 +1,4 @@
+import { bufferConcat, bufferFrom } from '@aztec/foundation/buffer';
 import { runInDirectory } from '@aztec/foundation/fs';
 import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
@@ -118,9 +119,9 @@ export async function executeNativeCircuit(
       });
       acvm.on('close', code => {
         if (code === 0) {
-          resolve(Buffer.concat(outChunks, outLen).toString('utf-8'));
+          resolve(bufferConcat(outChunks, outLen).toString('utf-8'));
         } else {
-          const stderr = Buffer.concat(errChunks, errLen);
+          const stderr = bufferConcat(errChunks, errLen);
           logger.error(`From ACVM: ${stderr.toString('utf-8')}`);
           reject(stderr.toString('utf-8'));
         }
@@ -164,7 +165,7 @@ export class NativeACVMSimulator implements CircuitSimulator {
 
     const operation = async (directory: string) => {
       // Decode the bytecode from base64 since the acvm does not know about base64 encoding
-      const decodedBytecode = Buffer.from(artifact.bytecode, 'base64');
+      const decodedBytecode = bufferFrom(artifact.bytecode, 'base64');
       // Execute the circuit
       const result = await executeNativeCircuit(
         input,

@@ -1,4 +1,5 @@
 import { AztecClientBackend, type BackendOptions, Barretenberg } from '@aztec/bb.js';
+import { bufferFrom } from '@aztec/foundation/buffer';
 import { type LogLevel, type Logger, createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { serializeWitness } from '@aztec/noir-noirc_abi';
@@ -250,7 +251,7 @@ export abstract class BBPrivateKernelProver implements PrivateKernelProver {
     } satisfies CircuitWitnessGenerationStats);
 
     const verificationKey = await this.artifactProvider.getCircuitVkByName(circuitType);
-    const bytecode = Buffer.from(compiledCircuit.bytecode, 'base64');
+    const bytecode = bufferFrom(compiledCircuit.bytecode, 'base64');
 
     const kernelOutput: PrivateKernelSimulateOutput<O> = {
       publicInputs: output,
@@ -268,7 +269,7 @@ export abstract class BBPrivateKernelProver implements PrivateKernelProver {
       publicInputs,
       verificationKey: await this.artifactProvider.getCircuitVkByName(circuitType),
       outputWitness: new Map(),
-      bytecode: Buffer.from([]),
+      bytecode: bufferFrom([]),
     };
     return kernelProofOutput;
   }

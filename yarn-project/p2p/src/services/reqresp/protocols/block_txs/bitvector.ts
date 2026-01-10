@@ -1,3 +1,4 @@
+import { bufferAlloc } from '@aztec/foundation/buffer';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 /**
@@ -24,7 +25,7 @@ export class BitVector {
       throw new Error('Indices length exceeds specified length');
     }
 
-    const buffer = Buffer.alloc(BitVector.byteLength(length));
+    const buffer = bufferAlloc(BitVector.byteLength(length));
 
     indices.forEach(idx => {
       const invalidIndex = idx < 0 || idx >= length;

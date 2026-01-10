@@ -1,3 +1,4 @@
+import { bufferFrom } from '../../buffer/index.js';
 import { Fq, Fr } from '../../curves/bn254/field.js';
 import { Bn254G1Point } from '../../curves/bn254/point.js';
 import { deriveBlsKeyFromMnemonic } from '../bls/index.js';
@@ -108,7 +109,7 @@ describe('BN254 Point Operations', () => {
     it('decompressed points are on the curve', async () => {
       const sk = deriveBlsKeyFromMnemonic(mnemonic, path, '');
       const compressed = await computeBn254G1PublicKeyCompressed(sk);
-      const decompressed = await Bn254G1Point.fromCompressed(Buffer.from(compressed.replace(/^0x/i, ''), 'hex'));
+      const decompressed = await Bn254G1Point.fromCompressed(bufferFrom(compressed.replace(/^0x/i, ''), 'hex'));
 
       expect(await decompressed.isOnCurve()).toBe(true);
     });
@@ -129,7 +130,7 @@ describe('BN254 Point Operations', () => {
 
     it('throws on x-coordinate out of field range', async () => {
       // Create a compressed point with x >= field order
-      const tooLarge = Buffer.from('ff'.repeat(32), 'hex');
+      const tooLarge = bufferFrom('ff'.repeat(32), 'hex');
       await expect(Bn254G1Point.fromCompressed(tooLarge)).rejects.toThrow();
     });
   });

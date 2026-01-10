@@ -1,4 +1,5 @@
 import { toBigIntBE, toBufferBE } from '../bigint-buffer/index.js';
+import { bufferAlloc, bufferConcat, bufferFrom, isBuffer } from '../buffer/index.js';
 import { Fr } from '../curves/bn254/field.js';
 import { numToUInt32BE } from './free_funcs.js';
 
@@ -12,15 +13,15 @@ export function serializeArrayOfBufferableToVector(objs: Bufferable[], prefixLen
   const arr = serializeToBufferArray(objs);
   let lengthBuf: Buffer;
   if (prefixLength === 1) {
-    lengthBuf = Buffer.alloc(1);
+    lengthBuf = bufferAlloc(1);
     lengthBuf.writeUInt8(arr.length, 0);
   } else if (prefixLength === 4) {
-    lengthBuf = Buffer.alloc(4);
+    lengthBuf = bufferAlloc(4);
     lengthBuf.writeUInt32BE(arr.length, 0);
   } else {
     throw new Error(`Unsupported prefix length. Got ${prefixLength}, expected 1 or 4`);
   }
-  return Buffer.concat([lengthBuf, ...arr]);
+  return bufferConcat([lengthBuf, ...arr]);
 }
 
 /**
@@ -79,7 +80,7 @@ export function deserializeArrayFromVector<T>(
  * @returns The number.
  */
 export function uint8ArrayToNum(array: Uint8Array): number {
-  const buf = Buffer.from(array);
+  const buf = bufferFrom(array);
   return buf.readUint32LE();
 }
 
@@ -89,7 +90,7 @@ export function uint8ArrayToNum(array: Uint8Array): number {
  * @returns The serialized boolean.
  */
 export function boolToBuffer(value: boolean, bufferSize = 1): Buffer {
-  const buf = Buffer.alloc(bufferSize);
+  const buf = bufferAlloc(bufferSize);
   buf.writeUInt8(value ? 1 : 0, bufferSize - 1);
   return buf;
 }
@@ -157,7 +158,7 @@ export function serializeToBufferArray(...objs: Bufferable[]): Buffer[] {
   for (const obj of objs) {
     if (Array.isArray(obj)) {
       ret.push(...serializeToBufferArray(...obj));
-    } else if (Buffer.isBuffer(obj)) {
+    } else if (isBuffer(obj)) {
       ret.push(obj);
     } else if (typeof obj === 'boolean') {
       ret.push(boolToBuffer(obj));
@@ -172,7 +173,7 @@ export function serializeToBufferArray(...objs: Bufferable[]): Buffer[] {
       ret.push(numToUInt32BE(obj)); // TODO: Are we always passing numbers as UInt32?
     } else if (typeof obj === 'string') {
       ret.push(numToUInt32BE(obj.length));
-      ret.push(Buffer.from(obj));
+      ret.push(bufferFrom(obj));
     } else if ('toBuffer' in obj) {
       ret.push(obj.toBuffer());
     } else {
@@ -202,7 +203,7 @@ export function serializeToFields(...objs: Fieldable[]): Fr[] {
       ret.push(obj.toFr());
     } else if ('toField' in obj) {
       ret.push(obj.toField());
-    } else if (Buffer.isBuffer(obj)) {
+    } else if (isBuffer(obj)) {
       ret.push(Fr.fromBuffer(obj));
     } else {
       throw new Error(`Cannot serialize input to field: ${typeof obj} ${(obj as any).constructor?.name}`);
@@ -217,7 +218,7 @@ export function serializeToFields(...objs: Fieldable[]): Fr[] {
  * @returns A single buffer with the concatenation of all fields.
  */
 export function serializeToBuffer(...objs: Bufferable[]): Buffer {
-  return Buffer.concat(serializeToBufferArray(...objs));
+  return bufferConcat(serializeToBufferArray(...objs));
 }
 
 /**
@@ -230,7 +231,7 @@ export function toFriendlyJSON(obj: object): string {
     obj,
     (key, value) => {
       if (value !== null && typeof value === 'object' && value.type === 'Buffer' && Array.isArray(value.data)) {
-        return '0x' + Buffer.from(value.data).toString('hex');
+        return '0x' + bufferFrom(value.data).toString('hex');
       } else if (typeof value === 'bigint') {
         return value.toString();
       } else if (

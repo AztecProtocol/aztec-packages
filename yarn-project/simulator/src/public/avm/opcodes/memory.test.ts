@@ -4,6 +4,7 @@ import {
   AVM_RETURNDATACOPY_BASE_L2_GAS,
   AVM_RETURNDATACOPY_DYN_L2_GAS,
 } from '@aztec/constants';
+import { bufferFrom } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 
 import type { AvmContext } from '../avm_context.js';
@@ -23,12 +24,12 @@ describe('Memory instructions', () => {
 
   describe('SET', () => {
     it('Should (de)serialize correctly [tag=u8]', () => {
-      const buf = Buffer.from([
+      const buf = bufferFrom([
         Opcode.SET_8, // opcode
         0x01, // indirect
-        ...Buffer.from('56', 'hex'), // dstOffset
+        ...bufferFrom('56', 'hex'), // dstOffset
         TypeTag.UINT8, // inTag
-        ...Buffer.from('12', 'hex'),
+        ...bufferFrom('12', 'hex'),
       ]);
       const inst = new Set(/*indirect=*/ 0x01, /*dstOffset=*/ 0x56, /*inTag=*/ TypeTag.UINT8, /*value=*/ 0x12).as(
         Opcode.SET_8,
@@ -40,12 +41,12 @@ describe('Memory instructions', () => {
     });
 
     it('Should (de)serialize correctly [tag=u16]', () => {
-      const buf = Buffer.from([
+      const buf = bufferFrom([
         Opcode.SET_16, // opcode
         0x01, // indirect
-        ...Buffer.from('3456', 'hex'), // dstOffset
+        ...bufferFrom('3456', 'hex'), // dstOffset
         TypeTag.UINT16, // inTag
-        ...Buffer.from('1234', 'hex'),
+        ...bufferFrom('1234', 'hex'),
       ]);
       const inst = new Set(/*indirect=*/ 0x01, /*dstOffset=*/ 0x3456, /*inTag=*/ TypeTag.UINT16, /*value=*/ 0x1234).as(
         Opcode.SET_16,
@@ -57,12 +58,12 @@ describe('Memory instructions', () => {
     });
 
     it('Should (de)serialize correctly [tag=u32]', () => {
-      const buf = Buffer.from([
+      const buf = bufferFrom([
         Opcode.SET_32, // opcode
         0x01, // indirect
-        ...Buffer.from('3456', 'hex'), // dstOffset
+        ...bufferFrom('3456', 'hex'), // dstOffset
         TypeTag.UINT32, // inTag
-        ...Buffer.from('12345678', 'hex'),
+        ...bufferFrom('12345678', 'hex'),
       ]);
       const inst = new Set(
         /*indirect=*/ 0x01,
@@ -76,12 +77,12 @@ describe('Memory instructions', () => {
     });
 
     it('Should (de)serialize correctly [tag=u64]', () => {
-      const buf = Buffer.from([
+      const buf = bufferFrom([
         Opcode.SET_64, // opcode
         0x01, // indirect
-        ...Buffer.from('34567', 'hex'), // dstOffset
+        ...bufferFrom('34567', 'hex'), // dstOffset
         TypeTag.UINT64, // inTag
-        ...Buffer.from('1234567812345678', 'hex'),
+        ...bufferFrom('1234567812345678', 'hex'),
       ]);
       const inst = new Set(
         /*indirect=*/ 0x01,
@@ -95,12 +96,12 @@ describe('Memory instructions', () => {
     });
 
     it('Should (de)serialize correctly [tag=u128]', () => {
-      const buf = Buffer.from([
+      const buf = bufferFrom([
         Opcode.SET_128, // opcode
         0x01, // indirect
-        ...Buffer.from('3456', 'hex'), // dstOffset
+        ...bufferFrom('3456', 'hex'), // dstOffset
         TypeTag.UINT128, // inTag
-        ...Buffer.from('12345678123456781234567812345678', 'hex'), // const (will be 128 bit)
+        ...bufferFrom('12345678123456781234567812345678', 'hex'), // const (will be 128 bit)
       ]);
       const inst = new Set(
         /*indirect=*/ 0x01,
@@ -114,12 +115,12 @@ describe('Memory instructions', () => {
     });
 
     it('Should (de)serialize correctly [tag=ff]', () => {
-      const buf = Buffer.from([
+      const buf = bufferFrom([
         Opcode.SET_FF, // opcode
         0x01, // indirect
-        ...Buffer.from('3456', 'hex'), // dstOffset
+        ...bufferFrom('3456', 'hex'), // dstOffset
         TypeTag.UINT128, // inTag
-        ...Buffer.from('1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef', 'hex'), // const (will be 32 bytes)
+        ...bufferFrom('1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef', 'hex'), // const (will be 32 bytes)
       ]);
       const inst = new Set(
         /*indirect=*/ 0x01,
@@ -167,11 +168,11 @@ describe('Memory instructions', () => {
 
   describe('CAST', () => {
     it('Should deserialize correctly', () => {
-      const buf = Buffer.from([
+      const buf = bufferFrom([
         Opcode.CAST_16, // opcode
         0x01, // indirect
-        ...Buffer.from('1234', 'hex'), // aOffset
-        ...Buffer.from('3456', 'hex'), // dstOffset
+        ...bufferFrom('1234', 'hex'), // aOffset
+        ...bufferFrom('3456', 'hex'), // dstOffset
         TypeTag.FIELD, // dstTag
       ]);
       const inst = new Cast(
@@ -323,11 +324,11 @@ describe('Memory instructions', () => {
 
   describe('MOV', () => {
     it('Should (de)serialize correctly', () => {
-      const buf = Buffer.from([
+      const buf = bufferFrom([
         Mov.opcode, // opcode
         0x01, // indirect
-        ...Buffer.from('12', 'hex'), // srcOffset
-        ...Buffer.from('34', 'hex'), // dstOffset
+        ...bufferFrom('12', 'hex'), // srcOffset
+        ...bufferFrom('34', 'hex'), // dstOffset
       ]);
       const inst = new Mov(/*indirect=*/ 0x01, /*srcOffset=*/ 0x12, /*dstOffset=*/ 0x34).as(
         Opcode.MOV_8,
@@ -376,12 +377,12 @@ describe('Memory instructions', () => {
 
   describe('CALLDATACOPY', () => {
     it('Should (de)serialize correctly', () => {
-      const buf = Buffer.from([
+      const buf = bufferFrom([
         CalldataCopy.opcode, // opcode
         0x10, // indirect
-        ...Buffer.from('2345', 'hex'), // copysizeOffset
-        ...Buffer.from('1234', 'hex'), // cdOffsetAddress
-        ...Buffer.from('3456', 'hex'), // dstOffset
+        ...bufferFrom('2345', 'hex'), // copysizeOffset
+        ...bufferFrom('1234', 'hex'), // cdOffsetAddress
+        ...bufferFrom('3456', 'hex'), // dstOffset
       ]);
       const inst = new CalldataCopy(
         /*indirect=*/ 0x10,
@@ -479,10 +480,10 @@ describe('Memory instructions', () => {
 
   describe('RETURNDATASIZE', () => {
     it('Should (de)serialize correctly', () => {
-      const buf = Buffer.from([
+      const buf = bufferFrom([
         ReturndataSize.opcode, // opcode
         0x01, // indirect
-        ...Buffer.from('3456', 'hex'), // dstOffset
+        ...bufferFrom('3456', 'hex'), // dstOffset
       ]);
       const inst = new ReturndataSize(/*indirect=*/ 0x01, /*dstOffset=*/ 0x3456);
 
@@ -503,12 +504,12 @@ describe('Memory instructions', () => {
 
   describe('RETURNDATACOPY', () => {
     it('Should (de)serialize correctly', () => {
-      const buf = Buffer.from([
+      const buf = bufferFrom([
         ReturndataCopy.opcode, // opcode
         0x10, // indirect
-        ...Buffer.from('2345', 'hex'), // copysizeOffset
-        ...Buffer.from('1234', 'hex'), // rdOffsetAddress
-        ...Buffer.from('3456', 'hex'), // dstOffset
+        ...bufferFrom('2345', 'hex'), // copysizeOffset
+        ...bufferFrom('1234', 'hex'), // rdOffsetAddress
+        ...bufferFrom('3456', 'hex'), // dstOffset
       ]);
       const inst = new ReturndataCopy(
         /*indirect=*/ 0x10,

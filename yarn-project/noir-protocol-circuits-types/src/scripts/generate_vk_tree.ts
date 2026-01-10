@@ -1,4 +1,6 @@
 import { VK_TREE_HEIGHT } from '@aztec/constants';
+import { bufferAlloc } from '@aztec/foundation/buffer';
+import { bufferFrom } from '@aztec/foundation/buffer';
 import { poseidon2Hash } from '@aztec/foundation/crypto/poseidon';
 import { createConsoleLogger } from '@aztec/foundation/log';
 import { MerkleTreeCalculator } from '@aztec/foundation/trees';
@@ -19,11 +21,11 @@ function resolveRelativePath(relativePath: string) {
 }
 
 async function buildVKTree() {
-  const calculator = await MerkleTreeCalculator.create(VK_TREE_HEIGHT, Buffer.alloc(32), async (a, b) =>
+  const calculator = await MerkleTreeCalculator.create(VK_TREE_HEIGHT, bufferAlloc(32), async (a, b) =>
     (await poseidon2Hash([a, b])).toBuffer(),
   );
 
-  const vkHashes = new Array(2 ** VK_TREE_HEIGHT).fill(Buffer.alloc(32));
+  const vkHashes = new Array(2 ** VK_TREE_HEIGHT).fill(bufferAlloc(32));
   for (const [key, value] of Object.entries(allVks)) {
     const index = ProtocolCircuitVkIndexes[key as ProtocolArtifact];
     vkHashes[index] = value.keyAsFields.hash.toBuffer();
@@ -41,7 +43,7 @@ import { MerkleTree } from '@aztec/foundation/trees';
 export const vkTree = new MerkleTree(${vkTree.height}, [${vkTree.nodes
     .map(node => `'${node.toString('hex')}'`)
     .join(', ')}
-].map(hex => Buffer.from(hex, 'hex')));
+].map(hex => bufferFrom(hex, 'hex')));
 `;
 
   await fs.writeFile(vkTreePath, vkTreeFileContents);

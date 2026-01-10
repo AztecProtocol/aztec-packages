@@ -1,3 +1,4 @@
+import { bufferFrom } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import {
@@ -87,7 +88,7 @@ async function simulateWithFuzzer(
 async function execute(base64Line: string): Promise<void> {
   try {
     // Decode base64 and deserialize the entire request from msgpack
-    const buffer = Buffer.from(base64Line.trim(), 'base64');
+    const buffer = bufferFrom(base64Line.trim(), 'base64');
     const rawRequest = deserializeFromMessagePack(buffer);
     const request = FuzzerSimulationRequest.fromPlainObject(rawRequest);
 

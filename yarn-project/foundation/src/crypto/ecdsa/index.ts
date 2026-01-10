@@ -1,5 +1,6 @@
 import { BarretenbergSync } from '@aztec/bb.js';
 
+import { bufferConcat, bufferFrom } from '../../buffer/index.js';
 import { EcdsaSignature } from './signature.js';
 
 export * from './signature.js';
@@ -22,7 +23,7 @@ export class Ecdsa {
       this.curve === 'secp256r1'
         ? api.ecdsaSecp256r1ComputePublicKey({ privateKey })
         : api.ecdsaSecp256k1ComputePublicKey({ privateKey });
-    return Buffer.concat([Buffer.from(response.publicKey.x), Buffer.from(response.publicKey.y)]);
+    return bufferConcat([bufferFrom(response.publicKey.x), bufferFrom(response.publicKey.y)]);
   }
 
   /**
@@ -38,7 +39,7 @@ export class Ecdsa {
       this.curve === 'secp256r1'
         ? api.ecdsaSecp256r1ConstructSignature({ message: msg, privateKey })
         : api.ecdsaSecp256k1ConstructSignature({ message: msg, privateKey });
-    return new EcdsaSignature(Buffer.from(response.r), Buffer.from(response.s), Buffer.from([response.v]));
+    return new EcdsaSignature(bufferFrom(response.r), bufferFrom(response.s), bufferFrom([response.v]));
   }
 
   /**
@@ -54,7 +55,7 @@ export class Ecdsa {
       this.curve === 'secp256r1'
         ? api.ecdsaSecp256r1RecoverPublicKey({ message: msg, r: sig.r, s: sig.s, v: sig.v[0] })
         : api.ecdsaSecp256k1RecoverPublicKey({ message: msg, r: sig.r, s: sig.s, v: sig.v[0] });
-    return Buffer.concat([Buffer.from(response.publicKey.x), Buffer.from(response.publicKey.y)]);
+    return bufferConcat([bufferFrom(response.publicKey.x), bufferFrom(response.publicKey.y)]);
   }
 
   /**

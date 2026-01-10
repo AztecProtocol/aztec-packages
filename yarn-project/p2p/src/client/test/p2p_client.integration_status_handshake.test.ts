@@ -1,5 +1,6 @@
 import type { EpochCache } from '@aztec/epoch-cache';
 import { BlockNumber } from '@aztec/foundation/branded-types';
+import { bufferFrom } from '@aztec/foundation/buffer';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
@@ -164,7 +165,7 @@ describe('p2p client integration status handshake', () => {
     jest.spyOn(c1PeerManager.reqresp, 'sendRequestToPeer').mockImplementation(async function (...args: unknown[]) {
       const [peerId, protocol, ...rest] = args as [PeerId, ReqRespSubProtocol, ...unknown[]];
       if (peerId.toString() === badPeerId.toString() && protocol === ReqRespSubProtocol.STATUS) {
-        return Promise.resolve({ status: ReqRespStatus.SUCCESS, data: Buffer.from('invalid status') });
+        return Promise.resolve({ status: ReqRespStatus.SUCCESS, data: bufferFrom('invalid status') });
       }
 
       return await realSend.apply(c1PeerManager.reqresp, [peerId, protocol, ...rest]);

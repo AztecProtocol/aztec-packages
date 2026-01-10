@@ -1,5 +1,6 @@
 import { jest } from '@jest/globals';
 
+import { bufferAlloc, bufferConcat, bufferFrom } from '../buffer/index.js';
 import { randomBytes } from '../crypto/random/index.js';
 import { Fq, Fr } from '../curves/bn254/field.js';
 import { BufferReader } from './buffer_reader.js';
@@ -7,7 +8,7 @@ import { bigintToUInt64BE, bigintToUInt128BE } from './free_funcs.js';
 import { serializeArrayOfBufferableToVector, serializeBigInt, serializeToBuffer } from './serialize.js';
 
 const ARRAY = Array.from(Array(32)).map((_, idx) => (idx % 2 === 0 ? 0 : 1));
-const BUFFER = Buffer.from(ARRAY);
+const BUFFER = bufferFrom(ARRAY);
 const NUMBER = 65537;
 const sizes = [16, 48, 32];
 
@@ -38,8 +39,8 @@ describe('buffer reader', () => {
 
   describe('readBytes', () => {
     it('should read buffer by slices', () => {
-      expect(bufferReader.readBytes(2)).toEqual(Buffer.from(ARRAY.slice(0, 2)));
-      expect(bufferReader.readBytes(3)).toEqual(Buffer.from(ARRAY.slice(2, 5)));
+      expect(bufferReader.readBytes(2)).toEqual(bufferFrom(ARRAY.slice(0, 2)));
+      expect(bufferReader.readBytes(3)).toEqual(bufferFrom(ARRAY.slice(2, 5)));
     });
   });
 
@@ -47,7 +48,7 @@ describe('buffer reader', () => {
     it('should read UInt64 from buffer', () => {
       // mix in some non-UInt64 values
       const content = [1n, 2n ** 64n, 2n ** 64n - 1n, BigInt(Number.MAX_SAFE_INTEGER), 3n];
-      const buffer = Buffer.concat([
+      const buffer = bufferConcat([
         bigintToUInt64BE(content[0]),
         serializeBigInt(content[1]),
         bigintToUInt64BE(content[2]),
@@ -67,7 +68,7 @@ describe('buffer reader', () => {
     it('should read UInt128 from buffer', () => {
       // mix in some non-UInt128 values
       const content = [1n, 2n ** 128n, 2n ** 128n - 1n, BigInt(Number.MAX_SAFE_INTEGER), 3n];
-      const buffer = Buffer.concat([
+      const buffer = bufferConcat([
         bigintToUInt128BE(content[0]),
         serializeBigInt(content[1]),
         bigintToUInt128BE(content[2]),
@@ -114,7 +115,7 @@ describe('buffer reader', () => {
     beforeEach(() => {
       const uintArr = [7, 13, 16];
       const uintBufArr = uintArr.map(num => {
-        const uintBuf = Buffer.alloc(4);
+        const uintBuf = bufferAlloc(4);
         uintBuf.writeUInt32BE(num, 0);
         return uintBuf;
       });
@@ -165,14 +166,14 @@ describe('buffer reader', () => {
       // Testing `readBufferArray` with a buffer that ONLY contains the data that will be read.
       // No `size` variable is passed in this case.
       const bufferArray: Buffer[] = [];
-      let buf = Buffer.alloc(0);
+      let buf = bufferAlloc(0);
       for (const size of sizes) {
-        const sizeBuf = Buffer.alloc(4);
+        const sizeBuf = bufferAlloc(4);
         sizeBuf.writeUInt32BE(size);
         const bytes = randomBytes(size);
-        const ranBuf = Buffer.concat([sizeBuf, bytes]);
+        const ranBuf = bufferConcat([sizeBuf, bytes]);
         bufferArray.push(bytes);
-        buf = Buffer.concat([buf, ranBuf]);
+        buf = bufferConcat([buf, ranBuf]);
       }
       const reader = BufferReader.asReader(buf);
       const res = reader.readBufferArray();
@@ -186,19 +187,19 @@ describe('buffer reader', () => {
       const prefixBytes = randomBytes(32);
       const postfixBytes = randomBytes(16);
       let bufLen = 0;
-      let buf = Buffer.alloc(32, prefixBytes);
+      let buf = bufferAlloc(32, prefixBytes);
       for (const size of sizes) {
-        const sizeBuf = Buffer.alloc(4);
+        const sizeBuf = bufferAlloc(4);
         sizeBuf.writeUInt32BE(size);
 
         const bytes = randomBytes(size);
-        const ranBuf = Buffer.concat([sizeBuf, bytes]);
-        buf = Buffer.concat([buf, ranBuf]);
+        const ranBuf = bufferConcat([sizeBuf, bytes]);
+        buf = bufferConcat([buf, ranBuf]);
 
         bufferArray.push(bytes);
         bufLen += ranBuf.length;
       }
-      buf = Buffer.concat([buf, postfixBytes]);
+      buf = bufferConcat([buf, postfixBytes]);
       const reader = BufferReader.asReader(buf);
       const preRes = reader.readBytes(prefixBytes.length);
       expect(preRes).toEqual(prefixBytes);
@@ -224,7 +225,7 @@ describe('buffer reader', () => {
 
   describe('peekBytes', () => {
     it('should return bytes from buffer', () => {
-      expect(bufferReader.peekBytes(10)).toEqual(Buffer.from(ARRAY.slice(0, 10)));
+      expect(bufferReader.peekBytes(10)).toEqual(bufferFrom(ARRAY.slice(0, 10)));
     });
   });
 
@@ -233,7 +234,7 @@ describe('buffer reader', () => {
     let smallBufferReader: BufferReader;
 
     beforeEach(() => {
-      smallBuffer = Buffer.from([1, 2, 3]); // 3-byte buffer
+      smallBuffer = bufferFrom([1, 2, 3]); // 3-byte buffer
       smallBufferReader = new BufferReader(smallBuffer);
     });
 

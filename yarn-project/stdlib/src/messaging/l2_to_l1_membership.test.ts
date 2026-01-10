@@ -1,4 +1,5 @@
 import { MAX_L2_TO_L1_MSGS_PER_TX } from '@aztec/constants';
+import { bufferConcat } from '@aztec/foundation/buffer';
 import { randomInt } from '@aztec/foundation/crypto/random';
 import { sha256Trunc } from '@aztec/foundation/crypto/sha256';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -23,7 +24,7 @@ describe('L2 to L1 membership', () => {
     return Array.from({ length: numMsgs }, () => Fr.random());
   };
 
-  const hasher = (left: Buffer, right: Buffer) => sha256Trunc(Buffer.concat([left, right]));
+  const hasher = (left: Buffer, right: Buffer) => sha256Trunc(bufferConcat([left, right]));
 
   // This should match the implementation in Outbox.sol -> verifyMembership
   const verifyMembership = (leaf: Fr, witness: L2ToL1MembershipWitness) => {

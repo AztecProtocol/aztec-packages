@@ -1,3 +1,4 @@
+import { bufferFrom } from '@aztec/foundation/buffer';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { PeerInfo } from '@aztec/stdlib/interfaces/server';
 import type { Gossipable, PeerErrorSeverity } from '@aztec/stdlib/p2p';
@@ -259,7 +260,7 @@ export class DummyReqResp implements ReqRespInterface {
     _payload: Buffer,
     _dialTimeout?: number,
   ): Promise<ReqRespResponse> {
-    return Promise.resolve({ status: ReqRespStatus.SUCCESS, data: Buffer.from([]) });
+    return Promise.resolve({ status: ReqRespStatus.SUCCESS, data: bufferFrom([]) });
   }
 
   addSubProtocol(

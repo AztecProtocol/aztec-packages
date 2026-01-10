@@ -1,3 +1,4 @@
+import { bufferAlloc } from '@aztec/foundation/buffer';
 import { randomBytes } from '@aztec/foundation/crypto/random';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 
@@ -45,7 +46,7 @@ describe('TxArray', () => {
   });
 
   it('throws when deserializing an empty buffer', () => {
-    const invalidBuffer = Buffer.alloc(0);
+    const invalidBuffer = bufferAlloc(0);
     expect(() => TxArray.fromBuffer(invalidBuffer)).toThrow('Failed to deserialize TxArray from buffer');
   });
 });
