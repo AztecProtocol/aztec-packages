@@ -8,7 +8,7 @@ import { CheckpointedL2Block, PublishedL2Block } from '../block/checkpointed_l2_
 import { L2Block } from '../block/l2_block.js';
 import { L2BlockNew } from '../block/l2_block_new.js';
 import { type L2BlockSource, L2TipsSchema } from '../block/l2_block_source.js';
-import { ValidateBlockResultSchema } from '../block/validate_block_result.js';
+import { ValidateCheckpointResultSchema } from '../block/validate_block_result.js';
 import { Checkpoint } from '../checkpoint/checkpoint.js';
 import { PublishedCheckpoint } from '../checkpoint/published_checkpoint.js';
 import {
@@ -152,5 +152,5 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
   getL1Timestamp: z.function().args().returns(schemas.BigInt.optional()),
   syncImmediate: z.function().args().returns(z.void()),
   isPendingChainInvalid: z.function().args().returns(z.boolean()),
-  getPendingChainValidationStatus: z.function().args().returns(ValidateBlockResultSchema),
+  getPendingChainValidationStatus: z.function().args().returns(ValidateCheckpointResultSchema),
 };

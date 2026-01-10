@@ -5,57 +5,61 @@ import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { z } from 'zod';
 
-import { BlockInfoSchema, type L2BlockInfo, deserializeBlockInfo, serializeBlockInfo } from './l2_block_info.js';
+import {
+  type CheckpointInfo,
+  CheckpointInfoSchema,
+  deserializeCheckpointInfo,
+  serializeCheckpointInfo,
+} from '../checkpoint/checkpoint_info.js';
 import { CommitteeAttestation } from './proposal/committee_attestation.js';
 
-/** Subtype for invalid block validation results */
-export type ValidateBlockNegativeResult =
+/** Subtype for invalid checkpoint validation results */
+export type ValidateCheckpointNegativeResult =
   | {
       valid: false;
-      /** Identifiers from the invalid block */
-      block: L2BlockInfo;
-      /** Committee members at the epoch this block was proposed */
+      /** Identifiers from the invalid checkpoint */
+      checkpoint: CheckpointInfo;
+      /** Committee members at the epoch this checkpoint was proposed */
       committee: EthAddress[];
-      /** Epoch in which this block was proposed */
+      /** Epoch in which this checkpoint was proposed */
       epoch: EpochNumber;
       /** Proposer selection seed for the epoch */
       seed: bigint;
-      /** List of committee members who signed this block proposal */
+      /** List of committee members who signed this checkpoint proposal */
       attestors: EthAddress[];
-      /** Committee attestations for this block as they were posted to L1 */
+      /** Committee attestations for this checkpoint as they were posted to L1 */
       attestations: CommitteeAttestation[];
-      /** Reason for the block being invalid: not enough attestations were posted */
+      /** Reason for the checkpoint being invalid: not enough attestations were posted */
       reason: 'insufficient-attestations';
     }
   | {
       valid: false;
-      /** Identifiers from the invalid block */
-      block: L2BlockInfo;
-      /** Committee members at the epoch this block was proposed */
+      /** Identifiers from the invalid checkpoint */
+      checkpoint: CheckpointInfo;
+      /** Committee members at the epoch this checkpoint was proposed */
       committee: EthAddress[];
-      /** Epoch in which this block was proposed */
+      /** Epoch in which this checkpoint was proposed */
       epoch: EpochNumber;
       /** Proposer selection seed for the epoch */
       seed: bigint;
-      /** List of committee members who signed this block proposal */
+      /** List of committee members who signed this checkpoint proposal */
       attestors: EthAddress[];
-      /** Committee attestations for this block as they were posted to L1 */
+      /** Committee attestations for this checkpoint as they were posted to L1 */
       attestations: CommitteeAttestation[];
-      /** Reason for the block being invalid: an invalid attestation was posted */
+      /** Reason for the checkpoint being invalid: an invalid attestation was posted */
       reason: 'invalid-attestation';
       /** Index in the attestations array of the invalid attestation posted */
       invalidIndex: number;
     };
 
-// TODO: Rename to ValidateAttestationsResult
-/** Result type for validating a block attestations */
-export type ValidateBlockResult = { valid: true } | ValidateBlockNegativeResult;
+/** Result type for validating checkpoint attestations */
+export type ValidateCheckpointResult = { valid: true } | ValidateCheckpointNegativeResult;
 
-export const ValidateBlockResultSchema: ZodFor<ValidateBlockResult> = z.union([
+export const ValidateCheckpointResultSchema: ZodFor<ValidateCheckpointResult> = z.union([
   z.object({ valid: z.literal(true) }),
   z.object({
     valid: z.literal(false),
-    block: BlockInfoSchema,
+    checkpoint: CheckpointInfoSchema,
     committee: z.array(schemas.EthAddress),
     epoch: EpochNumberSchema,
     seed: schemas.BigInt,
@@ -65,7 +69,7 @@ export const ValidateBlockResultSchema: ZodFor<ValidateBlockResult> = z.union([
   }),
   z.object({
     valid: z.literal(false),
-    block: BlockInfoSchema,
+    checkpoint: CheckpointInfoSchema,
     committee: z.array(schemas.EthAddress),
     epoch: EpochNumberSchema,
     seed: schemas.BigInt,
@@ -76,17 +80,17 @@ export const ValidateBlockResultSchema: ZodFor<ValidateBlockResult> = z.union([
   }),
 ]);
 
-export function serializeValidateBlockResult(result: ValidateBlockResult): Buffer {
+export function serializeValidateCheckpointResult(result: ValidateCheckpointResult): Buffer {
   if (result.valid) {
     return serializeToBuffer(true);
   }
 
-  const l2Block = serializeBlockInfo(result.block);
+  const checkpointBuffer = serializeCheckpointInfo(result.checkpoint);
   return serializeToBuffer(
     result.valid,
     result.reason,
-    l2Block.length,
-    l2Block,
+    checkpointBuffer.length,
+    checkpointBuffer,
     result.committee.length,
     result.committee,
     result.epoch,
@@ -99,14 +103,14 @@ export function serializeValidateBlockResult(result: ValidateBlockResult): Buffe
   );
 }
 
-export function deserializeValidateBlockResult(bufferOrReader: Buffer | BufferReader): ValidateBlockResult {
+export function deserializeValidateCheckpointResult(bufferOrReader: Buffer | BufferReader): ValidateCheckpointResult {
   const reader = BufferReader.asReader(bufferOrReader);
   const valid = reader.readBoolean();
   if (valid) {
     return { valid };
   }
   const reason = reader.readString() as 'insufficient-attestations' | 'invalid-attestation';
-  const block = deserializeBlockInfo(reader.readBuffer());
+  const checkpoint = deserializeCheckpointInfo(reader.readBuffer());
   const committee = reader.readVector(EthAddress);
   const epoch = EpochNumber(reader.readNumber());
   const seed = reader.readBigInt();
@@ -114,9 +118,9 @@ export function deserializeValidateBlockResult(bufferOrReader: Buffer | BufferRe
   const attestations = reader.readVector(CommitteeAttestation);
   const invalidIndex = reader.readNumber();
   if (reason === 'insufficient-attestations') {
-    return { valid, reason, block, committee, epoch, seed, attestors, attestations: attestations };
+    return { valid, reason, checkpoint, committee, epoch, seed, attestors, attestations };
   } else if (reason === 'invalid-attestation') {
-    return { valid, reason, block, committee, epoch, seed, attestors, invalidIndex, attestations: attestations };
+    return { valid, reason, checkpoint, committee, epoch, seed, attestors, invalidIndex, attestations };
   } else {
     const _: never = reason;
     throw new Error(`Unknown reason: ${reason}`);

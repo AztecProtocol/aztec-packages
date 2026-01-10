@@ -12,7 +12,7 @@ import type { DateProvider } from '@aztec/foundation/timer';
 import type { TypedEventEmitter } from '@aztec/foundation/types';
 import type { P2P } from '@aztec/p2p';
 import type { SlasherClientInterface } from '@aztec/slasher';
-import type { L2BlockNew, L2BlockSink, L2BlockSource, ValidateBlockResult } from '@aztec/stdlib/block';
+import type { L2BlockNew, L2BlockSink, L2BlockSource, ValidateCheckpointResult } from '@aztec/stdlib/block';
 import type { Checkpoint } from '@aztec/stdlib/checkpoint';
 import { getSlotAtTimestamp, getSlotStartBuildTimestamp } from '@aztec/stdlib/epoch-helpers';
 import {
@@ -32,7 +32,7 @@ import EventEmitter from 'node:events';
 import { DefaultSequencerConfig } from '../config.js';
 import type { GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
 import type { SequencerPublisherFactory } from '../publisher/sequencer-publisher-factory.js';
-import type { InvalidateBlockRequest, SequencerPublisher } from '../publisher/sequencer-publisher.js';
+import type { InvalidateCheckpointRequest, SequencerPublisher } from '../publisher/sequencer-publisher.js';
 import { CheckpointProposalJob } from './checkpoint_proposal_job.js';
 import { CheckpointVoter } from './checkpoint_voter.js';
 import { SequencerInterruptedError, SequencerTooSlowError } from './errors.js';
@@ -280,9 +280,9 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     this.setState(SequencerState.PROPOSER_CHECK, slot);
     const [canPropose, proposer] = await this.checkCanPropose(slot);
 
-    // If we are not a proposer check if we should invalidate a invalid block, and bail
+    // If we are not a proposer check if we should invalidate an invalid checkpoint, and bail
     if (!canPropose) {
-      await this.considerInvalidatingBlock(syncedTo, slot);
+      await this.considerInvalidatingCheckpoint(syncedTo, slot);
       return undefined;
     }
 
@@ -312,15 +312,14 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     }
 
     // Prepare invalidation request if the pending chain is invalid (returns undefined if no need)
-    // TODO(palla/mbps): We need to invalidate checkpoints, not blocks
-    const invalidateBlock = await publisher.simulateInvalidateBlock(syncedTo.pendingChainValidationStatus);
+    const invalidateCheckpoint = await publisher.simulateInvalidateCheckpoint(syncedTo.pendingChainValidationStatus);
 
     // Check with the rollup contract if we can indeed propose at the next L2 slot. This check should not fail
     // if all the previous checks are good, but we do it just in case.
     const canProposeCheck = await publisher.canProposeAtNextEthBlock(
       syncedTo.archive,
       proposer ?? EthAddress.ZERO,
-      invalidateBlock,
+      invalidateCheckpoint,
     );
 
     if (canProposeCheck === undefined) {
@@ -364,7 +363,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       proposer,
       publisher,
       attestorAddress,
-      invalidateBlock,
+      invalidateCheckpoint,
     );
   }
 
@@ -375,7 +374,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     proposer: EthAddress | undefined,
     publisher: SequencerPublisher,
     attestorAddress: EthAddress,
-    invalidateBlock: InvalidateBlockRequest | undefined,
+    invalidateCheckpoint: InvalidateCheckpointRequest | undefined,
   ): CheckpointProposalJob {
     return new CheckpointProposalJob(
       slot,
@@ -384,7 +383,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       proposer,
       publisher,
       attestorAddress,
-      invalidateBlock,
+      invalidateCheckpoint,
       this.validatorClient,
       this.globalsBuilder,
       this.p2pClient,
@@ -637,12 +636,12 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
   }
 
   /**
-   * Considers invalidating a block if the pending chain is invalid. Depends on how long the invalid block
+   * Considers invalidating a checkpoint if the pending chain is invalid. Depends on how long the invalid checkpoint
    * has been there without being invalidated and whether the sequencer is in the committee or not. We always
    * have the proposer try to invalidate, but if they fail, the sequencers in the committee are expected to try,
    * and if they fail, any sequencer will try as well.
    */
-  protected async considerInvalidatingBlock(
+  protected async considerInvalidatingCheckpoint(
     syncedTo: SequencerSyncCheckResult,
     currentSlot: SlotNumber,
   ): Promise<void> {
@@ -651,18 +650,18 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       return;
     }
 
-    const invalidBlockNumber = pendingChainValidationStatus.block.blockNumber;
-    const invalidBlockTimestamp = pendingChainValidationStatus.block.timestamp;
-    const timeSinceChainInvalid = this.dateProvider.nowInSeconds() - Number(invalidBlockTimestamp);
+    const invalidCheckpointNumber = pendingChainValidationStatus.checkpoint.checkpointNumber;
+    const invalidCheckpointTimestamp = pendingChainValidationStatus.checkpoint.timestamp;
+    const timeSinceChainInvalid = this.dateProvider.nowInSeconds() - Number(invalidCheckpointTimestamp);
     const ourValidatorAddresses = this.validatorClient.getValidatorAddresses();
 
     const { secondsBeforeInvalidatingBlockAsCommitteeMember, secondsBeforeInvalidatingBlockAsNonCommitteeMember } =
       this.config;
 
     const logData = {
-      invalidL1Timestamp: invalidBlockTimestamp,
+      invalidL1Timestamp: invalidCheckpointTimestamp,
       l1Timestamp,
-      invalidBlock: pendingChainValidationStatus.block,
+      invalidCheckpoint: pendingChainValidationStatus.checkpoint,
       secondsBeforeInvalidatingBlockAsCommitteeMember,
       secondsBeforeInvalidatingBlockAsNonCommitteeMember,
       ourValidatorAddresses,
@@ -708,25 +707,25 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
 
     const { publisher } = await this.publisherFactory.create(validatorToUse);
 
-    const invalidateBlock = await publisher.simulateInvalidateBlock(pendingChainValidationStatus);
-    if (!invalidateBlock) {
-      this.log.warn(`Failed to simulate invalidate block`, logData);
+    const invalidateCheckpoint = await publisher.simulateInvalidateCheckpoint(pendingChainValidationStatus);
+    if (!invalidateCheckpoint) {
+      this.log.warn(`Failed to simulate invalidate checkpoint`, logData);
       return;
     }
 
     this.log.info(
       invalidateAsCommitteeMember
-        ? `Invalidating block ${invalidBlockNumber} as committee member`
-        : `Invalidating block ${invalidBlockNumber} as non-committee member`,
+        ? `Invalidating checkpoint ${invalidCheckpointNumber} as committee member`
+        : `Invalidating checkpoint ${invalidCheckpointNumber} as non-committee member`,
       logData,
     );
 
-    publisher.enqueueInvalidateBlock(invalidateBlock);
+    publisher.enqueueInvalidateCheckpoint(invalidateCheckpoint);
 
     if (!this.config.fishermanMode) {
       await publisher.sendRequests();
     } else {
-      this.log.info('Invalidating block in fisherman mode, clearing pending requests');
+      this.log.info('Invalidating checkpoint in fisherman mode, clearing pending requests');
       publisher.clearPendingRequests();
     }
   }
@@ -804,5 +803,5 @@ type SequencerSyncCheckResult = {
   blockNumber: BlockNumber;
   archive: Fr;
   l1Timestamp: bigint;
-  pendingChainValidationStatus: ValidateBlockResult;
+  pendingChainValidationStatus: ValidateCheckpointResult;
 };

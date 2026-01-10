@@ -37,7 +37,7 @@ import { Attributes, type Traceable, type Tracer, trackSpan } from '@aztec/telem
 import { CheckpointBuilder, type FullNodeCheckpointsBuilder, type ValidatorClient } from '@aztec/validator-client';
 
 import type { GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
-import type { InvalidateBlockRequest, SequencerPublisher } from '../publisher/sequencer-publisher.js';
+import type { InvalidateCheckpointRequest, SequencerPublisher } from '../publisher/sequencer-publisher.js';
 import { CheckpointVoter } from './checkpoint_voter.js';
 import { SequencerInterruptedError } from './errors.js';
 import type { SequencerEvents } from './events.js';
@@ -64,7 +64,7 @@ export class CheckpointProposalJob implements Traceable {
     private readonly proposer: EthAddress | undefined,
     private readonly publisher: SequencerPublisher,
     private readonly attestorAddress: EthAddress,
-    private readonly invalidateBlock: InvalidateBlockRequest | undefined,
+    private readonly invalidateCheckpoint: InvalidateCheckpointRequest | undefined,
     private readonly validatorClient: ValidatorClient,
     private readonly globalsBuilder: GlobalVariableBuilder,
     private readonly p2pClient: P2P,
@@ -153,9 +153,9 @@ export class CheckpointProposalJob implements Traceable {
       this.setStateFn(SequencerState.INITIALIZING_CHECKPOINT, this.slot);
       this.metrics.incOpenSlot(this.slot, this.proposer?.toString() ?? 'unknown');
 
-      // Enqueues block invalidation (constant for the whole slot)
-      if (this.invalidateBlock && !this.config.skipInvalidateBlockAsProposer) {
-        this.publisher.enqueueInvalidateBlock(this.invalidateBlock);
+      // Enqueues checkpoint invalidation (constant for the whole slot)
+      if (this.invalidateCheckpoint && !this.config.skipInvalidateBlockAsProposer) {
+        this.publisher.enqueueInvalidateCheckpoint(this.invalidateCheckpoint);
       }
 
       // Create checkpoint builder for the slot
@@ -261,7 +261,7 @@ export class CheckpointProposalJob implements Traceable {
       const txTimeoutAt = new Date((slotStartBuildTimestamp + aztecSlotDuration) * 1000);
       await this.publisher.enqueueProposeCheckpoint(checkpoint, attestations, attestationsSignature, {
         txTimeoutAt,
-        forcePendingBlockNumber: this.invalidateBlock?.forcePendingBlockNumber,
+        forcePendingCheckpointNumber: this.invalidateCheckpoint?.forcePendingCheckpointNumber,
       });
 
       return checkpoint;

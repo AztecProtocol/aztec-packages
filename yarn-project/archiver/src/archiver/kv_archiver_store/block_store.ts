@@ -14,9 +14,9 @@ import {
   CommitteeAttestation,
   L2BlockHash,
   L2BlockNew,
-  type ValidateBlockResult,
-  deserializeValidateBlockResult,
-  serializeValidateBlockResult,
+  type ValidateCheckpointResult,
+  deserializeValidateCheckpointResult,
+  serializeValidateCheckpointResult,
 } from '@aztec/stdlib/block';
 import { L1PublishedData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
@@ -827,21 +827,21 @@ export class BlockStore {
    * Gets the pending chain validation status.
    * @returns The validation status or undefined if not set.
    */
-  async getPendingChainValidationStatus(): Promise<ValidateBlockResult | undefined> {
+  async getPendingChainValidationStatus(): Promise<ValidateCheckpointResult | undefined> {
     const buffer = await this.#pendingChainValidationStatus.getAsync();
     if (!buffer) {
       return undefined;
     }
-    return deserializeValidateBlockResult(buffer);
+    return deserializeValidateCheckpointResult(buffer);
   }
 
   /**
    * Sets the pending chain validation status.
    * @param status - The validation status to store.
    */
-  async setPendingChainValidationStatus(status: ValidateBlockResult | undefined): Promise<void> {
+  async setPendingChainValidationStatus(status: ValidateCheckpointResult | undefined): Promise<void> {
     if (status) {
-      const buffer = serializeValidateBlockResult(status);
+      const buffer = serializeValidateCheckpointResult(status);
       await this.#pendingChainValidationStatus.set(buffer);
     } else {
       await this.#pendingChainValidationStatus.delete();

@@ -684,12 +684,12 @@ describe('L1Publisher integration', () => {
       const blockAttestations = validators.map(v => makeCheckpointAttestationFromBlock(block, v));
       const attestations = orderAttestations(blockAttestations, committee!);
 
-      // Check we can invalidate the block
-      logger.warn('Checking simulate invalidate block');
-      const invalidateRequest = await publisher.simulateInvalidateBlock({
+      // Check we can invalidate the checkpoint
+      logger.warn('Checking simulate invalidate checkpoint');
+      const invalidateRequest = await publisher.simulateInvalidateCheckpoint({
         valid: false,
         committee: committee!,
-        block: block.toBlockInfo(),
+        checkpoint: block.toCheckpoint().toCheckpointInfo(),
         attestors: [],
         attestations: badAttestations,
         epoch: EpochNumber(1),
@@ -697,14 +697,14 @@ describe('L1Publisher integration', () => {
         reason: 'insufficient-attestations',
       });
       expect(invalidateRequest).toBeDefined();
-      const forcePendingBlockNumber = invalidateRequest?.forcePendingBlockNumber;
-      expect(forcePendingBlockNumber).toEqual(0);
+      const forcePendingCheckpointNumber = invalidateRequest?.forcePendingCheckpointNumber;
+      expect(forcePendingCheckpointNumber).toEqual(0);
 
-      // We cannot propose directly, we need to assume the previous block is invalidated
+      // We cannot propose directly, we need to assume the previous checkpoint is invalidated
       const genesis = new Fr(GENESIS_ARCHIVE_ROOT);
       logger.warn(`Checking can propose at next eth block on top of genesis ${genesis}`);
       expect(await publisher.canProposeAtNextEthBlock(genesis, proposer!)).toBeUndefined();
-      const canPropose = await publisher.canProposeAtNextEthBlock(genesis, proposer!, { forcePendingBlockNumber });
+      const canPropose = await publisher.canProposeAtNextEthBlock(genesis, proposer!, { forcePendingCheckpointNumber });
       expect(canPropose?.slot).toEqual(block.header.getSlot());
 
       // Same for validation
@@ -713,7 +713,7 @@ describe('L1Publisher integration', () => {
         /Rollup__InvalidArchive/,
       );
       await publisher.validateBlockHeader(block.getCheckpointHeader(), {
-        forcePendingBlockNumber: forcePendingBlockNumber ?? BlockNumber.ZERO,
+        forcePendingCheckpointNumber: forcePendingCheckpointNumber ?? CheckpointNumber.ZERO,
       });
 
       // At this point I'm gonna need to propose the correct signature ye? So confused actually here.
@@ -724,14 +724,14 @@ describe('L1Publisher integration', () => {
       );
 
       // Invalidate and propose
-      logger.warn('Enqueuing requests to invalidate and propose the block');
-      publisher.enqueueInvalidateBlock(invalidateRequest);
+      logger.warn('Enqueuing requests to invalidate and propose the checkpoint');
+      publisher.enqueueInvalidateCheckpoint(invalidateRequest);
       await publisher.enqueueProposeCheckpoint(
         block.toCheckpoint(),
         attestationsAndSigners,
         attestationsAndSignersSignature,
         {
-          forcePendingBlockNumber: forcePendingBlockNumber ?? BlockNumber.ZERO,
+          forcePendingCheckpointNumber: forcePendingCheckpointNumber ?? CheckpointNumber.ZERO,
         },
       );
       const result = await publisher.sendRequests();
