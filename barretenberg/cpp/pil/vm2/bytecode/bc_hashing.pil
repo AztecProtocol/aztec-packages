@@ -136,6 +136,12 @@ namespace bc_hashing;
     pol commit sel_not_padding_2; // @boolean
     sel_not_padding_1 * (1 - sel_not_padding_1) = 0;
     sel_not_padding_2 * (1 - sel_not_padding_2) = 0;
+    // Force sel_not_padding_1 to 0 when sel is 0 (prevents ghost row injection attacks)
+    #[SEL_NOT_PADDING_1_REQUIRES_SEL]
+    sel_not_padding_1 * (1 - sel) = 0;
+    // Force sel_not_padding_2 to 0 when sel is 0 (prevents ghost row injection attacks)
+    #[SEL_NOT_PADDING_2_REQUIRES_SEL]
+    sel_not_padding_2 * (1 - sel) = 0;
 
     // TODO: Instead of two bools, change to value = 0 (no padding) OR 1 (one field padding) OR 2 (two fields padding)?
     // The annoyance is that we need many committed sels to use in/gate lookups.
