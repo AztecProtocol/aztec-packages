@@ -223,7 +223,6 @@ return value >> shift_amount;
 
 ### Machine-Readable JSON (REQUIRED)
 
-<!-- MACHINE-READABLE FINDINGS -->
 ```json
 {
   "skill": "{skill-name}",
