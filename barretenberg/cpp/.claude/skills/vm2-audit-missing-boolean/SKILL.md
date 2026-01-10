@@ -4,15 +4,9 @@ description: Audit VM2/AVM PIL files for missing boolean selector constraints. C
 allowed-tools: Read, Glob, Grep, Bash, Write, Edit
 ---
 
-# VM2 Missing Boolean Selector Audit Skill
+# VM2 Missing Boolean Selector Audit
 
-## Overview
-
-This skill audits VM2/AVM PIL constraints for missing boolean constraints on selector columns. This is a **critical soundness vulnerability** that allows malicious provers to bypass error handling and other security mechanisms.
-
-## Why This is Important
-
-In field arithmetic, the absence of boolean constraints enables several exploit patterns:
+Audits for missing boolean constraints on selector columns. This is a **critical soundness vulnerability** that enables field arithmetic exploits:
 
 ### 1. Error Cancellation (Most Common)
 
@@ -50,9 +44,9 @@ count = sel_a + sel_b + sel_c;
 
 **Important clarification**: `sel * expr = 0` with `sel = 2` does NOT allow bypassing constraints (in a field, non-zero `sel` simply means `expr = 0`). The vulnerability is specifically in **additive expressions** and **multiplicative factor uses** where non-boolean values produce incorrect results.
 
-## Audit Instructions
+## Instructions
 
-> **Note**: PIL files exist in subdirectories (e.g., `bytecode/`, `opcodes/`). Use `find barretenberg/cpp/pil/vm2 -name "*.pil"` to list all PIL files.
+> **Note**: Use `find pil/vm2 -name "*.pil"` to list all PIL files.
 
 ### Step 1: Find All Boolean Columns
 
@@ -98,7 +92,7 @@ Record for each boolean column:
 - Whether constraint is gated and if all uses are also gated
 - Any implicit constraints from other relations
 
-## Vulnerable vs Secure Patterns
+## Patterns
 
 ### Vulnerable Pattern
 
@@ -122,7 +116,7 @@ pol commit sel;
 sel { sel } in precomputed.sel_binary { precomputed.binary_value };
 ```
 
-## Historical Examples
+## Examples
 
 ### Example 1: ECC Memory (PR #19256)
 ```pil
@@ -179,11 +173,7 @@ Avoid over-claiming specific exploits without analyzing all related constraints.
 - [PR #19256](https://github.com/AztecProtocol/aztec-packages/pull/19256) - Missing Bool Selectors Fix
 - [PR #18192](https://github.com/AztecProtocol/aztec-packages/pull/18192) - ALU Pre-Audit
 
----
-
 ## REQUIRED OUTPUT FORMAT
-
-**IMPORTANT**: Your response MUST end with this machine-readable section.
 
 ### Summary Table
 
@@ -197,7 +187,6 @@ Avoid over-claiming specific exploits without analyzing all related constraints.
 
 ### Findings Format
 
-For each finding, include:
 - **ID**: `{skill-name}-{file}-{line}-{subtype}`
 - **Severity**: Critical / High / Medium / Low
 - **File**: `path/to/file.pil:line`
@@ -205,8 +194,6 @@ For each finding, include:
 - **Fix**: One-line suggestion
 
 ### Machine-Readable JSON (REQUIRED)
-
-You MUST include this exact format at the end of your response:
 
 <!-- MACHINE-READABLE FINDINGS -->
 ```json
@@ -228,7 +215,7 @@ You MUST include this exact format at the end of your response:
 ```
 <!-- END MACHINE-READABLE FINDINGS -->
 
-For no findings, use:
+For no findings:
 <!-- MACHINE-READABLE FINDINGS -->
 ```json
 {

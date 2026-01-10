@@ -1,0 +1,117 @@
+---
+name: vm2-audit-dead-columns
+description: Audit VM2/AVM PIL files for dead columns - columns that are declared but never used in constraints, lookups, or permutations. This can indicate incomplete constraints, missing security checks, or leftover code from refactoring that may hide soundness issues.
+allowed-tools: Read, Glob, Grep, Bash, Write, Edit
+---
+
+# VM2 Dead Columns Audit
+
+Audits for dead columns - columns declared (`pol commit`) but never meaningfully used. Can indicate incomplete constraints, missing lookups, or forgotten security checks.
+
+**Used**: appears in constraints, lookups/permutations, intermediate polys, or as lookup destination.
+**Dead**: only declared, only assigned in tracegen, or only in comments.
+
+## Instructions
+
+> **Note**: Use `find pil/vm2 -name "*.pil"` to list all PIL files.
+
+### Step 1: Find Columns and Check Usage
+
+```bash
+# List all declared columns
+grep -n "pol commit" pil/vm2/<component>.pil
+
+# For each column, check usage (should have >1 occurrence)
+grep -c "column_name" pil/vm2/<component>.pil
+
+# Check cross-file usage
+grep -rn "component\\.column_name" pil/vm2/ --include="*.pil"
+```
+
+A column is potentially dead if it only appears in its declaration.
+
+### Step 2: Verify Valid Usage Types
+
+Before flagging, check if column has valid indirect usage:
+
+| Usage Type | How to Check | Status |
+|------------|--------------|--------|
+| Lookup destination | `grep -rn "in component\\." pil/vm2/` | Valid |
+| Used in intermediate | `pol DERIVED = column * ...` | Valid |
+| Conditional constraint | `sel_X * (column - ...) = 0` | Valid |
+| Tracegen only | Only in `.cpp`, not constrained | **Dead** |
+| Commented constraint | Constraint is `// commented` | **Dead** |
+
+### Step 3: Categorize Findings
+
+For each dead column:
+- **Incomplete constraint**: Security check missing → High severity
+- **Refactoring leftover**: Can be removed → Low severity
+- **Placeholder**: Has TODO comment → Informational
+
+## Patterns
+
+### Vulnerable: Set But Not Constrained
+```pil
+pol commit computed_hash;
+// Tracegen sets it, but no constraint verifies correctness!
+```
+
+### Valid: Lookup Destination
+```pil
+pol commit precomputed_value;
+// No local constraints - other traces look this up
+```
+
+## REQUIRED OUTPUT FORMAT
+
+### Summary Table
+
+| Item | Value |
+|------|-------|
+| Skill | `{skill-name}` |
+| Target | `{path audited}` |
+| Files Scanned | `{number}` |
+| Findings | `{e.g., "2 Critical, 1 High" or "None"}` |
+| Status | `COMPLETED_WITH_FINDINGS` / `COMPLETED_NO_FINDINGS` / `ERROR` |
+
+### Findings Format
+
+- **ID**: `{skill-name}-{file}-{line}-{subtype}`
+- **Severity**: Critical / High / Medium / Low
+- **File**: `path/to/file.pil:line`
+- **Description**: Brief description
+- **Fix**: One-line suggestion
+
+### Machine-Readable JSON (REQUIRED)
+
+<!-- MACHINE-READABLE FINDINGS -->
+```json
+{
+  "skill": "{skill-name}",
+  "status": "COMPLETED_WITH_FINDINGS",
+  "findings": [
+    {
+      "id": "{skill-name}-{file}-{line}-{subtype}",
+      "severity": "critical",
+      "file": "path/to/file.pil",
+      "line": 123,
+      "description": "Brief description",
+      "exploitability": "high",
+      "fix": "Suggested fix"
+    }
+  ]
+}
+```
+<!-- END MACHINE-READABLE FINDINGS -->
+
+For no findings:
+<!-- MACHINE-READABLE FINDINGS -->
+```json
+{
+  "skill": "{skill-name}",
+  "status": "COMPLETED_NO_FINDINGS",
+  "findings": []
+}
+```
+<!-- END MACHINE-READABLE FINDINGS -->

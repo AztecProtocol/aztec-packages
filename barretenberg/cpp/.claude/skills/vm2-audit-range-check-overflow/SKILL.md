@@ -4,27 +4,15 @@ description: Audit VM2/AVM PIL files for range check and overflow vulnerabilitie
 allowed-tools: Read, Glob, Grep, Bash, Write, Edit
 ---
 
-# VM2 Range Check and Overflow Audit Skill
+# VM2 Range Check and Overflow Audit
 
-## Overview
+Audits for range check and overflow vulnerabilities - arithmetic can overflow without checks, enabling integer wrap-around, wrong memory access, size/gas manipulation.
 
-This skill audits VM2/AVM PIL constraints for range check and overflow vulnerabilities. Arithmetic operations can overflow without proper range checks, or range checks are incorrectly applied, allowing values outside expected bounds.
+> **⚠️ CRITICAL: Caller-Constrains-Inputs Principle** - Before reporting "missing range check", verify the value isn't already constrained by its source via lookup/permutation. See "Avoiding False Positives" section.
 
-> **⚠️ CRITICAL: Caller-Constrains-Inputs Principle**
->
-> Before reporting any "missing range check" finding, you MUST verify that the value isn't already constrained by its source. Columns that come from other traces via lookup/permutation are inputs - the receiving component doesn't need to range-check them if the caller/source already does. See the "Avoiding False Positives" section for detailed guidance.
+## Instructions
 
-## Why This is Important
-
-Missing or incorrect range checks enable critical exploits:
-- **Integer wrap-around enables arbitrary values**: 2^32 - 1 + 10 = 9
-- **Address calculations can access wrong memory**: Overflow to low addresses
-- **Size calculations can underflow/overflow**: Negative sizes wrap to huge values
-- **Gas calculations can be manipulated**: Undercharge for expensive operations
-
-## Audit Instructions
-
-> **Note**: PIL files exist in subdirectories (e.g., `bytecode/`, `opcodes/`). Use `find barretenberg/cpp/pil/vm2 -name "*.pil"` to list all PIL files.
+> **Note**: Use `find pil/vm2 -name "*.pil"` to list all PIL files.
 
 ### Step 1: Identify All Arithmetic Operations
 
@@ -311,7 +299,7 @@ pol commit value;  // Should fit in N bits
 sel { value } in range_check.sel { range_check.value };
 ```
 
-## Historical Examples
+## Examples
 
 ### Example 1: AVM Gas Overflows (PR #14559)
 
@@ -376,11 +364,7 @@ max_read_addr <= AVM_HIGHEST_ADDRESS;
 ```
 **Impact**: Reject valid operations or accept invalid ones.
 
----
-
 ## REQUIRED OUTPUT FORMAT
-
-**IMPORTANT**: Your response MUST end with this machine-readable section.
 
 ### Summary Table
 
@@ -394,7 +378,6 @@ max_read_addr <= AVM_HIGHEST_ADDRESS;
 
 ### Findings Format
 
-For each finding, include:
 - **ID**: `{skill-name}-{file}-{line}-{subtype}`
 - **Severity**: Critical / High / Medium / Low
 - **File**: `path/to/file.pil:line`
@@ -402,8 +385,6 @@ For each finding, include:
 - **Fix**: One-line suggestion
 
 ### Machine-Readable JSON (REQUIRED)
-
-You MUST include this exact format at the end of your response:
 
 <!-- MACHINE-READABLE FINDINGS -->
 ```json
@@ -425,7 +406,7 @@ You MUST include this exact format at the end of your response:
 ```
 <!-- END MACHINE-READABLE FINDINGS -->
 
-For no findings, use:
+For no findings:
 <!-- MACHINE-READABLE FINDINGS -->
 ```json
 {

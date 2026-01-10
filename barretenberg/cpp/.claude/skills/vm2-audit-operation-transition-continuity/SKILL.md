@@ -4,19 +4,9 @@ description: Audit VM2/AVM execution trace for state continuity gaps during oper
 allowed-tools: Read, Glob, Grep, Bash, Write, Edit
 ---
 
-# VM2 Operation Transition Continuity Audit Skill
+# VM2 Operation Transition Continuity Audit
 
-## Overview
-
-This skill audits VM2/AVM execution trace PIL for state continuity gaps during operation transitions. The execution trace uses operation-specific selectors (`sel_enter_call`, `sel_exit_call`, `sel_error`) that disable default continuity constraints, potentially leaving state variables unconstrained during critical transitions.
-
-## Why This is Important
-
-State continuity gaps during operation transitions enable catastrophic attacks:
-- **Arbitrary tree state in nested calls**: Start child context with fake tree roots/sizes
-- **Bypass Merkle proofs**: Skip validation by claiming arbitrary state
-- **State corruption across contexts**: Leak/corrupt state between execution contexts
-- **Silent state manipulation**: No error signal when state is manipulated
+Audits for state continuity gaps during operation transitions. Operation-type selectors (`sel_enter_call`, `sel_exit_call`, `sel_error`) disable default continuity, leaving state variables unconstrained - enables arbitrary tree state in nested calls, bypassed Merkle proofs, cross-context corruption.
 
 ## The Problematic Pattern
 
@@ -59,7 +49,7 @@ NOT_LAST_EXEC * sel_enter_call * (state - prev_state') = 0;
 NOT_LAST_EXEC * sel_error * (state - prev_state') = 0;
 ```
 
-## Audit Instructions
+## Instructions
 
 > **Note**: This skill focuses on `context.pil` and `execution.pil` which manage the execution trace state transitions.
 
@@ -147,7 +137,7 @@ grep -A30 "CTX_STACK_CALL\|CTX_STACK_ROLLBACK\|CTX_STACK_RETURN" \
 
 Verify that ALL state variables needing restoration are included in stack interaction tuples.
 
-## Vulnerable vs Secure Patterns
+## Patterns
 
 ### Vulnerable Pattern: Only Default Row Constrained
 
@@ -189,7 +179,7 @@ pol PROPAGATE_STATE = DEFAULT_CTX_ROW + sel_enter_call + nested_return;
 NOT_LAST_EXEC * PROPAGATE_STATE * (state - prev_state') = 0;
 ```
 
-## Historical Examples
+## Examples
 
 ### Example 1: Context Tree Roots/Sizes (Commit 8d30e97)
 
@@ -230,11 +220,7 @@ NOT_LAST_EXEC * sel_enter_call * (note_hash_tree_root - prev_note_hash_tree_root
 
 - [Context PIL Test](../../../src/barretenberg/vm2/constraining/relations/context.test.cpp)
 
----
-
 ## REQUIRED OUTPUT FORMAT
-
-**IMPORTANT**: Your response MUST end with this machine-readable section.
 
 ### Summary Table
 
@@ -248,7 +234,6 @@ NOT_LAST_EXEC * sel_enter_call * (note_hash_tree_root - prev_note_hash_tree_root
 
 ### Findings Format
 
-For each finding, include:
 - **ID**: `{skill-name}-{file}-{line}-{subtype}`
 - **Severity**: Critical / High / Medium / Low
 - **File**: `path/to/file.pil:line`
@@ -256,8 +241,6 @@ For each finding, include:
 - **Fix**: One-line suggestion
 
 ### Machine-Readable JSON (REQUIRED)
-
-You MUST include this exact format at the end of your response:
 
 <!-- MACHINE-READABLE FINDINGS -->
 ```json
@@ -279,7 +262,7 @@ You MUST include this exact format at the end of your response:
 ```
 <!-- END MACHINE-READABLE FINDINGS -->
 
-For no findings, use:
+For no findings:
 <!-- MACHINE-READABLE FINDINGS -->
 ```json
 {

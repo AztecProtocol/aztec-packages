@@ -4,19 +4,9 @@ description: Audit VM2/AVM PIL files for selector under-constraint outside activ
 allowed-tools: Read, Glob, Grep, Bash, Write, Edit
 ---
 
-# VM2 Selector Outside Active Rows Audit Skill
+# VM2 Selector Outside Active Rows Audit
 
-## Overview
-
-This skill audits VM2/AVM PIL constraints for selector under-constraint outside active rows. Selectors that should only be active when the main trace selector `sel = 1` can be toggled on inactive rows (`sel = 0`), allowing a malicious prover to activate features or operations outside the valid trace.
-
-## Why This is Important
-
-Unconstrained sub-selectors on inactive rows enable "ghost" operations:
-- **Insert extra operations**: Memory writes, state changes outside legitimate trace
-- **Bypass operation counts and limits**: Operations don't count toward quotas
-- **Corrupt state**: "Ghost" operations affect global state invisibly
-- **Trigger invalid features**: Activate features on rows that shouldn't exist
+Audits for selector under-constraint outside active rows. Selectors that should only be active when `sel = 1` can be toggled on inactive rows (`sel = 0`), enabling "ghost" operations: extra memory writes, operation count bypass, invisible state corruption, or triggering features on invalid rows.
 
 ## The Implication Pattern
 
@@ -31,9 +21,9 @@ sub_selector * (1 - sel) = 0;
 // If sub_selector = 1, then (1 - sel) = 0, so sel = 1
 ```
 
-## Audit Instructions
+## Instructions
 
-> **Note**: PIL files exist in subdirectories (e.g., `bytecode/`, `opcodes/`). Use `find barretenberg/cpp/pil/vm2 -name "*.pil"` to list all PIL files.
+> **Note**: Use `find pil/vm2 -name "*.pil"` to list all PIL files.
 
 ### Step 1: Identify All Sub-Selectors
 
@@ -122,7 +112,7 @@ Derived selectors defined using `sel *` are inherently safe:
 grep -rn "pol [A-Z_]* = sel \*" barretenberg/cpp/pil/vm2/ --include="*.pil"
 ```
 
-## Vulnerable vs Secure Patterns
+## Patterns
 
 ### Vulnerable Pattern: Boolean Without Implication
 
@@ -168,7 +158,7 @@ selector_col * (1 - sel) = 0;  // Force to 0 when sel = 0
 pol SELECTOR = sel * some_condition;  // Always 0 when sel = 0
 ```
 
-## Historical Examples
+## Examples
 
 ### Example 1: TX Subsystem (PR #18336)
 
@@ -315,11 +305,7 @@ The key question for permutations: **Can the attacker create legitimate destinat
 - If YES (simulation gadgets exist): **CRITICAL**
 - If NO (no way to create matching events): LOW
 
----
-
 ## REQUIRED OUTPUT FORMAT
-
-**IMPORTANT**: Your response MUST end with this machine-readable section.
 
 ### Summary Table
 
@@ -333,7 +319,6 @@ The key question for permutations: **Can the attacker create legitimate destinat
 
 ### Findings Format
 
-For each finding, include:
 - **ID**: `{skill-name}-{file}-{line}-{subtype}`
 - **Severity**: Critical / High / Medium / Low
 - **File**: `path/to/file.pil:line`
@@ -341,8 +326,6 @@ For each finding, include:
 - **Fix**: One-line suggestion
 
 ### Machine-Readable JSON (REQUIRED)
-
-You MUST include this exact format at the end of your response:
 
 <!-- MACHINE-READABLE FINDINGS -->
 ```json
@@ -364,7 +347,7 @@ You MUST include this exact format at the end of your response:
 ```
 <!-- END MACHINE-READABLE FINDINGS -->
 
-For no findings, use:
+For no findings:
 <!-- MACHINE-READABLE FINDINGS -->
 ```json
 {

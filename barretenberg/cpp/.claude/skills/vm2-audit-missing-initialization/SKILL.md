@@ -4,22 +4,13 @@ description: Audit VM2/AVM PIL files for missing initialization constraints. Hig
 allowed-tools: Read, Glob, Grep, Bash, Write, Edit
 ---
 
-# VM2 Missing Initialization Audit Skill
+# VM2 Missing Initialization Audit
 
-## Overview
+Audits for missing initialization constraints. Allows arbitrary starting values: execution at any PC, fake initial state, bypassed setup phases.
 
-This skill audits VM2/AVM PIL constraints for missing initialization constraints. Values that should have specific initial states at the start of a computation or trace lack initialization constraints, allowing a malicious prover to set arbitrary starting values.
+## Instructions
 
-## Why This is Important
-
-Missing initialization enables catastrophic attacks:
-- **Start execution with arbitrary PC**: Skip code, jump to arbitrary addresses
-- **Begin with corrupted state**: Fake initial balances, permissions, etc.
-- **Bypass setup/validation phases**: Skip security checks performed at start
-
-## Audit Instructions
-
-> **Note**: PIL files exist in subdirectories (e.g., `bytecode/`, `opcodes/`). Use `find barretenberg/cpp/pil/vm2 -name "*.pil"` to list all PIL files.
+> **Note**: Use `find pil/vm2 -name "*.pil"` to list all PIL files.
 
 ### Step 1: Identify Values That Need Initialization
 
@@ -114,7 +105,7 @@ precomputed.first_row * value = 0;
 sel_enter_enqueued_call * pc = 0;  // PC = 0 for top-level calls
 ```
 
-## Vulnerable vs Secure Patterns
+## Patterns
 
 ### Vulnerable Pattern: Value Used But Not Initialized
 
@@ -146,7 +137,7 @@ sel_start_call * (pc - expected_pc) = 0;
 sel * (1 - sel_jump) * (pc' - pc - instr_length) = 0;
 ```
 
-## Historical Examples
+## Examples
 
 ### Example 1: TX Phase Value (PR #18336)
 
@@ -184,11 +175,7 @@ pol commit start_tx; // @boolean
 ```
 **Impact**: Theoretical - row 0 behavior undefined.
 
----
-
 ## REQUIRED OUTPUT FORMAT
-
-**IMPORTANT**: Your response MUST end with this machine-readable section.
 
 ### Summary Table
 
@@ -202,7 +189,6 @@ pol commit start_tx; // @boolean
 
 ### Findings Format
 
-For each finding, include:
 - **ID**: `{skill-name}-{file}-{line}-{subtype}`
 - **Severity**: Critical / High / Medium / Low
 - **File**: `path/to/file.pil:line`
@@ -210,8 +196,6 @@ For each finding, include:
 - **Fix**: One-line suggestion
 
 ### Machine-Readable JSON (REQUIRED)
-
-You MUST include this exact format at the end of your response:
 
 <!-- MACHINE-READABLE FINDINGS -->
 ```json
@@ -233,7 +217,7 @@ You MUST include this exact format at the end of your response:
 ```
 <!-- END MACHINE-READABLE FINDINGS -->
 
-For no findings, use:
+For no findings:
 <!-- MACHINE-READABLE FINDINGS -->
 ```json
 {

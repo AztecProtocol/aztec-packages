@@ -4,20 +4,9 @@ description: Audit VM2/AVM PIL files for constraint typos where the wrong variab
 allowed-tools: Read, Glob, Grep, Bash, Write, Edit
 ---
 
-# VM2 Constraint Typo Audit Skill
+# VM2 Constraint Typo Audit
 
-## Overview
-
-This skill audits VM2/AVM PIL constraints for typos where the wrong variable is constrained due to copy-paste errors or variable name confusion. This is a **soundness vulnerability** that leaves values unconstrained, allowing malicious provers to set arbitrary values.
-
-## Why This is Important
-
-Constraint typos are particularly dangerous because:
-
-1. **Syntactically valid**: The constraint compiles and generates valid relation code
-2. **Silently incorrect**: No compile-time or runtime error occurs
-3. **Leaves holes**: The intended value remains unconstrained
-4. **Hard to spot**: Code review may miss subtle variable name differences
+Audits for typos where the wrong variable is constrained due to copy-paste errors or variable name confusion. This is a **soundness vulnerability** - syntactically valid, silently incorrect, and leaves the intended value unconstrained.
 
 ### Example from PR #19404
 
@@ -84,9 +73,9 @@ Watch for typos within groups of similar columns:
 - `start`, `end`, `current`
 - `read`, `write`, `exec`
 
-## Audit Instructions
+## Instructions
 
-> **Note**: PIL files exist in subdirectories (e.g., `bytecode/`, `opcodes/`). Use `find barretenberg/cpp/pil/vm2 -name "*.pil"` to list all PIL files.
+> **Note**: Use `find pil/vm2 -name "*.pil"` to list all PIL files.
 
 ### Step 1: Identify Constraint Intent from Names
 
@@ -183,7 +172,7 @@ Verify:
 5. **Autocomplete-prone names**
    - IDE autocomplete might select wrong similar name
 
-## Historical Examples
+## Examples
 
 ### Example 1: Context PIL - returndata and calldata (PR #19404)
 
@@ -223,11 +212,7 @@ When a typo is found:
 // After:  selector * correct_column = 0;
 ```
 
----
-
 ## REQUIRED OUTPUT FORMAT
-
-**IMPORTANT**: Your response MUST end with this machine-readable section.
 
 ### Summary Table
 
@@ -241,7 +226,6 @@ When a typo is found:
 
 ### Findings Format
 
-For each finding, include:
 - **ID**: `{skill-name}-{file}-{line}-{subtype}`
 - **Severity**: Critical / High / Medium / Low
 - **File**: `path/to/file.pil:line`
@@ -249,8 +233,6 @@ For each finding, include:
 - **Fix**: One-line suggestion
 
 ### Machine-Readable JSON (REQUIRED)
-
-You MUST include this exact format at the end of your response:
 
 <!-- MACHINE-READABLE FINDINGS -->
 ```json
@@ -272,7 +254,7 @@ You MUST include this exact format at the end of your response:
 ```
 <!-- END MACHINE-READABLE FINDINGS -->
 
-For no findings, use:
+For no findings:
 <!-- MACHINE-READABLE FINDINGS -->
 ```json
 {
