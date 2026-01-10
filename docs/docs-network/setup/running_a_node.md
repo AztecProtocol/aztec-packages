@@ -53,6 +53,9 @@ P2P_IP=[your external IP address]
 P2P_PORT=40400
 AZTEC_PORT=8080
 AZTEC_ADMIN_PORT=8880
+
+# Optional: Enable JSON-formatted logs for log aggregation (Loki, Splunk, etc.)
+# LOG_JSON=1
 ```
 
 :::tip

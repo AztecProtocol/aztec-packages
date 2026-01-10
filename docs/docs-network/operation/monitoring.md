@@ -23,6 +23,54 @@ The monitoring stack uses three components working together:
 
 Your Aztec node exports metrics to the OpenTelemetry Collector, which processes and exposes them in a format Prometheus can scrape. Prometheus stores the metrics as time-series data, and Grafana queries Prometheus to create visualizations and alerts.
 
+## Structured Logging
+
+In addition to metrics, Aztec nodes support structured JSON logging for integration with log aggregation platforms. Structured logs make it easier to search, filter, and analyze log data at scale.
+
+### Logging Options
+
+Aztec supports several logging configurations:
+
+| Environment Variable | Description |
+|---------------------|-------------|
+| `LOG_JSON=1` | Output logs as JSON to stderr for collection by external log aggregation tools. |
+| `OTEL_EXPORTER_OTLP_LOGS_ENDPOINT` | Export logs directly via OTLP protocol to an OpenTelemetry Collector. |
+| `USE_GCLOUD_LOGGING=1` | Format logs for Google Cloud Logging with proper severity levels and trace context. |
+
+### JSON Logging
+
+To enable JSON-formatted logs, set the `LOG_JSON` environment variable:
+
+```bash
+LOG_JSON=1
+```
+
+When enabled, logs are output as JSON to stderr with the following structure:
+
+```json
+{"level":30,"time":1705312245123,"module":"p2p","msg":"Connected to peer","peerId":"QmX..."}
+```
+
+Log levels are numeric: `trace=10`, `debug=20`, `verbose=25`, `info=30`, `warn=40`, `error=50`, `fatal=60`.
+
+### OTLP Log Export
+
+For direct integration with an OpenTelemetry Collector, set the OTLP logs endpoint:
+
+```bash
+OTEL_EXPORTER_OTLP_LOGS_ENDPOINT=http://otel-collector:4318/v1/logs
+```
+
+This exports logs directly via OTLP protocol, allowing you to route them through your OTEL Collector configuration.
+
+### Google Cloud Logging
+
+For native Google Cloud Logging integration with proper severity mapping and trace context:
+
+```bash
+USE_GCLOUD_LOGGING=1
+```
+
 ## Getting Started
 
 Follow these guides in order to set up your complete monitoring stack:
