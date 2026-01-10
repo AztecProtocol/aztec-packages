@@ -4,15 +4,9 @@ description: Audit VM2/AVM PIL files for missing mutual exclusivity constraints.
 allowed-tools: Read, Glob, Grep, Bash, Write, Edit
 ---
 
-# VM2 Mutual Exclusivity Audit Skill
+# VM2 Mutual Exclusivity Audit
 
-## Overview
-
-This skill audits VM2/AVM PIL constraints for missing mutual exclusivity constraints on selectors or flags that should never be simultaneously active. This is a **soundness vulnerability** that can lead to undefined behavior or constraint bypass.
-
-## Why This is Important
-
-When multiple selectors that should be mutually exclusive can be set simultaneously:
+Audits for missing mutual exclusivity on selectors/flags that should never be simultaneously active. Can break error handling, operation dispatch, and state machines:
 
 ### 1. Error Handling Breaks
 
@@ -42,9 +36,9 @@ result = sel_add * (a + b) + sel_mul * (a * b);
 // If state_idle = 1 AND state_running = 1, behavior is undefined
 ```
 
-## Audit Instructions
+## Instructions
 
-> **Note**: PIL files exist in subdirectories (e.g., `bytecode/`, `opcodes/`). Use `find barretenberg/cpp/pil/vm2 -name "*.pil"` to list all PIL files.
+> **Note**: Use `find pil/vm2 -name "*.pil"` to list all PIL files.
 
 ### Step 1: Identify Related Selector Groups
 
@@ -278,7 +272,7 @@ pol commit sel_alu;
 
 If any of these patterns apply, the mutual exclusivity is enforced implicitly and no explicit constraint is needed.
 
-## Vulnerable vs Secure Patterns
+## Patterns
 
 ### Vulnerable Pattern
 
@@ -305,7 +299,7 @@ pol SEL_ERR_SUM = sel_tag_err + sel_div_0_err + sel_overflow_err;
 SEL_ERR_SUM * (1 - SEL_ERR_SUM) = 0;  // Sum is boolean => at most one is 1
 ```
 
-## Historical Examples
+## Examples
 
 ### Example 1: ALU Error States (PR #18192)
 ```pil
@@ -335,11 +329,7 @@ pol commit sel_div;
 
 - [PR #18192](https://github.com/AztecProtocol/aztec-packages/pull/18192) - ALU Pre-Audit
 
----
-
 ## REQUIRED OUTPUT FORMAT
-
-**IMPORTANT**: Your response MUST end with this machine-readable section.
 
 ### Summary Table
 
@@ -353,7 +343,6 @@ pol commit sel_div;
 
 ### Findings Format
 
-For each finding, include:
 - **ID**: `{skill-name}-{file}-{line}-{subtype}`
 - **Severity**: Critical / High / Medium / Low
 - **File**: `path/to/file.pil:line`
@@ -361,8 +350,6 @@ For each finding, include:
 - **Fix**: One-line suggestion
 
 ### Machine-Readable JSON (REQUIRED)
-
-You MUST include this exact format at the end of your response:
 
 <!-- MACHINE-READABLE FINDINGS -->
 ```json
@@ -384,7 +371,7 @@ You MUST include this exact format at the end of your response:
 ```
 <!-- END MACHINE-READABLE FINDINGS -->
 
-For no findings, use:
+For no findings:
 <!-- MACHINE-READABLE FINDINGS -->
 ```json
 {

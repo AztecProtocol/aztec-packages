@@ -4,19 +4,9 @@ description: Audit VM2/AVM PIL files for premature computation termination vulne
 allowed-tools: Read, Glob, Grep, Bash, Write, Edit
 ---
 
-# VM2 Premature Termination Audit Skill
+# VM2 Premature Termination Audit
 
-## Overview
-
-This skill audits VM2/AVM PIL constraints for premature computation termination vulnerabilities. Multi-row computations can be terminated before they're complete due to missing constraints that enforce continuation until a valid end condition is met.
-
-## Why This is Important
-
-Premature termination enables computation truncation:
-- **Skip computation steps**: Hash only half the data
-- **Truncate Merkle proofs**: Claim invalid roots as valid
-- **End copy operations early**: Partial data copied
-- **Skip validation steps**: Bypass security checks
+Audits for premature computation termination - multi-row computations can exit early without reaching valid end condition. Enables skipped hash steps, truncated Merkle proofs, partial copies, bypassed validation.
 
 ## The Trace Continuity Pattern
 
@@ -34,9 +24,9 @@ sel * (1 - sel') * (1 - end) = 0;
 // Equivalently: sel = 1 AND sel' = 0 => end = 1
 ```
 
-## Audit Instructions
+## Instructions
 
-> **Note**: PIL files exist in subdirectories (e.g., `bytecode/`, `opcodes/`). Use `find barretenberg/cpp/pil/vm2 -name "*.pil"` to list all PIL files.
+> **Note**: Use `find pil/vm2 -name "*.pil"` to list all PIL files.
 
 ### Step 1: Identify Multi-Row Computations
 
@@ -115,7 +105,7 @@ Verify:
 - Error path still requires `end = 1` before `sel' = 0`
 - Early exit on error is properly constrained with start gating
 
-## Vulnerable vs Secure Patterns
+## Patterns
 
 ### Vulnerable Pattern: No Enforcement of Continuation
 
@@ -162,7 +152,7 @@ end * remaining_count = 0;      // end implies done
 sel_start * err * (1 - sel_end) = 0;
 ```
 
-## Historical Examples
+## Examples
 
 ### Example 1: Data Copy (PR #17877)
 
@@ -218,11 +208,7 @@ sel_start * err * (1 - sel_end) = 0;
 ```
 **Impact**: Premature end on non-start rows.
 
----
-
 ## REQUIRED OUTPUT FORMAT
-
-**IMPORTANT**: Your response MUST end with this machine-readable section.
 
 ### Summary Table
 
@@ -236,7 +222,6 @@ sel_start * err * (1 - sel_end) = 0;
 
 ### Findings Format
 
-For each finding, include:
 - **ID**: `{skill-name}-{file}-{line}-{subtype}`
 - **Severity**: Critical / High / Medium / Low
 - **File**: `path/to/file.pil:line`
@@ -244,8 +229,6 @@ For each finding, include:
 - **Fix**: One-line suggestion
 
 ### Machine-Readable JSON (REQUIRED)
-
-You MUST include this exact format at the end of your response:
 
 <!-- MACHINE-READABLE FINDINGS -->
 ```json
@@ -267,7 +250,7 @@ You MUST include this exact format at the end of your response:
 ```
 <!-- END MACHINE-READABLE FINDINGS -->
 
-For no findings, use:
+For no findings:
 <!-- MACHINE-READABLE FINDINGS -->
 ```json
 {

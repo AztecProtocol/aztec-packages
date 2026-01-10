@@ -4,18 +4,9 @@ description: Audit VM2/AVM PIL files for shift operation bit constraint issues. 
 allowed-tools: Read, Glob, Grep, Bash, Write, Edit
 ---
 
-# VM2 Shift Operation Bit Constraints Audit Skill
+# VM2 Shift Operation Bit Constraints Audit
 
-## Overview
-
-This skill audits VM2/AVM PIL constraints for shift operation vulnerabilities. Shift operations (SHL, SHR) have unconstrained intermediate values when overflow is triggered, or undefined behavior for edge cases like shifting by the type width or more.
-
-## Why This is Critical
-
-Incorrect shift constraints enable serious exploits:
-- **Output arbitrary values** for shift operations
-- **Bypass range checks** through manipulated intermediates
-- **Undefined behavior** leads to inconsistent results
+Audits shift operations (SHL, SHR) for unconstrained intermediate values when overflow is triggered. Enables arbitrary shift outputs, range check bypass via manipulated intermediates, and inconsistent simulation results from undefined C++ behavior.
 
 ## The Problem
 
@@ -30,9 +21,9 @@ For a >> b:
 
 When overflow is triggered (b >= type_bits), these intermediates may not be constrained.
 
-## Audit Instructions
+## Instructions
 
-> **Note**: PIL files exist in subdirectories (e.g., `bytecode/`, `opcodes/`). Use `find barretenberg/cpp/pil/vm2 -name "*.pil"` to list all PIL files.
+> **Note**: Use `find pil/vm2 -name "*.pil"` to list all PIL files.
 
 ### Step 1: Find Shift Operations
 
@@ -104,7 +95,7 @@ Verify:
 - No undefined C++ behavior for large shifts
 - Consistent handling of edge cases
 
-## Vulnerable vs Secure Patterns
+## Patterns
 
 ### Vulnerable Pattern: Intermediate Unconstrained on Overflow
 
@@ -179,7 +170,7 @@ return value >> shift_amount;
 // Should be handled as overflow = 1, result = 0
 ```
 
-## Historical Examples
+## Examples
 
 ### Example 1: ALU Shift Underconstraint (PR #18192)
 
@@ -210,10 +201,55 @@ return value >> shift_amount;
 ```
 **Impact**: Inconsistent simulation results.
 
-## References
+## REQUIRED OUTPUT FORMAT
 
-- See PR history for examples
+### Summary Table
 
----
+| Item | Value |
+|------|-------|
+| Skill | `{skill-name}` |
+| Target | `{path audited}` |
+| Files Scanned | `{number}` |
+| Findings | `{e.g., "2 Critical, 1 High" or "None"}` |
+| Status | `COMPLETED_WITH_FINDINGS` / `COMPLETED_NO_FINDINGS` / `ERROR` |
 
-**Output Format**: See [_shared/OUTPUT_FORMAT.md](../_shared/OUTPUT_FORMAT.md) for required output structure.
+### Findings Format
+
+- **ID**: `{skill-name}-{file}-{line}-{subtype}`
+- **Severity**: Critical / High / Medium / Low
+- **File**: `path/to/file.pil:line`
+- **Description**: Brief description
+- **Fix**: One-line suggestion
+
+### Machine-Readable JSON (REQUIRED)
+
+<!-- MACHINE-READABLE FINDINGS -->
+```json
+{
+  "skill": "{skill-name}",
+  "status": "COMPLETED_WITH_FINDINGS",
+  "findings": [
+    {
+      "id": "{skill-name}-{file}-{line}-{subtype}",
+      "severity": "critical",
+      "file": "path/to/file.pil",
+      "line": 123,
+      "description": "Brief description",
+      "exploitability": "high",
+      "fix": "Suggested fix"
+    }
+  ]
+}
+```
+<!-- END MACHINE-READABLE FINDINGS -->
+
+For no findings:
+<!-- MACHINE-READABLE FINDINGS -->
+```json
+{
+  "skill": "{skill-name}",
+  "status": "COMPLETED_NO_FINDINGS",
+  "findings": []
+}
+```
+<!-- END MACHINE-READABLE FINDINGS -->

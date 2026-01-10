@@ -4,23 +4,13 @@ description: Audit VM2/AVM PIL files for interaction tuple completeness. High se
 allowed-tools: Read, Glob, Grep, Bash, Write, Edit
 ---
 
-# VM2 Interaction Tuple Completeness Audit Skill
+# VM2 Interaction Tuple Completeness Audit
 
-## Overview
+Audits for incomplete interaction tuples. Missing columns allow: undetected mismatches, forged operations, arbitrary reordering (missing clock), cross-context access (missing context_id).
 
-This skill audits VM2/AVM PIL constraints for interaction tuple completeness. Lookup or permutation tuples are missing columns that should be included, allowing a malicious prover to manipulate the missing values.
+## Instructions
 
-## Why This is Important
-
-If a column is not in the tuple, it's not verified:
-- **Source and destination can have different values**: Column mismatch goes undetected
-- **Allows forging operations with wrong parameters**: Fake memory reads, wrong contexts
-- **Can reorder operations**: Missing clock allows arbitrary sequencing
-- **Can cross context boundaries**: Missing context_id allows cross-context access
-
-## Audit Instructions
-
-> **Note**: PIL files exist in subdirectories (e.g., `bytecode/`, `opcodes/`). Use `find barretenberg/cpp/pil/vm2 -name "*.pil"` to list all PIL files.
+> **Note**: Use `find pil/vm2 -name "*.pil"` to list all PIL files.
 
 ### Step 1: List All Interactions in the Component
 
@@ -109,7 +99,7 @@ grep -rn "memory\.sel\|memory\." barretenberg/cpp/pil/vm2/ --include="*.pil"
 grep -rn "call\|context" barretenberg/cpp/pil/vm2/ --include="*.pil" | grep "} in \|} is "
 ```
 
-## Vulnerable vs Secure Patterns
+## Patterns
 
 ### Vulnerable Pattern: Missing Column
 
@@ -161,7 +151,7 @@ sel { clk, context_id, op_id, args, success, discard }
 is dest.sel { dest.clk, dest.context_id, dest.op_id, dest.args, dest.success, dest.discard };
 ```
 
-## Historical Examples
+## Examples
 
 ### Example 1: Discard Field Missing (PR #19149)
 
@@ -192,11 +182,7 @@ Every destination should document expected tuple:
 // - tag: Type tag of the value
 ```
 
----
-
 ## REQUIRED OUTPUT FORMAT
-
-**IMPORTANT**: Your response MUST end with this machine-readable section.
 
 ### Summary Table
 
@@ -210,7 +196,6 @@ Every destination should document expected tuple:
 
 ### Findings Format
 
-For each finding, include:
 - **ID**: `{skill-name}-{file}-{line}-{subtype}`
 - **Severity**: Critical / High / Medium / Low
 - **File**: `path/to/file.pil:line`
@@ -218,8 +203,6 @@ For each finding, include:
 - **Fix**: One-line suggestion
 
 ### Machine-Readable JSON (REQUIRED)
-
-You MUST include this exact format at the end of your response:
 
 <!-- MACHINE-READABLE FINDINGS -->
 ```json
@@ -241,7 +224,7 @@ You MUST include this exact format at the end of your response:
 ```
 <!-- END MACHINE-READABLE FINDINGS -->
 
-For no findings, use:
+For no findings:
 <!-- MACHINE-READABLE FINDINGS -->
 ```json
 {

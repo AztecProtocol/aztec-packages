@@ -4,15 +4,9 @@ description: Audit VM2/AVM for tracegen-PIL alignment issues. Completeness issue
 allowed-tools: Read, Glob, Grep, Bash, Write, Edit
 ---
 
-# VM2 Tracegen-PIL Alignment Audit Skill
+# VM2 Tracegen-PIL Alignment Audit
 
-## Overview
-
-This skill audits VM2/AVM for misalignment between tracegen (trace generation code) and PIL constraints. Misalignment causes valid executions to fail verification.
-
-## Why This is Important
-
-This is a **completeness** issue - honest provers produce invalid traces even for correct executions, causing verification failures. The trace generation code must produce values that satisfy all PIL constraints.
+Audits for tracegen-PIL misalignment - **completeness issue** where trace generation doesn't match PIL constraints, causing valid executions to fail verification.
 
 ## Common Misalignment Types
 
@@ -65,9 +59,9 @@ bool add_predicate = (!x_match && !y_match);  // WRONG: requires both to differ
 bool add_predicate = !x_match;                 // CORRECT: only x must differ
 ```
 
-## Audit Instructions
+## Instructions
 
-> **Note**: PIL files exist in subdirectories (e.g., `bytecode/`, `opcodes/`). Use `find barretenberg/cpp/pil/vm2 -name "*.pil"` to list all PIL files.
+> **Note**: Use `find pil/vm2 -name "*.pil"` to list all PIL files.
 
 ### Step 1: For Each PIL Column, Verify Tracegen Assignment
 
@@ -151,7 +145,7 @@ Example: `sel = double_op + add_op + INFINITY_PRED` where:
 - `INFINITY_PRED = x_match * (1 - y_match)` → x matches, y doesn't
 - `add_op` → must be 1 in remaining case: `x_match = 0`
 
-## Vulnerable vs Secure Patterns
+## Patterns
 
 ### Vulnerable Pattern: Missing Column
 
@@ -217,7 +211,7 @@ void process(const Event& event, Row& row) {
 }
 ```
 
-## Historical Examples
+## Examples
 
 ### Example 1: Missing Column (PR #18864)
 
@@ -298,11 +292,7 @@ bool add_predicate = !x_match;
    if (result != 0) { LOG("Constraint violated: " << result); }
    ```
 
----
-
 ## REQUIRED OUTPUT FORMAT
-
-**IMPORTANT**: Your response MUST end with this machine-readable section.
 
 ### Summary Table
 
@@ -316,7 +306,6 @@ bool add_predicate = !x_match;
 
 ### Findings Format
 
-For each finding, include:
 - **ID**: `{skill-name}-{file}-{line}-{subtype}`
 - **Severity**: Critical / High / Medium / Low
 - **File**: `path/to/file.pil:line`
@@ -324,8 +313,6 @@ For each finding, include:
 - **Fix**: One-line suggestion
 
 ### Machine-Readable JSON (REQUIRED)
-
-You MUST include this exact format at the end of your response:
 
 <!-- MACHINE-READABLE FINDINGS -->
 ```json
@@ -347,7 +334,7 @@ You MUST include this exact format at the end of your response:
 ```
 <!-- END MACHINE-READABLE FINDINGS -->
 
-For no findings, use:
+For no findings:
 <!-- MACHINE-READABLE FINDINGS -->
 ```json
 {
