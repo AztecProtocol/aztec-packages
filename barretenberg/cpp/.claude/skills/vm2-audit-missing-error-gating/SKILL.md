@@ -4,15 +4,9 @@ description: Audit VM2/AVM PIL files for missing error gating on lookup/permutat
 allowed-tools: Read, Glob, Grep, Bash, Write, Edit
 ---
 
-# VM2 Missing Error Gating Audit Skill
+# VM2 Missing Error Gating Audit
 
-## Overview
-
-This skill audits VM2/AVM PIL constraints for missing error gating on lookup/permutation interactions. This is a **completeness vulnerability** that causes honest provers to fail when errors occur.
-
-## Why This is Important
-
-When an error occurs, simulation stops or takes an error path without emitting the destination event. If the source selector isn't gated by the error condition, the lookup fires but has nothing to match against:
+Audits for missing error gating on interactions. **Completeness issue** - when errors occur, simulation doesn't emit destination events, but ungated source selectors still fire:
 
 ```pil
 // VULNERABLE: Lookup fires even on error
@@ -26,9 +20,9 @@ SOURCE { input } in dest.sel { dest.input };
 // - Interaction fails!
 ```
 
-## Audit Instructions
+## Instructions
 
-> **Note**: PIL files exist in subdirectories (e.g., `bytecode/`, `opcodes/`). Use `find barretenberg/cpp/pil/vm2 -name "*.pil"` to list all PIL files.
+> **Note**: Use `find pil/vm2 -name "*.pil"` to list all PIL files.
 
 ### Step 1: Identify All Interactions
 
@@ -76,7 +70,7 @@ Review the corresponding simulation code to understand:
 - Does the error path emit the destination event?
 - If not, the source selector MUST be gated
 
-## Vulnerable vs Secure Patterns
+## Patterns
 
 ### Vulnerable Pattern
 
@@ -95,7 +89,7 @@ pol SEL_OP_NO_ERR = sel_op * (1 - sel_err);
 SEL_OP_NO_ERR { input } in dest.sel { output };
 ```
 
-## Historical Examples
+## Examples
 
 ### Example 1: ALU Lookups (PR #18192)
 ```pil
@@ -121,11 +115,7 @@ SEL_FETCH { ... } in bc_retrieval.sel { ... };
 
 - [PR #18192](https://github.com/AztecProtocol/aztec-packages/pull/18192) - ALU Pre-Audit
 
----
-
 ## REQUIRED OUTPUT FORMAT
-
-**IMPORTANT**: Your response MUST end with this machine-readable section.
 
 ### Summary Table
 
@@ -139,7 +129,6 @@ SEL_FETCH { ... } in bc_retrieval.sel { ... };
 
 ### Findings Format
 
-For each finding, include:
 - **ID**: `{skill-name}-{file}-{line}-{subtype}`
 - **Severity**: Critical / High / Medium / Low
 - **File**: `path/to/file.pil:line`
@@ -147,8 +136,6 @@ For each finding, include:
 - **Fix**: One-line suggestion
 
 ### Machine-Readable JSON (REQUIRED)
-
-You MUST include this exact format at the end of your response:
 
 <!-- MACHINE-READABLE FINDINGS -->
 ```json
@@ -170,7 +157,7 @@ You MUST include this exact format at the end of your response:
 ```
 <!-- END MACHINE-READABLE FINDINGS -->
 
-For no findings, use:
+For no findings:
 <!-- MACHINE-READABLE FINDINGS -->
 ```json
 {

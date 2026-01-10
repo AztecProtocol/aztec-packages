@@ -4,23 +4,13 @@ description: Audit VM2/AVM PIL files for derived value underconstraints. Critica
 allowed-tools: Read, Glob, Grep, Bash, Write, Edit
 ---
 
-# VM2 Derived Value Constraints Audit Skill
+# VM2 Derived Value Constraints Audit
 
-## Overview
+Audits for derived value underconstraints - values that should be computed from other columns but aren't constrained. Enables complete logic bypass: control flow corruption (arbitrary `next_pc`), incorrect ALU outputs, invalid state transitions.
 
-This skill audits VM2/AVM PIL constraints for derived value underconstraints. Values that should be computed from other columns are not constrained, allowing a malicious prover to set arbitrary values. This is different from initialization (first row) - it's about values that should be derived from other columns on every applicable row.
+## Instructions
 
-## Why This is Important
-
-Unconstrained derived values enable complete logic bypass:
-- **Control flow corruption**: Arbitrary `next_pc` allows executing any instruction
-- **Incorrect computation results**: Wrong ALU outputs
-- **State machine violations**: Invalid state transitions
-- **Complete bypass of intended logic**: Any derived value can be faked
-
-## Audit Instructions
-
-> **Note**: PIL files exist in subdirectories (e.g., `bytecode/`, `opcodes/`). Use `find barretenberg/cpp/pil/vm2 -name "*.pil"` to list all PIL files.
+> **Note**: Use `find pil/vm2 -name "*.pil"` to list all PIL files.
 
 ### Step 1: Identify All Committed Columns
 
@@ -158,7 +148,7 @@ sel_err = err_a + err_b + err_c;
 sel_mem_op = sel_load + sel_store;
 ```
 
-## Vulnerable vs Secure Patterns
+## Patterns
 
 ### Vulnerable Pattern: Derived Value Not Constrained
 
@@ -201,7 +191,7 @@ sel_mul * (c - a * b) = 0;
 sel_div * (c * b - a + remainder) = 0;  // With remainder handling
 ```
 
-## Historical Examples
+## Examples
 
 ### Example 1: Execution PC (PR #18864)
 
@@ -246,11 +236,7 @@ sel_after_call * (last_child_success - child_result) = 0;
 ```
 **Impact**: Fake success for failed calls.
 
----
-
 ## REQUIRED OUTPUT FORMAT
-
-**IMPORTANT**: Your response MUST end with this machine-readable section.
 
 ### Summary Table
 
@@ -264,7 +250,6 @@ sel_after_call * (last_child_success - child_result) = 0;
 
 ### Findings Format
 
-For each finding, include:
 - **ID**: `{skill-name}-{file}-{line}-{subtype}`
 - **Severity**: Critical / High / Medium / Low
 - **File**: `path/to/file.pil:line`
@@ -272,8 +257,6 @@ For each finding, include:
 - **Fix**: One-line suggestion
 
 ### Machine-Readable JSON (REQUIRED)
-
-You MUST include this exact format at the end of your response:
 
 <!-- MACHINE-READABLE FINDINGS -->
 ```json
@@ -295,7 +278,7 @@ You MUST include this exact format at the end of your response:
 ```
 <!-- END MACHINE-READABLE FINDINGS -->
 
-For no findings, use:
+For no findings:
 <!-- MACHINE-READABLE FINDINGS -->
 ```json
 {

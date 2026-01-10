@@ -4,18 +4,9 @@ description: Audit VM2/AVM PIL files for missing propagation constraints. High s
 allowed-tools: Read, Glob, Grep, Bash, Write, Edit
 ---
 
-# VM2 Missing Propagation Audit Skill
+# VM2 Missing Propagation Audit
 
-## Overview
-
-This skill audits VM2/AVM PIL constraints for missing propagation constraints. Values that should remain constant across multiple rows of a multi-row computation lack propagation constraints, allowing a malicious prover to change these values mid-computation.
-
-## Why This is Important
-
-Missing propagation allows mid-computation manipulation:
-- **Change context_id mid-operation**: Corrupt other execution contexts
-- **Modify clock/sequence**: Break ordering guarantees
-- **Alter operation parameters after validation**: Bypass checks performed at start
+Audits for missing propagation constraints - values constant across multi-row computations can be changed mid-operation (context_id, clock, operation parameters).
 
 ## The Propagation Pattern
 
@@ -34,9 +25,9 @@ pol LATCH_CONDITION = end + start' + precomputed.first_row;
 // When LATCH = 1: value' can be anything (new computation)
 ```
 
-## Audit Instructions
+## Instructions
 
-> **Note**: PIL files exist in subdirectories (e.g., `bytecode/`, `opcodes/`). Use `find barretenberg/cpp/pil/vm2 -name "*.pil"` to list all PIL files.
+> **Note**: Use `find pil/vm2 -name "*.pil"` to list all PIL files.
 
 ### Step 1: Identify Multi-Row Computations
 
@@ -143,7 +134,7 @@ Verify tracegen sets values correctly:
 grep -rn "context_id\|propagat" barretenberg/cpp/src/barretenberg/vm2/tracegen/<component>*.cpp
 ```
 
-## Vulnerable vs Secure Patterns
+## Patterns
 
 ### Vulnerable Pattern: Value Set Once, Not Propagated
 
@@ -180,7 +171,7 @@ start * (context_id - expected_context_id) = 0;
 (1 - LATCH_CONDITION) * (context_id' - context_id) = 0;
 ```
 
-## Historical Examples
+## Examples
 
 ### Example 1: TX Phase Attributes (PR #18336)
 
@@ -220,11 +211,7 @@ pol commit clk;
 ```
 **Impact**: Arbitrary gas limits before teardown.
 
----
-
 ## REQUIRED OUTPUT FORMAT
-
-**IMPORTANT**: Your response MUST end with this machine-readable section.
 
 ### Summary Table
 
@@ -238,7 +225,6 @@ pol commit clk;
 
 ### Findings Format
 
-For each finding, include:
 - **ID**: `{skill-name}-{file}-{line}-{subtype}`
 - **Severity**: Critical / High / Medium / Low
 - **File**: `path/to/file.pil:line`
@@ -246,8 +232,6 @@ For each finding, include:
 - **Fix**: One-line suggestion
 
 ### Machine-Readable JSON (REQUIRED)
-
-You MUST include this exact format at the end of your response:
 
 <!-- MACHINE-READABLE FINDINGS -->
 ```json
@@ -269,7 +253,7 @@ You MUST include this exact format at the end of your response:
 ```
 <!-- END MACHINE-READABLE FINDINGS -->
 
-For no findings, use:
+For no findings:
 <!-- MACHINE-READABLE FINDINGS -->
 ```json
 {

@@ -1,0 +1,148 @@
+---
+name: vm2-audit-tracegen-pil-alignment
+description: Audit VM2/AVM for tracegen-PIL alignment issues. Completeness issue where trace generation code does not match PIL constraints, causing valid executions to fail verification due to missing column assignments, incorrect value computation, or event handling mismatches.
+allowed-tools: Read, Glob, Grep, Bash, Write, Edit
+---
+
+# VM2 Tracegen-PIL Alignment Audit
+
+Audits for tracegen-PIL misalignment - **completeness issue** where trace generation doesn't match PIL constraints.
+
+## Common Misalignment Types
+
+| Type | Example | Impact |
+|------|---------|--------|
+| Missing column | `row.a_inv` never set | Constraint fails |
+| Wrong computation | `static_cast<uint64_t>(tag_a - tag_b)` (wrong for negative) | Wrong value |
+| Missing event handler | Error case not handled | Trace incomplete |
+| Wrong selector condition | Boolean logic doesn't match PIL semantics | Wrong selector |
+
+## Instructions
+
+> **Note**: Use `find pil/vm2 -name "*.pil"` to list all PIL files.
+
+### Step 1: Verify Column Assignments
+
+```bash
+# Find columns in PIL
+grep -n "pol commit" pil/vm2/<component>.pil
+
+# Check each is set in tracegen
+grep -n "row\\." src/barretenberg/vm2/tracegen/<component>*.cpp
+```
+
+For each `pol commit col`, verify tracegen sets `row.col`.
+
+### Step 2: Check Constraint Alignment
+
+For each PIL constraint, verify tracegen computes values correctly:
+
+```bash
+# Find constraints
+grep -n "#\[" pil/vm2/<component>.pil
+```
+
+Common issues:
+- **Field arithmetic**: `static_cast<uint64_t>(a - b)` fails for negative results → use `FF(a) - FF(b)`
+- **Selector derivation**: Work backwards from PIL `sel = A + B + C` to determine when each sub-selector should be 1
+- **Event handling**: Each simulation event type needs a tracegen handler
+
+### Step 3: Verify Event Coverage
+
+```bash
+# Find event types
+grep -rn "struct.*Event" src/barretenberg/vm2/simulation/ --include="*.hpp"
+
+# Find handlers
+grep -rn "process.*event\|handle" src/barretenberg/vm2/tracegen/ --include="*.cpp"
+```
+
+Ensure error events emit proper trace rows.
+
+## Patterns
+
+### Vulnerable
+```cpp
+row.tag_diff = static_cast<uint64_t>(tag_a - tag_b);  // Wrong for negative!
+```
+
+### Secure
+```cpp
+row.tag_diff = FF(tag_a) - FF(tag_b);  // Field subtraction
+```
+
+## Examples
+
+### Example 1: Missing Column (PR #18864)
+```cpp
+// execution_batched_tags_diff_inv never set → constraint always fails
+```
+
+### Example 2: Wrong Selector Condition (ECC)
+```cpp
+// PIL: sel = double_op + add_op + INFINITY_PRED
+// where double_op = x_match * y_match, INFINITY_PRED = x_match * (1 - y_match)
+// Therefore add_op = 1 when x_match = 0
+
+// WRONG: bool add_predicate = (!x_match && !y_match);
+// RIGHT: bool add_predicate = !x_match;
+```
+
+### Example 3: Wrong Exception Type (PR #18864)
+```cpp
+// Caller catches Sha256CompressionException, code throws runtime_error
+// → error path broken, trace not generated
+```
+
+## REQUIRED OUTPUT FORMAT
+
+### Summary Table
+
+| Item | Value |
+|------|-------|
+| Skill | `{skill-name}` |
+| Target | `{path audited}` |
+| Files Scanned | `{number}` |
+| Findings | `{e.g., "2 Critical, 1 High" or "None"}` |
+| Status | `COMPLETED_WITH_FINDINGS` / `COMPLETED_NO_FINDINGS` / `ERROR` |
+
+### Findings Format
+
+- **ID**: `{skill-name}-{file}-{line}-{subtype}`
+- **Severity**: Critical / High / Medium / Low
+- **File**: `path/to/file.pil:line`
+- **Description**: Brief description
+- **Fix**: One-line suggestion
+
+### Machine-Readable JSON (REQUIRED)
+
+<!-- MACHINE-READABLE FINDINGS -->
+```json
+{
+  "skill": "{skill-name}",
+  "status": "COMPLETED_WITH_FINDINGS",
+  "findings": [
+    {
+      "id": "{skill-name}-{file}-{line}-{subtype}",
+      "severity": "critical",
+      "file": "path/to/file.pil",
+      "line": 123,
+      "description": "Brief description",
+      "exploitability": "high",
+      "fix": "Suggested fix"
+    }
+  ]
+}
+```
+<!-- END MACHINE-READABLE FINDINGS -->
+
+For no findings:
+<!-- MACHINE-READABLE FINDINGS -->
+```json
+{
+  "skill": "{skill-name}",
+  "status": "COMPLETED_NO_FINDINGS",
+  "findings": []
+}
+```
+<!-- END MACHINE-READABLE FINDINGS -->
