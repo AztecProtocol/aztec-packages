@@ -1,4 +1,3 @@
-import { SecretValue } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { Logger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
@@ -12,6 +11,32 @@ import { type P2PConfig, getP2PDefaultConfig } from '../config.js';
 import { generatePeerIdPrivateKeys } from '../test-helpers/generate-peer-id-private-keys.js';
 import { getPorts } from '../test-helpers/get-ports.js';
 import { makeEnr, makeEnrs } from '../test-helpers/make-enrs.js';
+import type {
+  BenchReqRespCommand,
+  BenchResultMessage,
+  CollectorType,
+  DistributionPattern,
+} from './p2p_client_testbench_worker.js';
+
+export interface ReqRespBenchmarkConfig {
+  txCount: number;
+  distribution: DistributionPattern;
+  collectorType: CollectorType;
+  timeoutMs: number;
+  pinnedPeerIndex?: number;
+  blockNumber?: number;
+  seed?: number;
+}
+
+export interface ReqRespBenchmarkResult {
+  txCount: number;
+  distribution: DistributionPattern;
+  collector: CollectorType;
+  durationMs: number;
+  fetchedCount: number;
+  success: boolean;
+  error?: string;
+}
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const workerPath = path.join(__dirname, '../../dest/testbench/p2p_client_testbench_worker.js');
@@ -46,30 +71,34 @@ class WorkerClientManager {
   }
 
   /**
-   * Creates a client configuration object
+   * Creates a client configuration object for IPC.
+   * Note: We send the raw peerIdPrivateKey string instead of SecretValue
+   * because SecretValue.toJSON() returns '[Redacted]', losing the value.
+   * The worker must re-wrap it in SecretValue.
    */
   private createClientConfig(
     clientIndex: number,
     port: number,
     otherNodes: string[],
-  ): P2PConfig & Partial<ChainConfig> {
+  ): Omit<P2PConfig, 'peerIdPrivateKey'> & { peerIdPrivateKey: string } & Partial<ChainConfig> {
     return {
       ...getP2PDefaultConfig(),
       p2pEnabled: true,
-      peerIdPrivateKey: new SecretValue(this.peerIdPrivateKeys[clientIndex]),
+      peerIdPrivateKey: this.peerIdPrivateKeys[clientIndex],
       listenAddress: '127.0.0.1',
       p2pIp: '127.0.0.1',
       p2pPort: port,
       bootstrapNodes: [...otherNodes],
       ...this.p2pConfig,
-    };
+    } as Omit<P2PConfig, 'peerIdPrivateKey'> & { peerIdPrivateKey: string } & Partial<ChainConfig>;
   }
 
   /**
-   * Spawns a worker process and returns a promise that resolves when the worker is ready
+   * Spawns a worker process and returns a promise that resolves when the worker is ready.
+   * Config uses raw string for peerIdPrivateKey (not SecretValue) for IPC serialization.
    */
   private spawnWorkerProcess(
-    config: P2PConfig & Partial<ChainConfig>,
+    config: Omit<P2PConfig, 'peerIdPrivateKey'> & { peerIdPrivateKey: string } & Partial<ChainConfig>,
     clientIndex: number,
   ): [ChildProcess, Promise<void>] {
     const childProcess = fork(workerPath);
@@ -307,6 +336,126 @@ class WorkerClientManager {
     this.processes = [];
     this.logger.info('All worker processes cleaned up');
   }
+
+  /**
+   * Run a req/resp benchmark across all worker clients.
+   *
+   * This sends a BENCH_REQRESP command to all workers:
+   * - Aggregator (client 0) runs the collector and returns timing results
+   * - Responders (clients 1..N) populate their tx pools based on distribution
+   *
+   * All workers generate the same txs deterministically from a shared seed,
+   * then filter based on their peerIndex and distribution pattern.
+   */
+  async runReqRespBenchmark(config: ReqRespBenchmarkConfig): Promise<ReqRespBenchmarkResult> {
+    const peerCount = this.processes.length;
+    if (peerCount < 2) {
+      throw new Error('Need at least 2 peers to run req/resp benchmark');
+    }
+
+    const seed = config.seed ?? Date.now();
+    const blockNumber = config.blockNumber ?? 1;
+
+    this.logger.info(
+      `Starting req/resp benchmark: txCount=${config.txCount}, distribution=${config.distribution}, collector=${config.collectorType}`,
+    );
+
+    const readyPromises: Promise<void>[] = [];
+    let resultPromise: Promise<BenchResultMessage> | null = null;
+
+    for (let i = 0; i < peerCount; i++) {
+      const isAggregator = i === 0;
+      const cmd: BenchReqRespCommand = {
+        type: 'BENCH_REQRESP',
+        txCount: config.txCount,
+        peerCount,
+        distribution: config.distribution,
+        collectorType: config.collectorType,
+        timeoutMs: config.timeoutMs,
+        isAggregator,
+        peerIndex: i,
+        pinnedPeerIndex: config.pinnedPeerIndex,
+        blockNumber,
+        seed,
+      };
+
+      this.processes[i].send(cmd);
+
+      if (isAggregator) {
+        resultPromise = this.waitForBenchResult(i, config.timeoutMs + 30000);
+      } else {
+        readyPromises.push(this.waitForBenchReady(i, 30000));
+      }
+    }
+
+    await Promise.all(readyPromises);
+    this.logger.info('All responder peers ready, waiting for aggregator result...');
+
+    if (!resultPromise) {
+      throw new Error('No aggregator result promise');
+    }
+
+    const result = await resultPromise;
+
+    this.logger.info(
+      `Benchmark complete: fetched=${result.fetchedCount}/${config.txCount}, duration=${result.durationMs.toFixed(0)}ms, success=${result.success}`,
+    );
+
+    return {
+      txCount: config.txCount,
+      distribution: config.distribution,
+      collector: config.collectorType,
+      durationMs: result.durationMs,
+      fetchedCount: result.fetchedCount,
+      success: result.success,
+      error: result.error,
+    };
+  }
+
+  private waitForBenchReady(clientIndex: number, timeoutMs: number): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        reject(new Error(`Timeout waiting for BENCH_READY from client ${clientIndex}`));
+      }, timeoutMs);
+
+      const handler = (msg: any) => {
+        if (msg.type === 'BENCH_READY') {
+          clearTimeout(timeout);
+          this.processes[clientIndex].off('message', handler);
+          resolve();
+        } else if (msg.type === 'ERROR') {
+          clearTimeout(timeout);
+          this.processes[clientIndex].off('message', handler);
+          reject(new Error(`Client ${clientIndex} error: ${msg.error}`));
+        }
+      };
+
+      this.processes[clientIndex].on('message', handler);
+    });
+  }
+
+  private waitForBenchResult(clientIndex: number, timeoutMs: number): Promise<BenchResultMessage> {
+    return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        reject(new Error(`Timeout waiting for BENCH_RESULT from client ${clientIndex}`));
+      }, timeoutMs);
+
+      const handler = (msg: any) => {
+        if (msg.type === 'BENCH_RESULT') {
+          clearTimeout(timeout);
+          this.processes[clientIndex].off('message', handler);
+          resolve(msg as BenchResultMessage);
+        } else if (msg.type === 'ERROR') {
+          clearTimeout(timeout);
+          this.processes[clientIndex].off('message', handler);
+          reject(new Error(`Client ${clientIndex} error: ${msg.error}`));
+        }
+      };
+
+      this.processes[clientIndex].on('message', handler);
+    });
+  }
 }
 
 export { WorkerClientManager, testChainConfig };
+export type { DistributionPattern, CollectorType } from './p2p_client_testbench_worker.js';

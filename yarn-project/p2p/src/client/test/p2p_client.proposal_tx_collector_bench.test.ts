@@ -41,7 +41,7 @@ type DistributionPattern = 'uniform' | 'sparse' | 'pinned-only';
 const COLLECTOR_TYPES = ['batch-requester', 'send-batch-request'];
 type CollectorType = (typeof COLLECTOR_TYPES)[number];
 
-const PEERS_PER_RUN = 20;
+const PEERS_PER_RUN = 10;
 const TIMEOUT_MS = 80_000;
 
 const MISSING_TX_COUNTS = [10, 50, 100, 500];
@@ -149,7 +149,9 @@ class BenchmarkEnv {
   }
 
   public async stop(): Promise<void> {
-    if (this.clients.length === 0) return;
+    if (this.clients.length === 0) {
+      return;
+    }
 
     this.logger.info(`Tearing down ${this.clients.length} clients...`);
     await Promise.allSettled(this.clients.map(c => c.stop()));
@@ -215,7 +217,9 @@ class BenchmarkEnv {
     timeoutMs: number,
   ): Promise<Tx[]> {
     const [aggregator] = this.clients;
-    if (!aggregator) throw new Error('No aggregator client (clients[0]) available');
+    if (!aggregator) {
+      throw new Error('No aggregator client (clients[0]) available');
+    }
 
     const aggregatorReqResp = getReqResp(aggregator);
     (this.mockP2PService as any).reqResp = aggregatorReqResp;
@@ -224,7 +228,7 @@ class BenchmarkEnv {
     this.connectionSampler.getPeerListSortedByConnectionCountAsc.mockReturnValue(peerIds);
 
     this.installSamplerOverrides(aggregatorReqResp, peerIds);
-    this.installUnlimitedRateLimits();
+    //this.installUnlimitedRateLimits();
 
     if (collectorType === 'batch-requester') {
       const collector = new BatchTxRequesterCollector(this.mockP2PService, this.logger, new DateProvider());
@@ -380,7 +384,9 @@ function createTxPoolMock(peerTxs: Tx[]): MockProxy<TxPool> {
     const out: Tx[] = [];
     for (const h of hashes) {
       const tx = byHash.get(h.toString());
-      if (tx) out.push(tx);
+      if (tx) {
+        out.push(tx);
+      }
     }
     return out;
   });
@@ -495,8 +501,12 @@ function outputResults(benchResults: BenchmarkResult[]) {
   lines.push('|---------------------|--------------|---------|---------------|---------|---------|');
 
   const sorted = [...benchResults].sort((a, b) => {
-    if (a.distribution !== b.distribution) return a.distribution.localeCompare(b.distribution);
-    if (a.missingTxCount !== b.missingTxCount) return a.missingTxCount - b.missingTxCount;
+    if (a.distribution !== b.distribution) {
+      return a.distribution.localeCompare(b.distribution);
+    }
+    if (a.missingTxCount !== b.missingTxCount) {
+      return a.missingTxCount - b.missingTxCount;
+    }
     return a.collector.localeCompare(b.collector);
   });
 
@@ -525,7 +535,9 @@ function outputResults(benchResults: BenchmarkResult[]) {
       r => r.distribution === dist && r.missingTxCount === missing && r.collector === 'send-batch-request',
     );
 
-    if (!batch || !send) continue;
+    if (!batch || !send) {
+      continue;
+    }
 
     if (!batch.success || !send.success) {
       lines.push(
