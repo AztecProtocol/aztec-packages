@@ -4,23 +4,13 @@ description: Audit VM2/AVM simulation code for unsafe optional value access. Com
 allowed-tools: Read, Glob, Grep, Bash, Write, Edit
 ---
 
-# VM2 Optional Value Safety Audit Skill
+# VM2 Optional Value Safety Audit
 
-## Overview
+Audits for unsafe `.value()` access on optionals. **Completeness issue** - crashes for valid edge cases (empty slots, missing contracts) that PIL handles correctly.
 
-This skill audits VM2/AVM simulation code for unsafe access to optional values. Calling `.value()` on an empty `std::optional` throws an exception, preventing trace generation for otherwise valid executions. This is a **completeness** issue - honest provers crash before generating a trace, even for valid inputs that the PIL handles correctly.
+## Instructions
 
-## Why This is Important
-
-This is a **completeness** issue:
-- Honest provers crash before generating a trace
-- Valid inputs that PIL would handle correctly cause simulation failure
-- Edge cases (empty slots, missing contracts) become unprocessable
-- The prover cannot complete even though the execution is valid
-
-## Audit Instructions
-
-> **Note**: PIL files exist in subdirectories (e.g., `bytecode/`, `opcodes/`). Use `find barretenberg/cpp/pil/vm2 -name "*.pil"` to list all PIL files.
+> **Note**: Use `find pil/vm2 -name "*.pil"` to list all PIL files.
 
 ### Step 1: Find All .value() Calls
 
@@ -83,7 +73,7 @@ For each collection access:
 | Bytecode retrieval | `get_bytecode(address)` | Contract without code |
 | Map lookup | `map.find(key)` | Missing key |
 
-## Vulnerable vs Secure Patterns
+## Patterns
 
 ### Vulnerable Pattern: Direct .value() Access
 
@@ -162,7 +152,7 @@ if (it == map.end()) {
 auto value = it->second;
 ```
 
-## Historical Examples
+## Examples
 
 ### Example 1: Contract Instance Manager (PR #19254)
 
@@ -203,11 +193,7 @@ do_something_with(result.value());  // Crash if empty!
 5. **Uninitialized state**: First access to memory/storage
 6. **Failed operations**: Computations that may not produce results
 
----
-
 ## REQUIRED OUTPUT FORMAT
-
-**IMPORTANT**: Your response MUST end with this machine-readable section.
 
 ### Summary Table
 
@@ -221,7 +207,6 @@ do_something_with(result.value());  // Crash if empty!
 
 ### Findings Format
 
-For each finding, include:
 - **ID**: `{skill-name}-{file}-{line}-{subtype}`
 - **Severity**: Critical / High / Medium / Low
 - **File**: `path/to/file.pil:line`
@@ -229,8 +214,6 @@ For each finding, include:
 - **Fix**: One-line suggestion
 
 ### Machine-Readable JSON (REQUIRED)
-
-You MUST include this exact format at the end of your response:
 
 <!-- MACHINE-READABLE FINDINGS -->
 ```json
@@ -252,7 +235,7 @@ You MUST include this exact format at the end of your response:
 ```
 <!-- END MACHINE-READABLE FINDINGS -->
 
-For no findings, use:
+For no findings:
 <!-- MACHINE-READABLE FINDINGS -->
 ```json
 {

@@ -4,19 +4,9 @@ description: Audit VM2/AVM PIL files for discard/revert flag handling. High seve
 allowed-tools: Read, Glob, Grep, Bash, Write, Edit
 ---
 
-# VM2 Discard/Revert Flag Handling Audit Skill
+# VM2 Discard/Revert Flag Handling Audit
 
-## Overview
-
-This skill audits VM2/AVM PIL constraints for discard/revert flag handling. The `discard` flag indicates that a context or its ancestor has failed, and side effects should not be committed. Missing or incorrect handling allows side effects from reverted transactions to persist.
-
-## Why This is Important
-
-Missing discard gating allows reverted state to persist:
-- **Nullifiers from reverted calls persist**: Double-spend protection broken
-- **Note hashes from failed transactions committed**: Invalid state
-- **L2-to-L1 messages from reverted operations sent**: Cross-chain corruption
-- **State corrupted by failed operations**: Storage writes persist
+Audits for discard/revert flag handling. The `discard` flag indicates a failed context; side effects should not be committed. Missing gating allows reverted state to persist: nullifiers (double-spend), note hashes, L2-to-L1 messages, storage writes.
 
 ## Key Concepts
 
@@ -32,9 +22,9 @@ Missing discard gating allows reverted state to persist:
 // - discard = 1 iff dying_context_id != 0
 ```
 
-## Audit Instructions
+## Instructions
 
-> **Note**: PIL files exist in subdirectories (e.g., `bytecode/`, `opcodes/`). Use `find barretenberg/cpp/pil/vm2 -name "*.pil"` to list all PIL files.
+> **Note**: Use `find pil/vm2 -name "*.pil"` to list all PIL files.
 
 ### Step 1: Identify All Side-Effect Operations
 
@@ -143,7 +133,7 @@ sel_failure * (1 - discard') = 0;
 // When exiting to parent of dying context, clear discard
 ```
 
-## Vulnerable vs Secure Patterns
+## Patterns
 
 ### Vulnerable Pattern: Side Effect Not Gated
 
@@ -196,7 +186,7 @@ sel * (num_emissions' - num_emissions - should_emit_raw * (1 - discard)) = 0;
 sel { context_id, success, discard } in tx.sel { tx.context_id, tx.success, tx.discard };
 ```
 
-## Historical Examples
+## Examples
 
 ### Example 1: TX L2-to-L1 Message (PR #18606)
 
@@ -236,11 +226,7 @@ row.tx_should_l2_l1_msg_append = should_append && !discard;
 ```
 **Impact**: Could discard rows before failing nested call.
 
----
-
 ## REQUIRED OUTPUT FORMAT
-
-**IMPORTANT**: Your response MUST end with this machine-readable section.
 
 ### Summary Table
 
@@ -254,7 +240,6 @@ row.tx_should_l2_l1_msg_append = should_append && !discard;
 
 ### Findings Format
 
-For each finding, include:
 - **ID**: `{skill-name}-{file}-{line}-{subtype}`
 - **Severity**: Critical / High / Medium / Low
 - **File**: `path/to/file.pil:line`
@@ -262,8 +247,6 @@ For each finding, include:
 - **Fix**: One-line suggestion
 
 ### Machine-Readable JSON (REQUIRED)
-
-You MUST include this exact format at the end of your response:
 
 <!-- MACHINE-READABLE FINDINGS -->
 ```json
@@ -285,7 +268,7 @@ You MUST include this exact format at the end of your response:
 ```
 <!-- END MACHINE-READABLE FINDINGS -->
 
-For no findings, use:
+For no findings:
 <!-- MACHINE-READABLE FINDINGS -->
 ```json
 {

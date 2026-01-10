@@ -4,21 +4,11 @@ description: Audit VM2/AVM simulation code for exception type matching issues. C
 allowed-tools: Read, Glob, Grep, Bash, Write, Edit
 ---
 
-# VM2 Exception Type Matching Audit Skill
+# VM2 Exception Type Matching Audit
 
-## Overview
+Audits simulation code for exception type matching issues. When code throws a different type than caller catches, error handling fails - honest provers crash or produce incorrect traces for valid error cases. This is a **completeness** issue.
 
-This skill audits VM2/AVM simulation code for exception type matching issues. When simulation code throws a different exception type than what the caller catches, error handling paths fail completely.
-
-## Why This is Important
-
-This is a **completeness** issue - honest provers crash or produce incorrect traces because:
-- Error is thrown but not caught at the right level
-- Error handling code never executes
-- Trace generation fails for valid error cases
-- What should be a recoverable error becomes fatal
-
-## Audit Instructions
+## Instructions
 
 > **Note**: This skill focuses on C++ simulation code, not PIL files.
 
@@ -109,7 +99,7 @@ try {
 | Addressing | `AddressingException` | `std::runtime_error` |
 | Gas | `GasException` | `std::runtime_error` |
 
-## Vulnerable vs Secure Patterns
+## Patterns
 
 ### Vulnerable Pattern: Wrong Exception Type
 
@@ -173,7 +163,7 @@ try {
 }
 ```
 
-## Historical Examples
+## Examples
 
 ### Example 1: SHA256 Compression (PR #18864)
 
@@ -263,11 +253,7 @@ if (nullifiers.size() > MAX_NULLIFIERS_PER_TX) {
 throw std::runtime_error("Unknown opcode");
 ```
 
----
-
 ## REQUIRED OUTPUT FORMAT
-
-**IMPORTANT**: Your response MUST end with this machine-readable section.
 
 ### Summary Table
 
@@ -281,7 +267,6 @@ throw std::runtime_error("Unknown opcode");
 
 ### Findings Format
 
-For each finding, include:
 - **ID**: `{skill-name}-{file}-{line}-{subtype}`
 - **Severity**: Critical / High / Medium / Low
 - **File**: `path/to/file.pil:line`
@@ -289,8 +274,6 @@ For each finding, include:
 - **Fix**: One-line suggestion
 
 ### Machine-Readable JSON (REQUIRED)
-
-You MUST include this exact format at the end of your response:
 
 <!-- MACHINE-READABLE FINDINGS -->
 ```json
@@ -312,7 +295,7 @@ You MUST include this exact format at the end of your response:
 ```
 <!-- END MACHINE-READABLE FINDINGS -->
 
-For no findings, use:
+For no findings:
 <!-- MACHINE-READABLE FINDINGS -->
 ```json
 {

@@ -4,18 +4,9 @@ description: Audit VM2/AVM PIL files for tag validation gaps. Medium severity so
 allowed-tools: Read, Glob, Grep, Bash, Write, Edit
 ---
 
-# VM2 Tag Validation Audit Skill
+# VM2 Tag Validation Audit
 
-## Overview
-
-This skill audits VM2/AVM PIL constraints for tag validation gaps. Type tags (indicating whether a value is U8, U16, U32, U64, U128, or FF) are not properly validated before operations or the tag mismatch error is not handled correctly.
-
-## Why This is Important
-
-Missing tag validation enables type confusion attacks:
-- **Type confusion enables invalid arithmetic**: Treat U8 as U128
-- **Wrong tag can bypass range checks**: Claim value fits in smaller type
-- **Incorrect output types corrupt memory**: Write with wrong tag
+Audits for tag validation gaps - type tags (U8-U128, FF) not validated before operations. Enables type confusion, range check bypass, memory corruption.
 
 ## Tag System Overview
 
@@ -29,9 +20,9 @@ Missing tag validation enables type confusion attacks:
 // 3. Memory reads/writes have consistent tags
 ```
 
-## Audit Instructions
+## Instructions
 
-> **Note**: PIL files exist in subdirectories (e.g., `bytecode/`, `opcodes/`). Use `find barretenberg/cpp/pil/vm2 -name "*.pil"` to list all PIL files.
+> **Note**: Use `find pil/vm2 -name "*.pil"` to list all PIL files.
 
 ### Step 1: Identify All Operations with Tag Requirements
 
@@ -160,7 +151,7 @@ sel_add * (1 - sel_err) * (c_tag - a_tag) = 0;
 sel_eq * (1 - sel_err) * (c_tag - Tag::U1) = 0;
 ```
 
-## Vulnerable vs Secure Patterns
+## Patterns
 
 ### Vulnerable Pattern: Incorrect Tag Value Assumptions
 
@@ -182,7 +173,7 @@ pol commit sel_tag_err;
 TAG_MATCH * sel_tag_err = 0;  // Match => no error
 ```
 
-## Historical Examples
+## Examples
 
 ### Example 1: SHA256 Batched Tag Checks (PR #19244)
 
@@ -220,11 +211,7 @@ sel * (input_tag - Tag::FF) * (1 - sel_tag_err) = 0;
 ```
 **Impact**: Incorrect output type for bitwise NOT.
 
----
-
 ## REQUIRED OUTPUT FORMAT
-
-**IMPORTANT**: Your response MUST end with this machine-readable section.
 
 ### Summary Table
 
@@ -238,7 +225,6 @@ sel * (input_tag - Tag::FF) * (1 - sel_tag_err) = 0;
 
 ### Findings Format
 
-For each finding, include:
 - **ID**: `{skill-name}-{file}-{line}-{subtype}`
 - **Severity**: Critical / High / Medium / Low
 - **File**: `path/to/file.pil:line`
@@ -246,8 +232,6 @@ For each finding, include:
 - **Fix**: One-line suggestion
 
 ### Machine-Readable JSON (REQUIRED)
-
-You MUST include this exact format at the end of your response:
 
 <!-- MACHINE-READABLE FINDINGS -->
 ```json
@@ -269,7 +253,7 @@ You MUST include this exact format at the end of your response:
 ```
 <!-- END MACHINE-READABLE FINDINGS -->
 
-For no findings, use:
+For no findings:
 <!-- MACHINE-READABLE FINDINGS -->
 ```json
 {
