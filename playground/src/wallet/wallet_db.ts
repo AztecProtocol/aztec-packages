@@ -1,6 +1,7 @@
 import type { Aliased } from '@aztec/aztec.js/wallet';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { Fr, Fq } from '@aztec/aztec.js/fields';
+import { bufferFrom } from '@aztec/foundation/buffer';
 import { type LogFn } from '@aztec/foundation/log';
 import { type AztecAsyncMap, type AztecAsyncKVStore } from '@aztec/kv-store';
 import { convertFromUTF8BufferAsString } from '../utils/conversion';
@@ -34,9 +35,9 @@ export class WalletDB {
     stackPointer++;
     await this.bridgedFeeJuice.set(
       `${recipient.toString()}:${stackPointer}`,
-      Buffer.from(`${amount.toString()}:${secret.toString()}:${leafIndex.toString()}`),
+      bufferFrom(`${amount.toString()}:${secret.toString()}:${leafIndex.toString()}`),
     );
-    await this.bridgedFeeJuice.set(`${recipient.toString()}:stackPointer`, Buffer.from([stackPointer]));
+    await this.bridgedFeeJuice.set(`${recipient.toString()}:stackPointer`, bufferFrom([stackPointer]));
     log(`Pushed ${amount} fee juice for recipient ${recipient.toString()}. Stack pointer ${stackPointer}`);
   }
 
@@ -49,7 +50,7 @@ export class WalletDB {
       );
     }
     const [amountStr, secretStr, leafIndexStr] = result.toString().split(':');
-    await this.bridgedFeeJuice.set(`${recipient.toString()}:stackPointer`, Buffer.from([--stackPointer]));
+    await this.bridgedFeeJuice.set(`${recipient.toString()}:stackPointer`, bufferFrom([--stackPointer]));
     log(`Retrieved ${amountStr} fee juice for recipient ${recipient.toString()}. Stack pointer ${stackPointer}`);
     return {
       amount: BigInt(amountStr),
@@ -76,9 +77,9 @@ export class WalletDB {
     log: LogFn = this.userLog,
   ) {
     if (alias) {
-      await this.aliases.set(`accounts:${alias}`, Buffer.from(address.toString()));
+      await this.aliases.set(`accounts:${alias}`, bufferFrom(address.toString()));
     }
-    await this.accounts.set(`${address.toString()}:type`, Buffer.from(type));
+    await this.accounts.set(`${address.toString()}:type`, bufferFrom(type));
     await this.accounts.set(`${address.toString()}:sk`, secretKey.toBuffer());
     await this.accounts.set(`${address.toString()}:salt`, salt.toBuffer());
     await this.accounts.set(
@@ -89,7 +90,7 @@ export class WalletDB {
   }
 
   async storeSender(address: AztecAddress, alias: string, log: LogFn = this.userLog) {
-    await this.aliases.set(`accounts:${alias}`, Buffer.from(address.toString()));
+    await this.aliases.set(`accounts:${alias}`, bufferFrom(address.toString()));
     log(`Account stored in database with alias ${alias} as a sender`);
   }
 
