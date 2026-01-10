@@ -1,5 +1,5 @@
 import { NOTE_HASH_TREE_LEAF_COUNT } from '@aztec/constants';
-import { bufferConcat, bufferFrom } from '@aztec/foundation/buffer';
+import { bufferFrom } from '@aztec/foundation/buffer';
 import { randomBigInt } from '@aztec/foundation/crypto/random';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';

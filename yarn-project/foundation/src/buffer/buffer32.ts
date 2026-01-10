@@ -5,7 +5,7 @@ import { BufferReader, deserializeBigInt, serializeBigInt } from '@aztec/foundat
 import { inspect } from 'util';
 
 import { bufferToHex } from '../string/index.js';
-import { bufferAlloc, bufferConcat, bufferFrom } from './index.js';
+import { bufferAlloc, bufferConcat, bufferFrom } from './utils.js';
 
 /**
  * A class representing a 32 byte Buffer.

@@ -1,5 +1,3 @@
-import { Buffer } from 'buffer';
-
 import { bufferFrom, isBuffer } from '../buffer/index.js';
 import type { ZodFor } from '../schemas/types.js';
 

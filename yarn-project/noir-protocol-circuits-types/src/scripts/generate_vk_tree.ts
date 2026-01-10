@@ -1,6 +1,5 @@
 import { VK_TREE_HEIGHT } from '@aztec/constants';
 import { bufferAlloc } from '@aztec/foundation/buffer';
-import { bufferFrom } from '@aztec/foundation/buffer';
 import { poseidon2Hash } from '@aztec/foundation/crypto/poseidon';
 import { createConsoleLogger } from '@aztec/foundation/log';
 import { MerkleTreeCalculator } from '@aztec/foundation/trees';
@@ -39,6 +38,7 @@ async function main() {
   const vkTreePath = resolveRelativePath('../vk_tree.ts');
   const vkTreeFileContents = `
 import { MerkleTree } from '@aztec/foundation/trees';
+import { bufferFrom } from '@aztec/foundation/buffer';
 
 export const vkTree = new MerkleTree(${vkTree.height}, [${vkTree.nodes
     .map(node => `'${node.toString('hex')}'`)
