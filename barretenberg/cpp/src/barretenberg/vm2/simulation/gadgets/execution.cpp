@@ -1865,6 +1865,10 @@ void Execution::handle_enter_call(ContextInterface& parent_context, std::unique_
                                                     child_context->get_is_static(),
                                                     child_context->get_gas_limit());
 
+    const auto parent_bytecode_id = parent_context.get_bytecode_manager().get_retrieved_bytecode_id();
+    BB_ASSERT(parent_bytecode_id.has_value(),
+              "Bytecode should have been retrieved in the parent context if it issued a call");
+
     ctx_stack_events.emit({
         .id = parent_context.get_context_id(),
         .parent_id = parent_context.get_parent_id(),
@@ -1872,9 +1876,7 @@ void Execution::handle_enter_call(ContextInterface& parent_context, std::unique_
         .next_pc = parent_context.get_next_pc(),
         .msg_sender = parent_context.get_msg_sender(),
         .contract_addr = parent_context.get_address(),
-        .bytecode_id = parent_context.get_bytecode_manager()
-                           .get_retrieved_bytecode_id()
-                           .value(), // Bytecode should have been retrieved in the parent context if it issued a call.
+        .bytecode_id = parent_bytecode_id.value(),
         .is_static = parent_context.get_is_static(),
         .parent_cd_addr = parent_context.get_parent_cd_addr(),
         .parent_cd_size = parent_context.get_parent_cd_size(),
